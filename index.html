@@ -357,6 +357,12 @@ function efChip(ef){
   const c=map[ef]||["#eef2f6","#475569"];
   return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:${c[0]};color:${c[1]}">${esc(ef)}</span>`;
 }
+function scoreBew(s){ if(s==null) return null; if(s>=90) return "Sehr gut"; if(s>=75) return "Gut"; if(s>=60) return "Mittel"; return "Schwach"; }
+function rezeptScore(r){
+  const z=Array.isArray(r.zutaten)?r.zutaten:[]; let sw=0,sg=0;
+  z.forEach(i=>{ const sc=num(i.clean_score), g=num(i.menge_g); if(sc!=null&&g!=null&&g>0){ sw+=sc*g; sg+=g; } });
+  return sg>0 ? Math.round(sw/sg) : null;
+}
 function statusTag(d){
   if(d.clean_score===null||d.clean_score===undefined)
     return `<span class="tag" style="background:#eef2f6;color:#64748b">noch nicht bewertet</span>`;
@@ -879,8 +885,10 @@ async function loadRezepte(){
   const g=document.getElementById("rezeptGrid"); g.innerHTML="";
   data.forEach(r=>{
     const c=document.createElement("div");c.className="card";c.onclick=()=>rezeptDetail(r);
-    c.innerHTML=`<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>
-      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")}</div>${efChip(r.ernaehrungsform)}</div>`;
+    const rsc=rezeptScore(r), rbew=scoreBew(rsc);
+    const lead = rsc!=null ? donut(rsc,farbe(rbew),62) : `<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>`;
+    c.innerHTML=`${lead}
+      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div>${efChip(r.ernaehrungsform)}</div>`;
     g.appendChild(c);
   });
 }
@@ -890,6 +898,7 @@ function rezeptDetail(r){
   const steps=(r.zubereitung||"").split("\n").filter(s=>s.trim()).map(s=>`<div style="margin:8px 0;font-size:14px;line-height:1.5">${esc(s)}</div>`).join("");
   const pro = ME && hasFeat('rezepte_pro');
   const canTb = ME && hasFeat('tagebuch');
+  const rsc = rezeptScore(r), rbew = scoreBew(rsc);
   const P0 = num(r.portionen)||1, K0 = num(r.kcal)||0;
   const tbBox = canTb ? `
     <div id="rzBudget" style="background:#eef6ff;border:1px solid #cfe3f7;border-radius:12px;padding:11px 13px;margin:12px 0;font-size:13px;color:#1e3a8a;line-height:1.6"></div>
@@ -921,9 +930,11 @@ function rezeptDetail(r){
     <h2>${esc(r.name)}</h2>
     <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · <span id="rzPortInfo">${P0} Portion(en)</span> ${efChip(r.ernaehrungsform)}</div>
     <div class="scorebar">
+      ${rsc!=null?donut(rsc,farbe(rbew),76):''}
       <div class="bigbadge" style="background:var(--green2)"><span class="num" id="rzKcalBadge">${r.kcal??"–"}</span><span style="font-size:10px">kcal</span></div>
       <div style="font-size:13.5px;line-height:1.6" id="rzMakros"></div>
     </div>
+    ${rsc!=null?`<div style="font-size:12.5px;margin:-4px 0 2px">Rezept-Score <b style="color:${farbe(rbew)}">${rsc} · ${rbew}</b> <span style="color:#9aa7a0">(Ø der Zutaten-Scores, nach Gewicht)</span></div>`:''}
     ${controls}
     ${tbBox}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="color:var(--muted);text-transform:none;letter-spacing:0">(Zahl = Clean Score)</span></div>
