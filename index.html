@@ -117,6 +117,7 @@
     <button id="tabTb" class="tabbtn" onclick="setMode('tagebuch')">Tagebuch</button>
     <button id="tabProfil" class="tabbtn" style="display:none" onclick="setMode('profil')">Mein Profil</button>
     <button id="tabFg" class="tabbtn" style="display:none" onclick="setMode('freigabe')">Freigabe</button>
+    <button id="tabStufen" class="tabbtn" style="display:none" onclick="setMode('stufen')">Stufen</button>
   </div>
   <div id="prodView">
   <div class="controls">
@@ -257,6 +258,14 @@
       <div style="font-size:12px;color:#6b7280">Deine Ernährungsform fließt später in passende Empfehlungen & Filter ein.</div>
     </div>
   </div>
+  <div id="stufenView" style="display:none">
+    <div id="stufenGate" style="display:none"></div>
+    <div id="stufenInner" style="max-width:780px;margin:0 auto">
+      <h2 style="margin:.1em 0 .35em;font-size:19px">Premium-Stufen & Funktionen</h2>
+      <div style="color:#6b7280;font-size:13px;margin-bottom:12px">Welche Funktion gehört zu welcher Stufe? Häkchen setzen/entfernen – wird sofort gespeichert.</div>
+      <div id="stufenMatrix"></div>
+    </div>
+  </div>
   <div class="footer">Daten <b>live</b> aus CleanBase · read-only · MVP-Vorschau<br>
     <span style="font-size:11.5px">CleanBase hilft dir, bessere Entscheidungen zu treffen – schnell, einfach und vertrauenswürdig.</span>
   </div>
@@ -350,7 +359,10 @@ let ALL=[];
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ---- Auth (Magic-Link) + Premium ---- */
-let ME = null; // {benutzer_id, name, is_premium}
+let ME = null; // {benutzer_id, name, is_premium, is_admin, tier}
+let MY_FEATURES = null; // Set der freigeschalteten feature_keys (per Stufe)
+function hasFeat(k){ return MY_FEATURES ? MY_FEATURES.has(k) : !!(ME&&ME.is_premium); }
+async function refreshMyFeatures(){ try{ const {data}=await client.rpc("cb_my_features"); MY_FEATURES=new Set((data||[]).map(x=>x.feature_key)); }catch(e){ MY_FEATURES=null; } }
 function openLogin(){ document.getElementById("loginOverlay").classList.add("open"); const e=document.getElementById("loginEmail"); if(e) setTimeout(()=>e.focus(),60); }
 function closeLogin(){ document.getElementById("loginOverlay").classList.remove("open"); }
 async function sendMagic(){
@@ -373,7 +385,7 @@ async function loginPassword(){
   document.getElementById("loginPass").value="";
   msg.style.color="#16a34a"; msg.textContent="✓ angemeldet"; closeLogin();
 }
-async function doLogout(){ await client.auth.signOut(); ME=null; TB_USER="U001"; updateAuthUI(); updateGate(); }
+async function doLogout(){ await client.auth.signOut(); ME=null; MY_FEATURES=null; TB_USER="U001"; updateAuthUI(); updateGate(); }
 async function refreshMe(){
   try{
     await client.rpc("cb_link_me");            // verknüpft beim ersten Login per E-Mail-Match
@@ -381,6 +393,7 @@ async function refreshMe(){
     ME=(data&&data[0])?data[0]:null;
     if(ME&&ME.benutzer_id) TB_USER=ME.benutzer_id;
   }catch(e){ ME=null; }
+  if(ME){ await refreshMyFeatures(); } else { MY_FEATURES=null; }
 }
 function updateAuthUI(){
   const bar=document.getElementById("authBar");
@@ -396,20 +409,21 @@ function updateAuthUI(){
   }
   const pf=document.getElementById("tabProfil"); if(pf) pf.style.display=ME?"":"none";
   const fg=document.getElementById("tabFg"); if(fg) fg.style.display=(ME&&ME.is_admin)?"":"none";
+  const st=document.getElementById("tabStufen"); if(st) st.style.display=(ME&&ME.is_admin)?"":"none";
 }
 function updateGate(){
   const form=document.getElementById("vorForm"), gate=document.getElementById("vorGate");
   if(!form||!gate) return;
-  if(ME&&ME.is_premium){ form.style.display=""; gate.style.display="none"; }
+  if(ME&&hasFeat('erfassung')){ form.style.display=""; gate.style.display="none"; }
   else {
     form.style.display="none"; gate.style.display="";
     gate.innerHTML = ME
-      ? '<div class="gatebox"><h3>Premium-Funktion</h3><p>Produkte per Link oder Barcode zu erfassen ist Teil von <b>Premium</b>. Dein Konto ist aktuell ohne Premium freigeschaltet.</p></div>'
+      ? '<div class="gatebox"><h3>Premium-Funktion</h3><p>Produkte per Link oder Barcode zu erfassen ist in deiner Stufe nicht enthalten.</p></div>'
       : '<div class="gatebox"><h3>Anmeldung nötig</h3><p>Melde dich an, um Produkte zu erfassen – die Erfassung ist eine <b>Premium</b>-Funktion.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden</button></div>';
   }
 }
 client.auth.onAuthStateChange(async (_e,session)=>{
-  if(session){ await refreshMe(); } else { ME=null; TB_USER="U001"; }
+  if(session){ await refreshMe(); } else { ME=null; MY_FEATURES=null; TB_USER="U001"; }
   updateAuthUI(); updateGate();
   const tv=document.getElementById("tagebuchView"); if(tv && tv.style.display!=="none") loadTagebuch();
 });
@@ -563,16 +577,19 @@ function setMode(m){
   document.getElementById("tabTb").classList.toggle("active",m==="tagebuch");
   document.getElementById("tabProfil").classList.toggle("active",m==="profil");
   document.getElementById("tabFg").classList.toggle("active",m==="freigabe");
+  document.getElementById("tabStufen").classList.toggle("active",m==="stufen");
   document.getElementById("prodView").style.display = m==="produkte"?"":"none";
   document.getElementById("rezeptView").style.display = m==="rezepte"?"":"none";
   document.getElementById("vorschlagView").style.display = m==="vorschlagen"?"":"none";
   document.getElementById("tagebuchView").style.display = m==="tagebuch"?"":"none";
   document.getElementById("profilView").style.display = m==="profil"?"":"none";
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
+  document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
   if(m==="rezepte" && REZEPTE===null) loadRezepte();
   if(m==="tagebuch") loadTagebuch();
   if(m==="profil"){ if(!ME){ setMode("produkte"); return; } loadProfil(); }
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); }
+  if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="vorschlagen") updateGate();
   if(m!=="vorschlagen") stopScan();
 }
@@ -849,6 +866,45 @@ function rezeptDetail(r){
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 4px">Zubereitung</div>
     ${steps}`;
   document.getElementById("overlay").classList.add("open");
+}
+/* ---- Admin: Premium-Stufen & Feature-Matrix ---- */
+async function loadStufen(){
+  const gate=document.getElementById("stufenGate"), inner=document.getElementById("stufenInner");
+  if(!(ME&&ME.is_admin)){ if(inner)inner.style.display="none"; if(gate){gate.style.display="";gate.innerHTML='<div class="gatebox"><h3>Nur für Admins</h3><p>Dieser Bereich ist Administratoren vorbehalten.</p></div>';} return; }
+  if(gate)gate.style.display="none"; if(inner)inner.style.display="";
+  const {data,error}=await client.rpc("cb_features_matrix");
+  if(error){ document.getElementById("stufenMatrix").innerHTML='<div style="color:#dc2626">Fehler: '+esc(error.message)+'</div>'; return; }
+  renderStufenMatrix(data||[]);
+}
+function renderStufenMatrix(rows){
+  const tiers=[],tseen={},feats=[],fseen={},en={};
+  rows.forEach(r=>{
+    if(!tseen[r.tier]){ tseen[r.tier]=1; tiers.push({tier:r.tier,label:r.tier_label,sort:r.tier_sort}); }
+    if(!fseen[r.feature_key]){ fseen[r.feature_key]=1; feats.push({key:r.feature_key,label:r.feature_label,sort:r.feature_sort}); }
+    en[r.feature_key+"|"+r.tier]=r.enabled;
+  });
+  tiers.sort((a,b)=>a.sort-b.sort); feats.sort((a,b)=>a.sort-b.sort);
+  let h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">';
+  h+='<tr style="background:#f8fafc"><th style="text-align:left;padding:11px 13px;font-size:13px">Funktion</th>';
+  tiers.forEach(t=>{ h+='<th style="padding:11px 13px;font-size:13px;text-align:center;min-width:96px">'+esc(t.label)+'</th>'; });
+  h+='</tr>';
+  feats.forEach(f=>{
+    h+='<tr style="border-top:1px solid #f1f5f9"><td style="padding:11px 13px;font-size:14px;font-weight:600">'+esc(f.label)+'</td>';
+    tiers.forEach(t=>{
+      const on=!!en[f.key+"|"+t.tier];
+      h+='<td style="padding:11px 13px;text-align:center"><input type="checkbox" '+(on?'checked':'')+' onchange="toggleFeature(\''+t.tier+'\',\''+f.key+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:#16a34a"></td>';
+    });
+    h+='</tr>';
+  });
+  h+='</table></div><div id="stufenMsg" style="font-size:13px;margin-top:8px;height:18px"></div>';
+  document.getElementById("stufenMatrix").innerHTML=h;
+}
+async function toggleFeature(tier,key,enabled){
+  const msg=document.getElementById("stufenMsg");
+  const {error}=await client.rpc("cb_feature_set",{p_tier:tier,p_feature:key,p_enabled:enabled});
+  if(error){ if(msg){msg.style.color="#dc2626";msg.textContent="Fehler: "+error.message;} return; }
+  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; setTimeout(()=>{ if(msg) msg.textContent=""; },1400); }
+  await refreshMyFeatures(); updateGate();
 }
 load();
 </script>
