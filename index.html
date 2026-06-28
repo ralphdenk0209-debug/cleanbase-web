@@ -884,28 +884,69 @@ async function loadRezepte(){
     g.appendChild(c);
   });
 }
+let _rezept=null;
 function rezeptDetail(r){
-  const z=Array.isArray(r.zutaten)?r.zutaten:[];
-  const zHtml=z.map(i=>{
-    const sc=num(i.clean_score);
-    const badge = sc!=null ? `<span style="font-size:11px;font-weight:700;color:#fff;background:${farbe(i.bewertung)};border-radius:6px;padding:1px 6px;margin-left:6px">${sc}</span>` : "";
-    return `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)"><span>${esc(i.name)}${badge}</span><span style="color:var(--muted);white-space:nowrap">${esc(i.menge||"")}</span></div>`;
-  }).join("");
+  _rezept=r;
   const steps=(r.zubereitung||"").split("\n").filter(s=>s.trim()).map(s=>`<div style="margin:8px 0;font-size:14px;line-height:1.5">${esc(s)}</div>`).join("");
+  const pro = ME && hasFeat('rezepte_pro');
+  const P0 = num(r.portionen)||1, K0 = num(r.kcal)||0;
+  const controls = pro
+    ? `<div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0">
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px">Rezept anpassen</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:13px">
+          <label>Portionen <input type="number" id="rzPers" min="1" step="1" value="${P0}" oninput="renderRezeptScaled()" style="width:62px;padding:7px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label>Ziel-kcal/Portion <input type="number" id="rzKcal" min="50" step="10" placeholder="${K0||''}" oninput="renderRezeptScaled()" style="width:92px;padding:7px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="rzTrain" onchange="renderRezeptScaled()" style="width:16px;height:16px;accent-color:#16a34a">Trainingstag (+20%)</label>
+        </div>
+      </div>`
+    : `<div class="gatebox" style="max-width:none;margin:12px 0;padding:14px;text-align:left;box-shadow:none">
+        <div style="font-weight:600;margin-bottom:4px">🔒 Rezept anpassen (Premium)</div>
+        <p style="margin:.2em 0 .8em">Mengen/Personen ändern, ans eigene <b>Ziel-kcal</b> anpassen und <b>Trainingstag</b>-Mengen – mit Premium.</p>
+        <button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="${ME?'premiumInfo()':'openLogin()'}">${ME?'Premium freischalten':'Anmelden / Registrieren'}</button>
+      </div>`;
   const panel=document.getElementById("panel");
   panel.innerHTML=`<button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(r.name)}</h2>
-    <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · ${r.portionen??1} Portion(en)</div>
+    <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · <span id="rzPortInfo">${P0} Portion(en)</span></div>
     <div class="scorebar">
-      <div class="bigbadge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span style="font-size:10px">kcal</span></div>
-      <div style="font-size:13.5px;line-height:1.6">Protein <b>${r.protein??"–"} g</b> · Kohlenhydrate <b>${r.kh??"–"} g</b> · Fett <b>${r.fett??"–"} g</b>
-      <div class="formula">pro Portion</div></div>
+      <div class="bigbadge" style="background:var(--green2)"><span class="num" id="rzKcalBadge">${r.kcal??"–"}</span><span style="font-size:10px">kcal</span></div>
+      <div style="font-size:13.5px;line-height:1.6" id="rzMakros"></div>
     </div>
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="color:var(--muted);text-transform:none;letter-spacing:0">(Zahl = Clean Score des Produkts)</span></div>
-    ${zHtml}
+    ${controls}
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="color:var(--muted);text-transform:none;letter-spacing:0">(Zahl = Clean Score)</span></div>
+    <div id="rzZutaten"></div>
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 4px">Zubereitung</div>
     ${steps}`;
+  renderRezeptScaled();
   document.getElementById("overlay").classList.add("open");
+}
+function renderRezeptScaled(){
+  const r=_rezept; if(!r) return;
+  const z=Array.isArray(r.zutaten)?r.zutaten:[];
+  const pro = ME && hasFeat('rezepte_pro');
+  const P0=num(r.portionen)||1, K0=num(r.kcal)||0, rd=x=>Math.round(x);
+  let pers=P0, zielK=null, train=false;
+  if(pro){
+    const pe=document.getElementById("rzPers"), ke=document.getElementById("rzKcal"), te=document.getElementById("rzTrain");
+    pers=parseFloat(pe&&pe.value)||P0;
+    const zk=parseFloat(ke&&ke.value); zielK=isNaN(zk)?null:zk;
+    train=!!(te&&te.checked);
+  }
+  const fK = (zielK && K0) ? zielK/K0 : 1;       // Portionsgröße (Ziel-kcal)
+  const totalFactor = fK * (pers/P0);            // Gesamtmenge der Zutaten
+  const zHtml=z.map(i=>{
+    const sc=num(i.clean_score);
+    const badge = sc!=null ? `<span style="font-size:11px;font-weight:700;color:#fff;background:${farbe(i.bewertung)};border-radius:6px;padding:1px 6px;margin-left:6px">${sc}</span>` : "";
+    let mengeStr; const g=num(i.menge_g);
+    if(g!=null){ const gs=g*totalFactor; mengeStr=rd(gs)+" g"+(train?` · <span style="color:#b45309">Trainingstag ${rd(gs*1.2)} g</span>`:""); }
+    else { mengeStr=esc(i.menge||"nach Geschmack"); }
+    return `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)"><span>${esc(i.name)}${badge}</span><span style="color:var(--muted);white-space:nowrap;text-align:right">${mengeStr}</span></div>`;
+  }).join("");
+  const zc=document.getElementById("rzZutaten"); if(zc) zc.innerHTML=zHtml;
+  const kb=document.getElementById("rzKcalBadge"); if(kb) kb.textContent=K0?rd(K0*fK):"–";
+  const pi=document.getElementById("rzPortInfo"); if(pi) pi.textContent=`${rd(pers)} Portion(en)`;
+  const mk=document.getElementById("rzMakros");
+  if(mk) mk.innerHTML=`Protein <b>${num(r.protein)!=null?rd(num(r.protein)*fK):"–"} g</b> · Kohlenhydrate <b>${num(r.kh)!=null?rd(num(r.kh)*fK):"–"} g</b> · Fett <b>${num(r.fett)!=null?rd(num(r.fett)*fK):"–"} g</b><div class="formula">pro Portion${(rd(pers)!=P0)?` · gesamt ${rd(pers)} Portion(en)`:""}</div>`;
 }
 /* ---- Admin: Premium-Stufen & Feature-Matrix ---- */
 async function loadStufen(){
