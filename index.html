@@ -115,6 +115,7 @@
     <button id="tabRez" class="tabbtn" onclick="setMode('rezepte')">Rezepte</button>
     <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')">+ Vorschlagen</button>
     <button id="tabTb" class="tabbtn" onclick="setMode('tagebuch')">Tagebuch</button>
+    <button id="tabProfil" class="tabbtn" style="display:none" onclick="setMode('profil')">Mein Profil</button>
     <button id="tabFg" class="tabbtn" style="display:none" onclick="setMode('freigabe')">Freigabe</button>
   </div>
   <div id="prodView">
@@ -214,6 +215,37 @@
       <div id="fgEntwuerfe"></div>
       <h3 style="font-size:16px;margin:18px 0 6px">Scan-Warteschlange (noch ohne Daten)</h3>
       <div id="fgQueue" style="font-size:14px;color:#374151;line-height:1.7"></div>
+    </div>
+  </div>
+  <div id="profilView" style="display:none">
+    <div id="profilGate" style="display:none"></div>
+    <div id="profilInner" style="max-width:600px;margin:0 auto">
+      <h2 style="margin:.1em 0 .5em;font-size:19px">Mein Profil</h2>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:10px">Persönliche Daten</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+          <label style="font-size:13px;color:#374151">Alter<input type="number" id="pfAlter" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Geschlecht<select id="pfGeschlecht" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>weiblich</option><option>männlich</option><option>divers</option></select></label>
+          <label style="font-size:13px;color:#374151">Größe (cm)<input type="number" id="pfGroesse" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Gewicht (kg)<input type="number" step="0.1" id="pfGewicht" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Aktivitätslevel<select id="pfAktiv" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>Sitzend</option><option>Leicht aktiv</option><option>Mäßig aktiv</option><option>Sehr aktiv</option></select></label>
+          <label style="font-size:13px;color:#374151">Ernährungsform<select id="pfErn" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>Omnivor</option><option>Flexitarisch</option><option>Pescetarisch</option><option>Vegetarisch</option><option>Vegan</option></select></label>
+        </div>
+        <button onclick="saveProfil()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Speichern</button>
+        <span id="pfMsg" style="font-size:13px;margin-left:10px"></span>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:10px">Tagesziele</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+          <label style="font-size:13px;color:#374151">kcal<input type="number" id="pfKcal" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Eiweiß (g)<input type="number" id="pfEiw" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">KH max (g)<input type="number" id="pfKh" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Fett max (g)<input type="number" id="pfFett" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+        </div>
+        <button onclick="saveProfilZiel()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Ziele speichern</button>
+        <span id="pfZielMsg" style="font-size:13px;margin-left:10px"></span>
+      </div>
+      <div style="font-size:12px;color:#6b7280">Deine Ernährungsform fließt später in passende Empfehlungen & Filter ein.</div>
     </div>
   </div>
   <div class="footer">Daten <b>live</b> aus CleanBase · read-only · MVP-Vorschau<br>
@@ -337,6 +369,7 @@ function updateAuthUI(){
       bar.innerHTML='<button class="authbtn" id="loginBtn" onclick="openLogin()">Anmelden</button>';
     }
   }
+  const pf=document.getElementById("tabProfil"); if(pf) pf.style.display=ME?"":"none";
   const fg=document.getElementById("tabFg"); if(fg) fg.style.display=(ME&&ME.is_admin)?"":"none";
 }
 function updateGate(){
@@ -356,6 +389,40 @@ client.auth.onAuthStateChange(async (_e,session)=>{
   const tv=document.getElementById("tagebuchView"); if(tv && tv.style.display!=="none") loadTagebuch();
 });
 (async ()=>{ try{ const {data:{session}}=await client.auth.getSession(); if(session){ await refreshMe(); } }catch(e){} updateAuthUI(); updateGate(); })();
+
+/* ---- Mein Profil ---- */
+function _selVal(id,val){ const el=document.getElementById(id); if(!el) return;
+  if(val==null){ el.value=""; return; }
+  if(el.tagName==="SELECT" && ![...el.options].some(o=>o.value==String(val))){ const o=document.createElement("option"); o.value=val; o.textContent=val; el.appendChild(o); }
+  el.value=val; }
+function _numOrNull(id){ const v=parseFloat((document.getElementById(id).value||"").replace(",",".")); return isNaN(v)?null:v; }
+async function loadProfil(){
+  const gate=document.getElementById("profilGate"), inner=document.getElementById("profilInner");
+  if(!ME){ if(inner)inner.style.display="none"; if(gate){ gate.style.display="";
+      gate.innerHTML='<div class="gatebox"><h3>Anmeldung nötig</h3><p>Bitte melde dich an, um dein Profil zu sehen und zu bearbeiten.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden</button></div>'; } return; }
+  if(gate)gate.style.display="none"; if(inner)inner.style.display="";
+  const {data}=await client.rpc("cb_profil"); const b=(data&&data[0])||{};
+  _selVal("pfAlter",b.Alter); _selVal("pfGeschlecht",b.Geschlecht); _selVal("pfGroesse",b.Groesse_cm);
+  _selVal("pfGewicht",b.Gewicht_kg); _selVal("pfAktiv",b.Aktivitaetslevel); _selVal("pfErn",b.Ernaehrungsform);
+  _selVal("pfKcal",b.Kalorienziel_kcal); _selVal("pfEiw",b.Eiweiss_ziel_g); _selVal("pfKh",b.KH_ziel_g); _selVal("pfFett",b.Fett_ziel_g);
+}
+async function saveProfil(){
+  const msg=document.getElementById("pfMsg");
+  const {error}=await client.rpc("cb_profil_speichern",{
+    p_alter:_numOrNull("pfAlter"), p_gewicht:_numOrNull("pfGewicht"), p_groesse:_numOrNull("pfGroesse"),
+    p_geschlecht:document.getElementById("pfGeschlecht").value||null,
+    p_aktivitaet:document.getElementById("pfAktiv").value||null,
+    p_ernaehrungsform:document.getElementById("pfErn").value||null });
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; refreshMe();
+}
+async function saveProfilZiel(){
+  const msg=document.getElementById("pfZielMsg"); const kcal=_numOrNull("pfKcal");
+  if(!kcal){ msg.style.color="#dc2626"; msg.textContent="kcal-Ziel angeben."; return; }
+  const {error}=await client.rpc("cb_ziel_setzen",{p_kcal:kcal,p_eiweiss:_numOrNull("pfEiw"),p_kh:_numOrNull("pfKh"),p_fett:_numOrNull("pfFett")});
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  msg.style.color="#16a34a"; msg.textContent="✓ Ziele gespeichert";
+}
 
 async function load(){
   const {data,error} = await client.from("v_web_produkte").select("*");
@@ -461,14 +528,17 @@ function setMode(m){
   document.getElementById("tabRez").classList.toggle("active",m==="rezepte");
   document.getElementById("tabVor").classList.toggle("active",m==="vorschlagen");
   document.getElementById("tabTb").classList.toggle("active",m==="tagebuch");
+  document.getElementById("tabProfil").classList.toggle("active",m==="profil");
   document.getElementById("tabFg").classList.toggle("active",m==="freigabe");
   document.getElementById("prodView").style.display = m==="produkte"?"":"none";
   document.getElementById("rezeptView").style.display = m==="rezepte"?"":"none";
   document.getElementById("vorschlagView").style.display = m==="vorschlagen"?"":"none";
   document.getElementById("tagebuchView").style.display = m==="tagebuch"?"":"none";
+  document.getElementById("profilView").style.display = m==="profil"?"":"none";
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   if(m==="rezepte" && REZEPTE===null) loadRezepte();
   if(m==="tagebuch") loadTagebuch();
+  if(m==="profil"){ if(!ME){ setMode("produkte"); return; } loadProfil(); }
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); }
   if(m==="vorschlagen") updateGate();
   if(m!=="vorschlagen") stopScan();
