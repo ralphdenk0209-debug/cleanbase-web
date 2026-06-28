@@ -115,7 +115,7 @@
     <button id="tabRez" class="tabbtn" onclick="setMode('rezepte')">Rezepte</button>
     <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')">+ Vorschlagen</button>
     <button id="tabTb" class="tabbtn" onclick="setMode('tagebuch')">Tagebuch</button>
-    <button id="tabFg" class="tabbtn" onclick="setMode('freigabe')">Freigabe</button>
+    <button id="tabFg" class="tabbtn" style="display:none" onclick="setMode('freigabe')">Freigabe</button>
   </div>
   <div id="prodView">
   <div class="controls">
@@ -325,14 +325,18 @@ async function refreshMe(){
   }catch(e){ ME=null; }
 }
 function updateAuthUI(){
-  const bar=document.getElementById("authBar"); if(!bar) return;
-  if(ME){
-    bar.innerHTML='<span style="opacity:.96">'+esc(ME.name||"Angemeldet")+'</span>'
-      +(ME.is_premium?' <span class="premchip">Premium</span>':'')
-      +' <button class="authbtn" onclick="doLogout()">Logout</button>';
-  } else {
-    bar.innerHTML='<button class="authbtn" id="loginBtn" onclick="openLogin()">Anmelden</button>';
+  const bar=document.getElementById("authBar");
+  if(bar){
+    if(ME){
+      bar.innerHTML='<span style="opacity:.96">'+esc(ME.name||"Angemeldet")+'</span>'
+        +(ME.is_admin?' <span class="premchip" style="background:#1f5e34;color:#fff">Admin</span>':'')
+        +(ME.is_premium?' <span class="premchip">Premium</span>':'')
+        +' <button class="authbtn" onclick="doLogout()">Logout</button>';
+    } else {
+      bar.innerHTML='<button class="authbtn" id="loginBtn" onclick="openLogin()">Anmelden</button>';
+    }
   }
+  const fg=document.getElementById("tabFg"); if(fg) fg.style.display=(ME&&ME.is_admin)?"":"none";
 }
 function updateGate(){
   const form=document.getElementById("vorForm"), gate=document.getElementById("vorGate");
@@ -463,7 +467,7 @@ function setMode(m){
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   if(m==="rezepte" && REZEPTE===null) loadRezepte();
   if(m==="tagebuch") loadTagebuch();
-  if(m==="freigabe") loadFreigabe();
+  if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); }
   if(m==="vorschlagen") updateGate();
   if(m!=="vorschlagen") stopScan();
 }
