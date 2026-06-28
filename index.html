@@ -725,15 +725,23 @@ async function setZiel(){
 }
 function renderTbListe(items){
   const el=document.getElementById("tbListe");
-  if(!items.length){ el.innerHTML='<div style="color:#6b7280;font-size:14px;padding:8px">Noch keine Einträge für diesen Tag.</div>'; return; }
-  let html="";
+  if(!items.length){ el.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted);font-size:14px">Noch keine Einträge für diesen Tag.<br><span style="font-size:12.5px">Füge oben eine Mahlzeit, ein Rezept oder einen manuellen Eintrag hinzu.</span></div>'; return; }
+  const icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
+  let html="", dayK=0;
   ["Frühstück","Mittag","Abendessen","Snack"].forEach(m=>{
     const rows=items.filter(i=>i.Mahlzeit===m); if(!rows.length) return;
-    const mk=rows.reduce((a,b)=>a+(+b.kcal||0),0);
-    html+=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-weight:600;margin-bottom:6px"><span>${m}</span><span>${Math.round(mk)} kcal</span></div>`;
-    rows.forEach(r=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:4px 0;border-top:1px solid #f1f5f9"><span>${esc(r.Produktname||"?")} <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g});return false" style="color:#2563eb;text-decoration:none">· ${r.Menge_g} g ✎</a></span><span>${Math.round(+r.kcal||0)} kcal <button onclick="delTb(${r.Eintrag_ID})" style="border:0;background:none;color:#dc2626;cursor:pointer;font-size:15px">✕</button></span></div>`; });
+    const mk=rows.reduce((a,b)=>a+(+b.kcal||0),0); dayK+=mk;
+    html+=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:4px 14px 8px;margin-bottom:10px;box-shadow:var(--shadow)">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 7px;border-bottom:2px solid var(--greenlt)"><span>${icons[m]||"•"} ${m}</span><span style="color:var(--green)">${Math.round(mk)} kcal</span></div>`;
+    rows.forEach(r=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid #f3f6f4">
+        <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Produktname||"?")}</div>
+        <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g});return false" style="color:var(--muted);text-decoration:none;font-size:12.5px">${r.Menge_g} g · ändern ✎</a></div>
+        <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--muted)">kcal</span></span>
+        <button onclick="delTb(${r.Eintrag_ID})" title="löschen" style="border:0;background:#f6f8f7;border-radius:8px;width:27px;height:27px;color:#dc2626;cursor:pointer;font-size:14px">✕</button></div>
+      </div>`; });
     html+=`</div>`;
   });
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--greendk);color:#fff;border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span>${Math.round(dayK)} kcal</span></div>`;
   el.innerHTML=html;
 }
 async function addTbEntry(){
@@ -975,16 +983,22 @@ function renderRezeptScaled(){
   const bud=document.getElementById("rzBudget");
   if(bud){
     const nLog=parseFloat((document.getElementById("rzTbPort")||{}).value)||1;
-    const recK=K0?rd(K0*fK*nLog):0, recP=rd((num(r.protein)||0)*fK*nLog), recKh=rd((num(r.kh)||0)*fK*nLog), recF=rd((num(r.fett)||0)*fK*nLog);
+    const tf=train?1.2:1, f2=fK*tf*nLog;
+    const recK=K0?rd(K0*f2):0, recP=rd((num(r.protein)||0)*f2), recKh=rd((num(r.kh)||0)*f2), recF=rd((num(r.fett)||0)*f2);
     const eaten=rd(num((_daySum||{}).kcal)||0), eP=rd(num((_daySum||{}).protein)||0), eKh=rd(num((_daySum||{}).kh)||0), eF=rd(num((_daySum||{}).fett)||0);
     const gK=num((_goal||{}).Kalorienziel_kcal), gP=num((_goal||{}).Eiweiss_ziel_g), gKh=num((_goal||{}).KH_ziel_g), gF=num((_goal||{}).Fett_ziel_g);
-    const m=(lbl,eat,goal,rec,u)=> goal==null ? `${lbl} <b>${eat}${u||''}</b>`
-      : `${lbl} <b>${eat}</b>/${rd(goal)}${u||''} · Rest <b style="color:${(goal-eat-rec)<0?'#dc2626':'#16a34a'}">${rd(goal-eat-rec)}</b>`;
-    bud.innerHTML=`<div style="font-weight:600;margin-bottom:2px">Tagesbudget – Rest nach diesem Rezept</div>`
-      + m('kcal',eaten,gK,recK,'') + ' &nbsp;·&nbsp; ' + m('Eiweiß',eP,gP,recP,' g') + '<br>'
-      + m('KH',eKh,gKh,recKh,' g') + ' &nbsp;·&nbsp; ' + m('Fett',eF,gF,recF,' g')
-      + `<br><span style="color:#6b7280">Dieses Rezept (${nLog}×): ${recK} kcal · EW ${recP} g · KH ${recKh} g · Fett ${recF} g</span>`
-      + (gK==null?`<br><span style="color:#6b7280">Tipp: Tagesziele in „Mein Profil" setzen, dann siehst du den Rest.</span>`:'');
+    const row=(lbl,eat,goal,rec,u)=>{
+      const r2=(u||''); const right = goal==null
+        ? `<span style="color:#6b7280">${eat}${r2} gegessen</span>`
+        : `${eat}/${rd(goal)}${r2} · Rest <b style="color:${(goal-eat-rec)<0?'#dc2626':'#16a34a'}">${rd(goal-eat-rec)}${r2}</b>`;
+      return `<div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid #dbeafe"><span><b>${lbl}</b> <span style="color:#64748b">Rezept +${rec}${r2}</span></span><span style="text-align:right">${right}</span></div>`;
+    };
+    bud.innerHTML=`<div style="font-weight:700;margin-bottom:3px">Tagesbudget – Rest nach diesem Rezept</div>`
+      + row('kcal',eaten,gK,recK,'')
+      + row('Eiweiß',eP,gP,recP,' g')
+      + row('KH',eKh,gKh,recKh,' g')
+      + row('Fett',eF,gF,recF,' g')
+      + (gK==null?`<div style="color:#6b7280;margin-top:4px">Tipp: Tagesziele in „Mein Profil" setzen, dann siehst du den Rest.</div>`:'');
   }
 }
 async function loadRezeptBudget(){
