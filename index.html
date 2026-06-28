@@ -115,7 +115,7 @@
     <button id="tabRez" class="tabbtn" onclick="setMode('rezepte')">Rezepte</button>
     <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')">+ Vorschlagen</button>
     <button id="tabTb" class="tabbtn" onclick="setMode('tagebuch')">Tagebuch</button>
-    <button id="tabProfil" class="tabbtn" style="display:none" onclick="setMode('profil')">Mein Profil</button>
+    <button id="tabProfil" class="tabbtn" onclick="setMode('profil')">Mein Profil</button>
     <button id="tabFg" class="tabbtn" style="display:none" onclick="setMode('freigabe')">Freigabe</button>
     <button id="tabStufen" class="tabbtn" style="display:none" onclick="setMode('stufen')">Stufen</button>
   </div>
@@ -363,6 +363,11 @@ let ME = null; // {benutzer_id, name, is_premium, is_admin, tier}
 let MY_FEATURES = null; // Set der freigeschalteten feature_keys (per Stufe)
 function hasFeat(k){ return MY_FEATURES ? MY_FEATURES.has(k) : !!(ME&&ME.is_premium); }
 async function refreshMyFeatures(){ try{ const {data}=await client.rpc("cb_my_features"); MY_FEATURES=new Set((data||[]).map(x=>x.feature_key)); }catch(e){ MY_FEATURES=null; } }
+function premiumInfo(){ alert("Premium-Freischaltung kommt bald. Solange schaltet der Betreiber Premium manuell frei."); }
+function gateHtml(){
+  if(!ME) return '<div class="gatebox"><h3>Anmeldung nötig</h3><p>Melde dich an oder <b>registriere dich kostenlos</b>, um diese Funktion zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden / Registrieren</button></div>';
+  return '<div class="gatebox"><h3>Premium-Funktion</h3><p>Diese Funktion ist in deiner Stufe nicht enthalten. Schalte <b>Premium</b> frei, um sie zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="premiumInfo()">Premium freischalten</button></div>';
+}
 function openLogin(){ document.getElementById("loginOverlay").classList.add("open"); const e=document.getElementById("loginEmail"); if(e) setTimeout(()=>e.focus(),60); }
 function closeLogin(){ document.getElementById("loginOverlay").classList.remove("open"); }
 async function sendMagic(){
@@ -407,7 +412,6 @@ function updateAuthUI(){
       bar.innerHTML='<button class="authbtn" id="loginBtn" onclick="openLogin()">Anmelden</button>';
     }
   }
-  const pf=document.getElementById("tabProfil"); if(pf) pf.style.display=ME?"":"none";
   const fg=document.getElementById("tabFg"); if(fg) fg.style.display=(ME&&ME.is_admin)?"":"none";
   const st=document.getElementById("tabStufen"); if(st) st.style.display=(ME&&ME.is_admin)?"":"none";
 }
@@ -415,12 +419,7 @@ function updateGate(){
   const form=document.getElementById("vorForm"), gate=document.getElementById("vorGate");
   if(!form||!gate) return;
   if(ME&&hasFeat('erfassung')){ form.style.display=""; gate.style.display="none"; }
-  else {
-    form.style.display="none"; gate.style.display="";
-    gate.innerHTML = ME
-      ? '<div class="gatebox"><h3>Premium-Funktion</h3><p>Produkte per Link oder Barcode zu erfassen ist in deiner Stufe nicht enthalten.</p></div>'
-      : '<div class="gatebox"><h3>Anmeldung nötig</h3><p>Melde dich an, um Produkte zu erfassen – die Erfassung ist eine <b>Premium</b>-Funktion.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden</button></div>';
-  }
+  else { form.style.display="none"; gate.style.display=""; gate.innerHTML=gateHtml(); }
 }
 client.auth.onAuthStateChange(async (_e,session)=>{
   if(session){ await refreshMe(); } else { ME=null; MY_FEATURES=null; TB_USER="U001"; }
@@ -437,8 +436,7 @@ function _selVal(id,val){ const el=document.getElementById(id); if(!el) return;
 function _numOrNull(id){ const v=parseFloat((document.getElementById(id).value||"").replace(",",".")); return isNaN(v)?null:v; }
 async function loadProfil(){
   const gate=document.getElementById("profilGate"), inner=document.getElementById("profilInner");
-  if(!ME){ if(inner)inner.style.display="none"; if(gate){ gate.style.display="";
-      gate.innerHTML='<div class="gatebox"><h3>Anmeldung nötig</h3><p>Bitte melde dich an, um dein Profil zu sehen und zu bearbeiten.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden</button></div>'; } return; }
+  if(!ME || !hasFeat('profil')){ if(inner)inner.style.display="none"; if(gate){ gate.style.display=""; gate.innerHTML=gateHtml(); } return; }
   if(gate)gate.style.display="none"; if(inner)inner.style.display="";
   const {data}=await client.rpc("cb_profil"); const b=(data&&data[0])||{};
   _selVal("pfAlter",b.Alter); _selVal("pfGeschlecht",b.Geschlecht); _selVal("pfGroesse",b.Groesse_cm);
@@ -587,7 +585,7 @@ function setMode(m){
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
   if(m==="rezepte" && REZEPTE===null) loadRezepte();
   if(m==="tagebuch") loadTagebuch();
-  if(m==="profil"){ if(!ME){ setMode("produkte"); return; } loadProfil(); }
+  if(m==="profil") loadProfil();
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="vorschlagen") updateGate();
@@ -627,10 +625,9 @@ function tbPrefillMenge(){
 }
 async function loadTagebuch(){
   const gate=document.getElementById("tbGate"), inner=document.getElementById("tbInner");
-  if(!ME){
+  if(!ME || !hasFeat('tagebuch')){
     if(inner) inner.style.display="none";
-    if(gate){ gate.style.display="";
-      gate.innerHTML='<div class="gatebox"><h3>Anmeldung nötig</h3><p>Dein Ernährungstagebuch ist persönlich – bitte melde dich an, um deine Einträge zu sehen und zu pflegen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden</button></div>'; }
+    if(gate){ gate.style.display=""; gate.innerHTML=gateHtml(); }
     return;
   }
   if(gate) gate.style.display="none";
