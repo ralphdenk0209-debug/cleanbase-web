@@ -245,6 +245,15 @@
         <button onclick="saveProfilZiel()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Ziele speichern</button>
         <span id="pfZielMsg" style="font-size:13px;margin-left:10px"></span>
       </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:6px">Passwort (Login ohne E-Mail)</div>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:8px">Setze ein Passwort, um dich auch ohne Magic-Link anzumelden – praktisch, solange der E-Mail-Versand noch eingerichtet wird.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="password" id="pfPass" autocomplete="new-password" placeholder="neues Passwort (min. 6 Zeichen)" style="flex:1;min-width:200px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
+          <button onclick="setMyPassword()" style="padding:9px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Passwort setzen</button>
+        </div>
+        <span id="pfPassMsg" style="font-size:13px"></span>
+      </div>
       <div style="font-size:12px;color:#6b7280">Deine Ernährungsform fließt später in passende Empfehlungen & Filter ein.</div>
     </div>
   </div>
@@ -262,6 +271,11 @@
   <input id="loginEmail" type="email" autocomplete="email" placeholder="deine@email.de" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px" />
   <button onclick="sendMagic()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Magic-Link senden</button>
   <div id="loginMsg" style="margin-top:10px;font-size:13.5px;line-height:1.45"></div>
+  <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:12px">
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">oder vorübergehend mit <b>Passwort</b> (bis der E-Mail-Versand live ist)</div>
+    <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d1d5db;border-radius:10px;font-size:15px" />
+    <button onclick="loginPassword()" style="width:100%;margin-top:8px;padding:11px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-weight:600;font-size:15px;cursor:pointer">Mit Passwort anmelden</button>
+  </div>
 </div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -348,6 +362,17 @@ async function sendMagic(){
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
   msg.style.color="#16a34a"; msg.innerHTML="✅ Link gesendet an <b>"+esc(email)+"</b>. Öffne die Mail auf diesem Gerät und tippe den Link.";
 }
+async function loginPassword(){
+  const email=(document.getElementById("loginEmail").value||"").trim();
+  const pass=document.getElementById("loginPass").value||"";
+  const msg=document.getElementById("loginMsg");
+  if(!email||!pass){ msg.style.color="#dc2626"; msg.textContent="E-Mail und Passwort eingeben."; return; }
+  msg.style.color="#374151"; msg.textContent="⏳ Anmelden…";
+  const {error}=await client.auth.signInWithPassword({ email, password:pass });
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message+" – Passwort evtl. noch nicht gesetzt (siehe Mein Profil)."; return; }
+  document.getElementById("loginPass").value="";
+  msg.style.color="#16a34a"; msg.textContent="✓ angemeldet"; closeLogin();
+}
 async function doLogout(){ await client.auth.signOut(); ME=null; TB_USER="U001"; updateAuthUI(); updateGate(); }
 async function refreshMe(){
   try{
@@ -415,6 +440,14 @@ async function saveProfil(){
     p_ernaehrungsform:document.getElementById("pfErn").value||null });
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
   msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; refreshMe();
+}
+async function setMyPassword(){
+  const pass=document.getElementById("pfPass").value||""; const msg=document.getElementById("pfPassMsg");
+  if(pass.length<6){ msg.style.color="#dc2626"; msg.textContent="Mindestens 6 Zeichen."; return; }
+  const {error}=await client.auth.updateUser({ password:pass });
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  document.getElementById("pfPass").value="";
+  msg.style.color="#16a34a"; msg.textContent="✓ Passwort gesetzt – Anmeldung mit Passwort ist jetzt möglich.";
 }
 async function saveProfilZiel(){
   const msg=document.getElementById("pfZielMsg"); const kcal=_numOrNull("pfKcal");
