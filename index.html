@@ -880,7 +880,7 @@ async function loadRezepte(){
   data.forEach(r=>{
     const c=document.createElement("div");c.className="card";c.onclick=()=>rezeptDetail(r);
     c.innerHTML=`<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>
-      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")}</div></div>`;
+      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")}</div>${efChip(r.ernaehrungsform)}</div>`;
     g.appendChild(c);
   });
 }
@@ -919,7 +919,7 @@ function rezeptDetail(r){
   const panel=document.getElementById("panel");
   panel.innerHTML=`<button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(r.name)}</h2>
-    <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · <span id="rzPortInfo">${P0} Portion(en)</span></div>
+    <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · <span id="rzPortInfo">${P0} Portion(en)</span> ${efChip(r.ernaehrungsform)}</div>
     <div class="scorebar">
       <div class="bigbadge" style="background:var(--green2)"><span class="num" id="rzKcalBadge">${r.kcal??"–"}</span><span style="font-size:10px">kcal</span></div>
       <div style="font-size:13.5px;line-height:1.6" id="rzMakros"></div>
@@ -964,15 +964,16 @@ function renderRezeptScaled(){
   const bud=document.getElementById("rzBudget");
   if(bud){
     const nLog=parseFloat((document.getElementById("rzTbPort")||{}).value)||1;
-    const recK=K0?rd(K0*fK*nLog):0;
-    const eaten=rd(num((_daySum||{}).kcal)||0);
-    const goalK=num((_goal||{}).Kalorienziel_kcal);
-    if(goalK){ const rest=goalK-eaten, after=rest-recK;
-      bud.innerHTML=`Heute: <b>${eaten}</b> / ${rd(goalK)} kcal · Rest <b>${rd(rest)}</b>`
-        +`<br>Dieses Rezept (${nLog}×): <b>${recK} kcal</b> → Rest danach: <b style="color:${after<0?'#dc2626':'#16a34a'}">${rd(after)}</b>`;
-    } else {
-      bud.innerHTML=`Heute gegessen: <b>${eaten} kcal</b> · <span style="color:#6b7280">kein kcal-Tagesziel (in „Mein Profil" setzen)</span><br>Dieses Rezept (${nLog}×): <b>${recK} kcal</b>`;
-    }
+    const recK=K0?rd(K0*fK*nLog):0, recP=rd((num(r.protein)||0)*fK*nLog), recKh=rd((num(r.kh)||0)*fK*nLog), recF=rd((num(r.fett)||0)*fK*nLog);
+    const eaten=rd(num((_daySum||{}).kcal)||0), eP=rd(num((_daySum||{}).protein)||0), eKh=rd(num((_daySum||{}).kh)||0), eF=rd(num((_daySum||{}).fett)||0);
+    const gK=num((_goal||{}).Kalorienziel_kcal), gP=num((_goal||{}).Eiweiss_ziel_g), gKh=num((_goal||{}).KH_ziel_g), gF=num((_goal||{}).Fett_ziel_g);
+    const m=(lbl,eat,goal,rec,u)=> goal==null ? `${lbl} <b>${eat}${u||''}</b>`
+      : `${lbl} <b>${eat}</b>/${rd(goal)}${u||''} · Rest <b style="color:${(goal-eat-rec)<0?'#dc2626':'#16a34a'}">${rd(goal-eat-rec)}</b>`;
+    bud.innerHTML=`<div style="font-weight:600;margin-bottom:2px">Tagesbudget – Rest nach diesem Rezept</div>`
+      + m('kcal',eaten,gK,recK,'') + ' &nbsp;·&nbsp; ' + m('Eiweiß',eP,gP,recP,' g') + '<br>'
+      + m('KH',eKh,gKh,recKh,' g') + ' &nbsp;·&nbsp; ' + m('Fett',eF,gF,recF,' g')
+      + `<br><span style="color:#6b7280">Dieses Rezept (${nLog}×): ${recK} kcal · EW ${recP} g · KH ${recKh} g · Fett ${recF} g</span>`
+      + (gK==null?`<br><span style="color:#6b7280">Tipp: Tagesziele in „Mein Profil" setzen, dann siehst du den Rest.</span>`:'');
   }
 }
 async function loadRezeptBudget(){
