@@ -176,6 +176,15 @@
         <div id="tbMsg" style="font-size:13px;margin-top:8px"></div>
       </div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:8px">Aus Historie übernehmen</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="tbHist" style="flex:1;min-width:220px;padding:10px;border:1px solid #d1d5db;border-radius:8px"><option value="">Frühere Mahlzeit wählen…</option></select>
+          <button onclick="uebernehmeHist()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Übernehmen</button>
+        </div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px">Kopiert die gewählte frühere Mahlzeit in den oben gewählten Tag & die gewählte Mahlzeit. Mengen danach editierbar.</div>
+        <div id="tbHistMsg" style="font-size:13px;margin-top:6px"></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:8px">Rezept als Mahlzeit einfügen</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <select id="tbRezept" style="flex:1;min-width:180px;padding:10px;border:1px solid #d1d5db;border-radius:8px"><option value="">Rezept wählen…</option></select>
@@ -635,7 +644,7 @@ async function loadTagebuch(){
   const tt=document.getElementById("tbTitle"); if(tt) tt.textContent="Tagebuch · "+(ME.name||"");
   const dEl=document.getElementById("tbDatum"); if(!dEl.value) dEl.value=tbToday();
   if(!ALL.length){ await load(); }
-  fillProdList(); loadRezeptDropdown();
+  fillProdList(); loadRezeptDropdown(); loadHistDropdown();
   const datum=dEl.value;
   const {data:eintraege}=await client.rpc("cb_tagebuch",{p_datum:datum});
   const {data:summe}=await client.rpc("cb_tagessumme",{p_datum:datum});
@@ -731,6 +740,22 @@ async function loadRezeptDropdown(){
   const {data}=await client.from("v_web_rezepte").select("id,name").order("name");
   (data||[]).forEach(r=>{ const o=document.createElement("option"); o.value=r.id; o.textContent=r.name; sel.appendChild(o); });
   sel.dataset.loaded="1";
+}
+async function loadHistDropdown(){
+  const sel=document.getElementById("tbHist"); if(!sel) return;
+  const {data}=await client.rpc("cb_tb_history",{p_limit:25});
+  sel.innerHTML='<option value="">Frühere Mahlzeit wählen…</option>';
+  (data||[]).forEach(h=>{ const o=document.createElement("option"); o.value=h.datum+"|"+h.mahlzeit;
+    o.textContent=h.datum+" · "+h.mahlzeit+" · "+(h.items||"")+" ("+Math.round(h.kcal||0)+" kcal)"; sel.appendChild(o); });
+}
+async function uebernehmeHist(){
+  const v=document.getElementById("tbHist").value, msg=document.getElementById("tbHistMsg");
+  if(!v){ msg.style.color="#dc2626"; msg.textContent="Bitte eine frühere Mahlzeit wählen."; return; }
+  const parts=v.split("|"), sd=parts[0], sm=parts[1];
+  const dd=document.getElementById("tbDatum").value||tbToday(), dm=document.getElementById("tbMahlzeit").value;
+  const {data,error}=await client.rpc("cb_tb_copy_meal",{p_src_datum:sd,p_src_mahlzeit:sm,p_dest_datum:dd,p_dest_mahlzeit:dm});
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  msg.style.color="#16a34a"; msg.textContent="✓ "+data+" → "+dm; loadTagebuch();
 }
 async function addRezeptMahlzeit(){
   const rid=document.getElementById("tbRezept").value, mahl=document.getElementById("tbMahlzeit").value, datum=document.getElementById("tbDatum").value, msg=document.getElementById("tbRezMsg");
