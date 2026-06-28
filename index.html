@@ -299,8 +299,9 @@
   <button onclick="sendMagic()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Magic-Link senden</button>
   <div id="loginMsg" style="margin-top:10px;font-size:13.5px;line-height:1.45"></div>
   <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:12px">
-    <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">oder vorübergehend mit <b>Passwort</b> (bis der E-Mail-Versand live ist)</div>
-    <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d1d5db;border-radius:10px;font-size:15px" />
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">oder mit <b>E-Mail + Passwort</b> anmelden</div>
+    <input id="loginPassEmail" type="email" autocomplete="email" placeholder="E-Mail" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d1d5db;border-radius:10px;font-size:15px" />
+    <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;margin-top:8px" />
     <button onclick="loginPassword()" style="width:100%;margin-top:8px;padding:11px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-weight:600;font-size:15px;cursor:pointer">Mit Passwort anmelden</button>
   </div>
 </div></div>
@@ -398,7 +399,7 @@ async function sendMagic(){
   msg.style.color="#16a34a"; msg.innerHTML="✅ Link gesendet an <b>"+esc(email)+"</b>. Öffne die Mail auf diesem Gerät und tippe den Link.";
 }
 async function loginPassword(){
-  const email=(document.getElementById("loginEmail").value||"").trim();
+  const email=((document.getElementById("loginPassEmail").value||document.getElementById("loginEmail").value)||"").trim();
   const pass=document.getElementById("loginPass").value||"";
   const msg=document.getElementById("loginMsg");
   if(!email||!pass){ msg.style.color="#dc2626"; msg.textContent="E-Mail und Passwort eingeben."; return; }
@@ -443,7 +444,11 @@ function updateGate(){
 client.auth.onAuthStateChange(async (_e,session)=>{
   if(session){ await refreshMe(); } else { ME=null; MY_FEATURES=null; TB_USER="U001"; }
   updateAuthUI(); updateGate();
-  const tv=document.getElementById("tagebuchView"); if(tv && tv.style.display!=="none") loadTagebuch();
+  const vis=id=>{ const e=document.getElementById(id); return e && e.style.display!=="none"; };
+  if(vis("tagebuchView")) loadTagebuch();
+  if(vis("profilView")) loadProfil();
+  if(vis("stufenView")) loadStufen();
+  if(vis("usersView")) loadUsers();
 });
 (async ()=>{ try{ const {data:{session}}=await client.auth.getSession(); if(session){ await refreshMe(); } }catch(e){} updateAuthUI(); updateGate(); })();
 
