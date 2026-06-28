@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CleanBase – Echte Qualität, Transparenz & smarte Ernährung</title>
+<style>
+  :root{
+    --bg:#f1f5f3; --card:#ffffff; --ink:#1f2a24; --muted:#6b7c73; --line:#e3ebe6;
+    --green:#2e7d46; --green2:#3a9d59; --greendk:#1f5e34; --greenlt:#eaf5ee;
+    --sehrgut:#16a34a; --gut:#65a30d; --mittel:#e8920c; --schwach:#dc2626; --grau:#9aa7a0;
+    --shadow:0 4px 16px rgba(31,94,52,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--ink);}
+  a{color:inherit}
+  /* HERO */
+  .hero{background:linear-gradient(180deg,#236a3b,var(--greendk));color:#fff;padding:30px 20px 30px;}
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:11px}
+  .leaf{width:34px;height:34px;flex:0 0 34px}
+  .brand h1{margin:0;font-size:24px;letter-spacing:-.2px;font-weight:700}
+  .hero .tag{margin:14px 0 0;font-size:17px;font-weight:500;opacity:.96;max-width:600px;line-height:1.4}
+  .hero .sub{margin:5px 0 0;font-size:13.5px;opacity:.82}
+  /* PRINCIPLE STRIP */
+  .principles{background:#fff;border-bottom:1px solid var(--line)}
+  .principles .wrap{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between}
+  .principles div{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green2);flex:0 0 8px}
+  /* CONTAINER */
+  .container{max-width:1080px;margin:0 auto;padding:20px 20px 60px;}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 14px;}
+  .controls input,.controls select{padding:11px 13px;border:1px solid var(--line);border-radius:11px;
+       font-size:14px;background:#fff;color:var(--ink);outline:none}
+  .controls input:focus,.controls select:focus{border-color:var(--green2);box-shadow:0 0 0 3px var(--greenlt)}
+  .controls input[type=search]{flex:1;min-width:220px}
+  .controls label{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
+  .stats{font-size:13px;color:var(--muted);margin:0 2px 14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
+        cursor:pointer;transition:transform .1s ease,box-shadow .1s ease;display:flex;gap:15px;align-items:center}
+  .card:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:#cfe3d6}
+  .badge{width:62px;height:62px;border-radius:50%;flex:0 0 62px;display:flex;flex-direction:column;
+         align-items:center;justify-content:center;color:#fff;font-weight:800;line-height:1;box-shadow:inset 0 0 0 3px rgba(255,255,255,.25)}
+  .badge .num{font-size:21px}
+  .badge .lbl{font-size:8.5px;font-weight:700;letter-spacing:.5px;opacity:.92;margin-top:2px}
+  .card .meta{min-width:0}
+  .card .name{font-weight:700;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .tag{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;margin-top:8px}
+  .tag.good{background:var(--greenlt);color:var(--greendk)}
+  .tag.teil{background:#fef3c7;color:#92400e}
+  /* DETAIL */
+  .overlay{position:fixed;inset:0;background:rgba(20,40,28,.5);display:none;align-items:center;justify-content:center;padding:18px;z-index:50;backdrop-filter:blur(2px)}
+  .overlay.open{display:flex}
+  .panel{background:#fff;border-radius:20px;max-width:580px;width:100%;max-height:88vh;overflow:auto;padding:24px}
+  .panel h2{margin:0 0 2px;font-size:21px}
+  .panel .marke{color:var(--muted);font-size:14px;margin-bottom:16px}
+  .scorebar{display:flex;align-items:center;gap:14px;margin:8px 0 20px}
+  .bigbadge{width:76px;height:76px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;flex:0 0 76px;box-shadow:inset 0 0 0 4px rgba(255,255,255,.25)}
+  .bigbadge .num{font-size:28px}
+  .row{margin:10px 0}
+  .row .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+  .row .top b{font-weight:600}
+  .track{height:9px;background:#eef3ef;border-radius:6px;overflow:hidden}
+  .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--green2),var(--green))}
+  .note{font-size:13.5px;line-height:1.5;background:var(--greenlt);border:1px solid #d4e8db;border-radius:12px;padding:11px 13px;margin-top:10px}
+  .note h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green)}
+  .teilhint{background:#fffbeb;border-color:#fde68a;color:#92400e}
+  .close{float:right;border:none;background:#eef3ef;border-radius:10px;padding:7px 12px;cursor:pointer;font-size:14px;color:var(--ink)}
+  .formula{font-size:12px;color:var(--muted);margin-top:2px}
+  .footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);text-align:center}
+  .footer b{color:var(--green)}
+  .loading{padding:50px;text-align:center;color:var(--muted)}
+  .tabbtn{padding:9px 18px;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+  .tabbtn.active{background:var(--green);color:#fff;border-color:var(--green)}
+</style>
+</head>
+<body>
+<div class="hero"><div class="wrap">
+  <div class="brand">
+    <svg class="leaf" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z" fill="#a7e3bb"/>
+      <path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z" stroke="#ffffff" stroke-width="1.4"/>
+      <path d="M9 15c2.5-3 5-5 8-6" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+    <h1>CleanBase</h1>
+  </div>
+  <p class="tag">Echte Qualität, Transparenz & smarte Ernährung.</p>
+  <p class="sub">Unabhängige, wissenschaftsbasierte Bewertung – der Clean Score (0–100).</p>
+</div></div>
+
+<div class="principles"><div class="wrap">
+  <div><span class="dot"></span>100 % unabhängig – keine Hersteller-Beeinflussung</div>
+  <div><span class="dot"></span>Wissenschaftlich basiert</div>
+  <div><span class="dot"></span>Transparent & verständlich erklärt</div>
+  <div><span class="dot"></span>Für dich gemacht</div>
+</div></div>
+
+<div class="container">
+  <div class="tabs" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <button id="tabProd" class="tabbtn active" onclick="setMode('produkte')">Produkte</button>
+    <button id="tabRez" class="tabbtn" onclick="setMode('rezepte')">Rezepte</button>
+    <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')">+ Vorschlagen</button>
+    <button id="tabTb" class="tabbtn" onclick="setMode('tagebuch')">Tagebuch</button>
+    <button id="tabFg" class="tabbtn" onclick="setMode('freigabe')">Freigabe</button>
+  </div>
+  <div id="prodView">
+  <div class="controls">
+    <input type="search" id="q" placeholder="Produkt, Marke oder Kategorie suchen…" />
+    <select id="kat"><option value="">Alle Kategorien</option></select>
+    <select id="sort">
+      <option value="score">Score (hoch → niedrig)</option>
+      <option value="name">Name (A–Z)</option>
+    </select>
+    <label><input type="checkbox" id="onlyfull" /> nur voll bewertet</label>
+  </div>
+  <div class="stats" id="stats">Lade Daten…</div>
+  <div class="grid" id="grid"></div>
+  </div>
+  <div id="rezeptView" style="display:none">
+    <div class="stats" id="rezeptStats">Lade Rezepte…</div>
+    <div class="grid" id="rezeptGrid"></div>
+  </div>
+  <div id="vorschlagView" style="display:none">
+    <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:18px">
+      <h2 style="margin:.1em 0 .15em;font-size:19px">Produkt vorschlagen</h2>
+      <p style="color:#6b7280;font-size:13.5px;margin:.2em 0 14px">Link einfügen oder Barcode scannen – wir holen die Daten und legen das Produkt als <b>Entwurf</b> an. Es wird geprüft, bevor es öffentlich erscheint.</p>
+      <input id="vorInput" type="text" placeholder="Produkt-Link oder Barcode (EAN)…" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px" />
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button id="vorScan" onclick="toggleScan()" style="flex:1;min-width:130px;padding:12px;border:0;border-radius:10px;background:#eef2f5;font-size:15px;cursor:pointer">📷 Barcode scannen</button>
+        <button id="vorSend" onclick="sendVorschlag()" style="flex:1;min-width:130px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Senden</button>
+      </div>
+      <div id="vorReader" style="margin-top:12px"></div>
+      <div id="vorMsg" style="margin-top:12px;font-size:14px;line-height:1.45"></div>
+    </div>
+  </div>
+  <div id="tagebuchView" style="display:none">
+    <div style="max-width:600px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <h2 style="margin:0;font-size:19px">Tagebuch · Sandra</h2>
+        <input type="date" id="tbDatum" onchange="loadTagebuch()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">
+      </div>
+      <div id="tbZiel" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:8px">Mahlzeit eintragen</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="tbMahlzeit" style="flex:1;min-width:120px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+            <option>Frühstück</option><option>Mittag</option><option>Abendessen</option><option>Snack</option>
+          </select>
+          <input list="tbProdListe" id="tbProd" placeholder="Produkt aus Liste wählen…" onchange="tbPrefillMenge()" style="flex:2;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <datalist id="tbProdListe"></datalist>
+          <button onclick="tbScan()" title="Barcode scannen" style="padding:10px 12px;border:0;border-radius:8px;background:#eef2f5;cursor:pointer">📷</button>
+          <input type="number" id="tbMenge" placeholder="g" style="width:74px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <button onclick="addTbEntry()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">+ Eintragen</button>
+        </div>
+        <div id="tbReader" style="margin-top:10px"></div>
+        <div id="tbMsg" style="font-size:13px;margin-top:8px"></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:8px">Rezept als Mahlzeit einfügen</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="tbRezept" style="flex:1;min-width:180px;padding:10px;border:1px solid #d1d5db;border-radius:8px"><option value="">Rezept wählen…</option></select>
+          <button onclick="addRezeptMahlzeit()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Einfügen</button>
+        </div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px">Fügt die verknüpften Zutaten des Rezepts (mit g-Mengen) in die oben gewählte Mahlzeit ein.</div>
+        <div id="tbRezMsg" style="font-size:13px;margin-top:6px"></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:8px">Manuell eintragen (ohne Katalog)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input id="mName" placeholder="Lebensmittel…" style="flex:2;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <input type="number" id="mMenge" placeholder="g" style="width:66px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <input type="number" id="mKcal" placeholder="kcal" style="width:78px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <input type="number" id="mEiw" placeholder="Eiweiß g" style="width:96px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <input type="number" id="mKh" placeholder="KH g" style="width:74px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <input type="number" id="mFett" placeholder="Fett g" style="width:80px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <button onclick="addManuell()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">+ Manuell</button>
+        </div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px">Werte gelten für die eingegebene Portion. Mahlzeit oben wählen.</div>
+        <div id="mMsg" style="font-size:13px;margin-top:6px"></div>
+      </div>
+      <div id="tbListe"></div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-top:12px">
+        <div style="font-weight:600;margin-bottom:8px">Gewicht</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="number" id="tbGewicht" placeholder="kg" step="0.1" style="width:100px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <button onclick="saveGewicht()" style="padding:10px 16px;border:0;border-radius:8px;background:#eef2f5;cursor:pointer">Speichern</button>
+          <span id="tbGewichtInfo" style="font-size:13px;color:#6b7280"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="freigabeView" style="display:none">
+    <div style="max-width:640px;margin:0 auto">
+      <h2 style="margin:.1em 0 .35em;font-size:19px">Freigabe</h2>
+      <div style="color:#6b7280;font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen und freischalten. Nur vollständig bewertete Produkte sind freigebbar – der Rest wird von CleanBase ergänzt.</div>
+      <div id="fgEntwuerfe"></div>
+      <h3 style="font-size:16px;margin:18px 0 6px">Scan-Warteschlange (noch ohne Daten)</h3>
+      <div id="fgQueue" style="font-size:14px;color:#374151;line-height:1.7"></div>
+    </div>
+  </div>
+  <div class="footer">Daten <b>live</b> aus CleanBase · read-only · MVP-Vorschau<br>
+    <span style="font-size:11.5px">CleanBase hilft dir, bessere Entscheidungen zu treffen – schnell, einfach und vertrauenswürdig.</span>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="panel" id="panel"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+<script>
+const SUPABASE_URL = "https://haurbpfkfaaehorirzee.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
+
+const SCORE_TEIL = [
+  ["p_zutaten","Zutatenqualität",30,1],
+  ["p_zusatzstoffe","Zusatzstoffe",15,1],
+  ["p_nova","Verarbeitungsgrad (NOVA)",15,1],
+  ["p_naehrwert","Nährwertqualität",40,2],
+];
+const EXTRA_TEIL = [
+  ["p_preis","Preis/Leistung",20],
+  ["p_transparenz","Transparenz / Datenlage",15],
+  ["p_alltag","Alltagstauglichkeit",15],
+];
+const MACROS = [
+  ["m_kcal","Energie","kcal"],
+  ["m_fett","Fett","g"],
+  ["m_ges_fett","– davon gesättigte","g"],
+  ["m_kh","Kohlenhydrate","g"],
+  ["m_zucker","– davon Zucker","g"],
+  ["m_ballast","Ballaststoffe","g"],
+  ["m_protein","Eiweiß","g"],
+  ["m_salz","Salz","g"],
+];
+function farbe(b){
+  if(b==="Sehr gut")return "#16a34a";
+  if(b==="Gut")return "#65a30d";
+  if(b==="Mittel")return "#e8920c";
+  if(b==="Schwach")return "#dc2626";
+  return "#9aa7a0";
+}
+function num(x){return x===null||x===undefined?null:Number(x);}
+function donut(score,col,size){
+  size=size||62; const r=25, c=2*Math.PI*r;
+  const v=(score==null)?0:Math.max(0,Math.min(100,score)), off=c*(1-v/100);
+  const txt=(score==null)?"–":String(Math.round(score)), fs=Math.round(size*(txt.length>=3?0.24:0.29));
+  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" style="flex:0 0 ${size}px" aria-hidden="true">`
+    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="#e9efea" stroke-width="6"/>`
+    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 32 32)"/>`
+    +`<text x="32" y="33" text-anchor="middle" dominant-baseline="central" font-size="${fs}" font-weight="700" fill="${col}" font-family="-apple-system,BlinkMacSystemFont,sans-serif">${txt}</text>`
+    +`</svg>`;
+}
+function efChip(ef){
+  if(!ef) return "";
+  const map={"vegan":["#e7f4ec","#1f5e34"],"vegetarisch":["#eef6e9","#4d7c0f"],"enthält Tierprodukte":["#f3eee6","#7c5e3a"]};
+  const c=map[ef]||["#eef2f6","#475569"];
+  return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:${c[0]};color:${c[1]}">${esc(ef)}</span>`;
+}
+function statusTag(d){
+  if(d.clean_score===null||d.clean_score===undefined)
+    return `<span class="tag" style="background:#eef2f6;color:#64748b">noch nicht bewertet</span>`;
+  return `<span class="tag ${d.score_vollstaendig?"good":"teil"}">${d.score_vollstaendig?esc(d.bewertung):"Teilbewertung"}</span>`;
+}
+function erklaerung(d){
+  if(d.clean_score==null) return "Noch nicht bewertet – es fehlen die Zutaten-/Produktdaten.";
+  const zus=num(d.p_zusatzstoffe), nova=num(d.p_nova), zut=num(d.p_zutaten);
+  const plus=[], minus=[];
+  if(zus>=15) plus.push("keine Zusatzstoffe"); else if(zus!=null && zus<=4) minus.push("künstliche Süßstoffe/Zusätze");
+  if(nova>=15) plus.push("unverarbeitet (Vollwert)"); else if(nova!=null && nova<=3) minus.push("stark verarbeitet (NOVA 4)"); else if(nova!=null) minus.push("verarbeitet/isoliert");
+  if(zut!=null && zut>=27) plus.push("hochwertige Zutaten"); else if(zut!=null && zut<=15) minus.push("isolierte/raffinierte Zutaten");
+  let t="";
+  if(plus.length) t+="Stark: "+plus.join(", ")+". ";
+  if(minus.length) t+="Schwächer: "+minus.join(", ")+". ";
+  return t.trim();
+}
+let ALL=[];
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function load(){
+  const {data,error} = await client.from("v_web_produkte").select("*");
+  if(error){document.getElementById("stats").textContent="Fehler beim Laden: "+error.message;return;}
+  ALL = data.map(d=>({...d, clean_score:num(d.clean_score)}));
+  const kats=[...new Set(ALL.map(d=>d.kategorie).filter(Boolean))].sort();
+  const sel=document.getElementById("kat");
+  kats.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;sel.appendChild(o);});
+  render();
+}
+function render(){
+  const q=document.getElementById("q").value.toLowerCase().trim();
+  const kat=document.getElementById("kat").value;
+  const sort=document.getElementById("sort").value;
+  const onlyfull=document.getElementById("onlyfull").checked;
+  let list=ALL.filter(d=>{
+    if(kat && d.kategorie!==kat)return false;
+    if(onlyfull && d.ki_nutzbar!=="Ja")return false;
+    if(q && !((d.name||"").toLowerCase().includes(q)||(d.marke||"").toLowerCase().includes(q)||(d.kategorie||"").toLowerCase().includes(q)))return false;
+    return true;
+  });
+  list.sort((a,b)=> sort==="name" ? (a.name||"").localeCompare(b.name||"") : (b.clean_score??-1)-(a.clean_score??-1));
+  document.getElementById("stats").textContent=`${list.length} Produkt(e) · live aus der Datenbank`;
+  const grid=document.getElementById("grid");grid.innerHTML="";
+  list.forEach(d=>{
+    const c=document.createElement("div");c.className="card";c.onclick=()=>detail(d);
+    const col=farbe(d.bewertung);
+    c.innerHTML=`
+      ${donut(d.clean_score, col, 62)}
+      <div class="meta">
+        <div class="name">${esc(d.name)}</div>
+        <div class="sub">${esc(d.marke||"")} · ${esc(d.kategorie||"")}</div>
+        ${statusTag(d)}${efChip(d.ernaehrungsform)}
+      </div>`;
+    grid.appendChild(c);
+  });
+}
+function detail(d){
+  const col=farbe(d.bewertung);
+  const mkRows = arr => arr.map(([k,label,max,mult])=>{
+    const m=mult||1; const raw=num(d[k]); const v=raw===null?null:raw*m;
+    const pct=v===null?0:Math.max(0,Math.min(100,(v/max)*100));
+    return `<div class="row"><div class="top"><b>${label}</b><span>${v===null?"– n/a":v+" / "+max}</span></div>
+      <div class="track"><div class="fill" style="width:${pct}%;${v===null?'background:#d5ded8':''}"></div></div></div>`;
+  }).join("");
+  const rows = mkRows(SCORE_TEIL);
+  const extra = mkRows(EXTRA_TEIL);
+  const zlist = Array.isArray(d.zutaten) ? d.zutaten : [];
+  const zHtml = zlist.length ? zlist.map(z=>{
+    const krit = (String(z.kritisch||"")).toLowerCase()==="ja";
+    const bg = krit?"#fde8e8":(z.rating>=8?"#e7f4ec":(z.rating>=5?"#fff7e6":"#fde8e8"));
+    const tc = krit?"#b91c1c":(z.rating>=8?"#1f5e34":(z.rating>=5?"#92400e":"#b91c1c"));
+    return `<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:${bg};color:${tc}">${esc(z.name)}${krit?" ⚠️":""}</span>`;
+  }).join("") : '<span style="color:var(--muted);font-size:13px">keine Zutaten hinterlegt</span>';
+  const mRows = MACROS.filter(([k])=>d[k]!==null && d[k]!==undefined).map(([k,label,unit])=>
+    `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)"><span>${label}</span><span style="font-weight:600">${num(d[k])} ${unit}</span></div>`
+  ).join("");
+  const variants = ALL.filter(x=>x.variante_von===d.id);
+  let varNote="";
+  if(variants.length) varNote = "Auch erhältlich: "+variants.map(v=>esc(v.name)).join(", ");
+  else if(d.variante_von){ const base=ALL.find(x=>x.id===d.variante_von); if(base) varNote="Variante von: "+esc(base.name); }
+  const panel=document.getElementById("panel");
+  panel.innerHTML=`
+    <button class="close" onclick="closeP()">Schließen ✕</button>
+    <h2>${esc(d.name)}</h2>
+    <div class="marke">${esc(d.marke||"")} · ${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
+    ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
+    <div class="scorebar">
+      ${donut(d.clean_score, col, 96)}
+      <div><div style="font-size:19px;font-weight:800;color:${col}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div>
+      <div class="formula">${(d.kategorie||"").toLowerCase()==="supplement"?"Clean Score = Inhaltsstoffe (Nährwert entfällt bei Supplements)":"Clean Score = Inhaltsstoffe (60) + Nährwert (40)"}</div></div>
+    </div>
+    ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
+    ${d.clean_score!=null?`<div class="note"><h4>Warum dieser Score?</h4>${esc(erklaerung(d))}</div>`:""}
+    ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Score kann sich ändern.</div>`:""}
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Clean Score</div>
+    ${rows}
+    ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Zutaten</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#1f5e34;margin-right:3px"></span>gut (Vollwert)
+      &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8920c;margin-right:3px"></span>mittel (verarbeitet)
+      &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px"></span>kritisch ⚠️
+    </div>
+    <div>${zHtml}</div>
+    ${zlist.filter(z=>z.info).length?`<div style="margin-top:8px">${zlist.filter(z=>z.info).map(z=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:#f8fafc;border:1px solid var(--line);border-radius:9px"><b>${esc(z.name)}</b>${(String(z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(z.info)}</div>`).join("")}</div>`:""}
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:18px 0 4px">Weitere Infos (nicht im Score)</div>
+    ${extra}
+    ${d.warum?`<div class="note"><h4>Warum empfohlen</h4>${esc(d.warum)}</div>`:""}
+    ${d.schwaechen?`<div class="note teilhint"><h4>Schwächen</h4>${esc(d.schwaechen)}</div>`:""}
+  `;
+  document.getElementById("overlay").classList.add("open");
+}
+function closeP(){document.getElementById("overlay").classList.remove("open");}
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));}
+document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")closeP();};
+["q","kat","sort","onlyfull"].forEach(id=>document.getElementById(id).addEventListener("input",render));
+
+let REZEPTE=null;
+function setMode(m){
+  document.getElementById("tabProd").classList.toggle("active",m==="produkte");
+  document.getElementById("tabRez").classList.toggle("active",m==="rezepte");
+  document.getElementById("tabVor").classList.toggle("active",m==="vorschlagen");
+  document.getElementById("tabTb").classList.toggle("active",m==="tagebuch");
+  document.getElementById("tabFg").classList.toggle("active",m==="freigabe");
+  document.getElementById("prodView").style.display = m==="produkte"?"":"none";
+  document.getElementById("rezeptView").style.display = m==="rezepte"?"":"none";
+  document.getElementById("vorschlagView").style.display = m==="vorschlagen"?"":"none";
+  document.getElementById("tagebuchView").style.display = m==="tagebuch"?"":"none";
+  document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
+  if(m==="rezepte" && REZEPTE===null) loadRezepte();
+  if(m==="tagebuch") loadTagebuch();
+  if(m==="freigabe") loadFreigabe();
+  if(m!=="vorschlagen") stopScan();
+}
+
+/* ---- Tagebuch ---- */
+const TB_USER="U001";
+function tbToday(){ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+function fillProdList(){
+  const dl=document.getElementById("tbProdListe"); if(!dl||dl.children.length||!ALL.length) return;
+  ALL.forEach(p=>{ const o=document.createElement("option"); o.value=p.name+(p.marke?" · "+p.marke:""); dl.appendChild(o); });
+}
+function tbResolveId(){
+  const v=(document.getElementById("tbProd").value||"").trim().toLowerCase(); if(!v) return null;
+  const p=ALL.find(x=>(x.name+(x.marke?" · "+x.marke:"")).toLowerCase()===v) || ALL.find(x=>(x.name||"").toLowerCase()===v);
+  return p?p.id:null;
+}
+function tbDefaultPortion(p){
+  const u=(p.unterkategorie||"").toLowerCase(), k=(p.kategorie||"").toLowerCase();
+  const mu={"proteinpulver":30,"whey protein":30,"whey isolate":30,"mehrkomponentenprotein":30,"mehrkomponentenprotein (vegan)":30,
+    "geschmackspulver":5,"getränkepulver / flavour powder":5,"elektrolyt-pulver":10,"kreatin":5,"süßungsmittel":1,"süßstoff-tropfen":1,
+    "vitamin-kapseln":2,"vitamin-tabletten":2,"vitamin-/mineralpulver":5,"bitterstoffe":3,"kräuter-bitterstoffe":3,
+    "pflanzendrink":250,"protein-pflanzendrink":250,
+    "wurst":30,"schinken":30,"fleisch":150,"fisch":150,"ei":60,
+    "quark":150,"skyr":150,"hüttenkäse":150,"kräuterquark":150,"käse":30,"kochsahne":15,
+    "nüsse":30,"samen":20,"nussmus":20,"tk-frucht":100,"gemüse":100,
+    "beilage":60,"nudeln":60,"pasta gefüllt":125,"haferflocken":50,"dinkelflocken":50,"reiswaffeln":20};
+  if(mu[u]!=null) return mu[u];
+  const mk={"proteinpulver":30,"supplement":5,"getränk":250,"fleisch & fisch":150,"snack":20};
+  return mk[k]!=null?mk[k]:100;
+}
+function tbPrefillMenge(){
+  const id=tbResolveId(); if(!id) return;
+  const p=ALL.find(x=>x.id===id); if(!p) return;
+  document.getElementById("tbMenge").value=tbDefaultPortion(p);
+}
+async function loadTagebuch(){
+  const dEl=document.getElementById("tbDatum"); if(!dEl.value) dEl.value=tbToday();
+  if(!ALL.length){ await load(); }
+  fillProdList(); loadRezeptDropdown();
+  const datum=dEl.value;
+  const {data:eintraege}=await client.from("v_tagebuch_eintraege").select("*").eq("Benutzer_ID",TB_USER).eq("Datum",datum).order("Eintrag_ID");
+  const {data:summe}=await client.from("v_tagebuch_tagessumme").select("*").eq("Benutzer_ID",TB_USER).eq("Datum",datum);
+  const {data:ben}=await client.from("Benutzer").select("*").eq("Benutzer_ID",TB_USER).maybeSingle();
+  renderZiel(summe&&summe[0], ben);
+  renderTbListe(eintraege||[]);
+  const {data:gw}=await client.from("Gewicht_Verlauf").select("*").eq("Benutzer_ID",TB_USER).order("Datum",{ascending:false}).limit(1);
+  document.getElementById("tbGewichtInfo").textContent = (gw&&gw[0])?("Zuletzt: "+gw[0].Gewicht_kg+" kg ("+gw[0].Datum+")"):"noch kein Gewicht erfasst";
+}
+function tbDonut(ist,soll,label,unit,isMax){
+  ist=ist||0;
+  const ratio = soll? ist/soll : 0, pct = soll? Math.round(ratio*100) : 0;
+  let col="#9ca3af";
+  if(soll){
+    if(isMax) col = ratio>1?"#dc2626":(ratio>=0.8?"#65a30d":"#16a34a");
+    else      col = ratio>=0.9?"#16a34a":(ratio>=0.6?"#65a30d":"#e8920c");
+  }
+  const r=26, c=2*Math.PI*r, off=c*(1-(soll?Math.min(1,ratio):0));
+  return `<div style="text-align:center;width:88px;margin:4px">
+    <svg viewBox="0 0 64 64" width="66" height="66">
+      <circle cx="32" cy="32" r="${r}" fill="none" stroke="#eef2f5" stroke-width="7"/>
+      <circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 32 32)"/>
+      <text x="32" y="33" text-anchor="middle" font-size="13" font-weight="700" fill="#111">${Math.round(ist)}</text>
+      <text x="32" y="45" text-anchor="middle" font-size="8" fill="#6b7280">${soll?("/ "+Math.round(soll)):""}</text>
+    </svg>
+    <div style="font-size:12px;color:#374151">${label}${unit?" "+unit:""}${soll?(" · "+pct+"%"):""}</div>
+  </div>`;
+}
+function zielForm(){ return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+  <input type="number" id="zKcal" placeholder="kcal-Ziel" style="width:104px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+  <input type="number" id="zEiw" placeholder="Eiweiß g" style="width:100px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+  <input type="number" id="zKh" placeholder="KH max g" style="width:96px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+  <input type="number" id="zFett" placeholder="Fett max g" style="width:104px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+  <button onclick="setZiel()" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Ziel speichern</button></div>`; }
+function renderZiel(s,ben){
+  const el=document.getElementById("tbZiel");
+  const kcalZ=ben&&ben.Kalorienziel_kcal, eiwZ=ben&&ben.Eiweiss_ziel_g, khZ=ben&&ben.KH_ziel_g, fettZ=ben&&ben.Fett_ziel_g;
+  if(!kcalZ){ el.innerHTML='<div style="font-weight:600;margin-bottom:6px">Kein Tagesziel gesetzt</div>'+zielForm(); return; }
+  el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:600">Tagesziel</div><button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:#6b7280;cursor:pointer;text-decoration:underline">ändern</button></div>'
+    + '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:2px">'
+      + tbDonut(s&&s.kcal,kcalZ,"kcal","",true)
+      + tbDonut(s&&s.protein,eiwZ,"Eiweiß","g",false)
+      + tbDonut(s&&s.kh,khZ,"KH","g",true)
+      + tbDonut(s&&s.fett,fettZ,"Fett","g",true)
+    + '</div>'
+    + `<div style="font-size:11.5px;color:#6b7280;margin-top:6px;text-align:center">Eiweiß = Mindestziel (grün ab 90 %) · Fett/KH/kcal = Obergrenze (rot über 100 %) · Ø Clean Score: ${(s&&s.score_schnitt!=null)?s.score_schnitt:"–"}</div>`;
+}
+async function setZiel(){
+  const kcal=parseFloat(document.getElementById("zKcal").value)||null, eiw=parseFloat(document.getElementById("zEiw").value)||null,
+        kh=parseFloat(document.getElementById("zKh").value)||null, fett=parseFloat(document.getElementById("zFett").value)||null;
+  if(!kcal) return;
+  await client.rpc("ziel_setzen",{p_benutzer:TB_USER,p_kcal:kcal,p_eiweiss:eiw,p_kh:kh,p_fett:fett});
+  loadTagebuch();
+}
+function renderTbListe(items){
+  const el=document.getElementById("tbListe");
+  if(!items.length){ el.innerHTML='<div style="color:#6b7280;font-size:14px;padding:8px">Noch keine Einträge für diesen Tag.</div>'; return; }
+  let html="";
+  ["Frühstück","Mittag","Abendessen","Snack"].forEach(m=>{
+    const rows=items.filter(i=>i.Mahlzeit===m); if(!rows.length) return;
+    const mk=rows.reduce((a,b)=>a+(+b.kcal||0),0);
+    html+=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-weight:600;margin-bottom:6px"><span>${m}</span><span>${Math.round(mk)} kcal</span></div>`;
+    rows.forEach(r=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:4px 0;border-top:1px solid #f1f5f9"><span>${esc(r.Produktname||"?")} <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g});return false" style="color:#2563eb;text-decoration:none">· ${r.Menge_g} g ✎</a></span><span>${Math.round(+r.kcal||0)} kcal <button onclick="delTb(${r.Eintrag_ID})" style="border:0;background:none;color:#dc2626;cursor:pointer;font-size:15px">✕</button></span></div>`; });
+    html+=`</div>`;
+  });
+  el.innerHTML=html;
+}
+async function addTbEntry(){
+  const pid=tbResolveId(), menge=parseFloat(document.getElementById("tbMenge").value), mahl=document.getElementById("tbMahlzeit").value, datum=document.getElementById("tbDatum").value, msg=document.getElementById("tbMsg");
+  if(!pid){ msg.style.color="#dc2626"; msg.textContent="Produkt nicht gefunden – bitte aus der Vorschlagsliste wählen."; return; }
+  if(!menge||menge<=0){ msg.style.color="#dc2626"; msg.textContent="Menge in Gramm angeben."; return; }
+  const {error}=await client.rpc("tagebuch_eintragen",{p_benutzer:TB_USER,p_mahlzeit:mahl,p_produkt:pid,p_menge_g:menge,p_datum:datum});
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  msg.style.color="#16a34a"; msg.textContent="✓ eingetragen";
+  document.getElementById("tbProd").value=""; document.getElementById("tbMenge").value="";
+  loadTagebuch();
+}
+async function delTb(id){ await client.rpc("tagebuch_loeschen",{p_eintrag:id}); loadTagebuch(); }
+async function saveGewicht(){
+  const kg=parseFloat(document.getElementById("tbGewicht").value); if(!kg) return;
+  await client.rpc("gewicht_eintragen",{p_benutzer:TB_USER,p_kg:kg,p_datum:document.getElementById("tbDatum").value||tbToday()});
+  document.getElementById("tbGewicht").value=""; loadTagebuch();
+}
+async function editMenge(id,cur){
+  const n=prompt("Neue Menge in Gramm:", cur);
+  if(n===null) return;
+  const v=parseFloat(String(n).replace(",",".")); if(!v||v<=0) return;
+  await client.rpc("tagebuch_menge",{p_eintrag:id,p_menge_g:v});
+  loadTagebuch();
+}
+async function loadRezeptDropdown(){
+  const sel=document.getElementById("tbRezept"); if(!sel||sel.dataset.loaded) return;
+  const {data}=await client.from("v_web_rezepte").select("id,name").order("name");
+  (data||[]).forEach(r=>{ const o=document.createElement("option"); o.value=r.id; o.textContent=r.name; sel.appendChild(o); });
+  sel.dataset.loaded="1";
+}
+async function addRezeptMahlzeit(){
+  const rid=document.getElementById("tbRezept").value, mahl=document.getElementById("tbMahlzeit").value, datum=document.getElementById("tbDatum").value, msg=document.getElementById("tbRezMsg");
+  if(!rid){ msg.style.color="#dc2626"; msg.textContent="Bitte ein Rezept wählen."; return; }
+  const {data,error}=await client.rpc("rezept_als_mahlzeit",{p_benutzer:TB_USER,p_mahlzeit:mahl,p_rezept:rid,p_datum:datum});
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  msg.style.color="#16a34a"; msg.textContent=data; loadTagebuch();
+}
+async function addManuell(){
+  const name=(document.getElementById("mName").value||"").trim(), menge=parseFloat(document.getElementById("mMenge").value)||0,
+        kcal=parseFloat(document.getElementById("mKcal").value)||null, eiw=parseFloat(document.getElementById("mEiw").value)||null,
+        kh=parseFloat(document.getElementById("mKh").value)||null, fett=parseFloat(document.getElementById("mFett").value)||null,
+        mahl=document.getElementById("tbMahlzeit").value, datum=document.getElementById("tbDatum").value, msg=document.getElementById("mMsg");
+  if(!name){ msg.style.color="#dc2626"; msg.textContent="Name angeben."; return; }
+  const {error}=await client.rpc("tagebuch_manuell",{p_benutzer:TB_USER,p_mahlzeit:mahl,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum});
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  msg.style.color="#16a34a"; msg.textContent="✓ "+name+" eingetragen";
+  ["mName","mMenge","mKcal","mEiw","mKh","mFett"].forEach(id=>document.getElementById(id).value="");
+  loadTagebuch();
+}
+async function loadFreigabe(){
+  const {data:ent}=await client.from("v_freigabe_entwuerfe").select("*").order("id");
+  const el=document.getElementById("fgEntwuerfe");
+  if(!ent||!ent.length){ el.innerHTML='<div style="color:#6b7280">Keine offenen Entwürfe.</div>'; }
+  else { el.innerHTML=ent.map(p=>`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <div><b>${esc(p.name||"?")}</b> <span style="color:#6b7280">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:#6b7280">${p.id} · ${esc(p.kategorie||"")} · Score ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div></div>
+        ${p.vollstaendig?`<button onclick="freigeben('${p.id}')" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Freigeben</button>`:`<span style="font-size:12px;color:#b45309">unvollständig – CleanBase ergänzt</span>`}
+      </div></div>`).join(""); }
+  const {data:q}=await client.from("Scan_Warteschlange").select("*").eq("Status","offen").order("Eintrag_ID",{ascending:false});
+  document.getElementById("fgQueue").innerHTML = (q&&q.length)? q.map(x=>"• "+esc(x.EAN)+' <span style="color:#6b7280">('+esc(x.Quelle||"")+")</span>").join("<br>") : '<span style="color:#6b7280">leer</span>';
+}
+async function freigeben(id){
+  const {error}=await client.rpc("produkt_pruefen_freigeben",{p_id:id});
+  if(error){ alert("Fehler: "+error.message); return; }
+  loadFreigabe();
+}
+
+/* ---- Produkt vorschlagen (Link/Barcode → Edge Function → Entwurf) ---- */
+const FN_URL = SUPABASE_URL + "/functions/v1/produkt-vorschlagen";
+let _scanning = false, _lastCode = null, _lastCount = 0, _scanCb = null;
+function setVorMsg(t,color){ const e=document.getElementById("vorMsg"); if(!e)return; e.style.color=color||"#374151"; e.innerHTML=t; }
+async function sendVorschlag(){
+  const v=(document.getElementById("vorInput").value||"").trim();
+  if(!v){ setVorMsg("Bitte einen Link oder Barcode eingeben.","#dc2626"); return; }
+  setVorMsg("⏳ Hole Daten aus Open Food Facts…");
+  const isUrl=/^https?:\/\//i.test(v);
+  try{
+    const r=await fetch(FN_URL,{ method:"POST",
+      headers:{ "Content-Type":"application/json","Authorization":"Bearer "+SUPABASE_KEY,"apikey":SUPABASE_KEY },
+      body: JSON.stringify(isUrl?{url:v}:{ean:v}) });
+    const j=await r.json();
+    if(j.ok){ setVorMsg("✅ Als <b>Entwurf</b> angelegt – wird vor Veröffentlichung geprüft. Danke!","#16a34a"); document.getElementById("vorInput").value=""; }
+    else { setVorMsg("⚠️ "+(j.message||j.error||"Konnte nicht erfasst werden."),"#b45309"); }
+  }catch(e){ setVorMsg("Fehler: "+e.message,"#dc2626"); }
+}
+function _onDetected(res){
+  const code = res && res.codeResult && res.codeResult.code; if(!code) return;
+  if(code===_lastCode){ _lastCount++; } else { _lastCode=code; _lastCount=1; }
+  if(_lastCount<2) return;
+  const cb=_scanCb; stopScan(); if(cb) cb(code);
+}
+function stopScan(){
+  if(_scanning){ try{ Quagga.offDetected(_onDetected); }catch(e){} try{ Quagga.stop(); }catch(e){} _scanning=false; }
+  _lastCode=null; _lastCount=0; _scanCb=null;
+  ["vorReader","tbReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
+}
+function _startScan(targetId, cb){
+  if(_scanning){ stopScan(); return; }
+  if(!window.Quagga){ alert("Scanner lädt noch – gleich nochmal versuchen."); return; }
+  _scanCb=cb;
+  document.getElementById(targetId).innerHTML=
+    '<style>#qbox{position:relative;min-height:210px;background:#000;border-radius:10px;overflow:hidden}#qbox video,#qbox canvas{width:100%!important;height:auto!important;display:block}#qbox canvas.drawingBuffer{position:absolute;top:0;left:0}</style>'
+    +'<div id="qbox" style="max-width:360px;margin:0 auto"></div>'
+    +'<div style="text-align:center;font-size:12px;color:#6b7280;margin-top:6px">Barcode formatfüllend &amp; scharf ins Bild halten.</div>';
+  Quagga.init({
+    inputStream:{ type:"LiveStream", target:document.getElementById("qbox"),
+      constraints:{ facingMode:"environment", width:{ideal:1280}, height:{ideal:720} } },
+    locator:{ patchSize:"medium", halfSample:true },
+    numOfWorkers:(navigator.hardwareConcurrency||4), frequency:10,
+    decoder:{ readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader"] }, locate:true
+  }, function(err){ if(err){ alert("Kamera nicht verfügbar: "+err); _scanning=false; _scanCb=null; return; } _scanning=true; Quagga.start(); });
+  Quagga.onDetected(_onDetected);
+}
+function toggleScan(){ _startScan("vorReader",(code)=>{ document.getElementById("vorInput").value=code; setVorMsg("✅ Barcode erkannt: <b>"+code+"</b> – jetzt „Senden“ tippen.","#16a34a"); }); }
+function tbScan(){ _startScan("tbReader", async (code)=>{
+  const tbm=document.getElementById("tbMsg");
+  try{
+    const {data}=await client.rpc("produkt_by_ean",{p_ean:code});
+    if(data&&data.id){ document.getElementById("tbProd").value=data.name+(data.marke?" · "+data.marke:""); tbPrefillMenge(); tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; }
+    else {
+      try{ const {data:q}=await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
+        tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. CleanBase ergänzt es und schaltet es nach Prüfung frei.<br><span style='font-size:12px;color:#6b7280'>"+(q||"")+"</span>"; }
+      catch(e){ tbm.style.color="#b45309"; tbm.textContent="Barcode "+code+" nicht im Katalog ("+e.message+")."; }
+    }
+  }catch(e){ tbm.style.color="#dc2626"; tbm.textContent="Fehler: "+e.message; }
+}); }
+async function loadRezepte(){
+  const {data,error}=await client.from("v_web_rezepte").select("*");
+  if(error){document.getElementById("rezeptStats").textContent="Fehler: "+error.message;return;}
+  REZEPTE=data;
+  document.getElementById("rezeptStats").textContent=`${data.length} Rezept(e) · live aus der Datenbank`;
+  const g=document.getElementById("rezeptGrid"); g.innerHTML="";
+  data.forEach(r=>{
+    const c=document.createElement("div");c.className="card";c.onclick=()=>rezeptDetail(r);
+    c.innerHTML=`<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>
+      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")}</div></div>`;
+    g.appendChild(c);
+  });
+}
+function rezeptDetail(r){
+  const z=Array.isArray(r.zutaten)?r.zutaten:[];
+  const zHtml=z.map(i=>{
+    const sc=num(i.clean_score);
+    const badge = sc!=null ? `<span style="font-size:11px;font-weight:700;color:#fff;background:${farbe(i.bewertung)};border-radius:6px;padding:1px 6px;margin-left:6px">${sc}</span>` : "";
+    return `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)"><span>${esc(i.name)}${badge}</span><span style="color:var(--muted);white-space:nowrap">${esc(i.menge||"")}</span></div>`;
+  }).join("");
+  const steps=(r.zubereitung||"").split("\n").filter(s=>s.trim()).map(s=>`<div style="margin:8px 0;font-size:14px;line-height:1.5">${esc(s)}</div>`).join("");
+  const panel=document.getElementById("panel");
+  panel.innerHTML=`<button class="close" onclick="closeP()">Schließen ✕</button>
+    <h2>${esc(r.name)}</h2>
+    <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · ${r.portionen??1} Portion(en)</div>
+    <div class="scorebar">
+      <div class="bigbadge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span style="font-size:10px">kcal</span></div>
+      <div style="font-size:13.5px;line-height:1.6">Protein <b>${r.protein??"–"} g</b> · Kohlenhydrate <b>${r.kh??"–"} g</b> · Fett <b>${r.fett??"–"} g</b>
+      <div class="formula">pro Portion</div></div>
+    </div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="color:var(--muted);text-transform:none;letter-spacing:0">(Zahl = Clean Score des Produkts)</span></div>
+    ${zHtml}
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 4px">Zubereitung</div>
+    ${steps}`;
+  document.getElementById("overlay").classList.add("open");
+}
+load();
+</script>
+</body>
+</html>
