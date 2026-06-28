@@ -151,9 +151,10 @@
     </div>
   </div>
   <div id="tagebuchView" style="display:none">
-    <div style="max-width:600px;margin:0 auto">
+    <div id="tbGate" style="display:none"></div>
+    <div id="tbInner" style="max-width:600px;margin:0 auto">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <h2 style="margin:0;font-size:19px">Tagebuch · Sandra</h2>
+        <h2 id="tbTitle" style="margin:0;font-size:19px">Tagebuch</h2>
         <input type="date" id="tbDatum" onchange="loadTagebuch()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">
       </div>
       <div id="tbZiel" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
@@ -352,6 +353,7 @@ function updateGate(){
 client.auth.onAuthStateChange(async (_e,session)=>{
   if(session){ await refreshMe(); } else { ME=null; TB_USER="U001"; }
   updateAuthUI(); updateGate();
+  const tv=document.getElementById("tagebuchView"); if(tv && tv.style.display!=="none") loadTagebuch();
 });
 (async ()=>{ try{ const {data:{session}}=await client.auth.getSession(); if(session){ await refreshMe(); } }catch(e){} updateAuthUI(); updateGate(); })();
 
@@ -504,16 +506,26 @@ function tbPrefillMenge(){
   document.getElementById("tbMenge").value=tbDefaultPortion(p);
 }
 async function loadTagebuch(){
+  const gate=document.getElementById("tbGate"), inner=document.getElementById("tbInner");
+  if(!ME){
+    if(inner) inner.style.display="none";
+    if(gate){ gate.style.display="";
+      gate.innerHTML='<div class="gatebox"><h3>Anmeldung nötig</h3><p>Dein Ernährungstagebuch ist persönlich – bitte melde dich an, um deine Einträge zu sehen und zu pflegen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden</button></div>'; }
+    return;
+  }
+  if(gate) gate.style.display="none";
+  if(inner) inner.style.display="";
+  const tt=document.getElementById("tbTitle"); if(tt) tt.textContent="Tagebuch · "+(ME.name||"");
   const dEl=document.getElementById("tbDatum"); if(!dEl.value) dEl.value=tbToday();
   if(!ALL.length){ await load(); }
   fillProdList(); loadRezeptDropdown();
   const datum=dEl.value;
-  const {data:eintraege}=await client.from("v_tagebuch_eintraege").select("*").eq("Benutzer_ID",TB_USER).eq("Datum",datum).order("Eintrag_ID");
-  const {data:summe}=await client.from("v_tagebuch_tagessumme").select("*").eq("Benutzer_ID",TB_USER).eq("Datum",datum);
-  const {data:ben}=await client.from("Benutzer").select("*").eq("Benutzer_ID",TB_USER).maybeSingle();
-  renderZiel(summe&&summe[0], ben);
+  const {data:eintraege}=await client.rpc("cb_tagebuch",{p_datum:datum});
+  const {data:summe}=await client.rpc("cb_tagessumme",{p_datum:datum});
+  const {data:profil}=await client.rpc("cb_profil");
+  renderZiel(summe&&summe[0], profil&&profil[0]);
   renderTbListe(eintraege||[]);
-  const {data:gw}=await client.from("Gewicht_Verlauf").select("*").eq("Benutzer_ID",TB_USER).order("Datum",{ascending:false}).limit(1);
+  const {data:gw}=await client.rpc("cb_gewicht");
   document.getElementById("tbGewichtInfo").textContent = (gw&&gw[0])?("Zuletzt: "+gw[0].Gewicht_kg+" kg ("+gw[0].Datum+")"):"noch kein Gewicht erfasst";
 }
 function tbDonut(ist,soll,label,unit,isMax){
@@ -558,7 +570,7 @@ async function setZiel(){
   const kcal=parseFloat(document.getElementById("zKcal").value)||null, eiw=parseFloat(document.getElementById("zEiw").value)||null,
         kh=parseFloat(document.getElementById("zKh").value)||null, fett=parseFloat(document.getElementById("zFett").value)||null;
   if(!kcal) return;
-  await client.rpc("ziel_setzen",{p_benutzer:TB_USER,p_kcal:kcal,p_eiweiss:eiw,p_kh:kh,p_fett:fett});
+  await client.rpc("cb_ziel_setzen",{p_kcal:kcal,p_eiweiss:eiw,p_kh:kh,p_fett:fett});
   loadTagebuch();
 }
 function renderTbListe(items){
@@ -578,23 +590,23 @@ async function addTbEntry(){
   const pid=tbResolveId(), menge=parseFloat(document.getElementById("tbMenge").value), mahl=document.getElementById("tbMahlzeit").value, datum=document.getElementById("tbDatum").value, msg=document.getElementById("tbMsg");
   if(!pid){ msg.style.color="#dc2626"; msg.textContent="Produkt nicht gefunden – bitte aus der Vorschlagsliste wählen."; return; }
   if(!menge||menge<=0){ msg.style.color="#dc2626"; msg.textContent="Menge in Gramm angeben."; return; }
-  const {error}=await client.rpc("tagebuch_eintragen",{p_benutzer:TB_USER,p_mahlzeit:mahl,p_produkt:pid,p_menge_g:menge,p_datum:datum});
+  const {error}=await client.rpc("cb_tb_eintragen",{p_mahlzeit:mahl,p_produkt:pid,p_menge_g:menge,p_datum:datum});
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
   msg.style.color="#16a34a"; msg.textContent="✓ eingetragen";
   document.getElementById("tbProd").value=""; document.getElementById("tbMenge").value="";
   loadTagebuch();
 }
-async function delTb(id){ await client.rpc("tagebuch_loeschen",{p_eintrag:id}); loadTagebuch(); }
+async function delTb(id){ await client.rpc("cb_tb_loeschen",{p_eintrag:id}); loadTagebuch(); }
 async function saveGewicht(){
   const kg=parseFloat(document.getElementById("tbGewicht").value); if(!kg) return;
-  await client.rpc("gewicht_eintragen",{p_benutzer:TB_USER,p_kg:kg,p_datum:document.getElementById("tbDatum").value||tbToday()});
+  await client.rpc("cb_gewicht_eintragen",{p_kg:kg,p_datum:document.getElementById("tbDatum").value||tbToday()});
   document.getElementById("tbGewicht").value=""; loadTagebuch();
 }
 async function editMenge(id,cur){
   const n=prompt("Neue Menge in Gramm:", cur);
   if(n===null) return;
   const v=parseFloat(String(n).replace(",",".")); if(!v||v<=0) return;
-  await client.rpc("tagebuch_menge",{p_eintrag:id,p_menge_g:v});
+  await client.rpc("cb_tb_menge",{p_eintrag:id,p_menge_g:v});
   loadTagebuch();
 }
 async function loadRezeptDropdown(){
@@ -606,7 +618,7 @@ async function loadRezeptDropdown(){
 async function addRezeptMahlzeit(){
   const rid=document.getElementById("tbRezept").value, mahl=document.getElementById("tbMahlzeit").value, datum=document.getElementById("tbDatum").value, msg=document.getElementById("tbRezMsg");
   if(!rid){ msg.style.color="#dc2626"; msg.textContent="Bitte ein Rezept wählen."; return; }
-  const {data,error}=await client.rpc("rezept_als_mahlzeit",{p_benutzer:TB_USER,p_mahlzeit:mahl,p_rezept:rid,p_datum:datum});
+  const {data,error}=await client.rpc("cb_tb_rezept",{p_mahlzeit:mahl,p_rezept:rid,p_datum:datum});
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
   msg.style.color="#16a34a"; msg.textContent=data; loadTagebuch();
 }
@@ -616,7 +628,7 @@ async function addManuell(){
         kh=parseFloat(document.getElementById("mKh").value)||null, fett=parseFloat(document.getElementById("mFett").value)||null,
         mahl=document.getElementById("tbMahlzeit").value, datum=document.getElementById("tbDatum").value, msg=document.getElementById("mMsg");
   if(!name){ msg.style.color="#dc2626"; msg.textContent="Name angeben."; return; }
-  const {error}=await client.rpc("tagebuch_manuell",{p_benutzer:TB_USER,p_mahlzeit:mahl,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum});
+  const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:mahl,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum});
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
   msg.style.color="#16a34a"; msg.textContent="✓ "+name+" eingetragen";
   ["mName","mMenge","mKcal","mEiw","mKh","mFett"].forEach(id=>document.getElementById(id).value="");
