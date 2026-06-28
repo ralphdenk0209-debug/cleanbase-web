@@ -884,12 +884,24 @@ async function loadRezepte(){
     g.appendChild(c);
   });
 }
-let _rezept=null;
+let _rezept=null, _daySum=null, _goal=null;
 function rezeptDetail(r){
-  _rezept=r;
+  _rezept=r; _daySum=null; _goal=null;
   const steps=(r.zubereitung||"").split("\n").filter(s=>s.trim()).map(s=>`<div style="margin:8px 0;font-size:14px;line-height:1.5">${esc(s)}</div>`).join("");
   const pro = ME && hasFeat('rezepte_pro');
+  const canTb = ME && hasFeat('tagebuch');
   const P0 = num(r.portionen)||1, K0 = num(r.kcal)||0;
+  const tbBox = canTb ? `
+    <div id="rzBudget" style="background:#eef6ff;border:1px solid #cfe3f7;border-radius:12px;padding:11px 13px;margin:12px 0;font-size:13px;color:#1e3a8a;line-height:1.6"></div>
+    <div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">Ins Tagebuch (heute)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px">
+        <select id="rzMeal" style="padding:8px;border:1px solid #d1d5db;border-radius:8px"><option>Frühstück</option><option>Mittag</option><option>Abendessen</option><option selected>Snack</option></select>
+        <label>Portionen <input type="number" id="rzTbPort" min="0.5" step="0.5" value="1" oninput="renderRezeptScaled()" style="width:60px;padding:7px;border:1px solid #d1d5db;border-radius:8px"></label>
+        <button onclick="addRezeptToTb()" style="padding:9px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Übernehmen</button>
+        <span id="rzTbMsg" style="font-size:13px"></span>
+      </div>
+    </div>` : '';
   const controls = pro
     ? `<div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">Rezept anpassen</div>
@@ -913,11 +925,13 @@ function rezeptDetail(r){
       <div style="font-size:13.5px;line-height:1.6" id="rzMakros"></div>
     </div>
     ${controls}
+    ${tbBox}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="color:var(--muted);text-transform:none;letter-spacing:0">(Zahl = Clean Score)</span></div>
     <div id="rzZutaten"></div>
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 4px">Zubereitung</div>
     ${steps}`;
   renderRezeptScaled();
+  if(canTb) loadRezeptBudget();
   document.getElementById("overlay").classList.add("open");
 }
 function renderRezeptScaled(){
@@ -947,6 +961,40 @@ function renderRezeptScaled(){
   const pi=document.getElementById("rzPortInfo"); if(pi) pi.textContent=`${rd(pers)} Portion(en)`;
   const mk=document.getElementById("rzMakros");
   if(mk) mk.innerHTML=`Protein <b>${num(r.protein)!=null?rd(num(r.protein)*fK):"–"} g</b> · Kohlenhydrate <b>${num(r.kh)!=null?rd(num(r.kh)*fK):"–"} g</b> · Fett <b>${num(r.fett)!=null?rd(num(r.fett)*fK):"–"} g</b><div class="formula">pro Portion${(rd(pers)!=P0)?` · gesamt ${rd(pers)} Portion(en)`:""}</div>`;
+  const bud=document.getElementById("rzBudget");
+  if(bud){
+    const nLog=parseFloat((document.getElementById("rzTbPort")||{}).value)||1;
+    const recK=K0?rd(K0*fK*nLog):0;
+    const eaten=rd(num((_daySum||{}).kcal)||0);
+    const goalK=num((_goal||{}).Kalorienziel_kcal);
+    if(goalK){ const rest=goalK-eaten, after=rest-recK;
+      bud.innerHTML=`Heute: <b>${eaten}</b> / ${rd(goalK)} kcal · Rest <b>${rd(rest)}</b>`
+        +`<br>Dieses Rezept (${nLog}×): <b>${recK} kcal</b> → Rest danach: <b style="color:${after<0?'#dc2626':'#16a34a'}">${rd(after)}</b>`;
+    } else {
+      bud.innerHTML=`Heute gegessen: <b>${eaten} kcal</b> · <span style="color:#6b7280">kein kcal-Tagesziel (in „Mein Profil" setzen)</span><br>Dieses Rezept (${nLog}×): <b>${recK} kcal</b>`;
+    }
+  }
+}
+async function loadRezeptBudget(){
+  try{
+    const r1=await client.rpc("cb_tagessumme",{p_datum:tbToday()});
+    const r2=await client.rpc("cb_profil");
+    _daySum=(r1&&r1.data&&r1.data[0])||{}; _goal=(r2&&r2.data&&r2.data[0])||{};
+  }catch(e){ _daySum=_daySum||{}; _goal=_goal||{}; }
+  renderRezeptScaled();
+}
+async function addRezeptToTb(){
+  const r=_rezept; if(!r) return; const msg=document.getElementById("rzTbMsg");
+  const meal=(document.getElementById("rzMeal")||{}).value||"Snack";
+  const pro=ME&&hasFeat('rezepte_pro'); const P0=num(r.portionen)||1, K0=num(r.kcal)||0;
+  let fK=1; if(pro){ const zk=parseFloat((document.getElementById("rzKcal")||{}).value); if(!isNaN(zk)&&K0) fK=zk/K0; }
+  const n=parseFloat((document.getElementById("rzTbPort")||{}).value)||1, f=fK*n;
+  const sumG=(Array.isArray(r.zutaten)?r.zutaten:[]).reduce((a,z)=>a+(num(z.menge_g)||0),0);
+  const grams=Math.round((sumG/P0)*f);
+  const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:meal,p_name:r.name+(n!=1?(" x"+n):""),p_menge_g:grams,p_kcal:Math.round(K0*f),p_protein:Math.round((num(r.protein)||0)*f),p_kh:Math.round((num(r.kh)||0)*f),p_fett:Math.round((num(r.fett)||0)*f),p_datum:tbToday()});
+  if(error){ if(msg){msg.style.color="#dc2626";msg.textContent="Fehler: "+error.message;} return; }
+  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ in "+meal+" übernommen"; }
+  loadRezeptBudget();
 }
 /* ---- Admin: Premium-Stufen & Feature-Matrix ---- */
 async function loadStufen(){
