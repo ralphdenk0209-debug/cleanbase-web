@@ -247,6 +247,10 @@
         <h2 style="margin:0;font-size:19px">Planer</h2>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <span style="display:inline-flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
+            <button id="pmMeal" onclick="planSetMode('mahlzeiten')" style="padding:7px 11px;border:0;background:#fff;cursor:pointer;font-size:13px">Mahlzeiten</button>
+            <button id="pmCal" onclick="planSetMode('kalender')" style="padding:7px 11px;border:0;border-left:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:13px">Kalender</button>
+          </span>
+          <span style="display:inline-flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
             <button id="pvWoche" onclick="planSetView('woche')" style="padding:7px 11px;border:0;background:#fff;cursor:pointer;font-size:13px">Woche</button>
             <button id="pvTag" onclick="planSetView('tag')" style="padding:7px 11px;border:0;border-left:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:13px">Tag</button>
           </span>
@@ -279,6 +283,26 @@
             <span id="planPickMsg" style="font-size:12.5px"></span>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+  <div id="termPick" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:14px;padding:16px;max-width:420px;width:92%;box-shadow:var(--shadow)">
+      <div style="font-weight:700;margin-bottom:2px">Termin / Training</div>
+      <div id="termWhen" style="font-size:12.5px;color:#6b7280;margin-bottom:10px"></div>
+      <input id="termTitel" placeholder="Titel (z. B. Krafttraining)" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin-bottom:10px;box-sizing:border-box">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+        <select id="termTyp" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="training">Training</option><option value="termin" selected>Termin</option><option value="mahlzeit">Mahlzeit</option><option value="sonstiges">Sonstiges</option></select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap"><input type="checkbox" id="termAllday" onchange="termToggleAllday()" style="width:16px;height:16px;accent-color:#16a34a">ganztägig</label>
+      </div>
+      <div id="termTimes" style="display:flex;gap:8px;margin-bottom:12px">
+        <label style="flex:1;font-size:12px;color:#374151">von<input type="time" id="termStart" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+        <label style="flex:1;font-size:12px;color:#374151">bis<input type="time" id="termEnde" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="termSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Speichern</button>
+        <button onclick="document.getElementById('termPick').style.display='none'" style="padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Abbrechen</button>
+        <span id="termMsg" style="font-size:12.5px"></span>
       </div>
     </div>
   </div>
@@ -942,9 +966,10 @@ async function renderKalender(){
   h+=`</div><div style="font-size:11px;color:#9aa7a0;margin-top:8px">Punkt = Einträge vorhanden · Tag antippen zum Öffnen/Nachtragen</div>`;
   box.innerHTML=h;
 }
-let _planMonday=null, _planCache=[], _planTarget=null, _planView="woche", _planDay=null;
+let _planMonday=null, _planCache=[], _planTarget=null, _planView="woche", _planDay=null, _planMode="mahlzeiten", _termTarget=null;
 function planMondayOf(ds){ const x=new Date(ds+"T00:00:00"); const wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); return tbISO(x); }
 function planSetView(v){ _planView=v; if(v==="tag" && !_planDay) _planDay=tbToday(); renderPlaner(); }
+function planSetMode(m){ _planMode=m; renderPlaner(); }
 function planThisWeek(){ if(_planView==="tag"){ _planDay=tbToday(); } else { _planMonday=planMondayOf(tbToday()); } renderPlaner(); }
 function planShiftWeek(n){
   if(_planView==="tag"){ const x=new Date((_planDay||tbToday())+"T00:00:00"); x.setDate(x.getDate()+n); _planDay=tbISO(x); }
@@ -977,6 +1002,11 @@ async function renderPlaner(){
     labelText="Woche "+monD.toLocaleDateString("de-DE",{day:"numeric",month:"long"})+" – "+sun.toLocaleDateString("de-DE",{day:"numeric",month:"long",year:"numeric"});
   }
   const lab=document.getElementById("planWochenLabel"); if(lab) lab.textContent=labelText;
+  const bm=document.getElementById("pmMeal"), bc=document.getElementById("pmCal");
+  if(bm&&bc){ const on2='background:var(--green);color:#fff', off2='background:#fff;color:#374151';
+    bm.style.cssText="padding:7px 11px;border:0;cursor:pointer;font-size:13px;"+(_planMode!=='kalender'?on2:off2);
+    bc.style.cssText="padding:7px 11px;border:0;border-left:1px solid #d1d5db;cursor:pointer;font-size:13px;"+(_planMode==='kalender'?on2:off2); }
+  if(_planMode==='kalender'){ await renderKalenderGrid(dates); return; }
   let entries=[]; try{ const {data}=await client.rpc("cb_plan_woche",{p_von:von,p_bis:bis}); entries=data||[]; }catch(e){}
   _planCache=entries;
   const slots=["Frühstück","Mittag","Abendessen","Snack"], icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
@@ -1070,6 +1100,56 @@ async function einkaufFromPlan(){
   if(error){ alert("Fehler: "+error.message); return; }
   await loadEinkauf();
 }
+function fmtMin(m){ if(m==null) return ""; const h=Math.floor(m/60), mm=m%60; return (h<10?"0":"")+h+":"+(mm<10?"0":"")+mm; }
+const TERMCOL={training:"#2563eb",termin:"#0e7490",mahlzeit:"#16a34a",sonstiges:"#6b7280"};
+function termChip(t){ const c=TERMCOL[t.typ]||"#6b7280"; return `<div onclick="event.stopPropagation();termClick(${t.eintrag_id})" style="background:${c};color:#fff;border-radius:6px;padding:1px 6px;font-size:11px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.titel)}</div>`; }
+async function renderKalenderGrid(dates){
+  const H0=6,H1=23,rowH=42, multi=dates.length>1, cmin=multi?"130px":"auto";
+  let terms=[]; try{ const {data}=await client.rpc("cb_termine_range",{p_von:dates[0],p_bis:dates[dates.length-1]}); terms=data||[]; }catch(e){}
+  let head=`<div style="display:flex;min-width:max-content"><div style="width:46px;flex:none"></div>`;
+  dates.forEach(ds=>{ const d=new Date(ds+"T00:00:00"), isT=ds===tbToday();
+    head+=`<div style="flex:1;min-width:${cmin};text-align:center;padding:4px 2px;font-size:12.5px;font-weight:600;${isT?'color:var(--green)':''}"><div>${d.toLocaleDateString("de-DE",{weekday:"short"})} ${d.getDate()}.</div><button onclick="termAdd('${ds}')" style="margin-top:2px;border:0;background:var(--greenlt);color:var(--greendk);border-radius:6px;font-size:12px;padding:1px 9px;cursor:pointer">+</button></div>`; });
+  head+=`</div>`;
+  let allday=`<div style="display:flex;min-width:max-content;border-bottom:1px solid var(--line)"><div style="width:46px;flex:none;font-size:9px;color:#9aa7a0;text-align:right;padding:3px 4px">ganzt.</div>`;
+  dates.forEach(ds=>{ const its=terms.filter(t=>t.datum===ds && t.ganztags);
+    allday+=`<div style="flex:1;min-width:${cmin};padding:2px 3px">${its.map(termChip).join("")}</div>`; });
+  allday+=`</div>`;
+  let body=`<div style="display:flex;min-width:max-content"><div style="width:46px;flex:none">`;
+  for(let hh=H0;hh<H1;hh++){ body+=`<div style="height:${rowH}px;font-size:10px;color:#9aa7a0;text-align:right;padding-right:4px;box-sizing:border-box">${hh}:00</div>`; }
+  body+=`</div>`;
+  dates.forEach(ds=>{ const isT=ds===tbToday();
+    body+=`<div onclick="termAddAt('${ds}',event,${H0},${rowH})" style="flex:1;min-width:${cmin};position:relative;border-left:1px solid var(--line);${isT?'background:#f6fbf7':''}">`;
+    for(let hh=H0;hh<H1;hh++){ body+=`<div style="height:${rowH}px;border-top:1px solid #f1f5f9;box-sizing:border-box"></div>`; }
+    terms.filter(t=>t.datum===ds && !t.ganztags && t.start_min!=null).forEach(t=>{
+      const top=Math.max(0,((t.start_min-H0*60)/60)*rowH), h=Math.max(20,(((t.ende_min||t.start_min+60)-t.start_min)/60)*rowH), c=TERMCOL[t.typ]||"#6b7280";
+      body+=`<div onclick="event.stopPropagation();termClick(${t.eintrag_id})" style="position:absolute;left:3px;right:3px;top:${top.toFixed(0)}px;height:${h.toFixed(0)}px;background:${c};color:#fff;border-radius:7px;padding:3px 6px;font-size:11.5px;overflow:hidden;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)"><b>${esc(t.titel)}</b><div style="opacity:.85">${fmtMin(t.start_min)}–${fmtMin(t.ende_min)}</div></div>`;
+    });
+    body+=`</div>`; });
+  body+=`</div>`;
+  document.getElementById("planGrid").innerHTML=`<div style="overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff;padding-bottom:4px">${head}${allday}<div style="max-height:62vh;overflow-y:auto">${body}</div></div><div style="font-size:11.5px;color:#9aa7a0;margin-top:6px">„+" am Tag oder in eine Stunde tippen, um Termin/Training anzulegen. Eintrag antippen = löschen.</div>`;
+}
+function termToggleAllday(){ const c=document.getElementById("termAllday").checked; document.getElementById("termTimes").style.display=c?"none":"flex"; }
+function termAdd(ds,startMin){
+  _termTarget={ds};
+  document.getElementById("termTitel").value=""; document.getElementById("termTyp").value="termin";
+  document.getElementById("termAllday").checked=false; document.getElementById("termTimes").style.display="flex"; document.getElementById("termMsg").textContent="";
+  const s=(startMin!=null)?startMin:720; document.getElementById("termStart").value=fmtMin(s); document.getElementById("termEnde").value=fmtMin(Math.min(1380,s+60));
+  document.getElementById("termWhen").textContent=new Date(ds+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"});
+  document.getElementById("termPick").style.display="flex";
+}
+function termAddAt(ds,event,H0,rowH){ try{ const rect=event.currentTarget.getBoundingClientRect(); const y=event.clientY-rect.top; let mins=H0*60+Math.floor(y/rowH)*60; mins=Math.max(H0*60,Math.min(1320,mins)); termAdd(ds,mins); }catch(e){ termAdd(ds); } }
+function timeToMin(s){ if(!s) return null; const p=s.split(":"); return (+p[0])*60+(+(p[1]||0)); }
+async function termSave(){
+  if(!_termTarget) return; const msg=document.getElementById("termMsg"); msg.style.color="#dc2626";
+  const titel=(document.getElementById("termTitel").value||"").trim(); if(!titel){ msg.textContent="Titel eingeben."; return; }
+  const allday=document.getElementById("termAllday").checked;
+  const start=allday?null:timeToMin(document.getElementById("termStart").value), ende=allday?null:timeToMin(document.getElementById("termEnde").value);
+  if(!allday && (start==null||ende==null||ende<=start)){ msg.textContent="Gültige Start-/Endzeit (bis nach von)."; return; }
+  const {error}=await client.rpc("cb_termin_add",{p_datum:_termTarget.ds,p_ganztags:allday,p_start:start,p_ende:ende,p_titel:titel,p_typ:document.getElementById("termTyp").value,p_notiz:null});
+  if(error){ msg.textContent="Fehler: "+error.message; return; }
+  document.getElementById("termPick").style.display="none"; renderPlaner();
+}
+async function termClick(id){ if(!confirm("Diesen Eintrag löschen?")) return; await client.rpc("cb_termin_del",{p_eintrag:id}); renderPlaner(); }
 async function loadTagebuch(){
   const gate=document.getElementById("tbGate"), inner=document.getElementById("tbInner");
   if(!ME || !hasFeat('tagebuch')){
