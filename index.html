@@ -1301,7 +1301,7 @@ function renderTbListe(items, goal){
       ${tgt}${gK?`<div style="margin:2px 0 6px"><button onclick="tbAdjustMeal('${m}')" title="Mengen der Katalog-Produkte dieser Mahlzeit so skalieren, dass ${m} das kcal-Ziel trifft" style="border:1px solid var(--green);background:var(--greenlt);color:var(--greendk);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">🎯 Mengen ans Ziel anpassen</button></div>`:""}`;
     rows.forEach(r=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid #f3f6f4">
         <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Produktname||"?")}${num(r.Clean_Score)!=null?` <span style="font-size:11px;font-weight:700;color:${farbe(scoreBew(num(r.Clean_Score)))}">${num(r.Clean_Score)}</span>`:""}</div>
-        <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g});return false" style="color:var(--muted);text-decoration:none;font-size:12.5px">${r.Menge_g} g · ändern ✎</a></div>
+        <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g});return false" style="color:var(--muted);text-decoration:none;font-size:12.5px">${r.Menge_g} g · ändern ✎</a>${(gK&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--green);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
         <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--muted)">kcal</span></span>
         <button onclick="delTb(${r.Eintrag_ID})" title="löschen" style="border:0;background:#f6f8f7;border-radius:8px;width:27px;height:27px;color:#dc2626;cursor:pointer;font-size:14px">✕</button></div>
       </div>`; });
@@ -1342,6 +1342,24 @@ async function tbAdjustMeal(meal){
   const factor=want/scalKcal;
   if(!confirm(meal+" auf ~"+Math.round(target)+" kcal anpassen?\nMengen der Katalog-Produkte werden ×"+(Math.round(factor*100)/100)+".")) return;
   for(const it of scal){ const ng=Math.max(1,Math.round(num(it.Menge_g)*factor)); await client.rpc("cb_tb_menge",{p_eintrag:it.Eintrag_ID,p_menge_g:ng}); }
+  loadTagebuch();
+}
+/* Split: EINE Position so auffüllen, dass die Mahlzeit das kcal-Ziel trifft (andere bleiben fix). */
+async function tbFillItem(id, meal){
+  const goal=window._tbGoal||{}; const gK=num(goal.Kalorienziel_kcal);
+  if(!gK){ alert("Setze zuerst dein Kalorienziel in „Mein Profil“."); return; }
+  const all=(window._tbItems||[]);
+  const it=all.find(x=>String(x.Eintrag_ID)===String(id)); if(!it) return;
+  const snackActive=all.some(i=>i.Mahlzeit==="Snack");
+  const target=gK*(mealShares(goal, snackActive)[meal]||0);
+  if(!(target>0)){ alert("Für "+meal+" ist kein Anteil hinterlegt (Profil → Verteilung der Mahlzeiten)."); return; }
+  const others=all.filter(i=>i.Mahlzeit===meal && String(i.Eintrag_ID)!==String(id)).reduce((a,b)=>a+(+b.kcal||0),0);
+  const want=target-others;
+  const cur=num(it.kcal), curG=num(it.Menge_g);
+  if(!(cur>0)||!(curG>0)){ alert("Diese Position lässt sich nicht automatisch auffüllen (keine kcal/Menge)."); return; }
+  if(want<=0){ alert(meal+" ist durch die anderen Einträge schon voll."); return; }
+  const ng=Math.max(1,Math.round(curG*(want/cur)));
+  await client.rpc("cb_tb_menge",{p_eintrag:id,p_menge_g:ng});
   loadTagebuch();
 }
 async function delTb(id){ await client.rpc("cb_tb_loeschen",{p_eintrag:id}); loadTagebuch(); }
