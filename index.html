@@ -503,7 +503,8 @@ function erklaerung(d){
   if(minus.length) t+="Schwächer: "+minus.join(", ")+". ";
   return t.trim();
 }
-let ALL=[];
+let ALL=[]; let STK={};
+function stkOf(pid){ const g=pid?num(STK[pid]):null; return (g&&g>0)?g:null; }
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
 });
@@ -665,6 +666,7 @@ async function load(){
   const {data,error} = await client.from("v_web_produkte").select("*");
   if(error){document.getElementById("stats").textContent="Fehler beim Laden: "+error.message;return;}
   ALL = data.map(d=>({...d, clean_score:num(d.clean_score)}));
+  try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; (sm||[]).forEach(x=>{STK[x.id]=num(x.stueck_gramm);}); }catch(e){}
   const kats=[...new Set(ALL.map(d=>d.kategorie).filter(Boolean))].sort();
   const sel=document.getElementById("kat");
   kats.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;sel.appendChild(o);});
@@ -1271,6 +1273,11 @@ function mealShares(goal, snackActive){
   return s;
 }
 function scoreChip(s){ if(s==null) return ""; const b=scoreBew(s); return `<span style="font-size:12px;font-weight:700;color:#fff;background:${farbe(b)};border-radius:8px;padding:2px 8px">Score ${s}</span>`; }
+function mengeLabel(r){
+  const g=num(r.Menge_g), sg=stkOf(r.Produkt_ID);
+  if(sg&&g!=null){ return Math.round(g/sg)+" Stück ("+Math.round(g)+" g)"; }
+  return (g!=null?Math.round(g):"?")+" g";
+}
 function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
   window._tbItems=items||[]; window._tbGoal=goal||{};
@@ -1301,7 +1308,7 @@ function renderTbListe(items, goal){
       ${tgt}${gK?`<div style="margin:2px 0 6px"><button onclick="tbAdjustMeal('${m}')" title="Mengen der Katalog-Produkte dieser Mahlzeit so skalieren, dass ${m} das kcal-Ziel trifft" style="border:1px solid var(--green);background:var(--greenlt);color:var(--greendk);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">🎯 Mengen ans Ziel anpassen</button></div>`:""}`;
     rows.forEach(r=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid #f3f6f4">
         <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Produktname||"?")}${num(r.Clean_Score)!=null?` <span style="font-size:11px;font-weight:700;color:${farbe(scoreBew(num(r.Clean_Score)))}">${num(r.Clean_Score)}</span>`:""}</div>
-        <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g});return false" style="color:var(--muted);text-decoration:none;font-size:12.5px">${r.Menge_g} g · ändern ✎</a>${(gK&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--green);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
+        <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g},'${r.Produkt_ID||''}');return false" style="color:var(--muted);text-decoration:none;font-size:12.5px">${mengeLabel(r)} · ändern ✎</a>${(gK&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--green);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
         <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--muted)">kcal</span></span>
         <button onclick="delTb(${r.Eintrag_ID})" title="löschen" style="border:0;background:#f6f8f7;border-radius:8px;width:27px;height:27px;color:#dc2626;cursor:pointer;font-size:14px">✕</button></div>
       </div>`; });
@@ -1341,7 +1348,7 @@ async function tbAdjustMeal(meal){
   if(want<=0){ alert(meal+" liegt durch feste Einträge schon über dem Ziel ("+Math.round(target)+" kcal)."); return; }
   const factor=want/scalKcal;
   if(!confirm(meal+" auf ~"+Math.round(target)+" kcal anpassen?\nMengen der Katalog-Produkte werden ×"+(Math.round(factor*100)/100)+".")) return;
-  for(const it of scal){ const ng=Math.max(1,Math.round(num(it.Menge_g)*factor)); await client.rpc("cb_tb_menge",{p_eintrag:it.Eintrag_ID,p_menge_g:ng}); }
+  for(const it of scal){ let ng=Math.max(1,Math.round(num(it.Menge_g)*factor)); const sg=stkOf(it.Produkt_ID); if(sg) ng=Math.max(sg,Math.round(ng/sg)*sg); await client.rpc("cb_tb_menge",{p_eintrag:it.Eintrag_ID,p_menge_g:ng}); }
   loadTagebuch();
 }
 /* Split: EINE Position so auffüllen, dass die Mahlzeit das kcal-Ziel trifft (andere bleiben fix). */
@@ -1358,7 +1365,8 @@ async function tbFillItem(id, meal){
   const cur=num(it.kcal), curG=num(it.Menge_g);
   if(!(cur>0)||!(curG>0)){ alert("Diese Position lässt sich nicht automatisch auffüllen (keine kcal/Menge)."); return; }
   if(want<=0){ alert(meal+" ist durch die anderen Einträge schon voll."); return; }
-  const ng=Math.max(1,Math.round(curG*(want/cur)));
+  let ng=Math.max(1,Math.round(curG*(want/cur)));
+  const sg=stkOf(it.Produkt_ID); if(sg) ng=Math.max(sg,Math.round(ng/sg)*sg);   // Stück-Produkte ganzzahlig
   await client.rpc("cb_tb_menge",{p_eintrag:id,p_menge_g:ng});
   loadTagebuch();
 }
@@ -1368,7 +1376,15 @@ async function saveGewicht(){
   await client.rpc("cb_gewicht_eintragen",{p_kg:kg,p_datum:document.getElementById("tbDatum").value||tbToday()});
   document.getElementById("tbGewicht").value=""; loadTagebuch();
 }
-async function editMenge(id,cur){
+async function editMenge(id,cur,pid){
+  const sg=stkOf(pid);
+  if(sg){
+    const n=prompt("Neue Anzahl (Stück):", Math.round(cur/sg));
+    if(n===null) return;
+    const v=parseFloat(String(n).replace(",",".")); if(!v||v<=0) return;
+    await client.rpc("cb_tb_menge",{p_eintrag:id,p_menge_g:Math.round(v*sg)});
+    loadTagebuch(); return;
+  }
   const n=prompt("Neue Menge in Gramm:", cur);
   if(n===null) return;
   const v=parseFloat(String(n).replace(",",".")); if(!v||v<=0) return;
@@ -1604,6 +1620,7 @@ function rzToGrams(amount, unit, pid){
   const u=RZ_UNITS.find(x=>x[0]===unit);
   if(!u) return amount;
   if(u[1]!=null) return amount*u[1];
+  const sg=stkOf(pid); if(sg) return amount*sg;     // Stück: Gramm/Stück des Produkts
   const p=pid?(ALL||[]).find(x=>x.id===pid):null;
   return p? amount*tbDefaultPortion(p) : null;
 }
