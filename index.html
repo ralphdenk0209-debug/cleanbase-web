@@ -245,13 +245,21 @@
     <div id="planerInner" style="max-width:640px;margin:0 auto">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <h2 style="margin:0;font-size:19px">Planer</h2>
-        <div style="display:flex;gap:6px;align-items:center">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span style="display:inline-flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
+            <button id="pvWoche" onclick="planSetView('woche')" style="padding:7px 11px;border:0;background:#fff;cursor:pointer;font-size:13px">Woche</button>
+            <button id="pvTag" onclick="planSetView('tag')" style="padding:7px 11px;border:0;border-left:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:13px">Tag</button>
+          </span>
           <button onclick="planShiftWeek(-1)" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">‹</button>
-          <button onclick="planThisWeek()" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Diese Woche</button>
+          <button onclick="planThisWeek()" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Heute</button>
           <button onclick="planShiftWeek(1)" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">›</button>
         </div>
       </div>
-      <div id="planWochenLabel" style="font-size:13px;color:#6b7280;margin-bottom:10px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <div id="planWochenLabel" style="font-size:13px;color:#6b7280"></div>
+        <button onclick="toggleEinkauf()" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Einkaufsliste</button>
+      </div>
+      <div id="einkaufBox" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
       <div id="planGrid"></div>
       <div id="planPick" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center">
         <div style="background:#fff;border-radius:14px;padding:16px;max-width:420px;width:92%;box-shadow:var(--shadow)">
@@ -934,10 +942,15 @@ async function renderKalender(){
   h+=`</div><div style="font-size:11px;color:#9aa7a0;margin-top:8px">Punkt = Einträge vorhanden · Tag antippen zum Öffnen/Nachtragen</div>`;
   box.innerHTML=h;
 }
-let _planMonday=null, _planCache=[], _planTarget=null;
+let _planMonday=null, _planCache=[], _planTarget=null, _planView="woche", _planDay=null;
 function planMondayOf(ds){ const x=new Date(ds+"T00:00:00"); const wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); return tbISO(x); }
-function planThisWeek(){ _planMonday=planMondayOf(tbToday()); renderPlaner(); }
-function planShiftWeek(n){ const base=_planMonday||planMondayOf(tbToday()); const x=new Date(base+"T00:00:00"); x.setDate(x.getDate()+n*7); _planMonday=tbISO(x); renderPlaner(); }
+function planSetView(v){ _planView=v; if(v==="tag" && !_planDay) _planDay=tbToday(); renderPlaner(); }
+function planThisWeek(){ if(_planView==="tag"){ _planDay=tbToday(); } else { _planMonday=planMondayOf(tbToday()); } renderPlaner(); }
+function planShiftWeek(n){
+  if(_planView==="tag"){ const x=new Date((_planDay||tbToday())+"T00:00:00"); x.setDate(x.getDate()+n); _planDay=tbISO(x); }
+  else { const x=new Date((_planMonday||planMondayOf(tbToday()))+"T00:00:00"); x.setDate(x.getDate()+n*7); _planMonday=tbISO(x); }
+  renderPlaner();
+}
 async function loadPlaner(){
   const gate=document.getElementById("planerGate"), inner=document.getElementById("planerInner");
   if(!ME || !hasFeat('planer')){ if(inner)inner.style.display="none"; if(gate){gate.style.display="";gate.innerHTML=gateHtml();} return; }
@@ -949,18 +962,29 @@ async function loadPlaner(){
   await renderPlaner();
 }
 async function renderPlaner(){
-  const mon=_planMonday, monD=new Date(mon+"T00:00:00"); const sun=new Date(monD); sun.setDate(monD.getDate()+6);
-  const lab=document.getElementById("planWochenLabel");
-  if(lab) lab.textContent="Woche "+monD.toLocaleDateString("de-DE",{day:"numeric",month:"long"})+" – "+sun.toLocaleDateString("de-DE",{day:"numeric",month:"long",year:"numeric"});
-  let entries=[]; try{ const {data}=await client.rpc("cb_plan_woche",{p_von:mon,p_bis:tbISO(sun)}); entries=data||[]; }catch(e){}
+  const bw=document.getElementById("pvWoche"), bt=document.getElementById("pvTag");
+  if(bw&&bt){ const on='background:var(--green);color:#fff', off='background:#fff;color:#374151';
+    bw.style.cssText="padding:7px 11px;border:0;cursor:pointer;font-size:13px;"+(_planView==='woche'?on:off);
+    bt.style.cssText="padding:7px 11px;border:0;border-left:1px solid #d1d5db;cursor:pointer;font-size:13px;"+(_planView==='tag'?on:off); }
+  let dates=[], von, bis, labelText;
+  if(_planView==='tag'){
+    const ds=_planDay||tbToday(); dates=[ds]; von=ds; bis=ds;
+    labelText=new Date(ds+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"});
+  } else {
+    const mon=_planMonday||(_planMonday=planMondayOf(tbToday())); const monD=new Date(mon+"T00:00:00"); const sun=new Date(monD); sun.setDate(monD.getDate()+6);
+    for(let i=0;i<7;i++){ const d=new Date(monD); d.setDate(monD.getDate()+i); dates.push(tbISO(d)); }
+    von=mon; bis=tbISO(sun);
+    labelText="Woche "+monD.toLocaleDateString("de-DE",{day:"numeric",month:"long"})+" – "+sun.toLocaleDateString("de-DE",{day:"numeric",month:"long",year:"numeric"});
+  }
+  const lab=document.getElementById("planWochenLabel"); if(lab) lab.textContent=labelText;
+  let entries=[]; try{ const {data}=await client.rpc("cb_plan_woche",{p_von:von,p_bis:bis}); entries=data||[]; }catch(e){}
   _planCache=entries;
   const slots=["Frühstück","Mittag","Abendessen","Snack"], icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
-  const dn=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
   let html="";
-  for(let i=0;i<7;i++){
-    const d=new Date(monD); d.setDate(monD.getDate()+i); const ds=tbISO(d), isT=ds===tbToday();
+  dates.forEach(ds=>{
+    const d=new Date(ds+"T00:00:00"), isT=ds===tbToday();
     html+=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow)${isT?';outline:2px solid var(--greenlt)':''}">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px">${dn[i]} <span style="font-weight:500;color:#6b7280;font-size:12.5px">${d.toLocaleDateString("de-DE",{day:"numeric",month:"short"})}${isT?" · heute":""}</span></div>`;
+      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px">${d.toLocaleDateString("de-DE",{weekday:"long"})} <span style="font-weight:500;color:#6b7280;font-size:12.5px">${d.toLocaleDateString("de-DE",{day:"numeric",month:"short"})}${isT?" · heute":""}</span></div>`;
     slots.forEach(s=>{
       const items=entries.filter(e=>e.datum===ds && e.slot===s);
       html+=`<div style="padding:4px 0;border-top:1px solid #f3f6f4"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;color:#6b7280">${icons[s]} ${s}</span><button onclick="planAdd('${ds}','${s}')" style="border:0;background:var(--greenlt);color:var(--greendk);border-radius:7px;padding:1px 10px;font-size:15px;cursor:pointer">+</button></div>`;
@@ -970,7 +994,7 @@ async function renderPlaner(){
       html+=`</div>`;
     });
     html+=`<div style="text-align:right;margin-top:4px"><button onclick="planDayToTb('${ds}')" style="font-size:12px;color:#1e3a8a;background:none;border:0;cursor:pointer;text-decoration:underline">ganzen Tag → Tagebuch</button></div></div>`;
-  }
+  });
   document.getElementById("planGrid").innerHTML=html;
 }
 function planAdd(ds,slot){
@@ -1009,6 +1033,42 @@ async function planDayToTb(ds){
   if(!confirm("Alle "+items.length+" Einträge dieses Tages ins Tagebuch übernehmen?")) return;
   for(const it of items){ await planToTb(it.eintrag_id,true); }
   alert("✓ "+items.length+" Einträge ins Tagebuch übernommen.");
+}
+async function toggleEinkauf(){
+  const box=document.getElementById("einkaufBox");
+  if(box.style.display!=="none"){ box.style.display="none"; return; }
+  box.style.display=""; await loadEinkauf();
+}
+async function loadEinkauf(){
+  const box=document.getElementById("einkaufBox"); box.innerHTML='<div style="color:#6b7280;font-size:13px">Lade…</div>';
+  let rows=[]; try{ const {data}=await client.rpc("cb_einkauf_list"); rows=data||[]; }catch(e){}
+  const offen=rows.filter(r=>!r.erledigt), erl=rows.filter(r=>r.erledigt);
+  const row=(r,done)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #f3f6f4">
+    <input type="checkbox" ${done?'checked':''} onchange="einkaufToggle(${r.eintrag_id},this.checked)" style="width:18px;height:18px;accent-color:#16a34a">
+    <span style="flex:1;${done?'text-decoration:line-through;color:#9aa7a0':''}">${esc(r.titel)}${r.menge?` <span style="color:#9aa7a0;font-size:12.5px">${esc(r.menge)}</span>`:''}</span>
+    <button onclick="einkaufDel(${r.eintrag_id})" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer">✕</button></div>`;
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><b>🛒 Einkaufsliste</b><button onclick="einkaufFromPlan()" style="padding:6px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px">Aus dieser Woche erzeugen</button></div>`;
+  h+=`<div style="display:flex;gap:8px;margin-bottom:10px"><input id="einkInput" placeholder="Artikel…" onkeydown="if(event.key==='Enter')einkaufAdd()" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px"><input id="einkMenge" placeholder="Menge" style="width:90px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><button onclick="einkaufAdd()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer">+</button></div>`;
+  if(!rows.length) h+='<div style="color:#9aa7a0;font-size:13px">Liste ist leer – Artikel hinzufügen oder aus dem Wochenplan erzeugen.</div>';
+  offen.forEach(r=>h+=row(r,false));
+  if(erl.length){ h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 2px"><span style="font-size:12px;color:#9aa7a0">Erledigt (${erl.length})</span><button onclick="einkaufClearDone()" style="font-size:12px;color:#dc2626;background:none;border:0;cursor:pointer">entfernen</button></div>`; erl.forEach(r=>h+=row(r,true)); }
+  box.innerHTML=h;
+}
+async function einkaufAdd(){
+  const t=document.getElementById("einkInput"), m=document.getElementById("einkMenge");
+  const titel=(t.value||"").trim(); if(!titel) return;
+  const {error}=await client.rpc("cb_einkauf_add",{p_titel:titel,p_menge:(m.value||"").trim()||null});
+  if(error){ alert("Fehler: "+error.message); return; }
+  await loadEinkauf();
+}
+async function einkaufToggle(id,checked){ await client.rpc("cb_einkauf_toggle",{p_eintrag:id,p_erledigt:checked}); await loadEinkauf(); }
+async function einkaufDel(id){ await client.rpc("cb_einkauf_del",{p_eintrag:id}); await loadEinkauf(); }
+async function einkaufClearDone(){ await client.rpc("cb_einkauf_clear_done"); await loadEinkauf(); }
+async function einkaufFromPlan(){
+  const mon=_planMonday||planMondayOf(tbToday()); const e=new Date(mon+"T00:00:00"); e.setDate(e.getDate()+6);
+  const {data,error}=await client.rpc("cb_einkauf_from_plan",{p_von:mon,p_bis:tbISO(e)});
+  if(error){ alert("Fehler: "+error.message); return; }
+  await loadEinkauf();
 }
 async function loadTagebuch(){
   const gate=document.getElementById("tbGate"), inner=document.getElementById("tbInner");
