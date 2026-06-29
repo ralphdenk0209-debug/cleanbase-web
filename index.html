@@ -171,6 +171,14 @@
           <input type="date" id="tbDatum" onchange="loadTagebuch()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">
         </div>
       </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <button onclick="tbShiftDay(-1)" title="Tag zurück" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">‹</button>
+        <button onclick="tbGoToday()" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Heute</button>
+        <button onclick="tbShiftDay(1)" title="Tag vor" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">›</button>
+        <button onclick="toggleTbKalender()" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">📅 Kalender</button>
+        <span id="tbDatumLabel" style="font-size:13px;color:#6b7280;margin-left:2px"></span>
+      </div>
+      <div id="tbKalBox" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:12px"></div>
       <div id="tbStatBox" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
       <div id="tbZiel" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
@@ -852,6 +860,42 @@ function applyBedarf(){
   if(typeof saveProfilZiel==="function") saveProfilZiel();
   const out=document.getElementById("bdOut"); if(out) out.insertAdjacentHTML("beforeend",'<div style="color:#16a34a;font-size:13px;margin-top:6px">✓ Als Tagesziel übernommen & gespeichert.</div>');
 }
+function tbISO(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+function tbShiftDay(n){ const e=document.getElementById("tbDatum"); const d=new Date((e.value||tbToday())+"T00:00:00"); d.setDate(d.getDate()+n); e.value=tbISO(d); loadTagebuch(); }
+function tbGoToday(){ document.getElementById("tbDatum").value=tbToday(); loadTagebuch(); }
+let _kalY, _kalM;
+async function toggleTbKalender(){
+  const box=document.getElementById("tbKalBox");
+  if(box.style.display!=="none"){ box.style.display="none"; return; }
+  const d=new Date((document.getElementById("tbDatum").value||tbToday())+"T00:00:00");
+  _kalY=d.getFullYear(); _kalM=d.getMonth(); box.style.display=""; await renderKalender();
+  box.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+async function kalShiftMonth(n){ _kalM+=n; if(_kalM<0){_kalM=11;_kalY--;} if(_kalM>11){_kalM=0;_kalY++;} await renderKalender(); }
+function kalYMD(y,m,d){ return y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"); }
+function tbPickDay(ds){ document.getElementById("tbDatum").value=ds; loadTagebuch(); renderKalender(); }
+async function renderKalender(){
+  const box=document.getElementById("tbKalBox"); if(!box) return;
+  const last=new Date(_kalY,_kalM+1,0), first=new Date(_kalY,_kalM,1);
+  let days={};
+  try{ const {data}=await client.rpc("cb_statistik",{p_von:kalYMD(_kalY,_kalM,1),p_bis:kalYMD(_kalY,_kalM,last.getDate())});
+    (data||[]).forEach(r=>{ if((r.eintraege||0)>0||(num(r.kcal)||0)>0) days[r.datum]=true; }); }catch(e){}
+  const M=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  const today=tbToday(), sel=document.getElementById("tbDatum").value;
+  const btn='padding:5px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer';
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><button onclick="kalShiftMonth(-1)" style="${btn}">‹</button><b>${M[_kalM]} ${_kalY}</b><button onclick="kalShiftMonth(1)" style="${btn}">›</button></div>`;
+  h+=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:12.5px">`;
+  ["Mo","Di","Mi","Do","Fr","Sa","So"].forEach(d=>h+=`<div style="text-align:center;color:#9aa7a0;font-weight:600">${d}</div>`);
+  const startW=(first.getDay()+6)%7;
+  for(let i=0;i<startW;i++) h+=`<div></div>`;
+  for(let d=1;d<=last.getDate();d++){
+    const ds=kalYMD(_kalY,_kalM,d), isT=ds===today, isS=ds===sel, hasE=days[ds];
+    const bg=isS?"var(--green)":(isT?"var(--greenlt)":"#f8fafc"), col=isS?"#fff":"#374151";
+    h+=`<div onclick="tbPickDay('${ds}')" style="position:relative;text-align:center;padding:8px 0;border-radius:8px;background:${bg};color:${col};cursor:pointer;border:1px solid ${(isT&&!isS)?'var(--green)':'transparent'}">${d}${hasE?`<span style="position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:${isS?'#fff':'var(--green)'}"></span>`:""}</div>`;
+  }
+  h+=`</div><div style="font-size:11px;color:#9aa7a0;margin-top:8px">Punkt = Einträge vorhanden · Tag antippen zum Öffnen/Nachtragen</div>`;
+  box.innerHTML=h;
+}
 async function loadTagebuch(){
   const gate=document.getElementById("tbGate"), inner=document.getElementById("tbInner");
   if(!ME || !hasFeat('tagebuch')){
@@ -866,6 +910,9 @@ async function loadTagebuch(){
   if(!ALL.length){ await load(); }
   fillProdList(); loadRezeptDropdown(); loadHistDropdown();
   const datum=dEl.value;
+  const lbl=document.getElementById("tbDatumLabel");
+  if(lbl){ try{ const dd=new Date(datum+"T00:00:00"); lbl.textContent=dd.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+(datum===tbToday()?" · heute":""); }catch(e){ lbl.textContent=datum; } }
+  const kb=document.getElementById("tbKalBox"); if(kb && kb.style.display!=="none") renderKalender();
   const {data:eintraege}=await client.rpc("cb_tagebuch",{p_datum:datum});
   const {data:summe}=await client.rpc("cb_tagessumme",{p_datum:datum});
   const {data:profil}=await client.rpc("cb_profil");
