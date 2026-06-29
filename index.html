@@ -565,6 +565,29 @@ async function load(){
   kats.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;sel.appendChild(o);});
   render();
 }
+function mkLabel(m){ return (m && m.toLowerCase()!=="generisch") ? m : ""; }
+function subLine(d){ const m=mkLabel(d.marke); return (m?esc(m)+" · ":"")+esc(d.kategorie||""); }
+function prodLabel(p){ const m=mkLabel(p.marke); return p.name+(m?" · "+m:""); }
+function betterAlt(d){
+  const s=num(d.clean_score); if(s==null) return null;
+  const toks=(d.name||"").toLowerCase().split(/[^a-zäöüß0-9]+/).filter(t=>t.length>=4);
+  if(!toks.length) return null;
+  let best=null;
+  (ALL||[]).forEach(q=>{
+    if(q.id===d.id) return;
+    const qs=num(q.clean_score); if(qs==null || qs < s+10) return;
+    if(!(q.unterkategorie && d.unterkategorie && q.unterkategorie===d.unterkategorie)) return;
+    const qn=(q.name||"").toLowerCase();
+    if(!toks.some(t=>qn.includes(t))) return;
+    if(!best || qs>num(best.clean_score)) best=q;
+  });
+  return best;
+}
+function detailById(id){ const p=(ALL||[]).find(x=>x.id===id); if(p) detail(p); }
+function altBanner(d){
+  const a=betterAlt(d); if(!a) return "";
+  return `<div onclick="event.stopPropagation();detailById('${a.id}')" style="margin-top:6px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:8px;padding:5px 8px;font-size:11.5px;color:#1e3a8a;cursor:pointer">↑ Bessere Alternative: <b>${esc(a.name)}</b> · Score ${a.clean_score} ›</div>`;
+}
 function render(){
   const q=document.getElementById("q").value.toLowerCase().trim();
   const kat=document.getElementById("kat").value;
@@ -586,8 +609,9 @@ function render(){
       ${donut(d.clean_score, col, 62)}
       <div class="meta">
         <div class="name">${esc(d.name)}</div>
-        <div class="sub">${esc(d.marke||"")} · ${esc(d.kategorie||"")}</div>
+        <div class="sub">${subLine(d)}</div>
         ${statusTag(d)}${efChip(d.ernaehrungsform)}
+        ${altBanner(d)}
       </div>`;
     grid.appendChild(c);
   });
@@ -620,7 +644,8 @@ function detail(d){
   panel.innerHTML=`
     <button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(d.name)}</h2>
-    <div class="marke">${esc(d.marke||"")} · ${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
+    <div class="marke">${(mkLabel(d.marke)?esc(mkLabel(d.marke))+" · ":"")}${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
+    ${altBanner(d)}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
       ${donut(d.clean_score, col, 96)}
@@ -689,11 +714,11 @@ async function fillProdList(){
   const dl=document.getElementById("tbProdListe"); if(!dl) return;
   if(!ALL.length){ try{ const {data}=await client.from("v_web_produkte").select("*"); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   if(dl.children.length || !ALL.length) return;
-  ALL.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(p=>{ const o=document.createElement("option"); o.value=p.name+(p.marke?" · "+p.marke:""); dl.appendChild(o); });
+  ALL.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(p=>{ const o=document.createElement("option"); o.value=prodLabel(p); dl.appendChild(o); });
 }
 function tbResolveId(){
   const v=(document.getElementById("tbProd").value||"").trim().toLowerCase(); if(!v) return null;
-  const p=ALL.find(x=>(x.name+(x.marke?" · "+x.marke:"")).toLowerCase()===v) || ALL.find(x=>(x.name||"").toLowerCase()===v);
+  const p=ALL.find(x=>prodLabel(x).toLowerCase()===v) || ALL.find(x=>(x.name||"").toLowerCase()===v);
   return p?p.id:null;
 }
 function tbDefaultPortion(p){
@@ -900,7 +925,10 @@ function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
   if(!items.length){ el.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted);font-size:14px">Noch keine Einträge für diesen Tag.<br><span style="font-size:12.5px">Füge oben eine Mahlzeit, ein Rezept oder einen manuellen Eintrag hinzu.</span></div>'; return; }
   const icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
-  const share={"Frühstück":0.25,"Mittag":0.35,"Abendessen":0.30,"Snack":0.10};
+  const baseShare={"Frühstück":0.25,"Mittag":0.35,"Abendessen":0.30,"Snack":0.10};
+  const snackActive=items.some(i=>i.Mahlzeit==="Snack");
+  const share=Object.assign({},baseShare);
+  if(!snackActive){ const d=1-baseShare["Snack"]; share["Frühstück"]=baseShare["Frühstück"]/d; share["Mittag"]=baseShare["Mittag"]/d; share["Abendessen"]=baseShare["Abendessen"]/d; share["Snack"]=0; }
   const gK=num((goal||{}).Kalorienziel_kcal), gP=num((goal||{}).Eiweiss_ziel_g), gF=num((goal||{}).Fett_ziel_g);
   let html="", dayK=0, dP=0, dF=0, dKh=0, dSW=0, dSG=0;
   ["Frühstück","Mittag","Abendessen","Snack"].forEach(m=>{
@@ -1067,7 +1095,7 @@ function tbScan(){ _startScan("tbReader", async (code)=>{
   const tbm=document.getElementById("tbMsg");
   try{
     const {data}=await client.rpc("produkt_by_ean",{p_ean:code});
-    if(data&&data.id){ document.getElementById("tbProd").value=data.name+(data.marke?" · "+data.marke:""); tbPrefillMenge(); tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; }
+    if(data&&data.id){ document.getElementById("tbProd").value=prodLabel(data); tbPrefillMenge(); tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; }
     else {
       try{ const {data:q}=await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
         tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. CleanBase ergänzt es und schaltet es nach Prüfung frei.<br><span style='font-size:12px;color:#6b7280'>"+(q||"")+"</span>"; }
@@ -1115,7 +1143,7 @@ function buildProdDL(){
   if(document.getElementById("prodDL")) return;
   const dl=document.createElement("datalist"); dl.id="prodDL";
   (window.ALL||[]).slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(p=>{
-    const o=document.createElement("option"); o.value=p.name+(p.marke?" · "+p.marke:""); dl.appendChild(o);
+    const o=document.createElement("option"); o.value=prodLabel(p); dl.appendChild(o);
   });
   document.body.appendChild(dl);
 }
@@ -1123,7 +1151,7 @@ function linkZutat(input){
   const row=input.closest(".rzZ"); if(!row) return;
   const nameEl=row.querySelector(".rzZName"), pidEl=row.querySelector(".rzZpid"), lk=row.querySelector(".rzZlink");
   const v=(nameEl.value||"").trim().toLowerCase();
-  const p=(window.ALL||[]).find(x=> ((x.name||"")+(x.marke?" · "+x.marke:"")).toLowerCase()===v || (x.name||"").toLowerCase()===v);
+  const p=(window.ALL||[]).find(x=> prodLabel(x).toLowerCase()===v || (x.name||"").toLowerCase()===v);
   if(p){ pidEl.value=p.id; lk.style.color="#16a34a";
     lk.textContent=`✓ verknüpft · ${p.m_kcal??"–"} kcal/100 g · Clean Score ${p.clean_score??"–"}`; }
   else { pidEl.value=""; lk.style.color="#9aa7a0"; lk.textContent=v?"freie Zutat (keine Nährwerte/Score)":""; }
