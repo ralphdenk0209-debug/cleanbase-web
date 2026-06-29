@@ -157,12 +157,13 @@
         <button id="vorScan" onclick="toggleScan()" style="flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:#eef2f5;font-size:15px;cursor:pointer">📷 Barcode scannen</button>
         <button id="vorSend" onclick="sendVorschlag()" style="flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Senden</button>
       </div>
-      <input id="vorFoto" type="file" accept="image/*" style="display:none" onchange="vorFotoPick(this)" />
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button onclick="vorFotoCam()" style="flex:1;padding:12px;border:1px solid #16a34a;border-radius:10px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);font-size:15px;cursor:pointer">📷 Kamera</button>
-        <button onclick="document.getElementById('vorFoto').click()" style="flex:1;padding:12px;border:1px dashed #16a34a;border-radius:10px;background:#fff;color:var(--greendk,#166534);font-size:15px;cursor:pointer">📁 Datei wählen</button>
+      <input id="vorFoto" type="file" accept="image/*" style="display:none" onchange="vorShotFile(this)" />
+      <div style="margin-top:14px;border-top:1px solid #eef2f5;padding-top:12px">
+        <div style="font-size:13px;color:#374151;font-weight:600;margin-bottom:8px">Etikett-Fotos (bis zu 3)</div>
+        <div id="vorShots"></div>
+        <button id="vorShotsSend" onclick="submitVorShots()" style="display:none;width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Foto(s) erfassen</button>
+        <div style="font-size:12px;color:#6b7280;margin-top:8px">Tipp: 1 Bild reicht – besser je eins von Vorderseite, Zutaten und Nährwerttabelle, scharf & formatfüllend. Die KI liest alle zusammen aus.</div>
       </div>
-      <div style="font-size:12px;color:#6b7280;margin-top:6px">Tipp: Zutaten + Nährwerttabelle scharf & formatfüllend fotografieren. Die KI liest sie beim nächsten Erfassungslauf aus.</div>
       <div id="vorReader" style="margin-top:12px"></div>
       <div id="vorMsg" style="margin-top:12px;font-size:14px;line-height:1.45"></div>
     </div>
@@ -832,7 +833,7 @@ function setMode(m){
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
-  if(m==="vorschlagen") updateGate();
+  if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
   if(m!=="vorschlagen") stopScan();
 }
 
@@ -1450,14 +1451,17 @@ async function loadFreigabe(){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <div><b>${esc(p.name||"?")}</b> <span style="color:#6b7280">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:#6b7280">${p.id} · ${esc(p.kategorie||"")} · Score ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="file" accept="image/*" style="display:none" id="fgFoto_${p.id}" onchange="fgFotoPick(this,'${p.id}')" />
-          <button onclick="fgFotoCam('${p.id}')" title="Etikett mit Kamera aufnehmen" style="padding:8px 11px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:13px">📷 Kamera</button>
-          <button onclick="document.getElementById('fgFoto_${p.id}').click()" title="Etikett-Foto aus Datei" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:13px">📁 Datei</button>
+          <input type="file" accept="image/*" multiple style="display:none" id="fgFoto_${p.id}" onchange="fgFotoPick(this,'${p.id}')" />
+          <button onclick="fgShotCam('${p.id}')" title="Etikett mit Kamera aufnehmen" style="padding:8px 11px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:13px">📷 Kamera</button>
+          <button onclick="document.getElementById('fgFoto_${p.id}').click()" title="Etikett-Foto(s) aus Datei" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:13px">📁 Datei</button>
+          <span id="fgShotInfo_${p.id}" style="font-size:12px;color:#166534"></span>
+          <button id="fgShotSend_${p.id}" onclick="fgShotSend('${p.id}')" style="display:none;padding:8px 12px;border:0;border-radius:8px;background:#0ea5e9;color:#fff;cursor:pointer;font-size:13px">Etikett senden</button>
           ${p.vollstaendig?`<button onclick="freigeben('${p.id}')" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Freigeben</button>`:`<span style="font-size:12px;color:#b45309">unvollständig</span>`}
         </div>
       </div></div>`).join(""); }
   const {data:q}=await client.from("Scan_Warteschlange").select("*").eq("Status","offen").order("Eintrag_ID",{ascending:false});
   document.getElementById("fgQueue").innerHTML = (q&&q.length)? q.map(x=>"• "+esc(x.EAN)+' <span style="color:#6b7280">('+esc(x.Quelle||"")+")</span>").join("<br>") : '<span style="color:#6b7280">leer</span>';
+  try{ Object.keys(FG_SHOTS).forEach(updateFgShotInfo); }catch(e){}
 }
 async function freigeben(id){
   const {error}=await client.rpc("produkt_pruefen_freigeben",{p_id:id});
@@ -1529,26 +1533,74 @@ function camCapture(){
   });
 }
 async function fotoFromCam(produktId, ean){ const d=await camCapture(); if(!d) return null; return await _submitFoto(d, produktId, ean); }
-async function vorFotoPick(inp){
-  const f=inp.files&&inp.files[0]; if(!f) return; setVorMsg("⏳ Foto wird vorbereitet…");
-  try{ const v=(document.getElementById("vorInput").value||"").trim(); await fotoFromFile(f, null, /^[0-9]{6,14}$/.test(v)?v:null);
-    setVorMsg("✅ Etikett-Foto gespeichert. Die KI liest es beim nächsten Erfassungslauf aus und legt das Produkt als <b>Entwurf</b> an.","#16a34a");
-  }catch(e){ setVorMsg("Fehler: "+e.message,"#dc2626"); } inp.value="";
+/* ---- Mehrbild-Erfassung: bis zu 3 Etikettfotos sammeln, dann zusammen senden ---- */
+const VOR_SLOTS=[["front","Vorderseite"],["zutaten","Zutaten"],["naehrwerte","Nährwerte"]];
+const VOR_SHOTS={};
+let _vorSlotTarget=null;
+function renderVorShots(){
+  const box=document.getElementById("vorShots"); if(!box) return;
+  box.innerHTML=VOR_SLOTS.map(([k,label])=>{
+    const has=!!VOR_SHOTS[k];
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      +'<div style="flex:1;font-size:14px;color:'+(has?'#166534':'#374151')+'">'+(has?'✓ ':'')+label+'</div>'
+      +(has
+        ? '<button onclick="vorShotDel(\''+k+'\')" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#b91c1c;font-size:13px;cursor:pointer">Entfernen</button>'
+        : '<button onclick="vorShotCam(\''+k+'\')" style="padding:7px 10px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);font-size:13px;cursor:pointer">📷 Kamera</button>'
+         +'<button onclick="vorPickFile(\''+k+'\')" style="padding:7px 10px;border:1px dashed #16a34a;border-radius:8px;background:#fff;color:var(--greendk,#166534);font-size:13px;cursor:pointer">📁 Datei</button>')
+      +'</div>';
+  }).join("");
+  const n=Object.keys(VOR_SHOTS).length;
+  const btn=document.getElementById("vorShotsSend");
+  if(btn){ btn.style.display=n?"block":"none"; btn.textContent="Foto(s) erfassen ("+n+")"; }
 }
-async function vorFotoCam(){
-  setVorMsg("📷 Kamera öffnet…");
-  try{ const v=(document.getElementById("vorInput").value||"").trim(); const id=await fotoFromCam(null, /^[0-9]{6,14}$/.test(v)?v:null);
-    setVorMsg(id?"✅ Etikett-Foto aufgenommen & gespeichert – wird beim nächsten Lauf ausgelesen.":"" , id?"#16a34a":"#374151");
+async function vorShotCam(slot){
+  try{ const d=await camCapture(); if(!d) return; VOR_SHOTS[slot]=await _compressSrc(d); renderVorShots(); }
+  catch(e){ setVorMsg("Fehler: "+e.message,"#dc2626"); }
+}
+function vorPickFile(slot){ _vorSlotTarget=slot; document.getElementById("vorFoto").click(); }
+async function vorShotFile(inp){
+  const f=inp.files&&inp.files[0]; const slot=_vorSlotTarget||"front"; inp.value="";
+  if(!f) return;
+  try{ const u=URL.createObjectURL(f); try{ VOR_SHOTS[slot]=await _compressSrc(u); } finally{ URL.revokeObjectURL(u); } renderVorShots(); }
+  catch(e){ setVorMsg("Fehler: "+e.message,"#dc2626"); }
+}
+function vorShotDel(slot){ delete VOR_SHOTS[slot]; renderVorShots(); }
+async function submitVorShots(){
+  const arr=VOR_SLOTS.map(([k])=>VOR_SHOTS[k]).filter(Boolean);
+  if(!arr.length){ setVorMsg("Bitte mindestens ein Foto aufnehmen.","#dc2626"); return; }
+  setVorMsg("⏳ "+arr.length+" Foto(s) werden gespeichert…");
+  try{
+    const v=(document.getElementById("vorInput").value||"").trim();
+    const ean=/^[0-9]{6,14}$/.test(v)?v:null;
+    const {error}=await client.rpc("cb_foto_vormerken",{p_fotos:arr, p_ean:ean, p_quelle:"Web-Foto"});
+    if(error) throw error;
+    VOR_SLOTS.forEach(([k])=>delete VOR_SHOTS[k]); renderVorShots();
+    setVorMsg("✅ "+arr.length+" Etikett-Foto(s) gespeichert. Die KI liest sie beim nächsten Erfassungslauf zusammen aus und legt das Produkt als <b>Entwurf</b> an.","#16a34a");
   }catch(e){ setVorMsg("Fehler: "+e.message,"#dc2626"); }
 }
-async function fgFotoPick(inp,id){
-  const f=inp.files&&inp.files[0]; if(!f) return;
-  try{ await fotoFromFile(f, id, null); alert("Etikett-Foto für "+id+" gespeichert. Die KI vervollständigt den Entwurf beim nächsten Lauf."); }
-  catch(e){ alert("Fehler: "+e.message); } inp.value="";
+/* Freigabe: mehrere Etikettfotos je Entwurf sammeln, dann zusammen senden */
+const FG_SHOTS={};
+function updateFgShotInfo(id){
+  const arr=FG_SHOTS[id]||[]; const info=document.getElementById("fgShotInfo_"+id); const btn=document.getElementById("fgShotSend_"+id);
+  if(info) info.textContent=arr.length?(arr.length+" Foto(s)"):"";
+  if(btn) btn.style.display=arr.length?"inline-block":"none";
 }
-async function fgFotoCam(id){
-  try{ const r=await fotoFromCam(id,null); if(r) alert("Etikett-Foto für "+id+" aufgenommen & gespeichert."); }
+async function fgShotCam(id){
+  try{ const d=await camCapture(); if(!d) return; (FG_SHOTS[id]=FG_SHOTS[id]||[]).push(await _compressSrc(d)); updateFgShotInfo(id); }
   catch(e){ alert("Fehler: "+e.message); }
+}
+async function fgFotoPick(inp,id){
+  const files=inp.files?Array.from(inp.files):[]; inp.value="";
+  if(!files.length) return;
+  try{ for(const f of files){ const u=URL.createObjectURL(f); try{ (FG_SHOTS[id]=FG_SHOTS[id]||[]).push(await _compressSrc(u)); } finally{ URL.revokeObjectURL(u); } } updateFgShotInfo(id); }
+  catch(e){ alert("Fehler: "+e.message); }
+}
+async function fgShotSend(id){
+  const arr=FG_SHOTS[id]||[]; if(!arr.length) return;
+  try{ const {error}=await client.rpc("cb_foto_vormerken",{p_fotos:arr, p_produkt_id:id, p_quelle:"Web-Foto-Freigabe"}); if(error) throw error;
+    delete FG_SHOTS[id]; updateFgShotInfo(id);
+    alert(arr.length+" Etikett-Foto(s) für "+id+" gespeichert. Die KI vervollständigt den Entwurf beim nächsten Lauf.");
+  }catch(e){ alert("Fehler: "+e.message); }
 }
 function _onDetected(res){
   const code = res && res.codeResult && res.codeResult.code; if(!code) return;
