@@ -385,7 +385,9 @@ function erklaerung(d){
   return t.trim();
 }
 let ALL=[];
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
+});
 
 /* ---- Auth (Magic-Link) + Premium ---- */
 let ME = null; // {benutzer_id, name, is_premium, is_admin, tier}
