@@ -1511,7 +1511,7 @@ async function toggleFeature(tier,key,enabled){
   await refreshMyFeatures(); updateGate();
 }
 /* ---- Admin: Benutzerübersicht ---- */
-const TIERS=[["free","Free"],["premium","Premium"],["premium_plus","Premium Plus"]];
+const TIERS=[["basis","Basis"],["vital","Vital"],["performance","Performance"],["komplett","Komplett"]];
 async function loadUsers(){
   const gate=document.getElementById("usersGate"), inner=document.getElementById("usersInner");
   if(!(ME&&ME.is_admin)){ if(inner)inner.style.display="none"; if(gate){gate.style.display="";gate.innerHTML='<div class="gatebox"><h3>Nur für Admins</h3><p>Dieser Bereich ist Administratoren vorbehalten.</p></div>';} return; }
