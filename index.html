@@ -203,6 +203,7 @@
         </div>
         <div id="tbReader" style="margin-top:10px"></div>
         <div id="tbMsg" style="font-size:13px;margin-top:8px"></div>
+        <div style="font-size:12px;color:#6b7280;margin-top:8px;line-height:1.5">🎯 <b>Rest auffüllen</b>: setzt die Menge so, dass die kcal der oben gewählten Mahlzeit (z. B. Frühstück) voll werden. <b>Split</b> (mehrere Gerichte in einer Mahlzeit): erst das feste Gericht mit fester Menge eintragen, dann das zweite Gericht wählen und „Rest auffüllen" – Stück-Artikel werden ganzzahlig gerundet.</div>
       </div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:8px">Aus Historie übernehmen</div>
@@ -367,6 +368,18 @@
         <span id="pfZielMsg" style="font-size:13px;margin-left:10px"></span>
         <div style="font-size:12px;color:#6b7280;margin-top:10px">Gespeicherte Ziele gelten automatisch für jeden Tag – bei Änderung wird ein neuer Eintrag im Verlauf angelegt, frühere Tage behalten ihr damaliges Ziel.</div>
         <div id="zielHistBox" style="margin-top:10px"></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:4px">Verteilung der Mahlzeiten (%)</div>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Bestimmt, wie sich dein Tagesziel auf die Mahlzeiten aufteilt – für „🎯 Rest auffüllen" im Tagebuch. Default 25/35/30/10.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">
+          <label style="font-size:13px;color:#374151">Frühstück %<input type="number" id="pfAnFr" min="0" max="100" placeholder="25" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Mittag %<input type="number" id="pfAnMi" min="0" max="100" placeholder="35" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Abendessen %<input type="number" id="pfAnAb" min="0" max="100" placeholder="30" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Snack %<input type="number" id="pfAnSn" min="0" max="100" placeholder="10" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+        </div>
+        <button onclick="saveAnteile()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Anteile speichern</button>
+        <span id="pfAnMsg" style="font-size:13px;margin-left:10px"></span>
       </div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:6px">Passwort (Login ohne E-Mail)</div>
@@ -590,7 +603,19 @@ async function loadProfil(){
   _selVal("pfAlter",b.Alter); _selVal("pfGeschlecht",b.Geschlecht); _selVal("pfGroesse",b.Groesse_cm);
   _selVal("pfGewicht",b.Gewicht_kg); _selVal("pfAktiv",b.Aktivitaetslevel); _selVal("pfErn",b.Ernaehrungsform);
   _selVal("pfKcal",b.Kalorienziel_kcal); _selVal("pfEiw",b.Eiweiss_ziel_g); _selVal("pfKh",b.KH_ziel_g); _selVal("pfFett",b.Fett_ziel_g);
+  _selVal("pfAnFr",b.Anteil_Fr); _selVal("pfAnMi",b.Anteil_Mi); _selVal("pfAnAb",b.Anteil_Ab); _selVal("pfAnSn",b.Anteil_Sn);
   loadZielHistorie();
+}
+async function saveAnteile(){
+  const msg=document.getElementById("pfAnMsg");
+  const n=id=>{const v=parseInt((document.getElementById(id)||{}).value,10); return isNaN(v)?null:v;};
+  const fr=n("pfAnFr"), mi=n("pfAnMi"), ab=n("pfAnAb"), sn=n("pfAnSn");
+  const sum=(fr||0)+(mi||0)+(ab||0)+(sn||0);
+  if(sum===0){ msg.style.color="#dc2626"; msg.textContent="Bitte Prozente eingeben (Summe ~100)."; return; }
+  if(Math.abs(sum-100)>1){ msg.style.color="#b45309"; msg.textContent="Hinweis: Summe ist "+sum+" % (ideal 100). Wird trotzdem anteilig genutzt."; }
+  const {error}=await client.rpc("cb_anteile_setzen",{p_fr:fr,p_mi:mi,p_ab:ab,p_sn:sn});
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  if(Math.abs(sum-100)<=1){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; }
 }
 async function loadZielHistorie(){
   const box=document.getElementById("zielHistBox"); if(!box) return;
@@ -1237,16 +1262,24 @@ async function setZiel(){
   loadTagebuch();
 }
 function mealScore(rows){ let sw=0,sg=0; rows.forEach(r=>{const sc=num(r.Clean_Score),g=num(r.Menge_g); if(sc!=null&&g!=null&&g>0){sw+=sc*g;sg+=g;}}); return sg>0?Math.round(sw/sg):null; }
+/* Mahlzeitenanteile (persönlich aus Profil, sonst Default 25/35/30/10); ohne Snack umverteilt */
+function mealShares(goal, snackActive){
+  goal=goal||{};
+  let fr=num(goal.Anteil_Fr)||0, mi=num(goal.Anteil_Mi)||0, ab=num(goal.Anteil_Ab)||0, sn=num(goal.Anteil_Sn)||0;
+  if(fr+mi+ab+sn<=0){ fr=25; mi=35; ab=30; sn=10; }
+  const tot=fr+mi+ab+sn;
+  const s={"Frühstück":fr/tot,"Mittag":mi/tot,"Abendessen":ab/tot,"Snack":sn/tot};
+  if(!snackActive){ const d=1-s["Snack"]; if(d>0){ s["Frühstück"]/=d; s["Mittag"]/=d; s["Abendessen"]/=d; } s["Snack"]=0; }
+  return s;
+}
 function scoreChip(s){ if(s==null) return ""; const b=scoreBew(s); return `<span style="font-size:12px;font-weight:700;color:#fff;background:${farbe(b)};border-radius:8px;padding:2px 8px">Score ${s}</span>`; }
 function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
   window._tbItems=items||[]; window._tbGoal=goal||{};
   if(!items.length){ el.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted);font-size:14px">Noch keine Einträge für diesen Tag.<br><span style="font-size:12.5px">Füge oben eine Mahlzeit, ein Rezept oder einen manuellen Eintrag hinzu.</span></div>'; return; }
   const icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
-  const baseShare={"Frühstück":0.25,"Mittag":0.35,"Abendessen":0.30,"Snack":0.10};
   const snackActive=items.some(i=>i.Mahlzeit==="Snack");
-  const share=Object.assign({},baseShare);
-  if(!snackActive){ const d=1-baseShare["Snack"]; share["Frühstück"]=baseShare["Frühstück"]/d; share["Mittag"]=baseShare["Mittag"]/d; share["Abendessen"]=baseShare["Abendessen"]/d; share["Snack"]=0; }
+  const share=mealShares(goal, snackActive);
   const gK=num((goal||{}).Kalorienziel_kcal), gP=num((goal||{}).Eiweiss_ziel_g), gF=num((goal||{}).Fett_ziel_g);
   let html="", dayK=0, dP=0, dF=0, dKh=0, dSW=0, dSG=0;
   ["Frühstück","Mittag","Abendessen","Snack"].forEach(m=>{
@@ -1309,10 +1342,8 @@ function tbFill(){
   if(!gK){ msg.style.color="#b45309"; msg.textContent="Setze zuerst dein Kalorienziel in „Mein Profil“, dann kann ich auffüllen."; return; }
   const meal=document.getElementById("tbMahlzeit").value;
   const items=(window._tbItems||[]);
-  const baseShare={"Frühstück":0.25,"Mittag":0.35,"Abendessen":0.30,"Snack":0.10};
   const snackActive=items.some(i=>i.Mahlzeit==="Snack")||meal==="Snack";
-  const share=Object.assign({},baseShare);
-  if(!snackActive){ const d=1-baseShare["Snack"]; ["Frühstück","Mittag","Abendessen"].forEach(k=>share[k]=baseShare[k]/d); share["Snack"]=0; }
+  const share=mealShares(window._tbGoal, snackActive);
   const eaten=items.filter(i=>i.Mahlzeit===meal).reduce((a,b)=>a+(+b.kcal||0),0);
   const remaining=gK*(share[meal]||0)-eaten;
   if(remaining<=2){ msg.style.color="#b45309"; msg.textContent=meal+" ist schon erreicht ("+Math.round(eaten)+" kcal). Nichts mehr aufzufüllen."; return; }
@@ -1546,7 +1577,7 @@ function mealChips(m){
   return (""+m).split(",").map(s=>s.trim()).filter(Boolean).map(x=>
     `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#eef6ff;color:#1e3a8a">${esc(x)}</span>`).join("");
 }
-function editRezept(id){ closeP(); setMode('rezepte'); openRezeptForm(id); }
+function editRezept(id){ openRezeptForm(id); }
 async function loadRezepte(){
   const {data,error}=await client.rpc("cb_rezepte_list");
   if(error){document.getElementById("rezeptStats").textContent="Fehler: "+error.message;return;}
@@ -1640,14 +1671,14 @@ async function sperreRezept(id,sp){
 }
 async function openRezeptForm(editId){
   if(!ME){ openLogin(); return; }
-  const ed = editId ? (REZEPTE||[]).find(x=>x.id===editId) : null;
+  const ed = editId ? ((REZEPTE||[]).find(x=>x.id===editId) || (window._rezept&&window._rezept.id===editId?window._rezept:null)) : null;
   if(!ed && !hasFeat('rezepte_anlegen')){ premiumInfo(); return; }
-  const box=document.getElementById("rezeptFormBox");
-  if(box.innerHTML && !editId){ box.innerHTML=""; return; }
   if(!(window.ALL&&ALL.length)){ try{ await load(); }catch(e){} }
   buildProdDL();
-  box.innerHTML=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;box-shadow:var(--shadow)">
-    <div style="font-weight:700;font-size:15px;margin-bottom:4px">${ed?"Rezept bearbeiten":"Eigenes Rezept anlegen"}</div>
+  const box=document.getElementById("panel");
+  box.innerHTML=`<button class="close" onclick="closeP()">Schließen ✕</button>
+    <div style="margin-top:2px">
+    <div style="font-weight:700;font-size:17px;margin-bottom:4px">${ed?"Rezept bearbeiten":"Eigenes Rezept anlegen"}</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">${ed?"Änderungen an Zutaten, Mengen & Mahlzeit werden gespeichert.":"Wird zuerst <b>privat</b> gespeichert (nur du siehst es). Du kannst es später veröffentlichen."}</div>
     <input type="hidden" id="rzfEditId" value="${ed?esc(ed.id):''}">
     <label style="font-size:13px;font-weight:600">Name</label>
@@ -1685,7 +1716,7 @@ async function openRezeptForm(editId){
     <input type="file" id="rzfBild" accept="image/*" style="display:block;margin:4px 0 12px;font-size:13px">
     <div style="display:flex;gap:10px;align-items:center">
       <button onclick="saveRezept()" style="padding:10px 18px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Speichern</button>
-      <button onclick="document.getElementById('rezeptFormBox').innerHTML=''" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Abbrechen</button>
+      <button onclick="closeP()" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Abbrechen</button>
       <span id="rzfMsg" style="font-size:13px"></span>
     </div>
   </div>`;
@@ -1708,7 +1739,7 @@ async function openRezeptForm(editId){
         else { linkZutat(row.querySelector(".rzZName")); } });
     }
   }
-  box.scrollIntoView({behavior:"smooth",block:"start"});
+  document.getElementById("overlay").classList.add("open"); box.scrollTop=0;
 }
 async function saveRezept(){
   const msg=document.getElementById("rzfMsg"); msg.style.color="#dc2626";
@@ -1745,7 +1776,7 @@ async function saveRezept(){
         if(pu&&pu.publicUrl) await client.rpc("cb_rezept_setbild",{p_rezept:rid,p_url:pu.publicUrl}); }
     }catch(e){ /* Rezept ist gespeichert, Foto optional */ }
   }
-  document.getElementById("rezeptFormBox").innerHTML="";
+  closeP();
   REZEPTE=null; await loadRezepte();
 }
 async function publishRezept(id, pub){
