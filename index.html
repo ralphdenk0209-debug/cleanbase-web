@@ -283,6 +283,8 @@
         </div>
         <button onclick="saveProfilZiel()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Ziele speichern</button>
         <span id="pfZielMsg" style="font-size:13px;margin-left:10px"></span>
+        <div style="font-size:12px;color:#6b7280;margin-top:10px">Gespeicherte Ziele gelten automatisch für jeden Tag – bei Änderung wird ein neuer Eintrag im Verlauf angelegt, frühere Tage behalten ihr damaliges Ziel.</div>
+        <div id="zielHistBox" style="margin-top:10px"></div>
       </div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:6px">Passwort (Login ohne E-Mail)</div>
@@ -506,6 +508,26 @@ async function loadProfil(){
   _selVal("pfAlter",b.Alter); _selVal("pfGeschlecht",b.Geschlecht); _selVal("pfGroesse",b.Groesse_cm);
   _selVal("pfGewicht",b.Gewicht_kg); _selVal("pfAktiv",b.Aktivitaetslevel); _selVal("pfErn",b.Ernaehrungsform);
   _selVal("pfKcal",b.Kalorienziel_kcal); _selVal("pfEiw",b.Eiweiss_ziel_g); _selVal("pfKh",b.KH_ziel_g); _selVal("pfFett",b.Fett_ziel_g);
+  loadZielHistorie();
+}
+async function loadZielHistorie(){
+  const box=document.getElementById("zielHistBox"); if(!box) return;
+  const {data,error}=await client.rpc("cb_ziel_historie");
+  if(error){ box.innerHTML=""; return; }
+  const rows=data||[];
+  if(!rows.length){ box.innerHTML='<div style="font-size:12px;color:#9aa7a0">Noch kein Ziel-Verlauf – beim nächsten Speichern wird ein Eintrag angelegt.</div>'; return; }
+  let h='<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Ziel-Verlauf</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
+  h+='<tr style="color:#6b7280"><th style="text-align:left;padding:4px 8px">ab</th><th style="text-align:right;padding:4px 8px">kcal</th><th style="text-align:right;padding:4px 8px">Eiweiß</th><th style="text-align:right;padding:4px 8px">KH</th><th style="text-align:right;padding:4px 8px">Fett</th></tr>';
+  rows.forEach((r,i)=>{ const cur=i===0?' style="font-weight:700"':'';
+    h+='<tr style="border-top:1px solid #f1f5f9"><td'+cur+' style="padding:5px 8px">'+esc(r.gueltig_ab)+(i===0?' <span style="color:var(--green);font-weight:600">aktuell</span>':'')+'</td>'
+      +'<td style="text-align:right;padding:5px 8px">'+(r.kcal??'–')+'</td>'
+      +'<td style="text-align:right;padding:5px 8px">'+(r.eiweiss??'–')+'</td>'
+      +'<td style="text-align:right;padding:5px 8px">'+(r.kh??'–')+'</td>'
+      +'<td style="text-align:right;padding:5px 8px">'+(r.fett??'–')+'</td></tr>';
+  });
+  h+='</table></div>';
+  box.innerHTML=h;
 }
 async function saveProfil(){
   const msg=document.getElementById("pfMsg");
@@ -531,6 +553,7 @@ async function saveProfilZiel(){
   const {error}=await client.rpc("cb_ziel_setzen",{p_kcal:kcal,p_eiweiss:_numOrNull("pfEiw"),p_kh:_numOrNull("pfKh"),p_fett:_numOrNull("pfFett")});
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
   msg.style.color="#16a34a"; msg.textContent="✓ Ziele gespeichert";
+  loadZielHistorie();
 }
 
 async function load(){
@@ -723,8 +746,9 @@ function barChartKcal(rows,gK){
   const maxV=Math.max(gK||0,...vals,1)*1.1, bw=(W-pad*2)/n;
   let bars="";
   rows.forEach((r,i)=>{ const v=num(r.kcal)||0; const h=(v/maxV)*(H-pad*2); const x=pad+i*bw, y=H-pad-h;
-    let col="#cbd5e1"; if(v>0) col=gK?(Math.abs(v-gK)<=gK*0.1?"#16a34a":(v>gK?"#f59e0b":"#60a5fa")):"#16a34a";
-    bars+=`<rect x="${(x+1).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1,bw-2).toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="2" fill="${col}"><title>${r.datum}: ${rd(v)} kcal</title></rect>`; });
+    const g=num(r.ziel_kcal)||gK;
+    let col="#cbd5e1"; if(v>0) col=g?(Math.abs(v-g)<=g*0.1?"#16a34a":(v>g?"#f59e0b":"#60a5fa")):"#16a34a";
+    bars+=`<rect x="${(x+1).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1,bw-2).toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="2" fill="${col}"><title>${r.datum}: ${rd(v)} kcal${g?(" · Ziel "+rd(g)):""}</title></rect>`; });
   let gl=""; if(gK){ const gy=H-pad-(gK/maxV)*(H-pad*2); gl=`<line x1="${pad}" y1="${gy.toFixed(1)}" x2="${W-pad}" y2="${gy.toFixed(1)}" stroke="#dc2626" stroke-width="1" stroke-dasharray="4 3"/><text x="${W-pad}" y="${(gy-3).toFixed(1)}" text-anchor="end" font-size="9" fill="#dc2626">Ziel ${rd(gK)}</text>`; }
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible">${gl}${bars}</svg>`;
 }
@@ -747,10 +771,10 @@ function renderTbStatistik(rows,goal){
   const logged=rows.filter(r=>(num(r.kcal)||0)>0||(r.eintraege||0)>0);
   const avg=k=>logged.length?logged.reduce((s,r)=>s+(num(r[k])||0),0)/logged.length:0;
   const aK=avg("kcal"),aP=avg("protein"),aKh=avg("kh"),aF=avg("fett");
-  let inZiel=0; if(gK) logged.forEach(r=>{ if(Math.abs((num(r.kcal)||0)-gK)<=gK*0.1) inZiel++; });
+  let inZiel=0, zielDays=0; logged.forEach(r=>{ const g=num(r.ziel_kcal)||gK; if(g){ zielDays++; if(Math.abs((num(r.kcal)||0)-g)<=g*0.1) inZiel++; } });
   const header=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px"><div style="font-weight:700">📊 Statistik</div><div style="display:flex;gap:6px;flex-wrap:wrap">${statBtn("7","7 Tage")}${statBtn("30","30 Tage")}${statBtn("woche","Diese Woche")}${statBtn("monat","Dieser Monat")}</div></div>`;
   const cards=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px">${statCard("Ø kcal/Tag",rd(aK),gK?("Ziel "+rd(gK)):"")}${statCard("Ø Eiweiß",rd(aP)+" g",gP?("Ziel "+rd(gP)+" g"):"")}${statCard("Ø KH",rd(aKh)+" g",gKh?("Ziel "+rd(gKh)+" g"):"")}${statCard("Ø Fett",rd(aF)+" g",gF?("Ziel "+rd(gF)+" g"):"")}</div>`;
-  const adher=gK?`<div style="font-size:13px;margin-bottom:12px">Im Kalorienziel (±10 %): <b style="color:var(--green)">${inZiel}/${logged.length}</b> erfasste Tage</div>`:`<div style="font-size:12.5px;color:#6b7280;margin-bottom:12px">Tipp: Tagesziele in „Mein Profil" setzen – dann siehst du die Zielerreichung.</div>`;
+  const adher=zielDays?`<div style="font-size:13px;margin-bottom:12px">Im Kalorienziel (±10 %): <b style="color:var(--green)">${inZiel}/${zielDays}</b> erfasste Tage <span style="color:#9aa7a0">(je Tag gegen das damals gültige Ziel)</span></div>`:`<div style="font-size:12.5px;color:#6b7280;margin-bottom:12px">Tipp: Tagesziele in „Mein Profil" setzen – dann siehst du die Zielerreichung.</div>`;
   box.innerHTML=header+cards+adher
     +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px">kcal-Verlauf <span style="color:#9aa7a0;text-transform:none;letter-spacing:0">(grün = im Ziel · gelb = über · blau = unter)</span></div>`+barChartKcal(rows,gK)
     +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Gewichtsverlauf</div>`+lineChartWeight(rows)
