@@ -685,9 +685,11 @@ function setMode(m){
 /* ---- Tagebuch ---- */
 let TB_USER="U001";
 function tbToday(){ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
-function fillProdList(){
-  const dl=document.getElementById("tbProdListe"); if(!dl||dl.children.length||!ALL.length) return;
-  ALL.forEach(p=>{ const o=document.createElement("option"); o.value=p.name+(p.marke?" · "+p.marke:""); dl.appendChild(o); });
+async function fillProdList(){
+  const dl=document.getElementById("tbProdListe"); if(!dl) return;
+  if(!ALL.length){ try{ const {data}=await client.from("v_web_produkte").select("*"); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
+  if(dl.children.length || !ALL.length) return;
+  ALL.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(p=>{ const o=document.createElement("option"); o.value=p.name+(p.marke?" · "+p.marke:""); dl.appendChild(o); });
 }
 function tbResolveId(){
   const v=(document.getElementById("tbProd").value||"").trim().toLowerCase(); if(!v) return null;
@@ -843,7 +845,7 @@ async function loadTagebuch(){
   const {data:summe}=await client.rpc("cb_tagessumme",{p_datum:datum});
   const {data:profil}=await client.rpc("cb_profil");
   renderZiel(summe&&summe[0], profil&&profil[0]);
-  renderTbListe(eintraege||[]);
+  renderTbListe(eintraege||[], profil&&profil[0]);
   const {data:gw}=await client.rpc("cb_gewicht");
   document.getElementById("tbGewichtInfo").textContent = (gw&&gw[0])?("Zuletzt: "+gw[0].Gewicht_kg+" kg ("+gw[0].Datum+")"):"noch kein Gewicht erfasst";
 }
@@ -892,25 +894,44 @@ async function setZiel(){
   await client.rpc("cb_ziel_setzen",{p_kcal:kcal,p_eiweiss:eiw,p_kh:kh,p_fett:fett});
   loadTagebuch();
 }
-function renderTbListe(items){
+function mealScore(rows){ let sw=0,sg=0; rows.forEach(r=>{const sc=num(r.Clean_Score),g=num(r.Menge_g); if(sc!=null&&g!=null&&g>0){sw+=sc*g;sg+=g;}}); return sg>0?Math.round(sw/sg):null; }
+function scoreChip(s){ if(s==null) return ""; const b=scoreBew(s); return `<span style="font-size:12px;font-weight:700;color:#fff;background:${farbe(b)};border-radius:8px;padding:2px 8px">Score ${s}</span>`; }
+function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
   if(!items.length){ el.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted);font-size:14px">Noch keine Einträge für diesen Tag.<br><span style="font-size:12.5px">Füge oben eine Mahlzeit, ein Rezept oder einen manuellen Eintrag hinzu.</span></div>'; return; }
   const icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
-  let html="", dayK=0;
+  const share={"Frühstück":0.25,"Mittag":0.35,"Abendessen":0.30,"Snack":0.10};
+  const gK=num((goal||{}).Kalorienziel_kcal), gP=num((goal||{}).Eiweiss_ziel_g), gF=num((goal||{}).Fett_ziel_g);
+  let html="", dayK=0, dP=0, dF=0, dKh=0, dSW=0, dSG=0;
   ["Frühstück","Mittag","Abendessen","Snack"].forEach(m=>{
     const rows=items.filter(i=>i.Mahlzeit===m); if(!rows.length) return;
-    const mk=rows.reduce((a,b)=>a+(+b.kcal||0),0); dayK+=mk;
+    const mk=rows.reduce((a,b)=>a+(+b.kcal||0),0), mp=rows.reduce((a,b)=>a+(+b.protein||0),0),
+          mf=rows.reduce((a,b)=>a+(+b.fett||0),0), mkh=rows.reduce((a,b)=>a+(+b.kh||0),0);
+    dayK+=mk; dP+=mp; dF+=mf; dKh+=mkh;
+    rows.forEach(r=>{const sc=num(r.Clean_Score),g=num(r.Menge_g); if(sc!=null&&g!=null&&g>0){dSW+=sc*g;dSG+=g;}});
+    const ms=mealScore(rows), sh=share[m]||0;
+    let tgt="";
+    if(gK){
+      const tK=gK*sh, restK=Math.round(tK-mk);
+      const pPart=gP?` · Eiweiß ~${Math.round(gP*sh)} g`+((gP*sh-mp)>1?` <span style="color:#16a34a">(noch ${Math.round(gP*sh-mp)})</span>`:""):"";
+      const fPart=gF?` · Fett ~${Math.round(gF*sh)} g`:"";
+      tgt=`<div style="font-size:11.5px;color:#6b7280;padding:2px 0 6px">Bedarf ${m} ~${Math.round(tK)} kcal`
+        +(restK>0?` · <b style="color:#16a34a">noch ${restK} kcal</b>`:` · <b style="color:#b45309">${Math.abs(restK)} kcal drüber</b>`)
+        +pPart+fPart+`</div>`;
+    }
     html+=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:4px 14px 8px;margin-bottom:10px;box-shadow:var(--shadow)">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 7px;border-bottom:2px solid var(--greenlt)"><span>${icons[m]||"•"} ${m}</span><span style="color:var(--green)">${Math.round(mk)} kcal</span></div>`;
+      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 7px;border-bottom:2px solid var(--greenlt)"><span>${icons[m]||"•"} ${m}</span><span style="display:flex;align-items:center;gap:8px">${scoreChip(ms)}<span style="color:var(--green)">${Math.round(mk)} kcal</span></span></div>
+      ${tgt}`;
     rows.forEach(r=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid #f3f6f4">
-        <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Produktname||"?")}</div>
+        <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Produktname||"?")}${num(r.Clean_Score)!=null?` <span style="font-size:11px;font-weight:700;color:${farbe(scoreBew(num(r.Clean_Score)))}">${num(r.Clean_Score)}</span>`:""}</div>
         <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g});return false" style="color:var(--muted);text-decoration:none;font-size:12.5px">${r.Menge_g} g · ändern ✎</a></div>
         <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--muted)">kcal</span></span>
         <button onclick="delTb(${r.Eintrag_ID})" title="löschen" style="border:0;background:#f6f8f7;border-radius:8px;width:27px;height:27px;color:#dc2626;cursor:pointer;font-size:14px">✕</button></div>
       </div>`; });
-    html+=`</div>`;
+    html+=`<div style="font-size:11.5px;color:#6b7280;padding:7px 0 2px">Mahlzeit gesamt: Eiweiß <b>${Math.round(mp)} g</b> · KH <b>${Math.round(mkh)} g</b> · Fett <b>${Math.round(mf)} g</b></div></div>`;
   });
-  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--greendk);color:#fff;border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span>${Math.round(dayK)} kcal</span></div>`;
+  const dayScore = dSG>0?Math.round(dSW/dSG):null;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--greendk);color:#fff;border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:rgba(255,255,255,.18);border-radius:8px;padding:2px 9px;font-size:13px">Score ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
   el.innerHTML=html;
 }
 async function addTbEntry(){
