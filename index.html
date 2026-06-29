@@ -327,7 +327,9 @@
       <h2 style="margin:.1em 0 .5em;font-size:19px">Mein Profil</h2>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">Persönliche Daten</div>
+        <div style="font-size:13px;color:#374151;margin-bottom:10px">E-Mail: <b id="pfEmail">–</b></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+          <label style="font-size:13px;color:#374151">Geburtsdatum<input type="date" id="pfGeb" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
           <label style="font-size:13px;color:#374151">Alter<input type="number" id="pfAlter" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
           <label style="font-size:13px;color:#374151">Geschlecht<select id="pfGeschlecht" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>weiblich</option><option>männlich</option><option>divers</option></select></label>
           <label style="font-size:13px;color:#374151">Größe (cm)<input type="number" id="pfGroesse" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
@@ -335,6 +337,7 @@
           <label style="font-size:13px;color:#374151">Aktivitätslevel<select id="pfAktiv" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>Sitzend</option><option>Leicht aktiv</option><option>Mäßig aktiv</option><option>Sehr aktiv</option></select></label>
           <label style="font-size:13px;color:#374151">Ernährungsform<select id="pfErn" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>Omnivor</option><option>Flexitarisch</option><option>Pescetarisch</option><option>Vegetarisch</option><option>Vegan</option></select></label>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;margin-top:12px"><input type="checkbox" id="pfNews" style="width:16px;height:16px;accent-color:#16a34a">Newsletter abonnieren – Infos zu neuen Produkten &amp; Rezepten</label>
         <button onclick="saveProfil()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Speichern</button>
         <span id="pfMsg" style="font-size:13px;margin-left:10px"></span>
       </div>
@@ -599,6 +602,9 @@ async function loadProfil(){
   if(!ME || !hasFeat('profil')){ if(inner)inner.style.display="none"; if(gate){ gate.style.display=""; gate.innerHTML=gateHtml(); } return; }
   if(gate)gate.style.display="none"; if(inner)inner.style.display="";
   const {data}=await client.rpc("cb_profil"); const b=(data&&data[0])||{};
+  { const e=document.getElementById("pfEmail"); if(e) e.textContent=b.Email||"–"; }
+  _selVal("pfGeb",b.Geburtsdatum);
+  { const c=document.getElementById("pfNews"); if(c) c.checked=!!b.Newsletter; }
   _selVal("pfAlter",b.Alter); _selVal("pfGeschlecht",b.Geschlecht); _selVal("pfGroesse",b.Groesse_cm);
   _selVal("pfGewicht",b.Gewicht_kg); _selVal("pfAktiv",b.Aktivitaetslevel); _selVal("pfErn",b.Ernaehrungsform);
   _selVal("pfKcal",b.Kalorienziel_kcal); _selVal("pfEiw",b.Eiweiss_ziel_g); _selVal("pfKh",b.KH_ziel_g); _selVal("pfFett",b.Fett_ziel_g);
@@ -643,7 +649,11 @@ async function saveProfil(){
     p_aktivitaet:document.getElementById("pfAktiv").value||null,
     p_ernaehrungsform:document.getElementById("pfErn").value||null });
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
-  msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; refreshMe();
+  const geb=(document.getElementById("pfGeb")||{}).value||null;
+  const news=!!(document.getElementById("pfNews")||{}).checked;
+  const {error:e2}=await client.rpc("cb_profil_extra",{p_geburtsdatum:geb,p_newsletter:news});
+  if(e2){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+e2.message; return; }
+  msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; loadProfil(); refreshMe();
 }
 async function setMyPassword(){
   const pass=document.getElementById("pfPass").value||""; const msg=document.getElementById("pfPassMsg");
