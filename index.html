@@ -1388,9 +1388,10 @@ function _startScan(targetId, cb){
   if(!window.Quagga){ alert("Scanner lädt noch – gleich nochmal versuchen."); return; }
   _scanCb=cb;
   document.getElementById(targetId).innerHTML=
-    '<style>#qbox{position:relative;min-height:210px;background:#000;border-radius:10px;overflow:hidden}#qbox video,#qbox canvas{width:100%!important;height:auto!important;display:block}#qbox canvas.drawingBuffer{position:absolute;top:0;left:0}</style>'
-    +'<div id="qbox" style="max-width:360px;margin:0 auto"></div>'
-    +'<div style="text-align:center;font-size:12px;color:#6b7280;margin-top:6px">Barcode formatfüllend &amp; scharf ins Bild halten.</div>';
+    '<style>#qbox{position:relative;height:150px;background:#000;border-radius:10px;overflow:hidden}#qbox video,#qbox canvas{width:100%!important;height:100%!important;object-fit:cover;display:block}#qbox canvas.drawingBuffer{position:absolute;top:0;left:0}</style>'
+    +'<div id="qbox" style="max-width:280px;margin:0 auto"></div>'
+    +'<div style="text-align:center;font-size:12px;color:#6b7280;margin-top:6px">Barcode formatfüllend &amp; scharf ins Bild halten.</div>'
+    +'<div style="text-align:center;margin-top:6px"><button onclick="stopScan()" style="padding:6px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Kamera schließen</button></div>';
   Quagga.init({
     inputStream:{ type:"LiveStream", target:document.getElementById("qbox"),
       constraints:{ facingMode:"environment", width:{ideal:1280}, height:{ideal:720} } },
