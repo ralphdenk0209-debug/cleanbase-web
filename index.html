@@ -120,6 +120,7 @@
     <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')">Produkt erfassen</button>
     <button id="tabTb" class="tabbtn" onclick="setMode('tagebuch')">Tagebuch</button>
     <button id="tabPlan" class="tabbtn" onclick="setMode('planer')">Planer</button>
+    <button id="tabTrain" class="tabbtn" onclick="setMode('training')">Training</button>
     <button id="tabProfil" class="tabbtn" onclick="setMode('profil')">Mein Profil</button>
     <button id="tabFg" class="tabbtn" style="display:none" onclick="setMode('freigabe')">Freigabe</button>
     <button id="tabStufen" class="tabbtn" style="display:none" onclick="setMode('stufen')">Stufen</button>
@@ -145,6 +146,10 @@
     </div>
     <div id="rezeptFormBox"></div>
     <div class="grid" id="rezeptGrid"></div>
+  </div>
+  <div id="trainingView" style="display:none">
+    <div id="trainGate" style="display:none"></div>
+    <div id="trainBody"></div>
   </div>
   <div id="vorschlagView" style="display:none">
     <div id="vorGate" style="display:none"></div>
@@ -813,6 +818,7 @@ function setMode(m){
   document.getElementById("tabVor").classList.toggle("active",m==="vorschlagen");
   document.getElementById("tabTb").classList.toggle("active",m==="tagebuch");
   document.getElementById("tabPlan").classList.toggle("active",m==="planer");
+  document.getElementById("tabTrain").classList.toggle("active",m==="training");
   document.getElementById("tabProfil").classList.toggle("active",m==="profil");
   document.getElementById("tabFg").classList.toggle("active",m==="freigabe");
   document.getElementById("tabStufen").classList.toggle("active",m==="stufen");
@@ -822,6 +828,7 @@ function setMode(m){
   document.getElementById("vorschlagView").style.display = m==="vorschlagen"?"":"none";
   document.getElementById("tagebuchView").style.display = m==="tagebuch"?"":"none";
   document.getElementById("planerView").style.display = m==="planer"?"":"none";
+  document.getElementById("trainingView").style.display = m==="training"?"":"none";
   document.getElementById("profilView").style.display = m==="profil"?"":"none";
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
@@ -830,6 +837,7 @@ function setMode(m){
   if(m==="tagebuch") loadTagebuch();
   if(m==="planer") loadPlaner();
   if(m==="profil") loadProfil();
+  if(m==="training") loadTraining();
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
@@ -1061,12 +1069,17 @@ async function renderPlaner(){
   if(_planMode==='kalender'){ await renderKalenderGrid(dates); return; }
   let entries=[]; try{ const {data}=await client.rpc("cb_plan_woche",{p_von:von,p_bis:bis}); entries=data||[]; }catch(e){}
   _planCache=entries;
+  let massNaechste=null, massAktiv=false;
+  try{ const {data:tp}=await client.rpc("cb_train_profil"); const t=Array.isArray(tp)?tp[0]:tp; if(t){ massAktiv=t.Mass_Aktiv; massNaechste=t.Mass_Naechste; } }catch(e){}
   const slots=["Frühstück","Mittag","Abendessen","Snack"], icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
   let html="";
   dates.forEach(ds=>{
     const d=new Date(ds+"T00:00:00"), isT=ds===tbToday();
     html+=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow)${isT?';outline:2px solid var(--greenlt)':''}">
       <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px">${d.toLocaleDateString("de-DE",{weekday:"long"})} <span style="font-weight:500;color:#6b7280;font-size:12.5px">${d.toLocaleDateString("de-DE",{day:"numeric",month:"short"})}${isT?" · heute":""}</span></div>`;
+    if(massAktiv && massNaechste && (ds===massNaechste || (isT && massNaechste<=tbToday()))){
+      html+=`<div onclick="setMode('training')" style="cursor:pointer;background:#fff7e6;border:1px solid #fde68a;border-radius:8px;padding:5px 8px;margin:0 0 6px;font-size:12.5px;color:#92400e">📐 Körpermaße messen fällig ›</div>`;
+    }
     slots.forEach(s=>{
       const items=entries.filter(e=>e.datum===ds && e.slot===s);
       html+=`<div style="padding:4px 0;border-top:1px solid #f3f6f4"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;color:#6b7280">${icons[s]} ${s}</span><button onclick="planAdd('${ds}','${s}')" style="border:0;background:var(--greenlt);color:var(--greendk);border-radius:7px;padding:1px 10px;font-size:15px;cursor:pointer">+</button></div>`;
@@ -1467,6 +1480,98 @@ async function freigeben(id){
   const {error}=await client.rpc("produkt_pruefen_freigeben",{p_id:id});
   if(error){ alert("Fehler: "+error.message); return; }
   loadFreigabe();
+}
+
+/* ================= TRAINING (Phase A) ================= */
+let TRAIN=null, GERAETE_KAT=[];
+const TF_SMILEYS=["😣","🙁","😐","🙂","😄"];
+const MASS=[["po","Po","Po"],["huefte","Hüfte","Huefte"],["beine","Beine","Beine"],["oberarm","Oberarm","Oberarm"],["brust","Brust","Brust"],["taille","Taille","Taille"],["bauch","Bauch","Bauch"],["oberschenkel","Oberschenkel","Oberschenkel"]];
+async function loadTraining(){
+  const gate=document.getElementById("trainGate"), body=document.getElementById("trainBody");
+  if(!ME){ gate.style.display=""; body.innerHTML="";
+    gate.innerHTML='<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;font-size:14px">Bitte zuerst <a href="#" onclick="openLogin();return false" style="color:var(--green)">anmelden</a>, um dein Training zu verwalten.</div>'; return; }
+  gate.style.display="none"; body.innerHTML='<div style="color:#6b7280">Lade…</div>';
+  try{
+    const [rp,rk,rh,rt]=await Promise.all([
+      client.rpc("cb_train_profil"),
+      client.rpc("cb_geraete_katalog"),
+      client.rpc("cb_mass_historie",{p_limit:1}),
+      client.rpc("cb_tagesform_get",{})
+    ]);
+    TRAIN = Array.isArray(rp.data)?(rp.data[0]||{}):(rp.data||{});
+    GERAETE_KAT = rk.data||[];
+    const last=(rh.data&&rh.data[0])||{};
+    renderTraining(TRAIN, last, (rt&&rt.data)||null);
+  }catch(e){ body.innerHTML='<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>'; }
+}
+function renderTraining(p, last, tf){
+  const owned=new Set(Array.isArray(p.Geraete)?p.Geraete:[]);
+  const groups={}; GERAETE_KAT.forEach(g=>{(groups[g.gruppe]=groups[g.gruppe]||[]).push(g.name);});
+  const geraeteHtml=Object.entries(groups).map(([grp,names])=>
+    '<div style="margin-bottom:8px"><div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+esc(grp)+'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px">'+names.map(n=>{
+      const on=owned.has(n);
+      return '<label class="gk" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid '+(on?'#16a34a':'#d1d5db')+';border-radius:999px;background:'+(on?'var(--greenlt,#ecfdf5)':'#fff')+';cursor:pointer;font-size:13px"><input type="checkbox" class="gkChk" value="'+esc(n)+'"'+(on?' checked':'')+' style="margin:0"> '+esc(n)+'</label>';
+    }).join("")+'</div></div>').join("");
+  const tfHtml=TF_SMILEYS.map((s,i)=>'<button onclick="setTagesform('+(i+1)+')" id="tf_'+(i+1)+'" style="font-size:26px;line-height:1;padding:6px 8px;border:2px solid '+(tf===i+1?'#16a34a':'transparent')+';border-radius:10px;background:'+(tf===i+1?'var(--greenlt,#ecfdf5)':'#f8fafc')+';cursor:pointer">'+s+'</button>').join("");
+  const massInputs=MASS.map(([k,label,col])=>'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0"><label style="font-size:13px;color:#374151">'+label+'</label><div><input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+(last[col]!=null?last[col]:"")+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;text-align:right;font-size:14px"> <span style="color:#9ca3af;font-size:12px">cm</span></div></div>').join("");
+  const naechste = p.Mass_Naechste ? ('Nächste Messung: <b>'+esc(p.Mass_Naechste)+'</b>'+(p.Mass_Naechste<=tbToday()?' · <span style="color:#b45309">fällig</span>':'')) : '';
+  const card='background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:14px';
+  const h2='margin:0 0 10px;font-size:17px';
+  document.getElementById("trainBody").innerHTML=
+   '<div style="max-width:760px;margin:0 auto">'
+   +'<div style="'+card+'"><h3 style="'+h2+'">🏋️ Meine Geräte zuhause</h3>'+geraeteHtml
+     +'<div style="font-size:12px;color:#6b7280;margin-top:6px">Wird später für den Trainingsplan-Generator genutzt (auch Multitower/Kabelzug).</div></div>'
+   +'<div style="'+card+'"><h3 style="'+h2+'">⏱️ Zeitbudget pro Training</h3>'
+     +'<div style="display:flex;gap:16px;flex-wrap:wrap">'
+     +'<label style="font-size:14px">Winter (Min) <input id="zWinter" type="number" value="'+(p.Zeit_Winter_Min??120)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label>'
+     +'<label style="font-size:14px">Sommer (Min) <input id="zSommer" type="number" value="'+(p.Zeit_Sommer_Min??90)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label></div></div>'
+   +'<div style="'+card+'"><h3 style="'+h2+'">😊 Tagesform heute</h3><div style="display:flex;gap:8px">'+tfHtml+'</div>'
+     +'<div id="tfMsg" style="font-size:12px;color:#16a34a;margin-top:6px"></div></div>'
+   +'<div style="'+card+'"><h3 style="'+h2+'">📐 Körpermaße</h3>'
+     +'<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">'
+     +'<div style="flex:0 0 130px;text-align:center">'+personSvg()+'</div>'
+     +'<div style="flex:1;min-width:240px">'+massInputs+'</div></div>'
+     +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid #eef2f5">'
+     +'<label style="font-size:13px"><input type="checkbox" id="massAktiv"'+(p.Mass_Aktiv?' checked':'')+'> Regelmäßig messen</label>'
+     +'<label style="font-size:13px">alle <input id="massIv" type="number" min="1" value="'+(p.Mass_Intervall_Tage??7)+'" style="width:60px;padding:6px;border:1px solid #d1d5db;border-radius:8px"> Tage</label>'
+     +'<span style="font-size:12px;color:#6b7280">'+naechste+'</span></div>'
+     +'<div style="margin-top:10px"><button onclick="saveMass()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Maße speichern</button></div></div>'
+   +'<div style="position:sticky;bottom:0;background:linear-gradient(transparent,#f8fafc 40%);padding:12px 0"><button onclick="saveTrainProfil()" style="width:100%;padding:13px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Geräte, Zeit & Mess-Einstellungen speichern</button><div id="trainMsg" style="text-align:center;font-size:13px;margin-top:6px"></div></div>'
+   +'</div>';
+}
+function personSvg(){
+  return '<svg viewBox="0 0 80 170" width="110" height="200" aria-hidden="true">'
+   +'<circle cx="40" cy="16" r="12" fill="#d1fae5" stroke="#16a34a"/>'
+   +'<path d="M40 28 C24 30 22 44 24 60 L20 96 L28 96 L32 64 L32 150 L38 150 L40 100 L42 150 L48 150 L48 64 L52 96 L60 96 L56 60 C58 44 56 30 40 28 Z" fill="#ecfdf5" stroke="#16a34a"/>'
+   +'</svg><div style="font-size:11px;color:#9ca3af;margin-top:2px">Maße in cm</div>';
+}
+async function setTagesform(v){
+  for(let i=1;i<=5;i++){ const b=document.getElementById("tf_"+i); if(b){ b.style.borderColor=(i===v)?"#16a34a":"transparent"; b.style.background=(i===v)?"var(--greenlt,#ecfdf5)":"#f8fafc"; } }
+  const {error}=await client.rpc("cb_tagesform_setzen",{p_datum:null,p_wert:v});
+  const m=document.getElementById("tfMsg"); if(m) m.textContent=error?("Fehler: "+error.message):"✓ Tagesform gespeichert";
+}
+async function saveTrainProfil(){
+  const geraete=Array.from(document.querySelectorAll(".gkChk")).filter(c=>c.checked).map(c=>c.value);
+  const msg=document.getElementById("trainMsg");
+  const {error}=await client.rpc("cb_train_profil_speichern",{
+    p_geraete:geraete,
+    p_zeit_winter:parseInt(document.getElementById("zWinter").value)||120,
+    p_zeit_sommer:parseInt(document.getElementById("zSommer").value)||90,
+    p_mass_intervall:parseInt(document.getElementById("massIv").value)||7,
+    p_mass_aktiv:document.getElementById("massAktiv").checked
+  });
+  if(msg){ msg.style.color=error?"#dc2626":"#16a34a"; msg.textContent=error?("Fehler: "+error.message):"✓ Gespeichert"; }
+  if(!error) loadTraining();
+}
+function _numOrNullId(id){ const v=(document.getElementById(id).value||"").trim(); return v===""?null:parseFloat(v.replace(",",".")); }
+async function saveMass(){
+  const args={}; const order=["po","huefte","beine","oberarm","brust","taille","bauch","oberschenkel"];
+  order.forEach(k=>{ args["p_"+k]=_numOrNullId("m_"+k); });
+  const {error}=await client.rpc("cb_mass_eintragen",args);
+  const msg=document.getElementById("trainMsg");
+  if(error){ if(msg){msg.style.color="#dc2626";msg.textContent="Fehler: "+error.message;} return; }
+  loadTraining();
 }
 
 /* ---- Produkt vorschlagen (Link/Barcode → Edge Function → Entwurf) ---- */
