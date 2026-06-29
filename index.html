@@ -119,6 +119,7 @@
     <button id="tabRez" class="tabbtn" onclick="setMode('rezepte')">Rezepte</button>
     <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')">+ Vorschlagen</button>
     <button id="tabTb" class="tabbtn" onclick="setMode('tagebuch')">Tagebuch</button>
+    <button id="tabPlan" class="tabbtn" onclick="setMode('planer')">Planer</button>
     <button id="tabProfil" class="tabbtn" onclick="setMode('profil')">Mein Profil</button>
     <button id="tabFg" class="tabbtn" style="display:none" onclick="setMode('freigabe')">Freigabe</button>
     <button id="tabStufen" class="tabbtn" style="display:none" onclick="setMode('stufen')">Stufen</button>
@@ -235,6 +236,40 @@
           <input type="number" id="tbGewicht" placeholder="kg" step="0.1" style="width:100px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
           <button onclick="saveGewicht()" style="padding:10px 16px;border:0;border-radius:8px;background:#eef2f5;cursor:pointer">Speichern</button>
           <span id="tbGewichtInfo" style="font-size:13px;color:#6b7280"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="planerView" style="display:none">
+    <div id="planerGate" style="display:none"></div>
+    <div id="planerInner" style="max-width:640px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <h2 style="margin:0;font-size:19px">Planer</h2>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button onclick="planShiftWeek(-1)" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">‹</button>
+          <button onclick="planThisWeek()" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Diese Woche</button>
+          <button onclick="planShiftWeek(1)" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">›</button>
+        </div>
+      </div>
+      <div id="planWochenLabel" style="font-size:13px;color:#6b7280;margin-bottom:10px"></div>
+      <div id="planGrid"></div>
+      <div id="planPick" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:14px;padding:16px;max-width:420px;width:92%;box-shadow:var(--shadow)">
+          <div style="font-weight:700;margin-bottom:2px">Zum Plan hinzufügen</div>
+          <div id="planPickWhen" style="font-size:12.5px;color:#6b7280;margin-bottom:10px"></div>
+          <label style="font-size:13px;font-weight:600">Rezept</label>
+          <select id="planRez" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 10px;box-sizing:border-box"><option value="">– Rezept wählen –</option></select>
+          <div style="text-align:center;color:#9aa7a0;font-size:12px;margin-bottom:8px">— oder —</div>
+          <label style="font-size:13px;font-weight:600">Produkt</label>
+          <div style="display:flex;gap:8px;margin:4px 0 12px">
+            <input id="planProd" list="tbProdListe" placeholder="Produkt aus Liste…" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px">
+            <input id="planMenge" type="number" placeholder="g" style="width:74px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button onclick="planSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Hinzufügen</button>
+            <button onclick="document.getElementById('planPick').style.display='none'" style="padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Abbrechen</button>
+            <span id="planPickMsg" style="font-size:12.5px"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -693,6 +728,7 @@ function setMode(m){
   document.getElementById("tabRez").classList.toggle("active",m==="rezepte");
   document.getElementById("tabVor").classList.toggle("active",m==="vorschlagen");
   document.getElementById("tabTb").classList.toggle("active",m==="tagebuch");
+  document.getElementById("tabPlan").classList.toggle("active",m==="planer");
   document.getElementById("tabProfil").classList.toggle("active",m==="profil");
   document.getElementById("tabFg").classList.toggle("active",m==="freigabe");
   document.getElementById("tabStufen").classList.toggle("active",m==="stufen");
@@ -701,12 +737,14 @@ function setMode(m){
   document.getElementById("rezeptView").style.display = m==="rezepte"?"":"none";
   document.getElementById("vorschlagView").style.display = m==="vorschlagen"?"":"none";
   document.getElementById("tagebuchView").style.display = m==="tagebuch"?"":"none";
+  document.getElementById("planerView").style.display = m==="planer"?"":"none";
   document.getElementById("profilView").style.display = m==="profil"?"":"none";
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
   if(m==="rezepte" && REZEPTE===null) loadRezepte();
   if(m==="tagebuch") loadTagebuch();
+  if(m==="planer") loadPlaner();
   if(m==="profil") loadProfil();
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
@@ -895,6 +933,82 @@ async function renderKalender(){
   }
   h+=`</div><div style="font-size:11px;color:#9aa7a0;margin-top:8px">Punkt = Einträge vorhanden · Tag antippen zum Öffnen/Nachtragen</div>`;
   box.innerHTML=h;
+}
+let _planMonday=null, _planCache=[], _planTarget=null;
+function planMondayOf(ds){ const x=new Date(ds+"T00:00:00"); const wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); return tbISO(x); }
+function planThisWeek(){ _planMonday=planMondayOf(tbToday()); renderPlaner(); }
+function planShiftWeek(n){ const base=_planMonday||planMondayOf(tbToday()); const x=new Date(base+"T00:00:00"); x.setDate(x.getDate()+n*7); _planMonday=tbISO(x); renderPlaner(); }
+async function loadPlaner(){
+  const gate=document.getElementById("planerGate"), inner=document.getElementById("planerInner");
+  if(!ME || !hasFeat('planer')){ if(inner)inner.style.display="none"; if(gate){gate.style.display="";gate.innerHTML=gateHtml();} return; }
+  if(gate)gate.style.display="none"; if(inner)inner.style.display="";
+  if(!ALL.length){ await load(); }
+  fillProdList();
+  if(REZEPTE===null) await loadRezepte();
+  if(!_planMonday) _planMonday=planMondayOf(tbToday());
+  await renderPlaner();
+}
+async function renderPlaner(){
+  const mon=_planMonday, monD=new Date(mon+"T00:00:00"); const sun=new Date(monD); sun.setDate(monD.getDate()+6);
+  const lab=document.getElementById("planWochenLabel");
+  if(lab) lab.textContent="Woche "+monD.toLocaleDateString("de-DE",{day:"numeric",month:"long"})+" – "+sun.toLocaleDateString("de-DE",{day:"numeric",month:"long",year:"numeric"});
+  let entries=[]; try{ const {data}=await client.rpc("cb_plan_woche",{p_von:mon,p_bis:tbISO(sun)}); entries=data||[]; }catch(e){}
+  _planCache=entries;
+  const slots=["Frühstück","Mittag","Abendessen","Snack"], icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
+  const dn=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
+  let html="";
+  for(let i=0;i<7;i++){
+    const d=new Date(monD); d.setDate(monD.getDate()+i); const ds=tbISO(d), isT=ds===tbToday();
+    html+=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow)${isT?';outline:2px solid var(--greenlt)':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px">${dn[i]} <span style="font-weight:500;color:#6b7280;font-size:12.5px">${d.toLocaleDateString("de-DE",{day:"numeric",month:"short"})}${isT?" · heute":""}</span></div>`;
+    slots.forEach(s=>{
+      const items=entries.filter(e=>e.datum===ds && e.slot===s);
+      html+=`<div style="padding:4px 0;border-top:1px solid #f3f6f4"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;color:#6b7280">${icons[s]} ${s}</span><button onclick="planAdd('${ds}','${s}')" style="border:0;background:var(--greenlt);color:var(--greendk);border-radius:7px;padding:1px 10px;font-size:15px;cursor:pointer">+</button></div>`;
+      items.forEach(it=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;padding:3px 0 3px 4px">
+        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.typ==='rezept'?'🍲':'•'} ${esc(it.titel)}${it.menge_g?` <span style="color:#9aa7a0">${it.menge_g} g</span>`:""}</span>
+        <span style="display:flex;gap:5px;white-space:nowrap"><button onclick="planToTb(${it.eintrag_id})" title="Ins Tagebuch übernehmen" style="border:0;background:#eef6ff;color:#1e3a8a;border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer">→ TB</button><button onclick="planDel(${it.eintrag_id})" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer">✕</button></span></div>`; });
+      html+=`</div>`;
+    });
+    html+=`<div style="text-align:right;margin-top:4px"><button onclick="planDayToTb('${ds}')" style="font-size:12px;color:#1e3a8a;background:none;border:0;cursor:pointer;text-decoration:underline">ganzen Tag → Tagebuch</button></div></div>`;
+  }
+  document.getElementById("planGrid").innerHTML=html;
+}
+function planAdd(ds,slot){
+  _planTarget={ds,slot};
+  const sel=document.getElementById("planRez");
+  sel.innerHTML='<option value="">– Rezept wählen –</option>'+(REZEPTE||[]).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join("");
+  document.getElementById("planProd").value=""; document.getElementById("planMenge").value=""; document.getElementById("planPickMsg").textContent="";
+  document.getElementById("planPickWhen").textContent=new Date(ds+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+" · "+slot;
+  document.getElementById("planPick").style.display="flex";
+}
+async function planSave(){
+  if(!_planTarget) return; const msg=document.getElementById("planPickMsg"); msg.style.color="#dc2626";
+  const rezId=document.getElementById("planRez").value;
+  const prodV=(document.getElementById("planProd").value||"").trim();
+  const menge=parseFloat(document.getElementById("planMenge").value)||null;
+  let typ,rez=null,prod=null,titel=null;
+  if(rezId){ typ='rezept'; rez=rezId; const r=(REZEPTE||[]).find(x=>x.id===rezId); titel=r?r.name:null; }
+  else if(prodV){ const p=(ALL||[]).find(x=>prodLabel(x).toLowerCase()===prodV.toLowerCase())||(ALL||[]).find(x=>(x.name||"").toLowerCase()===prodV.toLowerCase()); if(!p){ msg.textContent="Produkt nicht gefunden – aus der Liste wählen."; return; } typ='produkt'; prod=p.id; titel=p.name; }
+  else { msg.textContent="Rezept oder Produkt wählen."; return; }
+  const {error}=await client.rpc("cb_plan_add",{p_datum:_planTarget.ds,p_slot:_planTarget.slot,p_typ:typ,p_rezept:rez,p_produkt:prod,p_menge:menge,p_titel:titel});
+  if(error){ msg.textContent="Fehler: "+error.message; return; }
+  document.getElementById("planPick").style.display="none"; renderPlaner();
+}
+async function planDel(id){ await client.rpc("cb_plan_del",{p_eintrag:id}); renderPlaner(); }
+async function planToTb(id,quiet){
+  const it=(_planCache||[]).find(e=>e.eintrag_id===id); if(!it) return;
+  try{
+    if(it.typ==='rezept' && it.rezept_id){ await client.rpc("cb_tb_rezept",{p_mahlzeit:it.slot,p_rezept:it.rezept_id,p_datum:it.datum}); }
+    else if(it.produkt_id){ const p=(ALL||[]).find(x=>x.id===it.produkt_id); const g=it.menge_g||(p?tbDefaultPortion(p):100); await client.rpc("cb_tb_eintragen",{p_mahlzeit:it.slot,p_produkt:it.produkt_id,p_menge_g:g,p_datum:it.datum}); }
+    else { if(!quiet) alert("Nur Rezepte/Produkte können übernommen werden."); return; }
+    if(!quiet) alert("✓ ins Tagebuch übernommen ("+it.datum+")");
+  }catch(e){ if(!quiet) alert("Fehler: "+e.message); }
+}
+async function planDayToTb(ds){
+  const items=(_planCache||[]).filter(e=>e.datum===ds); if(!items.length) return;
+  if(!confirm("Alle "+items.length+" Einträge dieses Tages ins Tagebuch übernehmen?")) return;
+  for(const it of items){ await planToTb(it.eintrag_id,true); }
+  alert("✓ "+items.length+" Einträge ins Tagebuch übernommen.");
 }
 async function loadTagebuch(){
   const gate=document.getElementById("tbGate"), inner=document.getElementById("tbInner");
