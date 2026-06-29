@@ -1238,6 +1238,7 @@ async function sperreRezept(id,sp){
 }
 async function openRezeptForm(){
   if(!ME){ openLogin(); return; }
+  if(!hasFeat('rezepte_anlegen')){ premiumInfo(); return; }
   const box=document.getElementById("rezeptFormBox");
   if(box.innerHTML){ box.innerHTML=""; return; }
   if(!(window.ALL&&ALL.length)){ try{ await load(); }catch(e){} }
