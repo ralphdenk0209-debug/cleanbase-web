@@ -1604,22 +1604,13 @@ function rzToGrams(amount, unit, pid){
   const u=RZ_UNITS.find(x=>x[0]===unit);
   if(!u) return amount;
   if(u[1]!=null) return amount*u[1];
-  const p=pid?(window.ALL||[]).find(x=>x.id===pid):null;
+  const p=pid?(ALL||[]).find(x=>x.id===pid):null;
   return p? amount*tbDefaultPortion(p) : null;
-}
-function _prodOptions(){
-  return (window.ALL||[]).slice().sort((a,b)=>(a.name||"").localeCompare(b.name||""))
-    .map(p=>`<option value="${esc(p.id)}">${esc(prodLabel(p))}</option>`).join("");
 }
 function zutatRowHtml(){
   return `<div class="rzZ" style="margin-bottom:8px">
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <select class="rzZsel" onchange="zSelChange(this)" style="flex:1;min-width:160px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
-        <option value="">– Produkt aus Katalog wählen –</option>
-        <option value="__free">✎ Freitext (kein passendes Produkt)</option>
-        ${_prodOptions()}
-      </select>
-      <input class="rzZName" placeholder="freie Zutat (Text)" style="display:none;flex:1 1 100%;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+      <input class="rzZName" list="prodDL" oninput="linkZutat(this)" placeholder="Produkt aus Liste suchen … (oder Freitext)" style="flex:1;min-width:160px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
       <input class="rzZg" type="number" min="0" step="0.1" placeholder="Menge" style="width:72px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
       <select class="rzZu" style="width:80px;padding:8px;border:1px solid #d1d5db;border-radius:8px">${RZ_UNITS.map(u=>`<option>${u[0]}</option>`).join("")}</select>
       <button type="button" onclick="this.closest('.rzZ').remove()" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">✕</button>
@@ -1628,21 +1619,12 @@ function zutatRowHtml(){
     <div class="rzZlink" style="font-size:11px;color:#6b7280;margin:2px 0 0 2px"></div>
   </div>`;
 }
-function zSelChange(sel){
-  const row=sel.closest(".rzZ"); if(!row) return;
-  const pidEl=row.querySelector(".rzZpid"), nameEl=row.querySelector(".rzZName"), lk=row.querySelector(".rzZlink");
-  const v=sel.value;
-  if(v==="__free"){ nameEl.style.display=""; pidEl.value=""; lk.style.color="#9aa7a0"; lk.textContent="freie Zutat – Text eingeben (keine Nährwerte/Score)"; nameEl.focus(); }
-  else if(v===""){ nameEl.style.display="none"; pidEl.value=""; lk.textContent=""; }
-  else { nameEl.style.display="none"; pidEl.value=v; const p=(window.ALL||[]).find(x=>x.id===v);
-    lk.style.color="#16a34a"; lk.textContent=p?("✓ "+prodLabel(p)+" · "+(p.m_kcal??"–")+" kcal/100 g · Score "+(p.clean_score??"–")):"✓ verknüpft"; }
-}
 function buildProdDL(){
   let dl=document.getElementById("prodDL");
   if(dl && dl.children.length) return;            // schon befüllt
   if(!dl){ dl=document.createElement("datalist"); dl.id="prodDL"; document.body.appendChild(dl); }
   dl.innerHTML="";
-  (window.ALL||[]).slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(p=>{
+  (ALL||[]).slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(p=>{
     const o=document.createElement("option"); o.value=prodLabel(p); dl.appendChild(o);
   });
 }
@@ -1650,7 +1632,7 @@ function linkZutat(input){
   const row=input.closest(".rzZ"); if(!row) return;
   const nameEl=row.querySelector(".rzZName"), pidEl=row.querySelector(".rzZpid"), lk=row.querySelector(".rzZlink");
   const v=(nameEl.value||"").trim().toLowerCase();
-  const p=(window.ALL||[]).find(x=> prodLabel(x).toLowerCase()===v || (x.name||"").toLowerCase()===v);
+  const p=(ALL||[]).find(x=> prodLabel(x).toLowerCase()===v || (x.name||"").toLowerCase()===v);
   if(p){ pidEl.value=p.id; lk.style.color="#16a34a";
     lk.textContent=`✓ verknüpft · ${p.m_kcal??"–"} kcal/100 g · Clean Score ${p.clean_score??"–"}`; }
   else { pidEl.value=""; lk.style.color="#9aa7a0"; lk.textContent=v?"freie Zutat (keine Nährwerte/Score)":""; }
@@ -1666,7 +1648,7 @@ function calcMakros(){
     const unit=(row.querySelector(".rzZu")||{}).value||"g";
     if(nm) total++;
     const g=rzToGrams(amt,unit,pid)||0;
-    if(pid&&g>0){ const pr=(window.ALL||[]).find(x=>x.id===pid);
+    if(pid&&g>0){ const pr=(ALL||[]).find(x=>x.id===pid);
       if(pr){ linked++; const fac=g/100;
         k+=(num(pr.m_kcal)||0)*fac; p+=(num(pr.m_protein)||0)*fac; kh+=(num(pr.m_kh)||0)*fac; f+=(num(pr.m_fett)||0)*fac; } }
   });
@@ -1694,7 +1676,7 @@ async function openRezeptForm(editId){
   if(!ME){ openLogin(); return; }
   const ed = editId ? ((REZEPTE||[]).find(x=>x.id===editId) || (window._rezept&&window._rezept.id===editId?window._rezept:null)) : null;
   if(!ed && !hasFeat('rezepte_anlegen')){ premiumInfo(); return; }
-  if(!(window.ALL&&ALL.length)){ try{ await load(); }catch(e){} }
+  if(!(ALL&&ALL.length)){ try{ await load(); }catch(e){} }
   buildProdDL();
   const box=document.getElementById("panel");
   box.innerHTML=`<button class="close" onclick="closeP()">Schließen ✕</button>
@@ -1755,9 +1737,9 @@ async function openRezeptForm(editId){
         if(z.menge){ const mm=(""+z.menge).trim().match(/^([\d.,]+)\s*(.*)$/); if(mm){ amt=mm[1].replace(",","."); const u=(mm[2]||"g").trim(); const hit=RZ_UNITS.find(x=>x[0].toLowerCase()===u.toLowerCase()); if(hit) unit=hit[0]; } }
         else if(z.menge_g!=null){ amt=z.menge_g; unit="g"; }
         row.querySelector(".rzZg").value=amt; const us=row.querySelector(".rzZu"); if(us) us.value=unit;
-        const sel=row.querySelector(".rzZsel");
-        if(z.produkt_id && (window.ALL||[]).some(x=>x.id===z.produkt_id)){ sel.value=z.produkt_id; zSelChange(sel); }
-        else { sel.value="__free"; zSelChange(sel); row.querySelector(".rzZName").value=z.name||""; }
+        row.querySelector(".rzZName").value=z.name||"";
+        if(z.produkt_id){ row.querySelector(".rzZpid").value=z.produkt_id; const p=(ALL||[]).find(x=>x.id===z.produkt_id); const lk=row.querySelector(".rzZlink"); if(lk){ lk.style.color="#16a34a"; lk.textContent=p?("✓ "+prodLabel(p)):"✓ verknüpft"; } }
+        else { linkZutat(row.querySelector(".rzZName")); }
       });
     }
   }
@@ -1771,7 +1753,7 @@ async function saveRezept(){
   document.querySelectorAll("#rzfZutaten .rzZ").forEach(row=>{
     const pid=(row.querySelector(".rzZpid").value||"").trim();
     let n;
-    if(pid){ const pr=(window.ALL||[]).find(x=>x.id===pid); n=pr?prodLabel(pr):""; }
+    if(pid){ const pr=(ALL||[]).find(x=>x.id===pid); n=pr?prodLabel(pr):""; }
     else { n=(row.querySelector(".rzZName").value||"").trim(); }
     if(!n) return;
     const amt=parseFloat(row.querySelector(".rzZg").value);
@@ -1954,12 +1936,11 @@ async function addRezeptToTb(){
   const meal=(document.getElementById("rzMeal")||{}).value||"Snack";
   const pro=ME&&hasFeat('rezepte_pro'); const P0=num(r.portionen)||1, K0=num(r.kcal)||0;
   let fK=1; if(pro){ const zk=parseFloat((document.getElementById("rzKcal")||{}).value); if(!isNaN(zk)&&K0) fK=zk/K0; }
-  const n=parseFloat((document.getElementById("rzTbPort")||{}).value)||1, f=fK*n;
-  const sumG=(Array.isArray(r.zutaten)?r.zutaten:[]).reduce((a,z)=>a+(num(z.menge_g)||0),0);
-  const grams=Math.round((sumG/P0)*f);
-  const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:meal,p_name:r.name+(n!=1?(" x"+n):""),p_menge_g:grams,p_kcal:Math.round(K0*f),p_protein:Math.round((num(r.protein)||0)*f),p_kh:Math.round((num(r.kh)||0)*f),p_fett:Math.round((num(r.fett)||0)*f),p_datum:tbToday()});
+  const n=parseFloat((document.getElementById("rzTbPort")||{}).value)||1;
+  const faktor=(fK*n)/P0;   // Rezept-Zutatenmengen gelten für P0 Portionen
+  const {data,error}=await client.rpc("cb_tb_rezept",{p_mahlzeit:meal,p_rezept:r.id,p_datum:tbToday(),p_faktor:faktor});
   if(error){ if(msg){msg.style.color="#dc2626";msg.textContent="Fehler: "+error.message;} return; }
-  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ in "+meal+" übernommen"; }
+  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ "+(data||("Zutaten in "+meal+" übernommen")); }
   loadRezeptBudget();
 }
 /* ---- Admin: Premium-Stufen & Feature-Matrix ---- */
