@@ -88,12 +88,16 @@
 <body>
 <div class="hero"><div class="wrap">
   <div class="brand">
-    <svg class="leaf" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z" fill="#a7e3bb"/>
-      <path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z" stroke="#ffffff" stroke-width="1.4"/>
-      <path d="M9 15c2.5-3 5-5 8-6" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/>
-    </svg>
-    <h1>CleanBase</h1>
+    <img id="brandLogo" src="logo.png" alt="VERIDIA" style="height:96px;width:auto;max-width:90%;background:#fff;border-radius:16px;padding:8px 16px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none"
+         onload="this.style.display='';var f=document.getElementById('brandFallback');if(f)f.style.display='none';" onerror="this.remove()">
+    <span id="brandFallback" style="display:inline-flex;align-items:center;gap:.4em">
+      <svg class="leaf" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z" fill="#a7e3bb"/>
+        <path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z" stroke="#ffffff" stroke-width="1.4"/>
+        <path d="M9 15c2.5-3 5-5 8-6" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <h1>CleanBase</h1>
+    </span>
   </div>
   <p class="tag">Echte Qualität, Transparenz & smarte Ernährung.</p>
   <p class="sub">Unabhängige, wissenschaftsbasierte Bewertung – der Clean Score (0–100).</p>
@@ -162,8 +166,12 @@
     <div id="tbInner" style="max-width:600px;margin:0 auto">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <h2 id="tbTitle" style="margin:0;font-size:19px">Tagebuch</h2>
-        <input type="date" id="tbDatum" onchange="loadTagebuch()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="toggleTbStatistik()" style="padding:8px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">📊 Statistik</button>
+          <input type="date" id="tbDatum" onchange="loadTagebuch()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">
+        </div>
       </div>
+      <div id="tbStatBox" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
       <div id="tbZiel" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:8px">Mahlzeit eintragen</div>
@@ -665,6 +673,72 @@ function tbPrefillMenge(){
   const id=tbResolveId(); if(!id) return;
   const p=ALL.find(x=>x.id===id); if(!p) return;
   document.getElementById("tbMenge").value=tbDefaultPortion(p);
+}
+let _statPeriod="7";
+function statRange(period){
+  const t=new Date();
+  const fmt=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const today=fmt(t);
+  if(period==="woche"){ const wd=(t.getDay()+6)%7; const mon=new Date(t); mon.setDate(t.getDate()-wd); return [fmt(mon),today]; }
+  if(period==="monat"){ return [fmt(new Date(t.getFullYear(),t.getMonth(),1)),today]; }
+  const n=parseInt(period,10)||7; const von=new Date(t); von.setDate(t.getDate()-(n-1)); return [fmt(von),today];
+}
+async function toggleTbStatistik(){
+  const box=document.getElementById("tbStatBox");
+  if(box.style.display!=="none"){ box.style.display="none"; return; }
+  box.style.display=""; await loadTbStatistik(); box.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+async function loadTbStatistik(){
+  const box=document.getElementById("tbStatBox");
+  const [von,bis]=statRange(_statPeriod);
+  box.innerHTML='<div style="color:#6b7280;font-size:13px">Lade Statistik…</div>';
+  const {data,error}=await client.rpc("cb_statistik",{p_von:von,p_bis:bis});
+  if(error){ box.innerHTML='<div style="color:#dc2626;font-size:13px">Fehler: '+error.message+'</div>'; return; }
+  let goal={}; try{ const g=await client.rpc("cb_profil"); goal=(g&&g.data&&g.data[0])||{}; }catch(e){}
+  renderTbStatistik(data||[], goal);
+}
+function statBtn(p,lbl){ const on=_statPeriod===p;
+  return `<button onclick="_statPeriod='${p}';loadTbStatistik()" style="padding:6px 10px;border:1px solid ${on?'var(--green)':'#d1d5db'};border-radius:8px;background:${on?'var(--greenlt)':'#fff'};color:${on?'var(--greendk)':'#374151'};cursor:pointer;font-size:12.5px">${lbl}</button>`; }
+function statCard(lbl,val,sub){ return `<div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-size:11px;color:#6b7280">${lbl}</div><div style="font-size:18px;font-weight:700">${val}</div><div style="font-size:11px;color:#9aa7a0">${sub||''}</div></div>`; }
+function barChartKcal(rows,gK){
+  const n=rows.length; if(!n) return '<div style="color:#9aa7a0;font-size:12px">Keine Daten.</div>';
+  const W=Math.max(280,n*16), H=120, pad=18, rd=Math.round;
+  const vals=rows.map(r=>num(r.kcal)||0);
+  const maxV=Math.max(gK||0,...vals,1)*1.1, bw=(W-pad*2)/n;
+  let bars="";
+  rows.forEach((r,i)=>{ const v=num(r.kcal)||0; const h=(v/maxV)*(H-pad*2); const x=pad+i*bw, y=H-pad-h;
+    let col="#cbd5e1"; if(v>0) col=gK?(Math.abs(v-gK)<=gK*0.1?"#16a34a":(v>gK?"#f59e0b":"#60a5fa")):"#16a34a";
+    bars+=`<rect x="${(x+1).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1,bw-2).toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="2" fill="${col}"><title>${r.datum}: ${rd(v)} kcal</title></rect>`; });
+  let gl=""; if(gK){ const gy=H-pad-(gK/maxV)*(H-pad*2); gl=`<line x1="${pad}" y1="${gy.toFixed(1)}" x2="${W-pad}" y2="${gy.toFixed(1)}" stroke="#dc2626" stroke-width="1" stroke-dasharray="4 3"/><text x="${W-pad}" y="${(gy-3).toFixed(1)}" text-anchor="end" font-size="9" fill="#dc2626">Ziel ${rd(gK)}</text>`; }
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible">${gl}${bars}</svg>`;
+}
+function lineChartWeight(rows){
+  const n=rows.length; const pts=rows.map((r,i)=>({i,w:num(r.gewicht)})).filter(p=>p.w!=null);
+  if(!pts.length) return '<div style="color:#9aa7a0;font-size:12px">Noch keine Gewichtseinträge im Zeitraum.</div>';
+  const W=Math.max(280,n*16), H=110, pad=20;
+  const ws=pts.map(p=>p.w), mn=Math.min(...ws), mx=Math.max(...ws), rng=(mx-mn)||1;
+  const X=i=> pad+(n<=1?0:(i/(n-1))*(W-pad*2));
+  const Y=w=> pad+(1-(w-mn)/rng)*(H-pad*2);
+  let path=""; pts.forEach((p,k)=>{ path+=(k?"L":"M")+X(p.i).toFixed(1)+" "+Y(p.w).toFixed(1)+" "; });
+  const dots=pts.map(p=>`<circle cx="${X(p.i).toFixed(1)}" cy="${Y(p.w).toFixed(1)}" r="2.5" fill="#16a34a"><title>${rows[p.i].datum}: ${p.w} kg</title></circle>`).join("");
+  const f=pts[0].w, l=pts[pts.length-1].w, diff=Math.round((l-f)*10)/10;
+  const trend=pts.length>1?`<text x="${pad}" y="12" font-size="10" fill="#6b7280">${f} → ${l} kg (${diff>0?'+':''}${diff})</text>`:`<text x="${pad}" y="12" font-size="10" fill="#6b7280">${l} kg</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible">${trend}<path d="${path}" fill="none" stroke="#16a34a" stroke-width="1.5"/>${dots}</svg>`;
+}
+function renderTbStatistik(rows,goal){
+  const box=document.getElementById("tbStatBox"), rd=x=>Math.round(x);
+  const gK=num(goal.Kalorienziel_kcal),gP=num(goal.Eiweiss_ziel_g),gKh=num(goal.KH_ziel_g),gF=num(goal.Fett_ziel_g);
+  const logged=rows.filter(r=>(num(r.kcal)||0)>0||(r.eintraege||0)>0);
+  const avg=k=>logged.length?logged.reduce((s,r)=>s+(num(r[k])||0),0)/logged.length:0;
+  const aK=avg("kcal"),aP=avg("protein"),aKh=avg("kh"),aF=avg("fett");
+  let inZiel=0; if(gK) logged.forEach(r=>{ if(Math.abs((num(r.kcal)||0)-gK)<=gK*0.1) inZiel++; });
+  const header=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px"><div style="font-weight:700">📊 Statistik</div><div style="display:flex;gap:6px;flex-wrap:wrap">${statBtn("7","7 Tage")}${statBtn("30","30 Tage")}${statBtn("woche","Diese Woche")}${statBtn("monat","Dieser Monat")}</div></div>`;
+  const cards=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px">${statCard("Ø kcal/Tag",rd(aK),gK?("Ziel "+rd(gK)):"")}${statCard("Ø Eiweiß",rd(aP)+" g",gP?("Ziel "+rd(gP)+" g"):"")}${statCard("Ø KH",rd(aKh)+" g",gKh?("Ziel "+rd(gKh)+" g"):"")}${statCard("Ø Fett",rd(aF)+" g",gF?("Ziel "+rd(gF)+" g"):"")}</div>`;
+  const adher=gK?`<div style="font-size:13px;margin-bottom:12px">Im Kalorienziel (±10 %): <b style="color:var(--green)">${inZiel}/${logged.length}</b> erfasste Tage</div>`:`<div style="font-size:12.5px;color:#6b7280;margin-bottom:12px">Tipp: Tagesziele in „Mein Profil" setzen – dann siehst du die Zielerreichung.</div>`;
+  box.innerHTML=header+cards+adher
+    +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px">kcal-Verlauf <span style="color:#9aa7a0;text-transform:none;letter-spacing:0">(grün = im Ziel · gelb = über · blau = unter)</span></div>`+barChartKcal(rows,gK)
+    +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Gewichtsverlauf</div>`+lineChartWeight(rows)
+    +`<div style="font-size:11.5px;color:#9aa7a0;margin-top:8px">${rows.length} Tage · ${logged.length} mit Einträgen · Durchschnitte nur über erfasste Tage.</div>`;
 }
 async function loadTagebuch(){
   const gate=document.getElementById("tbGate"), inner=document.getElementById("tbInner");
@@ -1279,17 +1353,25 @@ function renderUsers(rows){
   h+='</table></div><div id="usersMsg" style="font-size:13px;margin-top:8px;height:18px"></div>';
   document.getElementById("usersTable").innerHTML=h;
 }
+function userErr(msg,e){
+  const auth=/Nur Admins|Nicht angemeldet|JWT|auth/i.test(e.message||"");
+  if(msg){ msg.style.color="#dc2626"; msg.textContent=auth?"Sitzung abgelaufen – bitte neu anmelden und erneut versuchen.":("Fehler: "+e.message); }
+}
 async function setUserTier(bid,tier){
   const msg=document.getElementById("usersMsg");
+  if(!(ME&&ME.is_admin)){ if(msg){msg.style.color="#dc2626";msg.textContent="Bitte als Admin anmelden.";} return; }
   const {error}=await client.rpc("cb_user_set_tier",{p_benutzer:bid,p_tier:tier});
-  if(error){ if(msg){msg.style.color="#dc2626";msg.textContent="Fehler: "+error.message;} return; }
+  if(error){ userErr(msg,error); return; }
   if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ Stufe gespeichert"; setTimeout(()=>{if(msg)msg.textContent="";},1400); }
+  loadUsers();
 }
 async function setUserAdmin(bid,val){
   const msg=document.getElementById("usersMsg");
+  if(!(ME&&ME.is_admin)){ if(msg){msg.style.color="#dc2626";msg.textContent="Bitte als Admin anmelden.";} loadUsers(); return; }
   const {error}=await client.rpc("cb_user_set_admin",{p_benutzer:bid,p_is_admin:val});
-  if(error){ if(msg){msg.style.color="#dc2626";msg.textContent="Fehler: "+error.message;} loadUsers(); return; }
+  if(error){ userErr(msg,error); loadUsers(); return; }
   if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; setTimeout(()=>{if(msg)msg.textContent="";},1400); }
+  loadUsers();
 }
 load();
 </script>
