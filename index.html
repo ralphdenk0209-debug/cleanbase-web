@@ -258,6 +258,22 @@
         <span id="pfMsg" style="font-size:13px;margin-left:10px"></span>
       </div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:4px">Kalorienbedarf berechnen</div>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Nutzt deine Daten oben (Alter, Geschlecht, Größe, Gewicht, Aktivität). Schätzung nach Mifflin-St-Jeor.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+          <label style="font-size:13px;color:#374151">Zielgewicht (kg)<input type="number" step="0.1" id="bdZiel" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Tempo<select id="bdTempo" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="0">Gewicht halten</option><option value="-0.15">Abnehmen – moderat (−15 %)</option><option value="-0.20">Abnehmen – zügig (−20 %)</option><option value="0.10">Aufbauen (+10 %)</option></select></label>
+          <label style="font-size:13px;color:#374151">Eiweiß (g/kg)<input type="number" step="0.1" id="bdProt" value="1.8" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Eiweiß-Bezug<select id="bdProtRef" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="ziel">Zielgewicht</option><option value="aktuell">Aktuelles Gewicht</option></select></label>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:8px"><input type="checkbox" id="bdNiere" style="width:16px;height:16px;accent-color:#16a34a">Nierenleiden berücksichtigen (Eiweiß begrenzen)</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <button onclick="calcBedarf()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Berechnen</button>
+          <button onclick="applyBedarf()" id="bdApplyBtn" disabled style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Als Tagesziel übernehmen</button>
+        </div>
+        <div id="bdOut" style="margin-top:10px;font-size:13px"></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">Tagesziele</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
           <label style="font-size:13px;color:#374151">kcal<input type="number" id="pfKcal" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
@@ -739,6 +755,51 @@ function renderTbStatistik(rows,goal){
     +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px">kcal-Verlauf <span style="color:#9aa7a0;text-transform:none;letter-spacing:0">(grün = im Ziel · gelb = über · blau = unter)</span></div>`+barChartKcal(rows,gK)
     +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Gewichtsverlauf</div>`+lineChartWeight(rows)
     +`<div style="font-size:11.5px;color:#9aa7a0;margin-top:8px">${rows.length} Tage · ${logged.length} mit Einträgen · Durchschnitte nur über erfasste Tage.</div>`;
+}
+let _bdResult=null;
+function actFactor(a){ return ({"Sitzend":1.2,"Leicht aktiv":1.375,"Mäßig aktiv":1.55,"Sehr aktiv":1.725})[a]||1.375; }
+function calcBedarf(){
+  const out=document.getElementById("bdOut"); _bdResult=null;
+  const ab=document.getElementById("bdApplyBtn"); if(ab) ab.disabled=true;
+  const gv=id=>{const e=document.getElementById(id);return e?e.value:"";};
+  const age=num(gv("pfAlter")), sex=gv("pfGeschlecht"), h=num(gv("pfGroesse")), w=num(gv("pfGewicht")), act=gv("pfAktiv");
+  if(!age||!h||!w){ out.style.color="#b45309"; out.textContent="Bitte oben Alter, Größe und Gewicht ausfüllen (und speichern)."; return; }
+  const ziel=num(gv("bdZiel"))||w;
+  const tempo=parseFloat(gv("bdTempo"))||0;
+  let protF=parseFloat(gv("bdProt"))||1.8;
+  const protRef=gv("bdProtRef"), niere=!!(document.getElementById("bdNiere")||{}).checked;
+  let bmr;
+  if(sex==="männlich") bmr=10*w+6.25*h-5*age+5;
+  else if(sex==="weiblich") bmr=10*w+6.25*h-5*age-161;
+  else bmr=10*w+6.25*h-5*age-78;
+  const tdee=bmr*actFactor(act);
+  let ziK=tdee*(1+tempo);
+  const hardFloor=(sex==="männlich")?1500:1200;
+  const floor=Math.max(bmr*0.9,hardFloor); let floored=false;
+  if(tempo<0 && ziK<floor){ ziK=floor; floored=true; }
+  let warnNiere="";
+  if(niere && protF>1.0){ protF=1.0; warnNiere=" – auf 1,0 g/kg begrenzt"; }
+  const protBasis=(protRef==="aktuell")?w:ziel;
+  const protein=protF*protBasis;
+  const fett=(ziK*0.275)/9;
+  const kh=Math.max(0,(ziK-protein*4-fett*9)/4);
+  _bdResult={kcal:Math.round(ziK),protein:Math.round(protein),kh:Math.round(kh),fett:Math.round(fett)};
+  if(ab) ab.disabled=false;
+  out.style.color="#374151";
+  out.innerHTML=`<div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px;line-height:1.6">
+    <div>Grundumsatz (BMR) <b>${Math.round(bmr)}</b> kcal · Erhaltungsbedarf <b>${Math.round(tdee)}</b> kcal</div>
+    <div style="margin-top:4px;font-size:15px">Ziel-Energie: <b style="color:var(--green)">${_bdResult.kcal} kcal/Tag</b>${floored?' <span style="color:#b45309">· Sicherheits-Untergrenze erreicht – nicht weiter reduzieren</span>':''}</div>
+    <div style="margin-top:4px">Eiweiß <b>${_bdResult.protein} g</b> <span style="color:#6b7280">(${String(protF).replace('.',',')} g/kg ${protRef==='aktuell'?'akt. Gewicht':'Zielgewicht'}${warnNiere})</span> · KH <b>${_bdResult.kh} g</b> · Fett <b>${_bdResult.fett} g</b></div>
+    ${niere?'<div style="margin-top:6px;color:#b45309;font-size:12px">⚠️ Bei Nierenerkrankung die Eiweißmenge unbedingt ärztlich abstimmen. Dieser Rechner ersetzt keine medizinische Beratung.</div>':''}
+    <div style="margin-top:6px;font-size:11.5px;color:#9aa7a0">Richtwert nach Mifflin-St-Jeor × Aktivitätsfaktor – keine medizinische Beratung.</div>
+  </div>`;
+}
+function applyBedarf(){
+  if(!_bdResult) return;
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  s("pfKcal",_bdResult.kcal); s("pfEiw",_bdResult.protein); s("pfKh",_bdResult.kh); s("pfFett",_bdResult.fett);
+  if(typeof saveProfilZiel==="function") saveProfilZiel();
+  const out=document.getElementById("bdOut"); if(out) out.insertAdjacentHTML("beforeend",'<div style="color:#16a34a;font-size:13px;margin-top:6px">✓ Als Tagesziel übernommen & gespeichert.</div>');
 }
 async function loadTagebuch(){
   const gate=document.getElementById("tbGate"), inner=document.getElementById("tbInner");
