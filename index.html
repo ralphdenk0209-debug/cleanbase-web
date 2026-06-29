@@ -659,6 +659,13 @@ function betterAlt(d){
   return best;
 }
 function detailById(id){ const p=(ALL||[]).find(x=>x.id===id); if(p) detail(p); }
+async function prodToEinkauf(id){
+  if(!ME){ openLogin(); return; }
+  if(!hasFeat('planer')){ premiumInfo(); return; }
+  const p=(ALL||[]).find(x=>x.id===id); if(!p) return;
+  const {error}=await client.rpc("cb_einkauf_add",{p_titel:p.name, p_menge:null});
+  alert(error?("Fehler: "+error.message):("✓ „"+p.name+"“ zur Einkaufsliste hinzugefügt."));
+}
 function altBanner(d){
   const a=betterAlt(d); if(!a) return "";
   return `<div onclick="event.stopPropagation();detailById('${a.id}')" style="margin-top:6px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:8px;padding:5px 8px;font-size:11.5px;color:#1e3a8a;cursor:pointer">↑ Bessere Alternative: <b>${esc(a.name)}</b> · Score ${a.clean_score} ›</div>`;
@@ -708,9 +715,10 @@ function detail(d){
     const tc = krit?"#b91c1c":(z.rating>=8?"#1f5e34":(z.rating>=5?"#92400e":"#b91c1c"));
     return `<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:${bg};color:${tc}">${esc(z.name)}${krit?" ⚠️":""}</span>`;
   }).join("") : '<span style="color:var(--muted);font-size:13px">keine Zutaten hinterlegt</span>';
-  const mRows = MACROS.filter(([k])=>d[k]!==null && d[k]!==undefined).map(([k,label,unit])=>
-    `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)"><span>${label}</span><span style="font-weight:600">${num(d[k])} ${unit}</span></div>`
-  ).join("");
+  const mRows = MACROS.filter(([k])=>d[k]!==null && d[k]!==undefined).map(([k,label,unit])=>{
+    const raw=num(d[k]); const val=(k==="m_kcal")?Math.round(raw):Math.round(raw*10)/10;
+    return `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)"><span>${label}</span><span style="font-weight:600">${val} ${unit}</span></div>`;
+  }).join("");
   const variants = ALL.filter(x=>x.variante_von===d.id);
   let varNote="";
   if(variants.length) varNote = "Auch erhältlich: "+variants.map(v=>esc(v.name)).join(", ");
@@ -720,6 +728,7 @@ function detail(d){
     <button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(d.name)}</h2>
     <div class="marke">${(mkLabel(d.marke)?esc(mkLabel(d.marke))+" · ":"")}${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
+    <div style="margin:8px 0"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button></div>
     ${altBanner(d)}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
