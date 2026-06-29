@@ -911,22 +911,77 @@ async function loadRezepte(){
     const rsc=rezeptScore(r), rbew=scoreBew(rsc);
     const lead = rsc!=null ? donut(rsc,farbe(rbew),62) : `<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>`;
     c.innerHTML=`${lead}
-      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}</div></div>`;
+      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}${r.gesperrt?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fde8e8;color:#dc2626">⛔ gesperrt</span>`:""}${(ME&&ME.is_admin&&r.gemeldet)?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fff7e6;color:#b45309">⚐ ${r.gemeldet}</span>`:""}</div></div>`;
     g.appendChild(c);
   });
 }
 function zutatRowHtml(){
-  return `<div class="rzZ" style="display:flex;gap:8px;margin-bottom:6px">
-    <input class="rzZName" placeholder="Zutat (z. B. Hähnchenbrust)" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:8px">
-    <input class="rzZg" type="number" min="0" step="1" placeholder="g" style="width:74px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
-    <button type="button" onclick="this.parentNode.remove()" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">✕</button>
+  return `<div class="rzZ" style="margin-bottom:8px">
+    <div style="display:flex;gap:8px">
+      <input class="rzZName" list="prodDL" oninput="linkZutat(this)" placeholder="Zutat – aus Katalog wählen für Auto-Nährwerte" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+      <input class="rzZg" type="number" min="0" step="1" placeholder="g" oninput="linkZutat(this)" style="width:74px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+      <button type="button" onclick="this.closest('.rzZ').remove()" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">✕</button>
+    </div>
+    <input type="hidden" class="rzZpid">
+    <div class="rzZlink" style="font-size:11px;color:#6b7280;margin:2px 0 0 2px"></div>
   </div>`;
 }
+function buildProdDL(){
+  if(document.getElementById("prodDL")) return;
+  const dl=document.createElement("datalist"); dl.id="prodDL";
+  (window.ALL||[]).slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(p=>{
+    const o=document.createElement("option"); o.value=p.name+(p.marke?" · "+p.marke:""); dl.appendChild(o);
+  });
+  document.body.appendChild(dl);
+}
+function linkZutat(input){
+  const row=input.closest(".rzZ"); if(!row) return;
+  const nameEl=row.querySelector(".rzZName"), pidEl=row.querySelector(".rzZpid"), lk=row.querySelector(".rzZlink");
+  const v=(nameEl.value||"").trim().toLowerCase();
+  const p=(window.ALL||[]).find(x=> ((x.name||"")+(x.marke?" · "+x.marke:"")).toLowerCase()===v || (x.name||"").toLowerCase()===v);
+  if(p){ pidEl.value=p.id; lk.style.color="#16a34a";
+    lk.textContent=`✓ verknüpft · ${p.m_kcal??"–"} kcal/100 g · Clean Score ${p.clean_score??"–"}`; }
+  else { pidEl.value=""; lk.style.color="#9aa7a0"; lk.textContent=v?"freie Zutat (keine Nährwerte/Score)":""; }
+}
 function addZutatRow(){ const z=document.getElementById("rzfZutaten"); z.insertAdjacentHTML("beforeend", zutatRowHtml()); }
-function openRezeptForm(){
+function calcMakros(){
+  const msg=document.getElementById("rzfCalcMsg");
+  let k=0,p=0,kh=0,f=0,linked=0,total=0;
+  document.querySelectorAll("#rzfZutaten .rzZ").forEach(row=>{
+    const nm=(row.querySelector(".rzZName").value||"").trim();
+    const g=parseFloat(row.querySelector(".rzZg").value)||0;
+    const pid=row.querySelector(".rzZpid").value;
+    if(nm) total++;
+    if(pid&&g>0){ const pr=(window.ALL||[]).find(x=>x.id===pid);
+      if(pr){ linked++; const fac=g/100;
+        k+=(num(pr.m_kcal)||0)*fac; p+=(num(pr.m_protein)||0)*fac; kh+=(num(pr.m_kh)||0)*fac; f+=(num(pr.m_fett)||0)*fac; } }
+  });
+  if(!linked){ if(msg){msg.style.color="#b45309";msg.textContent="Keine verknüpften Zutaten mit Gramm-Menge – bitte Katalog-Zutat + g angeben.";} return; }
+  const port=parseFloat(document.getElementById("rzfPort").value)||1;
+  const r1=x=>Math.round(x/port), r2=x=>Math.round(x/port*10)/10;
+  document.getElementById("rzfKcal").value=r1(k);
+  document.getElementById("rzfP").value=r2(p);
+  document.getElementById("rzfKh").value=r2(kh);
+  document.getElementById("rzfF").value=r2(f);
+  if(msg){ msg.style.color="#16a34a";
+    msg.textContent=`✓ aus ${linked}/${total} Zutaten berechnet`+(linked<total?" (freie Zutaten ohne Nährwerte ignoriert)":""); }
+}
+async function meldeRezept(id){
+  const g=prompt("Was stimmt nicht mit diesem Rezept? (optional)"); if(g===null) return;
+  const {error}=await client.rpc("cb_rezept_melden",{p_rezept:id,p_grund:g||""});
+  alert(error?("Fehler: "+error.message):"Danke – das Rezept wurde gemeldet und wird geprüft.");
+}
+async function sperreRezept(id,sp){
+  const {error}=await client.rpc("cb_rezept_sperren",{p_rezept:id,p_sperren:sp});
+  if(error){ alert("Fehler: "+error.message); return; }
+  closeP(); REZEPTE=null; await loadRezepte();
+}
+async function openRezeptForm(){
   if(!ME){ openLogin(); return; }
   const box=document.getElementById("rezeptFormBox");
   if(box.innerHTML){ box.innerHTML=""; return; }
+  if(!(window.ALL&&ALL.length)){ try{ await load(); }catch(e){} }
+  buildProdDL();
   box.innerHTML=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;box-shadow:var(--shadow)">
     <div style="font-weight:700;font-size:15px;margin-bottom:4px">Eigenes Rezept anlegen</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Wird zuerst <b>privat</b> gespeichert (nur du siehst es). Du kannst es später veröffentlichen.</div>
@@ -947,11 +1002,18 @@ function openRezeptForm(){
       <label style="flex:1;min-width:80px;font-size:12px">KH g<input id="rzfKh" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
       <label style="flex:1;min-width:80px;font-size:12px">Fett g<input id="rzfF" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
     </div>
-    <div style="font-size:13px;font-weight:600;margin-bottom:6px">Zutaten</div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:2px">Zutaten</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">Tipp: Zutat aus dem Katalog wählen → Nährwerte &amp; Clean Score werden automatisch übernommen.</div>
     <div id="rzfZutaten">${zutatRowHtml()}${zutatRowHtml()}</div>
-    <button type="button" onclick="addZutatRow()" style="padding:7px 12px;border:1px dashed #9ca3af;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;margin-bottom:12px">+ Zutat</button>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <button type="button" onclick="addZutatRow()" style="padding:7px 12px;border:1px dashed #9ca3af;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">+ Zutat</button>
+      <button type="button" onclick="calcMakros()" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">∑ Nährwerte aus Zutaten berechnen</button>
+      <span id="rzfCalcMsg" style="font-size:12px"></span>
+    </div>
     <label style="font-size:13px;font-weight:600">Zubereitung (ein Schritt pro Zeile)</label>
     <textarea id="rzfPrep" rows="4" placeholder="Haferflocken mit Milch aufkochen.&#10;Proteinpulver einrühren." style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 12px;box-sizing:border-box;font-family:inherit"></textarea>
+    <label style="font-size:13px;font-weight:600">Foto (optional)</label>
+    <input type="file" id="rzfBild" accept="image/*" style="display:block;margin:4px 0 12px;font-size:13px">
     <div style="display:flex;gap:10px;align-items:center">
       <button onclick="saveRezept()" style="padding:10px 18px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Speichern</button>
       <button onclick="document.getElementById('rezeptFormBox').innerHTML=''" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Abbrechen</button>
@@ -968,15 +1030,27 @@ async function saveRezept(){
   document.querySelectorAll("#rzfZutaten .rzZ").forEach(row=>{
     const n=(row.querySelector(".rzZName").value||"").trim();
     const g=(row.querySelector(".rzZg").value||"").trim();
-    if(n) zut.push({name:n, menge_g:g||null});
+    const pid=(row.querySelector(".rzZpid").value||"").trim();
+    if(n) zut.push({name:n, menge_g:g||null, produkt_id:pid||null});
   });
   const v=id=>{const e=document.getElementById(id);return e&&e.value!==""?e.value:null;};
   const payload={name, portionen:v("rzfPort"), zeit:v("rzfZeit"), ziel:v("rzfZiel"),
     ernaehrungsform:v("rzfEf"), kcal:v("rzfKcal"), protein:v("rzfP"), kh:v("rzfKh"), fett:v("rzfF"),
     zubereitung:(document.getElementById("rzfPrep").value||""), zutaten:zut};
   msg.style.color="#6b7280"; msg.textContent="Speichere…";
-  const {error}=await client.rpc("cb_rezept_anlegen",{p_payload:payload});
+  const {data:rid,error}=await client.rpc("cb_rezept_anlegen",{p_payload:payload});
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  const fileEl=document.getElementById("rzfBild"), file=fileEl&&fileEl.files&&fileEl.files[0];
+  if(file && rid){
+    try{
+      msg.textContent="Lade Foto hoch…";
+      const ext=((file.name.split(".").pop()||"jpg").toLowerCase()).replace(/[^a-z0-9]/g,"")||"jpg";
+      const path=rid+"."+ext;
+      const up=await client.storage.from("rezeptbilder").upload(path,file,{upsert:true,contentType:file.type||"image/jpeg"});
+      if(!up.error){ const {data:pu}=client.storage.from("rezeptbilder").getPublicUrl(path);
+        if(pu&&pu.publicUrl) await client.rpc("cb_rezept_setbild",{p_rezept:rid,p_url:pu.publicUrl}); }
+    }catch(e){ /* Rezept ist gespeichert, Foto optional */ }
+  }
   document.getElementById("rezeptFormBox").innerHTML="";
   REZEPTE=null; await loadRezepte();
 }
@@ -1008,6 +1082,18 @@ function rezeptDetail(r){
         : `<button onclick="publishRezept('${r.id}',true)" style="padding:7px 12px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer">Veröffentlichen</button>`}
       <button onclick="deleteRezept('${r.id}')" style="padding:7px 12px;border:1px solid #f3c4c4;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;margin-left:auto">Löschen</button>
     </div>` : '';
+  const isAdmin = !!(ME && ME.is_admin);
+  let modParts=[];
+  if(ME && !r.is_own && (r.quelle||"")!=="CleanBase")
+    modParts.push(`<button onclick="meldeRezept('${r.id}')" style="padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#b45309;cursor:pointer;font-size:12.5px">⚐ Melden</button>`);
+  if(isAdmin){
+    modParts.push(`<span style="font-size:12.5px;color:#6b7280">${r.gemeldet||0} Meldung(en)</span>`);
+    modParts.push(r.gesperrt
+      ? `<button onclick="sperreRezept('${r.id}',false)" style="padding:6px 11px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:12.5px">Entsperren</button>`
+      : `<button onclick="sperreRezept('${r.id}',true)" style="padding:6px 11px;border:1px solid #f3c4c4;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;font-size:12.5px">Sperren</button>`);
+  }
+  const modBar = modParts.length ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0">${r.gesperrt?`<span style="font-size:12.5px;color:#dc2626;font-weight:600">⛔ gesperrt</span>`:''}${modParts.join("")}</div>` : '';
+  const imgHtml = r.bild ? `<img src="${esc(r.bild)}" alt="" style="width:100%;max-height:230px;object-fit:cover;border-radius:12px;margin:6px 0 4px">` : '';
   const tbBox = canTb ? `
     <div id="rzBudget" style="background:#eef6ff;border:1px solid #cfe3f7;border-radius:12px;padding:11px 13px;margin:12px 0;font-size:13px;color:#1e3a8a;line-height:1.6"></div>
     <div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0">
@@ -1037,6 +1123,7 @@ function rezeptDetail(r){
   panel.innerHTML=`<button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(r.name)}</h2>
     <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · <span id="rzPortInfo">${P0} Portion(en)</span> ${efChip(r.ernaehrungsform)}</div>
+    ${imgHtml}
     <div class="scorebar">
       ${rsc!=null?donut(rsc,farbe(rbew),76):''}
       <div class="bigbadge" style="background:var(--green2)"><span class="num" id="rzKcalBadge">${r.kcal??"–"}</span><span style="font-size:10px">kcal</span></div>
@@ -1044,6 +1131,7 @@ function rezeptDetail(r){
     </div>
     ${rsc!=null?`<div style="font-size:12.5px;margin:-4px 0 2px">Rezept-Score <b style="color:${farbe(rbew)}">${rsc} · ${rbew}</b> <span style="color:#9aa7a0">(Ø der Zutaten-Scores, nach Gewicht)</span></div>`:''}
     ${ownerBar}
+    ${modBar}
     ${controls}
     ${tbBox}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="color:var(--muted);text-transform:none;letter-spacing:0">(Zahl = Clean Score)</span></div>
