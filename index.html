@@ -134,7 +134,11 @@
   <div class="grid" id="grid"></div>
   </div>
   <div id="rezeptView" style="display:none">
-    <div class="stats" id="rezeptStats">Lade Rezepte…</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="stats" id="rezeptStats">Lade Rezepte…</div>
+      <button onclick="openRezeptForm()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px;white-space:nowrap">+ Eigenes Rezept</button>
+    </div>
+    <div id="rezeptFormBox"></div>
     <div class="grid" id="rezeptGrid"></div>
   </div>
   <div id="vorschlagView" style="display:none">
@@ -451,6 +455,7 @@ client.auth.onAuthStateChange(async (_e,session)=>{
   if(session){ await refreshMe(); } else { ME=null; MY_FEATURES=null; TB_USER="U001"; }
   updateAuthUI(); updateGate();
   const vis=id=>{ const e=document.getElementById(id); return e && e.style.display!=="none"; };
+  REZEPTE=null; if(vis("rezeptView")) loadRezepte();
   if(vis("tagebuchView")) loadTagebuch();
   if(vis("profilView")) loadProfil();
   if(vis("stufenView")) loadStufen();
@@ -885,20 +890,107 @@ function tbScan(){ _startScan("tbReader", async (code)=>{
     }
   }catch(e){ tbm.style.color="#dc2626"; tbm.textContent="Fehler: "+e.message; }
 }); }
+function quelleChip(r){
+  if(r.is_own){
+    const pub = r.sichtbarkeit==="oeffentlich";
+    return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fff7e6;color:#b45309">★ Mein Rezept · ${pub?"öffentlich":"privat"}</span>`;
+  }
+  if((r.quelle||"")==="CleanBase")
+    return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--greenlt);color:var(--greendk)">✓ CleanBase</span>`;
+  return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#eef2f6;color:#475569">${esc(r.quelle||"Community")}</span>`;
+}
 async function loadRezepte(){
-  const {data,error}=await client.from("v_web_rezepte").select("*");
+  const {data,error}=await client.rpc("cb_rezepte_list");
   if(error){document.getElementById("rezeptStats").textContent="Fehler: "+error.message;return;}
   REZEPTE=data;
-  document.getElementById("rezeptStats").textContent=`${data.length} Rezept(e) · live aus der Datenbank`;
+  const mine=data.filter(r=>r.is_own).length;
+  document.getElementById("rezeptStats").textContent=`${data.length} Rezept(e)`+(mine?` · davon ${mine} eigene`:"")+` · live aus der Datenbank`;
   const g=document.getElementById("rezeptGrid"); g.innerHTML="";
   data.forEach(r=>{
     const c=document.createElement("div");c.className="card";c.onclick=()=>rezeptDetail(r);
     const rsc=rezeptScore(r), rbew=scoreBew(rsc);
     const lead = rsc!=null ? donut(rsc,farbe(rbew),62) : `<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>`;
     c.innerHTML=`${lead}
-      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div>${efChip(r.ernaehrungsform)}</div>`;
+      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}</div></div>`;
     g.appendChild(c);
   });
+}
+function zutatRowHtml(){
+  return `<div class="rzZ" style="display:flex;gap:8px;margin-bottom:6px">
+    <input class="rzZName" placeholder="Zutat (z. B. Hähnchenbrust)" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+    <input class="rzZg" type="number" min="0" step="1" placeholder="g" style="width:74px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+    <button type="button" onclick="this.parentNode.remove()" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">✕</button>
+  </div>`;
+}
+function addZutatRow(){ const z=document.getElementById("rzfZutaten"); z.insertAdjacentHTML("beforeend", zutatRowHtml()); }
+function openRezeptForm(){
+  if(!ME){ openLogin(); return; }
+  const box=document.getElementById("rezeptFormBox");
+  if(box.innerHTML){ box.innerHTML=""; return; }
+  box.innerHTML=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;box-shadow:var(--shadow)">
+    <div style="font-weight:700;font-size:15px;margin-bottom:4px">Eigenes Rezept anlegen</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Wird zuerst <b>privat</b> gespeichert (nur du siehst es). Du kannst es später veröffentlichen.</div>
+    <label style="font-size:13px;font-weight:600">Name</label>
+    <input id="rzfName" placeholder="z. B. Protein-Porridge" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 10px;box-sizing:border-box">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <label style="flex:1;min-width:120px;font-size:13px;font-weight:600">Portionen<input id="rzfPort" type="number" min="1" step="1" value="1" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:120px;font-size:13px;font-weight:600">Zeit (min)<input id="rzfZeit" type="number" min="0" step="1" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:120px;font-size:13px;font-weight:600">Ziel<input id="rzfZiel" placeholder="z. B. Muskelaufbau" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;box-sizing:border-box"></label>
+    </div>
+    <label style="font-size:13px;font-weight:600">Ernährungsform</label>
+    <select id="rzfEf" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 10px;box-sizing:border-box">
+      <option value="">– bitte wählen –</option><option>vegan</option><option>vegetarisch</option><option>enthält Tierprodukte</option></select>
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">Nährwerte pro Portion</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <label style="flex:1;min-width:80px;font-size:12px">kcal<input id="rzfKcal" type="number" min="0" step="1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:80px;font-size:12px">Eiweiß g<input id="rzfP" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:80px;font-size:12px">KH g<input id="rzfKh" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:80px;font-size:12px">Fett g<input id="rzfF" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+    </div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px">Zutaten</div>
+    <div id="rzfZutaten">${zutatRowHtml()}${zutatRowHtml()}</div>
+    <button type="button" onclick="addZutatRow()" style="padding:7px 12px;border:1px dashed #9ca3af;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;margin-bottom:12px">+ Zutat</button>
+    <label style="font-size:13px;font-weight:600">Zubereitung (ein Schritt pro Zeile)</label>
+    <textarea id="rzfPrep" rows="4" placeholder="Haferflocken mit Milch aufkochen.&#10;Proteinpulver einrühren." style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 12px;box-sizing:border-box;font-family:inherit"></textarea>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button onclick="saveRezept()" style="padding:10px 18px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Speichern</button>
+      <button onclick="document.getElementById('rezeptFormBox').innerHTML=''" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Abbrechen</button>
+      <span id="rzfMsg" style="font-size:13px"></span>
+    </div>
+  </div>`;
+  box.scrollIntoView({behavior:"smooth",block:"start"});
+}
+async function saveRezept(){
+  const msg=document.getElementById("rzfMsg"); msg.style.color="#dc2626";
+  const name=(document.getElementById("rzfName").value||"").trim();
+  if(!name){ msg.textContent="Bitte einen Namen angeben."; return; }
+  const zut=[];
+  document.querySelectorAll("#rzfZutaten .rzZ").forEach(row=>{
+    const n=(row.querySelector(".rzZName").value||"").trim();
+    const g=(row.querySelector(".rzZg").value||"").trim();
+    if(n) zut.push({name:n, menge_g:g||null});
+  });
+  const v=id=>{const e=document.getElementById(id);return e&&e.value!==""?e.value:null;};
+  const payload={name, portionen:v("rzfPort"), zeit:v("rzfZeit"), ziel:v("rzfZiel"),
+    ernaehrungsform:v("rzfEf"), kcal:v("rzfKcal"), protein:v("rzfP"), kh:v("rzfKh"), fett:v("rzfF"),
+    zubereitung:(document.getElementById("rzfPrep").value||""), zutaten:zut};
+  msg.style.color="#6b7280"; msg.textContent="Speichere…";
+  const {error}=await client.rpc("cb_rezept_anlegen",{p_payload:payload});
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  document.getElementById("rezeptFormBox").innerHTML="";
+  REZEPTE=null; await loadRezepte();
+}
+async function publishRezept(id, pub){
+  if(!pub && !confirm("Rezept wieder auf privat setzen? Andere sehen es dann nicht mehr.")) return;
+  const {error}=await client.rpc("cb_rezept_publish",{p_rezept:id, p_public:pub});
+  if(error){ alert("Fehler: "+error.message); return; }
+  closeP(); REZEPTE=null; await loadRezepte();
+}
+async function deleteRezept(id){
+  if(!confirm("Dieses Rezept endgültig löschen?")) return;
+  const {error}=await client.rpc("cb_rezept_delete",{p_rezept:id});
+  if(error){ alert("Fehler: "+error.message); return; }
+  closeP(); REZEPTE=null; await loadRezepte();
 }
 let _rezept=null, _daySum=null, _goal=null;
 function rezeptDetail(r){
@@ -908,6 +1000,14 @@ function rezeptDetail(r){
   const canTb = ME && hasFeat('tagebuch');
   const rsc = rezeptScore(r), rbew = scoreBew(rsc);
   const P0 = num(r.portionen)||1, K0 = num(r.kcal)||0;
+  const ownerBar = r.is_own ? `
+    <div style="background:#fff7e6;border:1px solid #fde9c8;border-radius:12px;padding:11px 13px;margin:12px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px">
+      <span style="font-weight:600;color:#b45309">★ Dein Rezept · ${r.sichtbarkeit==="oeffentlich"?"öffentlich":"privat"}</span>
+      ${r.sichtbarkeit==="oeffentlich"
+        ? `<button onclick="publishRezept('${r.id}',false)" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Auf privat setzen</button>`
+        : `<button onclick="publishRezept('${r.id}',true)" style="padding:7px 12px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer">Veröffentlichen</button>`}
+      <button onclick="deleteRezept('${r.id}')" style="padding:7px 12px;border:1px solid #f3c4c4;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;margin-left:auto">Löschen</button>
+    </div>` : '';
   const tbBox = canTb ? `
     <div id="rzBudget" style="background:#eef6ff;border:1px solid #cfe3f7;border-radius:12px;padding:11px 13px;margin:12px 0;font-size:13px;color:#1e3a8a;line-height:1.6"></div>
     <div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0">
@@ -943,6 +1043,7 @@ function rezeptDetail(r){
       <div style="font-size:13.5px;line-height:1.6" id="rzMakros"></div>
     </div>
     ${rsc!=null?`<div style="font-size:12.5px;margin:-4px 0 2px">Rezept-Score <b style="color:${farbe(rbew)}">${rsc} · ${rbew}</b> <span style="color:#9aa7a0">(Ø der Zutaten-Scores, nach Gewicht)</span></div>`:''}
+    ${ownerBar}
     ${controls}
     ${tbBox}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="color:var(--muted);text-transform:none;letter-spacing:0">(Zahl = Clean Score)</span></div>
