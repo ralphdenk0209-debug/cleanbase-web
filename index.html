@@ -157,8 +157,11 @@
         <button id="vorScan" onclick="toggleScan()" style="flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:#eef2f5;font-size:15px;cursor:pointer">📷 Barcode scannen</button>
         <button id="vorSend" onclick="sendVorschlag()" style="flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Senden</button>
       </div>
-      <input id="vorFoto" type="file" accept="image/*" capture="environment" style="display:none" onchange="vorFotoPick(this)" />
-      <button onclick="document.getElementById('vorFoto').click()" style="width:100%;margin-top:8px;padding:12px;border:1px dashed #16a34a;border-radius:10px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);font-size:15px;cursor:pointer">📸 Etikett-Foto aufnehmen / hochladen</button>
+      <input id="vorFoto" type="file" accept="image/*" style="display:none" onchange="vorFotoPick(this)" />
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button onclick="vorFotoCam()" style="flex:1;padding:12px;border:1px solid #16a34a;border-radius:10px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);font-size:15px;cursor:pointer">📷 Kamera</button>
+        <button onclick="document.getElementById('vorFoto').click()" style="flex:1;padding:12px;border:1px dashed #16a34a;border-radius:10px;background:#fff;color:var(--greendk,#166534);font-size:15px;cursor:pointer">📁 Datei wählen</button>
+      </div>
       <div style="font-size:12px;color:#6b7280;margin-top:6px">Tipp: Zutaten + Nährwerttabelle scharf & formatfüllend fotografieren. Die KI liest sie beim nächsten Erfassungslauf aus.</div>
       <div id="vorReader" style="margin-top:12px"></div>
       <div id="vorMsg" style="margin-top:12px;font-size:14px;line-height:1.45"></div>
@@ -195,6 +198,7 @@
           <datalist id="tbProdListe"></datalist>
           <button onclick="tbScan()" title="Barcode scannen" style="padding:10px 12px;border:0;border-radius:8px;background:#eef2f5;cursor:pointer">📷</button>
           <input type="number" id="tbMenge" placeholder="g" style="width:74px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <button onclick="tbFill()" title="Menge so füllen, dass die Rest-kcal dieser Mahlzeit getroffen werden (Split: festes Gericht zuerst eintragen, zweites auffüllen)" style="padding:10px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;white-space:nowrap">🎯 Rest auffüllen</button>
           <button onclick="addTbEntry()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">+ Eintragen</button>
         </div>
         <div id="tbReader" style="margin-top:10px"></div>
@@ -1236,6 +1240,7 @@ function mealScore(rows){ let sw=0,sg=0; rows.forEach(r=>{const sc=num(r.Clean_S
 function scoreChip(s){ if(s==null) return ""; const b=scoreBew(s); return `<span style="font-size:12px;font-weight:700;color:#fff;background:${farbe(b)};border-radius:8px;padding:2px 8px">Score ${s}</span>`; }
 function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
+  window._tbItems=items||[]; window._tbGoal=goal||{};
   if(!items.length){ el.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted);font-size:14px">Noch keine Einträge für diesen Tag.<br><span style="font-size:12.5px">Füge oben eine Mahlzeit, ein Rezept oder einen manuellen Eintrag hinzu.</span></div>'; return; }
   const icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
   const baseShare={"Frühstück":0.25,"Mittag":0.35,"Abendessen":0.30,"Snack":0.10};
@@ -1284,6 +1289,44 @@ async function addTbEntry(){
   msg.style.color="#16a34a"; msg.textContent="✓ eingetragen";
   document.getElementById("tbProd").value=""; document.getElementById("tbMenge").value="";
   loadTagebuch();
+}
+/* Stück-basierte Artikel (keine halben) – grobe Gramm/Stück-Richtwerte */
+function tbStueckGramm(p){
+  const u=(p.unterkategorie||"").toLowerCase();
+  const m={"knäckebrot":10,"knaeckebrot":10,"knaecke":10,"reiswaffeln":10,"reiswaffel":10,"ei":60,"eier":60,"zwieback":8};
+  for(const k in m){ if(u.includes(k)) return m[k]; }
+  return null;
+}
+/* "Rest auffüllen": Menge so, dass die Rest-kcal der gewählten Mahlzeit getroffen werden */
+function tbFill(){
+  const msg=document.getElementById("tbMsg");
+  const pid=tbResolveId();
+  if(!pid){ msg.style.color="#dc2626"; msg.textContent="Erst ein Produkt aus der Liste wählen."; return; }
+  const p=(window.ALL||[]).find(x=>x.id===pid);
+  const kc=p?num(p.m_kcal):null;
+  if(!kc||kc<=0){ msg.style.color="#b45309"; msg.textContent="Für dieses Produkt sind keine kcal/100 g hinterlegt – Auffüllen nicht möglich."; return; }
+  const gK=num((window._tbGoal||{}).Kalorienziel_kcal);
+  if(!gK){ msg.style.color="#b45309"; msg.textContent="Setze zuerst dein Kalorienziel in „Mein Profil“, dann kann ich auffüllen."; return; }
+  const meal=document.getElementById("tbMahlzeit").value;
+  const items=(window._tbItems||[]);
+  const baseShare={"Frühstück":0.25,"Mittag":0.35,"Abendessen":0.30,"Snack":0.10};
+  const snackActive=items.some(i=>i.Mahlzeit==="Snack")||meal==="Snack";
+  const share=Object.assign({},baseShare);
+  if(!snackActive){ const d=1-baseShare["Snack"]; ["Frühstück","Mittag","Abendessen"].forEach(k=>share[k]=baseShare[k]/d); share["Snack"]=0; }
+  const eaten=items.filter(i=>i.Mahlzeit===meal).reduce((a,b)=>a+(+b.kcal||0),0);
+  const remaining=gK*(share[meal]||0)-eaten;
+  if(remaining<=2){ msg.style.color="#b45309"; msg.textContent=meal+" ist schon erreicht ("+Math.round(eaten)+" kcal). Nichts mehr aufzufüllen."; return; }
+  let grams=remaining/(kc/100);
+  const stk=tbStueckGramm(p);
+  if(stk){
+    const units=Math.max(1,Math.round(grams/stk)); grams=units*stk;
+    document.getElementById("tbMenge").value=Math.round(grams);
+    msg.style.color="#16a34a"; msg.innerHTML="🎯 <b>"+units+" Stück</b> ("+Math.round(grams)+" g ≈ "+Math.round(grams/100*kc)+" kcal) – Rest "+meal+" war "+Math.round(remaining)+" kcal. Jetzt „+ Eintragen“.";
+  } else {
+    grams=Math.round(grams);
+    document.getElementById("tbMenge").value=grams;
+    msg.style.color="#16a34a"; msg.innerHTML="🎯 <b>"+grams+" g</b> ≈ Rest "+meal+" ("+Math.round(remaining)+" kcal). Menge anpassbar, dann „+ Eintragen“.";
+  }
 }
 async function delTb(id){ await client.rpc("cb_tb_loeschen",{p_eintrag:id}); loadTagebuch(); }
 async function saveGewicht(){
@@ -1347,8 +1390,9 @@ async function loadFreigabe(){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <div><b>${esc(p.name||"?")}</b> <span style="color:#6b7280">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:#6b7280">${p.id} · ${esc(p.kategorie||"")} · Score ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="file" accept="image/*" capture="environment" style="display:none" id="fgFoto_${p.id}" onchange="fgFotoPick(this,'${p.id}')" />
-          <button onclick="document.getElementById('fgFoto_${p.id}').click()" style="padding:8px 12px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:13px">📸 Etikett-Foto</button>
+          <input type="file" accept="image/*" style="display:none" id="fgFoto_${p.id}" onchange="fgFotoPick(this,'${p.id}')" />
+          <button onclick="fgFotoCam('${p.id}')" title="Etikett mit Kamera aufnehmen" style="padding:8px 11px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:13px">📷 Kamera</button>
+          <button onclick="document.getElementById('fgFoto_${p.id}').click()" title="Etikett-Foto aus Datei" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:13px">📁 Datei</button>
           ${p.vollstaendig?`<button onclick="freigeben('${p.id}')" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Freigeben</button>`:`<span style="font-size:12px;color:#b45309">unvollständig</span>`}
         </div>
       </div></div>`).join(""); }
@@ -1379,41 +1423,72 @@ async function sendVorschlag(){
     else { setVorMsg("⚠️ "+(j.message||j.error||"Konnte nicht erfasst werden."),"#b45309"); }
   }catch(e){ setVorMsg("Fehler: "+e.message,"#dc2626"); }
 }
-/* ---- Etikett-Foto: clientseitig verkleinern -> base64 -> Warteschlange ---- */
-function _compressImage(file, maxPx, quality){
-  maxPx=maxPx||1280; quality=quality||0.8;
+/* ---- Etikett-Foto: verkleinern -> base64 -> Warteschlange (Kamera ODER Datei) ---- */
+function _compressSrc(src, maxPx, q){
+  maxPx=maxPx||1280; q=q||0.8;
   return new Promise((resolve,reject)=>{
-    const img=new Image(), url=URL.createObjectURL(file);
-    img.onload=()=>{ URL.revokeObjectURL(url);
-      let w=img.naturalWidth, h=img.naturalHeight; const s=Math.min(1, maxPx/Math.max(w,h));
+    const img=new Image();
+    img.onload=()=>{ let w=img.naturalWidth, h=img.naturalHeight; const s=Math.min(1, maxPx/Math.max(w,h));
       w=Math.round(w*s); h=Math.round(h*s);
       const c=document.createElement("canvas"); c.width=w; c.height=h;
       c.getContext("2d").drawImage(img,0,0,w,h);
-      resolve(c.toDataURL("image/jpeg",quality));
-    };
-    img.onerror=()=>reject(new Error("Bild konnte nicht gelesen werden")); img.src=url;
+      resolve(c.toDataURL("image/jpeg",q)); };
+    img.onerror=()=>reject(new Error("Bild konnte nicht gelesen werden")); img.src=src;
   });
 }
-async function fotoUpload(file, produktId, ean){
-  const dataUrl=await _compressImage(file);
-  const {data,error}=await client.rpc("cb_foto_vormerken",{p_base64:dataUrl, p_produkt_id:produktId||null, p_ean:ean||null, p_quelle:"Web-Foto"});
+async function _submitFoto(src, produktId, ean){
+  const d=await _compressSrc(src);
+  const {data,error}=await client.rpc("cb_foto_vormerken",{p_base64:d, p_produkt_id:produktId||null, p_ean:ean||null, p_quelle:"Web-Foto"});
   if(error) throw error; return data;
 }
+async function fotoFromFile(file, produktId, ean){
+  const u=URL.createObjectURL(file);
+  try{ return await _submitFoto(u, produktId, ean); } finally{ URL.revokeObjectURL(u); }
+}
+/* Live-Kamera (Webcam am PC, Rückkamera am Handy) -> dataURL */
+function camCapture(){
+  return new Promise((resolve)=>{
+    let stream=null;
+    const ov=document.createElement("div");
+    ov.style.cssText="position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center";
+    ov.innerHTML='<video autoplay playsinline style="max-width:100%;max-height:78vh"></video>'
+      +'<div style="display:flex;gap:14px;margin-top:14px">'
+      +'<button id="camShot" style="padding:12px 22px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:16px;cursor:pointer">📸 Auslösen</button>'
+      +'<button id="camX" style="padding:12px 18px;border:0;border-radius:10px;background:#fff;color:#111;font-size:16px;cursor:pointer">Abbrechen</button></div>';
+    document.body.appendChild(ov);
+    const video=ov.querySelector("video");
+    const stop=()=>{ if(stream) stream.getTracks().forEach(t=>t.stop()); ov.remove(); };
+    ov.querySelector("#camX").onclick=()=>{ stop(); resolve(null); };
+    ov.querySelector("#camShot").onclick=()=>{
+      try{ const c=document.createElement("canvas"); c.width=video.videoWidth||1280; c.height=video.videoHeight||720;
+        c.getContext("2d").drawImage(video,0,0,c.width,c.height); const d=c.toDataURL("image/jpeg",0.85); stop(); resolve(d);
+      }catch(e){ stop(); resolve(null); } };
+    navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false})
+      .then(s=>{ stream=s; video.srcObject=s; })
+      .catch(e=>{ stop(); alert("Kamera nicht verfügbar: "+e.message+"\nNutze stattdessen „Datei“."); resolve(null); });
+  });
+}
+async function fotoFromCam(produktId, ean){ const d=await camCapture(); if(!d) return null; return await _submitFoto(d, produktId, ean); }
 async function vorFotoPick(inp){
-  const f=inp.files&&inp.files[0]; if(!f) return;
-  setVorMsg("⏳ Foto wird vorbereitet…");
-  try{
-    const v=(document.getElementById("vorInput").value||"").trim();
-    await fotoUpload(f, null, /^[0-9]{6,14}$/.test(v)?v:null);
+  const f=inp.files&&inp.files[0]; if(!f) return; setVorMsg("⏳ Foto wird vorbereitet…");
+  try{ const v=(document.getElementById("vorInput").value||"").trim(); await fotoFromFile(f, null, /^[0-9]{6,14}$/.test(v)?v:null);
     setVorMsg("✅ Etikett-Foto gespeichert. Die KI liest es beim nächsten Erfassungslauf aus und legt das Produkt als <b>Entwurf</b> an.","#16a34a");
+  }catch(e){ setVorMsg("Fehler: "+e.message,"#dc2626"); } inp.value="";
+}
+async function vorFotoCam(){
+  setVorMsg("📷 Kamera öffnet…");
+  try{ const v=(document.getElementById("vorInput").value||"").trim(); const id=await fotoFromCam(null, /^[0-9]{6,14}$/.test(v)?v:null);
+    setVorMsg(id?"✅ Etikett-Foto aufgenommen & gespeichert – wird beim nächsten Lauf ausgelesen.":"" , id?"#16a34a":"#374151");
   }catch(e){ setVorMsg("Fehler: "+e.message,"#dc2626"); }
-  inp.value="";
 }
 async function fgFotoPick(inp,id){
   const f=inp.files&&inp.files[0]; if(!f) return;
-  try{ await fotoUpload(f, id, null); alert("Etikett-Foto für "+id+" gespeichert. Die KI vervollständigt den Entwurf beim nächsten Lauf."); }
+  try{ await fotoFromFile(f, id, null); alert("Etikett-Foto für "+id+" gespeichert. Die KI vervollständigt den Entwurf beim nächsten Lauf."); }
+  catch(e){ alert("Fehler: "+e.message); } inp.value="";
+}
+async function fgFotoCam(id){
+  try{ const r=await fotoFromCam(id,null); if(r) alert("Etikett-Foto für "+id+" aufgenommen & gespeichert."); }
   catch(e){ alert("Fehler: "+e.message); }
-  inp.value="";
 }
 function _onDetected(res){
   const code = res && res.codeResult && res.codeResult.code; if(!code) return;
@@ -1466,6 +1541,12 @@ function quelleChip(r){
     return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--greenlt);color:var(--greendk)">✓ CleanBase</span>`;
   return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#eef2f6;color:#475569">${esc(r.quelle||"Community")}</span>`;
 }
+function mealChips(m){
+  if(!m) return "";
+  return (""+m).split(",").map(s=>s.trim()).filter(Boolean).map(x=>
+    `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#eef6ff;color:#1e3a8a">${esc(x)}</span>`).join("");
+}
+function editRezept(id){ closeP(); setMode('rezepte'); openRezeptForm(id); }
 async function loadRezepte(){
   const {data,error}=await client.rpc("cb_rezepte_list");
   if(error){document.getElementById("rezeptStats").textContent="Fehler: "+error.message;return;}
@@ -1478,15 +1559,26 @@ async function loadRezepte(){
     const rsc=rezeptScore(r), rbew=scoreBew(rsc);
     const lead = rsc!=null ? donut(rsc,farbe(rbew),62) : `<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>`;
     c.innerHTML=`${lead}
-      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}${r.gesperrt?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fde8e8;color:#dc2626">⛔ gesperrt</span>`:""}${(ME&&ME.is_admin&&r.gemeldet)?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fff7e6;color:#b45309">⚐ ${r.gemeldet}</span>`:""}</div></div>`;
+      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}${r.gesperrt?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fde8e8;color:#dc2626">⛔ gesperrt</span>`:""}${(ME&&ME.is_admin&&r.gemeldet)?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fff7e6;color:#b45309">⚐ ${r.gemeldet}</span>`:""}</div></div>`;
     g.appendChild(c);
   });
 }
+const RZ_UNITS=[["g",1],["ml",1],["Stück",null],["EL",15],["TL",5],["Prise",0.5]];
+/* Menge+Einheit -> Gramm (für Nährwerte/Score). Stück = Portionsgewicht des verknüpften Produkts. */
+function rzToGrams(amount, unit, pid){
+  if(!(amount>0)) return null;
+  const u=RZ_UNITS.find(x=>x[0]===unit);
+  if(!u) return amount;
+  if(u[1]!=null) return amount*u[1];
+  const p=pid?(window.ALL||[]).find(x=>x.id===pid):null;
+  return p? amount*tbDefaultPortion(p) : null;
+}
 function zutatRowHtml(){
   return `<div class="rzZ" style="margin-bottom:8px">
-    <div style="display:flex;gap:8px">
-      <input class="rzZName" list="prodDL" oninput="linkZutat(this)" placeholder="Zutat – aus Katalog wählen für Auto-Nährwerte" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:8px">
-      <input class="rzZg" type="number" min="0" step="1" placeholder="g" oninput="linkZutat(this)" style="width:74px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <input class="rzZName" list="prodDL" oninput="linkZutat(this)" placeholder="Zutat tippen → aus Katalog wählen" style="flex:1;min-width:150px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+      <input class="rzZg" type="number" min="0" step="0.1" placeholder="Menge" oninput="linkZutat(this)" style="width:72px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+      <select class="rzZu" style="width:80px;padding:8px;border:1px solid #d1d5db;border-radius:8px">${RZ_UNITS.map(u=>`<option>${u[0]}</option>`).join("")}</select>
       <button type="button" onclick="this.closest('.rzZ').remove()" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">✕</button>
     </div>
     <input type="hidden" class="rzZpid">
@@ -1494,12 +1586,13 @@ function zutatRowHtml(){
   </div>`;
 }
 function buildProdDL(){
-  if(document.getElementById("prodDL")) return;
-  const dl=document.createElement("datalist"); dl.id="prodDL";
+  let dl=document.getElementById("prodDL");
+  if(dl && dl.children.length) return;            // schon befüllt
+  if(!dl){ dl=document.createElement("datalist"); dl.id="prodDL"; document.body.appendChild(dl); }
+  dl.innerHTML="";
   (window.ALL||[]).slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(p=>{
     const o=document.createElement("option"); o.value=prodLabel(p); dl.appendChild(o);
   });
-  document.body.appendChild(dl);
 }
 function linkZutat(input){
   const row=input.closest(".rzZ"); if(!row) return;
@@ -1516,14 +1609,16 @@ function calcMakros(){
   let k=0,p=0,kh=0,f=0,linked=0,total=0;
   document.querySelectorAll("#rzfZutaten .rzZ").forEach(row=>{
     const nm=(row.querySelector(".rzZName").value||"").trim();
-    const g=parseFloat(row.querySelector(".rzZg").value)||0;
+    const amt=parseFloat(row.querySelector(".rzZg").value)||0;
+    const unit=(row.querySelector(".rzZu")||{}).value||"g";
     const pid=row.querySelector(".rzZpid").value;
     if(nm) total++;
+    const g=rzToGrams(amt,unit,pid)||0;
     if(pid&&g>0){ const pr=(window.ALL||[]).find(x=>x.id===pid);
       if(pr){ linked++; const fac=g/100;
         k+=(num(pr.m_kcal)||0)*fac; p+=(num(pr.m_protein)||0)*fac; kh+=(num(pr.m_kh)||0)*fac; f+=(num(pr.m_fett)||0)*fac; } }
   });
-  if(!linked){ if(msg){msg.style.color="#b45309";msg.textContent="Keine verknüpften Zutaten mit Gramm-Menge – bitte Katalog-Zutat + g angeben.";} return; }
+  if(!linked){ if(msg){msg.style.color="#b45309";msg.textContent="Keine verknüpften Zutaten mit Menge – Katalog-Zutat wählen und Menge in g/ml (bei Stück Portionsgewicht nötig) angeben.";} return; }
   const port=parseFloat(document.getElementById("rzfPort").value)||1;
   const r1=x=>Math.round(x/port), r2=x=>Math.round(x/port*10)/10;
   document.getElementById("rzfKcal").value=r1(k);
@@ -1543,16 +1638,18 @@ async function sperreRezept(id,sp){
   if(error){ alert("Fehler: "+error.message); return; }
   closeP(); REZEPTE=null; await loadRezepte();
 }
-async function openRezeptForm(){
+async function openRezeptForm(editId){
   if(!ME){ openLogin(); return; }
-  if(!hasFeat('rezepte_anlegen')){ premiumInfo(); return; }
+  const ed = editId ? (REZEPTE||[]).find(x=>x.id===editId) : null;
+  if(!ed && !hasFeat('rezepte_anlegen')){ premiumInfo(); return; }
   const box=document.getElementById("rezeptFormBox");
-  if(box.innerHTML){ box.innerHTML=""; return; }
+  if(box.innerHTML && !editId){ box.innerHTML=""; return; }
   if(!(window.ALL&&ALL.length)){ try{ await load(); }catch(e){} }
   buildProdDL();
   box.innerHTML=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;box-shadow:var(--shadow)">
-    <div style="font-weight:700;font-size:15px;margin-bottom:4px">Eigenes Rezept anlegen</div>
-    <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Wird zuerst <b>privat</b> gespeichert (nur du siehst es). Du kannst es später veröffentlichen.</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:4px">${ed?"Rezept bearbeiten":"Eigenes Rezept anlegen"}</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">${ed?"Änderungen an Zutaten, Mengen & Mahlzeit werden gespeichert.":"Wird zuerst <b>privat</b> gespeichert (nur du siehst es). Du kannst es später veröffentlichen."}</div>
+    <input type="hidden" id="rzfEditId" value="${ed?esc(ed.id):''}">
     <label style="font-size:13px;font-weight:600">Name</label>
     <input id="rzfName" placeholder="z. B. Protein-Porridge" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 10px;box-sizing:border-box">
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
@@ -1563,6 +1660,10 @@ async function openRezeptForm(){
     <label style="font-size:13px;font-weight:600">Ernährungsform</label>
     <select id="rzfEf" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 10px;box-sizing:border-box">
       <option value="">– bitte wählen –</option><option>vegan</option><option>vegetarisch</option><option>enthält Tierprodukte</option></select>
+    <label style="font-size:13px;font-weight:600">Für welche Mahlzeit(en)?</label>
+    <div id="rzfMeals" style="display:flex;gap:14px;flex-wrap:wrap;margin:5px 0 12px">
+      ${["Frühstück","Mittag","Abendessen","Snack"].map(m=>`<label style="display:flex;align-items:center;gap:5px;font-size:13px"><input type="checkbox" class="rzfMeal" value="${m}" style="width:16px;height:16px;accent-color:#16a34a">${m}</label>`).join("")}
+    </div>
     <div style="font-size:13px;font-weight:600;margin-bottom:4px">Nährwerte pro Portion</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <label style="flex:1;min-width:80px;font-size:12px">kcal<input id="rzfKcal" type="number" min="0" step="1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
@@ -1588,6 +1689,25 @@ async function openRezeptForm(){
       <span id="rzfMsg" style="font-size:13px"></span>
     </div>
   </div>`;
+  if(ed){
+    const sv=(id,val)=>{const e=document.getElementById(id); if(e&&val!=null) e.value=val;};
+    sv("rzfName",ed.name); sv("rzfPort",ed.portionen); sv("rzfZeit",ed.zeit_min); sv("rzfZiel",ed.ziel);
+    sv("rzfEf",ed.ernaehrungsform); sv("rzfKcal",ed.kcal); sv("rzfP",ed.protein); sv("rzfKh",ed.kh); sv("rzfF",ed.fett);
+    sv("rzfPrep",(ed.zubereitung||""));
+    const set=new Set((""+(ed.mahlzeiten||"")).split(",").map(s=>s.trim()).filter(Boolean));
+    document.querySelectorAll(".rzfMeal").forEach(cb=>{ cb.checked=set.has(cb.value); });
+    if(Array.isArray(ed.zutaten)&&ed.zutaten.length){
+      const zc=document.getElementById("rzfZutaten"); zc.innerHTML="";
+      ed.zutaten.forEach(z=>{ zc.insertAdjacentHTML("beforeend", zutatRowHtml()); const row=zc.lastElementChild;
+        row.querySelector(".rzZName").value=z.name||"";
+        let amt="", unit="g";
+        if(z.menge){ const mm=(""+z.menge).trim().match(/^([\d.,]+)\s*(.*)$/); if(mm){ amt=mm[1].replace(",","."); const u=(mm[2]||"g").trim(); const hit=RZ_UNITS.find(x=>x[0].toLowerCase()===u.toLowerCase()); if(hit) unit=hit[0]; } }
+        else if(z.menge_g!=null){ amt=z.menge_g; unit="g"; }
+        row.querySelector(".rzZg").value=amt; const us=row.querySelector(".rzZu"); if(us) us.value=unit;
+        if(z.produkt_id){ row.querySelector(".rzZpid").value=z.produkt_id; const lk=row.querySelector(".rzZlink"); if(lk){lk.style.color="#16a34a";lk.textContent="✓ verknüpft";} }
+        else { linkZutat(row.querySelector(".rzZName")); } });
+    }
+  }
   box.scrollIntoView({behavior:"smooth",block:"start"});
 }
 async function saveRezept(){
@@ -1597,15 +1717,21 @@ async function saveRezept(){
   const zut=[];
   document.querySelectorAll("#rzfZutaten .rzZ").forEach(row=>{
     const n=(row.querySelector(".rzZName").value||"").trim();
-    const g=(row.querySelector(".rzZg").value||"").trim();
+    if(!n) return;
+    const amt=parseFloat(row.querySelector(".rzZg").value);
+    const unit=(row.querySelector(".rzZu")||{}).value||"g";
     const pid=(row.querySelector(".rzZpid").value||"").trim();
-    if(n) zut.push({name:n, menge_g:g||null, produkt_id:pid||null});
+    const grams=rzToGrams(amt,unit,pid);
+    const disp=(amt>0)?(String(amt).replace(/\.0$/,"")+" "+unit):null;
+    zut.push({name:n, menge_g:(grams!=null?Math.round(grams*10)/10:null), menge:disp, produkt_id:pid||null});
   });
   const v=id=>{const e=document.getElementById(id);return e&&e.value!==""?e.value:null;};
+  const mahlzeiten=[...document.querySelectorAll(".rzfMeal:checked")].map(x=>x.value);
+  const editId=(document.getElementById("rzfEditId")||{}).value||null;
   const payload={name, portionen:v("rzfPort"), zeit:v("rzfZeit"), ziel:v("rzfZiel"),
     ernaehrungsform:v("rzfEf"), kcal:v("rzfKcal"), protein:v("rzfP"), kh:v("rzfKh"), fett:v("rzfF"),
-    zubereitung:(document.getElementById("rzfPrep").value||""), zutaten:zut};
-  msg.style.color="#6b7280"; msg.textContent="Speichere…";
+    zubereitung:(document.getElementById("rzfPrep").value||""), zutaten:zut, mahlzeiten, rezept_id:editId};
+  msg.style.color="#6b7280"; msg.textContent=editId?"Aktualisiere…":"Speichere…";
   const {data:rid,error}=await client.rpc("cb_rezept_anlegen",{p_payload:payload});
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
   const fileEl=document.getElementById("rzfBild"), file=fileEl&&fileEl.files&&fileEl.files[0];
@@ -1648,6 +1774,7 @@ function rezeptDetail(r){
       ${r.sichtbarkeit==="oeffentlich"
         ? `<button onclick="publishRezept('${r.id}',false)" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Auf privat setzen</button>`
         : `<button onclick="publishRezept('${r.id}',true)" style="padding:7px 12px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer">Veröffentlichen</button>`}
+      <button onclick="editRezept('${r.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer">✏️ Bearbeiten</button>
       <button onclick="deleteRezept('${r.id}')" style="padding:7px 12px;border:1px solid #f3c4c4;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;margin-left:auto">Löschen</button>
     </div>` : '';
   const isAdmin = !!(ME && ME.is_admin);
@@ -1655,6 +1782,7 @@ function rezeptDetail(r){
   if(ME && !r.is_own && (r.quelle||"")!=="CleanBase")
     modParts.push(`<button onclick="meldeRezept('${r.id}')" style="padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#b45309;cursor:pointer;font-size:12.5px">⚐ Melden</button>`);
   if(isAdmin){
+    if(!r.is_own) modParts.push(`<button onclick="editRezept('${r.id}')" style="padding:6px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px">✏️ Bearbeiten</button>`);
     modParts.push(`<span style="font-size:12.5px;color:#6b7280">${r.gemeldet||0} Meldung(en)</span>`);
     modParts.push(r.gesperrt
       ? `<button onclick="sperreRezept('${r.id}',false)" style="padding:6px 11px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:12.5px">Entsperren</button>`
@@ -1690,7 +1818,7 @@ function rezeptDetail(r){
   const panel=document.getElementById("panel");
   panel.innerHTML=`<button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(r.name)}</h2>
-    <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · <span id="rzPortInfo">${P0} Portion(en)</span> ${efChip(r.ernaehrungsform)}</div>
+    <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · <span id="rzPortInfo">${P0} Portion(en)</span> ${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}</div>
     ${imgHtml}
     <div class="scorebar">
       ${rsc!=null?donut(rsc,farbe(rbew),76):''}
