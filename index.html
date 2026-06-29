@@ -453,7 +453,7 @@ function updateGate(){
   if(ME&&hasFeat('erfassung')){ form.style.display=""; gate.style.display="none"; }
   else { form.style.display="none"; gate.style.display=""; gate.innerHTML=gateHtml(); }
 }
-client.auth.onAuthStateChange(async (_e,session)=>{
+async function applyAuthState(session){
   if(session){ await refreshMe(); } else { ME=null; MY_FEATURES=null; TB_USER="U001"; }
   updateAuthUI(); updateGate();
   const vis=id=>{ const e=document.getElementById(id); return e && e.style.display!=="none"; };
@@ -462,8 +462,11 @@ client.auth.onAuthStateChange(async (_e,session)=>{
   if(vis("profilView")) loadProfil();
   if(vis("stufenView")) loadStufen();
   if(vis("usersView")) loadUsers();
-});
-(async ()=>{ try{ const {data:{session}}=await client.auth.getSession(); if(session){ await refreshMe(); } }catch(e){} updateAuthUI(); updateGate(); })();
+}
+// WICHTIG: im onAuthStateChange-Callback KEINE weiteren Supabase-Aufrufe direkt awaiten
+// (blockiert die Auth-Verwaltung). Daher per setTimeout aus dem Callback herauslösen.
+client.auth.onAuthStateChange((_e,session)=>{ setTimeout(()=>{ applyAuthState(session); },0); });
+(async ()=>{ try{ const {data:{session}}=await client.auth.getSession(); applyAuthState(session); }catch(e){ updateAuthUI(); updateGate(); } })();
 
 /* ---- Mein Profil ---- */
 function _selVal(id,val){ const el=document.getElementById(id); if(!el) return;
