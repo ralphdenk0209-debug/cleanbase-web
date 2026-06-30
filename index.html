@@ -92,7 +92,7 @@
   .gatebox p{color:var(--muted);font-size:14px;line-height:1.5;margin:.3em 0 1.1em}
   /* ===== BOTTOM NAV (App-Look) ===== */
   .tabs{display:none}
-  .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+  .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:calc(8px + env(safe-area-inset-bottom))}
   .bn-inner{max-width:600px;margin:0 auto;display:flex}
   .bn-item{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
   .bn-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -101,7 +101,7 @@
   .seg{display:flex;gap:4px;background:#eef3ef;border-radius:13px;padding:4px;margin:0 0 16px;overflow-x:auto}
   .seg button{flex:1 0 auto;border:0;background:none;padding:9px 14px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
   .seg button.active{background:#fff;color:var(--green);box-shadow:0 1px 3px rgba(31,94,52,.12)}
-  body{padding-bottom:64px}
+  body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
   .mehr-sheet{position:fixed;inset:0;z-index:41;display:none}
   .mehr-sheet.open{display:block}
   .mehr-back{position:absolute;inset:0;background:rgba(20,40,28,.28)}
@@ -147,7 +147,7 @@
 </div></div>
 
 <div class="container">
-  <div class="tabs" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+  <div class="tabs" style="display:none">
     <button id="tabProd" class="tabbtn active" onclick="setMode('produkte')">Produkte</button>
     <button id="tabRez" class="tabbtn" onclick="setMode('rezepte')">Rezepte</button>
     <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')">Produkt erfassen</button>
