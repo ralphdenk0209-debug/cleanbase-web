@@ -1523,6 +1523,12 @@ function renderTraining(p, last, tf){
    +'<div style="'+card+'"><h3 style="'+h2+'">💪 Übungs-Datenbank</h3>'
      +'<div style="font-size:13px;color:#6b7280;margin-bottom:8px">Übungen mit/ohne Gerät, passend zu deiner Ausstattung – klickbar mit Ausführung.</div>'
      +'<button onclick="openUebungen()" style="padding:9px 14px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:14px">Übungen ansehen</button></div>'
+   +'<div style="'+card+'"><h3 style="'+h2+'">🗓️ Trainingsplan</h3>'
+     +(p.Plan?planSummaryHtml(p.Plan):'<div style="font-size:13px;color:#6b7280;margin-bottom:8px">Aus Geräten, Zeit und Ziel automatisch einen Plan erstellen.</div>')
+     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+     +'<button onclick="openPlanGen()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">'+(p.Plan?'Plan neu erstellen':'Plan erstellen')+'</button>'
+     +(p.Plan?'<button onclick="openPlanView()" style="padding:9px 14px;border:1px solid var(--green);border-radius:8px;background:#fff;color:var(--greendk,#166534);cursor:pointer;font-size:14px">Anzeigen</button>':'')
+     +'</div></div>'
    +'<div style="'+card+'"><h3 style="'+h2+'">📒 Trainingstagebuch</h3>'
      +'<div style="font-size:13px;color:#6b7280;margin-bottom:8px">Sätze, Wiederholungen und Gewicht je Übung festhalten – und den Fortschritt sehen.</div>'
      +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
@@ -1697,6 +1703,88 @@ function startTimer(){
     }
     updTimer();
   },1000);
+}
+/* ---- Trainingsplan-Generator (Phase C) ---- */
+let _genPlan=null;
+function planSummaryHtml(pl){ if(!pl) return ''; return '<div style="font-size:13px;color:#374151;margin-bottom:8px">Aktuell: <b>'+esc(pl.ziel||'')+'</b> · '+esc(String(pl.tage||''))+' Tage/Woche · '+esc(pl.schema||'')+'</div>'; }
+function planSplit(t){
+  if(t<=2) return Array.from({length:t},(_,i)=>({name:'Ganzkörper'+(t>1?(' '+String.fromCharCode(65+i)):''),gruppen:['Brust','Rücken','Beine','Schultern','Arme','Rumpf/Core']}));
+  if(t===3) return [
+    {name:'Push (Brust/Schultern/Trizeps)',gruppen:['Brust','Schultern','Arme']},
+    {name:'Pull (Rücken/Bizeps)',gruppen:['Rücken','Arme']},
+    {name:'Beine & Core',gruppen:['Beine','Rumpf/Core']}];
+  if(t===4) return [
+    {name:'Oberkörper A',gruppen:['Brust','Rücken','Schultern','Arme']},
+    {name:'Unterkörper A',gruppen:['Beine','Rumpf/Core']},
+    {name:'Oberkörper B',gruppen:['Brust','Rücken','Schultern','Arme']},
+    {name:'Unterkörper B',gruppen:['Beine','Rumpf/Core']}];
+  const ppl=[{name:'Push',gruppen:['Brust','Schultern','Arme']},{name:'Pull',gruppen:['Rücken','Arme']},{name:'Beine & Core',gruppen:['Beine','Rumpf/Core']}];
+  return Array.from({length:t},(_,i)=>({name:ppl[i%3].name+' '+(Math.floor(i/3)+1),gruppen:ppl[i%3].gruppen}));
+}
+function pickExercises(pool,gruppen,n){
+  const byG={}; gruppen.forEach(g=>{ byG[g]=pool.filter(u=>u.muskelgruppe===g); });
+  const picks=[],used=new Set(); let gi=0,guard=0;
+  while(picks.length<n && guard<n*gruppen.length+30){
+    guard++; const g=gruppen[gi%gruppen.length]; gi++;
+    const cands=(byG[g]||[]).filter(u=>!used.has(u.name));
+    if(cands.length){ const u=cands[Math.floor(Math.random()*cands.length)]; used.add(u.name); picks.push(u); }
+  }
+  return picks;
+}
+async function openPlanGen(){
+  if(!UEBUNGEN){ try{ const {data}=await client.rpc("cb_uebungen"); UEBUNGEN=data||[]; }catch(e){} }
+  const m=new Date().getMonth()+1, sommer=(m>=4&&m<=9);
+  const dauer = sommer ? ((TRAIN&&TRAIN.Zeit_Sommer_Min)||90) : ((TRAIN&&TRAIN.Zeit_Winter_Min)||120);
+  const panel=document.getElementById("panel");
+  panel.innerHTML='<button class="close" onclick="closeP()">Schließen ✕</button><h2 style="margin-top:0">🗓️ Trainingsplan erstellen</h2>'
+   +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+   +'<label style="font-size:13px">Tage/Woche<br><select id="pgTage" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">'+[1,2,3,4,5,6].map(n=>'<option'+(n===3?' selected':'')+'>'+n+'</option>').join("")+'</select></label>'
+   +'<label style="font-size:13px">Ziel<br><select id="pgZiel" style="padding:8px;border:1px solid #d1d5db;border-radius:8px"><option>Muskelaufbau</option><option>Kraft</option><option>Abnehmen &amp; Ausdauer</option><option>Allgemein fit</option></select></label>'
+   +'<label style="font-size:13px">Dauer/Einheit (Min)<br><input id="pgDauer" type="number" value="'+dauer+'" style="width:90px;padding:8px;border:1px solid #d1d5db;border-radius:8px"></label>'
+   +'</div>'
+   +'<label style="font-size:13px;display:block;margin-bottom:12px"><input type="checkbox" id="pgMine" checked> nur mit meinen Geräten</label>'
+   +'<button onclick="genPlan()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Plan erstellen</button>'
+   +'<div id="pgResult" style="margin-top:14px"></div>';
+  document.getElementById("overlay").classList.add("open"); panel.scrollTop=0;
+}
+function genPlan(){
+  const tage=parseInt(document.getElementById("pgTage").value)||3;
+  const ziel=document.getElementById("pgZiel").value;
+  const dauer=parseInt(document.getElementById("pgDauer").value)||90;
+  const mine=document.getElementById("pgMine").checked;
+  const owned=new Set(Array.isArray(TRAIN&&TRAIN.Geraete)?TRAIN.Geraete:[]);
+  const pool=(UEBUNGEN||[]).filter(u=> !mine || u.ohne_geraet || (u.geraet && owned.has(u.geraet)));
+  const schema={'Muskelaufbau':{s:4,w:'8–12',c:0},'Kraft':{s:5,w:'4–6',c:0},'Abnehmen & Ausdauer':{s:3,w:'12–15',c:15},'Allgemein fit':{s:3,w:'10–12',c:10}}[ziel]||{s:3,w:'10–12',c:0};
+  const cardioVerf = pool.some(u=>/Cardio/i.test(u.muskelgruppe||""));
+  const cardioMin = (schema.c && cardioVerf)?schema.c:0;
+  const nUeb=Math.max(3,Math.min(7,Math.floor((dauer-cardioMin)/12)));
+  const plan={erstellt:tbToday(),ziel:ziel,tage:tage,dauer:dauer,schema:schema.s+' Sätze × '+schema.w+' Wdh',tageliste:[]};
+  planSplit(tage).forEach(day=>{
+    const picks=pickExercises(pool,day.gruppen,nUeb);
+    plan.tageliste.push({name:day.name,uebungen:picks.map(u=>({name:u.name,muskelgruppe:u.muskelgruppe,saetze:schema.s,wdh:schema.w})),cardio:(cardioMin?('Cardio '+cardioMin+' min'):null)});
+  });
+  _genPlan=plan; renderPlanPreview(plan);
+}
+function renderPlanHtml(pl){
+  return (pl.tageliste||[]).map((d,i)=>'<div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-weight:700;font-size:14px;margin-bottom:6px">Tag '+(i+1)+': '+esc(d.name)+'</div>'
+    +(d.uebungen||[]).map(u=>'<div style="display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;gap:8px"><span>'+esc(u.name)+' <span style="color:#9ca3af;font-size:11px">'+esc(u.muskelgruppe)+'</span></span><span style="color:#6b7280;white-space:nowrap">'+u.saetze+' × '+esc(u.wdh)+'</span></div>').join("")
+    +(d.cardio?'<div style="font-size:13px;color:#16a34a;margin-top:4px">+ '+esc(d.cardio)+'</div>':'')+'</div>').join("");
+}
+function renderPlanPreview(pl){
+  document.getElementById("pgResult").innerHTML='<div style="font-size:13px;color:#6b7280;margin:4px 0 8px">'+esc(pl.ziel)+' · '+pl.tage+' Tage/Woche · '+esc(pl.schema)+'</div>'+renderPlanHtml(pl)
+   +'<div style="display:flex;gap:8px;margin-top:6px"><button onclick="savePlan()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Plan speichern</button><button onclick="genPlan()" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:14px">Neu würfeln</button></div>';
+}
+async function savePlan(){
+  if(!_genPlan) return;
+  const {error}=await client.rpc("cb_train_plan_speichern",{p_plan:_genPlan});
+  if(error){ alert("Fehler: "+error.message); return; }
+  closeP(); loadTraining();
+}
+function openPlanView(){
+  const pl=TRAIN&&TRAIN.Plan; if(!pl) return;
+  const panel=document.getElementById("panel");
+  panel.innerHTML='<button class="close" onclick="closeP()">Schließen ✕</button><h2 style="margin-top:0">🗓️ Mein Trainingsplan</h2><div style="font-size:13px;color:#6b7280;margin-bottom:8px">'+esc(pl.ziel||'')+' · '+esc(String(pl.tage||''))+' Tage/Woche · '+esc(pl.schema||'')+'</div>'+renderPlanHtml(pl);
+  document.getElementById("overlay").classList.add("open"); panel.scrollTop=0;
 }
 function personSvg(){
   return '<svg viewBox="0 0 80 170" width="110" height="200" aria-hidden="true">'
