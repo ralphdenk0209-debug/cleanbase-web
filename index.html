@@ -2,8 +2,15 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>CleanBase – Echte Qualität, Transparenz & smarte Ernährung</title>
+<meta name="theme-color" content="#2e7d46" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="CleanBase" />
 <style>
   :root{
     --bg:#f1f5f3; --card:#ffffff; --ink:#1f2a24; --muted:#6b7c73; --line:#e3ebe6;
@@ -2612,6 +2619,7 @@ async function setUserAdmin(bid,val){
   loadUsers();
 }
 load();
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 </script>
 </body>
 </html>
