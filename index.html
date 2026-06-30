@@ -641,6 +641,7 @@ async function applyAuthState(session){
   if(vis("profilView")) loadProfil();
   if(vis("stufenView")) loadStufen();
   if(vis("usersView")) loadUsers();
+  applyAdminMode();
 }
 // WICHTIG: im onAuthStateChange-Callback KEINE weiteren Supabase-Aufrufe direkt awaiten
 // (blockiert die Auth-Verwaltung). Daher per setTimeout aus dem Callback herauslösen.
@@ -912,8 +913,26 @@ function toggleMehr(){ const s=document.getElementById('mehrSheet'); if(!s) retu
 function closeMehr(){ const s=document.getElementById('mehrSheet'); if(s) s.classList.remove('open'); }
 function buildMehr(){
   const items=[['planer','📅 Planer'],['vorschlagen','➕ Produkt erfassen'],['profil','👤 Mein Profil']];
-  if(ME&&ME.is_admin) items.push(['freigabe','✅ Freigabe'],['stufen','⭐ Stufen'],['nutzer','👥 Nutzer']);
-  const c=document.getElementById('mehrCard'); if(c) c.innerHTML=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
+  let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
+  html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
+            : '<button onclick="closeMehr();openLogin()">🔑 Anmelden</button>';
+  if(ME&&ME.is_admin) html+='<button onclick="closeMehr();location.hash=\'#admin\';location.reload()" style="color:#6b7280">🛠️ Admin-Bereich</button>';
+  const c=document.getElementById('mehrCard'); if(c) c.innerHTML=html;
+}
+/* Admin als separater Einstieg (#admin) – vorbereitet für eigene externe Adresse */
+let ADMIN_MODE=(location.hash==='#admin');
+function applyAdminMode(){
+  if(!ADMIN_MODE) return;
+  const bn=document.querySelector('.bottomnav'); if(bn) bn.style.display='none';
+  const ms=document.getElementById('mehrSheet'); if(ms) ms.style.display='none';
+  if(!document.getElementById('adminNav')){
+    const c=document.querySelector('.container');
+    if(c){ const nav=document.createElement('div'); nav.id='adminNav'; nav.className='seg'; nav.style.margin='0 0 14px';
+      nav.innerHTML='<button onclick="navTo(\'freigabe\')">Freigabe</button><button onclick="navTo(\'stufen\')">Stufen</button><button onclick="navTo(\'nutzer\')">Nutzer</button><button onclick="doLogout()">Abmelden</button>';
+      c.insertBefore(nav, c.firstChild); }
+  }
+  if(ME&&ME.is_admin){ setMode('freigabe'); }
+  else { openLogin(); }
 }
 
 /* ---- Tagebuch ---- */
@@ -1575,53 +1594,52 @@ async function loadTraining(){
     renderTraining(TRAIN, last, (rt&&rt.data)||null);
   }catch(e){ body.innerHTML='<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>'; }
 }
+let _trTab='plan', _trTf=null;
 function renderTraining(p, last, tf){
-  const owned=new Set(Array.isArray(p.Geraete)?p.Geraete:[]);
-  const groups={}; GERAETE_KAT.forEach(g=>{(groups[g.gruppe]=groups[g.gruppe]||[]).push(g.name);});
-  const geraeteHtml=Object.entries(groups).map(([grp,names])=>
-    '<div style="margin-bottom:8px"><div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+esc(grp)+'</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:6px">'+names.map(n=>{
-      const on=owned.has(n);
-      return '<label class="gk" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid '+(on?'#16a34a':'#d1d5db')+';border-radius:999px;background:'+(on?'var(--greenlt,#ecfdf5)':'#fff')+';cursor:pointer;font-size:13px"><input type="checkbox" class="gkChk" value="'+esc(n)+'"'+(on?' checked':'')+' style="margin:0"> '+esc(n)+'</label>';
-    }).join("")+'</div></div>').join("");
-  const tfHtml=TF_SMILEYS.map((s,i)=>'<button onclick="setTagesform('+(i+1)+')" id="tf_'+(i+1)+'" style="font-size:26px;line-height:1;padding:6px 8px;border:2px solid '+(tf===i+1?'#16a34a':'transparent')+';border-radius:10px;background:'+(tf===i+1?'var(--greenlt,#ecfdf5)':'#f8fafc')+';cursor:pointer">'+s+'</button>').join("");
-  const massInputs=MASS.map(([k,label,col])=>'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0"><label style="font-size:13px;color:#374151">'+label+'</label><div><input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+(last[col]!=null?last[col]:"")+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;text-align:right;font-size:14px"> <span style="color:#9ca3af;font-size:12px">cm</span></div></div>').join("");
-  const naechste = p.Mass_Naechste ? ('Nächste Messung: <b>'+esc(p.Mass_Naechste)+'</b>'+(p.Mass_Naechste<=tbToday()?' · <span style="color:#b45309">fällig</span>':'')) : '';
-  const card='background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:14px';
-  const h2='margin:0 0 10px;font-size:17px';
+  TRAIN=p; _trTf=tf;
   document.getElementById("trainBody").innerHTML=
    '<div style="max-width:760px;margin:0 auto">'
-   +'<div style="'+card+'"><h3 style="'+h2+'">💪 Übungs-Datenbank</h3>'
-     +'<div style="font-size:13px;color:#6b7280;margin-bottom:8px">Übungen mit/ohne Gerät, passend zu deiner Ausstattung – klickbar mit Ausführung.</div>'
-     +'<button onclick="openUebungen()" style="padding:9px 14px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:14px">Übungen ansehen</button></div>'
-   +'<div style="'+card+'"><h3 style="'+h2+'">🗓️ Trainingsplan</h3>'
-     +(p.Plan?planSummaryHtml(p.Plan):'<div style="font-size:13px;color:#6b7280;margin-bottom:8px">Aus Geräten, Zeit und Ziel automatisch einen Plan erstellen.</div>')
-     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-     +'<button onclick="openPlanGen()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">'+(p.Plan?'Plan neu erstellen':'Plan erstellen')+'</button>'
-     +(p.Plan?'<button onclick="openPlanView()" style="padding:9px 14px;border:1px solid var(--green);border-radius:8px;background:#fff;color:var(--greendk,#166534);cursor:pointer;font-size:14px">Anzeigen</button>':'')
-     +'</div></div>'
-   +'<div style="'+card+'"><h3 style="'+h2+'">📒 Trainingstagebuch</h3>'
-     +'<div style="font-size:13px;color:#6b7280;margin-bottom:8px">Sätze, Wiederholungen und Gewicht je Übung festhalten – und den Fortschritt sehen.</div>'
-     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-     +'<button onclick="openTrainLog()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Training eintragen</button>'
-     +'<button onclick="openTrainStats()" style="padding:9px 14px;border:1px solid var(--green);border-radius:8px;background:#fff;color:var(--greendk,#166534);cursor:pointer;font-size:14px">📈 Statistik & Fortschritt</button>'
-     +'<button onclick="openTimer()" style="padding:9px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:14px">⏱️ Taktgeber</button></div></div>'
-   +'<div style="'+card+'"><h3 style="'+h2+'">⏱️ Zeitbudget pro Training</h3>'
-     +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
-     +'<label style="font-size:14px">Winter (Min) <input id="zWinter" type="number" value="'+(p.Zeit_Winter_Min??120)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label>'
-     +'<label style="font-size:14px">Sommer (Min) <input id="zSommer" type="number" value="'+(p.Zeit_Sommer_Min??90)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label>'
-     +'<button onclick="saveTrainZeit()" style="padding:8px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Speichern</button></div>'
-     +'<div id="trainMsg" style="font-size:13px;color:#16a34a;margin-top:6px"></div></div>'
-   +'<div style="'+card+'"><h3 style="'+h2+'">😊 Tagesform heute</h3><div style="display:flex;gap:8px">'+tfHtml+'</div>'
-     +'<div id="tfMsg" style="font-size:12px;color:#16a34a;margin-top:6px"></div></div>'
-   +'<div style="font-size:12px;color:#6b7280;margin-top:6px;text-align:center">🏋️ Geräte zuhause &amp; 📐 Körpermaße findest du jetzt unter <b>Mein Profil</b>.</div>'
-   +'</div>';
+   +'<div id="trTabs" class="seg">'
+   +'<button data-p="plan" onclick="trTab(\'plan\')">Plan</button>'
+   +'<button data-p="tagebuch" onclick="trTab(\'tagebuch\')">Tagebuch</button>'
+   +'<button data-p="uebungen" onclick="trTab(\'uebungen\')">Übungen</button>'
+   +'<button data-p="statistik" onclick="trTab(\'statistik\')">Statistik</button>'
+   +'</div><div id="trainPane"></div></div>';
+  trTab(_trTab||'plan');
+}
+function trTab(name){
+  _trTab=name;
+  document.querySelectorAll('#trTabs button').forEach(b=>b.classList.toggle('active', b.dataset.p===name));
+  if(!document.getElementById("trainPane")) return;
+  if(name==='plan') renderTrainPlanPane();
+  else if(name==='tagebuch') openTrainLog(null,'trainPane');
+  else if(name==='uebungen') openUebungen('trainPane');
+  else if(name==='statistik') openTrainStats('trainPane');
+}
+function renderTrainPlanPane(){
+  const p=TRAIN||{}, tf=_trTf, pane=document.getElementById("trainPane");
+  const card='background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:14px', h2='margin:0 0 10px;font-size:17px';
+  const tfHtml=TF_SMILEYS.map((s,i)=>'<button onclick="setTagesform('+(i+1)+')" id="tf_'+(i+1)+'" style="font-size:26px;line-height:1;padding:6px 8px;border:2px solid '+(tf===i+1?'#16a34a':'transparent')+';border-radius:10px;background:'+(tf===i+1?'var(--greenlt,#ecfdf5)':'#f8fafc')+';cursor:pointer">'+s+'</button>').join("");
+  pane.innerHTML=
+    '<div style="'+card+'"><h3 style="'+h2+'">🗓️ Trainingsplan</h3>'
+    +(p.Plan?planSummaryHtml(p.Plan):'<div style="font-size:13px;color:#6b7280;margin-bottom:8px">Aus Geräten, Zeit und Ziel automatisch einen Plan erstellen.</div>')
+    +'<button onclick="openPlanGen()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">'+(p.Plan?'Plan neu erstellen':'Plan erstellen')+'</button>'
+    +(p.Plan?'<div style="margin-top:12px">'+renderPlanHtml(p.Plan)+'</div>':'')
+    +'</div>'
+    +'<div style="'+card+'"><h3 style="'+h2+'">⏱️ Zeitbudget pro Training</h3>'
+    +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
+    +'<label style="font-size:14px">Winter (Min) <input id="zWinter" type="number" value="'+(p.Zeit_Winter_Min??120)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label>'
+    +'<label style="font-size:14px">Sommer (Min) <input id="zSommer" type="number" value="'+(p.Zeit_Sommer_Min??90)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label>'
+    +'<button onclick="saveTrainZeit()" style="padding:8px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Speichern</button></div>'
+    +'<div id="trainMsg" style="font-size:13px;color:#16a34a;margin-top:6px"></div></div>'
+    +'<div style="'+card+'"><h3 style="'+h2+'">😊 Tagesform heute</h3><div style="display:flex;gap:8px">'+tfHtml+'</div>'
+    +'<div id="tfMsg" style="font-size:12px;color:#16a34a;margin-top:6px"></div></div>';
 }
 let UEBUNGEN=null;
-async function openUebungen(){
-  const panel=document.getElementById("panel");
-  panel.innerHTML='<button class="close" onclick="closeP()">Schließen ✕</button><h2 style="margin-top:0">💪 Übungs-Datenbank</h2><div id="uebFilter"></div><div id="uebList" style="margin-top:10px;color:#6b7280">Lade…</div>';
-  document.getElementById("overlay").classList.add("open"); panel.scrollTop=0;
+async function openUebungen(target){
+  const host=target?document.getElementById(target):document.getElementById("panel");
+  host.innerHTML=(target?'':'<button class="close" onclick="closeP()">Schließen ✕</button>')+'<h2 style="margin-top:0">💪 Übungs-Datenbank</h2><div id="uebFilter"></div><div id="uebList" style="margin-top:10px;color:#6b7280">Lade…</div>';
+  if(!target){ document.getElementById("overlay").classList.add("open"); document.getElementById("panel").scrollTop=0; }
   if(!UEBUNGEN){ try{ const {data}=await client.rpc("cb_uebungen"); UEBUNGEN=data||[]; }catch(e){ document.getElementById("uebList").innerHTML='<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>'; return; } }
   const groups=[...new Set(UEBUNGEN.map(u=>u.muskelgruppe))].sort();
   document.getElementById("uebFilter").innerHTML=
@@ -1655,21 +1673,23 @@ function uebToggle(i){ const d=document.getElementById("ueb_d_"+i); if(d) d.styl
 
 /* ---- Trainingstagebuch ---- */
 let TLOG_DATE=null;
-async function openTrainLog(d){
+async function openTrainLog(d, target){
   TLOG_DATE = d || TLOG_DATE || tbToday();
   if(!UEBUNGEN){ try{ const {data}=await client.rpc("cb_uebungen"); UEBUNGEN=data||[]; }catch(e){} }
-  const panel=document.getElementById("panel");
+  const host=target?document.getElementById(target):document.getElementById("panel");
   const dl=(UEBUNGEN||[]).map(u=>'<option value="'+esc(u.name)+'">').join("");
-  panel.innerHTML='<button class="close" onclick="closeP()">Schließen ✕</button><h2 style="margin-top:0">📒 Trainingstagebuch</h2>'
-   +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><label style="font-size:13px">Datum</label><input type="date" id="tlDate" value="'+TLOG_DATE+'" onchange="openTrainLog(this.value)" style="padding:7px;border:1px solid #d1d5db;border-radius:8px"></div>'
+  const onch=target?("openTrainLog(this.value,'"+target+"')"):"openTrainLog(this.value)";
+  host.innerHTML=(target?'':'<button class="close" onclick="closeP()">Schließen ✕</button>')+'<h2 style="margin-top:0">📒 Trainingstagebuch</h2>'
+   +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><label style="font-size:13px">Datum</label><input type="date" id="tlDate" value="'+TLOG_DATE+'" onchange="'+onch+'" style="padding:7px;border:1px solid #d1d5db;border-radius:8px"></div>'
    +'<datalist id="tlDL">'+dl+'</datalist>'
    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-bottom:12px">'
      +'<div style="flex:1;min-width:140px"><div style="font-size:11px;color:#6b7280">Übung</div><input id="tlUeb" list="tlDL" placeholder="Übung suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:8px"></div>'
      +'<div><div style="font-size:11px;color:#6b7280">Wdh</div><input id="tlWdh" type="number" inputmode="numeric" style="width:70px;padding:8px;border:1px solid #d1d5db;border-radius:8px"></div>'
      +'<div><div style="font-size:11px;color:#6b7280">Gewicht (kg)</div><input id="tlKg" type="number" step="0.5" inputmode="decimal" style="width:90px;padding:8px;border:1px solid #d1d5db;border-radius:8px"></div>'
      +'<button onclick="addTrainSatz()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">+ Satz</button></div>'
-   +'<div id="tlList"></div>';
-  document.getElementById("overlay").classList.add("open"); panel.scrollTop=0;
+   +'<div id="tlList"></div>'
+   +'<div style="margin-top:16px;padding-top:12px;border-top:1px solid #eef2f5"><button onclick="openTimer()" style="padding:9px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:14px">⏱️ Intervall-Taktgeber</button></div>';
+  if(!target){ document.getElementById("overlay").classList.add("open"); document.getElementById("panel").scrollTop=0; }
   renderTrainLogList();
 }
 async function renderTrainLogList(){
@@ -1705,10 +1725,10 @@ function sparkline(arr){
   const line=pts.filter((p,i)=>vals[i]!=null).join(" ");
   return '<svg width="'+w+'" height="'+h+'" style="flex:0 0 auto"><polyline points="'+line+'" fill="none" stroke="#16a34a" stroke-width="2"/></svg>';
 }
-async function openTrainStats(){
-  const panel=document.getElementById("panel");
-  panel.innerHTML='<button class="close" onclick="closeP()">Schließen ✕</button><h2 style="margin-top:0">📈 Statistik & Fortschritt</h2><div id="stArea" style="color:#6b7280">Lade…</div>';
-  document.getElementById("overlay").classList.add("open"); panel.scrollTop=0;
+async function openTrainStats(target){
+  const host=target?document.getElementById(target):document.getElementById("panel");
+  host.innerHTML=(target?'':'<button class="close" onclick="closeP()">Schließen ✕</button>')+'<h2 style="margin-top:0">📈 Statistik & Fortschritt</h2><div id="stArea" style="color:#6b7280">Lade…</div>';
+  if(!target){ document.getElementById("overlay").classList.add("open"); document.getElementById("panel").scrollTop=0; }
   let list=[]; try{ const {data}=await client.rpc("cb_train_log_uebungen"); list=data||[]; }catch(e){}
   let html='';
   if(list.length){ html+='<div style="margin-bottom:8px"><label style="font-size:13px">Übung </label><select id="stUeb" onchange="renderStatUeb()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">'+list.map(u=>'<option>'+esc(u.uebung)+'</option>').join("")+'</select></div><div id="stUebBox"></div>'; }
