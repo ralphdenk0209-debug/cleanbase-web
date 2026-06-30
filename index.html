@@ -83,6 +83,28 @@
   .gatebox{max-width:460px;margin:30px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px 24px;text-align:center;box-shadow:var(--shadow)}
   .gatebox h3{margin:.2em 0 .45em;font-size:18px}
   .gatebox p{color:var(--muted);font-size:14px;line-height:1.5;margin:.3em 0 1.1em}
+  /* ===== BOTTOM NAV (App-Look) ===== */
+  .tabs{display:none}
+  .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+  .bn-inner{max-width:600px;margin:0 auto;display:flex}
+  .bn-item{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
+  .bn-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .bn-item.active{color:var(--green)}
+  body{padding-bottom:64px}
+  .mehr-sheet{position:fixed;inset:0;z-index:41;display:none}
+  .mehr-sheet.open{display:block}
+  .mehr-back{position:absolute;inset:0;background:rgba(20,40,28,.28)}
+  .mehr-card{position:absolute;left:0;right:0;bottom:62px;max-width:600px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -8px 24px rgba(31,94,52,.16);padding:8px}
+  .mehr-card button{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:14px 14px;font-size:15px;color:var(--ink);cursor:pointer;border-radius:10px;text-align:left}
+  .mehr-card button:active{background:var(--greenlt)}
+  @media(max-width:640px){
+    .hero{padding:16px 16px}
+    .hero .tag{font-size:15px;margin-top:8px} .hero .sub{display:none}
+    .principles{display:none}
+    .brand h1{font-size:20px}
+    #brandLogo{height:56px!important}
+    .container{padding:14px 14px 84px}
+  }
 </style>
 </head>
 <body>
@@ -431,6 +453,14 @@
   </div>
 </div>
 
+<nav class="bottomnav"><div class="bn-inner">
+  <button class="bn-item" id="bnprodukte" onclick="navTo('produkte')"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg><span>Produkte</span></button>
+  <button class="bn-item" id="bntagebuch" onclick="navTo('tagebuch')"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span>Tagebuch</span></button>
+  <button class="bn-item" id="bnrezepte" onclick="navTo('rezepte')"><svg viewBox="0 0 24 24"><path d="M7 3v18M7 8h10a2 2 0 0 0 0-4H7M17 3v6"/></svg><span>Rezepte</span></button>
+  <button class="bn-item" id="bntraining" onclick="navTo('training')"><svg viewBox="0 0 24 24"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg><span>Training</span></button>
+  <button class="bn-item" id="bnmehr" onclick="toggleMehr()"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>Mehr</span></button>
+</div></nav>
+<div class="mehr-sheet" id="mehrSheet"><div class="mehr-back" onclick="closeMehr()"></div><div class="mehr-card" id="mehrCard"></div></div>
 <div class="overlay" id="overlay"><div class="panel" id="panel"></div></div>
 
 <div class="overlay" id="loginOverlay"><div class="panel" style="max-width:400px">
@@ -854,6 +884,21 @@ function setMode(m){
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
   if(m!=="vorschlagen") stopScan();
+  bnActive(m);
+}
+function navTo(m){ closeMehr(); setMode(m); }
+function bnActive(m){
+  const ids=['bnprodukte','bntagebuch','bnrezepte','bntraining','bnmehr'];
+  const map={produkte:'bnprodukte',tagebuch:'bntagebuch',rezepte:'bnrezepte',training:'bntraining'};
+  ids.forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active');});
+  const b=document.getElementById(map[m]||'bnmehr'); if(b) b.classList.add('active');
+}
+function toggleMehr(){ const s=document.getElementById('mehrSheet'); if(!s) return; if(s.classList.contains('open')){ closeMehr(); } else { buildMehr(); s.classList.add('open'); } }
+function closeMehr(){ const s=document.getElementById('mehrSheet'); if(s) s.classList.remove('open'); }
+function buildMehr(){
+  const items=[['planer','📅 Planer'],['vorschlagen','➕ Produkt erfassen'],['profil','👤 Mein Profil']];
+  if(ME&&ME.is_admin) items.push(['freigabe','✅ Freigabe'],['stufen','⭐ Stufen'],['nutzer','👥 Nutzer']);
+  const c=document.getElementById('mehrCard'); if(c) c.innerHTML=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
 }
 
 /* ---- Tagebuch ---- */
