@@ -389,6 +389,14 @@
         <span id="pfAnMsg" style="font-size:13px;margin-left:10px"></span>
       </div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:10px">🏋️ Meine Geräte zuhause</div>
+        <div id="pfGeraete">…</div>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:10px">📐 Körpermaße</div>
+        <div id="pfMass">…</div>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:6px">Passwort (Login ohne E-Mail)</div>
         <div style="font-size:12px;color:#6b7280;margin-bottom:8px">Setze ein Passwort, um dich auch ohne Magic-Link anzumelden – praktisch, solange der E-Mail-Versand noch eingerichtet wird.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -616,6 +624,7 @@ async function loadProfil(){
   _selVal("pfKcal",b.Kalorienziel_kcal); _selVal("pfEiw",b.Eiweiss_ziel_g); _selVal("pfKh",b.KH_ziel_g); _selVal("pfFett",b.Fett_ziel_g);
   _selVal("pfAnFr",b.Anteil_Fr); _selVal("pfAnMi",b.Anteil_Mi); _selVal("pfAnAb",b.Anteil_Ab); _selVal("pfAnSn",b.Anteil_Sn);
   loadZielHistorie();
+  renderProfilGeraete(); renderProfilMass();
 }
 async function saveAnteile(){
   const msg=document.getElementById("pfAnMsg");
@@ -1078,7 +1087,7 @@ async function renderPlaner(){
     html+=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow)${isT?';outline:2px solid var(--greenlt)':''}">
       <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px">${d.toLocaleDateString("de-DE",{weekday:"long"})} <span style="font-weight:500;color:#6b7280;font-size:12.5px">${d.toLocaleDateString("de-DE",{day:"numeric",month:"short"})}${isT?" · heute":""}</span></div>`;
     if(massAktiv && massNaechste && (ds===massNaechste || (isT && massNaechste<=tbToday()))){
-      html+=`<div onclick="setMode('training')" style="cursor:pointer;background:#fff7e6;border:1px solid #fde68a;border-radius:8px;padding:5px 8px;margin:0 0 6px;font-size:12.5px;color:#92400e">📐 Körpermaße messen fällig ›</div>`;
+      html+=`<div onclick="setMode('profil')" style="cursor:pointer;background:#fff7e6;border:1px solid #fde68a;border-radius:8px;padding:5px 8px;margin:0 0 6px;font-size:12.5px;color:#92400e">📐 Körpermaße messen fällig ›</div>`;
     }
     slots.forEach(s=>{
       const items=entries.filter(e=>e.datum===ds && e.slot===s);
@@ -1535,24 +1544,15 @@ function renderTraining(p, last, tf){
      +'<button onclick="openTrainLog()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Training eintragen</button>'
      +'<button onclick="openTrainStats()" style="padding:9px 14px;border:1px solid var(--green);border-radius:8px;background:#fff;color:var(--greendk,#166534);cursor:pointer;font-size:14px">📈 Statistik & Fortschritt</button>'
      +'<button onclick="openTimer()" style="padding:9px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:14px">⏱️ Taktgeber</button></div></div>'
-   +'<div style="'+card+'"><h3 style="'+h2+'">🏋️ Meine Geräte zuhause</h3>'+geraeteHtml
-     +'<div style="font-size:12px;color:#6b7280;margin-top:6px">Wird später für den Trainingsplan-Generator genutzt (auch Multitower/Kabelzug).</div></div>'
    +'<div style="'+card+'"><h3 style="'+h2+'">⏱️ Zeitbudget pro Training</h3>'
-     +'<div style="display:flex;gap:16px;flex-wrap:wrap">'
+     +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
      +'<label style="font-size:14px">Winter (Min) <input id="zWinter" type="number" value="'+(p.Zeit_Winter_Min??120)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label>'
-     +'<label style="font-size:14px">Sommer (Min) <input id="zSommer" type="number" value="'+(p.Zeit_Sommer_Min??90)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label></div></div>'
+     +'<label style="font-size:14px">Sommer (Min) <input id="zSommer" type="number" value="'+(p.Zeit_Sommer_Min??90)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label>'
+     +'<button onclick="saveTrainZeit()" style="padding:8px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Speichern</button></div>'
+     +'<div id="trainMsg" style="font-size:13px;color:#16a34a;margin-top:6px"></div></div>'
    +'<div style="'+card+'"><h3 style="'+h2+'">😊 Tagesform heute</h3><div style="display:flex;gap:8px">'+tfHtml+'</div>'
      +'<div id="tfMsg" style="font-size:12px;color:#16a34a;margin-top:6px"></div></div>'
-   +'<div style="'+card+'"><h3 style="'+h2+'">📐 Körpermaße</h3>'
-     +'<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">'
-     +'<div style="flex:0 0 130px;text-align:center">'+personSvg()+'</div>'
-     +'<div style="flex:1;min-width:240px">'+massInputs+'</div></div>'
-     +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid #eef2f5">'
-     +'<label style="font-size:13px"><input type="checkbox" id="massAktiv"'+(p.Mass_Aktiv?' checked':'')+'> Regelmäßig messen</label>'
-     +'<label style="font-size:13px">alle <input id="massIv" type="number" min="1" value="'+(p.Mass_Intervall_Tage??7)+'" style="width:60px;padding:6px;border:1px solid #d1d5db;border-radius:8px"> Tage</label>'
-     +'<span style="font-size:12px;color:#6b7280">'+naechste+'</span></div>'
-     +'<div style="margin-top:10px"><button onclick="saveMass()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Maße speichern</button></div></div>'
-   +'<div style="position:sticky;bottom:0;background:linear-gradient(transparent,#f8fafc 40%);padding:12px 0"><button onclick="saveTrainProfil()" style="width:100%;padding:13px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Geräte, Zeit & Mess-Einstellungen speichern</button><div id="trainMsg" style="text-align:center;font-size:13px;margin-top:6px"></div></div>'
+   +'<div style="font-size:12px;color:#6b7280;margin-top:6px;text-align:center">🏋️ Geräte zuhause &amp; 📐 Körpermaße findest du jetzt unter <b>Mein Profil</b>.</div>'
    +'</div>';
 }
 let UEBUNGEN=null;
@@ -1797,27 +1797,87 @@ async function setTagesform(v){
   const {error}=await client.rpc("cb_tagesform_setzen",{p_datum:null,p_wert:v});
   const m=document.getElementById("tfMsg"); if(m) m.textContent=error?("Fehler: "+error.message):"✓ Tagesform gespeichert";
 }
-async function saveTrainProfil(){
-  const geraete=Array.from(document.querySelectorAll(".gkChk")).filter(c=>c.checked).map(c=>c.value);
+async function saveTrainZeit(){
   const msg=document.getElementById("trainMsg");
-  const {error}=await client.rpc("cb_train_profil_speichern",{
-    p_geraete:geraete,
-    p_zeit_winter:parseInt(document.getElementById("zWinter").value)||120,
-    p_zeit_sommer:parseInt(document.getElementById("zSommer").value)||90,
-    p_mass_intervall:parseInt(document.getElementById("massIv").value)||7,
-    p_mass_aktiv:document.getElementById("massAktiv").checked
-  });
+  const {error}=await client.rpc("cb_train_zeit_speichern",{p_winter:parseInt(document.getElementById("zWinter").value)||120,p_sommer:parseInt(document.getElementById("zSommer").value)||90});
   if(msg){ msg.style.color=error?"#dc2626":"#16a34a"; msg.textContent=error?("Fehler: "+error.message):"✓ Gespeichert"; }
-  if(!error) loadTraining();
 }
-function _numOrNullId(id){ const v=(document.getElementById(id).value||"").trim(); return v===""?null:parseFloat(v.replace(",",".")); }
-async function saveMass(){
-  const args={}; const order=["po","huefte","beine","oberarm","brust","taille","bauch","oberschenkel"];
-  order.forEach(k=>{ args["p_"+k]=_numOrNullId("m_"+k); });
-  const {error}=await client.rpc("cb_mass_eintragen",args);
-  const msg=document.getElementById("trainMsg");
-  if(error){ if(msg){msg.style.color="#dc2626";msg.textContent="Fehler: "+error.message;} return; }
-  loadTraining();
+function _numOrNullId(id){ const el=document.getElementById(id); if(!el) return null; const v=(el.value||"").trim(); return v===""?null:parseFloat(v.replace(",",".")); }
+
+/* ===== Profil: Geräte zuhause ===== */
+async function renderProfilGeraete(){
+  const box=document.getElementById("pfGeraete"); if(!box) return;
+  let p={},kat=[];
+  try{ const r=await client.rpc("cb_train_profil"); p=Array.isArray(r.data)?(r.data[0]||{}):(r.data||{}); }catch(e){}
+  try{ const r=await client.rpc("cb_geraete_katalog"); kat=r.data||[]; }catch(e){}
+  const owned=new Set(Array.isArray(p.Geraete)?p.Geraete:[]);
+  const groups={}; kat.forEach(g=>{(groups[g.gruppe]=groups[g.gruppe]||[]).push(g.name);});
+  const gh=Object.entries(groups).map(([grp,names])=>
+    '<div style="margin-bottom:8px"><div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+esc(grp)+'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px">'+names.map(n=>{const on=owned.has(n);
+      return '<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid '+(on?'#16a34a':'#d1d5db')+';border-radius:999px;background:'+(on?'var(--greenlt,#ecfdf5)':'#fff')+';cursor:pointer;font-size:13px"><input type="checkbox" class="pfGkChk" value="'+esc(n)+'"'+(on?' checked':'')+' style="margin:0"> '+esc(n)+'</label>';
+    }).join("")+'</div></div>').join("");
+  box.innerHTML='<div style="font-size:12px;color:#6b7280;margin-bottom:8px">Für den Trainingsplan-Generator (auch Multitower/Kabelzug).</div>'+gh
+    +'<div style="margin-top:8px"><button onclick="saveProfilGeraete()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Geräte speichern</button> <span id="pfGkMsg" style="font-size:13px"></span></div>';
+}
+async function saveProfilGeraete(){
+  const g=Array.from(document.querySelectorAll(".pfGkChk")).filter(c=>c.checked).map(c=>c.value);
+  const msg=document.getElementById("pfGkMsg");
+  const {error}=await client.rpc("cb_train_geraete_speichern",{p_geraete:g});
+  if(msg){ msg.style.color=error?"#dc2626":"#16a34a"; msg.textContent=error?("Fehler: "+error.message):"✓ Gespeichert"; }
+}
+
+/* ===== Profil: Körpermaße (Body-Map) ===== */
+function bodyFigureSvg(){
+  const f='#cdeed9', s='#16a34a';
+  return '<svg viewBox="0 0 140 320" width="124" height="284" style="display:block;margin:0 auto">'
+   +'<circle cx="70" cy="26" r="17" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
+   +'<rect x="62" y="42" width="16" height="12" rx="5" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
+   +'<rect x="46" y="52" width="48" height="120" rx="20" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
+   +'<rect x="26" y="58" width="18" height="100" rx="9" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
+   +'<rect x="96" y="58" width="18" height="100" rx="9" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
+   +'<rect x="48" y="166" width="44" height="36" rx="14" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
+   +'<rect x="50" y="196" width="18" height="112" rx="9" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
+   +'<rect x="72" y="196" width="18" height="112" rx="9" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
+   +'</svg>';
+}
+function bodyMapHtml(last){
+  const pos={brust:['l',54],taille:['l',124],bauch:['l',152],oberschenkel:['l',210],oberarm:['r',96],po:['r',150],huefte:['r',178],beine:['r',248]};
+  const labels={po:'Po',huefte:'Hüfte',beine:'Beine',oberarm:'Oberarm',brust:'Brust',taille:'Taille',bauch:'Bauch',oberschenkel:'Oberschenkel'};
+  const cols={po:'Po',huefte:'Huefte',beine:'Beine',oberarm:'Oberarm',brust:'Brust',taille:'Taille',bauch:'Bauch',oberschenkel:'Oberschenkel'};
+  let pills='';
+  Object.keys(pos).forEach(k=>{ const side=pos[k][0],top=pos[k][1]; const v=(last[cols[k]]!=null?last[cols[k]]:'');
+    pills+='<div style="position:absolute;'+(side==='l'?'left:0':'right:0')+';top:'+top+'px;width:86px">'
+      +'<div style="font-size:11px;color:#374151;margin-bottom:2px">'+labels[k]+'</div>'
+      +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid #d1d5db;border-radius:8px;text-align:center;font-size:13px"></div>';
+  });
+  return '<div style="position:relative;max-width:380px;margin:0 auto;min-height:308px">'
+    +'<div style="position:absolute;left:50%;top:0;transform:translateX(-50%)">'+bodyFigureSvg()+'</div>'+pills+'</div>'
+    +'<div style="text-align:center;font-size:11px;color:#9ca3af;margin-top:2px">Maße in cm</div>';
+}
+async function renderProfilMass(){
+  const box=document.getElementById("pfMass"); if(!box) return;
+  let p={},last={};
+  try{ const r=await client.rpc("cb_train_profil"); p=Array.isArray(r.data)?(r.data[0]||{}):(r.data||{}); }catch(e){}
+  try{ const r=await client.rpc("cb_mass_historie",{p_limit:1}); last=(r.data&&r.data[0])||{}; }catch(e){}
+  const naechste=p.Mass_Naechste?('Nächste Messung: <b>'+esc(p.Mass_Naechste)+'</b>'+(p.Mass_Naechste<=tbToday()?' · <span style="color:#b45309">fällig</span>':'')):'';
+  box.innerHTML=bodyMapHtml(last)
+    +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:6px;padding-top:10px;border-top:1px solid #eef2f5">'
+    +'<label style="font-size:13px"><input type="checkbox" id="massAktiv"'+(p.Mass_Aktiv?' checked':'')+'> Regelmäßig messen</label>'
+    +'<label style="font-size:13px">alle <input id="massIv" type="number" min="1" value="'+(p.Mass_Intervall_Tage??7)+'" style="width:60px;padding:6px;border:1px solid #d1d5db;border-radius:8px"> Tage</label>'
+    +'<span style="font-size:12px;color:#6b7280">'+naechste+'</span></div>'
+    +'<div style="margin-top:10px"><button onclick="saveProfilMass()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Maße speichern</button> <span id="pfMassMsg" style="font-size:13px"></span></div>';
+}
+async function saveProfilMass(){
+  const order=["po","huefte","beine","oberarm","brust","taille","bauch","oberschenkel"];
+  const args={}; order.forEach(k=>{ args["p_"+k]=_numOrNullId("m_"+k); });
+  const msg=document.getElementById("pfMassMsg");
+  let e1=null;
+  if(order.some(k=>args["p_"+k]!=null)){ const {error}=await client.rpc("cb_mass_eintragen",args); e1=error; }
+  const {error:e2}=await client.rpc("cb_mass_settings_speichern",{p_intervall:parseInt(document.getElementById("massIv").value)||7,p_aktiv:document.getElementById("massAktiv").checked});
+  const err=e1||e2;
+  if(msg){ msg.style.color=err?"#dc2626":"#16a34a"; msg.textContent=err?("Fehler: "+err.message):"✓ Gespeichert"; }
+  if(!err) renderProfilMass();
 }
 
 /* ---- Produkt vorschlagen (Link/Barcode → Edge Function → Entwurf) ---- */
