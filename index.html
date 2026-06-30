@@ -871,11 +871,14 @@ function detail(d){
   const rows = mkRows(SCORE_TEIL);
   const extra = mkRows(EXTRA_TEIL);
   const zlist = Array.isArray(d.zutaten) ? d.zutaten : [];
+  const neutralZ = d.zusatz && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||""));
   const zHtml = zlist.length ? zlist.map(z=>{
     const krit = (String(z.kritisch||"")).toLowerCase()==="ja";
-    const bg = krit?"#fde8e8":(z.rating>=8?"#e7f4ec":(z.rating>=5?"#fff7e6":"#fde8e8"));
-    const tc = krit?"#b91c1c":(z.rating>=8?"#1f5e34":(z.rating>=5?"#92400e":"#b91c1c"));
-    return `<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:${bg};color:${tc}">${esc(z.name)}${krit?" ⚠️":""}</span>`;
+    const isCoag = neutralZ && /koagulation|gerinnung|calciumsulfat|calciumchlorid|magnesiumchlorid|nigari|e516|e509|e511/i.test(String(z.name||""));
+    let bg = krit?"#fde8e8":(z.rating>=8?"#e7f4ec":(z.rating>=5?"#fff7e6":"#fde8e8"));
+    let tc = krit?"#b91c1c":(z.rating>=8?"#1f5e34":(z.rating>=5?"#92400e":"#b91c1c"));
+    if(isCoag){ bg="#eef6ff"; tc="#1e3a8a"; }
+    return `<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:${bg};color:${tc}">${esc(z.name)}${krit?" ⚠️":""}${isCoag?" *":""}</span>`;
   }).join("") : '<span style="color:var(--muted);font-size:13px">keine Zutaten hinterlegt</span>';
   const mRows = MACROS.filter(([k])=>d[k]!==null && d[k]!==undefined).map(([k,label,unit])=>{
     const raw=num(d[k]); const val=(k==="m_kcal")?Math.round(raw):Math.round(raw*10)/10;
