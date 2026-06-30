@@ -135,7 +135,9 @@
       <option value="name">Name (A–Z)</option>
     </select>
     <label><input type="checkbox" id="onlyfull" /> nur voll bewertet</label>
+    <button id="prodScanBtn" type="button" onclick="prodScan()" style="padding:11px 13px;border:1px solid var(--green);border-radius:11px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#1f5e34);font-size:14px;cursor:pointer;white-space:nowrap">📷 Barcode scannen</button>
   </div>
+  <div id="prodReader" style="margin:0 0 12px"></div>
   <div class="stats" id="stats">Lade Daten…</div>
   <div class="grid" id="grid"></div>
   </div>
@@ -2043,6 +2045,19 @@ function _startScan(targetId, cb){
   Quagga.onDetected(_onDetected);
 }
 function toggleScan(){ _startScan("vorReader",(code)=>{ document.getElementById("vorInput").value=code; setVorMsg("✅ Barcode erkannt: <b>"+code+"</b> – jetzt „Senden“ tippen.","#16a34a"); }); }
+function prodScan(){
+  const st=document.getElementById("stats"); if(st) st.textContent="📷 Kamera öffnet – Barcode vor die Kamera halten…";
+  _startScan("prodReader", async (code)=>{
+    try{
+      const {data:pid}=await client.rpc("cb_produkt_id_by_ean",{p_ean:code});
+      const p=pid&&(ALL||[]).find(x=>x.id===pid);
+      if(p){ if(st) st.textContent="✅ Gefunden: "+esc(code); detail(p); }
+      else { if(st) st.textContent="";
+        if(confirm("Barcode "+code+" ist nicht im Katalog.\n\nMöchtest du das Produkt jetzt erfassen?")){ setMode("vorschlagen"); const vi=document.getElementById("vorInput"); if(vi) vi.value=code; }
+      }
+    }catch(e){ alert("Fehler: "+e.message); }
+  });
+}
 function tbScan(){ _startScan("tbReader", async (code)=>{
   const tbm=document.getElementById("tbMsg");
   try{
