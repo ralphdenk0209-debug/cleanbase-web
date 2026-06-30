@@ -486,16 +486,20 @@
 <div class="overlay" id="loginOverlay"><div class="panel" style="max-width:400px">
   <button class="close" onclick="closeLogin()">Schließen ✕</button>
   <h2 style="font-size:20px;margin:0 0 4px">Anmelden</h2>
-  <p style="color:var(--muted);font-size:13.5px;margin:.2em 0 14px">Wir senden dir einen <b>Magic-Link</b> per E-Mail – kein Passwort nötig. Öffne die Mail auf <b>diesem Gerät</b> und tippe den Link.</p>
+  <p style="color:var(--muted);font-size:13.5px;margin:.2em 0 14px">Mit <b>E-Mail und Passwort</b> – oder per Code/Link.</p>
   <input id="loginEmail" type="email" autocomplete="email" placeholder="deine@email.de" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px" />
-  <button onclick="sendMagic()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Magic-Link senden</button>
+  <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;margin-top:8px" />
+  <button onclick="loginPassword()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Anmelden</button>
   <div id="loginMsg" style="margin-top:10px;font-size:13.5px;line-height:1.45"></div>
   <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:12px">
-    <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">oder mit <b>E-Mail + Passwort</b> anmelden</div>
-    <input id="loginPassEmail" type="email" autocomplete="email" placeholder="E-Mail" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d1d5db;border-radius:10px;font-size:15px" />
-    <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;margin-top:8px" />
-    <button onclick="loginPassword()" style="width:100%;margin-top:8px;padding:11px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-weight:600;font-size:15px;cursor:pointer">Mit Passwort anmelden</button>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">Kein Passwort? <b>Code per E-Mail</b> (in der App eingeben – kein Browser-Umweg)</div>
+    <button onclick="requestCode()" style="width:100%;padding:11px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-weight:600;font-size:15px;cursor:pointer">Code senden</button>
+    <div id="codeBox" style="display:none;margin-top:8px">
+      <input id="loginCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6-stelliger Code aus der E-Mail" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;letter-spacing:2px;text-align:center" />
+      <button onclick="verifyCode()" style="width:100%;margin-top:8px;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Code bestätigen</button>
+    </div>
   </div>
+  <div style="text-align:center;margin-top:12px"><a href="#" onclick="sendMagic();return false" style="font-size:12.5px;color:var(--muted)">stattdessen Magic-Link senden</a></div>
 </div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -600,14 +604,36 @@ async function sendMagic(){
   msg.style.color="#16a34a"; msg.innerHTML="✅ Link gesendet an <b>"+esc(email)+"</b>. Öffne die Mail auf diesem Gerät und tippe den Link.";
 }
 async function loginPassword(){
-  const email=((document.getElementById("loginPassEmail").value||document.getElementById("loginEmail").value)||"").trim();
+  const email=(document.getElementById("loginEmail").value||"").trim();
   const pass=document.getElementById("loginPass").value||"";
   const msg=document.getElementById("loginMsg");
-  if(!email||!pass){ msg.style.color="#dc2626"; msg.textContent="E-Mail und Passwort eingeben."; return; }
+  if(!email||!pass){ msg.style.color="#dc2626"; msg.textContent="E-Mail und Passwort eingeben (oder unten Code senden)."; return; }
   msg.style.color="#374151"; msg.textContent="⏳ Anmelden…";
   const {error}=await client.auth.signInWithPassword({ email, password:pass });
-  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message+" – Passwort evtl. noch nicht gesetzt (siehe Mein Profil)."; return; }
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Anmeldung fehlgeschlagen – Passwort falsch oder noch nicht gesetzt. Nutze unten Code senden, oder setze in Mein Profil ein Passwort."; return; }
   document.getElementById("loginPass").value="";
+  msg.style.color="#16a34a"; msg.textContent="✓ angemeldet"; closeLogin();
+}
+async function requestCode(){
+  const email=(document.getElementById("loginEmail").value||"").trim();
+  const msg=document.getElementById("loginMsg");
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.style.color="#dc2626"; msg.textContent="Bitte oben eine gültige E-Mail eingeben."; return; }
+  msg.style.color="#374151"; msg.textContent="⏳ Sende Code…";
+  const {error}=await client.auth.signInWithOtp({ email, options:{ shouldCreateUser:true } });
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  document.getElementById("codeBox").style.display="block";
+  const ci=document.getElementById("loginCode"); if(ci) setTimeout(()=>ci.focus(),60);
+  msg.style.color="#16a34a"; msg.innerHTML="✅ Code an <b>"+esc(email)+"</b> gesendet. Bitte den 6-stelligen Code aus der E-Mail eingeben.";
+}
+async function verifyCode(){
+  const email=(document.getElementById("loginEmail").value||"").trim();
+  const token=(document.getElementById("loginCode").value||"").trim().replace(/\s/g,"");
+  const msg=document.getElementById("loginMsg");
+  if(!email||!token){ msg.style.color="#dc2626"; msg.textContent="E-Mail und Code eingeben."; return; }
+  msg.style.color="#374151"; msg.textContent="⏳ Prüfe Code…";
+  const {error}=await client.auth.verifyOtp({ email, token, type:"email" });
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Code ungültig oder abgelaufen: "+error.message; return; }
+  document.getElementById("loginCode").value="";
   msg.style.color="#16a34a"; msg.textContent="✓ angemeldet"; closeLogin();
 }
 async function doLogout(){ await client.auth.signOut(); ME=null; MY_FEATURES=null; TB_USER="U001"; updateAuthUI(); updateGate(); }
