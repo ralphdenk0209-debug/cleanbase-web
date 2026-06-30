@@ -160,7 +160,8 @@
     <button id="tabStufen" class="tabbtn" style="display:none" onclick="setMode('stufen')">Stufen</button>
     <button id="tabUsers" class="tabbtn" style="display:none" onclick="setMode('nutzer')">Nutzer</button>
   </div>
-  <div id="prodView">
+  <div id="startView"><div id="startBody"></div></div>
+  <div id="prodView" style="display:none">
   <div class="controls">
     <input type="search" id="q" placeholder="Produkt, Marke oder Kategorie suchen…" />
     <select id="kat"><option value="">Alle Kategorien</option></select>
@@ -472,9 +473,9 @@
 </div>
 
 <nav class="bottomnav"><div class="bn-inner">
+  <button class="bn-item" id="bnstart" onclick="navTo('start')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 9v11h5v-6h4v6h5V9"/></svg><span>Start</span></button>
   <button class="bn-item" id="bnprodukte" onclick="navTo('produkte')"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg><span>Produkte</span></button>
   <button class="bn-item" id="bntagebuch" onclick="navTo('tagebuch')"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span>Tagebuch</span></button>
-  <button class="bn-item" id="bnrezepte" onclick="navTo('rezepte')"><svg viewBox="0 0 24 24"><path d="M7 3v18M7 8h10a2 2 0 0 0 0-4H7M17 3v6"/></svg><span>Rezepte</span></button>
   <button class="bn-item" id="bntraining" onclick="navTo('training')"><svg viewBox="0 0 24 24"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg><span>Training</span></button>
   <button class="bn-item" id="bnmehr" onclick="toggleMehr()"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>Mehr</span></button>
 </div></nav>
@@ -649,6 +650,7 @@ async function applyAuthState(session){
   if(vis("profilView")) loadProfil();
   if(vis("stufenView")) loadStufen();
   if(vis("usersView")) loadUsers();
+  if(vis("startView")) renderStart();
   applyAdminMode();
 }
 // WICHTIG: im onAuthStateChange-Callback KEINE weiteren Supabase-Aufrufe direkt awaiten
@@ -884,6 +886,7 @@ function setMode(m){
   document.getElementById("tabFg").classList.toggle("active",m==="freigabe");
   document.getElementById("tabStufen").classList.toggle("active",m==="stufen");
   document.getElementById("tabUsers").classList.toggle("active",m==="nutzer");
+  document.getElementById("startView").style.display = m==="start"?"":"none";
   document.getElementById("prodView").style.display = m==="produkte"?"":"none";
   document.getElementById("rezeptView").style.display = m==="rezepte"?"":"none";
   document.getElementById("vorschlagView").style.display = m==="vorschlagen"?"":"none";
@@ -904,6 +907,7 @@ function setMode(m){
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
   if(m!=="vorschlagen") stopScan();
+  if(m==="start") renderStart();
   bnActive(m);
 }
 function navTo(m){ closeMehr(); setMode(m); }
@@ -911,16 +915,62 @@ function pfTab(name){
   document.querySelectorAll('#pfTabs button').forEach(b=>b.classList.toggle('active', b.dataset.p===name));
   document.querySelectorAll('#profilInner .pf-pane').forEach(c=>{ c.style.display = c.classList.contains('pf-'+name)?'':'none'; });
 }
+/* ===== Startseite (Home) ===== */
+function startFeature(ic,t,sub){ return '<div style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px">'+ic+'</div><div style="font-weight:600;font-size:13.5px;margin-top:2px">'+t+'</div><div style="font-size:11.5px;color:var(--muted)">'+sub+'</div></div>'; }
+async function renderStart(){
+  const body=document.getElementById("startBody"); if(!body) return;
+  const card='background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
+  if(!ME){
+    body.innerHTML='<div style="max-width:600px;margin:0 auto">'
+      +'<div style="'+card+';text-align:center;padding:24px 18px"><div style="font-size:42px">🌿</div>'
+      +'<h2 style="margin:.25em 0 .15em">Willkommen bei CleanBase</h2>'
+      +'<p style="color:var(--muted);font-size:14.5px;line-height:1.5;margin:.2em 0 1em">Transparente, wissenschaftsbasierte Bewertung von Lebensmitteln (Clean Score 0–100) – plus Ernährungs- &amp; Trainingstagebuch.</p>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
+      +'<button onclick="openLogin()" style="padding:12px 18px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Anmelden / Registrieren</button>'
+      +'<button onclick="navTo(\'produkte\')" style="padding:12px 18px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-size:15px;cursor:pointer">Produkte ansehen</button></div></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
+      +startFeature('🔍','Clean Score','0–100, erklärt')+startFeature('📒','Tagebuch','Makros &amp; Ziele')
+      +startFeature('🏋️','Training','Plan &amp; Fortschritt')+startFeature('🥗','Rezepte','bewertet &amp; skalierbar')
+      +'</div></div>';
+    return;
+  }
+  body.innerHTML='<div style="max-width:600px;margin:0 auto" id="startDash"><div style="color:#6b7280">Lade…</div></div>';
+  const today=tbToday();
+  let sum={},prof={},log=[];
+  try{ const r=await client.rpc("cb_tagessumme",{p_datum:today}); sum=(r.data&&r.data[0])||{}; }catch(e){}
+  try{ const r=await client.rpc("cb_profil"); prof=(r.data&&r.data[0])||{}; }catch(e){}
+  try{ const r=await client.rpc("cb_train_log_tag",{p_datum:today}); log=r.data||[]; }catch(e){}
+  const dash=document.getElementById("startDash"); if(!dash) return;
+  const vorname=(prof.Name||prof.Vorname||"") ? String(prof.Name||prof.Vorname).split(" ")[0] : "";
+  const kcalZ=prof.Kalorienziel_kcal,eiwZ=prof.Eiweiss_ziel_g,khZ=prof.KH_ziel_g,fettZ=prof.Fett_ziel_g;
+  const donutsHtml = kcalZ
+    ? '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px 6px;justify-items:center;max-width:340px;margin:6px auto 0">'+tbDonut(sum.kcal,kcalZ,"kcal","",true)+tbDonut(sum.protein,eiwZ,"Eiweiß","g",false)+tbDonut(sum.kh,khZ,"KH","g",true)+tbDonut(sum.fett,fettZ,"Fett","g",true)+'</div>'
+    : '<div style="font-size:13.5px;color:#6b7280">Noch kein Tagesziel gesetzt. Heute bisher: <b>'+Math.round(sum.kcal||0)+'</b> kcal · '+Math.round(sum.protein||0)+' g Eiweiß.</div>';
+  const saetze=log.length, ueb=new Set(log.map(x=>x.uebung)).size, vol=Math.round(log.reduce((a,s)=>a+(s.wiederholungen||0)*(s.gewicht_kg||0),0));
+  const trainHtml = saetze
+    ? '<div style="font-size:14px">💪 <b>'+ueb+'</b> Übungen · <b>'+saetze+'</b> Sätze · Volumen <b>'+vol+' kg</b></div>'
+    : '<div style="font-size:14px;color:#6b7280">Heute noch kein Training erfasst.</div>';
+  dash.innerHTML=
+    '<div style="'+card+'"><div style="font-weight:700;font-size:18px">Hallo'+(vorname?(' '+esc(vorname)):"")+'! 👋</div>'
+      +'<div style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</div></div>'
+    +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🍽️ Heute – Makros</div>'+donutsHtml
+      +(sum.score_schnitt!=null?'<div style="text-align:center;font-size:12px;color:#6b7280;margin-top:6px">Ø Clean Score heute: <b>'+sum.score_schnitt+'</b></div>':'')+'</div>'
+    +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🏋️ Heute – Training</div>'+trainHtml
+      +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:#fff;color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">'
+      +'<button onclick="navTo(\'tagebuch\')" style="padding:13px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:14px;cursor:pointer">📒 Tagebuch öffnen</button>'
+      +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>';
+}
 function bnActive(m){
-  const ids=['bnprodukte','bntagebuch','bnrezepte','bntraining','bnmehr'];
-  const map={produkte:'bnprodukte',tagebuch:'bntagebuch',rezepte:'bnrezepte',training:'bntraining'};
+  const ids=['bnstart','bnprodukte','bntagebuch','bntraining','bnmehr'];
+  const map={start:'bnstart',produkte:'bnprodukte',tagebuch:'bntagebuch',training:'bntraining'};
   ids.forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active');});
   const b=document.getElementById(map[m]||'bnmehr'); if(b) b.classList.add('active');
 }
 function toggleMehr(){ const s=document.getElementById('mehrSheet'); if(!s) return; if(s.classList.contains('open')){ closeMehr(); } else { buildMehr(); s.classList.add('open'); } }
 function closeMehr(){ const s=document.getElementById('mehrSheet'); if(s) s.classList.remove('open'); }
 function buildMehr(){
-  const items=[['planer','📅 Planer'],['vorschlagen','➕ Produkt erfassen'],['profil','👤 Mein Profil']];
+  const items=[['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['vorschlagen','➕ Produkt erfassen'],['profil','👤 Mein Profil']];
   let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
   html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
             : '<button onclick="closeMehr();openLogin()">🔑 Anmelden</button>';
@@ -2620,6 +2670,7 @@ async function setUserAdmin(bid,val){
   loadUsers();
 }
 load();
+if(!ADMIN_MODE) setMode('start');
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 </script>
 </body>
