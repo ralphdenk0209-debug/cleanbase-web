@@ -90,6 +90,10 @@
   .bn-item{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
   .bn-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   .bn-item.active{color:var(--green)}
+  /* In-Seiten-Untertabs (Segment-Control) */
+  .seg{display:flex;gap:4px;background:#eef3ef;border-radius:13px;padding:4px;margin:0 0 16px;overflow-x:auto}
+  .seg button{flex:1 0 auto;border:0;background:none;padding:9px 14px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .seg button.active{background:#fff;color:var(--green);box-shadow:0 1px 3px rgba(31,94,52,.12)}
   body{padding-bottom:64px}
   .mehr-sheet{position:fixed;inset:0;z-index:41;display:none}
   .mehr-sheet.open{display:block}
@@ -355,7 +359,13 @@
     <div id="profilGate" style="display:none"></div>
     <div id="profilInner" style="max-width:600px;margin:0 auto">
       <h2 style="margin:.1em 0 .5em;font-size:19px">Mein Profil</h2>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div id="pfTabs" class="seg">
+        <button data-p="daten" onclick="pfTab('daten')">Daten</button>
+        <button data-p="ziele" onclick="pfTab('ziele')">Ziele</button>
+        <button data-p="geraete" onclick="pfTab('geraete')">Geräte</button>
+        <button data-p="masse" onclick="pfTab('masse')">Körpermaße</button>
+      </div>
+      <div class="pf-pane pf-daten" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">Persönliche Daten</div>
         <div style="font-size:13px;color:#374151;margin-bottom:10px">E-Mail: <b id="pfEmail">–</b></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
@@ -371,7 +381,7 @@
         <button onclick="saveProfil()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Speichern</button>
         <span id="pfMsg" style="font-size:13px;margin-left:10px"></span>
       </div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-ziele" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:4px">Kalorienbedarf berechnen</div>
         <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Nutzt deine Daten oben (Alter, Geschlecht, Größe, Gewicht, Aktivität). Schätzung nach Mifflin-St-Jeor.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
@@ -387,7 +397,7 @@
         </div>
         <div id="bdOut" style="margin-top:10px;font-size:13px"></div>
       </div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-ziele" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">Tagesziele</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
           <label style="font-size:13px;color:#374151">kcal<input type="number" id="pfKcal" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
@@ -400,7 +410,7 @@
         <div style="font-size:12px;color:#6b7280;margin-top:10px">Gespeicherte Ziele gelten automatisch für jeden Tag – bei Änderung wird ein neuer Eintrag im Verlauf angelegt, frühere Tage behalten ihr damaliges Ziel.</div>
         <div id="zielHistBox" style="margin-top:10px"></div>
       </div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-ziele" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:4px">Verteilung der Mahlzeiten (%)</div>
         <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Bestimmt, wie sich dein Tagesziel auf die Mahlzeiten aufteilt – für „🎯 Rest auffüllen" im Tagebuch. Default 25/35/30/10.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">
@@ -412,15 +422,15 @@
         <button onclick="saveAnteile()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Anteile speichern</button>
         <span id="pfAnMsg" style="font-size:13px;margin-left:10px"></span>
       </div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-geraete" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">🏋️ Meine Geräte zuhause</div>
         <div id="pfGeraete">…</div>
       </div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-masse" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">📐 Körpermaße</div>
         <div id="pfMass">…</div>
       </div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-daten" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:6px">Passwort (Login ohne E-Mail)</div>
         <div style="font-size:12px;color:#6b7280;margin-bottom:8px">Setze ein Passwort, um dich auch ohne Magic-Link anzumelden – praktisch, solange der E-Mail-Versand noch eingerichtet wird.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -657,6 +667,7 @@ async function loadProfil(){
   _selVal("pfAnFr",b.Anteil_Fr); _selVal("pfAnMi",b.Anteil_Mi); _selVal("pfAnAb",b.Anteil_Ab); _selVal("pfAnSn",b.Anteil_Sn);
   loadZielHistorie();
   renderProfilGeraete(); renderProfilMass();
+  pfTab('daten');
 }
 async function saveAnteile(){
   const msg=document.getElementById("pfAnMsg");
@@ -887,6 +898,10 @@ function setMode(m){
   bnActive(m);
 }
 function navTo(m){ closeMehr(); setMode(m); }
+function pfTab(name){
+  document.querySelectorAll('#pfTabs button').forEach(b=>b.classList.toggle('active', b.dataset.p===name));
+  document.querySelectorAll('#profilInner .pf-pane').forEach(c=>{ c.style.display = c.classList.contains('pf-'+name)?'':'none'; });
+}
 function bnActive(m){
   const ids=['bnprodukte','bntagebuch','bnrezepte','bntraining','bnmehr'];
   const map={produkte:'bnprodukte',tagebuch:'bntagebuch',rezepte:'bnrezepte',training:'bntraining'};
