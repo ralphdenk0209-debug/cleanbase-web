@@ -114,7 +114,8 @@
     .principles{display:none}
     .brand h1{font-size:20px}
     #brandLogo{height:56px!important}
-    .container{padding:14px 14px 84px}
+    .container{padding:12px 11px 86px}
+    .card{padding:14px}
   }
 </style>
 </head>
@@ -1346,7 +1347,7 @@ function tbDonut(ist,soll,label,unit,isMax){
     else      col = ratio>=0.9?"#16a34a":(ratio>=0.6?"#65a30d":"#e8920c");
   }
   const r=26, c=2*Math.PI*r, off=c*(1-(soll?Math.min(1,ratio):0));
-  return `<div style="text-align:center;width:88px;margin:4px">
+  return `<div style="text-align:center">
     <svg viewBox="0 0 64 64" width="66" height="66">
       <circle cx="32" cy="32" r="${r}" fill="none" stroke="#eef2f5" stroke-width="7"/>
       <circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 32 32)"/>
@@ -1367,7 +1368,7 @@ function renderZiel(s,ben){
   const kcalZ=ben&&ben.Kalorienziel_kcal, eiwZ=ben&&ben.Eiweiss_ziel_g, khZ=ben&&ben.KH_ziel_g, fettZ=ben&&ben.Fett_ziel_g;
   if(!kcalZ){ el.innerHTML='<div style="font-weight:600;margin-bottom:6px">Kein Tagesziel gesetzt</div>'+zielForm(); return; }
   el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:600">Tagesziel</div><button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:#6b7280;cursor:pointer;text-decoration:underline">ändern</button></div>'
-    + '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:2px">'
+    + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px 6px;justify-items:center;max-width:340px;margin:6px auto 0">'
       + tbDonut(s&&s.kcal,kcalZ,"kcal","",true)
       + tbDonut(s&&s.protein,eiwZ,"Eiweiß","g",false)
       + tbDonut(s&&s.kh,khZ,"KH","g",true)
