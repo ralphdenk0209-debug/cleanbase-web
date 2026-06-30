@@ -107,6 +107,14 @@
   .seg{display:flex;gap:4px;background:#eef3ef;border-radius:13px;padding:4px;margin:0 0 16px;overflow-x:auto}
   .seg button{flex:1 0 auto;border:0;background:none;padding:9px 14px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
   .seg button.active{background:#fff;color:var(--green);box-shadow:0 1px 3px rgba(31,94,52,.12)}
+  /* Wassertropfen-Animation (Startseite) */
+  @keyframes cbripple{0%{transform:scale(.15);opacity:.65}100%{transform:scale(1);opacity:0}}
+  @keyframes cbdrop{0%,60%{transform:translateY(-14px) scale(1);opacity:0}70%{opacity:1}100%{transform:translateY(0) scale(1);opacity:1}}
+  .ripplebox{position:relative;width:84px;height:84px;margin:4px auto 6px}
+  .ripplebox .ring{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border:2px solid var(--green2);border-radius:50%;animation:cbripple 2.4s ease-out infinite}
+  .ripplebox .ring:nth-child(2){animation-delay:.8s}
+  .ripplebox .ring:nth-child(3){animation-delay:1.6s}
+  .ripplebox .drop{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50% 50% 50% 0;transform:rotate(45deg);background:var(--green);animation:cbdrop 2.4s ease-in-out infinite}
   body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
   .mehr-sheet{position:fixed;inset:0;z-index:41;display:none}
   .mehr-sheet.open{display:block}
@@ -182,6 +190,7 @@
       <div class="stats" id="rezeptStats">Lade Rezepte…</div>
       <button onclick="openRezeptForm()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px;white-space:nowrap">+ Eigenes Rezept</button>
     </div>
+    <input type="search" id="rezeptSuche" oninput="renderRezeptList()" placeholder="Rezept suchen…" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px;margin:6px 0 12px" />
     <div id="rezeptFormBox"></div>
     <div class="grid" id="rezeptGrid"></div>
   </div>
@@ -797,6 +806,12 @@ function betterAlt(d){
   return best;
 }
 function detailById(id){ const p=(ALL||[]).find(x=>x.id===id); if(p) detail(p); }
+async function adminDeleteProdukt(id,name){
+  if(!confirm('Produkt '+name+' ausblenden (aus dem Katalog entfernen)?')) return;
+  const {error}=await client.rpc("cb_produkt_loeschen",{p_id:id});
+  if(error){ alert("Fehler: "+error.message); return; }
+  closeP(); ALL=(ALL||[]).filter(x=>x.id!==id); render();
+}
 async function prodToEinkauf(id){
   if(!ME){ openLogin(); return; }
   if(!hasFeat('planer')){ premiumInfo(); return; }
@@ -864,7 +879,13 @@ function detail(d){
   }).join("") : '<span style="color:var(--muted);font-size:13px">keine Zutaten hinterlegt</span>';
   const mRows = MACROS.filter(([k])=>d[k]!==null && d[k]!==undefined).map(([k,label,unit])=>{
     const raw=num(d[k]); const val=(k==="m_kcal")?Math.round(raw):Math.round(raw*10)/10;
-    return `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)"><span>${label}</span><span style="font-weight:600">${val} ${unit}</span></div>`;
+    let vc="", extra="";
+    if(k==="m_ges_fett"){
+      vc="color:#dc2626"; // gesättigte Fettsäuren = rot
+      const fett=num(d.m_fett); const uns=(fett!=null&&raw!=null)?Math.round((fett-raw)*10)/10:null;
+      if(uns!=null && uns>=0) extra=`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)"><span>– davon ungesättigte</span><span style="font-weight:600;color:#16a34a">${uns} ${unit}</span></div>`;
+    }
+    return `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)"><span>${label}</span><span style="font-weight:600;${vc}">${val} ${unit}</span></div>`+extra;
   }).join("");
   const variants = ALL.filter(x=>x.variante_von===d.id);
   let varNote="";
@@ -875,7 +896,7 @@ function detail(d){
     <button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(d.name)}</h2>
     <div class="marke">${(mkLabel(d.marke)?esc(mkLabel(d.marke))+" · ":"")}${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
-    <div style="margin:8px 0"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button></div>
+    <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button>${(ME&&ME.is_admin)?`<button onclick="adminDeleteProdukt('${d.id}','${esc(d.name||"").replace(/'/g,"")}')" style="padding:7px 12px;border:1px solid #fca5a5;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;font-size:13px">🗑️ Produkt ausblenden</button>`:""}</div>
     ${altBanner(d)}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
@@ -958,7 +979,7 @@ async function renderStart(){
   const card='background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
   if(!ME){
     body.innerHTML='<div style="max-width:600px;margin:0 auto">'
-      +'<div style="'+card+';text-align:center;padding:24px 18px"><div style="font-size:42px">🌿</div>'
+      +'<div style="'+card+';text-align:center;padding:24px 18px"><div class="ripplebox"><span class="ring"></span><span class="ring"></span><span class="ring"></span><span class="drop"></span></div>'
       +'<h2 style="margin:.25em 0 .15em">Willkommen bei CleanBase</h2>'
       +'<p style="color:var(--muted);font-size:14.5px;line-height:1.5;margin:.2em 0 1em">Transparente, wissenschaftsbasierte Bewertung von Lebensmitteln (Clean Score 0–100) – plus Ernährungs- &amp; Trainingstagebuch.</p>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
@@ -2270,8 +2291,14 @@ async function loadRezepte(){
   const {data,error}=await client.rpc("cb_rezepte_list");
   if(error){document.getElementById("rezeptStats").textContent="Fehler: "+error.message;return;}
   REZEPTE=data;
-  const mine=data.filter(r=>r.is_own).length;
-  document.getElementById("rezeptStats").textContent=`${data.length} Rezept(e)`+(mine?` · davon ${mine} eigene`:"")+` · live aus der Datenbank`;
+  renderRezeptList();
+}
+function renderRezeptList(){
+  const all=REZEPTE||[];
+  const q=_norm((document.getElementById("rezeptSuche")||{}).value||"");
+  const data = q ? all.filter(r=> _fuzzy(r.name,q) || _fuzzy(r.ziel,q) || (Array.isArray(r.zutaten)&&r.zutaten.some(z=>_fuzzy((z&&z.name)||z||"",q))) ) : all;
+  const mine=all.filter(r=>r.is_own).length;
+  document.getElementById("rezeptStats").textContent=`${data.length} Rezept(e)`+(mine?` · davon ${mine} eigene`:"");
   const g=document.getElementById("rezeptGrid"); g.innerHTML="";
   data.forEach(r=>{
     const c=document.createElement("div");c.className="card";c.onclick=()=>rezeptDetail(r);
