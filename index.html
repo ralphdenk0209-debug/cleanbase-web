@@ -918,6 +918,7 @@ function detail(d){
     </div>
     <div>${zHtml}</div>
     ${zlist.filter(z=>z.info).length?`<div style="margin-top:8px">${zlist.filter(z=>z.info).map(z=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:#f8fafc;border:1px solid var(--line);border-radius:9px"><b>${esc(z.name)}</b>${(String(z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(z.info)}</div>`).join("")}</div>`:""}
+    ${(d.zusatz && d.zusatz.info && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||"")))?`<div style="margin-top:8px;font-size:12.5px;line-height:1.45;padding:8px 11px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:9px;color:#1e3a8a"><b>* ${esc(d.zusatz.text||"Zusatzstoff")}</b> – technologisch notwendig &amp; unbedenklich, zählt nicht negativ. ${esc(d.zusatz.info)}</div>`:""}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:18px 0 4px">Weitere Infos (nicht im Score)</div>
     ${extra}
     ${d.warum?`<div class="note"><h4>Warum empfohlen</h4>${esc(d.warum)}</div>`:""}
