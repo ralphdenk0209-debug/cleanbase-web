@@ -368,7 +368,8 @@
   <div id="freigabeView" style="display:none">
     <div style="max-width:640px;margin:0 auto">
       <h2 style="margin:.1em 0 .35em;font-size:19px">Freigabe</h2>
-      <div style="color:#6b7280;font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen und freischalten. Nur vollständig bewertete Produkte sind freigebbar – der Rest wird von CleanBase ergänzt.</div>
+      <div style="color:#6b7280;font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen, bearbeiten und freischalten. Nur vollständig bewertete Produkte sind freigebbar.</div>
+      <button onclick="openFgEditor(null)" style="margin-bottom:12px;padding:9px 14px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:14px;font-weight:600;cursor:pointer">➕ Neues Produkt anlegen</button>
       <div id="fgEntwuerfe"></div>
       <h3 style="font-size:16px;margin:18px 0 6px">Scan-Warteschlange (noch ohne Daten)</h3>
       <div id="fgQueue" style="font-size:14px;color:#374151;line-height:1.7"></div>
@@ -1678,6 +1679,7 @@ async function loadFreigabe(){
           <button onclick="document.getElementById('fgFoto_${p.id}').click()" title="Etikett-Foto(s) aus Datei" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:13px">📁 Datei</button>
           <span id="fgShotInfo_${p.id}" style="font-size:12px;color:#166534"></span>
           <button id="fgShotSend_${p.id}" onclick="fgShotSend('${p.id}')" style="display:none;padding:8px 12px;border:0;border-radius:8px;background:#0ea5e9;color:#fff;cursor:pointer;font-size:13px">Etikett senden</button>
+          <button onclick="openFgEditor('${p.id}')" style="padding:8px 12px;border:1px solid #0ea5e9;border-radius:8px;background:#fff;color:#0369a1;cursor:pointer;font-size:13px">✏️ Bearbeiten</button>
           ${p.vollstaendig?`<button onclick="freigeben('${p.id}')" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Freigeben</button>`:`<span style="font-size:12px;color:#b45309">unvollständig</span>`}
           <button onclick="ablehnenEntwurf('${p.id}','${esc(p.name||"")}')" title="Ablehnen / aus der Liste entfernen" style="padding:8px 11px;border:1px solid #fca5a5;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;font-size:13px">🗑️ Ablehnen</button>
         </div>
@@ -1696,6 +1698,93 @@ async function freigeben(id){
   const {error}=await client.rpc("produkt_pruefen_freigeben",{p_id:id});
   if(error){ alert("Fehler: "+error.message); return; }
   loadFreigabe();
+}
+/* ---- Freigabe-Editor: bearbeiten / neu anlegen / Bild ---- */
+async function openFgEditor(id){
+  const panel=document.getElementById("panel");
+  let d={id:null,name:"",marke:"",kategorie:"",unterkategorie:"",ean:"",basis:"100g",bild_url:"",status:"",
+    naehrwerte:{},zusatzstoffe_text:"keine",zusatzstoffe_status:"keine",suessstoffe:"nein",zutaten:[]};
+  if(id){
+    const {data,error}=await client.rpc("cb_produkt_edit_get",{p_id:id});
+    if(error){ alert("Fehler: "+error.message); return; }
+    d=data||d; d.naehrwerte=d.naehrwerte||{}; d.zutaten=d.zutaten||[];
+  }
+  window._fgEdit={ id:id, bild_url:d.bild_url||"" };
+  const nw=d.naehrwerte||{};
+  const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" style="width:110px;padding:6px;border:1px solid #d1d5db;border-radius:8px"></label>`;
+  const zText=(d.zutaten||[]).map(z=>`${z.name}; ${z.rating??5}; ${(String(z.kritisch||"nein").toLowerCase()==="ja")?"j":"n"}`).join("\n");
+  const inp=(id2,val)=>`<input id="${id2}" value="${esc(val||"")}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:8px">`;
+  const sel=(id2,cur,opts)=>`<select id="${id2}" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px">${opts.map(o=>`<option ${((cur||opts[0])===o)?"selected":""}>${o}</option>`).join("")}</select>`;
+  panel.innerHTML=`
+    <button class="close" onclick="closeP()">Schließen ✕</button>
+    <h2>${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
+    <div style="font-size:12px;color:#6b7280;margin-bottom:10px">${id?(esc(d.id)+" · Status: "+esc(d.status||"")):"wird als Entwurf angelegt"}</div>
+    <div style="display:grid;gap:8px">
+      <label style="font-size:13px">Titel${inp("fe_name",d.name)}</label>
+      <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
+      <div style="display:flex;gap:8px"><label style="font-size:13px;flex:1">Kategorie${inp("fe_kat",d.kategorie)}</label><label style="font-size:13px;flex:1">Unterkategorie${inp("fe_ukat",d.unterkategorie)}</label></div>
+      <div style="display:flex;gap:8px"><label style="font-size:13px;flex:1">EAN${inp("fe_ean",d.ean)}</label><label style="font-size:13px;flex:1">Basis${inp("fe_basis",d.basis||"100g")}</label></div>
+    </div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Nährwerte pro 100 g/ml</div>
+    ${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("ballaststoffe","Ballaststoffe","g")}${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zusatzstoffe</div>
+    ${inp("fe_ztext",d.zusatzstoffe_text||"keine")}
+    <div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="text-transform:none;color:var(--muted)">(je Zeile: Name; Bewertung 0–10; kritisch j/n)</span></div>
+    <textarea id="fe_zutaten" rows="6" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px">${esc(zText)}</textarea>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Produktbild</div>
+    <div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:120px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div>
+    <input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px">
+    <div id="fe_bildMsg" style="font-size:12px;color:#6b7280;margin-top:4px"></div>
+    <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
+      <button onclick="fgEditSave(false)" style="padding:10px 16px;border:0;border-radius:10px;background:#0ea5e9;color:#fff;font-weight:600;cursor:pointer">💾 Speichern</button>
+      <button onclick="fgEditSave(true)" style="padding:10px 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">💾 Speichern &amp; freigeben</button>
+    </div>
+    <div id="fe_msg" style="font-size:13px;margin-top:8px"></div>`;
+  document.getElementById("overlay").classList.add("open");
+}
+async function fgImgUpload(inpEl){
+  const f=inpEl.files&&inpEl.files[0]; if(!f) return;
+  const msg=document.getElementById("fe_bildMsg"); msg.style.color="#374151"; msg.textContent="⏳ lade hoch…";
+  const ext=(f.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"")||"jpg";
+  const path="p/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
+  const up=await client.storage.from("produktbilder").upload(path,f,{upsert:true,contentType:f.type||"image/jpeg"});
+  if(up.error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+up.error.message; return; }
+  const pub=client.storage.from("produktbilder").getPublicUrl(path);
+  const url=pub.data.publicUrl;
+  window._fgEdit.bild_url=url;
+  document.getElementById("fe_bildPreview").innerHTML=`<img src="${esc(url)}" style="max-height:120px;border-radius:8px">`;
+  msg.style.color="#16a34a"; msg.textContent="✓ Bild hochgeladen";
+}
+async function fgEditSave(alsoFreigeben){
+  const g=id=>document.getElementById(id);
+  const msg=g("fe_msg"); msg.style.color="#374151"; msg.textContent="⏳ speichern…";
+  const numv=v=>{ v=(v==null?"":String(v)).trim(); return v===""?undefined:Number(v.replace(",",".")); };
+  const nw={}; ["kcal","protein","kh","zucker","fett","ges_fett","ballaststoffe","salz"].forEach(k=>{ const v=numv(g("fe_"+k).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
+  const zut=(g("fe_zutaten").value||"").split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+    const parts=l.split(";").map(s=>s.trim());
+    return { name:parts[0], rating:(parts[1]!==undefined&&parts[1]!=="")?Number(parts[1]):5, kritisch:(parts[2]&&/^j/i.test(parts[2]))?"ja":"nein" };
+  }).filter(z=>z.name);
+  const name=(g("fe_name").value||"").trim();
+  if(!name){ msg.style.color="#dc2626"; msg.textContent="Titel fehlt."; return; }
+  const payload={ name, marke:g("fe_marke").value.trim(), kategorie:g("fe_kat").value.trim()||"Lebensmittel",
+    unterkategorie:g("fe_ukat").value.trim(), ean:g("fe_ean").value.trim(), basis:g("fe_basis").value.trim()||"100g",
+    naehrwerte:nw, zusatzstoffe_text:g("fe_ztext").value.trim()||"keine",
+    zusatzstoffe_status:g("fe_zstatus").value, suessstoffe:g("fe_suess").value, zutaten:zut, quelle:"Admin-Editor" };
+  if(window._fgEdit&&window._fgEdit.id) payload.produkt_id=window._fgEdit.id;
+  const {data,error}=await client.rpc("cb_produkt_ingest",{p:payload, p_auto_freigeben:false});
+  if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
+  const pid=data&&data.produkt_id;
+  if(pid && window._fgEdit && window._fgEdit.bild_url){
+    try{ await client.rpc("cb_produkt_bild_setzen",{p_id:pid, p_url:window._fgEdit.bild_url}); }catch(e){}
+  }
+  if(alsoFreigeben && pid){
+    const fr=await client.rpc("produkt_pruefen_freigeben",{p_id:pid});
+    if(fr.error){ msg.style.color="#b45309"; msg.textContent="Gespeichert, aber Freigabe nicht möglich: "+fr.error.message+" (evtl. unvollständig)"; loadFreigabe(); return; }
+  }
+  msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"+(alsoFreigeben?" & freigegeben":"");
+  try{ const {data:aa}=await client.from("v_web_produkte").select("*"); if(aa) ALL=aa.map(x=>({...x, clean_score:num(x.clean_score)})); }catch(e){}
+  setTimeout(()=>{ closeP(); loadFreigabe(); if(typeof render==="function") render(); }, 700);
 }
 
 /* ================= TRAINING (Phase A) ================= */
