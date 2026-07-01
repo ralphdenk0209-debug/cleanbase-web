@@ -23,7 +23,7 @@
        background:var(--bg);color:var(--ink);}
   a{color:inherit}
   /* HERO */
-  .hero{background:linear-gradient(180deg,#236a3b,var(--greendk));color:#fff;padding:12px 20px;position:static}
+  .hero{background:linear-gradient(180deg,#236a3b,var(--greendk));color:#fff;padding:12px 20px;position:sticky;top:0;z-index:30}
   .hero .tag,.hero .sub{display:none}
   .hero.shrink{padding:8px 16px}
   .hero.shrink .tag,.hero.shrink .sub{display:none}
@@ -383,20 +383,38 @@
       </div>
       <div class="pf-pane pf-ziele" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:4px">Kalorienbedarf berechnen</div>
-        <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Nutzt deine Daten oben (Alter, Geschlecht, Größe, Gewicht, Aktivität). Schätzung nach Mifflin-St-Jeor.</div>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Nutzt deine Daten oben (Alter, Geschlecht, Größe, Gewicht, Aktivität). Standard: Mifflin-St-Jeor. <b>Genauer:</b> Körperfett % eintragen (→ Katch-McArdle über die fettfreie Masse) oder einen <b>gemessenen Grundumsatz</b> (InBody/DEXA) direkt setzen.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
           <label style="font-size:13px;color:#374151">Zielgewicht (kg)<input type="number" step="0.1" id="bdZiel" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
           <label style="font-size:13px;color:#374151">Tempo<select id="bdTempo" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="0">Gewicht halten</option><option value="-0.15">Abnehmen – moderat (−15 %)</option><option value="-0.20">Abnehmen – zügig (−20 %)</option><option value="0.10">Aufbauen (+10 %)</option></select></label>
           <label style="font-size:13px;color:#374151">Eiweiß (g/kg)<input type="number" step="0.1" id="bdProt" value="1.8" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
           <label style="font-size:13px;color:#374151">Eiweiß-Bezug<select id="bdProtRef" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="ziel">Zielgewicht</option><option value="aktuell">Aktuelles Gewicht</option></select></label>
+          <label style="font-size:13px;color:#374151">Körperfett % <span style="color:#9aa7a0;font-size:11px">(optional, genauer)</span><input type="number" step="0.1" id="bdKF" placeholder="z. B. 15,3" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Gemessener Grundumsatz <span style="color:#9aa7a0;font-size:11px">(InBody/DEXA, kcal)</span><input type="number" id="bdBmrMess" placeholder="überschreibt Formel" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Fett-Anteil <button type="button" onclick="fettInfo()" style="background:none;border:0;color:#0369a1;font-size:11px;cursor:pointer;padding:0;text-decoration:underline">ⓘ Basis</button><select id="bdFettPct" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="0.25">25 % (untere DGE-Grenze)</option><option value="0.30" selected>30 % (DGE-Richtwert)</option><option value="0.35">35 % (obere Grenze / aktiv)</option></select></label>
         </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:8px"><input type="checkbox" id="bdNiere" style="width:16px;height:16px;accent-color:#16a34a">Nierenleiden berücksichtigen (Eiweiß begrenzen)</label>
         <button type="button" onclick="eiweissInfo()" style="margin-top:6px;background:none;border:0;color:#0369a1;font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0">ⓘ Eiweißbedarf – wie viel &amp; auf welches Gewicht?</button>
+        <div style="margin-top:10px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:2px">Körperfett schätzen (Maßband · U.S.-Navy) <span style="color:#16a34a;font-size:11px;font-weight:700">empfohlen für genauere Berechnung</span></div>
+          <div style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Genauer als die Formel. Maße in cm: Taille auf Nabelhöhe, Hals unter dem Kehlkopf, Hüfte (nur Frauen) an der breitesten Stelle. Nutzt Größe & Geschlecht von oben. Ergebnis ±3–4 %.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="number" step="0.1" id="bdHals" placeholder="Hals cm" style="flex:1;min-width:88px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
+            <input type="number" step="0.1" id="bdTaille" placeholder="Taille cm" style="flex:1;min-width:88px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
+            <input type="number" step="0.1" id="bdHuefte" placeholder="Hüfte cm (Frauen)" style="flex:1;min-width:110px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
+            <button type="button" onclick="navyKF()" style="padding:9px 14px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">Körperfett schätzen</button>
+          </div>
+          <div id="bdNavyOut" style="font-size:12.5px;margin-top:7px"></div>
+        </div>
         <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
           <button onclick="calcBedarf()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Berechnen</button>
           <button onclick="applyBedarf()" id="bdApplyBtn" disabled style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Als Tagesziel übernehmen</button>
         </div>
         <div id="bdOut" style="margin-top:10px;font-size:13px"></div>
+        <div style="margin-top:10px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:10px;padding:11px;font-size:12.5px;color:#1e3a8a;line-height:1.5">
+          📅 <b>Alle 3–4 Wochen gegenchecken:</b> wiegen (nüchtern, gleicher Tag/Uhrzeit), neuen <b>Körperfett-Wert</b> eintragen (falls gemessen) und mit dem <b>getrackten Essen</b> abgleichen.<br>
+          Gewicht trotz Defizit stabil → Bedarf ~100–150 kcal runter. Zu schneller Verlust (&gt; ~1 %/Woche) → etwas rauf. So kalibrierst du den Rechner an der Realität – jede Formel ist nur eine Schätzung (±5–10 %).
+        </div>
       </div>
       <div class="pf-pane pf-ziele" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">Tagesziele</div>
@@ -938,6 +956,17 @@ function infoPop(title, html){
     <div style="font-size:14px;line-height:1.55;color:#374151">${html}</div></div>`;
   document.body.appendChild(ov);
 }
+function fettInfo(){
+  infoPop("Fett & Kohlenhydrate – worauf beruht das?", `
+    <p style="margin:.2em 0">Die Prozentzahl ist der <b>Anteil der Tagesenergie aus Fett</b>. Grundlage sind offizielle Richtwerte:</p>
+    <ul style="margin:.2em 0 .4em;padding-left:18px">
+      <li><b>Fett – DGE / D-A-CH-Richtwert:</b> rund <b>30 %</b> der Energie für Erwachsene.</li>
+      <li>International (AMDR): <b>20–35 %</b> akzeptabel – Richtung 35 % v. a. bei körperlich Aktiven / Low-Carb-nah.</li>
+    </ul>
+    <p style="margin:.2em 0"><b>Kohlenhydrate – DGE-Richtwert: &gt; 50 %</b> der Energie (Mischkost). Im Rechner sind KH bewusst der <b>Rest</b> nach Eiweiß und Fett – das entspricht der DGE-Logik (KH ergeben sich aus Energiebedarf, Eiweiß- und Fett-Richtwert). Bei viel Eiweiß/mehr Fett können KH etwas unter 50 % landen – für Fitness-/Abnehmziele in Ordnung.</p>
+    <p style="margin:.2em 0">Deshalb die Fett-Auswahl <b>25 / 30 / 35 %</b>; <b>30 %</b> ist Standard. Eiweiß wird separat aus g/kg gerechnet.</p>
+    <p style="margin:.6em 0 0;color:#6b7280;font-size:13px">Wichtiger als die exakte Zahl ist die <b>Qualität</b>: ungesättigte Fette (Nüsse, Öle, Fisch) und komplexe/ballaststoffreiche KH (Vollkorn, Gemüse) bevorzugen. Quelle: DGE-Referenzwerte.</p>`);
+}
 function eiweissInfo(){
   infoPop("Eiweißbedarf – wie berechnen?", `
     <p style="margin:.2em 0"><b>Wie viel?</b> Richtwert <b>1,5–2 g Eiweiß pro kg</b> – je aktiver bzw. muskelaufbauender, desto eher Richtung 2 g.</p>
@@ -1080,17 +1109,17 @@ function makroDonut(sum, prof){
   const kcalZ=num(prof.Kalorienziel_kcal);
   if(!kcalZ) return '<div style="font-size:13.5px;color:#6b7280">Noch kein Tagesziel gesetzt. Heute bisher: <b>'+Math.round(sum.kcal||0)+'</b> kcal · '+Math.round(sum.protein||0)+' g Eiweiß.</div>';
   const M=[
-    {n:"kcal",   ist:sum.kcal,    soll:kcalZ,                    u:"",  c:"#16a34a", rot:-83.5, pos:"mk-tr"},
-    {n:"Eiweiß", ist:sum.protein, soll:num(prof.Eiweiss_ziel_g), u:"g", c:"#3b82f6", rot:6.5,   pos:"mk-br"},
-    {n:"KH",     ist:sum.kh,      soll:num(prof.KH_ziel_g),      u:"g", c:"#f59e0b", rot:96.5,  pos:"mk-bl"},
-    {n:"Fett",   ist:sum.fett,    soll:num(prof.Fett_ziel_g),    u:"g", c:"#eab308", rot:186.5, pos:"mk-tl"}
+    {n:"kcal",   ist:sum.kcal,    soll:kcalZ,                    u:"",  c:"#16a34a", rot:-79.2, pos:"mk-tr"},
+    {n:"Eiweiß", ist:sum.protein, soll:num(prof.Eiweiss_ziel_g), u:"g", c:"#3b82f6", rot:10.8,  pos:"mk-br"},
+    {n:"KH",     ist:sum.kh,      soll:num(prof.KH_ziel_g),      u:"g", c:"#f59e0b", rot:100.8, pos:"mk-bl"},
+    {n:"Fett",   ist:sum.fett,    soll:num(prof.Fett_ziel_g),    u:"g", c:"#eab308", rot:190.8, pos:"mk-tl"}
   ];
   let tracks="", fills="", corners="";
   M.forEach(m=>{
     const ist=Math.round(m.ist||0), soll=Math.round(m.soll||0);
     const pct=soll>0?Math.max(0,Math.min(1,ist/soll)):0;
-    const len=(70*pct).toFixed(1);
-    tracks+='<circle cx="70" cy="70" r="52" stroke="#eef3ef" stroke-dasharray="70 260" transform="rotate('+m.rot+' 70 70)"/>';
+    const len=(62*pct).toFixed(1);
+    tracks+='<circle cx="70" cy="70" r="52" stroke="#eef3ef" stroke-dasharray="62 265" transform="rotate('+m.rot+' 70 70)"/>';
     fills +='<circle class="mkSeg" cx="70" cy="70" r="52" stroke="'+m.c+'" stroke-dasharray="'+len+' 326.7" style="stroke-dashoffset:'+len+'" transform="rotate('+m.rot+' 70 70)"/>';
     const rightSide=(m.pos==="mk-tr"||m.pos==="mk-br");
     const dotName=rightSide ? m.n+'<span class="mkDot" style="background:'+m.c+'"></span>' : '<span class="mkDot" style="background:'+m.c+'"></span>'+m.n;
@@ -1298,6 +1327,27 @@ function pfAgeFromGeb(){
   if(age!=null){ a.value=age; a.readOnly=true; a.style.background="#f3f4f6"; a.title="Automatisch aus Geburtsdatum berechnet"; }
   else { a.readOnly=false; a.style.background=""; a.title=""; }
 }
+function navyKF(){
+  const gv=id=>{const e=document.getElementById(id);return e?e.value:"";};
+  const sex=gv("pfGeschlecht"), h=num(gv("pfGroesse"));
+  const neck=num(gv("bdHals")), waist=num(gv("bdTaille")), hip=num(gv("bdHuefte"));
+  const out=document.getElementById("bdNavyOut"); if(!out) return;
+  if(!h||!neck||!waist){ out.style.color="#b45309"; out.textContent="Bitte Größe (oben im Profil), Hals und Taille eintragen."; return; }
+  const log10=x=>Math.log(x)/Math.LN10; let kf;
+  if(sex==="weiblich"){
+    if(!hip){ out.style.color="#b45309"; out.textContent="Für Frauen bitte auch die Hüfte eintragen."; return; }
+    if(waist+hip-neck<=0){ out.style.color="#b45309"; out.textContent="Maße prüfen (Taille+Hüfte muss größer als Hals sein)."; return; }
+    kf=495/(1.29579-0.35004*log10(waist+hip-neck)+0.22100*log10(h))-450;
+  } else {
+    if(waist-neck<=0){ out.style.color="#b45309"; out.textContent="Maße prüfen (Taille muss größer als Hals sein)."; return; }
+    kf=495/(1.0324-0.19077*log10(waist-neck)+0.15456*log10(h))-450;
+  }
+  if(!(kf>2)||kf>70){ out.style.color="#b45309"; out.textContent="Ergebnis unplausibel – bitte Maße prüfen."; return; }
+  kf=Math.round(kf*10)/10;
+  const kfEl=document.getElementById("bdKF"); if(kfEl) kfEl.value=kf;
+  out.style.color="#166534";
+  out.innerHTML="Geschätzter Körperfettanteil: <b>"+String(kf).replace('.',',')+" %</b> → in „Körperfett %“ übernommen. Jetzt <b>„Berechnen“</b> (rechnet dann mit Katch-McArdle). <span style=\"color:#6b7280\">±3–4 %, ersetzt keine Messung (InBody/DEXA).</span>";
+}
 function calcBedarf(){
   const out=document.getElementById("bdOut"); _bdResult=null;
   const ab=document.getElementById("bdApplyBtn"); if(ab) ab.disabled=true;
@@ -1312,30 +1362,38 @@ function calcBedarf(){
   const tempo=parseFloat(gv("bdTempo"))||0;
   let protF=parseFloat(gv("bdProt"))||1.8;
   const protRef=gv("bdProtRef"), niere=!!(document.getElementById("bdNiere")||{}).checked;
-  let bmr;
-  if(sex==="männlich") bmr=10*w+6.25*h-5*age+5;
-  else if(sex==="weiblich") bmr=10*w+6.25*h-5*age-161;
-  else bmr=10*w+6.25*h-5*age-78;
+  const kfPct=num(gv("bdKF")), bmrMess=num(gv("bdBmrMess"));
+  let bmr, bmrMethode;
+  if(bmrMess && bmrMess>0){ bmr=bmrMess; bmrMethode="gemessen (InBody/DEXA)"; }
+  else if(kfPct && kfPct>3 && kfPct<70){ const ffm=w*(1-kfPct/100); bmr=370+21.6*ffm; bmrMethode="Katch-McArdle (fettfreie Masse "+Math.round(ffm)+" kg)"; }
+  else {
+    if(sex==="männlich") bmr=10*w+6.25*h-5*age+5;
+    else if(sex==="weiblich") bmr=10*w+6.25*h-5*age-161;
+    else bmr=10*w+6.25*h-5*age-78;
+    bmrMethode="Mifflin-St-Jeor";
+  }
   const tdee=bmr*actFactor(act);
   let ziK=tdee*(1+tempo);
   const hardFloor=(sex==="männlich")?1500:1200;
-  const floor=Math.max(bmr*0.9,hardFloor); let floored=false;
-  if(tempo<0 && ziK<floor){ ziK=floor; floored=true; }
+  const floor=Math.max(bmr,hardFloor); let floored=false;   // harte Sperre: nie unter den Grundumsatz
+  if(ziK<floor){ ziK=floor; floored=true; }
   let warnNiere="";
   if(niere && protF>1.0){ protF=1.0; warnNiere=" – auf 1,0 g/kg begrenzt"; }
   const protBasis=(protRef==="aktuell")?w:ziel;
   const protein=protF*protBasis;
-  const fett=(ziK*0.275)/9;
+  const fettPct=parseFloat(gv("bdFettPct"))||0.275;
+  const fett=(ziK*fettPct)/9;
   const kh=Math.max(0,(ziK-protein*4-fett*9)/4);
   _bdResult={kcal:Math.round(ziK),protein:Math.round(protein),kh:Math.round(kh),fett:Math.round(fett)};
   if(ab) ab.disabled=false;
   out.style.color="#374151";
   out.innerHTML=`<div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px;line-height:1.6">
-    <div>Grundumsatz (BMR) <b>${Math.round(bmr)}</b> kcal · Erhaltungsbedarf <b>${Math.round(tdee)}</b> kcal</div>
-    <div style="margin-top:4px;font-size:15px">Ziel-Energie: <b style="color:var(--green)">${_bdResult.kcal} kcal/Tag</b>${floored?' <span style="color:#b45309">· Sicherheits-Untergrenze erreicht – nicht weiter reduzieren</span>':''}</div>
-    <div style="margin-top:4px">Eiweiß <b>${_bdResult.protein} g</b> <span style="color:#6b7280">(${String(protF).replace('.',',')} g/kg ${protRef==='aktuell'?'akt. Gewicht':'Zielgewicht'}${warnNiere})</span> · KH <b>${_bdResult.kh} g</b> · Fett <b>${_bdResult.fett} g</b></div>
+    <div>Grundumsatz (BMR) <b>${Math.round(bmr)}</b> kcal <span style="color:#6b7280;font-size:12px">· ${bmrMethode}</span> · Erhaltungsbedarf <b>${Math.round(tdee)}</b> kcal</div>
+    <div style="margin-top:4px;font-size:15px">Ziel-Energie: <b style="color:var(--green)">${_bdResult.kcal} kcal/Tag</b>${floored?' <span style="color:#b45309">· auf den Grundumsatz begrenzt</span>':''}</div>
+    ${floored?`<div style="margin-top:6px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;font-size:12px;color:#92400e;line-height:1.5">🔒 Das Ziel wurde <b>auf ${Math.round(floor)} kcal angehoben</b> – <b>unter den Grundumsatz</b> (${Math.round(bmr)} kcal) geht der Rechner bewusst nicht. Dauerhaft darunter zu essen ist ungesund (Muskelabbau, Energie/Hormone). Für ein größeres Defizit lieber die <b>Aktivität erhöhen</b> oder Diätpausen einlegen.</div>`:''}
+    <div style="margin-top:4px">Eiweiß <b>${_bdResult.protein} g</b> <span style="color:#6b7280">(${String(protF).replace('.',',')} g/kg ${protRef==='aktuell'?'akt. Gewicht':'Zielgewicht'}${warnNiere})</span> · KH <b>${_bdResult.kh} g</b> · Fett <b>${_bdResult.fett} g</b> <span style="color:#6b7280">(${String(Math.round(fettPct*1000)/10).replace('.',',')} % Energie)</span></div>
     ${niere?'<div style="margin-top:6px;color:#b45309;font-size:12px">⚠️ Bei Nierenerkrankung die Eiweißmenge unbedingt ärztlich abstimmen. Dieser Rechner ersetzt keine medizinische Beratung.</div>':''}
-    <div style="margin-top:6px;font-size:11.5px;color:#9aa7a0">Richtwert nach Mifflin-St-Jeor × Aktivitätsfaktor – keine medizinische Beratung.</div>
+    <div style="margin-top:6px;font-size:11.5px;color:#9aa7a0">Grundumsatz: ${bmrMethode} × Aktivitätsfaktor. Tipp: nach 2–3 Wochen am echten Gewichtsverlauf feinjustieren – keine medizinische Beratung.</div>
   </div>`;
 }
 function applyBedarf(){
