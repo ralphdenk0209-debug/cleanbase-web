@@ -23,7 +23,8 @@
        background:var(--bg);color:var(--ink);}
   a{color:inherit}
   /* HERO */
-  .hero{background:linear-gradient(180deg,#236a3b,var(--greendk));color:#fff;padding:30px 20px 30px;position:sticky;top:0;z-index:30;transition:padding .18s ease}
+  .hero{background:linear-gradient(180deg,#236a3b,var(--greendk));color:#fff;padding:12px 20px;position:static}
+  .hero .tag,.hero .sub{display:none}
   .hero.shrink{padding:8px 16px}
   .hero.shrink .tag,.hero.shrink .sub{display:none}
   .hero.shrink .brand h1{font-size:18px}
@@ -1801,7 +1802,7 @@ async function tbFavToggle(id, btn){
   }catch(e){}
 }
 async function tbHistList(){
-  let ids=[]; try{ const {data}=await client.rpc("cb_tb_history_produkte",{p_limit:40}); ids=(data||[]).map(x=>x.produkt_id); }catch(e){}
+  let ids=[]; try{ const {data}=await client.rpc("cb_tb_history_produkte",{p_limit:90}); ids=(data||[]).map(x=>x.produkt_id); }catch(e){}
   const list=ids.map(id=>(ALL||[]).find(p=>p.id===id)).filter(Boolean);
   window._tbAddList=list;
   const box=document.getElementById("tbAddResults"); if(!box) return;
@@ -3249,7 +3250,7 @@ async function setUserAdmin(bid,val){
 }
 load();
 if(!ADMIN_MODE) setMode('start');
-window.addEventListener('scroll',()=>{ const h=document.querySelector('.hero'); if(h) h.classList.toggle('shrink', window.scrollY>24); }, {passive:true});
+/* Hero bleibt schmal & statisch – kein Schrumpfen beim Scrollen (Intro folgt separat) */
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 </script>
 </body>
