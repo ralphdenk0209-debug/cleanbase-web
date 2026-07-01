@@ -411,6 +411,7 @@
           <label style="font-size:13px;color:#374151">Eiweiß-Bezug<select id="bdProtRef" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="ziel">Zielgewicht</option><option value="aktuell">Aktuelles Gewicht</option></select></label>
         </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:8px"><input type="checkbox" id="bdNiere" style="width:16px;height:16px;accent-color:#16a34a">Nierenleiden berücksichtigen (Eiweiß begrenzen)</label>
+        <button type="button" onclick="eiweissInfo()" style="margin-top:6px;background:none;border:0;color:#0369a1;font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0">ⓘ Eiweißbedarf – wie viel &amp; auf welches Gewicht?</button>
         <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
           <button onclick="calcBedarf()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Berechnen</button>
           <button onclick="applyBedarf()" id="bdApplyBtn" disabled style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Als Tagesziel übernehmen</button>
@@ -932,6 +933,29 @@ function detail(d){
 }
 function closeP(){document.getElementById("overlay").classList.remove("open");}
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));}
+function infoPop(title, html){
+  let ov=document.getElementById("infoPopOverlay");
+  if(ov) ov.remove();
+  ov=document.createElement("div"); ov.id="infoPopOverlay";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:60;padding:16px";
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  ov.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;max-height:82vh;overflow:auto;padding:18px;box-shadow:0 12px 44px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><h3 style="margin:0;font-size:17px">${title}</h3><button onclick="document.getElementById('infoPopOverlay').remove()" style="border:0;background:#f1f5f9;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px">✕</button></div>
+    <div style="font-size:14px;line-height:1.55;color:#374151">${html}</div></div>`;
+  document.body.appendChild(ov);
+}
+function eiweissInfo(){
+  infoPop("Eiweißbedarf – wie berechnen?", `
+    <p style="margin:.2em 0"><b>Wie viel?</b> Richtwert <b>1,5–2 g Eiweiß pro kg</b> – je aktiver bzw. muskelaufbauender, desto eher Richtung 2 g.</p>
+    <p style="margin:.6em 0 .2em"><b>Auf welches Gewicht beziehen?</b> Eiweiß baut/erhält Muskeln, nicht Fettgewebe – deshalb kommt es auf den Körperfettanteil an:</p>
+    <ul style="margin:.2em 0 .4em;padding-left:18px">
+      <li><b>Normalgewicht:</b> aktuelles Gewicht passt gut.</li>
+      <li><b>Übergewicht:</b> aktuelles Gewicht <u>überschätzt</u> den Bedarf → besser das <b>Zielgewicht</b> nehmen.</li>
+      <li><b>Am genauesten:</b> die fettfreie Masse = Gewicht × (1 − Körperfett%), falls bekannt.</li>
+    </ul>
+    <p style="margin:.2em 0;color:#6b7280;font-size:13px">Faustregel: Willst du abnehmen (Ziel &lt; aktuell), rechne mit dem Zielgewicht; beim Halten/Aufbauen mit dem aktuellen Gewicht.</p>
+    <p style="margin:.7em 0 0;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:9px;color:#991b1b"><b>⚠️ Bei Nierenleiden:</b> Eiweiß <b>nicht</b> erhöhen – eine eingeschränkte Nierenfunktion kann durch hohe Eiweißmengen belastet werden. Vorher ärztlich abklären. Die Option „Nierenleiden berücksichtigen" begrenzt den Wert automatisch.</p>`);
+}
 document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")closeP();};
 document.getElementById("loginOverlay").onclick=e=>{if(e.target.id==="loginOverlay")closeLogin();};
 ["q","kat"].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("input",render); });
@@ -1772,7 +1796,7 @@ async function fgEditSave(alsoFreigeben){
     naehrwerte:nw, zusatzstoffe_text:g("fe_ztext").value.trim()||"keine",
     zusatzstoffe_status:g("fe_zstatus").value, suessstoffe:g("fe_suess").value, zutaten:zut, quelle:"Admin-Editor" };
   if(window._fgEdit&&window._fgEdit.id) payload.produkt_id=window._fgEdit.id;
-  const {data,error}=await client.rpc("cb_produkt_ingest",{p:payload, p_auto_freigeben:false});
+  const {data,error}=await client.rpc("cb_produkt_speichern",{p:payload});
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
   const pid=data&&data.produkt_id;
   if(pid && window._fgEdit && window._fgEdit.bild_url){
