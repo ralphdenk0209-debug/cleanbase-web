@@ -1004,21 +1004,27 @@ function pfTab(name){
 }
 /* ===== Startseite (Home) ===== */
 function startFeature(ic,t,sub){ return '<div style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px">'+ic+'</div><div style="font-weight:600;font-size:13.5px;margin-top:2px">'+t+'</div><div style="font-size:11.5px;color:var(--muted)">'+sub+'</div></div>'; }
+let BILD={};
+async function loadBilder(){ try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
 function topProdukteHtml(){
   const by={};
-  (ALL||[]).forEach(p=>{ const s=num(p.clean_score); if(s==null||!p.score_vollstaendig) return; const k=p.kategorie||"Sonstige"; (by[k]=by[k]||[]).push(p); });
-  const kats=Object.entries(by).filter(([k,a])=>a.length>=2)
-    .map(([k,a])=>{ a.sort((x,y)=>num(y.clean_score)-num(x.clean_score)); return {kat:k,top:a[0],n:a.length}; })
-    .sort((a,b)=>num(b.top.clean_score)-num(a.top.clean_score)).slice(0,5);
-  if(!kats.length) return "";
-  const row=x=>`<div onclick="detailById('${x.top.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer">`
-    +donut(num(x.top.clean_score), farbe(x.top.bewertung), 40)
-    +`<div style="min-width:0;flex:1"><div style="font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.top.name)}${x.top.marke?` <span style="color:var(--muted);font-weight:400">· ${esc(x.top.marke)}</span>`:""}</div>`
-    +`<div style="font-size:11.5px;color:var(--muted)">🏆 Bestes in ${esc(x.kat)} · ${x.n} bewertet</div></div><div style="color:var(--muted)">›</div></div>`;
-  return `<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">`
-    +`<div style="font-weight:600;margin-bottom:1px">🏆 TOP-Produkte</div>`
-    +`<div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">Höchster Clean Score je Kategorie – nur verifiziert</div>`
-    +kats.map(row).join("")+`</div>`;
+  (ALL||[]).forEach(p=>{ const s=num(p.clean_score); if(s==null||!p.score_vollstaendig) return; const k=(p.unterkategorie||p.kategorie||"Sonstige"); (by[k]=by[k]||[]).push(p); });
+  const paare=Object.entries(by).map(([k,a])=>{ a.sort((x,y)=>num(y.clean_score)-num(x.clean_score)); return {k, a:a.filter(p=>BILD[p.id])}; })
+    .filter(x=>x.a.length>=2).map(x=>({k:x.k, top:x.a[0], zwei:x.a[1]}))
+    .sort((a,b)=>num(b.top.clean_score)-num(a.top.clean_score)).slice(0,3);
+  if(!paare.length) return "";
+  const prod=(p,winner)=>`<div onclick="detailById('${p.id}')" style="flex:1;min-width:0;cursor:pointer;text-align:center">`
+    +`<div style="position:relative;width:100%;aspect-ratio:1;background:#f6f7f6;border-radius:12px;overflow:hidden;border:1px solid ${winner?'var(--green)':'var(--line)'}">`
+    +`<img src="${esc(BILD[p.id])}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:contain">`
+    +`<div style="position:absolute;top:6px;left:6px">${donut(num(p.clean_score), farbe(p.bewertung), 46)}</div>`
+    +(winner?`<div style="position:absolute;top:8px;right:8px;background:var(--green);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px">TOP</div>`:"")
+    +`</div>`
+    +`<div style="font-size:12.5px;font-weight:600;margin-top:6px;line-height:1.2">${esc(p.name)}</div>`
+    +`<div style="font-size:11px;color:var(--muted)">${esc(p.marke||"")}</div></div>`;
+  const cardCss='background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)';
+  const card=x=>`<div style="${cardCss}"><div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Vergleich · ${esc(x.k)}</div>`
+    +`<div style="display:flex;gap:10px;align-items:flex-start">${prod(x.top,true)}<div style="align-self:center;color:var(--muted);font-weight:700;font-size:13px">vs</div>${prod(x.zwei,false)}</div></div>`;
+  return `<div style="font-weight:600;margin:2px 0 6px">🏆 TOP-Produkte im Vergleich <span style="font-weight:400;font-size:11.5px;color:var(--muted)">· nur verifiziert</span></div>`+paare.map(card).join("");
 }
 function startRezSucheHtml(){
   return `<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px;box-shadow:var(--shadow)">`
@@ -1026,9 +1032,17 @@ function startRezSucheHtml(){
     +`<button onclick="startRezeptSuche(document.getElementById('startRezSuche').value)" style="padding:10px 14px;border:0;border-radius:10px;background:var(--green);color:#fff;cursor:pointer">Suchen</button></div></div>`;
 }
 function startRezeptSuche(v){ navTo('rezepte'); setTimeout(()=>{ const i=document.getElementById('rezeptSuche'); if(i){ i.value=v||''; } if(typeof renderRezeptList==='function') renderRezeptList(); },80); }
+async function saveSchritte(){
+  const el=document.getElementById("startSchritte"), msg=document.getElementById("startSchritteMsg"); if(!el) return;
+  const v=Math.max(0,parseInt(el.value)||0); if(msg){ msg.style.color="#374151"; msg.textContent="⏳…"; }
+  const {error}=await client.rpc("cb_schritte_speichern",{p_datum:tbToday(), p_schritte:v});
+  if(error){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; } return; }
+  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ "+v.toLocaleString("de-DE")+" Schritte gespeichert"; }
+}
 async function renderStart(){
   const body=document.getElementById("startBody"); if(!body) return;
   if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*"); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
+  await loadBilder();
   const card='background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
   if(!ME){
     body.innerHTML='<div style="max-width:600px;margin:0 auto">'
@@ -1051,6 +1065,7 @@ async function renderStart(){
   try{ const r=await client.rpc("cb_tagessumme",{p_datum:today}); sum=(r.data&&r.data[0])||{}; }catch(e){}
   try{ const r=await client.rpc("cb_profil"); prof=(r.data&&r.data[0])||{}; }catch(e){}
   try{ const r=await client.rpc("cb_train_log_tag",{p_datum:today}); log=r.data||[]; }catch(e){}
+  let schritte=0; if(ME&&ME.is_premium){ try{ const r=await client.rpc("cb_schritte_tag",{p_datum:today}); schritte=Number(r.data)||0; }catch(e){} }
   const dash=document.getElementById("startDash"); if(!dash) return;
   const vorname=(prof.Name||prof.Vorname||"") ? String(prof.Name||prof.Vorname).split(" ")[0] : "";
   const kcalZ=prof.Kalorienziel_kcal,eiwZ=prof.Eiweiss_ziel_g,khZ=prof.KH_ziel_g,fettZ=prof.Fett_ziel_g;
@@ -1061,6 +1076,12 @@ async function renderStart(){
   const trainHtml = saetze
     ? '<div style="font-size:14px">💪 <b>'+ueb+'</b> Übungen · <b>'+saetze+'</b> Sätze · Volumen <b>'+vol+' kg</b></div>'
     : '<div style="font-size:14px;color:#6b7280">Heute noch kein Training erfasst.</div>';
+  const schritteHtml = (ME&&ME.is_premium)
+    ? '<div style="'+card+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:600">👟 Schritte heute</div><span style="font-size:10px;font-weight:700;color:#166534;background:#e7f4ec;padding:2px 8px;border-radius:999px;letter-spacing:.4px">PERFORMANCE</span></div>'
+      +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(schritte||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:9px;border:1px solid #d1d5db;border-radius:8px;font-size:14px">'
+      +'<button onclick="saveSchritte()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:13px">Speichern</button></div>'
+      +'<div id="startSchritteMsg" style="font-size:12px;color:#6b7280;margin-top:4px"></div></div>'
+    : '';
   dash.innerHTML=
     '<div style="'+card+'"><div style="font-weight:700;font-size:18px">Hallo'+(vorname?(' '+esc(vorname)):"")+'! 👋</div>'
       +'<div style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</div></div>'
@@ -1068,6 +1089,7 @@ async function renderStart(){
       +(sum.score_schnitt!=null?'<div style="text-align:center;font-size:12px;color:#6b7280;margin-top:6px">Ø Clean Score heute: <b>'+sum.score_schnitt+'</b></div>':'')+'</div>'
     +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🏋️ Heute – Training</div>'+trainHtml
       +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:#fff;color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
+    +schritteHtml
     +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">'
       +'<button onclick="navTo(\'tagebuch\')" style="padding:13px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:14px;cursor:pointer">📒 Tagebuch öffnen</button>'
       +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>'
@@ -2111,13 +2133,16 @@ function planSplit(t){
   return Array.from({length:t},(_,i)=>({name:ppl[i%3].name+' '+(Math.floor(i/3)+1),gruppen:ppl[i%3].gruppen}));
 }
 function pickExercises(pool,gruppen,n){
-  const byG={}; gruppen.forEach(g=>{ byG[g]=pool.filter(u=>u.muskelgruppe===g); });
-  const picks=[],used=new Set(); let gi=0,guard=0;
-  while(picks.length<n && guard<n*gruppen.length+30){
-    guard++; const g=gruppen[gi%gruppen.length]; gi++;
-    const cands=(byG[g]||[]).filter(u=>!used.has(u.name));
-    if(cands.length){ const u=cands[Math.floor(Math.random()*cands.length)]; used.add(u.name); picks.push(u); }
+  const shuffle=a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+  const inGroup=pool.filter(u=>gruppen.includes(u.muskelgruppe));
+  const byG={}; gruppen.forEach(g=>{ byG[g]=shuffle(inGroup.filter(u=>u.muskelgruppe===g)); });
+  const picks=[],used=new Set(); let added=true;
+  while(picks.length<n && added){ added=false;
+    for(const g of gruppen){ if(picks.length>=n) break;
+      const arr=byG[g]; while(arr&&arr.length){ const u=arr.shift(); if(!used.has(u.name)){ used.add(u.name); picks.push(u); added=true; break; } }
+    }
   }
+  if(picks.length<n){ for(const u of shuffle(pool)){ if(picks.length>=n) break; if(!used.has(u.name)){ used.add(u.name); picks.push(u); } } }
   return picks;
 }
 async function openPlanGen(){
@@ -2148,7 +2173,11 @@ function genPlan(){
   const cardioMin = (schema.c && cardioVerf)?schema.c:0;
   const nUeb=Math.max(3,Math.min(7,Math.floor((dauer-cardioMin)/12)));
   const plan={erstellt:tbToday(),ziel:ziel,tage:tage,dauer:dauer,schema:schema.s+' Sätze × '+schema.w+' Wdh',tageliste:[]};
-  planSplit(tage).forEach(day=>{
+  const grpImPool=new Set((pool||[]).map(u=>u.muskelgruppe).filter(Boolean));
+  const alleGrp=['Brust','Rücken','Beine','Schultern','Arme','Rumpf/Core'];
+  let split=planSplit(tage);
+  if(grpImPool.size<4){ split=Array.from({length:tage},(_,i)=>({name:'Ganzkörper'+(tage>1?(' '+String.fromCharCode(65+i)):''),gruppen:alleGrp})); }
+  split.forEach(day=>{
     const picks=pickExercises(pool,day.gruppen,nUeb);
     plan.tageliste.push({name:day.name,uebungen:picks.map(u=>({name:u.name,muskelgruppe:u.muskelgruppe,saetze:schema.s,wdh:schema.w})),cardio:(cardioMin?('Cardio '+cardioMin+' min'):null)});
   });
