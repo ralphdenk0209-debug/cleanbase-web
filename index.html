@@ -264,55 +264,6 @@
       </div>
       <div id="tbTopResults"></div>
       <div id="tbZiel" style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
-      <div id="tbClassic" style="display:none;margin-bottom:12px">
-      <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin:10px 0 12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600">Barcode / klassisch eintragen</div><button onclick="document.getElementById('tbClassic').style.display='none'" style="border:0;background:var(--tb-card2);color:var(--tb-text);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer">schließen ✕</button></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <select id="tbMahlzeit" style="flex:1;min-width:120px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-            <option>Frühstück</option><option>Mittag</option><option>Abendessen</option><option>Snack</option>
-          </select>
-          <input list="tbProdListe" id="tbProd" placeholder="Produkt aus Liste wählen…" onchange="tbPrefillMenge()" style="flex:2;min-width:150px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-          <datalist id="tbProdListe"></datalist>
-          <button onclick="tbScan()" title="Barcode scannen" style="padding:10px 12px;border:0;border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">📷</button>
-          <input type="number" id="tbMenge" placeholder="g" style="width:74px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-          <button onclick="addTbEntry()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">+ Eintragen</button>
-        </div>
-        <div id="tbReader" style="margin-top:10px"></div>
-        <div id="tbMsg" style="font-size:13px;margin-top:8px"></div>
-      </div>
-      <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px">
-        <div style="font-weight:600;margin-bottom:8px">Aus Historie übernehmen</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <select id="tbHist" style="flex:1;min-width:220px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)"><option value="">Frühere Mahlzeit wählen…</option></select>
-          <button onclick="uebernehmeHist()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Übernehmen</button>
-        </div>
-        <div style="font-size:12px;color:var(--tb-muted);margin-top:6px">Kopiert die gewählte frühere Mahlzeit in den oben gewählten Tag & die gewählte Mahlzeit. Mengen danach editierbar.</div>
-        <div id="tbHistMsg" style="font-size:13px;margin-top:6px"></div>
-      </div>
-      <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px">
-        <div style="font-weight:600;margin-bottom:8px">Rezept als Mahlzeit einfügen</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <select id="tbRezept" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)"><option value="">Rezept wählen…</option></select>
-          <button onclick="addRezeptMahlzeit()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Einfügen</button>
-        </div>
-        <div style="font-size:12px;color:var(--tb-muted);margin-top:6px">Fügt die verknüpften Zutaten des Rezepts (mit g-Mengen) in die oben gewählte Mahlzeit ein.</div>
-        <div id="tbRezMsg" style="font-size:13px;margin-top:6px"></div>
-      </div>
-      <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px">
-        <div style="font-weight:600;margin-bottom:8px">Manuell eintragen (ohne Katalog)</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input id="mName" placeholder="Lebensmittel…" style="flex:2;min-width:150px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-          <input type="number" id="mMenge" placeholder="g" style="width:66px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-          <input type="number" id="mKcal" placeholder="kcal" style="width:78px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-          <input type="number" id="mEiw" placeholder="Eiweiß g" style="width:96px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-          <input type="number" id="mKh" placeholder="KH g" style="width:74px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-          <input type="number" id="mFett" placeholder="Fett g" style="width:80px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-          <button onclick="addManuell()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">+ Manuell</button>
-        </div>
-        <div style="font-size:12px;color:var(--tb-muted);margin-top:6px">Werte gelten für die eingegebene Portion. Mahlzeit oben wählen.</div>
-        <div id="mMsg" style="font-size:13px;margin-top:6px"></div>
-      </div>
-      </div>
       <div id="tbListe"></div>
       <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-top:12px">
         <div style="font-weight:600;margin-bottom:8px">Gewicht</div>
@@ -1669,7 +1620,7 @@ function zielForm(){ return `<div style="display:flex;gap:8px;flex-wrap:wrap;ali
   <input type="number" id="zFett" placeholder="Fett max g" style="width:104px;padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
   <button onclick="setZiel()" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Ziel speichern</button></div>`; }
 function tbBar(ist,soll,col){ const p=soll?Math.min(100,Math.max(0,ist/soll*100)):0; return '<div style="height:7px;background:var(--tb-track);border-radius:5px;overflow:hidden"><div style="height:100%;width:'+p.toFixed(0)+'%;background:'+col+';border-radius:5px;transition:width .5s"></div></div>'; }
-function tbMacroCol(name,ist,soll,col){ ist=Math.round(ist||0); soll=Math.round(soll||0); return '<div style="flex:1"><div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--tb-muted);margin-bottom:3px"><span>'+name+'</span><span>'+ist+' / '+soll+' g</span></div>'+tbBar(ist,soll,col)+'</div>'; }
+function tbMacroCol(name,ist,soll,col){ ist=Math.round(ist||0); soll=Math.round(soll||0); return '<div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:600;color:var(--tb-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div><div style="font-size:11px;color:var(--tb-muted);margin:1px 0 4px;white-space:nowrap">'+ist+' / '+soll+' g</div>'+tbBar(ist,soll,col)+'</div>'; }
 function renderZiel(s,ben){
   const el=document.getElementById("tbZiel");
   const kcalZ=num(ben&&ben.Kalorienziel_kcal), eiwZ=num(ben&&ben.Eiweiss_ziel_g), khZ=num(ben&&ben.KH_ziel_g), fettZ=num(ben&&ben.Fett_ziel_g);
@@ -1756,7 +1707,27 @@ function renderTbListe(items, goal){
   el.innerHTML=html;
 }
 /* ---- Lifesum-Style: Top-Suche + Add-Popup ---- */
-function tbOpenScan(){ const d=document.getElementById("tbClassic"); if(d) d.style.display=""; try{ tbScan(); }catch(e){} }
+async function tbOpenScan(){ await tbOpenAdd(tbGuessMeal()); tbScanPopup(); }
+function tbScanPopup(){
+  window._tbTab='suche'; tbRenderTabs();
+  const body=document.getElementById("tbAddBody"); if(!body) return;
+  body.innerHTML='<div id="tbAddReader" style="border-radius:12px;overflow:hidden;margin-bottom:8px"></div><div id="tbScanMsg" style="font-size:12.5px;color:#93a1ac;text-align:center">Kamera startet… Barcode in den Rahmen halten.</div><button onclick="tbSetTab(\'suche\')" style="margin-top:10px;width:100%;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#141a1f;color:#cbd5e1;font-size:13px;cursor:pointer">Abbrechen / zur Suche</button><div id="tbAddResults"></div>';
+  try{ _startScan("tbAddReader", async (code)=>{
+    const msg=document.getElementById("tbScanMsg");
+    try{
+      const {data}=await client.rpc("produkt_by_ean",{p_ean:code});
+      if(data&&data.id){
+        const p=(ALL||[]).find(x=>x.id===data.id);
+        if(p){ const b=document.getElementById("tbAddBody"); if(b) b.innerHTML='<div id="tbAddResults"></div>'; window._tbAddList=[p]; tbAddPick(0); return; }
+        if(msg){ msg.style.color="#8ee6a8"; msg.textContent="✓ "+data.name+" erkannt."; }
+      } else {
+        try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
+          if(msg){ msg.style.color="#8ee6a8"; msg.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. Wird nach Prüfung ergänzt."; }
+        }catch(e){ if(msg){ msg.style.color="#e8920c"; msg.textContent="Barcode "+code+" nicht im Katalog."; } }
+      }
+    }catch(e){ if(msg){ msg.style.color="#f87171"; msg.textContent="Fehler: "+e.message; } }
+  }); }catch(e){ const msg=document.getElementById("tbScanMsg"); if(msg){ msg.style.color="#f87171"; msg.textContent="Kamera nicht verfügbar: "+e.message; } }
+}
 function tbGuessMeal(){ const h=new Date().getHours(); if(h<11) return "Frühstück"; if(h<15) return "Mittag"; if(h<21) return "Abendessen"; return "Snack"; }
 function tbTopSearch(q){
   const box=document.getElementById("tbTopResults"); if(!box) return;
@@ -1778,8 +1749,9 @@ function tbTopSearch(q){
     }).join("")+'</div>';
 }
 function tbTopPick(i){ const p=(window._tbTopList||[])[i]; if(p) tbOpenAdd(tbGuessMeal(), p.id); }
-function tbOpenAdd(meal, prefillId, prefillName){
-  window._tbAddMeal=meal||tbGuessMeal();
+async function tbOpenAdd(meal, prefillId, prefillName){
+  window._tbAddMeal=meal||tbGuessMeal(); window._tbTab='suche';
+  try{ const {data}=await client.rpc("cb_fav_liste"); window._favSet=new Set((data||[]).map(x=>x.produkt_id)); }catch(e){ if(!window._favSet) window._favSet=new Set(); }
   let ov=document.getElementById("tbAddOv"); if(ov) ov.remove();
   ov=document.createElement("div"); ov.id="tbAddOv";
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;z-index:80";
@@ -1787,16 +1759,73 @@ function tbOpenAdd(meal, prefillId, prefillName){
   const opt=x=>'<option'+(window._tbAddMeal===x?' selected':'')+'>'+x+'</option>';
   ov.innerHTML='<div style="display:flex;flex-direction:column;width:100%;max-width:560px;height:100%;background:#0f1418;color:#e8edf1;box-shadow:0 0 40px rgba(0,0,0,.5)">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #2d3842;flex:0 0 auto"><b style="font-size:17px">Hinzufügen</b><button onclick="document.getElementById(\'tbAddOv\').remove()" style="border:0;background:#232c35;color:#e8edf1;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px">Schließen ✕</button></div>'
-    +'<div style="padding:14px 16px 8px;flex:0 0 auto">'
-      +'<select id="tbAddMeal" onchange="window._tbAddMeal=this.value" style="width:100%;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#141a1f;color:#e8edf1;margin-bottom:8px">'+opt("Frühstück")+opt("Mittag")+opt("Abendessen")+opt("Snack")+'</select>'
-      +'<input id="tbAddSearch" oninput="tbAddFilter(this.value)" placeholder="🔍 Produkt suchen…" style="width:100%;padding:11px;border:1px solid #2d3842;border-radius:10px;background:#141a1f;color:#e8edf1;font-size:14px"></div>'
-    +'<div id="tbAddResults" style="flex:1;overflow:auto;padding:4px 16px 16px"></div>'
-    +'</div>';
+    +'<div style="padding:12px 16px 6px;flex:0 0 auto"><select id="tbAddMeal" onchange="window._tbAddMeal=this.value" style="width:100%;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#141a1f;color:#e8edf1;margin-bottom:8px">'+opt("Frühstück")+opt("Mittag")+opt("Abendessen")+opt("Snack")+'</select><div id="tbAddTabs" style="display:flex;gap:6px"></div></div>'
+    +'<div id="tbAddBody" style="flex:1;overflow:auto;padding:8px 16px 16px"></div></div>';
   document.body.appendChild(ov);
-  const si=document.getElementById("tbAddSearch");
-  if(prefillId){ const p=(ALL||[]).find(x=>x.id===prefillId); if(p){ si.value=p.name; window._tbAddList=[p]; tbAddPick(0); return; } }
+  tbRenderTabs();
+  await tbSetTab('suche');
+  if(prefillId){ const p=(ALL||[]).find(x=>x.id===prefillId); if(p){ window._tbAddList=[p]; tbAddPick(0); return; } }
   if(prefillName){ window._tbAddManualName=prefillName; tbAddManualOpen(); return; }
-  tbAddFilter(""); try{ si.focus(); }catch(e){}
+}
+function tbRenderTabs(){
+  const el=document.getElementById("tbAddTabs"); if(!el) return;
+  const t=window._tbTab||'suche';
+  const tabs=[['suche','🔍 Suche'],['historie','🕘 Historie'],['rezepte','🥗 Rezepte'],['favoriten','♥ Favoriten']];
+  el.innerHTML=tabs.map(([k,l])=>'<button onclick="tbSetTab(\''+k+'\')" style="flex:1;padding:7px 3px;border-radius:9px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid '+(t===k?'#16a34a':'#2d3842')+';background:'+(t===k?'rgba(22,163,74,.18)':'#141a1f')+';color:'+(t===k?'#8ee6a8':'#cbd5e1')+'">'+l+'</button>').join("");
+}
+async function tbSetTab(t){
+  window._tbTab=t; tbRenderTabs();
+  const body=document.getElementById("tbAddBody"); if(!body) return;
+  if(t==='suche'){
+    body.innerHTML='<div style="display:flex;gap:8px;margin-bottom:8px"><input id="tbAddSearch" oninput="tbAddFilter(this.value)" onfocus="tbAddFilter(this.value)" placeholder="🔍 Produkt suchen…" style="flex:1;min-width:0;padding:11px;border:1px solid #2d3842;border-radius:10px;background:#141a1f;color:#e8edf1;font-size:14px"><button onclick="tbScanPopup()" title="Barcode scannen" style="width:46px;flex:0 0 auto;border:1px solid #2d3842;border-radius:10px;background:#232c35;color:#e8edf1;font-size:18px;cursor:pointer">▦</button></div><div id="tbAddResults"><div style="text-align:center;padding:16px;color:#93a1ac;font-size:13px">Tippe ins Suchfeld, um ein Produkt zu suchen.</div></div>';
+    return;
+  }
+  body.innerHTML='<div id="tbAddResults"><div style="text-align:center;padding:16px;color:#93a1ac;font-size:13px">Lade…</div></div>';
+  if(t==='historie') await tbHistList();
+  else if(t==='rezepte') await tbRezList();
+  else if(t==='favoriten') await tbFavList();
+}
+function tbRowHtml(p,i){
+  const sc=num(p.clean_score), fav=(window._favSet&&window._favSet.has(p.id));
+  return '<div style="display:flex;align-items:center;gap:8px;background:#1b2229;border:1px solid #2d3842;border-radius:10px;padding:10px;margin-bottom:6px">'
+    +'<div onclick="tbAddPick('+i+')" style="flex:1;min-width:0;cursor:pointer"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+(sc!=null?' <span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(sc))+'">'+sc+'</span>':'')+'</div><div style="font-size:11.5px;color:#93a1ac">'+esc(mkLabel(p.marke)||"")+(p.kategorie?(" · "+esc(p.kategorie)):"")+'</div></div>'
+    +'<button onclick="tbFavToggle(\''+p.id+'\',this)" title="Favorit" style="border:0;background:none;color:'+(fav?'#22c55e':'#5b6b78')+';font-size:19px;cursor:pointer;flex:0 0 auto;line-height:1">'+(fav?'♥':'♡')+'</button>'
+    +'<button onclick="tbAddPick('+i+')" title="Hinzufügen" style="width:30px;height:30px;border-radius:50%;background:#232c35;border:1px solid #2d3842;color:#8ee6a8;font-size:18px;cursor:pointer;flex:0 0 auto">+</button>'
+    +'</div>';
+}
+async function tbFavToggle(id, btn){
+  try{ const {data}=await client.rpc("cb_fav_toggle",{p_produkt:id});
+    if(!window._favSet) window._favSet=new Set();
+    if(data){ window._favSet.add(id); if(btn){ btn.textContent="♥"; btn.style.color="#22c55e"; } }
+    else { window._favSet.delete(id); if(btn){ btn.textContent="♡"; btn.style.color="#5b6b78"; } }
+  }catch(e){}
+}
+async function tbHistList(){
+  let ids=[]; try{ const {data}=await client.rpc("cb_tb_history_produkte",{p_limit:40}); ids=(data||[]).map(x=>x.produkt_id); }catch(e){}
+  const list=ids.map(id=>(ALL||[]).find(p=>p.id===id)).filter(Boolean);
+  window._tbAddList=list;
+  const box=document.getElementById("tbAddResults"); if(!box) return;
+  box.innerHTML = list.length ? list.map((p,i)=>tbRowHtml(p,i)).join("") : '<div style="text-align:center;padding:16px;color:#93a1ac;font-size:13px">Noch keine Historie – trage erst etwas ein.</div>';
+}
+async function tbFavList(){
+  let ids=[]; try{ const {data}=await client.rpc("cb_fav_liste"); ids=(data||[]).map(x=>x.produkt_id); window._favSet=new Set(ids); }catch(e){}
+  const list=ids.map(id=>(ALL||[]).find(p=>p.id===id)).filter(Boolean);
+  window._tbAddList=list;
+  const box=document.getElementById("tbAddResults"); if(!box) return;
+  box.innerHTML = list.length ? list.map((p,i)=>tbRowHtml(p,i)).join("") : '<div style="text-align:center;padding:16px;color:#93a1ac;font-size:13px">Noch keine Favoriten – tippe bei einem Produkt auf ♡.</div>';
+}
+async function tbRezList(){
+  let rez=[]; try{ const {data}=await client.from("v_web_rezepte").select("id,name").order("name"); rez=data||[]; }catch(e){}
+  window._tbRezList=rez;
+  const box=document.getElementById("tbAddResults"); if(!box) return;
+  box.innerHTML = rez.length ? rez.map((r,i)=>'<div style="display:flex;align-items:center;gap:8px;background:#1b2229;border:1px solid #2d3842;border-radius:10px;padding:10px;margin-bottom:6px"><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.name)+'</div><div style="font-size:11.5px;color:#93a1ac">Rezept</div></div><button onclick="tbAddRezept('+i+')" title="Als Mahlzeit einfügen" style="width:30px;height:30px;border-radius:50%;background:#232c35;border:1px solid #2d3842;color:#8ee6a8;font-size:18px;cursor:pointer">+</button></div>').join("") : '<div style="text-align:center;padding:16px;color:#93a1ac;font-size:13px">Keine Rezepte.</div>';
+}
+async function tbAddRezept(i){
+  const r=(window._tbRezList||[])[i]; if(!r) return;
+  const meal=window._tbAddMeal||"Frühstück", datum=document.getElementById("tbDatum").value||tbToday();
+  const {error}=await client.rpc("cb_tb_rezept",{p_mahlzeit:meal,p_rezept:r.id,p_datum:datum});
+  if(error){ alert("Fehler: "+error.message); return; }
+  const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
 }
 function tbAddFilter(q){
   const box=document.getElementById("tbAddResults"); if(!box) return;
@@ -1810,9 +1839,7 @@ function tbAddFilter(q){
     return;
   }
   window._tbAddList=list;
-  box.innerHTML=list.map((p,i)=>{ const sc=num(p.clean_score);
-    return '<button onclick="tbAddPick('+i+')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:#1b2229;border:1px solid #2d3842;border-radius:10px;padding:10px;margin-bottom:6px;color:#e8edf1;cursor:pointer"><span style="min-width:0"><span style="font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+'</span><span style="font-size:11.5px;color:#93a1ac">'+esc(mkLabel(p.marke)||"")+(p.kategorie?(" · "+esc(p.kategorie)):"")+'</span></span>'+(sc!=null?'<span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(sc))+'">'+sc+'</span>':'')+'</button>';
-  }).join("");
+  box.innerHTML=list.map((p,i)=>tbRowHtml(p,i)).join("");
 }
 function tbAddPick(i){
   const p=(window._tbAddList||[])[i]; if(!p) return;
@@ -1823,7 +1850,7 @@ function tbAddPick(i){
     +'<div style="font-weight:600;margin-bottom:8px">'+esc(p.name)+(num(p.clean_score)!=null?' <span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(num(p.clean_score)))+'">'+num(p.clean_score)+'</span>':'')+'</div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input id="tbAddMenge" type="number" min="1" value="'+g+'" style="flex:1;min-width:0;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#0f1418;color:#e8edf1"><span style="color:#93a1ac">g</span>'
     +'<button onclick="tbAddSave()" style="padding:10px 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Eintragen</button></div>'
-    +'<button onclick="tbAddFilter(document.getElementById(\'tbAddSearch\').value)" style="margin-top:8px;background:none;border:0;color:#93a1ac;font-size:12px;cursor:pointer;text-decoration:underline">‹ zurück zur Suche</button>'
+    +'<button onclick="tbSetTab(window._tbTab||\'suche\')" style="margin-top:8px;background:none;border:0;color:#93a1ac;font-size:12px;cursor:pointer;text-decoration:underline">‹ zurück</button>'
     +'<div id="tbAddMsg" style="font-size:12px;color:#93a1ac;margin-top:6px"></div></div>';
 }
 async function tbAddSave(){
