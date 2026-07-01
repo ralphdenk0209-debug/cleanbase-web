@@ -389,8 +389,8 @@
         <div style="font-weight:600;margin-bottom:10px">Persönliche Daten</div>
         <div style="font-size:13px;color:#374151;margin-bottom:10px">E-Mail: <b id="pfEmail">–</b></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
-          <label style="font-size:13px;color:#374151">Geburtsdatum<input type="date" id="pfGeb" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Alter<input type="number" id="pfAlter" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Geburtsdatum<input type="date" id="pfGeb" oninput="pfAgeFromGeb()" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:#374151">Alter <span style="color:#9aa7a0;font-size:11px">(aus Geburtsdatum)</span><input type="number" id="pfAlter" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
           <label style="font-size:13px;color:#374151">Geschlecht<select id="pfGeschlecht" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>weiblich</option><option>männlich</option><option>divers</option></select></label>
           <label style="font-size:13px;color:#374151">Größe (cm)<input type="number" id="pfGroesse" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
           <label style="font-size:13px;color:#374151">Gewicht (kg)<input type="number" step="0.1" id="pfGewicht" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
@@ -711,6 +711,7 @@ async function loadProfil(){
   _selVal("pfGeb",b.Geburtsdatum);
   { const c=document.getElementById("pfNews"); if(c) c.checked=!!b.Newsletter; }
   _selVal("pfAlter",b.Alter); _selVal("pfGeschlecht",b.Geschlecht); _selVal("pfGroesse",b.Groesse_cm);
+  pfAgeFromGeb();
   _selVal("pfGewicht",b.Gewicht_kg); _selVal("pfAktiv",b.Aktivitaetslevel); _selVal("pfErn",b.Ernaehrungsform);
   _selVal("pfKcal",b.Kalorienziel_kcal); _selVal("pfEiw",b.Eiweiss_ziel_g); _selVal("pfKh",b.KH_ziel_g); _selVal("pfFett",b.Fett_ziel_g);
   _selVal("pfAnFr",b.Anteil_Fr); _selVal("pfAnMi",b.Anteil_Mi); _selVal("pfAnAb",b.Anteil_Ab); _selVal("pfAnSn",b.Anteil_Sn);
@@ -1181,11 +1182,24 @@ function renderTbStatistik(rows,goal){
 }
 let _bdResult=null;
 function actFactor(a){ return ({"Sitzend":1.2,"Leicht aktiv":1.375,"Mäßig aktiv":1.55,"Sehr aktiv":1.725})[a]||1.375; }
+function ageFromDob(v){
+  if(!v) return null; const d=new Date(v); if(isNaN(d.getTime())) return null;
+  const t=new Date(); let a=t.getFullYear()-d.getFullYear();
+  const m=t.getMonth()-d.getMonth(); if(m<0||(m===0&&t.getDate()<d.getDate())) a--;
+  return (a>=0&&a<=120)?a:null;
+}
+function pfAgeFromGeb(){
+  const g=document.getElementById("pfGeb"), a=document.getElementById("pfAlter"); if(!g||!a) return;
+  const age=ageFromDob(g.value);
+  if(age!=null){ a.value=age; a.readOnly=true; a.style.background="#f3f4f6"; a.title="Automatisch aus Geburtsdatum berechnet"; }
+  else { a.readOnly=false; a.style.background=""; a.title=""; }
+}
 function calcBedarf(){
   const out=document.getElementById("bdOut"); _bdResult=null;
   const ab=document.getElementById("bdApplyBtn"); if(ab) ab.disabled=true;
   const gv=id=>{const e=document.getElementById(id);return e?e.value:"";};
-  const age=num(gv("pfAlter")), sex=gv("pfGeschlecht"), h=num(gv("pfGroesse")), w=num(gv("pfGewicht")), act=gv("pfAktiv");
+  let age=num(gv("pfAlter")); const _a=ageFromDob(gv("pfGeb")); if(_a!=null) age=_a;
+  const sex=gv("pfGeschlecht"), h=num(gv("pfGroesse")), w=num(gv("pfGewicht")), act=gv("pfAktiv");
   if(!age||!h||!w){ out.style.color="#b45309"; out.textContent="Bitte oben Alter, Größe und Gewicht ausfüllen (und speichern)."; return; }
   if(age<10||age>100){ out.style.color="#b45309"; out.textContent="Alter „"+age+"“ wirkt unplausibel – bitte oben das ALTER in Jahren eintragen (nicht das Geburtsjahr) und speichern."; return; }
   if(h<120||h>250){ out.style.color="#b45309"; out.textContent="Größe „"+h+"“ wirkt unplausibel – bitte oben die Größe in cm eintragen (z. B. 180) und speichern."; return; }
