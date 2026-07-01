@@ -1010,7 +1010,8 @@ function setMode(m){
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
-  if(m==="rezepte" && REZEPTE===null) loadRezepte();
+  if(m==="produkte"){ try{ render(); }catch(e){} }
+  if(m==="rezepte") loadRezepte();
   if(m==="tagebuch") loadTagebuch();
   if(m==="planer") loadPlaner();
   if(m==="profil") loadProfil();
