@@ -1187,6 +1187,9 @@ function calcBedarf(){
   const gv=id=>{const e=document.getElementById(id);return e?e.value:"";};
   const age=num(gv("pfAlter")), sex=gv("pfGeschlecht"), h=num(gv("pfGroesse")), w=num(gv("pfGewicht")), act=gv("pfAktiv");
   if(!age||!h||!w){ out.style.color="#b45309"; out.textContent="Bitte oben Alter, Größe und Gewicht ausfüllen (und speichern)."; return; }
+  if(age<10||age>100){ out.style.color="#b45309"; out.textContent="Alter „"+age+"“ wirkt unplausibel – bitte oben das ALTER in Jahren eintragen (nicht das Geburtsjahr) und speichern."; return; }
+  if(h<120||h>250){ out.style.color="#b45309"; out.textContent="Größe „"+h+"“ wirkt unplausibel – bitte oben die Größe in cm eintragen (z. B. 180) und speichern."; return; }
+  if(w<30||w>350){ out.style.color="#b45309"; out.textContent="Gewicht „"+w+"“ wirkt unplausibel – bitte oben das Gewicht in kg eintragen und speichern."; return; }
   const ziel=num(gv("bdZiel"))||w;
   const tempo=parseFloat(gv("bdTempo"))||0;
   let protF=parseFloat(gv("bdProt"))||1.8;
@@ -1724,6 +1727,28 @@ async function freigeben(id){
   loadFreigabe();
 }
 /* ---- Freigabe-Editor: bearbeiten / neu anlegen / Bild ---- */
+let ZUTATEN_STAMM=null, ZUTATEN_MAP={};
+async function loadZutatenStamm(){
+  if(ZUTATEN_STAMM) return;
+  try{ const {data}=await client.rpc("cb_zutaten_liste"); ZUTATEN_STAMM=data||[]; }
+  catch(e){ ZUTATEN_STAMM=[]; }
+  ZUTATEN_MAP={}; ZUTATEN_STAMM.forEach(z=>{ ZUTATEN_MAP[(z.name||"").trim().toLowerCase()]={rating:z.rating,kritisch:z.kritisch}; });
+}
+function fgZutRow(name,rating,kritisch){
+  const kr=(String(kritisch||"nein").toLowerCase()==="ja");
+  return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${rating??5}" title="Clean-Bewertung 0–10" style="width:54px;padding:7px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+    <label style="font-size:11px;color:#b91c1c;display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:#dc2626">⚠️</label>
+    <button type="button" onclick="this.closest('.fgZutRow').remove()" title="Zutat entfernen" style="border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;width:30px;height:30px;cursor:pointer;flex:0 0 auto">✕</button>
+  </div>`;
+}
+function fgZutAuto(inp){
+  const m=ZUTATEN_MAP[(inp.value||"").trim().toLowerCase()]; if(!m) return;
+  const row=inp.closest(".fgZutRow"); const r=row.querySelector(".fgzRate"), k=row.querySelector(".fgzKrit");
+  if(r) r.value=m.rating; if(k) k.checked=(String(m.kritisch).toLowerCase()==="ja");
+}
+function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.insertAdjacentHTML("beforeend", fgZutRow("",5,"nein")); }
 async function openFgEditor(id){
   const panel=document.getElementById("panel");
   let d={id:null,name:"",marke:"",kategorie:"",unterkategorie:"",ean:"",basis:"100g",bild_url:"",status:"",
@@ -1734,6 +1759,7 @@ async function openFgEditor(id){
     d=data||d; d.naehrwerte=d.naehrwerte||{}; d.zutaten=d.zutaten||[];
   }
   window._fgEdit={ id:id, bild_url:d.bild_url||"" };
+  await loadZutatenStamm();
   const nw=d.naehrwerte||{};
   const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" style="width:110px;padding:6px;border:1px solid #d1d5db;border-radius:8px"></label>`;
   const zText=(d.zutaten||[]).map(z=>`${z.name}; ${z.rating??5}; ${(String(z.kritisch||"nein").toLowerCase()==="ja")?"j":"n"}`).join("\n");
@@ -1754,8 +1780,10 @@ async function openFgEditor(id){
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zusatzstoffe</div>
     ${inp("fe_ztext",d.zusatzstoffe_text||"keine")}
     <div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="text-transform:none;color:var(--muted)">(je Zeile: Name; Bewertung 0–10; kritisch j/n)</span></div>
-    <textarea id="fe_zutaten" rows="6" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px">${esc(zText)}</textarea>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="text-transform:none;color:var(--muted)">(auswählen für richtige Schreibweise, oder neu tippen)</span></div>
+    <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
+    <div id="fe_zutRows">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")||fgZutRow("",5,"nein")}</div>
+    <button type="button" onclick="fgAddZutat()" style="margin-top:4px;padding:7px 12px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:#166534;cursor:pointer;font-size:13px">+ Zutat</button>
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Produktbild</div>
     <div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:120px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div>
     <input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px">
@@ -1785,9 +1813,10 @@ async function fgEditSave(alsoFreigeben){
   const msg=g("fe_msg"); msg.style.color="#374151"; msg.textContent="⏳ speichern…";
   const numv=v=>{ v=(v==null?"":String(v)).trim(); return v===""?undefined:Number(v.replace(",",".")); };
   const nw={}; ["kcal","protein","kh","zucker","fett","ges_fett","ballaststoffe","salz"].forEach(k=>{ const v=numv(g("fe_"+k).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
-  const zut=(g("fe_zutaten").value||"").split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
-    const parts=l.split(";").map(s=>s.trim());
-    return { name:parts[0], rating:(parts[1]!==undefined&&parts[1]!=="")?Number(parts[1]):5, kritisch:(parts[2]&&/^j/i.test(parts[2]))?"ja":"nein" };
+  const zut=[...document.querySelectorAll("#fe_zutRows .fgZutRow")].map(row=>{
+    const nm=(row.querySelector(".fgzName").value||"").trim();
+    const rt=Number(row.querySelector(".fgzRate").value);
+    return { name:nm, rating:isNaN(rt)?5:rt, kritisch:row.querySelector(".fgzKrit").checked?"ja":"nein" };
   }).filter(z=>z.name);
   const name=(g("fe_name").value||"").trim();
   if(!name){ msg.style.color="#dc2626"; msg.textContent="Titel fehlt."; return; }
