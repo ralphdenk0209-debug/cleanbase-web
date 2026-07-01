@@ -78,6 +78,24 @@
   .row .top b{font-weight:600}
   .track{height:9px;background:#eef3ef;border-radius:6px;overflow:hidden}
   .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--green2),var(--green))}
+  .csRings{display:flex;justify-content:space-between;gap:6px;text-align:center;margin:6px 0 2px}
+  .csRing{flex:1;min-width:0}
+  .csRing .v{font-size:13px;font-weight:800;fill:var(--ink)}
+  .csRing .lbl{font-size:11.5px;color:#475569;margin-top:1px;line-height:1.15;font-weight:600}
+  .csRing .sub{font-size:10px;color:#94a3b8;margin-top:0}
+  .csRing circle.fg{stroke-dasharray:138.2;stroke-dashoffset:138.2;transform:rotate(-90deg);transform-origin:center;animation:csDash 1.1s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes csDash{to{stroke-dashoffset:var(--off)}}
+  .mkStage{position:relative;width:290px;max-width:100%;height:186px;margin:4px auto 0}
+  .mkCorner{position:absolute;width:120px}
+  .mkCorner .n{font-size:11.5px;color:#64748b;font-weight:600;display:flex;align-items:center;gap:5px}
+  .mkCorner .v{font-size:15px;font-weight:800;color:var(--ink);margin-top:1px}
+  .mkDot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .mk-tl{top:0;left:0;text-align:left}.mk-tr{top:0;right:0;text-align:right}
+  .mk-bl{bottom:0;left:0;text-align:left}.mk-br{bottom:0;right:0;text-align:right}
+  .mk-tr .n,.mk-br .n{justify-content:flex-end}
+  .mkSvg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  .mkSeg{animation:mkSegFill 1.1s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes mkSegFill{to{stroke-dashoffset:0}}
   .note{font-size:13.5px;line-height:1.5;background:var(--greenlt);border:1px solid #d4e8db;border-radius:12px;padding:11px 13px;margin-top:10px}
   .note h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green)}
   .teilhint{background:#fffbeb;border-color:#fde68a;color:#92400e}
@@ -223,78 +241,78 @@
   </div>
   <div id="tagebuchView" style="display:none">
     <div id="tbGate" style="display:none"></div>
-    <div id="tbInner" style="max-width:600px;margin:0 auto">
+    <div id="tbInner" style="max-width:600px;margin:0 auto;--tb-card:#1b2229;--tb-card2:#232c35;--tb-line:#2d3842;--tb-text:#e8edf1;--tb-muted:#93a1ac;--tb-track:#2b343d;--tb-input:#141a1f;background:#0f1418;color:var(--tb-text);padding:16px;border-radius:18px;box-shadow:0 8px 30px rgba(0,0,0,.28)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <h2 id="tbTitle" style="margin:0;font-size:19px">Tagebuch</h2>
+        <h2 id="tbTitle" style="margin:0;font-size:19px;color:var(--tb-text)">Tagebuch</h2>
         <div style="display:flex;gap:8px;align-items:center">
-          <button onclick="toggleTbStatistik()" style="padding:8px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">📊 Statistik</button>
-          <input type="date" id="tbDatum" onchange="loadTagebuch()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">
+          <button onclick="toggleTbStatistik()" style="padding:8px 12px;border:1px solid var(--green);border-radius:8px;background:rgba(22,163,74,.16);color:#8ee6a8;cursor:pointer;font-size:13px;font-weight:600">📊 Statistik</button>
+          <input type="date" id="tbDatum" onchange="loadTagebuch()" style="padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text);color-scheme:dark">
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-        <button onclick="tbShiftDay(-1)" title="Tag zurück" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">‹</button>
-        <button onclick="tbGoToday()" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Heute</button>
-        <button onclick="tbShiftDay(1)" title="Tag vor" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">›</button>
-        <button onclick="toggleTbKalender()" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">📅 Kalender</button>
-        <span id="tbDatumLabel" style="font-size:13px;color:#6b7280;margin-left:2px"></span>
+        <button onclick="tbShiftDay(-1)" title="Tag zurück" style="padding:7px 11px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">‹</button>
+        <button onclick="tbGoToday()" style="padding:7px 12px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer;font-size:13px">Heute</button>
+        <button onclick="tbShiftDay(1)" title="Tag vor" style="padding:7px 11px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">›</button>
+        <button onclick="toggleTbKalender()" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:rgba(22,163,74,.16);color:#8ee6a8;cursor:pointer;font-size:13px;font-weight:600">📅 Kalender</button>
+        <span id="tbDatumLabel" style="font-size:13px;color:var(--tb-muted);margin-left:2px"></span>
       </div>
-      <div id="tbKalBox" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:12px"></div>
-      <div id="tbStatBox" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
-      <div id="tbZiel" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div id="tbKalBox" style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:12px;margin-bottom:12px"></div>
+      <div id="tbStatBox" style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
+      <div id="tbZiel" style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
+      <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:8px">Mahlzeit eintragen</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <select id="tbMahlzeit" style="flex:1;min-width:120px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <select id="tbMahlzeit" style="flex:1;min-width:120px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
             <option>Frühstück</option><option>Mittag</option><option>Abendessen</option><option>Snack</option>
           </select>
-          <input list="tbProdListe" id="tbProd" placeholder="Produkt aus Liste wählen…" onchange="tbPrefillMenge()" style="flex:2;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <input list="tbProdListe" id="tbProd" placeholder="Produkt aus Liste wählen…" onchange="tbPrefillMenge()" style="flex:2;min-width:150px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
           <datalist id="tbProdListe"></datalist>
-          <button onclick="tbScan()" title="Barcode scannen" style="padding:10px 12px;border:0;border-radius:8px;background:#eef2f5;cursor:pointer">📷</button>
-          <input type="number" id="tbMenge" placeholder="g" style="width:74px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <button onclick="tbScan()" title="Barcode scannen" style="padding:10px 12px;border:0;border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">📷</button>
+          <input type="number" id="tbMenge" placeholder="g" style="width:74px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
           <button onclick="addTbEntry()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">+ Eintragen</button>
         </div>
         <div id="tbReader" style="margin-top:10px"></div>
         <div id="tbMsg" style="font-size:13px;margin-top:8px"></div>
       </div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:8px">Aus Historie übernehmen</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <select id="tbHist" style="flex:1;min-width:220px;padding:10px;border:1px solid #d1d5db;border-radius:8px"><option value="">Frühere Mahlzeit wählen…</option></select>
+          <select id="tbHist" style="flex:1;min-width:220px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)"><option value="">Frühere Mahlzeit wählen…</option></select>
           <button onclick="uebernehmeHist()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Übernehmen</button>
         </div>
-        <div style="font-size:12px;color:#6b7280;margin-top:6px">Kopiert die gewählte frühere Mahlzeit in den oben gewählten Tag & die gewählte Mahlzeit. Mengen danach editierbar.</div>
+        <div style="font-size:12px;color:var(--tb-muted);margin-top:6px">Kopiert die gewählte frühere Mahlzeit in den oben gewählten Tag & die gewählte Mahlzeit. Mengen danach editierbar.</div>
         <div id="tbHistMsg" style="font-size:13px;margin-top:6px"></div>
       </div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:8px">Rezept als Mahlzeit einfügen</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <select id="tbRezept" style="flex:1;min-width:180px;padding:10px;border:1px solid #d1d5db;border-radius:8px"><option value="">Rezept wählen…</option></select>
+          <select id="tbRezept" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)"><option value="">Rezept wählen…</option></select>
           <button onclick="addRezeptMahlzeit()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Einfügen</button>
         </div>
-        <div style="font-size:12px;color:#6b7280;margin-top:6px">Fügt die verknüpften Zutaten des Rezepts (mit g-Mengen) in die oben gewählte Mahlzeit ein.</div>
+        <div style="font-size:12px;color:var(--tb-muted);margin-top:6px">Fügt die verknüpften Zutaten des Rezepts (mit g-Mengen) in die oben gewählte Mahlzeit ein.</div>
         <div id="tbRezMsg" style="font-size:13px;margin-top:6px"></div>
       </div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:8px">Manuell eintragen (ohne Katalog)</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input id="mName" placeholder="Lebensmittel…" style="flex:2;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
-          <input type="number" id="mMenge" placeholder="g" style="width:66px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
-          <input type="number" id="mKcal" placeholder="kcal" style="width:78px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
-          <input type="number" id="mEiw" placeholder="Eiweiß g" style="width:96px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
-          <input type="number" id="mKh" placeholder="KH g" style="width:74px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
-          <input type="number" id="mFett" placeholder="Fett g" style="width:80px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
+          <input id="mName" placeholder="Lebensmittel…" style="flex:2;min-width:150px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+          <input type="number" id="mMenge" placeholder="g" style="width:66px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+          <input type="number" id="mKcal" placeholder="kcal" style="width:78px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+          <input type="number" id="mEiw" placeholder="Eiweiß g" style="width:96px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+          <input type="number" id="mKh" placeholder="KH g" style="width:74px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+          <input type="number" id="mFett" placeholder="Fett g" style="width:80px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
           <button onclick="addManuell()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">+ Manuell</button>
         </div>
-        <div style="font-size:12px;color:#6b7280;margin-top:6px">Werte gelten für die eingegebene Portion. Mahlzeit oben wählen.</div>
+        <div style="font-size:12px;color:var(--tb-muted);margin-top:6px">Werte gelten für die eingegebene Portion. Mahlzeit oben wählen.</div>
         <div id="mMsg" style="font-size:13px;margin-top:6px"></div>
       </div>
       <div id="tbListe"></div>
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-top:12px">
+      <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-top:12px">
         <div style="font-weight:600;margin-bottom:8px">Gewicht</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="number" id="tbGewicht" placeholder="kg" step="0.1" style="width:100px;padding:10px;border:1px solid #d1d5db;border-radius:8px">
-          <button onclick="saveGewicht()" style="padding:10px 16px;border:0;border-radius:8px;background:#eef2f5;cursor:pointer">Speichern</button>
-          <span id="tbGewichtInfo" style="font-size:13px;color:#6b7280"></span>
+          <input type="number" id="tbGewicht" placeholder="kg" step="0.1" style="width:100px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+          <button onclick="saveGewicht()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">Speichern</button>
+          <span id="tbGewichtInfo" style="font-size:13px;color:var(--tb-muted)"></span>
         </div>
       </div>
     </div>
@@ -520,10 +538,10 @@ const SUPABASE_URL = "https://haurbpfkfaaehorirzee.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
 
 const SCORE_TEIL = [
-  ["p_zutaten","Zutatenqualität",30,1],
-  ["p_zusatzstoffe","Zusatzstoffe",15,1],
-  ["p_nova","Verarbeitungsgrad (NOVA)",15,1],
-  ["p_naehrwert","Nährwertqualität",40,2],
+  ["p_zutaten","Zutatenqualität",30,1,"Zutaten"],
+  ["p_zusatzstoffe","Zusatzstoffe",15,1,"Zusatzstoffe"],
+  ["p_nova","Verarbeitungsgrad (NOVA)",15,1,"NOVA"],
+  ["p_naehrwert","Nährwertqualität",40,2,"Nährwert"],
 ];
 const EXTRA_TEIL = [
   ["p_preis","Preis/Leistung",20],
@@ -863,6 +881,14 @@ function render(){
     grid.appendChild(c);
   });
 }
+function zInfoClean(name, info){
+  let s = String(info||"").replace(/\s*\((?:KI\s*)?Stufe\s*\d+\)/gi,"").replace(/\s{2,}/g," ").trim();
+  s = s.replace(/[–-]\s*$/,"").replace(/\.\s*$/,"").trim();
+  const n = String(name||"").trim().replace(/\.$/,"");
+  if(!s) return "";
+  if(s.toLowerCase()===n.toLowerCase()) return "";      // redundant (nur Name wiederholt)
+  return s;
+}
 function detail(d){
   const col=farbe(d.bewertung);
   const mkRows = arr => arr.map(([k,label,max,mult])=>{
@@ -871,8 +897,15 @@ function detail(d){
     return `<div class="row"><div class="top"><b>${label}</b><span>${v===null?"– n/a":v+" / "+max}</span></div>
       <div class="track"><div class="fill" style="width:${pct}%;${v===null?'background:#d5ded8':''}"></div></div></div>`;
   }).join("");
-  const rows = mkRows(SCORE_TEIL);
-  const extra = mkRows(EXTRA_TEIL);
+  const mkRings = arr => `<div class="csRings">`+arr.map(([k,label,max,mult,short])=>{
+    const m=mult||1; const raw=num(d[k]); const v=raw===null?null:raw*m;
+    const pct=v===null?0:Math.max(0,Math.min(1,v/max));
+    const off=(138.2*(1-pct)).toFixed(1);
+    const col=v===null?"#cbd5e1":(pct>=0.9?"#16a34a":(pct>=0.6?"#65a30d":"#e8920c"));
+    const vs=v===null?"–":String(Math.round(v*10)/10).replace(".",",");
+    return `<div class="csRing"><svg viewBox="0 0 56 56" width="66" height="66"><circle cx="28" cy="28" r="22" fill="none" stroke="#eef3ef" stroke-width="6"/><circle class="fg" cx="28" cy="28" r="22" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" style="--off:${off}"/><text class="v" x="28" y="32" text-anchor="middle">${v===null?"n/a":(Math.round(pct*100)+"%")}</text></svg><div class="lbl">${short||label}</div><div class="sub">${vs}/${max}</div></div>`;
+  }).join("")+`</div>`;
+  const rows = mkRings(SCORE_TEIL);
   const zlist = Array.isArray(d.zutaten) ? d.zutaten : [];
   const neutralZ = d.zusatz && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||""));
   const zHtml = zlist.length ? zlist.map(z=>{
@@ -911,7 +944,6 @@ function detail(d){
       <div class="formula">${(d.kategorie||"").toLowerCase()==="supplement"?"Clean Score = Inhaltsstoffe (Nährwert entfällt bei Supplements)":"Clean Score = Inhaltsstoffe (60) + Nährwert (40)"}</div></div>
     </div>
     ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
-    ${d.clean_score!=null?`<div class="note"><h4>Warum dieser Score?</h4>${esc(erklaerung(d))}</div>`:""}
     ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Score kann sich ändern.</div>`:""}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Clean Score</div>
     ${rows}
@@ -923,12 +955,11 @@ function detail(d){
       &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px"></span>kritisch ⚠️
     </div>
     <div>${zHtml}</div>
-    ${zlist.filter(z=>z.info).length?`<div style="margin-top:8px">${zlist.filter(z=>z.info).map(z=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:#f8fafc;border:1px solid var(--line);border-radius:9px"><b>${esc(z.name)}</b>${(String(z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(z.info)}</div>`).join("")}</div>`:""}
+    ${(()=>{const infos=zlist.map(z=>({z,t:zInfoClean(z.name,z.info)})).filter(o=>o.t);return infos.length?`<div style="margin-top:8px">${infos.map(o=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:#f8fafc;border:1px solid var(--line);border-radius:9px"><b>${esc(o.z.name)}</b>${(String(o.z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(o.t)}</div>`).join("")}</div>`:""})()}
     ${(d.zusatz && d.zusatz.info && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||"")))?`<div style="margin-top:8px;font-size:12.5px;line-height:1.45;padding:8px 11px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:9px;color:#1e3a8a"><b>* ${esc(d.zusatz.text||"Zusatzstoff")}</b> – technologisch notwendig &amp; unbedenklich, zählt nicht negativ. ${esc(d.zusatz.info)}</div>`:""}
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:18px 0 4px">Weitere Infos (nicht im Score)</div>
-    ${extra}
     ${d.warum?`<div class="note"><h4>Warum empfohlen</h4>${esc(d.warum)}</div>`:""}
     ${d.schwaechen?`<div class="note teilhint"><h4>Schwächen</h4>${esc(d.schwaechen)}</div>`:""}
+    ${d.clean_score!=null?`<div class="note" style="margin-top:14px"><h4>Stärken des Produkts</h4>${esc(erklaerung(d))}</div>`:""}
   `;
   document.getElementById("overlay").classList.add("open");
 }
@@ -1032,12 +1063,84 @@ function startRezSucheHtml(){
     +`<button onclick="startRezeptSuche(document.getElementById('startRezSuche').value)" style="padding:10px 14px;border:0;border-radius:10px;background:var(--green);color:#fff;cursor:pointer">Suchen</button></div></div>`;
 }
 function startRezeptSuche(v){ navTo('rezepte'); setTimeout(()=>{ const i=document.getElementById('rezeptSuche'); if(i){ i.value=v||''; } if(typeof renderRezeptList==='function') renderRezeptList(); },80); }
+async function renderSchritte(){
+  const box=document.getElementById("schritteBox"); if(!box) return;
+  if(!window._schrDate) window._schrDate=tbToday();
+  const sel=window._schrDate, today=tbToday();
+  let tag=0, verlauf=[];
+  try{ const r=await client.rpc("cb_schritte_tag",{p_datum:sel}); tag=Number(r.data)||0; }catch(e){}
+  try{ const r=await client.rpc("cb_schritte_verlauf",{p_bis:today,p_tage:7}); verlauf=r.data||[]; }catch(e){}
+  const card='background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
+  const ZIEL=10000, wd=["So","Mo","Di","Mi","Do","Fr","Sa"];
+  const vals=verlauf.map(x=>Number(x.schritte)||0);
+  const tage=vals.length||1, sum=vals.reduce((a,b)=>a+b,0), avg=Math.round(sum/tage);
+  const maxV=Math.max(ZIEL, ...vals, 1);
+  const bars=verlauf.map(x=>{
+    const v=Number(x.schritte)||0, dd=new Date(x.datum+"T00:00:00");
+    const h=Math.round(6+(v/maxV)*54), isSel=x.datum===sel;
+    const col=v>=ZIEL?"#16a34a":(v>0?"#65a30d":"#e5e9e6");
+    return '<button onclick="schrPickDate(\''+x.datum+'\')" title="'+dd.toLocaleDateString('de-DE')+': '+v.toLocaleString('de-DE')+'" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;cursor:pointer;padding:0">'
+      +'<div style="height:60px;display:flex;align-items:flex-end;width:100%;justify-content:center"><div style="width:66%;height:'+h+'px;background:'+col+';border-radius:5px 5px 2px 2px;'+(isSel?'outline:2px solid #14532d;outline-offset:1px':'')+'"></div></div>'
+      +'<div style="font-size:10px;color:'+(isSel?'#14532d':'#94a3b8')+';font-weight:'+(isSel?'700':'500')+'">'+wd[dd.getDay()]+'</div></button>';
+  }).join("");
+  const selD=new Date(sel+"T00:00:00");
+  const selLbl=selD.toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"short"})+(sel===today?" · heute":"");
+  const nextOff = sel>=today;
+  box.innerHTML='<div style="'+card+'">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600">👟 Schritte</div><span style="font-size:10px;font-weight:700;color:#166534;background:#e7f4ec;padding:2px 8px;border-radius:999px;letter-spacing:.4px">PERFORMANCE</span></div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
+      +'<button onclick="schrShiftDay(-1)" title="Tag zurück" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer">‹</button>'
+      +'<span style="flex:1;text-align:center;font-size:13px;color:#374151;font-weight:600">'+selLbl+'</span>'
+      +'<button onclick="schrShiftDay(1)" '+(nextOff?'disabled':'')+' title="Tag vor" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:'+(nextOff?'not-allowed':'pointer')+';opacity:'+(nextOff?'.4':'1')+'">›</button></div>'
+    +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(tag||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:9px;border:1px solid #d1d5db;border-radius:8px;font-size:14px">'
+      +'<button onclick="saveSchritte()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:13px">Speichern</button></div>'
+    +'<div id="startSchritteMsg" style="font-size:12px;color:#6b7280;margin-top:4px;min-height:15px"></div>'
+    +'<div style="border-top:1px solid var(--line);margin:6px 0 10px"></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:12px;color:#6b7280">Letzte 7 Tage</div><div style="font-size:12px;color:#374151">Ø <b>'+avg.toLocaleString("de-DE")+'</b>/Tag · Ziel '+ZIEL.toLocaleString("de-DE")+'</div></div>'
+    +'<div style="display:flex;gap:4px;align-items:flex-end">'+bars+'</div>'
+    +'</div>';
+}
+function schrPickDate(ds){ window._schrDate=ds; renderSchritte(); }
+function schrShiftDay(n){
+  const cur=window._schrDate||tbToday(); const d=new Date(cur+"T00:00:00"); d.setDate(d.getDate()+n);
+  const iso=tbISO(d); if(iso>tbToday()) return; window._schrDate=iso; renderSchritte();
+}
 async function saveSchritte(){
-  const el=document.getElementById("startSchritte"), msg=document.getElementById("startSchritteMsg"); if(!el) return;
-  const v=Math.max(0,parseInt(el.value)||0); if(msg){ msg.style.color="#374151"; msg.textContent="⏳…"; }
-  const {error}=await client.rpc("cb_schritte_speichern",{p_datum:tbToday(), p_schritte:v});
-  if(error){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; } return; }
-  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ "+v.toLocaleString("de-DE")+" Schritte gespeichert"; }
+  const el=document.getElementById("startSchritte"); if(!el) return;
+  const v=Math.max(0,parseInt(el.value)||0), datum=window._schrDate||tbToday();
+  const {error}=await client.rpc("cb_schritte_speichern",{p_datum:datum, p_schritte:v});
+  await renderSchritte();
+  const m=document.getElementById("startSchritteMsg");
+  if(m){ if(error){ m.style.color="#dc2626"; m.textContent="Fehler: "+error.message; } else { m.style.color="#16a34a"; m.textContent="✓ "+v.toLocaleString("de-DE")+" gespeichert"; } }
+}
+function makroDonut(sum, prof){
+  sum=sum||{}; prof=prof||{};
+  const kcalZ=num(prof.Kalorienziel_kcal);
+  if(!kcalZ) return '<div style="font-size:13.5px;color:#6b7280">Noch kein Tagesziel gesetzt. Heute bisher: <b>'+Math.round(sum.kcal||0)+'</b> kcal · '+Math.round(sum.protein||0)+' g Eiweiß.</div>';
+  const M=[
+    {n:"kcal",   ist:sum.kcal,    soll:kcalZ,                    u:"",  c:"#16a34a", rot:-83.5, pos:"mk-tr"},
+    {n:"Eiweiß", ist:sum.protein, soll:num(prof.Eiweiss_ziel_g), u:"g", c:"#3b82f6", rot:6.5,   pos:"mk-br"},
+    {n:"KH",     ist:sum.kh,      soll:num(prof.KH_ziel_g),      u:"g", c:"#f59e0b", rot:96.5,  pos:"mk-bl"},
+    {n:"Fett",   ist:sum.fett,    soll:num(prof.Fett_ziel_g),    u:"g", c:"#eab308", rot:186.5, pos:"mk-tl"}
+  ];
+  let tracks="", fills="", corners="";
+  M.forEach(m=>{
+    const ist=Math.round(m.ist||0), soll=Math.round(m.soll||0);
+    const pct=soll>0?Math.max(0,Math.min(1,ist/soll)):0;
+    const len=(70*pct).toFixed(1);
+    tracks+='<circle cx="70" cy="70" r="52" stroke="#eef3ef" stroke-dasharray="70 260" transform="rotate('+m.rot+' 70 70)"/>';
+    fills +='<circle class="mkSeg" cx="70" cy="70" r="52" stroke="'+m.c+'" stroke-dasharray="'+len+' 326.7" style="stroke-dashoffset:'+len+'" transform="rotate('+m.rot+' 70 70)"/>';
+    const rightSide=(m.pos==="mk-tr"||m.pos==="mk-br");
+    const dotName=rightSide ? m.n+'<span class="mkDot" style="background:'+m.c+'"></span>' : '<span class="mkDot" style="background:'+m.c+'"></span>'+m.n;
+    corners+='<div class="mkCorner '+m.pos+'"><div class="n">'+dotName+'</div><div class="v">'+ist+' / '+soll+(m.u?(' '+m.u):'')+'</div></div>';
+  });
+  const score=(sum.score_schnitt!=null)?sum.score_schnitt:"–";
+  return '<div class="mkStage">'+corners
+    +'<svg class="mkSvg" viewBox="0 0 140 140" width="150" height="150">'
+      +'<g fill="none" stroke-width="13" stroke-linecap="round">'+tracks+fills+'</g>'
+      +'<text x="70" y="66" text-anchor="middle" font-size="20" font-weight="800" fill="#16a34a">'+score+'</text>'
+      +'<text x="70" y="80" text-anchor="middle" font-size="9" fill="#64748b">Ø Score</text>'
+    +'</svg></div>';
 }
 async function renderStart(){
   const body=document.getElementById("startBody"); if(!body) return;
@@ -1065,28 +1168,19 @@ async function renderStart(){
   try{ const r=await client.rpc("cb_tagessumme",{p_datum:today}); sum=(r.data&&r.data[0])||{}; }catch(e){}
   try{ const r=await client.rpc("cb_profil"); prof=(r.data&&r.data[0])||{}; }catch(e){}
   try{ const r=await client.rpc("cb_train_log_tag",{p_datum:today}); log=r.data||[]; }catch(e){}
-  let schritte=0; if(ME&&ME.is_premium){ try{ const r=await client.rpc("cb_schritte_tag",{p_datum:today}); schritte=Number(r.data)||0; }catch(e){} }
   const dash=document.getElementById("startDash"); if(!dash) return;
   const vorname=(prof.Name||prof.Vorname||"") ? String(prof.Name||prof.Vorname).split(" ")[0] : "";
   const kcalZ=prof.Kalorienziel_kcal,eiwZ=prof.Eiweiss_ziel_g,khZ=prof.KH_ziel_g,fettZ=prof.Fett_ziel_g;
-  const donutsHtml = kcalZ
-    ? '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px 6px;justify-items:center;max-width:340px;margin:6px auto 0">'+tbDonut(sum.kcal,kcalZ,"kcal","",true)+tbDonut(sum.protein,eiwZ,"Eiweiß","g",false)+tbDonut(sum.kh,khZ,"KH","g",true)+tbDonut(sum.fett,fettZ,"Fett","g",true)+'</div>'
-    : '<div style="font-size:13.5px;color:#6b7280">Noch kein Tagesziel gesetzt. Heute bisher: <b>'+Math.round(sum.kcal||0)+'</b> kcal · '+Math.round(sum.protein||0)+' g Eiweiß.</div>';
+  const donutsHtml = makroDonut(sum, prof);
   const saetze=log.length, ueb=new Set(log.map(x=>x.uebung)).size, vol=Math.round(log.reduce((a,s)=>a+(s.wiederholungen||0)*(s.gewicht_kg||0),0));
   const trainHtml = saetze
     ? '<div style="font-size:14px">💪 <b>'+ueb+'</b> Übungen · <b>'+saetze+'</b> Sätze · Volumen <b>'+vol+' kg</b></div>'
     : '<div style="font-size:14px;color:#6b7280">Heute noch kein Training erfasst.</div>';
-  const schritteHtml = (ME&&ME.is_premium)
-    ? '<div style="'+card+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:600">👟 Schritte heute</div><span style="font-size:10px;font-weight:700;color:#166534;background:#e7f4ec;padding:2px 8px;border-radius:999px;letter-spacing:.4px">PERFORMANCE</span></div>'
-      +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(schritte||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:9px;border:1px solid #d1d5db;border-radius:8px;font-size:14px">'
-      +'<button onclick="saveSchritte()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:13px">Speichern</button></div>'
-      +'<div id="startSchritteMsg" style="font-size:12px;color:#6b7280;margin-top:4px"></div></div>'
-    : '';
+  const schritteHtml = (ME&&ME.is_premium) ? '<div id="schritteBox"></div>' : '';
   dash.innerHTML=
     '<div style="'+card+'"><div style="font-weight:700;font-size:18px">Hallo'+(vorname?(' '+esc(vorname)):"")+'! 👋</div>'
       +'<div style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</div></div>'
-    +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🍽️ Heute – Makros</div>'+donutsHtml
-      +(sum.score_schnitt!=null?'<div style="text-align:center;font-size:12px;color:#6b7280;margin-top:6px">Ø Clean Score heute: <b>'+sum.score_schnitt+'</b></div>':'')+'</div>'
+    +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🍽️ Heute – Makros</div>'+donutsHtml+'</div>'
     +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🏋️ Heute – Training</div>'+trainHtml
       +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:#fff;color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
     +schritteHtml
@@ -1094,6 +1188,7 @@ async function renderStart(){
       +'<button onclick="navTo(\'tagebuch\')" style="padding:13px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:14px;cursor:pointer">📒 Tagebuch öffnen</button>'
       +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>'
     +startRezSucheHtml()+topProdukteHtml();
+  if(ME&&ME.is_premium) renderSchritte();
 }
 function bnActive(m){
   const ids=['bnstart','bnprodukte','bntagebuch','bntraining','bnmehr'];
@@ -1549,32 +1644,32 @@ function tbDonut(ist,soll,label,unit,isMax){
   const r=26, c=2*Math.PI*r, off=c*(1-(soll?Math.min(1,ratio):0));
   return `<div style="text-align:center">
     <svg viewBox="0 0 64 64" width="66" height="66">
-      <circle cx="32" cy="32" r="${r}" fill="none" stroke="#eef2f5" stroke-width="7"/>
+      <circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--tb-track)" stroke-width="7"/>
       <circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 32 32)"/>
-      <text x="32" y="33" text-anchor="middle" font-size="13" font-weight="700" fill="#111">${Math.round(ist)}</text>
-      <text x="32" y="45" text-anchor="middle" font-size="8" fill="#6b7280">${soll?("/ "+Math.round(soll)):""}</text>
+      <text x="32" y="33" text-anchor="middle" font-size="13" font-weight="700" fill="var(--tb-text)">${Math.round(ist)}</text>
+      <text x="32" y="45" text-anchor="middle" font-size="8" fill="var(--tb-muted)">${soll?("/ "+Math.round(soll)):""}</text>
     </svg>
-    <div style="font-size:12px;color:#374151">${label}${unit?" "+unit:""}${soll?(" · "+pct+"%"):""}</div>
+    <div style="font-size:12px;color:var(--tb-muted)">${label}${unit?" "+unit:""}${soll?(" · "+pct+"%"):""}</div>
   </div>`;
 }
 function zielForm(){ return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-  <input type="number" id="zKcal" placeholder="kcal-Ziel" style="width:104px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
-  <input type="number" id="zEiw" placeholder="Eiweiß g" style="width:100px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
-  <input type="number" id="zKh" placeholder="KH max g" style="width:96px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
-  <input type="number" id="zFett" placeholder="Fett max g" style="width:104px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+  <input type="number" id="zKcal" placeholder="kcal-Ziel" style="width:104px;padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+  <input type="number" id="zEiw" placeholder="Eiweiß g" style="width:100px;padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+  <input type="number" id="zKh" placeholder="KH max g" style="width:96px;padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+  <input type="number" id="zFett" placeholder="Fett max g" style="width:104px;padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
   <button onclick="setZiel()" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Ziel speichern</button></div>`; }
 function renderZiel(s,ben){
   const el=document.getElementById("tbZiel");
   const kcalZ=ben&&ben.Kalorienziel_kcal, eiwZ=ben&&ben.Eiweiss_ziel_g, khZ=ben&&ben.KH_ziel_g, fettZ=ben&&ben.Fett_ziel_g;
   if(!kcalZ){ el.innerHTML='<div style="font-weight:600;margin-bottom:6px">Kein Tagesziel gesetzt</div>'+zielForm(); return; }
-  el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:600">Tagesziel</div><button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:#6b7280;cursor:pointer;text-decoration:underline">ändern</button></div>'
+  el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:600">Tagesziel</div><button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:var(--tb-muted);cursor:pointer;text-decoration:underline">ändern</button></div>'
     + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px 6px;justify-items:center;max-width:340px;margin:6px auto 0">'
       + tbDonut(s&&s.kcal,kcalZ,"kcal","",true)
       + tbDonut(s&&s.protein,eiwZ,"Eiweiß","g",false)
       + tbDonut(s&&s.kh,khZ,"KH","g",true)
       + tbDonut(s&&s.fett,fettZ,"Fett","g",true)
     + '</div>'
-    + `<div style="font-size:11.5px;color:#6b7280;margin-top:6px;text-align:center">Eiweiß = Mindestziel (grün ab 90 %) · Fett/KH/kcal = Obergrenze (rot über 100 %) · Ø Clean Score: ${(s&&s.score_schnitt!=null)?s.score_schnitt:"–"}</div>`;
+    + `<div style="font-size:11.5px;color:var(--tb-muted);margin-top:6px;text-align:center">Eiweiß = Mindestziel (grün ab 90 %) · Fett/KH/kcal = Obergrenze (rot über 100 %) · Ø Clean Score: ${(s&&s.score_schnitt!=null)?s.score_schnitt:"–"}</div>`;
 }
 async function setZiel(){
   const kcal=parseFloat(document.getElementById("zKcal").value)||null, eiw=parseFloat(document.getElementById("zEiw").value)||null,
@@ -1603,7 +1698,7 @@ function mengeLabel(r){
 function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
   window._tbItems=items||[]; window._tbGoal=goal||{};
-  if(!items.length){ el.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted);font-size:14px">Noch keine Einträge für diesen Tag.<br><span style="font-size:12.5px">Füge oben eine Mahlzeit, ein Rezept oder einen manuellen Eintrag hinzu.</span></div>'; return; }
+  if(!items.length){ el.innerHTML='<div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:14px;padding:20px;text-align:center;color:var(--tb-muted);font-size:14px">Noch keine Einträge für diesen Tag.<br><span style="font-size:12.5px">Füge oben eine Mahlzeit, ein Rezept oder einen manuellen Eintrag hinzu.</span></div>'; return; }
   const icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
   const snackActive=items.some(i=>i.Mahlzeit==="Snack");
   const share=mealShares(goal, snackActive);
@@ -1621,20 +1716,20 @@ function renderTbListe(items, goal){
       const tK=gK*sh, restK=Math.round(tK-mk);
       const pPart=gP?` · Eiweiß ~${Math.round(gP*sh)} g`+((gP*sh-mp)>1?` <span style="color:#16a34a">(noch ${Math.round(gP*sh-mp)})</span>`:""):"";
       const fPart=gF?` · Fett ~${Math.round(gF*sh)} g`:"";
-      tgt=`<div style="font-size:11.5px;color:#6b7280;padding:2px 0 6px">Bedarf ${m} ~${Math.round(tK)} kcal`
+      tgt=`<div style="font-size:11.5px;color:var(--tb-muted);padding:2px 0 6px">Bedarf ${m} ~${Math.round(tK)} kcal`
         +(restK>0?` · <b style="color:#16a34a">noch ${restK} kcal</b>`:` · <b style="color:#b45309">${Math.abs(restK)} kcal drüber</b>`)
         +pPart+fPart+`</div>`;
     }
-    html+=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:4px 14px 8px;margin-bottom:10px;box-shadow:var(--shadow)">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 7px;border-bottom:2px solid var(--greenlt)"><span>${icons[m]||"•"} ${m}</span><span style="display:flex;align-items:center;gap:8px">${scoreChip(ms)}<span style="color:var(--green)">${Math.round(mk)} kcal</span></span></div>
+    html+=`<div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:14px;padding:4px 14px 8px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 7px;border-bottom:2px solid rgba(22,163,74,.28)"><span>${icons[m]||"•"} ${m}</span><span style="display:flex;align-items:center;gap:8px">${scoreChip(ms)}<span style="color:#8ee6a8">${Math.round(mk)} kcal</span></span></div>
       ${tgt}${gK?`<div style="margin:2px 0 6px"><button onclick="tbAdjustMeal('${m}')" title="Mengen der Katalog-Produkte dieser Mahlzeit so skalieren, dass ${m} das kcal-Ziel trifft" style="border:1px solid var(--green);background:var(--greenlt);color:var(--greendk);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">🎯 Mengen ans Ziel anpassen</button></div>`:""}`;
-    rows.forEach(r=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid #f3f6f4">
+    rows.forEach(r=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--tb-line)">
         <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Produktname||"?")}${num(r.Clean_Score)!=null?` <span style="font-size:11px;font-weight:700;color:${farbe(scoreBew(num(r.Clean_Score)))}">${num(r.Clean_Score)}</span>`:""}</div>
-        <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g},'${r.Produkt_ID||''}');return false" style="color:var(--muted);text-decoration:none;font-size:12.5px">${mengeLabel(r)} · ändern ✎</a>${(gK&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--green);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
-        <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--muted)">kcal</span></span>
-        <button onclick="delTb(${r.Eintrag_ID})" title="löschen" style="border:0;background:#f6f8f7;border-radius:8px;width:27px;height:27px;color:#dc2626;cursor:pointer;font-size:14px">✕</button></div>
+        <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g},'${r.Produkt_ID||''}');return false" style="color:var(--tb-muted);text-decoration:none;font-size:12.5px">${mengeLabel(r)} · ändern ✎</a>${(gK&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:#8ee6a8;text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
+        <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--tb-muted)">kcal</span></span>
+        <button onclick="delTb(${r.Eintrag_ID})" title="löschen" style="border:0;background:var(--tb-card2);border-radius:8px;width:27px;height:27px;color:#f87171;cursor:pointer;font-size:14px">✕</button></div>
       </div>`; });
-    html+=`<div style="font-size:11.5px;color:#6b7280;padding:7px 0 2px">Mahlzeit gesamt: Eiweiß <b>${Math.round(mp)} g</b> · KH <b>${Math.round(mkh)} g</b> · Fett <b>${Math.round(mf)} g</b></div></div>`;
+    html+=`<div style="font-size:11.5px;color:var(--tb-muted);padding:7px 0 2px">Mahlzeit gesamt: Eiweiß <b>${Math.round(mp)} g</b> · KH <b>${Math.round(mkh)} g</b> · Fett <b>${Math.round(mf)} g</b></div></div>`;
   });
   const dayScore = dSG>0?Math.round(dSW/dSG):null;
   html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--greendk);color:#fff;border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:rgba(255,255,255,.18);border-radius:8px;padding:2px 9px;font-size:13px">Score ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
