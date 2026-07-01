@@ -209,7 +209,8 @@
       <div class="stats" id="rezeptStats">Lade Rezepte…</div>
       <button onclick="openRezeptForm()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px;white-space:nowrap">+ Eigenes Rezept</button>
     </div>
-    <input type="search" id="rezeptSuche" oninput="renderRezeptList()" placeholder="Rezept suchen…" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px;margin:6px 0 12px" />
+    <input type="search" id="rezeptSuche" oninput="renderRezeptList()" placeholder="Rezept suchen…" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px;margin:6px 0 8px" />
+    <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#374151;margin:0 0 12px;cursor:pointer"><input type="checkbox" onchange="rezFavFilter(this.checked)" style="width:16px;height:16px;accent-color:#e11d48"> ♥ nur Favoriten anzeigen</label>
     <div id="rezeptFormBox"></div>
     <div class="grid" id="rezeptGrid"></div>
   </div>
@@ -871,6 +872,8 @@ function zInfoClean(name, info){
 }
 function detail(d){
   const col=farbe(d.bewertung);
+  const _isOil=((d.kategorie||'')==='Öle & Fette'), _isZero=(num(d.m_kcal)===0);
+  const sonderHint = (_isOil||_isZero) ? `<div style="font-size:12.5px;line-height:1.45;margin:8px 0 2px;padding:8px 11px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:9px;color:#1e3a8a">ℹ️ <b>Sonderbewertung:</b> ${_isOil?'Bei Ölen &amp; Fetten zählt die <b>Fettqualität</b> (Anteil ungesättigter Fettsäuren) statt des Makro-Profils pro 100 g.':'<b>0‑kcal-Produkt</b> – der Nährwert-Teil entfällt; bewertet werden Zutaten, Verarbeitung (NOVA) &amp; Zusatzstoffe.'}</div>` : '';
   const mkRows = arr => arr.map(([k,label,max,mult])=>{
     const m=mult||1; const raw=num(d[k]); const v=raw===null?null:raw*m;
     const pct=v===null?0:Math.max(0,Math.min(100,(v/max)*100));
@@ -926,6 +929,7 @@ function detail(d){
     ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
     ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Score kann sich ändern.</div>`:""}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Clean Score</div>
+    ${sonderHint}
     ${rows}
     ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Zutaten</div>
@@ -1192,10 +1196,56 @@ function closeMehr(){ const s=document.getElementById('mehrSheet'); if(s) s.clas
 function buildMehr(){
   const items=[['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['vorschlagen','➕ Produkt erfassen'],['profil','👤 Mein Profil']];
   let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
+  html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert CleanBase</button>';
   html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
             : '<button onclick="closeMehr();openLogin()">🔑 Anmelden</button>';
   if(ME&&ME.is_admin) html+='<button onclick="closeMehr();location.hash=\'#admin\';location.reload()" style="color:#6b7280">🛠️ Admin-Bereich</button>';
   const c=document.getElementById('mehrCard'); if(c) c.innerHTML=html;
+}
+function wikiOpen(){
+  let ov=document.getElementById("wikiOv"); if(ov) ov.remove();
+  ov=document.createElement("div"); ov.id="wikiOv";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;z-index:80";
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  const H=(t)=>`<div style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#16a34a;font-weight:700;margin:18px 0 6px">${t}</div>`;
+  const box=(inner)=>`<div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13.5px;line-height:1.55;color:#374151">${inner}</div>`;
+  ov.innerHTML=`<div style="display:flex;flex-direction:column;width:100%;max-width:640px;height:100%;background:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto"><b style="font-size:17px">📖 So funktioniert CleanBase</b><button onclick="document.getElementById('wikiOv').remove()" style="border:0;background:#eef3ef;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px">Schließen ✕</button></div>
+    <div style="flex:1;overflow:auto;padding:12px 16px 28px">
+      <p style="font-size:13.5px;color:#6b7280;line-height:1.5">Transparent, wissenschaftsbasiert, nachvollziehbar. Hier steht, wie der <b>Clean Score</b> und der <b>Kalorienrechner</b> rechnen – inklusive der Sonderfälle.</p>
+
+      ${H("Clean Score (0–100)")}
+      ${box(`Setzt sich aus vier Teilen zusammen:<br>
+        • <b>Zutatenqualität</b> (max 30) – Ø der Bewertungen aller Zutaten, nach Gewicht.<br>
+        • <b>Zusatzstoffe</b> (max 15) – keine = beste Wertung; künstliche Süßstoffe/Zusätze mindern.<br>
+        • <b>Verarbeitungsgrad NOVA</b> (max 15) – unverarbeitet (Vollwert) am besten.<br>
+        • <b>Nährwertqualität</b> (max 40) – gutes Makro-Profil pro 100 g (Eiweiß/Ballaststoffe hoch, Zucker/gesättigtes Fett niedrig).<br>
+        <b>Einstufung:</b> ≥ 90 Sehr gut · ≥ 75 Gut · ≥ 60 Mittel · sonst Schwach.<br>
+        <b>Alkohol</b> (Ethanol, IARC-Gruppe 1) deckelt die Wertung auf höchstens „Gut".`)}
+
+      ${H("Sonderregeln")}
+      ${box(`<b>Öle &amp; Fette:</b> Statt des Makro-Profils zählt die <b>Fettqualität</b> – der Anteil ungesättigter Fettsäuren. So schneiden z. B. Oliven-, Lein- und Nussöle hoch ab, stark gesättigte Fette (Talg, Butterschmalz) niedriger. Öl nutzt man in kleinen Mengen, nicht pro 100 g.`)}
+      ${box(`<b>0‑kcal-Produkte</b> (Süßstoffe, Essig): Der Nährwert-Teil ist bei 0 kcal nicht sinnvoll und <b>entfällt</b>; die anderen drei Teile werden auf 100 % hochgerechnet. Bewertet werden also Zutaten, Verarbeitung &amp; Zusatzstoffe (natürlich, z. B. Stevia, besser als künstlich).`)}
+      ${box(`<b>Supplements:</b> ebenfalls ohne Nährwert-Teil (Fokus auf Inhaltsstoffe).`)}
+
+      ${H("Kalorien- & Bedarfsrechner")}
+      ${box(`<b>Grundumsatz (BMR)</b> – Genauigkeit von oben nach unten:<br>
+        1. <b>Gemessen</b> (InBody/DEXA) – wird direkt genutzt, wenn eingetragen.<br>
+        2. <b>Katch-McArdle</b> – wenn <b>Körperfett %</b> bekannt: 370 + 21,6 × fettfreie Masse. Am besten für schlanke/muskulöse Personen.<br>
+        3. <b>Mifflin-St-Jeor</b> – Standard aus Alter/Geschlecht/Größe/Gewicht.<br>
+        Körperfett schätzen ohne Gerät: <b>U.S.-Navy-Maßband</b> (Hals, Taille, bei Frauen Hüfte, + Größe), ±3–4 %.`)}
+      ${box(`<b>Erhaltungsbedarf</b> = Grundumsatz × Aktivitätsfaktor.<br>
+        <b>Ziel-Energie</b> = Erhaltungsbedarf ± gewähltes Tempo.<br>
+        🔒 <b>Nie unter den Grundumsatz</b>: dauerhaft darunter zu essen ist ungesund (Muskelabbau, Energie/Hormone) – der Rechner sperrt das.`)}
+      ${box(`<b>Makro-Verteilung</b> (nach DGE-Richtwerten):<br>
+        • <b>Eiweiß:</b> aus g/kg (Richtwert 1,5–2 g/kg; Bezug Ziel- oder aktuelles Gewicht; bei Übergewicht eher Zielgewicht/fettfreie Masse).<br>
+        • <b>Fett:</b> DGE-Richtwert ~30 En% (25–35 % wählbar).<br>
+        • <b>Kohlenhydrate:</b> der Rest – entspricht der DGE-Logik (KH ergeben sich aus Energiebedarf, Eiweiß- und Fett-Richtwert; Mischkost > 50 En%).`)}
+      ${box(`<b>Alle 3–4 Wochen abgleichen:</b> wiegen, ggf. Körperfett neu messen, mit dem getrackten Essen vergleichen und den Bedarf am echten Gewichtsverlauf feinjustieren. Jede Formel ist nur eine Schätzung (±5–10 %).`)}
+
+      <p style="font-size:11.5px;color:#9aa7a0;margin-top:16px">Quellen u. a. DGE/D-A-CH-Referenzwerte. Dies ist keine medizinische Beratung.</p>
+    </div></div>`;
+  document.body.appendChild(ov);
 }
 /* Admin als separater Einstieg (#admin) – vorbereitet für eigene externe Adresse */
 let ADMIN_MODE=(location.hash==='#admin');
@@ -2841,20 +2891,32 @@ async function loadRezepte(){
   const {data,error}=await client.rpc("cb_rezepte_list");
   if(error){document.getElementById("rezeptStats").textContent="Fehler: "+error.message;return;}
   REZEPTE=data;
+  try{ const {data:fv}=await client.rpc("cb_rezept_fav_liste"); window._rezFav=new Set((fv||[]).map(x=>x.rezept_id)); }catch(e){ if(!window._rezFav) window._rezFav=new Set(); }
   renderRezeptList();
 }
+async function rezFavToggle(id, btn){
+  try{ const {data}=await client.rpc("cb_rezept_fav_toggle",{p_rezept:id});
+    if(!window._rezFav) window._rezFav=new Set();
+    if(data){ window._rezFav.add(id); if(btn){btn.textContent="♥";btn.style.color="#e11d48";} }
+    else { window._rezFav.delete(id); if(btn){btn.textContent="♡";btn.style.color="#9aa7b2";} }
+    if(window._rezFavOnly) renderRezeptList();
+  }catch(e){}
+}
+function rezFavFilter(on){ window._rezFavOnly=!!on; renderRezeptList(); }
 function renderRezeptList(){
   const all=REZEPTE||[];
   const q=_norm((document.getElementById("rezeptSuche")||{}).value||"");
-  const data = q ? all.filter(r=> _fuzzy(r.name,q) || _fuzzy(r.ziel,q) || (Array.isArray(r.zutaten)&&r.zutaten.some(z=>_fuzzy((z&&z.name)||z||"",q))) ) : all;
-  const mine=all.filter(r=>r.is_own).length;
-  document.getElementById("rezeptStats").textContent=`${data.length} Rezept(e)`+(mine?` · davon ${mine} eigene`:"");
+  let data = q ? all.filter(r=> _fuzzy(r.name,q) || _fuzzy(r.ziel,q) || (Array.isArray(r.zutaten)&&r.zutaten.some(z=>_fuzzy((z&&z.name)||z||"",q))) ) : all.slice();
+  if(window._rezFavOnly) data=data.filter(r=>window._rezFav&&window._rezFav.has(r.id));
+  const mine=all.filter(r=>r.is_own).length, favN=(window._rezFav?window._rezFav.size:0);
+  document.getElementById("rezeptStats").textContent=`${data.length} Rezept(e)`+(window._rezFavOnly?" · nur ♥":"")+(mine?` · ${mine} eigene`:"")+(favN?` · ${favN} ♥`:"");
   const g=document.getElementById("rezeptGrid"); g.innerHTML="";
   data.forEach(r=>{
-    const c=document.createElement("div");c.className="card";c.onclick=()=>rezeptDetail(r);
+    const c=document.createElement("div");c.className="card";c.style.position="relative";c.onclick=()=>rezeptDetail(r);
     const rsc=rezeptScore(r), rbew=scoreBew(rsc);
     const lead = rsc!=null ? donut(rsc,farbe(rbew),62) : `<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>`;
-    c.innerHTML=`${lead}
+    const _fav=(window._rezFav&&window._rezFav.has(r.id));
+    c.innerHTML=`<button onclick="event.stopPropagation();rezFavToggle('${r.id}',this)" title="Als Favorit" style="position:absolute;top:8px;right:8px;border:0;background:rgba(255,255,255,.92);border-radius:50%;width:30px;height:30px;font-size:16px;line-height:1;cursor:pointer;color:${_fav?'#e11d48':'#9aa7b2'};box-shadow:0 1px 5px rgba(0,0,0,.15);z-index:2">${_fav?'♥':'♡'}</button>${lead}
       <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}${r.gesperrt?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fde8e8;color:#dc2626">⛔ gesperrt</span>`:""}${(ME&&ME.is_admin&&r.gemeldet)?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fff7e6;color:#b45309">⚐ ${r.gemeldet}</span>`:""}</div></div>`;
     g.appendChild(c);
   });
@@ -3117,7 +3179,7 @@ function rezeptDetail(r){
       </div>`;
   const panel=document.getElementById("panel");
   panel.innerHTML=`<button class="close" onclick="closeP()">Schließen ✕</button>
-    <h2>${esc(r.name)}</h2>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><h2 style="margin:0">${esc(r.name)}</h2><button onclick="rezFavToggle('${r.id}',this)" title="Als Favorit" style="flex:0 0 auto;border:0;background:none;font-size:26px;line-height:1;cursor:pointer;color:${(window._rezFav&&window._rezFav.has(r.id))?'#e11d48':'#9aa7b2'}">${(window._rezFav&&window._rezFav.has(r.id))?'♥':'♡'}</button></div>
     <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · <span id="rzPortInfo">${P0} Portion(en)</span> ${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}</div>
     ${imgHtml}
     <div class="scorebar">
