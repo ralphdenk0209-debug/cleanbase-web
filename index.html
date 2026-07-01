@@ -264,10 +264,9 @@
       </div>
       <div id="tbTopResults"></div>
       <div id="tbZiel" style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
-      <details id="tbClassic" style="margin-bottom:12px">
-      <summary style="cursor:pointer;color:var(--tb-muted);font-size:13px;padding:8px 2px;list-style:none">⚙️ Weitere Eingabe-Optionen (Barcode, klassisch, Historie, Rezept, manuell)</summary>
+      <div id="tbClassic" style="display:none;margin-bottom:12px">
       <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin:10px 0 12px">
-        <div style="font-weight:600;margin-bottom:8px">Mahlzeit eintragen</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600">Barcode / klassisch eintragen</div><button onclick="document.getElementById('tbClassic').style.display='none'" style="border:0;background:var(--tb-card2);color:var(--tb-text);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer">schließen ✕</button></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <select id="tbMahlzeit" style="flex:1;min-width:120px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
             <option>Frühstück</option><option>Mittag</option><option>Abendessen</option><option>Snack</option>
@@ -313,7 +312,7 @@
         <div style="font-size:12px;color:var(--tb-muted);margin-top:6px">Werte gelten für die eingegebene Portion. Mahlzeit oben wählen.</div>
         <div id="mMsg" style="font-size:13px;margin-top:6px"></div>
       </div>
-      </details>
+      </div>
       <div id="tbListe"></div>
       <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-top:12px">
         <div style="font-weight:600;margin-bottom:8px">Gewicht</div>
@@ -1757,40 +1756,45 @@ function renderTbListe(items, goal){
   el.innerHTML=html;
 }
 /* ---- Lifesum-Style: Top-Suche + Add-Popup ---- */
-function tbOpenScan(){ const d=document.getElementById("tbClassic"); if(d) d.open=true; try{ tbScan(); }catch(e){} }
+function tbOpenScan(){ const d=document.getElementById("tbClassic"); if(d) d.style.display=""; try{ tbScan(); }catch(e){} }
 function tbGuessMeal(){ const h=new Date().getHours(); if(h<11) return "Frühstück"; if(h<15) return "Mittag"; if(h<21) return "Abendessen"; return "Snack"; }
 function tbTopSearch(q){
   const box=document.getElementById("tbTopResults"); if(!box) return;
   q=(q||"").trim();
-  if(!q){ box.innerHTML=""; return; }
+  if(!q){ box.innerHTML=""; window._tbTopQ=""; return; }
+  window._tbTopQ=q;
   const nq=_norm(q);
   const list=(ALL||[]).filter(p=>_fuzzy(p.name,nq)||_fuzzy(p.marke,nq)).slice(0,8);
+  window._tbTopList=list;
   if(!list.length){
     box.innerHTML='<div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:11px;margin-bottom:12px">'
       +'<div style="font-size:13px;color:var(--tb-muted);margin-bottom:8px">Kein Treffer für „'+esc(q)+'".</div>'
-      +'<button onclick="tbOpenAdd(tbGuessMeal(),null,'+JSON.stringify(q)+')" style="width:100%;padding:10px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">+ Manuell eintragen</button></div>';
+      +'<button onclick="tbOpenAdd(tbGuessMeal(),null,window._tbTopQ)" style="width:100%;padding:10px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">+ Manuell eintragen</button></div>';
     return;
   }
   box.innerHTML='<div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:6px 10px;margin-bottom:12px">'
-    +list.map(p=>{ const sc=num(p.clean_score);
-      return '<button onclick="tbOpenAdd(tbGuessMeal(),'+JSON.stringify(p.id)+')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--tb-line);padding:9px 2px;color:var(--tb-text);cursor:pointer"><span style="min-width:0"><span style="font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+'</span><span style="font-size:11px;color:var(--tb-muted)">'+esc(mkLabel(p.marke)||"")+'</span></span>'+(sc!=null?'<span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(sc))+'">'+sc+'</span>':'')+'</button>';
+    +list.map((p,i)=>{ const sc=num(p.clean_score);
+      return '<button onclick="tbTopPick('+i+')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--tb-line);padding:9px 2px;color:var(--tb-text);cursor:pointer"><span style="min-width:0"><span style="font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+'</span><span style="font-size:11px;color:var(--tb-muted)">'+esc(mkLabel(p.marke)||"")+'</span></span>'+(sc!=null?'<span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(sc))+'">'+sc+'</span>':'')+'</button>';
     }).join("")+'</div>';
 }
+function tbTopPick(i){ const p=(window._tbTopList||[])[i]; if(p) tbOpenAdd(tbGuessMeal(), p.id); }
 function tbOpenAdd(meal, prefillId, prefillName){
   window._tbAddMeal=meal||tbGuessMeal();
   let ov=document.getElementById("tbAddOv"); if(ov) ov.remove();
   ov=document.createElement("div"); ov.id="tbAddOv";
-  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:80";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;z-index:80";
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
   const opt=x=>'<option'+(window._tbAddMeal===x?' selected':'')+'>'+x+'</option>';
-  ov.innerHTML='<div style="background:#141a1f;border:1px solid #2d3842;border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:520px;max-height:88vh;overflow:auto;padding:16px;color:#e8edf1">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-size:16px">Hinzufügen</b><button onclick="document.getElementById(\'tbAddOv\').remove()" style="border:0;background:#232c35;color:#e8edf1;border-radius:8px;padding:6px 10px;cursor:pointer">✕</button></div>'
-    +'<select id="tbAddMeal" onchange="window._tbAddMeal=this.value" style="width:100%;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#0f1418;color:#e8edf1;margin-bottom:8px">'+opt("Frühstück")+opt("Mittag")+opt("Abendessen")+opt("Snack")+'</select>'
-    +'<input id="tbAddSearch" oninput="tbAddFilter(this.value)" placeholder="🔍 Produkt suchen…" style="width:100%;padding:11px;border:1px solid #2d3842;border-radius:10px;background:#0f1418;color:#e8edf1;font-size:14px;margin-bottom:8px">'
-    +'<div id="tbAddResults" style="max-height:46vh;overflow:auto"></div></div>';
+  ov.innerHTML='<div style="display:flex;flex-direction:column;width:100%;max-width:560px;height:100%;background:#0f1418;color:#e8edf1;box-shadow:0 0 40px rgba(0,0,0,.5)">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #2d3842;flex:0 0 auto"><b style="font-size:17px">Hinzufügen</b><button onclick="document.getElementById(\'tbAddOv\').remove()" style="border:0;background:#232c35;color:#e8edf1;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px">Schließen ✕</button></div>'
+    +'<div style="padding:14px 16px 8px;flex:0 0 auto">'
+      +'<select id="tbAddMeal" onchange="window._tbAddMeal=this.value" style="width:100%;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#141a1f;color:#e8edf1;margin-bottom:8px">'+opt("Frühstück")+opt("Mittag")+opt("Abendessen")+opt("Snack")+'</select>'
+      +'<input id="tbAddSearch" oninput="tbAddFilter(this.value)" placeholder="🔍 Produkt suchen…" style="width:100%;padding:11px;border:1px solid #2d3842;border-radius:10px;background:#141a1f;color:#e8edf1;font-size:14px"></div>'
+    +'<div id="tbAddResults" style="flex:1;overflow:auto;padding:4px 16px 16px"></div>'
+    +'</div>';
   document.body.appendChild(ov);
   const si=document.getElementById("tbAddSearch");
-  if(prefillId){ const p=(ALL||[]).find(x=>x.id===prefillId); if(p){ si.value=p.name; tbAddPick(prefillId); return; } }
+  if(prefillId){ const p=(ALL||[]).find(x=>x.id===prefillId); if(p){ si.value=p.name; window._tbAddList=[p]; tbAddPick(0); return; } }
   if(prefillName){ window._tbAddManualName=prefillName; tbAddManualOpen(); return; }
   tbAddFilter(""); try{ si.focus(); }catch(e){}
 }
@@ -1805,22 +1809,25 @@ function tbAddFilter(q){
       +'<button onclick="tbAddManualOpen()" style="width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:14px;font-weight:600;cursor:pointer">+ Manuell eintragen'+(q?(' „'+esc(q)+'"'):'')+'</button>';
     return;
   }
-  box.innerHTML=list.map(p=>{ const sc=num(p.clean_score);
-    return '<button onclick="tbAddPick('+JSON.stringify(p.id)+')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:#1b2229;border:1px solid #2d3842;border-radius:10px;padding:10px;margin-bottom:6px;color:#e8edf1;cursor:pointer"><span style="min-width:0"><span style="font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+'</span><span style="font-size:11.5px;color:#93a1ac">'+esc(mkLabel(p.marke)||"")+(p.kategorie?(" · "+esc(p.kategorie)):"")+'</span></span>'+(sc!=null?'<span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(sc))+'">'+sc+'</span>':'')+'</button>';
+  window._tbAddList=list;
+  box.innerHTML=list.map((p,i)=>{ const sc=num(p.clean_score);
+    return '<button onclick="tbAddPick('+i+')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:#1b2229;border:1px solid #2d3842;border-radius:10px;padding:10px;margin-bottom:6px;color:#e8edf1;cursor:pointer"><span style="min-width:0"><span style="font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+'</span><span style="font-size:11.5px;color:#93a1ac">'+esc(mkLabel(p.marke)||"")+(p.kategorie?(" · "+esc(p.kategorie)):"")+'</span></span>'+(sc!=null?'<span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(sc))+'">'+sc+'</span>':'')+'</button>';
   }).join("");
 }
-function tbAddPick(id){
-  const p=(ALL||[]).find(x=>x.id===id); if(!p) return;
+function tbAddPick(i){
+  const p=(window._tbAddList||[])[i]; if(!p) return;
+  window._tbAddPickId=p.id;
   const box=document.getElementById("tbAddResults"); if(!box) return;
   const g=tbDefaultPortion(p);
   box.innerHTML='<div style="background:#1b2229;border:1px solid #2d3842;border-radius:12px;padding:12px">'
-    +'<div style="font-weight:600;margin-bottom:8px">'+esc(p.name)+'</div>'
+    +'<div style="font-weight:600;margin-bottom:8px">'+esc(p.name)+(num(p.clean_score)!=null?' <span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(num(p.clean_score)))+'">'+num(p.clean_score)+'</span>':'')+'</div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input id="tbAddMenge" type="number" min="1" value="'+g+'" style="flex:1;min-width:0;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#0f1418;color:#e8edf1"><span style="color:#93a1ac">g</span>'
-    +'<button onclick="tbAddSave('+JSON.stringify(id)+')" style="padding:10px 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Eintragen</button></div>'
+    +'<button onclick="tbAddSave()" style="padding:10px 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Eintragen</button></div>'
     +'<button onclick="tbAddFilter(document.getElementById(\'tbAddSearch\').value)" style="margin-top:8px;background:none;border:0;color:#93a1ac;font-size:12px;cursor:pointer;text-decoration:underline">‹ zurück zur Suche</button>'
     +'<div id="tbAddMsg" style="font-size:12px;color:#93a1ac;margin-top:6px"></div></div>';
 }
-async function tbAddSave(id){
+async function tbAddSave(){
+  const id=window._tbAddPickId; if(!id) return;
   const menge=parseFloat(document.getElementById("tbAddMenge").value)||0;
   const m=document.getElementById("tbAddMsg");
   if(menge<=0){ if(m){m.style.color="#f87171";m.textContent="Menge angeben.";} return; }
