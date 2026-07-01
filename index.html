@@ -1004,8 +1004,31 @@ function pfTab(name){
 }
 /* ===== Startseite (Home) ===== */
 function startFeature(ic,t,sub){ return '<div style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px">'+ic+'</div><div style="font-weight:600;font-size:13.5px;margin-top:2px">'+t+'</div><div style="font-size:11.5px;color:var(--muted)">'+sub+'</div></div>'; }
+function topProdukteHtml(){
+  const by={};
+  (ALL||[]).forEach(p=>{ const s=num(p.clean_score); if(s==null||!p.score_vollstaendig) return; const k=p.kategorie||"Sonstige"; (by[k]=by[k]||[]).push(p); });
+  const kats=Object.entries(by).filter(([k,a])=>a.length>=2)
+    .map(([k,a])=>{ a.sort((x,y)=>num(y.clean_score)-num(x.clean_score)); return {kat:k,top:a[0],n:a.length}; })
+    .sort((a,b)=>num(b.top.clean_score)-num(a.top.clean_score)).slice(0,5);
+  if(!kats.length) return "";
+  const row=x=>`<div onclick="detailById('${x.top.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer">`
+    +donut(num(x.top.clean_score), farbe(x.top.bewertung), 40)
+    +`<div style="min-width:0;flex:1"><div style="font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.top.name)}${x.top.marke?` <span style="color:var(--muted);font-weight:400">· ${esc(x.top.marke)}</span>`:""}</div>`
+    +`<div style="font-size:11.5px;color:var(--muted)">🏆 Bestes in ${esc(x.kat)} · ${x.n} bewertet</div></div><div style="color:var(--muted)">›</div></div>`;
+  return `<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">`
+    +`<div style="font-weight:600;margin-bottom:1px">🏆 TOP-Produkte</div>`
+    +`<div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">Höchster Clean Score je Kategorie – nur verifiziert</div>`
+    +kats.map(row).join("")+`</div>`;
+}
+function startRezSucheHtml(){
+  return `<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px;box-shadow:var(--shadow)">`
+    +`<div style="display:flex;gap:8px"><input id="startRezSuche" placeholder="🍲 Rezepte suchen…" onkeydown="if(event.key==='Enter')startRezeptSuche(this.value)" style="flex:1;min-width:0;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-size:14px">`
+    +`<button onclick="startRezeptSuche(document.getElementById('startRezSuche').value)" style="padding:10px 14px;border:0;border-radius:10px;background:var(--green);color:#fff;cursor:pointer">Suchen</button></div></div>`;
+}
+function startRezeptSuche(v){ navTo('rezepte'); setTimeout(()=>{ const i=document.getElementById('rezeptSuche'); if(i){ i.value=v||''; } if(typeof renderRezeptList==='function') renderRezeptList(); },80); }
 async function renderStart(){
   const body=document.getElementById("startBody"); if(!body) return;
+  if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*"); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   const card='background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
   if(!ME){
     body.innerHTML='<div style="max-width:600px;margin:0 auto">'
@@ -1015,6 +1038,7 @@ async function renderStart(){
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
       +'<button onclick="openLogin()" style="padding:12px 18px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Anmelden / Registrieren</button>'
       +'<button onclick="navTo(\'produkte\')" style="padding:12px 18px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-size:15px;cursor:pointer">Produkte ansehen</button></div></div>'
+      +startRezSucheHtml()+topProdukteHtml()
       +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
       +startFeature('🔍','Clean Score','0–100, erklärt')+startFeature('📒','Tagebuch','Makros &amp; Ziele')
       +startFeature('🏋️','Training','Plan &amp; Fortschritt')+startFeature('🥗','Rezepte','bewertet &amp; skalierbar')
@@ -1046,7 +1070,8 @@ async function renderStart(){
       +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:#fff;color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
     +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">'
       +'<button onclick="navTo(\'tagebuch\')" style="padding:13px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:14px;cursor:pointer">📒 Tagebuch öffnen</button>'
-      +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>';
+      +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>'
+    +startRezSucheHtml()+topProdukteHtml();
 }
 function bnActive(m){
   const ids=['bnstart','bnprodukte','bntagebuch','bntraining','bnmehr'];
