@@ -266,6 +266,7 @@
       </div>
       <div id="tbTopResults"></div>
       <div id="tbZiel" style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
+      <div id="tbZyklus"></div>
       <div id="tbListe"></div>
       <div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-top:12px">
         <div style="font-weight:600;margin-bottom:8px">Gewicht</div>
@@ -372,7 +373,7 @@
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
           <label style="font-size:13px;color:#374151">Geburtsdatum<input type="date" id="pfGeb" oninput="pfAgeFromGeb()" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
           <label style="font-size:13px;color:#374151">Alter <span style="color:#9aa7a0;font-size:11px">(aus Geburtsdatum)</span><input type="number" id="pfAlter" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Geschlecht<select id="pfGeschlecht" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>weiblich</option><option>männlich</option><option>divers</option></select></label>
+          <label style="font-size:13px;color:#374151">Geschlecht<select id="pfGeschlecht" onchange="pfZyklusToggle()" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>weiblich</option><option>männlich</option><option>divers</option></select></label>
           <label style="font-size:13px;color:#374151">Größe (cm)<input type="number" id="pfGroesse" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
           <label style="font-size:13px;color:#374151">Gewicht (kg)<input type="number" step="0.1" id="pfGewicht" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
           <label style="font-size:13px;color:#374151">Aktivitätslevel<select id="pfAktiv" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>Sitzend</option><option>Leicht aktiv</option><option>Mäßig aktiv</option><option>Sehr aktiv</option></select></label>
@@ -381,6 +382,17 @@
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;margin-top:12px"><input type="checkbox" id="pfNews" style="width:16px;height:16px;accent-color:#16a34a">Newsletter abonnieren – Infos zu neuen Produkten &amp; Rezepten</label>
         <button onclick="saveProfil()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Speichern</button>
         <span id="pfMsg" style="font-size:13px;margin-left:10px"></span>
+        <div id="pfZyklusBox" style="display:none;margin-top:16px;background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:12px 14px">
+          <div style="font-weight:600;font-size:13.5px;margin-bottom:2px">🌸 Zyklus (optional)</div>
+          <div style="font-size:11.5px;color:#6b7280;margin-bottom:10px">Für phasengerechte Hinweise im Tagebuch (z. B. Eisen während der Periode, Magnesium/Heißhunger davor). Private Angabe. <b>Keine medizinische Beratung.</b></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+            <label style="font-size:13px;color:#374151;flex:1;min-width:150px">Letzter Zyklusbeginn<input type="date" id="pfZykStart" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+            <label style="font-size:13px;color:#374151">Zykluslänge (Tage)<input type="number" id="pfZykLen" min="20" max="45" placeholder="28" style="width:120px;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+            <button onclick="saveZyklus()" style="padding:9px 15px;border:0;border-radius:8px;background:#db2777;color:#fff;cursor:pointer">Speichern</button>
+          </div>
+          <div id="pfZykMsg" style="font-size:12.5px;margin-top:8px"></div>
+          <div id="pfZykPhase" style="font-size:12.5px;margin-top:6px;color:#6b7280"></div>
+        </div>
       </div>
       <div class="pf-pane pf-ziele" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:4px">Kalorienbedarf berechnen</div>
@@ -716,6 +728,7 @@ async function loadProfil(){
   _selVal("pfAnFr",b.Anteil_Fr); _selVal("pfAnMi",b.Anteil_Mi); _selVal("pfAnAb",b.Anteil_Ab); _selVal("pfAnSn",b.Anteil_Sn);
   loadZielHistorie();
   renderProfilGeraete(); renderProfilMass();
+  loadZyklus();
   pfTab('daten');
 }
 async function saveAnteile(){
@@ -761,6 +774,74 @@ async function saveProfil(){
   const {error:e2}=await client.rpc("cb_profil_extra",{p_geburtsdatum:geb,p_newsletter:news});
   if(e2){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+e2.message; return; }
   msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; loadProfil(); refreshMe();
+}
+/* ---- Zyklus (EN-12) ---- */
+function pfZyklusToggle(){
+  const box=document.getElementById("pfZyklusBox"); if(!box) return;
+  const g=(document.getElementById("pfGeschlecht")||{}).value||"";
+  box.style.display = (g==="weiblich") ? "" : "none";
+}
+async function loadZyklus(){
+  pfZyklusToggle();
+  try{
+    const {data}=await client.rpc("cb_zyklus_get");
+    const r=(data&&data[0])||{};
+    window._zyklus = (r.start) ? {start:r.start, laenge:r.laenge||28} : {};
+    if(r.start){ _selVal("pfZykStart", r.start); }
+    if(r.laenge){ _selVal("pfZykLen", r.laenge); }
+    zyklusPhaseText();
+  }catch(e){ window._zyklus={}; }
+}
+async function saveZyklus(){
+  const msg=document.getElementById("pfZykMsg");
+  const s=(document.getElementById("pfZykStart")||{}).value||null;
+  const l=parseInt((document.getElementById("pfZykLen")||{}).value,10)||28;
+  if(!s){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Bitte Zyklusbeginn wählen."; } return; }
+  const {error}=await client.rpc("cb_zyklus_speichern",{p_start:s,p_laenge:l});
+  if(error){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; } return; }
+  window._zyklus={start:s, laenge:Math.min(45,Math.max(20,l))};
+  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert – Hinweise erscheinen im Tagebuch."; }
+  zyklusPhaseText();
+  if(document.getElementById("tbZyklus")) renderZyklusHint();
+}
+// Zyklustag & Phase; nutzt tbToday() als Bezugstag
+function zyklusInfo(){
+  const z=window._zyklus; if(!z||!z.start) return null;
+  const start=new Date(z.start+"T00:00:00");
+  const ref=(typeof tbToday==="function")? new Date(tbToday()+"T00:00:00") : new Date();
+  const diff=Math.floor((ref-start)/86400000);
+  if(isNaN(diff)||diff<0) return null;
+  const len=z.laenge||28;
+  const day=(diff%len)+1;
+  const zyklen=Math.floor(diff/len);
+  const nextStart=new Date(start.getTime()+(zyklen+1)*len*86400000);
+  const bis=Math.round((nextStart-ref)/86400000);
+  let phase="Follikelphase", hint=null;
+  if(day<=5){
+    phase="Menstruation";
+    hint={emoji:"🩸", title:"Menstruation · Tag "+day,
+      text:"Durch den Blutverlust ist der <b>Eisenbedarf</b> oft erhöht. Eisenreiche Lebensmittel (Hülsenfrüchte, Haferflocken, grünes Gemüse, rotes Fleisch) mit etwas Vitamin C (Paprika, Zitrus) kombinieren – das verbessert die Aufnahme."};
+  } else if(bis<=5){
+    phase="Lutealphase";
+    hint={emoji:"🌙", title:"Kurz vor der Periode · noch ~"+bis+" Tage",
+      text:"In dieser Phase sind mehr Hunger und <b>Heißhunger auf Süßes</b> sowie ein leicht höherer Energie- und <b>Magnesium</b>bedarf verbreitet. Vollkorn, Obst, Nüsse und dunkle Schokolade in Maßen können helfen."};
+  }
+  return {day, len, bis, phase, hint, nextStart};
+}
+function zyklusPhaseText(){
+  const el=document.getElementById("pfZykPhase"); if(!el) return;
+  const z=zyklusInfo();
+  if(!z){ el.textContent=""; return; }
+  el.innerHTML="Heute: <b>Zyklustag "+z.day+"</b> · "+esc(z.phase)+" · nächste Periode in ~"+z.bis+" Tagen (Schätzung).";
+}
+function renderZyklusHint(){
+  const el=document.getElementById("tbZyklus"); if(!el) return;
+  const z=zyklusInfo();
+  if(!z||!z.hint){ el.innerHTML=""; return; }
+  el.innerHTML='<div style="background:var(--tb-card);border:1px solid #7a3b5a;border-radius:12px;padding:12px 14px;margin-bottom:12px">'
+    +'<div style="font-weight:600;font-size:13.5px;margin-bottom:3px">'+z.hint.emoji+' '+esc(z.hint.title)+'</div>'
+    +'<div style="font-size:12.5px;color:var(--tb-muted);line-height:1.55">'+z.hint.text+'</div>'
+    +'<div style="font-size:11px;color:var(--tb-muted);opacity:.75;margin-top:6px">Allgemeine Info, keine medizinische Beratung.</div></div>';
 }
 async function setMyPassword(){
   const pass=document.getElementById("pfPass").value||""; const msg=document.getElementById("pfPassMsg");
@@ -1700,6 +1781,8 @@ async function loadTagebuch(){
   const {data:summe}=await client.rpc("cb_tagessumme",{p_datum:datum});
   const {data:profil}=await client.rpc("cb_profil");
   renderZiel(summe&&summe[0], profil&&profil[0]);
+  if(window._zyklus===undefined){ try{ const {data:zk}=await client.rpc("cb_zyklus_get"); const r=(zk&&zk[0])||{}; window._zyklus=(r.start)?{start:r.start,laenge:r.laenge||28}:{}; }catch(e){ window._zyklus={}; } }
+  renderZyklusHint();
   renderTbListe(eintraege||[], profil&&profil[0]);
   const {data:gw}=await client.rpc("cb_gewicht");
   document.getElementById("tbGewichtInfo").textContent = (gw&&gw[0])?("Zuletzt: "+gw[0].Gewicht_kg+" kg ("+gw[0].Datum+")"):"noch kein Gewicht erfasst";
@@ -1834,6 +1917,8 @@ function tbScanPopup(){
         try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
           if(msg){ msg.style.color="#8ee6a8"; msg.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. Wird nach Prüfung ergänzt."; }
         }catch(e){ if(msg){ msg.style.color="#e8920c"; msg.textContent="Barcode "+code+" nicht im Katalog."; } }
+        const res=document.getElementById("tbAddResults");
+        if(res){ res.innerHTML='<button onclick="window._tbAddManualEan=\''+code+'\';window._tbAddManualName=\'\';tbAddManualOpen();offLookup();" style="margin-top:10px;width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">🔎 Bei Open Food Facts holen &amp; eintragen</button>'; }
       }
     }catch(e){ if(msg){ msg.style.color="#f87171"; msg.textContent="Fehler: "+e.message; } }
   }); }catch(e){ const msg=document.getElementById("tbScanMsg"); if(msg){ msg.style.color="#f87171"; msg.textContent="Kamera nicht verfügbar: "+e.message; } }
@@ -1976,8 +2061,14 @@ async function tbAddSave(){
 function tbAddManualOpen(){
   const box=document.getElementById("tbAddResults"); if(!box) return;
   const nm=window._tbAddManualName||"";
+  const ean=window._tbAddManualEan||"";
   box.innerHTML='<div style="background:#1b2229;border:1px solid #2d3842;border-radius:12px;padding:12px">'
     +'<div style="font-weight:600;margin-bottom:8px">Manuell eintragen</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:6px">'
+      +'<input id="tbmEan" value="'+esc(ean)+'" placeholder="Barcode (EAN, optional)" style="flex:1;min-width:0;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#0f1418;color:#e8edf1">'
+      +'<button onclick="offLookup()" style="padding:10px 12px;border:1px solid #2d3842;border-radius:10px;background:#141a1f;color:#8ee6a8;font-size:12.5px;white-space:nowrap;cursor:pointer">🔎 Open Food Facts</button>'
+    +'</div>'
+    +'<div id="tbmOffMsg" style="font-size:11.5px;color:#93a1ac;margin-bottom:6px"></div>'
     +'<input id="tbmName" value="'+esc(nm)+'" placeholder="Lebensmittel" style="width:100%;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#0f1418;color:#e8edf1;margin-bottom:6px">'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
       +'<input id="tbmMenge" type="number" placeholder="g" style="width:66px;padding:9px;border:1px solid #2d3842;border-radius:8px;background:#0f1418;color:#e8edf1">'
@@ -2003,6 +2094,33 @@ async function tbAddManualSave(){
   const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:meal,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum});
   if(error){ if(m){m.style.color="#f87171";m.textContent="Fehler: "+error.message;} return; }
   const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
+}
+// EN-13: Open Food Facts als Vorschlag-Quelle. Läuft im Browser (Sandbox hat keinen Netz-Zugang).
+// Befüllt nur das Formular; nichts geht ungeprüft live – Speichern landet wie gehabt in der Admin-Queue.
+async function offLookup(){
+  const msg=document.getElementById("tbmOffMsg");
+  const ean=(document.getElementById("tbmEan")||{}).value||"";
+  const code=ean.replace(/\D/g,"");
+  if(code.length<8){ if(msg){ msg.style.color="#e8920c"; msg.textContent="Bitte gültigen Barcode (EAN) eingeben."; } return; }
+  if(msg){ msg.style.color="#93a1ac"; msg.textContent="Suche bei Open Food Facts…"; }
+  try{
+    const url="https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,product_name_de,brands,nutriments";
+    const r=await fetch(url,{headers:{"Accept":"application/json"}});
+    const j=await r.json();
+    if(!j || j.status!==1 || !j.product){ if(msg){ msg.style.color="#e8920c"; msg.textContent="Kein Treffer bei Open Food Facts für "+code+"."; } return; }
+    const p=j.product, n=p.nutriments||{};
+    const nm=(p.product_name_de||p.product_name||"").trim();
+    const marke=(p.brands||"").split(",")[0].trim();
+    const setV=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null&&!isNaN(v)) el.value=Math.round(v*10)/10; };
+    if(nm){ const e=document.getElementById("tbmName"); if(e) e.value = marke? (nm+" ("+marke+")") : nm; }
+    setV("tbmKcal", n["energy-kcal_100g"]);
+    setV("tbmEiw",  n["proteins_100g"]);
+    setV("tbmKh",   n["carbohydrates_100g"]);
+    setV("tbmFett", n["fat_100g"]);
+    if(msg){ msg.style.color="#8ee6a8"; msg.innerHTML="✓ Werte übernommen (je 100 g). <b>Bitte prüfen</b> – Open-Food-Facts-Daten sind community-gepflegt. Menge in g ergänzen, dann Eintragen (geht zur Admin-Prüfung)."; }
+  }catch(e){
+    if(msg){ msg.style.color="#f87171"; msg.textContent="Abruf fehlgeschlagen (Netz/CORS): "+e.message; }
+  }
 }
 async function addTbEntry(){
   const pid=tbResolveId(), menge=parseFloat(document.getElementById("tbMenge").value), mahl=document.getElementById("tbMahlzeit").value, datum=document.getElementById("tbDatum").value, msg=document.getElementById("tbMsg");
