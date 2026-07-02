@@ -355,6 +355,10 @@
       <div id="fgMeldungen" style="font-size:14px;color:#374151;line-height:1.6;margin-bottom:6px"></div>
       <h3 style="font-size:16px;margin:18px 0 6px">Scan-Warteschlange (noch ohne Daten)</h3>
       <div id="fgQueue" style="font-size:14px;color:#374151;line-height:1.7"></div>
+      <h3 style="font-size:16px;margin:18px 0 6px">Rezepte – Free-Freischaltung</h3>
+      <div style="color:#6b7280;font-size:12.5px;margin-bottom:8px">Häkchen = im kostenlosen Modus sichtbar. Ohne Häkchen nur für zahlende/Trial-Nutzer. Nur du (Admin) kannst das ändern.</div>
+      <input id="fgRezSuche" oninput="renderRezepteFree()" placeholder="Rezept suchen…" style="width:100%;max-width:320px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;margin-bottom:8px">
+      <div id="fgRezepteFree" style="font-size:14px;color:#374151"></div>
     </div>
   </div>
   <div id="profilView" style="display:none">
@@ -364,7 +368,6 @@
       <div id="pfTabs" class="seg">
         <button data-p="daten" onclick="pfTab('daten')">Daten</button>
         <button data-p="ziele" onclick="pfTab('ziele')">Ziele</button>
-        <button data-p="geraete" onclick="pfTab('geraete')">Geräte</button>
         <button data-p="masse" onclick="pfTab('masse')">Körpermaße</button>
       </div>
       <div class="pf-pane pf-daten" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
@@ -453,10 +456,6 @@
         </div>
         <button onclick="saveAnteile()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Anteile speichern</button>
         <span id="pfAnMsg" style="font-size:13px;margin-left:10px"></span>
-      </div>
-      <div class="pf-pane pf-geraete" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
-        <div style="font-weight:600;margin-bottom:10px">🏋️ Meine Geräte zuhause</div>
-        <div id="pfGeraete">…</div>
       </div>
       <div class="pf-pane pf-masse" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">📐 Körpermaße</div>
@@ -607,7 +606,31 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 /* ---- Auth (Magic-Link) + Premium ---- */
 let ME = null; // {benutzer_id, name, is_premium, is_admin, tier}
 let MY_FEATURES = null; // Set der freigeschalteten feature_keys (per Stufe)
-function hasFeat(k){ return MY_FEATURES ? MY_FEATURES.has(k) : !!(ME&&ME.is_premium); }
+const _TIER_FEAT = {
+  base:  new Set(),
+  move:  new Set(['profil','tagebuch','planer','rezepte_anlegen','rezepte_pro','score_detail','rezepte_alle']),
+  elite: new Set(['profil','tagebuch','planer','rezepte_anlegen','rezepte_pro','score_detail','rezepte_alle','fitness'])
+};
+function hasFeat(k){
+  // Admin-Testschalter „Als Tier ansehen"
+  if(window._tierOverride && ME && ME.is_admin){ const s=_TIER_FEAT[window._tierOverride]; return s?s.has(k):false; }
+  return MY_FEATURES ? MY_FEATURES.has(k) : !!(ME&&ME.is_premium);
+}
+function setTierOverride(t){
+  window._tierOverride = t || null;
+  const c=document.getElementById("tierOvChip"); if(c) c.querySelectorAll('button').forEach(b=>b.style.fontWeight=(b.dataset.t===(t||''))?'800':'400');
+  try{ if(typeof render==='function') render(); }catch(e){}
+  try{ const v=document.getElementById('rezeptView'); if(v&&v.style.display!=='none'&&typeof loadRezepte==='function') loadRezepte(); }catch(e){}
+}
+function mountTierOvChip(){
+  if(!(ME&&ME.is_admin)) { const ex=document.getElementById("tierOvChip"); if(ex) ex.remove(); return; }
+  if(document.getElementById("tierOvChip")) return;
+  const c=document.createElement("div"); c.id="tierOvChip";
+  c.style.cssText="position:fixed;bottom:76px;right:10px;z-index:70;background:#111827;color:#fff;border-radius:999px;padding:5px 8px;font-size:11px;display:flex;gap:4px;align-items:center;box-shadow:0 4px 14px rgba(0,0,0,.3)";
+  c.innerHTML='<span style="opacity:.7;margin:0 2px">Als:</span>'
+    +['aus','base','move','elite'].map(t=>'<button data-t="'+(t==='aus'?'':t)+'" onclick="setTierOverride(\''+(t==='aus'?'':t)+'\')" style="background:none;border:0;color:#fff;cursor:pointer;font-size:11px;padding:2px 5px;border-radius:8px">'+t+'</button>').join("");
+  document.body.appendChild(c);
+}
 async function refreshMyFeatures(){ try{ const {data}=await client.rpc("cb_my_features"); MY_FEATURES=new Set((data||[]).map(x=>x.feature_key)); }catch(e){ MY_FEATURES=null; } }
 function premiumInfo(){ alert("Premium-Freischaltung kommt bald. Solange schaltet der Betreiber Premium manuell frei."); }
 function gateHtml(){
@@ -683,6 +706,7 @@ function updateAuthUI(){
   const fg=document.getElementById("tabFg"); if(fg) fg.style.display=(ME&&ME.is_admin)?"":"none";
   const st=document.getElementById("tabStufen"); if(st) st.style.display=(ME&&ME.is_admin)?"":"none";
   const us=document.getElementById("tabUsers"); if(us) us.style.display=(ME&&ME.is_admin)?"":"none";
+  try{ mountTierOvChip(); }catch(e){}
 }
 function updateGate(){
   const form=document.getElementById("vorForm"), gate=document.getElementById("vorGate");
@@ -727,7 +751,7 @@ async function loadProfil(){
   _selVal("pfKcal",b.Kalorienziel_kcal); _selVal("pfEiw",b.Eiweiss_ziel_g); _selVal("pfKh",b.KH_ziel_g); _selVal("pfFett",b.Fett_ziel_g);
   _selVal("pfAnFr",b.Anteil_Fr); _selVal("pfAnMi",b.Anteil_Mi); _selVal("pfAnAb",b.Anteil_Ab); _selVal("pfAnSn",b.Anteil_Sn);
   loadZielHistorie();
-  renderProfilGeraete(); renderProfilMass();
+  renderProfilMass();
   loadZyklus();
   pfTab('daten');
 }
@@ -820,7 +844,7 @@ function zyklusInfo(){
   if(day<=5){
     phase="Menstruation";
     hint={emoji:"🩸", title:"Menstruation · Tag "+day,
-      text:"Durch den Blutverlust ist der <b>Eisenbedarf</b> oft erhöht. Eisenreiche Lebensmittel (Hülsenfrüchte, Haferflocken, grünes Gemüse, rotes Fleisch) mit etwas Vitamin C (Paprika, Zitrus) kombinieren – das verbessert die Aufnahme."};
+      text:"Durch den Blutverlust ist der <b>Eisenbedarf</b> oft erhöht. Eisenreiche Lebensmittel (Hülsenfrüchte, Haferflocken, grünes Gemüse, rotes Fleisch) mit etwas Vitamin C (Paprika, Zitrus) kombinieren – das verbessert die Aufnahme. Bei Regelschmerzen kann <b>Omega-3</b> (fetter Fisch, Lein-/Rapsöl, Walnüsse) unterstützend wirken (Studienlage begrenzt)."};
   } else if(bis<=5){
     phase="Lutealphase";
     hint={emoji:"🌙", title:"Kurz vor der Periode · noch ~"+bis+" Tage",
@@ -994,13 +1018,36 @@ function detail(d){
   let varNote="";
   if(variants.length) varNote = "Auch erhältlich: "+variants.map(v=>esc(v.name)).join(", ");
   else if(d.variante_von){ const base=ALL.find(x=>x.id===d.variante_von); if(base) varNote="Variante von: "+esc(base.name); }
+  const _sd = hasFeat('score_detail');
+  const zInfoHtml = (()=>{const infos=zlist.map(z=>({z,t:zInfoClean(z.name,z.info)})).filter(o=>o.t);return infos.length?`<div style="margin-top:8px">${infos.map(o=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:#f8fafc;border:1px solid var(--line);border-radius:9px"><b>${esc(o.z.name)}</b>${(String(o.z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(o.t)}</div>`).join("")}</div>`:"";})();
+  const premiumBlock = `
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Clean Score</div>
+    ${sonderHint}
+    ${rows}
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Zutaten</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#1f5e34;margin-right:3px"></span>gut (Vollwert) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8920c;margin-right:3px"></span>mittel (verarbeitet) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px"></span>kritisch ⚠️</div>
+    <div>${zHtml}</div>
+    ${zInfoHtml}
+    ${(d.zusatz && d.zusatz.info && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||"")))?`<div style="margin-top:8px;font-size:12.5px;line-height:1.45;padding:8px 11px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:9px;color:#1e3a8a"><b>* ${esc(d.zusatz.text||"Zusatzstoff")}</b> – technologisch notwendig &amp; unbedenklich, zählt nicht negativ. ${esc(d.zusatz.info)}</div>`:""}
+    ${d.warum?`<div class="note"><h4>Warum empfohlen</h4>${esc(d.warum)}</div>`:""}
+    ${d.schwaechen?`<div class="note teilhint"><h4>Schwächen</h4>${esc(d.schwaechen)}</div>`:""}
+    ${d.clean_score!=null?`<div class="note" style="margin-top:14px"><h4>Stärken des Produkts</h4>${esc(erklaerung(d))}</div>`:""}
+  `;
+  const lockedBlock = `
+    ${d.schwaechen?`<div class="note teilhint" style="margin-top:8px"><b>Kurz:</b> ${esc(d.schwaechen)}</div>`:""}
+    <div style="margin-top:12px;background:var(--greenlt);border:1px solid var(--green);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-weight:700;margin-bottom:4px">🔒 Volle Aufschlüsselung und bessere Alternativen</div>
+      <div style="font-size:13px;color:var(--greendk);margin-bottom:10px">Die vier Säulen im Detail, Zutaten-Bewertung und Alternativen.${ME?"":" Registrier dich – 7 Tage gratis."}</div>
+      <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:10px 18px;border:0;border-radius:10px;background:var(--green);color:#fff;font-weight:600;cursor:pointer">${ME?'Premium freischalten':'Registrieren – 7 Tage gratis'}</button>
+    </div>
+  `;
   const panel=document.getElementById("panel");
   panel.innerHTML=`
     <button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(d.name)}</h2>
     <div class="marke">${(mkLabel(d.marke)?esc(mkLabel(d.marke))+" · ":"")}${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
     <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button>${(ME&&ME.is_admin)?`<button onclick="adminDeleteProdukt('${d.id}','${esc(d.name||"").replace(/'/g,"")}')" style="padding:7px 12px;border:1px solid #fca5a5;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;font-size:13px">🗑️ Produkt ausblenden</button>`:""}</div>
-    ${altBanner(d)}
+    ${_sd?altBanner(d):""}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
       ${donut(d.clean_score, col, 96)}
@@ -1009,22 +1056,8 @@ function detail(d){
     </div>
     ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
     ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Score kann sich ändern.</div>`:""}
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Clean Score</div>
-    ${sonderHint}
-    ${rows}
     ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Zutaten</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
-      <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#1f5e34;margin-right:3px"></span>gut (Vollwert)
-      &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8920c;margin-right:3px"></span>mittel (verarbeitet)
-      &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px"></span>kritisch ⚠️
-    </div>
-    <div>${zHtml}</div>
-    ${(()=>{const infos=zlist.map(z=>({z,t:zInfoClean(z.name,z.info)})).filter(o=>o.t);return infos.length?`<div style="margin-top:8px">${infos.map(o=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:#f8fafc;border:1px solid var(--line);border-radius:9px"><b>${esc(o.z.name)}</b>${(String(o.z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(o.t)}</div>`).join("")}</div>`:""})()}
-    ${(d.zusatz && d.zusatz.info && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||"")))?`<div style="margin-top:8px;font-size:12.5px;line-height:1.45;padding:8px 11px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:9px;color:#1e3a8a"><b>* ${esc(d.zusatz.text||"Zusatzstoff")}</b> – technologisch notwendig &amp; unbedenklich, zählt nicht negativ. ${esc(d.zusatz.info)}</div>`:""}
-    ${d.warum?`<div class="note"><h4>Warum empfohlen</h4>${esc(d.warum)}</div>`:""}
-    ${d.schwaechen?`<div class="note teilhint"><h4>Schwächen</h4>${esc(d.schwaechen)}</div>`:""}
-    ${d.clean_score!=null?`<div class="note" style="margin-top:14px"><h4>Stärken des Produkts</h4>${esc(erklaerung(d))}</div>`:""}
+    ${_sd ? premiumBlock : lockedBlock}
   `;
   document.getElementById("overlay").classList.add("open");
 }
@@ -1325,7 +1358,15 @@ function wikiOpen(){
         • <b>Kohlenhydrate:</b> der Rest – entspricht der DGE-Logik (KH ergeben sich aus Energiebedarf, Eiweiß- und Fett-Richtwert; Mischkost > 50 En%).`)}
       ${box(`<b>Alle 3–4 Wochen abgleichen:</b> wiegen, ggf. Körperfett neu messen, mit dem getrackten Essen vergleichen und den Bedarf am echten Gewichtsverlauf feinjustieren. Jede Formel ist nur eine Schätzung (±5–10 %).`)}
 
-      <p style="font-size:11.5px;color:#9aa7a0;margin-top:16px">Quellen u. a. DGE/D-A-CH-Referenzwerte. Dies ist keine medizinische Beratung.</p>
+      ${H("Fette &amp; Frauen (Zyklus)")}
+      ${box(`Es gibt <b>keinen</b> Beleg, dass Frauen <i>mehr</i> Fett brauchen als Männer. Was die Studien stützen: <b>genug</b> Fett (nicht extrem fettarm) und vor allem die <b>Fettqualität</b> – überwiegend <b>ungesättigt, besonders Omega-3</b>.<br>
+        • Sehr fettarme Kost (20–25 En%) senkte in kontrollierten Studien messbar Sexualhormone (u. a. Östron, Testosteron, SHBG).<br>
+        • Mehrfach ungesättigte Fette (PUFA) waren mit <b>geringerem Risiko für ausbleibenden Eisprung</b> verbunden.<br>
+        • <b>Omega-3</b> (EPA/DHA, ~300–1800 mg/Tag über 2–3 Monate) reduzierte in einer Meta-Analyse <b>Regelschmerzen</b> und Schmerzmittel-Bedarf – Evidenzqualität aber begrenzt.<br>
+        <b>Quellen:</b> fetter Fisch (Lachs, Hering, Makrele), Lein-/Rapsöl, Walnüsse.<br>
+        <i>Hinweis: allgemeine Information, keine medizinische Beratung – bei starken Beschwerden ärztlich abklären.</i>`)}
+
+      <p style="font-size:11.5px;color:#9aa7a0;margin-top:16px">Quellen u. a. DGE/D-A-CH-Referenzwerte sowie peer-reviewte Studien zu Fett/Hormonen und Omega-3/Dysmenorrhoe. Dies ist keine medizinische Beratung.</p>
     </div></div>`;
   document.body.appendChild(ov);
 }
@@ -2264,7 +2305,38 @@ async function loadFreigabe(){
       <div style="display:flex;gap:6px"><button onclick="fgMeldNeu(${i})" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px">Produkt anlegen</button><button onclick="fgMeldErledigt(${i})" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:13px">Erledigt</button></div>
     </div>`).join("") : '<span style="color:#6b7280">keine offenen Meldungen</span>'; }
   }catch(e){ const me=document.getElementById("fgMeldungen"); if(me) me.innerHTML='<span style="color:#6b7280">—</span>'; }
+  loadRezepteFree();
   try{ Object.keys(FG_SHOTS).forEach(updateFgShotInfo); }catch(e){}
+}
+async function loadRezepteFree(){
+  const box=document.getElementById("fgRezepteFree"); if(!box) return;
+  try{
+    const {data,error}=await client.rpc("cb_admin_rezepte_free");
+    if(error){ box.innerHTML='<span style="color:#6b7280">—</span>'; return; }
+    window._rezFree=data||[];
+    renderRezepteFree();
+  }catch(e){ box.innerHTML='<span style="color:#6b7280">—</span>'; }
+}
+function renderRezepteFree(){
+  const box=document.getElementById("fgRezepteFree"); if(!box) return;
+  const rows=window._rezFree||[];
+  const q=_norm((document.getElementById("fgRezSuche")||{}).value||"");
+  const list=q? rows.filter(r=>_norm(r.name||"").includes(q)) : rows;
+  const freiN=rows.filter(r=>r.frei).length;
+  if(!list.length){ box.innerHTML='<span style="color:#6b7280">Keine Rezepte.</span>'; return; }
+  box.innerHTML='<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'+freiN+' von '+rows.length+' Rezepten frei</div>'
+    + list.map(r=>'<label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:9px 11px;margin-bottom:6px;cursor:pointer">'
+      +'<input type="checkbox" '+(r.frei?'checked':'')+' onchange="rezFreeToggle(\''+r.rezept_id+'\',this.checked)" style="width:18px;height:18px;cursor:pointer">'
+      +'<span style="flex:1;min-width:0"><span style="font-weight:600">'+esc(r.name||"?")+'</span>'
+      +'<span style="font-size:12px;color:#6b7280"> · '+esc(r.rezept_id)+' · '+esc(r.status||"")+(r.sichtbarkeit&&r.sichtbarkeit!=="oeffentlich"?(" · "+esc(r.sichtbarkeit)):"")+'</span></span>'
+      +(r.frei?'<span style="font-size:11px;font-weight:700;color:#16a34a">FREE</span>':'<span style="font-size:11px;color:#9ca3af">🔒 Premium</span>')
+      +'</label>').join("");
+}
+async function rezFreeToggle(id, frei){
+  const {error}=await client.rpc("cb_rezept_free_setzen",{p_rezept:id,p_frei:frei});
+  if(error){ alert("Fehler: "+error.message); return; }
+  const r=(window._rezFree||[]).find(x=>x.rezept_id===id); if(r) r.frei=frei;
+  renderRezepteFree();
 }
 async function fgMeldErledigt(i){
   const x=(window._meld||[])[i]; if(!x) return;
@@ -2433,6 +2505,7 @@ function renderTraining(p, last, tf){
    +'<button data-p="plan" onclick="trTab(\'plan\')">Plan</button>'
    +'<button data-p="tagebuch" onclick="trTab(\'tagebuch\')">Tagebuch</button>'
    +'<button data-p="uebungen" onclick="trTab(\'uebungen\')">Übungen</button>'
+   +'<button data-p="geraete" onclick="trTab(\'geraete\')">Geräte</button>'
    +'<button data-p="statistik" onclick="trTab(\'statistik\')">Statistik</button>'
    +'</div><div id="trainPane"></div></div>';
   trTab(_trTab||'plan');
@@ -2444,7 +2517,13 @@ function trTab(name){
   if(name==='plan') renderTrainPlanPane();
   else if(name==='tagebuch') openTrainLog(null,'trainPane');
   else if(name==='uebungen') openUebungen('trainPane');
+  else if(name==='geraete') renderTrainGeraete();
   else if(name==='statistik') openTrainStats('trainPane');
+}
+function renderTrainGeraete(){
+  const pane=document.getElementById("trainPane"); if(!pane) return;
+  pane.innerHTML='<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px"><h3 style="margin:0 0 10px;font-size:17px">🏋️ Meine Geräte zuhause</h3><div id="pfGeraete">…</div></div>';
+  renderProfilGeraete();
 }
 function renderTrainPlanPane(){
   const p=TRAIN||{}, tf=_trTf, pane=document.getElementById("trainPane");
@@ -2472,17 +2551,22 @@ async function openUebungen(target){
   if(!target){ document.getElementById("overlay").classList.add("open"); document.getElementById("panel").scrollTop=0; }
   if(!UEBUNGEN){ try{ const {data}=await client.rpc("cb_uebungen"); UEBUNGEN=data||[]; }catch(e){ document.getElementById("uebList").innerHTML='<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>'; return; } }
   const groups=[...new Set(UEBUNGEN.map(u=>u.muskelgruppe))].sort();
+  const geraete=[...new Set(UEBUNGEN.filter(u=>u.geraet).map(u=>u.geraet))].sort();
   document.getElementById("uebFilter").innerHTML=
     '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">'
     +'<select id="uebGrp" onchange="renderUebungen()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:14px"><option value="">Alle Muskelgruppen</option>'+groups.map(g=>'<option>'+esc(g)+'</option>').join("")+'</select>'
+    +'<select id="uebGer" onchange="renderUebungen()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:14px"><option value="">Alle Geräte</option><option value="__none__">ohne Gerät</option>'+geraete.map(g=>'<option>'+esc(g)+'</option>').join("")+'</select>'
     +'<label style="font-size:13px"><input type="checkbox" id="uebMine" onchange="renderUebungen()"> nur mit meinen Geräten</label></div>';
   renderUebungen();
 }
 function renderUebungen(){
   const grp=document.getElementById("uebGrp").value;
+  const gerEl=document.getElementById("uebGer"); const ger=gerEl?gerEl.value:"";
   const mine=document.getElementById("uebMine").checked;
   const owned=new Set(Array.isArray(TRAIN&&TRAIN.Geraete)?TRAIN.Geraete:[]);
-  const list=(UEBUNGEN||[]).filter(u=> (!grp||u.muskelgruppe===grp) && (!mine || u.ohne_geraet || (u.geraet && owned.has(u.geraet))) );
+  const list=(UEBUNGEN||[]).filter(u=> (!grp||u.muskelgruppe===grp)
+    && (!ger || (ger==="__none__" ? u.ohne_geraet : u.geraet===ger))
+    && (!mine || u.ohne_geraet || (u.geraet && owned.has(u.geraet))) );
   const el=document.getElementById("uebList");
   if(!list.length){ el.innerHTML='<div style="color:#6b7280">Keine Übungen für diese Auswahl.</div>'; return; }
   el.innerHTML=list.map((u,i)=>{
