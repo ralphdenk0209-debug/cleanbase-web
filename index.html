@@ -13,14 +13,18 @@
 <meta name="apple-mobile-web-app-title" content="CleanBase" />
 <style>
   :root{
-    --bg:#f1f5f3; --card:#ffffff; --ink:#1f2a24; --muted:#6b7c73; --line:#e3ebe6;
-    --green:#2e7d46; --green2:#3a9d59; --greendk:#1f5e34; --greenlt:#eaf5ee;
-    --sehrgut:#16a34a; --gut:#65a30d; --mittel:#e8920c; --schwach:#dc2626; --grau:#9aa7a0;
-    --shadow:0 4px 16px rgba(31,94,52,.08);
+    --bg:#0f1418; --card:#1b2229; --ink:#e8edf1; --muted:#93a1ac; --line:#2d3842;
+    --green:#3aa85f; --green2:#4bbf72; --greendk:#8ee6a8; --greenlt:#173a24;
+    --sehrgut:#22c55e; --gut:#84cc16; --mittel:#f0a020; --schwach:#ef4444; --grau:#93a1ac;
+    --shadow:0 6px 20px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
        background:var(--bg);color:var(--ink);}
+  html,body{color-scheme:dark}
+  input,select,textarea{color:var(--ink)}
+  input::placeholder,textarea::placeholder{color:var(--muted);opacity:1}
+  input[type=date],input[type=number]{color-scheme:dark}
   a{color:inherit}
   /* HERO */
   .hero{background:linear-gradient(180deg,#236a3b,var(--greendk));color:#fff;padding:12px 20px;position:sticky;top:0;z-index:30}
@@ -38,7 +42,7 @@
   .hero .tag{margin:14px 0 0;font-size:17px;font-weight:500;opacity:.96;max-width:600px;line-height:1.4}
   .hero .sub{margin:5px 0 0;font-size:13.5px;opacity:.82}
   /* PRINCIPLE STRIP */
-  .principles{background:#fff;border-bottom:1px solid var(--line)}
+  .principles{background:var(--card);border-bottom:1px solid var(--line)}
   .principles .wrap{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between}
   .principles div{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--green2);flex:0 0 8px}
@@ -46,7 +50,7 @@
   .container{max-width:1080px;margin:0 auto;padding:20px 20px 60px;}
   .controls{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 14px;}
   .controls input,.controls select{padding:11px 13px;border:1px solid var(--line);border-radius:11px;
-       font-size:14px;background:#fff;color:var(--ink);outline:none}
+       font-size:14px;background:var(--card);color:var(--ink);outline:none}
   .controls input:focus,.controls select:focus{border-color:var(--green2);box-shadow:0 0 0 3px var(--greenlt)}
   .controls input[type=search]{flex:1;min-width:220px}
   .controls label{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
@@ -68,7 +72,7 @@
   /* DETAIL */
   .overlay{position:fixed;inset:0;background:rgba(20,40,28,.5);display:none;align-items:center;justify-content:center;padding:18px;z-index:50;backdrop-filter:blur(2px)}
   .overlay.open{display:flex}
-  .panel{background:#fff;border-radius:20px;max-width:580px;width:100%;max-height:88vh;overflow:auto;padding:24px}
+  .panel{background:var(--card);border-radius:20px;max-width:580px;width:100%;max-height:88vh;overflow:auto;padding:24px}
   .panel h2{margin:0 0 2px;font-size:21px}
   .panel .marke{color:var(--muted);font-size:14px;margin-bottom:16px}
   .scorebar{display:flex;align-items:center;gap:14px;margin:8px 0 20px}
@@ -88,7 +92,7 @@
   @keyframes csDash{to{stroke-dashoffset:var(--off)}}
   .mkStage{position:relative;width:290px;max-width:100%;height:186px;margin:4px auto 0}
   .mkCorner{position:absolute;width:120px}
-  .mkCorner .n{font-size:11.5px;color:#64748b;font-weight:600;display:flex;align-items:center;gap:5px}
+  .mkCorner .n{font-size:11.5px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:5px}
   .mkCorner .v{font-size:15px;font-weight:800;color:var(--ink);margin-top:1px}
   .mkDot{width:10px;height:10px;border-radius:3px;display:inline-block}
   .mk-tl{top:0;left:0;text-align:left}.mk-tr{top:0;right:0;text-align:right}
@@ -105,14 +109,14 @@
   .footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);text-align:center}
   .footer b{color:var(--green)}
   .loading{padding:50px;text-align:center;color:var(--muted)}
-  .tabbtn{padding:9px 18px;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+  .tabbtn{padding:9px 18px;border:1px solid var(--line);background:var(--card);border-radius:999px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
   .tabbtn.active{background:var(--green);color:#fff;border-color:var(--green)}
   /* AUTH */
   .authbar{position:absolute;top:16px;right:0;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600}
   .authbtn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer}
   .authbtn:hover{background:rgba(255,255,255,.28)}
-  .premchip{background:#fff;color:var(--greendk);border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700}
-  .gatebox{max-width:460px;margin:30px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px 24px;text-align:center;box-shadow:var(--shadow)}
+  .premchip{background:var(--card);color:var(--greendk);border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700}
+  .gatebox{max-width:460px;margin:30px auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px 24px;text-align:center;box-shadow:var(--shadow)}
   .gatebox h3{margin:.2em 0 .45em;font-size:18px}
   .gatebox p{color:var(--muted);font-size:14px;line-height:1.5;margin:.3em 0 1.1em}
   /* ===== BOTTOM NAV (App-Look) ===== */
@@ -125,7 +129,7 @@
   /* In-Seiten-Untertabs (Segment-Control) */
   .seg{display:flex;gap:4px;background:#eef3ef;border-radius:13px;padding:4px;margin:0 0 16px;overflow-x:auto}
   .seg button{flex:1 0 auto;border:0;background:none;padding:9px 14px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
-  .seg button.active{background:#fff;color:var(--green);box-shadow:0 1px 3px rgba(31,94,52,.12)}
+  .seg button.active{background:var(--card);color:var(--green);box-shadow:0 1px 3px rgba(31,94,52,.12)}
   /* Wassertropfen-Animation (Startseite) */
   @keyframes cbripple{0%{transform:scale(.15);opacity:.65}100%{transform:scale(1);opacity:0}}
   @keyframes cbdrop{0%,60%{transform:translateY(-14px) scale(1);opacity:0}70%{opacity:1}100%{transform:translateY(0) scale(1);opacity:1}}
@@ -138,7 +142,7 @@
   .mehr-sheet{position:fixed;inset:0;z-index:41;display:none}
   .mehr-sheet.open{display:block}
   .mehr-back{position:absolute;inset:0;background:rgba(20,40,28,.28)}
-  .mehr-card{position:absolute;left:0;right:0;bottom:62px;max-width:600px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -8px 24px rgba(31,94,52,.16);padding:8px}
+  .mehr-card{position:absolute;left:0;right:0;bottom:62px;max-width:600px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -8px 24px rgba(31,94,52,.16);padding:8px}
   .mehr-card button{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:14px 14px;font-size:15px;color:var(--ink);cursor:pointer;border-radius:10px;text-align:left}
   .mehr-card button:active{background:var(--greenlt)}
   @media(max-width:640px){
@@ -155,7 +159,7 @@
 <body>
 <div class="hero"><div class="wrap">
   <div class="brand">
-    <img id="brandLogo" src="logo.png" alt="VERIDIA" style="height:96px;width:auto;max-width:90%;background:#fff;border-radius:16px;padding:8px 16px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none"
+    <img id="brandLogo" src="logo.png" alt="VERIDIA" style="height:96px;width:auto;max-width:90%;background:var(--card);border-radius:16px;padding:8px 16px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none"
          onload="this.style.display='';var f=document.getElementById('brandFallback');if(f)f.style.display='none';" onerror="this.remove()">
     <span id="brandFallback" style="display:inline-flex;align-items:center;gap:.4em">
       <svg class="leaf" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -210,7 +214,7 @@
       <button onclick="openRezeptForm()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px;white-space:nowrap">+ Eigenes Rezept</button>
     </div>
     <input type="search" id="rezeptSuche" oninput="renderRezeptList()" placeholder="Rezept suchen…" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px;margin:6px 0 8px" />
-    <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#374151;margin:0 0 12px;cursor:pointer"><input type="checkbox" onchange="rezFavFilter(this.checked)" style="width:16px;height:16px;accent-color:#e11d48"> ♥ nur Favoriten anzeigen</label>
+    <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);margin:0 0 12px;cursor:pointer"><input type="checkbox" onchange="rezFavFilter(this.checked)" style="width:16px;height:16px;accent-color:#e11d48"> ♥ nur Favoriten anzeigen</label>
     <div id="rezeptFormBox"></div>
     <div class="grid" id="rezeptGrid"></div>
   </div>
@@ -221,20 +225,20 @@
   <div id="vorschlagView" style="display:none">
     <div id="vorGate" style="display:none"></div>
     <div id="vorForm">
-    <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:18px">
+    <div style="max-width:560px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px">
       <h2 style="margin:.1em 0 .15em;font-size:19px">Produkt erfassen</h2>
-      <p style="color:#6b7280;font-size:13.5px;margin:.2em 0 14px">Barcode scannen, Link einfügen <b>oder Etikett-Foto aufnehmen</b> – wir holen bzw. lesen die Daten und legen das Produkt als <b>Entwurf</b> an. Es wird geprüft, bevor es öffentlich erscheint.</p>
-      <input id="vorInput" type="text" placeholder="Produkt-Link oder Barcode (EAN)…" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px" />
+      <p style="color:var(--muted);font-size:13.5px;margin:.2em 0 14px">Barcode scannen, Link einfügen <b>oder Etikett-Foto aufnehmen</b> – wir holen bzw. lesen die Daten und legen das Produkt als <b>Entwurf</b> an. Es wird geprüft, bevor es öffentlich erscheint.</p>
+      <input id="vorInput" type="text" placeholder="Produkt-Link oder Barcode (EAN)…" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px" />
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button id="vorScan" onclick="toggleScan()" style="flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:#eef2f5;font-size:15px;cursor:pointer">📷 Barcode scannen</button>
         <button id="vorSend" onclick="sendVorschlag()" style="flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Senden</button>
       </div>
       <input id="vorFoto" type="file" accept="image/*" style="display:none" onchange="vorShotFile(this)" />
       <div style="margin-top:14px;border-top:1px solid #eef2f5;padding-top:12px">
-        <div style="font-size:13px;color:#374151;font-weight:600;margin-bottom:8px">Etikett-Fotos (bis zu 3)</div>
+        <div style="font-size:13px;color:var(--ink);font-weight:600;margin-bottom:8px">Etikett-Fotos (bis zu 3)</div>
         <div id="vorShots"></div>
         <button id="vorShotsSend" onclick="submitVorShots()" style="display:none;width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Foto(s) erfassen</button>
-        <div style="font-size:12px;color:#6b7280;margin-top:8px">Tipp: 1 Bild reicht – besser je eins von Vorderseite, Zutaten und Nährwerttabelle, scharf & formatfüllend. Die KI liest alle zusammen aus.</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:8px">Tipp: 1 Bild reicht – besser je eins von Vorderseite, Zutaten und Nährwerttabelle, scharf & formatfüllend. Die KI liest alle zusammen aus.</div>
       </div>
       <div id="vorReader" style="margin-top:12px"></div>
       <div id="vorMsg" style="margin-top:12px;font-size:14px;line-height:1.45"></div>
@@ -284,40 +288,40 @@
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <h2 style="margin:0;font-size:19px">Planer</h2>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span style="display:inline-flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
-            <button id="pmMeal" onclick="planSetMode('mahlzeiten')" style="padding:7px 11px;border:0;background:#fff;cursor:pointer;font-size:13px">Mahlzeiten</button>
-            <button id="pmCal" onclick="planSetMode('kalender')" style="padding:7px 11px;border:0;border-left:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:13px">Kalender</button>
+          <span style="display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+            <button id="pmMeal" onclick="planSetMode('mahlzeiten')" style="padding:7px 11px;border:0;background:var(--card);cursor:pointer;font-size:13px">Mahlzeiten</button>
+            <button id="pmCal" onclick="planSetMode('kalender')" style="padding:7px 11px;border:0;border-left:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px">Kalender</button>
           </span>
-          <span style="display:inline-flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
-            <button id="pvWoche" onclick="planSetView('woche')" style="padding:7px 11px;border:0;background:#fff;cursor:pointer;font-size:13px">Woche</button>
-            <button id="pvTag" onclick="planSetView('tag')" style="padding:7px 11px;border:0;border-left:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:13px">Tag</button>
+          <span style="display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+            <button id="pvWoche" onclick="planSetView('woche')" style="padding:7px 11px;border:0;background:var(--card);cursor:pointer;font-size:13px">Woche</button>
+            <button id="pvTag" onclick="planSetView('tag')" style="padding:7px 11px;border:0;border-left:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px">Tag</button>
           </span>
-          <button onclick="planShiftWeek(-1)" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">‹</button>
-          <button onclick="planThisWeek()" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Heute</button>
-          <button onclick="planShiftWeek(1)" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">›</button>
+          <button onclick="planShiftWeek(-1)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹</button>
+          <button onclick="planThisWeek()" style="padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;font-size:13px">Heute</button>
+          <button onclick="planShiftWeek(1)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">›</button>
         </div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <div id="planWochenLabel" style="font-size:13px;color:#6b7280"></div>
+        <div id="planWochenLabel" style="font-size:13px;color:var(--muted)"></div>
         <button onclick="toggleEinkauf()" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Einkaufsliste</button>
       </div>
-      <div id="einkaufBox" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px"></div>
+      <div id="einkaufBox" style="display:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
       <div id="planGrid"></div>
       <div id="planPick" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center">
-        <div style="background:#fff;border-radius:14px;padding:16px;max-width:420px;width:92%;box-shadow:var(--shadow)">
+        <div style="background:var(--card);border-radius:14px;padding:16px;max-width:420px;width:92%;box-shadow:var(--shadow)">
           <div style="font-weight:700;margin-bottom:2px">Zum Plan hinzufügen</div>
-          <div id="planPickWhen" style="font-size:12.5px;color:#6b7280;margin-bottom:10px"></div>
+          <div id="planPickWhen" style="font-size:12.5px;color:var(--muted);margin-bottom:10px"></div>
           <label style="font-size:13px;font-weight:600">Rezept</label>
-          <select id="planRez" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 10px;box-sizing:border-box"><option value="">– Rezept wählen –</option></select>
+          <select id="planRez" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin:4px 0 10px;box-sizing:border-box"><option value="">– Rezept wählen –</option></select>
           <div style="text-align:center;color:#9aa7a0;font-size:12px;margin-bottom:8px">— oder —</div>
           <label style="font-size:13px;font-weight:600">Produkt</label>
           <div style="display:flex;gap:8px;margin:4px 0 12px">
-            <input id="planProd" list="tbProdListe" placeholder="Produkt aus Liste…" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px">
-            <input id="planMenge" type="number" placeholder="g" style="width:74px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
+            <input id="planProd" list="tbProdListe" placeholder="Produkt aus Liste…" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px">
+            <input id="planMenge" type="number" placeholder="g" style="width:74px;padding:9px;border:1px solid var(--line);border-radius:8px">
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <button onclick="planSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Hinzufügen</button>
-            <button onclick="document.getElementById('planPick').style.display='none'" style="padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Abbrechen</button>
+            <button onclick="document.getElementById('planPick').style.display='none'" style="padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Abbrechen</button>
             <span id="planPickMsg" style="font-size:12.5px"></span>
           </div>
         </div>
@@ -325,21 +329,21 @@
     </div>
   </div>
   <div id="termPick" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:14px;padding:16px;max-width:420px;width:92%;box-shadow:var(--shadow)">
+    <div style="background:var(--card);border-radius:14px;padding:16px;max-width:420px;width:92%;box-shadow:var(--shadow)">
       <div style="font-weight:700;margin-bottom:2px">Termin / Training</div>
-      <div id="termWhen" style="font-size:12.5px;color:#6b7280;margin-bottom:10px"></div>
-      <input id="termTitel" placeholder="Titel (z. B. Krafttraining)" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin-bottom:10px;box-sizing:border-box">
+      <div id="termWhen" style="font-size:12.5px;color:var(--muted);margin-bottom:10px"></div>
+      <input id="termTitel" placeholder="Titel (z. B. Krafttraining)" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;box-sizing:border-box">
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
-        <select id="termTyp" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="training">Training</option><option value="termin" selected>Termin</option><option value="mahlzeit">Mahlzeit</option><option value="sonstiges">Sonstiges</option></select>
+        <select id="termTyp" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="training">Training</option><option value="termin" selected>Termin</option><option value="mahlzeit">Mahlzeit</option><option value="sonstiges">Sonstiges</option></select>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap"><input type="checkbox" id="termAllday" onchange="termToggleAllday()" style="width:16px;height:16px;accent-color:#16a34a">ganztägig</label>
       </div>
       <div id="termTimes" style="display:flex;gap:8px;margin-bottom:12px">
-        <label style="flex:1;font-size:12px;color:#374151">von<input type="time" id="termStart" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
-        <label style="flex:1;font-size:12px;color:#374151">bis<input type="time" id="termEnde" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+        <label style="flex:1;font-size:12px;color:var(--ink)">von<input type="time" id="termStart" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+        <label style="flex:1;font-size:12px;color:var(--ink)">bis<input type="time" id="termEnde" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button onclick="termSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Speichern</button>
-        <button onclick="document.getElementById('termPick').style.display='none'" style="padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Abbrechen</button>
+        <button onclick="document.getElementById('termPick').style.display='none'" style="padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Abbrechen</button>
         <span id="termMsg" style="font-size:12.5px"></span>
       </div>
     </div>
@@ -347,18 +351,18 @@
   <div id="freigabeView" style="display:none">
     <div style="max-width:640px;margin:0 auto">
       <h2 style="margin:.1em 0 .35em;font-size:19px">Freigabe</h2>
-      <div style="color:#6b7280;font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen, bearbeiten und freischalten. Nur vollständig bewertete Produkte sind freigebbar.</div>
+      <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen, bearbeiten und freischalten. Nur vollständig bewertete Produkte sind freigebbar.</div>
       <button onclick="openFgEditor(null)" style="margin-bottom:12px;padding:9px 14px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:14px;font-weight:600;cursor:pointer">➕ Neues Produkt anlegen</button>
       <div id="fgEntwuerfe"></div>
       <h3 style="font-size:16px;margin:18px 0 6px">Manuelle Eintragungen (Produktwünsche)</h3>
-      <div style="color:#6b7280;font-size:12.5px;margin-bottom:6px">Von Nutzern manuell eingetragene Lebensmittel – Kandidaten zum Anlegen. „×N" = wie oft eingetragen.</div>
-      <div id="fgMeldungen" style="font-size:14px;color:#374151;line-height:1.6;margin-bottom:6px"></div>
+      <div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">Von Nutzern manuell eingetragene Lebensmittel – Kandidaten zum Anlegen. „×N" = wie oft eingetragen.</div>
+      <div id="fgMeldungen" style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:6px"></div>
       <h3 style="font-size:16px;margin:18px 0 6px">Scan-Warteschlange (noch ohne Daten)</h3>
-      <div id="fgQueue" style="font-size:14px;color:#374151;line-height:1.7"></div>
+      <div id="fgQueue" style="font-size:14px;color:var(--ink);line-height:1.7"></div>
       <h3 style="font-size:16px;margin:18px 0 6px">Rezepte – Free-Freischaltung</h3>
-      <div style="color:#6b7280;font-size:12.5px;margin-bottom:8px">Häkchen = im kostenlosen Modus sichtbar. Ohne Häkchen nur für zahlende/Trial-Nutzer. Nur du (Admin) kannst das ändern.</div>
-      <input id="fgRezSuche" oninput="renderRezepteFree()" placeholder="Rezept suchen…" style="width:100%;max-width:320px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;margin-bottom:8px">
-      <div id="fgRezepteFree" style="font-size:14px;color:#374151"></div>
+      <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Häkchen = im kostenlosen Modus sichtbar. Ohne Häkchen nur für zahlende/Trial-Nutzer. Nur du (Admin) kannst das ändern.</div>
+      <input id="fgRezSuche" oninput="renderRezepteFree()" placeholder="Rezept suchen…" style="width:100%;max-width:320px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+      <div id="fgRezepteFree" style="font-size:14px;color:var(--ink)"></div>
     </div>
   </div>
   <div id="profilView" style="display:none">
@@ -370,61 +374,61 @@
         <button data-p="ziele" onclick="pfTab('ziele')">Ziele</button>
         <button data-p="masse" onclick="pfTab('masse')">Körpermaße</button>
       </div>
-      <div class="pf-pane pf-daten" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-daten" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">Persönliche Daten</div>
-        <div style="font-size:13px;color:#374151;margin-bottom:10px">E-Mail: <b id="pfEmail">–</b></div>
+        <div style="font-size:13px;color:var(--ink);margin-bottom:10px">E-Mail: <b id="pfEmail">–</b></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
-          <label style="font-size:13px;color:#374151">Geburtsdatum<input type="date" id="pfGeb" oninput="pfAgeFromGeb()" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Alter <span style="color:#9aa7a0;font-size:11px">(aus Geburtsdatum)</span><input type="number" id="pfAlter" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Geschlecht<select id="pfGeschlecht" onchange="pfZyklusToggle()" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>weiblich</option><option>männlich</option><option>divers</option></select></label>
-          <label style="font-size:13px;color:#374151">Größe (cm)<input type="number" id="pfGroesse" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Gewicht (kg)<input type="number" step="0.1" id="pfGewicht" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Aktivitätslevel<select id="pfAktiv" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>Sitzend</option><option>Leicht aktiv</option><option>Mäßig aktiv</option><option>Sehr aktiv</option></select></label>
-          <label style="font-size:13px;color:#374151">Ernährungsform<select id="pfErn" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="">–</option><option>Omnivor</option><option>Flexitarisch</option><option>Pescetarisch</option><option>Vegetarisch</option><option>Vegan</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Geburtsdatum<input type="date" id="pfGeb" oninput="pfAgeFromGeb()" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Alter <span style="color:#9aa7a0;font-size:11px">(aus Geburtsdatum)</span><input type="number" id="pfAlter" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Geschlecht<select id="pfGeschlecht" onchange="pfZyklusToggle()" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option>weiblich</option><option>männlich</option><option>divers</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Größe (cm)<input type="number" id="pfGroesse" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Gewicht (kg)<input type="number" step="0.1" id="pfGewicht" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Aktivitätslevel<select id="pfAktiv" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option>Sitzend</option><option>Leicht aktiv</option><option>Mäßig aktiv</option><option>Sehr aktiv</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Ernährungsform<select id="pfErn" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option>Omnivor</option><option>Flexitarisch</option><option>Pescetarisch</option><option>Vegetarisch</option><option>Vegan</option></select></label>
         </div>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;margin-top:12px"><input type="checkbox" id="pfNews" style="width:16px;height:16px;accent-color:#16a34a">Newsletter abonnieren – Infos zu neuen Produkten &amp; Rezepten</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin-top:12px"><input type="checkbox" id="pfNews" style="width:16px;height:16px;accent-color:#16a34a">Newsletter abonnieren – Infos zu neuen Produkten &amp; Rezepten</label>
         <button onclick="saveProfil()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Speichern</button>
         <span id="pfMsg" style="font-size:13px;margin-left:10px"></span>
         <div id="pfZyklusBox" style="display:none;margin-top:16px;background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:12px 14px">
           <div style="font-weight:600;font-size:13.5px;margin-bottom:2px">🌸 Zyklus (optional)</div>
-          <div style="font-size:11.5px;color:#6b7280;margin-bottom:10px">Für phasengerechte Hinweise im Tagebuch (z. B. Eisen während der Periode, Magnesium/Heißhunger davor). Private Angabe. <b>Keine medizinische Beratung.</b></div>
+          <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Für phasengerechte Hinweise im Tagebuch (z. B. Eisen während der Periode, Magnesium/Heißhunger davor). Private Angabe. <b>Keine medizinische Beratung.</b></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
-            <label style="font-size:13px;color:#374151;flex:1;min-width:150px">Letzter Zyklusbeginn<input type="date" id="pfZykStart" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-            <label style="font-size:13px;color:#374151">Zykluslänge (Tage)<input type="number" id="pfZykLen" min="20" max="45" placeholder="28" style="width:120px;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+            <label style="font-size:13px;color:var(--ink);flex:1;min-width:150px">Letzter Zyklusbeginn<input type="date" id="pfZykStart" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+            <label style="font-size:13px;color:var(--ink)">Zykluslänge (Tage)<input type="number" id="pfZykLen" min="20" max="45" placeholder="28" style="width:120px;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
             <button onclick="saveZyklus()" style="padding:9px 15px;border:0;border-radius:8px;background:#db2777;color:#fff;cursor:pointer">Speichern</button>
           </div>
           <div id="pfZykMsg" style="font-size:12.5px;margin-top:8px"></div>
-          <div id="pfZykPhase" style="font-size:12.5px;margin-top:6px;color:#6b7280"></div>
+          <div id="pfZykPhase" style="font-size:12.5px;margin-top:6px;color:var(--muted)"></div>
         </div>
       </div>
-      <div class="pf-pane pf-ziele" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-ziele" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:4px">Kalorienbedarf berechnen</div>
-        <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Nutzt deine Daten oben (Alter, Geschlecht, Größe, Gewicht, Aktivität). Standard: Mifflin-St-Jeor. <b>Genauer:</b> Körperfett % eintragen (→ Katch-McArdle über die fettfreie Masse) oder einen <b>gemessenen Grundumsatz</b> (InBody/DEXA) direkt setzen.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Nutzt deine Daten oben (Alter, Geschlecht, Größe, Gewicht, Aktivität). Standard: Mifflin-St-Jeor. <b>Genauer:</b> Körperfett % eintragen (→ Katch-McArdle über die fettfreie Masse) oder einen <b>gemessenen Grundumsatz</b> (InBody/DEXA) direkt setzen.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
-          <label style="font-size:13px;color:#374151">Zielgewicht (kg)<input type="number" step="0.1" id="bdZiel" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Tempo<select id="bdTempo" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="0">Gewicht halten</option><option value="-0.15">Abnehmen – moderat (−15 %)</option><option value="-0.20">Abnehmen – zügig (−20 %)</option><option value="0.10">Aufbauen (+10 %)</option></select></label>
-          <label style="font-size:13px;color:#374151">Eiweiß (g/kg)<input type="number" step="0.1" id="bdProt" value="1.8" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Eiweiß-Bezug<select id="bdProtRef" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="ziel">Zielgewicht</option><option value="aktuell">Aktuelles Gewicht</option></select></label>
-          <label style="font-size:13px;color:#374151">Körperfett % <span style="color:#9aa7a0;font-size:11px">(optional, genauer)</span><input type="number" step="0.1" id="bdKF" placeholder="z. B. 15,3" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Gemessener Grundumsatz <span style="color:#9aa7a0;font-size:11px">(InBody/DEXA, kcal)</span><input type="number" id="bdBmrMess" placeholder="überschreibt Formel" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Fett-Anteil <button type="button" onclick="fettInfo()" style="background:none;border:0;color:#0369a1;font-size:11px;cursor:pointer;padding:0;text-decoration:underline">ⓘ Basis</button><select id="bdFettPct" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><option value="0.25">25 % (untere DGE-Grenze)</option><option value="0.30" selected>30 % (DGE-Richtwert)</option><option value="0.35">35 % (obere Grenze / aktiv)</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Zielgewicht (kg)<input type="number" step="0.1" id="bdZiel" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Tempo<select id="bdTempo" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="0">Gewicht halten</option><option value="-0.15">Abnehmen – moderat (−15 %)</option><option value="-0.20">Abnehmen – zügig (−20 %)</option><option value="0.10">Aufbauen (+10 %)</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Eiweiß (g/kg)<input type="number" step="0.1" id="bdProt" value="1.8" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Eiweiß-Bezug<select id="bdProtRef" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="ziel">Zielgewicht</option><option value="aktuell">Aktuelles Gewicht</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Körperfett % <span style="color:#9aa7a0;font-size:11px">(optional, genauer)</span><input type="number" step="0.1" id="bdKF" placeholder="z. B. 15,3" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Gemessener Grundumsatz <span style="color:#9aa7a0;font-size:11px">(InBody/DEXA, kcal)</span><input type="number" id="bdBmrMess" placeholder="überschreibt Formel" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Fett-Anteil <button type="button" onclick="fettInfo()" style="background:none;border:0;color:#0369a1;font-size:11px;cursor:pointer;padding:0;text-decoration:underline">ⓘ Basis</button><select id="bdFettPct" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="0.25">25 % (untere DGE-Grenze)</option><option value="0.30" selected>30 % (DGE-Richtwert)</option><option value="0.35">35 % (obere Grenze / aktiv)</option></select></label>
         </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:8px"><input type="checkbox" id="bdNiere" style="width:16px;height:16px;accent-color:#16a34a">Nierenleiden berücksichtigen (Eiweiß begrenzen)</label>
         <button type="button" onclick="eiweissInfo()" style="margin-top:6px;background:none;border:0;color:#0369a1;font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0">ⓘ Eiweißbedarf – wie viel &amp; auf welches Gewicht?</button>
-        <div style="margin-top:10px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px">
+        <div style="margin-top:10px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px">
           <div style="font-weight:600;font-size:13px;margin-bottom:2px">Körperfett schätzen (Maßband · U.S.-Navy) <span style="color:#16a34a;font-size:11px;font-weight:700">empfohlen für genauere Berechnung</span></div>
-          <div style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Genauer als die Formel. Maße in cm: Taille auf Nabelhöhe, Hals unter dem Kehlkopf, Hüfte (nur Frauen) an der breitesten Stelle. Nutzt Größe & Geschlecht von oben. Ergebnis ±3–4 %.</div>
+          <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Genauer als die Formel. Maße in cm: Taille auf Nabelhöhe, Hals unter dem Kehlkopf, Hüfte (nur Frauen) an der breitesten Stelle. Nutzt Größe & Geschlecht von oben. Ergebnis ±3–4 %.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input type="number" step="0.1" id="bdHals" placeholder="Hals cm" style="flex:1;min-width:88px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
-            <input type="number" step="0.1" id="bdTaille" placeholder="Taille cm" style="flex:1;min-width:88px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
-            <input type="number" step="0.1" id="bdHuefte" placeholder="Hüfte cm (Frauen)" style="flex:1;min-width:110px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
+            <input type="number" step="0.1" id="bdHals" placeholder="Hals cm" style="flex:1;min-width:88px;padding:9px;border:1px solid var(--line);border-radius:8px">
+            <input type="number" step="0.1" id="bdTaille" placeholder="Taille cm" style="flex:1;min-width:88px;padding:9px;border:1px solid var(--line);border-radius:8px">
+            <input type="number" step="0.1" id="bdHuefte" placeholder="Hüfte cm (Frauen)" style="flex:1;min-width:110px;padding:9px;border:1px solid var(--line);border-radius:8px">
             <button type="button" onclick="navyKF()" style="padding:9px 14px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">Körperfett schätzen</button>
           </div>
           <div id="bdNavyOut" style="font-size:12.5px;margin-top:7px"></div>
         </div>
         <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
           <button onclick="calcBedarf()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Berechnen</button>
-          <button onclick="applyBedarf()" id="bdApplyBtn" disabled style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Als Tagesziel übernehmen</button>
+          <button onclick="applyBedarf()" id="bdApplyBtn" disabled style="padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Als Tagesziel übernehmen</button>
         </div>
         <div id="bdOut" style="margin-top:10px;font-size:13px"></div>
         <div style="margin-top:10px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:10px;padding:11px;font-size:12.5px;color:#1e3a8a;line-height:1.5">
@@ -432,52 +436,52 @@
           Gewicht trotz Defizit stabil → Bedarf ~100–150 kcal runter. Zu schneller Verlust (&gt; ~1 %/Woche) → etwas rauf. So kalibrierst du den Rechner an der Realität – jede Formel ist nur eine Schätzung (±5–10 %).
         </div>
       </div>
-      <div class="pf-pane pf-ziele" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-ziele" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">Tagesziele</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
-          <label style="font-size:13px;color:#374151">kcal<input type="number" id="pfKcal" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Eiweiß (g)<input type="number" id="pfEiw" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">KH max (g)<input type="number" id="pfKh" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Fett max (g)<input type="number" id="pfFett" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">kcal<input type="number" id="pfKcal" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Eiweiß (g)<input type="number" id="pfEiw" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">KH max (g)<input type="number" id="pfKh" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Fett max (g)<input type="number" id="pfFett" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
         </div>
         <button onclick="saveProfilZiel()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Ziele speichern</button>
         <span id="pfZielMsg" style="font-size:13px;margin-left:10px"></span>
-        <div style="font-size:12px;color:#6b7280;margin-top:10px">Gespeicherte Ziele gelten automatisch für jeden Tag – bei Änderung wird ein neuer Eintrag im Verlauf angelegt, frühere Tage behalten ihr damaliges Ziel.</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:10px">Gespeicherte Ziele gelten automatisch für jeden Tag – bei Änderung wird ein neuer Eintrag im Verlauf angelegt, frühere Tage behalten ihr damaliges Ziel.</div>
         <div id="zielHistBox" style="margin-top:10px"></div>
       </div>
-      <div class="pf-pane pf-ziele" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-ziele" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:4px">Verteilung der Mahlzeiten (%)</div>
-        <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Bestimmt, wie sich dein Tagesziel auf die Mahlzeiten aufteilt – für „🎯 Rest auffüllen" im Tagebuch. Default 25/35/30/10.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Bestimmt, wie sich dein Tagesziel auf die Mahlzeiten aufteilt – für „🎯 Rest auffüllen" im Tagebuch. Default 25/35/30/10.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">
-          <label style="font-size:13px;color:#374151">Frühstück %<input type="number" id="pfAnFr" min="0" max="100" placeholder="25" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Mittag %<input type="number" id="pfAnMi" min="0" max="100" placeholder="35" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Abendessen %<input type="number" id="pfAnAb" min="0" max="100" placeholder="30" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label style="font-size:13px;color:#374151">Snack %<input type="number" id="pfAnSn" min="0" max="100" placeholder="10" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Frühstück %<input type="number" id="pfAnFr" min="0" max="100" placeholder="25" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Mittag %<input type="number" id="pfAnMi" min="0" max="100" placeholder="35" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Abendessen %<input type="number" id="pfAnAb" min="0" max="100" placeholder="30" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Snack %<input type="number" id="pfAnSn" min="0" max="100" placeholder="10" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
         </div>
         <button onclick="saveAnteile()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Anteile speichern</button>
         <span id="pfAnMsg" style="font-size:13px;margin-left:10px"></span>
       </div>
-      <div class="pf-pane pf-masse" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-masse" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">📐 Körpermaße</div>
         <div id="pfMass">…</div>
       </div>
-      <div class="pf-pane pf-daten" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="pf-pane pf-daten" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:6px">Passwort (Login ohne E-Mail)</div>
-        <div style="font-size:12px;color:#6b7280;margin-bottom:8px">Setze ein Passwort, um dich auch ohne Magic-Link anzumelden – praktisch, solange der E-Mail-Versand noch eingerichtet wird.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Setze ein Passwort, um dich auch ohne Magic-Link anzumelden – praktisch, solange der E-Mail-Versand noch eingerichtet wird.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input type="password" id="pfPass" autocomplete="new-password" placeholder="neues Passwort (min. 6 Zeichen)" style="flex:1;min-width:200px;padding:9px;border:1px solid #d1d5db;border-radius:8px">
+          <input type="password" id="pfPass" autocomplete="new-password" placeholder="neues Passwort (min. 6 Zeichen)" style="flex:1;min-width:200px;padding:9px;border:1px solid var(--line);border-radius:8px">
           <button onclick="setMyPassword()" style="padding:9px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Passwort setzen</button>
         </div>
         <span id="pfPassMsg" style="font-size:13px"></span>
       </div>
-      <div style="font-size:12px;color:#6b7280">Deine Ernährungsform fließt später in passende Empfehlungen & Filter ein.</div>
+      <div style="font-size:12px;color:var(--muted)">Deine Ernährungsform fließt später in passende Empfehlungen & Filter ein.</div>
     </div>
   </div>
   <div id="usersView" style="display:none">
     <div id="usersGate" style="display:none"></div>
     <div id="usersInner" style="max-width:820px;margin:0 auto">
       <h2 style="margin:.1em 0 .35em;font-size:19px">Benutzer</h2>
-      <div style="color:#6b7280;font-size:13px;margin-bottom:12px">Stufe pro Nutzer setzen und Admin-Rechte vergeben. Änderungen werden sofort gespeichert.</div>
+      <div style="color:var(--muted);font-size:13px;margin-bottom:12px">Stufe pro Nutzer setzen und Admin-Rechte vergeben. Änderungen werden sofort gespeichert.</div>
       <div id="usersTable"></div>
     </div>
   </div>
@@ -485,7 +489,7 @@
     <div id="stufenGate" style="display:none"></div>
     <div id="stufenInner" style="max-width:780px;margin:0 auto">
       <h2 style="margin:.1em 0 .35em;font-size:19px">Premium-Stufen & Funktionen</h2>
-      <div style="color:#6b7280;font-size:13px;margin-bottom:12px">Welche Funktion gehört zu welcher Stufe? Häkchen setzen/entfernen – wird sofort gespeichert.</div>
+      <div style="color:var(--muted);font-size:13px;margin-bottom:12px">Welche Funktion gehört zu welcher Stufe? Häkchen setzen/entfernen – wird sofort gespeichert.</div>
       <div id="stufenMatrix"></div>
     </div>
   </div>
@@ -508,15 +512,15 @@
   <button class="close" onclick="closeLogin()">Schließen ✕</button>
   <h2 style="font-size:20px;margin:0 0 4px">Anmelden</h2>
   <p style="color:var(--muted);font-size:13.5px;margin:.2em 0 14px">Mit <b>E-Mail und Passwort</b> – oder per Code/Link.</p>
-  <input id="loginEmail" type="email" autocomplete="email" placeholder="deine@email.de" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px" />
-  <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;margin-top:8px" />
+  <input id="loginEmail" type="email" autocomplete="email" placeholder="deine@email.de" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px" />
+  <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px;margin-top:8px" />
   <button onclick="loginPassword()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Anmelden</button>
   <div id="loginMsg" style="margin-top:10px;font-size:13.5px;line-height:1.45"></div>
   <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:12px">
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">Kein Passwort? <b>Code per E-Mail</b> (in der App eingeben – kein Browser-Umweg)</div>
-    <button onclick="requestCode()" style="width:100%;padding:11px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-weight:600;font-size:15px;cursor:pointer">Code senden</button>
+    <button onclick="requestCode()" style="width:100%;padding:11px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-weight:600;font-size:15px;cursor:pointer">Code senden</button>
     <div id="codeBox" style="display:none;margin-top:8px">
-      <input id="loginCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6-stelliger Code aus der E-Mail" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;letter-spacing:2px;text-align:center" />
+      <input id="loginCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6-stelliger Code aus der E-Mail" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;letter-spacing:2px;text-align:center" />
       <button onclick="verifyCode()" style="width:100%;margin-top:8px;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Code bestätigen</button>
     </div>
   </div>
@@ -582,7 +586,7 @@ function rezeptScore(r){
 }
 function statusTag(d){
   if(d.clean_score===null||d.clean_score===undefined)
-    return `<span class="tag" style="background:#eef2f6;color:#64748b">noch nicht bewertet</span>`;
+    return `<span class="tag" style="background:#eef2f6;color:var(--muted)">noch nicht bewertet</span>`;
   return `<span class="tag ${d.score_vollstaendig?"good":"teil"}">${d.score_vollstaendig?esc(d.bewertung):"Teilbewertung"}</span>`;
 }
 function erklaerung(d){
@@ -774,9 +778,9 @@ async function loadZielHistorie(){
   if(!rows.length){ box.innerHTML='<div style="font-size:12px;color:#9aa7a0">Noch kein Ziel-Verlauf – beim nächsten Speichern wird ein Eintrag angelegt.</div>'; return; }
   let h='<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Ziel-Verlauf</div>';
   h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
-  h+='<tr style="color:#6b7280"><th style="text-align:left;padding:4px 8px">ab</th><th style="text-align:right;padding:4px 8px">kcal</th><th style="text-align:right;padding:4px 8px">Eiweiß</th><th style="text-align:right;padding:4px 8px">KH</th><th style="text-align:right;padding:4px 8px">Fett</th></tr>';
+  h+='<tr style="color:var(--muted)"><th style="text-align:left;padding:4px 8px">ab</th><th style="text-align:right;padding:4px 8px">kcal</th><th style="text-align:right;padding:4px 8px">Eiweiß</th><th style="text-align:right;padding:4px 8px">KH</th><th style="text-align:right;padding:4px 8px">Fett</th></tr>';
   rows.forEach((r,i)=>{ const cur=i===0?' style="font-weight:700"':'';
-    h+='<tr style="border-top:1px solid #f1f5f9"><td'+cur+' style="padding:5px 8px">'+esc(r.gueltig_ab)+(i===0?' <span style="color:var(--green);font-weight:600">aktuell</span>':'')+'</td>'
+    h+='<tr style="border-top:1px solid var(--line)"><td'+cur+' style="padding:5px 8px">'+esc(r.gueltig_ab)+(i===0?' <span style="color:var(--green);font-weight:600">aktuell</span>':'')+'</td>'
       +'<td style="text-align:right;padding:5px 8px">'+(r.kcal??'–')+'</td>'
       +'<td style="text-align:right;padding:5px 8px">'+(r.eiweiss??'–')+'</td>'
       +'<td style="text-align:right;padding:5px 8px">'+(r.kh??'–')+'</td>'
@@ -942,7 +946,7 @@ function render(){
   const grid=document.getElementById("grid");
   if(!q && !kat && !window._prodShowAll){
     document.getElementById("stats").textContent="";
-    grid.innerHTML='<div style="text-align:center;padding:30px 12px;color:#6b7280"><div style="font-size:34px;margin-bottom:8px">🔍</div><div style="font-size:15px;margin-bottom:14px">Produkt suchen, Kategorie wählen oder Barcode scannen.</div><button onclick="window._prodShowAll=true;render()" style="padding:11px 18px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);cursor:pointer;font-size:14px">Alle '+ALL.length+' Produkte anzeigen</button></div>';
+    grid.innerHTML='<div style="text-align:center;padding:30px 12px;color:var(--muted)"><div style="font-size:34px;margin-bottom:8px">🔍</div><div style="font-size:15px;margin-bottom:14px">Produkt suchen, Kategorie wählen oder Barcode scannen.</div><button onclick="window._prodShowAll=true;render()" style="padding:11px 18px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);cursor:pointer;font-size:14px">Alle '+ALL.length+' Produkte anzeigen</button></div>';
     return;
   }
   let list=ALL.filter(d=>{
@@ -1019,7 +1023,7 @@ function detail(d){
   if(variants.length) varNote = "Auch erhältlich: "+variants.map(v=>esc(v.name)).join(", ");
   else if(d.variante_von){ const base=ALL.find(x=>x.id===d.variante_von); if(base) varNote="Variante von: "+esc(base.name); }
   const _sd = hasFeat('score_detail');
-  const zInfoHtml = (()=>{const infos=zlist.map(z=>({z,t:zInfoClean(z.name,z.info)})).filter(o=>o.t);return infos.length?`<div style="margin-top:8px">${infos.map(o=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:#f8fafc;border:1px solid var(--line);border-radius:9px"><b>${esc(o.z.name)}</b>${(String(o.z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(o.t)}</div>`).join("")}</div>`:"";})();
+  const zInfoHtml = (()=>{const infos=zlist.map(z=>({z,t:zInfoClean(z.name,z.info)})).filter(o=>o.t);return infos.length?`<div style="margin-top:8px">${infos.map(o=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:var(--bg);border:1px solid var(--line);border-radius:9px"><b>${esc(o.z.name)}</b>${(String(o.z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(o.t)}</div>`).join("")}</div>`:"";})();
   const premiumBlock = `
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Clean Score</div>
     ${sonderHint}
@@ -1046,7 +1050,7 @@ function detail(d){
     <button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(d.name)}</h2>
     <div class="marke">${(mkLabel(d.marke)?esc(mkLabel(d.marke))+" · ":"")}${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
-    <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button>${(ME&&ME.is_admin)?`<button onclick="adminDeleteProdukt('${d.id}','${esc(d.name||"").replace(/'/g,"")}')" style="padding:7px 12px;border:1px solid #fca5a5;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;font-size:13px">🗑️ Produkt ausblenden</button>`:""}</div>
+    <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button>${(ME&&ME.is_admin)?`<button onclick="adminDeleteProdukt('${d.id}','${esc(d.name||"").replace(/'/g,"")}')" style="padding:7px 12px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:13px">🗑️ Produkt ausblenden</button>`:""}</div>
     ${_sd?altBanner(d):""}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
@@ -1069,9 +1073,9 @@ function infoPop(title, html){
   ov=document.createElement("div"); ov.id="infoPopOverlay";
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:60;padding:16px";
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
-  ov.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;max-height:82vh;overflow:auto;padding:18px;box-shadow:0 12px 44px rgba(0,0,0,.25)">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><h3 style="margin:0;font-size:17px">${title}</h3><button onclick="document.getElementById('infoPopOverlay').remove()" style="border:0;background:#f1f5f9;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px">✕</button></div>
-    <div style="font-size:14px;line-height:1.55;color:#374151">${html}</div></div>`;
+  ov.innerHTML=`<div style="background:var(--card);border-radius:14px;max-width:460px;width:100%;max-height:82vh;overflow:auto;padding:18px;box-shadow:0 12px 44px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><h3 style="margin:0;font-size:17px">${title}</h3><button onclick="document.getElementById('infoPopOverlay').remove()" style="border:0;background:var(--bg);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px">✕</button></div>
+    <div style="font-size:14px;line-height:1.55;color:var(--ink)">${html}</div></div>`;
   document.body.appendChild(ov);
 }
 function fettInfo(){
@@ -1083,7 +1087,7 @@ function fettInfo(){
     </ul>
     <p style="margin:.2em 0"><b>Kohlenhydrate – DGE-Richtwert: &gt; 50 %</b> der Energie (Mischkost). Im Rechner sind KH bewusst der <b>Rest</b> nach Eiweiß und Fett – das entspricht der DGE-Logik (KH ergeben sich aus Energiebedarf, Eiweiß- und Fett-Richtwert). Bei viel Eiweiß/mehr Fett können KH etwas unter 50 % landen – für Fitness-/Abnehmziele in Ordnung.</p>
     <p style="margin:.2em 0">Deshalb die Fett-Auswahl <b>25 / 30 / 35 %</b>; <b>30 %</b> ist Standard. Eiweiß wird separat aus g/kg gerechnet.</p>
-    <p style="margin:.6em 0 0;color:#6b7280;font-size:13px">Wichtiger als die exakte Zahl ist die <b>Qualität</b>: ungesättigte Fette (Nüsse, Öle, Fisch) und komplexe/ballaststoffreiche KH (Vollkorn, Gemüse) bevorzugen. Quelle: DGE-Referenzwerte.</p>`);
+    <p style="margin:.6em 0 0;color:var(--muted);font-size:13px">Wichtiger als die exakte Zahl ist die <b>Qualität</b>: ungesättigte Fette (Nüsse, Öle, Fisch) und komplexe/ballaststoffreiche KH (Vollkorn, Gemüse) bevorzugen. Quelle: DGE-Referenzwerte.</p>`);
 }
 function eiweissInfo(){
   infoPop("Eiweißbedarf – wie berechnen?", `
@@ -1094,7 +1098,7 @@ function eiweissInfo(){
       <li><b>Übergewicht:</b> aktuelles Gewicht <u>überschätzt</u> den Bedarf → besser das <b>Zielgewicht</b> nehmen.</li>
       <li><b>Am genauesten:</b> die fettfreie Masse = Gewicht × (1 − Körperfett%), falls bekannt.</li>
     </ul>
-    <p style="margin:.2em 0;color:#6b7280;font-size:13px">Faustregel: Willst du abnehmen (Ziel &lt; aktuell), rechne mit dem Zielgewicht; beim Halten/Aufbauen mit dem aktuellen Gewicht.</p>
+    <p style="margin:.2em 0;color:var(--muted);font-size:13px">Faustregel: Willst du abnehmen (Ziel &lt; aktuell), rechne mit dem Zielgewicht; beim Halten/Aufbauen mit dem aktuellen Gewicht.</p>
     <p style="margin:.7em 0 0;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:9px;color:#991b1b"><b>⚠️ Bei Nierenleiden:</b> Eiweiß <b>nicht</b> erhöhen – eine eingeschränkte Nierenfunktion kann durch hohe Eiweißmengen belastet werden. Vorher ärztlich abklären. Die Option „Nierenleiden berücksichtigen" begrenzt den Wert automatisch.</p>`);
 }
 document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")closeP();};
@@ -1126,7 +1130,7 @@ function setMode(m){
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
   if(m==="produkte"){ try{ render(); }catch(e){} }
   if(m==="rezepte") loadRezepte();
-  if(m==="tagebuch") loadTagebuch();
+  if(m==="tagebuch"){ const _d=document.getElementById("tbDatum"); if(_d) _d.value=tbToday(); loadTagebuch(); }
   if(m==="planer") loadPlaner();
   if(m==="profil") loadProfil();
   if(m==="training") loadTraining();
@@ -1144,7 +1148,7 @@ function pfTab(name){
   document.querySelectorAll('#profilInner .pf-pane').forEach(c=>{ c.style.display = c.classList.contains('pf-'+name)?'':'none'; });
 }
 /* ===== Startseite (Home) ===== */
-function startFeature(ic,t,sub){ return '<div style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px">'+ic+'</div><div style="font-weight:600;font-size:13.5px;margin-top:2px">'+t+'</div><div style="font-size:11.5px;color:var(--muted)">'+sub+'</div></div>'; }
+function startFeature(ic,t,sub){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px">'+ic+'</div><div style="font-weight:600;font-size:13.5px;margin-top:2px">'+t+'</div><div style="font-size:11.5px;color:var(--muted)">'+sub+'</div></div>'; }
 let BILD={};
 async function loadBilder(){ try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
 function topProdukteHtml(){
@@ -1158,18 +1162,18 @@ function topProdukteHtml(){
     +`<div style="position:relative;width:100%;aspect-ratio:1;background:#f6f7f6;border-radius:12px;overflow:hidden;border:1px solid ${winner?'var(--green)':'var(--line)'}">`
     +`<img src="${esc(BILD[p.id])}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:contain">`
     +(winner?`<div style="position:absolute;top:8px;left:8px;background:var(--green);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px">TOP</div>`:"")
-    +`<div style="position:absolute;bottom:7px;right:7px;background:#fff;border-radius:50%;padding:3px;box-shadow:0 1px 6px rgba(0,0,0,.28)">${donut(num(p.clean_score), farbe(p.bewertung), 58)}</div>`
+    +`<div style="position:absolute;bottom:7px;right:7px;background:var(--card);border-radius:50%;padding:3px;box-shadow:0 1px 6px rgba(0,0,0,.28)">${donut(num(p.clean_score), farbe(p.bewertung), 58)}</div>`
     +`</div>`
     +`<div style="font-size:12.5px;font-weight:600;margin-top:6px;line-height:1.2">${esc(p.name)}</div>`
     +`<div style="font-size:11px;color:var(--muted)">${esc(p.marke||"")}</div></div>`;
-  const cardCss='background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)';
+  const cardCss='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)';
   const card=x=>`<div style="${cardCss}"><div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Vergleich · ${esc(x.k)}</div>`
     +`<div style="display:flex;gap:10px;align-items:flex-start">${prod(x.top,true)}<div style="align-self:center;color:var(--muted);font-weight:700;font-size:13px">vs</div>${prod(x.zwei,false)}</div></div>`;
   return `<div style="font-weight:600;margin:2px 0 6px">🏆 TOP-Produkte im Vergleich <span style="font-weight:400;font-size:11.5px;color:var(--muted)">· nur verifiziert</span></div>`+paare.map(card).join("");
 }
 function startRezSucheHtml(){
-  return `<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px;box-shadow:var(--shadow)">`
-    +`<div style="display:flex;gap:8px"><input id="startRezSuche" placeholder="🍲 Rezepte suchen…" onkeydown="if(event.key==='Enter')startRezeptSuche(this.value)" style="flex:1;min-width:0;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-size:14px">`
+  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px;box-shadow:var(--shadow)">`
+    +`<div style="display:flex;gap:8px"><input id="startRezSuche" placeholder="🍲 Rezepte suchen…" onkeydown="if(event.key==='Enter')startRezeptSuche(this.value)" style="flex:1;min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px">`
     +`<button onclick="startRezeptSuche(document.getElementById('startRezSuche').value)" style="padding:10px 14px;border:0;border-radius:10px;background:var(--green);color:#fff;cursor:pointer">Suchen</button></div></div>`;
 }
 function startRezeptSuche(v){ navTo('rezepte'); setTimeout(()=>{ const i=document.getElementById('rezeptSuche'); if(i){ i.value=v||''; } if(typeof renderRezeptList==='function') renderRezeptList(); },80); }
@@ -1180,7 +1184,7 @@ async function renderSchritte(){
   let tag=0, verlauf=[];
   try{ const r=await client.rpc("cb_schritte_tag",{p_datum:sel}); tag=Number(r.data)||0; }catch(e){}
   try{ const r=await client.rpc("cb_schritte_verlauf",{p_bis:today,p_tage:7}); verlauf=r.data||[]; }catch(e){}
-  const card='background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
+  const card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
   const ZIEL=10000, wd=["So","Mo","Di","Mi","Do","Fr","Sa"];
   const vals=verlauf.map(x=>Number(x.schritte)||0);
   const tage=vals.length||1, sum=vals.reduce((a,b)=>a+b,0), avg=Math.round(sum/tage);
@@ -1199,14 +1203,14 @@ async function renderSchritte(){
   box.innerHTML='<div style="'+card+'">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600">👟 Schritte</div><span style="font-size:10px;font-weight:700;color:#166534;background:#e7f4ec;padding:2px 8px;border-radius:999px;letter-spacing:.4px">PERFORMANCE</span></div>'
     +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
-      +'<button onclick="schrShiftDay(-1)" title="Tag zurück" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer">‹</button>'
-      +'<span style="flex:1;text-align:center;font-size:13px;color:#374151;font-weight:600">'+selLbl+'</span>'
-      +'<button onclick="schrShiftDay(1)" '+(nextOff?'disabled':'')+' title="Tag vor" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:'+(nextOff?'not-allowed':'pointer')+';opacity:'+(nextOff?'.4':'1')+'">›</button></div>'
-    +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(tag||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:9px;border:1px solid #d1d5db;border-radius:8px;font-size:14px">'
+      +'<button onclick="schrShiftDay(-1)" title="Tag zurück" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹</button>'
+      +'<span style="flex:1;text-align:center;font-size:13px;color:var(--ink);font-weight:600">'+selLbl+'</span>'
+      +'<button onclick="schrShiftDay(1)" '+(nextOff?'disabled':'')+' title="Tag vor" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:'+(nextOff?'not-allowed':'pointer')+';opacity:'+(nextOff?'.4':'1')+'">›</button></div>'
+    +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(tag||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px">'
       +'<button onclick="saveSchritte()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:13px">Speichern</button></div>'
-    +'<div id="startSchritteMsg" style="font-size:12px;color:#6b7280;margin-top:4px;min-height:15px"></div>'
+    +'<div id="startSchritteMsg" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:15px"></div>'
     +'<div style="border-top:1px solid var(--line);margin:6px 0 10px"></div>'
-    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:12px;color:#6b7280">Letzte 7 Tage</div><div style="font-size:12px;color:#374151">Ø <b>'+avg.toLocaleString("de-DE")+'</b>/Tag · Ziel '+ZIEL.toLocaleString("de-DE")+'</div></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:12px;color:var(--muted)">Letzte 7 Tage</div><div style="font-size:12px;color:var(--ink)">Ø <b>'+avg.toLocaleString("de-DE")+'</b>/Tag · Ziel '+ZIEL.toLocaleString("de-DE")+'</div></div>'
     +'<div style="display:flex;gap:4px;align-items:flex-end">'+bars+'</div>'
     +'</div>';
 }
@@ -1226,7 +1230,7 @@ async function saveSchritte(){
 function makroDonut(sum, prof){
   sum=sum||{}; prof=prof||{};
   const kcalZ=num(prof.Kalorienziel_kcal);
-  if(!kcalZ) return '<div style="font-size:13.5px;color:#6b7280">Noch kein Tagesziel gesetzt. Heute bisher: <b>'+Math.round(sum.kcal||0)+'</b> kcal · '+Math.round(sum.protein||0)+' g Eiweiß.</div>';
+  if(!kcalZ) return '<div style="font-size:13.5px;color:var(--muted)">Noch kein Tagesziel gesetzt. Heute bisher: <b>'+Math.round(sum.kcal||0)+'</b> kcal · '+Math.round(sum.protein||0)+' g Eiweiß.</div>';
   const M=[
     {n:"kcal",   ist:sum.kcal,    soll:kcalZ,                    u:"",  c:"#16a34a", rot:-79.2, pos:"mk-tr"},
     {n:"Eiweiß", ist:sum.protein, soll:num(prof.Eiweiss_ziel_g), u:"g", c:"#3b82f6", rot:10.8,  pos:"mk-br"},
@@ -1256,7 +1260,7 @@ async function renderStart(){
   const body=document.getElementById("startBody"); if(!body) return;
   if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*"); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   await loadBilder();
-  const card='background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
+  const card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
   if(!ME){
     body.innerHTML='<div style="max-width:600px;margin:0 auto">'
       +'<div style="'+card+';text-align:center;padding:24px 18px"><div class="ripplebox"><span class="ring"></span><span class="ring"></span><span class="ring"></span><span class="drop"></span></div>'
@@ -1264,7 +1268,7 @@ async function renderStart(){
       +'<p style="color:var(--muted);font-size:14.5px;line-height:1.5;margin:.2em 0 1em">Transparente, wissenschaftsbasierte Bewertung von Lebensmitteln (Clean Score 0–100) – plus Ernährungs- &amp; Trainingstagebuch.</p>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
       +'<button onclick="openLogin()" style="padding:12px 18px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Anmelden / Registrieren</button>'
-      +'<button onclick="navTo(\'produkte\')" style="padding:12px 18px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-size:15px;cursor:pointer">Produkte ansehen</button></div></div>'
+      +'<button onclick="navTo(\'produkte\')" style="padding:12px 18px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:15px;cursor:pointer">Produkte ansehen</button></div></div>'
       +startRezSucheHtml()+topProdukteHtml()
       +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
       +startFeature('🔍','Clean Score','0–100, erklärt')+startFeature('📒','Tagebuch','Makros &amp; Ziele')
@@ -1272,7 +1276,7 @@ async function renderStart(){
       +'</div></div>';
     return;
   }
-  body.innerHTML='<div style="max-width:600px;margin:0 auto" id="startDash"><div style="color:#6b7280">Lade…</div></div>';
+  body.innerHTML='<div style="max-width:600px;margin:0 auto" id="startDash"><div style="color:var(--muted)">Lade…</div></div>';
   const today=tbToday();
   let sum={},prof={},log=[];
   try{ const r=await client.rpc("cb_tagessumme",{p_datum:today}); sum=(r.data&&r.data[0])||{}; }catch(e){}
@@ -1285,18 +1289,18 @@ async function renderStart(){
   const saetze=log.length, ueb=new Set(log.map(x=>x.uebung)).size, vol=Math.round(log.reduce((a,s)=>a+(s.wiederholungen||0)*(s.gewicht_kg||0),0));
   const trainHtml = saetze
     ? '<div style="font-size:14px">💪 <b>'+ueb+'</b> Übungen · <b>'+saetze+'</b> Sätze · Volumen <b>'+vol+' kg</b></div>'
-    : '<div style="font-size:14px;color:#6b7280">Heute noch kein Training erfasst.</div>';
+    : '<div style="font-size:14px;color:var(--muted)">Heute noch kein Training erfasst.</div>';
   const schritteHtml = (ME&&ME.is_premium) ? '<div id="schritteBox"></div>' : '';
   dash.innerHTML=
     '<div style="'+card+'"><div style="font-weight:700;font-size:18px">Hallo'+(vorname?(' '+esc(vorname)):"")+'! 👋</div>'
       +'<div style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</div></div>'
     +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🍽️ Heute – Makros</div>'+donutsHtml+'</div>'
     +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🏋️ Heute – Training</div>'+trainHtml
-      +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:#fff;color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
+      +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:var(--card);color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
     +schritteHtml
     +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">'
       +'<button onclick="navTo(\'tagebuch\')" style="padding:13px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:14px;cursor:pointer">📒 Tagebuch öffnen</button>'
-      +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:#fff;color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>'
+      +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>'
     +startRezSucheHtml()+topProdukteHtml();
   if(ME&&ME.is_premium) renderSchritte();
 }
@@ -1314,7 +1318,7 @@ function buildMehr(){
   html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert CleanBase</button>';
   html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
             : '<button onclick="closeMehr();openLogin()">🔑 Anmelden</button>';
-  if(ME&&ME.is_admin) html+='<button onclick="closeMehr();location.hash=\'#admin\';location.reload()" style="color:#6b7280">🛠️ Admin-Bereich</button>';
+  if(ME&&ME.is_admin) html+='<button onclick="closeMehr();location.hash=\'#admin\';location.reload()" style="color:var(--muted)">🛠️ Admin-Bereich</button>';
   const c=document.getElementById('mehrCard'); if(c) c.innerHTML=html;
 }
 function wikiOpen(){
@@ -1323,11 +1327,11 @@ function wikiOpen(){
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;z-index:80";
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
   const H=(t)=>`<div style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#16a34a;font-weight:700;margin:18px 0 6px">${t}</div>`;
-  const box=(inner)=>`<div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13.5px;line-height:1.55;color:#374151">${inner}</div>`;
-  ov.innerHTML=`<div style="display:flex;flex-direction:column;width:100%;max-width:640px;height:100%;background:#fff">
+  const box=(inner)=>`<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13.5px;line-height:1.55;color:var(--ink)">${inner}</div>`;
+  ov.innerHTML=`<div style="display:flex;flex-direction:column;width:100%;max-width:640px;height:100%;background:var(--card)">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto"><b style="font-size:17px">📖 So funktioniert CleanBase</b><button onclick="document.getElementById('wikiOv').remove()" style="border:0;background:#eef3ef;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px">Schließen ✕</button></div>
     <div style="flex:1;overflow:auto;padding:12px 16px 28px">
-      <p style="font-size:13.5px;color:#6b7280;line-height:1.5">Transparent, wissenschaftsbasiert, nachvollziehbar. Hier steht, wie der <b>Clean Score</b> und der <b>Kalorienrechner</b> rechnen – inklusive der Sonderfälle.</p>
+      <p style="font-size:13.5px;color:var(--muted);line-height:1.5">Transparent, wissenschaftsbasiert, nachvollziehbar. Hier steht, wie der <b>Clean Score</b> und der <b>Kalorienrechner</b> rechnen – inklusive der Sonderfälle.</p>
 
       ${H("Clean Score (0–100)")}
       ${box(`Setzt sich aus vier Teilen zusammen:<br>
@@ -1436,15 +1440,15 @@ async function toggleTbStatistik(){
 async function loadTbStatistik(){
   const box=document.getElementById("tbStatBox");
   const [von,bis]=statRange(_statPeriod);
-  box.innerHTML='<div style="color:#6b7280;font-size:13px">Lade Statistik…</div>';
+  box.innerHTML='<div style="color:var(--muted);font-size:13px">Lade Statistik…</div>';
   const {data,error}=await client.rpc("cb_statistik",{p_von:von,p_bis:bis});
   if(error){ box.innerHTML='<div style="color:#dc2626;font-size:13px">Fehler: '+error.message+'</div>'; return; }
   let goal={}; try{ const g=await client.rpc("cb_profil"); goal=(g&&g.data&&g.data[0])||{}; }catch(e){}
   renderTbStatistik(data||[], goal);
 }
 function statBtn(p,lbl){ const on=_statPeriod===p;
-  return `<button onclick="_statPeriod='${p}';loadTbStatistik()" style="padding:6px 10px;border:1px solid ${on?'var(--green)':'#d1d5db'};border-radius:8px;background:${on?'var(--greenlt)':'#fff'};color:${on?'var(--greendk)':'#374151'};cursor:pointer;font-size:12.5px">${lbl}</button>`; }
-function statCard(lbl,val,sub){ return `<div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-size:11px;color:#6b7280">${lbl}</div><div style="font-size:18px;font-weight:700">${val}</div><div style="font-size:11px;color:#9aa7a0">${sub||''}</div></div>`; }
+  return `<button onclick="_statPeriod='${p}';loadTbStatistik()" style="padding:6px 10px;border:1px solid ${on?'var(--green)':'var(--line)'};border-radius:8px;background:${on?'var(--greenlt)':'#fff'};color:${on?'var(--greendk)':'#374151'};cursor:pointer;font-size:12.5px">${lbl}</button>`; }
+function statCard(lbl,val,sub){ return `<div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-size:11px;color:var(--muted)">${lbl}</div><div style="font-size:18px;font-weight:700">${val}</div><div style="font-size:11px;color:#9aa7a0">${sub||''}</div></div>`; }
 function barChartKcal(rows,gK){
   const n=rows.length; if(!n) return '<div style="color:#9aa7a0;font-size:12px">Keine Daten.</div>';
   const W=Math.max(280,n*16), H=120, pad=18, rd=Math.round;
@@ -1480,7 +1484,7 @@ function renderTbStatistik(rows,goal){
   let inZiel=0, zielDays=0; logged.forEach(r=>{ const g=num(r.ziel_kcal)||gK; if(g){ zielDays++; if(Math.abs((num(r.kcal)||0)-g)<=g*0.1) inZiel++; } });
   const header=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px"><div style="font-weight:700">📊 Statistik</div><div style="display:flex;gap:6px;flex-wrap:wrap">${statBtn("7","7 Tage")}${statBtn("30","30 Tage")}${statBtn("woche","Diese Woche")}${statBtn("monat","Dieser Monat")}</div></div>`;
   const cards=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px">${statCard("Ø kcal/Tag",rd(aK),gK?("Ziel "+rd(gK)):"")}${statCard("Ø Eiweiß",rd(aP)+" g",gP?("Ziel "+rd(gP)+" g"):"")}${statCard("Ø KH",rd(aKh)+" g",gKh?("Ziel "+rd(gKh)+" g"):"")}${statCard("Ø Fett",rd(aF)+" g",gF?("Ziel "+rd(gF)+" g"):"")}</div>`;
-  const adher=zielDays?`<div style="font-size:13px;margin-bottom:12px">Im Kalorienziel (±10 %): <b style="color:var(--green)">${inZiel}/${zielDays}</b> erfasste Tage <span style="color:#9aa7a0">(je Tag gegen das damals gültige Ziel)</span></div>`:`<div style="font-size:12.5px;color:#6b7280;margin-bottom:12px">Tipp: Tagesziele in „Mein Profil" setzen – dann siehst du die Zielerreichung.</div>`;
+  const adher=zielDays?`<div style="font-size:13px;margin-bottom:12px">Im Kalorienziel (±10 %): <b style="color:var(--green)">${inZiel}/${zielDays}</b> erfasste Tage <span style="color:#9aa7a0">(je Tag gegen das damals gültige Ziel)</span></div>`:`<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Tipp: Tagesziele in „Mein Profil" setzen – dann siehst du die Zielerreichung.</div>`;
   box.innerHTML=header+cards+adher
     +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px">kcal-Verlauf <span style="color:#9aa7a0;text-transform:none;letter-spacing:0">(grün = im Ziel · gelb = über · blau = unter)</span></div>`+barChartKcal(rows,gK)
     +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Gewichtsverlauf</div>`+lineChartWeight(rows)
@@ -1519,7 +1523,7 @@ function navyKF(){
   kf=Math.round(kf*10)/10;
   const kfEl=document.getElementById("bdKF"); if(kfEl) kfEl.value=kf;
   out.style.color="#166534";
-  out.innerHTML="Geschätzter Körperfettanteil: <b>"+String(kf).replace('.',',')+" %</b> → in „Körperfett %“ übernommen. Jetzt <b>„Berechnen“</b> (rechnet dann mit Katch-McArdle). <span style=\"color:#6b7280\">±3–4 %, ersetzt keine Messung (InBody/DEXA).</span>";
+  out.innerHTML="Geschätzter Körperfettanteil: <b>"+String(kf).replace('.',',')+" %</b> → in „Körperfett %“ übernommen. Jetzt <b>„Berechnen“</b> (rechnet dann mit Katch-McArdle). <span style=\"color:var(--muted)\">±3–4 %, ersetzt keine Messung (InBody/DEXA).</span>";
 }
 function calcBedarf(){
   const out=document.getElementById("bdOut"); _bdResult=null;
@@ -1560,11 +1564,11 @@ function calcBedarf(){
   _bdResult={kcal:Math.round(ziK),protein:Math.round(protein),kh:Math.round(kh),fett:Math.round(fett)};
   if(ab) ab.disabled=false;
   out.style.color="#374151";
-  out.innerHTML=`<div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px;line-height:1.6">
-    <div>Grundumsatz (BMR) <b>${Math.round(bmr)}</b> kcal <span style="color:#6b7280;font-size:12px">· ${bmrMethode}</span> · Erhaltungsbedarf <b>${Math.round(tdee)}</b> kcal</div>
+  out.innerHTML=`<div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px;line-height:1.6">
+    <div>Grundumsatz (BMR) <b>${Math.round(bmr)}</b> kcal <span style="color:var(--muted);font-size:12px">· ${bmrMethode}</span> · Erhaltungsbedarf <b>${Math.round(tdee)}</b> kcal</div>
     <div style="margin-top:4px;font-size:15px">Ziel-Energie: <b style="color:var(--green)">${_bdResult.kcal} kcal/Tag</b>${floored?' <span style="color:#b45309">· auf den Grundumsatz begrenzt</span>':''}</div>
     ${floored?`<div style="margin-top:6px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;font-size:12px;color:#92400e;line-height:1.5">🔒 Das Ziel wurde <b>auf ${Math.round(floor)} kcal angehoben</b> – <b>unter den Grundumsatz</b> (${Math.round(bmr)} kcal) geht der Rechner bewusst nicht. Dauerhaft darunter zu essen ist ungesund (Muskelabbau, Energie/Hormone). Für ein größeres Defizit lieber die <b>Aktivität erhöhen</b> oder Diätpausen einlegen.</div>`:''}
-    <div style="margin-top:4px">Eiweiß <b>${_bdResult.protein} g</b> <span style="color:#6b7280">(${String(protF).replace('.',',')} g/kg ${protRef==='aktuell'?'akt. Gewicht':'Zielgewicht'}${warnNiere})</span> · KH <b>${_bdResult.kh} g</b> · Fett <b>${_bdResult.fett} g</b> <span style="color:#6b7280">(${String(Math.round(fettPct*1000)/10).replace('.',',')} % Energie)</span></div>
+    <div style="margin-top:4px">Eiweiß <b>${_bdResult.protein} g</b> <span style="color:var(--muted)">(${String(protF).replace('.',',')} g/kg ${protRef==='aktuell'?'akt. Gewicht':'Zielgewicht'}${warnNiere})</span> · KH <b>${_bdResult.kh} g</b> · Fett <b>${_bdResult.fett} g</b> <span style="color:var(--muted)">(${String(Math.round(fettPct*1000)/10).replace('.',',')} % Energie)</span></div>
     ${niere?'<div style="margin-top:6px;color:#b45309;font-size:12px">⚠️ Bei Nierenerkrankung die Eiweißmenge unbedingt ärztlich abstimmen. Dieser Rechner ersetzt keine medizinische Beratung.</div>':''}
     <div style="margin-top:6px;font-size:11.5px;color:#9aa7a0">Grundumsatz: ${bmrMethode} × Aktivitätsfaktor. Tipp: nach 2–3 Wochen am echten Gewichtsverlauf feinjustieren – keine medizinische Beratung.</div>
   </div>`;
@@ -1598,7 +1602,7 @@ async function renderKalender(){
     (data||[]).forEach(r=>{ if((r.eintraege||0)>0||(num(r.kcal)||0)>0) days[r.datum]=true; }); }catch(e){}
   const M=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
   const today=tbToday(), sel=document.getElementById("tbDatum").value;
-  const btn='padding:5px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer';
+  const btn='padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer';
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><button onclick="kalShiftMonth(-1)" style="${btn}">‹</button><b>${M[_kalM]} ${_kalY}</b><button onclick="kalShiftMonth(1)" style="${btn}">›</button></div>`;
   h+=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:12.5px">`;
   ["Mo","Di","Mi","Do","Fr","Sa","So"].forEach(d=>h+=`<div style="text-align:center;color:#9aa7a0;font-weight:600">${d}</div>`);
@@ -1634,9 +1638,9 @@ async function loadPlaner(){
 }
 async function renderPlaner(){
   const bw=document.getElementById("pvWoche"), bt=document.getElementById("pvTag");
-  if(bw&&bt){ const on='background:var(--green);color:#fff', off='background:#fff;color:#374151';
+  if(bw&&bt){ const on='background:var(--green);color:#fff', off='background:var(--card);color:var(--ink)';
     bw.style.cssText="padding:7px 11px;border:0;cursor:pointer;font-size:13px;"+(_planView==='woche'?on:off);
-    bt.style.cssText="padding:7px 11px;border:0;border-left:1px solid #d1d5db;cursor:pointer;font-size:13px;"+(_planView==='tag'?on:off); }
+    bt.style.cssText="padding:7px 11px;border:0;border-left:1px solid var(--line);cursor:pointer;font-size:13px;"+(_planView==='tag'?on:off); }
   let dates=[], von, bis, labelText;
   if(_planView==='tag'){
     const ds=_planDay||tbToday(); dates=[ds]; von=ds; bis=ds;
@@ -1649,9 +1653,9 @@ async function renderPlaner(){
   }
   const lab=document.getElementById("planWochenLabel"); if(lab) lab.textContent=labelText;
   const bm=document.getElementById("pmMeal"), bc=document.getElementById("pmCal");
-  if(bm&&bc){ const on2='background:var(--green);color:#fff', off2='background:#fff;color:#374151';
+  if(bm&&bc){ const on2='background:var(--green);color:#fff', off2='background:var(--card);color:var(--ink)';
     bm.style.cssText="padding:7px 11px;border:0;cursor:pointer;font-size:13px;"+(_planMode!=='kalender'?on2:off2);
-    bc.style.cssText="padding:7px 11px;border:0;border-left:1px solid #d1d5db;cursor:pointer;font-size:13px;"+(_planMode==='kalender'?on2:off2); }
+    bc.style.cssText="padding:7px 11px;border:0;border-left:1px solid var(--line);cursor:pointer;font-size:13px;"+(_planMode==='kalender'?on2:off2); }
   if(_planMode==='kalender'){ await renderKalenderGrid(dates); return; }
   let entries=[]; try{ const {data}=await client.rpc("cb_plan_woche",{p_von:von,p_bis:bis}); entries=data||[]; }catch(e){}
   _planCache=entries;
@@ -1661,14 +1665,14 @@ async function renderPlaner(){
   let html="";
   dates.forEach(ds=>{
     const d=new Date(ds+"T00:00:00"), isT=ds===tbToday();
-    html+=`<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow)${isT?';outline:2px solid var(--greenlt)':''}">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px">${d.toLocaleDateString("de-DE",{weekday:"long"})} <span style="font-weight:500;color:#6b7280;font-size:12.5px">${d.toLocaleDateString("de-DE",{day:"numeric",month:"short"})}${isT?" · heute":""}</span></div>`;
+    html+=`<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow)${isT?';outline:2px solid var(--greenlt)':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px">${d.toLocaleDateString("de-DE",{weekday:"long"})} <span style="font-weight:500;color:var(--muted);font-size:12.5px">${d.toLocaleDateString("de-DE",{day:"numeric",month:"short"})}${isT?" · heute":""}</span></div>`;
     if(massAktiv && massNaechste && (ds===massNaechste || (isT && massNaechste<=tbToday()))){
       html+=`<div onclick="setMode('profil')" style="cursor:pointer;background:#fff7e6;border:1px solid #fde68a;border-radius:8px;padding:5px 8px;margin:0 0 6px;font-size:12.5px;color:#92400e">📐 Körpermaße messen fällig ›</div>`;
     }
     slots.forEach(s=>{
       const items=entries.filter(e=>e.datum===ds && e.slot===s);
-      html+=`<div style="padding:4px 0;border-top:1px solid #f3f6f4"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;color:#6b7280">${icons[s]} ${s}</span><button onclick="planAdd('${ds}','${s}')" style="border:0;background:var(--greenlt);color:var(--greendk);border-radius:7px;padding:1px 10px;font-size:15px;cursor:pointer">+</button></div>`;
+      html+=`<div style="padding:4px 0;border-top:1px solid #f3f6f4"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;color:var(--muted)">${icons[s]} ${s}</span><button onclick="planAdd('${ds}','${s}')" style="border:0;background:var(--greenlt);color:var(--greendk);border-radius:7px;padding:1px 10px;font-size:15px;cursor:pointer">+</button></div>`;
       items.forEach(it=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;padding:3px 0 3px 4px">
         <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.typ==='rezept'?'🍲':'•'} ${esc(it.titel)}${it.menge_g?` <span style="color:#9aa7a0">${it.menge_g} g</span>`:""}</span>
         <span style="display:flex;gap:5px;white-space:nowrap"><button onclick="planToTb(${it.eintrag_id})" title="Ins Tagebuch übernehmen" style="border:0;background:#eef6ff;color:#1e3a8a;border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer">→ TB</button><button onclick="planDel(${it.eintrag_id})" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer">✕</button></span></div>`; });
@@ -1721,7 +1725,7 @@ async function toggleEinkauf(){
   box.style.display=""; await loadEinkauf();
 }
 async function loadEinkauf(){
-  const box=document.getElementById("einkaufBox"); box.innerHTML='<div style="color:#6b7280;font-size:13px">Lade…</div>';
+  const box=document.getElementById("einkaufBox"); box.innerHTML='<div style="color:var(--muted);font-size:13px">Lade…</div>';
   let rows=[]; try{ const {data}=await client.rpc("cb_einkauf_list"); rows=data||[]; }catch(e){}
   const offen=rows.filter(r=>!r.erledigt), erl=rows.filter(r=>r.erledigt);
   const row=(r,done)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #f3f6f4">
@@ -1729,7 +1733,7 @@ async function loadEinkauf(){
     <span style="flex:1;${done?'text-decoration:line-through;color:#9aa7a0':''}">${esc(r.titel)}${r.menge?` <span style="color:#9aa7a0;font-size:12.5px">${esc(r.menge)}</span>`:''}</span>
     <button onclick="einkaufDel(${r.eintrag_id})" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer">✕</button></div>`;
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><b>🛒 Einkaufsliste</b><button onclick="einkaufFromPlan()" style="padding:6px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px">Aus dieser Woche erzeugen</button></div>`;
-  h+=`<div style="display:flex;gap:8px;margin-bottom:10px"><input id="einkInput" placeholder="Artikel…" onkeydown="if(event.key==='Enter')einkaufAdd()" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px"><input id="einkMenge" placeholder="Menge" style="width:90px;padding:9px;border:1px solid #d1d5db;border-radius:8px"><button onclick="einkaufAdd()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer">+</button></div>`;
+  h+=`<div style="display:flex;gap:8px;margin-bottom:10px"><input id="einkInput" placeholder="Artikel…" onkeydown="if(event.key==='Enter')einkaufAdd()" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px"><input id="einkMenge" placeholder="Menge" style="width:90px;padding:9px;border:1px solid var(--line);border-radius:8px"><button onclick="einkaufAdd()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer">+</button></div>`;
   if(!rows.length) h+='<div style="color:#9aa7a0;font-size:13px">Liste ist leer – Artikel hinzufügen oder aus dem Wochenplan erzeugen.</div>';
   offen.forEach(r=>h+=row(r,false));
   if(erl.length){ h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 2px"><span style="font-size:12px;color:#9aa7a0">Erledigt (${erl.length})</span><button onclick="einkaufClearDone()" style="font-size:12px;color:#dc2626;background:none;border:0;cursor:pointer">entfernen</button></div>`; erl.forEach(r=>h+=row(r,true)); }
@@ -1770,14 +1774,14 @@ async function renderKalenderGrid(dates){
   body+=`</div>`;
   dates.forEach(ds=>{ const isT=ds===tbToday();
     body+=`<div onclick="termAddAt('${ds}',event,${H0},${rowH})" style="flex:1;min-width:${cmin};position:relative;border-left:1px solid var(--line);${isT?'background:#f6fbf7':''}">`;
-    for(let hh=H0;hh<H1;hh++){ body+=`<div style="height:${rowH}px;border-top:1px solid #f1f5f9;box-sizing:border-box"></div>`; }
+    for(let hh=H0;hh<H1;hh++){ body+=`<div style="height:${rowH}px;border-top:1px solid var(--line);box-sizing:border-box"></div>`; }
     terms.filter(t=>t.datum===ds && !t.ganztags && t.start_min!=null).forEach(t=>{
       const top=Math.max(0,((t.start_min-H0*60)/60)*rowH), h=Math.max(20,(((t.ende_min||t.start_min+60)-t.start_min)/60)*rowH), c=TERMCOL[t.typ]||"#6b7280";
       body+=`<div onclick="event.stopPropagation();termClick(${t.eintrag_id})" style="position:absolute;left:3px;right:3px;top:${top.toFixed(0)}px;height:${h.toFixed(0)}px;background:${c};color:#fff;border-radius:7px;padding:3px 6px;font-size:11.5px;overflow:hidden;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)"><b>${esc(t.titel)}</b><div style="opacity:.85">${fmtMin(t.start_min)}–${fmtMin(t.ende_min)}</div></div>`;
     });
     body+=`</div>`; });
   body+=`</div>`;
-  document.getElementById("planGrid").innerHTML=`<div style="overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff;padding-bottom:4px">${head}${allday}<div style="max-height:62vh;overflow-y:auto">${body}</div></div><div style="font-size:11.5px;color:#9aa7a0;margin-top:6px">„+" am Tag oder in eine Stunde tippen, um Termin/Training anzulegen. Eintrag antippen = löschen.</div>`;
+  document.getElementById("planGrid").innerHTML=`<div style="overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);padding-bottom:4px">${head}${allday}<div style="max-height:62vh;overflow-y:auto">${body}</div></div><div style="font-size:11.5px;color:#9aa7a0;margin-top:6px">„+" am Tag oder in eine Stunde tippen, um Termin/Training anzulegen. Eintrag antippen = löschen.</div>`;
 }
 function termToggleAllday(){ const c=document.getElementById("termAllday").checked; document.getElementById("termTimes").style.display=c?"none":"flex"; }
 function termAdd(ds,startMin){
@@ -2084,7 +2088,7 @@ function tbAddPick(i){
   const g=tbDefaultPortion(p);
   box.innerHTML='<div style="background:#1b2229;border:1px solid #2d3842;border-radius:12px;padding:12px">'
     +'<div style="font-weight:600;margin-bottom:8px">'+esc(p.name)+(num(p.clean_score)!=null?' <span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(num(p.clean_score)))+'">'+num(p.clean_score)+'</span>':'')+'</div>'
-    +'<div style="display:flex;gap:8px;align-items:center"><input id="tbAddMenge" type="number" min="1" value="'+g+'" style="flex:1;min-width:0;padding:10px;border:1px solid #2d3842;border-radius:10px;background:#0f1418;color:#e8edf1"><span style="color:#93a1ac">g</span>'
+    +'<div style="display:flex;gap:8px;align-items:center"><input id="tbAddMenge" type="number" inputmode="numeric" min="1" value="'+g+'" style="width:84px;flex:0 0 auto;font-size:16px;text-align:center;padding:10px 8px;border:1px solid #2d3842;border-radius:10px;background:#0f1418;color:#e8edf1"><span style="color:#93a1ac">g</span>'
     +'<button onclick="tbAddSave()" style="padding:10px 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Eintragen</button></div>'
     +'<button onclick="tbSetTab(window._tbTab||\'suche\')" style="margin-top:8px;background:none;border:0;color:#93a1ac;font-size:12px;cursor:pointer;text-decoration:underline">‹ zurück</button>'
     +'<div id="tbAddMsg" style="font-size:12px;color:#93a1ac;margin-top:6px"></div></div>';
@@ -2280,31 +2284,31 @@ async function addManuell(){
 async function loadFreigabe(){
   const {data:ent}=await client.from("v_freigabe_entwuerfe").select("*").order("id");
   const el=document.getElementById("fgEntwuerfe");
-  if(!ent||!ent.length){ el.innerHTML='<div style="color:#6b7280">Keine offenen Entwürfe.</div>'; }
-  else { el.innerHTML=ent.map(p=>`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:8px">
+  if(!ent||!ent.length){ el.innerHTML='<div style="color:var(--muted)">Keine offenen Entwürfe.</div>'; }
+  else { el.innerHTML=ent.map(p=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <div><b>${esc(p.name||"?")}</b> <span style="color:#6b7280">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:#6b7280">${p.id} · ${esc(p.kategorie||"")} · Score ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div></div>
+        <div><b>${esc(p.name||"?")}</b> <span style="color:var(--muted)">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:var(--muted)">${p.id} · ${esc(p.kategorie||"")} · Score ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="file" accept="image/*" multiple style="display:none" id="fgFoto_${p.id}" onchange="fgFotoPick(this,'${p.id}')" />
           <button onclick="fgShotCam('${p.id}')" title="Etikett mit Kamera aufnehmen" style="padding:8px 11px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:13px">📷 Kamera</button>
-          <button onclick="document.getElementById('fgFoto_${p.id}').click()" title="Etikett-Foto(s) aus Datei" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:13px">📁 Datei</button>
+          <button onclick="document.getElementById('fgFoto_${p.id}').click()" title="Etikett-Foto(s) aus Datei" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">📁 Datei</button>
           <span id="fgShotInfo_${p.id}" style="font-size:12px;color:#166534"></span>
           <button id="fgShotSend_${p.id}" onclick="fgShotSend('${p.id}')" style="display:none;padding:8px 12px;border:0;border-radius:8px;background:#0ea5e9;color:#fff;cursor:pointer;font-size:13px">Etikett senden</button>
-          <button onclick="openFgEditor('${p.id}')" style="padding:8px 12px;border:1px solid #0ea5e9;border-radius:8px;background:#fff;color:#0369a1;cursor:pointer;font-size:13px">✏️ Bearbeiten</button>
+          <button onclick="openFgEditor('${p.id}')" style="padding:8px 12px;border:1px solid #0ea5e9;border-radius:8px;background:var(--card);color:#0369a1;cursor:pointer;font-size:13px">✏️ Bearbeiten</button>
           ${p.vollstaendig?`<button onclick="freigeben('${p.id}')" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Freigeben</button>`:`<span style="font-size:12px;color:#b45309">unvollständig</span>`}
-          <button onclick="ablehnenEntwurf('${p.id}','${esc(p.name||"")}')" title="Ablehnen / aus der Liste entfernen" style="padding:8px 11px;border:1px solid #fca5a5;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;font-size:13px">🗑️ Ablehnen</button>
+          <button onclick="ablehnenEntwurf('${p.id}','${esc(p.name||"")}')" title="Ablehnen / aus der Liste entfernen" style="padding:8px 11px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:13px">🗑️ Ablehnen</button>
         </div>
       </div></div>`).join(""); }
   const {data:q}=await client.from("Scan_Warteschlange").select("*").eq("Status","offen").order("Eintrag_ID",{ascending:false});
-  document.getElementById("fgQueue").innerHTML = (q&&q.length)? q.map(x=>"• "+esc(x.EAN)+' <span style="color:#6b7280">('+esc(x.Quelle||"")+")</span>").join("<br>") : '<span style="color:#6b7280">leer</span>';
+  document.getElementById("fgQueue").innerHTML = (q&&q.length)? q.map(x=>"• "+esc(x.EAN)+' <span style="color:var(--muted)">('+esc(x.Quelle||"")+")</span>").join("<br>") : '<span style="color:var(--muted)">leer</span>';
   try{
     const {data:md}=await client.rpc("cb_admin_meldungen");
     window._meld=md||[]; const me=document.getElementById("fgMeldungen");
-    if(me){ me.innerHTML=(md&&md.length)? md.map((x,i)=>`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-      <div><b>${esc(x.name)}</b> <span style="color:#6b7280">×${x.anzahl}</span><div style="font-size:12px;color:#6b7280">${x.kcal!=null?(x.kcal+" kcal"):""}${x.protein!=null?(" · P "+x.protein+"g"):""}${x.kh!=null?(" · KH "+x.kh+"g"):""}${x.fett!=null?(" · F "+x.fett+"g"):""}${x.menge_g!=null?(" · "+x.menge_g+" g"):""}</div></div>
-      <div style="display:flex;gap:6px"><button onclick="fgMeldNeu(${i})" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px">Produkt anlegen</button><button onclick="fgMeldErledigt(${i})" style="padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:13px">Erledigt</button></div>
-    </div>`).join("") : '<span style="color:#6b7280">keine offenen Meldungen</span>'; }
-  }catch(e){ const me=document.getElementById("fgMeldungen"); if(me) me.innerHTML='<span style="color:#6b7280">—</span>'; }
+    if(me){ me.innerHTML=(md&&md.length)? md.map((x,i)=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <div><b>${esc(x.name)}</b> <span style="color:var(--muted)">×${x.anzahl}</span><div style="font-size:12px;color:var(--muted)">${x.kcal!=null?(x.kcal+" kcal"):""}${x.protein!=null?(" · P "+x.protein+"g"):""}${x.kh!=null?(" · KH "+x.kh+"g"):""}${x.fett!=null?(" · F "+x.fett+"g"):""}${x.menge_g!=null?(" · "+x.menge_g+" g"):""}</div></div>
+      <div style="display:flex;gap:6px"><button onclick="fgMeldNeu(${i})" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px">Produkt anlegen</button><button onclick="fgMeldErledigt(${i})" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Erledigt</button></div>
+    </div>`).join("") : '<span style="color:var(--muted)">keine offenen Meldungen</span>'; }
+  }catch(e){ const me=document.getElementById("fgMeldungen"); if(me) me.innerHTML='<span style="color:var(--muted)">—</span>'; }
   loadRezepteFree();
   try{ Object.keys(FG_SHOTS).forEach(updateFgShotInfo); }catch(e){}
 }
@@ -2312,10 +2316,10 @@ async function loadRezepteFree(){
   const box=document.getElementById("fgRezepteFree"); if(!box) return;
   try{
     const {data,error}=await client.rpc("cb_admin_rezepte_free");
-    if(error){ box.innerHTML='<span style="color:#6b7280">—</span>'; return; }
+    if(error){ box.innerHTML='<span style="color:var(--muted)">—</span>'; return; }
     window._rezFree=data||[];
     renderRezepteFree();
-  }catch(e){ box.innerHTML='<span style="color:#6b7280">—</span>'; }
+  }catch(e){ box.innerHTML='<span style="color:var(--muted)">—</span>'; }
 }
 function renderRezepteFree(){
   const box=document.getElementById("fgRezepteFree"); if(!box) return;
@@ -2323,13 +2327,13 @@ function renderRezepteFree(){
   const q=_norm((document.getElementById("fgRezSuche")||{}).value||"");
   const list=q? rows.filter(r=>_norm(r.name||"").includes(q)) : rows;
   const freiN=rows.filter(r=>r.frei).length;
-  if(!list.length){ box.innerHTML='<span style="color:#6b7280">Keine Rezepte.</span>'; return; }
-  box.innerHTML='<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'+freiN+' von '+rows.length+' Rezepten frei</div>'
-    + list.map(r=>'<label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:9px 11px;margin-bottom:6px;cursor:pointer">'
+  if(!list.length){ box.innerHTML='<span style="color:var(--muted)">Keine Rezepte.</span>'; return; }
+  box.innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:6px">'+freiN+' von '+rows.length+' Rezepten frei</div>'
+    + list.map(r=>'<label style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:6px;cursor:pointer">'
       +'<input type="checkbox" '+(r.frei?'checked':'')+' onchange="rezFreeToggle(\''+r.rezept_id+'\',this.checked)" style="width:18px;height:18px;cursor:pointer">'
       +'<span style="flex:1;min-width:0"><span style="font-weight:600">'+esc(r.name||"?")+'</span>'
-      +'<span style="font-size:12px;color:#6b7280"> · '+esc(r.rezept_id)+' · '+esc(r.status||"")+(r.sichtbarkeit&&r.sichtbarkeit!=="oeffentlich"?(" · "+esc(r.sichtbarkeit)):"")+'</span></span>'
-      +(r.frei?'<span style="font-size:11px;font-weight:700;color:#16a34a">FREE</span>':'<span style="font-size:11px;color:#9ca3af">🔒 Premium</span>')
+      +'<span style="font-size:12px;color:var(--muted)"> · '+esc(r.rezept_id)+' · '+esc(r.status||"")+(r.sichtbarkeit&&r.sichtbarkeit!=="oeffentlich"?(" · "+esc(r.sichtbarkeit)):"")+'</span></span>'
+      +(r.frei?'<span style="font-size:11px;font-weight:700;color:#16a34a">FREE</span>':'<span style="font-size:11px;color:var(--muted)">🔒 Premium</span>')
       +'</label>').join("");
 }
 async function rezFreeToggle(id, frei){
@@ -2371,8 +2375,8 @@ async function loadZutatenStamm(){
 function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
   return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
-    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${rating??5}" title="Clean-Bewertung 0–10" style="width:54px;padding:7px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${rating??5}" title="Clean-Bewertung 0–10" style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px">
     <label style="font-size:11px;color:#b91c1c;display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:#dc2626">⚠️</label>
     <button type="button" onclick="this.closest('.fgZutRow').remove()" title="Zutat entfernen" style="border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;width:30px;height:30px;cursor:pointer;flex:0 0 auto">✕</button>
   </div>`;
@@ -2395,14 +2399,14 @@ async function openFgEditor(id){
   window._fgEdit={ id:id, bild_url:d.bild_url||"" };
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
-  const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" style="width:110px;padding:6px;border:1px solid #d1d5db;border-radius:8px"></label>`;
+  const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
   const zText=(d.zutaten||[]).map(z=>`${z.name}; ${z.rating??5}; ${(String(z.kritisch||"nein").toLowerCase()==="ja")?"j":"n"}`).join("\n");
-  const inp=(id2,val)=>`<input id="${id2}" value="${esc(val||"")}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:8px">`;
-  const sel=(id2,cur,opts)=>`<select id="${id2}" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px">${opts.map(o=>`<option ${((cur||opts[0])===o)?"selected":""}>${o}</option>`).join("")}</select>`;
+  const inp=(id2,val)=>`<input id="${id2}" value="${esc(val||"")}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px">`;
+  const sel=(id2,cur,opts)=>`<select id="${id2}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">${opts.map(o=>`<option ${((cur||opts[0])===o)?"selected":""}>${o}</option>`).join("")}</select>`;
   panel.innerHTML=`
     <button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
-    <div style="font-size:12px;color:#6b7280;margin-bottom:10px">${id?(esc(d.id)+" · Status: "+esc(d.status||"")):"wird als Entwurf angelegt"}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${id?(esc(d.id)+" · Status: "+esc(d.status||"")):"wird als Entwurf angelegt"}</div>
     <div style="display:grid;gap:8px">
       <label style="font-size:13px">Titel${inp("fe_name",d.name)}</label>
       <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
@@ -2421,7 +2425,7 @@ async function openFgEditor(id){
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Produktbild</div>
     <div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:120px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div>
     <input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px">
-    <div id="fe_bildMsg" style="font-size:12px;color:#6b7280;margin-top:4px"></div>
+    <div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
     <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
       <button onclick="fgEditSave(false)" style="padding:10px 16px;border:0;border-radius:10px;background:#0ea5e9;color:#fff;font-weight:600;cursor:pointer">💾 Speichern</button>
       <button onclick="fgEditSave(true)" style="padding:10px 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">💾 Speichern &amp; freigeben</button>
@@ -2481,8 +2485,8 @@ const MASS=[["po","Po","Po"],["huefte","Hüfte","Huefte"],["beine","Beine","Bein
 async function loadTraining(){
   const gate=document.getElementById("trainGate"), body=document.getElementById("trainBody");
   if(!ME){ gate.style.display=""; body.innerHTML="";
-    gate.innerHTML='<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;font-size:14px">Bitte zuerst <a href="#" onclick="openLogin();return false" style="color:var(--green)">anmelden</a>, um dein Training zu verwalten.</div>'; return; }
-  gate.style.display="none"; body.innerHTML='<div style="color:#6b7280">Lade…</div>';
+    gate.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;font-size:14px">Bitte zuerst <a href="#" onclick="openLogin();return false" style="color:var(--green)">anmelden</a>, um dein Training zu verwalten.</div>'; return; }
+  gate.style.display="none"; body.innerHTML='<div style="color:var(--muted)">Lade…</div>';
   try{
     const [rp,rk,rh,rt]=await Promise.all([
       client.rpc("cb_train_profil"),
@@ -2522,23 +2526,23 @@ function trTab(name){
 }
 function renderTrainGeraete(){
   const pane=document.getElementById("trainPane"); if(!pane) return;
-  pane.innerHTML='<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px"><h3 style="margin:0 0 10px;font-size:17px">🏋️ Meine Geräte zuhause</h3><div id="pfGeraete">…</div></div>';
+  pane.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px;font-size:17px">🏋️ Meine Geräte zuhause</h3><div id="pfGeraete">…</div></div>';
   renderProfilGeraete();
 }
 function renderTrainPlanPane(){
   const p=TRAIN||{}, tf=_trTf, pane=document.getElementById("trainPane");
-  const card='background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:14px', h2='margin:0 0 10px;font-size:17px';
+  const card='background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px', h2='margin:0 0 10px;font-size:17px';
   const tfHtml=TF_SMILEYS.map((s,i)=>'<button onclick="setTagesform('+(i+1)+')" id="tf_'+(i+1)+'" style="font-size:26px;line-height:1;padding:6px 8px;border:2px solid '+(tf===i+1?'#16a34a':'transparent')+';border-radius:10px;background:'+(tf===i+1?'var(--greenlt,#ecfdf5)':'#f8fafc')+';cursor:pointer">'+s+'</button>').join("");
   pane.innerHTML=
     '<div style="'+card+'"><h3 style="'+h2+'">🗓️ Trainingsplan</h3>'
-    +(p.Plan?planSummaryHtml(p.Plan):'<div style="font-size:13px;color:#6b7280;margin-bottom:8px">Aus Geräten, Zeit und Ziel automatisch einen Plan erstellen.</div>')
+    +(p.Plan?planSummaryHtml(p.Plan):'<div style="font-size:13px;color:var(--muted);margin-bottom:8px">Aus Geräten, Zeit und Ziel automatisch einen Plan erstellen.</div>')
     +'<button onclick="openPlanGen()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">'+(p.Plan?'Plan neu erstellen':'Plan erstellen')+'</button>'
     +(p.Plan?'<div style="margin-top:12px">'+renderPlanHtml(p.Plan)+'</div>':'')
     +'</div>'
     +'<div style="'+card+'"><h3 style="'+h2+'">⏱️ Zeitbudget pro Training</h3>'
     +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
-    +'<label style="font-size:14px">Winter (Min) <input id="zWinter" type="number" value="'+(p.Zeit_Winter_Min??120)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label>'
-    +'<label style="font-size:14px">Sommer (Min) <input id="zSommer" type="number" value="'+(p.Zeit_Sommer_Min??90)+'" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px;margin-left:6px"></label>'
+    +'<label style="font-size:14px">Winter (Min) <input id="zWinter" type="number" value="'+(p.Zeit_Winter_Min??120)+'" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:8px;margin-left:6px"></label>'
+    +'<label style="font-size:14px">Sommer (Min) <input id="zSommer" type="number" value="'+(p.Zeit_Sommer_Min??90)+'" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:8px;margin-left:6px"></label>'
     +'<button onclick="saveTrainZeit()" style="padding:8px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Speichern</button></div>'
     +'<div id="trainMsg" style="font-size:13px;color:#16a34a;margin-top:6px"></div></div>'
     +'<div style="'+card+'"><h3 style="'+h2+'">😊 Tagesform heute</h3><div style="display:flex;gap:8px">'+tfHtml+'</div>'
@@ -2547,15 +2551,15 @@ function renderTrainPlanPane(){
 let UEBUNGEN=null;
 async function openUebungen(target){
   const host=target?document.getElementById(target):document.getElementById("panel");
-  host.innerHTML=(target?'':'<button class="close" onclick="closeP()">Schließen ✕</button>')+'<h2 style="margin-top:0">💪 Übungs-Datenbank</h2><div id="uebFilter"></div><div id="uebList" style="margin-top:10px;color:#6b7280">Lade…</div>';
+  host.innerHTML=(target?'':'<button class="close" onclick="closeP()">Schließen ✕</button>')+'<h2 style="margin-top:0">💪 Übungs-Datenbank</h2><div id="uebFilter"></div><div id="uebList" style="margin-top:10px;color:var(--muted)">Lade…</div>';
   if(!target){ document.getElementById("overlay").classList.add("open"); document.getElementById("panel").scrollTop=0; }
   if(!UEBUNGEN){ try{ const {data}=await client.rpc("cb_uebungen"); UEBUNGEN=data||[]; }catch(e){ document.getElementById("uebList").innerHTML='<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>'; return; } }
   const groups=[...new Set(UEBUNGEN.map(u=>u.muskelgruppe))].sort();
   const geraete=[...new Set(UEBUNGEN.filter(u=>u.geraet).map(u=>u.geraet))].sort();
   document.getElementById("uebFilter").innerHTML=
     '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">'
-    +'<select id="uebGrp" onchange="renderUebungen()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:14px"><option value="">Alle Muskelgruppen</option>'+groups.map(g=>'<option>'+esc(g)+'</option>').join("")+'</select>'
-    +'<select id="uebGer" onchange="renderUebungen()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:14px"><option value="">Alle Geräte</option><option value="__none__">ohne Gerät</option>'+geraete.map(g=>'<option>'+esc(g)+'</option>').join("")+'</select>'
+    +'<select id="uebGrp" onchange="renderUebungen()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px"><option value="">Alle Muskelgruppen</option>'+groups.map(g=>'<option>'+esc(g)+'</option>').join("")+'</select>'
+    +'<select id="uebGer" onchange="renderUebungen()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px"><option value="">Alle Geräte</option><option value="__none__">ohne Gerät</option>'+geraete.map(g=>'<option>'+esc(g)+'</option>').join("")+'</select>'
     +'<label style="font-size:13px"><input type="checkbox" id="uebMine" onchange="renderUebungen()"> nur mit meinen Geräten</label></div>';
   renderUebungen();
 }
@@ -2568,18 +2572,18 @@ function renderUebungen(){
     && (!ger || (ger==="__none__" ? u.ohne_geraet : u.geraet===ger))
     && (!mine || u.ohne_geraet || (u.geraet && owned.has(u.geraet))) );
   const el=document.getElementById("uebList");
-  if(!list.length){ el.innerHTML='<div style="color:#6b7280">Keine Übungen für diese Auswahl.</div>'; return; }
+  if(!list.length){ el.innerHTML='<div style="color:var(--muted)">Keine Übungen für diese Auswahl.</div>'; return; }
   el.innerHTML=list.map((u,i)=>{
     const tag=u.ohne_geraet?'ohne Gerät':esc(u.geraet||'');
-    return '<div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:8px">'
+    return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">'
      +'<div onclick="uebToggle('+i+')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px">'
      +'<b style="font-size:14px">'+esc(u.name)+'</b>'
-     +'<span style="font-size:11px;color:#6b7280;white-space:nowrap;text-align:right">'+esc(u.muskelgruppe)+'<br>'+tag+'</span></div>'
-     +'<div id="ueb_d_'+i+'" style="display:none;margin-top:8px;font-size:13px;color:#374151;line-height:1.5">'
+     +'<span style="font-size:11px;color:var(--muted);white-space:nowrap;text-align:right">'+esc(u.muskelgruppe)+'<br>'+tag+'</span></div>'
+     +'<div id="ueb_d_'+i+'" style="display:none;margin-top:8px;font-size:13px;color:var(--ink);line-height:1.5">'
        +(u.medien_url?'<img src="'+esc(u.medien_url)+'" alt="" style="max-width:100%;border-radius:8px;margin-bottom:8px">':'')
        +esc(u.ausfuehrung||'')
-       +(u.sekundaer?'<div style="font-size:12px;color:#6b7280;margin-top:6px">Auch beansprucht: '+esc(u.sekundaer)+'</div>':'')
-       +'<div style="font-size:11px;color:#9ca3af;margin-top:6px">Schwierigkeit: '+esc(u.schwierigkeit||'–')+(u.quelle?(' · Quelle: '+esc(u.quelle)):'')+'</div>'
+       +(u.sekundaer?'<div style="font-size:12px;color:var(--muted);margin-top:6px">Auch beansprucht: '+esc(u.sekundaer)+'</div>':'')
+       +'<div style="font-size:11px;color:var(--muted);margin-top:6px">Schwierigkeit: '+esc(u.schwierigkeit||'–')+(u.quelle?(' · Quelle: '+esc(u.quelle)):'')+'</div>'
      +'</div></div>';
   }).join("");
 }
@@ -2594,26 +2598,26 @@ async function openTrainLog(d, target){
   const dl=(UEBUNGEN||[]).map(u=>'<option value="'+esc(u.name)+'">').join("");
   const onch=target?("openTrainLog(this.value,'"+target+"')"):"openTrainLog(this.value)";
   host.innerHTML=(target?'':'<button class="close" onclick="closeP()">Schließen ✕</button>')+'<h2 style="margin-top:0">📒 Trainingstagebuch</h2>'
-   +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><label style="font-size:13px">Datum</label><input type="date" id="tlDate" value="'+TLOG_DATE+'" onchange="'+onch+'" style="padding:7px;border:1px solid #d1d5db;border-radius:8px"></div>'
+   +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><label style="font-size:13px">Datum</label><input type="date" id="tlDate" value="'+TLOG_DATE+'" onchange="'+onch+'" style="padding:7px;border:1px solid var(--line);border-radius:8px"></div>'
    +'<datalist id="tlDL">'+dl+'</datalist>'
-   +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-bottom:12px">'
-     +'<div style="flex:1;min-width:140px"><div style="font-size:11px;color:#6b7280">Übung</div><input id="tlUeb" list="tlDL" placeholder="Übung suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:8px"></div>'
-     +'<div><div style="font-size:11px;color:#6b7280">Wdh</div><input id="tlWdh" type="number" inputmode="numeric" style="width:70px;padding:8px;border:1px solid #d1d5db;border-radius:8px"></div>'
-     +'<div><div style="font-size:11px;color:#6b7280">Gewicht (kg)</div><input id="tlKg" type="number" step="0.5" inputmode="decimal" style="width:90px;padding:8px;border:1px solid #d1d5db;border-radius:8px"></div>'
+   +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px">'
+     +'<div style="flex:1;min-width:140px"><div style="font-size:11px;color:var(--muted)">Übung</div><input id="tlUeb" list="tlDL" placeholder="Übung suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px"></div>'
+     +'<div><div style="font-size:11px;color:var(--muted)">Wdh</div><input id="tlWdh" type="number" inputmode="numeric" style="width:70px;padding:8px;border:1px solid var(--line);border-radius:8px"></div>'
+     +'<div><div style="font-size:11px;color:var(--muted)">Gewicht (kg)</div><input id="tlKg" type="number" step="0.5" inputmode="decimal" style="width:90px;padding:8px;border:1px solid var(--line);border-radius:8px"></div>'
      +'<button onclick="addTrainSatz()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">+ Satz</button></div>'
    +'<div id="tlList"></div>'
-   +'<div style="margin-top:16px;padding-top:12px;border-top:1px solid #eef2f5"><button onclick="openTimer()" style="padding:9px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:14px">⏱️ Intervall-Taktgeber</button></div>';
+   +'<div style="margin-top:16px;padding-top:12px;border-top:1px solid #eef2f5"><button onclick="openTimer()" style="padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:14px">⏱️ Intervall-Taktgeber</button></div>';
   if(!target){ document.getElementById("overlay").classList.add("open"); document.getElementById("panel").scrollTop=0; }
   renderTrainLogList();
 }
 async function renderTrainLogList(){
   let rows=[]; try{ const {data}=await client.rpc("cb_train_log_tag",{p_datum:TLOG_DATE}); rows=data||[]; }catch(e){}
   const el=document.getElementById("tlList"); if(!el) return;
-  if(!rows.length){ el.innerHTML='<div style="color:#6b7280;font-size:14px">Noch keine Sätze an diesem Tag.</div>'; return; }
+  if(!rows.length){ el.innerHTML='<div style="color:var(--muted);font-size:14px">Noch keine Sätze an diesem Tag.</div>'; return; }
   const grp={}; rows.forEach(r=>{(grp[r.uebung]=grp[r.uebung]||[]).push(r);});
   el.innerHTML=Object.entries(grp).map(([ueb,sets])=>{
     const vol=sets.reduce((a,s)=>a+(s.wiederholungen||0)*(s.gewicht_kg||0),0);
-    return '<div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-weight:600;font-size:14px;margin-bottom:4px">'+esc(ueb)+' <span style="font-weight:400;color:#6b7280;font-size:12px">· '+sets.length+' Sätze · Vol '+Math.round(vol)+' kg</span></div>'
+    return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-weight:600;font-size:14px;margin-bottom:4px">'+esc(ueb)+' <span style="font-weight:400;color:var(--muted);font-size:12px">· '+sets.length+' Sätze · Vol '+Math.round(vol)+' kg</span></div>'
      +sets.map(s=>'<div style="display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:3px 0"><span>Satz '+s.satz+': '+(s.wiederholungen??'–')+' Wdh × '+(s.gewicht_kg??'–')+' kg</span><button onclick="delTrainSatz('+s.log_id+')" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer">✕</button></div>').join("")
      +'</div>';
   }).join("");
@@ -2633,7 +2637,7 @@ async function delTrainSatz(id){ await client.rpc("cb_train_log_del",{p_log:id})
 /* ---- Statistik & Fortschritt ---- */
 function sparkline(arr){
   const vals=arr.map(x=>x==null?null:Number(x)); const nums=vals.filter(x=>x!=null);
-  if(nums.length<1) return '<span style="flex:1;color:#9ca3af;font-size:12px">–</span>';
+  if(nums.length<1) return '<span style="flex:1;color:var(--muted);font-size:12px">–</span>';
   const min=Math.min(...nums), max=Math.max(...nums), rng=(max-min)||1, w=160, h=34, n=vals.length;
   const pts=vals.map((x,i)=>{ const px=n>1?(i/(n-1))*w:0; const py=x==null?h:(h-((x-min)/rng)*(h-4)-2); return px.toFixed(1)+','+py.toFixed(1); });
   const line=pts.filter((p,i)=>vals[i]!=null).join(" ");
@@ -2641,16 +2645,16 @@ function sparkline(arr){
 }
 async function openTrainStats(target){
   const host=target?document.getElementById(target):document.getElementById("panel");
-  host.innerHTML=(target?'':'<button class="close" onclick="closeP()">Schließen ✕</button>')+'<h2 style="margin-top:0">📈 Statistik & Fortschritt</h2><div id="stArea" style="color:#6b7280">Lade…</div>';
+  host.innerHTML=(target?'':'<button class="close" onclick="closeP()">Schließen ✕</button>')+'<h2 style="margin-top:0">📈 Statistik & Fortschritt</h2><div id="stArea" style="color:var(--muted)">Lade…</div>';
   if(!target){ document.getElementById("overlay").classList.add("open"); document.getElementById("panel").scrollTop=0; }
   let list=[]; try{ const {data}=await client.rpc("cb_train_log_uebungen"); list=data||[]; }catch(e){}
   let html='';
-  if(list.length){ html+='<div style="margin-bottom:8px"><label style="font-size:13px">Übung </label><select id="stUeb" onchange="renderStatUeb()" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">'+list.map(u=>'<option>'+esc(u.uebung)+'</option>').join("")+'</select></div><div id="stUebBox"></div>'; }
-  else { html+='<div style="color:#6b7280;font-size:14px">Noch keine Trainingsdaten – trag erst ein paar Sätze ein.</div>'; }
+  if(list.length){ html+='<div style="margin-bottom:8px"><label style="font-size:13px">Übung </label><select id="stUeb" onchange="renderStatUeb()" style="padding:8px;border:1px solid var(--line);border-radius:8px">'+list.map(u=>'<option>'+esc(u.uebung)+'</option>').join("")+'</select></div><div id="stUebBox"></div>'; }
+  else { html+='<div style="color:var(--muted);font-size:14px">Noch keine Trainingsdaten – trag erst ein paar Sätze ein.</div>'; }
   let ms=[]; try{ const {data}=await client.rpc("cb_mass_historie",{p_limit:20}); ms=(data||[]).slice().reverse(); }catch(e){}
   if(ms.length>=2){
     html+='<h3 style="font-size:15px;margin:16px 0 6px">Körpermaße-Trend</h3>';
-    MASS.forEach(([k,label,col])=>{ const vals=ms.map(r=>r[col]).filter(v=>v!=null); if(vals.length>=2){ html+='<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><span style="width:96px;font-size:13px;color:#374151">'+label+'</span>'+sparkline(ms.map(r=>r[col]))+'<span style="font-size:12px;color:#6b7280">'+vals[vals.length-1]+' cm</span></div>'; } });
+    MASS.forEach(([k,label,col])=>{ const vals=ms.map(r=>r[col]).filter(v=>v!=null); if(vals.length>=2){ html+='<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><span style="width:96px;font-size:13px;color:var(--ink)">'+label+'</span>'+sparkline(ms.map(r=>r[col]))+'<span style="font-size:12px;color:var(--muted)">'+vals[vals.length-1]+' cm</span></div>'; } });
   }
   document.getElementById("stArea").innerHTML=html;
   if(list.length) renderStatUeb();
@@ -2659,13 +2663,13 @@ async function renderStatUeb(){
   const ueb=document.getElementById("stUeb").value;
   let v=[]; try{ const {data}=await client.rpc("cb_train_verlauf",{p_uebung:ueb,p_limit:30}); v=data||[]; }catch(e){}
   const box=document.getElementById("stUebBox"); if(!box) return;
-  if(v.length<1){ box.innerHTML='<div style="color:#6b7280">Keine Daten.</div>'; return; }
+  if(v.length<1){ box.innerHTML='<div style="color:var(--muted)">Keine Daten.</div>'; return; }
   const maxG=v.map(x=>x.max_gewicht), vol=v.map(x=>x.volumen);
   const lastG=maxG[maxG.length-1], firstG=maxG.find(x=>x!=null);
-  box.innerHTML='<div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px">'
-   +'<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><span style="width:96px;font-size:13px">Max. Gewicht</span>'+sparkline(maxG)+'<span style="font-size:12px;color:#6b7280">'+(lastG??'–')+' kg</span></div>'
-   +'<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><span style="width:96px;font-size:13px">Volumen</span>'+sparkline(vol)+'<span style="font-size:12px;color:#6b7280">'+Math.round(vol[vol.length-1]||0)+'</span></div>'
-   +'<div style="font-size:12px;color:#6b7280;margin-top:6px">'+v.length+' Trainingstage'+((lastG!=null&&firstG!=null)?(' · Δ '+(Math.round((lastG-firstG)*10)/10)+' kg'):'')+'</div></div>';
+  box.innerHTML='<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px">'
+   +'<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><span style="width:96px;font-size:13px">Max. Gewicht</span>'+sparkline(maxG)+'<span style="font-size:12px;color:var(--muted)">'+(lastG??'–')+' kg</span></div>'
+   +'<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><span style="width:96px;font-size:13px">Volumen</span>'+sparkline(vol)+'<span style="font-size:12px;color:var(--muted)">'+Math.round(vol[vol.length-1]||0)+'</span></div>'
+   +'<div style="font-size:12px;color:var(--muted);margin-top:6px">'+v.length+' Trainingstage'+((lastG!=null&&firstG!=null)?(' · Δ '+(Math.round((lastG-firstG)*10)/10)+' kg'):'')+'</div></div>';
 }
 
 /* ---- Intervall-Taktgeber ---- */
@@ -2674,12 +2678,12 @@ function openTimer(){
   const panel=document.getElementById("panel");
   panel.innerHTML='<button class="close" onclick="stopTimer();closeP()">Schließen ✕</button><h2 style="margin-top:0">⏱️ Intervall-Taktgeber</h2>'
    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
-   +'<label style="font-size:13px">Arbeit (s)<br><input id="tmWork" type="number" value="'+_timer.work+'" style="width:80px;padding:7px;border:1px solid #d1d5db;border-radius:8px"></label>'
-   +'<label style="font-size:13px">Pause (s)<br><input id="tmRest" type="number" value="'+_timer.rest+'" style="width:80px;padding:7px;border:1px solid #d1d5db;border-radius:8px"></label>'
-   +'<label style="font-size:13px">Runden<br><input id="tmRounds" type="number" value="'+_timer.rounds+'" style="width:80px;padding:7px;border:1px solid #d1d5db;border-radius:8px"></label></div>'
+   +'<label style="font-size:13px">Arbeit (s)<br><input id="tmWork" type="number" value="'+_timer.work+'" style="width:80px;padding:7px;border:1px solid var(--line);border-radius:8px"></label>'
+   +'<label style="font-size:13px">Pause (s)<br><input id="tmRest" type="number" value="'+_timer.rest+'" style="width:80px;padding:7px;border:1px solid var(--line);border-radius:8px"></label>'
+   +'<label style="font-size:13px">Runden<br><input id="tmRounds" type="number" value="'+_timer.rounds+'" style="width:80px;padding:7px;border:1px solid var(--line);border-radius:8px"></label></div>'
    +'<div id="tmDisplay" style="text-align:center;font-size:48px;font-weight:800;color:#16a34a;margin:10px 0">Bereit</div>'
-   +'<div id="tmPhase" style="text-align:center;color:#6b7280;margin-bottom:12px"></div>'
-   +'<div style="display:flex;gap:8px;justify-content:center"><button onclick="startTimer()" style="padding:11px 20px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Start</button><button onclick="stopTimer()" style="padding:11px 20px;border:0;border-radius:10px;background:#eef2f5;color:#374151;font-size:15px;cursor:pointer">Stop</button></div>';
+   +'<div id="tmPhase" style="text-align:center;color:var(--muted);margin-bottom:12px"></div>'
+   +'<div style="display:flex;gap:8px;justify-content:center"><button onclick="startTimer()" style="padding:11px 20px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Start</button><button onclick="stopTimer()" style="padding:11px 20px;border:0;border-radius:10px;background:#eef2f5;color:var(--ink);font-size:15px;cursor:pointer">Stop</button></div>';
   document.getElementById("overlay").classList.add("open");
 }
 function _beep(freq){ try{ const ac=new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(),g=ac.createGain(); o.connect(g); g.connect(ac.destination); o.frequency.value=freq||880; o.start(); g.gain.setValueAtTime(0.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.25); o.stop(ac.currentTime+0.26);}catch(e){} }
@@ -2702,7 +2706,7 @@ function startTimer(){
 }
 /* ---- Trainingsplan-Generator (Phase C) ---- */
 let _genPlan=null;
-function planSummaryHtml(pl){ if(!pl) return ''; return '<div style="font-size:13px;color:#374151;margin-bottom:8px">Aktuell: <b>'+esc(pl.ziel||'')+'</b> · '+esc(String(pl.tage||''))+' Tage/Woche · '+esc(pl.schema||'')+'</div>'; }
+function planSummaryHtml(pl){ if(!pl) return ''; return '<div style="font-size:13px;color:var(--ink);margin-bottom:8px">Aktuell: <b>'+esc(pl.ziel||'')+'</b> · '+esc(String(pl.tage||''))+' Tage/Woche · '+esc(pl.schema||'')+'</div>'; }
 function planSplit(t){
   if(t<=2) return Array.from({length:t},(_,i)=>({name:'Ganzkörper'+(t>1?(' '+String.fromCharCode(65+i)):''),gruppen:['Brust','Rücken','Beine','Schultern','Arme','Rumpf/Core']}));
   if(t===3) return [
@@ -2737,11 +2741,11 @@ async function openPlanGen(){
   const panel=document.getElementById("panel");
   panel.innerHTML='<button class="close" onclick="closeP()">Schließen ✕</button><h2 style="margin-top:0">🗓️ Trainingsplan erstellen</h2>'
    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
-   +'<label style="font-size:13px">Tage/Woche<br><select id="pgTage" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">'+[1,2,3,4,5,6].map(n=>'<option'+(n===3?' selected':'')+'>'+n+'</option>').join("")+'</select></label>'
-   +'<label style="font-size:13px">Ziel<br><select id="pgZiel" style="padding:8px;border:1px solid #d1d5db;border-radius:8px"><option>Muskelaufbau</option><option>Kraft</option><option>Abnehmen &amp; Ausdauer</option><option>Allgemein fit</option></select></label>'
-   +'<label style="font-size:13px">Dauer/Einheit (Min)<br><input id="pgDauer" type="number" value="'+dauer+'" style="width:90px;padding:8px;border:1px solid #d1d5db;border-radius:8px"></label>'
-   +'<label style="font-size:13px">Sätze<br><input id="pgSaetze" type="number" min="1" max="10" value="3" style="width:64px;padding:8px;border:1px solid #d1d5db;border-radius:8px"></label>'
-   +'<label style="font-size:13px">Wiederholungen<br><input id="pgWdh" value="10" style="width:100px;padding:8px;border:1px solid #d1d5db;border-radius:8px"></label>'
+   +'<label style="font-size:13px">Tage/Woche<br><select id="pgTage" style="padding:8px;border:1px solid var(--line);border-radius:8px">'+[1,2,3,4,5,6].map(n=>'<option'+(n===3?' selected':'')+'>'+n+'</option>').join("")+'</select></label>'
+   +'<label style="font-size:13px">Ziel<br><select id="pgZiel" style="padding:8px;border:1px solid var(--line);border-radius:8px"><option>Muskelaufbau</option><option>Kraft</option><option>Abnehmen &amp; Ausdauer</option><option>Allgemein fit</option></select></label>'
+   +'<label style="font-size:13px">Dauer/Einheit (Min)<br><input id="pgDauer" type="number" value="'+dauer+'" style="width:90px;padding:8px;border:1px solid var(--line);border-radius:8px"></label>'
+   +'<label style="font-size:13px">Sätze<br><input id="pgSaetze" type="number" min="1" max="10" value="3" style="width:64px;padding:8px;border:1px solid var(--line);border-radius:8px"></label>'
+   +'<label style="font-size:13px">Wiederholungen<br><input id="pgWdh" value="10" style="width:100px;padding:8px;border:1px solid var(--line);border-radius:8px"></label>'
    +'</div>'
    +'<label style="font-size:13px;display:block;margin-bottom:12px"><input type="checkbox" id="pgMine" checked> nur mit meinen Geräten</label>'
    +'<button onclick="genPlan()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Plan erstellen</button>'
@@ -2773,13 +2777,13 @@ function genPlan(){
   _genPlan=plan; renderPlanPreview(plan);
 }
 function renderPlanHtml(pl){
-  return (pl.tageliste||[]).map((d,i)=>'<div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-weight:700;font-size:14px;margin-bottom:6px">Tag '+(i+1)+': '+esc(d.name)+'</div>'
-    +(d.uebungen||[]).map(u=>'<div style="display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;gap:8px"><span>'+esc(u.name)+' <span style="color:#9ca3af;font-size:11px">'+esc(u.muskelgruppe)+'</span></span><span style="color:#6b7280;white-space:nowrap">'+u.saetze+' × '+esc(u.wdh)+'</span></div>').join("")
+  return (pl.tageliste||[]).map((d,i)=>'<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-weight:700;font-size:14px;margin-bottom:6px">Tag '+(i+1)+': '+esc(d.name)+'</div>'
+    +(d.uebungen||[]).map(u=>'<div style="display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0;gap:8px"><span>'+esc(u.name)+' <span style="color:var(--muted);font-size:11px">'+esc(u.muskelgruppe)+'</span></span><span style="color:var(--muted);white-space:nowrap">'+u.saetze+' × '+esc(u.wdh)+'</span></div>').join("")
     +(d.cardio?'<div style="font-size:13px;color:#16a34a;margin-top:4px">+ '+esc(d.cardio)+'</div>':'')+'</div>').join("");
 }
 function renderPlanPreview(pl){
-  document.getElementById("pgResult").innerHTML='<div style="font-size:13px;color:#6b7280;margin:4px 0 8px">'+esc(pl.ziel)+' · '+pl.tage+' Tage/Woche · '+esc(pl.schema)+'</div>'+renderPlanHtml(pl)
-   +'<div style="display:flex;gap:8px;margin-top:6px"><button onclick="savePlan()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Plan speichern</button><button onclick="genPlan()" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:14px">Neu würfeln</button></div>';
+  document.getElementById("pgResult").innerHTML='<div style="font-size:13px;color:var(--muted);margin:4px 0 8px">'+esc(pl.ziel)+' · '+pl.tage+' Tage/Woche · '+esc(pl.schema)+'</div>'+renderPlanHtml(pl)
+   +'<div style="display:flex;gap:8px;margin-top:6px"><button onclick="savePlan()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Plan speichern</button><button onclick="genPlan()" style="padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;font-size:14px">Neu würfeln</button></div>';
 }
 async function savePlan(){
   if(!_genPlan) return;
@@ -2790,14 +2794,14 @@ async function savePlan(){
 function openPlanView(){
   const pl=TRAIN&&TRAIN.Plan; if(!pl) return;
   const panel=document.getElementById("panel");
-  panel.innerHTML='<button class="close" onclick="closeP()">Schließen ✕</button><h2 style="margin-top:0">🗓️ Mein Trainingsplan</h2><div style="font-size:13px;color:#6b7280;margin-bottom:8px">'+esc(pl.ziel||'')+' · '+esc(String(pl.tage||''))+' Tage/Woche · '+esc(pl.schema||'')+'</div>'+renderPlanHtml(pl);
+  panel.innerHTML='<button class="close" onclick="closeP()">Schließen ✕</button><h2 style="margin-top:0">🗓️ Mein Trainingsplan</h2><div style="font-size:13px;color:var(--muted);margin-bottom:8px">'+esc(pl.ziel||'')+' · '+esc(String(pl.tage||''))+' Tage/Woche · '+esc(pl.schema||'')+'</div>'+renderPlanHtml(pl);
   document.getElementById("overlay").classList.add("open"); panel.scrollTop=0;
 }
 function personSvg(){
   return '<svg viewBox="0 0 80 170" width="110" height="200" aria-hidden="true">'
    +'<circle cx="40" cy="16" r="12" fill="#d1fae5" stroke="#16a34a"/>'
    +'<path d="M40 28 C24 30 22 44 24 60 L20 96 L28 96 L32 64 L32 150 L38 150 L40 100 L42 150 L48 150 L48 64 L52 96 L60 96 L56 60 C58 44 56 30 40 28 Z" fill="#ecfdf5" stroke="#16a34a"/>'
-   +'</svg><div style="font-size:11px;color:#9ca3af;margin-top:2px">Maße in cm</div>';
+   +'</svg><div style="font-size:11px;color:var(--muted);margin-top:2px">Maße in cm</div>';
 }
 async function setTagesform(v){
   for(let i=1;i<=5;i++){ const b=document.getElementById("tf_"+i); if(b){ b.style.borderColor=(i===v)?"#16a34a":"transparent"; b.style.background=(i===v)?"var(--greenlt,#ecfdf5)":"#f8fafc"; } }
@@ -2820,11 +2824,11 @@ async function renderProfilGeraete(){
   const owned=new Set(Array.isArray(p.Geraete)?p.Geraete:[]);
   const groups={}; kat.forEach(g=>{(groups[g.gruppe]=groups[g.gruppe]||[]).push(g.name);});
   const gh=Object.entries(groups).map(([grp,names])=>
-    '<div style="margin-bottom:8px"><div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+esc(grp)+'</div>'
+    '<div style="margin-bottom:8px"><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+esc(grp)+'</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:6px">'+names.map(n=>{const on=owned.has(n);
-      return '<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid '+(on?'#16a34a':'#d1d5db')+';border-radius:999px;background:'+(on?'var(--greenlt,#ecfdf5)':'#fff')+';cursor:pointer;font-size:13px"><input type="checkbox" class="pfGkChk" value="'+esc(n)+'"'+(on?' checked':'')+' style="margin:0"> '+esc(n)+'</label>';
+      return '<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid '+(on?'#16a34a':'var(--line)')+';border-radius:999px;background:'+(on?'var(--greenlt,#ecfdf5)':'#fff')+';cursor:pointer;font-size:13px"><input type="checkbox" class="pfGkChk" value="'+esc(n)+'"'+(on?' checked':'')+' style="margin:0"> '+esc(n)+'</label>';
     }).join("")+'</div></div>').join("");
-  box.innerHTML='<div style="font-size:12px;color:#6b7280;margin-bottom:8px">Für den Trainingsplan-Generator (auch Multitower/Kabelzug).</div>'+gh
+  box.innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Für den Trainingsplan-Generator (auch Multitower/Kabelzug).</div>'+gh
     +'<div style="margin-top:8px"><button onclick="saveProfilGeraete()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Geräte speichern</button> <span id="pfGkMsg" style="font-size:13px"></span></div>';
 }
 async function saveProfilGeraete(){
@@ -2855,12 +2859,12 @@ function bodyMapHtml(last){
   let pills='';
   Object.keys(pos).forEach(k=>{ const side=pos[k][0],top=pos[k][1]; const v=(last[cols[k]]!=null?last[cols[k]]:'');
     pills+='<div style="position:absolute;'+(side==='l'?'left:0':'right:0')+';top:'+top+'px;width:86px">'
-      +'<div style="font-size:11px;color:#374151;margin-bottom:2px">'+labels[k]+'</div>'
-      +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid #d1d5db;border-radius:8px;text-align:center;font-size:13px"></div>';
+      +'<div style="font-size:11px;color:var(--ink);margin-bottom:2px">'+labels[k]+'</div>'
+      +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:13px"></div>';
   });
   return '<div style="position:relative;max-width:380px;margin:0 auto;min-height:308px">'
     +'<div style="position:absolute;left:50%;top:0;transform:translateX(-50%)">'+bodyFigureSvg()+'</div>'+pills+'</div>'
-    +'<div style="text-align:center;font-size:11px;color:#9ca3af;margin-top:2px">Maße in cm</div>';
+    +'<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:2px">Maße in cm</div>';
 }
 async function renderProfilMass(){
   const box=document.getElementById("pfMass"); if(!box) return;
@@ -2871,8 +2875,8 @@ async function renderProfilMass(){
   box.innerHTML=bodyMapHtml(last)
     +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:6px;padding-top:10px;border-top:1px solid #eef2f5">'
     +'<label style="font-size:13px"><input type="checkbox" id="massAktiv"'+(p.Mass_Aktiv?' checked':'')+'> Regelmäßig messen</label>'
-    +'<label style="font-size:13px">alle <input id="massIv" type="number" min="1" value="'+(p.Mass_Intervall_Tage??7)+'" style="width:60px;padding:6px;border:1px solid #d1d5db;border-radius:8px"> Tage</label>'
-    +'<span style="font-size:12px;color:#6b7280">'+naechste+'</span></div>'
+    +'<label style="font-size:13px">alle <input id="massIv" type="number" min="1" value="'+(p.Mass_Intervall_Tage??7)+'" style="width:60px;padding:6px;border:1px solid var(--line);border-radius:8px"> Tage</label>'
+    +'<span style="font-size:12px;color:var(--muted)">'+naechste+'</span></div>'
     +'<div style="margin-top:10px"><button onclick="saveProfilMass()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Maße speichern</button> <span id="pfMassMsg" style="font-size:13px"></span></div>';
 }
 async function saveProfilMass(){
@@ -2936,7 +2940,7 @@ function camCapture(){
     ov.innerHTML='<video autoplay playsinline style="max-width:100%;max-height:78vh"></video>'
       +'<div style="display:flex;gap:14px;margin-top:14px">'
       +'<button id="camShot" style="padding:12px 22px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:16px;cursor:pointer">📸 Auslösen</button>'
-      +'<button id="camX" style="padding:12px 18px;border:0;border-radius:10px;background:#fff;color:#111;font-size:16px;cursor:pointer">Abbrechen</button></div>';
+      +'<button id="camX" style="padding:12px 18px;border:0;border-radius:10px;background:var(--card);color:#111;font-size:16px;cursor:pointer">Abbrechen</button></div>';
     document.body.appendChild(ov);
     const video=ov.querySelector("video");
     const stop=()=>{ if(stream) stream.getTracks().forEach(t=>t.stop()); ov.remove(); };
@@ -2962,9 +2966,9 @@ function renderVorShots(){
     return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
       +'<div style="flex:1;font-size:14px;color:'+(has?'#166534':'#374151')+'">'+(has?'✓ ':'')+label+'</div>'
       +(has
-        ? '<button onclick="vorShotDel(\''+k+'\')" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#b91c1c;font-size:13px;cursor:pointer">Entfernen</button>'
+        ? '<button onclick="vorShotDel(\''+k+'\')" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:#b91c1c;font-size:13px;cursor:pointer">Entfernen</button>'
         : '<button onclick="vorShotCam(\''+k+'\')" style="padding:7px 10px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);font-size:13px;cursor:pointer">📷 Kamera</button>'
-         +'<button onclick="vorPickFile(\''+k+'\')" style="padding:7px 10px;border:1px dashed #16a34a;border-radius:8px;background:#fff;color:var(--greendk,#166534);font-size:13px;cursor:pointer">📁 Datei</button>')
+         +'<button onclick="vorPickFile(\''+k+'\')" style="padding:7px 10px;border:1px dashed #16a34a;border-radius:8px;background:var(--card);color:var(--greendk,#166534);font-size:13px;cursor:pointer">📁 Datei</button>')
       +'</div>';
   }).join("");
   const n=Object.keys(VOR_SHOTS).length;
@@ -3038,8 +3042,8 @@ function _startScan(targetId, cb){
   document.getElementById(targetId).innerHTML=
     '<style>#qbox{position:relative;height:150px;background:#000;border-radius:10px;overflow:hidden}#qbox video,#qbox canvas{width:100%!important;height:100%!important;object-fit:cover;display:block}#qbox canvas.drawingBuffer{position:absolute;top:0;left:0}</style>'
     +'<div id="qbox" style="max-width:280px;margin:0 auto"></div>'
-    +'<div style="text-align:center;font-size:12px;color:#6b7280;margin-top:6px">Barcode formatfüllend &amp; scharf ins Bild halten.</div>'
-    +'<div style="text-align:center;margin-top:6px"><button onclick="stopScan()" style="padding:6px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Kamera schließen</button></div>';
+    +'<div style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px">Barcode formatfüllend &amp; scharf ins Bild halten.</div>'
+    +'<div style="text-align:center;margin-top:6px"><button onclick="stopScan()" style="padding:6px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;font-size:13px">Kamera schließen</button></div>';
   Quagga.init({
     inputStream:{ type:"LiveStream", target:document.getElementById("qbox"),
       constraints:{ facingMode:"environment", width:{ideal:1280}, height:{ideal:720} } },
@@ -3070,7 +3074,7 @@ function tbScan(){ _startScan("tbReader", async (code)=>{
     if(data&&data.id){ document.getElementById("tbProd").value=prodLabel(data); tbPrefillMenge(); tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; }
     else {
       try{ const {data:q}=await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
-        tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. CleanBase ergänzt es und schaltet es nach Prüfung frei.<br><span style='font-size:12px;color:#6b7280'>"+(q||"")+"</span>"; }
+        tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. CleanBase ergänzt es und schaltet es nach Prüfung frei.<br><span style='font-size:12px;color:var(--muted)'>"+(q||"")+"</span>"; }
       catch(e){ tbm.style.color="#b45309"; tbm.textContent="Barcode "+code+" nicht im Katalog ("+e.message+")."; }
     }
   }catch(e){ tbm.style.color="#dc2626"; tbm.textContent="Fehler: "+e.message; }
@@ -3138,13 +3142,13 @@ function rzToGrams(amount, unit, pid){
 function zutatRowHtml(){
   return `<div class="rzZ" style="margin-bottom:8px">
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <input class="rzZName" list="prodDL" oninput="linkZutat(this)" placeholder="Produkt aus Liste suchen … (oder Freitext)" style="flex:1;min-width:160px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
-      <input class="rzZg" type="number" min="0" step="0.1" placeholder="Menge" style="width:72px;padding:8px;border:1px solid #d1d5db;border-radius:8px">
-      <select class="rzZu" style="width:80px;padding:8px;border:1px solid #d1d5db;border-radius:8px">${RZ_UNITS.map(u=>`<option>${u[0]}</option>`).join("")}</select>
-      <button type="button" onclick="this.closest('.rzZ').remove()" style="padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">✕</button>
+      <input class="rzZName" list="prodDL" oninput="linkZutat(this)" placeholder="Produkt aus Liste suchen … (oder Freitext)" style="flex:1;min-width:160px;padding:8px;border:1px solid var(--line);border-radius:8px">
+      <input class="rzZg" type="number" min="0" step="0.1" placeholder="Menge" style="width:72px;padding:8px;border:1px solid var(--line);border-radius:8px">
+      <select class="rzZu" style="width:80px;padding:8px;border:1px solid var(--line);border-radius:8px">${RZ_UNITS.map(u=>`<option>${u[0]}</option>`).join("")}</select>
+      <button type="button" onclick="this.closest('.rzZ').remove()" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">✕</button>
     </div>
     <input type="hidden" class="rzZpid">
-    <div class="rzZlink" style="font-size:11px;color:#6b7280;margin:2px 0 0 2px"></div>
+    <div class="rzZlink" style="font-size:11px;color:var(--muted);margin:2px 0 0 2px"></div>
   </div>`;
 }
 function buildProdDL(){
@@ -3213,14 +3217,14 @@ async function openRezeptForm(editId){
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">${ed?"Änderungen an Zutaten, Mengen & Mahlzeit werden gespeichert.":"Wird zuerst <b>privat</b> gespeichert (nur du siehst es). Du kannst es später veröffentlichen."}</div>
     <input type="hidden" id="rzfEditId" value="${ed?esc(ed.id):''}">
     <label style="font-size:13px;font-weight:600">Name</label>
-    <input id="rzfName" placeholder="z. B. Protein-Porridge" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 10px;box-sizing:border-box">
+    <input id="rzfName" placeholder="z. B. Protein-Porridge" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin:4px 0 10px;box-sizing:border-box">
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-      <label style="flex:1;min-width:120px;font-size:13px;font-weight:600">Portionen<input id="rzfPort" type="number" min="1" step="1" value="1" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;box-sizing:border-box"></label>
-      <label style="flex:1;min-width:120px;font-size:13px;font-weight:600">Zeit (min)<input id="rzfZeit" type="number" min="0" step="1" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;box-sizing:border-box"></label>
-      <label style="flex:1;min-width:120px;font-size:13px;font-weight:600">Ziel<input id="rzfZiel" placeholder="z. B. Muskelaufbau" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:120px;font-size:13px;font-weight:600">Portionen<input id="rzfPort" type="number" min="1" step="1" value="1" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin-top:4px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:120px;font-size:13px;font-weight:600">Zeit (min)<input id="rzfZeit" type="number" min="0" step="1" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin-top:4px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:120px;font-size:13px;font-weight:600">Ziel<input id="rzfZiel" placeholder="z. B. Muskelaufbau" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin-top:4px;box-sizing:border-box"></label>
     </div>
     <label style="font-size:13px;font-weight:600">Ernährungsform</label>
-    <select id="rzfEf" style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 10px;box-sizing:border-box">
+    <select id="rzfEf" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin:4px 0 10px;box-sizing:border-box">
       <option value="">– bitte wählen –</option><option>vegan</option><option>vegetarisch</option><option>enthält Tierprodukte</option></select>
     <label style="font-size:13px;font-weight:600">Für welche Mahlzeit(en)?</label>
     <div id="rzfMeals" style="display:flex;gap:14px;flex-wrap:wrap;margin:5px 0 12px">
@@ -3228,26 +3232,26 @@ async function openRezeptForm(editId){
     </div>
     <div style="font-size:13px;font-weight:600;margin-bottom:4px">Nährwerte pro Portion</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <label style="flex:1;min-width:80px;font-size:12px">kcal<input id="rzfKcal" type="number" min="0" step="1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
-      <label style="flex:1;min-width:80px;font-size:12px">Eiweiß g<input id="rzfP" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
-      <label style="flex:1;min-width:80px;font-size:12px">KH g<input id="rzfKh" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
-      <label style="flex:1;min-width:80px;font-size:12px">Fett g<input id="rzfF" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:80px;font-size:12px">kcal<input id="rzfKcal" type="number" min="0" step="1" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:80px;font-size:12px">Eiweiß g<input id="rzfP" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:80px;font-size:12px">KH g<input id="rzfKh" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+      <label style="flex:1;min-width:80px;font-size:12px">Fett g<input id="rzfF" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
     </div>
     <div style="font-size:13px;font-weight:600;margin-bottom:2px">Zutaten</div>
     <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">Tipp: Zutat aus dem Katalog wählen → Nährwerte &amp; Clean Score werden automatisch übernommen.</div>
     <div id="rzfZutaten">${zutatRowHtml()}${zutatRowHtml()}</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-      <button type="button" onclick="addZutatRow()" style="padding:7px 12px;border:1px dashed #9ca3af;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">+ Zutat</button>
+      <button type="button" onclick="addZutatRow()" style="padding:7px 12px;border:1px dashed #9ca3af;border-radius:8px;background:var(--card);cursor:pointer;font-size:13px">+ Zutat</button>
       <button type="button" onclick="calcMakros()" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">∑ Nährwerte aus Zutaten berechnen</button>
       <span id="rzfCalcMsg" style="font-size:12px"></span>
     </div>
     <label style="font-size:13px;font-weight:600">Zubereitung (ein Schritt pro Zeile)</label>
-    <textarea id="rzfPrep" rows="4" placeholder="Haferflocken mit Milch aufkochen.&#10;Proteinpulver einrühren." style="width:100%;padding:9px;border:1px solid #d1d5db;border-radius:8px;margin:4px 0 12px;box-sizing:border-box;font-family:inherit"></textarea>
+    <textarea id="rzfPrep" rows="4" placeholder="Haferflocken mit Milch aufkochen.&#10;Proteinpulver einrühren." style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin:4px 0 12px;box-sizing:border-box;font-family:inherit"></textarea>
     <label style="font-size:13px;font-weight:600">Foto (optional)</label>
     <input type="file" id="rzfBild" accept="image/*" style="display:block;margin:4px 0 12px;font-size:13px">
     <div style="display:flex;gap:10px;align-items:center">
       <button onclick="saveRezept()" style="padding:10px 18px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Speichern</button>
-      <button onclick="closeP()" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Abbrechen</button>
+      <button onclick="closeP()" style="padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Abbrechen</button>
       <span id="rzfMsg" style="font-size:13px"></span>
     </div>
   </div>`;
@@ -3337,41 +3341,41 @@ function rezeptDetail(r){
     <div style="background:#fff7e6;border:1px solid #fde9c8;border-radius:12px;padding:11px 13px;margin:12px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px">
       <span style="font-weight:600;color:#b45309">★ Dein Rezept · ${r.sichtbarkeit==="oeffentlich"?"öffentlich":"privat"}</span>
       ${r.sichtbarkeit==="oeffentlich"
-        ? `<button onclick="publishRezept('${r.id}',false)" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">Auf privat setzen</button>`
+        ? `<button onclick="publishRezept('${r.id}',false)" style="padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Auf privat setzen</button>`
         : `<button onclick="publishRezept('${r.id}',true)" style="padding:7px 12px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer">Veröffentlichen</button>`}
       <button onclick="editRezept('${r.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer">✏️ Bearbeiten</button>
-      <button onclick="deleteRezept('${r.id}')" style="padding:7px 12px;border:1px solid #f3c4c4;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;margin-left:auto">Löschen</button>
+      <button onclick="deleteRezept('${r.id}')" style="padding:7px 12px;border:1px solid #f3c4c4;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;margin-left:auto">Löschen</button>
     </div>` : '';
   const isAdmin = !!(ME && ME.is_admin);
   let modParts=[];
   if(ME && !r.is_own && (r.quelle||"")!=="CleanBase")
-    modParts.push(`<button onclick="meldeRezept('${r.id}')" style="padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#b45309;cursor:pointer;font-size:12.5px">⚐ Melden</button>`);
+    modParts.push(`<button onclick="meldeRezept('${r.id}')" style="padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:#b45309;cursor:pointer;font-size:12.5px">⚐ Melden</button>`);
   if(isAdmin){
     if(!r.is_own) modParts.push(`<button onclick="editRezept('${r.id}')" style="padding:6px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px">✏️ Bearbeiten</button>`);
-    modParts.push(`<span style="font-size:12.5px;color:#6b7280">${r.gemeldet||0} Meldung(en)</span>`);
+    modParts.push(`<span style="font-size:12.5px;color:var(--muted)">${r.gemeldet||0} Meldung(en)</span>`);
     modParts.push(r.gesperrt
       ? `<button onclick="sperreRezept('${r.id}',false)" style="padding:6px 11px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:12.5px">Entsperren</button>`
-      : `<button onclick="sperreRezept('${r.id}',true)" style="padding:6px 11px;border:1px solid #f3c4c4;border-radius:8px;background:#fff;color:#dc2626;cursor:pointer;font-size:12.5px">Sperren</button>`);
+      : `<button onclick="sperreRezept('${r.id}',true)" style="padding:6px 11px;border:1px solid #f3c4c4;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:12.5px">Sperren</button>`);
   }
   const modBar = modParts.length ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0">${r.gesperrt?`<span style="font-size:12.5px;color:#dc2626;font-weight:600">⛔ gesperrt</span>`:''}${modParts.join("")}</div>` : '';
   const imgHtml = r.bild ? `<img src="${esc(r.bild)}" alt="" style="width:100%;max-height:230px;object-fit:cover;border-radius:12px;margin:6px 0 4px">` : '';
   const tbBox = canTb ? `
     <div id="rzBudget" style="background:#eef6ff;border:1px solid #cfe3f7;border-radius:12px;padding:11px 13px;margin:12px 0;font-size:13px;color:#1e3a8a;line-height:1.6"></div>
-    <div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0">
+    <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">Ins Tagebuch (heute)</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px">
-        <select id="rzMeal" style="padding:8px;border:1px solid #d1d5db;border-radius:8px"><option>Frühstück</option><option>Mittag</option><option>Abendessen</option><option selected>Snack</option></select>
-        <label>Portionen <input type="number" id="rzTbPort" min="0.5" step="0.5" value="1" oninput="renderRezeptScaled()" style="width:60px;padding:7px;border:1px solid #d1d5db;border-radius:8px"></label>
+        <select id="rzMeal" style="padding:8px;border:1px solid var(--line);border-radius:8px"><option>Frühstück</option><option>Mittag</option><option>Abendessen</option><option selected>Snack</option></select>
+        <label>Portionen <input type="number" id="rzTbPort" min="0.5" step="0.5" value="1" oninput="renderRezeptScaled()" style="width:60px;padding:7px;border:1px solid var(--line);border-radius:8px"></label>
         <button onclick="addRezeptToTb()" style="padding:9px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Übernehmen</button>
         <span id="rzTbMsg" style="font-size:13px"></span>
       </div>
     </div>` : '';
   const controls = pro
-    ? `<div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0">
+    ? `<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">Rezept anpassen</div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:13px">
-          <label>Portionen <input type="number" id="rzPers" min="1" step="1" value="${P0}" oninput="renderRezeptScaled()" style="width:62px;padding:7px;border:1px solid #d1d5db;border-radius:8px"></label>
-          <label>Ziel-kcal/Portion <input type="number" id="rzKcal" min="50" step="10" placeholder="${K0||''}" oninput="renderRezeptScaled()" style="width:92px;padding:7px;border:1px solid #d1d5db;border-radius:8px"></label>
+          <label>Portionen <input type="number" id="rzPers" min="1" step="1" value="${P0}" oninput="renderRezeptScaled()" style="width:62px;padding:7px;border:1px solid var(--line);border-radius:8px"></label>
+          <label>Ziel-kcal/Portion <input type="number" id="rzKcal" min="50" step="10" placeholder="${K0||''}" oninput="renderRezeptScaled()" style="width:92px;padding:7px;border:1px solid var(--line);border-radius:8px"></label>
           <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="rzTrain" onchange="renderRezeptScaled()" style="width:16px;height:16px;accent-color:#16a34a">Trainingstag (+20%)</label>
         </div>
       </div>`
@@ -3439,16 +3443,16 @@ function renderRezeptScaled(){
     const gK=num((_goal||{}).Kalorienziel_kcal), gP=num((_goal||{}).Eiweiss_ziel_g), gKh=num((_goal||{}).KH_ziel_g), gF=num((_goal||{}).Fett_ziel_g);
     const row=(lbl,eat,goal,rec,u)=>{
       const r2=(u||''); const right = goal==null
-        ? `<span style="color:#6b7280">${eat}${r2} gegessen</span>`
+        ? `<span style="color:var(--muted)">${eat}${r2} gegessen</span>`
         : `${eat}/${rd(goal)}${r2} · Rest <b style="color:${(goal-eat-rec)<0?'#dc2626':'#16a34a'}">${rd(goal-eat-rec)}${r2}</b>`;
-      return `<div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid #dbeafe"><span><b>${lbl}</b> <span style="color:#64748b">Rezept +${rec}${r2}</span></span><span style="text-align:right">${right}</span></div>`;
+      return `<div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid #dbeafe"><span><b>${lbl}</b> <span style="color:var(--muted)">Rezept +${rec}${r2}</span></span><span style="text-align:right">${right}</span></div>`;
     };
     bud.innerHTML=`<div style="font-weight:700;margin-bottom:3px">Tagesbudget – Rest nach diesem Rezept</div>`
       + row('kcal',eaten,gK,recK,'')
       + row('Eiweiß',eP,gP,recP,' g')
       + row('KH',eKh,gKh,recKh,' g')
       + row('Fett',eF,gF,recF,' g')
-      + (gK==null?`<div style="color:#6b7280;margin-top:4px">Tipp: Tagesziele in „Mein Profil" setzen, dann siehst du den Rest.</div>`:'');
+      + (gK==null?`<div style="color:var(--muted);margin-top:4px">Tipp: Tagesziele in „Mein Profil" setzen, dann siehst du den Rest.</div>`:'');
   }
 }
 async function loadRezeptBudget(){
@@ -3488,12 +3492,12 @@ function renderStufenMatrix(rows){
     en[r.feature_key+"|"+r.tier]=r.enabled;
   });
   tiers.sort((a,b)=>a.sort-b.sort); feats.sort((a,b)=>a.sort-b.sort);
-  let h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">';
-  h+='<tr style="background:#f8fafc"><th style="text-align:left;padding:11px 13px;font-size:13px">Funktion</th>';
+  let h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">';
+  h+='<tr style="background:var(--bg)"><th style="text-align:left;padding:11px 13px;font-size:13px">Funktion</th>';
   tiers.forEach(t=>{ h+='<th style="padding:11px 13px;font-size:13px;text-align:center;min-width:96px">'+esc(t.label)+'</th>'; });
   h+='</tr>';
   feats.forEach(f=>{
-    h+='<tr style="border-top:1px solid #f1f5f9"><td style="padding:11px 13px;font-size:14px;font-weight:600">'+esc(f.label)+'</td>';
+    h+='<tr style="border-top:1px solid var(--line)"><td style="padding:11px 13px;font-size:14px;font-weight:600">'+esc(f.label)+'</td>';
     tiers.forEach(t=>{
       const on=!!en[f.key+"|"+t.tier];
       h+='<td style="padding:11px 13px;text-align:center"><input type="checkbox" '+(on?'checked':'')+' onchange="toggleFeature(\''+t.tier+'\',\''+f.key+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:#16a34a"></td>';
@@ -3521,15 +3525,15 @@ async function loadUsers(){
   renderUsers(data||[]);
 }
 function renderUsers(rows){
-  let h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">';
-  h+='<tr style="background:#f8fafc"><th style="text-align:left;padding:11px 13px;font-size:13px">Nutzer</th><th style="text-align:left;padding:11px 13px;font-size:13px">Stufe</th><th style="text-align:center;padding:11px 13px;font-size:13px">Admin</th><th style="text-align:center;padding:11px 13px;font-size:13px">Passwort</th></tr>';
+  let h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">';
+  h+='<tr style="background:var(--bg)"><th style="text-align:left;padding:11px 13px;font-size:13px">Nutzer</th><th style="text-align:left;padding:11px 13px;font-size:13px">Stufe</th><th style="text-align:center;padding:11px 13px;font-size:13px">Admin</th><th style="text-align:center;padding:11px 13px;font-size:13px">Passwort</th></tr>';
   rows.forEach(u=>{
     const opts=TIERS.map(t=>'<option value="'+t[0]+'"'+(u.tier===t[0]?' selected':'')+'>'+t[1]+'</option>').join("");
-    h+='<tr style="border-top:1px solid #f1f5f9">'
-      +'<td style="padding:11px 13px;font-size:14px"><div style="font-weight:600">'+esc(u.name||u.benutzer_id)+'</div><div style="font-size:12px;color:#6b7280">'+esc(u.email||"")+'</div></td>'
-      +'<td style="padding:11px 13px"><select onchange="setUserTier(\''+u.benutzer_id+'\',this.value)" style="padding:8px;border:1px solid #d1d5db;border-radius:8px">'+opts+'</select></td>'
+    h+='<tr style="border-top:1px solid var(--line)">'
+      +'<td style="padding:11px 13px;font-size:14px"><div style="font-weight:600">'+esc(u.name||u.benutzer_id)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(u.email||"")+'</div></td>'
+      +'<td style="padding:11px 13px"><select onchange="setUserTier(\''+u.benutzer_id+'\',this.value)" style="padding:8px;border:1px solid var(--line);border-radius:8px">'+opts+'</select></td>'
       +'<td style="padding:11px 13px;text-align:center"><input type="checkbox" '+(u.is_admin?'checked':'')+' onchange="setUserAdmin(\''+u.benutzer_id+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:#16a34a"></td>'
-      +'<td style="padding:11px 13px;text-align:center"><button onclick="adminSetPassword(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;cursor:pointer;font-size:12.5px">🔑 setzen</button></td>'
+      +'<td style="padding:11px 13px;text-align:center"><button onclick="adminSetPassword(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">🔑 setzen</button></td>'
       +'</tr>';
   });
   h+='</table></div><div id="usersMsg" style="font-size:13px;margin-top:8px;height:18px"></div>';
