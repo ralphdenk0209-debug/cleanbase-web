@@ -363,6 +363,10 @@
       <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Häkchen = im kostenlosen Modus sichtbar. Ohne Häkchen nur für zahlende/Trial-Nutzer. Nur du (Admin) kannst das ändern.</div>
       <input id="fgRezSuche" oninput="renderRezepteFree()" placeholder="Rezept suchen…" style="width:100%;max-width:320px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
       <div id="fgRezepteFree" style="font-size:14px;color:var(--ink)"></div>
+      <h3 style="font-size:16px;margin:18px 0 6px">Bundles (Produkt-Kombis)</h3>
+      <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Benannte Kombinationen mehrerer Produkte (z. B. Frühstücks-Bundle). Nur du (Admin).</div>
+      <button onclick="bundleNeu()" style="margin-bottom:10px;padding:9px 14px;border:0;border-radius:10px;background:var(--green);color:#fff;font-weight:600;cursor:pointer">➕ Neues Bundle</button>
+      <div id="fgBundles" style="font-size:14px"></div>
     </div>
   </div>
   <div id="profilView" style="display:none">
@@ -989,14 +993,15 @@ function detail(d){
     return `<div class="row"><div class="top"><b>${label}</b><span>${v===null?"– n/a":v+" / "+max}</span></div>
       <div class="track"><div class="fill" style="width:${pct}%;${v===null?'background:#d5ded8':''}"></div></div></div>`;
   }).join("");
-  const mkRings = arr => `<div class="csRings">`+arr.map(([k,label,max,mult,short])=>{
-    const m=mult||1; const raw=num(d[k]); const v=raw===null?null:raw*m;
-    const pct=v===null?0:Math.max(0,Math.min(1,v/max));
-    const off=(138.2*(1-pct)).toFixed(1);
-    const col=v===null?"#cbd5e1":(pct>=0.9?"#16a34a":(pct>=0.6?"#65a30d":"#e8920c"));
-    const vs=v===null?"–":String(Math.round(v*10)/10).replace(".",",");
-    return `<div class="csRing"><svg viewBox="0 0 56 56" width="66" height="66"><circle cx="28" cy="28" r="22" fill="none" stroke="#eef3ef" stroke-width="6"/><circle class="fg" cx="28" cy="28" r="22" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" style="--off:${off}"/><text class="v" x="28" y="32" text-anchor="middle">${v===null?"n/a":(Math.round(pct*100)+"%")}</text></svg><div class="lbl">${short||label}</div><div class="sub">${vs}/${max}</div></div>`;
-  }).join("")+`</div>`;
+  const mkRings = arr => {
+    const COL={Zutaten:"#22c55e",Zusatzstoffe:"#3987e5",NOVA:"#9085e9","Nährwert":"#f0a020"};
+    const items=arr.map(([k,label,max,mult,short])=>{ const m=mult||1; const raw=num(d[k]); const v=raw===null?null:raw*m; const pct=v===null?null:Math.max(0,Math.min(1,v/max)); return {short:short||label,max,v,pct,col:COL[short]||"#22c55e"}; }).filter(it=>it.pct!==null);
+    if(!items.length) return "";
+    let rings=""; const sw=7;
+    items.forEach((it,i)=>{ const r=52-i*11; const C=2*Math.PI*r; const off=(C*(1-it.pct)).toFixed(1); rings+='<circle cx="65" cy="65" r="'+r+'" fill="none" stroke="var(--line)" stroke-width="'+sw+'"/><circle cx="65" cy="65" r="'+r+'" fill="none" stroke="'+it.col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off+'" transform="rotate(-90 65 65)"/>'; });
+    const legend=items.map(it=>'<div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:10px;height:10px;border-radius:2px;background:'+it.col+';flex:0 0 auto"></span><span style="color:var(--muted);flex:1;min-width:0">'+esc(it.short)+'</span><b>'+Math.round(it.pct*100)+'%</b><span style="color:var(--muted);font-size:11px">'+String(Math.round(it.v*10)/10).replace(".",",")+"/"+it.max+'</span></div>').join("");
+    return '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:6px 0"><svg viewBox="0 0 130 130" width="130" height="130" style="flex:0 0 auto" role="img" aria-label="Score-Aufschlüsselung"><title>Clean Score Aufschlüsselung</title>'+rings+'</svg><div style="flex:1;min-width:150px;display:flex;flex-direction:column;gap:7px">'+legend+'</div></div>';
+  };
   const rows = mkRings(SCORE_TEIL);
   const zlist = Array.isArray(d.zutaten) ? d.zutaten : [];
   const neutralZ = d.zusatz && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||""));
@@ -1051,6 +1056,7 @@ function detail(d){
     <h2>${esc(d.name)}</h2>
     <div class="marke">${(mkLabel(d.marke)?esc(mkLabel(d.marke))+" · ":"")}${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
     <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button>${(ME&&ME.is_admin)?`<button onclick="adminDeleteProdukt('${d.id}','${esc(d.name||"").replace(/'/g,"")}')" style="padding:7px 12px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:13px">🗑️ Produkt ausblenden</button>`:""}</div>
+    ${BILD[d.id]?`<div style="text-align:center;margin:8px 0"><img src="${esc(BILD[d.id])}" alt="" style="max-height:170px;max-width:100%;border-radius:12px" onerror="this.style.display='none'"></div>`:""}
     ${_sd?altBanner(d):""}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
@@ -2310,6 +2316,7 @@ async function loadFreigabe(){
     </div>`).join("") : '<span style="color:var(--muted)">keine offenen Meldungen</span>'; }
   }catch(e){ const me=document.getElementById("fgMeldungen"); if(me) me.innerHTML='<span style="color:var(--muted)">—</span>'; }
   loadRezepteFree();
+  loadBundles();
   try{ Object.keys(FG_SHOTS).forEach(updateFgShotInfo); }catch(e){}
 }
 async function loadRezepteFree(){
@@ -2342,6 +2349,54 @@ async function rezFreeToggle(id, frei){
   const r=(window._rezFree||[]).find(x=>x.rezept_id===id); if(r) r.frei=frei;
   renderRezepteFree();
 }
+/* ---- Admin: Bundles (AD-3) ---- */
+async function loadBundles(){
+  const box=document.getElementById("fgBundles"); if(!box) return;
+  try{ const {data}=await client.rpc("cb_admin_bundles"); window._bundles=data||[]; renderBundles(); }
+  catch(e){ box.innerHTML='<span style="color:var(--muted)">—</span>'; }
+}
+function renderBundles(){
+  const box=document.getElementById("fgBundles"); if(!box) return;
+  const list=window._bundles||[];
+  box.innerHTML = list.length ? list.map(b=>'<div style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>'+esc(b.name)+'</b>'
+    +'<span style="display:flex;gap:6px"><button onclick="bundleEdit(\''+b.bundle_id+'\')" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Bearbeiten</button>'
+    +'<button onclick="bundleDel(\''+b.bundle_id+'\',\''+esc(b.name).replace(/\x27/g,"")+'\')" style="padding:5px 9px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:12px">Löschen</button></span></div>'
+    +(b.ziel?'<div style="font-size:11px;color:var(--muted)">Ziel: '+esc(b.ziel)+'</div>':'')
+    +'<div style="font-size:12px;color:var(--muted);margin-top:5px">'+((b.produkte||[]).length?(b.produkte||[]).map(p=>esc(p.name||p.produkt_id)).join(" · "):'<i>keine Produkte</i>')+'</div></div>').join("")
+    : '<span style="color:var(--muted)">Noch keine Bundles.</span>';
+}
+function bundleNeu(){ window._bundleEdit={id:'',name:'',ziel:'',produkte:[]}; bundleEditorRender(); }
+function bundleEdit(id){ const b=(window._bundles||[]).find(x=>x.bundle_id===id); if(!b) return; window._bundleEdit={id:b.bundle_id,name:b.name||'',ziel:b.ziel||'',produkte:(b.produkte||[]).map(p=>({id:p.produkt_id,name:p.name,marke:p.marke}))}; bundleEditorRender(); }
+function bundleEditorRender(){
+  const e=window._bundleEdit, box=document.getElementById("fgBundles"); if(!box) return;
+  box.innerHTML='<div style="background:var(--card);border:1px solid var(--green);border-radius:12px;padding:12px">'
+    +'<div style="font-weight:600;margin-bottom:8px">'+(e.id?'Bundle bearbeiten':'Neues Bundle')+'</div>'
+    +'<input id="bnName" value="'+esc(e.name)+'" placeholder="Bundle-Name" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);margin-bottom:6px">'
+    +'<input id="bnZiel" value="'+esc(e.ziel)+'" placeholder="Ziel (optional, z. B. Frühstück / High Protein)" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);margin-bottom:8px">'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Produkte im Bundle:</div><div id="bnChips" style="margin-bottom:6px"></div>'
+    +'<input id="bnSuche" oninput="bundleSuche(this.value)" placeholder="Produkt suchen &amp; hinzufügen…" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">'
+    +'<div id="bnSucheRes" style="margin:4px 0"></div>'
+    +'<div style="margin-top:8px;display:flex;gap:8px"><button onclick="bundleSave()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;font-weight:600;cursor:pointer">Speichern</button><button onclick="loadBundles()" style="padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer">Abbrechen</button></div>'
+    +'<div id="bnMsg" style="font-size:12px;margin-top:6px"></div></div>';
+  bundleChips();
+}
+function bundleChips(){ const el=document.getElementById("bnChips"); if(!el) return; const ps=window._bundleEdit.produkte||[];
+  el.innerHTML = ps.length? ps.map((p,i)=>'<span style="display:inline-flex;align-items:center;gap:5px;background:var(--greenlt);color:var(--greendk);border-radius:999px;padding:4px 10px;margin:2px;font-size:12px">'+esc(p.name||p.id)+' <span onclick="bundleRem('+i+')" style="cursor:pointer;font-weight:700">✕</span></span>').join("") : '<span style="color:var(--muted);font-size:12px">noch keine</span>'; }
+function bundleRem(i){ window._bundleEdit.produkte.splice(i,1); bundleChips(); }
+function bundleSuche(q){ const box=document.getElementById("bnSucheRes"); if(!box) return; q=(q||"").trim(); if(!q){ box.innerHTML=""; return; }
+  const nq=_norm(q); const list=(ALL||[]).filter(p=>_fuzzy(p.name,nq)||_fuzzy(p.marke,nq)).slice(0,6);
+  box.innerHTML=list.map(p=>'<button onclick="bundleAdd(\''+p.id+'\')" style="display:block;width:100%;text-align:left;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);margin-bottom:4px;cursor:pointer;font-size:13px">'+esc(p.name)+' <span style="color:var(--muted);font-size:11px">'+esc(mkLabel(p.marke)||"")+'</span></button>').join(""); }
+function bundleAdd(id){ const p=(ALL||[]).find(x=>x.id===id); if(!p) return; if(!(window._bundleEdit.produkte||[]).some(x=>x.id===id)) window._bundleEdit.produkte.push({id:p.id,name:p.name,marke:p.marke}); bundleChips(); const s=document.getElementById("bnSuche"); if(s) s.value=""; const r=document.getElementById("bnSucheRes"); if(r) r.innerHTML=""; }
+async function bundleSave(){ const e=window._bundleEdit, msg=document.getElementById("bnMsg");
+  const name=(document.getElementById("bnName").value||"").trim(), ziel=(document.getElementById("bnZiel").value||"").trim();
+  if(!name){ if(msg){msg.style.color="#dc2626";msg.textContent="Name fehlt.";} return; }
+  const ids=(e.produkte||[]).map(p=>p.id);
+  const {error}=await client.rpc("cb_admin_bundle_speichern",{p_id:e.id||"",p_name:name,p_ziel:ziel,p_produkte:ids,p_status:"Aktiv"});
+  if(error){ if(msg){msg.style.color="#dc2626";msg.textContent="Fehler: "+error.message;} return; }
+  loadBundles();
+}
+async function bundleDel(id,name){ if(!confirm('Bundle „'+name+'" löschen?')) return; const {error}=await client.rpc("cb_admin_bundle_del",{p_id:id}); if(error){ alert("Fehler: "+error.message); return; } loadBundles(); }
 async function fgMeldErledigt(i){
   const x=(window._meld||[])[i]; if(!x) return;
   const {error}=await client.rpc("cb_admin_meldung_erledigt",{p_name:x.name});
