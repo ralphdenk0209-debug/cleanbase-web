@@ -104,7 +104,7 @@
   .note{font-size:13.5px;line-height:1.5;background:var(--greenlt);border:1px solid #d4e8db;border-radius:12px;padding:11px 13px;margin-top:10px}
   .note h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green)}
   .teilhint{background:#fffbeb;border-color:#fde68a;color:#92400e}
-  .close{float:right;border:none;background:#eef3ef;border-radius:10px;padding:7px 12px;cursor:pointer;font-size:14px;color:var(--ink)}
+  .close{float:right;border:1px solid var(--line);background:var(--line);border-radius:10px;padding:7px 12px;cursor:pointer;font-size:14px;color:var(--ink)}
   .formula{font-size:12px;color:var(--muted);margin-top:2px}
   .footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);text-align:center}
   .footer b{color:var(--green)}
@@ -121,7 +121,7 @@
   .gatebox p{color:var(--muted);font-size:14px;line-height:1.5;margin:.3em 0 1.1em}
   /* ===== BOTTOM NAV (App-Look) ===== */
   .tabs{display:none}
-  .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(20,26,31,.97);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:calc(8px + env(safe-area-inset-bottom))}
   .bn-inner{max-width:600px;margin:0 auto;display:flex}
   .bn-item{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
   .bn-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -188,7 +188,7 @@
   <div class="tabs" style="display:none">
     <button id="tabProd" class="tabbtn active" onclick="setMode('produkte')">Produkte</button>
     <button id="tabRez" class="tabbtn" onclick="setMode('rezepte')">Rezepte</button>
-    <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')">Produkt erfassen</button>
+    <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')" style="display:none">Produkt erfassen</button>
     <button id="tabTb" class="tabbtn" onclick="setMode('tagebuch')">Tagebuch</button>
     <button id="tabPlan" class="tabbtn" onclick="setMode('planer')">Planer</button>
     <button id="tabTrain" class="tabbtn" onclick="setMode('training')">Training</button>
@@ -497,7 +497,7 @@
       <div id="stufenMatrix"></div>
     </div>
   </div>
-  <div class="footer">Daten <b>live</b> aus CleanBase · read-only · MVP-Vorschau<br>
+  <div class="footer" style="display:none">Daten <b>live</b> aus CleanBase · read-only · MVP-Vorschau<br>
     <span style="font-size:11.5px">CleanBase hilft dir, bessere Entscheidungen zu treffen – schnell, einfach und vertrauenswürdig.</span>
   </div>
 </div>
@@ -571,8 +571,8 @@ function donut(score,col,size){
   const v=(score==null)?0:Math.max(0,Math.min(100,score)), off=c*(1-v/100);
   const txt=(score==null)?"–":String(Math.round(score)), fs=Math.round(size*(txt.length>=3?0.24:0.29));
   return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" style="flex:0 0 ${size}px" aria-hidden="true">`
-    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="#e9efea" stroke-width="6"/>`
-    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 32 32)"/>`
+    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--line)" stroke-width="4.5"/>`
+    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 32 32)"/>`
     +`<text x="32" y="33" text-anchor="middle" dominant-baseline="central" font-size="${fs}" font-weight="700" fill="${col}" font-family="-apple-system,BlinkMacSystemFont,sans-serif">${txt}</text>`
     +`</svg>`;
 }
@@ -1319,7 +1319,7 @@ function bnActive(m){
 function toggleMehr(){ const s=document.getElementById('mehrSheet'); if(!s) return; if(s.classList.contains('open')){ closeMehr(); } else { buildMehr(); s.classList.add('open'); } }
 function closeMehr(){ const s=document.getElementById('mehrSheet'); if(s) s.classList.remove('open'); }
 function buildMehr(){
-  const items=[['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['vorschlagen','➕ Produkt erfassen'],['profil','👤 Mein Profil']];
+  const items=[['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
   let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
   html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert CleanBase</button>';
   html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
@@ -2293,7 +2293,7 @@ async function loadFreigabe(){
   if(!ent||!ent.length){ el.innerHTML='<div style="color:var(--muted)">Keine offenen Entwürfe.</div>'; }
   else { el.innerHTML=ent.map(p=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <div><b>${esc(p.name||"?")}</b> <span style="color:var(--muted)">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:var(--muted)">${p.id} · ${esc(p.kategorie||"")} · Score ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div></div>
+        <div><b>${esc(p.name||"?")}</b> <span style="color:var(--muted)">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:var(--muted)">${p.id} · ${esc(p.kategorie||"")} · Score ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div><a href="https://www.google.com/search?q=${encodeURIComponent((p.name||"")+" "+(p.marke||"")+" Zutaten Nährwerte")}" target="_blank" rel="noopener" style="font-size:12px;color:#0ea5e9">🔎 Herstellerseite suchen ↗</a></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="file" accept="image/*" multiple style="display:none" id="fgFoto_${p.id}" onchange="fgFotoPick(this,'${p.id}')" />
           <button onclick="fgShotCam('${p.id}')" title="Etikett mit Kamera aufnehmen" style="padding:8px 11px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:13px">📷 Kamera</button>
@@ -3120,8 +3120,9 @@ function prodScan(){
       const {data:pid}=await client.rpc("cb_produkt_id_by_ean",{p_ean:code});
       const p=pid&&(ALL||[]).find(x=>x.id===pid);
       if(p){ if(st) st.textContent="✅ Gefunden: "+esc(code); detail(p); }
-      else { if(st) st.textContent="";
-        if(confirm("Barcode "+code+" ist nicht im Katalog.\n\nMöchtest du das Produkt jetzt erfassen?")){ setMode("vorschlagen"); const vi=document.getElementById("vorInput"); if(vi) vi.value=code; }
+      else {
+        try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Barcode-Scan",p_akteur:"Web"}); if(st){ st.style.color="#8ee6a8"; st.innerHTML="Barcode "+esc(code)+" noch nicht im Katalog – <b>gespeichert</b>. Wird nach Prüfung ergänzt."; } }
+        catch(e){ if(st){ st.style.color="#e8920c"; st.textContent="Barcode "+code+" nicht im Katalog."; } }
       }
     }catch(e){ alert("Fehler: "+e.message); }
   });
