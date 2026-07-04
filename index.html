@@ -1193,11 +1193,13 @@ function zyklusBundleHtml(){
     const bild=(typeof BILD!=='undefined'&&BILD&&BILD[b.id])?BILD[b.id]:'';
     const thumb=bild?'<img src="'+esc(bild)+'" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:#fff;border:1px solid var(--line)">':'<div style="width:42px;height:42px;border-radius:8px;flex:0 0 auto;background:var(--greenlt);display:flex;align-items:center;justify-content:center;font-size:19px">🌿</div>';
     const sc=(f.clean_score!=null)?'<span style="font-size:12px;font-weight:800;color:#fff;background:'+farbe(scoreBew(f.clean_score))+';border-radius:999px;padding:3px 9px;flex:0 0 auto">'+f.clean_score+'</span>':'';
-    return '<div style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:7px">'
+    return '<div class="zbRow" style="display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:7px">'
       +'<div onclick="detailById(\''+b.id+'\')" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer">'+thumb
       +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.name)+'</div>'
-      +'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.marke||'')+' · '+esc(b.dose)+'</div></div>'+sc+'</div>'
+      +'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.marke||'')+'</div>'
+      +'<div style="font-size:11.5px;color:var(--green);font-weight:600">Dosis: '+esc(b.dose)+'</div></div>'+sc+'</div>'
       +'<a href="'+esc(b.url)+'" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()" style="background:var(--green);color:#1D3C24;font-weight:700;border-radius:9px;padding:8px 11px;font-size:12.5px;text-decoration:none;white-space:nowrap;flex:0 0 auto">Hier kaufen ↗</a>'
+      +'<button onclick="this.closest(\'.zbRow\').remove()" title="Entfernen" aria-label="Entfernen" style="border:0;background:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;flex:0 0 auto;padding:2px 2px">✕</button>'
     +'</div>';
   }).join('');
   if(!rows) return '';
