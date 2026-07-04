@@ -1329,10 +1329,45 @@ function buildMehr(){
   const items=[['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
   let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
   html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert Root Index</button>';
+  html+='<button onclick="closeMehr();legalOpen(\'impressum\')">📄 Impressum</button>';
+  html+='<button onclick="closeMehr();legalOpen(\'datenschutz\')">🔒 Datenschutz</button>';
   html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
             : '<button onclick="closeMehr();openLogin()">🔑 Anmelden</button>';
   if(ME&&ME.is_admin) html+='<button onclick="closeMehr();location.hash=\'#admin\';location.reload()" style="color:var(--muted)">🛠️ Admin-Bereich</button>';
   const c=document.getElementById('mehrCard'); if(c) c.innerHTML=html;
+}
+function legalOpen(which){
+  let ov=document.getElementById("legalOv"); if(ov) ov.remove();
+  ov=document.createElement("div"); ov.id="legalOv";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;z-index:85";
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  const H=t=>`<h3 style="font-size:15px;color:var(--green);margin:16px 0 4px">${t}</h3>`;
+  const P=t=>`<p style="font-size:13.5px;line-height:1.55;color:var(--ink);margin:.2em 0">${t}</p>`;
+  const impressum = H("Impressum")+`<p style="font-size:12px;color:var(--muted)">Angaben gemäß § 5 DDG</p>`
+    +P("<b>Ralph Denk</b><br>Root Index (Einzelunternehmen)<br>Auweg 23<br>84103 Postau<br>Deutschland")
+    +H("Kontakt")+P("E-Mail: ralph@root-index.de")
+    +H("Umsatzsteuer")+P("Kleinunternehmer gemäß § 19 UStG – es wird keine Umsatzsteuer ausgewiesen.")
+    +H("Verantwortlich i.S.d. § 18 Abs. 2 MStV")+P("Ralph Denk, Anschrift wie oben.")
+    +H("Verbraucherstreitbeilegung")+P("Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.")
+    +H("Haftung für Inhalte")+P("Die Inhalte wurden mit größter Sorgfalt erstellt. Für Richtigkeit, Vollständigkeit und Aktualität übernehmen wir keine Gewähr. Bewertungen und Informationen dienen der Orientierung und stellen keine medizinische oder ernährungstherapeutische Beratung dar.")
+    +H("Haftung für Links")+P("Unser Angebot enthält ggf. Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Dafür ist stets der jeweilige Anbieter verantwortlich.")
+    +H("Urheberrecht")+P("Die erstellten Inhalte unterliegen dem deutschen Urheberrecht.");
+  const ds = H("Datenschutzerklärung")
+    +H("1. Verantwortlicher")+P("Ralph Denk, Root Index, Auweg 23, 84103 Postau, Deutschland. E-Mail: ralph@root-index.de.")
+    +H("2. Überblick")+P("Wir verarbeiten personenbezogene Daten nur, soweit es für den Betrieb der Anwendung nötig ist. Für die meisten Funktionen ist ein Nutzerkonto erforderlich.")
+    +H("3. Hosting (GitHub Pages)")+P("Diese Website wird über GitHub Pages (GitHub, Inc., San Francisco, CA, USA) bereitgestellt. Dabei werden technisch notwendige Server-Logdaten (u. a. IP-Adresse, Datum/Uhrzeit, abgerufene Ressource) verarbeitet. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO. Da GitHub in den USA sitzt, kann eine Übermittlung in ein Drittland erfolgen; sie wird durch geeignete Garantien (EU-Standardvertragsklauseln / Data Privacy Framework) abgesichert.")
+    +H("4. Datenbank / Backend (Supabase)")+P("Konto- und Nutzungsdaten werden bei unserem Auftragsverarbeiter Supabase in einem Rechenzentrum in der EU (Frankfurt am Main, eu-central-1) gespeichert. Es besteht ein Auftragsverarbeitungsvertrag (Art. 28 DSGVO).")
+    +H("5. Welche Daten wir verarbeiten")+P("• Kontodaten: E-Mail-Adresse (Anmeldung).<br>• Von dir eingegebene Daten: z. B. Ernährungstagebuch, Profil-/Zieldaten, Favoriten, Körpermaße – nur wenn du sie freiwillig eingibst.<br>• Technische Daten: Server-Logs.<br>Gesundheitsbezogene Angaben (z. B. Gewicht, Zyklus) verarbeiten wir nur, wenn du sie selbst eingibst, auf Grundlage deiner Einwilligung (Art. 9 Abs. 2 lit. a DSGVO); du kannst sie jederzeit löschen.")
+    +H("6. Zwecke und Rechtsgrundlagen")+P("Bereitstellung von Konto und Funktionen: Art. 6 Abs. 1 lit. b DSGVO. Sicherer Betrieb: Art. 6 Abs. 1 lit. f DSGVO. Freiwillige Gesundheits-/Tagebuchangaben: Art. 6 Abs. 1 lit. a bzw. Art. 9 Abs. 2 lit. a DSGVO.")
+    +H("7. Cookies / lokale Speicherung")+P("Wir verwenden nur technisch notwendige Speicherung (z. B. um deine Anmeldung aufrechtzuerhalten). Sie ist für den Betrieb erforderlich und bedarf keiner Einwilligung. Ein Tracking oder eine Webanalyse findet derzeit nicht statt. Wird künftig eine Reichweitenmessung eingeführt, holen wir vorher deine Einwilligung ein.")
+    +H("8. Weitergabe")+P("Eine Weitergabe erfolgt nur an die genannten Auftragsverarbeiter oder bei gesetzlicher Verpflichtung.")
+    +H("9. Speicherdauer")+P("Wir speichern deine Daten, solange dein Konto besteht bzw. solange es für die Zwecke erforderlich ist. Danach werden sie gelöscht.")
+    +H("10. Deine Rechte")+P("Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung (Art. 18), Datenübertragbarkeit (Art. 20), Widerspruch (Art. 21). Einwilligungen kannst du jederzeit für die Zukunft widerrufen: ralph@root-index.de.")
+    +H("11. Beschwerderecht")+P("Du kannst dich bei einer Aufsichtsbehörde beschweren, z. B. beim Bayerischen Landesamt für Datenschutzaufsicht (BayLDA), Promenade 18, 91522 Ansbach.")
+    +P("<i>Stand: Juli 2026.</i>");
+  const body = which==='datenschutz'?ds:impressum;
+  ov.innerHTML=`<div style="background:var(--card);max-width:640px;width:92%;margin:24px 0;border-radius:16px;max-height:88vh;overflow:auto;padding:20px 22px;box-shadow:var(--shadow)"><button onclick="document.getElementById('legalOv').remove()" style="float:right;border:0;background:var(--line);color:var(--ink);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px">×</button>${body}</div>`;
+  document.body.appendChild(ov);
 }
 function wikiOpen(){
   let ov=document.getElementById("wikiOv"); if(ov) ov.remove();
