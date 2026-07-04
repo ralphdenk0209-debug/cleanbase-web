@@ -1228,7 +1228,8 @@ function zyklusBundleHtml(){
 }
 function topProdukteHtml(){
   const by={};
-  (ALL||[]).forEach(p=>{ const s=num(p.clean_score); if(s==null||!p.score_vollstaendig) return; const k=(p.unterkategorie||p.kategorie||"Sonstige"); (by[k]=by[k]||[]).push(p); });
+  const exKat=new Set(); ZYKLUS_CATS.forEach(c=>c.ids.forEach(id=>{const bp=(ALL||[]).find(x=>x.id===id); if(bp&&bp.unterkategorie) exKat.add(bp.unterkategorie);}));
+  (ALL||[]).forEach(p=>{ const s=num(p.clean_score); if(s==null||!p.score_vollstaendig) return; const k=(p.unterkategorie||p.kategorie||"Sonstige"); if(exKat.has(k)) return; (by[k]=by[k]||[]).push(p); });
   const paare=Object.entries(by).map(([k,a])=>{ a.sort((x,y)=>num(y.clean_score)-num(x.clean_score)); return {k, a:a.filter(p=>BILD[p.id])}; })
     .filter(x=>x.a.length>=2).map(x=>({k:x.k, top:x.a[0], zwei:x.a[1]}))
     .sort((a,b)=>num(b.top.clean_score)-num(a.top.clean_score)).slice(0,3);
