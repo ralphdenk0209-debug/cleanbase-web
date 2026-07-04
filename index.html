@@ -1180,6 +1180,34 @@ function pfTab(name){
 function startFeature(ic,t,sub){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px">'+ic+'</div><div style="font-weight:600;font-size:13.5px;margin-top:2px">'+t+'</div><div style="font-size:11.5px;color:var(--muted)">'+sub+'</div></div>'; }
 let BILD={};
 async function loadBilder(){ try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
+const ZYKLUS_BUNDLE=[
+  {id:'P928',dose:'200–300 mg/Tag',url:'https://www.sunday.de/en/magnesium-glycinate-pure-capsules.html'},
+  {id:'P929',dose:'~2000 mg/Tag · Fisch',url:'https://norsan.de/shop/omega-3-total-3er-pack-naturell/'},
+  {id:'P930',dose:'300 EPA/200 DHA · vegan',url:'https://www.sunday.de/en/omega-3-capsules-epa-dha-vegan-algae-1000mg.html'},
+  {id:'P931',dose:'20 mg/Tag · optional (PMS)',url:'https://www.vegavero.de/products/vitex-agnus-castus-kapseln'},
+  {id:'P932',dose:'200 mg/Tag · optional',url:'https://mach-dich-wach.de/products/vitamin-b1-kapseln'}
+];
+function zyklusBundleHtml(){
+  const rows=ZYKLUS_BUNDLE.map(b=>{
+    const f=(ALL||[]).find(x=>x.id===b.id); if(!f) return '';
+    const bild=(typeof BILD!=='undefined'&&BILD&&BILD[b.id])?BILD[b.id]:'';
+    const thumb=bild?'<img src="'+esc(bild)+'" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:#fff;border:1px solid var(--line)">':'<div style="width:42px;height:42px;border-radius:8px;flex:0 0 auto;background:var(--greenlt);display:flex;align-items:center;justify-content:center;font-size:19px">🌿</div>';
+    const sc=(f.clean_score!=null)?'<span style="font-size:12px;font-weight:800;color:#fff;background:'+farbe(scoreBew(f.clean_score))+';border-radius:999px;padding:3px 9px;flex:0 0 auto">'+f.clean_score+'</span>':'';
+    return '<div style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:7px">'
+      +'<div onclick="detailById(\''+b.id+'\')" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer">'+thumb
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.name)+'</div>'
+      +'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.marke||'')+' · '+esc(b.dose)+'</div></div>'+sc+'</div>'
+      +'<a href="'+esc(b.url)+'" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()" style="background:var(--green);color:#1D3C24;font-weight:700;border-radius:9px;padding:8px 11px;font-size:12.5px;text-decoration:none;white-space:nowrap;flex:0 0 auto">Hier kaufen ↗</a>'
+    +'</div>';
+  }).join('');
+  if(!rows) return '';
+  return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">'
+    +'<div style="font-weight:800;font-size:16px">Weniger Regelschmerzen – sauber statt Kombi-Pulver</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 8px">Was bei Zyklus &amp; PMS wirklich hilft: Magnesium, Omega-3 &amp; Co. – einzeln, ohne Zusatzstoff-Cocktail. <span style="color:#8a8072">· Anzeige</span></div>'
+    +rows
+    +'<div style="font-size:10.5px;color:#8a8072;margin-top:8px">Kauf beim Partner-Shop · wir erhalten ggf. Provision · Preis für dich unverändert · Score unabhängig. Keine medizinische Beratung.</div>'
+    +'</div>';
+}
 function topProdukteHtml(){
   const by={};
   (ALL||[]).forEach(p=>{ const s=num(p.clean_score); if(s==null||!p.score_vollstaendig) return; const k=(p.unterkategorie||p.kategorie||"Sonstige"); (by[k]=by[k]||[]).push(p); });
@@ -1298,7 +1326,7 @@ async function renderStart(){
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
       +'<button onclick="openLogin()" style="padding:12px 18px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-size:15px;cursor:pointer">Anmelden / Registrieren</button>'
       +'<button onclick="navTo(\'produkte\')" style="padding:12px 18px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:15px;cursor:pointer">Produkte ansehen</button></div></div>'
-      +startRezSucheHtml()+topProdukteHtml()
+      +startRezSucheHtml()+topProdukteHtml()+zyklusBundleHtml()
       +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
       +startFeature('🔍','Root Index','0–100, erklärt')+startFeature('📒','Tagebuch','Makros &amp; Ziele')
       +startFeature('🏋️','Training','Plan &amp; Fortschritt')+startFeature('🥗','Rezepte','bewertet &amp; skalierbar')
@@ -1330,7 +1358,7 @@ async function renderStart(){
     +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">'
       +'<button onclick="navTo(\'tagebuch\')" style="padding:13px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-size:14px;cursor:pointer">📒 Tagebuch öffnen</button>'
       +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>'
-    +startRezSucheHtml()+topProdukteHtml();
+    +startRezSucheHtml()+topProdukteHtml()+zyklusBundleHtml();
   if(ME&&ME.is_premium) renderSchritte();
 }
 function bnActive(m){
