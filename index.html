@@ -1181,11 +1181,11 @@ function startFeature(ic,t,sub){ return '<div style="background:var(--card);bord
 let BILD={};
 async function loadBilder(){ try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
 const ZYKLUS_BUNDLE=[
-  {id:'P928',dose:'200–300 mg/Tag',url:'https://www.sunday.de/en/magnesium-glycinate-pure-capsules.html'},
-  {id:'P929',dose:'~2000 mg/Tag · Fisch',url:'https://norsan.de/shop/omega-3-total-3er-pack-naturell/'},
-  {id:'P930',dose:'300 EPA/200 DHA · vegan',url:'https://www.sunday.de/en/omega-3-capsules-epa-dha-vegan-algae-1000mg.html'},
-  {id:'P931',dose:'20 mg/Tag · optional (PMS)',url:'https://www.vegavero.de/products/vitex-agnus-castus-kapseln'},
-  {id:'P932',dose:'200 mg/Tag · optional',url:'https://mach-dich-wach.de/products/vitamin-b1-kapseln'}
+  {id:'P928',dose:'200–300 mg/Tag',url:'https://www.amazon.de/dp/B0FMS51PCG?tag=rootindex-21'},
+  {id:'P929',dose:'~2000 mg/Tag · Fisch',url:'https://www.amazon.de/dp/B0BRSWXP6N?tag=rootindex-21'},
+  {id:'P930',dose:'300 EPA/200 DHA · vegan',url:'https://www.amazon.de/dp/B0FMS1Q53F?tag=rootindex-21'},
+  {id:'P931',dose:'20 mg/Tag · optional (PMS)',url:'https://www.amazon.de/s?k=Vegavero+Vitex+Agnus-Castus&tag=rootindex-21'},
+  {id:'P932',dose:'200 mg/Tag · optional',url:'https://www.amazon.de/s?k=Vitamin+B1+200+mg+ohne+Zusaetze&tag=rootindex-21'}
 ];
 function zyklusBundleHtml(){
   const rows=ZYKLUS_BUNDLE.map(b=>{
