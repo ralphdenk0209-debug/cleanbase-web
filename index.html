@@ -1075,6 +1075,7 @@ function detail(d){
     <div class="marke">${(mkLabel(d.marke)?esc(mkLabel(d.marke))+" · ":"")}${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
     <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button>${(ME&&ME.is_admin)?`<button onclick="adminDeleteProdukt('${d.id}','${esc(d.name||"").replace(/'/g,"")}')" style="padding:7px 12px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:13px">🗑️ Produkt ausblenden</button>`:""}</div>
     ${BILD[d.id]?`<div style="text-align:center;margin:8px 0"><img src="${esc(BILD[d.id])}" alt="" style="max-height:170px;max-width:100%;border-radius:12px" onerror="this.style.display='none'"></div>`:""}
+    ${(d.dosis_text||d.inhalt_menge)?`<div style="background:var(--greenlt);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px;color:var(--ink);line-height:1.5">${d.dosis_text?`<div><b>Angegebene Dosis:</b> ${esc(d.dosis_text)}</div>`:""}${d.inhalt_menge?`<div><b>Inhalt:</b> ${esc(String(d.inhalt_menge).replace(/\.0+$/,""))}${d.inhalt_einheit?(" "+esc(d.inhalt_einheit)):""}${d.form?(" · "+esc(d.form)):""}</div>`:""}</div>`:""}
     ${_sd?altBanner(d):""}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
@@ -1181,22 +1182,26 @@ function startFeature(ic,t,sub){ return '<div style="background:var(--card);bord
 let BILD={};
 async function loadBilder(){ try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
 const ZYKLUS_BUNDLE=[
-  {id:'P928',dose:'200–300 mg/Tag',url:'https://www.amazon.de/dp/B0FMS51PCG?tag=rootindex-21'},
-  {id:'P929',dose:'~2000 mg/Tag · Fisch',url:'https://www.amazon.de/dp/B0BRSWXP6N?tag=rootindex-21'},
-  {id:'P930',dose:'300 EPA/200 DHA · vegan',url:'https://www.amazon.de/dp/B0FMS1Q53F?tag=rootindex-21'},
-  {id:'P931',dose:'20 mg/Tag · optional (PMS)',url:'https://www.amazon.de/s?k=Vegavero+Vitex+Agnus-Castus&tag=rootindex-21'},
-  {id:'P932',dose:'200 mg/Tag · optional',url:'https://www.amazon.de/s?k=Vitamin+B1+200+mg+ohne+Zusaetze&tag=rootindex-21'}
+  {id:'P928',grp:'kern',dose:'200–300 mg/Tag',url:'https://www.amazon.de/dp/B0FMS51PCG?tag=rootindex-21'},
+  {id:'P929',grp:'omega',dose:'~2000 mg/Tag',pick:'Fisch',url:'https://www.amazon.de/dp/B0BRSWXP6N?tag=rootindex-21'},
+  {id:'P930',grp:'omega',dose:'300 EPA / 200 DHA',pick:'vegan',url:'https://www.amazon.de/dp/B0FMS1Q53F?tag=rootindex-21'},
+  {id:'P931',grp:'opt',dose:'10 mg (5:1) / Tag',url:'https://www.amazon.de/dp/B07PZZ8J5T?tag=rootindex-21'},
+  {id:'P932',grp:'opt',dose:'100 mg/Tag',url:'https://www.amazon.de/dp/B01MTZBUQ2?tag=rootindex-21'}
 ];
 function zyklusBundleHtml(){
+  let lastGrp='';
+  const lab=(t)=>'<div style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:12px 0 2px">'+t+'</div>';
   const rows=ZYKLUS_BUNDLE.map(b=>{
     const f=(ALL||[]).find(x=>x.id===b.id); if(!f) return '';
+    let label='';
+    if(b.grp!==lastGrp){ lastGrp=b.grp; label=lab(b.grp==='kern'?'Basis':b.grp==='omega'?'Omega-3 · nur EINE Variante wählen':'Optional · nur bei Bedarf'); }
     const bild=(typeof BILD!=='undefined'&&BILD&&BILD[b.id])?BILD[b.id]:'';
     const thumb=bild?'<img src="'+esc(bild)+'" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:#fff;border:1px solid var(--line)">':'<div style="width:42px;height:42px;border-radius:8px;flex:0 0 auto;background:var(--greenlt);display:flex;align-items:center;justify-content:center;font-size:19px">🌿</div>';
     const sc=(f.clean_score!=null)?'<span style="font-size:12px;font-weight:800;color:#fff;background:'+farbe(scoreBew(f.clean_score))+';border-radius:999px;padding:3px 9px;flex:0 0 auto">'+f.clean_score+'</span>':'';
-    return '<div class="zbRow" style="display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:7px">'
+    return label+'<div class="zbRow" style="display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:6px">'
       +'<div onclick="detailById(\''+b.id+'\')" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer">'+thumb
       +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.name)+'</div>'
-      +'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.marke||'')+'</div>'
+      +'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.marke||'')+(b.pick?' · '+esc(b.pick):'')+'</div>'
       +'<div style="font-size:11.5px;color:var(--green);font-weight:600">Dosis: '+esc(b.dose)+'</div></div>'+sc+'</div>'
       +'<a href="'+esc(b.url)+'" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()" style="background:var(--green);color:#1D3C24;font-weight:700;border-radius:9px;padding:8px 11px;font-size:12.5px;text-decoration:none;white-space:nowrap;flex:0 0 auto">Hier kaufen ↗</a>'
       +'<button onclick="this.closest(\'.zbRow\').remove()" title="Entfernen" aria-label="Entfernen" style="border:0;background:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;flex:0 0 auto;padding:2px 2px">✕</button>'
@@ -1205,7 +1210,8 @@ function zyklusBundleHtml(){
   if(!rows) return '';
   return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">'
     +'<div style="font-weight:800;font-size:16px">Weniger Regelschmerzen – sauber statt Kombi-Pulver</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 8px">Was bei Zyklus &amp; PMS wirklich hilft: Magnesium, Omega-3 &amp; Co. – einzeln, ohne Zusatzstoff-Cocktail. <span style="color:#8a8072">· Anzeige</span></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Was bei Zyklus &amp; PMS wirklich hilft – einzeln, ohne Zusatzstoff-Cocktail. <span style="color:#8a8072">· Anzeige</span></div>'
+    +'<div style="font-size:11.5px;color:var(--ink);background:var(--greenlt);border-radius:8px;padding:7px 9px;margin-bottom:2px">So nutzt du es: <b>Magnesium + 1 Omega-3</b> (Fisch <i>oder</i> vegan). Vitex &amp; B1 nur bei Bedarf. Nicht gebraucht? Mit ✕ ausblenden.</div>'
     +rows
     +'<div style="font-size:10.5px;color:#8a8072;margin-top:8px">Kauf beim Partner-Shop · wir erhalten ggf. Provision · Preis für dich unverändert · Score unabhängig. Keine medizinische Beratung.</div>'
     +'</div>';
