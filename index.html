@@ -240,7 +240,7 @@
   </div>
   <div id="tagebuchView" style="display:none">
     <div id="tbGate" style="display:none"></div>
-    <div id="tbInner" style="max-width:600px;margin:0 auto;--tb-card:#FFFFFF;--tb-card2:#232c35;--tb-line:#E7E0D4;--tb-text:#1D3C24;--tb-muted:#6B6256;--tb-track:#E7E0D4;--tb-input:#FBF8F2;background:#F3EFE8;color:var(--tb-text);padding:16px;border-radius:18px;box-shadow:0 8px 30px rgba(0,0,0,.28)">
+    <div id="tbInner" style="max-width:600px;margin:0 auto;--tb-card:#FFFFFF;--tb-card2:#EFE9DE;--tb-line:#E7E0D4;--tb-text:#1D3C24;--tb-muted:#6B6256;--tb-track:#E7E0D4;--tb-input:#FBF8F2;background:#F3EFE8;color:var(--tb-text);padding:16px;border-radius:18px;box-shadow:0 8px 30px rgba(0,0,0,.28)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <h2 id="tbTitle" style="margin:0;font-size:19px;color:var(--tb-text)">Tagebuch</h2>
         <div style="display:flex;gap:8px;align-items:center">
@@ -2056,7 +2056,7 @@ async function tbOpenAdd(meal, prefillId, prefillName){
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
   const opt=x=>'<option'+(window._tbAddMeal===x?' selected':'')+'>'+x+'</option>';
   ov.innerHTML='<div style="display:flex;flex-direction:column;width:100%;max-width:560px;height:100%;background:#F3EFE8;color:#1D3C24;box-shadow:0 0 40px rgba(0,0,0,.5)">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #E7E0D4;flex:0 0 auto"><b style="font-size:17px">Hinzufügen</b><button onclick="document.getElementById(\'tbAddOv\').remove()" style="border:0;background:#232c35;color:#1D3C24;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px">Schließen ✕</button></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #E7E0D4;flex:0 0 auto"><b style="font-size:17px">Hinzufügen</b><button onclick="document.getElementById(\'tbAddOv\').remove()" style="border:0;background:var(--tb-card2);color:#1D3C24;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px">Schließen ✕</button></div>'
     +'<div style="padding:12px 16px 6px;flex:0 0 auto"><select id="tbAddMeal" onchange="window._tbAddMeal=this.value" style="width:100%;padding:10px;border:1px solid #E7E0D4;border-radius:10px;background:#FBF8F2;color:#1D3C24;margin-bottom:8px">'+opt("Frühstück")+opt("Mittag")+opt("Abendessen")+opt("Snack")+'</select><div id="tbAddTabs" style="display:flex;gap:6px"></div></div>'
     +'<div id="tbAddBody" style="flex:1;overflow:auto;padding:8px 16px 16px"></div></div>';
   document.body.appendChild(ov);
@@ -2075,7 +2075,7 @@ async function tbSetTab(t){
   window._tbTab=t; tbRenderTabs();
   const body=document.getElementById("tbAddBody"); if(!body) return;
   if(t==='suche'){
-    body.innerHTML='<div style="display:flex;gap:8px;margin-bottom:8px"><input id="tbAddSearch" oninput="tbAddFilter(this.value)" onfocus="tbAddFilter(this.value)" placeholder="🔍 Produkt suchen…" style="flex:1;min-width:0;padding:11px;border:1px solid #E7E0D4;border-radius:10px;background:#FBF8F2;color:#1D3C24;font-size:14px"><button onclick="tbScanPopup()" title="Barcode scannen" style="width:46px;flex:0 0 auto;border:1px solid #E7E0D4;border-radius:10px;background:#232c35;color:#1D3C24;font-size:18px;cursor:pointer">▦</button></div><div id="tbAddResults"><div style="text-align:center;padding:16px;color:#6B6256;font-size:13px">Tippe ins Suchfeld, um ein Produkt zu suchen.</div></div>';
+    body.innerHTML='<div style="display:flex;gap:8px;margin-bottom:8px"><input id="tbAddSearch" oninput="tbAddFilter(this.value)" onfocus="tbAddFilter(this.value)" placeholder="🔍 Produkt suchen…" style="flex:1;min-width:0;padding:11px;border:1px solid #E7E0D4;border-radius:10px;background:#FBF8F2;color:#1D3C24;font-size:14px"><button onclick="tbScanPopup()" title="Barcode scannen" style="width:46px;flex:0 0 auto;border:1px solid #E7E0D4;border-radius:10px;background:var(--tb-card2);color:#1D3C24;font-size:18px;cursor:pointer">▦</button></div><div id="tbAddResults"><div style="text-align:center;padding:16px;color:#6B6256;font-size:13px">Tippe ins Suchfeld, um ein Produkt zu suchen.</div></div>';
     return;
   }
   body.innerHTML='<div id="tbAddResults"><div style="text-align:center;padding:16px;color:#6B6256;font-size:13px">Lade…</div></div>';
@@ -2088,7 +2088,7 @@ function tbRowHtml(p,i){
   return '<div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #E7E0D4;border-radius:10px;padding:10px;margin-bottom:6px">'
     +'<div onclick="tbAddPick('+i+')" style="flex:1;min-width:0;cursor:pointer"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+(sc!=null?' <span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(sc))+'">'+sc+'</span>':'')+'</div><div style="font-size:11.5px;color:#6B6256">'+esc(mkLabel(p.marke)||"")+(p.kategorie?(" · "+esc(p.kategorie)):"")+'</div></div>'
     +'<button onclick="tbFavToggle(\''+p.id+'\',this)" title="Favorit" style="border:0;background:none;color:'+(fav?'#22c55e':'#5b6b78')+';font-size:19px;cursor:pointer;flex:0 0 auto;line-height:1">'+(fav?'♥':'♡')+'</button>'
-    +'<button onclick="tbAddPick('+i+')" title="Hinzufügen" style="width:30px;height:30px;border-radius:50%;background:#232c35;border:1px solid #E7E0D4;color:#2E7D32;font-size:18px;cursor:pointer;flex:0 0 auto">+</button>'
+    +'<button onclick="tbAddPick('+i+')" title="Hinzufügen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid #E7E0D4;color:#2E7D32;font-size:18px;cursor:pointer;flex:0 0 auto">+</button>'
     +'</div>';
 }
 async function tbFavToggle(id, btn){
@@ -2116,7 +2116,7 @@ async function tbRezList(){
   let rez=[]; try{ const {data}=await client.from("v_web_rezepte").select("id,name").order("name"); rez=data||[]; }catch(e){}
   window._tbRezList=rez;
   const box=document.getElementById("tbAddResults"); if(!box) return;
-  box.innerHTML = rez.length ? rez.map((r,i)=>'<div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #E7E0D4;border-radius:10px;padding:10px;margin-bottom:6px"><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.name)+'</div><div style="font-size:11.5px;color:#6B6256">Rezept</div></div><button onclick="tbAddRezept('+i+')" title="Als Mahlzeit einfügen" style="width:30px;height:30px;border-radius:50%;background:#232c35;border:1px solid #E7E0D4;color:#2E7D32;font-size:18px;cursor:pointer">+</button></div>').join("") : '<div style="text-align:center;padding:16px;color:#6B6256;font-size:13px">Keine Rezepte.</div>';
+  box.innerHTML = rez.length ? rez.map((r,i)=>'<div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #E7E0D4;border-radius:10px;padding:10px;margin-bottom:6px"><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.name)+'</div><div style="font-size:11.5px;color:#6B6256">Rezept</div></div><button onclick="tbAddRezept('+i+')" title="Als Mahlzeit einfügen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid #E7E0D4;color:#2E7D32;font-size:18px;cursor:pointer">+</button></div>').join("") : '<div style="text-align:center;padding:16px;color:#6B6256;font-size:13px">Keine Rezepte.</div>';
 }
 async function tbAddRezept(i){
   const r=(window._tbRezList||[])[i]; if(!r) return;
