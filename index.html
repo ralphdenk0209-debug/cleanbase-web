@@ -633,6 +633,7 @@ function setTierOverride(t){
   try{ const v=document.getElementById('rezeptView'); if(v&&v.style.display!=='none'&&typeof loadRezepte==='function') loadRezepte(); }catch(e){}
 }
 function mountTierOvChip(){
+  { const ex=document.getElementById("tierOvChip"); if(ex) ex.remove(); return; }
   if(!(ME&&ME.is_admin)) { const ex=document.getElementById("tierOvChip"); if(ex) ex.remove(); return; }
   if(document.getElementById("tierOvChip")) return;
   const c=document.createElement("div"); c.id="tierOvChip";
@@ -710,9 +711,9 @@ function updateAuthUI(){
       bar.innerHTML='<button class="authbtn" id="loginBtn" onclick="openLogin()">Anmelden</button>';
     }
   }
-  const fg=document.getElementById("tabFg"); if(fg) fg.style.display=(ME&&ME.is_admin)?"":"none";
-  const st=document.getElementById("tabStufen"); if(st) st.style.display=(ME&&ME.is_admin)?"":"none";
-  const us=document.getElementById("tabUsers"); if(us) us.style.display=(ME&&ME.is_admin)?"":"none";
+  const fg=document.getElementById("tabFg"); if(fg) fg.style.display="none";
+  const st=document.getElementById("tabStufen"); if(st) st.style.display="none";
+  const us=document.getElementById("tabUsers"); if(us) us.style.display="none";
   try{ mountTierOvChip(); }catch(e){}
 }
 function updateGate(){
@@ -1220,7 +1221,7 @@ function zyklusBundleHtml(){
     +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Was bei Zyklus &amp; PMS wirklich hilft – je Kategorie unsere <b>2 saubersten</b> Produkte. <span style="color:#8a8072">· Anzeige</span></div>'
     +'<div style="font-size:11.5px;color:var(--ink);background:var(--greenlt);border-radius:8px;padding:7px 9px">So nutzt du es: <b>Magnesium + 1 Omega-3</b> (Fisch <i>oder</i> vegan). Vitex &amp; B1 nur bei Bedarf.</div>'
     +blocks
-    +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Kauf beim Partner-Shop (Amazon) · wir erhalten ggf. Provision · Preis für dich unverändert · Score unabhängig. Keine medizinische Beratung.</div>'
+    +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Anzeige · Partner-Links: Preis für dich unverändert · unsere Bewertung bleibt unabhängig. Keine medizinische Beratung.</div>'
     +'</div>';
 }
 function topProdukteHtml(){
@@ -1365,18 +1366,16 @@ async function renderStart(){
     : '<div style="font-size:14px;color:var(--muted)">Heute noch kein Training erfasst.</div>';
   const schritteHtml = (ME&&ME.is_premium) ? '<div id="schritteBox"></div>' : '';
   dash.innerHTML=
-    '<div style="'+card+'"><div style="font-weight:700;font-size:18px">Hallo'+(vorname?(' '+esc(vorname)):"")+'! 👋</div>'
-      +'<div style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</div></div>'
-    +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🍽️ Heute – Makros</div>'+donutsHtml+'</div>'
+    '<div style="display:flex;align-items:baseline;gap:8px;margin:2px 2px 12px"><span style="font-weight:600;font-size:16px">Hallo'+(vorname?(' '+esc(vorname)):"")+'</span><span style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</span></div>'
+    +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:8px">🔍 Produkt bewerten</div><input id="startProdQ" onkeydown="if(event.key===\'Enter\')startProdSearch(this.value)" placeholder="Produkt oder Marke suchen…" style="width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px"><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Tippen &amp; Enter – zeigt den Root Index.</div></div>'
+    +'<div style="'+card+';cursor:pointer" onclick="navTo(\'tagebuch\')"><div style="font-weight:600;margin-bottom:6px">🍽️ Heute – Makros <span style="float:right;color:var(--muted);font-weight:400;font-size:12px">Tagebuch ›</span></div>'+donutsHtml+'</div>'
     +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🏋️ Heute – Training</div>'+trainHtml
       +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:var(--card);color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
     +schritteHtml
-    +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">'
-      +'<button onclick="navTo(\'tagebuch\')" style="padding:13px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-size:14px;cursor:pointer">📒 Tagebuch öffnen</button>'
-      +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>'
     +startRezSucheHtml()+topProdukteHtml()+zyklusBundleHtml();
   if(ME&&ME.is_premium) renderSchritte();
 }
+function startProdSearch(v){ navTo('produkte'); setTimeout(function(){ var el=document.getElementById('q'); if(el){ el.value=v||''; if(typeof render==='function') render(); el.focus(); } }, 60); }
 function bnActive(m){
   const ids=['bnstart','bnprodukte','bntagebuch','bntraining','bnmehr'];
   const map={start:'bnstart',produkte:'bnprodukte',tagebuch:'bntagebuch',training:'bntraining'};
