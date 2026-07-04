@@ -14,8 +14,8 @@
 <meta name="apple-mobile-web-app-title" content="Root Index" />
 <style>
   :root{
-    --bg:#0f1418; --card:#1b2229; --ink:#e8edf1; --muted:#93a1ac; --line:#2d3842;
-    --green:#3aa85f; --green2:#4bbf72; --greendk:#8ee6a8; --greenlt:#173a24;
+    --bg:#1D3C24; --card:#24492E; --ink:#EAF2EC; --muted:#A0BCA9; --line:#356045;
+    --green:#6FAF3A; --green2:#80C24A; --greendk:#A5D45A; --greenlt:#20402A;
     --sehrgut:#22c55e; --gut:#84cc16; --mittel:#f0a020; --schwach:#ef4444; --grau:#93a1ac;
     --shadow:0 6px 20px rgba(0,0,0,.35);
   }
@@ -28,7 +28,7 @@
   input[type=date],input[type=number]{color-scheme:dark}
   a{color:inherit}
   /* HERO */
-  .hero{background:linear-gradient(180deg,#236a3b,var(--greendk));color:#fff;padding:12px 20px;position:sticky;top:0;z-index:30}
+  .hero{background:linear-gradient(180deg,#1D3C24,#24492E);color:#fff;padding:12px 20px;position:sticky;top:0;z-index:30}
   .hero .tag,.hero .sub{display:none}
   .hero.shrink{padding:8px 16px}
   .hero.shrink .tag,.hero.shrink .sub{display:none}
@@ -111,7 +111,7 @@
   .footer b{color:var(--green)}
   .loading{padding:50px;text-align:center;color:var(--muted)}
   .tabbtn{padding:9px 18px;border:1px solid var(--line);background:var(--card);border-radius:999px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
-  .tabbtn.active{background:var(--green);color:#fff;border-color:var(--green)}
+  .tabbtn.active{background:var(--green);color:#1D3C24;border-color:var(--green)}
   /* AUTH */
   .authbar{position:absolute;top:16px;right:0;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600}
   .authbtn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer}
@@ -159,8 +159,8 @@
 </head>
 <body>
 <div class="hero"><div class="wrap">
-  <div class="brand" style="display:flex;align-items:center;justify-content:center;gap:.5em">
-    <img src="logo-mark.png" alt="Root Index Logo" style="height:76px;width:auto" onerror="this.style.display='none'">
+  <div class="brand" style="display:flex;align-items:center;justify-content:flex-start;gap:.6em">
+    <img id="brandLogo" src="logo-mark.png" alt="Root Index Logo" style="height:72px;width:auto" onerror="this.style.display='none'">
     <h1>Root Index</h1>
   </div>
   <p class="tag">Echte Qualität, Transparenz & smarte Ernährung.</p>
@@ -204,7 +204,7 @@
   <div id="rezeptView" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="stats" id="rezeptStats">Lade Rezepte…</div>
-      <button onclick="openRezeptForm()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px;white-space:nowrap">+ Eigenes Rezept</button>
+      <button onclick="openRezeptForm()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:14px;white-space:nowrap">+ Eigenes Rezept</button>
     </div>
     <input type="search" id="rezeptSuche" oninput="renderRezeptList()" placeholder="Rezept suchen…" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px;margin:6px 0 8px" />
     <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);margin:0 0 12px;cursor:pointer"><input type="checkbox" onchange="rezFavFilter(this.checked)" style="width:16px;height:16px;accent-color:#e11d48"> ♥ nur Favoriten anzeigen</label>
@@ -313,7 +313,7 @@
             <input id="planMenge" type="number" placeholder="g" style="width:74px;padding:9px;border:1px solid var(--line);border-radius:8px">
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <button onclick="planSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Hinzufügen</button>
+            <button onclick="planSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-weight:600">Hinzufügen</button>
             <button onclick="document.getElementById('planPick').style.display='none'" style="padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Abbrechen</button>
             <span id="planPickMsg" style="font-size:12.5px"></span>
           </div>
@@ -335,7 +335,7 @@
         <label style="flex:1;font-size:12px;color:var(--ink)">bis<input type="time" id="termEnde" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="termSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Speichern</button>
+        <button onclick="termSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-weight:600">Speichern</button>
         <button onclick="document.getElementById('termPick').style.display='none'" style="padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Abbrechen</button>
         <span id="termMsg" style="font-size:12.5px"></span>
       </div>
@@ -358,7 +358,7 @@
       <div id="fgRezepteFree" style="font-size:14px;color:var(--ink)"></div>
       <h3 style="font-size:16px;margin:18px 0 6px">Bundles (Produkt-Kombis)</h3>
       <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Benannte Kombinationen mehrerer Produkte (z. B. Frühstücks-Bundle). Nur du (Admin).</div>
-      <button onclick="bundleNeu()" style="margin-bottom:10px;padding:9px 14px;border:0;border-radius:10px;background:var(--green);color:#fff;font-weight:600;cursor:pointer">➕ Neues Bundle</button>
+      <button onclick="bundleNeu()" style="margin-bottom:10px;padding:9px 14px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-weight:600;cursor:pointer">➕ Neues Bundle</button>
       <div id="fgBundles" style="font-size:14px"></div>
     </div>
   </div>
@@ -1040,7 +1040,7 @@ function detail(d){
     <div style="margin-top:12px;background:var(--greenlt);border:1px solid var(--green);border-radius:12px;padding:14px;text-align:center">
       <div style="font-weight:700;margin-bottom:4px">🔒 Volle Aufschlüsselung und bessere Alternativen</div>
       <div style="font-size:13px;color:var(--greendk);margin-bottom:10px">Die vier Säulen im Detail, Zutaten-Bewertung und Alternativen.${ME?"":" Registrier dich – 7 Tage gratis."}</div>
-      <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:10px 18px;border:0;border-radius:10px;background:var(--green);color:#fff;font-weight:600;cursor:pointer">${ME?'Premium freischalten':'Registrieren – 7 Tage gratis'}</button>
+      <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:10px 18px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-weight:600;cursor:pointer">${ME?'Premium freischalten':'Registrieren – 7 Tage gratis'}</button>
     </div>
   `;
   const panel=document.getElementById("panel");
@@ -1160,7 +1160,7 @@ function topProdukteHtml(){
   const prod=(p,winner)=>`<div onclick="detailById('${p.id}')" style="flex:1;min-width:0;cursor:pointer;text-align:center">`
     +`<div style="position:relative;width:100%;aspect-ratio:1;background:#f6f7f6;border-radius:12px;overflow:hidden;border:1px solid ${winner?'var(--green)':'var(--line)'}">`
     +`<img src="${esc(BILD[p.id])}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:contain">`
-    +(winner?`<div style="position:absolute;top:8px;left:8px;background:var(--green);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px">TOP</div>`:"")
+    +(winner?`<div style="position:absolute;top:8px;left:8px;background:var(--green);color:#1D3C24;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px">TOP</div>`:"")
     +`<div style="position:absolute;bottom:7px;right:7px;background:var(--card);border-radius:50%;padding:3px;box-shadow:0 1px 6px rgba(0,0,0,.28)">${donut(num(p.clean_score), farbe(p.bewertung), 58)}</div>`
     +`</div>`
     +`<div style="font-size:12.5px;font-weight:600;margin-top:6px;line-height:1.2">${esc(p.name)}</div>`
@@ -1173,7 +1173,7 @@ function topProdukteHtml(){
 function startRezSucheHtml(){
   return `<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px;box-shadow:var(--shadow)">`
     +`<div style="display:flex;gap:8px"><input id="startRezSuche" placeholder="🍲 Rezepte suchen…" onkeydown="if(event.key==='Enter')startRezeptSuche(this.value)" style="flex:1;min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px">`
-    +`<button onclick="startRezeptSuche(document.getElementById('startRezSuche').value)" style="padding:10px 14px;border:0;border-radius:10px;background:var(--green);color:#fff;cursor:pointer">Suchen</button></div></div>`;
+    +`<button onclick="startRezeptSuche(document.getElementById('startRezSuche').value)" style="padding:10px 14px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;cursor:pointer">Suchen</button></div></div>`;
 }
 function startRezeptSuche(v){ navTo('rezepte'); setTimeout(()=>{ const i=document.getElementById('rezeptSuche'); if(i){ i.value=v||''; } if(typeof renderRezeptList==='function') renderRezeptList(); },80); }
 async function renderSchritte(){
@@ -1206,7 +1206,7 @@ async function renderSchritte(){
       +'<span style="flex:1;text-align:center;font-size:13px;color:var(--ink);font-weight:600">'+selLbl+'</span>'
       +'<button onclick="schrShiftDay(1)" '+(nextOff?'disabled':'')+' title="Tag vor" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:'+(nextOff?'not-allowed':'pointer')+';opacity:'+(nextOff?'.4':'1')+'">›</button></div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(tag||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px">'
-      +'<button onclick="saveSchritte()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:13px">Speichern</button></div>'
+      +'<button onclick="saveSchritte()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:13px">Speichern</button></div>'
     +'<div id="startSchritteMsg" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:15px"></div>'
     +'<div style="border-top:1px solid var(--line);margin:6px 0 10px"></div>'
     +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:12px;color:var(--muted)">Letzte 7 Tage</div><div style="font-size:12px;color:var(--ink)">Ø <b>'+avg.toLocaleString("de-DE")+'</b>/Tag · Ziel '+ZIEL.toLocaleString("de-DE")+'</div></div>'
@@ -1266,7 +1266,7 @@ async function renderStart(){
       +'<h2 style="margin:.25em 0 .15em">Willkommen bei Root Index</h2>'
       +'<p style="color:var(--muted);font-size:14.5px;line-height:1.5;margin:.2em 0 1em">Transparente, wissenschaftsbasierte Bewertung von Lebensmitteln (Root Index 0–100) – plus Ernährungs- &amp; Trainingstagebuch.</p>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
-      +'<button onclick="openLogin()" style="padding:12px 18px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Anmelden / Registrieren</button>'
+      +'<button onclick="openLogin()" style="padding:12px 18px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-size:15px;cursor:pointer">Anmelden / Registrieren</button>'
       +'<button onclick="navTo(\'produkte\')" style="padding:12px 18px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:15px;cursor:pointer">Produkte ansehen</button></div></div>'
       +startRezSucheHtml()+topProdukteHtml()
       +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
@@ -1298,7 +1298,7 @@ async function renderStart(){
       +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:var(--card);color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
     +schritteHtml
     +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">'
-      +'<button onclick="navTo(\'tagebuch\')" style="padding:13px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:14px;cursor:pointer">📒 Tagebuch öffnen</button>'
+      +'<button onclick="navTo(\'tagebuch\')" style="padding:13px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-size:14px;cursor:pointer">📒 Tagebuch öffnen</button>'
       +'<button onclick="navTo(\'produkte\')" style="padding:13px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:14px;cursor:pointer">🔍 Produkte</button></div>'
     +startRezSucheHtml()+topProdukteHtml();
   if(ME&&ME.is_premium) renderSchritte();
@@ -1647,7 +1647,7 @@ async function loadPlaner(){
 }
 async function renderPlaner(){
   const bw=document.getElementById("pvWoche"), bt=document.getElementById("pvTag");
-  if(bw&&bt){ const on='background:var(--green);color:#fff', off='background:var(--card);color:var(--ink)';
+  if(bw&&bt){ const on='background:var(--green);color:#1D3C24', off='background:var(--card);color:var(--ink)';
     bw.style.cssText="padding:7px 11px;border:0;cursor:pointer;font-size:13px;"+(_planView==='woche'?on:off);
     bt.style.cssText="padding:7px 11px;border:0;border-left:1px solid var(--line);cursor:pointer;font-size:13px;"+(_planView==='tag'?on:off); }
   let dates=[], von, bis, labelText;
@@ -1662,7 +1662,7 @@ async function renderPlaner(){
   }
   const lab=document.getElementById("planWochenLabel"); if(lab) lab.textContent=labelText;
   const bm=document.getElementById("pmMeal"), bc=document.getElementById("pmCal");
-  if(bm&&bc){ const on2='background:var(--green);color:#fff', off2='background:var(--card);color:var(--ink)';
+  if(bm&&bc){ const on2='background:var(--green);color:#1D3C24', off2='background:var(--card);color:var(--ink)';
     bm.style.cssText="padding:7px 11px;border:0;cursor:pointer;font-size:13px;"+(_planMode!=='kalender'?on2:off2);
     bc.style.cssText="padding:7px 11px;border:0;border-left:1px solid var(--line);cursor:pointer;font-size:13px;"+(_planMode==='kalender'?on2:off2); }
   if(_planMode==='kalender'){ await renderKalenderGrid(dates); return; }
@@ -1742,7 +1742,7 @@ async function loadEinkauf(){
     <span style="flex:1;${done?'text-decoration:line-through;color:#9aa7a0':''}">${esc(r.titel)}${r.menge?` <span style="color:#9aa7a0;font-size:12.5px">${esc(r.menge)}</span>`:''}</span>
     <button onclick="einkaufDel(${r.eintrag_id})" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer">✕</button></div>`;
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><b>🛒 Einkaufsliste</b><button onclick="einkaufFromPlan()" style="padding:6px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px">Aus dieser Woche erzeugen</button></div>`;
-  h+=`<div style="display:flex;gap:8px;margin-bottom:10px"><input id="einkInput" placeholder="Artikel…" onkeydown="if(event.key==='Enter')einkaufAdd()" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px"><input id="einkMenge" placeholder="Menge" style="width:90px;padding:9px;border:1px solid var(--line);border-radius:8px"><button onclick="einkaufAdd()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer">+</button></div>`;
+  h+=`<div style="display:flex;gap:8px;margin-bottom:10px"><input id="einkInput" placeholder="Artikel…" onkeydown="if(event.key==='Enter')einkaufAdd()" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px"><input id="einkMenge" placeholder="Menge" style="width:90px;padding:9px;border:1px solid var(--line);border-radius:8px"><button onclick="einkaufAdd()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer">+</button></div>`;
   if(!rows.length) h+='<div style="color:#9aa7a0;font-size:13px">Liste ist leer – Artikel hinzufügen oder aus dem Wochenplan erzeugen.</div>';
   offen.forEach(r=>h+=row(r,false));
   if(erl.length){ h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 2px"><span style="font-size:12px;color:#9aa7a0">Erledigt (${erl.length})</span><button onclick="einkaufClearDone()" style="font-size:12px;color:#dc2626;background:none;border:0;cursor:pointer">entfernen</button></div>`; erl.forEach(r=>h+=row(r,true)); }
@@ -1950,7 +1950,7 @@ function renderTbListe(items, goal){
     html+=`</div>`;
   });
   const dayScore = dSG>0?Math.round(dSW/dSG):null;
-  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--greendk);color:#fff;border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:rgba(255,255,255,.18);border-radius:8px;padding:2px 9px;font-size:13px">Index ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--greendk);color:#1D3C24;border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:rgba(255,255,255,.18);border-radius:8px;padding:2px 9px;font-size:13px">Index ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
   el.innerHTML=html;
 }
 /* ---- Lifesum-Style: Top-Suche + Add-Popup ---- */
@@ -2380,7 +2380,7 @@ function bundleEditorRender(){
     +'<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Produkte im Bundle:</div><div id="bnChips" style="margin-bottom:6px"></div>'
     +'<input id="bnSuche" oninput="bundleSuche(this.value)" placeholder="Produkt suchen &amp; hinzufügen…" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">'
     +'<div id="bnSucheRes" style="margin:4px 0"></div>'
-    +'<div style="margin-top:8px;display:flex;gap:8px"><button onclick="bundleSave()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;font-weight:600;cursor:pointer">Speichern</button><button onclick="loadBundles()" style="padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer">Abbrechen</button></div>'
+    +'<div style="margin-top:8px;display:flex;gap:8px"><button onclick="bundleSave()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;font-weight:600;cursor:pointer">Speichern</button><button onclick="loadBundles()" style="padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer">Abbrechen</button></div>'
     +'<div id="bnMsg" style="font-size:12px;margin-top:6px"></div></div>';
   bundleChips();
 }
@@ -2594,14 +2594,14 @@ function renderTrainPlanPane(){
   pane.innerHTML=
     '<div style="'+card+'"><h3 style="'+h2+'">🗓️ Trainingsplan</h3>'
     +(p.Plan?planSummaryHtml(p.Plan):'<div style="font-size:13px;color:var(--muted);margin-bottom:8px">Aus Geräten, Zeit und Ziel automatisch einen Plan erstellen.</div>')
-    +'<button onclick="openPlanGen()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">'+(p.Plan?'Plan neu erstellen':'Plan erstellen')+'</button>'
+    +'<button onclick="openPlanGen()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:14px">'+(p.Plan?'Plan neu erstellen':'Plan erstellen')+'</button>'
     +(p.Plan?'<div style="margin-top:12px">'+renderPlanHtml(p.Plan)+'</div>':'')
     +'</div>'
     +'<div style="'+card+'"><h3 style="'+h2+'">⏱️ Zeitbudget pro Training</h3>'
     +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
     +'<label style="font-size:14px">Winter (Min) <input id="zWinter" type="number" value="'+(p.Zeit_Winter_Min??120)+'" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:8px;margin-left:6px"></label>'
     +'<label style="font-size:14px">Sommer (Min) <input id="zSommer" type="number" value="'+(p.Zeit_Sommer_Min??90)+'" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:8px;margin-left:6px"></label>'
-    +'<button onclick="saveTrainZeit()" style="padding:8px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Speichern</button></div>'
+    +'<button onclick="saveTrainZeit()" style="padding:8px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:14px">Speichern</button></div>'
     +'<div id="trainMsg" style="font-size:13px;color:#16a34a;margin-top:6px"></div></div>'
     +'<div style="'+card+'"><h3 style="'+h2+'">😊 Tagesform heute</h3><div style="display:flex;gap:8px">'+tfHtml+'</div>'
     +'<div id="tfMsg" style="font-size:12px;color:#16a34a;margin-top:6px"></div></div>';
@@ -2662,7 +2662,7 @@ async function openTrainLog(d, target){
      +'<div style="flex:1;min-width:140px"><div style="font-size:11px;color:var(--muted)">Übung</div><input id="tlUeb" list="tlDL" placeholder="Übung suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px"></div>'
      +'<div><div style="font-size:11px;color:var(--muted)">Wdh</div><input id="tlWdh" type="number" inputmode="numeric" style="width:70px;padding:8px;border:1px solid var(--line);border-radius:8px"></div>'
      +'<div><div style="font-size:11px;color:var(--muted)">Gewicht (kg)</div><input id="tlKg" type="number" step="0.5" inputmode="decimal" style="width:90px;padding:8px;border:1px solid var(--line);border-radius:8px"></div>'
-     +'<button onclick="addTrainSatz()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">+ Satz</button></div>'
+     +'<button onclick="addTrainSatz()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:14px">+ Satz</button></div>'
    +'<div id="tlList"></div>'
    +'<div style="margin-top:16px;padding-top:12px;border-top:1px solid #eef2f5"><button onclick="openTimer()" style="padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:14px">⏱️ Intervall-Taktgeber</button></div>';
   if(!target){ document.getElementById("overlay").classList.add("open"); document.getElementById("panel").scrollTop=0; }
@@ -2741,7 +2741,7 @@ function openTimer(){
    +'<label style="font-size:13px">Runden<br><input id="tmRounds" type="number" value="'+_timer.rounds+'" style="width:80px;padding:7px;border:1px solid var(--line);border-radius:8px"></label></div>'
    +'<div id="tmDisplay" style="text-align:center;font-size:48px;font-weight:800;color:#16a34a;margin:10px 0">Bereit</div>'
    +'<div id="tmPhase" style="text-align:center;color:var(--muted);margin-bottom:12px"></div>'
-   +'<div style="display:flex;gap:8px;justify-content:center"><button onclick="startTimer()" style="padding:11px 20px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Start</button><button onclick="stopTimer()" style="padding:11px 20px;border:0;border-radius:10px;background:#eef2f5;color:var(--ink);font-size:15px;cursor:pointer">Stop</button></div>';
+   +'<div style="display:flex;gap:8px;justify-content:center"><button onclick="startTimer()" style="padding:11px 20px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-size:15px;cursor:pointer">Start</button><button onclick="stopTimer()" style="padding:11px 20px;border:0;border-radius:10px;background:#eef2f5;color:var(--ink);font-size:15px;cursor:pointer">Stop</button></div>';
   document.getElementById("overlay").classList.add("open");
 }
 function _beep(freq){ try{ const ac=new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(),g=ac.createGain(); o.connect(g); g.connect(ac.destination); o.frequency.value=freq||880; o.start(); g.gain.setValueAtTime(0.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.25); o.stop(ac.currentTime+0.26);}catch(e){} }
@@ -2807,7 +2807,7 @@ async function openPlanGen(){
    +'<label style="font-size:13px">Wiederholungen<br><input id="pgWdh" value="10" style="width:100px;padding:8px;border:1px solid var(--line);border-radius:8px"></label>'
    +'</div>'
    +'<label style="font-size:13px;display:block;margin-bottom:12px"><input type="checkbox" id="pgMine" checked> nur mit meinen Geräten</label>'
-   +'<button onclick="genPlan()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Plan erstellen</button>'
+   +'<button onclick="genPlan()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:14px">Plan erstellen</button>'
    +'<div id="pgResult" style="margin-top:14px"></div>';
   document.getElementById("overlay").classList.add("open"); panel.scrollTop=0;
 }
@@ -2845,7 +2845,7 @@ function renderPlanHtml(pl){
 }
 function renderPlanPreview(pl){
   document.getElementById("pgResult").innerHTML='<div style="font-size:13px;color:var(--muted);margin:4px 0 8px">'+esc(pl.ziel)+' · '+esc(planTageTxt(pl))+' · '+esc(pl.schema)+'</div>'+renderPlanHtml(pl)
-   +'<div style="display:flex;gap:8px;margin-top:6px"><button onclick="savePlan()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:14px">Plan speichern</button><button onclick="genPlan()" style="padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;font-size:14px">Neu würfeln</button></div>';
+   +'<div style="display:flex;gap:8px;margin-top:6px"><button onclick="savePlan()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:14px">Plan speichern</button><button onclick="genPlan()" style="padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;font-size:14px">Neu würfeln</button></div>';
 }
 async function savePlan(){
   if(!_genPlan) return;
@@ -3313,7 +3313,7 @@ async function openRezeptForm(editId){
     <label style="font-size:13px;font-weight:600">Foto (optional)</label>
     <input type="file" id="rzfBild" accept="image/*" style="display:block;margin:4px 0 12px;font-size:13px">
     <div style="display:flex;gap:10px;align-items:center">
-      <button onclick="saveRezept()" style="padding:10px 18px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-weight:600">Speichern</button>
+      <button onclick="saveRezept()" style="padding:10px 18px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-weight:600">Speichern</button>
       <button onclick="closeP()" style="padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Abbrechen</button>
       <span id="rzfMsg" style="font-size:13px"></span>
     </div>
@@ -3405,7 +3405,7 @@ function rezeptDetail(r){
       <span style="font-weight:600;color:#b45309">★ Dein Rezept · ${r.sichtbarkeit==="oeffentlich"?"öffentlich":"privat"}</span>
       ${r.sichtbarkeit==="oeffentlich"
         ? `<button onclick="publishRezept('${r.id}',false)" style="padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Auf privat setzen</button>`
-        : `<button onclick="publishRezept('${r.id}',true)" style="padding:7px 12px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer">Veröffentlichen</button>`}
+        : `<button onclick="publishRezept('${r.id}',true)" style="padding:7px 12px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer">Veröffentlichen</button>`}
       <button onclick="editRezept('${r.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer">✏️ Bearbeiten</button>
       <button onclick="deleteRezept('${r.id}')" style="padding:7px 12px;border:1px solid #f3c4c4;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;margin-left:auto">Löschen</button>
     </div>` : '';
@@ -3417,7 +3417,7 @@ function rezeptDetail(r){
     if(!r.is_own) modParts.push(`<button onclick="editRezept('${r.id}')" style="padding:6px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px">✏️ Bearbeiten</button>`);
     modParts.push(`<span style="font-size:12.5px;color:var(--muted)">${r.gemeldet||0} Meldung(en)</span>`);
     modParts.push(r.gesperrt
-      ? `<button onclick="sperreRezept('${r.id}',false)" style="padding:6px 11px;border:0;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-size:12.5px">Entsperren</button>`
+      ? `<button onclick="sperreRezept('${r.id}',false)" style="padding:6px 11px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:12.5px">Entsperren</button>`
       : `<button onclick="sperreRezept('${r.id}',true)" style="padding:6px 11px;border:1px solid #f3c4c4;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:12.5px">Sperren</button>`);
   }
   const modBar = modParts.length ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0">${r.gesperrt?`<span style="font-size:12.5px;color:#dc2626;font-weight:600">⛔ gesperrt</span>`:''}${modParts.join("")}</div>` : '';
