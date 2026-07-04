@@ -643,10 +643,20 @@ function mountTierOvChip(){
   document.body.appendChild(c);
 }
 async function refreshMyFeatures(){ try{ const {data}=await client.rpc("cb_my_features"); MY_FEATURES=new Set((data||[]).map(x=>x.feature_key)); }catch(e){ MY_FEATURES=null; } }
-function premiumInfo(){ alert("Premium-Freischaltung kommt bald. Solange schaltet der Betreiber Premium manuell frei."); }
+async function premiumInfo(){
+  if(!ME){ openLogin(); return; }
+  try{
+    const {data,error}=await client.functions.invoke('stripe-checkout',{});
+    if(error||!data||!data.url) throw new Error((data&&data.error)||'no url');
+    window.location.href=data.url;
+  }catch(e){
+    alert("Premium wird gerade eingerichtet – bitte in Kürze erneut versuchen.");
+  }
+}
+(function(){ try{ const p=new URLSearchParams(location.search); if(p.get('checkout')==='success'){ history.replaceState(null,'',location.pathname); setTimeout(function(){ alert('Willkommen bei Premium! Deine 7 Tage gratis starten jetzt. 🌱'); },400); } }catch(_){} })();
 function gateHtml(){
   if(!ME) return '<div class="gatebox"><h3>Anmeldung nötig</h3><p>Melde dich an oder <b>registriere dich kostenlos</b>, um diese Funktion zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden / Registrieren</button></div>';
-  return '<div class="gatebox"><h3>Premium-Funktion</h3><p>Diese Funktion ist in deiner Stufe nicht enthalten. Schalte <b>Premium</b> frei, um sie zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="premiumInfo()">Premium freischalten</button></div>';
+  return '<div class="gatebox"><h3>Premium-Funktion</h3><p>Diese Funktion ist in deiner Stufe nicht enthalten. Schalte <b>Premium</b> frei, um sie zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="premiumInfo()">Premium – 7 Tage gratis</button></div>';
 }
 function openLogin(){ document.getElementById("loginOverlay").classList.add("open"); const e=document.getElementById("loginEmail"); if(e) setTimeout(()=>e.focus(),60); }
 function closeLogin(){ document.getElementById("loginOverlay").classList.remove("open"); }
@@ -1063,7 +1073,7 @@ function detail(d){
     <div style="margin-top:12px;background:var(--greenlt);border:1px solid var(--green);border-radius:12px;padding:14px;text-align:center">
       <div style="font-weight:700;margin-bottom:4px">🔒 Volle Aufschlüsselung und bessere Alternativen</div>
       <div style="font-size:13px;color:var(--greendk);margin-bottom:10px">Die vier Säulen im Detail, Zutaten-Bewertung und Alternativen.${ME?"":" Registrier dich – 7 Tage gratis."}</div>
-      <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:10px 18px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-weight:600;cursor:pointer">${ME?'Premium freischalten':'Registrieren – 7 Tage gratis'}</button>
+      <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:10px 18px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-weight:600;cursor:pointer">${ME?'Premium – 7 Tage gratis':'Registrieren – 7 Tage gratis'}</button>
     </div>
   `;
   const panel=document.getElementById("panel");
@@ -3570,7 +3580,7 @@ function rezeptDetail(r){
     : `<div class="gatebox" style="max-width:none;margin:12px 0;padding:14px;text-align:left;box-shadow:none">
         <div style="font-weight:600;margin-bottom:4px">🔒 Rezept anpassen (Premium)</div>
         <p style="margin:.2em 0 .8em">Mengen/Personen ändern, ans eigene <b>Ziel-kcal</b> anpassen und <b>Trainingstag</b>-Mengen – mit Premium.</p>
-        <button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="${ME?'premiumInfo()':'openLogin()'}">${ME?'Premium freischalten':'Anmelden / Registrieren'}</button>
+        <button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="${ME?'premiumInfo()':'openLogin()'}">${ME?'Premium – 7 Tage gratis':'Anmelden / Registrieren'}</button>
       </div>`;
   const panel=document.getElementById("panel");
   panel.innerHTML=`<button class="close" onclick="closeP()">Schließen ✕</button>
