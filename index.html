@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>CleanBase – Echte Qualität, Transparenz & smarte Ernährung</title>
+<title>Root Index – Echte Qualität, Transparenz & smarte Ernährung</title>
 <meta name="theme-color" content="#2e7d46" />
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" type="image/png" href="icon-192.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<meta name="apple-mobile-web-app-title" content="CleanBase" />
+<meta name="apple-mobile-web-app-title" content="Root Index" />
 <style>
   :root{
     --bg:#0f1418; --card:#1b2229; --ink:#e8edf1; --muted:#93a1ac; --line:#2d3842;
@@ -158,20 +159,12 @@
 </head>
 <body>
 <div class="hero"><div class="wrap">
-  <div class="brand">
-    <img id="brandLogo" src="logo.png" alt="VERIDIA" style="height:96px;width:auto;max-width:90%;background:var(--card);border-radius:16px;padding:8px 16px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none"
-         onload="this.style.display='';var f=document.getElementById('brandFallback');if(f)f.style.display='none';" onerror="this.remove()">
-    <span id="brandFallback" style="display:inline-flex;align-items:center;gap:.4em">
-      <svg class="leaf" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z" fill="#a7e3bb"/>
-        <path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z" stroke="#ffffff" stroke-width="1.4"/>
-        <path d="M9 15c2.5-3 5-5 8-6" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/>
-      </svg>
-      <h1>CleanBase</h1>
-    </span>
+  <div class="brand" style="display:flex;align-items:center;justify-content:center;gap:.5em">
+    <img src="logo-mark.png" alt="Root Index Logo" style="height:76px;width:auto" onerror="this.style.display='none'">
+    <h1>Root Index</h1>
   </div>
   <p class="tag">Echte Qualität, Transparenz & smarte Ernährung.</p>
-  <p class="sub">Unabhängige, wissenschaftsbasierte Bewertung – der Clean Score (0–100).</p>
+  <p class="sub">Unabhängige, wissenschaftsbasierte Bewertung – der Root Index (0–100).</p>
   <div class="authbar" id="authBar">
     <button class="authbtn" id="loginBtn" onclick="openLogin()">Anmelden</button>
   </div>
@@ -497,8 +490,8 @@
       <div id="stufenMatrix"></div>
     </div>
   </div>
-  <div class="footer" style="display:none">Daten <b>live</b> aus CleanBase · read-only · MVP-Vorschau<br>
-    <span style="font-size:11.5px">CleanBase hilft dir, bessere Entscheidungen zu treffen – schnell, einfach und vertrauenswürdig.</span>
+  <div class="footer" style="display:none">Daten <b>live</b> aus Root Index · read-only · MVP-Vorschau<br>
+    <span style="font-size:11.5px">Root Index hilft dir, bessere Entscheidungen zu treffen – schnell, einfach und vertrauenswürdig.</span>
   </div>
 </div>
 
@@ -936,7 +929,7 @@ async function prodToEinkauf(id){
 }
 function altBanner(d){
   const a=betterAlt(d); if(!a) return "";
-  return `<div onclick="event.stopPropagation();detailById('${a.id}')" style="margin-top:6px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:8px;padding:5px 8px;font-size:11.5px;color:#1e3a8a;cursor:pointer">↑ Bessere Alternative: <b>${esc(a.name)}</b> · Score ${a.clean_score} ›</div>`;
+  return `<div onclick="event.stopPropagation();detailById('${a.id}')" style="margin-top:6px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:8px;padding:5px 8px;font-size:11.5px;color:#1e3a8a;cursor:pointer">↑ Bessere Alternative: <b>${esc(a.name)}</b> · Index ${a.clean_score} ›</div>`;
 }
 function _norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,""); }
 function _lev(a,b){ const m=a.length,n=b.length; if(!m)return n; if(!n)return m; let prev=Array.from({length:n+1},(_,j)=>j),cur=new Array(n+1);
@@ -1000,7 +993,7 @@ function detail(d){
     let rings=""; const sw=7;
     items.forEach((it,i)=>{ const r=52-i*11; const C=2*Math.PI*r; const off=(C*(1-it.pct)).toFixed(1); rings+='<circle cx="65" cy="65" r="'+r+'" fill="none" stroke="var(--line)" stroke-width="'+sw+'"/><circle cx="65" cy="65" r="'+r+'" fill="none" stroke="'+it.col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off+'" transform="rotate(-90 65 65)"/>'; });
     const legend=items.map(it=>'<div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:10px;height:10px;border-radius:2px;background:'+it.col+';flex:0 0 auto"></span><span style="color:var(--muted);flex:1;min-width:0">'+esc(it.short)+'</span><b>'+Math.round(it.pct*100)+'%</b><span style="color:var(--muted);font-size:11px">'+String(Math.round(it.v*10)/10).replace(".",",")+"/"+it.max+'</span></div>').join("");
-    return '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:6px 0"><svg viewBox="0 0 130 130" width="130" height="130" style="flex:0 0 auto" role="img" aria-label="Score-Aufschlüsselung"><title>Clean Score Aufschlüsselung</title>'+rings+'</svg><div style="flex:1;min-width:150px;display:flex;flex-direction:column;gap:7px">'+legend+'</div></div>';
+    return '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:6px 0"><svg viewBox="0 0 130 130" width="130" height="130" style="flex:0 0 auto" role="img" aria-label="Index-Aufschlüsselung"><title>Root Index Aufschlüsselung</title>'+rings+'</svg><div style="flex:1;min-width:150px;display:flex;flex-direction:column;gap:7px">'+legend+'</div></div>';
   };
   const rows = mkRings(SCORE_TEIL);
   const zlist = Array.isArray(d.zutaten) ? d.zutaten : [];
@@ -1030,7 +1023,7 @@ function detail(d){
   const _sd = hasFeat('score_detail');
   const zInfoHtml = (()=>{const infos=zlist.map(z=>({z,t:zInfoClean(z.name,z.info)})).filter(o=>o.t);return infos.length?`<div style="margin-top:8px">${infos.map(o=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:var(--bg);border:1px solid var(--line);border-radius:9px"><b>${esc(o.z.name)}</b>${(String(o.z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(o.t)}</div>`).join("")}</div>`:"";})();
   const premiumBlock = `
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Clean Score</div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Root Index</div>
     ${sonderHint}
     ${rows}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Zutaten</div>
@@ -1062,10 +1055,10 @@ function detail(d){
     <div class="scorebar">
       ${donut(d.clean_score, col, 96)}
       <div><div style="font-size:19px;font-weight:800;color:${col}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div>
-      <div class="formula">${(d.kategorie||"").toLowerCase()==="supplement"?"Clean Score = Inhaltsstoffe (Nährwert entfällt bei Supplements)":"Clean Score = Inhaltsstoffe (60) + Nährwert (40)"}</div></div>
+      <div class="formula">${(d.kategorie||"").toLowerCase()==="supplement"?"Root Index = Inhaltsstoffe (Nährwert entfällt bei Supplements)":"Root Index = Inhaltsstoffe (60) + Nährwert (40)"}</div></div>
     </div>
     ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
-    ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Score kann sich ändern.</div>`:""}
+    ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:""}
     ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
     ${_sd ? premiumBlock : lockedBlock}
   `;
@@ -1259,7 +1252,7 @@ function makroDonut(sum, prof){
     +'<svg class="mkSvg" viewBox="0 0 140 140" width="150" height="150">'
       +'<g fill="none" stroke-width="13" stroke-linecap="round">'+tracks+fills+'</g>'
       +'<text x="70" y="66" text-anchor="middle" font-size="20" font-weight="800" fill="#16a34a">'+score+'</text>'
-      +'<text x="70" y="80" text-anchor="middle" font-size="9" fill="#64748b">Ø Score</text>'
+      +'<text x="70" y="80" text-anchor="middle" font-size="9" fill="#64748b">Ø Index</text>'
     +'</svg></div>';
 }
 async function renderStart(){
@@ -1270,14 +1263,14 @@ async function renderStart(){
   if(!ME){
     body.innerHTML='<div style="max-width:600px;margin:0 auto">'
       +'<div style="'+card+';text-align:center;padding:24px 18px"><div class="ripplebox"><span class="ring"></span><span class="ring"></span><span class="ring"></span><span class="drop"></span></div>'
-      +'<h2 style="margin:.25em 0 .15em">Willkommen bei CleanBase</h2>'
-      +'<p style="color:var(--muted);font-size:14.5px;line-height:1.5;margin:.2em 0 1em">Transparente, wissenschaftsbasierte Bewertung von Lebensmitteln (Clean Score 0–100) – plus Ernährungs- &amp; Trainingstagebuch.</p>'
+      +'<h2 style="margin:.25em 0 .15em">Willkommen bei Root Index</h2>'
+      +'<p style="color:var(--muted);font-size:14.5px;line-height:1.5;margin:.2em 0 1em">Transparente, wissenschaftsbasierte Bewertung von Lebensmitteln (Root Index 0–100) – plus Ernährungs- &amp; Trainingstagebuch.</p>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
       +'<button onclick="openLogin()" style="padding:12px 18px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:15px;cursor:pointer">Anmelden / Registrieren</button>'
       +'<button onclick="navTo(\'produkte\')" style="padding:12px 18px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:15px;cursor:pointer">Produkte ansehen</button></div></div>'
       +startRezSucheHtml()+topProdukteHtml()
       +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
-      +startFeature('🔍','Clean Score','0–100, erklärt')+startFeature('📒','Tagebuch','Makros &amp; Ziele')
+      +startFeature('🔍','Root Index','0–100, erklärt')+startFeature('📒','Tagebuch','Makros &amp; Ziele')
       +startFeature('🏋️','Training','Plan &amp; Fortschritt')+startFeature('🥗','Rezepte','bewertet &amp; skalierbar')
       +'</div></div>';
     return;
@@ -1321,7 +1314,7 @@ function closeMehr(){ const s=document.getElementById('mehrSheet'); if(s) s.clas
 function buildMehr(){
   const items=[['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
   let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
-  html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert CleanBase</button>';
+  html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert Root Index</button>';
   html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
             : '<button onclick="closeMehr();openLogin()">🔑 Anmelden</button>';
   if(ME&&ME.is_admin) html+='<button onclick="closeMehr();location.hash=\'#admin\';location.reload()" style="color:var(--muted)">🛠️ Admin-Bereich</button>';
@@ -1335,11 +1328,11 @@ function wikiOpen(){
   const H=(t)=>`<div style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#16a34a;font-weight:700;margin:18px 0 6px">${t}</div>`;
   const box=(inner)=>`<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13.5px;line-height:1.55;color:var(--ink)">${inner}</div>`;
   ov.innerHTML=`<div style="display:flex;flex-direction:column;width:100%;max-width:640px;height:100%;background:var(--card)">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto"><b style="font-size:17px">📖 So funktioniert CleanBase</b><button onclick="document.getElementById('wikiOv').remove()" style="border:0;background:#eef3ef;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px">Schließen ✕</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto"><b style="font-size:17px">📖 So funktioniert Root Index</b><button onclick="document.getElementById('wikiOv').remove()" style="border:0;background:#eef3ef;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px">Schließen ✕</button></div>
     <div style="flex:1;overflow:auto;padding:12px 16px 28px">
-      <p style="font-size:13.5px;color:var(--muted);line-height:1.5">Transparent, wissenschaftsbasiert, nachvollziehbar. Hier steht, wie der <b>Clean Score</b> und der <b>Kalorienrechner</b> rechnen – inklusive der Sonderfälle.</p>
+      <p style="font-size:13.5px;color:var(--muted);line-height:1.5">Transparent, wissenschaftsbasiert, nachvollziehbar. Hier steht, wie der <b>Root Index</b> und der <b>Kalorienrechner</b> rechnen – inklusive der Sonderfälle.</p>
 
-      ${H("Clean Score (0–100)")}
+      ${H("Root Index (0–100)")}
       ${box(`Setzt sich aus vier Teilen zusammen:<br>
         • <b>Zutatenqualität</b> (max 30) – Ø der Bewertungen aller Zutaten, nach Gewicht.<br>
         • <b>Zusatzstoffe</b> (max 15) – keine = beste Wertung; künstliche Süßstoffe/Zusätze mindern.<br>
@@ -1888,7 +1881,7 @@ function renderZiel(s,ben){
       + tbMacroCol('Protein', s&&s.protein, eiwZ, '#3b82f6')
       + tbMacroCol('Fett', s&&s.fett, fettZ, '#eab308')
     + '</div>'
-    + `<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein = Mindestziel · Fett/KH/kcal = Obergrenze${(s&&s.score_schnitt!=null)?(' · Ø Clean Score '+s.score_schnitt):''}</div>`;
+    + `<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein = Mindestziel · Fett/KH/kcal = Obergrenze${(s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):''}</div>`;
 }
 async function setZiel(){
   const kcal=parseFloat(document.getElementById("zKcal").value)||null, eiw=parseFloat(document.getElementById("zEiw").value)||null,
@@ -1908,7 +1901,7 @@ function mealShares(goal, snackActive){
   if(!snackActive){ const d=1-s["Snack"]; if(d>0){ s["Frühstück"]/=d; s["Mittag"]/=d; s["Abendessen"]/=d; } s["Snack"]=0; }
   return s;
 }
-function scoreChip(s){ if(s==null) return ""; const b=scoreBew(s); return `<span style="font-size:12px;font-weight:700;color:#fff;background:${farbe(b)};border-radius:8px;padding:2px 8px">Score ${s}</span>`; }
+function scoreChip(s){ if(s==null) return ""; const b=scoreBew(s); return `<span style="font-size:12px;font-weight:700;color:#fff;background:${farbe(b)};border-radius:8px;padding:2px 8px">Index ${s}</span>`; }
 function mengeLabel(r){
   const g=num(r.Menge_g), sg=stkOf(r.Produkt_ID);
   if(sg&&g!=null){ return Math.round(g/sg)+" Stück ("+Math.round(g)+" g)"; }
@@ -1957,7 +1950,7 @@ function renderTbListe(items, goal){
     html+=`</div>`;
   });
   const dayScore = dSG>0?Math.round(dSW/dSG):null;
-  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--greendk);color:#fff;border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:rgba(255,255,255,.18);border-radius:8px;padding:2px 9px;font-size:13px">Score ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--greendk);color:#fff;border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:rgba(255,255,255,.18);border-radius:8px;padding:2px 9px;font-size:13px">Index ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
   el.innerHTML=html;
 }
 /* ---- Lifesum-Style: Top-Suche + Add-Popup ---- */
@@ -2303,7 +2296,7 @@ async function loadFreigabe(){
   if(!ent||!ent.length){ el.innerHTML='<div style="color:var(--muted)">Keine offenen Entwürfe.</div>'; }
   else { el.innerHTML=ent.map(p=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <div><b>${esc(p.name||"?")}</b> <span style="color:var(--muted)">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:var(--muted)">${p.id} · ${esc(p.kategorie||"")} · Score ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div><a href="https://www.google.com/search?q=${encodeURIComponent((p.name||"")+" "+(p.marke||"")+" Zutaten Nährwerte")}" target="_blank" rel="noopener" style="font-size:12px;color:#0ea5e9">🔎 Herstellerseite suchen ↗</a></div>
+        <div><b>${esc(p.name||"?")}</b> <span style="color:var(--muted)">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:var(--muted)">${p.id} · ${esc(p.kategorie||"")} · Index ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div><a href="https://www.google.com/search?q=${encodeURIComponent((p.name||"")+" "+(p.marke||"")+" Zutaten Nährwerte")}" target="_blank" rel="noopener" style="font-size:12px;color:#0ea5e9">🔎 Herstellerseite suchen ↗</a></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="file" accept="image/*" multiple style="display:none" id="fgFoto_${p.id}" onchange="fgFotoPick(this,'${p.id}')" />
           <button onclick="fgShotCam('${p.id}')" title="Etikett mit Kamera aufnehmen" style="padding:8px 11px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:13px">📷 Kamera</button>
@@ -3144,7 +3137,7 @@ function tbScan(){ _startScan("tbReader", async (code)=>{
     if(data&&data.id){ document.getElementById("tbProd").value=prodLabel(data); tbPrefillMenge(); tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; }
     else {
       try{ const {data:q}=await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
-        tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. CleanBase ergänzt es und schaltet es nach Prüfung frei.<br><span style='font-size:12px;color:var(--muted)'>"+(q||"")+"</span>"; }
+        tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. Root Index ergänzt es und schaltet es nach Prüfung frei.<br><span style='font-size:12px;color:var(--muted)'>"+(q||"")+"</span>"; }
       catch(e){ tbm.style.color="#b45309"; tbm.textContent="Barcode "+code+" nicht im Katalog ("+e.message+")."; }
     }
   }catch(e){ tbm.style.color="#dc2626"; tbm.textContent="Fehler: "+e.message; }
@@ -3155,7 +3148,7 @@ function quelleChip(r){
     return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fff7e6;color:#b45309">★ Mein Rezept · ${pub?"öffentlich":"privat"}</span>`;
   }
   if((r.quelle||"")==="CleanBase")
-    return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--greenlt);color:var(--greendk)">✓ CleanBase</span>`;
+    return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--greenlt);color:var(--greendk)">✓ Root Index</span>`;
   return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#eef2f6;color:#475569">${esc(r.quelle||"Community")}</span>`;
 }
 function mealChips(m){
@@ -3199,7 +3192,7 @@ function renderRezeptList(){
   });
 }
 const RZ_UNITS=[["g",1],["ml",1],["Stück",null],["EL",15],["TL",5],["Prise",0.5]];
-/* Menge+Einheit -> Gramm (für Nährwerte/Score). Stück = Portionsgewicht des verknüpften Produkts. */
+/* Menge+Einheit -> Gramm (für Nährwerte/Index). Stück = Portionsgewicht des verknüpften Produkts. */
 function rzToGrams(amount, unit, pid){
   if(!(amount>0)) return null;
   const u=RZ_UNITS.find(x=>x[0]===unit);
@@ -3236,8 +3229,8 @@ function linkZutat(input){
   const v=(nameEl.value||"").trim().toLowerCase();
   const p=(ALL||[]).find(x=> prodLabel(x).toLowerCase()===v || (x.name||"").toLowerCase()===v);
   if(p){ pidEl.value=p.id; lk.style.color="#16a34a";
-    lk.textContent=`✓ verknüpft · ${p.m_kcal??"–"} kcal/100 g · Clean Score ${p.clean_score??"–"}`; }
-  else { pidEl.value=""; lk.style.color="#9aa7a0"; lk.textContent=v?"freie Zutat (keine Nährwerte/Score)":""; }
+    lk.textContent=`✓ verknüpft · ${p.m_kcal??"–"} kcal/100 g · Root Index ${p.clean_score??"–"}`; }
+  else { pidEl.value=""; lk.style.color="#9aa7a0"; lk.textContent=v?"freie Zutat (keine Nährwerte/Index)":""; }
 }
 function addZutatRow(){ const z=document.getElementById("rzfZutaten"); z.insertAdjacentHTML("beforeend", zutatRowHtml()); }
 function calcMakros(){
@@ -3308,7 +3301,7 @@ async function openRezeptForm(editId){
       <label style="flex:1;min-width:80px;font-size:12px">Fett g<input id="rzfF" type="number" min="0" step="0.1" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
     </div>
     <div style="font-size:13px;font-weight:600;margin-bottom:2px">Zutaten</div>
-    <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">Tipp: Zutat aus dem Katalog wählen → Nährwerte &amp; Clean Score werden automatisch übernommen.</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">Tipp: Zutat aus dem Katalog wählen → Nährwerte &amp; Root Index werden automatisch übernommen.</div>
     <div id="rzfZutaten">${zutatRowHtml()}${zutatRowHtml()}</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
       <button type="button" onclick="addZutatRow()" style="padding:7px 12px;border:1px dashed #9ca3af;border-radius:8px;background:var(--card);cursor:pointer;font-size:13px">+ Zutat</button>
@@ -3464,12 +3457,12 @@ function rezeptDetail(r){
       <div class="bigbadge" style="background:var(--green2)"><span class="num" id="rzKcalBadge">${r.kcal??"–"}</span><span style="font-size:10px">kcal</span></div>
       <div style="font-size:13.5px;line-height:1.6" id="rzMakros"></div>
     </div>
-    ${rsc!=null?`<div style="font-size:12.5px;margin:-4px 0 2px">Rezept-Score <b style="color:${farbe(rbew)}">${rsc} · ${rbew}</b> <span style="color:#9aa7a0">(Ø der Zutaten-Scores, nach Gewicht)</span></div>`:''}
+    ${rsc!=null?`<div style="font-size:12.5px;margin:-4px 0 2px">Rezept-Index <b style="color:${farbe(rbew)}">${rsc} · ${rbew}</b> <span style="color:#9aa7a0">(Ø der Zutaten-Indizes, nach Gewicht)</span></div>`:''}
     ${ownerBar}
     ${modBar}
     ${controls}
     ${tbBox}
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="color:var(--muted);text-transform:none;letter-spacing:0">(Zahl = Clean Score)</span></div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="color:var(--muted);text-transform:none;letter-spacing:0">(Zahl = Root Index)</span></div>
     <div id="rzZutaten"></div>
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 4px">Zubereitung</div>
     ${steps}`;
