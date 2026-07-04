@@ -705,10 +705,7 @@ function updateAuthUI(){
   const bar=document.getElementById("authBar");
   if(bar){
     if(ME){
-      bar.innerHTML='<span style="opacity:.96">'+esc(ME.name||"Angemeldet")+'</span>'
-        +(ME.is_admin?' <span class="premchip" style="background:#1f5e34;color:#fff">Admin</span>':'')
-        +(ME.is_premium?' <span class="premchip">Premium</span>':'')
-        +' <button class="authbtn" onclick="doLogout()">Logout</button>';
+      bar.innerHTML='<span style="opacity:.92;font-weight:500">'+esc(ME.name||"")+'</span>';
     } else {
       bar.innerHTML='<button class="authbtn" id="loginBtn" onclick="openLogin()">Anmelden</button>';
     }
