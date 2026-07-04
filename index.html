@@ -923,6 +923,22 @@ function betterAlt(d){
   return best;
 }
 function detailById(id){ const p=(ALL||[]).find(x=>x.id===id); if(p) detail(p); }
+/* Einheitliche Produkt-Referenz-Karte (Bundle, „bessere Alternative", Hinweise) – klickbar -> Produktansicht. */
+function prodRef(id, opts){
+  opts=opts||{};
+  const f=(ALL||[]).find(x=>x.id===id);
+  const name=f?f.name:(opts.name||id), marke=f?(f.marke||''):(opts.marke||'');
+  const bild=(typeof BILD!=='undefined'&&BILD&&BILD[id])?BILD[id]:'';
+  const thumb=bild?'<img src="'+esc(bild)+'" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:#fff;border:1px solid var(--line)">'
+    :'<div style="width:40px;height:40px;border-radius:8px;flex:0 0 auto;background:var(--greenlt);display:flex;align-items:center;justify-content:center;font-size:18px">🌿</div>';
+  const sc=(f&&f.clean_score!=null)?'<span style="font-size:12px;font-weight:800;color:#fff;background:'+farbe(scoreBew(f.clean_score))+';border-radius:999px;padding:3px 9px;flex:0 0 auto">'+f.clean_score+'</span>':'';
+  const sub=(opts.label?'<span style="color:var(--green);font-weight:700">'+esc(opts.label)+'</span>'+(marke?' · ':''):'')+(marke?esc(marke):'')+(opts.note?' · '+esc(opts.note):'');
+  return '<div onclick="event.stopPropagation();detailById(\''+id+'\')" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:6px;cursor:pointer;background:var(--card)">'
+    +thumb
+    +'<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(name)+'</div>'
+    +(sub?'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+sub+'</div>':'')+'</div>'
+    +sc+'<span style="color:var(--muted);flex:0 0 auto">›</span></div>';
+}
 async function adminDeleteProdukt(id,name){
   if(!confirm('Produkt '+name+' ausblenden (aus dem Katalog entfernen)?')) return;
   const {error}=await client.rpc("cb_produkt_loeschen",{p_id:id});
@@ -938,7 +954,7 @@ async function prodToEinkauf(id){
 }
 function altBanner(d){
   const a=betterAlt(d); if(!a) return "";
-  return `<div onclick="event.stopPropagation();detailById('${a.id}')" style="margin-top:6px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:8px;padding:5px 8px;font-size:11.5px;color:#1e3a8a;cursor:pointer">↑ Bessere Alternative: <b>${esc(a.name)}</b> · Index ${a.clean_score} ›</div>`;
+  return prodRef(a.id, { label:'Bessere Alternative', name:a.name, marke:a.marke });
 }
 function _norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,""); }
 function _lev(a,b){ const m=a.length,n=b.length; if(!m)return n; if(!n)return m; let prev=Array.from({length:n+1},(_,j)=>j),cur=new Array(n+1);
@@ -2432,7 +2448,7 @@ function renderBundles(){
     +'<span style="display:flex;gap:6px"><button onclick="bundleEdit(\''+b.bundle_id+'\')" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Bearbeiten</button>'
     +'<button onclick="bundleDel(\''+b.bundle_id+'\',\''+esc(b.name).replace(/\x27/g,"")+'\')" style="padding:5px 9px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:12px">Löschen</button></span></div>'
     +(b.ziel?'<div style="font-size:11px;color:var(--muted)">Ziel: '+esc(b.ziel)+'</div>':'')
-    +'<div style="margin-top:6px">'+((b.produkte||[]).length?(b.produkte||[]).map(p=>{var f=(ALL||[]).find(x=>x.id===p.produkt_id);var sc=(f&&f.clean_score!=null)?' <span style="font-size:11px;font-weight:700;color:'+farbe(scoreBew(f.clean_score))+'">Index '+f.clean_score+'</span>':'';return '<div onclick="detailById(\''+p.produkt_id+'\')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin-top:5px;cursor:pointer"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>'+esc(p.name||p.produkt_id)+'</b>'+(p.marke?' <span style="color:var(--muted);font-size:12px">· '+esc(p.marke)+'</span>':'')+'</span><span style="white-space:nowrap">'+sc+' ›</span></div>';}).join(""):'<i style="color:var(--muted)">keine Produkte</i>')+'</div></div>').join("")
+    +'<div style="margin-top:6px">'+((b.produkte||[]).length?(b.produkte||[]).map(p=>prodRef(p.produkt_id,{name:p.name,marke:p.marke})).join(""):'<i style="color:var(--muted)">keine Produkte</i>')+'</div></div>').join("")
     : '<span style="color:var(--muted)">Noch keine Bundles.</span>';
 }
 function bundleNeu(){ window._bundleEdit={id:'',name:'',ziel:'',produkte:[]}; bundleEditorRender(); }
