@@ -1181,39 +1181,49 @@ function pfTab(name){
 function startFeature(ic,t,sub){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px">'+ic+'</div><div style="font-weight:600;font-size:13.5px;margin-top:2px">'+t+'</div><div style="font-size:11.5px;color:var(--muted)">'+sub+'</div></div>'; }
 let BILD={};
 async function loadBilder(){ try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
-const ZYKLUS_BUNDLE=[
-  {id:'P928',grp:'kern',dose:'200–300 mg/Tag',url:'https://www.amazon.de/dp/B0FMS51PCG?tag=rootindex-21'},
-  {id:'P929',grp:'omega',dose:'~2000 mg/Tag',pick:'Fisch',url:'https://www.amazon.de/dp/B0BRSWXP6N?tag=rootindex-21'},
-  {id:'P930',grp:'omega',dose:'300 EPA / 200 DHA',pick:'vegan',url:'https://www.amazon.de/dp/B0FMS1Q53F?tag=rootindex-21'},
-  {id:'P931',grp:'opt',dose:'10 mg (5:1) / Tag',url:'https://www.amazon.de/dp/B07PZZ8J5T?tag=rootindex-21'},
-  {id:'P932',grp:'opt',dose:'100 mg/Tag',url:'https://www.amazon.de/dp/B01MTZBUQ2?tag=rootindex-21'}
+const BUNDLE_ASIN={P928:'B0FMS51PCG',P934:'B07NS14648',P929:'B0BRSWXP6N',P930:'B0FMS1Q53F',P931:'B07PZZ8J5T',P932:'B01MTZBUQ2'};
+const ZYKLUS_CATS=[
+  {t:'Magnesium', hint:'gegen Krämpfe & Stress', ids:['P928','P934']},
+  {t:'Omega-3', hint:'Entzündung – Fisch oder vegan', ids:['P930','P929','P933']},
+  {t:'Mönchspfeffer (Vitex)', hint:'nur bei PMS', ids:['P931']},
+  {t:'Vitamin B1', hint:'optional', ids:['P932']}
 ];
-function zyklusBundleHtml(){
-  let lastGrp='';
-  const lab=(t)=>'<div style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:12px 0 2px">'+t+'</div>';
-  const rows=ZYKLUS_BUNDLE.map(b=>{
-    const f=(ALL||[]).find(x=>x.id===b.id); if(!f) return '';
-    let label='';
-    if(b.grp!==lastGrp){ lastGrp=b.grp; label=lab(b.grp==='kern'?'Basis':b.grp==='omega'?'Omega-3 · nur EINE Variante wählen':'Optional · nur bei Bedarf'); }
-    const bild=(typeof BILD!=='undefined'&&BILD&&BILD[b.id])?BILD[b.id]:'';
-    const thumb=bild?'<img src="'+esc(bild)+'" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:#fff;border:1px solid var(--line)">':'<div style="width:42px;height:42px;border-radius:8px;flex:0 0 auto;background:var(--greenlt);display:flex;align-items:center;justify-content:center;font-size:19px">🌿</div>';
-    const sc=(f.clean_score!=null)?'<span style="font-size:12px;font-weight:800;color:#fff;background:'+farbe(scoreBew(f.clean_score))+';border-radius:999px;padding:3px 9px;flex:0 0 auto">'+f.clean_score+'</span>':'';
-    return label+'<div class="zbRow" style="display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:6px">'
-      +'<div onclick="detailById(\''+b.id+'\')" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer">'+thumb
-      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.name)+'</div>'
-      +'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.marke||'')+(b.pick?' · '+esc(b.pick):'')+'</div>'
-      +'<div style="font-size:11.5px;color:var(--green);font-weight:600">Dosis: '+esc(b.dose)+'</div></div>'+sc+'</div>'
-      +'<a href="'+esc(b.url)+'" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()" style="background:var(--green);color:#1D3C24;font-weight:700;border-radius:9px;padding:8px 11px;font-size:12.5px;text-decoration:none;white-space:nowrap;flex:0 0 auto">Hier kaufen ↗</a>'
-      +'<button onclick="this.closest(\'.zbRow\').remove()" title="Entfernen" aria-label="Entfernen" style="border:0;background:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;flex:0 0 auto;padding:2px 2px">✕</button>'
+function amzUrl(id){ return BUNDLE_ASIN[id]?('https://www.amazon.de/dp/'+BUNDLE_ASIN[id]+'?tag=rootindex-21'):''; }
+function bundleCard(p,winner){
+  const img=(typeof BILD!=='undefined'&&BILD&&BILD[p.id])?BILD[p.id]:'';
+  const url=amzUrl(p.id);
+  const dose=p.dosis_text?('<div style="font-size:11px;color:var(--green);font-weight:600;margin-top:2px;line-height:1.25">'+esc(p.dosis_text)+'</div>'):'';
+  return '<div class="zbCard" style="flex:1 1 calc(50% - 5px);min-width:0;max-width:calc(50% - 5px);border:1px solid '+(winner?'var(--green)':'var(--line)')+';border-radius:12px;padding:10px;background:var(--card);display:flex;flex-direction:column">'
+    +'<div onclick="detailById(\''+p.id+'\')" style="cursor:pointer">'
+    +'<div style="position:relative;width:100%;aspect-ratio:1;background:#f6f7f6;border-radius:10px;overflow:hidden;border:1px solid var(--line)">'
+    +(img?'<img src="'+esc(img)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="this.parentNode.innerHTML=\'&lt;div style=&quot;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px&quot;&gt;🌿&lt;/div&gt;\'" style="width:100%;height:100%;object-fit:contain">':'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px">🌿</div>')
+    +(winner?'<div style="position:absolute;top:7px;left:7px;background:var(--green);color:#1D3C24;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:999px">TOP</div>':'')
+    +(p.clean_score!=null?'<div style="position:absolute;bottom:6px;right:6px;background:var(--card);border-radius:50%;padding:2px;box-shadow:0 1px 5px rgba(0,0,0,.25)">'+donut(num(p.clean_score),farbe(p.bewertung),50)+'</div>':'')
+    +'</div>'
+    +'<div style="font-size:12.5px;font-weight:600;margin-top:7px;line-height:1.2">'+esc(p.name)+'</div>'
+    +'<div style="font-size:11px;color:var(--muted)">'+esc(p.marke||'')+'</div>'+dose
+    +'</div>'
+    +(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()" style="margin-top:8px;background:var(--green);color:#1D3C24;font-weight:700;border-radius:9px;padding:8px 0;font-size:12px;text-decoration:none;text-align:center;display:block">Hier kaufen ↗</a>':'')
     +'</div>';
+}
+function zyklusBundleHtml(){
+  const blocks=ZYKLUS_CATS.map(c=>{
+    let list=c.ids.map(id=>(ALL||[]).find(x=>x.id===id)).filter(Boolean);
+    if(!list.length) return '';
+    list.sort((a,b)=>num(b.clean_score)-num(a.clean_score));
+    list=list.slice(0,2);
+    const cards=list.map((p,i)=>bundleCard(p,list.length>1&&i===0)).join('');
+    return '<div class="zbCat" style="margin-top:13px">'
+      +'<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:4px"><span style="font-weight:700;font-size:13.5px">'+esc(c.t)+'</span><span style="font-size:11px;color:var(--muted)">'+esc(c.hint)+'</span></div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+cards+'</div></div>';
   }).join('');
-  if(!rows) return '';
+  if(!blocks) return '';
   return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">'
     +'<div style="font-weight:800;font-size:16px">Weniger Regelschmerzen – sauber statt Kombi-Pulver</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Was bei Zyklus &amp; PMS wirklich hilft – einzeln, ohne Zusatzstoff-Cocktail. <span style="color:#8a8072">· Anzeige</span></div>'
-    +'<div style="font-size:11.5px;color:var(--ink);background:var(--greenlt);border-radius:8px;padding:7px 9px;margin-bottom:2px">So nutzt du es: <b>Magnesium + 1 Omega-3</b> (Fisch <i>oder</i> vegan). Vitex &amp; B1 nur bei Bedarf. Nicht gebraucht? Mit ✕ ausblenden.</div>'
-    +rows
-    +'<div style="font-size:10.5px;color:#8a8072;margin-top:8px">Kauf beim Partner-Shop · wir erhalten ggf. Provision · Preis für dich unverändert · Score unabhängig. Keine medizinische Beratung.</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Was bei Zyklus &amp; PMS wirklich hilft – je Kategorie unsere <b>2 saubersten</b> Produkte. <span style="color:#8a8072">· Anzeige</span></div>'
+    +'<div style="font-size:11.5px;color:var(--ink);background:var(--greenlt);border-radius:8px;padding:7px 9px">So nutzt du es: <b>Magnesium + 1 Omega-3</b> (Fisch <i>oder</i> vegan). Vitex &amp; B1 nur bei Bedarf.</div>'
+    +blocks
+    +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Kauf beim Partner-Shop (Amazon) · wir erhalten ggf. Provision · Preis für dich unverändert · Score unabhängig. Keine medizinische Beratung.</div>'
     +'</div>';
 }
 function topProdukteHtml(){
