@@ -2144,13 +2144,17 @@ function tbAddPick(i){
   window._tbAddPickId=p.id;
   const box=document.getElementById("tbAddResults"); if(!box) return;
   const g=tbDefaultPortion(p);
+  const rp=x=>Math.max(1,Math.round(x/5)*5);
+  const sz=(lbl,val)=>'<button type="button" onclick="tbSetSize('+val+')" style="flex:1;padding:7px 4px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt);color:var(--greendk);font-size:12px;line-height:1.25;cursor:pointer">'+lbl+'<br><b>'+val+' g</b></button>';
   box.innerHTML='<div style="background:#FFFFFF;border:1px solid #E7E0D4;border-radius:12px;padding:12px">'
     +'<div style="font-weight:600;margin-bottom:8px">'+esc(p.name)+(num(p.clean_score)!=null?' <span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(num(p.clean_score)))+'">'+num(p.clean_score)+'</span>':'')+'</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px">'+sz('klein',rp(g*0.7))+sz('mittel',rp(g))+sz('groß',rp(g*1.4))+'</div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input id="tbAddMenge" type="number" inputmode="numeric" min="1" value="'+g+'" style="width:84px;flex:0 0 auto;font-size:16px;text-align:center;padding:10px 8px;border:1px solid #E7E0D4;border-radius:10px;background:#F3EFE8;color:#1D3C24"><span style="color:#6B6256">g</span>'
     +'<button onclick="tbAddSave()" style="padding:10px 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Eintragen</button></div>'
     +'<button onclick="tbSetTab(window._tbTab||\'suche\')" style="margin-top:8px;background:none;border:0;color:#6B6256;font-size:12px;cursor:pointer;text-decoration:underline">‹ zurück</button>'
     +'<div id="tbAddMsg" style="font-size:12px;color:#6B6256;margin-top:6px"></div></div>';
 }
+function tbSetSize(g){ const el=document.getElementById("tbAddMenge"); if(el){ el.value=g; el.focus(); } }
 async function tbAddSave(){
   const id=window._tbAddPickId; if(!id) return;
   const menge=parseFloat(document.getElementById("tbAddMenge").value)||0;
