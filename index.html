@@ -559,13 +559,20 @@ function farbe(b){
   return "#9aa7a0";
 }
 function num(x){return x===null||x===undefined?null:Number(x);}
+let _donutN=0;
 function donut(score,col,size){
   size=size||62; const r=25, c=2*Math.PI*r;
   const v=(score==null)?0:Math.max(0,Math.min(100,score)), off=c*(1-v/100);
   const txt=(score==null)?"–":String(Math.round(score)), fs=Math.round(size*(txt.length>=3?0.24:0.29));
+  const id='bru'+(++_donutN);
+  // Pinselstrich-Ring: rauer, handgemalter Look via Turbulenz-Displacement
   return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" style="flex:0 0 ${size}px" aria-hidden="true">`
-    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--line)" stroke-width="4.5"/>`
-    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 32 32)"/>`
+    +`<defs><filter id="${id}" x="-25%" y="-25%" width="150%" height="150%">`
+    +`<feTurbulence type="fractalNoise" baseFrequency="0.05 0.11" numOctaves="2" seed="${(v*7)%97}" result="n"/>`
+    +`<feDisplacementMap in="SourceGraphic" in2="n" scale="3.4" xChannelSelector="R" yChannelSelector="G"/>`
+    +`</filter></defs>`
+    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--line)" stroke-width="1.6" opacity="0.3"/>`
+    +`<circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 32 32)" filter="url(#${id})"/>`
     +`<text x="32" y="33" text-anchor="middle" dominant-baseline="central" font-size="${fs}" font-weight="700" fill="${col}" font-family="-apple-system,BlinkMacSystemFont,sans-serif">${txt}</text>`
     +`</svg>`;
 }
@@ -1089,8 +1096,7 @@ function detail(d){
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
       ${donut(d.clean_score, col, 96)}
-      <div><div style="font-size:19px;font-weight:800;color:${col}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div>
-      <div class="formula">${(d.kategorie||"").toLowerCase()==="supplement"?"Root Index = Inhaltsstoffe (Nährwert entfällt bei Supplements)":"Root Index = Inhaltsstoffe (60) + Nährwert (40)"}</div></div>
+      <div><div style="font-size:19px;font-weight:800;color:${col}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div></div>
     </div>
     ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
     ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:""}
