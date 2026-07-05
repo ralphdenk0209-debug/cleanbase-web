@@ -1304,6 +1304,35 @@ function zyklusBundleHtml(){
     +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Anzeige · Partner-Links: Preis für dich unverändert · unsere Bewertung bleibt unabhängig. Keine medizinische Beratung.</div>'
     +'</div>';
 }
+function _zkDeckung(p){
+  const txt=((p.naehrstoffe||[]).map(n=>n.n).join(' ')+' '+(p.zutaten||[]).map(z=>z.name).join(' ')).toLowerCase();
+  const has=re=>re.test(txt);
+  const items=[['Magnesium',has(/magnesium/)],['Omega-3',has(/omega|epa|dha/)],['Vitamin B1',has(/\bb1\b|thiamin/)],['Mönchspfeffer',has(/m[öo]nchspfeffer|vitex/)]];
+  const n=items.filter(x=>x[1]).length;
+  return {n, html:items.map(([l,ok])=>'<span style="white-space:nowrap;font-size:11px;color:'+(ok?'#166534':'#b0aca4')+'">'+(ok?'✓':'✗')+' '+l+'</span>').join('&nbsp;&nbsp;')};
+}
+function zyklusKomplexeHtml(){
+  let list=(ALL||[]).filter(p=>String(p.unterkategorie||'').toLowerCase()==='zyklus-komplex' && num(p.clean_score)!=null);
+  if(list.length<2) return '';
+  list.sort((a,b)=>num(b.clean_score)-num(a.clean_score)); list=list.slice(0,2);
+  const row=(p,i)=>{
+    const d=_zkDeckung(p); const amz=p.produktlink||'';
+    return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:'+(i>0?'1px solid var(--line)':'none')+'">'
+      +'<div onclick="detailById(\''+p.id+'\')" style="cursor:pointer;flex:0 0 auto">'+donut(num(p.clean_score),farbe(p.bewertung),56)+'</div>'
+      +'<div style="flex:1;min-width:0;cursor:pointer" onclick="detailById(\''+p.id+'\')">'
+      +'<div style="font-weight:700;font-size:14px;line-height:1.2">'+esc(p.name)+'</div>'
+      +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:4px">'+esc(p.marke||'')+' · deckt <b>'+d.n+'/4</b> belegten Wirkstoffe</div>'
+      +'<div style="line-height:1.7">'+d.html+'</div></div>'
+      +(amz?'<a href="'+esc(amz)+'" target="_blank" rel="sponsored noopener" onclick="event.stopPropagation()" style="flex:0 0 auto;text-decoration:none;background:#16a34a;color:#fff;font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:9px">Ansehen ›</a>':'')
+      +'</div>';
+  };
+  return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">'
+    +'<div style="font-weight:800;font-size:16px">Zyklus-Komplexe im Vergleich</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 8px">Belegt bei Regelschmerzen: <b>Magnesium · Omega-3 · Vitamin B1 · Mönchspfeffer</b>. Fertige Komplexe decken das oft nur <b>teilweise</b> ab – hier siehst du, was drin ist. Voll abgedeckt bekommst du es mit unseren sauberen Einzelprodukten oben. <span style="color:#8a8072">· Anzeige</span></div>'
+    +list.map(row).join('')
+    +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Anzeige · Amazon-Partner-Links: Preis für dich unverändert · Bewertung bleibt unabhängig. Keine medizinische Beratung.</div>'
+    +'</div>';
+}
 function topProdukteHtml(){
   const by={};
   const exKat=new Set(); ZYKLUS_CATS.forEach(c=>c.ids.forEach(id=>{const bp=(ALL||[]).find(x=>x.id===id); if(bp&&bp.unterkategorie) exKat.add(bp.unterkategorie);}));
@@ -1423,7 +1452,7 @@ async function renderStart(){
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
       +'<button onclick="openLogin()" style="padding:12px 18px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-size:15px;cursor:pointer">Anmelden / Registrieren</button>'
       +'<button onclick="navTo(\'produkte\')" style="padding:12px 18px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:15px;cursor:pointer">Produkte ansehen</button></div></div>'
-      +startRezSucheHtml()+topProdukteHtml()+zyklusBundleHtml()
+      +startRezSucheHtml()+zyklusBundleHtml()+zyklusKomplexeHtml()
       +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
       +startFeature('🔍','Root Index','0–100, erklärt')+startFeature('📒','Tagebuch','Makros &amp; Ziele')
       +startFeature('🏋️','Training','Plan &amp; Fortschritt')+startFeature('🥗','Rezepte','bewertet &amp; skalierbar')
@@ -1465,7 +1494,7 @@ async function renderStart(){
     +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🏋️ Heute – Training</div>'+trainHtml
       +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:var(--card);color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
     +schritteHtml
-    +startRezSucheHtml()+topProdukteHtml()+zyklusBundleHtml();
+    +startRezSucheHtml()+zyklusBundleHtml()+zyklusKomplexeHtml();
   if(ME&&ME.is_premium) renderSchritte();
 }
 function startProdSearch(v){ navTo('produkte'); setTimeout(function(){ var el=document.getElementById('q'); if(el){ el.value=v||''; if(typeof render==='function') render(); el.focus(); } }, 60); }
