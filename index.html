@@ -651,6 +651,13 @@ async function premiumInfo(){
   }
 }
 (function(){ try{ const p=new URLSearchParams(location.search); if(p.get('checkout')==='success'){ history.replaceState(null,'',location.pathname); setTimeout(function(){ alert('Willkommen bei Premium! Deine 7 Tage gratis starten jetzt. 🌱'); },400); } }catch(_){} })();
+async function startPortal(){
+  try{
+    const {data,error}=await client.functions.invoke('stripe-portal',{});
+    if(error||!data||!data.url) throw new Error((data&&data.error)||'no url');
+    window.location.href=data.url;
+  }catch(e){ alert('Abo-Verwaltung ist gerade nicht verfügbar. Bitte in Kürze erneut versuchen.'); }
+}
 function gateHtml(){
   if(!ME) return '<div class="gatebox"><h3>Anmeldung nötig</h3><p>Melde dich an oder <b>registriere dich kostenlos</b>, um diese Funktion zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden / Registrieren</button></div>';
   return '<div class="gatebox"><h3>Premium-Funktion</h3><p>Diese Funktion ist in deiner Stufe nicht enthalten. Schalte <b>Premium</b> frei, um sie zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="premiumInfo()">Premium – 7 Tage gratis</button></div>';
@@ -1374,8 +1381,13 @@ async function renderStart(){
     ? '<div style="font-size:14px">💪 <b>'+ueb+'</b> Übungen · <b>'+saetze+'</b> Sätze · Volumen <b>'+vol+' kg</b></div>'
     : '<div style="font-size:14px;color:var(--muted)">Heute noch kein Training erfasst.</div>';
   const schritteHtml = (ME&&ME.is_premium) ? '<div id="schritteBox"></div>' : '';
+  let statusBadge='';
+  if(ME){ const tb=ME.trial_bis?new Date(ME.trial_bis):null; const isTrial=(ME.sub_status==='trialing')&&tb&&tb>new Date();
+    if(isTrial){ const d=Math.max(0,Math.ceil((tb-new Date())/86400000)); statusBadge='<span style="margin-left:auto;font-size:11.5px;font-weight:700;background:var(--greenlt);color:var(--greendk);padding:3px 10px;border-radius:999px;white-space:nowrap">🎁 '+d+' Tag'+(d===1?'':'e')+' Test übrig</span>'; }
+    else if(ME.is_premium){ statusBadge='<span style="margin-left:auto;font-size:11.5px;font-weight:700;background:var(--greendk);color:#fff;padding:3px 10px;border-radius:999px;white-space:nowrap">✓ Premium</span>'; }
+  }
   dash.innerHTML=
-    '<div style="display:flex;align-items:baseline;gap:8px;margin:2px 2px 12px"><span style="font-weight:600;font-size:16px">Hallo'+(vorname?(' '+esc(vorname)):"")+'</span><span style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</span></div>'
+    '<div style="display:flex;align-items:baseline;gap:8px;margin:2px 2px 12px"><span style="font-weight:600;font-size:16px">Hallo'+(vorname?(' '+esc(vorname)):"")+'</span><span style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</span>'+statusBadge+'</div>'
     +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:8px">🔍 Produkt bewerten</div><input id="startProdQ" onkeydown="if(event.key===\'Enter\')startProdSearch(this.value)" placeholder="Produkt oder Marke suchen…" style="width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px"><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Tippen &amp; Enter – zeigt den Root Index.</div></div>'
     +'<div style="'+card+';cursor:pointer" onclick="navTo(\'tagebuch\')"><div style="font-weight:600;margin-bottom:6px">🍽️ Heute – Makros <span style="float:right;color:var(--muted);font-weight:400;font-size:12px">Tagebuch ›</span></div>'+donutsHtml+'</div>'
     +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🏋️ Heute – Training</div>'+trainHtml
@@ -1399,6 +1411,7 @@ function buildMehr(){
   html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert Root Index</button>';
   html+='<button onclick="closeMehr();legalOpen(\'impressum\')">📄 Impressum</button>';
   html+='<button onclick="closeMehr();legalOpen(\'datenschutz\')">🔒 Datenschutz</button>';
+  if(ME&&ME.is_premium) html+='<button onclick="closeMehr();startPortal()">💳 Abo verwalten / kündigen</button>';
   html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
             : '<button onclick="closeMehr();openLogin()">🔑 Anmelden</button>';
   if(ME&&ME.is_admin) html+='<button onclick="closeMehr();location.hash=\'#admin\';location.reload()" style="color:var(--muted)">🛠️ Admin-Bereich</button>';
