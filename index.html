@@ -1190,11 +1190,11 @@ function pfTab(name){
 function startFeature(ic,t,sub){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px">'+ic+'</div><div style="font-weight:600;font-size:13.5px;margin-top:2px">'+t+'</div><div style="font-size:11.5px;color:var(--muted)">'+sub+'</div></div>'; }
 let BILD={};
 async function loadBilder(){ try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
-const BUNDLE_ASIN={P928:'B0FMS51PCG',P934:'B07NS14648',P929:'B0BRSWXP6N',P930:'B0FMS1Q53F',P931:'B07PZZ8J5T',P932:'B01MTZBUQ2'};
+const BUNDLE_ASIN={P928:'B0FMS51PCG',P934:'B07NS14648',P935:'B0F32TYHXY',P929:'B0BRSWXP6N',P930:'B0FMS1Q53F',P931:'B07PZZ8J5T',P932:'B01MTZBUQ2',P939:'B0876D2FNT'};
 const ZYKLUS_CATS=[
-  {t:'Magnesium', hint:'gegen Krämpfe & Stress', ids:['P928','P934']},
+  {t:'Magnesium', hint:'gegen Krämpfe & Stress', ids:['P928','P934','P935']},
   {t:'Omega-3', hint:'Entzündung – Fisch oder vegan', ids:['P930','P929','P933']},
-  {t:'Mönchspfeffer (Vitex)', hint:'nur bei PMS', ids:['P931']},
+  {t:'Mönchspfeffer (Vitex)', hint:'nur bei PMS', ids:['P931','P939']},
   {t:'Vitamin B1', hint:'optional', ids:['P932']}
 ];
 function amzUrl(id){ return BUNDLE_ASIN[id]?('https://www.amazon.de/dp/'+BUNDLE_ASIN[id]+'?tag=rootindex-21'):''; }
