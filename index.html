@@ -380,6 +380,7 @@
       <div class="pf-pane pf-daten" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-weight:600;margin-bottom:10px">Persönliche Daten</div>
         <div style="font-size:13px;color:var(--ink);margin-bottom:10px">E-Mail: <b id="pfEmail">–</b></div>
+        <label style="font-size:13px;color:var(--ink);display:block;margin-bottom:12px">Name (wird oben angezeigt)<input type="text" id="pfName" placeholder="Dein Name" style="width:100%;max-width:300px;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
           <label style="font-size:13px;color:var(--ink)">Geburtsdatum<input type="date" id="pfGeb" oninput="pfAgeFromGeb()" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
           <label style="font-size:13px;color:var(--ink)">Alter <span style="color:#9aa7a0;font-size:11px">(aus Geburtsdatum)</span><input type="number" id="pfAlter" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
@@ -514,20 +515,22 @@
 <div class="overlay" id="loginOverlay"><div class="panel" style="max-width:400px">
   <button class="close" onclick="closeLogin()">Schließen ✕</button>
   <h2 style="font-size:20px;margin:0 0 4px">Anmelden</h2>
-  <p style="color:var(--muted);font-size:13.5px;margin:.2em 0 14px">Mit <b>E-Mail und Passwort</b> – oder per Code/Link.</p>
+  <p id="loginIntro" style="color:var(--muted);font-size:13.5px;margin:.2em 0 14px">Ohne Passwort: wir schicken dir einen <b>Anmeldelink</b> an deine E-Mail.</p>
   <input id="loginEmail" type="email" autocomplete="email" placeholder="deine@email.de" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px" />
-  <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px;margin-top:8px" />
-  <button onclick="loginPassword()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Anmelden</button>
+  <div id="pwLogin" style="display:none">
+    <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px;margin-top:8px" />
+    <button onclick="loginPassword()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:var(--greendk);color:#fff;font-size:15px;cursor:pointer">Mit Passwort anmelden</button>
+  </div>
+  <button id="magicBtn" onclick="sendMagic()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-weight:600;font-size:15px;cursor:pointer">Anmeldelink senden</button>
   <div id="loginMsg" style="margin-top:10px;font-size:13.5px;line-height:1.45"></div>
   <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:12px">
-    <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">Kein Passwort? <b>Code per E-Mail</b> (in der App eingeben – kein Browser-Umweg)</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">Lieber einen <b>Code</b> statt Link? (in der App eingeben)</div>
     <button onclick="requestCode()" style="width:100%;padding:11px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-weight:600;font-size:15px;cursor:pointer">Code senden</button>
     <div id="codeBox" style="display:none;margin-top:8px">
       <input id="loginCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6-stelliger Code aus der E-Mail" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;letter-spacing:2px;text-align:center" />
       <button onclick="verifyCode()" style="width:100%;margin-top:8px;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:15px;cursor:pointer">Code bestätigen</button>
     </div>
   </div>
-  <div style="text-align:center;margin-top:12px"><a href="#" onclick="sendMagic();return false" style="font-size:12.5px;color:var(--muted)">stattdessen Magic-Link senden</a></div>
 </div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -662,7 +665,8 @@ function gateHtml(){
   if(!ME) return '<div class="gatebox"><h3>Anmeldung nötig</h3><p>Melde dich an oder <b>registriere dich kostenlos</b>, um diese Funktion zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden / Registrieren</button></div>';
   return '<div class="gatebox"><h3>Premium-Funktion</h3><p>Diese Funktion ist in deiner Stufe nicht enthalten. Schalte <b>Premium</b> frei, um sie zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="premiumInfo()">Premium – 7 Tage gratis</button></div>';
 }
-function openLogin(){ document.getElementById("loginOverlay").classList.add("open"); const e=document.getElementById("loginEmail"); if(e) setTimeout(()=>e.focus(),60); }
+function openLogin(){ const pw=document.getElementById("pwLogin"); if(pw) pw.style.display="none"; const mb=document.getElementById("magicBtn"); if(mb) mb.style.display=""; const intro=document.getElementById("loginIntro"); if(intro) intro.innerHTML='Ohne Passwort: wir schicken dir einen <b>Anmeldelink</b> an deine E-Mail.'; document.getElementById("loginOverlay").classList.add("open"); const e=document.getElementById("loginEmail"); if(e) setTimeout(()=>e.focus(),60); }
+function openAdminLogin(){ openLogin(); const pw=document.getElementById("pwLogin"); if(pw) pw.style.display=""; const intro=document.getElementById("loginIntro"); if(intro) intro.innerHTML='<b>Team-/Admin-Login</b> · mit E-Mail und Passwort. (Normale Nutzer melden sich per Anmeldelink an.)'; }
 function closeLogin(){ document.getElementById("loginOverlay").classList.remove("open"); }
 async function sendMagic(){
   const email=(document.getElementById("loginEmail").value||"").trim();
@@ -765,6 +769,7 @@ async function loadProfil(){
   if(gate)gate.style.display="none"; if(inner)inner.style.display="";
   const {data}=await client.rpc("cb_profil"); const b=(data&&data[0])||{};
   { const e=document.getElementById("pfEmail"); if(e) e.textContent=b.Email||"–"; }
+  { const n=document.getElementById("pfName"); if(n) n.value=b.Name||(ME&&ME.name)||""; }
   _selVal("pfGeb",b.Geburtsdatum);
   { const c=document.getElementById("pfNews"); if(c) c.checked=!!b.Newsletter; }
   _selVal("pfAlter",b.Alter); _selVal("pfGeschlecht",b.Geschlecht); _selVal("pfGroesse",b.Groesse_cm);
@@ -809,6 +814,7 @@ async function loadZielHistorie(){
 }
 async function saveProfil(){
   const msg=document.getElementById("pfMsg");
+  { const nm=(document.getElementById("pfName")||{}).value; if(nm!=null){ try{ await client.rpc("cb_name_speichern",{p_name:nm}); if(ME&&nm.trim()) ME.name=nm.trim(); }catch(e){} } }
   const {error}=await client.rpc("cb_profil_speichern",{
     p_alter:_numOrNull("pfAlter"), p_gewicht:_numOrNull("pfGewicht"), p_groesse:_numOrNull("pfGroesse"),
     p_geschlecht:document.getElementById("pfGeschlecht").value||null,
@@ -1414,7 +1420,6 @@ function buildMehr(){
   if(ME&&ME.is_premium) html+='<button onclick="closeMehr();startPortal()">💳 Abo verwalten / kündigen</button>';
   html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
             : '<button onclick="closeMehr();openLogin()">🔑 Anmelden</button>';
-  if(ME&&ME.is_admin) html+='<button onclick="closeMehr();location.hash=\'#admin\';location.reload()" style="color:var(--muted)">🛠️ Admin-Bereich</button>';
   const c=document.getElementById('mehrCard'); if(c) c.innerHTML=html;
 }
 function legalOpen(which){
@@ -1526,7 +1531,7 @@ function applyAdminMode(){
       c.insertBefore(nav, c.firstChild); }
   }
   if(ME&&ME.is_admin){ setMode('freigabe'); }
-  else { openLogin(); }
+  else { openAdminLogin(); }
 }
 
 /* ---- Tagebuch ---- */
