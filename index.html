@@ -469,15 +469,6 @@
         <div style="font-weight:600;margin-bottom:10px">📐 Körpermaße</div>
         <div id="pfMass">…</div>
       </div>
-      <div class="pf-pane pf-daten" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
-        <div style="font-weight:600;margin-bottom:6px">Passwort (Login ohne E-Mail)</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Setze ein Passwort, um dich auch ohne Magic-Link anzumelden – praktisch, solange der E-Mail-Versand noch eingerichtet wird.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input type="password" id="pfPass" autocomplete="new-password" placeholder="neues Passwort (min. 6 Zeichen)" style="flex:1;min-width:200px;padding:9px;border:1px solid var(--line);border-radius:8px">
-          <button onclick="setMyPassword()" style="padding:9px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Passwort setzen</button>
-        </div>
-        <span id="pfPassMsg" style="font-size:13px"></span>
-      </div>
       <div style="font-size:12px;color:var(--muted)">Deine Ernährungsform fließt später in passende Empfehlungen & Filter ein.</div>
     </div>
   </div>
@@ -724,7 +715,7 @@ function updateAuthUI(){
   const bar=document.getElementById("authBar");
   if(bar){
     if(ME){
-      bar.innerHTML='<span style="opacity:.92;font-weight:500">'+esc(ME.name||"")+'</span>';
+      bar.innerHTML='';
     } else {
       bar.innerHTML='<button class="authbtn" id="loginBtn" onclick="openLogin()">Anmelden</button>';
     }
@@ -3739,20 +3730,39 @@ async function loadUsers(){
   if(error){ document.getElementById("usersTable").innerHTML='<div style="color:#dc2626">Fehler: '+esc(error.message)+'</div>'; return; }
   renderUsers(data||[]);
 }
+function _uDate(s){ if(!s) return '–'; try{ return new Date(s).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return '–'; } }
 function renderUsers(rows){
-  let h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">';
-  h+='<tr style="background:var(--bg)"><th style="text-align:left;padding:11px 13px;font-size:13px">Nutzer</th><th style="text-align:left;padding:11px 13px;font-size:13px">Stufe</th><th style="text-align:center;padding:11px 13px;font-size:13px">Admin</th><th style="text-align:center;padding:11px 13px;font-size:13px">Passwort</th></tr>';
+  const th='padding:10px 12px;font-size:12.5px;text-align:left';
+  let h='<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">'+rows.length+' registrierte Nutzer. Premium-Häkchen = manuell freischalten; Abo/Test kommt automatisch über Stripe.</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:660px">';
+  h+='<tr style="background:var(--bg)"><th style="'+th+'">Nutzer</th><th style="'+th+';text-align:center">Premium</th><th style="'+th+'">Abo / Test</th><th style="'+th+'">Registriert</th><th style="'+th+'">Premium seit</th><th style="'+th+';text-align:center">Admin</th><th style="'+th+';text-align:center">Passwort</th></tr>';
   rows.forEach(u=>{
-    const opts=TIERS.map(t=>'<option value="'+t[0]+'"'+(u.tier===t[0]?' selected':'')+'>'+t[1]+'</option>').join("");
+    const trial = u.subscription_status==='trialing' && u.trial_bis && new Date(u.trial_bis)>new Date();
+    let abo;
+    if(trial) abo='<span style="font-size:11px;font-weight:700;background:var(--greenlt);color:var(--greendk);padding:2px 8px;border-radius:999px;white-space:nowrap">🎁 Test bis '+_uDate(u.trial_bis)+'</span>';
+    else if(u.subscription_status==='active') abo='<span style="font-size:11.5px;color:var(--greendk);font-weight:600">Abo aktiv</span>';
+    else if(u.subscription_status==='canceled') abo='<span style="font-size:11.5px;color:#b45309">gekündigt</span>';
+    else abo='<span style="color:#c7c2b8">–</span>';
+    const td='padding:10px 12px;font-size:13.5px;vertical-align:top';
     h+='<tr style="border-top:1px solid var(--line)">'
-      +'<td style="padding:11px 13px;font-size:14px"><div style="font-weight:600">'+esc(u.name||u.benutzer_id)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(u.email||"")+'</div></td>'
-      +'<td style="padding:11px 13px"><select onchange="setUserTier(\''+u.benutzer_id+'\',this.value)" style="padding:8px;border:1px solid var(--line);border-radius:8px">'+opts+'</select></td>'
-      +'<td style="padding:11px 13px;text-align:center"><input type="checkbox" '+(u.is_admin?'checked':'')+' onchange="setUserAdmin(\''+u.benutzer_id+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:#16a34a"></td>'
-      +'<td style="padding:11px 13px;text-align:center"><button onclick="adminSetPassword(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">🔑 setzen</button></td>'
+      +'<td style="'+td+'"><div style="font-weight:600">'+esc(u.name||u.benutzer_id)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(u.email||"")+'</div></td>'
+      +'<td style="'+td+';text-align:center"><input type="checkbox" '+(u.is_premium?'checked':'')+' onchange="setUserPremium(\''+u.benutzer_id+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:#16a34a"></td>'
+      +'<td style="'+td+'">'+abo+'</td>'
+      +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+_uDate(u.angelegt_am)+'</td>'
+      +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+(u.is_premium?_uDate(u.premium_since):'–')+'</td>'
+      +'<td style="'+td+';text-align:center"><input type="checkbox" '+(u.is_admin?'checked':'')+' onchange="setUserAdmin(\''+u.benutzer_id+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:#16a34a"></td>'
+      +'<td style="'+td+';text-align:center"><button onclick="adminSetPassword(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">🔑</button></td>'
       +'</tr>';
   });
   h+='</table></div><div id="usersMsg" style="font-size:13px;margin-top:8px;height:18px"></div>';
   document.getElementById("usersTable").innerHTML=h;
+}
+async function setUserPremium(bid,val){
+  const msg=document.getElementById("usersMsg");
+  const {error}=await client.rpc("cb_user_premium_set",{p_bid:bid,p_premium:val});
+  if(error){ userErr(msg,error); loadUsers(); return; }
+  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; setTimeout(()=>{ if(msg) msg.textContent=""; },1200); }
+  loadUsers();
 }
 async function adminSetPassword(bid,name){
   const pass=prompt('Neues Passwort für '+name+' (mind. 6 Zeichen):');
