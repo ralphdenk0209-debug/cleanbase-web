@@ -1019,8 +1019,9 @@ function _norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ
 function _lev(a,b){ const m=a.length,n=b.length; if(!m)return n; if(!n)return m; let prev=Array.from({length:n+1},(_,j)=>j),cur=new Array(n+1);
   for(let i=1;i<=m;i++){ cur[0]=i; for(let j=1;j<=n;j++){ cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1)); } const t=prev;prev=cur;cur=t; } return prev[n]; }
 function _fuzzy(text,q){ const t=_norm(text); if(!q) return true; if(t.includes(q)) return true;
-  const max=q.length<=4?1:2;
-  return t.split(/[^a-z0-9]+/).some(w=> w.length>1 && (w.includes(q) || _lev(w,q)<=max)); }
+  if(q.length<=3) return false; // kurze Begriffe (z. B. "k2"): nur echte Teilstring-Treffer, keine Unschärfe
+  const max=q.length<=5?1:2;
+  return t.split(/[^a-z0-9]+/).some(w=> w.length>2 && (w.includes(q) || _lev(w,q)<=max)); }
 function render(){
   const q=_norm(document.getElementById("q").value.trim());
   const kat=document.getElementById("kat").value;
