@@ -656,15 +656,43 @@ function mountTierOvChip(){
   document.body.appendChild(c);
 }
 async function refreshMyFeatures(){ try{ const {data}=await client.rpc("cb_my_features"); MY_FEATURES=new Set((data||[]).map(x=>x.feature_key)); }catch(e){ MY_FEATURES=null; } }
-async function premiumInfo(){
-  if(!ME){ openLogin(); return; }
+async function _startCheckout(plan){
   try{
-    const {data,error}=await client.functions.invoke('stripe-checkout',{});
+    const {data,error}=await client.functions.invoke('stripe-checkout',{ body:{ plan: plan||'month' } });
     if(error||!data||!data.url) throw new Error((data&&data.error)||'no url');
     window.location.href=data.url;
   }catch(e){
     alert("Premium wird gerade eingerichtet – bitte in Kürze erneut versuchen.");
   }
+}
+function _planRow(val,title,price,sub,badge,checked){
+  return '<label style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;margin-bottom:8px">'
+   +'<input type="radio" name="premPlan" value="'+val+'"'+(checked?' checked':'')+' style="width:18px;height:18px;flex:0 0 auto">'
+   +'<span style="flex:1;line-height:1.3"><b>'+title+'</b> · '+price+'<br><span style="font-size:12px;color:var(--muted)">'+sub+'</span></span>'
+   +(badge?'<span style="font-size:11px;font-weight:700;color:#166534;background:#dcfce7;border-radius:999px;padding:2px 8px;white-space:nowrap">'+badge+'</span>':'')
+   +'</label>';
+}
+function premiumInfo(){
+  if(!ME){ openLogin(); return; }
+  const ex=document.getElementById('premOv'); if(ex) ex.remove();
+  const ov=document.createElement('div'); ov.id='premOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink,#1D3C24);max-width:430px;width:100%;max-height:92vh;overflow:auto;border-radius:16px;padding:20px;box-shadow:0 12px 44px rgba(0,0,0,.32)">'
+   +'<div style="font-size:18px;font-weight:800;margin-bottom:4px">Premium – 7 Tage gratis 🌱</div>'
+   +'<p style="font-size:13.5px;color:var(--muted);line-height:1.5;margin:.2em 0 12px">7 Tage kostenlos testen, danach der gewählte Tarif. Jederzeit kündbar über das Stripe-Portal – wirksam zum Ende des laufenden Abrechnungszeitraums.</p>'
+   +_planRow('month','Monatlich','4,99 €/Monat','flexibel, monatlich kündbar','',true)
+   +_planRow('quarter','Vierteljährlich','12,99 €','4,33 €/Monat','−13%',false)
+   +_planRow('year','Jährlich','44,99 €','3,75 €/Monat · 2 Monate geschenkt','−25%',false)
+   +'<label style="display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.45;cursor:pointer;background:var(--greenlt);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:4px">'
+   +'<input type="checkbox" id="premConsent" onchange="var b=document.getElementById(\'premGo\');b.disabled=!this.checked;b.style.opacity=this.checked?\'1\':\'.5\'" style="margin-top:2px;flex:0 0 auto;width:18px;height:18px">'
+   +'<span>Ich stimme zu, dass der Zugang zu Premium <b>sofort beginnt</b>, und weiß, dass ich damit mein <b>Widerrufsrecht verliere</b>.</span></label>'
+   +'<div style="display:flex;gap:8px;margin-top:14px">'
+   +'<button onclick="document.getElementById(\'premOv\').remove()" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:14px">Abbrechen</button>'
+   +'<button id="premGo" disabled onclick="var p=(document.querySelector(\'input[name=premPlan]:checked\')||{}).value||\'month\';document.getElementById(\'premOv\').remove();_startCheckout(p)" style="flex:1;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:14px;opacity:.5">Jetzt starten</button>'
+   +'</div>'
+   +'<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center">Mit „Jetzt starten" akzeptierst du AGB &amp; Widerrufsbelehrung.</div>'
+   +'</div>';
+  document.body.appendChild(ov);
 }
 (function(){ try{ const p=new URLSearchParams(location.search); if(p.get('checkout')==='success'){ history.replaceState(null,'',location.pathname); setTimeout(function(){ alert('Willkommen bei Premium! Deine 7 Tage gratis starten jetzt. 🌱'); },400); } }catch(_){} })();
 async function startPortal(){
