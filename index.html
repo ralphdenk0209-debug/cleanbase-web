@@ -1404,7 +1404,13 @@ async function renderStart(){
   }
   dash.innerHTML=
     '<div style="display:flex;align-items:baseline;gap:8px;margin:2px 2px 12px"><span style="font-weight:600;font-size:16px">Hallo'+(vorname?(' '+esc(vorname)):"")+'</span><span style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</span>'+statusBadge+'</div>'
-    +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:8px">🔍 Produkt bewerten</div><input id="startProdQ" onkeydown="if(event.key===\'Enter\')startProdSearch(this.value)" placeholder="Produkt oder Marke suchen…" style="width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px"><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Tippen &amp; Enter – zeigt den Root Index.</div></div>'
+    +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:8px">🔍 Produkt suchen</div>'
+    +'<input id="startProdQ" onkeydown="if(event.key===\'Enter\')startProdSearch(this.value)" placeholder="Produkt oder Marke suchen…" style="width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px">'
+    +'<div style="display:flex;gap:8px;margin-top:8px">'
+    +'<button type="button" onclick="startProdSearch(document.getElementById(\'startProdQ\').value)" style="flex:1;padding:11px;border:1px solid var(--green);border-radius:11px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#1f5e34);font-size:14px;font-weight:600;cursor:pointer">Suchen</button>'
+    +'<button type="button" onclick="startProdScan()" style="flex:1;padding:11px;border:1px solid var(--green);border-radius:11px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#1f5e34);font-size:14px;cursor:pointer">📷 Barcode scannen</button>'
+    +'</div>'
+    +'<div style="font-size:11.5px;color:var(--muted);margin-top:6px">Tippen &amp; Enter oder Barcode scannen – zeigt den Root Index.</div></div>'
     +'<div style="'+card+';cursor:pointer" onclick="navTo(\'tagebuch\')"><div style="font-weight:600;margin-bottom:6px">🍽️ Heute – Makros <span style="float:right;color:var(--muted);font-weight:400;font-size:12px">Tagebuch ›</span></div>'+donutsHtml+'</div>'
     +'<div style="'+card+'"><div style="font-weight:600;margin-bottom:6px">🏋️ Heute – Training</div>'+trainHtml
       +'<div style="margin-top:8px"><button onclick="navTo(\'training\')" style="padding:8px 14px;border:1px solid var(--green);border-radius:8px;background:var(--card);color:var(--greendk);cursor:pointer;font-size:13px">Zum Training</button></div></div>'
@@ -1413,6 +1419,7 @@ async function renderStart(){
   if(ME&&ME.is_premium) renderSchritte();
 }
 function startProdSearch(v){ navTo('produkte'); setTimeout(function(){ var el=document.getElementById('q'); if(el){ el.value=v||''; if(typeof render==='function') render(); el.focus(); } }, 60); }
+function startProdScan(){ navTo('produkte'); setTimeout(function(){ if(typeof prodScan==='function') prodScan(); }, 300); }
 function bnActive(m){
   const ids=['bnstart','bnprodukte','bntagebuch','bntraining','bnmehr'];
   const map={start:'bnstart',produkte:'bnprodukte',tagebuch:'bntagebuch',training:'bntraining'};
@@ -1558,20 +1565,62 @@ function tbResolveId(){
   const p=ALL.find(x=>prodLabel(x).toLowerCase()===v) || ALL.find(x=>(x.name||"").toLowerCase()===v);
   return p?p.id:null;
 }
-function tbDefaultPortion(p){
-  const u=(p.unterkategorie||"").toLowerCase(), k=(p.kategorie||"").toLowerCase();
-  const mu={"proteinpulver":30,"whey protein":30,"whey isolate":30,"mehrkomponentenprotein":30,"mehrkomponentenprotein (vegan)":30,
-    "geschmackspulver":5,"getränkepulver / flavour powder":5,"elektrolyt-pulver":10,"kreatin":5,"süßungsmittel":1,"süßstoff-tropfen":1,
-    "vitamin-kapseln":2,"vitamin-tabletten":2,"vitamin-/mineralpulver":5,"bitterstoffe":3,"kräuter-bitterstoffe":3,
-    "pflanzendrink":250,"protein-pflanzendrink":250,
-    "wurst":30,"schinken":30,"fleisch":150,"fisch":150,"ei":60,
-    "quark":150,"skyr":150,"hüttenkäse":150,"kräuterquark":150,"käse":30,"kochsahne":15,
-    "nüsse":30,"samen":20,"nussmus":20,"tk-frucht":100,"gemüse":100,
-    "beilage":60,"nudeln":60,"pasta gefüllt":125,"haferflocken":50,"dinkelflocken":50,"reiswaffeln":20};
-  if(mu[u]!=null) return mu[u];
-  const mk={"proteinpulver":30,"supplement":5,"getränk":250,"fleisch & fisch":150,"snack":20};
-  return mk[k]!=null?mk[k]:100;
+/* Portions-Set: klein / mittel / groß (g bzw. ~ml) – realistisch je Produkttyp,
+   keine festen 0,7/1,4-Multiplikatoren mehr. mittel = Vorbelegung. */
+function tbPortionSet(p){
+  const u=(p.unterkategorie||"").toLowerCase(), k=(p.kategorie||"").toLowerCase(), nm=(p.name||"").toLowerCase();
+  const DRINK=new Set(["getränk","pflanzendrink","protein-pflanzendrink","milch","saft","softdrink","wasser"]);
+  const PIECE={"ei":[60,"Stück"],"brot":[45,"Scheibe"],"brötchen":[60,"Stück"],"knäckebrot":[10,"Scheibe"],"reiswaffeln":[10,"Stück"]};
+  const T={
+    // Milchprodukte
+    "joghurt":[150,200,250],"joghurt natur":[150,200,250],"naturjoghurt":[150,200,250],"griechischer joghurt":[150,200,250],
+    "skyr":[150,200,250],"quark":[150,200,250],"kräuterquark":[150,200,250],"speisequark":[150,200,250],
+    "hüttenkäse":[100,150,200],"pudding":[125,150,200],
+    "käse":[20,30,45],"frischkäse":[20,30,45],"kochsahne":[10,15,30],"sahne":[10,15,30],"butter":[5,10,15],
+    // Getränke (~ml)
+    "getränk":[200,250,330],"pflanzendrink":[200,250,330],"protein-pflanzendrink":[200,250,330],
+    "milch":[200,250,330],"saft":[150,200,250],"softdrink":[200,330,500],"wasser":[200,330,500],
+    // Fleisch & Fisch
+    "fleisch":[100,150,200],"fisch":[100,150,200],"geflügel":[100,150,200],
+    "wurst":[15,30,45],"schinken":[15,30,45],"aufschnitt":[15,30,45],"ei":[60,120,180],
+    // Nüsse / Samen / Snack
+    "nüsse":[15,30,45],"samen":[10,20,30],"nussmus":[15,20,30],"trockenfrüchte":[20,30,50],"datteln":[20,40,60],
+    // Getreide / Beilage (roh/trocken)
+    "haferflocken":[40,50,60],"dinkelflocken":[40,50,60],"müsli":[40,50,60],"reiswaffeln":[10,20,30],
+    "beilage":[60,75,90],"nudeln":[60,75,90],"reis":[60,75,90],"pasta gefüllt":[100,125,150],
+    "brot":[45,90,135],"brötchen":[60,120,180],"knäckebrot":[10,20,30],
+    // Obst / Gemüse
+    "gemüse":[80,120,160],"salat":[50,80,120],"obst":[100,150,200],"tk-frucht":[80,100,150],"frucht":[100,150,200],"champignons":[80,120,160],
+    // Supplements
+    "proteinpulver":[20,30,40],"whey protein":[20,30,40],"whey isolate":[20,30,40],
+    "mehrkomponentenprotein":[20,30,40],"mehrkomponentenprotein (vegan)":[20,30,40],
+    "geschmackspulver":[3,5,8],"getränkepulver / flavour powder":[3,5,8],"elektrolyt-pulver":[5,10,15],"kreatin":[3,5,8],
+    "vitamin-kapseln":[1,2,3],"vitamin-tabletten":[1,2,3],"vitamin-/mineralpulver":[3,5,8],
+    "bitterstoffe":[2,3,5],"kräuter-bitterstoffe":[2,3,5],"süßungsmittel":[1,2,5],"süßstoff-tropfen":[1,2,3]};
+  // 1) Explizite Produkt-Portion (vom Etikett) hat Vorrang
+  const pg=Number(p.portion_g)||0, pe=(p.portion_einheit||"").trim(), peL=pe.toLowerCase();
+  if(pg>0){
+    if(/stück|scheibe|riegel|kapsel|tablette|stk/.test(peL))
+      return {s:pg,m:pg*2,l:pg*3,unit:(pe||"Stück"),piece:pg};
+    const r=x=>Math.max(1,Math.round(x/5)*5);
+    return {s:r(pg*0.7),m:pg,l:r(pg*1.5),unit:(peL==="ml"?"ml":"g"),piece:0};
+  }
+  // 2) Kategorie-Tabelle
+  const out=(a)=>{
+    if(PIECE[u]) return {s:a[0],m:a[1],l:a[2],unit:PIECE[u][1],piece:PIECE[u][0]};
+    const unit=(DRINK.has(u)||k==="getränk")?"ml":"g";
+    return {s:a[0],m:a[1],l:a[2],unit:unit,piece:0};
+  };
+  if(T[u]) return out(T[u]);
+  // Namens-Heuristik für häufige, oft ungenau kategorisierte Fälle
+  if(/joghurt|skyr|\bquark\b/.test(nm)) return out([150,200,250]);
+  if(/käse|cheese/.test(nm)&&!/frischk|hüttenk/.test(nm)) return out([20,30,45]);
+  const TK={"proteinpulver":[20,30,40],"supplement":[2,3,5],"getränk":[200,250,330],
+    "fleisch & fisch":[100,150,200],"snack":[15,25,40],"milchprodukt":[100,150,200],"milchprodukte":[100,150,200]};
+  if(TK[k]) return out(TK[k]);
+  return out([70,100,140]);
 }
+function tbDefaultPortion(p){ return tbPortionSet(p).m; }
 function tbPrefillMenge(){
   const id=tbResolveId(); if(!id) return;
   const p=ALL.find(x=>x.id===id); if(!p) return;
@@ -2239,12 +2288,13 @@ function tbAddPick(i){
   const p=(window._tbAddList||[])[i]; if(!p) return;
   window._tbAddPickId=p.id;
   const box=document.getElementById("tbAddResults"); if(!box) return;
-  const g=tbDefaultPortion(p);
-  const rp=x=>Math.max(1,Math.round(x/5)*5);
-  const sz=(lbl,val)=>'<button type="button" onclick="tbSetSize('+val+')" style="flex:1;padding:7px 4px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt);color:var(--greendk);font-size:12px;line-height:1.25;cursor:pointer">'+lbl+'<br><b>'+val+' g</b></button>';
+  const ps=tbPortionSet(p); const g=ps.m; const unit=ps.unit||'g';
+  const sz=(lbl,val)=>{ let top=lbl, sub=val+' '+unit;
+    if(ps.piece){ const n=Math.round(val/ps.piece); top=n+' '+unit; sub=val+' g'; }
+    return '<button type="button" onclick="tbSetSize('+val+')" style="flex:1;padding:7px 4px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt);color:var(--greendk);font-size:12px;line-height:1.25;cursor:pointer">'+top+'<br><b>'+sub+'</b></button>'; };
   box.innerHTML='<div style="background:#FFFFFF;border:1px solid #E7E0D4;border-radius:12px;padding:12px">'
     +'<div style="font-weight:600;margin-bottom:8px">'+esc(p.name)+(num(p.clean_score)!=null?' <span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(num(p.clean_score)))+'">'+num(p.clean_score)+'</span>':'')+'</div>'
-    +'<div style="display:flex;gap:6px;margin-bottom:8px">'+sz('klein',rp(g*0.7))+sz('mittel',rp(g))+sz('groß',rp(g*1.4))+'</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px">'+sz('klein',ps.s)+sz('mittel',ps.m)+sz('groß',ps.l)+'</div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input id="tbAddMenge" type="number" inputmode="numeric" min="1" value="'+g+'" style="width:84px;flex:0 0 auto;font-size:16px;text-align:center;padding:10px 8px;border:1px solid #E7E0D4;border-radius:10px;background:#F3EFE8;color:#1D3C24"><span style="color:#6B6256">g</span>'
     +'<button onclick="tbAddSave()" style="padding:10px 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Eintragen</button></div>'
     +'<button onclick="tbSetTab(window._tbTab||\'suche\')" style="margin-top:8px;background:none;border:0;color:#6B6256;font-size:12px;cursor:pointer;text-decoration:underline">‹ zurück</button>'
