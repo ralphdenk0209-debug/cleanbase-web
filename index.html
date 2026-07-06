@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-05f pms + nrv-cap -->
+<!-- build 2026-07-05g bedarf-premium-gate -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1146,7 +1146,7 @@ function detail(d){
     ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
     ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:""}
     ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
-    ${naehrstoffHtml(d)}
+    ${_sd ? naehrstoffHtml(d) : ""}
     ${_sd ? premiumBlock : lockedBlock}
   `;
   document.getElementById("overlay").classList.add("open");
