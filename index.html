@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-06h wiki-zusatzstoffe -->
+<!-- build 2026-07-06i breakdown-card -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -85,6 +85,9 @@
   .row .top b{font-weight:600}
   .track{height:9px;background:#eef3ef;border-radius:6px;overflow:hidden}
   .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--green2),var(--green))}
+  details.breakdown>summary{list-style:none}
+  details.breakdown>summary::-webkit-details-marker{display:none}
+  details.breakdown[open]>summary .bdCaret{transform:rotate(180deg)}
   .csRings{display:flex;justify-content:space-between;gap:6px;text-align:center;margin:6px 0 2px}
   .csRing{flex:1;min-width:0}
   .csRing .v{font-size:13px;font-weight:800;fill:var(--ink)}
@@ -1094,7 +1097,32 @@ function detail(d){
     const legend=items.map(it=>'<div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:10px;height:10px;border-radius:2px;background:'+it.col+';flex:0 0 auto"></span><span style="color:var(--muted);flex:1;min-width:0">'+esc(it.short)+'</span><b>'+Math.round(it.pct*100)+'%</b><span style="color:var(--muted);font-size:11px">'+String(Math.round(it.v*10)/10).replace(".",",")+"/"+it.max+'</span></div>').join("");
     return '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:6px 0"><svg viewBox="0 0 130 130" width="130" height="130" style="flex:0 0 auto" role="img" aria-label="Index-Aufschlüsselung"><title>Root Index Aufschlüsselung</title>'+rings+'</svg><div style="flex:1;min-width:150px;display:flex;flex-direction:column;gap:7px">'+legend+'</div></div>';
   };
-  const rows = mkRings(SCORE_TEIL);
+  const mkBreakdown = arr => {
+    const COL={Zutaten:"#22c55e",Zusatzstoffe:"#3987e5",NOVA:"#9085e9","Nährwert":"#f0a020"};
+    const DESC={Zutaten:"Qualität der Zutaten – Vollwert statt verarbeitet",Zusatzstoffe:"gesundheitliche Bedenklichkeit der Zusatzstoffe",NOVA:"Verarbeitungsgrad der Zutaten (NOVA)","Nährwert":"Zucker, Fett, Salz, Ballaststoffe & Eiweiß"};
+    const items=arr.map(([k,label,max,mult,short])=>{const m=mult||1;const raw=num(d[k]);const v=raw===null?null:raw*m;return {short:short||label,max,v,col:COL[short]||"#22c55e",desc:DESC[short]||""};}).filter(it=>it.v!==null);
+    if(!items.length) return "";
+    const parts=items.map(it=>Math.round(it.v));
+    const sum=parts.reduce((a,b)=>a+b,0);
+    const maxsum=items.reduce((a,it)=>a+it.max,0);
+    let weak=null; items.forEach(it=>{const p=it.v/it.max; if(weak===null||p<weak.p) weak={p,short:it.short};});
+    const bars=items.map(it=>{
+      const pct=Math.max(0,Math.min(100,(it.v/it.max)*100));
+      const vtxt=String(Math.round(it.v*10)/10).replace(".",",");
+      return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><span style="font-size:13.5px;font-weight:600">'+esc(it.short)+'</span><span style="font-size:12.5px;color:var(--muted)"><b style="color:'+it.col+'">'+vtxt+'</b> / '+it.max+'</span></div>'
+        +'<div style="height:8px;background:var(--line);border-radius:4px;overflow:hidden"><div style="width:'+pct.toFixed(0)+'%;height:100%;background:'+it.col+'"></div></div>'
+        +(it.desc?'<div style="font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.35">'+esc(it.desc)+'</div>':'')
+        +'</div>';
+    }).join("");
+    const sumline=parts.join(" + ")+" = "+sum+" Punkte";
+    return '<details class="breakdown" style="margin:6px 0 2px">'
+      +'<summary style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;background:var(--card);border:1px solid var(--line);border-radius:12px;font-size:13.5px;font-weight:600"><span>📊 Index-Aufschlüsselung ansehen</span><span style="color:var(--muted);font-size:12px;white-space:nowrap">'+sum+'/'+maxsum+' <span class="bdCaret" style="display:inline-block;transition:transform .15s">▾</span></span></summary>'
+      +'<div style="padding:14px 4px 2px">'+bars
+      +'<div style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px;font-size:12.5px;color:var(--muted)">'+sumline+'</div>'
+      +(weak?'<div style="font-size:12px;line-height:1.45;margin-top:10px;padding:8px 11px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:9px;color:#1e3a8a">Größter Abzug: <b>'+esc(weak.short)+'</b> – hier verliert das Produkt anteilig die meisten Punkte.</div>':'')
+      +'</div></details>';
+  };
+  const rows = mkBreakdown(SCORE_TEIL);
   const zlist = Array.isArray(d.zutaten) ? d.zutaten : [];
   const neutralZ = d.zusatz && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||""));
   const zHtml = zlist.length ? zlist.map(z=>{
