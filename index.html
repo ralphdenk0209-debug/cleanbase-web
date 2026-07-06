@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-05g bedarf-premium-gate -->
+<!-- build 2026-07-06a login-check + user-delete -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -714,10 +714,15 @@ async function sendMagic(){
   const email=(document.getElementById("loginEmail").value||"").trim();
   const msg=document.getElementById("loginMsg");
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.style.color="#dc2626"; msg.textContent="Bitte eine gültige E-Mail eingeben."; return; }
-  msg.style.color="#374151"; msg.textContent="⏳ Sende Magic-Link…";
-  const {error}=await client.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.origin+location.pathname } });
+  msg.style.color="#374151"; msg.textContent="⏳ Prüfe E-Mail…";
+  let exists=false; try{ const r=await client.rpc("cb_email_exists",{p_email:email}); exists=!!r.data; }catch(e){}
+  msg.textContent = exists?"⏳ Sende Anmeldelink…":"⏳ Neues Konto – sende Bestätigungslink…";
+  const {error}=await client.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.origin+location.pathname, shouldCreateUser: !exists } });
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
-  msg.style.color="#16a34a"; msg.innerHTML="✅ Link gesendet an <b>"+esc(email)+"</b>. Öffne die Mail auf diesem Gerät und tippe den Link.";
+  msg.style.color="#16a34a";
+  msg.innerHTML = exists
+    ? "✅ Anmeldelink gesendet an <b>"+esc(email)+"</b>. Öffne die Mail auf diesem Gerät und tippe den Link."
+    : "🆕 <b>"+esc(email)+"</b> ist noch nicht registriert – wir richten dein <b>kostenloses Konto</b> ein. Bestätigungslink gesendet.";
 }
 async function loginPassword(){
   const email=(document.getElementById("loginEmail").value||"").trim();
@@ -734,12 +739,15 @@ async function requestCode(){
   const email=(document.getElementById("loginEmail").value||"").trim();
   const msg=document.getElementById("loginMsg");
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.style.color="#dc2626"; msg.textContent="Bitte oben eine gültige E-Mail eingeben."; return; }
-  msg.style.color="#374151"; msg.textContent="⏳ Sende Code…";
-  const {error}=await client.auth.signInWithOtp({ email, options:{ shouldCreateUser:true } });
+  msg.style.color="#374151"; msg.textContent="⏳ Prüfe E-Mail…";
+  let exists=false; try{ const r=await client.rpc("cb_email_exists",{p_email:email}); exists=!!r.data; }catch(e){}
+  msg.textContent = exists?"⏳ Sende Code…":"⏳ Neues Konto – sende Code…";
+  const {error}=await client.auth.signInWithOtp({ email, options:{ shouldCreateUser: !exists } });
   if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; return; }
   document.getElementById("codeBox").style.display="block";
   const ci=document.getElementById("loginCode"); if(ci) setTimeout(()=>ci.focus(),60);
-  msg.style.color="#16a34a"; msg.innerHTML="✅ Code an <b>"+esc(email)+"</b> gesendet. Bitte den 6-stelligen Code aus der E-Mail eingeben.";
+  msg.style.color="#16a34a";
+  msg.innerHTML = (exists?"✅ Code an <b>":"🆕 Neues Konto – Code an <b>")+esc(email)+"</b> gesendet. Bitte den 6-stelligen Code aus der E-Mail eingeben.";
 }
 async function verifyCode(){
   const email=(document.getElementById("loginEmail").value||"").trim();
@@ -3907,7 +3915,9 @@ function renderUsers(rows){
       +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+_uDate(u.angelegt_am)+'</td>'
       +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+(u.is_premium?_uDate(u.premium_since):'–')+'</td>'
       +'<td style="'+td+';text-align:center"><input type="checkbox" '+(u.is_admin?'checked':'')+' onchange="setUserAdmin(\''+u.benutzer_id+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:#16a34a"></td>'
-      +'<td style="'+td+';text-align:center"><button onclick="adminSetPassword(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">🔑</button></td>'
+      +'<td style="'+td+';text-align:center;white-space:nowrap"><button onclick="adminSetPassword(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">🔑</button>'
+      +(u.is_admin?'':'<button title="Nutzer löschen" onclick="adminDeleteUser(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="margin-left:6px;padding:6px 9px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:12.5px">🗑️</button>')
+      +'</td>'
       +'</tr>';
   });
   h+='</table></div><div id="usersMsg" style="font-size:13px;margin-top:8px;height:18px"></div>';
@@ -3918,6 +3928,14 @@ async function setUserPremium(bid,val){
   const {error}=await client.rpc("cb_user_premium_set",{p_bid:bid,p_premium:val});
   if(error){ userErr(msg,error); loadUsers(); return; }
   if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; setTimeout(()=>{ if(msg) msg.textContent=""; },1200); }
+  loadUsers();
+}
+async function adminDeleteUser(bid,name){
+  if(!confirm('Nutzer „'+name+'" wirklich unwiderruflich löschen? Konto + Tagebuch/Gewichtsverlauf werden entfernt.')) return;
+  const msg=document.getElementById("usersMsg");
+  const {data,error}=await client.rpc("cb_user_delete",{p_bid:bid});
+  if(error){ userErr(msg,error); return; }
+  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ Nutzer gelöscht"; setTimeout(()=>{ if(msg) msg.textContent=""; },1500); }
   loadUsers();
 }
 async function adminSetPassword(bid,name){
