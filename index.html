@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-06i breakdown-card -->
+<!-- build 2026-07-06j ringe+abzug -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1097,32 +1097,18 @@ function detail(d){
     const legend=items.map(it=>'<div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:10px;height:10px;border-radius:2px;background:'+it.col+';flex:0 0 auto"></span><span style="color:var(--muted);flex:1;min-width:0">'+esc(it.short)+'</span><b>'+Math.round(it.pct*100)+'%</b><span style="color:var(--muted);font-size:11px">'+String(Math.round(it.v*10)/10).replace(".",",")+"/"+it.max+'</span></div>').join("");
     return '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:6px 0"><svg viewBox="0 0 130 130" width="130" height="130" style="flex:0 0 auto" role="img" aria-label="Index-Aufschlüsselung"><title>Root Index Aufschlüsselung</title>'+rings+'</svg><div style="flex:1;min-width:150px;display:flex;flex-direction:column;gap:7px">'+legend+'</div></div>';
   };
-  const mkBreakdown = arr => {
-    const COL={Zutaten:"#22c55e",Zusatzstoffe:"#3987e5",NOVA:"#9085e9","Nährwert":"#f0a020"};
-    const DESC={Zutaten:"Qualität der Zutaten – Vollwert statt verarbeitet",Zusatzstoffe:"gesundheitliche Bedenklichkeit der Zusatzstoffe",NOVA:"Verarbeitungsgrad der Zutaten (NOVA)","Nährwert":"Zucker, Fett, Salz, Ballaststoffe & Eiweiß"};
-    const items=arr.map(([k,label,max,mult,short])=>{const m=mult||1;const raw=num(d[k]);const v=raw===null?null:raw*m;return {short:short||label,max,v,col:COL[short]||"#22c55e",desc:DESC[short]||""};}).filter(it=>it.v!==null);
+  const rows = mkRings(SCORE_TEIL);
+  const mkAbzug = arr => {
+    const REASON={Zutaten:"Zutaten nicht durchweg als Vollwert bewertet",Zusatzstoffe:"enthält Zusatzstoffe",NOVA:"höherer Verarbeitungsgrad (NOVA)","Nährwert":"Nährwertprofil pro 100 g (Zucker, Fett, Salz, Ballaststoffe, Eiweiß)"};
+    const items=arr.map(([k,label,max,mult,short])=>{const m=mult||1;const raw=num(d[k]);const v=raw===null?null:raw*m;return {short:short||label,max,v};}).filter(it=>it.v!==null && it.v < it.max-0.01);
     if(!items.length) return "";
-    const parts=items.map(it=>Math.round(it.v));
-    const sum=parts.reduce((a,b)=>a+b,0);
-    const maxsum=items.reduce((a,it)=>a+it.max,0);
-    let weak=null; items.forEach(it=>{const p=it.v/it.max; if(weak===null||p<weak.p) weak={p,short:it.short};});
-    const bars=items.map(it=>{
-      const pct=Math.max(0,Math.min(100,(it.v/it.max)*100));
-      const vtxt=String(Math.round(it.v*10)/10).replace(".",",");
-      return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><span style="font-size:13.5px;font-weight:600">'+esc(it.short)+'</span><span style="font-size:12.5px;color:var(--muted)"><b style="color:'+it.col+'">'+vtxt+'</b> / '+it.max+'</span></div>'
-        +'<div style="height:8px;background:var(--line);border-radius:4px;overflow:hidden"><div style="width:'+pct.toFixed(0)+'%;height:100%;background:'+it.col+'"></div></div>'
-        +(it.desc?'<div style="font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.35">'+esc(it.desc)+'</div>':'')
-        +'</div>';
+    const lines=items.map(it=>{
+      const lost=Math.round((it.max-it.v)*10)/10;
+      return '<div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:0 0 96px;font-weight:600;font-size:13px">'+esc(it.short)+'</span><span style="flex:1;min-width:0;font-size:12.5px;color:var(--muted);line-height:1.4">'+esc(REASON[it.short]||"")+' <span style="white-space:nowrap;color:#dc2626">(&minus;'+String(lost).replace(".",",")+')</span></span></div>';
     }).join("");
-    const sumline=parts.join(" + ")+" = "+sum+" Punkte";
-    return '<details class="breakdown" style="margin:6px 0 2px">'
-      +'<summary style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;background:var(--card);border:1px solid var(--line);border-radius:12px;font-size:13.5px;font-weight:600"><span>📊 Index-Aufschlüsselung ansehen</span><span style="color:var(--muted);font-size:12px;white-space:nowrap">'+sum+'/'+maxsum+' <span class="bdCaret" style="display:inline-block;transition:transform .15s">▾</span></span></summary>'
-      +'<div style="padding:14px 4px 2px">'+bars
-      +'<div style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px;font-size:12.5px;color:var(--muted)">'+sumline+'</div>'
-      +(weak?'<div style="font-size:12px;line-height:1.45;margin-top:10px;padding:8px 11px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:9px;color:#1e3a8a">Größter Abzug: <b>'+esc(weak.short)+'</b> – hier verliert das Produkt anteilig die meisten Punkte.</div>':'')
-      +'</div></details>';
+    return '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Warum nicht die volle Punktzahl?</div>'+lines;
   };
-  const rows = mkBreakdown(SCORE_TEIL);
+  const abzug = mkAbzug(SCORE_TEIL);
   const zlist = Array.isArray(d.zutaten) ? d.zutaten : [];
   const neutralZ = d.zusatz && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||""));
   const zHtml = zlist.length ? zlist.map(z=>{
@@ -1153,14 +1139,13 @@ function detail(d){
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Root Index</div>
     ${sonderHint}
     ${rows}
+    ${abzug}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Zutaten</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#1f5e34;margin-right:3px"></span>gut (Vollwert) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8920c;margin-right:3px"></span>mittel (verarbeitet) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px"></span>kritisch ⚠️</div>
     <div>${zHtml}</div>
-    ${zInfoHtml}
     ${(d.zusatz && d.zusatz.info && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||"")))?`<div style="margin-top:8px;font-size:12.5px;line-height:1.45;padding:8px 11px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:9px;color:#1e3a8a"><b>* ${esc(d.zusatz.text||"Zusatzstoff")}</b> – technologisch notwendig &amp; unbedenklich, zählt nicht negativ. ${esc(d.zusatz.info)}</div>`:""}
     ${d.warum?`<div class="note"><h4>Warum empfohlen</h4>${esc(d.warum)}</div>`:""}
     ${d.schwaechen?`<div class="note teilhint"><h4>Schwächen</h4>${esc(d.schwaechen)}</div>`:""}
-    ${d.clean_score!=null?`<div class="note" style="margin-top:14px"><h4>Stärken des Produkts</h4>${esc(erklaerung(d))}</div>`:""}
   `;
   const lockedBlock = `
     ${d.schwaechen?`<div class="note teilhint" style="margin-top:8px"><b>Kurz:</b> ${esc(d.schwaechen)}</div>`:""}
