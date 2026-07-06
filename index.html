@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-06k admin-bottomnav -->
+<!-- build 2026-07-06l checkout-legal -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -665,9 +665,11 @@ function mountTierOvChip(){
   document.body.appendChild(c);
 }
 async function refreshMyFeatures(){ try{ const {data}=await client.rpc("cb_my_features"); MY_FEATURES=new Set((data||[]).map(x=>x.feature_key)); }catch(e){ MY_FEATURES=null; } }
-async function _startCheckout(plan){
+async function _startCheckout(plan, consent){
   try{
-    const {data,error}=await client.functions.invoke('stripe-checkout',{ body:{ plan: plan||'month' } });
+    // Zustimmung (Zeitstempel + Text) best-effort persistieren; Fehler nicht blockierend
+    if(consent){ try{ await client.rpc("cb_consent_speichern",{p_consent: consent}); }catch(_){} }
+    const {data,error}=await client.functions.invoke('stripe-checkout',{ body:{ plan: plan||'month', consent: consent||null } });
     if(error||!data||!data.url) throw new Error((data&&data.error)||'no url');
     window.location.href=data.url;
   }catch(e){
@@ -688,18 +690,19 @@ function premiumInfo(){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
   ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink,#1D3C24);max-width:430px;width:100%;max-height:92vh;overflow:auto;border-radius:16px;padding:20px;box-shadow:0 12px 44px rgba(0,0,0,.32)">'
    +'<div style="font-size:18px;font-weight:800;margin-bottom:4px">Premium – 7 Tage gratis 🌱</div>'
-   +'<p style="font-size:13.5px;color:var(--muted);line-height:1.5;margin:.2em 0 12px">7 Tage kostenlos testen, danach der gewählte Tarif. Jederzeit kündbar über das Stripe-Portal – wirksam zum Ende des laufenden Abrechnungszeitraums.</p>'
+   +'<p style="font-size:13.5px;color:var(--muted);line-height:1.5;margin:.2em 0 10px">7 Tage kostenlos testen. Nach Ablauf der 7-tägigen Testphase wird automatisch der gewählte Tarif berechnet, sofern nicht vorher gekündigt wird. Jederzeit zum Ende des laufenden Abrechnungszeitraums kündbar über das Stripe-Portal.</p>'
+   +'<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">Alle Preise inklusive gesetzlicher Mehrwertsteuer.</p>'
    +_planRow('month','Monatlich','4,99 €/Monat','flexibel, monatlich kündbar','',true)
    +_planRow('quarter','Vierteljährlich','12,99 €','4,33 €/Monat','−13%',false)
    +_planRow('year','Jährlich','44,99 €','3,75 €/Monat · 2 Monate geschenkt','−25%',false)
    +'<label style="display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.45;cursor:pointer;background:var(--greenlt);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:4px">'
    +'<input type="checkbox" id="premConsent" onchange="var b=document.getElementById(\'premGo\');b.disabled=!this.checked;b.style.opacity=this.checked?\'1\':\'.5\'" style="margin-top:2px;flex:0 0 auto;width:18px;height:18px">'
-   +'<span>Ich stimme zu, dass der Zugang zu Premium <b>sofort beginnt</b>, und weiß, dass ich damit mein <b>Widerrufsrecht verliere</b>.</span></label>'
+   +'<span>Ich verlange ausdrücklich, dass Root Index die digitale Leistung bereits <b>vor Ablauf der Widerrufsfrist</b> bereitstellt. Mir ist bekannt, dass ich mit Beginn der Vertragserfüllung mein <b>Widerrufsrecht verliere</b>.</span></label>'
    +'<div style="display:flex;gap:8px;margin-top:14px">'
    +'<button onclick="document.getElementById(\'premOv\').remove()" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:14px">Abbrechen</button>'
-   +'<button id="premGo" disabled onclick="var p=(document.querySelector(\'input[name=premPlan]:checked\')||{}).value||\'month\';document.getElementById(\'premOv\').remove();_startCheckout(p)" style="flex:1;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:14px;opacity:.5">Jetzt starten</button>'
+   +'<button id="premGo" disabled onclick="var p=(document.querySelector(\'input[name=premPlan]:checked\')||{}).value||\'month\';var cb=document.getElementById(\'premConsent\');var consent={zugestimmt:!!(cb&&cb.checked),zeitpunkt:new Date().toISOString(),text:(cb?cb.parentNode.innerText.trim():\'\'),tarif:p};document.getElementById(\'premOv\').remove();_startCheckout(p,consent)" style="flex:1;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:14px;opacity:.5">Jetzt kostenpflichtig testen</button>'
    +'</div>'
-   +'<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center">Mit „Jetzt starten" akzeptierst du <a onclick="legalOpen(\'agb\')" style="color:var(--greendk);text-decoration:underline;cursor:pointer">AGB</a> &amp; <a onclick="legalOpen(\'widerruf\')" style="color:var(--greendk);text-decoration:underline;cursor:pointer">Widerrufsbelehrung</a>.</div>'
+   +'<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;line-height:1.5">Mit Klick auf „Jetzt kostenpflichtig testen" akzeptierst du die <a onclick="legalOpen(\'agb\')" style="color:var(--greendk);text-decoration:underline;cursor:pointer">AGB</a>, die <a onclick="legalOpen(\'datenschutz\')" style="color:var(--greendk);text-decoration:underline;cursor:pointer">Datenschutzerklärung</a> und die <a onclick="legalOpen(\'widerruf\')" style="color:var(--greendk);text-decoration:underline;cursor:pointer">Widerrufsbelehrung</a>.</div>'
    +'</div>';
   document.body.appendChild(ov);
 }
@@ -1579,7 +1582,7 @@ function legalOpen(which){
   const agb = H("Allgemeine Geschäftsbedingungen (AGB) – Root Index Premium")
     +H("§ 1 Geltungsbereich, Anbieter")+P("Diese AGB gelten für das kostenpflichtige Angebot „Root Index Premium“ unter root-index.de. Anbieter und Vertragspartner: <b>Sandra Denk, Auweg 23, 84103 Postau, Deutschland</b>, E-Mail: ralph@root-index.de. Kleinunternehmerin gemäß § 19 UStG – es wird keine Umsatzsteuer ausgewiesen.")
     +H("§ 2 Leistungsgegenstand")+P("Root Index ist eine informations- und wissenschaftsbasierte Bewertungs- und Tagebuch-Anwendung. Bewertungen (0–100) dienen der Orientierung und sind <b>keine medizinische Beratung</b>. Der kostenlose Bereich (Free) ist ohne Zahlungspflicht nutzbar. Premium schaltet u. a. frei: detaillierte Aufschlüsselung der Bewertung, Bedarfsdeckung, volles Ernährungs- & Trainingstagebuch, Wochen-/Trainingsplaner, eigene Rezepte. Der aktuelle Funktionsumfang wird vor Vertragsschluss angezeigt. Premium ist eine digitale Dienstleistung (§§ 327 ff. BGB).")
-    +H("§ 3 Vertragsschluss")+P("Für die Nutzung ist ein Konto erforderlich (Anmeldung per E-Mail/Anmeldelink). Der kostenpflichtige Vertrag kommt zustande, indem du den Bestellvorgang über den Zahlungsdienstleister Stripe abschließt und die Zahlungspflicht mit „Jetzt starten“ bestätigst.")
+    +H("§ 3 Vertragsschluss")+P("Für die Nutzung ist ein Konto erforderlich (Anmeldung per E-Mail/Anmeldelink). Der kostenpflichtige Vertrag kommt zustande, indem du den Bestellvorgang über den Zahlungsdienstleister Stripe abschließt und die Zahlungspflicht mit „Jetzt kostenpflichtig testen“ bestätigst.")
     +H("§ 4 Kostenloser Testzeitraum (7 Tage)")+P("Neukund:innen erhalten 7 Tage kostenlosen Test. Ohne Kündigung vor Ablauf geht der Test automatisch in ein kostenpflichtiges Abo über. Die Kündigung während des Tests ist jederzeit über das Stripe-Kundenportal möglich.")
     +H("§ 5 Preise & Zahlung")+P("Premium kostet je nach Zeitraum: monatlich 4,99 €, vierteljährlich 12,99 € (4,33 €/Monat) oder jährlich 44,99 € (3,75 €/Monat). Als Kleinunternehmerin wird keine USt. ausgewiesen. Zahlung über Stripe; die Abrechnung erfolgt im Voraus.")
     +H("§ 6 Laufzeit & Kündigung")+P("Das Abo verlängert sich automatisch um den gewählten Abrechnungszeitraum. Es ist <b>jederzeit zum Ende des laufenden Abrechnungszeitraums</b> kündbar – ohne Angabe von Gründen über „Abo verwalten / kündigen“ (Stripe-Kundenportal, § 312k BGB). Das Recht zur außerordentlichen Kündigung bleibt unberührt.")
@@ -1592,7 +1595,7 @@ function legalOpen(which){
     +H("Widerrufsrecht")+P("Du hast das Recht, binnen <b>vierzehn Tagen</b> ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsschlusses.")
     +P("Um dein Widerrufsrecht auszuüben, musst du uns – <b>Sandra Denk, Auweg 23, 84103 Postau, E-Mail: ralph@root-index.de</b> – mittels einer eindeutigen Erklärung (z. B. eine E-Mail) über deinen Entschluss, diesen Vertrag zu widerrufen, informieren. Zur Wahrung der Frist reicht die rechtzeitige Absendung.")
     +H("Folgen des Widerrufs")+P("Wenn du diesen Vertrag widerrufst, erstatten wir dir alle erhaltenen Zahlungen unverzüglich und spätestens binnen vierzehn Tagen ab Eingang deines Widerrufs, über dasselbe Zahlungsmittel wie bei der ursprünglichen Transaktion; Entgelte für die Rückzahlung entstehen dir nicht.")
-    +H("Vorzeitiges Erlöschen (digitale Dienstleistung)")+P("Das Widerrufsrecht <b>erlischt</b>, wenn du ausdrücklich zugestimmt hast, dass wir mit der Ausführung vor Ablauf der Widerrufsfrist beginnen, und du bestätigt hast, dass du dadurch dein Widerrufsrecht verlierst (§ 356 Abs. 5 BGB). Diese Zustimmung erteilst du über die Pflicht-Checkbox vor „Jetzt starten“.")
+    +H("Vorzeitiges Erlöschen (digitale Dienstleistung)")+P("Das Widerrufsrecht <b>erlischt</b>, wenn du ausdrücklich zugestimmt hast, dass wir mit der Ausführung vor Ablauf der Widerrufsfrist beginnen, und du bestätigt hast, dass du dadurch dein Widerrufsrecht verlierst (§ 356 Abs. 5 BGB). Diese Zustimmung erteilst du über die Pflicht-Checkbox vor „Jetzt kostenpflichtig testen“.")
     +H("Kündigung & Laufzeit")+P("Testphase (7 Tage): jederzeit kündbar; ohne Kündigung Übergang ins kostenpflichtige Abo. Danach jederzeit kündbar über das Stripe-Kundenportal; wirksam zum Ende des laufenden Abrechnungszeitraums.")
     +P("<i>Stand: Juli 2026.</i>");
   const body = which==='datenschutz'?ds : which==='agb'?agb : which==='widerruf'?widerruf : impressum;
