@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-06j ringe+abzug -->
+<!-- build 2026-07-06k admin-bottomnav -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1680,7 +1680,7 @@ function wikiOpen(){
 let ADMIN_MODE=(location.hash==='#admin');
 function applyAdminMode(){
   if(!ADMIN_MODE) return;
-  const bn=document.querySelector('.bottomnav'); if(bn) bn.style.display='none';
+  const bn=document.querySelector('.bottomnav'); if(bn) bn.style.display='';
   const ms=document.getElementById('mehrSheet'); if(ms) ms.style.display='none';
   if(!document.getElementById('adminNav')){
     const c=document.querySelector('.container');
