@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-06b training-gate -->
+<!-- build 2026-07-06c free-tier: tagebuch-heute + einkauf + favoriten -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -241,18 +241,19 @@
     <div id="tbInner" style="max-width:600px;margin:0 auto;--tb-card:#FFFFFF;--tb-card2:#EFE9DE;--tb-line:#E7E0D4;--tb-text:#1D3C24;--tb-muted:#6B6256;--tb-track:#E7E0D4;--tb-input:#FBF8F2;background:#F3EFE8;color:var(--tb-text);padding:16px;border-radius:18px;box-shadow:0 8px 30px rgba(0,0,0,.28)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <h2 id="tbTitle" style="margin:0;font-size:19px;color:var(--tb-text)">Tagebuch</h2>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div id="tbCtrlHead" style="display:flex;gap:8px;align-items:center">
           <button onclick="toggleTbStatistik()" style="padding:8px 12px;border:1px solid var(--green);border-radius:8px;background:rgba(22,163,74,.16);color:#2E7D32;cursor:pointer;font-size:13px;font-weight:600">📊 Statistik</button>
           <input type="date" id="tbDatum" onchange="loadTagebuch()" style="padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text);color-scheme:light">
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <div id="tbCtrlNav" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
         <button onclick="tbShiftDay(-1)" title="Tag zurück" style="padding:7px 11px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">‹</button>
         <button onclick="tbGoToday()" style="padding:7px 12px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer;font-size:13px">Heute</button>
         <button onclick="tbShiftDay(1)" title="Tag vor" style="padding:7px 11px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">›</button>
         <button onclick="toggleTbKalender()" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:rgba(22,163,74,.16);color:#2E7D32;cursor:pointer;font-size:13px;font-weight:600">📅 Kalender</button>
         <span id="tbDatumLabel" style="font-size:13px;color:var(--tb-muted);margin-left:2px"></span>
       </div>
+      <div id="tbLimitHint" style="display:none"></div>
       <div id="tbKalBox" style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:12px;margin-bottom:12px"></div>
       <div id="tbStatBox" style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -263,6 +264,10 @@
       <div id="tbZiel" style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
       <div id="tbZyklus"></div>
       <div id="tbListe"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <button onclick="toggleEinkauf('tbEinkBox')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:rgba(22,163,74,.16);color:#2E7D32;cursor:pointer;font-size:13px;font-weight:600">🛒 Einkaufsliste</button>
+      </div>
+      <div id="tbEinkBox" style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-top:12px"></div>
       <div style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-top:12px">
         <div style="font-weight:600;margin-bottom:8px">Gewicht</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -2017,13 +2022,15 @@ async function planDayToTb(ds){
   for(const it of items){ await planToTb(it.eintrag_id,true); }
   alert("✓ "+items.length+" Einträge ins Tagebuch übernommen.");
 }
-async function toggleEinkauf(){
-  const box=document.getElementById("einkaufBox");
+let _einkTarget="einkaufBox";
+async function toggleEinkauf(target){
+  _einkTarget = target || "einkaufBox";
+  const box=document.getElementById(_einkTarget); if(!box) return;
   if(box.style.display!=="none"){ box.style.display="none"; return; }
   box.style.display=""; await loadEinkauf();
 }
 async function loadEinkauf(){
-  const box=document.getElementById("einkaufBox"); box.innerHTML='<div style="color:var(--muted);font-size:13px">Lade…</div>';
+  const box=document.getElementById(_einkTarget); if(!box) return; box.innerHTML='<div style="color:var(--muted);font-size:13px">Lade…</div>';
   let rows=[]; try{ const {data}=await client.rpc("cb_einkauf_list"); rows=data||[]; }catch(e){}
   const offen=rows.filter(r=>!r.erledigt), erl=rows.filter(r=>r.erledigt);
   const row=(r,done)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #f3f6f4">
@@ -2105,7 +2112,8 @@ async function termSave(){
 async function termClick(id){ if(!confirm("Diesen Eintrag löschen?")) return; await client.rpc("cb_termin_del",{p_eintrag:id}); renderPlaner(); }
 async function loadTagebuch(){
   const gate=document.getElementById("tbGate"), inner=document.getElementById("tbInner");
-  if(!ME || !hasFeat('tagebuch')){
+  const _full=hasFeat('tagebuch'), _heute=hasFeat('tagebuch_heute');
+  if(!ME || !(_full||_heute)){
     if(inner) inner.style.display="none";
     if(gate){ gate.style.display=""; gate.innerHTML=gateHtml(); }
     return;
@@ -2113,7 +2121,19 @@ async function loadTagebuch(){
   if(gate) gate.style.display="none";
   if(inner) inner.style.display="";
   const tt=document.getElementById("tbTitle"); if(tt) tt.textContent="Tagebuch · "+(ME.name||"");
-  const dEl=document.getElementById("tbDatum"); if(!dEl.value) dEl.value=tbToday();
+  const dEl=document.getElementById("tbDatum");
+  const _limited=_heute && !_full;
+  const _ch=document.getElementById("tbCtrlHead"), _cn=document.getElementById("tbCtrlNav"), _lh=document.getElementById("tbLimitHint");
+  if(_limited){
+    dEl.value=tbToday();
+    if(_ch)_ch.style.display="none"; if(_cn)_cn.style.display="none";
+    const _sb=document.getElementById("tbStatBox"); if(_sb)_sb.style.display="none";
+    const _kb=document.getElementById("tbKalBox"); if(_kb)_kb.style.display="none";
+    if(_lh){ _lh.style.display=""; _lh.innerHTML='<div style="background:var(--greenlt);border:1px solid var(--green);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--greendk);line-height:1.5">🔒 <b>Free:</b> Du trackst den <b>heutigen Tag</b>. Verlauf, Auswertung &amp; weitere Tage gibt es mit Premium. <button onclick="'+(ME?'premiumInfo':'openLogin')+'()" style="margin-top:6px;display:block;padding:7px 13px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;font-weight:600;cursor:pointer">Premium – 7 Tage gratis</button></div>'; }
+  } else {
+    if(_ch)_ch.style.display=""; if(_cn)_cn.style.display=""; if(_lh)_lh.style.display="none";
+    if(!dEl.value) dEl.value=tbToday();
+  }
   if(!ALL.length){ await load(); }
   fillProdList(); loadRezeptDropdown(); loadHistDropdown();
   const datum=dEl.value;
