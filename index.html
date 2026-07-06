@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-06a login-check + user-delete -->
+<!-- build 2026-07-06b training-gate -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -2849,8 +2849,7 @@ const TF_SMILEYS=["😣","🙁","😐","🙂","😄"];
 const MASS=[["po","Po","Po"],["huefte","Hüfte","Huefte"],["beine","Beine","Beine"],["oberarm","Oberarm","Oberarm"],["brust","Brust","Brust"],["taille","Taille","Taille"],["bauch","Bauch","Bauch"],["oberschenkel","Oberschenkel","Oberschenkel"]];
 async function loadTraining(){
   const gate=document.getElementById("trainGate"), body=document.getElementById("trainBody");
-  if(!ME){ gate.style.display=""; body.innerHTML="";
-    gate.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;font-size:14px">Bitte zuerst <a href="#" onclick="openLogin();return false" style="color:var(--green)">anmelden</a>, um dein Training zu verwalten.</div>'; return; }
+  if(!ME || !hasFeat('planer')){ gate.style.display=""; body.innerHTML=""; gate.innerHTML=gateHtml(); return; }
   gate.style.display="none"; body.innerHTML='<div style="color:var(--muted)">Lade…</div>';
   try{
     const [rp,rk,rh,rt]=await Promise.all([
