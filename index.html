@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-05d wiki-pms -->
+<!-- build 2026-07-05f pms + nrv-cap -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1158,8 +1158,8 @@ function naehrstoffHtml(d){
   const rows=ns.map(x=>{
     const menge=(x.menge!=null?(String(x.menge).replace(/\.0+$/,'').replace('.',',')+' '+esc(x.einheit||'')):'');
     let right;
-    if(x.nrv!=null){ const pct=Math.round(x.nrv); const w=Math.max(4,Math.min(100,pct));
-      right='<div style="flex:0 0 118px;display:flex;align-items:center;gap:7px;justify-content:flex-end"><div style="flex:1;height:6px;background:var(--line);border-radius:4px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:var(--green)"></div></div><span style="font-weight:700;color:var(--greendk);min-width:44px;text-align:right">'+pct+'%</span></div>';
+    if(x.nrv!=null){ const pct=Math.round(x.nrv); const w=Math.max(4,Math.min(100,pct)); const lbl=(pct>1000?'&gt;1000':pct)+'%';
+      right='<div style="flex:0 0 118px;display:flex;align-items:center;gap:7px;justify-content:flex-end"><div style="flex:1;height:6px;background:var(--line);border-radius:4px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:var(--green)"></div></div><span style="font-weight:700;color:var(--greendk);min-width:52px;text-align:right">'+lbl+'</span></div>';
     } else { right='<span style="flex:0 0 118px;text-align:right;font-size:11px;color:var(--muted);line-height:1.2">kein offizieller<br>Tagesbedarf</span>'; }
     return '<div style="display:flex;align-items:center;gap:14px;padding:9px 2px;border-top:1px solid var(--line)">'
       +'<span style="flex:1 1 auto;min-width:0;font-size:13px">'+esc(x.n)+'</span>'
