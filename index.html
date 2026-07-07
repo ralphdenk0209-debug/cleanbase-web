@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07a kontaktformular -->
+<!-- build 2026-07-07b kontakt-prefill -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1583,6 +1583,7 @@ async function ktSend(){
   }catch(e){ msg.style.color='#dc2626'; msg.textContent='Fehler: '+(e.message||'bitte spaeter erneut'); }
 }
 async function ktErledigt(id){ try{ await client.rpc("cb_admin_kontakt_erledigt",{p_id:id}); }catch(e){} loadFreigabe(); }
+function ktAnlegen(i){ const x=(window._ktList||[])[i]; if(!x){ openFgEditor(null); return; } openFgEditor(null, {name:x.produktname, marke:x.marke, ean:x.barcode}); }
 function buildMehr(){
   const items=[['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
   let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
@@ -2738,8 +2739,9 @@ async function loadFreigabe(){
   }catch(e){ const me=document.getElementById("fgMeldungen"); if(me) me.innerHTML='<span style="color:var(--muted)">—</span>'; }
   try{
     const {data:kd}=await client.rpc("cb_admin_kontakt_liste");
+    window._ktList=kd||[];
     const ke=document.getElementById("fgKontakt");
-    if(ke){ ke.innerHTML=(kd&&kd.length)? kd.map(function(x){
+    if(ke){ ke.innerHTML=(kd&&kd.length)? kd.map(function(x,i){
       const prod=x.typ==='produkt';
       const meta=[x.name,x.email].filter(Boolean).join(' · ');
       const body=prod
@@ -2747,7 +2749,7 @@ async function loadFreigabe(){
         : esc(x.nachricht||'');
       return '<div style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">'
         +'<div style="min-width:0;flex:1"><span style="font-size:11px;font-weight:700;color:'+(prod?'#166534':'#0369a1')+';background:'+(prod?'#dcfce7':'#e0f2fe')+';border-radius:999px;padding:2px 8px">'+(prod?'Produkt fehlt':'Frage')+'</span> '+body+(meta?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc(meta)+'</div>':'')+'</div>'
-        +'<div style="display:flex;gap:6px;flex:0 0 auto">'+(prod?'<button onclick="openFgEditor(null)" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px">Produkt anlegen</button>':'')+'<button onclick="ktErledigt('+x.id+')" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Erledigt</button></div>'
+        +'<div style="display:flex;gap:6px;flex:0 0 auto">'+(prod?'<button onclick="ktAnlegen('+i+')" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px">Produkt anlegen</button>':'')+'<button onclick="ktErledigt('+x.id+')" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Erledigt</button></div>'
         +'</div></div>';
     }).join("") : '<span style="color:var(--muted)">keine offenen Anfragen</span>'; }
   }catch(e){ const ke=document.getElementById("fgKontakt"); if(ke) ke.innerHTML='<span style="color:var(--muted)">—</span>'; }
@@ -2878,7 +2880,7 @@ function fgZutAuto(inp){
   if(r) r.value=m.rating; if(k) k.checked=(String(m.kritisch).toLowerCase()==="ja");
 }
 function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.insertAdjacentHTML("beforeend", fgZutRow("",5,"nein")); }
-async function openFgEditor(id){
+async function openFgEditor(id, prefill){
   const panel=document.getElementById("panel");
   let d={id:null,name:"",marke:"",kategorie:"",unterkategorie:"",ean:"",basis:"100g",bild_url:"",status:"",
     naehrwerte:{},zusatzstoffe_text:"keine",zusatzstoffe_status:"keine",suessstoffe:"nein",zutaten:[]};
@@ -2886,6 +2888,8 @@ async function openFgEditor(id){
     const {data,error}=await client.rpc("cb_produkt_edit_get",{p_id:id});
     if(error){ alert("Fehler: "+error.message); return; }
     d=data||d; d.naehrwerte=d.naehrwerte||{}; d.zutaten=d.zutaten||[];
+  } else if(prefill){
+    d.name=prefill.name||d.name; d.marke=prefill.marke||d.marke; d.ean=prefill.ean||d.ean;
   }
   window._fgEdit={ id:id, bild_url:d.bild_url||"" };
   await loadZutatenStamm();
