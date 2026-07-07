@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07g bento-redesign -->
+<!-- build 2026-07-07h bento-redesign -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1564,7 +1564,6 @@ async function renderStart(){
   const dash=document.getElementById("startDash"); if(!dash) return;
   const vorname=(prof.Name||prof.Vorname||"") ? String(prof.Name||prof.Vorname).split(" ")[0] : "";
   const kcalZ=prof.Kalorienziel_kcal,eiwZ=prof.Eiweiss_ziel_g,khZ=prof.KH_ziel_g,fettZ=prof.Fett_ziel_g;
-  const donutsHtml = makroDonut(sum, prof);
   const saetze=log.length, ueb=new Set(log.map(x=>x.uebung)).size, vol=Math.round(log.reduce((a,s)=>a+(s.wiederholungen||0)*(s.gewicht_kg||0),0));
   const trainHtml = saetze
     ? '<div style="font-size:14px">💪 <b>'+ueb+'</b> Übungen · <b>'+saetze+'</b> Sätze · Volumen <b>'+vol+' kg</b></div>'
@@ -1584,7 +1583,7 @@ async function renderStart(){
     +'<button type="button" class="bScan" onclick="startProdScan()">📷 Barcode scannen</button>'
     +'</div></div>'
     +startKennzahlen(sum, prof)
-    +'<div style="'+card+';cursor:pointer" onclick="navTo(\'tagebuch\')"><div style="font-weight:600;margin-bottom:6px">🍽️ Heute – Makros <span style="float:right;color:var(--muted);font-weight:400;font-size:12px">Tagebuch ›</span></div>'+donutsHtml+'</div>'
+    +'<button type="button" onclick="navTo(\'tagebuch\')" style="width:100%;'+card+';display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-size:15px;font-weight:600;color:var(--greendk)">📒 Tagebuch öffnen <span style="color:var(--muted);font-weight:400;font-size:13px">›</span></button>'
     +schritteHtml
     +startRezSucheHtml()+zyklusBundleHtml()+zyklusKomplexeHtml()+unterstuetzenHtml();
   if(ME&&ME.is_premium) renderSchritte();
