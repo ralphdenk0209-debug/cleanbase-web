@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07c admin-mehr-fix -->
+<!-- build 2026-07-07d anfragen-tab-antwort -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -354,6 +354,7 @@
         <button id="fgtProdukte" class="active" onclick="fgTab('produkte')">Produkte</button>
         <button id="fgtBundles" onclick="fgTab('bundles')">Bundles</button>
         <button id="fgtRezepte" onclick="fgTab('rezepte')">Rezepte</button>
+        <button id="fgtKontakt" onclick="fgTab('kontakt')">Anfragen</button>
       </div>
       <div id="fgPanelProdukte">
         <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen, bearbeiten und freischalten. Nur vollständig bewertete Produkte sind freigebbar.</div>
@@ -364,9 +365,6 @@
         <div id="fgMeldungen" style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:6px"></div>
         <h3 style="font-size:16px;margin:18px 0 6px">Scan-Warteschlange (noch ohne Daten)</h3>
         <div id="fgQueue" style="font-size:14px;color:var(--ink);line-height:1.7"></div>
-        <h3 style="font-size:16px;margin:18px 0 6px">Kontakt &amp; Produktanfragen</h3>
-        <div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">Nachrichten und „Produkt fehlt"-Meldungen aus dem Kontaktformular.</div>
-        <div id="fgKontakt" style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:6px"></div>
       </div>
       <div id="fgPanelBundles" style="display:none">
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Benannte Kombinationen mehrerer Produkte (z. B. Frühstücks-Bundle). Nur du (Admin).</div>
@@ -377,6 +375,10 @@
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Häkchen = im kostenlosen Modus sichtbar. Ohne Häkchen nur für zahlende/Trial-Nutzer. Nur du (Admin) kannst das ändern.</div>
         <input id="fgRezSuche" oninput="renderRezepteFree()" placeholder="Rezept suchen…" style="width:100%;max-width:320px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
         <div id="fgRezepteFree" style="font-size:14px;color:var(--ink)"></div>
+      </div>
+      <div id="fgPanelKontakt" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Nachrichten und „Produkt fehlt"-Meldungen aus dem Kontaktformular. Bei angegebener E-Mail kannst du direkt antworten.</div>
+        <div id="fgKontakt" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
       </div>
     </div>
   </div>
@@ -1280,9 +1282,9 @@ function setMode(m){
 }
 function navTo(m){ closeMehr(); setMode(m); }
 function fgTab(t){ window._fgTab=t;
-  var p={produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte'};
+  var p={produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',kontakt:'fgPanelKontakt'};
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
-  ['produkte','bundles','rezepte'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
+  ['produkte','bundles','rezepte','kontakt'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
 }
 function pfTab(name){
   document.querySelectorAll('#pfTabs button').forEach(b=>b.classList.toggle('active', b.dataset.p===name));
@@ -1584,6 +1586,7 @@ async function ktSend(){
 }
 async function ktErledigt(id){ try{ await client.rpc("cb_admin_kontakt_erledigt",{p_id:id}); }catch(e){} loadFreigabe(); }
 function ktAnlegen(i){ const x=(window._ktList||[])[i]; if(!x){ openFgEditor(null); return; } openFgEditor(null, {name:x.produktname, marke:x.marke, ean:x.barcode}); }
+function ktAntwort(i){ const x=(window._ktList||[])[i]; if(!x||!x.email) return; const betr=x.typ==='produkt'?('Deine Produktanfrage: '+(x.produktname||'')):'Deine Nachricht an Root Index'; const body='Hallo'+(x.name?' '+x.name:'')+',\r\n\r\ndanke fuer deine Nachricht an Root Index.\r\n\r\n'; window.location.href='mailto:'+encodeURIComponent(x.email)+'?subject='+encodeURIComponent(betr)+'&body='+encodeURIComponent(body); }
 function buildMehr(){
   const items=[['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
   let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
@@ -2749,7 +2752,7 @@ async function loadFreigabe(){
         : esc(x.nachricht||'');
       return '<div style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">'
         +'<div style="min-width:0;flex:1"><span style="font-size:11px;font-weight:700;color:'+(prod?'#166534':'#0369a1')+';background:'+(prod?'#dcfce7':'#e0f2fe')+';border-radius:999px;padding:2px 8px">'+(prod?'Produkt fehlt':'Frage')+'</span> '+body+(meta?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc(meta)+'</div>':'')+'</div>'
-        +'<div style="display:flex;gap:6px;flex:0 0 auto">'+(prod?'<button onclick="ktAnlegen('+i+')" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px">Produkt anlegen</button>':'')+'<button onclick="ktErledigt('+x.id+')" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Erledigt</button></div>'
+        +'<div style="display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap">'+(x.email?'<button onclick="ktAntwort('+i+')" style="padding:7px 11px;border:1px solid #0ea5e9;border-radius:8px;background:var(--card);color:#0369a1;cursor:pointer;font-size:13px">✉️ Antworten</button>':'')+(prod?'<button onclick="ktAnlegen('+i+')" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px">Produkt anlegen</button>':'')+'<button onclick="ktErledigt('+x.id+')" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Erledigt</button></div>'
         +'</div></div>';
     }).join("") : '<span style="color:var(--muted)">keine offenen Anfragen</span>'; }
   }catch(e){ const ke=document.getElementById("fgKontakt"); if(ke) ke.innerHTML='<span style="color:var(--muted)">—</span>'; }
