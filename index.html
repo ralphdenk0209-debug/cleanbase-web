@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07b kontakt-prefill -->
+<!-- build 2026-07-07c admin-mehr-fix -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1732,7 +1732,7 @@ let ADMIN_MODE=(location.hash==='#admin');
 function applyAdminMode(){
   if(!ADMIN_MODE) return;
   const bn=document.querySelector('.bottomnav'); if(bn) bn.style.display='';
-  const ms=document.getElementById('mehrSheet'); if(ms) ms.style.display='none';
+  const ms=document.getElementById('mehrSheet'); if(ms) ms.style.display='';
   if(!document.getElementById('adminNav')){
     const c=document.querySelector('.container');
     if(c){ const nav=document.createElement('div'); nav.id='adminNav'; nav.style.cssText='display:flex;align-items:center;gap:10px;margin:0 0 14px';
