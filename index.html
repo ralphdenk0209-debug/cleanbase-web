@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07d anfragen-tab-antwort -->
+<!-- build 2026-07-07e anfragen-historie -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -379,6 +379,9 @@
       <div id="fgPanelKontakt" style="display:none">
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Nachrichten und „Produkt fehlt"-Meldungen aus dem Kontaktformular. Bei angegebener E-Mail kannst du direkt antworten.</div>
         <div id="fgKontakt" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
+        <h3 style="font-size:15px;margin:22px 0 4px;color:var(--muted)">Erledigt · Historie</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Bearbeitete Anfragen (auch automatisch angelegte Entwürfe).</div>
+        <div id="fgKontaktHist" style="font-size:14px;color:var(--muted);line-height:1.5"></div>
       </div>
     </div>
   </div>
@@ -2756,6 +2759,16 @@ async function loadFreigabe(){
         +'</div></div>';
     }).join("") : '<span style="color:var(--muted)">keine offenen Anfragen</span>'; }
   }catch(e){ const ke=document.getElementById("fgKontakt"); if(ke) ke.innerHTML='<span style="color:var(--muted)">—</span>'; }
+  try{
+    const {data:kh}=await client.rpc("cb_admin_kontakt_erledigt_liste");
+    const he=document.getElementById("fgKontaktHist");
+    if(he){ he.innerHTML=(kh&&kh.length)? kh.map(function(x){
+      const prod=x.typ==='produkt';
+      const when=x.created_at?new Date(x.created_at).toLocaleDateString('de-DE'):'';
+      const label=prod?('<b>'+esc(x.produktname||'?')+'</b>'+(x.marke?' · '+esc(x.marke):'')):esc((x.nachricht||'').slice(0,90));
+      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span style="min-width:0">'+(prod?'Produkt fehlt':'Frage')+': '+label+'</span><span style="font-size:12px;white-space:nowrap">'+when+'</span></div>';
+    }).join("") : '<span>noch keine erledigten Anfragen</span>'; }
+  }catch(e){ const he=document.getElementById("fgKontaktHist"); if(he) he.innerHTML='<span>—</span>'; }
   loadRezepteFree();
   loadBundles();
   try{ Object.keys(FG_SHOTS).forEach(updateFgShotInfo); }catch(e){}
