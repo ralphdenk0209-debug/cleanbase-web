@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07h bento-redesign -->
+<!-- build 2026-07-07i bento-redesign -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1392,7 +1392,7 @@ function _zkDeckung(p){
   const has=re=>re.test(txt);
   const items=[['Magnesium',has(/magnesium/)],['Omega-3',has(/omega|epa|dha/)],['Vitamin B1',has(/\bb1\b|thiamin/)],['Mönchspfeffer',has(/m[öo]nchspfeffer|vitex/)]];
   const n=items.filter(x=>x[1]).length;
-  return {n, html:items.map(([l,ok])=>'<span style="white-space:nowrap;font-size:11px;color:'+(ok?'#166534':'#b0aca4')+'">'+(ok?'✓':'✗')+' '+l+'</span>').join('&nbsp;&nbsp;')};
+  return {n, html:'<div style="display:flex;flex-wrap:wrap;gap:4px 12px">'+items.map(([l,ok])=>'<span style="white-space:nowrap;font-size:11px;color:'+(ok?'#166534':'#b0aca4')+'">'+(ok?'✓':'✗')+' '+l+'</span>').join('')+'</div>'};
 }
 function zyklusKomplexeHtml(){
   let list=(ALL||[]).filter(p=>String(p.unterkategorie||'').toLowerCase()==='zyklus-komplex' && num(p.clean_score)!=null);
