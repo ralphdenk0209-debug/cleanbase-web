@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07y zyklus-seite+gate-infos+b1-eisen -->
+<!-- build 2026-07-08b zyklus-ende+geraete-autosave+ernform-erklaerung -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -460,7 +460,7 @@
           <label style="font-size:13px;color:var(--ink)">Größe (cm)<input type="number" id="pfGroesse" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
           <label style="font-size:13px;color:var(--ink)">Gewicht (kg)<input type="number" step="0.1" id="pfGewicht" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
           <label style="font-size:13px;color:var(--ink)">Aktivitätslevel<select id="pfAktiv" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option>Sitzend</option><option>Leicht aktiv</option><option>Mäßig aktiv</option><option>Sehr aktiv</option></select></label>
-          <label style="font-size:13px;color:var(--ink)">Ernährungsform<select id="pfErn" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option>Omnivor</option><option>Flexitarisch</option><option>Pescetarisch</option><option>Vegetarisch</option><option>Vegan</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Ernährungsform<select id="pfErn" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option value="Omnivor">Omnivor (isst alles, auch Fleisch &amp; Fisch)</option><option value="Flexitarisch">Flexitarisch (überwiegend pflanzlich, selten Fleisch/Fisch)</option><option value="Pescetarisch">Pescetarisch (Fisch &amp; Meeresfrüchte, kein Fleisch)</option><option value="Vegetarisch">Vegetarisch (kein Fleisch &amp; Fisch, aber Milch/Ei)</option><option value="Vegan">Vegan (keine tierischen Produkte)</option></select></label>
         </div>
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin-top:12px"><input type="checkbox" id="pfNews" style="width:16px;height:16px;accent-color:#16a34a">Newsletter abonnieren – Infos zu neuen Produkten &amp; Rezepten</label>
         <button onclick="saveProfil()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Speichern</button>
@@ -470,6 +470,7 @@
           <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Für phasengerechte Hinweise im Tagebuch (z. B. Eisen während der Periode, Magnesium/Heißhunger davor). Private Angabe. <b>Keine medizinische Beratung.</b></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
             <label style="font-size:13px;color:var(--ink);flex:1;min-width:150px">Letzter Zyklusbeginn<input type="date" id="pfZykStart" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+            <label style="font-size:13px;color:var(--ink);flex:1;min-width:150px">Periodenende <span style="color:#9aa7a0;font-size:11px">(optional)</span><input type="date" id="pfZykEnde" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
             <label style="font-size:13px;color:var(--ink)">Zykluslänge (Tage)<input type="number" id="pfZykLen" min="20" max="45" placeholder="28" style="width:120px;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
             <button onclick="saveZyklus()" style="padding:9px 15px;border:0;border-radius:8px;background:#db2777;color:#fff;cursor:pointer">Speichern</button>
           </div>
@@ -968,8 +969,9 @@ async function loadZyklus(){
   try{
     const {data}=await client.rpc("cb_zyklus_get");
     const r=(data&&data[0])||{};
-    window._zyklus = (r.start) ? {start:r.start, laenge:r.laenge||28} : {};
+    window._zyklus = (r.start) ? {start:r.start, laenge:r.laenge||28, ende:r.ende||null} : {};
     if(r.start){ _selVal("pfZykStart", r.start); }
+    if(r.ende){ _selVal("pfZykEnde", r.ende); }
     if(r.laenge){ _selVal("pfZykLen", r.laenge); }
     zyklusPhaseText();
   }catch(e){ window._zyklus={}; }
@@ -977,11 +979,13 @@ async function loadZyklus(){
 async function saveZyklus(){
   const msg=document.getElementById("pfZykMsg");
   const s=(document.getElementById("pfZykStart")||{}).value||null;
+  const e=(document.getElementById("pfZykEnde")||{}).value||null;
   const l=parseInt((document.getElementById("pfZykLen")||{}).value,10)||28;
   if(!s){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Bitte Zyklusbeginn wählen."; } return; }
-  const {error}=await client.rpc("cb_zyklus_speichern",{p_start:s,p_laenge:l});
+  if(e && e<s){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Periodenende darf nicht vor dem Beginn liegen."; } return; }
+  const {error}=await client.rpc("cb_zyklus_speichern",{p_start:s,p_laenge:l,p_ende:e});
   if(error){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; } return; }
-  window._zyklus={start:s, laenge:Math.min(45,Math.max(20,l))};
+  window._zyklus={start:s, laenge:Math.min(45,Math.max(20,l)), ende:e};
   if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert – Hinweise erscheinen im Tagebuch."; }
   zyklusPhaseText();
   if(document.getElementById("tbZyklus")) renderZyklusHint();
@@ -998,10 +1002,12 @@ function zyklusInfo(){
   const zyklen=Math.floor(diff/len);
   const nextStart=new Date(start.getTime()+(zyklen+1)*len*86400000);
   const bis=Math.round((nextStart-ref)/86400000);
+  let mensDays=5;
+  if(z.ende){ var _ed=Math.floor((new Date(z.ende+"T00:00:00")-start)/86400000)+1; if(!isNaN(_ed)&&_ed>=1) mensDays=Math.min(14,_ed); }
   let phase="Follikelphase", hint=null;
-  if(day<=5){
+  if(day<=mensDays){
     phase="Menstruation";
-    hint={emoji:"🩸", title:"Menstruation · Tag "+day,
+    hint={emoji:"🩸", title:"Menstruation · Tag "+day+" von "+mensDays,
       text:"Durch den Blutverlust ist der <b>Eisenbedarf</b> oft erhöht. Eisenreiche Lebensmittel (Hülsenfrüchte, Haferflocken, grünes Gemüse, rotes Fleisch) mit etwas Vitamin C (Paprika, Zitrus) kombinieren – das verbessert die Aufnahme. Bei Regelschmerzen kann <b>Omega-3</b> (fetter Fisch, Lein-/Rapsöl, Walnüsse) unterstützend wirken (Studienlage begrenzt)."};
   } else if(bis<=5){
     phase="Lutealphase";
@@ -2479,7 +2485,7 @@ async function loadTagebuch(){
   const {data:summe}=await client.rpc("cb_tagessumme",{p_datum:datum});
   const {data:profil}=await client.rpc("cb_profil");
   renderZiel(summe&&summe[0], profil&&profil[0]);
-  if(window._zyklus===undefined){ try{ const {data:zk}=await client.rpc("cb_zyklus_get"); const r=(zk&&zk[0])||{}; window._zyklus=(r.start)?{start:r.start,laenge:r.laenge||28}:{}; }catch(e){ window._zyklus={}; } }
+  if(window._zyklus===undefined){ try{ const {data:zk}=await client.rpc("cb_zyklus_get"); const r=(zk&&zk[0])||{}; window._zyklus=(r.start)?{start:r.start,laenge:r.laenge||28,ende:r.ende||null}:{}; }catch(e){ window._zyklus={}; } }
   renderZyklusHint();
   renderTbListe(eintraege||[], profil&&profil[0]);
   const {data:gw}=await client.rpc("cb_gewicht");
@@ -3596,16 +3602,22 @@ async function renderProfilGeraete(){
   const gh=Object.entries(groups).map(([grp,names])=>
     '<div style="margin-bottom:8px"><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+esc(grp)+'</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:6px">'+names.map(n=>{const on=owned.has(n);
-      return '<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid '+(on?'#16a34a':'var(--line)')+';border-radius:999px;background:'+(on?'var(--greenlt,#ecfdf5)':'#fff')+';cursor:pointer;font-size:13px"><input type="checkbox" class="pfGkChk" value="'+esc(n)+'"'+(on?' checked':'')+' style="margin:0"> '+esc(n)+'</label>';
+      return '<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid '+(on?'#16a34a':'var(--line)')+';border-radius:999px;background:'+(on?'var(--greenlt,#ecfdf5)':'#fff')+';cursor:pointer;font-size:13px"><input type="checkbox" class="pfGkChk" onchange="pfGkToggle(this)" value="'+esc(n)+'"'+(on?' checked':'')+' style="margin:0"> '+esc(n)+'</label>';
     }).join("")+'</div></div>').join("");
   box.innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Für den Trainingsplan-Generator (auch Multitower/Kabelzug).</div>'+gh
-    +'<div style="margin-top:8px"><button onclick="saveProfilGeraete()" style="padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Geräte speichern</button> <span id="pfGkMsg" style="font-size:13px"></span></div>';
+    +'<div style="margin-top:8px;font-size:12.5px;color:var(--muted)">Auswahl wird automatisch gespeichert. <span id="pfGkMsg" style="font-size:13px;margin-left:6px"></span></div>';
+}
+function pfGkToggle(cb){
+  var lab=cb.closest('label');
+  if(lab){ lab.style.borderColor=cb.checked?'#16a34a':'var(--line)'; lab.style.background=cb.checked?'var(--greenlt,#ecfdf5)':'#fff'; }
+  saveProfilGeraete();
 }
 async function saveProfilGeraete(){
   const g=Array.from(document.querySelectorAll(".pfGkChk")).filter(c=>c.checked).map(c=>c.value);
   const msg=document.getElementById("pfGkMsg");
+  if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; }
   const {error}=await client.rpc("cb_train_geraete_speichern",{p_geraete:g});
-  if(msg){ msg.style.color=error?"#dc2626":"#16a34a"; msg.textContent=error?("Fehler: "+error.message):"✓ Gespeichert"; }
+  if(msg){ msg.style.color=error?"#dc2626":"#16a34a"; msg.textContent=error?("Fehler: "+error.message):"✓ gespeichert"; }
 }
 
 /* ===== Profil: Körpermaße (Body-Map) ===== */
