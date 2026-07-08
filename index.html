@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08e zyklus-kalender-range -->
+<!-- build 2026-07-08g zyklus-umbau+darmgesundheit -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -266,6 +266,11 @@
     <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Was bei Zyklus &amp; PMS wirklich hilft – wenige, saubere Produkte statt Kombi-Pulver. Keine medizinische Beratung.</div>
     <div id="zyklusBody"><div style="color:var(--muted)">Lade…</div></div>
   </div>
+  <div id="darmView" style="display:none">
+    <h2 style="margin:.1em 0 .2em;font-size:19px">Darmgesundheit</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Was den Darm unterstützt – Ballaststoffe, Probiotika &amp; Präbiotika. Wenige, saubere Produkte. Keine medizinische Beratung.</div>
+    <div id="darmBody"><div style="color:var(--muted)">Lade…</div></div>
+  </div>
   <div id="vorschlagView" style="display:none">
     <div id="vorGate" style="display:none"></div>
     <div id="vorForm">
@@ -468,16 +473,21 @@
         <div id="pfZyklusBox" style="display:none;margin-top:16px;background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:12px 14px">
           <div style="font-weight:600;font-size:13.5px;margin-bottom:2px">🌸 Zyklus (optional)</div>
           <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Für phasengerechte Hinweise im Tagebuch (z. B. Eisen während der Periode, Magnesium/Heißhunger davor). Private Angabe. <b>Keine medizinische Beratung.</b></div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
-            <label style="font-size:13px;color:var(--ink);flex:1;min-width:150px">Letzter Zyklusbeginn<input type="date" id="pfZykStart" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
-            <label style="font-size:13px;color:var(--ink);flex:1;min-width:150px">Periodenende <span style="color:#9aa7a0;font-size:11px">(optional)</span><input type="date" id="pfZykEnde" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
-            <label style="font-size:13px;color:var(--ink)">Zykluslänge (Tage)<input type="number" id="pfZykLen" min="20" max="45" placeholder="28" style="width:120px;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
-            <button onclick="saveZyklus()" style="padding:9px 15px;border:0;border-radius:8px;background:#db2777;color:#fff;cursor:pointer">Speichern</button>
+          <input type="hidden" id="pfZykStart"><input type="hidden" id="pfZykEnde"><input type="hidden" id="pfZykLen" value="28">
+          <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px">
+            <div><div style="font-size:11.5px;color:var(--muted)">Zyklusbeginn</div><div id="pfZykStartLbl" style="font-size:14.5px;font-weight:700;color:#be185d">–</div></div>
+            <div><div style="font-size:11.5px;color:var(--muted)">Periodenende</div><div id="pfZykEndeLbl" style="font-size:14.5px;font-weight:700;color:#be185d">–</div></div>
+            <div><div style="font-size:11.5px;color:var(--muted)">Periodendauer</div><div id="pfZykDauerLbl" style="font-size:14.5px;font-weight:700;color:#be185d">–</div></div>
           </div>
-          <button type="button" onclick="zykCalToggle()" style="margin-top:10px;background:none;border:0;color:#db2777;font-size:13px;cursor:pointer;text-decoration:underline;padding:0">📅 Im Kalender wählen (1. Klick = Start, 2. = Ende)</button>
-          <div id="pfZykCal" style="display:none;margin-top:8px;background:#fff;border:1px solid #fbcfe8;border-radius:10px;padding:10px;max-width:300px"></div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Tippe im Kalender den <b>Zyklusbeginn</b> an, dann das <b>Periodenende</b>.</div>
+          <div id="pfZykCal" style="margin-top:2px;background:#fff;border:1px solid #fbcfe8;border-radius:10px;padding:10px;max-width:330px"></div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px">
+            <label style="font-size:12.5px;color:var(--ink)">Blutungsstärke<select id="pfZykStkVal" style="display:block;margin-top:3px;padding:7px;border:1px solid var(--line);border-radius:8px;background:#fff"><option value="">–</option><option>leicht</option><option>mittel</option><option>stark</option></select></label>
+            <label style="font-size:12.5px;color:var(--ink)">Wohlbefinden<select id="pfZykWohlVal" style="display:block;margin-top:3px;padding:7px;border:1px solid var(--line);border-radius:8px;background:#fff"><option value="">–</option><option value="1">😣 schlecht</option><option value="2">😐 ok</option><option value="3">🙂 gut</option><option value="4">😀 top</option></select></label>
+          </div>
+          <button onclick="saveZyklus()" style="margin-top:12px;padding:9px 16px;border:0;border-radius:8px;background:#db2777;color:#fff;cursor:pointer">Speichern</button>
           <div id="pfZykMsg" style="font-size:12.5px;margin-top:8px"></div>
-          <div id="pfZykPhase" style="font-size:12.5px;margin-top:6px;color:var(--muted)"></div>
+          <div id="pfZykPhase" style="font-size:12.5px;margin-top:6px;color:var(--muted);line-height:1.5"></div>
         </div>
       </div>
       <div class="pf-pane pf-ziele" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
@@ -972,10 +982,13 @@ async function loadZyklus(){
     const {data}=await client.rpc("cb_zyklus_get");
     const r=(data&&data[0])||{};
     window._zyklus = (r.start) ? {start:r.start, laenge:r.laenge||28, ende:r.ende||null} : {};
-    if(r.start){ _selVal("pfZykStart", r.start); }
-    if(r.ende){ _selVal("pfZykEnde", r.ende); }
-    if(r.laenge){ _selVal("pfZykLen", r.laenge); }
-    zyklusPhaseText();
+    _selVal("pfZykStart", r.start||"");
+    _selVal("pfZykEnde", r.ende||"");
+    _selVal("pfZykLen", r.laenge||28);
+    var sv=document.getElementById("pfZykStkVal"); if(sv) sv.value=r.blutung||"";
+    var wv=document.getElementById("pfZykWohlVal"); if(wv) wv.value=(r.wohl!=null?String(r.wohl):"");
+    zykCalInit();
+    zykUpdateLabels();
   }catch(e){ window._zyklus={}; }
 }
 async function saveZyklus(){
@@ -983,9 +996,11 @@ async function saveZyklus(){
   const s=(document.getElementById("pfZykStart")||{}).value||null;
   const e=(document.getElementById("pfZykEnde")||{}).value||null;
   const l=parseInt((document.getElementById("pfZykLen")||{}).value,10)||28;
-  if(!s){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Bitte Zyklusbeginn wählen."; } return; }
+  const stk=(document.getElementById("pfZykStkVal")||{}).value||null;
+  const wohl=parseInt((document.getElementById("pfZykWohlVal")||{}).value,10)||null;
+  if(!s){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Bitte im Kalender einen Zyklusbeginn antippen."; } return; }
   if(e && e<s){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Periodenende darf nicht vor dem Beginn liegen."; } return; }
-  const {error}=await client.rpc("cb_zyklus_speichern",{p_start:s,p_laenge:l,p_ende:e});
+  const {error}=await client.rpc("cb_zyklus_speichern",{p_start:s,p_laenge:l,p_ende:e,p_blutung:stk,p_wohl:wohl});
   if(error){ if(msg){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+error.message; } return; }
   window._zyklus={start:s, laenge:Math.min(45,Math.max(20,l)), ende:e};
   if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert – Hinweise erscheinen im Tagebuch."; }
@@ -993,15 +1008,24 @@ async function saveZyklus(){
   if(document.getElementById("tbZyklus")) renderZyklusHint();
 }
 /* Zyklus-Kalender als Bereichswähler: 1. Klick = Start, 2. Klick = Ende */
-function zykCalToggle(){
+function zykCalInit(){
   var box=document.getElementById('pfZykCal'); if(!box) return;
-  if(box.style.display==='none'||!box.style.display){
-    var s=(document.getElementById('pfZykStart')||{}).value||'';
-    var e=(document.getElementById('pfZykEnde')||{}).value||'';
-    var base=s?new Date(s+'T00:00:00'):new Date();
-    window._zykCal={y:base.getFullYear(), m:base.getMonth(), start:s||null, end:e||null, phase:(s&&!e)?'end':'start'};
-    box.style.display=''; zykCalRender();
-  } else { box.style.display='none'; }
+  var s=(document.getElementById('pfZykStart')||{}).value||'';
+  var e=(document.getElementById('pfZykEnde')||{}).value||'';
+  var base=s?new Date(s+'T00:00:00'):new Date();
+  window._zykCal={y:base.getFullYear(), m:base.getMonth(), start:s||null, end:e||null, phase:(s&&!e)?'end':'start'};
+  zykCalRender();
+}
+function zykUpdateLabels(){
+  var s=(document.getElementById('pfZykStart')||{}).value||'';
+  var e=(document.getElementById('pfZykEnde')||{}).value||'';
+  var fmt=function(ds){ if(!ds) return '–'; return new Date(ds+'T00:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); };
+  var sl=document.getElementById('pfZykStartLbl'); if(sl) sl.textContent=fmt(s);
+  var el=document.getElementById('pfZykEndeLbl'); if(el) el.textContent=fmt(e);
+  var dl=document.getElementById('pfZykDauerLbl');
+  if(dl){ if(s&&e){ var dd=Math.round((new Date(e+'T00:00:00')-new Date(s+'T00:00:00'))/86400000)+1; dl.textContent=(dd>=1?dd+' Tag'+(dd===1?'':'e'):'–'); } else { dl.textContent='–'; } }
+  window._zyklus=window._zyklus||{}; if(s){ window._zyklus.start=s; window._zyklus.ende=e||null; if(!window._zyklus.laenge) window._zyklus.laenge=28; }
+  zyklusPhaseText();
 }
 function zykCalNav(n){ var st=window._zykCal; if(!st) return; st.m+=n; if(st.m<0){st.m=11;st.y--;} if(st.m>11){st.m=0;st.y++;} zykCalRender(); }
 function zykCalPick(ds){
@@ -1011,6 +1035,7 @@ function zykCalPick(ds){
   var si=document.getElementById('pfZykStart'); if(si) si.value=st.start||'';
   var ei=document.getElementById('pfZykEnde'); if(ei) ei.value=st.end||'';
   zykCalRender();
+  if(typeof zykUpdateLabels==='function') zykUpdateLabels();
 }
 function zykCalRender(){
   var box=document.getElementById('pfZykCal'); if(!box) return;
@@ -1071,7 +1096,12 @@ function zyklusPhaseText(){
   const el=document.getElementById("pfZykPhase"); if(!el) return;
   const z=zyklusInfo();
   if(!z){ el.textContent=""; return; }
-  el.innerHTML="Heute: <b>Zyklustag "+z.day+"</b> · "+esc(z.phase)+" · nächste Periode in ~"+z.bis+" Tagen (Schätzung).";
+  var fmt=function(d){ return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}); };
+  var ov=new Date(z.nextStart.getTime()-14*86400000);
+  var fs=new Date(ov.getTime()-5*86400000);
+  el.innerHTML="Heute: <b>Zyklustag "+z.day+"</b> · "+esc(z.phase)+" · nächste Periode in ~"+z.bis+" Tagen."
+    +"<br>🌱 Fruchtbare Phase (Schätzung): <b>"+fmt(fs)+"–"+fmt(ov)+"</b> · Eisprung ~"+fmt(ov)+"."
+    +"<br><span style=\"color:#9aa7a0\">Schätzung bei ~"+z.len+"-Tage-Zyklus. Keine Verhütungs- oder medizinische Beratung.</span>";
 }
 function renderZyklusHint(){
   const el=document.getElementById("tbZyklus"); if(!el) return;
@@ -1411,6 +1441,7 @@ function setMode(m){
   document.getElementById("planerView").style.display = m==="planer"?"":"none";
   document.getElementById("trainingView").style.display = m==="training"?"":"none";
   document.getElementById("zyklusView").style.display = m==="zyklus"?"":"none";
+  document.getElementById("darmView").style.display = m==="darm"?"":"none";
   document.getElementById("profilView").style.display = m==="profil"?"":"none";
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
@@ -1422,6 +1453,7 @@ function setMode(m){
   if(m==="profil") loadProfil();
   if(m==="training") loadTraining();
   if(m==="zyklus") renderZyklus();
+  if(m==="darm") renderDarm();
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab(window._fgTab||'produkte'); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
@@ -1459,6 +1491,11 @@ const ZYKLUS_CATS=[
   {t:'Mönchspfeffer (Vitex)', hint:'nur bei PMS', dosis:'~20 mg/Tag (standardisiert)', ids:['P931','P939']},
   {t:'Vitamin B1', hint:'optional', dosis:'100 mg/Tag (Wirkung nach ~4 Wochen)', ids:['P932']}
 ];
+const DARM_CATS=[
+  {t:'Ballaststoffe / Flohsamen', hint:'Regelmäßigkeit & Sättigung', dosis:'5–10 g/Tag mit viel Wasser', ids:['P166']},
+  {t:'Probiotika', hint:'lebende Kulturen', dosis:'nach Produktangabe', ids:[]},
+  {t:'Präbiotika (Inulin/Akazienfaser)', hint:'Futter für gute Bakterien', dosis:'langsam einschleichen', ids:[]}
+];
 function amzUrl(id){ return BUNDLE_ASIN[id]?('https://www.amazon.de/dp/'+BUNDLE_ASIN[id]+'?tag=rootindex-21'):''; }
 function bundleCard(p,winner){
   const img=(typeof BILD!=='undefined'&&BILD&&BILD[p.id])?BILD[p.id]:'';
@@ -1482,6 +1519,32 @@ async function renderZyklus(){
   if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*"); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   await loadBilder();
   b.innerHTML = (zyklusBundleHtml()+zyklusKomplexeHtml()) || '<div style="color:var(--muted)">Aktuell keine Produkte verfügbar.</div>';
+}
+async function renderDarm(){
+  const b=document.getElementById("darmBody"); if(!b) return;
+  if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*"); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
+  await loadBilder();
+  b.innerHTML=darmBundleHtml();
+}
+function darmBundleHtml(){
+  const blocks=DARM_CATS.map(function(c){
+    let list=c.ids.map(function(id){return (ALL||[]).find(function(x){return x.id===id;});}).filter(Boolean);
+    if(!list.length) return '';
+    list.sort(function(a,b){return num(b.clean_score)-num(a.clean_score);});
+    list=list.slice(0,2);
+    const cards=list.map(function(p,i){return bundleCard(p,list.length>1&&i===0);}).join('');
+    return '<div class="zbCat" style="margin-top:13px">'
+      +'<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:4px"><span style="font-weight:700;font-size:13.5px">'+esc(c.t)+'</span><span style="font-size:11px;color:var(--muted)">'+esc(c.hint)+'</span></div>'
+      +(c.dosis?'<div style="font-size:11.5px;color:#9a3412;background:#fbeee6;border-radius:7px;padding:4px 8px;margin-bottom:6px">💊 Empfohlen: <b>'+esc(c.dosis)+'</b></div>':'')
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+cards+'</div></div>';
+  }).join('');
+  if(!blocks) return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);color:var(--muted);font-size:13px">Passende Produkte folgen in Kürze.</div>';
+  return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">'
+    +'<div style="font-weight:800;font-size:16px">Darmgesundheit – saubere Basics</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Ballaststoffe, Probiotika &amp; Präbiotika – je Kategorie unsere saubersten Produkte. <span style="color:#8a8072">· Anzeige</span></div>'
+    +blocks
+    +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Anzeige · Partner-Links möglich · unsere Bewertung bleibt unabhängig. Keine medizinische Beratung.</div>'
+    +'</div>';
 }
 function zyklusBundleHtml(){
   const blocks=ZYKLUS_CATS.map(c=>{
@@ -1585,9 +1648,10 @@ async function renderSchritte(){
   const nextOff = sel>=today;
   const open = window._schrOpen ? '' : 'none';
   box.innerHTML='<div style="'+card+'">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600;font-size:14px">'+riIco('shoe',17)+' Schritte</div><span style="font-size:12.5px;color:var(--muted)">heute <b style="color:var(--ink)">'+(tag?tag.toLocaleString("de-DE"):"–")+'</b></span></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600;font-size:14px">'+riIco('shoe',17)+' Schritte</div><span style="font-size:12.5px;color:var(--muted)">heute <b style="color:var(--ink)">'+(tag?tag.toLocaleString("de-DE"):"–")+'</b>'+(tag?' · <span style="color:#16a34a;font-weight:700">'+Math.min(100,Math.round(tag/ZIEL*100))+'%</span>':'')+'</span></div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(tag||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px">'
       +'<button onclick="saveSchritte()" style="padding:8px 13px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:13px">Speichern</button></div>'
+    +'<div style="height:6px;border-radius:99px;background:#eef1ec;overflow:hidden;margin-top:8px"><div style="height:100%;width:'+Math.min(100,Math.round((tag/ZIEL)*100))+'%;background:'+(tag>=ZIEL?'#16a34a':'#65a30d')+';border-radius:99px;transition:width .5s"></div></div>'
     +'<div id="startSchritteMsg" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:15px"></div>'
     +'<button onclick="schrToggleChart()" style="width:100%;text-align:left;background:none;border:0;padding:2px 0 0;cursor:pointer;color:var(--greendk);font-size:12.5px;font-weight:600">📊 7-Tage-Verlauf · Ø '+avg.toLocaleString("de-DE")+'/Tag <span id="schrArrow">'+(window._schrOpen?'▲':'▼')+'</span></button>'
     +'<div id="schrChart" style="display:'+open+';margin-top:8px">'
@@ -1640,9 +1704,10 @@ async function renderSchlaf(){
   const nextOff = sel>=today;
   const open = window._schlOpen ? '' : 'none';
   box.innerHTML='<div style="'+card+'">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600;font-size:14px">🌙 Schlaf</div><span style="font-size:12.5px;color:var(--muted)">heute <b style="color:var(--ink)">'+(tag?nfmt(tag)+' h':"–")+'</b></span></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600;font-size:14px">🌙 Schlaf</div><span style="font-size:12.5px;color:var(--muted)">heute <b style="color:var(--ink)">'+(tag?nfmt(tag)+' h':"–")+'</b>'+(tag?' · <span style="color:#4f46e5;font-weight:700">'+Math.min(100,Math.round(tag/ZIEL*100))+'%</span>':'')+'</span></div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchlaf" type="number" min="0" max="24" step="0.5" value="'+(tag||"")+'" placeholder="z. B. 7,5" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px">'
       +'<button onclick="saveSchlaf()" style="padding:8px 13px;border:0;border-radius:8px;background:#4f46e5;color:#fff;cursor:pointer;font-size:13px">Speichern</button></div>'
+    +'<div style="height:6px;border-radius:99px;background:#eef1ec;overflow:hidden;margin-top:8px"><div style="height:100%;width:'+Math.min(100,Math.round((tag/ZIEL)*100))+'%;background:'+((tag>=7&&tag<=9)?'#4f46e5':'#818cf8')+';border-radius:99px;transition:width .5s"></div></div>'
     +'<div id="startSchlafMsg" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:15px"></div>'
     +'<button onclick="schlToggleChart()" style="width:100%;text-align:left;background:none;border:0;padding:2px 0 0;cursor:pointer;color:#4338ca;font-size:12.5px;font-weight:600">📊 7-Tage-Verlauf · Ø '+nfmt(avg)+' h/Nacht <span id="schlArrow">'+(window._schlOpen?'▲':'▼')+'</span></button>'
     +'<div id="schlChart" style="display:'+open+';margin-top:8px">'
@@ -1758,7 +1823,7 @@ async function renderStart(){
     +riGlowTile('tagebuch','cutlery','Ernährungstagebuch','heute erfassen','blue')
     +riGlowTile('training','figure','Training','Plan &amp; Fortschritt','violet')
     +'</div>'
-    +'<div style="margin-bottom:12px">'+riGlowTile('zyklus','heart','Regelschmerzen','was hilft?','berry')+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+riGlowTile('zyklus','heart','Regelschmerzen','was hilft?','berry')+riGlowTile('darm','leaf','Darmgesundheit','Basics &amp; mehr','terra')+'</div>'
     +schritteHtml
     +unterstuetzenHtml();
   if(ME&&ME.is_premium){ renderSchritte(); renderSchlaf(); }
@@ -1768,6 +1833,7 @@ function riIco(n,s){ s=s||18;
     search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
     barcode:'<path d="M4 6v12M7 6v12M10 6v12M14 6v12M17 6v12M20 6v12"/>',
     heart:'<path d="M12 20.3C7 16.7 4 13.8 4 10.2 4 7.9 5.9 6 8.2 6c1.5 0 2.9.8 3.8 2 .9-1.2 2.3-2 3.8-2C20.1 6 22 7.9 22 10.2c0 3.6-3 6.5-8 10.1z"/>',
+    leaf:'<path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z"/><path d="M5 19c3-5 7-8 11-9.5"/>',
     bowl:'<path d="M3 11.5h18"/><path d="M5 11.5a7 7 0 0 0 14 0"/><path d="M12 4.5v3M9 5.5v2M15 5.5v2"/>',
     book:'<path d="M6 4h10a2 2 0 0 1 2 2v13a1.2 1.2 0 0 0-1.2-1.2H6z"/><path d="M6 4v13.8"/><path d="M9.5 8.5h5M9.5 11.5h5"/>',
     shoe:'<path d="M3 15.5h7l3.5-2 4.5 1.3a3 3 0 0 1 2 2.8V19H4.2A1.2 1.2 0 0 1 3 17.8z"/><path d="M3 15.5v-3l2.4 1.1"/>',
@@ -1778,7 +1844,7 @@ function riIco(n,s){ s=s||18;
 }
 function riChip(n){ return '<span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--greenlt);color:var(--greendk)">'+riIco(n,21)+'</span>'; }
 function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
-  var A={green:['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'],amber:['#6b4410','#1a120a','#FFC24B','#FFCF6B'],blue:['#143a63','#0b1420','#5AB6FF','#7CC4FF'],violet:['#45256b','#120b1a','#B79BFF','#C9B3FF'],berry:['#6b1f45','#1a0a12','#FF6FA8','#FFA8CB']}[accent]||['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'];
+  var A={green:['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'],amber:['#6b4410','#1a120a','#FFC24B','#FFCF6B'],blue:['#143a63','#0b1420','#5AB6FF','#7CC4FF'],violet:['#45256b','#120b1a','#B79BFF','#C9B3FF'],berry:['#6b1f45','#1a0a12','#FF6FA8','#FFA8CB'],terra:['#7a3b1f','#1a0e08','#FF9E5E','#FFC59B']}[accent]||['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'];
   return '<div onclick="navTo(\''+nav+'\')" style="position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:13px;min-height:105px;display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(120% 120% at 22% 12%, '+A[0]+' 0%, '+A[1]+' 62%);box-shadow:0 8px 22px rgba(15,40,25,.22)">'
     +'<div style="position:absolute;top:2px;left:2px;width:80px;height:80px;background:radial-gradient(circle,'+A[2]+'99 0%,transparent 70%);filter:blur(7px)"></div>'
     +'<div style="position:absolute;top:15px;left:16px;color:'+A[3]+';filter:drop-shadow(0 0 6px '+A[2]+'cc)">'+riIco(ico,38)+'</div>'
