@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07r bento-redesign -->
+<!-- build 2026-07-07s home-tiles-only -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1607,21 +1607,15 @@ async function renderStart(){
   }
   dash.innerHTML=
     '<div style="display:flex;align-items:baseline;gap:8px;margin:2px 2px 12px"><span style="font-weight:600;font-size:16px">Hallo'+(vorname?(' '+esc(vorname)):"")+'</span><span style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</span>'+statusBadge+'</div>'
-    +'<div class="heroCheck"><h3>'+riIco('search',18)+' Produkt prüfen</h3>'
-    +'<input id="startProdQ" onkeydown="if(event.key===\'Enter\')startProdSearch(this.value)" placeholder="Produkt oder Marke suchen…">'
-    +'<div class="heroBtns">'
-    +'<button type="button" class="bSearch" onclick="startProdSearch(document.getElementById(\'startProdQ\').value)">Suchen</button>'
-    +'<button type="button" class="bScan" onclick="startProdScan()">'+riIco('barcode',16)+' Barcode scannen</button>'
-    +'</div></div>'
     +startKennzahlen(sum, prof)
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
-    +riGlowTile('produkte','search','Produkte','suchen &amp; scannen','green')
+    +riGlowTile('produkte','search','Produkte','suchen &amp; scannen','green','barcode','startProdScan()')
     +riGlowTile('rezepte','bowl','Rezepte','finden &amp; kochen','amber')
     +riGlowTile('tagebuch','cutlery','Ernährungstagebuch','heute erfassen','blue')
     +riGlowTile('training','figure','Training','Plan &amp; Fortschritt','violet')
     +'</div>'
     +schritteHtml
-    +startRezSucheHtml()+zyklusBundleHtml()+zyklusKomplexeHtml()+unterstuetzenHtml();
+    +zyklusBundleHtml()+zyklusKomplexeHtml()+unterstuetzenHtml();
   if(ME&&ME.is_premium) renderSchritte();
 }
 function riIco(n,s){ s=s||18;
@@ -1637,13 +1631,14 @@ function riIco(n,s){ s=s||18;
   return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">'+(P[n]||'')+'</svg>';
 }
 function riChip(n){ return '<span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--greenlt);color:var(--greendk)">'+riIco(n,21)+'</span>'; }
-function riGlowTile(nav,ico,label,sub,accent){
+function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
   var A={green:['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'],amber:['#6b4410','#1a120a','#FFC24B','#FFCF6B'],blue:['#143a63','#0b1420','#5AB6FF','#7CC4FF'],violet:['#45256b','#120b1a','#B79BFF','#C9B3FF']}[accent]||['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'];
   return '<div onclick="navTo(\''+nav+'\')" style="position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:15px;min-height:140px;display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(120% 120% at 22% 12%, '+A[0]+' 0%, '+A[1]+' 62%);box-shadow:0 8px 22px rgba(15,40,25,.22)">'
     +'<div style="position:absolute;top:2px;left:2px;width:80px;height:80px;background:radial-gradient(circle,'+A[2]+'99 0%,transparent 70%);filter:blur(7px)"></div>'
     +'<div style="position:absolute;top:15px;left:16px;color:'+A[3]+';filter:drop-shadow(0 0 6px '+A[2]+'cc)">'+riIco(ico,38)+'</div>'
     +'<div style="color:#fff;font-size:13.5px;font-weight:700;line-height:1.25;position:relative;z-index:2">'+label+'</div>'
     +'<div style="color:rgba(255,255,255,.6);font-size:10.5px;position:relative;z-index:2">'+sub+'</div>'
+    +(cornerIco?'<div onclick="event.stopPropagation();'+cornerAct+'" title="Barcode scannen" style="position:absolute;top:11px;right:12px;color:'+A[3]+';filter:drop-shadow(0 0 5px '+A[2]+'aa);opacity:.92;cursor:pointer;z-index:3">'+riIco(cornerIco,24)+'</div>':'')
   +'</div>';
 }
 function startKennzahlen(sum, prof){
