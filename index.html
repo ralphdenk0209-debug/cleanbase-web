@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07u tagebuch-rechner-fabs -->
+<!-- build 2026-07-07w rezepte-hinweis+legal-zindex -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1754,7 +1754,7 @@ function buildMehr(){
 function legalOpen(which){
   let ov=document.getElementById("legalOv"); if(ov) ov.remove();
   ov=document.createElement("div"); ov.id="legalOv";
-  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;z-index:95";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;z-index:10001";
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
   const H=t=>`<h3 style="font-size:15px;color:var(--green);margin:16px 0 4px">${t}</h3>`;
   const P=t=>`<p style="font-size:13.5px;line-height:1.55;color:var(--ink);margin:.2em 0">${t}</p>`;
@@ -3873,6 +3873,14 @@ function renderRezeptList(){
       <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}${r.gesperrt?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fde8e8;color:#dc2626">⛔ gesperrt</span>`:""}${(ME&&ME.is_admin&&r.gemeldet)?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#fff7e6;color:#b45309">⚐ ${r.gemeldet}</span>`:""}</div></div>`;
     g.appendChild(c);
   });
+  if(!(ME && hasFeat('rezepte_alle'))){
+    const t=document.createElement("div");
+    t.style.cssText="grid-column:1/-1;background:var(--greenlt);border:1px solid var(--green);border-radius:14px;padding:16px;text-align:center;margin-top:4px";
+    t.innerHTML='<div style="font-weight:700;color:var(--greendk);margin-bottom:4px">🔓 Mehr Rezepte mit Premium</div>'
+      +'<div style="font-size:13px;color:var(--greendk);line-height:1.5;margin-bottom:10px">Du siehst eine Auswahl. Die komplette Rezept-Bibliothek – bewertet &amp; skalierbar – gibt es mit Premium.</div>'
+      +'<button onclick="'+(ME?"premiumInfo":"openLogin")+'()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:#1D3C24;font-weight:700;cursor:pointer">Premium – 7 Tage gratis</button>';
+    g.appendChild(t);
+  }
 }
 const RZ_UNITS=[["g",1],["ml",1],["Stück",null],["EL",15],["TL",5],["Prise",0.5]];
 /* Menge+Einheit -> Gramm (für Nährwerte/Index). Stück = Portionsgewicht des verknüpften Produkts. */
