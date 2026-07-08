@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07m bento-redesign -->
+<!-- build 2026-07-07n bento-redesign -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1046,7 +1046,8 @@ function subLine(d){ const m=mkLabel(d.marke); return (m?esc(m)+" · ":"")+esc(d
 function prodLabel(p){ const m=mkLabel(p.marke); return p.name+(m?" · "+m:""); }
 function betterAlt(d){
   const s=num(d.clean_score); if(s==null) return null;
-  const toks=(d.name||"").toLowerCase().split(/[^a-zäöüß0-9]+/).filter(t=>t.length>=4);
+  const STOP={fett:1,milch:1,bio:1,natur:1,ohne:1,mind:1,zucker:1,salz:1,wasser:1,'natürlich':1,gramm:1,vegan:1,protein:0};
+  const toks=(d.name||"").toLowerCase().split(/[^a-zäöüß0-9]+/).filter(t=>t.length>=4 && !STOP[t]);
   if(!toks.length) return null;
   let best=null;
   (ALL||[]).forEach(q=>{
@@ -1061,20 +1062,27 @@ function betterAlt(d){
 }
 function renderEmpfehlungen(){
   var box=document.getElementById('fgEmpfehlungen'); if(!box) return;
-  var pairs=[];
+  var grp={};
   (ALL||[]).forEach(function(d){
     var a=betterAlt(d); if(!a) return;
-    pairs.push({d:d,a:a,delta:(num(a.clean_score)-num(d.clean_score))});
+    if(!grp[a.id]) grp[a.id]={a:a, quellen:[], seen:{}};
+    var nk=_norm(d.name||''); if(grp[a.id].seen[nk]) return; grp[a.id].seen[nk]=1;
+    grp[a.id].quellen.push({id:d.id, name:d.name, score:num(d.clean_score), kat:(d.unterkategorie||d.kategorie||''), delta:(num(a.clean_score)-num(d.clean_score))});
   });
-  pairs.sort(function(x,y){ return y.delta-x.delta; });
-  if(!pairs.length){ box.innerHTML='<div style="color:var(--muted)">Aktuell keine Empfehlungs-Paare.</div>'; return; }
-  var badge=function(p){ return '<b style="color:'+farbe(p.bewertung)+'">'+num(p.clean_score)+'</b> '+esc(p.name)+' <span style="color:var(--muted);font-size:11.5px">'+esc(p.marke||'')+'</span>'; };
-  box.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:8px">'+pairs.length+' Paare</div>'+pairs.map(function(x){
-    return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:8px;background:var(--card)">'
-      +'<div style="font-size:11px;color:var(--muted);margin-bottom:5px">'+esc(x.d.unterkategorie||x.d.kategorie||'')+' · +'+x.delta+' Punkte Vorsprung</div>'
-      +'<div onclick="detailById(\''+x.d.id+'\')" style="cursor:pointer;color:var(--muted);text-decoration:line-through;line-height:1.5">'+badge(x.d)+'</div>'
-      +'<div style="margin:3px 0;color:#16a34a;font-weight:700;font-size:12.5px">↓ Top-Empfehlung</div>'
-      +'<div onclick="detailById(\''+x.a.id+'\')" style="cursor:pointer;line-height:1.5">'+badge(x.a)+'</div>'
+  var list=Object.keys(grp).map(function(k){ var g=grp[k]; g.quellen.sort(function(x,y){return y.delta-x.delta;}); g.maxdelta=g.quellen[0]?g.quellen[0].delta:0; return g; });
+  list.sort(function(x,y){ return (y.maxdelta-x.maxdelta) || (y.quellen.length-x.quellen.length); });
+  if(!list.length){ box.innerHTML='<div style="color:var(--muted)">Aktuell keine Empfehlungen.</div>'; return; }
+  box.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:8px">'+list.length+' Top-Empfehlungen</div>'+list.map(function(g){
+    var a=g.a, ex=g.quellen[0];
+    var kat=esc(ex.kat||a.unterkategorie||a.kategorie||'');
+    var mehr=g.quellen.length>1 ? ' · besser als '+g.quellen.length+' Produkte' : '';
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:8px;background:var(--card)">'
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:7px">'+kat+mehr+'</div>'
+      +'<div onclick="detailById(\''+a.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:10px">'
+        +'<span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:36px;padding:0 6px;border-radius:10px;background:var(--greenlt);color:#16a34a;font-weight:700;font-size:15px">'+num(a.clean_score)+'</span>'
+        +'<span style="line-height:1.35"><b style="font-size:14px">'+esc(a.name)+'</b>'+(a.marke?' <span style="color:var(--muted);font-size:11.5px">'+esc(a.marke)+'</span>':'')+'</span>'
+      +'</div>'
+      +'<div style="font-size:11.5px;color:var(--muted);margin-top:7px">statt <span onclick="detailById(\''+ex.id+'\')" style="cursor:pointer;text-decoration:underline">'+esc(ex.name)+'</span> ('+ex.score+', +'+ex.delta+')</div>'
       +'</div>';
   }).join('');
 }
