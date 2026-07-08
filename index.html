@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07p bento-redesign -->
+<!-- build 2026-07-07q bento-redesign -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1615,8 +1615,8 @@ async function renderStart(){
     +'</div></div>'
     +startKennzahlen(sum, prof)
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
-    +'<div onclick="navTo(\'rezepte\')" style="cursor:pointer;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)">'+riChip('bowl')+'<div style="font-size:14px;font-weight:600;color:var(--ink);margin-top:7px">Rezepte</div><div style="font-size:11.5px;color:var(--muted)">finden &amp; kochen</div></div>'
-    +'<div onclick="navTo(\'tagebuch\')" style="cursor:pointer;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)">'+riChip('book')+'<div style="font-size:14px;font-weight:600;color:var(--ink);margin-top:7px">Tagebuch</div><div style="font-size:11.5px;color:var(--muted)">heute erfassen</div></div>'
+    +riGlowTile('rezepte','bowl','Rezepte','finden &amp; kochen','amber')
+    +riGlowTile('tagebuch','cutlery','Ernährungstagebuch','heute erfassen','blue')
     +'</div>'
     +schritteHtml
     +startRezSucheHtml()+zyklusBundleHtml()+zyklusKomplexeHtml()+unterstuetzenHtml();
@@ -1628,11 +1628,21 @@ function riIco(n,s){ s=s||18;
     barcode:'<path d="M4 6v12M7 6v12M10 6v12M14 6v12M17 6v12M20 6v12"/>',
     bowl:'<path d="M3 11.5h18"/><path d="M5 11.5a7 7 0 0 0 14 0"/><path d="M12 4.5v3M9 5.5v2M15 5.5v2"/>',
     book:'<path d="M6 4h10a2 2 0 0 1 2 2v13a1.2 1.2 0 0 0-1.2-1.2H6z"/><path d="M6 4v13.8"/><path d="M9.5 8.5h5M9.5 11.5h5"/>',
-    shoe:'<path d="M3 15.5h7l3.5-2 4.5 1.3a3 3 0 0 1 2 2.8V19H4.2A1.2 1.2 0 0 1 3 17.8z"/><path d="M3 15.5v-3l2.4 1.1"/>'
+    shoe:'<path d="M3 15.5h7l3.5-2 4.5 1.3a3 3 0 0 1 2 2.8V19H4.2A1.2 1.2 0 0 1 3 17.8z"/><path d="M3 15.5v-3l2.4 1.1"/>',
+    cutlery:'<circle cx="12" cy="12.5" r="5.5"/><path d="M4 4v4a1.4 1.4 0 0 0 2.8 0V4"/><path d="M5.4 4v16"/><path d="M19 4c-1.4 1-2 2.8-2 4.6V11h2z"/><path d="M18.4 12v8"/>'
   };
   return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">'+(P[n]||'')+'</svg>';
 }
 function riChip(n){ return '<span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--greenlt);color:var(--greendk)">'+riIco(n,21)+'</span>'; }
+function riGlowTile(nav,ico,label,sub,accent){
+  var A={green:['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'],amber:['#6b4410','#1a120a','#FFC24B','#FFCF6B'],blue:['#143a63','#0b1420','#5AB6FF','#7CC4FF'],violet:['#45256b','#120b1a','#B79BFF','#C9B3FF']}[accent]||['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'];
+  return '<div onclick="navTo(\''+nav+'\')" style="position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:14px;min-height:94px;display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(120% 120% at 22% 12%, '+A[0]+' 0%, '+A[1]+' 62%);box-shadow:0 8px 22px rgba(15,40,25,.22)">'
+    +'<div style="position:absolute;top:2px;left:2px;width:70px;height:70px;background:radial-gradient(circle,'+A[2]+'99 0%,transparent 70%);filter:blur(6px)"></div>'
+    +'<div style="position:absolute;top:12px;left:14px;color:'+A[3]+';filter:drop-shadow(0 0 6px '+A[2]+'cc)">'+riIco(ico,34)+'</div>'
+    +'<div style="color:#fff;font-size:13.5px;font-weight:700;line-height:1.25;position:relative;z-index:2">'+label+'</div>'
+    +'<div style="color:rgba(255,255,255,.6);font-size:10.5px;position:relative;z-index:2">'+sub+'</div>'
+  +'</div>';
+}
 function startKennzahlen(sum, prof){
   sum=sum||{}; prof=prof||{};
   var idx=(sum.score_schnitt!=null)?Math.round(num(sum.score_schnitt)||0):0;
