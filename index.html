@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08d schlaf+schritte-kompakt+regel-dosis -->
+<!-- build 2026-07-08e zyklus-kalender-range -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -474,6 +474,8 @@
             <label style="font-size:13px;color:var(--ink)">Zykluslänge (Tage)<input type="number" id="pfZykLen" min="20" max="45" placeholder="28" style="width:120px;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
             <button onclick="saveZyklus()" style="padding:9px 15px;border:0;border-radius:8px;background:#db2777;color:#fff;cursor:pointer">Speichern</button>
           </div>
+          <button type="button" onclick="zykCalToggle()" style="margin-top:10px;background:none;border:0;color:#db2777;font-size:13px;cursor:pointer;text-decoration:underline;padding:0">📅 Im Kalender wählen (1. Klick = Start, 2. = Ende)</button>
+          <div id="pfZykCal" style="display:none;margin-top:8px;background:#fff;border:1px solid #fbcfe8;border-radius:10px;padding:10px;max-width:300px"></div>
           <div id="pfZykMsg" style="font-size:12.5px;margin-top:8px"></div>
           <div id="pfZykPhase" style="font-size:12.5px;margin-top:6px;color:var(--muted)"></div>
         </div>
@@ -989,6 +991,55 @@ async function saveZyklus(){
   if(msg){ msg.style.color="#16a34a"; msg.textContent="✓ gespeichert – Hinweise erscheinen im Tagebuch."; }
   zyklusPhaseText();
   if(document.getElementById("tbZyklus")) renderZyklusHint();
+}
+/* Zyklus-Kalender als Bereichswähler: 1. Klick = Start, 2. Klick = Ende */
+function zykCalToggle(){
+  var box=document.getElementById('pfZykCal'); if(!box) return;
+  if(box.style.display==='none'||!box.style.display){
+    var s=(document.getElementById('pfZykStart')||{}).value||'';
+    var e=(document.getElementById('pfZykEnde')||{}).value||'';
+    var base=s?new Date(s+'T00:00:00'):new Date();
+    window._zykCal={y:base.getFullYear(), m:base.getMonth(), start:s||null, end:e||null, phase:(s&&!e)?'end':'start'};
+    box.style.display=''; zykCalRender();
+  } else { box.style.display='none'; }
+}
+function zykCalNav(n){ var st=window._zykCal; if(!st) return; st.m+=n; if(st.m<0){st.m=11;st.y--;} if(st.m>11){st.m=0;st.y++;} zykCalRender(); }
+function zykCalPick(ds){
+  var st=window._zykCal; if(!st) return;
+  if(st.phase==='start' || (st.start&&st.end)){ st.start=ds; st.end=null; st.phase='end'; }
+  else { if(ds<st.start){ st.start=ds; st.phase='end'; } else { st.end=ds; st.phase='start'; } }
+  var si=document.getElementById('pfZykStart'); if(si) si.value=st.start||'';
+  var ei=document.getElementById('pfZykEnde'); if(ei) ei.value=st.end||'';
+  zykCalRender();
+}
+function zykCalRender(){
+  var box=document.getElementById('pfZykCal'); if(!box) return;
+  var st=window._zykCal; if(!st) return;
+  var first=new Date(st.y, st.m, 1);
+  var startWd=(first.getDay()+6)%7;
+  var daysInM=new Date(st.y, st.m+1, 0).getDate();
+  var mName=first.toLocaleDateString('de-DE',{month:'long',year:'numeric'});
+  var wd=['M','D','M','D','F','S','S'], today=tbToday();
+  var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    +'<button type="button" onclick="zykCalNav(-1)" style="border:0;background:none;cursor:pointer;font-size:16px;padding:2px 8px">‹</button>'
+    +'<span style="font-weight:700;font-size:13.5px">'+mName+'</span>'
+    +'<button type="button" onclick="zykCalNav(1)" style="border:0;background:none;cursor:pointer;font-size:16px;padding:2px 8px">›</button></div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:10px;color:var(--muted);margin-bottom:2px">'+wd.map(function(w){return '<div>'+w+'</div>';}).join('')+'</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">';
+  var i; for(i=0;i<startWd;i++) html+='<div></div>';
+  var d; for(d=1; d<=daysInM; d++){
+    var ds=st.y+'-'+String(st.m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var isStart=st.start===ds, isEnd=st.end===ds;
+    var inRange=st.start&&st.end&&ds>st.start&&ds<st.end;
+    var future=ds>today;
+    var bg=(isStart||isEnd)?'#db2777':(inRange?'#fbcfe8':'transparent');
+    var col=(isStart||isEnd)?'#fff':(future?'#c9c4bd':'var(--ink)');
+    html+='<button type="button" '+(future?'disabled':'onclick="zykCalPick(\''+ds+'\')"')+' style="aspect-ratio:1;border:0;border-radius:8px;background:'+bg+';color:'+col+';cursor:'+(future?'default':'pointer')+';font-size:12.5px">'+d+'</button>';
+  }
+  html+='</div>';
+  var hint = (st.phase==='end') ? 'Jetzt <b>Periodenende</b> wählen (oder denselben Tag).' : 'Nächster Klick = <b>Zyklusbeginn</b>, dann das <b>Ende</b>.';
+  html+='<div style="font-size:11px;color:var(--muted);margin-top:6px">'+hint+' Danach <b>Speichern</b>.</div>';
+  box.innerHTML=html;
 }
 // Zyklustag & Phase; nutzt tbToday() als Bezugstag
 function zyklusInfo(){
