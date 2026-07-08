@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07t code-login-index-redesign -->
+<!-- build 2026-07-07u tagebuch-rechner-fabs -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1319,6 +1319,8 @@ document.getElementById("loginOverlay").onclick=e=>{if(e.target.id==="loginOverl
 
 let REZEPTE=null;
 function setMode(m){
+  window._curMode=m;
+  try{ window.scrollTo(0,0); }catch(e){}
   document.getElementById("tabProd").classList.toggle("active",m==="produkte");
   document.getElementById("tabRez").classList.toggle("active",m==="rezepte");
   document.getElementById("tabVor").classList.toggle("active",m==="vorschlagen");
@@ -1353,8 +1355,15 @@ function setMode(m){
   if(m!=="vorschlagen") stopScan();
   if(m==="start") renderStart();
   bnActive(m);
+  if(typeof updateFloatBtns==='function') updateFloatBtns();
 }
-function navTo(m){ closeMehr(); setMode(m); }
+var NAV_HIST=[];
+function navTo(m){ closeMehr(); var c=window._curMode; if(c&&c!==m){ NAV_HIST.push(c); if(NAV_HIST.length>50) NAV_HIST.shift(); } setMode(m); }
+function goBack(){ closeMehr(); var p=NAV_HIST.pop(); setMode(p||'start'); }
+function updateFloatBtns(){
+  var bb=document.getElementById('backFab'); if(bb) bb.style.display=(NAV_HIST.length>0)?'flex':'none';
+  var tt=document.getElementById('toTopFab'); if(tt) tt.style.display=((window.scrollY||document.documentElement.scrollTop||0)>350)?'flex':'none';
+}
 function fgTab(t){ window._fgTab=t;
   var p={produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen'};
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
@@ -2065,6 +2074,52 @@ function navyKF(){
   out.style.color="#166534";
   out.innerHTML="Geschätzter Körperfettanteil: <b>"+String(kf).replace('.',',')+" %</b> → in „Körperfett %“ übernommen. Jetzt <b>„Berechnen“</b> (rechnet dann mit Katch-McArdle). <span style=\"color:var(--muted)\">±3–4 %, ersetzt keine Messung (InBody/DEXA).</span>";
 }
+// Gemeinsame Rechenlogik (Profil-Rechner UND Free-Tagebuch-Rechner nutzen sie – identische Wissenschaft)
+function computeBedarf(v){
+  var age=num(v.age), sex=v.sex, h=num(v.h), w=num(v.w), act=v.act;
+  if(!age||!h||!w) return {err:"Bitte Alter, Größe und Gewicht ausfüllen."};
+  if(age<10||age>100) return {err:"Alter „"+age+"“ wirkt unplausibel – bitte das Alter in Jahren eintragen."};
+  if(h<120||h>250) return {err:"Größe „"+h+"“ wirkt unplausibel – bitte die Größe in cm eintragen (z. B. 180)."};
+  if(w<30||w>350) return {err:"Gewicht „"+w+"“ wirkt unplausibel – bitte das Gewicht in kg eintragen."};
+  var ziel=num(v.ziel)||w;
+  var tempo=parseFloat(v.tempo)||0;
+  var protF=parseFloat(v.protF)||1.8;
+  var protRef=v.protRef, niere=!!v.niere;
+  var kfPct=num(v.kfPct), bmrMess=num(v.bmrMess);
+  var bmr, bmrMethode;
+  if(bmrMess && bmrMess>0){ bmr=bmrMess; bmrMethode="gemessen (InBody/DEXA)"; }
+  else if(kfPct && kfPct>3 && kfPct<70){ var ffm=w*(1-kfPct/100); bmr=370+21.6*ffm; bmrMethode="Katch-McArdle (fettfreie Masse "+Math.round(ffm)+" kg)"; }
+  else {
+    if(sex==="männlich") bmr=10*w+6.25*h-5*age+5;
+    else if(sex==="weiblich") bmr=10*w+6.25*h-5*age-161;
+    else bmr=10*w+6.25*h-5*age-78;
+    bmrMethode="Mifflin-St-Jeor";
+  }
+  var tdee=bmr*actFactor(act);
+  var ziK=tdee*(1+tempo);
+  var hardFloor=(sex==="männlich")?1500:1200;
+  var floor=Math.max(bmr,hardFloor), floored=false;
+  if(ziK<floor){ ziK=floor; floored=true; }
+  var warnNiere="";
+  if(niere && protF>1.0){ protF=1.0; warnNiere=" – auf 1,0 g/kg begrenzt"; }
+  var protBasis=(protRef==="aktuell")?w:ziel;
+  var protein=protF*protBasis;
+  var fettPct=parseFloat(v.fettPct)||0.275;
+  var fett=(ziK*fettPct)/9;
+  var kh=Math.max(0,(ziK-protein*4-fett*9)/4);
+  return {bmr:bmr,bmrMethode:bmrMethode,tdee:tdee,floor:floor,floored:floored,niere:niere,protF:protF,protRef:protRef,warnNiere:warnNiere,fettPct:fettPct,
+          kcal:Math.round(ziK),protein:Math.round(protein),kh:Math.round(kh),fett:Math.round(fett)};
+}
+function bedarfResultHtml(r){
+  return `<div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px;line-height:1.6">
+    <div>Grundumsatz (BMR) <b>${Math.round(r.bmr)}</b> kcal <span style="color:var(--muted);font-size:12px">· ${r.bmrMethode}</span> · Erhaltungsbedarf <b>${Math.round(r.tdee)}</b> kcal</div>
+    <div style="margin-top:4px;font-size:15px">Ziel-Energie: <b style="color:var(--green)">${r.kcal} kcal/Tag</b>${r.floored?' <span style="color:#b45309">· auf den Grundumsatz begrenzt</span>':''}</div>
+    ${r.floored?`<div style="margin-top:6px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;font-size:12px;color:#92400e;line-height:1.5">🔒 Das Ziel wurde <b>auf ${Math.round(r.floor)} kcal angehoben</b> – <b>unter den Grundumsatz</b> (${Math.round(r.bmr)} kcal) geht der Rechner bewusst nicht. Dauerhaft darunter zu essen ist ungesund. Für ein größeres Defizit lieber die Aktivität erhöhen.</div>`:''}
+    <div style="margin-top:4px">Eiweiß <b>${r.protein} g</b> <span style="color:var(--muted)">(${String(r.protF).replace('.',',')} g/kg ${r.protRef==='aktuell'?'akt. Gewicht':'Zielgewicht'}${r.warnNiere})</span> · KH <b>${r.kh} g</b> · Fett <b>${r.fett} g</b> <span style="color:var(--muted)">(${String(Math.round(r.fettPct*1000)/10).replace('.',',')} % Energie)</span></div>
+    ${r.niere?'<div style="margin-top:6px;color:#b45309;font-size:12px">⚠️ Bei Nierenerkrankung die Eiweißmenge unbedingt ärztlich abstimmen. Dieser Rechner ersetzt keine medizinische Beratung.</div>':''}
+    <div style="margin-top:6px;font-size:11.5px;color:#9aa7a0">Grundumsatz × Aktivitätsfaktor. Tipp: nach 2–3 Wochen am echten Gewichtsverlauf feinjustieren – keine medizinische Beratung.</div>
+  </div>`;
+}
 function calcBedarf(){
   const out=document.getElementById("bdOut"); _bdResult=null;
   const ab=document.getElementById("bdApplyBtn"); if(ab) ab.disabled=true;
@@ -2119,6 +2174,24 @@ function applyBedarf(){
   s("pfKcal",_bdResult.kcal); s("pfEiw",_bdResult.protein); s("pfKh",_bdResult.kh); s("pfFett",_bdResult.fett);
   if(typeof saveProfilZiel==="function") saveProfilZiel();
   const out=document.getElementById("bdOut"); if(out) out.insertAdjacentHTML("beforeend",'<div style="color:#16a34a;font-size:13px;margin-top:6px">✓ Als Tagesziel übernommen & gespeichert.</div>');
+}
+/* Free-Tagebuch: Kalorienrechner → manuelles Tagesziel */
+var _tbBd=null;
+function tbToggleCalc(){ var b=document.getElementById('tbCalcBox'); if(!b) return; b.style.display=(b.style.display==='none'||!b.style.display)?'block':'none'; }
+function tbCalcBedarf(){
+  var gv=function(id){ var e=document.getElementById(id); return e?e.value:""; };
+  var r=computeBedarf({age:gv('tbcAlter'),sex:gv('tbcGeschlecht'),h:gv('tbcGroesse'),w:gv('tbcGewicht'),act:gv('tbcAktiv'),tempo:gv('tbcTempo'),protF:1.8,protRef:'aktuell',fettPct:0.30});
+  var out=document.getElementById('tbCalcOut'), ab=document.getElementById('tbCalcApply');
+  if(r.err){ out.style.color="#b45309"; out.textContent=r.err; _tbBd=null; if(ab)ab.disabled=true; return; }
+  _tbBd={kcal:r.kcal,protein:r.protein,kh:r.kh,fett:r.fett};
+  out.style.color=""; out.innerHTML=bedarfResultHtml(r);
+  if(ab) ab.disabled=false;
+}
+function tbApplyBedarf(){
+  if(!_tbBd) return;
+  var s=function(id,v){ var e=document.getElementById(id); if(e) e.value=v; };
+  s('zKcal',_tbBd.kcal); s('zEiw',_tbBd.protein); s('zKh',_tbBd.kh); s('zFett',_tbBd.fett);
+  setZiel();
 }
 function tbISO(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 function tbShiftDay(n){ const e=document.getElementById("tbDatum"); const d=new Date((e.value||tbToday())+"T00:00:00"); d.setDate(d.getDate()+n); e.value=tbISO(d); loadTagebuch(); }
@@ -2406,12 +2479,31 @@ function tbDonut(ist,soll,label,unit,isMax){
     <div style="font-size:12px;color:var(--tb-muted)">${label}${unit?" "+unit:""}${soll?(" · "+pct+"%"):""}</div>
   </div>`;
 }
-function zielForm(){ return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+function zielForm(){
+  var inp='padding:9px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text);font-size:13px;width:100%;box-sizing:border-box';
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
   <input type="number" id="zKcal" placeholder="kcal-Ziel" style="width:104px;padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
   <input type="number" id="zEiw" placeholder="Eiweiß g" style="width:100px;padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
   <input type="number" id="zKh" placeholder="KH max g" style="width:96px;padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
   <input type="number" id="zFett" placeholder="Fett max g" style="width:104px;padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
-  <button onclick="setZiel()" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Ziel speichern</button></div>`; }
+  <button onclick="setZiel()" style="padding:8px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Ziel speichern</button></div>
+  <button type="button" onclick="tbToggleCalc()" style="margin-top:10px;background:none;border:0;color:#0369a1;font-size:13px;cursor:pointer;text-decoration:underline;padding:0">🧮 Kalorienbedarf berechnen</button>
+  <div id="tbCalcBox" style="display:none;margin-top:10px;background:var(--tb-card2,var(--bg));border:1px solid var(--tb-line);border-radius:12px;padding:12px">
+    <div style="font-size:12px;color:var(--tb-muted);margin-bottom:8px">Wissenschaftliche Schätzung (Mifflin-St-Jeor). Das Ergebnis kannst du direkt als Tagesziel übernehmen.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">
+      <select id="tbcGeschlecht" style="${inp}"><option value="">Geschlecht…</option><option value="männlich">männlich</option><option value="weiblich">weiblich</option><option value="divers">divers</option></select>
+      <input type="number" id="tbcAlter" placeholder="Alter (Jahre)" style="${inp}">
+      <input type="number" id="tbcGroesse" placeholder="Größe (cm)" style="${inp}">
+      <input type="number" id="tbcGewicht" placeholder="Gewicht (kg)" style="${inp}">
+      <select id="tbcAktiv" style="${inp}"><option value="">Aktivität…</option><option>Sitzend</option><option>Leicht aktiv</option><option>Mäßig aktiv</option><option>Sehr aktiv</option></select>
+      <select id="tbcTempo" style="${inp}"><option value="0">Gewicht halten</option><option value="-0.15">Abnehmen – moderat (−15 %)</option><option value="-0.20">Abnehmen – zügig (−20 %)</option><option value="0.10">Aufbauen (+10 %)</option></select>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <button type="button" onclick="tbCalcBedarf()" style="padding:9px 15px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Berechnen</button>
+      <button type="button" id="tbCalcApply" disabled onclick="tbApplyBedarf()" style="padding:9px 15px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text);cursor:pointer">Als Tagesziel übernehmen</button>
+    </div>
+    <div id="tbCalcOut" style="margin-top:10px;font-size:13px"></div>
+  </div>`; }
 function tbBar(ist,soll,col){ const p=soll?Math.min(100,Math.max(0,ist/soll*100)):0; return '<div style="height:7px;background:var(--tb-track);border-radius:5px;overflow:hidden"><div style="height:100%;width:'+p.toFixed(0)+'%;background:'+col+';border-radius:5px;transition:width .5s"></div></div>'; }
 function tbMacroCol(name,ist,soll,col){ ist=Math.round(ist||0); soll=Math.round(soll||0); return '<div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:600;color:var(--tb-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div><div style="font-size:11px;color:var(--tb-muted);margin:1px 0 4px;white-space:nowrap">'+ist+' / '+soll+' g</div>'+tbBar(ist,soll,col)+'</div>'; }
 function renderZiel(s,ben){
@@ -4271,6 +4363,9 @@ load();
 if(!ADMIN_MODE) setMode('start');
 /* Hero bleibt schmal & statisch – kein Schrumpfen beim Scrollen (Intro folgt separat) */
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
+window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='function') updateFloatBtns(); },{passive:true});
 </script>
+<button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
+<button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:#1D3C24;box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 </body>
 </html>
