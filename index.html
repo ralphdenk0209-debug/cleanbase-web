@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07w rezepte-hinweis+legal-zindex -->
+<!-- build 2026-07-07y zyklus-seite+gate-infos+b1-eisen -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -260,6 +260,11 @@
   <div id="trainingView" style="display:none">
     <div id="trainGate" style="display:none"></div>
     <div id="trainBody"></div>
+  </div>
+  <div id="zyklusView" style="display:none">
+    <h2 style="margin:.1em 0 .2em;font-size:19px">Regelschmerzen – was hilft?</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Was bei Zyklus &amp; PMS wirklich hilft – wenige, saubere Produkte statt Kombi-Pulver. Keine medizinische Beratung.</div>
+    <div id="zyklusBody"><div style="color:var(--muted)">Lade…</div></div>
   </div>
   <div id="vorschlagView" style="display:none">
     <div id="vorGate" style="display:none"></div>
@@ -768,9 +773,19 @@ async function startPortal(){
     window.location.href=data.url;
   }catch(e){ alert('Abo-Verwaltung ist gerade nicht verfügbar. Bitte in Kürze erneut versuchen.'); }
 }
-function gateHtml(){
+function gateHtml(feat){
   if(!ME) return '<div class="gatebox"><h3>Anmeldung nötig</h3><p>Melde dich an oder <b>registriere dich kostenlos</b>, um diese Funktion zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden / Registrieren</button></div>';
-  return '<div class="gatebox"><h3>Premium-Funktion</h3><p>Diese Funktion ist in deiner Stufe nicht enthalten. Schalte <b>Premium</b> frei, um sie zu nutzen.</p><button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="premiumInfo()">Premium – 7 Tage gratis</button></div>';
+  var INFO={
+    training:{t:'Training',d:'Dein Trainingsplan &amp; Fortschritt an einem Ort.',b:['🗓️ Trainingsplan &amp; Split-Generator','💪 Übungs-Datenbank','📋 Sätze, Wiederholungen &amp; Gewicht tracken','📈 Statistik &amp; Volumen-Fortschritt']},
+    planer:{t:'Planer',d:'Plane deine Mahlzeiten voraus – für Tag &amp; Woche.',b:['🗓️ Tages- &amp; Wochenplan','📅 Kalender &amp; Termine','🛒 Einkaufsliste aus dem Wochenplan']},
+    profil:{t:'Mein Profil',d:'Persönliche Ziele &amp; Körperdaten dauerhaft speichern.',b:['🎯 Kalorien- &amp; Makro-Ziele speichern','🧮 Bedarfsrechner (Körperfett, gemessener Grundumsatz)','🍽️ Makro-Aufteilung auf Mahlzeiten']},
+    tagebuch:{t:'Ernährungstagebuch',d:'Das volle Tagebuch mit Verlauf &amp; Auswertung.',b:['📆 Alle Tage statt nur heute','📊 Statistik &amp; Zielerreichung','📅 Kalender-Überblick']},
+    erfassung:{t:'Produkt vorschlagen',d:'Eigene Produkte erfassen und einreichen.',b:['➕ Produkte vorschlagen','🔎 Zutaten &amp; Nährwerte erfassen']}
+  };
+  var i=INFO[feat];
+  var body = i ? ('<div style="text-align:left;background:var(--greenlt);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:2px 0 14px"><div style="font-weight:700;color:var(--greendk);margin-bottom:6px">Das steckt in „'+i.t+'":</div><div style="font-size:13.5px;color:var(--ink);line-height:1.75">'+i.b.join('<br>')+'</div></div>') : '';
+  var desc = i ? i.d : 'Diese Funktion ist in deiner Stufe nicht enthalten.';
+  return '<div class="gatebox"><h3>Premium-Funktion</h3><p>'+desc+' Schalte <b>Premium</b> frei, um sie zu nutzen.</p>'+body+'<button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="premiumInfo()">Premium – 7 Tage gratis</button></div>';
 }
 function openLogin(){ const pw=document.getElementById("pwLogin"); if(pw) pw.style.display="none"; const cb=document.getElementById("codeBtn"); if(cb) cb.style.display=""; const box=document.getElementById("codeBox"); if(box) box.style.display="none"; const intro=document.getElementById("loginIntro"); if(intro) intro.innerHTML='Ohne Passwort: wir schicken dir einen <b>6-stelligen Code</b> an deine E-Mail.'; document.getElementById("loginOverlay").classList.add("open"); const e=document.getElementById("loginEmail"); if(e) setTimeout(()=>e.focus(),60); }
 function openAdminLogin(){ openLogin(); const pw=document.getElementById("pwLogin"); if(pw) pw.style.display=""; const intro=document.getElementById("loginIntro"); if(intro) intro.innerHTML='<b>Team-/Admin-Login</b> · mit E-Mail und Passwort. (Normale Nutzer melden sich per Code an.)'; }
@@ -853,7 +868,7 @@ function updateGate(){
   const form=document.getElementById("vorForm"), gate=document.getElementById("vorGate");
   if(!form||!gate) return;
   if(ME&&hasFeat('erfassung')){ form.style.display=""; gate.style.display="none"; }
-  else { form.style.display="none"; gate.style.display=""; gate.innerHTML=gateHtml(); }
+  else { form.style.display="none"; gate.style.display=""; gate.innerHTML=gateHtml('erfassung'); }
 }
 async function applyAuthState(session){
   if(session){ await refreshMe(); } else { ME=null; MY_FEATURES=null; TB_USER="U001"; }
@@ -880,7 +895,7 @@ function _selVal(id,val){ const el=document.getElementById(id); if(!el) return;
 function _numOrNull(id){ const v=parseFloat((document.getElementById(id).value||"").replace(",",".")); return isNaN(v)?null:v; }
 async function loadProfil(){
   const gate=document.getElementById("profilGate"), inner=document.getElementById("profilInner");
-  if(!ME || !hasFeat('profil')){ if(inner)inner.style.display="none"; if(gate){ gate.style.display=""; gate.innerHTML=gateHtml(); } return; }
+  if(!ME || !hasFeat('profil')){ if(inner)inner.style.display="none"; if(gate){ gate.style.display=""; gate.innerHTML=gateHtml('profil'); } return; }
   if(gate)gate.style.display="none"; if(inner)inner.style.display="";
   const {data}=await client.rpc("cb_profil"); const b=(data&&data[0])||{};
   { const e=document.getElementById("pfEmail"); if(e) e.textContent=b.Email||"–"; }
@@ -1338,6 +1353,7 @@ function setMode(m){
   document.getElementById("tagebuchView").style.display = m==="tagebuch"?"":"none";
   document.getElementById("planerView").style.display = m==="planer"?"":"none";
   document.getElementById("trainingView").style.display = m==="training"?"":"none";
+  document.getElementById("zyklusView").style.display = m==="zyklus"?"":"none";
   document.getElementById("profilView").style.display = m==="profil"?"":"none";
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
@@ -1348,6 +1364,7 @@ function setMode(m){
   if(m==="planer") loadPlaner();
   if(m==="profil") loadProfil();
   if(m==="training") loadTraining();
+  if(m==="zyklus") renderZyklus();
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab(window._fgTab||'produkte'); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
@@ -1402,6 +1419,12 @@ function bundleCard(p,winner){
     +'</div>'
     +(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()" style="margin-top:8px;background:var(--green);color:#1D3C24;font-weight:700;border-radius:9px;padding:8px 0;font-size:12px;text-decoration:none;text-align:center;display:block">Hier kaufen ↗</a>':'')
     +'</div>';
+}
+async function renderZyklus(){
+  const b=document.getElementById("zyklusBody"); if(!b) return;
+  if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*"); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
+  await loadBilder();
+  b.innerHTML = (zyklusBundleHtml()+zyklusKomplexeHtml()) || '<div style="color:var(--muted)">Aktuell keine Produkte verfügbar.</div>';
 }
 function zyklusBundleHtml(){
   const blocks=ZYKLUS_CATS.map(c=>{
@@ -1619,14 +1642,16 @@ async function renderStart(){
     +riGlowTile('tagebuch','cutlery','Ernährungstagebuch','heute erfassen','blue')
     +riGlowTile('training','figure','Training','Plan &amp; Fortschritt','violet')
     +'</div>'
+    +'<div style="margin-bottom:12px">'+riGlowTile('zyklus','heart','Regelschmerzen','was hilft?','berry')+'</div>'
     +schritteHtml
-    +zyklusBundleHtml()+zyklusKomplexeHtml()+unterstuetzenHtml();
+    +unterstuetzenHtml();
   if(ME&&ME.is_premium) renderSchritte();
 }
 function riIco(n,s){ s=s||18;
   var P={
     search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
     barcode:'<path d="M4 6v12M7 6v12M10 6v12M14 6v12M17 6v12M20 6v12"/>',
+    heart:'<path d="M12 20.3C7 16.7 4 13.8 4 10.2 4 7.9 5.9 6 8.2 6c1.5 0 2.9.8 3.8 2 .9-1.2 2.3-2 3.8-2C20.1 6 22 7.9 22 10.2c0 3.6-3 6.5-8 10.1z"/>',
     bowl:'<path d="M3 11.5h18"/><path d="M5 11.5a7 7 0 0 0 14 0"/><path d="M12 4.5v3M9 5.5v2M15 5.5v2"/>',
     book:'<path d="M6 4h10a2 2 0 0 1 2 2v13a1.2 1.2 0 0 0-1.2-1.2H6z"/><path d="M6 4v13.8"/><path d="M9.5 8.5h5M9.5 11.5h5"/>',
     shoe:'<path d="M3 15.5h7l3.5-2 4.5 1.3a3 3 0 0 1 2 2.8V19H4.2A1.2 1.2 0 0 1 3 17.8z"/><path d="M3 15.5v-3l2.4 1.1"/>',
@@ -1637,7 +1662,7 @@ function riIco(n,s){ s=s||18;
 }
 function riChip(n){ return '<span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--greenlt);color:var(--greendk)">'+riIco(n,21)+'</span>'; }
 function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
-  var A={green:['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'],amber:['#6b4410','#1a120a','#FFC24B','#FFCF6B'],blue:['#143a63','#0b1420','#5AB6FF','#7CC4FF'],violet:['#45256b','#120b1a','#B79BFF','#C9B3FF']}[accent]||['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'];
+  var A={green:['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'],amber:['#6b4410','#1a120a','#FFC24B','#FFCF6B'],blue:['#143a63','#0b1420','#5AB6FF','#7CC4FF'],violet:['#45256b','#120b1a','#B79BFF','#C9B3FF'],berry:['#6b1f45','#1a0a12','#FF6FA8','#FFA8CB']}[accent]||['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'];
   return '<div onclick="navTo(\''+nav+'\')" style="position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:13px;min-height:105px;display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(120% 120% at 22% 12%, '+A[0]+' 0%, '+A[1]+' 62%);box-shadow:0 8px 22px rgba(15,40,25,.22)">'
     +'<div style="position:absolute;top:2px;left:2px;width:80px;height:80px;background:radial-gradient(circle,'+A[2]+'99 0%,transparent 70%);filter:blur(7px)"></div>'
     +'<div style="position:absolute;top:15px;left:16px;color:'+A[3]+';filter:drop-shadow(0 0 6px '+A[2]+'cc)">'+riIco(ico,38)+'</div>'
@@ -1871,9 +1896,9 @@ function wikiOpen(){
       ${box(`Bei der Periode zieht sich die Gebärmutter zusammen (= Krämpfe). Nur <b>wenige</b> Stoffe helfen wirklich – vieles in Kombi-Pulvern ist Beiwerk.<br>
         • <b>Magnesium</b> – entspannt die Muskeln, bester Beleg. <b>200–300 mg/Tag</b> (Form „Bisglycinat" = magenschonend).<br>
         • <b>Omega-3</b> – dämpft Entzündungen. <b>250–1000 mg EPA/DHA pro Tag</b> (oder fetter Fisch + Leinöl).<br>
-        • <b>Vitamin B1</b> (Thiamin) – <b>100 mg/Tag</b>, Wirkung erst nach ~4 Wochen.<br>
+        • <b>Vitamin B1</b> (Thiamin) – wichtig für den <b>Energiestoffwechsel &amp; die Nervenfunktion</b>; kann laut Studien Regelschmerzen (Krämpfe) verringern. <b>100 mg/Tag</b>, Wirkung erst nach ~4 Wochen.<br>
         • <b>Mönchspfeffer/Vitex</b> – eher gegen PMS-Stimmung; standardisiert <b>~20 mg/Tag</b>. Wirkt auf Hormone → bei Kinderwunsch/Medikamenten ärztlich abklären.<br>
-        • <b>Frauenmantel/Eisen</b> – kaum Beleg gegen Krämpfe (Eisen wichtig wegen Blutverlust).<br>
+        • <b>Frauenmantel/Eisen</b> – kaum Beleg gegen Krämpfe. Eisen ist wegen des Blutverlusts wichtig, aber Eisenpräparate nur bei <b>ärztlich bestätigtem Mangel</b> (Blutbild) einnehmen – eine Überdosierung ist schädlich. <b>⚠️ Unbedingt ärztlich abklären.</b><br>
         <b>Sauber statt Kombi-Pulver:</b> lieber wenige saubere Einzel-Produkte (je 1 Wirkstoff, ohne Farbe/Aroma) als ein additivreiches All-in-one.<br>
         <i>Keine medizinische Beratung. Dosen sind Orientierung aus Studien.</i>`)}
 
@@ -2241,7 +2266,7 @@ function planShiftWeek(n){
 }
 async function loadPlaner(){
   const gate=document.getElementById("planerGate"), inner=document.getElementById("planerInner");
-  if(!ME || !hasFeat('planer')){ if(inner)inner.style.display="none"; if(gate){gate.style.display="";gate.innerHTML=gateHtml();} return; }
+  if(!ME || !hasFeat('planer')){ if(inner)inner.style.display="none"; if(gate){gate.style.display="";gate.innerHTML=gateHtml('planer');} return; }
   if(gate)gate.style.display="none"; if(inner)inner.style.display="";
   if(!ALL.length){ await load(); }
   fillProdList();
@@ -2425,7 +2450,7 @@ async function loadTagebuch(){
   const _full=hasFeat('tagebuch'), _heute=hasFeat('tagebuch_heute');
   if(!ME || !(_full||_heute)){
     if(inner) inner.style.display="none";
-    if(gate){ gate.style.display=""; gate.innerHTML=gateHtml(); }
+    if(gate){ gate.style.display=""; gate.innerHTML=gateHtml('tagebuch'); }
     return;
   }
   if(gate) gate.style.display="none";
@@ -3226,7 +3251,7 @@ const TF_SMILEYS=["😣","🙁","😐","🙂","😄"];
 const MASS=[["po","Po","Po"],["huefte","Hüfte","Huefte"],["beine","Beine","Beine"],["oberarm","Oberarm","Oberarm"],["brust","Brust","Brust"],["taille","Taille","Taille"],["bauch","Bauch","Bauch"],["oberschenkel","Oberschenkel","Oberschenkel"]];
 async function loadTraining(){
   const gate=document.getElementById("trainGate"), body=document.getElementById("trainBody");
-  if(!ME || !hasFeat('planer')){ gate.style.display=""; body.innerHTML=""; gate.innerHTML=gateHtml(); return; }
+  if(!ME || !hasFeat('planer')){ gate.style.display=""; body.innerHTML=""; gate.innerHTML=gateHtml('training'); return; }
   gate.style.display="none"; body.innerHTML='<div style="color:var(--muted)">Lade…</div>';
   try{
     const [rp,rk,rh,rt]=await Promise.all([
