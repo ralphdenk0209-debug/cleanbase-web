@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-07k bento-redesign -->
+<!-- build 2026-07-07l bento-redesign -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -400,6 +400,7 @@
         <button id="fgtBundles" onclick="fgTab('bundles')">Bundles</button>
         <button id="fgtRezepte" onclick="fgTab('rezepte')">Rezepte</button>
         <button id="fgtKontakt" onclick="fgTab('kontakt')">Anfragen</button>
+        <button id="fgtEmpfehlungen" onclick="fgTab('empfehlungen')">Empfehlungen</button>
       </div>
       <div id="fgPanelProdukte">
         <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen, bearbeiten und freischalten. Nur vollständig bewertete Produkte sind freigebbar.</div>
@@ -427,6 +428,10 @@
         <h3 style="font-size:15px;margin:22px 0 4px;color:var(--muted)">Erledigt · Historie</h3>
         <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Bearbeitete Anfragen (auch automatisch angelegte Entwürfe).</div>
         <div id="fgKontaktHist" style="font-size:14px;color:var(--muted);line-height:1.5"></div>
+      </div>
+      <div id="fgPanelEmpfehlungen" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Empfehlungs-Paare: Produkt → bessere Alternative (gleiche Unterkategorie, mind. 10 Punkte besser). Ideen für „Statt X lieber Y"-Posts (Instagram). Nach Punkte-Vorsprung sortiert.</div>
+        <div id="fgEmpfehlungen" style="font-size:14px;color:var(--ink)"></div>
       </div>
     </div>
   </div>
@@ -1054,6 +1059,25 @@ function betterAlt(d){
   });
   return best;
 }
+function renderEmpfehlungen(){
+  var box=document.getElementById('fgEmpfehlungen'); if(!box) return;
+  var pairs=[];
+  (ALL||[]).forEach(function(d){
+    var a=betterAlt(d); if(!a) return;
+    pairs.push({d:d,a:a,delta:(num(a.clean_score)-num(d.clean_score))});
+  });
+  pairs.sort(function(x,y){ return y.delta-x.delta; });
+  if(!pairs.length){ box.innerHTML='<div style="color:var(--muted)">Aktuell keine Empfehlungs-Paare.</div>'; return; }
+  var badge=function(p){ return '<b style="color:'+farbe(p.bewertung)+'">'+num(p.clean_score)+'</b> '+esc(p.name)+' <span style="color:var(--muted);font-size:11.5px">'+esc(p.marke||'')+'</span>'; };
+  box.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:8px">'+pairs.length+' Paare</div>'+pairs.map(function(x){
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:8px;background:var(--card)">'
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:5px">'+esc(x.d.unterkategorie||x.d.kategorie||'')+' · +'+x.delta+' Punkte Vorsprung</div>'
+      +'<div onclick="detailById(\''+x.d.id+'\')" style="cursor:pointer;color:var(--muted);text-decoration:line-through;line-height:1.5">'+badge(x.d)+'</div>'
+      +'<div style="margin:3px 0;color:#16a34a;font-weight:700;font-size:12.5px">↓ Top-Empfehlung</div>'
+      +'<div onclick="detailById(\''+x.a.id+'\')" style="cursor:pointer;line-height:1.5">'+badge(x.a)+'</div>'
+      +'</div>';
+  }).join('');
+}
 function detailById(id){ const p=(ALL||[]).find(x=>x.id===id); if(p) detail(p); }
 /* Einheitliche Produkt-Referenz-Karte (Bundle, „bessere Alternative", Hinweise) – klickbar -> Produktansicht. */
 function prodRef(id, opts){
@@ -1121,7 +1145,6 @@ function render(){
         <div class="name">${esc(d.name)}</div>
         <div class="sub">${subLine(d)}</div>
         ${statusTag(d)}${efChip(d.ernaehrungsform)}
-        ${altBanner(d)}
       </div>`;
     grid.appendChild(c);
   });
@@ -1219,7 +1242,6 @@ function detail(d){
     <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button>${(ME&&ME.is_admin)?`<button onclick="adminDeleteProdukt('${d.id}','${esc(d.name||"").replace(/'/g,"")}')" style="padding:7px 12px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:13px">🗑️ Produkt ausblenden</button>`:""}</div>
     ${BILD[d.id]?`<div style="text-align:center;margin:8px 0"><img src="${esc(BILD[d.id])}" alt="" style="max-height:170px;max-width:100%;border-radius:12px" onerror="this.style.display='none'"></div>`:""}
     ${(d.dosis_text||d.inhalt_menge)?`<div style="background:var(--greenlt);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px;color:var(--ink);line-height:1.5">${d.dosis_text?`<div><b>Angegebene Dosis:</b> ${esc(d.dosis_text)}</div>`:""}${d.inhalt_menge?`<div><b>Inhalt:</b> ${esc(String(d.inhalt_menge).replace(/\.0+$/,""))}${d.inhalt_einheit?(" "+esc(d.inhalt_einheit)):""}${d.form?(" · "+esc(d.form)):""}</div>`:""}</div>`:""}
-    ${_sd?altBanner(d):""}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
       ${donut(d.clean_score, col, 96)}
@@ -1330,9 +1352,10 @@ function setMode(m){
 }
 function navTo(m){ closeMehr(); setMode(m); }
 function fgTab(t){ window._fgTab=t;
-  var p={produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',kontakt:'fgPanelKontakt'};
+  var p={produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen'};
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
-  ['produkte','bundles','rezepte','kontakt'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
+  ['produkte','bundles','rezepte','kontakt','empfehlungen'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
+  if(t==='empfehlungen' && typeof renderEmpfehlungen==='function') renderEmpfehlungen();
 }
 function pfTab(name){
   document.querySelectorAll('#pfTabs button').forEach(b=>b.classList.toggle('active', b.dataset.p===name));
