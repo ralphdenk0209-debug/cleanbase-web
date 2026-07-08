@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08b zyklus-ende+geraete-autosave+ernform-erklaerung -->
+<!-- build 2026-07-08d schlaf+schritte-kompakt+regel-dosis -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1403,10 +1403,10 @@ let BILD={};
 async function loadBilder(){ try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
 const BUNDLE_ASIN={P928:'B0FMS51PCG',P934:'B07NS14648',P935:'B0F32TYHXY',P929:'B0BRSWXP6N',P930:'B0FMS1Q53F',P931:'B07PZZ8J5T',P932:'B01MTZBUQ2',P939:'B0876D2FNT'};
 const ZYKLUS_CATS=[
-  {t:'Magnesium', hint:'gegen Krämpfe & Stress', ids:['P928','P934','P935']},
-  {t:'Omega-3', hint:'Entzündung – Fisch oder vegan', ids:['P930','P929','P933']},
-  {t:'Mönchspfeffer (Vitex)', hint:'nur bei PMS', ids:['P931','P939']},
-  {t:'Vitamin B1', hint:'optional', ids:['P932']}
+  {t:'Magnesium', hint:'gegen Krämpfe & Stress', dosis:'200–300 mg/Tag', ids:['P928','P934','P935']},
+  {t:'Omega-3', hint:'Entzündung – Fisch oder vegan', dosis:'250–1000 mg EPA/DHA/Tag', ids:['P930','P929','P933']},
+  {t:'Mönchspfeffer (Vitex)', hint:'nur bei PMS', dosis:'~20 mg/Tag (standardisiert)', ids:['P931','P939']},
+  {t:'Vitamin B1', hint:'optional', dosis:'100 mg/Tag (Wirkung nach ~4 Wochen)', ids:['P932']}
 ];
 function amzUrl(id){ return BUNDLE_ASIN[id]?('https://www.amazon.de/dp/'+BUNDLE_ASIN[id]+'?tag=rootindex-21'):''; }
 function bundleCard(p,winner){
@@ -1441,6 +1441,7 @@ function zyklusBundleHtml(){
     const cards=list.map((p,i)=>bundleCard(p,list.length>1&&i===0)).join('');
     return '<div class="zbCat" style="margin-top:13px">'
       +'<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:4px"><span style="font-weight:700;font-size:13.5px">'+esc(c.t)+'</span><span style="font-size:11px;color:var(--muted)">'+esc(c.hint)+'</span></div>'
+      +(c.dosis?'<div style="font-size:11.5px;color:var(--greendk);background:var(--greenlt);border-radius:7px;padding:4px 8px;margin-bottom:6px">💊 Empfohlen bei Regelschmerzen: <b>'+esc(c.dosis)+'</b></div>':'')
       +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+cards+'</div></div>';
   }).join('');
   if(!blocks) return '';
@@ -1515,7 +1516,7 @@ async function renderSchritte(){
   let tag=0, verlauf=[];
   try{ const r=await client.rpc("cb_schritte_tag",{p_datum:sel}); tag=Number(r.data)||0; }catch(e){}
   try{ const r=await client.rpc("cb_schritte_verlauf",{p_bis:today,p_tage:7}); verlauf=r.data||[]; }catch(e){}
-  const card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px;margin-bottom:12px;box-shadow:var(--shadow)';
+  const card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 13px;margin-bottom:12px;box-shadow:var(--shadow)';
   const ZIEL=10000, wd=["So","Mo","Di","Mi","Do","Fr","Sa"];
   const vals=verlauf.map(x=>Number(x.schritte)||0);
   const tage=vals.length||1, sum=vals.reduce((a,b)=>a+b,0), avg=Math.round(sum/tage);
@@ -1531,24 +1532,27 @@ async function renderSchritte(){
   const selD=new Date(sel+"T00:00:00");
   const selLbl=selD.toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"short"})+(sel===today?" · heute":"");
   const nextOff = sel>=today;
+  const open = window._schrOpen ? '' : 'none';
   box.innerHTML='<div style="'+card+'">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600">'+riIco('shoe',18)+' Schritte</div><span style="font-size:10px;font-weight:700;color:#166534;background:#e7f4ec;padding:2px 8px;border-radius:999px;letter-spacing:.4px">PERFORMANCE</span></div>'
-    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
-      +'<button onclick="schrShiftDay(-1)" title="Tag zurück" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹</button>'
-      +'<span style="flex:1;text-align:center;font-size:13px;color:var(--ink);font-weight:600">'+selLbl+'</span>'
-      +'<button onclick="schrShiftDay(1)" '+(nextOff?'disabled':'')+' title="Tag vor" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:'+(nextOff?'not-allowed':'pointer')+';opacity:'+(nextOff?'.4':'1')+'">›</button></div>'
-    +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(tag||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px">'
-      +'<button onclick="saveSchritte()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:13px">Speichern</button></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600;font-size:14px">'+riIco('shoe',17)+' Schritte</div><span style="font-size:12.5px;color:var(--muted)">heute <b style="color:var(--ink)">'+(tag?tag.toLocaleString("de-DE"):"–")+'</b></span></div>'
+    +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(tag||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px">'
+      +'<button onclick="saveSchritte()" style="padding:8px 13px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:13px">Speichern</button></div>'
     +'<div id="startSchritteMsg" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:15px"></div>'
-    +'<div style="border-top:1px solid var(--line);margin:6px 0 10px"></div>'
-    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:12px;color:var(--muted)">Letzte 7 Tage</div><div style="font-size:12px;color:var(--ink)">Ø <b>'+avg.toLocaleString("de-DE")+'</b>/Tag · Ziel '+ZIEL.toLocaleString("de-DE")+'</div></div>'
-    +'<div style="display:flex;gap:4px;align-items:flex-end">'+bars+'</div>'
+    +'<button onclick="schrToggleChart()" style="width:100%;text-align:left;background:none;border:0;padding:2px 0 0;cursor:pointer;color:var(--greendk);font-size:12.5px;font-weight:600">📊 7-Tage-Verlauf · Ø '+avg.toLocaleString("de-DE")+'/Tag <span id="schrArrow">'+(window._schrOpen?'▲':'▼')+'</span></button>'
+    +'<div id="schrChart" style="display:'+open+';margin-top:8px">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+        +'<button onclick="schrShiftDay(-1)" title="Tag zurück" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹</button>'
+        +'<span style="flex:1;text-align:center;font-size:12.5px;color:var(--ink);font-weight:600">'+selLbl+' · Ziel '+ZIEL.toLocaleString("de-DE")+'</span>'
+        +'<button onclick="schrShiftDay(1)" '+(nextOff?'disabled':'')+' title="Tag vor" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:'+(nextOff?'not-allowed':'pointer')+';opacity:'+(nextOff?'.4':'1')+'">›</button></div>'
+      +'<div style="display:flex;gap:4px;align-items:flex-end">'+bars+'</div>'
+    +'</div>'
     +'</div>';
 }
-function schrPickDate(ds){ window._schrDate=ds; renderSchritte(); }
+function schrToggleChart(){ window._schrOpen=!window._schrOpen; var c=document.getElementById('schrChart'); var a=document.getElementById('schrArrow'); if(c) c.style.display=window._schrOpen?'':'none'; if(a) a.textContent=window._schrOpen?'▲':'▼'; }
+function schrPickDate(ds){ window._schrDate=ds; window._schrOpen=true; renderSchritte(); }
 function schrShiftDay(n){
   const cur=window._schrDate||tbToday(); const d=new Date(cur+"T00:00:00"); d.setDate(d.getDate()+n);
-  const iso=tbISO(d); if(iso>tbToday()) return; window._schrDate=iso; renderSchritte();
+  const iso=tbISO(d); if(iso>tbToday()) return; window._schrDate=iso; window._schrOpen=true; renderSchritte();
 }
 async function saveSchritte(){
   const el=document.getElementById("startSchritte"); if(!el) return;
@@ -1557,6 +1561,61 @@ async function saveSchritte(){
   await renderSchritte();
   const m=document.getElementById("startSchritteMsg");
   if(m){ if(error){ m.style.color="#dc2626"; m.textContent="Fehler: "+error.message; } else { m.style.color="#16a34a"; m.textContent="✓ "+v.toLocaleString("de-DE")+" gespeichert"; } }
+}
+/* ---- Schlaf (manuell; später App-Sync ins gleiche Schema) ---- */
+async function renderSchlaf(){
+  const box=document.getElementById("schlafBox"); if(!box) return;
+  if(!window._schlDate) window._schlDate=tbToday();
+  const sel=window._schlDate, today=tbToday();
+  let tag=0, verlauf=[];
+  try{ const r=await client.rpc("cb_schlaf_tag",{p_datum:sel}); tag=Number(r.data)||0; }catch(e){}
+  try{ const r=await client.rpc("cb_schlaf_verlauf",{p_bis:today,p_tage:7}); verlauf=r.data||[]; }catch(e){}
+  const card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 13px;margin-bottom:12px;box-shadow:var(--shadow)';
+  const ZIEL=8, wd=["So","Mo","Di","Mi","Do","Fr","Sa"];
+  const nfmt=function(x){ return (Math.round(x*10)/10).toLocaleString("de-DE"); };
+  const vals=verlauf.map(x=>Number(x.stunden)||0);
+  const tage=vals.length||1, sum=vals.reduce((a,b)=>a+b,0), avg=sum/tage;
+  const maxV=Math.max(ZIEL, ...vals, 1);
+  const bars=verlauf.map(x=>{
+    const v=Number(x.stunden)||0, dd=new Date(x.datum+"T00:00:00");
+    const h=Math.round(4+(v/maxV)*34), isSel=x.datum===sel;
+    const col=(v>=7&&v<=9)?"#4f46e5":(v>0?"#818cf8":"#e5e9e6");
+    return '<button onclick="schlPickDate(\''+x.datum+'\')" title="'+dd.toLocaleDateString('de-DE')+': '+nfmt(v)+' h" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;cursor:pointer;padding:0">'
+      +'<div style="height:40px;display:flex;align-items:flex-end;width:100%;justify-content:center"><div style="width:66%;height:'+h+'px;background:'+col+';border-radius:5px 5px 2px 2px;'+(isSel?'outline:2px solid #312e81;outline-offset:1px':'')+'"></div></div>'
+      +'<div style="font-size:10px;color:'+(isSel?'#312e81':'#94a3b8')+';font-weight:'+(isSel?'700':'500')+'">'+wd[dd.getDay()]+'</div></button>';
+  }).join("");
+  const selD=new Date(sel+"T00:00:00");
+  const selLbl=selD.toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"short"})+(sel===today?" · heute":"");
+  const nextOff = sel>=today;
+  const open = window._schlOpen ? '' : 'none';
+  box.innerHTML='<div style="'+card+'">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600;font-size:14px">🌙 Schlaf</div><span style="font-size:12.5px;color:var(--muted)">heute <b style="color:var(--ink)">'+(tag?nfmt(tag)+' h':"–")+'</b></span></div>'
+    +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchlaf" type="number" min="0" max="24" step="0.5" value="'+(tag||"")+'" placeholder="z. B. 7,5" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px">'
+      +'<button onclick="saveSchlaf()" style="padding:8px 13px;border:0;border-radius:8px;background:#4f46e5;color:#fff;cursor:pointer;font-size:13px">Speichern</button></div>'
+    +'<div id="startSchlafMsg" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:15px"></div>'
+    +'<button onclick="schlToggleChart()" style="width:100%;text-align:left;background:none;border:0;padding:2px 0 0;cursor:pointer;color:#4338ca;font-size:12.5px;font-weight:600">📊 7-Tage-Verlauf · Ø '+nfmt(avg)+' h/Nacht <span id="schlArrow">'+(window._schlOpen?'▲':'▼')+'</span></button>'
+    +'<div id="schlChart" style="display:'+open+';margin-top:8px">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+        +'<button onclick="schlShiftDay(-1)" title="Tag zurück" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹</button>'
+        +'<span style="flex:1;text-align:center;font-size:12.5px;color:var(--ink);font-weight:600">'+selLbl+' · Ziel ~8 h</span>'
+        +'<button onclick="schlShiftDay(1)" '+(nextOff?'disabled':'')+' title="Tag vor" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:'+(nextOff?'not-allowed':'pointer')+';opacity:'+(nextOff?'.4':'1')+'">›</button></div>'
+      +'<div style="display:flex;gap:4px;align-items:flex-end">'+bars+'</div>'
+    +'</div>'
+    +'</div>';
+}
+function schlToggleChart(){ window._schlOpen=!window._schlOpen; var c=document.getElementById('schlChart'); var a=document.getElementById('schlArrow'); if(c) c.style.display=window._schlOpen?'':'none'; if(a) a.textContent=window._schlOpen?'▲':'▼'; }
+function schlPickDate(ds){ window._schlDate=ds; window._schlOpen=true; renderSchlaf(); }
+function schlShiftDay(n){
+  const cur=window._schlDate||tbToday(); const d=new Date(cur+"T00:00:00"); d.setDate(d.getDate()+n);
+  const iso=tbISO(d); if(iso>tbToday()) return; window._schlDate=iso; window._schlOpen=true; renderSchlaf();
+}
+async function saveSchlaf(){
+  const el=document.getElementById("startSchlaf"); if(!el) return;
+  const v=Math.max(0,Math.min(24,parseFloat((el.value||"").replace(',','.'))||0)), datum=window._schlDate||tbToday();
+  const {error}=await client.rpc("cb_schlaf_speichern",{p_datum:datum, p_stunden:v});
+  await renderSchlaf();
+  const m=document.getElementById("startSchlafMsg");
+  if(m){ if(error){ m.style.color="#dc2626"; m.textContent="Fehler: "+error.message; } else { m.style.color="#16a34a"; m.textContent="✓ "+(Math.round(v*10)/10).toLocaleString("de-DE")+" h gespeichert"; } }
 }
 function makroDonut(sum, prof){
   sum=sum||{}; prof=prof||{};
@@ -1633,7 +1692,7 @@ async function renderStart(){
   const trainHtml = saetze
     ? '<div style="font-size:14px">💪 <b>'+ueb+'</b> Übungen · <b>'+saetze+'</b> Sätze · Volumen <b>'+vol+' kg</b></div>'
     : '<div style="font-size:14px;color:var(--muted)">Heute noch kein Training erfasst.</div>';
-  const schritteHtml = (ME&&ME.is_premium) ? '<div id="schritteBox"></div>' : '';
+  const schritteHtml = (ME&&ME.is_premium) ? '<div id="schritteBox"></div><div id="schlafBox"></div>' : '';
   let statusBadge='';
   if(ME){ const tb=ME.trial_bis?new Date(ME.trial_bis):null; const isTrial=(ME.sub_status==='trialing')&&tb&&tb>new Date();
     if(isTrial){ const d=Math.max(0,Math.ceil((tb-new Date())/86400000)); statusBadge='<span style="margin-left:auto;font-size:11.5px;font-weight:700;background:var(--greenlt);color:var(--greendk);padding:3px 10px;border-radius:999px;white-space:nowrap">🎁 '+d+' Tag'+(d===1?'':'e')+' Test übrig</span>'; }
@@ -1651,7 +1710,7 @@ async function renderStart(){
     +'<div style="margin-bottom:12px">'+riGlowTile('zyklus','heart','Regelschmerzen','was hilft?','berry')+'</div>'
     +schritteHtml
     +unterstuetzenHtml();
-  if(ME&&ME.is_premium) renderSchritte();
+  if(ME&&ME.is_premium){ renderSchritte(); renderSchlaf(); }
 }
 function riIco(n,s){ s=s||18;
   var P={
