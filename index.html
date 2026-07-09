@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08j produktbilder-aus -->
+<!-- build 2026-07-08k ballaststoffe-tracking -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1855,40 +1855,51 @@ function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
     +(cornerIco?'<div onclick="event.stopPropagation();'+cornerAct+'" title="Barcode scannen" style="position:absolute;top:11px;right:12px;color:'+A[3]+';filter:drop-shadow(0 0 5px '+A[2]+'aa);opacity:.92;cursor:pointer;z-index:3">'+riIco(cornerIco,24)+'</div>':'')
   +'</div>';
 }
+var BALLAST_ZIEL=30; // DGE-Richtwert (Standard-Tagesziel Ballaststoffe, später ggf. im Profil einstellbar)
 function startKennzahlen(sum, prof){
   sum=sum||{}; prof=prof||{};
   var idx=(sum.score_schnitt!=null)?Math.round(num(sum.score_schnitt)||0):0;
+  var kcalIst=Math.round(sum.kcal||0), kcalSoll=Math.round(num(prof.Kalorienziel_kcal)||0);
+  var kpct=kcalSoll>0?Math.max(0,Math.min(100,kcalIst/kcalSoll*100)):0;
   var M=[
-    {lbl:"kcal",   ist:Math.round(sum.kcal||0),    soll:Math.round(num(prof.Kalorienziel_kcal)||0), c:"#639922"},
-    {lbl:"Eiweiß", ist:Math.round(sum.protein||0), soll:Math.round(num(prof.Eiweiss_ziel_g)||0),    c:"#378ADD"},
-    {lbl:"Fett",   ist:Math.round(sum.fett||0),    soll:Math.round(num(prof.Fett_ziel_g)||0),        c:"#EF9F27"},
-    {lbl:"KH",     ist:Math.round(sum.kh||0),      soll:Math.round(num(prof.KH_ziel_g)||0),          c:"#D85A30"}
+    {lbl:"Eiweiß",        ist:Math.round(sum.protein||0),       soll:Math.round(num(prof.Eiweiss_ziel_g)||0)},
+    {lbl:"KH",            ist:Math.round(sum.kh||0),            soll:Math.round(num(prof.KH_ziel_g)||0)},
+    {lbl:"Fett",          ist:Math.round(sum.fett||0),          soll:Math.round(num(prof.Fett_ziel_g)||0)},
+    {lbl:"Ballaststoffe", ist:Math.round(sum.ballaststoffe||0), soll:BALLAST_ZIEL}
   ];
   var PAL={
-    "kcal":  ['#1f5e39','#0c1a12','#5EF2A0','#2c8a55','#eafff2','#bfe9d1'],
     "Eiweiß":['#143a63','#0b1420','#5AB6FF','#2b6fb0','#eaf4ff','#bcd8f2'],
+    "KH":    ['#6b2a17','#1a0d08','#FF8A5B','#b0472b','#ffeee6','#f0c9ba'],
     "Fett":  ['#6b4410','#1a120a','#FFC24B','#b57f1e','#fff5e2','#f0dcb4'],
-    "KH":    ['#6b2a17','#1a0d08','#FF8A5B','#b0472b','#ffeee6','#f0c9ba']
+    "Ballaststoffe":['#0e4a44','#081614','#4FD6C0','#1f8378','#e6fffb','#bff0e8']
   };
   var pills=M.map(function(m){
     var pct=m.soll>0?Math.max(0,Math.min(100,m.ist/m.soll*100)):0;
-    var p=PAL[m.lbl]||PAL.kcal;
-    return '<div style="position:relative;overflow:hidden;border-radius:13px;height:62px;background:radial-gradient(120% 120% at 22% 12%,'+p[0]+','+p[1]+' 66%)">'
+    var p=PAL[m.lbl]||PAL["Eiweiß"];
+    var lbl=(m.lbl==='Ballaststoffe')?'Ballastst.':m.lbl;
+    return '<div style="position:relative;overflow:hidden;border-radius:13px;height:60px;background:radial-gradient(120% 120% at 22% 12%,'+p[0]+','+p[1]+' 66%)">'
       +'<div style="position:absolute;left:0;bottom:0;width:100%;height:'+pct.toFixed(0)+'%;background:linear-gradient('+p[2]+'aa,'+p[3]+'aa)"></div>'
       +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center">'
-        +'<span style="font-family:var(--mono,ui-monospace,monospace);font-size:17px;font-weight:700;color:'+p[4]+';line-height:1">'+m.ist+'</span>'
-        +'<span style="font-size:9.5px;font-weight:600;color:'+p[5]+';margin-top:2px">'+m.lbl+(m.soll>0?' /'+m.soll:'')+'</span>'
+        +'<span style="font-family:var(--mono,ui-monospace,monospace);font-size:16px;font-weight:700;color:'+p[4]+';line-height:1">'+m.ist+'</span>'
+        +'<span style="font-size:9px;font-weight:600;color:'+p[5]+';margin-top:2px">'+lbl+(m.soll>0?' /'+m.soll:'')+'</span>'
       +'</div>'
     +'</div>';
   }).join('');
-  var kcalIst=(M[0]&&M[0].ist)||0;
+  var kcalTile='<div style="position:relative;overflow:hidden;border-radius:13px;height:50px;margin-bottom:8px;background:radial-gradient(120% 90% at 15% 12%,#1f5e39,#0c1a12 70%)">'
+    +'<div style="position:absolute;left:0;bottom:0;height:100%;width:'+kpct.toFixed(0)+'%;background:linear-gradient(90deg,#2c8a55aa,#5EF2A0aa)"></div>'
+    +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px">'
+      +'<span style="font-family:var(--mono,ui-monospace,monospace);font-size:17px;font-weight:700;color:#eafff2">'+kcalIst+' kcal</span>'
+      +'<span style="font-size:11px;font-weight:600;color:#bfe9d1">/ '+kcalSoll+(kcalSoll>0?' · '+Math.round(kpct)+'%':'')+'</span>'
+    +'</div>'
+  +'</div>';
   return '<div onclick="navTo(\'tagebuch\')" style="cursor:pointer;background:#E4EBDF;border:1px solid #D2DCC9;border-radius:16px;padding:14px 15px;margin-bottom:12px;box-shadow:var(--shadow)">'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
       +'<span style="font-family:var(--mono,ui-monospace,monospace);font-size:28px;font-weight:700;color:var(--greendk);line-height:1">'+idx+'</span>'
       +'<div style="line-height:1.15"><b style="display:block;font-size:14px;color:var(--ink)">Ø Index heute</b><span style="font-size:11px;color:var(--muted)">'+kcalIst+' kcal erfasst</span></div>'
       +'<span style="margin-left:auto;font-size:12px;color:var(--greendk);font-weight:600">Tagebuch ›</span>'
     +'</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">'+pills+'</div>'
+    +kcalTile
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">'+pills+'</div>'
   +'</div>';
 }
 function startProdSearch(v){ navTo('produkte'); setTimeout(function(){ var el=document.getElementById('q'); if(el){ el.value=v||''; if(typeof render==='function') render(); el.focus(); } }, 60); }
@@ -2723,12 +2734,13 @@ function renderZiel(s,ben){
   el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-weight:600">Tagesüberblick</div><button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:var(--tb-muted);cursor:pointer;text-decoration:underline">Ziel ändern</button></div>'
     + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-size:13px;color:var(--tb-muted)">kcal</span><span style="font-size:14px"><b>'+kc+'</b> <span style="color:var(--tb-muted)">/ '+Math.round(kcalZ)+' · '+kp+'%</span></span></div>'
     + tbBar(kc,kcalZ,'#22c55e')
-    + '<div style="display:flex;gap:12px;margin-top:12px">'
+    + '<div style="display:flex;gap:10px;margin-top:12px">'
       + tbMacroCol('Kohlenhydrate', s&&s.kh, khZ, '#f59e0b')
       + tbMacroCol('Protein', s&&s.protein, eiwZ, '#3b82f6')
       + tbMacroCol('Fett', s&&s.fett, fettZ, '#eab308')
+      + tbMacroCol('Ballaststoffe', s&&s.ballaststoffe, BALLAST_ZIEL, '#0d9488')
     + '</div>'
-    + `<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein = Mindestziel · Fett/KH/kcal = Obergrenze${(s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):''}</div>`;
+    + `<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein &amp; Ballaststoffe = Mindestziel · Fett/KH/kcal = Obergrenze${(s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):''}</div>`;
 }
 async function setZiel(){
   const kcal=parseFloat(document.getElementById("zKcal").value)||null, eiw=parseFloat(document.getElementById("zEiw").value)||null,
