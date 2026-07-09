@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08g zyklus-umbau+darmgesundheit -->
+<!-- build 2026-07-08h trainingsplan-uebernahme -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3436,13 +3436,15 @@ async function loadTraining(){
   if(!ME || !hasFeat('planer')){ gate.style.display=""; body.innerHTML=""; gate.innerHTML=gateHtml('training'); return; }
   gate.style.display="none"; body.innerHTML='<div style="color:var(--muted)">Lade…</div>';
   try{
-    const [rp,rk,rh,rt]=await Promise.all([
+    const [rp,rk,rh,rt,ra]=await Promise.all([
       client.rpc("cb_train_profil"),
       client.rpc("cb_geraete_katalog"),
       client.rpc("cb_mass_historie",{p_limit:1}),
-      client.rpc("cb_tagesform_get",{})
+      client.rpc("cb_tagesform_get",{}),
+      client.rpc("cb_train_adherence")
     ]);
     TRAIN = Array.isArray(rp.data)?(rp.data[0]||{}):(rp.data||{});
+    const _adh=(ra&&ra.data&&ra.data[0])||null;
     GERAETE_KAT = rk.data||[];
     const last=(rh.data&&rh.data[0])||{};
     renderTraining(TRAIN, last, (rt&&rt.data)||null);
@@ -3485,6 +3487,8 @@ function renderTrainPlanPane(){
     '<div style="'+card+'"><h3 style="'+h2+'">🗓️ Trainingsplan</h3>'
     +(p.Plan?planSummaryHtml(p.Plan):'<div style="font-size:13px;color:var(--muted);margin-bottom:8px">Aus Geräten, Zeit und Ziel automatisch einen Plan erstellen.</div>')
     +'<button onclick="openPlanGen()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:14px">'+(p.Plan?'Plan neu erstellen':'Plan erstellen')+'</button>'
+    +(p.Plan?'<button onclick="uebernehmenPlan()" style="margin-left:8px;padding:9px 14px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);cursor:pointer;font-size:14px">📒 Ins Trainingstagebuch übernehmen</button>':'')
+    +(p.Plan_aktiv_ab?'<div style="margin-top:10px;background:var(--greenlt,#ecfdf5);border:1px solid var(--green);border-radius:9px;padding:9px 11px;font-size:12.5px;color:var(--greendk,#166534)">✓ Im Tagebuch aktiv ab <b>'+new Date(p.Plan_aktiv_ab+"T00:00:00").toLocaleDateString("de-DE")+'</b>'+(_adh?' · Zielerreichung: <b>'+_adh.absolviert+'/'+_adh.geplant+'</b> Einheiten absolviert'+(_adh.verpasst>0?' · <span style="color:#b45309">'+_adh.verpasst+' verpasst</span>':''):'')+'</div>':'')
     +(p.Plan?'<div style="margin-top:12px">'+renderPlanHtml(p.Plan)+'</div>':'')
     +'</div>'
     +'<div style="'+card+'"><h3 style="'+h2+'">⏱️ Zeitbudget pro Training</h3>'
@@ -3558,17 +3562,63 @@ async function openTrainLog(d, target){
   if(!target){ document.getElementById("overlay").classList.add("open"); document.getElementById("panel").scrollTop=0; }
   renderTrainLogList();
 }
+async function uebernehmenPlan(){
+  if(!(TRAIN&&TRAIN.Plan)){ return; }
+  var t=new Date(); t.setDate(t.getDate()+1); var ab=tbISO(t);
+  const {error}=await client.rpc("cb_train_plan_aktivieren",{p_ab:ab});
+  if(error){ alert("Fehler: "+error.message); return; }
+  loadTraining();
+}
+/* Plan-Einheit für ein Datum (nur ab Plan_aktiv_ab und passendem Wochentag) */
+function planDayFor(ds){
+  var pl=TRAIN&&TRAIN.Plan; if(!pl||!pl.tageliste||!pl.tageliste.length) return null;
+  var ab=TRAIN&&TRAIN.Plan_aktiv_ab; if(!ab || ds<ab) return null;
+  var wd=['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(ds+'T00:00:00').getDay()];
+  return (pl.tageliste||[]).find(function(d){return d.wochentag===wd;}) || null;
+}
+async function addTrainSatz2(j){
+  var ex=(window._tlPlanEx||[])[j]; if(!ex) return;
+  var wdh=parseInt((document.getElementById('pl_wdh_'+j)||{}).value)||null;
+  var kg=_numOrNullId('pl_kg_'+j);
+  const {error}=await client.rpc("cb_train_log_add",{p_datum:TLOG_DATE,p_uebung:ex.name,p_wdh:wdh,p_gewicht:kg});
+  if(error){ alert("Fehler: "+error.message); return; }
+  renderTrainLogList();
+}
 async function renderTrainLogList(){
   let rows=[]; try{ const {data}=await client.rpc("cb_train_log_tag",{p_datum:TLOG_DATE}); rows=data||[]; }catch(e){}
   const el=document.getElementById("tlList"); if(!el) return;
-  if(!rows.length){ el.innerHTML='<div style="color:var(--muted);font-size:14px">Noch keine Sätze an diesem Tag.</div>'; return; }
   const grp={}; rows.forEach(r=>{(grp[r.uebung]=grp[r.uebung]||[]).push(r);});
-  el.innerHTML=Object.entries(grp).map(([ueb,sets])=>{
-    const vol=sets.reduce((a,s)=>a+(s.wiederholungen||0)*(s.gewicht_kg||0),0);
-    return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-weight:600;font-size:14px;margin-bottom:4px">'+esc(ueb)+' <span style="font-weight:400;color:var(--muted);font-size:12px">· '+sets.length+' Sätze · Vol '+Math.round(vol)+' kg</span></div>'
-     +sets.map(s=>'<div style="display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:3px 0"><span>Satz '+s.satz+': '+(s.wiederholungen??'–')+' Wdh × '+(s.gewicht_kg??'–')+' kg</span><button onclick="delTrainSatz('+s.log_id+')" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer">✕</button></div>').join("")
-     +'</div>';
-  }).join("");
+  var pd=planDayFor(TLOG_DATE);
+  var past=(TLOG_DATE<tbToday());
+  var html='';
+  if(pd){
+    window._tlPlanEx=pd.uebungen||[];
+    var offen=(pd.uebungen||[]).some(function(u){return !(grp[u.name]&&grp[u.name].length);});
+    html+='<div style="border:1px solid '+((past&&offen)?'#f59e0b':'var(--green)')+';border-radius:10px;padding:10px 12px;margin-bottom:12px;background:'+((past&&offen)?'#fffbeb':'var(--greenlt,#ecfdf5)')+'">'
+      +'<div style="font-weight:700;font-size:14px;margin-bottom:2px;color:'+((past&&offen)?'#b45309':'var(--greendk,#166534)')+'">📋 Einheit laut Plan: '+esc(pd.name)+(past&&offen?' · ⚠️ teils verpasst':'')+'</div>'
+      +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Trag ein, was du wirklich geschafft hast.</div>'
+      +(pd.uebungen||[]).map(function(u,j){
+        var done=(grp[u.name]||[]).length;
+        var num=/^[0-9]+$/.test(String(u.wdh||"").trim())?String(u.wdh).trim():"";
+        return '<div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px">'
+          +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;gap:8px"><span><b>'+esc(u.name)+'</b> <span style="color:var(--muted);font-size:11px">'+esc(u.muskelgruppe||"")+'</span></span><span style="color:'+(done>=u.saetze?'#16a34a':'var(--muted)')+';font-size:12px;white-space:nowrap">Ziel '+u.saetze+'×'+esc(u.wdh)+' · '+done+'/'+u.saetze+'</span></div>'
+          +'<div style="display:flex;gap:6px;align-items:center"><input id="pl_wdh_'+j+'" type="number" inputmode="numeric" value="'+num+'" placeholder="Wdh" style="width:66px;padding:6px;border:1px solid var(--line);border-radius:7px"><input id="pl_kg_'+j+'" type="number" step="0.5" inputmode="decimal" placeholder="kg" style="width:74px;padding:6px;border:1px solid var(--line);border-radius:7px"><button onclick="addTrainSatz2('+j+')" style="padding:6px 12px;border:0;border-radius:7px;background:var(--green);color:#1D3C24;cursor:pointer;font-size:13px">✓ Satz</button></div>'
+          +'</div>';
+      }).join('')
+      +(pd.cardio?'<div style="font-size:12.5px;color:var(--greendk,#166534);margin-top:2px">+ '+esc(pd.cardio)+'</div>':'')
+      +'</div>';
+  }
+  if(rows.length){
+    html+=Object.entries(grp).map(function(e){ var ueb=e[0], sets=e[1];
+      var vol=sets.reduce(function(a,s){return a+(s.wiederholungen||0)*(s.gewicht_kg||0);},0);
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="font-weight:600;font-size:14px;margin-bottom:4px">'+esc(ueb)+' <span style="font-weight:400;color:var(--muted);font-size:12px">· '+sets.length+' Sätze · Vol '+Math.round(vol)+' kg</span></div>'
+       +sets.map(function(s){return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:3px 0"><span>Satz '+s.satz+': '+(s.wiederholungen==null?'–':s.wiederholungen)+' Wdh × '+(s.gewicht_kg==null?'–':s.gewicht_kg)+' kg</span><button onclick="delTrainSatz('+s.log_id+')" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer">✕</button></div>';}).join("")
+       +'</div>';
+    }).join("");
+  } else if(!pd){
+    html='<div style="color:var(--muted);font-size:14px">Noch keine Sätze an diesem Tag.</div>';
+  }
+  el.innerHTML=html;
 }
 async function addTrainSatz(){
   const ueb=(document.getElementById("tlUeb").value||"").trim();
