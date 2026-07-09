@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08i darm-praebiotika-vilgain -->
+<!-- build 2026-07-08j produktbilder-aus -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1483,7 +1483,9 @@ function pfTab(name){
 /* ===== Startseite (Home) ===== */
 function startFeature(ic,t,sub){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px">'+ic+'</div><div style="font-weight:600;font-size:13.5px;margin-top:2px">'+t+'</div><div style="font-size:11.5px;color:var(--muted)">'+sub+'</div></div>'; }
 let BILD={};
-async function loadBilder(){ try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
+/* Produktbilder aktuell ausgeblendet (eigene Bilder in Arbeit). Wieder einschalten: SHOW_PRODUKTBILDER=true */
+var SHOW_PRODUKTBILDER=false;
+async function loadBilder(){ if(!SHOW_PRODUKTBILDER){ BILD={}; return; } try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
 const BUNDLE_ASIN={P928:'B0FMS51PCG',P934:'B07NS14648',P935:'B0F32TYHXY',P929:'B0BRSWXP6N',P930:'B0FMS1Q53F',P931:'B07PZZ8J5T',P932:'B01MTZBUQ2',P939:'B0876D2FNT'};
 const ZYKLUS_CATS=[
   {t:'Magnesium', hint:'gegen Krämpfe & Stress', dosis:'200–300 mg/Tag', ids:['P928','P934','P935']},
