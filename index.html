@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08k ballaststoffe-tracking -->
+<!-- build 2026-07-08m darm-wellness-drink-in-darmseite -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1494,7 +1494,7 @@ const ZYKLUS_CATS=[
   {t:'Vitamin B1', hint:'optional', dosis:'100 mg/Tag (Wirkung nach ~4 Wochen)', ids:['P932']}
 ];
 const DARM_CATS=[
-  {t:'Ballaststoffe / Flohsamen', hint:'Regelmäßigkeit & Sättigung', dosis:'5–10 g/Tag mit viel Wasser', ids:['P166','P1047']},
+  {t:'Ballaststoffe / Flohsamen', hint:'Regelmäßigkeit & Sättigung', dosis:'25–30 g Ballaststoffe/Tag gesamt (DGE)', ids:['P166','P1057','P1047']},
   {t:'Probiotika', hint:'lebende Kulturen', dosis:'nach Produktangabe', ids:[]},
   {t:'Präbiotika (Inulin/Akazienfaser)', hint:'Futter für gute Bakterien', dosis:'langsam einschleichen', ids:['P1046']}
 ];
@@ -3885,7 +3885,7 @@ function bodyMapHtml(last){
       +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:13px"></div>';
   });
   return '<div style="position:relative;max-width:380px;margin:0 auto;min-height:308px">'
-    +'<div style="position:absolute;left:50%;top:0;transform:translateX(-50%)">'+bodyFigureSvg()+'</div>'+pills+'</div>'
+    +'<div id="bodyFigWrap" style="position:absolute;left:50%;top:0;transform:translateX(-50%)">'+bodyFigureSvg()+'</div>'+pills+'</div>'
     +'<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:2px">Maße in cm</div>';
 }
 async function renderProfilMass(){
