@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08m darm-wellness-drink-in-darmseite -->
+<!-- build 2026-07-08n bundlecard-kompakt-ohne-bild -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1503,6 +1503,18 @@ function bundleCard(p,winner){
   const img=(typeof BILD!=='undefined'&&BILD&&BILD[p.id])?BILD[p.id]:'';
   const url=amzUrl(p.id);
   const dose=p.dosis_text?('<div style="font-size:11px;color:var(--green);font-weight:600;margin-top:2px;line-height:1.25">'+esc(p.dosis_text)+'</div>'):'';
+  if(!img){
+    return '<div class="zbCard" style="flex:1 1 calc(50% - 5px);min-width:0;max-width:calc(50% - 5px);border:1px solid '+(winner?'var(--green)':'var(--line)')+';border-radius:12px;padding:9px 10px;background:var(--card);display:flex;flex-direction:column">'
+      +'<div onclick="detailById(\''+p.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:8px">'
+      +(p.clean_score!=null?'<div style="flex:0 0 auto">'+donut(num(p.clean_score),farbe(p.bewertung),40)+'</div>':'')
+      +'<div style="min-width:0;flex:1">'
+        +(winner?'<span style="display:inline-block;background:var(--green);color:#1D3C24;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;margin-bottom:2px">TOP</span>':'')
+        +'<div style="font-size:12.5px;font-weight:600;line-height:1.2">'+esc(p.name)+'</div>'
+        +'<div style="font-size:11px;color:var(--muted)">'+esc(p.marke||'')+'</div>'
+      +'</div></div>'+dose
+      +(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()" style="margin-top:8px;background:var(--green);color:#1D3C24;font-weight:700;border-radius:9px;padding:7px 0;font-size:12px;text-decoration:none;text-align:center;display:block">Hier kaufen ↗</a>':'')
+    +'</div>';
+  }
   return '<div class="zbCard" style="flex:1 1 calc(50% - 5px);min-width:0;max-width:calc(50% - 5px);border:1px solid '+(winner?'var(--green)':'var(--line)')+';border-radius:12px;padding:10px;background:var(--card);display:flex;flex-direction:column">'
     +'<div onclick="detailById(\''+p.id+'\')" style="cursor:pointer">'
     +'<div style="position:relative;width:100%;aspect-ratio:1;background:#f6f7f6;border-radius:10px;overflow:hidden;border:1px solid var(--line)">'
