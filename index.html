@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08s wuerzen-saucen-kachel -->
+<!-- build 2026-07-08t koerperfigur-mann-frau -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3928,7 +3928,16 @@ async function saveProfilGeraete(){
 }
 
 /* ===== Profil: Körpermaße (Body-Map) ===== */
+function _figFallback(img){ img.onerror=null; var d=document.createElement('div'); d.innerHTML=bodyFigureSvgFallback(); if(d.firstChild) img.replaceWith(d.firstChild); }
 function bodyFigureSvg(){
+  var sex=((document.getElementById('pfGeschlecht')||{}).value||'').toLowerCase();
+  var src = sex==='männlich' ? 'figur-mann.webp' : (sex==='weiblich' ? 'figur-frau.webp' : '');
+  if(src){
+    return '<img src="'+src+'" alt="Körperfigur" height="284" style="display:block;margin:0 auto;height:284px;width:auto;object-fit:contain" onerror="_figFallback(this)">';
+  }
+  return bodyFigureSvgFallback();
+}
+function bodyFigureSvgFallback(){
   const f='#cdeed9', s='#16a34a';
   return '<svg viewBox="0 0 140 320" width="124" height="284" style="display:block;margin:0 auto">'
    +'<circle cx="70" cy="26" r="17" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
