@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08p scan-close-fix+ios-zoom-fix -->
+<!-- build 2026-07-08q kategorie-kacheln -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -242,7 +242,6 @@
   <div id="prodView" style="display:none">
   <div class="controls">
     <input type="search" id="q" placeholder="Produkt, Marke oder Kategorie suchen…" />
-    <select id="kat"><option value="">Alle Kategorien</option></select>
     <button id="prodScanBtn" type="button" onclick="prodScan()" style="padding:11px 13px;border:1px solid var(--green);border-radius:11px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#1f5e34);font-size:14px;cursor:pointer;white-space:nowrap">📷 Barcode scannen</button>
   </div>
   <div id="prodReader" style="margin:0 0 12px"></div>
@@ -1136,9 +1135,8 @@ async function load(){
   if(error){document.getElementById("stats").textContent="Fehler beim Laden: "+error.message;return;}
   ALL = data.map(d=>({...d, clean_score:num(d.clean_score)}));
   try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; (sm||[]).forEach(x=>{STK[x.id]=num(x.stueck_gramm);}); }catch(e){}
-  const kats=[...new Set(ALL.map(d=>d.kategorie).filter(Boolean))].sort();
-  const sel=document.getElementById("kat");
-  kats.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;sel.appendChild(o);});
+  const _kc={}; ALL.forEach(d=>{ if(d.kategorie) _kc[d.kategorie]=(_kc[d.kategorie]||0)+1; });
+  window._KATLIST=Object.keys(_kc).map(k=>({k:k,n:_kc[k]})).sort((a,b)=>b.n-a.n);
   render();
 }
 function mkLabel(m){ return (m && m.toLowerCase()!=="generisch") ? m : ""; }
@@ -1229,11 +1227,11 @@ function _fuzzy(text,q){ const t=_norm(text); if(!q) return true; if(t.includes(
   return t.split(/[^a-z0-9]+/).some(w=> w.length>2 && (w.includes(q) || _lev(w,q)<=max)); }
 function render(){
   const q=_norm(document.getElementById("q").value.trim());
-  const kat=document.getElementById("kat").value;
+  const kat=window._prodKat||"";
   const grid=document.getElementById("grid");
   if(!q && !kat && !window._prodShowAll){
     document.getElementById("stats").textContent="";
-    grid.innerHTML='<div style="text-align:center;padding:30px 12px;color:var(--muted)"><div style="font-size:34px;margin-bottom:8px">🔍</div><div style="font-size:15px;margin-bottom:14px">Produkt suchen, Kategorie wählen oder Barcode scannen.</div><button onclick="window._prodShowAll=true;render()" style="padding:11px 18px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);cursor:pointer;font-size:14px">Alle '+ALL.length+' Produkte anzeigen</button></div>';
+    grid.innerHTML=katKachelnHtml();
     return;
   }
   let list=ALL.filter(d=>{
@@ -1242,7 +1240,8 @@ function render(){
     return true;
   });
   list.sort((a,b)=> (b.clean_score??-1)-(a.clean_score??-1));
-  document.getElementById("stats").textContent=list.length+" Produkt(e)";
+  if(kat) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,#166534);font-weight:600">‹ Kategorien</span> · '+esc(kat)+' · '+list.length+' Produkt(e)';
+  else document.getElementById("stats").textContent=list.length+" Produkt(e)";
   grid.innerHTML="";
   list.forEach(d=>{
     const c=document.createElement("div");c.className="card";c.onclick=()=>detail(d);
@@ -1257,6 +1256,52 @@ function render(){
     grid.appendChild(c);
   });
 }
+var KAT_META={
+  "Obst & Gemüse":{e:"🥦",bg:"#EAF3DE",fg:"#3B6D11"},
+  "Milchprodukte & Eier":{e:"🥛",bg:"#E6F1FB",fg:"#185FA5"},
+  "Milchprodukte":{e:"🥛",bg:"#E6F1FB",fg:"#185FA5"},
+  "Käse":{e:"🧀",bg:"#FAEEDA",fg:"#854F0B"},
+  "Fleisch & Fisch":{e:"🥩",bg:"#FAECE7",fg:"#993C1D"},
+  "Trockenfleisch":{e:"🥓",bg:"#FAECE7",fg:"#993C1D"},
+  "Getreide & Beilagen":{e:"🌾",bg:"#FAEEDA",fg:"#854F0B"},
+  "Brot & Backwaren":{e:"🍞",bg:"#FAEEDA",fg:"#854F0B"},
+  "Supplement":{e:"💊",bg:"#EEEDFE",fg:"#534AB7"},
+  "Proteinpulver":{e:"🥤",bg:"#EEEDFE",fg:"#534AB7"},
+  "Protein Cookies":{e:"🍪",bg:"#EEEDFE",fg:"#534AB7"},
+  "Nüsse & Hülsenfrüchte":{e:"🥜",bg:"#F1EFE8",fg:"#5F5E5A"},
+  "Nussmus":{e:"🥜",bg:"#F1EFE8",fg:"#5F5E5A"},
+  "Öle & Fette":{e:"🫒",bg:"#E1F5EE",fg:"#0F6E56"},
+  "Getränk":{e:"🥤",bg:"#FBEAF0",fg:"#993556"},
+  "Sportgetränk":{e:"🥤",bg:"#FBEAF0",fg:"#993556"},
+  "Tofu & Fleischalternativen":{e:"🌱",bg:"#EAF3DE",fg:"#3B6D11"},
+  "Snacks":{e:"🍿",bg:"#FAEEDA",fg:"#854F0B"},
+  "Riegel":{e:"🍫",bg:"#FAEEDA",fg:"#854F0B"},
+  "Energy-Gel":{e:"⚡",bg:"#FAEEDA",fg:"#854F0B"},
+  "Süßwaren":{e:"🍬",bg:"#FBEAF0",fg:"#993556"},
+  "Süßungsmittel":{e:"🍯",bg:"#FAEEDA",fg:"#854F0B"},
+  "Gewürze & Würzmittel":{e:"🧂",bg:"#F1EFE8",fg:"#5F5E5A"},
+  "Saucen & Dressings":{e:"🥫",bg:"#F1EFE8",fg:"#5F5E5A"},
+  "Brotaufstrich":{e:"🍯",bg:"#FAEEDA",fg:"#854F0B"},
+  "Obst & Trockenfrüchte":{e:"🍇",bg:"#EAF3DE",fg:"#3B6D11"},
+  "Lebensmittel":{e:"🍽️",bg:"#F1EFE8",fg:"#5F5E5A"}
+};
+function katMeta(k){ return KAT_META[k] || {e:"🏷️",bg:"#F1EFE8",fg:"#5F5E5A"}; }
+function katKachelnHtml(){
+  var items=(window._KATLIST||[]);
+  if(!items.length) return '';
+  var tiles=items.map(function(o){
+    var m=katMeta(o.k), k=esc(o.k);
+    return '<button data-kat="'+k+'" onclick="prodKatPick(this.dataset.kat)" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--card,#fff);border:1px solid var(--line,#e7e0d4);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px">'
+      +'<span style="width:34px;height:34px;border-radius:50%;background:'+m.bg+';color:'+m.fg+';display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto">'+m.e+'</span>'
+      +'<span style="min-width:0"><span style="display:block;font-size:14px;color:var(--ink,#1D3C24);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+k+'</span>'
+      +'<span style="font-size:12px;color:var(--muted,#6B6256)">'+o.n+'</span></span></button>';
+  }).join('');
+  return '<div style="font-size:14px;color:var(--muted,#6B6256);margin:2px 2px 10px">Kategorie wählen oder oben suchen &amp; Barcode scannen.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+tiles+'</div>'
+    +'<button onclick="window._prodShowAll=true;render()" style="width:100%;box-sizing:border-box;margin-top:10px;padding:12px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);cursor:pointer;font-size:14px">Alle '+ALL.length+' Produkte anzeigen</button>';
+}
+function prodKatPick(k){ window._prodKat=k; window._prodShowAll=false; var qi=document.getElementById("q"); if(qi) qi.value=""; render(); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(e){ window.scrollTo(0,0); } }
+function prodKatReset(){ window._prodKat=""; window._prodShowAll=false; var qi=document.getElementById("q"); if(qi) qi.value=""; render(); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(e){ window.scrollTo(0,0); } }
 function zInfoClean(name, info){
   let s = String(info||"").replace(/\s*\((?:KI\s*)?Stufe\s*\d+\)/gi,"").replace(/\s{2,}/g," ").trim();
   s = s.replace(/[–-]\s*$/,"").replace(/\.\s*$/,"").trim();
@@ -1424,7 +1469,7 @@ function eiweissInfo(){
 }
 document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")closeP();};
 document.getElementById("loginOverlay").onclick=e=>{if(e.target.id==="loginOverlay")closeLogin();};
-["q","kat"].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("input",render); });
+["q"].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("input",render); });
 
 let REZEPTE=null;
 function setMode(m){
