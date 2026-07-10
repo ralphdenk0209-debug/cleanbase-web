@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08q kategorie-kacheln -->
+<!-- build 2026-07-08r kategorie-kacheln-layoutfix -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1296,9 +1296,11 @@ function katKachelnHtml(){
       +'<span style="min-width:0"><span style="display:block;font-size:14px;color:var(--ink,#1D3C24);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+k+'</span>'
       +'<span style="font-size:12px;color:var(--muted,#6B6256)">'+o.n+'</span></span></button>';
   }).join('');
-  return '<div style="font-size:14px;color:var(--muted,#6B6256);margin:2px 2px 10px">Kategorie wählen oder oben suchen &amp; Barcode scannen.</div>'
+  return '<div style="grid-column:1/-1;width:100%;box-sizing:border-box;max-width:760px;margin:0 auto">'
+    +'<div style="font-size:14px;color:var(--muted,#6B6256);margin:2px 2px 10px">Kategorie wählen oder oben suchen &amp; Barcode scannen.</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+tiles+'</div>'
-    +'<button onclick="window._prodShowAll=true;render()" style="width:100%;box-sizing:border-box;margin-top:10px;padding:12px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);cursor:pointer;font-size:14px">Alle '+ALL.length+' Produkte anzeigen</button>';
+    +'<button onclick="window._prodShowAll=true;render()" style="width:100%;box-sizing:border-box;margin-top:10px;padding:12px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);cursor:pointer;font-size:14px">Alle '+ALL.length+' Produkte anzeigen</button>'
+    +'</div>';
 }
 function prodKatPick(k){ window._prodKat=k; window._prodShowAll=false; var qi=document.getElementById("q"); if(qi) qi.value=""; render(); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(e){ window.scrollTo(0,0); } }
 function prodKatReset(){ window._prodKat=""; window._prodShowAll=false; var qi=document.getElementById("q"); if(qi) qi.value=""; render(); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(e){ window.scrollTo(0,0); } }
