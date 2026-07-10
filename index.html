@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08n bundlecard-kompakt-ohne-bild -->
+<!-- build 2026-07-08o azo-suessstoff-warnung -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1320,6 +1320,9 @@ function detail(d){
   else if(d.variante_von){ const base=ALL.find(x=>x.id===d.variante_von); if(base) varNote="Variante von: "+esc(base.name); }
   const _sd = hasFeat('score_detail');
   const zInfoHtml = (()=>{const infos=zlist.map(z=>({z,t:zInfoClean(z.name,z.info)})).filter(o=>o.t);return infos.length?`<div style="margin-top:8px">${infos.map(o=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:var(--bg);border:1px solid var(--line);border-radius:9px"><b>${esc(o.z.name)}</b>${(String(o.z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(o.t)}</div>`).join("")}</div>`:"";})();
+  var _ztxt=((zlist||[]).map(function(z){return z.name||'';}).join(' '))+' '+((d.zusatz&&d.zusatz.text)||'')+' '+(d.zusatzstoffe_text||'');
+  var _azoWarn=/\be ?(102|104|110|122|124|129)\b|tartrazin|chinolingelb|gelborange|azorubin|cochenillerot|allurarot/i.test(_ztxt);
+  var _ksuessWarn=(String(d.suessstoffe||'')==='ja_kuenstlich')||/sucralose|acesulfam|aspartam|cyclamat|saccharin|\be ?9(5[0-9]|62)\b/i.test(_ztxt);
   const premiumBlock = `
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Root Index</div>
     ${sonderHint}
@@ -1354,6 +1357,8 @@ function detail(d){
       <div><div style="font-size:19px;font-weight:800;color:${col}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div></div>
     </div>
     ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
+    ${_azoWarn?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis „kann Aktivität und Aufmerksamkeit bei Kindern beeinträchtigen". Deckelt die Wertung auf höchstens „Gut".</div>`:""}
+    ${_ksuessWarn?`<div class="note" style="background:#fffbeb;border-color:#fde68a;color:#92400e">⚠️ <b>Enthält künstliche Süßstoffe</b> (z. B. Sucralose/Acesulfam) – kalorienarm, aber umstritten. Bei gesüßten Getränken deckelt es die Wertung auf höchstens „Mittel".</div>`:""}
     ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:""}
     ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
     ${_sd ? naehrstoffHtml(d) : ""}
