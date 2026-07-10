@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-08o azo-suessstoff-warnung -->
+<!-- build 2026-07-08p scan-close-fix+ios-zoom-fix -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -178,6 +178,8 @@
   .leafwind svg{transform-origin:50% 90%;animation:leafsway 3.8s ease-in-out infinite;will-change:transform}
   @media (prefers-reduced-motion:reduce){ .leafwind svg{animation:none} }
   body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+  /* iOS: Eingabefelder < 16px lösen Auto-Zoom aus (Layout-Überlauf). Auf Mobil alle Felder >= 16px. */
+  @media (max-width:600px){ input:not([type=checkbox]):not([type=radio]),select,textarea{ font-size:16px!important } }
   .mehr-sheet{position:fixed;inset:0;z-index:41;display:none}
   .mehr-sheet.open{display:block}
   .mehr-back{position:absolute;inset:0;background:rgba(20,40,28,.28)}
@@ -4072,7 +4074,7 @@ function _onDetected(res){
 function stopScan(){
   if(_scanning){ try{ Quagga.offDetected(_onDetected); }catch(e){} try{ Quagga.stop(); }catch(e){} _scanning=false; }
   _lastCode=null; _lastCount=0; _scanCb=null;
-  ["vorReader","tbReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
+  ["vorReader","tbReader","prodReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
 }
 function _startScan(targetId, cb){
   if(_scanning){ stopScan(); return; }
