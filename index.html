@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11b score-fluss-transparenz -->
+<!-- build 2026-07-11d score-fluss-horizontal+herleitung-frei -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -180,6 +180,18 @@
   body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
   /* iOS: Eingabefelder < 16px lösen Auto-Zoom aus (Layout-Überlauf). Auf Mobil alle Felder >= 16px. */
   @media (max-width:600px){ input:not([type=checkbox]):not([type=radio]),select,textarea{ font-size:16px!important } }
+  /* Score-Fluss: Handy = untereinander, ab Tablet = von links nach rechts */
+  .sfWrap{display:flex;flex-direction:column;align-items:stretch;gap:4px}
+  .sfArrow{text-align:center;color:var(--muted);font-size:16px;line-height:1;flex:0 0 auto}
+  .sfArrow::before{content:"\2193"}
+  .sfCol{min-width:0}
+  @media (min-width:700px){
+    .sfWrap{flex-direction:row;align-items:center;gap:8px}
+    .sfAxes{flex:1 1 320px}
+    .sfDeckel{flex:1 1 190px}
+    .sfErg{flex:0 0 auto}
+    .sfArrow::before{content:"\2192"}
+  }
   .mehr-sheet{position:fixed;inset:0;z-index:41;display:none}
   .mehr-sheet.open{display:block}
   .mehr-back{position:absolute;inset:0;background:rgba(20,40,28,.28)}
@@ -1380,15 +1392,21 @@ function scoreFlow(d){
   const hits=scoreDeckelInfo(d);
   const deckel = hits.length
     ? '<div style="border:1px solid #fde68a;background:#fff7e6;border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.45;color:#92400e"><b>Deckel-Regel greift:</b><br>'+hits.join("<br>")+'</div>'
-    : '<div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 11px;font-size:12.5px;color:var(--muted)"><b style="color:var(--ink)">Deckel-Regeln:</b> keine greift. <span style="font-size:11.5px">(Alkohol und Azo-Farbstoffe begrenzen auf „Gut", künstlich gesüßte Getränke auf „Mittel" – unabhängig von der Punktzahl.)</span></div>';
+    : '<div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 11px;font-size:12.5px;color:var(--muted);line-height:1.4"><b style="color:var(--ink)">Deckel-Check</b><br>keine Regel greift<div style="font-size:11px;margin-top:4px">Alkohol &amp; Azo-Farbstoffe begrenzen auf „Gut", künstlich gesüßte Getränke auf „Mittel" – unabhängig von der Punktzahl.</div></div>';
   const col=farbe(d.bewertung);
-  const erg='<div style="border:1px solid '+col+';border-radius:10px;padding:11px;display:flex;align-items:center;gap:11px;background:var(--card)">'
-    +'<span style="font-size:22px;font-weight:700;color:'+col+'">'+(d.clean_score!=null?num(d.clean_score):"–")+'</span>'
-    +'<span style="font-size:14px;font-weight:600;color:'+col+'">'+esc(d.bewertung||"")+'</span>'
-    +'<span style="flex:1;min-width:0;text-align:right;font-size:11.5px;color:var(--muted)">Gesamt-Index</span></div>';
+  const erg='<div style="border:1px solid '+col+';border-radius:10px;padding:11px 13px;background:var(--card);text-align:center">'
+    +'<div style="font-size:26px;font-weight:700;color:'+col+';line-height:1.1">'+(d.clean_score!=null?num(d.clean_score):"–")+'</div>'
+    +'<div style="font-size:13px;font-weight:600;color:'+col+';margin-top:2px">'+esc(d.bewertung||"")+'</div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:3px">Gesamt-Index</div></div>';
   return '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">So kommt der Index zustande</div>'
     +'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Tippe auf eine Achse – dort steht die Regel und warum wir sie so anwenden.</div>'
-    +achsen+arrow+deckel+arrow+erg;
+    +'<div class="sfWrap">'
+      +'<div class="sfCol sfAxes">'+achsen+'</div>'
+      +'<div class="sfArrow"></div>'
+      +'<div class="sfCol sfDeckel">'+deckel+'</div>'
+      +'<div class="sfArrow"></div>'
+      +'<div class="sfCol sfErg">'+erg+'</div>'
+    +'</div>';
 }
 function detail(d){
   const col=farbe(d.bewertung);
@@ -1450,7 +1468,9 @@ function detail(d){
   var _ztxt=((zlist||[]).map(function(z){return z.name||'';}).join(' '))+' '+((d.zusatz&&d.zusatz.text)||'')+' '+(d.zusatzstoffe_text||'');
   var _azoWarn=/\be ?(102|104|110|122|124|129)\b|tartrazin|chinolingelb|gelborange|azorubin|cochenillerot|allurarot/i.test(_ztxt);
   var _ksuessWarn=(String(d.suessstoffe||'')==='ja_kuenstlich')||/sucralose|acesulfam|aspartam|cyclamat|saccharin|\be ?9(5[0-9]|62)\b/i.test(_ztxt);
-  const premiumBlock = `
+  /* FREI für alle: die Herleitung. „Vertrauen vor Umsatz" – das Warum ist kein Premium-Feature,
+     es ist der Beweis, dass wir nichts erfinden. Premium sind die persönlichen Werkzeuge. */
+  const warumBlock = `
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Root Index</div>
     ${sonderHint}
     ${rows}
@@ -1463,12 +1483,12 @@ function detail(d){
     ${d.warum?`<div class="note"><h4>Warum empfohlen</h4>${esc(d.warum)}</div>`:""}
     ${d.schwaechen?`<div class="note teilhint"><h4>Schwächen</h4>${esc(d.schwaechen)}</div>`:""}
   `;
-  const lockedBlock = `
-    ${d.schwaechen?`<div class="note teilhint" style="margin-top:8px"><b>Kurz:</b> ${esc(d.schwaechen)}</div>`:""}
-    <div style="margin-top:12px;background:var(--greenlt);border:1px solid var(--green);border-radius:12px;padding:14px;text-align:center">
-      <div style="font-weight:700;margin-bottom:4px">🔒 Volle Aufschlüsselung und bessere Alternativen</div>
-      <div style="font-size:13px;color:var(--greendk);margin-bottom:10px">Die vier Säulen im Detail, Zutaten-Bewertung und Alternativen.${ME?"":" Registrier dich – 7 Tage gratis."}</div>
-      <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:10px 18px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;font-weight:600;cursor:pointer">${ME?'Premium – 7 Tage gratis':'Registrieren – 7 Tage gratis'}</button>
+  /* Sanfter Hinweis statt Mauer – die Bewertung selbst bleibt offen. */
+  const upsellBlock = `
+    <div style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px">
+      <div style="font-weight:700;margin-bottom:3px;font-size:14px">Die Bewertung ist und bleibt kostenlos.</div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:10px">Jede Regel und jede Quelle siehst du oben – ohne Konto. Premium sind nur die <b>persönlichen Werkzeuge</b>: Ernährungstagebuch, Trainingsplaner, Rezepte, deine Tagesbedarfs-Deckung und bessere Alternativen.</div>
+      <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:9px 16px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13px">${ME?'Premium ansehen – 7 Tage gratis':'7 Tage gratis testen'}</button>
     </div>
   `;
   const panel=document.getElementById("panel");
@@ -1489,8 +1509,9 @@ function detail(d){
     ${_ksuessWarn?`<div class="note" style="background:#fffbeb;border-color:#fde68a;color:#92400e">⚠️ <b>Enthält künstliche Süßstoffe</b> (z. B. Sucralose/Acesulfam) – kalorienarm, aber umstritten. Bei gesüßten Getränken deckelt es die Wertung auf höchstens „Mittel".</div>`:""}
     ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:""}
     ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
+    ${warumBlock}
     ${_sd ? naehrstoffHtml(d) : ""}
-    ${_sd ? premiumBlock : lockedBlock}
+    ${_sd ? "" : upsellBlock}
   `;
   document.getElementById("overlay").classList.add("open");
 }
