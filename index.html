@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11p scan-loeschen-rpc -->
+<!-- build 2026-07-11q amazon-deeplink-only -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1232,18 +1232,18 @@ async function adminDeleteProdukt(id,name){
   closeP(); ALL=(ALL||[]).filter(x=>x.id!==id); render();
 }
 /* ---- Amazon-Partnerprogramm (StoreID rootindex-21) ----
-   Direktlink nur, wenn ein echter Amazon-Produktlink hinterlegt ist.
-   Sonst Suchlink über die EAN – es wird KEINE ASIN geraten. */
+   NUR Deep-Links auf die Produkt-Detailseite. Amazon schreibt in den „Anforderungen für Links" vor:
+   „Links, die für ein bestimmtes Produkt werben, müssen direkt auf die Detailseite für dieses
+   Produkt auf der Amazon-Website geleitet werden."
+   → Ein EAN-Suchlink ist damit NICHT zulässig, auch wenn er Provision brächte. Und eine ASIN wird
+   nicht geraten. Ohne hinterlegten Amazon-Produktlink erscheint schlicht kein Button. */
 const AMZ_TAG="rootindex-21";
 function amazonUrl(d){
   if(!d) return "";
   const pl=String(d.produktlink||"");
-  if(/amazon\.[a-z.]+/i.test(pl)){
-    try{ const u=new URL(pl); u.searchParams.set("tag",AMZ_TAG); return u.toString(); }catch(e){ return pl; }
-  }
-  const ean=String(d.ean||"").replace(/[^0-9A-Za-z]/g,"");
-  if(ean) return "https://www.amazon.de/s?k="+encodeURIComponent(ean)+"&tag="+AMZ_TAG;
-  return "";
+  if(!/amazon\.[a-z.]+/i.test(pl)) return "";
+  if(!/\/dp\/|\/gp\/product\//i.test(pl)) return "";
+  try{ const u=new URL(pl); u.searchParams.set("tag",AMZ_TAG); return u.toString(); }catch(e){ return ""; }
 }
 function amazonBtn(d,klein){
   const u=amazonUrl(d); if(!u) return "";
