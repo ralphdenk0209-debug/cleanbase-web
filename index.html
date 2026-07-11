@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11h startseite-ohne-produktblock -->
+<!-- build 2026-07-11i einkaufsliste-bring-stil -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1229,7 +1229,7 @@ async function prodToEinkauf(id){
   if(!ME){ openLogin(); return; }
   if(!hasFeat('planer')){ premiumInfo(); return; }
   const p=(ALL||[]).find(x=>x.id===id); if(!p) return;
-  const {error}=await client.rpc("cb_einkauf_add",{p_titel:p.name, p_menge:null});
+  const {error}=await client.rpc("cb_einkauf_add",{p_titel:null, p_menge:null, p_produkt_id:id});
   alert(error?("Fehler: "+error.message):("✓ „"+p.name+"“ zur Einkaufsliste hinzugefügt."));
 }
 function altBanner(d){
@@ -2736,10 +2736,12 @@ async function planDayToTb(ds){
   alert("✓ "+items.length+" Einträge ins Tagebuch übernommen.");
 }
 /* Einkaufsliste als eigene Seite (Menü + Startseite). Der Button im Tagebuch bleibt zusätzlich. */
-function renderEinkaufSeite(){
+async function renderEinkaufSeite(){
   const gate=document.getElementById("einkaufPageGate");
   const box=document.getElementById("einkaufPageBox");
   if(!gate||!box) return;
+  /* Katalog laden – für Kategorie-Zuordnung beim Tippen und beim Barcode-Scan */
+  if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*"); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   if(!ME){
     box.innerHTML="";
     gate.style.display="";
@@ -2760,27 +2762,94 @@ async function toggleEinkauf(target){
   if(box.style.display!=="none"){ box.style.display="none"; return; }
   box.style.display=""; await loadEinkauf();
 }
+/* Einkaufsliste im Bring!-Stil: nach Kategorien gruppiert, Mengen-Chips, Barcode-Scan legt Produkt direkt rein */
+const EINK_MENGEN=['1','2','3','4','5','250 g','500 g','1 kg','1 Pkg.','1 Fl.','1 Bund'];
+function einkRow(r,done){
+  const id=r.eintrag_id;
+  return '<div style="border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:6px;overflow:hidden">'
+    +'<div style="display:flex;align-items:center;gap:9px;padding:10px 11px">'
+      +'<input type="checkbox" '+(done?'checked':'')+' onchange="einkaufToggle('+id+',this.checked)" style="width:19px;height:19px;accent-color:#16a34a;flex:0 0 auto">'
+      +'<span style="flex:1;min-width:0;font-size:14px;'+(done?'text-decoration:line-through;color:var(--muted)':'color:var(--ink)')+'">'+esc(r.titel)
+        +(r.menge?' <b style="color:var(--greendk,#166534);font-size:12.5px">'+esc(r.menge)+'</b>':'')+'</span>'
+      +(done?'':'<button onclick="einkDetails('+id+')" title="Menge ändern" style="border:0;background:transparent;color:var(--muted);font-size:19px;line-height:1;cursor:pointer;flex:0 0 auto">&#8943;</button>')
+      +'<button onclick="einkaufDel('+id+')" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:26px;height:26px;cursor:pointer;flex:0 0 auto">&#10005;</button>'
+    +'</div>'
+    +(done?'':'<div id="einkD'+id+'" style="display:none;padding:10px 11px;border-top:1px solid var(--line);background:var(--bg)">'
+      +'<div style="font-size:12px;color:var(--muted);margin-bottom:7px">Menge zu „'+esc(r.titel)+'"</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px">'
+      +EINK_MENGEN.map(function(m){ return '<button onclick="einkSetMenge('+id+',\''+m+'\')" style="padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer">'+m+'</button>'; }).join('')
+      +'</div>'
+      +'<div style="display:flex;gap:6px">'
+        +'<input id="einkM'+id+'" value="'+esc(r.menge||'')+'" placeholder="eigene Menge…" style="flex:1;min-width:0;padding:9px;border:1px solid var(--line);border-radius:8px">'
+        +'<button onclick="einkSetMenge('+id+',document.getElementById(\'einkM'+id+'\').value)" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer;font-weight:600">OK</button>'
+        +'<button onclick="einkSetMenge('+id+',\'\')" style="padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);cursor:pointer">leeren</button>'
+      +'</div></div>')
+  +'</div>';
+}
+function einkDetails(id){ const e=document.getElementById('einkD'+id); if(!e) return; e.style.display=(e.style.display==='none'||!e.style.display)?'block':'none'; }
+async function einkSetMenge(id,m){ try{ await client.rpc("cb_einkauf_menge",{p_eintrag:id,p_menge:(m||'').trim()||null}); }catch(e){ alert("Fehler: "+e.message); } await loadEinkauf(); }
+function einkMsg(t,c){ const m=document.getElementById("einkMsg"); if(!m) return; m.style.color=c||"var(--muted)"; m.innerHTML=t; }
 async function loadEinkauf(){
-  const box=document.getElementById(_einkTarget); if(!box) return; box.innerHTML='<div style="color:var(--muted);font-size:13px">Lade…</div>';
+  const box=document.getElementById(_einkTarget); if(!box) return;
+  box.innerHTML='<div style="color:var(--muted);font-size:13px">Lade…</div>';
   let rows=[]; try{ const {data}=await client.rpc("cb_einkauf_list"); rows=data||[]; }catch(e){}
   const offen=rows.filter(r=>!r.erledigt), erl=rows.filter(r=>r.erledigt);
-  const row=(r,done)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #f3f6f4">
-    <input type="checkbox" ${done?'checked':''} onchange="einkaufToggle(${r.eintrag_id},this.checked)" style="width:18px;height:18px;accent-color:#16a34a">
-    <span style="flex:1;${done?'text-decoration:line-through;color:#9aa7a0':''}">${esc(r.titel)}${r.menge?` <span style="color:#9aa7a0;font-size:12.5px">${esc(r.menge)}</span>`:''}</span>
-    <button onclick="einkaufDel(${r.eintrag_id})" style="border:0;background:#f6f8f7;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer">✕</button></div>`;
-  let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><b>🛒 Einkaufsliste</b><button onclick="einkaufFromPlan()" style="padding:6px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px">Aus dieser Woche erzeugen</button></div>`;
-  h+=`<div style="display:flex;gap:8px;margin-bottom:10px"><input id="einkInput" placeholder="Artikel…" onkeydown="if(event.key==='Enter')einkaufAdd()" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px"><input id="einkMenge" placeholder="Menge" style="width:90px;padding:9px;border:1px solid var(--line);border-radius:8px"><button onclick="einkaufAdd()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:#1D3C24;cursor:pointer">+</button></div>`;
-  if(!rows.length) h+='<div style="color:#9aa7a0;font-size:13px">Liste ist leer – Artikel hinzufügen oder aus dem Wochenplan erzeugen.</div>';
-  offen.forEach(r=>h+=row(r,false));
-  if(erl.length){ h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 2px"><span style="font-size:12px;color:#9aa7a0">Erledigt (${erl.length})</span><button onclick="einkaufClearDone()" style="font-size:12px;color:#dc2626;background:none;border:0;cursor:pointer">entfernen</button></div>`; erl.forEach(r=>h+=row(r,true)); }
+  let h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    +'<input id="einkInput" placeholder="Ich brauche…" onkeydown="if(event.key===\'Enter\')einkaufAdd()" style="flex:1;min-width:150px;padding:11px;border:1px solid var(--line);border-radius:10px">'
+    +'<button onclick="einkaufAdd()" style="padding:11px 17px;border:0;border-radius:10px;background:var(--green);color:#1D3C24;cursor:pointer;font-weight:700;font-size:15px">+</button>'
+    +'<button onclick="einkaufScan()" style="padding:11px 14px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">📷 Barcode</button>'
+    +'</div>'
+    +'<div id="einkReader" style="margin-bottom:8px"></div>'
+    +'<div id="einkMsg" style="font-size:12.5px;margin-bottom:8px;line-height:1.45"></div>'
+    +'<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="einkaufFromPlan()" style="padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);cursor:pointer;font-size:12.5px">Aus dieser Woche erzeugen</button></div>';
+  if(!rows.length){
+    h+='<div style="color:var(--muted);font-size:13px;padding:14px 0">Liste ist leer – tippe oben ein, scanne einen Barcode oder erzeuge sie aus dem Wochenplan.</div>';
+    box.innerHTML=h; return;
+  }
+  const groups={};
+  offen.forEach(function(r){ const k=r.kategorie||'Sonstiges'; (groups[k]=groups[k]||[]).push(r); });
+  Object.keys(groups).sort(function(a,b){ if(a==='Sonstiges') return 1; if(b==='Sonstiges') return -1; return a.localeCompare(b,'de'); }).forEach(function(k){
+    const m=(typeof katMeta==='function')?katMeta(k):{e:'🏷️'};
+    h+='<div style="display:flex;align-items:center;gap:7px;margin:15px 0 7px">'
+      +'<span style="font-size:16px">'+m.e+'</span>'
+      +'<span style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">'+esc(k)+'</span>'
+      +'<span style="flex:1;height:1px;background:var(--line)"></span></div>';
+    groups[k].forEach(function(r){ h+=einkRow(r,false); });
+  });
+  if(erl.length){
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 6px"><span style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">Erledigt ('+erl.length+')</span><button onclick="einkaufClearDone()" style="font-size:12.5px;color:#dc2626;background:none;border:0;cursor:pointer">entfernen</button></div>';
+    erl.forEach(function(r){ h+=einkRow(r,true); });
+  }
   box.innerHTML=h;
 }
 async function einkaufAdd(){
-  const t=document.getElementById("einkInput"), m=document.getElementById("einkMenge");
+  const t=document.getElementById("einkInput");
   const titel=(t.value||"").trim(); if(!titel) return;
-  const {error}=await client.rpc("cb_einkauf_add",{p_titel:titel,p_menge:(m.value||"").trim()||null});
+  const p=(ALL||[]).find(function(x){ return String(x.name||'').toLowerCase()===titel.toLowerCase(); });
+  const args = p ? {p_titel:null,p_menge:null,p_produkt_id:p.id} : {p_titel:titel,p_menge:null};
+  const {error}=await client.rpc("cb_einkauf_add",args);
   if(error){ alert("Fehler: "+error.message); return; }
   await loadEinkauf();
+}
+/* Barcode scannen -> Produkt direkt in die Einkaufsliste (mit richtiger Kategorie) */
+async function einkaufScan(){
+  einkMsg("Kamera öffnet – Barcode vor die Kamera halten…");
+  _startScan("einkReader", async function(code){
+    try{
+      const {data:pid}=await client.rpc("cb_produkt_id_by_ean",{p_ean:code});
+      if(pid){
+        const p=(ALL||[]).find(function(x){ return x.id===pid; });
+        const {error}=await client.rpc("cb_einkauf_add",{p_titel:null,p_menge:null,p_produkt_id:pid});
+        if(error) throw error;
+        try{ stopScan(); }catch(e){}
+        await loadEinkauf();
+        einkMsg("&#10003; "+esc((p&&p.name)||code)+" zur Liste hinzugefügt.","#16a34a");
+      } else {
+        try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Einkaufs-Scan",p_akteur:"Web"}); }catch(e){}
+        einkMsg("Barcode "+esc(code)+" ist noch nicht im Katalog – gespeichert.<br>"+etikettCtaBtn(code),"#b45309");
+      }
+    }catch(e){ einkMsg("Fehler: "+esc(e.message),"#dc2626"); }
+  });
 }
 async function einkaufToggle(id,checked){ await client.rpc("cb_einkauf_toggle",{p_eintrag:id,p_erledigt:checked}); await loadEinkauf(); }
 async function einkaufDel(id){ await client.rpc("cb_einkauf_del",{p_eintrag:id}); await loadEinkauf(); }
@@ -4338,7 +4407,7 @@ function _onDetected(res){
 function stopScan(){
   if(_scanning){ try{ Quagga.offDetected(_onDetected); }catch(e){} try{ Quagga.stop(); }catch(e){} _scanning=false; }
   _lastCode=null; _lastCount=0; _scanCb=null;
-  ["vorReader","tbReader","prodReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
+  ["vorReader","tbReader","prodReader","einkReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
 }
 function _startScan(targetId, cb){
   if(_scanning){ stopScan(); return; }
