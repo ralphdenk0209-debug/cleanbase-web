@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11a darm-probiotika-florasanft -->
+<!-- build 2026-07-11b score-fluss-transparenz -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1313,6 +1313,83 @@ function zInfoClean(name, info){
   if(s.toLowerCase()===n.toLowerCase()) return "";      // redundant (nur Name wiederholt)
   return s;
 }
+/* ===== Score-Fluss: Wie kommt der Index zustande? (Transparenz) ===== */
+const SCORE_REGELN = {
+  "Zutaten": {
+    farbe:"#22c55e",
+    regel:"Jede einzelne Zutat wird nach ihrem <b>Verarbeitungsgrad</b> eingestuft. Rohe, unverarbeitete Lebensmittel – Obst, Gemüse, Pilze, Nüsse, ganze Getreidekörner, roher Fisch, rohes Fleisch, Eier, Milch – gelten als <b>Vollwert</b> und bekommen die volle Punktzahl. Mehl, Isolate, raffinierte Öle, Zucker und Aromen liegen darunter.",
+    quelle:"Diese Achse misst <b>ausschließlich</b> den Verarbeitungsgrad. Ob ein Lebensmittel viel Fett oder Zucker hat, zählt allein in der Nährwert-Achse – so wird nichts doppelt bestraft."
+  },
+  "Zusatzstoffe": {
+    farbe:"#3987e5",
+    regel:"Jeder Zusatzstoff wird <b>einzeln</b> nach der wissenschaftlichen Bewertungslage eingestuft: belegt unbedenklich = volle Punkte · noch ungeprüft = Abzug (gilt nicht automatisch als sicher) · von Behörden beanstandet = starker Abzug · künstliche Süßstoffe = stärkster Abzug.",
+    quelle:"EFSA-Neubewertungen · IARC (Aspartam: Gruppe 2B, 2023) · WHO-Leitlinie zu Süßstoffen (2023). Natürliche Süßstoffe wie Stevia werden nur <b>leicht</b> abgewertet – die EFSA sieht kein Sicherheitsrisiko, die WHO rät aber von Süßstoffen ab."
+  },
+  "NOVA": {
+    farbe:"#9085e9",
+    regel:"Wie stark ist das <b>fertige Produkt</b> verarbeitet? Stufe 1 = unverarbeitet (Apfel), Stufe 4 = hochverarbeitet (Fertigprodukt mit vielen Zusätzen).",
+    quelle:"NOVA-Klassifikation (Monteiro et al.) – international etablierter Standard für Verarbeitungsgrade."
+  },
+  "Nährwert": {
+    farbe:"#f0a020",
+    regel:"Zucker, gesättigte Fettsäuren, Salz, Ballaststoffe und Eiweiß – jeweils auf 100 g normiert, damit Produkte vergleichbar bleiben.",
+    quelle:"DGE-Referenzwerte · EU-Verordnung 1169/2011. Bei reinen Nahrungsergänzungsmitteln entfällt diese Achse (dort ist ein Makro-Profil pro 100 g nicht sinnvoll)."
+  }
+};
+function sfToggle(id){ const e=document.getElementById(id); if(!e) return; e.style.display = (e.style.display==="none"||!e.style.display) ? "block" : "none"; }
+function scoreDeckelInfo(d){
+  const zl = Array.isArray(d.zutaten)?d.zutaten:[];
+  const txt = zl.map(z=>z.name||"").join(" ") + " " + ((d.zusatz&&d.zusatz.text)||"") + " " + (d.zusatzstoffe_text||"");
+  const azo = /\be ?(102|104|110|122|124|129)\b|tartrazin|chinolingelb|gelborange|azorubin|cochenillerot|allurarot/i.test(txt);
+  const ksue = (String(d.suessstoffe||"")==="ja_kuenstlich") || /sucralose|acesulfam|aspartam|cyclamat|saccharin/i.test(txt);
+  const drink = String(d.kategorie||"").toLowerCase()==="getränk";
+  const hits=[];
+  if(d.enthaelt_alkohol) hits.push("Enthält Alkohol → höchstens <b>Gut</b>");
+  if(azo) hits.push("Azo-Farbstoff (Southampton-Studie) → höchstens <b>Gut</b>");
+  if(drink && ksue) hits.push("Künstlich gesüßtes Getränk → höchstens <b>Mittel</b>");
+  return hits;
+}
+function scoreFlow(d){
+  const items = SCORE_TEIL.map(function(t){
+    const k=t[0], max=t[2], mult=t[3]||1, short=t[4]||t[1];
+    const raw=num(d[k]); const v = raw===null?null:raw*mult;
+    return {short:short, max:max, v:v};
+  }).filter(function(it){ return it.v!==null; });
+  if(!items.length) return "";
+  const arrow='<div style="text-align:center;color:var(--muted);font-size:15px;line-height:1;margin:5px 0">&darr;</div>';
+  let achsen="";
+  items.forEach(function(it,i){
+    const R=SCORE_REGELN[it.short]||{farbe:"#22c55e",regel:"",quelle:""};
+    const pct=Math.max(0,Math.min(100,(it.v/it.max)*100));
+    const voll=(it.v >= it.max-0.01);
+    const id="sfx"+i;
+    achsen+='<div style="border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:6px;overflow:hidden">'
+      +'<div onclick="sfToggle(\''+id+'\')" style="cursor:pointer;padding:9px 11px;display:flex;align-items:center;gap:9px">'
+        +'<span style="width:9px;height:9px;border-radius:2px;background:'+R.farbe+';flex:0 0 auto"></span>'
+        +'<span style="flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--ink)">'+esc(it.short)+'</span>'
+        +'<span style="font-size:13px;color:'+(voll?"var(--greendk,#166534)":"var(--muted)")+';white-space:nowrap">'+String(Math.round(it.v*10)/10).replace(".",",")+' / '+it.max+'</span>'
+        +'<span style="color:var(--muted);font-size:12px">&rsaquo;</span>'
+      +'</div>'
+      +'<div style="height:4px;background:var(--line)"><div style="height:4px;width:'+pct+'%;background:'+R.farbe+'"></div></div>'
+      +'<div id="'+id+'" style="display:none;padding:10px 11px;border-top:1px solid var(--line);background:var(--bg)">'
+        +'<div style="font-size:12.5px;line-height:1.5;color:var(--ink)">'+R.regel+'</div>'
+        +'<div style="font-size:11.5px;line-height:1.5;color:var(--muted);margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)"><b>Warum wir das so machen:</b> '+R.quelle+'</div>'
+      +'</div>'
+    +'</div>';
+  });
+  const hits=scoreDeckelInfo(d);
+  const deckel = hits.length
+    ? '<div style="border:1px solid #fde68a;background:#fff7e6;border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.45;color:#92400e"><b>Deckel-Regel greift:</b><br>'+hits.join("<br>")+'</div>'
+    : '<div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 11px;font-size:12.5px;color:var(--muted)"><b style="color:var(--ink)">Deckel-Regeln:</b> keine greift. <span style="font-size:11.5px">(Alkohol und Azo-Farbstoffe begrenzen auf „Gut", künstlich gesüßte Getränke auf „Mittel" – unabhängig von der Punktzahl.)</span></div>';
+  const col=farbe(d.bewertung);
+  const erg='<div style="border:1px solid '+col+';border-radius:10px;padding:11px;display:flex;align-items:center;gap:11px;background:var(--card)">'
+    +'<span style="font-size:22px;font-weight:700;color:'+col+'">'+(d.clean_score!=null?num(d.clean_score):"–")+'</span>'
+    +'<span style="font-size:14px;font-weight:600;color:'+col+'">'+esc(d.bewertung||"")+'</span>'
+    +'<span style="flex:1;min-width:0;text-align:right;font-size:11.5px;color:var(--muted)">Gesamt-Index</span></div>';
+  return '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">So kommt der Index zustande</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Tippe auf eine Achse – dort steht die Regel und warum wir sie so anwenden.</div>'
+    +achsen+arrow+deckel+arrow+erg;
+}
 function detail(d){
   const col=farbe(d.bewertung);
   const _isOil=((d.kategorie||'')==='Öle & Fette'), _isZero=(num(d.m_kcal)===0);
@@ -1378,6 +1455,7 @@ function detail(d){
     ${sonderHint}
     ${rows}
     ${abzug}
+    ${scoreFlow(d)}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Zutaten</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#1f5e34;margin-right:3px"></span>gut (Vollwert) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8920c;margin-right:3px"></span>mittel (verarbeitet) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px"></span>kritisch ⚠️</div>
     <div>${zHtml}</div>
