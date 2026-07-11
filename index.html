@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11n scans-amazon-kamera -->
+<!-- build 2026-07-11o scans-off-uebernahme -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1717,6 +1717,7 @@ async function loadScans(){
         +'<button onclick="scanOffLookup('+i+')" style="padding:7px 11px;border:1px solid #0ea5e9;border-radius:8px;background:var(--card);color:#0369a1;cursor:pointer;font-size:13px">🔎 OFF holen</button>'
         +'<button onclick="scanAnlegen('+i+')" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px;font-weight:600">Produkt anlegen</button>'
         +'<button onclick="scanErledigt('+i+')" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Erledigt</button>'
+        +'<button onclick="scanLoeschen('+i+')" title="Nicht identifizierbar – aus der Warteschlange entfernen" style="padding:7px 11px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:13px">🗑️ Löschen</button>'
       +'</div></div>';
   }).join('');
   window._scanGroups=keys.map(function(k){ return byEan[k]; });
@@ -1754,18 +1755,77 @@ async function scanOffLookup(i){
             g.off.salz!=null?'Salz '+g.off.salz+'g':null
           ].filter(Boolean).join(' · ')+'</div>'
         +(g.off.zutaten?'<div style="color:var(--muted);margin-top:3px">Zutaten (OFF): '+esc(g.off.zutaten)+'</div>':'')
-        +'<div style="color:#b45309;margin-top:4px">Vorschlag – bitte gegen die Etikettfotos prüfen, bevor du freigibst.</div>';
+        +(String(g.ean||'').length<13
+          ? '<div style="color:#dc2626;margin-top:4px;font-weight:600">⚠️ Nur '+String(g.ean||'').length+'-stelliger Code – händlerinterner Barcode. Solche Codes sind NICHT eindeutig, OFF liefert hier regelmäßig ein völlig anderes Produkt. Nicht ohne Etikettfoto übernehmen.</div>'
+          : '<div style="color:#b45309;margin-top:4px">Vorschlag – bitte gegen die Etikettfotos prüfen, bevor du freigibst.</div>');
     }
   }catch(e){ if(out){ out.style.color='#dc2626'; out.textContent='Fehler: '+e.message; } }
 }
-function scanAnlegen(i){
+/* OFF-Zutatentext → Zutatenliste. Bekannte Zutaten bekommen die Bewertung aus dem
+   Zutaten-Stamm, unbekannte bleiben auf 5 und MÜSSEN vom Admin gesetzt werden. */
+function offZutatenParse(txt){
+  if(!txt) return [];
+  let s=String(txt).replace(/\*/g,'').replace(/_/g,'');
+  const teile=[]; let buf='', tiefe=0;
+  for(const ch of s){
+    if(ch==='('||ch==='[') tiefe++;
+    if(ch===')'||ch===']') tiefe=Math.max(0,tiefe-1);
+    if((ch===','||ch===';')&&tiefe===0){ teile.push(buf); buf=''; } else buf+=ch;
+  }
+  if(buf.trim()) teile.push(buf);
+  const out=[];
+  teile.forEach(function(t){
+    let n=t.replace(/\s+/g,' ').trim().replace(/^[.,;:–-]+|[.,;:]+$/g,'');
+    if(!n||n.length<2||n.length>90) return;
+    if(/^(von|kann spuren|enth(ä|a)lt|vor w(ä|a)rme|trocken|unge(ö|o)ffnet|zutaten)/i.test(n)) return;
+    const key=n.toLowerCase();
+    const st=(typeof ZUTATEN_MAP!=='undefined'&&ZUTATEN_MAP)?ZUTATEN_MAP[key]:null;
+    out.push({name:n, rating:(st&&st.rating!=null)?st.rating:5, kritisch:(st&&st.kritisch)?'ja':'nein', neu:!st});
+  });
+  return out.slice(0,40);
+}
+async function scanAnlegen(i){
   const g=(window._scanGroups||[])[i]; if(!g) return;
   const o=g.off||{};
-  openFgEditor(null, {name:o.name||'', marke:o.marke||'', ean:g.ean||''});
+  await loadZutatenStamm();
+  const zut=offZutatenParse(o.zutaten||'');
+  const unbekannt=zut.filter(function(z){ return z.neu; }).length;
+  const nw={};
+  if(o.kcal!=null) nw.kcal=o.kcal;
+  if(o.protein!=null) nw.protein=o.protein;
+  if(o.kh!=null) nw.kh=o.kh;
+  if(o.zucker!=null) nw.zucker=o.zucker;
+  if(o.fett!=null) nw.fett=o.fett;
+  if(o.ges_fett!=null) nw.ges_fett=o.ges_fett;
+  if(o.ballast!=null) nw.ballaststoffe=o.ballast;
+  if(o.salz!=null) nw.salz=o.salz;
+  let hinweis='';
+  if(!g.off){ hinweis='Kein OFF-Treffer – Nährwerte und Zutaten manuell vom Etikettfoto eintragen.'; }
+  else {
+    hinweis='Werte aus Open Food Facts vorbelegt – VORSCHLAG, nicht geprüft. Gegen das Etikettfoto abgleichen, bevor du freigibst.';
+    if(unbekannt) hinweis+=' '+unbekannt+' Zutat(en) sind im Stamm unbekannt und stehen auf 5 – Bewertung setzen!';
+    if(String(g.ean||'').length<13) hinweis+=' ⚠️ Kurzer/interner Barcode ('+String(g.ean||'').length+' Stellen): Kollisionsgefahr, OFF kann ein völlig anderes Produkt liefern. Nur mit Etikettfoto übernehmen.';
+  }
+  openFgEditor(null, {name:o.name||'', marke:o.marke||'', ean:g.ean||'', naehrwerte:nw, zutaten:zut, hinweis:hinweis});
 }
+/* „Erledigt" nur, wenn die EAN wirklich im Katalog gelandet ist. */
 async function scanErledigt(i){
   const g=(window._scanGroups||[])[i]; if(!g) return;
+  try{
+    const {data}=await client.rpc("produkt_by_ean",{p_ean:String(g.ean||'')});
+    if(!data||!data.id){
+      alert('Zu diesem Barcode gibt es noch kein Produkt im Katalog.\n\n„Erledigt" ist erst möglich, wenn das Produkt vollständig angelegt ist.\nGibt es das Produkt gar nicht bzw. lässt es sich nicht belegen: „Löschen".');
+      return;
+    }
+  }catch(e){ alert('Fehler: '+e.message); return; }
   try{ await client.from("Scan_Warteschlange").update({Status:'erledigt'}).in("Eintrag_ID",g.ids); }
+  catch(e){ alert('Fehler: '+e.message); return; }
+  loadScans();
+}
+async function scanLoeschen(i){
+  const g=(window._scanGroups||[])[i]; if(!g) return;
+  if(!confirm('Scan '+(g.ean||'')+' endgültig aus der Warteschlange löschen?\n\nNur tun, wenn das Produkt nicht identifizierbar ist (kein OFF-Treffer, keine Etikettfotos).')) return;
+  try{ await client.from("Scan_Warteschlange").delete().in("Eintrag_ID",g.ids); }
   catch(e){ alert('Fehler: '+e.message); return; }
   loadScans();
 }
@@ -3831,7 +3891,12 @@ async function openFgEditor(id, prefill){
     d=data||d; d.naehrwerte=d.naehrwerte||{}; d.zutaten=d.zutaten||[];
   } else if(prefill){
     d.name=prefill.name||d.name; d.marke=prefill.marke||d.marke; d.ean=prefill.ean||d.ean;
-  }
+    d.kategorie=prefill.kategorie||d.kategorie;
+    if(prefill.naehrwerte) d.naehrwerte=prefill.naehrwerte;
+    if(prefill.zutaten&&prefill.zutaten.length) d.zutaten=prefill.zutaten;
+    if(prefill.zusatzstoffe_text) d.zusatzstoffe_text=prefill.zusatzstoffe_text;
+    window._fgPrefillHinweis=prefill.hinweis||"";
+  } else { window._fgPrefillHinweis=""; }
   window._fgEdit={ id:id, bild_url:d.bild_url||"" };
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
@@ -3843,6 +3908,7 @@ async function openFgEditor(id, prefill){
     <button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${id?(esc(d.id)+" · Status: "+esc(d.status||"")):"wird als Entwurf angelegt"}</div>
+    ${window._fgPrefillHinweis?`<div style="background:#FFF7EA;border:1px solid #E4A343;color:#8A5A0B;border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
     <div style="display:grid;gap:8px">
       <label style="font-size:13px">Titel${inp("fe_name",d.name)}</label>
       <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
