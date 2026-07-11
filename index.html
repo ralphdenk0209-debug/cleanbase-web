@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11d score-fluss-horizontal+herleitung-frei -->
+<!-- build 2026-07-11e etikett-foto-aus-barcode-scan -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -4197,6 +4197,79 @@ async function submitVorShots(){
     setVorMsg("✅ "+arr.length+" Etikett-Foto(s) gespeichert. Die KI liest sie beim nächsten Erfassungslauf zusammen aus und legt das Produkt als <b>Entwurf</b> an.","#16a34a");
   }catch(e){ setVorMsg("Fehler: "+e.message,"#dc2626"); }
 }
+/* ---- Etikett-Erfassung direkt aus dem Barcode-Scan (Produkt unbekannt) ----
+   Statt Sackgasse: Nutzer fotografiert Zutatenliste + Nährwerttabelle.
+   Das Etikettfoto ist unsere Quelle Nr. 1 – so entsteht kein geratener, sondern ein belegter Wert. */
+const ETI_SLOTS=[["zutaten","Zutatenliste"],["naehrwerte","Nährwerttabelle"],["front","Vorderseite (optional)"]];
+let ETI_SHOTS={}; let ETI_EAN=null; let _etiTarget=null;
+function etiMsg(t,c){ const m=document.getElementById("etiMsg"); if(!m) return; m.style.color=c||"var(--ink)"; m.innerHTML=t; }
+function etikettOpen(ean){
+  ETI_EAN=ean||null; ETI_SHOTS={};
+  let ov=document.getElementById("etiOv");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="etiOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9990;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box";
+    ov.innerHTML='<div style="width:100%;max-width:460px;max-height:88vh;overflow:auto;background:var(--card,#fff);border-radius:14px;padding:16px;box-sizing:border-box">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><b style="flex:1;font-size:16px;color:var(--ink)">Produkt noch unbekannt</b>'
+      +'<button onclick="etikettClose()" style="border:0;background:transparent;font-size:18px;cursor:pointer;color:var(--muted)">&#10005;</button></div>'
+      +'<div id="etiEan" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>'
+      +'<div style="font-size:13px;line-height:1.55;color:var(--ink);margin-bottom:12px">Fotografiere die <b>Zutatenliste</b> und die <b>Nährwerttabelle</b> auf der Verpackung. Wir prüfen das Etikett und nehmen das Produkt auf – so entsteht kein geratener Wert, sondern ein belegter.</div>'
+      +'<div id="etiShots"></div>'
+      +'<button id="etiSend" onclick="etikettSend()" style="display:none;width:100%;box-sizing:border-box;margin-top:10px;padding:12px;border:0;border-radius:10px;background:var(--green,#16a34a);color:#1D3C24;font-weight:600;cursor:pointer;font-size:15px">Fotos senden</button>'
+      +'<div id="etiMsg" style="font-size:13px;margin-top:9px;line-height:1.45"></div>'
+      +'<input id="etiFile" type="file" accept="image/*" style="display:none" onchange="etikettFile(this)">'
+      +'</div>';
+    document.body.appendChild(ov);
+  }
+  ov.style.display="flex";
+  const e=document.getElementById("etiEan"); if(e) e.textContent = ETI_EAN?("Barcode "+ETI_EAN):"";
+  etiMsg("");
+  renderEtiShots();
+}
+function etikettClose(){ const ov=document.getElementById("etiOv"); if(ov) ov.style.display="none"; }
+function renderEtiShots(){
+  const box=document.getElementById("etiShots"); if(!box) return;
+  box.innerHTML=ETI_SLOTS.map(function(s){
+    const k=s[0], label=s[1], has=!!ETI_SHOTS[k];
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
+      +'<div style="flex:1;min-width:0;font-size:14px;color:'+(has?"#166534":"var(--ink)")+'">'+(has?"&#10003; ":"")+label+'</div>'
+      +(has
+        ? '<button onclick="etikettDel(\''+k+'\')" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:#b91c1c;font-size:13px;cursor:pointer">Entfernen</button>'
+        : '<button onclick="etikettCam(\''+k+'\')" style="padding:7px 10px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:var(--greendk,#166534);font-size:13px;cursor:pointer">Kamera</button>'
+         +'<button onclick="etikettPick(\''+k+'\')" style="padding:7px 10px;border:1px dashed #16a34a;border-radius:8px;background:var(--card);color:var(--greendk,#166534);font-size:13px;cursor:pointer">Datei</button>')
+      +'</div>';
+  }).join("");
+  const n=Object.keys(ETI_SHOTS).length;
+  const b=document.getElementById("etiSend");
+  if(b){ b.style.display=n?"block":"none"; b.textContent="Fotos senden ("+n+")"; }
+}
+async function etikettCam(slot){
+  try{ const d=await camCapture(); if(!d) return; ETI_SHOTS[slot]=await _compressSrc(d); renderEtiShots(); }
+  catch(e){ etiMsg("Fehler: "+e.message,"#dc2626"); }
+}
+function etikettPick(slot){ _etiTarget=slot; const i=document.getElementById("etiFile"); if(i) i.click(); }
+async function etikettFile(inp){
+  const f=inp.files&&inp.files[0]; const slot=_etiTarget||"zutaten"; inp.value="";
+  if(!f) return;
+  try{ const u=URL.createObjectURL(f); try{ ETI_SHOTS[slot]=await _compressSrc(u); } finally{ URL.revokeObjectURL(u); } renderEtiShots(); }
+  catch(e){ etiMsg("Fehler: "+e.message,"#dc2626"); }
+}
+function etikettDel(slot){ delete ETI_SHOTS[slot]; renderEtiShots(); }
+async function etikettSend(){
+  const arr=ETI_SLOTS.map(function(s){ return ETI_SHOTS[s[0]]; }).filter(Boolean);
+  if(!arr.length){ etiMsg("Bitte mindestens ein Foto aufnehmen.","#dc2626"); return; }
+  etiMsg("Fotos werden gespeichert…","var(--muted)");
+  try{
+    const {error}=await client.rpc("cb_foto_vormerken",{p_fotos:arr, p_ean:ETI_EAN||null, p_quelle:"Barcode-Scan Etikett"});
+    if(error) throw error;
+    ETI_SHOTS={}; renderEtiShots();
+    etiMsg("&#10003; Danke! "+arr.length+" Foto(s) gespeichert. Wir prüfen das Etikett und nehmen das Produkt auf.","#16a34a");
+    setTimeout(etikettClose, 2500);
+  }catch(e){ etiMsg("Fehler: "+e.message,"#dc2626"); }
+}
+function etikettCtaBtn(code){
+  return '<button onclick="etikettOpen(\''+String(code).replace(/[^0-9A-Za-z]/g,"")+'\')" style="margin-top:8px;padding:9px 14px;border:1px solid var(--green,#16a34a);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);font-size:13px;font-weight:600;cursor:pointer">Etikett fotografieren &ndash; hilf uns, es aufzunehmen</button>';
+}
 /* Freigabe: mehrere Etikettfotos je Entwurf sammeln, dann zusammen senden */
 const FG_SHOTS={};
 function updateFgShotInfo(id){
@@ -4259,8 +4332,8 @@ function prodScan(){
       const p=pid&&(ALL||[]).find(x=>x.id===pid);
       if(p){ if(st) st.textContent="✅ Gefunden: "+esc(code); detail(p); }
       else {
-        try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Barcode-Scan",p_akteur:"Web"}); if(st){ st.style.color="#2E7D32"; st.innerHTML="Barcode "+esc(code)+" noch nicht im Katalog – <b>gespeichert</b>. Wird nach Prüfung ergänzt."; } }
-        catch(e){ if(st){ st.style.color="#e8920c"; st.textContent="Barcode "+code+" nicht im Katalog."; } }
+        try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Barcode-Scan",p_akteur:"Web"}); if(st){ st.style.color="#2E7D32"; st.innerHTML="Barcode "+esc(code)+" noch nicht im Katalog – <b>gespeichert</b>.<br><span style=\"color:var(--muted);font-size:12.5px\">Du hast das Produkt in der Hand? Dann geht es sofort:</span><br>"+etikettCtaBtn(code); } }
+        catch(e){ if(st){ st.style.color="#e8920c"; st.innerHTML="Barcode "+esc(code)+" nicht im Katalog.<br>"+etikettCtaBtn(code); } }
       }
     }catch(e){ alert("Fehler: "+e.message); }
   });
@@ -4271,9 +4344,9 @@ function tbScan(){ _startScan("tbReader", async (code)=>{
     const {data}=await client.rpc("produkt_by_ean",{p_ean:code});
     if(data&&data.id){ document.getElementById("tbProd").value=prodLabel(data); tbPrefillMenge(); tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; }
     else {
-      try{ const {data:q}=await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
-        tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. Root Index ergänzt es und schaltet es nach Prüfung frei.<br><span style='font-size:12px;color:var(--muted)'>"+(q||"")+"</span>"; }
-      catch(e){ tbm.style.color="#b45309"; tbm.textContent="Barcode "+code+" nicht im Katalog ("+e.message+")."; }
+      try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
+        tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+esc(code)+" noch nicht im Katalog – <b>gespeichert</b>.<br><span style=\"font-size:12.5px;color:var(--muted)\">Du hast das Produkt in der Hand? Dann geht es sofort:</span><br>"+etikettCtaBtn(code); }
+      catch(e){ tbm.style.color="#b45309"; tbm.innerHTML="Barcode "+esc(code)+" nicht im Katalog.<br>"+etikettCtaBtn(code); }
     }
   }catch(e){ tbm.style.color="#dc2626"; tbm.textContent="Fehler: "+e.message; }
 }); }
