@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11m einkauf-terrakotta -->
+<!-- build 2026-07-11n scans-amazon-kamera -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -428,8 +428,13 @@
         <button id="fgtProdukte" class="active" onclick="fgTab('produkte')">Produkte</button>
         <button id="fgtBundles" onclick="fgTab('bundles')">Bundles</button>
         <button id="fgtRezepte" onclick="fgTab('rezepte')">Rezepte</button>
+        <button id="fgtScans" onclick="fgTab('scans')">Scans</button>
         <button id="fgtKontakt" onclick="fgTab('kontakt')">Anfragen</button>
         <button id="fgtEmpfehlungen" onclick="fgTab('empfehlungen')">Empfehlungen</button>
+      </div>
+      <div id="fgPanelScans" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:10px">Barcodes, die Nutzer gescannt haben und die noch nicht im Katalog sind – inklusive der Etikettfotos, die sie mitgeschickt haben. „OFF holen" befüllt die Felder als <b>Vorschlag</b>; freigegeben wird erst nach deiner Prüfung.</div>
+        <div id="fgScans" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
       </div>
       <div id="fgPanelProdukte">
         <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen, bearbeiten und freischalten. Nur vollständig bewertete Produkte sind freigebbar.</div>
@@ -438,7 +443,8 @@
         <h3 style="font-size:16px;margin:18px 0 6px">Manuelle Eintragungen (Produktwünsche)</h3>
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">Von Nutzern manuell eingetragene Lebensmittel – Kandidaten zum Anlegen. „×N" = wie oft eingetragen.</div>
         <div id="fgMeldungen" style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:6px"></div>
-        <h3 style="font-size:16px;margin:18px 0 6px">Scan-Warteschlange (noch ohne Daten)</h3>
+        <h3 style="font-size:16px;margin:18px 0 6px">Scan-Warteschlange</h3>
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">Kurzüberblick – die volle Ansicht mit Etikettfotos und OFF-Abgleich liegt im Tab <b>Scans</b>.</div>
         <div id="fgQueue" style="font-size:14px;color:var(--ink);line-height:1.7"></div>
       </div>
       <div id="fgPanelBundles" style="display:none">
@@ -1225,6 +1231,28 @@ async function adminDeleteProdukt(id,name){
   if(error){ alert("Fehler: "+error.message); return; }
   closeP(); ALL=(ALL||[]).filter(x=>x.id!==id); render();
 }
+/* ---- Amazon-Partnerprogramm (StoreID rootindex-21) ----
+   Direktlink nur, wenn ein echter Amazon-Produktlink hinterlegt ist.
+   Sonst Suchlink über die EAN – es wird KEINE ASIN geraten. */
+const AMZ_TAG="rootindex-21";
+function amazonUrl(d){
+  if(!d) return "";
+  const pl=String(d.produktlink||"");
+  if(/amazon\.[a-z.]+/i.test(pl)){
+    try{ const u=new URL(pl); u.searchParams.set("tag",AMZ_TAG); return u.toString(); }catch(e){ return pl; }
+  }
+  const ean=String(d.ean||"").replace(/[^0-9A-Za-z]/g,"");
+  if(ean) return "https://www.amazon.de/s?k="+encodeURIComponent(ean)+"&tag="+AMZ_TAG;
+  return "";
+}
+function amazonBtn(d,klein){
+  const u=amazonUrl(d); if(!u) return "";
+  const pad=klein?"5px 9px":"7px 12px", fs=klein?"12px":"13px";
+  return '<a href="'+u+'" target="_blank" rel="sponsored nofollow noopener" title="Anzeige · Amazon-Partnerlink"'
+    +' style="display:inline-flex;align-items:center;gap:5px;padding:'+pad+';border:1px solid #E4A343;border-radius:8px;background:#FFF7EA;color:#8A5A0B;text-decoration:none;font-size:'+fs+';font-weight:600;white-space:nowrap">'
+    +'<span style="font-size:10px;font-weight:700;letter-spacing:.4px;opacity:.75">ANZEIGE</span> Bei Amazon</a>';
+}
+const AMZ_HINWEIS='<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:8px">Anzeige: Als Amazon-Partner verdient Root&nbsp;Index an qualifizierten Verkäufen. Für dich ändert sich der Preis nicht – und der Clean&nbsp;Score wird davon <b>nicht</b> beeinflusst.</div>';
 async function prodToEinkauf(id){
   if(!ME){ openLogin(); return; }
   if(!hasFeat('planer')){ premiumInfo(); return; }
@@ -1508,7 +1536,8 @@ function detail(d){
     <button class="close" onclick="closeP()">Schließen ✕</button>
     <h2>${esc(d.name)}</h2>
     <div class="marke">${(mkLabel(d.marke)?esc(mkLabel(d.marke))+" · ":"")}${esc(d.kategorie||"")}${d.unterkategorie?(" · "+esc(d.unterkategorie)):""} ${efChip(d.ernaehrungsform)}</div>
-    <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button>${(ME&&ME.is_admin)?`<button onclick="adminDeleteProdukt('${d.id}','${esc(d.name||"").replace(/'/g,"")}')" style="padding:7px 12px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:13px">🗑️ Produkt ausblenden</button>`:""}</div>
+    <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button onclick="prodToEinkauf('${d.id}')" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Zur Einkaufsliste</button>${amazonBtn(d)}${(ME&&ME.is_admin)?`<button onclick="adminDeleteProdukt('${d.id}','${esc(d.name||"").replace(/'/g,"")}')" style="padding:7px 12px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:13px">🗑️ Produkt ausblenden</button>`:""}</div>
+    ${amazonUrl(d)?AMZ_HINWEIS:""}
     ${BILD[d.id]?`<div style="text-align:center;margin:8px 0"><img src="${esc(BILD[d.id])}" alt="" style="max-height:170px;max-width:100%;border-radius:12px" onerror="this.style.display='none'"></div>`:""}
     ${(d.dosis_text||d.inhalt_menge)?`<div style="background:var(--greenlt);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px;color:var(--ink);line-height:1.5">${d.dosis_text?`<div><b>Angegebene Dosis:</b> ${esc(d.dosis_text)}</div>`:""}${d.inhalt_menge?`<div><b>Inhalt:</b> ${esc(String(d.inhalt_menge).replace(/\.0+$/,""))}${d.inhalt_einheit?(" "+esc(d.inhalt_einheit)):""}${d.form?(" · "+esc(d.form)):""}</div>`:""}</div>`:""}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
@@ -1640,10 +1669,105 @@ function updateFloatBtns(){
   var tt=document.getElementById('toTopFab'); if(tt) tt.style.display=((window.scrollY||document.documentElement.scrollTop||0)>350)?'flex':'none';
 }
 function fgTab(t){ window._fgTab=t;
-  var p={produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen'};
+  var p={produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen'};
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
-  ['produkte','bundles','rezepte','kontakt','empfehlungen'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
+  ['produkte','bundles','rezepte','scans','kontakt','empfehlungen'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
   if(t==='empfehlungen' && typeof renderEmpfehlungen==='function') renderEmpfehlungen();
+  if(t==='scans' && typeof loadScans==='function') loadScans();
+}
+/* ---- Freigabe · Tab „Scans": offene Barcodes + mitgeschickte Etikettfotos ---- */
+async function loadScans(){
+  const box=document.getElementById("fgScans"); if(!box) return;
+  box.innerHTML='<span style="color:var(--muted)">Lade…</span>';
+  const {data,error}=await client.from("Scan_Warteschlange").select("*").eq("Status","offen").order("Eintrag_ID",{ascending:false});
+  if(error){ box.innerHTML='<span style="color:#dc2626">Fehler: '+esc(error.message)+'</span>'; return; }
+  const rows=data||[];
+  window._scanQ=rows;
+  if(!rows.length){ box.innerHTML='<span style="color:var(--muted)">Keine offenen Scans. 🎉</span>'; return; }
+  /* mehrere Einträge zur selben EAN zusammenfassen (Barcode + Fotos) */
+  const byEan={};
+  rows.forEach(function(r){
+    const k=String(r.EAN||('#'+r.Eintrag_ID));
+    if(!byEan[k]) byEan[k]={ean:r.EAN, ids:[], quellen:[], fotos:[], notiz:null, when:r.Erfasst_am};
+    const g=byEan[k];
+    g.ids.push(r.Eintrag_ID);
+    if(r.Quelle) g.quellen.push(r.Quelle);
+    const f=r.Fotos_Base64||(r.Foto_Base64?[r.Foto_Base64]:[]);
+    (Array.isArray(f)?f:[]).forEach(function(s){ if(typeof s==='string'&&s.indexOf('data:image')===0) g.fotos.push(s); });
+    if(r.Notiz&&!g.notiz) g.notiz=r.Notiz;
+  });
+  const keys=Object.keys(byEan);
+  box.innerHTML=keys.map(function(k,i){
+    const g=byEan[k];
+    const dt=g.when?new Date(g.when).toLocaleString('de-DE'):'';
+    const fotos=g.fotos.length
+      ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">'+g.fotos.map(function(s,j){
+          return '<img src="'+s+'" onclick="scanFotoZoom('+i+','+j+')" style="width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">';
+        }).join('')+'</div>'
+      : '<div style="font-size:12.5px;color:var(--muted);margin:6px 0">Keine Etikettfotos mitgeschickt.</div>';
+    return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">'
+        +'<b style="font-family:ui-monospace,monospace;font-size:15px">'+esc(g.ean||'—')+'</b>'
+        +'<span style="font-size:12px;color:var(--muted)">'+esc(g.quellen.join(' · '))+(dt?' · '+esc(dt):'')+'</span>'
+      +'</div>'
+      +(g.notiz?'<div style="font-size:12.5px;color:#b45309;margin-top:4px">'+esc(g.notiz)+'</div>':'')
+      +fotos
+      +'<div id="scanOff'+i+'" style="font-size:12.5px;color:var(--muted);margin:6px 0"></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
+        +'<button onclick="scanOffLookup('+i+')" style="padding:7px 11px;border:1px solid #0ea5e9;border-radius:8px;background:var(--card);color:#0369a1;cursor:pointer;font-size:13px">🔎 OFF holen</button>'
+        +'<button onclick="scanAnlegen('+i+')" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px;font-weight:600">Produkt anlegen</button>'
+        +'<button onclick="scanErledigt('+i+')" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Erledigt</button>'
+      +'</div></div>';
+  }).join('');
+  window._scanGroups=keys.map(function(k){ return byEan[k]; });
+}
+function scanFotoZoom(i,j){
+  const g=(window._scanGroups||[])[i]; if(!g) return;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:10000;display:flex;align-items:center;justify-content:center;padding:12px;cursor:zoom-out';
+  ov.onclick=function(){ ov.remove(); };
+  ov.innerHTML='<img src="'+g.fotos[j]+'" style="max-width:100%;max-height:100%;border-radius:10px">';
+  document.body.appendChild(ov);
+}
+/* OFF-Abfruf über die EAN – befüllt NICHTS automatisch in der DB, nur Anzeige/Vorschlag. */
+async function scanOffLookup(i){
+  const g=(window._scanGroups||[])[i]; if(!g||!g.ean) return;
+  const out=document.getElementById('scanOff'+i); if(out) out.innerHTML='⏳ Open Food Facts…';
+  try{
+    const r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(g.ean)+'.json');
+    const j=await r.json();
+    if(!j||j.status!==1||!j.product){ if(out){ out.style.color='#b45309'; out.textContent='Bei Open Food Facts nicht gefunden – Etikettfotos nutzen.'; } g.off=null; return; }
+    const p=j.product, n=p.nutriments||{};
+    g.off={
+      name:p.product_name_de||p.product_name||'',
+      marke:(p.brands||'').split(',')[0].trim(),
+      zutaten:p.ingredients_text_de||p.ingredients_text||'',
+      kcal:n['energy-kcal_100g'], protein:n.proteins_100g, kh:n.carbohydrates_100g, zucker:n.sugars_100g,
+      fett:n.fat_100g, ges_fett:n['saturated-fat_100g'], ballast:n.fiber_100g, salz:n.salt_100g
+    };
+    if(out){ out.style.color='var(--ink)';
+      out.innerHTML='<b>'+esc(g.off.name||'?')+'</b>'+(g.off.marke?' · '+esc(g.off.marke):'')
+        +'<div style="color:var(--muted)">'+[
+            g.off.kcal!=null?g.off.kcal+' kcal':null, g.off.protein!=null?'P '+g.off.protein+'g':null,
+            g.off.kh!=null?'KH '+g.off.kh+'g':null, g.off.zucker!=null?'Zucker '+g.off.zucker+'g':null,
+            g.off.fett!=null?'F '+g.off.fett+'g':null, g.off.ballast!=null?'BST '+g.off.ballast+'g':null,
+            g.off.salz!=null?'Salz '+g.off.salz+'g':null
+          ].filter(Boolean).join(' · ')+'</div>'
+        +(g.off.zutaten?'<div style="color:var(--muted);margin-top:3px">Zutaten (OFF): '+esc(g.off.zutaten)+'</div>':'')
+        +'<div style="color:#b45309;margin-top:4px">Vorschlag – bitte gegen die Etikettfotos prüfen, bevor du freigibst.</div>';
+    }
+  }catch(e){ if(out){ out.style.color='#dc2626'; out.textContent='Fehler: '+e.message; } }
+}
+function scanAnlegen(i){
+  const g=(window._scanGroups||[])[i]; if(!g) return;
+  const o=g.off||{};
+  openFgEditor(null, {name:o.name||'', marke:o.marke||'', ean:g.ean||''});
+}
+async function scanErledigt(i){
+  const g=(window._scanGroups||[])[i]; if(!g) return;
+  try{ await client.from("Scan_Warteschlange").update({Status:'erledigt'}).in("Eintrag_ID",g.ids); }
+  catch(e){ alert('Fehler: '+e.message); return; }
+  loadScans();
 }
 function pfTab(name){
   document.querySelectorAll('#pfTabs button').forEach(b=>b.classList.toggle('active', b.dataset.p===name));
@@ -2114,11 +2238,15 @@ function kontaktOpen(){
    +_ktInp('ktEmail','E-Mail (fuer Rueckmeldung, optional)',em)
    +'<div id="ktFrageBox">'+_ktArea('ktNachricht','Deine Frage oder dein Feedback')+'</div>'
    +'<div id="ktProdBox" style="display:none">'
-     +'<p style="font-size:12px;color:var(--muted);margin:2px 0 8px">Produkt in der App nicht gefunden? Z. B. in der Werbung gesehen – wir pruefen und nehmen es auf.</p>'
+     +'<p style="font-size:12px;color:var(--muted);margin:2px 0 8px">Produkt in der App nicht gefunden? Wir prüfen es und nehmen es auf.<br><b>Der Barcode ist Pflicht</b> – nur damit können wir das Produkt eindeutig identifizieren und die Daten sauber prüfen. Ohne ihn müssten wir raten, und das machen wir nicht.</p>'
+     +'<div style="display:flex;gap:8px;align-items:flex-start">'
+       +'<div style="flex:1">'+_ktInp('ktBarcode','Barcode / EAN (Pflicht)','')+'</div>'
+       +'<button onclick="ktScanStart()" style="flex:0 0 auto;padding:11px 13px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">📷 Scannen</button>'
+     +'</div>'
+     +'<div id="ktReader" style="border-radius:12px;overflow:hidden;margin-bottom:8px"></div>'
      +_ktInp('ktProd','Produktname','')
      +_ktInp('ktMarke','Marke (optional)','')
      +_ktInp('ktLink','Link zum Produkt (optional)','')
-     +_ktInp('ktBarcode','Barcode / EAN (optional)','')
    +'</div>'
    +'<button onclick="ktSend()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:14px">Absenden</button>'
    +'<div id="ktMsg" style="font-size:13px;margin-top:8px;text-align:center"></div>'
@@ -2130,12 +2258,41 @@ async function ktSend(){
   const t=(document.querySelector('input[name=ktTyp]:checked')||{}).value||'frage';
   const p={ typ:t, name:g('ktName').value.trim(), email:g('ktEmail').value.trim() };
   if(t==='frage'){ p.nachricht=g('ktNachricht').value.trim(); if(!p.nachricht){ msg.style.color='#dc2626'; msg.textContent='Bitte deine Frage eingeben.'; return; } }
-  else { p.produktname=g('ktProd').value.trim(); p.marke=g('ktMarke').value.trim(); p.link=g('ktLink').value.trim(); p.barcode=g('ktBarcode').value.trim(); if(!p.produktname){ msg.style.color='#dc2626'; msg.textContent='Bitte den Produktnamen eingeben.'; return; } }
+  else {
+    p.produktname=g('ktProd').value.trim(); p.marke=g('ktMarke').value.trim(); p.link=g('ktLink').value.trim();
+    p.barcode=(g('ktBarcode').value||'').replace(/[^0-9]/g,'');
+    if(!p.barcode || p.barcode.length<8){ msg.style.color='#dc2626'; msg.textContent='Bitte den Barcode eingeben oder scannen – ohne EAN können wir das Produkt nicht eindeutig prüfen.'; return; }
+    if(!p.produktname){ msg.style.color='#dc2626'; msg.textContent='Bitte den Produktnamen eingeben.'; return; }
+  }
   msg.style.color='#374151'; msg.textContent='⏳ senden…';
   try{ const {error}=await client.rpc('cb_kontakt_senden',{p:p}); if(error) throw error;
     msg.style.color='#16a34a'; msg.textContent='✓ Danke! Deine '+(t==='produkt'?'Produktanfrage':'Nachricht')+' ist eingegangen.';
     setTimeout(function(){ const ov=document.getElementById('kontaktOv'); if(ov) ov.remove(); }, 1400);
   }catch(e){ msg.style.color='#dc2626'; msg.textContent='Fehler: '+(e.message||'bitte spaeter erneut'); }
+}
+async function ktScanStart(){
+  const msg=document.getElementById('ktMsg');
+  try{
+    _startScan("ktReader", async function(code){
+      const f=document.getElementById('ktBarcode'); if(f) f.value=code;
+      stopScan();
+      if(msg){ msg.style.color='#2E7D32'; msg.textContent='✓ Barcode '+code+' erkannt.'; }
+      try{
+        const {data}=await client.rpc("produkt_by_ean",{p_ean:code});
+        if(data&&data.id&&msg){ msg.style.color='#b45309'; msg.textContent='Dieses Produkt ist bereits im Katalog: '+data.name; return; }
+      }catch(e){}
+      try{
+        const r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json');
+        const j=await r.json();
+        if(j&&j.status===1&&j.product){
+          const pn=document.getElementById('ktProd'), mk=document.getElementById('ktMarke');
+          if(pn&&!pn.value) pn.value=j.product.product_name_de||j.product.product_name||'';
+          if(mk&&!mk.value) mk.value=(j.product.brands||'').split(',')[0].trim();
+          if(msg){ msg.style.color='#2E7D32'; msg.textContent='✓ Bei Open Food Facts gefunden – Name/Marke vorbelegt, bitte prüfen.'; }
+        }
+      }catch(e){}
+    });
+  }catch(e){ if(msg){ msg.style.color='#dc2626'; msg.textContent='Kamera nicht verfügbar: '+e.message; } }
 }
 async function ktErledigt(id){ try{ await client.rpc("cb_admin_kontakt_erledigt",{p_id:id}); }catch(e){} loadFreigabe(); }
 function ktAnlegen(i){ const x=(window._ktList||[])[i]; if(!x){ openFgEditor(null); return; } openFgEditor(null, {name:x.produktname, marke:x.marke, ean:x.barcode}); }
@@ -2766,6 +2923,14 @@ async function toggleEinkauf(target){
 const EINK_MENGEN=['1','2','3','4','5','250 g','500 g','1 kg','1 Pkg.','1 Fl.','1 Bund'];
 /* Artikel-Button (Bring!-Stil): offen = Terrakotta, abgehakt = neutral. Antippen = abhaken. */
 const EINK_C = { bg:'#D85A30', bd:'#993C1D', tx:'#FDF3EF', tx2:'#F5C4B3' };
+/* Amazon-Kaufbutton am Artikel – nur wenn das Produkt verknüpft ist und einen Link/EAN hat. */
+function einkAmzBtn(pid){
+  if(!pid) return '';
+  const p=(ALL||[]).find(function(x){ return x.id===pid; });
+  const u=p?amazonUrl(p):''; if(!u) return '';
+  return '<a href="'+u+'" target="_blank" rel="sponsored nofollow noopener" title="Anzeige · bei Amazon kaufen" onclick="event.stopPropagation()"'
+    +' style="flex:0 0 auto;display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.22);color:#FFF7EA;text-decoration:none;font-size:11.5px;font-weight:700;letter-spacing:.3px;white-space:nowrap">Amazon</a>';
+}
 function einkRow(r,done){
   const id=r.eintrag_id;
   const bg   = done ? 'var(--card)'  : EINK_C.bg;
@@ -2776,6 +2941,7 @@ function einkRow(r,done){
     +(done?'<span style="flex:0 0 auto;font-size:15px;color:var(--muted);line-height:1">&#10003;</span>':'')
     +'<span style="flex:1;min-width:0;font-size:14.5px;font-weight:600;line-height:1.3;color:'+tx+';'+(done?'text-decoration:line-through':'')+'">'+esc(r.titel)+'</span>'
     +(r.menge?'<span style="flex:0 0 auto;font-size:13px;font-weight:700;color:'+tx2+'">'+esc(r.menge)+'</span>':'')
+    +(done?'':einkAmzBtn(r.produkt_id))
     +(done?'':'<button onclick="event.stopPropagation();einkDetails('+id+')" title="Menge ändern" style="flex:0 0 auto;border:0;background:transparent;color:'+tx2+';font-size:18px;line-height:1;cursor:pointer;padding:4px 6px">&#8943;</button>')
     +'<button onclick="event.stopPropagation();einkaufDel('+id+')" title="Entfernen" style="flex:0 0 auto;border:0;background:transparent;color:'+tx2+';font-size:14px;line-height:1;cursor:pointer;padding:4px 2px">&#10005;</button>'
   +'</div>';
@@ -2854,6 +3020,7 @@ async function loadEinkauf(){
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 6px"><span style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">Erledigt ('+erl.length+')</span><button onclick="einkaufClearDone()" style="font-size:12.5px;color:#dc2626;background:none;border:0;cursor:pointer">entfernen</button></div>';
     h+=einkGrid(erl.map(function(r){ return einkRow(r,true); }).join(''));
   }
+  if(offen.some(function(r){ return einkAmzBtn(r.produkt_id); })) h+=AMZ_HINWEIS;
   box.innerHTML=h;
 }
 async function einkaufAdd(){
@@ -3135,7 +3302,9 @@ function tbScanPopup(){
           if(msg){ msg.style.color="#2E7D32"; msg.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. Wird nach Prüfung ergänzt."; }
         }catch(e){ if(msg){ msg.style.color="#e8920c"; msg.textContent="Barcode "+code+" nicht im Katalog."; } }
         const res=document.getElementById("tbAddResults");
-        if(res){ res.innerHTML='<button onclick="window._tbAddManualEan=\''+code+'\';window._tbAddManualName=\'\';tbAddManualOpen();offLookup();" style="margin-top:10px;width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">🔎 Bei Open Food Facts holen &amp; eintragen</button>'; }
+        if(res){ res.innerHTML='<button onclick="window._tbAddManualEan=\''+code+'\';window._tbAddManualName=\'\';tbAddManualOpen();offLookup();" style="margin-top:10px;width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">🔎 Bei Open Food Facts holen &amp; eintragen</button>'
+          +'<div style="margin-top:8px;font-size:12.5px;color:var(--muted);text-align:center">Nicht bei OFF? Du hast das Produkt in der Hand?</div>'
+          +'<div style="text-align:center">'+etikettCtaBtn(code)+'</div>'; }
       }
     }catch(e){ if(msg){ msg.style.color="#f87171"; msg.textContent="Fehler: "+e.message; } }
   }); }catch(e){ const msg=document.getElementById("tbScanMsg"); if(msg){ msg.style.color="#f87171"; msg.textContent="Kamera nicht verfügbar: "+e.message; } }
@@ -4438,28 +4607,53 @@ function _onDetected(res){
   if(_lastCount<2) return;
   const cb=_scanCb; stopScan(); if(cb) cb(code);
 }
+/* Kamera-Streams hart freigeben – sonst hält iOS/Safari die Kamera fest
+   und der nächste Scanner zeigt nur ein schwarzes Bild. */
+function _killStreams(){
+  try{
+    document.querySelectorAll("video").forEach(function(v){
+      try{ const s=v.srcObject; if(s&&s.getTracks) s.getTracks().forEach(function(t){ t.stop(); }); v.srcObject=null; v.pause&&v.pause(); }catch(e){}
+    });
+  }catch(e){}
+}
 function stopScan(){
   if(_scanning){ try{ Quagga.offDetected(_onDetected); }catch(e){} try{ Quagga.stop(); }catch(e){} _scanning=false; }
+  else { try{ Quagga.offDetected(_onDetected); }catch(e){} try{ Quagga.stop(); }catch(e){} }
+  _killStreams();
   _lastCode=null; _lastCount=0; _scanCb=null;
-  ["vorReader","tbReader","prodReader","einkReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
+  ["vorReader","tbReader","prodReader","einkReader","ktReader","tbAddReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
 }
 function _startScan(targetId, cb){
-  if(_scanning){ stopScan(); return; }
   if(!window.Quagga){ alert("Scanner lädt noch – gleich nochmal versuchen."); return; }
+  const tgt=document.getElementById(targetId); if(!tgt) return;
+  /* Läuft noch ein Scanner? Erst sauber beenden, Kamera freigeben – und dann NEU starten
+     (früher wurde hier nur gestoppt und abgebrochen → schwarzes Bild beim zweiten Öffnen). */
+  if(_scanning){ try{ Quagga.offDetected(_onDetected); }catch(e){} try{ Quagga.stop(); }catch(e){} _scanning=false; }
+  _killStreams();
+  _lastCode=null; _lastCount=0;
   _scanCb=cb;
-  document.getElementById(targetId).innerHTML=
+  tgt.innerHTML=
     '<style>#qbox{position:relative;height:150px;background:#000;border-radius:10px;overflow:hidden}#qbox video,#qbox canvas{width:100%!important;height:100%!important;object-fit:cover;display:block}#qbox canvas.drawingBuffer{position:absolute;top:0;left:0}</style>'
     +'<div id="qbox" style="max-width:280px;margin:0 auto"></div>'
-    +'<div style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px">Barcode formatfüllend &amp; scharf ins Bild halten.</div>'
+    +'<div id="qboxMsg" style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px">Kamera startet…</div>'
     +'<div style="text-align:center;margin-top:6px"><button onclick="stopScan()" style="padding:6px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;font-size:13px">Kamera schließen</button></div>';
-  Quagga.init({
-    inputStream:{ type:"LiveStream", target:document.getElementById("qbox"),
-      constraints:{ facingMode:"environment", width:{ideal:1280}, height:{ideal:720} } },
-    locator:{ patchSize:"medium", halfSample:true },
-    numOfWorkers:(navigator.hardwareConcurrency||4), frequency:10,
-    decoder:{ readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader"] }, locate:true
-  }, function(err){ if(err){ alert("Kamera nicht verfügbar: "+err); _scanning=false; _scanCb=null; return; } _scanning=true; Quagga.start(); });
-  Quagga.onDetected(_onDetected);
+  setTimeout(function(){
+    const box=document.getElementById("qbox"); if(!box) return;
+    Quagga.init({
+      inputStream:{ type:"LiveStream", target:box,
+        constraints:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} } },
+      locator:{ patchSize:"medium", halfSample:true },
+      numOfWorkers:(navigator.hardwareConcurrency||4), frequency:10,
+      decoder:{ readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader"] }, locate:true
+    }, function(err){
+      const m=document.getElementById("qboxMsg");
+      if(err){ if(m){ m.style.color="#dc2626"; m.textContent="Kamera nicht verfügbar: "+(err.message||err); } _scanning=false; _scanCb=null; return; }
+      _scanning=true; Quagga.start();
+      if(m){ m.textContent="Barcode formatfüllend & scharf ins Bild halten."; }
+      const v=box.querySelector("video"); if(v){ v.setAttribute("playsinline",""); v.muted=true; try{ v.play(); }catch(e){} }
+    });
+    Quagga.onDetected(_onDetected);
+  }, 300);
 }
 function toggleScan(){ _startScan("vorReader",(code)=>{ document.getElementById("vorInput").value=code; setVorMsg("✅ Barcode erkannt: <b>"+code+"</b> – jetzt „Senden“ tippen.","#16a34a"); }); }
 function prodScan(){
