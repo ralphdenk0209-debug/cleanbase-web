@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11e etikett-foto-aus-barcode-scan -->
+<!-- build 2026-07-11g zutaten-premium+einkaufsliste-seite -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -278,6 +278,12 @@
     <h2 style="margin:.1em 0 .2em;font-size:19px">Regelschmerzen – was hilft?</h2>
     <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Was bei Zyklus &amp; PMS wirklich hilft – wenige, saubere Produkte statt Kombi-Pulver. Keine medizinische Beratung.</div>
     <div id="zyklusBody"><div style="color:var(--muted)">Lade…</div></div>
+  </div>
+  <div id="einkaufView" style="display:none">
+    <h2 style="margin:.1em 0 .2em;font-size:19px">🛒 Einkaufsliste</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Produkte und Rezept-Zutaten sammeln, beim Einkauf abhaken. Aus dem Wochenplan lässt sie sich automatisch erzeugen.</div>
+    <div id="einkaufPageGate" style="display:none"></div>
+    <div id="einkaufPageBox"></div>
   </div>
   <div id="darmView" style="display:none">
     <h2 style="margin:.1em 0 .2em;font-size:19px">Darmgesundheit</h2>
@@ -1476,6 +1482,9 @@ function detail(d){
     ${rows}
     ${abzug}
     ${scoreFlow(d)}
+  `;
+  /* PREMIUM: die Zutaten-Einzelbewertung im Detail (Herleitung bleibt frei, s. warumBlock) */
+  const zutatenBlock = `
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Zutaten</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#1f5e34;margin-right:3px"></span>gut (Vollwert) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8920c;margin-right:3px"></span>mittel (verarbeitet) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px"></span>kritisch ⚠️</div>
     <div>${zHtml}</div>
@@ -1486,8 +1495,11 @@ function detail(d){
   /* Sanfter Hinweis statt Mauer – die Bewertung selbst bleibt offen. */
   const upsellBlock = `
     <div style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px">
-      <div style="font-weight:700;margin-bottom:3px;font-size:14px">Die Bewertung ist und bleibt kostenlos.</div>
-      <div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:10px">Jede Regel und jede Quelle siehst du oben – ohne Konto. Premium sind nur die <b>persönlichen Werkzeuge</b>: Ernährungstagebuch, Trainingsplaner, Rezepte, deine Tagesbedarfs-Deckung und bessere Alternativen.</div>
+      <div style="font-weight:700;margin-bottom:6px;font-size:14px">Die Bewertung ist und bleibt kostenlos.</div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:10px">
+        <b style="color:var(--greendk,#166534)">Frei – ohne Konto:</b> der Index, die vier Achsen, warum Punkte fehlen, jede Regel und jede Quelle. Alles, was du oben siehst.<br>
+        <b style="color:var(--ink)">Mit Premium zusätzlich:</b> die <b>Bewertung jeder einzelnen Zutat</b>, deine <b>Tagesbedarfs-Deckung</b>, <b>bessere Alternativen</b> sowie Ernährungstagebuch, Trainingsplaner und Rezepte.
+      </div>
       <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:9px 16px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13px">${ME?'Premium ansehen – 7 Tage gratis':'7 Tage gratis testen'}</button>
     </div>
   `;
@@ -1510,6 +1522,7 @@ function detail(d){
     ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:""}
     ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
     ${warumBlock}
+    ${_sd ? zutatenBlock : ""}
     ${_sd ? naehrstoffHtml(d) : ""}
     ${_sd ? "" : upsellBlock}
   `;
@@ -1596,6 +1609,8 @@ function setMode(m){
   document.getElementById("trainingView").style.display = m==="training"?"":"none";
   document.getElementById("zyklusView").style.display = m==="zyklus"?"":"none";
   document.getElementById("darmView").style.display = m==="darm"?"":"none";
+  document.getElementById("einkaufView").style.display = m==="einkauf"?"":"none";
+  if(m==="einkauf") renderEinkaufSeite();
   document.getElementById("profilView").style.display = m==="profil"?"":"none";
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
@@ -1992,6 +2007,7 @@ async function renderStart(){
     +riGlowTile('training','figure','Training','Plan &amp; Fortschritt','violet')
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+riGlowTile('zyklus','heart','Regelschmerzen','was hilft?','berry')+riGlowTile('darm','leaf','Darmgesundheit','Basics &amp; mehr','terra')+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px">'+riGlowTile('einkauf','cart','Einkaufsliste','sammeln &amp; abhaken','teal')+'</div>'
     +schritteHtml
     +unterstuetzenHtml();
   if(ME&&ME.is_premium){ renderSchritte(); renderSchlaf(); }
@@ -2006,13 +2022,14 @@ function riIco(n,s){ s=s||18;
     book:'<path d="M6 4h10a2 2 0 0 1 2 2v13a1.2 1.2 0 0 0-1.2-1.2H6z"/><path d="M6 4v13.8"/><path d="M9.5 8.5h5M9.5 11.5h5"/>',
     shoe:'<path d="M3 15.5h7l3.5-2 4.5 1.3a3 3 0 0 1 2 2.8V19H4.2A1.2 1.2 0 0 1 3 17.8z"/><path d="M3 15.5v-3l2.4 1.1"/>',
     cutlery:'<circle cx="12" cy="12.5" r="5.5"/><path d="M4 4v4a1.4 1.4 0 0 0 2.8 0V4"/><path d="M5.4 4v16"/><path d="M19 4c-1.4 1-2 2.8-2 4.6V11h2z"/><path d="M18.4 12v8"/>',
-    figure:'<circle cx="12" cy="5" r="2.2"/><path d="M12 7.2v6.3"/><path d="M12 9.3l-4-2M12 9.3l4-2"/><path d="M12 13.5l-3 6M12 13.5l3 6"/>'
+    figure:'<circle cx="12" cy="5" r="2.2"/><path d="M12 7.2v6.3"/><path d="M12 9.3l-4-2M12 9.3l4-2"/><path d="M12 13.5l-3 6M12 13.5l3 6"/>',
+    cart:'<circle cx="9.5" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/><path d="M3 4h2.2l2.3 10.1a1.5 1.5 0 0 0 1.5 1.2h7.6a1.5 1.5 0 0 0 1.5-1.2L20 8H6.1"/>'
   };
   return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">'+(P[n]||'')+'</svg>';
 }
 function riChip(n){ return '<span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--greenlt);color:var(--greendk)">'+riIco(n,21)+'</span>'; }
 function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
-  var A={green:['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'],amber:['#6b4410','#1a120a','#FFC24B','#FFCF6B'],blue:['#143a63','#0b1420','#5AB6FF','#7CC4FF'],violet:['#45256b','#120b1a','#B79BFF','#C9B3FF'],berry:['#6b1f45','#1a0a12','#FF6FA8','#FFA8CB'],terra:['#7a3b1f','#1a0e08','#FF9E5E','#FFC59B']}[accent]||['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'];
+  var A={green:['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'],amber:['#6b4410','#1a120a','#FFC24B','#FFCF6B'],blue:['#143a63','#0b1420','#5AB6FF','#7CC4FF'],violet:['#45256b','#120b1a','#B79BFF','#C9B3FF'],berry:['#6b1f45','#1a0a12','#FF6FA8','#FFA8CB'],terra:['#7a3b1f','#1a0e08','#FF9E5E','#FFC59B'],teal:['#0e4a44','#081614','#4FD6C0','#8CF0E0']}[accent]||['#1f5e39','#0c1a12','#5EF2A0','#7CFF9B'];
   return '<div onclick="navTo(\''+nav+'\')" style="position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:13px;min-height:105px;display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(120% 120% at 22% 12%, '+A[0]+' 0%, '+A[1]+' 62%);box-shadow:0 8px 22px rgba(15,40,25,.22)">'
     +'<div style="position:absolute;top:2px;left:2px;width:80px;height:80px;background:radial-gradient(circle,'+A[2]+'99 0%,transparent 70%);filter:blur(7px)"></div>'
     +'<div style="position:absolute;top:15px;left:16px;color:'+A[3]+';filter:drop-shadow(0 0 6px '+A[2]+'cc)">'+riIco(ico,38)+'</div>'
@@ -2124,7 +2141,7 @@ async function ktErledigt(id){ try{ await client.rpc("cb_admin_kontakt_erledigt"
 function ktAnlegen(i){ const x=(window._ktList||[])[i]; if(!x){ openFgEditor(null); return; } openFgEditor(null, {name:x.produktname, marke:x.marke, ean:x.barcode}); }
 function ktAntwort(i){ const x=(window._ktList||[])[i]; if(!x||!x.email) return; const betr=x.typ==='produkt'?('Deine Produktanfrage: '+(x.produktname||'')):'Deine Nachricht an Root Index'; const body='Hallo'+(x.name?' '+x.name:'')+',\r\n\r\ndanke fuer deine Nachricht an Root Index.\r\n\r\n'; window.location.href='mailto:'+encodeURIComponent(x.email)+'?subject='+encodeURIComponent(betr)+'&body='+encodeURIComponent(body); }
 function buildMehr(){
-  const items=[['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
+  const items=[['einkauf','🛒 Einkaufsliste'],['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
   let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
   html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert Root Index</button>';
   html+='<button onclick="closeMehr();kontaktOpen()">✉️ Kontakt · Frage oder Produkt melden</button>';
@@ -2717,6 +2734,24 @@ async function planDayToTb(ds){
   if(!confirm("Alle "+items.length+" Einträge dieses Tages ins Tagebuch übernehmen?")) return;
   for(const it of items){ await planToTb(it.eintrag_id,true); }
   alert("✓ "+items.length+" Einträge ins Tagebuch übernommen.");
+}
+/* Einkaufsliste als eigene Seite (Menü + Startseite). Der Button im Tagebuch bleibt zusätzlich. */
+function renderEinkaufSeite(){
+  const gate=document.getElementById("einkaufPageGate");
+  const box=document.getElementById("einkaufPageBox");
+  if(!gate||!box) return;
+  if(!ME){
+    box.innerHTML="";
+    gate.style.display="";
+    gate.innerHTML='<div class="gatebox" style="max-width:none;margin:0;padding:16px;text-align:left;box-shadow:none">'
+      +'<div style="font-weight:600;margin-bottom:4px">Anmelden, um die Einkaufsliste zu nutzen</div>'
+      +'<p style="margin:.2em 0 .8em">Deine Liste wird gespeichert, damit du sie im Laden auf dem Handy dabeihast.</p>'
+      +'<button class="authbtn" style="background:#16a34a;border-color:#16a34a" onclick="openLogin()">Anmelden / Registrieren</button></div>';
+    return;
+  }
+  gate.style.display="none"; gate.innerHTML="";
+  _einkTarget="einkaufPageBox";
+  loadEinkauf();
 }
 let _einkTarget="einkaufBox";
 async function toggleEinkauf(target){
