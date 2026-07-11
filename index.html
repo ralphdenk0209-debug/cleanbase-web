@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11o scans-off-uebernahme -->
+<!-- build 2026-07-11p scan-loeschen-rpc -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1818,15 +1818,15 @@ async function scanErledigt(i){
       return;
     }
   }catch(e){ alert('Fehler: '+e.message); return; }
-  try{ await client.from("Scan_Warteschlange").update({Status:'erledigt'}).in("Eintrag_ID",g.ids); }
-  catch(e){ alert('Fehler: '+e.message); return; }
+  const {error}=await client.rpc("cb_admin_scan_erledigt",{p_ids:g.ids});
+  if(error){ alert('Fehler: '+error.message); return; }
   loadScans();
 }
 async function scanLoeschen(i){
   const g=(window._scanGroups||[])[i]; if(!g) return;
   if(!confirm('Scan '+(g.ean||'')+' endgültig aus der Warteschlange löschen?\n\nNur tun, wenn das Produkt nicht identifizierbar ist (kein OFF-Treffer, keine Etikettfotos).')) return;
-  try{ await client.from("Scan_Warteschlange").delete().in("Eintrag_ID",g.ids); }
-  catch(e){ alert('Fehler: '+e.message); return; }
+  const {error}=await client.rpc("cb_admin_scan_loeschen",{p_ids:g.ids});
+  if(error){ alert('Fehler: '+error.message); return; }
   loadScans();
 }
 function pfTab(name){
