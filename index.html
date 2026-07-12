@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-11q amazon-deeplink-only -->
+<!-- build 2026-07-12a hcvo-quellen-asins -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -275,8 +275,8 @@
     <div id="trainBody"></div>
   </div>
   <div id="zyklusView" style="display:none">
-    <h2 style="margin:.1em 0 .2em;font-size:19px">Regelschmerzen – was hilft?</h2>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Was bei Zyklus &amp; PMS wirklich hilft – wenige, saubere Produkte statt Kombi-Pulver. Keine medizinische Beratung.</div>
+    <h2 style="margin:.1em 0 .2em;font-size:19px">Zyklus &amp; Nährstoffe</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Nährstoffe mit <b>zugelassenen EU-Aussagen</b> zu Hormontätigkeit, Muskel- und Nervenfunktion – wenige, saubere Produkte statt Kombi-Pulver. Keine Aussage zu Beschwerden, keine medizinische Beratung.</div>
     <div id="zyklusBody"><div style="color:var(--muted)">Lade…</div></div>
   </div>
   <div id="einkaufView" style="display:none">
@@ -287,7 +287,7 @@
   </div>
   <div id="darmView" style="display:none">
     <h2 style="margin:.1em 0 .2em;font-size:19px">Darmgesundheit</h2>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Was den Darm unterstützt – Ballaststoffe, Probiotika &amp; Präbiotika. Wenige, saubere Produkte. Keine medizinische Beratung.</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Ballaststoffe, Probiotika &amp; Präbiotika – Nährstoffe mit <b>zugelassener EU-Aussage</b> zur normalen Darmfunktion (z. B. Roggenfasern). Wenige, saubere Produkte. Keine medizinische Beratung.</div>
     <div id="darmBody"><div style="color:var(--muted)">Lade…</div></div>
   </div>
   <div id="vorschlagView" style="display:none">
@@ -1109,7 +1109,7 @@ function zyklusInfo(){
   if(day<=mensDays){
     phase="Menstruation";
     hint={emoji:"🩸", title:"Menstruation · Tag "+day+" von "+mensDays,
-      text:"Durch den Blutverlust ist der <b>Eisenbedarf</b> oft erhöht. Eisenreiche Lebensmittel (Hülsenfrüchte, Haferflocken, grünes Gemüse, rotes Fleisch) mit etwas Vitamin C (Paprika, Zitrus) kombinieren – das verbessert die Aufnahme. Bei Regelschmerzen kann <b>Omega-3</b> (fetter Fisch, Lein-/Rapsöl, Walnüsse) unterstützend wirken (Studienlage begrenzt)."};
+      text:"Durch den Blutverlust ist der <b>Eisenbedarf</b> oft erhöht. Eisenreiche Lebensmittel (Hülsenfrüchte, Haferflocken, grünes Gemüse, rotes Fleisch) mit etwas Vitamin C (Paprika, Zitrus) kombinieren – das verbessert die Eisenaufnahme (zugelassene EU-Angabe). <b>Eisen</b> trägt zur Verringerung von Müdigkeit und Ermüdung bei."};
   } else if(bis<=5){
     phase="Lutealphase";
     hint={emoji:"🌙", title:"Kurz vor der Periode · noch ~"+bis+" Tage",
@@ -1253,6 +1253,25 @@ function amazonBtn(d,klein){
     +'<span style="font-size:10px;font-weight:700;letter-spacing:.4px;opacity:.75">ANZEIGE</span> Bei Amazon</a>';
 }
 const AMZ_HINWEIS='<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:8px">Anzeige: Als Amazon-Partner verdient Root&nbsp;Index an qualifizierten Verkäufen. Für dich ändert sich der Preis nicht – und der Clean&nbsp;Score wird davon <b>nicht</b> beeinflusst.</div>';
+/* Woher die Daten stammen – gehört sichtbar ins Produkt, sonst ist „Transparenz" eine Behauptung. */
+function quellenBlock(d){
+  const q=String(d.quelle||"").trim();
+  const v=String(d.verifiziert||"").trim();
+  const am=d.verifiziert_am?String(d.verifiziert_am).slice(0,10).split("-").reverse().join("."):"";
+  if(!q) return "";
+  const ungeprueft = (v!=="Ja") || /ungepr(ü|u)ft|unbest(ä|a)tigt/i.test(q);
+  if(ungeprueft){
+    return '<div style="margin-top:10px;background:#FFF7EA;border:1px solid #E4A343;border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:#8A5A0B">'
+      +'<b>⚠️ Diese Daten sind noch nicht verifiziert.</b><br>'
+      +'Quelle: '+esc(q)+'. Wir zeigen den Score trotzdem – aber wir sagen dir, dass wir ihn noch nicht belegen können. '
+      +'Du hast das Produkt zu Hause? Scanne es und fotografiere das Etikett, dann prüfen wir es.'
+      +'</div>';
+  }
+  return '<div style="margin-top:10px;background:var(--greenlt,#eaf5ee);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:var(--ink)">'
+    +'<b>✓ Datenquelle:</b> '+esc(q)+(am?' · geprüft am '+esc(am):'')
+    +'<div style="color:var(--muted);margin-top:3px">Jeder Punkt oben ist aus diesen Daten berechnet – nichts geschätzt.</div>'
+    +'</div>';
+}
 async function prodToEinkauf(id){
   if(!ME){ openLogin(); return; }
   if(!hasFeat('planer')){ premiumInfo(); return; }
@@ -1510,6 +1529,7 @@ function detail(d){
     ${rows}
     ${abzug}
     ${scoreFlow(d)}
+    ${quellenBlock(d)}
   `;
   /* PREMIUM: die Zutaten-Einzelbewertung im Detail (Herleitung bleibt frei, s. warumBlock) */
   const zutatenBlock = `
@@ -1840,16 +1860,18 @@ let BILD={};
 var SHOW_PRODUKTBILDER=false;
 async function loadBilder(){ if(!SHOW_PRODUKTBILDER){ BILD={}; return; } try{ const {data}=await client.rpc("cb_produkt_bilder"); BILD={}; (data||[]).forEach(x=>{ if(x.id&&x.bild_url) BILD[x.id]=x.bild_url; }); }catch(e){} }
 const BUNDLE_ASIN={P928:'B0FMS51PCG',P934:'B07NS14648',P935:'B0F32TYHXY',P929:'B0BRSWXP6N',P930:'B0FMS1Q53F',P931:'B07PZZ8J5T',P932:'B01MTZBUQ2',P939:'B0876D2FNT'};
+/* Hinweistexte = ausschließlich nach EU-VO 432/2012 ZUGELASSENE Angaben.
+   Keine krankheits- oder beschwerdebezogenen Aussagen (HCVO Art. 10, LMIV Art. 7 Abs. 3, § 12 LFGB). */
 const ZYKLUS_CATS=[
-  {t:'Magnesium', hint:'gegen Krämpfe & Stress', dosis:'200–300 mg/Tag', ids:['P928','P934','P935']},
-  {t:'Omega-3', hint:'Entzündung – Fisch oder vegan', dosis:'250–1000 mg EPA/DHA/Tag', ids:['P930','P929','P933']},
-  {t:'Mönchspfeffer (Vitex)', hint:'nur bei PMS', dosis:'~20 mg/Tag (standardisiert)', ids:['P931','P939']},
-  {t:'Vitamin B1', hint:'optional', dosis:'100 mg/Tag (Wirkung nach ~4 Wochen)', ids:['P932']}
+  {t:'Magnesium', hint:'trägt zu einer normalen Muskelfunktion bei', dosis:'200–300 mg/Tag', ids:['P928','P934','P935']},
+  {t:'Omega-3 (EPA/DHA)', hint:'trägt zur normalen Herzfunktion bei (ab 250 mg/Tag)', dosis:'250–1000 mg EPA/DHA/Tag', ids:['P930','P929','P933']},
+  {t:'Mönchspfeffer (Vitex)', hint:'Pflanzenextrakt – für Botanicals ist derzeit keine EU-Aussage zugelassen', dosis:'~20 mg/Tag (standardisiert)', ids:['P931','P939']},
+  {t:'Vitamin B1 (Thiamin)', hint:'trägt zu einem normalen Energiestoffwechsel bei', dosis:'100 mg/Tag', ids:['P932']}
 ];
 const DARM_CATS=[
-  {t:'Ballaststoffe / Flohsamen', hint:'Regelmäßigkeit & Sättigung', dosis:'25–30 g Ballaststoffe/Tag gesamt (DGE)', ids:['P166','P1057','P1047']},
-  {t:'Probiotika', hint:'lebende Kulturen', dosis:'20 Mrd. KbE/Tag (nach Produktangabe)', ids:['P1061']},
-  {t:'Präbiotika (Inulin/Akazienfaser)', hint:'Futter für gute Bakterien', dosis:'langsam einschleichen', ids:['P1046']}
+  {t:'Ballaststoffe / Flohsamen', hint:'DGE-Richtwert: 30 g Ballaststoffe pro Tag', dosis:'25–30 g Ballaststoffe/Tag gesamt (DGE)', ids:['P166','P1057','P1047']},
+  {t:'Probiotika', hint:'lebende Kulturen – keine zugelassene EU-Aussage', dosis:'20 Mrd. KbE/Tag (nach Produktangabe)', ids:['P1061']},
+  {t:'Präbiotika (Inulin/Akazienfaser)', hint:'nicht verdaulicher Ballaststoff – keine zugelassene EU-Aussage', dosis:'langsam einschleichen', ids:['P1046']}
 ];
 function amzUrl(id){ return BUNDLE_ASIN[id]?('https://www.amazon.de/dp/'+BUNDLE_ASIN[id]+'?tag=rootindex-21'):''; }
 function bundleCard(p,winner){
@@ -1922,13 +1944,13 @@ function zyklusBundleHtml(){
     const cards=list.map((p,i)=>bundleCard(p,list.length>1&&i===0)).join('');
     return '<div class="zbCat" style="margin-top:13px">'
       +'<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:4px"><span style="font-weight:700;font-size:13.5px">'+esc(c.t)+'</span><span style="font-size:11px;color:var(--muted)">'+esc(c.hint)+'</span></div>'
-      +(c.dosis?'<div style="font-size:11.5px;color:var(--greendk);background:var(--greenlt);border-radius:7px;padding:4px 8px;margin-bottom:6px">💊 Empfohlen bei Regelschmerzen: <b>'+esc(c.dosis)+'</b></div>':'')
+      +(c.dosis?'<div style="font-size:11.5px;color:var(--greendk);background:var(--greenlt);border-radius:7px;padding:4px 8px;margin-bottom:6px">💊 Übliche Tagesmenge in Studien: <b>'+esc(c.dosis)+'</b></div>':'')
       +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+cards+'</div></div>';
   }).join('');
   if(!blocks) return '';
   return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">'
-    +'<div style="font-weight:800;font-size:16px">Weniger Regelschmerzen – sauber statt Kombi-Pulver</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Was bei Zyklus &amp; PMS wirklich hilft – je Kategorie unsere <b>2 saubersten</b> Produkte. <span style="color:#8a8072">· Anzeige</span></div>'
+    +'<div style="font-weight:800;font-size:16px">Zyklus-Nährstoffe – sauber statt Kombi-Pulver</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Nährstoffe mit zugelassenen EU-Aussagen (u. a. Vitamin B6 – Hormontätigkeit, Magnesium – Muskelfunktion) – je Kategorie unsere <b>2 saubersten</b> Produkte. <span style="color:#8a8072">· Anzeige</span></div>'
     +'<div style="font-size:11.5px;color:var(--ink);background:var(--greenlt);border-radius:8px;padding:7px 9px">So nutzt du es: <b>Magnesium + 1 Omega-3</b> (Fisch <i>oder</i> vegan). Vitex &amp; B1 nur bei Bedarf.</div>'
     +blocks
     +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Anzeige · Partner-Links: Preis für dich unverändert · unsere Bewertung bleibt unabhängig. Keine medizinische Beratung.</div>'
@@ -1958,7 +1980,7 @@ function zyklusKomplexeHtml(){
   };
   return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">'
     +'<div style="font-weight:800;font-size:16px">Zyklus-Komplexe im Vergleich</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 8px">Belegt bei Regelschmerzen: <b>Magnesium · Omega-3 · Vitamin B1 · Mönchspfeffer</b>. Fertige Komplexe decken das oft nur <b>teilweise</b> ab – hier siehst du, was drin ist. Voll abgedeckt bekommst du es mit unseren sauberen Einzelprodukten oben. <span style="color:#8a8072">· Anzeige</span></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 8px">Häufig enthalten: <b>Magnesium · Omega-3 · Vitamin B1 · Mönchspfeffer</b>. Fertige Komplexe decken das oft nur <b>teilweise</b> ab – hier siehst du, was wirklich drin ist. Vollständig abgedeckt bekommst du es mit den sauberen Einzelprodukten oben. <span style="color:#8a8072">· Anzeige</span></div>'
     +list.map(row).join('')
     +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Anzeige · Amazon-Partner-Links: Preis für dich unverändert · Bewertung bleibt unabhängig. Keine medizinische Beratung.</div>'
     +'</div>';
@@ -2190,7 +2212,7 @@ async function renderStart(){
     +riGlowTile('tagebuch','cutlery','Ernährungstagebuch','heute erfassen','blue')
     +riGlowTile('training','figure','Training','Plan &amp; Fortschritt','violet')
     +'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+riGlowTile('zyklus','heart','Regelschmerzen','was hilft?','berry')+riGlowTile('darm','leaf','Darmgesundheit','Basics &amp; mehr','terra')+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+riGlowTile('zyklus','heart','Zyklus &amp; Nährstoffe','B6, Magnesium &amp; Co.','berry')+riGlowTile('darm','leaf','Darmgesundheit','Basics &amp; mehr','terra')+'</div>'
     +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px">'+riGlowTile('einkauf','cart','Einkaufsliste','sammeln &amp; abhaken','teal')+'</div>'
     +schritteHtml
     +unterstuetzenHtml();
@@ -2476,7 +2498,7 @@ function wikiOpen(){
       ${box(`Es gibt <b>keinen</b> Beleg, dass Frauen <i>mehr</i> Fett brauchen als Männer. Was die Studien stützen: <b>genug</b> Fett (nicht extrem fettarm) und vor allem die <b>Fettqualität</b> – überwiegend <b>ungesättigt, besonders Omega-3</b>.<br>
         • Sehr fettarme Kost (20–25 En%) senkte in kontrollierten Studien messbar Sexualhormone (u. a. Östron, Testosteron, SHBG).<br>
         • Mehrfach ungesättigte Fette (PUFA) waren mit <b>geringerem Risiko für ausbleibenden Eisprung</b> verbunden.<br>
-        • <b>Omega-3</b> (EPA/DHA, ~300–1800 mg/Tag über 2–3 Monate) reduzierte in einer Meta-Analyse <b>Regelschmerzen</b> und Schmerzmittel-Bedarf – Evidenzqualität aber begrenzt.<br>
+        • <b>Omega-3 (EPA/DHA)</b> trägt ab <b>250 mg/Tag</b> zur <b>normalen Herzfunktion</b> bei (zugelassene EU-Angabe).<br>
         <b>Quellen:</b> fetter Fisch (Lachs, Hering, Makrele), Lein-/Rapsöl, Walnüsse.<br>
         <i>Hinweis: allgemeine Information, keine medizinische Beratung – bei starken Beschwerden ärztlich abklären.</i>`)}
 
@@ -2487,15 +2509,16 @@ function wikiOpen(){
         Sehr verbreitet: Die meisten Frauen kennen leichte Formen; bei wenigen ist es so stark, dass es den Alltag stört (dann spricht man von <b>PMDS</b>).<br>
         <i>Unterschied zu Regelschmerzen: PMS kommt <b>vor</b> der Blutung, Regelschmerzen treten <b>während</b> der Blutung auf. Keine medizinische Beratung.</i>`)}
 
-      ${H("Regelschmerzen – was hilft (mit Dosen)")}
-      ${box(`Bei der Periode zieht sich die Gebärmutter zusammen (= Krämpfe). Nur <b>wenige</b> Stoffe helfen wirklich – vieles in Kombi-Pulvern ist Beiwerk.<br>
-        • <b>Magnesium</b> – entspannt die Muskeln, bester Beleg. <b>200–300 mg/Tag</b> (Form „Bisglycinat" = magenschonend).<br>
-        • <b>Omega-3</b> – dämpft Entzündungen. <b>250–1000 mg EPA/DHA pro Tag</b> (oder fetter Fisch + Leinöl).<br>
-        • <b>Vitamin B1</b> (Thiamin) – wichtig für den <b>Energiestoffwechsel &amp; die Nervenfunktion</b>; kann laut Studien Regelschmerzen (Krämpfe) verringern. <b>100 mg/Tag</b>, Wirkung erst nach ~4 Wochen.<br>
-        • <b>Mönchspfeffer/Vitex</b> – eher gegen PMS-Stimmung; standardisiert <b>~20 mg/Tag</b>. Wirkt auf Hormone → bei Kinderwunsch/Medikamenten ärztlich abklären.<br>
-        • <b>Frauenmantel/Eisen</b> – kaum Beleg gegen Krämpfe. Eisen ist wegen des Blutverlusts wichtig, aber Eisenpräparate nur bei <b>ärztlich bestätigtem Mangel</b> (Blutbild) einnehmen – eine Überdosierung ist schädlich. <b>⚠️ Unbedingt ärztlich abklären.</b><br>
+      ${H("Zyklus &amp; Nährstoffe – was zugelassen ist")}
+      ${box(`Root Index macht <b>keine Aussagen zu Beschwerden</b>. Nach der EU-Health-Claims-Verordnung (EG 1924/2006) dürfen Lebensmittel und Nahrungsergänzungsmittel nur mit <b>zugelassenen</b> Angaben beworben werden – Aussagen zur Linderung von Krankheiten oder Symptomen sind ausdrücklich verboten. Was <b>erlaubt</b> ist, sind Angaben zur normalen Körperfunktion:<br>
+        • <b>Magnesium</b> – „trägt zu einer <b>normalen Muskelfunktion</b> bei" und „zur <b>Verringerung von Müdigkeit und Ermüdung</b>". <b>200–300 mg/Tag</b> (Form „Bisglycinat" = magenschonend).<br>
+        • <b>Vitamin B6</b> – „trägt zur <b>Regulierung der Hormontätigkeit</b> bei".<br>
+        • <b>Vitamin B1</b> (Thiamin) – „trägt zu einem <b>normalen Energiestoffwechsel</b> bei" und „zur <b>normalen Funktion des Nervensystems</b>".<br>
+        • <b>Omega-3 (EPA/DHA)</b> – „tragen zur <b>normalen Herzfunktion</b> bei" (ab <b>250 mg/Tag</b>).<br>
+        • <b>Eisen</b> – „trägt zur <b>Verringerung von Müdigkeit und Ermüdung</b> bei". Eisenpräparate nur bei <b>ärztlich bestätigtem Mangel</b> (Blutbild) – eine Überdosierung ist schädlich. <b>⚠️ Unbedingt ärztlich abklären.</b><br>
+        • <b>Mönchspfeffer/Vitex</b> – ein Pflanzenextrakt. Für Botanicals ist in der EU derzeit <b>keine</b> Angabe zugelassen; wir behaupten deshalb keine Wirkung. Er wirkt auf den Hormonhaushalt → bei Kinderwunsch oder Medikamenten <b>ärztlich abklären</b>.<br>
         <b>Sauber statt Kombi-Pulver:</b> lieber wenige saubere Einzel-Produkte (je 1 Wirkstoff, ohne Farbe/Aroma) als ein additivreiches All-in-one.<br>
-        <i>Keine medizinische Beratung. Dosen sind Orientierung aus Studien.</i>`)}
+        <i>Quelle: EU-Register zugelassener Angaben (VO 432/2012). Allgemeine Information, keine medizinische Beratung. Bei Beschwerden bitte ärztlich abklären.</i>`)}
 
       <p style="font-size:11.5px;color:#9aa7a0;margin-top:16px">Quellen u. a. DGE/D-A-CH-Referenzwerte sowie peer-reviewte Studien zu Fett/Hormonen und Omega-3/Dysmenorrhoe. Dies ist keine medizinische Beratung.</p>
     </div></div>`;
