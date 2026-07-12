@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12j eingang-zusammengefasst -->
+<!-- build 2026-07-12k auto-verifizierung -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -448,6 +448,12 @@
         <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen, bearbeiten und freischalten. Nur vollständig bewertete Produkte sind freigebbar.</div>
         <button onclick="openFgEditor(null)" style="margin-bottom:12px;padding:9px 14px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:14px;font-weight:600;cursor:pointer">➕ Neues Produkt anlegen</button>
         <div id="fgEntwuerfe"></div>
+        <h3 style="font-size:15px;margin:22px 0 4px">🤖 Auto-Verifizierung</h3>
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px;line-height:1.5">Gleicht alle Produkte mit EAN, die noch nicht verifiziert sind, gegen <b>Open Food Facts</b> ab.<br>
+          <b>Bestätigt die Quelle alle Nährwerte</b> → Produkt wird verifiziert; vollständige Entwürfe werden freigegeben.<br>
+          <b>Weicht auch nur ein Wert ab</b> → Produkt bleibt ungeprüft, die Abweichung wird protokolliert. Es wird <b>nichts überschrieben und nichts geraten</b>.</div>
+        <button onclick="autoVerifyStart(false)" style="padding:9px 14px;border:1px solid #0ea5e9;border-radius:10px;background:var(--card);color:#0369a1;font-size:13.5px;font-weight:600;cursor:pointer">🔍 Trockenlauf starten</button>
+        <div id="fgAutoV" style="margin-top:10px;font-size:14px"></div>
         <div style="margin-top:16px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted)">Scans, Etikettfotos, manuelle Tagebuch-Einträge und Produktwünsche findest du gebündelt im Tab <b>Eingang</b>.</div>
       </div>
       <div id="fgPanelBundles" style="display:none">
@@ -1701,7 +1707,78 @@ function fgTab(t){ window._fgTab=t;
   if(t==='empfehlungen' && typeof renderEmpfehlungen==='function') renderEmpfehlungen();
   if(t==='scans' && typeof loadScans==='function') loadScans();
 }
-/* ---- Freigabe · Tab „Scans": offene Barcodes + mitgeschickte Etikettfotos ---- */
+/* ================= AUTO-VERIFIZIERUNG =================
+   Gleicht Produkte mit EAN gegen Open Food Facts ab.
+   Grundregel: FREIGABE NUR BEI BESTÄTIGUNG. Es wird nichts geraten, nichts überschrieben.
+   Weicht ein Wert ab, wird das Produkt auf „nicht verifiziert" gesetzt und begründet – nie stillschweigend korrigiert. */
+const AV_FELDER=[
+  {k:'kcal',    off:'energy-kcal_100g', label:'kcal',          tolP:0.05, tolA:5},
+  {k:'protein', off:'proteins_100g',    label:'Eiweiß',        tolP:0.10, tolA:0.6},
+  {k:'kh',      off:'carbohydrates_100g',label:'KH',           tolP:0.10, tolA:0.6},
+  {k:'zucker',  off:'sugars_100g',      label:'Zucker',        tolP:0.10, tolA:0.6},
+  {k:'fett',    off:'fat_100g',         label:'Fett',          tolP:0.10, tolA:0.6},
+  {k:'ges_fett',off:'saturated-fat_100g',label:'ges. Fett',    tolP:0.15, tolA:0.6},
+  {k:'ballast', off:'fiber_100g',       label:'Ballaststoffe', tolP:0.15, tolA:0.8},
+  {k:'salz',    off:'salt_100g',        label:'Salz',          tolP:0.15, tolA:0.15}
+];
+function avPasst(soll, ist, f){
+  if(soll==null || ist==null) return null;            /* nicht vergleichbar */
+  const d=Math.abs(Number(soll)-Number(ist));
+  return d <= Math.max(f.tolA, Math.abs(Number(soll))*f.tolP);
+}
+async function autoVerifyStart(anwenden){
+  const box=document.getElementById("fgAutoV"); if(!box) return;
+  box.innerHTML='<div style="color:var(--muted)">Lade Kandidaten…</div>';
+  const {data:kand,error}=await client.rpc("cb_auto_verify_kandidaten");
+  if(error){ box.innerHTML='<span style="color:#dc2626">Fehler: '+esc(error.message)+'</span>'; return; }
+  if(!kand||!kand.length){ box.innerHTML='<span style="color:var(--muted)">Keine Kandidaten – alles mit EAN ist verifiziert. 🎉</span>'; return; }
+  const res=[]; let done=0;
+  for(const p of kand){
+    box.innerHTML='<div style="color:var(--muted)">Prüfe '+(++done)+' / '+kand.length+' – '+esc(p.name||'')+'…</div>';
+    let off=null;
+    try{
+      const r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(p.ean)+'.json?fields=product_name,brands,nutriments');
+      const j=await r.json();
+      if(j&&j.status===1&&j.product) off=j.product.nutriments||{};
+    }catch(e){}
+    if(!off){ res.push({p:p, ok:false, grund:'kein Treffer bei Open Food Facts', diffs:[]}); continue; }
+    const diffs=[]; let vergleichbar=0;
+    AV_FELDER.forEach(function(f){
+      const soll=p[f.k], ist=off[f.off];
+      const r=avPasst(soll, ist, f);
+      if(r===null) return;
+      vergleichbar++;
+      if(!r) diffs.push(f.label+': wir '+soll+' vs. OFF '+(Math.round(ist*10)/10));
+    });
+    if(vergleichbar<4){ res.push({p:p, ok:false, grund:'OFF hat zu wenige Nährwerte ('+vergleichbar+' vergleichbar)', diffs:[]}); continue; }
+    res.push({p:p, ok:diffs.length===0, grund:diffs.length?'Nährwerte weichen ab':'alle '+vergleichbar+' Werte bestätigt', diffs:diffs, n:vergleichbar});
+  }
+  const ok=res.filter(r=>r.ok), nok=res.filter(r=>!r.ok);
+  if(anwenden){
+    for(const r of ok){
+      try{ await client.rpc("cb_auto_verify_apply",{p_id:r.p.produkt_id, p_treffer:true,
+        p_quelle:'OpenFoodFacts (EAN) – automatisch abgeglichen',
+        p_notiz:r.n+' Nährwerte gegen OFF bestätigt (EAN '+r.p.ean+').', p_freigeben:true}); }catch(e){}
+    }
+    for(const r of nok){
+      try{ await client.rpc("cb_auto_verify_apply",{p_id:r.p.produkt_id, p_treffer:false,
+        p_quelle:null, p_notiz:r.grund+(r.diffs.length?' → '+r.diffs.join('; '):''), p_freigeben:false}); }catch(e){}
+    }
+  }
+  box.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px">'
+    +'<div style="font-weight:700;margin-bottom:6px">'+(anwenden?'✅ Angewendet':'🔍 Trockenlauf (nichts geändert)')+' · '+res.length+' Produkte geprüft</div>'
+    +'<div style="font-size:13px;color:#166534;margin-bottom:4px"><b>'+ok.length+'</b> von der Quelle bestätigt'+(anwenden?' → verifiziert, vollständige Entwürfe freigegeben':'')+'</div>'
+    +'<div style="font-size:13px;color:#b45309;margin-bottom:8px"><b>'+nok.length+'</b> nicht bestätigt → bleiben ungeprüft und liegen bei dir</div>'
+    +(nok.length? '<div style="max-height:320px;overflow:auto;border-top:1px solid var(--line);padding-top:8px">'
+        +nok.map(function(r){ return '<div style="font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--line)">'
+            +'<b>'+esc(r.p.name||'')+'</b> <span style="color:var(--muted)">'+esc(r.p.produkt_id)+' · '+esc(r.p.ean)+'</span>'
+            +'<div style="color:#b45309">'+esc(r.grund)+(r.diffs.length?' – '+esc(r.diffs.join('; ')):'')+'</div></div>'; }).join('')
+      +'</div>' : '')
+    +(anwenden?'':'<button onclick="autoVerifyStart(true)" style="margin-top:10px;padding:9px 14px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Ergebnis anwenden</button>')
+    +'</div>';
+  if(anwenden) loadFreigabe();
+}
+/* ---- Freigabe · Tab „Eingang": offene Barcodes + mitgeschickte Etikettfotos ---- */
 async function loadScans(){
   const box=document.getElementById("fgScans"); if(!box) return;
   box.innerHTML='<span style="color:var(--muted)">Lade…</span>';
