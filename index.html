@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12g datenschutz-haftung -->
+<!-- build 2026-07-12h off-kandidaten -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1719,7 +1719,12 @@ async function loadScans(){
     (Array.isArray(f)?f:[]).forEach(function(s){ if(typeof s==='string'&&s.indexOf('data:image')===0) g.fotos.push(s); });
     if(r.Notiz&&!g.notiz) g.notiz=r.Notiz;
   });
-  const keys=Object.keys(byEan);
+  /* Top-Kandidaten (OFF-Treffer, vom Nutzer real gegessen) nach oben, dann die mit Etikettfotos. */
+  const keys=Object.keys(byEan).sort(function(a,b){
+    const ka=/OFF-Treffer/i.test(byEan[a].notiz||'')?2:(byEan[a].fotos.length?1:0);
+    const kb=/OFF-Treffer/i.test(byEan[b].notiz||'')?2:(byEan[b].fotos.length?1:0);
+    return kb-ka;
+  });
   box.innerHTML=keys.map(function(k,i){
     const g=byEan[k];
     const dt=g.when?new Date(g.when).toLocaleString('de-DE'):'';
@@ -1728,12 +1733,14 @@ async function loadScans(){
           return '<img src="'+s+'" onclick="scanFotoZoom('+i+','+j+')" style="width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">';
         }).join('')+'</div>'
       : '<div style="font-size:12.5px;color:var(--muted);margin:6px 0">Keine Etikettfotos mitgeschickt.</div>';
-    return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">'
+    const kandidat = g.notiz && /OFF-Treffer/i.test(g.notiz);
+    return '<div style="background:var(--card);border:'+(kandidat?'2px solid #16a34a':'1px solid var(--line)')+';border-radius:12px;padding:12px;margin-bottom:10px">'
       +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">'
-        +'<b style="font-family:ui-monospace,monospace;font-size:15px">'+esc(g.ean||'—')+'</b>'
+        +'<b style="font-family:ui-monospace,monospace;font-size:15px">'+esc(g.ean||'—')
+          +(kandidat?' <span style="font-family:inherit;font-size:11px;font-weight:700;background:#dcfce7;color:#166534;border-radius:999px;padding:2px 8px;vertical-align:middle">TOP-KANDIDAT</span>':'')+'</b>'
         +'<span style="font-size:12px;color:var(--muted)">'+esc(g.quellen.join(' · '))+(dt?' · '+esc(dt):'')+'</span>'
       +'</div>'
-      +(g.notiz?'<div style="font-size:12.5px;color:#b45309;margin-top:4px">'+esc(g.notiz)+'</div>':'')
+      +(g.notiz?'<div style="font-size:12.5px;color:'+(kandidat?'#166534':'#b45309')+';margin-top:4px">'+esc(g.notiz)+'</div>':'')
       +fotos
       +'<div id="scanOff'+i+'" style="font-size:12.5px;color:var(--muted);margin:6px 0"></div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
@@ -3619,7 +3626,15 @@ async function offLookup(){
     setV("tbmEiw",  n["proteins_100g"]);
     setV("tbmKh",   n["carbohydrates_100g"]);
     setV("tbmFett", n["fat_100g"]);
-    if(msg){ msg.style.color="#2E7D32"; msg.innerHTML="✓ Werte übernommen (je 100 g). <b>Bitte prüfen</b> – Open-Food-Facts-Daten sind community-gepflegt. Menge in g ergänzen, dann Eintragen (geht zur Admin-Prüfung)."; }
+    /* Den OFF-Treffer an die Scan-Warteschlange hängen: Dieses Produkt fehlt im Katalog,
+       ein Nutzer hat es gerade gegessen UND es ist bei OFF vorhanden → bester Kandidat.
+       Ohne das ging die Information nach dem Tagebuch-Eintrag verloren. */
+    try{ await client.rpc("cb_scan_off_treffer",{
+      p_ean:code, p_name:nm||null, p_marke:marke||null,
+      p_kcal:n["energy-kcal_100g"]??null, p_protein:n["proteins_100g"]??null,
+      p_kh:n["carbohydrates_100g"]??null, p_fett:n["fat_100g"]??null
+    }); }catch(e){}
+    if(msg){ msg.style.color="#2E7D32"; msg.innerHTML="✓ Werte übernommen (je 100 g). <b>Bitte prüfen</b> – Open-Food-Facts-Daten sind community-gepflegt. Menge in g ergänzen, dann Eintragen. <span style=\"color:#6B6256\">Das Produkt ist für den Katalog vorgemerkt – danke!</span>"; }
   }catch(e){
     if(msg){ msg.style.color="#f87171"; msg.textContent="Abruf fehlgeschlagen (Netz/CORS): "+e.message; }
   }
