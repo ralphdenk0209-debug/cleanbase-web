@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12i tagebuch-etikett-cta -->
+<!-- build 2026-07-12j eingang-zusammengefasst -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -428,24 +428,27 @@
         <button id="fgtProdukte" class="active" onclick="fgTab('produkte')">Produkte</button>
         <button id="fgtBundles" onclick="fgTab('bundles')">Bundles</button>
         <button id="fgtRezepte" onclick="fgTab('rezepte')">Rezepte</button>
-        <button id="fgtScans" onclick="fgTab('scans')">Scans</button>
+        <button id="fgtScans" onclick="fgTab('scans')">Eingang</button>
         <button id="fgtKontakt" onclick="fgTab('kontakt')">Anfragen</button>
         <button id="fgtEmpfehlungen" onclick="fgTab('empfehlungen')">Empfehlungen</button>
       </div>
       <div id="fgPanelScans" style="display:none">
-        <div style="color:var(--muted);font-size:12.5px;margin-bottom:10px">Barcodes, die Nutzer gescannt haben und die noch nicht im Katalog sind – inklusive der Etikettfotos, die sie mitgeschickt haben. „OFF holen" befüllt die Felder als <b>Vorschlag</b>; freigegeben wird erst nach deiner Prüfung.</div>
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:12px">Alles, was in den Katalog will – aus <b>allen drei Quellen</b>: gescannte Barcodes, manuelle Tagebuch-Einträge und Produktwünsche aus dem Kontaktformular. „OFF holen" befüllt nur als <b>Vorschlag</b>; freigegeben wird erst nach deiner Prüfung.</div>
+        <h3 style="font-size:15px;margin:0 0 4px">📷 Gescannte Barcodes &amp; Etikettfotos</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:8px">Grün umrandet = <b>Top-Kandidat</b>: Nutzer hat es gegessen und es liegt bei Open Food Facts.</div>
         <div id="fgScans" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
+        <h3 style="font-size:15px;margin:22px 0 4px">✍️ Manuell im Tagebuch eingetragen</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:8px">Lebensmittel, die Nutzer von Hand erfasst haben. „×N" = wie oft. <b>Achtung:</b> die Werte sind die eingetragene <b>Portion</b>, nicht je 100 g.</div>
+        <div id="fgMeldungen" style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:6px"></div>
+        <h3 style="font-size:15px;margin:22px 0 4px">📨 Produktwünsche aus dem Kontaktformular</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:8px">Gemeldete Produkte, jeweils mit Pflicht-EAN.</div>
+        <div id="fgWuensche" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
       </div>
       <div id="fgPanelProdukte">
         <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen, bearbeiten und freischalten. Nur vollständig bewertete Produkte sind freigebbar.</div>
         <button onclick="openFgEditor(null)" style="margin-bottom:12px;padding:9px 14px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:14px;font-weight:600;cursor:pointer">➕ Neues Produkt anlegen</button>
         <div id="fgEntwuerfe"></div>
-        <h3 style="font-size:16px;margin:18px 0 6px">Manuelle Eintragungen (Produktwünsche)</h3>
-        <div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">Von Nutzern manuell eingetragene Lebensmittel – Kandidaten zum Anlegen. „×N" = wie oft eingetragen.</div>
-        <div id="fgMeldungen" style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:6px"></div>
-        <h3 style="font-size:16px;margin:18px 0 6px">Scan-Warteschlange</h3>
-        <div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">Kurzüberblick – die volle Ansicht mit Etikettfotos und OFF-Abgleich liegt im Tab <b>Scans</b>.</div>
-        <div id="fgQueue" style="font-size:14px;color:var(--ink);line-height:1.7"></div>
+        <div style="margin-top:16px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted)">Scans, Etikettfotos, manuelle Tagebuch-Einträge und Produktwünsche findest du gebündelt im Tab <b>Eingang</b>.</div>
       </div>
       <div id="fgPanelBundles" style="display:none">
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Benannte Kombinationen mehrerer Produkte (z. B. Frühstücks-Bundle). Nur du (Admin).</div>
@@ -458,7 +461,7 @@
         <div id="fgRezepteFree" style="font-size:14px;color:var(--ink)"></div>
       </div>
       <div id="fgPanelKontakt" style="display:none">
-        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Nachrichten und „Produkt fehlt"-Meldungen aus dem Kontaktformular. Bei angegebener E-Mail kannst du direkt antworten.</div>
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Fragen und Feedback aus dem Kontaktformular. Bei angegebener E-Mail kannst du direkt antworten. <b>Produktwünsche liegen im Tab „Eingang".</b></div>
         <div id="fgKontakt" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
         <h3 style="font-size:15px;margin:22px 0 4px;color:var(--muted)">Erledigt · Historie</h3>
         <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Bearbeitete Anfragen (auch automatisch angelegte Entwürfe).</div>
@@ -3783,8 +3786,6 @@ async function loadFreigabe(){
           <button onclick="ablehnenEntwurf('${p.id}','${esc(p.name||"")}')" title="Ablehnen / aus der Liste entfernen" style="padding:8px 11px;border:1px solid #fca5a5;border-radius:8px;background:var(--card);color:#dc2626;cursor:pointer;font-size:13px">🗑️ Ablehnen</button>
         </div>
       </div></div>`).join(""); }
-  const {data:q}=await client.from("Scan_Warteschlange").select("*").eq("Status","offen").order("Eintrag_ID",{ascending:false});
-  document.getElementById("fgQueue").innerHTML = (q&&q.length)? q.map(x=>"• "+esc(x.EAN)+' <span style="color:var(--muted)">('+esc(x.Quelle||"")+")</span>").join("<br>") : '<span style="color:var(--muted)">leer</span>';
   try{
     const {data:md}=await client.rpc("cb_admin_meldungen");
     window._meld=md||[]; const me=document.getElementById("fgMeldungen");
@@ -3796,8 +3797,10 @@ async function loadFreigabe(){
   try{
     const {data:kd}=await client.rpc("cb_admin_kontakt_liste");
     window._ktList=kd||[];
+    /* Produktwünsche gehören in den Eingang (Katalog-Kandidaten), echte Fragen bleiben unter „Anfragen". */
     const ke=document.getElementById("fgKontakt");
-    if(ke){ ke.innerHTML=(kd&&kd.length)? kd.map(function(x,i){
+    const kw=document.getElementById("fgWuensche");
+    const karte=function(x,i){
       const prod=x.typ==='produkt';
       const meta=[x.name,x.email].filter(Boolean).join(' · ');
       const body=prod
@@ -3807,8 +3810,18 @@ async function loadFreigabe(){
         +'<div style="min-width:0;flex:1"><span style="font-size:11px;font-weight:700;color:'+(prod?'#166534':'#0369a1')+';background:'+(prod?'#dcfce7':'#e0f2fe')+';border-radius:999px;padding:2px 8px">'+(prod?'Produkt fehlt':'Frage')+'</span> '+body+(meta?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc(meta)+'</div>':'')+'</div>'
         +'<div style="display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap">'+(x.email?'<button onclick="ktAntwort('+i+')" style="padding:7px 11px;border:1px solid #0ea5e9;border-radius:8px;background:var(--card);color:#0369a1;cursor:pointer;font-size:13px">✉️ Antworten</button>':'')+(prod?'<button onclick="ktAnlegen('+i+')" style="padding:7px 11px;border:1px solid #16a34a;border-radius:8px;background:#ecfdf5;color:#166534;cursor:pointer;font-size:13px">Produkt anlegen</button>':'')+'<button onclick="ktErledigt('+x.id+')" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Erledigt</button></div>'
         +'</div></div>';
-    }).join("") : '<span style="color:var(--muted)">keine offenen Anfragen</span>'; }
-  }catch(e){ const ke=document.getElementById("fgKontakt"); if(ke) ke.innerHTML='<span style="color:var(--muted)">—</span>'; }
+    };
+    /* Index i muss der Position in window._ktList entsprechen – ktAnlegen()/ktAntwort() greifen darauf zu.
+       Deshalb erst indizieren, dann filtern. */
+    const idx=(kd||[]).map(function(x,i){ return {x:x,i:i}; });
+    const wuensche=idx.filter(function(o){ return o.x.typ==='produkt'; });
+    const fragen  =idx.filter(function(o){ return o.x.typ!=='produkt'; });
+    if(kw){ kw.innerHTML=wuensche.length? wuensche.map(function(o){ return karte(o.x,o.i); }).join("") : '<span style="color:var(--muted)">keine offenen Produktwünsche</span>'; }
+    if(ke){ ke.innerHTML=fragen.length?  fragen.map(function(o){ return karte(o.x,o.i); }).join("")  : '<span style="color:var(--muted)">keine offenen Fragen</span>'; }
+  }catch(e){
+    const ke=document.getElementById("fgKontakt"); if(ke) ke.innerHTML='<span style="color:var(--muted)">—</span>';
+    const kw=document.getElementById("fgWuensche"); if(kw) kw.innerHTML='<span style="color:var(--muted)">—</span>';
+  }
   try{
     const {data:kh}=await client.rpc("cb_admin_kontakt_erledigt_liste");
     const he=document.getElementById("fgKontaktHist");
