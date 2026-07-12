@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12m katalog-paginiert -->
+<!-- build 2026-07-12n riki -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -4060,6 +4060,70 @@ function fgZutAuto(inp){
   if(r) r.value=m.rating; if(k) k.checked=(String(m.kritisch).toLowerCase()==="ja");
 }
 function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.insertAdjacentHTML("beforeend", fgZutRow("",5,"nein")); }
+/* ================= RIKI – Root Index KI =================
+   Ruft die Edge Function „riki-analyse" auf. Der API-Key liegt als Supabase-Secret und
+   verlässt den Server NIE. Riki befüllt nur das Formular – gespeichert wird erst per Klick. */
+async function rikiAnalyse(){
+  const msg=document.getElementById("rikiMsg");
+  const txt=(document.getElementById("rikiText")||{}).value||"";
+  if(txt.trim().length<10){ msg.style.color="#b45309"; msg.textContent="Bitte die Zutatenliste einfügen."; return; }
+  msg.style.color="#534AB7"; msg.textContent="🤖 Riki denkt nach…";
+  const nw={};
+  ["kcal","protein","kh","zucker","fett","ges_fett","ballaststoffe","salz"].forEach(function(k){
+    const v=parseFloat((document.getElementById("fe_"+k)||{}).value); if(!isNaN(v)) nw[k]=v;
+  });
+  try{
+    const {data,error}=await client.functions.invoke("riki-analyse",{ body:{
+      modus:"zutaten", text:txt,
+      name:(document.getElementById("fe_name")||{}).value||null,
+      naehrwerte:Object.keys(nw).length?nw:null,
+      produkt_id:(window._fgEdit&&window._fgEdit.id)||null
+    }});
+    if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+(error.message||error); return; }
+    if(data&&data.error){ msg.style.color="#dc2626"; msg.innerHTML=esc(data.error); return; }
+    const v=data.vorschlag||{};
+    if(v.fehler){ msg.style.color="#dc2626"; msg.textContent="Riki-Antwort unbrauchbar: "+v.fehler; return; }
+    /* Zutaten ins Formular übernehmen – nur Vorschlag, nichts gespeichert. */
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){
+      const c=document.getElementById("fe_zutRows");
+      if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name, z.rating, z.kritisch?"ja":"nein"); }).join("");
+    }
+    if(v.zusatzstoffe){
+      const zt=document.getElementById("fe_ztext"); if(zt&&v.zusatzstoffe.text) zt.value=v.zusatzstoffe.text;
+      const zs=document.getElementById("fe_zstatus"); if(zs&&v.zusatzstoffe.status) zs.value=v.zusatzstoffe.status;
+      const su=document.getElementById("fe_suess"); if(su&&v.zusatzstoffe.suessstoffe) su.value="ja";
+    }
+    /* Nährwerte NUR füllen, wenn das Feld leer ist – bestehende, geprüfte Werte werden nie überschrieben. */
+    const n=v.naehrwerte_100g||{};
+    Object.keys(n).forEach(function(k){
+      const el=document.getElementById("fe_"+(k==="ballaststoffe"?"ballaststoffe":k));
+      if(el && !el.value && n[k]!=null) el.value=n[k];
+    });
+    let h='<div style="color:#166534"><b>✓ Vorschlag eingefügt</b> · '+(v.zutaten||[]).length+' Zutaten · '
+      +(data.meta?('Kosten: $'+Number(data.meta.kosten_usd).toFixed(4)+' · '+data.meta.dauer_ms+' ms'):'')+'</div>';
+    if(v.unsicher) h+='<div style="color:#b45309;margin-top:3px">⚠️ <b>Riki ist unsicher:</b> '+esc(v.unsicher_warum||'')+' – nicht ungeprüft freigeben.</div>';
+    if(Array.isArray(v.warnungen)&&v.warnungen.length)
+      h+='<div style="color:#dc2626;margin-top:3px"><b>Plausibilitäts-Warnungen:</b><br>• '+v.warnungen.map(esc).join('<br>• ')+'</div>';
+    if(Array.isArray(v.zutaten)&&v.zutaten.length)
+      h+='<details style="margin-top:5px"><summary style="cursor:pointer;color:#534AB7;font-size:12px">Begründungen anzeigen</summary>'
+        +'<div style="font-size:11.5px;color:var(--muted);margin-top:4px">'
+        +v.zutaten.map(function(z){ return '<b>'+esc(z.name)+'</b> → '+z.rating+': '+esc(z.begruendung||''); }).join('<br>')
+        +'</div></details>';
+    h+='<div style="color:var(--muted);margin-top:5px;font-size:11.5px">Das ist ein <b>Vorschlag</b>, keine Verifizierung. Gegen das Etikett prüfen, bevor du freigibst.</div>';
+    msg.style.color="var(--ink)"; msg.innerHTML=h;
+  }catch(e){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+e.message; }
+}
+async function rikiBudget(){
+  const msg=document.getElementById("rikiMsg");
+  try{
+    const {data}=await client.rpc("cb_riki_budget_check");
+    const b=Array.isArray(data)?data[0]:data;
+    if(!b){ msg.textContent="—"; return; }
+    msg.style.color=b.erlaubt?"var(--ink)":"#dc2626";
+    msg.innerHTML='Diesen Monat: <b>$'+Number(b.verbraucht_usd).toFixed(4)+'</b> von $'+b.limit_usd
+      +' · '+b.aufrufe_monat+' Aufrufe'+(b.erlaubt?'':' <b>· LIMIT ERREICHT</b>');
+  }catch(e){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+e.message; }
+}
 async function openFgEditor(id, prefill){
   const panel=document.getElementById("panel");
   let d={id:null,name:"",marke:"",kategorie:"",unterkategorie:"",ean:"",basis:"100g",bild_url:"",status:"",
@@ -4100,6 +4164,16 @@ async function openFgEditor(id, prefill){
     ${inp("fe_ztext",d.zusatzstoffe_text||"keine")}
     <div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zutaten <span style="text-transform:none;color:var(--muted)">(auswählen für richtige Schreibweise, oder neu tippen)</span></div>
+    <div style="background:#F4F1FB;border:1px solid #CECBF6;border-radius:12px;padding:11px 12px;margin-bottom:10px">
+      <div style="font-weight:700;font-size:13.5px;color:#3C3489;margin-bottom:3px">🤖 Riki – Zutaten analysieren</div>
+      <div style="font-size:11.5px;color:#534AB7;line-height:1.45;margin-bottom:7px">Zutatenliste vom Etikett hier einfügen. Riki zerlegt sie, bewertet jede Zutat nach dem Verarbeitungsgrad <b>mit Begründung</b> und prüft die Nährwerte auf Plausibilität. <b>Riki schlägt nur vor – du gibst frei.</b></div>
+      <textarea id="rikiText" rows="3" placeholder="Zutaten: Kakaomasse* 43 %, Kakaobutter*, gemahlene Datteln* 17 % …" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #CECBF6;border-radius:8px;font-size:13px;background:#fff"></textarea>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <button type="button" onclick="rikiAnalyse()" style="padding:8px 13px;border:0;border-radius:8px;background:#534AB7;color:#fff;font-weight:600;font-size:13px;cursor:pointer">Analysieren</button>
+        <button type="button" onclick="rikiBudget()" style="padding:8px 12px;border:1px solid #CECBF6;border-radius:8px;background:#fff;color:#534AB7;font-size:12.5px;cursor:pointer">Verbrauch anzeigen</button>
+      </div>
+      <div id="rikiMsg" style="font-size:12.5px;margin-top:7px;line-height:1.5"></div>
+    </div>
     <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
     <div id="fe_zutRows">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")||fgZutRow("",5,"nein")}</div>
     <button type="button" onclick="fgAddZutat()" style="margin-top:4px;padding:7px 12px;border:1px solid #16a34a;border-radius:8px;background:var(--greenlt,#ecfdf5);color:#166534;cursor:pointer;font-size:13px">+ Zutat</button>
