@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12d kontakt-mail -->
+<!-- build 2026-07-12e messpunkte -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -4436,7 +4436,7 @@ function bodyFigureSvg(){
   /* -t = freigestellte Variante mit transparentem Hintergrund */
   var src = sex==='männlich' ? 'figur-mann-t.webp' : (sex==='weiblich' ? 'figur-frau-t.webp' : '');
   if(src){
-    return '<img src="'+src+'" alt="Körperfigur" height="330" style="display:block;margin:0 auto;height:330px;width:auto;object-fit:contain;background:transparent" onerror="_figFallback(this)">';
+    return '<img src="'+src+'" alt="Körperfigur" height="380" style="display:block;margin:0 auto;height:380px;width:auto;object-fit:contain;background:transparent" onerror="_figFallback(this)">';
   }
   return bodyFigureSvgFallback();
 }
@@ -4457,18 +4457,36 @@ function bodyMapHtml(last){
   /* Ein Feld ist ~54 px hoch (Label + Input). Vorher lagen Taille→Bauch (124→152) und
      Po→Hüfte (150→178) nur 28 px auseinander → die Beschriftungen überlagerten sich.
      Jetzt überall 62 px Abstand. */
-  const pos={brust:['l',46],taille:['l',108],bauch:['l',170],oberschenkel:['l',232],oberarm:['r',77],po:['r',139],huefte:['r',201],beine:['r',263]};
+  const pos={brust:['l',18],taille:['l',104],bauch:['l',190],oberschenkel:['l',276],oberarm:['r',61],po:['r',147],huefte:['r',233],beine:['r',319]};
   const labels={po:'Po',huefte:'Hüfte',beine:'Beine',oberarm:'Oberarm',brust:'Brust',taille:'Taille',bauch:'Bauch',oberschenkel:'Oberschenkel'};
   const cols={po:'Po',huefte:'Huefte',beine:'Beine',oberarm:'Oberarm',brust:'Brust',taille:'Taille',bauch:'Bauch',oberschenkel:'Oberschenkel'};
+  /* Messpunkte: Taille = schmalste Stelle, Mitte zwischen unterster Rippe und Beckenkamm (WHO STEPS).
+     Bauch = auf Nabelhöhe und liegt damit TIEFER als die Taille – deshalb die Reihenfolge oben. */
+  const hints={
+    brust:'stärkste Stelle, Band waagerecht über die Brustwarzen',
+    taille:'schmalste Stelle – Mitte zwischen unterster Rippe und Beckenkamm',
+    bauch:'auf Höhe des Bauchnabels',
+    oberschenkel:'dickste Stelle, direkt unter der Gesäßfalte',
+    oberarm:'Mitte zwischen Schulter und Ellenbogen, Arm entspannt',
+    po:'größter Umfang des Gesäßes',
+    huefte:'über den Hüftknochen (Beckenkamm)',
+    beine:'Wade an der stärksten Stelle'
+  };
   let pills='';
   Object.keys(pos).forEach(k=>{ const side=pos[k][0],top=pos[k][1]; const v=(last[cols[k]]!=null?last[cols[k]]:'');
-    pills+='<div style="position:absolute;'+(side==='l'?'left:0':'right:0')+';top:'+top+'px;width:86px">'
-      +'<div style="font-size:11px;color:var(--ink);margin-bottom:2px">'+labels[k]+'</div>'
+    pills+='<div style="position:absolute;'+(side==='l'?'left:0':'right:0')+';top:'+top+'px;width:110px">'
+      +'<div style="font-size:11.5px;font-weight:600;color:var(--ink)">'+labels[k]+'</div>'
+      +'<div style="font-size:9.5px;color:var(--muted);line-height:1.25;margin:1px 0 3px;min-height:24px">'+hints[k]+'</div>'
       +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:13px"></div>';
   });
-  return '<div style="position:relative;max-width:380px;margin:0 auto;min-height:340px">'
-    +'<div id="bodyFigWrap" style="position:absolute;left:50%;top:0;transform:translateX(-50%);pointer-events:none">'+bodyFigureSvg()+'</div>'+pills+'</div>'
-    +'<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:2px">Maße in cm</div>';
+  return '<div style="position:relative;max-width:400px;margin:0 auto;min-height:410px">'
+    +'<div id="bodyFigWrap" style="position:absolute;left:50%;top:10px;transform:translateX(-50%);pointer-events:none">'+bodyFigureSvg()+'</div>'+pills+'</div>'
+    +'<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:2px">Alle Maße in cm</div>'
+    +'<div style="margin-top:10px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:11.5px;color:var(--muted);line-height:1.5">'
+      +'<b style="color:var(--ink)">So misst du richtig:</b> Maßband waagerecht anlegen, nicht einschnüren, locker ausatmen – nicht die Luft anhalten oder den Bauch einziehen. Immer <b>zur selben Tageszeit</b> messen (am besten morgens, nüchtern), sonst vergleichst du Tagesform statt Fortschritt.'
+      +'<div style="margin-top:5px"><b style="color:var(--ink)">Taille vs. Bauch:</b> Die Taille ist die <b>schmalste</b> Stelle (Mitte zwischen unterster Rippe und Beckenkamm), der Bauchumfang wird tiefer auf <b>Nabelhöhe</b> gemessen. Die Taille liegt also <b>über</b> dem Bauch.</div>'
+      +'<div style="margin-top:5px">Der Taillenumfang ist der aussagekräftigste Einzelwert: Die WHO stuft ihn ab <b>94 cm</b> (Männer) bzw. <b>80 cm</b> (Frauen) als erhöht ein, ab <b>102</b> bzw. <b>88 cm</b> als deutlich erhöht. <i>Orientierungswerte, keine Diagnose.</i></div>'
+    +'</div>';
 }
 async function renderProfilMass(){
   const box=document.getElementById("pfMass"); if(!box) return;
