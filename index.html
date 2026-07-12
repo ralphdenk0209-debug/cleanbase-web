@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12o riki-fehler-sichtbar -->
+<!-- build 2026-07-12q rootindex-katrang-rikiaudit -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -454,6 +454,15 @@
           <b>Weicht auch nur ein Wert ab</b> → Produkt bleibt ungeprüft, die Abweichung wird protokolliert. Es wird <b>nichts überschrieben und nichts geraten</b>.</div>
         <button onclick="autoVerifyStart(false)" style="padding:9px 14px;border:1px solid #0ea5e9;border-radius:10px;background:var(--card);color:#0369a1;font-size:13.5px;font-weight:600;cursor:pointer">🔍 Trockenlauf starten</button>
         <div id="fgAutoV" style="margin-top:10px;font-size:14px"></div>
+
+        <h3 style="font-size:15px;margin:22px 0 4px">🤖 Riki-Audit · unsere eigenen Zutaten prüfen</h3>
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px;line-height:1.5">Riki bewertet die Zutaten unseres Katalogs <b>neu nach dem Regelwerk</b> und vergleicht mit unserem Stamm. Abweichungen ab 2 Punkten werden aufgelistet – <b>es wird nichts geändert</b>. So wurde heute der Olivenöl-Fehler gefunden (wir: 10, richtig: 7).</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="rikiAudit(60,false)" style="padding:9px 14px;border:0;border-radius:10px;background:#534AB7;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer">Top 60 Zutaten prüfen (~$0,02)</button>
+          <button onclick="rikiAudit(200,false)" style="padding:9px 14px;border:1px solid #CECBF6;border-radius:10px;background:var(--card);color:#534AB7;font-size:13px;cursor:pointer">Top 200 (~$0,06)</button>
+          <button onclick="rikiAudit(400,false)" style="padding:9px 14px;border:1px solid #CECBF6;border-radius:10px;background:var(--card);color:#534AB7;font-size:13px;cursor:pointer">Alle (~$0,12)</button>
+        </div>
+        <div id="fgRikiAudit" style="margin-top:10px;font-size:14px"></div>
         <div style="margin-top:16px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted)">Scans, Etikettfotos, manuelle Tagebuch-Einträge und Produktwünsche findest du gebündelt im Tab <b>Eingang</b>.</div>
       </div>
       <div id="fgPanelBundles" style="display:none">
@@ -1298,8 +1307,35 @@ function quellenBlock(d){
     +'<div style="color:var(--muted);margin-top:3px">Jeder Punkt oben ist aus diesen Daten berechnet – nichts geschätzt.</div>'
     +'</div>'+MED_HINWEIS;
 }
+/* Kategorie-Einordnung: Ein Score ohne Maßstab verführt zu sinnlosen Vergleichen
+   (Olivenöl 85 vs. Vollkornbrot 88 – niemand entscheidet zwischen den beiden).
+   Deshalb: Platz innerhalb der eigenen Kategorie sichtbar machen. */
+function katRang(d){
+  if(!d||!d.kategorie||d.clean_score==null) return null;
+  const gruppe=(ALL||[]).filter(function(x){ return x.kategorie===d.kategorie && x.clean_score!=null; });
+  if(gruppe.length<3) return null;
+  const sortiert=gruppe.slice().sort(function(a,b){ return num(b.clean_score)-num(a.clean_score); });
+  const platz=sortiert.findIndex(function(x){ return x.id===d.id; })+1;
+  if(platz<1) return null;
+  const besser=sortiert.slice(0,platz-1).filter(function(x){ return num(x.clean_score)>num(d.clean_score); });
+  return { platz:platz, gesamt:gruppe.length, kategorie:d.kategorie,
+           top: sortiert.slice(0,3).filter(function(x){ return x.id!==d.id; }).slice(0,2) };
+}
+function katRangHtml(d){
+  const r=katRang(d); if(!r) return "";
+  const anteil=r.platz/r.gesamt;
+  const farbe = anteil<=0.25 ? "#166534" : (anteil<=0.6 ? "#8A5A0B" : "#b45309");
+  const bg    = anteil<=0.25 ? "var(--greenlt,#eaf5ee)" : "#FFF7EA";
+  const bd    = anteil<=0.25 ? "var(--line)" : "#E4A343";
+  return '<div style="margin-top:10px;background:'+bg+';border:1px solid '+bd+';border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55">'
+    +'<b style="color:'+farbe+'">Platz '+r.platz+' von '+r.gesamt+' in „'+esc(r.kategorie)+'"</b>'
+    +'<div style="color:var(--muted);margin-top:3px">Vergleiche den Score <b>innerhalb der Kategorie</b>. Ein Öl mit einem Brot zu vergleichen ergibt keinen Sinn – niemand entscheidet zwischen beidem. Ein Öl mit einem anderen Öl zu vergleichen schon.</div>'
+    +(r.top.length?('<div style="margin-top:5px;color:var(--muted)">Vorne in dieser Kategorie: '
+        +r.top.map(function(x){ return '<a href="#" onclick="event.preventDefault();detailById(\''+x.id+'\')" style="color:var(--greendk,#166534);font-weight:600;text-decoration:none">'+esc(x.name)+' ('+x.clean_score+')</a>'; }).join(' · ')+'</div>'):'')
+    +'</div>';
+}
 /* GL-5: Haftungsausschluss sichtbar dort, wo bewertet wird – nicht nur im Kleingedruckten. */
-const MED_HINWEIS='<div style="margin-top:8px;font-size:11.5px;color:var(--muted);line-height:1.5">Der Clean Score bewertet <b>Zusammensetzung und Verarbeitungsgrad</b> eines Lebensmittels. Er ist keine Aussage darüber, ob ein Produkt für <b>dich persönlich</b> geeignet ist, und ersetzt <b>keine ärztliche oder ernährungstherapeutische Beratung</b>. Bei Beschwerden, Allergien, Erkrankungen, Schwangerschaft oder Medikamenteneinnahme: bitte ärztlich abklären.</div>';
+const MED_HINWEIS='<div style="margin-top:8px;font-size:11.5px;color:var(--muted);line-height:1.5">Der Root Index bewertet <b>Zusammensetzung und Verarbeitungsgrad</b> eines Lebensmittels. Er ist keine Aussage darüber, ob ein Produkt für <b>dich persönlich</b> geeignet ist, und ersetzt <b>keine ärztliche oder ernährungstherapeutische Beratung</b>. Bei Beschwerden, Allergien, Erkrankungen, Schwangerschaft oder Medikamenteneinnahme: bitte ärztlich abklären.</div>';
 async function prodToEinkauf(id){
   if(!ME){ openLogin(); return; }
   if(!hasFeat('planer')){ premiumInfo(); return; }
@@ -1557,6 +1593,7 @@ function detail(d){
     ${rows}
     ${abzug}
     ${scoreFlow(d)}
+    ${katRangHtml(d)}
     ${quellenBlock(d)}
   `;
   /* PREMIUM: die Zutaten-Einzelbewertung im Detail (Herleitung bleibt frei, s. warumBlock) */
@@ -2519,7 +2556,7 @@ function legalOpen(which){
     +H("Kontakt")+P("E-Mail: kontakt@root-index.de<br>Alternativ über das Kontaktformular in der App (Menü „Mehr“ → Kontakt). Wir antworten in der Regel innerhalb von 48 Stunden.")
     +H("Umsatzsteuer")+P("Kleinunternehmerin gemäß § 19 UStG – es wird keine Umsatzsteuer ausgewiesen.")
     +H("Verantwortlich i.S.d. § 18 Abs. 2 MStV")+P("Sandra Denk, Anschrift wie oben.")
-    +H("Werbung &amp; Partnerlinks")+P("Root Index ist Teilnehmer des Amazon-Partnerprogramms. <b>Als Amazon-Partner verdienen wir an qualifizierten Verkäufen.</b> Mit „Anzeige“ gekennzeichnete Links sind Partnerlinks – der Preis ändert sich für dich dadurch nicht. <b>Partnerlinks haben keinerlei Einfluss auf den Clean Score.</b> Ein Produkt wird bewertet, bevor überhaupt geprüft wird, ob es einen Partnerlink gibt; kein Hersteller kann eine Bewertung kaufen oder beeinflussen.")
+    +H("Werbung &amp; Partnerlinks")+P("Root Index ist Teilnehmer des Amazon-Partnerprogramms. <b>Als Amazon-Partner verdienen wir an qualifizierten Verkäufen.</b> Mit „Anzeige“ gekennzeichnete Links sind Partnerlinks – der Preis ändert sich für dich dadurch nicht. <b>Partnerlinks haben keinerlei Einfluss auf den Root Index.</b> Ein Produkt wird bewertet, bevor überhaupt geprüft wird, ob es einen Partnerlink gibt; kein Hersteller kann eine Bewertung kaufen oder beeinflussen.")
     +H("Datenquellen &amp; Lizenzen")+P("Nährwerte generischer Lebensmittel stammen aus dem <b>Bundeslebensmittelschlüssel (BLS 4.0)</b>, © Max Rubner-Institut, Bundesforschungsinstitut für Ernährung und Lebensmittel, lizenziert unter <b>CC BY 4.0</b> (creativecommons.org/licenses/by/4.0). Ergänzend nutzen wir Daten von <b>Open Food Facts</b> (Datenbank lizenziert unter <b>ODbL 1.0</b>, Inhalte unter CC BY-SA 3.0) sowie Herstellerangaben und Etikettfotos unserer Nutzerinnen und Nutzer. Die Quelle steht bei jedem Produkt unter dem Score. Wissenschaftliche Grundlagen: EFSA, WHO, EU-VO 1333/2008 und 432/2012, IARC, DGE.")
     +H("Verbraucherstreitbeilegung")+P("Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.")
     +H("Haftung für Inhalte")+P("Die Inhalte wurden mit größter Sorgfalt erstellt. Für Richtigkeit, Vollständigkeit und Aktualität übernehmen wir keine Gewähr. Bewertungen und Informationen dienen der Orientierung und stellen keine medizinische oder ernährungstherapeutische Beratung dar.")
@@ -4049,7 +4086,7 @@ function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
   return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${rating??5}" title="Clean-Bewertung 0–10" style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${rating??5}" title="Zutaten-Bewertung 0–10 (Verarbeitungsgrad)" style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px">
     <label style="font-size:11px;color:#b91c1c;display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:#dc2626">⚠️</label>
     <button type="button" onclick="this.closest('.fgZutRow').remove()" title="Zutat entfernen" style="border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;width:30px;height:30px;cursor:pointer;flex:0 0 auto">✕</button>
   </div>`;
@@ -4124,6 +4161,60 @@ async function rikiAnalyse(){
     h+='<div style="color:var(--muted);margin-top:5px;font-size:11.5px">Das ist ein <b>Vorschlag</b>, keine Verifizierung. Gegen das Etikett prüfen, bevor du freigibst.</div>';
     msg.style.color="var(--ink)"; msg.innerHTML=h;
   }catch(e){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+e.message; }
+}
+/* ---- RIKI-AUDIT: den ganzen Katalog gegen unsere eigenen Regeln prüfen ----
+   Riki bewertet jede Zutat NEU (nur aus dem Regelwerk) und wir vergleichen mit dem Zutaten-Stamm.
+   ES WIRD NICHTS GEÄNDERT. Es entsteht eine Liste von Abweichungen, die DU entscheidest.
+   Genau so wurde heute der Olivenöl-Fehler (10 statt 7) gefunden. */
+async function rikiAudit(limit, anwenden){
+  const box=document.getElementById("fgRikiAudit"); if(!box) return;
+  const {data:{session}}=await client.auth.getSession();
+  if(!session){ box.innerHTML='<span style="color:#dc2626">Nicht angemeldet.</span>'; return; }
+
+  box.innerHTML='<div style="color:var(--muted)">Lade Zutaten…</div>';
+  await loadZutatenStamm();
+  /* Nur Zutaten prüfen, die in aktiven Produkten wirklich vorkommen. */
+  const {data:zut,error}=await client.rpc("cb_zutaten_audit_liste",{p_limit:limit||60});
+  if(error){ box.innerHTML='<span style="color:#dc2626">Fehler: '+esc(error.message)+'</span>'; return; }
+  if(!zut||!zut.length){ box.innerHTML='<span style="color:var(--muted)">Keine Zutaten gefunden.</span>'; return; }
+
+  const paket=40; const abw=[]; let geprueft=0, kosten=0;
+  for(let i=0;i<zut.length;i+=paket){
+    const teil=zut.slice(i,i+paket);
+    box.innerHTML='<div style="color:var(--muted)">🤖 Riki prüft '+(i+1)+'–'+Math.min(i+paket,zut.length)+' von '+zut.length+' Zutaten…</div>';
+    const liste=teil.map(function(z){ return z.zutat; }).join(', ');
+    try{
+      const resp=await fetch(SUPABASE_URL+"/functions/v1/riki-analyse",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+session.access_token },
+        body: JSON.stringify({ modus:"zutaten", text:liste })
+      });
+      const data=await resp.json();
+      if(!resp.ok||data.error){ box.innerHTML='<div style="color:#dc2626">Fehler: '+esc(data.error||resp.status)+'</div>'; return; }
+      kosten += (data.meta&&data.meta.kosten_usd)||0;
+      const rz=(data.vorschlag&&data.vorschlag.zutaten)||[];
+      teil.forEach(function(z){
+        const treffer=rz.find(function(r){ return String(r.name||'').toLowerCase().trim()===String(z.zutat).toLowerCase().trim(); });
+        geprueft++;
+        if(!treffer||treffer.rating==null) return;
+        const diff=Math.abs(Number(treffer.rating)-Number(z.bewertung));
+        if(diff>=2) abw.push({zutat:z.zutat, unser:z.bewertung, riki:treffer.rating, diff:diff,
+                              produkte:z.produkte, grund:treffer.begruendung||''});
+      });
+    }catch(e){ box.innerHTML='<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>'; return; }
+  }
+  abw.sort(function(a,b){ return (b.diff*100+b.produkte)-(a.diff*100+a.produkte); });
+  box.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px">'
+    +'<div style="font-weight:700;margin-bottom:6px">🤖 Riki-Audit · '+geprueft+' Zutaten geprüft · Kosten $'+kosten.toFixed(4)+'</div>'
+    +'<div style="font-size:13px;color:'+(abw.length?'#b45309':'#166534')+';margin-bottom:8px"><b>'+abw.length+'</b> Abweichungen (≥ 2 Punkte) zwischen unserem Stamm und dem Regelwerk.</div>'
+    +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Es wurde <b>nichts geändert</b>. Riki hat die Zutaten nur nach dem Regelwerk neu bewertet. Prüfe jede Zeile – bei einer Abweichung hat entweder unser Stamm einen Fehler (wie heute beim Olivenöl) oder Riki liegt daneben.</div>'
+    +(abw.length? '<div style="max-height:400px;overflow:auto;border-top:1px solid var(--line);padding-top:8px">'
+        +abw.map(function(a){ return '<div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line)">'
+            +'<b>'+esc(a.zutat)+'</b> <span style="color:var(--muted)">· '+a.produkte+' Produkte</span><br>'
+            +'wir: <b style="color:#0369a1">'+a.unser+'</b> · Riki: <b style="color:#b45309">'+a.riki+'</b>'
+            +'<div style="color:var(--muted);margin-top:2px">'+esc(a.grund)+'</div></div>'; }).join('')
+      +'</div>' : '')
+    +'</div>';
 }
 async function rikiBudget(){
   const msg=document.getElementById("rikiMsg");
