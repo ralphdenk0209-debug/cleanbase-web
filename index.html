@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12h off-kandidaten -->
+<!-- build 2026-07-12i tagebuch-etikett-cta -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3577,6 +3577,11 @@ function tbAddManualOpen(){
     +'<div id="tbmVorschau" style="font-size:12.5px;color:#2E7D32;font-weight:600;margin-top:6px;min-height:16px"></div>'
     +'<button onclick="tbAddManualSave()" style="margin-top:6px;width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">+ Eintragen</button>'
     +'<div style="font-size:11px;color:#6B6256;margin-top:6px">Wird gespeichert und dem Admin gemeldet, damit das Produkt bei Bedarf angelegt wird.</div>'
+    /* Der Etikett-Weg muss auch HIER stehen: Der „Manuell eintragen"-Kasten überschreibt den
+       Container, in dem der Button nach dem Scan angeboten wurde – sonst ist er weg. */
+    +(ean?('<div style="margin-top:10px;padding-top:9px;border-top:1px solid #E7E0D4">'
+        +'<div style="font-size:11.5px;color:#6B6256;margin-bottom:4px">Produkt fehlt bei uns <b>und</b> bei Open Food Facts? Fotografiere Zutatenliste und Nährwerttabelle – dann prüfen wir es und nehmen es in den Katalog auf.</div>'
+        +etikettCtaBtn(ean)+'</div>'):'')
     +'<div id="tbAddMsg" style="font-size:12px;color:#6B6256;margin-top:4px"></div></div>';
 }
 function tbmCalc(){
@@ -3616,7 +3621,14 @@ async function offLookup(){
     const url="https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,product_name_de,brands,nutriments";
     const r=await fetch(url,{headers:{"Accept":"application/json"}});
     const j=await r.json();
-    if(!j || j.status!==1 || !j.product){ if(msg){ msg.style.color="#e8920c"; msg.textContent="Kein Treffer bei Open Food Facts für "+code+"."; } return; }
+    if(!j || j.status!==1 || !j.product){
+      /* Kein OFF-Treffer = Sackgasse. Hier MUSS der Weg über das Etikettfoto angeboten werden. */
+      if(msg){ msg.style.color="#e8920c";
+        msg.innerHTML="Kein Treffer bei Open Food Facts für "+esc(code)+".<br>"
+          +"<span style=\"color:#6B6256\">Du hast das Produkt in der Hand? Fotografiere Zutaten &amp; Nährwerte – dann nehmen wir es auf:</span><br>"
+          +etikettCtaBtn(code); }
+      return;
+    }
     const p=j.product, n=p.nutriments||{};
     const nm=(p.product_name_de||p.product_name||"").trim();
     const marke=(p.brands||"").split(",")[0].trim();
