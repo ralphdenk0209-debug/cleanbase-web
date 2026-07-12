@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12l katalog-limit-fix -->
+<!-- build 2026-07-12m katalog-paginiert -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -736,6 +736,21 @@ function erklaerung(d){
   if(minus.length) t+="Schwächer: "+minus.join(", ")+". ";
   return t.trim();
 }
+/* Supabase/PostgREST deckelt jede Abfrage HART bei 1000 Zeilen – .range() hebt das nicht auf.
+   Bei 1.062 aktiven Produkten waren dadurch 62 Produkte in der App unsichtbar.
+   Deshalb: seitenweise laden, bis der Server weniger als eine volle Seite liefert. */
+async function fetchAlleProdukte(){
+  const SEITE=1000; let alle=[], von=0;
+  for(let i=0;i<20;i++){
+    const {data,error}=await client.from("v_web_produkte").select("*").range(von, von+SEITE-1);
+    if(error) throw error;
+    if(!data || !data.length) break;
+    alle=alle.concat(data);
+    if(data.length<SEITE) break;
+    von+=SEITE;
+  }
+  return alle;
+}
 let ALL=[]; let STK={};
 function stkOf(pid){ const g=pid?num(STK[pid]):null; return (g&&g>0)?g:null; }
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -1165,8 +1180,9 @@ async function saveProfilZiel(){
 }
 
 async function load(){
-  const {data,error} = await client.from("v_web_produkte").select("*").range(0,4999);
-  if(error){document.getElementById("stats").textContent="Fehler beim Laden: "+error.message;return;}
+  let data;
+  try{ data = await fetchAlleProdukte(); }
+  catch(error){ document.getElementById("stats").textContent="Fehler beim Laden: "+error.message; return; }
   ALL = data.map(d=>({...d, clean_score:num(d.clean_score)}));
   try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; (sm||[]).forEach(x=>{STK[x.id]=num(x.stueck_gramm);}); }catch(e){}
   const _kc={}; ALL.forEach(d=>{ if(d.kategorie) _kc[d.kategorie]=(_kc[d.kategorie]||0)+1; });
@@ -2003,13 +2019,13 @@ function bundleCard(p,winner){
 }
 async function renderZyklus(){
   const b=document.getElementById("zyklusBody"); if(!b) return;
-  if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*").range(0,4999); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
+  if(!(ALL&&ALL.length)){ try{ const data=await fetchAlleProdukte(); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   await loadBilder();
   b.innerHTML = (zyklusBundleHtml()+zyklusKomplexeHtml()) || '<div style="color:var(--muted)">Aktuell keine Produkte verfügbar.</div>';
 }
 async function renderDarm(){
   const b=document.getElementById("darmBody"); if(!b) return;
-  if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*").range(0,4999); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
+  if(!(ALL&&ALL.length)){ try{ const data=await fetchAlleProdukte(); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   await loadBilder();
   b.innerHTML=darmBundleHtml();
 }
@@ -2261,7 +2277,7 @@ function unterstuetzenHtml(){
 }
 async function renderStart(){
   const body=document.getElementById("startBody"); if(!body) return;
-  if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*").range(0,4999); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
+  if(!(ALL&&ALL.length)){ try{ const data=await fetchAlleProdukte(); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   await loadBilder();
   const card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
   if(!ME){
@@ -2655,7 +2671,7 @@ let TB_USER="U001";
 function tbToday(){ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 async function fillProdList(){
   const dl=document.getElementById("tbProdListe"); if(!dl) return;
-  if(!ALL.length){ try{ const {data}=await client.from("v_web_produkte").select("*").range(0,4999); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
+  if(!ALL.length){ try{ const data=await fetchAlleProdukte(); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   if(dl.children.length || !ALL.length) return;
   ALL.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(p=>{ const o=document.createElement("option"); o.value=prodLabel(p); dl.appendChild(o); });
 }
@@ -3091,7 +3107,7 @@ async function renderEinkaufSeite(){
   const box=document.getElementById("einkaufPageBox");
   if(!gate||!box) return;
   /* Katalog laden – für Kategorie-Zuordnung beim Tippen und beim Barcode-Scan */
-  if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*").range(0,4999); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
+  if(!(ALL&&ALL.length)){ try{ const data=await fetchAlleProdukte(); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
   if(!ME){
     box.innerHTML="";
     gate.style.display="";
@@ -3158,7 +3174,7 @@ async function einkSuggest(q){
   const box=document.getElementById('einkSug'); if(!box) return;
   q=(q||'').trim().toLowerCase();
   if(q.length<2){ box.innerHTML=''; return; }
-  if(!(ALL&&ALL.length)){ try{ const {data}=await client.from("v_web_produkte").select("*").range(0,4999); if(data) ALL=data.map(function(d){ return Object.assign({},d,{clean_score:num(d.clean_score)}); }); }catch(e){} }
+  if(!(ALL&&ALL.length)){ try{ const data=await fetchAlleProdukte(); if(data) ALL=data.map(function(d){ return Object.assign({},d,{clean_score:num(d.clean_score)}); }); }catch(e){} }
   const hits=(ALL||[]).filter(function(p){
     return String(p.name||'').toLowerCase().indexOf(q)>=0 || String(p.marke||'').toLowerCase().indexOf(q)>=0;
   }).sort(function(a,b){ return (b.clean_score||0)-(a.clean_score||0); }).slice(0,6);
@@ -4139,7 +4155,7 @@ async function fgEditSave(alsoFreigeben){
     if(fr.error){ msg.style.color="#b45309"; msg.textContent="Gespeichert, aber Freigabe nicht möglich: "+fr.error.message+" (evtl. unvollständig)"; loadFreigabe(); return; }
   }
   msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"+(alsoFreigeben?" & freigegeben":"");
-  try{ const {data:aa}=await client.from("v_web_produkte").select("*").range(0,4999); if(aa) ALL=aa.map(x=>({...x, clean_score:num(x.clean_score)})); }catch(e){}
+  try{ const aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(x=>({...x, clean_score:num(x.clean_score)})); }catch(e){}
   setTimeout(()=>{ closeP(); loadFreigabe(); if(typeof render==="function") render(); }, 700);
 }
 
