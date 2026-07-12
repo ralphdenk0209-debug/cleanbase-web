@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12a hcvo-quellen-asins -->
+<!-- build 2026-07-12b adminsprung-fix -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -2526,6 +2526,7 @@ function wikiOpen(){
 }
 /* Admin als separater Einstieg (#admin) – vorbereitet für eigene externe Adresse */
 let ADMIN_MODE=(location.hash==='#admin');
+let ADMIN_START_DONE=false;   /* Bugfix: der Sprung in die Freigabe darf NUR EINMAL passieren. */
 function applyAdminMode(){
   if(!ADMIN_MODE) return;
   const bn=document.querySelector('.bottomnav'); if(bn) bn.style.display='';
@@ -2536,7 +2537,11 @@ function applyAdminMode(){
       nav.innerHTML='<div class="seg" style="flex:1 1 auto"><button onclick="navTo(\'freigabe\')">Freigabe</button><button onclick="navTo(\'stufen\')">Stufen</button><button onclick="navTo(\'nutzer\')">Nutzer</button></div><button title="Abmelden" aria-label="Abmelden" onclick="doLogout()" style="flex:0 0 auto;padding:9px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer;font-size:16px">🚪</button>';
       c.insertBefore(nav, c.firstChild); }
   }
-  if(ME&&ME.is_admin){ setMode('freigabe'); }
+  /* applyAdminMode() läuft bei JEDEM Auth-Event – und Supabase feuert eines, sobald der Tab
+     wieder Fokus bekommt (Token-Refresh). Vorher sprang die App dadurch zurück in die Freigabe,
+     z. B. nach dem Zurückkommen von einem Amazon-Link. Jetzt: nur beim ersten Mal. */
+  if(ADMIN_START_DONE) return;
+  if(ME&&ME.is_admin){ ADMIN_START_DONE=true; setMode('freigabe'); }
   else { openAdminLogin(); }
 }
 
