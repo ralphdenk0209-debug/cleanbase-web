@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12n riki -->
+<!-- build 2026-07-12o riki-fehler-sichtbar -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -4073,14 +4073,26 @@ async function rikiAnalyse(){
     const v=parseFloat((document.getElementById("fe_"+k)||{}).value); if(!isNaN(v)) nw[k]=v;
   });
   try{
-    const {data,error}=await client.functions.invoke("riki-analyse",{ body:{
-      modus:"zutaten", text:txt,
-      name:(document.getElementById("fe_name")||{}).value||null,
-      naehrwerte:Object.keys(nw).length?nw:null,
-      produkt_id:(window._fgEdit&&window._fgEdit.id)||null
-    }});
-    if(error){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+(error.message||error); return; }
-    if(data&&data.error){ msg.style.color="#dc2626"; msg.innerHTML=esc(data.error); return; }
+    /* Direkt per fetch statt functions.invoke: invoke() verschluckt bei Fehlerstatus den Body –
+       man sieht dann nur „non-2xx status code" und weiß nicht, WORAN es lag. */
+    const {data:{session}}=await client.auth.getSession();
+    if(!session){ msg.style.color="#dc2626"; msg.textContent="Nicht angemeldet."; return; }
+    const resp=await fetch(SUPABASE_URL+"/functions/v1/riki-analyse",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "apikey":SUPABASE_KEY,
+                "Authorization":"Bearer "+session.access_token },
+      body: JSON.stringify({ modus:"zutaten", text:txt,
+        name:(document.getElementById("fe_name")||{}).value||null,
+        naehrwerte:Object.keys(nw).length?nw:null,
+        produkt_id:(window._fgEdit&&window._fgEdit.id)||null })
+    });
+    let data=null;
+    try{ data=await resp.json(); }catch(e){ data={error:"Antwort war kein JSON ("+resp.status+")"}; }
+    if(!resp.ok || (data&&data.error)){
+      msg.style.color="#dc2626";
+      msg.innerHTML="<b>Fehler "+resp.status+":</b> "+esc((data&&(data.error||JSON.stringify(data.detail||data)))||"unbekannt");
+      return;
+    }
     const v=data.vorschlag||{};
     if(v.fehler){ msg.style.color="#dc2626"; msg.textContent="Riki-Antwort unbrauchbar: "+v.fehler; return; }
     /* Zutaten ins Formular übernehmen – nur Vorschlag, nichts gespeichert. */
