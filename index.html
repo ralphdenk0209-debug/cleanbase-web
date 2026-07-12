@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12b adminsprung-fix -->
+<!-- build 2026-07-12c impressum-figur-transparent -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -2402,9 +2402,11 @@ function legalOpen(which){
   const P=t=>`<p style="font-size:13.5px;line-height:1.55;color:var(--ink);margin:.2em 0">${t}</p>`;
   const impressum = H("Impressum")+`<p style="font-size:12px;color:var(--muted)">Angaben gemäß § 5 DDG</p>`
     +P("<b>Sandra Denk</b><br>Root Index (Einzelunternehmen)<br>Auweg 23<br>84103 Postau<br>Deutschland")
-    +H("Kontakt")+P("E-Mail: ralph@root-index.de")
+    +H("Kontakt")+P("E-Mail: ralph@root-index.de<br>Alternativ über das Kontaktformular in der App (Menü „Mehr“ → Kontakt). Wir antworten in der Regel innerhalb von 48 Stunden.")
     +H("Umsatzsteuer")+P("Kleinunternehmerin gemäß § 19 UStG – es wird keine Umsatzsteuer ausgewiesen.")
     +H("Verantwortlich i.S.d. § 18 Abs. 2 MStV")+P("Sandra Denk, Anschrift wie oben.")
+    +H("Werbung &amp; Partnerlinks")+P("Root Index ist Teilnehmer des Amazon-Partnerprogramms. <b>Als Amazon-Partner verdienen wir an qualifizierten Verkäufen.</b> Mit „Anzeige“ gekennzeichnete Links sind Partnerlinks – der Preis ändert sich für dich dadurch nicht. <b>Partnerlinks haben keinerlei Einfluss auf den Clean Score.</b> Ein Produkt wird bewertet, bevor überhaupt geprüft wird, ob es einen Partnerlink gibt; kein Hersteller kann eine Bewertung kaufen oder beeinflussen.")
+    +H("Datenquellen &amp; Lizenzen")+P("Nährwerte generischer Lebensmittel stammen aus dem <b>Bundeslebensmittelschlüssel (BLS 4.0)</b>, © Max Rubner-Institut, Bundesforschungsinstitut für Ernährung und Lebensmittel, lizenziert unter <b>CC BY 4.0</b> (creativecommons.org/licenses/by/4.0). Ergänzend nutzen wir Daten von <b>Open Food Facts</b> (Datenbank lizenziert unter <b>ODbL 1.0</b>, Inhalte unter CC BY-SA 3.0) sowie Herstellerangaben und Etikettfotos unserer Nutzerinnen und Nutzer. Die Quelle steht bei jedem Produkt unter dem Score. Wissenschaftliche Grundlagen: EFSA, WHO, EU-VO 1333/2008 und 432/2012, IARC, DGE.")
     +H("Verbraucherstreitbeilegung")+P("Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.")
     +H("Haftung für Inhalte")+P("Die Inhalte wurden mit größter Sorgfalt erstellt. Für Richtigkeit, Vollständigkeit und Aktualität übernehmen wir keine Gewähr. Bewertungen und Informationen dienen der Orientierung und stellen keine medizinische oder ernährungstherapeutische Beratung dar.")
     +H("Haftung für Links")+P("Unser Angebot enthält ggf. Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Dafür ist stets der jeweilige Anbieter verantwortlich.")
@@ -4431,9 +4433,10 @@ async function saveProfilGeraete(){
 function _figFallback(img){ img.onerror=null; var d=document.createElement('div'); d.innerHTML=bodyFigureSvgFallback(); if(d.firstChild) img.replaceWith(d.firstChild); }
 function bodyFigureSvg(){
   var sex=((document.getElementById('pfGeschlecht')||{}).value||'').toLowerCase();
-  var src = sex==='männlich' ? 'figur-mann.webp' : (sex==='weiblich' ? 'figur-frau.webp' : '');
+  /* -t = freigestellte Variante mit transparentem Hintergrund */
+  var src = sex==='männlich' ? 'figur-mann-t.webp' : (sex==='weiblich' ? 'figur-frau-t.webp' : '');
   if(src){
-    return '<img src="'+src+'" alt="Körperfigur" height="284" style="display:block;margin:0 auto;height:284px;width:auto;object-fit:contain" onerror="_figFallback(this)">';
+    return '<img src="'+src+'" alt="Körperfigur" height="330" style="display:block;margin:0 auto;height:330px;width:auto;object-fit:contain;background:transparent" onerror="_figFallback(this)">';
   }
   return bodyFigureSvgFallback();
 }
@@ -4451,7 +4454,10 @@ function bodyFigureSvgFallback(){
    +'</svg>';
 }
 function bodyMapHtml(last){
-  const pos={brust:['l',54],taille:['l',124],bauch:['l',152],oberschenkel:['l',210],oberarm:['r',96],po:['r',150],huefte:['r',178],beine:['r',248]};
+  /* Ein Feld ist ~54 px hoch (Label + Input). Vorher lagen Taille→Bauch (124→152) und
+     Po→Hüfte (150→178) nur 28 px auseinander → die Beschriftungen überlagerten sich.
+     Jetzt überall 62 px Abstand. */
+  const pos={brust:['l',46],taille:['l',108],bauch:['l',170],oberschenkel:['l',232],oberarm:['r',77],po:['r',139],huefte:['r',201],beine:['r',263]};
   const labels={po:'Po',huefte:'Hüfte',beine:'Beine',oberarm:'Oberarm',brust:'Brust',taille:'Taille',bauch:'Bauch',oberschenkel:'Oberschenkel'};
   const cols={po:'Po',huefte:'Huefte',beine:'Beine',oberarm:'Oberarm',brust:'Brust',taille:'Taille',bauch:'Bauch',oberschenkel:'Oberschenkel'};
   let pills='';
@@ -4460,8 +4466,8 @@ function bodyMapHtml(last){
       +'<div style="font-size:11px;color:var(--ink);margin-bottom:2px">'+labels[k]+'</div>'
       +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:13px"></div>';
   });
-  return '<div style="position:relative;max-width:380px;margin:0 auto;min-height:308px">'
-    +'<div id="bodyFigWrap" style="position:absolute;left:50%;top:0;transform:translateX(-50%)">'+bodyFigureSvg()+'</div>'+pills+'</div>'
+  return '<div style="position:relative;max-width:380px;margin:0 auto;min-height:340px">'
+    +'<div id="bodyFigWrap" style="position:absolute;left:50%;top:0;transform:translateX(-50%);pointer-events:none">'+bodyFigureSvg()+'</div>'+pills+'</div>'
     +'<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:2px">Maße in cm</div>';
 }
 async function renderProfilMass(){
