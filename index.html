@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13e button-groesser -->
+<!-- build 2026-07-13f warnungen-vs-protokoll -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -5166,7 +5166,12 @@ function nwZeile(n){
 /* Der ehrliche Kern: unstimmige Daten -> KEIN Score. */
 function vorlKarte(d, ean){
   const warn = Array.isArray(d.warnungen)?d.warnungen:[];
-  const erlaubt = d.score_erlaubt===true && warn.length===0;
+  /* Nur score_erlaubt entscheidet – das ist die serverseitige Rechnung.
+     Vorher stand hier zusätzlich "&& warn.length===0". Riki protokolliert aber ihre
+     Prüfung in "warnungen", auch wenn alles passt ("Abweichung ~3 %, akzeptabel").
+     Damit wurde jede Bestätigung wie ein Fehler behandelt und der Score verweigert.
+     Ein Prüfprotokoll ist keine Warnung. */
+  const erlaubt = d.score_erlaubt===true;
   const n = d.naehrwerte || (d.vorschlag && d.vorschlag.naehrwerte_100g) || null;
   const s = erlaubt ? vorlScore(n) : null;
   const name = esc(d.name || (d.vorschlag&&d.vorschlag.name) || "Unbekanntes Produkt");
@@ -5183,6 +5188,10 @@ function vorlKarte(d, ean){
 
   if(erlaubt){
     h+=nwZeile(n);
+    if(warn.length){
+      h+='<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:#fdf6e7;'
+        +'font-size:12px;line-height:1.5;color:#7a5c1e">Hinweis:<br>&bull; '+warn.map(esc).join('<br>&bull; ')+'</div>';
+    }
     h+=vorlBanner('Diese Zahlen stammen aus <b>'+esc(d.herkunftText||"OpenFoodFacts")+'</b>. '
       +'<b>Root Index hat dieses Produkt noch nicht geprüft.</b> Der Wert ist eine Einordnung, kein Urteil &ndash; '
       +'die vollständige Herleitung gibt es erst, wenn wir die Angaben gegen das Etikett belegt haben.');
@@ -5986,7 +5995,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13e";
+const APP_BUILD = "2026-07-13f";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
