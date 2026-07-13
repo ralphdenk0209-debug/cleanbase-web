@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13h dashboard-scanpruefung -->
+<!-- build 2026-07-13i eingang-editierbar -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1989,34 +1989,103 @@ async function loadDashboard(){
    gegen das Foto halten, sonst hebeln wir „nichts erfinden" genau dort aus,
    wo es am wichtigsten ist.
    ============================================================ */
-function nwTabelle(n){
-  if(!n) return '<div style="color:var(--muted);font-size:12.5px">Keine Nährwerte.</div>';
-  const rows=[["kcal","kcal",""],["protein","Eiweiß","g"],["kh","Kohlenhydrate","g"],
-              ["zucker","davon Zucker","g"],["fett","Fett","g"],["ges_fett","davon gesättigt","g"],
-              ["ballaststoffe","Ballaststoffe","g"],["salz","Salz","g"]];
+/* Nährwerte als EINGABEFELDER. Eine Prüfung, bei der man nur ja/nein sagen kann,
+   ist keine Prüfung. Wer den Fehler sieht, muss ihn beheben können. */
+const NW_FELDER=[["kcal","kcal",""],["protein","Eiweiß","g"],["kh","Kohlenhydrate","g"],
+  ["zucker","davon Zucker","g"],["fett","Fett","g"],["ges_fett","davon gesättigt","g"],
+  ["ballaststoffe","Ballaststoffe","g"],["salz","Salz","g"]];
+
+function nwForm(ean, n){
+  n=n||{};
   return '<table style="width:100%;border-collapse:collapse;font-size:13px">'
-    +rows.map(function(r){
-      const v=n[r[0]];
-      const txt=(v==null||v==="")?'<span style="color:#c2453a">fehlt</span>':(esc(String(v))+r[2]);
+    +NW_FELDER.map(function(r){
+      const v=(n[r[0]]==null?"":n[r[0]]);
       const ind=(r[0]==="zucker"||r[0]==="ges_fett")?'padding-left:12px;color:var(--muted)':'';
-      return '<tr><td style="padding:3px 0;'+ind+'">'+r[1]+'</td>'
-        +'<td style="padding:3px 0;text-align:right;font-weight:600">'+txt+'</td></tr>';
+      const pflicht=(r[0]==="kcal"||r[0]==="protein"||r[0]==="kh"||r[0]==="fett");
+      return '<tr><td style="padding:2px 0;'+ind+'">'+r[1]+(pflicht?' <span style="color:#c2453a">*</span>':'')+'</td>'
+        +'<td style="padding:2px 0;text-align:right;white-space:nowrap">'
+          +'<input id="nw_'+esc(ean)+'_'+r[0]+'" type="number" step="any" value="'+esc(String(v))+'" '
+          +'oninput="sePruefe(\''+esc(ean)+'\')" '
+          +'style="width:74px;padding:5px 6px;border:1px solid var(--line);border-radius:7px;'
+          +'background:var(--bg);color:var(--ink);text-align:right;font-weight:600;font-size:13px">'
+          +'<span style="font-size:11px;color:var(--muted);margin-left:2px;display:inline-block;width:12px">'+r[2]+'</span>'
+        +'</td></tr>';
     }).join("")
-    +'</table><div style="font-size:11px;color:var(--muted);margin-top:4px">je 100 g / 100 ml</div>';
+    +'</table>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:3px">je 100 g / 100 ml · <span style="color:#c2453a">*</span> Pflicht</div>'
+    +'<div id="seCheck_'+esc(ean)+'" style="font-size:12px;margin-top:6px;line-height:1.45"></div>';
 }
 
-function seZutaten(z){
-  if(!Array.isArray(z)||!z.length) return '<div style="color:#c2453a;font-size:12.5px">Keine Zutaten erfasst!</div>';
-  return '<div style="display:flex;flex-wrap:wrap;gap:5px">'
-    +z.map(function(x){
-      const r=Number(x.rating);
-      const col = r>=9?"#e7f4ec": r>=7?"#eef6e9": r>=5?"#fdf6e7": "#fdeceb";
-      const tx  = r>=9?"#1f5e34": r>=7?"#4d7c0f": r>=5?"#7a5c1e": "#9b2c22";
-      return '<span title="'+esc(x.begruendung||"")+'" style="font-size:11.5px;padding:3px 8px;'
-        +'border-radius:999px;background:'+col+';color:'+tx+'">'+esc(x.name)
-        +' <b>'+(isFinite(r)?r:"?")+'</b></span>';
-    }).join("")
+/* Live-Kontrolle beim Tippen: dieselbe Atwater-Rechnung wie im Backend.
+   Der Admin sieht SOFORT, ob seine Korrektur physikalisch möglich ist. */
+function seWerte(ean){
+  const o={};
+  NW_FELDER.forEach(function(r){
+    const el=document.getElementById("nw_"+ean+"_"+r[0]);
+    const v=el&&el.value!==""?Number(el.value):null;
+    o[r[0]]=(v!=null&&isFinite(v))?v:null;
+  });
+  return o;
+}
+function sePruefe(ean){
+  const box=document.getElementById("seCheck_"+ean); if(!box) return;
+  const n=seWerte(ean);
+  const w=[];
+  if(n.kcal==null||n.protein==null||n.kh==null||n.fett==null){
+    w.push("Pflichtfelder fehlen (kcal, Eiweiß, KH, Fett).");
+  } else {
+    const ber = 4*n.protein + 4*n.kh + 9*n.fett + 2*(n.ballaststoffe||0);
+    const abw = Math.abs(n.kcal - ber);
+    if(n.kcal>0 && abw>20 && abw/n.kcal>0.30)
+      w.push("kcal ("+Math.round(n.kcal)+") passt nicht zu den Makros – rechnerisch "+Math.round(ber)+".");
+    if(n.zucker!=null && n.zucker > n.kh+0.5) w.push("Zucker über Kohlenhydraten – unmöglich.");
+    if(n.ges_fett!=null && n.ges_fett > n.fett+0.5) w.push("Gesättigtes Fett über Gesamtfett – unmöglich.");
+    if(n.protein+n.kh+n.fett+(n.ballaststoffe||0) > 108) w.push("Summe über 100 g – unmöglich.");
+  }
+  if(w.length){
+    box.innerHTML='<span style="color:#b91c1c">&#9888; '+w.map(esc).join("<br>&#9888; ")+'</span>';
+  } else {
+    const ber = 4*n.protein + 4*n.kh + 9*n.fett + 2*(n.ballaststoffe||0);
+    box.innerHTML='<span style="color:#16a34a">&#10003; Plausibel. Rechnerisch '+Math.round(ber)+' kcal.</span>';
+  }
+}
+
+/* Zutaten: Name und Bewertung änderbar, löschbar, ergänzbar. */
+function seZutatenForm(ean, z){
+  z=Array.isArray(z)?z:[];
+  return '<div id="seZut_'+esc(ean)+'">'
+    + z.map(function(x,i){ return seZutatZeile(ean,i,x); }).join("")
+    +'</div>'
+    +'<button onclick="seZutatNeu(\''+esc(ean)+'\')" style="margin-top:5px;padding:6px 11px;border:1px dashed var(--line);'
+      +'border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;cursor:pointer">+ Zutat</button>';
+}
+function seZutatZeile(ean, i, x){
+  x=x||{};
+  const r=Number(x.rating);
+  return '<div class="seZeile" style="display:flex;gap:5px;align-items:center;margin-bottom:4px">'
+    +'<input value="'+esc(x.name||"")+'" placeholder="Zutat" '
+      +'style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-size:12.5px">'
+    +'<input type="number" min="1" max="10" step="1" value="'+(isFinite(r)?r:"")+'" placeholder="1-10" '
+      +'title="Verarbeitungsgrad: 10 = roh · 2 = raffiniert" '
+      +'style="width:56px;padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);text-align:center;font-weight:700;font-size:12.5px">'
+    +'<button onclick="this.parentNode.remove()" title="Zutat entfernen" '
+      +'style="flex:0 0 auto;padding:6px 9px;border:1px solid #f2c9c4;border-radius:7px;background:#fff;color:#b91c1c;cursor:pointer;font-size:12px">&times;</button>'
     +'</div>';
+}
+function seZutatNeu(ean){
+  const box=document.getElementById("seZut_"+ean); if(!box) return;
+  box.insertAdjacentHTML("beforeend", seZutatZeile(ean, box.children.length, {name:"",rating:""}));
+}
+function seZutatenLesen(ean){
+  const box=document.getElementById("seZut_"+ean); if(!box) return [];
+  const out=[];
+  Array.prototype.forEach.call(box.querySelectorAll(".seZeile"), function(z){
+    const inp=z.querySelectorAll("input");
+    const name=(inp[0].value||"").trim();
+    const r=Number(inp[1].value);
+    if(name && isFinite(r) && r>=1 && r<=10) out.push({name:name, rating:r, kritisch:false, anteil_prozent:null, begruendung:"vom Admin geprüft"});
+  });
+  return out;
 }
 
 async function loadScanEingang(){
@@ -2042,14 +2111,14 @@ async function loadScanEingang(){
         ? '<span style="background:#fdf6e7;color:#7a5c1e;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700">Riki-Lesung &ndash; PRÜFEN</span>'
         : '<span style="background:#e7f4ec;color:#1f5e34;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700">OpenFoodFacts</span>';
 
+      const inp='padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;width:100%;box-sizing:border-box';
+
       return '<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--card)">'
         +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
-          +donut(e.score, farbe(scoreBew(e.score)), 46)
+          +'<div id="seDonut_'+esc(e.ean)+'">'+donut(e.score, farbe(scoreBew(e.score)), 46)+'</div>'
           +'<div style="flex:1;min-width:140px">'
-            +'<div style="font-weight:700;color:var(--ink);line-height:1.25">'+esc(e.name||"(ohne Namen)")+'</div>'
-            +'<div style="font-size:12px;color:var(--muted)">'+esc(e.marke||"")+' &middot; '+esc(e.ean)+'</div>'
-            +'<div style="margin-top:4px">'+herkunftTxt
-              +' <span style="font-size:11px;color:var(--muted);margin-left:4px">'+e.treffer+'&times; gescannt</span></div>'
+            +'<div style="font-size:12px;color:var(--muted)">Barcode '+esc(e.ean)+' &middot; '+e.treffer+'&times; gescannt</div>'
+            +'<div style="margin-top:3px">'+herkunftTxt+'</div>'
           +'</div>'
         +'</div>'
 
@@ -2060,7 +2129,7 @@ async function loadScanEingang(){
         + (rikiWarn.length ? '<div style="font-size:12px;background:#fdf6e7;color:#7a5c1e;border-radius:8px;padding:7px 9px;margin-bottom:8px">'
             +'Hinweis:<br>&bull; '+rikiWarn.map(esc).join("<br>&bull; ")+'</div>' : '')
 
-        /* Foto LINKS, Zahlen RECHTS – nebeneinander, damit man wirklich vergleicht. */
+        /* Foto LINKS, Eingabefelder RECHTS – nebeneinander, damit man vergleicht UND korrigiert. */
         +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">'
           +'<div style="flex:1 1 190px;min-width:150px">'
             +(fotos.length
@@ -2069,25 +2138,71 @@ async function loadScanEingang(){
                     +'style="width:100%;border-radius:9px;border:1px solid var(--line);margin-bottom:6px;cursor:zoom-in;display:block">';
                 }).join("")
               : '<div style="padding:16px;border:1px dashed var(--line);border-radius:9px;text-align:center;color:var(--muted);font-size:12.5px">'
-                +'Kein Etikettfoto<br><span style="font-size:11px">(Daten kommen aus OpenFoodFacts)</span></div>')
+                +'Kein Etikettfoto<br><span style="font-size:11px">(Daten aus OpenFoodFacts)</span></div>')
           +'</div>'
-          +'<div style="flex:1 1 190px;min-width:150px">'
-            +nwTabelle(e.naehrwerte)
+          +'<div style="flex:1 1 200px;min-width:160px">'
+            +nwForm(e.ean, e.naehrwerte)
           +'</div>'
         +'</div>'
 
-        +'<div style="margin-top:10px;font-size:12px;color:var(--muted);margin-bottom:4px">Zutaten (mit Verarbeitungsgrad):</div>'
-        +seZutaten(e.zutaten)
+        +'<div style="margin-top:11px;display:flex;gap:6px;flex-wrap:wrap">'
+          +'<input id="seName_'+esc(e.ean)+'" value="'+esc(e.name||"")+'" placeholder="Produktname" style="flex:2 1 150px;'+inp+'">'
+          +'<input id="seMarke_'+esc(e.ean)+'" value="'+esc(e.marke||"")+'" placeholder="Marke" style="flex:1 1 100px;'+inp+'">'
+          +'<input id="seKat_'+esc(e.ean)+'" value="'+esc(e.kategorie||"")+'" placeholder="Kategorie" style="flex:1 1 110px;'+inp+'">'
+        +'</div>'
 
-        +'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px">'
+        +'<div style="margin-top:11px;font-size:12px;color:var(--muted);margin-bottom:5px">'
+          +'Zutaten &middot; Zahl = <b>Verarbeitungsgrad</b> (10 = roh, 2 = raffiniert):</div>'
+        +seZutatenForm(e.ean, e.zutaten)
+
+        +'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:13px">'
+          +'<button onclick="scanSpeichern(\''+esc(e.ean)+'\')" style="flex:1 1 130px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-weight:700;cursor:pointer;font-size:13.5px">💾 Korrektur speichern</button>'
           +'<button onclick="scanUebernehmen(\''+esc(e.ean)+'\',true)" style="flex:1 1 140px;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:14px">Freigeben &amp; aktiv</button>'
-          +'<button onclick="scanUebernehmen(\''+esc(e.ean)+'\',false)" style="flex:1 1 110px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-weight:600;cursor:pointer;font-size:13px">Als Entwurf</button>'
-          +'<button onclick="scanVerwerfen(\''+esc(e.ean)+'\')" style="flex:0 0 auto;padding:12px 14px;border:1px solid #f2c9c4;border-radius:10px;background:#fff;color:#b91c1c;font-weight:600;cursor:pointer;font-size:13px">Verwerfen</button>'
+          +'<button onclick="scanUebernehmen(\''+esc(e.ean)+'\',false)" style="flex:0 0 auto;padding:12px 13px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-weight:600;cursor:pointer;font-size:12.5px">Entwurf</button>'
+          +'<button onclick="scanVerwerfen(\''+esc(e.ean)+'\')" style="flex:0 0 auto;padding:12px 13px;border:1px solid #f2c9c4;border-radius:10px;background:#fff;color:#b91c1c;font-weight:600;cursor:pointer;font-size:12.5px">Verwerfen</button>'
         +'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:5px">Erst speichern, dann freigeben. „Freigeben" speichert deine Änderungen automatisch mit.</div>'
         +'<div id="seMsg_'+esc(e.ean)+'" style="font-size:12.5px;margin-top:7px"></div>'
       +'</div>';
     }).join("")
     +'<div style="height:1px;background:var(--line);margin:16px 0"></div>';
+
+  /* Live-Kontrolle einmal für alle laufen lassen */
+  list.forEach(function(e){ try{ sePruefe(e.ean); }catch(x){} });
+}
+
+/* Korrektur speichern. Dieselben Wächter greifen serverseitig – auch beim Admin. */
+async function scanSpeichern(ean, still){
+  const m=document.getElementById("seMsg_"+ean);
+  const n=seWerte(ean);
+  const z=seZutatenLesen(ean);
+  const name =(document.getElementById("seName_"+ean)||{}).value||"";
+  const marke=(document.getElementById("seMarke_"+ean)||{}).value||"";
+  const kat  =(document.getElementById("seKat_"+ean)||{}).value||"";
+
+  if(m && !still){ m.style.color="var(--muted)"; m.textContent="Speichere…"; }
+  try{
+    const {data,error}=await client.rpc("cb_scan_korrigieren",{
+      p_ean:ean, p_name:name, p_marke:marke, p_kategorie:kat,
+      p_naehrwerte:n, p_zutaten:z });
+    if(error) throw error;
+    if(!data || !data.ok) throw new Error((data&&data.grund)||"Fehler");
+
+    /* Donut sofort aktualisieren – man sieht, was die Korrektur bewirkt hat. */
+    const dn=document.getElementById("seDonut_"+ean);
+    if(dn) dn.innerHTML=donut(data.score, farbe(scoreBew(data.score)), 46);
+
+    if(m && !still){
+      if(data.score_erlaubt){ m.style.color="#16a34a"; m.innerHTML="&#10003; Gespeichert. Neuer vorläufiger Score: <b>"+data.score+"</b>"; }
+      else { m.style.color="#b45309";
+        m.innerHTML="Gespeichert, aber <b>noch nicht freigebbar</b>:<br>&bull; "
+          +(data.warnungen||[]).map(esc).join("<br>&bull; "); }
+    }
+    return data;
+  }catch(e){
+    if(m){ m.style.color="#dc2626"; m.textContent="Fehler: "+e.message; }
+    return null;
+  }
 }
 
 function fotoGross(ean, idx){
@@ -2111,6 +2226,15 @@ async function scanUebernehmen(ean, aktiv){
   const m=document.getElementById("seMsg_"+ean);
   if(m){ m.style.color="var(--muted)"; m.textContent="Wird übernommen…"; }
   try{
+    /* Erst die Änderungen sichern – sonst gehen Korrekturen beim Freigeben verloren. */
+    const gespeichert = await scanSpeichern(ean, true);
+    if(gespeichert && !gespeichert.score_erlaubt){
+      if(m){ m.style.color="#b91c1c";
+        m.innerHTML="<b>Nicht freigegeben.</b> Die Angaben sind noch unstimmig:<br>&bull; "
+          +(gespeichert.warnungen||[]).map(esc).join("<br>&bull; "); }
+      return;
+    }
+
     const {data,error}=await client.rpc("cb_scan_uebernehmen",{p_ean:ean, p_aktiv:!!aktiv});
     if(error) throw error;
     if(!data || !data.ok){ throw new Error((data&&data.grund)||"Unbekannter Fehler"); }
@@ -6341,7 +6465,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13h";
+const APP_BUILD = "2026-07-13i";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
