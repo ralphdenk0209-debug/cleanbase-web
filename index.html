@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13n scankette-auto -->
+<!-- build 2026-07-13o trainingstage -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -517,6 +517,18 @@
           <label style="font-size:13px;color:var(--ink)">Aktivitätslevel<select id="pfAktiv" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option>Sitzend</option><option>Leicht aktiv</option><option>Mäßig aktiv</option><option>Sehr aktiv</option></select></label>
           <label style="font-size:13px;color:var(--ink)">Ernährungsform<select id="pfErn" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option value="Omnivor">Omnivor (isst alles, auch Fleisch &amp; Fisch)</option><option value="Flexitarisch">Flexitarisch (überwiegend pflanzlich, selten Fleisch/Fisch)</option><option value="Pescetarisch">Pescetarisch (Fisch &amp; Meeresfrüchte, kein Fleisch)</option><option value="Vegetarisch">Vegetarisch (kein Fleisch &amp; Fisch, aber Milch/Ei)</option><option value="Vegan">Vegan (keine tierischen Produkte)</option></select></label>
         </div>
+        <!-- Trainingstage: an diesen Tagen ist der Kalorien-Zuschlag im Tagebuch vorbelegt.
+             Vorbelegt, nicht festgelegt - abwaehlen kann man ihn dort jeden Tag. -->
+        <div style="margin-top:16px;padding:12px 13px;border:1px solid var(--line);border-radius:11px;background:var(--card)">
+          <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px">💪 Trainingstage</div>
+          <div style="font-size:11.5px;color:var(--muted);line-height:1.45;margin-bottom:9px">An diesen Tagen ist der Kalorien-Zuschlag im Tagebuch <b>schon an</b>. Trainierst du doch nicht, tippst du ihn dort einfach wieder aus.</div>
+          <div id="pfTrainTage" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px"></div>
+          <label style="font-size:12.5px;color:var(--ink);display:flex;align-items:center;gap:8px">Zuschlag
+            <input type="number" id="pfTrainPlus" min="0" max="100" step="5" value="20" style="width:70px;padding:7px 8px;border:1px solid var(--line);border-radius:8px">
+            <span style="color:var(--muted)">% mehr Kalorien</span>
+          </label>
+        </div>
+
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin-top:12px"><input type="checkbox" id="pfNews" style="width:16px;height:16px;accent-color:#16a34a">Newsletter abonnieren – Infos zu neuen Produkten &amp; Rezepten</label>
         <button onclick="saveProfil()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;cursor:pointer">Speichern</button>
         <span id="pfMsg" style="font-size:13px;margin-left:10px"></span>
@@ -1007,6 +1019,7 @@ async function loadProfil(){
   _selVal("pfGewicht",b.Gewicht_kg); _selVal("pfAktiv",b.Aktivitaetslevel); _selVal("pfErn",b.Ernaehrungsform);
   _selVal("pfKcal",b.Kalorienziel_kcal); _selVal("pfEiw",b.Eiweiss_ziel_g); _selVal("pfKh",b.KH_ziel_g); _selVal("pfFett",b.Fett_ziel_g);
   _selVal("pfAnFr",b.Anteil_Fr); _selVal("pfAnMi",b.Anteil_Mi); _selVal("pfAnAb",b.Anteil_Ab); _selVal("pfAnSn",b.Anteil_Sn);
+  renderTrainTage(b.Trainingstage, b.Trainingstag_Plus);
   loadZielHistorie();
   renderProfilMass();
   loadZyklus();
@@ -1055,6 +1068,8 @@ async function saveProfil(){
   const news=!!(document.getElementById("pfNews")||{}).checked;
   const {error:e2}=await client.rpc("cb_profil_extra",{p_geburtsdatum:geb,p_newsletter:news});
   if(e2){ msg.style.color="#dc2626"; msg.textContent="Fehler: "+e2.message; return; }
+  const ttOk = await saveTrainTage();
+  if(!ttOk){ msg.style.color="#e8920c"; msg.textContent="Profil gespeichert – Trainingstage nicht. Bitte nochmal."; loadProfil(); return; }
   msg.style.color="#16a34a"; msg.textContent="✓ gespeichert"; loadProfil(); refreshMe();
 }
 /* ---- Zyklus (EN-12) ---- */
@@ -3860,6 +3875,7 @@ async function loadTagebuch(){
   const {data:eintraege}=await client.rpc("cb_tagebuch",{p_datum:datum});
   const {data:summe}=await client.rpc("cb_tagessumme",{p_datum:datum});
   const {data:profil}=await client.rpc("cb_profil");
+  await ladeTrainingstag(datum);   // MUSS vor renderZiel laufen - sonst rechnet das Ziel ohne Zuschlag
   renderZiel(summe&&summe[0], profil&&profil[0]);
   if(window._zyklus===undefined){ try{ const {data:zk}=await client.rpc("cb_zyklus_get"); const r=(zk&&zk[0])||{}; window._zyklus=(r.start)?{start:r.start,laenge:r.laenge||28,ende:r.ende||null}:{}; }catch(e){ window._zyklus={}; } }
   renderZyklusHint();
@@ -3913,13 +3929,106 @@ function zielForm(){
   </div>`; }
 function tbBar(ist,soll,col){ const p=soll?Math.min(100,Math.max(0,ist/soll*100)):0; return '<div style="height:7px;background:var(--tb-track);border-radius:5px;overflow:hidden"><div style="height:100%;width:'+p.toFixed(0)+'%;background:'+col+';border-radius:5px;transition:width .5s"></div></div>'; }
 function tbMacroCol(name,ist,soll,col){ ist=Math.round(ist||0); soll=Math.round(soll||0); return '<div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:600;color:var(--tb-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div><div style="font-size:11px;color:var(--tb-muted);margin:1px 0 4px;white-space:nowrap">'+ist+' / '+soll+' g</div>'+tbBar(ist,soll,col)+'</div>'; }
+/* ---- Trainingstage im Profil (Wochentag-Knoepfe) ----
+   ISO-Wochentage: 1 = Montag ... 7 = Sonntag. Dieselbe Zaehlung nutzt der Server
+   (extract(isodow)) - damit die beiden Seiten nicht auseinanderlaufen. */
+const TT_TAGE = [[1,"Mo"],[2,"Di"],[3,"Mi"],[4,"Do"],[5,"Fr"],[6,"Sa"],[7,"So"]];
+let TT_GEWAEHLT = new Set();
+function renderTrainTage(tage, plus){
+  const box=document.getElementById("pfTrainTage"); if(!box) return;
+  TT_GEWAEHLT = new Set(String(tage||"").split(",").filter(Boolean).map(Number));
+  const p=document.getElementById("pfTrainPlus"); if(p) p.value = (plus==null?20:plus);
+  box.innerHTML = TT_TAGE.map(function(t){
+    const an = TT_GEWAEHLT.has(t[0]);
+    return '<button type="button" onclick="trainTagToggle('+t[0]+')" style="'
+      + 'width:42px;padding:8px 0;border-radius:9px;cursor:pointer;font-size:12.5px;font-weight:600;'
+      + 'border:1px solid '+(an?'var(--green,#16a34a)':'var(--line)')+';'
+      + 'background:'+(an?'var(--greenlt,#eaf5ee)':'var(--card)')+';'
+      + 'color:'+(an?'var(--greendk,#166534)':'var(--muted)')+'">'+t[1]+'</button>';
+  }).join('');
+}
+function trainTagToggle(n){
+  if(TT_GEWAEHLT.has(n)) TT_GEWAEHLT.delete(n); else TT_GEWAEHLT.add(n);
+  const p=document.getElementById("pfTrainPlus");
+  renderTrainTage([...TT_GEWAEHLT].sort((a,b)=>a-b).join(","), p?p.value:20);
+}
+async function saveTrainTage(){
+  const p=document.getElementById("pfTrainPlus");
+  const tage=[...TT_GEWAEHLT].sort((a,b)=>a-b).join(",");
+  const plus=Math.max(0, Math.min(100, parseInt(p&&p.value,10) || 0));
+  try{
+    const {data}=await client.rpc("cb_trainingstage_profil",{p_tage:tage, p_plus:plus});
+    return !!(data && data.ok);
+  }catch(e){ return false; }
+}
+
+/* ============================================================
+   TRAININGSTAG
+   Der Nutzer hinterlegt seine Trainingstage (z. B. Mo/Mi/Fr) und einen Zuschlag
+   (Standard +20 %). An diesen Tagen ist der Zuschlag VORBELEGT - aber er kann ihn
+   jederzeit abwaehlen.
+   >>> Ein Plan ist eine Absicht, kein Protokoll. <<<
+   Wer montags trainieren WOLLTE und es nicht getan hat, bekommt keine 400 kcal
+   geschenkt. Deshalb ist die Vorbelegung eine Vermutung - und der Nutzer hat das
+   letzte Wort. Die Regel selbst liegt im Server (cb_trainingstag), nicht hier:
+   eine Regel, ein Ort. */
+let TT = null;   // {aktiv, vorbelegt, plus_prozent, kcal_basis, kcal_heute}
+
+async function ladeTrainingstag(datum){
+  TT = null;
+  if(!ME) return;
+  try{
+    const {data} = await client.rpc("cb_trainingstag", {p_datum: datum || tbToday()});
+    if(data && data.ok) TT = data;
+  }catch(e){}
+}
+async function trainingstagUmschalten(){
+  const d = (document.getElementById("tbDatum")||{}).value || tbToday();
+  const neu = !(TT && TT.aktiv);
+  try{
+    const {data} = await client.rpc("cb_trainingstag_setzen", {p_datum: d, p_aktiv: neu});
+    if(data && data.ok) TT = data;
+  }catch(e){ alert("Konnte nicht umgestellt werden: "+e.message); return; }
+  loadTagebuch();   // Ziel und Balken neu rechnen
+}
+function trainingstagBox(){
+  if(!TT || !TT.ok) return "";
+  const an = !!TT.aktiv, plus = TT.plus_prozent || 20;
+  const abweichung = (TT.aktiv !== TT.vorbelegt);
+  return '<div onclick="trainingstagUmschalten()" style="display:flex;align-items:center;gap:10px;margin-top:11px;padding:9px 11px;border-radius:10px;cursor:pointer;'
+    + 'background:'+(an?'#eef6ee':'#f4f5f4')+';border:1px solid '+(an?'#bcd9be':'var(--tb-line,#e7e0d4)')+'">'
+    + '<div style="width:38px;height:22px;border-radius:999px;flex:0 0 auto;position:relative;transition:background .15s;'
+      + 'background:'+(an?'#4d7c3a':'#c9c4bb')+'">'
+      + '<div style="position:absolute;top:2px;left:'+(an?'18px':'2px')+';width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>'
+    + '</div>'
+    + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;font-weight:600;color:'+(an?'#2f5d33':'var(--tb-muted,#6B6256)')+'">'
+        + '💪 Trainingstag'+(an?(' &nbsp;<span style="font-weight:700">+'+plus+'&thinsp;%</span>'):'')
+      + '</div>'
+      + '<div style="font-size:11px;color:var(--tb-muted,#6B6256);margin-top:1px">'
+        + (an
+            ? ('Ziel heute: <b>'+Math.round(TT.kcal_heute)+'</b> statt '+Math.round(TT.kcal_basis)+' kcal')
+            : (TT.vorbelegt ? 'Laut Plan wäre heute Training – abgewählt.' : 'Antippen, wenn du heute doch trainiert hast.'))
+      + '</div>'
+    + '</div>'
+    + (abweichung ? '<span style="font-size:10px;color:#8a8072;flex:0 0 auto">von dir gesetzt</span>' : '')
+    + '</div>';
+}
+
 function renderZiel(s,ben){
   const el=document.getElementById("tbZiel");
-  const kcalZ=num(ben&&ben.Kalorienziel_kcal), eiwZ=num(ben&&ben.Eiweiss_ziel_g), khZ=num(ben&&ben.KH_ziel_g), fettZ=num(ben&&ben.Fett_ziel_g);
-  if(!kcalZ){ el.innerHTML='<div style="font-weight:600;margin-bottom:6px">Kein Tagesziel gesetzt</div>'+zielForm(); return; }
+  const kcalBasis=num(ben&&ben.Kalorienziel_kcal), eiwZ=num(ben&&ben.Eiweiss_ziel_g), khZ=num(ben&&ben.KH_ziel_g), fettZ=num(ben&&ben.Fett_ziel_g);
+  if(!kcalBasis){ el.innerHTML='<div style="font-weight:600;margin-bottom:6px">Kein Tagesziel gesetzt</div>'+zielForm(); return; }
+  /* Das kcal-Ziel des TAGES - mit Trainings-Zuschlag, wenn er aktiv ist.
+     Die Makro-Ziele bleiben unberuehrt: Protein und Ballaststoffe sind Mindestmengen,
+     die haengen am Koerpergewicht, nicht am Trainingspensum. */
+  const anTraining = !!(TT && TT.ok && TT.aktiv);
+  const kcalZ = anTraining && TT.kcal_heute ? Number(TT.kcal_heute) : kcalBasis;
   const kc=Math.round((s&&s.kcal)||0), kp=kcalZ?Math.min(100,Math.round(kc/kcalZ*100)):0;
   el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-weight:600">Tagesüberblick</div><button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:var(--tb-muted);cursor:pointer;text-decoration:underline">Ziel ändern</button></div>'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-size:13px;color:var(--tb-muted)">kcal</span><span style="font-size:14px"><b>'+kc+'</b> <span style="color:var(--tb-muted)">/ '+Math.round(kcalZ)+' · '+kp+'%</span></span></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-size:13px;color:var(--tb-muted)">kcal</span><span style="font-size:14px"><b>'+kc+'</b> <span style="color:var(--tb-muted)">/ '+Math.round(kcalZ)+' · '+kp+'%</span>'
+      + (anTraining?'<span style="margin-left:6px;font-size:11px;font-weight:700;color:#4d7c3a;background:#eef6ee;border-radius:999px;padding:2px 7px">+'+(TT.plus_prozent||20)+'&thinsp;%</span>':'')
+      + '</span></div>'
     + tbBar(kc,kcalZ,'#22c55e')
     + '<div style="display:flex;gap:10px;margin-top:12px">'
       + tbMacroCol('Kohlenhydrate', s&&s.kh, khZ, '#f59e0b')
@@ -3927,6 +4036,7 @@ function renderZiel(s,ben){
       + tbMacroCol('Fett', s&&s.fett, fettZ, '#eab308')
       + tbMacroCol('Ballaststoffe', s&&s.ballaststoffe, BALLAST_ZIEL, '#0d9488')
     + '</div>'
+    + trainingstagBox()
     + `<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein &amp; Ballaststoffe = Mindestziel · Fett/KH/kcal = Obergrenze${(s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):''}</div>`;
 }
 async function setZiel(){
@@ -6559,7 +6669,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13n";
+const APP_BUILD = "2026-07-13o";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
