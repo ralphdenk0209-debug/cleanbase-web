@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13f warnungen-vs-protokoll -->
+<!-- build 2026-07-13g scanwerte-ins-tagebuch -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3571,7 +3571,7 @@ function tbScanPopup(){
         if(res){
           res.innerHTML =
             (kette && kette.html ? '<div style="margin-top:4px">'+kette.html+'</div>' : '')
-            +'<button onclick="window._tbAddManualEan=\''+code+'\';window._tbAddManualName=\'\';tbAddManualOpen();offLookup();" style="margin-top:14px;width:100%;box-sizing:border-box;padding:16px;border:0;border-radius:12px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 3px 10px rgba(22,163,74,.28)">Ins Tagebuch eintragen</button>';
+            +'<button onclick="tbAusScan(\''+code+'\')" style="margin-top:14px;width:100%;box-sizing:border-box;padding:16px;border:0;border-radius:12px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 3px 10px rgba(22,163,74,.28)">Ins Tagebuch eintragen</button>';
         }
       }
     }catch(e){ if(msg){ msg.style.color="#f87171"; msg.textContent="Fehler: "+e.message; } }
@@ -5089,8 +5089,16 @@ async function etikettSend(){
     ETI_SHOTS={}; renderEtiShots();
     const box=document.getElementById("etiShots");
     if(box){
-      box.innerHTML = vorlKarte({name:v.name, marke:v.marke, naehrwerte:v.naehrwerte_100g,
+      let h = vorlKarte({name:v.name, marke:v.marke, naehrwerte:v.naehrwerte_100g,
         warnungen:d.warnungen, score_erlaubt:d.score_erlaubt, herkunftText:d.herkunftText}, null);
+      /* Direkt weiter ins Tagebuch – die Werte sind gerade gelesen worden, sie liegen vor. */
+      if(d.score_erlaubt && ETI_EAN){
+        h += '<button onclick="etikettClose();tbAusScan(\''+String(ETI_EAN).replace(/[^0-9A-Za-z]/g,"")+'\')" '
+          +'style="margin-top:14px;width:100%;box-sizing:border-box;padding:16px;border:0;border-radius:12px;'
+          +'background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:16px;'
+          +'box-shadow:0 3px 10px rgba(22,163,74,.28)">Ins Tagebuch eintragen</button>';
+      }
+      box.innerHTML = h;
     }
     const sb=document.getElementById("etiSend"); if(sb) sb.style.display="none";
     etiMsg("&#10003; Gelesen. Die Fotos liegen bei uns &ndash; wir prüfen sie und nehmen das Produkt auf.","#16a34a");
@@ -5163,6 +5171,33 @@ function nwZeile(n){
     +'</div>';
 }
 
+/* Was der Scan gerade ermittelt hat – damit "Ins Tagebuch eintragen" es NICHT
+   nochmal bei OpenFoodFacts holen muss (wo es oft gar nicht steht). */
+let SCAN_DATEN = null;
+
+/* Übernimmt die Werte aus dem Scan direkt ins Tagebuch-Formular.
+   Vorher rief der Button offLookup() auf – der holt bei OFF, und genau dort
+   standen die Daten ja nicht. Ergebnis: leere Felder, obwohl der Wert dastand. */
+function tbAusScan(ean){
+  const d = SCAN_DATEN;
+  window._tbAddManualEan  = ean || (d && d.ean) || "";
+  window._tbAddManualName = (d ? ((d.marke? d.marke+" ":"") + (d.name||"")).trim() : "");
+  tbAddManualOpen();
+
+  if(!d || !d.n){ offLookup(); return; }
+
+  const setv=(id,v)=>{ const e=document.getElementById(id); if(e && v!=null && isFinite(v)) e.value = Math.round(v*10)/10; };
+  setv("tbmKcal", num(d.n.kcal));
+  setv("tbmEiw",  num(d.n.protein));
+  setv("tbmKh",   num(d.n.kh));
+  setv("tbmFett", num(d.n.fett));
+
+  const m=document.getElementById("tbmOffMsg");
+  if(m) m.innerHTML='&#10003; Werte aus dem Scan übernommen (je 100 g) &ndash; Quelle: <b>'
+    +esc(d.herkunft||"OpenFoodFacts")+'</b>. <b>Bitte prüfen.</b> Es fehlt nur noch die <b>Menge in g</b>.';
+  const mg=document.getElementById("tbmMenge"); if(mg){ try{ mg.focus(); }catch(e){} }
+}
+
 /* Der ehrliche Kern: unstimmige Daten -> KEIN Score. */
 function vorlKarte(d, ean){
   const warn = Array.isArray(d.warnungen)?d.warnungen:[];
@@ -5174,8 +5209,17 @@ function vorlKarte(d, ean){
   const erlaubt = d.score_erlaubt===true;
   const n = d.naehrwerte || (d.vorschlag && d.vorschlag.naehrwerte_100g) || null;
   const s = erlaubt ? vorlScore(n) : null;
-  const name = esc(d.name || (d.vorschlag&&d.vorschlag.name) || "Unbekanntes Produkt");
-  const marke= esc(d.marke|| (d.vorschlag&&d.vorschlag.marke) || "");
+  const nameRoh  = d.name || (d.vorschlag&&d.vorschlag.name) || "";
+  const markeRoh = d.marke|| (d.vorschlag&&d.vorschlag.marke) || "";
+  const name = esc(nameRoh || "Unbekanntes Produkt");
+  const marke= esc(markeRoh);
+
+  /* Werte merken – der Eintragen-Button nimmt sie direkt, statt sie bei OFF zu suchen. */
+  if(erlaubt && n){
+    SCAN_DATEN = { ean: ean || (typeof ETI_EAN!=="undefined"? ETI_EAN : null),
+                   name: nameRoh, marke: markeRoh, n: n, score: s,
+                   herkunft: d.herkunftText || "OpenFoodFacts" };
+  }
 
   let h='<div style="display:flex;gap:12px;align-items:flex-start;margin-top:12px">'
     +donutVorl(s, 62)
@@ -5995,7 +6039,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13f";
+const APP_BUILD = "2026-07-13g";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
