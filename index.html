@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13q reinheits-ampel -->
+<!-- build 2026-07-13r ampel-zwei-skalen -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -814,56 +814,98 @@ function reinheitsAmpelHtml(a){
   const f = RI_FARBEN[a.ampel] || RI_FARBEN.grau;
   const bef = Array.isArray(a.befunde) ? a.befunde : [];
 
-  /* Entwurf C: EINE Skala fuer alle Wirkstoffe. Der Grenzwert ist der Endpunkt.
-     Funktioniert auch bei einem Multivitamin mit 32 Wirkstoffen - ohne 32 Balken.
-     Ueber 100 % wird gestaucht dargestellt (sonst sprengt ein 150-%-Wert die Achse),
-     der Punkt sitzt aber sichtbar RECHTS der Grenzwertlinie. */
-  const skala = bef.length ? (function(){
-    const pos = function(p){ p = Number(p)||0; return p <= 100 ? (p*0.78) : Math.min(97, 78 + (p-100)*0.16); };
-    const punkte = bef.map(function(b){
-      const p = pos(b.prozent_ul);
-      const c = b.stufe==='rot' ? '#dc2626' : b.stufe==='gelb' ? '#e8920c' : '#7ba05b';
-      const gross = (b.stufe!=='gruen');
-      return '<div title="'+esc(b.wirkstoff)+' '+b.menge+' '+esc(b.einheit)+' – '+b.prozent_ul+' % des Grenzwerts" '
-        + 'style="position:absolute;left:'+p.toFixed(1)+'%;top:'+(gross?18:20)+'px;width:'+(gross?18:14)+'px;height:'+(gross?18:14)+'px;'
-        + 'border-radius:50%;background:'+c+';border:2.5px solid #fff;box-shadow:0 '+(gross?2:1)+'px '+(gross?5:3)+'px rgba(0,0,0,.25);'
-        + 'transform:translateX(-50%);z-index:'+(gross?3:2)+'"></div>';
-    }).join('');
-    // Beschriftung nur fuer den kritischsten
-    const top = bef[0];
-    const topLabel = (top && top.prozent_ul > 60)
-      ? '<div style="position:absolute;left:'+pos(top.prozent_ul).toFixed(1)+'%;top:-2px;transform:translateX(-50%);white-space:nowrap;'
-        + 'font-size:10.5px;font-weight:700;color:'+(top.stufe==='rot'?'#9b2c22':top.stufe==='gelb'?'#c2410c':'#2f5d33')+';'
-        + 'background:'+f.bg+';border:1px solid '+f.rand+';border-radius:99px;padding:2px 8px;z-index:4">'
-        + esc(top.wirkstoff)+' · '+top.prozent_ul+' %</div>'
-      : '';
-    return '<div style="position:relative;height:44px;margin:6px 0 4px">'
-      + '<div style="position:absolute;left:0;right:0;top:26px;height:6px;border-radius:99px;'
-      + 'background:linear-gradient(to right,#7ba05b 0%,#7ba05b 55%,#e8b04b 72%,#e8920c 82%,#dc2626 100%)"></div>'
-      + '<div style="position:absolute;left:78%;top:20px;width:2px;height:18px;background:#1D3C24;z-index:1"></div>'
-      + punkte + topLabel
-      + '</div>'
-      + '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#a89f8f;margin-bottom:12px">'
-      + '<span>0 %</span><span style="font-weight:600;color:#1D3C24">EFSA-Grenzwert ↑</span><span>darüber</span>'
-      + '</div>';
-  })() : '';
+  /* ZWEI GETRENNTE SKALEN JE WIRKSTOFF (Ralphs Idee, 13.07.2026).
+     Grund: Auf der einen Skala ist "viel" GUT, auf der anderen ist "viel" SCHLECHT.
+       Bedarf (NRV):      100 % = Tagesbedarf gedeckt. Mehr ist nicht besser, aber ok.
+       Sicherheit (UL):   100 % = das Maximum. Mehr ist ein Risiko.
+     Eine einzige Achse kann das nicht ausdruecken - sie wuerde beides vermischen.
+     Getrennt sieht der Kunde beide Seiten und entscheidet selbst. */
+  const skalenPaar = function(b){
+    const istRot  = (b.stufe === 'rot');
+    const istGelb = (b.stufe === 'gelb');
+    const cUL     = istRot ? '#dc2626' : istGelb ? '#e8920c' : '#7ba05b';
 
-  // Die auffaelligen Wirkstoffe im Klartext - mit BEIDEN Bezugswerten und Quelle.
-  const details = bef.filter(function(b){ return b.stufe!=='gruen'; }).map(function(b){
-    const c = b.stufe==='rot' ? '#dc2626' : '#e8920c';
-    return '<div style="background:'+f.bg+';border-left:3px solid '+c+';border-radius:9px;padding:10px 12px;margin-top:8px">'
-      + '<div style="font-size:12.5px;font-weight:700;color:'+f.text+';margin-bottom:4px">'
-        + esc(b.wirkstoff)+': '+b.menge+' '+esc(b.einheit)+' — <b>'+b.prozent_ul+' % des EFSA-Grenzwerts</b> ('+b.grenzwert+' '+esc(b.einheit)+')'
+    // Sicherheits-Skala: Grenzwert sitzt bei 70 % der Breite, damit Ueberschreitung sichtbar bleibt.
+    const GRENZE = 70;
+    const pUL    = Number(b.prozent_ul) || 0;
+    const bisGrenze = Math.min(pUL, 100) / 100 * GRENZE;
+    const drueber   = pUL > 100 ? Math.min(28, (pUL - 100) / 100 * GRENZE) : 0;
+
+    // Bedarfs-Skala: 100 % NRV sitzt bei 78 %, damit "mehr als der Bedarf" darstellbar ist.
+    const pNRV = (b.prozent_nrv != null) ? Number(b.prozent_nrv) : null;
+    const bNRV = (pNRV != null) ? Math.min(97, pNRV / 100 * 78) : null;
+
+    return '<div style="padding:12px 0;border-top:1px solid var(--line)">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px">'
+        + '<span style="font-size:14px;font-weight:700;color:var(--ink)">'+esc(b.wirkstoff)+'</span>'
+        + '<span style="font-size:14px;font-weight:700;color:var(--ink)">'+String(b.menge).replace('.',',')+' '+esc(b.einheit)+'</span>'
       + '</div>'
-      + (b.nrv!=null
-          ? '<div style="font-size:11.5px;color:'+f.text+';opacity:.9;margin-bottom:5px">Empfohlene Tagesdosis (NRV): <b>'+b.nrv+' '+esc(b.einheit)+'</b> → dieses Produkt liefert <b>'+b.prozent_nrv+' %</b>'
-            + (b.nrv_ueber_ul ? ' <span style="color:#c2410c">· die NRV selbst liegt über dem Grenzwert</span>' : '')
-            + '</div>'
-          : '')
-      + '<div style="font-size:11.5px;color:'+f.text+';opacity:.85;line-height:1.5">'+esc(String(b.wirkung||'').replace(/PERIPHERE NEUROPATHIE \(Nervenschaeden\)/,'Periphere Neuropathie (Nervenschäden)').replace(/Osmotische Durchfaelle/,'Osmotische Durchfälle'))+'</div>'
-      + '<div style="font-size:10px;color:#a89f8f;margin-top:6px;line-height:1.45">'+esc(b.quelle||'')+'</div>'
+
+      /* --- SKALA 1: BEDARF (NRV) --- */
+      + (pNRV != null
+        ? '<div style="margin-bottom:14px">'
+          + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
+            + '<span style="font-size:12px;font-weight:600;color:#2f5d33">Deckt deinen Tagesbedarf</span>'
+            + '<span style="font-size:12.5px;font-weight:700;color:#2f5d33">'+pNRV+' %</span>'
+          + '</div>'
+          + '<div style="position:relative;height:8px;background:#f0ece3;border-radius:99px">'
+            + '<div style="position:absolute;left:0;top:0;height:100%;width:'+bNRV.toFixed(1)+'%;background:#4d7c3a;border-radius:99px"></div>'
+            + '<div style="position:absolute;left:78%;top:-3px;width:2px;height:14px;background:#c9c4bb"></div>'
+          + '</div>'
+          + '<div style="display:flex;justify-content:space-between;margin-top:4px">'
+            + '<span style="font-size:10.5px;color:#a89f8f">0</span>'
+            + '<span style="font-size:10.5px;color:#8a8072">Tagesbedarf (NRV) = '+b.nrv+' '+esc(b.einheit)+'</span>'
+          + '</div>'
+        + '</div>'
+        : '<div style="margin-bottom:14px;font-size:11.5px;color:var(--muted)">Für diesen Wirkstoff nennt die EU keinen Tagesbedarf (NRV).</div>')
+
+      /* --- SKALA 2: SICHERHEITSGRENZE (EFSA-UL) --- */
+      + '<div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
+          + '<span style="font-size:12px;font-weight:600;color:'+(istRot||istGelb?'#c2410c':'#5a6660')+'">Anteil an der Sicherheitsgrenze</span>'
+          + '<span style="font-size:12.5px;font-weight:700;color:'+(istRot||istGelb?'#c2410c':'#5a6660')+'">'+pUL+' %</span>'
+        + '</div>'
+        + '<div style="position:relative;height:8px;background:#f0ece3;border-radius:99px">'
+          + '<div style="position:absolute;left:0;top:0;height:100%;width:'+bisGrenze.toFixed(1)+'%;background:#7ba05b;border-radius:99px'+(drueber>0?' 0 0 99px':'')+'"></div>'
+          + (drueber > 0
+              ? '<div style="position:absolute;left:'+GRENZE+'%;top:0;height:100%;width:'+drueber.toFixed(1)+'%;background:'+cUL+';border-radius:0 99px 99px 0"></div>'
+              : '')
+          + '<div style="position:absolute;left:'+GRENZE+'%;top:-4px;width:2.5px;height:16px;background:#1D3C24"></div>'
+        + '</div>'
+        + '<div style="display:flex;justify-content:space-between;margin-top:4px">'
+          + '<span style="font-size:10.5px;color:#a89f8f">0</span>'
+          + '<span style="font-size:10.5px;font-weight:600;color:#1D3C24">EFSA-Grenze = '+b.grenzwert+' '+esc(b.einheit)+' ↑</span>'
+        + '</div>'
+      + '</div>'
+
+      /* --- KLARTEXT, nur wenn es etwas zu sagen gibt --- */
+      + ((istRot || istGelb)
+        ? '<div style="background:'+f.bg+';border-left:3px solid '+cUL+';border-radius:9px;padding:10px 12px;margin-top:12px">'
+          + (b.nrv_ueber_ul && pNRV != null
+              ? '<div style="font-size:11.5px;color:'+f.text+';line-height:1.55;margin-bottom:7px">'
+                + '<b>Du bekommst '+pNRV+' % deines Tagesbedarfs — und liegst zugleich bei '+pUL+' % der Sicherheitsgrenze.</b> '
+                + 'Das klingt widersprüchlich, ist es aber nicht: Der gesetzliche Bedarfswert ('+b.nrv+' '+esc(b.einheit)+') liegt selbst <b>über</b> dem, was die EFSA als Obergrenze nennt ('+b.grenzwert+' '+esc(b.einheit)+').'
+                + '</div>'
+              : '')
+          + '<div style="font-size:11.5px;color:'+f.text+';opacity:.9;line-height:1.5'+(b.nrv_ueber_ul?';padding-top:7px;border-top:1px solid '+f.rand:'')+'">'
+            + '<b>Mögliche Folge:</b> '+esc(String(b.wirkung||'')
+                .replace(/PERIPHERE NEUROPATHIE \(Nervenschaeden\)\./,'Periphere Neuropathie (Nervenschäden).')
+                .replace(/Osmotische Durchfaelle\./,'Osmotischer Durchfall — unangenehm, aber vorübergehend.')
+                .replace(/Beeintraechtigung/,'Beeinträchtigung')
+                .replace(/WICHTIG:.*$/,''))
+          + '</div>'
+          + '</div>'
+        : '')
+
+      + '<div style="margin-top:9px;font-size:10px;color:#a89f8f;line-height:1.5">'
+        + (pNRV!=null ? 'Bedarf: VO (EU) 1169/2011, Anhang XIII · ' : '')
+        + 'Grenze: '+esc(String(b.quelle||'').replace(/ In: EFSA.*$/,''))
+      + '</div>'
       + '</div>';
-  }).join('');
+  };
+
+  const skala   = '';   // die alte Sammelskala entfaellt - zwei Skalen JE Wirkstoff sind klarer
+  const details = bef.map(skalenPaar).join('');
 
   const nrvBox = a.nrv_konflikt
     ? '<div style="margin-top:12px;padding:11px 12px;border-radius:10px;background:#f2f5f3;border-left:3px solid #4d7c3a">'
@@ -884,13 +926,18 @@ function reinheitsAmpelHtml(a){
     + '</div>'
     + '<div style="padding:14px 15px">'
       + (bef.length
-          ? ('<div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">'
-             + bef.length + ' von ' + (a.wirkstoffe||0) + ' Wirkstoffen haben einen EFSA-Grenzwert</div>'
+          ? ('<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:2px">'
+             + '<b style="color:#5a6660">Zwei Fragen, zwei Skalen.</b> Wie viel deines <b>Tagesbedarfs</b> deckt es? '
+             + 'Und wie nah ist es an der <b>Sicherheitsgrenze</b>? '
+             + 'Das sind verschiedene Dinge – bei der einen ist „viel" gut, bei der anderen nicht.'
+             + '<div style="margin-top:4px;color:#a89f8f">'+bef.length+' von '+(a.wirkstoffe||0)+' Wirkstoffen haben einen EFSA-Grenzwert.</div>'
+             + '</div>'
              + skala + details)
           : '<div style="font-size:12.5px;color:var(--muted);line-height:1.5">Kein Wirkstoff dieses Präparats hat einen EFSA-Grenzwert. Wir können die Dosierung deshalb nicht beurteilen – und behaupten auch nicht, sie sei in Ordnung.</div>')
       + nrvBox
-      + '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:11px;color:#a89f8f;line-height:1.5">'
-        + '<b style="color:#5a6660">Was wir nicht sagen:</b> '+esc(a.was_wir_nicht_sagen||'')
+      + '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:#5a6660;line-height:1.55">'
+        + '<b style="color:#1D3C24">Du entscheidest.</b> Wir sagen dir nicht, ob du das nehmen sollst – nur, wo du damit stehst.'
+        + '<div style="margin-top:5px;font-size:11px;color:#a89f8f">'+esc(a.was_wir_nicht_sagen||'')+'</div>'
       + '</div>'
     + '</div>'
     + '</div>';
@@ -6962,7 +7009,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13q";
+const APP_BUILD = "2026-07-13r";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
