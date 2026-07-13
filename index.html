@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13i eingang-editierbar -->
+<!-- build 2026-07-13n scankette-auto -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -730,10 +730,31 @@ function efChip(ef){
   return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:${c[0]};color:${c[1]}">${esc(ef)}</span>`;
 }
 function scoreBew(s){ if(s==null) return null; if(s>=90) return "Sehr gut"; if(s>=75) return "Gut"; if(s>=60) return "Mittel"; return "Schwach"; }
-function rezeptScore(r){
-  const z=Array.isArray(r.zutaten)?r.zutaten:[]; let sw=0,sg=0;
-  z.forEach(i=>{ const sc=num(i.clean_score), g=num(i.menge_g); if(sc!=null&&g!=null&&g>0){ sw+=sc*g; sg+=g; } });
-  return sg>0 ? Math.round(sw/sg) : null;
+/* Die alte Fassung strich Zutaten OHNE Score aus Zaehler UND Nenner. Ein Rezept, bei dem
+   nur eine von sechs Zutaten bewertet war, zeigte trotzdem einen vollwertigen Score.
+   Das ist derselbe Konzeptfehler wie die fehlende Naehrwert-Achse bei den Supplements
+   (§1.11j): Die Luecke fiel weg, der Rest wurde hochgerechnet - und wer weniger Daten
+   hatte, konnte besser dastehen. Eine fehlende Zahl ist ehrlich. Eine falsche ist Yuka.
+   Ab jetzt: kein Rezept-Score, solange nicht JEDE Zutat mit Menge bewertet ist.
+   rezeptScoreInfo() sagt zusaetzlich, WARUM keine Zahl da ist - eine Luecke, die man
+   nicht sieht, ist keine Luecke, sondern eine Falle. */
+function rezeptScoreInfo(r){
+  const z=Array.isArray(r.zutaten)?r.zutaten:[];
+  const mitMenge=z.filter(i=>num(i.menge_g)!=null&&num(i.menge_g)>0);
+  if(!mitMenge.length) return {score:null, grund:"keine Zutaten mit Mengenangabe", fehlend:[]};
+  const fehlend=mitMenge.filter(i=>num(i.clean_score)==null);
+  if(fehlend.length) return {score:null, grund:"unbewertete Zutaten", fehlend:fehlend.map(i=>i.name||"?")};
+  let sw=0,sg=0;
+  mitMenge.forEach(i=>{ sw+=num(i.clean_score)*num(i.menge_g); sg+=num(i.menge_g); });
+  return {score:Math.round(sw/sg), grund:null, fehlend:[]};
+}
+function rezeptScore(r){ return rezeptScoreInfo(r).score; }
+function rezeptScoreHinweis(r){
+  const info=rezeptScoreInfo(r);
+  if(info.score!=null) return "";
+  const liste=info.fehlend.length?(" Es fehlt die Bewertung von: <b>"+info.fehlend.slice(0,4).map(esc).join(", ")+(info.fehlend.length>4?" u. a.":"")+"</b>."):"";
+  return '<div style="font-size:11.5px;color:var(--muted);background:#f4f5f4;border-radius:7px;padding:6px 9px;margin-top:6px;line-height:1.35">'
+    +'<b>Kein Rezept-Wert.</b> Wir rechnen erst, wenn jede Zutat bewertet ist – sonst würde ein Rezept mit Datenlücken besser dastehen als eines, das wir kennen.'+liste+'</div>';
 }
 function statusTag(d){
   if(d.clean_score===null||d.clean_score===undefined)
@@ -1591,6 +1612,9 @@ function detail(d){
   const zInfoHtml = (()=>{const infos=zlist.map(z=>({z,t:zInfoClean(z.name,z.info)})).filter(o=>o.t);return infos.length?`<div style="margin-top:8px">${infos.map(o=>`<div style="font-size:12.5px;line-height:1.45;margin:6px 0;padding:8px 11px;background:var(--bg);border:1px solid var(--line);border-radius:9px"><b>${esc(o.z.name)}</b>${(String(o.z.kritisch||'')).toLowerCase()==='ja'?' ⚠️':''}: ${esc(o.t)}</div>`).join("")}</div>`:"";})();
   var _ztxt=((zlist||[]).map(function(z){return z.name||'';}).join(' '))+' '+((d.zusatz&&d.zusatz.text)||'')+' '+(d.zusatzstoffe_text||'');
   var _azoWarn=/\be ?(102|104|110|122|124|129)\b|tartrazin|chinolingelb|gelborange|azorubin|cochenillerot|allurarot/i.test(_ztxt);
+  // Supplements bekommen KEINEN Lebensmittel-Score (Kapsel hat keine Naehrwerte -> die
+  // fehlende 40-Punkte-Achse wuerde den Score kuenstlich anheben). Reinheits-Index folgt.
+  var _istSupp=(String(d.kategorie||'').toLowerCase()==='supplement') && d.clean_score==null;
   var _ksuessWarn=(String(d.suessstoffe||'')==='ja_kuenstlich')||/sucralose|acesulfam|aspartam|cyclamat|saccharin|\be ?9(5[0-9]|62)\b/i.test(_ztxt);
   /* FREI für alle: die Herleitung. „Vertrauen vor Umsatz" – das Warum ist kein Premium-Feature,
      es ist der Beweis, dass wir nichts erfinden. Premium sind die persönlichen Werkzeuge. */
@@ -1606,7 +1630,7 @@ function detail(d){
   /* PREMIUM: die Zutaten-Einzelbewertung im Detail (Herleitung bleibt frei, s. warumBlock) */
   const zutatenBlock = `
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Zutaten</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#1f5e34;margin-right:3px"></span>gut (Vollwert) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8920c;margin-right:3px"></span>mittel (verarbeitet) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px"></span>kritisch ⚠️</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#1f5e34;margin-right:3px"></span>gut (Vollwert) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8920c;margin-right:3px"></span>mittel (verarbeitet) &nbsp;<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#dc2626;margin-right:3px"></span>stark verarbeitet</div>
     <div>${zHtml}</div>
     ${(d.zusatz && d.zusatz.info && /neutral|technolog|unbedenk/i.test(String(d.zusatz.status||"")))?`<div style="margin-top:8px;font-size:12.5px;line-height:1.45;padding:8px 11px;background:#eef6ff;border:1px solid #cfe3f7;border-radius:9px;color:#1e3a8a"><b>* ${esc(d.zusatz.text||"Zusatzstoff")}</b> – technologisch notwendig &amp; unbedenklich, zählt nicht negativ. ${esc(d.zusatz.info)}</div>`:""}
     ${d.warum?`<div class="note"><h4>Warum empfohlen</h4>${esc(d.warum)}</div>`:""}
@@ -1635,12 +1659,12 @@ function detail(d){
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
     <div class="scorebar">
       ${donut(d.clean_score, col, 96)}
-      <div><div style="font-size:19px;font-weight:800;color:${col}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div></div>
+      <div><div style="font-size:19px;font-weight:800;color:${col}">${_istSupp?"Kein Lebensmittel-Score":(d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung"))}</div></div>
     </div>
     ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
     ${_azoWarn?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis „kann Aktivität und Aufmerksamkeit bei Kindern beeinträchtigen". Deckelt die Wertung auf höchstens „Gut".</div>`:""}
     ${_ksuessWarn?`<div class="note" style="background:#fffbeb;border-color:#fde68a;color:#92400e">⚠️ <b>Enthält künstliche Süßstoffe</b> (z. B. Sucralose/Acesulfam) – kalorienarm, aber umstritten. Bei gesüßten Getränken deckelt es die Wertung auf höchstens „Mittel".</div>`:""}
-    ${!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:""}
+    ${_istSupp?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a"><b>Für Nahrungsergänzung zeigen wir keinen Root Index.</b><br>Eine Kapsel hat keine Nährwerte – die Nährwert-Achse macht 40 von 100 Punkten aus. Würden wir sie einfach weglassen, bekäme ein Präparat allein dafür einen besseren Wert, dass uns Daten fehlen. Genau das haben wir abgestellt.<br>Wir bauen dafür einen eigenen <b>Reinheits-Index</b>. Bis er steht, zeigen wir dir hier lieber die Fakten – Zutaten, Zusatzstoffe, Wirkstoffe – als eine Zahl, die wir selbst nicht verteidigen könnten.</div>`:(!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:"")}
     ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
     ${warumBlock}
     ${_sd ? zutatenBlock : ""}
@@ -1930,8 +1954,12 @@ async function loadDashboard(){
        kpi("aktiv", k.aktiv||0, "#1D3C24", "Ø Score "+(k.schnitt_score!=null?k.schnitt_score:"–"))
       +kpi("Entwurf", k.entwurf||0, "var(--muted)", "nicht sichtbar")
       +kpi("Marken", k.markenprodukte||0, "#1D3C24", "scanbar")
-      +kpi("Barcode fehlt", k.ean_fehlt||0, (k.ean_fehlt?"#e8920c":"#16a34a"), "im Laden unauffindbar")
+      +kpi("Barcode offen", k.ean_fehlt||0, (k.ean_fehlt?"#e8920c":"#16a34a"), "nachzutragen")
      )
+    +'<div style="margin-top:6px;padding:8px 10px;border-radius:9px;background:#f2f5f3;font-size:11.5px;'
+      +'line-height:1.5;color:#5a6660">Die <b>'+(k.generisch||0)+' generischen Rohstoffe</b> (Apfel, Brokkoli, Ei …) '
+      +'sind hier <b>nicht</b> mitgezählt &ndash; lose Ware hat keinen Barcode und braucht auch keinen. '
+      +'„Barcode offen" meint echte Markenprodukte, deren Code wir noch nicht erfasst haben.</div>'
     +CARD("Score-Verteilung (aktive Produkte)", balken(sv,{h:80}))
 
     +H("👥 Nutzer")
@@ -2451,6 +2479,15 @@ const DARM_CATS=[
   {t:'Präbiotika (Inulin/Akazienfaser)', hint:'nicht verdaulicher Ballaststoff – keine zugelassene EU-Aussage', dosis:'langsam einschleichen', ids:['P1046']}
 ];
 function amzUrl(id){ return BUNDLE_ASIN[id]?('https://www.amazon.de/dp/'+BUNDLE_ASIN[id]+'?tag=rootindex-21'):''; }
+/* Eine Rangfolge setzt voraus, dass ALLE Kandidaten bewertet sind.
+   Seit Supplements keinen Lebensmittel-Score mehr bekommen (Clean_Score = NULL),
+   ergibt "num(b)-num(a)" fuer zwei leere Werte 0 -> die Sortierung passiert nicht,
+   und das erste Produkt der handgepflegten ID-Liste bekaeme das TOP-Siegel,
+   nur weil es zuerst getippt wurde. Das ist eine Empfehlung ohne Grundlage.
+   Regel: Rangfolge und TOP-Siegel nur, wenn jedes Produkt im Block einen Score hat.
+   Sonst: alle Kandidaten gleichrangig zeigen, keine Auswahl treffen. */
+function bundleRangbar(list){ return list.every(function(p){ return num(p.clean_score)!=null; }); }
+const BUNDLE_KEIN_RANG='<div style="font-size:11px;color:var(--muted);background:#f4f5f4;border-radius:7px;padding:5px 8px;margin-bottom:6px;line-height:1.35">Wir zeigen hier <b>keine Reihenfolge</b>. Nahrungsergänzung bewerten wir noch nicht – der <b>Reinheits-Index</b> ist in Arbeit. Bis dahin nennen wir dir alle Kandidaten, ohne einen zu bevorzugen.</div>';
 function bundleCard(p,winner){
   const img=(typeof BILD!=='undefined'&&BILD&&BILD[p.id])?BILD[p.id]:'';
   const url=amzUrl(p.id);
@@ -2496,18 +2533,19 @@ function darmBundleHtml(){
   const blocks=DARM_CATS.map(function(c){
     let list=c.ids.map(function(id){return (ALL||[]).find(function(x){return x.id===id;});}).filter(Boolean);
     if(!list.length) return '';
-    list.sort(function(a,b){return num(b.clean_score)-num(a.clean_score);});
-    list=list.slice(0,2);
-    const cards=list.map(function(p,i){return bundleCard(p,list.length>1&&i===0);}).join('');
+    const rangbar=bundleRangbar(list);
+    if(rangbar){ list.sort(function(a,b){return num(b.clean_score)-num(a.clean_score);}); list=list.slice(0,2); }
+    const cards=list.map(function(p,i){return bundleCard(p,rangbar&&list.length>1&&i===0);}).join('');
     return '<div class="zbCat" style="margin-top:13px">'
       +'<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:4px"><span style="font-weight:700;font-size:13.5px">'+esc(c.t)+'</span><span style="font-size:11px;color:var(--muted)">'+esc(c.hint)+'</span></div>'
       +(c.dosis?'<div style="font-size:11.5px;color:#9a3412;background:#fbeee6;border-radius:7px;padding:4px 8px;margin-bottom:6px">💊 Empfohlen: <b>'+esc(c.dosis)+'</b></div>':'')
+      +(rangbar?'':BUNDLE_KEIN_RANG)
       +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+cards+'</div></div>';
   }).join('');
   if(!blocks) return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);color:var(--muted);font-size:13px">Passende Produkte folgen in Kürze.</div>';
   return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">'
     +'<div style="font-weight:800;font-size:16px">Darmgesundheit – saubere Basics</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Ballaststoffe, Probiotika &amp; Präbiotika – je Kategorie unsere saubersten Produkte. <span style="color:#8a8072">· Anzeige</span></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Ballaststoffe, Probiotika &amp; Präbiotika – je Kategorie unsere handverlesenen Produkte. <span style="color:#8a8072">· Anzeige</span></div>'
     +blocks
     +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Anzeige · Partner-Links möglich · unsere Bewertung bleibt unabhängig. Keine medizinische Beratung.</div>'
     +'</div>';
@@ -2516,18 +2554,19 @@ function zyklusBundleHtml(){
   const blocks=ZYKLUS_CATS.map(c=>{
     let list=c.ids.map(id=>(ALL||[]).find(x=>x.id===id)).filter(Boolean);
     if(!list.length) return '';
-    list.sort((a,b)=>num(b.clean_score)-num(a.clean_score));
-    list=list.slice(0,2);
-    const cards=list.map((p,i)=>bundleCard(p,list.length>1&&i===0)).join('');
+    const rangbar=bundleRangbar(list);
+    if(rangbar){ list.sort((a,b)=>num(b.clean_score)-num(a.clean_score)); list=list.slice(0,2); }
+    const cards=list.map((p,i)=>bundleCard(p,rangbar&&list.length>1&&i===0)).join('');
     return '<div class="zbCat" style="margin-top:13px">'
       +'<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:4px"><span style="font-weight:700;font-size:13.5px">'+esc(c.t)+'</span><span style="font-size:11px;color:var(--muted)">'+esc(c.hint)+'</span></div>'
       +(c.dosis?'<div style="font-size:11.5px;color:var(--greendk);background:var(--greenlt);border-radius:7px;padding:4px 8px;margin-bottom:6px">💊 Übliche Tagesmenge in Studien: <b>'+esc(c.dosis)+'</b></div>':'')
+      +(rangbar?'':BUNDLE_KEIN_RANG)
       +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+cards+'</div></div>';
   }).join('');
   if(!blocks) return '';
   return '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)">'
     +'<div style="font-weight:800;font-size:16px">Zyklus-Nährstoffe – sauber statt Kombi-Pulver</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Nährstoffe mit zugelassenen EU-Aussagen (u. a. Vitamin B6 – Hormontätigkeit, Magnesium – Muskelfunktion) – je Kategorie unsere <b>2 saubersten</b> Produkte. <span style="color:#8a8072">· Anzeige</span></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 6px">Nährstoffe mit zugelassenen EU-Aussagen (u. a. Vitamin B6 – Hormontätigkeit, Magnesium – Muskelfunktion) – je Kategorie unsere <b>handverlesenen</b> Produkte. <span style="color:#8a8072">· Anzeige</span></div>'
     +'<div style="font-size:11.5px;color:var(--ink);background:var(--greenlt);border-radius:8px;padding:7px 9px">So nutzt du es: <b>Magnesium + 1 Omega-3</b> (Fisch <i>oder</i> vegan). Vitex &amp; B1 nur bei Bedarf.</div>'
     +blocks
     +'<div style="font-size:10.5px;color:#8a8072;margin-top:10px">Anzeige · Partner-Links: Preis für dich unverändert · unsere Bewertung bleibt unabhängig. Keine medizinische Beratung.</div>'
@@ -3999,6 +4038,7 @@ function tbScanPopup(){
             (kette && kette.html ? '<div style="margin-top:4px">'+kette.html+'</div>' : '')
             +'<button onclick="tbAusScan(\''+code+'\')" style="margin-top:14px;width:100%;box-sizing:border-box;padding:16px;border:0;border-radius:12px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 3px 10px rgba(22,163,74,.28)">Ins Tagebuch eintragen</button>';
         }
+        scanWeiterOhneKlick(kette, code);   // OFF hat nichts -> Kamera geht von selbst auf
       }
     }catch(e){ if(msg){ msg.style.color="#f87171"; msg.textContent="Fehler: "+e.message; } }
   }); }catch(e){ const msg=document.getElementById("tbScanMsg"); if(msg){ msg.style.color="#f87171"; msg.textContent="Kamera nicht verfügbar: "+e.message; } }
@@ -5289,7 +5329,7 @@ async function saveProfilMass(){
 
 /* ---- Produkt vorschlagen (Link/Barcode → Edge Function → Entwurf) ---- */
 const FN_URL = SUPABASE_URL + "/functions/v1/produkt-vorschlagen";
-let _scanning = false, _lastCode = null, _lastCount = 0, _scanCb = null;
+let _scanning = false, _lastCode = null, _lastCount = 0, _scanCb = null, _teardown = null, _scanLauf = 0;
 function setVorMsg(t,color){ const e=document.getElementById("vorMsg"); if(!e)return; e.style.color=color||"#374151"; e.innerHTML=t; }
 async function sendVorschlag(){
   const v=(document.getElementById("vorInput").value||"").trim();
@@ -5813,7 +5853,13 @@ function _onDetected(res){
   const code = res && res.codeResult && res.codeResult.code; if(!code) return;
   if(code===_lastCode){ _lastCount++; } else { _lastCode=code; _lastCount=1; }
   if(_lastCount<2) return;
-  const cb=_scanCb; stopScan(); if(cb) cb(code);
+  const cb=_scanCb;
+  /* Sofort entkoppeln: waehrend Quagga herunterfaehrt, koennen noch Frames
+     durchlaufen. Ohne das feuert derselbe Barcode ein zweites Mal. */
+  _scanCb=null;
+  try{ Quagga.offDetected(_onDetected); }catch(e){}
+  stopScan();               // startet den Teardown, blockiert nicht
+  if(cb) cb(code);          // Ergebnis sofort zeigen
 }
 /* Kamera-Streams hart freigeben – sonst hält iOS/Safari die Kamera fest
    und der nächste Scanner zeigt nur ein schwarzes Bild. */
@@ -5824,20 +5870,38 @@ function _killStreams(){
     });
   }catch(e){}
 }
+/* ==========================================================================
+   Quagga2 faehrt ASYNCHRON herunter: Quagga.stop() liefert ein Promise.
+   Der alte Code warf es weg. Folge: _killStreams() riss die Kamera MITTEN im
+   Teardown weg, Quagga blieb halb initialisiert zurueck. Das Bild war weg -
+   die Maschine lief weiter. Der naechste Quagga.init() startete in die tote
+   Instanz und zeigte ein schwarzes Bild. Erst ein ZWEITES stopScan() raeumte
+   auf - genau deshalb musste man die Kamera erst schliessen und neu oeffnen.
+
+   Jetzt: _teardown ist das Versprechen "ich bin fertig mit Aufraeumen".
+   Wer starten will, WARTET darauf.
+   ========================================================================== */
 function stopScan(){
-  if(_scanning){ try{ Quagga.offDetected(_onDetected); }catch(e){} try{ Quagga.stop(); }catch(e){} _scanning=false; }
-  else { try{ Quagga.offDetected(_onDetected); }catch(e){} try{ Quagga.stop(); }catch(e){} }
-  _killStreams();
-  _lastCode=null; _lastCount=0; _scanCb=null;
+  _scanLauf++;              // entwertet jeden Start, der gerade unterwegs ist
+  _scanning=false; _scanCb=null; _lastCode=null; _lastCount=0;
+  try{ Quagga.offDetected(_onDetected); }catch(e){}
+  // Die Kamerabox sofort ausblenden (die UI soll nicht haengen) ...
   ["vorReader","tbReader","prodReader","einkReader","ktReader","tbAddReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
+  // ... das eigentliche Herunterfahren aber SAUBER zu Ende laufen lassen.
+  _teardown = Promise.resolve()
+    .then(function(){ return Quagga.stop(); })   // Promise in Quagga2 >= 1.5
+    .catch(function(){})
+    .then(function(){ _killStreams(); })
+    .catch(function(){});
+  return _teardown;
 }
-function _startScan(targetId, cb){
+async function _startScan(targetId, cb){
   if(!window.Quagga){ alert("Scanner lädt noch – gleich nochmal versuchen."); return; }
   const tgt=document.getElementById(targetId); if(!tgt) return;
-  /* Läuft noch ein Scanner? Erst sauber beenden, Kamera freigeben – und dann NEU starten
-     (früher wurde hier nur gestoppt und abgebrochen → schwarzes Bild beim zweiten Öffnen). */
-  if(_scanning){ try{ Quagga.offDetected(_onDetected); }catch(e){} try{ Quagga.stop(); }catch(e){} _scanning=false; }
-  _killStreams();
+  /* Laeuft noch ein Scanner oder ein Teardown? Beenden - und ABWARTEN.
+     Das Abwarten ist der eigentliche Fix: frueher wurde sofort neu initialisiert. */
+  if(_scanning) stopScan();
+  if(_teardown){ try{ await _teardown; }catch(e){} _teardown=null; }
   _lastCode=null; _lastCount=0;
   _scanCb=cb;
   tgt.innerHTML=
@@ -5845,23 +5909,30 @@ function _startScan(targetId, cb){
     +'<div id="qbox" style="max-width:280px;margin:0 auto"></div>'
     +'<div id="qboxMsg" style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px">Kamera startet…</div>'
     +'<div style="text-align:center;margin-top:6px"><button onclick="stopScan()" style="padding:6px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;font-size:13px">Kamera schließen</button></div>';
-  setTimeout(function(){
-    const box=document.getElementById("qbox"); if(!box) return;
-    Quagga.init({
-      inputStream:{ type:"LiveStream", target:box,
-        constraints:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} } },
-      locator:{ patchSize:"medium", halfSample:true },
-      numOfWorkers:(navigator.hardwareConcurrency||4), frequency:10,
-      decoder:{ readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader"] }, locate:true
-    }, function(err){
-      const m=document.getElementById("qboxMsg");
-      if(err){ if(m){ m.style.color="#dc2626"; m.textContent="Kamera nicht verfügbar: "+(err.message||err); } _scanning=false; _scanCb=null; return; }
-      _scanning=true; Quagga.start();
-      if(m){ m.textContent="Barcode formatfüllend & scharf ins Bild halten."; }
-      const v=box.querySelector("video"); if(v){ v.setAttribute("playsinline",""); v.muted=true; try{ v.play(); }catch(e){} }
-    });
-    Quagga.onDetected(_onDetected);
-  }, 300);
+  /* Lauf-Nummer: Wird waehrenddessen gestoppt oder ein anderer Scanner geoeffnet,
+     darf dieser Start nicht mehr zuschlagen. Ohne das startet ein abgebrochener
+     Lauf in den neuen Scanner hinein und uebernimmt ihm die Kamera. */
+  const lauf = ++_scanLauf;
+  await new Promise(function(r){ setTimeout(r, 120); });
+  if(lauf !== _scanLauf) return;
+  const box=document.getElementById("qbox"); if(!box) return;
+  Quagga.init({
+    inputStream:{ type:"LiveStream", target:box,
+      constraints:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} } },
+    locator:{ patchSize:"medium", halfSample:true },
+    numOfWorkers:(navigator.hardwareConcurrency||4), frequency:10,
+    decoder:{ readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader"] }, locate:true
+  }, function(err){
+    /* Zwischenzeitlich abgebrochen? Dann das gerade Gestartete sofort wieder einsammeln. */
+    if(lauf !== _scanLauf){ try{ Quagga.stop(); }catch(e){} _killStreams(); return; }
+    const m=document.getElementById("qboxMsg");
+    if(err){ if(m){ m.style.color="#dc2626"; m.textContent="Kamera nicht verfügbar: "+(err.message||err); } _scanning=false; _scanCb=null; return; }
+    _scanning=true;
+    Quagga.onDetected(_onDetected);   // ERST bei Erfolg anhaengen - nicht auf Verdacht
+    Quagga.start();
+    if(m){ m.textContent="Barcode formatfüllend & scharf ins Bild halten."; }
+    const v=box.querySelector("video"); if(v){ v.setAttribute("playsinline",""); v.muted=true; try{ v.play(); }catch(e){} }
+  });
 }
 function toggleScan(){ _startScan("vorReader",(code)=>{ document.getElementById("vorInput").value=code; setVorMsg("✅ Barcode erkannt: <b>"+code+"</b> – jetzt „Senden“ tippen.","#16a34a"); }); }
 function prodScan(){
@@ -5888,8 +5959,31 @@ function prodScan(){
       try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Barcode-Scan",p_akteur:"Web"}); }catch(e){}
       scanOv(r.html||"", code);
       if(st) st.textContent="";
+      scanWeiterOhneKlick(r, code);
     }catch(e){ scanOv('<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>', code); }
   });
+}
+/* ============================================================
+   Die Kette laeuft bis zum Ende durch - ohne Zwischenklick.
+   Katalog -> Cache -> OpenFoodFacts laufen ohnehin automatisch und kosten nichts.
+   Findet auch OFF nichts, hat der Nutzer bisher einen Knopf gesehen ("Etikett
+   fotografieren"). Er steht aber im Laden mit dem Produkt in der Hand - der Knopf
+   ist ein Umweg. Also geht die Kamera von selbst auf.
+
+   ABER: Der Riki-Lauf wird NICHT automatisch ausgeloest.
+   Jedes gelesene Etikett kostet ~0,012 $ und zaehlt gegen das Tageslimit (15/Nutzer).
+   Ein versehentlicher Scan darf kein Geld verbrennen. Der Nutzer fotografiert,
+   sieht seine Bilder, und drueckt erst dann "Fotos senden".
+   >>> Kamera automatisch. Senden bewusst. <<<
+   ============================================================ */
+function scanWeiterOhneKlick(r, code){
+  if(!r || r.stufe !== "unbekannt") return;   // Katalog/Cache/OFF haben geliefert - nichts zu tun
+  if(!feat("etikett_riki")) return;           // Feature nicht frei -> beim Knopf bleiben
+  if(!ME) return;                             // Riki nur fuer Angemeldete (Kostenschutz)
+  if(typeof etikettOpen !== "function") return;
+  /* Kurz warten: Der Nutzer soll den Grund noch lesen ("Dieses Produkt kennt niemand"),
+     bevor die Kamera aufgeht. Ohne die Pause wirkt es wie ein Fehler. */
+  setTimeout(function(){ try{ etikettOpen(code); }catch(e){} }, 900);
 }
 function tbScan(){ _startScan("tbReader", async (code)=>{
   const tbm=document.getElementById("tbMsg");
@@ -6232,7 +6326,7 @@ function rezeptDetail(r){
       <div class="bigbadge" style="background:var(--green2)"><span class="num" id="rzKcalBadge">${r.kcal??"–"}</span><span style="font-size:10px">kcal</span></div>
       <div style="font-size:13.5px;line-height:1.6" id="rzMakros"></div>
     </div>
-    ${rsc!=null?`<div style="font-size:12.5px;margin:-4px 0 2px">Rezept-Index <b style="color:${farbe(rbew)}">${rsc} · ${rbew}</b> <span style="color:#9aa7a0">(Ø der Zutaten-Indizes, nach Gewicht)</span></div>`:''}
+    ${rsc!=null?`<div style="font-size:12.5px;margin:-4px 0 2px">Rezept-Index <b style="color:${farbe(rbew)}">${rsc} · ${rbew}</b> <span style="color:#9aa7a0">(Ø der Zutaten-Indizes, nach Gewicht)</span></div>`:rezeptScoreHinweis(r)}
     ${ownerBar}
     ${modBar}
     ${controls}
@@ -6465,7 +6559,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13i";
+const APP_BUILD = "2026-07-13n";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
