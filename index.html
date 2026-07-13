@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13p riki-rezept -->
+<!-- build 2026-07-13q reinheits-ampel -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -769,9 +769,131 @@ function rezeptScoreHinweis(r){
     +'<b>Kein Rezept-Wert.</b> Wir rechnen erst, wenn jede Zutat bewertet ist – sonst würde ein Rezept mit Datenlücken besser dastehen als eines, das wir kennen.'+liste+'</div>';
 }
 function statusTag(d){
+  /* Supplements bekommen keinen Root Index - aber sie sind nicht "unbewertet".
+     Die Ampel sagt, ob die Dosis innerhalb der EFSA-Grenzwerte liegt. */
+  if(String(d.kategorie||'').toLowerCase()==='supplement' && d.clean_score==null)
+    return `<span class="tag" style="background:#f2f5f3;color:#5a6660">Dosierung: siehe Details</span>`;
   if(d.clean_score===null||d.clean_score===undefined)
     return `<span class="tag" style="background:#eef2f6;color:var(--muted)">noch nicht bewertet</span>`;
   return `<span class="tag ${d.score_vollstaendig?"good":"teil"}">${d.score_vollstaendig?esc(d.bewertung):"Teilbewertung"}</span>`;
+}
+
+/* ============================================================
+   DIE REINHEITS-AMPEL (Supplements)
+   Drei Anlaeufe, eine Punktzahl zu bauen - und jede sah gut aus und wusste nichts.
+   Zuletzt bekam ein Magnesium mit 150 % des EFSA-Grenzwerts die Note "Sehr gut",
+   weil drei von vier Achsen bei allen Produkten fast gleich waren.
+
+   >>> Fuer Supplements gibt es keine ehrliche Zahl. <<<
+   Bei einem Lebensmittel variieren vier Achsen. Bei einer Kapsel gibt es EINE
+   relevante Frage: Ist die Dosis sicher? Alles andere ist Beiwerk.
+
+   Also keine Note, sondern eine Herleitung - der Claim des Projekts:
+   "Kein Urteil. Eine Herleitung."
+
+   Und der Satz, den sonst niemand sagt:
+   Auf der Packung steht "100 % NRV". Das ist ein KENNZEICHNUNGSWERT (VO 1169/2011),
+   KEINE Sicherheitsgrenze. Bei Magnesium sind 375 mg genau 100 % NRV - und
+   150 % des EFSA-Grenzwerts. Der gesetzliche "Tagesbedarf" liegt ueber der Grenze.
+   ============================================================ */
+const RI_FARBEN = {
+  rot:   {bg:'#fdeceb', rand:'#f3d6d3', text:'#9b2c22', punkt:'#dc2626', icon:'!'},
+  gelb:  {bg:'#fdf6e7', rand:'#f2e4c4', text:'#7a5c1e', punkt:'#e8920c', icon:'!'},
+  gruen: {bg:'#eef6ee', rand:'#d5e6d5', text:'#2f5d33', punkt:'#4d7c3a', icon:'✓'},
+  grau:  {bg:'#f4f5f4', rand:'#e5e0d6', text:'#5a6660', punkt:'#a89f8f', icon:'?'}
+};
+async function ladeReinheitsAmpel(){
+  const box = document.getElementById('riAmpel'); if(!box) return;
+  const pid = box.getAttribute('data-pid'); if(!pid) return;
+  let a = null;
+  try{ const {data} = await client.rpc('cb_reinheits_ampel', {p_produkt_id: pid}); a = data; }catch(e){}
+  if(!a || !a.gilt){ box.innerHTML=''; return; }
+  box.innerHTML = reinheitsAmpelHtml(a);
+}
+function reinheitsAmpelHtml(a){
+  const f = RI_FARBEN[a.ampel] || RI_FARBEN.grau;
+  const bef = Array.isArray(a.befunde) ? a.befunde : [];
+
+  /* Entwurf C: EINE Skala fuer alle Wirkstoffe. Der Grenzwert ist der Endpunkt.
+     Funktioniert auch bei einem Multivitamin mit 32 Wirkstoffen - ohne 32 Balken.
+     Ueber 100 % wird gestaucht dargestellt (sonst sprengt ein 150-%-Wert die Achse),
+     der Punkt sitzt aber sichtbar RECHTS der Grenzwertlinie. */
+  const skala = bef.length ? (function(){
+    const pos = function(p){ p = Number(p)||0; return p <= 100 ? (p*0.78) : Math.min(97, 78 + (p-100)*0.16); };
+    const punkte = bef.map(function(b){
+      const p = pos(b.prozent_ul);
+      const c = b.stufe==='rot' ? '#dc2626' : b.stufe==='gelb' ? '#e8920c' : '#7ba05b';
+      const gross = (b.stufe!=='gruen');
+      return '<div title="'+esc(b.wirkstoff)+' '+b.menge+' '+esc(b.einheit)+' – '+b.prozent_ul+' % des Grenzwerts" '
+        + 'style="position:absolute;left:'+p.toFixed(1)+'%;top:'+(gross?18:20)+'px;width:'+(gross?18:14)+'px;height:'+(gross?18:14)+'px;'
+        + 'border-radius:50%;background:'+c+';border:2.5px solid #fff;box-shadow:0 '+(gross?2:1)+'px '+(gross?5:3)+'px rgba(0,0,0,.25);'
+        + 'transform:translateX(-50%);z-index:'+(gross?3:2)+'"></div>';
+    }).join('');
+    // Beschriftung nur fuer den kritischsten
+    const top = bef[0];
+    const topLabel = (top && top.prozent_ul > 60)
+      ? '<div style="position:absolute;left:'+pos(top.prozent_ul).toFixed(1)+'%;top:-2px;transform:translateX(-50%);white-space:nowrap;'
+        + 'font-size:10.5px;font-weight:700;color:'+(top.stufe==='rot'?'#9b2c22':top.stufe==='gelb'?'#c2410c':'#2f5d33')+';'
+        + 'background:'+f.bg+';border:1px solid '+f.rand+';border-radius:99px;padding:2px 8px;z-index:4">'
+        + esc(top.wirkstoff)+' · '+top.prozent_ul+' %</div>'
+      : '';
+    return '<div style="position:relative;height:44px;margin:6px 0 4px">'
+      + '<div style="position:absolute;left:0;right:0;top:26px;height:6px;border-radius:99px;'
+      + 'background:linear-gradient(to right,#7ba05b 0%,#7ba05b 55%,#e8b04b 72%,#e8920c 82%,#dc2626 100%)"></div>'
+      + '<div style="position:absolute;left:78%;top:20px;width:2px;height:18px;background:#1D3C24;z-index:1"></div>'
+      + punkte + topLabel
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#a89f8f;margin-bottom:12px">'
+      + '<span>0 %</span><span style="font-weight:600;color:#1D3C24">EFSA-Grenzwert ↑</span><span>darüber</span>'
+      + '</div>';
+  })() : '';
+
+  // Die auffaelligen Wirkstoffe im Klartext - mit BEIDEN Bezugswerten und Quelle.
+  const details = bef.filter(function(b){ return b.stufe!=='gruen'; }).map(function(b){
+    const c = b.stufe==='rot' ? '#dc2626' : '#e8920c';
+    return '<div style="background:'+f.bg+';border-left:3px solid '+c+';border-radius:9px;padding:10px 12px;margin-top:8px">'
+      + '<div style="font-size:12.5px;font-weight:700;color:'+f.text+';margin-bottom:4px">'
+        + esc(b.wirkstoff)+': '+b.menge+' '+esc(b.einheit)+' — <b>'+b.prozent_ul+' % des EFSA-Grenzwerts</b> ('+b.grenzwert+' '+esc(b.einheit)+')'
+      + '</div>'
+      + (b.nrv!=null
+          ? '<div style="font-size:11.5px;color:'+f.text+';opacity:.9;margin-bottom:5px">Empfohlene Tagesdosis (NRV): <b>'+b.nrv+' '+esc(b.einheit)+'</b> → dieses Produkt liefert <b>'+b.prozent_nrv+' %</b>'
+            + (b.nrv_ueber_ul ? ' <span style="color:#c2410c">· die NRV selbst liegt über dem Grenzwert</span>' : '')
+            + '</div>'
+          : '')
+      + '<div style="font-size:11.5px;color:'+f.text+';opacity:.85;line-height:1.5">'+esc(String(b.wirkung||'').replace(/PERIPHERE NEUROPATHIE \(Nervenschaeden\)/,'Periphere Neuropathie (Nervenschäden)').replace(/Osmotische Durchfaelle/,'Osmotische Durchfälle'))+'</div>'
+      + '<div style="font-size:10px;color:#a89f8f;margin-top:6px;line-height:1.45">'+esc(b.quelle||'')+'</div>'
+      + '</div>';
+  }).join('');
+
+  const nrvBox = a.nrv_konflikt
+    ? '<div style="margin-top:12px;padding:11px 12px;border-radius:10px;background:#f2f5f3;border-left:3px solid #4d7c3a">'
+      + '<div style="font-size:12px;font-weight:700;color:#1D3C24;margin-bottom:3px">Warum „100 % NRV" nicht heißt, dass alles passt</div>'
+      + '<div style="font-size:11.5px;color:#5a6660;line-height:1.5">'+esc(a.nrv_erklaerung||'')+'</div>'
+      + '<div style="font-size:10px;color:#a89f8f;margin-top:5px">VO (EU) Nr. 1169/2011, Anhang XIII · EFSA, Overview on Tolerable Upper Intake Levels, Version 11 (2025)</div>'
+      + '</div>'
+    : '';
+
+  return '<div style="border:1px solid '+f.rand+';border-radius:14px;overflow:hidden;background:var(--card);margin:12px 0">'
+    + '<div style="padding:13px 15px;background:'+f.bg+';border-bottom:1px solid '+f.rand+';display:flex;gap:11px;align-items:center">'
+      + '<div style="width:32px;height:32px;border-radius:9px;background:'+f.punkt+';color:#fff;flex:0 0 auto;'
+        + 'display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px">'+f.icon+'</div>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-weight:700;font-size:14.5px;color:'+f.text+';line-height:1.3">'+esc(a.titel||'')+'</div>'
+        + '<div style="font-size:12px;color:'+f.text+';opacity:.85;line-height:1.45;margin-top:1px">'+esc(a.text||'')+'</div>'
+      + '</div>'
+    + '</div>'
+    + '<div style="padding:14px 15px">'
+      + (bef.length
+          ? ('<div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">'
+             + bef.length + ' von ' + (a.wirkstoffe||0) + ' Wirkstoffen haben einen EFSA-Grenzwert</div>'
+             + skala + details)
+          : '<div style="font-size:12.5px;color:var(--muted);line-height:1.5">Kein Wirkstoff dieses Präparats hat einen EFSA-Grenzwert. Wir können die Dosierung deshalb nicht beurteilen – und behaupten auch nicht, sie sei in Ordnung.</div>')
+      + nrvBox
+      + '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:11px;color:#a89f8f;line-height:1.5">'
+        + '<b style="color:#5a6660">Was wir nicht sagen:</b> '+esc(a.was_wir_nicht_sagen||'')
+      + '</div>'
+    + '</div>'
+    + '</div>';
 }
 function erklaerung(d){
   if(d.clean_score==null) return "Noch nicht bewertet – es fehlen die Zutaten-/Produktdaten.";
@@ -1672,14 +1794,26 @@ function detail(d){
     ${BILD[d.id]?`<div style="text-align:center;margin:8px 0"><img src="${esc(BILD[d.id])}" alt="" style="max-height:170px;max-width:100%;border-radius:12px" onerror="this.style.display='none'"></div>`:""}
     ${(d.dosis_text||d.inhalt_menge)?`<div style="background:var(--greenlt);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px;color:var(--ink);line-height:1.5">${d.dosis_text?`<div><b>Angegebene Dosis:</b> ${esc(d.dosis_text)}</div>`:""}${d.inhalt_menge?`<div><b>Inhalt:</b> ${esc(String(d.inhalt_menge).replace(/\.0+$/,""))}${d.inhalt_einheit?(" "+esc(d.inhalt_einheit)):""}${d.form?(" · "+esc(d.form)):""}</div>`:""}</div>`:""}
     ${varNote?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a">↔ ${varNote}</div>`:""}
+    ${_istSupp ? `
+    <div style="display:flex;gap:14px;align-items:center;margin:10px 0">
+      <svg width="54" height="54" viewBox="0 0 52 52" style="flex:0 0 auto" role="img" aria-label="Nahrungsergänzung">
+        <title>Nahrungsergänzung – kein Lebensmittel-Score</title>
+        <rect x="17" y="6" width="18" height="40" rx="9" fill="#f0ece3" stroke="#d8d2c6" stroke-width="1.5"/>
+        <line x1="17" y1="26" x2="35" y2="26" stroke="#d8d2c6" stroke-width="1.5"/>
+      </svg>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:800;color:var(--ink);line-height:1.25">Kein Lebensmittel-Score</div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:2px">Eine Kapsel ist kein Lebensmittel. Wir prüfen stattdessen, ob die <b>Dosis</b> innerhalb der EFSA-Grenzwerte liegt.</div>
+      </div>
+    </div>` : `
     <div class="scorebar">
       ${donut(d.clean_score, col, 96)}
-      <div><div style="font-size:19px;font-weight:800;color:${col}">${_istSupp?"Kein Lebensmittel-Score":(d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung"))}</div></div>
-    </div>
+      <div><div style="font-size:19px;font-weight:800;color:${col}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div></div>
+    </div>`}
     ${d.enthaelt_alkohol?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
     ${_azoWarn?`<div class="note" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">⚠️ <b>Enthält synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis „kann Aktivität und Aufmerksamkeit bei Kindern beeinträchtigen". Deckelt die Wertung auf höchstens „Gut".</div>`:""}
     ${_ksuessWarn?`<div class="note" style="background:#fffbeb;border-color:#fde68a;color:#92400e">⚠️ <b>Enthält künstliche Süßstoffe</b> (z. B. Sucralose/Acesulfam) – kalorienarm, aber umstritten. Bei gesüßten Getränken deckelt es die Wertung auf höchstens „Mittel".</div>`:""}
-    ${_istSupp?`<div class="note" style="background:#eef6ff;border-color:#cfe3f7;color:#1e3a8a"><b>Für Nahrungsergänzung zeigen wir keinen Root Index.</b><br>Eine Kapsel hat keine Nährwerte – die Nährwert-Achse macht 40 von 100 Punkten aus. Würden wir sie einfach weglassen, bekäme ein Präparat allein dafür einen besseren Wert, dass uns Daten fehlen. Genau das haben wir abgestellt.<br>Wir bauen dafür einen eigenen <b>Reinheits-Index</b>. Bis er steht, zeigen wir dir hier lieber die Fakten – Zutaten, Zusatzstoffe, Wirkstoffe – als eine Zahl, die wir selbst nicht verteidigen könnten.</div>`:(!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:"")}
+    ${_istSupp?`<div id="riAmpel" data-pid="${esc(d.id)}"><div class="note" style="background:#f4f5f4;color:var(--muted)">Prüfe die Dosierung gegen die EFSA-Grenzwerte…</div></div>`:(!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:"")}
     ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
     ${warumBlock}
     ${_sd ? zutatenBlock : ""}
@@ -1687,6 +1821,9 @@ function detail(d){
     ${_sd ? "" : upsellBlock}
   `;
   document.getElementById("overlay").classList.add("open");
+  /* Die Reinheits-Ampel wird nachgeladen (RPC gegen die EFSA-Grenzwerte).
+     Sie ersetzt bei Supplements den Platz, an dem sonst der Score steht. */
+  if(typeof ladeReinheitsAmpel === "function") ladeReinheitsAmpel();
 }
 function closeP(){document.getElementById("overlay").classList.remove("open");}
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));}
@@ -6825,7 +6962,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13p";
+const APP_BUILD = "2026-07-13q";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
