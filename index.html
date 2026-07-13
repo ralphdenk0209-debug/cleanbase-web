@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13b update-hinweis-sw-cache -->
+<!-- build 2026-07-13c scan-ergebnis-overlay -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -4955,6 +4955,8 @@ const ETI_SLOTS=[["zutaten","Zutatenliste"],["naehrwerte","Nährwerttabelle"],["
 let ETI_SHOTS={}; let ETI_EAN=null; let _etiTarget=null;
 function etiMsg(t,c){ const m=document.getElementById("etiMsg"); if(!m) return; m.style.color=c||"var(--ink)"; m.innerHTML=t; }
 function etikettOpen(ean){
+  /* Das Scan-Overlay liegt höher (9992) – ohne das hier läge der Etikett-Dialog dahinter. */
+  if(typeof scanOvClose==="function") scanOvClose();
   ETI_EAN=ean||null; ETI_SHOTS={};
   let ov=document.getElementById("etiOv");
   if(!ov){
@@ -5195,6 +5197,32 @@ async function offScan(ean){
   return d;
 }
 
+/* Ergebnis-Overlay. Der Nutzer steht im Laden und will den Score GROSS sehen,
+   nicht als Fußnote in einer Statuszeile. (Genau das war der Fehler in 13a/13b:
+   die Kette lief korrekt, aber das Ergebnis landete unsichtbar in "stats".) */
+function scanOv(html, ean){
+  let ov=document.getElementById("scanOv");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="scanOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9992;background:rgba(0,0,0,.55);"
+      +"display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box";
+    ov.onclick=function(e){ if(e.target===ov) scanOvClose(); };
+    ov.innerHTML='<div style="width:100%;max-width:460px;max-height:88vh;overflow:auto;'
+      +'background:var(--card,#fff);border-radius:14px;padding:16px;box-sizing:border-box">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">'
+      +'<b id="scanOvTitel" style="flex:1;font-size:16px;color:var(--ink)">Gescannt</b>'
+      +'<button onclick="scanOvClose()" style="border:0;background:transparent;font-size:20px;cursor:pointer;color:var(--muted)">&#10005;</button></div>'
+      +'<div id="scanOvEan" style="font-size:12px;color:var(--muted);margin-bottom:4px"></div>'
+      +'<div id="scanOvBody"></div>'
+      +'</div>';
+    document.body.appendChild(ov);
+  }
+  ov.style.display="flex";
+  const e=document.getElementById("scanOvEan"); if(e) e.textContent = ean?("Barcode "+ean):"";
+  const b=document.getElementById("scanOvBody"); if(b) b.innerHTML = html||"";
+}
+function scanOvClose(){ const o=document.getElementById("scanOv"); if(o) o.style.display="none"; }
+
 /* Die ganze Kette an einer Stelle. Gibt fertiges HTML zurück. */
 async function scanKette(ean){
   const {data:res} = await client.rpc("cb_scan_lookup",{p_ean:String(ean)});
@@ -5304,28 +5332,30 @@ function prodScan(){
   const st=document.getElementById("stats"); if(st) st.textContent="📷 Kamera öffnet – Barcode vor die Kamera halten…";
   _startScan("prodReader", async (code)=>{
     try{
-      if(st){ st.style.color="var(--muted)"; st.textContent="Barcode "+code+" – wird geprüft…"; }
+      scanOv('<div style="padding:18px 0;text-align:center;color:var(--muted)">Wird geprüft…</div>', code);
       const r = await scanKette(code);
 
       if(r.stufe==="katalog"){
         const p=(ALL||[]).find(x=>x.id===r.produkt_id);
-        if(p){ if(st) st.textContent="✅ Gefunden: "+esc(code); detail(p); return; }
+        if(p){ scanOvClose(); if(st) st.textContent="✅ Gefunden: "+esc(code); detail(p); return; }
       }
       try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Barcode-Scan",p_akteur:"Web"}); }catch(e){}
-      if(st){ st.style.color="var(--ink)"; st.innerHTML=r.html||""; }
-    }catch(e){ if(st){ st.style.color="#dc2626"; st.textContent="Fehler: "+e.message; } }
+      scanOv(r.html||"", code);
+      if(st) st.textContent="";
+    }catch(e){ scanOv('<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>', code); }
   });
 }
 function tbScan(){ _startScan("tbReader", async (code)=>{
   const tbm=document.getElementById("tbMsg");
   try{
     const {data}=await client.rpc("produkt_by_ean",{p_ean:code});
-    if(data&&data.id){ document.getElementById("tbProd").value=prodLabel(data); tbPrefillMenge(); tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; return; }
-    tbm.style.color="var(--muted)"; tbm.textContent="Barcode "+code+" – wird geprüft…";
+    if(data&&data.id){ document.getElementById("tbProd").value=prodLabel(data); tbPrefillMenge();
+      if(tbm){ tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; } return; }
+    scanOv('<div style="padding:18px 0;text-align:center;color:var(--muted)">Wird geprüft…</div>', code);
     const r = await scanKette(code);
     try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"}); }catch(e){}
-    tbm.style.color="var(--ink)"; tbm.innerHTML=r.html||"";
-  }catch(e){ tbm.style.color="#dc2626"; tbm.textContent="Fehler: "+e.message; }
+    scanOv(r.html||"", code);
+  }catch(e){ scanOv('<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>', code); }
 }); }
 function quelleChip(r){
   if(r.is_own){
@@ -5883,7 +5913,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13b";
+const APP_BUILD = "2026-07-13c";
 let _updateGezeigt = false;
 
 async function pruefeUpdate(){
