@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-12q rootindex-katrang-rikiaudit -->
+<!-- build 2026-07-13a scankette-cache-rikietikett -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -5010,16 +5010,216 @@ async function etikettSend(){
   const arr=ETI_SLOTS.map(function(s){ return ETI_SHOTS[s[0]]; }).filter(Boolean);
   if(!arr.length){ etiMsg("Bitte mindestens ein Foto aufnehmen.","#dc2626"); return; }
   etiMsg("Fotos werden gespeichert…","var(--muted)");
+
+  /* 1. Fotos IMMER speichern – auch wenn Riki gleich scheitert.
+        Ein Mensch kann sie dann prüfen. Die Arbeit des Nutzers geht nie verloren. */
   try{
     const {error}=await client.rpc("cb_foto_vormerken",{p_fotos:arr, p_ean:ETI_EAN||null, p_quelle:"Barcode-Scan Etikett"});
     if(error) throw error;
+  }catch(e){ etiMsg("Fehler beim Speichern: "+e.message,"#dc2626"); return; }
+
+  /* 2. Nur für Angemeldete: Riki liest die Tabelle und rechnet sofort. */
+  const {data:{session}} = await client.auth.getSession();
+  if(!session){
     ETI_SHOTS={}; renderEtiShots();
-    etiMsg("&#10003; Danke! "+arr.length+" Foto(s) gespeichert. Wir prüfen das Etikett und nehmen das Produkt auf.","#16a34a");
-    setTimeout(etikettClose, 2500);
-  }catch(e){ etiMsg("Fehler: "+e.message,"#dc2626"); }
+    etiMsg("&#10003; Danke! "+arr.length+" Foto(s) gespeichert. Wir prüfen das Etikett und nehmen das Produkt auf.<br>"
+      +'<span style="font-size:12px;color:var(--muted)">Angemeldet bekommst du den Wert sofort berechnet.</span>',"#16a34a");
+    setTimeout(etikettClose, 3000);
+    return;
+  }
+
+  etiMsg("Riki liest das Etikett…","var(--muted)");
+  try{
+    const r = await fetch(client.supabaseUrl+"/functions/v1/riki-etikett",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":client.supabaseKey},
+      body: JSON.stringify({bilder:arr, ean:ETI_EAN||null})
+    });
+    const d = await r.json();
+
+    if(!r.ok){
+      /* Limit oder Fehler: die Fotos liegen sicher, der Nutzer verliert nichts. */
+      etiMsg("&#10003; Fotos gespeichert. "+esc(d.error||"Riki ist gerade nicht verfügbar.")
+        +'<br><span style="font-size:12px;color:var(--muted)">Wir prüfen das Etikett von Hand und nehmen das Produkt auf.</span>',"#b45309");
+      ETI_SHOTS={}; renderEtiShots();
+      return;
+    }
+
+    d.herkunftText = "deinem Etikettfoto (Riki)";
+    const v = d.vorschlag||{};
+
+    /* In den Cache: ab jetzt bekommt JEDER Nutzer dieses Produkt sofort und gratis. */
+    if(ETI_EAN){
+      try{
+        await client.rpc("cb_scan_cache_schreiben",{
+          p_ean:String(ETI_EAN), p_name:v.name||null, p_marke:v.marke||null, p_kategorie:v.kategorie_vorschlag||null,
+          p_naehrwerte:v.naehrwerte_100g||null, p_zutaten:v.zutaten||null, p_zusatzstoffe:v.zusatzstoffe||null,
+          p_score: d.score_erlaubt?vorlScore(v.naehrwerte_100g):null,
+          p_score_erlaubt: !!d.score_erlaubt,
+          p_warnungen: d.warnungen||[], p_herkunft:"riki_etikett"});
+      }catch(e){}
+    }
+
+    ETI_SHOTS={}; renderEtiShots();
+    const box=document.getElementById("etiShots");
+    if(box){
+      box.innerHTML = vorlKarte({name:v.name, marke:v.marke, naehrwerte:v.naehrwerte_100g,
+        warnungen:d.warnungen, score_erlaubt:d.score_erlaubt, herkunftText:d.herkunftText}, null);
+    }
+    const sb=document.getElementById("etiSend"); if(sb) sb.style.display="none";
+    etiMsg("&#10003; Gelesen. Die Fotos liegen bei uns &ndash; wir prüfen sie und nehmen das Produkt auf.","#16a34a");
+  }catch(e){
+    etiMsg("&#10003; Fotos gespeichert. Riki konnte sie gerade nicht lesen &ndash; wir prüfen sie von Hand.","#b45309");
+    ETI_SHOTS={}; renderEtiShots();
+  }
 }
 function etikettCtaBtn(code){
   return '<button onclick="etikettOpen(\''+String(code).replace(/[^0-9A-Za-z]/g,"")+'\')" style="margin-top:8px;padding:9px 14px;border:1px solid var(--green,#16a34a);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);font-size:13px;font-weight:600;cursor:pointer">Etikett fotografieren &ndash; hilf uns, es aufzunehmen</button>';
+}
+
+/* ============================================================
+   DIE SCAN-KETTE  (Stand 2026-07-13)
+   1. Katalog      -> geprüfter Score
+   2. Scan-Cache   -> vorläufig, kostenlos (ein anderer hat es erfasst)
+   3. OpenFoodFacts-> vorläufig, kostenlos
+   4. Etikettfoto  -> Riki liest -> vorläufig  (das Einzige, was Geld kostet)
+   5. nichts       -> KEIN Score. Lieber eine Lücke als eine Lüge.
+   ============================================================ */
+
+/* Vorläufiger Ring: gestrichelt und gedämpft. Er MUSS sich vom geprüften
+   unterscheiden – sonst behaupten wir eine Sicherheit, die wir nicht haben. */
+function donutVorl(score,size){
+  size=size||62;
+  const has=(score!=null), v=has?Math.max(0,Math.min(100,score)):0;
+  const txt=has?String(Math.round(score)):"?";
+  const fs=Math.round(size*(txt.length>=3?0.24:0.29));
+  const col="#8a9691";
+  const R=24, U=2*Math.PI*R, off=U*(1-v/100);
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 64 64" style="flex:0 0 '+size+'px" aria-hidden="true">'
+    +'<circle cx="32" cy="32" r="'+R+'" fill="none" stroke="#e2e5e3" stroke-width="3.2" stroke-dasharray="3 4"/>'
+    +(has?'<circle cx="32" cy="32" r="'+R+'" fill="none" stroke="'+col+'" stroke-width="3.2" stroke-linecap="round"'
+      +' stroke-dasharray="'+U.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"'
+      +' transform="rotate(-90 32 32)" opacity=".85"/>':'')
+    +'<text x="32" y="33" text-anchor="middle" dominant-baseline="central" font-size="'+fs+'" font-weight="700" fill="'+col+'" font-family="-apple-system,BlinkMacSystemFont,sans-serif">'+txt+'</text>'
+    +'</svg>';
+}
+
+function vorlBanner(txt){
+  return '<div style="margin-top:10px;padding:10px 12px;border:1px dashed #c9d2cd;border-radius:10px;background:#f7f9f8;'
+    +'font-size:12.5px;line-height:1.5;color:#5a6660">'+txt+'</div>';
+}
+
+/* Score aus vorläufigen Daten – nur Nährwert-Achse (40 Pkt), hochgerechnet.
+   Bewusst grob: wir behaupten keine Genauigkeit, die wir nicht haben. */
+function vorlScore(n){
+  if(!n) return null;
+  const kcal=num(n.kcal), prot=num(n.protein), zuck=num(n.zucker),
+        gesf=num(n.ges_fett), ball=num(n.ballaststoffe), salz=num(n.salz);
+  if(kcal==null||prot==null) return null;
+  let p=0;
+  p += zuck==null?4:(zuck<=5?8:zuck<=10?6:zuck<=22.5?4:zuck<=35?2:0);
+  p += gesf==null?4:(gesf<=1.5?8:gesf<=3?6:gesf<=5?4:gesf<=10?2:0);
+  p += salz==null?4:(salz<=0.3?8:salz<=0.8?6:salz<=1.5?4:salz<=2.5?2:0);
+  p += ball==null?3:(ball>=6?8:ball>=4.5?6:ball>=3?4:ball>=1.5?2:0);
+  const pk = kcal>0 ? (prot/kcal*100) : 0;
+  p += pk>=8?8:pk>=5?6:pk>=3?4:pk>=1.5?2:0;
+  return Math.round(p/40*100);
+}
+
+function nwZeile(n){
+  if(!n) return "";
+  const f=(v,e)=>v==null?"–":(Math.round(v*10)/10)+(e||"");
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">'
+    +[["kcal",f(num(n.kcal))],["Eiweiß",f(num(n.protein),"g")],["Zucker",f(num(n.zucker),"g")],
+      ["Fett",f(num(n.fett),"g")],["Ballaststoffe",f(num(n.ballaststoffe),"g")],["Salz",f(num(n.salz),"g")]]
+      .map(x=>'<span style="font-size:11.5px;padding:3px 8px;border-radius:999px;background:#eef2f0;color:#475049">'
+        +x[0]+' <b>'+x[1]+'</b></span>').join("")
+    +'</div>';
+}
+
+/* Der ehrliche Kern: unstimmige Daten -> KEIN Score. */
+function vorlKarte(d, ean){
+  const warn = Array.isArray(d.warnungen)?d.warnungen:[];
+  const erlaubt = d.score_erlaubt===true && warn.length===0;
+  const n = d.naehrwerte || (d.vorschlag && d.vorschlag.naehrwerte_100g) || null;
+  const s = erlaubt ? vorlScore(n) : null;
+  const name = esc(d.name || (d.vorschlag&&d.vorschlag.name) || "Unbekanntes Produkt");
+  const marke= esc(d.marke|| (d.vorschlag&&d.vorschlag.marke) || "");
+
+  let h='<div style="display:flex;gap:12px;align-items:flex-start;margin-top:12px">'
+    +donutVorl(s, 62)
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="font-weight:600;color:var(--ink);line-height:1.3">'+name+'</div>'
+    +(marke?'<div style="font-size:12.5px;color:var(--muted)">'+marke+'</div>':'')
+    +'<span style="display:inline-block;margin-top:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#eef2f0;color:#5a6660">'
+      +(erlaubt?'vorläufig &ndash; nicht geprüft':'kein Score')+'</span>'
+    +'</div></div>';
+
+  if(erlaubt){
+    h+=nwZeile(n);
+    h+=vorlBanner('Diese Zahlen stammen aus <b>'+esc(d.herkunftText||"OpenFoodFacts")+'</b>. '
+      +'<b>Root Index hat dieses Produkt noch nicht geprüft.</b> Der Wert ist eine Einordnung, kein Urteil &ndash; '
+      +'die vollständige Herleitung gibt es erst, wenn wir die Angaben gegen das Etikett belegt haben.');
+  } else {
+    h+=vorlBanner('<b>Wir zeigen hier bewusst keinen Score.</b><br>'
+      +(warn.length?('Die Angaben sind unstimmig:<br>&bull; '+warn.map(esc).join('<br>&bull; ')):'Die Angaben sind unvollständig.')
+      +'<br><br>Wir raten nicht. Lieber eine Lücke als eine Zahl, die falsch ist.');
+  }
+  if(ean) h+='<div style="text-align:center">'+etikettCtaBtn(ean)+'</div>';
+  return h;
+}
+
+/* Stufe 3: OpenFoodFacts holen (kostet nichts) und in den Cache schreiben,
+   damit der nächste Nutzer es sofort und gratis bekommt. */
+async function offScan(ean){
+  const {data:{session}} = await client.auth.getSession();
+  const tok = session ? session.access_token : client.supabaseKey;
+  const r = await fetch(client.supabaseUrl+"/functions/v1/off-lookup",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+    body: JSON.stringify({mode:"ean", ean:String(ean)})
+  });
+  const d = await r.json();
+  if(!d || !d.gefunden) return null;
+  d.herkunftText = "OpenFoodFacts";
+  if(session){
+    try{
+      await client.rpc("cb_scan_cache_schreiben",{
+        p_ean:String(ean), p_name:d.name||null, p_marke:d.marke||null, p_kategorie:null,
+        p_naehrwerte:d.naehrwerte||null, p_zutaten:null, p_zusatzstoffe:null,
+        p_score: d.score_erlaubt?vorlScore(d.naehrwerte):null,
+        p_score_erlaubt: !!d.score_erlaubt,
+        p_warnungen: d.warnungen||[], p_herkunft:"openfoodfacts"});
+    }catch(e){}
+  }
+  return d;
+}
+
+/* Die ganze Kette an einer Stelle. Gibt fertiges HTML zurück. */
+async function scanKette(ean){
+  const {data:res} = await client.rpc("cb_scan_lookup",{p_ean:String(ean)});
+  if(!res) return {stufe:"fehler", html:'<div style="color:#dc2626">Barcode konnte nicht geprüft werden.</div>'};
+
+  if(res.stufe==="ungueltig")
+    return {stufe:"ungueltig", html:'<div style="color:#b45309">'+esc(res.meldung)+'</div>'};
+
+  if(res.stufe==="katalog")
+    return {stufe:"katalog", produkt_id:res.produkt_id, html:null};
+
+  if(res.stufe==="cache"){
+    res.herkunftText = res.herkunft==="riki_etikett" ? "einem Etikettfoto (Riki)" : "OpenFoodFacts";
+    return {stufe:"cache", html:vorlKarte(res, ean)};
+  }
+
+  const off = await offScan(ean);
+  if(off) return {stufe:"off", html:vorlKarte(off, ean)};
+
+  return {stufe:"unbekannt", html:
+    '<div style="margin-top:10px;padding:11px 12px;border:1px dashed #c9d2cd;border-radius:10px;background:#f7f9f8;font-size:13px;line-height:1.55;color:#5a6660">'
+    +'<b style="color:var(--ink)">Dieses Produkt kennt niemand.</b><br>'
+    +'Auch OpenFoodFacts hat keine Daten dazu. Wir könnten jetzt raten &ndash; wir tun es nicht.<br><br>'
+    +'<b>Du hast es in der Hand?</b> Fotografier die Nährwerttabelle, dann rechnen wir es dir sofort aus.</div>'
+    +'<div style="text-align:center">'+etikettCtaBtn(ean)+'</div>'};
 }
 /* Freigabe: mehrere Etikettfotos je Entwurf sammeln, dann zusammen senden */
 const FG_SHOTS={};
@@ -5104,26 +5304,27 @@ function prodScan(){
   const st=document.getElementById("stats"); if(st) st.textContent="📷 Kamera öffnet – Barcode vor die Kamera halten…";
   _startScan("prodReader", async (code)=>{
     try{
-      const {data:pid}=await client.rpc("cb_produkt_id_by_ean",{p_ean:code});
-      const p=pid&&(ALL||[]).find(x=>x.id===pid);
-      if(p){ if(st) st.textContent="✅ Gefunden: "+esc(code); detail(p); }
-      else {
-        try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Barcode-Scan",p_akteur:"Web"}); if(st){ st.style.color="#2E7D32"; st.innerHTML="Barcode "+esc(code)+" noch nicht im Katalog – <b>gespeichert</b>.<br><span style=\"color:var(--muted);font-size:12.5px\">Du hast das Produkt in der Hand? Dann geht es sofort:</span><br>"+etikettCtaBtn(code); } }
-        catch(e){ if(st){ st.style.color="#e8920c"; st.innerHTML="Barcode "+esc(code)+" nicht im Katalog.<br>"+etikettCtaBtn(code); } }
+      if(st){ st.style.color="var(--muted)"; st.textContent="Barcode "+code+" – wird geprüft…"; }
+      const r = await scanKette(code);
+
+      if(r.stufe==="katalog"){
+        const p=(ALL||[]).find(x=>x.id===r.produkt_id);
+        if(p){ if(st) st.textContent="✅ Gefunden: "+esc(code); detail(p); return; }
       }
-    }catch(e){ alert("Fehler: "+e.message); }
+      try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Barcode-Scan",p_akteur:"Web"}); }catch(e){}
+      if(st){ st.style.color="var(--ink)"; st.innerHTML=r.html||""; }
+    }catch(e){ if(st){ st.style.color="#dc2626"; st.textContent="Fehler: "+e.message; } }
   });
 }
 function tbScan(){ _startScan("tbReader", async (code)=>{
   const tbm=document.getElementById("tbMsg");
   try{
     const {data}=await client.rpc("produkt_by_ean",{p_ean:code});
-    if(data&&data.id){ document.getElementById("tbProd").value=prodLabel(data); tbPrefillMenge(); tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; }
-    else {
-      try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
-        tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+esc(code)+" noch nicht im Katalog – <b>gespeichert</b>.<br><span style=\"font-size:12.5px;color:var(--muted)\">Du hast das Produkt in der Hand? Dann geht es sofort:</span><br>"+etikettCtaBtn(code); }
-      catch(e){ tbm.style.color="#b45309"; tbm.innerHTML="Barcode "+esc(code)+" nicht im Katalog.<br>"+etikettCtaBtn(code); }
-    }
+    if(data&&data.id){ document.getElementById("tbProd").value=prodLabel(data); tbPrefillMenge(); tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; return; }
+    tbm.style.color="var(--muted)"; tbm.textContent="Barcode "+code+" – wird geprüft…";
+    const r = await scanKette(code);
+    try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"}); }catch(e){}
+    tbm.style.color="var(--ink)"; tbm.innerHTML=r.html||"";
   }catch(e){ tbm.style.color="#dc2626"; tbm.textContent="Fehler: "+e.message; }
 }); }
 function quelleChip(r){
