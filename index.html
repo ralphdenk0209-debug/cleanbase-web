@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13c scan-ergebnis-overlay -->
+<!-- build 2026-07-13d feature-flags-beta -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3293,7 +3293,12 @@ async function einkaufScan(){
         einkMsg("&#10003; "+esc((p&&p.name)||code)+" zur Liste hinzugefügt.","#16a34a");
       } else {
         try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Einkaufs-Scan",p_akteur:"Web"}); }catch(e){}
-        einkMsg("Barcode "+esc(code)+" ist noch nicht im Katalog – gespeichert.<br>"+etikettCtaBtn(code),"#b45309");
+        einkMsg("Barcode "+esc(code)+" ist noch nicht im Katalog – gespeichert.","#b45309");
+        if(feat("scan_kette")){
+          try{ const k=await scanKette(code); scanOv(k.html||"", code); }catch(e){}
+        } else {
+          einkMsg("Barcode "+esc(code)+" ist noch nicht im Katalog – gespeichert.<br>"+etikettCtaBtn(code),"#b45309");
+        }
       }
     }catch(e){ einkMsg("Fehler: "+esc(e.message),"#dc2626"); }
   });
@@ -3544,13 +3549,30 @@ function tbScanPopup(){
         if(p){ const b=document.getElementById("tbAddBody"); if(b) b.innerHTML='<div id="tbAddResults"></div>'; window._tbAddList=[p]; tbAddPick(0); return; }
         if(msg){ msg.style.color="#2E7D32"; msg.textContent="✓ "+data.name+" erkannt."; }
       } else {
-        try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"});
-          if(msg){ msg.style.color="#2E7D32"; msg.innerHTML="Barcode "+code+" noch nicht im Katalog – <b>gespeichert</b>. Wird nach Prüfung ergänzt."; }
-        }catch(e){ if(msg){ msg.style.color="#e8920c"; msg.textContent="Barcode "+code+" nicht im Katalog."; } }
+        try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"}); }catch(e){}
+
+        if(!feat("scan_kette")){
+          if(msg){ msg.style.color="#2E7D32"; msg.innerHTML="Barcode "+esc(code)+" noch nicht im Katalog – <b>gespeichert</b>. Wird nach Prüfung ergänzt."; }
+          const res0=document.getElementById("tbAddResults");
+          if(res0){ res0.innerHTML='<button onclick="window._tbAddManualEan=\''+code+'\';window._tbAddManualName=\'\';tbAddManualOpen();offLookup();" style="margin-top:10px;width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">🔎 Bei Open Food Facts holen &amp; eintragen</button>'
+            +'<div style="margin-top:8px;font-size:12.5px;color:var(--muted);text-align:center">Nicht bei OFF? Du hast das Produkt in der Hand?</div>'
+            +'<div style="text-align:center">'+etikettCtaBtn(code)+'</div>'; }
+          return;
+        }
+
+        /* Scan-Kette: erst den Score zeigen, dann die Eintrag-Option.
+           Der Nutzer steht im Laden und will WISSEN, was drin ist – nicht nur eintragen. */
+        if(msg){ msg.style.color="var(--muted)"; msg.textContent="Barcode "+code+" – wird geprüft…"; }
+        let kette=null;
+        try{ kette = await scanKette(code); }catch(e){}
+
+        if(msg){ msg.style.color="var(--muted)"; msg.innerHTML="Barcode "+esc(code)+" – noch nicht im Katalog."; }
         const res=document.getElementById("tbAddResults");
-        if(res){ res.innerHTML='<button onclick="window._tbAddManualEan=\''+code+'\';window._tbAddManualName=\'\';tbAddManualOpen();offLookup();" style="margin-top:10px;width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">🔎 Bei Open Food Facts holen &amp; eintragen</button>'
-          +'<div style="margin-top:8px;font-size:12.5px;color:var(--muted);text-align:center">Nicht bei OFF? Du hast das Produkt in der Hand?</div>'
-          +'<div style="text-align:center">'+etikettCtaBtn(code)+'</div>'; }
+        if(res){
+          res.innerHTML =
+            (kette && kette.html ? '<div style="margin-top:4px">'+kette.html+'</div>' : '')
+            +'<button onclick="window._tbAddManualEan=\''+code+'\';window._tbAddManualName=\'\';tbAddManualOpen();offLookup();" style="margin-top:12px;width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Ins Tagebuch eintragen</button>';
+        }
       }
     }catch(e){ if(msg){ msg.style.color="#f87171"; msg.textContent="Fehler: "+e.message; } }
   }); }catch(e){ const msg=document.getElementById("tbScanMsg"); if(msg){ msg.style.color="#f87171"; msg.textContent="Kamera nicht verfügbar: "+e.message; } }
@@ -5020,9 +5042,11 @@ async function etikettSend(){
     if(error) throw error;
   }catch(e){ etiMsg("Fehler beim Speichern: "+e.message,"#dc2626"); return; }
 
-  /* 2. Nur für Angemeldete: Riki liest die Tabelle und rechnet sofort. */
+  /* 2. Nur für Angemeldete MIT Freigabe: Riki liest die Tabelle und rechnet sofort.
+        Ohne das Flag würde der Aufruf bei Nutzern Geld kosten, für die er gar nicht
+        freigegeben ist. */
   const {data:{session}} = await client.auth.getSession();
-  if(!session){
+  if(!session || !feat("etikett_riki")){
     ETI_SHOTS={}; renderEtiShots();
     etiMsg("&#10003; Danke! "+arr.length+" Foto(s) gespeichert. Wir prüfen das Etikett und nehmen das Produkt auf.<br>"
       +'<span style="font-size:12px;color:var(--muted)">Angemeldet bekommst du den Wert sofort berechnet.</span>',"#16a34a");
@@ -5197,6 +5221,39 @@ async function offScan(ean){
   return d;
 }
 
+/* ============================================================
+   FEATURE-FLAGS (2026-07-13)
+   Neues erst selbst testen, dann für alle freigeben.
+   Ein Feature, das bei allen gleichzeitig live geht und dann nicht funktioniert,
+   kostet Vertrauen, das man nicht zurückkauft.
+   Steuerung in der DB: Tabelle Feature_Flags (Fuer_Beta / Fuer_Alle).
+   ============================================================ */
+let FEATURES = {};
+let IST_BETA = false;
+
+async function ladeFeatures(){
+  try{
+    const {data} = await client.rpc("cb_features");
+    if(data){ FEATURES = data.features || {}; IST_BETA = !!data.beta; }
+  }catch(e){ FEATURES = {}; IST_BETA = false; }
+  betaBadge();
+}
+function feat(k){ return FEATURES[k] === true; }
+
+/* Sichtbarer Hinweis: Was ich sehe, sehen die anderen (noch) nicht. */
+function betaBadge(){
+  let b=document.getElementById("betaBadge");
+  if(!IST_BETA){ if(b) b.remove(); return; }
+  if(b) return;
+  b=document.createElement("div"); b.id="betaBadge";
+  b.title="Du siehst Funktionen, die für andere Nutzer noch nicht freigeschaltet sind.";
+  b.style.cssText="position:fixed;top:calc(6px + env(safe-area-inset-top));right:8px;z-index:9994;"
+    +"padding:3px 9px;border-radius:999px;background:#8a6d3b;color:#fff;font-size:10.5px;"
+    +"font-weight:700;letter-spacing:.4px;opacity:.85;pointer-events:none";
+  b.textContent="BETA";
+  document.body.appendChild(b);
+}
+
 /* Ergebnis-Overlay. Der Nutzer steht im Laden und will den Score GROSS sehen,
    nicht als Fußnote in einer Statuszeile. (Genau das war der Fehler in 13a/13b:
    die Kette lief korrekt, aber das Ergebnis landete unsichtbar in "stats".) */
@@ -5332,6 +5389,16 @@ function prodScan(){
   const st=document.getElementById("stats"); if(st) st.textContent="📷 Kamera öffnet – Barcode vor die Kamera halten…";
   _startScan("prodReader", async (code)=>{
     try{
+      /* Ohne Feature-Flag: alter Weg (Barcode vormerken, Etikett anbieten). */
+      if(!feat("scan_kette")){
+        const {data:pid}=await client.rpc("cb_produkt_id_by_ean",{p_ean:code});
+        const p=pid&&(ALL||[]).find(x=>x.id===pid);
+        if(p){ if(st) st.textContent="✅ Gefunden: "+esc(code); detail(p); return; }
+        try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Barcode-Scan",p_akteur:"Web"}); }catch(e){}
+        if(st){ st.style.color="#2E7D32"; st.innerHTML="Barcode "+esc(code)+" noch nicht im Katalog – <b>gespeichert</b>.<br>"+etikettCtaBtn(code); }
+        return;
+      }
+
       scanOv('<div style="padding:18px 0;text-align:center;color:var(--muted)">Wird geprüft…</div>', code);
       const r = await scanKette(code);
 
@@ -5351,9 +5418,15 @@ function tbScan(){ _startScan("tbReader", async (code)=>{
     const {data}=await client.rpc("produkt_by_ean",{p_ean:code});
     if(data&&data.id){ document.getElementById("tbProd").value=prodLabel(data); tbPrefillMenge();
       if(tbm){ tbm.style.color="#16a34a"; tbm.textContent="✓ "+data.name+" erkannt – Portion vorbelegt, ggf. anpassen."; } return; }
+
+    try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"}); }catch(e){}
+
+    if(!feat("scan_kette")){
+      if(tbm){ tbm.style.color="#16a34a"; tbm.innerHTML="Barcode "+esc(code)+" noch nicht im Katalog – <b>gespeichert</b>.<br>"+etikettCtaBtn(code); }
+      return;
+    }
     scanOv('<div style="padding:18px 0;text-align:center;color:var(--muted)">Wird geprüft…</div>', code);
     const r = await scanKette(code);
-    try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"}); }catch(e){}
     scanOv(r.html||"", code);
   }catch(e){ scanOv('<div style="color:#dc2626">Fehler: '+esc(e.message)+'</div>', code); }
 }); }
@@ -5913,8 +5986,12 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13c";
+const APP_BUILD = "2026-07-13d";
 let _updateGezeigt = false;
+
+/* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
+ladeFeatures();
+try{ client.auth.onAuthStateChange(function(){ ladeFeatures(); }); }catch(e){}
 
 async function pruefeUpdate(){
   if(_updateGezeigt) return;
