@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13o trainingstage -->
+<!-- build 2026-07-13p riki-rezept -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -6212,6 +6212,158 @@ function linkZutat(input){
   else { pidEl.value=""; lk.style.color="#9aa7a0"; lk.textContent=v?"freie Zutat (keine Nährwerte/Index)":""; }
 }
 function addZutatRow(){ const z=document.getElementById("rzfZutaten"); z.insertAdjacentHTML("beforeend", zutatRowHtml()); }
+
+/* ============================================================
+   REZEPT PER FOTO (Riki)
+   Mehrere Fotos, weil eine Kochbuchseite die Zutaten links und die Zubereitung
+   rechts hat - und ein Zettel oft beides auf zwei Bildern.
+
+   Zwei Dinge sind hier absichtlich UNBEQUEM:
+   1. Riki wird erst auf ausdrueckliches Kommando gestartet. Jeder Lauf kostet
+      ~0,012 $ und zaehlt gegen das Tageslimit. Ein Foto-Feature ohne Bremse ist
+      eine offene Rechnung.
+   2. Riki fuellt das FORMULAR aus - sie speichert nicht. Der Nutzer sieht jeden
+      Wert und muss selbst auf Speichern druecken.
+      >>> Riki schlaegt vor. Riki entscheidet nicht. <<<
+   ============================================================ */
+let RZ_FOTOS = [];   // Array von Data-URLs
+
+function rezeptFotoOpen(){
+  if(!ME){ openLogin(); return; }
+  if(!feat("rezept_riki")){ alert("Diese Funktion ist noch nicht für dich freigeschaltet."); return; }
+  RZ_FOTOS = [];
+  let ov=document.getElementById("rzFotoOv");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="rzFotoOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9991;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box";
+    ov.innerHTML='<div style="width:100%;max-width:460px;max-height:88vh;overflow:auto;background:var(--card,#fff);border-radius:14px;padding:16px;box-sizing:border-box">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><b style="flex:1;font-size:16px;color:var(--ink)">📷 Rezept fotografieren</b>'
+      +'<button onclick="rezeptFotoClose()" style="border:0;background:transparent;font-size:18px;cursor:pointer;color:var(--muted)">&#10005;</button></div>'
+      +'<div style="font-size:13px;line-height:1.55;color:var(--ink);margin-bottom:12px">Fotografier die <b>Zutatenliste</b> und die <b>Zubereitung</b>. '
+        +'Bei einer Kochbuchseite ruhig <b>mehrere Bilder</b> – Riki setzt sie zu einem Rezept zusammen.</div>'
+      +'<div id="rzFotoListe"></div>'
+      +'<div style="display:flex;gap:8px;margin-top:10px">'
+        +'<button onclick="rezeptFotoCam()" style="flex:1;padding:10px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13.5px">Foto aufnehmen</button>'
+        +'<button onclick="document.getElementById(\'rzFotoFile\').click()" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;font-size:13.5px">Aus Galerie</button>'
+      +'</div>'
+      +'<button id="rzFotoSend" onclick="rezeptFotoSenden()" style="display:none;width:100%;box-sizing:border-box;margin-top:12px;padding:12px;border:0;border-radius:10px;background:var(--green,#16a34a);color:#1D3C24;font-weight:700;cursor:pointer;font-size:15px">Rezept auslesen</button>'
+      +'<div style="font-size:11px;color:var(--muted);margin-top:7px;line-height:1.45">Riki liest die Fotos und füllt das Formular aus. <b>Gespeichert wird nichts automatisch</b> – du prüfst jeden Wert und drückst selbst auf Speichern.</div>'
+      +'<div id="rzFotoMsg" style="font-size:13px;margin-top:9px;line-height:1.45"></div>'
+      +'<input id="rzFotoFile" type="file" accept="image/*" multiple style="display:none" onchange="rezeptFotoDatei(this)">'
+      +'</div>';
+    document.body.appendChild(ov);
+  }
+  ov.style.display="flex";
+  rzFotoMsg("");
+  renderRzFotos();
+}
+function rezeptFotoClose(){ const ov=document.getElementById("rzFotoOv"); if(ov) ov.style.display="none"; }
+function rzFotoMsg(t,c){ const m=document.getElementById("rzFotoMsg"); if(!m) return; m.style.color=c||"var(--ink)"; m.innerHTML=t; }
+function renderRzFotos(){
+  const box=document.getElementById("rzFotoListe"); if(!box) return;
+  if(!RZ_FOTOS.length){
+    box.innerHTML='<div style="padding:16px;text-align:center;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:12.5px">Noch kein Foto</div>';
+  } else {
+    box.innerHTML='<div style="display:flex;gap:7px;flex-wrap:wrap">'+RZ_FOTOS.map(function(src,i){
+      return '<div style="position:relative;width:78px;height:78px;border-radius:9px;overflow:hidden;border:1px solid var(--line)">'
+        +'<img src="'+src+'" style="width:100%;height:100%;object-fit:cover">'
+        +'<button onclick="RZ_FOTOS.splice('+i+',1);renderRzFotos()" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border:0;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:11px;line-height:1;cursor:pointer">✕</button>'
+        +'</div>';
+    }).join('')+'</div>'
+    +'<div style="font-size:11.5px;color:var(--muted);margin-top:6px">'+RZ_FOTOS.length+' Foto(s) · max. 4</div>';
+  }
+  const b=document.getElementById("rzFotoSend"); if(b) b.style.display = RZ_FOTOS.length ? "block" : "none";
+}
+async function rezeptFotoCam(){
+  if(RZ_FOTOS.length>=4){ rzFotoMsg("Mehr als 4 Fotos verarbeiten wir nicht.","#e8920c"); return; }
+  try{ const d=await camCapture(); if(!d) return; RZ_FOTOS.push(await _compressSrc(d)); renderRzFotos(); }
+  catch(e){ rzFotoMsg("Fehler: "+esc(e.message),"#dc2626"); }
+}
+async function rezeptFotoDatei(inp){
+  const files=[...(inp.files||[])].slice(0, 4-RZ_FOTOS.length);
+  for(const f of files){
+    try{ const u=URL.createObjectURL(f); try{ RZ_FOTOS.push(await _compressSrc(u)); } finally{ URL.revokeObjectURL(u); } }
+    catch(e){}
+  }
+  inp.value="";
+  renderRzFotos();
+}
+async function rezeptFotoSenden(){
+  if(!RZ_FOTOS.length) return;
+  const btn=document.getElementById("rzFotoSend");
+  if(btn){ btn.disabled=true; btn.textContent="Riki liest …"; }
+  rzFotoMsg("Riki liest die Fotos. Das dauert ein paar Sekunden.","var(--muted)");
+  try{
+    const {data:{session}} = await client.auth.getSession();
+    const tok = session ? session.access_token : client.supabaseKey;
+    /* functions.invoke verschluckt den Fehler-Body (CLAUDE.md §4) -> direkt fetch. */
+    const r = await fetch(client.supabaseUrl+"/functions/v1/riki-rezept",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+      body: JSON.stringify({bilder: RZ_FOTOS})
+    });
+    const d = await r.json();
+    if(!r.ok || d.error){ throw new Error(d.error || ("Fehler "+r.status)); }
+    rezeptFormFuellen(d);
+    rezeptFotoClose();
+  }catch(e){
+    rzFotoMsg("Riki konnte das Rezept nicht lesen: "+esc(e.message),"#dc2626");
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent="Rezept auslesen"; }
+  }
+}
+/* Rikis Vorschlag ins Formular schreiben - NICHT speichern. */
+function rezeptFormFuellen(d){
+  const v = d && d.vorschlag; if(!v) return;
+  const set=function(id,val){ const e=document.getElementById(id); if(e && val!=null && val!=="") e.value=val; };
+  set("rzfName", v.name);
+  set("rzfPort", v.portionen);
+  set("rzfZeit", v.zeit_min);
+  set("rzfPrep", v.zubereitung);
+  const n = v.naehrwerte_portion||{};
+  set("rzfKcal", n.kcal); set("rzfP", n.protein); set("rzfKh", n.kh); set("rzfF", n.fett);
+  if(v.ernaehrungsform){
+    const map={vegan:"vegan", vegetarisch:"vegetarisch", omnivor:"enthält Tierprodukte"};
+    const ef=document.getElementById("rzfEf"); if(ef && map[v.ernaehrungsform]) ef.value=map[v.ernaehrungsform];
+  }
+
+  // Zutaten: Zeilen neu aufbauen. Zugeordnete Produkte werden verknuepft,
+  // nicht zugeordnete bleiben Freitext - sichtbar gekennzeichnet.
+  const zut = Array.isArray(v.zutaten)?v.zutaten:[];
+  const box = document.getElementById("rzfZutaten");
+  if(box && zut.length){
+    box.innerHTML = zut.map(()=>zutatRowHtml()).join("");
+    const rows = box.querySelectorAll(".rzZ");
+    zut.forEach(function(z,i){
+      const row=rows[i]; if(!row) return;
+      const name=row.querySelector(".rzZName"), g=row.querySelector(".rzZg"),
+            u=row.querySelector(".rzZu"), pid=row.querySelector(".rzZpid"), link=row.querySelector(".rzZlink");
+      if(z.produkt_id && z.treffer && z.treffer.name){
+        name.value = z.treffer.name;          // der Katalog-Name, nicht Rikis Lesart
+        pid.value  = z.produkt_id;
+        link.innerHTML = '<span style="color:var(--greendk,#166534)">✓ '+esc(z.treffer.name)
+          + (z.treffer.marke?(' · '+esc(z.treffer.marke)):'')
+          + (z.treffer.score!=null?(' · Index '+z.treffer.score):' · <b>noch nicht bewertet</b>')+'</span>';
+      } else {
+        name.value = z.name||"";
+        link.innerHTML = '<span style="color:#8a8072">'+esc((z.treffer&&z.treffer.grund)||"nicht im Katalog")+' – bleibt Freitext</span>';
+      }
+      if(z.menge_g!=null){ g.value=z.menge_g; if(u) u.selectedIndex=0; }
+      else if(z.menge){ link.innerHTML += '<span style="color:#b45309"> · Menge „'+esc(z.menge)+'" – bitte in Gramm eintragen</span>'; }
+    });
+  }
+
+  const msg=document.getElementById("rzfMsg");
+  if(msg){
+    const w = (d.warnungen||[]);
+    msg.style.color = w.length ? "#b45309" : "#16a34a";
+    msg.innerHTML = (d.zugeordnet||0)+' von '+(d.zutaten_gesamt||0)+' Zutaten im Katalog erkannt.'
+      + (w.length ? '<div style="margin-top:6px;font-size:12px;line-height:1.5;color:#7a5c1e;background:#fdf6e7;border-radius:8px;padding:8px 10px">'
+          + w.map(esc).map(function(x){return '• '+x;}).join('<br>')
+          + '</div>' : '')
+      + '<div style="margin-top:6px;font-size:12px;color:var(--muted)">Prüf die Werte – dann auf <b>Speichern</b>.</div>';
+  }
+}
 function calcMakros(){
   const msg=document.getElementById("rzfCalcMsg");
   let k=0,p=0,kh=0,f=0,linked=0,total=0;
@@ -6258,6 +6410,10 @@ async function openRezeptForm(editId){
     <div style="font-weight:700;font-size:17px;margin-bottom:4px">${ed?"Rezept bearbeiten":"Eigenes Rezept anlegen"}</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">${ed?"Änderungen an Zutaten, Mengen & Mahlzeit werden gespeichert.":"Wird zuerst <b>privat</b> gespeichert (nur du siehst es). Du kannst es später veröffentlichen."}</div>
     <input type="hidden" id="rzfEditId" value="${ed?esc(ed.id):''}">
+    ${feat("rezept_riki") ? `<button type="button" onclick="rezeptFotoOpen()" style="width:100%;box-sizing:border-box;margin-bottom:12px;padding:12px;border:1px solid var(--green);border-radius:11px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);font-weight:600;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px">
+      📷 <span>${ed?"Rezept neu einlesen":"Rezept abfotografieren"}</span>
+      <span style="font-size:11px;font-weight:500;opacity:.75">– Riki füllt das Formular aus</span>
+    </button>` : ""}
     <label style="font-size:13px;font-weight:600">Name</label>
     <input id="rzfName" placeholder="z. B. Protein-Porridge" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin:4px 0 10px;box-sizing:border-box">
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
@@ -6669,7 +6825,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13o";
+const APP_BUILD = "2026-07-13p";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
