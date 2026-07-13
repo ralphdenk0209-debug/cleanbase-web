@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13d feature-flags-beta -->
+<!-- build 2026-07-13e button-groesser -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3571,7 +3571,7 @@ function tbScanPopup(){
         if(res){
           res.innerHTML =
             (kette && kette.html ? '<div style="margin-top:4px">'+kette.html+'</div>' : '')
-            +'<button onclick="window._tbAddManualEan=\''+code+'\';window._tbAddManualName=\'\';tbAddManualOpen();offLookup();" style="margin-top:12px;width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Ins Tagebuch eintragen</button>';
+            +'<button onclick="window._tbAddManualEan=\''+code+'\';window._tbAddManualName=\'\';tbAddManualOpen();offLookup();" style="margin-top:14px;width:100%;box-sizing:border-box;padding:16px;border:0;border-radius:12px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 3px 10px rgba(22,163,74,.28)">Ins Tagebuch eintragen</button>';
         }
       }
     }catch(e){ if(msg){ msg.style.color="#f87171"; msg.textContent="Fehler: "+e.message; } }
@@ -5986,7 +5986,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13d";
+const APP_BUILD = "2026-07-13e";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
