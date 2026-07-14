@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14a suche-ei · stueckgroessen · manuell+riki · scoreLead · a11y -->
+<!-- build 2026-07-14b achsenfarben · tab-kontrast -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -767,40 +767,53 @@ function _mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^
 
    Achsen-Maxima: Zutaten 30 · Naehrwert 20 (Feld ist halbiert!) · Zusatz 15 · NOVA 15
    =========================================================================== */
-function _achsFarbe(a){
-  if(a==null) return "#a8a29e";                 // keine Angabe - grau, nicht rot
-  if(a>=0.75) return "#15803D";
-  if(a>=0.50) return "#4D7C0F";
-  if(a>=0.25) return "#B45309";
-  return "#B91C1C";
-}
+/* ===========================================================================
+   ACHSEN-PALETTE - eine Farbe je Achse, ueberall dieselbe.
+   Die Balken auf der Karte und die Ringe in der Detailansicht benutzen jetzt
+   DIESELBEN Farben: Wer den kurzen orangen Balken sieht und aufklappt, findet
+   den orangen Ring wieder.
+
+   Die Farbe kodiert die ACHSE, die LAENGE kodiert den Wert.
+   (Vorher kodierte die Farbe die Bewertung - dann sagten vier gruene Striche
+   viermal dasselbe und man wusste trotzdem nicht, WELCHE Achse gemeint war.)
+
+   Gegenueber den alten Ring-Farben leicht abgedunkelt - zwei von ihnen fielen
+   als 5px-Balken durch WCAG 1.4.11 (3:1 fuer bedeutungstragende Grafik):
+     Zutaten  #22c55e = 2,28:1   Naehrwert #f0a020 = 2,15:1
+   Gleicher Farbton, nur dunkel genug, dass man ihn sieht.
+   =========================================================================== */
+const ACHS_FARBE = {
+  zutaten:  "#16A34A",   // 3,30:1
+  zusatz:   "#3987E5",   // 3,64:1
+  nova:     "#7C6FE0",   // 4,03:1
+  naehr:    "#D97706",   // 3,19:1
+  leer:     "#D6D3D1"
+};
 function scoreLead(d,size){
   size=size||62;
   const s=num(d&&d.clean_score);
   const txt=(s!=null)?String(Math.round(s)):"–";
   const fs=Math.round(size*(txt.length>=3?0.36:0.44));
   const col=(s!=null)?farbeText(d.bewertung):"#57534E";
-  // Anteil je Achse (0..1). NULL bleibt NULL - eine fehlende Achse ist grau, nicht null.
+  /* Reihenfolge WIE IN DER DETAILANSICHT - sonst sucht der Nutzer den Balken,
+     den er gerade gesehen hat, an der falschen Stelle wieder. */
   const ax=[
-    ["Zutaten",      num(d&&d.p_zutaten),      30],
-    ["Nährwert",     num(d&&d.p_naehrwert),    20],
-    ["Zusatzstoffe", num(d&&d.p_zusatzstoffe), 15],
-    ["Verarbeitung", num(d&&d.p_nova),         15]
+    ["Zutaten",      num(d&&d.p_zutaten),      30, ACHS_FARBE.zutaten],
+    ["Zusatzstoffe", num(d&&d.p_zusatzstoffe), 15, ACHS_FARBE.zusatz],
+    ["NOVA",         num(d&&d.p_nova),         15, ACHS_FARBE.nova],
+    ["Nährwert",     num(d&&d.p_naehrwert),    20, ACHS_FARBE.naehr]
   ].map(function(r){
     const a=(r[1]==null)?null:Math.max(0,Math.min(1,r[1]/r[2]));
-    return {n:r[0], a:a};
+    return {n:r[0], a:a, f:r[3]};
   });
   const titel=ax.map(function(r){ return r.n+": "+(r.a==null?"keine Angabe":Math.round(r.a*100)+" %"); }).join(" · ");
   /* WCAG 1.4.1: Farbe darf NICHT das einzige Unterscheidungsmerkmal sein.
-     Meine erste Fassung codierte die Achse allein ueber die Farbe - fuer einen
-     Rot-Gruen-Blinden (etwa jeder zwoelfte Mann) waren die vier Striche bedeutungslos.
-     Jetzt traegt die LAENGE die Information, die Farbe verstaerkt sie nur.
-     Wer die Farbe nicht sieht, sieht immer noch, welcher Balken kurz ist. */
+     Die LAENGE traegt die Information. Wer die Farben nicht auseinanderhaelt,
+     sieht immer noch, welcher Balken kurz ist. */
   const striche=ax.map(function(r){
     const pct=(r.a==null)?0:Math.round(r.a*100);
-    const bg=(r.a==null)?"#e7e5e4":"#e7e5e4";
-    return '<span class="scBar" style="width:13px;height:5px;border-radius:2px;background:'+bg+';overflow:hidden;display:inline-block">'
-         +   '<i style="display:block;height:100%;width:'+pct+'%;background:'+_achsFarbe(r.a)+';border-radius:2px"></i>'
+    return '<span class="scBar" style="width:13px;height:5px;border-radius:2px;background:'+ACHS_FARBE.leer+';overflow:hidden;display:inline-block">'
+         +   '<i style="display:block;height:100%;width:'+pct+'%;background:'+r.f+';border-radius:2px"></i>'
          + '</span>';
   }).join("");
   return '<div class="scLead" style="flex:0 0 '+size+'px;width:'+size+'px;text-align:center" title="'+esc(titel)+'">'
@@ -1820,22 +1833,22 @@ function zInfoClean(name, info){
 /* ===== Score-Fluss: Wie kommt der Index zustande? (Transparenz) ===== */
 const SCORE_REGELN = {
   "Zutaten": {
-    farbe:"#22c55e",
+    farbe:ACHS_FARBE.zutaten,
     regel:"Jede einzelne Zutat wird nach ihrem <b>Verarbeitungsgrad</b> eingestuft. Rohe, unverarbeitete Lebensmittel – Obst, Gemüse, Pilze, Nüsse, ganze Getreidekörner, roher Fisch, rohes Fleisch, Eier, Milch – gelten als <b>Vollwert</b> und bekommen die volle Punktzahl. Mehl, Isolate, raffinierte Öle, Zucker und Aromen liegen darunter.",
     quelle:"Diese Achse misst <b>ausschließlich</b> den Verarbeitungsgrad. Ob ein Lebensmittel viel Fett oder Zucker hat, zählt allein in der Nährwert-Achse – so wird nichts doppelt bestraft."
   },
   "Zusatzstoffe": {
-    farbe:"#3987e5",
+    farbe:ACHS_FARBE.zusatz,
     regel:"Jeder Zusatzstoff wird <b>einzeln</b> nach der wissenschaftlichen Bewertungslage eingestuft: belegt unbedenklich = volle Punkte · noch ungeprüft = Abzug (gilt nicht automatisch als sicher) · von Behörden beanstandet = starker Abzug · künstliche Süßstoffe = stärkster Abzug.",
     quelle:"EFSA-Neubewertungen · IARC (Aspartam: Gruppe 2B, 2023) · WHO-Leitlinie zu Süßstoffen (2023). Natürliche Süßstoffe wie Stevia werden nur <b>leicht</b> abgewertet – die EFSA sieht kein Sicherheitsrisiko, die WHO rät aber von Süßstoffen ab."
   },
   "NOVA": {
-    farbe:"#9085e9",
+    farbe:ACHS_FARBE.nova,
     regel:"Wie stark ist das <b>fertige Produkt</b> verarbeitet? Stufe 1 = unverarbeitet (Apfel), Stufe 4 = hochverarbeitet (Fertigprodukt mit vielen Zusätzen).",
     quelle:"NOVA-Klassifikation (Monteiro et al.) – international etablierter Standard für Verarbeitungsgrade."
   },
   "Nährwert": {
-    farbe:"#f0a020",
+    farbe:ACHS_FARBE.naehr,
     regel:"Zucker, gesättigte Fettsäuren, Salz, Ballaststoffe und Eiweiß – jeweils auf 100 g normiert, damit Produkte vergleichbar bleiben.",
     quelle:"DGE-Referenzwerte · EU-Verordnung 1169/2011. Bei reinen Nahrungsergänzungsmitteln entfällt diese Achse (dort ist ein Makro-Profil pro 100 g nicht sinnvoll)."
   }
@@ -1863,7 +1876,7 @@ function scoreFlow(d){
   const arrow='<div style="text-align:center;color:var(--muted);font-size:15px;line-height:1;margin:5px 0">&darr;</div>';
   let achsen="";
   items.forEach(function(it,i){
-    const R=SCORE_REGELN[it.short]||{farbe:"#22c55e",regel:"",quelle:""};
+    const R=SCORE_REGELN[it.short]||{farbe:ACHS_FARBE.zutaten,regel:"",quelle:""};
     const pct=Math.max(0,Math.min(100,(it.v/it.max)*100));
     const voll=(it.v >= it.max-0.01);
     const id="sfx"+i;
@@ -1911,8 +1924,11 @@ function detail(d){
       <div class="track"><div class="fill" style="width:${pct}%;${v===null?'background:#d5ded8':''}"></div></div></div>`;
   }).join("");
   const mkRings = arr => {
-    const COL={Zutaten:"#22c55e",Zusatzstoffe:"#3987e5",NOVA:"#9085e9","Nährwert":"#f0a020"};
-    const items=arr.map(([k,label,max,mult,short])=>{ const m=mult||1; const raw=num(d[k]); const v=raw===null?null:raw*m; const pct=v===null?null:Math.max(0,Math.min(1,v/max)); return {short:short||label,max,v,pct,col:COL[short]||"#22c55e"}; }).filter(it=>it.pct!==null);
+    /* Zweite Farbtabelle - sie zeichnet die RINGE. Sie hatte ihre eigenen Werte,
+       obwohl SCORE_REGELN dieselben Farben schon fuehrte. Jetzt beide aus ACHS_FARBE:
+       eine Quelle, sonst laufen sie beim naechsten Fix wieder auseinander. */
+    const COL={Zutaten:ACHS_FARBE.zutaten,Zusatzstoffe:ACHS_FARBE.zusatz,NOVA:ACHS_FARBE.nova,"Nährwert":ACHS_FARBE.naehr};
+    const items=arr.map(([k,label,max,mult,short])=>{ const m=mult||1; const raw=num(d[k]); const v=raw===null?null:raw*m; const pct=v===null?null:Math.max(0,Math.min(1,v/max)); return {short:short||label,max,v,pct,col:COL[short]||ACHS_FARBE.zutaten}; }).filter(it=>it.pct!==null);
     if(!items.length) return "";
     let rings=""; const sw=7;
     items.forEach((it,i)=>{ const r=52-i*11; const C=2*Math.PI*r; const off=(C*(1-it.pct)).toFixed(1); rings+='<circle cx="65" cy="65" r="'+r+'" fill="none" stroke="var(--line)" stroke-width="'+sw+'"/><circle cx="65" cy="65" r="'+r+'" fill="none" stroke="'+it.col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off+'" transform="rotate(-90 65 65)"/>'; });
@@ -4462,7 +4478,7 @@ async function tbOpenScan(){ await tbOpenAdd(tbGuessMeal()); tbScanPopup(); }
 function tbScanPopup(){
   window._tbTab='suche'; tbRenderTabs();
   const body=document.getElementById("tbAddBody"); if(!body) return;
-  body.innerHTML='<div id="tbAddReader" style="border-radius:12px;overflow:hidden;margin-bottom:8px"></div><div id="tbScanMsg" style="font-size:12.5px;color:#6B6256;text-align:center">Kamera startet… Barcode in den Rahmen halten.</div><button onclick="tbSetTab(\'suche\')" style="margin-top:10px;width:100%;padding:10px;border:1px solid #E7E0D4;border-radius:10px;background:#FBF8F2;color:#cbd5e1;font-size:13px;cursor:pointer">Abbrechen / zur Suche</button><div id="tbAddResults"></div>';
+  body.innerHTML='<div id="tbAddReader" style="border-radius:12px;overflow:hidden;margin-bottom:8px"></div><div id="tbScanMsg" style="font-size:12.5px;color:#6B6256;text-align:center">Kamera startet… Barcode in den Rahmen halten.</div><button onclick="tbSetTab(\'suche\')" style="margin-top:10px;width:100%;padding:10px;border:1px solid #E7E0D4;border-radius:10px;background:#FBF8F2;color:#57534E;font-size:13px;cursor:pointer">Abbrechen / zur Suche</button><div id="tbAddResults"></div>';
   try{ _startScan("tbAddReader", async (code)=>{
     const msg=document.getElementById("tbScanMsg");
     try{
@@ -4549,7 +4565,11 @@ function tbRenderTabs(){
      ins Leere lief. Wer ein Produkt ohne Barcode eintragen wollte, musste erst
      erfolglos danach suchen. Jetzt steht die Tür offen. */
   const tabs=[['suche','🔍 Suche'],['manuell','✏️ Manuell'],['historie','🕘 Historie'],['rezepte','🥗 Rezepte'],['favoriten','♥ Favoriten']];
-  el.innerHTML=tabs.map(([k,l])=>'<button onclick="tbSetTab(\''+k+'\')" style="flex:1;padding:7px 3px;border-radius:9px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid '+(t===k?'#16a34a':'#E7E0D4')+';background:'+(t===k?'rgba(22,163,74,.18)':'#FBF8F2')+';color:'+(t===k?'#2E7D32':'#cbd5e1')+'">'+l+'</button>').join("");
+  /* Die inaktiven Tabs standen auf #cbd5e1 - einem HELLBLAU-Grau auf cremefarbenem
+     Grund. Kontrast: 1,40:1. WCAG verlangt 4,5:1. Sie waren nicht "dezent",
+     sie waren praktisch unsichtbar.
+     Jetzt #57534E: 7,20:1. Klar sekundaer, aber lesbar. */
+  el.innerHTML=tabs.map(([k,l])=>'<button onclick="tbSetTab(\''+k+'\')" style="flex:1;padding:7px 3px;border-radius:9px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid '+(t===k?'#16a34a':'#E7E0D4')+';background:'+(t===k?'rgba(22,163,74,.18)':'#FBF8F2')+';color:'+(t===k?'#2E7D32':'#57534E')+'">'+l+'</button>').join("");
 }
 async function tbSetTab(t){
   window._tbTab=t; tbRenderTabs();
@@ -7214,7 +7234,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14a";
+const APP_BUILD = "2026-07-14b";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
