@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14h riki->tagebuch fix · layout-ueberlauf -->
+<!-- build 2026-07-14i fluxkompensator · scan-leiste · default-5 raus · bento -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -722,6 +722,16 @@
   .bn-item{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
   .bn-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   .bn-item.active{color:var(--green)}
+  /* Der Scan-Knopf sitzt hoeher als die Leiste - er ragt hinein, statt sich
+     einzureihen. Das macht ihn zur einen Handlung, nicht zum fuenften Reiter. */
+  .bn-scan{position:relative}
+  .bn-scanBtn{width:52px;height:52px;border-radius:50%;background:var(--greendk);
+        display:flex;align-items:center;justify-content:center;margin:-26px auto 1px;
+        border:4px solid var(--card);box-shadow:0 4px 14px rgba(20,60,35,.30);
+        transition:transform .12s ease}
+  .bn-scanBtn svg{width:26px;height:26px;stroke:var(--auf-gruen-dunkel);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .bn-scan:active .bn-scanBtn{transform:scale(.92)}
+  .bn-scan span:last-child{color:var(--muted)}
   /* ===== BENTO / TECH (Startseite) ===== */
   .heroCheck{background:linear-gradient(160deg,var(--dunkelflaeche-2),var(--dunkelflaeche-1));color:#FFFFFF;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
   .heroCheck h3{margin:0 0 10px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px}
@@ -1251,12 +1261,18 @@
   </div>
 </div>
 
+<!-- Scannen ist die haeufigste Handlung im Laden - und brauchte drei Tipps:
+     Produkte -> Barcode scannen -> Kamera. Jetzt einer, mit dem Daumen erreichbar.
+     Training ruecken ins Menue: es ist die Funktion, die man am seltensten aufruft. -->
 <nav class="bottomnav"><div class="bn-inner">
   <button class="bn-item" id="bnstart" onclick="navTo('start')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 9v11h5v-6h4v6h5V9"/></svg><span>Start</span></button>
-  <button class="bn-item" id="bnprodukte" onclick="navTo('produkte')"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg><span>Produkte</span></button>
+  <button class="bn-item" id="bnprodukte" onclick="navTo('produkte')"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Produkte</span></button>
+  <button class="bn-item bn-scan" id="bnscan" onclick="startProdScan()" aria-label="Barcode scannen">
+    <span class="bn-scanBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M4 12h16"/></svg></span>
+    <span>Scannen</span>
+  </button>
   <button class="bn-item" id="bntagebuch" onclick="navTo('tagebuch')"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span>Tagebuch</span></button>
-  <button class="bn-item" id="bntraining" onclick="navTo('training')"><svg viewBox="0 0 24 24"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg><span>Training</span></button>
-  <button class="bn-item" id="bnmehr" onclick="toggleMehr()"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>Mehr</span></button>
+  <button class="bn-item" id="bnmehr" onclick="toggleMehr()"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menü</span></button>
 </div></nav>
 <div class="mehr-sheet" id="mehrSheet"><div class="mehr-back" onclick="closeMehr()"></div><div class="mehr-card" id="mehrCard"></div></div>
 <div class="overlay" id="overlay"><div class="panel" id="panel"></div></div>
@@ -1383,9 +1399,13 @@ function scoreLead(d,size){
   /* WCAG 1.4.1: Farbe darf NICHT das einzige Unterscheidungsmerkmal sein.
      Die LAENGE traegt die Information. Wer die Farben nicht auseinanderhaelt,
      sieht immer noch, welcher Balken kurz ist. */
+  /* Die Balken wachsen mit: bei 62 px sind sie 13 breit, bei 96 px (Detailansicht) 20.
+     Feste 13 px saehen neben einer 42-px-Zahl verloren aus. */
+  const bw=Math.max(9, Math.round(size/4.8));
+  const bh=Math.max(4, Math.round(size/12));
   const striche=ax.map(function(r){
     const pct=(r.a==null)?0:Math.round(r.a*100);
-    return '<span class="scBar" style="width:13px;height:5px;border-radius:2px;background:'+ACHS_FARBE.leer+';overflow:hidden;display:inline-block">'
+    return '<span class="scBar" style="width:'+bw+'px;height:'+bh+'px;border-radius:2px;background:'+ACHS_FARBE.leer+';overflow:hidden;display:inline-block">'
          +   '<i style="display:block;height:100%;width:'+pct+'%;background:'+r.f+';border-radius:2px"></i>'
          + '</span>';
   }).join("");
@@ -2510,7 +2530,16 @@ function detail(d){
     if(!items.length) return "";
     let rings=""; const sw=7;
     items.forEach((it,i)=>{ const r=52-i*11; const C=2*Math.PI*r; const off=(C*(1-it.pct)).toFixed(1); rings+='<circle cx="65" cy="65" r="'+r+'" fill="none" stroke="var(--line)" stroke-width="'+sw+'"/><circle cx="65" cy="65" r="'+r+'" fill="none" stroke="'+it.col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off+'" transform="rotate(-90 65 65)"/>'; });
-    const legend=items.map(it=>'<div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="width:10px;height:10px;border-radius:2px;background:'+it.col+';flex:0 0 auto"></span><span style="color:var(--muted);flex:1;min-width:0">'+esc(it.short)+'</span><b>'+Math.round(it.pct*100)+'%</b><span style="color:var(--muted);font-size:11px">'+String(Math.round(it.v*10)/10).replace(".",",")+"/"+it.max+'</span></div>').join("");
+    /* "Zusatzstoffe" lief unter die Prozentzahl: das Label hatte flex:1 und min-width:0,
+       aber KEIN overflow. Ein flex:1-Element darf schrumpfen - es muss aber auch
+       abschneiden duerfen, sonst schiebt es sich unter den Nachbarn.
+       Die Zahlen bekommen flex:0 0 auto: sie geben nie Platz her. */
+    const legend=items.map(it=>'<div style="display:flex;align-items:center;gap:8px;font-size:12.5px">'
+      +'<span style="width:10px;height:10px;border-radius:2px;background:'+it.col+';flex:0 0 auto"></span>'
+      +'<span style="color:var(--muted);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(it.short)+'</span>'
+      +'<b style="flex:0 0 auto">'+Math.round(it.pct*100)+'%</b>'
+      +'<span style="color:var(--muted);font-size:11px;flex:0 0 auto;white-space:nowrap">'+String(Math.round(it.v*10)/10).replace(".",",")+"/"+it.max+'</span>'
+      +'</div>').join("");
     return '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:6px 0"><svg viewBox="0 0 130 130" width="130" height="130" style="flex:0 0 auto" role="img" aria-label="Index-Aufschlüsselung"><title>Root Index Aufschlüsselung</title>'+rings+'</svg><div style="flex:1;min-width:150px;display:flex;flex-direction:column;gap:7px">'+legend+'</div></div>';
   };
   const rows = mkRings(SCORE_TEIL);
@@ -2611,8 +2640,8 @@ function detail(d){
       </div>
     </div>` : `
     <div class="scorebar">
-      ${donut(d.clean_score, col, 96)}
-      <div><div style="font-size:19px;font-weight:800;color:${col}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div></div>
+      ${scoreLead(d, 96)}
+      <div><div style="font-size:19px;font-weight:800;color:${farbeText(d.bewertung)}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div></div>
     </div>`}
     ${d.enthaelt_alkohol?`<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
     ${_azoWarn?`<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Enthält synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis „kann Aktivität und Aufmerksamkeit bei Kindern beeinträchtigen". Deckelt die Wertung auf höchstens „Gut".</div>`:""}
@@ -3591,7 +3620,10 @@ async function renderSchritte(){
   let tag=0, verlauf=[];
   try{ const r=await client.rpc("cb_schritte_tag",{p_datum:sel}); tag=Number(r.data)||0; }catch(e){}
   try{ const r=await client.rpc("cb_schritte_verlauf",{p_bis:today,p_tage:7}); verlauf=r.data||[]; }catch(e){}
-  const card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 13px;margin-bottom:12px;box-shadow:var(--shadow)';
+  /* Bento-Stil wie die Kacheln daueber: dunkel, Glow, eigene Farbe.
+     Diese Kacheln kennen KEINEN Hell/Dunkel-Modus - sie sind immer dunkel,
+     genau wie die Startseiten-Kacheln. Deshalb feste Farben, keine Token. */
+  const card='position:relative;overflow:hidden;background:radial-gradient(120% 120% at 18% 10%,#1f5e39,#0c1a12 66%);border:0;border-radius:16px;padding:14px 15px;margin-bottom:12px;box-shadow:0 8px 22px rgba(15,40,25,.26)';
   const ZIEL=10000, wd=["So","Mo","Di","Mi","Do","Fr","Sa"];
   const vals=verlauf.map(x=>Number(x.schritte)||0);
   const tage=vals.length||1, sum=vals.reduce((a,b)=>a+b,0), avg=Math.round(sum/tage);
@@ -3609,12 +3641,12 @@ async function renderSchritte(){
   const nextOff = sel>=today;
   const open = window._schrOpen ? '' : 'none';
   box.innerHTML='<div style="'+card+'">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600;font-size:14px">'+riIco('shoe',17)+' Schritte</div><span style="font-size:12.5px;color:var(--muted)">heute <b style="color:var(--ink)">'+(tag?tag.toLocaleString("de-DE"):"–")+'</b>'+(tag?' · <span style="color:var(--k-16a34a);font-weight:700">'+Math.min(100,Math.round(tag/ZIEL*100))+'%</span>':'')+'</span></div>'
-    +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(tag||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px">'
-      +'<button onclick="saveSchritte()" style="padding:8px 13px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-size:13px">Speichern</button></div>'
-    +'<div style="height:6px;border-radius:99px;background:var(--k-eef1ec);overflow:hidden;margin-top:8px"><div style="height:100%;width:'+Math.min(100,Math.round((tag/ZIEL)*100))+'%;background:'+(tag>=ZIEL?'var(--k-16a34a)':'var(--k-65a30d)')+';border-radius:99px;transition:width .5s"></div></div>'
-    +'<div id="startSchritteMsg" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:15px"></div>'
-    +'<button onclick="schrToggleChart()" style="width:100%;text-align:left;background:none;border:0;padding:2px 0 0;cursor:pointer;color:var(--greendk);font-size:12.5px;font-weight:600">📊 7-Tage-Verlauf · Ø '+avg.toLocaleString("de-DE")+'/Tag <span id="schrArrow">'+(window._schrOpen?'▲':'▼')+'</span></button>'
+    +'<div style="position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-weight:700;font-size:14px;color:#fff;display:flex;align-items:center;gap:6px">'+riIco('shoe',18)+' Schritte</div><span style="font-size:12.5px;color:rgba(255,255,255,.55)">heute <b style="color:#fff">'+(tag?tag.toLocaleString("de-DE"):"–")+'</b>'+(tag?' · <span style="color:#5ef2a0;font-weight:700">'+Math.min(100,Math.round(tag/ZIEL*100))+'%</span>':'')+'</span></div>'
+    +'<div style="position:relative;z-index:2;display:flex;gap:8px;align-items:center"><input id="startSchritte" type="number" min="0" value="'+(tag||"")+'" placeholder="z. B. 8000" style="flex:1;min-width:0;padding:10px;border:1px solid rgba(255,255,255,.20);border-radius:10px;font-size:14px;background:rgba(255,255,255,.08);color:#fff">'
+      +'<button onclick="saveSchritte()" style="padding:10px 15px;border:0;border-radius:10px;background:#5ef2a0;color:#0c1a12;font-weight:700;cursor:pointer;font-size:13px">Speichern</button></div>'
+    +'<div style="position:relative;z-index:2;height:7px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:10px"><div style="height:100%;width:'+Math.min(100,Math.round((tag/ZIEL)*100))+'%;background:'+(tag>=ZIEL?'#7cff9b':'#5ef2a0')+';border-radius:99px;transition:width .6s cubic-bezier(.22,1,.36,1)"></div></div>'
+    +'<div id="startSchritteMsg" style="position:relative;z-index:2;font-size:12px;color:rgba(255,255,255,.6);margin-top:5px;min-height:15px"></div>'
+    +'<button onclick="schrToggleChart()" style="position:relative;z-index:2;width:100%;text-align:left;background:none;border:0;padding:2px 0 0;cursor:pointer;color:#5ef2a0;font-size:12.5px;font-weight:600">📊 7-Tage-Verlauf · Ø '+avg.toLocaleString("de-DE")+'/Tag <span id="schrArrow">'+(window._schrOpen?'▲':'▼')+'</span></button>'
     +'<div id="schrChart" style="display:'+open+';margin-top:8px">'
       +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
         +'<button onclick="schrShiftDay(-1)" title="Tag zurück" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹</button>'
@@ -3646,7 +3678,7 @@ async function renderSchlaf(){
   let tag=0, verlauf=[];
   try{ const r=await client.rpc("cb_schlaf_tag",{p_datum:sel}); tag=Number(r.data)||0; }catch(e){}
   try{ const r=await client.rpc("cb_schlaf_verlauf",{p_bis:today,p_tage:7}); verlauf=r.data||[]; }catch(e){}
-  const card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 13px;margin-bottom:12px;box-shadow:var(--shadow)';
+  const card='position:relative;overflow:hidden;background:radial-gradient(120% 120% at 18% 10%,#332a6e,#0f0c1e 66%);border:0;border-radius:16px;padding:14px 15px;margin-bottom:12px;box-shadow:0 8px 22px rgba(25,20,60,.28)';
   const ZIEL=8, wd=["So","Mo","Di","Mi","Do","Fr","Sa"];
   const nfmt=function(x){ return (Math.round(x*10)/10).toLocaleString("de-DE"); };
   const vals=verlauf.map(x=>Number(x.stunden)||0);
@@ -3665,10 +3697,10 @@ async function renderSchlaf(){
   const nextOff = sel>=today;
   const open = window._schlOpen ? '' : 'none';
   box.innerHTML='<div style="'+card+'">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:600;font-size:14px">🌙 Schlaf</div><span style="font-size:12.5px;color:var(--muted)">heute <b style="color:var(--ink)">'+(tag?nfmt(tag)+' h':"–")+'</b>'+(tag?' · <span style="color:var(--k-4f46e5);font-weight:700">'+Math.min(100,Math.round(tag/ZIEL*100))+'%</span>':'')+'</span></div>'
-    +'<div style="display:flex;gap:8px;align-items:center"><input id="startSchlaf" type="number" min="0" max="24" step="0.5" value="'+(tag||"")+'" placeholder="z. B. 7,5" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px">'
-      +'<button onclick="saveSchlaf()" style="padding:8px 13px;border:0;border-radius:8px;background:var(--k-4f46e5);color:var(--k-ffffff);cursor:pointer;font-size:13px">Speichern</button></div>'
-    +'<div style="height:6px;border-radius:99px;background:var(--k-eef1ec);overflow:hidden;margin-top:8px"><div style="height:100%;width:'+Math.min(100,Math.round((tag/ZIEL)*100))+'%;background:'+((tag>=7&&tag<=9)?'var(--k-4f46e5)':'var(--k-818cf8)')+';border-radius:99px;transition:width .5s"></div></div>'
+    +'<div style="position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-weight:700;font-size:14px;color:#fff">🌙 Schlaf</div><span style="font-size:12.5px;color:rgba(255,255,255,.55)">heute <b style="color:#fff">'+(tag?nfmt(tag)+' h':"–")+'</b>'+(tag?' · <span style="color:#b79bff;font-weight:700">'+Math.min(100,Math.round(tag/ZIEL*100))+'%</span>':'')+'</span></div>'
+    +'<div style="position:relative;z-index:2;display:flex;gap:8px;align-items:center"><input id="startSchlaf" type="number" min="0" max="24" step="0.5" value="'+(tag||"")+'" placeholder="z. B. 7,5" style="flex:1;min-width:0;padding:10px;border:1px solid rgba(255,255,255,.20);border-radius:10px;font-size:14px;background:rgba(255,255,255,.08);color:#fff">'
+      +'<button onclick="saveSchlaf()" style="padding:10px 15px;border:0;border-radius:10px;background:#b79bff;color:#160f2e;font-weight:700;cursor:pointer;font-size:13px">Speichern</button></div>'
+    +'<div style="position:relative;z-index:2;height:7px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:10px"><div style="height:100%;width:'+Math.min(100,Math.round((tag/ZIEL)*100))+'%;background:'+((tag>=7&&tag<=9)?'#c9b3ff':'#b79bff')+';border-radius:99px;transition:width .6s cubic-bezier(.22,1,.36,1)"></div></div>'
     +'<div id="startSchlafMsg" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:15px"></div>'
     +'<button onclick="schlToggleChart()" style="width:100%;text-align:left;background:none;border:0;padding:2px 0 0;cursor:pointer;color:var(--k-4338ca);font-size:12.5px;font-weight:600">📊 7-Tage-Verlauf · Ø '+nfmt(avg)+' h/Nacht <span id="schlArrow">'+(window._schlOpen?'▲':'▼')+'</span></button>'
     +'<div id="schlChart" style="display:'+open+';margin-top:8px">'
@@ -3853,21 +3885,139 @@ function startKennzahlen(sum, prof){
       +'<span style="font-size:11px;font-weight:600;color:var(--k-bfe9d1)">/ '+kcalSoll+(kcalSoll>0?' · '+Math.round(kpct)+'%':'')+'</span>'
     +'</div>'
   +'</div>';
-  return '<div onclick="navTo(\'tagebuch\')" style="cursor:pointer;background:var(--k-e4ebdf);border:1px solid var(--k-d2dcc9);border-radius:16px;padding:14px 15px;margin-bottom:12px;box-shadow:var(--shadow)">'
-    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
-      +'<span style="font-family:var(--mono,ui-monospace,monospace);font-size:28px;font-weight:700;color:var(--greendk);line-height:1">'+idx+'</span>'
-      +'<div style="line-height:1.15"><b style="display:block;font-size:14px;color:var(--ink)">Ø Index heute</b><span style="font-size:11px;color:var(--muted)">'+kcalIst+' kcal erfasst</span></div>'
-      +'<span style="margin-left:auto;font-size:12px;color:var(--greendk);font-weight:600">Tagebuch ›</span>'
-    +'</div>'
-    +kcalTile
-    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">'+pills+'</div>'
+  /* ==========================================================================
+     DER FLUXKOMPENSATOR
+
+     Die Hierarchie war verkehrt herum: Das GROESSTE auf der Startseite war
+     "0 kcal / 1805 · 0 %" - das ist MyFitnessPal. Root Index bewertet aber nicht,
+     WIE VIEL du isst, sondern WAS DRIN IST.
+
+     > Der Kalorienbalken war das Erste, was man sah. Damit sahen wir aus wie eine
+     > Diaet-App - und genau das sind wir nicht.
+
+     Jetzt laufen vier Leiterbahnen zur Mitte, laden sich nacheinander auf, und
+     ERST WENN ALLE VIER DA SIND springt die Zahl an. Das ist nicht nur Effekt -
+     es ist woertlich unsere Regel: vier Achsen ergeben einen Index, und ohne
+     alle vier gibt es keine Zahl (§1.13c).
+
+     "NOVA" heisst hier "Verarbeitung". Das Wort NOVA kennt ausserhalb der
+     Ernaehrungswissenschaft niemand - wir wollen erklaeren, nicht imponieren.
+     ========================================================================== */
+  var hatDaten = (num(sum.eintraege)>0) || kcalIst>0 || (sum.score_schnitt!=null);
+  if(!hatDaten){
+    return '<div onclick="navTo(\'tagebuch\')" style="cursor:pointer;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;display:flex;align-items:center;gap:13px">'
+      +'<div style="flex:0 0 46px;height:46px;border-radius:50%;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px;font-weight:800">–</div>'
+      +'<div style="flex:1;min-width:0">'
+        +'<b style="display:block;font-size:15px;color:var(--ink)">Noch nichts erfasst</b>'
+        +'<span style="font-size:12.5px;color:var(--muted)">Trag etwas ein, dann laedt sich dein Tages-Index auf.</span>'
+      +'</div>'
+      +'<span style="flex:0 0 auto;font-size:12px;color:var(--greendk);font-weight:600">Tagebuch ›</span>'
+    +'</div>';
+  }
+
+  var bew = (idx>=90?'Sehr gut':idx>=75?'Gut':idx>=60?'Mittel':'Schwach');
+  /* Die vier Achsen des TAGES (Schnitt ueber alle Eintraege mit Score).
+     Fehlt eine, bleibt ihre Bahn grau - wir erfinden keinen Wert. */
+  var A4=[
+    {n:'Zutaten',      v:num(sum.p_zutaten),      max:30, f:'#3ddb7a'},
+    {n:'Zusatzstoffe', v:num(sum.p_zusatzstoffe), max:15, f:'#5ab6ff'},
+    {n:'Verarbeitung', v:num(sum.p_nova),         max:15, f:'#b79bff'},
+    {n:'Nährwert',     v:num(sum.p_naehrwert),    max:20, f:'#ffc24b'}
+  ].map(function(a){
+    a.pct = (a.v==null) ? null : Math.max(0, Math.min(1, a.v/a.max));
+    return a;
+  });
+
+  var uid='fx'+(Math.random().toString(36).slice(2,8));
+  var L=102;                       // Laenge jeder Leiterbahn (dasharray)
+  var bahn=[
+    'M26 40 H74 L112 78',          // oben links
+    'M274 40 H226 L188 78',        // oben rechts
+    'M26 160 H74 L112 122',        // unten links
+    'M274 160 H226 L188 122'       // unten rechts
+  ];
+  var kap=[[26,40],[274,40],[26,160],[274,160]];
+
+  var svg='<svg viewBox="0 0 300 200" style="width:100%;display:block" role="img" aria-label="Tages-Index '+idx+', vier Achsen">'
+    +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="6">'
+    + bahn.map(function(d){ return '<path d="'+d+'" stroke="rgba(255,255,255,.09)"/>'; }).join('')
+    + A4.map(function(a,i){
+        var off = (a.pct==null) ? L : L*(1-a.pct);
+        return '<path d="'+bahn[i]+'" stroke="'+(a.pct==null?'rgba(255,255,255,.18)':a.f)+'" '
+             + 'stroke-dasharray="'+L+'" stroke-dashoffset="'+L+'" '
+             + 'data-ziel="'+off.toFixed(1)+'" class="'+uid+'-b"/>';
+      }).join('')
+    +'</g>'
+    + A4.map(function(a,i){
+        return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="6" fill="'+(a.pct==null?'#57534e':a.f)+'" opacity=".3" class="'+uid+'-k"/>';
+      }).join('')
+    /* Beschriftung: Name UND Prozent stehen in EINEM text-Element.
+       Zwei getrennte Elemente koennen sich auf schmalen Geraeten ueberlagern -
+       ein Element kann das nie. */
+    +'<text x="26" y="24" font-size="10" fill="rgba(255,255,255,.55)">Zutaten <tspan font-size="11" font-weight="700" fill="'+(A4[0].pct==null?'#a8a29e':A4[0].f)+'">'+(A4[0].pct==null?'–':Math.round(A4[0].pct*100)+' %')+'</tspan></text>'
+    +'<text x="274" y="24" font-size="10" fill="rgba(255,255,255,.55)" text-anchor="end">Zusatzstoffe <tspan font-size="11" font-weight="700" fill="'+(A4[1].pct==null?'#a8a29e':A4[1].f)+'">'+(A4[1].pct==null?'–':Math.round(A4[1].pct*100)+' %')+'</tspan></text>'
+    +'<text x="26" y="186" font-size="10" fill="rgba(255,255,255,.55)">Verarbeitung <tspan font-size="11" font-weight="700" fill="'+(A4[2].pct==null?'#a8a29e':A4[2].f)+'">'+(A4[2].pct==null?'–':Math.round(A4[2].pct*100)+' %')+'</tspan></text>'
+    +'<text x="274" y="186" font-size="10" fill="rgba(255,255,255,.55)" text-anchor="end">Nährwert <tspan font-size="11" font-weight="700" fill="'+(A4[3].pct==null?'#a8a29e':A4[3].f)+'">'+(A4[3].pct==null?'–':Math.round(A4[3].pct*100)+' %')+'</tspan></text>'
+    +'<circle cx="150" cy="100" r="38" fill="#0a1710" stroke="rgba(255,255,255,.14)" stroke-width="2"/>'
+    +'<circle cx="150" cy="100" r="38" fill="none" stroke="#7cff9b" stroke-width="2.5" opacity="0" class="'+uid+'-r"/>'
+    +'<text x="150" y="106" text-anchor="middle" font-size="34" font-weight="700" fill="#7cff9b" letter-spacing="-1" opacity="0" class="'+uid+'-n">'+idx+'</text>'
+    +'<text x="150" y="126" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.45)" opacity="0" class="'+uid+'-s">Dein Tag: '+bew.toLowerCase()+'</text>'
+  +'</svg>';
+
+  var fuss = kcalIst+' kcal'+(kcalSoll>0?' von '+kcalSoll:'')
+           + ' · EW '+Math.round(sum.protein||0)+' g'
+           + ' · KH '+Math.round(sum.kh||0)+' g'
+           + ' · Fett '+Math.round(sum.fett||0)+' g'
+           + ' · Ballast '+Math.round(sum.ballaststoffe||0)+' g';
+
+  setTimeout(function(){ fxAnimieren(uid); }, 60);
+
+  return '<div onclick="navTo(\'tagebuch\')" style="cursor:pointer;position:relative;overflow:hidden;border-radius:16px;padding:12px 8px;margin-bottom:12px;background:radial-gradient(120% 120% at 50% 48%,#173a2a,#070f0a 72%);box-shadow:0 8px 22px rgba(15,40,25,.28)">'
+    + svg
+    +'<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);font-size:11px;color:rgba(255,255,255,.5);text-align:center">'+fuss+'</div>'
   +'</div>';
+}
+/* Laedt die Leiterbahnen auf. Laeuft NUR EINMAL je Kachel (eigene uid) - sonst
+   zappelt die Startseite bei jedem Rendern.
+   Bei prefers-reduced-motion stehen alle Werte sofort da: abgeschaltete Bewegung
+   darf nicht heissen, dass die Zahl unsichtbar bleibt. */
+function fxAnimieren(uid){
+  var bahnen=document.querySelectorAll('.'+uid+'-b');
+  if(!bahnen.length) return;
+  var kaps=document.querySelectorAll('.'+uid+'-k');
+  var num=document.querySelector('.'+uid+'-n'), sub=document.querySelector('.'+uid+'-s'), ring=document.querySelector('.'+uid+'-r');
+  var still=false;
+  try{ still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  if(still){
+    bahnen.forEach(function(b){ b.style.strokeDashoffset=b.dataset.ziel; });
+    kaps.forEach(function(k){ k.setAttribute('opacity','1'); });
+    [num,sub,ring].forEach(function(e){ if(e) e.setAttribute('opacity', e===ring?'.3':'1'); });
+    return;
+  }
+  bahnen.forEach(function(b,i){
+    b.style.transition='stroke-dashoffset .9s cubic-bezier(.4,0,.2,1) '+(i*140)+'ms';
+    b.style.strokeDashoffset=b.dataset.ziel;
+  });
+  kaps.forEach(function(k,i){
+    try{ k.animate([{opacity:.3},{opacity:1}],{duration:400,delay:i*140,fill:'forwards'}); }
+    catch(e){ k.setAttribute('opacity','1'); }
+  });
+  setTimeout(function(){
+    [[num,520],[sub,420]].forEach(function(x){
+      if(!x[0]) return;
+      try{ x[0].animate([{opacity:0},{opacity:1}],{duration:x[1],easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'}); }
+      catch(e){ x[0].setAttribute('opacity','1'); }
+    });
+    if(ring){ try{ ring.animate([{opacity:0},{opacity:.9},{opacity:.3}],{duration:1000,fill:'forwards'}); }catch(e){} }
+  }, 1150);
 }
 function startProdSearch(v){ navTo('produkte'); setTimeout(function(){ var el=document.getElementById('q'); if(el){ el.value=v||''; if(typeof render==='function') render(); el.focus(); } }, 60); }
 function startProdScan(){ navTo('produkte'); setTimeout(function(){ if(typeof prodScan==='function') prodScan(); }, 300); }
 function bnActive(m){
-  const ids=['bnstart','bnprodukte','bntagebuch','bntraining','bnmehr'];
-  const map={start:'bnstart',produkte:'bnprodukte',tagebuch:'bntagebuch',training:'bntraining'};
+  /* "bntraining" gibt es in der Leiste nicht mehr - Training liegt im Menue.
+     Wer dort ist, sieht deshalb das Menue als aktiv (der Fallback unten). */
+  const ids=['bnstart','bnprodukte','bntagebuch','bnmehr'];
+  const map={start:'bnstart',produkte:'bnprodukte',tagebuch:'bntagebuch'};
   ids.forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active');});
   const b=document.getElementById(map[m]||'bnmehr'); if(b) b.classList.add('active');
 }
@@ -3952,7 +4102,9 @@ async function ktErledigt(id){ try{ await client.rpc("cb_admin_kontakt_erledigt"
 function ktAnlegen(i){ const x=(window._ktList||[])[i]; if(!x){ openFgEditor(null); return; } openFgEditor(null, {name:x.produktname, marke:x.marke, ean:x.barcode}); }
 function ktAntwort(i){ const x=(window._ktList||[])[i]; if(!x||!x.email) return; const betr=x.typ==='produkt'?('Deine Produktanfrage: '+(x.produktname||'')):'Deine Nachricht an Root Index'; const body='Hallo'+(x.name?' '+x.name:'')+',\r\n\r\ndanke fuer deine Nachricht an Root Index.\r\n\r\n'; window.location.href='mailto:'+encodeURIComponent(x.email)+'?subject='+encodeURIComponent(betr)+'&body='+encodeURIComponent(body); }
 function buildMehr(){
-  const items=[['einkauf','🛒 Einkaufsliste'],['rezepte','🍲 Rezepte'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
+  /* Training ist aus der unteren Leiste hierher gewandert - es ist die Funktion,
+     die man am seltensten braucht. Der Platz gehoert dem Scannen. */
+  const items=[['einkauf','🛒 Einkaufsliste'],['rezepte','🍲 Rezepte'],['training','🏋️ Training'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
   let html=items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('');
   /* Darstellung: "Automatisch" folgt dem Geraet - das ist die richtige Vorgabe.
      Wer ein Handy auf dunkel gestellt hat, will nicht von jeder App neu gefragt werden. */
@@ -5657,7 +5809,7 @@ function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
   return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${rating??5}" title="Zutaten-Bewertung 0–10 (Verarbeitungsgrad)" style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${(rating===null||rating===undefined||rating==="")?"":rating}" placeholder="–" title="Verarbeitungsgrad 0–10. LEER LASSEN, wenn unbekannt – dann bekommt das Produkt keinen Score, statt einer erfundenen Zahl." style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center">
     <label style="font-size:11px;color:var(--k-b91c1c);display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:var(--k-dc2626)">⚠️</label>
     <button type="button" onclick="this.closest('.fgZutRow').remove()" title="Zutat entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:8px;width:30px;height:30px;cursor:pointer;flex:0 0 auto">✕</button>
   </div>`;
@@ -5667,7 +5819,7 @@ function fgZutAuto(inp){
   const row=inp.closest(".fgZutRow"); const r=row.querySelector(".fgzRate"), k=row.querySelector(".fgzKrit");
   if(r) r.value=m.rating; if(k) k.checked=(String(m.kritisch).toLowerCase()==="ja");
 }
-function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.insertAdjacentHTML("beforeend", fgZutRow("",5,"nein")); }
+function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.insertAdjacentHTML("beforeend", fgZutRow("",null,"nein")); }
 /* ================= RIKI – Root Index KI =================
    Ruft die Edge Function „riki-analyse" auf. Der API-Key liegt als Supabase-Secret und
    verlässt den Server NIE. Riki befüllt nur das Formular – gespeichert wird erst per Klick. */
@@ -5818,7 +5970,9 @@ async function openFgEditor(id, prefill){
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
   const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
-  const zText=(d.zutaten||[]).map(z=>`${z.name}; ${z.rating??5}; ${(String(z.kritisch||"nein").toLowerCase()==="ja")?"j":"n"}`).join("\n");
+  /* Fuenfte Fundstelle des Default 5: Auch die Textliste machte aus NULL eine 5.
+     Ein leeres Feld heisst "unbewertet" - und muss auch so aussehen. */
+  const zText=(d.zutaten||[]).map(z=>`${z.name}; ${(z.rating===null||z.rating===undefined)?"":z.rating}; ${(String(z.kritisch||"nein").toLowerCase()==="ja")?"j":"n"}`).join("\n");
   const inp=(id2,val)=>`<input id="${id2}" value="${esc(val||"")}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px">`;
   const sel=(id2,cur,opts)=>`<select id="${id2}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">${opts.map(o=>`<option ${((cur||opts[0])===o)?"selected":""}>${o}</option>`).join("")}</select>`;
   panel.innerHTML=`
@@ -5849,7 +6003,7 @@ async function openFgEditor(id, prefill){
       <div id="rikiMsg" style="font-size:12.5px;margin-top:7px;line-height:1.5"></div>
     </div>
     <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
-    <div id="fe_zutRows">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")||fgZutRow("",5,"nein")}</div>
+    <div id="fe_zutRows">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")||fgZutRow("",null,"nein")}</div>
     <button type="button" onclick="fgAddZutat()" style="margin-top:4px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px">+ Zutat</button>
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Produktbild</div>
     <div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:120px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div>
@@ -5882,8 +6036,11 @@ async function fgEditSave(alsoFreigeben){
   const nw={}; ["kcal","protein","kh","zucker","fett","ges_fett","ballaststoffe","salz"].forEach(k=>{ const v=numv(g("fe_"+k).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
   const zut=[...document.querySelectorAll("#fe_zutRows .fgZutRow")].map(row=>{
     const nm=(row.querySelector(".fgzName").value||"").trim();
-    const rt=Number(row.querySelector(".fgzRate").value);
-    return { name:nm, rating:isNaN(rt)?5:rt, kritisch:row.querySelector(".fgzKrit").checked?"ja":"nein" };
+    /* LEER heisst NULL, nicht 5. Wer das Feld leer laesst, sagt "ich weiss es nicht" -
+       und genau das muss in der Datenbank stehen. Vorher wurde daraus eine 5. */
+    const roh=(row.querySelector(".fgzRate").value||"").trim();
+    const rt=(roh==="")?null:Number(roh);
+    return { name:nm, rating:(rt===null||isNaN(rt))?null:rt, kritisch:row.querySelector(".fgzKrit").checked?"ja":"nein" };
   }).filter(z=>z.name);
   const name=(g("fe_name").value||"").trim();
   if(!name){ msg.style.color="var(--k-dc2626)"; msg.textContent="Titel fehlt."; return; }
@@ -7844,7 +8001,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14h";
+const APP_BUILD = "2026-07-14i";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
