@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14n neues logo · intro-verwandlung · claim -->
+<!-- build 2026-07-14p eine gruenfamilie · marke statt blatt · startseite bento · intro: y-startbild + jeder kaltstart -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -315,7 +315,7 @@
     --dunkelflaeche-2:#24492E;
     --auf-dunkelflaeche:#FFFFFF;
     --auf-dunkelflaeche-leise:rgba(255,255,255,.72);
-    --auf-gruen:#1D3C24;
+    --auf-gruen:#0C1A12;
     --auf-gruen-dunkel:#FFFFFF;
   }
   [data-theme="dark"] {
@@ -566,14 +566,14 @@
     --dunkelflaeche-2:#1E241F;
     --auf-dunkelflaeche:#E7ECE8;
     --auf-dunkelflaeche-leise:rgba(231,236,232,.70);
-    --auf-gruen:#12210F;
+    --auf-gruen:#0A1710;
     --auf-gruen-dunkel:#EAF3E4;
   }
 </style>
 <style>
   :root{
     --bg:var(--k-eef1ec); --card:var(--k-ffffff); --ink:var(--k-1d3c24); --muted:var(--k-6b6256); --line:var(--k-e4e8e2);
-    --green:var(--k-6faf3a); --green2:var(--k-5e9a30); --greendk:var(--k-2e7d32); --greenlt:var(--k-eaf5ee);
+    --green:#34D399; --green2:#10B981; --greendk:#047857; --greenlt:#ECFDF5;
     --sehrgut:var(--k-22c55e); --gut:var(--k-84cc16); --mittel:var(--k-f0a020); --schwach:var(--k-ef4444); --grau:var(--k-6b6256);
     --shadow:0 4px 16px rgba(20,40,28,.10);
     --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
@@ -780,7 +780,7 @@
   #introWort{margin-top:6px;font-size:22px;letter-spacing:3px;color:#fff;opacity:0}
   #introWort span{color:#5EF2A0}
   #introOverlay .introClaim{margin-top:9px;font-size:13px;color:rgba(255,255,255,.62);
-    text-align:center;padding:0 24px;line-height:1.45;opacity:0}
+    text-align:center;padding:0 24px;line-height:1.45;opacity:1}
   #introOverlay .introSkip{position:absolute;bottom:calc(26px + env(safe-area-inset-bottom));right:22px;
     background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.40);color:#fff;border-radius:999px;
     padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer}
@@ -789,9 +789,9 @@
   .seg button{flex:1 0 auto;border:0;background:none;padding:9px 14px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
   .seg button.active{background:var(--card);color:var(--green);box-shadow:0 1px 3px rgba(31,94,52,.12)}
   /* Wassertropfen-Animation (Startseite) */
-  @keyframes leafsway{0%{transform:rotate(-8deg)}25%{transform:rotate(4deg)}50%{transform:rotate(9deg)}75%{transform:rotate(1deg)}100%{transform:rotate(-8deg)}}
+  @keyframes markPuls{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.05);opacity:1}}
   .leafwind{width:88px;height:88px;margin:2px auto 8px;display:flex;align-items:flex-end;justify-content:center}
-  .leafwind svg{transform-origin:50% 90%;animation:leafsway 3.8s ease-in-out infinite;will-change:transform}
+  .leafwind svg{transform-origin:50% 50%;animation:markPuls 3.4s ease-in-out infinite;will-change:transform}
   /* ===================================================================
      Bewegung abschaltbar - fuer ALLE Animationen, nicht nur das Blatt.
      Vorher stand diese Regel an genau EINER von zwanzig Stellen. Fuer
@@ -3830,12 +3830,21 @@ async function renderStart(){
   const card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
   if(!ME){
     body.innerHTML='<div style="max-width:600px;margin:0 auto">'
-      +'<div style="'+card+';text-align:center;padding:24px 18px"><div class="leafwind"><svg viewBox="0 0 48 60" width="72" height="72" aria-hidden="true"><path d="M24 3 C41 16 40 41 24 57 C8 41 7 16 24 3 Z" fill="var(--k-6faf3a)"/><path d="M24 8 C22 26 22 40 24 53" stroke="var(--k-2e7d32)" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M24 19 L34 14 M24 29 L35 25 M24 39 L33 36 M24 19 L14 14 M24 29 L13 25 M24 39 L15 36" stroke="var(--k-2e7d32)" stroke-width="1.4" fill="none" opacity=".65" stroke-linecap="round"/></svg></div>'
-      +'<h2 style="margin:.25em 0 .15em">Willkommen bei Root Index</h2>'
-      +'<p style="color:var(--muted);font-size:14.5px;line-height:1.5;margin:.2em 0 1em">Transparente, wissenschaftsbasierte Bewertung von Lebensmitteln (Root Index 0–100) – plus Ernährungs- &amp; Trainingstagebuch.</p>'
+      /* Die ausgeloggte Startseite spricht jetzt dieselbe Sprache wie die App:
+         dunkle Bento-Kachel, das neue Zeichen, der Claim. Vorher war sie eine
+         weisse Insel mit einem Blatt-Emoji - ein anderes Produkt.
+         > Der erste Eindruck darf nicht der einzige sein, der aus der Reihe faellt. */
+      +'<div style="position:relative;overflow:hidden;text-align:center;border-radius:16px;padding:28px 20px;margin-bottom:12px;background:radial-gradient(130% 130% at 50% 12%,#1F5E39,#0B1710 68%);box-shadow:0 10px 28px rgba(15,40,25,.30)">'
+      +'<div style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);width:200px;height:130px;background:radial-gradient(circle,#5ef2a026 0%,transparent 70%);filter:blur(20px)"></div>'
+      +'<div style="position:relative;z-index:2">'
+      +'<div class="leafwind" style="width:auto;height:auto;margin:0 auto 10px"><svg viewBox="0 0 120 120" width="76" height="76" aria-hidden="true"><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7.5"><path d="M22 26 L44 26 L56 40" stroke="#3DDB7A"/><path d="M98 26 L76 26 L64 40" stroke="#5AB6FF"/><path d="M22 94 L44 94 L56 80" stroke="#B79BFF"/><path d="M98 94 L76 94 L64 80" stroke="#FFC24B"/></g><circle cx="20" cy="26" r="6.5" fill="#3DDB7A"/><circle cx="100" cy="26" r="6.5" fill="#5AB6FF"/><circle cx="20" cy="94" r="6.5" fill="#B79BFF"/><circle cx="100" cy="94" r="6.5" fill="#FFC24B"/><circle cx="60" cy="60" r="15" fill="#0A1710" stroke="#5EF2A0" stroke-width="3"/><circle cx="60" cy="60" r="5" fill="#7CFF9B"/></svg></div>'
+      +'<h2 style="margin:.1em 0 .2em;color:#fff;font-size:21px;letter-spacing:.5px">Willkommen bei Root&nbsp;Index</h2>'
+      +'<p style="color:#5EF2A0;font-size:14px;font-weight:600;margin:0 0 .55em">Die Vorderseite verkauft. Wir lesen die Rückseite.</p>'
+      +'<p style="color:rgba(255,255,255,.62);font-size:13.5px;line-height:1.55;margin:0 auto 1.1em;max-width:420px">Vier Prüfungen für jedes Produkt: Zutaten, Zusatzstoffe, Verarbeitung, Nährwert. Jede Zahl mit Quelle &ndash; oder gar keine Zahl.</p>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
-      +'<button onclick="openLogin()" style="padding:12px 18px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);font-size:15px;cursor:pointer">Anmelden / Registrieren</button>'
-      +'<button onclick="navTo(\'produkte\')" style="padding:12px 18px;border:1px solid var(--green);border-radius:10px;background:var(--card);color:var(--greendk);font-size:15px;cursor:pointer">Produkte ansehen</button></div></div>'
+      +'<button onclick="openLogin()" style="padding:12px 20px;border:0;border-radius:11px;background:#5EF2A0;color:#0A1710;font-size:15px;font-weight:700;cursor:pointer">Anmelden / Registrieren</button>'
+      +'<button onclick="navTo(\'produkte\')" style="padding:12px 20px;border:1px solid rgba(255,255,255,.32);border-radius:11px;background:rgba(255,255,255,.08);color:#fff;font-size:15px;cursor:pointer">Produkte ansehen</button>'
+      +'</div></div></div>'
       +startRezSucheHtml()
       +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
       +startFeature('🔍','Root Index','0–100, erklärt')+startFeature('📒','Tagebuch','Makros &amp; Ziele')
@@ -8149,16 +8158,11 @@ function riIntroLauf(){
   var claim=document.querySelector('#introOverlay .introClaim');
   if(!rot) return;
 
-  var D=2500, t0=performance.now()+200;          // 0,2 s Startverzoegerung
-  function frame(now){
-    if(now<t0){ requestAnimationFrame(frame); return; }
-    var t=Math.min(1,(now-t0)/D);
-    var e = t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
-    rot.style.transform='rotate('+(e*360)+'deg)';
-
-    var m=Math.max(0,Math.min(1,(t-0.20)/0.60));
-    var me = m<.5 ? 2*m*m : 1-Math.pow(-2*m+2,2)/2;
-
+  /* Die Pfade stehen im HTML auf d="" - ohne einen ersten Zeichenlauf ist das
+     Bild LEER. Genau das sah man in der Startverzoegerung: ein nackter Ring.
+     > Ein Startbild, das erst der zweite Frame malt, ist kein Startbild.
+     Deshalb: erst das Y zeichnen (me=0), dann die Uhr starten. */
+  function zeichne(me){
     for(var i=0;i<4;i++){
       var p=document.getElementById('ifP'+(i+1)), c=document.getElementById('ifK'+(i+1)), z=SARM[i];
       var sx, sy;
@@ -8173,6 +8177,18 @@ function riIntroLauf(){
       c.setAttribute('fill', co(GRUEN, z.col, me));
     }
     kern.setAttribute('r', li(10, 34, me));
+  }
+  zeichne(0);                                    // das Y steht, bevor irgendetwas laeuft
+
+  var D=2500, t0=performance.now()+600;          // 0,6 s Ruhe: erst sieht man das Y
+  function frame(now){
+    if(now<t0){ requestAnimationFrame(frame); return; }
+    var t=Math.min(1,(now-t0)/D);
+    var e = t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+    rot.style.transform='rotate('+(e*360)+'deg)';
+
+    var m=Math.max(0,Math.min(1,(t-0.20)/0.60));
+    zeichne(m<.5 ? 2*m*m : 1-Math.pow(-2*m+2,2)/2);
 
     if(t>=1){
       /* Erst jetzt die Skala - sie waechst aus dem Nichts und zaehlt 0 -> 100. */
@@ -8185,7 +8201,6 @@ function riIntroLauf(){
         if(s<1) requestAnimationFrame(zaehl);
       })(z0);
       if(wort)  wort.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:600,delay:500,easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'});
-      if(claim) claim.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:600,delay:750,easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'});
       return;
     }
     requestAnimationFrame(frame);
@@ -8217,20 +8232,18 @@ function riIntroSofort(){
 }
 (function(){
   var o=document.getElementById('introOverlay'); if(!o) return;
-  /* Einmal pro GERAET, nicht pro Sitzung. Mit sessionStorage lief das Intro auf
-     dem Handy bei jedem Oeffnen neu - und das Tagebuch oeffnet man mehrmals taeglich.
-     > Ein Intro ist eine Begruessung, keine Mautstelle. */
+  /* Einmal pro SITZUNG: beim Kaltstart der App laeuft es, beim Blaettern in der
+     App nicht. Vorher stand hier localStorage - dann sah man es genau einmal im
+     Leben des Geraets und nie wieder. Der Ueberspringen-Knopf ist der Notausgang. */
   var reduce=false;
   try{ reduce=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
   var seen=false;
-  try{ seen=localStorage.getItem('ri_intro_v2')==='1'; }catch(e){}
+  try{ seen=sessionStorage.getItem('ri_intro_v3')==='1'; }catch(e){}
   if(seen){ o.style.display='none'; return; }
-  try{ localStorage.setItem('ri_intro_v2','1'); }catch(e){
-    try{ sessionStorage.setItem('ri_intro','1'); }catch(_){}
-  }
+  try{ sessionStorage.setItem('ri_intro_v3','1'); }catch(e){}
   if(reduce){ riIntroSofort(); setTimeout(riHideIntro, 1600); return; }
   riIntroLauf();
-  setTimeout(riHideIntro, 4600);
+  setTimeout(riHideIntro, 5500);   /* 0,6 Ruhe + 2,5 Verwandlung + 1,0 Zaehlen + 0,5 stehen */
 })();
 load();
 if(!ADMIN_MODE) setMode('start');
@@ -8246,7 +8259,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14n";
+const APP_BUILD = "2026-07-14p";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
