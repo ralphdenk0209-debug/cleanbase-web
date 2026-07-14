@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14i fluxkompensator · scan-leiste · default-5 raus · bento -->
+<!-- build 2026-07-14k scan-overlay · verarbeitung statt nova · kontraste -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -729,7 +729,7 @@
         display:flex;align-items:center;justify-content:center;margin:-26px auto 1px;
         border:4px solid var(--card);box-shadow:0 4px 14px rgba(20,60,35,.30);
         transition:transform .12s ease}
-  .bn-scanBtn svg{width:26px;height:26px;stroke:var(--auf-gruen-dunkel);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .bn-scanBtn svg{width:26px;height:26px;stroke:var(--auf-gruen);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .bn-scan:active .bn-scanBtn{transform:scale(.92)}
   .bn-scan span:last-child{color:var(--muted)}
   /* ===== BENTO / TECH (Startseite) ===== */
@@ -1303,7 +1303,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const SCORE_TEIL = [
   ["p_zutaten","Zutatenqualität",30,1,"Zutaten"],
   ["p_zusatzstoffe","Zusatzstoffe",15,1,"Zusatzstoffe"],
-  ["p_nova","Verarbeitungsgrad (NOVA)",15,1,"NOVA"],
+  ["p_nova","Verarbeitungsgrad",15,1,"Verarbeitung"],
   ["p_naehrwert","Nährwertqualität",40,2,"Nährwert"],
 ];
 const EXTRA_TEIL = [
@@ -1389,7 +1389,7 @@ function scoreLead(d,size){
   const ax=[
     ["Zutaten",      num(d&&d.p_zutaten),      30, ACHS_FARBE.zutaten],
     ["Zusatzstoffe", num(d&&d.p_zusatzstoffe), 15, ACHS_FARBE.zusatz],
-    ["NOVA",         num(d&&d.p_nova),         15, ACHS_FARBE.nova],
+    ["Verarbeitung", num(d&&d.p_nova),         15, ACHS_FARBE.nova],
     ["Nährwert",     num(d&&d.p_naehrwert),    20, ACHS_FARBE.naehr]
   ].map(function(r){
     const a=(r[1]==null)?null:Math.max(0,Math.min(1,r[1]/r[2]));
@@ -2440,7 +2440,7 @@ const SCORE_REGELN = {
     regel:"Jeder Zusatzstoff wird <b>einzeln</b> nach der wissenschaftlichen Bewertungslage eingestuft: belegt unbedenklich = volle Punkte · noch ungeprüft = Abzug (gilt nicht automatisch als sicher) · von Behörden beanstandet = starker Abzug · künstliche Süßstoffe = stärkster Abzug.",
     quelle:"EFSA-Neubewertungen · IARC (Aspartam: Gruppe 2B, 2023) · WHO-Leitlinie zu Süßstoffen (2023). Natürliche Süßstoffe wie Stevia werden nur <b>leicht</b> abgewertet – die EFSA sieht kein Sicherheitsrisiko, die WHO rät aber von Süßstoffen ab."
   },
-  "NOVA": {
+  "Verarbeitung": {
     farbe:ACHS_FARBE.nova,
     regel:"Wie stark ist das <b>fertige Produkt</b> verarbeitet? Stufe 1 = unverarbeitet (Apfel), Stufe 4 = hochverarbeitet (Fertigprodukt mit vielen Zusätzen).",
     quelle:"NOVA-Klassifikation (Monteiro et al.) – international etablierter Standard für Verarbeitungsgrade."
@@ -2525,7 +2525,7 @@ function detail(d){
     /* Zweite Farbtabelle - sie zeichnet die RINGE. Sie hatte ihre eigenen Werte,
        obwohl SCORE_REGELN dieselben Farben schon fuehrte. Jetzt beide aus ACHS_FARBE:
        eine Quelle, sonst laufen sie beim naechsten Fix wieder auseinander. */
-    const COL={Zutaten:ACHS_FARBE.zutaten,Zusatzstoffe:ACHS_FARBE.zusatz,NOVA:ACHS_FARBE.nova,"Nährwert":ACHS_FARBE.naehr};
+    const COL={Zutaten:ACHS_FARBE.zutaten,Zusatzstoffe:ACHS_FARBE.zusatz,Verarbeitung:ACHS_FARBE.nova,"Nährwert":ACHS_FARBE.naehr};
     const items=arr.map(([k,label,max,mult,short])=>{ const m=mult||1; const raw=num(d[k]); const v=raw===null?null:raw*m; const pct=v===null?null:Math.max(0,Math.min(1,v/max)); return {short:short||label,max,v,pct,col:COL[short]||ACHS_FARBE.zutaten}; }).filter(it=>it.pct!==null);
     if(!items.length) return "";
     let rings=""; const sw=7;
@@ -2536,15 +2536,19 @@ function detail(d){
        Die Zahlen bekommen flex:0 0 auto: sie geben nie Platz her. */
     const legend=items.map(it=>'<div style="display:flex;align-items:center;gap:8px;font-size:12.5px">'
       +'<span style="width:10px;height:10px;border-radius:2px;background:'+it.col+';flex:0 0 auto"></span>'
-      +'<span style="color:var(--muted);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(it.short)+'</span>'
+      +'<span style="color:var(--muted);flex:1 1 auto;min-width:0;line-height:1.2">'+esc(it.short)+'</span>'
       +'<b style="flex:0 0 auto">'+Math.round(it.pct*100)+'%</b>'
       +'<span style="color:var(--muted);font-size:11px;flex:0 0 auto;white-space:nowrap">'+String(Math.round(it.v*10)/10).replace(".",",")+"/"+it.max+'</span>'
       +'</div>').join("");
-    return '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:6px 0"><svg viewBox="0 0 130 130" width="130" height="130" style="flex:0 0 auto" role="img" aria-label="Index-Aufschlüsselung"><title>Root Index Aufschlüsselung</title>'+rings+'</svg><div style="flex:1;min-width:150px;display:flex;flex-direction:column;gap:7px">'+legend+'</div></div>';
+    /* Der Ring skaliert mit dem Platz (min 92, max 130 px) - auf einem schmalen
+       Handy nimmt er sich weniger, damit die Legende ihre Woerter ausschreiben kann. */
+    return '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0">'
+      +'<svg viewBox="0 0 130 130" style="width:clamp(92px,26vw,130px);height:clamp(92px,26vw,130px);flex:0 0 auto" role="img" aria-label="Index-Aufschlüsselung"><title>Root Index Aufschlüsselung</title>'+rings+'</svg>'
+      +'<div style="flex:1 1 160px;min-width:0;display:flex;flex-direction:column;gap:7px">'+legend+'</div></div>';
   };
   const rows = mkRings(SCORE_TEIL);
   const mkAbzug = arr => {
-    const REASON={Zutaten:"Zutaten nicht durchweg als Vollwert bewertet",Zusatzstoffe:"enthält Zusatzstoffe",NOVA:"höherer Verarbeitungsgrad (NOVA)","Nährwert":"Nährwertprofil pro 100 g (Zucker, Fett, Salz, Ballaststoffe, Eiweiß)"};
+    const REASON={Zutaten:"Zutaten nicht durchweg als Vollwert bewertet",Zusatzstoffe:"enthält Zusatzstoffe",Verarbeitung:"höherer Verarbeitungsgrad (NOVA-Stufe)","Nährwert":"Nährwertprofil pro 100 g (Zucker, Fett, Salz, Ballaststoffe, Eiweiß)"};
     const items=arr.map(([k,label,max,mult,short])=>{const m=mult||1;const raw=num(d[k]);const v=raw===null?null:raw*m;return {short:short||label,max,v};}).filter(it=>it.v!==null && it.v < it.max-0.01);
     if(!items.length) return "";
     const lines=items.map(it=>{
@@ -3805,7 +3809,7 @@ async function renderStart(){
   let statusBadge='';
   if(ME){ const tb=ME.trial_bis?new Date(ME.trial_bis):null; const isTrial=(ME.sub_status==='trialing')&&tb&&tb>new Date();
     if(isTrial){ const d=Math.max(0,Math.ceil((tb-new Date())/86400000)); statusBadge='<span style="margin-left:auto;font-size:11.5px;font-weight:700;background:var(--greenlt);color:var(--greendk);padding:3px 10px;border-radius:999px;white-space:nowrap">🎁 '+d+' Tag'+(d===1?'':'e')+' Test übrig</span>'; }
-    else if(ME.is_premium){ statusBadge='<span style="margin-left:auto;font-size:11.5px;font-weight:700;background:var(--greendk);color:var(--auf-gruen-dunkel);padding:3px 10px;border-radius:999px;white-space:nowrap">✓ Premium</span>'; }
+    else if(ME.is_premium){ statusBadge='<span style="margin-left:auto;font-size:11.5px;font-weight:700;background:var(--green);color:var(--auf-gruen);padding:3px 10px;border-radius:999px;white-space:nowrap">✓ Premium</span>'; }
   }
   dash.innerHTML=
     '<div style="display:flex;align-items:baseline;gap:8px;margin:2px 2px 12px"><span style="font-weight:600;font-size:16px">Hallo'+(vorname?(' '+esc(vorname)):"")+'</span><span style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</span>'+statusBadge+'</div>'
@@ -3929,16 +3933,16 @@ function startKennzahlen(sum, prof){
   });
 
   var uid='fx'+(Math.random().toString(36).slice(2,8));
-  var L=102;                       // Laenge jeder Leiterbahn (dasharray)
+  var L=100;                       // Laenge jeder Leiterbahn (dasharray)
   var bahn=[
-    'M26 40 H74 L112 78',          // oben links
-    'M274 40 H226 L188 78',        // oben rechts
-    'M26 160 H74 L112 122',        // unten links
-    'M274 160 H226 L188 122'       // unten rechts
+    'M26 34 H74 L112 70',          // oben links
+    'M274 34 H226 L188 70',        // oben rechts
+    'M26 142 H74 L112 106',        // unten links
+    'M274 142 H226 L188 106'       // unten rechts
   ];
-  var kap=[[26,40],[274,40],[26,160],[274,160]];
+  var kap=[[26,34],[274,34],[26,142],[274,142]];
 
-  var svg='<svg viewBox="0 0 300 200" style="width:100%;display:block" role="img" aria-label="Tages-Index '+idx+', vier Achsen">'
+  var svg='<svg viewBox="0 0 300 176" style="width:100%;display:block" role="img" aria-label="Tages-Index '+idx+', vier Achsen">'
     +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="6">'
     + bahn.map(function(d){ return '<path d="'+d+'" stroke="rgba(255,255,255,.09)"/>'; }).join('')
     + A4.map(function(a,i){
@@ -3954,17 +3958,20 @@ function startKennzahlen(sum, prof){
     /* Beschriftung: Name UND Prozent stehen in EINEM text-Element.
        Zwei getrennte Elemente koennen sich auf schmalen Geraeten ueberlagern -
        ein Element kann das nie. */
-    +'<text x="26" y="24" font-size="10" fill="rgba(255,255,255,.55)">Zutaten <tspan font-size="11" font-weight="700" fill="'+(A4[0].pct==null?'#a8a29e':A4[0].f)+'">'+(A4[0].pct==null?'–':Math.round(A4[0].pct*100)+' %')+'</tspan></text>'
-    +'<text x="274" y="24" font-size="10" fill="rgba(255,255,255,.55)" text-anchor="end">Zusatzstoffe <tspan font-size="11" font-weight="700" fill="'+(A4[1].pct==null?'#a8a29e':A4[1].f)+'">'+(A4[1].pct==null?'–':Math.round(A4[1].pct*100)+' %')+'</tspan></text>'
-    +'<text x="26" y="186" font-size="10" fill="rgba(255,255,255,.55)">Verarbeitung <tspan font-size="11" font-weight="700" fill="'+(A4[2].pct==null?'#a8a29e':A4[2].f)+'">'+(A4[2].pct==null?'–':Math.round(A4[2].pct*100)+' %')+'</tspan></text>'
-    +'<text x="274" y="186" font-size="10" fill="rgba(255,255,255,.55)" text-anchor="end">Nährwert <tspan font-size="11" font-weight="700" fill="'+(A4[3].pct==null?'#a8a29e':A4[3].f)+'">'+(A4[3].pct==null?'–':Math.round(A4[3].pct*100)+' %')+'</tspan></text>'
-    +'<circle cx="150" cy="100" r="38" fill="#0a1710" stroke="rgba(255,255,255,.14)" stroke-width="2"/>'
-    +'<circle cx="150" cy="100" r="38" fill="none" stroke="#7cff9b" stroke-width="2.5" opacity="0" class="'+uid+'-r"/>'
-    +'<text x="150" y="106" text-anchor="middle" font-size="34" font-weight="700" fill="#7cff9b" letter-spacing="-1" opacity="0" class="'+uid+'-n">'+idx+'</text>'
-    +'<text x="150" y="126" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.45)" opacity="0" class="'+uid+'-s">Dein Tag: '+bew.toLowerCase()+'</text>'
+    +'<text x="26" y="18" font-size="10" fill="rgba(255,255,255,.55)">Zutaten <tspan font-size="11" font-weight="700" fill="'+(A4[0].pct==null?'#a8a29e':A4[0].f)+'">'+(A4[0].pct==null?'–':Math.round(A4[0].pct*100)+' %')+'</tspan></text>'
+    +'<text x="274" y="18" font-size="10" fill="rgba(255,255,255,.55)" text-anchor="end">Zusatzstoffe <tspan font-size="11" font-weight="700" fill="'+(A4[1].pct==null?'#a8a29e':A4[1].f)+'">'+(A4[1].pct==null?'–':Math.round(A4[1].pct*100)+' %')+'</tspan></text>'
+    +'<text x="26" y="166" font-size="10" fill="rgba(255,255,255,.55)">Verarbeitung <tspan font-size="11" font-weight="700" fill="'+(A4[2].pct==null?'#a8a29e':A4[2].f)+'">'+(A4[2].pct==null?'–':Math.round(A4[2].pct*100)+' %')+'</tspan></text>'
+    +'<text x="274" y="166" font-size="10" fill="rgba(255,255,255,.55)" text-anchor="end">Nährwert <tspan font-size="11" font-weight="700" fill="'+(A4[3].pct==null?'#a8a29e':A4[3].f)+'">'+(A4[3].pct==null?'–':Math.round(A4[3].pct*100)+' %')+'</tspan></text>'
+    +'<circle cx="150" cy="88" r="36" fill="#0a1710" stroke="rgba(255,255,255,.14)" stroke-width="2"/>'
+    +'<circle cx="150" cy="88" r="36" fill="none" stroke="#7cff9b" stroke-width="2.5" opacity="0" class="'+uid+'-r"/>'
+    /* NUR die Zahl im Kreis. "Dein Tag: mittel" stand hier und stiess gegen den
+       Rand - ein Text, der in einen Kreis soll, ist immer zu lang. Er steht jetzt
+       in der Fusszeile, wo er waagerecht Platz hat. */
+    +'<text x="150" y="100" text-anchor="middle" font-size="36" font-weight="700" fill="#7cff9b" letter-spacing="-1" opacity="0" class="'+uid+'-n">'+idx+'</text>'
   +'</svg>';
 
-  var fuss = kcalIst+' kcal'+(kcalSoll>0?' von '+kcalSoll:'')
+  var fuss = '<b style="color:#7cff9b">Dein Tag: '+bew.toLowerCase()+'</b> · '
+           + kcalIst+' kcal'+(kcalSoll>0?' von '+kcalSoll:'')
            + ' · EW '+Math.round(sum.protein||0)+' g'
            + ' · KH '+Math.round(sum.kh||0)+' g'
            + ' · Fett '+Math.round(sum.fett||0)+' g'
@@ -3985,13 +3992,13 @@ function fxAnimieren(uid){
   var bahnen=document.querySelectorAll('.'+uid+'-b');
   if(!bahnen.length) return;
   var kaps=document.querySelectorAll('.'+uid+'-k');
-  var num=document.querySelector('.'+uid+'-n'), sub=document.querySelector('.'+uid+'-s'), ring=document.querySelector('.'+uid+'-r');
+  var num=document.querySelector('.'+uid+'-n'), ring=document.querySelector('.'+uid+'-r');
   var still=false;
   try{ still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
   if(still){
     bahnen.forEach(function(b){ b.style.strokeDashoffset=b.dataset.ziel; });
     kaps.forEach(function(k){ k.setAttribute('opacity','1'); });
-    [num,sub,ring].forEach(function(e){ if(e) e.setAttribute('opacity', e===ring?'.3':'1'); });
+    [num,ring].forEach(function(e){ if(e) e.setAttribute('opacity', e===ring?'.3':'1'); });
     return;
   }
   bahnen.forEach(function(b,i){
@@ -4003,7 +4010,7 @@ function fxAnimieren(uid){
     catch(e){ k.setAttribute('opacity','1'); }
   });
   setTimeout(function(){
-    [[num,520],[sub,420]].forEach(function(x){
+    [[num,520]].forEach(function(x){
       if(!x[0]) return;
       try{ x[0].animate([{opacity:0},{opacity:1}],{duration:x[1],easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'}); }
       catch(e){ x[0].setAttribute('opacity','1'); }
@@ -4012,7 +4019,48 @@ function fxAnimieren(uid){
   }, 1150);
 }
 function startProdSearch(v){ navTo('produkte'); setTimeout(function(){ var el=document.getElementById('q'); if(el){ el.value=v||''; if(typeof render==='function') render(); el.focus(); } }, 60); }
-function startProdScan(){ navTo('produkte'); setTimeout(function(){ if(typeof prodScan==='function') prodScan(); }, 300); }
+/* ===========================================================================
+   SCANNEN — eigenes Vollbild-Fenster, KEIN Umweg.
+
+   Vorher: navTo('produkte') und dann die Kamera INNERHALB der Produktliste.
+   Das war kein Scanner, das war eine Reise: Der Nutzer landete in einer
+   fremden Ansicht, die Kamera klemmte zwischen Suchfeld und Kategoriekacheln,
+   und danach stand er woanders als vorher.
+
+   > Eine Handlung, die die Seite wechselt, ist keine Handlung mehr - sie ist
+   > eine Navigation mit Nebenwirkung.
+
+   Jetzt: Die Kamera legt sich UEBER das, was da ist. Man scannt, bekommt sein
+   Ergebnis, schliesst - und steht wieder genau dort, wo man war.
+   =========================================================================== */
+function startProdScan(){
+  let ov=document.getElementById("scanFull");
+  if(ov) ov.remove();
+  ov=document.createElement("div");
+  ov.id="scanFull";
+  ov.style.cssText="position:fixed;inset:0;z-index:9990;background:#0a0f0c;display:flex;flex-direction:column";
+  ov.innerHTML=
+     '<div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));color:#fff">'
+    +  '<b style="font-size:16px">Barcode scannen</b>'
+    +  '<button onclick="scanFullClose()" aria-label="Schließen" style="border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.10);color:#fff;border-radius:999px;padding:7px 14px;font-size:14px;cursor:pointer">Schließen ✕</button>'
+    +'</div>'
+    +'<div id="scanFullReader" style="flex:1 1 auto;position:relative;overflow:hidden;background:#000"></div>'
+    +'<div style="flex:0 0 auto;padding:14px 18px;padding-bottom:calc(18px + env(safe-area-inset-bottom));text-align:center">'
+    +  '<div id="scanFullMsg" style="color:rgba(255,255,255,.75);font-size:13.5px;min-height:20px">Kamera startet – Barcode formatfüllend ins Bild halten.</div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  document.body.style.overflow="hidden";
+
+  /* Derselbe Scanner, nur andere Ziele. Kein zweiter Code-Pfad, keine geklauten IDs. */
+  setTimeout(function(){ if(typeof prodScan==='function') prodScan("scanFullReader","scanFullMsg"); }, 120);
+}
+function scanFullClose(){
+  try{ if(typeof stopScan==='function') stopScan(); }catch(e){}
+  const ov=document.getElementById("scanFull");
+  if(ov) ov.remove();
+  document.body.style.overflow="";
+  window._prodScanMsgId=null;
+}
 function bnActive(m){
   /* "bntraining" gibt es in der Leiste nicht mehr - Training liegt im Menue.
      Wer dort ist, sieht deshalb das Menue als aktiv (der Fallback unten). */
@@ -7161,7 +7209,7 @@ function stopScan(){
   _scanning=false; _scanCb=null; _lastCode=null; _lastCount=0;
   try{ Quagga.offDetected(_onDetected); }catch(e){}
   // Die Kamerabox sofort ausblenden (die UI soll nicht haengen) ...
-  ["vorReader","tbReader","prodReader","einkReader","ktReader","tbAddReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
+  ["vorReader","tbReader","prodReader","einkReader","ktReader","tbAddReader","scanFullReader"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; });
   // ... das eigentliche Herunterfahren aber SAUBER zu Ende laufen lassen.
   _teardown = Promise.resolve()
     .then(function(){ return Quagga.stop(); })   // Promise in Quagga2 >= 1.5
@@ -7210,9 +7258,17 @@ async function _startScan(targetId, cb){
   });
 }
 function toggleScan(){ _startScan("vorReader",(code)=>{ document.getElementById("vorInput").value=code; setVorMsg("✅ Barcode erkannt: <b>"+code+"</b> – jetzt „Senden“ tippen.","var(--k-16a34a)"); }); }
-function prodScan(){
-  const st=document.getElementById("stats"); if(st) st.textContent="📷 Kamera öffnet – Barcode vor die Kamera halten…";
-  _startScan("prodReader", async (code)=>{
+/* readerId/msgId sind Parameter, KEINE festen IDs. Vorher hing der Scanner an
+   "prodReader" und "stats" - beides gibt es nur auf der Produktseite. Das
+   Vollbild-Fenster haette sich diese IDs stehlen muessen, und waere die
+   Produktseite dahinter offen gewesen, gaebe es sie ZWEIMAL im Dokument.
+   > Zwei Elemente mit derselben ID sind kein Trick, sondern ein Fehler auf Zeit. */
+function prodScan(readerId, msgId){
+  readerId = readerId || "prodReader";
+  msgId    = msgId    || "stats";
+  window._prodScanMsgId = msgId;
+  const st=document.getElementById(msgId); if(st) st.textContent="📷 Kamera öffnet – Barcode vor die Kamera halten…";
+  _startScan(readerId, async (code)=>{
     try{
       /* Ohne Feature-Flag: alter Weg (Barcode vormerken, Etikett anbieten). */
       if(!feat("scan_kette")){
@@ -8001,7 +8057,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14i";
+const APP_BUILD = "2026-07-14k";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
