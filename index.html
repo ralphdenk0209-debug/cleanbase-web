@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14c farb-token · dunkelmodus -->
+<!-- build 2026-07-14d farb-token · dunkelmodus · rgba nachgezogen -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -297,6 +297,20 @@
     --k-fff7ea:#fff7ea;
     --k-fffbeb:#fffbeb;
     --k-ffffff:#ffffff;
+    --k-w10:rgba(255,255,255,.10);
+    --k-w14:rgba(255,255,255,.14);
+    --k-w16:rgba(255,255,255,.16);
+    --k-w18:rgba(255,255,255,.18);
+    --k-w22:rgba(255,255,255,.22);
+    --k-w25:rgba(255,255,255,.25);
+    --k-w28:rgba(255,255,255,.28);
+    --k-w40:rgba(255,255,255,.40);
+    --k-w42:rgba(255,255,255,.42);
+    --k-w45:rgba(255,255,255,.45);
+    --k-w6:rgba(255,255,255,.6);
+    --k-w72:rgba(255,255,255,.72);
+    --k-w92:rgba(255,255,255,.92);
+    --k-w97:rgba(255,255,255,.97);
   }
   [data-theme="dark"] {
     --k-000000:#dadada;
@@ -528,6 +542,20 @@
     --k-fff7ea:#232221;
     --k-fffbeb:#242423;
     --k-ffffff:#272727;
+    --k-w10:rgba(39,39,39,.10);
+    --k-w14:rgba(39,39,39,.14);
+    --k-w16:rgba(39,39,39,.16);
+    --k-w18:rgba(39,39,39,.18);
+    --k-w22:rgba(39,39,39,.22);
+    --k-w25:rgba(39,39,39,.25);
+    --k-w28:rgba(39,39,39,.28);
+    --k-w40:rgba(39,39,39,.40);
+    --k-w42:rgba(39,39,39,.42);
+    --k-w45:rgba(39,39,39,.45);
+    --k-w6:rgba(39,39,39,.6);
+    --k-w72:rgba(39,39,39,.72);
+    --k-w92:rgba(39,39,39,.92);
+    --k-w97:rgba(39,39,39,.97);
   }
 </style>
 <style>
@@ -605,7 +633,7 @@
   .scLead .scBar:nth-child(4) i{animation-delay:.28s}
   @keyframes axIn{to{transform:scaleX(1)}}
   .badge{width:62px;height:62px;border-radius:50%;flex:0 0 62px;display:flex;flex-direction:column;
-         align-items:center;justify-content:center;color:var(--k-ffffff);font-weight:800;line-height:1;box-shadow:inset 0 0 0 3px rgba(255,255,255,.25)}
+         align-items:center;justify-content:center;color:var(--k-ffffff);font-weight:800;line-height:1;box-shadow:inset 0 0 0 3px var(--k-w25)}
   .badge .num{font-size:21px}
   .badge .lbl{font-size:8.5px;font-weight:700;letter-spacing:.5px;opacity:.92;margin-top:2px}
   .card .meta{min-width:0}
@@ -621,7 +649,7 @@
   .panel h2{margin:0 0 2px;font-size:21px}
   .panel .marke{color:var(--muted);font-size:14px;margin-bottom:16px}
   .scorebar{display:flex;align-items:center;gap:14px;margin:8px 0 20px}
-  .bigbadge{width:76px;height:76px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--k-ffffff);font-weight:800;flex:0 0 76px;box-shadow:inset 0 0 0 4px rgba(255,255,255,.25)}
+  .bigbadge{width:76px;height:76px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--k-ffffff);font-weight:800;flex:0 0 76px;box-shadow:inset 0 0 0 4px var(--k-w25)}
   .bigbadge .num{font-size:28px}
   .row{margin:10px 0}
   .row .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
@@ -661,15 +689,15 @@
   .tabbtn.active{background:var(--green);color:var(--k-1d3c24);border-color:var(--green)}
   /* AUTH */
   .authbar{position:absolute;top:16px;right:0;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600}
-  .authbtn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.45);color:var(--k-ffffff);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer}
-  .authbtn:hover{background:rgba(255,255,255,.28)}
+  .authbtn{background:var(--k-w16);border:1px solid var(--k-w45);color:var(--k-ffffff);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer}
+  .authbtn:hover{background:var(--k-w28)}
   .premchip{background:var(--card);color:var(--greendk);border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700}
   .gatebox{max-width:460px;margin:30px auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px 24px;text-align:center;box-shadow:var(--shadow)}
   .gatebox h3{margin:.2em 0 .45em;font-size:18px}
   .gatebox p{color:var(--muted);font-size:14px;line-height:1.5;margin:.3em 0 1.1em}
   /* ===== BOTTOM NAV (App-Look) ===== */
   .tabs{display:none}
-  .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--k-w97);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:calc(8px + env(safe-area-inset-bottom))}
   .bn-inner{max-width:600px;margin:0 auto;display:flex}
   .bn-item{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
   .bn-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -677,13 +705,13 @@
   /* ===== BENTO / TECH (Startseite) ===== */
   .heroCheck{background:linear-gradient(160deg,var(--k-24492e),var(--k-1d3c24));color:var(--k-ffffff);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
   .heroCheck h3{margin:0 0 10px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px}
-  .heroCheck input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid rgba(255,255,255,.25);border-radius:12px;font-size:14px;background:rgba(255,255,255,.10);color:var(--k-ffffff);outline:none}
+  .heroCheck input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--k-w25);border-radius:12px;font-size:14px;background:var(--k-w10);color:var(--k-ffffff);outline:none}
   .heroCheck input:focus{border-color:var(--green)}
-  .heroCheck input::placeholder{color:rgba(255,255,255,.72)}
+  .heroCheck input::placeholder{color:var(--k-w72)}
   .heroBtns{display:flex;gap:8px;margin-top:8px}
   .heroBtns button{flex:1;padding:11px;border-radius:12px;font-size:14px;cursor:pointer}
   .heroBtns .bSearch{border:0;background:var(--green);color:var(--k-1d3c24);font-weight:700}
-  .heroBtns .bScan{border:1px solid rgba(255,255,255,.42);background:transparent;color:var(--k-ffffff)}
+  .heroBtns .bScan{border:1px solid var(--k-w42);background:transparent;color:var(--k-ffffff)}
   .kzRow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
   .kzTile{background:var(--card);border:0.5px solid var(--line);border-radius:14px;padding:11px 10px}
   .kzTile .kzLbl{font-size:11px;color:var(--muted);font-weight:600;line-height:1.2;min-height:26px}
@@ -708,7 +736,7 @@
     animation:introFade .7s ease .5s forwards}
   @keyframes introFade{to{opacity:.92}}
   #introOverlay .introSkip{position:absolute;bottom:calc(26px + env(safe-area-inset-bottom));right:22px;
-    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.40);color:var(--k-ffffff);border-radius:999px;
+    background:var(--k-w14);border:1px solid var(--k-w40);color:var(--k-ffffff);border-radius:999px;
     padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer}
   /* In-Seiten-Untertabs (Segment-Control) */
   .seg{display:flex;gap:4px;background:var(--k-eef3ef);border-radius:13px;padding:4px;margin:0 0 16px;overflow-x:auto}
@@ -3759,7 +3787,7 @@ function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
     +'<div style="position:absolute;top:2px;left:2px;width:80px;height:80px;background:radial-gradient(circle,'+A[2]+'99 0%,transparent 70%);filter:blur(7px)"></div>'
     +'<div style="position:absolute;top:15px;left:16px;color:'+A[3]+';filter:drop-shadow(0 0 6px '+A[2]+'cc)">'+riIco(ico,38)+'</div>'
     +'<div style="color:var(--k-ffffff);font-size:13.5px;font-weight:700;line-height:1.25;position:relative;z-index:2">'+label+'</div>'
-    +'<div style="color:rgba(255,255,255,.6);font-size:10.5px;position:relative;z-index:2">'+sub+'</div>'
+    +'<div style="color:var(--k-w6);font-size:10.5px;position:relative;z-index:2">'+sub+'</div>'
     +(cornerIco?'<div onclick="event.stopPropagation();'+cornerAct+'" title="Barcode scannen" style="position:absolute;top:11px;right:12px;color:'+A[3]+';filter:drop-shadow(0 0 5px '+A[2]+'aa);opacity:.92;cursor:pointer;z-index:3">'+riIco(cornerIco,24)+'</div>':'')
   +'</div>';
 }
@@ -4558,7 +4586,7 @@ function einkAmzBtn(pid){
   const p=(ALL||[]).find(function(x){ return x.id===pid; });
   const u=p?amazonUrl(p):''; if(!u) return '';
   return '<a href="'+u+'" target="_blank" rel="sponsored nofollow noopener" title="Anzeige · bei Amazon kaufen" onclick="event.stopPropagation()"'
-    +' style="flex:0 0 auto;display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.22);color:var(--k-fff7ea);text-decoration:none;font-size:11.5px;font-weight:700;letter-spacing:.3px;white-space:nowrap">Amazon</a>';
+    +' style="flex:0 0 auto;display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:var(--k-w22);color:var(--k-fff7ea);text-decoration:none;font-size:11.5px;font-weight:700;letter-spacing:.3px;white-space:nowrap">Amazon</a>';
 }
 function einkRow(r,done){
   const id=r.eintrag_id;
@@ -5010,7 +5038,7 @@ function renderTbListe(items, goal){
     html+=`</div>`;
   });
   const dayScore = dSG>0?Math.round(dSW/dSG):null;
-  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--k-2f6fd6);color:var(--k-ffffff);border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:rgba(255,255,255,.18);border-radius:8px;padding:2px 9px;font-size:13px">Index ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--k-2f6fd6);color:var(--k-ffffff);border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:var(--k-w18);border-radius:8px;padding:2px 9px;font-size:13px">Index ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
   el.innerHTML=html;
 }
 /* ---- Lifesum-Style: Top-Suche + Add-Popup ---- */
@@ -7095,7 +7123,7 @@ function renderRezeptList(){
     const rsc=rezeptScore(r), rbew=scoreBew(rsc);
     const lead = rsc!=null ? donut(rsc,farbe(rbew),62) : `<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>`;
     const _fav=(window._rezFav&&window._rezFav.has(r.id));
-    c.innerHTML=`<button onclick="event.stopPropagation();rezFavToggle('${r.id}',this)" title="Als Favorit" style="position:absolute;top:8px;right:8px;border:0;background:rgba(255,255,255,.92);border-radius:50%;width:30px;height:30px;font-size:16px;line-height:1;cursor:pointer;color:${_fav?'var(--k-e11d48)':'var(--k-9aa7b2)'};box-shadow:0 1px 5px rgba(0,0,0,.15);z-index:2">${_fav?'♥':'♡'}</button>${lead}
+    c.innerHTML=`<button onclick="event.stopPropagation();rezFavToggle('${r.id}',this)" title="Als Favorit" style="position:absolute;top:8px;right:8px;border:0;background:var(--k-w92);border-radius:50%;width:30px;height:30px;font-size:16px;line-height:1;cursor:pointer;color:${_fav?'var(--k-e11d48)':'var(--k-9aa7b2)'};box-shadow:0 1px 5px rgba(0,0,0,.15);z-index:2">${_fav?'♥':'♡'}</button>${lead}
       <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}${r.gesperrt?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-fde8e8);color:var(--k-dc2626)">⛔ gesperrt</span>`:""}${(ME&&ME.is_admin&&r.gemeldet)?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-fff7e6);color:var(--k-b45309)">⚐ ${r.gemeldet}</span>`:""}</div></div>`;
     g.appendChild(c);
   });
@@ -7774,7 +7802,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14c";
+const APP_BUILD = "2026-07-14d";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
