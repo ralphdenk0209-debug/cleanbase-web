@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14g dunkelmodus: buttons, kopfleiste, kacheln -->
+<!-- build 2026-07-14h riki->tagebuch fix · layout-ueberlauf -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -623,7 +623,15 @@
   .controls input[type=search]{flex:1;min-width:220px}
   .controls label{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
   .stats{font-size:13px;color:var(--muted);margin:0 2px 14px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+  /* Sicherheitsnetz: Kein einzelnes Element darf die Seite breiter machen als das
+     Fenster. Passiert das doch, scrollt die Seite seitlich - und JEDES fensterbreite
+     Element (Kopfleiste, Fussleiste) endet dann sichtbar vor dem Rand.
+     Das behebt nicht die Ursache, aber es begrenzt den Schaden auf ein Element. */
+  html{overflow-x:hidden}
+  body{overflow-x:clip;max-width:100%}
+  /* minmax(280px,1fr) sprengt schmale Handys (360px minus Rand). min() nimmt,
+     was da ist. */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:16px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
         cursor:pointer;transition:transform .12s ease,box-shadow .12s ease;display:flex;gap:15px;align-items:center}
   .card:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:var(--k-cfe3d6)}
@@ -2374,7 +2382,12 @@ function katKachelnHtml(){
   if(!items.length) return '';
   var tiles=items.map(function(o){
     var m=katMeta(o.k), k=esc(o.k);
-    return '<button data-kat="'+k+'" onclick="prodKatPick(this.dataset.kat)" style="all:unset;box-sizing:border-box;cursor:pointer;background:var(--card,var(--k-ffffff));border:1px solid var(--line,var(--k-e7e0d4));border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px">'
+    /* min-width:0 ist PFLICHT. Ein Grid-Item hat von Haus aus min-width:auto -
+       ein langer Name wie "Tofu & Fleischalternativen" druckt die Spalte dann
+       breiter als ihr 1fr erlaubt. Die Seite wird breiter als das Fenster,
+       scrollt seitlich, und der fensterbreite Kopfbalken endet vor dem Rand.
+       > Ein Fehler, zwei Symptome. */
+    return '<button data-kat="'+k+'" onclick="prodKatPick(this.dataset.kat)" style="all:unset;box-sizing:border-box;min-width:0;overflow:hidden;cursor:pointer;background:var(--card,var(--k-ffffff));border:1px solid var(--line,var(--k-e7e0d4));border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px">'
       +'<span style="width:34px;height:34px;border-radius:50%;background:'+m.bg+';color:'+m.fg+';display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto">'+m.e+'</span>'
       +'<span style="min-width:0"><span style="display:block;font-size:14px;color:var(--ink,var(--k-1d3c24));white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+k+'</span>'
       +'<span style="font-size:12px;color:var(--muted,var(--k-6b6256))">'+o.n+'</span></span></button>';
@@ -6732,10 +6745,27 @@ let SCAN_DATEN = null;
 /* Übernimmt die Werte aus dem Scan direkt ins Tagebuch-Formular.
    Vorher rief der Button offLookup() auf – der holt bei OFF, und genau dort
    standen die Daten ja nicht. Ergebnis: leere Felder, obwohl der Wert dastand. */
-function tbAusScan(ean){
+async function tbAusScan(ean){
   const d = SCAN_DATEN;
+  const name = (d ? ((d.marke? d.marke+" ":"") + (d.name||"")).trim() : "");
   window._tbAddManualEan  = ean || (d && d.ean) || "";
-  window._tbAddManualName = (d ? ((d.marke? d.marke+" ":"") + (d.name||"")).trim() : "");
+  window._tbAddManualName = name;
+
+  /* DER BUG: tbAddManualOpen() schreibt in den Container "tbAddResults".
+     Den gibt es NUR, wenn das Tagebuch-Fenster offen ist. Kommt der Nutzer aus
+     dem Riki-Etikett (etikettClose() davor), ist kein Fenster offen -> die
+     Funktion findet nichts und bricht STILL ab. Kein Fehler, keine Meldung,
+     nur ein Knopf, der nichts tut.
+     > Ein stiller Abbruch sieht aus wie ein toter Knopf.
+     Also: erst das Fenster oeffnen, dann hineinschreiben. */
+  if(!document.getElementById("tbAddOv")){
+    try{ await tbOpenAdd(window._tbAddMeal || tbGuessMeal(), null, null); }catch(e){}
+    /* tbOpenAdd setzt _tbAddManualName zurueck - deshalb hier erneut setzen. */
+    window._tbAddManualEan  = ean || (d && d.ean) || "";
+    window._tbAddManualName = name;
+  }
+  window._tbTab = 'manuell';
+  if(typeof tbRenderTabs === 'function') tbRenderTabs();
   tbAddManualOpen();
 
   if(!d || !d.n){ offLookup(); return; }
@@ -7814,7 +7844,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14g";
+const APP_BUILD = "2026-07-14h";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
