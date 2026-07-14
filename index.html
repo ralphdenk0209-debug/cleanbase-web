@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14r gast-stufe · produktkarten-bloecke gegated · leerzustand wie flux · testschalter aus db -->
+<!-- build 2026-07-14s einkaufsliste ans recht statt an login · upsell liest den freischalt-stand · quellzeile gekuerzt -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1837,7 +1837,8 @@ function gateHtml(feat){
     planer:{t:'Planer',d:'Plane deine Mahlzeiten voraus – für Tag &amp; Woche.',b:['🗓️ Tages- &amp; Wochenplan','📅 Kalender &amp; Termine','🛒 Einkaufsliste aus dem Wochenplan']},
     profil:{t:'Mein Profil',d:'Persönliche Ziele &amp; Körperdaten dauerhaft speichern.',b:['🎯 Kalorien- &amp; Makro-Ziele speichern','🧮 Bedarfsrechner (Körperfett, gemessener Grundumsatz)','🍽️ Makro-Aufteilung auf Mahlzeiten']},
     tagebuch:{t:'Ernährungstagebuch',d:'Das volle Tagebuch mit Verlauf &amp; Auswertung.',b:['📆 Alle Tage statt nur heute','📊 Statistik &amp; Zielerreichung','📅 Kalender-Überblick']},
-    erfassung:{t:'Produkt vorschlagen',d:'Eigene Produkte erfassen und einreichen.',b:['➕ Produkte vorschlagen','🔎 Zutaten &amp; Nährwerte erfassen']}
+    erfassung:{t:'Produkt vorschlagen',d:'Eigene Produkte erfassen und einreichen.',b:['➕ Produkte vorschlagen','🔎 Zutaten &amp; Nährwerte erfassen']},
+    einkaufsliste:{t:'Einkaufsliste',d:'Produkte &amp; Rezept-Zutaten sammeln und im Laden abhaken.',b:['🛒 Liste dauerhaft gespeichert','📲 Auf dem Handy dabei','🗓️ Automatisch aus dem Wochenplan']}
   };
   var i=INFO[feat];
   var body = i ? ('<div style="text-align:left;background:var(--greenlt);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:2px 0 14px"><div style="font-weight:700;color:var(--greendk);margin-bottom:6px">Das steckt in „'+i.t+'":</div><div style="font-size:13.5px;color:var(--ink);line-height:1.75">'+i.b.join('<br>')+'</div></div>') : '';
@@ -2290,10 +2291,25 @@ function quellenBlock(d){
       +'Du hast das Produkt zu Hause? Scanne es und fotografiere das Etikett, dann prüfen wir es.'
       +'</div>';
   }
+  /* Die lange Lizenzangabe ("…, Max Rubner-Institut, CC BY 4.0") stand auf JEDER
+     der 669 BLS-Karten. Das ist juristischer Text, kein Nutzertext - er gehoert
+     EINMAL ins Impressum, nicht 669-mal auf die Karte. Auf der Karte bleibt der
+     kurze Beleg (die Quelle + Pruefdatum) - unser staerkstes Argument, nur ohne
+     das Kleingedruckte. Die volle Lizenz steht im Impressum (GL-24).
+     quelleKurz() kuerzt nur BEKANNTE Langformen; alles andere bleibt unveraendert,
+     damit nie ein Beleg versehentlich verschwindet. */
   return '<div style="margin-top:10px;background:var(--greenlt,var(--k-eaf5ee));border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:var(--ink)">'
-    +'<b>✓ Datenquelle:</b> '+esc(q)+(am?' · geprüft am '+esc(am):'')
-    +'<div style="color:var(--muted);margin-top:3px">Jeder Punkt oben ist aus diesen Daten berechnet – nichts geschätzt.</div>'
+    +'<b>✓ Datenquelle:</b> '+esc(quelleKurz(q))+(am?' · geprüft am '+esc(am):'')
+    +'<div style="color:var(--muted);margin-top:3px">Jeder Punkt oben ist aus diesen Daten berechnet – nichts geschätzt. '
+    +'<a onclick="legalOpen(\'impressum\')" style="color:var(--greendk);cursor:pointer;text-decoration:underline">Quellen &amp; Lizenzen</a></div>'
     +'</div>'+MED_HINWEIS;
+}
+/* Kuerzt die verbose Lizenz-Langform auf einen Nutzertext. Unbekanntes bleibt 1:1. */
+function quelleKurz(q){
+  var s=String(q||"");
+  if(/bundeslebensmittelschl|BLS/i.test(s)) return 'Bundeslebensmittelschlüssel (BLS 4.0)';
+  if(/open\s*food\s*facts/i.test(s))        return 'Open Food Facts';
+  return s;
 }
 /* Kategorie-Einordnung: Ein Score ohne Maßstab verführt zu sinnlosen Vergleichen
    (Olivenöl 85 vs. Vollkornbrot 88 – niemand entscheidet zwischen den beiden).
@@ -2686,13 +2702,33 @@ function detail(d){
     ${d.warum?`<div class="note"><h4>Warum empfohlen</h4>${esc(d.warum)}</div>`:""}
     ${d.schwaechen?`<div class="note teilhint"><h4>Schwächen</h4>${esc(d.schwaechen)}</div>`:""}
   `;
-  /* Sanfter Hinweis statt Mauer – die Bewertung selbst bleibt offen. */
+  /* Sanfter Hinweis statt Mauer. Dieser Text LISTETE frueher fest auf, was frei sei
+     ("der Index, die vier Achsen, jede Regel, jede Quelle - alles, was du oben siehst").
+     Sobald die Bloecke aber im Adminbereich umschaltbar wurden, wurde der Satz zur Luege:
+     man konnte einen Block sperren, und der Text behauptete weiter, er sei frei.
+     > Ein Werbetext, der die eigene Einstellung nicht kennt, wird zum Wortbruch.
+     Jetzt liest er denselben Freischalt-Stand wie die Karte darueber. */
+  const _frei=['der Index'];
+  if(hasFeat('pk_ringe'))       _frei.push('die vier Achsen');
+  if(hasFeat('pk_naehrwerte'))  _frei.push('die Nährwerte');
+  if(hasFeat('pk_regeln'))      _frei.push('jede Regel');
+  if(hasFeat('pk_platzierung')) _frei.push('die Platzierung');
+  _frei.push('jede Quelle');   // quellenBlock ist immer sichtbar
+  const _extra=[];
+  if(!hasFeat('pk_naehrwerte'))  _extra.push('die Nährwerte');
+  if(!hasFeat('pk_ringe'))       _extra.push('die vier Achsen');
+  if(!hasFeat('pk_regeln'))      _extra.push('die Herleitung');
+  if(!hasFeat('pk_platzierung')) _extra.push('die Platzierung');
+  _extra.push('die <b>Bewertung jeder einzelnen Zutat</b>','deine <b>Tagesbedarfs-Deckung</b>','<b>bessere Alternativen</b> sowie Ernährungstagebuch, Trainingsplaner und Rezepte');
+  function _undListe(a){ return a.length<2 ? (a[0]||'') : a.slice(0,-1).join(', ')+' und '+a[a.length-1]; }
+  const _freiTitel = ME ? 'In deinem Konto frei:' : 'Frei – ohne Konto:';
+  const _extraTitel = ME ? 'Mit Premium zusätzlich:' : 'Mit Konto / Premium zusätzlich:';
   const upsellBlock = `
     <div style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px">
       <div style="font-weight:700;margin-bottom:6px;font-size:14px">Die Bewertung ist und bleibt kostenlos.</div>
       <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:10px">
-        <b style="color:var(--greendk,var(--k-166534))">Frei – ohne Konto:</b> der Index, die vier Achsen, warum Punkte fehlen, jede Regel und jede Quelle. Alles, was du oben siehst.<br>
-        <b style="color:var(--ink)">Mit Premium zusätzlich:</b> die <b>Bewertung jeder einzelnen Zutat</b>, deine <b>Tagesbedarfs-Deckung</b>, <b>bessere Alternativen</b> sowie Ernährungstagebuch, Trainingsplaner und Rezepte.
+        <b style="color:var(--greendk,var(--k-166534))">${_freiTitel}</b> ${_undListe(_frei)}.<br>
+        <b style="color:var(--ink)">${_extraTitel}</b> ${_undListe(_extra)}.
       </div>
       <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:9px 16px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13px">${ME?'Premium ansehen – 7 Tage gratis':'7 Tage gratis testen'}</button>
     </div>
@@ -4927,13 +4963,14 @@ async function renderEinkaufSeite(){
   if(!gate||!box) return;
   /* Katalog laden – für Kategorie-Zuordnung beim Tippen und beim Barcode-Scan */
   if(!(ALL&&ALL.length)){ try{ const data=await fetchAlleProdukte(); if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)})); }catch(e){} }
-  if(!ME){
+  /* Frueher stand hier `if(!ME)` - die Liste haing also am LOGIN, nicht am Recht.
+     Damit war sie fuer jeden angemeldeten Nutzer offen, egal was der Adminbereich
+     fuer seine Stufe sagt. Jetzt fragt sie dasselbe wie jede andere Funktion:
+     `hasFeat('einkaufsliste')`. Ein Schalter, den man umlegt, muss auch wirken. */
+  if(!hasFeat('einkaufsliste')){
     box.innerHTML="";
     gate.style.display="";
-    gate.innerHTML='<div class="gatebox" style="max-width:none;margin:0;padding:16px;text-align:left;box-shadow:none">'
-      +'<div style="font-weight:600;margin-bottom:4px">Anmelden, um die Einkaufsliste zu nutzen</div>'
-      +'<p style="margin:.2em 0 .8em">Deine Liste wird gespeichert, damit du sie im Laden auf dem Handy dabeihast.</p>'
-      +'<button class="authbtn" style="background:var(--k-16a34a);border-color:var(--k-16a34a)" onclick="openLogin()">Anmelden / Registrieren</button></div>';
+    gate.innerHTML=gateHtml('einkaufsliste');
     return;
   }
   gate.style.display="none"; gate.innerHTML="";
@@ -8314,7 +8351,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14r";
+const APP_BUILD = "2026-07-14s";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
