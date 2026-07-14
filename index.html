@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14k scan-overlay · verarbeitung statt nova · kontraste -->
+<!-- build 2026-07-14m scan-fenster unscharf · dashboard-grund · makro-balken -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -721,6 +721,22 @@
   .bn-inner{max-width:600px;margin:0 auto;display:flex}
   .bn-item{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
   .bn-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  /* ===== SCAN-FENSTER =====================================================
+     Der Kamera-Container von _startScan ist fest 150 x 280 px - im Vollbild
+     sah man deshalb fast nur Schwarz. Hier bekommt er die Groesse des Fensters.
+     Der Hintergrund ist unscharf statt schwarz: man sieht, WO man ist, und die
+     Kamera legt sich darueber wie ein Sucher.
+     ======================================================================== */
+  #scanFull{backdrop-filter:blur(16px) saturate(.8);-webkit-backdrop-filter:blur(16px) saturate(.8)}
+  #scanFull #qbox{height:100%!important;max-width:none!important;width:100%!important;
+        border-radius:18px!important;box-shadow:0 0 0 2px rgba(255,255,255,.14),0 18px 50px rgba(0,0,0,.55)}
+  #scanFull #qboxMsg{display:none}
+  /* Der "Kamera schliessen"-Knopf von _startScan ruft stopScan() - das schliesst
+     den SCANNER, aber nicht das FENSTER. Wir blenden ihn aus; oben steht der
+     richtige Knopf, der beides tut. */
+  #scanFull #qbox ~ div{display:none}
+  .scanRahmen{position:absolute;inset:0;pointer-events:none;border-radius:18px;
+        box-shadow:inset 0 0 0 3px rgba(94,242,160,.55)}
   .bn-item.active{color:var(--green)}
   /* Der Scan-Knopf sitzt hoeher als die Leiste - er ragt hinein, statt sich
      einzureihen. Das macht ihn zur einen Handlung, nicht zum fuenften Reiter. */
@@ -2891,9 +2907,21 @@ function balken(daten, opt){
 async function loadDashboard(){
   const box=document.getElementById("fgDash"); if(!box) return;
   box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Kennzahlen…</div>';
-  let d=null;
-  try{ const r=await client.rpc("cb_dashboard"); d=r.data; }catch(e){}
-  if(!d || !d.ok){ box.innerHTML='<div style="color:var(--k-dc2626);font-size:12.5px">Dashboard nicht verfügbar.</div>'; return; }
+  let d=null, fehler=null;
+  try{
+    const r=await client.rpc("cb_dashboard");
+    if(r.error) fehler=r.error.message||String(r.error);
+    d=r.data;
+  }catch(e){ fehler=(e&&e.message)||String(e); }
+  if(!d || !d.ok){
+    /* Den GRUND zeigen, nicht nur das Scheitern. Vorher stand hier ein leerer
+       catch-Block - der Fehler wurde weggeworfen und war nicht mehr auffindbar. */
+    const grund = fehler || (d && d.grund) || 'Die Funktion cb_dashboard hat nichts zurückgegeben.';
+    box.innerHTML='<div style="color:var(--k-dc2626);font-size:12.5px"><b>Dashboard nicht verfügbar.</b><br>'
+      +'<span style="color:var(--muted);font-size:11.5px">Grund: '+esc(grund)+'</span></div>';
+    try{ console.error('cb_dashboard:', fehler, d); }catch(_){}
+    return;
+  }
 
   const k=d.katalog||{}, q=d.qualitaet||{}, u=d.nutzer||{}, nz=d.nutzung||{}, sc=d.scans||{}, ri=d.riki||{};
 
@@ -3964,24 +3992,47 @@ function startKennzahlen(sum, prof){
     +'<text x="274" y="166" font-size="10" fill="rgba(255,255,255,.55)" text-anchor="end">Nährwert <tspan font-size="11" font-weight="700" fill="'+(A4[3].pct==null?'#a8a29e':A4[3].f)+'">'+(A4[3].pct==null?'–':Math.round(A4[3].pct*100)+' %')+'</tspan></text>'
     +'<circle cx="150" cy="88" r="36" fill="#0a1710" stroke="rgba(255,255,255,.14)" stroke-width="2"/>'
     +'<circle cx="150" cy="88" r="36" fill="none" stroke="#7cff9b" stroke-width="2.5" opacity="0" class="'+uid+'-r"/>'
-    /* NUR die Zahl im Kreis. "Dein Tag: mittel" stand hier und stiess gegen den
-       Rand - ein Text, der in einen Kreis soll, ist immer zu lang. Er steht jetzt
-       in der Fusszeile, wo er waagerecht Platz hat. */
+    /* Die Zahl IM Kreis, die Bewertung DARUNTER - ausserhalb. Ein Text, der in
+       einen Kreis soll, ist immer zu lang: der Kreis wird nicht breiter, das Wort schon. */
     +'<text x="150" y="100" text-anchor="middle" font-size="36" font-weight="700" fill="#7cff9b" letter-spacing="-1" opacity="0" class="'+uid+'-n">'+idx+'</text>'
+    +'<text x="150" y="140" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7cff9b" opacity="0" class="'+uid+'-s">Dein Tag: '+bew.toLowerCase()+'</text>'
   +'</svg>';
 
-  var fuss = '<b style="color:#7cff9b">Dein Tag: '+bew.toLowerCase()+'</b> · '
-           + kcalIst+' kcal'+(kcalSoll>0?' von '+kcalSoll:'')
-           + ' · EW '+Math.round(sum.protein||0)+' g'
-           + ' · KH '+Math.round(sum.kh||0)+' g'
-           + ' · Fett '+Math.round(sum.fett||0)+' g'
-           + ' · Ballast '+Math.round(sum.ballaststoffe||0)+' g';
+  var MK=[
+    {lbl:'Kohlenhydrate', kurz:'KH',      ist:Math.round(sum.kh||0),            soll:Math.round(num(prof.KH_ziel_g)||0),     f:'#F5A524'},
+    {lbl:'Protein',       kurz:'Protein', ist:Math.round(sum.protein||0),       soll:Math.round(num(prof.Eiweiss_ziel_g)||0),f:'#5AA9FF'},
+    {lbl:'Fett',          kurz:'Fett',    ist:Math.round(sum.fett||0),          soll:Math.round(num(prof.Fett_ziel_g)||0),   f:'#F2D64B'},
+    {lbl:'Ballaststoffe', kurz:'Ballast', ist:Math.round(sum.ballaststoffe||0), soll:BALLAST_ZIEL,                           f:'#3FD9BE'}
+  ];
+  function bar(ist,soll,farbe,hoch){
+    var pct = soll>0 ? Math.max(0,Math.min(100, ist/soll*100)) : 0;
+    return '<div style="height:'+(hoch?7:5)+'px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden">'
+         +   '<i style="display:block;height:100%;width:'+pct.toFixed(0)+'%;background:'+farbe+';border-radius:99px;'
+         +   'transition:width .8s cubic-bezier(.22,1,.36,1)"></i></div>';
+  }
+  var fuss = '<div style="text-align:left">'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">'
+      +'<span style="font-size:11.5px;color:rgba(255,255,255,.6)">kcal</span>'
+      +'<span style="font-size:12px;color:rgba(255,255,255,.85)"><b style="color:#5EF2A0">'+kcalIst+'</b>'
+        +(kcalSoll>0?' / '+kcalSoll+' · '+Math.round(kpct)+' %':'')+'</span>'
+    +'</div>'
+    + bar(kcalIst, kcalSoll, '#5EF2A0', true)
+    +'<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:11px">'
+    + MK.map(function(m){
+        return '<div style="min-width:0">'
+             +   '<div style="font-size:10px;color:rgba(255,255,255,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.kurz+'</div>'
+             +   '<div style="font-size:11.5px;color:rgba(255,255,255,.85);margin:1px 0 4px;white-space:nowrap">'
+             +     '<b style="color:'+m.f+'">'+m.ist+'</b>'+(m.soll>0?' / '+m.soll:'')+' g</div>'
+             +   bar(m.ist, m.soll, m.f, false)
+             + '</div>';
+      }).join('')
+    +'</div></div>';
 
   setTimeout(function(){ fxAnimieren(uid); }, 60);
 
   return '<div onclick="navTo(\'tagebuch\')" style="cursor:pointer;position:relative;overflow:hidden;border-radius:16px;padding:12px 8px;margin-bottom:12px;background:radial-gradient(120% 120% at 50% 48%,#173a2a,#070f0a 72%);box-shadow:0 8px 22px rgba(15,40,25,.28)">'
     + svg
-    +'<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);font-size:11px;color:rgba(255,255,255,.5);text-align:center">'+fuss+'</div>'
+    +'<div style="margin:6px 10px 2px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12)">'+fuss+'</div>'
   +'</div>';
 }
 /* Laedt die Leiterbahnen auf. Laeuft NUR EINMAL je Kachel (eigene uid) - sonst
@@ -3992,13 +4043,13 @@ function fxAnimieren(uid){
   var bahnen=document.querySelectorAll('.'+uid+'-b');
   if(!bahnen.length) return;
   var kaps=document.querySelectorAll('.'+uid+'-k');
-  var num=document.querySelector('.'+uid+'-n'), ring=document.querySelector('.'+uid+'-r');
+  var num=document.querySelector('.'+uid+'-n'), sub=document.querySelector('.'+uid+'-s'), ring=document.querySelector('.'+uid+'-r');
   var still=false;
   try{ still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
   if(still){
     bahnen.forEach(function(b){ b.style.strokeDashoffset=b.dataset.ziel; });
     kaps.forEach(function(k){ k.setAttribute('opacity','1'); });
-    [num,ring].forEach(function(e){ if(e) e.setAttribute('opacity', e===ring?'.3':'1'); });
+    [num,sub,ring].forEach(function(e){ if(e) e.setAttribute('opacity', e===ring?'.3':'1'); });
     return;
   }
   bahnen.forEach(function(b,i){
@@ -4010,7 +4061,7 @@ function fxAnimieren(uid){
     catch(e){ k.setAttribute('opacity','1'); }
   });
   setTimeout(function(){
-    [[num,520]].forEach(function(x){
+    [[num,520],[sub,420]].forEach(function(x){
       if(!x[0]) return;
       try{ x[0].animate([{opacity:0},{opacity:1}],{duration:x[1],easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'}); }
       catch(e){ x[0].setAttribute('opacity','1'); }
@@ -4038,13 +4089,18 @@ function startProdScan(){
   if(ov) ov.remove();
   ov=document.createElement("div");
   ov.id="scanFull";
-  ov.style.cssText="position:fixed;inset:0;z-index:9990;background:#0a0f0c;display:flex;flex-direction:column";
+  ov.style.cssText="position:fixed;inset:0;z-index:9990;background:rgba(8,14,10,.72);display:flex;flex-direction:column";
   ov.innerHTML=
      '<div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));color:#fff">'
     +  '<b style="font-size:16px">Barcode scannen</b>'
     +  '<button onclick="scanFullClose()" aria-label="Schließen" style="border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.10);color:#fff;border-radius:999px;padding:7px 14px;font-size:14px;cursor:pointer">Schließen ✕</button>'
     +'</div>'
-    +'<div id="scanFullReader" style="flex:1 1 auto;position:relative;overflow:hidden;background:#000"></div>'
+    +'<div style="flex:1 1 auto;display:flex;align-items:center;justify-content:center;padding:0 16px;min-height:0">'
+    +  '<div style="position:relative;width:100%;max-width:420px;aspect-ratio:3/4;max-height:100%">'
+    +    '<div id="scanFullReader" style="position:absolute;inset:0;overflow:hidden;border-radius:18px;background:#000"></div>'
+    +    '<div class="scanRahmen"></div>'
+    +  '</div>'
+    +'</div>'
     +'<div style="flex:0 0 auto;padding:14px 18px;padding-bottom:calc(18px + env(safe-area-inset-bottom));text-align:center">'
     +  '<div id="scanFullMsg" style="color:rgba(255,255,255,.75);font-size:13.5px;min-height:20px">Kamera startet – Barcode formatfüllend ins Bild halten.</div>'
     +'</div>';
@@ -7205,6 +7261,13 @@ function _killStreams(){
    Wer starten will, WARTET darauf.
    ========================================================================== */
 function stopScan(){
+  /* Wer den Scanner stoppt, schliesst auch das Vollbild-Fenster. Vorher blieb es
+     schwarz stehen, wenn der Nutzer den inneren "Kamera schliessen"-Knopf traf.
+     > Ein Fenster, das nur EINEN Ausgang kennt, ist eine Falle. */
+  try{
+    var _ov=document.getElementById("scanFull");
+    if(_ov && !window._scanFullSchliesst){ window._scanFullSchliesst=true; _ov.remove(); document.body.style.overflow=""; window._prodScanMsgId=null; window._scanFullSchliesst=false; }
+  }catch(e){}
   _scanLauf++;              // entwertet jeden Start, der gerade unterwegs ist
   _scanning=false; _scanCb=null; _lastCode=null; _lastCount=0;
   try{ Quagga.offDetected(_onDetected); }catch(e){}
@@ -8057,7 +8120,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14k";
+const APP_BUILD = "2026-07-14m";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
