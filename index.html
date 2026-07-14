@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14q startseite ausgeloggt im bento-stil -->
+<!-- build 2026-07-14r gast-stufe · produktkarten-bloecke gegated · leerzustand wie flux · testschalter aus db -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1729,15 +1729,28 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 /* ---- Auth (Magic-Link) + Premium ---- */
 let ME = null; // {benutzer_id, name, is_premium, is_admin, tier}
 let MY_FEATURES = null; // Set der freigeschalteten feature_keys (per Stufe)
-const _TIER_FEAT = {
-  base:  new Set(),
-  move:  new Set(['profil','tagebuch','planer','rezepte_anlegen','rezepte_pro','score_detail','rezepte_alle']),
-  elite: new Set(['profil','tagebuch','planer','rezepte_anlegen','rezepte_pro','score_detail','rezepte_alle','fitness'])
-};
+/* Der Testschalter stand frueher auf HARTKODIERTEN Stufen (base/move/elite) - Stufen,
+   die es in der Datenbank gar nicht mehr gibt. Er zeigte also eine Welt, die niemand
+   je zu sehen bekam. Jetzt kommen die Mengen aus derselben Matrix wie im Adminbereich:
+   was du hier siehst, ist, was der Nutzer sieht. */
+let _TIER_SETS = null;   // {gast:Set, free:Set, premium:Set} - nur fuer Admins geladen
+async function ladeTierSets(){
+  if(!(ME&&ME.is_admin)) { _TIER_SETS=null; return; }
+  try{
+    const {data}=await client.rpc("cb_features_matrix");
+    const s={};
+    (data||[]).forEach(r=>{ (s[r.tier]=s[r.tier]||new Set()); if(r.enabled) s[r.tier].add(r.feature_key); });
+    _TIER_SETS=s;
+  }catch(e){ _TIER_SETS=null; }
+}
 function hasFeat(k){
-  // Admin-Testschalter „Als Tier ansehen"
-  if(window._tierOverride && ME && ME.is_admin){ const s=_TIER_FEAT[window._tierOverride]; return s?s.has(k):false; }
-  return MY_FEATURES ? MY_FEATURES.has(k) : !!(ME&&ME.is_premium);
+  // Admin-Testschalter „Ansehen als"
+  if(window._tierOverride && ME && ME.is_admin && _TIER_SETS){
+    const s=_TIER_SETS[window._tierOverride];
+    return s ? s.has(k) : false;
+  }
+  if(MY_FEATURES) return MY_FEATURES.has(k);
+  return !!(ME&&ME.is_premium);   /* Notfall: RPC nicht erreichbar */
 }
 function setTierOverride(t){
   window._tierOverride = t || null;
@@ -1746,16 +1759,28 @@ function setTierOverride(t){
   try{ const v=document.getElementById('rezeptView'); if(v&&v.style.display!=='none'&&typeof loadRezepte==='function') loadRezepte(); }catch(e){}
 }
 function mountTierOvChip(){
-  { const ex=document.getElementById("tierOvChip"); if(ex) ex.remove(); return; }
-  if(!(ME&&ME.is_admin)) { const ex=document.getElementById("tierOvChip"); if(ex) ex.remove(); return; }
-  if(document.getElementById("tierOvChip")) return;
+  const ex=document.getElementById("tierOvChip");
+  if(!(ME&&ME.is_admin)){ if(ex) ex.remove(); return; }
+  if(ex) return;
+  ladeTierSets();
   const c=document.createElement("div"); c.id="tierOvChip";
-  c.style.cssText="position:fixed;bottom:76px;right:10px;z-index:70;background:var(--k-111827);color:var(--k-ffffff);border-radius:999px;padding:5px 8px;font-size:11px;display:flex;gap:4px;align-items:center;box-shadow:0 4px 14px rgba(0,0,0,.3)";
-  c.innerHTML='<span style="opacity:.7;margin:0 2px">Als:</span>'
-    +['aus','base','move','elite'].map(t=>'<button data-t="'+(t==='aus'?'':t)+'" onclick="setTierOverride(\''+(t==='aus'?'':t)+'\')" style="background:none;border:0;color:var(--k-ffffff);cursor:pointer;font-size:11px;padding:2px 5px;border-radius:8px">'+t+'</button>').join("");
+  c.style.cssText="position:fixed;bottom:82px;right:10px;z-index:70;background:var(--k-111827);color:var(--k-ffffff);border-radius:999px;padding:5px 8px;font-size:11px;display:flex;gap:3px;align-items:center;box-shadow:0 4px 14px rgba(0,0,0,.3)";
+  c.innerHTML='<span style="opacity:.7;margin:0 3px">Ansehen als:</span>'
+    +[['','ich'],['gast','Gast'],['free','Free'],['premium','Premium']].map(t=>
+      '<button data-t="'+t[0]+'" onclick="setTierOverride(\''+t[0]+'\')" style="background:none;border:0;color:var(--k-ffffff);cursor:pointer;font-size:11px;padding:3px 7px;border-radius:8px">'+t[1]+'</button>').join("");
   document.body.appendChild(c);
+  setTierOverride(window._tierOverride||'');
 }
-async function refreshMyFeatures(){ try{ const {data}=await client.rpc("cb_my_features"); MY_FEATURES=new Set((data||[]).map(x=>x.feature_key)); }catch(e){ MY_FEATURES=null; } }
+/* Auch der GAST hat jetzt Rechte - vorher hatte er keine, und weil die Produktkarte
+   gar nicht fragte, sah er alles. "Was nicht abgefragt wird, ist erlaubt."
+   Die Stufe "gast" ist im Adminbereich einstellbar wie free und premium. */
+async function refreshMyFeatures(){
+  try{
+    const rpc = ME ? "cb_my_features" : "cb_gast_features";
+    const {data}=await client.rpc(rpc);
+    MY_FEATURES=new Set((data||[]).map(x=>x.feature_key));
+  }catch(e){ MY_FEATURES=null; }
+}
 async function _startCheckout(plan, consent){
   try{
     // Zustimmung (Zeitstempel + Text) best-effort persistieren; Fehler nicht blockierend
@@ -1872,7 +1897,7 @@ async function verifyCode(){
   document.getElementById("loginCode").value="";
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ angemeldet"; closeLogin();
 }
-async function doLogout(){ await client.auth.signOut(); ME=null; MY_FEATURES=null; TB_USER="U001"; updateAuthUI(); updateGate(); }
+async function doLogout(){ await client.auth.signOut(); ME=null; TB_USER="U001"; await refreshMyFeatures(); updateAuthUI(); updateGate(); }
 async function refreshMe(){
   try{
     await client.rpc("cb_link_me");            // verknüpft beim ersten Login per E-Mail-Match
@@ -1880,7 +1905,7 @@ async function refreshMe(){
     ME=(data&&data[0])?data[0]:null;
     if(ME&&ME.benutzer_id) TB_USER=ME.benutzer_id;
   }catch(e){ ME=null; }
-  if(ME){ await refreshMyFeatures(); } else { MY_FEATURES=null; }
+  await refreshMyFeatures();   /* auch ohne Login: die Gast-Stufe */
 }
 function updateAuthUI(){
   const bar=document.getElementById("authBar");
@@ -1903,7 +1928,7 @@ function updateGate(){
   else { form.style.display="none"; gate.style.display=""; gate.innerHTML=gateHtml('erfassung'); }
 }
 async function applyAuthState(session){
-  if(session){ await refreshMe(); } else { ME=null; MY_FEATURES=null; TB_USER="U001"; }
+  if(session){ await refreshMe(); } else { ME=null; TB_USER="U001"; await refreshMyFeatures(); }
   updateAuthUI(); updateGate();
   const vis=id=>{ const e=document.getElementById(id); return e && e.style.display!=="none"; };
   REZEPTE=null; if(vis("rezeptView")) loadRezepte();
@@ -2634,13 +2659,22 @@ function detail(d){
   var _ksuessWarn=(String(d.suessstoffe||'')==='ja_kuenstlich')||/sucralose|acesulfam|aspartam|cyclamat|saccharin|\be ?9(5[0-9]|62)\b/i.test(_ztxt);
   /* FREI für alle: die Herleitung. „Vertrauen vor Umsatz" – das Warum ist kein Premium-Feature,
      es ist der Beweis, dass wir nichts erfinden. Premium sind die persönlichen Werkzeuge. */
+  /* Die Produktkarte besteht aus fuenf Bloecken. Welcher Block auf welcher Stufe
+     sichtbar ist, steht in der DB (Adminbereich > Premium-Stufen), NICHT hier im Code:
+       Block 1  der Index          - immer frei, das ist das Versprechen der App
+       Block 2  Naehrwerte         - pk_naehrwerte
+       Block 3  Im Root Index      - pk_ringe
+       Block 4  So kommt er zustande - pk_regeln
+       Block 5  Platzierung        - pk_platzierung
+     > Eine Regel, die nur im Code steht, kann man nicht aendern, ohne zu deployen. */
   const warumBlock = `
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Root Index</div>
-    ${sonderHint}
-    ${rows}
-    ${abzug}
-    ${scoreFlow(d)}
-    ${katRangHtml(d)}
+    ${hasFeat('pk_ringe') ? `
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Im Root Index</div>
+      ${sonderHint}
+      ${rows}
+      ${abzug}` : pkSperre('Im Root Index','Die vier Achsen mit Punkten')}
+    ${hasFeat('pk_regeln')      ? scoreFlow(d)    : pkSperre('So kommt der Index zustande','Regeln, Deckel-Check und Herleitung')}
+    ${hasFeat('pk_platzierung') ? katRangHtml(d)  : pkSperre('Platzierung','Platz in der Kategorie und die Besten')}
     ${quellenBlock(d)}
   `;
   /* PREMIUM: die Zutaten-Einzelbewertung im Detail (Herleitung bleibt frei, s. warumBlock) */
@@ -2693,7 +2727,8 @@ function detail(d){
     ${_azoWarn?`<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Enthält synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis „kann Aktivität und Aufmerksamkeit bei Kindern beeinträchtigen". Deckelt die Wertung auf höchstens „Gut".</div>`:""}
     ${_ksuessWarn?`<div class="note" style="background:var(--k-fffbeb);border-color:var(--k-fde68a);color:var(--k-92400e)">⚠️ <b>Enthält künstliche Süßstoffe</b> (z. B. Sucralose/Acesulfam) – kalorienarm, aber umstritten. Bei gesüßten Getränken deckelt es die Wertung auf höchstens „Mittel".</div>`:""}
     ${_istSupp?`<div id="riAmpel" data-pid="${esc(d.id)}"><div class="note" style="background:var(--k-f4f5f4);color:var(--muted)">Prüfe die Dosierung gegen die EFSA-Grenzwerte…</div></div>`:(!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:"")}
-    ${mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:""}
+    ${!hasFeat('pk_naehrwerte') ? pkSperre('Nährwerte pro 100 g','Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz')
+       : (mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:"")}
     ${warumBlock}
     ${_sd ? zutatenBlock : ""}
     ${_sd ? naehrstoffHtml(d) : ""}
@@ -2703,6 +2738,21 @@ function detail(d){
   /* Die Reinheits-Ampel wird nachgeladen (RPC gegen die EFSA-Grenzwerte).
      Sie ersetzt bei Supplements den Platz, an dem sonst der Score steht. */
   if(typeof ladeReinheitsAmpel === "function") ladeReinheitsAmpel();
+}
+/* Ein gesperrter Block sagt, WAS fehlt und WARUM - er verschwindet nicht einfach.
+   Ein Block, der spurlos fehlt, sieht aus wie ein Fehler; einer mit Schloss wie ein Angebot. */
+function pkSperre(titel, was){
+  var angemeldet = !!ME;
+  var txt  = angemeldet ? 'Mit Premium freigeschaltet' : 'Mit kostenlosem Konto sichtbar';
+  var knopf = angemeldet
+    ? '<button onclick="closeP();navTo(\'premium\')" style="margin-top:9px;padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-size:13.5px;font-weight:700;cursor:pointer">Premium ansehen</button>'
+    : '<button onclick="closeP();openLogin()" style="margin-top:9px;padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-size:13.5px;font-weight:700;cursor:pointer">Kostenlos anmelden</button>';
+  return '<div style="margin:16px 0 4px;border:1px dashed var(--line);border-radius:14px;padding:15px 14px;text-align:center;background:var(--bg)">'
+    +'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px">'+esc(titel)+'</div>'
+    +'<div style="font-size:13.5px;color:var(--ink);font-weight:600">'+esc(was)+'</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-top:3px">'+txt+'</div>'
+    + knopf
+  +'</div>';
 }
 function closeP(){document.getElementById("overlay").classList.remove("open");}
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));}
@@ -3816,7 +3866,14 @@ const UNTERSTUETZEN_URL = "https://buy.stripe.com/bJedR88cq2V26jCbxB1gs00"; /* S
 function unterstuetzenHtml(){
   if(!UNTERSTUETZEN_URL) return "";
   return '<div style="background:var(--greenlt,var(--k-ecfdf5));border:1px solid var(--green);border-radius:16px;padding:18px 16px;margin-top:12px;text-align:center">'
-    +'<div style="font-size:26px">🌱</div>'
+    /* Auch hier stand ein Blatt. Das Zeichen der App ist der Fluxkompensator. */
+    +'<div class="markPuls" style="line-height:0;margin-bottom:2px"><svg viewBox="0 0 120 120" width="34" height="34" aria-hidden="true">'
+      +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="8">'
+      +'<path d="M22 26 L44 26 L56 40" stroke="#16A34A"/><path d="M98 26 L76 26 L64 40" stroke="#2563EB"/>'
+      +'<path d="M22 94 L44 94 L56 80" stroke="#7C3AED"/><path d="M98 94 L76 94 L64 80" stroke="#D97706"/></g>'
+      +'<circle cx="20" cy="26" r="7" fill="#16A34A"/><circle cx="100" cy="26" r="7" fill="#2563EB"/>'
+      +'<circle cx="20" cy="94" r="7" fill="#7C3AED"/><circle cx="100" cy="94" r="7" fill="#D97706"/>'
+      +'<circle cx="60" cy="60" r="15" fill="#047857"/><circle cx="60" cy="60" r="5" fill="#ECFDF5"/></svg></div>'
     +'<div style="font-weight:700;font-size:15.5px;margin:.25em 0 .15em">Root Index unterstützen</div>'
     +'<div style="font-size:13px;color:var(--greendk,var(--k-166534));line-height:1.5;margin-bottom:12px">Freiwilliger Beitrag – hilf uns, unabhängig und werbefrei zu bleiben. Kein Abo, keine Gegenleistung.</div>'
     +'<a href="'+UNTERSTUETZEN_URL+'" target="_blank" rel="noopener" style="display:inline-block;padding:11px 22px;border-radius:10px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:14.5px;text-decoration:none">Jetzt unterstützen ↗</a>'
@@ -3972,26 +4029,22 @@ function startKennzahlen(sum, prof){
      "NOVA" heisst hier "Verarbeitung". Das Wort NOVA kennt ausserhalb der
      Ernaehrungswissenschaft niemand - wir wollen erklaeren, nicht imponieren.
      ========================================================================== */
+  /* Der leere Tag bekam frueher eine WEISSE Zeile mit einem gestrichelten Kreis -
+     ein voellig anderes Bauteil als der Tag mit Daten. Wer sich anmeldet und noch
+     nichts erfasst hat, sah damit eine andere App als der Premium-Nutzer daneben.
+     > Ein leerer Zustand ist derselbe Raum - nur noch ohne Moebel.
+     Jetzt steht dieselbe Kachel da: vier graue Bahnen, ein "–" im Kern. */
   var hatDaten = (num(sum.eintraege)>0) || kcalIst>0 || (sum.score_schnitt!=null);
-  if(!hatDaten){
-    return '<div onclick="navTo(\'tagebuch\')" style="cursor:pointer;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;display:flex;align-items:center;gap:13px">'
-      +'<div style="flex:0 0 46px;height:46px;border-radius:50%;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px;font-weight:800">–</div>'
-      +'<div style="flex:1;min-width:0">'
-        +'<b style="display:block;font-size:15px;color:var(--ink)">Noch nichts erfasst</b>'
-        +'<span style="font-size:12.5px;color:var(--muted)">Trag etwas ein, dann laedt sich dein Tages-Index auf.</span>'
-      +'</div>'
-      +'<span style="flex:0 0 auto;font-size:12px;color:var(--greendk);font-weight:600">Tagebuch ›</span>'
-    +'</div>';
-  }
-
-  var bew = (idx>=90?'Sehr gut':idx>=75?'Gut':idx>=60?'Mittel':'Schwach');
+  var kernTxt  = hatDaten ? String(idx) : '–';
+  var bew = !hatDaten ? '' : (idx>=90?'Sehr gut':idx>=75?'Gut':idx>=60?'Mittel':'Schwach');
+  var subTxt = hatDaten ? ('Dein Tag: '+bew.toLowerCase()) : 'Noch nichts erfasst';
   /* Die vier Achsen des TAGES (Schnitt ueber alle Eintraege mit Score).
      Fehlt eine, bleibt ihre Bahn grau - wir erfinden keinen Wert. */
   var A4=[
-    {n:'Zutaten',      v:num(sum.p_zutaten),      max:30, f:'#3ddb7a'},
-    {n:'Zusatzstoffe', v:num(sum.p_zusatzstoffe), max:15, f:'#5ab6ff'},
-    {n:'Verarbeitung', v:num(sum.p_nova),         max:15, f:'#b79bff'},
-    {n:'Nährwert',     v:num(sum.p_naehrwert),    max:20, f:'#ffc24b'}
+    {n:'Zutaten',      v:hatDaten?num(sum.p_zutaten):null,      max:30, f:'#3ddb7a'},
+    {n:'Zusatzstoffe', v:hatDaten?num(sum.p_zusatzstoffe):null, max:15, f:'#5ab6ff'},
+    {n:'Verarbeitung', v:hatDaten?num(sum.p_nova):null,         max:15, f:'#b79bff'},
+    {n:'Nährwert',     v:hatDaten?num(sum.p_naehrwert):null,    max:20, f:'#ffc24b'}
   ].map(function(a){
     a.pct = (a.v==null) ? null : Math.max(0, Math.min(1, a.v/a.max));
     return a;
@@ -4007,7 +4060,7 @@ function startKennzahlen(sum, prof){
   ];
   var kap=[[26,34],[274,34],[26,142],[274,142]];
 
-  var svg='<svg viewBox="0 0 300 176" style="width:100%;display:block" role="img" aria-label="Tages-Index '+idx+', vier Achsen">'
+  var svg='<svg viewBox="0 0 300 176" style="width:100%;display:block" role="img" aria-label="Tages-Index '+kernTxt+', vier Achsen">'
     +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="6">'
     + bahn.map(function(d){ return '<path d="'+d+'" stroke="rgba(255,255,255,.09)"/>'; }).join('')
     + A4.map(function(a,i){
@@ -4031,8 +4084,8 @@ function startKennzahlen(sum, prof){
     +'<circle cx="150" cy="88" r="36" fill="none" stroke="#7cff9b" stroke-width="2.5" opacity="0" class="'+uid+'-r"/>'
     /* Die Zahl IM Kreis, die Bewertung DARUNTER - ausserhalb. Ein Text, der in
        einen Kreis soll, ist immer zu lang: der Kreis wird nicht breiter, das Wort schon. */
-    +'<text x="150" y="100" text-anchor="middle" font-size="36" font-weight="700" fill="#7cff9b" letter-spacing="-1" opacity="0" class="'+uid+'-n">'+idx+'</text>'
-    +'<text x="150" y="140" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7cff9b" opacity="0" class="'+uid+'-s">Dein Tag: '+bew.toLowerCase()+'</text>'
+    +'<text x="150" y="100" text-anchor="middle" font-size="36" font-weight="700" fill="#7cff9b" letter-spacing="-1" opacity="0" class="'+uid+'-n">'+kernTxt+'</text>'
+    +'<text x="150" y="140" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7cff9b" opacity="0" class="'+uid+'-s">'+subTxt+'</text>'
   +'</svg>';
 
   var MK=[
@@ -8031,7 +8084,7 @@ async function toggleFeature(tier,key,enabled){
   const {error}=await client.rpc("cb_feature_set",{p_tier:tier,p_feature:key,p_enabled:enabled});
   if(error){ if(msg){msg.style.color="var(--k-dc2626)";msg.textContent="Fehler: "+error.message;} return; }
   if(msg){ msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"; setTimeout(()=>{ if(msg) msg.textContent=""; },1400); }
-  await refreshMyFeatures(); updateGate();
+  await refreshMyFeatures(); await ladeTierSets(); updateGate();
 }
 /* ---- Admin: Benutzerübersicht ---- */
 const TIERS=[["basis","Basis"],["vital","Vital"],["performance","Performance"],["komplett","Komplett"]];
@@ -8261,7 +8314,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14q";
+const APP_BUILD = "2026-07-14r";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
