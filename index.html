@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14m scan-fenster unscharf · dashboard-grund · makro-balken -->
+<!-- build 2026-07-14n neues logo · intro-verwandlung · claim -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -767,22 +767,22 @@
   .kzTile .kzBar span{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--green2),var(--green))}
   @media(max-width:430px){.kzTile{padding:10px 8px}.kzTile .kzVal{font-size:15px}.kzTile .kzLbl{font-size:10px}.kzTile .kzZiel{font-size:10px}}
   /* ===== INTRO-OVERLAY (nur 1x pro Sitzung) ===== */
+  /* ===== INTRO: das Y wird zum Fluxkompensator ============================
+     Der Vorspann ist eine Erklaerung, kein Schmuck: vier Achsen laufen zusammen,
+     erst dann gibt es eine Zahl. Genau das tut die App.
+     ====================================================================== */
   #introOverlay{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    background:radial-gradient(120% 120% at 50% 32%,var(--dunkelflaeche-2) 0%,var(--dunkelflaeche-1) 60%,#12160F 100%);color:var(--auf-dunkelflaeche);
+    background:radial-gradient(130% 130% at 50% 42%,#173A2A 0%,#0B1710 55%,#070F0A 100%);color:#fff;
     opacity:1;transition:opacity .55s ease}
   #introOverlay.hide{opacity:0;pointer-events:none}
-  #introOverlay .introWrap{position:relative;width:150px;height:150px;display:flex;align-items:center;justify-content:center}
-  #introOverlay .introRing{position:absolute;inset:0;transform:rotate(-90deg)}
-  #introOverlay .introRing circle{fill:none;stroke:var(--k-6faf3a);stroke-width:4;stroke-linecap:round;
-    stroke-dasharray:433;stroke-dashoffset:433;animation:introClose 2.1s cubic-bezier(.4,0,.2,1) forwards}
-  @keyframes introClose{to{stroke-dashoffset:0}}
-  #introOverlay .introLeaf{animation:introPop .8s cubic-bezier(.22,1,.36,1) both}
-  @keyframes introPop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
-  #introOverlay .introClaim{margin-top:22px;font-size:13.5px;letter-spacing:.5px;font-weight:600;opacity:0;
-    animation:introFade .7s ease .5s forwards}
-  @keyframes introFade{to{opacity:.92}}
+  #introFx{width:min(88vw,340px);display:block}
+  #ifRot{transform-origin:150px 100px}
+  #introWort{margin-top:6px;font-size:22px;letter-spacing:3px;color:#fff;opacity:0}
+  #introWort span{color:#5EF2A0}
+  #introOverlay .introClaim{margin-top:9px;font-size:13px;color:rgba(255,255,255,.62);
+    text-align:center;padding:0 24px;line-height:1.45;opacity:0}
   #introOverlay .introSkip{position:absolute;bottom:calc(26px + env(safe-area-inset-bottom));right:22px;
-    background:var(--k-w14);border:1px solid var(--k-w40);color:var(--k-ffffff);border-radius:999px;
+    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.40);color:#fff;border-radius:999px;
     padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer}
   /* In-Seiten-Untertabs (Segment-Control) */
   .seg{display:flex;gap:4px;background:var(--k-eef3ef);border-radius:13px;padding:4px;margin:0 0 16px;overflow-x:auto}
@@ -846,12 +846,38 @@
 </style>
 </head>
 <body>
+<!-- ===========================================================================
+     DAS INTRO: Das Y verwandelt sich in den Fluxkompensator.
+
+     Es ist kein Vorspann, es ist eine Erklaerung: Drei Arme drehen sich, wandern
+     auf ihre Plaetze, ein vierter waechst dazu, die Farben trennen sich - und
+     erst wenn alle vier angekommen sind, zaehlt die Skala hoch.
+
+     Genau das tut die App: vier Achsen, dann eine Zahl. Ohne alle vier keine Zahl.
+
+     Im Kern steht KEINE Beispielzahl. Eine "72" waere im ersten Moment der App
+     eine erfundene Zahl - ausgerechnet bei uns. Die Skala zaehlt stattdessen
+     0 -> 100: das ist der WERTEBEREICH, keine Behauptung.
+     =========================================================================== -->
 <div id="introOverlay">
-  <div class="introWrap">
-    <svg class="introRing" viewBox="0 0 150 150" aria-hidden="true"><circle cx="75" cy="75" r="69"/></svg>
-    <svg class="introLeaf" viewBox="0 0 48 60" width="72" height="72" aria-hidden="true"><path d="M24 3 C41 16 40 41 24 57 C8 41 7 16 24 3 Z" fill="var(--k-6faf3a)"/><path d="M24 8 C22 26 22 40 24 53" stroke="var(--k-2e7d32)" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-  </div>
-  <div class="introClaim">Unabhängig · Wissenschaftlich · Transparent</div>
+  <svg id="introFx" viewBox="0 0 300 210" aria-hidden="true">
+    <g id="ifRot">
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7">
+        <path id="ifP1" d="" stroke="#5EF2A0"/>
+        <path id="ifP2" d="" stroke="#5EF2A0"/>
+        <path id="ifP3" d="" stroke="#5EF2A0"/>
+        <path id="ifP4" d="" stroke="#5EF2A0" opacity="0"/>
+      </g>
+      <circle id="ifK1" r="6" fill="#5EF2A0"/>
+      <circle id="ifK2" r="6" fill="#5EF2A0"/>
+      <circle id="ifK3" r="6" fill="#5EF2A0"/>
+      <circle id="ifK4" r="6" fill="#5EF2A0" opacity="0"/>
+    </g>
+    <circle id="ifKern" cx="150" cy="100" r="10" fill="#0A1710" stroke="#5EF2A0" stroke-width="2.5"/>
+    <text id="ifZahl" x="150" y="112" text-anchor="middle" font-size="34" font-weight="700" fill="#7CFF9B" letter-spacing="-1" opacity="0">0</text>
+  </svg>
+  <div id="introWort">ROOT <span>INDEX</span></div>
+  <div class="introClaim">Die Vorderseite verkauft. Wir lesen die Rückseite.</div>
   <button class="introSkip" type="button" onclick="riHideIntro()">Überspringen ›</button>
 </div>
 <div class="hero"><div class="wrap">
@@ -8088,23 +8114,123 @@ async function setUserAdmin(bid,val){
 }
 /* Intro-Overlay: gecodete Animation, nur einmal pro Sitzung (Kaltstart), ueberspringbar */
 function riHideIntro(){ var o=document.getElementById('introOverlay'); if(!o) return; o.classList.add('hide'); setTimeout(function(){ if(o&&o.parentNode) o.style.display='none'; },600); }
+/* ===========================================================================
+   DIE VERWANDLUNG
+
+   Das Y (drei Arme, gruen) dreht sich EINMAL ganz herum. Waehrend der Drehung
+   wandern die drei Arme auf ihre Plaetze, ein vierter waechst aus der Mitte,
+   und die Farben trennen sich: Zutaten gruen, Zusatzstoffe blau, Verarbeitung
+   lila, Naehrwert orange.
+
+   Der Kern ist von Anfang an das, was er am Ende ist - ein dunkles Fenster mit
+   Ring. Er waechst nur mit, statt sich zu verwandeln.
+
+   Am Ende zaehlt die Skala 0 -> 100. KEINE Beispielzahl: eine "72" waere im
+   ersten Moment der App eine erfundene Zahl. Die Skala zeigt den WERTEBEREICH.
+
+   Genau 360 Grad - nicht 405. Sonst landen die Arme schraeg statt in den Ecken,
+   und das Ende sieht anders aus als die Startseite.
+   =========================================================================== */
+function riIntroLauf(){
+  var CX=150, CY=100;
+  var YARM=[-90, 150, 30];                       // Y: oben, unten-links, unten-rechts
+  var SARM=[                                     // Schaltplan: die vier Ecken
+    {ax:-124, ay:-66, kx:-76, ky:-66, ex:-38, ey:-24, col:[61,219,122]},
+    {ax: 124, ay:-66, kx: 76, ky:-66, ex: 38, ey:-24, col:[90,182,255]},
+    {ax:-124, ay: 66, kx:-76, ky: 66, ex:-38, ey: 24, col:[183,155,255]},
+    {ax: 124, ay: 66, kx: 76, ky: 66, ex: 38, ey: 24, col:[255,194,75]}
+  ];
+  var GRUEN=[94,242,160];
+  function li(a,b,t){ return a+(b-a)*t; }
+  function co(a,b,t){ return 'rgb('+Math.round(li(a[0],b[0],t))+','+Math.round(li(a[1],b[1],t))+','+Math.round(li(a[2],b[2],t))+')'; }
+
+  var rot=document.getElementById('ifRot'), kern=document.getElementById('ifKern');
+  var zahl=document.getElementById('ifZahl'), wort=document.getElementById('introWort');
+  var claim=document.querySelector('#introOverlay .introClaim');
+  if(!rot) return;
+
+  var D=2500, t0=performance.now()+200;          // 0,2 s Startverzoegerung
+  function frame(now){
+    if(now<t0){ requestAnimationFrame(frame); return; }
+    var t=Math.min(1,(now-t0)/D);
+    var e = t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+    rot.style.transform='rotate('+(e*360)+'deg)';
+
+    var m=Math.max(0,Math.min(1,(t-0.20)/0.60));
+    var me = m<.5 ? 2*m*m : 1-Math.pow(-2*m+2,2)/2;
+
+    for(var i=0;i<4;i++){
+      var p=document.getElementById('ifP'+(i+1)), c=document.getElementById('ifK'+(i+1)), z=SARM[i];
+      var sx, sy;
+      if(i<3){ var r=YARM[i]*Math.PI/180; sx=Math.cos(r)*54; sy=Math.sin(r)*54; }
+      else { sx=0; sy=0; p.setAttribute('opacity', me.toFixed(2)); c.setAttribute('opacity', me.toFixed(2)); }
+      var ax=li(sx,z.ax,me),      ay=li(sy,z.ay,me);
+      var kx=li(sx*0.62,z.kx,me), ky=li(sy*0.62,z.ky,me);
+      var ex=li(sx*0.30,z.ex,me), ey=li(sy*0.30,z.ey,me);
+      p.setAttribute('d','M'+(CX+ax)+' '+(CY+ay)+' L'+(CX+kx)+' '+(CY+ky)+' L'+(CX+ex)+' '+(CY+ey));
+      p.setAttribute('stroke', co(GRUEN, z.col, me));
+      c.setAttribute('cx', CX+ax); c.setAttribute('cy', CY+ay);
+      c.setAttribute('fill', co(GRUEN, z.col, me));
+    }
+    kern.setAttribute('r', li(10, 34, me));
+
+    if(t>=1){
+      /* Erst jetzt die Skala - sie waechst aus dem Nichts und zaehlt 0 -> 100. */
+      zahl.setAttribute('opacity','1');
+      var z0=performance.now();
+      (function zaehl(n){
+        var s=Math.min(1,(n-z0)/1000), se=1-Math.pow(1-s,3);
+        zahl.textContent=Math.round(se*100);
+        zahl.setAttribute('font-size', (16+se*18).toFixed(1));
+        if(s<1) requestAnimationFrame(zaehl);
+      })(z0);
+      if(wort)  wort.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:600,delay:500,easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'});
+      if(claim) claim.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:600,delay:750,easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'});
+      return;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+/* Bei abgeschalteter Bewegung: sofort der Endzustand. Kein Ruckeln, aber auch
+   kein leerer Bildschirm - man sieht, worum es geht. */
+function riIntroSofort(){
+  var rot=document.getElementById('ifRot'), kern=document.getElementById('ifKern');
+  var zahl=document.getElementById('ifZahl'), wort=document.getElementById('introWort');
+  var claim=document.querySelector('#introOverlay .introClaim');
+  if(!rot) return;
+  var CX=150, CY=100;
+  var S=[{ax:-124,ay:-66,kx:-76,ky:-66,ex:-38,ey:-24,c:'#3DDB7A'},
+         {ax: 124,ay:-66,kx: 76,ky:-66,ex: 38,ey:-24,c:'#5AB6FF'},
+         {ax:-124,ay: 66,kx:-76,ky: 66,ex:-38,ey: 24,c:'#B79BFF'},
+         {ax: 124,ay: 66,kx: 76,ky: 66,ex: 38,ey: 24,c:'#FFC24B'}];
+  S.forEach(function(z,i){
+    var p=document.getElementById('ifP'+(i+1)), c=document.getElementById('ifK'+(i+1));
+    p.setAttribute('d','M'+(CX+z.ax)+' '+(CY+z.ay)+' L'+(CX+z.kx)+' '+(CY+z.ky)+' L'+(CX+z.ex)+' '+(CY+z.ey));
+    p.setAttribute('stroke',z.c); p.setAttribute('opacity','1');
+    c.setAttribute('cx',CX+z.ax); c.setAttribute('cy',CY+z.ay); c.setAttribute('fill',z.c); c.setAttribute('opacity','1');
+  });
+  kern.setAttribute('r','34');
+  zahl.textContent='100'; zahl.setAttribute('opacity','1');
+  if(wort)  wort.style.opacity='1';
+  if(claim) claim.style.opacity='1';
+}
 (function(){
   var o=document.getElementById('introOverlay'); if(!o) return;
-  /* Vorher: sessionStorage. Das ueberlebt keinen App-Neustart - auf dem Handy
-     lief das Intro also bei JEDEM Oeffnen erneut, 2,6 Sekunden lang. Das Tagebuch
-     oeffnet man mehrmals am Tag.
-     > Ein Intro ist eine Begruessung, keine Mautstelle.
-     Jetzt: localStorage - einmal pro Geraet. Wer die App kennt, kommt sofort rein.
-     prefers-reduced-motion ueberspringt es ganz. */
+  /* Einmal pro GERAET, nicht pro Sitzung. Mit sessionStorage lief das Intro auf
+     dem Handy bei jedem Oeffnen neu - und das Tagebuch oeffnet man mehrmals taeglich.
+     > Ein Intro ist eine Begruessung, keine Mautstelle. */
   var reduce=false;
-  try{ reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  try{ reduce=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
   var seen=false;
-  try{ seen=localStorage.getItem('ri_intro_v1')==='1'; }catch(e){}
-  if(seen||reduce){ o.style.display='none'; return; }
-  try{ localStorage.setItem('ri_intro_v1','1'); }catch(e){
-    try{ sessionStorage.setItem('ri_intro','1'); }catch(_){}   // privater Modus: wenigstens die Session
+  try{ seen=localStorage.getItem('ri_intro_v2')==='1'; }catch(e){}
+  if(seen){ o.style.display='none'; return; }
+  try{ localStorage.setItem('ri_intro_v2','1'); }catch(e){
+    try{ sessionStorage.setItem('ri_intro','1'); }catch(_){}
   }
-  setTimeout(riHideIntro, 2000);
+  if(reduce){ riIntroSofort(); setTimeout(riHideIntro, 1600); return; }
+  riIntroLauf();
+  setTimeout(riHideIntro, 4600);
 })();
 load();
 if(!ADMIN_MODE) setMode('start');
@@ -8120,7 +8246,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14m";
+const APP_BUILD = "2026-07-14n";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
