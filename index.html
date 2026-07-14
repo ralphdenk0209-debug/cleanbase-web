@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-13r ampel-zwei-skalen -->
+<!-- build 2026-07-14a suche-ei · stueckgroessen · manuell+riki · scoreLead · a11y -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -60,8 +60,25 @@
   .stats{font-size:13px;color:var(--muted);margin:0 2px 14px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
-        cursor:pointer;transition:transform .1s ease,box-shadow .1s ease;display:flex;gap:15px;align-items:center}
+        cursor:pointer;transition:transform .12s ease,box-shadow .12s ease;display:flex;gap:15px;align-items:center}
   .card:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:#cfe3d6}
+  /* Auf dem Handy gibt es kein Hover. Der Effekt, der der Seite Leben geben sollte,
+     war ausgerechnet dort unsichtbar, wo die meisten sie benutzen. Antippen fuehlt man jetzt. */
+  .card:active{transform:scale(.98)}
+  /* Gestaffeltes Einblenden. NUR transform+opacity - alles andere (width, top, box-shadow)
+     loest Layout/Paint aus und ruckelt auf aelteren Geraeten. */
+  .cardIn{opacity:0;animation:cardIn .34s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .scLead .scNum{letter-spacing:-.5px}
+  /* Nicht die Huelle animieren, sondern die FUELLUNG - sonst waere der Balken
+     mitsamt seiner grauen Spur gewachsen und die Laenge haette nichts gesagt. */
+  .scLead .scBar i{transform:scaleX(0);transform-origin:left;
+        animation:axIn .4s cubic-bezier(.22,1,.36,1) forwards}
+  .scLead .scBar:nth-child(1) i{animation-delay:.10s}
+  .scLead .scBar:nth-child(2) i{animation-delay:.16s}
+  .scLead .scBar:nth-child(3) i{animation-delay:.22s}
+  .scLead .scBar:nth-child(4) i{animation-delay:.28s}
+  @keyframes axIn{to{transform:scaleX(1)}}
   .badge{width:62px;height:62px;border-radius:50%;flex:0 0 62px;display:flex;flex-direction:column;
          align-items:center;justify-content:center;color:#fff;font-weight:800;line-height:1;box-shadow:inset 0 0 0 3px rgba(255,255,255,.25)}
   .badge .num{font-size:21px}
@@ -176,7 +193,27 @@
   @keyframes leafsway{0%{transform:rotate(-8deg)}25%{transform:rotate(4deg)}50%{transform:rotate(9deg)}75%{transform:rotate(1deg)}100%{transform:rotate(-8deg)}}
   .leafwind{width:88px;height:88px;margin:2px auto 8px;display:flex;align-items:flex-end;justify-content:center}
   .leafwind svg{transform-origin:50% 90%;animation:leafsway 3.8s ease-in-out infinite;will-change:transform}
-  @media (prefers-reduced-motion:reduce){ .leafwind svg{animation:none} }
+  /* ===================================================================
+     Bewegung abschaltbar - fuer ALLE Animationen, nicht nur das Blatt.
+     Vorher stand diese Regel an genau EINER von zwanzig Stellen. Fuer
+     Menschen mit vestibulaeren Stoerungen (Schwindel, Migraene) ist
+     Bewegung, die sie nicht abstellen koennen, ein echtes Problem -
+     und WCAG 2.3.3 verlangt die Abschaltbarkeit.
+     Wer mehr animiert, muss das ZUERST reparieren.
+     =================================================================== */
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{
+      animation-duration:.001ms!important;
+      animation-iteration-count:1!important;
+      transition-duration:.001ms!important;
+      scroll-behavior:auto!important;
+    }
+    .cardIn{opacity:1!important;transform:none!important}
+    .scLead .scBar i{transform:scaleX(1)!important}
+    .csRing circle.fg{stroke-dashoffset:var(--off)!important}
+    .mkSeg{stroke-dashoffset:0!important}
+    .leafwind svg{animation:none!important}
+  }
   body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
   /* iOS: Eingabefelder < 16px lösen Auto-Zoom aus (Layout-Überlauf). Auf Mobil alle Felder >= 16px. */
   @media (max-width:600px){ input:not([type=checkbox]):not([type=radio]),select,textarea{ font-size:16px!important } }
@@ -695,6 +732,7 @@ const MACROS = [
   ["m_protein","Eiweiß","g"],
   ["m_salz","Salz","g"],
 ];
+/* farbe() liefert die FLAECHEN-Farbe (Ring, Balken, Chip-Hintergrund). */
 function farbe(b){
   if(b==="Sehr gut")return "#16a34a";
   if(b==="Gut")return "#65a30d";
@@ -702,9 +740,74 @@ function farbe(b){
   if(b==="Schwach")return "#dc2626";
   return "#9aa7a0";
 }
+/* farbeText() liefert dieselbe Farbe DUNKEL GENUG FUER TEXT.
+   Gemessen gegen die weisse Karte:
+     #65a30d ("Gut")      = 1,98:1   -> WCAG verlangt 4.5:1. Praktisch unlesbar.
+     #16a34a ("Sehr gut") = 2,28:1
+     #e8920c ("Mittel")   = 2,15:1
+   Eine Zahl, die man nicht lesen kann, ist keine Information.
+   Die neuen Werte liegen alle ueber 5:1 - und behalten den Farbton. */
+function farbeText(b){
+  if(b==="Sehr gut")return "#15803D";  // 5,02:1
+  if(b==="Gut")     return "#4D7C0F";  // 4,99:1
+  if(b==="Mittel")  return "#B45309";  // 5,02:1
+  if(b==="Schwach") return "#B91C1C";  // 6,47:1
+  return "#57534E";                    // 7,63:1
+}
 function num(x){return x===null||x===undefined?null:Number(x);}
 let _donutN=0;
 function _mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+/* ===========================================================================
+   scoreLead — die Zahl plus VIER Striche, einer je Achse.
+
+   Warum nicht mehr der Kreis: Ein Kreis zeigt EINE Zahl. Unser Score hat vier
+   Achsen - und genau die sind der Unterschied zu Yuka. Der Kreis verschwieg,
+   was uns ausmacht. Vier Striche kosten dieselbe Flaeche und zeigen, WO es
+   klemmt: eine rote Strieme sagt mehr als eine 62.
+
+   Achsen-Maxima: Zutaten 30 · Naehrwert 20 (Feld ist halbiert!) · Zusatz 15 · NOVA 15
+   =========================================================================== */
+function _achsFarbe(a){
+  if(a==null) return "#a8a29e";                 // keine Angabe - grau, nicht rot
+  if(a>=0.75) return "#15803D";
+  if(a>=0.50) return "#4D7C0F";
+  if(a>=0.25) return "#B45309";
+  return "#B91C1C";
+}
+function scoreLead(d,size){
+  size=size||62;
+  const s=num(d&&d.clean_score);
+  const txt=(s!=null)?String(Math.round(s)):"–";
+  const fs=Math.round(size*(txt.length>=3?0.36:0.44));
+  const col=(s!=null)?farbeText(d.bewertung):"#57534E";
+  // Anteil je Achse (0..1). NULL bleibt NULL - eine fehlende Achse ist grau, nicht null.
+  const ax=[
+    ["Zutaten",      num(d&&d.p_zutaten),      30],
+    ["Nährwert",     num(d&&d.p_naehrwert),    20],
+    ["Zusatzstoffe", num(d&&d.p_zusatzstoffe), 15],
+    ["Verarbeitung", num(d&&d.p_nova),         15]
+  ].map(function(r){
+    const a=(r[1]==null)?null:Math.max(0,Math.min(1,r[1]/r[2]));
+    return {n:r[0], a:a};
+  });
+  const titel=ax.map(function(r){ return r.n+": "+(r.a==null?"keine Angabe":Math.round(r.a*100)+" %"); }).join(" · ");
+  /* WCAG 1.4.1: Farbe darf NICHT das einzige Unterscheidungsmerkmal sein.
+     Meine erste Fassung codierte die Achse allein ueber die Farbe - fuer einen
+     Rot-Gruen-Blinden (etwa jeder zwoelfte Mann) waren die vier Striche bedeutungslos.
+     Jetzt traegt die LAENGE die Information, die Farbe verstaerkt sie nur.
+     Wer die Farbe nicht sieht, sieht immer noch, welcher Balken kurz ist. */
+  const striche=ax.map(function(r){
+    const pct=(r.a==null)?0:Math.round(r.a*100);
+    const bg=(r.a==null)?"#e7e5e4":"#e7e5e4";
+    return '<span class="scBar" style="width:13px;height:5px;border-radius:2px;background:'+bg+';overflow:hidden;display:inline-block">'
+         +   '<i style="display:block;height:100%;width:'+pct+'%;background:'+_achsFarbe(r.a)+';border-radius:2px"></i>'
+         + '</span>';
+  }).join("");
+  return '<div class="scLead" style="flex:0 0 '+size+'px;width:'+size+'px;text-align:center" title="'+esc(titel)+'">'
+       +   '<div class="scNum" style="font-size:'+fs+'px;line-height:1;font-weight:800;color:'+col+'">'+txt+'</div>'
+       +   '<div class="scAx" style="display:flex;gap:2px;justify-content:center;margin-top:5px">'+striche+'</div>'
+       + '</div>';
+}
 function donut(score,col,size){
   size=size||62;
   const cx=32,cy=32,R=24,id='en'+(++_donutN);
@@ -1562,10 +1665,65 @@ function altBanner(d){
 function _norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,""); }
 function _lev(a,b){ const m=a.length,n=b.length; if(!m)return n; if(!n)return m; let prev=Array.from({length:n+1},(_,j)=>j),cur=new Array(n+1);
   for(let i=1;i<=m;i++){ cur[0]=i; for(let j=1;j<=n;j++){ cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1)); } const t=prev;prev=cur;cur=t; } return prev[n]; }
-function _fuzzy(text,q){ const t=_norm(text); if(!q) return true; if(t.includes(q)) return true;
-  if(q.length<=3) return false; // kurze Begriffe (z. B. "k2"): nur echte Teilstring-Treffer, keine Unschärfe
+/* ===========================================================================
+   SUCHE — "ei" traf 642 von 1034 Produkten. Fast zwei Drittel des Katalogs.
+   Ursache: t.includes(q) trifft MITTEN im Wort. In "ei" stecken W-ei-zen,
+   Fl-ei-sch, R-ei-s, Br-ei, G-ei-treide, B-ei-lagen. Die Kategorie wurde
+   mitgesucht - und fast jede Kategorie enthaelt "ei".
+
+   > Je kuerzer der Suchbegriff, desto genauer muss er sitzen.
+
+   Kurze Begriffe (1-3 Zeichen) matchen nur noch am WORTANFANG. Damit findet
+   "ei" das Ei, aber nicht den Weizen. Ab 4 Zeichen bleibt die Suche mitten im
+   Wort erlaubt - sonst faende "milch" die "Vollmilch" nicht mehr.
+   =========================================================================== */
+function _wortAnfang(t,q){
+  // Wortanfang = Zeichenkette beginnt, oder davor steht etwas, das kein Buchstabe ist
+  const i=t.indexOf(q);
+  if(i<0) return false;
+  let k=i;
+  while(k>=0){
+    if(k===0) return true;
+    if(!/[a-z0-9äöüß]/.test(t[k-1])) return true;
+    k=t.indexOf(q,k+1);
+    if(k<0) return false;
+  }
+  return false;
+}
+function _fuzzy(text,q){
+  const t=_norm(text); if(!q) return true;
+  if(q.length<=3) return _wortAnfang(t,q);   // "ei", "bio", "k2" - nur am Wortanfang
+  if(t.includes(q)) return true;             // ab 4 Zeichen: "milch" findet "Vollmilch"
   const max=q.length<=5?1:2;
-  return t.split(/[^a-z0-9]+/).some(w=> w.length>2 && (w.includes(q) || _lev(w,q)<=max)); }
+  return t.split(/[^a-z0-9]+/).some(w=> w.length>2 && (w.includes(q) || _lev(w,q)<=max));
+}
+/* Ein Produkt matchen - inklusive der gepflegten Synonyme.
+   Ohne das ist jeder Synonym-Eintrag Arbeit ohne Wirkung: "Ei" steht in
+   Suchbegriffe_Synonyme, aber niemand hat je hineingesehen.
+   Die Kategorie wird bei KURZEN Begriffen NICHT durchsucht - sie war der
+   Haupttreiber der 642 Falschtreffer. */
+function _prodMatch(p,q){
+  if(!q) return true;
+  const syn=Array.isArray(p.synonyme)?p.synonyme:[];
+  if(syn.some(s=>_norm(s)===q)) return true;                 // exaktes Synonym: "ei"
+  if(_fuzzy(p.name,q) || _fuzzy(p.marke,q)) return true;
+  if(syn.some(s=>_fuzzy(s,q))) return true;
+  if(q.length>=4 && _fuzzy(p.kategorie,q)) return true;      // Kategorie erst ab 4 Zeichen
+  return false;
+}
+/* Relevanz statt Score: Vorher sortierte die Trefferliste nach Clean-Score.
+   Selbst wenn "Ei" traf, stand es hinter allem, was 100 Punkte hatte. */
+function _relevanz(p,q){
+  if(!q) return 0;
+  const n=_norm(p.name||""), m=_norm(p.marke||"");
+  const syn=(Array.isArray(p.synonyme)?p.synonyme:[]).map(_norm);
+  if(n===q || syn.includes(q))       return 100;   // "ei" -> Ei (roh)
+  if(_wortAnfang(n,q))               return 80;    // "hafer" -> Haferflocken
+  if(syn.some(s=>_wortAnfang(s,q)))  return 70;
+  if(n.includes(q))                  return 50;    // "milch" -> Vollmilch
+  if(_wortAnfang(m,q)||m.includes(q))return 40;    // Marke
+  return 10;                                        // nur noch unscharf
+}
 function render(){
   const q=_norm(document.getElementById("q").value.trim());
   const kat=window._prodKat||"";
@@ -1577,18 +1735,23 @@ function render(){
   }
   let list=ALL.filter(d=>{
     if(kat && d.kategorie!==kat)return false;
-    if(q && !(_fuzzy(d.name,q)||_fuzzy(d.marke,q)||_fuzzy(d.kategorie,q)))return false;
+    if(q && !_prodMatch(d,q))return false;
     return true;
   });
-  list.sort((a,b)=> (b.clean_score??-1)-(a.clean_score??-1));
+  // Bei einer Suche zaehlt Relevanz zuerst, erst danach der Score.
+  // Ohne Suche (Kategorie-Ansicht) bleibt es beim Score.
+  if(q) list.sort((a,b)=> (_relevanz(b,q)-_relevanz(a,q)) || ((b.clean_score??-1)-(a.clean_score??-1)));
+  else  list.sort((a,b)=> (b.clean_score??-1)-(a.clean_score??-1));
   if(kat) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,#166534);font-weight:600">‹ Kategorien</span> · '+esc(kat)+' · '+list.length+' Produkt(e)';
   else document.getElementById("stats").textContent=list.length+" Produkt(e)";
   grid.innerHTML="";
-  list.forEach(d=>{
-    const c=document.createElement("div");c.className="card";c.onclick=()=>detail(d);
-    const col=farbe(d.bewertung);
+  list.forEach((d,i)=>{
+    const c=document.createElement("div");c.className="card cardIn";c.onclick=()=>detail(d);
+    // Gestaffeltes Einblenden: nur die ersten 12, danach waere die Verzoegerung
+    // laenger als die Geduld. Nur transform+opacity - beides laeuft auf der GPU.
+    c.style.animationDelay=(Math.min(i,11)*40)+"ms";
     c.innerHTML=`
-      ${donut(d.clean_score, col, 62)}
+      ${scoreLead(d, 62)}
       <div class="meta">
         <div class="name">${esc(d.name)}</div>
         <div class="sub">${subLine(d)}</div>
@@ -3876,9 +4039,10 @@ async function einkSuggest(q){
   q=(q||'').trim().toLowerCase();
   if(q.length<2){ box.innerHTML=''; return; }
   if(!(ALL&&ALL.length)){ try{ const data=await fetchAlleProdukte(); if(data) ALL=data.map(function(d){ return Object.assign({},d,{clean_score:num(d.clean_score)}); }); }catch(e){} }
-  const hits=(ALL||[]).filter(function(p){
-    return String(p.name||'').toLowerCase().indexOf(q)>=0 || String(p.marke||'').toLowerCase().indexOf(q)>=0;
-  }).sort(function(a,b){ return (b.clean_score||0)-(a.clean_score||0); }).slice(0,6);
+  const nq=_norm(q);
+  const hits=(ALL||[]).filter(function(p){ return _prodMatch(p,nq); })
+    .sort(function(a,b){ return (_relevanz(b,nq)-_relevanz(a,nq)) || ((b.clean_score||0)-(a.clean_score||0)); })
+    .slice(0,6);
   if(!hits.length){ box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:4px 2px">Kein Katalog-Treffer – „+" legt den Eintrag als freien Text an.</div>'; return; }
   box.innerHTML='<div style="border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden">'
     + hits.map(function(p){
@@ -4344,7 +4508,9 @@ function tbTopSearch(q){
   if(!q){ box.innerHTML=""; window._tbTopQ=""; return; }
   window._tbTopQ=q;
   const nq=_norm(q);
-  const list=(ALL||[]).filter(p=>_fuzzy(p.name,nq)||_fuzzy(p.marke,nq)).slice(0,8);
+  const list=(ALL||[]).filter(p=>_prodMatch(p,nq))
+                      .sort((a,b)=>(_relevanz(b,nq)-_relevanz(a,nq))||((b.clean_score??-1)-(a.clean_score??-1)))
+                      .slice(0,8);
   window._tbTopList=list;
   if(!list.length){
     box.innerHTML='<div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:11px;margin-bottom:12px">'
@@ -4379,7 +4545,10 @@ async function tbOpenAdd(meal, prefillId, prefillName){
 function tbRenderTabs(){
   const el=document.getElementById("tbAddTabs"); if(!el) return;
   const t=window._tbTab||'suche';
-  const tabs=[['suche','🔍 Suche'],['historie','🕘 Historie'],['rezepte','🥗 Rezepte'],['favoriten','♥ Favoriten']];
+  /* "Manuell" war gebaut, aber unerreichbar: der Knopf erschien NUR, wenn eine Suche
+     ins Leere lief. Wer ein Produkt ohne Barcode eintragen wollte, musste erst
+     erfolglos danach suchen. Jetzt steht die Tür offen. */
+  const tabs=[['suche','🔍 Suche'],['manuell','✏️ Manuell'],['historie','🕘 Historie'],['rezepte','🥗 Rezepte'],['favoriten','♥ Favoriten']];
   el.innerHTML=tabs.map(([k,l])=>'<button onclick="tbSetTab(\''+k+'\')" style="flex:1;padding:7px 3px;border-radius:9px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid '+(t===k?'#16a34a':'#E7E0D4')+';background:'+(t===k?'rgba(22,163,74,.18)':'#FBF8F2')+';color:'+(t===k?'#2E7D32':'#cbd5e1')+'">'+l+'</button>').join("");
 }
 async function tbSetTab(t){
@@ -4390,6 +4559,7 @@ async function tbSetTab(t){
     return;
   }
   body.innerHTML='<div id="tbAddResults"><div style="text-align:center;padding:16px;color:#6B6256;font-size:13px">Lade…</div></div>';
+  if(t==='manuell'){ window._tbAddManualName=""; window._tbAddManualEan=""; tbAddManualOpen(); return; }
   if(t==='historie') await tbHistList();
   else if(t==='rezepte') await tbRezList();
   else if(t==='favoriten') await tbFavList();
@@ -4439,7 +4609,9 @@ async function tbAddRezept(i){
 function tbAddFilter(q){
   const box=document.getElementById("tbAddResults"); if(!box) return;
   q=(q||"").trim(); let list=ALL||[];
-  if(q){ const nq=_norm(q); list=list.filter(p=>_fuzzy(p.name,nq)||_fuzzy(p.marke,nq)); }
+  if(q){ const nq=_norm(q);
+         list=list.filter(p=>_prodMatch(p,nq))
+                  .sort((a,b)=>(_relevanz(b,nq)-_relevanz(a,nq))||((b.clean_score??-1)-(a.clean_score??-1))); }
   window._tbAddManualName=q;
   list=list.slice(0,40);
   if(!list.length){
@@ -4500,11 +4672,13 @@ function tbAddManualOpen(){
     +'<div id="tbmVorschau" style="font-size:12.5px;color:#2E7D32;font-weight:600;margin-top:6px;min-height:16px"></div>'
     +'<button onclick="tbAddManualSave()" style="margin-top:6px;width:100%;padding:11px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">+ Eintragen</button>'
     +'<div style="font-size:11px;color:#6B6256;margin-top:6px">Wird gespeichert und dem Admin gemeldet, damit das Produkt bei Bedarf angelegt wird.</div>'
-    /* Der Etikett-Weg muss auch HIER stehen: Der „Manuell eintragen"-Kasten überschreibt den
-       Container, in dem der Button nach dem Scan angeboten wurde – sonst ist er weg. */
-    +(ean?('<div style="margin-top:10px;padding-top:9px;border-top:1px solid #E7E0D4">'
-        +'<div style="font-size:11.5px;color:#6B6256;margin-bottom:4px">Produkt fehlt bei uns <b>und</b> bei Open Food Facts? Fotografiere Zutatenliste und Nährwerttabelle – dann prüfen wir es und nehmen es in den Katalog auf.</div>'
-        +etikettCtaBtn(ean)+'</div>'):'')
+    /* Riki OHNE Barcode. Vorher hing dieser Block an "ean" – und fiel damit ausgerechnet
+       im wichtigsten Fall weg: ein Produkt ohne Barcode ist genau das, wofür man ein
+       Etikett fotografiert. Riki liest die Tabelle und füllt die Felder oben aus. */
+    +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid #E7E0D4">'
+      +'<div style="font-size:11.5px;color:#6B6256;margin-bottom:6px">Kein Barcode, oder Werte abtippen ist lästig? <b>Riki liest die Nährwerttabelle vom Foto</b> und füllt die Felder oben aus.</div>'
+      +'<button onclick="etikettOpen(\''+esc(String(ean||"").replace(/[^0-9A-Za-z]/g,""))+'\')" style="width:100%;padding:11px;border:1px solid var(--green,#16a34a);border-radius:10px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);font-size:13.5px;font-weight:600;cursor:pointer">📷 Etikett fotografieren – Riki liest es</button>'
+    +'</div>'
     +'<div id="tbAddMsg" style="font-size:12px;color:#6B6256;margin-top:4px"></div></div>';
 }
 function tbmCalc(){
@@ -4822,7 +4996,9 @@ function bundleChips(){ const el=document.getElementById("bnChips"); if(!el) ret
   el.innerHTML = ps.length? ps.map((p,i)=>'<span style="display:inline-flex;align-items:center;gap:5px;background:var(--greenlt);color:var(--greendk);border-radius:999px;padding:4px 10px;margin:2px;font-size:12px">'+esc(p.name||p.id)+' <span onclick="bundleRem('+i+')" style="cursor:pointer;font-weight:700">✕</span></span>').join("") : '<span style="color:var(--muted);font-size:12px">noch keine</span>'; }
 function bundleRem(i){ window._bundleEdit.produkte.splice(i,1); bundleChips(); }
 function bundleSuche(q){ const box=document.getElementById("bnSucheRes"); if(!box) return; q=(q||"").trim(); if(!q){ box.innerHTML=""; return; }
-  const nq=_norm(q); const list=(ALL||[]).filter(p=>_fuzzy(p.name,nq)||_fuzzy(p.marke,nq)).slice(0,6);
+  const nq=_norm(q); const list=(ALL||[]).filter(p=>_prodMatch(p,nq))
+                      .sort((a,b)=>(_relevanz(b,nq)-_relevanz(a,nq))||((b.clean_score??-1)-(a.clean_score??-1)))
+                      .slice(0,6);
   box.innerHTML=list.map(p=>'<button onclick="bundleAdd(\''+p.id+'\')" style="display:block;width:100%;text-align:left;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);margin-bottom:4px;cursor:pointer;font-size:13px">'+esc(p.name)+' <span style="color:var(--muted);font-size:11px">'+esc(mkLabel(p.marke)||"")+'</span></button>').join(""); }
 function bundleAdd(id){ const p=(ALL||[]).find(x=>x.id===id); if(!p) return; if(!(window._bundleEdit.produkte||[]).some(x=>x.id===id)) window._bundleEdit.produkte.push({id:p.id,name:p.name,marke:p.marke}); bundleChips(); const s=document.getElementById("bnSuche"); if(s) s.value=""; const r=document.getElementById("bnSucheRes"); if(r) r.innerHTML=""; }
 async function bundleSave(){ const e=window._bundleEdit, msg=document.getElementById("bnMsg");
@@ -5846,14 +6022,32 @@ async function etikettSend(){
       }catch(e){}
     }
 
+    /* Riki hat gerade gelesen – die Werte liegen vor. Sie MÜSSEN auch ohne EAN
+       weiterverwendbar sein: ein Produkt ohne Barcode ist genau der Fall, für den
+       das Etikettfoto überhaupt existiert. Vorher hing der Tagebuch-Knopf an
+       ETI_EAN und fiel damit ausgerechnet dort weg, wo er gebraucht wird. */
+    const _n = v.naehrwerte_100g || null;
+    SCAN_DATEN = {
+      ean:   ETI_EAN || "",
+      name:  v.name  || "",
+      marke: v.marke || "",
+      n: _n ? {
+        kcal:    num(_n.kcal),
+        protein: num(_n.protein!=null?_n.protein:_n.eiweiss),
+        kh:      num(_n.kh!=null?_n.kh:_n.kohlenhydrate),
+        zucker:  num(_n.zucker),
+        fett:    num(_n.fett)
+      } : null
+    };
+
     ETI_SHOTS={}; renderEtiShots();
     const box=document.getElementById("etiShots");
     if(box){
       let h = vorlKarte({name:v.name, marke:v.marke, naehrwerte:v.naehrwerte_100g,
         warnungen:d.warnungen, score_erlaubt:d.score_erlaubt, herkunftText:d.herkunftText}, null);
-      /* Direkt weiter ins Tagebuch – die Werte sind gerade gelesen worden, sie liegen vor. */
-      if(d.score_erlaubt && ETI_EAN){
-        h += '<button onclick="etikettClose();tbAusScan(\''+String(ETI_EAN).replace(/[^0-9A-Za-z]/g,"")+'\')" '
+      /* Direkt weiter ins Tagebuch – mit ODER ohne Barcode. */
+      if(d.score_erlaubt){
+        h += '<button onclick="etikettClose();tbAusScan(\''+String(ETI_EAN||"").replace(/[^0-9A-Za-z]/g,"")+'\')" '
           +'style="margin-top:14px;width:100%;box-sizing:border-box;padding:16px;border:0;border-radius:12px;'
           +'background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:16px;'
           +'box-shadow:0 3px 10px rgba(22,163,74,.28)">Ins Tagebuch eintragen</button>';
@@ -6990,10 +7184,21 @@ async function setUserAdmin(bid,val){
 function riHideIntro(){ var o=document.getElementById('introOverlay'); if(!o) return; o.classList.add('hide'); setTimeout(function(){ if(o&&o.parentNode) o.style.display='none'; },600); }
 (function(){
   var o=document.getElementById('introOverlay'); if(!o) return;
-  var seen=false; try{ seen=sessionStorage.getItem('ri_intro')==='1'; }catch(e){}
-  if(seen){ o.style.display='none'; return; }
-  try{ sessionStorage.setItem('ri_intro','1'); }catch(e){}
-  setTimeout(riHideIntro, 2600);
+  /* Vorher: sessionStorage. Das ueberlebt keinen App-Neustart - auf dem Handy
+     lief das Intro also bei JEDEM Oeffnen erneut, 2,6 Sekunden lang. Das Tagebuch
+     oeffnet man mehrmals am Tag.
+     > Ein Intro ist eine Begruessung, keine Mautstelle.
+     Jetzt: localStorage - einmal pro Geraet. Wer die App kennt, kommt sofort rein.
+     prefers-reduced-motion ueberspringt es ganz. */
+  var reduce=false;
+  try{ reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  var seen=false;
+  try{ seen=localStorage.getItem('ri_intro_v1')==='1'; }catch(e){}
+  if(seen||reduce){ o.style.display='none'; return; }
+  try{ localStorage.setItem('ri_intro_v1','1'); }catch(e){
+    try{ sessionStorage.setItem('ri_intro','1'); }catch(_){}   // privater Modus: wenigstens die Session
+  }
+  setTimeout(riHideIntro, 2000);
 })();
 load();
 if(!ADMIN_MODE) setMode('start');
@@ -7009,7 +7214,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-13r";
+const APP_BUILD = "2026-07-14a";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
