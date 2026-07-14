@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14d farb-token · dunkelmodus · rgba nachgezogen -->
+<!-- build 2026-07-14f dunkelmodus: kopfleiste, intro, bento-kacheln -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -311,6 +311,10 @@
     --k-w72:rgba(255,255,255,.72);
     --k-w92:rgba(255,255,255,.92);
     --k-w97:rgba(255,255,255,.97);
+    --dunkelflaeche-1:#1D3C24;
+    --dunkelflaeche-2:#24492E;
+    --auf-dunkelflaeche:#FFFFFF;
+    --auf-dunkelflaeche-leise:rgba(255,255,255,.72);
   }
   [data-theme="dark"] {
     --k-000000:#dadada;
@@ -556,6 +560,10 @@
     --k-w72:rgba(39,39,39,.72);
     --k-w92:rgba(39,39,39,.92);
     --k-w97:rgba(39,39,39,.97);
+    --dunkelflaeche-1:#171A18;
+    --dunkelflaeche-2:#1E241F;
+    --auf-dunkelflaeche:#E7ECE8;
+    --auf-dunkelflaeche-leise:rgba(231,236,232,.70);
   }
 </style>
 <style>
@@ -583,7 +591,7 @@
   html[data-theme="dark"] img{filter:brightness(.92)}
   a{color:inherit}
   /* HERO */
-  .hero{background:linear-gradient(180deg,var(--k-1d3c24),var(--k-24492e));color:var(--k-ffffff);padding:12px 20px;position:sticky;top:0;z-index:30}
+  .hero{background:linear-gradient(180deg,var(--dunkelflaeche-1),var(--dunkelflaeche-2));color:var(--auf-dunkelflaeche);padding:12px 20px;position:sticky;top:0;z-index:30}
   .hero .tag,.hero .sub{display:none}
   .hero.shrink{padding:8px 16px}
   .hero.shrink .tag,.hero.shrink .sub{display:none}
@@ -703,9 +711,9 @@
   .bn-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   .bn-item.active{color:var(--green)}
   /* ===== BENTO / TECH (Startseite) ===== */
-  .heroCheck{background:linear-gradient(160deg,var(--k-24492e),var(--k-1d3c24));color:var(--k-ffffff);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .heroCheck{background:linear-gradient(160deg,var(--dunkelflaeche-2),var(--dunkelflaeche-1));color:var(--auf-dunkelflaeche);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
   .heroCheck h3{margin:0 0 10px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px}
-  .heroCheck input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--k-w25);border-radius:12px;font-size:14px;background:var(--k-w10);color:var(--k-ffffff);outline:none}
+  .heroCheck input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--k-w25);border-radius:12px;font-size:14px;background:var(--k-w10);color:var(--auf-dunkelflaeche);outline:none}
   .heroCheck input:focus{border-color:var(--green)}
   .heroCheck input::placeholder{color:var(--k-w72)}
   .heroBtns{display:flex;gap:8px;margin-top:8px}
@@ -722,7 +730,7 @@
   @media(max-width:430px){.kzTile{padding:10px 8px}.kzTile .kzVal{font-size:15px}.kzTile .kzLbl{font-size:10px}.kzTile .kzZiel{font-size:10px}}
   /* ===== INTRO-OVERLAY (nur 1x pro Sitzung) ===== */
   #introOverlay{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    background:radial-gradient(120% 120% at 50% 32%,var(--k-24492e) 0%,var(--k-1d3c24) 60%,var(--k-14281a) 100%);color:var(--k-ffffff);
+    background:radial-gradient(120% 120% at 50% 32%,var(--dunkelflaeche-2) 0%,var(--dunkelflaeche-1) 60%,#12160F 100%);color:var(--auf-dunkelflaeche);
     opacity:1;transition:opacity .55s ease}
   #introOverlay.hide{opacity:0;pointer-events:none}
   #introOverlay .introWrap{position:relative;width:150px;height:150px;display:flex;align-items:center;justify-content:center}
@@ -3782,12 +3790,12 @@ function riIco(n,s){ s=s||18;
 }
 function riChip(n){ return '<span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--greenlt);color:var(--greendk)">'+riIco(n,21)+'</span>'; }
 function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
-  var A={green:['var(--k-1f5e39)','var(--k-0c1a12)','var(--k-5ef2a0)','var(--k-7cff9b)'],amber:['var(--k-6b4410)','var(--k-1a120a)','var(--k-ffc24b)','var(--k-ffcf6b)'],blue:['var(--k-143a63)','var(--k-0b1420)','var(--k-5ab6ff)','var(--k-7cc4ff)'],violet:['var(--k-45256b)','var(--k-120b1a)','var(--k-b79bff)','var(--k-c9b3ff)'],berry:['var(--k-6b1f45)','var(--k-1a0a12)','var(--k-ff6fa8)','var(--k-ffa8cb)'],terra:['var(--k-7a3b1f)','var(--k-1a0e08)','var(--k-ff9e5e)','var(--k-ffc59b)'],teal:['var(--k-0e4a44)','var(--k-081614)','var(--k-4fd6c0)','var(--k-8cf0e0)']}[accent]||['var(--k-1f5e39)','var(--k-0c1a12)','var(--k-5ef2a0)','var(--k-7cff9b)'];
+  var A={green:['#1f5e39','#0c1a12','#5ef2a0','#7cff9b'],amber:['#6b4410','#1a120a','#ffc24b','#ffcf6b'],blue:['#143a63','#0b1420','#5ab6ff','#7cc4ff'],violet:['#45256b','#120b1a','#b79bff','#c9b3ff'],berry:['#6b1f45','#1a0a12','#ff6fa8','#ffa8cb'],terra:['#7a3b1f','#1a0e08','#ff9e5e','#ffc59b'],teal:['#0e4a44','#081614','#4fd6c0','#8cf0e0']}[accent]||['#1f5e39','#0c1a12','#5ef2a0','#7cff9b'];
   return '<div onclick="navTo(\''+nav+'\')" style="position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:13px;min-height:105px;display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(120% 120% at 22% 12%, '+A[0]+' 0%, '+A[1]+' 62%);box-shadow:0 8px 22px rgba(15,40,25,.22)">'
     +'<div style="position:absolute;top:2px;left:2px;width:80px;height:80px;background:radial-gradient(circle,'+A[2]+'99 0%,transparent 70%);filter:blur(7px)"></div>'
     +'<div style="position:absolute;top:15px;left:16px;color:'+A[3]+';filter:drop-shadow(0 0 6px '+A[2]+'cc)">'+riIco(ico,38)+'</div>'
-    +'<div style="color:var(--k-ffffff);font-size:13.5px;font-weight:700;line-height:1.25;position:relative;z-index:2">'+label+'</div>'
-    +'<div style="color:var(--k-w6);font-size:10.5px;position:relative;z-index:2">'+sub+'</div>'
+    +'<div style="color:#ffffff;font-size:13.5px;font-weight:700;line-height:1.25;position:relative;z-index:2">'+label+'</div>'
+    +'<div style="color:rgba(255,255,255,.6);font-size:10.5px;position:relative;z-index:2">'+sub+'</div>'
     +(cornerIco?'<div onclick="event.stopPropagation();'+cornerAct+'" title="Barcode scannen" style="position:absolute;top:11px;right:12px;color:'+A[3]+';filter:drop-shadow(0 0 5px '+A[2]+'aa);opacity:.92;cursor:pointer;z-index:3">'+riIco(cornerIco,24)+'</div>':'')
   +'</div>';
 }
@@ -3821,7 +3829,7 @@ function startKennzahlen(sum, prof){
       +'</div>'
     +'</div>';
   }).join('');
-  var kcalTile='<div style="position:relative;overflow:hidden;border-radius:13px;height:50px;margin-bottom:8px;background:radial-gradient(120% 90% at 15% 12%,var(--k-1f5e39),var(--k-0c1a12) 70%)">'
+  var kcalTile='<div style="position:relative;overflow:hidden;border-radius:13px;height:50px;margin-bottom:8px;background:radial-gradient(120% 90% at 15% 12%,#1f5e39,#0c1a12 70%)">'
     +'<div style="position:absolute;left:0;bottom:0;height:100%;width:'+kpct.toFixed(0)+'%;background:linear-gradient(90deg,#2c8a55aa,#5EF2A0aa)"></div>'
     +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px">'
       +'<span style="font-family:var(--mono,ui-monospace,monospace);font-size:17px;font-weight:700;color:var(--k-eafff2)">'+kcalIst+' kcal</span>'
@@ -7802,7 +7810,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14d";
+const APP_BUILD = "2026-07-14f";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
