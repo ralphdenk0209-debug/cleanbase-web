@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15k unbekannte zutat mit einem klick in den stamm (bewusste bewertung, auditierbar) + stevia angelegt -->
+<!-- build 2026-07-15l zutaten-stamm seitenweise laden (1000er-limit umgangen) - stevia <!-- build 2026-07-15k unbekannte zutat mit einem klick in den stamm (bewusste bewertung, auditierbar) + stevia angelegt --> co jetzt gebunden -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -6366,9 +6366,20 @@ async function freigeben(id){
 let ZUTATEN_STAMM=null, ZUTATEN_MAP={};
 async function loadZutatenStamm(){
   if(ZUTATEN_STAMM) return;
-  try{ const {data}=await client.rpc("cb_zutaten_liste"); ZUTATEN_STAMM=data||[]; }
-  catch(e){ ZUTATEN_STAMM=[]; }
-  ZUTATEN_MAP={}; ZUTATEN_STAMM.forEach(z=>{ ZUTATEN_MAP[(z.name||"").trim().toLowerCase()]={rating:z.rating,kritisch:z.kritisch}; });
+  /* Supabase liefert pro Abfrage MAX 1000 Zeilen. Der Stamm hat mehr (>1700) - ohne
+     Blaettern fehlte alles ab "S" (Stevia, Salz, Sonnenblumenoel ...) und wurde faelsch-
+     lich als "nicht im Stamm" behandelt. Deshalb seitenweise, bis eine Seite < 1000 hat. */
+  var all=[];
+  try{
+    for(var from=0; from<20000; from+=1000){
+      var res=await client.rpc("cb_zutaten_liste").range(from, from+999);
+      if(res.error || !res.data || !res.data.length) break;
+      all=all.concat(res.data);
+      if(res.data.length<1000) break;
+    }
+  }catch(e){}
+  ZUTATEN_STAMM=all;
+  ZUTATEN_MAP={}; ZUTATEN_STAMM.forEach(function(z){ ZUTATEN_MAP[(z.name||"").trim().toLowerCase()]={rating:z.rating,kritisch:z.kritisch}; });
 }
 function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
@@ -8697,7 +8708,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15k";
+const APP_BUILD = "2026-07-15l";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
