@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15j pruef-opt: zutat-bewertung an stamm gebunden (#1) + warteschlange priorisiert mit ampel (#2) -->
+<!-- build 2026-07-15k unbekannte zutat mit einem klick in den stamm (bewusste bewertung, auditierbar) + stevia angelegt -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3345,19 +3345,60 @@ function seZutatZeile(ean, i, x){
   return '<div class="seZeile" style="display:flex;gap:5px;align-items:center;margin-bottom:4px">'
     +'<input list="seZutDL" value="'+esc(x.name||"")+'" oninput="seZutAuto(this)" placeholder="Zutat wählen…" '
       +'style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-size:12.5px">'
-    +'<input class="seRate" type="number" value="'+(hat?r:"")+'" readonly tabindex="-1" '
+    +'<input class="seRate" type="number" min="0" max="10" value="'+(hat?r:"")+'" readonly tabindex="-1" '
       +'title="Bewertung kommt aus dem Zutaten-Stamm – an die Zutat gebunden, nicht editierbar" '
       +'style="width:52px;padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--k-f2f5f3);color:'+(hat?'var(--ink)':'var(--muted)')+';text-align:center;font-weight:700;font-size:12.5px;cursor:not-allowed">'
-    +'<button onclick="this.parentNode.remove()" title="Zutat entfernen" '
+    /* Unbekannte Zutat: mit einem Klick in den Stamm aufnehmen (Bewertung bewusst setzen). */
+    +'<button class="seStamm" onclick="seZutatInStamm(this)" title="Zutat in den Zutaten-Stamm aufnehmen" '
+      +'style="flex:0 0 auto;padding:6px 8px;border:1px solid var(--green,var(--k-16a34a));border-radius:7px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:11.5px;white-space:nowrap;'+(hat?'display:none':'')+'">→ Stamm</button>'
+    +'<button onclick="this.closest(\'.seZeile\').remove()" title="Zutat entfernen" '
       +'style="flex:0 0 auto;padding:6px 9px;border:1px solid var(--k-f2c9c4);border-radius:7px;background:var(--k-ffffff);color:var(--k-b91c1c);cursor:pointer;font-size:12px">&times;</button>'
     +'</div>';
 }
 /* Zutat gewaehlt/getippt -> Bewertung aus dem Stamm ziehen (schreibgeschuetzt). */
 function seZutAuto(inp){
   var bound=seRateFor(inp.value);
-  var rate=inp.parentNode.querySelector('.seRate'); if(!rate) return;
-  if(bound!=null){ rate.value=bound; rate.style.color='var(--ink)'; rate.title='Bewertung '+bound+' aus dem Zutaten-Stamm – gebunden, nicht editierbar'; }
-  else { rate.value=''; rate.style.color='var(--muted)'; rate.title='Diese Zutat ist nicht im Stamm – dort zuerst mit Bewertung anlegen.'; }
+  var row=inp.closest('.seZeile'); if(!row) return;
+  var rate=row.querySelector('.seRate'), btn=row.querySelector('.seStamm');
+  if(bound!=null){
+    rate.value=bound; rate.setAttribute('readonly',''); rate.style.color='var(--ink)'; rate.style.background='var(--k-f2f5f3)';
+    rate.title='Bewertung '+bound+' aus dem Zutaten-Stamm – gebunden, nicht editierbar';
+    if(btn){ btn.style.display='none'; btn.textContent='→ Stamm'; delete btn.dataset.mode; }
+  } else {
+    rate.value=''; rate.style.color='var(--muted)'; rate.title='Diese Zutat ist nicht im Stamm – „→ Stamm" nimmt sie auf.';
+    if(btn && inp.value.trim()){ btn.style.display=''; btn.textContent='→ Stamm'; delete btn.dataset.mode; rate.setAttribute('readonly',''); rate.style.background='var(--k-f2f5f3)'; }
+  }
+}
+/* Unbekannte Zutat in den Stamm aufnehmen: erst Bewertung eingeben, dann speichern.
+   Die Zahl setzt der Admin bewusst; der Stamm-Eintrag ist als "auditieren" markiert.
+   Danach ist die Zutat ueberall gebunden und wiederverwendbar. */
+function seZutatInStamm(btn){
+  var row=btn.closest('.seZeile'); if(!row) return;
+  var nameInp=row.querySelector('input[list="seZutDL"]');
+  var rate=row.querySelector('.seRate');
+  var name=((nameInp&&nameInp.value)||'').trim();
+  if(!name){ if(nameInp) nameInp.focus(); return; }
+  if(btn.dataset.mode!=='save'){
+    /* Schritt 1: Bewertung freigeben zum Eintippen. */
+    rate.removeAttribute('readonly'); rate.style.background='var(--bg)'; rate.style.color='var(--ink)'; rate.style.cursor='text';
+    rate.placeholder='1-10'; rate.focus();
+    btn.textContent='✓ speichern'; btn.dataset.mode='save';
+    return;
+  }
+  /* Schritt 2: speichern. */
+  var r=parseInt(rate.value,10);
+  if(!(r>=0&&r<=10)){ rate.focus(); return; }
+  btn.disabled=true; var alt=btn.textContent; btn.textContent='…';
+  client.rpc('cb_zutat_stamm_anlegen',{p_name:name,p_rating:r,p_quelle:'Erfassung (Admin), Prüfmaske'}).then(function(res){
+    btn.disabled=false;
+    if(res.error || !(res.data&&res.data.ok)){ btn.textContent='Fehler'; setTimeout(function(){btn.textContent=alt;},1500); return; }
+    var d=res.data, rr=d.rating;
+    if(typeof ZUTATEN_MAP!=='undefined'&&ZUTATEN_MAP){ ZUTATEN_MAP[name.toLowerCase()]={rating:rr,kritisch:'nein'}; }
+    if(Array.isArray(ZUTATEN_STAMM)){ ZUTATEN_STAMM.push({name:name,rating:rr,kritisch:'nein'}); var dl=document.getElementById('seZutDL'); if(dl){ var op=document.createElement('option'); op.value=name; dl.appendChild(op); } }
+    rate.value=rr; rate.setAttribute('readonly',''); rate.style.background='var(--k-f2f5f3)'; rate.style.color='var(--ink)'; rate.style.cursor='not-allowed';
+    rate.title='Bewertung '+rr+' – jetzt im Stamm (auditieren)';
+    btn.style.display='none'; delete btn.dataset.mode;
+  }, function(){ btn.disabled=false; btn.textContent='Fehler'; setTimeout(function(){btn.textContent=alt;},1500); });
 }
 function seZutatNeu(ean){
   const box=document.getElementById("seZut_"+ean); if(!box) return;
@@ -8656,7 +8697,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15j";
+const APP_BUILD = "2026-07-15k";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */

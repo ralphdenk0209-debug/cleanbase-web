@@ -6,7 +6,7 @@
    nie verworfen. Zusammen mit einer offen gelassenen App fuehrte das dazu,
    dass Nutzer weiter mit altem Code arbeiteten.
    BEI JEDEM DEPLOY DIESE ZAHL HOCHZAEHLEN – dann wirft activate den alten Cache weg. */
-const CACHE = 'rootindex-2026-07-15j';
+const CACHE = 'rootindex-2026-07-15k';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
