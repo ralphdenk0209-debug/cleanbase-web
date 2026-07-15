@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14z menue wiki nach oben · wiki+karte: nova heisst verarbeitung -->
+<!-- build 2026-07-15b etikett-gate fuer gaeste + aufruf-/such-zaehler mit dashboard -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -2439,7 +2439,8 @@ function _relevanz(p,q){
   return 10;                                        // nur noch unscharf
 }
 function render(){
-  const q=_norm(document.getElementById("q").value.trim());
+  const rawQ=document.getElementById("q").value.trim();
+  const q=_norm(rawQ);
   const kat=window._prodKat||"";
   const grid=document.getElementById("grid");
   if(!q && !kat && !window._prodShowAll){
@@ -2452,6 +2453,16 @@ function render(){
     if(q && !_prodMatch(d,q))return false;
     return true;
   });
+  /* Suche mitzaehlen - aber ERST wenn der Nutzer aufgehoert hat zu tippen (1 s),
+     sonst laende jeder Tastendruck ("m","ma","man"...) als eigener Begriff.
+     Gezaehlt wird der fertige Begriff + die Trefferzahl. 0 Treffer = Katalog-Luecke. */
+  if(rawQ){
+    clearTimeout(window._sucheLogTimer);
+    const _b=rawQ, _n=list.length;
+    window._sucheLogTimer=setTimeout(function(){
+      try{ client.rpc("cb_log_suche",{p_begriff:_b, p_treffer:_n}); }catch(e){}
+    }, 1000);
+  }
   // Bei einer Suche zaehlt Relevanz zuerst, erst danach der Score.
   // Ohne Suche (Kategorie-Ansicht) bleibt es beim Score.
   if(q) list.sort((a,b)=> (_relevanz(b,q)-_relevanz(a,q)) || ((b.clean_score??-1)-(a.clean_score??-1)));
@@ -2620,6 +2631,10 @@ function scoreFlow(d){
     +'</div>';
 }
 function detail(d){
+  /* Aufruf mitzaehlen (fire-and-forget, blockiert die Anzeige nie). Aggregierter
+     Tageszaehler pro Produkt - keine Nutzer-Verknuepfung. Zeigt den Schwerpunkt:
+     welche Produkte oeffnen die Leute wirklich. */
+  try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}); }catch(e){}
   const col=farbe(d.bewertung);
   const _isOil=((d.kategorie||'')==='Öle & Fette'), _isZero=(num(d.m_kcal)===0);
   const sonderHint = (_isOil||_isZero) ? `<div style="font-size:12.5px;line-height:1.45;margin:8px 0 2px;padding:8px 11px;background:var(--k-eef6ff);border:1px solid var(--k-cfe3f7);border-radius:9px;color:var(--k-1e3a8a)">ℹ️ <b>Sonderbewertung:</b> ${_isOil?'Bei Ölen &amp; Fetten zählt die <b>Fettqualität</b> (Anteil ungesättigter Fettsäuren) statt des Makro-Profils pro 100 g.':'<b>0‑kcal-Produkt</b> – der Nährwert-Teil entfällt; bewertet werden Zutaten, Verarbeitung &amp; Zusatzstoffe.'}</div>` : '';
@@ -3158,8 +3173,39 @@ async function loadDashboard(){
      )
     +CARD("Riki-Kosten je Tag (14 Tage, $)", balken(rv,{h:70}))
 
+    +H("📈 Was gesucht &amp; geöffnet wird")
+    +'<div style="font-size:11px;color:var(--muted);margin:-2px 0 4px">Aggregierte Zähler (30 Tage), keine Nutzer-Verknüpfung. Zeigt Schwerpunkt &amp; Katalog-Lücken.</div>'
+    +'<div id="dashNutzung"><div style="font-size:12px;color:var(--muted)">Lade Zähler…</div></div>'
+
     +'<div style="font-size:11px;color:var(--muted);margin-top:12px;text-align:right">Stand: '
       +esc(new Date(d.stand).toLocaleString('de-DE'))+'</div>';
+
+  /* Aufrufe & Suchen kommen aus eigenen Funktionen (nicht aus cb_dashboard) und
+     werden nachgeladen - so bleibt das Dashboard schnell, auch wenn die Zaehler wachsen. */
+  ladeNutzungPanel();
+}
+async function ladeNutzungPanel(){
+  const box=document.getElementById("dashNutzung"); if(!box) return;
+  const li=function(l,r,rot){ return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 2px;border-top:1px solid var(--line);font-size:12.5px">'
+    +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">'+l+'</span>'
+    +'<span style="flex:0 0 auto;font-weight:700;color:'+(rot?"var(--k-e8920c)":"var(--greendk)")+'">'+r+'</span></div>'; };
+  const CARD2=function(titel, inner){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;margin-top:8px">'
+    +'<div style="font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:2px">'+titel+'</div>'+inner+'</div>'; };
+  try{
+    const [a,s] = await Promise.all([
+      client.rpc("cb_top_aufrufe",{p_tage:30,p_limit:15}),
+      client.rpc("cb_top_suchen",{p_tage:30,p_nur_ohne_treffer:true,p_limit:15})
+    ]);
+    const auf=(a.data||[]); const such=(s.data||[]);
+    let html="";
+    html+=CARD2("Meistgeöffnete Produkte", auf.length
+      ? auf.map(function(x){ return li(esc((x.produktname||x.Produkt_ID||"?"))+(x.marke?' · '+esc(x.marke):''), x.aufrufe); }).join('')
+      : '<div style="font-size:12px;color:var(--muted);padding-top:6px">Noch keine Aufrufe gezählt.</div>');
+    html+=CARD2("Gesucht, aber NICHT gefunden <span style=\"font-weight:400;color:var(--muted)\">(Katalog-Lücken)</span>", such.length
+      ? such.map(function(x){ return li(esc(x.begriff), x.gesucht+'×', true); }).join('')
+      : '<div style="font-size:12px;color:var(--muted);padding-top:6px">Keine erfolglosen Suchen – gut.</div>');
+    box.innerHTML=html;
+  }catch(e){ box.innerHTML='<div style="font-size:12px;color:var(--k-dc2626)">Zähler nicht ladbar: '+esc((e&&e.message)||String(e))+'</div>'; }
 }
 
 /* ============================================================
@@ -6961,6 +7007,17 @@ const ETI_SLOTS=[["zutaten","Zutatenliste"],["naehrwerte","Nährwerttabelle"],["
 let ETI_SHOTS={}; let ETI_EAN=null; let _etiTarget=null;
 function etiMsg(t,c){ const m=document.getElementById("etiMsg"); if(!m) return; m.style.color=c||"var(--ink)"; m.innerHTML=t; }
 function etikettOpen(ean){
+  /* Ansehen ist frei, MITMACHEN braucht ein Konto. Das Etikett-Lesen ruft die
+     bezahlte KI (Riki) und fuettert den Katalog - das ist keine Gast-Funktion.
+     Der automatische Weg war schon gesperrt (if(!ME) return); hier schliessen wir
+     auch den MANUELLEN Knopf, egal aus welchem Einstieg er kommt.
+     > Gratis gucken, mit Konto mitbauen. */
+  if(!ME){
+    if(typeof scanOvClose==="function") scanOvClose();
+    if(typeof scanFullClose==="function") scanFullClose();
+    if(typeof openLogin==="function") openLogin();
+    return;
+  }
   /* Das Scan-Overlay liegt höher (9992) – ohne das hier läge der Etikett-Dialog dahinter. */
   if(typeof scanOvClose==="function") scanOvClose();
   ETI_EAN=ean||null; ETI_SHOTS={};
@@ -8398,7 +8455,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14z";
+const APP_BUILD = "2026-07-15b";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
