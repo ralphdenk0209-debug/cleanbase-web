@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14v diffuser kreis hinter den drei punkten (einkaufsliste) -->
+<!-- build 2026-07-14w einkauf-eintraege in grundfarbe (emerald), kreis kraeftiger -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -4991,7 +4991,10 @@ async function toggleEinkauf(target){
 /* Einkaufsliste im Bring!-Stil: nach Kategorien gruppiert, Mengen-Chips, Barcode-Scan legt Produkt direkt rein */
 const EINK_MENGEN=['1','2','3','4','5','250 g','500 g','1 kg','1 Pkg.','1 Fl.','1 Bund'];
 /* Artikel-Button (Bring!-Stil): offen = Terrakotta, abgehakt = neutral. Antippen = abhaken. */
-const EINK_C = { bg:'var(--k-d85a30)', bd:'var(--k-993c1d)', tx:'var(--k-fdf3ef)', tx2:'var(--k-f5c4b3)' };
+/* Offene Eintraege in unserer Grundfarbe (Emerald) statt im fremden Orange.
+   Dunkel genug, dass die weisse Schrift traegt (Kontrast ~5:1), gleich in hell
+   und dunkel. Erledigtes bleibt grau + durchgestrichen - Farbe = "noch zu holen". */
+const EINK_C = { bg:'var(--greendk)', bd:'#035c44', tx:'var(--greenlt)', tx2:'#a7f3d0' };
 /* Amazon-Kaufbutton am Artikel – nur wenn das Produkt verknüpft ist und einen Link/EAN hat. */
 function einkAmzBtn(pid){
   if(!pid) return '';
@@ -5014,7 +5017,7 @@ function einkRow(r,done){
     /* Diffuser Kreis hinter den drei Punkten: macht die Flaeche als antippbar
        erkennbar, ohne eine harte Knopf-Kante zu ziehen. Weicher Radialverlauf
        statt Vollflaeche - er soll da sein, aber nicht schreien. */
-    +(done?'':'<button onclick="event.stopPropagation();einkDetails('+id+')" title="Menge ändern" style="flex:0 0 auto;border:0;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(255,255,255,.22), rgba(255,255,255,0) 72%);color:'+tx2+';font-size:18px;line-height:1;cursor:pointer">&#8943;</button>')
+    +(done?'':'<button onclick="event.stopPropagation();einkDetails('+id+')" title="Menge ändern" style="flex:0 0 auto;border:0;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(255,255,255,.4), rgba(255,255,255,0) 68%);color:'+tx2+';font-size:18px;line-height:1;cursor:pointer">&#8943;</button>')
     +'<button onclick="event.stopPropagation();einkaufDel('+id+')" title="Entfernen" style="flex:0 0 auto;border:0;background:transparent;color:'+tx2+';font-size:14px;line-height:1;cursor:pointer;padding:4px 2px">&#10005;</button>'
   +'</div>';
   if(!done){
@@ -8361,7 +8364,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14v";
+const APP_BUILD = "2026-07-14w";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
