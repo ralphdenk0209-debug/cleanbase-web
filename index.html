@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15l zutaten-stamm seitenweise laden (1000er-limit umgangen) - stevia <!-- build 2026-07-15k unbekannte zutat mit einem klick in den stamm (bewusste bewertung, auditierbar) + stevia angelegt --> co jetzt gebunden -->
+<!-- build 2026-07-15m unbekannte zutat: riki stuft ein (kein handeingriff) + 2 unabhaengige verifikations-waechter (name-morphologie + statistik) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3349,7 +3349,7 @@ function seZutatZeile(ean, i, x){
       +'title="Bewertung kommt aus dem Zutaten-Stamm – an die Zutat gebunden, nicht editierbar" '
       +'style="width:52px;padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--k-f2f5f3);color:'+(hat?'var(--ink)':'var(--muted)')+';text-align:center;font-weight:700;font-size:12.5px;cursor:not-allowed">'
     /* Unbekannte Zutat: mit einem Klick in den Stamm aufnehmen (Bewertung bewusst setzen). */
-    +'<button class="seStamm" onclick="seZutatInStamm(this)" title="Zutat in den Zutaten-Stamm aufnehmen" '
+    +'<button class="seStamm" onclick="seZutatInStamm(this)" title="Riki stuft die Zutat ein, zwei Wächter prüfen – dann aufnehmen" '
       +'style="flex:0 0 auto;padding:6px 8px;border:1px solid var(--green,var(--k-16a34a));border-radius:7px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:11.5px;white-space:nowrap;'+(hat?'display:none':'')+'">→ Stamm</button>'
     +'<button onclick="this.closest(\'.seZeile\').remove()" title="Zutat entfernen" '
       +'style="flex:0 0 auto;padding:6px 9px;border:1px solid var(--k-f2c9c4);border-radius:7px;background:var(--k-ffffff);color:var(--k-b91c1c);cursor:pointer;font-size:12px">&times;</button>'
@@ -3360,45 +3360,76 @@ function seZutAuto(inp){
   var bound=seRateFor(inp.value);
   var row=inp.closest('.seZeile'); if(!row) return;
   var rate=row.querySelector('.seRate'), btn=row.querySelector('.seStamm');
+  /* Bei Namensaenderung: alten Riki-Vorschlag/Pruef-Panel verwerfen. */
+  var _inf=row.nextElementSibling; if(_inf&&_inf.classList&&_inf.classList.contains('seInfo')) _inf.remove();
+  if(btn){ delete btn.dataset.stufe; delete btn.dataset.gesamt; delete btn.dataset.mode; }
   if(bound!=null){
-    rate.value=bound; rate.setAttribute('readonly',''); rate.style.color='var(--ink)'; rate.style.background='var(--k-f2f5f3)';
+    rate.value=bound; rate.setAttribute('readonly',''); rate.style.color='var(--ink)'; rate.style.background='var(--k-f2f5f3)'; rate.style.fontWeight='700';
     rate.title='Bewertung '+bound+' aus dem Zutaten-Stamm – gebunden, nicht editierbar';
-    if(btn){ btn.style.display='none'; btn.textContent='→ Stamm'; delete btn.dataset.mode; }
+    if(btn){ btn.style.display='none'; btn.textContent='→ Stamm'; }
   } else {
-    rate.value=''; rate.style.color='var(--muted)'; rate.title='Diese Zutat ist nicht im Stamm – „→ Stamm" nimmt sie auf.';
-    if(btn && inp.value.trim()){ btn.style.display=''; btn.textContent='→ Stamm'; delete btn.dataset.mode; rate.setAttribute('readonly',''); rate.style.background='var(--k-f2f5f3)'; }
+    rate.value=''; rate.style.color='var(--muted)'; rate.style.fontWeight='700'; rate.title='Nicht im Stamm – „→ Riki bewerten" stuft sie ein.';
+    if(btn && inp.value.trim()){ btn.style.display=''; btn.textContent='→ Stamm'; rate.setAttribute('readonly',''); rate.style.background='var(--k-f2f5f3)'; }
   }
 }
-/* Unbekannte Zutat in den Stamm aufnehmen: erst Bewertung eingeben, dann speichern.
-   Die Zahl setzt der Admin bewusst; der Stamm-Eintrag ist als "auditieren" markiert.
-   Danach ist die Zutat ueberall gebunden und wiederverwendbar. */
+/* Unbekannte Zutat aufnehmen — OHNE Handbewertung (das waere Willkuer, gegen unser Credo).
+   Riki stuft nach dem Verarbeitungsgrad-Regelwerk ein, zwei unabhaengige Waechter pruefen
+   (Name-Morphologie + Statistik aehnlicher Zutaten). Der Admin bestaetigt nur, legt nichts fest. */
+function _wIcon(u){ return u==='ok'?'✓':u==='warnung'?'⚠':u==='fail'?'✗':'–'; }
 function seZutatInStamm(btn){
   var row=btn.closest('.seZeile'); if(!row) return;
   var nameInp=row.querySelector('input[list="seZutDL"]');
   var rate=row.querySelector('.seRate');
   var name=((nameInp&&nameInp.value)||'').trim();
   if(!name){ if(nameInp) nameInp.focus(); return; }
-  if(btn.dataset.mode!=='save'){
-    /* Schritt 1: Bewertung freigeben zum Eintippen. */
-    rate.removeAttribute('readonly'); rate.style.background='var(--bg)'; rate.style.color='var(--ink)'; rate.style.cursor='text';
-    rate.placeholder='1-10'; rate.focus();
-    btn.textContent='✓ speichern'; btn.dataset.mode='save';
+
+  /* Schritt 2: Rikis geprueften Vorschlag uebernehmen. */
+  if(btn.dataset.mode==='save'){
+    var st=parseInt(btn.dataset.stufe,10);
+    if(!(st>=0&&st<=10)) return;
+    btn.disabled=true; var alt=btn.textContent; btn.textContent='…';
+    client.rpc('cb_zutat_stamm_anlegen',{p_name:name,p_rating:st,p_quelle:'Riki + Verifikation ('+(btn.dataset.gesamt||'')+'), Prüfmaske'}).then(function(res){
+      btn.disabled=false;
+      if(res.error || !(res.data&&res.data.ok)){ btn.textContent='Fehler'; setTimeout(function(){btn.textContent=alt;},1500); return; }
+      var rr=res.data.rating;
+      if(typeof ZUTATEN_MAP!=='undefined'&&ZUTATEN_MAP){ ZUTATEN_MAP[name.toLowerCase()]={rating:rr,kritisch:'nein'}; }
+      if(Array.isArray(ZUTATEN_STAMM)){ ZUTATEN_STAMM.push({name:name,rating:rr,kritisch:'nein'}); var dl=document.getElementById('seZutDL'); if(dl){ var op=document.createElement('option'); op.value=name; dl.appendChild(op); } }
+      rate.value=rr; rate.setAttribute('readonly',''); rate.style.background='var(--k-f2f5f3)'; rate.style.color='var(--ink)'; rate.style.cursor='not-allowed'; rate.style.fontWeight='700';
+      rate.title='Bewertung '+rr+' – jetzt im Stamm (auditieren)';
+      btn.style.display='none'; delete btn.dataset.mode;
+      var inf=row.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains('seInfo')) inf.remove();
+    }, function(){ btn.disabled=false; btn.textContent='Fehler'; setTimeout(function(){btn.textContent=alt;},1500); });
     return;
   }
-  /* Schritt 2: speichern. */
-  var r=parseInt(rate.value,10);
-  if(!(r>=0&&r<=10)){ rate.focus(); return; }
-  btn.disabled=true; var alt=btn.textContent; btn.textContent='…';
-  client.rpc('cb_zutat_stamm_anlegen',{p_name:name,p_rating:r,p_quelle:'Erfassung (Admin), Prüfmaske'}).then(function(res){
+
+  /* Schritt 1: Riki bewerten lassen + Waechter pruefen. */
+  btn.disabled=true; var alt0=btn.textContent; btn.textContent='Riki…';
+  client.auth.getSession().then(function(s){
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok){ btn.disabled=false; btn.textContent='Login?'; setTimeout(function(){btn.textContent=alt0;},1500); return null; }
+    return fetch(client.supabaseUrl+'/functions/v1/riki-zutat-bewerten',{
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},
+      body:JSON.stringify({name:name})
+    }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); });
+  }).then(function(rr){
+    if(!rr) return;
     btn.disabled=false;
-    if(res.error || !(res.data&&res.data.ok)){ btn.textContent='Fehler'; setTimeout(function(){btn.textContent=alt;},1500); return; }
-    var d=res.data, rr=d.rating;
-    if(typeof ZUTATEN_MAP!=='undefined'&&ZUTATEN_MAP){ ZUTATEN_MAP[name.toLowerCase()]={rating:rr,kritisch:'nein'}; }
-    if(Array.isArray(ZUTATEN_STAMM)){ ZUTATEN_STAMM.push({name:name,rating:rr,kritisch:'nein'}); var dl=document.getElementById('seZutDL'); if(dl){ var op=document.createElement('option'); op.value=name; dl.appendChild(op); } }
-    rate.value=rr; rate.setAttribute('readonly',''); rate.style.background='var(--k-f2f5f3)'; rate.style.color='var(--ink)'; rate.style.cursor='not-allowed';
-    rate.title='Bewertung '+rr+' – jetzt im Stamm (auditieren)';
-    btn.style.display='none'; delete btn.dataset.mode;
-  }, function(){ btn.disabled=false; btn.textContent='Fehler'; setTimeout(function(){btn.textContent=alt;},1500); });
+    if(!rr.ok || typeof rr.d.stufe!=='number'){ btn.textContent='Fehler'; setTimeout(function(){btn.textContent=alt0;},1500); return; }
+    var st=rr.d.stufe, v=rr.d.verifikation||{}, ges=v.gesamt||'KEIN_SIGNAL', w=v.waechter||{};
+    var col = ges==='BESTAETIGT'?'var(--k-16a34a)': ges==='AUSNAHME'?'var(--k-b91c1c)':'var(--k-b45309)';
+    var lbl = ges==='BESTAETIGT'?'bestätigt': ges==='AUSNAHME'?'Widerspruch – bitte prüfen': ges==='PRUEFEN'?'grenzwertig':'kein Prüfsignal';
+    rate.value=st; rate.setAttribute('readonly',''); rate.style.color=col; rate.style.background='var(--bg)'; rate.style.fontWeight='700';
+    rate.title='Riki-Vorschlag Stufe '+st+' – noch nicht übernommen';
+    var old=row.nextElementSibling; if(old&&old.classList&&old.classList.contains('seInfo')) old.remove();
+    var wn=(w.w_name||{}).urteil, wp=(w.w_peer||{}).urteil;
+    var html='<div class="seInfo" style="margin:-2px 0 7px;padding:7px 9px;border:1px solid var(--line);border-left:3px solid '+col+';border-radius:7px;background:var(--k-f2f5f3);font-size:11.5px;color:var(--ink);line-height:1.5">'
+      +'<b>Riki: Stufe '+st+'</b>'+(rr.d.begruendung?' — '+esc(rr.d.begruendung):'')
+      +'<br><span style="color:'+col+';font-weight:700">'+lbl+'</span> · Name '+_wIcon(wn)+' · Statistik '+_wIcon(wp)
+      +((w.w_peer&&w.w_peer.text)?'<br><span style="color:var(--muted)">'+esc(w.w_peer.text)+'</span>':'')
+      +'</div>';
+    row.insertAdjacentHTML('afterend',html);
+    btn.textContent='✓ übernehmen'; btn.dataset.mode='save'; btn.dataset.stufe=st; btn.dataset.gesamt=ges;
+  }, function(){ btn.disabled=false; btn.textContent='Fehler'; setTimeout(function(){btn.textContent=alt0;},1500); });
 }
 function seZutatNeu(ean){
   const box=document.getElementById("seZut_"+ean); if(!box) return;
@@ -8708,7 +8739,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15l";
+const APP_BUILD = "2026-07-15m";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
