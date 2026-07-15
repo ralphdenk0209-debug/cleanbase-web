@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15e bedarfsrechner: ergebnis aufgegliedert (herleitung + makrobalken), beide rechner gleich -->
+<!-- build 2026-07-15f etikettfoto im admin: verschieb- und zoombares fenster statt blockierendem vollbild -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3445,17 +3445,62 @@ function fotoGross(ean, idx){
   const e=(window._scanEingang||[]).find(function(x){ return String(x.ean)===String(ean); });
   if(!e) return;
   const f=(e.fotos||[])[idx]; if(!f) return;
-  let ov=document.getElementById("fotoOv");
-  if(!ov){
-    ov=document.createElement("div"); ov.id="fotoOv";
-    ov.style.cssText="position:fixed;inset:0;z-index:9996;background:rgba(0,0,0,.88);display:flex;"
-      +"align-items:center;justify-content:center;padding:10px;cursor:zoom-out";
-    ov.onclick=function(){ ov.style.display="none"; };
-    ov.innerHTML='<img id="fotoOvImg" style="max-width:100%;max-height:100%;border-radius:8px">';
-    document.body.appendChild(ov);
+  fotoFenster(f);
+}
+/* Verschiebbares, zoombares Foto-Fenster. Vorher deckte ein Vollbild-Overlay das
+   ganze Formular ab - man konnte das Etikett NICHT lesen und gleichzeitig die Werte
+   eintippen, und zoomen ging auch nicht. Jetzt: ein kleines Fenster, das man an der
+   Kopfleiste zur Seite zieht, mit +/-, Mausrad und Ziehen-zum-Verschieben im Bild.
+   > Prüfen heißt vergleichen. Vergleichen heißt: beides gleichzeitig sehen. */
+function fotoFenster(src){
+  var w=document.getElementById('fotoWin');
+  if(!w){
+    w=document.createElement('div'); w.id='fotoWin';
+    w.style.cssText='position:fixed;z-index:9996;top:12px;right:12px;width:min(90vw,360px);height:min(72vh,460px);'
+      +'background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.4);'
+      +'display:flex;flex-direction:column;overflow:hidden;resize:both;min-width:200px;min-height:180px';
+    w.innerHTML=
+       '<div id="fotoWinBar" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:7px 9px;background:var(--bg);border-bottom:1px solid var(--line);cursor:move;touch-action:none">'
+      +'<span style="font-size:12px;color:var(--muted);flex:1;user-select:none">Etikett · ziehen zum Verschieben</span>'
+      +'<button type="button" onclick="fotoWinZoom(-1)" aria-label="kleiner" style="width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;line-height:1">−</button>'
+      +'<button type="button" onclick="fotoWinZoom(1)" aria-label="größer" style="width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);cursor:pointer;font-size:15px;line-height:1">+</button>'
+      +'<button type="button" onclick="document.getElementById(\'fotoWin\').style.display=\'none\'" aria-label="schließen" style="width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px;line-height:1">✕</button>'
+      +'</div>'
+      +'<div id="fotoWinScroll" style="flex:1 1 auto;overflow:auto;background:#000;cursor:grab">'
+      +'<img id="fotoWinImg" alt="Etikett" style="display:block;width:100%;height:auto;-webkit-user-drag:none;user-select:none">'
+      +'</div>';
+    document.body.appendChild(w);
+    _fotoWinDragFenster(w, w.querySelector('#fotoWinBar'));
+    _fotoWinPanBild(w.querySelector('#fotoWinScroll'));
+    w.querySelector('#fotoWinScroll').addEventListener('wheel', function(ev){ ev.preventDefault(); fotoWinZoom(ev.deltaY<0?1:-1); }, {passive:false});
   }
-  document.getElementById("fotoOvImg").src=f;
-  ov.style.display="flex";
+  window._fotoWinZoom=100;
+  var img=w.querySelector('#fotoWinImg'); img.src=src; img.style.width='100%';
+  w.style.display='flex';
+}
+function fotoWinZoom(dir){
+  var img=document.getElementById('fotoWinImg'); if(!img) return;
+  var z=Math.max(100, Math.min(500, (window._fotoWinZoom||100)+dir*25));
+  window._fotoWinZoom=z; img.style.width=z+'%';
+}
+/* Kopfleiste zieht das FENSTER. */
+function _fotoWinDragFenster(win, handle){
+  var sx,sy,ox,oy,on=false;
+  function down(e){ on=true; var p=e.touches?e.touches[0]:e; sx=p.clientX; sy=p.clientY;
+    var r=win.getBoundingClientRect(); ox=r.left; oy=r.top; win.style.right='auto'; win.style.left=ox+'px'; win.style.top=oy+'px'; if(e.cancelable)e.preventDefault(); }
+  function move(e){ if(!on) return; var p=e.touches?e.touches[0]:e; win.style.left=(ox+p.clientX-sx)+'px'; win.style.top=(oy+p.clientY-sy)+'px'; }
+  function up(){ on=false; }
+  handle.addEventListener('mousedown',down); document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+  handle.addEventListener('touchstart',down,{passive:false}); document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',up);
+}
+/* Ziehen IM Bild schwenkt (wenn hineingezoomt). */
+function _fotoWinPanBild(scroll){
+  var sx,sy,sl,st,on=false;
+  function down(e){ if(e.target.id!=='fotoWinImg') return; on=true; var p=e.touches?e.touches[0]:e; sx=p.clientX; sy=p.clientY; sl=scroll.scrollLeft; st=scroll.scrollTop; scroll.style.cursor='grabbing'; }
+  function move(e){ if(!on) return; var p=e.touches?e.touches[0]:e; scroll.scrollLeft=sl-(p.clientX-sx); scroll.scrollTop=st-(p.clientY-sy); if(e.cancelable)e.preventDefault(); }
+  function up(){ on=false; scroll.style.cursor='grab'; }
+  scroll.addEventListener('mousedown',down); document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+  scroll.addEventListener('touchstart',down,{passive:true}); scroll.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',up);
 }
 
 async function scanUebernehmen(ean, aktiv){
@@ -3548,12 +3593,8 @@ async function loadScans(){
   window._scanGroups=keys.map(function(k){ return byEan[k]; });
 }
 function scanFotoZoom(i,j){
-  const g=(window._scanGroups||[])[i]; if(!g) return;
-  const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:10000;display:flex;align-items:center;justify-content:center;padding:12px;cursor:zoom-out';
-  ov.onclick=function(){ ov.remove(); };
-  ov.innerHTML='<img src="'+g.fotos[j]+'" style="max-width:100%;max-height:100%;border-radius:10px">';
-  document.body.appendChild(ov);
+  const g=(window._scanGroups||[])[i]; if(!g||!g.fotos||!g.fotos[j]) return;
+  fotoFenster(g.fotos[j]);   /* dasselbe verschieb- und zoombare Fenster wie in der Riki-Lesung */
 }
 /* OFF-Abfruf über die EAN – befüllt NICHTS automatisch in der DB, nur Anzeige/Vorschlag. */
 async function scanOffLookup(i){
@@ -8493,7 +8534,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15e";
+const APP_BUILD = "2026-07-15f";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
