@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14s einkaufsliste ans recht statt an login · upsell liest den freischalt-stand · quellzeile gekuerzt -->
+<!-- build 2026-07-14t intro-viewbox symmetrisch (arme nicht mehr abgeschnitten) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -860,7 +860,11 @@
      0 -> 100: das ist der WERTEBEREICH, keine Behauptung.
      =========================================================================== -->
 <div id="introOverlay">
-  <svg id="introFx" viewBox="0 0 300 210" aria-hidden="true">
+  <!-- viewBox symmetrisch um den Drehpunkt (150/100): 150 Luft in JEDE Richtung.
+       Vorher 0 0 300 210 - oben nur 100, unten 110. Beim Drehen schwingen die Arme
+       durch die Senkrechte auf Radius ~146 und wurden oben/unten abgeschnitten.
+       Nur die viewBox wächst, keine einzige Koordinate ändert sich. -->
+  <svg id="introFx" viewBox="0 -50 300 300" aria-hidden="true">
     <g id="ifRot">
       <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7">
         <path id="ifP1" d="" stroke="#5EF2A0"/>
@@ -8351,7 +8355,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14s";
+const APP_BUILD = "2026-07-14t";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
