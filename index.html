@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15m unbekannte zutat: riki stuft ein (kein handeingriff) + 2 unabhaengige verifikations-waechter (name-morphologie + statistik) -->
+<!-- build 2026-07-15n einkaufsliste: angebote-button je produkt (rechtssicherer deep-link) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -5355,6 +5355,14 @@ function einkAmzBtn(pid){
   return '<a href="'+u+'" target="_blank" rel="sponsored nofollow noopener" title="Anzeige · bei Amazon kaufen" onclick="event.stopPropagation()"'
     +' style="flex:0 0 auto;display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:var(--k-w22);color:var(--k-fff7ea);text-decoration:none;font-size:11.5px;font-weight:700;letter-spacing:.3px;white-space:nowrap">Amazon</a>';
 }
+/* Angebote-Suche zum Artikel: rechtssauberer Deep-Link auf eine offene Angebots-Suche
+   (marktguru/kaufDA/Haendler tauchen dort auf). KEINE fremde Privat-API eingebettet. */
+function einkAngebotBtn(titel){
+  const q=((titel||'')+'').trim(); if(!q) return '';
+  const u='https://www.google.com/search?q='+encodeURIComponent(q+' angebot supermarkt');
+  return '<a href="'+u+'" target="_blank" rel="noopener nofollow" title="Aktuelle Angebote zu diesem Produkt suchen" onclick="event.stopPropagation()"'
+    +' style="flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;padding:5px 9px;border-radius:999px;background:var(--k-ffffff);color:var(--k-166534);text-decoration:none;font-size:11.5px;font-weight:700;white-space:nowrap;border:1px solid var(--k-16a34a)">&#127991; Angebote</a>';
+}
 function einkRow(r,done){
   const id=r.eintrag_id;
   const bg   = done ? 'var(--card)'  : EINK_C.bg;
@@ -5365,6 +5373,7 @@ function einkRow(r,done){
     +(done?'<span style="flex:0 0 auto;font-size:15px;color:var(--muted);line-height:1">&#10003;</span>':'')
     +'<span style="flex:1;min-width:0;font-size:14.5px;font-weight:600;line-height:1.3;color:'+tx+';'+(done?'text-decoration:line-through':'')+'">'+esc(r.titel)+'</span>'
     +(r.menge?'<span style="flex:0 0 auto;font-size:13px;font-weight:700;color:'+tx2+'">'+esc(r.menge)+'</span>':'')
+    +(done?'':einkAngebotBtn(r.titel))
     +(done?'':einkAmzBtn(r.produkt_id))
     /* Diffuser Kreis hinter den drei Punkten: macht die Flaeche als antippbar
        erkennbar, ohne eine harte Knopf-Kante zu ziehen. Weicher Radialverlauf
@@ -8739,7 +8748,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15m";
+const APP_BUILD = "2026-07-15n";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
