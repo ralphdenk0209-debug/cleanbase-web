@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15h tages-index: achsen aufklappbar (variante b) · pruefkarte: web-suchlink -->
+<!-- build 2026-07-15i tages-index: flip statt aufklapp-zeilen (karte bleibt gleich gross) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -792,6 +792,12 @@
     opacity:1;transition:opacity .55s ease}
   #introOverlay.introOn{display:flex}
   #introOverlay.hide{opacity:0;pointer-events:none}
+  /* Tages-Index-Flip: Tippen dreht die Karte auf die Rueckseite (Achsen-Begruendungen),
+     ohne dass die Karte hoeher wird. Rueckseite liegt absolut ueber der Vorderseite. */
+  .fxWrap{position:relative;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.4,0,.2,1)}
+  .fxFlip.flipped .fxWrap{transform:rotateY(180deg)}
+  .fxFront,.fxBack{backface-visibility:hidden;-webkit-backface-visibility:hidden}
+  .fxBack{position:absolute;inset:0;transform:rotateY(180deg);display:flex;flex-direction:column;justify-content:center}
   #introFx{width:min(88vw,340px);display:block}
   #ifRot{transform-origin:150px 100px}
   #introWort{margin-top:6px;font-size:22px;letter-spacing:3px;color:#fff;opacity:0}
@@ -4314,47 +4320,47 @@ function startKennzahlen(sum, prof){
 
   setTimeout(function(){ fxAnimieren(uid); }, 60);
 
-  /* VARIANTE B: tippe eine Achse -> darunter klappt das "Warum" auf. Kein Umdrehen,
-     kein Flackern, mobil robust. Standardmaessig eingeklappt, damit die Karte nicht
-     waechst. Die Zeilen stoppen das Weiterreichen des Klicks (sonst spraenge die Karte
-     ins Tagebuch). Erklaerungen sind TAGES-bezogen (Schnitt), nichts erfunden. */
+  /* FLIP (Variante A): Tippen dreht die Karte um. Vorderseite = Fluxkompensator +
+     Makros wie bisher. Rueckseite = die vier Achsen mit Begruendung. Die Karte bleibt
+     gleich GROSS (Rueckseite liegt absolut darueber) - kein Wachsen wie bei den Zeilen.
+     Erklaerungen sind TAGES-bezogen (Schnitt), nichts erfunden. */
   var _achsErkl=[
     'Wie vollwertig deine Zutaten heute im Schnitt sind – 10 = roh/Vollwert, niedrig = stark verarbeitet.',
-    '100 % = keine gesundheitlich bedenklichen Zusatzstoffe. Bewertet wird die Bedenklichkeit (EU-VO 1333/2008), nicht die Verarbeitung.',
-    'Wie unverarbeitet deine Lebensmittel heute sind. Je stärker verarbeitet, desto weniger Punkte.',
-    'Das Makro-Profil pro 100 g – Pluspunkte für Eiweiß & Ballaststoffe, Abzug für Zucker, gesättigtes Fett und Salz.'
+    '100 % = keine bedenklichen Zusatzstoffe. Bewertet wird die Bedenklichkeit (EU-VO 1333/2008), nicht die Verarbeitung.',
+    'Wie unverarbeitet deine Lebensmittel heute sind – je stärker verarbeitet, desto weniger Punkte.',
+    'Makro-Profil pro 100 g: Plus für Eiweiß & Ballaststoffe, Abzug für Zucker, gesättigtes Fett und Salz.'
   ];
-  var warum = !hatDaten ? '' : '<div style="margin:8px 6px 0">'
-    +'<div style="font-size:10.5px;color:rgba(255,255,255,.45);margin:0 4px 3px">Warum diese Werte? Tippe eine Achse.</div>'
+  var rueck = '<div class="fxBack" style="padding:14px 14px">'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:2px">Warum <b style="color:#7cff9b">'+kernTxt+'</b>? Schnitt deiner heutigen Einträge</div>'
     + A4.map(function(a,i){
         var pctT=a.pct==null?'–':Math.round(a.pct*100)+' %';
         var pts =a.v==null?'–':Math.round(a.v)+' / '+a.max;
-        return '<div onclick="event.stopPropagation();tiTog(this)" style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;background:rgba(255,255,255,.045);margin-top:6px;cursor:pointer">'
-          +'<span style="width:10px;height:10px;border-radius:3px;background:'+(a.pct==null?'#57534e':a.f)+';flex:0 0 auto"></span>'
-          +'<span style="flex:1;font-size:13px;color:rgba(255,255,255,.9)">'+a.n+'</span>'
-          +'<span style="font-size:11px;color:rgba(255,255,255,.5)">'+pts+'</span>'
-          +'<span style="font-size:13px;font-weight:700;color:'+(a.pct==null?'#a8a29e':a.f)+'">'+pctT+'</span>'
-          +'<span class="tiChev" style="color:rgba(255,255,255,.4);font-size:11px;transition:transform .2s">▸</span>'
-        +'</div>'
-        +'<div class="tiDet" style="max-height:0;overflow:hidden;transition:max-height .28s ease"><div style="padding:2px 12px 10px 29px;font-size:12px;line-height:1.5;color:rgba(255,255,255,.7)">'+_achsErkl[i]
-          +'<div style="color:rgba(255,255,255,.4);font-size:10.5px;margin-top:3px">Schnitt deiner heutigen Einträge</div></div></div>';
+        return '<div style="padding:7px 2px;border-top:1px solid rgba(255,255,255,.09)">'
+          +'<div style="display:flex;align-items:center;gap:8px">'
+            +'<span style="width:10px;height:10px;border-radius:3px;background:'+(a.pct==null?'#57534e':a.f)+';flex:0 0 auto"></span>'
+            +'<span style="flex:1;font-size:13px;color:rgba(255,255,255,.92)">'+a.n+'</span>'
+            +'<span style="font-size:11px;color:rgba(255,255,255,.5)">'+pts+'</span>'
+            +'<span style="font-size:13.5px;font-weight:700;color:'+(a.pct==null?'#a8a29e':a.f)+'">'+pctT+'</span>'
+          +'</div>'
+          +'<div style="font-size:11.5px;line-height:1.4;color:rgba(255,255,255,.62);margin:2px 0 0 18px">'+_achsErkl[i]+'</div>'
+        +'</div>';
       }).join('')
-    +'</div>';
+    +'<div style="text-align:center;font-size:11px;color:rgba(255,255,255,.4);margin-top:8px">tippen zum Zurückdrehen</div>'
+  +'</div>';
 
-  return '<div onclick="navTo(\'tagebuch\')" style="cursor:pointer;position:relative;overflow:hidden;border-radius:16px;padding:12px 8px;margin-bottom:12px;background:radial-gradient(120% 120% at 50% 48%,#173a2a,#070f0a 72%);box-shadow:0 8px 22px rgba(15,40,25,.28)">'
-    + svg
-    + warum
-    +'<div style="margin:6px 10px 2px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12)">'+fuss+'</div>'
+  return '<div class="fxFlip" id="'+uid+'-flip" onclick="fxFlipTog(\''+uid+'\')" style="cursor:pointer;position:relative;overflow:hidden;border-radius:16px;padding:12px 8px;margin-bottom:12px;background:radial-gradient(120% 120% at 50% 48%,#173a2a,#070f0a 72%);box-shadow:0 8px 22px rgba(15,40,25,.28)">'
+    +'<div class="fxWrap">'
+      +'<div class="fxFront">'
+        + svg
+        +'<div style="margin:6px 10px 2px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12)">'+fuss+'</div>'
+      +'</div>'
+      + rueck
+    +'</div>'
   +'</div>';
 }
-/* Klappt eine Achsen-Begruendung auf/zu (Variante B). Global, damit auch die
-   Produktkarte sie spaeter nutzen kann. */
-function tiTog(row){
-  var det=row.nextElementSibling; if(!det) return;
-  var chev=row.querySelector('.tiChev');
-  var offen = det.style.maxHeight && det.style.maxHeight!=='0px';
-  det.style.maxHeight = offen ? '0px' : (det.firstElementChild.scrollHeight+18)+'px';
-  if(chev) chev.style.transform = offen ? 'rotate(0deg)' : 'rotate(90deg)';
+/* Dreht die Tages-Index-Karte um. */
+function fxFlipTog(uid){
+  var el=document.getElementById(uid+'-flip'); if(el) el.classList.toggle('flipped');
 }
 /* Laedt die Leiterbahnen auf. Laeuft NUR EINMAL je Kachel (eigene uid) - sonst
    zappelt die Startseite bei jedem Rendern.
@@ -8609,7 +8615,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15h";
+const APP_BUILD = "2026-07-15i";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
