@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15c zaehler-rpc feuert jetzt (.then noetig, supabase-builder ist faul) -->
+<!-- build 2026-07-15d intro-blitz weg: overlay versteckt bis es wirklich laeuft -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -782,9 +782,15 @@
      Der Vorspann ist eine Erklaerung, kein Schmuck: vier Achsen laufen zusammen,
      erst dann gibt es eine Zahl. Genau das tut die App.
      ====================================================================== */
-  #introOverlay{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  /* Standardmaessig VERSTECKT. Vorher stand hier display:flex - dadurch war das
+     Overlay beim ersten Paint sichtbar und blitzte kurz auf, wenn das Intro in
+     dieser Sitzung schon lief (z. B. Browser-Reload am PC) und JS es gleich wieder
+     wegnahm. Jetzt zeigt JS es nur, WENN es wirklich abspielt - kein Blitz mehr.
+     .introOn wird per JS gesetzt. */
+  #introOverlay{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;
     background:radial-gradient(130% 130% at 50% 42%,#173A2A 0%,#0B1710 55%,#070F0A 100%);color:#fff;
     opacity:1;transition:opacity .55s ease}
+  #introOverlay.introOn{display:flex}
   #introOverlay.hide{opacity:0;pointer-events:none}
   #introFx{width:min(88vw,340px);display:block}
   #ifRot{transform-origin:150px 100px}
@@ -8437,8 +8443,9 @@ function riIntroSofort(){
   try{ reduce=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
   var seen=false;
   try{ seen=sessionStorage.getItem('ri_intro_v3')==='1'; }catch(e){}
-  if(seen){ o.style.display='none'; return; }
+  if(seen){ return; }   /* Overlay ist per CSS ohnehin versteckt - kein Blitz, nichts zu tun. */
   try{ sessionStorage.setItem('ri_intro_v3','1'); }catch(e){}
+  o.classList.add('introOn');   /* JETZT erst einblenden - nur wenn es wirklich laeuft. */
   if(reduce){ riIntroSofort(); setTimeout(riHideIntro, 1600); return; }
   riIntroLauf();
   setTimeout(riHideIntro, 5500);   /* 0,6 Ruhe + 2,5 Verwandlung + 1,0 Zaehlen + 0,5 stehen */
@@ -8457,7 +8464,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15c";
+const APP_BUILD = "2026-07-15d";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
