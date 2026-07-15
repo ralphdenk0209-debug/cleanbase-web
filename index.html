@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15b etikett-gate fuer gaeste + aufruf-/such-zaehler mit dashboard -->
+<!-- build 2026-07-15c zaehler-rpc feuert jetzt (.then noetig, supabase-builder ist faul) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -2460,7 +2460,7 @@ function render(){
     clearTimeout(window._sucheLogTimer);
     const _b=rawQ, _n=list.length;
     window._sucheLogTimer=setTimeout(function(){
-      try{ client.rpc("cb_log_suche",{p_begriff:_b, p_treffer:_n}); }catch(e){}
+      try{ client.rpc("cb_log_suche",{p_begriff:_b, p_treffer:_n}).then(function(){},function(){}); }catch(e){}
     }, 1000);
   }
   // Bei einer Suche zaehlt Relevanz zuerst, erst danach der Score.
@@ -2634,7 +2634,9 @@ function detail(d){
   /* Aufruf mitzaehlen (fire-and-forget, blockiert die Anzeige nie). Aggregierter
      Tageszaehler pro Produkt - keine Nutzer-Verknuepfung. Zeigt den Schwerpunkt:
      welche Produkte oeffnen die Leute wirklich. */
-  try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}); }catch(e){}
+  /* .then() ist PFLICHT: der Supabase-Builder ist faul - ohne await oder .then
+     wird die Anfrage NIE gesendet. "Fire and forget" heisst trotzdem: erst zuenden. */
+  try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}).then(function(){},function(){}); }catch(e){}
   const col=farbe(d.bewertung);
   const _isOil=((d.kategorie||'')==='Öle & Fette'), _isZero=(num(d.m_kcal)===0);
   const sonderHint = (_isOil||_isZero) ? `<div style="font-size:12.5px;line-height:1.45;margin:8px 0 2px;padding:8px 11px;background:var(--k-eef6ff);border:1px solid var(--k-cfe3f7);border-radius:9px;color:var(--k-1e3a8a)">ℹ️ <b>Sonderbewertung:</b> ${_isOil?'Bei Ölen &amp; Fetten zählt die <b>Fettqualität</b> (Anteil ungesättigter Fettsäuren) statt des Makro-Profils pro 100 g.':'<b>0‑kcal-Produkt</b> – der Nährwert-Teil entfällt; bewertet werden Zutaten, Verarbeitung &amp; Zusatzstoffe.'}</div>` : '';
@@ -8455,7 +8457,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15b";
+const APP_BUILD = "2026-07-15c";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
