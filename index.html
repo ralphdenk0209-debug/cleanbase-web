@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14w einkauf-eintraege in grundfarbe (emerald), kreis kraeftiger -->
+<!-- build 2026-07-14x intro-startbild im html · dark-mode gruen-auf-gruen behoben (greenlt/greendk getrennt) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -578,6 +578,17 @@
     --shadow:0 4px 16px rgba(20,40,28,.10);
     --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
   }
+  /* Dark-Mode: --greenlt und --greendk hatten VORHER keine Anpassung. Ergebnis:
+     die helle Mint-Flaeche blieb hell, aber die Textfarbe (--ink) kippte auf hell
+     - hell auf hell, praktisch unlesbar (Ralphs "gruen auf gruen").
+     --greendk trug zwei Rollen: Akzent-TEXT und Knopf-FLAECHE. Getrennt:
+       * die Flaeche (Scan-Knopf, Passwort-Knopf) steht jetzt auf festem #047857,
+       * der Akzent-TEXT wird hier hell - lesbar auf der dunklen Tint-Flaeche.
+     > Eine Farbe, die Text UND Flaeche ist, kann im Dunkeln nur eine von beiden retten. */
+  html[data-theme="dark"]{
+    --greenlt:#12291d;   /* dunkle Emerald-Tint-Flaeche statt hellem Mint */
+    --greendk:#6ee7b7;   /* heller Mint-Akzent fuer Text darauf */
+  }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
        background:var(--bg);color:var(--ink);}
@@ -741,7 +752,7 @@
   /* Der Scan-Knopf sitzt hoeher als die Leiste - er ragt hinein, statt sich
      einzureihen. Das macht ihn zur einen Handlung, nicht zum fuenften Reiter. */
   .bn-scan{position:relative}
-  .bn-scanBtn{width:52px;height:52px;border-radius:50%;background:var(--greendk);
+  .bn-scanBtn{width:52px;height:52px;border-radius:50%;background:#047857;/* fest dunkelgruen: --greendk wird im Dark-Mode zu hellem Akzent, hier brauchen wir die Flaeche */
         display:flex;align-items:center;justify-content:center;margin:-26px auto 1px;
         border:4px solid var(--card);box-shadow:0 4px 14px rgba(20,60,35,.30);
         transition:transform .12s ease}
@@ -865,17 +876,22 @@
        durch die Senkrechte auf Radius ~146 und wurden oben/unten abgeschnitten.
        Nur die viewBox wächst, keine einzige Koordinate ändert sich. -->
   <svg id="introFx" viewBox="0 -50 300 300" aria-hidden="true">
+    <!-- Die Pfade tragen den Y-Zustand SCHON IM HTML. Vorher standen sie auf d=""
+         und die Kappen ohne cx/cy landeten bei (0,0) oben links - deshalb sah man
+         beim Kaltstart nur den leeren Kern-Ring und einen gruenen Fetzen in der Ecke,
+         bis das erste JS-Bild kam. zeichne(0) malt dasselbe, jetzt ohne Flackern.
+         > Ein Startbild, das erst das Skript malt, ist im ersten Moment kein Startbild. -->
     <g id="ifRot">
       <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7">
-        <path id="ifP1" d="" stroke="#5EF2A0"/>
-        <path id="ifP2" d="" stroke="#5EF2A0"/>
-        <path id="ifP3" d="" stroke="#5EF2A0"/>
-        <path id="ifP4" d="" stroke="#5EF2A0" opacity="0"/>
+        <path id="ifP1" d="M150 46 L150 66.52 L150 83.8" stroke="#5EF2A0"/>
+        <path id="ifP2" d="M103.24 127 L121.01 116.74 L135.97 108.1" stroke="#5EF2A0"/>
+        <path id="ifP3" d="M196.77 127 L178.99 116.74 L164.03 108.1" stroke="#5EF2A0"/>
+        <path id="ifP4" d="M150 100 L150 100 L150 100" stroke="#5EF2A0" opacity="0"/>
       </g>
-      <circle id="ifK1" r="6" fill="#5EF2A0"/>
-      <circle id="ifK2" r="6" fill="#5EF2A0"/>
-      <circle id="ifK3" r="6" fill="#5EF2A0"/>
-      <circle id="ifK4" r="6" fill="#5EF2A0" opacity="0"/>
+      <circle id="ifK1" cx="150" cy="46" r="6" fill="#5EF2A0"/>
+      <circle id="ifK2" cx="103.24" cy="127" r="6" fill="#5EF2A0"/>
+      <circle id="ifK3" cx="196.77" cy="127" r="6" fill="#5EF2A0"/>
+      <circle id="ifK4" cx="150" cy="100" r="6" fill="#5EF2A0" opacity="0"/>
     </g>
     <circle id="ifKern" cx="150" cy="100" r="10" fill="#0A1710" stroke="#5EF2A0" stroke-width="2.5"/>
     <text id="ifZahl" x="150" y="112" text-anchor="middle" font-size="34" font-weight="700" fill="#7CFF9B" letter-spacing="-1" opacity="0">0</text>
@@ -1330,7 +1346,7 @@
   <input id="loginEmail" type="email" autocomplete="email" placeholder="deine@email.de" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px" />
   <div id="pwLogin" style="display:none">
     <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px;margin-top:8px" />
-    <button onclick="loginPassword()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:var(--greendk);color:var(--auf-gruen-dunkel);font-size:15px;cursor:pointer">Mit Passwort anmelden</button>
+    <button onclick="loginPassword()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#047857;color:var(--auf-gruen-dunkel);font-size:15px;cursor:pointer">Mit Passwort anmelden</button>
   </div>
   <button id="codeBtn" onclick="requestCode()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);font-weight:600;font-size:15px;cursor:pointer">Code an E-Mail senden</button>
   <div id="loginMsg" style="margin-top:10px;font-size:13.5px;line-height:1.45"></div>
@@ -8364,7 +8380,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14w";
+const APP_BUILD = "2026-07-14x";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
