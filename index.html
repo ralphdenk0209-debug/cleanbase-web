@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14t intro-viewbox symmetrisch (arme nicht mehr abgeschnitten) -->
+<!-- build 2026-07-14u einkauf-freitext: ueberladung aufgeloest (zahnstocher geht wieder) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -5097,7 +5097,10 @@ async function einkaufAdd(){
   const t=document.getElementById("einkInput");
   const titel=(t.value||"").trim(); if(!titel) return;
   const p=(ALL||[]).find(function(x){ return String(x.name||'').toLowerCase()===titel.toLowerCase(); });
-  const args = p ? {p_titel:null,p_menge:null,p_produkt_id:p.id} : {p_titel:titel,p_menge:null};
+  /* p_produkt_id IMMER mitschicken (auch null) - sonst passen zwei Funktionen auf den
+     Aufruf und Postgres bricht mit "could not choose the best candidate" ab. Steht ein
+     Produkt aus dem Katalog dahinter, wird es verknuepft; sonst freier Text (Zahnstocher). */
+  const args = p ? {p_titel:null,p_menge:null,p_produkt_id:p.id} : {p_titel:titel,p_menge:null,p_produkt_id:null};
   const {error}=await client.rpc("cb_einkauf_add",args);
   if(error){ alert("Fehler: "+error.message); return; }
   await loadEinkauf();
@@ -8355,7 +8358,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14t";
+const APP_BUILD = "2026-07-14u";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
