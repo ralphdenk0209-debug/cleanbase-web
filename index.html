@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-14y menue: funktionen als raster, rechtliches einklappbar -->
+<!-- build 2026-07-14z menue wiki nach oben · wiki+karte: nova heisst verarbeitung -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1723,7 +1723,7 @@ function erklaerung(d){
   const zus=num(d.p_zusatzstoffe), nova=num(d.p_nova), zut=num(d.p_zutaten);
   const plus=[], minus=[];
   if(zus>=15) plus.push("keine Zusatzstoffe"); else if(zus!=null && zus<=4) minus.push("künstliche Süßstoffe/Zusätze");
-  if(nova>=15) plus.push("unverarbeitet (Vollwert)"); else if(nova!=null && nova<=3) minus.push("stark verarbeitet (NOVA 4)"); else if(nova!=null) minus.push("verarbeitet/isoliert");
+  if(nova>=15) plus.push("unverarbeitet (Vollwert)"); else if(nova!=null && nova<=3) minus.push("stark verarbeitet"); else if(nova!=null) minus.push("verarbeitet/isoliert");
   if(zut!=null && zut>=27) plus.push("hochwertige Zutaten"); else if(zut!=null && zut<=15) minus.push("isolierte/raffinierte Zutaten");
   let t="";
   if(plus.length) t+="Stark: "+plus.join(", ")+". ";
@@ -2622,7 +2622,7 @@ function scoreFlow(d){
 function detail(d){
   const col=farbe(d.bewertung);
   const _isOil=((d.kategorie||'')==='Öle & Fette'), _isZero=(num(d.m_kcal)===0);
-  const sonderHint = (_isOil||_isZero) ? `<div style="font-size:12.5px;line-height:1.45;margin:8px 0 2px;padding:8px 11px;background:var(--k-eef6ff);border:1px solid var(--k-cfe3f7);border-radius:9px;color:var(--k-1e3a8a)">ℹ️ <b>Sonderbewertung:</b> ${_isOil?'Bei Ölen &amp; Fetten zählt die <b>Fettqualität</b> (Anteil ungesättigter Fettsäuren) statt des Makro-Profils pro 100 g.':'<b>0‑kcal-Produkt</b> – der Nährwert-Teil entfällt; bewertet werden Zutaten, Verarbeitung (NOVA) &amp; Zusatzstoffe.'}</div>` : '';
+  const sonderHint = (_isOil||_isZero) ? `<div style="font-size:12.5px;line-height:1.45;margin:8px 0 2px;padding:8px 11px;background:var(--k-eef6ff);border:1px solid var(--k-cfe3f7);border-radius:9px;color:var(--k-1e3a8a)">ℹ️ <b>Sonderbewertung:</b> ${_isOil?'Bei Ölen &amp; Fetten zählt die <b>Fettqualität</b> (Anteil ungesättigter Fettsäuren) statt des Makro-Profils pro 100 g.':'<b>0‑kcal-Produkt</b> – der Nährwert-Teil entfällt; bewertet werden Zutaten, Verarbeitung &amp; Zusatzstoffe.'}</div>` : '';
   const mkRows = arr => arr.map(([k,label,max,mult])=>{
     const m=mult||1; const raw=num(d[k]); const v=raw===null?null:raw*m;
     const pct=v===null?0:Math.max(0,Math.min(100,(v/max)*100));
@@ -2656,7 +2656,7 @@ function detail(d){
   };
   const rows = mkRings(SCORE_TEIL);
   const mkAbzug = arr => {
-    const REASON={Zutaten:"Zutaten nicht durchweg als Vollwert bewertet",Zusatzstoffe:"enthält Zusatzstoffe",Verarbeitung:"höherer Verarbeitungsgrad (NOVA-Stufe)","Nährwert":"Nährwertprofil pro 100 g (Zucker, Fett, Salz, Ballaststoffe, Eiweiß)"};
+    const REASON={Zutaten:"Zutaten nicht durchweg als Vollwert bewertet",Zusatzstoffe:"enthält Zusatzstoffe",Verarbeitung:"höherer Verarbeitungsgrad","Nährwert":"Nährwertprofil pro 100 g (Zucker, Fett, Salz, Ballaststoffe, Eiweiß)"};
     const items=arr.map(([k,label,max,mult,short])=>{const m=mult||1;const raw=num(d[k]);const v=raw===null?null:raw*m;return {short:short||label,max,v};}).filter(it=>it.v!==null && it.v < it.max-0.01);
     if(!items.length) return "";
     const lines=items.map(it=>{
@@ -4361,6 +4361,8 @@ function buildMehr(){
      die man am seltensten braucht. Der Platz gehoert dem Scannen. */
   const items=[['einkauf','🛒 Einkaufsliste'],['rezepte','🍲 Rezepte'],['training','🏋️ Training'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
   let html='<div class="mgrid">'+items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('')+'</div>';
+  /* Wiki direkt unter die Funktionen - es erklaert die App und wird oft zuerst gesucht. */
+  html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert Root Index</button>';
   /* Darstellung: "Automatisch" folgt dem Geraet - das ist die richtige Vorgabe.
      Wer ein Handy auf dunkel gestellt hat, will nicht von jeder App neu gefragt werden. */
   const w = window.riThemeWahl || 'auto';
@@ -4376,7 +4378,6 @@ function buildMehr(){
              + 'color:'+(an?'var(--greendk)':'var(--ink)')+'">'+o[1]+'</button>';
       }).join('')
     +'</div></div>';
-  html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert Root Index</button>';
   html+='<button onclick="closeMehr();kontaktOpen()">✉️ Kontakt · Frage oder Produkt melden</button>';
   /* Die vier Rechtstexte tippt kaum jemand an, sie fraßen aber vier Zeilen und
      schoben die Funktionen aus dem Bild. Jetzt hinter EINER aufklappbaren Zeile. */
@@ -4474,7 +4475,7 @@ function wikiOpen(){
       ${box(`Setzt sich aus vier Teilen zusammen:<br>
         • <b>Zutatenqualität</b> (max 30) – Ø der Bewertungen aller Zutaten, nach Gewicht.<br>
         • <b>Zusatzstoffe</b> (max 15) – keine = beste Wertung; künstliche Süßstoffe/Zusätze mindern.<br>
-        • <b>Verarbeitungsgrad NOVA</b> (max 15) – unverarbeitet (Vollwert) am besten.<br>
+        • <b>Verarbeitung</b> (max 15) – wie stark ein Lebensmittel verarbeitet ist (nach der NOVA-Klassifikation); unverarbeitet/Vollwert am besten.<br>
         • <b>Nährwertqualität</b> (max 40) – gutes Makro-Profil pro 100 g (Eiweiß/Ballaststoffe hoch, Zucker/gesättigtes Fett niedrig).<br>
         <b>Einstufung:</b> ≥ 90 Sehr gut · ≥ 75 Gut · ≥ 60 Mittel · sonst Schwach.<br>
         <b>Alkohol</b> (Ethanol, IARC-Gruppe 1) deckelt die Wertung auf höchstens „Gut".`)}
@@ -4486,7 +4487,7 @@ function wikiOpen(){
         <b>Trägerstoffe der Darreichung</b> – Kapselhülle (Gelatine, Cellulose/HPMC, Pullulan) und das Feuchthaltemittel Glycerin (E422) – werden bei Supplements <b>nicht als Verarbeitungs- oder Zutaten-Malus</b> gewertet: Sie sind pharmakopöe-/EU-zugelassen und gesundheitlich inert und machen ein Präparat nicht ungesünder. Bewertet wird der <b>Wirkstoff</b> (Form, Dosis, Reinheit). So wird eine Kapsel nicht wie ein hochverarbeitetes Lebensmittel behandelt. Ebenfalls inert und daher nicht abgewertet: <b>Magnesiumstearat (E470b)</b> und <b>mikrokristalline Cellulose (E460)</b> – EFSA-Neubewertungen 2018 ohne Sicherheitsbedenken. <b>Nicht</b> ausgenommen bleiben Siliciumdioxid (E551), Maltodextrin und Methylcellulose. <b>Titandioxid (E171)</b> zählt dagegen als Negativpunkt (EFSA 2021: nicht mehr sicher, EU-Verbot seit 2022). Grundlagen: EU-VO 1333/2008, EFSA-Bewertungen, Europäisches Arzneibuch.`)}
 
       ${H("Zusatzstoffe – wissenschaftlich bewertet")}
-      ${box(`Die Zusatzstoff-Wertung misst die <b>gesundheitliche Bedenklichkeit</b> – nicht den Verarbeitungsgrad (den zeigt NOVA). Grundlage: <b>EU-Verordnung (EG) Nr. 1333/2008</b> und <b>EFSA</b>-Bewertungen. Wir prüfen die Studienlage regelmäßig.<br><br>
+      ${box(`Die Zusatzstoff-Wertung misst die <b>gesundheitliche Bedenklichkeit</b> – nicht den Verarbeitungsgrad (den zeigt die Achse „Verarbeitung“). Grundlage: <b>EU-Verordnung (EG) Nr. 1333/2008</b> und <b>EFSA</b>-Bewertungen. Wir prüfen die Studienlage regelmäßig.<br><br>
         <b>Als unbedenklich gewertet</b> (EU-zugelassen, EFSA ohne Sicherheitsbedenken – ADI „not specified“): z. B. Guarkernmehl (E412), Johannisbrotkernmehl (E410), Pektin (E440), Ascorbinsäure/Vitamin C (E300), Tofu-Gerinnungsmittel (E509/E511/E516), natürliche Aromen &amp; Rosmarinextrakt.<br><br>
         <b>Abgewertet</b> (Hinweise auf Effekte an Darmbarriere/Mikrobiom oder Gesundheit): Carrageen (E407), Carboxymethylcellulose (E466), Polysorbat 80 (E433/E435), Nitritpökelsalz (E250).<br><br>
         <b>Süßstoffe:</b> künstliche (z. B. Sucralose, Acesulfam-K) mindern stärker als natürliche (Stevia).<br><br>
@@ -8397,7 +8398,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-14y";
+const APP_BUILD = "2026-07-14z";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
