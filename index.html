@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15d intro-blitz weg: overlay versteckt bis es wirklich laeuft -->
+<!-- build 2026-07-15e bedarfsrechner: ergebnis aufgegliedert (herleitung + makrobalken), beide rechner gleich -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -4826,15 +4826,47 @@ function computeBedarf(v){
   return {bmr:bmr,bmrMethode:bmrMethode,tdee:tdee,floor:floor,floored:floored,niere:niere,protF:protF,protRef:protRef,warnNiere:warnNiere,fettPct:fettPct,
           kcal:Math.round(ziK),protein:Math.round(protein),kh:Math.round(kh),fett:Math.round(fett)};
 }
+/* Ergebnis des Bedarfsrechners. Vorher stand die Tagesempfehlung als EINE nackte
+   Zahl da ("plump") und die Makros als gedraengte Textzeile. Jetzt: die Herleitung
+   (Grundumsatz x Aktivitaet -> Erhalt), die Zielzahl gross, ein Aufteilungsbalken
+   und darunter Eiweiss/KH/Fett mit Gramm und Prozent - aufgegliedert direkt dort,
+   wo man rechnet. Makrofarben wie im Tagebuch: Eiweiss blau, KH orange, Fett gelb. */
 function bedarfResultHtml(r){
-  return `<div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px;line-height:1.6">
-    <div>Grundumsatz (BMR) <b>${Math.round(r.bmr)}</b> kcal <span style="color:var(--muted);font-size:12px">· ${r.bmrMethode}</span> · Erhaltungsbedarf <b>${Math.round(r.tdee)}</b> kcal</div>
-    <div style="margin-top:4px;font-size:15px">Ziel-Energie: <b style="color:var(--green)">${r.kcal} kcal/Tag</b>${r.floored?' <span style="color:var(--k-b45309)">· auf den Grundumsatz begrenzt</span>':''}</div>
-    ${r.floored?`<div style="margin-top:6px;background:var(--k-fffbeb);border:1px solid var(--k-fde68a);border-radius:8px;padding:8px;font-size:12px;color:var(--k-92400e);line-height:1.5">🔒 Das Ziel wurde <b>auf ${Math.round(r.floor)} kcal angehoben</b> – <b>unter den Grundumsatz</b> (${Math.round(r.bmr)} kcal) geht der Rechner bewusst nicht. Dauerhaft darunter zu essen ist ungesund. Für ein größeres Defizit lieber die Aktivität erhöhen.</div>`:''}
-    <div style="margin-top:4px">Eiweiß <b>${r.protein} g</b> <span style="color:var(--muted)">(${String(r.protF).replace('.',',')} g/kg ${r.protRef==='aktuell'?'akt. Gewicht':'Zielgewicht'}${r.warnNiere})</span> · KH <b>${r.kh} g</b> · Fett <b>${r.fett} g</b> <span style="color:var(--muted)">(${String(Math.round(r.fettPct*1000)/10).replace('.',',')} % Energie)</span></div>
-    ${r.niere?'<div style="margin-top:6px;color:var(--k-b45309);font-size:12px">⚠️ Bei Nierenerkrankung die Eiweißmenge unbedingt ärztlich abstimmen. Dieser Rechner ersetzt keine medizinische Beratung.</div>':''}
-    <div style="margin-top:6px;font-size:11.5px;color:var(--k-9aa7a0)">Grundumsatz × Aktivitätsfaktor. Tipp: nach 2–3 Wochen am echten Gewichtsverlauf feinjustieren – keine medizinische Beratung.</div>
-  </div>`;
+  var akt = r.bmr>0 ? r.tdee/r.bmr : 0;
+  var aktTxt = String(Math.round(akt*1000)/1000).replace('.',',');
+  var pk=r.protein*4, ck=r.kh*4, fk=r.fett*9;
+  var tot = r.kcal>0 ? r.kcal : (pk+ck+fk)||1;
+  var pPct=Math.round(pk/tot*100), cPct=Math.round(ck/tot*100), fPct=Math.round(fk/tot*100);
+  var zLabel = r.floored ? 'auf Grundumsatz begrenzt'
+             : (r.kcal < r.tdee-20 ? 'Defizit' : (r.kcal > r.tdee+20 ? 'Aufbau' : 'Gewicht halten'));
+  var seg=function(w,c){ return '<div style="width:'+w+'%;background:'+c+'"></div>'; };
+  var val=function(lbl,g,pct,dot,txtCol){ return '<div style="min-width:0;flex:1">'
+      +'<div style="font-size:11px;color:var(--muted);white-space:nowrap"><span style="color:'+dot+'">●</span> '+lbl+'</div>'
+      +'<div style="white-space:nowrap"><b style="font-size:14.5px;color:'+txtCol+'">'+g+' g</b> <span style="color:var(--muted);font-size:11.5px">'+pct+' %</span></div>'
+    +'</div>'; };
+  var kcalTxt = (typeof r.kcal==='number') ? r.kcal.toLocaleString('de-DE') : r.kcal;
+  return '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 13px">'
+    +'<div style="font-size:11.5px;color:var(--muted);line-height:1.55;display:flex;flex-wrap:wrap;align-items:center;gap:3px 6px">'
+      +'<span>Grundumsatz <b style="color:var(--ink)">'+Math.round(r.bmr)+'</b></span>'
+      +'<span>× '+aktTxt+'</span>'
+      +'<span style="color:var(--muted)">→</span>'
+      +'<span>Erhalt <b style="color:var(--ink)">'+Math.round(r.tdee)+'</b></span>'
+    +'</div>'
+    +'<div style="font-size:10.5px;color:var(--muted);margin-top:1px">'+esc(r.bmrMethode||'')+'</div>'
+    +'<div style="display:flex;align-items:baseline;gap:7px;margin:9px 0 1px">'
+      +'<span style="font-size:26px;font-weight:800;color:var(--green);line-height:1">'+kcalTxt+'</span>'
+      +'<span style="font-size:12.5px;color:var(--muted)">kcal/Tag · '+zLabel+'</span>'
+    +'</div>'
+    + (r.floored?'<div style="margin-top:7px;background:var(--k-fffbeb);border:1px solid var(--k-fde68a);border-radius:8px;padding:7px 9px;font-size:11.5px;color:var(--k-92400e);line-height:1.5">🔒 Auf den Grundumsatz ('+Math.round(r.bmr)+' kcal) angehoben – darunter geht der Rechner bewusst nicht. Für mehr Defizit lieber die Aktivität erhöhen.</div>':'')
+    +'<div style="display:flex;height:9px;border-radius:6px;overflow:hidden;margin:9px 0 8px;background:var(--line)">'+seg(pPct,'#5AA9FF')+seg(cPct,'#F5A524')+seg(fPct,'#F2D64B')+'</div>'
+    +'<div style="display:flex;justify-content:space-between;gap:10px">'
+      + val('Eiweiß', r.protein, pPct, '#5AA9FF', '#185FA5')
+      + val('KH', r.kh, cPct, '#F5A524', '#B45309')
+      + val('Fett', r.fett, fPct, '#F2D64B', '#8a6a09')
+    +'</div>'
+    +'<div style="font-size:10.5px;color:var(--muted);margin-top:9px;line-height:1.5">Eiweiß '+String(r.protF).replace('.',',')+' g/kg ('+(r.protRef==='aktuell'?'akt.':'Ziel')+'-Gewicht)'+(r.warnNiere||'')+' · Fett '+(Math.round(r.fettPct*1000)/10).toString().replace('.',',')+' % · nach 2–3 Wochen am Gewicht feinjustieren</div>'
+    + (r.niere?'<div style="margin-top:6px;color:var(--k-b45309);font-size:11.5px">⚠️ Bei Nierenerkrankung Eiweiß ärztlich abstimmen – keine medizinische Beratung.</div>':'')
+  +'</div>';
 }
 function calcBedarf(){
   const out=document.getElementById("bdOut"); _bdResult=null;
@@ -4874,15 +4906,12 @@ function calcBedarf(){
   const kh=Math.max(0,(ziK-protein*4-fett*9)/4);
   _bdResult={kcal:Math.round(ziK),protein:Math.round(protein),kh:Math.round(kh),fett:Math.round(fett)};
   if(ab) ab.disabled=false;
-  out.style.color="var(--k-374151)";
-  out.innerHTML=`<div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px;line-height:1.6">
-    <div>Grundumsatz (BMR) <b>${Math.round(bmr)}</b> kcal <span style="color:var(--muted);font-size:12px">· ${bmrMethode}</span> · Erhaltungsbedarf <b>${Math.round(tdee)}</b> kcal</div>
-    <div style="margin-top:4px;font-size:15px">Ziel-Energie: <b style="color:var(--green)">${_bdResult.kcal} kcal/Tag</b>${floored?' <span style="color:var(--k-b45309)">· auf den Grundumsatz begrenzt</span>':''}</div>
-    ${floored?`<div style="margin-top:6px;background:var(--k-fffbeb);border:1px solid var(--k-fde68a);border-radius:8px;padding:8px;font-size:12px;color:var(--k-92400e);line-height:1.5">🔒 Das Ziel wurde <b>auf ${Math.round(floor)} kcal angehoben</b> – <b>unter den Grundumsatz</b> (${Math.round(bmr)} kcal) geht der Rechner bewusst nicht. Dauerhaft darunter zu essen ist ungesund (Muskelabbau, Energie/Hormone). Für ein größeres Defizit lieber die <b>Aktivität erhöhen</b> oder Diätpausen einlegen.</div>`:''}
-    <div style="margin-top:4px">Eiweiß <b>${_bdResult.protein} g</b> <span style="color:var(--muted)">(${String(protF).replace('.',',')} g/kg ${protRef==='aktuell'?'akt. Gewicht':'Zielgewicht'}${warnNiere})</span> · KH <b>${_bdResult.kh} g</b> · Fett <b>${_bdResult.fett} g</b> <span style="color:var(--muted)">(${String(Math.round(fettPct*1000)/10).replace('.',',')} % Energie)</span></div>
-    ${niere?'<div style="margin-top:6px;color:var(--k-b45309);font-size:12px">⚠️ Bei Nierenerkrankung die Eiweißmenge unbedingt ärztlich abstimmen. Dieser Rechner ersetzt keine medizinische Beratung.</div>':''}
-    <div style="margin-top:6px;font-size:11.5px;color:var(--k-9aa7a0)">Grundumsatz: ${bmrMethode} × Aktivitätsfaktor. Tipp: nach 2–3 Wochen am echten Gewichtsverlauf feinjustieren – keine medizinische Beratung.</div>
-  </div>`;
+  out.style.color="";
+  /* Derselbe Renderer wie der Tagebuch-Rechner (bedarfResultHtml) - eine Darstellung,
+     ein Ort. Vorher hatte dieser Rechner seine EIGENE, gedraengte Textzeile. */
+  out.innerHTML=bedarfResultHtml({bmr:bmr,bmrMethode:bmrMethode,tdee:tdee,floor:floor,floored:floored,
+    niere:niere,protF:protF,protRef:protRef,warnNiere:warnNiere,fettPct:fettPct,
+    kcal:_bdResult.kcal,protein:_bdResult.protein,kh:_bdResult.kh,fett:_bdResult.fett});
 }
 function applyBedarf(){
   if(!_bdResult) return;
@@ -8464,7 +8493,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15d";
+const APP_BUILD = "2026-07-15e";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
