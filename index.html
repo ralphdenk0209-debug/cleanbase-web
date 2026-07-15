@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15i tages-index: flip statt aufklapp-zeilen (karte bleibt gleich gross) -->
+<!-- build 2026-07-15j pruef-opt: zutat-bewertung an stamm gebunden (#1) + warteschlange priorisiert mit ampel (#2) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3325,9 +3325,22 @@ function seZutatenForm(ean, z){
     +'<button onclick="seZutatNeu(\''+esc(ean)+'\')" style="margin-top:5px;padding:6px 11px;border:1px dashed var(--line);'
       +'border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;cursor:pointer">+ Zutat</button>';
 }
+/* #1: Bewertung an den Stamm binden. Riki liefert nur den Namen (oft mit Prozent,
+   "bio" usw.) - die Zahl haengt an der Zutat im Stamm. seRateFor sucht den Namen im
+   Stamm, auch nach Abziehen von Prozentangaben/Zahlen und "bio". Trifft nichts, bleibt
+   die Bewertung LEER (dann gehoert die Zutat zuerst in den Stamm) - nicht geraten. */
+function seRateFor(name){
+  if(typeof ZUTATEN_MAP==='undefined'||!ZUTATEN_MAP) return null;
+  var n=String(name||'').trim().toLowerCase();
+  if(ZUTATEN_MAP[n]) return ZUTATEN_MAP[n].rating;
+  var n2=n.replace(/\s*\d+([.,]\d+)?\s*%/g,'').replace(/\b(bio|g\/100 ?g|\d+)\b/g,'').replace(/\s+/g,' ').trim();
+  if(n2&&ZUTATEN_MAP[n2]) return ZUTATEN_MAP[n2].rating;
+  return null;
+}
 function seZutatZeile(ean, i, x){
   x=x||{};
-  const r=Number(x.rating);
+  var bound=seRateFor(x.name);
+  const r=(bound!=null)?Number(bound):Number(x.rating);
   const hat=isFinite(r);
   return '<div class="seZeile" style="display:flex;gap:5px;align-items:center;margin-bottom:4px">'
     +'<input list="seZutDL" value="'+esc(x.name||"")+'" oninput="seZutAuto(this)" placeholder="Zutat wählen…" '
@@ -3341,9 +3354,9 @@ function seZutatZeile(ean, i, x){
 }
 /* Zutat gewaehlt/getippt -> Bewertung aus dem Stamm ziehen (schreibgeschuetzt). */
 function seZutAuto(inp){
-  var m=(typeof ZUTATEN_MAP!=='undefined'?ZUTATEN_MAP:{})[(inp.value||"").trim().toLowerCase()];
+  var bound=seRateFor(inp.value);
   var rate=inp.parentNode.querySelector('.seRate'); if(!rate) return;
-  if(m){ rate.value=m.rating; rate.style.color='var(--ink)'; rate.title='Bewertung '+m.rating+' aus dem Zutaten-Stamm – gebunden, nicht editierbar'; }
+  if(bound!=null){ rate.value=bound; rate.style.color='var(--ink)'; rate.title='Bewertung '+bound+' aus dem Zutaten-Stamm – gebunden, nicht editierbar'; }
   else { rate.value=''; rate.style.color='var(--muted)'; rate.title='Diese Zutat ist nicht im Stamm – dort zuerst mit Bewertung anlegen.'; }
 }
 function seZutatNeu(ean){
@@ -3362,6 +3375,20 @@ function seZutatenLesen(ean){
   return out;
 }
 
+/* Ampel je Scan-Eintrag: gruen = vollstaendig, plausibel, keine Riki-Hinweise -> schnell
+   durchwinkbar. Sonst gelb mit dem Grund. Nichts wird automatisch freigegeben - es ist
+   nur eine Sortier-/Aufmerksamkeitshilfe. */
+function scanStatus(e){
+  var n=(e&&e.naehrwerte)||{};
+  var nz=function(v){ v=parseFloat(v); return isFinite(v)?v:null; };
+  var kcal=nz(n.kcal), p=nz(n.protein), kh=nz(n.kh), f=nz(n.fett), b=nz(n.ballaststoffe);
+  var g=[];
+  if(kcal==null||p==null||kh==null||f==null) g.push('Pflicht-Nährwerte fehlen');
+  else if(kcal>0){ var ber=4*p+4*kh+9*f+2*(b||0), diff=Math.abs(kcal-ber);
+    if(diff>20 && diff/kcal>0.30) g.push('kcal unplausibel'); }
+  if(Array.isArray(e&&e.warnungen)&&e.warnungen.length) g.push('Riki-Hinweise');
+  return {gruen:g.length===0, gruende:g};
+}
 async function loadScanEingang(){
   const box=document.getElementById("fgScanPruef"); if(!box) return;
   box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Scan-Eingang…</div>';
@@ -3370,14 +3397,24 @@ async function loadScanEingang(){
   try{ const r=await client.rpc("cb_scan_eingang"); d=r.data; }catch(e){}
   if(!d || !d.ok){ box.innerHTML=''; return; }
   const list=d.eintraege||[];
+  /* #2: Priorisieren. Was Riki plausibel und vollstaendig gelesen hat, ist schnell
+     durchwinkbar; nur die unsicheren brauchen echte Handarbeit. Die schnellen zuerst -
+     so raeumt man die Warteschlange in Minuten leer und behaelt Zeit fuers Schwierige. */
+  list.forEach(function(e){ e._st=scanStatus(e); });
+  list.sort(function(a,b){ return (a._st.gruen===b._st.gruen)?0:(a._st.gruen?-1:1); });
   window._scanEingang=list;
   if(!list.length){ box.innerHTML=''; return; }
+  var _gruenN=list.filter(function(e){return e._st.gruen;}).length, _gelbN=list.length-_gruenN;
 
   box.innerHTML='<div style="font-weight:700;font-size:15px;margin-bottom:2px;color:var(--ink)">'
       +'Zur Prüfung: '+list.length+' Produkt'+(list.length===1?'':'e')+' aus Scans</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">'
       +'Vergleiche die Zahlen mit dem Foto. <b>Erst dann freigeben.</b> '
       +'Riki liest gut, aber sie belegt nichts &ndash; das tust du.</div>'
+    +'<div style="font-size:12px;margin-bottom:10px">'
+      +'<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:2px 9px;border-radius:999px;font-weight:700">✓ '+_gruenN+' schnell prüfbar</span>'
+      +(_gelbN?' <span style="background:var(--k-fff7ea);color:var(--k-8a5a0b);padding:2px 9px;border-radius:999px;font-weight:700;margin-left:4px">⚠ '+_gelbN+' brauchen Prüfung</span>':'')
+    +'</div>'
     + list.map(function(e,i){
       const fotos=Array.isArray(e.fotos)?e.fotos.filter(function(s){return typeof s==="string"&&s.indexOf("data:image")===0;}):[];
       const rikiWarn=Array.isArray(e.warnungen)?e.warnungen:[];
@@ -3393,7 +3430,11 @@ async function loadScanEingang(){
           +'<div id="seDonut_'+esc(e.ean)+'">'+donut(e.score, farbe(scoreBew(e.score)), 46)+'</div>'
           +'<div style="flex:1;min-width:140px">'
             +'<div style="font-size:12px;color:var(--muted)">Barcode '+esc(e.ean)+' &middot; '+e.treffer+'&times; gescannt</div>'
-            +'<div style="margin-top:3px">'+herkunftTxt+'</div>'
+            +'<div style="margin-top:3px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">'+herkunftTxt
+              + (e._st && e._st.gruen
+                  ? '<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700">✓ schnell prüfbar</span>'
+                  : '<span style="background:var(--k-fff7ea);color:var(--k-8a5a0b);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700">⚠ '+((e._st&&e._st.gruende||[]).join(' · ')||'prüfen')+'</span>')
+            +'</div>'
           +'</div>'
         +'</div>'
 
@@ -8615,7 +8656,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15i";
+const APP_BUILD = "2026-07-15j";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
