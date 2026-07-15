@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15f etikettfoto im admin: verschieb- und zoombares fenster statt blockierendem vollbild -->
+<!-- build 2026-07-15g pruefmaske: naehrwert-reihenfolge wie etikett, kategorie-dropdown, zutat-dropdown mit gebundener bewertung -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3227,9 +3227,28 @@ async function ladeNutzungPanel(){
    ============================================================ */
 /* Nährwerte als EINGABEFELDER. Eine Prüfung, bei der man nur ja/nein sagen kann,
    ist keine Prüfung. Wer den Fehler sieht, muss ihn beheben können. */
-const NW_FELDER=[["kcal","kcal",""],["protein","Eiweiß","g"],["kh","Kohlenhydrate","g"],
-  ["zucker","davon Zucker","g"],["fett","Fett","g"],["ges_fett","davon gesättigt","g"],
-  ["ballaststoffe","Ballaststoffe","g"],["salz","Salz","g"]];
+/* Reihenfolge wie auf dem Etikett (EU-VO 1169/2011, Anhang XV): Energie, Fett,
+   ges. Fett, Kohlenhydrate, Zucker, Ballaststoffe, Eiweiß, Salz. Vorher standen
+   Eiweiß und Fett verkehrt - man musste beim Abtippen springen. */
+const NW_FELDER=[["kcal","kcal",""],["fett","Fett","g"],["ges_fett","davon gesättigt","g"],
+  ["kh","Kohlenhydrate","g"],["zucker","davon Zucker","g"],["ballaststoffe","Ballaststoffe","g"],
+  ["protein","Eiweiß","g"],["salz","Salz","g"]];
+/* Produktkategorien als feste Auswahl - Freitext fuehrt zu Tippfehlern und Dubletten
+   ("Nussprodukte / Pulver" vs "Nüsse & Hülsenfrüchte"). Riki darf vorschlagen, der
+   Mensch waehlt aus der Liste. */
+const KATEGORIEN=["Brot & Backwaren","Brotaufstrich","Energy-Gel","Fleisch & Fisch","Getränk",
+  "Getreide & Beilagen","Milchprodukte & Eier","Nüsse & Hülsenfrüchte","Obst & Gemüse","Öle & Fette",
+  "Proteinpulver","Riegel","Snacks","Supplement","Süßungsmittel","Süßwaren",
+  "Tofu & Fleischalternativen","Würzen & Saucen","Lebensmittel","Sonstiges"];
+function katSelectHtml(id, aktuell){
+  var a=(aktuell||"").trim();
+  var opts=KATEGORIEN.slice();
+  if(a && opts.indexOf(a)<0) opts.unshift(a);   /* Rikis Vorschlag nicht verlieren, auch wenn er nicht in der Liste ist */
+  return '<select id="'+id+'" style="flex:1 1 130px;min-width:130px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px">'
+    +'<option value="">Kategorie wählen…</option>'
+    + opts.map(function(k){ return '<option value="'+esc(k)+'"'+(k===a?' selected':'')+'>'+esc(k)+'</option>'; }).join('')
+    +'</select>';
+}
 
 function nwForm(ean, n){
   n=n||{};
@@ -3289,7 +3308,12 @@ function sePruefe(ean){
 /* Zutaten: Name und Bewertung änderbar, löschbar, ergänzbar. */
 function seZutatenForm(ean, z){
   z=Array.isArray(z)?z:[];
-  return '<div id="seZut_'+esc(ean)+'">'
+  /* EINE Datalist fuer alle Zeilen: Tippen filtert die Stamm-Zutaten. Die Bewertung
+     wird NICHT von Hand gesetzt - sie haengt an der gewaehlten Zutat (aus dem Stamm)
+     und ist schreibgeschuetzt. Wer eine Zutat neu tippt, die es im Stamm nicht gibt,
+     bekommt keine Bewertung - dann gehoert sie zuerst in den Stamm (dort, EINMAL). */
+  return '<datalist id="seZutDL">'+(ZUTATEN_STAMM||[]).map(function(s){ return '<option value="'+esc(s.name)+'"></option>'; }).join("")+'</datalist>'
+    +'<div id="seZut_'+esc(ean)+'">'
     + z.map(function(x,i){ return seZutatZeile(ean,i,x); }).join("")
     +'</div>'
     +'<button onclick="seZutatNeu(\''+esc(ean)+'\')" style="margin-top:5px;padding:6px 11px;border:1px dashed var(--line);'
@@ -3298,15 +3322,23 @@ function seZutatenForm(ean, z){
 function seZutatZeile(ean, i, x){
   x=x||{};
   const r=Number(x.rating);
+  const hat=isFinite(r);
   return '<div class="seZeile" style="display:flex;gap:5px;align-items:center;margin-bottom:4px">'
-    +'<input value="'+esc(x.name||"")+'" placeholder="Zutat" '
+    +'<input list="seZutDL" value="'+esc(x.name||"")+'" oninput="seZutAuto(this)" placeholder="Zutat wählen…" '
       +'style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-size:12.5px">'
-    +'<input type="number" min="1" max="10" step="1" value="'+(isFinite(r)?r:"")+'" placeholder="1-10" '
-      +'title="Verarbeitungsgrad: 10 = roh · 2 = raffiniert" '
-      +'style="width:56px;padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);text-align:center;font-weight:700;font-size:12.5px">'
+    +'<input class="seRate" type="number" value="'+(hat?r:"")+'" readonly tabindex="-1" '
+      +'title="Bewertung kommt aus dem Zutaten-Stamm – an die Zutat gebunden, nicht editierbar" '
+      +'style="width:52px;padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--k-f2f5f3);color:'+(hat?'var(--ink)':'var(--muted)')+';text-align:center;font-weight:700;font-size:12.5px;cursor:not-allowed">'
     +'<button onclick="this.parentNode.remove()" title="Zutat entfernen" '
       +'style="flex:0 0 auto;padding:6px 9px;border:1px solid var(--k-f2c9c4);border-radius:7px;background:var(--k-ffffff);color:var(--k-b91c1c);cursor:pointer;font-size:12px">&times;</button>'
     +'</div>';
+}
+/* Zutat gewaehlt/getippt -> Bewertung aus dem Stamm ziehen (schreibgeschuetzt). */
+function seZutAuto(inp){
+  var m=(typeof ZUTATEN_MAP!=='undefined'?ZUTATEN_MAP:{})[(inp.value||"").trim().toLowerCase()];
+  var rate=inp.parentNode.querySelector('.seRate'); if(!rate) return;
+  if(m){ rate.value=m.rating; rate.style.color='var(--ink)'; rate.title='Bewertung '+m.rating+' aus dem Zutaten-Stamm – gebunden, nicht editierbar'; }
+  else { rate.value=''; rate.style.color='var(--muted)'; rate.title='Diese Zutat ist nicht im Stamm – dort zuerst mit Bewertung anlegen.'; }
 }
 function seZutatNeu(ean){
   const box=document.getElementById("seZut_"+ean); if(!box) return;
@@ -3327,6 +3359,7 @@ function seZutatenLesen(ean){
 async function loadScanEingang(){
   const box=document.getElementById("fgScanPruef"); if(!box) return;
   box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Scan-Eingang…</div>';
+  await loadZutatenStamm();   /* Zutaten-Liste fuer das Dropdown + die gebundene Bewertung */
   let d=null;
   try{ const r=await client.rpc("cb_scan_eingang"); d=r.data; }catch(e){}
   if(!d || !d.ok){ box.innerHTML=''; return; }
@@ -3384,7 +3417,7 @@ async function loadScanEingang(){
         +'<div style="margin-top:11px;display:flex;gap:6px;flex-wrap:wrap">'
           +'<input id="seName_'+esc(e.ean)+'" value="'+esc(e.name||"")+'" placeholder="Produktname" style="flex:2 1 150px;'+inp+'">'
           +'<input id="seMarke_'+esc(e.ean)+'" value="'+esc(e.marke||"")+'" placeholder="Marke" style="flex:1 1 100px;'+inp+'">'
-          +'<input id="seKat_'+esc(e.ean)+'" value="'+esc(e.kategorie||"")+'" placeholder="Kategorie" style="flex:1 1 110px;'+inp+'">'
+          +katSelectHtml('seKat_'+esc(e.ean), e.kategorie)
         +'</div>'
 
         +'<div style="margin-top:11px;font-size:12px;color:var(--muted);margin-bottom:5px">'
@@ -8534,7 +8567,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15f";
+const APP_BUILD = "2026-07-15g";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
