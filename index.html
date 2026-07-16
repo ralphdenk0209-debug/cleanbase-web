@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15r off-gegenprobe: zutaten-normalisierung (umbruch-trennstriche joinen + funktionsklassen-praefixe strippen -> bessere stamm-erkennung) -->
+<!-- build 2026-07-15s freigabe-index readonly+gebunden (unbekannt -> riki+waechter), scan-eingang/entwuerfe entdoppelt, scan-anlegen holt off live wenn server nichts hat -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3475,6 +3475,7 @@ async function loadScanEingang(){
   list.forEach(function(e){ e._st=scanStatus(e); });
   list.sort(function(a,b){ return (a._st.gruen===b._st.gruen)?0:(a._st.gruen?-1:1); });
   window._scanEingang=list;
+  try{ if(typeof loadFreigabe==="function") loadFreigabe(); }catch(e){}   /* #2: Entwürfe-Liste ohne die Scan-Eingang-Dubletten neu rendern */
   if(!list.length){ box.innerHTML=''; return; }
   var _gruenN=list.filter(function(e){return e._st.gruen;}).length, _gelbN=list.length-_gruenN;
 
@@ -3811,14 +3812,35 @@ function offZutatenParse(txt){
     if(/^(von|kann spuren|enth(ä|a)lt|vor w(ä|a)rme|trocken|unge(ö|o)ffnet|zutaten)/i.test(n)) return;
     const key=n.toLowerCase();
     const st=(typeof ZUTATEN_MAP!=='undefined'&&ZUTATEN_MAP)?ZUTATEN_MAP[key]:null;
-    out.push({name:n, rating:(st&&st.rating!=null)?st.rating:5, kritisch:(st&&st.kritisch)?'ja':'nein', neu:!st});
+    out.push({name:n, rating:(st&&st.rating!=null)?st.rating:null, kritisch:(st&&st.kritisch)?'ja':'nein', neu:!st});
   });
   return out.slice(0,40);
 }
 async function scanAnlegen(i){
   const g=(window._scanGroups||[])[i]; if(!g) return;
-  const o=g.off||{};
+  let o=g.off||{};
   await loadZutatenStamm();
+  /* Die serverseitige OFF-Suche verfehlt manche EANs. Wenn nichts da ist, live direkt
+     bei OFF nachsehen (|| statt ??: Zutaten stehen oft nur in ingredients_text). */
+  let liveOff=false;
+  if(!o || (o.kcal==null && !o.name)){
+    try{
+      const ean=String(g.ean||'').replace(/\D/g,'');
+      if(ean.length>=8){
+        const r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+ean+'.json?fields=product_name,product_name_de,brands,ingredients_text_de,ingredients_text,nutriments',{headers:{'Accept':'application/json'}});
+        const j=await r.json();
+        if(j&&j.status===1&&j.product){
+          const p=j.product, n=p.nutriments||{}, _n=function(x){ return (typeof x==='number'&&isFinite(x))?x:null; };
+          o={ name:(p.product_name_de||p.product_name||''), marke:(p.brands||''),
+              kcal:_n(n['energy-kcal_100g']), protein:_n(n['proteins_100g']), kh:_n(n['carbohydrates_100g']),
+              zucker:_n(n['sugars_100g']), fett:_n(n['fat_100g']), ges_fett:_n(n['saturated-fat_100g']),
+              ballast:_n(n['fiber_100g']), salz:_n(n['salt_100g']),
+              zutaten:(p.ingredients_text_de||p.ingredients_text||'') };
+          liveOff=true;
+        }
+      }
+    }catch(e){}
+  }
   const zut=offZutatenParse(o.zutaten||'');
   const unbekannt=zut.filter(function(z){ return z.neu; }).length;
   const nw={};
@@ -3831,10 +3853,10 @@ async function scanAnlegen(i){
   if(o.ballast!=null) nw.ballaststoffe=o.ballast;
   if(o.salz!=null) nw.salz=o.salz;
   let hinweis='';
-  if(!g.off){ hinweis='Kein OFF-Treffer – Nährwerte und Zutaten manuell vom Etikettfoto eintragen.'; }
+  if(!g.off && !liveOff){ hinweis='Kein OFF-Treffer – Nährwerte und Zutaten manuell vom Etikettfoto eintragen.'; }
   else {
-    hinweis='Werte aus Open Food Facts vorbelegt – VORSCHLAG, nicht geprüft. Gegen das Etikettfoto abgleichen, bevor du freigibst.';
-    if(unbekannt) hinweis+=' '+unbekannt+' Zutat(en) sind im Stamm unbekannt und stehen auf 5 – Bewertung setzen!';
+    hinweis=(liveOff?'Live von Open Food Facts geholt':'Werte aus Open Food Facts')+' vorbelegt – VORSCHLAG, nicht geprüft. Gegen das Etikettfoto abgleichen, bevor du freigibst.';
+    if(unbekannt) hinweis+=' '+unbekannt+' Zutat(en) sind im Stamm unbekannt – bitte je Zeile über „→ Riki" bewerten lassen.';
     if(String(g.ean||'').length<13) hinweis+=' ⚠️ Kurzer/interner Barcode ('+String(g.ean||'').length+' Stellen): Kollisionsgefahr, OFF kann ein völlig anderes Produkt liefern. Nur mit Etikettfoto übernehmen.';
   }
   openFgEditor(null, {name:o.name||'', marke:o.marke||'', ean:g.ean||'', naehrwerte:nw, zutaten:zut, hinweis:hinweis});
@@ -6235,8 +6257,11 @@ async function addManuell(){
 async function loadFreigabe(){
   const {data:ent}=await client.from("v_freigabe_entwuerfe").select("*").order("id");
   const el=document.getElementById("fgEntwuerfe");
-  if(!ent||!ent.length){ el.innerHTML='<div style="color:var(--muted)">Keine offenen Entwürfe.</div>'; }
-  else { el.innerHTML=ent.map(p=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px">
+  /* #2 Entdopplung: Entwürfe, die schon im Scan-Eingang (mit Foto) stehen, hier NICHT nochmal listen. */
+  const _scanIds={}; (window._scanEingang||[]).forEach(function(e){ if(e&&e.vorhanden_als&&e.vorhanden_als.produkt_id) _scanIds[String(e.vorhanden_als.produkt_id)]=1; });
+  const entF=(ent||[]).filter(function(p){ return !_scanIds[String(p.id)]; });
+  if(!entF.length){ el.innerHTML='<div style="color:var(--muted)">Keine offenen Entwürfe.</div>'; }
+  else { el.innerHTML=entF.map(p=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <div><b>${esc(p.name||"?")}</b> <span style="color:var(--muted)">· ${esc(p.marke||"")}</span><div style="font-size:12px;color:var(--muted)">${p.id} · ${esc(p.kategorie||"")} · Index ${p.score??"–"} ${p.bewertung?("("+esc(p.bewertung)+")"):""}</div><a href="https://www.google.com/search?q=${encodeURIComponent((p.name||"")+" "+(p.marke||"")+" Zutaten Nährwerte")}" target="_blank" rel="noopener" style="font-size:12px;color:var(--k-0ea5e9)">🔎 Herstellerseite suchen ↗</a></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -6423,17 +6448,76 @@ async function loadZutatenStamm(){
 }
 function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
+  const hasR=!(rating===null||rating===undefined||rating==="");
+  const bound=(name && typeof ZUTATEN_MAP!=="undefined" && ZUTATEN_MAP && ZUTATEN_MAP[(name||"").trim().toLowerCase()]!=null);
+  /* Bewertung ist READONLY (an den Stamm gebunden, keine Willkuer). Unbekannte Zutat -> "→ Riki". */
   return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${(rating===null||rating===undefined||rating==="")?"":rating}" placeholder="–" title="Verarbeitungsgrad 0–10. LEER LASSEN, wenn unbekannt – dann bekommt das Produkt keinen Score, statt einer erfundenen Zahl." style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center">
+    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${hasR?rating:""}" readonly tabindex="-1" placeholder="–" title="Bewertung ist an die Zutat (Stamm) gebunden – nicht von Hand änderbar. Unbekannt? „→ Riki" bewerten lassen." style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center;background:var(--k-f2f5f3);color:var(--ink);cursor:not-allowed">
+    <button type="button" class="fgzRiki" onclick="fgZutRiki(this)" title="Riki stuft die Zutat ein + zwei Wächter prüfen, dann in den Stamm aufnehmen" style="flex:0 0 auto;padding:6px 8px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:11.5px;white-space:nowrap;${bound?"display:none":""}">→ Riki</button>
     <label style="font-size:11px;color:var(--k-b91c1c);display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:var(--k-dc2626)">⚠️</label>
-    <button type="button" onclick="this.closest('.fgZutRow').remove()" title="Zutat entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:8px;width:30px;height:30px;cursor:pointer;flex:0 0 auto">✕</button>
+    <button type="button" onclick="fgZutRowDel(this)" title="Zutat entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:8px;width:30px;height:30px;cursor:pointer;flex:0 0 auto">✕</button>
   </div>`;
 }
+function fgZutRowDel(b){ var row=b.closest(".fgZutRow"); if(!row) return; var inf=row.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove(); row.remove(); }
 function fgZutAuto(inp){
-  const m=ZUTATEN_MAP[(inp.value||"").trim().toLowerCase()]; if(!m) return;
-  const row=inp.closest(".fgZutRow"); const r=row.querySelector(".fgzRate"), k=row.querySelector(".fgzKrit");
-  if(r) r.value=m.rating; if(k) k.checked=(String(m.kritisch).toLowerCase()==="ja");
+  const row=inp.closest(".fgZutRow"); if(!row) return;
+  const r=row.querySelector(".fgzRate"), k=row.querySelector(".fgzKrit"), rk=row.querySelector(".fgzRiki");
+  const inf=row.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove();
+  if(rk){ delete rk.dataset.mode; delete rk.dataset.stufe; delete rk.dataset.gesamt; rk.textContent="→ Riki"; }
+  const m=ZUTATEN_MAP[(inp.value||"").trim().toLowerCase()];
+  if(m){
+    if(r){ r.value=m.rating; r.style.color="var(--ink)"; }
+    if(k) k.checked=(String(m.kritisch).toLowerCase()==="ja");
+    if(rk) rk.style.display="none";
+  } else {
+    if(r){ r.value=""; r.style.color="var(--ink)"; }
+    if(rk) rk.style.display=(inp.value.trim()? "" : "none");
+  }
+}
+/* Unbekannte Zutat im Freigabe-Editor: Riki stuft ein + Waechter pruefen, dann in den Stamm.
+   Kein Handeingriff der Zahl – identisch zum Scan-Fluss. */
+function fgZutRiki(btn){
+  var row=btn.closest(".fgZutRow"); if(!row) return;
+  var nameInp=row.querySelector(".fgzName"), rate=row.querySelector(".fgzRate");
+  var name=((nameInp&&nameInp.value)||"").trim();
+  if(!name){ if(nameInp) nameInp.focus(); return; }
+  if(btn.dataset.mode==="save"){
+    var st=parseInt(btn.dataset.stufe,10); if(!(st>=0&&st<=10)) return;
+    btn.disabled=true; btn.textContent="…";
+    client.rpc("cb_zutat_stamm_anlegen",{p_name:name,p_rating:st,p_quelle:"Riki + Verifikation ("+(btn.dataset.gesamt||"")+"), Freigabe"}).then(function(res){
+      btn.disabled=false;
+      if(res.error||!(res.data&&res.data.ok)){ btn.textContent="Fehler"; setTimeout(function(){btn.textContent="→ Riki";},1500); return; }
+      var rr=res.data.rating;
+      if(typeof ZUTATEN_MAP!=="undefined"&&ZUTATEN_MAP){ ZUTATEN_MAP[name.toLowerCase()]={rating:rr,kritisch:"nein"}; }
+      if(Array.isArray(ZUTATEN_STAMM)){ ZUTATEN_STAMM.push({name:name,rating:rr,kritisch:"nein"}); var dl=document.getElementById("fgZutDL"); if(dl){ var op=document.createElement("option"); op.value=name; dl.appendChild(op);} }
+      if(rate){ rate.value=rr; rate.style.color="var(--ink)"; }
+      btn.style.display="none"; delete btn.dataset.mode;
+      var inf=row.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove();
+    }, function(){ btn.disabled=false; btn.textContent="Fehler"; setTimeout(function(){btn.textContent="→ Riki";},1500); });
+    return;
+  }
+  btn.disabled=true; btn.textContent="Riki…";
+  client.auth.getSession().then(function(s){
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok){ btn.disabled=false; btn.textContent="Login?"; setTimeout(function(){btn.textContent="→ Riki";},1500); return null; }
+    return fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},body:JSON.stringify({name:name})}).then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); });
+  }).then(function(rr){
+    if(!rr) return; btn.disabled=false;
+    if(!rr.ok||typeof rr.d.stufe!=="number"){ btn.textContent="Fehler"; setTimeout(function(){btn.textContent="→ Riki";},1500); return; }
+    var st=rr.d.stufe, v=rr.d.verifikation||{}, ges=v.gesamt||"KEIN_SIGNAL", w=v.waechter||{};
+    var col=ges==="BESTAETIGT"?"var(--k-16a34a)":ges==="AUSNAHME"?"var(--k-b91c1c)":"var(--k-b45309)";
+    var lbl=ges==="BESTAETIGT"?"bestätigt":ges==="AUSNAHME"?"Widerspruch – prüfen":ges==="PRUEFEN"?"grenzwertig":"kein Prüfsignal";
+    if(rate){ rate.value=st; rate.style.color=col; }
+    var old=row.nextElementSibling; if(old&&old.classList&&old.classList.contains("fgRikiInfo")) old.remove();
+    var wn=(w.w_name||{}).urteil, wp=(w.w_peer||{}).urteil;
+    var html='<div class="fgRikiInfo" style="margin:-2px 0 7px;padding:7px 9px;border:1px solid var(--line);border-left:3px solid '+col+';border-radius:7px;background:var(--k-f2f5f3);font-size:11.5px;line-height:1.5">'
+      +'<b>Riki: Stufe '+st+'</b>'+(rr.d.begruendung?" — "+esc(rr.d.begruendung):"")
+      +'<br><span style="color:'+col+';font-weight:700">'+lbl+'</span> · Name '+_wIcon(wn)+' · Statistik '+_wIcon(wp)
+      +((w.w_peer&&w.w_peer.text)?'<br><span style="color:var(--muted)">'+esc(w.w_peer.text)+'</span>':"")+'</div>';
+    row.insertAdjacentHTML("afterend",html);
+    btn.textContent="✓ übernehmen"; btn.dataset.mode="save"; btn.dataset.stufe=st; btn.dataset.gesamt=ges;
+  }, function(){ btn.disabled=false; btn.textContent="Fehler"; setTimeout(function(){btn.textContent="→ Riki";},1500); });
 }
 function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.insertAdjacentHTML("beforeend", fgZutRow("",null,"nein")); }
 /* ---- OFF-Gegenprobe: Zutatenliste per EAN aus Open Food Facts holen ----
@@ -8830,7 +8914,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15r";
+const APP_BUILD = "2026-07-15s";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
