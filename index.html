@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15n einkaufsliste: angebote-button je produkt (rechtssicherer deep-link) -->
+<!-- build 2026-07-15o freigabe: zutaten-gegenprobe aus off je ean (nicht-destruktiv, uebernehmen je zutat) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -6436,6 +6436,58 @@ function fgZutAuto(inp){
   if(r) r.value=m.rating; if(k) k.checked=(String(m.kritisch).toLowerCase()==="ja");
 }
 function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.insertAdjacentHTML("beforeend", fgZutRow("",null,"nein")); }
+/* ---- OFF-Gegenprobe: Zutatenliste per EAN aus Open Food Facts holen ----
+   NUR Vorschlag: OFF ist community-gepflegt und kennt Nischenprodukte oft nicht.
+   Nichts wird automatisch uebernommen/ueberschrieben - der Admin klickt je Zutat. */
+function fgSplitZutaten(t){
+  t=(t||'').replace(/^\s*zutaten\s*:?/i,'');
+  var out=[],depth=0,cur='';
+  for(var i=0;i<t.length;i++){ var c=t[i];
+    if(c==='('||c==='[')depth++; else if(c===')'||c===']')depth=Math.max(0,depth-1);
+    if((c===','||c===';')&&depth===0){ out.push(cur); cur=''; } else cur+=c; }
+  if(cur.trim())out.push(cur);
+  return out.map(function(s){ return s.replace(/[*_]+/g,'').replace(/\s*\d+([.,]\d+)?\s*%/g,'').replace(/\s+/g,' ').trim(); })
+            .filter(function(s){ return s && s.length>1 && !/^(davon|kann spuren|enth[aä]lt|hergestellt)/i.test(s); });
+}
+async function fgOffZutaten(){
+  var box=document.getElementById('fgOffBox'); if(!box) return;
+  var ean=(((document.getElementById('fe_ean')||{}).value)||'').replace(/\D/g,'');
+  if(ean.length<8){ box.innerHTML='<span style="color:var(--k-b45309);font-size:12.5px">Erst eine gültige EAN eintragen.</span>'; return; }
+  box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Open Food Facts wird abgefragt…</span>';
+  try{
+    var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
+    var r=await fetch(client.supabaseUrl+'/functions/v1/off-lookup',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},
+      body:JSON.stringify({mode:'ean',ean:ean})});
+    var d=await r.json();
+    if(!d||!d.gefunden||!d.zutaten_text){ box.innerHTML='<span style="color:var(--k-b45309);font-size:12.5px">OFF kennt dieses Produkt nicht (oder ohne Zutatenliste) – normal bei Nischenprodukten. Dann über Etikett/Riki.</span>'; return; }
+    var parts=fgSplitZutaten(d.zutaten_text);
+    if(!parts.length){ box.innerHTML='<span style="color:var(--k-b45309);font-size:12.5px">OFF-Zutatenliste nicht auswertbar.</span>'; return; }
+    var rows=parts.map(function(nm){
+      var m=ZUTATEN_MAP[nm.trim().toLowerCase()];
+      var badge=m?('<span style="flex:0 0 auto;color:var(--k-166534);font-weight:700">Stamm '+m.rating+'</span>'):'<span style="flex:0 0 auto;color:var(--k-b45309)">neu</span>';
+      var safe=nm.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return '<div style="display:flex;gap:7px;align-items:center;margin:3px 0;font-size:12.5px">'
+        +'<button type="button" onclick="fgOffUebernehmen(this,\''+safe+'\')" style="flex:0 0 auto;border:1px solid var(--k-16a34a);background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);border-radius:7px;padding:3px 9px;cursor:pointer;font-size:11.5px">+ übernehmen</button>'
+        +'<span style="flex:1;min-width:0">'+esc(nm)+'</span>'+badge+'</div>';
+    }).join('');
+    box.innerHTML='<div style="border:1px solid var(--line);border-left:3px solid var(--k-2e7d32);border-radius:8px;padding:9px 11px;background:var(--k-f2f5f3)">'
+      +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px"><b>OFF-Gegenprobe</b> · '+parts.length+' Zutaten · community-gepflegt, gegen das Etikett prüfen. '
+      +'<button type="button" onclick="fgOffAlle()" style="border:0;background:transparent;color:var(--k-534ab7);cursor:pointer;font-size:11.5px;text-decoration:underline;padding:0">alle übernehmen</button></div>'
+      +rows+'</div>';
+  }catch(e){ box.innerHTML='<span style="color:var(--k-dc2626);font-size:12.5px">Abruf fehlgeschlagen: '+esc(e.message)+'</span>'; }
+}
+function fgOffUebernehmen(btn,name){
+  var c=document.getElementById('fe_zutRows'); if(!c) return;
+  var exists=[].some.call(c.querySelectorAll('.fgzName'),function(i){ return (i.value||'').trim().toLowerCase()===(name||'').trim().toLowerCase(); });
+  if(!exists){
+    c.insertAdjacentHTML('beforeend', fgZutRow(name,null,'nein'));
+    var rows=c.querySelectorAll('.fgZutRow'); var last=rows[rows.length-1]; var inp=last&&last.querySelector('.fgzName');
+    if(inp) fgZutAuto(inp);
+  }
+  if(btn){ btn.textContent='✓'; btn.disabled=true; btn.style.opacity='.55'; btn.style.cursor='default'; }
+}
+function fgOffAlle(){ [].forEach.call(document.querySelectorAll('#fgOffBox button[onclick^="fgOffUebernehmen"]'),function(b){ if(!b.disabled) b.click(); }); }
 /* ================= RIKI – Root Index KI =================
    Ruft die Edge Function „riki-analyse" auf. Der API-Key liegt als Supabase-Secret und
    verlässt den Server NIE. Riki befüllt nur das Formular – gespeichert wird erst per Klick. */
@@ -6621,6 +6673,8 @@ async function openFgEditor(id, prefill){
     <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
     <div id="fe_zutRows">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")||fgZutRow("",null,"nein")}</div>
     <button type="button" onclick="fgAddZutat()" style="margin-top:4px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px">+ Zutat</button>
+    <button type="button" onclick="fgOffZutaten()" title="Zutatenliste per EAN aus Open Food Facts holen – nur Gegenprobe, überschreibt nichts" style="margin-top:4px;margin-left:6px;padding:7px 12px;border:1px solid var(--k-2e7d32);border-radius:8px;background:var(--k-fbf8f2);color:var(--k-2e7d32);cursor:pointer;font-size:13px">&#128269; Zutaten aus OFF (Gegenprobe)</button>
+    <div id="fgOffBox" style="margin-top:8px"></div>
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Produktbild</div>
     <div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:120px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div>
     <input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px">
@@ -8748,7 +8802,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15n";
+const APP_BUILD = "2026-07-15o";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
