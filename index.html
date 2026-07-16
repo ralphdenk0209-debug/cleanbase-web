@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15q off-gegenprobe holt zutaten direkt (fix: leeres ingredients_text_de faellt auf ingredients_text zurueck) -->
+<!-- build 2026-07-15r off-gegenprobe: zutaten-normalisierung (umbruch-trennstriche joinen + funktionsklassen-praefixe strippen -> bessere stamm-erkennung) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -6444,10 +6444,20 @@ function fgSplitZutaten(t){
   var out=[],depth=0,cur='';
   for(var i=0;i<t.length;i++){ var c=t[i];
     if(c==='('||c==='[')depth++; else if(c===')'||c===']')depth=Math.max(0,depth-1);
-    if((c===','||c===';')&&depth===0){ out.push(cur); cur=''; } else cur+=c; }
+    var sep=(c===','||c===';')&&depth===0;
+    /* Dezimalkomma (Ziffer,Ziffer) ist KEIN Trenner: "0,1%" bleibt zusammen. */
+    if(c===',' && /\d/.test(t[i-1]||'') && /\d/.test(t[i+1]||'')) sep=false;
+    if(sep){ out.push(cur); cur=''; } else cur+=c; }
   if(cur.trim())out.push(cur);
-  return out.map(function(s){ return s.replace(/[*_]+/g,'').replace(/\s*\d+([.,]\d+)?\s*%/g,'').replace(/\s+/g,' ').trim(); })
-            .filter(function(s){ return s && s.length>1 && !/^(davon|kann spuren|enth[aä]lt|hergestellt)/i.test(s); });
+  return out.map(function(s){ return s
+      .replace(/\s+-\s+/g,'')                 /* Zeilenumbruch-Trennstriche joinen: "Reis - stärke" -> "Reisstärke" */
+      .replace(/^\s*(süßungsmittel|stabilisator(?:en)?|emulgator(?:en)?|farbstoffe?|säuerungsmittel|konservierungsstoffe?|antioxidationsmittel|verdickungsmittel|geliermittel|trennmittel|geschmacksverst[aä]rker|s[aä]ureregulator)\s*:\s*/i,'')  /* Funktionsklasse weg: "Süßungsmittel: Sucralose" -> "Sucralose" */
+      .replace(/[*_]+/g,'')
+      .replace(/\s*[\d.,]+\s*%/g,'')           /* Prozentangaben (auch "0,1%") entfernen */
+      .replace(/\s+/g,' ')
+      .replace(/[.,;:\s]+$/,'')                /* Satzzeichen am Ende ("Laktase." -> "Laktase") */
+      .trim(); })
+      .filter(function(s){ return s && s.length>1 && !/^(davon|kann spuren|enth[aä]lt|hergestellt)/i.test(s); });
 }
 async function fgOffZutaten(){
   var box=document.getElementById('fgOffBox'); if(!box) return;
@@ -8820,7 +8830,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15q";
+const APP_BUILD = "2026-07-15r";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
