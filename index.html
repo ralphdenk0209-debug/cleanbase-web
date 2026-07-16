@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15o freigabe: zutaten-gegenprobe aus off je ean (nicht-destruktiv, uebernehmen je zutat) -->
+<!-- build 2026-07-15p off-gegenprobe zeigt off-produktname + mismatch-warnung (falscher barcode) + foto-zoom bis 1200% -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3637,7 +3637,7 @@ function fotoFenster(src){
 }
 function fotoWinZoom(dir){
   var img=document.getElementById('fotoWinImg'); if(!img) return;
-  var z=Math.max(100, Math.min(500, (window._fotoWinZoom||100)+dir*25));
+  var z=Math.max(100, Math.min(1200, (window._fotoWinZoom||100)+dir*40));
   window._fotoWinZoom=z; img.style.width=z+'%';
 }
 /* Kopfleiste zieht das FENSTER. */
@@ -6471,7 +6471,13 @@ async function fgOffZutaten(){
         +'<button type="button" onclick="fgOffUebernehmen(this,\''+safe+'\')" style="flex:0 0 auto;border:1px solid var(--k-16a34a);background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);border-radius:7px;padding:3px 9px;cursor:pointer;font-size:11.5px">+ übernehmen</button>'
         +'<span style="flex:1;min-width:0">'+esc(nm)+'</span>'+badge+'</div>';
     }).join('');
-    box.innerHTML='<div style="border:1px solid var(--line);border-left:3px solid var(--k-2e7d32);border-radius:8px;padding:9px 11px;background:var(--k-f2f5f3)">'
+    var offLabel=esc(d.name||'?')+(d.marke?(' · '+esc(d.marke)):'');
+    var mism=fgNameMismatch((((document.getElementById('fe_name')||{}).value)||''), d.name, d.marke);
+    var kopf = mism
+      ? '<div style="color:var(--k-b91c1c);font-weight:700;font-size:12px;margin-bottom:6px;line-height:1.4">⚠️ OFF-Produkt weicht ab – evtl. falscher Barcode:<br>OFF: '+offLabel+'</div>'
+      : '<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">OFF-Produkt: <b style="color:var(--ink)">'+offLabel+'</b></div>';
+    box.innerHTML='<div style="border:1px solid var(--line);border-left:3px solid '+(mism?'var(--k-b91c1c)':'var(--k-2e7d32)')+';border-radius:8px;padding:9px 11px;background:var(--k-f2f5f3)">'
+      +kopf
       +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px"><b>OFF-Gegenprobe</b> · '+parts.length+' Zutaten · community-gepflegt, gegen das Etikett prüfen. '
       +'<button type="button" onclick="fgOffAlle()" style="border:0;background:transparent;color:var(--k-534ab7);cursor:pointer;font-size:11.5px;text-decoration:underline;padding:0">alle übernehmen</button></div>'
       +rows+'</div>';
@@ -6488,6 +6494,14 @@ function fgOffUebernehmen(btn,name){
   if(btn){ btn.textContent='✓'; btn.disabled=true; btn.style.opacity='.55'; btn.style.cursor='default'; }
 }
 function fgOffAlle(){ [].forEach.call(document.querySelectorAll('#fgOffBox button[onclick^="fgOffUebernehmen"]'),function(b){ if(!b.disabled) b.click(); }); }
+/* Grober Namensabgleich: hat OFF ein GANZ anderes Produkt zurueckgegeben (falscher Barcode)?
+   Wenn Editor-Name und OFF-Name/Marke KEIN gemeinsames Wort (>=3 Zeichen) haben -> Warnung. */
+function fgTokens(s){ return ((s||'')+'').toLowerCase().replace(/[^a-z0-9äöüß ]/g,' ').split(/\s+/).filter(function(w){ return w.length>=3; }); }
+function fgNameMismatch(editName, offName, offBrand){
+  var e=fgTokens(editName); var o=fgTokens((offName||'')+' '+(offBrand||''));
+  if(!e.length || !o.length) return false;  /* nichts zu vergleichen -> keine Warnung */
+  return !e.some(function(w){ return o.indexOf(w)>=0; });
+}
 /* ================= RIKI – Root Index KI =================
    Ruft die Edge Function „riki-analyse" auf. Der API-Key liegt als Supabase-Secret und
    verlässt den Server NIE. Riki befüllt nur das Formular – gespeichert wird erst per Klick. */
@@ -8802,7 +8816,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15o";
+const APP_BUILD = "2026-07-15p";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
