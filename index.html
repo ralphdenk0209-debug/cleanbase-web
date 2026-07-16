@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15s freigabe-index readonly+gebunden (unbekannt -> riki+waechter), scan-eingang/entwuerfe entdoppelt, scan-anlegen holt off live wenn server nichts hat -->
+<!-- build 2026-07-15t admin-ansicht breiter (1040px, pc-arbeit) + rezept-einheiten pck./handvoll/messerspitze -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1121,7 +1121,7 @@
     </div>
   </div>
   <div id="freigabeView" style="display:none">
-    <div style="max-width:640px;margin:0 auto">
+    <div style="max-width:1040px;margin:0 auto">
       <h2 style="margin:.1em 0 .35em;font-size:19px">Freigabe</h2>
       <div class="seg" id="fgTabs" style="margin-bottom:14px">
         <button id="fgtDash" onclick="fgTab('dash')">📊 Dashboard</button>
@@ -8143,7 +8143,7 @@ function renderRezeptList(){
     g.appendChild(t);
   }
 }
-const RZ_UNITS=[["g",1],["ml",1],["Stück",null],["EL",15],["TL",5],["Prise",0.5]];
+const RZ_UNITS=[["g",1],["ml",1],["Stück",null],["EL",15],["TL",5],["Prise",0.5],["Pck.",null],["Handvoll",null],["Messerspitze",null]];
 /* Menge+Einheit -> Gramm (für Nährwerte/Index). Stück = Portionsgewicht des verknüpften Produkts. */
 function rzToGrams(amount, unit, pid){
   if(!(amount>0)) return null;
@@ -8914,7 +8914,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15s";
+const APP_BUILD = "2026-07-15t";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
