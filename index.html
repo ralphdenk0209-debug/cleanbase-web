@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15p off-gegenprobe zeigt off-produktname + mismatch-warnung (falscher barcode) + foto-zoom bis 1200% -->
+<!-- build 2026-07-15q off-gegenprobe holt zutaten direkt (fix: leeres ingredients_text_de faellt auf ingredients_text zurueck) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -6455,13 +6455,17 @@ async function fgOffZutaten(){
   if(ean.length<8){ box.innerHTML='<span style="color:var(--k-b45309);font-size:12.5px">Erst eine gültige EAN eintragen.</span>'; return; }
   box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Open Food Facts wird abgefragt…</span>';
   try{
-    var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
-    var r=await fetch(client.supabaseUrl+'/functions/v1/off-lookup',{method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},
-      body:JSON.stringify({mode:'ean',ean:ean})});
-    var d=await r.json();
-    if(!d||!d.gefunden||!d.zutaten_text){ box.innerHTML='<span style="color:var(--k-b45309);font-size:12.5px">OFF kennt dieses Produkt nicht (oder ohne Zutatenliste) – normal bei Nischenprodukten. Dann über Etikett/Riki.</span>'; return; }
-    var parts=fgSplitZutaten(d.zutaten_text);
+    /* Direkt bei OFF holen (CORS erlaubt), damit wir die Rohfelder selbst auswerten. */
+    var r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(ean)+'.json?fields=product_name,product_name_de,brands,ingredients_text_de,ingredients_text',{headers:{'Accept':'application/json'}});
+    var j=await r.json();
+    var p=(j&&j.status===1)?j.product:null;
+    if(!p){ box.innerHTML='<span style="color:var(--k-b45309);font-size:12.5px">OFF kennt diese EAN nicht – normal bei Nischenprodukten. Dann über Etikett/Riki.</span>'; return; }
+    var d={ name:(p.product_name_de||p.product_name||''), marke:(p.brands||'') };
+    /* WICHTIG: || statt ?? – OFF hat bei deutschen Produkten oft ingredients_text_de="" (leer),
+       die Liste steht dann nur in ingredients_text. Mit ?? ginge sie verloren. */
+    var ztext=(p.ingredients_text_de||p.ingredients_text||'').trim();
+    if(!ztext){ box.innerHTML='<span style="color:var(--k-b45309);font-size:12.5px">OFF hat „'+esc(d.name||'?')+'", aber keine Zutatenliste hinterlegt. Dann über Etikett/Riki.</span>'; return; }
+    var parts=fgSplitZutaten(ztext);
     if(!parts.length){ box.innerHTML='<span style="color:var(--k-b45309);font-size:12.5px">OFF-Zutatenliste nicht auswertbar.</span>'; return; }
     var rows=parts.map(function(nm){
       var m=ZUTATEN_MAP[nm.trim().toLowerCase()];
@@ -8816,7 +8820,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15p";
+const APP_BUILD = "2026-07-15q";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
