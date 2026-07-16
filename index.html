@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15t admin-ansicht breiter (1040px, pc-arbeit) + rezept-einheiten pck./handvoll/messerspitze -->
+<!-- build 2026-07-15u naehrwert "davon mehrwertige alkohole" (polyole): feld in editor+scan, speichern, atwater als spanne (0..2,4 kcal/g) - score unberuehrt -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3237,7 +3237,7 @@ async function ladeNutzungPanel(){
    ges. Fett, Kohlenhydrate, Zucker, Ballaststoffe, Eiweiß, Salz. Vorher standen
    Eiweiß und Fett verkehrt - man musste beim Abtippen springen. */
 const NW_FELDER=[["kcal","kcal",""],["fett","Fett","g"],["ges_fett","davon gesättigt","g"],
-  ["kh","Kohlenhydrate","g"],["zucker","davon Zucker","g"],["ballaststoffe","Ballaststoffe","g"],
+  ["kh","Kohlenhydrate","g"],["zucker","davon Zucker","g"],["polyole","dav. mehrw. Alkohole","g"],["ballaststoffe","Ballaststoffe","g"],
   ["protein","Eiweiß","g"],["salz","Salz","g"]];
 /* Produktkategorien als feste Auswahl - Freitext fuehrt zu Tippfehlern und Dubletten
    ("Nussprodukte / Pulver" vs "Nüsse & Hülsenfrüchte"). Riki darf vorschlagen, der
@@ -3261,7 +3261,7 @@ function nwForm(ean, n){
   return '<table style="width:100%;border-collapse:collapse;font-size:13px">'
     +NW_FELDER.map(function(r){
       const v=(n[r[0]]==null?"":n[r[0]]);
-      const ind=(r[0]==="zucker"||r[0]==="ges_fett")?'padding-left:12px;color:var(--muted)':'';
+      const ind=(r[0]==="zucker"||r[0]==="ges_fett"||r[0]==="polyole")?'padding-left:12px;color:var(--muted)':'';
       const pflicht=(r[0]==="kcal"||r[0]==="protein"||r[0]==="kh"||r[0]==="fett");
       return '<tr><td style="padding:2px 0;'+ind+'">'+r[1]+(pflicht?' <span style="color:var(--k-c2453a)">*</span>':'')+'</td>'
         +'<td style="padding:2px 0;text-align:right;white-space:nowrap">'
@@ -3295,19 +3295,25 @@ function sePruefe(ean){
   if(n.kcal==null||n.protein==null||n.kh==null||n.fett==null){
     w.push("Pflichtfelder fehlen (kcal, Eiweiß, KH, Fett).");
   } else {
-    const ber = 4*n.protein + 4*n.kh + 9*n.fett + 2*(n.ballaststoffe||0);
-    const abw = Math.abs(n.kcal - ber);
-    if(n.kcal>0 && abw>20 && abw/n.kcal>0.30)
-      w.push("kcal ("+Math.round(n.kcal)+") passt nicht zu den Makros – rechnerisch "+Math.round(ber)+".");
+    const poly = n.polyole||0;
+    /* Polyole liefern eine kcal-SPANNE: 0 (Erythrit) … 2,4/g (Maltit). Nur flaggen, wenn ausserhalb. */
+    const berMin = 4*n.protein + 4*Math.max(n.kh-poly,0) + 9*n.fett + 2*(n.ballaststoffe||0);
+    const berMax = berMin + 2.4*poly;
+    const dev = Math.max(berMin - n.kcal, n.kcal - berMax, 0);
+    if(n.kcal>0 && dev>20 && dev/n.kcal>0.30)
+      w.push("kcal ("+Math.round(n.kcal)+") passt nicht zu den Makros – plausibel wären "+Math.round(berMin)+(poly>0?("–"+Math.round(berMax)):"")+" kcal.");
     if(n.zucker!=null && n.zucker > n.kh+0.5) w.push("Zucker über Kohlenhydraten – unmöglich.");
+    if(n.polyole!=null && n.polyole > n.kh+0.5) w.push("Mehrwertige Alkohole über Kohlenhydraten – unmöglich.");
     if(n.ges_fett!=null && n.ges_fett > n.fett+0.5) w.push("Gesättigtes Fett über Gesamtfett – unmöglich.");
     if(n.protein+n.kh+n.fett+(n.ballaststoffe||0) > 108) w.push("Summe über 100 g – unmöglich.");
   }
   if(w.length){
     box.innerHTML='<span style="color:var(--k-b91c1c)">&#9888; '+w.map(esc).join("<br>&#9888; ")+'</span>';
   } else {
-    const ber = 4*n.protein + 4*n.kh + 9*n.fett + 2*(n.ballaststoffe||0);
-    box.innerHTML='<span style="color:var(--k-16a34a)">&#10003; Plausibel. Rechnerisch '+Math.round(ber)+' kcal.</span>';
+    const poly = n.polyole||0;
+    const berMin = 4*n.protein + 4*Math.max(n.kh-poly,0) + 9*n.fett + 2*(n.ballaststoffe||0);
+    const berMax = berMin + 2.4*poly;
+    box.innerHTML='<span style="color:var(--k-16a34a)">&#10003; Plausibel. Rechnerisch '+Math.round(berMin)+(poly>0?("–"+Math.round(berMax)):"")+' kcal.</span>';
   }
 }
 
@@ -3453,11 +3459,11 @@ function seZutatenLesen(ean){
 function scanStatus(e){
   var n=(e&&e.naehrwerte)||{};
   var nz=function(v){ v=parseFloat(v); return isFinite(v)?v:null; };
-  var kcal=nz(n.kcal), p=nz(n.protein), kh=nz(n.kh), f=nz(n.fett), b=nz(n.ballaststoffe);
+  var kcal=nz(n.kcal), p=nz(n.protein), kh=nz(n.kh), f=nz(n.fett), b=nz(n.ballaststoffe), poly=nz(n.polyole)||0;
   var g=[];
   if(kcal==null||p==null||kh==null||f==null) g.push('Pflicht-Nährwerte fehlen');
-  else if(kcal>0){ var ber=4*p+4*kh+9*f+2*(b||0), diff=Math.abs(kcal-ber);
-    if(diff>20 && diff/kcal>0.30) g.push('kcal unplausibel'); }
+  else if(kcal>0){ var berMin=4*p+4*Math.max(kh-poly,0)+9*f+2*(b||0), berMax=berMin+2.4*poly, dev=Math.max(berMin-kcal,kcal-berMax,0);
+    if(dev>20 && dev/kcal>0.30) g.push('kcal unplausibel'); }
   if(Array.isArray(e&&e.warnungen)&&e.warnungen.length) g.push('Riki-Hinweise');
   return {gruen:g.length===0, gruende:g};
 }
@@ -6767,7 +6773,7 @@ async function openFgEditor(id, prefill){
       <div style="display:flex;gap:8px"><label style="font-size:13px;flex:1">EAN${inp("fe_ean",d.ean)}</label><label style="font-size:13px;flex:1">Basis${inp("fe_basis",d.basis||"100g")}</label></div>
     </div>
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Nährwerte pro 100 g/ml</div>
-    ${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("ballaststoffe","Ballaststoffe","g")}${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}
+    ${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:16px 0 4px">Zusatzstoffe</div>
     ${inp("fe_ztext",d.zusatzstoffe_text||"keine")}
     <div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>
@@ -6815,7 +6821,7 @@ async function fgEditSave(alsoFreigeben){
   const g=id=>document.getElementById(id);
   const msg=g("fe_msg"); msg.style.color="var(--k-374151)"; msg.textContent="⏳ speichern…";
   const numv=v=>{ v=(v==null?"":String(v)).trim(); return v===""?undefined:Number(v.replace(",",".")); };
-  const nw={}; ["kcal","protein","kh","zucker","fett","ges_fett","ballaststoffe","salz"].forEach(k=>{ const v=numv(g("fe_"+k).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
+  const nw={}; ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(k=>{ const v=numv(g("fe_"+k).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
   const zut=[...document.querySelectorAll("#fe_zutRows .fgZutRow")].map(row=>{
     const nm=(row.querySelector(".fgzName").value||"").trim();
     /* LEER heisst NULL, nicht 5. Wer das Feld leer laesst, sagt "ich weiss es nicht" -
@@ -8914,7 +8920,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15t";
+const APP_BUILD = "2026-07-15u";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
