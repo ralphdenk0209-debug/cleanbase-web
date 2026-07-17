@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15x eingang: kompakte uebersicht (mini-bild, name, barcode, score, status) mit aufklappen zur vollen pruef-karte -->
+<!-- build 2026-07-15y eingang-zeile oeffnet den gleichen editor wie "produkt anlegen" (einheitlich, zutaten per off-gegenprobe/riki ergaenzbar) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3465,12 +3465,16 @@ function scanStatus(e){
   if(Array.isArray(e&&e.warnungen)&&e.warnungen.length) g.push('Riki-Hinweise');
   return {gruen:g.length===0, gruende:g};
 }
-/* Eingang: kompakte Zeile auf-/zuklappen. */
-function seToggle(ean){
-  var b=document.getElementById("seBody_"+ean); if(!b) return;
-  var open=(b.style.display==="none"||!b.style.display);
-  b.style.display=open?"block":"none";
-  var c=document.getElementById("seChev_"+ean); if(c) c.style.transform=open?"rotate(180deg)":"";
+/* Eingang: Klick öffnet die Prüf-Karte im gleichen Editor wie „Produkt anlegen". */
+function seOeffnen(ean){
+  var e=(window._scanEingang||[]).find(function(x){ return String(x.ean)===String(ean); });
+  if(!e) return;
+  var nw={};
+  ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(function(k){ if(e.naehrwerte&&e.naehrwerte[k]!=null) nw[k]=e.naehrwerte[k]; });
+  var zut=Array.isArray(e.zutaten)?e.zutaten.map(function(z){ return {name:z.name, rating:z.rating, kritisch:z.kritisch}; }):[];
+  openFgEditor(null, { name:e.name||'', marke:e.marke||'', ean:String(e.ean||''), kategorie:e.kategorie||'',
+    naehrwerte:nw, zutaten:zut, zusatzstoffe_text:(e.zusatzstoffe&&e.zusatzstoffe.text)||'',
+    hinweis:'Aus dem Scan-Eingang. Werte gegen das Etikett prüfen; Zutaten bei Bedarf über „Zutaten aus OFF" oder Riki ergänzen.' });
 }
 async function loadScanEingang(){
   const box=document.getElementById("fgScanPruef"); if(!box) return;
@@ -3513,7 +3517,7 @@ async function loadScanEingang(){
       var statusB=(e._st&&e._st.gruen)?'<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">✓ schnell</span>':'<span style="background:var(--k-fff7ea);color:var(--k-8a5a0b);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">⚠ prüfen</span>';
       var thumb=fotos.length?'<img src="'+fotos[0]+'" onclick="event.stopPropagation();fotoGross(\''+esc(e.ean)+'\',0)" style="width:42px;height:42px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;flex:0 0 auto" title="zum Vergrößern">':'';
       return '<div style="border:1px solid var(--line);border-radius:12px;margin-bottom:9px;background:var(--card);overflow:hidden">'
-        +'<div onclick="seToggle(\''+esc(e.ean)+'\')" style="display:flex;align-items:center;gap:10px;padding:9px 11px;cursor:pointer">'
+        +'<div onclick="seOeffnen(\''+esc(e.ean)+'\')" style="display:flex;align-items:center;gap:10px;padding:9px 11px;cursor:pointer">'
           +'<div style="flex:0 0 auto">'+donut(e.score, farbe(scoreBew(e.score)), 38)+'</div>'
           +thumb
           +'<div style="flex:1;min-width:0">'
@@ -3521,7 +3525,7 @@ async function loadScanEingang(){
             +'<div style="font-size:11.5px;color:var(--muted)">Barcode '+esc(e.ean)+' · '+e.treffer+'×</div>'
           +'</div>'
           +hkS+statusB
-          +'<span id="seChev_'+esc(e.ean)+'" style="flex:0 0 auto;color:var(--muted);font-size:15px;transition:transform .15s">▼</span>'
+          +'<span style="flex:0 0 auto;color:var(--k-0369a1);font-size:13px;font-weight:600;white-space:nowrap">Prüfen →</span>'
         +'</div>'
         +'<div id="seBody_'+esc(e.ean)+'" style="display:none;padding:2px 12px 12px;border-top:1px solid var(--line)">'
           + (vorhanden ? '<div style="font-size:12px;background:var(--k-eef2f6);color:var(--k-475569);border-radius:8px;padding:7px 9px;margin:10px 0 8px">Existiert bereits als <b>'+esc(vorhanden.produkt_id)+'</b> (Status: '+esc(vorhanden.status||"?")+'). Beim Übernehmen wird dieser Eintrag <b>aktualisiert</b>, keine Dublette.</div>' : '<div style="height:10px"></div>')
@@ -8993,7 +8997,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15x";
+const APP_BUILD = "2026-07-15y";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
