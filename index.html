@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15w reiter produkte+anfragen ausgeblendet (entwuerfe+auto-verify+riki-audit in eingang zusammengefuehrt) + off-pull liest polyole -->
+<!-- build 2026-07-15x eingang: kompakte uebersicht (mini-bild, name, barcode, score, status) mit aufklappen zur vollen pruef-karte -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3465,6 +3465,13 @@ function scanStatus(e){
   if(Array.isArray(e&&e.warnungen)&&e.warnungen.length) g.push('Riki-Hinweise');
   return {gruen:g.length===0, gruende:g};
 }
+/* Eingang: kompakte Zeile auf-/zuklappen. */
+function seToggle(ean){
+  var b=document.getElementById("seBody_"+ean); if(!b) return;
+  var open=(b.style.display==="none"||!b.style.display);
+  b.style.display=open?"block":"none";
+  var c=document.getElementById("seChev_"+ean); if(c) c.style.transform=open?"rotate(180deg)":"";
+}
 async function loadScanEingang(){
   const box=document.getElementById("fgScanPruef"); if(!box) return;
   box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Scan-Eingang…</div>';
@@ -3502,65 +3509,46 @@ async function loadScanEingang(){
 
       const inp='padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;width:100%;box-sizing:border-box';
 
-      return '<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--card)">'
-        +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
-          +'<div id="seDonut_'+esc(e.ean)+'">'+donut(e.score, farbe(scoreBew(e.score)), 46)+'</div>'
-          +'<div style="flex:1;min-width:140px">'
-            +'<div style="font-size:12px;color:var(--muted)">Barcode '+esc(e.ean)+' &middot; '+e.treffer+'&times; gescannt</div>'
-            +'<div style="margin-top:3px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">'+herkunftTxt
-              + (e._st && e._st.gruen
-                  ? '<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700">✓ schnell prüfbar</span>'
-                  : '<span style="background:var(--k-fff7ea);color:var(--k-8a5a0b);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700">⚠ '+((e._st&&e._st.gruende||[]).join(' · ')||'prüfen')+'</span>')
+      var hkS=(e.herkunft==="riki_etikett")?'<span style="background:var(--k-fdf6e7);color:var(--k-7a5c1e);padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap">Riki – prüfen</span>':'<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap">OFF</span>';
+      var statusB=(e._st&&e._st.gruen)?'<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">✓ schnell</span>':'<span style="background:var(--k-fff7ea);color:var(--k-8a5a0b);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">⚠ prüfen</span>';
+      var thumb=fotos.length?'<img src="'+fotos[0]+'" onclick="event.stopPropagation();fotoGross(\''+esc(e.ean)+'\',0)" style="width:42px;height:42px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;flex:0 0 auto" title="zum Vergrößern">':'';
+      return '<div style="border:1px solid var(--line);border-radius:12px;margin-bottom:9px;background:var(--card);overflow:hidden">'
+        +'<div onclick="seToggle(\''+esc(e.ean)+'\')" style="display:flex;align-items:center;gap:10px;padding:9px 11px;cursor:pointer">'
+          +'<div style="flex:0 0 auto">'+donut(e.score, farbe(scoreBew(e.score)), 38)+'</div>'
+          +thumb
+          +'<div style="flex:1;min-width:0">'
+            +'<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(e.name||'(ohne Name)')+(e.marke?' <span style="color:var(--muted);font-weight:400">· '+esc(e.marke)+'</span>':'')+'</div>'
+            +'<div style="font-size:11.5px;color:var(--muted)">Barcode '+esc(e.ean)+' · '+e.treffer+'×</div>'
+          +'</div>'
+          +hkS+statusB
+          +'<span id="seChev_'+esc(e.ean)+'" style="flex:0 0 auto;color:var(--muted);font-size:15px;transition:transform .15s">▼</span>'
+        +'</div>'
+        +'<div id="seBody_'+esc(e.ean)+'" style="display:none;padding:2px 12px 12px;border-top:1px solid var(--line)">'
+          + (vorhanden ? '<div style="font-size:12px;background:var(--k-eef2f6);color:var(--k-475569);border-radius:8px;padding:7px 9px;margin:10px 0 8px">Existiert bereits als <b>'+esc(vorhanden.produkt_id)+'</b> (Status: '+esc(vorhanden.status||"?")+'). Beim Übernehmen wird dieser Eintrag <b>aktualisiert</b>, keine Dublette.</div>' : '<div style="height:10px"></div>')
+          + (rikiWarn.length ? '<div style="font-size:12px;background:var(--k-fdf6e7);color:var(--k-7a5c1e);border-radius:8px;padding:7px 9px;margin-bottom:8px">Hinweis:<br>&bull; '+rikiWarn.map(esc).join("<br>&bull; ")+'</div>' : '')
+          +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">'
+            +'<div style="flex:1 1 190px;min-width:150px">'
+              +(fotos.length ? fotos.map(function(f,fi){ return '<img src="'+f+'" onclick="fotoGross(\''+esc(e.ean)+'\','+fi+')" style="width:100%;border-radius:9px;border:1px solid var(--line);margin-bottom:6px;cursor:zoom-in;display:block">'; }).join("") : '<div style="padding:16px;border:1px dashed var(--line);border-radius:9px;text-align:center;color:var(--muted);font-size:12.5px">Kein Etikettfoto<br><span style="font-size:11px">(Daten aus OpenFoodFacts)</span></div>')
             +'</div>'
+            +'<div style="flex:1 1 200px;min-width:160px">'+nwForm(e.ean, e.naehrwerte)+'</div>'
           +'</div>'
-        +'</div>'
-
-        + (vorhanden ? '<div style="font-size:12px;background:var(--k-eef2f6);color:var(--k-475569);border-radius:8px;padding:7px 9px;margin-bottom:8px">'
-            +'Existiert bereits als <b>'+esc(vorhanden.produkt_id)+'</b> (Status: '+esc(vorhanden.status||"?")+'). '
-            +'Beim Übernehmen wird dieser Eintrag <b>aktualisiert</b>, keine Dublette angelegt.</div>' : '')
-
-        + (rikiWarn.length ? '<div style="font-size:12px;background:var(--k-fdf6e7);color:var(--k-7a5c1e);border-radius:8px;padding:7px 9px;margin-bottom:8px">'
-            +'Hinweis:<br>&bull; '+rikiWarn.map(esc).join("<br>&bull; ")+'</div>' : '')
-
-        /* Foto LINKS, Eingabefelder RECHTS – nebeneinander, damit man vergleicht UND korrigiert. */
-        +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">'
-          +'<div style="flex:1 1 190px;min-width:150px">'
-            +(fotos.length
-              ? fotos.map(function(f,fi){
-                  return '<img src="'+f+'" onclick="fotoGross(\''+esc(e.ean)+'\','+fi+')" '
-                    +'style="width:100%;border-radius:9px;border:1px solid var(--line);margin-bottom:6px;cursor:zoom-in;display:block">';
-                }).join("")
-              : '<div style="padding:16px;border:1px dashed var(--line);border-radius:9px;text-align:center;color:var(--muted);font-size:12.5px">'
-                +'Kein Etikettfoto<br><span style="font-size:11px">(Daten aus OpenFoodFacts)</span></div>')
+          +'<div style="margin-top:11px;display:flex;gap:6px;flex-wrap:wrap">'
+            +'<input id="seName_'+esc(e.ean)+'" value="'+esc(e.name||"")+'" placeholder="Produktname" style="flex:2 1 150px;'+inp+'">'
+            +'<input id="seMarke_'+esc(e.ean)+'" value="'+esc(e.marke||"")+'" placeholder="Marke" style="flex:1 1 100px;'+inp+'">'
+            +katSelectHtml('seKat_'+esc(e.ean), e.kategorie)
           +'</div>'
-          +'<div style="flex:1 1 200px;min-width:160px">'
-            +nwForm(e.ean, e.naehrwerte)
+          +'<div style="margin-top:6px;font-size:12px"><a href="https://www.google.com/search?q='+encodeURIComponent((e.ean||'')+' '+(e.name||e.marke||''))+'" target="_blank" rel="noopener" style="color:var(--k-0369a1);text-decoration:none">🌐 Barcode / Produkt im Web suchen ↗</a></div>'
+          +'<div style="margin-top:11px;font-size:12px;color:var(--muted);margin-bottom:5px">Zutaten &middot; Zahl = <b>Verarbeitungsgrad</b> (10 = roh, 2 = raffiniert):</div>'
+          +seZutatenForm(e.ean, e.zutaten)
+          +'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:13px">'
+            +'<button onclick="scanSpeichern(\''+esc(e.ean)+'\')" style="flex:1 1 130px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-weight:700;cursor:pointer;font-size:13.5px">💾 Korrektur speichern</button>'
+            +'<button onclick="scanUebernehmen(\''+esc(e.ean)+'\',true)" style="flex:1 1 140px;padding:12px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:700;cursor:pointer;font-size:14px">Freigeben &amp; aktiv</button>'
+            +'<button onclick="scanUebernehmen(\''+esc(e.ean)+'\',false)" style="flex:0 0 auto;padding:12px 13px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-weight:600;cursor:pointer;font-size:12.5px">Entwurf</button>'
+            +'<button onclick="scanVerwerfen(\''+esc(e.ean)+'\')" style="flex:0 0 auto;padding:12px 13px;border:1px solid var(--k-f2c9c4);border-radius:10px;background:var(--k-ffffff);color:var(--k-b91c1c);font-weight:600;cursor:pointer;font-size:12.5px">Verwerfen</button>'
           +'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:5px">Erst speichern, dann freigeben. „Freigeben" speichert deine Änderungen automatisch mit.</div>'
+          +'<div id="seMsg_'+esc(e.ean)+'" style="font-size:12.5px;margin-top:7px"></div>'
         +'</div>'
-
-        +'<div style="margin-top:11px;display:flex;gap:6px;flex-wrap:wrap">'
-          +'<input id="seName_'+esc(e.ean)+'" value="'+esc(e.name||"")+'" placeholder="Produktname" style="flex:2 1 150px;'+inp+'">'
-          +'<input id="seMarke_'+esc(e.ean)+'" value="'+esc(e.marke||"")+'" placeholder="Marke" style="flex:1 1 100px;'+inp+'">'
-          +katSelectHtml('seKat_'+esc(e.ean), e.kategorie)
-        +'</div>'
-        /* Statt OFF-Daten daneben: ein Web-Suchlink ueber den Barcode - fuehrt zur
-           Hersteller-/Produktseite, wo man Zutaten & Werte im Original nachliest. */
-        +'<div style="margin-top:6px;font-size:12px">'
-          +'<a href="https://www.google.com/search?q='+encodeURIComponent((e.ean||'')+' '+(e.name||e.marke||''))+'" target="_blank" rel="noopener" style="color:var(--k-0369a1);text-decoration:none">🌐 Barcode / Produkt im Web suchen ↗</a>'
-        +'</div>'
-
-        +'<div style="margin-top:11px;font-size:12px;color:var(--muted);margin-bottom:5px">'
-          +'Zutaten &middot; Zahl = <b>Verarbeitungsgrad</b> (10 = roh, 2 = raffiniert):</div>'
-        +seZutatenForm(e.ean, e.zutaten)
-
-        +'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:13px">'
-          +'<button onclick="scanSpeichern(\''+esc(e.ean)+'\')" style="flex:1 1 130px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-weight:700;cursor:pointer;font-size:13.5px">💾 Korrektur speichern</button>'
-          +'<button onclick="scanUebernehmen(\''+esc(e.ean)+'\',true)" style="flex:1 1 140px;padding:12px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:700;cursor:pointer;font-size:14px">Freigeben &amp; aktiv</button>'
-          +'<button onclick="scanUebernehmen(\''+esc(e.ean)+'\',false)" style="flex:0 0 auto;padding:12px 13px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-weight:600;cursor:pointer;font-size:12.5px">Entwurf</button>'
-          +'<button onclick="scanVerwerfen(\''+esc(e.ean)+'\')" style="flex:0 0 auto;padding:12px 13px;border:1px solid var(--k-f2c9c4);border-radius:10px;background:var(--k-ffffff);color:var(--k-b91c1c);font-weight:600;cursor:pointer;font-size:12.5px">Verwerfen</button>'
-        +'</div>'
-        +'<div style="font-size:11px;color:var(--muted);margin-top:5px">Erst speichern, dann freigeben. „Freigeben" speichert deine Änderungen automatisch mit.</div>'
-        +'<div id="seMsg_'+esc(e.ean)+'" style="font-size:12.5px;margin-top:7px"></div>'
       +'</div>';
     }).join("")
     +'<div style="height:1px;background:var(--line);margin:16px 0"></div>';
@@ -9005,7 +8993,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15w";
+const APP_BUILD = "2026-07-15x";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
