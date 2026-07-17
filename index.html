@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15aa kategorie-dropdown normale hoehe, feldgenauer "fehlt fuer den score"-check unten, speichern auch unvollstaendig moeglich -->
+<!-- build 2026-07-15ab KRITISCH: eingang-zeile eines bereits vorhandenen produkts laedt jetzt den DB-stand (nicht den scan-cache) -> keine datenverluste beim wiederoeffnen. + tagebuch-historie: ganze mahlzeit uebernehmen via cb_tb_copy_meal -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3470,6 +3470,11 @@ function scanStatus(e){
 function seOeffnen(ean){
   var e=(window._scanEingang||[]).find(function(x){ return String(x.ean)===String(ean); });
   if(!e) return;
+  /* WICHTIG: Existiert das Produkt bereits, den GESPEICHERTEN Stand aus der DB laden
+     (openFgEditor mit ID -> cb_produkt_edit_get), NICHT die veralteten Scan-Rohdaten.
+     Sonst zeigt der Editor beim Wiederöffnen leere Felder und ein Speichern
+     überschreibt die guten Werte mit Leer. */
+  if(e.vorhanden_als && e.vorhanden_als.produkt_id){ openFgEditor(e.vorhanden_als.produkt_id); return; }
   var nw={};
   ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(function(k){ if(e.naehrwerte&&e.naehrwerte[k]!=null) nw[k]=e.naehrwerte[k]; });
   var zut=Array.isArray(e.zutaten)?e.zutaten.map(function(z){ return {name:z.name, rating:z.rating, kritisch:z.kritisch}; }):[];
@@ -5969,11 +5974,36 @@ async function tbFavToggle(id, btn){
   }catch(e){}
 }
 async function tbHistList(){
+  const box=document.getElementById("tbAddResults"); if(!box) return;
+  /* 1) Ganze Mahlzeiten aus der Historie (z. B. „Frühstück von gestern" komplett übernehmen).
+        Nutzt die vorhandene Logik cb_tb_history + cb_tb_copy_meal. */
+  let meals=[]; try{ const {data}=await client.rpc("cb_tb_history",{p_limit:20}); meals=data||[]; }catch(e){}
+  /* 2) Einzelne Produkte aus der Historie. */
   let ids=[]; try{ const {data}=await client.rpc("cb_tb_history_produkte",{p_limit:90}); ids=(data||[]).map(x=>x.produkt_id); }catch(e){}
   const list=ids.map(id=>(ALL||[]).find(p=>p.id===id)).filter(Boolean);
-  window._tbAddList=list;
-  const box=document.getElementById("tbAddResults"); if(!box) return;
-  box.innerHTML = list.length ? list.map((p,i)=>tbRowHtml(p,i)).join("") : '<div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Noch keine Historie – trage erst etwas ein.</div>';
+  window._tbAddList=list; window._tbHistMeals=meals;
+  const uhead=function(txt,col){ return '<div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:'+col+';margin:2px 0 6px">'+txt+'</div>'; };
+  let html="";
+  if(meals.length){
+    html+=uhead("Ganze Mahlzeiten","var(--k-2e7d32)")+meals.map((m,i)=>tbHistMealRow(m,i)).join("");
+    if(list.length) html+=uhead("Einzelne Einträge","var(--k-57534e)")+'';
+  }
+  html+= list.length ? list.map((p,i)=>tbRowHtml(p,i)).join("") : "";
+  box.innerHTML = html || '<div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Noch keine Historie – trage erst etwas ein.</div>';
+}
+function tbHistMealRow(m,i){
+  var ds=m.datum; try{ ds=new Date((m.datum||"")+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"short"}); }catch(e){}
+  return '<div style="display:flex;align-items:center;gap:8px;background:var(--k-ffffff);border:1px solid var(--k-e7e0d4);border-radius:10px;padding:10px;margin-bottom:6px">'
+    +'<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(m.mahlzeit||"")+' <span style="font-weight:400;color:var(--k-6b6256)">· '+esc(ds)+'</span></div>'
+    +'<div style="font-size:11.5px;color:var(--k-6b6256);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(m.items||"")+' · '+Math.round(m.kcal||0)+' kcal</div></div>'
+    +'<button onclick="tbHistCopyMeal('+i+')" title="Ganze Mahlzeit übernehmen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid var(--k-e7e0d4);color:var(--k-2e7d32);font-size:18px;cursor:pointer;flex:0 0 auto">+</button></div>';
+}
+async function tbHistCopyMeal(i){
+  const m=(window._tbHistMeals||[])[i]; if(!m) return;
+  const dd=document.getElementById("tbDatum").value||tbToday(), dm=window._tbAddMeal||"Frühstück";
+  const {data,error}=await client.rpc("cb_tb_copy_meal",{p_src_datum:m.datum,p_src_mahlzeit:m.mahlzeit,p_dest_datum:dd,p_dest_mahlzeit:dm});
+  if(error){ alert("Fehler: "+error.message); return; }
+  const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
 }
 async function tbFavList(){
   let ids=[]; try{ const {data}=await client.rpc("cb_fav_liste"); ids=(data||[]).map(x=>x.produkt_id); window._favSet=new Set(ids); }catch(e){}
@@ -9027,7 +9057,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15aa";
+const APP_BUILD = "2026-07-15ab";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
