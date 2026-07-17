@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15ac tagebuch-historie: zwei unter-reiter (ganze mahlzeiten / einzelne) -->
+<!-- build 2026-07-15ad in-app-wiki: suessstoffe, zuckeralkohole & schnelle kohlenhydrate (blutzucker) erklaert -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -4799,6 +4799,14 @@ function wikiOpen(){
       ${box(`<b>Supplements:</b> ebenfalls ohne Nährwert-Teil (Fokus auf Inhaltsstoffe). <b>Ausnahme Proteinpulver:</b> Da man es in Mahlzeiten-Mengen isst (nicht mikro-dosiert wie eine Vitaminkapsel), zählt hier die Nährwert-Achse wie bei einem Lebensmittel – trotz Einordnung als Supplement.<br><br>
         <b>Trägerstoffe der Darreichung</b> – Kapselhülle (Gelatine, Cellulose/HPMC, Pullulan) und das Feuchthaltemittel Glycerin (E422) – werden bei Supplements <b>nicht als Verarbeitungs- oder Zutaten-Malus</b> gewertet: Sie sind pharmakopöe-/EU-zugelassen und gesundheitlich inert und machen ein Präparat nicht ungesünder. Bewertet wird der <b>Wirkstoff</b> (Form, Dosis, Reinheit). So wird eine Kapsel nicht wie ein hochverarbeitetes Lebensmittel behandelt. Ebenfalls inert und daher nicht abgewertet: <b>Magnesiumstearat (E470b)</b> und <b>mikrokristalline Cellulose (E460)</b> – EFSA-Neubewertungen 2018 ohne Sicherheitsbedenken. <b>Nicht</b> ausgenommen bleiben Siliciumdioxid (E551), Maltodextrin und Methylcellulose. <b>Titandioxid (E171)</b> zählt dagegen als Negativpunkt (EFSA 2021: nicht mehr sicher, EU-Verbot seit 2022). Grundlagen: EU-VO 1333/2008, EFSA-Bewertungen, Europäisches Arzneibuch.`)}
 
+      ${H("Süßstoffe, Zuckeralkohole & schnelle Kohlenhydrate")}
+      ${box(`Wie eine Zutat eingestuft wird, richtet sich nach ihrem <b>Verarbeitungsgrad</b> – nicht nach „gesund/ungesund“ (das steckt im Nährwert- und Zusatzstoff-Teil). Für Süßes heißt das:<br><br>
+        • <b>Künstliche Süßstoffe</b> (Sucralose, Aspartam, Acesulfam) sind vollsynthetische Stoffe – sie stehen so niedrig wie Zucker, <b>nicht besser</b>. Die WHO rät (2023) davon ab, sie als Zucker-Ersatz zur Gewichtskontrolle zu nutzen.<br>
+        • <b>Natürliche Süßstoffe</b> (Steviolglycoside/Stevia) stehen einen Tick höher – pflanzlich, ohne die spezifischen Warnsignale. Aber „natürlich“ ist <b>kein Freifahrtschein</b>: die WHO zählt auch Stevia dazu.<br>
+        • <b>Zuckeralkohole</b> (Erythrit, Xylit) liegen darüber: Sie erhöhen den Blutzucker kaum und sind zahnfreundlich – ein Lebensmittel sind sie trotzdem nicht.`)}
+      ${box(`<b>Der versteckte Schnellzucker.</b> Manche Zutaten treiben den Blutzucker <b>so stark wie Zucker oder stärker</b>, tauchen auf dem Etikett aber nicht als „Zucker“ auf, sondern als Stärke: <b>Maltodextrin, Traubenzucker (Dextrose), Glukose- und Reissirup</b>. Wir bewerten sie deshalb <b>auf Zucker-Niveau</b>.<br><br>
+        Ganze Lebensmittel strafen wir dafür <b>nicht</b> ab: <b>Datteln</b> und <b>Honig</b> enthalten zwar Zucker, verlaufen durch Ballaststoffe bzw. geringe Verarbeitung aber deutlich sanfter als reiner Traubenzucker – das bilden schon der Verarbeitungs- und der Nährwert-Teil ab.`)}
+
       ${H("Zusatzstoffe – wissenschaftlich bewertet")}
       ${box(`Die Zusatzstoff-Wertung misst die <b>gesundheitliche Bedenklichkeit</b> – nicht den Verarbeitungsgrad (den zeigt die Achse „Verarbeitung“). Grundlage: <b>EU-Verordnung (EG) Nr. 1333/2008</b> und <b>EFSA</b>-Bewertungen. Wir prüfen die Studienlage regelmäßig.<br><br>
         <b>Als unbedenklich gewertet</b> (EU-zugelassen, EFSA ohne Sicherheitsbedenken – ADI „not specified“): z. B. Guarkernmehl (E412), Johannisbrotkernmehl (E410), Pektin (E440), Ascorbinsäure/Vitamin C (E300), Tofu-Gerinnungsmittel (E509/E511/E516), natürliche Aromen &amp; Rosmarinextrakt.<br><br>
@@ -9060,7 +9068,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15ac";
+const APP_BUILD = "2026-07-15ad";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
