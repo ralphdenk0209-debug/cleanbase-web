@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15z kategorie als dropdown (vorbelegt), freigabe-meldung sichtbar (scrollt hin, warum nicht freigegeben) -->
+<!-- build 2026-07-15aa kategorie-dropdown normale hoehe, feldgenauer "fehlt fuer den score"-check unten, speichern auch unvollstaendig moeglich -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3244,11 +3244,12 @@ const KATEGORIEN=["Brot & Backwaren","Brotaufstrich","Energy-Gel","Fleisch & Fis
   "Getreide & Beilagen","Milchprodukte & Eier","Nüsse & Hülsenfrüchte","Obst & Gemüse","Öle & Fette",
   "Proteinpulver","Riegel","Snacks","Supplement","Süßungsmittel","Süßwaren",
   "Tofu & Fleischalternativen","Würzen & Saucen","Lebensmittel","Sonstiges"];
-function katSelectHtml(id, aktuell){
+function katSelectHtml(id, aktuell, styleOverride){
   var a=(aktuell||"").trim();
   var opts=KATEGORIEN.slice();
   if(a && opts.indexOf(a)<0) opts.unshift(a);   /* Rikis Vorschlag nicht verlieren, auch wenn er nicht in der Liste ist */
-  return '<select id="'+id+'" style="flex:1 1 130px;min-width:130px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px">'
+  var st=styleOverride||'flex:1 1 130px;min-width:130px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px';
+  return '<select id="'+id+'" style="'+st+'">'
     +'<option value="">Kategorie wählen…</option>'
     + opts.map(function(k){ return '<option value="'+esc(k)+'"'+(k===a?' selected':'')+'>'+esc(k)+'</option>'; }).join('')
     +'</select>';
@@ -6774,7 +6775,7 @@ async function openFgEditor(id, prefill){
         ${card("Produkt",`<div style="display:grid;gap:8px">
           <label style="font-size:13px">Titel${inp("fe_name",d.name)}</label>
           <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
-          <div style="display:flex;gap:8px"><label style="font-size:13px;flex:1;display:flex;flex-direction:column;gap:3px">Kategorie${katSelectHtml("fe_kat",d.kategorie)}</label><label style="font-size:13px;flex:1">Unterkat.${inp("fe_ukat",d.unterkategorie)}</label></div>
+          <div style="display:flex;gap:8px"><label style="font-size:13px;flex:1">Kategorie${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</label><label style="font-size:13px;flex:1">Unterkat.${inp("fe_ukat",d.unterkategorie)}</label></div>
           <label style="font-size:13px">Basis${inp("fe_basis",d.basis||"100g")}</label>
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
@@ -6839,8 +6840,25 @@ function fePlaus(){
   }
   var rd=document.getElementById("fe_ready");
   if(rd){
-    var nwOk=(kcal!=null&&p!=null&&kh!=null&&f!=null), qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
-    rd.innerHTML='Freigabe-Check: <span style="color:'+(nwOk?'var(--k-166534)':'var(--k-b45309)')+'">Nährwerte '+(nwOk?'✓':'○')+'</span> · <span style="color:'+(qt?'var(--k-166534)':'var(--k-b45309)')+'">Quelle '+(qt?'✓':'○')+'</span>';
+    /* Feldgenauer Freigabe-Check: zeigt exakt, was den Score blockiert –
+       gespiegelt an der DB-Regel (Nährwert-Achse braucht diese Werte, sonst kein Score).
+       Kein Auto-Ausfüllen: der Admin trägt 0 oder den echten Wert selbst ein. */
+    var fehlt=[];
+    var nwReq=[["fe_kcal","Energie"],["fe_fett","Fett"],["fe_ges_fett","ges. Fett"],["fe_kh","Kohlenhydrate"],["fe_zucker","Zucker"],["fe_protein","Eiweiß"],["fe_salz","Salz"],["fe_ballaststoffe","Ballaststoffe"]];
+    nwReq.forEach(function(r){ if(gv(r[0])==null) fehlt.push(r[1]); });
+    var zRows=[].slice.call(document.querySelectorAll("#fe_zutRows .fgZutRow"));
+    var zMit=zRows.filter(function(row){ return ((row.querySelector(".fgzName")||{}).value||"").trim()!==""; });
+    var zOhneNote=zMit.filter(function(row){ return ((row.querySelector(".fgzRate")||{}).value||"").trim()===""; }).length;
+    if(zMit.length===0) fehlt.push("mind. 1 Zutat");
+    if(zOhneNote>0) fehlt.push(zOhneNote+" Zutat(en) ohne Bewertung");
+    var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
+    if(!qt) fehlt.push("Quelle-Typ");
+    if(fehlt.length===0){
+      rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe – alle Achsen belegt.</span>';
+    } else {
+      rd.innerHTML='<span style="color:var(--k-b45309)">Fehlt für den Score: <b>'+fehlt.join(", ")+'</b>'
+        +(fehlt.indexOf("Ballaststoffe")>=0?' <span style="color:var(--muted)">· hat das Produkt keine, trag 0 ein</span>':'')+'</span>';
+    }
   }
 }
 /* Kaskade 1: Nährwerte + Name + Zutaten-Text aus OFF holen (OFF wird vertraut -> Quelle_Typ gesetzt). */
@@ -6928,6 +6946,13 @@ async function fgEditSave(alsoFreigeben){
       try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
       loadFreigabe(); return;
     }
+  }
+  if(data && data.vollstaendig===false){
+    msg.style.color="var(--k-b45309)"; msg.style.fontWeight="700";
+    msg.textContent="💾 Gespeichert – aber noch KEIN Score. Siehe die Zeile Fehlt für den Score unten; trag den fehlenden Wert ein (fehlt nur Ballaststoffe: 0 eintragen).";
+    try{ fePlaus(); }catch(e){}
+    try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
+    loadFreigabe(); return;
   }
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"+(alsoFreigeben?" & freigegeben":"");
   try{ const aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(x=>({...x, clean_score:num(x.clean_score)})); }catch(e){}
@@ -9002,7 +9027,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15z";
+const APP_BUILD = "2026-07-15aa";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
