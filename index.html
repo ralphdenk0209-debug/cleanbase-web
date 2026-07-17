@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15v freigabe-maske neu: zwei spalten, daten-holen-leiste (off/herstellerseite), quelle-karte, erfassungsdatum, live-plausibilitaet, breiter dialog -->
+<!-- build 2026-07-15w reiter produkte+anfragen ausgeblendet (entwuerfe+auto-verify+riki-audit in eingang zusammengefuehrt) + off-pull liest polyole -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1125,11 +1125,11 @@
       <h2 style="margin:.1em 0 .35em;font-size:19px">Freigabe</h2>
       <div class="seg" id="fgTabs" style="margin-bottom:14px">
         <button id="fgtDash" onclick="fgTab('dash')">📊 Dashboard</button>
-        <button id="fgtProdukte" class="active" onclick="fgTab('produkte')">Produkte</button>
+        <button id="fgtProdukte" onclick="fgTab('produkte')" style="display:none">Produkte</button>
         <button id="fgtBundles" onclick="fgTab('bundles')">Bundles</button>
         <button id="fgtRezepte" onclick="fgTab('rezepte')">Rezepte</button>
-        <button id="fgtScans" onclick="fgTab('scans')">Eingang</button>
-        <button id="fgtKontakt" onclick="fgTab('kontakt')">Anfragen</button>
+        <button id="fgtScans" class="active" onclick="fgTab('scans')">Eingang</button>
+        <button id="fgtKontakt" onclick="fgTab('kontakt')" style="display:none">Anfragen</button>
         <button id="fgtEmpfehlungen" onclick="fgTab('empfehlungen')">Empfehlungen</button>
       </div>
       <div id="fgPanelDash" style="display:none">
@@ -1139,6 +1139,10 @@
       </div>
       <div id="fgPanelScans" style="display:none">
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:12px">Alles, was in den Katalog will – aus <b>allen drei Quellen</b>: gescannte Barcodes, manuelle Tagebuch-Einträge und Produktwünsche aus dem Kontaktformular. „OFF holen" befüllt nur als <b>Vorschlag</b>; freigegeben wird erst nach deiner Prüfung.</div>
+        <div style="margin:0 0 8px"><button onclick="openFgEditor(null)" style="padding:9px 14px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:14px;font-weight:600;cursor:pointer">➕ Neues Produkt anlegen</button></div>
+        <h3 style="font-size:15px;margin:6px 0 4px">📋 Entwürfe zum Freigeben</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Nur vollständig bewertete Produkte mit Quelle sind freigebbar.</div>
+        <div id="fgEntwuerfe" style="margin-bottom:16px"></div>
         <div id="fgScanPruef"></div>
         <h3 style="font-size:15px;margin:0 0 4px">📷 Gescannte Barcodes &amp; Etikettfotos</h3>
         <div style="color:var(--muted);font-size:12px;margin-bottom:8px">Grün umrandet = <b>Top-Kandidat</b>: Nutzer hat es gegessen und es liegt bei Open Food Facts.</div>
@@ -1149,28 +1153,22 @@
         <h3 style="font-size:15px;margin:22px 0 4px">📨 Produktwünsche aus dem Kontaktformular</h3>
         <div style="color:var(--muted);font-size:12px;margin-bottom:8px">Gemeldete Produkte, jeweils mit Pflicht-EAN.</div>
         <div id="fgWuensche" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
-      </div>
-      <div id="fgPanelProdukte">
-        <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Eingereichte Entwürfe prüfen, bearbeiten und freischalten. Nur vollständig bewertete Produkte sind freigebbar.</div>
-        <button onclick="openFgEditor(null)" style="margin-bottom:12px;padding:9px 14px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:14px;font-weight:600;cursor:pointer">➕ Neues Produkt anlegen</button>
-        <div id="fgEntwuerfe"></div>
         <h3 style="font-size:15px;margin:22px 0 4px">🤖 Auto-Verifizierung</h3>
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px;line-height:1.5">Gleicht alle Produkte mit EAN, die noch nicht verifiziert sind, gegen <b>Open Food Facts</b> ab.<br>
           <b>Bestätigt die Quelle alle Nährwerte</b> → Produkt wird verifiziert; vollständige Entwürfe werden freigegeben.<br>
           <b>Weicht auch nur ein Wert ab</b> → Produkt bleibt ungeprüft, die Abweichung wird protokolliert. Es wird <b>nichts überschrieben und nichts geraten</b>.</div>
         <button onclick="autoVerifyStart(false)" style="padding:9px 14px;border:1px solid var(--k-0ea5e9);border-radius:10px;background:var(--card);color:var(--k-0369a1);font-size:13.5px;font-weight:600;cursor:pointer">🔍 Trockenlauf starten</button>
         <div id="fgAutoV" style="margin-top:10px;font-size:14px"></div>
-
         <h3 style="font-size:15px;margin:22px 0 4px">🤖 Riki-Audit · unsere eigenen Zutaten prüfen</h3>
-        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px;line-height:1.5">Riki bewertet die Zutaten unseres Katalogs <b>neu nach dem Regelwerk</b> und vergleicht mit unserem Stamm. Abweichungen ab 2 Punkten werden aufgelistet – <b>es wird nichts geändert</b>. So wurde heute der Olivenöl-Fehler gefunden (wir: 10, richtig: 7).</div>
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px;line-height:1.5">Riki bewertet die Zutaten unseres Katalogs <b>neu nach dem Regelwerk</b> und vergleicht mit unserem Stamm. Abweichungen ab 2 Punkten werden aufgelistet – <b>es wird nichts geändert</b>.</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button onclick="rikiAudit(60,false)" style="padding:9px 14px;border:0;border-radius:10px;background:var(--k-534ab7);color:var(--k-ffffff);font-size:13.5px;font-weight:600;cursor:pointer">Top 60 Zutaten prüfen (~$0,02)</button>
           <button onclick="rikiAudit(200,false)" style="padding:9px 14px;border:1px solid var(--k-cecbf6);border-radius:10px;background:var(--card);color:var(--k-534ab7);font-size:13px;cursor:pointer">Top 200 (~$0,06)</button>
           <button onclick="rikiAudit(400,false)" style="padding:9px 14px;border:1px solid var(--k-cecbf6);border-radius:10px;background:var(--card);color:var(--k-534ab7);font-size:13px;cursor:pointer">Alle (~$0,12)</button>
         </div>
         <div id="fgRikiAudit" style="margin-top:10px;font-size:14px"></div>
-        <div style="margin-top:16px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted)">Scans, Etikettfotos, manuelle Tagebuch-Einträge und Produktwünsche findest du gebündelt im Tab <b>Eingang</b>.</div>
       </div>
+      <div id="fgPanelProdukte" style="display:none"></div>
       <div id="fgPanelBundles" style="display:none">
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Benannte Kombinationen mehrerer Produkte (z. B. Frühstücks-Bundle). Nur du (Admin).</div>
         <button onclick="bundleNeu()" style="margin-bottom:10px;padding:9px 14px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);font-weight:600;cursor:pointer">➕ Neues Bundle</button>
@@ -2939,7 +2937,7 @@ function setMode(m){
   if(m==="training") loadTraining();
   if(m==="zyklus") renderZyklus();
   if(m==="darm") renderDarm();
-  if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab(window._fgTab||'produkte'); }
+  if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab((window._fgTab&&window._fgTab!=='produkte'&&window._fgTab!=='kontakt')?window._fgTab:'scans'); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
@@ -6868,7 +6866,7 @@ async function fgPullOff(){
     var ne=document.getElementById("fe_name"); if(ne&&nm&&!ne.value) ne.value=nm;
     var me=document.getElementById("fe_marke"); if(me&&mk&&!me.value) me.value=mk;
     sv("fe_kcal",n["energy-kcal_100g"]); sv("fe_protein",n["proteins_100g"]); sv("fe_kh",n["carbohydrates_100g"]);
-    sv("fe_zucker",n["sugars_100g"]); sv("fe_fett",n["fat_100g"]); sv("fe_ges_fett",n["saturated-fat_100g"]);
+    sv("fe_zucker",n["sugars_100g"]); sv("fe_polyole",n["polyols_100g"]); sv("fe_fett",n["fat_100g"]); sv("fe_ges_fett",n["saturated-fat_100g"]);
     sv("fe_ballaststoffe",n["fiber_100g"]); sv("fe_salz",n["salt_100g"]);
     var zt=(p.ingredients_text_de||p.ingredients_text||"").trim(); var rt=document.getElementById("rikiText"); if(rt&&zt&&!rt.value) rt.value=zt;
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="OpenFoodFacts";
@@ -9007,7 +9005,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15v";
+const APP_BUILD = "2026-07-15w";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
