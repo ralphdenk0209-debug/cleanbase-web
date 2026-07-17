@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15y eingang-zeile oeffnet den gleichen editor wie "produkt anlegen" (einheitlich, zutaten per off-gegenprobe/riki ergaenzbar) -->
+<!-- build 2026-07-15z kategorie als dropdown (vorbelegt), freigabe-meldung sichtbar (scrollt hin, warum nicht freigegeben) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -6774,7 +6774,7 @@ async function openFgEditor(id, prefill){
         ${card("Produkt",`<div style="display:grid;gap:8px">
           <label style="font-size:13px">Titel${inp("fe_name",d.name)}</label>
           <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
-          <div style="display:flex;gap:8px"><label style="font-size:13px;flex:1">Kategorie${inp("fe_kat",d.kategorie)}</label><label style="font-size:13px;flex:1">Unterkat.${inp("fe_ukat",d.unterkategorie)}</label></div>
+          <div style="display:flex;gap:8px"><label style="font-size:13px;flex:1;display:flex;flex-direction:column;gap:3px">Kategorie${katSelectHtml("fe_kat",d.kategorie)}</label><label style="font-size:13px;flex:1">Unterkat.${inp("fe_ukat",d.unterkategorie)}</label></div>
           <label style="font-size:13px">Basis${inp("fe_basis",d.basis||"100g")}</label>
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
@@ -6892,7 +6892,7 @@ async function fgPullHersteller(){
 }
 async function fgEditSave(alsoFreigeben){
   const g=id=>document.getElementById(id);
-  const msg=g("fe_msg"); msg.style.color="var(--k-374151)"; msg.textContent="⏳ speichern…";
+  const msg=g("fe_msg"); msg.style.color="var(--k-374151)"; msg.style.fontWeight="400"; msg.textContent="⏳ speichern…";
   const numv=v=>{ v=(v==null?"":String(v)).trim(); return v===""?undefined:Number(v.replace(",",".")); };
   const nw={}; ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(k=>{ const v=numv(g("fe_"+k).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
   const zut=[...document.querySelectorAll("#fe_zutRows .fgZutRow")].map(row=>{
@@ -6922,7 +6922,12 @@ async function fgEditSave(alsoFreigeben){
   }
   if(alsoFreigeben && pid){
     const fr=await client.rpc("produkt_pruefen_freigeben",{p_id:pid});
-    if(fr.error){ msg.style.color="var(--k-b45309)"; msg.textContent="Gespeichert, aber Freigabe nicht möglich: "+fr.error.message+" (evtl. unvollständig)"; loadFreigabe(); return; }
+    if(fr.error){
+      msg.style.color="var(--k-b45309)"; msg.style.fontWeight="700";
+      msg.textContent="💾 Gespeichert – aber NICHT freigegeben: "+fr.error.message;
+      try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
+      loadFreigabe(); return;
+    }
   }
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"+(alsoFreigeben?" & freigegeben":"");
   try{ const aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(x=>({...x, clean_score:num(x.clean_score)})); }catch(e){}
@@ -8997,7 +9002,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15y";
+const APP_BUILD = "2026-07-15z";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
