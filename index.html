@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15ab KRITISCH: eingang-zeile eines bereits vorhandenen produkts laedt jetzt den DB-stand (nicht den scan-cache) -> keine datenverluste beim wiederoeffnen. + tagebuch-historie: ganze mahlzeit uebernehmen via cb_tb_copy_meal -->
+<!-- build 2026-07-15ac tagebuch-historie: zwei unter-reiter (ganze mahlzeiten / einzelne) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -5975,21 +5975,24 @@ async function tbFavToggle(id, btn){
 }
 async function tbHistList(){
   const box=document.getElementById("tbAddResults"); if(!box) return;
-  /* 1) Ganze Mahlzeiten aus der Historie (z. B. „Frühstück von gestern" komplett übernehmen).
-        Nutzt die vorhandene Logik cb_tb_history + cb_tb_copy_meal. */
+  /* Zwei Unter-Reiter: „Ganze Mahlzeiten" (cb_tb_history + cb_tb_copy_meal) und „Einzelne". */
   let meals=[]; try{ const {data}=await client.rpc("cb_tb_history",{p_limit:20}); meals=data||[]; }catch(e){}
-  /* 2) Einzelne Produkte aus der Historie. */
   let ids=[]; try{ const {data}=await client.rpc("cb_tb_history_produkte",{p_limit:90}); ids=(data||[]).map(x=>x.produkt_id); }catch(e){}
   const list=ids.map(id=>(ALL||[]).find(p=>p.id===id)).filter(Boolean);
   window._tbAddList=list; window._tbHistMeals=meals;
-  const uhead=function(txt,col){ return '<div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:'+col+';margin:2px 0 6px">'+txt+'</div>'; };
-  let html="";
-  if(meals.length){
-    html+=uhead("Ganze Mahlzeiten","var(--k-2e7d32)")+meals.map((m,i)=>tbHistMealRow(m,i)).join("");
-    if(list.length) html+=uhead("Einzelne Einträge","var(--k-57534e)")+'';
-  }
-  html+= list.length ? list.map((p,i)=>tbRowHtml(p,i)).join("") : "";
-  box.innerHTML = html || '<div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Noch keine Historie – trage erst etwas ein.</div>';
+  if(!window._tbHistSub) window._tbHistSub = meals.length ? 'mahlzeiten' : 'einzeln';
+  tbHistRender();
+}
+function tbHistSub(k){ window._tbHistSub=k; tbHistRender(); }
+function tbHistRender(){
+  const box=document.getElementById("tbAddResults"); if(!box) return;
+  const meals=window._tbHistMeals||[], list=window._tbAddList||[], sub=window._tbHistSub||'mahlzeiten';
+  const btn=function(k,l,n){ const on=(sub===k); return '<button onclick="tbHistSub(\''+k+'\')" style="flex:1;padding:8px 4px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid '+(on?'var(--k-16a34a)':'var(--k-e7e0d4)')+';background:'+(on?'rgba(22,163,74,.16)':'var(--k-fbf8f2)')+';color:'+(on?'var(--k-2e7d32)':'var(--k-57534e)')+'">'+l+' <span style="opacity:.7">('+n+')</span></button>'; };
+  let html='<div style="display:flex;gap:6px;margin-bottom:10px">'+btn('mahlzeiten','Ganze Mahlzeiten',meals.length)+btn('einzeln','Einzelne',list.length)+'</div>';
+  const leer=function(t){ return '<div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">'+t+'</div>'; };
+  if(sub==='mahlzeiten') html+= meals.length ? meals.map((m,i)=>tbHistMealRow(m,i)).join("") : leer("Noch keine ganzen Mahlzeiten – trage an einem Tag mehrere Sachen ein.");
+  else html+= list.length ? list.map((p,i)=>tbRowHtml(p,i)).join("") : leer("Noch keine Einzel-Einträge in der Historie.");
+  box.innerHTML=html;
 }
 function tbHistMealRow(m,i){
   var ds=m.datum; try{ ds=new Date((m.datum||"")+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"short"}); }catch(e){}
@@ -9057,7 +9060,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15ab";
+const APP_BUILD = "2026-07-15ac";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
