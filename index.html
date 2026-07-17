@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-15ad in-app-wiki: suessstoffe, zuckeralkohole & schnelle kohlenhydrate (blutzucker) erklaert -->
+<!-- build 2026-07-15ae usda holen: generische naehrwerte aus USDA FoodData Central (edge-function usda-lookup) neben OFF holen -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -6807,6 +6807,7 @@ async function openFgEditor(id, prefill){
         <input id="fe_ean" value="${esc(d.ean||"")}" placeholder="EAN" style="flex:1;min-width:130px;padding:8px;border:1px solid var(--line);border-radius:8px">
         <button type="button" onclick="fgPullOff()" style="padding:8px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;white-space:nowrap">OFF holen</button>
         <button type="button" onclick="fgPullHersteller()" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">Herstellerseite</button>
+        <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name, z. B. rohe Pilze/Gemüse/Getreide)" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">USDA holen</button>
         ${id?`<button type="button" onclick="fgShotCam('${esc(d.id)}')" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">Etikettfoto</button>`:""}
       </div>
       <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:6px">Reihenfolge: OFF → Herstellerseite → Foto/manuell. Gefundene Werte füllen die Maske – du prüfst nur.</div>
@@ -6947,6 +6948,30 @@ async function fgPullHersteller(){
     try{ fePlaus(); }catch(e){}
     var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Von der Herstellerseite gelesen – <b>gegen das Etikett prüfen</b>."+warn; }
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message; } }
+}
+/* Kaskade 3: USDA FoodData Central – generische Nährwerte je 100 g (rohe Pilze/Gemüse/Getreide).
+   Englischer, generischer Name. Läuft serverseitig (usda-lookup), Key als Secret USDA_FDC_KEY. */
+async function fgPullUsda(){
+  var msg=document.getElementById("fe_pullMsg");
+  var vor=((document.getElementById("fe_name")||{}).value||"").trim();
+  var q=prompt("USDA-Suche – englischer, generischer Lebensmittelname\n(z. B. „king oyster mushroom raw\", „rye bran\", „ground beef raw\"):", vor);
+  if(!q) return; q=q.trim(); if(!q) return;
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="USDA FoodData Central wird abgefragt…"; }
+  try{
+    var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
+    var r=await fetch(client.supabaseUrl+'/functions/v1/usda-lookup',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({query:q})});
+    var d=await r.json();
+    if(d.fehler){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="USDA: "+d.fehler; } return; }
+    if(!d.gefunden){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent="Kein USDA-Treffer für „"+q+"\" – USDA kennt nur generische, englische Namen."; } return; }
+    var n=d.naehrwerte||{}, sv=function(id,x){ var e=document.getElementById(id); if(e&&x!=null&&isFinite(x)) e.value=Math.round(x*100)/100; };
+    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
+    var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="USDA FoodData Central";
+    var bl=document.getElementById("fe_beleg"); if(bl&&!bl.value) bl.value="USDA FoodData Central: "+(d.name||q)+(d.fdc_id?(" (FDC "+d.fdc_id+")"):"");
+    try{ fePlaus(); }catch(e){}
+    var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
+    var demo=d.key_demo?" <span style=\"color:var(--k-b45309)\">(DEMO_KEY – knappes Limit; eigenen Key als Secret USDA_FDC_KEY setzen)</span>":"";
+    if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; USDA: <b>"+esc(d.name||q)+"</b> (je 100 g) übernommen – <b>gegen das Etikett prüfen</b>."+warn+demo; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message; } }
 }
 async function fgEditSave(alsoFreigeben){
@@ -9068,7 +9093,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-15ad";
+const APP_BUILD = "2026-07-15ae";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
