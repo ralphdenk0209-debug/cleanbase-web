@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-18e stueckige zutaten runden beim skalieren auf ganze einheiten; rezept-zutaten fuer admin und ersteller aenderbar (datenbankseitig) -->
+<!-- build 2026-07-18f produktkarte beginnt beim oeffnen wieder oben, nicht dort wo zuletzt gescrollt wurde -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3100,6 +3100,28 @@ function pkSperre(titel, was){
   +'</div>';
 }
 function closeP(){document.getElementById("overlay").classList.remove("open"); var pn=document.getElementById("panel"); if(pn) pn.style.maxWidth="";}
+/* Eine Karte beginnt oben. Immer. (Ralph, 18.07.2026)
+   Wer eine Produktkarte weit unten schliesst und wieder oeffnet, landete bisher
+   mitten im Blutzucker-Verlauf - das Panel behaelt seine Scroll-Position, weil es
+   dasselbe DOM-Element bleibt und nur neu befuellt wird.
+   An 5 der 11 Oeffnen-Stellen stand das Zuruecksetzen schon, an 6 fehlte es.
+   Statt sechs Einzelflicken wird hier EINMAL beobachtet, wann das Overlay aufgeht -
+   das faengt auch jeden kuenftigen Oeffnen-Weg ab, an den sonst niemand denkt. */
+(function panelImmerObenBeginnen(){
+  function start(){
+    var ov=document.getElementById("overlay"); if(!ov) return;
+    try{
+      new MutationObserver(function(){
+        if(ov.classList.contains("open")){
+          var p=document.getElementById("panel");
+          if(p) p.scrollTop=0;
+        }
+      }).observe(ov,{attributes:true, attributeFilter:["class"]});
+    }catch(e){}
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",start);
+  else start();
+})();
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));}
 function naehrstoffHtml(d){
   const ns=d&&d.naehrstoffe; if(!ns||!ns.length) return '';
@@ -9731,7 +9753,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-18e";
+const APP_BUILD = "2026-07-18f";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
