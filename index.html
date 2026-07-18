@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-18a anlegemaske: zweispaltig, riki eingeklappt, freigabe-riegel dauerhaft sichtbar, bild optional, eigenes url-feld. beleg-kette: jede quelle haengt an statt zu ueberschreiben -->
+<!-- build 2026-07-18b adminbereich laeuft im dunkelmodus (freigabe, stufen, nutzer, riki-import); nutzeransicht folgt weiter der persoenlichen wahl -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3152,8 +3152,25 @@ document.getElementById("loginOverlay").onclick=e=>{if(e.target.id==="loginOverl
 ["q"].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("input",render); });
 
 let REZEPTE=null;
+/* Admin-Bereiche laufen im Dunkelmodus (Ralph, 18.07.2026) - unabhaengig davon,
+   was der Theme-Schalter fuer die Nutzeransicht sagt. Grund: Der Admin ist ein
+   Arbeitsplatz, die Nutzeransicht ein Schaufenster. Wer beides gleich einfaerbt,
+   sieht nicht mehr, wo er gerade steht.
+   Die persoenliche Wahl (auto/hell/dunkel) bleibt unangetastet - beim Verlassen
+   des Admin-Bereichs wird sie einfach wieder angewendet. */
+var ADMIN_MODI = ["freigabe","stufen","nutzer","rikiimport"];
+function adminThemeAnwenden(m){
+  try{
+    var istAdmin = ADMIN_MODI.indexOf(m) >= 0;
+    if(istAdmin){ document.documentElement.setAttribute("data-theme","dark"); }
+    else if(typeof window.riThemeAnwenden === "function"){
+      window.riThemeAnwenden(window.riThemeWahl || "auto");
+    }
+  }catch(e){}
+}
 function setMode(m){
   window._curMode=m;
+  adminThemeAnwenden(m);
   try{ window.scrollTo(0,0); }catch(e){}
   document.getElementById("tabProd").classList.toggle("active",m==="produkte");
   document.getElementById("tabRez").classList.toggle("active",m==="rezepte");
@@ -9587,7 +9604,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-18a";
+const APP_BUILD = "2026-07-18b";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
