@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-17c produktkarte v2: fester kopf (ruhig), zwei reiter (naehrwerte/herleitung) die die untere karte flippen, zutaten ueber der blutzucker-kurve, stufe gruen/gelb/rot gedaempft -->
+<!-- build 2026-07-17d zurueck auf alte produktkarte (detail2-umbau gefiel nicht, offener punkt), blutzucker-verlaufskurve unten in die alte karte eingefuegt. detail2 bleibt als admin-entwurf -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -2806,13 +2806,14 @@ function detail(d){
   /* .then() ist PFLICHT: der Supabase-Builder ist faul - ohne await oder .then
      wird die Anfrage NIE gesendet. "Fire and forget" heisst trotzdem: erst zuenden. */
   try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}).then(function(){},function(){}); }catch(e){}
-  /* NEUE KARTE ist jetzt Standard für alle: bewertete Lebensmittel bekommen die
-     Flip+Reiter-Ansicht (detail2). Supplements/unbewertete nutzen weiter diese hier.
-     Admins können per Toggle (window.__pkAlt) auf die alte Karte zurückschauen. */
+  /* ZURÜCK auf die ALTE Karte (Standard für alle). Der Karten-Umbau (detail2, Flip+Reiter)
+     gefiel nicht - steht als offener Punkt zum Neuentwurf. Admins können den Entwurf per
+     Button ansehen. Der gute Blutzucker-Verlauf wird UNTEN in diese Karte eingefügt. */
   var _isScoredFood=(d.clean_score!=null && String(d.kategorie||'').toLowerCase()!=='supplement');
-  if(_isScoredFood && !window.__pkAlt){ return detail2(d); }
   var _adminHere=(typeof ME!=='undefined' && ME && ME.is_admin);
-  var adminTestBtn=(_adminHere && _isScoredFood)?'<div style="margin:2px 0 8px"><button onclick="window.__pkAlt=false;detailById(\''+d.id+'\')" style="padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--muted);font-size:12px;cursor:pointer">← zurück zur neuen Karte</button></div>':'';
+  var adminTestBtn=(_adminHere && _isScoredFood)?'<div style="margin:2px 0 8px"><button onclick="detail2(ALL.find(function(x){return x.id===\''+d.id+'\'}))" style="padding:5px 10px;border:1px dashed var(--line);border-radius:8px;background:var(--bg);color:var(--muted);font-size:12px;cursor:pointer">🔬 Karten-Entwurf ansehen</button></div>':'';
+  var _bz=bzStufe(d);
+  var bzBlock=_bz?('<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px;display:flex;justify-content:space-between;align-items:center"><span>Blutzucker-Verlauf</span><span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:'+_bz.bg+';color:'+_bz.tc+'">'+_bz.label+'</span></div>'+bzKurve(_bz.stufe)):'';
   const col=farbe(d.bewertung);
   const _isOil=((d.kategorie||'')==='Öle & Fette'), _isZero=(num(d.m_kcal)===0);
   const sonderHint = (_isOil||_isZero) ? `<div style="font-size:12.5px;line-height:1.45;margin:8px 0 2px;padding:8px 11px;background:var(--k-eef6ff);border:1px solid var(--k-cfe3f7);border-radius:9px;color:var(--k-1e3a8a)">ℹ️ <b>Sonderbewertung:</b> ${_isOil?'Bei Ölen &amp; Fetten zählt die <b>Fettqualität</b> (Anteil ungesättigter Fettsäuren) statt des Makro-Profils pro 100 g.':'<b>0‑kcal-Produkt</b> – der Nährwert-Teil entfällt; bewertet werden Zutaten, Verarbeitung &amp; Zusatzstoffe.'}</div>` : '';
@@ -2987,6 +2988,7 @@ function detail(d){
     ${warumBlock}
     ${_sd ? zutatenBlock : ""}
     ${_sd ? naehrstoffHtml(d) : ""}
+    ${bzBlock}
     ${_sd ? "" : upsellBlock}
   `;
   document.getElementById("overlay").classList.add("open");
@@ -9260,7 +9262,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-17c";
+const APP_BUILD = "2026-07-17d";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
