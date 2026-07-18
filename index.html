@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-17f supplements: zusammenfassung (bezugsmenge/tagesdosis, zutatenqualitaet, zusatzstoffe) statt gesamtnote, BfR-hinweis mit quelle, waechter v_ri_qa_bezugsmenge, formulierung "ueber der wissenschaftlichen empfehlung" (keine verbindlichen EU-hoechstmengen), name Dosis-Check -->
+<!-- build 2026-07-17g admin-reiter "Riki-Import": link rein -> riki liest herstellerseite -> vorschlag pruefen/aendern -> speichern (verzehrempfehlung, form, link). edge-function riki-herstellerseite v3 liest jetzt auch die verzehrempfehlung -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1322,6 +1322,32 @@
       <h2 style="margin:.1em 0 .35em;font-size:19px">Benutzer</h2>
       <div style="color:var(--muted);font-size:13px;margin-bottom:12px">Stufe pro Nutzer setzen und Admin-Rechte vergeben. Änderungen werden sofort gespeichert.</div>
       <div id="usersTable"></div>
+    </div>
+  </div>
+  <!-- RIKI-IMPORT: Link rein, Riki liest, Mensch prüft, dann erst speichern.
+       Bewusst KEIN Automatismus: Riki schlägt vor, gespeichert wird erst nach Sichtung. -->
+  <div id="rikiView" style="display:none">
+    <div id="rikiInner" style="max-width:820px;margin:0 auto">
+      <h2 style="margin:.1em 0 .35em;font-size:19px">Daten holen per Riki</h2>
+      <div style="color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:14px">
+        Produkt wählen, Link zur <b>Herstellerseite</b> einfügen, lesen lassen. Riki füllt die Felder als <b>Vorschlag</b> –
+        du prüfst und änderst, gespeichert wird erst auf Knopfdruck. <b>Leere Felder bedeuten: nichts gefunden</b> – das ist
+        kein Fehler, sondern ehrlich. Der Link wird mitgespeichert.
+      </div>
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-bottom:14px">
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Produkt</label>
+        <input id="rkProd" list="rkProdListe" placeholder="Name oder ID eingeben…" style="width:100%;box-sizing:border-box;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:14px">
+        <datalist id="rkProdListe"></datalist>
+        <label style="display:block;font-size:12px;color:var(--muted);margin:10px 0 4px">Link zur Herstellerseite</label>
+        <input id="rkUrl" type="url" placeholder="https://…" style="width:100%;box-sizing:border-box;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:14px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:11px">
+          <button onclick="rkLesen()" style="padding:9px 15px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13.5px">Riki lesen lassen</button>
+          <button onclick="rkOffeneListe()" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--muted);cursor:pointer;font-size:13px">Offene Produkte zeigen</button>
+        </div>
+        <div id="rkMsg" style="font-size:12.5px;margin-top:9px;line-height:1.5"></div>
+      </div>
+      <div id="rkOffen" style="display:none;margin-bottom:14px"></div>
+      <div id="rkForm" style="display:none"></div>
     </div>
   </div>
   <div id="stufenView" style="display:none">
@@ -3149,6 +3175,7 @@ function setMode(m){
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
+  { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
   if(m==="produkte"){ try{ render(); }catch(e){} }
   if(m==="rezepte") loadRezepte();
   if(m==="tagebuch"){ const _d=document.getElementById("tbDatum"); if(_d) _d.value=tbToday(); loadTagebuch(); }
@@ -3160,6 +3187,7 @@ function setMode(m){
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab((window._fgTab&&window._fgTab!=='produkte'&&window._fgTab!=='kontakt')?window._fgTab:'scans'); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
+  if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
   if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
   if(m!=="vorschlagen") stopScan();
   if(m==="start") renderStart();
@@ -3168,6 +3196,132 @@ function setMode(m){
 }
 var NAV_HIST=[];
 function navTo(m){ closeMehr(); var c=window._curMode; if(c&&c!==m){ NAV_HIST.push(c); if(NAV_HIST.length>50) NAV_HIST.shift(); } setMode(m); }
+
+/* ===========================================================================
+   RIKI-IMPORT (Admin) — Link rein, Riki liest, Mensch prüft, dann speichern.
+   Warum die Zwischenstufe: Riki liest eine Herstellerseite, keine Urkunde.
+   Ein Vorschlag, der ungeprüft in die DB läuft, ist eine Behauptung mit
+   Maschinen-Autorität. Deshalb: anzeigen -> ändern können -> bewusst speichern.
+   Leere Felder bleiben leer. Nichts wird geraten, nichts vorbelegt.
+   =========================================================================== */
+var RK_LETZTER=null;   /* letzter Vorschlag, für die Speicher-Funktion */
+
+async function rkInit(){
+  var dl=document.getElementById("rkProdListe"); if(!dl) return;
+  if(!ALL.length){ try{ var d=await fetchAlleProdukte(); if(d) ALL=d.map(function(x){return Object.assign({},x,{clean_score:num(x.clean_score)});}); }catch(e){} }
+  if(dl.children.length || !ALL.length) return;
+  ALL.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");}).forEach(function(p){
+    var o=document.createElement("option"); o.value=p.id+" · "+(p.name||"")+(p.marke?(" ("+p.marke+")"):""); dl.appendChild(o);
+  });
+}
+function rkProdId(){
+  var v=((document.getElementById("rkProd")||{}).value||"").trim();
+  if(!v) return null;
+  var m=v.match(/^\s*(P\d+)/i); if(m) return m[1].toUpperCase();
+  var p=ALL.find(function(x){ return (x.name||"").toLowerCase()===v.toLowerCase(); });
+  return p?p.id:null;
+}
+/* Liste der Supplements OHNE Verzehrempfehlung - damit man sieht, wo Arbeit liegt. */
+function rkOffeneListe(){
+  var box=document.getElementById("rkOffen"); if(!box) return;
+  if(box.style.display!=="none"){ box.style.display="none"; return; }
+  var offen=(ALL||[]).filter(function(p){
+    return String(p.kategorie||"").toLowerCase()==="supplement" && !String(p.dosis_text||"").trim();
+  }).sort(function(a,b){ return (a.marke||"").localeCompare(b.marke||"")||(a.name||"").localeCompare(b.name||""); });
+  box.style.display="";
+  box.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px">'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:7px">Ohne Verzehrempfehlung: '+offen.length+'</div>'
+    +(offen.length
+      ? '<div style="display:flex;flex-wrap:wrap;gap:6px">'+offen.map(function(p){
+          return '<button onclick="rkWaehle(\''+p.id+'\')" style="padding:5px 10px;border:1px solid var(--line);border-radius:20px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:12px">'+esc(p.name||p.id)+(p.marke?' <span style="color:var(--muted)">'+esc(p.marke)+'</span>':'')+'</button>';
+        }).join("")+'</div>'
+      : '<div style="font-size:12.5px;color:var(--muted)">Alle erfasst.</div>')
+    +'</div>';
+}
+function rkWaehle(id){
+  var p=(ALL||[]).find(function(x){return x.id===id;}); if(!p) return;
+  var e=document.getElementById("rkProd"); if(e) e.value=p.id+" · "+(p.name||"")+(p.marke?(" ("+p.marke+")"):"");
+  var u=document.getElementById("rkUrl"); if(u && p.produktlink && !u.value) u.value=p.produktlink;
+  try{ document.getElementById("rkUrl").focus(); }catch(e2){}
+}
+async function rkLesen(){
+  var msg=document.getElementById("rkMsg"), form=document.getElementById("rkForm");
+  var pid=rkProdId(); var url=((document.getElementById("rkUrl")||{}).value||"").trim();
+  if(!pid){ if(msg){msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte zuerst ein Produkt wählen.";} return; }
+  if(!/^https?:\/\//i.test(url)){ if(msg){msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte einen vollständigen Link mit https:// angeben.";} return; }
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Riki liest die Seite…"; }
+  if(form) form.style.display="none";
+  try{
+    var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
+    var r=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:url})});
+    var d=await r.json();
+    if(d.error && !d.leer){ if(msg){msg.style.color="var(--k-dc2626)"; msg.textContent=d.error;} return; }
+    if(d.leer){ if(msg){msg.style.color="var(--k-b45309)"; msg.textContent=d.hinweis||"Nichts gefunden – die Seite lädt ihre Inhalte vermutlich per JavaScript. Dann hilft nur Etikett/Screenshot.";} return; }
+    RK_LETZTER={pid:pid, url:(d.quelle_url||url), v:(d.vorschlag||{}), warn:(d.warnungen||[])};
+    rkFormZeigen();
+    if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Gelesen – bitte prüfen. <b>Nichts ist gespeichert</b>, bis du unten speicherst."; }
+  }catch(e){ if(msg){msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message;} }
+}
+function rkFormZeigen(){
+  var form=document.getElementById("rkForm"); if(!form||!RK_LETZTER) return;
+  var v=RK_LETZTER.v||{}, n=v.naehrwerte_100g||{};
+  var p=(ALL||[]).find(function(x){return x.id===RK_LETZTER.pid;})||{};
+  var feld=function(id,label,wert,hint){
+    return '<div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:3px">'+label
+      +(hint?' <span style="color:var(--k-a89f8f)">'+hint+'</span>':'')+'</label>'
+      +'<input id="'+id+'" value="'+(wert==null?"":String(wert).replace(/"/g,"&quot;"))+'" style="width:100%;box-sizing:border-box;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:14px"></div>';
+  };
+  var nz=function(x){ return (typeof x==="number"&&isFinite(x))?x:""; };
+  var warn=(RK_LETZTER.warn&&RK_LETZTER.warn.length)
+    ? '<div class="note" style="background:var(--k-fffbeb);border-color:var(--k-fde68a);color:var(--k-92400e)">⚠️ '+RK_LETZTER.warn.map(esc).join(" · ")+'</div>' : '';
+  form.style.display="";
+  form.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px">'
+    +'<div style="font-size:13.5px;font-weight:600;margin-bottom:2px">Vorschlag für '+esc(p.name||RK_LETZTER.pid)+'</div>'
+    +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Quelle: '+esc(RK_LETZTER.url)+'</div>'
+    + warn
+    + feld("rkVerzehr","Verzehrempfehlung (Tagesdosis)", v.verzehrempfehlung, "– wird als Bezugsmenge angezeigt")
+    + feld("rkForm2","Form", v.form, "– Kapseln, Pulver, Tropfen …")
+    + rkNaehrBlock(n)
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">'
+      + '<button onclick="rkSpeichern()" style="padding:9px 16px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13.5px">In die Datenbank speichern</button>'
+      + '<button onclick="document.getElementById(\'rkForm\').style.display=\'none\'" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--muted);cursor:pointer;font-size:13px">Verwerfen</button>'
+    + '</div>'
+    + '<div id="rkSaveMsg" style="font-size:12.5px;margin-top:9px;line-height:1.5"></div>'
+    + '</div>';
+}
+/* Nährwerte NUR zur Kontrolle anzeigen, nicht speichern.
+   Grund: Sie liegen nicht an der Produkt-Tabelle, sondern in der Nährwert-Struktur, und
+   dort gehören sie über die Freigabemaske hinein - mit Plausibilitätsprüfung und Quelle.
+   Ein zweiter, schwächerer Schreibweg wäre genau die Art Abkürzung, die Daten verdirbt. */
+function rkNaehrBlock(n){
+  n=n||{};
+  var Z=[["Energie","kcal","kcal"],["Eiweiß","protein","g"],["Kohlenhydrate","kh","g"],["davon Zucker","zucker","g"],
+         ["Fett","fett","g"],["davon gesättigt","ges_fett","g"],["Ballaststoffe","ballaststoffe","g"],["Salz","salz","g"]];
+  var zeilen=Z.filter(function(r){ return typeof n[r[1]]==="number" && isFinite(n[r[1]]); })
+    .map(function(r){ return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">'+r[0]+'</span><span>'+String(Math.round(n[r[1]]*100)/100).replace(".",",")+' '+r[2]+'</span></div>'; }).join("");
+  return '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:14px 0 6px">Nährwerte je 100 g – nur zur Kontrolle</div>'
+    + (zeilen
+       ? zeilen+'<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:7px">Diese Werte werden hier <b>nicht</b> gespeichert. Sie gehören über die <b>Freigabemaske</b> ins Produkt – dort laufen Plausibilitätsprüfung und Quellenangabe mit.</div>'
+       : '<div style="font-size:12.5px;color:var(--muted)">Riki hat auf der Seite keine Nährwerte gefunden.</div>');
+}
+async function rkSpeichern(){
+  var msg=document.getElementById("rkSaveMsg"); if(!RK_LETZTER) return;
+  var g=function(id){ var e=document.getElementById(id); return e?String(e.value||"").trim():""; };
+  var zahl=function(id){ var t=g(id).replace(",","."); return (t!==""&&isFinite(Number(t)))?Number(t):null; };
+  var patch={ "Produktlink": RK_LETZTER.url };
+  var vz=g("rkVerzehr"); if(vz) patch["Portionsgroesse_Text"]=vz;
+  var fm=g("rkForm2");   if(fm) patch["Form"]=fm;
+  if(!vz && !fm){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent="Nichts zu speichern – Verzehrempfehlung und Form sind leer."; } return; }
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Speichere…"; }
+  try{
+    var up=await client.from("Produkte").update(patch).eq("Produkt_ID", RK_LETZTER.pid);
+    if(up.error) throw new Error(up.error.message);
+    if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Gespeichert: "
+      +(vz?"Verzehrempfehlung":"")+(vz&&fm?", ":"")+(fm?"Form":"")+" &amp; Link."; }
+    try{ var d2=await fetchAlleProdukte(); if(d2) ALL=d2.map(function(x){return Object.assign({},x,{clean_score:num(x.clean_score)});}); }catch(e){}
+    var ob=document.getElementById("rkOffen"); if(ob&&ob.style.display!=="none"){ ob.style.display="none"; rkOffeneListe(); }
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler beim Speichern: "+e.message; } }
+}
 function goBack(){ closeMehr(); var p=NAV_HIST.pop(); setMode(p||'start'); }
 function updateFloatBtns(){
   var bb=document.getElementById('backFab'); if(bb) bb.style.display=(NAV_HIST.length>0)?'flex':'none';
@@ -5089,7 +5243,7 @@ function applyAdminMode(){
   if(!document.getElementById('adminNav')){
     const c=document.querySelector('.container');
     if(c){ const nav=document.createElement('div'); nav.id='adminNav'; nav.style.cssText='display:flex;align-items:center;gap:10px;margin:0 0 14px';
-      nav.innerHTML='<div class="seg" style="flex:1 1 auto"><button onclick="navTo(\'freigabe\')">Freigabe</button><button onclick="navTo(\'stufen\')">Stufen</button><button onclick="navTo(\'nutzer\')">Nutzer</button></div><button title="Abmelden" aria-label="Abmelden" onclick="doLogout()" style="flex:0 0 auto;padding:9px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer;font-size:16px">🚪</button>';
+      nav.innerHTML='<div class="seg" style="flex:1 1 auto"><button onclick="navTo(\'freigabe\')">Freigabe</button><button onclick="navTo(\'rikiimport\')">Riki-Import</button><button onclick="navTo(\'stufen\')">Stufen</button><button onclick="navTo(\'nutzer\')">Nutzer</button></div><button title="Abmelden" aria-label="Abmelden" onclick="doLogout()" style="flex:0 0 auto;padding:9px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer;font-size:16px">🚪</button>';
       c.insertBefore(nav, c.firstChild); }
   }
   /* applyAdminMode() läuft bei JEDEM Auth-Event – und Supabase feuert eines, sobald der Tab
@@ -9313,7 +9467,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-17f";
+const APP_BUILD = "2026-07-17g";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
