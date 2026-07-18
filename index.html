@@ -7219,17 +7219,19 @@ async function openFgEditor(id, prefill){
     </div>
     ${window._fgPrefillHinweis?`<div style="background:var(--k-fff7ea);border:1px solid var(--k-e4a343);color:var(--k-8a5a0b);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
     <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px">
+      <div style="display:flex;gap:7px;align-items:center;margin-bottom:7px">
+        <input id="fe_url" value="${esc(d.produktlink||"")}" placeholder="https://… Produktseite des Herstellers" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px">
+        <button type="button" onclick="fgPullHersteller()" style="padding:8px 12px;border:0;border-radius:8px;background:var(--k-534ab7);color:var(--k-ffffff);font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap">Riki liest</button>
+      </div>
       <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--muted);white-space:nowrap">Daten holen</span>
-        <input id="fe_ean" value="${esc(d.ean||"")}" placeholder="EAN" style="flex:1;min-width:130px;padding:8px;border:1px solid var(--line);border-radius:8px">
+        <input id="fe_ean" value="${esc(d.ean||"")}" placeholder="EAN" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:8px">
         <button type="button" onclick="fgPullOff()" style="padding:8px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;white-space:nowrap">OFF holen</button>
-        <button type="button" onclick="fgPullHersteller()" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">Herstellerseite</button>
         <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name, z. B. rohe Pilze/Gemüse/Getreide)" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">USDA holen</button>
         ${id?`<button type="button" onclick="fgShotCam('${esc(d.id)}')" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">Etikettfoto</button>`:""}
       </div>
-      <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:6px">Reihenfolge: OFF → Herstellerseite → Foto/manuell. Gefundene Werte füllen die Maske – du prüfst nur.</div>
+      <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:6px">Jede Quelle trägt sich selbst in den Beleg ein – auch die zweite. Gefundene Werte füllen die Maske, du prüfst nur.</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px;align-items:start">
+    <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px;align-items:start" id="fe_grid">
       <div>
         ${card("Produkt",`<div style="display:grid;gap:8px">
           <label style="font-size:13px">Titel${inp("fe_name",d.name)}</label>
@@ -7240,11 +7242,10 @@ async function openFgEditor(id, prefill){
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:-2px">Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. <b>Bei Nahrungsergänzung wichtig:</b> Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.</div>
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
-      </div>
-      <div>
         ${card(`Zutaten <span style="text-transform:none;color:var(--muted)">(gebunden an den Stamm)</span>`,`
-          <div style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:10px;margin-bottom:10px">
-            <div style="font-weight:700;font-size:13px;color:var(--k-3c3489);margin-bottom:5px">🤖 Riki – Zutatenliste analysieren</div>
+          <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
+            <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
+            <div style="margin-top:8px">
             <textarea id="rikiText" rows="2" placeholder="Zutatenliste vom Etikett hier einfügen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--k-cecbf6);border-radius:8px;font-size:13px;background:var(--k-ffffff)"></textarea>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
               <button type="button" onclick="rikiAnalyse()" style="padding:7px 12px;border:0;border-radius:8px;background:var(--k-534ab7);color:var(--k-ffffff);font-weight:600;font-size:13px;cursor:pointer">Analysieren</button>
@@ -7252,14 +7253,18 @@ async function openFgEditor(id, prefill){
               <button type="button" onclick="rikiBudget()" style="padding:7px 10px;border:1px solid var(--k-cecbf6);border-radius:8px;background:var(--k-ffffff);color:var(--k-534ab7);font-size:12px;cursor:pointer">Verbrauch</button>
             </div>
             <div id="rikiMsg" style="font-size:12.5px;margin-top:7px;line-height:1.5"></div>
-          </div>
+            </div>
+          </details>
           <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
           <div id="fe_zutRows">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")||fgZutRow("",null,"nein")}</div>
           <button type="button" onclick="fgAddZutat()" style="margin-top:4px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
         ${card("Zusatzstoffe",`${inp("fe_ztext",d.zusatzstoffe_text||"keine")}<div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>`)}
+      </div>
+      <div>
+        ${card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
-        ${card("Produktbild",`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:120px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`)}
+        ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:120px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`)}
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:12px;border-top:1px solid var(--line)">
@@ -7331,6 +7336,23 @@ function fePlaus(){
         +(fehlt.indexOf("Ballaststoffe")>=0?' <span style="color:var(--muted)">· hat das Produkt keine, trag 0 ein</span>':'')+'</span>'
         +(_dosisLeer?'<div style="color:var(--muted);margin-top:4px">Verzehrempfehlung fehlt ebenfalls – blockiert die Freigabe nicht, fehlt aber für den Dosis-Check.</div>':'');
     }
+    /* Riegel-Karte: dieselbe Pruefung, nur dauerhaft sichtbar statt als eine Textzeile.
+       Bis 18.07.2026 erfuhr man erst BEIM Klick auf Freigeben, was blockiert -
+       daran sind die Supplements zweimal hintereinander gescheitert. */
+    var rg=document.getElementById("fe_riegel");
+    if(rg){
+      var ok=function(t){ return '<div style="color:var(--k-166534)">&#10003; '+t+'</div>'; };
+      var no=function(t){ return '<div style="color:var(--k-b45309)">&#9888; '+t+'</div>'; };
+      var nwFehlt=fehlt.filter(function(x){ return x!=="mind. 1 Zutat" && x!=="Quelle-Typ" && x.indexOf("ohne Bewertung")<0; });
+      var h="";
+      if(_istSupp) h+='<div style="color:var(--muted)">– Nährwerte (Supplement, nicht nötig)</div>';
+      else h+= nwFehlt.length ? no(nwFehlt.length+" Nährwert(e) fehlen") : ok("Nährwerte vollständig");
+      h+= (zMit.length===0) ? no("keine Zutat erfasst") : ok(zMit.length+" Zutaten erfasst");
+      h+= (zOhneNote>0) ? no(zOhneNote+" Zutat(en) unbewertet") : ok("alle Zutaten bewertet");
+      h+= qt ? ok("Quelle belegt") : no("Quelle-Typ fehlt");
+      if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
+      rg.innerHTML=h;
+    }
   }
 }
 /* Kaskade 1: Nährwerte + Name + Zutaten-Text aus OFF holen (OFF wird vertraut -> Quelle_Typ gesetzt). */
@@ -7352,16 +7374,32 @@ async function fgPullOff(){
     sv("fe_ballaststoffe",n["fiber_100g"]); sv("fe_salz",n["salt_100g"]);
     var zt=(p.ingredients_text_de||p.ingredients_text||"").trim(); var rt=document.getElementById("rikiText"); if(rt&&zt&&!rt.value) rt.value=zt;
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="OpenFoodFacts";
-    var bl=document.getElementById("fe_beleg"); if(bl&&!bl.value) bl.value="OpenFoodFacts (EAN "+ean+")";
+    feBelegAdd("OpenFoodFacts (EAN "+ean+")");
     try{ fePlaus(); }catch(e){}
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Werte aus OFF übernommen (je 100 g) – <b>prüfen</b>. Zutaten im Riki-Feld, dann Analysieren."; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Abruf fehlgeschlagen: "+e.message; } }
 }
-/* Kaskade 2: Herstellerseite via Edge-Function riki-herstellerseite lesen. */
+/* Beleg-Feld: JEDE Quelle wird angehaengt, keine ueberschreibt eine andere.
+   Fehler bis 18.07.2026: alle drei Kaskaden schrieben nur mit `if(!bl.value)`.
+   Wer erst OFF und dann USDA holte, hatte am Ende `Quelle_Typ = USDA`, aber im Beleg
+   stand weiterhin nur OFF - die Kombination war nicht bloss unvollstaendig, sondern FALSCH.
+   §4.3 verlangt, dass die Quelle festgehalten wird; eine verschwiegene zweite Quelle
+   ist genau das Gegenteil. */
+function feBelegAdd(text){
+  var bl=document.getElementById("fe_beleg"); if(!bl||!text) return;
+  var cur=(bl.value||"").trim();
+  if(cur.indexOf(text)>=0) return;          /* schon vermerkt - nicht doppeln */
+  bl.value = cur ? (cur+" · "+text) : text;
+}
+/* Kaskade 2: Herstellerseite via Edge-Function riki-herstellerseite lesen.
+   Die URL kommt aus dem EIGENEN Feld fe_url. Frueher wurde sie aus fe_beleg gelesen -
+   das machte das Beleg-Feld zum Eingabefeld und zerstoerte einen bereits eingetragenen
+   OFF-Beleg, sobald dieser (korrekterweise) keine URL mehr war. */
 async function fgPullHersteller(){
   var msg=document.getElementById("fe_pullMsg");
-  var url=((document.getElementById("fe_beleg")||{}).value||"").trim();
-  if(!/^https?:\/\//i.test(url)){ url=prompt("URL der Hersteller-Produktseite:",""); if(!url) return; var bl0=document.getElementById("fe_beleg"); if(bl0) bl0.value=url; }
+  var ue=document.getElementById("fe_url");
+  var url=((ue||{}).value||"").trim();
+  if(!/^https?:\/\//i.test(url)){ url=prompt("URL der Hersteller-Produktseite:",""); if(!url) return; url=url.trim(); if(ue) ue.value=url; }
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="Herstellerseite wird gelesen…"; }
   try{
     var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
@@ -7380,6 +7418,9 @@ async function fgPullHersteller(){
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); }
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Herstellerseite";
+    /* Die Herstellerseite hinterliess bis 18.07.2026 GAR KEINEN Beleg - sie setzte nur den
+       Quelle-Typ. Ein Produkt trug damit "Herstellerseite", ohne dass irgendwo stand, welche. */
+    feBelegAdd(url);
     try{ fePlaus(); }catch(e){}
     var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Von der Herstellerseite gelesen – <b>gegen das Etikett prüfen</b>."+warn; }
@@ -7402,7 +7443,7 @@ async function fgPullUsda(){
     var n=d.naehrwerte||{}, sv=function(id,x){ var e=document.getElementById(id); if(e&&x!=null&&isFinite(x)) e.value=Math.round(x*100)/100; };
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="USDA FoodData Central";
-    var bl=document.getElementById("fe_beleg"); if(bl&&!bl.value) bl.value="USDA FoodData Central: "+(d.name||q)+(d.fdc_id?(" (FDC "+d.fdc_id+")"):"");
+    feBelegAdd("USDA FoodData Central: "+(d.name||q)+(d.fdc_id?(" (FDC "+d.fdc_id+")"):""));
     try{ fePlaus(); }catch(e){}
     var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
     var demo=d.key_demo?" <span style=\"color:var(--k-b45309)\">(DEMO_KEY – knappes Limit; eigenen Key als Secret USDA_FDC_KEY setzen)</span>":"";
@@ -7440,7 +7481,11 @@ async function fgEditSave(alsoFreigeben){
      Riki-Import statt über einen zweiten Pfad in cb_produkt_speichern – ein Feld, ein Schreibweg. */
   if(pid){
     const _vz=(g("fe_verzehr")&&g("fe_verzehr").value||"").trim();
-    const _lnk=/^https?:\/\//i.test(_beleg)?_beleg:null;
+    /* Der Produktlink kommt aus dem eigenen URL-Feld. Frueher wurde er aus dem Beleg
+       geraten (`beginnt mit http`) - das bricht, sobald dort mehrere Quellen mit " · "
+       stehen, und war schon vorher eine Vermutung statt einer Angabe. */
+    const _u=(g("fe_url")&&g("fe_url").value||"").trim();
+    const _lnk=/^https?:\/\//i.test(_u)?_u:(/^https?:\/\//i.test(_beleg)?_beleg.split(" · ").filter(function(x){return /^https?:\/\//i.test(x);})[0]||null:null);
     if(_vz||_lnk){ try{ await client.rpc("cb_produkt_bezug_setzen",{p_id:pid, p_verzehr:_vz||null, p_form:null, p_link:_lnk}); }catch(e){} }
   }
   if(pid && window._fgEdit && window._fgEdit.bild_url){
@@ -9542,7 +9587,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-17l";
+const APP_BUILD = "2026-07-18a";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
