@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-17h riki-import speichert ueber cb_produkt_bezug_setzen (RLS-konform), "ansehen als"-balken + versions-badge nur noch fuer entwickler (Benutzer.entwickler), BETA-badge zeigt jetzt die versionsnummer -->
+<!-- build 2026-07-17i riki-import: nach dem speichern faellt das produkt sofort aus der offen-liste, felder werden geleert, restzahl wird angezeigt -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3322,10 +3322,20 @@ async function rkSpeichern(){
        läuft über eine enge Admin-Funktion, die nur diese drei Felder anfasst. */
     var rr=await client.rpc("cb_produkt_bezug_setzen",{p_id:RK_LETZTER.pid, p_verzehr:vz||null, p_form:fm||null, p_link:patch["Produktlink"]||null});
     if(rr.error) throw new Error(rr.error.message);
-    if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Gespeichert: "
-      +(vz?"Verzehrempfehlung":"")+(vz&&fm?", ":"")+(fm?"Form":"")+" &amp; Link."; }
+    /* Frisch nachladen, damit die Offen-Liste das gespeicherte Produkt sofort verliert.
+       Ohne das bliebe es stehen und man würde es ein zweites Mal bearbeiten. */
     try{ var d2=await fetchAlleProdukte(); if(d2) ALL=d2.map(function(x){return Object.assign({},x,{clean_score:num(x.clean_score)});}); }catch(e){}
-    var ob=document.getElementById("rkOffen"); if(ob&&ob.style.display!=="none"){ ob.style.display="none"; rkOffeneListe(); }
+    var ob=document.getElementById("rkOffen");
+    if(ob && ob.innerHTML){ ob.style.display="none"; rkOffeneListe(); }   /* neu zeichnen, auch wenn gerade zugeklappt */
+    var rest=(ALL||[]).filter(function(p){ return String(p.kategorie||"").toLowerCase()==="supplement" && !String(p.dosis_text||"").trim(); }).length;
+    var pn=((ALL||[]).find(function(x){return x.id===RK_LETZTER.pid;})||{}).name||RK_LETZTER.pid;
+    /* Feld frei machen: der nächste Link soll ohne Aufräumen hineinpassen. */
+    var uf=document.getElementById("rkUrl"); if(uf) uf.value="";
+    var pf=document.getElementById("rkProd"); if(pf) pf.value="";
+    var form=document.getElementById("rkForm"); if(form) form.style.display="none";
+    RK_LETZTER=null;
+    var top=document.getElementById("rkMsg");
+    if(top){ top.style.color="var(--k-166534)"; top.innerHTML="&#10003; <b>"+esc(pn)+"</b> gespeichert. Noch <b>"+rest+"</b> Supplements ohne Verzehrempfehlung."; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler beim Speichern: "+e.message; } }
 }
 function goBack(){ closeMehr(); var p=NAV_HIST.pop(); setMode(p||'start'); }
@@ -9480,7 +9490,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-17h";
+const APP_BUILD = "2026-07-17i";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
