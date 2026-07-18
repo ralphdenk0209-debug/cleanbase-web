@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-17l riki-import: manuelle eingabe immer moeglich (button + automatisch wenn riki nichts findet). DB: produkt_freigeben riegel 3 (score) gilt nicht mehr fuer supplements -->
+<!-- build 2026-07-18a anlegemaske: zweispaltig, riki eingeklappt, freigabe-riegel dauerhaft sichtbar, bild optional, eigenes url-feld. beleg-kette: jede quelle haengt an statt zu ueberschreiben -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -9598,7 +9598,13 @@ async function pruefeUpdate(){
   if(_updateGezeigt) return;
   try{
     const t = await fetch('index.html?b='+Date.now(), {cache:'no-store'}).then(r=>r.text());
-    const m = t.match(/<!--\s*build\s+([0-9a-z-]+)/i);
+    /* 2026-07-18: Frueher wurde gegen den HTML-Kommentar <!-- build ... --> geprueft.
+       Damit stand die Build-Nummer an ZWEI Stellen - und beim Deploy von 18a wurde nur
+       eine hochgezaehlt. Folge: Die Seite meldete sich selbst als veraltet, endlos,
+       auch direkt nach dem Neuladen. Jetzt wird gegen dieselbe Konstante geprueft,
+       die die App auch anzeigt. Eine Zahl, eine Quelle. Der Kommentar in Zeile 2
+       bleibt reine Dokumentation und kann nichts mehr kaputtmachen. */
+    const m = t.match(/APP_BUILD\s*=\s*"([^"]+)"/);
     if(!m) return;
     if(m[1] !== APP_BUILD) zeigeUpdateBanner();
   }catch(e){ /* offline – kein Problem, dann eben später */ }
