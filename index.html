@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-17k supplements sind freigebbar: kapseln haben kein makro-profil, die freigabe verlangte trotzdem Score_vollstaendig und sperrte sie damit dauerhaft aus. jetzt eigene pruefung (wirkstoffe/zutaten + quelle) in produkt_pruefen_freigeben und passender hinweistext in der maske -->
+<!-- build 2026-07-17l riki-import: manuelle eingabe immer moeglich (button + automatisch wenn riki nichts findet). DB: produkt_freigeben riegel 3 (score) gilt nicht mehr fuer supplements -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1342,6 +1342,7 @@
         <input id="rkUrl" type="url" placeholder="https://…" style="width:100%;box-sizing:border-box;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:14px">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:11px">
           <button onclick="rkLesen()" style="padding:9px 15px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13.5px">Riki lesen lassen</button>
+          <button onclick="rkManuell()" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px">Manuell eintragen</button>
           <button onclick="rkOffeneListe()" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--muted);cursor:pointer;font-size:13px">Offene Produkte zeigen</button>
         </div>
         <div id="rkMsg" style="font-size:12.5px;margin-top:9px;line-height:1.5"></div>
@@ -3248,6 +3249,21 @@ function rkWaehle(id){
   var u=document.getElementById("rkUrl"); if(u && p.produktlink && !u.value) u.value=p.produktlink;
   try{ document.getElementById("rkUrl").focus(); }catch(e2){}
 }
+/* Manuelle Eingabe – MUSS immer möglich sein.
+   Erste Fassung zeigte das Formular nur nach einem erfolgreichen Riki-Lauf: Fand Riki nichts,
+   gab es gar kein Eingabefeld. Damit war ausgerechnet der Fall blockiert, in dem der Mensch
+   gebraucht wird. Ein Werkzeug, das nur funktioniert, wenn die Maschine liefert, ist keins. */
+function rkManuell(){
+  var msg=document.getElementById("rkMsg");
+  var pid=rkProdId();
+  if(!pid){ if(msg){msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte zuerst ein Produkt wählen.";} return; }
+  var url=((document.getElementById("rkUrl")||{}).value||"").trim();
+  var p=(ALL||[]).find(function(x){return x.id===pid;})||{};
+  RK_LETZTER={ pid:pid, url:(url||p.produktlink||""), manuell:true, warn:[],
+               v:{ verzehrempfehlung:(p.dosis_text||""), form:(p.form||"") } };
+  rkFormZeigen();
+  if(msg){ msg.style.color="var(--muted)"; msg.innerHTML="Manuelle Eingabe – trag ein, was auf der <b>Packung</b> steht. Vorhandene Werte sind vorbelegt."; }
+}
 async function rkLesen(){
   var msg=document.getElementById("rkMsg"), form=document.getElementById("rkForm");
   var pid=rkProdId(); var url=((document.getElementById("rkUrl")||{}).value||"").trim();
@@ -3260,7 +3276,15 @@ async function rkLesen(){
     var r=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:url})});
     var d=await r.json();
     if(d.error && !d.leer){ if(msg){msg.style.color="var(--k-dc2626)"; msg.textContent=d.error;} return; }
-    if(d.leer){ if(msg){msg.style.color="var(--k-b45309)"; msg.textContent=d.hinweis||"Nichts gefunden – die Seite lädt ihre Inhalte vermutlich per JavaScript. Dann hilft nur Etikett/Screenshot.";} return; }
+    /* Nichts gefunden ist kein Sackgassen-Ende: Formular trotzdem öffnen, damit man
+       die Angabe von der Packung selbst eintragen kann. */
+    if(d.leer){
+      rkManuell();
+      if(msg){ msg.style.color="var(--k-b45309)";
+        msg.innerHTML=esc(d.hinweis||"Auf der Seite nichts gefunden – sie lädt ihre Inhalte vermutlich per JavaScript.")
+          +"<br><b>Du kannst es unten von Hand eintragen.</b>"; }
+      return;
+    }
     RK_LETZTER={pid:pid, url:(d.quelle_url||url), v:(d.vorschlag||{}), warn:(d.warnungen||[])};
     rkFormZeigen();
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Gelesen – bitte prüfen. <b>Nichts ist gespeichert</b>, bis du unten speicherst."; }
@@ -9518,7 +9542,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-17k";
+const APP_BUILD = "2026-07-17l";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
