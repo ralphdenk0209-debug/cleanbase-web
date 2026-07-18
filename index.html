@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-17g admin-reiter "Riki-Import": link rein -> riki liest herstellerseite -> vorschlag pruefen/aendern -> speichern (verzehrempfehlung, form, link). edge-function riki-herstellerseite v3 liest jetzt auch die verzehrempfehlung -->
+<!-- build 2026-07-17h riki-import speichert ueber cb_produkt_bezug_setzen (RLS-konform), "ansehen als"-balken + versions-badge nur noch fuer entwickler (Benutzer.entwickler), BETA-badge zeigt jetzt die versionsnummer -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1832,9 +1832,12 @@ function setTierOverride(t){
   try{ if(typeof render==='function') render(); }catch(e){}
   try{ const v=document.getElementById('rezeptView'); if(v&&v.style.display!=='none'&&typeof loadRezepte==='function') loadRezepte(); }catch(e){}
 }
+/* „Ansehen als“ ist ein ENTWICKLER-Werkzeug, kein Admin-Werkzeug.
+   Wer Produkte pflegt (Admin), braucht keinen Modus-Umschalter im Bild – der
+   verwirrt dort nur. Deshalb hängt der Balken an ME.entwickler, nicht an is_admin. */
 function mountTierOvChip(){
   const ex=document.getElementById("tierOvChip");
-  if(!(ME&&ME.is_admin)){ if(ex) ex.remove(); return; }
+  if(!(ME&&ME.entwickler)){ if(ex) ex.remove(); return; }
   if(ex) return;
   ladeTierSets();
   const c=document.createElement("div"); c.id="tierOvChip";
@@ -1978,6 +1981,7 @@ async function refreshMe(){
     await client.rpc("cb_link_me");            // verknüpft beim ersten Login per E-Mail-Match
     const {data}=await client.rpc("cb_me");
     ME=(data&&data[0])?data[0]:null;
+    try{ betaBadge(); }catch(e){}   /* Version/Entwickler-Badge hängt an ME */
     if(ME&&ME.benutzer_id) TB_USER=ME.benutzer_id;
   }catch(e){ ME=null; }
   await refreshMyFeatures();   /* auch ohne Login: die Gast-Stufe */
@@ -3314,8 +3318,10 @@ async function rkSpeichern(){
   if(!vz && !fm){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent="Nichts zu speichern – Verzehrempfehlung und Form sind leer."; } return; }
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="Speichere…"; }
   try{
-    var up=await client.from("Produkte").update(patch).eq("Produkt_ID", RK_LETZTER.pid);
-    if(up.error) throw new Error(up.error.message);
+    /* Direktes Update auf "Produkte" ist per RLS gesperrt (richtig so) – der Schreibweg
+       läuft über eine enge Admin-Funktion, die nur diese drei Felder anfasst. */
+    var rr=await client.rpc("cb_produkt_bezug_setzen",{p_id:RK_LETZTER.pid, p_verzehr:vz||null, p_form:fm||null, p_link:patch["Produktlink"]||null});
+    if(rr.error) throw new Error(rr.error.message);
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Gespeichert: "
       +(vz?"Verzehrempfehlung":"")+(vz&&fm?", ":"")+(fm?"Form":"")+" &amp; Link."; }
     try{ var d2=await fetchAlleProdukte(); if(d2) ALL=d2.map(function(x){return Object.assign({},x,{clean_score:num(x.clean_score)});}); }catch(e){}
@@ -8380,18 +8386,25 @@ async function ladeFeatures(){
 }
 function feat(k){ return FEATURES[k] === true; }
 
-/* Sichtbarer Hinweis: Was ich sehe, sehen die anderen (noch) nicht. */
+/* Früher stand hier „BETA“ für jeden Beta-Nutzer. Das half niemandem: Wer es sah,
+   wusste nicht, was es heißt, und wem es half, der wusste es ohnehin.
+   Jetzt: die VERSIONSNUMMER, und nur für Entwickler. Damit sieht man auf einen Blick,
+   ob der Browser die neue Fassung geladen hat – die Frage, die man beim Debuggen
+   wirklich hat. Das Sternchen zeigt zusätzlich an, dass Beta-Funktionen aktiv sind. */
 function betaBadge(){
   let b=document.getElementById("betaBadge");
-  if(!IST_BETA){ if(b) b.remove(); return; }
-  if(b) return;
-  b=document.createElement("div"); b.id="betaBadge";
-  b.title="Du siehst Funktionen, die für andere Nutzer noch nicht freigeschaltet sind.";
-  b.style.cssText="position:fixed;top:calc(6px + env(safe-area-inset-top));right:8px;z-index:9994;"
-    +"padding:3px 9px;border-radius:999px;background:var(--k-8a6d3b);color:var(--k-ffffff);font-size:10.5px;"
-    +"font-weight:700;letter-spacing:.4px;opacity:.85;pointer-events:none";
-  b.textContent="BETA";
-  document.body.appendChild(b);
+  const zeigen = !!(typeof ME!=="undefined" && ME && ME.entwickler);
+  if(!zeigen){ if(b) b.remove(); return; }
+  if(!b){
+    b=document.createElement("div"); b.id="betaBadge";
+    b.style.cssText="position:fixed;top:calc(6px + env(safe-area-inset-top));right:8px;z-index:9994;"
+      +"padding:3px 9px;border-radius:999px;background:var(--k-8a6d3b);color:var(--k-ffffff);font-size:10.5px;"
+      +"font-weight:700;letter-spacing:.4px;opacity:.85;pointer-events:none";
+    document.body.appendChild(b);
+  }
+  const v = (typeof APP_BUILD!=="undefined" && APP_BUILD) ? APP_BUILD : "?";
+  b.textContent = v + (IST_BETA ? " ∗" : "");
+  b.title = "Geladene Version: " + v + (IST_BETA ? " · Beta-Funktionen aktiv (nur für dich sichtbar)." : "");
 }
 
 /* Ergebnis-Overlay. Der Nutzer steht im Laden und will den Score GROSS sehen,
@@ -9467,7 +9480,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-17g";
+const APP_BUILD = "2026-07-17h";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
