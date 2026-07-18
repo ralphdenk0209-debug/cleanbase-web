@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-17j freigabemaske: feld verzehrempfehlung (riki fuellt es), EAN wird von der herstellerseite uebernommen wenn ausgewiesen UND pruefziffer stimmt, sonst leer fuer den scan. speicherung ueber cb_produkt_bezug_setzen -->
+<!-- build 2026-07-17k supplements sind freigebbar: kapseln haben kein makro-profil, die freigabe verlangte trotzdem Score_vollstaendig und sperrte sie damit dauerhaft aus. jetzt eigene pruefung (wirkstoffe/zutaten + quelle) in produkt_pruefen_freigeben und passender hinweistext in der maske -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -7281,8 +7281,15 @@ function fePlaus(){
        gespiegelt an der DB-Regel (Nährwert-Achse braucht diese Werte, sonst kein Score).
        Kein Auto-Ausfüllen: der Admin trägt 0 oder den echten Wert selbst ein. */
     var fehlt=[];
-    var nwReq=[["fe_kcal","Energie"],["fe_fett","Fett"],["fe_ges_fett","ges. Fett"],["fe_kh","Kohlenhydrate"],["fe_zucker","Zucker"],["fe_protein","Eiweiß"],["fe_salz","Salz"],["fe_ballaststoffe","Ballaststoffe"]];
-    nwReq.forEach(function(r){ if(gv(r[0])==null) fehlt.push(r[1]); });
+    /* SUPPLEMENTS: keine Nährwert-Pflicht. Eine Kapsel hat kein Makro-Profil pro 100 g –
+       sie bekommt bewusst keinen Lebensmittel-Score (§1.11j). Die Nährwerte hier zu
+       verlangen hätte Supplements dauerhaft von der Freigabe ausgesperrt. Sie brauchen
+       stattdessen Wirkstoffe/Zutaten, eine Quelle und die Verzehrempfehlung. */
+    var _istSupp = (((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
+    if(!_istSupp){
+      var nwReq=[["fe_kcal","Energie"],["fe_fett","Fett"],["fe_ges_fett","ges. Fett"],["fe_kh","Kohlenhydrate"],["fe_zucker","Zucker"],["fe_protein","Eiweiß"],["fe_salz","Salz"],["fe_ballaststoffe","Ballaststoffe"]];
+      nwReq.forEach(function(r){ if(gv(r[0])==null) fehlt.push(r[1]); });
+    }
     var zRows=[].slice.call(document.querySelectorAll("#fe_zutRows .fgZutRow"));
     var zMit=zRows.filter(function(row){ return ((row.querySelector(".fgzName")||{}).value||"").trim()!==""; });
     var zOhneNote=zMit.filter(function(row){ return ((row.querySelector(".fgzRate")||{}).value||"").trim()===""; }).length;
@@ -7290,11 +7297,15 @@ function fePlaus(){
     if(zOhneNote>0) fehlt.push(zOhneNote+" Zutat(en) ohne Bewertung");
     var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
     if(!qt) fehlt.push("Quelle-Typ");
+    var _dosisLeer = _istSupp && !(((document.getElementById("fe_verzehr")||{}).value||"").trim());
     if(fehlt.length===0){
-      rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe – alle Achsen belegt.</span>';
+      rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe'
+        +(_istSupp?' – Supplement (kein Lebensmittel-Score, Nährwerte nicht nötig)':' – alle Achsen belegt')+'.</span>'
+        +(_dosisLeer?'<div style="color:var(--k-b45309);margin-top:4px">Ohne <b>Verzehrempfehlung</b> ist unklar, worauf sich der Dosis-Check bezieht – wenn möglich nachtragen.</div>':'');
     } else {
-      rd.innerHTML='<span style="color:var(--k-b45309)">Fehlt für den Score: <b>'+fehlt.join(", ")+'</b>'
-        +(fehlt.indexOf("Ballaststoffe")>=0?' <span style="color:var(--muted)">· hat das Produkt keine, trag 0 ein</span>':'')+'</span>';
+      rd.innerHTML='<span style="color:var(--k-b45309)">Fehlt '+(_istSupp?'für die Freigabe':'für den Score')+': <b>'+fehlt.join(", ")+'</b>'
+        +(fehlt.indexOf("Ballaststoffe")>=0?' <span style="color:var(--muted)">· hat das Produkt keine, trag 0 ein</span>':'')+'</span>'
+        +(_dosisLeer?'<div style="color:var(--muted);margin-top:4px">Verzehrempfehlung fehlt ebenfalls – blockiert die Freigabe nicht, fehlt aber für den Dosis-Check.</div>':'');
     }
   }
 }
@@ -9507,7 +9518,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-17j";
+const APP_BUILD = "2026-07-17k";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
