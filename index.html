@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-17e reinheits-index/supplements: dosierungs-zuordnung breiter (alle b-vitamine, biotin, chrom, niacin-form), einheiten umgerechnet (IU->µg, µg<->mg), bedarf-balken auch ohne UL, niacin-annahme nicotinamid sichtbar. v_ri_dosierung + cb_reinheits_ampel + frontend -->
+<!-- build 2026-07-17f supplements: zusammenfassung (bezugsmenge/tagesdosis, zutatenqualitaet, zusatzstoffe) statt gesamtnote, BfR-hinweis mit quelle, waechter v_ri_qa_bezugsmenge, formulierung "ueber der wissenschaftlichen empfehlung" (keine verbindlichen EU-hoechstmengen), name Dosis-Check -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1688,9 +1688,17 @@ function reinheitsAmpelHtml(a){
           + '</div>'
         : '')
 
+      /* Belegter Praxis-Hinweis (z. B. BfR: Tagesmenge aufteilen) - nur MIT Quelle. */
+      + ((b.hinweis && b.hinweis_quelle)
+        ? '<div style="margin-top:10px;padding:9px 11px;background:var(--k-f2f5f3);border-left:3px solid var(--k-4d7c3a);font-size:11.5px;color:var(--k-1d3c24);line-height:1.55">'
+          + esc(b.hinweis)
+          + '</div>'
+        : '')
+
       + '<div style="margin-top:9px;font-size:10px;color:var(--k-a89f8f);line-height:1.5">'
         + (pNRV!=null ? 'Bedarf: VO (EU) 1169/2011, Anhang XIII · ' : '')
         + 'Grenze: '+esc(String(b.quelle||'').replace(/ In: EFSA.*$/,''))
+        + ((b.hinweis && b.hinweis_quelle) ? ' · Hinweis: '+esc(String(b.hinweis_quelle)) : '')
       + '</div>'
       + '</div>';
   };
@@ -2897,6 +2905,43 @@ function detail(d){
   // fehlende 40-Punkte-Achse wuerde den Score kuenstlich anheben). Reinheits-Index folgt.
   var _istSupp=(String(d.kategorie||'').toLowerCase()==='supplement') && d.clean_score==null;
   var _ksuessWarn=(String(d.suessstoffe||'')==='ja_kuenstlich')||/sucralose|acesulfam|aspartam|cyclamat|saccharin|\be ?9(5[0-9]|62)\b/i.test(_ztxt);
+  /* ---------------------------------------------------------------------
+     SUPPLEMENT-ZUSAMMENFASSUNG: drei GETRENNTE Aussagen, keine addierte Note.
+     Warum keine Summe: Die Nährwert-Achse (40 Pkt) ist bei einer Kapsel leer,
+     Zusatzstoffe und Verarbeitung sind über fast alle Präparate konstant -
+     nur Zutatenqualität variiert. Eine Summe daraus wäre eine Zahl, die
+     präzise aussieht und nichts weiß (§1.11v-c). Zuoberst die Bezugsmenge:
+     ohne sie weiß niemand, ob die Werte für eine Kapsel oder für drei gelten.
+     --------------------------------------------------------------------- */
+  var suppSummary='';
+  if(_istSupp){
+    var _sq=num(d.p_zutaten), _sz=num(d.p_zusatzstoffe);
+    var _dose=(d.dosis_text && String(d.dosis_text).trim()) ? String(d.dosis_text).trim() : '';
+    var _chip=function(txt,bg,fg){ return '<span style="display:inline-block;font-size:11.5px;padding:3px 9px;border-radius:20px;background:'+bg+';color:'+fg+'">'+txt+'</span>'; };
+    var _zeilen='';
+    if(_sq!=null){
+      var _p=Math.max(0,Math.min(100,_sq/30*100));
+      _zeilen+='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line)">'
+        +'<span style="font-size:12.5px;color:var(--ink)">Zutatenqualität</span>'
+        +'<span style="display:flex;align-items:center;gap:9px">'
+          +'<span style="display:inline-block;width:80px;height:6px;border-radius:99px;background:var(--line);overflow:hidden"><i style="display:block;height:100%;width:'+_p+'%;background:var(--k-7ba05b);border-radius:99px"></i></span>'
+          +'<span style="font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap">'+String(Math.round(_sq*10)/10).replace('.',',')+' / 30</span>'
+        +'</span></div>';
+    }
+    if(_sz!=null){
+      var _rein=(_sz>=15);
+      _zeilen+='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px">'
+        +'<span style="font-size:12.5px;color:var(--ink)">Zusatzstoffe</span>'
+        +(_rein?_chip('keine','var(--k-e7f4ec)','var(--k-1f5e34)'):_chip('enthalten','var(--k-fff7e6)','var(--k-92400e)'))
+        +'</div>';
+    }
+    suppSummary='<div style="display:flex;gap:7px;flex-wrap:wrap;margin:2px 0 10px">'
+      + _chip('Kein Root Index','var(--k-f0ece3)','var(--k-57534e)')
+      + (_dose ? _chip(esc(_dose),'var(--k-eef6ff)','var(--k-1e3a8a)')
+               : _chip('Tagesdosis nicht erfasst','var(--k-f4f5f4)','var(--muted)'))
+      + '</div>'
+      + (_zeilen ? '<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:10px">'+_zeilen+'</div>' : '');
+  }
   /* FREI für alle: die Herleitung. „Vertrauen vor Umsatz" – das Warum ist kein Premium-Feature,
      es ist der Beweis, dass wir nichts erfinden. Premium sind die persönlichen Werkzeuge. */
   /* Die Produktkarte besteht aus fuenf Bloecken. Welcher Block auf welcher Stufe
@@ -2984,6 +3029,7 @@ function detail(d){
       ${scoreLead(d, 96)}
       <div><div style="font-size:19px;font-weight:800;color:${farbeText(d.bewertung)}">${d.clean_score==null?"noch nicht bewertet":(d.score_vollstaendig?esc(d.bewertung||""):"Vorläufige Teilbewertung")}</div></div>
     </div>`}
+    ${suppSummary}
     ${d.enthaelt_alkohol?`<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Enthält Alkohol (Ethanol)</b> – als krebserregend eingestuft (IARC Gruppe 1). Im Tropfen gering dosiert, für Schwangere, Kinder & Abstinente dennoch relevant.</div>`:""}
     ${_azoWarn?`<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Enthält synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis „kann Aktivität und Aufmerksamkeit bei Kindern beeinträchtigen". Deckelt die Wertung auf höchstens „Gut".</div>`:""}
     ${_ksuessWarn?`<div class="note" style="background:var(--k-fffbeb);border-color:var(--k-fde68a);color:var(--k-92400e)">⚠️ <b>Enthält künstliche Süßstoffe</b> (z. B. Sucralose/Acesulfam) – kalorienarm, aber umstritten. Bei gesüßten Getränken deckelt es die Wertung auf höchstens „Mittel".</div>`:""}
@@ -4090,7 +4136,7 @@ function amzUrl(id){ return BUNDLE_ASIN[id]?('https://www.amazon.de/dp/'+BUNDLE_
    Regel: Rangfolge und TOP-Siegel nur, wenn jedes Produkt im Block einen Score hat.
    Sonst: alle Kandidaten gleichrangig zeigen, keine Auswahl treffen. */
 function bundleRangbar(list){ return list.every(function(p){ return num(p.clean_score)!=null; }); }
-const BUNDLE_KEIN_RANG='<div style="font-size:11px;color:var(--muted);background:var(--k-f4f5f4);border-radius:7px;padding:5px 8px;margin-bottom:6px;line-height:1.35">Wir zeigen hier <b>keine Reihenfolge</b>. Nahrungsergänzung bewerten wir noch nicht – der <b>Reinheits-Index</b> ist in Arbeit. Bis dahin nennen wir dir alle Kandidaten, ohne einen zu bevorzugen.</div>';
+const BUNDLE_KEIN_RANG='<div style="font-size:11px;color:var(--muted);background:var(--k-f4f5f4);border-radius:7px;padding:5px 8px;margin-bottom:6px;line-height:1.35">Wir zeigen hier <b>keine Reihenfolge</b>. Nahrungsergänzung bekommt <b>keinen Root Index</b> – eine Kapsel ist kein Lebensmittel. Wir prüfen stattdessen im <b>Dosis-Check</b>, ob die Dosis innerhalb der EFSA-Grenzwerte liegt. Eine Rangfolge ergibt das nicht, deshalb nennen wir alle Kandidaten, ohne einen zu bevorzugen.</div>';
 function bundleCard(p,winner){
   const img=(typeof BILD!=='undefined'&&BILD&&BILD[p.id])?BILD[p.id]:'';
   const url=amzUrl(p.id);
@@ -9267,7 +9313,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-17e";
+const APP_BUILD = "2026-07-17f";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
