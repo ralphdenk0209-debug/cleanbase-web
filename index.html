@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-18g katalog-suche (produkte+zutaten) und produkt-zaehler im dashboard; produkte-knopf startet wieder in der kategorie-uebersicht -->
+<!-- build 2026-07-18h admin-reiter rechtsbuendig; produkt-kategorien aufgeraeumt (17 statt 22) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -817,6 +817,11 @@
   .seg{display:flex;gap:4px;background:var(--k-eef3ef);border-radius:13px;padding:4px;margin:0 0 16px;overflow-x:auto}
   .seg button{flex:1 0 auto;border:0;background:none;padding:9px 14px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
   .seg button.active{background:var(--card);color:var(--green);box-shadow:0 1px 3px rgba(31,94,52,.12)}
+  /* Rechtsbuendige Reiter - nur im Admin-Bereich (Ralph, 18.07.2026). Die Nutzer-Reiter
+     (Profil, Training) bleiben unveraendert; deshalb ein Zusatz statt Aenderung an .seg.
+     Buttons wachsen hier NICHT auf volle Breite (flex:0), sondern draengen sich nach rechts. */
+  .seg.segRight{justify-content:flex-end}
+  .seg.segRight button{flex:0 0 auto}
   /* Wassertropfen-Animation (Startseite) */
   @keyframes markPuls{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.05);opacity:1}}
   .leafwind{width:88px;height:88px;margin:2px auto 8px;display:flex;align-items:flex-end;justify-content:center}
@@ -1129,7 +1134,7 @@
   <div id="freigabeView" style="display:none">
     <div style="max-width:1040px;margin:0 auto">
       <h2 style="margin:.1em 0 .35em;font-size:19px">Freigabe</h2>
-      <div class="seg" id="fgTabs" style="margin-bottom:14px">
+      <div class="seg segRight" id="fgTabs" style="margin-bottom:14px">
         <button id="fgtDash" onclick="fgTab('dash')">📊 Dashboard</button>
         <button id="fgtProdukte" onclick="fgTab('produkte')" style="display:none">Produkte</button>
         <button id="fgtBundles" onclick="fgTab('bundles')">Bundles</button>
@@ -5460,7 +5465,7 @@ function applyAdminMode(){
   if(!document.getElementById('adminNav')){
     const c=document.querySelector('.container');
     if(c){ const nav=document.createElement('div'); nav.id='adminNav'; nav.style.cssText='display:flex;align-items:center;gap:10px;margin:0 0 14px';
-      nav.innerHTML='<div class="seg" style="flex:1 1 auto"><button onclick="navTo(\'freigabe\')">Freigabe</button><button onclick="navTo(\'rikiimport\')">Riki-Import</button><button onclick="navTo(\'stufen\')">Stufen</button><button onclick="navTo(\'nutzer\')">Nutzer</button></div><button title="Abmelden" aria-label="Abmelden" onclick="doLogout()" style="flex:0 0 auto;padding:9px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer;font-size:16px">🚪</button>';
+      nav.innerHTML='<div class="seg segRight" style="flex:1 1 auto"><button onclick="navTo(\'freigabe\')">Freigabe</button><button onclick="navTo(\'rikiimport\')">Riki-Import</button><button onclick="navTo(\'stufen\')">Stufen</button><button onclick="navTo(\'nutzer\')">Nutzer</button></div><button title="Abmelden" aria-label="Abmelden" onclick="doLogout()" style="flex:0 0 auto;padding:9px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer;font-size:16px">🚪</button>';
       c.insertBefore(nav, c.firstChild); }
   }
   /* applyAdminMode() läuft bei JEDEM Auth-Event – und Supabase feuert eines, sobald der Tab
@@ -9822,7 +9827,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-18g";
+const APP_BUILD = "2026-07-18h";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
