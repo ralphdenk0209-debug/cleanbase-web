@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-18f produktkarte beginnt beim oeffnen wieder oben, nicht dort wo zuletzt gescrollt wurde -->
+<!-- build 2026-07-18g katalog-suche (produkte+zutaten) und produkt-zaehler im dashboard; produkte-knopf startet wieder in der kategorie-uebersicht -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1376,7 +1376,7 @@
      Training ruecken ins Menue: es ist die Funktion, die man am seltensten aufruft. -->
 <nav class="bottomnav"><div class="bn-inner">
   <button class="bn-item" id="bnstart" onclick="navTo('start')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 9v11h5v-6h4v6h5V9"/></svg><span>Start</span></button>
-  <button class="bn-item" id="bnprodukte" onclick="navTo('produkte')"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Produkte</span></button>
+  <button class="bn-item" id="bnprodukte" onclick="prodHome()"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Produkte</span></button>
   <button class="bn-item bn-scan" id="bnscan" onclick="startProdScan()" aria-label="Barcode scannen">
     <span class="bn-scanBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M4 12h16"/></svg></span>
     <span>Scannen</span>
@@ -3246,6 +3246,16 @@ function setMode(m){
 }
 var NAV_HIST=[];
 function navTo(m){ closeMehr(); var c=window._curMode; if(c&&c!==m){ NAV_HIST.push(c); if(NAV_HIST.length>50) NAV_HIST.shift(); } setMode(m); }
+/* Der Produkte-Knopf unten fuehrt IMMER zur Kategorie-Uebersicht zurueck (Ralph, 18.07.2026):
+   Wer in "Obst & Gemüse" nach unten gescrollt hat und wieder auf Produkte tippt, will
+   von vorn anfangen, nicht dort weitermachen, wo er zuletzt war. Deshalb wird die zuletzt
+   gewaehlte Kategorie und die "alle anzeigen"-Ansicht zurueckgesetzt.
+   navTo('produkte') an anderen Stellen (Suche vom Start) bleibt unberuehrt. */
+function prodHome(){
+  window._prodKat=""; window._prodShowAll=false;
+  var qi=document.getElementById("q"); if(qi) qi.value="";
+  navTo('produkte');
+}
 
 /* ===========================================================================
    RIKI-IMPORT (Admin) — Link rein, Riki liest, Mensch prüft, dann speichern.
@@ -3647,6 +3657,11 @@ async function loadDashboard(){
      )
     +CARD("Riki-Kosten je Tag (14 Tage, $)", balken(rv,{h:70}))
 
+    +H("🔎 Katalog durchsuchen")
+    +'<div style="font-size:11px;color:var(--muted);margin:-2px 0 4px">Sucht in <b>Produkten</b> und im <b>Zutaten-Stamm</b> zugleich – zeigt Bewertung und ob eine Zutat an Produkte gebunden ist.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:6px"><input id="katSucheInp" placeholder="z. B. Gnocchi, Feta, Beta-Carotin…" oninput="katSucheTip()" onkeydown="if(event.key===\'Enter\')katSuche()" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:9px;font-size:13px"><button onclick="katSuche()" style="padding:9px 14px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen,#fff);font-weight:600;cursor:pointer">Suchen</button></div>'
+    +'<div id="katSucheOut"><div style="font-size:12px;color:var(--muted)">Begriff eingeben – Produkte und Zutaten werden zusammen durchsucht.</div></div>'
+
     +H("🧪 Zutaten &amp; Zusatzstoffe")
     +'<div style="font-size:11px;color:var(--muted);margin:-2px 0 4px">Unser Stamm und die Referenzdaten, gegen die wir ihn abgleichen.</div>'
     +'<div id="dashStamm"><div style="font-size:12px;color:var(--muted)">Lade Stamm…</div></div>'
@@ -3662,6 +3677,49 @@ async function loadDashboard(){
      werden nachgeladen - so bleibt das Dashboard schnell, auch wenn die Zaehler wachsen. */
   ladeNutzungPanel();
   ladeStammPanel();
+}
+/* Katalog-Suche im Admin (Ralph, 18.07.2026): Produkte UND Zutaten-Stamm in einem.
+   Beantwortet "haben wir sowas, und haengt es an einem Produkt?" - der Fall Gnocchi. */
+function katSucheTip(){
+  clearTimeout(window._katSucheT);
+  window._katSucheT=setTimeout(katSuche, 350);   // still tippen, dann suchen
+}
+async function katSuche(){
+  const inp=document.getElementById("katSucheInp"), out=document.getElementById("katSucheOut");
+  if(!inp||!out) return;
+  const q=(inp.value||"").trim();
+  if(q.length<2){ out.innerHTML='<div style="font-size:12px;color:var(--muted)">Mindestens zwei Zeichen.</div>'; return; }
+  out.innerHTML='<div style="font-size:12px;color:var(--muted)">Suche…</div>';
+  try{
+    const r=await client.rpc("cb_katalog_suche",{p_suche:q});
+    if(r.error){ out.innerHTML='<div style="font-size:12px;color:var(--k-dc2626)">Fehler: '+esc(r.error.message)+'</div>'; return; }
+    const rows=r.data||[];
+    if(!rows.length){ out.innerHTML='<div style="font-size:12.5px;color:var(--muted)">Kein Treffer für „'+esc(q)+'" – weder Produkt noch Zutat.</div>'; return; }
+    const prod=rows.filter(x=>x.quelle==='Produkt'), zut=rows.filter(x=>x.quelle==='Zutat');
+    const chip=(t,bg,fg)=>'<span style="font-size:10.5px;font-weight:700;background:'+bg+';color:'+fg+';border-radius:999px;padding:1px 7px">'+t+'</span>';
+    const zeile=function(x){
+      const istP=x.quelle==='Produkt';
+      const tag = istP ? chip('Produkt','var(--k-dbeafe)','var(--k-1e40af)') : chip('Zutat','var(--k-e9d5ff)','var(--k-6b21a8)');
+      let info='';
+      if(istP){
+        info=(x.marke&&x.marke!=='—'?esc(x.marke)+' · ':'')+esc(x.kategorie)
+            +(x.kcal!=null?' · '+Math.round(x.kcal)+' kcal':'')
+            +(x.status!=='Aktiv'?' · <span style="color:var(--k-b45309)">'+esc(x.status)+'</span>':'')
+            +(x.verwendung>0?' · in '+x.verwendung+' Rezept(en)':'');
+      } else {
+        info='Bewertung '+esc(x.bewertung)+' · '+esc(x.kategorie)
+            +(x.status==='kritisch'?' · <span style="color:var(--k-dc2626);font-weight:600">kritisch</span>':'')
+            +' · '+(x.verwendung>0?('gebunden an '+x.verwendung+' Produkt(e)')
+                     :'<span style="color:var(--k-b45309)">nicht gebunden</span>');
+      }
+      return '<div style="padding:7px 2px;border-top:1px solid var(--line)">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b style="font-size:13px">'+esc(x.name)+'</b>'+tag+'</div>'
+        +'<div style="font-size:11.5px;color:var(--muted);margin-top:1px">'+info+'</div></div>';
+    };
+    let html='<div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">'+prod.length+' Produkt(e) · '+zut.length+' Zutat(en)</div>';
+    html+=rows.map(zeile).join("");
+    out.innerHTML=html;
+  }catch(e){ out.innerHTML='<div style="font-size:12px;color:var(--k-dc2626)">Fehler: '+esc((e&&e.message)||String(e))+'</div>'; }
 }
 /* Zutaten-Stamm + OFF-Referenz. Eigene Funktion, eigener Aufruf - cb_dashboard ist
    gross genug und sollte nicht fuer jede neue Kennzahl umgebaut werden. */
@@ -3679,14 +3737,25 @@ async function ladeStammPanel(){
       box.innerHTML='<div style="font-size:12px;color:var(--k-dc2626)">Nicht verfügbar: '+esc((r.error&&r.error.message)||(d&&d.grund)||'unbekannt')+'</div>';
       return;
     }
-    const s=d.stamm||{}, z=d.zusatzstoffe||{}, ref=d.referenz||{};
+    const s=d.stamm||{}, z=d.zusatzstoffe||{}, ref=d.referenz||{}, pr=d.produkte||{};
     let html="";
+    /* Die zwei Zaehler, um die Ralph gebeten hat: Produkte und Zutaten nebeneinander. */
+    html+='<div style="display:flex;gap:8px;margin-top:8px">'
+      +'<div style="flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;text-align:center">'
+        +'<div style="font-size:22px;font-weight:800;color:var(--greendk)">'+(pr.gesamt||0)+'</div>'
+        +'<div style="font-size:11.5px;color:var(--muted)">Produkte <span style="color:var(--ink)">('+(pr.aktiv||0)+' aktiv)</span></div></div>'
+      +'<div style="flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;text-align:center">'
+        +'<div style="font-size:22px;font-weight:800;color:var(--greendk)">'+(s.gesamt||0)+'</div>'
+        +'<div style="font-size:11.5px;color:var(--muted)">Zutaten im Stamm <span style="color:var(--ink)">('+(s.gebunden||0)+' gebunden)</span></div></div>'
+      +'</div>';
     html+=CARD2("Zutaten-Stamm",
         li("Einträge gesamt", s.gesamt)
       + li("davon bewertet", s.bewertet)
       + li("unbewertet", s.unbewertet, (s.unbewertet>0?"var(--k-e8920c)":null))
       + li("als kritisch markiert", s.kritisch)
       + li("Trägerstoffe", s.traegerstoffe)
+      + li("an Produkte gebunden", s.gebunden)
+      + li("nie gebunden", s.nie_gebunden, (s.nie_gebunden>0?"var(--muted)":null))
       + li("ohne Kategorie", s.ohne_kategorie, (s.ohne_kategorie>0?"var(--k-e8920c)":null)));
 
     /* Die Spanne zwischen "kategorisiert" und "zusammen" ist die eigentliche Aussage:
@@ -9753,7 +9822,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-18f";
+const APP_BUILD = "2026-07-18g";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
