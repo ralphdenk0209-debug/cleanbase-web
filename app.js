@@ -4124,8 +4124,24 @@ function applyAdminMode(){
   const ms=document.getElementById('mehrSheet'); if(ms) ms.style.display='';
   if(!document.getElementById('adminNav')){
     const c=document.querySelector('.container');
-    if(c){ const nav=document.createElement('div'); nav.id='adminNav'; nav.style.cssText='display:flex;align-items:center;gap:10px;margin:0 0 14px';
-      nav.innerHTML='<div class="seg segRight" style="flex:1 1 auto"><button onclick="navTo(\'freigabe\')">Freigabe</button><button onclick="navTo(\'rikiimport\')">Riki-Import</button><button onclick="navTo(\'stufen\')">Stufen</button><button onclick="navTo(\'nutzer\')">Nutzer</button></div><button title="Abmelden" aria-label="Abmelden" onclick="doLogout()" style="flex:0 0 auto;padding:9px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer;font-size:16px">🚪</button>';
+    if(c){ const nav=document.createElement('div'); nav.id='adminNav';
+      /* EIN durchgehendes linkes Menü: oben die Freigabe-Ansichten (Dashboard, Eingang,
+         Bundles, Rezepte, Empfehlungen), darunter die eigenständigen Bereiche
+         (Riki-Import, Stufen, Nutzer), unten Abmelden. (Ralph, 19.07.2026) */
+      nav.innerHTML=
+        '<div class="adminMenu">'
+        +'<button class="amBtn" data-k="dash"         onclick="adminGo(\'dash\')">📊 Dashboard</button>'
+        +'<button class="amBtn" data-k="scans"        onclick="adminGo(\'scans\')">📥 Eingang</button>'
+        +'<button class="amBtn" data-k="bundles"      onclick="adminGo(\'bundles\')">🧩 Bundles</button>'
+        +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
+        +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
+        +'<div class="amSep"></div>'
+        +'<button class="amBtn" data-k="rikiimport"   onclick="adminGo(\'rikiimport\')">📤 Riki-Import</button>'
+        +'<button class="amBtn" data-k="stufen"       onclick="adminGo(\'stufen\')">🎚️ Stufen</button>'
+        +'<button class="amBtn" data-k="nutzer"       onclick="adminGo(\'nutzer\')">👥 Nutzer</button>'
+        +'<div class="amSep"></div>'
+        +'<button class="amBtn amLogout" onclick="doLogout()">🚪 Abmelden</button>'
+        +'</div>';
       c.insertBefore(nav, c.firstChild); }
   }
   /* applyAdminMode() läuft bei JEDEM Auth-Event – und Supabase feuert eines, sobald der Tab
@@ -4135,6 +4151,16 @@ function applyAdminMode(){
   if(ME&&ME.is_admin){ ADMIN_START_DONE=true; setMode('freigabe'); }
   else { openAdminLogin(); }
 }
+
+/* Linkes Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
+   die eigenständigen Bereiche über navTo(). Zusätzlich Markierung des aktiven Knopfs. */
+function adminGo(k){
+  const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1};
+  if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
+  else { try{ navTo(k); }catch(e){} }
+  try{ document.querySelectorAll('#adminNav .amBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
+}
+if(typeof window!=='undefined') window.adminGo=adminGo;
 
 /* ---- Tagebuch ---- */
 let TB_USER="U001";
@@ -8487,7 +8513,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19h";
+const APP_BUILD = "2026-07-19i";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */

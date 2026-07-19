@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADMIN-BACKEND · Kopie der App-Huelle, laedt dieselbe app.js. Consumer-Bedienung ausgeblendet. build 2026-07-19h (feste sidebar links, volle breite, seiten-flag) -->
+<!-- ADMIN-BACKEND · Kopie der App-Huelle, laedt dieselbe app.js. Consumer-Bedienung ausgeblendet. build 2026-07-19i (einheitliches linkes menue, unter-reiter integriert) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1413,7 +1413,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 <script>/* Admin-Modus VOR app.js aktivieren - per Seiten-Flag (nicht mehr per URL-Hash). */
 window.__ADMIN_PAGE=true;</script>
-<script src="app.js?v=2026-07-19h"></script>
+<script src="app.js?v=2026-07-19i"></script>
 <button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
 <button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 <style id="adminOnly">
@@ -1423,16 +1423,19 @@ window.__ADMIN_PAGE=true;</script>
   .principles{display:none !important;}
   /* Feste Navigations-Spalte GANZ LINKS, ausserhalb des Inhalts (Ralph, 19.07.2026).
      Der Inhalt rueckt nach rechts und nutzt die volle Restbreite. */
-  #adminNav{position:fixed !important;left:14px;top:44px;width:168px;z-index:45;
-            flex-direction:column !important;align-items:stretch !important;gap:10px !important;
-            float:none !important;margin:0 !important;}
-  #adminNav .seg{flex-direction:column !important;background:none !important;padding:0 !important;gap:8px !important;overflow:visible !important;}
-  #adminNav .seg button{width:100%;justify-content:flex-start !important;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:9px;padding:11px 13px !important;font-size:14px;}
-  #adminNav .seg button.active{background:var(--greenlt);color:var(--greendk);border-color:var(--green);}
+  #adminNav{position:fixed !important;left:14px;top:44px;width:186px;z-index:45;margin:0 !important;}
+  .adminMenu{display:flex;flex-direction:column;gap:6px;}
+  .adminMenu .amBtn{width:100%;text-align:left;border:1px solid var(--line);background:var(--card);
+                    color:var(--ink);border-radius:9px;padding:11px 13px;font-size:14px;cursor:pointer;
+                    display:flex;align-items:center;gap:8px;}
+  .adminMenu .amBtn:hover{border-color:var(--green);}
+  .adminMenu .amBtn.active{background:var(--greenlt);color:var(--greendk);border-color:var(--green);font-weight:600;}
+  .adminMenu .amSep{height:1px;background:var(--line);margin:8px 2px;}
+  .adminMenu .amLogout{color:var(--muted);}
   /* Inhalt neben die Sidebar schieben und volle Breite nutzen. */
-  .container{margin-left:200px !important;max-width:none !important;width:auto !important;padding:14px 24px 60px 0 !important;}
-  /* Die Unter-Reiter (Dashboard · Bundles …) linksbuendig statt rechts. */
-  #fgTabs{justify-content:flex-start !important;}
+  .container{margin-left:214px !important;max-width:none !important;width:auto !important;padding:14px 24px 60px 0 !important;}
+  /* Die alten Unter-Reiter im Content sind jetzt Teil des linken Menüs -> ausblenden. */
+  #fgTabs{display:none !important;}
   body::before{content:"ADMIN";position:fixed;top:0;left:0;right:0;z-index:60;background:#0f2a1c;color:#7fe3a6;font-size:11px;font-weight:700;text-align:center;padding:3px;letter-spacing:1px}
 </style>
 <script>
@@ -1446,9 +1449,8 @@ window.__ADMIN_PAGE=true;</script>
         if(!ME.is_admin){ document.body.innerHTML='<div style="max-width:340px;margin:14vh auto;text-align:center;font-family:sans-serif"><h2>Kein Admin-Zugang</h2><p>Dieser Bereich ist nur f\u00fcr Admins. F\u00fcr die App: <a href="https://root-index.de">root-index.de</a></p></div>'; return; }
         if(ME.is_admin && !routed){
           routed=true;
-          try{ navTo('freigabe'); }catch(e){}
-          /* Dashboard als Start statt Eingang */
-          setTimeout(function(){ try{ if(typeof fgTab==='function') fgTab('dash'); }catch(e){} }, 250);
+          /* Dashboard als Start – über adminGo, damit der linke Menüpunkt markiert ist. */
+          setTimeout(function(){ try{ if(typeof adminGo==='function') adminGo('dash'); else navTo('freigabe'); }catch(e){} }, 250);
         }
       }
     }catch(e){}
