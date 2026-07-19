@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-18i produktkarten-entwurf (detail2) neu: flux-widget, progressive disclosure, aufklapp-zeilen -->
+<!-- build 2026-07-18j dashboard-diagramm-zahlen skalieren nicht mehr hoch (max-breite, werte-labels nur bei wenigen balken) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3561,14 +3561,19 @@ function balken(daten, opt){
   const max=Math.max.apply(null, daten.map(function(d){ return Number(d.v)||0; }));
   const m=max>0?max:1;
   const bw=(w-2*pad)/n;
-  let s='<svg viewBox="0 0 '+w+' '+(h+22)+'" style="width:100%;height:auto;display:block">';
+  /* SVG NICHT auf volle Breite strecken: sonst skaliert auf dem Desktop die
+     ganze Grafik samt Schrift hoch - aus 9px werden schnell 25px (Ralph, 18.07.2026).
+     max-width kappt das. Und die Wert-Zahl je Balken nur, wenn wenige Balken da sind;
+     bei 14 Tagen ueberlappen die Betraege - dann reicht der Tooltip beim Draufzeigen. */
+  const zeigeWerte = (opt.werte!==false) && n<=8;
+  let s='<svg viewBox="0 0 '+w+' '+(h+22)+'" style="width:100%;max-width:'+(opt.maxw||460)+'px;height:auto;display:block;margin:0 auto">';
   daten.forEach(function(d,i){
     const v=Number(d.v)||0;
     const bh=Math.max(v>0?2:0, Math.round((v/m)*(h-pad)));
     const x=pad+i*bw+bw*0.13, y=h-bh, bwr=bw*0.74;
     s+='<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bwr.toFixed(1)+'" height="'+bh
       +'" rx="2" fill="'+(d.col||opt.col||'var(--k-8cc63f)')+'"><title>'+esc(String(d.l))+': '+esc(String(d.t||v))+'</title></rect>';
-    if(v>0) s+='<text x="'+(x+bwr/2).toFixed(1)+'" y="'+(y-3).toFixed(1)+'" text-anchor="middle" '
+    if(v>0 && zeigeWerte) s+='<text x="'+(x+bwr/2).toFixed(1)+'" y="'+(y-3).toFixed(1)+'" text-anchor="middle" '
       +'font-size="9" fill="var(--k-6b6256)">'+esc(String(d.t||v))+'</text>';
     s+='<text x="'+(x+bwr/2).toFixed(1)+'" y="'+(h+13)+'" text-anchor="middle" font-size="9" fill="var(--k-9aa7a0)">'+esc(String(d.l))+'</text>';
   });
@@ -9858,7 +9863,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-18i";
+const APP_BUILD = "2026-07-18j";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
