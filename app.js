@@ -1365,8 +1365,199 @@ function pk2SetTab(i){
      Rückseite  Herleitung  = 4 Achsen -> Regeln -> Platzierung -> Quellen
    Stufe der Blutzucker-Kurve bleibt grün/gelb/rot (gedämpft); Kartenakzente ruhig.
    =========================================================================== */
+/* ============================================================
+   SUPPLEMENT-KARTE – eigene Seite, KEIN Lebensmittel-Layout (Prinzip 5).
+   Eine Kapsel ist kein Lebensmittel: kein Flux-Donut, keine 4 Achsen,
+   kein Root-Index. Drei ehrliche Aussagen untereinander:
+   1) Dosis-Check (Bedarf/NRV + Sicherheitsgrenze/EFSA-UL, beide Skalen),
+   2) Nutzen-Beleg (EU-Health-Claims, VO 432/2012) je Wirkstoff,
+   3) Zutaten/Verarbeitung (die einzige aussagekraeftige Achse).
+   ALLE Wirkstoffe werden gezeigt; Daten: cb_supplement_karte.
+   ============================================================ */
+var _suNn=0;
+function suppTog(id){ var e=document.getElementById(id); if(e){ e.style.display=(e.style.display==="block")?"none":"block"; } }
+function suppCountUp(el){ var z=Number(el.getAttribute("data-ziel"))||0, t0=null; function tk(ts){ if(t0===null)t0=ts; var k=Math.min(1,(ts-t0)/850); el.textContent=String(Math.round(k*z)); if(k<1) requestAnimationFrame(tk); } requestAnimationFrame(tk); }
+function suppEfPill(ef){
+  if(!ef) return "";
+  var m={"vegan":["🌱","var(--k-e7f4ec)","var(--k-1f5e34)"],"vegetarisch":["🥚","var(--k-eef6e9)","var(--k-4d7c0f)"],"enthält Tierprodukte":["🥩","var(--k-f3eee6)","var(--k-7c5e3a)"]};
+  var c=m[ef]||["•","var(--k-eef2f6)","var(--k-475569)"];
+  var label=(ef==="enthält Tierprodukte")?"tierisch":ef;
+  return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:'+c[1]+';color:'+c[2]+'"><span aria-hidden="true">'+c[0]+'</span>'+esc(label)+'</span>';
+}
+function suppKarte(d){
+  var panel=document.getElementById("panel"); if(!panel) return;
+  panel.innerHTML=
+    '<button class="close" onclick="closeP()">Schließen ✕</button>'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+      + '<div style="min-width:0"><h2 style="margin:0 0 2px">'+esc(d.name)+'</h2>'
+      + '<div class="marke" style="margin:0">'+((mkLabel(d.marke)?esc(mkLabel(d.marke))+' · ':'')+esc(d.kategorie||''))+(d.unterkategorie?(' · '+esc(d.unterkategorie)):'')+'</div></div>'
+      + suppEfPill(d.ernaehrungsform)
+    + '</div>'
+    + '<div style="display:flex;gap:9px;align-items:flex-start;background:var(--k-eef6ee);border:1px solid var(--k-d5e6d5);border-radius:12px;padding:10px 12px;margin:12px 0 4px">'
+      + '<span style="font-size:16px">💊</span>'
+      + '<span style="font-size:12px;line-height:1.45;color:var(--k-2f5d33)"><b>Nahrungsergänzung.</b> Keine Root-Index-Note – eine Kapsel ist kein Lebensmittel. Wir prüfen zwei Dinge: <b>ist die Dosis sicher</b> und <b>ist ein Nutzen belegt</b>.</span>'
+    + '</div>'
+    + '<div id="suppBody"><div class="note" style="background:var(--k-f4f5f4);color:var(--muted);margin-top:10px">Prüfe Dosierung und Nutzen gegen EFSA &amp; EU-Register …</div></div>';
+  var ov=document.getElementById("overlay"); if(ov) ov.classList.add("open");
+  client.rpc("cb_supplement_karte",{p_produkt_id:d.id}).then(function(r){
+    var body=document.getElementById("suppBody"); if(body){ body.innerHTML=suppKarteFill(r&&r.data,d); try{ body.querySelectorAll(".suCnt").forEach(suppCountUp); }catch(e){} }
+  },function(e){ console.log("cb_supplement_karte:",e); var body=document.getElementById("suppBody"); if(body) body.innerHTML=suppKarteFill(null,d); });
+  return;
+}
+function suppKarteFill(a,d){
+  var RIF=(typeof RI_FARBEN!=="undefined")?RI_FARBEN:null;
+  function bar1(b){
+    var pNRV=(b.prozent_nrv!=null)?Number(b.prozent_nrv):null;
+    if(pNRV==null) return '<div style="font-size:11px;color:var(--muted);margin-bottom:9px">Für diesen Wirkstoff nennt die EU keinen Tagesbedarf (NRV).</div>';
+    var w=Math.min(97,pNRV/100*78);
+    return '<div style="margin-bottom:11px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><span style="font-size:11.5px;font-weight:600;color:var(--k-2f5d33)">Deckt deinen Tagesbedarf</span><span style="font-size:12px;font-weight:700;color:var(--k-2f5d33)">'+pNRV+' %</span></div>'
+      +'<div style="position:relative;height:7px;background:var(--k-f0ece3);border-radius:99px">'
+        +'<div style="position:absolute;left:0;top:0;height:100%;width:'+w.toFixed(1)+'%;background:var(--k-4d7c3a);border-radius:99px"></div>'
+        +'<div style="position:absolute;left:78%;top:-3px;width:2px;height:13px;background:var(--k-c9c4bb)"></div>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-top:3px"><span style="font-size:10px;color:var(--k-a89f8f)">0</span><span style="font-size:10px;color:var(--k-8a8072)">Tagesbedarf (NRV) = '+b.nrv+' '+esc(b.einheit)+'</span></div>'
+    +'</div>';
+  }
+  function bar2(b){
+    var hatUL=(b.hat_ul===true||b.hat_ul==="true")&&(b.grenzwert!=null);
+    if(!hatUL) return '<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:2px">Für diesen Wirkstoff nennt die EFSA <b>keine Sicherheitsgrenze</b> – dazu keine Aussage.</div>';
+    var st=b.stufe;
+    var cUL=(st==="rot")?"var(--k-dc2626)":(st==="gelb")?"var(--k-e8920c)":"var(--k-7ba05b)";
+    var col=(st==="rot"||st==="gelb")?"var(--k-c2410c)":"var(--k-5a6660)";
+    var G=70, p=Number(b.prozent_ul)||0;
+    var bis=Math.min(p,100)/100*G, drueber=p>100?Math.min(28,(p-100)/100*G):0;
+    return '<div style="margin-bottom:2px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><span style="font-size:11.5px;font-weight:600;color:'+col+'">Anteil an der Sicherheitsgrenze</span><span style="font-size:12px;font-weight:700;color:'+col+'">'+p+' %</span></div>'
+      +'<div style="position:relative;height:7px;background:var(--k-f0ece3);border-radius:99px">'
+        +'<div style="position:absolute;left:0;top:0;height:100%;width:'+bis.toFixed(1)+'%;background:var(--k-7ba05b);border-radius:99px"></div>'
+        +(drueber>0?'<div style="position:absolute;left:'+G+'%;top:0;height:100%;width:'+drueber.toFixed(1)+'%;background:'+cUL+';border-radius:0 99px 99px 0"></div>':'')
+        +'<div style="position:absolute;left:'+G+'%;top:-4px;width:2.5px;height:15px;background:var(--k-1d3c24)"></div>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-top:3px"><span style="font-size:10px;color:var(--k-a89f8f)">0</span><span style="font-size:10px;font-weight:600;color:var(--k-1d3c24)">EFSA-Grenze = '+b.grenzwert+' '+esc(b.einheit)+' ↑</span></div>'
+    +'</div>';
+  }
+  function nutzenLine(b){
+    var n=b.nutzen||{};
+    if(!(n.hat===true||n.hat==="true")) return '<div style="margin-top:9px;font-size:11px;color:var(--muted);background:var(--k-f4f5f4);border-radius:8px;padding:7px 9px;line-height:1.45">Keine von der EU zugelassene gesundheitsbezogene Aussage hinterlegt.</div>';
+    var gilt=(n.gilt===true||n.gilt==="true");
+    if(!gilt){
+      var mm=String(n.mindestmenge).replace(".",",");
+      return '<div style="margin-top:9px;font-size:11px;color:var(--k-7a5c1e);background:var(--k-fdf6e7);border-radius:8px;padding:7px 9px;line-height:1.45">Nutzen-Aussagen (z. B. „'+esc(n.funktion)+'“) gibt es – aber erst ab <b>'+mm+' '+esc(n.mind_einheit||"")+'</b> je Tagesdosis. Die Menge liegt darunter.</div>';
+    }
+    var funk=Array.isArray(n.funktionen)?n.funktionen:[];
+    var weitereTxt=funk.slice(1).join(" · ");
+    _suNn++; var xid="suNx"+_suNn;
+    var mehr=(Number(n.anzahl)>1)?('<span onclick="suppTog(\''+xid+'\')" style="font-size:11px;color:var(--k-4d7c3a);border:1px dashed var(--k-d5e6d5);border-radius:20px;padding:2px 8px;cursor:pointer">+'+(Number(n.anzahl)-1)+' weitere</span>'):"";
+    return '<div style="margin-top:9px;background:var(--k-f2f5f3);border-left:3px solid var(--k-4d7c3a);border-radius:8px;padding:8px 10px">'
+      +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="background:var(--k-1d3c24);color:var(--k-ffffff);font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.03em">NUTZEN · EU</span><span style="font-size:12.5px;font-weight:700;color:var(--k-2f5d33)">'+esc(n.funktion)+'</span>'+mehr+'</div>'
+      +'<div id="'+xid+'" style="display:none;font-size:11px;color:var(--k-5a6660);line-height:1.5;margin-top:6px">„'+esc(n.claim)+'“'+(weitereTxt?(' Ebenfalls anerkannt: '+esc(weitereTxt)+'.'):"")+'</div>'
+    +'</div>';
+  }
+  function block(b){
+    return '<div style="padding:13px 0;border-top:1px solid var(--line)">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px"><span style="font-size:14px;font-weight:700;color:var(--ink)">'+esc(b.wirkstoff)+'</span><span style="font-size:14px;font-weight:700;color:var(--ink)">'+String(b.menge).replace(".",",")+' '+esc(b.einheit)+'</span></div>'
+      +(b.form_annahme?'<div style="font-size:10.5px;color:var(--k-8a8072);line-height:1.5;margin:-4px 0 9px">Form nicht angegeben – als Nicotinamid gewertet (EFSA-Grenze 900 mg).</div>':"")
+      +bar1(b)+bar2(b)+nutzenLine(b)
+    +'</div>';
+  }
+  if(!a || !a.gilt){
+    return '<div class="note" style="background:var(--k-f4f5f4);color:var(--muted)">Für dieses Präparat liegen noch keine Wirkstoffdaten vor.</div>'+suppZutaten(d)+suppFuss(null);
+  }
+  var alle=Array.isArray(a.befunde_alle)?a.befunde_alle:[];
+  var istHaupt=function(b){ return (b.has_dosing===true||b.has_dosing==="true")||(b.nutzen&&(b.nutzen.hat===true||b.nutzen.hat==="true")); };
+  var haupt=alle.filter(istHaupt);
+  var stumm=alle.filter(function(b){ return !istHaupt(b); });
+  var f=RIF?(RIF[a.ampel]||RIF.grau):{bg:"var(--k-eef6ee)",rand:"var(--k-d5e6d5)",text:"var(--k-2f5d33)",punkt:"var(--k-4d7c3a)",icon:"✓"};
+
+  var head='<div style="display:flex;gap:11px;align-items:center;background:'+f.bg+';border:1px solid '+f.rand+';border-radius:13px;padding:11px 12px;margin-bottom:4px">'
+    +'<div style="width:30px;height:30px;border-radius:9px;background:'+f.punkt+';color:var(--k-ffffff);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px">'+f.icon+'</div>'
+    +'<div style="min-width:0"><div style="font-weight:700;font-size:14px;color:'+f.text+';line-height:1.3">'+esc(a.titel||"")+'</div>'
+    +'<div style="font-size:11.5px;color:'+f.text+';opacity:.88;line-height:1.4;margin-top:1px">'+esc(a.text||"")+'</div></div></div>';
+
+  var zwei=haupt.length?'<div style="font-size:11px;color:var(--muted);line-height:1.5;margin:11px 2px 2px"><b style="color:var(--k-5a6660)">Zwei Fragen, zwei Skalen.</b> Wie viel deines <b>Tagesbedarfs</b> deckt es – und wie nah bist du an der <b>Sicherheitsgrenze</b>? <span style="color:var(--k-a89f8f)">'+(a.pruefbar||0)+' von '+(a.wirkstoffe||0)+' Wirkstoffen haben einen EFSA-Grenzwert.</span></div>':"";
+
+  var hauptHtml=haupt.map(block).join("");
+
+  var stummHtml="";
+  if(stumm.length){
+    _suNn++; var sid="suSt"+_suNn;
+    var rows=stumm.map(function(b){
+      var mg=(b.menge!=null)?(String(b.menge).replace(".",",")+' '+esc(b.einheit||"")):"–";
+      return '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line)"><span style="font-size:12.5px;color:var(--ink)">'+esc(b.wirkstoff)+'</span><span style="font-size:12px;color:var(--muted);white-space:nowrap">'+mg+'</span></div>';
+    }).join("");
+    stummHtml='<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:11px">'
+      +'<div onclick="suppTog(\''+sid+'\')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer"><b style="font-size:12.5px;color:var(--ink)">'+stumm.length+' weitere Wirkstoffe – keine anerkannte EU-Aussage</b><span style="color:var(--muted);font-size:12px">▾ zeigen</span></div>'
+      +'<div id="'+sid+'" style="display:none;margin-top:7px">'
+        +'<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:4px">Aminosäuren: EFSA-Anträge <b>abgelehnt</b>. Pflanzenstoffe: EFSA-Bewertung <b>offen</b> („on hold"). Nicht schädlich – nur nicht belegt.</div>'
+        +rows
+      +'</div>'
+    +'</div>';
+  }
+
+  var bilanzHtml="";
+  if(a.bilanz && Number(a.bilanz.gesamt)>0){
+    var g=Number(a.bilanz.gesamt)||0, wk=Number(a.bilanz.wirksam)||0, zg=Number(a.bilanz.zu_gering)||0, kr=Number(a.bilanz.kein_ref)||0;
+    var CX=60,CY=60,RO=52,RI=41,GAP=(g>1?6:0),SEG=360/g,ring="";
+    if(g===1){
+      var c1=(wk>0)?"var(--k-4d7c3a)":((zg>0)?"var(--k-e8920c)":"var(--k-c9c4bb)");
+      ring='<circle cx="60" cy="60" r="46.5" fill="none" stroke="'+c1+'" stroke-width="11"/>';
+    } else {
+      for(var i=0;i<g;i++){
+        var col=(i<wk)?"var(--k-4d7c3a)":((i<wk+zg)?"var(--k-e8920c)":"var(--k-c9c4bb)");
+        var a0=(-90+i*SEG+GAP/2)*Math.PI/180, a1=(-90+(i+1)*SEG-GAP/2)*Math.PI/180, lg=(SEG-GAP)>180?1:0;
+        ring+='<path d="M'+(CX+RO*Math.cos(a0)).toFixed(2)+' '+(CY+RO*Math.sin(a0)).toFixed(2)
+          +' A'+RO+' '+RO+' 0 '+lg+' 1 '+(CX+RO*Math.cos(a1)).toFixed(2)+' '+(CY+RO*Math.sin(a1)).toFixed(2)
+          +' L'+(CX+RI*Math.cos(a1)).toFixed(2)+' '+(CY+RI*Math.sin(a1)).toFixed(2)
+          +' A'+RI+' '+RI+' 0 '+lg+' 0 '+(CX+RI*Math.cos(a0)).toFixed(2)+' '+(CY+RI*Math.sin(a0)).toFixed(2)
+          +' Z" fill="'+col+'"/>';
+      }
+    }
+    var xtra=""; if(zg>0) xtra+='<br><span style="color:var(--k-e8920c)">■</span> '+zg+' zu gering dosiert';
+    if(kr>0) xtra+='<br><span style="color:var(--k-c9c4bb)">■</span> '+kr+' ohne offiziellen Referenzwert';
+    bilanzHtml='<div style="margin-top:12px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px 13px">'
+      +'<div style="display:flex;align-items:center;gap:15px">'
+        +'<div style="position:relative;width:104px;height:104px;flex:0 0 auto">'
+          +'<svg viewBox="0 0 120 120" style="width:100%;height:100%;display:block">'+ring+'</svg>'
+          +'<div style="position:absolute;left:0;top:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center">'
+            +'<div class="suCnt" data-ziel="'+wk+'" style="font-size:27px;font-weight:800;line-height:1;color:var(--ink)">'+wk+'</div>'
+            +'<div style="font-size:11px;color:var(--muted);margin-top:1px">von '+g+'</div>'
+          +'</div>'
+        +'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:6px">Wirkstoffe in wirksamer Menge</div>'
+          +'<div style="font-size:11px;color:var(--muted);line-height:1.6"><span style="color:var(--k-4d7c3a)">■</span> '+wk+' mit belegtem EU-Nutzen (≥ 15 % Tagesbedarf)'+xtra+'</div>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  }
+  return head+bilanzHtml+zwei+hauptHtml+stummHtml+suppZutaten(d)+suppFuss(a);
+}
+function suppZutaten(d){
+  var zlist=Array.isArray(d.zutaten)?d.zutaten:[];
+  if(!zlist.length) return "";
+  var chips=zlist.map(function(z){
+    var r=num(z.rating);
+    var bg=(r!=null&&r>=8)?"var(--k-e7f4ec)":(r!=null&&r>=5)?"var(--k-fff7e6)":"var(--k-fde8e8)";
+    var tc=(r!=null&&r>=8)?"var(--k-1f5e34)":(r!=null&&r>=5)?"var(--k-92400e)":"var(--k-b91c1c)";
+    return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:'+bg+';color:'+tc+'">'+esc(z.name)+'</span>';
+  }).join("");
+  return '<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:13px">'
+    +'<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:9px">Zutaten &amp; Verarbeitung</div>'
+    +'<div style="margin-bottom:8px">'+chips+'</div>'
+    +'<div style="font-size:11px;color:var(--muted);line-height:1.5">Farbe = Verarbeitungsgrad, nicht gut/schlecht. Bei Nahrungsergänzung ist alles isoliert oder verarbeitet – das ist normal und der einzige Achsenwert, den wir hier ehrlich zeigen.</div>'
+  +'</div>';
+}
+function suppFuss(a){
+  var wn=(a&&a.was_wir_nicht_sagen)?esc(a.was_wir_nicht_sagen):"";
+  return '<div style="margin-top:16px;background:var(--k-eef6ee);border-radius:12px;padding:12px 13px;font-size:12px;color:var(--k-1d3c24);line-height:1.55">'
+    +'<b>Du entscheidest.</b> Wir sagen dir nicht, ob du das nehmen sollst – nur, wo du damit stehst.'
+    +(wn?'<div style="margin-top:5px;font-size:10.5px;color:var(--k-5a6660);line-height:1.5">'+wn+'</div>':"")
+  +'</div>';
+}
 function detail2(d){
   try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}).then(function(){},function(){}); }catch(e){}
+  if(String(d.kategorie||"").toLowerCase()==="supplement"){ return suppKarte(d); }
   var s=num(d.clean_score);
   var voll=!!d.score_vollstaendig;
   var bewTxt = voll ? (d.bewertung||"") : "Vorläufig";
@@ -8737,7 +8928,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19q";
+const APP_BUILD = "2026-07-19r";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
