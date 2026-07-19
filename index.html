@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-18h admin-reiter rechtsbuendig; produkt-kategorien aufgeraeumt (17 statt 22) -->
+<!-- build 2026-07-18i produktkarten-entwurf (detail2) neu: flux-widget, progressive disclosure, aufklapp-zeilen -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -2778,22 +2778,58 @@ function pk2SetTab(i){
 function detail2(d){
   try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}).then(function(){},function(){}); }catch(e){}
   var s=num(d.clean_score);
-  var COL={Zutaten:ACHS_FARBE.zutaten,Zusatzstoffe:ACHS_FARBE.zusatz,Verarbeitung:ACHS_FARBE.nova,"Nährwert":ACHS_FARBE.naehr};
-  function SEC(t){ return '<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:14px 0 6px">'+t+'</div>'; }
-  function achsBars(){
-    return SCORE_TEIL.map(function(t){
-      var k=t[0],max=t[2],mult=t[3]||1,short=t[4]||t[1]; var raw=num(d[k]); if(raw==null) return '';
-      var v=raw*mult, pct=Math.max(0,Math.min(100,v/max*100)), col=COL[short]||ACHS_FARBE.zutaten;
-      return '<div style="margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink)"><span>'+esc(short)+'</span><span style="color:var(--muted)">'+Math.round(v)+'/'+max+'</span></div>'
-        +'<div style="height:6px;border-radius:20px;background:var(--line);margin-top:3px;overflow:hidden"><i style="display:block;height:100%;width:'+pct+'%;background:'+col+';border-radius:20px"></i></div></div>';
-    }).join('');
+  var voll=!!d.score_vollstaendig;
+  var bewTxt = voll ? (d.bewertung||"") : "Vorläufig";
+  var fCol = farbe(d.bewertung), fTxt = farbeText(d.bewertung);
+
+  function pkFlux(){
+    var A=[
+      {v:num(d.p_zutaten),      max:30, f:"#16a34a"},
+      {v:num(d.p_zusatzstoffe), max:15, f:"#3987e5"},
+      {v:num(d.p_nova),         max:15, f:"#7c6fe0"},
+      {v:(num(d.p_naehrwert)!=null?num(d.p_naehrwert)*2:null), max:40, f:"#d97706"}
+    ].map(function(a){ a.pct=(a.v==null)?null:Math.max(0,Math.min(1,a.v/a.max)); return a; });
+    var uid="pf"+(Math.random().toString(36).slice(2,7)), L=100;
+    var bahn=["M26 34 H74 L112 70","M274 34 H226 L188 70","M26 142 H74 L112 106","M274 142 H226 L188 106"];
+    var kap=[[26,34],[274,34],[26,142],[274,142]];
+    var core=(s==null)?"–":String(Math.round(s));
+    var svg='<svg viewBox="0 0 300 176" style="width:100%;display:block" role="img" aria-label="Index '+core+', vier Achsen">'
+      +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="6">'
+      + bahn.map(function(dd){ return '<path d="'+dd+'" stroke="rgba(120,120,120,.16)"/>'; }).join('')
+      + A.map(function(a,i){ var off=(a.pct==null)?L:L*(1-a.pct);
+          return '<path d="'+bahn[i]+'" stroke="'+(a.pct==null?"rgba(120,120,120,.28)":a.f)+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+L+'" style="transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)" data-ziel="'+off.toFixed(1)+'" class="'+uid+'-b"/>'; }).join('')
+      +'</g>'
+      + A.map(function(a,i){ return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="6" fill="'+(a.pct==null?"#9aa7a0":a.f)+'"/>'; }).join('')
+      +'<circle cx="150" cy="88" r="42" fill="none" stroke="'+(s==null?"#9aa7a0":fCol)+'" stroke-width="4"/>'
+      +'<text x="150" y="99" text-anchor="middle" style="font-size:40px;font-weight:700" fill="var(--ink)">'+core+'</text>'
+      +'</svg>';
+    setTimeout(function(){ document.querySelectorAll("."+uid+"-b").forEach(function(el){ el.style.strokeDashoffset=el.getAttribute("data-ziel"); }); }, 60);
+    return svg;
   }
-  var mRows=MACROS.filter(function(m){return d[m[0]]!=null;}).map(function(m){
-    var k=m[0],label=m[1],unit=m[2]; var raw=num(d[k]); var val=(k==='m_kcal')?Math.round(raw):Math.round(raw*10)/10;
-    return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)"><span>'+label+'</span><span style="font-weight:600">'+String(val).replace('.',',')+' '+unit+'</span></div>';
+
+  function efPill(ef){
+    if(!ef) return "";
+    var m={"vegan":["🌱","var(--k-e7f4ec)","var(--k-1f5e34)"],"vegetarisch":["🥚","var(--k-eef6e9)","var(--k-4d7c0f)"],"enthält Tierprodukte":["🥩","var(--k-f3eee6)","var(--k-7c5e3a)"]};
+    var c=m[ef]||["•","var(--k-eef2f6)","var(--k-475569)"];
+    var label=(ef==="enthält Tierprodukte")?"tierisch":ef;
+    return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:'+c[1]+';color:'+c[2]+'"><span aria-hidden="true">'+c[0]+'</span>'+esc(label)+'</span>';
+  }
+
+  function kachel(k,label,unit){
+    var raw=num(d[k]); if(raw==null) return '';
+    var val=(k==='m_kcal')?Math.round(raw):Math.round(raw*10)/10;
+    return '<div style="background:var(--bg);border-radius:10px;padding:9px 12px"><div style="font-size:12px;color:var(--muted)">'+label+'</div><div style="font-size:16px;font-weight:600;color:var(--ink)">'+String(val).replace('.',',')+' '+unit+'</div></div>';
+  }
+
+  function ACC(icon,titel,inner){
+    return '<details style="border-top:1px solid var(--line)"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;padding:11px 2px;font-size:14px;color:var(--ink)"><span>'+icon+' '+titel+'</span><span style="color:var(--muted);font-size:12px">▾</span></summary><div style="padding:2px 2px 12px">'+inner+'</div></details>';
+  }
+
+  var restRows=MACROS.filter(function(m){ return ['m_ges_fett','m_kh','m_zucker','m_salz'].indexOf(m[0])>=0 && d[m[0]]!=null; }).map(function(m){
+    var raw=num(d[m[0]]); var val=Math.round(raw*10)/10;
+    return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">'+m[1]+'</span><span style="font-weight:600">'+String(val).replace('.',',')+' '+m[2]+'</span></div>';
   }).join('');
-  var bz=bzStufe(d);
-  var bzHtml=bz?(SEC('<span style="display:inline-flex;justify-content:space-between;align-items:center;width:100%"><span>Blutzucker-Verlauf</span><span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:'+bz.bg+';color:'+bz.tc+';text-transform:none;letter-spacing:0">'+bz.label+'</span></span>')+bzKurve(bz.stufe)):'';
+
   var zlist=Array.isArray(d.zutaten)?d.zutaten:[];
   var zHtml=zlist.length?zlist.map(function(z){
     var krit=(String(z.kritisch||'')).toLowerCase()==='ja';
@@ -2801,58 +2837,53 @@ function detail2(d){
     var tc=krit?'var(--k-b91c1c)':(z.rating>=8?'var(--k-1f5e34)':(z.rating>=5?'var(--k-92400e)':'var(--k-b91c1c)'));
     return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:'+bg+';color:'+tc+'">'+esc(z.name)+(krit?" ⚠️":"")+'</span>';
   }).join(''):'<span style="color:var(--muted);font-size:13px">keine Zutaten hinterlegt</span>';
-  var _ztxt=(zlist.map(function(z){return z.name||'';}).join(' '))+' '+((d.zusatz&&d.zusatz.text)||'')+' '+(d.zusatzstoffe_text||'');
+
+  var _ztxt=(zlist.map(function(z){return z.name||'';}).join(' '))+' '+(d.zusatzstoffe_text||'');
   var warn='';
   if(d.enthaelt_alkohol) warn+='<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Enthält Alkohol</b> – als krebserregend eingestuft (IARC Gruppe 1).</div>';
   if(/\be ?(102|104|110|122|124|129)\b|tartrazin|chinolingelb|gelborange|azorubin|cochenillerot|allurarot/i.test(_ztxt)) warn+='<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis für Kinder.</div>';
-  if((String(d.suessstoffe||'')==='ja_kuenstlich')||/sucralose|acesulfam|aspartam|cyclamat|saccharin|\be ?9(5[0-9]|62)\b/i.test(_ztxt)) warn+='<div class="note" style="background:var(--k-fffbeb);border-color:var(--k-fde68a);color:var(--k-92400e)">⚠️ <b>Künstliche Süßstoffe</b> – kalorienarm, aber umstritten.</div>';
-  var legendDots='<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--k-1f5e34);margin-right:3px"></span>gut <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--k-e8920c);margin:0 3px"></span>mittel <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--k-dc2626);margin:0 3px"></span>stark verarbeitet';
-  var HERO='background:radial-gradient(120% 120% at 50% 42%,#173a2a,#0a1710 76%)';
-  var faceFront =
-      warn
-    + (hasFeat('pk_naehrwerte') ? (mRows?(SEC('Nährwerte pro 100 g')+mRows):'<div style="color:var(--muted);font-size:13px;padding-top:6px">keine Nährwerte hinterlegt</div>') : pkSperre('Nährwerte pro 100 g','Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz'))
-    + SEC('Zutaten')
-    + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">'+legendDots+'</div>'
-    + '<div>'+zHtml+'</div>'
-    + bzHtml
-    + (hasFeat('score_detail')?naehrstoffHtml(d):'');
-  var faceBack =
-      (hasFeat('pk_ringe')?(SEC('Im Root Index')+achsBars()):pkSperre('Im Root Index','Die vier Achsen mit Punkten'))
-    + (hasFeat('pk_regeln')?scoreFlow(d):'')
-    + (hasFeat('pk_platzierung')?katRangHtml(d):'')
-    + (d.warum?(SEC('Warum empfohlen')+'<div style="font-size:13px;color:var(--ink);line-height:1.5">'+esc(d.warum)+'</div>'):'')
-    + (d.schwaechen?(SEC('Schwächen')+'<div style="font-size:13px;color:var(--ink);line-height:1.5">'+esc(d.schwaechen)+'</div>'):'')
-    + quellenBlock(d);
-  var adminBar=(ME&&ME.is_admin)?'<div style="margin:2px 0 8px;display:flex;align-items:center;gap:8px"><button onclick="window.__pkAlt=true;detailById(\''+d.id+'\')" style="padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--muted);font-size:12px;cursor:pointer">↩︎ alte Ansicht</button><span style="font-size:11px;color:var(--muted)">neue Karte</span></div>':'';
+  if((String(d.suessstoffe||'')==='ja_kuenstlich')||/sucralose|acesulfam|aspartam|cyclamat|saccharin/i.test(_ztxt)) warn+='<div class="note" style="background:var(--k-fffbeb);border-color:var(--k-fde68a);color:var(--k-92400e)">⚠️ <b>Künstliche Süßstoffe</b> – kalorienarm, aber umstritten.</div>';
+
+  var _isOil=((d.kategorie||'')==='Öle & Fette'), _isZero=(num(d.m_kcal)===0);
+  var sonder=(_isOil||_isZero)?'<div style="font-size:12.5px;line-height:1.45;margin:10px 0 2px;padding:9px 12px;background:var(--k-eef6ff);border:1px solid var(--k-cfe3f7);border-radius:10px;color:var(--k-1e3a8a)">ℹ️ <b>Sonderbewertung:</b> '+(_isOil?'Bei Ölen &amp; Fetten zählt die <b>Fettqualität</b> (Anteil ungesättigter Fettsäuren).':'<b>0‑kcal-Produkt</b> – der Nährwert-Teil entfällt; bewertet werden Zutaten, Verarbeitung &amp; Zusatzstoffe.')+'</div>':'';
+
+  var bz=bzStufe(d);
+  var bzInner=bz?('<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:'+bz.bg+';color:'+bz.tc+'">'+bz.label+'</span></div>'+bzKurve(bz.stufe)):'';
+
+  var adminBar=(ME&&ME.is_admin)?'<div style="margin:2px 0 8px"><button onclick="window.__pkAlt=true;detailById(\''+d.id+'\')" style="padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--muted);font-size:12px;cursor:pointer">↩︎ alte Ansicht</button> <span style="font-size:11px;color:var(--muted)">neuer Karten-Entwurf</span></div>':'';
+
   var panel=document.getElementById("panel"); if(!panel) return;
-  var FACE='position:absolute;top:0;left:0;right:0;backface-visibility:hidden;-webkit-backface-visibility:hidden';
   panel.innerHTML=
     '<button class="close" onclick="closeP()">Schließen ✕</button>'
     + adminBar
-    + '<h2 style="margin-bottom:2px">'+esc(d.name)+'</h2>'
-    + '<div class="marke">'+((mkLabel(d.marke)?esc(mkLabel(d.marke))+' · ':'')+esc(d.kategorie||''))+(d.unterkategorie?(' · '+esc(d.unterkategorie)):'')+' '+efChip(d.ernaehrungsform)+'</div>'
-    + '<div style="'+HERO+';border-radius:14px;padding:15px;margin-top:10px;display:flex;align-items:center;gap:14px">'
-      + '<div style="flex:0 0 auto;width:62px;height:62px;border-radius:50%;border:5px solid #c9b8a3;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#eafff1">'+(s==null?'–':s)+'</div>'
-      + '<div style="min-width:0"><div style="font-size:17px;font-weight:700;color:#eafff1;line-height:1.2">'+esc(d.name)+'</div><div style="font-size:12px;color:rgba(255,255,255,.6)">'+esc(mkLabel(d.marke)||d.kategorie||'')+'</div><div style="font-size:13.5px;font-weight:700;color:#d9cdb8;margin-top:2px">'+esc(d.score_vollstaendig?(d.bewertung||''):'Vorläufig')+'</div></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+      + '<div style="min-width:0"><h2 style="margin:0 0 2px">'+esc(d.name)+'</h2>'
+        + '<div class="marke" style="margin:0">'+((mkLabel(d.marke)?esc(mkLabel(d.marke))+' · ':'')+esc(d.kategorie||''))+(d.unterkategorie?(' · '+esc(d.unterkategorie)):'')+'</div></div>'
+      + efPill(d.ernaehrungsform)
     + '</div>'
-    + '<div style="display:flex;gap:7px;margin-top:12px;flex-wrap:wrap">'
+    + warn
+    + '<div style="display:flex;align-items:center;gap:14px;margin:14px 0 4px">'
+      + '<div style="flex:0 0 auto;width:140px">'+pkFlux()+'</div>'
+      + '<div style="flex:1;min-width:0"><div style="display:inline-block;font-size:15px;font-weight:700;padding:5px 14px;border-radius:999px;background:'+(s==null?'var(--k-eef2f6)':fCol)+';color:'+(s==null?'var(--k-475569)':'#fff')+'">'+esc(bewTxt||'–')+'</div></div>'
+    + '</div>'
+    + sonder
+    + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0 2px">'
+      + kachel('m_kcal','Energie','kcal') + kachel('m_fett','Fett','g')
+      + kachel('m_protein','Eiweiß','g') + kachel('m_ballast','Ballaststoffe','g')
+    + '</div>'
+    + '<div style="display:flex;gap:7px;margin:12px 0;flex-wrap:wrap">'
       + '<button onclick="prodToEinkauf(\''+d.id+'\')" style="padding:7px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px;font-weight:600">🛒 Einkaufsliste</button>'
       + amazonBtn(d,true)
     + '</div>'
     + (amazonUrl(d)?AMZ_HINWEIS:'')
-    + '<div style="display:flex;border-bottom:1px solid var(--line);margin-top:14px">'
-      + '<button id="pk2t0" onclick="pk2SetTab(0)" style="flex:1;padding:8px 3px;border:none;background:none;font-size:12.5px;color:var(--ink);cursor:pointer;border-bottom:2px solid var(--green);font-weight:600">Nährwerte</button>'
-      + '<button id="pk2t1" onclick="pk2SetTab(1)" style="flex:1;padding:8px 3px;border:none;background:none;font-size:12.5px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent">Herleitung</button>'
-    + '</div>'
-    + '<div style="perspective:1200px;margin-top:6px">'
-      + '<div id="pk2in" style="position:relative;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.4,0,.2,1), height .4s ease">'
-        + '<div class="pk2face" style="'+FACE+'">'+faceFront+'</div>'
-        + '<div class="pk2face" style="'+FACE+';transform:rotateY(180deg)">'+faceBack+'</div>'
-      + '</div>'
+    + '<div style="margin-top:6px">'
+      + (restRows?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 g</div>'+restRows):'')
+      + ACC('🧾','Zutaten','<div style="font-size:11px;color:var(--muted);margin-bottom:6px">grün = Vollwert · gelb = verarbeitet · rot = stark verarbeitet</div>'+zHtml+(hasFeat('score_detail')?naehrstoffHtml(d):''))
+      + (bz?ACC('📈','Blutzucker-Verlauf',bzInner):'')
+      + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'+scoreFlow(d)+katRangHtml(d))
+      + ACC('🛡️','Quelle &amp; Beleg',quellenBlock(d))
     + '</div>';
   document.getElementById("overlay").classList.add("open");
-  pk2SetTab(0);
-  setTimeout(function(){ pk2SetTab(0); }, 40);
 }
 function detail(d){
   /* Aufruf mitzaehlen (fire-and-forget, blockiert die Anzeige nie). Aggregierter
@@ -9827,7 +9858,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-18h";
+const APP_BUILD = "2026-07-18i";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
