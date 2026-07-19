@@ -79,8 +79,31 @@ const ACHS_FARBE = {
   naehr:    "var(--k-d97706)",   // 3,19:1
   leer:     "var(--k-d6d3d1)"
 };
+function suppLead(d,size){
+  size=size||62;
+  var b=(SUPP_BIL||{})[d&&d.id];
+  var pill='<div class="scLead" style="flex:0 0 '+size+'px;width:'+size+'px;text-align:center">'
+    +'<div style="width:'+Math.round(size*0.6)+'px;height:'+Math.round(size*0.6)+'px;margin:0 auto;border-radius:50%;background:var(--k-eeedfe);color:var(--k-534ab7);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.32)+'px">\u{1F48A}</div>'
+    +'<div style="font-size:10px;color:var(--muted);margin-top:4px">Dosis-Check</div>'
+  +'</div>';
+  if(!b || !Number(b.ws_gesamt)) return pill;
+  var g=Number(b.ws_gesamt), wk=Number(b.ws_wirksam)||0, zg=Number(b.ws_zu_gering)||0, kr=Number(b.ws_kein_ref)||0;
+  var C=size/2, Rr=(size*0.40).toFixed(1), sw=Math.max(5,Math.round(size/9));
+  var segs='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--k-f0ece3)" stroke-width="'+sw+'"/>';
+  if(kr>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--k-c9c4bb)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+kr+' '+(g-kr)+'" stroke-dashoffset="'+(-(wk+zg))+'"/>';
+  if(zg>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--k-e8920c)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+zg+' '+(g-zg)+'" stroke-dashoffset="'+(-wk)+'"/>';
+  if(wk>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--k-4d7c3a)" stroke-width="'+sw+'" stroke-linecap="round" pathLength="'+g+'" stroke-dasharray="'+wk+' '+(g-wk)+'" stroke-dashoffset="0"/>';
+  return '<div class="scLead" style="flex:0 0 '+size+'px;width:'+size+'px;text-align:center">'
+    +'<div style="position:relative;width:'+size+'px;height:'+size+'px;margin:0 auto">'
+      +'<svg viewBox="0 0 '+size+' '+size+'" style="width:100%;height:100%;transform:rotate(-90deg)">'+segs+'</svg>'
+      +'<div style="position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.30)+'px;font-weight:800;color:var(--ink)">'+wk+'</div>'
+    +'</div>'
+    +'<div style="font-size:10px;color:var(--muted);margin-top:3px">von '+g+'</div>'
+  +'</div>';
+}
 function scoreLead(d,size){
   size=size||62;
+  if(d && String(d.kategorie||'').toLowerCase()==='supplement'){ return suppLead(d,size); }
   const s=num(d&&d.clean_score);
   const txt=(s!=null)?String(Math.round(s)):"–";
   const fs=Math.round(size*(txt.length>=3?0.36:0.44));
@@ -396,7 +419,7 @@ async function fetchAlleProdukte(){
   }
   return alle;
 }
-let ALL=[]; let STK={};
+let ALL=[]; let STK={}; let SUPP_BIL={};
 function stkOf(pid){ const g=pid?num(STK[pid]):null; return (g&&g>0)?g:null; }
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
@@ -862,6 +885,7 @@ async function load(){
   try{ data = await fetchAlleProdukte(); }
   catch(error){ document.getElementById("stats").textContent="Fehler beim Laden: "+error.message; return; }
   ALL = data.map(d=>({...d, clean_score:num(d.clean_score)}));
+  try{ const {data:sb}=await client.from("v_supplement_bilanz").select("*"); SUPP_BIL={}; (sb||[]).forEach(x=>{ SUPP_BIL[x["Produkt_ID"]]=x; }); }catch(e){}
   try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; (sm||[]).forEach(x=>{STK[x.id]=num(x.stueck_gramm);}); }catch(e){}
   const _kc={}; ALL.forEach(d=>{ if(d.kategorie) _kc[d.kategorie]=(_kc[d.kategorie]||0)+1; });
   window._KATLIST=Object.keys(_kc).map(k=>({k:k,n:_kc[k]})).sort((a,b)=>b.n-a.n);
@@ -1439,20 +1463,24 @@ function suppKarteFill(a,d){
   }
   function nutzenLine(b){
     var n=b.nutzen||{};
-    if(!(n.hat===true||n.hat==="true")) return '<div style="margin-top:9px;font-size:11px;color:var(--muted);background:var(--k-f4f5f4);border-radius:8px;padding:7px 9px;line-height:1.45">Keine von der EU zugelassene gesundheitsbezogene Aussage hinterlegt.</div>';
-    var gilt=(n.gilt===true||n.gilt==="true");
-    if(!gilt){
-      var mm=String(n.mindestmenge).replace(".",",");
-      return '<div style="margin-top:9px;font-size:11px;color:var(--k-7a5c1e);background:var(--k-fdf6e7);border-radius:8px;padding:7px 9px;line-height:1.45">Nutzen-Aussagen (z. B. „'+esc(n.funktion)+'“) gibt es – aber erst ab <b>'+mm+' '+esc(n.mind_einheit||"")+'</b> je Tagesdosis. Die Menge liegt darunter.</div>';
+    var wirksam=(b.wirksam===true||b.wirksam==="true");
+    var hatClaim=(n.hat===true||n.hat==="true");
+    if(wirksam){
+      var funk=(hatClaim&&Array.isArray(n.funktionen))?n.funktionen:[];
+      var weitereTxt=funk.slice(1).join(" · ");
+      _suNn++; var xid="suNx"+_suNn;
+      var mehr=(hatClaim&&Number(n.anzahl)>1)?('<span onclick="suppTog(\''+xid+'\')" style="font-size:11px;color:var(--k-4d7c3a);border:1px dashed var(--k-d5e6d5);border-radius:20px;padding:2px 8px;cursor:pointer">+'+(Number(n.anzahl)-1)+' weitere</span>'):"";
+      var titel=hatClaim?esc(n.funktion):"In wirksamer Menge";
+      var body=hatClaim
+        ? ('<div id="'+xid+'" style="display:none;font-size:11px;color:var(--k-5a6660);line-height:1.5;margin-top:6px">„'+esc(n.claim)+'“'+(weitereTxt?(' Ebenfalls anerkannt: '+esc(weitereTxt)+'.'):"")+'</div>')
+        : ('<div style="font-size:11px;color:var(--k-5a6660);line-height:1.5;margin-top:5px">Erreicht die signifikante Menge (≥ 15 % Tagesbedarf) – die Schwelle, ab der die EU eine Nutzenaussage zulässt.</div>');
+      return '<div style="margin-top:9px;background:var(--k-f2f5f3);border-left:3px solid var(--k-4d7c3a);border-radius:8px;padding:8px 10px">'
+        +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="background:var(--k-1d3c24);color:var(--k-ffffff);font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.03em">NUTZEN · EU</span><span style="font-size:12.5px;font-weight:700;color:var(--k-2f5d33)">'+titel+'</span>'+mehr+'</div>'
+        +body
+      +'</div>';
     }
-    var funk=Array.isArray(n.funktionen)?n.funktionen:[];
-    var weitereTxt=funk.slice(1).join(" · ");
-    _suNn++; var xid="suNx"+_suNn;
-    var mehr=(Number(n.anzahl)>1)?('<span onclick="suppTog(\''+xid+'\')" style="font-size:11px;color:var(--k-4d7c3a);border:1px dashed var(--k-d5e6d5);border-radius:20px;padding:2px 8px;cursor:pointer">+'+(Number(n.anzahl)-1)+' weitere</span>'):"";
-    return '<div style="margin-top:9px;background:var(--k-f2f5f3);border-left:3px solid var(--k-4d7c3a);border-radius:8px;padding:8px 10px">'
-      +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="background:var(--k-1d3c24);color:var(--k-ffffff);font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.03em">NUTZEN · EU</span><span style="font-size:12.5px;font-weight:700;color:var(--k-2f5d33)">'+esc(n.funktion)+'</span>'+mehr+'</div>'
-      +'<div id="'+xid+'" style="display:none;font-size:11px;color:var(--k-5a6660);line-height:1.5;margin-top:6px">„'+esc(n.claim)+'“'+(weitereTxt?(' Ebenfalls anerkannt: '+esc(weitereTxt)+'.'):"")+'</div>'
-    +'</div>';
+    var zusatz=(hatClaim&&n.mindestmenge!=null)?(' (nötig ab '+String(n.mindestmenge).replace(".",",")+' '+esc(n.mind_einheit||"")+')'):"";
+    return '<div style="margin-top:9px;font-size:11px;color:var(--k-7a5c1e);background:var(--k-fdf6e7);border-radius:8px;padding:7px 9px;line-height:1.45">Menge unter der signifikanten Schwelle (15 % des Tagesbedarfs'+zusatz+') – keine belegbare Wirkung.</div>';
   }
   function block(b){
     return '<div style="padding:13px 0;border-top:1px solid var(--line)">'
@@ -1465,7 +1493,7 @@ function suppKarteFill(a,d){
     return '<div class="note" style="background:var(--k-f4f5f4);color:var(--muted)">Für dieses Präparat liegen noch keine Wirkstoffdaten vor.</div>'+suppZutaten(d)+suppFuss(null);
   }
   var alle=Array.isArray(a.befunde_alle)?a.befunde_alle:[];
-  var istHaupt=function(b){ return (b.has_dosing===true||b.has_dosing==="true")||(b.nutzen&&(b.nutzen.hat===true||b.nutzen.hat==="true")); };
+  var istHaupt=function(b){ return (b.has_dosing===true||b.has_dosing==="true"); };
   var haupt=alle.filter(istHaupt);
   var stumm=alle.filter(function(b){ return !istHaupt(b); });
   var f=RIF?(RIF[a.ampel]||RIF.grau):{bg:"var(--k-eef6ee)",rand:"var(--k-d5e6d5)",text:"var(--k-2f5d33)",punkt:"var(--k-4d7c3a)",icon:"✓"};
