@@ -1954,6 +1954,27 @@ function rkManuell(){
   rkFormZeigen();
   if(msg){ msg.style.color="var(--muted)"; msg.innerHTML="Manuelle Eingabe – trag ein, was auf der <b>Packung</b> steht. Vorhandene Werte sind vorbelegt."; }
 }
+/* Riki-Import per Link: Editor neu oeffnen, Link setzen, Riki die Seite lesen lassen.
+   Beim Speichern legt cb_produkt_ingest neu an oder aktualisiert per EAN/Name (dedup). */
+function rkImportVonLink(){
+  var url=((document.getElementById("rkImpUrl")||{}).value||"").trim();
+  var msg=document.getElementById("rkImpMsg");
+  if(!/^https?:\/\//i.test(url)){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte einen vollstaendigen Link mit https:// angeben."; } return; }
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Editor wird geoeffnet, Riki liest die Seite..."; }
+  try{
+    var pr=openFgEditor(null);
+    if(pr && typeof pr.then==="function"){ pr.then(function(){ rkImpAfterOpen(url); }); }
+    else { setTimeout(function(){ rkImpAfterOpen(url); }, 500); }
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message; } }
+}
+function rkImpAfterOpen(url){
+  var u=document.getElementById("fe_url"); if(u) u.value=url;
+  try{ if(typeof fgPullHersteller==="function") fgPullHersteller(); }catch(e){}
+  var m=document.getElementById("rkImpMsg"); if(m){ m.style.color="var(--k-166534)"; m.innerHTML="&#10003; Editor offen. Riki liest die Seite und fuellt die Felder als Vorschlag - pruefen, dann <b>Speichern &amp; freigeben</b>."; }
+  var iu=document.getElementById("rkImpUrl"); if(iu) iu.value="";
+}
+if(typeof window!=="undefined"){ window.rkImportVonLink=rkImportVonLink; window.rkImpAfterOpen=rkImpAfterOpen; }
+
 async function rkLesen(){
   var msg=document.getElementById("rkMsg"), form=document.getElementById("rkForm");
   var pid=rkProdId(); var url=((document.getElementById("rkUrl")||{}).value||"").trim();
@@ -8716,7 +8737,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19p";
+const APP_BUILD = "2026-07-19q";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
