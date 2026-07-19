@@ -6,8 +6,8 @@
    nie verworfen. Zusammen mit einer offen gelassenen App fuehrte das dazu,
    dass Nutzer weiter mit altem Code arbeiteten.
    BEI JEDEM DEPLOY DIESE ZAHL HOCHZAEHLEN – dann wirft activate den alten Cache weg. */
-const CACHE = 'rootindex-2026-07-18l';
-const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'rootindex-2026-07-19c';
+const SHELL = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
