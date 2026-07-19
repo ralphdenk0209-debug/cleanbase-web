@@ -1,192 +1,1440 @@
 <!DOCTYPE html>
-<!-- admin build 2026-07-19b · Standalone-Backend, Stufe 1: Login + Dashboard. Keine Consumer-Funktionen. -->
+<!-- ADMIN-BACKEND · Kopie der App-Huelle, laedt dieselbe app.js. Consumer-Bedienung ausgeblendet. build 2026-07-19d -->
 <html lang="de">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
-<title>Root Index · Admin</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Root Index – Echte Qualität, Transparenz & smarte Ernährung</title>
+<meta name="theme-color" content="#2e7d46" />
+<script>
+/* ============================================================================
+   HELL / DUNKEL — laeuft VOR dem ersten Rendern.
+   Steht dieser Block weiter unten, zeigt die App fuer einen Sekundenbruchteil
+   das helle Layout und schaltet dann um. Dieses Aufblitzen sieht aus wie ein
+   Fehler und laesst sich nachtraeglich nicht wegreparieren.
+   Deshalb: hier oben, synchron, ohne Abhaengigkeiten.
+   ============================================================================ */
+(function(){
+  var W = "auto";                                   // auto | hell | dunkel
+  try{ W = localStorage.getItem("ri_theme") || "auto"; }catch(e){}
+  function dunkelJetzt(w){
+    if(w === "dunkel") return true;
+    if(w === "hell")   return false;
+    try{ return window.matchMedia("(prefers-color-scheme: dark)").matches; }catch(e){ return false; }
+  }
+  window.riThemeAnwenden = function(w){
+    var d = dunkelJetzt(w);
+    document.documentElement.setAttribute("data-theme", d ? "dark" : "light");
+    var mt = document.querySelector('meta[name="theme-color"]');
+    if(mt) mt.setAttribute("content", d ? "#1c1d1c" : "#2e7d46");
+  };
+  window.riThemeSetzen = function(w){
+    try{ localStorage.setItem("ri_theme", w); }catch(e){}
+    window.riThemeWahl = w;
+    window.riThemeAnwenden(w);
+    if(typeof buildMehr === "function" && document.getElementById("mehrSheet")) buildMehr();
+  };
+  window.riThemeWahl = W;
+  window.riThemeAnwenden(W);
+  /* Steht der Schalter auf "auto", folgt die App dem Geraet - auch wenn es
+     mitten in der Sitzung umschaltet (viele Handys tun das bei Sonnenuntergang). */
+  try{
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function(){
+      if((window.riThemeWahl||"auto") === "auto") window.riThemeAnwenden("auto");
+    });
+  }catch(e){}
+})();
+</script>
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" type="image/png" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Root Index" />
 <style>
-  :root{ --bg:#0d1411; --card:#141d18; --line:#26332b; --ink:#e6efe9; --muted:#8ba295;
-         --green:#3ddb7a; --greendk:#7fe3a6; --rot:#ef6a6a; --gelb:#e8a54b; }
+  /* ==========================================================================
+     FARB-TOKEN  (Build 2026-07-14c)
+     Jede Farbe der App liegt jetzt hinter einem Token. Der HELLE Wert ist
+     EXAKT die alte Farbe - der helle Modus kann sich dadurch nicht veraendern.
+     Das ist die Pruefbedingung: gleiche Pixel, anderer Aufbau.
+     Der DUNKLE Wert ist neu berechnet:
+       - Flaechen behalten ihre Reihenfolge (die Karte bleibt heller als die Seite)
+       - Raender kehren sich um (im Hellen dunkler als die Karte, im Dunklen heller)
+         sonst waeren sie unsichtbar
+       - Signalfarben behalten ihren Farbton (Rot, das man auf Textluminanz zwingt,
+         wird rosa - und Rosa warnt niemanden)
+     Geprueft: alle 80 im Hellen textfaehigen Farben erreichen im Dunklen >= 4,5:1
+     auf der Karte. Kein einziger Verstoss.
+     ========================================================================== */
+  :root {
+    --k-000000:#000000;
+    --k-0369a1:#0369a1;
+    --k-081614:#081614;
+    --k-0b1420:#0b1420;
+    --k-0c1a12:#0c1a12;
+    --k-0d9488:#0d9488;
+    --k-0e4a44:#0e4a44;
+    --k-0e7490:#0e7490;
+    --k-0ea5e9:#0ea5e9;
+    --k-0f6e56:#0f6e56;
+    --k-111111:#111111;
+    --k-111827:#111827;
+    --k-120b1a:#120b1a;
+    --k-14281a:#14281a;
+    --k-143a63:#143a63;
+    --k-14532d:#14532d;
+    --k-15304f:#15304f;
+    --k-15803d:#15803d;
+    --k-166534:#166534;
+    --k-16a34a:#16a34a;
+    --k-185fa5:#185fa5;
+    --k-1a0a12:#1a0a12;
+    --k-1a0d08:#1a0d08;
+    --k-1a0e08:#1a0e08;
+    --k-1a120a:#1a120a;
+    --k-1d3c24:#1d3c24;
+    --k-1e3a8a:#1e3a8a;
+    --k-1e50a8:#1e50a8;
+    --k-1f5e34:#1f5e34;
+    --k-1f5e39:#1f5e39;
+    --k-1f8378:#1f8378;
+    --k-22c55e:#22c55e;
+    --k-24492e:#24492e;
+    --k-2563eb:#2563eb;
+    --k-2b6fb0:#2b6fb0;
+    --k-2e7d32:#2e7d32;
+    --k-2e7d46:#2e7d46;
+    --k-2f5d33:#2f5d33;
+    --k-2f6fd6:#2f6fd6;
+    --k-312e81:#312e81;
+    --k-374151:#374151;
+    --k-3987e5:#3987e5;
+    --k-3b6d11:#3b6d11;
+    --k-3b82f6:#3b82f6;
+    --k-3c3489:#3c3489;
+    --k-4338ca:#4338ca;
+    --k-45256b:#45256b;
+    --k-475049:#475049;
+    --k-475569:#475569;
+    --k-4d7c0f:#4d7c0f;
+    --k-4d7c3a:#4d7c3a;
+    --k-4f46e5:#4f46e5;
+    --k-4fd6c0:#4fd6c0;
+    --k-534ab7:#534ab7;
+    --k-57534e:#57534e;
+    --k-5a6660:#5a6660;
+    --k-5ab6ff:#5ab6ff;
+    --k-5b6b78:#5b6b78;
+    --k-5b6b7e:#5b6b7e;
+    --k-5e9a30:#5e9a30;
+    --k-5ef2a0:#5ef2a0;
+    --k-5f5e5a:#5f5e5a;
+    --k-60a5fa:#60a5fa;
+    --k-64748b:#64748b;
+    --k-65a30d:#65a30d;
+    --k-6aa84f:#6aa84f;
+    --k-6b1f45:#6b1f45;
+    --k-6b2a17:#6b2a17;
+    --k-6b4410:#6b4410;
+    --k-6b6256:#6b6256;
+    --k-6b7280:#6b7280;
+    --k-6faf3a:#6faf3a;
+    --k-7a3b1f:#7a3b1f;
+    --k-7a3b5a:#7a3b5a;
+    --k-7a5c1e:#7a5c1e;
+    --k-7ba05b:#7ba05b;
+    --k-7c5e3a:#7c5e3a;
+    --k-7c6fe0:#7c6fe0;
+    --k-7cc4ff:#7cc4ff;
+    --k-7cff9b:#7cff9b;
+    --k-818cf8:#818cf8;
+    --k-84cc16:#84cc16;
+    --k-854f0b:#854f0b;
+    --k-8a5a0b:#8a5a0b;
+    --k-8a6d3b:#8a6d3b;
+    --k-8a8072:#8a8072;
+    --k-8a9691:#8a9691;
+    --k-8cc63f:#8cc63f;
+    --k-8cf0e0:#8cf0e0;
+    --k-92400e:#92400e;
+    --k-94a3b8:#94a3b8;
+    --k-991b1b:#991b1b;
+    --k-993556:#993556;
+    --k-993c1d:#993c1d;
+    --k-9a3412:#9a3412;
+    --k-9aa7a0:#9aa7a0;
+    --k-9aa7b2:#9aa7b2;
+    --k-9b2c22:#9b2c22;
+    --k-9ca3af:#9ca3af;
+    --k-a89f8f:#a89f8f;
+    --k-a8d5a2:#a8d5a2;
+    --k-b0472b:#b0472b;
+    --k-b0aca4:#b0aca4;
+    --k-b45309:#b45309;
+    --k-b57f1e:#b57f1e;
+    --k-b79bff:#b79bff;
+    --k-b91c1c:#b91c1c;
+    --k-bcd8f2:#bcd8f2;
+    --k-bcd9be:#bcd9be;
+    --k-be185d:#be185d;
+    --k-bfe9d1:#bfe9d1;
+    --k-bff0e8:#bff0e8;
+    --k-c08a3e:#c08a3e;
+    --k-c2410c:#c2410c;
+    --k-c2453a:#c2453a;
+    --k-c7c2b8:#c7c2b8;
+    --k-c9b3ff:#c9b3ff;
+    --k-c9c4bb:#c9c4bb;
+    --k-c9c4bd:#c9c4bd;
+    --k-c9d2cd:#c9d2cd;
+    --k-cbd5e1:#cbd5e1;
+    --k-cdeed9:#cdeed9;
+    --k-cecbf6:#cecbf6;
+    --k-cfe3d6:#cfe3d6;
+    --k-cfe3f7:#cfe3f7;
+    --k-d1fae5:#d1fae5;
+    --k-d2dcc9:#d2dcc9;
+    --k-d4e8db:#d4e8db;
+    --k-d5ded8:#d5ded8;
+    --k-d5e6d5:#d5e6d5;
+    --k-d6d3d1:#d6d3d1;
+    --k-d85a30:#d85a30;
+    --k-d8d2c6:#d8d2c6;
+    --k-d8e2f0:#d8e2f0;
+    --k-d97706:#d97706;
+    --k-db2777:#db2777;
+    --k-dbe6f4:#dbe6f4;
+    --k-dbeafe:#dbeafe;
+    --k-dc2626:#dc2626;
+    --k-dcfce7:#dcfce7;
+    --k-e0f2fe:#e0f2fe;
+    --k-e11d48:#e11d48;
+    --k-e1f5ee:#e1f5ee;
+    --k-e2e5e3:#e2e5e3;
+    --k-e4a343:#e4a343;
+    --k-e4e8e2:#e4e8e2;
+    --k-e4ebdf:#e4ebdf;
+    --k-e5e0d6:#e5e0d6;
+    --k-e5e9e6:#e5e9e6;
+    --k-e6f1fb:#e6f1fb;
+    --k-e6fffb:#e6fffb;
+    --k-e7e0d4:#e7e0d4;
+    --k-e7eef8:#e7eef8;
+    --k-e7f4ec:#e7f4ec;
+    --k-e8920c:#e8920c;
+    --k-eab308:#eab308;
+    --k-eaf3de:#eaf3de;
+    --k-eaf4ff:#eaf4ff;
+    --k-eaf5ee:#eaf5ee;
+    --k-eafff2:#eafff2;
+    --k-eceee9:#eceee9;
+    --k-ecfdf5:#ecfdf5;
+    --k-edf2fa:#edf2fa;
+    --k-eeedfe:#eeedfe;
+    --k-eef1ec:#eef1ec;
+    --k-eef2f0:#eef2f0;
+    --k-eef2f5:#eef2f5;
+    --k-eef2f6:#eef2f6;
+    --k-eef3ef:#eef3ef;
+    --k-eef6e9:#eef6e9;
+    --k-eef6ee:#eef6ee;
+    --k-eef6ff:#eef6ff;
+    --k-ef4444:#ef4444;
+    --k-f0a020:#f0a020;
+    --k-f0c9ba:#f0c9ba;
+    --k-f0dcb4:#f0dcb4;
+    --k-f0ece3:#f0ece3;
+    --k-f1efe8:#f1efe8;
+    --k-f2c9c4:#f2c9c4;
+    --k-f2e4c4:#f2e4c4;
+    --k-f2f5f3:#f2f5f3;
+    --k-f3c4c4:#f3c4c4;
+    --k-f3d6d3:#f3d6d3;
+    --k-f3eee6:#f3eee6;
+    --k-f3efe8:#f3efe8;
+    --k-f3f4f6:#f3f4f6;
+    --k-f3f6f4:#f3f6f4;
+    --k-f4f1fb:#f4f1fb;
+    --k-f4f5f4:#f4f5f4;
+    --k-f4f8fe:#f4f8fe;
+    --k-f59e0b:#f59e0b;
+    --k-f5c4b3:#f5c4b3;
+    --k-f6f7f6:#f6f7f6;
+    --k-f6f8f7:#f6f8f7;
+    --k-f6fbf7:#f6fbf7;
+    --k-f7f9f8:#f7f9f8;
+    --k-f87171:#f87171;
+    --k-f8fafc:#f8fafc;
+    --k-faece7:#faece7;
+    --k-faeeda:#faeeda;
+    --k-fbcfe8:#fbcfe8;
+    --k-fbeaf0:#fbeaf0;
+    --k-fbeee6:#fbeee6;
+    --k-fbf8f2:#fbf8f2;
+    --k-fca5a5:#fca5a5;
+    --k-fde68a:#fde68a;
+    --k-fde8e8:#fde8e8;
+    --k-fde9c8:#fde9c8;
+    --k-fdeceb:#fdeceb;
+    --k-fdf2f8:#fdf2f8;
+    --k-fdf3ef:#fdf3ef;
+    --k-fdf6e7:#fdf6e7;
+    --k-fecaca:#fecaca;
+    --k-fee2e2:#fee2e2;
+    --k-fef2f2:#fef2f2;
+    --k-fef3c7:#fef3c7;
+    --k-ff6fa8:#ff6fa8;
+    --k-ff8a5b:#ff8a5b;
+    --k-ff9e5e:#ff9e5e;
+    --k-ffa8cb:#ffa8cb;
+    --k-ffc24b:#ffc24b;
+    --k-ffc59b:#ffc59b;
+    --k-ffcf6b:#ffcf6b;
+    --k-ffeee6:#ffeee6;
+    --k-fff5e2:#fff5e2;
+    --k-fff7e6:#fff7e6;
+    --k-fff7ea:#fff7ea;
+    --k-fffbeb:#fffbeb;
+    --k-ffffff:#ffffff;
+    --k-w10:rgba(255,255,255,.10);
+    --k-w14:rgba(255,255,255,.14);
+    --k-w16:rgba(255,255,255,.16);
+    --k-w18:rgba(255,255,255,.18);
+    --k-w22:rgba(255,255,255,.22);
+    --k-w25:rgba(255,255,255,.25);
+    --k-w28:rgba(255,255,255,.28);
+    --k-w40:rgba(255,255,255,.40);
+    --k-w42:rgba(255,255,255,.42);
+    --k-w45:rgba(255,255,255,.45);
+    --k-w6:rgba(255,255,255,.6);
+    --k-w72:rgba(255,255,255,.72);
+    --k-w92:rgba(255,255,255,.92);
+    --k-w97:rgba(255,255,255,.97);
+    --dunkelflaeche-1:#1D3C24;
+    --dunkelflaeche-2:#24492E;
+    --auf-dunkelflaeche:#FFFFFF;
+    --auf-dunkelflaeche-leise:rgba(255,255,255,.72);
+    --auf-gruen:#0C1A12;
+    --auf-gruen-dunkel:#FFFFFF;
+  }
+  [data-theme="dark"] {
+    --k-000000:#dadada;
+    --k-0369a1:#3ea0d6;
+    --k-081614:#d8d9d9;
+    --k-0b1420:#d8d9da;
+    --k-0c1a12:#d7d9d8;
+    --k-0d9488:#36bdb1;
+    --k-0e4a44:#c3d2d0;
+    --k-0e7490:#3aa3c0;
+    --k-0ea5e9:#4abdf0;
+    --k-0f6e56:#49a78f;
+    --k-111111:#d9d9d9;
+    --k-111827:#d8d8da;
+    --k-120b1a:#d9d9da;
+    --k-14281a:#d6d8d6;
+    --k-143a63:#c9d1da;
+    --k-14532d:#c1d1c7;
+    --k-15304f:#cdd2d9;
+    --k-15803d:#42aa69;
+    --k-166534:#b8cec1;
+    --k-16a34a:#36ca6d;
+    --k-185fa5:#619cd5;
+    --k-1a0a12:#dad9d9;
+    --k-1a0d08:#dad9d8;
+    --k-1a0e08:#dad9d8;
+    --k-1a120a:#d9d9d8;
+    --k-1d3c24:#ccd3cd;
+    --k-1e3a8a:#8296cf;
+    --k-1e50a8:#7398d8;
+    --k-1f5e34:#becfc4;
+    --k-1f5e39:#becfc5;
+    --k-1f8378:#46a79c;
+    --k-22c55e:#28cb64;
+    --k-24492e:#c8d1cb;
+    --k-2563eb:#6c95f0;
+    --k-2b6fb0:#639cd2;
+    --k-2e7d32:#afc8b0;
+    --k-2e7d46:#aec7b6;
+    --k-2f5d33:#c2cec3;
+    --k-2f6fd6:#6998e3;
+    --k-312e81:#cfcfdf;
+    --k-374151:#cdcfd3;
+    --k-3987e5:#81b0e9;
+    --k-3b6d11:#74a54a;
+    --k-3b82f6:#85adef;
+    --k-3c3489:#cfcdde;
+    --k-4338ca:#948de3;
+    --k-45256b:#d5cedc;
+    --k-475049:#cfd0cf;
+    --k-475569:#c7cbcf;
+    --k-4d7c0f:#78a43e;
+    --k-4d7c3a:#b6c5af;
+    --k-4f46e5:#928de7;
+    --k-4fd6c0:#38c5ae;
+    --k-534ab7:#9590d5;
+    --k-57534e:#cfcece;
+    --k-5a6660:#c8cac9;
+    --k-5ab6ff:#7cb7e6;
+    --k-5b6b78:#bfc4c8;
+    --k-5b6b7e:#bfc4c9;
+    --k-5e9a30:#89c05f;
+    --k-5ef2a0:#31ca75;
+    --k-5f5e5a:#cbcbca;
+    --k-60a5fa:#8cb4e5;
+    --k-64748b:#bbc0c6;
+    --k-65a30d:#85c32e;
+    --k-6aa84f:#92b881;
+    --k-6b1f45:#dbccd3;
+    --k-6b2a17:#daccc8;
+    --k-6b4410:#b6915f;
+    --k-6b6256:#cac9c7;
+    --k-6b7280:#c2c3c6;
+    --k-6faf3a:#84c250;
+    --k-7a3b1f:#c08b74;
+    --k-7a3b5a:#d6c8cf;
+    --k-7a5c1e:#b29354;
+    --k-7ba05b:#9eb48b;
+    --k-7c5e3a:#cdc4ba;
+    --k-7c6fe0:#a39cdb;
+    --k-7cc4ff:#89b6dc;
+    --k-7cff9b:#152819;
+    --k-818cf8:#a8aee1;
+    --k-84cc16:#81c31c;
+    --k-854f0b:#c38d49;
+    --k-8a5a0b:#c08e3c;
+    --k-8a6d3b:#c8bfaf;
+    --k-8a8072:#979490;
+    --k-8a9691:#a6a9a8;
+    --k-8cc63f:#86c237;
+    --k-8cf0e0:#152321;
+    --k-92400e:#ce865a;
+    --k-94a3b8:#a7aeb9;
+    --k-991b1b:#d67f7f;
+    --k-993556:#cb829a;
+    --k-993c1d:#cf846c;
+    --k-9a3412:#d48267;
+    --k-9aa7a0:#afb2b0;
+    --k-9aa7b2:#afb1b4;
+    --k-9b2c22:#d3817a;
+    --k-9ca3af:#b0b1b4;
+    --k-a89f8f:#b3b1ad;
+    --k-a8d5a2:#9bb498;
+    --k-b0472b:#d4826c;
+    --k-b0aca4:#b2b1af;
+    --k-b45309:#dd8039;
+    --k-b57f1e:#d8aa57;
+    --k-b79bff:#b8aadc;
+    --k-b91c1c:#e27878;
+    --k-bcd8f2:#434b52;
+    --k-bcd9be:#464e47;
+    --k-be185d:#e471a1;
+    --k-bfe9d1:#3b453f;
+    --k-bff0e8:#353f3d;
+    --k-c08a3e:#d4aa70;
+    --k-c2410c:#e5794d;
+    --k-c2453a:#d87e76;
+    --k-c7c2b8:#b2b1af;
+    --k-c9b3ff:#b2a9ca;
+    --k-c9c4bb:#b2b1af;
+    --k-c9c4bd:#b2b1af;
+    --k-c9d2cd:#4b4d4c;
+    --k-cbd5e1:#494a4c;
+    --k-cdeed9:#383f3a;
+    --k-cecbf6:#4d4c58;
+    --k-cfe3d6:#414442;
+    --k-cfe3f7:#3d4247;
+    --k-d1fae5:#1b1f1d;
+    --k-d2dcc9:#464845;
+    --k-d4e8db:#3d403e;
+    --k-d5ded8:#444544;
+    --k-d5e6d5:#3f413f;
+    --k-d6d3d1:#4b4a4a;
+    --k-d85a30:#e69276;
+    --k-d8d2c6:#4c4b49;
+    --k-d8e2f0:#404143;
+    --k-d97706:#f0a044;
+    --k-db2777:#e96ea5;
+    --k-dbe6f4:#3c3e40;
+    --k-dbeafe:#161719;
+    --k-dc2626:#eb7272;
+    --k-dcfce7:#1f2220;
+    --k-e0f2fe:#1c1e1f;
+    --k-e11d48:#ef6c89;
+    --k-e1f5ee:#1c1d1d;
+    --k-e2e5e3:#3e3e3e;
+    --k-e4a343:#dda858;
+    --k-e4e8e2:#3c3c3c;
+    --k-e4ebdf:#161716;
+    --k-e5e0d6:#424140;
+    --k-e5e9e6:#161616;
+    --k-e6f1fb:#1b1c1d;
+    --k-e6fffb:#222423;
+    --k-e7e0d4:#42413f;
+    --k-e7eef8:#1a1a1b;
+    --k-e7f4ec:#1c1d1d;
+    --k-e8920c:#eea22b;
+    --k-eab308:#dbaa12;
+    --k-eaf3de:#1c1c1b;
+    --k-eaf4ff:#1e1f1f;
+    --k-eaf5ee:#1e1e1e;
+    --k-eafff2:#222423;
+    --k-eceee9:#1a1a1a;
+    --k-ecfdf5:#222323;
+    --k-edf2fa:#1d1e1e;
+    --k-eeedfe:#1b1b1c;
+    --k-eef1ec:#1c1d1c;
+    --k-eef2f0:#1d1d1d;
+    --k-eef2f5:#1d1e1e;
+    --k-eef2f6:#1d1e1e;
+    --k-eef3ef:#1e1e1e;
+    --k-eef6e9:#1f1f1e;
+    --k-eef6ee:#1f1f1f;
+    --k-eef6ff:#202021;
+    --k-ef4444:#ec9191;
+    --k-f0a020:#eea228;
+    --k-f0c9ba:#544a46;
+    --k-f0dcb4:#47433a;
+    --k-f0ece3:#1a1a19;
+    --k-f1efe8:#1c1c1b;
+    --k-f2c9c4:#544947;
+    --k-f2e4c4:#403e37;
+    --k-f2f5f3:#1f2020;
+    --k-f3c4c4:#574a4a;
+    --k-f3d6d3:#4a4342;
+    --k-f3eee6:#1c1b1b;
+    --k-f3efe8:#1c1c1c;
+    --k-f3f4f6:#1f1f20;
+    --k-f3f6f4:#202020;
+    --k-f4f1fb:#1e1e1f;
+    --k-f4f5f4:#202020;
+    --k-f4f8fe:#222222;
+    --k-f59e0b:#eda223;
+    --k-f5c4b3:#584a46;
+    --k-f6f7f6:#212121;
+    --k-f6f8f7:#222222;
+    --k-f6fbf7:#232323;
+    --k-f7f9f8:#222323;
+    --k-f87171:#e4a0a0;
+    --k-f8fafc:#232324;
+    --k-faece7:#1c1b1b;
+    --k-faeeda:#1f1d1b;
+    --k-fbcfe8:#4d4249;
+    --k-fbeaf0:#1c1b1b;
+    --k-fbeee6:#1d1d1c;
+    --k-fbf8f2:#232222;
+    --k-fca5a5:#cba4a4;
+    --k-fde68a:#282517;
+    --k-fde8e8:#1b1a1a;
+    --k-fde9c8:#1c1a17;
+    --k-fdeceb:#1d1c1c;
+    --k-fdf2f8:#212020;
+    --k-fdf3ef:#212020;
+    --k-fdf6e7:#222120;
+    --k-fecaca:#534545;
+    --k-fee2e2:#191717;
+    --k-fef2f2:#212020;
+    --k-fef3c7:#21201b;
+    --k-ff6fa8:#e69cb9;
+    --k-ff8a5b:#e7a084;
+    --k-ff9e5e:#e4a378;
+    --k-ffa8cb:#caa3b3;
+    --k-ffc24b:#e1a736;
+    --k-ffc59b:#d0aa8e;
+    --k-ffcf6b:#d5ab53;
+    --k-ffeee6:#1e1d1d;
+    --k-fff5e2:#242220;
+    --k-fff7e6:#232221;
+    --k-fff7ea:#232221;
+    --k-fffbeb:#242423;
+    --k-ffffff:#272727;
+    --k-w10:rgba(39,39,39,.10);
+    --k-w14:rgba(39,39,39,.14);
+    --k-w16:rgba(39,39,39,.16);
+    --k-w18:rgba(39,39,39,.18);
+    --k-w22:rgba(39,39,39,.22);
+    --k-w25:rgba(39,39,39,.25);
+    --k-w28:rgba(39,39,39,.28);
+    --k-w40:rgba(39,39,39,.40);
+    --k-w42:rgba(39,39,39,.42);
+    --k-w45:rgba(39,39,39,.45);
+    --k-w6:rgba(39,39,39,.6);
+    --k-w72:rgba(39,39,39,.72);
+    --k-w92:rgba(39,39,39,.92);
+    --k-w97:rgba(39,39,39,.97);
+    --dunkelflaeche-1:#171A18;
+    --dunkelflaeche-2:#1E241F;
+    --auf-dunkelflaeche:#E7ECE8;
+    --auf-dunkelflaeche-leise:rgba(231,236,232,.70);
+    --auf-gruen:#0A1710;
+    --auf-gruen-dunkel:#EAF3E4;
+  }
+</style>
+<style>
+  :root{
+    --bg:var(--k-eef1ec); --card:var(--k-ffffff); --ink:var(--k-1d3c24); --muted:var(--k-6b6256); --line:var(--k-e4e8e2);
+    --green:#34D399; --green2:#10B981; --greendk:#047857; --greenlt:#ECFDF5;
+    --sehrgut:var(--k-22c55e); --gut:var(--k-84cc16); --mittel:var(--k-f0a020); --schwach:var(--k-ef4444); --grau:var(--k-6b6256);
+    --shadow:0 4px 16px rgba(20,40,28,.10);
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  /* Dark-Mode: --greenlt und --greendk hatten VORHER keine Anpassung. Ergebnis:
+     die helle Mint-Flaeche blieb hell, aber die Textfarbe (--ink) kippte auf hell
+     - hell auf hell, praktisch unlesbar (Ralphs "gruen auf gruen").
+     --greendk trug zwei Rollen: Akzent-TEXT und Knopf-FLAECHE. Getrennt:
+       * die Flaeche (Scan-Knopf, Passwort-Knopf) steht jetzt auf festem #047857,
+       * der Akzent-TEXT wird hier hell - lesbar auf der dunklen Tint-Flaeche.
+     > Eine Farbe, die Text UND Flaeche ist, kann im Dunkeln nur eine von beiden retten. */
+  html[data-theme="dark"]{
+    --greenlt:#12291d;   /* dunkle Emerald-Tint-Flaeche statt hellem Mint */
+    --greendk:#6ee7b7;   /* heller Mint-Akzent fuer Text darauf */
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5}
-  a{color:var(--greendk)}
-  .wrap{max-width:900px;margin:0 auto;padding:18px 16px 60px}
-  header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
-  header h1{font-size:17px;font-weight:700;margin:0}
-  header .sub{font-size:11.5px;color:var(--muted)}
-  button{font-family:inherit}
-  .btn{padding:8px 13px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px;font-weight:600}
-  .btn:hover{border-color:var(--green)}
-  input{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:#0a110d;color:var(--ink);font-size:15px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}
-  .card h3{font-size:13px;margin:0 0 8px;color:var(--ink)}
-  .kpis{display:flex;gap:8px;flex-wrap:wrap}
-  .kpi{flex:1 1 120px;min-width:110px;background:#0f1713;border:1px solid var(--line);border-radius:10px;padding:10px 11px}
-  .kpi.klick{cursor:pointer;border-color:#1f6b3f}
-  .kpi .l{font-size:11px;color:var(--muted)}
-  .kpi .v{font-size:22px;font-weight:800;margin-top:1px}
-  .kpi .h{font-size:10.5px;color:var(--muted)}
-  .row{display:flex;justify-content:space-between;gap:10px;padding:6px 2px;border-top:1px solid var(--line);font-size:12.5px}
-  .row.klick{cursor:pointer}
-  .zwei{display:flex;gap:8px}
-  .zwei>div{flex:1;background:#0f1713;border:1px solid var(--line);border-radius:12px;padding:11px;text-align:center}
-  .num{font-size:22px;font-weight:800;color:var(--greendk)}
-  #ovl{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
-  #ovl.on{display:flex}
-  #ovlIn{background:var(--card);border:1px solid var(--line);max-width:600px;width:100%;border-radius:14px;padding:16px}
-  .loginbox{max-width:340px;margin:12vh auto 0;text-align:center}
-  .msg{font-size:12.5px;margin-top:8px;min-height:16px}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--ink);}
+  /* color-scheme steuert, wie der BROWSER seine eigenen Teile faerbt: Scrollbalken,
+     Datums- und Zahlenwaehler, Autofill. Ohne das bleiben sie weiss und stechen
+     im dunklen Layout heraus wie ein Loch. */
+  html,body{color-scheme:light}
+  html[data-theme="dark"],html[data-theme="dark"] body{color-scheme:dark}
+  input,select,textarea{color:var(--ink)}
+  input::placeholder,textarea::placeholder{color:var(--muted);opacity:1}
+  input[type=date],input[type=number]{color-scheme:light}
+  /* Die Vorschlagsliste eines <datalist> malt der BROWSER, nicht wir - CSS greift dort
+     nicht. Steuerbar ist sie nur ueber color-scheme. Bis 18.07.2026 stand das nur an
+     date und number; die Zutaten-Eingabe ist ein normales Textfeld und fiel durch:
+     dunkle Schrift auf dunklem Grund, praktisch unlesbar. Jetzt gilt es fuer alle
+     Eingabefelder - dieselbe Regel, nur nicht mehr auf zwei Typen verengt. */
+  html[data-theme="dark"] input,
+  html[data-theme="dark"] select,
+  html[data-theme="dark"] textarea{color-scheme:dark}
+  /* Fotos wirken auf dunklem Grund oft zu grell - ein Hauch weniger Leuchtkraft. */
+  html[data-theme="dark"] img{filter:brightness(.92)}
+  a{color:inherit}
+  /* HERO */
+  .hero{background:linear-gradient(180deg,var(--dunkelflaeche-1),var(--dunkelflaeche-2));color:#FFFFFF;padding:12px 20px;position:sticky;top:0;z-index:30}
+  .hero .tag,.hero .sub{display:none}
+  .hero.shrink{padding:8px 16px}
+  .hero.shrink .tag,.hero.shrink .sub{display:none}
+  .hero.shrink .brand h1{font-size:18px}
+  .hero.shrink #brandLogo{height:40px!important}
+  .hero.shrink .leaf{width:26px;height:26px}
+  .hero.shrink .authbar{top:8px}
+  .hero .wrap{max-width:1080px;margin:0 auto;position:relative;}
+  .brand{display:flex;align-items:center;gap:11px}
+  .leaf{width:34px;height:34px;flex:0 0 34px}
+  .brand h1{margin:0;font-size:24px;letter-spacing:-.2px;font-weight:700}
+  .hero .tag{margin:14px 0 0;font-size:17px;font-weight:500;opacity:.96;max-width:600px;line-height:1.4}
+  .hero .sub{margin:5px 0 0;font-size:13.5px;opacity:.82}
+  /* PRINCIPLE STRIP */
+  .principles{background:var(--card);border-bottom:1px solid var(--line)}
+  .principles .wrap{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between}
+  .principles div{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green2);flex:0 0 8px}
+  /* CONTAINER */
+  .container{max-width:1080px;margin:0 auto;padding:20px 20px 60px;}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 14px;}
+  .controls input,.controls select{padding:11px 13px;border:1px solid var(--line);border-radius:11px;
+       font-size:14px;background:var(--card);color:var(--ink);outline:none}
+  .controls input:focus,.controls select:focus{border-color:var(--green2);box-shadow:0 0 0 3px var(--greenlt)}
+  .controls input[type=search]{flex:1;min-width:220px}
+  .controls label{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
+  .stats{font-size:13px;color:var(--muted);margin:0 2px 14px}
+  /* Sicherheitsnetz: Kein einzelnes Element darf die Seite breiter machen als das
+     Fenster. Passiert das doch, scrollt die Seite seitlich - und JEDES fensterbreite
+     Element (Kopfleiste, Fussleiste) endet dann sichtbar vor dem Rand.
+     Das behebt nicht die Ursache, aber es begrenzt den Schaden auf ein Element. */
+  html{overflow-x:hidden}
+  body{overflow-x:clip;max-width:100%}
+  /* minmax(280px,1fr) sprengt schmale Handys (360px minus Rand). min() nimmt,
+     was da ist. */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:16px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
+        cursor:pointer;transition:transform .12s ease,box-shadow .12s ease;display:flex;gap:15px;align-items:center}
+  .card:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:var(--k-cfe3d6)}
+  /* Auf dem Handy gibt es kein Hover. Der Effekt, der der Seite Leben geben sollte,
+     war ausgerechnet dort unsichtbar, wo die meisten sie benutzen. Antippen fuehlt man jetzt. */
+  .card:active{transform:scale(.98)}
+  /* Gestaffeltes Einblenden. NUR transform+opacity - alles andere (width, top, box-shadow)
+     loest Layout/Paint aus und ruckelt auf aelteren Geraeten. */
+  .cardIn{opacity:0;animation:cardIn .34s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .scLead .scNum{letter-spacing:-.5px}
+  /* Nicht die Huelle animieren, sondern die FUELLUNG - sonst waere der Balken
+     mitsamt seiner grauen Spur gewachsen und die Laenge haette nichts gesagt. */
+  .scLead .scBar i{transform:scaleX(0);transform-origin:left;
+        animation:axIn .4s cubic-bezier(.22,1,.36,1) forwards}
+  .scLead .scBar:nth-child(1) i{animation-delay:.10s}
+  .scLead .scBar:nth-child(2) i{animation-delay:.16s}
+  .scLead .scBar:nth-child(3) i{animation-delay:.22s}
+  .scLead .scBar:nth-child(4) i{animation-delay:.28s}
+  @keyframes axIn{to{transform:scaleX(1)}}
+  .badge{width:62px;height:62px;border-radius:50%;flex:0 0 62px;display:flex;flex-direction:column;
+         align-items:center;justify-content:center;color:var(--k-ffffff);font-weight:800;line-height:1;box-shadow:inset 0 0 0 3px var(--k-w25)}
+  .badge .num{font-size:21px}
+  .badge .lbl{font-size:8.5px;font-weight:700;letter-spacing:.5px;opacity:.92;margin-top:2px}
+  .card .meta{min-width:0}
+  .card .name{font-weight:700;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .tag{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;margin-top:8px}
+  .tag.good{background:var(--greenlt);color:var(--greendk)}
+  .tag.teil{background:var(--k-fef3c7);color:var(--k-92400e)}
+  /* DETAIL */
+  .overlay{position:fixed;inset:0;background:rgba(20,40,28,.5);display:none;align-items:center;justify-content:center;padding:18px;z-index:50;backdrop-filter:blur(2px)}
+  .overlay.open{display:flex}
+  .panel{background:var(--card);border-radius:20px;max-width:580px;width:100%;max-height:88vh;overflow:auto;padding:24px}
+  .panel h2{margin:0 0 2px;font-size:21px}
+  .panel .marke{color:var(--muted);font-size:14px;margin-bottom:16px}
+  .scorebar{display:flex;align-items:center;gap:14px;margin:8px 0 20px}
+  .bigbadge{width:76px;height:76px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--k-ffffff);font-weight:800;flex:0 0 76px;box-shadow:inset 0 0 0 4px var(--k-w25)}
+  .bigbadge .num{font-size:28px}
+  .row{margin:10px 0}
+  .row .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+  .row .top b{font-weight:600}
+  .track{height:9px;background:var(--k-eef3ef);border-radius:6px;overflow:hidden}
+  .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--green2),var(--green))}
+  details.breakdown>summary{list-style:none}
+  details.breakdown>summary::-webkit-details-marker{display:none}
+  details.breakdown[open]>summary .bdCaret{transform:rotate(180deg)}
+  .csRings{display:flex;justify-content:space-between;gap:6px;text-align:center;margin:6px 0 2px}
+  .csRing{flex:1;min-width:0}
+  .csRing .v{font-size:13px;font-weight:800;fill:var(--ink)}
+  .csRing .lbl{font-size:11.5px;color:var(--k-475569);margin-top:1px;line-height:1.15;font-weight:600}
+  .csRing .sub{font-size:10px;color:var(--k-94a3b8);margin-top:0}
+  .csRing circle.fg{stroke-dasharray:138.2;stroke-dashoffset:138.2;transform:rotate(-90deg);transform-origin:center;animation:csDash 1.1s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes csDash{to{stroke-dashoffset:var(--off)}}
+  .mkStage{position:relative;width:290px;max-width:100%;height:186px;margin:4px auto 0}
+  .mkCorner{position:absolute;width:120px}
+  .mkCorner .n{font-size:11.5px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:5px}
+  .mkCorner .v{font-size:15px;font-weight:800;color:var(--ink);margin-top:1px}
+  .mkDot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .mk-tl{top:0;left:0;text-align:left}.mk-tr{top:0;right:0;text-align:right}
+  .mk-bl{bottom:0;left:0;text-align:left}.mk-br{bottom:0;right:0;text-align:right}
+  .mk-tr .n,.mk-br .n{justify-content:flex-end}
+  .mkSvg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  .mkSeg{animation:mkSegFill 1.1s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes mkSegFill{to{stroke-dashoffset:0}}
+  .note{font-size:13.5px;line-height:1.5;background:var(--greenlt);border:1px solid var(--k-d4e8db);border-radius:12px;padding:11px 13px;margin-top:10px}
+  .note h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green)}
+  .teilhint{background:var(--k-fffbeb);border-color:var(--k-fde68a);color:var(--k-92400e)}
+  .close{float:right;border:1px solid var(--line);background:var(--line);border-radius:10px;padding:7px 12px;cursor:pointer;font-size:14px;color:var(--ink)}
+  .formula{font-size:12px;color:var(--muted);margin-top:2px}
+  .footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);text-align:center}
+  .footer b{color:var(--green)}
+  .loading{padding:50px;text-align:center;color:var(--muted)}
+  .tabbtn{padding:9px 18px;border:1px solid var(--line);background:var(--card);border-radius:999px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+  .tabbtn.active{background:var(--green);color:var(--auf-gruen);border-color:var(--green)}
+  /* AUTH */
+  .authbar{position:absolute;top:16px;right:0;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600}
+  .authbtn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.45);color:#FFFFFF;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer}
+  .authbtn:hover{background:rgba(255,255,255,.28)}
+  .premchip{background:var(--card);color:var(--greendk);border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700}
+  .gatebox{max-width:460px;margin:30px auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px 24px;text-align:center;box-shadow:var(--shadow)}
+  .gatebox h3{margin:.2em 0 .45em;font-size:18px}
+  .gatebox p{color:var(--muted);font-size:14px;line-height:1.5;margin:.3em 0 1.1em}
+  /* ===== BOTTOM NAV (App-Look) ===== */
+  .tabs{display:none}
+  .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--k-w97);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  .bn-inner{max-width:600px;margin:0 auto;display:flex}
+  .bn-item{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
+  .bn-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  /* ===== SCAN-FENSTER =====================================================
+     Der Kamera-Container von _startScan ist fest 150 x 280 px - im Vollbild
+     sah man deshalb fast nur Schwarz. Hier bekommt er die Groesse des Fensters.
+     Der Hintergrund ist unscharf statt schwarz: man sieht, WO man ist, und die
+     Kamera legt sich darueber wie ein Sucher.
+     ======================================================================== */
+  #scanFull{backdrop-filter:blur(16px) saturate(.8);-webkit-backdrop-filter:blur(16px) saturate(.8)}
+  #scanFull #qbox{height:100%!important;max-width:none!important;width:100%!important;
+        border-radius:18px!important;box-shadow:0 0 0 2px rgba(255,255,255,.14),0 18px 50px rgba(0,0,0,.55)}
+  #scanFull #qboxMsg{display:none}
+  /* Der "Kamera schliessen"-Knopf von _startScan ruft stopScan() - das schliesst
+     den SCANNER, aber nicht das FENSTER. Wir blenden ihn aus; oben steht der
+     richtige Knopf, der beides tut. */
+  #scanFull #qbox ~ div{display:none}
+  .scanRahmen{position:absolute;inset:0;pointer-events:none;border-radius:18px;
+        box-shadow:inset 0 0 0 3px rgba(94,242,160,.55)}
+  .bn-item.active{color:var(--green)}
+  /* Der Scan-Knopf sitzt hoeher als die Leiste - er ragt hinein, statt sich
+     einzureihen. Das macht ihn zur einen Handlung, nicht zum fuenften Reiter. */
+  .bn-scan{position:relative}
+  .bn-scanBtn{width:52px;height:52px;border-radius:50%;background:#047857;/* fest dunkelgruen: --greendk wird im Dark-Mode zu hellem Akzent, hier brauchen wir die Flaeche */
+        display:flex;align-items:center;justify-content:center;margin:-26px auto 1px;
+        border:4px solid var(--card);box-shadow:0 4px 14px rgba(20,60,35,.30);
+        transition:transform .12s ease}
+  .bn-scanBtn svg{width:26px;height:26px;stroke:var(--auf-gruen);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .bn-scan:active .bn-scanBtn{transform:scale(.92)}
+  .bn-scan span:last-child{color:var(--muted)}
+  /* ===== BENTO / TECH (Startseite) ===== */
+  .heroCheck{background:linear-gradient(160deg,var(--dunkelflaeche-2),var(--dunkelflaeche-1));color:#FFFFFF;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .heroCheck h3{margin:0 0 10px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px}
+  .heroCheck input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid rgba(255,255,255,.25);border-radius:12px;font-size:14px;background:rgba(255,255,255,.10);color:#FFFFFF;outline:none}
+  .heroCheck input:focus{border-color:var(--green)}
+  .heroCheck input::placeholder{color:var(--k-w72)}
+  .heroBtns{display:flex;gap:8px;margin-top:8px}
+  .heroBtns button{flex:1;padding:11px;border-radius:12px;font-size:14px;cursor:pointer}
+  .heroBtns .bSearch{border:0;background:var(--green);color:var(--auf-gruen);font-weight:700}
+  .heroBtns .bScan{border:1px solid rgba(255,255,255,.42);background:transparent;color:#FFFFFF}
+  .kzRow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+  .kzTile{background:var(--card);border:0.5px solid var(--line);border-radius:14px;padding:11px 10px}
+  .kzTile .kzLbl{font-size:11px;color:var(--muted);font-weight:600;line-height:1.2;min-height:26px}
+  .kzTile .kzVal{font-family:var(--mono);font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.5px}
+  .kzTile .kzZiel{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .kzTile .kzBar{height:5px;background:var(--k-eef3ef);border-radius:4px;overflow:hidden;margin-top:7px}
+  .kzTile .kzBar span{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--green2),var(--green))}
+  @media(max-width:430px){.kzTile{padding:10px 8px}.kzTile .kzVal{font-size:15px}.kzTile .kzLbl{font-size:10px}.kzTile .kzZiel{font-size:10px}}
+  /* ===== INTRO-OVERLAY (nur 1x pro Sitzung) ===== */
+  /* ===== INTRO: das Y wird zum Fluxkompensator ============================
+     Der Vorspann ist eine Erklaerung, kein Schmuck: vier Achsen laufen zusammen,
+     erst dann gibt es eine Zahl. Genau das tut die App.
+     ====================================================================== */
+  /* Standardmaessig VERSTECKT. Vorher stand hier display:flex - dadurch war das
+     Overlay beim ersten Paint sichtbar und blitzte kurz auf, wenn das Intro in
+     dieser Sitzung schon lief (z. B. Browser-Reload am PC) und JS es gleich wieder
+     wegnahm. Jetzt zeigt JS es nur, WENN es wirklich abspielt - kein Blitz mehr.
+     .introOn wird per JS gesetzt. */
+  #introOverlay{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(130% 130% at 50% 42%,#173A2A 0%,#0B1710 55%,#070F0A 100%);color:#fff;
+    opacity:1;transition:opacity .55s ease}
+  #introOverlay.introOn{display:flex}
+  #introOverlay.hide{opacity:0;pointer-events:none}
+  /* Tages-Index-Flip: Tippen dreht die Karte auf die Rueckseite (Achsen-Begruendungen),
+     ohne dass die Karte hoeher wird. Rueckseite liegt absolut ueber der Vorderseite. */
+  .fxWrap{position:relative;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.4,0,.2,1)}
+  .fxFlip.flipped .fxWrap{transform:rotateY(180deg)}
+  .fxFront,.fxBack{backface-visibility:hidden;-webkit-backface-visibility:hidden}
+  .fxBack{position:absolute;inset:0;transform:rotateY(180deg);display:flex;flex-direction:column;justify-content:center}
+  #introFx{width:min(88vw,340px);display:block}
+  #ifRot{transform-origin:150px 100px}
+  #introWort{margin-top:6px;font-size:22px;letter-spacing:3px;color:#fff;opacity:0}
+  #introWort span{color:#5EF2A0}
+  #introOverlay .introClaim{margin-top:9px;font-size:13px;color:rgba(255,255,255,.62);
+    text-align:center;padding:0 24px;line-height:1.45;opacity:1}
+  #introOverlay .introSkip{position:absolute;bottom:calc(26px + env(safe-area-inset-bottom));right:22px;
+    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.40);color:#fff;border-radius:999px;
+    padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  /* In-Seiten-Untertabs (Segment-Control) */
+  .seg{display:flex;gap:4px;background:var(--k-eef3ef);border-radius:13px;padding:4px;margin:0 0 16px;overflow-x:auto}
+  .seg button{flex:1 0 auto;border:0;background:none;padding:9px 14px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .seg button.active{background:var(--card);color:var(--green);box-shadow:0 1px 3px rgba(31,94,52,.12)}
+  /* Rechtsbuendige Reiter - nur im Admin-Bereich (Ralph, 18.07.2026). Die Nutzer-Reiter
+     (Profil, Training) bleiben unveraendert; deshalb ein Zusatz statt Aenderung an .seg.
+     Buttons wachsen hier NICHT auf volle Breite (flex:0), sondern draengen sich nach rechts. */
+  .seg.segRight{justify-content:flex-end}
+  .seg.segRight button{flex:0 0 auto}
+  /* Wassertropfen-Animation (Startseite) */
+  @keyframes markPuls{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.05);opacity:1}}
+  .leafwind{width:88px;height:88px;margin:2px auto 8px;display:flex;align-items:flex-end;justify-content:center}
+  .leafwind svg{transform-origin:50% 50%;animation:markPuls 3.4s ease-in-out infinite;will-change:transform}
+  /* ===================================================================
+     Bewegung abschaltbar - fuer ALLE Animationen, nicht nur das Blatt.
+     Vorher stand diese Regel an genau EINER von zwanzig Stellen. Fuer
+     Menschen mit vestibulaeren Stoerungen (Schwindel, Migraene) ist
+     Bewegung, die sie nicht abstellen koennen, ein echtes Problem -
+     und WCAG 2.3.3 verlangt die Abschaltbarkeit.
+     Wer mehr animiert, muss das ZUERST reparieren.
+     =================================================================== */
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{
+      animation-duration:.001ms!important;
+      animation-iteration-count:1!important;
+      transition-duration:.001ms!important;
+      scroll-behavior:auto!important;
+    }
+    .cardIn{opacity:1!important;transform:none!important}
+    .scLead .scBar i{transform:scaleX(1)!important}
+    .csRing circle.fg{stroke-dashoffset:var(--off)!important}
+    .mkSeg{stroke-dashoffset:0!important}
+    .leafwind svg{animation:none!important}
+  }
+  body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+  /* iOS: Eingabefelder < 16px lösen Auto-Zoom aus (Layout-Überlauf). Auf Mobil alle Felder >= 16px. */
+  @media (max-width:600px){ input:not([type=checkbox]):not([type=radio]),select,textarea{ font-size:16px!important } }
+  /* Score-Fluss: Handy = untereinander, ab Tablet = von links nach rechts */
+  .sfWrap{display:flex;flex-direction:column;align-items:stretch;gap:4px}
+  .sfArrow{text-align:center;color:var(--muted);font-size:16px;line-height:1;flex:0 0 auto}
+  .sfArrow::before{content:"\2193"}
+  .sfCol{min-width:0}
+  @media (min-width:700px){
+    .sfWrap{flex-direction:row;align-items:center;gap:8px}
+    .sfAxes{flex:1 1 320px}
+    .sfDeckel{flex:1 1 190px}
+    .sfErg{flex:0 0 auto}
+    .sfArrow::before{content:"\2192"}
+  }
+  .mehr-sheet{position:fixed;inset:0;z-index:41;display:none}
+  .mehr-sheet.open{display:block}
+  .mehr-back{position:absolute;inset:0;background:rgba(20,40,28,.28)}
+  .mehr-card{position:absolute;left:0;right:0;bottom:62px;max-width:600px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -8px 24px rgba(31,94,52,.16);padding:8px}
+  .mehr-card button{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:14px 14px;font-size:15px;color:var(--ink);cursor:pointer;border-radius:10px;text-align:left}
+  .mehr-card button:active{background:var(--greenlt)}
+  /* Funktionen als 2-spaltiges Raster: fuenf volle Zeilen wurden zu zwei Reihen,
+     damit die Einkaufsliste oben nicht mehr aus dem Bild scrollt. */
+  .mehr-card .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
+  .mehr-card .mgrid button{width:auto;background:var(--bg);border:1px solid var(--line);padding:12px 12px;font-size:14px;gap:9px}
+  .mehr-card .mgrid button:active{background:var(--greenlt)}
+  @media(max-width:640px){
+    .hero{padding:16px 16px}
+    .hero .tag{font-size:15px;margin-top:8px} .hero .sub{display:none}
+    .principles{display:none}
+    .brand h1{font-size:20px}
+    #brandLogo{height:56px!important}
+    .container{padding:12px 11px 86px}
+    .card{padding:14px}
+  }
 </style>
 </head>
 <body>
+<!-- ===========================================================================
+     DAS INTRO: Das Y verwandelt sich in den Fluxkompensator.
 
-<div id="login" class="loginbox">
-  <h1 style="font-size:20px">Root Index · Admin</h1>
-  <p style="color:var(--muted);font-size:13px;margin:4px 0 18px">Eigenständiges Backend. Für die App: <a href="https://root-index.de">root-index.de</a></p>
-  <input id="email" type="email" placeholder="admin@e-mail.de" autocomplete="email">
-  <input id="pass" type="password" placeholder="Passwort" autocomplete="current-password" style="margin-top:8px">
-  <button class="btn" style="width:100%;margin-top:10px;background:#123;border-color:#1f6b3f" onclick="loginPass()">Anmelden</button>
-  <button class="btn" style="width:100%;margin-top:8px" onclick="loginCode()">Stattdessen Code per E-Mail</button>
-  <div id="codeRow" style="display:none;margin-top:10px">
-    <input id="code" inputmode="numeric" placeholder="6-stelliger Code">
-    <button class="btn" style="width:100%;margin-top:8px" onclick="loginVerify()">Code bestätigen</button>
+     Es ist kein Vorspann, es ist eine Erklaerung: Drei Arme drehen sich, wandern
+     auf ihre Plaetze, ein vierter waechst dazu, die Farben trennen sich - und
+     erst wenn alle vier angekommen sind, zaehlt die Skala hoch.
+
+     Genau das tut die App: vier Achsen, dann eine Zahl. Ohne alle vier keine Zahl.
+
+     Im Kern steht KEINE Beispielzahl. Eine "72" waere im ersten Moment der App
+     eine erfundene Zahl - ausgerechnet bei uns. Die Skala zaehlt stattdessen
+     0 -> 100: das ist der WERTEBEREICH, keine Behauptung.
+     =========================================================================== -->
+<div id="introOverlay">
+  <!-- viewBox symmetrisch um den Drehpunkt (150/100): 150 Luft in JEDE Richtung.
+       Vorher 0 0 300 210 - oben nur 100, unten 110. Beim Drehen schwingen die Arme
+       durch die Senkrechte auf Radius ~146 und wurden oben/unten abgeschnitten.
+       Nur die viewBox wächst, keine einzige Koordinate ändert sich. -->
+  <svg id="introFx" viewBox="0 -50 300 300" aria-hidden="true">
+    <!-- Die Pfade tragen den Y-Zustand SCHON IM HTML. Vorher standen sie auf d=""
+         und die Kappen ohne cx/cy landeten bei (0,0) oben links - deshalb sah man
+         beim Kaltstart nur den leeren Kern-Ring und einen gruenen Fetzen in der Ecke,
+         bis das erste JS-Bild kam. zeichne(0) malt dasselbe, jetzt ohne Flackern.
+         > Ein Startbild, das erst das Skript malt, ist im ersten Moment kein Startbild. -->
+    <g id="ifRot">
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7">
+        <path id="ifP1" d="M150 46 L150 66.52 L150 83.8" stroke="#5EF2A0"/>
+        <path id="ifP2" d="M103.24 127 L121.01 116.74 L135.97 108.1" stroke="#5EF2A0"/>
+        <path id="ifP3" d="M196.77 127 L178.99 116.74 L164.03 108.1" stroke="#5EF2A0"/>
+        <path id="ifP4" d="M150 100 L150 100 L150 100" stroke="#5EF2A0" opacity="0"/>
+      </g>
+      <circle id="ifK1" cx="150" cy="46" r="6" fill="#5EF2A0"/>
+      <circle id="ifK2" cx="103.24" cy="127" r="6" fill="#5EF2A0"/>
+      <circle id="ifK3" cx="196.77" cy="127" r="6" fill="#5EF2A0"/>
+      <circle id="ifK4" cx="150" cy="100" r="6" fill="#5EF2A0" opacity="0"/>
+    </g>
+    <circle id="ifKern" cx="150" cy="100" r="10" fill="#0A1710" stroke="#5EF2A0" stroke-width="2.5"/>
+    <text id="ifZahl" x="150" y="112" text-anchor="middle" font-size="34" font-weight="700" fill="#7CFF9B" letter-spacing="-1" opacity="0">0</text>
+  </svg>
+  <div id="introWort">ROOT <span>INDEX</span></div>
+  <div class="introClaim">Die Vorderseite verkauft. Wir lesen die Rückseite.</div>
+  <button class="introSkip" type="button" onclick="riHideIntro()">Überspringen ›</button>
+</div>
+<div class="hero"><div class="wrap">
+  <div class="brand" style="display:flex;align-items:center;justify-content:flex-start;gap:.6em">
+    <img id="brandLogo" src="logo-mark.png" alt="Root Index Logo" style="height:72px;width:auto" onerror="this.style.display='none'">
+    <h1>Root Index</h1>
   </div>
-  <div id="loginMsg" class="msg" style="color:var(--rot)"></div>
-</div>
+  <p class="tag">Echte Qualität, Transparenz & smarte Ernährung.</p>
+  <p class="sub">Unabhängige, wissenschaftsbasierte Bewertung – der Root Index (0–100).</p>
+  <div class="authbar" id="authBar">
+    <button class="authbtn" id="loginBtn" onclick="openLogin()">Anmelden</button>
+  </div>
+</div></div>
 
-<div id="app" class="wrap" style="display:none">
-  <header>
-    <div><h1>Root Index · Admin</h1><div class="sub" id="who"></div></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn" onclick="ladeDash()">↻ Aktualisieren</button>
-      <button class="btn" onclick="logout()">Abmelden</button>
+<div class="principles"><div class="wrap">
+  <div><span class="dot"></span>100 % unabhängig – keine Hersteller-Beeinflussung</div>
+  <div><span class="dot"></span>Wissenschaftlich basiert</div>
+  <div><span class="dot"></span>Transparent & verständlich erklärt</div>
+  <div><span class="dot"></span>Für dich gemacht</div>
+</div></div>
+
+<div class="container">
+  <div class="tabs" style="display:none">
+    <button id="tabProd" class="tabbtn active" onclick="setMode('produkte')">Produkte</button>
+    <button id="tabRez" class="tabbtn" onclick="setMode('rezepte')">Rezepte</button>
+    <button id="tabVor" class="tabbtn" onclick="setMode('vorschlagen')" style="display:none">Produkt erfassen</button>
+    <button id="tabTb" class="tabbtn" onclick="setMode('tagebuch')">Tagebuch</button>
+    <button id="tabPlan" class="tabbtn" onclick="setMode('planer')">Planer</button>
+    <button id="tabTrain" class="tabbtn" onclick="setMode('training')">Training</button>
+    <button id="tabProfil" class="tabbtn" onclick="setMode('profil')">Mein Profil</button>
+    <button id="tabFg" class="tabbtn" style="display:none" onclick="setMode('freigabe')">Freigabe</button>
+    <button id="tabStufen" class="tabbtn" style="display:none" onclick="setMode('stufen')">Stufen</button>
+    <button id="tabUsers" class="tabbtn" style="display:none" onclick="setMode('nutzer')">Nutzer</button>
+  </div>
+  <div id="startView"><div id="startBody"></div></div>
+  <div id="prodView" style="display:none">
+  <div class="controls">
+    <input type="search" id="q" placeholder="Produkt, Marke oder Kategorie suchen…" />
+    <button id="prodScanBtn" type="button" onclick="prodScan()" style="padding:11px 13px;border:1px solid var(--green);border-radius:11px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-1f5e34));font-size:14px;cursor:pointer;white-space:nowrap">📷 Barcode scannen</button>
+  </div>
+  <div id="prodReader" style="margin:0 0 12px"></div>
+  <div class="stats" id="stats">Lade Daten…</div>
+  <div class="grid" id="grid"></div>
+  </div>
+  <div id="rezeptView" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="stats" id="rezeptStats">Lade Rezepte…</div>
+      <button onclick="openRezeptForm()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-size:14px;white-space:nowrap">+ Eigenes Rezept</button>
     </div>
-  </header>
-  <div class="sub" id="stand" style="margin-bottom:8px"></div>
-  <div id="dash"><div style="color:var(--muted);padding:20px 0">Lade Dashboard…</div></div>
+    <input type="search" id="rezeptSuche" oninput="renderRezeptList()" placeholder="Rezept suchen…" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px;margin:6px 0 8px" />
+    <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);margin:0 0 12px;cursor:pointer"><input type="checkbox" onchange="rezFavFilter(this.checked)" style="width:16px;height:16px;accent-color:var(--k-e11d48)"> ♥ nur Favoriten anzeigen</label>
+    <div id="rezeptFormBox"></div>
+    <div class="grid" id="rezeptGrid"></div>
+  </div>
+  <div id="trainingView" style="display:none">
+    <div id="trainGate" style="display:none"></div>
+    <div id="trainBody"></div>
+  </div>
+  <div id="zyklusView" style="display:none">
+    <h2 style="margin:.1em 0 .2em;font-size:19px">Zyklus &amp; Nährstoffe</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Nährstoffe mit <b>zugelassenen EU-Aussagen</b> zu Hormontätigkeit, Muskel- und Nervenfunktion – wenige, saubere Produkte statt Kombi-Pulver. Keine Aussage zu Beschwerden, keine medizinische Beratung.</div>
+    <div id="zyklusBody"><div style="color:var(--muted)">Lade…</div></div>
+  </div>
+  <div id="einkaufView" style="display:none">
+    <h2 style="margin:.1em 0 .2em;font-size:19px">🛒 Einkaufsliste</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Produkte und Rezept-Zutaten sammeln, beim Einkauf abhaken. Aus dem Wochenplan lässt sie sich automatisch erzeugen.</div>
+    <div id="einkaufPageGate" style="display:none"></div>
+    <div id="einkaufPageBox"></div>
+  </div>
+  <div id="darmView" style="display:none">
+    <h2 style="margin:.1em 0 .2em;font-size:19px">Darmgesundheit</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Ballaststoffe, Probiotika &amp; Präbiotika – Nährstoffe mit <b>zugelassener EU-Aussage</b> zur normalen Darmfunktion (z. B. Roggenfasern). Wenige, saubere Produkte. Keine medizinische Beratung.</div>
+    <div id="darmBody"><div style="color:var(--muted)">Lade…</div></div>
+  </div>
+  <div id="vorschlagView" style="display:none">
+    <div id="vorGate" style="display:none"></div>
+    <div id="vorForm">
+    <div style="max-width:560px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px">
+      <h2 style="margin:.1em 0 .15em;font-size:19px">Produkt erfassen</h2>
+      <p style="color:var(--muted);font-size:13.5px;margin:.2em 0 14px">Barcode scannen, Link einfügen <b>oder Etikett-Foto aufnehmen</b> – wir holen bzw. lesen die Daten und legen das Produkt als <b>Entwurf</b> an. Es wird geprüft, bevor es öffentlich erscheint.</p>
+      <input id="vorInput" type="text" placeholder="Produkt-Link oder Barcode (EAN)…" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px" />
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button id="vorScan" onclick="toggleScan()" style="flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:var(--k-eef2f5);font-size:15px;cursor:pointer">📷 Barcode scannen</button>
+        <button id="vorSend" onclick="sendVorschlag()" style="flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:15px;cursor:pointer">Senden</button>
+      </div>
+      <input id="vorFoto" type="file" accept="image/*" style="display:none" onchange="vorShotFile(this)" />
+      <div style="margin-top:14px;border-top:1px solid var(--k-eef2f5);padding-top:12px">
+        <div style="font-size:13px;color:var(--ink);font-weight:600;margin-bottom:8px">Etikett-Fotos (bis zu 3)</div>
+        <div id="vorShots"></div>
+        <button id="vorShotsSend" onclick="submitVorShots()" style="display:none;width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:15px;cursor:pointer">Foto(s) erfassen</button>
+        <div style="font-size:12px;color:var(--muted);margin-top:8px">Tipp: 1 Bild reicht – besser je eins von Vorderseite, Zutaten und Nährwerttabelle, scharf & formatfüllend. Die KI liest alle zusammen aus.</div>
+      </div>
+      <div id="vorReader" style="margin-top:12px"></div>
+      <div id="vorMsg" style="margin-top:12px;font-size:14px;line-height:1.45"></div>
+    </div>
+    </div>
+  </div>
+  <div id="tagebuchView" style="display:none">
+    <div id="tbGate" style="display:none"></div>
+    <div id="tbInner" style="max-width:600px;margin:0 auto;--tb-card:var(--k-ffffff);--tb-card2:var(--k-e7eef8);--tb-line:var(--k-d8e2f0);--tb-text:var(--k-15304f);--tb-muted:var(--k-5b6b7e);--tb-track:var(--k-dbe6f4);--tb-input:var(--k-f4f8fe);background:var(--k-edf2fa);color:var(--tb-text);padding:16px;border-radius:18px;box-shadow:0 8px 30px rgba(0,0,0,.28)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <h2 id="tbTitle" style="margin:0;font-size:19px;color:var(--tb-text)">Tagebuch</h2>
+        <div id="tbCtrlHead" style="display:flex;gap:8px;align-items:center">
+          <button onclick="toggleTbStatistik()" style="padding:8px 12px;border:1px solid var(--k-2f6fd6);border-radius:8px;background:rgba(47,111,214,.12);color:var(--k-1e50a8);cursor:pointer;font-size:13px;font-weight:600">📊 Statistik</button>
+          <input type="date" id="tbDatum" onchange="loadTagebuch()" style="padding:8px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text);color-scheme:light">
+        </div>
+      </div>
+      <div id="tbCtrlNav" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <button onclick="tbShiftDay(-1)" title="Tag zurück" style="padding:7px 11px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">‹</button>
+        <button onclick="tbGoToday()" style="padding:7px 12px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer;font-size:13px">Heute</button>
+        <button onclick="tbShiftDay(1)" title="Tag vor" style="padding:7px 11px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">›</button>
+        <button onclick="toggleTbKalender()" style="padding:7px 12px;border:1px solid var(--k-2f6fd6);border-radius:8px;background:rgba(47,111,214,.12);color:var(--k-1e50a8);cursor:pointer;font-size:13px;font-weight:600">📅 Kalender</button>
+        <span id="tbDatumLabel" style="font-size:13px;color:var(--tb-muted);margin-left:2px"></span>
+      </div>
+      <div id="tbLimitHint" style="display:none"></div>
+      <div id="tbKalBox" style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:12px;margin-bottom:12px"></div>
+      <div id="tbStatBox" style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="tbTopSearch" oninput="tbTopSearch(this.value)" placeholder="🔍 Lebensmittel, Marke suchen…" style="flex:1;min-width:0;padding:11px 12px;border:1px solid var(--tb-line);border-radius:10px;background:var(--tb-input);color:var(--tb-text);font-size:14px">
+        <button onclick="tbOpenScan()" title="Barcode scannen" style="width:46px;border:1px solid var(--tb-line);border-radius:10px;background:var(--tb-card2);color:var(--tb-text);font-size:18px;cursor:pointer">▦</button>
+      </div>
+      <div id="tbTopResults"></div>
+      <div id="tbZiel" style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
+      <div id="tbZyklus"></div>
+      <div id="tbListe"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <button onclick="toggleEinkauf('tbEinkBox')" style="padding:7px 12px;border:1px solid var(--k-2f6fd6);border-radius:8px;background:rgba(47,111,214,.12);color:var(--k-1e50a8);cursor:pointer;font-size:13px;font-weight:600">🛒 Einkaufsliste</button>
+      </div>
+      <div id="tbEinkBox" style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-top:12px"></div>
+      <div style="display:none;background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:14px;margin-top:12px">
+        <div style="font-weight:600;margin-bottom:8px">Gewicht</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="number" id="tbGewicht" placeholder="kg" step="0.1" style="width:100px;padding:10px;border:1px solid var(--tb-line);border-radius:8px;background:var(--tb-input);color:var(--tb-text)">
+          <button onclick="saveGewicht()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--tb-card2);color:var(--tb-text);cursor:pointer">Speichern</button>
+          <span id="tbGewichtInfo" style="font-size:13px;color:var(--tb-muted)"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="planerView" style="display:none">
+    <div id="planerGate" style="display:none"></div>
+    <div id="planerInner" style="max-width:640px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <h2 style="margin:0;font-size:19px">Planer</h2>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span style="display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+            <button id="pmMeal" onclick="planSetMode('mahlzeiten')" style="padding:7px 11px;border:0;background:var(--card);cursor:pointer;font-size:13px">Mahlzeiten</button>
+            <button id="pmCal" onclick="planSetMode('kalender')" style="padding:7px 11px;border:0;border-left:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px">Kalender</button>
+          </span>
+          <span style="display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+            <button id="pvWoche" onclick="planSetView('woche')" style="padding:7px 11px;border:0;background:var(--card);cursor:pointer;font-size:13px">Woche</button>
+            <button id="pvTag" onclick="planSetView('tag')" style="padding:7px 11px;border:0;border-left:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px">Tag</button>
+          </span>
+          <button onclick="planShiftWeek(-1)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹</button>
+          <button onclick="planThisWeek()" style="padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;font-size:13px">Heute</button>
+          <button onclick="planShiftWeek(1)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">›</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <div id="planWochenLabel" style="font-size:13px;color:var(--muted)"></div>
+        <button onclick="toggleEinkauf()" style="padding:7px 12px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:13px;font-weight:600">🛒 Einkaufsliste</button>
+      </div>
+      <div id="einkaufBox" style="display:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px"></div>
+      <div id="planGrid"></div>
+      <div id="planPick" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center">
+        <div style="background:var(--card);border-radius:14px;padding:16px;max-width:420px;width:92%;box-shadow:var(--shadow)">
+          <div style="font-weight:700;margin-bottom:2px">Zum Plan hinzufügen</div>
+          <div id="planPickWhen" style="font-size:12.5px;color:var(--muted);margin-bottom:10px"></div>
+          <label style="font-size:13px;font-weight:600">Rezept</label>
+          <select id="planRez" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin:4px 0 10px;box-sizing:border-box"><option value="">– Rezept wählen –</option></select>
+          <div style="text-align:center;color:var(--k-9aa7a0);font-size:12px;margin-bottom:8px">— oder —</div>
+          <label style="font-size:13px;font-weight:600">Produkt</label>
+          <div style="display:flex;gap:8px;margin:4px 0 12px">
+            <input id="planProd" list="tbProdListe" placeholder="Produkt aus Liste…" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px">
+            <input id="planMenge" type="number" placeholder="g" style="width:74px;padding:9px;border:1px solid var(--line);border-radius:8px">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button onclick="planSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-weight:600">Hinzufügen</button>
+            <button onclick="document.getElementById('planPick').style.display='none'" style="padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Abbrechen</button>
+            <span id="planPickMsg" style="font-size:12.5px"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="termPick" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center">
+    <div style="background:var(--card);border-radius:14px;padding:16px;max-width:420px;width:92%;box-shadow:var(--shadow)">
+      <div style="font-weight:700;margin-bottom:2px">Termin / Training</div>
+      <div id="termWhen" style="font-size:12.5px;color:var(--muted);margin-bottom:10px"></div>
+      <input id="termTitel" placeholder="Titel (z. B. Krafttraining)" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;box-sizing:border-box">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+        <select id="termTyp" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="training">Training</option><option value="termin" selected>Termin</option><option value="mahlzeit">Mahlzeit</option><option value="sonstiges">Sonstiges</option></select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap"><input type="checkbox" id="termAllday" onchange="termToggleAllday()" style="width:16px;height:16px;accent-color:var(--k-16a34a)">ganztägig</label>
+      </div>
+      <div id="termTimes" style="display:flex;gap:8px;margin-bottom:12px">
+        <label style="flex:1;font-size:12px;color:var(--ink)">von<input type="time" id="termStart" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+        <label style="flex:1;font-size:12px;color:var(--ink)">bis<input type="time" id="termEnde" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:3px;box-sizing:border-box"></label>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="termSave()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-weight:600">Speichern</button>
+        <button onclick="document.getElementById('termPick').style.display='none'" style="padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Abbrechen</button>
+        <span id="termMsg" style="font-size:12.5px"></span>
+      </div>
+    </div>
+  </div>
+  <div id="freigabeView" style="display:none">
+    <div style="max-width:1040px;margin:0 auto">
+      <h2 style="margin:.1em 0 .35em;font-size:19px">Freigabe</h2>
+      <div class="seg segRight" id="fgTabs" style="margin-bottom:14px">
+        <button id="fgtDash" onclick="fgTab('dash')">📊 Dashboard</button>
+        <button id="fgtProdukte" onclick="fgTab('produkte')" style="display:none">Produkte</button>
+        <button id="fgtBundles" onclick="fgTab('bundles')">Bundles</button>
+        <button id="fgtRezepte" onclick="fgTab('rezepte')">Rezepte</button>
+        <button id="fgtScans" class="active" onclick="fgTab('scans')">Eingang</button>
+        <button id="fgtKontakt" onclick="fgTab('kontakt')" style="display:none">Anfragen</button>
+        <button id="fgtEmpfehlungen" onclick="fgTab('empfehlungen')">Empfehlungen</button>
+      </div>
+      <div id="fgPanelDash" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">Alles, was zählt – ohne Schönfärberei. Rot bedeutet: hier ist etwas offen.</div>
+        <button onclick="loadDashboard()" style="margin-bottom:6px;padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;cursor:pointer">↻ Aktualisieren</button>
+        <div id="fgDash"></div>
+      </div>
+      <div id="fgPanelScans" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:12px">Alles, was in den Katalog will – aus <b>allen drei Quellen</b>: gescannte Barcodes, manuelle Tagebuch-Einträge und Produktwünsche aus dem Kontaktformular. „OFF holen" befüllt nur als <b>Vorschlag</b>; freigegeben wird erst nach deiner Prüfung.</div>
+        <div style="margin:0 0 8px"><button onclick="openFgEditor(null)" style="padding:9px 14px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:14px;font-weight:600;cursor:pointer">➕ Neues Produkt anlegen</button></div>
+        <h3 style="font-size:15px;margin:6px 0 4px">📋 Entwürfe zum Freigeben</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Nur vollständig bewertete Produkte mit Quelle sind freigebbar.</div>
+        <div id="fgEntwuerfe" style="margin-bottom:16px"></div>
+        <div id="fgScanPruef"></div>
+        <h3 style="font-size:15px;margin:0 0 4px">📷 Gescannte Barcodes &amp; Etikettfotos</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:8px">Grün umrandet = <b>Top-Kandidat</b>: Nutzer hat es gegessen und es liegt bei Open Food Facts.</div>
+        <div id="fgScans" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
+        <h3 style="font-size:15px;margin:22px 0 4px">✍️ Manuell im Tagebuch eingetragen</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:8px">Lebensmittel, die Nutzer von Hand erfasst haben. „×N" = wie oft. <b>Achtung:</b> die Werte sind die eingetragene <b>Portion</b>, nicht je 100 g.</div>
+        <div id="fgMeldungen" style="font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:6px"></div>
+        <h3 style="font-size:15px;margin:22px 0 4px">📨 Produktwünsche aus dem Kontaktformular</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:8px">Gemeldete Produkte, jeweils mit Pflicht-EAN.</div>
+        <div id="fgWuensche" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
+        <h3 style="font-size:15px;margin:22px 0 4px">🤖 Auto-Verifizierung</h3>
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px;line-height:1.5">Gleicht alle Produkte mit EAN, die noch nicht verifiziert sind, gegen <b>Open Food Facts</b> ab.<br>
+          <b>Bestätigt die Quelle alle Nährwerte</b> → Produkt wird verifiziert; vollständige Entwürfe werden freigegeben.<br>
+          <b>Weicht auch nur ein Wert ab</b> → Produkt bleibt ungeprüft, die Abweichung wird protokolliert. Es wird <b>nichts überschrieben und nichts geraten</b>.</div>
+        <button onclick="autoVerifyStart(false)" style="padding:9px 14px;border:1px solid var(--k-0ea5e9);border-radius:10px;background:var(--card);color:var(--k-0369a1);font-size:13.5px;font-weight:600;cursor:pointer">🔍 Trockenlauf starten</button>
+        <div id="fgAutoV" style="margin-top:10px;font-size:14px"></div>
+        <h3 style="font-size:15px;margin:22px 0 4px">🤖 Riki-Audit · unsere eigenen Zutaten prüfen</h3>
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px;line-height:1.5">Riki bewertet die Zutaten unseres Katalogs <b>neu nach dem Regelwerk</b> und vergleicht mit unserem Stamm. Abweichungen ab 2 Punkten werden aufgelistet – <b>es wird nichts geändert</b>.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="rikiAudit(60,false)" style="padding:9px 14px;border:0;border-radius:10px;background:var(--k-534ab7);color:var(--k-ffffff);font-size:13.5px;font-weight:600;cursor:pointer">Top 60 Zutaten prüfen (~$0,02)</button>
+          <button onclick="rikiAudit(200,false)" style="padding:9px 14px;border:1px solid var(--k-cecbf6);border-radius:10px;background:var(--card);color:var(--k-534ab7);font-size:13px;cursor:pointer">Top 200 (~$0,06)</button>
+          <button onclick="rikiAudit(400,false)" style="padding:9px 14px;border:1px solid var(--k-cecbf6);border-radius:10px;background:var(--card);color:var(--k-534ab7);font-size:13px;cursor:pointer">Alle (~$0,12)</button>
+        </div>
+        <div id="fgRikiAudit" style="margin-top:10px;font-size:14px"></div>
+      </div>
+      <div id="fgPanelProdukte" style="display:none"></div>
+      <div id="fgPanelBundles" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Benannte Kombinationen mehrerer Produkte (z. B. Frühstücks-Bundle). Nur du (Admin).</div>
+        <button onclick="bundleNeu()" style="margin-bottom:10px;padding:9px 14px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);font-weight:600;cursor:pointer">➕ Neues Bundle</button>
+        <div id="fgBundles" style="font-size:14px"></div>
+      </div>
+      <div id="fgPanelRezepte" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Häkchen = im kostenlosen Modus sichtbar. Ohne Häkchen nur für zahlende/Trial-Nutzer. Nur du (Admin) kannst das ändern.</div>
+        <input id="fgRezSuche" oninput="renderRezepteFree()" placeholder="Rezept suchen…" style="width:100%;max-width:320px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+        <div id="fgRezepteFree" style="font-size:14px;color:var(--ink)"></div>
+      </div>
+      <div id="fgPanelKontakt" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Fragen und Feedback aus dem Kontaktformular. Bei angegebener E-Mail kannst du direkt antworten. <b>Produktwünsche liegen im Tab „Eingang".</b></div>
+        <div id="fgKontakt" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
+        <h3 style="font-size:15px;margin:22px 0 4px;color:var(--muted)">Erledigt · Historie</h3>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Bearbeitete Anfragen (auch automatisch angelegte Entwürfe).</div>
+        <div id="fgKontaktHist" style="font-size:14px;color:var(--muted);line-height:1.5"></div>
+      </div>
+      <div id="fgPanelEmpfehlungen" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Empfehlungs-Paare: Produkt → bessere Alternative (gleiche Unterkategorie, mind. 10 Punkte besser). Ideen für „Statt X lieber Y"-Posts (Instagram). Nach Punkte-Vorsprung sortiert.</div>
+        <div id="fgEmpfehlungen" style="font-size:14px;color:var(--ink)"></div>
+      </div>
+    </div>
+  </div>
+  <div id="profilView" style="display:none">
+    <div id="profilGate" style="display:none"></div>
+    <div id="profilInner" style="max-width:600px;margin:0 auto">
+      <h2 style="margin:.1em 0 .5em;font-size:19px">Mein Profil</h2>
+      <div id="pfTabs" class="seg">
+        <button data-p="daten" onclick="pfTab('daten')">Daten</button>
+        <button data-p="ziele" onclick="pfTab('ziele')">Ziele</button>
+        <button data-p="masse" onclick="pfTab('masse')">Körpermaße</button>
+      </div>
+      <div class="pf-pane pf-daten" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:10px">Persönliche Daten</div>
+        <div style="font-size:13px;color:var(--ink);margin-bottom:10px">E-Mail: <b id="pfEmail">–</b></div>
+        <label style="font-size:13px;color:var(--ink);display:block;margin-bottom:12px">Name (wird oben angezeigt)<input type="text" id="pfName" placeholder="Dein Name" style="width:100%;max-width:300px;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+          <label style="font-size:13px;color:var(--ink)">Geburtsdatum<input type="date" id="pfGeb" oninput="pfAgeFromGeb()" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Alter <span style="color:var(--k-9aa7a0);font-size:11px">(aus Geburtsdatum)</span><input type="number" id="pfAlter" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Geschlecht<select id="pfGeschlecht" onchange="pfZyklusToggle()" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option>weiblich</option><option>männlich</option><option>divers</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Größe (cm)<input type="number" id="pfGroesse" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Gewicht (kg)<input type="number" step="0.1" id="pfGewicht" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Aktivitätslevel<select id="pfAktiv" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option>Sitzend</option><option>Leicht aktiv</option><option>Mäßig aktiv</option><option>Sehr aktiv</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Ernährungsform<select id="pfErn" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="">–</option><option value="Omnivor">Omnivor (isst alles, auch Fleisch &amp; Fisch)</option><option value="Flexitarisch">Flexitarisch (überwiegend pflanzlich, selten Fleisch/Fisch)</option><option value="Pescetarisch">Pescetarisch (Fisch &amp; Meeresfrüchte, kein Fleisch)</option><option value="Vegetarisch">Vegetarisch (kein Fleisch &amp; Fisch, aber Milch/Ei)</option><option value="Vegan">Vegan (keine tierischen Produkte)</option></select></label>
+        </div>
+        <!-- Trainingstage: an diesen Tagen ist der Kalorien-Zuschlag im Tagebuch vorbelegt.
+             Vorbelegt, nicht festgelegt - abwaehlen kann man ihn dort jeden Tag. -->
+        <div style="margin-top:16px;padding:12px 13px;border:1px solid var(--line);border-radius:11px;background:var(--card)">
+          <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px">💪 Trainingstage</div>
+          <div style="font-size:11.5px;color:var(--muted);line-height:1.45;margin-bottom:9px">An diesen Tagen ist der Kalorien-Zuschlag im Tagebuch <b>schon an</b>. Trainierst du doch nicht, tippst du ihn dort einfach wieder aus.</div>
+          <div id="pfTrainTage" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px"></div>
+          <label style="font-size:12.5px;color:var(--ink);display:flex;align-items:center;gap:8px">Zuschlag
+            <input type="number" id="pfTrainPlus" min="0" max="100" step="5" value="20" style="width:70px;padding:7px 8px;border:1px solid var(--line);border-radius:8px">
+            <span style="color:var(--muted)">% mehr Kalorien</span>
+          </label>
+        </div>
+
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin-top:12px"><input type="checkbox" id="pfNews" style="width:16px;height:16px;accent-color:var(--k-16a34a)">Newsletter abonnieren – Infos zu neuen Produkten &amp; Rezepten</label>
+        <button onclick="saveProfil()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:var(--k-16a34a);color:var(--k-ffffff);cursor:pointer">Speichern</button>
+        <span id="pfMsg" style="font-size:13px;margin-left:10px"></span>
+        <div id="pfZyklusBox" style="display:none;margin-top:16px;background:var(--k-fdf2f8);border:1px solid var(--k-fbcfe8);border-radius:10px;padding:12px 14px">
+          <div style="font-weight:600;font-size:13.5px;margin-bottom:2px">🌸 Zyklus (optional)</div>
+          <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Für phasengerechte Hinweise im Tagebuch (z. B. Eisen während der Periode, Magnesium/Heißhunger davor). Private Angabe. <b>Keine medizinische Beratung.</b></div>
+          <input type="hidden" id="pfZykStart"><input type="hidden" id="pfZykEnde"><input type="hidden" id="pfZykLen" value="28">
+          <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px">
+            <div><div style="font-size:11.5px;color:var(--muted)">Zyklusbeginn</div><div id="pfZykStartLbl" style="font-size:14.5px;font-weight:700;color:var(--k-be185d)">–</div></div>
+            <div><div style="font-size:11.5px;color:var(--muted)">Periodenende</div><div id="pfZykEndeLbl" style="font-size:14.5px;font-weight:700;color:var(--k-be185d)">–</div></div>
+            <div><div style="font-size:11.5px;color:var(--muted)">Periodendauer</div><div id="pfZykDauerLbl" style="font-size:14.5px;font-weight:700;color:var(--k-be185d)">–</div></div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Tippe im Kalender den <b>Zyklusbeginn</b> an, dann das <b>Periodenende</b>.</div>
+          <div id="pfZykCal" style="margin-top:2px;background:var(--k-ffffff);border:1px solid var(--k-fbcfe8);border-radius:10px;padding:10px;max-width:330px"></div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px">
+            <label style="font-size:12.5px;color:var(--ink)">Blutungsstärke<select id="pfZykStkVal" style="display:block;margin-top:3px;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--k-ffffff)"><option value="">–</option><option>leicht</option><option>mittel</option><option>stark</option></select></label>
+            <label style="font-size:12.5px;color:var(--ink)">Wohlbefinden<select id="pfZykWohlVal" style="display:block;margin-top:3px;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--k-ffffff)"><option value="">–</option><option value="1">😣 schlecht</option><option value="2">😐 ok</option><option value="3">🙂 gut</option><option value="4">😀 top</option></select></label>
+          </div>
+          <button onclick="saveZyklus()" style="margin-top:12px;padding:9px 16px;border:0;border-radius:8px;background:var(--k-db2777);color:var(--k-ffffff);cursor:pointer">Speichern</button>
+          <div id="pfZykMsg" style="font-size:12.5px;margin-top:8px"></div>
+          <div id="pfZykPhase" style="font-size:12.5px;margin-top:6px;color:var(--muted);line-height:1.5"></div>
+        </div>
+      </div>
+      <div class="pf-pane pf-ziele" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:4px">Kalorienbedarf berechnen</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Nutzt deine Daten oben (Alter, Geschlecht, Größe, Gewicht, Aktivität). Standard: Mifflin-St-Jeor. <b>Genauer:</b> Körperfett % eintragen (→ Katch-McArdle über die fettfreie Masse) oder einen <b>gemessenen Grundumsatz</b> (InBody/DEXA) direkt setzen.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+          <label style="font-size:13px;color:var(--ink)">Zielgewicht (kg)<input type="number" step="0.1" id="bdZiel" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Tempo<select id="bdTempo" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="0">Gewicht halten</option><option value="-0.15">Abnehmen – moderat (−15 %)</option><option value="-0.20">Abnehmen – zügig (−20 %)</option><option value="0.10">Aufbauen (+10 %)</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Eiweiß (g/kg)<input type="number" step="0.1" id="bdProt" value="1.8" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Eiweiß-Bezug<select id="bdProtRef" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="ziel">Zielgewicht</option><option value="aktuell">Aktuelles Gewicht</option></select></label>
+          <label style="font-size:13px;color:var(--ink)">Körperfett % <span style="color:var(--k-9aa7a0);font-size:11px">(optional, genauer)</span><input type="number" step="0.1" id="bdKF" placeholder="z. B. 15,3" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Gemessener Grundumsatz <span style="color:var(--k-9aa7a0);font-size:11px">(InBody/DEXA, kcal)</span><input type="number" id="bdBmrMess" placeholder="überschreibt Formel" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Fett-Anteil <button type="button" onclick="fettInfo()" style="background:none;border:0;color:var(--k-0369a1);font-size:11px;cursor:pointer;padding:0;text-decoration:underline">ⓘ Basis</button><select id="bdFettPct" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"><option value="0.25">25 % (untere DGE-Grenze)</option><option value="0.30" selected>30 % (DGE-Richtwert)</option><option value="0.35">35 % (obere Grenze / aktiv)</option></select></label>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:8px"><input type="checkbox" id="bdNiere" style="width:16px;height:16px;accent-color:var(--k-16a34a)">Nierenleiden berücksichtigen (Eiweiß begrenzen)</label>
+        <button type="button" onclick="eiweissInfo()" style="margin-top:6px;background:none;border:0;color:var(--k-0369a1);font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0">ⓘ Eiweißbedarf – wie viel &amp; auf welches Gewicht?</button>
+        <div style="margin-top:10px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:2px">Körperfett schätzen (Maßband · U.S.-Navy) <span style="color:var(--k-16a34a);font-size:11px;font-weight:700">empfohlen für genauere Berechnung</span></div>
+          <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Genauer als die Formel. Maße in cm: Taille auf Nabelhöhe, Hals unter dem Kehlkopf, Hüfte (nur Frauen) an der breitesten Stelle. Nutzt Größe & Geschlecht von oben. Ergebnis ±3–4 %.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="number" step="0.1" id="bdHals" placeholder="Hals cm" style="flex:1;min-width:88px;padding:9px;border:1px solid var(--line);border-radius:8px">
+            <input type="number" step="0.1" id="bdTaille" placeholder="Taille cm" style="flex:1;min-width:88px;padding:9px;border:1px solid var(--line);border-radius:8px">
+            <input type="number" step="0.1" id="bdHuefte" placeholder="Hüfte cm (Frauen)" style="flex:1;min-width:110px;padding:9px;border:1px solid var(--line);border-radius:8px">
+            <button type="button" onclick="navyKF()" style="padding:9px 14px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">Körperfett schätzen</button>
+          </div>
+          <div id="bdNavyOut" style="font-size:12.5px;margin-top:7px"></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <button onclick="calcBedarf()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--k-16a34a);color:var(--k-ffffff);cursor:pointer">Berechnen</button>
+          <button onclick="applyBedarf()" id="bdApplyBtn" disabled style="padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Als Tagesziel übernehmen</button>
+        </div>
+        <div id="bdOut" style="margin-top:10px;font-size:13px"></div>
+        <div style="margin-top:10px;background:var(--k-eef6ff);border:1px solid var(--k-cfe3f7);border-radius:10px;padding:11px;font-size:12.5px;color:var(--k-1e3a8a);line-height:1.5">
+          📅 <b>Alle 3–4 Wochen gegenchecken:</b> wiegen (nüchtern, gleicher Tag/Uhrzeit), neuen <b>Körperfett-Wert</b> eintragen (falls gemessen) und mit dem <b>getrackten Essen</b> abgleichen.<br>
+          Gewicht trotz Defizit stabil → Bedarf ~100–150 kcal runter. Zu schneller Verlust (&gt; ~1 %/Woche) → etwas rauf. So kalibrierst du den Rechner an der Realität – jede Formel ist nur eine Schätzung (±5–10 %).
+        </div>
+      </div>
+      <div class="pf-pane pf-ziele" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:10px">Tagesziele</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+          <label style="font-size:13px;color:var(--ink)">kcal<input type="number" id="pfKcal" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Eiweiß (g)<input type="number" id="pfEiw" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">KH max (g)<input type="number" id="pfKh" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Fett max (g)<input type="number" id="pfFett" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+        </div>
+        <button onclick="saveProfilZiel()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:var(--k-16a34a);color:var(--k-ffffff);cursor:pointer">Ziele speichern</button>
+        <span id="pfZielMsg" style="font-size:13px;margin-left:10px"></span>
+        <div style="font-size:12px;color:var(--muted);margin-top:10px">Gespeicherte Ziele gelten automatisch für jeden Tag – bei Änderung wird ein neuer Eintrag im Verlauf angelegt, frühere Tage behalten ihr damaliges Ziel.</div>
+        <div id="zielHistBox" style="margin-top:10px"></div>
+      </div>
+      <div class="pf-pane pf-ziele" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:4px">Verteilung der Mahlzeiten (%)</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Bestimmt, wie sich dein Tagesziel auf die Mahlzeiten aufteilt – für „🎯 Rest auffüllen" im Tagebuch. Default 25/35/30/10.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">
+          <label style="font-size:13px;color:var(--ink)">Frühstück %<input type="number" id="pfAnFr" min="0" max="100" placeholder="25" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Mittag %<input type="number" id="pfAnMi" min="0" max="100" placeholder="35" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Abendessen %<input type="number" id="pfAnAb" min="0" max="100" placeholder="30" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+          <label style="font-size:13px;color:var(--ink)">Snack %<input type="number" id="pfAnSn" min="0" max="100" placeholder="10" style="width:100%;margin-top:4px;padding:9px;border:1px solid var(--line);border-radius:8px"></label>
+        </div>
+        <button onclick="saveAnteile()" style="margin-top:12px;padding:10px 16px;border:0;border-radius:8px;background:var(--k-16a34a);color:var(--k-ffffff);cursor:pointer">Anteile speichern</button>
+        <span id="pfAnMsg" style="font-size:13px;margin-left:10px"></span>
+      </div>
+      <div class="pf-pane pf-masse" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:10px">📐 Körpermaße</div>
+        <div id="pfMass">…</div>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">Deine Ernährungsform fließt später in passende Empfehlungen & Filter ein.</div>
+    </div>
+  </div>
+  <div id="usersView" style="display:none">
+    <div id="usersGate" style="display:none"></div>
+    <div id="usersInner" style="max-width:820px;margin:0 auto">
+      <h2 style="margin:.1em 0 .35em;font-size:19px">Benutzer</h2>
+      <div style="color:var(--muted);font-size:13px;margin-bottom:12px">Stufe pro Nutzer setzen und Admin-Rechte vergeben. Änderungen werden sofort gespeichert.</div>
+      <div id="usersTable"></div>
+    </div>
+  </div>
+  <!-- RIKI-IMPORT: Link rein, Riki liest, Mensch prüft, dann erst speichern.
+       Bewusst KEIN Automatismus: Riki schlägt vor, gespeichert wird erst nach Sichtung. -->
+  <div id="rikiView" style="display:none">
+    <div id="rikiInner" style="max-width:820px;margin:0 auto">
+      <h2 style="margin:.1em 0 .35em;font-size:19px">Daten holen per Riki</h2>
+      <div style="color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:14px">
+        Produkt wählen, Link zur <b>Herstellerseite</b> einfügen, lesen lassen. Riki füllt die Felder als <b>Vorschlag</b> –
+        du prüfst und änderst, gespeichert wird erst auf Knopfdruck. <b>Leere Felder bedeuten: nichts gefunden</b> – das ist
+        kein Fehler, sondern ehrlich. Der Link wird mitgespeichert.
+      </div>
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-bottom:14px">
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Produkt</label>
+        <input id="rkProd" list="rkProdListe" placeholder="Name oder ID eingeben…" style="width:100%;box-sizing:border-box;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:14px">
+        <datalist id="rkProdListe"></datalist>
+        <label style="display:block;font-size:12px;color:var(--muted);margin:10px 0 4px">Link zur Herstellerseite</label>
+        <input id="rkUrl" type="url" placeholder="https://…" style="width:100%;box-sizing:border-box;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:14px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:11px">
+          <button onclick="rkLesen()" style="padding:9px 15px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13.5px">Riki lesen lassen</button>
+          <button onclick="rkManuell()" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px">Manuell eintragen</button>
+          <button onclick="rkOffeneListe()" style="padding:9px 13px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--muted);cursor:pointer;font-size:13px">Offene Produkte zeigen</button>
+        </div>
+        <div id="rkMsg" style="font-size:12.5px;margin-top:9px;line-height:1.5"></div>
+      </div>
+      <div id="rkOffen" style="display:none;margin-bottom:14px"></div>
+      <div id="rkForm" style="display:none"></div>
+    </div>
+  </div>
+  <div id="stufenView" style="display:none">
+    <div id="stufenGate" style="display:none"></div>
+    <div id="stufenInner" style="max-width:780px;margin:0 auto">
+      <h2 style="margin:.1em 0 .35em;font-size:19px">Premium-Stufen & Funktionen</h2>
+      <div style="color:var(--muted);font-size:13px;margin-bottom:12px">Welche Funktion gehört zu welcher Stufe? Häkchen setzen/entfernen – wird sofort gespeichert.</div>
+      <div id="stufenMatrix"></div>
+    </div>
+  </div>
+  <div class="footer" style="display:none">Daten <b>live</b> aus Root Index · read-only · MVP-Vorschau<br>
+    <span style="font-size:11.5px">Root Index hilft dir, bessere Entscheidungen zu treffen – schnell, einfach und vertrauenswürdig.</span>
+    <br><span style="font-size:11px;color:var(--muted)">Root Index liefert Informationen zur Zusammensetzung von Lebensmitteln. Es ist <b>keine medizinische oder ernährungstherapeutische Beratung</b> und ersetzt keine ärztliche Abklärung.</span>
+  </div>
 </div>
 
-<div id="ovl" onclick="if(event.target===this)this.classList.remove('on')"><div id="ovlIn"></div></div>
+<!-- Scannen ist die haeufigste Handlung im Laden - und brauchte drei Tipps:
+     Produkte -> Barcode scannen -> Kamera. Jetzt einer, mit dem Daumen erreichbar.
+     Training ruecken ins Menue: es ist die Funktion, die man am seltensten aufruft. -->
+<nav class="bottomnav"><div class="bn-inner">
+  <button class="bn-item" id="bnstart" onclick="navTo('start')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 9v11h5v-6h4v6h5V9"/></svg><span>Start</span></button>
+  <button class="bn-item" id="bnprodukte" onclick="prodHome()"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Produkte</span></button>
+  <button class="bn-item bn-scan" id="bnscan" onclick="startProdScan()" aria-label="Barcode scannen">
+    <span class="bn-scanBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M4 12h16"/></svg></span>
+    <span>Scannen</span>
+  </button>
+  <button class="bn-item" id="bntagebuch" onclick="navTo('tagebuch')"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span>Tagebuch</span></button>
+  <button class="bn-item" id="bnmehr" onclick="toggleMehr()"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menü</span></button>
+</div></nav>
+<div class="mehr-sheet" id="mehrSheet"><div class="mehr-back" onclick="closeMehr()"></div><div class="mehr-card" id="mehrCard"></div></div>
+<div class="overlay" id="overlay"><div class="panel" id="panel"></div></div>
 
+<div class="overlay" id="loginOverlay"><div class="panel" style="max-width:400px">
+  <button class="close" onclick="closeLogin()">Schließen ✕</button>
+  <h2 style="font-size:20px;margin:0 0 4px">Anmelden</h2>
+  <p id="loginIntro" style="color:var(--muted);font-size:13.5px;margin:.2em 0 14px">Ohne Passwort: wir schicken dir einen <b>6-stelligen Code</b> an deine E-Mail.</p>
+  <input id="loginEmail" type="email" autocomplete="email" placeholder="deine@email.de" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px" />
+  <div id="pwLogin" style="display:none">
+    <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:15px;margin-top:8px" />
+    <button onclick="loginPassword()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#047857;color:var(--auf-gruen-dunkel);font-size:15px;cursor:pointer">Mit Passwort anmelden</button>
+  </div>
+  <button id="codeBtn" onclick="requestCode()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);font-weight:600;font-size:15px;cursor:pointer">Code an E-Mail senden</button>
+  <div id="loginMsg" style="margin-top:10px;font-size:13.5px;line-height:1.45"></div>
+  <div id="codeBox" style="display:none;margin-top:12px">
+    <input id="loginCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6-stelliger Code aus der E-Mail" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;letter-spacing:2px;text-align:center" />
+    <button onclick="verifyCode()" style="width:100%;margin-top:8px;padding:11px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:15px;cursor:pointer">Anmelden</button>
+  </div>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+<script src="app.js?v=2026-07-19c"></script>
+<button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
+<button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
+<style id="adminOnly">
+  nav.bottomnav{display:none !important;}
+  .hero .tag, .hero .sub{display:none;}
+  body::before{content:"ADMIN-BACKEND";position:fixed;top:0;left:0;right:0;z-index:60;background:#0f2a1c;color:#7fe3a6;font-size:11px;font-weight:700;text-align:center;padding:3px;letter-spacing:.5px}
+</style>
 <script>
-const SUPABASE_URL="https://haurbpfkfaaehorirzee.supabase.co";
-const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
-const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
-function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
-function $(id){return document.getElementById(id);}
-
-async function loginPass(){
-  const email=($("email").value||"").trim(), pass=$("pass").value||"";
-  if(!email||!pass){ $("loginMsg").textContent="E-Mail und Passwort eingeben."; return; }
-  $("loginMsg").textContent="…";
-  const {error}=await client.auth.signInWithPassword({email,password:pass});
-  if(error){ $("loginMsg").textContent="Fehler: "+error.message; return; }
-  gate();
-}
-async function loginCode(){
-  const email=($("email").value||"").trim();
-  if(!email){ $("loginMsg").textContent="E-Mail eingeben."; return; }
-  $("loginMsg").style.color="var(--muted)"; $("loginMsg").textContent="Sende Code…";
-  const {error}=await client.auth.signInWithOtp({email});
-  if(error){ $("loginMsg").style.color="var(--rot)"; $("loginMsg").textContent="Fehler: "+error.message; return; }
-  $("codeRow").style.display=""; $("loginMsg").textContent="Code an "+email+" gesendet.";
-}
-async function loginVerify(){
-  const email=($("email").value||"").trim(), token=($("code").value||"").trim();
-  const {error}=await client.auth.verifyOtp({email,token,type:"email"});
-  if(error){ $("loginMsg").style.color="var(--rot)"; $("loginMsg").textContent="Fehler: "+error.message; return; }
-  gate();
-}
-async function logout(){ await client.auth.signOut(); location.reload(); }
-
-async function gate(){
-  const {data:{session}}=await client.auth.getSession();
-  if(!session){ $("login").style.display=""; $("app").style.display="none"; return; }
-  let me=null;
-  try{ const r=await client.rpc("cb_me"); me=(r.data&&r.data[0])||null; }catch(e){}
-  if(!me || !me.is_admin){
-    $("loginMsg").style.color="var(--rot)";
-    $("loginMsg").textContent="Dieser Zugang ist kein Admin. Für die App: root-index.de";
-    await client.auth.signOut();
-    return;
+/* Admin-Backend: dieselbe app.js, aber ohne Consumer-Bedienung. Nach der Admin-Anmeldung
+   direkt in den Freigabe-Bereich. Kein zweiter Code - eine Wahrheit. */
+(function(){
+  var routed=false;
+  function tick(){
+    try{
+      if(typeof ME!=='undefined' && ME){
+        if(ME.is_admin && !routed){ routed=true; try{ navTo('freigabe'); }catch(e){} }
+        if(!ME.is_admin){ document.body.innerHTML='<div style="max-width:340px;margin:14vh auto;text-align:center;font-family:sans-serif"><h2>Kein Admin-Zugang</h2><p>Dieser Bereich ist nur f\u00fcr Admins. F\u00fcr die App: <a href="https://root-index.de">root-index.de</a></p></div>'; return; }
+      }
+    }catch(e){}
+    setTimeout(tick, 400);
   }
-  $("login").style.display="none"; $("app").style.display="";
-  $("who").textContent=(me.name||"")+" · Admin";
-  ladeDash();
-}
-
-async function ladeDash(){
-  $("stand").textContent="Stand "+(new Date()).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+" Uhr · live aus der Datenbank";
-  const box=$("dash"); box.innerHTML='<div style="color:var(--muted);padding:20px 0">Lade…</div>';
-  let d=null,st=null;
-  try{ const r=await client.rpc("cb_dashboard"); d=r.data; }catch(e){}
-  try{ const r=await client.rpc("cb_dashboard_stamm"); st=r.data; }catch(e){}
-  if(!d||!d.ok){ box.innerHTML='<div style="color:var(--rot)">Dashboard nicht verfügbar: '+esc((d&&d.grund)||"unbekannt")+'</div>'; return; }
-  const q=d.qualitaet||{}, k=d.katalog||{};
-  function kpi(l,v,rot,h,drill){
-    const kl=(drill&&Number(v)>0);
-    return '<div class="kpi'+(kl?' klick':'')+'"'+(kl?' onclick="drill(\''+drill+'\',\''+esc(l)+'\')"':'')+'>'
-      +'<div class="l">'+esc(l)+(kl?' ›':'')+'</div><div class="v" style="color:'+(rot?'var(--rot)':'var(--greendk)')+'">'+v+'</div>'+(h?'<div class="h">'+esc(h)+'</div>':'')+'</div>';
-  }
-  let html='<div class="card"><h3>🛡️ Datenqualität — die Wächter</h3><div class="kpis">'
-    +kpi("Regelverstöße",q.w_zutaten_regeln||0,q.w_zutaten_regeln,"Zutaten-Stamm","regelverstoesse")
-    +kpi("Widersprüche",q.w_widersprueche||0,q.w_widersprueche,"gleicher Stoff","widersprueche")
-    +kpi("Nährwerte",q.w_naehrwerte||0,q.w_naehrwerte,"unplausibel","naehrwerte")
-    +kpi("Portionsfalle",q.w_portionsfalle||0,q.w_portionsfalle,"kcal zu niedrig","portionsfalle")
-    +'</div><div class="kpis" style="margin-top:8px">'
-    +kpi("unverifiziert",q.unverifiziert||0,0,"ohne Beleg","unverifiziert")
-    +kpi("ohne Quelle",q.ohne_quelle||0,0,"","ohne_quelle")
-    +kpi("ohne Score",q.ohne_score||0,0,"unvollständig","ohne_score")
-    +'</div></div>';
-  html+='<div class="card"><h3>📦 Katalog</h3><div class="kpis">'
-    +kpi("aktiv",k.aktiv||0,0,"Produkte")+kpi("Entwurf",k.entwurf||0,0,"")
-    +kpi("Ø Score",k.schnitt_score!=null?k.schnitt_score:"–",0,"")+'</div></div>';
-  if(st&&st.ok){
-    const s=st.stamm||{}, z=st.zusatzstoffe||{}, ref=st.referenz||{}, pr=st.produkte||{};
-    function row(l,v,rot,drill){
-      const kl=(drill&&Number(String(v).replace(/[^0-9.]/g,""))>0);
-      return '<div class="row'+(kl?' klick':'')+'"'+(kl?' onclick="drill(\''+drill+'\',\''+esc(l)+'\')"':'')+'>'
-        +'<span>'+esc(l)+(kl?' <span style="color:var(--muted)">›</span>':'')+'</span><span style="font-weight:700;color:'+(rot?'var(--gelb)':'var(--greendk)')+'">'+v+'</span></div>';
-    }
-    html+='<div class="zwei" style="margin-top:10px"><div><div class="num">'+(pr.gesamt||0)+'</div><div class="h" style="font-size:11.5px;color:var(--muted)">Produkte ('+(pr.aktiv||0)+' aktiv)</div></div>'
-      +'<div><div class="num">'+(s.gesamt||0)+'</div><div class="h" style="font-size:11.5px;color:var(--muted)">Zutaten ('+(s.gebunden||0)+' gebunden)</div></div></div>';
-    html+='<div class="card"><h3>🧪 Zutaten-Stamm</h3>'
-      +row("davon bewertet",s.bewertet)
-      +row("unbewertet",s.unbewertet,s.unbewertet>0,"stamm_unbewertet")
-      +row("als kritisch markiert",s.kritisch)
-      +row("nie gebunden",s.nie_gebunden)
-      +row("ohne Kategorie",s.ohne_kategorie,s.ohne_kategorie>0,"stamm_ohne_kategorie")+'</div>';
-    const luecke=(z.zusammen||0)-(z.kategorisiert||0);
-    html+='<div class="card"><h3>Zusatzstoffe im Stamm</h3>'
-      +row("als Zusatzstoff kategorisiert",z.kategorisiert)
-      +row("zusammen (ohne Doppelte)",z.zusammen)
-      +(luecke>0?row(luecke+" nicht kategorisiert",luecke,true,"zusatz_nicht_kategorisiert"):"")+'</div>';
-    html+='<div class="card"><h3>Referenzdaten (OFF, ODbL v1.0)</h3>'
-      +row("Einträge gesamt",ref.off_gesamt)
-      +row("Stamm mit Treffer",(ref.stamm_mit_treffer||0)+" von "+(s.gesamt||"?"))
-      +row("mehrdeutige Begriffe",ref.mehrdeutig,ref.mehrdeutig>0,"mehrdeutig")+'</div>';
-  }
-  box.innerHTML=html;
-}
-
-async function drill(key,titel){
-  $("ovl").classList.add("on");
-  $("ovlIn").innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>'+esc(titel)+'</b><button class="btn" onclick="document.getElementById(\'ovl\').classList.remove(\'on\')">×</button></div><div id="drillB" style="color:var(--muted)">Lade…</div>';
-  try{
-    const r=await client.rpc("cb_dashboard_drill",{p_key:key});
-    const rows=(r&&r.data)||[];
-    if(r&&r.error){ $("drillB").innerHTML='<span style="color:var(--rot)">Fehler: '+esc(r.error.message)+'</span>'; return; }
-    if(!rows.length){ $("drillB").innerHTML='<span style="color:var(--green)">Nichts offen. ✓</span>'; return; }
-    $("drillB").innerHTML='<div style="margin-bottom:6px;color:var(--muted)">'+rows.length+' Einträge</div>'+rows.map(function(x){
-      return '<div style="padding:9px 2px;border-top:1px solid var(--line)"><div style="font-weight:600">'+esc(x.name||"—")+'</div><div style="font-size:11.5px;color:var(--muted)">'+esc(x.info||"")+'</div></div>';
-    }).join('');
-  }catch(e){ $("drillB").innerHTML='<span style="color:var(--rot)">Fehler: '+esc((e&&e.message)||e)+'</span>'; }
-}
-
-gate();
+  setTimeout(tick, 600);
+})();
 </script>
 </body>
 </html>
