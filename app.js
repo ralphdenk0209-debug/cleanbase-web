@@ -379,11 +379,15 @@ function erklaerung(d){
 }
 /* Supabase/PostgREST deckelt jede Abfrage HART bei 1000 Zeilen – .range() hebt das nicht auf.
    Bei 1.062 aktiven Produkten waren dadurch 62 Produkte in der App unsichtbar.
-   Deshalb: seitenweise laden, bis der Server weniger als eine volle Seite liefert. */
+   Deshalb: seitenweise laden, bis der Server weniger als eine volle Seite liefert.
+   🔴 STABILE SORTIERUNG PFLICHT (19.07.2026): Ohne .order() liefert PostgREST die
+   Seiten in unstabiler Reihenfolge – ab >1000 Produkten überlappen sie, Zeilen fallen
+   durch (gemessen: 1606 Zeilen roh, aber nur 1373 verschieden → 233 Produkte unsichtbar).
+   .order("id") trennt die Seiten sauber. Jede seitenweise Abfrage MUSS sortieren. */
 async function fetchAlleProdukte(){
   const SEITE=1000; let alle=[], von=0;
   for(let i=0;i<20;i++){
-    const {data,error}=await client.from("v_web_produkte").select("*").range(von, von+SEITE-1);
+    const {data,error}=await client.from("v_web_produkte").select("*").order("id").range(von, von+SEITE-1);
     if(error) throw error;
     if(!data || !data.length) break;
     alle=alle.concat(data);
@@ -2048,12 +2052,13 @@ function updateFloatBtns(){
   var tt=document.getElementById('toTopFab'); if(tt) tt.style.display=((window.scrollY||document.documentElement.scrollTop||0)>350)?'flex':'none';
 }
 function fgTab(t){ window._fgTab=t;
-  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen'};
+  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif'};
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
-  ['dash','produkte','bundles','rezepte','scans','kontakt','empfehlungen'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
+  ['dash','produkte','bundles','rezepte','scans','kontakt','empfehlungen','zuverif'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
   if(t==='empfehlungen' && typeof renderEmpfehlungen==='function') renderEmpfehlungen();
   if(t==='scans' && typeof loadScans==='function') loadScans();
   if(t==='dash' && typeof loadDashboard==='function') loadDashboard();
+  if(t==='zuverif' && typeof loadZuVerif==='function') loadZuVerif();
 }
 /* ================= AUTO-VERIFIZIERUNG =================
    Gleicht Produkte mit EAN gegen Open Food Facts ab.
@@ -2489,7 +2494,7 @@ const NW_FELDER=[["kcal","kcal",""],["fett","Fett","g"],["ges_fett","davon gesä
 /* Produktkategorien als feste Auswahl - Freitext fuehrt zu Tippfehlern und Dubletten
    ("Nussprodukte / Pulver" vs "Nüsse & Hülsenfrüchte"). Riki darf vorschlagen, der
    Mensch waehlt aus der Liste. */
-const KATEGORIEN=["Brot & Backwaren","Brotaufstrich","Energy-Gel","Fleisch & Fisch","Getränk",
+const KATEGORIEN=["Backen","Brot & Backwaren","Brotaufstrich","Energy-Gel","Fleisch & Fisch","Getränk",
   "Getreide & Beilagen","Milchprodukte & Eier","Nüsse & Hülsenfrüchte","Obst & Gemüse","Öle & Fette",
   "Proteinpulver","Riegel","Snacks","Supplement","Süßungsmittel","Süßwaren",
   "Tofu & Fleischalternativen","Würzen & Saucen","Lebensmittel","Sonstiges"];
@@ -4150,6 +4155,7 @@ function applyAdminMode(){
         +'<button class="amBtn" data-k="bundles"      onclick="adminGo(\'bundles\')">🧩 Bundles</button>'
         +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
         +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
+        +'<button class="amBtn" data-k="zuverif"      onclick="adminGo(\'zuverif\')">✅ Zu verifizieren</button>'
         +'<div class="amSep"></div>'
         +'<button class="amBtn" data-k="rikiimport"   onclick="adminGo(\'rikiimport\')">📤 Riki-Import</button>'
         +'<button class="amBtn" data-k="stufen"       onclick="adminGo(\'stufen\')">🎚️ Stufen</button>'
@@ -4170,7 +4176,7 @@ function applyAdminMode(){
 /* Linkes Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Zusätzlich Markierung des aktiven Knopfs. */
 function adminGo(k){
-  const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1};
+  const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1};
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
   else { try{ navTo(k); }catch(e){} }
   try{ document.querySelectorAll('#adminNav .amBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
@@ -5660,6 +5666,25 @@ async function loadFreigabe(){
   loadBundles();
   try{ Object.keys(FG_SHOTS).forEach(updateFgShotInfo); }catch(e){}
 }
+/* ---- Freigabe · Tab „Zu verifizieren": aktive, aber ungepruefte / score-lose Produkte (v. a. OFF-Import). Bleiben scannbar. (19.07.2026) ---- */
+async function loadZuVerif(){
+  const el=document.getElementById("fgZuverif"); if(!el) return;
+  el.innerHTML='<div style="color:var(--muted)">Lade…</div>';
+  const {data,error}=await client.from("v_zu_verifizieren").select("*").order("grund").limit(2000);
+  if(error){ el.innerHTML='<span style="color:var(--k-dc2626)">Fehler: '+esc(error.message)+'</span>'; return; }
+  const rows=data||[];
+  if(!rows.length){ el.innerHTML='<span style="color:var(--muted)">Nichts offen – alle aktiven Produkte sind verifiziert. 🎉</span>'; return; }
+  const grp={}; rows.forEach(function(r){ (grp[r.grund]=grp[r.grund]||[]).push(r); });
+  const head='<div style="font-size:12px;color:var(--muted);margin-bottom:8px"><b>'+rows.length+'</b> Produkte offen'
+    +Object.keys(grp).map(function(g){ return ' · '+esc(g)+': '+grp[g].length; }).join('')+'</div>';
+  el.innerHTML=head+rows.map(function(p){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
+      +'<div style="min-width:0"><b>'+esc(p.name||"?")+'</b> <span style="color:var(--muted)">· '+esc(p.marke||"")+'</span>'
+      +'<div style="font-size:12px;color:var(--muted)">'+esc(p.id)+' · '+esc(p.kategorie||"")+' · '+esc(p.ean||"")+' · <span style="color:var(--k-b45309)">'+esc(p.grund||"")+'</span></div></div>'
+      +'<div style="display:flex;gap:8px;flex:0 0 auto;align-items:center"><a href="https://www.google.com/search?q='+encodeURIComponent((p.name||"")+" "+(p.marke||"")+" Zutaten Nährwerte")+'" target="_blank" rel="noopener" style="font-size:12px;color:var(--k-0ea5e9)">🔎 suchen ↗</a>'
+      +'<button onclick="openFgEditor(\''+p.id+'\')" style="padding:8px 12px;border:1px solid var(--k-0ea5e9);border-radius:8px;background:var(--card);color:var(--k-0369a1);cursor:pointer;font-size:13px">✏️ Bearbeiten</button></div>'
+      +'</div>'; }).join("");
+}
+if(typeof window!=='undefined') window.loadZuVerif=loadZuVerif;
 async function loadRezepteFree(){
   const box=document.getElementById("fgRezepteFree"); if(!box) return;
   try{
@@ -8528,7 +8553,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19k";
+const APP_BUILD = "2026-07-19l";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
