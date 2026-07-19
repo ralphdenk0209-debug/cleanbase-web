@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-18j dashboard-diagramm-zahlen skalieren nicht mehr hoch (max-breite, werte-labels nur bei wenigen balken) -->
+<!-- build 2026-07-18k dashboard-kennzahlen anklickbar: zeigen betroffene zutaten/produkte, produkte direkt bearbeitbar (50d) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3544,13 +3544,41 @@ async function autoVerifyStart(anwenden){
    ADMIN-DASHBOARD  (2026-07-13)
    Kein Schönfärben: Was unvollständig ist, steht drin. Was Geld kostet, steht drin.
    ============================================================ */
-function kpi(label, wert, farbeWert, hinweis){
-  return '<div style="flex:1 1 96px;min-width:88px;background:var(--card);border:1px solid var(--line);'
-    +'border-radius:10px;padding:9px 10px">'
-    +'<div style="font-size:11px;color:var(--muted);line-height:1.3">'+label+'</div>'
+function kpi(label, wert, farbeWert, hinweis, drillKey){
+  /* Optionaler drillKey (50d): macht die Kachel anklickbar und oeffnet die
+     betroffenen Eintraege. Nur sinnvoll, wenn der Wert > 0 ist - bei 0 gibt es
+     nichts zu zeigen, dann bleibt die Kachel ruhig. */
+  var klick = (drillKey && Number(String(wert).replace(/[^0-9.]/g,''))>0);
+  var attr = klick ? ' onclick="dashDrill(\''+drillKey+'\',\''+esc(label)+'\')" title="Betroffene anzeigen"' : '';
+  var cur = klick ? 'cursor:pointer;' : '';
+  var pfeil = klick ? '<span style="float:right;color:var(--muted);font-size:12px">›</span>' : '';
+  return '<div'+attr+' style="flex:1 1 96px;min-width:88px;background:var(--card);border:1px solid '+(klick?'var(--k-16a34a)':'var(--line)')+';'
+    +'border-radius:10px;padding:9px 10px;'+cur+'">'
+    +'<div style="font-size:11px;color:var(--muted);line-height:1.3">'+label+pfeil+'</div>'
     +'<div style="font-size:20px;font-weight:800;color:'+(farbeWert||'var(--ink)')+';line-height:1.25;margin-top:1px">'+wert+'</div>'
     +(hinweis?'<div style="font-size:10.5px;color:var(--muted);margin-top:1px">'+hinweis+'</div>':'')
     +'</div>';
+}
+/* Drill-Down (50d): zeigt die betroffenen Zutaten/Produkte einer Kachel,
+   Produkte direkt zum Bearbeiten. */
+async function dashDrill(key, titel){
+  var ov=document.getElementById('drillOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='drillOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998;display:flex;align-items:flex-start;justify-content:center;padding:22px 12px;overflow:auto';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div style="background:var(--card);max-width:560px;width:100%;border-radius:14px;padding:16px;box-shadow:var(--shadow,0 10px 40px rgba(0,0,0,.2))"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:15px;color:var(--ink)">'+esc(titel)+'</b><button onclick="document.getElementById(\'drillOv\').remove()" style="border:0;background:var(--line);color:var(--ink);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px">×</button></div><div id="drillBody" style="font-size:13px;color:var(--muted)">Lade…</div></div>';
+  document.body.appendChild(ov);
+  try{
+    var r=await client.rpc('cb_dashboard_drill',{p_key:key});
+    var rows=(r&&r.data)||[]; var body=document.getElementById('drillBody'); if(!body) return;
+    if(r&&r.error){ body.innerHTML='<span style="color:var(--k-dc2626)">Fehler: '+esc(r.error.message)+'</span>'; return; }
+    if(!rows.length){ body.innerHTML='<span style="color:var(--k-16a34a)">Nichts offen. ✓</span>'; return; }
+    body.innerHTML='<div style="margin-bottom:6px;color:var(--muted)">'+rows.length+' Einträge</div>'+rows.map(function(x){
+      var edit=(x.kind==='produkt'&&x.id)?'<button onclick="document.getElementById(\'drillOv\').remove();openFgEditor(\''+x.id+'\')" style="flex:0 0 auto;padding:5px 10px;border:1px solid var(--k-0ea5e9);border-radius:8px;background:var(--card);color:var(--k-0369a1);cursor:pointer;font-size:12px">Bearbeiten</button>':'';
+      return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:9px 2px;border-top:1px solid var(--line)">'
+        +'<div style="min-width:0"><div style="font-weight:600;color:var(--ink)">'+esc(x.name||'—')+'</div><div style="font-size:11.5px;color:var(--muted)">'+esc(x.info||'')+'</div></div>'+edit+'</div>';
+    }).join('');
+  }catch(e){ var b=document.getElementById('drillBody'); if(b) b.innerHTML='<span style="color:var(--k-dc2626)">Fehler: '+esc((e&&e.message)||String(e))+'</span>'; }
 }
 
 /* Balkendiagramm ohne Fremdbibliothek – reines SVG. */
@@ -3628,19 +3656,19 @@ async function loadDashboard(){
   box.innerHTML =
      H("🛡️ Datenqualität &ndash; die Wächter")
     +R(
-       kpi("Regelverstöße", q.w_zutaten_regeln||0, (q.w_zutaten_regeln?"var(--k-dc2626)":"var(--k-16a34a)"), "Zutaten-Stamm")
-      +kpi("Widersprüche", q.w_widersprueche||0, (q.w_widersprueche?"var(--k-dc2626)":"var(--k-16a34a)"), "gleicher Stoff")
-      +kpi("Nährwerte", q.w_naehrwerte||0, (q.w_naehrwerte?"var(--k-dc2626)":"var(--k-16a34a)"), "unplausibel")
-      +kpi("Portionsfalle", q.w_portionsfalle||0, (q.w_portionsfalle?"var(--k-dc2626)":"var(--k-16a34a)"), "kcal zu niedrig")
+       kpi("Regelverstöße", q.w_zutaten_regeln||0, (q.w_zutaten_regeln?"var(--k-dc2626)":"var(--k-16a34a)"), "Zutaten-Stamm", "regelverstoesse")
+      +kpi("Widersprüche", q.w_widersprueche||0, (q.w_widersprueche?"var(--k-dc2626)":"var(--k-16a34a)"), "gleicher Stoff", "widersprueche")
+      +kpi("Nährwerte", q.w_naehrwerte||0, (q.w_naehrwerte?"var(--k-dc2626)":"var(--k-16a34a)"), "unplausibel", "naehrwerte")
+      +kpi("Portionsfalle", q.w_portionsfalle||0, (q.w_portionsfalle?"var(--k-dc2626)":"var(--k-16a34a)"), "kcal zu niedrig", "portionsfalle")
      )
     +'<div style="margin-top:7px;padding:8px 10px;border-radius:9px;font-size:12.5px;'
       +'background:'+(wSumme?"var(--k-fdeceb)":"var(--k-e7f4ec)")+';color:'+(wSumme?"var(--k-9b2c22)":"var(--k-1f5e34)")+'">'
       +(wSumme? '<b>'+wSumme+' offene Punkte.</b> Go-Live-Gate ist zu.' : '<b>Alle Wächter auf 0.</b> Go-Live-Gate ist offen.')
       +'</div>'
     +R(
-       kpi("unverifiziert", q.unverifiziert||0, (q.unverifiziert?"var(--k-e8920c)":"var(--k-16a34a)"), "ohne Beleg")
-      +kpi("ohne Quelle", q.ohne_quelle||0, (q.ohne_quelle?"var(--k-e8920c)":"var(--k-16a34a)"), "")
-      +kpi("ohne Score", q.ohne_score||0, (q.ohne_score?"var(--k-e8920c)":"var(--k-16a34a)"), "unvollständig")
+       kpi("unverifiziert", q.unverifiziert||0, (q.unverifiziert?"var(--k-e8920c)":"var(--k-16a34a)"), "ohne Beleg", "unverifiziert")
+      +kpi("ohne Quelle", q.ohne_quelle||0, (q.ohne_quelle?"var(--k-e8920c)":"var(--k-16a34a)"), "", "ohne_quelle")
+      +kpi("ohne Score", q.ohne_score||0, (q.ohne_score?"var(--k-e8920c)":"var(--k-16a34a)"), "unvollständig", "ohne_score")
      )
 
     +H("📦 Katalog")
@@ -9863,7 +9891,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-18j";
+const APP_BUILD = "2026-07-18k";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
