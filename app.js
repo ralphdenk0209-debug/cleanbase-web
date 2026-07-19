@@ -4160,7 +4160,9 @@ function applyAdminMode(){
       nav.innerHTML=
         '<div class="adminMenu">'
         +'<button class="amBtn" data-k="dash"         onclick="adminGo(\'dash\')">📊 Dashboard</button>'
-        +'<button class="amBtn" data-k="scans"        onclick="adminGo(\'scans\')">📥 Eingang</button>'
+        /* „Eingang" (scans) 19.07.2026 aus dem Menü genommen: zeigte faktisch dasselbe wie
+           „Zu verifizieren" (aktive, unverifizierte Katalogprodukte). Alles wird jetzt dort
+           gesammelt. Die scans-Logik bleibt im Code (Hintergrund-Dedup), nur ohne eigenen Reiter. */
         +'<button class="amBtn" data-k="bundles"      onclick="adminGo(\'bundles\')">🧩 Bundles</button>'
         +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
         +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
@@ -5679,16 +5681,18 @@ async function loadFreigabe(){
 async function loadZuVerif(){
   const el=document.getElementById("fgZuverif"); if(!el) return;
   el.innerHTML='<div style="color:var(--muted)">Lade…</div>';
-  const {data,error}=await client.from("v_zu_verifizieren").select("*").order("grund").limit(2000);
+  const {data,error}=await client.from("v_zu_verifizieren").select("*").limit(2000);
   if(error){ el.innerHTML='<span style="color:var(--k-dc2626)">Fehler: '+esc(error.message)+'</span>'; return; }
   const rows=data||[];
+  /* Neueste zuerst: nach Erfassungsdatum absteigend, bei Gleichstand nach P-Nummer absteigend. */
+  rows.sort(function(a,b){ var da=String(a.erfasst||""), db=String(b.erfasst||""); if(da!==db) return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0, nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
   if(!rows.length){ el.innerHTML='<span style="color:var(--muted)">Nichts offen – alle aktiven Produkte sind verifiziert. 🎉</span>'; return; }
   const grp={}; rows.forEach(function(r){ (grp[r.grund]=grp[r.grund]||[]).push(r); });
   const head='<div style="font-size:12px;color:var(--muted);margin-bottom:8px"><b>'+rows.length+'</b> Produkte offen'
     +Object.keys(grp).map(function(g){ return ' · '+esc(g)+': '+grp[g].length; }).join('')+'</div>';
   el.innerHTML=head+rows.map(function(p){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
       +'<div style="min-width:0"><b>'+esc(p.name||"?")+'</b> <span style="color:var(--muted)">· '+esc(p.marke||"")+'</span>'
-      +'<div style="font-size:12px;color:var(--muted)">'+esc(p.id)+' · '+esc(p.kategorie||"")+' · '+esc(p.ean||"")+' · <span style="color:var(--k-b45309)">'+esc(p.grund||"")+'</span></div></div>'
+      +'<div style="font-size:12px;color:var(--muted)">'+esc(p.id)+' · '+esc(p.kategorie||"")+' · '+esc(p.ean||"")+(p.erfasst?' · 🕒 '+esc(p.erfasst):'')+' · <span style="color:var(--k-b45309)">'+esc(p.grund||"")+'</span></div></div>'
       +'<div style="display:flex;gap:8px;flex:0 0 auto;align-items:center"><a href="https://www.google.com/search?q='+encodeURIComponent((p.name||"")+" "+(p.marke||"")+" Zutaten Nährwerte")+'" target="_blank" rel="noopener" style="font-size:12px;color:var(--k-0ea5e9)">🔎 suchen ↗</a>'
       +'<button onclick="openFgEditor(\''+p.id+'\')" style="padding:8px 12px;border:1px solid var(--k-0ea5e9);border-radius:8px;background:var(--card);color:var(--k-0369a1);cursor:pointer;font-size:13px">✏️ Bearbeiten</button></div>'
       +'</div>'; }).join("");
@@ -8679,7 +8683,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19n";
+const APP_BUILD = "2026-07-19o";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
