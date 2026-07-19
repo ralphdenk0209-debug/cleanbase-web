@@ -4113,7 +4113,10 @@ function wikiOpen(){
   document.body.appendChild(ov);
 }
 /* Admin als separater Einstieg (#admin) – vorbereitet für eigene externe Adresse */
-let ADMIN_MODE=(location.hash==='#admin');
+/* Admin-Modus kommt jetzt vom Standalone-Backend (admin.html setzt window.__ADMIN_PAGE=true),
+   NICHT mehr vom URL-Hash. So kann root-index.de/#admin nicht mehr in den Admin springen -
+   der Admin lebt in admin.html. (Ralph, 19.07.2026) */
+let ADMIN_MODE=(typeof window!=='undefined' && window.__ADMIN_PAGE===true);
 let ADMIN_START_DONE=false;   /* Bugfix: der Sprung in die Freigabe darf NUR EINMAL passieren. */
 function applyAdminMode(){
   if(!ADMIN_MODE) return;
@@ -8484,7 +8487,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19c";
+const APP_BUILD = "2026-07-19h";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
