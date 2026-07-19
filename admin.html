@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<!-- admin build 2026-07-19a · Standalone-Backend, Stufe 1: Login + Dashboard. Keine Consumer-Funktionen. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Root Index · Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --bg:#0d1411; --card:#141d18; --line:#26332b; --ink:#e6efe9; --muted:#8ba295;
+         --green:#3ddb7a; --greendk:#7fe3a6; --rot:#ef6a6a; --gelb:#e8a54b; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5}
+  a{color:var(--greendk)}
+  .wrap{max-width:900px;margin:0 auto;padding:18px 16px 60px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+  header h1{font-size:17px;font-weight:700;margin:0}
+  header .sub{font-size:11.5px;color:var(--muted)}
+  button{font-family:inherit}
+  .btn{padding:8px 13px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px;font-weight:600}
+  .btn:hover{border-color:var(--green)}
+  input{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:#0a110d;color:var(--ink);font-size:15px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}
+  .card h3{font-size:13px;margin:0 0 8px;color:var(--ink)}
+  .kpis{display:flex;gap:8px;flex-wrap:wrap}
+  .kpi{flex:1 1 120px;min-width:110px;background:#0f1713;border:1px solid var(--line);border-radius:10px;padding:10px 11px}
+  .kpi.klick{cursor:pointer;border-color:#1f6b3f}
+  .kpi .l{font-size:11px;color:var(--muted)}
+  .kpi .v{font-size:22px;font-weight:800;margin-top:1px}
+  .kpi .h{font-size:10.5px;color:var(--muted)}
+  .row{display:flex;justify-content:space-between;gap:10px;padding:6px 2px;border-top:1px solid var(--line);font-size:12.5px}
+  .row.klick{cursor:pointer}
+  .zwei{display:flex;gap:8px}
+  .zwei>div{flex:1;background:#0f1713;border:1px solid var(--line);border-radius:12px;padding:11px;text-align:center}
+  .num{font-size:22px;font-weight:800;color:var(--greendk)}
+  #ovl{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
+  #ovl.on{display:flex}
+  #ovlIn{background:var(--card);border:1px solid var(--line);max-width:600px;width:100%;border-radius:14px;padding:16px}
+  .loginbox{max-width:340px;margin:12vh auto 0;text-align:center}
+  .msg{font-size:12.5px;margin-top:8px;min-height:16px}
+</style>
+</head>
+<body>
+
+<div id="login" class="loginbox">
+  <h1 style="font-size:20px">Root Index · Admin</h1>
+  <p style="color:var(--muted);font-size:13px;margin:4px 0 18px">Eigenständiges Backend. Für die App: <a href="https://root-index.de">root-index.de</a></p>
+  <input id="email" type="email" placeholder="admin@e-mail.de" autocomplete="email">
+  <input id="pass" type="password" placeholder="Passwort" autocomplete="current-password" style="margin-top:8px">
+  <button class="btn" style="width:100%;margin-top:10px;background:#123;border-color:#1f6b3f" onclick="loginPass()">Anmelden</button>
+  <button class="btn" style="width:100%;margin-top:8px" onclick="loginCode()">Stattdessen Code per E-Mail</button>
+  <div id="codeRow" style="display:none;margin-top:10px">
+    <input id="code" inputmode="numeric" placeholder="6-stelliger Code">
+    <button class="btn" style="width:100%;margin-top:8px" onclick="loginVerify()">Code bestätigen</button>
+  </div>
+  <div id="loginMsg" class="msg" style="color:var(--rot)"></div>
+</div>
+
+<div id="app" class="wrap" style="display:none">
+  <header>
+    <div><h1>Root Index · Admin</h1><div class="sub" id="who"></div></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="ladeDash()">↻ Aktualisieren</button>
+      <button class="btn" onclick="logout()">Abmelden</button>
+    </div>
+  </header>
+  <div class="sub" id="stand" style="margin-bottom:8px"></div>
+  <div id="dash"><div style="color:var(--muted);padding:20px 0">Lade Dashboard…</div></div>
+</div>
+
+<div id="ovl" onclick="if(event.target===this)this.classList.remove('on')"><div id="ovlIn"></div></div>
+
+<script>
+const SUPABASE_URL="https://haurbpfkfaaehorirzee.supabase.co";
+const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+function $(id){return document.getElementById(id);}
+
+async function loginPass(){
+  const email=($("email").value||"").trim(), pass=$("pass").value||"";
+  if(!email||!pass){ $("loginMsg").textContent="E-Mail und Passwort eingeben."; return; }
+  $("loginMsg").textContent="…";
+  const {error}=await client.auth.signInWithPassword({email,password:pass});
+  if(error){ $("loginMsg").textContent="Fehler: "+error.message; return; }
+  gate();
+}
+async function loginCode(){
+  const email=($("email").value||"").trim();
+  if(!email){ $("loginMsg").textContent="E-Mail eingeben."; return; }
+  $("loginMsg").style.color="var(--muted)"; $("loginMsg").textContent="Sende Code…";
+  const {error}=await client.auth.signInWithOtp({email});
+  if(error){ $("loginMsg").style.color="var(--rot)"; $("loginMsg").textContent="Fehler: "+error.message; return; }
+  $("codeRow").style.display=""; $("loginMsg").textContent="Code an "+email+" gesendet.";
+}
+async function loginVerify(){
+  const email=($("email").value||"").trim(), token=($("code").value||"").trim();
+  const {error}=await client.auth.verifyOtp({email,token,type:"email"});
+  if(error){ $("loginMsg").style.color="var(--rot)"; $("loginMsg").textContent="Fehler: "+error.message; return; }
+  gate();
+}
+async function logout(){ await client.auth.signOut(); location.reload(); }
+
+async function gate(){
+  const {data:{session}}=await client.auth.getSession();
+  if(!session){ $("login").style.display=""; $("app").style.display="none"; return; }
+  let me=null;
+  try{ const r=await client.rpc("cb_me"); me=(r.data&&r.data[0])||null; }catch(e){}
+  if(!me || !me.is_admin){
+    $("loginMsg").style.color="var(--rot)";
+    $("loginMsg").textContent="Dieser Zugang ist kein Admin. Für die App: root-index.de";
+    await client.auth.signOut();
+    return;
+  }
+  $("login").style.display="none"; $("app").style.display="";
+  $("who").textContent=(me.name||"")+" · Admin";
+  ladeDash();
+}
+
+async function ladeDash(){
+  $("stand").textContent="Stand "+(new Date()).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+" Uhr · live aus der Datenbank";
+  const box=$("dash"); box.innerHTML='<div style="color:var(--muted);padding:20px 0">Lade…</div>';
+  let d=null,st=null;
+  try{ const r=await client.rpc("cb_dashboard"); d=r.data; }catch(e){}
+  try{ const r=await client.rpc("cb_dashboard_stamm"); st=r.data; }catch(e){}
+  if(!d||!d.ok){ box.innerHTML='<div style="color:var(--rot)">Dashboard nicht verfügbar: '+esc((d&&d.grund)||"unbekannt")+'</div>'; return; }
+  const q=d.qualitaet||{}, k=d.katalog||{};
+  function kpi(l,v,rot,h,drill){
+    const kl=(drill&&Number(v)>0);
+    return '<div class="kpi'+(kl?' klick':'')+'"'+(kl?' onclick="drill(\''+drill+'\',\''+esc(l)+'\')"':'')+'>'
+      +'<div class="l">'+esc(l)+(kl?' ›':'')+'</div><div class="v" style="color:'+(rot?'var(--rot)':'var(--greendk)')+'">'+v+'</div>'+(h?'<div class="h">'+esc(h)+'</div>':'')+'</div>';
+  }
+  let html='<div class="card"><h3>🛡️ Datenqualität — die Wächter</h3><div class="kpis">'
+    +kpi("Regelverstöße",q.w_zutaten_regeln||0,q.w_zutaten_regeln,"Zutaten-Stamm","regelverstoesse")
+    +kpi("Widersprüche",q.w_widersprueche||0,q.w_widersprueche,"gleicher Stoff","widersprueche")
+    +kpi("Nährwerte",q.w_naehrwerte||0,q.w_naehrwerte,"unplausibel","naehrwerte")
+    +kpi("Portionsfalle",q.w_portionsfalle||0,q.w_portionsfalle,"kcal zu niedrig","portionsfalle")
+    +'</div><div class="kpis" style="margin-top:8px">'
+    +kpi("unverifiziert",q.unverifiziert||0,0,"ohne Beleg","unverifiziert")
+    +kpi("ohne Quelle",q.ohne_quelle||0,0,"","ohne_quelle")
+    +kpi("ohne Score",q.ohne_score||0,0,"unvollständig","ohne_score")
+    +'</div></div>';
+  html+='<div class="card"><h3>📦 Katalog</h3><div class="kpis">'
+    +kpi("aktiv",k.aktiv||0,0,"Produkte")+kpi("Entwurf",k.entwurf||0,0,"")
+    +kpi("Ø Score",k.schnitt_score!=null?k.schnitt_score:"–",0,"")+'</div></div>';
+  if(st&&st.ok){
+    const s=st.stamm||{}, z=st.zusatzstoffe||{}, ref=st.referenz||{}, pr=st.produkte||{};
+    function row(l,v,rot,drill){
+      const kl=(drill&&Number(String(v).replace(/[^0-9.]/g,""))>0);
+      return '<div class="row'+(kl?' klick':'')+'"'+(kl?' onclick="drill(\''+drill+'\',\''+esc(l)+'\')"':'')+'>'
+        +'<span>'+esc(l)+(kl?' <span style="color:var(--muted)">›</span>':'')+'</span><span style="font-weight:700;color:'+(rot?'var(--gelb)':'var(--greendk)')+'">'+v+'</span></div>';
+    }
+    html+='<div class="zwei" style="margin-top:10px"><div><div class="num">'+(pr.gesamt||0)+'</div><div class="h" style="font-size:11.5px;color:var(--muted)">Produkte ('+(pr.aktiv||0)+' aktiv)</div></div>'
+      +'<div><div class="num">'+(s.gesamt||0)+'</div><div class="h" style="font-size:11.5px;color:var(--muted)">Zutaten ('+(s.gebunden||0)+' gebunden)</div></div></div>';
+    html+='<div class="card"><h3>🧪 Zutaten-Stamm</h3>'
+      +row("davon bewertet",s.bewertet)
+      +row("unbewertet",s.unbewertet,s.unbewertet>0,"stamm_unbewertet")
+      +row("als kritisch markiert",s.kritisch)
+      +row("nie gebunden",s.nie_gebunden)
+      +row("ohne Kategorie",s.ohne_kategorie,s.ohne_kategorie>0,"stamm_ohne_kategorie")+'</div>';
+    const luecke=(z.zusammen||0)-(z.kategorisiert||0);
+    html+='<div class="card"><h3>Zusatzstoffe im Stamm</h3>'
+      +row("als Zusatzstoff kategorisiert",z.kategorisiert)
+      +row("zusammen (ohne Doppelte)",z.zusammen)
+      +(luecke>0?row(luecke+" nicht kategorisiert",luecke,true,"zusatz_nicht_kategorisiert"):"")+'</div>';
+    html+='<div class="card"><h3>Referenzdaten (OFF, ODbL v1.0)</h3>'
+      +row("Einträge gesamt",ref.off_gesamt)
+      +row("Stamm mit Treffer",(ref.stamm_mit_treffer||0)+" von "+(s.gesamt||"?"))
+      +row("mehrdeutige Begriffe",ref.mehrdeutig,ref.mehrdeutig>0,"mehrdeutig")+'</div>';
+  }
+  box.innerHTML=html;
+}
+
+async function drill(key,titel){
+  $("ovl").classList.add("on");
+  $("ovlIn").innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>'+esc(titel)+'</b><button class="btn" onclick="document.getElementById(\'ovl\').classList.remove(\'on\')">×</button></div><div id="drillB" style="color:var(--muted)">Lade…</div>';
+  try{
+    const r=await client.rpc("cb_dashboard_drill",{p_key:key});
+    const rows=(r&&r.data)||[];
+    if(r&&r.error){ $("drillB").innerHTML='<span style="color:var(--rot)">Fehler: '+esc(r.error.message)+'</span>'; return; }
+    if(!rows.length){ $("drillB").innerHTML='<span style="color:var(--green)">Nichts offen. ✓</span>'; return; }
+    $("drillB").innerHTML='<div style="margin-bottom:6px;color:var(--muted)">'+rows.length+' Einträge</div>'+rows.map(function(x){
+      return '<div style="padding:9px 2px;border-top:1px solid var(--line)"><div style="font-weight:600">'+esc(x.name||"—")+'</div><div style="font-size:11.5px;color:var(--muted)">'+esc(x.info||"")+'</div></div>';
+    }).join('');
+  }catch(e){ $("drillB").innerHTML='<span style="color:var(--rot)">Fehler: '+esc((e&&e.message)||e)+'</span>'; }
+}
+
+gate();
+</script>
+</body>
+</html>
