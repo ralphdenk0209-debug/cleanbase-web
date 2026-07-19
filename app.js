@@ -1379,21 +1379,29 @@ function detail2(d){
       {v:num(d.p_nova),         max:15, f:"#7c6fe0"},
       {v:(num(d.p_naehrwert)!=null?num(d.p_naehrwert)*2:null), max:40, f:"#d97706"}
     ].map(function(a){ a.pct=(a.v==null)?null:Math.max(0,Math.min(1,a.v/a.max)); return a; });
-    var uid="pf"+(Math.random().toString(36).slice(2,7)), L=100;
-    var bahn=["M26 34 H74 L112 70","M274 34 H226 L188 70","M26 142 H74 L112 106","M274 142 H226 L188 106"];
+    var uid="pf"+(Math.random().toString(36).slice(2,7)), L=92;
+    /* Ring-Fix: innere Endpunkte (106,64 …) sitzen knapp AUSSERHALB der Ringkante (r42),
+       damit ein voller Balken (100 %) den Ring gerade berührt statt hineinzulaufen. */
+    var bahn=["M26 34 H74 L106 64","M274 34 H226 L194 64","M26 142 H74 L106 112","M274 142 H226 L194 112"];
     var kap=[[26,34],[274,34],[26,142],[274,142]];
-    var core=(s==null)?"–":String(Math.round(s));
-    var svg='<svg viewBox="0 0 300 176" style="width:100%;display:block" role="img" aria-label="Index '+core+', vier Achsen">'
+    var ziel=(s==null)?null:Math.round(s);
+    var core=(ziel==null)?"–":"0";
+    var svg='<svg viewBox="0 0 300 176" style="width:100%;display:block" role="img" aria-label="Index '+(ziel==null?"–":ziel)+', vier Achsen">'
       +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">'
       + bahn.map(function(dd){ return '<path d="'+dd+'" stroke="rgba(120,120,120,.16)"/>'; }).join('')
       + A.map(function(a,i){ var off=(a.pct==null)?L:L*(1-a.pct);
           return '<path d="'+bahn[i]+'" stroke="'+(a.pct==null?"rgba(120,120,120,.28)":a.f)+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+L+'" style="transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)" data-ziel="'+off.toFixed(1)+'" class="'+uid+'-b"/>'; }).join('')
       +'</g>'
       + A.map(function(a,i){ return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="7" fill="'+(a.pct==null?"#9aa7a0":a.f)+'"/>'; }).join('')
-      +'<circle cx="150" cy="88" r="42" fill="none" stroke="'+(s==null?"#9aa7a0":fCol)+'" stroke-width="4"/>'
-      +'<text x="150" y="99" text-anchor="middle" style="font-size:40px;font-weight:700" fill="var(--ink)">'+core+'</text>'
+      +'<circle cx="150" cy="88" r="42" fill="none" stroke="'+(s==null?"#9aa7a0":fCol)+'" stroke-width="5"/>'
+      +'<text id="'+uid+'n" x="150" y="103" text-anchor="middle" style="font-size:44px;font-weight:800" fill="var(--ink)">'+core+'</text>'
       +'</svg>';
-    setTimeout(function(){ document.querySelectorAll("."+uid+"-b").forEach(function(el){ el.style.strokeDashoffset=el.getAttribute("data-ziel"); }); }, 60);
+    setTimeout(function(){
+      document.querySelectorAll("."+uid+"-b").forEach(function(el){ el.style.strokeDashoffset=el.getAttribute("data-ziel"); });
+      /* Variante 1: Zahl zählt hoch, Notenwort steigt darunter ein. */
+      if(ziel!=null){ var el=document.getElementById(uid+"n"); if(el){ var t0=null; var tick=function(ts){ if(t0===null)t0=ts; var k=Math.min(1,(ts-t0)/850); el.textContent=String(Math.round(k*ziel)); if(k<1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); } }
+      var w=document.querySelector(".pkWord"); if(w){ w.style.opacity="1"; try{ w.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"translateY(0)"}],{duration:450,easing:"ease"}); }catch(e){} }
+    }, 60);
     return svg;
   }
 
@@ -1452,9 +1460,9 @@ function detail2(d){
       + efPill(d.ernaehrungsform)
     + '</div>'
     + warn
-    + '<div style="display:flex;align-items:center;gap:14px;margin:14px 0 4px">'
-      + '<div style="flex:0 0 auto;width:140px">'+pkFlux()+'</div>'
-      + '<div style="flex:1;min-width:0"><div style="display:inline-block;font-size:15px;font-weight:700;padding:5px 14px;border-radius:999px;background:'+(s==null?'var(--k-eef2f6)':fCol)+';color:'+(s==null?'var(--k-475569)':'#fff')+'">'+esc(bewTxt||'–')+'</div></div>'
+    + '<div style="display:flex;flex-direction:column;align-items:center;margin:16px 0 8px">'
+      + '<div style="width:250px;max-width:82%">'+pkFlux()+'</div>'
+      + '<div class="pkWord" style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:2px;opacity:0">'+esc(bewTxt||'–')+'</div>'
     + '</div>'
     + sonder
     + '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 2px">'
@@ -5813,7 +5821,7 @@ function fgZutRow(name,rating,kritisch){
   const bound=(name && typeof ZUTATEN_MAP!=="undefined" && ZUTATEN_MAP && ZUTATEN_MAP[(name||"").trim().toLowerCase()]!=null);
   /* Bewertung ist READONLY (an den Stamm gebunden, keine Willkuer). Unbekannte Zutat -> "→ Riki". */
   return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);color-scheme:light">
+    <span class="fgzWrap" style="position:relative;flex:1;min-width:0"><input class="fgzName" value="${esc(name||"")}" oninput="fgZutAuto(this);fgzMenu(this)" onfocus="fgzMenu(this)" onblur="fgzMenuBlur(this)" autocomplete="off" placeholder="Zutat wählen oder neu tippen" style="width:100%;box-sizing:border-box;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink)"><div class="fgzMenu" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 3px);z-index:60;background:var(--card);border:1px solid var(--line);border-radius:8px;max-height:210px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.22)"></div></span>
     <input class="fgzRate" type="number" min="0" max="10" step="1" value="${hasR?rating:""}" readonly tabindex="-1" placeholder="–" title="Bewertung ist an die Zutat (Stamm) gebunden – nicht von Hand änderbar. Unbekannt? „→ Riki" bewerten lassen." style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center;background:var(--k-f2f5f3);color:var(--ink);cursor:not-allowed">
     <button type="button" class="fgzRiki" onclick="fgZutRiki(this)" title="Riki stuft die Zutat ein + zwei Wächter prüfen, dann in den Stamm aufnehmen" style="flex:0 0 auto;padding:6px 8px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:11.5px;white-space:nowrap;${bound?"display:none":""}">→ Riki</button>
     <label style="font-size:11px;color:var(--k-b91c1c);display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:var(--k-dc2626)">⚠️</label>
@@ -5837,6 +5845,29 @@ function fgZutAuto(inp){
   }
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
+/* Eigenes Zutaten-Auswahlmenue statt <datalist>. Grund: das native datalist-Popup
+   ignoriert im Dark-Mode das color-scheme des Inputs und zeigt schwarzen Text auf
+   schwarzem Grund. Ein eigenes Menue nutzt --card/--ink -> helle Schrift auf dunkel. */
+function fgzMenu(inp){
+  var wrap=inp.closest(".fgzWrap"); if(!wrap) return;
+  var menu=wrap.querySelector(".fgzMenu"); if(!menu) return;
+  var q=(inp.value||"").trim().toLowerCase();
+  var list=(typeof ZUTATEN_STAMM!=="undefined"&&ZUTATEN_STAMM)?ZUTATEN_STAMM:[];
+  var res=[];
+  for(var i=0;i<list.length;i++){ var nm=(list[i]&&list[i].name)||""; if(!nm) continue;
+    if(q===""||nm.toLowerCase().indexOf(q)>=0) res.push(nm); }
+  if(q!==""){ res.sort(function(a,b){ var as=a.toLowerCase().indexOf(q)===0?0:1, bs=b.toLowerCase().indexOf(q)===0?0:1; return as-bs||a.length-b.length; }); }
+  res=res.slice(0,14);
+  if(!res.length){ menu.style.display="none"; return; }
+  menu.innerHTML=res.map(function(n){ return '<div onmousedown="fgzPick(this)" data-n="'+esc(n)+'" onmouseenter="this.style.background=\'var(--k-f2f5f3)\'" onmouseleave="this.style.background=\'\'" style="padding:8px 10px;font-size:13px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(n)+'</div>'; }).join('');
+  menu.style.display="block";
+}
+function fgzPick(opt){
+  var wrap=opt.closest(".fgzWrap"); var inp=wrap&&wrap.querySelector(".fgzName");
+  if(inp){ inp.value=opt.getAttribute("data-n"); fgZutAuto(inp); }
+  var menu=opt.closest(".fgzMenu"); if(menu) menu.style.display="none";
+}
+function fgzMenuBlur(inp){ setTimeout(function(){ var wrap=inp.closest(".fgzWrap"); var menu=wrap&&wrap.querySelector(".fgzMenu"); if(menu) menu.style.display="none"; }, 160); }
 /* Unbekannte Zutat im Freigabe-Editor: Riki stuft ein + Waechter pruefen, dann in den Stamm.
    Kein Handeingriff der Zahl – identisch zum Scan-Fluss. */
 function fgZutRiki(btn){
@@ -6239,8 +6270,9 @@ function feFluxWidget(v){
     {v:(v.p_nova!=null?Number(v.p_nova):null),                max:15, f:"#7c6fe0"},
     {v:(v.p_naehrwert!=null?Number(v.p_naehrwert)*2:null),    max:40, f:"#d97706"}
   ].map(function(a){ a.pct=(a.v==null)?null:Math.max(0,Math.min(1,a.v/a.max)); return a; });
-  var uid="fef"+(Math.random().toString(36).slice(2,7)), L=100;
-  var bahn=["M26 34 H74 L112 70","M274 34 H226 L188 70","M26 142 H74 L112 106","M274 142 H226 L188 106"];
+  var uid="fef"+(Math.random().toString(36).slice(2,7)), L=92;
+  /* gleiche Ring-Fix-Geometrie wie pkFlux: Balken enden knapp ausserhalb der Ringkante (r42). */
+  var bahn=["M26 34 H74 L106 64","M274 34 H226 L194 64","M26 142 H74 L106 112","M274 142 H226 L194 112"];
   var kap=[[26,34],[274,34],[26,142],[274,142]];
   var fCol=(typeof farbe==="function")?farbe(v.bewertung):"#9aa7a0";
   var core=(s==null)?"–":String(Math.round(s));
@@ -6251,8 +6283,8 @@ function feFluxWidget(v){
         return '<path d="'+bahn[i]+'" stroke="'+(a.pct==null?"rgba(120,120,120,.28)":a.f)+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+L+'" style="transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)" data-ziel="'+off.toFixed(1)+'" class="'+uid+'-b"/>'; }).join('')
     +'</g>'
     + A.map(function(a,i){ return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="7" fill="'+(a.pct==null?"#9aa7a0":a.f)+'"/>'; }).join('')
-    +'<circle cx="150" cy="88" r="46" fill="none" stroke="'+(s==null?"#9aa7a0":fCol)+'" stroke-width="5"/>'
-    +'<text x="150" y="99" text-anchor="middle" style="font-size:40px;font-weight:700" fill="var(--ink)">'+core+'</text>'
+    +'<circle cx="150" cy="88" r="42" fill="none" stroke="'+(s==null?"#9aa7a0":fCol)+'" stroke-width="5"/>'
+    +'<text x="150" y="101" text-anchor="middle" style="font-size:42px;font-weight:800" fill="var(--ink)">'+core+'</text>'
     +'</svg>';
   setTimeout(function(){ document.querySelectorAll("."+uid+"-b").forEach(function(el){ el.style.strokeDashoffset=el.getAttribute("data-ziel"); }); }, 60);
   return svg;
@@ -8647,7 +8679,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19m";
+const APP_BUILD = "2026-07-19n";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
