@@ -1384,12 +1384,12 @@ function detail2(d){
     var kap=[[26,34],[274,34],[26,142],[274,142]];
     var core=(s==null)?"–":String(Math.round(s));
     var svg='<svg viewBox="0 0 300 176" style="width:100%;display:block" role="img" aria-label="Index '+core+', vier Achsen">'
-      +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="6">'
+      +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">'
       + bahn.map(function(dd){ return '<path d="'+dd+'" stroke="rgba(120,120,120,.16)"/>'; }).join('')
       + A.map(function(a,i){ var off=(a.pct==null)?L:L*(1-a.pct);
           return '<path d="'+bahn[i]+'" stroke="'+(a.pct==null?"rgba(120,120,120,.28)":a.f)+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+L+'" style="transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)" data-ziel="'+off.toFixed(1)+'" class="'+uid+'-b"/>'; }).join('')
       +'</g>'
-      + A.map(function(a,i){ return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="6" fill="'+(a.pct==null?"#9aa7a0":a.f)+'"/>'; }).join('')
+      + A.map(function(a,i){ return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="7" fill="'+(a.pct==null?"#9aa7a0":a.f)+'"/>'; }).join('')
       +'<circle cx="150" cy="88" r="42" fill="none" stroke="'+(s==null?"#9aa7a0":fCol)+'" stroke-width="4"/>'
       +'<text x="150" y="99" text-anchor="middle" style="font-size:40px;font-weight:700" fill="var(--ink)">'+core+'</text>'
       +'</svg>';
@@ -1408,7 +1408,7 @@ function detail2(d){
   function kachel(k,label,unit){
     var raw=num(d[k]); if(raw==null) return '';
     var val=(k==='m_kcal')?Math.round(raw):Math.round(raw*10)/10;
-    return '<div style="background:var(--bg);border-radius:10px;padding:9px 12px"><div style="font-size:12px;color:var(--muted)">'+label+'</div><div style="font-size:16px;font-weight:600;color:var(--ink)">'+String(val).replace('.',',')+' '+unit+'</div></div>';
+    return '<div style="background:var(--bg);border-radius:10px;padding:8px 9px;min-width:0"><div style="font-size:11.5px;color:var(--muted)">'+label+'</div><div style="font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap">'+String(val).replace('.',',')+' '+unit+'</div></div>';
   }
 
   function ACC(icon,titel,inner){
@@ -1440,7 +1440,7 @@ function detail2(d){
   var bz=bzStufe(d);
   var bzInner=bz?('<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:'+bz.bg+';color:'+bz.tc+'">'+bz.label+'</span></div>'+bzKurve(bz.stufe)):'';
 
-  var adminBar=(ME&&ME.is_admin)?'<div style="margin:2px 0 8px"><button onclick="window.__pkAlt=true;detailById(\''+d.id+'\')" style="padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--muted);font-size:12px;cursor:pointer">↩︎ alte Ansicht</button> <span style="font-size:11px;color:var(--muted)">neuer Karten-Entwurf</span></div>':'';
+  var adminBar='';
 
   var panel=document.getElementById("panel"); if(!panel) return;
   panel.innerHTML=
@@ -1457,7 +1457,7 @@ function detail2(d){
       + '<div style="flex:1;min-width:0"><div style="display:inline-block;font-size:15px;font-weight:700;padding:5px 14px;border-radius:999px;background:'+(s==null?'var(--k-eef2f6)':fCol)+';color:'+(s==null?'var(--k-475569)':'#fff')+'">'+esc(bewTxt||'–')+'</div></div>'
     + '</div>'
     + sonder
-    + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0 2px">'
+    + '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 2px">'
       + kachel('m_kcal','Energie','kcal') + kachel('m_fett','Fett','g')
       + kachel('m_protein','Eiweiß','g') + kachel('m_ballast','Ballaststoffe','g')
     + '</div>'
@@ -1481,10 +1481,11 @@ function detail(d){
      welche Produkte oeffnen die Leute wirklich. */
   /* .then() ist PFLICHT: der Supabase-Builder ist faul - ohne await oder .then
      wird die Anfrage NIE gesendet. "Fire and forget" heisst trotzdem: erst zuenden. */
-  try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}).then(function(){},function(){}); }catch(e){}
-  /* ZURÜCK auf die ALTE Karte (Standard für alle). Der Karten-Umbau (detail2, Flip+Reiter)
-     gefiel nicht - steht als offener Punkt zum Neuentwurf. Admins können den Entwurf per
-     Button ansehen. Der gute Blutzucker-Verlauf wird UNTEN in diese Karte eingefügt. */
+  /* 2026-07-19m: Der neue Karten-Entwurf (detail2) ist jetzt die Hauptansicht fuer ALLE.
+     detail2 protokolliert den Aufruf selbst (cb_log_aufruf) - daher hier NICHT nochmal
+     loggen, sonst zaehlt jeder Aufruf doppelt. Die alte Karte darunter laeuft nicht mehr;
+     sie bleibt vorerst nur als toter Code stehen (Sicherheitsnetz), kann spaeter raus. */
+  try{ return detail2(d); }catch(e){ console.log("detail2 fehlgeschlagen, alte Karte:", e); }
   var _isScoredFood=(d.clean_score!=null && String(d.kategorie||'').toLowerCase()!=='supplement');
   var _adminHere=(typeof ME!=='undefined' && ME && ME.is_admin);
   var adminTestBtn=(_adminHere && _isScoredFood)?'<div style="margin:2px 0 8px"><button onclick="detail2(ALL.find(function(x){return x.id===\''+d.id+'\'}))" style="padding:5px 10px;border:1px dashed var(--line);border-radius:8px;background:var(--bg);color:var(--muted);font-size:12px;cursor:pointer">🔬 Karten-Entwurf ansehen</button></div>':'';
@@ -5812,14 +5813,14 @@ function fgZutRow(name,rating,kritisch){
   const bound=(name && typeof ZUTATEN_MAP!=="undefined" && ZUTATEN_MAP && ZUTATEN_MAP[(name||"").trim().toLowerCase()]!=null);
   /* Bewertung ist READONLY (an den Stamm gebunden, keine Willkuer). Unbekannte Zutat -> "→ Riki". */
   return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);color-scheme:dark">
+    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);color-scheme:light">
     <input class="fgzRate" type="number" min="0" max="10" step="1" value="${hasR?rating:""}" readonly tabindex="-1" placeholder="–" title="Bewertung ist an die Zutat (Stamm) gebunden – nicht von Hand änderbar. Unbekannt? „→ Riki" bewerten lassen." style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center;background:var(--k-f2f5f3);color:var(--ink);cursor:not-allowed">
     <button type="button" class="fgzRiki" onclick="fgZutRiki(this)" title="Riki stuft die Zutat ein + zwei Wächter prüfen, dann in den Stamm aufnehmen" style="flex:0 0 auto;padding:6px 8px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:11.5px;white-space:nowrap;${bound?"display:none":""}">→ Riki</button>
     <label style="font-size:11px;color:var(--k-b91c1c);display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:var(--k-dc2626)">⚠️</label>
     <button type="button" onclick="fgZutRowDel(this)" title="Zutat entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:8px;width:30px;height:30px;cursor:pointer;flex:0 0 auto">✕</button>
   </div>`;
 }
-function fgZutRowDel(b){ var row=b.closest(".fgZutRow"); if(!row) return; var inf=row.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove(); row.remove(); }
+function fgZutRowDel(b){ var row=b.closest(".fgZutRow"); if(!row) return; var inf=row.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove(); row.remove(); try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){} }
 function fgZutAuto(inp){
   const row=inp.closest(".fgZutRow"); if(!row) return;
   const r=row.querySelector(".fgzRate"), k=row.querySelector(".fgzKrit"), rk=row.querySelector(".fgzRiki");
@@ -5834,6 +5835,7 @@ function fgZutAuto(inp){
     if(r){ r.value=""; r.style.color="var(--ink)"; }
     if(rk) rk.style.display=(inp.value.trim()? "" : "none");
   }
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
 /* Unbekannte Zutat im Freigabe-Editor: Riki stuft ein + Waechter pruefen, dann in den Stamm.
    Kein Handeingriff der Zahl – identisch zum Scan-Fluss. */
@@ -5854,6 +5856,7 @@ function fgZutRiki(btn){
       if(rate){ rate.value=rr; rate.style.color="var(--ink)"; }
       btn.style.display="none"; delete btn.dataset.mode;
       var inf=row.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove();
+      try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
     }, function(){ btn.disabled=false; btn.textContent="Fehler"; setTimeout(function(){btn.textContent="→ Riki";},1500); });
     return;
   }
@@ -6145,6 +6148,7 @@ async function openFgEditor(id, prefill){
         <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name, z. B. rohe Pilze/Gemüse/Getreide)" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">USDA holen</button>
         ${id?`<button type="button" onclick="fgShotCam('${esc(d.id)}')" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">Etikettfoto</button>`:""}
       </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-top:7px;cursor:pointer"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">Produkt hat keinen EAN – als „offen“ markieren (dann blockiert die fehlende EAN die Freigabe nicht)</label>
       <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:6px">Jede Quelle trägt sich selbst in den Beleg ein – auch die zweite. Gefundene Werte füllen die Maske, du prüfst nur.</div>
     </div>
     <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px;align-items:start" id="fe_grid">
@@ -6178,6 +6182,7 @@ async function openFgEditor(id, prefill){
         ${card("Zusatzstoffe",`${inp("fe_ztext",d.zusatzstoffe_text||"keine")}<div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>`)}
       </div>
       <div>
+        ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
         ${card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
         ${_etikett.length ? card(`Etikettfotos aus dem Laden <span style="text-transform:none;color:var(--muted)">(${_etikett.length}) – nur zum Abgleich</span>`,
@@ -6222,6 +6227,75 @@ async function fgImgUpload(inpEl){
   document.getElementById("fe_bildPreview").innerHTML=`<img src="${esc(url)}" style="max-height:120px;border-radius:8px">`;
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ Bild hochgeladen";
 }
+/* Live-Index im Editor als Fluxkompensator (etwas dickere Balken als in der Produktliste).
+   Liest die Achsen aus dem Vorschau-Objekt der DB (cb_score_vorschau), nicht selbst gerechnet -
+   damit hier exakt derselbe Score steht wie spaeter im Produkt. */
+function feFluxWidget(v){
+  if(!v) return '';
+  var s=(v.clean_score!=null&&isFinite(v.clean_score))?Number(v.clean_score):null;
+  var A=[
+    {v:(v.p_zutaten!=null?Number(v.p_zutaten):null),          max:30, f:"#16a34a"},
+    {v:(v.p_zusatzstoffe!=null?Number(v.p_zusatzstoffe):null), max:15, f:"#3987e5"},
+    {v:(v.p_nova!=null?Number(v.p_nova):null),                max:15, f:"#7c6fe0"},
+    {v:(v.p_naehrwert!=null?Number(v.p_naehrwert)*2:null),    max:40, f:"#d97706"}
+  ].map(function(a){ a.pct=(a.v==null)?null:Math.max(0,Math.min(1,a.v/a.max)); return a; });
+  var uid="fef"+(Math.random().toString(36).slice(2,7)), L=100;
+  var bahn=["M26 34 H74 L112 70","M274 34 H226 L188 70","M26 142 H74 L112 106","M274 142 H226 L188 106"];
+  var kap=[[26,34],[274,34],[26,142],[274,142]];
+  var fCol=(typeof farbe==="function")?farbe(v.bewertung):"#9aa7a0";
+  var core=(s==null)?"–":String(Math.round(s));
+  var svg='<svg viewBox="0 0 300 176" style="width:100%;display:block" role="img" aria-label="Index '+core+', vier Achsen">'
+    +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">'
+    + bahn.map(function(dd){ return '<path d="'+dd+'" stroke="rgba(120,120,120,.16)"/>'; }).join('')
+    + A.map(function(a,i){ var off=(a.pct==null)?L:L*(1-a.pct);
+        return '<path d="'+bahn[i]+'" stroke="'+(a.pct==null?"rgba(120,120,120,.28)":a.f)+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+L+'" style="transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)" data-ziel="'+off.toFixed(1)+'" class="'+uid+'-b"/>'; }).join('')
+    +'</g>'
+    + A.map(function(a,i){ return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="7" fill="'+(a.pct==null?"#9aa7a0":a.f)+'"/>'; }).join('')
+    +'<circle cx="150" cy="88" r="46" fill="none" stroke="'+(s==null?"#9aa7a0":fCol)+'" stroke-width="5"/>'
+    +'<text x="150" y="99" text-anchor="middle" style="font-size:40px;font-weight:700" fill="var(--ink)">'+core+'</text>'
+    +'</svg>';
+  setTimeout(function(){ document.querySelectorAll("."+uid+"-b").forEach(function(el){ el.style.strokeDashoffset=el.getAttribute("data-ziel"); }); }, 60);
+  return svg;
+}
+/* Berechneten Root Index live im Editor zeigen. Ruft cb_score_vorschau auf
+   (rechnet ueber denselben Trigger, rollt danach zurueck - schreibt NICHTS).
+   Entprellt (450 ms) + Sequenz-Wache, damit spaete Antworten frische nicht ueberschreiben. */
+var _feScoreSeq=0, _feScoreTimer=null;
+function feScorePreview(){
+  var box=document.getElementById("fe_index"); if(!box) return;
+  if(_feScoreTimer){ clearTimeout(_feScoreTimer); }
+  _feScoreTimer=setTimeout(function(){ _feScoreRun(box); }, 450);
+}
+async function _feScoreRun(box){
+  var g=function(id){ return document.getElementById(id); };
+  var numv=function(v){ v=(v==null?"":String(v)).trim(); return v===""?undefined:Number(v.replace(",",".")); };
+  var name=((g("fe_name")||{}).value||"").trim();
+  if(!name){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Titel eintragen, dann rechnet der Index.</div>'; return; }
+  var nw={}; ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(function(k){ var v=numv((g("fe_"+k)||{}).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
+  var zut=[].slice.call(document.querySelectorAll("#fe_zutRows .fgZutRow")).map(function(row){
+    var nm=((row.querySelector(".fgzName")||{}).value||"").trim();
+    var roh=((row.querySelector(".fgzRate")||{}).value||"").trim();
+    var rt=(roh==="")?null:Number(roh);
+    return { name:nm, rating:(rt===null||isNaN(rt))?null:rt, kritisch:(row.querySelector(".fgzKrit")||{}).checked?"ja":"nein" };
+  }).filter(function(z){ return z.name; });
+  var payload={ name:name, marke:((g("fe_marke")||{}).value||"").trim(), kategorie:((g("fe_kat")||{}).value||"").trim()||"Lebensmittel",
+    basis:((g("fe_basis")||{}).value||"").trim()||"100g", naehrwerte:nw,
+    zusatzstoffe_text:((g("fe_ztext")||{}).value||"").trim()||"keine",
+    zusatzstoffe_status:((g("fe_zstatus")||{}).value||"keine"), suessstoffe:((g("fe_suess")||{}).value||"nein"), zutaten:zut };
+  var seq=(++_feScoreSeq);
+  box.innerHTML='<div style="color:var(--muted);font-size:12.5px">⏳ Index wird berechnet…</div>';
+  try{
+    var res=await client.rpc("cb_score_vorschau",{p:payload});
+    if(seq!==_feScoreSeq) return; /* eine neuere Anfrage laeuft schon */
+    if(res.error){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Index nicht berechenbar.</div>'; return; }
+    var v=res.data; if(Array.isArray(v)) v=v[0];
+    if(!v){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Index nicht berechenbar.</div>'; return; }
+    var voll=(v.vollstaendig!==false && v.clean_score!=null);
+    box.innerHTML='<div style="max-width:230px;margin:0 auto">'+feFluxWidget(v)+'</div>'
+      +'<div style="text-align:center;font-size:12.5px;margin-top:2px;color:'+((typeof farbe==="function")?farbe(v.bewertung):"var(--muted)")+';font-weight:700">'+esc(v.bewertung||"")+'</div>'
+      +(voll?'':'<div style="text-align:center;font-size:11.5px;color:var(--k-b45309);margin-top:4px">Noch kein voller Score – siehe „Fehlt für den Score" unten.</div>');
+  }catch(e){ if(seq===_feScoreSeq) box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Index nicht berechenbar.</div>'; }
+}
 /* Live-Plausibilität im Editor (Polyol-Spanne) + Freigabe-Check. */
 function fePlaus(){
   var box=document.getElementById("fe_plaus"); if(!box) return;
@@ -6244,7 +6318,9 @@ function fePlaus(){
        sie bekommt bewusst keinen Lebensmittel-Score (§1.11j). Die Nährwerte hier zu
        verlangen hätte Supplements dauerhaft von der Freigabe ausgesperrt. Sie brauchen
        stattdessen Wirkstoffe/Zutaten, eine Quelle und die Verzehrempfehlung. */
-    var _istSupp = (((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
+    var _kat=((document.getElementById("fe_kat")||{}).value||"").trim();
+    if(!_kat) fehlt.push("Kategorie");
+    var _istSupp = (_kat.toLowerCase()==="supplement");
     if(!_istSupp){
       var nwReq=[["fe_kcal","Energie"],["fe_fett","Fett"],["fe_ges_fett","ges. Fett"],["fe_kh","Kohlenhydrate"],["fe_zucker","Zucker"],["fe_protein","Eiweiß"],["fe_salz","Salz"],["fe_ballaststoffe","Ballaststoffe"]];
       nwReq.forEach(function(r){ if(gv(r[0])==null) fehlt.push(r[1]); });
@@ -6256,6 +6332,9 @@ function fePlaus(){
     if(zOhneNote>0) fehlt.push(zOhneNote+" Zutat(en) ohne Bewertung");
     var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
     if(!qt) fehlt.push("Quelle-Typ");
+    var _eanV=((document.getElementById("fe_ean")||{}).value||"").trim();
+    var _eanOffen=!!((document.getElementById("fe_ean_offen")||{}).checked);
+    if(!_eanV && !_eanOffen) fehlt.push("EAN (oder „offen“ markieren)");
     var _dosisLeer = _istSupp && !(((document.getElementById("fe_verzehr")||{}).value||"").trim());
     if(fehlt.length===0){
       rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe'
@@ -6273,17 +6352,20 @@ function fePlaus(){
     if(rg){
       var ok=function(t){ return '<div style="color:var(--k-166534)">&#10003; '+t+'</div>'; };
       var no=function(t){ return '<div style="color:var(--k-b45309)">&#9888; '+t+'</div>'; };
-      var nwFehlt=fehlt.filter(function(x){ return x!=="mind. 1 Zutat" && x!=="Quelle-Typ" && x.indexOf("ohne Bewertung")<0; });
+      var nwFehlt=fehlt.filter(function(x){ return x!=="mind. 1 Zutat" && x!=="Quelle-Typ" && x!=="Kategorie" && x.indexOf("ohne Bewertung")<0 && x.indexOf("EAN")<0; });
       var h="";
+      h+= _kat ? ok("Kategorie gewählt") : no("Kategorie fehlt (Pflicht)");
       if(_istSupp) h+='<div style="color:var(--muted)">– Nährwerte (Supplement, nicht nötig)</div>';
       else h+= nwFehlt.length ? no(nwFehlt.length+" Nährwert(e) fehlen") : ok("Nährwerte vollständig");
       h+= (zMit.length===0) ? no("keine Zutat erfasst") : ok(zMit.length+" Zutaten erfasst");
       h+= (zOhneNote>0) ? no(zOhneNote+" Zutat(en) unbewertet") : ok("alle Zutaten bewertet");
       h+= qt ? ok("Quelle belegt") : no("Quelle-Typ fehlt");
+      h+= (_eanV||_eanOffen) ? ok(_eanV?"EAN erfasst":"EAN als offen markiert") : no("EAN fehlt – eintragen oder „offen“ ankreuzen");
       if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
       rg.innerHTML=h;
     }
   }
+  try{ if(typeof feScorePreview==="function") feScorePreview(); }catch(e){}
 }
 /* Kaskade 1: Nährwerte + Name + Zutaten-Text aus OFF holen (OFF wird vertraut -> Quelle_Typ gesetzt). */
 async function fgPullOff(){
@@ -6395,9 +6477,13 @@ async function fgEditSave(alsoFreigeben){
   }).filter(z=>z.name);
   const name=(g("fe_name").value||"").trim();
   if(!name){ msg.style.color="var(--k-dc2626)"; msg.textContent="Titel fehlt."; return; }
+  const _kat=(g("fe_kat").value||"").trim();
+  /* Kategorie ist Pflicht ZUR FREIGABE (nicht beim reinen Zwischenspeichern). Kein stilles
+     Default-"Lebensmittel" mehr – der Admin waehlt bewusst, sonst kippen Produkte falsch einsortiert rein. */
+  if(alsoFreigeben && !_kat){ msg.style.color="var(--k-dc2626)"; msg.textContent="Kategorie fehlt – für die Freigabe bitte eine Kategorie wählen."; try{ fePlaus(); }catch(e){} return; }
   const _qt=(g("fe_quelle_typ")&&g("fe_quelle_typ").value||"").trim();
   const _beleg=(g("fe_beleg")&&g("fe_beleg").value||"").trim();
-  const payload={ name, marke:g("fe_marke").value.trim(), kategorie:g("fe_kat").value.trim()||"Lebensmittel",
+  const payload={ name, marke:g("fe_marke").value.trim(), kategorie:_kat,
     unterkategorie:g("fe_ukat").value.trim(), ean:g("fe_ean").value.trim(), basis:g("fe_basis").value.trim()||"100g",
     naehrwerte:nw, zusatzstoffe_text:g("fe_ztext").value.trim()||"keine",
     zusatzstoffe_status:g("fe_zstatus").value, suessstoffe:g("fe_suess").value, zutaten:zut,
@@ -6417,6 +6503,14 @@ async function fgEditSave(alsoFreigeben){
     const _u=(g("fe_url")&&g("fe_url").value||"").trim();
     const _lnk=/^https?:\/\//i.test(_u)?_u:(/^https?:\/\//i.test(_beleg)?_beleg.split(" · ").filter(function(x){return /^https?:\/\//i.test(x);})[0]||null:null);
     if(_vz||_lnk){ try{ await client.rpc("cb_produkt_bezug_setzen",{p_id:pid, p_verzehr:_vz||null, p_form:null, p_link:_lnk}); }catch(e){} }
+    /* EAN-Status festhalten: „offen" wenn bewusst ohne EAN angehakt, sonst „vorhanden" wenn
+       eine EAN eingetragen ist. Leer+nicht angehakt: nichts ueberschreiben. */
+    try{
+      var _eanOffen=!!(g("fe_ean_offen")&&g("fe_ean_offen").checked);
+      var _eanV=(g("fe_ean")&&g("fe_ean").value||"").trim();
+      var _st=_eanOffen?"offen":(_eanV?"vorhanden":null);
+      if(_st){ await client.rpc("cb_produkt_ean_status_setzen",{p_id:pid, p_status:_st}); }
+    }catch(e){}
   }
   if(pid && window._fgEdit && window._fgEdit.bild_url){
     try{ await client.rpc("cb_produkt_bild_setzen",{p_id:pid, p_url:window._fgEdit.bild_url}); }catch(e){}
@@ -8553,7 +8647,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19l";
+const APP_BUILD = "2026-07-19m";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
