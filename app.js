@@ -2996,7 +2996,8 @@ async function loadScans(){
         +'<button onclick="scanOffLookup('+i+')" style="padding:7px 11px;border:1px solid var(--k-0ea5e9);border-radius:8px;background:var(--card);color:var(--k-0369a1);cursor:pointer;font-size:13px">🔎 OFF holen</button>'
         +'<button onclick="scanAnlegen('+i+')" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--k-ecfdf5);color:var(--k-166534);cursor:pointer;font-size:13px;font-weight:600">Produkt anlegen</button>'
         +'<button onclick="scanErledigt('+i+')" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Erledigt</button>'
-        +'<button onclick="scanLoeschen('+i+')" title="Nicht identifizierbar – aus der Warteschlange entfernen" style="padding:7px 11px;border:1px solid var(--k-fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:13px">🗑️ Löschen</button>'
+        +'<button onclick="scanLoeschen('+i+')" title="Nicht identifizierbar – aus der Warteschlange entfernen" style="padding:7px 11px;border:1px solid var(--k-fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:13px">🗑️ Scan löschen</button>'
+        +'<button onclick="scanProduktLoeschen('+i+')" title="Das zu diesem Barcode angelegte Produkt aus dem Katalog entfernen" style="padding:7px 11px;border:1px solid var(--k-fca5a5);border-radius:8px;background:var(--card);color:var(--k-b91c1c);cursor:pointer;font-size:13px">🗑️ Produkt löschen</button>'
       +'</div></div>';
   }).join('');
   window._scanGroups=keys.map(function(k){ return byEan[k]; });
@@ -3137,6 +3138,20 @@ async function scanLoeschen(i){
   if(error){ alert('Fehler: '+error.message); return; }
   loadScans();
 }
+/* Das zu einem gescannten Barcode ANGELEGTE Produkt wieder aus dem Katalog entfernen
+   (nicht den Scan – der bleibt). Blendet nur aus (Status), ist also umkehrbar. (Ralph, 19.07.2026) */
+async function scanProduktLoeschen(i){
+  const g=(window._scanGroups||[])[i]; if(!g||!g.ean){ alert('Kein Barcode zu diesem Scan.'); return; }
+  let pid=null;
+  try{ const {data}=await client.rpc("cb_produkt_id_by_ean",{p_ean:String(g.ean)}); pid=data; }catch(e){}
+  if(!pid){ alert('Zu Barcode '+g.ean+' gibt es (noch) kein Produkt im Katalog – nichts zu löschen.'); return; }
+  if(!confirm('Das zu Barcode '+g.ean+' angelegte Produkt ('+pid+') aus dem Katalog entfernen?\n\nDer Scan bleibt in der Warteschlange. Das Ausblenden ist umkehrbar.')) return;
+  const {error}=await client.rpc("cb_produkt_loeschen",{p_id:pid});
+  if(error){ alert('Fehler: '+error.message); return; }
+  alert('Produkt '+pid+' aus dem Katalog entfernt.');
+  loadScans();
+}
+if(typeof window!=='undefined') window.scanProduktLoeschen=scanProduktLoeschen;
 function pfTab(name){
   document.querySelectorAll('#pfTabs button').forEach(b=>b.classList.toggle('active', b.dataset.p===name));
   document.querySelectorAll('#profilInner .pf-pane').forEach(c=>{ c.style.display = c.classList.contains('pf-'+name)?'':'none'; });
@@ -5772,7 +5787,7 @@ function fgZutRow(name,rating,kritisch){
   const bound=(name && typeof ZUTATEN_MAP!=="undefined" && ZUTATEN_MAP && ZUTATEN_MAP[(name||"").trim().toLowerCase()]!=null);
   /* Bewertung ist READONLY (an den Stamm gebunden, keine Willkuer). Unbekannte Zutat -> "→ Riki". */
   return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;color-scheme:light">
     <input class="fgzRate" type="number" min="0" max="10" step="1" value="${hasR?rating:""}" readonly tabindex="-1" placeholder="–" title="Bewertung ist an die Zutat (Stamm) gebunden – nicht von Hand änderbar. Unbekannt? „→ Riki" bewerten lassen." style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center;background:var(--k-f2f5f3);color:var(--ink);cursor:not-allowed">
     <button type="button" class="fgzRiki" onclick="fgZutRiki(this)" title="Riki stuft die Zutat ein + zwei Wächter prüfen, dann in den Stamm aufnehmen" style="flex:0 0 auto;padding:6px 8px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:11.5px;white-space:nowrap;${bound?"display:none":""}">→ Riki</button>
     <label style="font-size:11px;color:var(--k-b91c1c);display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:var(--k-dc2626)">⚠️</label>
@@ -8513,7 +8528,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19i";
+const APP_BUILD = "2026-07-19j";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
