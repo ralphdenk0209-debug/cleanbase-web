@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-18k dashboard-kennzahlen anklickbar: zeigen betroffene zutaten/produkte, produkte direkt bearbeitbar (50d) -->
+<!-- build 2026-07-18l dashboard: aktualisieren-knopf (50c) + stamm-zeilen anklickbar (unbewertet, ohne kategorie, nicht-kategorisierte zusatzstoffe, mehrdeutig) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -3654,7 +3654,11 @@ async function loadDashboard(){
       +'<div style="font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:6px">'+titel+'</div>'+inner+'</div>'; };
 
   box.innerHTML =
-     H("🛡️ Datenqualität &ndash; die Wächter")
+     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">'
+       +'<span style="font-size:11.5px;color:var(--muted)">Stand '+(new Date()).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+' Uhr · Daten live aus der Datenbank</span>'
+       +'<button onclick="loadDashboard()" style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;font-weight:600">↻ Aktualisieren</button>'
+     +'</div>'
+    +H("🛡️ Datenqualität &ndash; die Wächter")
     +R(
        kpi("Regelverstöße", q.w_zutaten_regeln||0, (q.w_zutaten_regeln?"var(--k-dc2626)":"var(--k-16a34a)"), "Zutaten-Stamm", "regelverstoesse")
       +kpi("Widersprüche", q.w_widersprueche||0, (q.w_widersprueche?"var(--k-dc2626)":"var(--k-16a34a)"), "gleicher Stoff", "widersprueche")
@@ -3794,8 +3798,11 @@ async function katSuche(){
    gross genug und sollte nicht fuer jede neue Kennzahl umgebaut werden. */
 async function ladeStammPanel(){
   const box=document.getElementById("dashStamm"); if(!box) return;
-  const li=function(l,r,farbe){ return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 2px;border-top:1px solid var(--line);font-size:12.5px">'
-    +'<span style="flex:1;min-width:0;color:var(--ink)">'+l+'</span>'
+  const li=function(l,r,farbe,drill){
+    var klick = (drill && Number(String(r).replace(/[^0-9.]/g,''))>0);
+    var attr = klick ? ' onclick="dashDrill(\''+drill+'\',\''+esc(String(l).replace(/<[^>]+>/g,''))+'\')" style="cursor:pointer" title="Betroffene anzeigen"' : '';
+    return '<div'+attr+' style="display:flex;justify-content:space-between;gap:10px;padding:6px 2px;border-top:1px solid var(--line);font-size:12.5px'+(klick?';cursor:pointer':'')+'">'
+    +'<span style="flex:1;min-width:0;color:var(--ink)">'+l+(klick?' <span style="color:var(--muted)">›</span>':'')+'</span>'
     +'<span style="flex:0 0 auto;font-weight:700;color:'+(farbe||"var(--greendk)")+'">'+r+'</span></div>'; };
   const CARD2=function(titel, inner){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;margin-top:8px">'
     +'<div style="font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:2px">'+titel+'</div>'+inner+'</div>'; };
@@ -3820,12 +3827,12 @@ async function ladeStammPanel(){
     html+=CARD2("Zutaten-Stamm",
         li("Einträge gesamt", s.gesamt)
       + li("davon bewertet", s.bewertet)
-      + li("unbewertet", s.unbewertet, (s.unbewertet>0?"var(--k-e8920c)":null))
+      + li("unbewertet", s.unbewertet, (s.unbewertet>0?"var(--k-e8920c)":null), "stamm_unbewertet")
       + li("als kritisch markiert", s.kritisch)
       + li("Trägerstoffe", s.traegerstoffe)
       + li("an Produkte gebunden", s.gebunden)
       + li("nie gebunden", s.nie_gebunden, (s.nie_gebunden>0?"var(--muted)":null))
-      + li("ohne Kategorie", s.ohne_kategorie, (s.ohne_kategorie>0?"var(--k-e8920c)":null)));
+      + li("ohne Kategorie", s.ohne_kategorie, (s.ohne_kategorie>0?"var(--k-e8920c)":null), "stamm_ohne_kategorie"));
 
     /* Die Spanne zwischen "kategorisiert" und "zusammen" ist die eigentliche Aussage:
        so viele Zusatzstoffe traegt der Stamm, ohne als solche gekennzeichnet zu sein. */
@@ -3835,15 +3842,15 @@ async function ladeStammPanel(){
       + li("mit E-Nummer im Namen", z.mit_e_nummer)
       + li("laut Open Food Facts", z.laut_off)
       + li("<b>zusammen (ohne Doppelte)</b>", "<b>"+z.zusammen+"</b>")
-      + (luecke>0 ? '<div style="font-size:11.5px;color:var(--k-b45309);margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">'
-          +'<b>'+luecke+'</b> Zusatzstoffe sind nicht als solche kategorisiert – erkannt nur über E-Nummer oder Referenzdaten.</div>' : ''));
+      + (luecke>0 ? '<div onclick="dashDrill(\'zusatz_nicht_kategorisiert\',\'Zusatzstoffe ohne Kategorie\')" title="Betroffene anzeigen" style="cursor:pointer;font-size:11.5px;color:var(--k-b45309);margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">'
+          +'<b>'+luecke+'</b> Zusatzstoffe sind nicht als solche kategorisiert – erkannt nur über E-Nummer oder Referenzdaten. <span style="text-decoration:underline">anzeigen ›</span></div>' : ''));
 
     html+=CARD2("Referenzdaten <span style=\"font-weight:400;color:var(--muted)\">(Open Food Facts, ODbL v1.0)</span>",
         li("Zusatzstoffe", ref.off_zusatzstoffe)
       + li("Zutaten", ref.off_zutaten)
       + li("Einträge gesamt", ref.off_gesamt)
       + li("unser Stamm mit Treffer", ref.stamm_mit_treffer+" von "+(s.gesamt||"?"))
-      + li("mehrdeutige Begriffe", ref.mehrdeutig, (ref.mehrdeutig>0?"var(--k-e8920c)":null))
+      + li("mehrdeutige Begriffe", ref.mehrdeutig, (ref.mehrdeutig>0?"var(--k-e8920c)":null), "mehrdeutig")
       + '<div style="font-size:11px;color:var(--muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">'
       + 'Nachschlagewerk zur Erkennung von Schreibvarianten – <b>setzt keine Noten</b>. '
       + (ref.off_stand?'Stand '+esc(new Date(ref.off_stand).toLocaleDateString('de-DE')):'')+'</div>');
@@ -9891,7 +9898,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-18k";
+const APP_BUILD = "2026-07-18l";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
