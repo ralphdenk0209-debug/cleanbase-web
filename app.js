@@ -5686,18 +5686,51 @@ async function loadZuVerif(){
   const rows=data||[];
   /* Neueste zuerst: nach Erfassungsdatum absteigend, bei Gleichstand nach P-Nummer absteigend. */
   rows.sort(function(a,b){ var da=String(a.erfasst||""), db=String(b.erfasst||""); if(da!==db) return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0, nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
+  window._verifRows=rows;
+  if(!window._verifSel) window._verifSel=new Set();
+  /* Markierungen aufraeumen, die nicht mehr in der Liste sind (z. B. inzwischen verifiziert). */
+  var ids={}; rows.forEach(function(r){ ids[r.id]=1; });
+  Array.from(window._verifSel).forEach(function(id){ if(!ids[id]) window._verifSel.delete(id); });
+  verifRender();
+}
+function verifToggle(id){ if(!window._verifSel) window._verifSel=new Set(); if(window._verifSel.has(id)) window._verifSel.delete(id); else window._verifSel.add(id); verifRender(); }
+function verifClear(){ if(window._verifSel) window._verifSel.clear(); verifRender(); }
+function verifRender(){
+  const el=document.getElementById("fgZuverif"); if(!el) return;
+  const rows=window._verifRows||[]; const sel=window._verifSel||new Set();
   if(!rows.length){ el.innerHTML='<span style="color:var(--muted)">Nichts offen – alle aktiven Produkte sind verifiziert. 🎉</span>'; return; }
+  const q=((document.getElementById("verifFilter")||{}).value||"").trim().toLowerCase();
+  const nur=!!((document.getElementById("verifNur")||{}).checked);
   const grp={}; rows.forEach(function(r){ (grp[r.grund]=grp[r.grund]||[]).push(r); });
-  const head='<div style="font-size:12px;color:var(--muted);margin-bottom:8px"><b>'+rows.length+'</b> Produkte offen'
-    +Object.keys(grp).map(function(g){ return ' · '+esc(g)+': '+grp[g].length; }).join('')+'</div>';
-  el.innerHTML=head+rows.map(function(p){ return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
-      +'<div style="min-width:0"><b>'+esc(p.name||"?")+'</b> <span style="color:var(--muted)">· '+esc(p.marke||"")+'</span>'
-      +'<div style="font-size:12px;color:var(--muted)">'+esc(p.id)+' · '+esc(p.kategorie||"")+' · '+esc(p.ean||"")+(p.erfasst?' · 🕒 '+esc(p.erfasst):'')+' · <span style="color:var(--k-b45309)">'+esc(p.grund||"")+'</span></div></div>'
+  const list=rows.filter(function(p){
+    if(nur && !sel.has(p.id)) return false;
+    if(!q) return true;
+    return (String(p.name||"")+" "+String(p.marke||"")+" "+String(p.id||"")+" "+String(p.ean||"")+" "+String(p.kategorie||"")+" "+String(p.grund||"")).toLowerCase().indexOf(q)>=0;
+  });
+  var toolbar='<div style="position:sticky;top:0;background:var(--bg);padding:2px 0 8px;z-index:5">'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:6px"><b>'+rows.length+'</b> offen'
+      +Object.keys(grp).map(function(g){ return ' · '+esc(g)+': '+grp[g].length; }).join('')+'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +'<input id="verifFilter" oninput="verifRender()" value="'+esc(q)+'" placeholder="Filtern: Name, Marke, EAN, Grund…" style="flex:1;min-width:180px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px">'
+      +'<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);white-space:nowrap;cursor:pointer"><input type="checkbox" id="verifNur" '+(nur?'checked':'')+' onchange="verifRender()" style="width:15px;height:15px">nur markierte</label>'
+    +'</div>'
+    +'<div style="display:flex;gap:10px;align-items:center;margin-top:6px;font-size:12.5px;flex-wrap:wrap">'
+      +'<span style="color:'+(sel.size?'var(--k-166534)':'var(--muted)')+';font-weight:600">'+sel.size+' markiert</span>'
+      +(sel.size?'<button onclick="verifClear()" style="padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Auswahl leeren</button>':'')
+      +'<span style="color:var(--muted);margin-left:auto">'+list.length+' angezeigt</span>'
+    +'</div></div>';
+  if(!list.length){ el.innerHTML=toolbar+'<div style="color:var(--muted);font-size:13px;margin-top:12px">Kein Treffer.</div>'; var f0=document.getElementById("verifFilter"); if(f0){ f0.focus(); f0.setSelectionRange(f0.value.length,f0.value.length);} return; }
+  el.innerHTML=toolbar+list.map(function(p){ var on=sel.has(p.id);
+    return '<div style="background:var(--card);border:1px solid '+(on?'var(--k-16a34a)':'var(--line)')+';border-radius:12px;padding:11px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
+      +'<label style="display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 260px;cursor:pointer"><input type="checkbox" '+(on?"checked":"")+' onclick="verifToggle(\''+p.id+'\')" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--k-16a34a)">'
+      +'<span style="min-width:0"><b>'+esc(p.name||"?")+'</b> <span style="color:var(--muted)">· '+esc(p.marke||"")+'</span>'
+      +'<div style="font-size:12px;color:var(--muted)">'+esc(p.id)+' · '+esc(p.kategorie||"")+' · '+esc(p.ean||"")+(p.erfasst?' · 🕒 '+esc(p.erfasst):'')+' · <span style="color:var(--k-b45309)">'+esc(p.grund||"")+'</span></div></span></label>'
       +'<div style="display:flex;gap:8px;flex:0 0 auto;align-items:center"><a href="https://www.google.com/search?q='+encodeURIComponent((p.name||"")+" "+(p.marke||"")+" Zutaten Nährwerte")+'" target="_blank" rel="noopener" style="font-size:12px;color:var(--k-0ea5e9)">🔎 suchen ↗</a>'
       +'<button onclick="openFgEditor(\''+p.id+'\')" style="padding:8px 12px;border:1px solid var(--k-0ea5e9);border-radius:8px;background:var(--card);color:var(--k-0369a1);cursor:pointer;font-size:13px">✏️ Bearbeiten</button></div>'
       +'</div>'; }).join("");
+  var fi=document.getElementById("verifFilter"); if(fi && q){ fi.focus(); fi.setSelectionRange(fi.value.length,fi.value.length); }
 }
-if(typeof window!=='undefined') window.loadZuVerif=loadZuVerif;
+if(typeof window!=='undefined'){ window.loadZuVerif=loadZuVerif; window.verifRender=verifRender; window.verifToggle=verifToggle; window.verifClear=verifClear; }
 async function loadRezepteFree(){
   const box=document.getElementById("fgRezepteFree"); if(!box) return;
   try{
@@ -8683,7 +8716,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19o";
+const APP_BUILD = "2026-07-19p";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
