@@ -5787,7 +5787,7 @@ function fgZutRow(name,rating,kritisch){
   const bound=(name && typeof ZUTATEN_MAP!=="undefined" && ZUTATEN_MAP && ZUTATEN_MAP[(name||"").trim().toLowerCase()]!=null);
   /* Bewertung ist READONLY (an den Stamm gebunden, keine Willkuer). Unbekannte Zutat -> "→ Riki". */
   return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;color-scheme:light">
+    <input class="fgzName" list="fgZutDL" value="${esc(name||"")}" oninput="fgZutAuto(this)" placeholder="Zutat wählen oder neu tippen" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);color-scheme:dark">
     <input class="fgzRate" type="number" min="0" max="10" step="1" value="${hasR?rating:""}" readonly tabindex="-1" placeholder="–" title="Bewertung ist an die Zutat (Stamm) gebunden – nicht von Hand änderbar. Unbekannt? „→ Riki" bewerten lassen." style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center;background:var(--k-f2f5f3);color:var(--ink);cursor:not-allowed">
     <button type="button" class="fgzRiki" onclick="fgZutRiki(this)" title="Riki stuft die Zutat ein + zwei Wächter prüfen, dann in den Stamm aufnehmen" style="flex:0 0 auto;padding:6px 8px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:11.5px;white-space:nowrap;${bound?"display:none":""}">→ Riki</button>
     <label style="font-size:11px;color:var(--k-b91c1c);display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:var(--k-dc2626)">⚠️</label>
@@ -8528,7 +8528,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19j";
+const APP_BUILD = "2026-07-19k";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
