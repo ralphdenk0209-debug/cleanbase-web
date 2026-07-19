@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADMIN-BACKEND · Kopie der App-Huelle, laedt dieselbe app.js. Consumer-Bedienung ausgeblendet. build 2026-07-19f (admin-modus via hash, nav-spalte links) -->
+<!-- ADMIN-BACKEND · Kopie der App-Huelle, laedt dieselbe app.js. Consumer-Bedienung ausgeblendet. build 2026-07-19g (marketing-leiste ausgeblendet) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1420,6 +1420,7 @@ if(location.hash!=='#admin'){ try{ history.replaceState(null,'','#admin'); }catc
   /* Admin-Bereich: keine Consumer-Bedienung, kein Marketing-Kopf, kein Intro. */
   nav.bottomnav{display:none !important;}
   .hero{display:none !important;}
+  .principles{display:none !important;}
   /* Admin-Navigation als linke Spalte statt Kopfzeile (Ralph, 19.07.2026). */
   #adminNav{flex-direction:column !important;align-items:stretch !important;gap:14px !important;
             position:sticky;top:8px;float:left;width:150px;margin:0 20px 14px 0 !important;}
