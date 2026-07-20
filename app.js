@@ -2524,10 +2524,11 @@ function peLightCssInject(){
   }catch(e){}
   var tokCss=''; for(var key in toks){ tokCss+=key+':'+toks[key]+';'; }
   var css=
-    '#fgProdErf{color-scheme:light;color:#1f2a44;'+tokCss
+    '#fgProdErf{color-scheme:light;color:#1f2a44;background:#f4f7fa;border-radius:12px;padding:4px 10px 16px;'+tokCss
       +'--bg:#f4f7fa;--card:#ffffff;--ink:#1f2a44;--muted:#7b8698;--line:#e2e8ef;'
       +'--green:#2e9e57;--green2:#10b981;--greendk:#1f7d43;--greenlt:#e7f6ec;'
       +'--auf-gruen:#ffffff;--auf-gruen-dunkel:#ffffff;--card2:#eef2f7;}'
+    +'#fgProdErf #fe_grid>div,#fgProdErf #peDetail{min-width:0}'
     +'#fgProdErf input,#fgProdErf select,#fgProdErf textarea{color-scheme:light;background:#ffffff;color:#1f2a44;border-color:#d3dbe6}'
     +'#fgProdErf input:disabled,#fgProdErf select:disabled{background:#eef2f7;color:#7b8698}'
     +'#fgProdErf input::placeholder,#fgProdErf textarea::placeholder{color:#9aa7b2;opacity:1}'
@@ -2551,15 +2552,23 @@ async function loadProduktErfassung(){
   box.style.cssText='width:min(1560px,calc(100vw - 250px));max-width:none;margin-left:calc((1040px - min(1560px,calc(100vw - 250px)))/2);';
   box.innerHTML='<div style="color:#7b8698;font-size:12.5px;padding:8px">Lade Produkte…</div>';
   try{
-    var r=await client.from('v_zu_verifizieren').select('*').limit(2000);
-    if(r.error) throw r.error;
-    var rows=r.data||[];
+    /* GANZER aktiver Katalog (v_erfassung_katalog), damit die Tabelle Score/Quelle/Status
+       WIRKLICH zeigt – nicht nur der leere Posteingang. PostgREST kappt bei 1000 Zeilen,
+       darum blaettern (Pagination), sonst waeren >600 Produkte unsichtbar (CLAUDE.md). */
+    var rows=[],from=0,size=1000;
+    while(true){
+      var r=await client.from('v_erfassung_katalog').select('*').order('erfasst',{ascending:false}).range(from,from+size-1);
+      if(r.error) throw r.error;
+      var d=r.data||[]; rows=rows.concat(d);
+      if(d.length<size) break; from+=size; if(from>20000) break;
+    }
     rows.sort(function(a,b){ var da=String(a.erfasst||""),db=String(b.erfasst||""); if(da!==db)return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0,nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
     window._verifRows=rows; window._peRows=rows;
   }catch(e){ box.innerHTML='<div style="color:#cf5442;font-size:12.5px;padding:8px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
   if(window._peChip===undefined) window._peChip='alle';
   var rws=window._peRows;
   var cnt={ alle:rws.length,
+            zuverif:rws.filter(function(p){return p.zu_verifizieren;}).length,
             keinscore:rws.filter(function(p){return p.score==null;}).length,
             keinquelle:rws.filter(function(p){return !p.quelle_typ;}).length,
             keinzut:rws.filter(function(p){return !p.hat_zutaten;}).length,
@@ -2585,6 +2594,7 @@ async function loadProduktErfassung(){
     /* Filter-Chips (echte Zahlen) */
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
       +chip('alle','Alle',cnt.alle)
+      +chip('zuverif','Zu verifizieren',cnt.zuverif)
       +chip('keinscore','Ohne Score',cnt.keinscore)
       +chip('keinquelle','Ohne Quelle',cnt.keinquelle)
       +chip('keinzut','Ohne Zutaten',cnt.keinzut)
@@ -2592,7 +2602,7 @@ async function loadProduktErfassung(){
     +'</div>'
     /* Session-Leiste */
     +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin-bottom:12px">'
-      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Ansicht</div><input value="Posteingang – Zu verifizieren" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
+      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Ansicht</div><input value="Katalog – alle aktiven Produkte" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Bearbeiter</div><input id="peBearb" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Sortierung</div>'
         +'<select id="peSort" onchange="peRender()" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"><option value="neu">Erfasst – neueste zuerst</option><option value="score">Score aufsteigend</option><option value="titel">Titel A–Z</option><option value="mark">Nur markierte</option></select></div>'
@@ -2633,6 +2643,7 @@ function peRender(){
   var chipf=window._peChip||'alle';
   var sort=((document.getElementById('peSort')||{}).value)||'neu';
   var list=rows.filter(function(p){
+    if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
     if(chipf==='keinscore'&&p.score!=null) return false;
     if(chipf==='keinquelle'&&p.quelle_typ) return false;
     if(chipf==='keinzut'&&p.hat_zutaten) return false;
@@ -6532,13 +6543,18 @@ function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
   const hasR=!(rating===null||rating===undefined||rating==="");
   const bound=(name && typeof ZUTATEN_MAP!=="undefined" && ZUTATEN_MAP && ZUTATEN_MAP[(name||"").trim().toLowerCase()]!=null);
-  /* Bewertung ist READONLY (an den Stamm gebunden, keine Willkuer). Unbekannte Zutat -> "→ Riki". */
-  return `<div class="fgZutRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <span class="fgzWrap" style="position:relative;flex:1;min-width:0"><input class="fgzName" value="${esc(name||"")}" oninput="fgZutAuto(this);fgzMenu(this)" onfocus="fgzMenu(this)" onblur="fgzMenuBlur(this)" autocomplete="off" placeholder="Zutat wählen oder neu tippen" style="width:100%;box-sizing:border-box;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink)"><div class="fgzMenu" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 3px);z-index:60;background:var(--card);border:1px solid var(--line);border-radius:8px;max-height:210px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.22)"></div></span>
-    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${hasR?rating:""}" readonly tabindex="-1" placeholder="–" title="Bewertung ist an die Zutat (Stamm) gebunden – nicht von Hand änderbar. Unbekannt? „→ Riki" bewerten lassen." style="width:54px;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center;background:var(--k-f2f5f3);color:var(--ink);cursor:not-allowed">
-    <button type="button" class="fgzRiki" onclick="fgZutRiki(this)" title="Riki stuft die Zutat ein + zwei Wächter prüfen, dann in den Stamm aufnehmen" style="flex:0 0 auto;padding:6px 8px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:11.5px;white-space:nowrap;${bound?"display:none":""}">→ Riki</button>
-    <label style="font-size:11px;color:var(--k-b91c1c);display:flex;align-items:center;gap:2px" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:var(--k-dc2626)">⚠️</label>
-    <button type="button" onclick="fgZutRowDel(this)" title="Zutat entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:8px;width:30px;height:30px;cursor:pointer;flex:0 0 auto">✕</button>
+  /* Bewertung ist READONLY (an den Stamm gebunden, keine Willkuer). Unbekannte Zutat -> "→ Riki".
+     Tabellen-Layout: jede Zeile ein eigenes Grid mit IDENTISCHEN Spalten (Name | Bewertung |
+     kritisch | Aktion) -> saubere Tabellen-Optik wie im Raster oben. Kein <table>, damit die
+     Riki-Info-Zeile (fgRikiInfo) weiterhin als volle Zeile dazwischenpasst. */
+  return `<div class="fgZutRow" style="display:grid;grid-template-columns:1fr 62px 30px 78px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line)">
+    <span class="fgzWrap" style="position:relative;min-width:0"><input class="fgzName" value="${esc(name||"")}" oninput="fgZutAuto(this);fgzMenu(this)" onfocus="fgzMenu(this)" onblur="fgzMenuBlur(this)" autocomplete="off" placeholder="Zutat wählen oder neu tippen" style="width:100%;box-sizing:border-box;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink)"><div class="fgzMenu" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 3px);z-index:60;background:var(--card);border:1px solid var(--line);border-radius:8px;max-height:210px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.22)"></div></span>
+    <input class="fgzRate" type="number" min="0" max="10" step="1" value="${hasR?rating:""}" readonly tabindex="-1" placeholder="–" title="Bewertung ist an die Zutat (Stamm) gebunden – nicht von Hand änderbar. Unbekannt? „→ Riki" bewerten lassen." style="width:100%;box-sizing:border-box;padding:7px 4px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center;background:var(--k-f2f5f3);color:var(--ink);cursor:not-allowed">
+    <label style="justify-self:center;display:flex;align-items:center" title="kritisch"><input class="fgzKrit" type="checkbox" ${kr?"checked":""} style="width:15px;height:15px;accent-color:var(--k-dc2626)"></label>
+    <span style="display:flex;gap:4px;justify-content:flex-end;align-items:center">
+      <button type="button" class="fgzRiki" onclick="fgZutRiki(this)" title="Riki stuft die Zutat ein + zwei Wächter prüfen, dann in den Stamm aufnehmen" style="flex:0 0 auto;padding:5px 7px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:11px;white-space:nowrap;${bound?"display:none":""}">→ Riki</button>
+      <button type="button" onclick="fgZutRowDel(this)" title="Zutat entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:8px;width:28px;height:28px;cursor:pointer;flex:0 0 auto">✕</button>
+    </span>
   </div>`;
 }
 function fgZutRowDel(b){ var row=b.closest(".fgZutRow"); if(!row) return; var inf=row.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove(); row.remove(); try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){} }
@@ -6961,6 +6977,7 @@ async function openFgEditor(id, prefill, targetEl){
             </div>
           </details>
           <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
+          <div style="display:grid;grid-template-columns:1fr 62px 30px 78px;gap:8px;padding:0 0 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span>Zutat / Wirkstoff</span><span style="text-align:center">Bewertung</span><span style="text-align:center" title="kritisch">⚠️</span><span></span></div>
           <div id="fe_zutRows">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")||fgZutRow("",null,"nein")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="margin-top:4px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
@@ -6986,9 +7003,9 @@ async function openFgEditor(id, prefill, targetEl){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${targetEl&&id?`<button onclick="peDeaktiv('${esc(id)}')" style="padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--k-cf5442,#cf5442);cursor:pointer;font-size:13px">Löschen</button>`:""}
         ${targetEl?`<button onclick="peNeu()" style="padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Neu</button>`:""}
-        <button onclick="fgEditSave(false)" style="padding:10px 16px;border:0;border-radius:10px;background:var(--k-0ea5e9);color:var(--k-ffffff);font-weight:600;cursor:pointer">💾 Speichern</button>
-        <button onclick="fgEditSave(true)" style="padding:10px 18px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:700;cursor:pointer">✓ Speichern &amp; freigeben</button>
-        ${targetEl?`<button onclick="peClose()" style="padding:10px 16px;border:0;border-radius:10px;background:var(--k-2a3f86,#2a3f86);color:#fff;font-weight:600;cursor:pointer">Schließen</button>`:""}
+        <button onclick="fgEditSave(false)" style="padding:10px 16px;border:1px solid ${targetEl?"#2a3f86":"var(--k-0ea5e9)"};border-radius:10px;background:${targetEl?"#3b56b0":"var(--k-0ea5e9)"};color:#fff;font-weight:600;cursor:pointer">💾 Speichern</button>
+        <button onclick="fgEditSave(true)" style="padding:10px 18px;border:0;border-radius:10px;background:${targetEl?"#2e9e57":"var(--k-16a34a)"};color:#fff;font-weight:700;cursor:pointer">✓ Speichern &amp; freigeben</button>
+        ${targetEl?`<button onclick="peClose()" style="padding:10px 16px;border:1px solid #d3dbe6;border-radius:10px;background:#fff;color:#1f2a44;font-weight:600;cursor:pointer">Schließen</button>`:""}
       </div>
     </div>
     <div id="fe_msg" style="font-size:13px;margin-top:8px"></div>`;
@@ -9573,7 +9590,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20g";
+const APP_BUILD = "2026-07-20h";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
