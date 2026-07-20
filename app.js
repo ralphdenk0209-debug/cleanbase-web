@@ -6649,6 +6649,79 @@ function fgZutRiki(btn){
   }, function(){ btn.disabled=false; btn.textContent="Fehler"; setTimeout(function(){btn.textContent="→ Riki";},1500); });
 }
 function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.insertAdjacentHTML("beforeend", fgZutRow("",null,"nein")); }
+/* ===== Zutaten/Wirkstoff-PICKER (Ralph 20.07.2026) =====
+   Links: durchsuchbare, scrollbare Liste ALLER Stamm-Zutaten (bei Supplement nur Wirkstoffe)
+   mit Checkbox „enthalten" + Bewertung. Rechts: mehrzeilige Textbox, die die angehakten Namen
+   spiegelt. Kanonisch bleibt der versteckte #fe_zutRows (den liest Score UND Speichern) – der
+   Picker schreibt nur dort hinein, ein MutationObserver haelt Textbox + Haekchen synchron.
+   Vorteil: Riki-Analyse, OFF-Gegenprobe und Foto-Import fuellen weiterhin #fe_zutRows und werden
+   automatisch mitgespiegelt – kein doppelter Datenpfad. */
+function _fgRowsSet(){ var set={}; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var n=((r.querySelector(".fgzName")||{}).value||"").trim(); if(n) set[n.toLowerCase()]=true; }); return set; }
+function _fgRowsNames(){ var out=[]; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var n=((r.querySelector(".fgzName")||{}).value||"").trim(); if(n) out.push(n); }); return out; }
+function fgPickRender(){
+  var wrap=document.getElementById("fe_pickList"); if(!wrap) return;
+  var q=((document.getElementById("fe_zutSuche")||{}).value||"").trim().toLowerCase();
+  var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
+  var sel=_fgRowsSet();
+  var all=(ZUTATEN_STAMM||[]).filter(function(it){ if(supp && it.kategorie && FG_FOOD_KATS[it.kategorie]) return false; return true; });
+  var isSel=function(it){ return !!sel[(it.name||"").trim().toLowerCase()]; };
+  var checked=all.filter(isSel), rest=all.filter(function(it){return !isSel(it);});
+  var shown, more=0, hinweis="";
+  if(q){
+    var mc=checked.filter(function(it){return (it.name||"").toLowerCase().indexOf(q)>=0;});
+    var mr=rest.filter(function(it){return (it.name||"").toLowerCase().indexOf(q)>=0;});
+    shown=mc.concat(mr); if(shown.length>400){ more=shown.length-400; shown=shown.slice(0,400); }
+  } else {
+    shown=checked.slice();
+    if(rest.length) hinweis="＋ "+rest.length+" weitere – tippe oben ins Suchfeld, um sie zu finden.";
+  }
+  var row=function(it){ var nm=it.name||"", chk=isSel(it), rt=(it.rating==null?"–":it.rating);
+    var col=(it.rating==null)?"var(--muted)":(it.rating>=7?"#2e9e57":it.rating>=4?"#c88616":"#cf5442");
+    return '<label style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(chk?"background:var(--greenlt,#eef7f0)":"")+'">'
+      +'<input type="checkbox" '+(chk?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(it.rating==null?"":it.rating)+'" data-krit="'+esc(it.kritisch||"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+'</span>'
+      +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
+      +'</label>'; };
+  wrap.innerHTML = (shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Noch nichts angehakt – tippe oben, um zu suchen.")+'</div>')
+    + (more?'<div style="padding:8px;color:var(--muted);font-size:12px;text-align:center;border-top:1px solid var(--line)">… '+more+' weitere Treffer – Suche verfeinern.</div>':"")
+    + (hinweis?'<div style="padding:8px;color:var(--muted);font-size:12px;text-align:center;border-top:1px solid var(--line)">'+hinweis+'</div>':"");
+}
+function fgPickToggle(cb){
+  var name=(cb.dataset.name||"").trim(); if(!name) return;
+  var rating=(cb.dataset.rating===""?null:Number(cb.dataset.rating));
+  var krit=cb.dataset.krit||"nein";
+  var c=document.getElementById("fe_zutRows"); if(!c) return;
+  var key=name.toLowerCase();
+  if(cb.checked){
+    var exists=[].some.call(c.querySelectorAll(".fgZutRow"),function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key; });
+    if(!exists) c.insertAdjacentHTML("beforeend", fgZutRow(name, rating, krit));
+  } else {
+    [].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ if(((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key){ var inf=r.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove(); r.remove(); } });
+  }
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}   /* fePlaus stoesst auch feScorePreview an */
+}
+function fgPickAddNeu(){
+  var inp=document.getElementById("fe_zutNeu"); if(!inp) return;
+  var name=(inp.value||"").trim(); if(!name) return;
+  var c=document.getElementById("fe_zutRows"); if(!c) return;
+  var key=name.toLowerCase();
+  var exists=[].some.call(c.querySelectorAll(".fgZutRow"),function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key; });
+  if(!exists){ var m=ZUTATEN_MAP[key]; c.insertAdjacentHTML("beforeend", fgZutRow(name, m?m.rating:null, m?m.kritisch:"nein")); }
+  inp.value=""; fgPickRender();
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+}
+/* Textbox + Haekchen aus #fe_zutRows spiegeln – vom Observer aufgerufen, egal wer die Rows aendert. */
+function fgPickRefreshView(){
+  var names=_fgRowsNames(), set={}; names.forEach(function(n){ set[n.toLowerCase()]=true; });
+  var tb=document.getElementById("fe_enthalten"); if(tb) tb.value=names.join("\n");
+  document.querySelectorAll("#fe_pickList input[type=checkbox]").forEach(function(cb){ cb.checked=!!set[(cb.dataset.name||"").trim().toLowerCase()]; });
+}
+function fgPickObserve(){
+  try{ if(window._fgPickObs) window._fgPickObs.disconnect(); }catch(e){}
+  var c=document.getElementById("fe_zutRows"); if(!c||typeof MutationObserver==="undefined") return;
+  window._fgPickObs=new MutationObserver(function(){ if(window._fgPickRaf) return; window._fgPickRaf=requestAnimationFrame(function(){ window._fgPickRaf=0; try{ fgPickRefreshView(); }catch(e){} }); });
+  window._fgPickObs.observe(c,{childList:true,subtree:true});
+}
 /* ---- OFF-Gegenprobe: Zutatenliste per EAN aus Open Food Facts holen ----
    NUR Vorschlag: OFF ist community-gepflegt und kennt Nischenprodukte oft nicht.
    Nichts wird automatisch uebernommen/ueberschrieben - der Admin klickt je Zutat. */
@@ -6977,9 +7050,24 @@ async function openFgEditor(id, prefill, targetEl){
             </div>
           </details>
           <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
-          <div style="display:grid;grid-template-columns:1fr 62px 30px 78px;gap:8px;padding:0 0 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span>Zutat / Wirkstoff</span><span style="text-align:center">Bewertung</span><span style="text-align:center" title="kritisch">⚠️</span><span></span></div>
-          <div id="fe_zutRows">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")||fgZutRow("",null,"nein")}</div>
-          <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="margin-top:4px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px">+ Zutat</button>
+          <input id="fe_zutSuche" oninput="fgPickRender()" placeholder="🔍 Zutat / Wirkstoff im Stamm suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:8px">
+          <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:10px;align-items:start">
+            <div style="min-width:0">
+              <div style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span title="enthalten">☑</span><span>Zutat / Wirkstoff</span><span style="text-align:center">Wert</span></div>
+              <div id="fe_pickList" style="max-height:340px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card)"></div>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <input id="fe_zutNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgPickAddNeu();}" placeholder="nicht im Stamm? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)">
+                <button type="button" onclick="fgPickAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button>
+              </div>
+            </div>
+            <div style="min-width:0">
+              <div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px">In diesem Produkt enthalten</div>
+              <textarea id="fe_enthalten" readonly rows="15" placeholder="Angehakte Zutaten/Wirkstoffe erscheinen hier – eine je Zeile." style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical;min-height:200px"></textarea>
+              <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4">Wird aus den Häkchen links gefüllt. Die Bewertung ist an den Stamm gebunden – nicht frei änderbar.</div>
+            </div>
+          </div>
+          <div id="fe_zutRows" style="display:none">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
+          <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
         ${card("Zusatzstoffe",`${inp("fe_ztext",d.zusatzstoffe_text||"keine")}<div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>`)}
       </div>
@@ -7018,6 +7106,7 @@ async function openFgEditor(id, prefill, targetEl){
     }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
     try{ feKatChange(); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
+    try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
   if(!targetEl) document.getElementById("overlay").classList.add("open");
 }
 /* Kategorie-Wechsel im Editor: bei „Supplement" heisst die Zutaten-Sektion „Wirkstoffe"
@@ -7027,6 +7116,7 @@ function feKatChange(){
   var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
+  try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
 /* Etikettfoto gross ansehen - beim Abtippen der Naehrwerte ist das der eigentliche Zweck. */
@@ -9590,7 +9680,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20h";
+const APP_BUILD = "2026-07-20i";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
