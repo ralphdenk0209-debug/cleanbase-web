@@ -2377,17 +2377,121 @@ function updateFloatBtns(){
 }
 function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   try{ var _ov=document.getElementById("overlay"); if(_ov&&_ov.classList.contains("fgEditorFull")) closeP(); }catch(e){}  /* Menue-Wechsel schliesst den Vollbild-Editor */
-  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif'};
+  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif',regelwerk:'fgPanelRegelwerk'};
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
   /* „Eingang" als eigener Reiter zurueckgezogen (Ralph 19.07.): sein Inhalt (Scan-Eingang mit
      Uebernehmen, Entwuerfe, Auto-Verify, Riki-Audit) erscheint jetzt UNTER „Zu verifizieren" –
      ein einziger Posteingang, in dem alles gesammelt wird. Nichts wird automatisch angelegt. */
   if(t==='zuverif'){ var ps=document.getElementById('fgPanelScans'); if(ps) ps.style.display=''; }
-  ['dash','produkte','bundles','rezepte','scans','kontakt','empfehlungen','zuverif'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
+  ['dash','produkte','bundles','rezepte','scans','kontakt','empfehlungen','zuverif','regelwerk'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
   if(t==='empfehlungen' && typeof renderEmpfehlungen==='function') renderEmpfehlungen();
   if(t==='zuverif' && typeof loadScans==='function') loadScans();
   if(t==='dash' && typeof loadDashboard==='function') loadDashboard();
   if(t==='zuverif' && typeof loadZuVerif==='function') loadZuVerif();
+  if(t==='regelwerk' && typeof loadRegelwerk==='function') loadRegelwerk();
+}
+
+/* ================= REGELWERK (Admin-Beta „regelwerk") =================
+   Zentrale, editierbare Bewertungsregeln aus der Tabelle Bewertungsregeln —
+   der Speicherort statt der Vault-Datei. Die Katalog-WERTE (Ratings, E-Nummern,
+   Grenzwerte) bleiben in ihren Stamm-Tabellen; hier stehen die TEXT-Regeln, live
+   aus der DB gelesen und in der App bearbeitbar (admin-gesichert). */
+const RW_BEREICHE=[
+  {k:'achsen',t:'Die vier Achsen',d:'Woraus der Score von 100 Punkten besteht.'},
+  {k:'prinzipien',t:'Grundprinzipien',d:'Die Leitplanken hinter jeder Einzelentscheidung.'},
+  {k:'staffel',t:'Verarbeitungs-Staffel (§2.1)',d:'Die Zutaten-Achse misst nur den Verarbeitungsgrad: 10 = roh … 2 = isoliert.'},
+  {k:'staffel7',t:'Extrakte & isolierte Mikronährstoffe (§7)',d:'Ordnung belegt über NOVA, Stufenzahlen gesetzt.'},
+  {k:'zusatzstoffe',t:'Zusatzstoffe',d:'Die E-Nummern-Achse (15 Punkte).'},
+  {k:'suessstoffe',t:'Süßstoffe',d:'Bewertung nach Verarbeitung; die Gesundheit steht auf der Zusatzstoff-Achse.'},
+  {k:'aroma',t:'Aromen',d:'Kein Zusatzstoff (VO 1334/2008), nur Verarbeitungs-Marker.'},
+  {k:'dosis',t:'Dosis-Check (Supplements)',d:'EFSA-Ampel statt Punktzahl.'},
+  {k:'waechter',t:'Wächter & Go-Live-Gates',d:'Regeln, die vor dem Livegang automatisch prüfen.'}
+];
+function rwBelegBadge(t){
+  if(!t) return '';
+  var m={belegt:['var(--k-16a34a)','belegt'],gesetzt:['var(--k-b45309)','gesetzt'],gemischt:['var(--k-2563eb)','Ordnung belegt · Zahl gesetzt']};
+  var x=m[t]||['var(--muted)',t];
+  return '<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;border:1px solid '+x[0]+';color:'+x[0]+';white-space:nowrap">'+esc(x[1])+'</span>';
+}
+let RW_REGELN=[];
+async function loadRegelwerk(){
+  var box=document.getElementById('fgRegelwerk'); if(!box) return;
+  box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Regelwerk…</div>';
+  try{
+    var r=await client.from('Bewertungsregeln').select('*').eq('aktiv',true).order('bereich',{ascending:true}).order('reihenfolge',{ascending:true});
+    if(r.error) throw r.error;
+    RW_REGELN=r.data||[];
+  }catch(e){ box.innerHTML='<div style="color:var(--k-dc2626);font-size:12.5px">Regelwerk nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
+  rwRender();
+}
+function rwRender(){
+  var box=document.getElementById('fgRegelwerk'); if(!box) return;
+  var admin=(typeof ME!=='undefined'&&ME&&ME.is_admin);
+  var html='';
+  RW_BEREICHE.forEach(function(b){
+    var rows=RW_REGELN.filter(function(x){return x.bereich===b.k;});
+    if(!rows.length && !admin) return;
+    html+='<div style="margin:0 0 20px">';
+    html+='<div style="font-size:15.5px;font-weight:800;color:var(--ink)">'+esc(b.t)+'</div>';
+    html+='<div style="font-size:12px;color:var(--muted);margin:1px 0 10px">'+esc(b.d)+'</div>';
+    rows.forEach(function(x){ html+=rwCard(x,admin); });
+    if(admin) html+='<button onclick="rwEdit(null,\''+b.k+'\')" style="margin-top:2px;padding:5px 11px;border:1px dashed var(--line);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:12px">+ Regel</button>';
+    html+='</div>';
+  });
+  box.innerHTML=html||'<div style="color:var(--muted)">Noch keine Regeln erfasst.</div>';
+}
+function rwCard(x,admin){
+  var wert=x.wert?'<span style="flex:0 0 auto;min-width:36px;text-align:center;font-weight:800;font-size:15px;color:var(--k-1d3c24);background:var(--k-eef6ee);border-radius:8px;padding:4px 8px">'+esc(x.wert)+'</span>':'';
+  var q=x.quelle?'<div style="font-size:11px;color:var(--k-2563eb);margin-top:5px">Quelle: '+esc(x.quelle)+'</div>':'';
+  var edit=admin?'<button onclick="rwEdit(\''+x.id+'\')" title="Bearbeiten" style="flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:7px;width:28px;height:28px;cursor:pointer">✎</button>':'';
+  return '<div id="rwc_'+x.id+'" style="display:flex;gap:11px;align-items:flex-start;border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:7px;background:var(--card)">'
+    +wert
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="font-weight:700;font-size:13.5px">'+esc(x.titel)+'</span>'+rwBelegBadge(x.beleg_typ)+'</div>'
+    +'<div style="font-size:12.5px;color:var(--ink);line-height:1.5;margin-top:3px">'+esc(x.inhalt)+'</div>'+q
+    +'</div>'+edit+'</div>';
+}
+function rwField(idv,label,val,area){
+  var input = area
+    ? '<textarea id="'+idv+'" rows="3" style="width:100%;box-sizing:border-box;padding:7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12.5px;color-scheme:light">'+esc(val)+'</textarea>'
+    : '<input id="'+idv+'" value="'+esc(String(val)).replace(/"/g,'&quot;')+'" style="width:100%;box-sizing:border-box;padding:7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12.5px;color-scheme:light">';
+  return '<div style="margin-bottom:7px"><label style="font-size:11.5px;color:var(--muted)">'+esc(label)+'</label>'+input+'</div>';
+}
+function rwEdit(id, bereich){
+  var x = id ? (RW_REGELN.find(function(r){return r.id===id;})||{}) : {bereich:bereich||'sonstiges'};
+  var ber = x.bereich||bereich||'sonstiges';
+  var f='<div id="rwform" style="border:1px solid var(--k-16a34a);border-radius:11px;padding:12px;margin-bottom:8px;background:var(--bg)">'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:8px">'+(id?'Regel bearbeiten':'Neue Regel')+' · <span style="color:var(--muted)">'+esc(ber)+'</span></div>'
+    +rwField('rw_titel','Titel',x.titel||'',false)
+    +rwField('rw_wert','Wert (optional, z. B. „8“)',x.wert||'',false)
+    +rwField('rw_inhalt','Regel-Text',x.inhalt||'',true)
+    +rwField('rw_quelle','Quelle (optional)',x.quelle||'',false)
+    +'<div style="margin:6px 0 9px"><label style="font-size:11.5px;color:var(--muted)">Beleg-Typ</label><br>'
+    +'<select id="rw_beleg" style="padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);color-scheme:light">'
+    +['','belegt','gesetzt','gemischt'].map(function(o){return '<option value="'+o+'"'+((x.beleg_typ||'')===o?' selected':'')+'>'+(o||'– keiner –')+'</option>';}).join('')
+    +'</select></div>'
+    +'<div style="display:flex;gap:8px;align-items:center">'
+    +'<button onclick="rwSave(\''+(id||'')+'\',\''+ber+'\')" style="padding:7px 14px;border:0;border-radius:8px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:700;cursor:pointer">Speichern</button>'
+    +'<button onclick="loadRegelwerk()" style="padding:7px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer">Abbrechen</button>'
+    +(id?'<button onclick="rwDelete(\''+id+'\')" style="margin-left:auto;padding:7px 12px;border:1px solid var(--k-dc2626);border-radius:8px;background:transparent;color:var(--k-dc2626);cursor:pointer">Entfernen</button>':'')
+    +'</div></div>';
+  if(id){ var host=document.getElementById('rwc_'+id); if(host) host.outerHTML=f; }
+  else { var box=document.getElementById('fgRegelwerk'); if(box){ box.insertAdjacentHTML('afterbegin', f); var fe=document.getElementById('rwform'); if(fe) fe.scrollIntoView({behavior:'smooth',block:'center'}); } }
+}
+async function rwSave(id, bereich){
+  var g=function(i){var e=document.getElementById(i);return e?e.value.trim():'';};
+  var titel=g('rw_titel'), inhalt=g('rw_inhalt');
+  if(!titel||!inhalt){ alert('Titel und Regel-Text sind Pflicht.'); return; }
+  var payload={p_id:id||null,p_bereich:bereich,p_titel:titel,p_wert:g('rw_wert'),p_inhalt:inhalt,p_quelle:g('rw_quelle'),p_beleg_typ:(document.getElementById('rw_beleg')||{}).value||''};
+  var r=await client.rpc('cb_regel_speichern',payload);
+  if(r.error){ alert('Speichern fehlgeschlagen: '+r.error.message); return; }
+  await loadRegelwerk();
+}
+async function rwDelete(id){
+  if(!confirm('Diese Regel entfernen? Sie wird deaktiviert, nicht endgültig gelöscht.')) return;
+  var r=await client.rpc('cb_regel_loeschen',{p_id:id});
+  if(r.error){ alert('Fehlgeschlagen: '+r.error.message); return; }
+  await loadRegelwerk();
 }
 /* ================= AUTO-VERIFIZIERUNG =================
    Gleicht Produkte mit EAN gegen Open Food Facts ab.
@@ -8037,6 +8141,8 @@ async function ladeFeatures(){
     if(data){ FEATURES = data.features || {}; IST_BETA = !!data.beta; }
   }catch(e){ FEATURES = {}; IST_BETA = false; }
   betaBadge();
+  /* Regelwerk-Menuepunkt (Admin-Beta): nur zeigen, wenn das Flag an ist. Button liegt nur im Admin-Backend. */
+  try{ var rb=document.getElementById('fgtRegelwerk'); if(rb) rb.style.display=(FEATURES['regelwerk']===true?'':'none'); }catch(e){}
 }
 function feat(k){ return FEATURES[k] === true; }
 
@@ -9165,7 +9271,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20b";
+const APP_BUILD = "2026-07-20c";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
