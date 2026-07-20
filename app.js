@@ -419,7 +419,7 @@ async function fetchAlleProdukte(){
   }
   return alle;
 }
-let ALL=[]; let STK={}; let SUPP_BIL={};
+let ALL=[]; let STK={}; let SUPP_BIL={}; let WISSEN=[];
 function stkOf(pid){ const g=pid?num(STK[pid]):null; return (g&&g>0)?g:null; }
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
@@ -886,6 +886,7 @@ async function load(){
   catch(error){ document.getElementById("stats").textContent="Fehler beim Laden: "+error.message; return; }
   ALL = data.map(d=>({...d, clean_score:num(d.clean_score)}));
   try{ const {data:sb}=await client.from("v_supplement_bilanz").select("*"); SUPP_BIL={}; (sb||[]).forEach(x=>{ SUPP_BIL[x["Produkt_ID"]]=x; }); }catch(e){}
+  try{ const {data:ww}=await client.from("v_wirkstoff_wissen").select("*"); WISSEN=ww||[]; }catch(e){ WISSEN=[]; }
   try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; (sm||[]).forEach(x=>{STK[x.id]=num(x.stueck_gramm);}); }catch(e){}
   const _kc={}; ALL.forEach(d=>{ if(d.kategorie) _kc[d.kategorie]=(_kc[d.kategorie]||0)+1; });
   window._KATLIST=Object.keys(_kc).map(k=>({k:k,n:_kc[k]})).sort((a,b)=>b.n-a.n);
@@ -1570,7 +1571,64 @@ function suppKarteFill(a,d){
       +'<div style="font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:9px">Von der EU zugelassene Aussagen zur normalen Körperfunktion (VO 432/2012). Keine Aussage zu Beschwerden oder Krankheiten.</div>'
     +'</div>';
   }
-  return head+bilanzHtml+zwei+hauptHtml+stummHtml+suppZutaten(d)+uebersichtHtml+suppFuss(a);
+  return head+bilanzHtml+zwei+hauptHtml+stummHtml+suppZutaten(d)+uebersichtHtml+wirkstoffWissenHtml(d)+suppFuss(a);
+}
+/* „Forschung & Einordnung" je Wirkstoff (Tabelle Wirkstoff_Wissen). Belegte Fakten über den
+   STOFF – keine Aussage über das Produkt (HCVO). Zwei EU-Ebenen: Wirkaussage + Verkehrsfähigkeit. */
+var WIS_BADGE={
+  eu_zugelassen:{t:"EU-zugelassen",bg:"var(--k-e7f4ec)",fg:"var(--k-1f5e34)"},
+  studien_hinweise:{t:"Studien-Hinweise",bg:"var(--k-fff7e6)",fg:"var(--k-92400e)"},
+  labor:{t:"nur Labor",bg:"var(--k-f2f5f3)",fg:"var(--k-5a6660)"},
+  geprueft_nicht_belegt:{t:"geprüft · nicht belegt",bg:"var(--k-fde8e8)",fg:"var(--k-b91c1c)"},
+  keine_daten:{t:"keine Daten",bg:"var(--k-f2f5f3)",fg:"var(--k-5a6660)"}
+};
+function _wisNorm(s){ return String(s||"").toLowerCase().replace(/ß/g,"ss").replace(/[äáà]/g,"a").replace(/[öó]/g,"o").replace(/[üú]/g,"u").replace(/[^a-z0-9]+/g," ").trim(); }
+/* Token-genaues Matching: der Schlüssel muss als ganze Wortfolge im Namen stehen –
+   so matcht „Magnesiumbisglycinat" (Alias von Magnesium), aber NICHT „Glycin" als Teilwort. */
+function wisFind(name){
+  var n=_wisNorm(name); if(n.length<3) return null;
+  var tok=" "+n+" "; var best=null, bl=0;
+  for(var i=0;i<(WISSEN||[]).length;i++){ var w=WISSEN[i];
+    var keys=[w.wirkstoff].concat(w.aliase||[]);
+    for(var j=0;j<keys.length;j++){ var kn=_wisNorm(keys[j]); if(kn.length<3) continue;
+      if(tok.indexOf(" "+kn+" ")>=0 && kn.length>bl){ best=w; bl=kn.length; } }
+  }
+  return best;
+}
+function wirkstoffWissenHtml(d){
+  var zlist=Array.isArray(d.zutaten)?d.zutaten:[];
+  if(!zlist.length || !(WISSEN&&WISSEN.length)) return "";
+  var seen={}, items=[];
+  zlist.forEach(function(z){ var w=wisFind(z.name); if(w && !seen[w.wirkstoff]){ seen[w.wirkstoff]=1; items.push(w); } });
+  if(!items.length) return "";
+  var field=function(k,v,off){ return v?('<div style="margin-top:9px"><div style="font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:2px">'+k+'</div><div style="font-size:12.8px;line-height:1.5;color:'+(off?"var(--muted)":"var(--ink)")+'">'+esc(v)+'</div></div>'):''; };
+  var rows=items.map(function(w){
+    var b=WIS_BADGE[w.evidenz_stufe]||WIS_BADGE.keine_daten;
+    var nfNichtZu=w.novel_food_status && /nicht zugelassen/i.test(w.novel_food_status);
+    var nfHtml = w.novel_food_status
+      ? (nfNichtZu
+          ? '<div style="margin-top:9px;font-size:12px;color:var(--k-b91c1c);background:var(--k-fde8e8);border-radius:8px;padding:8px 10px;line-height:1.5">⚠ <b>EU-Verkehrsfähigkeit:</b> '+esc(w.novel_food_status)+'</div>'
+          : field("EU-Status (Verkehrsfähigkeit)",w.novel_food_status,true))
+      : '';
+    return '<details style="background:var(--card);border:1px solid var(--line);border-radius:11px;margin-bottom:8px">'
+      +'<summary style="display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer">'
+        +'<span style="font-weight:700;font-size:14px;flex:1;min-width:0">'+esc(w.wirkstoff)+'</span>'
+        +'<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;background:'+b.bg+';color:'+b.fg+'">'+b.t+'</span>'
+      +'</summary>'
+      +'<div style="padding:0 12px 12px;border-top:1px solid var(--line)">'
+        +field("Was es ist",w.was_ist)
+        +field("Studienlage",w.studienlage)
+        +field("Nicht gesichert",w.nicht_gesichert,true)
+        +field("EU-Status (Wirkaussage)",w.eu_status)
+        +nfHtml
+        +(w.quelle?'<a href="'+esc(w.quelle_url||"#")+'" target="_blank" rel="noopener" style="font-size:11.5px;color:var(--k-0369a1);text-decoration:none;margin-top:11px;display:inline-block">Quelle: '+esc(w.quelle)+' ↗</a>':'')
+      +'</div></details>';
+  }).join("");
+  return '<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:13px">'
+    +'<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px">Forschung &amp; Einordnung</div>'
+    +'<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:10px">Belegte Fakten über die Wirkstoffe – <b>keine</b> Aussage darüber, dass dieses Produkt wirkt. Von der EU zugelassene Aussagen sind grün gekennzeichnet; alles andere ehrlich als das, was es ist.</div>'
+    +rows
+  +'</div>';
 }
 function suppZutaten(d){
   var zlist=Array.isArray(d.zutaten)?d.zutaten:[];
@@ -6336,7 +6394,7 @@ async function rikiAnalyse(){
       method:"POST",
       headers:{ "Content-Type":"application/json", "apikey":SUPABASE_KEY,
                 "Authorization":"Bearer "+session.access_token },
-      body: JSON.stringify({ modus:"zutaten", text:txt,
+      body: JSON.stringify({ modus:"zutaten", modell:RIKI_LESE_MODELL, text:txt,
         name:(document.getElementById("fe_name")||{}).value||null,
         naehrwerte:Object.keys(nw).length?nw:null,
         produkt_id:(window._fgEdit&&window._fgEdit.id)||null })
@@ -6405,7 +6463,7 @@ async function rikiAudit(limit, anwenden){
       const resp=await fetch(SUPABASE_URL+"/functions/v1/riki-analyse",{
         method:"POST",
         headers:{ "Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+session.access_token },
-        body: JSON.stringify({ modus:"zutaten", text:liste })
+        body: JSON.stringify({ modus:"zutaten", modell:RIKI_LESE_MODELL, text:liste })
       });
       const data=await resp.json();
       if(!resp.ok||data.error){ box.innerHTML='<div style="color:var(--k-dc2626)">Fehler: '+esc(data.error||resp.status)+'</div>'; return; }
@@ -6842,7 +6900,7 @@ async function fgPullResearch(files){
     if(!bilder.length){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bild konnte nicht gelesen werden."; } return; }
     var ean=((document.getElementById("fe_ean")||{}).value||"").trim();
     var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
-    var r=await fetch(client.supabaseUrl+'/functions/v1/riki-research',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({bilder:bilder, ean:ean||undefined})});
+    var r=await fetch(client.supabaseUrl+'/functions/v1/riki-research',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({bilder:bilder, ean:ean||undefined, modell:RIKI_LESE_MODELL})});
     var d=await r.json();
     if(d.leer){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent=d.hinweis||"Riki hat das Produkt nicht eindeutig gefunden."; } return; }
     if(d.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent=d.error; } return; }
@@ -7639,7 +7697,7 @@ async function etikettResearch(){
   const rb=document.getElementById("etiResearchBtn"); if(rb) rb.disabled=true;
   etiMsg("Riki recherchiert (Produkt erkennen · Herstellerseite suchen · lesen)… das kann ~15–30 s dauern.","var(--muted)");
   try{
-    const r=await fetch(client.supabaseUrl+"/functions/v1/riki-research",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":client.supabaseKey},body:JSON.stringify({bilder:arr, ean:ETI_EAN||undefined})});
+    const r=await fetch(client.supabaseUrl+"/functions/v1/riki-research",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":client.supabaseKey},body:JSON.stringify({bilder:arr, ean:ETI_EAN||undefined, modell:RIKI_LESE_MODELL})});
     const d=await r.json();
     if(d && d.error){ etiMsg(d.error,"var(--k-dc2626)"); return; }
     if(d && d.leer){ etiMsg(d.hinweis||"Riki hat das Produkt nicht eindeutig gefunden. Bitte das Etikett fotografieren.","var(--k-b45309)"); return; }
@@ -7713,7 +7771,7 @@ async function etikettSend(){
     const r = await fetch(client.supabaseUrl+"/functions/v1/riki-etikett",{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":client.supabaseKey},
-      body: JSON.stringify({bilder:arr, ean:ETI_EAN||null})
+      body: JSON.stringify({bilder:arr, ean:ETI_EAN||null, modell:RIKI_LESE_MODELL})
     });
     const d = await r.json();
 
@@ -9107,8 +9165,15 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19z";
+const APP_BUILD = "2026-07-20b";
 let _updateGezeigt = false;
+
+/* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
+   Zutatenliste zerlegen). Haiku war beim mehrteiligen Supplement-Etikett zu schwach;
+   Sonnet liest solche Etiketten zuverlässig. Die Edge-Functions akzeptieren body.modell
+   und haben claude-sonnet-4-6 im Preis-Stamm — daher reine Frontend-Umstellung, kein
+   Edge-Redeploy. Opus wäre ~5× teurer bei kaum besserer Etikett-Erkennung. */
+const RIKI_LESE_MODELL = "claude-sonnet-4-6";
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
 ladeFeatures();
