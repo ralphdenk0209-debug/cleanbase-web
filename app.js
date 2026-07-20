@@ -1964,7 +1964,13 @@ function pkSperre(titel, was){
     + knopf
   +'</div>';
 }
-function closeP(){document.getElementById("overlay").classList.remove("open"); var pn=document.getElementById("panel"); if(pn) pn.style.maxWidth="";}
+function closeP(){
+  var ov=document.getElementById("overlay");
+  if(ov){ ov.classList.remove("open");
+    if(ov.classList.contains("fgEditorFull")){ ov.classList.remove("fgEditorFull");
+      ov.style.background=""; ov.style.backdropFilter=""; ov.style.padding=""; ov.style.alignItems=""; ov.style.justifyContent=""; ov.style.left=""; } }
+  var pn=document.getElementById("panel"); if(pn){ pn.style.maxWidth=""; pn.style.width=""; pn.style.height=""; pn.style.maxHeight=""; pn.style.borderRadius=""; }
+}
 /* Eine Karte beginnt oben. Immer. (Ralph, 18.07.2026)
    Wer eine Produktkarte weit unten schliesst und wieder oeffnet, landete bisher
    mitten im Blutzucker-Verlauf - das Panel behaelt seine Scroll-Position, weil es
@@ -2312,6 +2318,7 @@ function updateFloatBtns(){
   var tt=document.getElementById('toTopFab'); if(tt) tt.style.display=((window.scrollY||document.documentElement.scrollTop||0)>350)?'flex':'none';
 }
 function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
+  try{ var _ov=document.getElementById("overlay"); if(_ov&&_ov.classList.contains("fgEditorFull")) closeP(); }catch(e){}  /* Menue-Wechsel schliesst den Vollbild-Editor */
   var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif'};
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
   /* „Eingang" als eigener Reiter zurueckgezogen (Ralph 19.07.): sein Inhalt (Scan-Eingang mit
@@ -5942,23 +5949,39 @@ async function loadZuVerif(){
   /* Neueste zuerst: nach Erfassungsdatum absteigend, bei Gleichstand nach P-Nummer absteigend. */
   rows.sort(function(a,b){ var da=String(a.erfasst||""), db=String(b.erfasst||""); if(da!==db) return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0, nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
   window._verifRows=rows;
-  if(!window._verifSel) window._verifSel=new Set();
-  /* Markierungen aufraeumen, die nicht mehr in der Liste sind (z. B. inzwischen verifiziert). */
-  var ids={}; rows.forEach(function(r){ ids[r.id]=1; });
-  Array.from(window._verifSel).forEach(function(id){ if(!ids[id]) window._verifSel.delete(id); });
   verifRender();
 }
-function verifToggle(id){ if(!window._verifSel) window._verifSel=new Set(); if(window._verifSel.has(id)) window._verifSel.delete(id); else window._verifSel.add(id); verifRender(); }
-function verifClear(){ if(window._verifSel) window._verifSel.clear(); verifRender(); }
+/* Markierung ist PERSISTENT (Produkte.Markiert, RPC cb_produkt_markieren) – sie ueberlebt
+   Neuladen und Session. Kein fluechtiges Set mehr (Ralph 20.07.). */
+async function verifToggle(id){
+  var rows=window._verifRows||[]; var r=rows.find(function(x){return String(x.id)===String(id);}); if(!r) return;
+  var neu=!r.markiert;
+  try{ var res=await client.rpc("cb_produkt_markieren",{p_id:id,p_an:neu}); if(res.error) throw res.error; r.markiert=neu; }
+  catch(e){ alert("Markierung konnte nicht gespeichert werden: "+(e.message||e)); return; }
+  verifRender();
+}
+/* Vom Editor aus setzen (kein Re-Render der Liste noetig, nur den Zeilen-Status mitfuehren). */
+async function fgEditMark(id, an){
+  try{ var res=await client.rpc("cb_produkt_markieren",{p_id:id,p_an:!!an}); if(res.error) throw res.error;
+    var r=(window._verifRows||[]).find(function(x){return String(x.id)===String(id);}); if(r) r.markiert=!!an;
+  }catch(e){ alert("Markierung konnte nicht gespeichert werden: "+(e.message||e)); }
+}
+function verifClear(){
+  var marked=(window._verifRows||[]).filter(function(x){return x.markiert;});
+  if(!marked.length) return;
+  if(!confirm("Alle "+marked.length+" Markierungen entfernen?")) return;
+  Promise.all(marked.map(function(r){ return client.rpc("cb_produkt_markieren",{p_id:r.id,p_an:false}).then(function(){ r.markiert=false; }); })).then(verifRender).catch(function(e){ alert("Fehler: "+(e.message||e)); });
+}
 function verifRender(){
   const el=document.getElementById("fgZuverif"); if(!el) return;
-  const rows=window._verifRows||[]; const sel=window._verifSel||new Set();
+  const rows=window._verifRows||[];
+  const markN=rows.filter(function(r){return r.markiert;}).length;
   if(!rows.length){ el.innerHTML='<span style="color:var(--muted)">Nichts offen – alle aktiven Produkte sind verifiziert. 🎉</span>'; return; }
   const q=((document.getElementById("verifFilter")||{}).value||"").trim().toLowerCase();
   const nur=!!((document.getElementById("verifNur")||{}).checked);
   const grp={}; rows.forEach(function(r){ (grp[r.grund]=grp[r.grund]||[]).push(r); });
   const list=rows.filter(function(p){
-    if(nur && !sel.has(p.id)) return false;
+    if(nur && !p.markiert) return false;
     if(!q) return true;
     return (String(p.name||"")+" "+String(p.marke||"")+" "+String(p.id||"")+" "+String(p.ean||"")+" "+String(p.kategorie||"")+" "+String(p.grund||"")).toLowerCase().indexOf(q)>=0;
   });
@@ -5970,12 +5993,12 @@ function verifRender(){
       +'<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);white-space:nowrap;cursor:pointer"><input type="checkbox" id="verifNur" '+(nur?'checked':'')+' onchange="verifRender()" style="width:15px;height:15px">nur markierte</label>'
     +'</div>'
     +'<div style="display:flex;gap:10px;align-items:center;margin-top:6px;font-size:12.5px;flex-wrap:wrap">'
-      +'<span style="color:'+(sel.size?'var(--k-166534)':'var(--muted)')+';font-weight:600">'+sel.size+' markiert</span>'
-      +(sel.size?'<button onclick="verifClear()" style="padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Auswahl leeren</button>':'')
+      +'<span style="color:'+(markN?'var(--k-166534)':'var(--muted)')+';font-weight:600">'+markN+' markiert <span style="font-weight:400;color:var(--muted)">(bleibt gespeichert)</span></span>'
+      +(markN?'<button onclick="verifClear()" style="padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Alle Markierungen entfernen</button>':'')
       +'<span style="color:var(--muted);margin-left:auto">'+list.length+' angezeigt</span>'
     +'</div></div>';
   if(!list.length){ el.innerHTML=toolbar+'<div style="color:var(--muted);font-size:13px;margin-top:12px">Kein Treffer.</div>'; var f0=document.getElementById("verifFilter"); if(f0){ f0.focus(); f0.setSelectionRange(f0.value.length,f0.value.length);} return; }
-  el.innerHTML=toolbar+list.map(function(p){ var on=sel.has(p.id);
+  el.innerHTML=toolbar+list.map(function(p){ var on=!!p.markiert;
     return '<div style="background:var(--card);border:1px solid '+(on?'var(--k-16a34a)':'var(--line)')+';border-radius:12px;padding:11px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
       +'<label style="display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 260px;cursor:pointer"><input type="checkbox" '+(on?"checked":"")+' onclick="verifToggle(\''+p.id+'\')" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--k-16a34a)">'
       +'<span style="min-width:0"><b>'+esc(p.name||"?")+'</b> <span style="color:var(--muted)">· '+esc(p.marke||"")+'</span>'
@@ -6459,8 +6482,23 @@ async function openFgEditor(id, prefill){
   const inp=(id2,val)=>`<input id="${id2}" value="${esc(val||"")}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px">`;
   const sel=(id2,cur,opts)=>`<select id="${id2}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">${opts.map(o=>`<option ${((cur||opts[0])===o)?"selected":""}>${o}</option>`).join("")}</select>`;
   const card=(title,inner)=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">${title}</div>${inner}</div>`;
+  /* Kopfleiste der Vollbild-Maske: zurueck zum Posteingang + vor/zurueck durch die
+     „Zu verifizieren"-Liste + persistentes Markieren. Vor/Zurueck nur, wenn das Produkt
+     in der aktuellen Liste steht (window._verifRows). */
+  var _rows=Array.isArray(window._verifRows)?window._verifRows:[];
+  var _idx=id?_rows.findIndex(function(r){return String(r.id)===String(id);}):-1;
+  var _nbtn=function(txt,act,on){ return '<button '+(on?'onclick="'+act+'"':'disabled')+' style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:'+(on?'var(--card)':'var(--bg)')+';color:'+(on?'var(--ink)':'var(--muted)')+';cursor:'+(on?'pointer':'default')+';font-size:13px;white-space:nowrap">'+txt+'</button>'; };
+  var _navInner='<button onclick="closeP()" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">← Posteingang</button>';
+  if(_idx>=0){
+    var _prev=_idx>0?_rows[_idx-1].id:null, _next=_idx<_rows.length-1?_rows[_idx+1].id:null, _mk=!!_rows[_idx].markiert;
+    _navInner+= _nbtn('‹ Vorheriges', "openFgEditor('"+_prev+"')", !!_prev)
+      + '<span style="font-size:13px;color:var(--muted);white-space:nowrap">'+(_idx+1)+' / '+_rows.length+'</span>'
+      + _nbtn('Nächstes ›', "openFgEditor('"+_next+"')", !!_next)
+      + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap;margin-left:auto"><input type="checkbox" '+(_mk?'checked':'')+' onclick="fgEditMark(\''+esc(id)+'\',this.checked)" style="width:17px;height:17px;accent-color:var(--k-16a34a)">🚩 markiert <span style="color:var(--muted);font-weight:400">(gespeichert)</span></label>';
+  }
+  var _navBar='<div style="position:sticky;top:0;z-index:25;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 2px;margin:-8px 0 12px">'+_navInner+'</div>';
   panel.innerHTML=`
-    <button class="close" onclick="closeP()">Schließen ✕</button>
+    ${_navBar}
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
       <h2 style="margin:0">${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
       <span style="font-size:12px;color:var(--muted)">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"wird als Entwurf angelegt"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
@@ -6535,7 +6573,11 @@ async function openFgEditor(id, prefill){
       </div>
     </div>
     <div id="fe_msg" style="font-size:13px;margin-top:8px"></div>`;
-    var _pn=document.getElementById("panel"); if(_pn) _pn.style.maxWidth="940px";
+    /* Vollbild-Seite statt schwebendem Overlay (Ralph 20.07.): Editor fuellt den Inhaltsbereich
+       rechts neben dem Admin-Menue (214px). Auf dem Consumer (kein Menue) volle Breite. */
+    var _ov=document.getElementById("overlay"), _pn=document.getElementById("panel");
+    if(_ov){ _ov.classList.add("fgEditorFull"); _ov.style.background="var(--bg)"; _ov.style.backdropFilter="none"; _ov.style.padding="0"; _ov.style.alignItems="stretch"; _ov.style.justifyContent="stretch"; _ov.style.left=(window.__ADMIN_PAGE?"214px":"0"); }
+    if(_pn){ _pn.style.maxWidth="none"; _pn.style.width="100%"; _pn.style.height="100vh"; _pn.style.maxHeight="100vh"; _pn.style.borderRadius="0"; _pn.scrollTop=0; }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
     try{ feKatChange(); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
   document.getElementById("overlay").classList.add("open");
@@ -9065,7 +9107,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19y";
+const APP_BUILD = "2026-07-19z";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
