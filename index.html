@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-19t fix: Supplement-Karte Dark-Mode + EU-Nutzen einmal + Nutzen-Uebersicht >
+<!-- build 2026-07-19u fix: Eingang-Reiter in "Zu verifizieren" zusammengefuehrt (ein Posteingang) + Kommentar-Abschluss repariert -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1141,7 +1141,7 @@
         <button id="fgtProdukte" onclick="fgTab('produkte')" style="display:none">Produkte</button>
         <button id="fgtBundles" onclick="fgTab('bundles')">Bundles</button>
         <button id="fgtRezepte" onclick="fgTab('rezepte')">Rezepte</button>
-        <button id="fgtScans" class="active" onclick="fgTab('scans')">Eingang</button>
+        <button id="fgtScans" onclick="fgTab('scans')" style="display:none">Eingang</button>
         <button id="fgtKontakt" onclick="fgTab('kontakt')" style="display:none">Anfragen</button>
         <button id="fgtEmpfehlungen" onclick="fgTab('empfehlungen')">Empfehlungen</button>
         <button id="fgtZuverif" onclick="fgTab('zuverif')">✅ Zu verifizieren</button>
@@ -1151,7 +1151,13 @@
         <button onclick="loadDashboard()" style="margin-bottom:6px;padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;cursor:pointer">↻ Aktualisieren</button>
         <div id="fgDash"></div>
       </div>
+      <div id="fgPanelZuverif" style="display:none">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Dein <b>Posteingang</b> – hier sammelt sich alles, was auf deine Prüfung wartet. Oben die aktiven, aber noch <b>nicht verifizierten</b> Produkte (ohne Score, v. a. aus dem OFF-Import). Weiter unten der <b>Scan-Eingang</b> (gescannte Produkte, noch nicht im Katalog – mit „Übernehmen"), Entwürfe, Auto-Verifizierung und Riki-Audit. Der frühere Reiter „Eingang" ist hier aufgegangen.</div>
+        <button onclick="loadZuVerif()" style="margin-bottom:8px;padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;cursor:pointer">↻ Aktualisieren</button>
+        <div id="fgZuverif" style="font-size:14px;color:var(--ink)"></div>
+      </div>
       <div id="fgPanelScans" style="display:none">
+        <h3 style="font-size:15px;margin:18px 0 4px">📥 Scan-Eingang &amp; Werkzeuge</h3>
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:12px">Alles, was in den Katalog will – aus <b>allen drei Quellen</b>: gescannte Barcodes, manuelle Tagebuch-Einträge und Produktwünsche aus dem Kontaktformular. „OFF holen" befüllt nur als <b>Vorschlag</b>; freigegeben wird erst nach deiner Prüfung.</div>
         <div style="margin:0 0 8px"><button onclick="openFgEditor(null)" style="padding:9px 14px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:14px;font-weight:600;cursor:pointer">➕ Neues Produkt anlegen</button></div>
         <h3 style="font-size:15px;margin:6px 0 4px">📋 Entwürfe zum Freigeben</h3>
@@ -1194,7 +1200,7 @@
         <div id="fgRezepteFree" style="font-size:14px;color:var(--ink)"></div>
       </div>
       <div id="fgPanelKontakt" style="display:none">
-        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Fragen und Feedback aus dem Kontaktformular. Bei angegebener E-Mail kannst du direkt antworten. <b>Produktwünsche liegen im Tab „Eingang".</b></div>
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Fragen und Feedback aus dem Kontaktformular. Bei angegebener E-Mail kannst du direkt antworten. <b>Produktwünsche liegen im Tab „Zu verifizieren".</b></div>
         <div id="fgKontakt" style="font-size:14px;color:var(--ink);line-height:1.6"></div>
         <h3 style="font-size:15px;margin:22px 0 4px;color:var(--muted)">Erledigt · Historie</h3>
         <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Bearbeitete Anfragen (auch automatisch angelegte Entwürfe).</div>
@@ -1203,11 +1209,6 @@
       <div id="fgPanelEmpfehlungen" style="display:none">
         <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Empfehlungs-Paare: Produkt → bessere Alternative (gleiche Unterkategorie, mind. 10 Punkte besser). Ideen für „Statt X lieber Y"-Posts (Instagram). Nach Punkte-Vorsprung sortiert.</div>
         <div id="fgEmpfehlungen" style="font-size:14px;color:var(--ink)"></div>
-      </div>
-      <div id="fgPanelZuverif" style="display:none">
-        <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Produkte, die <b>aktiv</b> im Katalog stehen, aber noch <b>nicht verifiziert</b> sind oder <b>keinen Score</b> haben (v. a. aus dem OFF-Import). Sie bleiben scannbar – hier arbeitest du sie ab.</div>
-        <button onclick="loadZuVerif()" style="margin-bottom:8px;padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;cursor:pointer">↻ Aktualisieren</button>
-        <div id="fgZuverif" style="font-size:14px;color:var(--ink)"></div>
       </div>
     </div>
   </div>
@@ -1426,7 +1427,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
-<script src="app.js?v=2026-07-19t"></script>
+<script src="app.js?v=2026-07-19u"></script>
 <button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
 <button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 </body>

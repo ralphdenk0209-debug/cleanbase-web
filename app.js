@@ -2098,7 +2098,7 @@ function setMode(m){
   if(m==="training") loadTraining();
   if(m==="zyklus") renderZyklus();
   if(m==="darm") renderDarm();
-  if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab((window._fgTab&&window._fgTab!=='produkte'&&window._fgTab!=='kontakt')?window._fgTab:'scans'); }
+  if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab((window._fgTab&&window._fgTab!=='produkte'&&window._fgTab!=='kontakt')?window._fgTab:'zuverif'); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
@@ -2310,12 +2310,16 @@ function updateFloatBtns(){
   var bb=document.getElementById('backFab'); if(bb) bb.style.display=(NAV_HIST.length>0)?'flex':'none';
   var tt=document.getElementById('toTopFab'); if(tt) tt.style.display=((window.scrollY||document.documentElement.scrollTop||0)>350)?'flex':'none';
 }
-function fgTab(t){ window._fgTab=t;
+function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif'};
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
+  /* „Eingang" als eigener Reiter zurueckgezogen (Ralph 19.07.): sein Inhalt (Scan-Eingang mit
+     Uebernehmen, Entwuerfe, Auto-Verify, Riki-Audit) erscheint jetzt UNTER „Zu verifizieren" –
+     ein einziger Posteingang, in dem alles gesammelt wird. Nichts wird automatisch angelegt. */
+  if(t==='zuverif'){ var ps=document.getElementById('fgPanelScans'); if(ps) ps.style.display=''; }
   ['dash','produkte','bundles','rezepte','scans','kontakt','empfehlungen','zuverif'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
   if(t==='empfehlungen' && typeof renderEmpfehlungen==='function') renderEmpfehlungen();
-  if(t==='scans' && typeof loadScans==='function') loadScans();
+  if(t==='zuverif' && typeof loadScans==='function') loadScans();
   if(t==='dash' && typeof loadDashboard==='function') loadDashboard();
   if(t==='zuverif' && typeof loadZuVerif==='function') loadZuVerif();
 }
@@ -8966,7 +8970,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19t";
+const APP_BUILD = "2026-07-19u";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
