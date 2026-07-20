@@ -2377,18 +2377,19 @@ function updateFloatBtns(){
 }
 function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   try{ var _ov=document.getElementById("overlay"); if(_ov&&_ov.classList.contains("fgEditorFull")) closeP(); }catch(e){}  /* Menue-Wechsel schliesst den Vollbild-Editor */
-  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif',regelwerk:'fgPanelRegelwerk'};
+  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif',regelwerk:'fgPanelRegelwerk',produkterfassung:'fgPanelProdErf'};
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
   /* „Eingang" als eigener Reiter zurueckgezogen (Ralph 19.07.): sein Inhalt (Scan-Eingang mit
      Uebernehmen, Entwuerfe, Auto-Verify, Riki-Audit) erscheint jetzt UNTER „Zu verifizieren" –
      ein einziger Posteingang, in dem alles gesammelt wird. Nichts wird automatisch angelegt. */
   if(t==='zuverif'){ var ps=document.getElementById('fgPanelScans'); if(ps) ps.style.display=''; }
-  ['dash','produkte','bundles','rezepte','scans','kontakt','empfehlungen','zuverif','regelwerk'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
+  ['dash','produkte','bundles','rezepte','scans','kontakt','empfehlungen','zuverif','regelwerk','produkterfassung'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
   if(t==='empfehlungen' && typeof renderEmpfehlungen==='function') renderEmpfehlungen();
   if(t==='zuverif' && typeof loadScans==='function') loadScans();
   if(t==='dash' && typeof loadDashboard==='function') loadDashboard();
   if(t==='zuverif' && typeof loadZuVerif==='function') loadZuVerif();
   if(t==='regelwerk' && typeof loadRegelwerk==='function') loadRegelwerk();
+  if(t==='produkterfassung' && typeof loadProduktErfassung==='function') loadProduktErfassung();
 }
 
 /* ================= REGELWERK (Admin-Beta „regelwerk") =================
@@ -2492,6 +2493,66 @@ async function rwDelete(id){
   var r=await client.rpc('cb_regel_loeschen',{p_id:id});
   if(r.error){ alert('Fehlgeschlagen: '+r.error.message); return; }
   await loadRegelwerk();
+}
+
+/* ================= PRODUKT-ERFASSUNG (Admin-Beta „produkt_erfassung") =================
+   Master-Detail-Arbeitsblatt: Liste oben (Posteingang = v_zu_verifizieren), der bestehende
+   Editor (openFgEditor) laeuft INLINE im Detail-Bereich darunter. EIN Code-Pfad – alle
+   Editor-Funktionen (Riki, OFF/USDA, Foto, Score, Zutaten, Freigabe) gelten automatisch. */
+async function loadProduktErfassung(){
+  var box=document.getElementById('fgProdErf'); if(!box) return;
+  box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Produkte…</div>';
+  try{
+    var r=await client.from('v_zu_verifizieren').select('*').limit(2000);
+    if(r.error) throw r.error;
+    var rows=r.data||[];
+    rows.sort(function(a,b){ var da=String(a.erfasst||""),db=String(b.erfasst||""); if(da!==db)return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0,nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
+    window._verifRows=rows; window._peRows=rows;
+  }catch(e){ box.innerHTML='<div style="color:var(--k-dc2626);font-size:12.5px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
+  box.innerHTML=
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+    +'<button onclick="peNeu()" style="padding:8px 13px;border:0;border-radius:9px;background:var(--green,var(--k-16a34a));color:var(--auf-gruen,#fff);font-weight:700;cursor:pointer;font-size:13px">＋ Neues Produkt</button>'
+    +'<input id="peSuche" oninput="peRender()" placeholder="🔍 Filter: Titel, Marke, EAN, Grund…" style="flex:1;min-width:200px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px">'
+    +'<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);white-space:nowrap;cursor:pointer"><input type="checkbox" id="peNur" onchange="peRender()" style="width:15px;height:15px">nur markierte</label>'
+    +'<button onclick="loadProduktErfassung()" style="padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px">↻ Aktualisieren</button>'
+    +'</div>'
+    +'<div style="border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:12px;background:var(--card)">'
+      +'<div style="max-height:250px;overflow:auto"><table id="peGrid" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>'
+      +'<div id="peFoot" style="padding:7px 10px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);background:var(--bg)"></div>'
+    +'</div>'
+    +'<div id="peDetail"><div style="color:var(--muted);text-align:center;padding:34px;border:1px dashed var(--line);border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div></div>';
+  peRender();
+}
+function peRender(){
+  var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
+  var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
+  var nur=!!((document.getElementById('peNur')||{}).checked);
+  var list=rows.filter(function(p){ if(nur&&!p.markiert)return false; if(!q)return true;
+    return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')+' '+String(p.grund||'')).toLowerCase().indexOf(q)>=0; });
+  var th=function(h){ return '<th style="position:sticky;top:0;background:var(--bg);text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);white-space:nowrap">'+h+'</th>'; };
+  var td=function(c,st){ return '<td style="padding:8px 9px;border-bottom:1px solid var(--line);'+(st||'')+'">'+c+'</td>'; };
+  g.innerHTML='<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','EAN','Grund','⚑'].map(th).join('')+'</tr></thead><tbody>'
+    +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
+      return '<tr data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" style="cursor:pointer;background:'+(seln?'var(--greenlt,#eef7f0)':'transparent')+'">'
+      +td(esc(p.id),'color:var(--muted)')
+      +td('<b>'+esc(p.name||'—')+'</b>')
+      +td(esc(p.marke||''))
+      +td(esc(p.kategorie||''))
+      +td(p.ean?esc(p.ean):'<span style="color:var(--k-b45309)">offen</span>','color:var(--muted)')
+      +td(esc(p.grund||''),'color:var(--muted);font-size:12px')
+      +td(p.markiert?'🚩':'')
+      +'</tr>'; }).join('')
+    +'</tbody>';
+  var f=document.getElementById('peFoot'); if(f) f.textContent='Datensätze '+list.length+' von '+rows.length;
+}
+function peSelect(id){ window._peSel=id; peRender();
+  var det=document.getElementById('peDetail'); if(!det) return;
+  det.innerHTML='<div style="color:var(--muted);padding:14px">Lade…</div>';
+  try{ openFgEditor(id, null, det); }catch(e){ det.innerHTML='<div style="color:var(--k-dc2626)">Editor-Fehler: '+esc(e.message||e)+'</div>'; }
+}
+function peNeu(){ window._peSel=null;
+  var det=document.getElementById('peDetail'); if(!det) return;
+  try{ openFgEditor(null, null, det); }catch(e){ det.innerHTML='<div style="color:var(--k-dc2626)">Editor-Fehler: '+esc(e.message||e)+'</div>'; }
 }
 /* ================= AUTO-VERIFIZIERUNG =================
    Gleicht Produkte mit EAN gegen Open Food Facts ab.
@@ -4591,6 +4652,7 @@ function applyAdminMode(){
         +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
         +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
         +'<button class="amBtn" data-k="zuverif"      onclick="adminGo(\'zuverif\')">✅ Zu verifizieren</button>'
+        +'<button class="amBtn" id="amProdErf" data-k="produkterfassung" onclick="adminGo(\'produkterfassung\')" style="display:none">🗂️ Produkt-Erfassung</button>'
         +'<button class="amBtn" id="amRegelwerk" data-k="regelwerk" onclick="adminGo(\'regelwerk\')" style="display:none">📖 Regelwerk</button>'
         +'<div class="amSep"></div>'
         +'<button class="amBtn" data-k="rikiimport"   onclick="adminGo(\'rikiimport\')">📤 Riki-Import</button>'
@@ -4601,8 +4663,9 @@ function applyAdminMode(){
         +'</div>';
       c.insertBefore(nav, c.firstChild); }
   }
-  /* Regelwerk-Menuepunkt nur bei aktivem Beta-Flag zeigen (auch direkt nach dem Bau des Menues). */
-  try{ var _ar=document.getElementById('amRegelwerk'); if(_ar) _ar.style.display=(FEATURES['regelwerk']===true?'':'none'); }catch(e){}
+  /* Beta-Menuepunkte direkt nach dem Bau des Menues sichtbar schalten (falls Flags schon geladen). */
+  try{ var _ar=document.getElementById('amRegelwerk'); if(_ar) _ar.style.display=(FEATURES['regelwerk']===true?'':'none');
+       var _pe2=document.getElementById('amProdErf'); if(_pe2) _pe2.style.display=(FEATURES['produkt_erfassung']===true?'':'none'); }catch(e){}
   /* applyAdminMode() läuft bei JEDEM Auth-Event – und Supabase feuert eines, sobald der Tab
      wieder Fokus bekommt (Token-Refresh). Vorher sprang die App dadurch zurück in die Freigabe,
      z. B. nach dem Zurückkommen von einem Amazon-Link. Jetzt: nur beim ersten Mal. */
@@ -4614,7 +4677,7 @@ function applyAdminMode(){
 /* Linkes Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Zusätzlich Markierung des aktiven Knopfs. */
 function adminGo(k){
-  const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1};
+  const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
   else { try{ navTo(k); }catch(e){} }
   try{ document.querySelectorAll('#adminNav .amBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
@@ -6610,8 +6673,10 @@ async function rikiBudget(){
       +' · '+b.aufrufe_monat+' Aufrufe'+(b.erlaubt?'':' <b>· LIMIT ERREICHT</b>');
   }catch(e){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message; }
 }
-async function openFgEditor(id, prefill){
-  const panel=document.getElementById("panel");
+async function openFgEditor(id, prefill, targetEl){
+  /* targetEl (optional): rendert den Editor INLINE in einen Container (z. B. Master-Detail-
+     Seite „Produkt-Erfassung") statt ins Vollbild-Overlay. Ohne targetEl unveraendert. */
+  const panel=targetEl||document.getElementById("panel");
   let d={id:null,name:"",marke:"",kategorie:"",unterkategorie:"",ean:"",basis:"100g",bild_url:"",status:"",
     naehrwerte:{},zusatzstoffe_text:"keine",zusatzstoffe_status:"keine",suessstoffe:"nein",zutaten:[]};
   if(id){
@@ -6662,6 +6727,7 @@ async function openFgEditor(id, prefill){
       + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap;margin-left:auto"><input type="checkbox" '+(_mk?'checked':'')+' onclick="fgEditMark(\''+esc(id)+'\',this.checked)" style="width:17px;height:17px;accent-color:var(--k-16a34a)">🚩 markiert <span style="color:var(--muted);font-weight:400">(gespeichert)</span></label>';
   }
   var _navBar='<div style="position:sticky;top:0;z-index:25;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 2px;margin:-8px 0 12px">'+_navInner+'</div>';
+  if(targetEl) _navBar='';   /* Inline-Modus: die Master-Detail-Liste ersetzt die Kopf-Navigation */
   panel.innerHTML=`
     ${_navBar}
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
@@ -6740,12 +6806,14 @@ async function openFgEditor(id, prefill){
     <div id="fe_msg" style="font-size:13px;margin-top:8px"></div>`;
     /* Vollbild-Seite statt schwebendem Overlay (Ralph 20.07.): Editor fuellt den Inhaltsbereich
        rechts neben dem Admin-Menue (214px). Auf dem Consumer (kein Menue) volle Breite. */
+    if(!targetEl){
     var _ov=document.getElementById("overlay"), _pn=document.getElementById("panel");
     if(_ov){ _ov.classList.add("fgEditorFull"); _ov.style.background="var(--bg)"; _ov.style.backdropFilter="none"; _ov.style.padding="0"; _ov.style.alignItems="stretch"; _ov.style.justifyContent="stretch"; _ov.style.left=(window.__ADMIN_PAGE?"214px":"0"); }
     if(_pn){ _pn.style.maxWidth="none"; _pn.style.width="100%"; _pn.style.height="100vh"; _pn.style.maxHeight="100vh"; _pn.style.borderRadius="0"; _pn.scrollTop=0; }
+    }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
     try{ feKatChange(); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
-  document.getElementById("overlay").classList.add("open");
+  if(!targetEl) document.getElementById("overlay").classList.add("open");
 }
 /* Kategorie-Wechsel im Editor: bei „Supplement" heisst die Zutaten-Sektion „Wirkstoffe"
    (da stehen die Wirkstoffe drin, nicht Lebensmittel-Zutaten) und die Vorschlagsliste
@@ -8144,8 +8212,11 @@ async function ladeFeatures(){
     if(data){ FEATURES = data.features || {}; IST_BETA = !!data.beta; }
   }catch(e){ FEATURES = {}; IST_BETA = false; }
   betaBadge();
-  /* Regelwerk-Menuepunkt (Admin-Beta): nur zeigen, wenn das Flag an ist. Beide Menue-Orte (Sidebar + alte Leiste). */
-  try{ var _rwv=(FEATURES['regelwerk']===true); ['amRegelwerk','fgtRegelwerk'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=(_rwv?'':'none'); }); }catch(e){}
+  /* Admin-Beta-Menuepunkte (Sidebar) nur bei aktivem Flag zeigen. */
+  try{
+    var _rwv=(FEATURES['regelwerk']===true); ['amRegelwerk','fgtRegelwerk'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=(_rwv?'':'none'); });
+    var _pe=document.getElementById('amProdErf'); if(_pe) _pe.style.display=(FEATURES['produkt_erfassung']===true?'':'none');
+  }catch(e){}
 }
 function feat(k){ return FEATURES[k] === true; }
 
@@ -9274,7 +9345,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20d";
+const APP_BUILD = "2026-07-20e";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
