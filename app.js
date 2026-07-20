@@ -2548,6 +2548,25 @@ function peLightCssInject(){
     +'#fgProdErf .pePill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid}';
   var s=document.createElement('style'); s.id='peLightCss'; s.textContent=css; document.head.appendChild(s);
 }
+/* „Braucht noch Arbeit?" – Entwurf ODER (aktiv, aber unverifiziert/ohne Score) ODER EAN fehlt noch
+   (Status „offen"/„noch_nicht_erfasst"). Freigegeben + EAN vorhanden/generisch = fertig = ausgeblendet.
+   Ein Ort für die Regel, damit Zähler und Filter nie auseinanderlaufen. */
+function peIstOffen(p){
+  return String(p.pstatus||'')==='Entwurf'
+      || p.zu_verifizieren
+      || ['offen','noch_nicht_erfasst'].indexOf(String(p.ean_status||''))>=0;
+}
+/* Klebt das Toolbar/Chip-Menü oben an – unter einer evtl. fixierten Kopfleiste (.hero).
+   top wird zur Laufzeit auf die Unterkante der gerade fixierten Kopfleiste gesetzt. */
+function peSyncStickyTop(){
+  var el=document.getElementById('peSticky'); if(!el) return;
+  var top=0;
+  document.querySelectorAll('.hero').forEach(function(h){
+    var st=getComputedStyle(h); if(st.position!=='sticky'&&st.position!=='fixed') return;
+    var r=h.getBoundingClientRect(); if(r.top<=1 && r.bottom>top) top=r.bottom;
+  });
+  el.style.top=Math.max(0,Math.round(top))+'px';
+}
 async function loadProduktErfassung(){
   var box=document.getElementById('fgProdErf'); if(!box) return;
   peLightCssInject();
@@ -2568,12 +2587,11 @@ async function loadProduktErfassung(){
     rows.sort(function(a,b){ var da=String(a.erfasst||""),db=String(b.erfasst||""); if(da!==db)return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0,nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
     window._verifRows=rows; window._peRows=rows;
   }catch(e){ box.innerHTML='<div style="color:#cf5442;font-size:12.5px;padding:8px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
-  /* Standard-Ansicht: nur das, was ARBEIT braucht (Entwurf + zu verifizieren).
-     Fertige Produkte (Aktiv & verifiziert & Score) sind ausgeblendet – über „Alle" einblendbar. */
+  /* Standard-Ansicht: nur das, was ARBEIT braucht (Entwurf + zu verifizieren + EAN fehlt noch).
+     Fertige Produkte (Aktiv & verifiziert & Score & EAN da/generisch) sind ausgeblendet – über „Alle". */
   if(window._peChip===undefined||window._peChip==='zuverif') window._peChip='offen';
   var rws=window._peRows;
-  var istOffen=function(p){ return String(p.pstatus||'')==='Entwurf' || p.zu_verifizieren; };
-  var cnt={ offen:rws.filter(istOffen).length,
+  var cnt={ offen:rws.filter(peIstOffen).length,
             alle:rws.length,
             zuverif:rws.filter(function(p){return p.zu_verifizieren;}).length,
             keinscore:rws.filter(function(p){return p.score==null;}).length,
@@ -2588,8 +2606,10 @@ async function loadProduktErfassung(){
       +'<h2 style="font-size:20px;margin:0;font-weight:800;color:#1f2a44">Produkt-Erfassung</h2>'
       +'<div style="color:#5a7d72;font-size:12.5px;margin-top:2px">Master-Detail – Liste oben, Editor unten. Rechtsklick öffnet das Kontextmenü.</div>'
     +'</div>'
+    /* Sticky-Menü: Toolbar + Chips bleiben beim Scrollen oben stehen */
+    +'<div id="peSticky" style="position:sticky;top:0;z-index:22;background:#f4f7fa;margin:0 -10px;padding:8px 10px 6px;box-shadow:0 8px 10px -9px rgba(20,40,70,.30)">'
     /* Toolbar */
-    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
       +'<button class="peBtn pri" onclick="peNeu()">＋ Neues Produkt</button>'
       +'<button class="peBtn" onclick="peMenu(\'akt\',this)">☑ Aktionen ▾</button>'
       +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
@@ -2600,7 +2620,7 @@ async function loadProduktErfassung(){
       +'<input id="peSuche" oninput="peRender()" placeholder="🔍 Filter / Suche (Titel, Marke, EAN)…" style="width:250px;max-width:48vw;padding:8px 10px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px">'
     +'</div>'
     /* Filter-Chips (echte Zahlen) */
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
       +chip('offen','Zu erledigen',cnt.offen)
       +chip('alle','Alle',cnt.alle)
       +chip('keinscore','Ohne Score',cnt.keinscore)
@@ -2608,6 +2628,7 @@ async function loadProduktErfassung(){
       +chip('keinzut','Ohne Zutaten',cnt.keinzut)
       +chip('markiert','⚑ Markiert',cnt.markiert)
     +'</div>'
+    +'</div>'  /* Ende Sticky-Menü */
     /* Session-Leiste */
     +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin-bottom:12px">'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Ansicht</div><input value="Katalog – alle aktiven Produkte" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
@@ -2625,6 +2646,9 @@ async function loadProduktErfassung(){
     +'<div id="peCtx" style="position:fixed;z-index:60;background:#fff;border:1px solid #d3dbe6;border-radius:10px;padding:5px;min-width:210px;box-shadow:0 14px 38px rgba(20,40,70,.18);display:none"></div>';
   try{ var b=document.getElementById('peBearb'); if(b) b.value=(window._adminName||(window.__profil&&window.__profil.name)||'Angemeldet'); }catch(e){}
   peRender();
+  try{ peSyncStickyTop(); if(!window._peStickyBound){ window._peStickyBound=true;
+      window.addEventListener('scroll',function(){ if(window._peStickyRaf)return; window._peStickyRaf=requestAnimationFrame(function(){ window._peStickyRaf=0; peSyncStickyTop(); }); },{passive:true});
+      window.addEventListener('resize',peSyncStickyTop); } }catch(e){}
 }
 /* kleine Klapp-Menues fuer Aktionen/Einstellungen – bewusst schlank gehalten
    (Ralph will den Knopf-Inhalt spaeter feinschleifen). Nichts erfunden: nur Aktionen,
@@ -2651,7 +2675,7 @@ function peRender(){
   var chipf=window._peChip||'alle';
   var sort=((document.getElementById('peSort')||{}).value)||'neu';
   var list=rows.filter(function(p){
-    if(chipf==='offen'&&!(String(p.pstatus||'')==='Entwurf'||p.zu_verifizieren)) return false;
+    if(chipf==='offen'&&!peIstOffen(p)) return false;
     if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
     if(chipf==='keinscore'&&p.score!=null) return false;
     if(chipf==='keinquelle'&&p.quelle_typ) return false;
@@ -6754,8 +6778,23 @@ function fgPickAddNeu(){
 /* Textbox + Haekchen aus #fe_zutRows spiegeln – vom Observer aufgerufen, egal wer die Rows aendert. */
 function fgPickRefreshView(){
   var names=_fgRowsNames(), set={}; names.forEach(function(n){ set[n.toLowerCase()]=true; });
-  var tb=document.getElementById("fe_enthalten"); if(tb) tb.value=names.join("\n");
+  try{ fgEnthaltenRender(); }catch(e){}
   document.querySelectorAll("#fe_pickList input[type=checkbox]").forEach(function(cb){ cb.checked=!!set[(cb.dataset.name||"").trim().toLowerCase()]; });
+}
+/* Rechte Liste „In diesem Produkt enthalten": zeigt ALLE Namen aus #fe_zutRows (also auch die aus
+   Riki/OFF ausgelesenen). GRÜN = im Stamm gebunden (zählt in den Score, wie die Häkchen links) ·
+   ORANGE = noch NICHT im Stamm → fehlt. So sieht man das Delta zwischen ausgelesener Zutatenliste
+   und tatsächlich gebundenen Zutaten sofort (Ralph 20.07.2026). */
+function fgEnthaltenRender(){
+  var box=document.getElementById("fe_enthalten"); if(!box) return;
+  var rows=[]; var c=document.getElementById("fe_zutRows");
+  if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var nm=((r.querySelector(".fgzName")||{}).value||"").trim(); if(nm) rows.push(nm); });
+  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Noch nichts – hake links Zutaten/Wirkstoffe an oder lies sie mit Riki aus.</span>'; return; }
+  box.innerHTML=rows.map(function(nm){
+    var bound=!!(typeof ZUTATEN_MAP!=="undefined" && ZUTATEN_MAP && ZUTATEN_MAP[nm.trim().toLowerCase()]);
+    return '<div style="padding:3px 8px;border-radius:6px;margin-bottom:3px;background:'+(bound?"#e7f6ec":"#fbf3e2")+';color:'+(bound?"#1f7d43":"#8a5a0b")+'">'
+      +(bound?"✓":"○")+" "+esc(nm)+(bound?"":' <span style="font-size:11px;opacity:.85">– nicht im Stamm</span>')+'</div>';
+  }).join("");
 }
 function fgPickObserve(){
   try{ if(window._fgPickObs) window._fgPickObs.disconnect(); }catch(e){}
@@ -6763,7 +6802,7 @@ function fgPickObserve(){
   /* Bei jeder Änderung an #fe_zutRows: Textbox aktualisieren UND die Picker-Liste NEU sortieren,
      damit frisch Angehakte sofort nach oben wandern (Ralph). Scrollposition wird in fgPickRender
      erhalten, damit es nicht springt. */
-  window._fgPickObs=new MutationObserver(function(){ if(window._fgPickRaf) return; window._fgPickRaf=requestAnimationFrame(function(){ window._fgPickRaf=0; try{ var tb=document.getElementById("fe_enthalten"); if(tb) tb.value=_fgRowsNames().join("\n"); fgPickRender(); }catch(e){} }); });
+  window._fgPickObs=new MutationObserver(function(){ if(window._fgPickRaf) return; window._fgPickRaf=requestAnimationFrame(function(){ window._fgPickRaf=0; try{ fgEnthaltenRender(); fgPickRender(); }catch(e){} }); });
   window._fgPickObs.observe(c,{childList:true,subtree:true});
 }
 /* ---- OFF-Gegenprobe: Zutatenliste per EAN aus Open Food Facts holen ----
@@ -7005,7 +7044,8 @@ async function openFgEditor(id, prefill, targetEl){
     }catch(e){}
   }
   window._fgEdit={ id:id, bild_url:d.bild_url||"",
-                   etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[] };
+                   etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[],
+                   ean_status:String(d.ean_status||d.EAN_Status||"") };
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
   const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
@@ -7044,7 +7084,7 @@ async function openFgEditor(id, prefill, targetEl){
         <button type="button" onclick="fgPullHersteller()" style="padding:8px 13px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap">🔗 Riki liest Herstellerseite</button>
       </div>
       <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
-        <input id="fe_ean" value="${esc(d.ean||"")}" placeholder="EAN" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)">
+        <input id="fe_ean" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){}" placeholder="EAN" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)">
         <button type="button" onclick="fgPullOff()" style="padding:8px 13px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap">OFF holen</button>
         <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name, z. B. rohe Pilze/Gemüse/Getreide)" style="padding:8px 13px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap">USDA holen</button>
       </div>
@@ -7113,7 +7153,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
           + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
-        ${card(`In diesem Produkt enthalten <span style="text-transform:none;color:var(--muted)">(aus den Häkchen)</span>`,`<textarea id="fe_enthalten" readonly rows="18" placeholder="Angehakte Zutaten/Wirkstoffe erscheinen hier – eine je Zeile." style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.55;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical;min-height:360px"></textarea><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Häkchen links in der Zutaten-/Wirkstoffliste füllen dieses Feld. Die Bewertung ist an den Stamm gebunden – nicht frei änderbar.</div>`)}
+        ${card(`In diesem Produkt enthalten <span style="text-transform:none;color:var(--muted)">(aus den Häkchen)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>im Stamm erfasst (zählt in den Score)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch nicht im Stamm – <b>fehlt</b></span></div>`)}
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:12px;border-top:1px solid var(--line)">
@@ -7142,6 +7182,7 @@ async function openFgEditor(id, prefill, targetEl){
     try{ feKatChange(); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
     try{ fgEtikettRender(); }catch(e){}   /* angehängte Fotos (Laden + selbst hochgeladen) rendern */
+    try{ feEanSync(); }catch(e){}   /* fehlt die EAN, „offen"-Haken automatisch setzen */
   if(!targetEl) document.getElementById("overlay").classList.add("open");
 }
 /* Kategorie-Wechsel im Editor: bei „Supplement" heisst die Zutaten-Sektion „Wirkstoffe"
@@ -7153,6 +7194,19 @@ function feKatChange(){
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+}
+/* Fehlt die EAN, wird der „offen"-Haken automatisch gesetzt (blockiert die Freigabe nicht) –
+   AUSSER das Produkt ist legitim ohne Barcode (Status „generisch"/„kein_barcode"): das nicht anfassen,
+   sonst würde es beim Speichern auf „offen" heruntergestuft und tauchte fälschlich in „Zu erledigen" auf.
+   Gültige EAN → Haken raus (dann macht „offen" keinen Sinn). */
+function feEanSync(){
+  var e=document.getElementById("fe_ean"), o=document.getElementById("fe_ean_offen"); if(!e||!o) return;
+  var orig=String((window._fgEdit&&window._fgEdit.ean_status)||"").toLowerCase();
+  var legitOhne=(orig==="generisch"||orig==="kein_barcode");
+  var empty=(((e.value||"").replace(/\D/g,"")).length<8);
+  if(empty){ if(!legitOhne) o.checked=true; }
+  else { o.checked=false; }
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e2){}
 }
 /* Etikettfoto gross ansehen - beim Abtippen der Naehrwerte ist das der eigentliche Zweck. */
 function fgEtikettZoom(j){
@@ -9772,7 +9826,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20q";
+const APP_BUILD = "2026-07-20r";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
