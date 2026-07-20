@@ -2617,7 +2617,6 @@ async function loadProduktErfassung(){
       +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px")
       +'<button id="peStatusBtn" class="peBtn" onclick="peToggleStatus()">⇄ Status</button>'
       +'<span style="flex:1"></span>'
-      +'<input id="peSuche" oninput="peRender()" placeholder="🔍 Filter / Suche (Titel, Marke, EAN)…" style="width:250px;max-width:48vw;padding:8px 10px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px">'
     +'</div>'
     /* Filter-Chips (echte Zahlen) */
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
@@ -2628,14 +2627,14 @@ async function loadProduktErfassung(){
       +chip('keinzut','Ohne Zutaten',cnt.keinzut)
       +chip('markiert','⚑ Markiert',cnt.markiert)
     +'</div>'
-    +'</div>'  /* Ende Sticky-Menü */
-    /* Session-Leiste */
-    +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin-bottom:12px">'
-      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Ansicht</div><input value="Katalog – alle aktiven Produkte" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
+    /* Session-Leiste – jetzt MIT im Sticky; „Ansicht" wird zum großen Text-Filter (Ralph) */
+    +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin-top:8px">'
+      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Suche / Filter</div><input id="peSuche" oninput="peRender()" placeholder="🔍 Titel, Marke, EAN, Kategorie…" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"></div>'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Bearbeiter</div><input id="peBearb" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Sortierung</div>'
         +'<select id="peSort" onchange="peRender()" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"><option value="neu">Erfasst – neueste zuerst</option><option value="score">Score aufsteigend</option><option value="titel">Titel A–Z</option><option value="mark">Nur markierte</option></select></div>'
     +'</div>'
+    +'</div>'  /* Ende Sticky-Menü (Toolbar + Chips + Session-Leiste) */
     /* Raster */
     +'<div style="border:1px solid #e2e8ef;border-radius:11px;overflow:hidden;margin-bottom:12px;background:#fff;box-shadow:0 1px 2px rgba(20,40,70,.04)">'
       +'<div style="max-height:280px;overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
@@ -6765,15 +6764,62 @@ function fgPickToggle(cb){
   }
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}   /* fePlaus stoesst auch feScorePreview an */
 }
+/* „+ hinzufügen": Steht die Zutat schon im Stamm → direkt gebunden übernehmen (grün).
+   Sonst lässt Riki sie gegen unser Regelwerk BEWERTEN (mit Wächter-Verifikation) und schlägt einen
+   Wert vor – erst nach Bestätigung wandert er MIT Quelle in den Stamm. Kein stiller unbewerteter
+   Eintrag mehr, keine erfundene Zahl (der Wert kommt aus Rikis Einstufung + Verifikation). */
 function fgPickAddNeu(){
   var inp=document.getElementById("fe_zutNeu"); if(!inp) return;
   var name=(inp.value||"").trim(); if(!name) return;
   var c=document.getElementById("fe_zutRows"); if(!c) return;
   var key=name.toLowerCase();
   var exists=[].some.call(c.querySelectorAll(".fgZutRow"),function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key; });
-  if(!exists){ var m=ZUTATEN_MAP[key]; c.insertAdjacentHTML("beforeend", fgZutRow(name, m?m.rating:null, m?m.kritisch:"nein")); }
-  inp.value=""; fgPickRender();
-  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  var m=(typeof ZUTATEN_MAP!=="undefined"&&ZUTATEN_MAP)?ZUTATEN_MAP[key]:null;
+  if(m){ if(!exists) c.insertAdjacentHTML("beforeend", fgZutRow(name, m.rating, m.kritisch)); inp.value=""; var b0=document.getElementById("fe_zutNeuInfo"); if(b0) b0.innerHTML=""; fgPickRender(); try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){} return; }
+  fgPickRikiPanel(name);
+}
+/* Riki bewertet eine noch unbekannte Zutat und zeigt Vorschlag + Verifikation. Nichts wird
+   automatisch gespeichert – erst „In den Stamm übernehmen" schreibt (fgPickRikiUebernehmen). */
+function fgPickRikiPanel(name){
+  var box=document.getElementById("fe_zutNeuInfo"); if(!box) return;
+  box.innerHTML='<div style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--k-f4f1fb,#f4f1fb);font-size:12.5px;color:var(--ink)">🤖 Riki bewertet „'+esc(name)+'" gegen unser Regelwerk…</div>';
+  client.auth.getSession().then(function(s){
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok){ box.innerHTML='<div style="color:var(--k-b45309);font-size:12.5px">Bitte anmelden.</div>'; return null; }
+    return fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},body:JSON.stringify({name:name})}).then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); });
+  }).then(function(rr){
+    if(!rr) return;
+    if(!rr.ok||typeof rr.d.stufe!=="number"){ box.innerHTML='<div style="color:var(--k-b45309);font-size:12.5px">Riki konnte „'+esc(name)+'" nicht bewerten – anders schreiben oder von Hand prüfen.</div>'; return; }
+    var st=rr.d.stufe, v=rr.d.verifikation||{}, ges=v.gesamt||"KEIN_SIGNAL";
+    var col=ges==="BESTAETIGT"?"#1f7d43":ges==="AUSNAHME"?"#b91c1c":"#b45309";
+    var lbl=ges==="BESTAETIGT"?"bestätigt":ges==="AUSNAHME"?"Widerspruch – prüfen":ges==="PRUEFEN"?"grenzwertig":"kein Prüfsignal";
+    window._fgNeuVorschlag={name:name, stufe:st, ges:ges};
+    box.innerHTML='<div style="padding:9px 11px;border:1px solid var(--line);border-left:3px solid '+col+';border-radius:8px;background:var(--k-f2f5f3,#f2f5f3);font-size:12.5px;line-height:1.5;color:var(--ink)">'
+      +'<b>Riki: „'+esc(name)+'" → Stufe '+st+'</b>'+(rr.d.begruendung?" — "+esc(rr.d.begruendung):"")
+      +'<br><span style="color:'+col+';font-weight:700">'+lbl+'</span>'
+      +'<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
+        +'<button type="button" onclick="fgPickRikiUebernehmen()" style="padding:6px 11px;border:0;border-radius:8px;background:#2e9e57;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">✓ In den Stamm übernehmen &amp; anhaken</button>'
+        +'<button type="button" onclick="var b=document.getElementById(\'fe_zutNeuInfo\');if(b)b.innerHTML=\'\'" style="padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;cursor:pointer">Abbrechen</button>'
+      +'</div>'
+      +(ges!=="BESTAETIGT"?'<div style="color:var(--muted);margin-top:6px;font-size:11.5px">Kein klares „bestätigt" – bitte den Wert gegen Etikett/Regelwerk prüfen, bevor du übernimmst.</div>':'')
+    +'</div>';
+  }, function(){ box.innerHTML='<div style="color:var(--k-b45309);font-size:12.5px">Riki-Fehler – nochmal versuchen.</div>'; });
+}
+function fgPickRikiUebernehmen(){
+  var vs=window._fgNeuVorschlag; if(!vs) return;
+  var box=document.getElementById("fe_zutNeuInfo");
+  client.rpc("cb_zutat_stamm_anlegen",{p_name:vs.name,p_rating:vs.stufe,p_quelle:"Riki + Verifikation ("+(vs.ges||"")+"), Produkt-Erfassung"}).then(function(res){
+    if(res.error||!(res.data&&res.data.ok)){ if(box) box.innerHTML='<div style="color:var(--k-b45309);font-size:12.5px">Konnte nicht übernehmen: '+esc((res.error&&res.error.message)||"")+'</div>'; return; }
+    var rr=res.data.rating;
+    if(typeof ZUTATEN_MAP!=="undefined"&&ZUTATEN_MAP){ ZUTATEN_MAP[vs.name.toLowerCase()]={rating:rr,kritisch:"nein"}; }
+    if(Array.isArray(ZUTATEN_STAMM)){ ZUTATEN_STAMM.push({name:vs.name,rating:rr,kritisch:"nein"}); }
+    var c=document.getElementById("fe_zutRows"); var key=vs.name.toLowerCase();
+    var exists=c&&[].some.call(c.querySelectorAll(".fgZutRow"),function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key; });
+    if(c&&!exists) c.insertAdjacentHTML("beforeend", fgZutRow(vs.name, rr, "nein"));
+    var inp=document.getElementById("fe_zutNeu"); if(inp) inp.value="";
+    if(box) box.innerHTML='<div style="color:#1f7d43;font-size:12.5px">✓ „'+esc(vs.name)+'" mit Stufe '+rr+' in den Stamm übernommen und angehakt.</div>';
+    window._fgNeuVorschlag=null; fgPickRender(); try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  }, function(){ if(box) box.innerHTML='<div style="color:var(--k-b45309);font-size:12.5px">Fehler beim Übernehmen.</div>'; });
 }
 /* Textbox + Haekchen aus #fe_zutRows spiegeln – vom Observer aufgerufen, egal wer die Rows aendert. */
 function fgPickRefreshView(){
@@ -6792,9 +6838,24 @@ function fgEnthaltenRender(){
   if(!rows.length){ box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Noch nichts – hake links Zutaten/Wirkstoffe an oder lies sie mit Riki aus.</span>'; return; }
   box.innerHTML=rows.map(function(nm){
     var bound=!!(typeof ZUTATEN_MAP!=="undefined" && ZUTATEN_MAP && ZUTATEN_MAP[nm.trim().toLowerCase()]);
-    return '<div style="padding:3px 8px;border-radius:6px;margin-bottom:3px;background:'+(bound?"#e7f6ec":"#fbf3e2")+';color:'+(bound?"#1f7d43":"#8a5a0b")+'">'
-      +(bound?"✓":"○")+" "+esc(nm)+(bound?"":' <span style="font-size:11px;opacity:.85">– nicht im Stamm</span>')+'</div>';
+    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;margin-bottom:3px;background:'+(bound?"#e7f6ec":"#fbf3e2")+';color:'+(bound?"#1f7d43":"#8a5a0b")+'">'
+      +'<span style="flex:1;min-width:0">'+(bound?"✓":"○")+" "+esc(nm)+(bound?"":' <span style="font-size:11px;opacity:.85">– nicht im Stamm</span>')+'</span>'
+      +'<button onclick="fgEnthaltenDel(this)" data-name="'+esc(nm)+'" title="aus der Liste entfernen" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;padding:0 3px;flex:0 0 auto">✕</button>'
+      +'</div>';
   }).join("");
+}
+/* Rechts einen Eintrag entfernen (Abgleich-Funktion): löscht die passende Zeile aus #fe_zutRows.
+   Ist der Eintrag links im Stamm gebunden, geht dort automatisch das Häkchen weg (Observer). */
+function fgEnthaltenDel(btn){
+  var name=(btn&&btn.dataset&&btn.dataset.name!=null)?String(btn.dataset.name):""; if(!name) return;
+  var c=document.getElementById("fe_zutRows"); if(!c) return;
+  var key=name.trim().toLowerCase();
+  [].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){
+    if(((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key){
+      var inf=r.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove(); r.remove();
+    }
+  });
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
 function fgPickObserve(){
   try{ if(window._fgPickObs) window._fgPickObs.disconnect(); }catch(e){}
@@ -7141,6 +7202,7 @@ async function openFgEditor(id, prefill, targetEl){
             <input id="fe_zutNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgPickAddNeu();}" placeholder="nicht im Stamm? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)">
             <button type="button" onclick="fgPickAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button>
           </div>
+          <div id="fe_zutNeuInfo" style="margin-top:6px"></div>
           <div id="fe_zutRows" style="display:none">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
@@ -7156,7 +7218,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${card(`In diesem Produkt enthalten <span style="text-transform:none;color:var(--muted)">(aus den Häkchen)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>im Stamm erfasst (zählt in den Score)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch nicht im Stamm – <b>fehlt</b></span></div>`)}
       </div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:12px;border-top:1px solid var(--line)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding:12px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div id="fe_ready" style="font-size:12px;color:var(--muted)"></div>
         ${targetEl?`<button onclick="try{feScorePreview()}catch(e){}" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">↻ Score neu</button>
@@ -9826,7 +9888,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20r";
+const APP_BUILD = "2026-07-20t";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
