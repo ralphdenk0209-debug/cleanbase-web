@@ -6723,7 +6723,9 @@ function fgPickRender(){
       +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+'</span>'
       +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</label>'; };
+  var _st=wrap.scrollTop;
   wrap.innerHTML = (shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Stamm ist leer.")+'</div>');
+  try{ wrap.scrollTop=_st; }catch(e){}
 }
 function fgPickToggle(cb){
   var name=(cb.dataset.name||"").trim(); if(!name) return;
@@ -6758,7 +6760,10 @@ function fgPickRefreshView(){
 function fgPickObserve(){
   try{ if(window._fgPickObs) window._fgPickObs.disconnect(); }catch(e){}
   var c=document.getElementById("fe_zutRows"); if(!c||typeof MutationObserver==="undefined") return;
-  window._fgPickObs=new MutationObserver(function(){ if(window._fgPickRaf) return; window._fgPickRaf=requestAnimationFrame(function(){ window._fgPickRaf=0; try{ fgPickRefreshView(); }catch(e){} }); });
+  /* Bei jeder Änderung an #fe_zutRows: Textbox aktualisieren UND die Picker-Liste NEU sortieren,
+     damit frisch Angehakte sofort nach oben wandern (Ralph). Scrollposition wird in fgPickRender
+     erhalten, damit es nicht springt. */
+  window._fgPickObs=new MutationObserver(function(){ if(window._fgPickRaf) return; window._fgPickRaf=requestAnimationFrame(function(){ window._fgPickRaf=0; try{ var tb=document.getElementById("fe_enthalten"); if(tb) tb.value=_fgRowsNames().join("\n"); fgPickRender(); }catch(e){} }); });
   window._fgPickObs.observe(c,{childList:true,subtree:true});
 }
 /* ---- OFF-Gegenprobe: Zutatenliste per EAN aus Open Food Facts holen ----
@@ -9767,7 +9772,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20p";
+const APP_BUILD = "2026-07-20q";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
