@@ -2499,64 +2499,230 @@ async function rwDelete(id){
    Master-Detail-Arbeitsblatt: Liste oben (Posteingang = v_zu_verifizieren), der bestehende
    Editor (openFgEditor) laeuft INLINE im Detail-Bereich darunter. EIN Code-Pfad – alle
    Editor-Funktionen (Riki, OFF/USDA, Foto, Score, Zutaten, Freigabe) gelten automatisch. */
+/* Die ganze Seite laeuft im HELLEN Theme (App-Lichtvariante) – auch wenn der uebrige
+   Admin dunkel ist. Zwei Fallen, beide hier geloest:
+   1) Die Eingabefelder wurden schwarz, weil im Dark-Theme `color-scheme:dark` auf ALLEN
+      input/select/textarea steht → hier per #id-Regel auf `color-scheme:light` gezwungen.
+   2) Die Knopf-Farben (var(--k-XXXXXX)) sind im Dark-Theme auf dunkle Werte umgebogen.
+      Der Token-Name IST der helle Hexwert (--k-eeedfe = #eeedfe), also deklarieren wir
+      JEDEN --k-Token im Container zurueck auf sein Hell-Hex. Selbst-pflegend: neue Tokens
+      werden automatisch mitgenommen. */
+function peLightCssInject(){
+  if(document.getElementById('peLightCss')) return;
+  var toks={};
+  try{
+    for(var i=0;i<document.styleSheets.length;i++){
+      var rules=null; try{ rules=document.styleSheets[i].cssRules; }catch(e){ rules=null; }
+      if(!rules) continue;
+      for(var j=0;j<rules.length;j++){
+        var st=rules[j].style; if(!st||!st.length) continue;
+        for(var k=0;k<st.length;k++){ var p=st[k];
+          if(/^--k-[0-9a-f]{6}$/.test(p)) toks[p]='#'+p.slice(4);
+        }
+      }
+    }
+  }catch(e){}
+  var tokCss=''; for(var key in toks){ tokCss+=key+':'+toks[key]+';'; }
+  var css=
+    '#fgProdErf{color-scheme:light;color:#1f2a44;'+tokCss
+      +'--bg:#f4f7fa;--card:#ffffff;--ink:#1f2a44;--muted:#7b8698;--line:#e2e8ef;'
+      +'--green:#2e9e57;--green2:#10b981;--greendk:#1f7d43;--greenlt:#e7f6ec;'
+      +'--auf-gruen:#ffffff;--auf-gruen-dunkel:#ffffff;--card2:#eef2f7;}'
+    +'#fgProdErf input,#fgProdErf select,#fgProdErf textarea{color-scheme:light;background:#ffffff;color:#1f2a44;border-color:#d3dbe6}'
+    +'#fgProdErf input:disabled,#fgProdErf select:disabled{background:#eef2f7;color:#7b8698}'
+    +'#fgProdErf input::placeholder,#fgProdErf textarea::placeholder{color:#9aa7b2;opacity:1}'
+    +'#fgProdErf img{filter:none}'
+    +'#fgProdErf .peChip{border:1px solid #d3dbe6;background:#fff;color:#1f2a44;border-radius:20px;padding:5px 12px;font-size:12.5px;cursor:pointer;white-space:nowrap}'
+    +'#fgProdErf .peChip.on{background:#3b56b0;border-color:#2a3f86;color:#fff}'
+    +'#fgProdErf .peGrid tbody tr{cursor:pointer}'
+    +'#fgProdErf .peGrid tbody tr:hover{background:#f3f6fb}'
+    +'#fgProdErf .peGrid tbody tr.sel{background:#e8ecfb;box-shadow:inset 3px 0 0 #3b56b0}'
+    +'#fgProdErf .peBtn{border:1px solid #d3dbe6;background:#fff;color:#1f2a44;border-radius:9px;padding:8px 13px;font-size:13px;cursor:pointer;font-weight:600}'
+    +'#fgProdErf .peBtn:hover{background:#eef2f7}'
+    +'#fgProdErf .peBtn.pri{background:#3b56b0;border-color:#2a3f86;color:#fff}'
+    +'#fgProdErf .peBtn.pri:hover{background:#2a3f86}'
+    +'#fgProdErf .pePill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid}';
+  var s=document.createElement('style'); s.id='peLightCss'; s.textContent=css; document.head.appendChild(s);
+}
 async function loadProduktErfassung(){
   var box=document.getElementById('fgProdErf'); if(!box) return;
-  /* Diese Seite im HELLEN Theme (App-Lichtvariante) rendern – nur hier, ueber lokale
-     CSS-Variablen; der uebrige (dunkle) Admin bleibt unveraendert. Plus mehr Breite als das 1040er-Raster. */
-  box.style.cssText='color:#1d3c24;--bg:#eef1ec;--card:#ffffff;--ink:#1d3c24;--muted:#5f6b60;--line:#dce3dc;--green:#2e9e57;--green2:#10b981;--greendk:#1f7d43;--greenlt:#e7f6ec;--auf-gruen:#ffffff;--card2:#f4f7f5;'
-    +'width:min(1560px,calc(100vw - 250px));max-width:none;margin-left:calc((1040px - min(1560px,calc(100vw - 250px)))/2);';
-  box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Produkte…</div>';
+  peLightCssInject();
+  /* Mehr Breite als das 1040er-Raster (bis 1560, aber nie schmaler als der Inhalt). */
+  box.style.cssText='width:min(1560px,calc(100vw - 250px));max-width:none;margin-left:calc((1040px - min(1560px,calc(100vw - 250px)))/2);';
+  box.innerHTML='<div style="color:#7b8698;font-size:12.5px;padding:8px">Lade Produkte…</div>';
   try{
     var r=await client.from('v_zu_verifizieren').select('*').limit(2000);
     if(r.error) throw r.error;
     var rows=r.data||[];
     rows.sort(function(a,b){ var da=String(a.erfasst||""),db=String(b.erfasst||""); if(da!==db)return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0,nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
     window._verifRows=rows; window._peRows=rows;
-  }catch(e){ box.innerHTML='<div style="color:var(--k-dc2626);font-size:12.5px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
+  }catch(e){ box.innerHTML='<div style="color:#cf5442;font-size:12.5px;padding:8px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
+  if(window._peChip===undefined) window._peChip='alle';
+  var rws=window._peRows;
+  var cnt={ alle:rws.length,
+            keinscore:rws.filter(function(p){return p.score==null;}).length,
+            keinquelle:rws.filter(function(p){return !p.quelle_typ;}).length,
+            keinzut:rws.filter(function(p){return !p.hat_zutaten;}).length,
+            markiert:rws.filter(function(p){return p.markiert;}).length };
+  var chip=function(k,txt,n){ return '<span class="peChip'+(window._peChip===k?' on':'')+'" data-k="'+k+'" onclick="peChip(\''+k+'\')">'+txt+' ('+n+')</span>'; };
   box.innerHTML=
-    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
-    +'<button onclick="peNeu()" style="padding:8px 13px;border:0;border-radius:9px;background:var(--green,var(--k-16a34a));color:var(--auf-gruen,#fff);font-weight:700;cursor:pointer;font-size:13px">＋ Neues Produkt</button>'
-    +'<input id="peSuche" oninput="peRender()" placeholder="🔍 Filter: Titel, Marke, EAN, Grund…" style="flex:1;min-width:200px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px">'
-    +'<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);white-space:nowrap;cursor:pointer"><input type="checkbox" id="peNur" onchange="peRender()" style="width:15px;height:15px">nur markierte</label>'
-    +'<button onclick="loadProduktErfassung()" style="padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px">↻ Aktualisieren</button>'
+    /* Kopf im Mint-Verlauf wie im Entwurf */
+    '<div style="background:linear-gradient(180deg,#d8efe9,#eef6f4 60%,#f4f7fa);border-radius:0 0 14px 14px;padding:14px 16px 12px;margin:-4px -4px 14px;position:relative">'
+      +'<div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);border:1.5px solid #5fb3a0;color:#2f7d6c;background:#ffffffcc;border-radius:20px;padding:3px 15px;font-size:12px;font-weight:700">Zentrale</div>'
+      +'<h2 style="font-size:20px;margin:0;font-weight:800;color:#1f2a44">Produkt-Erfassung</h2>'
+      +'<div style="color:#5a7d72;font-size:12.5px;margin-top:2px">Master-Detail – Liste oben, Editor unten. Rechtsklick öffnet das Kontextmenü.</div>'
     +'</div>'
-    +'<div style="border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:12px;background:var(--card)">'
-      +'<div style="max-height:250px;overflow:auto"><table id="peGrid" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>'
-      +'<div id="peFoot" style="padding:7px 10px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);background:var(--bg)"></div>'
+    /* Toolbar */
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+      +'<button class="peBtn pri" onclick="peNeu()">＋ Neues Produkt</button>'
+      +'<button class="peBtn" onclick="peMenu(\'akt\',this)">☑ Aktionen ▾</button>'
+      +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
+      +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px">Vorgabe-Kategorie</span>'
+      +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px")
+      +'<span style="flex:1"></span>'
+      +'<input id="peSuche" oninput="peRender()" placeholder="🔍 Filter / Suche (Titel, Marke, EAN)…" style="width:250px;max-width:48vw;padding:8px 10px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px">'
     +'</div>'
-    +'<div id="peDetail"><div style="color:var(--muted);text-align:center;padding:34px;border:1px dashed var(--line);border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div></div>';
+    /* Filter-Chips (echte Zahlen) */
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+      +chip('alle','Alle',cnt.alle)
+      +chip('keinscore','Ohne Score',cnt.keinscore)
+      +chip('keinquelle','Ohne Quelle',cnt.keinquelle)
+      +chip('keinzut','Ohne Zutaten',cnt.keinzut)
+      +chip('markiert','⚑ Markiert',cnt.markiert)
+    +'</div>'
+    /* Session-Leiste */
+    +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin-bottom:12px">'
+      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Ansicht</div><input value="Posteingang – Zu verifizieren" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
+      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Bearbeiter</div><input id="peBearb" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
+      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Sortierung</div>'
+        +'<select id="peSort" onchange="peRender()" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"><option value="neu">Erfasst – neueste zuerst</option><option value="score">Score aufsteigend</option><option value="titel">Titel A–Z</option><option value="mark">Nur markierte</option></select></div>'
+    +'</div>'
+    /* Raster */
+    +'<div style="border:1px solid #e2e8ef;border-radius:11px;overflow:hidden;margin-bottom:12px;background:#fff;box-shadow:0 1px 2px rgba(20,40,70,.04)">'
+      +'<div style="max-height:230px;overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>'
+      +'<div id="peFoot" style="padding:7px 10px;color:#7b8698;font-size:12px;border-top:1px solid #e2e8ef;background:#eef3f8"></div>'
+    +'</div>'
+    +'<div id="peDetail"><div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div></div>'
+    /* Kontextmenue */
+    +'<div id="peCtx" style="position:fixed;z-index:60;background:#fff;border:1px solid #d3dbe6;border-radius:10px;padding:5px;min-width:210px;box-shadow:0 14px 38px rgba(20,40,70,.18);display:none"></div>';
+  try{ var b=document.getElementById('peBearb'); if(b) b.value=(window._adminName||(window.__profil&&window.__profil.name)||'Angemeldet'); }catch(e){}
   peRender();
 }
+/* kleine Klapp-Menues fuer Aktionen/Einstellungen – bewusst schlank gehalten
+   (Ralph will den Knopf-Inhalt spaeter feinschleifen). Nichts erfunden: nur Aktionen,
+   die es wirklich gibt. */
+function peMenu(kind,anchor){
+  var ctx=document.getElementById('peCtx'); if(!ctx) return;
+  var it=function(txt,fn){ return '<button onclick="document.getElementById(\'peCtx\').style.display=\'none\';'+fn+'" style="display:block;width:100%;text-align:left;background:none;border:0;color:#1f2a44;padding:8px 11px;border-radius:7px;font-size:13px;cursor:pointer">'+txt+'</button>'; };
+  var html= kind==='akt'
+    ? it('↻ Liste neu laden','loadProduktErfassung()')+it('⚑ Nur markierte zeigen','peChip(\'markiert\')')+it('🧹 Filter zurücksetzen','peChip(\'alle\')')
+    : it('↕ Sortierung: neueste','peSetSort(\'neu\')')+it('↕ Sortierung: Score aufsteigend','peSetSort(\'score\')')+it('↕ Sortierung: Titel A–Z','peSetSort(\'titel\')');
+  ctx.innerHTML=html; ctx.style.display='block';
+  var rc=anchor.getBoundingClientRect(); var w=ctx.offsetWidth,h=ctx.offsetHeight;
+  ctx.style.left=Math.min(rc.left,innerWidth-w-6)+'px'; ctx.style.top=Math.min(rc.bottom+4,innerHeight-h-6)+'px';
+  setTimeout(function(){ document.addEventListener('click',peCtxHide); },0);
+}
+function peCtxHide(){ var c=document.getElementById('peCtx'); if(c)c.style.display='none'; document.removeEventListener('click',peCtxHide); }
+function peSetSort(v){ var s=document.getElementById('peSort'); if(s){ s.value=v; } peRender(); }
+function peChip(k){ window._peChip=k;
+  document.querySelectorAll('#fgProdErf .peChip').forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-k')===k); });
+  peRender(); }
 function peRender(){
   var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
   var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
-  var nur=!!((document.getElementById('peNur')||{}).checked);
-  var list=rows.filter(function(p){ if(nur&&!p.markiert)return false; if(!q)return true;
+  var chipf=window._peChip||'alle';
+  var sort=((document.getElementById('peSort')||{}).value)||'neu';
+  var list=rows.filter(function(p){
+    if(chipf==='keinscore'&&p.score!=null) return false;
+    if(chipf==='keinquelle'&&p.quelle_typ) return false;
+    if(chipf==='keinzut'&&p.hat_zutaten) return false;
+    if(chipf==='markiert'&&!p.markiert) return false;
+    if(!q) return true;
     return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')+' '+String(p.grund||'')).toLowerCase().indexOf(q)>=0; });
-  var th=function(h){ return '<th style="position:sticky;top:0;background:var(--bg);text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);white-space:nowrap">'+h+'</th>'; };
-  var td=function(c,st){ return '<td style="padding:8px 9px;border-bottom:1px solid var(--line);'+(st||'')+'">'+c+'</td>'; };
-  g.innerHTML='<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','EAN','Grund','⚑'].map(th).join('')+'</tr></thead><tbody>'
+  if(sort==='mark') list=list.filter(function(p){return p.markiert;});
+  list.sort(function(a,b){
+    if(sort==='score'){ var sa=(a.score==null?9999:a.score), sb=(b.score==null?9999:b.score); if(sa!==sb) return sa-sb; }
+    else if(sort==='titel'){ var ta=String(a.name||'').toLowerCase(),tb=String(b.name||'').toLowerCase(); if(ta!==tb) return ta<tb?-1:1; }
+    var da=String(a.erfasst||''),db=String(b.erfasst||''); if(da!==db) return da<db?1:-1;
+    var na=parseInt(String(a.id).replace(/\D/g,''),10)||0,nb=parseInt(String(b.id).replace(/\D/g,''),10)||0; return nb-na; });
+  var th=function(h){ return '<th style="position:sticky;top:0;background:#eef3f8;text-align:left;padding:9px 10px;border-bottom:1px solid #e2e8ef;font-size:12px;color:#5b6b82;font-weight:700;white-space:nowrap">'+h+'</th>'; };
+  var td=function(c,st){ return '<td style="padding:9px 10px;border-bottom:1px solid #e2e8ef;white-space:nowrap;'+(st||'')+'">'+c+'</td>'; };
+  var scoreCell=function(s){ if(s==null) return '<span style="font-weight:800;color:#7b8698">–</span>';
+    var c=s>=80?'#2e9e57':s>=60?'#c88616':'#cf5442'; return '<span style="font-weight:800;color:'+c+'">'+s+'</span>'; };
+  var statPill=function(p){ var v=String(p.verifiziert||'Nein');
+    if(v==='Ja') return '<span class="pePill" style="color:#1f7d43;border-color:#bfe3cb;background:#e7f6ec">verifiziert</span>';
+    if(v==='Teilweise') return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">teilweise</span>';
+    return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">offen</span>'; };
+  g.innerHTML='<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','Score','Status','EAN','Quelle','⚑'].map(th).join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
-      return '<tr data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" style="cursor:pointer;background:'+(seln?'var(--greenlt,#eef7f0)':'transparent')+'">'
-      +td(esc(p.id),'color:var(--muted)')
+      return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')">'
+      +td(esc(p.id),'color:#7b8698')
       +td('<b>'+esc(p.name||'—')+'</b>')
       +td(esc(p.marke||''))
       +td(esc(p.kategorie||''))
-      +td(p.ean?esc(p.ean):'<span style="color:var(--k-b45309)">offen</span>','color:var(--muted)')
-      +td(esc(p.grund||''),'color:var(--muted);font-size:12px')
-      +td(p.markiert?'🚩':'')
+      +td(scoreCell(p.score))
+      +td(statPill(p))
+      +td(p.ean?esc(p.ean):'<span style="color:#c88616">offen</span>','color:#7b8698')
+      +td(p.quelle_typ?esc(p.quelle_typ):'<span style="color:#cf5442">fehlt</span>','color:#7b8698;font-size:12px')
+      +td(p.markiert?'<span style="color:#cf5442">⚑</span>':'')
       +'</tr>'; }).join('')
     +'</tbody>';
   var f=document.getElementById('peFoot'); if(f) f.textContent='Datensätze '+list.length+' von '+rows.length;
 }
-function peSelect(id){ window._peSel=id; peRender();
+function peRowCtx(ev,id){
+  ev.preventDefault();
+  window._peSel=id; peSelect(id);
+  var ctx=document.getElementById('peCtx'); if(!ctx) return;
+  var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
+  var it=function(txt,fn,danger){ return '<button onclick="document.getElementById(\'peCtx\').style.display=\'none\';'+fn+'" style="display:block;width:100%;text-align:left;background:none;border:0;color:'+(danger?'#cf5442':'#1f2a44')+';padding:8px 11px;border-radius:7px;font-size:13px;cursor:pointer">'+txt+'</button>'; };
+  var sep='<div style="height:1px;background:#e2e8ef;margin:4px 6px"></div>';
+  ctx.innerHTML=
+     it('✎ Bearbeiten','peSelect(\''+esc(id)+'\')')
+    +it('👁 Als Nutzer ansehen','peAlsNutzer(\''+esc(id)+'\')')
+    +it((p.markiert?'⚑ Markierung entfernen':'⚑ Markieren'),'peToggleMark(\''+esc(id)+'\','+(p.markiert?'false':'true')+')')
+    +sep
+    +it('🗑 Deaktivieren (Inaktiv)','peDeaktiv(\''+esc(id)+'\')',true);
+  ctx.style.display='block';
+  var w=ctx.offsetWidth,h=ctx.offsetHeight;
+  ctx.style.left=Math.min(ev.clientX,innerWidth-w-6)+'px'; ctx.style.top=Math.min(ev.clientY,innerHeight-h-6)+'px';
+  setTimeout(function(){ document.addEventListener('click',peCtxHide); },0);
+}
+async function peToggleMark(id,an){
+  try{ await fgEditMark(id, an===true||an==='true'); }catch(e){}
+  var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);}); if(p) p.markiert=(an===true||an==='true');
+  peRender();
+}
+function peAlsNutzer(id){ try{ if(typeof detail==='function'){ detail(id); return; } }catch(e){}
+  alert('Nutzer-Ansicht ist hier nicht verfügbar.'); }
+/* „Löschen" = DEAKTIVIEREN (Produktstatus → Inaktiv), kein Hartlöschen. Reversibel.
+   Entspricht §4: Status ändern statt löschen. Immer mit Rückfrage. */
+async function peDeaktiv(id){
+  var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
+  if(!confirm('Produkt '+id+(p.name?(' – '+p.name):'')+' auf „Inaktiv" setzen?\n\nDas Produkt verschwindet aus dem Katalog, bleibt aber erhalten und kann wieder aktiviert werden. Nichts wird gelöscht.')) return;
+  try{
+    var r=await client.from('Produkte').update({Produktstatus:'Inaktiv'}).eq('Produkt_ID',id);
+    if(r.error) throw r.error;
+    window._peRows=(window._peRows||[]).filter(function(x){return String(x.id)!==String(id);});
+    if(String(window._peSel||'')===String(id)){ window._peSel=null; var det=document.getElementById('peDetail'); if(det) det.innerHTML='<div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen – oder „＋ Neues Produkt".</div>'; }
+    loadProduktErfassung();
+  }catch(e){ alert('Konnte nicht deaktivieren: '+(e.message||e)); }
+}
+function peSelect(id){ window._peSel=id;
+  document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.toggle('sel', tr.getAttribute('data-id')===String(id)); });
   var det=document.getElementById('peDetail'); if(!det) return;
-  det.innerHTML='<div style="color:var(--muted);padding:14px">Lade…</div>';
-  try{ openFgEditor(id, null, det); }catch(e){ det.innerHTML='<div style="color:var(--k-dc2626)">Editor-Fehler: '+esc(e.message||e)+'</div>'; }
+  det.innerHTML='<div style="color:#7b8698;padding:14px">Lade…</div>';
+  try{ openFgEditor(id, null, det); }catch(e){ det.innerHTML='<div style="color:#cf5442">Editor-Fehler: '+esc(e.message||e)+'</div>'; }
 }
 function peNeu(){ window._peSel=null;
+  document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.remove('sel'); });
   var det=document.getElementById('peDetail'); if(!det) return;
-  try{ openFgEditor(null, null, det); }catch(e){ det.innerHTML='<div style="color:var(--k-dc2626)">Editor-Fehler: '+esc(e.message||e)+'</div>'; }
+  var pre=null; try{ var vk=((document.getElementById('peVorKat')||{}).value||'').trim(); if(vk) pre={kategorie:vk}; }catch(e){}
+  try{ openFgEditor(null, pre, det); det.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){ det.innerHTML='<div style="color:#cf5442">Editor-Fehler: '+esc(e.message||e)+'</div>'; }
+}
+function peClose(){ window._peSel=null;
+  document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.remove('sel'); });
+  var det=document.getElementById('peDetail'); if(det) det.innerHTML='<div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div>';
+  var box=document.getElementById('fgProdErf'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 /* ================= AUTO-VERIFIZIERUNG =================
    Gleicht Produkte mit EAN gegen Open Food Facts ab.
@@ -6812,10 +6978,17 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:12px;border-top:1px solid var(--line)">
-      <div id="fe_ready" style="font-size:12px;color:var(--muted)"></div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div id="fe_ready" style="font-size:12px;color:var(--muted)"></div>
+        ${targetEl?`<button onclick="try{feScorePreview()}catch(e){}" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">↻ Score neu</button>
+        ${id?`<button onclick="peAlsNutzer('${esc(id)}')" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">👁 Als Nutzer</button>`:""}`:""}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${targetEl&&id?`<button onclick="peDeaktiv('${esc(id)}')" style="padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--k-cf5442,#cf5442);cursor:pointer;font-size:13px">Löschen</button>`:""}
+        ${targetEl?`<button onclick="peNeu()" style="padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Neu</button>`:""}
         <button onclick="fgEditSave(false)" style="padding:10px 16px;border:0;border-radius:10px;background:var(--k-0ea5e9);color:var(--k-ffffff);font-weight:600;cursor:pointer">💾 Speichern</button>
         <button onclick="fgEditSave(true)" style="padding:10px 18px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:700;cursor:pointer">✓ Speichern &amp; freigeben</button>
+        ${targetEl?`<button onclick="peClose()" style="padding:10px 16px;border:0;border-radius:10px;background:var(--k-2a3f86,#2a3f86);color:#fff;font-weight:600;cursor:pointer">Schließen</button>`:""}
       </div>
     </div>
     <div id="fe_msg" style="font-size:13px;margin-top:8px"></div>`;
@@ -9400,7 +9573,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20f";
+const APP_BUILD = "2026-07-20g";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
