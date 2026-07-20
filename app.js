@@ -6831,30 +6831,44 @@ function fgPickRefreshView(){
    Riki/OFF ausgelesenen). GRÜN = im Stamm gebunden (zählt in den Score, wie die Häkchen links) ·
    ORANGE = noch NICHT im Stamm → fehlt. So sieht man das Delta zwischen ausgelesener Zutatenliste
    und tatsächlich gebundenen Zutaten sofort (Ralph 20.07.2026). */
+/* Rechte Box = RIKI-REFERENZ (Ralph 20.07.2026): zeigt die Zutatenliste, die Riki von der
+   Herstellerseite/dem Etikett GELESEN hat (window._fgRef) – NICHT die Häkchen. Sie dient dem
+   Abgleich: grün = diese Referenz-Zutat ist links in deiner (gebundenen) Liste übernommen;
+   orange = laut Etikett da, aber noch NICHT in deiner Liste. Die Farbe aktualisiert sich, wenn
+   du links an-/abhakst; die Referenz selbst bleibt, bis Riki neu liest oder du sie mit ✕ kürzt. */
+function _fgWorkSet(){ var set={}; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var n=((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase(); if(n) set[n]=true; }); return set; }
 function fgEnthaltenRender(){
   var box=document.getElementById("fe_enthalten"); if(!box) return;
-  var rows=[]; var c=document.getElementById("fe_zutRows");
-  if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var nm=((r.querySelector(".fgzName")||{}).value||"").trim(); if(nm) rows.push(nm); });
-  if(!rows.length){ box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Noch nichts – hake links Zutaten/Wirkstoffe an oder lies sie mit Riki aus.</span>'; return; }
-  box.innerHTML=rows.map(function(nm){
-    var bound=!!(typeof ZUTATEN_MAP!=="undefined" && ZUTATEN_MAP && ZUTATEN_MAP[nm.trim().toLowerCase()]);
-    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;margin-bottom:3px;background:'+(bound?"#e7f6ec":"#fbf3e2")+';color:'+(bound?"#1f7d43":"#8a5a0b")+'">'
-      +'<span style="flex:1;min-width:0">'+(bound?"✓":"○")+" "+esc(nm)+(bound?"":' <span style="font-size:11px;opacity:.85">– nicht im Stamm</span>')+'</span>'
-      +'<button onclick="fgEnthaltenDel(this)" data-name="'+esc(nm)+'" title="aus der Liste entfernen" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;padding:0 3px;flex:0 0 auto">✕</button>'
+  var ref=(window._fgRef&&window._fgRef.length)?window._fgRef:[];
+  if(!ref.length){ box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Noch keine Referenz – lass Riki die <b>Herstellerseite</b> oder das <b>Etikett</b> lesen (oder die Zutatenliste analysieren).</span>'; return; }
+  var work=_fgWorkSet();
+  box.innerHTML=ref.map(function(nm){
+    var inList=!!work[String(nm).trim().toLowerCase()];
+    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;margin-bottom:3px;background:'+(inList?"#e7f6ec":"#fbf3e2")+';color:'+(inList?"#1f7d43":"#8a5a0b")+'">'
+      +'<span style="flex:1;min-width:0">'+(inList?"✓":"○")+" "+esc(nm)+(inList?"":' <span style="font-size:11px;opacity:.85">– noch nicht in der Liste</span>')+'</span>'
+      +'<button onclick="fgEnthaltenDel(this)" data-name="'+esc(nm)+'" title="aus der Referenz entfernen (z. B. Riki-Fehllesung)" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;padding:0 3px;flex:0 0 auto">✕</button>'
       +'</div>';
   }).join("");
 }
-/* Rechts einen Eintrag entfernen (Abgleich-Funktion): löscht die passende Zeile aus #fe_zutRows.
-   Ist der Eintrag links im Stamm gebunden, geht dort automatisch das Häkchen weg (Observer). */
+/* Referenz setzen (nur durch Riki): merkt sich die von Riki gelesenen Namen und rendert die Box. */
+function fgRefSet(names){
+  var seen={}, out=[];
+  (names||[]).forEach(function(n){ n=String(n||"").trim(); if(!n) return; var k=n.toLowerCase(); if(seen[k]) return; seen[k]=1; out.push(n); });
+  window._fgRef=out; try{ fgEnthaltenRender(); }catch(e){}
+}
+/* ✕ in der Referenz: entfernt den Eintrag aus der Referenz UND – falls vorhanden – aus der
+   Arbeitsliste (#fe_zutRows), damit z. B. eine Riki-Fehllesung „gegarter Reis" komplett weg ist. */
 function fgEnthaltenDel(btn){
   var name=(btn&&btn.dataset&&btn.dataset.name!=null)?String(btn.dataset.name):""; if(!name) return;
-  var c=document.getElementById("fe_zutRows"); if(!c) return;
   var key=name.trim().toLowerCase();
-  [].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){
+  if(Array.isArray(window._fgRef)) window._fgRef=window._fgRef.filter(function(n){ return String(n).trim().toLowerCase()!==key; });
+  var c=document.getElementById("fe_zutRows");
+  if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){
     if(((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key){
       var inf=r.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove(); r.remove();
     }
   });
+  try{ fgEnthaltenRender(); }catch(e){}
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
 function fgPickObserve(){
@@ -6985,6 +6999,7 @@ async function rikiAnalyse(){
     if(Array.isArray(v.zutaten)&&v.zutaten.length){
       const c=document.getElementById("fe_zutRows");
       if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name, z.rating, z.kritisch?"ja":"nein"); }).join("");
+      try{ if(typeof fgRefSet==="function") fgRefSet(v.zutaten.map(function(z){return z.name;})); }catch(e){}  /* rechte Referenz aus Riki-Lesung */
     }
     if(v.zusatzstoffe){
       const zt=document.getElementById("fe_ztext"); if(zt&&v.zusatzstoffe.text) zt.value=v.zusatzstoffe.text;
@@ -7107,6 +7122,10 @@ async function openFgEditor(id, prefill, targetEl){
   window._fgEdit={ id:id, bild_url:d.bild_url||"",
                    etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[],
                    ean_status:String(d.ean_status||d.EAN_Status||"") };
+  /* Riki-Referenz (rechte Box): beim Öffnen aus der gespeicherten Zutatenliste vorbelegen –
+     die stammt aus der letzten Riki-Lesung. Neue Riki-Reads (Herstellerseite/Etikett/Analyse)
+     überschreiben sie über fgRefSet(). */
+  window._fgRef=(d.zutaten||[]).map(function(z){ return z&&z.name; }).filter(Boolean);
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
   const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
@@ -7207,7 +7226,7 @@ async function openFgEditor(id, prefill, targetEl){
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
         ${card("Zusatzstoffe",`${inp("fe_ztext",d.zusatzstoffe_text||"keine")}<div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>`)}
-        ${card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
+        ${targetEl?"":card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
@@ -7215,7 +7234,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
           + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
-        ${card(`In diesem Produkt enthalten <span style="text-transform:none;color:var(--muted)">(aus den Häkchen)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>im Stamm erfasst (zählt in den Score)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch nicht im Stamm – <b>fehlt</b></span></div>`)}
+        ${card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>in deiner Liste übernommen</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div>`)}
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding:12px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
@@ -7625,7 +7644,7 @@ async function fgPullEtikett(files, b64arr){
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); }
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefSet==="function") fgRefSet(v.zutaten.map(function(z){return z.name;})); }catch(e){} }
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Etikettfoto (Nutzer)";
     try{ feBelegAdd("Etikettfoto (Nutzer)"+(ean?(" · EAN "+ean):"")); }catch(e){}
     try{ fePlaus(); }catch(e){}
@@ -9888,7 +9907,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20t";
+const APP_BUILD = "2026-07-20u";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<!-- build 2026-07-20t: Textfilter aus der Toolbar (rechts, unintuitiv) ins „Ansicht"-Feld verschoben → jetzt großes „Suche / Filter"-Feld (id peSuche) in der Session-Leiste. Session-Leiste (bis Ansicht) ist jetzt MIT im Sticky-Menü → Toolbar+Chips+Session bleiben oben fixiert. Basis: 20s. -->
-<!-- OFFEN (nächster Build): Freigabe-Checkliste in die linke Menü-Spalte (unter Abmelden); Prüfung Zutaten-Stamm-Validität (gegartes Huhnfleisch etc. – Quelle/Beleg). -->
+<!-- build 2026-07-20u: (1) „ADMIN"-Balken oben entfernt (body::before) – verdeckte das fixierte Menü. (2) Freigabe-Checkliste im Produkt-Erfassungs-Editor (Inline) entfernt; im Vollbild-Posteingang bleibt sie. (3) Rechte Box = RIKI-REFERENZ (window._fgRef): zeigt NUR die von Riki (Herstellerseite/Etikett/Analyse) gelesene Zutatenliste als Kennzeichnung/Referenz — nicht mehr die Häkchen. Grün = links übernommen · orange = laut Etikett da, noch nicht übernommen. ✕ entfernt aus Referenz (+ Arbeitsliste). Basis: 20t. -->
+<!-- OFFEN: Stamm-Validität (230 „Auto"-Bewertungen – Leck im Import-Pfad stoppen + Bestand prüfen); Freigabe evtl. in Menü-Spalte. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1428,7 +1428,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
-<script src="app.js?v=2026-07-20t"></script>
+<script src="app.js?v=2026-07-20u"></script>
 <button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
 <button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 </body>
