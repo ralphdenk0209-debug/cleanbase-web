@@ -462,6 +462,9 @@ function setTierOverride(t){
    verwirrt dort nur. Deshalb hängt der Balken an ME.entwickler, nicht an is_admin. */
 function mountTierOvChip(){
   const ex=document.getElementById("tierOvChip");
+  /* Im Admin-Backend (Produkt-Pflege) hat der Consumer-Vorschau-Schalter „Ansehen als"
+     nichts verloren – dort verdeckt er nur das Arbeitsblatt. Auf der Consumer-App bleibt er. */
+  if(window.__ADMIN_PAGE){ if(ex) ex.remove(); return; }
   if(!(ME&&ME.entwickler)){ if(ex) ex.remove(); return; }
   if(ex) return;
   ladeTierSets();
@@ -2565,9 +2568,13 @@ async function loadProduktErfassung(){
     rows.sort(function(a,b){ var da=String(a.erfasst||""),db=String(b.erfasst||""); if(da!==db)return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0,nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
     window._verifRows=rows; window._peRows=rows;
   }catch(e){ box.innerHTML='<div style="color:#cf5442;font-size:12.5px;padding:8px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
-  if(window._peChip===undefined) window._peChip='alle';
+  /* Standard-Ansicht: nur das, was ARBEIT braucht (Entwurf + zu verifizieren).
+     Fertige Produkte (Aktiv & verifiziert & Score) sind ausgeblendet – über „Alle" einblendbar. */
+  if(window._peChip===undefined) window._peChip='offen';
   var rws=window._peRows;
-  var cnt={ alle:rws.length,
+  var istOffen=function(p){ return String(p.pstatus||'')==='Entwurf' || p.zu_verifizieren; };
+  var cnt={ offen:rws.filter(istOffen).length,
+            alle:rws.length,
             zuverif:rws.filter(function(p){return p.zu_verifizieren;}).length,
             keinscore:rws.filter(function(p){return p.score==null;}).length,
             keinquelle:rws.filter(function(p){return !p.quelle_typ;}).length,
@@ -2594,6 +2601,7 @@ async function loadProduktErfassung(){
     +'</div>'
     /* Filter-Chips (echte Zahlen) */
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+      +chip('offen','Zu erledigen',cnt.offen)
       +chip('alle','Alle',cnt.alle)
       +chip('zuverif','Zu verifizieren',cnt.zuverif)
       +chip('keinscore','Ohne Score',cnt.keinscore)
@@ -2644,6 +2652,7 @@ function peRender(){
   var chipf=window._peChip||'alle';
   var sort=((document.getElementById('peSort')||{}).value)||'neu';
   var list=rows.filter(function(p){
+    if(chipf==='offen'&&!(String(p.pstatus||'')==='Entwurf'||p.zu_verifizieren)) return false;
     if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
     if(chipf==='keinscore'&&p.score!=null) return false;
     if(chipf==='keinquelle'&&p.quelle_typ) return false;
@@ -6703,16 +6712,11 @@ function fgPickRender(){
   var sel=_fgRowsSet();
   var all=(ZUTATEN_STAMM||[]).filter(function(it){ if(supp && it.kategorie && FG_FOOD_KATS[it.kategorie]) return false; return true; });
   var isSel=function(it){ return !!sel[(it.name||"").trim().toLowerCase()]; };
+  /* Vollständige Liste zeigen (Ralph): ALLE Stamm-Zutaten, die ausgewählten IMMER oben.
+     Suche filtert beide Gruppen; Reihenfolge innerhalb bleibt (Stamm = alphabetisch). */
   var checked=all.filter(isSel), rest=all.filter(function(it){return !isSel(it);});
-  var shown, more=0, hinweis="";
-  if(q){
-    var mc=checked.filter(function(it){return (it.name||"").toLowerCase().indexOf(q)>=0;});
-    var mr=rest.filter(function(it){return (it.name||"").toLowerCase().indexOf(q)>=0;});
-    shown=mc.concat(mr); if(shown.length>400){ more=shown.length-400; shown=shown.slice(0,400); }
-  } else {
-    shown=checked.slice();
-    if(rest.length) hinweis="＋ "+rest.length+" weitere – tippe oben ins Suchfeld, um sie zu finden.";
-  }
+  if(q){ var mm=function(it){return (it.name||"").toLowerCase().indexOf(q)>=0;}; checked=checked.filter(mm); rest=rest.filter(mm); }
+  var shown=checked.concat(rest);
   var row=function(it){ var nm=it.name||"", chk=isSel(it), rt=(it.rating==null?"–":it.rating);
     var col=(it.rating==null)?"var(--muted)":(it.rating>=7?"#2e9e57":it.rating>=4?"#c88616":"#cf5442");
     return '<label style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(chk?"background:var(--greenlt,#eef7f0)":"")+'">'
@@ -6720,9 +6724,7 @@ function fgPickRender(){
       +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+'</span>'
       +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</label>'; };
-  wrap.innerHTML = (shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Noch nichts angehakt – tippe oben, um zu suchen.")+'</div>')
-    + (more?'<div style="padding:8px;color:var(--muted);font-size:12px;text-align:center;border-top:1px solid var(--line)">… '+more+' weitere Treffer – Suche verfeinern.</div>':"")
-    + (hinweis?'<div style="padding:8px;color:var(--muted);font-size:12px;text-align:center;border-top:1px solid var(--line)">'+hinweis+'</div>':"");
+  wrap.innerHTML = (shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Stamm ist leer.")+'</div>');
 }
 function fgPickToggle(cb){
   var name=(cb.dataset.name||"").trim(); if(!name) return;
@@ -9710,7 +9712,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20m";
+const APP_BUILD = "2026-07-20n";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
