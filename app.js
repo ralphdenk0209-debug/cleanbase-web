@@ -2501,6 +2501,10 @@ async function rwDelete(id){
    Editor-Funktionen (Riki, OFF/USDA, Foto, Score, Zutaten, Freigabe) gelten automatisch. */
 async function loadProduktErfassung(){
   var box=document.getElementById('fgProdErf'); if(!box) return;
+  /* Diese Seite im HELLEN Theme (App-Lichtvariante) rendern – nur hier, ueber lokale
+     CSS-Variablen; der uebrige (dunkle) Admin bleibt unveraendert. Plus mehr Breite als das 1040er-Raster. */
+  box.style.cssText='color:#1d3c24;--bg:#eef1ec;--card:#ffffff;--ink:#1d3c24;--muted:#5f6b60;--line:#dce3dc;--green:#2e9e57;--green2:#10b981;--greendk:#1f7d43;--greenlt:#e7f6ec;--auf-gruen:#ffffff;--card2:#f4f7f5;'
+    +'width:min(1560px,calc(100vw - 250px));max-width:none;margin-left:calc((1040px - min(1560px,calc(100vw - 250px)))/2);';
   box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Produkte…</div>';
   try{
     var r=await client.from('v_zu_verifizieren').select('*').limit(2000);
@@ -6737,23 +6741,34 @@ async function openFgEditor(id, prefill, targetEl){
     ${window._fgPrefillHinweis?`<div style="background:var(--k-fff7ea);border:1px solid var(--k-e4a343);color:var(--k-8a5a0b);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
     <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px">
       <div style="display:flex;gap:7px;align-items:center;margin-bottom:7px">
-        <input id="fe_url" value="${esc(d.produktlink||"")}" placeholder="https://… Produktseite des Herstellers" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px">
-        <button type="button" onclick="fgPullHersteller()" style="padding:8px 12px;border:0;border-radius:8px;background:var(--k-534ab7);color:var(--k-ffffff);font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap">Riki liest</button>
+        <input id="fe_url" value="${esc(d.produktlink||"")}" placeholder="https://… Herstellerseite (falls du den Link hast)" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)">
+        <button type="button" onclick="fgPullHersteller()" style="padding:8px 13px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap">🔗 Riki liest Herstellerseite</button>
       </div>
       <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
-        <input id="fe_ean" value="${esc(d.ean||"")}" placeholder="EAN" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:8px">
-        <button type="button" onclick="fgPullOff()" style="padding:8px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;white-space:nowrap">OFF holen</button>
-        <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name, z. B. rohe Pilze/Gemüse/Getreide)" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">USDA holen</button>
-        ${id?`<button type="button" onclick="fgShotCam('${esc(d.id)}')" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">📷 Etikettfoto</button>
-        <button type="button" onclick="document.getElementById('fe_shotFile').click()" title="Bereits gespeichertes Foto hochladen" style="padding:8px 11px;border:1px dashed var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">⬆ Datei</button>
-        <input type="file" id="fe_shotFile" accept="image/*" multiple style="display:none" onchange="fgFotoPick(this,'${esc(d.id)}')">`:""}
+        <input id="fe_ean" value="${esc(d.ean||"")}" placeholder="EAN" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)">
+        <button type="button" onclick="fgPullOff()" style="padding:8px 13px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap">OFF holen</button>
+        <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name, z. B. rohe Pilze/Gemüse/Getreide)" style="padding:8px 13px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap">USDA holen</button>
       </div>
-      <div style="display:flex;gap:7px;align-items:center;margin-top:7px">
-        <button type="button" onclick="fgResearchPick()" title="Riki_Research (Beta, Admin): erkennt das Produkt aus einem Foto, sucht die Herstellerseite und füllt die Maske. Du prüfst und gibst frei." style="padding:8px 12px;border:1px solid var(--k-534ab7);border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap">📸 Foto → Riki sucht Herstellerseite</button>
-        <input type="file" id="fe_researchFile" accept="image/*" multiple style="display:none" onchange="fgPullResearch(this.files)">
+      <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:8px">
+        <div>
+          <button type="button" onclick="fgSrcToggle('r')" style="padding:8px 13px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap">📸 Foto → Herstellerseite finden ▾</button>
+          <div id="fe_src_r" style="display:none;gap:6px;margin-top:6px">
+            <button type="button" onclick="document.getElementById('fe_res_up').click()" style="padding:5px 11px;border:1px solid #cbc7f2;border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600">📷/⬆ Foto wählen</button>
+            <button type="button" onclick="fgUseKundenfoto('r')" style="padding:5px 11px;border:1px solid #cbc7f2;border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600">🗂 Kundenfoto</button>
+          </div>
+        </div>
+        <div>
+          <button type="button" onclick="fgSrcToggle('e')" style="padding:8px 13px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap">🏷 Foto → Etikett auslesen ▾</button>
+          <div id="fe_src_e" style="display:none;gap:6px;margin-top:6px">
+            <button type="button" onclick="document.getElementById('fe_eti_up').click()" style="padding:5px 11px;border:1px solid #cbc7f2;border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600">📷/⬆ Foto wählen</button>
+            <button type="button" onclick="fgUseKundenfoto('e')" style="padding:5px 11px;border:1px solid #cbc7f2;border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600">🗂 Kundenfoto</button>
+          </div>
+        </div>
       </div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-top:7px;cursor:pointer"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">Produkt hat keinen EAN – als „offen“ markieren (dann blockiert die fehlende EAN die Freigabe nicht)</label>
-      <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:6px">Jede Quelle trägt sich selbst in den Beleg ein – auch die zweite. Gefundene Werte füllen die Maske, du prüfst nur.</div>
+      <input type="file" id="fe_res_up" accept="image/*" multiple style="display:none" onchange="fgPullResearch(this.files)">
+      <input type="file" id="fe_eti_up" accept="image/*" multiple style="display:none" onchange="fgPullEtikett(this.files)">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-top:8px;cursor:pointer"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">Produkt hat keinen EAN – als „offen“ markieren (dann blockiert die fehlende EAN die Freigabe nicht)</label>
+      <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:6px">Riki holt entweder die <b>Herstellerseite</b> oder liest das <b>Etikett vom Foto</b> (hinterlegtes Kundenfoto, selbst aufgenommen oder hochgeladen). Gefundene Werte füllen die Maske – du prüfst nur.</div>
     </div>
     <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px;align-items:start" id="fe_grid">
       <div>
@@ -7064,13 +7079,13 @@ async function fgPullHersteller(){
    Ergebnis ist ein VORSCHLAG in einem ENTWURF – du prüfst und gibst frei. */
 function fgResearchPick(){ var f=document.getElementById("fe_researchFile"); if(f){ f.value=""; f.click(); } }
 function _fileZuBase64(file){ return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(){ res(String(r.result)); }; r.onerror=function(){ rej(r.error); }; r.readAsDataURL(file); }); }
-async function fgPullResearch(files){
+async function fgPullResearch(files, b64arr){
   var msg=document.getElementById("fe_pullMsg");
   var list=files?Array.prototype.slice.call(files,0,3):[];
-  if(!list.length){ return; }
+  if(!list.length && !(b64arr&&b64arr.length)){ return; }
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="Riki recherchiert (Foto erkennen · Herstellerseite suchen · lesen)… das kann ~15–30 s dauern."; }
   try{
-    var bilder=await Promise.all(list.map(_fileZuBase64));
+    var bilder=(b64arr&&b64arr.length)?b64arr.slice(0,3):await Promise.all(list.map(_fileZuBase64));
     bilder=bilder.filter(function(b){ return /^data:image\//.test(b); });
     if(!bilder.length){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bild konnte nicht gelesen werden."; } return; }
     var ean=((document.getElementById("fe_ean")||{}).value||"").trim();
@@ -7098,6 +7113,46 @@ async function fgPullResearch(files){
     var kost=(d.meta&&d.meta.kosten_usd!=null)?(" · ~$"+d.meta.kosten_usd):"";
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Riki hat recherchiert"+(url?(" (Quelle: "+esc(url)+")"):"")+" – <b>gegen die Quelle/das Etikett prüfen</b>, dann als Entwurf speichern."+warn+kost; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
+}
+/* „Foto → Etikett auslesen": Riki liest die Naehrwerte/Zutaten direkt vom Etikettfoto
+   (riki-etikett) und fuellt die Maske – analog zu fgPullResearch, nur ohne Web-Suche.
+   Foto-Quelle: Datei/Kamera (files) ODER hinterlegte Kundenfotos (b64arr). */
+async function fgPullEtikett(files, b64arr){
+  var msg=document.getElementById("fe_pullMsg");
+  var list=files?Array.prototype.slice.call(files,0,3):[];
+  if(!list.length && !(b64arr&&b64arr.length)){ return; }
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Riki liest das Etikett vom Foto…"; }
+  try{
+    var bilder=(b64arr&&b64arr.length)?b64arr.slice(0,3):await Promise.all(list.map(_fileZuBase64));
+    bilder=bilder.filter(function(b){ return /^data:image\//.test(b); });
+    if(!bilder.length){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bild konnte nicht gelesen werden."; } return; }
+    var ean=((document.getElementById("fe_ean")||{}).value||"").trim();
+    var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
+    var r=await fetch(client.supabaseUrl+"/functions/v1/riki-etikett",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},body:JSON.stringify({bilder:bilder, ean:ean||undefined, modell:RIKI_LESE_MODELL})});
+    var d=await r.json();
+    if(!r.ok||d.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent=d.error||"Riki konnte das Etikett nicht lesen."; } return; }
+    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=function(id,x){ var e=document.getElementById(id); if(e&&x!=null&&isFinite(x)) e.value=Math.round(x*100)/100; };
+    var ne=document.getElementById("fe_name"); if(ne&&v.name&&!ne.value) ne.value=v.name;
+    var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
+    var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
+    var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
+    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); }
+    var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Etikettfoto (Nutzer)";
+    try{ feBelegAdd("Etikettfoto (Nutzer)"+(ean?(" · EAN "+ean):"")); }catch(e){}
+    try{ fePlaus(); }catch(e){}
+    var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
+    var kost=(d.meta&&d.meta.kosten_usd!=null)?(" · ~$"+d.meta.kosten_usd):"";
+    if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Etikett gelesen – <b>gegen das Foto prüfen</b>, dann als Entwurf speichern."+warn+kost; }
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
+}
+/* Foto-Quellen-Auswahl unter den zwei „Foto →"-Knoepfen auf-/zuklappen. */
+function fgSrcToggle(k){ ['r','e'].forEach(function(x){ var el=document.getElementById('fe_src_'+x); if(!el)return; if(x===k){ el.style.display=(el.style.display==='flex')?'none':'flex'; } else el.style.display='none'; }); }
+/* Hinterlegtes Kundenfoto als Quelle nutzen (statt Kamera/Upload). */
+function fgUseKundenfoto(mode){
+  var fotos=(window._fgEdit&&window._fgEdit.etikett)||[]; var m=document.getElementById('fe_pullMsg');
+  if(!fotos.length){ if(m){ m.style.color='var(--k-b45309)'; m.textContent='Kein hinterlegtes Kundenfoto vorhanden – nimm eins auf oder lade es hoch.'; } return; }
+  if(mode==='e') fgPullEtikett(null, fotos); else fgPullResearch(null, fotos);
 }
 /* Kaskade 3: USDA FoodData Central – generische Nährwerte je 100 g (rohe Pilze/Gemüse/Getreide).
    Englischer, generischer Name. Läuft serverseitig (usda-lookup), Key als Secret USDA_FDC_KEY. */
@@ -9345,7 +9400,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20e";
+const APP_BUILD = "2026-07-20f";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
