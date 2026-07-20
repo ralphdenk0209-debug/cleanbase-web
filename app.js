@@ -2031,6 +2031,7 @@ function closeP(){
     if(ov.classList.contains("fgEditorFull")){ ov.classList.remove("fgEditorFull");
       ov.style.background=""; ov.style.backdropFilter=""; ov.style.padding=""; ov.style.alignItems=""; ov.style.justifyContent=""; ov.style.left=""; } }
   var pn=document.getElementById("panel"); if(pn){ pn.style.maxWidth=""; pn.style.width=""; pn.style.height=""; pn.style.maxHeight=""; pn.style.borderRadius=""; }
+  try{ var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="none"; }catch(e){}
 }
 /* Eine Karte beginnt oben. Immer. (Ralph, 18.07.2026)
    Wer eine Produktkarte weit unten schliesst und wieder oeffnet, landete bisher
@@ -2627,14 +2628,14 @@ async function loadProduktErfassung(){
       +chip('keinzut','Ohne Zutaten',cnt.keinzut)
       +chip('markiert','⚑ Markiert',cnt.markiert)
     +'</div>'
-    /* Session-Leiste – jetzt MIT im Sticky; „Ansicht" wird zum großen Text-Filter (Ralph) */
-    +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin-top:8px">'
+    +'</div>'  /* Ende Sticky-Menü: NUR Toolbar + Chips bleiben fixiert (Ralph) */
+    /* Session-Leiste (Suche/Filter, Bearbeiter, Sortierung) – scrollt jetzt mit, unterhalb der Buttons */
+    +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin:2px 0 12px">'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Suche / Filter</div><input id="peSuche" oninput="peRender()" placeholder="🔍 Titel, Marke, EAN, Kategorie…" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"></div>'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Bearbeiter</div><input id="peBearb" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Sortierung</div>'
         +'<select id="peSort" onchange="peRender()" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"><option value="neu">Erfasst – neueste zuerst</option><option value="score">Score aufsteigend</option><option value="titel">Titel A–Z</option><option value="mark">Nur markierte</option></select></div>'
     +'</div>'
-    +'</div>'  /* Ende Sticky-Menü (Toolbar + Chips + Session-Leiste) */
     /* Raster */
     +'<div style="border:1px solid #e2e8ef;border-radius:11px;overflow:hidden;margin-bottom:12px;background:#fff;box-shadow:0 1px 2px rgba(20,40,70,.04)">'
       +'<div style="max-height:280px;overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
@@ -2738,7 +2739,7 @@ function peRowCtx(ev,id){
     +it('👁 Als Nutzer ansehen','peAlsNutzer(\''+esc(id)+'\')')
     +it((p.markiert?'⚑ Markierung entfernen':'⚑ Markieren'),'peToggleMark(\''+esc(id)+'\','+(p.markiert?'false':'true')+')')
     +sep
-    +it('🗑 Deaktivieren (Inaktiv)','peDeaktiv(\''+esc(id)+'\')',true);
+    +it('🗑 Löschen','peDeaktiv(\''+esc(id)+'\')',true);
   ctx.style.display='block';
   var w=ctx.offsetWidth,h=ctx.offsetHeight;
   ctx.style.left=Math.min(ev.clientX,innerWidth-w-6)+'px'; ctx.style.top=Math.min(ev.clientY,innerHeight-h-6)+'px';
@@ -2765,24 +2766,31 @@ async function peToggleStatus(){
       if(fr.error){ alert('„'+ (p.name||id) +'" kann NICHT auf „Aktiv" – die Freigabe blockiert:\n\n'+fr.error.message+'\n\nDas Produkt bleibt Entwurf.'); return; }
     } else {
       if(!confirm('„'+(p.name||id)+'" auf „Entwurf" zurücknehmen?\n\nDas Produkt verschwindet aus dem Katalog (Nutzer sehen es nicht mehr), bleibt aber erhalten und kann jederzeit wieder freigegeben werden.')) return;
-      var r=await client.from('Produkte').update({Produktstatus:'Entwurf'}).eq('Produkt_ID',id);
+      var r=await client.rpc('cb_produkt_status_setzen',{p_id:id,p_status:'Entwurf'});
       if(r.error) throw r.error;
     }
     loadProduktErfassung();
   }catch(e){ alert('Status konnte nicht geändert werden: '+(e.message||e)); }
 }
-/* „Löschen" = DEAKTIVIEREN (Produktstatus → Inaktiv), kein Hartlöschen. Reversibel.
-   Entspricht §4: Status ändern statt löschen. Immer mit Rückfrage. */
+/* „Löschen" = ECHTES Löschen (Ralph: „löschen heisst löschen"). Über die admin-only RPC
+   cb_produkt_loeschen (SECURITY DEFINER, umgeht RLS). Schutz: Produkte, die in Nutzer-Tagebüchern
+   stehen, werden NICHT hart gelöscht (würde Historie zerstören) → dann Angebot zu archivieren. */
 async function peDeaktiv(id){
   var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
-  if(!confirm('Produkt '+id+(p.name?(' – '+p.name):'')+' auf „Inaktiv" setzen?\n\nDas Produkt verschwindet aus dem Katalog, bleibt aber erhalten und kann wieder aktiviert werden. Nichts wird gelöscht.')) return;
+  if(!confirm('Produkt '+id+(p.name?(' – „'+p.name+'"'):'')+' WIRKLICH LÖSCHEN?\n\nEndgültig aus der Datenbank entfernt – NICHT rückgängig zu machen.')) return;
   try{
-    var r=await client.from('Produkte').update({Produktstatus:'Inaktiv'}).eq('Produkt_ID',id);
+    var r=await client.rpc('cb_produkt_loeschen',{p_id:id});
     if(r.error) throw r.error;
+    var d=r.data||{};
+    if(d.ok===false && d.grund==='tagebuch'){
+      if(!confirm('„'+(p.name||id)+'" steht in '+d.anzahl+' Nutzer-Tagebuch-Eintrag/en – hartes Löschen würde deren Historie zerstören.\n\nStattdessen ARCHIVIEREN (aus dem Katalog nehmen, Nutzer-Historie bleibt erhalten)?')) return;
+      var r2=await client.rpc('cb_produkt_status_setzen',{p_id:id,p_status:'Abgelehnt'});
+      if(r2.error) throw r2.error;
+    }
     window._peRows=(window._peRows||[]).filter(function(x){return String(x.id)!==String(id);});
-    if(String(window._peSel||'')===String(id)){ window._peSel=null; var det=document.getElementById('peDetail'); if(det) det.innerHTML='<div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen – oder „＋ Neues Produkt".</div>'; }
+    if(String(window._peSel||'')===String(id)){ window._peSel=null; try{ if(typeof peClose==="function") peClose(); else { var det=document.getElementById('peDetail'); if(det) det.innerHTML=''; } }catch(e){} }
     loadProduktErfassung();
-  }catch(e){ alert('Konnte nicht deaktivieren: '+(e.message||e)); }
+  }catch(e){ alert('Konnte nicht löschen: '+(e.message||e)); }
 }
 function peSelect(id){ window._peSel=id;
   document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.toggle('sel', tr.getAttribute('data-id')===String(id)); });
@@ -2802,6 +2810,7 @@ function peClose(){ window._peSel=null;
   document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.remove('sel'); });
   try{ peStatusBtnUpdate(); }catch(e){}
   var det=document.getElementById('peDetail'); if(det) det.innerHTML='<div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div>';
+  try{ var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="none"; }catch(e){}
   var box=document.getElementById('fgProdErf'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 /* ================= AUTO-VERIFIZIERUNG =================
@@ -4910,7 +4919,10 @@ function applyAdminMode(){
         +'<button class="amBtn" data-k="nutzer"       onclick="adminGo(\'nutzer\')">👥 Nutzer</button>'
         +'<div class="amSep"></div>'
         +'<button class="amBtn amLogout" onclick="doLogout()">🚪 Abmelden</button>'
-        +'</div>';
+        +'</div>'
+        /* Freigabe-Checkliste ganz links, UNTER dem Abmelden-Knopf (Ralph). Wird von fePlaus
+           gefüllt (#fe_riegel) und nur eingeblendet, wenn ein Produkt im Editor offen ist. */
+        +'<div id="navFreigabe" style="display:none;margin:12px 0 4px;padding:10px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--green);font-weight:800;margin-bottom:7px">Freigabe</div><div id="fe_riegel" style="font-size:12.5px;line-height:1.6"></div></div>';
       c.insertBefore(nav, c.firstChild); }
   }
   /* Beta-Menuepunkte direkt nach dem Bau des Menues sichtbar schalten (falls Flags schon geladen). */
@@ -7192,9 +7204,10 @@ async function openFgEditor(id, prefill, targetEl){
     <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px;align-items:start" id="fe_grid">
       <div>
         ${card("Produkt",`<div style="display:grid;gap:8px">
-          <label style="font-size:13px">Titel${inp("fe_name",d.name)}</label>
+          <label style="font-size:13px">Titel<input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px"></label>
           <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
-          <div style="display:flex;gap:8px"><label style="font-size:13px;flex:1">Kategorie${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</label><label style="font-size:13px;flex:1">Unterkat.${inp("fe_ukat",d.unterkategorie)}</label></div>
+          <label style="font-size:13px">Kategorie${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</label>
+          <input type="hidden" id="fe_ukat" value="${esc(d.unterkategorie||"")}">
           <label style="font-size:13px">Basis${inp("fe_basis",d.basis||"100g")}</label>
           <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:-2px">Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. <b>Bei Nahrungsergänzung wichtig:</b> Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.</div>
@@ -7226,7 +7239,6 @@ async function openFgEditor(id, prefill, targetEl){
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
         ${card("Zusatzstoffe",`${inp("fe_ztext",d.zusatzstoffe_text||"keine")}<div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>`)}
-        ${targetEl?"":card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
@@ -7280,6 +7292,15 @@ function feKatChange(){
    AUSSER das Produkt ist legitim ohne Barcode (Status „generisch"/„kein_barcode"): das nicht anfassen,
    sonst würde es beim Speichern auf „offen" heruntergestuft und tauchte fälschlich in „Zu erledigen" auf.
    Gültige EAN → Haken raus (dann macht „offen" keinen Sinn). */
+/* Pflichtfelder dünn amber umranden, solange sie leer sind (Ralph): Titel, Kategorie, Quelle-Typ.
+   Gefüllt → Rahmen zurück auf den normalen dünnen Linien-Rahmen. */
+function feReqBorders(){
+  var mark=function(id){ var el=document.getElementById(id); if(!el) return;
+    var empty=!((el.value==null?"":String(el.value)).trim());
+    el.style.borderColor=empty?"#e0a32e":""; el.style.borderWidth=empty?"1.5px":"";
+  };
+  mark("fe_name"); mark("fe_kat"); mark("fe_quelle_typ");
+}
 function feEanSync(){
   var e=document.getElementById("fe_ean"), o=document.getElementById("fe_ean_offen"); if(!e||!o) return;
   var orig=String((window._fgEdit&&window._fgEdit.ean_status)||"").toLowerCase();
@@ -7506,8 +7527,10 @@ function fePlaus(){
       h+= (_eanV||_eanOffen) ? ok(_eanV?"EAN erfasst":"EAN als offen markiert") : no("EAN fehlt – eintragen oder „offen“ ankreuzen");
       if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
       rg.innerHTML=h;
+      var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="";  /* Sidebar-Freigabe einblenden, solange ein Produkt offen ist */
     }
   }
+  try{ feReqBorders(); }catch(e){}
   try{ if(typeof feScorePreview==="function") feScorePreview(); }catch(e){}
 }
 /* Kaskade 1: Nährwerte + Name + Zutaten-Text aus OFF holen (OFF wird vertraut -> Quelle_Typ gesetzt). */
@@ -7571,7 +7594,7 @@ async function fgPullHersteller(){
        Eine EAN ist eine Identität – lieber leer und später gescannt als falsch verknüpft. */
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); }
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefSet==="function") fgRefSet(v.zutaten.map(function(z){return z.name;})); }catch(e){} }
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Herstellerseite";
     /* Die Herstellerseite hinterliess bis 18.07.2026 GAR KEINEN Beleg - sie setzte nur den
        Quelle-Typ. Ein Produkt trug damit "Herstellerseite", ohne dass irgendwo stand, welche. */
@@ -7609,7 +7632,7 @@ async function fgPullResearch(files, b64arr){
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     var ue=document.getElementById("fe_url"); if(ue&&d.quelle_url&&!ue.value.trim()) ue.value=d.quelle_url;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); }
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefSet==="function") fgRefSet(v.zutaten.map(function(z){return z.name;})); }catch(e){} }
     /* Quelle-Typ nach Domain: großer Händler -> Amazon/Händler, sonst Herstellerseite. Beleg = die echte URL. */
     var url=String(d.quelle_url||"");
     var haendler=/amazon\.|rewe\.|edeka\.|dm\.de|rossmann\.|kaufland\.|lidl\.|aldi\.|mueller\.|müller\./i.test(url);
@@ -9907,7 +9930,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20u";
+const APP_BUILD = "2026-07-20v";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
