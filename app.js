@@ -2588,6 +2588,7 @@ async function loadProduktErfassung(){
       +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
       +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px">Vorgabe-Kategorie</span>'
       +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px")
+      +'<button class="peBtn" onclick="peToggleStatus()" title="Ausgewähltes Produkt umschalten: Aktiv ↔ Entwurf. „Aktiv" läuft über die geprüfte Freigabe.">⇄ Status</button>'
       +'<span style="flex:1"></span>'
       +'<input id="peSuche" oninput="peRender()" placeholder="🔍 Filter / Suche (Titel, Marke, EAN)…" style="width:250px;max-width:48vw;padding:8px 10px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px">'
     +'</div>'
@@ -2660,10 +2661,10 @@ function peRender(){
   var td=function(c,st){ return '<td style="padding:9px 10px;border-bottom:1px solid #e2e8ef;white-space:nowrap;'+(st||'')+'">'+c+'</td>'; };
   var scoreCell=function(s){ if(s==null) return '<span style="font-weight:800;color:#7b8698">–</span>';
     var c=s>=80?'#2e9e57':s>=60?'#c88616':'#cf5442'; return '<span style="font-weight:800;color:'+c+'">'+s+'</span>'; };
-  var statPill=function(p){ var v=String(p.verifiziert||'Nein');
-    if(v==='Ja') return '<span class="pePill" style="color:#1f7d43;border-color:#bfe3cb;background:#e7f6ec">verifiziert</span>';
-    if(v==='Teilweise') return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">teilweise</span>';
-    return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">offen</span>'; };
+  var statPill=function(p){
+    if(String(p.pstatus||'')==='Entwurf') return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">Entwurf</span>';
+    if(p.zu_verifizieren) return '<span class="pePill" style="color:#3b56b0;border-color:#c3ccf0;background:#eef1fb">zu verifizieren</span>';
+    return '<span class="pePill" style="color:#1f7d43;border-color:#bfe3cb;background:#e7f6ec">Aktiv</span>'; };
   g.innerHTML='<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','Score','Status','EAN','Quelle','⚑'].map(th).join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')">'
@@ -2705,6 +2706,26 @@ async function peToggleMark(id,an){
 }
 function peAlsNutzer(id){ try{ if(typeof detail==='function'){ detail(id); return; } }catch(e){}
   alert('Nutzer-Ansicht ist hier nicht verfügbar.'); }
+/* Status umschalten (Toolbar-Knopf). WICHTIG – die Freigabe-Riegel dürfen NICHT umgangen werden:
+   · Aktiv → Entwurf: reines Zurücknehmen (Produkt verschwindet aus dem Katalog), reversibel, sicher.
+   · Entwurf → Aktiv: läuft über die geprüfte Freigabe `produkt_pruefen_freigeben` (Quelle/Score/Wächter);
+     schlägt die fehl, bleibt das Produkt Entwurf und der Grund wird angezeigt. */
+async function peToggleStatus(){
+  var id=window._peSel; if(!id){ alert('Bitte zuerst ein Produkt in der Liste anklicken.'); return; }
+  var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
+  var cur=String(p.pstatus||'Aktiv');
+  try{
+    if(cur==='Entwurf'){
+      var fr=await client.rpc('produkt_pruefen_freigeben',{p_id:id});
+      if(fr.error){ alert('„'+ (p.name||id) +'" kann NICHT auf „Aktiv" – die Freigabe blockiert:\n\n'+fr.error.message+'\n\nDas Produkt bleibt Entwurf.'); return; }
+    } else {
+      if(!confirm('„'+(p.name||id)+'" auf „Entwurf" zurücknehmen?\n\nDas Produkt verschwindet aus dem Katalog (Nutzer sehen es nicht mehr), bleibt aber erhalten und kann jederzeit wieder freigegeben werden.')) return;
+      var r=await client.from('Produkte').update({Produktstatus:'Entwurf'}).eq('Produkt_ID',id);
+      if(r.error) throw r.error;
+    }
+    loadProduktErfassung();
+  }catch(e){ alert('Status konnte nicht geändert werden: '+(e.message||e)); }
+}
 /* „Löschen" = DEAKTIVIEREN (Produktstatus → Inaktiv), kein Hartlöschen. Reversibel.
    Entspricht §4: Status ändern statt löschen. Immer mit Rückfrage. */
 async function peDeaktiv(id){
@@ -9672,7 +9693,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20j";
+const APP_BUILD = "2026-07-20k";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
