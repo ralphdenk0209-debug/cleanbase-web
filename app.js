@@ -4591,6 +4591,7 @@ function applyAdminMode(){
         +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
         +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
         +'<button class="amBtn" data-k="zuverif"      onclick="adminGo(\'zuverif\')">✅ Zu verifizieren</button>'
+        +'<button class="amBtn" id="amRegelwerk" data-k="regelwerk" onclick="adminGo(\'regelwerk\')" style="display:none">📖 Regelwerk</button>'
         +'<div class="amSep"></div>'
         +'<button class="amBtn" data-k="rikiimport"   onclick="adminGo(\'rikiimport\')">📤 Riki-Import</button>'
         +'<button class="amBtn" data-k="stufen"       onclick="adminGo(\'stufen\')">🎚️ Stufen</button>'
@@ -4600,6 +4601,8 @@ function applyAdminMode(){
         +'</div>';
       c.insertBefore(nav, c.firstChild); }
   }
+  /* Regelwerk-Menuepunkt nur bei aktivem Beta-Flag zeigen (auch direkt nach dem Bau des Menues). */
+  try{ var _ar=document.getElementById('amRegelwerk'); if(_ar) _ar.style.display=(FEATURES['regelwerk']===true?'':'none'); }catch(e){}
   /* applyAdminMode() läuft bei JEDEM Auth-Event – und Supabase feuert eines, sobald der Tab
      wieder Fokus bekommt (Token-Refresh). Vorher sprang die App dadurch zurück in die Freigabe,
      z. B. nach dem Zurückkommen von einem Amazon-Link. Jetzt: nur beim ersten Mal. */
@@ -4611,7 +4614,7 @@ function applyAdminMode(){
 /* Linkes Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Zusätzlich Markierung des aktiven Knopfs. */
 function adminGo(k){
-  const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1};
+  const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1};
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
   else { try{ navTo(k); }catch(e){} }
   try{ document.querySelectorAll('#adminNav .amBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
@@ -8141,8 +8144,8 @@ async function ladeFeatures(){
     if(data){ FEATURES = data.features || {}; IST_BETA = !!data.beta; }
   }catch(e){ FEATURES = {}; IST_BETA = false; }
   betaBadge();
-  /* Regelwerk-Menuepunkt (Admin-Beta): nur zeigen, wenn das Flag an ist. Button liegt nur im Admin-Backend. */
-  try{ var rb=document.getElementById('fgtRegelwerk'); if(rb) rb.style.display=(FEATURES['regelwerk']===true?'':'none'); }catch(e){}
+  /* Regelwerk-Menuepunkt (Admin-Beta): nur zeigen, wenn das Flag an ist. Beide Menue-Orte (Sidebar + alte Leiste). */
+  try{ var _rwv=(FEATURES['regelwerk']===true); ['amRegelwerk','fgtRegelwerk'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=(_rwv?'':'none'); }); }catch(e){}
 }
 function feat(k){ return FEATURES[k] === true; }
 
@@ -9271,7 +9274,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20c";
+const APP_BUILD = "2026-07-20d";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
