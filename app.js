@@ -7051,20 +7051,11 @@ async function openFgEditor(id, prefill, targetEl){
           </details>
           <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
           <input id="fe_zutSuche" oninput="fgPickRender()" placeholder="🔍 Zutat / Wirkstoff im Stamm suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:8px">
-          <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:10px;align-items:start">
-            <div style="min-width:0">
-              <div style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span title="enthalten">☑</span><span>Zutat / Wirkstoff</span><span style="text-align:center">Wert</span></div>
-              <div id="fe_pickList" style="max-height:340px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card)"></div>
-              <div style="display:flex;gap:6px;margin-top:6px">
-                <input id="fe_zutNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgPickAddNeu();}" placeholder="nicht im Stamm? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)">
-                <button type="button" onclick="fgPickAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button>
-              </div>
-            </div>
-            <div style="min-width:0">
-              <div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px">In diesem Produkt enthalten</div>
-              <textarea id="fe_enthalten" readonly rows="15" placeholder="Angehakte Zutaten/Wirkstoffe erscheinen hier – eine je Zeile." style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical;min-height:200px"></textarea>
-              <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4">Wird aus den Häkchen links gefüllt. Die Bewertung ist an den Stamm gebunden – nicht frei änderbar.</div>
-            </div>
+          <div style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span title="enthalten">☑</span><span>Zutat / Wirkstoff</span><span style="text-align:center">Wert</span></div>
+          <div id="fe_pickList" style="max-height:420px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card)"></div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <input id="fe_zutNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgPickAddNeu();}" placeholder="nicht im Stamm? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)">
+            <button type="button" onclick="fgPickAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button>
           </div>
           <div id="fe_zutRows" style="display:none">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
@@ -7073,13 +7064,14 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
-        ${card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
+        ${card(`In diesem Produkt enthalten <span style="text-transform:none;color:var(--muted)">(aus den Häkchen)</span>`,`<textarea id="fe_enthalten" readonly rows="18" placeholder="Angehakte Zutaten/Wirkstoffe erscheinen hier – eine je Zeile." style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.55;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical;min-height:360px"></textarea><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Häkchen links in der Zutaten-/Wirkstoffliste füllen dieses Feld. Die Bewertung ist an den Stamm gebunden – nicht frei änderbar.</div>`)}
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
-        ${_etikett.length ? card(`Etikettfotos aus dem Laden <span style="text-transform:none;color:var(--muted)">(${_etikett.length}) – nur zum Abgleich</span>`,
-          `<div style="display:flex;gap:6px;flex-wrap:wrap">`
-          + _etikett.map((s,j)=>`<img src="${s}" onclick="fgEtikettZoom(${j})" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">`).join("")
-          + `</div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst. <b>Werden nicht veröffentlicht</b> – sie dienen dem Abgleich der Werte. Das Produktbild wird darunter separat gesetzt.</div>`) : ""}
-        ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:120px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`)}
+        ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
+          + (_etikett.length ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;margin-bottom:6px">Angehängte Fotos aus dem Laden (${_etikett.length}) – zum Nachschauen</div><div style="display:flex;gap:6px;flex-wrap:wrap">`
+            + _etikett.map((s,j)=>`<img src="${s}" onclick="fgEtikettZoom(${j})" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">`).join("")
+            + `</div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. Zum Vergrößern anklicken.</div></div>` : "")
+        )}
+        ${card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:12px;border-top:1px solid var(--line)">
@@ -9680,7 +9672,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20i";
+const APP_BUILD = "2026-07-20j";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
