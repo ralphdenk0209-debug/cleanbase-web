@@ -4910,7 +4910,8 @@ function applyAdminMode(){
         +'<button class="amBtn" data-k="bundles"      onclick="adminGo(\'bundles\')">🧩 Bundles</button>'
         +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
         +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
-        +'<button class="amBtn" data-k="zuverif"      onclick="adminGo(\'zuverif\')">✅ Zu verifizieren</button>'
+        /* „Zu verifizieren" (Button + Seite) 20.07.2026 entfernt (Ralph): Produkt-Erfassung mit
+           Standardansicht „Zu erledigen" deckt das ab. Panel-Code bleibt dormant. */
         +'<button class="amBtn" id="amProdErf" data-k="produkterfassung" onclick="adminGo(\'produkterfassung\')" style="display:none">🗂️ Produkt-Erfassung</button>'
         +'<button class="amBtn" id="amRegelwerk" data-k="regelwerk" onclick="adminGo(\'regelwerk\')" style="display:none">📖 Regelwerk</button>'
         +'<div class="amSep"></div>'
@@ -7784,7 +7785,14 @@ async function fgEditSave(alsoFreigeben){
   }
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"+(alsoFreigeben?" & freigegeben":"");
   try{ const aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(x=>({...x, clean_score:num(x.clean_score)})); }catch(e){}
-  setTimeout(()=>{ closeP(); loadFreigabe(); if(typeof render==="function") render(); }, 700);
+  setTimeout(()=>{
+    /* Inline-Modus (Produkt-Erfassung): der Editor sitzt in #peDetail → nur die Produktliste
+       neu laden (aktualisiert Status/Score der gespeicherten Zeile), Editor schließt sich dabei.
+       Sonst der alte Vollbild-Weg (Posteingang). */
+    var det=document.getElementById("peDetail"), nm=document.getElementById("fe_name");
+    if(det && nm && det.contains(nm)){ try{ loadProduktErfassung(); }catch(e){} }
+    else { closeP(); loadFreigabe(); if(typeof render==="function") render(); }
+  }, 700);
 }
 
 /* ================= TRAINING (Phase A) ================= */
@@ -9930,7 +9938,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20v";
+const APP_BUILD = "2026-07-20w";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
