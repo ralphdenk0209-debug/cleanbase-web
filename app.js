@@ -6140,13 +6140,19 @@ function fgZutAuto(inp){
 /* Eigenes Zutaten-Auswahlmenue statt <datalist>. Grund: das native datalist-Popup
    ignoriert im Dark-Mode das color-scheme des Inputs und zeigt schwarzen Text auf
    schwarzem Grund. Ein eigenes Menue nutzt --card/--ink -> helle Schrift auf dunkel. */
+/* Bei Supplements sollen im Zutaten-/Wirkstoff-Feld keine Lebensmittel vorgeschlagen werden
+   (kein „Paprika"). Wir blenden die klaren Lebensmittel-Kategorien aus; Wirkstoffe, Extrakte,
+   Vitamine/Mineralstoffe, Füllstoffe und Unbekanntes bleiben. Tippen funktioniert immer. */
+var FG_FOOD_KATS={'Gemüse':1,'Getreide':1,'Obst':1,'Fleisch':1,'Milchprodukt':1,'Fisch & Meeresfrüchte':1,'Gewürze & Kräuter':1,'Hülsenfrüchte/Nüsse':1,'Käse':1,'Nüsse & Samen':1,'Pilze':1,'Ei':1,'Teigwaren':1,'Essig':1,'einfache Küchenzutat':1,'Hülsenfrüchte':1,'Gemüse, Obst':1,'Nüsse & Hülsenfrüchte':1,'Obst & Gemüse':1,'Milchprodukte & Eier':1,'Fleisch & Fisch':1,'Frucht/Nuss':1,'Gemüse, Obst, Hülsenfrüchte':1,'Frucht-/Gemüsekonzentrat':1};
 function fgzMenu(inp){
   var wrap=inp.closest(".fgzWrap"); if(!wrap) return;
   var menu=wrap.querySelector(".fgzMenu"); if(!menu) return;
   var q=(inp.value||"").trim().toLowerCase();
   var list=(typeof ZUTATEN_STAMM!=="undefined"&&ZUTATEN_STAMM)?ZUTATEN_STAMM:[];
+  var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
   var res=[];
-  for(var i=0;i<list.length;i++){ var nm=(list[i]&&list[i].name)||""; if(!nm) continue;
+  for(var i=0;i<list.length;i++){ var it=list[i]; var nm=(it&&it.name)||""; if(!nm) continue;
+    if(supp && it.kategorie && FG_FOOD_KATS[it.kategorie]) continue;
     if(q===""||nm.toLowerCase().indexOf(q)>=0) res.push(nm); }
   if(q!==""){ res.sort(function(a,b){ var as=a.toLowerCase().indexOf(q)===0?0:1, bs=b.toLowerCase().indexOf(q)===0?0:1; return as-bs||a.length-b.length; }); }
   res=res.slice(0,14);
@@ -6469,7 +6475,9 @@ async function openFgEditor(id, prefill){
         <input id="fe_ean" value="${esc(d.ean||"")}" placeholder="EAN" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:8px">
         <button type="button" onclick="fgPullOff()" style="padding:8px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;white-space:nowrap">OFF holen</button>
         <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name, z. B. rohe Pilze/Gemüse/Getreide)" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">USDA holen</button>
-        ${id?`<button type="button" onclick="fgShotCam('${esc(d.id)}')" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">Etikettfoto</button>`:""}
+        ${id?`<button type="button" onclick="fgShotCam('${esc(d.id)}')" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">📷 Etikettfoto</button>
+        <button type="button" onclick="document.getElementById('fe_shotFile').click()" title="Bereits gespeichertes Foto hochladen" style="padding:8px 11px;border:1px dashed var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">⬆ Datei</button>
+        <input type="file" id="fe_shotFile" accept="image/*" multiple style="display:none" onchange="fgFotoPick(this,'${esc(d.id)}')">`:""}
       </div>
       <div style="display:flex;gap:7px;align-items:center;margin-top:7px">
         <button type="button" onclick="fgResearchPick()" title="Riki_Research (Beta, Admin): erkennt das Produkt aus einem Foto, sucht die Herstellerseite und füllt die Maske. Du prüfst und gibst frei." style="padding:8px 12px;border:1px solid var(--k-534ab7);border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap">📸 Foto → Riki sucht Herstellerseite</button>
@@ -6489,7 +6497,7 @@ async function openFgEditor(id, prefill){
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:-2px">Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. <b>Bei Nahrungsergänzung wichtig:</b> Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.</div>
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
-        ${card(`Zutaten <span style="text-transform:none;color:var(--muted)">(gebunden an den Stamm)</span>`,`
+        ${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden an den Stamm)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -6504,7 +6512,7 @@ async function openFgEditor(id, prefill){
           </details>
           <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
           <div id="fe_zutRows">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")||fgZutRow("",null,"nein")}</div>
-          <button type="button" onclick="fgAddZutat()" style="margin-top:4px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px">+ Zutat</button>
+          <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="margin-top:4px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
         ${card("Zusatzstoffe",`${inp("fe_ztext",d.zusatzstoffe_text||"keine")}<div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>`)}
       </div>
@@ -6528,8 +6536,18 @@ async function openFgEditor(id, prefill){
     </div>
     <div id="fe_msg" style="font-size:13px;margin-top:8px"></div>`;
     var _pn=document.getElementById("panel"); if(_pn) _pn.style.maxWidth="940px";
-    try{ fePlaus(); }catch(e){}
+    try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
+    try{ feKatChange(); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
   document.getElementById("overlay").classList.add("open");
+}
+/* Kategorie-Wechsel im Editor: bei „Supplement" heisst die Zutaten-Sektion „Wirkstoffe"
+   (da stehen die Wirkstoffe drin, nicht Lebensmittel-Zutaten) und die Vorschlagsliste
+   blendet Lebensmittel aus. Sonst normal „Zutaten". */
+function feKatChange(){
+  var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
+  var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
+  var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
 /* Etikettfoto gross ansehen - beim Abtippen der Naehrwerte ist das der eigentliche Zweck. */
 function fgEtikettZoom(j){
@@ -6656,8 +6674,8 @@ function fePlaus(){
     var zRows=[].slice.call(document.querySelectorAll("#fe_zutRows .fgZutRow"));
     var zMit=zRows.filter(function(row){ return ((row.querySelector(".fgzName")||{}).value||"").trim()!==""; });
     var zOhneNote=zMit.filter(function(row){ return ((row.querySelector(".fgzRate")||{}).value||"").trim()===""; }).length;
-    if(zMit.length===0) fehlt.push("mind. 1 Zutat");
-    if(zOhneNote>0) fehlt.push(zOhneNote+" Zutat(en) ohne Bewertung");
+    if(zMit.length===0) fehlt.push(_istSupp?"mind. 1 Wirkstoff/Zutat":"mind. 1 Zutat");
+    if(zOhneNote>0) fehlt.push(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) ohne Bewertung":" Zutat(en) ohne Bewertung"));
     var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
     if(!qt) fehlt.push("Quelle-Typ");
     var _eanV=((document.getElementById("fe_ean")||{}).value||"").trim();
@@ -6685,8 +6703,8 @@ function fePlaus(){
       h+= _kat ? ok("Kategorie gewählt") : no("Kategorie fehlt (Pflicht)");
       if(_istSupp) h+='<div style="color:var(--muted)">– Nährwerte (Supplement, nicht nötig)</div>';
       else h+= nwFehlt.length ? no(nwFehlt.length+" Nährwert(e) fehlen") : ok("Nährwerte vollständig");
-      h+= (zMit.length===0) ? no("keine Zutat erfasst") : ok(zMit.length+" Zutaten erfasst");
-      h+= (zOhneNote>0) ? no(zOhneNote+" Zutat(en) unbewertet") : ok("alle Zutaten bewertet");
+      h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
+      h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
       h+= qt ? ok("Quelle belegt") : no("Quelle-Typ fehlt");
       h+= (_eanV||_eanOffen) ? ok(_eanV?"EAN erfasst":"EAN als offen markiert") : no("EAN fehlt – eintragen oder „offen“ ankreuzen");
       if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
@@ -9047,7 +9065,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19x";
+const APP_BUILD = "2026-07-19y";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
