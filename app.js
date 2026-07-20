@@ -2570,7 +2570,7 @@ async function loadProduktErfassung(){
   }catch(e){ box.innerHTML='<div style="color:#cf5442;font-size:12.5px;padding:8px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
   /* Standard-Ansicht: nur das, was ARBEIT braucht (Entwurf + zu verifizieren).
      Fertige Produkte (Aktiv & verifiziert & Score) sind ausgeblendet – über „Alle" einblendbar. */
-  if(window._peChip===undefined) window._peChip='offen';
+  if(window._peChip===undefined||window._peChip==='zuverif') window._peChip='offen';
   var rws=window._peRows;
   var istOffen=function(p){ return String(p.pstatus||'')==='Entwurf' || p.zu_verifizieren; };
   var cnt={ offen:rws.filter(istOffen).length,
@@ -2603,7 +2603,6 @@ async function loadProduktErfassung(){
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
       +chip('offen','Zu erledigen',cnt.offen)
       +chip('alle','Alle',cnt.alle)
-      +chip('zuverif','Zu verifizieren',cnt.zuverif)
       +chip('keinscore','Ohne Score',cnt.keinscore)
       +chip('keinquelle','Ohne Quelle',cnt.keinquelle)
       +chip('keinzut','Ohne Zutaten',cnt.keinzut)
@@ -7101,17 +7100,15 @@ async function openFgEditor(id, prefill, targetEl){
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
         ${card("Zusatzstoffe",`${inp("fe_ztext",d.zusatzstoffe_text||"keine")}<div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>`)}
+        ${card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
-          + (_etikett.length ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;margin-bottom:6px">Angehängte Fotos aus dem Laden (${_etikett.length}) – zum Nachschauen</div><div style="display:flex;gap:6px;flex-wrap:wrap">`
-            + _etikett.map((s,j)=>`<img src="${s}" onclick="fgEtikettZoom(${j})" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">`).join("")
-            + `</div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. Zum Vergrößern anklicken.</div></div>` : "")
+          + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
         ${card(`In diesem Produkt enthalten <span style="text-transform:none;color:var(--muted)">(aus den Häkchen)</span>`,`<textarea id="fe_enthalten" readonly rows="18" placeholder="Angehakte Zutaten/Wirkstoffe erscheinen hier – eine je Zeile." style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.55;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical;min-height:360px"></textarea><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Häkchen links in der Zutaten-/Wirkstoffliste füllen dieses Feld. Die Bewertung ist an den Stamm gebunden – nicht frei änderbar.</div>`)}
-        ${card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:12px;border-top:1px solid var(--line)">
@@ -7139,6 +7136,7 @@ async function openFgEditor(id, prefill, targetEl){
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
     try{ feKatChange(); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
+    try{ fgEtikettRender(); }catch(e){}   /* angehängte Fotos (Laden + selbst hochgeladen) rendern */
   if(!targetEl) document.getElementById("overlay").classList.add("open");
 }
 /* Kategorie-Wechsel im Editor: bei „Supplement" heisst die Zutaten-Sektion „Wirkstoffe"
@@ -7156,10 +7154,67 @@ function fgEtikettZoom(j){
   const arr=(window._fgEdit&&window._fgEdit.etikett)||[]; const src=arr[j]; if(!src) return;
   let ov=document.getElementById("etikettOv"); if(ov) ov.remove();
   ov=document.createElement("div"); ov.id="etikettOv";
-  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out";
-  ov.onclick=function(){ ov.remove(); };
-  ov.innerHTML='<img src="'+src+'" style="max-width:100%;max-height:100%;border-radius:10px">';
+  /* Scrollbarer Overlay: Klick aufs Bild zoomt stufenweise (passend → 1,6× → 2,6× → 4×),
+     dann kann man zum Lesen scrollen. Klick DANEBEN schließt. */
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;overflow:auto;padding:16px;text-align:center;cursor:zoom-out";
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  var img=document.createElement("img"); img.src=src; img.dataset.z="0";
+  img.style.cssText="border-radius:10px;cursor:zoom-in;max-width:100%;max-height:calc(100vh - 32px);width:auto;vertical-align:middle";
+  img.onclick=function(e){ e.stopPropagation();
+    var z=(Number(img.dataset.z)||0)+1; if(z>3) z=0; img.dataset.z=String(z);
+    if(z===0){ img.style.maxWidth="100%"; img.style.maxHeight="calc(100vh - 32px)"; img.style.width="auto"; img.style.cursor="zoom-in"; }
+    else { var f=[0,1.6,2.6,4][z]; img.style.maxWidth="none"; img.style.maxHeight="none"; img.style.width=Math.round(window.innerWidth*f)+"px"; img.style.cursor=(z===3?"zoom-out":"zoom-in"); }
+  };
+  ov.appendChild(img);
+  var hint=document.createElement("div");
+  hint.textContent="Klick aufs Bild = näher heranzoomen · Klick daneben = schließen";
+  hint.style.cssText="position:fixed;bottom:10px;left:0;right:0;text-align:center;color:#fff;font-size:12px;opacity:.85;pointer-events:none";
+  ov.appendChild(hint);
   document.body.appendChild(ov);
+}
+/* ===== Angehängte Fotos (Laden-Scans + selbst hochgeladene) – Ralph 20.07.2026 =====
+   Liegen in window._fgEdit.etikett (data:image-URLs). Nur zum Abgleich/Analysieren, nicht
+   veröffentlicht. Rechtsklick auf ein Foto → Menü (Vergrößern / Riki liest DIESES Bild /
+   Entfernen). „+ Foto" lädt eigene Bilder dazu. */
+function fgEtikettRender(){
+  var box=document.getElementById('fe_etikettGrid'); if(!box) return;
+  var arr=(window._fgEdit&&window._fgEdit.etikett)||[];
+  var cnt=document.getElementById('fe_etikettCount'); if(cnt) cnt.textContent='('+arr.length+')';
+  box.innerHTML = arr.length
+    ? arr.map(function(s,j){ return '<img src="'+s+'" onclick="fgEtikettZoom('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = groß · Rechtsklick = Riki-Menü" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">'; }).join('')
+    : '<span style="color:var(--muted);font-size:12.5px">keine – über „+ Foto" ein Bild hinzufügen</span>';
+}
+async function fgEtikettAddUpload(files){
+  var list=files?Array.prototype.slice.call(files):[]; if(!list.length) return;
+  if(!window._fgEdit) window._fgEdit={};
+  if(!Array.isArray(window._fgEdit.etikett)) window._fgEdit.etikett=[];
+  for(var i=0;i<list.length;i++){ try{ var b64=await _fileZuBase64(list[i]); if(/^data:image\//.test(b64)) window._fgEdit.etikett.push(b64); }catch(e){} }
+  try{ fgEtikettRender(); }catch(e){}
+}
+function fgEtikettDel(idx){
+  var arr=(window._fgEdit&&window._fgEdit.etikett)||[]; if(idx<0||idx>=arr.length) return;
+  arr.splice(idx,1); try{ fgEtikettRender(); }catch(e){}
+}
+function fgEtikettAnalyse(idx){
+  var arr=(window._fgEdit&&window._fgEdit.etikett)||[]; var src=arr[idx]; if(!src) return;
+  if(typeof fgSrcToggle==='function'){ /* falls Foto-Bereich zu ist, egal */ }
+  if(typeof fgPullEtikett==='function') fgPullEtikett(null,[src]);
+}
+function fgEtikettCtxHide(){ var m=document.getElementById('fgEtikettCtxMenu'); if(m) m.remove(); document.removeEventListener('click',fgEtikettCtxHide); }
+function fgEtikettCtx(ev, idx){
+  ev.preventDefault(); ev.stopPropagation();
+  fgEtikettCtxHide();
+  var m=document.createElement('div'); m.id='fgEtikettCtxMenu';
+  m.style.cssText='position:fixed;z-index:10000;background:#fff;border:1px solid #d3dbe6;border-radius:10px;padding:5px;min-width:220px;box-shadow:0 14px 38px rgba(20,40,70,.18)';
+  var it=function(txt,fn,danger){ return '<button onclick="fgEtikettCtxHide();'+fn+'" style="display:block;width:100%;text-align:left;background:none;border:0;color:'+(danger?'#cf5442':'#1f2a44')+';padding:8px 11px;border-radius:7px;font-size:13px;cursor:pointer">'+txt+'</button>'; };
+  m.innerHTML = it('🔍 Vergrößern','fgEtikettZoom('+idx+')')
+    + it('🤖 Riki: dieses Bild auslesen','fgEtikettAnalyse('+idx+')')
+    + '<div style="height:1px;background:#e2e8ef;margin:4px 6px"></div>'
+    + it('🗑 Entfernen','fgEtikettDel('+idx+')', true);
+  document.body.appendChild(m);
+  var w=m.offsetWidth,h=m.offsetHeight;
+  m.style.left=Math.min(ev.clientX, innerWidth-w-6)+'px'; m.style.top=Math.min(ev.clientY, innerHeight-h-6)+'px';
+  setTimeout(function(){ document.addEventListener('click', fgEtikettCtxHide); },0);
 }
 async function fgImgUpload(inpEl){
   const f=inpEl.files&&inpEl.files[0]; if(!f) return;
@@ -9712,7 +9767,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20n";
+const APP_BUILD = "2026-07-20p";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
