@@ -2548,8 +2548,8 @@ function peLightCssInject(){
 async function loadProduktErfassung(){
   var box=document.getElementById('fgProdErf'); if(!box) return;
   peLightCssInject();
-  /* Mehr Breite als das 1040er-Raster (bis 1560, aber nie schmaler als der Inhalt). */
-  box.style.cssText='width:min(1560px,calc(100vw - 250px));max-width:none;margin-left:calc((1040px - min(1560px,calc(100vw - 250px)))/2);';
+  /* Volle Bildschirmbreite nutzen (nur das Admin-Menü ~214px + etwas Rand abziehen). */
+  box.style.cssText='width:calc(100vw - 236px);max-width:none;margin-left:calc((1040px - (100vw - 236px))/2);';
   box.innerHTML='<div style="color:#7b8698;font-size:12.5px;padding:8px">Lade Produkte…</div>';
   try{
     /* GANZER aktiver Katalog (v_erfassung_katalog), damit die Tabelle Score/Quelle/Status
@@ -2588,7 +2588,7 @@ async function loadProduktErfassung(){
       +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
       +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px">Vorgabe-Kategorie</span>'
       +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px")
-      +'<button class="peBtn" onclick="peToggleStatus()" title="Ausgewähltes Produkt umschalten: Aktiv ↔ Entwurf. „Aktiv" läuft über die geprüfte Freigabe.">⇄ Status</button>'
+      +'<button id="peStatusBtn" class="peBtn" onclick="peToggleStatus()">⇄ Status</button>'
       +'<span style="flex:1"></span>'
       +'<input id="peSuche" oninput="peRender()" placeholder="🔍 Filter / Suche (Titel, Marke, EAN)…" style="width:250px;max-width:48vw;padding:8px 10px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px">'
     +'</div>'
@@ -2610,7 +2610,7 @@ async function loadProduktErfassung(){
     +'</div>'
     /* Raster */
     +'<div style="border:1px solid #e2e8ef;border-radius:11px;overflow:hidden;margin-bottom:12px;background:#fff;box-shadow:0 1px 2px rgba(20,40,70,.04)">'
-      +'<div style="max-height:230px;overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>'
+      +'<div style="max-height:280px;overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
       +'<div id="peFoot" style="padding:7px 10px;color:#7b8698;font-size:12px;border-top:1px solid #e2e8ef;background:#eef3f8"></div>'
     +'</div>'
     +'<div id="peDetail"><div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div></div>'
@@ -2657,29 +2657,43 @@ function peRender(){
     else if(sort==='titel'){ var ta=String(a.name||'').toLowerCase(),tb=String(b.name||'').toLowerCase(); if(ta!==tb) return ta<tb?-1:1; }
     var da=String(a.erfasst||''),db=String(b.erfasst||''); if(da!==db) return da<db?1:-1;
     var na=parseInt(String(a.id).replace(/\D/g,''),10)||0,nb=parseInt(String(b.id).replace(/\D/g,''),10)||0; return nb-na; });
-  var th=function(h){ return '<th style="position:sticky;top:0;background:#eef3f8;text-align:left;padding:9px 10px;border-bottom:1px solid #e2e8ef;font-size:12px;color:#5b6b82;font-weight:700;white-space:nowrap">'+h+'</th>'; };
-  var td=function(c,st){ return '<td style="padding:9px 10px;border-bottom:1px solid #e2e8ef;white-space:nowrap;'+(st||'')+'">'+c+'</td>'; };
+  var th=function(h){ return '<th style="position:sticky;top:0;background:#eef3f8;text-align:left;padding:9px 10px;border-bottom:1px solid #e2e8ef;font-size:12px;color:#5b6b82;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+h+'</th>'; };
+  var td=function(c,st,attr){ return '<td '+(attr||'')+' style="padding:9px 10px;border-bottom:1px solid #e2e8ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(st||'')+'">'+c+'</td>'; };
+  /* Feste Spaltenbreiten (table-layout:fixed) – lange Titel werden abgeschnitten (…), statt die
+     Tabelle zu sprengen. Titel-Spalte ohne feste Breite = nimmt den Rest. */
+  var cols='<colgroup><col style="width:64px"><col><col style="width:130px"><col style="width:130px"><col style="width:58px"><col style="width:112px"><col style="width:130px"><col style="width:130px"><col style="width:34px"></colgroup>';
   var scoreCell=function(s){ if(s==null) return '<span style="font-weight:800;color:#7b8698">–</span>';
     var c=s>=80?'#2e9e57':s>=60?'#c88616':'#cf5442'; return '<span style="font-weight:800;color:'+c+'">'+s+'</span>'; };
   var statPill=function(p){
     if(String(p.pstatus||'')==='Entwurf') return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">Entwurf</span>';
     if(p.zu_verifizieren) return '<span class="pePill" style="color:#3b56b0;border-color:#c3ccf0;background:#eef1fb">zu verifizieren</span>';
     return '<span class="pePill" style="color:#1f7d43;border-color:#bfe3cb;background:#e7f6ec">Aktiv</span>'; };
-  g.innerHTML='<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','Score','Status','EAN','Quelle','⚑'].map(th).join('')+'</tr></thead><tbody>'
+  g.innerHTML=cols+'<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','Score','Status','EAN','Quelle','⚑'].map(th).join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')">'
       +td(esc(p.id),'color:#7b8698')
-      +td('<b>'+esc(p.name||'—')+'</b>')
-      +td(esc(p.marke||''))
+      +td('<b>'+esc(p.name||'—')+'</b>','', 'title="'+esc(p.name||'')+'"')
+      +td(esc(p.marke||''),'','title="'+esc(p.marke||'')+'"')
       +td(esc(p.kategorie||''))
-      +td(scoreCell(p.score))
-      +td(statPill(p))
+      +td(scoreCell(p.score),'overflow:visible')
+      +td(statPill(p),'overflow:visible')
       +td(p.ean?esc(p.ean):'<span style="color:#c88616">offen</span>','color:#7b8698')
-      +td(p.quelle_typ?esc(p.quelle_typ):'<span style="color:#cf5442">fehlt</span>','color:#7b8698;font-size:12px')
+      +td(p.quelle_typ?esc(p.quelle_typ):'<span style="color:#cf5442">fehlt</span>','color:#7b8698;font-size:12px','title="'+esc(p.quelle_typ||'')+'"')
       +td(p.markiert?'<span style="color:#cf5442">⚑</span>':'')
       +'</tr>'; }).join('')
     +'</tbody>';
   var f=document.getElementById('peFoot'); if(f) f.textContent='Datensätze '+list.length+' von '+rows.length;
+  try{ peStatusBtnUpdate(); }catch(e){}
+}
+/* Der Status-Knopf zeigt den ECHTEN Status des ausgewählten Produkts (Aktiv/Entwurf), farbig.
+   Ohne Auswahl neutral „⇄ Status". Klick schaltet um (peToggleStatus). */
+function peStatusBtnUpdate(){
+  var b=document.getElementById('peStatusBtn'); if(!b) return;
+  var id=window._peSel; var p=id?(window._peRows||[]).find(function(r){return String(r.id)===String(id);}):null;
+  if(!p){ b.innerHTML='⇄ Status'; b.style.background='#fff'; b.style.color='#7b8698'; b.style.borderColor='#d3dbe6'; b.style.fontWeight='600'; b.title='Erst ein Produkt in der Liste anklicken'; return; }
+  b.style.fontWeight='700';
+  if(String(p.pstatus||'')==='Entwurf'){ b.innerHTML='⇄ Entwurf'; b.style.background='#fbf3e2'; b.style.color='#c88616'; b.style.borderColor='#eddcb6'; b.title='„'+(p.name||id)+'" – umschalten auf Aktiv (über die geprüfte Freigabe)'; }
+  else { b.innerHTML='⇄ Aktiv'; b.style.background='#e7f6ec'; b.style.color='#1f7d43'; b.style.borderColor='#bfe3cb'; b.title='„'+(p.name||id)+'" – umschalten auf Entwurf (aus dem Katalog nehmen)'; }
 }
 function peRowCtx(ev,id){
   ev.preventDefault();
@@ -2741,18 +2755,21 @@ async function peDeaktiv(id){
 }
 function peSelect(id){ window._peSel=id;
   document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.toggle('sel', tr.getAttribute('data-id')===String(id)); });
+  try{ peStatusBtnUpdate(); }catch(e){}
   var det=document.getElementById('peDetail'); if(!det) return;
   det.innerHTML='<div style="color:#7b8698;padding:14px">Lade…</div>';
   try{ openFgEditor(id, null, det); }catch(e){ det.innerHTML='<div style="color:#cf5442">Editor-Fehler: '+esc(e.message||e)+'</div>'; }
 }
 function peNeu(){ window._peSel=null;
   document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.remove('sel'); });
+  try{ peStatusBtnUpdate(); }catch(e){}
   var det=document.getElementById('peDetail'); if(!det) return;
   var pre=null; try{ var vk=((document.getElementById('peVorKat')||{}).value||'').trim(); if(vk) pre={kategorie:vk}; }catch(e){}
   try{ openFgEditor(null, pre, det); det.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){ det.innerHTML='<div style="color:#cf5442">Editor-Fehler: '+esc(e.message||e)+'</div>'; }
 }
 function peClose(){ window._peSel=null;
   document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.remove('sel'); });
+  try{ peStatusBtnUpdate(); }catch(e){}
   var det=document.getElementById('peDetail'); if(det) det.innerHTML='<div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div>';
   var box=document.getElementById('fgProdErf'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -7085,13 +7102,13 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
-        ${card(`In diesem Produkt enthalten <span style="text-transform:none;color:var(--muted)">(aus den Häkchen)</span>`,`<textarea id="fe_enthalten" readonly rows="18" placeholder="Angehakte Zutaten/Wirkstoffe erscheinen hier – eine je Zeile." style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.55;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical;min-height:360px"></textarea><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Häkchen links in der Zutaten-/Wirkstoffliste füllen dieses Feld. Die Bewertung ist an den Stamm gebunden – nicht frei änderbar.</div>`)}
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
           + (_etikett.length ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;margin-bottom:6px">Angehängte Fotos aus dem Laden (${_etikett.length}) – zum Nachschauen</div><div style="display:flex;gap:6px;flex-wrap:wrap">`
             + _etikett.map((s,j)=>`<img src="${s}" onclick="fgEtikettZoom(${j})" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">`).join("")
             + `</div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. Zum Vergrößern anklicken.</div></div>` : "")
         )}
+        ${card(`In diesem Produkt enthalten <span style="text-transform:none;color:var(--muted)">(aus den Häkchen)</span>`,`<textarea id="fe_enthalten" readonly rows="18" placeholder="Angehakte Zutaten/Wirkstoffe erscheinen hier – eine je Zeile." style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.55;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical;min-height:360px"></textarea><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Häkchen links in der Zutaten-/Wirkstoffliste füllen dieses Feld. Die Bewertung ist an den Stamm gebunden – nicht frei änderbar.</div>`)}
         ${card("Freigabe",`<div id="fe_riegel" style="font-size:13px;line-height:1.6"></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Das Produktbild ist <b>kein</b> Riegel – es fehlt oft und hält nichts auf.</div>`)}
       </div>
     </div>
@@ -9693,7 +9710,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20k";
+const APP_BUILD = "2026-07-20m";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
