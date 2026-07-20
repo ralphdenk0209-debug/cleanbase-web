@@ -1465,7 +1465,9 @@ function suppKarteFill(a,d){
     var n=b.nutzen||{};
     var wirksam=(b.wirksam===true||b.wirksam==="true");
     var hatClaim=(n.hat===true||n.hat==="true");
-    if(wirksam){
+    var gilt=(n.gilt===true||n.gilt==="true");
+    var zeigeClaim=(hatClaim&&gilt)||wirksam;
+    if(zeigeClaim){
       var funk=(hatClaim&&Array.isArray(n.funktionen))?n.funktionen:[];
       var weitereTxt=funk.slice(1).join(" · ");
       _suNn++; var xid="suNx"+_suNn;
@@ -1493,7 +1495,7 @@ function suppKarteFill(a,d){
     return '<div class="note" style="background:var(--k-f4f5f4);color:var(--muted)">Für dieses Präparat liegen noch keine Wirkstoffdaten vor.</div>'+suppZutaten(d)+suppFuss(null);
   }
   var alle=Array.isArray(a.befunde_alle)?a.befunde_alle:[];
-  var istHaupt=function(b){ return (b.has_dosing===true||b.has_dosing==="true"); };
+  var istHaupt=function(b){ return (b.has_dosing===true||b.has_dosing==="true")||(b.nutzen&&(b.nutzen.hat===true||b.nutzen.hat==="true")); };
   var haupt=alle.filter(istHaupt);
   var stumm=alle.filter(function(b){ return !istHaupt(b); });
   var f=RIF?(RIF[a.ampel]||RIF.grau):{bg:"var(--k-eef6ee)",rand:"var(--k-d5e6d5)",text:"var(--k-2f5d33)",punkt:"var(--k-4d7c3a)",icon:"✓"};
@@ -8956,7 +8958,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19r";
+const APP_BUILD = "2026-07-19s";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
