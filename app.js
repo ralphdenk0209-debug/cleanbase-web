@@ -1192,6 +1192,7 @@ var KAT_META={
   "Saucen & Dressings":{e:"🥫",bg:"var(--k-f1efe8)",fg:"var(--k-5f5e5a)"},
   "Brotaufstrich":{e:"🍯",bg:"var(--k-faeeda)",fg:"var(--k-854f0b)"},
   "Obst & Trockenfrüchte":{e:"🍇",bg:"var(--k-eaf3de)",fg:"var(--k-3b6d11)"},
+  "Fertigprodukte":{e:"🍕",bg:"var(--k-faece7)",fg:"var(--k-993c1d)"},
   "Lebensmittel":{e:"🍽️",bg:"var(--k-f1efe8)",fg:"var(--k-5f5e5a)"}
 };
 function katMeta(k){ return KAT_META[k] || {e:"🏷️",bg:"var(--k-f1efe8)",fg:"var(--k-5f5e5a)"}; }
@@ -2757,7 +2758,7 @@ const NW_FELDER=[["kcal","kcal",""],["fett","Fett","g"],["ges_fett","davon gesä
 /* Produktkategorien als feste Auswahl - Freitext fuehrt zu Tippfehlern und Dubletten
    ("Nussprodukte / Pulver" vs "Nüsse & Hülsenfrüchte"). Riki darf vorschlagen, der
    Mensch waehlt aus der Liste. */
-const KATEGORIEN=["Backen","Brot & Backwaren","Brotaufstrich","Energy-Gel","Fleisch & Fisch","Getränk",
+const KATEGORIEN=["Backen","Brot & Backwaren","Brotaufstrich","Energy-Gel","Fertigprodukte","Fleisch & Fisch","Getränk",
   "Getreide & Beilagen","Milchprodukte & Eier","Nüsse & Hülsenfrüchte","Obst & Gemüse","Öle & Fette",
   "Proteinpulver","Riegel","Snacks","Supplement","Süßungsmittel","Süßwaren",
   "Tofu & Fleischalternativen","Würzen & Saucen","Lebensmittel","Sonstiges"];
@@ -6470,6 +6471,10 @@ async function openFgEditor(id, prefill){
         <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name, z. B. rohe Pilze/Gemüse/Getreide)" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">USDA holen</button>
         ${id?`<button type="button" onclick="fgShotCam('${esc(d.id)}')" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap">Etikettfoto</button>`:""}
       </div>
+      <div style="display:flex;gap:7px;align-items:center;margin-top:7px">
+        <button type="button" onclick="fgResearchPick()" title="Riki_Research (Beta, Admin): erkennt das Produkt aus einem Foto, sucht die Herstellerseite und füllt die Maske. Du prüfst und gibst frei." style="padding:8px 12px;border:1px solid var(--k-534ab7);border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap">📸 Foto → Riki sucht Herstellerseite</button>
+        <input type="file" id="fe_researchFile" accept="image/*" multiple style="display:none" onchange="fgPullResearch(this.files)">
+      </div>
       <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-top:7px;cursor:pointer"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">Produkt hat keinen EAN – als „offen“ markieren (dann blockiert die fehlende EAN die Freigabe nicht)</label>
       <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:6px">Jede Quelle trägt sich selbst in den Beleg ein – auch die zweite. Gefundene Werte füllen die Maske, du prüfst nur.</div>
     </div>
@@ -6760,6 +6765,46 @@ async function fgPullHersteller(){
     var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Von der Herstellerseite gelesen – <b>gegen das Etikett prüfen</b>."+warn; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message; } }
+}
+/* Riki_Research (Beta, Admin): Foto -> Riki erkennt Produkt, SUCHT die Herstellerseite,
+   liest Nährwerte+Zutaten und füllt die Maske. Wasserfall: Barcode->OFF (frei) + Claude-Websuche.
+   Ergebnis ist ein VORSCHLAG in einem ENTWURF – du prüfst und gibst frei. */
+function fgResearchPick(){ var f=document.getElementById("fe_researchFile"); if(f){ f.value=""; f.click(); } }
+function _fileZuBase64(file){ return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(){ res(String(r.result)); }; r.onerror=function(){ rej(r.error); }; r.readAsDataURL(file); }); }
+async function fgPullResearch(files){
+  var msg=document.getElementById("fe_pullMsg");
+  var list=files?Array.prototype.slice.call(files,0,3):[];
+  if(!list.length){ return; }
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Riki recherchiert (Foto erkennen · Herstellerseite suchen · lesen)… das kann ~15–30 s dauern."; }
+  try{
+    var bilder=await Promise.all(list.map(_fileZuBase64));
+    bilder=bilder.filter(function(b){ return /^data:image\//.test(b); });
+    if(!bilder.length){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bild konnte nicht gelesen werden."; } return; }
+    var ean=((document.getElementById("fe_ean")||{}).value||"").trim();
+    var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
+    var r=await fetch(client.supabaseUrl+'/functions/v1/riki-research',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({bilder:bilder, ean:ean||undefined})});
+    var d=await r.json();
+    if(d.leer){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent=d.hinweis||"Riki hat das Produkt nicht eindeutig gefunden."; } return; }
+    if(d.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent=d.error; } return; }
+    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=function(id,x){ var e=document.getElementById(id); if(e&&x!=null&&isFinite(x)) e.value=Math.round(x*100)/100; };
+    var ne=document.getElementById("fe_name"); if(ne&&v.name&&!ne.value) ne.value=v.name;
+    var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
+    var vz=document.getElementById("fe_verzehr"); if(vz&&v.verzehrempfehlung&&!vz.value) vz.value=v.verzehrempfehlung;
+    var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
+    var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
+    var ue=document.getElementById("fe_url"); if(ue&&d.quelle_url&&!ue.value.trim()) ue.value=d.quelle_url;
+    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); }
+    /* Quelle-Typ nach Domain: großer Händler -> Amazon/Händler, sonst Herstellerseite. Beleg = die echte URL. */
+    var url=String(d.quelle_url||"");
+    var haendler=/amazon\.|rewe\.|edeka\.|dm\.de|rossmann\.|kaufland\.|lidl\.|aldi\.|mueller\.|müller\./i.test(url);
+    var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value=haendler?"Amazon/Händler":"Herstellerseite";
+    if(url) feBelegAdd(url);
+    try{ fePlaus(); }catch(e){}
+    var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
+    var kost=(d.meta&&d.meta.kosten_usd!=null)?(" · ~$"+d.meta.kosten_usd):"";
+    if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Riki hat recherchiert"+(url?(" (Quelle: "+esc(url)+")"):"")+" – <b>gegen die Quelle/das Etikett prüfen</b>, dann als Entwurf speichern."+warn+kost; }
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
 }
 /* Kaskade 3: USDA FoodData Central – generische Nährwerte je 100 g (rohe Pilze/Gemüse/Getreide).
    Englischer, generischer Name. Läuft serverseitig (usda-lookup), Key als Secret USDA_FDC_KEY. */
@@ -8970,7 +9015,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19u";
+const APP_BUILD = "2026-07-19w";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
