@@ -89,10 +89,10 @@ function suppLead(d,size){
   if(!b || !Number(b.ws_gesamt)) return pill;
   var g=Number(b.ws_gesamt), wk=Number(b.ws_wirksam)||0, zg=Number(b.ws_zu_gering)||0, kr=Number(b.ws_kein_ref)||0;
   var C=size/2, Rr=(size*0.40).toFixed(1), sw=Math.max(5,Math.round(size/9));
-  var segs='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--k-f0ece3)" stroke-width="'+sw+'"/>';
-  if(kr>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--k-c9c4bb)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+kr+' '+(g-kr)+'" stroke-dashoffset="'+(-(wk+zg))+'"/>';
-  if(zg>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--k-e8920c)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+zg+' '+(g-zg)+'" stroke-dashoffset="'+(-wk)+'"/>';
-  if(wk>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--k-4d7c3a)" stroke-width="'+sw+'" stroke-linecap="round" pathLength="'+g+'" stroke-dasharray="'+wk+' '+(g-wk)+'" stroke-dashoffset="0"/>';
+  var segs='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-track)" stroke-width="'+sw+'"/>';
+  if(kr>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-grau)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+kr+' '+(g-kr)+'" stroke-dashoffset="'+(-(wk+zg))+'"/>';
+  if(zg>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-gelb)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+zg+' '+(g-zg)+'" stroke-dashoffset="'+(-wk)+'"/>';
+  if(wk>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-gruen)" stroke-width="'+sw+'" stroke-linecap="round" pathLength="'+g+'" stroke-dasharray="'+wk+' '+(g-wk)+'" stroke-dashoffset="0"/>';
   return '<div class="scLead" style="flex:0 0 '+size+'px;width:'+size+'px;text-align:center">'
     +'<div style="position:relative;width:'+size+'px;height:'+size+'px;margin:0 auto">'
       +'<svg viewBox="0 0 '+size+' '+size+'" style="width:100%;height:100%;transform:rotate(-90deg)">'+segs+'</svg>'
@@ -1463,26 +1463,22 @@ function suppKarteFill(a,d){
   }
   function nutzenLine(b){
     var n=b.nutzen||{};
-    var wirksam=(b.wirksam===true||b.wirksam==="true");
     var hatClaim=(n.hat===true||n.hat==="true");
     var gilt=(n.gilt===true||n.gilt==="true");
-    var zeigeClaim=(hatClaim&&gilt)||wirksam;
-    if(zeigeClaim){
-      var funk=(hatClaim&&Array.isArray(n.funktionen))?n.funktionen:[];
-      var weitereTxt=funk.slice(1).join(" · ");
+    var wirksam=(b.wirksam===true||b.wirksam==="true");
+    if(hatClaim&&gilt){
       _suNn++; var xid="suNx"+_suNn;
-      var mehr=(hatClaim&&Number(n.anzahl)>1)?('<span onclick="suppTog(\''+xid+'\')" style="font-size:11px;color:var(--k-4d7c3a);border:1px dashed var(--k-d5e6d5);border-radius:20px;padding:2px 8px;cursor:pointer">+'+(Number(n.anzahl)-1)+' weitere</span>'):"";
-      var titel=hatClaim?esc(n.funktion):"In wirksamer Menge";
-      var body=hatClaim
-        ? ('<div id="'+xid+'" style="display:none;font-size:11px;color:var(--k-5a6660);line-height:1.5;margin-top:6px">„'+esc(n.claim)+'“'+(weitereTxt?(' Ebenfalls anerkannt: '+esc(weitereTxt)+'.'):"")+'</div>')
-        : ('<div style="font-size:11px;color:var(--k-5a6660);line-height:1.5;margin-top:5px">Erreicht die signifikante Menge (≥ 15 % Tagesbedarf) – die Schwelle, ab der die EU eine Nutzenaussage zulässt.</div>');
-      return '<div style="margin-top:9px;background:var(--k-f2f5f3);border-left:3px solid var(--k-4d7c3a);border-radius:8px;padding:8px 10px">'
-        +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="background:var(--k-1d3c24);color:var(--k-ffffff);font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.03em">NUTZEN · EU</span><span style="font-size:12.5px;font-weight:700;color:var(--k-2f5d33)">'+titel+'</span>'+mehr+'</div>'
-        +body
-      +'</div>';
+      var funk=Array.isArray(n.funktionen)?n.funktionen:[];
+      var weitereTxt=funk.slice(1).join(" · ");
+      var mehr=(Number(n.anzahl)>1)?(' <span style="color:var(--muted);font-weight:400">+'+(Number(n.anzahl)-1)+'</span>'):"";
+      return '<div onclick="suppTog(\''+xid+'\')" style="margin-top:8px;display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;color:var(--k-2f5d33)"><span style="color:var(--k-4d7c3a);font-weight:800">✓</span><b>'+esc(n.funktion)+'</b>'+mehr+'</div>'
+        +'<div id="'+xid+'" style="display:none;font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px;padding-left:18px">„'+esc(n.claim)+'“'+(weitereTxt?(' Ebenfalls anerkannt: '+esc(weitereTxt)+'.'):"")+'</div>';
     }
-    var zusatz=(hatClaim&&n.mindestmenge!=null)?(' (nötig ab '+String(n.mindestmenge).replace(".",",")+' '+esc(n.mind_einheit||"")+')'):"";
-    return '<div style="margin-top:9px;font-size:11px;color:var(--k-7a5c1e);background:var(--k-fdf6e7);border-radius:8px;padding:7px 9px;line-height:1.45">Menge unter der signifikanten Schwelle (15 % des Tagesbedarfs'+zusatz+') – keine belegbare Wirkung.</div>';
+    if(!hatClaim&&wirksam){
+      return '<div style="margin-top:8px;font-size:11.5px;color:var(--muted)">In wirksamer Menge (≥ 15 % Tagesbedarf).</div>';
+    }
+    var zusatz=(hatClaim&&n.mindestmenge!=null)?(' (ab '+String(n.mindestmenge).replace(".",",")+' '+esc(n.mind_einheit||"")+')'):"";
+    return '<div style="margin-top:8px;font-size:11px;color:var(--k-7a5c1e)">Menge unter der Nutzen-Schwelle'+zusatz+'.</div>';
   }
   function block(b){
     return '<div style="padding:13px 0;border-top:1px solid var(--line)">'
@@ -1530,11 +1526,11 @@ function suppKarteFill(a,d){
     var g=Number(a.bilanz.gesamt)||0, wk=Number(a.bilanz.wirksam)||0, zg=Number(a.bilanz.zu_gering)||0, kr=Number(a.bilanz.kein_ref)||0;
     var CX=60,CY=60,RO=52,RI=41,GAP=(g>1?6:0),SEG=360/g,ring="";
     if(g===1){
-      var c1=(wk>0)?"var(--k-4d7c3a)":((zg>0)?"var(--k-e8920c)":"var(--k-c9c4bb)");
+      var c1=(wk>0)?"var(--ri-gruen)":((zg>0)?"var(--ri-gelb)":"var(--ri-grau)");
       ring='<circle cx="60" cy="60" r="46.5" fill="none" stroke="'+c1+'" stroke-width="11"/>';
     } else {
       for(var i=0;i<g;i++){
-        var col=(i<wk)?"var(--k-4d7c3a)":((i<wk+zg)?"var(--k-e8920c)":"var(--k-c9c4bb)");
+        var col=(i<wk)?"var(--ri-gruen)":((i<wk+zg)?"var(--ri-gelb)":"var(--ri-grau)");
         var a0=(-90+i*SEG+GAP/2)*Math.PI/180, a1=(-90+(i+1)*SEG-GAP/2)*Math.PI/180, lg=(SEG-GAP)>180?1:0;
         ring+='<path d="M'+(CX+RO*Math.cos(a0)).toFixed(2)+' '+(CY+RO*Math.sin(a0)).toFixed(2)
           +' A'+RO+' '+RO+' 0 '+lg+' 1 '+(CX+RO*Math.cos(a1)).toFixed(2)+' '+(CY+RO*Math.sin(a1)).toFixed(2)
@@ -1543,8 +1539,8 @@ function suppKarteFill(a,d){
           +' Z" fill="'+col+'"/>';
       }
     }
-    var xtra=""; if(zg>0) xtra+='<br><span style="color:var(--k-e8920c)">■</span> '+zg+' zu gering dosiert';
-    if(kr>0) xtra+='<br><span style="color:var(--k-c9c4bb)">■</span> '+kr+' ohne offiziellen Referenzwert';
+    var xtra=""; if(zg>0) xtra+='<br><span style="color:var(--ri-gelb)">■</span> '+zg+' zu gering dosiert';
+    if(kr>0) xtra+='<br><span style="color:var(--ri-grau)">■</span> '+kr+' ohne offiziellen Referenzwert';
     bilanzHtml='<div style="margin-top:12px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px 13px">'
       +'<div style="display:flex;align-items:center;gap:15px">'
         +'<div style="position:relative;width:104px;height:104px;flex:0 0 auto">'
@@ -1556,12 +1552,24 @@ function suppKarteFill(a,d){
         +'</div>'
         +'<div style="flex:1;min-width:0">'
           +'<div style="font-size:13px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:6px">Wirkstoffe in wirksamer Menge</div>'
-          +'<div style="font-size:11px;color:var(--muted);line-height:1.6"><span style="color:var(--k-4d7c3a)">■</span> '+wk+' mit belegtem EU-Nutzen (≥ 15 % Tagesbedarf)'+xtra+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);line-height:1.6"><span style="color:var(--ri-gruen)">■</span> '+wk+' mit belegtem EU-Nutzen (≥ 15 % Tagesbedarf)'+xtra+'</div>'
         +'</div>'
       +'</div>'
     +'</div>';
   }
-  return head+bilanzHtml+zwei+hauptHtml+stummHtml+suppZutaten(d)+suppFuss(a);
+  var uebersichtHtml="";
+  var mitNutzen=alle.filter(function(b){ var n=b.nutzen||{}; return (n.hat===true||n.hat==="true")&&(n.gilt===true||n.gilt==="true"); });
+  if(mitNutzen.length){
+    var urows=mitNutzen.map(function(b){
+      return '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line)"><span style="font-size:12.5px;color:var(--ink)">'+esc(b.wirkstoff)+'</span><span style="font-size:12.5px;font-weight:600;color:var(--k-2f5d33);text-align:right">'+esc((b.nutzen||{}).funktion)+'</span></div>';
+    }).join("");
+    uebersichtHtml='<div style="margin-top:16px;background:var(--k-f2f5f3);border:1px solid var(--line);border-radius:14px;padding:13px 14px">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="background:var(--dunkelflaeche-1);color:var(--auf-gruen-dunkel);font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.03em">NUTZEN · EU</span><b style="font-size:13px;color:var(--ink)">Wobei diese Wirkstoffe helfen</b></div>'
+      +urows
+      +'<div style="font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:9px">Von der EU zugelassene Aussagen zur normalen Körperfunktion (VO 432/2012). Keine Aussage zu Beschwerden oder Krankheiten.</div>'
+    +'</div>';
+  }
+  return head+bilanzHtml+zwei+hauptHtml+stummHtml+suppZutaten(d)+uebersichtHtml+suppFuss(a);
 }
 function suppZutaten(d){
   var zlist=Array.isArray(d.zutaten)?d.zutaten:[];
@@ -8958,7 +8966,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19s";
+const APP_BUILD = "2026-07-19t";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
