@@ -7553,6 +7553,8 @@ function etikettOpen(ean){
       +'<div style="font-size:13px;line-height:1.55;color:var(--ink);margin-bottom:12px">Fotografiere die <b>Zutatenliste</b> und die <b>Nährwerttabelle</b> auf der Verpackung. Wir prüfen das Etikett und nehmen das Produkt auf – so entsteht kein geratener Wert, sondern ein belegter.</div>'
       +'<div id="etiShots"></div>'
       +'<button id="etiSend" onclick="etikettSend()" style="display:none;width:100%;box-sizing:border-box;margin-top:10px;padding:12px;border:0;border-radius:10px;background:var(--green,var(--k-16a34a));color:var(--k-1d3c24);font-weight:600;cursor:pointer;font-size:15px">Fotos senden</button>'
+      +'<button id="etiResearchBtn" onclick="etikettResearch()" style="display:none;width:100%;box-sizing:border-box;margin-top:8px;padding:11px;border:1px solid var(--k-534ab7);border-radius:10px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:600;cursor:pointer;font-size:14px">🔎 Riki sucht die Herstellerseite</button>'
+      +'<div id="etiResearchHint" style="display:none;font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.45">Kein Etikett zur Hand? Nimm die <b>Vorderseite</b> auf – Riki erkennt das Produkt, sucht die Herstellerseite und legt einen Entwurf an, den du prüfst.</div>'
       +'<div id="etiMsg" style="font-size:13px;margin-top:9px;line-height:1.45"></div>'
       +'<input id="etiFile" type="file" accept="image/*" style="display:none" onchange="etikettFile(this)">'
       +'</div>';
@@ -7560,8 +7562,38 @@ function etikettOpen(ean){
   }
   ov.style.display="flex";
   const e=document.getElementById("etiEan"); if(e) e.textContent = ETI_EAN?("Barcode "+ETI_EAN):"";
+  /* Riki_Research nur fuer Admins zeigen – die Edge-Function ist admin-gated (Beta). */
+  const _adm=!!(typeof ME!=="undefined"&&ME&&ME.is_admin);
+  const rb=document.getElementById("etiResearchBtn"); if(rb) rb.style.display=_adm?"block":"none";
+  const rh=document.getElementById("etiResearchHint"); if(rh) rh.style.display=_adm?"block":"none";
   etiMsg("");
   renderEtiShots();
+}
+/* Scan-Weg: aus den aufgenommenen Produktfotos (v. a. Vorderseite) laesst Riki die
+   Herstellerseite suchen und oeffnet daraus einen Entwurf im Editor. Admin/Beta. */
+async function etikettResearch(){
+  const arr=ETI_SLOTS.map(function(s){ return ETI_SHOTS[s[0]]; }).filter(Boolean);
+  if(!arr.length){ etiMsg("Bitte mindestens ein Produktfoto aufnehmen – am besten die Vorderseite.","var(--k-dc2626)"); return; }
+  const {data:{session}}=await client.auth.getSession();
+  if(!session){ etiMsg("Bitte anmelden.","var(--k-dc2626)"); return; }
+  const rb=document.getElementById("etiResearchBtn"); if(rb) rb.disabled=true;
+  etiMsg("Riki recherchiert (Produkt erkennen · Herstellerseite suchen · lesen)… das kann ~15–30 s dauern.","var(--muted)");
+  try{
+    const r=await fetch(client.supabaseUrl+"/functions/v1/riki-research",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":client.supabaseKey},body:JSON.stringify({bilder:arr, ean:ETI_EAN||undefined})});
+    const d=await r.json();
+    if(d && d.error){ etiMsg(d.error,"var(--k-dc2626)"); return; }
+    if(d && d.leer){ etiMsg(d.hinweis||"Riki hat das Produkt nicht eindeutig gefunden. Bitte das Etikett fotografieren.","var(--k-b45309)"); return; }
+    const v=(d&&d.vorschlag)||{}, n=v.naehrwerte_100g||{};
+    const nw={}; ["kcal","protein","kh","zucker","fett","ges_fett","ballaststoffe","salz"].forEach(function(k){ if(n[k]!=null&&isFinite(n[k])) nw[k]=n[k]; });
+    const zut=Array.isArray(v.zutaten)?v.zutaten.map(function(z){ return {name:z.name, rating:z.rating, kritisch:z.kritisch}; }):[];
+    const quelle=(d&&d.quelle_url)||v.quelle_url||"";
+    const warn=(d&&Array.isArray(d.warnungen)&&d.warnungen.length)?(" Hinweis: "+d.warnungen.join(" · ")):"";
+    etikettClose();
+    openFgEditor(null, { name:v.name||"", marke:v.marke||"", ean:(v.ean||ETI_EAN||""), kategorie:v.kategorie_vorschlag||"",
+      naehrwerte:nw, zutaten:zut, zusatzstoffe_text:(v.zusatzstoffe&&v.zusatzstoffe.text)||"", fotos:arr.slice(),
+      hinweis:"Von Riki_Research aus dem Web recherchiert – VORSCHLAG. Quelle: "+(quelle||"?")+". Gegen die Quelle/das Etikett prüfen, Quelle-Typ + Beleg (URL) eintragen, dann als Entwurf speichern."+warn });
+  }catch(e){ etiMsg("Fehler: "+(e&&e.message?e.message:e),"var(--k-dc2626)"); }
+  finally{ const rb2=document.getElementById("etiResearchBtn"); if(rb2) rb2.disabled=false; }
 }
 function etikettClose(){ const ov=document.getElementById("etiOv"); if(ov) ov.style.display="none"; }
 function renderEtiShots(){
@@ -9015,7 +9047,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-19w";
+const APP_BUILD = "2026-07-19x";
 let _updateGezeigt = false;
 
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
