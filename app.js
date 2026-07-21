@@ -2562,6 +2562,9 @@ function peIstOffen(p){
 function peSyncStickyTop(){
   var el=document.getElementById('peSticky'); if(!el) return;
   var top=0;
+  /* Unter der fixierten Admin-Kopfleiste kleben (Hamburger-Layout, 20.07.2026). */
+  var at=document.getElementById('adminTop');
+  if(at){ var sa=getComputedStyle(at); if(sa.position==='fixed'){ var ra=at.getBoundingClientRect(); if(ra.bottom>top) top=ra.bottom; } }
   document.querySelectorAll('.hero').forEach(function(h){
     var st=getComputedStyle(h); if(st.position!=='sticky'&&st.position!=='fixed') return;
     var r=h.getBoundingClientRect(); if(r.top<=1 && r.bottom>top) top=r.bottom;
@@ -2571,8 +2574,8 @@ function peSyncStickyTop(){
 async function loadProduktErfassung(){
   var box=document.getElementById('fgProdErf'); if(!box) return;
   peLightCssInject();
-  /* Volle Bildschirmbreite nutzen (nur das Admin-Menü ~214px + etwas Rand abziehen). */
-  box.style.cssText='width:calc(100vw - 236px);max-width:none;margin-left:calc((1040px - (100vw - 236px))/2);';
+  /* Volle Breite (linke Menüspalte entfällt seit dem Hamburger-Layout, 20.07.2026). */
+  box.style.cssText='width:100%;max-width:none;margin:0;';
   box.innerHTML='<div style="color:#7b8698;font-size:12.5px;padding:8px">Lade Produkte…</div>';
   try{
     /* GANZER aktiver Katalog (v_erfassung_katalog), damit die Tabelle Score/Quelle/Status
@@ -4895,36 +4898,48 @@ function applyAdminMode(){
   if(!ADMIN_MODE) return;
   const bn=document.querySelector('.bottomnav'); if(bn) bn.style.display='';
   const ms=document.getElementById('mehrSheet'); if(ms) ms.style.display='';
-  if(!document.getElementById('adminNav')){
-    const c=document.querySelector('.container');
-    if(c){ const nav=document.createElement('div'); nav.id='adminNav';
-      /* EIN durchgehendes linkes Menü: oben die Freigabe-Ansichten (Dashboard, Eingang,
-         Bundles, Rezepte, Empfehlungen), darunter die eigenständigen Bereiche
-         (Riki-Import, Stufen, Nutzer), unten Abmelden. (Ralph, 19.07.2026) */
-      nav.innerHTML=
-        '<div class="adminMenu">'
-        +'<button class="amBtn" data-k="dash"         onclick="adminGo(\'dash\')">📊 Dashboard</button>'
-        /* „Eingang" (scans) 19.07.2026 aus dem Menü genommen: zeigte faktisch dasselbe wie
-           „Zu verifizieren" (aktive, unverifizierte Katalogprodukte). Alles wird jetzt dort
-           gesammelt. Die scans-Logik bleibt im Code (Hintergrund-Dedup), nur ohne eigenen Reiter. */
-        +'<button class="amBtn" data-k="bundles"      onclick="adminGo(\'bundles\')">🧩 Bundles</button>'
-        +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
-        +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
-        /* „Zu verifizieren" (Button + Seite) 20.07.2026 entfernt (Ralph): Produkt-Erfassung mit
-           Standardansicht „Zu erledigen" deckt das ab. Panel-Code bleibt dormant. */
-        +'<button class="amBtn" id="amProdErf" data-k="produkterfassung" onclick="adminGo(\'produkterfassung\')" style="display:none">🗂️ Produkt-Erfassung</button>'
-        +'<button class="amBtn" id="amRegelwerk" data-k="regelwerk" onclick="adminGo(\'regelwerk\')" style="display:none">📖 Regelwerk</button>'
-        +'<div class="amSep"></div>'
-        +'<button class="amBtn" data-k="rikiimport"   onclick="adminGo(\'rikiimport\')">📤 Riki-Import</button>'
-        +'<button class="amBtn" data-k="stufen"       onclick="adminGo(\'stufen\')">🎚️ Stufen</button>'
-        +'<button class="amBtn" data-k="nutzer"       onclick="adminGo(\'nutzer\')">👥 Nutzer</button>'
-        +'<div class="amSep"></div>'
-        +'<button class="amBtn amLogout" onclick="doLogout()">🚪 Abmelden</button>'
-        +'</div>'
-        /* Freigabe-Checkliste ganz links, UNTER dem Abmelden-Knopf (Ralph). Wird von fePlaus
-           gefüllt (#fe_riegel) und nur eingeblendet, wenn ein Produkt im Editor offen ist. */
-        +'<div id="navFreigabe" style="display:none;margin:12px 0 4px;padding:10px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--green);font-weight:800;margin-bottom:7px">Freigabe</div><div id="fe_riegel" style="font-size:12.5px;line-height:1.6"></div></div>';
-      c.insertBefore(nav, c.firstChild); }
+  if(!document.getElementById('adminTop')){
+    /* Schlanke Kopfleiste + Hamburger-Schublade statt fester linker Spalte (Ralph, 20.07.2026).
+       Kopfleiste: Hamburger · Wortmarke · Breadcrumb (wo bin ich) · Abmelden.
+       Der Inhalt nutzt dadurch die volle Breite. */
+    const top=document.createElement('div'); top.id='adminTop';
+    top.innerHTML=
+       '<button id="adminBurger" onclick="adminDrawerToggle()" aria-label="Menü" title="Menü">☰</button>'
+      +'<div class="atWord">Root Index<small>Admin</small></div>'
+      +'<div id="adminCrumb"></div>'
+      +'<div class="atSpacer"></div>'
+      +'<button class="atLogout" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">🚪</button>';
+    document.body.appendChild(top);
+    /* Abdunkelnder Hintergrund – Klick schließt die Schublade. */
+    const scrim=document.createElement('div'); scrim.id='adminScrim'; scrim.onclick=function(){ adminDrawerClose(); };
+    document.body.appendChild(scrim);
+    /* Die einfahrende Menü-Schublade: dieselben Punkte wie zuvor die linke Spalte. */
+    const dr=document.createElement('div'); dr.id='adminDrawer';
+    dr.innerHTML=
+       '<div class="adHead"><div class="adTitle">Root Index<small>Admin</small></div><button class="adX" onclick="adminDrawerClose()" aria-label="Schließen">×</button></div>'
+      +'<div class="adminMenu">'
+      +'<button class="amBtn" data-k="dash"         onclick="adminGo(\'dash\')">📊 Dashboard</button>'
+      +'<button class="amBtn" data-k="bundles"      onclick="adminGo(\'bundles\')">🧩 Bundles</button>'
+      +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
+      +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
+      +'<button class="amBtn" id="amProdErf" data-k="produkterfassung" onclick="adminGo(\'produkterfassung\')" style="display:none">🗂️ Produkt-Erfassung</button>'
+      +'<button class="amBtn" id="amRegelwerk" data-k="regelwerk" onclick="adminGo(\'regelwerk\')" style="display:none">📖 Regelwerk</button>'
+      +'<div class="amSep"></div>'
+      +'<button class="amBtn" data-k="rikiimport"   onclick="adminGo(\'rikiimport\')">📤 Riki-Import</button>'
+      +'<button class="amBtn" data-k="stufen"       onclick="adminGo(\'stufen\')">🎚️ Stufen</button>'
+      +'<button class="amBtn" data-k="nutzer"       onclick="adminGo(\'nutzer\')">👥 Nutzer</button>'
+      +'<div class="amSep"></div>'
+      +'<button class="amBtn amLogout" onclick="doLogout()">🚪 Abmelden</button>'
+      +'</div>';
+    document.body.appendChild(dr);
+    /* Freigabe-Checkliste als schwebendes, einklappbares Panel (nur beim Bearbeiten sichtbar).
+       Wird von fePlaus gefüllt (#fe_riegel) und eingeblendet, wenn ein Produkt im Editor offen ist. */
+    if(!document.getElementById('navFreigabe')){
+      const nf=document.createElement('div'); nf.id='navFreigabe';
+      nf.style.cssText='display:none;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)';
+      nf.innerHTML='<div id="navFreigabeHead" onclick="var b=document.getElementById(\'fe_riegel\');if(b)b.style.display=(b.style.display===\'none\'?\'\':\'none\');var c=this.querySelector(\'.nfCaret\');if(c)c.textContent=(b&&b.style.display===\'none\'?\'▸\':\'▾\');"><span style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--green);font-weight:800">Freigabe</span><span class="nfCaret" style="color:var(--muted);font-size:12px">▾</span></div><div id="fe_riegel" style="font-size:12.5px;line-height:1.6;margin-top:7px"></div>';
+      document.body.appendChild(nf);
+    }
   }
   /* Beta-Menuepunkte direkt nach dem Bau des Menues sichtbar schalten (falls Flags schon geladen). */
   try{ var _ar=document.getElementById('amRegelwerk'); if(_ar) _ar.style.display=(FEATURES['regelwerk']===true?'':'none');
@@ -4937,13 +4952,22 @@ function applyAdminMode(){
   else { openAdminLogin(); }
 }
 
-/* Linkes Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
-   die eigenständigen Bereiche über navTo(). Zusätzlich Markierung des aktiven Knopfs. */
+/* Schublade öffnen/schließen (Hamburger-Menü, Ralph 20.07.2026). */
+function adminDrawerToggle(){ var d=document.getElementById('adminDrawer'),s=document.getElementById('adminScrim'); if(!d)return; var open=d.classList.toggle('open'); if(s)s.classList.toggle('open',open); }
+function adminDrawerClose(){ var d=document.getElementById('adminDrawer'),s=document.getElementById('adminScrim'); if(d)d.classList.remove('open'); if(s)s.classList.remove('open'); }
+if(typeof window!=='undefined'){ window.adminDrawerToggle=adminDrawerToggle; window.adminDrawerClose=adminDrawerClose; }
+
+/* Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
+   die eigenständigen Bereiche über navTo(). Markiert den aktiven Punkt, setzt den
+   Breadcrumb in der Kopfleiste und schließt die Schublade. */
+const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer'};
 function adminGo(k){
   const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
   else { try{ navTo(k); }catch(e){} }
-  try{ document.querySelectorAll('#adminNav .amBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
+  try{ document.querySelectorAll('.adminMenu .amBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
+  try{ var cr=document.getElementById('adminCrumb'); if(cr) cr.textContent=AD_TITLES[k]||''; }catch(e){}
+  try{ adminDrawerClose(); }catch(e){}
 }
 if(typeof window!=='undefined') window.adminGo=adminGo;
 
@@ -9938,7 +9962,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20w";
+const APP_BUILD = "2026-07-20x";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

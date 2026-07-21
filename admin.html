@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADMIN-BACKEND · Kopie der App-Huelle, laedt dieselbe app.js. Consumer-Bedienung ausgeblendet. build 2026-07-20w (Produktliste lädt nach Speichern&Freigeben neu; „Zu verifizieren"-Menü entfernt) -->
+<!-- ADMIN-BACKEND · Kopie der App-Huelle, laedt dieselbe app.js. Consumer-Bedienung ausgeblendet. build 2026-07-20x (linke Menüspalte → Hamburger-Kopfleiste + Off-Canvas-Schublade; Inhalt volle Breite; Freigabe = schwebendes Panel unten links) -->
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
@@ -1436,7 +1436,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 <script>/* Admin-Modus VOR app.js aktivieren - per Seiten-Flag (nicht mehr per URL-Hash). */
 window.__ADMIN_PAGE=true;</script>
-<script src="app.js?v=2026-07-20w"></script>
+<script src="app.js?v=2026-07-20x"></script>
 <button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
 <button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 <style id="adminOnly">
@@ -1444,22 +1444,49 @@ window.__ADMIN_PAGE=true;</script>
   nav.bottomnav{display:none !important;}
   .hero{display:none !important;}
   .principles{display:none !important;}
-  /* Feste Navigations-Spalte GANZ LINKS, ausserhalb des Inhalts (Ralph, 19.07.2026).
-     Der Inhalt rueckt nach rechts und nutzt die volle Restbreite. */
-  #adminNav{position:fixed !important;left:14px;top:44px;width:186px;z-index:45;margin:0 !important;}
+  /* Schlanke Kopfleiste + Hamburger-Schublade statt fester linker Spalte (Ralph, 20.07.2026):
+     der Inhalt nutzt die volle Breite, das Menue liegt hinter dem Hamburger. */
+  #adminTop{position:fixed;top:0;left:0;right:0;height:54px;z-index:60;display:flex;align-items:center;gap:12px;
+            padding:0 16px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:0 1px 10px rgba(20,40,28,.06);}
+  #adminBurger{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:var(--card);
+               color:var(--ink);font-size:19px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  #adminBurger:hover{border-color:var(--green);}
+  #adminTop .atWord{font-weight:800;font-size:15px;color:var(--green);letter-spacing:.01em;white-space:nowrap;line-height:1.05;}
+  #adminTop .atWord small{display:block;font-size:9px;font-weight:700;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;}
+  #adminCrumb{font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  #adminCrumb:not(:empty)::before{content:"\203A";margin:0 10px 0 2px;color:var(--muted);font-weight:400;}
+  #adminTop .atSpacer{flex:1 1 auto;}
+  #adminTop .atLogout{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:var(--card);
+               color:var(--muted);font-size:17px;cursor:pointer;flex:0 0 auto;}
+  #adminTop .atLogout:hover{border-color:#c0392b;color:#c0392b;}
+  /* Schublade (Off-Canvas) links + abdunkelnder Hintergrund */
+  #adminScrim{position:fixed;inset:0;background:rgba(15,28,20,.34);z-index:70;opacity:0;pointer-events:none;transition:opacity .22s;}
+  #adminScrim.open{opacity:1;pointer-events:auto;}
+  #adminDrawer{position:fixed;top:0;left:0;bottom:0;width:266px;max-width:82vw;z-index:71;background:var(--card);
+               border-right:1px solid var(--line);box-shadow:8px 0 30px rgba(20,40,28,.18);
+               transform:translateX(-100%);transition:transform .24s cubic-bezier(.4,0,.2,1);
+               display:flex;flex-direction:column;padding:14px 14px 18px;overflow-y:auto;}
+  #adminDrawer.open{transform:none;}
+  #adminDrawer .adHead{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 14px;}
+  #adminDrawer .adTitle{font-weight:800;font-size:16px;color:var(--green);line-height:1.05;}
+  #adminDrawer .adTitle small{display:block;font-size:9px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;}
+  #adminDrawer .adX{border:0;background:transparent;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;}
   .adminMenu{display:flex;flex-direction:column;gap:6px;}
   .adminMenu .amBtn{width:100%;text-align:left;border:1px solid var(--line);background:var(--card);
-                    color:var(--ink);border-radius:9px;padding:11px 13px;font-size:14px;cursor:pointer;
-                    display:flex;align-items:center;gap:8px;}
+                    color:var(--ink);border-radius:10px;padding:12px 13px;font-size:14.5px;cursor:pointer;
+                    display:flex;align-items:center;gap:10px;}
   .adminMenu .amBtn:hover{border-color:var(--green);}
   .adminMenu .amBtn.active{background:var(--greenlt);color:var(--greendk);border-color:var(--green);font-weight:600;}
   .adminMenu .amSep{height:1px;background:var(--line);margin:8px 2px;}
   .adminMenu .amLogout{color:var(--muted);}
-  /* Inhalt neben die Sidebar schieben und volle Breite nutzen. */
-  .container{margin-left:214px !important;max-width:none !important;width:auto !important;padding:14px 24px 60px 0 !important;}
-  /* Die alten Unter-Reiter im Content sind jetzt Teil des linken Menüs -> ausblenden. */
+  /* Inhalt: volle Breite, unter die Kopfleiste geschoben. */
+  .container{margin-left:0 !important;max-width:none !important;width:auto !important;padding:68px 20px 60px !important;}
+  /* Die alten Unter-Reiter im Content sind jetzt Teil des Menues -> ausblenden. */
   #fgTabs{display:none !important;}
-  /* „ADMIN"-Balken oben entfernt (Ralph, 20.07.2026) – verdeckte nur das fixierte Menü. */
+  /* Freigabe-Checkliste: schwebendes, einklappbares Panel unten links, nur beim Bearbeiten sichtbar. */
+  #navFreigabe{position:fixed !important;left:16px;bottom:16px;width:250px;z-index:56;
+               box-shadow:0 10px 34px rgba(20,40,28,.22);}
+  #navFreigabeHead{display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
 </style>
 <script>
 /* Admin-Backend: dieselbe app.js, aber ohne Consumer-Bedienung. Nach der Admin-Anmeldung
