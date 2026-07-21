@@ -2574,6 +2574,7 @@ function peSyncStickyTop(){
 async function loadProduktErfassung(){
   var box=document.getElementById('fgProdErf'); if(!box) return;
   peLightCssInject();
+  try{ document.body.classList.add('peLightBg'); }catch(e){}
   /* Volle Breite (linke Menüspalte entfällt seit dem Hamburger-Layout, 20.07.2026). */
   box.style.cssText='width:100%;max-width:none;margin:0;';
   box.innerHTML='<div style="color:#7b8698;font-size:12.5px;padding:8px">Lade Produkte…</div>';
@@ -4932,14 +4933,8 @@ function applyAdminMode(){
       +'<button class="amBtn amLogout" onclick="doLogout()">🚪 Abmelden</button>'
       +'</div>';
     document.body.appendChild(dr);
-    /* Freigabe-Checkliste als schwebendes, einklappbares Panel (nur beim Bearbeiten sichtbar).
-       Wird von fePlaus gefüllt (#fe_riegel) und eingeblendet, wenn ein Produkt im Editor offen ist. */
-    if(!document.getElementById('navFreigabe')){
-      const nf=document.createElement('div'); nf.id='navFreigabe';
-      nf.style.cssText='display:none;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)';
-      nf.innerHTML='<div id="navFreigabeHead" onclick="var b=document.getElementById(\'fe_riegel\');if(b)b.style.display=(b.style.display===\'none\'?\'\':\'none\');var c=this.querySelector(\'.nfCaret\');if(c)c.textContent=(b&&b.style.display===\'none\'?\'▸\':\'▾\');"><span style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--green);font-weight:800">Freigabe</span><span class="nfCaret" style="color:var(--muted);font-size:12px">▾</span></div><div id="fe_riegel" style="font-size:12.5px;line-height:1.6;margin-top:7px"></div>';
-      document.body.appendChild(nf);
-    }
+    /* Die Freigabe-Checkliste (#fe_riegel) sitzt jetzt als volle Zeile in der Editor-Fußzeile
+       (Ralph, 20.07.2026) – kein schwebendes Panel mehr. */
   }
   /* Beta-Menuepunkte direkt nach dem Bau des Menues sichtbar schalten (falls Flags schon geladen). */
   try{ var _ar=document.getElementById('amRegelwerk'); if(_ar) _ar.style.display=(FEATURES['regelwerk']===true?'':'none');
@@ -4967,6 +4962,8 @@ function adminGo(k){
   else { try{ navTo(k); }catch(e){} }
   try{ document.querySelectorAll('.adminMenu .amBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
   try{ var cr=document.getElementById('adminCrumb'); if(cr) cr.textContent=AD_TITLES[k]||''; }catch(e){}
+  /* Produkt-Erfassung bekommt einen hellen Arbeits-Hintergrund (Ralph: „Hintergrund zu hell"). */
+  try{ document.body.classList.toggle('peLightBg', k==='produkterfassung'); }catch(e){}
   try{ adminDrawerClose(); }catch(e){}
 }
 if(typeof window!=='undefined') window.adminGo=adminGo;
@@ -7228,6 +7225,7 @@ async function openFgEditor(id, prefill, targetEl){
     </div>
     <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px;align-items:start" id="fe_grid">
       <div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start">
         ${card("Produkt",`<div style="display:grid;gap:8px">
           <label style="font-size:13px">Titel<input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px"></label>
           <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
@@ -7238,6 +7236,7 @@ async function openFgEditor(id, prefill, targetEl){
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:-2px">Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. <b>Bei Nahrungsergänzung wichtig:</b> Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.</div>
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
+        </div>
         ${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden an den Stamm)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
@@ -7274,7 +7273,12 @@ async function openFgEditor(id, prefill, targetEl){
         ${card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>in deiner Liste übernommen</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div>`)}
       </div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;padding:12px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
+    <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
+      <div style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
+        <span style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;flex:0 0 auto">Freigabe</span>
+        <div id="fe_riegel" style="display:flex;gap:5px 14px;flex-wrap:wrap;font-size:12px;line-height:1.35;flex:1 1 auto;min-width:0"></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;width:100%">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div id="fe_ready" style="font-size:12px;color:var(--muted)"></div>
         ${targetEl?`<button onclick="try{feScorePreview()}catch(e){}" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">↻ Score neu</button>
@@ -7286,6 +7290,7 @@ async function openFgEditor(id, prefill, targetEl){
         <button onclick="fgEditSave(false)" style="padding:10px 16px;border:1px solid ${targetEl?"#2a3f86":"var(--k-0ea5e9)"};border-radius:10px;background:${targetEl?"#3b56b0":"var(--k-0ea5e9)"};color:#fff;font-weight:600;cursor:pointer">💾 Speichern</button>
         <button onclick="fgEditSave(true)" style="padding:10px 18px;border:0;border-radius:10px;background:${targetEl?"#2e9e57":"var(--k-16a34a)"};color:#fff;font-weight:700;cursor:pointer">✓ Speichern &amp; freigeben</button>
         ${targetEl?`<button onclick="peClose()" style="padding:10px 16px;border:1px solid #d3dbe6;border-radius:10px;background:#fff;color:#1f2a44;font-weight:600;cursor:pointer">Schließen</button>`:""}
+      </div>
       </div>
     </div>
     <div id="fe_msg" style="font-size:13px;margin-top:8px"></div>`;
@@ -7539,12 +7544,12 @@ function fePlaus(){
        daran sind die Supplements zweimal hintereinander gescheitert. */
     var rg=document.getElementById("fe_riegel");
     if(rg){
-      var ok=function(t){ return '<div style="color:var(--k-166534)">&#10003; '+t+'</div>'; };
-      var no=function(t){ return '<div style="color:var(--k-b45309)">&#9888; '+t+'</div>'; };
+      var ok=function(t){ return '<span style="color:var(--k-166534);white-space:nowrap">&#10003; '+t+'</span>'; };
+      var no=function(t){ return '<span style="color:var(--k-b45309);white-space:nowrap;font-weight:600">&#9888; '+t+'</span>'; };
       var nwFehlt=fehlt.filter(function(x){ return x!=="mind. 1 Zutat" && x!=="Quelle-Typ" && x!=="Kategorie" && x.indexOf("ohne Bewertung")<0 && x.indexOf("EAN")<0; });
       var h="";
       h+= _kat ? ok("Kategorie gewählt") : no("Kategorie fehlt (Pflicht)");
-      if(_istSupp) h+='<div style="color:var(--muted)">– Nährwerte (Supplement, nicht nötig)</div>';
+      if(_istSupp) h+='<span style="color:var(--muted);white-space:nowrap">– Nährwerte (Supplement, nicht nötig)</span>';
       else h+= nwFehlt.length ? no(nwFehlt.length+" Nährwert(e) fehlen") : ok("Nährwerte vollständig");
       h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
       h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
@@ -7552,7 +7557,6 @@ function fePlaus(){
       h+= (_eanV||_eanOffen) ? ok(_eanV?"EAN erfasst":"EAN als offen markiert") : no("EAN fehlt – eintragen oder „offen“ ankreuzen");
       if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
       rg.innerHTML=h;
-      var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="";  /* Sidebar-Freigabe einblenden, solange ein Produkt offen ist */
     }
   }
   try{ feReqBorders(); }catch(e){}
@@ -9962,7 +9966,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20x";
+const APP_BUILD = "2026-07-20y";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
