@@ -7274,6 +7274,7 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
     </div>
     <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
+      <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
         <span style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;flex:0 0 auto">Freigabe</span>
         <div id="fe_riegel" style="display:flex;gap:5px 14px;flex-wrap:wrap;font-size:12px;line-height:1.35;flex:1 1 auto;min-width:0"></div>
@@ -7292,8 +7293,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${targetEl?`<button onclick="peClose()" style="padding:10px 16px;border:1px solid #d3dbe6;border-radius:10px;background:#fff;color:#1f2a44;font-weight:600;cursor:pointer">Schließen</button>`:""}
       </div>
       </div>
-    </div>
-    <div id="fe_msg" style="font-size:13px;margin-top:8px"></div>`;
+    </div>`;
     /* Vollbild-Seite statt schwebendem Overlay (Ralph 20.07.): Editor fuellt den Inhaltsbereich
        rechts neben dem Admin-Menue (214px). Auf dem Consumer (kein Menue) volle Breite. */
     if(!targetEl){
@@ -7796,20 +7796,32 @@ async function fgEditSave(alsoFreigeben){
     try{ await client.rpc("cb_scan_produkt_verknuepfen",{p_ids:window._fgEdit.scanIds, p_produkt_id:pid}); }catch(e){}
   }
   if(alsoFreigeben && pid){
+    /* Die geprüfte Freigabe (Quelle · Verifiziert · Score/Supplement · Wächter). Nur DIESE
+       entscheidet, ob ein Produkt live geht – ihr Ergebnis ist maßgeblich, nicht der
+       Lebensmittel-Score. Ein Supplement bekommt bewusst keinen Score (§1.11j/§1.11v-f),
+       darf aber trotzdem freigegeben werden. Vorher hat der spätere „vollstaendig===false"-
+       Zweig eine erfolgreiche Supplement-Freigabe fälschlich als „noch KEIN Score" gemeldet
+       (und Ballaststoffe verlangt, obwohl eine Kapsel keine hat). */
     const fr=await client.rpc("produkt_pruefen_freigeben",{p_id:pid});
     if(fr.error){
       msg.style.color="var(--k-b45309)"; msg.style.fontWeight="700";
       msg.textContent="💾 Gespeichert – aber NICHT freigegeben: "+fr.error.message;
+      try{ fePlaus(); }catch(e){}
       try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
       loadFreigabe(); return;
     }
-  }
-  if(data && data.vollstaendig===false){
-    msg.style.color="var(--k-b45309)"; msg.style.fontWeight="700";
-    msg.textContent="💾 Gespeichert – aber noch KEIN Score. Siehe die Zeile Fehlt für den Score unten; trag den fehlenden Wert ein (fehlt nur Ballaststoffe: 0 eintragen).";
-    try{ fePlaus(); }catch(e){}
-    try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
-    loadFreigabe(); return;
+    /* Freigabe erfolgreich → weiter zum Erfolgshinweis; kein Score-Warnhinweis mehr. */
+  } else if(data && data.vollstaendig===false){
+    /* Nur beim REINEN Speichern (Entwurf, nicht freigeben): zeigen, was für den Score fehlt.
+       Bei Supplements gibt es bewusst keinen Lebensmittel-Score – dort ist das kein Mangel. */
+    var _katSave=((g("fe_kat")||{}).value||"").trim().toLowerCase();
+    if(_katSave!=="supplement"){
+      msg.style.color="var(--k-b45309)"; msg.style.fontWeight="700";
+      msg.textContent="💾 Gespeichert – aber noch KEIN Score. Siehe die Freigabe-Zeile oben; trag den fehlenden Wert ein (fehlt nur Ballaststoffe? 0 eintragen).";
+      try{ fePlaus(); }catch(e){}
+      try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
+      loadFreigabe(); return;
+    }
   }
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"+(alsoFreigeben?" & freigegeben":"");
   try{ const aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(x=>({...x, clean_score:num(x.clean_score)})); }catch(e){}
@@ -9966,7 +9978,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21a";
+const APP_BUILD = "2026-07-21b";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
