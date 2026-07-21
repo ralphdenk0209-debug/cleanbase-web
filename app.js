@@ -7223,7 +7223,7 @@ async function openFgEditor(id, prefill, targetEl){
       <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-top:8px;cursor:pointer"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">Produkt hat keinen EAN – als „offen“ markieren (dann blockiert die fehlende EAN die Freigabe nicht)</label>
       <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:6px">Riki holt entweder die <b>Herstellerseite</b> oder liest das <b>Etikett vom Foto</b> (hinterlegtes Kundenfoto, selbst aufgenommen oder hochgeladen). Gefundene Werte füllen die Maske – du prüfst nur.</div>
     </div>
-    <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px;align-items:start" id="fe_grid">
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,440px);gap:14px;align-items:start" id="fe_grid">
       <div>
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start">
         ${card("Produkt",`<div style="display:grid;gap:8px">
@@ -9966,7 +9966,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-20y";
+const APP_BUILD = "2026-07-20z";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
