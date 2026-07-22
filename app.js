@@ -2974,7 +2974,8 @@ async function dashDrillLoad(key){
     if(r&&r.error){ throw new Error(r.error.message||'RPC-Fehler'); }
     var rows=(r&&r.data)||[];
     if(!rows.length){ body.innerHTML='<span style="color:#107e3e">Nichts offen. ✓</span>'; return; }
-    body.innerHTML='<div style="margin-bottom:6px;color:#5b6d73">'+rows.length+' Einträge</div>'+rows.map(function(x){
+    var _slBtn=(key==='ohne_quelle')?'<button onclick="rikiSammellauf()" style="width:100%;margin-bottom:10px;background:linear-gradient(90deg,#7b5be6,#c04bd6);color:#fff;border:0;border-radius:9px;padding:10px;font-weight:800;cursor:pointer">🤖 Riki-Sammellauf starten – Herstellerseiten lesen &amp; Quelle dokumentieren</button>':'';
+    body.innerHTML=_slBtn+'<div style="margin-bottom:6px;color:#5b6d73">'+rows.length+' Einträge</div>'+rows.map(function(x){
       var _btn=function(fn){ return '<button onclick="'+fn+'" style="flex:0 0 auto;padding:5px 10px;border:1px solid #0a6ed1;border-radius:8px;background:#eaf3fd;color:#0a6ed1;cursor:pointer;font-size:12px;font-weight:600">Bearbeiten</button>'; };
       var edit = (x.kind==='produkt'&&x.id) ? _btn("dashOpenProdukt('"+esc(x.id)+"')")
                : (x.kind==='zutat'&&x.id)   ? _btn("zutStammEdit('"+esc(x.id)+"')")   /* Stamm-Zutat direkt bearbeiten (Ralph 22.07.) */
@@ -3013,6 +3014,71 @@ function dashOpenProdukt(id){
   open();
 }
 if(typeof window!=='undefined'){ window.dashOpenProdukt=dashOpenProdukt; }
+
+/* ===== Riki-Sammellauf (Ralph 22.07.2026) =============================================
+   Liest die Herstellerseiten der „ohne Quelle"-Produkte MIT Link der Reihe nach und
+   DOKUMENTIERT nur die Quelle (Typ + Beleg) — überschreibt KEINE Nährwerte/Zutaten und
+   setzt NICHT auf Verifiziert=Ja (§6: Riki liefert den Beleg, der Mensch prüft). Budget-
+   Stopp: meldet die Edge-Function ein Limit, hält der Lauf sofort an. Kein Blind-Stapel. */
+async function rikiSammellauf(){
+  if(window._sammellaufRunning) return;
+  var ov=document.createElement('div'); ov.id='sammellaufOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(6,10,16,.55);z-index:90;display:flex;align-items:center;justify-content:center;padding:18px';
+  ov.innerHTML='<div style="background:#fff;color:#22343a;border-radius:14px;max-width:560px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)">'
+    +'<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #eef2f3"><b style="font-size:15px;flex:1">🤖 Riki-Sammellauf</b>'
+      +'<button id="slClose" style="border:0;background:#f0f2f4;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
+    +'<div style="padding:14px 16px">'
+      +'<div style="font-size:12.5px;color:#5b6d73;line-height:1.5;margin-bottom:10px">Riki liest die Herstellerseiten der Produkte <b>ohne Quelle, die einen Link haben</b>. Bei Erfolg wird nur die <b>Quelle dokumentiert</b> (Typ + Beleg) — Nährwerte/Zutaten bleiben unangetastet, <b>Verifiziert bleibt „Nein"</b> (dein Review). Budget-Stopp ist aktiv.</div>'
+      +'<div style="height:8px;border-radius:999px;background:#eceef0;overflow:hidden;margin-bottom:6px"><div id="slProg" style="width:0%;height:100%;background:linear-gradient(90deg,#22d3c5,#3b82f6);transition:width .2s"></div></div>'
+      +'<div id="slStat" style="font-size:12px;color:#5b6d73;margin-bottom:10px">Lade Liste…</div>'
+      +'<div id="slList" style="font-size:12.5px"></div>'
+      +'<div style="display:flex;gap:8px;margin-top:12px"><button id="slStart" style="flex:1;background:#17505c;color:#fff;border:0;border-radius:9px;padding:10px;font-weight:700;cursor:pointer" disabled>▶ Starten</button>'
+        +'<button id="slStop" style="background:#f7dede;color:#a11111;border:0;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer;display:none">■ Stopp</button></div>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  var $=function(id){ return document.getElementById(id); };
+  $('slClose').onclick=function(){ if(window._sammellaufRunning) window._sammellaufStop=true; ov.remove(); };
+  var items=[];
+  try{ var r=await client.rpc('cb_sammellauf_liste'); if(r.error) throw new Error(r.error.message); items=r.data||[]; }
+  catch(e){ $('slStat').innerHTML='<span style="color:#bb0000">Fehler beim Laden: '+esc((e&&e.message)||String(e))+'</span>'; return; }
+  if(!items.length){ $('slStat').textContent='Keine Produkte mit Link ohne Quelle – nichts zu tun.'; return; }
+  $('slStat').textContent=items.length+' Produkte mit Link bereit.';
+  $('slStart').disabled=false;
+  $('slList').innerHTML=items.map(function(it,i){ return '<div id="sl_'+i+'" style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #eef2f3"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc((it.marke?it.marke+' · ':'')+it.name)+'</span><span class="slst" style="font-size:11px;color:#8a9aa0;flex:0 0 auto">wartet</span></div>'; }).join('');
+  $('slStart').onclick=async function(){
+    window._sammellaufRunning=true; window._sammellaufStop=false;
+    $('slStart').style.display='none'; $('slStop').style.display='';
+    $('slStop').onclick=function(){ window._sammellaufStop=true; $('slStop').textContent='stoppe…'; };
+    var ok=0, leer=0, feh=0;
+    for(var i=0;i<items.length;i++){
+      if(window._sammellaufStop) break;
+      var it=items[i]; var row=$('sl_'+i); var st=row?row.querySelector('.slst'):null;
+      if(st){ st.textContent='liest…'; st.style.color='#0a6ed1'; }
+      try{
+        var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
+        var resp=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:it.link})});
+        var d=await resp.json();
+        if(d && d.error && /budget|limit|monatslimit/i.test(String(d.error))){ if(st){ st.textContent='Budget voll – Stopp'; st.style.color='#a11111'; } window._sammellaufStop=true; break; }
+        if(d && d.leer){ leer++; if(st){ st.textContent='leer / nicht lesbar'; st.style.color='#b45309'; } }
+        else if(d && d.error){ feh++; if(st){ st.textContent='Fehler'; st.style.color='#bb0000'; } }
+        else {
+          var typ=/amazon\./i.test(String(it.link))?'Amazon/Haendler':'Herstellerseite';
+          var beleg=typ+': '+it.link+' (Riki-Sammellauf, Prüfung offen)';
+          var sr=await client.rpc('cb_produkt_quelle_setzen',{p_id:it.produkt_id,p_typ:typ,p_beleg:beleg});
+          if(sr.error||!(sr.data&&sr.data.ok)){ feh++; if(st){ st.textContent='Speicher-Fehler'; st.style.color='#bb0000'; } }
+          else { ok++; if(st){ st.textContent='✓ '+typ; st.style.color='#107e3e'; } }
+        }
+      }catch(e){ feh++; if(st){ st.textContent='Fehler'; st.style.color='#bb0000'; } }
+      $('slProg').style.width=Math.round((i+1)/items.length*100)+'%';
+      $('slStat').textContent=(i+1)+' / '+items.length+' · ✓ '+ok+' · leer '+leer+' · Fehler '+feh;
+      await new Promise(function(res){ setTimeout(res,400); });
+    }
+    window._sammellaufRunning=false; $('slStop').style.display='none';
+    $('slStat').innerHTML='<b>Fertig.</b> '+ok+' Quelle dokumentiert · '+leer+' leer · '+feh+' Fehler'+(window._sammellaufStop?' · gestoppt':'')+'. <span style="color:#5b6d73">Bitte prüfen – Verifiziert bleibt „Nein".</span>';
+    try{ if(typeof loadDashboard==='function') loadDashboard(); }catch(e){}
+  };
+}
+if(typeof window!=='undefined'){ window.rikiSammellauf=rikiSammellauf; }
 
 /* ===== Stamm-Zutat aus dem Drill bearbeiten (Ralph 22.07.2026) ==========================
    „Genau solche Dinge muss ich bearbeiten können." Ein kleiner Dialog: Note (0–10) + Kategorie,
@@ -10964,7 +11030,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22h";
+const APP_BUILD = "2026-07-22i";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
