@@ -2975,7 +2975,10 @@ async function dashDrillLoad(key){
     var rows=(r&&r.data)||[];
     if(!rows.length){ body.innerHTML='<span style="color:#107e3e">Nichts offen. ✓</span>'; return; }
     body.innerHTML='<div style="margin-bottom:6px;color:#5b6d73">'+rows.length+' Einträge</div>'+rows.map(function(x){
-      var edit=(x.kind==='produkt'&&x.id)?'<button onclick="document.getElementById(\'drillOv\').remove();openFgEditor(\''+x.id+'\')" style="flex:0 0 auto;padding:5px 10px;border:1px solid #0a6ed1;border-radius:8px;background:#eaf3fd;color:#0a6ed1;cursor:pointer;font-size:12px;font-weight:600">Bearbeiten</button>':'';
+      var _btn=function(fn){ return '<button onclick="'+fn+'" style="flex:0 0 auto;padding:5px 10px;border:1px solid #0a6ed1;border-radius:8px;background:#eaf3fd;color:#0a6ed1;cursor:pointer;font-size:12px;font-weight:600">Bearbeiten</button>'; };
+      var edit = (x.kind==='produkt'&&x.id) ? _btn("document.getElementById('drillOv').remove();openFgEditor('"+esc(x.id)+"')")
+               : (x.kind==='zutat'&&x.id)   ? _btn("zutStammEdit('"+esc(x.id)+"')")   /* Stamm-Zutat direkt bearbeiten (Ralph 22.07.) */
+               : '';
       return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:9px 2px;border-top:1px solid #eef2f3">'
         +'<div style="min-width:0"><div style="font-weight:600;color:#22343a">'+esc(x.name||'—')+'</div><div style="font-size:11.5px;color:#5b6d73">'+esc(x.info||'')+'</div></div>'+edit+'</div>';
     }).join('');
@@ -2987,6 +2990,88 @@ async function dashDrillLoad(key){
     body.innerHTML='<div style="color:#bb0000;margin-bottom:10px">'+(net?'Verbindung unterbrochen – die Abfrage kam nicht durch. Das lag am Netz, nicht an den Daten.':('Fehler: '+esc(msg)))+'</div>'
       +'<button onclick="dashDrillLoad(\''+key+'\')" style="padding:8px 14px;border:0;border-radius:9px;background:#17505c;color:#fff;font-weight:700;cursor:pointer">↻ Nochmal versuchen</button>';
   }
+}
+
+/* ===== Stamm-Zutat aus dem Drill bearbeiten (Ralph 22.07.2026) ==========================
+   „Genau solche Dinge muss ich bearbeiten können." Ein kleiner Dialog: Note (0–10) + Kategorie,
+   optional ein Riki-Vorschlag (riki-zutat-bewerten), den der Mensch bestätigt/überschreibt –
+   kein blindes Setzen. Speichern über cb_zutat_stamm_bearbeiten (rechnet betroffene Produkte neu). */
+var ZUT_KATEGORIEN = ["Gemüse","Obst","Getreide","Fleisch","Fisch & Meeresfrüchte","Milchprodukt","Käse","Ei","Nüsse & Samen","Hülsenfrüchte","Öl/Fett","Zucker & Süßungsmittel","Gewürze & Kräuter","Pilze","Stärke","Salz","Essig","Teigwaren","Ballaststoff","Protein","Aroma","Zusatzstoff","Vitamine & Mineralstoffe","Pflanzenextrakt","Wirkstoff","Bakterienkultur","Kapselhülle","einfache Küchenzutat","Sonstiges"];
+async function zutStammEdit(id){
+  var ov=document.getElementById('zutEditOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='zutEditOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,30,35,.55);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div style="background:#fff;color:#22343a;max-width:520px;width:100%;border-radius:14px;padding:18px;box-shadow:0 18px 50px rgba(0,0,0,.35)">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:15px">Zutat bearbeiten</b>'
+    +'<button onclick="document.getElementById(\'zutEditOv\').remove()" style="border:0;background:#eef2f3;color:#22343a;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px">×</button></div>'
+    +'<div id="zutEditBody" style="font-size:13px;color:#5b6d73">Lade…</div></div>';
+  document.body.appendChild(ov);
+  var body=document.getElementById('zutEditBody');
+  try{
+    var r=await client.rpc('cb_zutat_stamm_get',{p_id:id});
+    if(r&&r.error) throw new Error(r.error.message);
+    var d=(r&&r.data)||{};
+    var bew=(d.bewertung==null?'':String(d.bewertung));
+    var kat=d.kategorie||'';
+    var opts=ZUT_KATEGORIEN.slice(); if(kat && opts.indexOf(kat)<0) opts.unshift(kat);
+    var katSel='<select id="zeKat" style="width:100%;padding:9px;border:1px solid #d3dbe6;border-radius:9px;font-size:13px;background:#fff"><option value="">— keine —</option>'
+      +opts.map(function(o){ return '<option'+(o===kat?' selected':'')+'>'+esc(o)+'</option>'; }).join('')+'</select>';
+    body.innerHTML=
+      '<input type="hidden" id="zeName" value="'+esc(d.name||'')+'">'
+      +'<div style="font-weight:700;color:#22343a;font-size:14px;margin-bottom:14px">'+esc(d.name||'')+'</div>'
+      +'<label style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5b6d73;font-weight:700;margin-bottom:3px">Bewertung (0–10, leer = unbewertet)</label>'
+      +'<input id="zeBew" type="number" min="0" max="10" step="1" value="'+esc(bew)+'" style="width:110px;padding:9px;border:1px solid #d3dbe6;border-radius:9px;font-size:15px;font-weight:700;color:#22343a;background:#fff">'
+      +'<div style="font-size:11px;color:#5b6d73;margin:4px 0 14px;line-height:1.5">10 = roh/unverarbeitet … 2 = raffiniert/isoliert. Die Note misst den <b>Verarbeitungsgrad</b>, nicht „gesund/ungesund". Öle max. 7.</div>'
+      +'<label style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5b6d73;font-weight:700;margin-bottom:3px">Kategorie</label>'+katSel
+      +'<div id="zeRiki" style="margin-top:12px"></div>'
+      +'<div style="display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap">'
+        +'<button onclick="zutStammRiki()" style="padding:9px 14px;border:1px solid #6f5cd6;border-radius:9px;background:#efeafd;color:#4a3aa8;font-weight:700;cursor:pointer;font-size:13px">🤖 Riki vorschlagen</button>'
+        +'<div style="flex:1"></div>'
+        +'<button onclick="document.getElementById(\'zutEditOv\').remove()" style="padding:9px 14px;border:1px solid #d3dbe6;border-radius:9px;background:#fff;color:#22343a;cursor:pointer;font-size:13px">Abbrechen</button>'
+        +'<button onclick="zutStammSave(\''+esc(id)+'\')" style="padding:9px 16px;border:0;border-radius:9px;background:#17505c;color:#fff;font-weight:700;cursor:pointer;font-size:13px">Speichern</button>'
+      +'</div>'
+      +'<div id="zeMsg" style="font-size:12.5px;margin-top:10px"></div>';
+  }catch(e){
+    try{ console.error('cb_zutat_stamm_get', id, e); }catch(_){}
+    var msg=(e&&e.message)||String(e); var net=/load failed|failed to fetch|networkerror/i.test(msg);
+    body.innerHTML='<div style="color:#bb0000">'+(net?'Verbindung unterbrochen – bitte nochmal.':('Konnte die Zutat nicht laden: '+esc(msg)))+'</div>'
+      +'<button onclick="zutStammEdit(\''+esc(id)+'\')" style="margin-top:10px;padding:8px 14px;border:0;border-radius:9px;background:#17505c;color:#fff;font-weight:700;cursor:pointer">↻ Nochmal</button>';
+  }
+}
+function zutStammRiki(){
+  var name=((document.getElementById('zeName')||{}).value||'').trim(); if(!name) return;
+  var box=document.getElementById('zeRiki'); if(box) box.innerHTML='<span style="color:#5b6d73">Riki denkt…</span>';
+  client.auth.getSession().then(function(s){
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok){ if(box) box.innerHTML='<span style="color:#bb0000">Nicht angemeldet.</span>'; return null; }
+    return fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},body:JSON.stringify({name:name})}).then(function(r){ return r.json().then(function(dd){ return {ok:r.ok,d:dd}; }); });
+  }).then(function(rr){
+    if(!rr) return; var box=document.getElementById('zeRiki');
+    if(!rr.ok||typeof rr.d.stufe!=="number"){ if(box) box.innerHTML='<span style="color:#bb0000">Riki konnte nicht bewerten.</span>'; return; }
+    var st=rr.d.stufe, v=rr.d.verifikation||{}, ges=v.gesamt||"KEIN_SIGNAL";
+    var col=ges==="BESTAETIGT"?"#107e3e":ges==="AUSNAHME"?"#bb0000":"#b45309";
+    var lbl=ges==="BESTAETIGT"?"bestätigt":ges==="AUSNAHME"?"Widerspruch – prüfen":ges==="PRUEFEN"?"grenzwertig":"kein Prüfsignal";
+    var inp=document.getElementById('zeBew'); if(inp) inp.value=st;
+    if(box) box.innerHTML='<div style="padding:8px 10px;border:1px solid #e0e6e8;border-left:3px solid '+col+';border-radius:8px;background:#f5f8f9;font-size:12px;line-height:1.5"><b>Riki-Vorschlag: Stufe '+st+'</b>'+(rr.d.begruendung?" — "+esc(rr.d.begruendung):"")+'<br><span style="color:'+col+';font-weight:700">'+lbl+'</span> — du kannst den Wert oben anpassen, bevor du speicherst.</div>';
+  }, function(){ var box=document.getElementById('zeRiki'); if(box) box.innerHTML='<span style="color:#bb0000">Fehler bei Riki – der Wert lässt sich trotzdem von Hand setzen.</span>'; });
+}
+function zutStammSave(id){
+  var bewV=((document.getElementById('zeBew')||{}).value||'').trim();
+  var katV=((document.getElementById('zeKat')||{}).value||'').trim();
+  var msg=document.getElementById('zeMsg');
+  var bew=(bewV==='')?null:parseInt(bewV,10);
+  if(bew!==null && (isNaN(bew)||bew<0||bew>10)){ if(msg){ msg.style.color='#bb0000'; msg.textContent='Bewertung muss 0–10 sein oder leer.'; } return; }
+  if(msg){ msg.style.color='#5b6d73'; msg.textContent='Speichere…'; }
+  client.rpc('cb_zutat_stamm_bearbeiten',{p_id:id,p_bewertung:bew,p_kategorie:(katV||null),p_quelle:'Admin-Korrektur, Dashboard'}).then(function(r){
+    if(r.error||!(r.data&&r.data.ok)){ if(msg){ msg.style.color='#bb0000'; msg.textContent='Fehler: '+((r.error&&r.error.message)||'unbekannt'); } return; }
+    if(msg){ msg.style.color='#107e3e'; msg.textContent='Gespeichert · '+(r.data.produkte_neu||0)+' Produkt(e) neu gerechnet.'; }
+    setTimeout(function(){
+      var ov=document.getElementById('zutEditOv'); if(ov) ov.remove();
+      var dov=document.getElementById('drillOv'); var k=dov&&dov.dataset&&dov.dataset.key;
+      if(k && typeof dashDrillLoad==='function') dashDrillLoad(k);   /* Drill neu laden: die behobene Zutat verschwindet */
+    }, 750);
+  }, function(e){ if(msg){ msg.style.color='#bb0000'; msg.textContent='Fehler: '+((e&&e.message)||String(e)); } });
 }
 
 /* ===== Dashboard „Vorgangs"-Ansicht (Ralph 22.07.2026) =================================
@@ -10522,7 +10607,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21s";
+const APP_BUILD = "2026-07-21t";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
