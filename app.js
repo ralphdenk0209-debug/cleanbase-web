@@ -7265,33 +7265,52 @@ function zusFarbe(einst){
   return {dot:"#9aa7b2",bg:"#eef1f4",txt:"#5b6b7e",label:"ungeprüft"};
 }
 /* Rohtext des Zusatzstoff-Felds in Einzel-Zusatzstoffe zerlegen und gegen den Stamm auflösen. */
+/* Trennt Zusatzstoff-Rohtext nur auf TOP-Ebene (Kommas/Semikola INNERHALB von Klammern
+   trennen NICHT) – „natürliche Aromen (Citrus, Blutorange)" bleibt EIN Eintrag statt in die
+   Fragmente „(Citrus" und „Blutorange)" zu zerbrechen (Ralphs Fund 23.07.). */
+function _zusSplitTop(t){
+  var out=[], cur="", depth=0;
+  for(var i=0;i<t.length;i++){ var c=t.charAt(i);
+    if(c==='('||c==='['){ depth++; cur+=c; }
+    else if(c===')'||c===']'){ if(depth>0) depth--; cur+=c; }
+    else if((c===','||c===';') && depth===0){ if(cur.trim()) out.push(cur.trim()); cur=""; }
+    else cur+=c; }
+  if(cur.trim()) out.push(cur.trim());
+  return out;
+}
 function zusSeed(text){
   window._fgZus=[];
   var t=String(text||"").trim();
   if(!t || /^keine$/i.test(t)) return;
   var seen={};
-  t.split(/[,;]/).forEach(function(tok){
-    tok=String(tok||"").trim(); if(!tok) return;
+  var push=function(tok){
+    tok=String(tok||"").replace(/\s+/g," ").trim(); if(!tok) return;
+    var low=tok.toLowerCase();
+    /* Riki-Statusfetzen o.ä. sind keine Zusatzstoffe (Ralphs Fund 23.07.). */
+    if(/keine zusatzstoffe|nicht erkannt|wird mit\s*\d+\s*zutaten|das produkt wird/i.test(low)) return;
+    /* Aroma bleibt EIN Eintrag – die Klammer sind Geschmacksangaben, keine Zusatzstoffe. */
+    if(_istAroma(tok)){ var ka='n:'+low; if(seen[ka]) return; seen[ka]=1; window._fgZus.push({e:null,name:tok,einst:"neutral"}); return; }
+    /* Funktionswort + Klammer mit MEHREREN Stoffen, z.B. „Antioxidans (Rosmarinextrakt, Tocopherole)"
+       → in die Einzelstoffe aufteilen (das Funktionswort selbst ist keine Substanz). */
+    var pm=tok.match(/^([^()]*)\(([^)]*)\)\s*$/);
+    if(pm){
+      var outer=pm[1].replace(/[:.]\s*$/,"").trim().toLowerCase();
+      if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[outer] && pm[2].indexOf(",")>=0){ pm[2].split(",").forEach(push); return; }
+    }
     var em=tok.match(/\bE\s?\d{3,4}[a-z]?\b/i);
-    var found=null;
-    if(em) found=ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()];
-    var nm=tok.replace(/\(.*?\)/g,"").trim().toLowerCase();
+    var found=em?ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()]:null;
+    /* Klammern weg + führendes „Funktionswort:" abtrennen (z.B. „Antioxidationsmittel: Extrakt aus Rosmarin"). */
+    var nm=tok.replace(/\([^)]*\)/g,"").replace(/^([a-zäöüß][a-zäöüß\s]*?):\s*/i,function(m,w){ return (typeof ZUS_FUNKTION!=="undefined"&&ZUS_FUNKTION[w.trim().toLowerCase()])?"":m; }).replace(/\s+/g," ").trim().toLowerCase();
     if(!found) found=ZUSATZSTOFFE_MAP[nm];
-    /* deutscher Name -> E-Nummer -> Stamm (der Stamm fuehrt englische Namen). Sonst zeigte
-       z.B. „Essigsäure" grau „ungeprüft", obwohl E260 im Stamm neutral/unbedenklich ist. Ralph 22.07. */
     if(!found && typeof ZUS_SYN!=="undefined" && ZUS_SYN[nm]) found=ZUSATZSTOFFE_MAP[String(ZUS_SYN[nm]).toLowerCase()];
-    /* Funktionswort + Stoff in Klammer, z.B. „Süßungsmittel (Steviolglycoside)": den STOFF in der
-       Klammer auflösen, nicht das Funktionswort behalten (sonst grau „ungeprüft"). Ralph 22.07. */
-    if(!found){ var _inner=(tok.match(/\(([^)]+)\)/)||[])[1]; if(_inner){ var il=_inner.trim().toLowerCase();
-      var iem=_inner.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+    if(!found){ var _in=(tok.match(/\(([^)]*)\)/)||[])[1]; if(_in){ var il=_in.trim().toLowerCase(); var iem=_in.match(/\bE\s?\d{3,4}[a-z]?\b/i);
       found=(iem?ZUSATZSTOFFE_MAP[iem[0].replace(/\s/g,"").toLowerCase()]:null) || ZUSATZSTOFFE_MAP[il] || ((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[il])?ZUSATZSTOFFE_MAP[String(ZUS_SYN[il]).toLowerCase()]:null); } }
-    /* Dublette zusammenfassen: „Alpha-carotene, Beta-carotene, Gamma-carotene (E160a)" wird
-       am Komma zerlegt, alle drei sind aber E160a -> nur EINE grüne Zeile statt zwei grauer daneben. Ralph 22.07. */
-    var key = found ? ('e:'+String(found.e).toLowerCase()) : ('n:'+nm);
+    var key = found ? ('e:'+String(found.e).toLowerCase()) : ('n:'+(nm||low));
     if(seen[key]) return; seen[key]=1;
     if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
-    else window._fgZus.push({e:null,name:tok.replace(/\s+/g," "),einst:(_istAroma(tok)?"neutral":"ungeprüft")});
-  });
+    else window._fgZus.push({e:null,name:tok,einst:(_istAroma(tok)?"neutral":"ungeprüft")});
+  };
+  _zusSplitTop(t).forEach(push);
 }
 /* Auswahl → verstecktes fe_ztext (Speicher-Wahrheit) + abgeleiteter fe_zstatus. */
 function zusSync(){
@@ -7361,7 +7380,7 @@ function zusAddNeu(){
 var ZUS_FUNKTION={"antioxidationsmittel":1,"antioxidans":1,"stabilisator":1,"stabilisatoren":1,"farbstoff":1,"farbstoffe":1,"säuerungsmittel":1,"saeuerungsmittel":1,"säureregulator":1,"saeureregulator":1,"konservierungsmittel":1,"konservierungsstoff":1,"emulgator":1,"emulgatoren":1,"verdickungsmittel":1,"geliermittel":1,"trennmittel":1,"süßungsmittel":1,"suessungsmittel":1,"süssungsmittel":1,"backtriebmittel":1,"trägerstoff":1,"traegerstoff":1,"feuchthaltemittel":1,"geschmacksverstärker":1,"geschmacksverstaerker":1,"aroma":1,"aromen":1,"überzugsmittel":1,"ueberzugsmittel":1,"festigungsmittel":1,"mehlbehandlungsmittel":1,"schaumverhüter":1,"komplexbildner":1,"packgas":1,"treibgas":1,"füllstoff":1};
 /* Häufige DEUTSCHE Zusatzstoff-Namen → E-Nummer (der Stamm führt englische Namen).
    Damit „Natriumnitrit" nicht als eigener grauer Eintrag neben „E250" landet. Erweiterbar. */
-var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","steviolglycoside":"E960","steviolglykoside":"E960","steviolglycosid":"E960","sucralose":"E955","acesulfam":"E950","acesulfam-k":"E950","acesulfam k":"E950","aspartam":"E951","saccharin":"E954","cyclamat":"E952","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
+var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","steviolglycoside":"E960","steviolglykoside":"E960","steviolglycosid":"E960","sucralose":"E955","acesulfam":"E950","acesulfam-k":"E950","acesulfam k":"E950","aspartam":"E951","saccharin":"E954","cyclamat":"E952","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","tocopherole":"E306","gemischte tocopherole":"E306","natürliche gemischte tocopherole":"E306","natürliche tocopherole":"E306","alpha-tocopherol":"E307","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
 /* Rikis erkannte Zusatzstoffe automatisch in die Liste übernehmen (Ralph 21.07.2026:
    „warum muss ich das selber eintragen?"). Robust: E-Nummern zuerst; Text mit KLAMMER-Auflösung
    (Komma in der Klammer trennt NICHT die Substanz ab), Funktionswörter raus, deutsche Namen →
@@ -11030,7 +11049,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22i";
+const APP_BUILD = "2026-07-22j";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
