@@ -7175,6 +7175,7 @@ function zusSeed(text){
   window._fgZus=[];
   var t=String(text||"").trim();
   if(!t || /^keine$/i.test(t)) return;
+  var seen={};
   t.split(/[,;]/).forEach(function(tok){
     tok=String(tok||"").trim(); if(!tok) return;
     var em=tok.match(/\bE\s?\d{3,4}[a-z]?\b/i);
@@ -7185,6 +7186,10 @@ function zusSeed(text){
     /* deutscher Name -> E-Nummer -> Stamm (der Stamm fuehrt englische Namen). Sonst zeigte
        z.B. „Essigsäure" grau „ungeprüft", obwohl E260 im Stamm neutral/unbedenklich ist. Ralph 22.07. */
     if(!found && typeof ZUS_SYN!=="undefined" && ZUS_SYN[nm]) found=ZUSATZSTOFFE_MAP[String(ZUS_SYN[nm]).toLowerCase()];
+    /* Dublette zusammenfassen: „Alpha-carotene, Beta-carotene, Gamma-carotene (E160a)" wird
+       am Komma zerlegt, alle drei sind aber E160a -> nur EINE grüne Zeile statt zwei grauer daneben. Ralph 22.07. */
+    var key = found ? ('e:'+String(found.e).toLowerCase()) : ('n:'+nm);
+    if(seen[key]) return; seen[key]=1;
     if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
     else window._fgZus.push({e:null,name:tok.replace(/\s+/g," "),einst:"ungeprüft"});
   });
@@ -7257,7 +7262,7 @@ function zusAddNeu(){
 var ZUS_FUNKTION={"antioxidationsmittel":1,"antioxidans":1,"stabilisator":1,"stabilisatoren":1,"farbstoff":1,"farbstoffe":1,"säuerungsmittel":1,"saeuerungsmittel":1,"säureregulator":1,"saeureregulator":1,"konservierungsmittel":1,"konservierungsstoff":1,"emulgator":1,"emulgatoren":1,"verdickungsmittel":1,"geliermittel":1,"trennmittel":1,"süßungsmittel":1,"suessungsmittel":1,"süssungsmittel":1,"backtriebmittel":1,"trägerstoff":1,"traegerstoff":1,"feuchthaltemittel":1,"geschmacksverstärker":1,"geschmacksverstaerker":1,"aroma":1,"aromen":1,"überzugsmittel":1,"ueberzugsmittel":1,"festigungsmittel":1,"mehlbehandlungsmittel":1,"schaumverhüter":1,"komplexbildner":1,"packgas":1,"treibgas":1,"füllstoff":1};
 /* Häufige DEUTSCHE Zusatzstoff-Namen → E-Nummer (der Stamm führt englische Namen).
    Damit „Natriumnitrit" nicht als eigener grauer Eintrag neben „E250" landet. Erweiterbar. */
-var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
+var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
 /* Rikis erkannte Zusatzstoffe automatisch in die Liste übernehmen (Ralph 21.07.2026:
    „warum muss ich das selber eintragen?"). Robust: E-Nummern zuerst; Text mit KLAMMER-Auflösung
    (Komma in der Klammer trennt NICHT die Substanz ab), Funktionswörter raus, deutsche Namen →
@@ -7548,6 +7553,27 @@ function fgEnthaltenRender(){
       +'</div>';
   }).filter(Boolean).join("");
   box.innerHTML = html || '<span style="color:#1f7d43;font-size:12.5px">✓ Alles vom Etikett ist erfasst – als Zutat oder als Zusatzstoff.</span>';
+}
+/* Zutaten-Abweichung: welche Etikett-Referenz-Einträge sind NOCH NICHT übernommen (weder als
+   Zutat links noch als Zusatzstoff unten)? Dieselbe Logik wie die orangen Zeilen in
+   fgEnthaltenRender. Dient dem Freigabe-Riegel (Ralph 22.07.: „bei Abweichung darf ich speichern,
+   aber nicht versehentlich freigeben"). */
+function _fgAbweichungRef(){
+  var ref=(window._fgRef&&window._fgRef.length)?window._fgRef:[];
+  if(!ref.length) return [];
+  var work=_fgWorkSet(); var zk=_fgZusKeys(); var out=[];
+  ref.forEach(function(nm){
+    var raw=String(nm).trim(); var low=raw.toLowerCase();
+    if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) return;   /* Funktionswort ist keine Substanz */
+    var inList=!!work[low];
+    if(!inList){
+      var em=raw.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+      var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[low])?String(ZUS_SYN[low]).toLowerCase():null);
+      if((eNr && zk[eNr]) || zk[low]) inList=true;
+    }
+    if(!inList) out.push(raw);
+  });
+  return out;
 }
 /* Referenz setzen (nur durch Riki): merkt sich die von Riki gelesenen Namen und rendert die Box. */
 function fgRefSet(names){
@@ -8304,6 +8330,12 @@ function fePlaus(){
           if(_tier.length) h='<div style="flex-basis:100%;width:100%;color:#b91c1c;font-weight:700;background:#fde8e8;border:1px solid #f3b4b4;border-radius:8px;padding:6px 9px">&#9888; Produkt heißt „vegan/vegetarisch“, enthält aber tierische Zutat: '+esc(_tier.join(", "))+' — falsches Produkt?</div>'+h;
         }
       }catch(e){}
+      /* Zutaten-Abweichung (Ralph 22.07.): Etikett-Referenz hat noch nicht übernommene Zutaten →
+         als eigene Zeile sichtbar machen; die Freigabe fragt dann zusätzlich nach (fgEditSave). */
+      try{
+        var _abwR=_fgAbweichungRef();
+        if(_abwR.length) h += no(_abwR.length+" Zutat(en) laut Etikett noch nicht übernommen – Freigabe nur mit Bestätigung");
+      }catch(e){}
       rg.innerHTML=h;
     }
   }
@@ -8624,7 +8656,21 @@ async function fgPullUsda(){
 }
 async function fgEditSave(alsoFreigeben){
   const g=id=>document.getElementById(id);
-  const msg=g("fe_msg"); msg.style.color="var(--k-374151)"; msg.style.fontWeight="400"; msg.textContent="⏳ speichern…";
+  const msg=g("fe_msg");
+  /* Zutaten-Abweichung darf nicht VERSEHENTLICH freigeben (Ralph 22.07.): stehen auf dem
+     Etikett noch nicht übernommene Zutaten, fragt „Speichern & freigeben" ausdrücklich nach.
+     Abbrechen = nur speichern (kein Freigeben). Speichern selbst bleibt immer erlaubt. */
+  if(alsoFreigeben){
+    try{
+      var _abw=_fgAbweichungRef();
+      if(_abw.length){
+        var _liste=_abw.slice(0,8).map(function(x){return "• "+x;}).join("\n")+(_abw.length>8?"\n• …":"");
+        var _ok=confirm("⚠ Zutaten-Abweichung\n\n"+_abw.length+" Zutat(en) stehen laut Etikett-Referenz, sind aber NOCH NICHT übernommen:\n\n"+_liste+"\n\nTrotzdem FREIGEBEN?\n(Abbrechen = nur speichern, nicht freigeben)");
+        if(!_ok){ alsoFreigeben=false; }
+      }
+    }catch(e){}
+  }
+  msg.style.color="var(--k-374151)"; msg.style.fontWeight="400"; msg.textContent="⏳ speichern…";
   const numv=v=>{ v=(v==null?"":String(v)).trim(); return v===""?undefined:Number(v.replace(",",".")); };
   const nw={}; ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(k=>{ const v=numv(g("fe_"+k).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
   const zut=[...document.querySelectorAll("#fe_zutRows .fgZutRow")].map(row=>{
@@ -10863,7 +10909,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22a";
+const APP_BUILD = "2026-07-22b";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
