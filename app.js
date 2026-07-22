@@ -2938,34 +2938,55 @@ function kpi(label, wert, farbeWert, hinweis, drillKey){
   var klick = (drillKey && Number(String(wert).replace(/[^0-9.]/g,''))>0);
   var attr = klick ? ' onclick="dashDrill(\''+drillKey+'\',\''+esc(label)+'\')" title="Betroffene anzeigen"' : '';
   var cur = klick ? 'cursor:pointer;' : '';
-  var pfeil = klick ? '<span style="float:right;color:var(--muted);font-size:12px">›</span>' : '';
-  return '<div'+attr+' style="flex:1 1 96px;min-width:88px;background:var(--card);border:1px solid '+(klick?'var(--k-16a34a)':'var(--line)')+';'
-    +'border-radius:10px;padding:9px 10px;'+cur+'">'
-    +'<div style="font-size:11px;color:var(--muted);line-height:1.3">'+label+pfeil+'</div>'
-    +'<div style="font-size:20px;font-weight:800;color:'+(farbeWert||'var(--ink)')+';line-height:1.25;margin-top:1px">'+wert+'</div>'
-    +(hinweis?'<div style="font-size:10.5px;color:var(--muted);margin-top:1px">'+hinweis+'</div>':'')
+  var pfeil = klick ? '<span style="color:var(--muted);font-size:13px;flex:0 0 auto">›</span>' : '';
+  /* Kompakte Karte mit fester Breite (Ralph 22.07.: „etwas groß und nicht sehr schön"): nicht mehr
+     über die ganze Breite gestreckt, sondern gleich große Kacheln, die links bündig umbrechen. */
+  return '<div'+attr+' style="flex:0 0 auto;width:180px;box-sizing:border-box;background:var(--card);border:1px solid '+(klick?'var(--k-16a34a)':'var(--line)')+';'
+    +'border-radius:12px;padding:11px 13px;'+cur+'">'
+    +'<div style="font-size:11px;color:var(--muted);line-height:1.3;display:flex;justify-content:space-between;align-items:center;gap:6px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+label+'</span>'+pfeil+'</div>'
+    +'<div style="font-size:24px;font-weight:800;color:'+(farbeWert||'var(--ink)')+';line-height:1.15;margin-top:5px">'+wert+'</div>'
+    +(hinweis?'<div style="font-size:10.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+hinweis+'</div>':'')
     +'</div>';
 }
 /* Drill-Down (50d): zeigt die betroffenen Zutaten/Produkte einer Kachel,
    Produkte direkt zum Bearbeiten. */
-async function dashDrill(key, titel){
+function dashDrill(key, titel){
   var ov=document.getElementById('drillOv'); if(ov) ov.remove();
-  ov=document.createElement('div'); ov.id='drillOv';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998;display:flex;align-items:flex-start;justify-content:center;padding:22px 12px;overflow:auto';
+  ov=document.createElement('div'); ov.id='drillOv'; ov.dataset.key=key;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,30,35,.5);z-index:9998;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto';
   ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
-  ov.innerHTML='<div style="background:var(--card);max-width:560px;width:100%;border-radius:14px;padding:16px;box-shadow:var(--shadow,0 10px 40px rgba(0,0,0,.2))"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:15px;color:var(--ink)">'+esc(titel)+'</b><button onclick="document.getElementById(\'drillOv\').remove()" style="border:0;background:var(--line);color:var(--ink);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px">×</button></div><div id="drillBody" style="font-size:13px;color:var(--muted)">Lade…</div></div>';
+  /* Modal hell (passt zum neuen Dashboard) + zentriert. */
+  ov.innerHTML='<div style="background:#fff;color:#22343a;max-width:600px;width:100%;border-radius:14px;padding:16px 18px;box-shadow:0 18px 50px rgba(0,0,0,.35)">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-size:15px">'+esc(titel)+'</b>'
+    +'<button onclick="document.getElementById(\'drillOv\').remove()" style="border:0;background:#eef2f3;color:#22343a;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px">×</button></div>'
+    +'<div id="drillBody" style="font-size:13px;color:#5b6d73">Lade…</div></div>';
   document.body.appendChild(ov);
+  dashDrillLoad(key);
+}
+/* Getrennt, damit „Nochmal versuchen" bei einem Netzwerk-Aussetzer („Load failed") einfach neu lädt,
+   ohne das Fenster neu aufzubauen. Der echte Fehler geht IMMER in die Konsole (§1.13i: nie stumm). */
+async function dashDrillLoad(key){
+  var body=document.getElementById('drillBody'); if(!body) return;
+  body.innerHTML='<span style="color:#5b6d73">Lade…</span>';
   try{
     var r=await client.rpc('cb_dashboard_drill',{p_key:key});
-    var rows=(r&&r.data)||[]; var body=document.getElementById('drillBody'); if(!body) return;
-    if(r&&r.error){ body.innerHTML='<span style="color:var(--k-dc2626)">Fehler: '+esc(r.error.message)+'</span>'; return; }
-    if(!rows.length){ body.innerHTML='<span style="color:var(--k-16a34a)">Nichts offen. ✓</span>'; return; }
-    body.innerHTML='<div style="margin-bottom:6px;color:var(--muted)">'+rows.length+' Einträge</div>'+rows.map(function(x){
-      var edit=(x.kind==='produkt'&&x.id)?'<button onclick="document.getElementById(\'drillOv\').remove();openFgEditor(\''+x.id+'\')" style="flex:0 0 auto;padding:5px 10px;border:1px solid var(--k-0ea5e9);border-radius:8px;background:var(--card);color:var(--k-0369a1);cursor:pointer;font-size:12px">Bearbeiten</button>':'';
-      return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:9px 2px;border-top:1px solid var(--line)">'
-        +'<div style="min-width:0"><div style="font-weight:600;color:var(--ink)">'+esc(x.name||'—')+'</div><div style="font-size:11.5px;color:var(--muted)">'+esc(x.info||'')+'</div></div>'+edit+'</div>';
+    body=document.getElementById('drillBody'); if(!body) return;
+    if(r&&r.error){ throw new Error(r.error.message||'RPC-Fehler'); }
+    var rows=(r&&r.data)||[];
+    if(!rows.length){ body.innerHTML='<span style="color:#107e3e">Nichts offen. ✓</span>'; return; }
+    body.innerHTML='<div style="margin-bottom:6px;color:#5b6d73">'+rows.length+' Einträge</div>'+rows.map(function(x){
+      var edit=(x.kind==='produkt'&&x.id)?'<button onclick="document.getElementById(\'drillOv\').remove();openFgEditor(\''+x.id+'\')" style="flex:0 0 auto;padding:5px 10px;border:1px solid #0a6ed1;border-radius:8px;background:#eaf3fd;color:#0a6ed1;cursor:pointer;font-size:12px;font-weight:600">Bearbeiten</button>':'';
+      return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:9px 2px;border-top:1px solid #eef2f3">'
+        +'<div style="min-width:0"><div style="font-weight:600;color:#22343a">'+esc(x.name||'—')+'</div><div style="font-size:11.5px;color:#5b6d73">'+esc(x.info||'')+'</div></div>'+edit+'</div>';
     }).join('');
-  }catch(e){ var b=document.getElementById('drillBody'); if(b) b.innerHTML='<span style="color:var(--k-dc2626)">Fehler: '+esc((e&&e.message)||String(e))+'</span>'; }
+  }catch(e){
+    try{ console.error('cb_dashboard_drill', key, e); }catch(_){}
+    body=document.getElementById('drillBody'); if(!body) return;
+    var msg=(e&&e.message)||String(e);
+    var net=/load failed|failed to fetch|networkerror|network error/i.test(msg);
+    body.innerHTML='<div style="color:#bb0000;margin-bottom:10px">'+(net?'Verbindung unterbrochen – die Abfrage kam nicht durch. Das lag am Netz, nicht an den Daten.':('Fehler: '+esc(msg)))+'</div>'
+      +'<button onclick="dashDrillLoad(\''+key+'\')" style="padding:8px 14px;border:0;border-radius:9px;background:#17505c;color:#fff;font-weight:700;cursor:pointer">↻ Nochmal versuchen</button>';
+  }
 }
 
 /* ===== Dashboard „Vorgangs"-Ansicht (Ralph 22.07.2026) =================================
@@ -10501,7 +10522,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21r";
+const APP_BUILD = "2026-07-21s";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
