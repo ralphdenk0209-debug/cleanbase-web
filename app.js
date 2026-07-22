@@ -7186,6 +7186,11 @@ async function loadZusatzstoffeStamm(){
     if(z.name) ZUSATZSTOFFE_MAP[String(z.name).trim().toLowerCase()]=z;
   });
 }
+/* Aroma ist KEIN Zusatzstoff (VO 1334/2008, nicht 1333/2008 – Prinzip 2 / §1.11m): es wirkt nur
+   als Verarbeitungs-Marker auf der Zutaten-Achse und ist auf der Zusatzstoff-Achse NEUTRAL.
+   Ohne diese Erkennung landete „natürliches Aroma" grau als „ungeprüft" und die Freigabe-Meldung
+   behauptete fälschlich „kein Score" (die DB blockiert auf Aroma gar nicht). Ralph 22.07. */
+function _istAroma(name){ return /(aroma|aromen|aromastoff)/i.test(String(name||"")); }
 /* Farbe/Etikett je EFSA-Einstufung: grün unbedenklich · rot abgewertet · grau ungeprüft. */
 function zusFarbe(einst){
   var e=String(einst||"").toLowerCase();
@@ -7209,12 +7214,17 @@ function zusSeed(text){
     /* deutscher Name -> E-Nummer -> Stamm (der Stamm fuehrt englische Namen). Sonst zeigte
        z.B. „Essigsäure" grau „ungeprüft", obwohl E260 im Stamm neutral/unbedenklich ist. Ralph 22.07. */
     if(!found && typeof ZUS_SYN!=="undefined" && ZUS_SYN[nm]) found=ZUSATZSTOFFE_MAP[String(ZUS_SYN[nm]).toLowerCase()];
+    /* Funktionswort + Stoff in Klammer, z.B. „Süßungsmittel (Steviolglycoside)": den STOFF in der
+       Klammer auflösen, nicht das Funktionswort behalten (sonst grau „ungeprüft"). Ralph 22.07. */
+    if(!found){ var _inner=(tok.match(/\(([^)]+)\)/)||[])[1]; if(_inner){ var il=_inner.trim().toLowerCase();
+      var iem=_inner.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+      found=(iem?ZUSATZSTOFFE_MAP[iem[0].replace(/\s/g,"").toLowerCase()]:null) || ZUSATZSTOFFE_MAP[il] || ((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[il])?ZUSATZSTOFFE_MAP[String(ZUS_SYN[il]).toLowerCase()]:null); } }
     /* Dublette zusammenfassen: „Alpha-carotene, Beta-carotene, Gamma-carotene (E160a)" wird
        am Komma zerlegt, alle drei sind aber E160a -> nur EINE grüne Zeile statt zwei grauer daneben. Ralph 22.07. */
     var key = found ? ('e:'+String(found.e).toLowerCase()) : ('n:'+nm);
     if(seen[key]) return; seen[key]=1;
     if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
-    else window._fgZus.push({e:null,name:tok.replace(/\s+/g," "),einst:"ungeprüft"});
+    else window._fgZus.push({e:null,name:tok.replace(/\s+/g," "),einst:(_istAroma(tok)?"neutral":"ungeprüft")});
   });
 }
 /* Auswahl → verstecktes fe_ztext (Speicher-Wahrheit) + abgeleiteter fe_zstatus. */
@@ -7277,7 +7287,7 @@ function zusAddNeu(){
   var found=em?ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()]:ZUSATZSTOFFE_MAP[v.toLowerCase()];
   window._fgZus=window._fgZus||[];
   if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
-  else window._fgZus.push({e:null,name:v,einst:"ungeprüft"});
+  else window._fgZus.push({e:null,name:v,einst:(_istAroma(v)?"neutral":"ungeprüft")});
   if(inp) inp.value="";
   zusSync(); zusRenderSel(); zusRenderPick();
 }
@@ -7285,7 +7295,7 @@ function zusAddNeu(){
 var ZUS_FUNKTION={"antioxidationsmittel":1,"antioxidans":1,"stabilisator":1,"stabilisatoren":1,"farbstoff":1,"farbstoffe":1,"säuerungsmittel":1,"saeuerungsmittel":1,"säureregulator":1,"saeureregulator":1,"konservierungsmittel":1,"konservierungsstoff":1,"emulgator":1,"emulgatoren":1,"verdickungsmittel":1,"geliermittel":1,"trennmittel":1,"süßungsmittel":1,"suessungsmittel":1,"süssungsmittel":1,"backtriebmittel":1,"trägerstoff":1,"traegerstoff":1,"feuchthaltemittel":1,"geschmacksverstärker":1,"geschmacksverstaerker":1,"aroma":1,"aromen":1,"überzugsmittel":1,"ueberzugsmittel":1,"festigungsmittel":1,"mehlbehandlungsmittel":1,"schaumverhüter":1,"komplexbildner":1,"packgas":1,"treibgas":1,"füllstoff":1};
 /* Häufige DEUTSCHE Zusatzstoff-Namen → E-Nummer (der Stamm führt englische Namen).
    Damit „Natriumnitrit" nicht als eigener grauer Eintrag neben „E250" landet. Erweiterbar. */
-var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
+var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","steviolglycoside":"E960","steviolglykoside":"E960","steviolglycosid":"E960","sucralose":"E955","acesulfam":"E950","acesulfam-k":"E950","acesulfam k":"E950","aspartam":"E951","saccharin":"E954","cyclamat":"E952","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
 /* Rikis erkannte Zusatzstoffe automatisch in die Liste übernehmen (Ralph 21.07.2026:
    „warum muss ich das selber eintragen?"). Robust: E-Nummern zuerst; Text mit KLAMMER-Auflösung
    (Komma in der Klammer trennt NICHT die Substanz ab), Funktionswörter raus, deutsche Namen →
@@ -7317,7 +7327,7 @@ async function zusFromRiki(zObj){
     var dedup=(eNr||low);
     if(hasKey(eNr||"")||hasKey(low)||(found&&hasKey(String(found.e||"")))) return;   /* schon drin */
     if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
-    else window._fgZus.push({e:eNr,name:namePur,einst:"ungeprüft"});
+    else window._fgZus.push({e:eNr,name:namePur,einst:(_istAroma(namePur)?"neutral":"ungeprüft")});
   });
   if(zObj.suessstoffe){ var su=document.getElementById("fe_suess"); if(su&&su.value==="nein") su.value="ja"; }
   try{ zusSync(); zusRenderSel(); zusRenderPick(); }catch(e){}
@@ -8003,7 +8013,7 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:-2px">Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. <b>Bei Nahrungsergänzung wichtig:</b> Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.</div>
         </div>`)}
-        ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben – dann meldet der Wächter nicht mehr (Wert bleibt 0, Score unverändert)</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
+        ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
         </div>
         ${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden an den Stamm)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
@@ -10954,7 +10964,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22f";
+const APP_BUILD = "2026-07-22h";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
