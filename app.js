@@ -6714,6 +6714,7 @@ function zusSync(){
     if(zstat) zstat.value = allNeutral ? "neutral" : "enthalten";
   }
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  try{ if(typeof fgEnthaltenRender==="function") fgEnthaltenRender(); }catch(e){}   /* Referenz aktualisieren: als Zusatzstoff erfasste Stoffe werden dort grün */
 }
 function zusRenderSel(){
   var box=document.getElementById("fe_zusSel"); if(!box) return;
@@ -7037,23 +7038,37 @@ function fgPickRefreshView(){
    orange = laut Etikett da, aber noch NICHT in deiner Liste. Die Farbe aktualisiert sich, wenn
    du links an-/abhakst; die Referenz selbst bleibt, bis Riki neu liest oder du sie mit ✕ kürzt. */
 function _fgWorkSet(){ var set={}; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var n=((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase(); if(n) set[n]=true; }); return set; }
+/* Schlüssel der aktuellen Zusatzstoff-Auswahl (E-Nummer + Name), damit die Referenz einen Stoff
+   auch dann als „übernommen" erkennt, wenn er in der ZUSATZSTOFF-Liste steht (nicht bei den Zutaten). */
+function _fgZusKeys(){ var k={}; (window._fgZus||[]).forEach(function(z){ if(z.e) k[String(z.e).toLowerCase()]=1; if(z.name) k[String(z.name).trim().toLowerCase()]=1; }); return k; }
 function fgEnthaltenRender(){
   var box=document.getElementById("fe_enthalten"); if(!box) return;
   var ref=(window._fgRef&&window._fgRef.length)?window._fgRef:[];
   if(!ref.length){ box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Noch keine Referenz – lass Riki die <b>Herstellerseite</b> oder das <b>Etikett</b> lesen (oder die Zutatenliste analysieren).</span>'; return; }
-  var work=_fgWorkSet();
-  box.innerHTML=ref.map(function(nm){
-    var inList=!!work[String(nm).trim().toLowerCase()];
+  var work=_fgWorkSet(); var zk=_fgZusKeys();
+  var html=ref.map(function(nm){
+    var raw=String(nm).trim(); var low=raw.toLowerCase();
+    if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) return "";   /* Funktionswort (Antioxidationsmittel, Stabilisator …) → keine Substanz, nicht anzeigen */
+    var inList=!!work[low]; var asZusatz=false;
+    if(!inList){
+      var em=raw.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+      var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[low])?String(ZUS_SYN[low]).toLowerCase():null);
+      if((eNr && zk[eNr]) || zk[low]){ inList=true; asZusatz=true; }
+    }
+    var tag = inList ? (asZusatz?' <span style="font-size:11px;opacity:.85">– als Zusatzstoff erfasst</span>':'') : ' <span style="font-size:11px;opacity:.85">– noch nicht in der Liste</span>';
     return '<div style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;margin-bottom:3px;background:'+(inList?"#e7f6ec":"#fbf3e2")+';color:'+(inList?"#1f7d43":"#8a5a0b")+'">'
-      +'<span style="flex:1;min-width:0">'+(inList?"✓":"○")+" "+esc(nm)+(inList?"":' <span style="font-size:11px;opacity:.85">– noch nicht in der Liste</span>')+'</span>'
-      +'<button onclick="fgEnthaltenDel(this)" data-name="'+esc(nm)+'" title="aus der Referenz entfernen (z. B. Riki-Fehllesung)" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;padding:0 3px;flex:0 0 auto">✕</button>'
+      +'<span style="flex:1;min-width:0">'+(inList?"✓":"○")+" "+esc(raw)+tag+'</span>'
+      +'<button onclick="fgEnthaltenDel(this)" data-name="'+esc(raw)+'" title="aus der Referenz entfernen (z. B. Riki-Fehllesung)" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;padding:0 3px;flex:0 0 auto">✕</button>'
       +'</div>';
-  }).join("");
+  }).filter(Boolean).join("");
+  box.innerHTML = html || '<span style="color:#1f7d43;font-size:12.5px">✓ Alles vom Etikett ist erfasst – als Zutat oder als Zusatzstoff.</span>';
 }
 /* Referenz setzen (nur durch Riki): merkt sich die von Riki gelesenen Namen und rendert die Box. */
 function fgRefSet(names){
   var seen={}, out=[];
-  (names||[]).forEach(function(n){ n=String(n||"").trim(); if(!n) return; var k=n.toLowerCase(); if(seen[k]) return; seen[k]=1; out.push(n); });
+  (names||[]).forEach(function(n){ n=String(n||"").trim(); if(!n) return; var k=n.toLowerCase();
+    if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[k]) return;   /* reines Funktionswort → nicht in die Referenz */
+    if(seen[k]) return; seen[k]=1; out.push(n); });
   window._fgRef=out;
   /* Referenz pro Produkt merken, damit sie das Speichern & Neuöffnen überlebt (Ralph 21.07.2026).
      Sitzungs-Ablage (kein DB-Schema nötig); überlebt Speichern→Neuladen der Erfassung, nicht aber
@@ -7501,7 +7516,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
           + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
-        ${card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>in deiner Liste übernommen</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div>`)}
+        ${card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen (als <b>Zutat</b> links oder <b>Zusatzstoff</b> unten)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div>`)}
       </div>
     </div>
     <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
@@ -10269,7 +10284,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21k";
+const APP_BUILD = "2026-07-21l";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
