@@ -7205,6 +7205,7 @@ async function rikiAnalyse(){
   const txt=(document.getElementById("rikiText")||{}).value||"";
   if(txt.trim().length<10){ msg.style.color="var(--k-b45309)"; msg.textContent="Bitte die Zutatenliste einfügen."; return; }
   msg.style.color="var(--k-534ab7)"; msg.textContent="🤖 Riki denkt nach…";
+  try{ feBusy(true,"🤖 Riki analysiert die Zutatenliste…","Zutaten zerlegen & bewerten – einen Moment."); }catch(e){}
   const nw={};
   ["kcal","protein","kh","zucker","fett","ges_fett","ballaststoffe","salz"].forEach(function(k){
     const v=parseFloat((document.getElementById("fe_"+k)||{}).value); if(!isNaN(v)) nw[k]=v;
@@ -7260,6 +7261,7 @@ async function rikiAnalyse(){
     h+='<div style="color:var(--muted);margin-top:5px;font-size:11.5px">Das ist ein <b>Vorschlag</b>, keine Verifizierung. Gegen das Etikett prüfen, bevor du freigibst.</div>';
     msg.style.color="var(--ink)"; msg.innerHTML=h;
   }catch(e){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message; }
+  finally{ try{ feBusy(false); }catch(e){} }
 }
 /* ---- RIKI-AUDIT: den ganzen Katalog gegen unsere eigenen Regeln prüfen ----
    Riki bewertet jede Zutat NEU (nur aus dem Regelwerk) und wir vergleichen mit dem Zutaten-Stamm.
@@ -7812,6 +7814,7 @@ async function fgPullOff(){
   var ean=((document.getElementById("fe_ean")||{}).value||"").replace(/\D/g,"");
   if(ean.length<8){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent="Erst eine gültige EAN eintragen."; } return; }
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="Open Food Facts wird abgefragt…"; }
+  try{ feBusy(true,"🏷 Open Food Facts wird abgefragt…","Nährwerte & Zutaten zur EAN – einen Moment."); }catch(e){}
   try{
     var r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+ean+'.json?fields=product_name,product_name_de,brands,ingredients_text_de,ingredients_text,nutriments',{headers:{'Accept':'application/json'}});
     var j=await r.json(); var p=(j&&j.status===1)?j.product:null;
@@ -7829,6 +7832,7 @@ async function fgPullOff(){
     try{ fePlaus(); }catch(e){}
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Werte aus OFF übernommen (je 100 g) – <b>prüfen</b>. Zutaten im Riki-Feld, dann Analysieren."; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Abruf fehlgeschlagen: "+e.message; } }
+  finally{ try{ feBusy(false); }catch(e){} }
 }
 /* Beleg-Feld: JEDE Quelle wird angehaengt, keine ueberschreibt eine andere.
    Fehler bis 18.07.2026: alle drei Kaskaden schrieben nur mit `if(!bl.value)`.
@@ -7852,6 +7856,7 @@ async function fgPullHersteller(){
   var url=((ue||{}).value||"").trim();
   if(!/^https?:\/\//i.test(url)){ url=prompt("URL der Hersteller-Produktseite:",""); if(!url) return; url=url.trim(); if(ue) ue.value=url; }
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="Herstellerseite wird gelesen…"; }
+  try{ feBusy(true,"🔗 Riki liest die Herstellerseite…","Nährwerte, Zutaten & Zusatzstoffe werden ausgelesen."); }catch(e){}
   try{
     var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
     var r=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:url})});
@@ -7876,6 +7881,7 @@ async function fgPullHersteller(){
     var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Von der Herstellerseite gelesen – <b>gegen das Etikett prüfen</b>."+warn; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message; } }
+  finally{ try{ feBusy(false); }catch(e){} }
 }
 /* Riki_Research (Beta, Admin): Foto -> Riki erkennt Produkt, SUCHT die Herstellerseite,
    liest Nährwerte+Zutaten und füllt die Maske. Wasserfall: Barcode->OFF (frei) + Claude-Websuche.
@@ -7887,6 +7893,7 @@ async function fgPullResearch(files, b64arr){
   var list=files?Array.prototype.slice.call(files,0,3):[];
   if(!list.length && !(b64arr&&b64arr.length)){ return; }
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="Riki recherchiert (Foto erkennen · Herstellerseite suchen · lesen)… das kann ~15–30 s dauern."; }
+  try{ feBusy(true,"📸 Riki recherchiert zum Foto…","Produkt erkennen · Herstellerseite suchen · lesen (~15–30 s)."); }catch(e){}
   try{
     var bilder=(b64arr&&b64arr.length)?b64arr.slice(0,3):await Promise.all(list.map(_fileZuBase64));
     bilder=bilder.filter(function(b){ return /^data:image\//.test(b); });
@@ -7916,6 +7923,7 @@ async function fgPullResearch(files, b64arr){
     var kost=(d.meta&&d.meta.kosten_usd!=null)?(" · ~$"+d.meta.kosten_usd):"";
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Riki hat recherchiert"+(url?(" (Quelle: "+esc(url)+")"):"")+" – <b>gegen die Quelle/das Etikett prüfen</b>, dann als Entwurf speichern."+warn+kost; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
+  finally{ try{ feBusy(false); }catch(e){} }
 }
 /* „Foto → Etikett auslesen": Riki liest die Naehrwerte/Zutaten direkt vom Etikettfoto
    (riki-etikett) und fuellt die Maske – analog zu fgPullResearch, nur ohne Web-Suche.
@@ -7925,6 +7933,7 @@ async function fgPullEtikett(files, b64arr){
   var list=files?Array.prototype.slice.call(files,0,3):[];
   if(!list.length && !(b64arr&&b64arr.length)){ return; }
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="Riki liest das Etikett vom Foto…"; }
+  try{ feBusy(true,"🏷 Riki liest das Etikett vom Foto…","Nährwerte, Zutaten & Zusatzstoffe werden ausgelesen."); }catch(e){}
   try{
     var bilder=(b64arr&&b64arr.length)?b64arr.slice(0,3):await Promise.all(list.map(_fileZuBase64));
     bilder=bilder.filter(function(b){ return /^data:image\//.test(b); });
@@ -7948,6 +7957,7 @@ async function fgPullEtikett(files, b64arr){
     var kost=(d.meta&&d.meta.kosten_usd!=null)?(" · ~$"+d.meta.kosten_usd):"";
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; Etikett gelesen – <b>gegen das Foto prüfen</b>, dann als Entwurf speichern."+warn+kost; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
+  finally{ try{ feBusy(false); }catch(e){} }
 }
 /* Foto-Quellen-Auswahl unter den zwei „Foto →"-Knoepfen auf-/zuklappen. */
 function fgSrcToggle(k){ ['r','e'].forEach(function(x){ var el=document.getElementById('fe_src_'+x); if(!el)return; if(x===k){ el.style.display=(el.style.display==='flex')?'none':'flex'; } else el.style.display='none'; }); }
@@ -7960,6 +7970,32 @@ function feSrcTab(which){
     b.style.boxShadow=on?'0 1px 3px rgba(20,40,70,.12)':'none'; b.style.fontWeight=on?'700':'600'; }); }catch(e){}
 }
 if(typeof window!=='undefined') window.feSrcTab=feSrcTab;
+/* Warte-Overlay, solange Riki liest/arbeitet (Ralph 21.07.2026): abgedunkelter Hintergrund +
+   Spinner + Text, damit klar ist „es passiert etwas". Auto-an beim Start, Auto-aus (finally) am Ende. */
+function feBusy(show, msg, sub){
+  if(!document.getElementById('feBusyCss')){
+    var st=document.createElement('style'); st.id='feBusyCss';
+    st.textContent='@keyframes feSpin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+  var ov=document.getElementById('feBusyOverlay');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='feBusyOverlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(20,32,48,.42)';
+    ov.innerHTML='<div style="background:#fff;border-radius:16px;padding:22px 26px;box-shadow:0 20px 60px rgba(20,40,70,.32);display:flex;align-items:center;gap:16px;max-width:400px">'
+      +'<div style="width:34px;height:34px;border:3px solid #e6e9f2;border-top-color:#534ab7;border-radius:50%;animation:feSpin .8s linear infinite;flex:0 0 auto"></div>'
+      +'<div><div id="feBusyMsg" style="font-weight:700;color:#1f2a44;font-size:14px">🤖 Riki arbeitet…</div>'
+      +'<div id="feBusySub" style="color:#7b8698;font-size:12.5px;margin-top:2px">Einen Moment – Riki füllt die Maske, du prüfst danach.</div></div>'
+      +'</div>';
+    document.body.appendChild(ov);
+  }
+  if(show){
+    var m=document.getElementById('feBusyMsg'); if(m) m.textContent=msg||'🤖 Riki arbeitet…';
+    var s=document.getElementById('feBusySub'); if(s) s.textContent=sub||'Einen Moment – Riki füllt die Maske, du prüfst danach.';
+    ov.style.display='flex';
+  } else { ov.style.display='none'; }
+}
+if(typeof window!=='undefined') window.feBusy=feBusy;
 /* Hinterlegtes Kundenfoto als Quelle nutzen (statt Kamera/Upload). */
 function fgUseKundenfoto(mode){
   var fotos=(window._fgEdit&&window._fgEdit.etikett)||[]; var m=document.getElementById('fe_pullMsg');
@@ -7974,6 +8010,7 @@ async function fgPullUsda(){
   var q=prompt("USDA-Suche – englischer, generischer Lebensmittelname\n(z. B. „king oyster mushroom raw\", „rye bran\", „ground beef raw\"):", vor);
   if(!q) return; q=q.trim(); if(!q) return;
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="USDA FoodData Central wird abgefragt…"; }
+  try{ feBusy(true,"🔎 USDA wird abgefragt…","Generische Nährwerte je 100 g – einen Moment."); }catch(e){}
   try{
     var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
     var r=await fetch(client.supabaseUrl+'/functions/v1/usda-lookup',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({query:q})});
@@ -7989,6 +8026,7 @@ async function fgPullUsda(){
     var demo=d.key_demo?" <span style=\"color:var(--k-b45309)\">(DEMO_KEY – knappes Limit; eigenen Key als Secret USDA_FDC_KEY setzen)</span>":"";
     if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML="&#10003; USDA: <b>"+esc(d.name||q)+"</b> (je 100 g) übernommen – <b>gegen das Etikett prüfen</b>."+warn+demo; }
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message; } }
+  finally{ try{ feBusy(false); }catch(e){} }
 }
 async function fgEditSave(alsoFreigeben){
   const g=id=>document.getElementById(id);
@@ -10231,7 +10269,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21j";
+const APP_BUILD = "2026-07-21k";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
