@@ -2744,7 +2744,11 @@ function peStatusBtnUpdate(){
 }
 function peRowCtx(ev,id){
   ev.preventDefault();
-  window._peSel=id; peSelect(id);
+  /* Rechtsklick NUR Menü zeigen – NICHT auswählen/Liste zuklappen (Ralph 22.07.2026).
+     Die Menüpunkte (Bearbeiten/Löschen/…) bekommen die id direkt, ein peSelect ist unnötig.
+     Nur die Zeile optisch markieren, damit klar ist, worauf sich das Menü bezieht. */
+  window._peSel=id;
+  try{ var host=document.getElementById('peGrid')||document; Array.prototype.forEach.call(host.querySelectorAll('tr[data-id]'),function(tr){ tr.classList.toggle('sel', String(tr.getAttribute('data-id'))===String(id)); }); }catch(e){}
   var ctx=document.getElementById('peCtx'); if(!ctx) return;
   var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
   var it=function(txt,fn,danger){ return '<button onclick="document.getElementById(\'peCtx\').style.display=\'none\';'+fn+'" style="display:block;width:100%;text-align:left;background:none;border:0;color:'+(danger?'#cf5442':'#1f2a44')+';padding:8px 11px;border-radius:7px;font-size:13px;cursor:pointer">'+txt+'</button>'; };
@@ -10284,7 +10288,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21l";
+const APP_BUILD = "2026-07-21m";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
