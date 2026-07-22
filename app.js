@@ -3030,7 +3030,7 @@ function dashVorgangCss(){
   +'#fgDash .dvTask .td{font-size:11.5px;color:#5b6d73;line-height:1.35}'
   +'#fgDash .dvTask .go{flex:0 0 auto;background:#d6e9ff;color:#0a6ed1;border:0;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}'
   +'#fgDash .dvReopen{position:fixed;right:18px;bottom:18px;background:#17505c;color:#fff;border:0;border-radius:24px;padding:10px 16px;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(20,60,70,.3);z-index:60}'
-  +'body.dashFull #freigabeView>div{max-width:none;margin:0}'
+  +'body.dashFull #freigabeView>div{max-width:none !important;margin:0 !important}'   /* !important nötig: der Wrapper hat inline max-width:1040px (wie beim peLightBg-Fix 20z) */
   +'body.dashFull #freigabeView>div>h2{display:none}';   /* „Freigabe"-Überschrift nur im Dashboard weg – die neue Kopfleiste sagt es schon (Ralph 22.07.) */
   var s=document.createElement('style'); s.id='dashVorgangCss'; s.textContent=css; document.head.appendChild(s);
 }
@@ -10501,7 +10501,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21q";
+const APP_BUILD = "2026-07-21r";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
