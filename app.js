@@ -7395,7 +7395,9 @@ async function openFgEditor(id, prefill, targetEl){
       <span style="font-size:12px;color:var(--muted)">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"wird als Entwurf angelegt"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
     </div>
     ${window._fgPrefillHinweis?`<div style="background:var(--k-fff7ea);border:1px solid var(--k-e4a343);color:var(--k-8a5a0b);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
-    <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,440px);gap:14px;align-items:start" id="fe_grid">
+      <div>
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:8px">Daten holen <span style="text-transform:none;font-weight:400">— Riki füllt die Maske, du prüfst nur</span></div>
       <div style="display:inline-flex;background:#eef2f7;border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;margin-bottom:11px">
         <button type="button" class="peSrcTab" data-src="url" onclick="feSrcTab('url')" style="border:0;background:#fff;padding:7px 13px;border-radius:8px;font-size:13px;font-weight:700;color:#3b56b0;cursor:pointer;box-shadow:0 1px 3px rgba(20,40,70,.12)">🔗 Herstellerseite</button>
@@ -7437,8 +7439,6 @@ async function openFgEditor(id, prefill, targetEl){
       <input type="file" id="fe_eti_up" accept="image/*" multiple style="display:none" onchange="fgPullEtikett(this.files)">
       <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:9px">Riki holt die <b>Herstellerseite</b>, die <b>EAN-Daten</b> (OFF/USDA) oder liest das <b>Etikett vom Foto</b>. Gefundene Werte füllen die Maske – du prüfst nur.</div>
     </div>
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,440px);gap:14px;align-items:start" id="fe_grid">
-      <div>
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start">
         ${card("Produkt",`<div style="display:grid;gap:9px">
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;display:block">Titel<input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){}" placeholder="Produktname…" style="width:100%;box-sizing:border-box;padding:6px 4px;border:0;border-bottom:2px solid var(--line);border-radius:0;font-size:19px;font-weight:800;color:var(--ink);background:transparent;margin-top:3px"></label>
@@ -10231,7 +10231,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21i";
+const APP_BUILD = "2026-07-21j";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
