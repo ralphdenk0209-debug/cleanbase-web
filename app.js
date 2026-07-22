@@ -3018,7 +3018,7 @@ async function zutStammEdit(id){
     var katSel='<select id="zeKat" style="width:100%;padding:9px;border:1px solid #d3dbe6;border-radius:9px;font-size:13px;background:#fff"><option value="">— keine —</option>'
       +opts.map(function(o){ return '<option'+(o===kat?' selected':'')+'>'+esc(o)+'</option>'; }).join('')+'</select>';
     body.innerHTML=
-      '<input type="hidden" id="zeName" value="'+esc(d.name||'')+'">'
+      '<input type="hidden" id="zeName" value="'+esc(d.name||'')+'"><input type="hidden" id="zeBewOrig" value="'+esc(bew)+'">'
       +'<div style="font-weight:700;color:#22343a;font-size:14px;margin-bottom:14px">'+esc(d.name||'')+'</div>'
       +'<label style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5b6d73;font-weight:700;margin-bottom:3px">Bewertung (0–10, leer = unbewertet)</label>'
       +'<input id="zeBew" type="number" min="0" max="10" step="1" value="'+esc(bew)+'" style="width:110px;padding:9px;border:1px solid #d3dbe6;border-radius:9px;font-size:15px;font-weight:700;color:#22343a;background:#fff">'
@@ -3059,9 +3059,20 @@ function zutStammRiki(){
 function zutStammSave(id){
   var bewV=((document.getElementById('zeBew')||{}).value||'').trim();
   var katV=((document.getElementById('zeKat')||{}).value||'').trim();
+  var origV=((document.getElementById('zeBewOrig')||{}).value||'').trim();
   var msg=document.getElementById('zeMsg');
   var bew=(bewV==='')?null:parseInt(bewV,10);
   if(bew!==null && (isNaN(bew)||bew<0||bew>10)){ if(msg){ msg.style.color='#bb0000'; msg.textContent='Bewertung muss 0–10 sein oder leer.'; } return; }
+  /* Bestätigung, wenn eine BESTEHENDE Note überschrieben wird (Ralph 22.07.: nicht versehentlich ändern).
+     Eine leere Note zu FÜLLEN braucht keine Rückfrage – nur das Ändern eines vorhandenen Werts. */
+  var neuStr=(bew==null?'':String(bew));
+  if(origV!=='' && neuStr!==origV && !window._zutSaveOK){
+    if(msg){ msg.style.color='#b45309'; msg.innerHTML='Note von <b>'+esc(origV)+'</b> auf <b>'+esc(bew==null?'leer':String(bew))+'</b> ändern?'
+      +' <button onclick="window._zutSaveOK=true;zutStammSave(\''+esc(id)+'\')" style="margin-left:4px;padding:4px 11px;border:0;border-radius:7px;background:#bb0000;color:#fff;font-weight:700;cursor:pointer">Ja, ändern</button>'
+      +' <button onclick="var m=document.getElementById(\'zeMsg\');if(m)m.textContent=\'\'" style="padding:4px 11px;border:1px solid #d3dbe6;border-radius:7px;background:#fff;color:#22343a;cursor:pointer">Abbrechen</button>'; }
+    return;
+  }
+  window._zutSaveOK=false;
   if(msg){ msg.style.color='#5b6d73'; msg.textContent='Speichere…'; }
   client.rpc('cb_zutat_stamm_bearbeiten',{p_id:id,p_bewertung:bew,p_kategorie:(katV||null),p_quelle:'Admin-Korrektur, Dashboard'}).then(function(r){
     if(r.error||!(r.data&&r.data.ok)){ if(msg){ msg.style.color='#bb0000'; msg.textContent='Fehler: '+((r.error&&r.error.message)||'unbekannt'); } return; }
@@ -3277,7 +3288,13 @@ async function loadDashboard(){
        +kpi("Portionsfalle", q.w_portionsfalle||0, (q.w_portionsfalle?"var(--k-dc2626)":"var(--k-16a34a)"), "kcal zu niedrig", "portionsfalle") )
     +R( kpi("unverifiziert", q.unverifiziert||0, (q.unverifiziert?"var(--k-e8920c)":"var(--k-16a34a)"), "ohne Beleg", "unverifiziert")
        +kpi("ohne Quelle", q.ohne_quelle||0, (q.ohne_quelle?"var(--k-e8920c)":"var(--k-16a34a)"), "Freigabe blockiert", "ohne_quelle")
-       +kpi("ohne Score", q.ohne_score||0, (q.ohne_score?"var(--k-e8920c)":"var(--k-16a34a)"), "unvollständig", "ohne_score") )
+       +kpi("ohne Score", q.ohne_score||0, (q.ohne_score?"var(--k-e8920c)":"var(--k-16a34a)"), "unvollständig", "ohne_score")
+       /* Quellen-Wächter (Ralph 22.07.): Zahl kommt async über cb_zutat_quelle_count, kein Gate-Blocker. */
+       +'<div id="dashZutQuelle" onclick="dashDrill(\'zutat_quelle\',\'Zutaten ohne Quelle-Beleg\')" title="Betroffene anzeigen" style="flex:0 0 auto;width:180px;box-sizing:border-box;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;cursor:pointer">'
+         +'<div style="font-size:11px;color:var(--muted);line-height:1.3;display:flex;justify-content:space-between;align-items:center;gap:6px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Zutaten ohne Beleg</span><span style="color:var(--muted);font-size:13px">›</span></div>'
+         +'<div id="dashZutQuelleN" style="font-size:24px;font-weight:800;color:var(--muted);line-height:1.15;margin-top:5px">…</div>'
+         +'<div style="font-size:10.5px;color:var(--muted);margin-top:2px">Note ohne belegte Quelle</div>'
+       +'</div>' )
     +'</div>';
   var pKat='<div id="dvPanel_kat" class="dvPanel" style="display:none">'
     +R( kpi("aktiv", k.aktiv||0, "var(--k-1d3c24)", "Ø Score "+(k.schnitt_score!=null?k.schnitt_score:"–"))
@@ -3349,6 +3366,12 @@ async function loadDashboard(){
       +'</div><button class="dvReopen" id="dashHelpReopen" style="display:none" onclick="dashHelpOpen()">🧭 Aufgaben</button>' : '';
 
   box.innerHTML = band + '<div class="dvGrid">'+rail+'<div>'+tabBar+pDq+pKat+pNutzer+pBetrieb+pWerk+'</div></div>'+help;
+
+  /* Quellen-Wächter-Zahl separat nachladen (eigene RPC, nicht im großen cb_dashboard). */
+  try{ client.rpc('cb_zutat_quelle_count').then(function(r){
+    var n=(r&&!r.error&&r.data!=null)?Number(r.data):null; var el=document.getElementById('dashZutQuelleN'); if(!el) return;
+    el.textContent=(n==null?'?':n); el.style.color=(n>0?'#e8920c':'#107e3e');
+  }, function(){}); }catch(e){}
 
   /* Aufrufe & Suchen kommen aus eigenen Funktionen (nicht aus cb_dashboard) und
      werden nachgeladen - so bleibt das Dashboard schnell, auch wenn die Zaehler wachsen. */
@@ -10607,7 +10630,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21t";
+const APP_BUILD = "2026-07-21u";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
