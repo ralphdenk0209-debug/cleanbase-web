@@ -2558,6 +2558,14 @@ function peIstOffen(p){
       || p.zu_verifizieren
       || ['offen','noch_nicht_erfasst'].indexOf(String(p.ean_status||''))>=0;
 }
+/* „Auffällig durch die Wächter" = irgendeine Prüf-Automatik meldet einen Verdacht:
+   Nährwert-Wächter (Atwater/Portion/Ballast), Portionsfalle, fehlende Quelle,
+   fehlender Score oder noch zu verifizieren. Ralph 22.07.2026: diese Produkte sollen
+   bis zur Freigabe in der Liste wiederfindbar sein. */
+function peHatWaechter(p){
+  return p.naehrwerte_qa || p.portionsfalle_qa || !p.quelle_typ
+      || p.score==null || p.zu_verifizieren;
+}
 /* Klebt das Toolbar/Chip-Menü oben an – unter einer evtl. fixierten Kopfleiste (.hero).
    top wird zur Laufzeit auf die Unterkante der gerade fixierten Kopfleiste gesetzt. */
 function peSyncStickyTop(){
@@ -2603,7 +2611,13 @@ async function loadProduktErfassung(){
             keinscore:rws.filter(function(p){return p.score==null;}).length,
             keinquelle:rws.filter(function(p){return !p.quelle_typ;}).length,
             keinzut:rws.filter(function(p){return !p.hat_zutaten;}).length,
-            markiert:rws.filter(function(p){return p.markiert;}).length };
+            markiert:rws.filter(function(p){return p.markiert;}).length,
+            /* Wächter-Filter (Ralph 22.07.2026): genau nach den Prüf-Automatiken filtern,
+               damit auffällige Produkte bis zur Freigabe wiederauffindbar sind. */
+            waechter:rws.filter(peHatWaechter).length,
+            naehrwerte:rws.filter(function(p){return p.naehrwerte_qa;}).length,
+            portionsfalle:rws.filter(function(p){return p.portionsfalle_qa;}).length,
+            unverif:rws.filter(function(p){return p.verifiziert!=='Ja';}).length };
   var chip=function(k,txt,n){ return '<span class="peChip'+(window._peChip===k?' on':'')+'" data-k="'+k+'" onclick="peChip(\''+k+'\')">'+txt+' ('+n+')</span>'; };
   box.innerHTML=
     /* Kopf im Mint-Verlauf wie im Entwurf */
@@ -2632,6 +2646,15 @@ async function loadProduktErfassung(){
       +chip('keinquelle','Ohne Quelle',cnt.keinquelle)
       +chip('keinzut','Ohne Zutaten',cnt.keinzut)
       +chip('markiert','⚑ Markiert',cnt.markiert)
+    +'</div>'
+    /* Zweite Chip-Reihe: die Wächter einzeln (Ralph 22.07.2026). Rot abgesetzt, damit
+       klar ist: hier meldet eine Prüf-Automatik einen Verdacht. */
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
+      +'<span style="font-size:11px;color:#9aa7b2;font-weight:700;align-self:center;letter-spacing:.02em">WÄCHTER</span>'
+      +chip('waechter','🛡 Alle Auffälligen',cnt.waechter)
+      +chip('naehrwerte','⚠ Nährwerte',cnt.naehrwerte)
+      +chip('portionsfalle','⚠ Portionsfalle',cnt.portionsfalle)
+      +chip('unverif','Unverifiziert',cnt.unverif)
     +'</div>'
     +'</div>'  /* Ende Sticky-Menü: NUR Toolbar + Chips bleiben fixiert (Ralph) */
     /* Session-Leiste (Suche/Filter, Bearbeiter, Sortierung) – scrollt jetzt mit, unterhalb der Buttons */
@@ -2704,6 +2727,10 @@ function peRender(){
     if(chipf==='keinquelle'&&p.quelle_typ) return false;
     if(chipf==='keinzut'&&p.hat_zutaten) return false;
     if(chipf==='markiert'&&!p.markiert) return false;
+    if(chipf==='waechter'&&!peHatWaechter(p)) return false;
+    if(chipf==='naehrwerte'&&!p.naehrwerte_qa) return false;
+    if(chipf==='portionsfalle'&&!p.portionsfalle_qa) return false;
+    if(chipf==='unverif'&&p.verifiziert==='Ja') return false;
     if(!q) return true;
     return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')+' '+String(p.grund||'')).toLowerCase().indexOf(q)>=0; });
   if(sort==='mark') list=list.filter(function(p){return p.markiert;});
@@ -2716,14 +2743,14 @@ function peRender(){
   var td=function(c,st,attr){ return '<td '+(attr||'')+' style="padding:9px 10px;border-bottom:1px solid #e2e8ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(st||'')+'">'+c+'</td>'; };
   /* Feste Spaltenbreiten (table-layout:fixed) – lange Titel werden abgeschnitten (…), statt die
      Tabelle zu sprengen. Titel-Spalte ohne feste Breite = nimmt den Rest. */
-  var cols='<colgroup><col style="width:64px"><col><col style="width:130px"><col style="width:130px"><col style="width:58px"><col style="width:112px"><col style="width:130px"><col style="width:130px"><col style="width:34px"></colgroup>';
+  var cols='<colgroup><col style="width:64px"><col><col style="width:130px"><col style="width:130px"><col style="width:58px"><col style="width:112px"><col style="width:130px"><col style="width:130px"><col style="width:52px"></colgroup>';
   var scoreCell=function(s){ if(s==null) return '<span style="font-weight:800;color:#7b8698">–</span>';
     var c=s>=80?'#2e9e57':s>=60?'#c88616':'#cf5442'; return '<span style="font-weight:800;color:'+c+'">'+s+'</span>'; };
   var statPill=function(p){
     if(String(p.pstatus||'')==='Entwurf') return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">Entwurf</span>';
     if(p.zu_verifizieren) return '<span class="pePill" style="color:#3b56b0;border-color:#c3ccf0;background:#eef1fb">zu verifizieren</span>';
     return '<span class="pePill" style="color:#1f7d43;border-color:#bfe3cb;background:#e7f6ec">Aktiv</span>'; };
-  g.innerHTML=cols+'<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','Score','Status','EAN','Quelle','⚑'].map(th).join('')+'</tr></thead><tbody>'
+  g.innerHTML=cols+'<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','Score','Status','EAN','Quelle','⚑ 🛡'].map(th).join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')">'
       +td(esc(p.id),'color:#7b8698')
@@ -2734,7 +2761,7 @@ function peRender(){
       +td(statPill(p),'overflow:visible')
       +td(p.ean?esc(p.ean):'<span style="color:#c88616">offen</span>','color:#7b8698')
       +td(p.quelle_typ?esc(p.quelle_typ):'<span style="color:#cf5442">fehlt</span>','color:#7b8698;font-size:12px','title="'+esc(p.quelle_typ||'')+'"')
-      +td(p.markiert?'<span style="color:#cf5442">⚑</span>':'')
+      +td((p.markiert?'<span style="color:#cf5442">⚑</span>':'')+(peHatWaechter(p)?'<span title="Von einem Wächter gemeldet – bis zur Freigabe prüfen" style="color:#c88616">🛡</span>':''),'overflow:visible')
       +'</tr>'; }).join('')
     +'</tbody>';
   var f=document.getElementById('peFoot'); if(f) f.textContent='Datensätze '+list.length+' von '+rows.length;
@@ -11049,7 +11076,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22j";
+const APP_BUILD = "2026-07-22k";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
