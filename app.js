@@ -6740,6 +6740,31 @@ function zusAddNeu(){
   if(inp) inp.value="";
   zusSync(); zusRenderSel(); zusRenderPick();
 }
+/* Rikis erkannte Zusatzstoffe automatisch in die Liste übernehmen (Ralph 21.07.2026:
+   „warum muss ich das selber eintragen?"). Bevorzugt die E-Nummern, ergänzt aus dem Text.
+   Löst gegen den Stamm auf → richtige Farbe/Einstufung; unbekanntes bleibt grau. Merge + Dedup,
+   damit eine bestehende Auswahl nicht verloren geht. */
+async function zusFromRiki(zObj){
+  if(!zObj) return;
+  try{ await loadZusatzstoffeStamm(); }catch(e){}
+  var items=[];
+  if(Array.isArray(zObj.e_nummern)) zObj.e_nummern.forEach(function(e){ if(e) items.push(String(e)); });
+  if(zObj.text && !/^\s*keine\s*$/i.test(String(zObj.text))) String(zObj.text).split(/[,;]/).forEach(function(t){ t=t.trim(); if(t) items.push(t); });
+  if(!items.length){ if(zObj.suessstoffe){ var su0=document.getElementById("fe_suess"); if(su0&&su0.value==="nein") su0.value="ja"; } return; }
+  window._fgZus=window._fgZus||[];
+  items.forEach(function(tok){
+    tok=String(tok||"").trim(); if(!tok) return;
+    var em=tok.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+    var found=em?ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()]:ZUSATZSTOFFE_MAP[tok.replace(/\(.*?\)/g,"").trim().toLowerCase()];
+    var eNr=found?found.e:(em?em[0].replace(/\s/g,"").toUpperCase():null);
+    var dedupKey=String(eNr||tok.replace(/\(.*?\)/g,"").trim()||tok).toLowerCase();
+    if(window._fgZus.some(function(x){ return String(x.e||x.name).toLowerCase()===dedupKey; })) return;
+    if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
+    else window._fgZus.push({e:eNr,name:(tok.replace(/\(.*?\)/g,"").trim()||tok),einst:"ungeprüft"});
+  });
+  if(zObj.suessstoffe){ var su=document.getElementById("fe_suess"); if(su&&su.value==="nein") su.value="ja"; }
+  try{ zusSync(); zusRenderSel(); zusRenderPick(); }catch(e){}
+}
 if(typeof window!=='undefined'){ window.zusToggle=zusToggle; window.zusDel=zusDel; window.zusKeineToggle=zusKeineToggle; window.zusAddNeu=zusAddNeu; window.zusRenderPick=zusRenderPick; }
 function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
@@ -7171,13 +7196,9 @@ async function rikiAnalyse(){
       if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name, z.rating, z.kritisch?"ja":"nein"); }).join("");
       try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel(txt, v.zutaten.map(function(z){return z.name;})); }catch(e){}  /* rechte Referenz = VOLLSTÄNDIGE rohe Etikett-Liste */
     }
-    if(v.zusatzstoffe){
-      const zt=document.getElementById("fe_ztext"); if(zt&&v.zusatzstoffe.text) zt.value=v.zusatzstoffe.text;
-      const zs=document.getElementById("fe_zstatus"); if(zs&&v.zusatzstoffe.status) zs.value=v.zusatzstoffe.status;
-      const su=document.getElementById("fe_suess"); if(su&&v.zusatzstoffe.suessstoffe) su.value="ja";
-      /* Neue farbige Zusatzstoff-Liste aus dem gerade gefüllten Text neu aufbauen. */
-      try{ if(typeof zusSeed==="function"){ zusSeed((document.getElementById("fe_ztext")||{}).value||""); zusRenderSel(); zusRenderPick(); } }catch(e){}
-    }
+    /* Rikis erkannte Zusatzstoffe (inkl. E-Nummern aus den Salami-/Wurst-Klammern) automatisch
+       in die Liste übernehmen – du tippst nichts nach. */
+    if(v.zusatzstoffe){ try{ zusFromRiki(v.zusatzstoffe); }catch(e){} }
     /* Nährwerte NUR füllen, wenn das Feld leer ist – bestehende, geprüfte Werte werden nie überschrieben. */
     const n=v.naehrwerte_100g||{};
     Object.keys(n).forEach(function(k){
@@ -7791,7 +7812,7 @@ async function fgPullHersteller(){
        Eine EAN ist eine Identität – lieber leer und später gescannt als falsch verknüpft. */
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} }
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Herstellerseite";
     /* Die Herstellerseite hinterliess bis 18.07.2026 GAR KEINEN Beleg - sie setzte nur den
        Quelle-Typ. Ein Produkt trug damit "Herstellerseite", ohne dass irgendwo stand, welche. */
@@ -7829,7 +7850,7 @@ async function fgPullResearch(files, b64arr){
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     var ue=document.getElementById("fe_url"); if(ue&&d.quelle_url&&!ue.value.trim()) ue.value=d.quelle_url;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} }
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
     /* Quelle-Typ nach Domain: großer Händler -> Amazon/Händler, sonst Herstellerseite. Beleg = die echte URL. */
     var url=String(d.quelle_url||"");
     var haendler=/amazon\.|rewe\.|edeka\.|dm\.de|rossmann\.|kaufland\.|lidl\.|aldi\.|mueller\.|müller\./i.test(url);
@@ -7864,7 +7885,7 @@ async function fgPullEtikett(files, b64arr){
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} }
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Etikettfoto (Nutzer)";
     try{ feBelegAdd("Etikettfoto (Nutzer)"+(ean?(" · EAN "+ean):"")); }catch(e){}
     try{ fePlaus(); }catch(e){}
@@ -10146,7 +10167,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21e";
+const APP_BUILD = "2026-07-21f";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
