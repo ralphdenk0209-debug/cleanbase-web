@@ -6890,6 +6890,37 @@ function fgRefSet(names){
   (names||[]).forEach(function(n){ n=String(n||"").trim(); if(!n) return; var k=n.toLowerCase(); if(seen[k]) return; seen[k]=1; out.push(n); });
   window._fgRef=out; try{ fgEnthaltenRender(); }catch(e){}
 }
+/* Flacht eine ROHE Etikett-Zutatenliste in einzelne Namen auf – inkl. Unter-Zutaten aus
+   Klammern (z. B. die Salami-Bestandteile) und Zusatzstoffe. So ist die Referenz VOLLSTÄNDIG
+   (Ralph 21.07.2026): sie zeigt ALLES vom Etikett zum Abgleich mit der linken Liste, nicht nur
+   die von Riki zusammengefasste Wertungs-Liste. */
+function fgFlattenZutaten(raw){
+  var t=String(raw||""); if(!t.trim()) return [];
+  /* „Zutaten:"/„Ingredients:" vorne abschneiden, Spuren-/Allergiehinweis hinten abtrennen. */
+  t=t.replace(/^[\s\S]*?\b(?:zutaten|ingredients|composition)\b\s*:?/i,"");
+  t=t.split(/\bkann\b[\s\S]{0,60}?enth[aä]lt|enth[aä]lt\s+spuren|\bspuren\s+von\b|may\s+contain|traces\s+of/i)[0];
+  /* Klammern = weitere kommagetrennte Unter-Zutaten → in Kommata wandeln (auch verschachtelt). */
+  t=t.replace(/[()\[\]]/g,",");
+  return t.split(/[,;]/).map(function(s){
+    return String(s||"")
+      .replace(/^\s*[\d.,]+\s*%\s*/,"")     /* führende Prozentangabe */
+      .replace(/\b[\d.,]+\s*%/g,"")          /* eingebettete Prozentangabe */
+      .replace(/^\s*(?:davon|inkl\.?|und|sowie)\s+/i,"")
+      .replace(/[*.]/g,"")
+      .replace(/\s+/g," ").trim();
+  }).filter(function(s){
+    if(!s || s.length<2) return false;
+    if(/^[\d.,%\s]+$/.test(s)) return false;         /* reine Zahlen */
+    if(/^aus\b/i.test(s)) return false;              /* Herkunftsnotiz „aus biologischem Anbau" */
+    return true;
+  });
+}
+/* Referenz aus der rohen Etikett-Liste (bevorzugt) – fällt auf Rikis Namensliste zurück,
+   wenn kein Rohtext da ist. EIN Weg für alle Riki-Pfade (Analyse/Herstellerseite/Etikett/OFF). */
+function fgRefFromLabel(rawText, fallbackNames){
+  var flat=fgFlattenZutaten(rawText);
+  if(flat.length) fgRefSet(flat); else fgRefSet(fallbackNames||[]);
+}
 /* ✕ in der Referenz: entfernt den Eintrag aus der Referenz UND – falls vorhanden – aus der
    Arbeitsliste (#fe_zutRows), damit z. B. eine Riki-Fehllesung „gegarter Reis" komplett weg ist. */
 function fgEnthaltenDel(btn){
@@ -7033,7 +7064,7 @@ async function rikiAnalyse(){
     if(Array.isArray(v.zutaten)&&v.zutaten.length){
       const c=document.getElementById("fe_zutRows");
       if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name, z.rating, z.kritisch?"ja":"nein"); }).join("");
-      try{ if(typeof fgRefSet==="function") fgRefSet(v.zutaten.map(function(z){return z.name;})); }catch(e){}  /* rechte Referenz aus Riki-Lesung */
+      try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel(txt, v.zutaten.map(function(z){return z.name;})); }catch(e){}  /* rechte Referenz = VOLLSTÄNDIGE rohe Etikett-Liste */
     }
     if(v.zusatzstoffe){
       const zt=document.getElementById("fe_ztext"); if(zt&&v.zusatzstoffe.text) zt.value=v.zusatzstoffe.text;
@@ -7623,7 +7654,7 @@ async function fgPullHersteller(){
        Eine EAN ist eine Identität – lieber leer und später gescannt als falsch verknüpft. */
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefSet==="function") fgRefSet(v.zutaten.map(function(z){return z.name;})); }catch(e){} }
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} }
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Herstellerseite";
     /* Die Herstellerseite hinterliess bis 18.07.2026 GAR KEINEN Beleg - sie setzte nur den
        Quelle-Typ. Ein Produkt trug damit "Herstellerseite", ohne dass irgendwo stand, welche. */
@@ -7661,7 +7692,7 @@ async function fgPullResearch(files, b64arr){
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     var ue=document.getElementById("fe_url"); if(ue&&d.quelle_url&&!ue.value.trim()) ue.value=d.quelle_url;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefSet==="function") fgRefSet(v.zutaten.map(function(z){return z.name;})); }catch(e){} }
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} }
     /* Quelle-Typ nach Domain: großer Händler -> Amazon/Händler, sonst Herstellerseite. Beleg = die echte URL. */
     var url=String(d.quelle_url||"");
     var haendler=/amazon\.|rewe\.|edeka\.|dm\.de|rossmann\.|kaufland\.|lidl\.|aldi\.|mueller\.|müller\./i.test(url);
@@ -7696,7 +7727,7 @@ async function fgPullEtikett(files, b64arr){
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefSet==="function") fgRefSet(v.zutaten.map(function(z){return z.name;})); }catch(e){} }
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} }
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Etikettfoto (Nutzer)";
     try{ feBelegAdd("Etikettfoto (Nutzer)"+(ean?(" · EAN "+ean):"")); }catch(e){}
     try{ fePlaus(); }catch(e){}
@@ -9978,7 +10009,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21b";
+const APP_BUILD = "2026-07-21c";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
