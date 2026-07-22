@@ -8359,6 +8359,12 @@ function fePlaus(){
         var _abwR=_fgAbweichungRef();
         if(_abwR.length) h += no(_abwR.length+" Zutat(en) laut Etikett noch nicht übernommen – Freigabe nur mit Bestätigung");
       }catch(e){}
+      /* Ungeprüfter Zusatzstoff blockiert den Score (§1.11k) – schon hier sichtbar machen, damit
+         nicht fälschlich „Nährwert fehlt" vermutet wird (Ralphs Gelierxucker-Fund 22.07.). */
+      try{
+        var _zUngR=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")); });
+        if(_zUngR.length) h += no(_zUngR.length+" Zusatzstoff(e) noch nicht eingestuft → kein Score ("+esc(_zUngR.map(function(z){return z.name+(z.e?(" "+z.e):"");}).slice(0,3).join(", "))+(_zUngR.length>3?" …":"")+")");
+      }catch(e){}
       rg.innerHTML=h;
     }
   }
@@ -8771,7 +8777,17 @@ async function fgEditSave(alsoFreigeben){
     var _katSave=((g("fe_kat")||{}).value||"").trim().toLowerCase();
     if(_katSave!=="supplement"){
       msg.style.color="var(--k-b45309)"; msg.style.fontWeight="700";
-      msg.textContent="💾 Gespeichert – aber noch KEIN Score. Siehe die Freigabe-Zeile oben; trag den fehlenden Wert ein (fehlt nur Ballaststoffe? 0 eintragen).";
+      /* Den ECHTEN Grund zeigen statt „fehlt nur Ballaststoffe" zu raten (Ralphs Fund 22.07.,
+         Gelierxucker): ein noch nicht eingestufter Zusatzstoff (z.B. E967 Xylit) blockiert den
+         Score nach §1.11k – nicht ein fehlender Nährwert. Das Frontend kennt die Einstufung
+         selbst (window._fgZus[].einst), also kann es den Grund benennen. */
+      var _zUng=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")); });
+      if(_zUng.length){
+        var _zTxt=_zUng.map(function(z){ return z.name+(z.e?(" "+z.e):""); }).join(", ");
+        msg.innerHTML="💾 Gespeichert – aber noch KEIN Score. Grund: <b>"+_zUng.length+" Zusatzstoff(e) noch nicht wissenschaftlich eingestuft</b> ("+esc(_zTxt)+"). Bis eine EFSA-/EU-Quelle vorliegt, zeigen wir bewusst keine Zahl – nichts erfinden. (Nicht die Nährwerte sind schuld.)";
+      } else {
+        msg.textContent="💾 Gespeichert – aber noch KEIN Score. Siehe die Freigabe-Zeile oben; trag den fehlenden Wert ein (fehlt nur Ballaststoffe? 0 eintragen).";
+      }
       try{ fePlaus(); }catch(e){}
       try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
       loadFreigabe(); return;
@@ -10932,7 +10948,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22d";
+const APP_BUILD = "2026-07-22e";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
