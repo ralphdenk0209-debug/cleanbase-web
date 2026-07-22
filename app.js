@@ -6888,7 +6888,12 @@ function fgEnthaltenRender(){
 function fgRefSet(names){
   var seen={}, out=[];
   (names||[]).forEach(function(n){ n=String(n||"").trim(); if(!n) return; var k=n.toLowerCase(); if(seen[k]) return; seen[k]=1; out.push(n); });
-  window._fgRef=out; try{ fgEnthaltenRender(); }catch(e){}
+  window._fgRef=out;
+  /* Referenz pro Produkt merken, damit sie das Speichern & Neuöffnen überlebt (Ralph 21.07.2026).
+     Sitzungs-Ablage (kein DB-Schema nötig); überlebt Speichern→Neuladen der Erfassung, nicht aber
+     einen kompletten Seiten-Reload. */
+  try{ var _pid=(window._fgEdit&&window._fgEdit.id); if(_pid){ window._fgRefMap=window._fgRefMap||{}; window._fgRefMap[_pid]=out.slice(); } }catch(e){}
+  try{ fgEnthaltenRender(); }catch(e){}
 }
 /* Flacht eine ROHE Etikett-Zutatenliste in einzelne Namen auf – inkl. Unter-Zutaten aus
    Klammern (z. B. die Salami-Bestandteile) und Zusatzstoffe. So ist die Referenz VOLLSTÄNDIG
@@ -6927,6 +6932,7 @@ function fgEnthaltenDel(btn){
   var name=(btn&&btn.dataset&&btn.dataset.name!=null)?String(btn.dataset.name):""; if(!name) return;
   var key=name.trim().toLowerCase();
   if(Array.isArray(window._fgRef)) window._fgRef=window._fgRef.filter(function(n){ return String(n).trim().toLowerCase()!==key; });
+  try{ var _pid=(window._fgEdit&&window._fgEdit.id); if(_pid&&window._fgRefMap) window._fgRefMap[_pid]=(window._fgRef||[]).slice(); }catch(e){}
   var c=document.getElementById("fe_zutRows");
   if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){
     if(((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key){
@@ -7187,10 +7193,12 @@ async function openFgEditor(id, prefill, targetEl){
   window._fgEdit={ id:id, bild_url:d.bild_url||"",
                    etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[],
                    ean_status:String(d.ean_status||d.EAN_Status||"") };
-  /* Riki-Referenz (rechte Box): beim Öffnen aus der gespeicherten Zutatenliste vorbelegen –
-     die stammt aus der letzten Riki-Lesung. Neue Riki-Reads (Herstellerseite/Etikett/Analyse)
-     überschreiben sie über fgRefSet(). */
-  window._fgRef=(d.zutaten||[]).map(function(z){ return z&&z.name; }).filter(Boolean);
+  /* Riki-Referenz (rechte Box): beim Öffnen zuerst die in DIESER Sitzung gemerkte Referenz nehmen
+     (überlebt Speichern→Neuöffnen, Ralph 21.07.2026) – so bleiben auch die orangen „noch nicht
+     übernommen"-Einträge erhalten. Sonst aus der gespeicherten Zutatenliste vorbelegen. Neue
+     Riki-Reads (Herstellerseite/Etikett/Analyse) überschreiben beides über fgRefSet(). */
+  var _savedRef=(id && window._fgRefMap && Array.isArray(window._fgRefMap[id]) && window._fgRefMap[id].length)?window._fgRefMap[id].slice():null;
+  window._fgRef=_savedRef||(d.zutaten||[]).map(function(z){ return z&&z.name; }).filter(Boolean);
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
   const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
@@ -7587,6 +7595,19 @@ function fePlaus(){
       h+= qt ? ok("Quelle belegt") : no("Quelle-Typ fehlt");
       h+= (_eanV||_eanOffen) ? ok(_eanV?"EAN erfasst":"EAN als offen markiert") : no("EAN fehlt – eintragen oder „offen“ ankreuzen");
       if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
+      /* Live-Wächter (Ralph 21.07.2026): Produkt heißt „vegan/vegetarisch", aber eine tierische
+         Zutat ist gebunden → sehr wahrscheinlich ins FALSCHE Produkt importiert. Nur Warnung,
+         kein Freigabe-Blocker. Analog-/Homonym-Ausschluss (veganer Salami, Fruchtfleisch, …). */
+      try{
+        var _pn=((document.getElementById("fe_name")||{}).value||"").toLowerCase();
+        if(/vegan|vegetarisch/.test(_pn)){
+          var _meatRe=/(salami|schinken|\bspeck|\bwurst|hackfleisch|\bmett\b|\bfleisch|rindfleisch|\brind|rinder|schweine|h[aä]hnchen|puten|\bpute\b|thunfisch|\blachs|forelle|garnele|krabbe|sardelle|anchovi|gelatine|\bbacon|\bkalb|\blamm|hirsch|geflügel|\bfisch)/;
+          var _exRe=/(vegan|vegetarisch|pflanzlich|ersatz|alternativ|analog|tofu|seitan|\bsoja|erbsenprotein|frucht|tomate|kokos)/;
+          var _tier=[];
+          zMit.forEach(function(row){ var _rawnm=((row.querySelector(".fgzName")||{}).value||"").trim(); var _ln=_rawnm.toLowerCase(); if(_ln && _meatRe.test(_ln) && !_exRe.test(_ln)) _tier.push(_rawnm); });
+          if(_tier.length) h='<div style="flex-basis:100%;width:100%;color:#b91c1c;font-weight:700;background:#fde8e8;border:1px solid #f3b4b4;border-radius:8px;padding:6px 9px">&#9888; Produkt heißt „vegan/vegetarisch“, enthält aber tierische Zutat: '+esc(_tier.join(", "))+' — falsches Produkt?</div>'+h;
+        }
+      }catch(e){}
       rg.innerHTML=h;
     }
   }
@@ -10009,7 +10030,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21c";
+const APP_BUILD = "2026-07-21d";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
