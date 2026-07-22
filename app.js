@@ -2976,7 +2976,7 @@ async function dashDrillLoad(key){
     if(!rows.length){ body.innerHTML='<span style="color:#107e3e">Nichts offen. ✓</span>'; return; }
     body.innerHTML='<div style="margin-bottom:6px;color:#5b6d73">'+rows.length+' Einträge</div>'+rows.map(function(x){
       var _btn=function(fn){ return '<button onclick="'+fn+'" style="flex:0 0 auto;padding:5px 10px;border:1px solid #0a6ed1;border-radius:8px;background:#eaf3fd;color:#0a6ed1;cursor:pointer;font-size:12px;font-weight:600">Bearbeiten</button>'; };
-      var edit = (x.kind==='produkt'&&x.id) ? _btn("document.getElementById('drillOv').remove();openFgEditor('"+esc(x.id)+"')")
+      var edit = (x.kind==='produkt'&&x.id) ? _btn("dashOpenProdukt('"+esc(x.id)+"')")
                : (x.kind==='zutat'&&x.id)   ? _btn("zutStammEdit('"+esc(x.id)+"')")   /* Stamm-Zutat direkt bearbeiten (Ralph 22.07.) */
                : '';
       return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:9px 2px;border-top:1px solid #eef2f3">'
@@ -2991,6 +2991,28 @@ async function dashDrillLoad(key){
       +'<button onclick="dashDrillLoad(\''+key+'\')" style="padding:8px 14px;border:0;border-radius:9px;background:#17505c;color:#fff;font-weight:700;cursor:pointer">↻ Nochmal versuchen</button>';
   }
 }
+
+/* Produkt aus dem Dashboard-Drill SAUBER öffnen (Ralph 22.07.): Vorher lief openFgEditor(id)
+   ohne Ziel-Container mitten im Dashboard-Vollbild (body.dashFull) → der Editor lag verschoben
+   über Kopfleiste/Ampel-Schiene. Jetzt wechseln wir in „Produkt erfassen" (das hebt body.dashFull
+   auf) und öffnen das Produkt dort INLINE über den getesteten peSelect-Weg. */
+function dashOpenProdukt(id){
+  try{ var ov=document.getElementById('drillOv'); if(ov) ov.remove(); }catch(e){}
+  try{ if(typeof fgTab==='function') fgTab('produkterfassung'); }catch(e){}
+  /* Die Erfassungs-Liste baut sich async auf → auf #peDetail warten, dann inline öffnen. */
+  var tries=0;
+  var open=function(){
+    var det=document.getElementById('peDetail');
+    if(!det){ if(tries++<50){ setTimeout(open,60); } return; }
+    try{
+      if(typeof peSelect==='function') peSelect(id);
+      else openFgEditor(id,null,det);
+      det.scrollIntoView({behavior:'smooth',block:'start'});
+    }catch(e){ det.innerHTML='<div style="color:#cf5442">Editor-Fehler: '+esc((e&&e.message)||e)+'</div>'; }
+  };
+  open();
+}
+if(typeof window!=='undefined'){ window.dashOpenProdukt=dashOpenProdukt; }
 
 /* ===== Stamm-Zutat aus dem Drill bearbeiten (Ralph 22.07.2026) ==========================
    „Genau solche Dinge muss ich bearbeiten können." Ein kleiner Dialog: Note (0–10) + Kategorie,
@@ -3256,12 +3278,13 @@ function dashV1Html(){
       + '<div><div class="k">Alle Vorgänge der Portal M ID</div><div class="v"><span class="sel">Alle (2) ▾</span> &nbsp;<span class="sel">Antrieb (2) ▾</span></div></div>'
     + '</div>'
     + '<div class="rvstepwrap"><div class="rvstepper">'
-      + '<div class="rvstep active"><div class="circ">🤝</div><div class="lab">Annahme</div></div>'
-      + '<div class="rvstep"><div class="circ">▦</div><div class="lab">Vorgangsdaten</div></div>'
-      + '<div class="rvstep"><div class="circ">🛠</div><div class="lab">Techn. Daten</div></div>'
-      + '<div class="rvstep"><div class="circ">👥</div><div class="lab">Abstimmpartner</div></div>'
-      + '<div class="rvstep"><div class="circ">🧾</div><div class="lab">Bewertung</div></div>'
-      + '<div class="rvstep"><div class="circ">📄</div><div class="lab">Ergebnis</div></div>'
+      /* Inhalt aus dem echten Dashboard (Ralph 22.07.): die 5 Reiter Datenqualität/Katalog/
+         Nutzer/Betrieb/Werkzeuge als runde 1:1-Buttons – Layout unverändert, nur Text + Icons. */
+      + '<div class="rvstep active"><div class="circ">🛡️</div><div class="lab">Datenqualität</div></div>'
+      + '<div class="rvstep"><div class="circ">📦</div><div class="lab">Katalog</div></div>'
+      + '<div class="rvstep"><div class="circ">👥</div><div class="lab">Nutzer</div></div>'
+      + '<div class="rvstep"><div class="circ">📷</div><div class="lab">Betrieb</div></div>'
+      + '<div class="rvstep"><div class="circ">🔧</div><div class="lab">Werkzeuge</div></div>'
     + '</div>'
     + '<div class="rvmgt"><div class="ic">🗄</div><div class="lab">Mgt.-Summary</div></div>'
     + '<div class="rvthumbs"><div class="imgs"><div class="im">◑</div><div class="im">◓</div><div class="im">◒</div><div class="im">◐</div></div>'
@@ -10909,7 +10932,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22b";
+const APP_BUILD = "2026-07-22d";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
