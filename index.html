@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-07-21u: Schutz der Zutaten-Bewertungen (Ralph). (1) Bestätigung beim Überschreiben einer bestehenden Note im Bearbeiten-Dialog (leere füllen ohne Rückfrage). (2) Neue Kachel „Zutaten ohne Beleg" (Quellen-Wächter) in Datenqualität, Klick → Drill mit Bearbeiten. DB (schon live): Änderungs-Protokoll in cb_zutat_stamm_bearbeiten (jede Note-Änderung in Aenderungslog, alt→neu, wer/wann) + View v_zutaten_quelle_offen + cb_zutat_quelle_count + Drill-Zweig zutat_quelle. Basis: 21t. -->
+<!-- build 2026-07-22a: (1) Dashboard umschaltbare Ansicht „Klassisch ↔ Vorgang 1:1" (localStorage ri_dash_ansicht), Umschalter oben im Dashboard; 1:1-Layout noch mit Platzhalter-Inhalten. (2) Essigsäure zeigte grau „ungeprüft" – deutscher Name → E260 (neutral) über ZUS_SYN; zusSeed nutzt jetzt die Alias-Liste beim Laden. DB (schon live): Bakterienkultur-Regel (isolierter Stamm=3, Lebensmittel-Ferment=8) + Wächter v_bakterienkultur_qa_offen + Regel im Regelwerk; Quellen-Wächter dadurch 0. Basis: 21u. -->
 <!-- OFFEN: Stamm-Validität (230 „Auto"-Bewertungen – Import-Leck stoppen + Bestand prüfen). -->
 <html lang="de">
 <head>
@@ -1426,7 +1426,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
-<script src="app.js?v=2026-07-21u"></script>
+<script src="app.js?v=2026-07-22a"></script>
 <button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
 <button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 </body>

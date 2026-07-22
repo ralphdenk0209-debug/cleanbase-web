@@ -3093,6 +3093,224 @@ function zutStammSave(id){
    nur neu angeordnet. Nichts wird gedoppelt, kein Zähler neu erfunden – die Farben/der Rahmen
    sind Darstellung. Der Drill (Klick → betroffene Produkte, direkt bearbeitbar) ist der schon
    vorhandene dashDrill(); die Ampel-Schiene und die Benutzerführung rufen genau ihn auf. */
+/* ===== Dashboard-Ansicht umschalten (Ralph 22.07.): klassisch <-> Vorgang 1:1 =====
+   Merkt sich die Wahl in localStorage (ri_dash_ansicht), genau wie der Editor-Umschalter. */
+function dashAnsichtGet(){ try{ return localStorage.getItem('ri_dash_ansicht')==='vorgang'?'vorgang':'klassisch'; }catch(e){ return 'klassisch'; } }
+function dashAnsichtSet(v){ try{ localStorage.setItem('ri_dash_ansicht', v==='vorgang'?'vorgang':'klassisch'); }catch(e){} if(typeof loadDashboard==='function') loadDashboard(); }
+function dashSwitchHtml(ansicht){
+  var v=(ansicht==='vorgang');
+  return '<div class="dashSwitch"><span>Ansicht:</span><span class="grp">'
+    +'<button class="'+(!v?'active':'')+'" onclick="dashAnsichtSet(\'klassisch\')">Klassisch</button>'
+    +'<button class="'+(v?'active':'')+'" onclick="dashAnsichtSet(\'vorgang\')">Vorgang 1:1</button>'
+    +'</span>'+(v?'<span class="hint">1:1-Layout &middot; Inhalte noch Platzhalter</span>':'')+'</div>';
+}
+if(typeof window!=='undefined'){ window.dashAnsichtSet=dashAnsichtSet; }
+
+/* Stile fuer die 1:1-Vorgangsansicht – alles unter #fgDash .rv1 (rv-Praefix), damit nichts
+   mit dem uebrigen Admin kollidiert. Heller Look wie das Vorbild. */
+function dashV1Css(){
+  if(document.getElementById('dashV1Css')) return;
+  var P='#fgDash .rv1 ';
+  var css=
+    P+'{background:#e7ebee;color:#22343a;font-family:"Segoe UI",Arial,sans-serif;border-radius:12px;overflow:hidden;border:1px solid #d9e1e4}'
+  + P+'*{box-sizing:border-box}'
+  + P+'.rvwrap{display:grid;grid-template-columns:262px minmax(0,1fr);gap:0}'
+  + '@media(max-width:980px){'+P+'.rvwrap{grid-template-columns:1fr}}'
+  /* Prozessfortschritt links */
+  + P+'.rvprog{background:#fff;border-right:1px solid #d9e1e4;padding:14px 14px 26px}'
+  + P+'.rvprog h3{font-size:15px;color:#5b6d73;font-weight:600;margin:2px 0 14px}'
+  + P+'.rvphase{display:flex;gap:8px}'
+  + P+'.rvband{flex:0 0 auto;width:20px;background:#1f5966;color:#eaf4f6;border-radius:5px;writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;font-weight:700;letter-spacing:2px;font-size:11px;display:flex;align-items:center;justify-content:center;padding:6px 0}'
+  + P+'.rvphase.anfrage .rvband{background:#8aa0a6}'
+  + P+'.rvsteps{flex:1;min-width:0;border:1px solid #e2e8ea;border-radius:8px;padding:6px 8px}'
+  + P+'.rvst{display:flex;gap:8px;padding:5px 2px}'
+  + P+'.rvst .rail{display:flex;flex-direction:column;align-items:center;flex:0 0 auto}'
+  + P+'.rvst .dot{width:15px;height:15px;border-radius:50%;flex:0 0 auto;border:3px solid #cdd6d9;background:#fff}'
+  + P+'.rvst .dot.g{border-color:#7bb356;background:#8ec96a}'
+  + P+'.rvst .dot.r{border-color:#d98a86;background:#cf4b45}'
+  + P+'.rvst .ln{flex:1;width:2px;background:#dbe2e4;margin:1px 0}'
+  + P+'.rvst:last-child .ln{display:none}'
+  + P+'.rvst .nm{font-size:12px;font-weight:600;line-height:1.25}'
+  + P+'.rvst .dt{font-size:10.5px;color:#6a7b80;margin-top:1px}'
+  + P+'.rvst .dt b{color:#39525a;font-weight:700}'
+  + P+'.rvconnect{display:flex;justify-content:center;color:#9fb0b5;font-size:16px;margin:4px 0}'
+  + P+'.rvheute{margin:8px 0;padding:9px 10px;border:1px solid #cfd8db;border-radius:8px;background:#eef2f3;text-align:center}'
+  + P+'.rvheute .nm{font-weight:800;font-size:12.5px}'
+  + P+'.rvheute .dt{font-size:10.5px;color:#6a7b80}'
+  + P+'.rvokbox{margin-top:6px;padding:9px;border:1px solid #d9e1e4;border-radius:8px;text-align:center;font-size:12px;color:#39525a;background:#f6f8f9}'
+  + P+'.rvleg{margin-top:12px;font-size:11px;color:#6a7b80}'
+  + P+'.ib{display:inline-flex;width:14px;height:14px;border-radius:50%;background:#0a6ed1;color:#fff;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-style:normal;vertical-align:middle}'
+  /* Inhalt rechts */
+  + P+'.rvcontent{padding:14px 16px 30px;min-width:0;position:relative}'
+  + P+'.rvtitle{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}'
+  + P+'.rvtitle h1{font-size:19px;margin:0;font-weight:700;flex:1;min-width:0}'
+  + P+'.rvwarn{color:#c0392b}'
+  + P+'.rvid{font-family:Consolas,monospace;font-weight:700;color:#39525a;font-size:15px}'
+  + P+'.rvmeta{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0 4px;font-size:12px}'
+  + P+'.rvmeta .k{color:#6a7b80;font-size:10.5px;text-transform:uppercase;margin-bottom:2px}'
+  + P+'.rvmeta .v{font-weight:700;color:#2b3d43}'
+  + P+'.rvmeta a{color:#0a6ed1;text-decoration:none}'
+  + P+'.rvmeta .sel{border:1px solid #cdd6d9;border-radius:6px;padding:2px 8px;background:#fff;font-weight:600}'
+  + P+'.rvstepwrap{display:flex;align-items:center;gap:14px;margin:14px 0;flex-wrap:wrap}'
+  + P+'.rvstepper{display:flex;flex:1;min-width:0;background:#fff;border:1px solid #dbe2e4;border-radius:12px;padding:12px 8px;overflow-x:auto}'
+  + P+'.rvstep{flex:1;min-width:92px;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative}'
+  + P+'.rvstep .circ{width:44px;height:44px;border-radius:50%;background:#eef3f4;color:#3d7c8a;display:flex;align-items:center;justify-content:center;font-size:19px}'
+  + P+'.rvstep.active .circ{background:#1f5966;color:#fff}'
+  + P+'.rvstep .lab{font-size:11.5px;color:#5b6d73;font-weight:600;text-align:center}'
+  + P+'.rvstep.active .lab{color:#1f5966;font-weight:800}'
+  + P+'.rvstep:not(:last-child)::after{content:"";position:absolute;top:22px;left:calc(50% + 28px);right:calc(-50% + 28px);height:2px;background:#dbe2e4}'
+  + P+'.rvmgt{flex:0 0 auto;width:92px;border:1px solid #dbe2e4;border-radius:12px;background:#fff;padding:8px;text-align:center;color:#5b6d73}'
+  + P+'.rvmgt .ic{font-size:24px;line-height:1}'
+  + P+'.rvmgt .lab{font-size:11px;font-weight:700;margin-top:2px}'
+  + P+'.rvthumbs{flex:0 0 auto;width:270px;display:flex;gap:10px}'
+  + P+'.rvthumbs .imgs{display:grid;grid-template-columns:1fr 1fr;gap:3px}'
+  + P+'.rvthumbs .im{width:52px;height:34px;border:1px solid #dbe2e4;border-radius:4px;background:#f2f5f6;display:flex;align-items:center;justify-content:center;font-size:15px;color:#9fb0b5}'
+  + P+'.rvthumbs .links{font-size:11.5px;line-height:1.9}'
+  + P+'.rvthumbs .links a{color:#0a6ed1;text-decoration:none;display:block}'
+  + P+'.rvthumbs .links .ver{color:#39525a;font-weight:700}'
+  + P+'.rvtabs{display:flex;gap:3px;margin:8px 0 0}'
+  + P+'.rvtab{padding:11px 18px;font-size:12.5px;font-weight:700;color:#eaf4f6;background:#2f6470;border-radius:8px 8px 0 0;cursor:pointer}'
+  + P+'.rvtab.active{background:#1f5966}'
+  + P+'.rvtab.alt{background:#3f8496}'
+  + P+'.rvpanel{background:#fff;border:1px solid #dbe2e4;border-radius:0 10px 10px 10px;padding:14px}'
+  + P+'.rvcols{display:grid;grid-template-columns:1fr 1fr;gap:16px}'
+  + '@media(max-width:820px){'+P+'.rvcols{grid-template-columns:1fr}}'
+  + P+'.rvcard{border:1px solid #e2e8ea;border-radius:9px;overflow:hidden}'
+  + P+'.rvcard .ch{background:#f4f7f8;border-bottom:1px solid #e2e8ea;padding:9px 12px;font-weight:700;font-size:12.5px;color:#2b3d43}'
+  + P+'.rvcard .cb{padding:12px}'
+  + P+'.rvfld{margin-bottom:11px}'
+  + P+'.rvfld label{display:block;font-size:11.5px;color:#5b6d73;margin-bottom:3px}'
+  + P+'.rvfld .rbox{border:1px solid #cdd6d9;border-radius:6px;padding:8px 10px;background:#f7f9fa;font-weight:600;color:#2b3d43;display:flex;justify-content:space-between;align-items:center;gap:8px}'
+  + P+'.rvkv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #eef2f3;font-size:12.5px}'
+  + P+'.rvkv:first-child{border-top:0}'
+  + P+'.rvkv .v{font-weight:700;color:#2b3d43}'
+  + P+'.rvnote{font-size:11.5px;color:#6a7b80;margin-top:8px;line-height:1.45}'
+  + P+'.rvqrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #eef2f3;font-size:12.5px}'
+  + P+'.rvtoggle{flex:0 0 auto;display:flex;border:1px solid #cdd6d9;border-radius:20px;overflow:hidden;font-size:11px;font-weight:700}'
+  + P+'.rvtoggle span{padding:4px 12px;color:#8a9a9f}'
+  + P+'.rvtoggle .ja{background:#2e8b57;color:#fff}'
+  + P+'.rvtoggle .nein{background:#8a9a9f;color:#fff}'
+  + P+'.rvselect,'+P+'.rvta{width:100%;border:1px solid #cdd6d9;border-radius:6px;padding:8px;font-size:12.5px;font-family:inherit;background:#fff;color:#22343a}'
+  + P+'.rvta{min-height:84px;resize:vertical;display:block}'
+  + P+'.rvbtn{margin-top:10px;background:#dfe6e8;border:1px solid #cdd6d9;border-radius:7px;padding:8px 16px;font-weight:700;font-size:12.5px;color:#2b3d43;cursor:pointer}'
+  + P+'.rvbar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #dbe2e4;border-radius:8px;padding:11px 14px;margin-top:10px;font-weight:700;font-size:12.5px;color:#2b3d43}'
+  + P+'.rvbar .ex{color:#5b6d73;font-size:16px}'
+  /* schwebende Benutzerfuehrung + vertikale Reiter */
+  + P+'.rvguide{position:fixed;right:66px;bottom:24px;width:322px;background:#dbeaf6;border:1px solid #a9cbe6;border-radius:10px;box-shadow:0 16px 40px rgba(20,60,90,.28);overflow:hidden;z-index:55}'
+  + P+'.rvguide .gh{display:flex;align-items:center;gap:8px;background:#1f5966;color:#eaf4f6;padding:9px 12px;font-weight:800;font-size:12px}'
+  + P+'.rvguide .gh .sp{margin-left:auto;display:flex;gap:10px;opacity:.9}'
+  + P+'.rvguide .gb{padding:12px 14px 8px;font-size:11.5px;color:#26495c;line-height:1.5}'
+  + P+'.rvguide .gb h4{margin:0 0 6px;font-size:11.5px}'
+  + P+'.rvguide .gb p{margin:0 0 8px}'
+  + P+'.rvguide .gnav{display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 0 12px}'
+  + P+'.rvguide .gnav .d{width:7px;height:7px;border-radius:50%;background:#a9cbe6}'
+  + P+'.rvguide .gnav .d.on{background:#1f5966}'
+  + P+'.rvguide .arr{position:absolute;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;background:#0a6ed1;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}'
+  + P+'.rvguide .arr.l{left:-13px}'
+  + P+'.rvguide .arr.r{right:-13px}'
+  + P+'.rvvtabs{position:fixed;right:0;top:150px;display:flex;flex-direction:column;gap:6px;z-index:50}'
+  + P+'.rvvtab{writing-mode:vertical-rl;transform:rotate(180deg);padding:12px 7px;border-radius:8px 0 0 8px;font-size:11.5px;font-weight:700;color:#fff;cursor:pointer}'
+  + P+'.rvvtab.grau{background:#8aa0a6}'
+  + P+'.rvvtab.gruen{background:#2e8b57}';
+  var s=document.createElement('style'); s.id='dashV1Css'; s.textContent=css; document.head.appendChild(s);
+}
+
+/* Die 1:1-Vorgangsansicht als HTML (Platzhalter-Inhalte aus dem Vorbild – Layout zuerst,
+   Inhalte fuellen wir gemeinsam). */
+function dashV1Html(){
+  var stG=function(nm,pl,ist,cls){ return '<div class="rvst"><div class="rail"><div class="dot '+cls+'"></div><div class="ln"></div></div>'
+    +'<div><div class="nm">'+nm+'</div><div class="dt">Plan: '+pl+' &nbsp;<b>Ist: '+ist+'</b></div></div></div>'; };
+  return ''
+  + '<div class="rv1"><div class="rvwrap">'
+  /* ---- links: Prozessfortschritt ---- */
+  + '<aside class="rvprog"><h3>Prozessfortschritt</h3>'
+    + '<div class="rvphase anfrage"><div class="rvband">ANFRAGE</div><div class="rvsteps">'
+      + stG('Vorgang zugewiesen','10.04.2023','22.03.2023','g')
+      + stG('Vorgang angenommen','24.04.2023','01.06.2023','g')
+      + stG('80% befüllt','05.06.2023','29.06.2023','r')
+      + stG('Bewertung gestartet','12.06.2023','19.06.2023 (V1)','r')
+      + stG('Bewertung liegt vor','26.06.2023','29.06.2023','r')
+      + stG('KR Anfrage erteilt (ESK)','03.07.2023','05.07.2023','r')
+    + '</div></div>'
+    + '<div class="rvconnect">▾</div>'
+    + '<div class="rvphase vergabe"><div class="rvband">VERGABE</div><div class="rvsteps">'
+      + stG('Vorgang zugewiesen','30.06.2024','05.07.2023','g')
+      + stG('Vorgang angenommen','13.09.2024','05.07.2023','g')
+      + stG('80% befüllt','25.10.2024','22.11.2024','g')
+      + stG('Bewertung gestartet','01.11.2024','21.05.2024 (V1)','g')
+      + stG('Bewertung liegt vor','15.11.2024','22.11.2024','g')
+      + stG('KR Vergabe erteilt (ESK)','22.11.2024','22.11.2024','g')
+    + '</div></div>'
+    + '<div class="rvheute"><div class="nm">Heute</div><div class="dt">21.07.2026</div></div>'
+    + '<div class="rvokbox">Vergabe erfolgt (20.03.25)</div>'
+    + '<div class="rvleg">Legende: <i class="ib">i</i></div>'
+  + '</aside>'
+  /* ---- rechts: Inhalt ---- */
+  + '<main class="rvcontent">'
+    + '<div class="rvtitle"><h1>BK eAM Sport R/F Rohteile Räder Gen6 (Antrieb) <span class="rvwarn">⚠</span> — VERGABE</h1><div class="rvid">DBKRV1666644416</div></div>'
+    + '<div class="rvmeta">'
+      + '<div><div class="k">Portal M ID</div><div class="v">1443885 <a href="javascript:void(0)">↗</a></div></div>'
+      + '<div><div class="k">Modul</div><div class="v">MI01</div></div>'
+      + '<div><div class="k">Produktlinie</div><div class="v">Antrieb</div></div>'
+      + '<div><div class="k">Derivate <span class="rvwarn">⚠</span></div><div class="v">HE1001N0, HE1002N0</div></div>'
+      + '<div><div class="k">Alle Vorgänge der Portal M ID</div><div class="v"><span class="sel">Alle (2) ▾</span> &nbsp;<span class="sel">Antrieb (2) ▾</span></div></div>'
+    + '</div>'
+    + '<div class="rvstepwrap"><div class="rvstepper">'
+      + '<div class="rvstep active"><div class="circ">🤝</div><div class="lab">Annahme</div></div>'
+      + '<div class="rvstep"><div class="circ">▦</div><div class="lab">Vorgangsdaten</div></div>'
+      + '<div class="rvstep"><div class="circ">🛠</div><div class="lab">Techn. Daten</div></div>'
+      + '<div class="rvstep"><div class="circ">👥</div><div class="lab">Abstimmpartner</div></div>'
+      + '<div class="rvstep"><div class="circ">🧾</div><div class="lab">Bewertung</div></div>'
+      + '<div class="rvstep"><div class="circ">📄</div><div class="lab">Ergebnis</div></div>'
+    + '</div>'
+    + '<div class="rvmgt"><div class="ic">🗄</div><div class="lab">Mgt.-Summary</div></div>'
+    + '<div class="rvthumbs"><div class="imgs"><div class="im">◑</div><div class="im">◓</div><div class="im">◒</div><div class="im">◐</div></div>'
+      + '<div class="links"><span class="ver">Version 5 (20.03.2025) ↺</span>'
+      + '<a href="javascript:void(0)">KRB (PDF) herunterladen ⭳</a><a href="javascript:void(0)">Link als Mail versenden</a>'
+      + '<a href="javascript:void(0)">Mail an alle Hauptverantwortlichen ✉</a></div></div>'
+    + '</div>'
+    + '<div class="rvtabs"><div class="rvtab active">Datenüberprüfung und Prozesspfadempfehlung</div>'
+      + '<div class="rvtab alt">Integrationsstellenbeurteilung und Prozesspfadentscheidung</div></div>'
+    + '<div class="rvpanel"><div class="rvcols">'
+      /* linke Karte */
+      + '<div><div class="rvcard"><div class="ch">Ansprechpartner</div><div class="cb">'
+        + '<div class="rvfld"><label>Verantwortlicher Modulleiter für den Konzeptreifevorgang:</label><div class="rbox"><span>Eichner, Thomas, EA-42</span><span>▣</span></div></div>'
+        + '<div class="rvfld"><label>Verantw. Entwickler:</label><div class="rbox"><span>Draexl, Thomas, MT-522</span><span>▣</span></div></div>'
+      + '</div></div>'
+      + '<div class="rvcard" style="margin-top:14px"><div class="ch">Termine und Derivate <i class="ib">i</i></div><div class="cb">'
+        + '<div class="rvkv"><span>Aktueller Vergabetermin gem. Portal M:</span><span class="v">25.03.2025</span></div>'
+        + '<div class="rvkv"><span>Zeitraum zwischen ESK und Anfrage/Vergabe</span><span class="v">12 Wochen</span></div>'
+        + '<div class="rvnote">Bitte überprüfen und korrigieren Sie ggf. die im Vorgang enthaltenen Derivate über die Kopfdaten. <i class="ib">i</i></div>'
+      + '</div></div></div>'
+      /* rechte Karte */
+      + '<div><div class="rvcard"><div class="ch">Informationsabfrage zum Vergabeumfang und Prozesspfadempfehlung <i class="ib">i</i></div><div class="cb">'
+        + '<div class="rvkv" style="border:0"><span>Vergabeumfang gemäß Portal M:</span></div>'
+        + '<div class="rvkv" style="border:0;justify-content:flex-end"><span class="v">1443885 — BK eAM Sport R/F Räder Gen6</span></div>'
+        + '<div class="rvqrow"><span>Wird der Einkaufsvorgang grundsätzlich benötigt? <i class="ib">i</i></span><div class="rvtoggle"><span class="ja">Ja</span><span>Nein</span></div></div>'
+        + '<div class="rvqrow"><span>Bestehen Ausschlussgründe gemäß dem festgelegten Prozess (z.B. Resourcing, …)? <i class="ib">i</i></span><div class="rvtoggle"><span>Ja</span><span class="nein">Nein</span></div></div>'
+        + '<div class="rvqrow"><span>Wird ein bestehendes Gleichteil übernommen? <i class="ib">i</i></span><div class="rvtoggle"><span>Ja</span><span class="nein">Nein</span></div></div>'
+        + '<div class="rvfld" style="margin-top:12px"><label>Empfehlung für den Prozesspfad: <i class="ib">i</i></label><select class="rvselect"><option>Bitte wählen</option></select></div>'
+        + '<div class="rvfld"><label>Begründung zur Prozesspfadempfehlung</label><textarea class="rvta"></textarea></div>'
+        + '<button class="rvbtn">Eingabe bestätigen <i class="ib">i</i></button>'
+      + '</div></div></div>'
+    + '</div></div>'
+    + '<div class="rvbar"><span>≣ Maßnahmen (1/3) <i class="ib">i</i></span><span class="ex">⤢</span></div>'
+    + '<div class="rvbar"><span>📄 Dokumente (16)</span><span class="ex">⤢</span></div>'
+  + '</main>'
+  + '</div>'
+  /* schwebende Benutzerfuehrung */
+  + '<div class="rvguide"><span class="arr l">‹</span><span class="arr r">›</span>'
+    + '<div class="gh">☷ BENUTZERFÜHRUNG (SEITE 1/13) <span class="sp">🔔 ✕</span></div>'
+    + '<div class="gb"><h4><b>ANNAHME (DATENÜBERPRÜFUNG UND PROZESSPFADEMPFEHLUNG)</b></h4>'
+      + '<p>In diesem Bereich werden Informationen zum Vergabe- und Konzeptreifeumfang abgefragt, um zu entscheiden, welcher <b>Prozesspfad</b> für diesen Umfang anzuwenden ist.</p>'
+      + '<p>Hierzu sind in den folgenden Schritten verschiedene <b>Fragen zum Vergabeumfang</b> zu beantworten und die Eingaben inkl. der Prozesspfadempfehlung zu <b>bestätigen</b>.</p></div>'
+    + '<div class="gnav"><span class="d on"></span><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>'
+  + '</div>'
+  /* vertikale Reiter rechts */
+  + '<div class="rvvtabs"><div class="rvvtab grau">Vorgangsthemen</div><div class="rvvtab gruen">Benutzerführung</div></div>'
+  + '</div>';
+}
+
 function dashVorgangCss(){
   if(document.getElementById('dashVorgangCss')) return;
   /* Wie peLightCssInject: die --k-<hex>-Tokens tragen ihren Hellwert im Namen (im Dunkelmodus
@@ -3147,6 +3365,12 @@ function dashVorgangCss(){
   +'#fgDash .dvTask .td{font-size:11.5px;color:#5b6d73;line-height:1.35}'
   +'#fgDash .dvTask .go{flex:0 0 auto;background:#d6e9ff;color:#0a6ed1;border:0;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}'
   +'#fgDash .dvReopen{position:fixed;right:18px;bottom:18px;background:#17505c;color:#fff;border:0;border-radius:24px;padding:10px 16px;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(20,60,70,.3);z-index:60}'
+  /* Ansicht-Umschalter (Ralph 22.07.): klassisch <-> Vorgang 1:1 – oben im Dashboard, in beiden Modi sichtbar. */
+  +'#fgDash .dashSwitch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:#5b6d73}'
+  +'#fgDash .dashSwitch .grp{display:inline-flex;border:1px solid #cdd6d9;border-radius:9px;overflow:hidden}'
+  +'#fgDash .dashSwitch button{border:0;background:#fff;color:#39525a;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer}'
+  +'#fgDash .dashSwitch button.active{background:#17505c;color:#fff}'
+  +'#fgDash .dashSwitch .hint{font-size:11px;color:#8a9a9f}'
   +'body.dashFull #freigabeView>div{max-width:none !important;margin:0 !important}'   /* !important nötig: der Wrapper hat inline max-width:1040px (wie beim peLightBg-Fix 20z) */
   +'body.dashFull #freigabeView>div>h2{display:none}';   /* „Freigabe"-Überschrift nur im Dashboard weg – die neue Kopfleiste sagt es schon (Ralph 22.07.) */
   var s=document.createElement('style'); s.id='dashVorgangCss'; s.textContent=css; document.head.appendChild(s);
@@ -3191,7 +3415,12 @@ function balken(daten, opt){
 
 async function loadDashboard(){
   const box=document.getElementById("fgDash"); if(!box) return;
-  box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Kennzahlen…</div>';
+  dashVorgangCss(); dashV1Css();
+  var _ansicht = dashAnsichtGet();
+  var _sw = dashSwitchHtml(_ansicht);
+  /* Vorgang-1:1-Ansicht: statisches Layout (Platzhalter-Inhalte), kein Datenabruf nötig -> sofort da. */
+  if(_ansicht==='vorgang'){ box.innerHTML=_sw+dashV1Html(); return; }
+  box.innerHTML=_sw+'<div style="color:var(--muted);font-size:12.5px">Lade Kennzahlen…</div>';
   let d=null, fehler=null;
   try{
     const r=await client.rpc("cb_dashboard");
@@ -3202,7 +3431,7 @@ async function loadDashboard(){
     /* Den GRUND zeigen, nicht nur das Scheitern. Vorher stand hier ein leerer
        catch-Block - der Fehler wurde weggeworfen und war nicht mehr auffindbar. */
     const grund = fehler || (d && d.grund) || 'Die Funktion cb_dashboard hat nichts zurückgegeben.';
-    box.innerHTML='<div style="color:var(--k-dc2626);font-size:12.5px"><b>Dashboard nicht verfügbar.</b><br>'
+    box.innerHTML=_sw+'<div style="color:var(--k-dc2626);font-size:12.5px"><b>Dashboard nicht verfügbar.</b><br>'
       +'<span style="color:var(--muted);font-size:11.5px">Grund: '+esc(grund)+'</span></div>';
     try{ console.error('cb_dashboard:', fehler, d); }catch(_){}
     return;
@@ -3365,7 +3594,7 @@ async function loadDashboard(){
         +'<button class="go" onclick="dashDrill(\''+t.key+'\',\''+esc(t.tt)+'\')">öffnen</button></div>'; }).join('')
       +'</div><button class="dvReopen" id="dashHelpReopen" style="display:none" onclick="dashHelpOpen()">🧭 Aufgaben</button>' : '';
 
-  box.innerHTML = band + '<div class="dvGrid">'+rail+'<div>'+tabBar+pDq+pKat+pNutzer+pBetrieb+pWerk+'</div></div>'+help;
+  box.innerHTML = _sw + band + '<div class="dvGrid">'+rail+'<div>'+tabBar+pDq+pKat+pNutzer+pBetrieb+pWerk+'</div></div>'+help;
 
   /* Quellen-Wächter-Zahl separat nachladen (eigene RPC, nicht im großen cb_dashboard). */
   try{ client.rpc('cb_zutat_quelle_count').then(function(r){
@@ -6951,7 +7180,11 @@ function zusSeed(text){
     var em=tok.match(/\bE\s?\d{3,4}[a-z]?\b/i);
     var found=null;
     if(em) found=ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()];
-    if(!found){ var nm=tok.replace(/\(.*?\)/g,"").trim().toLowerCase(); found=ZUSATZSTOFFE_MAP[nm]; }
+    var nm=tok.replace(/\(.*?\)/g,"").trim().toLowerCase();
+    if(!found) found=ZUSATZSTOFFE_MAP[nm];
+    /* deutscher Name -> E-Nummer -> Stamm (der Stamm fuehrt englische Namen). Sonst zeigte
+       z.B. „Essigsäure" grau „ungeprüft", obwohl E260 im Stamm neutral/unbedenklich ist. Ralph 22.07. */
+    if(!found && typeof ZUS_SYN!=="undefined" && ZUS_SYN[nm]) found=ZUSATZSTOFFE_MAP[String(ZUS_SYN[nm]).toLowerCase()];
     if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
     else window._fgZus.push({e:null,name:tok.replace(/\s+/g," "),einst:"ungeprüft"});
   });
@@ -7024,7 +7257,7 @@ function zusAddNeu(){
 var ZUS_FUNKTION={"antioxidationsmittel":1,"antioxidans":1,"stabilisator":1,"stabilisatoren":1,"farbstoff":1,"farbstoffe":1,"säuerungsmittel":1,"saeuerungsmittel":1,"säureregulator":1,"saeureregulator":1,"konservierungsmittel":1,"konservierungsstoff":1,"emulgator":1,"emulgatoren":1,"verdickungsmittel":1,"geliermittel":1,"trennmittel":1,"süßungsmittel":1,"suessungsmittel":1,"süssungsmittel":1,"backtriebmittel":1,"trägerstoff":1,"traegerstoff":1,"feuchthaltemittel":1,"geschmacksverstärker":1,"geschmacksverstaerker":1,"aroma":1,"aromen":1,"überzugsmittel":1,"ueberzugsmittel":1,"festigungsmittel":1,"mehlbehandlungsmittel":1,"schaumverhüter":1,"komplexbildner":1,"packgas":1,"treibgas":1,"füllstoff":1};
 /* Häufige DEUTSCHE Zusatzstoff-Namen → E-Nummer (der Stamm führt englische Namen).
    Damit „Natriumnitrit" nicht als eigener grauer Eintrag neben „E250" landet. Erweiterbar. */
-var ZUS_SYN={"natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
+var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
 /* Rikis erkannte Zusatzstoffe automatisch in die Liste übernehmen (Ralph 21.07.2026:
    „warum muss ich das selber eintragen?"). Robust: E-Nummern zuerst; Text mit KLAMMER-Auflösung
    (Komma in der Klammer trennt NICHT die Substanz ab), Funktionswörter raus, deutsche Namen →
@@ -10630,7 +10863,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21u";
+const APP_BUILD = "2026-07-22a";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
