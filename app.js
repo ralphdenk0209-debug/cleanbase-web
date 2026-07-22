@@ -2390,6 +2390,7 @@ function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   ['dash','produkte','bundles','rezepte','scans','kontakt','empfehlungen','zuverif','regelwerk','produkterfassung'].forEach(function(k){ var b=document.getElementById('fgt'+k.charAt(0).toUpperCase()+k.slice(1)); if(b) b.classList.toggle('active',k===t); });
   if(t==='empfehlungen' && typeof renderEmpfehlungen==='function') renderEmpfehlungen();
   if(t==='zuverif' && typeof loadScans==='function') loadScans();
+  try{ document.body.classList.toggle('dashFull', t==='dash'); }catch(e){}   /* Dashboard nutzt volle Breite (Ralph 22.07.): den 1040px-Deckel des Freigabe-Wrappers nur hier aufheben */
   if(t==='dash' && typeof loadDashboard==='function') loadDashboard();
   if(t==='zuverif' && typeof loadZuVerif==='function') loadZuVerif();
   if(t==='regelwerk' && typeof loadRegelwerk==='function') loadRegelwerk();
@@ -3028,7 +3029,8 @@ function dashVorgangCss(){
   +'#fgDash .dvTask .tt{font-weight:700;font-size:12.5px}'
   +'#fgDash .dvTask .td{font-size:11.5px;color:#5b6d73;line-height:1.35}'
   +'#fgDash .dvTask .go{flex:0 0 auto;background:#d6e9ff;color:#0a6ed1;border:0;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}'
-  +'#fgDash .dvReopen{position:fixed;right:18px;bottom:18px;background:#17505c;color:#fff;border:0;border-radius:24px;padding:10px 16px;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(20,60,70,.3);z-index:60}';
+  +'#fgDash .dvReopen{position:fixed;right:18px;bottom:18px;background:#17505c;color:#fff;border:0;border-radius:24px;padding:10px 16px;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(20,60,70,.3);z-index:60}'
+  +'body.dashFull #freigabeView>div{max-width:none;margin:0}';
   var s=document.createElement('style'); s.id='dashVorgangCss'; s.textContent=css; document.head.appendChild(s);
 }
 function dashTab(el,id){
@@ -10497,7 +10499,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21o";
+const APP_BUILD = "2026-07-21p";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
