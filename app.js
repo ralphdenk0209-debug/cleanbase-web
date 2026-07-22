@@ -2670,9 +2670,17 @@ async function loadProduktErfassung(){
 function peMenu(kind,anchor){
   var ctx=document.getElementById('peCtx'); if(!ctx) return;
   var it=function(txt,fn){ return '<button onclick="document.getElementById(\'peCtx\').style.display=\'none\';'+fn+'" style="display:block;width:100%;text-align:left;background:none;border:0;color:#1f2a44;padding:8px 11px;border-radius:7px;font-size:13px;cursor:pointer">'+txt+'</button>'; };
-  var html= kind==='akt'
-    ? it('↻ Liste neu laden','loadProduktErfassung()')+it('⚑ Nur markierte zeigen','peChip(\'markiert\')')+it('🧹 Filter zurücksetzen','peChip(\'alle\')')
-    : it('↕ Sortierung: neueste','peSetSort(\'neu\')')+it('↕ Sortierung: Score aufsteigend','peSetSort(\'score\')')+it('↕ Sortierung: Titel A–Z','peSetSort(\'titel\')');
+  var html;
+  if(kind==='akt'){
+    html= it('↻ Liste neu laden','loadProduktErfassung()')+it('⚑ Nur markierte zeigen','peChip(\'markiert\')')+it('🧹 Filter zurücksetzen','peChip(\'alle\')');
+  } else {
+    var _cur=(typeof feAnsichtGet==='function')?feAnsichtGet():'klassisch';
+    var _sep='<div style="height:1px;background:#e2e8ef;margin:4px 6px"></div>';
+    html= it('↕ Sortierung: neueste','peSetSort(\'neu\')')+it('↕ Sortierung: Score aufsteigend','peSetSort(\'score\')')+it('↕ Sortierung: Titel A–Z','peSetSort(\'titel\')')
+      +_sep+'<div style="padding:5px 11px 3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#9aa7b2;font-weight:800">Editor-Ansicht</div>'
+      +it((_cur==='klassisch'?'✓ ':'')+'Klassisch','feAnsichtSet(\'klassisch\')')
+      +it((_cur==='vorgang'?'✓ ':'')+'Vorgang (Phasenleiste + Ampel)','feAnsichtSet(\'vorgang\')');
+  }
   ctx.innerHTML=html; ctx.style.display='block';
   var rc=anchor.getBoundingClientRect(); var w=ctx.offsetWidth,h=ctx.offsetHeight;
   ctx.style.left=Math.min(rc.left,innerWidth-w-6)+'px'; ctx.style.top=Math.min(rc.bottom+4,innerHeight-h-6)+'px';
@@ -7375,7 +7383,7 @@ async function openFgEditor(id, prefill, targetEl){
       if(ef && ef.ok && Array.isArray(ef.fotos)) _etikett=ef.fotos;
     }catch(e){}
   }
-  window._fgEdit={ id:id, bild_url:d.bild_url||"",
+  window._fgEdit={ id:id, bild_url:d.bild_url||"", status:String(d.status||""),
                    etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[],
                    ean_status:String(d.ean_status||d.EAN_Status||"") };
   /* Riki-Referenz (rechte Box): beim Öffnen zuerst die in DIESER Sitzung gemerkte Referenz nehmen
@@ -7558,6 +7566,7 @@ async function openFgEditor(id, prefill, targetEl){
     (async function(){ try{ await loadZusatzstoffeStamm(); zusSeed(d.zusatzstoffe_text||""); zusRenderSel(); zusRenderPick(); }catch(e){} })();
     try{ fgEtikettRender(); }catch(e){}   /* angehängte Fotos (Laden + selbst hochgeladen) rendern */
     try{ feEanSync(); }catch(e){}   /* fehlt die EAN, „offen"-Haken automatisch setzen */
+    try{ if(typeof feAnsichtGet==="function" && feAnsichtGet()==="vorgang") feVorgangApply(); }catch(e){}   /* 2. Ansicht „Vorgang" (Ralph): rein ADDITIVER Rahmen um denselben Editor – kein Feld, kein Speicher-Weg verändert */
   if(!targetEl) document.getElementById("overlay").classList.add("open");
 }
 /* Kategorie-Wechsel im Editor: bei „Supplement" heisst die Zutaten-Sektion „Wirkstoffe"
@@ -7826,7 +7835,99 @@ function fePlaus(){
   }
   try{ feReqBorders(); }catch(e){}
   try{ if(typeof feScorePreview==="function") feScorePreview(); }catch(e){}
+  try{ if(typeof feVorgangSync==="function") feVorgangSync(); }catch(e){}   /* Vorgangs-Ansicht (falls aktiv): Phasenleiste + Ampel live mitziehen */
 }
+
+/* ===== 2. Ansicht „Vorgang" (Ralph 22.07.2026) =========================================
+   Ralphs Wunsch: den Editor auf Wunsch im Stil seines Screenshots (Phasenleiste oben +
+   Status-/Ampel-Schiene links) zeigen, umschaltbar über ⚙ Einstellungen.
+   WICHTIG (Ralph: „beim Übertrag nichts vergessen"): Es gibt KEINEN zweiten Editor und
+   KEINE Kopie der Felder. Der bestehende Editor (#fe_grid mit allen Karten, Feldern,
+   Riki-Knöpfen, Speicher-Weg) bleibt zu 100 % unangetastet. Die „Vorgang"-Ansicht legt nur
+   einen ADDITIVEN Rahmen darum: eine Phasenleiste davor und eine Ampel-Schiene daneben, beide
+   NUR ABGELEITET aus den echten Feldern bzw. gespiegelt aus der bereits berechneten Freigabe-
+   Zeile (#fe_riegel). Damit kann per Definition kein Feld „vergessen" werden – es wird keins
+   neu getippt. Die Einstellung liegt lokal im Gerät (localStorage), kein DB-Schema nötig. */
+function feAnsichtGet(){ try{ return localStorage.getItem("ri_editor_ansicht")==="vorgang"?"vorgang":"klassisch"; }catch(e){ return "klassisch"; } }
+function feAnsichtSet(v){
+  v=(v==="vorgang")?"vorgang":"klassisch";
+  try{ localStorage.setItem("ri_editor_ansicht",v); }catch(e){}
+  /* Ist gerade ein Editor offen, den Rahmen LIVE ein-/ausblenden – ohne Neu-Öffnen, damit
+     laufende Eingaben erhalten bleiben (es werden nur DOM-Knoten verschoben, keine neu gebaut). */
+  try{ if(document.getElementById("fe_grid")){ if(v==="vorgang") feVorgangApply(); else feVorgangRemove(); } }catch(e){}
+}
+/* Phasenleiste oben – Zustand rein aus den Feldern abgeleitet (grün = erledigt, dunkel = aktuell,
+   grau = offen). Nichts erfunden: nur, was wirklich ausgefüllt ist. */
+function feVorgangStepperHtml(){
+  var val=function(id){ return ((document.getElementById(id)||{}).value||"").trim(); };
+  var kat=val("fe_kat"); var supp=(kat.toLowerCase()==="supplement");
+  var zN=[].slice.call(document.querySelectorAll("#fe_zutRows .fgzName")).filter(function(e){return (e.value||"").trim();}).length;
+  var nwOk=supp||(val("fe_kcal")&&val("fe_kh")&&val("fe_fett")&&val("fe_protein"));
+  var zusEl=document.getElementById("fe_ztext"); var zusOk=!!(zusEl&&(zusEl.value||"").trim()!=="");
+  var readyEl=document.getElementById("fe_ready"); var bewOk=!!(readyEl&&/Bereit/.test(readyEl.textContent||""));
+  var status=((window._fgEdit&&window._fgEdit.status)||"").toLowerCase(); var freiOk=/aktiv/.test(status);
+  var phases=[
+    {nm:"Stammdaten",ic:"📋",done:!!(val("fe_name")&&val("fe_marke")&&kat)},
+    {nm:(supp?"Wirkstoffe":"Zutaten"),ic:"🥣",done:zN>0},
+    {nm:(supp?"Nährwerte n.a.":"Nährwerte"),ic:"🔬",done:!!nwOk},
+    {nm:"Zusatzstoffe",ic:"⚗️",done:zusOk},
+    {nm:"Bewertung",ic:"📊",done:bewOk},
+    {nm:"Freigabe",ic:"✅",done:freiOk}
+  ];
+  var act=-1; for(var i=0;i<phases.length;i++){ if(!phases[i].done){ act=i; break; } }
+  return phases.map(function(p,i){
+    var active=(i===act);
+    var bg=active?"var(--green,#1D3C24)":(p.done?"#eaf5ee":"#fff");
+    var col=active?"#fff":(p.done?"#2f6f47":"var(--muted)");
+    return '<div style="flex:1;text-align:center;padding:10px 6px;background:'+bg+';color:'+col+';min-width:0">'
+      +'<div style="font-size:17px;line-height:1">'+p.ic+'</div>'
+      +'<div style="font-weight:700;font-size:11.5px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+((p.done&&!active)?"✓ ":"")+p.nm+'</div>'
+      +'</div>';
+  }).join("");
+}
+/* Ampel-Schiene links – spiegelt NUR die bereits berechnete Freigabe-Zeile (#fe_riegel).
+   Eine Regel, ein Ort: fePlaus bleibt die einzige Wahrheit; hier wird nichts neu geprüft. */
+function feVorgangRailHtml(){
+  return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;position:sticky;top:8px">'
+    +'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;margin-bottom:10px">Freigabe-Ampel</div>'
+    +'<div id="feVorgangAmpel" style="font-size:12px;line-height:1.4"></div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:10px;padding-top:8px;border-top:1px solid var(--line);line-height:1.4">Alles ✓ und grün → die Freigabe unten ist frei. ⚠ zeigt, was noch fehlt.</div>'
+    +'</div>';
+}
+function feVorgangSync(){
+  try{ var st=document.getElementById("feVorgangStepper"); if(st) st.innerHTML=feVorgangStepperHtml(); }catch(e){}
+  try{
+    var rg=document.getElementById("fe_riegel"), amp=document.getElementById("feVorgangAmpel");
+    if(rg&&amp){
+      var kids=[].slice.call(rg.children);
+      amp.innerHTML = kids.length
+        ? kids.map(function(sp){ return '<div style="padding:6px 0;border-bottom:1px dashed #eef1f3">'+sp.outerHTML+'</div>'; }).join("")
+        : '<span style="color:var(--muted)">Trag zuerst die Basisdaten ein.</span>';
+    }
+  }catch(e){}
+}
+function feVorgangApply(){
+  var grid=document.getElementById("fe_grid"); if(!grid) return;
+  if(document.getElementById("feVorgangWrap")){ feVorgangSync(); return; }   /* schon aktiv */
+  var step=document.createElement("div"); step.id="feVorgangStepper";
+  step.style.cssText="display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:12px;background:#fff";
+  var wrap=document.createElement("div"); wrap.id="feVorgangWrap";
+  var narrow=(window.innerWidth<1100);
+  wrap.style.cssText="display:grid;grid-template-columns:"+(narrow?"1fr":"236px minmax(0,1fr)")+";gap:14px;align-items:start";
+  var rail=document.createElement("div"); rail.id="feVorgangRail"; rail.innerHTML=feVorgangRailHtml();
+  var parent=grid.parentNode; if(!parent) return;
+  parent.insertBefore(step, grid);   /* Phasenleiste vor das Raster */
+  parent.insertBefore(wrap, grid);   /* Wrapper an die Stelle des Rasters … */
+  wrap.appendChild(rail); wrap.appendChild(grid);   /* … und Schiene + UNVERÄNDERTES Raster hineinziehen */
+  feVorgangSync();
+}
+function feVorgangRemove(){
+  var wrap=document.getElementById("feVorgangWrap"), grid=document.getElementById("fe_grid"), step=document.getElementById("feVorgangStepper");
+  try{ if(wrap&&grid){ wrap.parentNode.insertBefore(grid, wrap); wrap.remove(); } }catch(e){}   /* Raster zurück an seinen Platz */
+  try{ if(step) step.remove(); }catch(e){}
+}
+if(typeof window!=="undefined"){ window.feAnsichtSet=feAnsichtSet; window.feAnsichtGet=feAnsichtGet; window.feVorgangApply=feVorgangApply; window.feVorgangRemove=feVorgangRemove; window.feVorgangSync=feVorgangSync; }
+
 /* Kaskade 1: Nährwerte + Name + Zutaten-Text aus OFF holen (OFF wird vertraut -> Quelle_Typ gesetzt). */
 async function fgPullOff(){
   var msg=document.getElementById("fe_pullMsg");
@@ -10288,7 +10389,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21m";
+const APP_BUILD = "2026-07-21n";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
