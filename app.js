@@ -3003,12 +3003,12 @@ function dashVorgangCss(){
   +'#fgDash .dvRail .lbl{font-weight:800;letter-spacing:1px;color:#1c6a7a;font-size:10.5px;text-transform:uppercase;margin-bottom:10px}'
   +'#fgDash .dvStep{display:flex;gap:9px}'
   +'#fgDash .dvStep .dc{display:flex;flex-direction:column;align-items:center;flex:0 0 auto}'
-  +'#fgDash .dvStep .dot{width:13px;height:13px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #cfd9dd;margin-top:3px}'
+  +'#fgDash .dvStep .dot{width:20px;height:20px;border-radius:50%;margin-top:1px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;line-height:1}'
   +'#fgDash .dvStep .line{flex:1;width:2px;background:#dde4e6;margin:2px 0}'
   +'#fgDash .dvStep:last-child .line{display:none}'
-  +'#fgDash .dot-err{background:#bb0000;box-shadow:0 0 0 1px #bb0000}'
-  +'#fgDash .dot-warn{background:#e9730c;box-shadow:0 0 0 1px #e9730c}'
-  +'#fgDash .dot-ok{background:#107e3e;box-shadow:0 0 0 1px #107e3e}'
+  +'#fgDash .dot-err{background:#bb0000}'
+  +'#fgDash .dot-warn{background:#e9730c}'
+  +'#fgDash .dot-ok{background:#107e3e}'
   +'#fgDash .dvStep .tx{padding:1px 0 11px;min-width:0;flex:1}'
   +'#fgDash .dvStep .tx.klick{cursor:pointer}'
   +'#fgDash .dvStep .tx.klick:hover .t{color:#0a6ed1}'
@@ -3030,7 +3030,8 @@ function dashVorgangCss(){
   +'#fgDash .dvTask .td{font-size:11.5px;color:#5b6d73;line-height:1.35}'
   +'#fgDash .dvTask .go{flex:0 0 auto;background:#d6e9ff;color:#0a6ed1;border:0;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}'
   +'#fgDash .dvReopen{position:fixed;right:18px;bottom:18px;background:#17505c;color:#fff;border:0;border-radius:24px;padding:10px 16px;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(20,60,70,.3);z-index:60}'
-  +'body.dashFull #freigabeView>div{max-width:none;margin:0}';
+  +'body.dashFull #freigabeView>div{max-width:none;margin:0}'
+  +'body.dashFull #freigabeView>div>h2{display:none}';   /* „Freigabe"-Überschrift nur im Dashboard weg – die neue Kopfleiste sagt es schon (Ralph 22.07.) */
   var s=document.createElement('style'); s.id='dashVorgangCss'; s.textContent=css; document.head.appendChild(s);
 }
 function dashTab(el,id){
@@ -3133,9 +3134,10 @@ async function loadDashboard(){
   /* Wächter als Fortschritts-/Ampel-Schiene links – jeder Punkt klickbar (Drill zu den Betroffenen). */
   var railStep=function(label,val,info,key,sev){
     var dot=sev==='ok'?'dot-ok':(sev==='warn'?'dot-warn':'dot-err');
+    var sym=sev==='ok'?'✓':(sev==='warn'?'!':'✕');   /* Symbol im Punkt: eindeutig, auch ohne Farbe (Ralph 22.07.) */
     var kl=(key && Number(val)>0);
     var open=kl?' class="tx klick" onclick="dashDrill(\''+key+'\',\''+esc(label)+'\')" title="Betroffene anzeigen"':' class="tx"';
-    return '<li class="dvStep"><div class="dc"><div class="dot '+dot+'"></div><div class="line"></div></div>'
+    return '<li class="dvStep"><div class="dc"><div class="dot '+dot+'">'+sym+'</div><div class="line"></div></div>'
       +'<div'+open+'><div class="t">'+esc(label)+' <b>'+val+'</b></div><div class="d">'+esc(info)+'</div></div></li>';
   };
   var rail='<div class="dvRail"><div class="lbl">Freigabe-Bereitschaft</div><ul style="list-style:none;margin:0;padding:0">'
@@ -10499,7 +10501,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21p";
+const APP_BUILD = "2026-07-21q";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
