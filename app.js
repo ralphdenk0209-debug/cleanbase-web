@@ -2967,6 +2967,80 @@ async function dashDrill(key, titel){
   }catch(e){ var b=document.getElementById('drillBody'); if(b) b.innerHTML='<span style="color:var(--k-dc2626)">Fehler: '+esc((e&&e.message)||String(e))+'</span>'; }
 }
 
+/* ===== Dashboard „Vorgangs"-Ansicht (Ralph 22.07.2026) =================================
+   Ralph will das Dashboard im Stil seines Vorgangs-Tools: dunkle Kopfleiste, die Wächter als
+   Fortschritts-/Ampel-Schiene links, klickbare Reiter, und eine Benutzerführung, die die
+   Aufgaben NACH DRINGLICHKEIT auflistet – jede mit „öffnen"-Sprung. WICHTIG (wie beim Editor):
+   Die Inhalte bleiben dieselben Bausteine (kpi/R/CARD/balken + Drill über cb_dashboard_drill),
+   nur neu angeordnet. Nichts wird gedoppelt, kein Zähler neu erfunden – die Farben/der Rahmen
+   sind Darstellung. Der Drill (Klick → betroffene Produkte, direkt bearbeitbar) ist der schon
+   vorhandene dashDrill(); die Ampel-Schiene und die Benutzerführung rufen genau ihn auf. */
+function dashVorgangCss(){
+  if(document.getElementById('dashVorgangCss')) return;
+  /* Wie peLightCssInject: die --k-<hex>-Tokens tragen ihren Hellwert im Namen (im Dunkelmodus
+     sind sie umgemappt) – hier für #fgDash auf die Hellwerte zurücksetzen, damit das Dashboard
+     im hellen „Vorgangs"-Look erscheint, ohne den restlichen Admin anzufassen. */
+  var toks={};
+  try{ for(var i=0;i<document.styleSheets.length;i++){ var rules=null; try{ rules=document.styleSheets[i].cssRules; }catch(e){ rules=null; } if(!rules) continue;
+    for(var j=0;j<rules.length;j++){ var st=rules[j].style; if(!st||!st.length) continue; for(var k2=0;k2<st.length;k2++){ var p=st[k2]; if(/^--k-[0-9a-f]{6}$/.test(p)) toks[p]='#'+p.slice(4); } } } }catch(e){}
+  var tokCss=''; for(var key in toks){ tokCss+=key+':'+toks[key]+';'; }
+  var css=
+   '#fgDash{color-scheme:light;color:#22343a;'+tokCss+'--bg:#eaeef0;--card:#ffffff;--ink:#22343a;--muted:#5b6d73;--line:#d9e1e4;--green:#107e3e;--auf-gruen:#ffffff;--shadow:0 10px 40px rgba(0,0,0,.18)}'
+  +'#fgDash input,#fgDash select{color-scheme:light;background:#fff;color:#22343a;border-color:#d3dbe6}'
+  +'#fgDash .dvBand{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#17505c;color:#eaf4f6;padding:12px 18px;border-radius:12px 12px 0 0}'
+  +'#fgDash .dvBand h2{font-size:18px;margin:0;font-weight:800}'
+  +'#fgDash .dvStatus{background:#ffe1de;color:#a11111;font-weight:800;font-size:11px;letter-spacing:.4px;padding:4px 11px;border-radius:20px;text-transform:uppercase}'
+  +'#fgDash .dvStatus.ok{background:#dff3e6;color:#0d6b34}'
+  +'#fgDash .dvBand .r{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:12.5px}'
+  +'#fgDash .dvBand .btn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:12.5px}'
+  +'#fgDash .dvMeta{display:flex;gap:24px;flex-wrap:wrap;padding:11px 18px;background:#fff;border:1px solid #d9e1e4;border-top:0;border-radius:0 0 12px 12px;font-size:12.5px;margin-bottom:14px}'
+  +'#fgDash .dvMeta b{display:block;color:#5b6d73;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px}'
+  +'#fgDash .dvMeta span{font-weight:700}'
+  +'#fgDash .dvGrid{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px;align-items:start}'
+  +'@media(max-width:1100px){#fgDash .dvGrid{grid-template-columns:1fr}}'
+  +'#fgDash .dvRail{background:#fff;border:1px solid #d9e1e4;border-radius:12px;padding:13px;position:sticky;top:8px}'
+  +'#fgDash .dvRail .lbl{font-weight:800;letter-spacing:1px;color:#1c6a7a;font-size:10.5px;text-transform:uppercase;margin-bottom:10px}'
+  +'#fgDash .dvStep{display:flex;gap:9px}'
+  +'#fgDash .dvStep .dc{display:flex;flex-direction:column;align-items:center;flex:0 0 auto}'
+  +'#fgDash .dvStep .dot{width:13px;height:13px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #cfd9dd;margin-top:3px}'
+  +'#fgDash .dvStep .line{flex:1;width:2px;background:#dde4e6;margin:2px 0}'
+  +'#fgDash .dvStep:last-child .line{display:none}'
+  +'#fgDash .dot-err{background:#bb0000;box-shadow:0 0 0 1px #bb0000}'
+  +'#fgDash .dot-warn{background:#e9730c;box-shadow:0 0 0 1px #e9730c}'
+  +'#fgDash .dot-ok{background:#107e3e;box-shadow:0 0 0 1px #107e3e}'
+  +'#fgDash .dvStep .tx{padding:1px 0 11px;min-width:0;flex:1}'
+  +'#fgDash .dvStep .tx.klick{cursor:pointer}'
+  +'#fgDash .dvStep .tx.klick:hover .t{color:#0a6ed1}'
+  +'#fgDash .dvStep .tx .t{font-weight:700;font-size:12.5px;display:flex;justify-content:space-between;gap:8px}'
+  +'#fgDash .dvStep .tx .d{color:#5b6d73;font-size:11px}'
+  +'#fgDash .dvTabs{display:flex;border:1px solid #d9e1e4;border-radius:12px;overflow:hidden;background:#fff;margin-bottom:14px}'
+  +'#fgDash .dvTab{flex:1;text-align:center;padding:11px 6px;font-size:12.5px;font-weight:700;color:#5b6d73;cursor:pointer}'
+  +'#fgDash .dvTab .ic{font-size:15px;display:block;line-height:1;margin-bottom:3px}'
+  +'#fgDash .dvTab:hover{background:#f1f5f6}'
+  +'#fgDash .dvTab.active{background:#17505c;color:#fff}'
+  +'#fgDash .dvHelp{position:fixed;right:18px;bottom:18px;width:322px;background:#fff;border:1px solid #bcd3dc;border-radius:14px;box-shadow:0 14px 38px rgba(20,60,70,.26);overflow:hidden;z-index:60}'
+  +'#fgDash .dvHelp .hh{display:flex;align-items:center;gap:8px;background:#17505c;color:#eaf4f6;padding:10px 13px;font-weight:800;font-size:12px}'
+  +'#fgDash .dvHelp .hh .x{margin-left:auto;cursor:pointer;opacity:.85}'
+  +'#fgDash .dvHelp .hsub{padding:8px 13px 3px;font-size:11.5px;color:#5b6d73}'
+  +'#fgDash .dvTask{display:flex;gap:9px;align-items:center;padding:9px 13px;border-top:1px solid #eef2f3}'
+  +'#fgDash .dvTask .pri{flex:0 0 auto;width:19px;height:19px;border-radius:50%;font-size:11px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center}'
+  +'#fgDash .dvTask .body{flex:1;min-width:0}'
+  +'#fgDash .dvTask .tt{font-weight:700;font-size:12.5px}'
+  +'#fgDash .dvTask .td{font-size:11.5px;color:#5b6d73;line-height:1.35}'
+  +'#fgDash .dvTask .go{flex:0 0 auto;background:#d6e9ff;color:#0a6ed1;border:0;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}'
+  +'#fgDash .dvReopen{position:fixed;right:18px;bottom:18px;background:#17505c;color:#fff;border:0;border-radius:24px;padding:10px 16px;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(20,60,70,.3);z-index:60}';
+  var s=document.createElement('style'); s.id='dashVorgangCss'; s.textContent=css; document.head.appendChild(s);
+}
+function dashTab(el,id){
+  var root=document.getElementById('fgDash'); if(!root) return;
+  root.querySelectorAll('.dvTab').forEach(function(t){ t.classList.remove('active'); });
+  if(el) el.classList.add('active');
+  root.querySelectorAll('.dvPanel').forEach(function(p){ p.style.display='none'; });
+  var t=document.getElementById(id); if(t) t.style.display='';
+}
+function dashHelpClose(){ var h=document.getElementById('dashHelp'); if(h) h.style.display='none'; var r=document.getElementById('dashHelpReopen'); if(r) r.style.display=''; }
+function dashHelpOpen(){ var h=document.getElementById('dashHelp'); if(h) h.style.display=''; var r=document.getElementById('dashHelpReopen'); if(r) r.style.display='none'; }
+
 /* Balkendiagramm ohne Fremdbibliothek – reines SVG. */
 function balken(daten, opt){
   opt=opt||{};
@@ -3039,98 +3113,132 @@ async function loadDashboard(){
     return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;margin-top:8px">'
       +'<div style="font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:6px">'+titel+'</div>'+inner+'</div>'; };
 
-  box.innerHTML =
-     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">'
-       +'<span style="font-size:11.5px;color:var(--muted)">Stand '+(new Date()).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+' Uhr · Daten live aus der Datenbank</span>'
-       +'<button onclick="loadDashboard()" style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;font-weight:600">↻ Aktualisieren</button>'
-     +'</div>'
-    +H("🛡️ Datenqualität &ndash; die Wächter")
-    +R(
-       kpi("Regelverstöße", q.w_zutaten_regeln||0, (q.w_zutaten_regeln?"var(--k-dc2626)":"var(--k-16a34a)"), "Zutaten-Stamm", "regelverstoesse")
-      +kpi("Widersprüche", q.w_widersprueche||0, (q.w_widersprueche?"var(--k-dc2626)":"var(--k-16a34a)"), "gleicher Stoff", "widersprueche")
-      +kpi("Nährwerte", q.w_naehrwerte||0, (q.w_naehrwerte?"var(--k-dc2626)":"var(--k-16a34a)"), "unplausibel", "naehrwerte")
-      +kpi("Portionsfalle", q.w_portionsfalle||0, (q.w_portionsfalle?"var(--k-dc2626)":"var(--k-16a34a)"), "kcal zu niedrig", "portionsfalle")
-     )
-    +'<div style="margin-top:7px;padding:8px 10px;border-radius:9px;font-size:12.5px;'
-      +'background:'+(wSumme?"var(--k-fdeceb)":"var(--k-e7f4ec)")+';color:'+(wSumme?"var(--k-9b2c22)":"var(--k-1f5e34)")+'">'
-      +(wSumme? '<b>'+wSumme+' offene Punkte.</b> Go-Live-Gate ist zu.' : '<b>Alle Wächter auf 0.</b> Go-Live-Gate ist offen.')
-      +'</div>'
-    +R(
-       kpi("unverifiziert", q.unverifiziert||0, (q.unverifiziert?"var(--k-e8920c)":"var(--k-16a34a)"), "ohne Beleg", "unverifiziert")
-      +kpi("ohne Quelle", q.ohne_quelle||0, (q.ohne_quelle?"var(--k-e8920c)":"var(--k-16a34a)"), "", "ohne_quelle")
-      +kpi("ohne Score", q.ohne_score||0, (q.ohne_score?"var(--k-e8920c)":"var(--k-16a34a)"), "unvollständig", "ohne_score")
-     )
+  dashVorgangCss();
 
-    +H("📦 Katalog")
-    +R(
-       kpi("aktiv", k.aktiv||0, "var(--k-1d3c24)", "Ø Score "+(k.schnitt_score!=null?k.schnitt_score:"–"))
-      +kpi("Entwurf", k.entwurf||0, "var(--muted)", "nicht sichtbar")
-      +kpi("Marken", k.markenprodukte||0, "var(--k-1d3c24)", "scanbar")
-      +kpi("Barcode offen", k.ean_fehlt||0, (k.ean_fehlt?"var(--k-e8920c)":"var(--k-16a34a)"), "nachzutragen")
-     )
-    +'<div style="margin-top:6px;padding:8px 10px;border-radius:9px;background:var(--k-f2f5f3);font-size:11.5px;'
-      +'line-height:1.5;color:var(--k-5a6660)">Die <b>'+(k.generisch||0)+' generischen Rohstoffe</b> (Apfel, Brokkoli, Ei …) '
-      +'sind hier <b>nicht</b> mitgezählt &ndash; lose Ware hat keinen Barcode und braucht auch keinen. '
-      +'„Barcode offen" meint echte Markenprodukte, deren Code wir noch nicht erfasst haben.</div>'
+  /* Kopf im Vorgangs-Stil: dunkle Leiste mit Titel + Go-Live-Status, darunter die Kennzahlen. */
+  var band='<div class="dvBand"><h2>Freigabe · Dashboard</h2>'
+    +'<span class="dvStatus'+(wSumme?'':' ok')+'">'+(wSumme?'⚠ Go-Live-Gate ZU':'✓ Go-Live-Gate offen')+'</span>'
+    +'<div class="r"><span>Stand '+(new Date()).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+' Uhr · live aus der Datenbank</span>'
+    +'<button class="btn" onclick="loadDashboard()">↻ Aktualisieren</button></div></div>'
+    +'<div class="dvMeta">'
+    +'<div><b>Aktive Produkte</b><span>'+(k.aktiv||0)+'</span></div>'
+    +'<div><b>Ø Score</b><span>'+(k.schnitt_score!=null?k.schnitt_score:'–')+'</span></div>'
+    +'<div><b>Marken</b><span>'+(k.markenprodukte||0)+'</span></div>'
+    +'<div><b>Generische Rohstoffe</b><span>'+(k.generisch||0)+'</span></div>'
+    +'<div><b>Offene Punkte</b><span style="color:'+(wSumme?'#bb0000':'#107e3e')+'">'+wSumme+'</span></div>'
+    +'</div>';
+
+  /* Wächter als Fortschritts-/Ampel-Schiene links – jeder Punkt klickbar (Drill zu den Betroffenen). */
+  var railStep=function(label,val,info,key,sev){
+    var dot=sev==='ok'?'dot-ok':(sev==='warn'?'dot-warn':'dot-err');
+    var kl=(key && Number(val)>0);
+    var open=kl?' class="tx klick" onclick="dashDrill(\''+key+'\',\''+esc(label)+'\')" title="Betroffene anzeigen"':' class="tx"';
+    return '<li class="dvStep"><div class="dc"><div class="dot '+dot+'"></div><div class="line"></div></div>'
+      +'<div'+open+'><div class="t">'+esc(label)+' <b>'+val+'</b></div><div class="d">'+esc(info)+'</div></div></li>';
+  };
+  var rail='<div class="dvRail"><div class="lbl">Freigabe-Bereitschaft</div><ul style="list-style:none;margin:0;padding:0">'
+    +railStep('Regelverstöße', q.w_zutaten_regeln||0,'Zutaten-Stamm','regelverstoesse',(q.w_zutaten_regeln?'err':'ok'))
+    +railStep('Widersprüche', q.w_widersprueche||0,'gleicher Stoff','widersprueche',(q.w_widersprueche?'err':'ok'))
+    +railStep('Nährwerte', q.w_naehrwerte||0,'unplausibel','naehrwerte',(q.w_naehrwerte?'err':'ok'))
+    +railStep('Portionsfalle', q.w_portionsfalle||0,'kcal zu niedrig','portionsfalle',(q.w_portionsfalle?'err':'ok'))
+    +railStep('ohne Quelle', q.ohne_quelle||0,'blockiert Freigabe','ohne_quelle',(q.ohne_quelle?'err':'ok'))
+    +railStep('unverifiziert', q.unverifiziert||0,'ohne Beleg','unverifiziert',(q.unverifiziert?'warn':'ok'))
+    +railStep('ohne Score', q.ohne_score||0,'unvollständig','ohne_score',(q.ohne_score?'warn':'ok'))
+    +'</ul>'
+    +'<div style="margin-top:6px;background:'+(wSumme?'#ffe5e5':'#e5f3ea')+';border:1px solid '+(wSumme?'#f3b4a9':'#bfe0c9')+';border-radius:8px;text-align:center;padding:9px;font-size:12.5px;font-weight:800;color:'+(wSumme?'#bb0000':'#107e3e')+'">'
+      +(wSumme?('Go-Live-Gate ist ZU<br><span style="font-weight:600;color:#a9584c;font-size:11px">'+wSumme+' offene Punkte</span>'):'Go-Live-Gate offen<br><span style="font-weight:600;color:#4a7a58;font-size:11px">alle Wächter auf 0</span>')
+    +'</div></div>';
+
+  /* Klickbare Reiter */
+  var tabBar='<div class="dvTabs">'
+    +'<div class="dvTab active" onclick="dashTab(this,\'dvPanel_dq\')"><span class="ic">🛡️</span>Datenqualität</div>'
+    +'<div class="dvTab" onclick="dashTab(this,\'dvPanel_kat\')"><span class="ic">📦</span>Katalog</div>'
+    +'<div class="dvTab" onclick="dashTab(this,\'dvPanel_nutzer\')"><span class="ic">👥</span>Nutzer</div>'
+    +'<div class="dvTab" onclick="dashTab(this,\'dvPanel_betrieb\')"><span class="ic">📷</span>Betrieb</div>'
+    +'<div class="dvTab" onclick="dashTab(this,\'dvPanel_werk\')"><span class="ic">🔧</span>Werkzeuge</div>'
+    +'</div>';
+
+  /* Panels – dieselben Bausteine (kpi/R/CARD/balken) wie zuvor, nur nach Reiter gruppiert.
+     Alle Zähler/Drills bleiben erhalten – nur die Anordnung ist neu. */
+  var pDq='<div id="dvPanel_dq" class="dvPanel">'
+    +R( kpi("Regelverstöße", q.w_zutaten_regeln||0, (q.w_zutaten_regeln?"var(--k-dc2626)":"var(--k-16a34a)"), "Zutaten-Stamm", "regelverstoesse")
+       +kpi("Widersprüche", q.w_widersprueche||0, (q.w_widersprueche?"var(--k-dc2626)":"var(--k-16a34a)"), "gleicher Stoff", "widersprueche")
+       +kpi("Nährwerte", q.w_naehrwerte||0, (q.w_naehrwerte?"var(--k-dc2626)":"var(--k-16a34a)"), "unplausibel", "naehrwerte")
+       +kpi("Portionsfalle", q.w_portionsfalle||0, (q.w_portionsfalle?"var(--k-dc2626)":"var(--k-16a34a)"), "kcal zu niedrig", "portionsfalle") )
+    +R( kpi("unverifiziert", q.unverifiziert||0, (q.unverifiziert?"var(--k-e8920c)":"var(--k-16a34a)"), "ohne Beleg", "unverifiziert")
+       +kpi("ohne Quelle", q.ohne_quelle||0, (q.ohne_quelle?"var(--k-e8920c)":"var(--k-16a34a)"), "Freigabe blockiert", "ohne_quelle")
+       +kpi("ohne Score", q.ohne_score||0, (q.ohne_score?"var(--k-e8920c)":"var(--k-16a34a)"), "unvollständig", "ohne_score") )
+    +'</div>';
+  var pKat='<div id="dvPanel_kat" class="dvPanel" style="display:none">'
+    +R( kpi("aktiv", k.aktiv||0, "var(--k-1d3c24)", "Ø Score "+(k.schnitt_score!=null?k.schnitt_score:"–"))
+       +kpi("Entwurf", k.entwurf||0, "var(--muted)", "nicht sichtbar")
+       +kpi("Marken", k.markenprodukte||0, "var(--k-1d3c24)", "scanbar")
+       +kpi("Barcode offen", k.ean_fehlt||0, (k.ean_fehlt?"var(--k-e8920c)":"var(--k-16a34a)"), "nachzutragen") )
+    +'<div style="margin-top:6px;padding:8px 10px;border-radius:9px;background:var(--k-f2f5f3);font-size:11.5px;line-height:1.5;color:var(--k-5a6660)">Die <b>'+(k.generisch||0)+' generischen Rohstoffe</b> (Apfel, Brokkoli, Ei …) sind hier <b>nicht</b> mitgezählt &ndash; lose Ware hat keinen Barcode und braucht auch keinen. „Barcode offen" meint echte Markenprodukte, deren Code wir noch nicht erfasst haben.</div>'
     +CARD("Score-Verteilung (aktive Produkte)", balken(sv,{h:80}))
-
-    +H("👥 Nutzer")
-    +R(
-       kpi("registriert", u.gesamt||0, "var(--k-1d3c24)", "ohne Admins")
-      +kpi("aktiv 7 Tage", u.aktiv_7t||0, "var(--k-1d3c24)", "Tagebuch genutzt")
-      +kpi("aktiv 30 Tage", u.aktiv_30t||0, "var(--k-1d3c24)", "")
-      +kpi("Premium", u.premium||0, "var(--k-1d3c24)", "zahlend")
-     )
+    +'</div>';
+  var pNutzer='<div id="dvPanel_nutzer" class="dvPanel" style="display:none">'
+    +R( kpi("registriert", u.gesamt||0, "var(--k-1d3c24)", "ohne Admins")
+       +kpi("aktiv 7 Tage", u.aktiv_7t||0, "var(--k-1d3c24)", "Tagebuch genutzt")
+       +kpi("aktiv 30 Tage", u.aktiv_30t||0, "var(--k-1d3c24)", "")
+       +kpi("Premium", u.premium||0, "var(--k-1d3c24)", "zahlend") )
     +CARD("Neue Nutzer je Monat", balken(nv,{h:70}))
-    +R(
-       kpi("Tagebuch gesamt", nz.tagebuch_eintraege||0, "var(--k-1d3c24)", "Einträge")
-      +kpi("davon 7 Tage", nz.eintraege_7t||0, "var(--k-1d3c24)", "")
-      +kpi("je Nutzer", nz.eintraege_pro_nutzer!=null?nz.eintraege_pro_nutzer:"–", "var(--k-1d3c24)", "letzte 30 T")
-     )
-
+    +R( kpi("Tagebuch gesamt", nz.tagebuch_eintraege||0, "var(--k-1d3c24)", "Einträge")
+       +kpi("davon 7 Tage", nz.eintraege_7t||0, "var(--k-1d3c24)", "")
+       +kpi("je Nutzer", nz.eintraege_pro_nutzer!=null?nz.eintraege_pro_nutzer:"–", "var(--k-1d3c24)", "letzte 30 T") )
+    +'</div>';
+  var pBetrieb='<div id="dvPanel_betrieb" class="dvPanel" style="display:none">'
     +H("📷 Scans")
-    +R(
-       kpi("wartet auf dich", sc.wartet_pruefung||0, (sc.wartet_pruefung?"var(--k-e8920c)":"var(--k-16a34a)"), "prüfen")
-      +kpi("übernommen", sc.uebernommen||0, "var(--k-16a34a)", "im Katalog")
-      +kpi("Cache-Abrufe", sc.abrufe_gesamt||0, "var(--k-1d3c24)", "gespart")
-      +kpi("Warteschlange", sc.warteschlange||0, "var(--muted)", "offen")
-     )
-
+    +R( kpi("wartet auf dich", sc.wartet_pruefung||0, (sc.wartet_pruefung?"var(--k-e8920c)":"var(--k-16a34a)"), "prüfen")
+       +kpi("übernommen", sc.uebernommen||0, "var(--k-16a34a)", "im Katalog")
+       +kpi("Cache-Abrufe", sc.abrufe_gesamt||0, "var(--k-1d3c24)", "gespart")
+       +kpi("Warteschlange", sc.warteschlange||0, "var(--muted)", "offen") )
     +H("🤖 Riki &ndash; was sie kostet")
     +'<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;margin-top:2px">'
-      +'<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px">'
-        +'<span style="color:var(--muted)">Monatsbudget</span>'
-        +'<span style="font-weight:700;color:'+budCol+'">'+verbraucht.toFixed(2)+' $ von '+budget.toFixed(2)+' $</span>'
-      +'</div>'
-      +'<div style="height:9px;border-radius:999px;background:var(--k-eceee9);overflow:hidden">'
-        +'<div style="width:'+pct+'%;height:100%;background:'+budCol+'"></div>'
-      +'</div>'
-      +'<div style="font-size:11px;color:var(--muted);margin-top:4px">'
-        +'Läuft es voll, blockt Riki &ndash; das ist gewollt.</div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px"><span style="color:var(--muted)">Monatsbudget</span><span style="font-weight:700;color:'+budCol+'">'+verbraucht.toFixed(2)+' $ von '+budget.toFixed(2)+' $</span></div>'
+      +'<div style="height:9px;border-radius:999px;background:var(--k-eceee9);overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+budCol+'"></div></div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-top:4px">Läuft es voll, blockt Riki &ndash; das ist gewollt.</div>'
     +'</div>'
-    +R(
-       kpi("Aufrufe Monat", ri.monat_calls||0, "var(--k-1d3c24)", "")
-      +kpi("davon heute", ri.heute_calls||0, "var(--k-1d3c24)", "")
-      +kpi("Etikett-Scans", ri.etikett_calls||0, "var(--k-1d3c24)", "gesamt")
-      +kpi("Ø je Aufruf", (Number(ri.schnitt_usd||0)).toFixed(4)+" $", "var(--k-1d3c24)", "")
-     )
+    +R( kpi("Aufrufe Monat", ri.monat_calls||0, "var(--k-1d3c24)", "")
+       +kpi("davon heute", ri.heute_calls||0, "var(--k-1d3c24)", "")
+       +kpi("Etikett-Scans", ri.etikett_calls||0, "var(--k-1d3c24)", "gesamt")
+       +kpi("Ø je Aufruf", (Number(ri.schnitt_usd||0)).toFixed(4)+" $", "var(--k-1d3c24)", "") )
     +CARD("Riki-Kosten je Tag (14 Tage, $)", balken(rv,{h:70}))
-
+    +'</div>';
+  var pWerk='<div id="dvPanel_werk" class="dvPanel" style="display:none">'
     +H("🔎 Katalog durchsuchen")
     +'<div style="font-size:11px;color:var(--muted);margin:-2px 0 4px">Sucht in <b>Produkten</b> und im <b>Zutaten-Stamm</b> zugleich – zeigt Bewertung und ob eine Zutat an Produkte gebunden ist.</div>'
     +'<div style="display:flex;gap:6px;margin-bottom:6px"><input id="katSucheInp" placeholder="z. B. Gnocchi, Feta, Beta-Carotin…" oninput="katSucheTip()" onkeydown="if(event.key===\'Enter\')katSuche()" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:9px;font-size:13px"><button onclick="katSuche()" style="padding:9px 14px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen,#fff);font-weight:600;cursor:pointer">Suchen</button></div>'
     +'<div id="katSucheOut"><div style="font-size:12px;color:var(--muted)">Begriff eingeben – Produkte und Zutaten werden zusammen durchsucht.</div></div>'
-
     +H("🧪 Zutaten &amp; Zusatzstoffe")
     +'<div style="font-size:11px;color:var(--muted);margin:-2px 0 4px">Unser Stamm und die Referenzdaten, gegen die wir ihn abgleichen.</div>'
     +'<div id="dashStamm"><div style="font-size:12px;color:var(--muted)">Lade Stamm…</div></div>'
-
     +H("📈 Was gesucht &amp; geöffnet wird")
     +'<div style="font-size:11px;color:var(--muted);margin:-2px 0 4px">Aggregierte Zähler (30 Tage), keine Nutzer-Verknüpfung. Zeigt Schwerpunkt &amp; Katalog-Lücken.</div>'
     +'<div id="dashNutzung"><div style="font-size:12px;color:var(--muted)">Lade Zähler…</div></div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:12px;text-align:right">Stand: '+esc(new Date(d.stand).toLocaleString('de-DE'))+'</div>'
+    +'</div>';
 
-    +'<div style="font-size:11px;color:var(--muted);margin-top:12px;text-align:right">Stand: '
-      +esc(new Date(d.stand).toLocaleString('de-DE'))+'</div>';
+  /* Benutzerführung: die offenen Aufgaben NACH DRINGLICHKEIT, jede mit „öffnen"-Sprung (Drill).
+     Rot = blockiert das Go-Live-Gate zuerst, danach die weicheren Rückstände. Reihenfolge folgt
+     fester Logik (blockiert Freigabe > verfälscht Score > nur unvollständig) – nichts geraten. */
+  var tasks=[];
+  var addT=function(sev,val,key,tt,td){ if(Number(val)>0) tasks.push({sev:sev,val:val,key:key,tt:tt,td:td}); };
+  addT('red', q.w_zutaten_regeln||0,'regelverstoesse','Regelverstöße im Stamm','Zutaten-Bewertung widerspricht einer Regel.');
+  addT('red', q.w_naehrwerte||0,'naehrwerte','unplausible Nährwerte','kcal passt nicht zu den Makros (Atwater).');
+  addT('red', q.w_portionsfalle||0,'portionsfalle','Portionsfalle','kcal zu niedrig – wohl Portions- statt 100-g-Wert.');
+  addT('red', q.w_widersprueche||0,'widersprueche','Widersprüche im Stamm','Derselbe Stoff, zwei Urteile.');
+  addT('red', q.ohne_quelle||0,'ohne_quelle','Produkte ohne Quelle','Blockieren die Freigabe – ohne Beleg kein Score.');
+  addT('amber', q.unverifiziert||0,'unverifiziert','unverifizierte Produkte','Aktiv, aber noch nicht gegengeprüft.');
+  addT('amber', q.ohne_score||0,'ohne_score','Produkte ohne Score','Unvollständig – eine Achse fehlt.');
+  var help = tasks.length ? '<div class="dvHelp" id="dashHelp"><div class="hh">🧭 WAS ZUERST?<span class="x" onclick="dashHelpClose()">✕</span></div>'
+      +'<div class="hsub">Sortiert danach, was das Go-Live-Gate blockiert.</div>'
+      +tasks.map(function(t,i){ return '<div class="dvTask"><div class="pri" style="background:'+(t.sev==='red'?'#bb0000':'#e9730c')+'">'+(i+1)+'</div>'
+        +'<div class="body"><div class="tt">'+t.val+' '+esc(t.tt)+'</div><div class="td">'+esc(t.td)+'</div></div>'
+        +'<button class="go" onclick="dashDrill(\''+t.key+'\',\''+esc(t.tt)+'\')">öffnen</button></div>'; }).join('')
+      +'</div><button class="dvReopen" id="dashHelpReopen" style="display:none" onclick="dashHelpOpen()">🧭 Aufgaben</button>' : '';
+
+  box.innerHTML = band + '<div class="dvGrid">'+rail+'<div>'+tabBar+pDq+pKat+pNutzer+pBetrieb+pWerk+'</div></div>'+help;
 
   /* Aufrufe & Suchen kommen aus eigenen Funktionen (nicht aus cb_dashboard) und
      werden nachgeladen - so bleibt das Dashboard schnell, auch wenn die Zaehler wachsen. */
@@ -10389,7 +10497,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21n";
+const APP_BUILD = "2026-07-21o";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
