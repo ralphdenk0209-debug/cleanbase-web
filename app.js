@@ -6642,6 +6642,105 @@ async function loadZutatenStamm(){
   ZUTATEN_STAMM=all;
   ZUTATEN_MAP={}; ZUTATEN_STAMM.forEach(function(z){ ZUTATEN_MAP[(z.name||"").trim().toLowerCase()]={rating:z.rating,kritisch:z.kritisch}; });
 }
+/* Zusatzstoff-Stamm (E-Nummer · Name · Einstufung) für die neue Zusatzstoff-Liste im Editor. */
+let ZUSATZSTOFFE_STAMM=null, ZUSATZSTOFFE_MAP={};
+async function loadZusatzstoffeStamm(){
+  if(ZUSATZSTOFFE_STAMM) return;
+  var all=[];
+  try{ var res=await client.rpc("cb_zusatzstoffe_liste"); if(!res.error && res.data) all=res.data; }catch(e){}
+  ZUSATZSTOFFE_STAMM=all;
+  ZUSATZSTOFFE_MAP={};
+  all.forEach(function(z){
+    if(z.e) ZUSATZSTOFFE_MAP[String(z.e).trim().toLowerCase()]=z;
+    if(z.name) ZUSATZSTOFFE_MAP[String(z.name).trim().toLowerCase()]=z;
+  });
+}
+/* Farbe/Etikett je EFSA-Einstufung: grün unbedenklich · rot abgewertet · grau ungeprüft. */
+function zusFarbe(einst){
+  var e=String(einst||"").toLowerCase();
+  if(e==="neutral"||e==="keine"||e==="unbedenklich") return {dot:"#2e9e57",bg:"#e7f6ec",txt:"#1f7d43",label:"unbedenklich"};
+  if(e==="abgewertet"||e==="kritisch")               return {dot:"#c0392b",bg:"#fde8e8",txt:"#8a1c14",label:"abgewertet"};
+  return {dot:"#9aa7b2",bg:"#eef1f4",txt:"#5b6b7e",label:"ungeprüft"};
+}
+/* Rohtext des Zusatzstoff-Felds in Einzel-Zusatzstoffe zerlegen und gegen den Stamm auflösen. */
+function zusSeed(text){
+  window._fgZus=[];
+  var t=String(text||"").trim();
+  if(!t || /^keine$/i.test(t)) return;
+  t.split(/[,;]/).forEach(function(tok){
+    tok=String(tok||"").trim(); if(!tok) return;
+    var em=tok.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+    var found=null;
+    if(em) found=ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()];
+    if(!found){ var nm=tok.replace(/\(.*?\)/g,"").trim().toLowerCase(); found=ZUSATZSTOFFE_MAP[nm]; }
+    if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
+    else window._fgZus.push({e:null,name:tok.replace(/\s+/g," "),einst:"ungeprüft"});
+  });
+}
+/* Auswahl → verstecktes fe_ztext (Speicher-Wahrheit) + abgeleiteter fe_zstatus. */
+function zusSync(){
+  var sel=window._fgZus||[];
+  var ztext=document.getElementById("fe_ztext"), zstat=document.getElementById("fe_zstatus");
+  if(!sel.length){ if(ztext) ztext.value="keine"; if(zstat) zstat.value="keine"; }
+  else{
+    if(ztext) ztext.value=sel.map(function(z){ return z.name+(z.e?(" ("+z.e+")"):""); }).join(", ");
+    var allNeutral=sel.every(function(z){ return /^(neutral|keine|unbedenklich)$/i.test(String(z.einst||"")); });
+    if(zstat) zstat.value = allNeutral ? "neutral" : "enthalten";
+  }
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+}
+function zusRenderSel(){
+  var box=document.getElementById("fe_zusSel"); if(!box) return;
+  var sel=window._fgZus||[];
+  var kc=document.getElementById("fe_zusKeine"); if(kc) kc.checked=(sel.length===0);
+  if(!sel.length){ box.innerHTML='<div style="color:var(--muted);font-size:12px;padding:2px 0">— noch keine Zusatzstoffe erfasst —</div>'; return; }
+  box.innerHTML=sel.map(function(z,i){
+    var f=zusFarbe(z.einst);
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px;margin-bottom:3px;background:'+f.bg+';color:'+f.txt+'">'
+      +'<span style="width:10px;height:10px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'
+      +'<span style="flex:1;min-width:0;font-size:13px">'+esc(z.name)+(z.e?' <span style="opacity:.7;font-size:11.5px">'+esc(z.e)+'</span>':'')+'</span>'
+      +'<span style="font-size:11px;opacity:.9;white-space:nowrap">'+f.label+'</span>'
+      +'<button type="button" onclick="zusDel('+i+')" title="entfernen" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;flex:0 0 auto">✕</button>'
+      +'</div>';
+  }).join("");
+}
+function zusRenderPick(){
+  var box=document.getElementById("fe_zusList"); if(!box) return;
+  var q=((document.getElementById("fe_zusSuche")||{}).value||"").trim().toLowerCase();
+  if(!q){ box.innerHTML='<div style="padding:10px;color:var(--muted);font-size:12px">E-Nummer oder Name tippen, um Zusatzstoffe zu finden…</div>'; return; }
+  var selE={}; (window._fgZus||[]).forEach(function(z){ if(z.e) selE[String(z.e).toLowerCase()]=1; });
+  var rows=(ZUSATZSTOFFE_STAMM||[]).filter(function(z){ return String(z.e||"").toLowerCase().indexOf(q)>=0 || String(z.name||"").toLowerCase().indexOf(q)>=0; });
+  if(!rows.length){ box.innerHTML='<div style="padding:10px;color:var(--muted);font-size:12px">Nichts gefunden – ggf. unten „+ hinzufügen".</div>'; return; }
+  box.innerHTML=rows.slice(0,80).map(function(z){
+    var f=zusFarbe(z.einstufung); var on=!!selE[String(z.e).toLowerCase()];
+    return '<div onclick="zusToggle(\''+esc(z.e)+'\')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--line);'+(on?'background:#eef7f1':'')+'">'
+      +'<span style="width:15px;color:#1f7d43;font-weight:700">'+(on?'✓':'')+'</span>'
+      +'<span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'
+      +'<span style="flex:1;min-width:0;font-size:13px">'+esc(z.name)+'</span>'
+      +'<span style="color:var(--muted);font-size:11.5px;white-space:nowrap">'+esc(z.e)+' · '+f.label+'</span>'
+      +'</div>';
+  }).join("");
+}
+function zusToggle(e){
+  var key=String(e||"").toLowerCase(); var z=ZUSATZSTOFFE_MAP[key]; if(!z) return;
+  window._fgZus=window._fgZus||[];
+  var idx=window._fgZus.findIndex(function(x){ return String(x.e||"").toLowerCase()===key; });
+  if(idx>=0) window._fgZus.splice(idx,1); else window._fgZus.push({e:z.e,name:z.name,einst:z.einstufung});
+  zusSync(); zusRenderSel(); zusRenderPick();
+}
+function zusDel(i){ if(window._fgZus&&i>=0&&i<window._fgZus.length){ window._fgZus.splice(i,1); zusSync(); zusRenderSel(); zusRenderPick(); } }
+function zusKeineToggle(ck){ if(ck) window._fgZus=[]; zusSync(); zusRenderSel(); zusRenderPick(); }
+function zusAddNeu(){
+  var inp=document.getElementById("fe_zusNeu"); var v=((inp||{}).value||"").trim(); if(!v) return;
+  var em=v.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+  var found=em?ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()]:ZUSATZSTOFFE_MAP[v.toLowerCase()];
+  window._fgZus=window._fgZus||[];
+  if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
+  else window._fgZus.push({e:null,name:v,einst:"ungeprüft"});
+  if(inp) inp.value="";
+  zusSync(); zusRenderSel(); zusRenderPick();
+}
+if(typeof window!=='undefined'){ window.zusToggle=zusToggle; window.zusDel=zusDel; window.zusKeineToggle=zusKeineToggle; window.zusAddNeu=zusAddNeu; window.zusRenderPick=zusRenderPick; }
 function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
   const hasR=!(rating===null||rating===undefined||rating==="");
@@ -7076,6 +7175,8 @@ async function rikiAnalyse(){
       const zt=document.getElementById("fe_ztext"); if(zt&&v.zusatzstoffe.text) zt.value=v.zusatzstoffe.text;
       const zs=document.getElementById("fe_zstatus"); if(zs&&v.zusatzstoffe.status) zs.value=v.zusatzstoffe.status;
       const su=document.getElementById("fe_suess"); if(su&&v.zusatzstoffe.suessstoffe) su.value="ja";
+      /* Neue farbige Zusatzstoff-Liste aus dem gerade gefüllten Text neu aufbauen. */
+      try{ if(typeof zusSeed==="function"){ zusSeed((document.getElementById("fe_ztext")||{}).value||""); zusRenderSel(); zusRenderPick(); } }catch(e){}
     }
     /* Nährwerte NUR füllen, wenn das Feld leer ist – bestehende, geprüfte Werte werden nie überschrieben. */
     const n=v.naehrwerte_100g||{};
@@ -7301,7 +7402,20 @@ async function openFgEditor(id, prefill, targetEl){
           <div id="fe_zutRows" style="display:none">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
-        ${card("Zusatzstoffe",`${inp("fe_ztext",d.zusatzstoffe_text||"keine")}<div style="display:flex;gap:8px;margin-top:6px"><label style="font-size:13px;flex:1">Status${sel("fe_zstatus",d.zusatzstoffe_status||"keine",["keine","enthalten","neutral"])}</label><label style="font-size:13px;flex:1">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label></div>`)}
+        ${card("Zusatzstoffe",`
+          <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:8px;cursor:pointer"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">Keine Zusatzstoffe im Produkt</label>
+          <div id="fe_zusSel" style="margin-bottom:8px"></div>
+          <input id="fe_zusSuche" oninput="zusRenderPick()" placeholder="🔍 Zusatzstoff / E-Nummer suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:6px">
+          <div id="fe_zusList" style="max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)"></div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <input id="fe_zusNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();zusAddNeu();}" placeholder="nicht im Stamm? Name/E-Nummer…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)">
+            <button type="button" onclick="zusAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:7px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>unbedenklich</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#c0392b;vertical-align:middle;margin-right:4px"></span>abgewertet (drückt den Score)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9aa7b2;vertical-align:middle;margin-right:4px"></span>ungeprüft</span></div>
+          <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text||"keine")}">
+          <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
+          <label style="display:block;font-size:13px;margin-top:10px">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label>
+        `)}
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
@@ -7343,6 +7457,8 @@ async function openFgEditor(id, prefill, targetEl){
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
     try{ feKatChange(); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
+    /* Zusatzstoff-Liste (neu): Stamm laden, Auswahl aus dem gespeicherten Text ableiten, farbig rendern. */
+    (async function(){ try{ await loadZusatzstoffeStamm(); zusSeed(d.zusatzstoffe_text||""); zusRenderSel(); zusRenderPick(); }catch(e){} })();
     try{ fgEtikettRender(); }catch(e){}   /* angehängte Fotos (Laden + selbst hochgeladen) rendern */
     try{ feEanSync(); }catch(e){}   /* fehlt die EAN, „offen"-Haken automatisch setzen */
   if(!targetEl) document.getElementById("overlay").classList.add("open");
@@ -10030,7 +10146,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-21d";
+const APP_BUILD = "2026-07-21e";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
