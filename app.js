@@ -4108,6 +4108,14 @@ async function ladeNutzungPanel(){
 const NW_FELDER=[["kcal","kcal",""],["fett","Fett","g"],["ges_fett","davon gesättigt","g"],
   ["kh","Kohlenhydrate","g"],["zucker","davon Zucker","g"],["polyole","dav. mehrw. Alkohole","g"],["ballaststoffe","Ballaststoffe","g"],
   ["protein","Eiweiß","g"],["salz","Salz","g"]];
+/* Wirkstoff-Eingabe (Supplements): Vorschlagsliste in der Schreibweise, die der Dosis-Check
+   (v_ri_dosierung) erkennt – inkl. der Klammer-Formen der B-Vitamine (§1.11w-c/-d). Freitext
+   bleibt erlaubt; die Liste ist nur Hilfe. Einheiten inkl. IU (Vitamin D wird in der View µg umgerechnet). */
+const WIRKSTOFF_NAMEN=["Vitamin A","Vitamin C","Vitamin D","Vitamin E","Vitamin K",
+  "Vitamin B1 (Thiamin)","Vitamin B2 (Riboflavin)","Vitamin B3 (Niacin)","Vitamin B5 (Pantothensäure)",
+  "Vitamin B6","Vitamin B7 (Biotin)","Vitamin B9 (Folsäure)","Vitamin B12","Zink","Magnesium","Eisen",
+  "Selen","Jod","Calcium","Kupfer","Mangan","Chrom","Molybdän","Kalium","Omega-3"];
+const WIRK_EINHEITEN=["mg","µg","g","IU"];
 /* Produktkategorien als feste Auswahl - Freitext fuehrt zu Tippfehlern und Dubletten
    ("Nussprodukte / Pulver" vs "Nüsse & Hülsenfrüchte"). Riki darf vorschlagen, der
    Mensch waehlt aus der Liste. */
@@ -8339,6 +8347,7 @@ async function openFgEditor(id, prefill, targetEl){
             </div>
           </div>
         </div>
+        <div id="fe_pasteZone" tabindex="0" onpaste="fePasteImg(event)" onclick="this.focus()" style="margin-top:10px;border:2px dashed #b9b3e8;border-radius:10px;padding:11px 13px;background:var(--k-f6f5fd,#f6f5fd);color:var(--k-534ab7);font-size:12.5px;line-height:1.5;cursor:text;outline:none">📋 <b>Screenshot einfügen</b> – hier klicken, dann <b>Strg+V</b> (Bild aus der Zwischenablage, z. B. die Nährwert-Tabelle einer Herstellerseite). Riki liest Zutaten &amp; Nährwerte direkt aus dem Bild – genau wie beim Foto.</div>
       </div>
       <input type="file" id="fe_res_up" accept="image/*" multiple style="display:none" onchange="fgPullResearch(this.files)">
       <input type="file" id="fe_eti_up" accept="image/*" multiple style="display:none" onchange="fgPullEtikett(this.files)">
@@ -8358,6 +8367,14 @@ async function openFgEditor(id, prefill, targetEl){
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
         </div>
+        <div id="fe_wirkCard" style="display:none">${card(`<span>Wirkstoffe &amp; Dosis</span> <span style="text-transform:none;color:var(--muted)">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
+          <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
+          <div style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em"><span>Stoff</span><span style="text-align:right">Menge</span><span>Einheit</span><span style="text-align:right">%NRV</span><span></span></div>
+          <div id="fe_wirkRows"></div>
+          <button type="button" onclick="feWirkAdd()" style="margin-top:7px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ Wirkstoff</button>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
+          <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
+        `)}</div>
         ${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden an den Stamm)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
@@ -8437,6 +8454,7 @@ async function openFgEditor(id, prefill, targetEl){
     }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
     try{ feKatChange(); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
+    try{ feWirkLoad(d.wirkstoffe, d.wirkstoffe_nicht_verfuegbar); }catch(e){}   /* Wirkstoff-Mengen (Dosis) laden */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
     /* Zusatzstoff-Liste (neu): Stamm laden, Auswahl aus dem gespeicherten Text ableiten, farbig rendern. */
     (async function(){ try{ await loadZusatzstoffeStamm(); zusSeed(d.zusatzstoffe_text||""); zusRenderSel(); zusRenderPick(); }catch(e){} })();
@@ -8452,9 +8470,52 @@ function feKatChange(){
   var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
+  var wc=document.getElementById("fe_wirkCard"); if(wc) wc.style.display=supp?"":"none";   /* Wirkstoff-Dosis nur bei Supplement */
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
+/* ===== Wirkstoff-Mengen (Supplements) – Eingabe für den Dosis-Check =====
+   Eine Zeile je Wirkstoff: Stoff · Menge · Einheit · %NRV. Wird beim Speichern über
+   cb_produkt_wirkstoffe_setzen in Produkt_Naehrstoffe geschrieben. Erst damit zeigt die
+   Produktkarte den Dosis-Kreis + die zwei Balken (Tagesbedarf/EFSA-Grenze). */
+function feWirkRow(w){ w=w||{};
+  var opt=WIRK_EINHEITEN.map(function(u){ return '<option'+(String(w.einheit||"mg")===u?' selected':'')+'>'+u+'</option>'; }).join("");
+  return '<div class="feWirkRow" style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;margin-bottom:6px;align-items:center">'
+    +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{fePlaus()}catch(e){}" placeholder="z. B. Vitamin C" style="padding:6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0">'
+    +'<input class="fwMenge" type="number" step="any" value="'+esc(w.menge==null?"":String(w.menge))+'" oninput="try{fePlaus()}catch(e){}" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0">'
+    +'<select class="fwEinheit" style="padding:6px 4px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0">'+opt+'</select>'
+    +'<input class="fwNrv" type="number" step="any" value="'+esc(w.nrv==null?"":String(w.nrv))+'" placeholder="%" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0">'
+    +'<button type="button" onclick="feWirkDel(this)" title="entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:7px;width:26px;height:28px;cursor:pointer;flex:0 0 auto">✕</button>'
+    +'</div>';
+}
+function feWirkAdd(w){ var c=document.getElementById("fe_wirkRows"); if(!c) return;
+  c.insertAdjacentHTML("beforeend", feWirkRow(w));
+  var none=document.getElementById("fe_wirk_none"); if(none&&none.checked){ none.checked=false; feWirkNoneToggle(false); }
+  try{fePlaus()}catch(e){}
+}
+function feWirkDel(btn){ var r=btn&&btn.closest?btn.closest(".feWirkRow"):null; if(r) r.remove(); try{fePlaus()}catch(e){} }
+function feWirkCollect(){ var out=[];
+  [].forEach.call(document.querySelectorAll("#fe_wirkRows .feWirkRow"),function(r){
+    var nm=((r.querySelector(".fwName")||{}).value||"").trim();
+    var mgRaw=((r.querySelector(".fwMenge")||{}).value||"").trim();
+    if(!nm||mgRaw==="") return;
+    var nrvRaw=((r.querySelector(".fwNrv")||{}).value||"").trim();
+    out.push({ naehrstoff:nm, menge:Number(mgRaw.replace(",",".")),
+      einheit:((r.querySelector(".fwEinheit")||{}).value||"mg"),
+      nrv:(nrvRaw===""?null:Number(nrvRaw.replace(",","."))) });
+  });
+  return out;
+}
+function feWirkCount(){ return [].slice.call(document.querySelectorAll("#fe_wirkRows .feWirkRow")).filter(function(r){
+  return ((r.querySelector(".fwName")||{}).value||"").trim()!=="" && ((r.querySelector(".fwMenge")||{}).value||"").trim()!==""; }).length; }
+function feWirkNoneToggle(on){ var c=document.getElementById("fe_wirkRows"); if(c){ c.style.opacity=on?"0.4":""; c.style.pointerEvents=on?"none":""; } try{fePlaus()}catch(e){} }
+/* Wirkstoffe in die Tabelle laden (aus cb_produkt_edit_get.wirkstoffe) + Flag setzen. */
+function feWirkLoad(liste, none){
+  var c=document.getElementById("fe_wirkRows"); if(!c) return;
+  c.innerHTML=(Array.isArray(liste)?liste:[]).map(function(w){ return feWirkRow(w); }).join("");
+  var n=document.getElementById("fe_wirk_none"); if(n){ n.checked=!!none; feWirkNoneToggle(!!none); }
+}
+if(typeof window!=='undefined'){ window.feWirkAdd=feWirkAdd; window.feWirkDel=feWirkDel; window.feWirkNoneToggle=feWirkNoneToggle; }
 /* Fehlt die EAN, wird der „offen"-Haken automatisch gesetzt (blockiert die Freigabe nicht) –
    AUSSER das Produkt ist legitim ohne Barcode (Status „generisch"/„kein_barcode"): das nicht anfassen,
    sonst würde es beim Speichern auf „offen" heruntergestuft und tauchte fälschlich in „Zu erledigen" auf.
@@ -8729,6 +8790,11 @@ function fePlaus(){
     var _eanOffen=!!((document.getElementById("fe_ean_offen")||{}).checked);
     if(!_eanV && !_eanOffen) fehlt.push("EAN (oder „offen“ markieren)");
     var _dosisLeer = _istSupp && !(((document.getElementById("fe_verzehr")||{}).value||"").trim());
+    /* Supplement: Wirkstoff-Mengen (Dosis-Check) müssen befüllt ODER bewusst deaktiviert sein
+       (Ralph 23.07.) – sonst geht das Produkt mit leerem Dosis-Check live. */
+    var _wCount = _istSupp && typeof feWirkCount==="function" ? feWirkCount() : 0;
+    var _wNone  = _istSupp && !!((document.getElementById("fe_wirk_none")||{}).checked);
+    if(_istSupp && _wCount===0 && !_wNone) fehlt.push("Wirkstoff-Mengen (Dosis-Check)");
     if(fehlt.length===0){
       rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe'
         +(_istSupp?' – Supplement (kein Lebensmittel-Index, Nährwerte nicht nötig)':' – alle Achsen belegt')+'.</span>'
@@ -8755,6 +8821,9 @@ function fePlaus(){
       h+= qt ? ok("Quelle belegt") : no("Quelle-Typ fehlt");
       h+= (_eanV||_eanOffen) ? ok(_eanV?"EAN erfasst":"EAN als offen markiert") : no("EAN fehlt – eintragen oder „offen“ ankreuzen");
       if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
+      if(_istSupp) h+= (_wCount>0) ? ok(_wCount+" Wirkstoff-Menge(n) für Dosis-Check")
+                        : (_wNone ? '<span style="color:var(--muted);white-space:nowrap">– Wirkstoff-Mengen (bewusst ohne)</span>'
+                                  : no("Wirkstoff-Mengen fehlen (Dosis-Check)"));
       /* Live-Wächter (Ralph 21.07.2026): Produkt heißt „vegan/vegetarisch", aber eine tierische
          Zutat ist gebunden → sehr wahrscheinlich ins FALSCHE Produkt importiert. Nur Warnung,
          kein Freigabe-Blocker. Analog-/Homonym-Ausschluss (veganer Salami, Fruchtfleisch, …). */
@@ -8995,6 +9064,20 @@ async function fgPullResearch(files, b64arr){
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
   finally{ try{ feBusy(false); }catch(e){} }
 }
+/* Screenshot aus der Zwischenablage einfügen (Ralph 23.07.): Strg+V im Einfüge-Feld → das Bild
+   geht denselben Weg wie „Foto → Etikett auslesen" (riki-etikett liest Zutaten & Nährwerte). */
+function fePasteImg(ev){
+  try{
+    var items=(ev&&ev.clipboardData&&ev.clipboardData.items)||[];
+    var files=[];
+    for(var i=0;i<items.length;i++){ if(items[i].type&&items[i].type.indexOf("image")===0){ var f=items[i].getAsFile(); if(f) files.push(f); } }
+    if(!files.length) return;   /* kein Bild in der Ablage → normalen (Text-)Paste zulassen */
+    if(ev.preventDefault) ev.preventDefault();
+    var zone=document.getElementById("fe_pasteZone"); if(zone) zone.innerHTML='📋 Bild übernommen – Riki liest…';
+    Promise.all(files.slice(0,3).map(_fileZuBase64)).then(function(b64){ fgPullEtikett([], b64); });
+  }catch(e){ try{console.log("fePasteImg:",e);}catch(_){} }
+}
+if(typeof window!=='undefined') window.fePasteImg=fePasteImg;
 /* „Foto → Etikett auslesen": Riki liest die Naehrwerte/Zutaten direkt vom Etikettfoto
    (riki-etikett) und fuellt die Maske – analog zu fgPullResearch, nur ohne Web-Suche.
    Foto-Quelle: Datei/Kamera (files) ODER hinterlegte Kundenfotos (b64arr). */
@@ -9020,6 +9103,15 @@ async function fgPullEtikett(files, b64arr){
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
+    /* Supplements: liefert Riki Wirkstoff-Mengen mit (name/menge/einheit/nrv), direkt in die
+       Wirkstoff-Tabelle übernehmen. Fehlen sie im Riki-Ergebnis, bleibt die Tabelle wie sie ist
+       (dann von Hand füllen) – nichts wird erfunden. */
+    try{ if(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement"){
+      var _wq=v.wirkstoffe||v.naehrstoffe||null;
+      if(Array.isArray(_wq)&&_wq.length&&typeof feWirkLoad==="function"){
+        feWirkLoad(_wq.map(function(w){ return {naehrstoff:(w.name||w.naehrstoff||w.stoff||""), menge:(w.menge!=null?w.menge:w.wert), einheit:(w.einheit||w.unit||"mg"), nrv:(w.nrv!=null?w.nrv:w.nrv_prozent)}; }).filter(function(w){ return w.naehrstoff&&w.menge!=null; }), false);
+      }
+    } }catch(e){}
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Etikettfoto (Nutzer)";
     try{ feBelegAdd("Etikettfoto (Nutzer)"+(ean?(" · EAN "+ean):"")); }catch(e){}
     try{ fePlaus(); }catch(e){}
@@ -9167,6 +9259,16 @@ async function fgEditSave(alsoFreigeben){
       var _bnd=!!(g("fe_ballast_nd")&&g("fe_ballast_nd").checked);
       await client.rpc("cb_produkt_ballast_nichtdekl_setzen",{p_id:pid, p_flag:_bnd});
     }catch(e){}
+    /* Wirkstoff-Mengen (Supplements) → Produkt_Naehrstoffe, für den Dosis-Check (Ralph 23.07.).
+       Läuft VOR der Freigabe, damit produkt_pruefen_freigeben die Wirkstoffe bzw. das
+       „keine Mengen"-Flag schon sieht. */
+    if(((g("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement"){
+      try{
+        var _wl=(typeof feWirkCollect==="function")?feWirkCollect():[];
+        var _wnone=!!(g("fe_wirk_none")&&g("fe_wirk_none").checked);
+        await client.rpc("cb_produkt_wirkstoffe_setzen",{p_id:pid, p_liste:_wl, p_nicht_verfuegbar:_wnone});
+      }catch(e){ try{console.log("wirkstoffe_setzen:",e);}catch(_){} }
+    }
   }
   if(pid && window._fgEdit && window._fgEdit.bild_url){
     try{ await client.rpc("cb_produkt_bild_setzen",{p_id:pid, p_url:window._fgEdit.bild_url}); }catch(e){}
@@ -11380,7 +11482,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22p";
+const APP_BUILD = "2026-07-22q";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
