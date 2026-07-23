@@ -10696,7 +10696,7 @@ function rzToGrams(amount, unit, pid){
 function zutatRowHtml(){
   return `<div class="rzZ" style="margin-bottom:8px">
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <input class="rzZName" list="prodDL" oninput="linkZutat(this)" placeholder="Produkt aus Liste suchen … (oder Freitext)" style="flex:1;min-width:160px;padding:8px;border:1px solid var(--line);border-radius:8px">
+      <input class="rzZName" list="prodDL" oninput="linkZutat(this)" onchange="linkZutatServer(this)" placeholder="Produkt aus Liste suchen … (oder Freitext)" style="flex:1;min-width:160px;padding:8px;border:1px solid var(--line);border-radius:8px">
       <input class="rzZg" type="number" min="0" step="0.1" placeholder="Menge" style="width:72px;padding:8px;border:1px solid var(--line);border-radius:8px">
       <select class="rzZu" style="width:80px;padding:8px;border:1px solid var(--line);border-radius:8px">${RZ_UNITS.map(u=>`<option>${u[0]}</option>`).join("")}</select>
       <button type="button" onclick="this.closest('.rzZ').remove()" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">✕</button>
@@ -10723,6 +10723,26 @@ function linkZutat(input){
     lk.textContent=`✓ verknüpft · ${p.m_kcal??"–"} kcal/100 g · Root Index ${p.clean_score??"–"}`; }
   else { pidEl.value=""; lk.style.color="var(--k-9aa7a0)"; lk.textContent=v?"freie Zutat (keine Nährwerte/Index)":""; }
 }
+/* Server-Zuordnung beim VERLASSEN des Feldes (onchange), wenn die exakte Client-Suche nichts
+   fand: cb_zutat_zuordnen kann Singular/Plural, Klammern und Umgangssprache (Eier→Ei,
+   Paprika rot→Gemüsepaprika rot). Der getippte Name bleibt stehen, es wird nur verknüpft.
+   (Ralph 23.07.: „wenn im Rezept Eier steht, soll klar sein, dass wir Ei brauchen".) */
+async function linkZutatServer(input){
+  const row=input.closest(".rzZ"); if(!row) return;
+  const pidEl=row.querySelector(".rzZpid"), lk=row.querySelector(".rzZlink");
+  if(pidEl.value) return;                       /* exakt schon verknüpft */
+  const nm=(input.value||"").trim(); if(nm.length<2) return;
+  try{
+    const r=await client.rpc("cb_zutat_zuordnen",{p_name:nm});
+    let t=r&&r.data; if(Array.isArray(t)) t=t[0];
+    if(pidEl.value) return;                      /* der Nutzer hat inzwischen exakt getroffen */
+    if(t&&t.gefunden){
+      pidEl.value=t.produkt_id; lk.style.color="var(--k-16a34a)";
+      lk.textContent='✓ verknüpft mit '+(t.name||'')+(t.marke?(' · '+t.marke):'')+' · '+((t.score!=null)?('Root Index '+t.score):'noch nicht bewertet');
+    }
+  }catch(e){}
+}
+if(typeof window!=='undefined') window.linkZutatServer=linkZutatServer;
 function addZutatRow(){ const z=document.getElementById("rzfZutaten"); z.insertAdjacentHTML("beforeend", zutatRowHtml()); }
 
 /* ============================================================
@@ -11050,30 +11070,26 @@ async function rezVorschlagUebernehmen(i){
   var v=(window._rezVorschlaege||[])[i]; if(!v) return;
   rezVorschlagClose();
   try{ await openRezeptForm(); }catch(e){}
-  /* Vorschlag in die Form bringen, die rezeptFormFuellen erwartet (wie riki-rezept). */
-  var d={ vorschlag:{ name:v.name, portionen:v.portionen, zeit_min:v.zeit_min, zubereitung:v.zubereitung,
-    ernaehrungsform:v.ernaehrungsform, naehrwerte_portion:{ kcal:v.kcal_geschaetzt },
-    zutaten:(Array.isArray(v.zutaten)?v.zutaten:[]).map(function(z){ return {name:z.name, menge:z.menge, menge_g:z.menge_g}; }) },
-    warnungen:['Die kcal-Angabe ist eine Schätzung – nach dem Verknüpfen der Zutaten mit „Makros berechnen“ die echten Werte holen.'],
-    zutaten_gesamt:(v.zutaten||[]).length, zugeordnet:0 };
-  setTimeout(function(){
-    try{ rezeptFormFuellen(d); }catch(e){}
-    /* Zutaten-Namen wurden gesetzt, aber ohne oninput → Katalog-Verknüpfung nachtriggern. */
-    try{ document.querySelectorAll("#rzfZutaten .rzZ .rzZName").forEach(function(inp){ if(typeof linkZutat==="function") linkZutat(inp); }); }catch(e){}
-    /* rezeptFormFuellen hat die „X von Y erkannt"-Zeile schon mit 0 gerendert (die Verknüpfung
-       lief ja erst danach). Jetzt ECHT nachzählen und die Meldung korrigieren (Ralphs Fund 23.07.). */
+  /* Jede Zutat SERVERSEITIG zuordnen (cb_zutat_zuordnen: Singular/Plural, Klammern, generisch
+     bevorzugt) – dasselbe Gehirn wie der Foto-Weg. Erst dann füllen, damit die „X von Y erkannt"-
+     Zeile stimmt und der richtige Katalog-Eintrag drinsteht (Ralph 23.07.: „Eier → Ei"). */
+  var zut=(Array.isArray(v.zutaten)?v.zutaten:[]).map(function(z){ return {name:z.name, menge:z.menge, menge_g:z.menge_g, produkt_id:null, treffer:null}; });
+  var zug=0;
+  await Promise.all(zut.map(async function(z){
+    if(!z.name) return;
     try{
-      var rows=document.querySelectorAll("#rzfZutaten .rzZ"), tot=0, zug=0;
-      rows.forEach(function(rw){ var nm=((rw.querySelector(".rzZName")||{}).value||"").trim(); if(nm){ tot++; if((((rw.querySelector(".rzZpid")||{}).value)||"").trim()) zug++; } });
-      var m=document.getElementById("rzfMsg");
-      if(m){ m.style.color = (zug<tot) ? "var(--k-b45309)" : "var(--k-16a34a)";
-        m.innerHTML = zug+' von '+tot+' Zutaten im Katalog erkannt.'
-          + '<div style="margin-top:6px;font-size:12px;line-height:1.5;color:var(--k-7a5c1e);background:var(--k-fdf6e7);border-radius:8px;padding:8px 10px">• Die kcal-Angabe ist eine Schätzung – über den Knopf <b>Nährwerte aus Zutaten berechnen</b> holst du danach die echten Werte.'
-          + (zug<tot ? '<br>• Freie Zutaten (grau) haben keine Nährwerte/Index – das ist ok, sie zählen nur nicht in die Berechnung. Über den Katalog verknüpfen geht auch von Hand.' : '')
-          + '</div><div style="margin-top:6px;font-size:12px;color:var(--muted)">Prüf die Werte – dann auf <b>Speichern</b>.</div>';
-      }
+      var r=await client.rpc("cb_zutat_zuordnen",{p_name:z.name});
+      var t=r&&r.data; if(Array.isArray(t)) t=t[0];
+      if(t&&t.gefunden){ z.produkt_id=t.produkt_id; z.treffer={name:t.name, marke:t.marke, score:t.score, art:t.art}; zug++; }
+      else { z.treffer={grund:(t&&t.grund)||"nicht im Katalog"}; }
     }catch(e){}
-  }, 80);
+  }));
+  var d={ vorschlag:{ name:v.name, portionen:v.portionen, zeit_min:v.zeit_min, zubereitung:v.zubereitung,
+    ernaehrungsform:v.ernaehrungsform, naehrwerte_portion:{ kcal:v.kcal_geschaetzt }, zutaten:zut },
+    warnungen:['Die kcal-Angabe ist eine Schätzung – danach den Knopf „Nährwerte aus Zutaten berechnen“ drücken für die echten Werte.'
+      +(zug<zut.length?' Nicht zugeordnete Zutaten bleiben freie Zutat (kannst du von Hand verknüpfen).':'')],
+    zutaten_gesamt:zut.length, zugeordnet:zug };
+  try{ rezeptFormFuellen(d); }catch(e){}
 }
 if(typeof window!=='undefined'){ window.rezVorschlagOpen=rezVorschlagOpen; window.rezVorschlagClose=rezVorschlagClose; window.rezVorschlagRun=rezVorschlagRun; window.rezVorschlagUebernehmen=rezVorschlagUebernehmen; }
 function calcMakros(){
@@ -11684,7 +11700,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22v";
+const APP_BUILD = "2026-07-22w";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
