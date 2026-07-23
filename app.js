@@ -2554,8 +2554,8 @@ function peLightCssInject(){
   }catch(e){}
   var tokCss=''; for(var key in toks){ tokCss+=key+':'+toks[key]+';'; }
   var css=
-    '#fgProdErf{color-scheme:light;color:#1f2a44;background:#f4f7fa;border-radius:12px;padding:4px 10px 16px;'+tokCss
-      +'--bg:#f4f7fa;--card:#ffffff;--ink:#1f2a44;--muted:#7b8698;--line:#e2e8ef;'
+    '#fgProdErf{color-scheme:light;color:#1f2a44;background:#ccd6e4;border-radius:12px;padding:4px 10px 16px;'+tokCss
+      +'--bg:#ccd6e4;--card:#ffffff;--ink:#1f2a44;--muted:#5f6d80;--line:#c3cede;'
       +'--green:#2e9e57;--green2:#10b981;--greendk:#1f7d43;--greenlt:#e7f6ec;'
       +'--auf-gruen:#ffffff;--auf-gruen-dunkel:#ffffff;--card2:#eef2f7;}'
     +'#fgProdErf #fe_grid>div,#fgProdErf #peDetail{min-width:0}'
@@ -7377,37 +7377,32 @@ function zusSync(){
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
   try{ if(typeof fgEnthaltenRender==="function") fgEnthaltenRender(); }catch(e){}   /* Referenz aktualisieren: als Zusatzstoff erfasste Stoffe werden dort grün */
 }
-function zusRenderSel(){
-  var box=document.getElementById("fe_zusSel"); if(!box) return;
-  var sel=window._fgZus||[];
-  var kc=document.getElementById("fe_zusKeine"); if(kc) kc.checked=(sel.length===0);
-  if(!sel.length){ box.innerHTML='<div style="color:var(--muted);font-size:12px;padding:2px 0">— noch keine Zusatzstoffe erfasst —</div>'; return; }
-  box.innerHTML=sel.map(function(z,i){
-    var f=zusFarbe(z.einst);
-    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px;margin-bottom:3px;background:'+f.bg+';color:'+f.txt+'">'
-      +'<span style="width:10px;height:10px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'
-      +'<span style="flex:1;min-width:0;font-size:13px">'+esc(z.name)+(z.e?' <span style="opacity:.7;font-size:11.5px">'+esc(z.e)+'</span>':'')+'</span>'
-      +'<span style="font-size:11px;opacity:.9;white-space:nowrap">'+f.label+'</span>'
-      +'<button type="button" onclick="zusDel('+i+')" title="entfernen" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;flex:0 0 auto">✕</button>'
-      +'</div>';
-  }).join("");
-}
+/* zusRenderSel: eigener Auswahl-Kasten entfällt – die Auswahl steht (wie beim Zutaten-Picker)
+   angehakt OBEN in derselben Liste. Diese Funktion synchronisiert nur noch das „Keine
+   Zusatzstoffe"-Häkchen und zeichnet die Liste neu, damit alle alten Aufrufstellen weiter gelten. */
+function zusRenderSel(){ zusRenderPick(); }
+/* Zusatzstoffe-Picker – IDENTISCH zum Zutaten-Picker (Ralph 23.07.2026): volle, scrollbare
+   Häkchen-Liste des ganzen Zusatzstoff-Stamms, Ausgewählte immer oben, Suche filtert.
+   Rechts statt einer Zahl der Gesundheits-Punkt (unbedenklich/abgewertet/ungeprüft) + Text. */
 function zusRenderPick(){
   var box=document.getElementById("fe_zusList"); if(!box) return;
+  var kc=document.getElementById("fe_zusKeine"); if(kc) kc.checked=((window._fgZus||[]).length===0);
   var q=((document.getElementById("fe_zusSuche")||{}).value||"").trim().toLowerCase();
-  if(!q){ box.innerHTML='<div style="padding:10px;color:var(--muted);font-size:12px">E-Nummer oder Name tippen, um Zusatzstoffe zu finden…</div>'; return; }
   var selE={}; (window._fgZus||[]).forEach(function(z){ if(z.e) selE[String(z.e).toLowerCase()]=1; });
-  var rows=(ZUSATZSTOFFE_STAMM||[]).filter(function(z){ return String(z.e||"").toLowerCase().indexOf(q)>=0 || String(z.name||"").toLowerCase().indexOf(q)>=0; });
-  if(!rows.length){ box.innerHTML='<div style="padding:10px;color:var(--muted);font-size:12px">Nichts gefunden – ggf. unten „+ hinzufügen".</div>'; return; }
-  box.innerHTML=rows.slice(0,80).map(function(z){
-    var f=zusFarbe(z.einstufung); var on=!!selE[String(z.e).toLowerCase()];
-    return '<div onclick="zusToggle(\''+esc(z.e)+'\')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--line);'+(on?'background:#eef7f1':'')+'">'
-      +'<span style="width:15px;color:#1f7d43;font-weight:700">'+(on?'✓':'')+'</span>'
-      +'<span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'
-      +'<span style="flex:1;min-width:0;font-size:13px">'+esc(z.name)+'</span>'
-      +'<span style="color:var(--muted);font-size:11.5px;white-space:nowrap">'+esc(z.e)+' · '+f.label+'</span>'
-      +'</div>';
-  }).join("");
+  var all=(ZUSATZSTOFFE_STAMM||[]);
+  var isSel=function(z){ return !!selE[String(z.e||"").toLowerCase()]; };
+  var checked=all.filter(isSel), rest=all.filter(function(z){ return !isSel(z); });
+  if(q){ var mm=function(z){ return String(z.e||"").toLowerCase().indexOf(q)>=0 || String(z.name||"").toLowerCase().indexOf(q)>=0; }; checked=checked.filter(mm); rest=rest.filter(mm); }
+  var shown=checked.concat(rest);
+  var row=function(z){ var on=isSel(z); var f=zusFarbe(z.einstufung);
+    return '<label style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(on?"background:var(--greenlt,#eef7f0)":"")+'">'
+      +'<input type="checkbox" '+(on?"checked":"")+' onchange="zusToggle(\''+esc(z.e)+'\')" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(z.name)+(z.e?' <span style="color:var(--muted);font-size:11.5px">'+esc(z.e)+'</span>':'')+'</span>'
+      +'<span style="display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:11.5px;color:var(--muted)"><span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'+f.label+'</span>'
+      +'</label>'; };
+  var _st=box.scrollTop;
+  box.innerHTML=(shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Stamm wird geladen…")+'</div>');
+  try{ box.scrollTop=_st; }catch(e){}
 }
 function zusToggle(e){
   var key=String(e||"").toLowerCase(); var z=ZUSATZSTOFFE_MAP[key]; if(!z) return;
@@ -8179,9 +8174,9 @@ async function openFgEditor(id, prefill, targetEl){
           <div id="fgOffBox" style="margin-top:8px"></div>`)}
         ${card("Zusatzstoffe",`
           <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:8px;cursor:pointer"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">Keine Zusatzstoffe im Produkt</label>
-          <div id="fe_zusSel" style="margin-bottom:8px"></div>
-          <input id="fe_zusSuche" oninput="zusRenderPick()" placeholder="🔍 Zusatzstoff / E-Nummer suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:6px">
-          <div id="fe_zusList" style="max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)"></div>
+          <input id="fe_zusSuche" oninput="zusRenderPick()" placeholder="🔍 Zusatzstoff / E-Nummer suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:8px">
+          <div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span title="enthalten">☑</span><span>Zusatzstoff</span><span style="text-align:right">Einstufung</span></div>
+          <div id="fe_zusList" style="max-height:420px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card)"></div>
           <div style="display:flex;gap:6px;margin-top:6px">
             <input id="fe_zusNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();zusAddNeu();}" placeholder="nicht im Stamm? Name/E-Nummer…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)">
             <button type="button" onclick="zusAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button>
@@ -11163,7 +11158,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22m";
+const APP_BUILD = "2026-07-22n";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
