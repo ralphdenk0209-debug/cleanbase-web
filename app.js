@@ -1720,12 +1720,37 @@ function detail2(d){
   }).join('');
 
   var zlist=Array.isArray(d.zutaten)?d.zutaten:[];
-  var zHtml=zlist.length?zlist.map(function(z){
+  /* Zwei saubere Listen (Ralph 23.07.2026, Transparenz): echte Zutaten getrennt von Zusatzstoffen.
+     Aroma bleibt bei den Zutaten – nach unseren Regeln (Prinzip 2) ist es kein Zusatzstoff.
+     Die Zutaten-Chips sind nach VERARBEITUNG gefärbt (grün=Vollwert … rot=stark verarbeitet).
+     Zusatzstoffe bewusst NEUTRAL/grau: ihre Verarbeitungsfarbe ist keine Gesundheitsaussage
+     (§1.11o) – wie gesund/bedenklich ein Zusatzstoff ist, steht in der Zusatzstoff-Achse. */
+  var _zChip=function(z){
     var krit=(String(z.kritisch||'')).toLowerCase()==='ja';
     var bg=krit?'var(--k-fde8e8)':(z.rating>=8?'var(--k-e7f4ec)':(z.rating>=5?'var(--k-fff7e6)':'var(--k-fde8e8)'));
     var tc=krit?'var(--k-b91c1c)':(z.rating>=8?'var(--k-1f5e34)':(z.rating>=5?'var(--k-92400e)':'var(--k-b91c1c)'));
     return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:'+bg+';color:'+tc+'">'+esc(z.name)+(krit?" ⚠️":"")+'</span>';
-  }).join(''):'<span style="color:var(--muted);font-size:13px">keine Zutaten hinterlegt</span>';
+  };
+  var _zNeutral=function(nm){ return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:var(--k-eef2f6);color:var(--k-475569)">'+esc(nm)+'</span>'; };
+  var _echt=zlist.filter(function(z){ return String(z.kategorie||'')!=='Zusatzstoff'; });
+  var _zusL=zlist.filter(function(z){ return String(z.kategorie||'')==='Zusatzstoff'; });
+  /* Zusatzstoffe, die (noch) nur im Freitext-Feld stehen, aber nicht als gebundene Zutat:
+     zusätzlich anzeigen, damit die Liste vollständig ist. Namen, die schon als Chip da sind, raus. */
+  var _zusNamen={}; _zusL.forEach(function(z){ _zusNamen[String(z.name||'').trim().toLowerCase()]=1; });
+  var _zusTxt=((d.zusatz&&d.zusatz.text)||'').trim();
+  var _zusExtra=(_zusTxt&&!/^(keine|keine zusatzstoffe|-)$/i.test(_zusTxt))
+      ? _zusTxt.split(/[,;]/).map(function(t){return t.trim();}).filter(function(t){ return t && !_zusNamen[t.toLowerCase()]; })
+      : [];
+  var zHtml='<div style="font-size:11px;color:var(--muted);margin-bottom:6px">grün = Vollwert · gelb = verarbeitet · rot = stark verarbeitet</div>'
+      + (_echt.length?_echt.map(_zChip).join(''):'<span style="color:var(--muted);font-size:13px">keine Zutaten hinterlegt</span>');
+  if(_zusL.length || _zusExtra.length){
+    zHtml+='<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--line)">'
+      +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:2px">Zusatzstoffe</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Was drin ist – die gesundheitliche Einordnung steht unten unter „Im Root Index".</div>'
+      + _zusL.map(function(z){ return _zNeutral(z.name); }).join('')
+      + _zusExtra.map(_zNeutral).join('')
+    +'</div>';
+  }
 
   var _ztxt=(zlist.map(function(z){return z.name||'';}).join(' '))+' '+(d.zusatzstoffe_text||'');
   var warn='';
@@ -1767,7 +1792,7 @@ function detail2(d){
     + (amazonUrl(d)?AMZ_HINWEIS:'')
     + '<div style="margin-top:6px">'
       + (restRows?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 g</div>'+restRows):'')
-      + ACC('🧾','Zutaten','<div style="font-size:11px;color:var(--muted);margin-bottom:6px">grün = Vollwert · gelb = verarbeitet · rot = stark verarbeitet</div>'+zHtml+(hasFeat('score_detail')?naehrstoffHtml(d):''))
+      + ACC('🧾','Zutaten &amp; Zusatzstoffe',zHtml+(hasFeat('score_detail')?naehrstoffHtml(d):''))
       + (bz?ACC('📈','Blutzucker-Verlauf',bzInner):'')
       + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'+scoreFlow(d)+katRangHtml(d))
       + ACC('🛡️','Quelle &amp; Beleg',quellenBlock(d))
@@ -11138,7 +11163,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22l";
+const APP_BUILD = "2026-07-22m";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
