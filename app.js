@@ -2658,8 +2658,8 @@ async function loadProduktErfassung(){
       +'<button class="peBtn pri" onclick="peNeu()">＋ Neues Produkt</button>'
       +'<button class="peBtn" onclick="peMenu(\'akt\',this)">☑ Aktionen ▾</button>'
       +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
-      +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px">Vorgabe-Kategorie</span>'
-      +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px")
+      +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px" title="Filtert die Liste nach Kategorie und ist zugleich die Vorgabe für neue Produkte.">Kategorie</span>'
+      +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px","peRender()","alle Kategorien")
       +'<button id="peStatusBtn" class="peBtn" onclick="peToggleStatus()">⇄ Status</button>'
       +'<span style="flex:1"></span>'
     +'</div>'
@@ -2744,8 +2744,10 @@ function peRender(){
   var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
   var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
   var chipf=window._peChip||'alle';
+  var katf=((document.getElementById('peVorKat')||{}).value||'').trim();   /* Kategorie-Filter (Ralph 23.07.) */
   var sort=((document.getElementById('peSort')||{}).value)||'neu';
   var list=rows.filter(function(p){
+    if(katf && String(p.kategorie||'')!==katf) return false;
     if(chipf==='offen'&&!peIstOffen(p)) return false;
     if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
     if(chipf==='keinscore'&&p.score!=null) return false;
@@ -4123,13 +4125,13 @@ const KATEGORIEN=["Backen","Brot & Backwaren","Brotaufstrich","Energy-Gel","Fert
   "Getreide & Beilagen","Milchprodukte & Eier","Nüsse & Hülsenfrüchte","Obst & Gemüse","Öle & Fette",
   "Proteinpulver","Riegel","Snacks","Supplement","Süßungsmittel","Süßwaren",
   "Tofu & Fleischalternativen","Würzen & Saucen","Lebensmittel","Sonstiges"];
-function katSelectHtml(id, aktuell, styleOverride){
+function katSelectHtml(id, aktuell, styleOverride, onChange, leerText){
   var a=(aktuell||"").trim();
   var opts=KATEGORIEN.slice();
   if(a && opts.indexOf(a)<0) opts.unshift(a);   /* Rikis Vorschlag nicht verlieren, auch wenn er nicht in der Liste ist */
   var st=styleOverride||'flex:1 1 130px;min-width:130px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px';
-  return '<select id="'+id+'" style="'+st+'">'
-    +'<option value="">Kategorie wählen…</option>'
+  return '<select id="'+id+'"'+(onChange?(' onchange="'+onChange+'"'):'')+' style="'+st+'">'
+    +'<option value="">'+esc(leerText||"Kategorie wählen…")+'</option>'
     + opts.map(function(k){ return '<option value="'+esc(k)+'"'+(k===a?' selected':'')+'>'+esc(k)+'</option>'; }).join('')
     +'</select>';
 }
@@ -11482,7 +11484,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22q";
+const APP_BUILD = "2026-07-22r";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
