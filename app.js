@@ -1776,37 +1776,25 @@ function detail2(d){
       + efPill(d.ernaehrungsform)
     + '</div>'
     + warn
-    /* 2026-07-23a: Feature-Schranken der alten Karte hierher uebernommen (Ralphs Fund:
-       Free sah alles - die Sperren sassen nur im toten Code der alten Karte, §"Was nicht
-       abgefragt wird, ist erlaubt"). pk_ringe sperrt NUR die Achsen-Grafik; die Index-ZAHL
-       selbst bleibt fuer alle sichtbar - der Scan ist das Versprechen (ZdE). */
     + '<div style="display:flex;flex-direction:column;align-items:center;margin:16px 0 8px">'
-      + (hasFeat('pk_ringe')
-          ? '<div style="width:250px;max-width:82%">'+pkFlux()+'</div>'
-            + '<div class="pkWord" style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:2px;opacity:0">'+esc(bewTxt||'–')+'</div>'
-          : '<div style="font-size:44px;font-weight:800;line-height:1;color:'+(s==null?'var(--muted)':fTxt)+'">'+(s==null?'–':Math.round(s))+'</div>'
-            + '<div style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:4px">'+esc(bewTxt||'–')+'</div>')
+      + '<div style="width:250px;max-width:82%">'+pkFlux()+'</div>'
+      + '<div class="pkWord" style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:2px;opacity:0">'+esc(bewTxt||'–')+'</div>'
     + '</div>'
-    + (hasFeat('pk_ringe')?'':pkSperre('Die vier Achsen','Zutaten · Zusatzstoffe · Verarbeitung · Nährwerte als Grafik'))
     + sonder
-    + (hasFeat('pk_naehrwerte')
-        ? '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 2px">'
-          + kachel('m_kcal','Energie','kcal') + kachel('m_fett','Fett','g')
-          + kachel('m_protein','Eiweiß','g') + kachel('m_ballast','Ballaststoffe','g')
-          + '</div>'
-        : pkSperre('Nährwerte pro 100 g','Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz'))
+    + '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 2px">'
+      + kachel('m_kcal','Energie','kcal') + kachel('m_fett','Fett','g')
+      + kachel('m_protein','Eiweiß','g') + kachel('m_ballast','Ballaststoffe','g')
+    + '</div>'
     + '<div style="display:flex;gap:7px;margin:12px 0;flex-wrap:wrap">'
       + '<button onclick="prodToEinkauf(\''+d.id+'\')" style="padding:7px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px;font-weight:600">🛒 Einkaufsliste</button>'
       + amazonBtn(d,true)
     + '</div>'
     + (amazonUrl(d)?AMZ_HINWEIS:'')
     + '<div style="margin-top:6px">'
-      + ((restRows&&hasFeat('pk_naehrwerte'))?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 g</div>'+restRows):'')
+      + (restRows?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 g</div>'+restRows):'')
       + ACC('🧾','Zutaten &amp; Zusatzstoffe',zHtml+(hasFeat('score_detail')?naehrstoffHtml(d):''))
       + (bz?ACC('📈','Blutzucker-Verlauf',bzInner):'')
-      + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'
-          +(hasFeat('pk_regeln')?scoreFlow(d):pkSperre('So kommt der Index zustande','Regeln, Deckel-Check und Herleitung'))
-          +(hasFeat('pk_platzierung')?katRangHtml(d):pkSperre('Platzierung','Platz in der Kategorie und die Besten')))
+      + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'+scoreFlow(d)+katRangHtml(d))
       + ACC('🛡️','Quelle &amp; Beleg',quellenBlock(d))
     + '</div>';
   document.getElementById("overlay").classList.add("open");
@@ -2670,8 +2658,8 @@ async function loadProduktErfassung(){
       +'<button class="peBtn pri" onclick="peNeu()">＋ Neues Produkt</button>'
       +'<button class="peBtn" onclick="peMenu(\'akt\',this)">☑ Aktionen ▾</button>'
       +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
-      +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px">Vorgabe-Kategorie</span>'
-      +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px")
+      +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px" title="Filtert die Liste nach Kategorie und ist zugleich die Vorgabe für neue Produkte.">Kategorie</span>'
+      +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px","peRender()","alle Kategorien")
       +'<button id="peStatusBtn" class="peBtn" onclick="peToggleStatus()">⇄ Status</button>'
       +'<span style="flex:1"></span>'
     +'</div>'
@@ -2756,8 +2744,10 @@ function peRender(){
   var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
   var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
   var chipf=window._peChip||'alle';
+  var katf=((document.getElementById('peVorKat')||{}).value||'').trim();   /* Kategorie-Filter (Ralph 23.07.) */
   var sort=((document.getElementById('peSort')||{}).value)||'neu';
   var list=rows.filter(function(p){
+    if(katf && String(p.kategorie||'')!==katf) return false;
     if(chipf==='offen'&&!peIstOffen(p)) return false;
     if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
     if(chipf==='keinscore'&&p.score!=null) return false;
@@ -4135,13 +4125,13 @@ const KATEGORIEN=["Backen","Brot & Backwaren","Brotaufstrich","Energy-Gel","Fert
   "Getreide & Beilagen","Milchprodukte & Eier","Nüsse & Hülsenfrüchte","Obst & Gemüse","Öle & Fette",
   "Proteinpulver","Riegel","Snacks","Supplement","Süßungsmittel","Süßwaren",
   "Tofu & Fleischalternativen","Würzen & Saucen","Lebensmittel","Sonstiges"];
-function katSelectHtml(id, aktuell, styleOverride){
+function katSelectHtml(id, aktuell, styleOverride, onChange, leerText){
   var a=(aktuell||"").trim();
   var opts=KATEGORIEN.slice();
   if(a && opts.indexOf(a)<0) opts.unshift(a);   /* Rikis Vorschlag nicht verlieren, auch wenn er nicht in der Liste ist */
   var st=styleOverride||'flex:1 1 130px;min-width:130px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px';
-  return '<select id="'+id+'" style="'+st+'">'
-    +'<option value="">Kategorie wählen…</option>'
+  return '<select id="'+id+'"'+(onChange?(' onchange="'+onChange+'"'):'')+' style="'+st+'">'
+    +'<option value="">'+esc(leerText||"Kategorie wählen…")+'</option>'
     + opts.map(function(k){ return '<option value="'+esc(k)+'"'+(k===a?' selected':'')+'>'+esc(k)+'</option>'; }).join('')
     +'</select>';
 }
@@ -10886,6 +10876,152 @@ function rezeptFormFuellen(d){
       + '<div style="margin-top:6px;font-size:12px;color:var(--muted)">Prüf die Werte – dann auf <b>Speichern</b>.</div>';
   }
 }
+/* ===== Feature 2 (Ralph 23.07.): „Was koche ich?" – Zutaten → Riki-Rezeptvorschläge nach kcal-Bedarf =====
+   Neue Edge-Function riki-rezept-vorschlag (Budget-Bremse wie Etikett). Riki schlägt vor,
+   der Nutzer wählt und übernimmt in dasselbe Rezeptformular (rezeptFormFuellen). */
+async function rezVorschlagOpen(){
+  if(typeof feat==="function" && !feat('rezept_riki')){
+    if(typeof premiumInfo==="function"){ premiumInfo(); } else { alert("Diese Funktion ist noch nicht für dich freigeschaltet."); }
+    return;
+  }
+  var kcal=""; try{ var r=await client.rpc("cb_profil"); kcal=(r.data&&r.data[0]&&r.data[0].Kalorienziel_kcal)||""; }catch(e){}
+  var ov=document.getElementById("rezVorOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="rezVorOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px 20px 18px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><div style="font-weight:800;font-size:18px">🍳 Was koche ich?</div><button onclick="rezVorschlagClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px">Gib die Zutaten ein, die du zuhause hast – Riki schlägt Gerichte vor, die dazu passen und deinen Kalorienbedarf treffen. Die kcal-Angabe ist eine <b>Schätzung</b>.</div>'
+    +'<label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Zutaten (Komma oder Zeile trennt)</label>'
+    +'<textarea id="rezVorZut" rows="2" placeholder="z. B. Eier, Haferflocken, Banane, Magerquark, Spinat" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:9px;font-size:13.5px;background:var(--bg);color:var(--ink)"></textarea>'
+    +'<input id="rezVorSuche" oninput="rezVorFilter()" placeholder="🔍 Zutat suchen und anhaken…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px 8px 0 0;font-size:13px;background:var(--card,#fff);color:var(--ink);margin-top:8px">'
+    +'<div id="rezVorPick" style="max-height:158px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card,#fff);font-size:13px"></div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'
+      +'<div style="flex:1;min-width:150px"><label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Mahlzeit</label><select id="rezVorMz" onchange="rezVorMzUpdate()" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:9px;font-size:13.5px;background:var(--bg);color:var(--ink)"><option value="">egal</option><option>Frühstück</option><option>Mittagessen</option><option>Abendessen</option><option>Snack</option></select></div>'
+      +'<div style="flex:1;min-width:120px"><label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Tagesbedarf kcal</label><input id="rezVorKcal" type="number" value="'+esc(String(kcal||""))+'" oninput="rezVorMzUpdate()" placeholder="z. B. 2000" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:9px;font-size:13.5px;background:var(--bg);color:var(--ink)"></div>'
+    +'</div>'
+    +'<div id="rezVorMzKcal" style="font-size:12.5px;color:var(--greendk,var(--k-166534));font-weight:600;margin-top:6px;min-height:16px"></div>'
+    +(kcal?'':'<div style="font-size:11.5px;color:var(--muted);margin-top:3px">Kein Tagesziel im Profil – trag hier eins ein oder lass es leer (dann schätzt Riki eine normale Portion).</div>')
+    +'<button onclick="rezVorschlagRun()" id="rezVorBtn" style="width:100%;margin-top:14px;padding:11px;border:0;border-radius:11px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:14px;cursor:pointer">Vorschläge holen</button>'
+    +'<div id="rezVorMsg" style="font-size:12.5px;margin-top:9px;line-height:1.5"></div>'
+    +'<div id="rezVorList" style="margin-top:6px"></div>'
+  +'</div>';
+  ov.style.display="flex";
+  setTimeout(function(){ try{ rezVorMzUpdate(); }catch(e){} try{ rezVorFilter(); }catch(e){} var t=document.getElementById("rezVorZut"); if(t) t.focus(); },50);
+}
+function rezVorschlagClose(){ var ov=document.getElementById("rezVorOv"); if(ov) ov.style.display="none"; }
+/* Kalorien für die gewählte Mahlzeit anzeigen (Anteil am Tagesbedarf). Nur Anzeige –
+   Riki bekommt weiterhin Tagesbedarf + Mahlzeit und rechnet den Anteil selbst. */
+var REZ_MZ_ANTEIL={ "Frühstück":0.25, "Mittagessen":0.35, "Abendessen":0.30, "Snack":0.12 };
+function rezVorMzUpdate(){
+  var el=document.getElementById("rezVorMzKcal"); if(!el) return;
+  var kcal=parseFloat((document.getElementById("rezVorKcal")||{}).value)||0;
+  var mz=((document.getElementById("rezVorMz")||{}).value||"");
+  if(!kcal){ el.textContent=""; return; }
+  if(mz && REZ_MZ_ANTEIL[mz]){
+    var z=Math.round(kcal*REZ_MZ_ANTEIL[mz]/10)*10;
+    el.innerHTML='🎯 Ziel für '+esc(mz)+': ≈ <b>'+z+' kcal</b> <span style="color:var(--muted);font-weight:400">(von '+Math.round(kcal)+' kcal/Tag)</span>';
+  } else {
+    var h=Math.round(kcal/3/10)*10;
+    el.innerHTML='🎯 Hauptmahlzeit: ≈ <b>'+h+' kcal</b> <span style="color:var(--muted);font-weight:400">(≈ ⅓ von '+Math.round(kcal)+' kcal/Tag)</span>';
+  }
+}
+/* Zutaten-Quelle für die Anhak-Liste: der Zutaten-Stamm (generische Namen), sonst der
+   Produktkatalog. Einmal aufgebaut, dedupliziert, alphabetisch. */
+function rezVorQuelle(){
+  if(window._rezVorQuelle) return window._rezVorQuelle;
+  var namen=[], seen={};
+  var add=function(n){ n=String(n||"").trim(); var k=n.toLowerCase(); if(n && !seen[k]){ seen[k]=1; namen.push(n); } };
+  try{ (window.ZUTATEN_STAMM||ZUTATEN_STAMM||[]).forEach(function(z){ add(z&&(z.name||z.Zutat||z)); }); }catch(e){}
+  if(namen.length<20){ try{ (window.ALL||ALL||[]).forEach(function(p){ add(p&&p.name); }); }catch(e){} }
+  namen.sort(function(a,b){ return a.toLowerCase()<b.toLowerCase()?-1:1; });
+  window._rezVorQuelle=namen; return namen;
+}
+function rezVorFilter(){
+  var box=document.getElementById("rezVorPick"); if(!box) return;
+  var q=((document.getElementById("rezVorSuche")||{}).value||"").trim().toLowerCase();
+  var quelle=rezVorQuelle();
+  if(!quelle.length){ box.innerHTML='<div style="padding:9px 11px;color:var(--muted);font-size:12px">Keine Zutatenliste geladen – tipp die Zutaten einfach oben ein.</div>'; return; }
+  var gewaehlt={}; try{ ((document.getElementById("rezVorZut")||{}).value||"").split(/[\n,;]+/).forEach(function(s){ s=s.trim().toLowerCase(); if(s) gewaehlt[s]=1; }); }catch(e){}
+  var treffer = q ? quelle.filter(function(n){ return n.toLowerCase().indexOf(q)>=0; }) : quelle;
+  var mehr = treffer.length>40;
+  treffer = treffer.slice(0,40);
+  if(!treffer.length){ box.innerHTML='<div style="padding:9px 11px;color:var(--muted);font-size:12px">Kein Treffer – oder tipp den Namen oben frei ein.</div>'; return; }
+  box.innerHTML = treffer.map(function(n){
+    var an=!!gewaehlt[n.toLowerCase()];
+    return '<label style="display:flex;align-items:center;gap:9px;padding:7px 11px;border-bottom:1px solid var(--line);cursor:pointer">'
+      +'<input type="checkbox" '+(an?'checked':'')+' onchange="rezVorToggle('+JSON.stringify(n).replace(/"/g,'&quot;')+',this.checked)" style="width:16px;height:16px;flex:0 0 auto;accent-color:var(--green)">'
+      +'<span style="color:var(--ink)">'+esc(n)+'</span></label>';
+  }).join("") + (mehr?'<div style="padding:7px 11px;color:var(--muted);font-size:11.5px">… weiter tippen zum Eingrenzen</div>':'');
+}
+/* Anhaken → Zutat in das Textfeld übernehmen (eine Wahrheit: das Textfeld). Enthaken → raus. */
+function rezVorToggle(name, on){
+  var t=document.getElementById("rezVorZut"); if(!t) return;
+  var liste=(t.value||"").split(/[\n,;]+/).map(function(s){return s.trim();}).filter(function(s){return s.length>0;});
+  var k=String(name).trim().toLowerCase();
+  liste=liste.filter(function(s){ return s.toLowerCase()!==k; });
+  if(on) liste.push(String(name).trim());
+  t.value=liste.join(", ");
+}
+if(typeof window!=='undefined'){ window.rezVorMzUpdate=rezVorMzUpdate; window.rezVorFilter=rezVorFilter; window.rezVorToggle=rezVorToggle; }
+async function rezVorschlagRun(){
+  var zutRaw=((document.getElementById("rezVorZut")||{}).value||"");
+  var zutaten=zutRaw.split(/[\n,;]+/).map(function(s){return s.trim();}).filter(function(s){return s.length>0;});
+  var msg=document.getElementById("rezVorMsg"), list=document.getElementById("rezVorList"), btn=document.getElementById("rezVorBtn");
+  if(list) list.innerHTML="";
+  if(zutaten.length<2){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte mindestens 2 Zutaten eingeben."; } return; }
+  var kcal=parseFloat((document.getElementById("rezVorKcal")||{}).value)||null;
+  var mz=((document.getElementById("rezVorMz")||{}).value||"")||null;
+  if(btn){ btn.disabled=true; btn.textContent="Riki denkt nach …"; }
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="🤖 Riki sucht passende Gerichte …"; }
+  try{
+    var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
+    var r=await fetch(client.supabaseUrl+"/functions/v1/riki-rezept-vorschlag",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+      body:JSON.stringify({zutaten:zutaten, kcal_tag:kcal, mahlzeit:mz, anzahl:3})});
+    var d=await r.json();
+    if(!r.ok||d.error){ throw new Error(d.error||("Fehler "+r.status)); }
+    window._rezVorschlaege=d.vorschlaege||[];
+    rezVorschlagRender(d);
+    if(msg){ msg.style.color="var(--muted)"; msg.innerHTML=esc(d.hinweis||"")+(d.meta&&d.meta.kosten_usd!=null?(' <span style="color:var(--k-a89f8f)">· ~$'+d.meta.kosten_usd+'</span>'):''); }
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Ging nicht: "+(e&&e.message?e.message:e); } }
+  finally{ if(btn){ btn.disabled=false; btn.textContent="Vorschläge holen"; } }
+}
+function rezVorschlagRender(d){
+  var list=document.getElementById("rezVorList"); if(!list) return;
+  var vs=d.vorschlaege||[];
+  list.innerHTML=vs.map(function(v,i){
+    var ef=v.ernaehrungsform?('<span style="font-size:11px;color:var(--muted)"> · '+esc(v.ernaehrungsform)+'</span>'):'';
+    var kc=(v.kcal_geschaetzt!=null)?('~'+Math.round(v.kcal_geschaetzt)+' kcal/Portion'):'kcal unklar';
+    var passt=(v.passt_zu_kcal===false)?'<span style="font-size:11px;color:var(--k-b45309)"> · passt nicht ganz zum Bedarf</span>':'';
+    var zl=(Array.isArray(v.zutaten)?v.zutaten:[]).map(function(z){ return esc((z.menge?(z.menge+' '):'')+(z.name||''))+(z.aus_vorrat===false?' <span style="color:var(--k-b45309)">(dazu)</span>':''); }).join(' · ');
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-top:10px;background:var(--bg)">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="font-weight:700;font-size:14.5px">'+esc(v.name||('Vorschlag '+(i+1)))+ef+'</div><div style="font-size:11.5px;color:var(--muted);white-space:nowrap">⏱ '+(v.zeit_min!=null?(v.zeit_min+' min'):'–')+'</div></div>'
+      +(v.kurz?('<div style="font-size:12.5px;color:var(--ink);margin-top:2px">'+esc(v.kurz)+'</div>'):'')
+      +'<div style="font-size:12px;color:var(--muted);margin-top:5px"><b style="color:var(--greendk,var(--k-166534))">'+kc+'</b>'+passt+'</div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5">'+zl+'</div>'
+      +'<button onclick="rezVorschlagUebernehmen('+i+')" style="margin-top:10px;padding:8px 13px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:13px;cursor:pointer">Als Rezept übernehmen ▸</button>'
+    +'</div>';
+  }).join("");
+}
+async function rezVorschlagUebernehmen(i){
+  var v=(window._rezVorschlaege||[])[i]; if(!v) return;
+  rezVorschlagClose();
+  try{ await openRezeptForm(); }catch(e){}
+  /* Vorschlag in die Form bringen, die rezeptFormFuellen erwartet (wie riki-rezept). */
+  var d={ vorschlag:{ name:v.name, portionen:v.portionen, zeit_min:v.zeit_min, zubereitung:v.zubereitung,
+    ernaehrungsform:v.ernaehrungsform, naehrwerte_portion:{ kcal:v.kcal_geschaetzt },
+    zutaten:(Array.isArray(v.zutaten)?v.zutaten:[]).map(function(z){ return {name:z.name, menge:z.menge, menge_g:z.menge_g}; }) },
+    warnungen:['Die kcal-Angabe ist eine Schätzung – nach dem Verknüpfen der Zutaten mit „Makros berechnen“ die echten Werte holen.'],
+    zutaten_gesamt:(v.zutaten||[]).length, zugeordnet:0 };
+  setTimeout(function(){
+    try{ rezeptFormFuellen(d); }catch(e){}
+    /* Zutaten-Namen wurden gesetzt, aber ohne oninput → Katalog-Verknüpfung nachtriggern. */
+    try{ document.querySelectorAll("#rzfZutaten .rzZ .rzZName").forEach(function(inp){ if(typeof linkZutat==="function") linkZutat(inp); }); }catch(e){}
+  }, 80);
+}
+if(typeof window!=='undefined'){ window.rezVorschlagOpen=rezVorschlagOpen; window.rezVorschlagClose=rezVorschlagClose; window.rezVorschlagRun=rezVorschlagRun; window.rezVorschlagUebernehmen=rezVorschlagUebernehmen; }
 function calcMakros(){
   const msg=document.getElementById("rzfCalcMsg");
   let k=0,p=0,kh=0,f=0,linked=0,total=0;
@@ -11494,7 +11630,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-23a";
+const APP_BUILD = "2026-07-22t";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
