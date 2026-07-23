@@ -3235,16 +3235,224 @@ function zutStammSave(id){
    vorhandene dashDrill(); die Ampel-Schiene und die Benutzerführung rufen genau ihn auf. */
 /* ===== Dashboard-Ansicht umschalten (Ralph 22.07.): klassisch <-> Vorgang 1:1 =====
    Merkt sich die Wahl in localStorage (ri_dash_ansicht), genau wie der Editor-Umschalter. */
-function dashAnsichtGet(){ try{ return localStorage.getItem('ri_dash_ansicht')==='vorgang'?'vorgang':'klassisch'; }catch(e){ return 'klassisch'; } }
-function dashAnsichtSet(v){ try{ localStorage.setItem('ri_dash_ansicht', v==='vorgang'?'vorgang':'klassisch'); }catch(e){} if(typeof loadDashboard==='function') loadDashboard(); }
+function dashAnsichtGet(){ try{ var v=localStorage.getItem('ri_dash_ansicht'); return (v==='vorgang'||v==='klassisch')?v:'command'; }catch(e){ return 'command'; } }
+function dashAnsichtSet(v){ try{ localStorage.setItem('ri_dash_ansicht', (v==='vorgang'||v==='klassisch')?v:'command'); }catch(e){} if(typeof loadDashboard==='function') loadDashboard(); }
 function dashSwitchHtml(ansicht){
-  var v=(ansicht==='vorgang');
+  var mk=function(key,label){ return '<button class="'+(ansicht===key?'active':'')+'" onclick="dashAnsichtSet(\''+key+'\')">'+label+'</button>'; };
   return '<div class="dashSwitch"><span>Ansicht:</span><span class="grp">'
-    +'<button class="'+(!v?'active':'')+'" onclick="dashAnsichtSet(\'klassisch\')">Klassisch</button>'
-    +'<button class="'+(v?'active':'')+'" onclick="dashAnsichtSet(\'vorgang\')">Vorgang 1:1</button>'
-    +'</span>'+(v?'<span class="hint">1:1-Layout &middot; Inhalte noch Platzhalter</span>':'')+'</div>';
+    +mk('command','Command Center')+mk('klassisch','Klassisch')+mk('vorgang','Vorgang 1:1')
+    +'</span>'+(ansicht==='vorgang'?'<span class="hint">1:1-Layout &middot; Inhalte noch Platzhalter</span>':'')+'</div>';
 }
 if(typeof window!=='undefined'){ window.dashAnsichtSet=dashAnsichtSet; }
+/* ===== Neon Command Center (Ralph 23.07.2026) – dritte Dashboard-Ansicht, DEFAULT. =====
+   Dunkles Neon-Layout (Kombination lila Dashboard + Klipfolio), alle Zahlen ECHT aus cb_dashboard.
+   Keine farbigen Balken (Ralph) – stattdessen Mehrsegment-Donuts. Karte Welt<->Deutschland
+   umschaltbar (Nutzer-Herkunft noch nicht erfasst -> Beispiel-Punkte, ehrlich vermerkt).
+   Alles unter #fgDash .nc gescoped, damit der übrige (helle) Admin unberührt bleibt. */
+function dashCommandCss(){
+  if(document.getElementById('dashCmdCss')) return;
+  var N='#fgDash .nc';
+  var css=
+    N+'{--ncink:#eae4ff;--ncmut:#9186c0;--ncline:#33235e;--nccyan:#25e5e0;--ncmag:#ff3ca6;--ncpur:#9d5cff;--ncgrn:#3ee6a0;--ncamb:#ffb03c;--ncred:#ff5d7a;--ncblue:#4aa8ff;color:var(--ncink);background:radial-gradient(120% 90% at 15% 0%,#1a0e38,#0d0620);border-radius:14px;padding:14px;font-size:12px}'
+    +N+' .ncbar{display:flex;align-items:center;gap:10px;margin-bottom:11px}'
+    +N+' .ncbar .lg{font-size:15px;font-weight:800;background:linear-gradient(90deg,#25e5e0,#9d5cff);-webkit-background-clip:text;background-clip:text;color:transparent}'
+    +N+' .ncbar .live{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--ncgrn)}'
+    +N+' .ncbar .live .dt{width:7px;height:7px;border-radius:50%;background:var(--ncgrn);box-shadow:0 0 8px var(--ncgrn)}'
+    +N+' .ncbtn{background:#1a1046;border:1px solid var(--ncline);color:var(--nccyan);border-radius:8px;padding:6px 11px;font-size:11.5px;cursor:pointer;font-weight:700}'
+    +N+' .ncgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:11px}'
+    +N+' .ncp{background:linear-gradient(180deg,rgba(36,22,83,.7),rgba(28,17,64,.7));border:1px solid var(--ncline);border-radius:12px;padding:13px;min-width:0}'
+    +N+' .nct{font-size:11.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#c9bdf5;margin-bottom:9px}'
+    +N+' .nct small{display:block;font-size:10px;color:var(--ncmut);font-weight:500;text-transform:none;letter-spacing:0;margin-top:2px}'
+    +N+' .ncrings{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}'
+    +N+' .ncrc{background:linear-gradient(180deg,rgba(36,22,83,.7),rgba(28,17,64,.7));border:1px solid var(--ncline);border-radius:12px;padding:12px;display:flex;align-items:center;gap:12px}'
+    +N+' .ncring{width:74px;height:74px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;filter:drop-shadow(0 0 6px rgba(157,92,255,.4))}'
+    +N+' .ncring i{width:58px;height:58px;border-radius:50%;background:#160b30;display:flex;flex-direction:column;align-items:center;justify-content:center;font-style:normal}'
+    +N+' .ncring i b{font-size:17px;font-weight:800}'+N+' .ncring i span{font-size:8px;color:var(--ncmut);letter-spacing:.03em}'
+    +N+' .ncrc .rl{font-size:12px;font-weight:700}'+N+' .ncrc .rs{font-size:10.5px;color:var(--ncmut);margin-top:2px}'
+    +N+' .nckpi{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}'
+    +N+' .nckc{background:linear-gradient(180deg,rgba(36,22,83,.7),rgba(28,17,64,.7));border:1px solid var(--ncline);border-radius:12px;padding:12px}'
+    +N+' .nckc .n{font-size:22px;font-weight:800;line-height:1}'+N+' .nckc .l{font-size:9.5px;color:var(--ncmut);margin-top:5px;text-transform:uppercase;letter-spacing:.03em}'
+    +N+' .nckc .sub{font-size:9.5px;color:var(--ncmut);margin-top:2px}'
+    +N+' .ncwg{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}'
+    +N+' .ncwc{background:#1a1046;border-radius:9px;padding:8px 9px;border-left:3px solid var(--ncline)}'
+    +N+' .ncwc .n{font-size:16px;font-weight:800;line-height:1}'+N+' .ncwc .l{font-size:9px;color:var(--ncmut);margin-top:3px;line-height:1.2}'
+    +N+' .ncwc.ok{border-left-color:var(--ncgrn)}'+N+' .ncwc.ok .n{color:var(--ncgrn)}'
+    +N+' .ncwc.err{border-left-color:var(--ncred)}'+N+' .ncwc.err .n{color:var(--ncred);text-shadow:0 0 10px rgba(255,93,122,.5)}'
+    +N+' .ncrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-top:1px solid var(--ncline);font-size:12px}'
+    +N+' .ncrow:first-of-type{border-top:0}'+N+' .ncrow .v{font-weight:800}'
+    +N+' .ncrow.klick{cursor:pointer}'+N+' .ncrow.klick:hover .v{text-decoration:underline}'
+    +N+' .ncdonwrap{display:flex;align-items:center;gap:14px}'+N+' .ncdon{position:relative;flex:0 0 auto}'
+    +N+' .ncdonc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}'
+    +N+' .ncdonc b{font-size:20px;font-weight:800;line-height:1}'+N+' .ncdonc span{font-size:9px;color:var(--ncmut);margin-top:2px}'
+    +N+' .ncleg{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--ncmut);min-width:0}'
+    +N+' .ncleg .li{display:flex;align-items:center;gap:7px;white-space:nowrap}'+N+' .ncleg .sw{width:9px;height:9px;border-radius:2px;flex:0 0 auto}'
+    +N+' .ncleg .li b{color:var(--ncink);font-weight:700}'+N+' .ncleg .li .nm{overflow:hidden;text-overflow:ellipsis;min-width:0}'
+    +N+' .ncmt{display:inline-flex;border:1px solid var(--ncline);border-radius:8px;overflow:hidden;margin-bottom:8px}'
+    +N+' .ncmt button{background:#1a1046;border:0;color:var(--ncmut);font-size:11px;font-weight:700;padding:5px 12px;cursor:pointer}'
+    +N+' .ncmt button.on{background:linear-gradient(90deg,#9d5cff,#ff3ca6);color:#fff}'
+    +N+' .ncmap{position:relative;height:158px;background:radial-gradient(120% 120% at 50% 0%,#1a1046,#120726);border:1px solid var(--ncline);border-radius:10px;overflow:hidden}'
+    +N+' .ncmap svg{position:absolute;inset:0;width:100%;height:100%}'
+    +N+' .ncland{fill:#2a1b57;stroke:#3d2a6e;stroke-width:.5}'
+    +N+' .ncpin{fill:var(--nccyan);filter:drop-shadow(0 0 4px var(--nccyan))}'+N+' .ncpin.big{fill:var(--ncmag);filter:drop-shadow(0 0 6px var(--ncmag))}'
+    +N+' .ncfwd{font-size:10px;color:var(--ncamb);background:rgba(255,176,60,.08);border:1px solid rgba(255,176,60,.2);border-radius:7px;padding:5px 8px;margin-top:8px;line-height:1.4}'
+    +N+' .ncga{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}'+N+' .ncgauge{text-align:center}'+N+' .ncgauge .l{font-size:9.5px;color:var(--ncmut);margin-top:5px}'
+    +N+' .ncspark{width:100%;display:block}'
+    +N+' .ncrun{width:100%;margin-top:9px;background:linear-gradient(90deg,#9d5cff,#ff3ca6);color:#fff;border:0;border-radius:9px;padding:9px;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 0 14px rgba(157,92,255,.4)}'
+    +'@media(max-width:900px){'+N+' .ncgrid>*{grid-column:1/-1 !important}'+N+' .nckpi,'+N+' .ncrings,'+N+' .ncga{grid-template-columns:repeat(2,1fr)}}';
+  var st=document.createElement('style'); st.id='dashCmdCss'; st.textContent=css; document.head.appendChild(st);
+}
+function ncMapSet(v){ var w=(v==='welt');
+  var mw=document.getElementById('ncMapWelt'), md=document.getElementById('ncMapDe');
+  if(mw) mw.style.display=w?'':'none'; if(md) md.style.display=w?'none':'';
+  var bw=document.getElementById('ncMbWelt'), bd=document.getElementById('ncMbDe');
+  if(bw) bw.classList.toggle('on',w); if(bd) bd.classList.toggle('on',!w);
+}
+if(typeof window!=='undefined'){ window.ncMapSet=ncMapSet; }
+function dashCommandHtml(d){
+  dashCommandCss();
+  var k=d.katalog||{}, q=d.qualitaet||{}, u=d.nutzer||{}, ri=d.riki||{}, gate=d.gate||{};
+  var num=function(n){ return (n==null?0:Number(n)); };
+  var fmt=function(n){ if(n==null) return '–'; return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' '); };
+  var aktiv=num(k.aktiv);
+  var verif=Math.max(0, aktiv-num(q.unverifiziert));
+  var verifPct= aktiv>0?Math.round(verif/aktiv*100):0;
+  var barcodePct= aktiv>0?Math.round(num(k.mit_ean)/aktiv*100):0;
+  var markenPct= aktiv>0?Math.round(num(k.markenprodukte)/aktiv*100):0;
+  var suppPct= aktiv>0?Math.round(num(k.supplements)/aktiv*100):0;
+  var idx=(k.schnitt_score!=null)?Number(k.schnitt_score):null;
+  var idxPct= idx!=null?Math.max(0,Math.min(100,idx)):0;
+  var scored=(d.score_verteilung||[]).reduce(function(a,x){ return a+num(x.anzahl); },0);
+  /* Mehrsegment-Donut (SVG) – viele Einzelsegmente, wie Ralph wollte. */
+  var donut=function(segs,rad,sw){
+    var cx=rad+sw, size=2*cx, C=2*Math.PI*rad;
+    var total=segs.reduce(function(a,s){ return a+num(s.v); },0);
+    var body='', off=0, gap=(segs.filter(function(s){return num(s.v)>0;}).length>1 && total>0)?C*0.006:0;
+    if(total<=0){ body='<circle cx="'+cx+'" cy="'+cx+'" r="'+rad+'" fill="none" stroke="#2a1b52" stroke-width="'+sw+'"/>'; }
+    else { segs.forEach(function(s){ var v=num(s.v); if(v<=0) return; var seg=(v/total)*C, len=Math.max(0.5,seg-gap);
+      body+='<circle cx="'+cx+'" cy="'+cx+'" r="'+rad+'" fill="none" stroke="'+s.col+'" stroke-width="'+sw+'" stroke-dasharray="'+len.toFixed(2)+' '+(C-len).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'" transform="rotate(-90 '+cx+' '+cx+')"/>';
+      off+=seg; }); }
+    return '<svg viewBox="0 0 '+size+' '+size+'" style="width:100%;height:100%;display:block">'+body+'</svg>';
+  };
+  var ring=function(p,c1,c2,big,sub){ p=Math.max(0,Math.min(100,p));
+    return '<div class="ncring" style="background:conic-gradient(from -90deg,'+c1+','+c2+' '+p+'%,#2a1b52 0)"><i><b>'+big+'</b><span>'+sub+'</span></i></div>'; };
+  var gauge=function(p,c,center,label){ p=Math.max(0,Math.min(100,p));
+    return '<div class="ncgauge"><div style="width:58px;height:58px;border-radius:50%;margin:0 auto;background:conic-gradient('+c+' '+p+'%,#241653 0);display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 5px rgba(37,229,224,.3))"><div style="width:44px;height:44px;border-radius:50%;background:#160b30;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">'+center+'</div></div><div class="l">'+label+'</div></div>'; };
+
+  /* Rings */
+  var ringsHtml='<div class="ncrings" style="grid-column:span 5">'
+    +'<div class="ncrc">'+ring(idxPct,'#25e5e0','#3ee6a0',(idx!=null?idx:'–'),'Ø INDEX')+'<div><div class="rl">Ø Root Index</div><div class="rs">über '+fmt(scored)+' bewertete</div></div></div>'
+    +'<div class="ncrc">'+ring(verifPct,'#9d5cff','#ff3ca6',verifPct+'%','GEPRÜFT')+'<div><div class="rl">Verifiziert</div><div class="rs">'+fmt(verif)+' von '+fmt(aktiv)+'</div></div></div>'
+    +'</div>';
+
+  /* KPI mini */
+  var kc=function(n,l,sub,col){ return '<div class="nckc"><div class="n"'+(col?' style="color:'+col+'"':'')+'>'+fmt(n)+'</div><div class="l">'+l+'</div><div class="sub">'+sub+'</div></div>'; };
+  var kpiHtml='<div class="nckpi" style="grid-column:span 7">'
+    +kc(aktiv,'aktiv','im Katalog','#25e5e0')
+    +kc(num(k.markenprodukte),'Marken','Markenprodukte',null)
+    +kc(num(k.mit_ean),'mit Barcode','scanbar',null)
+    +kc(num(k.supplements),'Supplements','Dosis-Check','#ffb03c')
+    +'</div>';
+
+  /* Go-Live-Gate: alle 9 Wächter (echt) */
+  var waLst=Array.isArray(gate.waechter)?gate.waechter:[];
+  var gateCells=waLst.map(function(w){ var o=num(w.offen); return '<div class="ncwc '+(o>0?'err':'ok')+'"><div class="n">'+o+'</div><div class="l">'+esc(w.name)+'</div></div>'; }).join('');
+  var gateSumme=num(gate.summe);
+  var gateHtml='<div class="ncp" style="grid-column:span 5"><div class="nct">Go-Live-Gate <small>'+(gateSumme>0?('ZU · '+gateSumme+' offene Punkte'):'OFFEN · alle Wächter auf 0')+'</small></div>'
+    +'<div class="ncwg">'+gateCells+'</div></div>';
+
+  /* Score-Verteilung als Mehrsegment-Donut (keine Balken) */
+  var scCol=function(v){ return v>=90?'#3ee6a0':v>=80?'#25e5e0':v>=70?'#4aa8ff':v>=60?'#9d5cff':v>=50?'#ff3ca6':'#ff5d7a'; };
+  var svArr=(d.score_verteilung||[]).slice().sort(function(a,b){ return num(b.von)-num(a.von); });
+  var svSegs=svArr.map(function(x){ return {v:num(x.anzahl), col:scCol(num(x.von))}; });
+  var svTotal=svSegs.reduce(function(a,s){return a+s.v;},0);
+  var svLeg=svArr.map(function(x){ return '<div class="li"><span class="sw" style="background:'+scCol(num(x.von))+'"></span><span class="nm">'+num(x.von)+'–'+(num(x.von)+9)+'</span> <b>'+fmt(num(x.anzahl))+'</b></div>'; }).join('');
+  var scoreHtml='<div class="ncp" style="grid-column:span 7"><div class="nct">Score-Verteilung <small>aktive Produkte nach Root Index</small></div>'
+    +'<div class="ncdonwrap"><div class="ncdon" style="width:132px;height:132px">'+donut(svSegs,58,15)+'<div class="ncdonc"><b>'+fmt(svTotal)+'</b><span>bewertet</span></div></div>'
+    +'<div class="ncleg" style="flex:1">'+svLeg+'</div></div></div>';
+
+  /* Quellen als Mehrsegment-Donut (echt: d.quellen) */
+  var pal=['#25e5e0','#9d5cff','#ff3ca6','#3ee6a0','#ffb03c','#4aa8ff','#ff5d7a','#c9bdf5'];
+  var quArr=(d.quellen||[]);
+  var quSegs=quArr.map(function(x,i){ return {v:num(x.anzahl), col:pal[i%pal.length]}; });
+  var quTot=quSegs.reduce(function(a,s){return a+s.v;},0);
+  var quLeg=quArr.map(function(x,i){ return '<div class="li"><span class="sw" style="background:'+pal[i%pal.length]+'"></span><span class="nm">'+esc(x.typ)+'</span> <b>'+fmt(num(x.anzahl))+'</b></div>'; }).join('');
+  var quHtml='<div class="ncp" style="grid-column:span 4"><div class="nct">Quellen <small>aktive Produkte nach Beleg</small></div>'
+    +'<div class="ncdonwrap"><div class="ncdon" style="width:104px;height:104px">'+donut(quSegs,46,13)+'<div class="ncdonc"><b>'+fmt(quTot)+'</b><span>aktiv</span></div></div>'
+    +'<div class="ncleg" style="flex:1">'+quLeg+'</div></div></div>';
+
+  /* Karte Welt<->Deutschland (Herkunft noch nicht erfasst -> Beispiel, ehrlich vermerkt) */
+  var mapHtml='<div class="ncp" style="grid-column:span 5"><div class="nct">Nutzer nach Herkunft <small>woher die Besucher kommen</small></div>'
+    +'<div class="ncmt"><button id="ncMbWelt" class="on" onclick="ncMapSet(\'welt\')">🌍 Welt</button><button id="ncMbDe" onclick="ncMapSet(\'de\')">🇩🇪 Deutschland</button></div>'
+    +'<div class="ncmap">'
+      +'<svg id="ncMapWelt" viewBox="0 0 480 180">'
+        +'<path class="ncland" d="M55,55 q22,-16 55,-10 q28,6 34,22 q-8,22 -36,24 q-38,4 -54,-8 q-12,-14 1,-28z"/>'
+        +'<path class="ncland" d="M92,100 q16,-6 24,10 q10,28 -6,46 q-14,14 -24,2 q-10,-20 -4,-42 q3,-12 10,-16z"/>'
+        +'<path class="ncland" d="M215,50 q30,-14 58,-6 q22,8 16,24 q-10,18 -42,18 q-32,0 -40,-16 q-2,-12 8,-20z"/>'
+        +'<path class="ncland" d="M240,92 q20,-4 28,14 q12,30 -8,48 q-14,12 -26,-2 q-10,-20 -4,-42 q3,-12 10,-18z"/>'
+        +'<path class="ncland" d="M330,62 q40,-12 72,2 q20,10 8,26 q-16,18 -58,16 q-36,-2 -40,-22 q-2,-12 18,-22z"/>'
+        +'<path class="ncland" d="M360,138 q24,-8 40,4 q12,12 -2,24 q-22,10 -40,0 q-12,-14 2,-28z"/>'
+        +'<circle class="ncpin big" cx="252" cy="66" r="7"><title>Deutschland</title></circle>'
+        +'<circle class="ncpin" cx="240" cy="74" r="4"/><circle class="ncpin" cx="264" cy="60" r="4"/>'
+      +'</svg>'
+      +'<svg id="ncMapDe" viewBox="0 0 480 180" style="display:none">'
+        +'<path class="ncland" d="M235,22 q22,-6 30,8 q14,6 8,20 q16,10 8,26 q10,16 -6,28 q6,18 -14,28 q-8,16 -30,12 q-20,10 -34,-8 q-22,-4 -20,-24 q-16,-12 -4,-28 q-8,-18 12,-26 q6,-18 28,-20 q8,-10 18,-16z"/>'
+        +'<circle class="ncpin big" cx="234" cy="132" r="7"><title>München</title></circle>'
+        +'<circle class="ncpin" cx="246" cy="62" r="5"><title>Hamburg</title></circle>'
+        +'<circle class="ncpin" cx="256" cy="100" r="5"><title>Berlin</title></circle>'
+      +'</svg>'
+    +'</div>'
+    +'<div class="ncfwd">Vorbereitet: sobald wir die Nutzer-Herkunft (Land/Region) erfassen, wird die Karte echt. Aktuell Beispiel-Punkte.</div></div>';
+
+  /* Backlog (echt, klickbar per Drill) */
+  var blRow=function(label,val,col,key){ var v=num(val); var kl=(key&&v>0);
+    return '<div class="ncrow'+(kl?' klick':'')+'"'+(kl?' onclick="dashDrill(\''+key+'\',\''+esc(label)+'\')"':'')+'><span>'+label+'</span><span class="v" style="color:'+col+'">'+fmt(v)+'</span></div>'; };
+  var backlogHtml='<div class="ncp" style="grid-column:span 3"><div class="nct">Backlog <small>zum Abarbeiten</small></div>'
+    +blRow('unverifiziert',q.unverifiziert,'#ffb03c','unverifiziert')
+    +blRow('ohne Quelle',q.ohne_quelle,'#ff5d7a','ohne_quelle')
+    +blRow('ohne Index',q.ohne_score,'#ffb03c','ohne_score')
+    +blRow('Achse fehlt',q.w_achse_fehlt,'#ff5d7a',null)
+    +'</div>';
+
+  /* Riki (echt) + Sammellauf-Knopf */
+  var budget=Number(ri.monatslimit_usd||20), verbr=Number(ri.monat_usd||0);
+  var budPct= budget>0?Math.min(100,Math.round(verbr/budget*100)):0;
+  var budCol= budPct>=90?'#ff5d7a':budPct>=60?'#ffb03c':'#3ee6a0';
+  var rvArr=(d.riki_verlauf||[]); var rvMax=Math.max.apply(null,[0.0001].concat(rvArr.map(function(x){return Number(x.usd)||0;})));
+  var rvPts=rvArr.map(function(x,i){ var xx=(rvArr.length>1?(i/(rvArr.length-1)):0)*230+5; var yy=36-((Number(x.usd)||0)/rvMax)*30; return xx.toFixed(0)+','+yy.toFixed(0); }).join(' ');
+  var rikiHtml='<div class="ncp" style="grid-column:span 4"><div class="nct">🤖 Riki <small>Budget diesen Monat</small></div>'
+    +'<div class="ncrow" style="border:0"><span>verbraucht</span><span class="v" style="color:'+budCol+'">$'+verbr.toFixed(2)+' / '+budget.toFixed(0)+'</span></div>'
+    +'<div style="height:7px;background:#241653;border-radius:6px;overflow:hidden;margin:2px 0 8px"><div style="height:100%;width:'+budPct+'%;background:'+budCol+';box-shadow:0 0 8px '+budCol+'"></div></div>'
+    +'<div class="ncrow"><span>Calls Monat</span><span class="v">'+fmt(num(ri.monat_calls))+'</span></div>'
+    +'<div class="ncrow"><span>Calls heute</span><span class="v">'+fmt(num(ri.heute_calls))+'</span></div>'
+    +'<svg class="ncspark" style="height:42px;margin-top:6px" viewBox="0 0 240 42" preserveAspectRatio="none"><polyline points="'+(rvPts||'5,36 235,36')+'" fill="none" stroke="#25e5e0" stroke-width="2"/></svg>'
+    +'<button class="ncrun" onclick="try{rikiSammellauf()}catch(e){}">▶ Riki-Sammellauf (Quellen)</button></div>';
+
+  /* Nutzer (echt) */
+  var nvArr=(d.nutzer_verlauf||[]); var nvMax=Math.max.apply(null,[1].concat(nvArr.map(function(x){return num(x.anzahl);})));
+  var nvPts=nvArr.map(function(x,i){ var xx=(nvArr.length>1?(i/(nvArr.length-1)):0)*230+5; var yy=36-(num(x.anzahl)/nvMax)*30; return xx.toFixed(0)+','+yy.toFixed(0); }).join(' ');
+  var nutzerHtml='<div class="ncp" style="grid-column:span 4"><div class="nct">Nutzer <small>frühe Phase</small></div>'
+    +'<div class="ncrow" style="border:0"><span>gesamt</span><span class="v">'+fmt(num(u.gesamt))+'</span></div>'
+    +'<div class="ncrow"><span>aktiv 30 Tage</span><span class="v">'+fmt(num(u.aktiv_30t))+'</span></div>'
+    +'<div class="ncrow"><span>Premium</span><span class="v" style="color:var(--ncmut)">'+fmt(num(u.premium))+'</span></div>'
+    +'<svg class="ncspark" style="height:42px;margin-top:6px" viewBox="0 0 240 42" preserveAspectRatio="none"><polyline points="'+(nvPts||'5,36 235,36')+'" fill="none" stroke="#3ee6a0" stroke-width="2"/></svg></div>';
+
+  /* Gauges (Donuts) – Katalog-Zusammensetzung, echte Prozente */
+  var gaugesHtml='<div class="ncp" style="grid-column:span 4"><div class="nct">Katalog-Zusammensetzung <small>Anteile am aktiven Katalog</small></div>'
+    +'<div class="ncga">'
+      +gauge(barcodePct,'#25e5e0',barcodePct+'%','Barcode')
+      +gauge(markenPct,'#9d5cff',markenPct+'%','Marken')
+      +gauge(verifPct,'#3ee6a0',verifPct+'%','verifiziert')
+      +gauge(suppPct,'#ffb03c',suppPct+'%','Supplements')
+    +'</div></div>';
+
+  var stand=''; try{ stand=(new Date()).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }catch(e){}
+  return '<div class="nc">'
+    +'<div class="ncbar"><span class="lg">◆ Root Index</span><span style="color:var(--ncmut);font-size:11px">· Command Center</span><span style="flex:1"></span>'
+      +'<span class="live"><span class="dt"></span>live · '+stand+'</span><button class="ncbtn" onclick="loadDashboard()">↻ Aktualisieren</button></div>'
+    +'<div class="ncgrid">'
+      +ringsHtml+kpiHtml+gateHtml+scoreHtml+quHtml+mapHtml+backlogHtml+rikiHtml+nutzerHtml+gaugesHtml
+    +'</div></div>';
+}
 
 /* Stile fuer die 1:1-Vorgangsansicht – alles unter #fgDash .rv1 (rv-Praefix), damit nichts
    mit dem uebrigen Admin kollidiert. Heller Look wie das Vorbild. */
@@ -3577,6 +3785,9 @@ async function loadDashboard(){
     try{ console.error('cb_dashboard:', fehler, d); }catch(_){}
     return;
   }
+
+  /* Neon Command Center (Default-Ansicht) – eigenes dunkles Layout, echte Zahlen aus d. */
+  if(_ansicht==='command'){ box.innerHTML=_sw+dashCommandHtml(d); return; }
 
   const k=d.katalog||{}, q=d.qualitaet||{}, u=d.nutzer||{}, nz=d.nutzung||{}, sc=d.scans||{}, ri=d.riki||{};
 
@@ -11158,7 +11369,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22n";
+const APP_BUILD = "2026-07-22o";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
