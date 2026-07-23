@@ -10892,7 +10892,10 @@ async function rezVorschlagOpen(){
   }
   ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px 20px 18px;margin:auto">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><div style="font-weight:800;font-size:18px">🍳 Was koche ich?</div><button onclick="rezVorschlagClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
-    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px">Gib die Zutaten ein, die du zuhause hast – Riki schlägt Gerichte vor, die dazu passen und deinen Kalorienbedarf treffen. Die kcal-Angabe ist eine <b>Schätzung</b>.</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px">Gib die Zutaten ein, die du zuhause hast – oder <b>fotografier deinen Kühlschrank</b>. Riki schlägt Gerichte vor, die dazu passen und deinen Kalorienbedarf treffen. Die kcal-Angabe ist eine <b>Schätzung</b>.</div>'
+    +'<button onclick="rezVorFotoWahl()" style="width:100%;box-sizing:border-box;margin-bottom:10px;padding:11px;border:1px dashed var(--green);border-radius:11px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-weight:600;cursor:pointer;font-size:13.5px">📷 Kühlschrank / Vorrat fotografieren <span style="font-weight:400;color:var(--muted)">(1–3 Bilder)</span></button>'
+    +'<input type="file" id="rezVorFotoInp" accept="image/*" multiple style="display:none" onchange="rezVorFotoSenden(this.files)">'
+    +'<div id="rezVorFotoMsg" style="font-size:12px;line-height:1.5;margin:-2px 0 10px"></div>'
     +'<label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Zutaten (Komma oder Zeile trennt)</label>'
     +'<textarea id="rezVorZut" rows="2" placeholder="z. B. Eier, Haferflocken, Banane, Magerquark, Spinat" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:9px;font-size:13.5px;background:var(--bg);color:var(--ink)"></textarea>'
     +'<input id="rezVorSuche" oninput="rezVorFilter()" placeholder="🔍 Zutat suchen und anhaken…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px 8px 0 0;font-size:13px;background:var(--card,#fff);color:var(--ink);margin-top:8px">'
@@ -10965,6 +10968,44 @@ function rezVorToggle(name, on){
   t.value=liste.join(", ");
 }
 if(typeof window!=='undefined'){ window.rezVorMzUpdate=rezVorMzUpdate; window.rezVorFilter=rezVorFilter; window.rezVorToggle=rezVorToggle; }
+/* Feature 3 (Ralph 23.07.): Kühlschrank-/Vorrats-Fotos → Riki erkennt Zutaten (riki-vorrat),
+   trägt sie ins Textfeld ein (der Nutzer prüft), dann läuft der normale Vorschlags-Flow. */
+function rezVorFotoWahl(){ var i=document.getElementById("rezVorFotoInp"); if(i){ i.value=""; i.click(); } }
+async function rezVorFotoSenden(files){
+  var list=files?Array.prototype.slice.call(files,0,3):[];
+  if(!list.length) return;
+  var msg=document.getElementById("rezVorFotoMsg");
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="🤖 Riki schaut sich die Fotos an …"; }
+  try{
+    var b64=await Promise.all(list.map(_fileZuBase64));
+    b64=b64.filter(function(b){ return /^data:image\//.test(b); });
+    if(!b64.length){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bilder konnten nicht gelesen werden."; } return; }
+    var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
+    var r=await fetch(client.supabaseUrl+"/functions/v1/riki-vorrat",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+      body:JSON.stringify({bilder:b64})});
+    var d=await r.json();
+    if(!r.ok||d.error){ throw new Error(d.error||("Fehler "+r.status)); }
+    var neu=(d.zutaten||[]);
+    var t=document.getElementById("rezVorZut");
+    if(t && neu.length){
+      var vorhanden={}; (t.value||"").split(/[\n,;]+/).forEach(function(x){ x=x.trim().toLowerCase(); if(x) vorhanden[x]=1; });
+      var add=neu.filter(function(n){ return !vorhanden[n.toLowerCase()]; });
+      var cur=(t.value||"").split(/[\n,;]+/).map(function(x){return x.trim();}).filter(function(x){return x;});
+      t.value=cur.concat(add).join(", ");
+    }
+    try{ rezVorFilter(); }catch(e){}
+    if(msg){
+      var uns=(d.unsicher||[]);
+      msg.style.color="var(--muted)";
+      msg.innerHTML=(neu.length?('✓ <b>'+neu.length+'</b> Zutat(en) erkannt und eingetragen – bitte prüfen und ggf. korrigieren.'):'Riki hat nichts sicher erkannt.')
+        +(uns.length?('<div style="margin-top:4px;color:var(--k-b45309)">Unsicher (nur dazunehmen, wenn es stimmt): '+esc(uns.join(", "))+'</div>'):'')
+        +((d.warnungen&&d.warnungen.length)?('<div style="margin-top:4px;color:var(--k-7a5c1e)">'+d.warnungen.map(esc).map(function(x){return '• '+x;}).join('<br>')+'</div>'):'')
+        +(d.meta&&d.meta.kosten_usd!=null?('<div style="margin-top:3px;color:var(--k-a89f8f);font-size:11px">~$'+d.meta.kosten_usd+'</div>'):'');
+    }
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Ging nicht: "+(e&&e.message?e.message:e); } }
+}
+if(typeof window!=='undefined'){ window.rezVorFotoWahl=rezVorFotoWahl; window.rezVorFotoSenden=rezVorFotoSenden; }
 async function rezVorschlagRun(){
   var zutRaw=((document.getElementById("rezVorZut")||{}).value||"");
   var zutaten=zutRaw.split(/[\n,;]+/).map(function(s){return s.trim();}).filter(function(s){return s.length>0;});
@@ -11630,7 +11671,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22t";
+const APP_BUILD = "2026-07-22u";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
