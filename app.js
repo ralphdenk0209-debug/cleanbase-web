@@ -984,7 +984,7 @@ function amazonBtn(d,klein){
     +' style="display:inline-flex;align-items:center;gap:5px;padding:'+pad+';border:1px solid var(--k-e4a343);border-radius:8px;background:var(--k-fff7ea);color:var(--k-8a5a0b);text-decoration:none;font-size:'+fs+';font-weight:600;white-space:nowrap">'
     +'<span style="font-size:10px;font-weight:700;letter-spacing:.4px;opacity:.75">ANZEIGE</span> Bei Amazon</a>';
 }
-const AMZ_HINWEIS='<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:8px">Anzeige: Als Amazon-Partner verdient Root&nbsp;Index an qualifizierten Verkäufen. Für dich ändert sich der Preis nicht – und der Clean&nbsp;Score wird davon <b>nicht</b> beeinflusst.</div>';
+const AMZ_HINWEIS='<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:8px">Anzeige: Als Amazon-Partner verdient Root&nbsp;Index an qualifizierten Verkäufen. Für dich ändert sich der Preis nicht – und der Root&nbsp;Index wird davon <b>nicht</b> beeinflusst.</div>';
 /* Woher die Daten stammen – gehört sichtbar ins Produkt, sonst ist „Transparenz" eine Behauptung. */
 function quellenBlock(d){
   const q=String(d.quelle||"").trim();
@@ -995,7 +995,7 @@ function quellenBlock(d){
   if(ungeprueft){
     return '<div style="margin-top:10px;background:var(--k-fff7ea);border:1px solid var(--k-e4a343);border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:var(--k-8a5a0b)">'
       +'<b>⚠️ Diese Daten sind noch nicht verifiziert.</b><br>'
-      +'Quelle: '+esc(q)+'. Wir zeigen den Score trotzdem – aber wir sagen dir, dass wir ihn noch nicht belegen können. '
+      +'Quelle: '+esc(q)+'. Wir zeigen den Index trotzdem – aber wir sagen dir, dass wir ihn noch nicht belegen können. '
       +'Du hast das Produkt zu Hause? Scanne es und fotografiere das Etikett, dann prüfen wir es.'
       +'</div>';
   }
@@ -1041,7 +1041,7 @@ function katRangHtml(d){
   const bd    = anteil<=0.25 ? "var(--line)" : "var(--k-e4a343)";
   return '<div style="margin-top:10px;background:'+bg+';border:1px solid '+bd+';border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55">'
     +'<b style="color:'+farbe+'">Platz '+r.platz+' von '+r.gesamt+' in „'+esc(r.kategorie)+'"</b>'
-    +'<div style="color:var(--muted);margin-top:3px">Vergleiche den Score <b>innerhalb der Kategorie</b>. Ein Öl mit einem Brot zu vergleichen ergibt keinen Sinn – niemand entscheidet zwischen beidem. Ein Öl mit einem anderen Öl zu vergleichen schon.</div>'
+    +'<div style="color:var(--muted);margin-top:3px">Vergleiche den Index <b>innerhalb der Kategorie</b>. Ein Öl mit einem Brot zu vergleichen ergibt keinen Sinn – niemand entscheidet zwischen beidem. Ein Öl mit einem anderen Öl zu vergleichen schon.</div>'
     +(r.top.length?('<div style="margin-top:5px;color:var(--muted)">Vorne in dieser Kategorie: '
         +r.top.map(function(x){ return '<a href="#" onclick="event.preventDefault();detailById(\''+x.id+'\')" style="color:var(--greendk,var(--k-166534));font-weight:600;text-decoration:none">'+esc(x.name)+' ('+x.clean_score+')</a>'; }).join(' · ')+'</div>'):'')
     +'</div>';
@@ -1979,12 +1979,12 @@ function detail(d){
     ${_istSupp ? `
     <div style="display:flex;gap:14px;align-items:center;margin:10px 0">
       <svg width="54" height="54" viewBox="0 0 52 52" style="flex:0 0 auto" role="img" aria-label="Nahrungsergänzung">
-        <title>Nahrungsergänzung – kein Lebensmittel-Score</title>
+        <title>Nahrungsergänzung – kein Lebensmittel-Index</title>
         <rect x="17" y="6" width="18" height="40" rx="9" fill="var(--k-f0ece3)" stroke="var(--k-d8d2c6)" stroke-width="1.5"/>
         <line x1="17" y1="26" x2="35" y2="26" stroke="var(--k-d8d2c6)" stroke-width="1.5"/>
       </svg>
       <div style="flex:1;min-width:0">
-        <div style="font-size:16px;font-weight:800;color:var(--ink);line-height:1.25">Kein Lebensmittel-Score</div>
+        <div style="font-size:16px;font-weight:800;color:var(--ink);line-height:1.25">Kein Lebensmittel-Index</div>
         <div style="font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:2px">Eine Kapsel ist kein Lebensmittel. Wir prüfen stattdessen, ob die <b>Dosis</b> innerhalb der EFSA-Grenzwerte liegt.</div>
       </div>
     </div>` : `
@@ -2403,7 +2403,7 @@ function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
    Grenzwerte) bleiben in ihren Stamm-Tabellen; hier stehen die TEXT-Regeln, live
    aus der DB gelesen und in der App bearbeitbar (admin-gesichert). */
 const RW_BEREICHE=[
-  {k:'achsen',t:'Die vier Achsen',d:'Woraus der Score von 100 Punkten besteht.'},
+  {k:'achsen',t:'Die vier Achsen',d:'Woraus der Index von 100 Punkten besteht.'},
   {k:'prinzipien',t:'Grundprinzipien',d:'Die Leitplanken hinter jeder Einzelentscheidung.'},
   {k:'staffel',t:'Verarbeitungs-Staffel (§2.1)',d:'Die Zutaten-Achse misst nur den Verarbeitungsgrad: 10 = roh … 2 = isoliert.'},
   {k:'staffel7',t:'Extrakte & isolierte Mikronährstoffe (§7)',d:'Ordnung belegt über NOVA, Stufenzahlen gesetzt.'},
@@ -2642,7 +2642,7 @@ async function loadProduktErfassung(){
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
       +chip('offen','Zu erledigen',cnt.offen)
       +chip('alle','Alle',cnt.alle)
-      +chip('keinscore','Ohne Score',cnt.keinscore)
+      +chip('keinscore','Ohne Index',cnt.keinscore)
       +chip('keinquelle','Ohne Quelle',cnt.keinquelle)
       +chip('keinzut','Ohne Zutaten',cnt.keinzut)
       +chip('markiert','⚑ Markiert',cnt.markiert)
@@ -2662,7 +2662,7 @@ async function loadProduktErfassung(){
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Suche / Filter</div><input id="peSuche" oninput="peRender()" placeholder="🔍 Titel, Marke, EAN, Kategorie…" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"></div>'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Bearbeiter</div><input id="peBearb" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Sortierung</div>'
-        +'<select id="peSort" onchange="peRender()" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"><option value="neu">Erfasst – neueste zuerst</option><option value="score">Score aufsteigend</option><option value="titel">Titel A–Z</option><option value="mark">Nur markierte</option></select></div>'
+        +'<select id="peSort" onchange="peRender()" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"><option value="neu">Erfasst – neueste zuerst</option><option value="score">Index aufsteigend</option><option value="titel">Titel A–Z</option><option value="mark">Nur markierte</option></select></div>'
     +'</div>'
     /* Raster – einklappbar (Ralph 21.07.2026): beim Auswählen eines Produkts klappt die Liste zu,
        über den Pfeil in der Leiste wieder auf, damit sie beim Bearbeiten nicht stört. */
@@ -2700,7 +2700,7 @@ function peMenu(kind,anchor){
   } else {
     var _cur=(typeof feAnsichtGet==='function')?feAnsichtGet():'klassisch';
     var _sep='<div style="height:1px;background:#e2e8ef;margin:4px 6px"></div>';
-    html= it('↕ Sortierung: neueste','peSetSort(\'neu\')')+it('↕ Sortierung: Score aufsteigend','peSetSort(\'score\')')+it('↕ Sortierung: Titel A–Z','peSetSort(\'titel\')')
+    html= it('↕ Sortierung: neueste','peSetSort(\'neu\')')+it('↕ Sortierung: Index aufsteigend','peSetSort(\'score\')')+it('↕ Sortierung: Titel A–Z','peSetSort(\'titel\')')
       +_sep+'<div style="padding:5px 11px 3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#9aa7b2;font-weight:800">Editor-Ansicht</div>'
       +it((_cur==='klassisch'?'✓ ':'')+'Klassisch','feAnsichtSet(\'klassisch\')')
       +it((_cur==='vorgang'?'✓ ':'')+'Vorgang (Phasenleiste + Ampel)','feAnsichtSet(\'vorgang\')');
@@ -2750,7 +2750,7 @@ function peRender(){
     if(String(p.pstatus||'')==='Entwurf') return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">Entwurf</span>';
     if(p.zu_verifizieren) return '<span class="pePill" style="color:#3b56b0;border-color:#c3ccf0;background:#eef1fb">zu verifizieren</span>';
     return '<span class="pePill" style="color:#1f7d43;border-color:#bfe3cb;background:#e7f6ec">Aktiv</span>'; };
-  g.innerHTML=cols+'<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','Score','Status','EAN','Quelle','⚑ 🛡'].map(th).join('')+'</tr></thead><tbody>'
+  g.innerHTML=cols+'<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','Index','Status','EAN','Quelle','⚑ 🛡'].map(th).join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')">'
       +td(esc(p.id),'color:#7b8698')
@@ -3587,7 +3587,7 @@ async function loadDashboard(){
     +'<button class="btn" onclick="loadDashboard()">↻ Aktualisieren</button></div></div>'
     +'<div class="dvMeta">'
     +'<div><b>Aktive Produkte</b><span>'+(k.aktiv||0)+'</span></div>'
-    +'<div><b>Ø Score</b><span>'+(k.schnitt_score!=null?k.schnitt_score:'–')+'</span></div>'
+    +'<div><b>Ø Index</b><span>'+(k.schnitt_score!=null?k.schnitt_score:'–')+'</span></div>'
     +'<div><b>Marken</b><span>'+(k.markenprodukte||0)+'</span></div>'
     +'<div><b>Generische Rohstoffe</b><span>'+(k.generisch||0)+'</span></div>'
     +'<div><b>Offene Punkte</b><span style="color:'+(wSumme?'#bb0000':'#107e3e')+'">'+wSumme+'</span></div>'
@@ -3609,7 +3609,7 @@ async function loadDashboard(){
     +railStep('Portionsfalle', q.w_portionsfalle||0,'kcal zu niedrig','portionsfalle',(q.w_portionsfalle?'err':'ok'))
     +railStep('ohne Quelle', q.ohne_quelle||0,'blockiert Freigabe','ohne_quelle',(q.ohne_quelle?'err':'ok'))
     +railStep('unverifiziert', q.unverifiziert||0,'ohne Beleg','unverifiziert',(q.unverifiziert?'warn':'ok'))
-    +railStep('ohne Score', q.ohne_score||0,'unvollständig','ohne_score',(q.ohne_score?'warn':'ok'))
+    +railStep('ohne Index', q.ohne_score||0,'unvollständig','ohne_score',(q.ohne_score?'warn':'ok'))
     +'</ul>'
     +'<div style="margin-top:6px;background:'+(wSumme?'#ffe5e5':'#e5f3ea')+';border:1px solid '+(wSumme?'#f3b4a9':'#bfe0c9')+';border-radius:8px;text-align:center;padding:9px;font-size:12.5px;font-weight:800;color:'+(wSumme?'#bb0000':'#107e3e')+'">'
       +(wSumme?('Go-Live-Gate ist ZU<br><span style="font-weight:600;color:#a9584c;font-size:11px">'+wSumme+' offene Punkte</span>'):'Go-Live-Gate offen<br><span style="font-weight:600;color:#4a7a58;font-size:11px">alle Wächter auf 0</span>')
@@ -3633,7 +3633,7 @@ async function loadDashboard(){
        +kpi("Portionsfalle", q.w_portionsfalle||0, (q.w_portionsfalle?"var(--k-dc2626)":"var(--k-16a34a)"), "kcal zu niedrig", "portionsfalle") )
     +R( kpi("unverifiziert", q.unverifiziert||0, (q.unverifiziert?"var(--k-e8920c)":"var(--k-16a34a)"), "ohne Beleg", "unverifiziert")
        +kpi("ohne Quelle", q.ohne_quelle||0, (q.ohne_quelle?"var(--k-e8920c)":"var(--k-16a34a)"), "Freigabe blockiert", "ohne_quelle")
-       +kpi("ohne Score", q.ohne_score||0, (q.ohne_score?"var(--k-e8920c)":"var(--k-16a34a)"), "unvollständig", "ohne_score")
+       +kpi("ohne Index", q.ohne_score||0, (q.ohne_score?"var(--k-e8920c)":"var(--k-16a34a)"), "unvollständig", "ohne_score")
        /* Quellen-Wächter (Ralph 22.07.): Zahl kommt async über cb_zutat_quelle_count, kein Gate-Blocker. */
        +'<div id="dashZutQuelle" onclick="dashDrill(\'zutat_quelle\',\'Zutaten ohne Quelle-Beleg\')" title="Betroffene anzeigen" style="flex:0 0 auto;width:180px;box-sizing:border-box;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;cursor:pointer">'
          +'<div style="font-size:11px;color:var(--muted);line-height:1.3;display:flex;justify-content:space-between;align-items:center;gap:6px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Zutaten ohne Beleg</span><span style="color:var(--muted);font-size:13px">›</span></div>'
@@ -3642,12 +3642,12 @@ async function loadDashboard(){
        +'</div>' )
     +'</div>';
   var pKat='<div id="dvPanel_kat" class="dvPanel" style="display:none">'
-    +R( kpi("aktiv", k.aktiv||0, "var(--k-1d3c24)", "Ø Score "+(k.schnitt_score!=null?k.schnitt_score:"–"))
+    +R( kpi("aktiv", k.aktiv||0, "var(--k-1d3c24)", "Ø Index "+(k.schnitt_score!=null?k.schnitt_score:"–"))
        +kpi("Entwurf", k.entwurf||0, "var(--muted)", "nicht sichtbar")
        +kpi("Marken", k.markenprodukte||0, "var(--k-1d3c24)", "scanbar")
        +kpi("Barcode offen", k.ean_fehlt||0, (k.ean_fehlt?"var(--k-e8920c)":"var(--k-16a34a)"), "nachzutragen") )
     +'<div style="margin-top:6px;padding:8px 10px;border-radius:9px;background:var(--k-f2f5f3);font-size:11.5px;line-height:1.5;color:var(--k-5a6660)">Die <b>'+(k.generisch||0)+' generischen Rohstoffe</b> (Apfel, Brokkoli, Ei …) sind hier <b>nicht</b> mitgezählt &ndash; lose Ware hat keinen Barcode und braucht auch keinen. „Barcode offen" meint echte Markenprodukte, deren Code wir noch nicht erfasst haben.</div>'
-    +CARD("Score-Verteilung (aktive Produkte)", balken(sv,{h:80}))
+    +CARD("Index-Verteilung (aktive Produkte)", balken(sv,{h:80}))
     +'</div>';
   var pNutzer='<div id="dvPanel_nutzer" class="dvPanel" style="display:none">'
     +R( kpi("registriert", u.gesamt||0, "var(--k-1d3c24)", "ohne Admins")
@@ -3700,9 +3700,9 @@ async function loadDashboard(){
   addT('red', q.w_naehrwerte||0,'naehrwerte','unplausible Nährwerte','kcal passt nicht zu den Makros (Atwater).');
   addT('red', q.w_portionsfalle||0,'portionsfalle','Portionsfalle','kcal zu niedrig – wohl Portions- statt 100-g-Wert.');
   addT('red', q.w_widersprueche||0,'widersprueche','Widersprüche im Stamm','Derselbe Stoff, zwei Urteile.');
-  addT('red', q.ohne_quelle||0,'ohne_quelle','Produkte ohne Quelle','Blockieren die Freigabe – ohne Beleg kein Score.');
+  addT('red', q.ohne_quelle||0,'ohne_quelle','Produkte ohne Quelle','Blockieren die Freigabe – ohne Beleg kein Index.');
   addT('amber', q.unverifiziert||0,'unverifiziert','unverifizierte Produkte','Aktiv, aber noch nicht gegengeprüft.');
-  addT('amber', q.ohne_score||0,'ohne_score','Produkte ohne Score','Unvollständig – eine Achse fehlt.');
+  addT('amber', q.ohne_score||0,'ohne_score','Produkte ohne Index','Unvollständig – eine Achse fehlt.');
   var help = tasks.length ? '<div class="dvHelp" id="dashHelp"><div class="hh">🧭 WAS ZUERST?<span class="x" onclick="dashHelpClose()">✕</span></div>'
       +'<div class="hsub">Sortiert danach, was das Go-Live-Gate blockiert.</div>'
       +tasks.map(function(t,i){ return '<div class="dvTask"><div class="pri" style="background:'+(t.sev==='red'?'#bb0000':'#e9730c')+'">'+(i+1)+'</div>'
@@ -4224,7 +4224,7 @@ async function scanSpeichern(ean, still){
     if(dn) dn.innerHTML=donut(data.score, farbe(scoreBew(data.score)), 46);
 
     if(m && !still){
-      if(data.score_erlaubt){ m.style.color="var(--k-16a34a)"; m.innerHTML="&#10003; Gespeichert. Neuer vorläufiger Score: <b>"+data.score+"</b>"; }
+      if(data.score_erlaubt){ m.style.color="var(--k-16a34a)"; m.innerHTML="&#10003; Gespeichert. Neuer vorläufiger Index: <b>"+data.score+"</b>"; }
       else { m.style.color="var(--k-b45309)";
         m.innerHTML="Gespeichert, aber <b>noch nicht freigebbar</b>:<br>&bull; "
           +(data.warnungen||[]).map(esc).join("<br>&bull; "); }
@@ -5380,7 +5380,7 @@ function legalOpen(which){
     +H("Umsatzsteuer")+P("Kleinunternehmerin gemäß § 19 UStG – es wird keine Umsatzsteuer ausgewiesen.")
     +H("Verantwortlich i.S.d. § 18 Abs. 2 MStV")+P("Sandra Denk, Anschrift wie oben.")
     +H("Werbung &amp; Partnerlinks")+P("Root Index ist Teilnehmer des Amazon-Partnerprogramms. <b>Als Amazon-Partner verdienen wir an qualifizierten Verkäufen.</b> Mit „Anzeige“ gekennzeichnete Links sind Partnerlinks – der Preis ändert sich für dich dadurch nicht. <b>Partnerlinks haben keinerlei Einfluss auf den Root Index.</b> Ein Produkt wird bewertet, bevor überhaupt geprüft wird, ob es einen Partnerlink gibt; kein Hersteller kann eine Bewertung kaufen oder beeinflussen.")
-    +H("Datenquellen &amp; Lizenzen")+P("Nährwerte generischer Lebensmittel stammen aus dem <b>Bundeslebensmittelschlüssel (BLS 4.0)</b>, © Max Rubner-Institut, Bundesforschungsinstitut für Ernährung und Lebensmittel, lizenziert unter <b>CC BY 4.0</b> (creativecommons.org/licenses/by/4.0). Ergänzend nutzen wir Daten von <b>Open Food Facts</b> (Datenbank lizenziert unter <b>ODbL 1.0</b>, Inhalte unter CC BY-SA 3.0) sowie Herstellerangaben und Etikettfotos unserer Nutzerinnen und Nutzer. Die Quelle steht bei jedem Produkt unter dem Score. Wissenschaftliche Grundlagen: EFSA, WHO, EU-VO 1333/2008 und 432/2012, IARC, DGE.")
+    +H("Datenquellen &amp; Lizenzen")+P("Nährwerte generischer Lebensmittel stammen aus dem <b>Bundeslebensmittelschlüssel (BLS 4.0)</b>, © Max Rubner-Institut, Bundesforschungsinstitut für Ernährung und Lebensmittel, lizenziert unter <b>CC BY 4.0</b> (creativecommons.org/licenses/by/4.0). Ergänzend nutzen wir Daten von <b>Open Food Facts</b> (Datenbank lizenziert unter <b>ODbL 1.0</b>, Inhalte unter CC BY-SA 3.0) sowie Herstellerangaben und Etikettfotos unserer Nutzerinnen und Nutzer. Die Quelle steht bei jedem Produkt unter dem Index. Wissenschaftliche Grundlagen: EFSA, WHO, EU-VO 1333/2008 und 432/2012, IARC, DGE.")
     +H("Verbraucherstreitbeilegung")+P("Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.")
     +H("Haftung für Inhalte")+P("Die Inhalte wurden mit größter Sorgfalt erstellt. Für Richtigkeit, Vollständigkeit und Aktualität übernehmen wir keine Gewähr. Bewertungen und Informationen dienen der Orientierung und stellen keine medizinische oder ernährungstherapeutische Beratung dar.")
     +H("Haftung für Links")+P("Unser Angebot enthält ggf. Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Dafür ist stets der jeweilige Anbieter verantwortlich.")
@@ -8161,7 +8161,7 @@ async function openFgEditor(id, prefill, targetEl){
             <input id="fe_zusNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();zusAddNeu();}" placeholder="nicht im Stamm? Name/E-Nummer…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)">
             <button type="button" onclick="zusAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button>
           </div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:7px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>unbedenklich</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#c0392b;vertical-align:middle;margin-right:4px"></span>abgewertet (drückt den Score)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9aa7b2;vertical-align:middle;margin-right:4px"></span>ungeprüft</span></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:7px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>unbedenklich</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#c0392b;vertical-align:middle;margin-right:4px"></span>abgewertet (drückt den Index)<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9aa7b2;vertical-align:middle;margin-right:4px"></span>ungeprüft</span></div>
           <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text||"keine")}">
           <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
           <label style="display:block;font-size:13px;margin-top:10px">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label>
@@ -8185,7 +8185,7 @@ async function openFgEditor(id, prefill, targetEl){
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;width:100%">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div id="fe_ready" style="font-size:12px;color:var(--muted)"></div>
-        ${targetEl?`<button onclick="try{feScorePreview()}catch(e){}" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">↻ Score neu</button>
+        ${targetEl?`<button onclick="try{feScorePreview()}catch(e){}" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">↻ Index neu</button>
         ${id?`<button onclick="peAlsNutzer('${esc(id)}')" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">👁 Als Nutzer</button>`:""}`:""}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -8357,6 +8357,43 @@ function feFluxWidget(v){
   setTimeout(function(){ document.querySelectorAll("."+uid+"-b").forEach(function(el){ el.style.strokeDashoffset=el.getAttribute("data-ziel"); }); }, 60);
   return svg;
 }
+/* Supplement-Donut „Wirkstoffe in wirksamer Menge" (X von Y) – dieselbe Anzeige wie in der
+   Produktansicht (suppKarteFill). Supplements bekommen KEINEN Lebensmittel-Index; im Editor
+   steht deshalb dieser Donut statt des Flux-Rings. Daten: a.bilanz aus cb_supplement_karte. */
+function feSuppBilanzDonut(bil){
+  var g=Number(bil.gesamt)||0, wk=Number(bil.wirksam)||0, zg=Number(bil.zu_gering)||0, kr=Number(bil.kein_ref)||0;
+  if(g<=0) return "";
+  var CX=60,CY=60,RO=52,RI=41,GAP=(g>1?6:0),SEG=360/g,ring="";
+  if(g===1){
+    var c1=(wk>0)?"var(--ri-gruen)":((zg>0)?"var(--ri-gelb)":"var(--ri-grau)");
+    ring='<circle cx="60" cy="60" r="46.5" fill="none" stroke="'+c1+'" stroke-width="11"/>';
+  } else {
+    for(var i=0;i<g;i++){
+      var col=(i<wk)?"var(--ri-gruen)":((i<wk+zg)?"var(--ri-gelb)":"var(--ri-grau)");
+      var a0=(-90+i*SEG+GAP/2)*Math.PI/180, a1=(-90+(i+1)*SEG-GAP/2)*Math.PI/180, lg=(SEG-GAP)>180?1:0;
+      ring+='<path d="M'+(CX+RO*Math.cos(a0)).toFixed(2)+' '+(CY+RO*Math.sin(a0)).toFixed(2)
+        +' A'+RO+' '+RO+' 0 '+lg+' 1 '+(CX+RO*Math.cos(a1)).toFixed(2)+' '+(CY+RO*Math.sin(a1)).toFixed(2)
+        +' L'+(CX+RI*Math.cos(a1)).toFixed(2)+' '+(CY+RI*Math.sin(a1)).toFixed(2)
+        +' A'+RI+' '+RI+' 0 '+lg+' 0 '+(CX+RI*Math.cos(a0)).toFixed(2)+' '+(CY+RI*Math.sin(a0)).toFixed(2)
+        +' Z" fill="'+col+'"/>';
+    }
+  }
+  var xtra=""; if(zg>0) xtra+='<br><span style="color:var(--ri-gelb)">■</span> '+zg+' zu gering dosiert';
+  if(kr>0) xtra+='<br><span style="color:var(--ri-grau)">■</span> '+kr+' ohne offiziellen Referenzwert';
+  return '<div style="display:flex;align-items:center;gap:15px">'
+    +'<div style="position:relative;width:104px;height:104px;flex:0 0 auto">'
+      +'<svg viewBox="0 0 120 120" style="width:100%;height:100%;display:block">'+ring+'</svg>'
+      +'<div style="position:absolute;left:0;top:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center">'
+        +'<div style="font-size:27px;font-weight:800;line-height:1;color:var(--ink)">'+wk+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:1px">von '+g+'</div>'
+      +'</div>'
+    +'</div>'
+    +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:6px">Wirkstoffe in wirksamer Menge</div>'
+      +'<div style="font-size:11px;color:var(--muted);line-height:1.6"><span style="color:var(--ri-gruen)">■</span> '+wk+' mit belegtem EU-Nutzen (≥ 15 % Tagesbedarf)'+xtra+'</div>'
+    +'</div>'
+  +'</div>';
+}
 /* Berechneten Root Index live im Editor zeigen. Ruft cb_score_vorschau auf
    (rechnet ueber denselben Trigger, rollt danach zurueck - schreibt NICHTS).
    Entprellt (450 ms) + Sequenz-Wache, damit spaete Antworten frische nicht ueberschreiben. */
@@ -8371,6 +8408,31 @@ async function _feScoreRun(box){
   var numv=function(v){ v=(v==null?"":String(v)).trim(); return v===""?undefined:Number(v.replace(",",".")); };
   var name=((g("fe_name")||{}).value||"").trim();
   if(!name){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Titel eintragen, dann rechnet der Index.</div>'; return; }
+  /* SUPPLEMENTS: kein Lebensmittel-Index (Kapsel hat kein Makro-Profil, §1.11j). Statt des
+     Flux-Rings zeigen wir den Donut „Wirkstoffe in wirksamer Menge" (X von Y) – dieselbe
+     Anzeige wie in der Produktansicht. Rechnet über die gespeicherten Wirkstoffe
+     (cb_supplement_karte); bei einem noch nicht gespeicherten Produkt gibt es dafür noch
+     keine Daten. (Ralph 23.07.2026) */
+  var _kat=((g("fe_kat")||{}).value||"").trim().toLowerCase();
+  if(_kat==='supplement'){
+    var _sid=(window._fgEdit&&window._fgEdit.id)?window._fgEdit.id:null;
+    if(!_sid){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px;line-height:1.5">Supplement – kein Lebensmittel-Index. Die Anzeige „Wirkstoffe in wirksamer Menge" erscheint, sobald das Produkt mit seinen Wirkstoffen gespeichert ist.</div>'; return; }
+    var seqS=(++_feScoreSeq);
+    box.innerHTML='<div style="color:var(--muted);font-size:12.5px">⏳ Wirkstoffe werden geprüft…</div>';
+    try{
+      var rk=await client.rpc("cb_supplement_karte",{p_produkt_id:_sid});
+      if(seqS!==_feScoreSeq) return;
+      var ak=rk.data; if(Array.isArray(ak)) ak=ak[0];
+      var bil=ak&&ak.bilanz;
+      if(bil && Number(bil.gesamt)>0){
+        box.innerHTML='<div>'+feSuppBilanzDonut(bil)+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)">Supplement – <b>kein Lebensmittel-Index</b>. Der volle <b>Dosis-Check</b> (EFSA-Grenzwerte) steht in der Produktansicht.</div>';
+      } else {
+        box.innerHTML='<div style="color:var(--muted);font-size:12.5px;line-height:1.5">Supplement – kein Lebensmittel-Index. Für „Wirkstoffe in wirksamer Menge" fehlen noch Wirkstoffe mit Menge (nach dem Speichern sichtbar).</div>';
+      }
+    }catch(e){ if(seqS===_feScoreSeq) box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Supplement – kein Lebensmittel-Index.</div>'; }
+    return;
+  }
   var nw={}; ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(function(k){ var v=numv((g("fe_"+k)||{}).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
   var zut=[].slice.call(document.querySelectorAll("#fe_zutRows .fgZutRow")).map(function(row){
     var nm=((row.querySelector(".fgzName")||{}).value||"").trim();
@@ -8393,7 +8455,7 @@ async function _feScoreRun(box){
     var voll=(v.vollstaendig!==false && v.clean_score!=null);
     box.innerHTML='<div style="max-width:230px;margin:0 auto">'+feFluxWidget(v)+'</div>'
       +'<div style="text-align:center;font-size:12.5px;margin-top:2px;color:'+((typeof farbe==="function")?farbe(v.bewertung):"var(--muted)")+';font-weight:700">'+esc(v.bewertung||"")+'</div>'
-      +(voll?'':'<div style="text-align:center;font-size:11.5px;color:var(--k-b45309);margin-top:4px">Noch kein voller Score – siehe „Fehlt für den Score" unten.</div>');
+      +(voll?'':'<div style="text-align:center;font-size:11.5px;color:var(--k-b45309);margin-top:4px">Noch kein voller Index – siehe „Fehlt für den Index" unten.</div>');
   }catch(e){ if(seq===_feScoreSeq) box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Index nicht berechenbar.</div>'; }
 }
 /* Live-Plausibilität im Editor (Polyol-Spanne) + Freigabe-Check. */
@@ -8438,10 +8500,10 @@ function fePlaus(){
     var _dosisLeer = _istSupp && !(((document.getElementById("fe_verzehr")||{}).value||"").trim());
     if(fehlt.length===0){
       rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe'
-        +(_istSupp?' – Supplement (kein Lebensmittel-Score, Nährwerte nicht nötig)':' – alle Achsen belegt')+'.</span>'
+        +(_istSupp?' – Supplement (kein Lebensmittel-Index, Nährwerte nicht nötig)':' – alle Achsen belegt')+'.</span>'
         +(_dosisLeer?'<div style="color:var(--k-b45309);margin-top:4px">Ohne <b>Verzehrempfehlung</b> ist unklar, worauf sich der Dosis-Check bezieht – wenn möglich nachtragen.</div>':'');
     } else {
-      rd.innerHTML='<span style="color:var(--k-b45309)">Fehlt '+(_istSupp?'für die Freigabe':'für den Score')+': <b>'+fehlt.join(", ")+'</b>'
+      rd.innerHTML='<span style="color:var(--k-b45309)">Fehlt '+(_istSupp?'für die Freigabe':'für den Index')+': <b>'+fehlt.join(", ")+'</b>'
         +(fehlt.indexOf("Ballaststoffe")>=0?' <span style="color:var(--muted)">· hat das Produkt keine, trag 0 ein</span>':'')+'</span>'
         +(_dosisLeer?'<div style="color:var(--muted);margin-top:4px">Verzehrempfehlung fehlt ebenfalls – blockiert die Freigabe nicht, fehlt aber für den Dosis-Check.</div>':'');
     }
@@ -8485,7 +8547,7 @@ function fePlaus(){
          nicht fälschlich „Nährwert fehlt" vermutet wird (Ralphs Gelierxucker-Fund 22.07.). */
       try{
         var _zUngR=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")); });
-        if(_zUngR.length) h += no(_zUngR.length+" Zusatzstoff(e) noch nicht eingestuft → kein Score ("+esc(_zUngR.map(function(z){return z.name+(z.e?(" "+z.e):"");}).slice(0,3).join(", "))+(_zUngR.length>3?" …":"")+")");
+        if(_zUngR.length) h += no(_zUngR.length+" Zusatzstoff(e) noch nicht eingestuft → kein Index ("+esc(_zUngR.map(function(z){return z.name+(z.e?(" "+z.e):"");}).slice(0,3).join(", "))+(_zUngR.length>3?" …":"")+")");
       }catch(e){}
       rg.innerHTML=h;
     }
@@ -8912,9 +8974,9 @@ async function fgEditSave(alsoFreigeben){
       var _zUng=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")); });
       if(_zUng.length){
         var _zTxt=_zUng.map(function(z){ return z.name+(z.e?(" "+z.e):""); }).join(", ");
-        msg.innerHTML="💾 Gespeichert – aber noch KEIN Score. Grund: <b>"+_zUng.length+" Zusatzstoff(e) noch nicht wissenschaftlich eingestuft</b> ("+esc(_zTxt)+"). Bis eine EFSA-/EU-Quelle vorliegt, zeigen wir bewusst keine Zahl – nichts erfinden. (Nicht die Nährwerte sind schuld.)";
+        msg.innerHTML="💾 Gespeichert – aber noch KEIN Index. Grund: <b>"+_zUng.length+" Zusatzstoff(e) noch nicht wissenschaftlich eingestuft</b> ("+esc(_zTxt)+"). Bis eine EFSA-/EU-Quelle vorliegt, zeigen wir bewusst keine Zahl – nichts erfinden. (Nicht die Nährwerte sind schuld.)";
       } else {
-        msg.textContent="💾 Gespeichert – aber noch KEIN Score. Siehe die Freigabe-Zeile oben; trag den fehlenden Wert ein (fehlt nur Ballaststoffe? 0 eintragen).";
+        msg.textContent="💾 Gespeichert – aber noch KEIN Index. Siehe die Freigabe-Zeile oben; trag den fehlenden Wert ein (fehlt nur Ballaststoffe? 0 eintragen).";
       }
       try{ fePlaus(); }catch(e){}
       try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
@@ -9880,7 +9942,7 @@ function vorlKarte(d, ean){
     +'<div style="font-weight:600;color:var(--ink);line-height:1.3">'+name+'</div>'
     +(marke?'<div style="font-size:12.5px;color:var(--muted)">'+marke+'</div>':'')
     +'<span style="display:inline-block;margin-top:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-eef2f0);color:var(--k-5a6660)">'
-      +(erlaubt?'vorläufig &ndash; nicht geprüft':'kein Score')+'</span>'
+      +(erlaubt?'vorläufig &ndash; nicht geprüft':'kein Index')+'</span>'
     +'</div></div>';
 
   if(erlaubt){
@@ -9893,7 +9955,7 @@ function vorlKarte(d, ean){
       +'<b>Root Index hat dieses Produkt noch nicht geprüft.</b> Der Wert ist eine Einordnung, kein Urteil &ndash; '
       +'die vollständige Herleitung gibt es erst, wenn wir die Angaben gegen das Etikett belegt haben.');
   } else {
-    h+=vorlBanner('<b>Wir zeigen hier bewusst keinen Score.</b><br>'
+    h+=vorlBanner('<b>Wir zeigen hier bewusst keinen Index.</b><br>'
       +(warn.length?('Die Angaben sind unstimmig:<br>&bull; '+warn.map(esc).join('<br>&bull; ')):'Die Angaben sind unvollständig.')
       +'<br><br>Wir raten nicht. Lieber eine Lücke als eine Zahl, die falsch ist.');
   }
@@ -11076,7 +11138,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22k";
+const APP_BUILD = "2026-07-22l";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
