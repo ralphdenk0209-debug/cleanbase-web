@@ -11060,6 +11060,19 @@ async function rezVorschlagUebernehmen(i){
     try{ rezeptFormFuellen(d); }catch(e){}
     /* Zutaten-Namen wurden gesetzt, aber ohne oninput → Katalog-Verknüpfung nachtriggern. */
     try{ document.querySelectorAll("#rzfZutaten .rzZ .rzZName").forEach(function(inp){ if(typeof linkZutat==="function") linkZutat(inp); }); }catch(e){}
+    /* rezeptFormFuellen hat die „X von Y erkannt"-Zeile schon mit 0 gerendert (die Verknüpfung
+       lief ja erst danach). Jetzt ECHT nachzählen und die Meldung korrigieren (Ralphs Fund 23.07.). */
+    try{
+      var rows=document.querySelectorAll("#rzfZutaten .rzZ"), tot=0, zug=0;
+      rows.forEach(function(rw){ var nm=((rw.querySelector(".rzZName")||{}).value||"").trim(); if(nm){ tot++; if((((rw.querySelector(".rzZpid")||{}).value)||"").trim()) zug++; } });
+      var m=document.getElementById("rzfMsg");
+      if(m){ m.style.color = (zug<tot) ? "var(--k-b45309)" : "var(--k-16a34a)";
+        m.innerHTML = zug+' von '+tot+' Zutaten im Katalog erkannt.'
+          + '<div style="margin-top:6px;font-size:12px;line-height:1.5;color:var(--k-7a5c1e);background:var(--k-fdf6e7);border-radius:8px;padding:8px 10px">• Die kcal-Angabe ist eine Schätzung – über den Knopf <b>Nährwerte aus Zutaten berechnen</b> holst du danach die echten Werte.'
+          + (zug<tot ? '<br>• Freie Zutaten (grau) haben keine Nährwerte/Index – das ist ok, sie zählen nur nicht in die Berechnung. Über den Katalog verknüpfen geht auch von Hand.' : '')
+          + '</div><div style="margin-top:6px;font-size:12px;color:var(--muted)">Prüf die Werte – dann auf <b>Speichern</b>.</div>';
+      }
+    }catch(e){}
   }, 80);
 }
 if(typeof window!=='undefined'){ window.rezVorschlagOpen=rezVorschlagOpen; window.rezVorschlagClose=rezVorschlagClose; window.rezVorschlagRun=rezVorschlagRun; window.rezVorschlagUebernehmen=rezVorschlagUebernehmen; }
@@ -11671,7 +11684,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22u";
+const APP_BUILD = "2026-07-22v";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
