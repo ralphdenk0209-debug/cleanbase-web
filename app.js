@@ -9216,14 +9216,25 @@ async function fgEditSave(alsoFreigeben){
   }
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"+(alsoFreigeben?" & freigegeben":"");
   try{ const aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(x=>({...x, clean_score:num(x.clean_score)})); }catch(e){}
-  setTimeout(()=>{
-    /* Inline-Modus (Produkt-Erfassung): der Editor sitzt in #peDetail → nur die Produktliste
-       neu laden (aktualisiert Status/Score der gespeicherten Zeile), Editor schließt sich dabei.
-       Sonst der alte Vollbild-Weg (Posteingang). */
-    var det=document.getElementById("peDetail"), nm=document.getElementById("fe_name");
-    if(det && nm && det.contains(nm)){ try{ loadProduktErfassung(); }catch(e){} }
-    else { closeP(); loadFreigabe(); if(typeof render==="function") render(); }
-  }, 700);
+  /* Nach dem Speichern kennt der Editor jetzt die Produkt-ID. Wichtig beim reinen Speichern,
+     weil das Fenster jetzt OFFEN bleibt: ohne diese Zeile würde ein zweites „Speichern"
+     ein DUPLIKAT anlegen (bisher fiel das nur nicht auf, weil sich das Fenster schloss). */
+  if(pid && window._fgEdit) window._fgEdit.id = pid;
+  /* Nur „Speichern & freigeben" schließt das Fenster (Ralph 23.07.). Reines „Speichern"
+     lässt den Editor offen, damit man weiterarbeiten kann – vorher schloss BEIDES. */
+  if(alsoFreigeben){
+    setTimeout(()=>{
+      /* Inline-Modus (Produkt-Erfassung): der Editor sitzt in #peDetail → nur die Produktliste
+         neu laden (aktualisiert Status/Score der gespeicherten Zeile), Editor schließt sich dabei.
+         Sonst der alte Vollbild-Weg (Posteingang). */
+      var det=document.getElementById("peDetail"), nm=document.getElementById("fe_name");
+      if(det && nm && det.contains(nm)){ try{ loadProduktErfassung(); }catch(e){} }
+      else { closeP(); loadFreigabe(); if(typeof render==="function") render(); }
+    }, 700);
+  } else {
+    /* Reines Speichern: Freigabe-Zeile aktualisieren, Fenster bleibt offen. */
+    try{ fePlaus(); }catch(e){}
+  }
 }
 
 /* ================= TRAINING (Phase A) ================= */
@@ -11369,7 +11380,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22o";
+const APP_BUILD = "2026-07-22p";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
