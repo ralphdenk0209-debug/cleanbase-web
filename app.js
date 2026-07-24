@@ -7918,13 +7918,16 @@ function fgEnthaltenRender(){
     var raw=String(nm).trim(); var low=raw.toLowerCase();
     if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) return "";   /* Funktionswort (Antioxidationsmittel, Stabilisator …) → keine Substanz, nicht anzeigen */
     var inList=!!work[low]; var asZusatz=false;
+    var em=raw.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+    var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[low])?String(ZUS_SYN[low]).toLowerCase():null);
+    var isZus=(typeof ZUSATZSTOFFE_MAP!=="undefined") && !!((eNr&&ZUSATZSTOFFE_MAP[eNr])||ZUSATZSTOFFE_MAP[low]);
     if(!inList){
-      var em=raw.match(/\bE\s?\d{3,4}[a-z]?\b/i);
-      var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[low])?String(ZUS_SYN[low]).toLowerCase():null);
       if((eNr && zk[eNr]) || zk[low]){ inList=true; asZusatz=true; }
     }
-    var tag = inList ? (asZusatz?' <span style="font-size:11px;opacity:.85">– als Zusatzstoff erfasst</span>':'') : ' <span style="font-size:11px;opacity:.85">– noch nicht in der Liste</span>';
+    var chip='<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px;flex:0 0 auto;background:'+(isZus?"#ede9fe;color:#5b21b6":"#e0f2fe;color:#075985")+'">'+(isZus?"Zusatzstoff":"Zutat")+'</span>';
+    var tag = inList ? (asZusatz?' <span style="font-size:11px;opacity:.85">– als Zusatzstoff erfasst</span>':'') : ' <span style="font-size:11px;opacity:.85">– noch nicht übernommen</span>';
     return '<div style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;margin-bottom:3px;background:'+(inList?"#e7f6ec":"#fbf3e2")+';color:'+(inList?"#1f7d43":"#8a5a0b")+'">'
+      +chip
       +'<span style="flex:1;min-width:0">'+(inList?"✓":"○")+" "+esc(raw)+tag+'</span>'
       +'<button onclick="fgEnthaltenDel(this)" data-name="'+esc(raw)+'" title="aus der Referenz entfernen (z. B. Riki-Fehllesung)" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;padding:0 3px;flex:0 0 auto">✕</button>'
       +'</div>';
@@ -8012,6 +8015,20 @@ function fgEnthaltenDel(btn){
   try{ fgEnthaltenRender(); }catch(e){}
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
+/* Referenz von Hand ergänzen (Ralph 24.07.2026): wenn Riki etwas nicht gelesen hat
+   (z. B. „Milchsäurebakterien"), hier eintippen → landet in der Vergleichsliste rechts. */
+function fgRefAdd(){
+  var inp=document.getElementById("fe_refNeu"); if(!inp) return;
+  var v=(inp.value||"").trim(); if(!v) return;
+  window._fgRef=window._fgRef||[];
+  var low=v.toLowerCase();
+  if(!window._fgRef.some(function(n){ return String(n).trim().toLowerCase()===low; })) window._fgRef.push(v);
+  try{ var _pid=(window._fgEdit&&window._fgEdit.id); if(_pid){ window._fgRefMap=window._fgRefMap||{}; window._fgRefMap[_pid]=window._fgRef.slice(); } }catch(e){}
+  inp.value="";
+  try{ fgEnthaltenRender(); }catch(e){}
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+}
+if(typeof window!=='undefined'){ window.fgRefAdd=fgRefAdd; }
 function fgPickObserve(){
   try{ if(window._fgPickObs) window._fgPickObs.disconnect(); }catch(e){}
   var c=document.getElementById("fe_zutRows"); if(!c||typeof MutationObserver==="undefined") return;
@@ -8268,7 +8285,12 @@ async function openFgEditor(id, prefill, targetEl){
      übernommen"-Einträge erhalten. Sonst aus der gespeicherten Zutatenliste vorbelegen. Neue
      Riki-Reads (Herstellerseite/Etikett/Analyse) überschreiben beides über fgRefSet(). */
   var _savedRef=(id && window._fgRefMap && Array.isArray(window._fgRefMap[id]) && window._fgRefMap[id].length)?window._fgRefMap[id].slice():null;
-  window._fgRef=_savedRef||(d.zutaten||[]).map(function(z){ return z&&z.name; }).filter(Boolean);
+  /* Referenz = Vergleichsliste „was die Webseite sagt". Sie enthält IMMER die gebundenen Zutaten
+     (die kommen von Riki/der Webseite) plus eine evtl. gemerkte Roh-Referenz – so fehlen die Zutaten
+     rechts nie mehr (Ralph 24.07.2026). Zusätzlich per fgRefAdd von Hand ergänzbar. */
+  var _boundNames=(d.zutaten||[]).map(function(z){ return z&&z.name; }).filter(Boolean);
+  var _refSeen={}; window._fgRef=[];
+  (_savedRef||_boundNames).concat(_boundNames).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]) return; _refSeen[k]=1; window._fgRef.push(n); });
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
   const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
@@ -8368,7 +8390,7 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
           <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
         `)}</div>
-        ${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden an den Stamm)</span>`,`
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -8392,8 +8414,7 @@ async function openFgEditor(id, prefill, targetEl){
           <div id="fe_zutNeuInfo" style="margin-top:6px"></div>
           <div id="fe_zutRows" style="display:none">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
-          <div id="fgOffBox" style="margin-top:8px"></div>`)}
-        ${card("Zusatzstoffe",`
+          <div id="fgOffBox" style="margin-top:8px"></div>`)}</div><div>${card("Zusatzstoffe",`
           <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:8px;cursor:pointer"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">Keine Zusatzstoffe im Produkt</label>
           <input id="fe_zusSuche" oninput="zusRenderPick()" placeholder="🔍 Zusatzstoff / E-Nummer suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:8px">
           <div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span title="enthalten">☑</span><span>Zusatzstoff</span><span style="text-align:right">Einstufung</span></div>
@@ -8406,7 +8427,7 @@ async function openFgEditor(id, prefill, targetEl){
           <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text||"keine")}">
           <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
           <label style="display:block;font-size:13px;margin-top:10px">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label>
-        `)}
+        `)}</div></div>
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
@@ -8414,7 +8435,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
           + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
-        ${card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen (als <b>Zutat</b> links oder <b>Zusatzstoff</b> unten)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div>`)}
+        ${card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen (als <b>Zutat</b> links oder <b>Zusatzstoff</b> unten)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div>`)}
       </div>
     </div>
     <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
@@ -11886,7 +11907,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24c";
+const APP_BUILD = "2026-07-24d";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
