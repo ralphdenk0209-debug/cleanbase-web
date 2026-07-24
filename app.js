@@ -5792,6 +5792,7 @@ function applyAdminMode(){
       +'<button class="amBtn" data-k="dash"         onclick="adminGo(\'dash\')">📊 Dashboard</button>'
       +'<button class="amBtn" data-k="bundles"      onclick="adminGo(\'bundles\')">🧩 Bundles</button>'
       +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
+      +'<button class="amBtn" data-k="rezeptzutaten" onclick="adminDrawerClose();rezZutatenWaechterOpen()">🍽 Rezept-Zutaten</button>'
       +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
       +'<button class="amBtn" id="amProdErf" data-k="produkterfassung" onclick="adminGo(\'produkterfassung\')" style="display:none">🗂️ Produkt-Erfassung</button>'
       +'<button class="amBtn" id="amRegelwerk" data-k="regelwerk" onclick="adminGo(\'regelwerk\')" style="display:none">📖 Regelwerk</button>'
@@ -11026,6 +11027,68 @@ async function rezVorFotoSenden(files){
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Ging nicht: "+(e&&e.message?e.message:e); } }
 }
 if(typeof window!=='undefined'){ window.rezVorFotoWahl=rezVorFotoWahl; window.rezVorFotoSenden=rezVorFotoSenden; }
+/* ===== Admin-Wächter: Rezept-Zutaten ohne Katalog-Produkt (Ralph 23.07.) =====
+   Zeigt die nicht zuordenbaren Rezept-Zutaten (cb_rezept_zutaten_offen). Je Zutat kann der Admin
+   das richtige Katalog-Produkt wählen → als Alias speichern (cb_zutat_alias_setzen), das sofort in
+   allen Rezepten verknüpft. Fehlt das Produkt ganz, in der Produkt-Erfassung anlegen. */
+async function rezZutatenWaechterOpen(){
+  if(!(ME&&ME.is_admin)){ return; }
+  var ov=document.getElementById("rezZwOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="rezZwOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
+    document.body.appendChild(ov); }
+  ov.style.display="flex";
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:680px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><div style="font-weight:800;font-size:18px">🍽 Rezept-Zutaten ohne Katalog-Produkt</div><button onclick="rezZwClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px">Zutaten aus Rezepten, die keinem Produkt zugeordnet sind. Ordne das richtige Katalog-Produkt zu (wird als <b>Alias</b> gespeichert und sofort in allen Rezepten verknüpft) – oder leg das fehlende Produkt in der Produkt-Erfassung an.</div>'
+    +'<datalist id="rezZwDL"></datalist>'
+    +'<div id="rezZwList" style="font-size:13px;color:var(--muted)">Lade …</div>'
+  +'</div>';
+  try{ if(!window.ALL||!ALL.length){ var aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(function(x){ return Object.assign({}, x, {clean_score:num(x.clean_score)}); }); } }catch(e){}
+  try{ var dl=document.getElementById("rezZwDL"); if(dl&&window.ALL){ dl.innerHTML=ALL.slice().sort(function(a,b){ return (a.name||"").localeCompare(b.name||""); }).map(function(p){ return '<option value="'+esc(prodLabel(p))+'"></option>'; }).join(""); } }catch(e){}
+  try{
+    var r=await client.rpc("cb_rezept_zutaten_offen");
+    if(r.error) throw new Error(r.error.message);
+    var arr=r&&r.data; if(typeof arr==="string"){ try{ arr=JSON.parse(arr); }catch(_){} }
+    if(!Array.isArray(arr)) arr=[];
+    window._rezZwOffen=arr; rezZwRender();
+  }catch(e){ var l=document.getElementById("rezZwList"); if(l){ l.style.color="var(--k-dc2626)"; l.textContent="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e); } }
+}
+function rezZwRender(){
+  var l=document.getElementById("rezZwList"); if(!l) return;
+  var arr=window._rezZwOffen||[];
+  if(!arr.length){ l.style.color="var(--k-166534)"; l.innerHTML="✓ Alle Rezept-Zutaten sind einem Produkt zugeordnet."; return; }
+  l.style.color="var(--ink)";
+  l.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:8px">'+arr.length+' offene Zutat(en)</div>'
+    + arr.map(function(o){
+      return '<div class="rezZwRow" style="border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:9px">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b style="font-size:14px">'+esc(o.text)+'</b><span style="font-size:11.5px;color:var(--muted);white-space:nowrap">'+esc(String(o.anzahl))+'× in Rezepten</span></div>'
+        +'<div style="font-size:11.5px;color:var(--k-b45309);margin:3px 0 8px">'+esc(o.grund||'nicht zugeordnet')+'</div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+          +'<input class="rezZwProd" list="rezZwDL" placeholder="Katalog-Produkt suchen…" style="flex:1;min-width:180px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink)">'
+          +'<button onclick="rezZwZuordnen(this,'+JSON.stringify(o.text).replace(/"/g,'&quot;')+')" style="padding:7px 12px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:12.5px;cursor:pointer">→ Zuordnen</button>'
+        +'</div>'
+        +'<div class="rezZwMsg" style="font-size:12px;margin-top:5px"></div>'
+      +'</div>';
+    }).join("");
+}
+async function rezZwZuordnen(btn, text){
+  var row=btn.closest(".rezZwRow"); if(!row) return;
+  var inp=row.querySelector(".rezZwProd"), msg=row.querySelector(".rezZwMsg");
+  var v=((inp.value||"").trim()).toLowerCase();
+  var p=(window.ALL||[]).find(function(x){ return prodLabel(x).toLowerCase()===v || (x.name||"").toLowerCase()===v; });
+  if(!p){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte ein Produkt aus der Liste wählen (Name muss exakt passen)."; } return; }
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Speichere …"; }
+  try{
+    var r=await client.rpc("cb_zutat_alias_setzen",{p_alias:text, p_produkt_id:p.id});
+    if(r.error) throw new Error(r.error.message);
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(_){} }
+    if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML='✓ „'+esc(text)+'" → '+esc(p.name)+' · '+esc(String((d&&d.rezepte_verknuepft)||0))+' Rezept-Zeile(n) verknüpft.'; }
+    row.style.opacity="0.55"; btn.disabled=true; inp.disabled=true;
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
+}
+function rezZwClose(){ var ov=document.getElementById("rezZwOv"); if(ov) ov.style.display="none"; }
+if(typeof window!=='undefined'){ window.rezZutatenWaechterOpen=rezZutatenWaechterOpen; window.rezZwZuordnen=rezZwZuordnen; window.rezZwClose=rezZwClose; }
 async function rezVorschlagRun(){
   var zutRaw=((document.getElementById("rezVorZut")||{}).value||"");
   var zutaten=zutRaw.split(/[\n,;]+/).map(function(s){return s.trim();}).filter(function(s){return s.length>0;});
@@ -11700,7 +11763,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22w";
+const APP_BUILD = "2026-07-22x";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
