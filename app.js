@@ -8675,7 +8675,17 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
           <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
         `)}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr minmax(240px,1fr);gap:12px;align-items:stretch"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
+      </div>
+      <div>
+        ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
+        ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
+        ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
+          + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
+        )}
+        ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
+      </div>
+    </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr minmax(240px,1fr);gap:12px;align-items:stretch;margin-top:2px"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -8713,16 +8723,6 @@ async function openFgEditor(id, prefill, targetEl){
           <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
           <label style="display:block;font-size:13px;margin-top:10px">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label>
         `)}</div><div>${_refCard}</div></div>
-      </div>
-      <div>
-        ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
-        ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
-        ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
-          + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
-        )}
-        ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
-      </div>
-    </div>
     <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
@@ -9247,6 +9247,19 @@ function feVorgangRemove(){
 if(typeof window!=="undefined"){ window.feAnsichtSet=feAnsichtSet; window.feAnsichtGet=feAnsichtGet; window.feVorgangApply=feVorgangApply; window.feVorgangRemove=feVorgangRemove; window.feVorgangSync=feVorgangSync; }
 
 /* Kaskade 1: Nährwerte + Name + Zutaten-Text aus OFF holen (OFF wird vertraut -> Quelle_Typ gesetzt). */
+/* Ballaststoffe-Automatik (Ralph 24.07.2026): Hat Riki eine VOLLSTÄNDIGE Nährwert-Tabelle
+   gelesen (kcal + mind. 2 Hauptnährwerte), aber Ballaststoffe stehen nicht drauf, dann 0 eintragen
+   und „laut Etikett nicht angegeben" anhaken. So rechnet der Score und kein Wächter meckert –
+   ohne etwas zu erfinden (0 = wir schreiben keinen Ballaststoff-Bonus gut). NUR wenn das Feld leer ist. */
+function _fgBallastAutoND(){
+  var b=document.getElementById('fe_ballaststoffe'), cb=document.getElementById('fe_ballast_nd');
+  if(!b||!cb) return;
+  var gv=function(id){ var e=document.getElementById(id); var x=e?parseFloat(e.value):NaN; return isFinite(x)?x:null; };
+  var hatBallast=(b.value!==''&&b.value!=null&&isFinite(parseFloat(b.value)));
+  var kcal=gv('fe_kcal'); var rest=[gv('fe_protein'),gv('fe_kh'),gv('fe_fett')].filter(function(x){return x!=null;}).length;
+  if(!hatBallast && kcal!=null && rest>=2){ b.value='0'; cb.checked=true; }
+}
+if(typeof window!=='undefined'){ window._fgBallastAutoND=_fgBallastAutoND; }
 async function fgPullOff(){
   var msg=document.getElementById("fe_pullMsg");
   var ean=((document.getElementById("fe_ean")||{}).value||"").replace(/\D/g,"");
@@ -9263,7 +9276,7 @@ async function fgPullOff(){
     var me=document.getElementById("fe_marke"); if(me&&mk&&!me.value) me.value=mk;
     sv("fe_kcal",n["energy-kcal_100g"]); sv("fe_protein",n["proteins_100g"]); sv("fe_kh",n["carbohydrates_100g"]);
     sv("fe_zucker",n["sugars_100g"]); sv("fe_polyole",n["polyols_100g"]); sv("fe_fett",n["fat_100g"]); sv("fe_ges_fett",n["saturated-fat_100g"]);
-    sv("fe_ballaststoffe",n["fiber_100g"]); sv("fe_salz",n["salt_100g"]);
+    sv("fe_ballaststoffe",n["fiber_100g"]); sv("fe_salz",n["salt_100g"]); _fgBallastAutoND();
     var zt=(p.ingredients_text_de||p.ingredients_text||"").trim(); var rt=document.getElementById("rikiText"); if(rt&&zt&&!rt.value) rt.value=zt;
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="OpenFoodFacts";
     feBelegAdd("OpenFoodFacts (EAN "+ean+")");
@@ -9309,7 +9322,7 @@ async function fgPullHersteller(){
     /* EAN nur, wenn sie ausgewiesen war UND die Prüfziffer stimmt UND das Feld leer ist.
        Eine EAN ist eine Identität – lieber leer und später gescannt als falsch verknüpft. */
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
-    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
+    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Herstellerseite";
     /* Die Herstellerseite hinterliess bis 18.07.2026 GAR KEINEN Beleg - sie setzte nur den
@@ -9349,7 +9362,7 @@ async function fgPullResearch(files, b64arr){
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     var ue=document.getElementById("fe_url"); if(ue&&d.quelle_url&&!ue.value.trim()) ue.value=d.quelle_url;
-    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
+    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
     /* Quelle-Typ nach Domain: großer Händler -> Amazon/Händler, sonst Herstellerseite. Beleg = die echte URL. */
     var url=String(d.quelle_url||"");
@@ -9400,7 +9413,7 @@ async function fgPullEtikett(files, b64arr){
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
-    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
+    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
     /* Supplements: liefert Riki Wirkstoff-Mengen mit (name/menge/einheit/nrv), direkt in die
        Wirkstoff-Tabelle übernehmen. Fehlen sie im Riki-Ergebnis, bleibt die Tabelle wie sie ist
@@ -9479,7 +9492,7 @@ async function fgPullUsda(){
     if(d.fehler){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="USDA: "+d.fehler; } return; }
     if(!d.gefunden){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent="Kein USDA-Treffer für „"+q+"\" – USDA kennt nur generische, englische Namen."; } return; }
     var n=d.naehrwerte||{}, sv=function(id,x){ var e=document.getElementById(id); if(e&&x!=null&&isFinite(x)) e.value=Math.round(x*100)/100; };
-    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz);
+    sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="USDA FoodData Central";
     feBelegAdd("USDA FoodData Central: "+(d.name||q)+(d.fdc_id?(" (FDC "+d.fdc_id+")"):""));
     try{ fePlaus(); }catch(e){}
@@ -12192,7 +12205,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24o";
+const APP_BUILD = "2026-07-24q";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
