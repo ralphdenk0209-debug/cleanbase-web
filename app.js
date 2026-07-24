@@ -3787,11 +3787,12 @@ function dashPortalCss(){
    +P+'head .btn{margin-left:auto;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 13px;font-weight:700;font-size:12.5px;color:var(--teal-d,#1f5966);cursor:pointer}'
    +P+'kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}'
    +'@media(max-width:900px){'+P+'kpis{grid-template-columns:repeat(2,1fr)}}'
-   +P+'kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px}'
-   +P+'kpi .n{font-size:26px;font-weight:800;line-height:1;color:var(--ink)}'
-   +P+'kpi .n.gr{color:#107e3e}'+P+'kpi .n.am{color:#c07a10}'+P+'kpi .n.tl{color:#2c6070}'
-   +P+'kpi .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:8px;font-weight:700}'
-   +P+'kpi .s{font-size:11px;color:var(--muted);margin-top:2px}'
+   +P+'dk{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;text-align:center}'
+   +P+'dk .ring{width:78px;height:78px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto}'
+   +P+'dk .hole{width:60px;height:60px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center}'
+   +P+'dk .hole .v{font-size:18px;font-weight:800;line-height:1;color:var(--ink)}'
+   +P+'dk .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:10px;font-weight:700}'
+   +P+'dk .s{font-size:10px;color:var(--muted);margin-top:2px}'
    +P+'tabs{display:flex;gap:6px;margin:16px 0 12px;flex-wrap:wrap}'
    +P+'tab{padding:8px 15px;border:1px solid var(--line);border-radius:9px;background:var(--card);font-weight:700;font-size:12.5px;color:var(--muted);cursor:pointer}'
    +P+'tab:hover{border-color:#b9c7cc}'
@@ -3836,7 +3837,11 @@ function dashPortalHtml(d){
   var gateSum=num(gate.summe), gruen=(gateSum===0);
   var stand=''; try{ stand=(new Date()).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }catch(e){}
   var heute=''; try{ heute=(new Date()).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){}
-  var kpi=function(n,cls,label,sub){ return '<div class="pmkpi"><div class="n '+(cls||'')+'">'+fmt(n)+'</div><div class="k">'+label+'</div><div class="s">'+sub+'</div></div>'; };
+  var aktivN=num(k.aktiv);
+  var anteil=function(v){ return aktivN>0?Math.round(num(v)/aktivN*100):0; };
+  /* Donut-KPI: Ring = Anteil (%), Zahl in der Mitte. */
+  var don=function(val,pct,col,label,sub){ pct=Math.max(0,Math.min(100,num(pct)));
+    return '<div class="pmdk"><div class="ring" style="background:conic-gradient('+col+' '+pct+'%,var(--bg) 0)"><div class="hole"><span class="v">'+(val==null?'–':fmt(val))+'</span></div></div><div class="k">'+label+'</div><div class="s">'+sub+'</div></div>'; };
   var st=function(col,nm,v){ return '<div class="pmst"><span class="pmdot" style="background:'+col+'"></span><span class="nm">'+nm+'</span><span class="v">'+fmt(v)+'</span></div>'; };
 
   var rail='<aside class="pmrail"><h3>Stand · Katalog</h3>'
@@ -3846,15 +3851,16 @@ function dashPortalHtml(d){
     +'<div class="pmheute"><div class="nm">Heute</div><div class="dt">'+heute+'</div></div>'
     +'<div class="pmgate'+(gruen?'':' zu')+'">'+(gruen?'✓ Go-Live-Gate grün':'⚠ Go-Live-Gate ZU · '+gateSum)+'</div></aside>';
 
+  var idxN=(k.schnitt_score!=null?Number(k.schnitt_score):null);
   var kpis='<div class="pmkpis">'
-    +kpi((k.schnitt_score!=null?k.schnitt_score:'–'),'tl','Ø Root Index','aktive Produkte')
-    +kpi(num(k.aktiv),'gr','Aktiv','im Katalog')
-    +kpi(num(q.unverifiziert),'am','Zu verifizieren','aktiv, ungeprüft')
-    +kpi(num(q.ohne_score),'am','Ohne Score','Supplements/OFF')
-    +kpi(num(k.markenprodukte),'','Marken','Markenprodukte')
-    +kpi(num(k.mit_ean),'','Mit Barcode','scanbar')
-    +kpi(num(k.supplements),'am','Supplements','Dosis-Check')
-    +kpi(gateSum,(gruen?'gr':'am'),'Go-Live-Gate','harte Wächter')
+    +don(idxN,(idxN!=null?idxN:0),'#2c6070','Ø Root Index','von 100')
+    +don(aktivN,100,'#107e3e','Aktiv','im Katalog')
+    +don(num(q.unverifiziert),anteil(q.unverifiziert),'#c07a10','Zu verifizieren',anteil(q.unverifiziert)+' % von aktiv')
+    +don(num(q.ohne_score),anteil(q.ohne_score),'#c07a10','Ohne Score',anteil(q.ohne_score)+' % · Suppl./OFF')
+    +don(num(k.markenprodukte),anteil(k.markenprodukte),'#7a5cd0','Marken',anteil(k.markenprodukte)+' % von aktiv')
+    +don(num(k.mit_ean),anteil(k.mit_ean),'#3b7ea6','Mit Barcode',anteil(k.mit_ean)+' % scanbar')
+    +don(num(k.supplements),anteil(k.supplements),'#c07a10','Supplements',anteil(k.supplements)+' % · Dosis-Check')
+    +don(gateSum,100,(gruen?'#107e3e':'#c23b2f'),'Go-Live-Gate',(gruen?'alle Wächter still':gateSum+' offen'))
     +'</div>';
 
   var scCol=function(v){ return v>=90?'#107e3e':v>=80?'#3b9ea8':v>=70?'#3b7ea6':v>=60?'#7a5cd0':v>=50?'#c07a10':'#c23b2f'; };
@@ -12105,7 +12111,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24j";
+const APP_BUILD = "2026-07-24k";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
