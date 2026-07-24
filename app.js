@@ -3240,7 +3240,7 @@ function zutStammSave(id){
 /* Etappe 3 (Ralph 24.07.2026): die drei alten Dashboard-Umschalter (Command Center / Klassisch /
    Vorgang 1:1) sind weg. Es gibt nur noch EINE Dashboard-Ansicht. Der alte Klassisch/Vorgang-Code
    bleibt als toter Code stehen (Sicherheitsnetz), wird aber nie mehr aufgerufen. */
-function dashAnsichtGet(){ return 'klassisch'; }
+function dashAnsichtGet(){ return 'portal'; }
 function dashAnsichtSet(v){ if(typeof loadDashboard==='function') loadDashboard(); }
 function dashSwitchHtml(ansicht){ return ''; }
 if(typeof window!=='undefined'){ window.dashAnsichtSet=dashAnsichtSet; }
@@ -3762,6 +3762,95 @@ function balken(daten, opt){
   return s;
 }
 
+/* ===== Portal-M-Dashboard (Ralph 24.07.2026) – der HELLE Entwurf: „Stand"-Spalte links,
+   Kachel-KPIs, Score/Quellen als helle Karten. Standard-Ansicht. Alle Zahlen echt aus cb_dashboard. */
+function dashPortalCss(){
+  if(document.getElementById('dashPortalCss')) return;
+  var s=document.createElement('style'); s.id='dashPortalCss';
+  var P='#fgDash .pm';
+  s.textContent=
+    P+'wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px;align-items:start}'
+   +'@media(max-width:860px){'+P+'wrap{grid-template-columns:1fr}}'
+   +P+'rail{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}'
+   +P+'rail h3{font-size:13px;color:var(--muted);margin:0 0 10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}'
+   +P+'st{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--line)}'
+   +P+'st:first-of-type{border-top:0}'
+   +P+'dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto}'
+   +P+'st .nm{font-size:12.5px;font-weight:600;flex:1;color:var(--ink)}'
+   +P+'st .v{font-size:14px;font-weight:800;color:var(--ink)}'
+   +P+'heute{margin:12px 0 6px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);text-align:center}'
+   +P+'heute .nm{font-weight:800;font-size:12.5px;color:var(--ink)}'+P+'heute .dt{font-size:10.5px;color:var(--muted)}'
+   +P+'gate{padding:9px;border:1px solid #bfe0cc;border-radius:9px;text-align:center;font-size:12px;color:#1e6b42;background:#eef8f1;font-weight:700}'
+   +P+'gate.zu{border-color:#f2ccc8;color:#8a2019;background:#fcefee}'
+   +P+'head{display:flex;align-items:center;gap:10px;margin:0 0 14px}'
+   +P+'head h1{font-size:20px;font-weight:800;margin:0}'+P+'head .sub{font-size:12.5px;color:var(--muted)}'
+   +P+'head .btn{margin-left:auto;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 13px;font-weight:700;font-size:12.5px;color:var(--teal-d,#1f5966);cursor:pointer}'
+   +P+'kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}'
+   +'@media(max-width:900px){'+P+'kpis{grid-template-columns:repeat(2,1fr)}}'
+   +P+'kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px}'
+   +P+'kpi .n{font-size:26px;font-weight:800;line-height:1;color:var(--ink)}'
+   +P+'kpi .n.gr{color:#107e3e}'+P+'kpi .n.am{color:#c07a10}'+P+'kpi .n.tl{color:#2c6070}'
+   +P+'kpi .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:8px;font-weight:700}'
+   +P+'kpi .s{font-size:11px;color:var(--muted);margin-top:2px}'
+   +P+'cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}'
+   +'@media(max-width:900px){'+P+'cards{grid-template-columns:1fr}}'
+   +P+'card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}'
+   +P+'card h4{font-size:13px;font-weight:800;margin:0;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--bg)}'
+   +P+'card .cb{padding:10px 14px}'
+   +P+'li{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:6px 0;border-top:1px solid var(--line)}'
+   +P+'li:first-child{border-top:0}'
+   +P+'li .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto}'
+   +P+'li .nm{flex:1;color:var(--ink)}'+P+'li b{font-variant-numeric:tabular-nums;color:var(--ink)}';
+  document.head.appendChild(s);
+}
+function dashPortalHtml(d){
+  dashPortalCss();
+  var k=d.katalog||{}, q=d.qualitaet||{}, gate=d.gate||{};
+  var num=function(n){ return (n==null?0:Number(n)); };
+  var fmt=function(n){ if(n==null) return '–'; return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' '); };
+  var gateSum=num(gate.summe), gruen=(gateSum===0);
+  var stand=''; try{ stand=(new Date()).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }catch(e){}
+  var heute=''; try{ heute=(new Date()).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){}
+  var kpi=function(n,cls,label,sub){ return '<div class="pmkpi"><div class="n '+(cls||'')+'">'+fmt(n)+'</div><div class="k">'+label+'</div><div class="s">'+sub+'</div></div>'; };
+  var st=function(col,nm,v){ return '<div class="pmst"><span class="pmdot" style="background:'+col+'"></span><span class="nm">'+nm+'</span><span class="v">'+fmt(v)+'</span></div>'; };
+
+  var rail='<aside class="pmrail"><h3>Stand · Katalog</h3>'
+    +st('#107e3e','Aktiv',num(k.aktiv))
+    +st('#c07a10','Zu verifizieren',num(q.unverifiziert))
+    +st('#c07a10','Ohne Score',num(q.ohne_score))
+    +'<div class="pmheute"><div class="nm">Heute</div><div class="dt">'+heute+'</div></div>'
+    +'<div class="pmgate'+(gruen?'':' zu')+'">'+(gruen?'✓ Go-Live-Gate grün':'⚠ Go-Live-Gate ZU · '+gateSum)+'</div></aside>';
+
+  var kpis='<div class="pmkpis">'
+    +kpi((k.schnitt_score!=null?k.schnitt_score:'–'),'tl','Ø Root Index','aktive Produkte')
+    +kpi(num(k.aktiv),'gr','Aktiv','im Katalog')
+    +kpi(num(q.unverifiziert),'am','Zu verifizieren','aktiv, ungeprüft')
+    +kpi(num(q.ohne_score),'am','Ohne Score','Supplements/OFF')
+    +kpi(num(k.markenprodukte),'','Marken','Markenprodukte')
+    +kpi(num(k.mit_ean),'','Mit Barcode','scanbar')
+    +kpi(num(k.supplements),'am','Supplements','Dosis-Check')
+    +kpi(gateSum,(gruen?'gr':'am'),'Go-Live-Gate','harte Wächter')
+    +'</div>';
+
+  var scCol=function(v){ return v>=90?'#107e3e':v>=80?'#3b9ea8':v>=70?'#3b7ea6':v>=60?'#7a5cd0':v>=50?'#c07a10':'#c23b2f'; };
+  var svArr=(d.score_verteilung||[]).slice().sort(function(a,b){ return num(b.von)-num(a.von); });
+  var svLi=svArr.map(function(x){ return '<div class="pmli"><span class="sw" style="background:'+scCol(num(x.von))+'"></span><span class="nm">'+num(x.von)+'–'+(num(x.von)+9)+'</span><b>'+fmt(num(x.anzahl))+'</b></div>'; }).join('')
+    || '<div style="color:var(--muted);font-size:12px">keine Daten</div>';
+  var pal=['#2c6070','#7a5cd0','#c23b2f','#107e3e','#c07a10','#3b7ea6','#a05a9a','#5b6d73'];
+  var quArr=(d.quellen||[]);
+  var quLi=quArr.map(function(x,i){ return '<div class="pmli"><span class="sw" style="background:'+pal[i%pal.length]+'"></span><span class="nm">'+esc(x.typ)+'</span><b>'+fmt(num(x.anzahl))+'</b></div>'; }).join('')
+    || '<div style="color:var(--muted);font-size:12px">keine Daten</div>';
+
+  var cards='<div class="pmcards">'
+    +'<div class="pmcard"><h4>Score-Verteilung <span style="font-weight:400;color:var(--muted);font-size:11px">aktive Produkte</span></h4><div class="cb">'+svLi+'</div></div>'
+    +'<div class="pmcard"><h4>Quellen <span style="font-weight:400;color:var(--muted);font-size:11px">nach Beleg</span></h4><div class="cb">'+quLi+'</div></div>'
+    +'</div>';
+
+  return '<div class="pmwrap">'+rail
+    +'<main><div class="pmhead"><div><h1>📊 Dashboard <span style="font-size:12px;color:var(--muted);font-weight:600">· Katalog auf einen Blick</span></h1><div class="sub">Live aus der Datenbank · '+stand+' Uhr</div></div>'
+    +'<button class="btn" onclick="loadDashboard()">↻ Aktualisieren</button></div>'
+    +kpis+cards+'</main></div>';
+}
 async function loadDashboard(){
   const box=document.getElementById("fgDash"); if(!box) return;
   dashVorgangCss(); dashV1Css();
@@ -3786,7 +3875,9 @@ async function loadDashboard(){
     return;
   }
 
-  /* Neon Command Center (Default-Ansicht) – eigenes dunkles Layout, echte Zahlen aus d. */
+  /* Portal-M-Dashboard (Default seit 24.07.2026) – heller Entwurf, echte Zahlen aus d. */
+  if(_ansicht==='portal'){ box.innerHTML=_sw+dashPortalHtml(d); return; }
+  /* Neon Command Center – eigenes dunkles Layout, echte Zahlen aus d. */
   if(_ansicht==='command'){ box.innerHTML=_sw+dashCommandHtml(d); return; }
 
   const k=d.katalog||{}, q=d.qualitaet||{}, u=d.nutzer||{}, nz=d.nutzung||{}, sc=d.scans||{}, ri=d.riki||{};
@@ -6895,7 +6986,8 @@ function tbRenderTabs(){
   /* "Manuell" war gebaut, aber unerreichbar: der Knopf erschien NUR, wenn eine Suche
      ins Leere lief. Wer ein Produkt ohne Barcode eintragen wollte, musste erst
      erfolglos danach suchen. Jetzt steht die Tür offen. */
-  const tabs=[['suche','🔍 Suche'],['manuell','✏️ Manuell'],['historie','🕘 Historie'],['rezepte','🥗 Rezepte'],['favoriten','♥ Favoriten']];
+  const tabs=[['suche','🔍 Suche'],['manuell','✏️ Manuell'],['historie','🕘 Historie'],['rezepte','🥗 Rezepte']];
+  if(hasFeat('favoriten')) tabs.push(['favoriten','♥ Favoriten']);   /* Berechtigung an eigenen Schlüssel (Ralph 24.07.) */
   /* Die inaktiven Tabs standen auf var(--k-cbd5e1) - einem HELLBLAU-Grau auf cremefarbenem
      Grund. Kontrast: 1,40:1. WCAG verlangt 4,5:1. Sie waren nicht "dezent",
      sie waren praktisch unsichtbar.
@@ -6913,7 +7005,7 @@ async function tbSetTab(t){
   if(t==='manuell'){ window._tbAddManualName=""; window._tbAddManualEan=""; tbAddManualOpen(); return; }
   if(t==='historie') await tbHistList();
   else if(t==='rezepte') await tbRezList();
-  else if(t==='favoriten') await tbFavList();
+  else if(t==='favoriten'){ if(!hasFeat('favoriten')){ body.innerHTML='<div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Favoriten sind in deiner Stufe nicht enthalten.</div>'; return; } await tbFavList(); }
 }
 function tbRowHtml(p,i){
   const sc=num(p.clean_score), fav=(window._favSet&&window._favSet.has(p.id));
@@ -9359,7 +9451,7 @@ const TF_SMILEYS=["😣","🙁","😐","🙂","😄"];
 const MASS=[["po","Po","Po"],["huefte","Hüfte","Huefte"],["beine","Beine","Beine"],["oberarm","Oberarm","Oberarm"],["brust","Brust","Brust"],["taille","Taille","Taille"],["bauch","Bauch","Bauch"],["oberschenkel","Oberschenkel","Oberschenkel"]];
 async function loadTraining(){
   const gate=document.getElementById("trainGate"), body=document.getElementById("trainBody");
-  if(!ME || !hasFeat('planer')){ gate.style.display=""; body.innerHTML=""; gate.innerHTML=gateHtml('training'); return; }
+  if(!ME || !hasFeat('fitness')){ gate.style.display=""; body.innerHTML=""; gate.innerHTML=gateHtml('training'); return; }
   gate.style.display="none"; body.innerHTML='<div style="color:var(--muted)">Lade…</div>';
   try{
     const [rp,rk,rh,rt,ra]=await Promise.all([
@@ -11907,7 +11999,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24e";
+const APP_BUILD = "2026-07-24g";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
