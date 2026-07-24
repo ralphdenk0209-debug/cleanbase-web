@@ -8667,14 +8667,7 @@ async function openFgEditor(id, prefill, targetEl){
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
         </div>
-        <div id="fe_wirkCard" style="display:none">${card(`<span>Wirkstoffe &amp; Dosis</span> <span style="text-transform:none;color:var(--muted)">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
-          <div style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em"><span>Stoff</span><span style="text-align:right">Menge</span><span>Einheit</span><span style="text-align:right">%NRV</span><span></span></div>
-          <div id="fe_wirkRows"></div>
-          <button type="button" onclick="feWirkAdd()" style="margin-top:7px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ Wirkstoff</button>
-          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
-          <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
-        `)}</div>
+        ${''/* Wirkstoffe-Karte steht jetzt als eigene HALBE Reihe (Tabelle + Etikett-Lesebox) unter dem Raster – Ralph 24.07. Siehe #fe_wirkCard weiter unten. */}
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
@@ -8685,6 +8678,28 @@ async function openFgEditor(id, prefill, targetEl){
         ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
       </div>
     </div>
+        <div id="fe_wirkCard" style="display:none;margin-top:2px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
+            <div>${card(`<span>Wirkstoffe &amp; Dosis</span> <span style="text-transform:none;color:var(--muted)">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
+          <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
+          <div style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em"><span>Stoff</span><span style="text-align:right">Menge</span><span>Einheit</span><span style="text-align:right">%NRV</span><span></span></div>
+          <div id="fe_wirkRows"></div>
+          <button type="button" onclick="feWirkAdd()" style="margin-top:7px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ Wirkstoff</button>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
+          <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
+            `)}</div>
+            <div>${card(`Etikett zum Ablesen <span style="text-transform:none;color:var(--muted)">(zoombar – Mausrad / ziehen)</span>`,`
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <button type="button" onclick="fgWirkFotoZoomBtn(1)" title="näher heranzoomen" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">+</button>
+            <button type="button" onclick="fgWirkFotoZoomBtn(-1)" title="weiter weg" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>
+            <button type="button" onclick="fgWirkFotoReset()" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Einpassen</button>
+            <span id="fe_wirkFotoNav" style="display:flex;gap:6px;align-items:center;margin-left:auto"></span>
+          </div>
+          <div id="fe_wirkFotoBox" style="position:relative;overflow:hidden;height:520px;border:1px solid var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7);cursor:grab;touch-action:none"><div id="fe_wirkFotoLeer" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:16px;line-height:1.5">Kein Etikett angehängt.<br>Über den Foto-Tab oben oder „+ Foto" (Bild-Karte) ein Etikett hinzufügen – es erscheint dann hier zum Ablesen.</div><img id="fe_wirkFotoImg" alt="Etikett" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none;display:none"></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">Mausrad = zoomen · ziehen = verschieben · Doppelklick = großes Vollbild.</div>
+            `)}</div>
+          </div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr minmax(240px,1fr);gap:12px;align-items:stretch;margin-top:2px"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
@@ -8770,6 +8785,7 @@ function feKatChange(){
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   var wc=document.getElementById("fe_wirkCard"); if(wc) wc.style.display=supp?"":"none";   /* Wirkstoff-Dosis nur bei Supplement */
+  if(supp){ try{ fgWirkFotoRender(); }catch(e){} }   /* Etikett-Lesebox einpassen, sobald der Kasten sichtbar ist (clientWidth > 0) */
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
@@ -8871,6 +8887,52 @@ function fgEtikettRender(){
   box.innerHTML = arr.length
     ? arr.map(function(s,j){ return '<img src="'+s+'" onclick="fgEtikettZoom('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = groß · Rechtsklick = Riki-Menü" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">'; }).join('')
     : '<span style="color:var(--muted);font-size:12.5px">keine – über „+ Foto" ein Bild hinzufügen</span>';
+  try{ fgWirkFotoRender(); }catch(e){}   /* die Lesebox neben der Wirkstoff-Tabelle mitziehen */
+}
+/* ===== Etikett-Lesebox NEBEN der Wirkstoff-Tabelle (Supplements, Ralph 24.07.2026) =====
+   Zeigt dieselben angehängten Fotos (window._fgEdit.etikett) zoombar IM Kasten:
+   Mausrad zoomt zum Cursor, Ziehen verschiebt, „Einpassen" setzt auf Kastenbreite,
+   Doppelklick öffnet das grosse Vollbild (fgEtikettZoom). Kein separates Fenster mehr nötig. */
+window._fgWirkFoto = window._fgWirkFoto || { idx:0, scale:1, x:0, y:0, baseFit:1 };
+function fgWirkFotoArr(){ return (window._fgEdit&&Array.isArray(window._fgEdit.etikett))?window._fgEdit.etikett:[]; }
+function fgWirkFotoApply(){ var img=document.getElementById('fe_wirkFotoImg'); if(!img) return; var s=window._fgWirkFoto; img.style.transform='translate('+Math.round(s.x)+'px,'+Math.round(s.y)+'px) scale('+s.scale+')'; }
+function fgWirkFotoReset(){
+  var s=window._fgWirkFoto, box=document.getElementById('fe_wirkFotoBox'), img=document.getElementById('fe_wirkFotoImg');
+  s.x=0; s.y=0; s.scale=1; s.baseFit=1;
+  if(box&&img&&img.naturalWidth&&box.clientWidth){ var fit=box.clientWidth/img.naturalWidth; if(fit>0){ s.scale=fit; s.baseFit=fit; } }
+  fgWirkFotoApply();
+}
+function fgWirkFotoZoomAt(factor, cx, cy){
+  var s=window._fgWirkFoto, box=document.getElementById('fe_wirkFotoBox'); if(!box) return;
+  var lo=(s.baseFit||0.1)*0.4, hi=(s.baseFit||1)*10;
+  var ns=Math.max(lo, Math.min(hi, s.scale*factor)); if(ns===s.scale) return;
+  var r=box.getBoundingClientRect(), px=cx-r.left, py=cy-r.top;
+  s.x = px - (px - s.x)*(ns/s.scale);
+  s.y = py - (py - s.y)*(ns/s.scale);
+  s.scale=ns; fgWirkFotoApply();
+}
+function fgWirkFotoZoomBtn(dir){ var box=document.getElementById('fe_wirkFotoBox'); if(!box) return; var r=box.getBoundingClientRect(); fgWirkFotoZoomAt(dir>0?1.3:0.77, r.left+r.width/2, r.top+r.height/2); }
+function fgWirkFotoNav(d){ var arr=fgWirkFotoArr(); if(arr.length<2) return; var s=window._fgWirkFoto; s.idx=(s.idx+d+arr.length)%arr.length; fgWirkFotoRender(); }
+function fgWirkFotoRender(){
+  var box=document.getElementById('fe_wirkFotoBox'); if(!box) return;
+  var img=document.getElementById('fe_wirkFotoImg'), leer=document.getElementById('fe_wirkFotoLeer'), nav=document.getElementById('fe_wirkFotoNav');
+  var arr=fgWirkFotoArr(), s=window._fgWirkFoto; if(s.idx>=arr.length) s.idx=0;
+  if(!arr.length){ if(img) img.style.display='none'; if(leer) leer.style.display='flex'; if(nav) nav.innerHTML=''; return; }
+  if(leer) leer.style.display='none';
+  if(img){ img.style.display='block'; img.onload=function(){ fgWirkFotoReset(); }; if(img.getAttribute('src')!==arr[s.idx]) img.src=arr[s.idx]; else fgWirkFotoReset(); }
+  if(nav){ nav.innerHTML = arr.length>1
+    ? '<button type="button" onclick="fgWirkFotoNav(-1)" style="width:28px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer">‹</button><span style="font-size:12px;color:var(--muted)">'+(s.idx+1)+' / '+arr.length+' Foto</span><button type="button" onclick="fgWirkFotoNav(1)" style="width:28px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer">›</button>'
+    : ''; }
+  fgWirkFotoBind();
+}
+function fgWirkFotoBind(){
+  var box=document.getElementById('fe_wirkFotoBox'); if(!box||box._fgBound) return; box._fgBound=true;
+  box.addEventListener('wheel', function(e){ e.preventDefault(); fgWirkFotoZoomAt(e.deltaY<0?1.12:0.89, e.clientX, e.clientY); }, {passive:false});
+  var drag=null, moved=false;
+  box.addEventListener('mousedown', function(e){ var s=window._fgWirkFoto; drag={sx:e.clientX,sy:e.clientY,ox:s.x,oy:s.y}; moved=false; box.style.cursor='grabbing'; e.preventDefault(); });
+  document.addEventListener('mousemove', function(e){ if(!drag) return; var s=window._fgWirkFoto; s.x=drag.ox+(e.clientX-drag.sx); s.y=drag.oy+(e.clientY-drag.sy); if(Math.abs(e.clientX-drag.sx)+Math.abs(e.clientY-drag.sy)>3) moved=true; fgWirkFotoApply(); });
+  document.addEventListener('mouseup', function(){ if(drag){ drag=null; box.style.cursor='grab'; } });
+  box.addEventListener('dblclick', function(){ if(typeof fgEtikettZoom==='function') fgEtikettZoom(window._fgWirkFoto.idx); });
 }
 async function fgEtikettAddUpload(files){
   var list=files?Array.prototype.slice.call(files):[]; if(!list.length) return;
@@ -12205,7 +12267,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24q";
+const APP_BUILD = "2026-07-24r";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
