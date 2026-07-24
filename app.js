@@ -1636,17 +1636,40 @@ function wirkstoffWissenHtml(d){
 function suppZutaten(d){
   var zlist=Array.isArray(d.zutaten)?d.zutaten:[];
   if(!zlist.length) return "";
-  var chips=zlist.map(function(z){
+  /* Zusatzstoffe (Farbstoff, Aroma, Säureregulator …) von den Wirkstoffen/Zutaten TRENNEN und
+     NEUTRAL zeigen (§1.11o: „was drin ist", keine Gesundheitsnote). Wir bauen für Supplements
+     BEWUSST keine Zusatzstoff-Score-Achse: über 86 Supplements ist der Wert fast immer identisch
+     (unbedenklich) – er unterscheidet nichts, und die Einstufung lässt sich nicht sicher per Name
+     zuordnen (Ralph 24.07.). Eine ehrliche Liste schlägt eine Schein-Achse. */
+  var _echt=zlist.filter(function(z){ return String(z.kategorie||'')!=='Zusatzstoff'; });
+  var _zusL=zlist.filter(function(z){ return String(z.kategorie||'')==='Zusatzstoff'; });
+  var _chip=function(z){
     var r=num(z.rating);
     var bg=(r!=null&&r>=8)?"var(--k-e7f4ec)":(r!=null&&r>=5)?"var(--k-fff7e6)":"var(--k-fde8e8)";
     var tc=(r!=null&&r>=8)?"var(--k-1f5e34)":(r!=null&&r>=5)?"var(--k-92400e)":"var(--k-b91c1c)";
     return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:'+bg+';color:'+tc+'">'+esc(z.name)+'</span>';
-  }).join("");
-  return '<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:13px">'
-    +'<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:9px">Zutaten &amp; Verarbeitung</div>'
-    +'<div style="margin-bottom:8px">'+chips+'</div>'
-    +'<div style="font-size:11px;color:var(--muted);line-height:1.5">Farbe = Verarbeitungsgrad, nicht gut/schlecht. Bei Nahrungsergänzung ist alles isoliert oder verarbeitet – das ist normal und der einzige Achsenwert, den wir hier ehrlich zeigen.</div>'
-  +'</div>';
+  };
+  var _neutral=function(nm){ return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:var(--k-eef2f6);color:var(--k-475569)">'+esc(nm)+'</span>'; };
+  /* zusätzlich: Zusatzstoffe, die nur im Freitext stehen, aber nicht als gebundene Zutat */
+  var _zusNamen={}; _zusL.forEach(function(z){ _zusNamen[String(z.name||'').trim().toLowerCase()]=1; });
+  var _zusTxt=((d.zusatz&&d.zusatz.text)||d.zusatzstoffe_text||'').trim();
+  var _zusExtra=(_zusTxt&&!/^(keine|keine zusatzstoffe|-)$/i.test(_zusTxt))
+      ? _zusTxt.split(/[,;]/).map(function(t){return t.trim();}).filter(function(t){ return t && !_zusNamen[t.toLowerCase()]; })
+      : [];
+  var html='<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:13px">'
+    +'<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:9px">Wirkstoffe &amp; Zutaten</div>'
+    +'<div style="margin-bottom:8px">'+(_echt.length?_echt.map(_chip).join(""):'<span style="color:var(--muted);font-size:13px">keine hinterlegt</span>')+'</div>'
+    +'<div style="font-size:11px;color:var(--muted);line-height:1.5">Farbe = Verarbeitungsgrad, nicht gut/schlecht. Bei Nahrungsergänzung ist alles isoliert oder verarbeitet – das ist normal.</div>';
+  if(_zusL.length || _zusExtra.length){
+    html+='<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--line)">'
+      +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:2px">Zusatzstoffe</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Was zusätzlich drin ist – z. B. Farb-, Aroma- oder Säuerungsstoffe. Neutral gezeigt: keine Gesundheitsnote, nur Transparenz.</div>'
+      + _zusL.map(function(z){ return _neutral(z.name); }).join("")
+      + _zusExtra.map(_neutral).join("")
+    +'</div>';
+  }
+  html+='</div>';
+  return html;
 }
 function suppFuss(a){
   var wn=(a&&a.was_wir_nicht_sagen)?esc(a.was_wir_nicht_sagen):"";
@@ -8685,6 +8708,14 @@ async function openFgEditor(id, prefill, targetEl){
           <div style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em"><span>Stoff</span><span style="text-align:right">Menge</span><span>Einheit</span><span style="text-align:right">%NRV</span><span></span></div>
           <div id="fe_wirkRows"></div>
           <button type="button" onclick="feWirkAdd()" style="margin-top:7px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ Wirkstoff</button>
+          <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.6">
+            <div style="display:flex;gap:14px;flex-wrap:wrap">
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:5px"></span>wirksame Menge (≥ 15 % Tagesbedarf)</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:5px"></span>EU-Nutzen, aber Dosis &lt; 15 %</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#9aa7b2;vertical-align:middle;margin-right:5px"></span>keine zugelassene EU-Aussage</span>
+            </div>
+            <div style="margin-top:5px">Der Balken links zeigt, ob die Menge einen <b>EU-anerkannten Nutzen</b> erreicht (gesundheitsbezogene Aussage nach VO&nbsp;432/2012 ab 15 % NRV). <b>Grün heißt „wirksame Menge", nicht „gesund".</b> Aminosäuren/Pflanzenstoffe (z. B. Glycin) haben keine zugelassene Aussage → grau.</div>
+          </div>
           <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
           <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
             `)}</div>
@@ -8785,7 +8816,7 @@ function feKatChange(){
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   var wc=document.getElementById("fe_wirkCard"); if(wc) wc.style.display=supp?"":"none";   /* Wirkstoff-Dosis nur bei Supplement */
-  if(supp){ try{ fgWirkFotoRender(); }catch(e){} }   /* Etikett-Lesebox einpassen, sobald der Kasten sichtbar ist (clientWidth > 0) */
+  if(supp){ try{ fgWirkFotoRender(); }catch(e){} try{ feWirkFarbeAll(); }catch(e){} }   /* Etikett-Lesebox einpassen + Wirkstoff-Ampel färben, sobald sichtbar */
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
@@ -8796,16 +8827,41 @@ function feKatChange(){
 function feWirkRow(w){ w=w||{};
   var opt=WIRK_EINHEITEN.map(function(u){ return '<option'+(String(w.einheit||"mg")===u?' selected':'')+'>'+u+'</option>'; }).join("");
   return '<div class="feWirkRow" style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;margin-bottom:6px;align-items:center">'
-    +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{fePlaus()}catch(e){}" placeholder="z. B. Vitamin C" style="padding:6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0">'
+    +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{feWirkFarbeRow(this)}catch(e){};try{fePlaus()}catch(e){}" placeholder="z. B. Vitamin C" style="padding:6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0">'
     +'<input class="fwMenge" type="number" step="any" value="'+esc(w.menge==null?"":String(w.menge))+'" oninput="try{fePlaus()}catch(e){}" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0">'
     +'<select class="fwEinheit" style="padding:6px 4px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0">'+opt+'</select>'
-    +'<input class="fwNrv" type="number" step="any" value="'+esc(w.nrv==null?"":String(w.nrv))+'" placeholder="%" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0">'
+    +'<input class="fwNrv" type="number" step="any" value="'+esc(w.nrv==null?"":String(w.nrv))+'" oninput="try{feWirkFarbeRow(this)}catch(e){}" placeholder="%" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0">'
     +'<button type="button" onclick="feWirkDel(this)" title="entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:7px;width:26px;height:28px;cursor:pointer;flex:0 0 auto">✕</button>'
     +'</div>';
 }
+/* ===== Wirkstoff-Ampel (Ralph 24.07.2026) – dreifarbige Zeilen-Markierung =====
+   GRÜN  = in EU-anerkannter wirksamer Menge: ≥ 15 % des Tagesbedarfs (NRV). Erst ab dieser
+           Menge ist eine gesundheitsbezogene Aussage nach VO (EU) 432/2012 überhaupt zulässig
+           (VO 1169/2011: „signifikante Menge" = 15 % NRV je Bezugsmenge).
+   GELB  = Nährstoff MIT EU-Nutzen, aber Dosis darunter (0 < NRV < 15 %) → „drauf, aber zu wenig".
+   GRAU  = kein Nährstoffbezugswert / keine zugelassene EU-Aussage (Aminosäuren, Pflanzenstoffe
+           wie Glycin, MSM, Ashwagandha). %NRV existiert nur für Vitamine/Mineralstoffe – fehlt er,
+           ist es kein claim-fähiger Nährstoff. GRÜN heißt „wirksame Menge", NICHT „gesund". */
+function feWirkFarbe(r){
+  if(!r||!r.style) return;
+  var nameEl=r.querySelector(".fwName"), nrvEl=r.querySelector(".fwNrv");
+  var nm=nameEl?String(nameEl.value||"").trim():"";
+  var raw=nrvEl?String(nrvEl.value||"").trim().replace(",","."):"";
+  var nrv=(raw===""?null:parseFloat(raw));
+  var col="transparent", tip="";
+  if(nm!==""){
+    if(nrv==null||!isFinite(nrv)||nrv<=0){ col="#9aa7b2"; tip="Grau: kein Nährstoffbezugswert / keine zugelassene EU-Aussage (z. B. Aminosäure, Pflanzenstoff)."; }
+    else if(nrv>=15){ col="#2e9e57"; tip="Grün: in EU-anerkannter wirksamer Menge (≥ 15 % Tagesbedarf – Aussage nach VO 432/2012 zulässig)."; }
+    else { col="#e0a32e"; tip="Gelb: Nährstoff mit EU-Nutzen, aber Dosis unter 15 % des Tagesbedarfs."; }
+  }
+  r.style.borderLeft="4px solid "+col; r.style.paddingLeft="8px"; r.title=tip;
+}
+function feWirkFarbeRow(el){ var r=el&&el.closest?el.closest(".feWirkRow"):null; feWirkFarbe(r); }
+function feWirkFarbeAll(){ [].forEach.call(document.querySelectorAll("#fe_wirkRows .feWirkRow"), feWirkFarbe); }
 function feWirkAdd(w){ var c=document.getElementById("fe_wirkRows"); if(!c) return;
   c.insertAdjacentHTML("beforeend", feWirkRow(w));
   var none=document.getElementById("fe_wirk_none"); if(none&&none.checked){ none.checked=false; feWirkNoneToggle(false); }
+  try{ feWirkFarbe(c.lastElementChild); }catch(e){}
   try{fePlaus()}catch(e){}
 }
 function feWirkDel(btn){ var r=btn&&btn.closest?btn.closest(".feWirkRow"):null; if(r) r.remove(); try{fePlaus()}catch(e){} }
@@ -8829,6 +8885,7 @@ function feWirkLoad(liste, none){
   var c=document.getElementById("fe_wirkRows"); if(!c) return;
   c.innerHTML=(Array.isArray(liste)?liste:[]).map(function(w){ return feWirkRow(w); }).join("");
   var n=document.getElementById("fe_wirk_none"); if(n){ n.checked=!!none; feWirkNoneToggle(!!none); }
+  try{ feWirkFarbeAll(); }catch(e){}
 }
 if(typeof window!=='undefined'){ window.feWirkAdd=feWirkAdd; window.feWirkDel=feWirkDel; window.feWirkNoneToggle=feWirkNoneToggle; }
 /* Fehlt die EAN, wird der „offen"-Haken automatisch gesetzt (blockiert die Freigabe nicht) –
@@ -12267,7 +12324,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24r";
+const APP_BUILD = "2026-07-24t";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
