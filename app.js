@@ -11503,6 +11503,7 @@ async function loadStufen(){
   const {data,error}=await client.rpc("cb_features_matrix");
   if(error){ document.getElementById("stufenMatrix").innerHTML='<div style="color:var(--k-dc2626)">Fehler: '+esc(error.message)+'</div>'; return; }
   renderStufenMatrix(data||[]);
+  loadBetaFlags();
 }
 /* Ja/Nein-Schiebe-Pille (Variante B) — statt Kästchen. Ralph 24.07.2026.
    Eine Stelle, ein Ort: rpill() erzeugt das Markup, rpillSet() schaltet den Zustand,
@@ -11510,7 +11511,8 @@ async function loadStufen(){
 function ensureRpillCss(){
   if(typeof document==='undefined' || document.getElementById('rpillCss')) return;
   var s=document.createElement('style'); s.id='rpillCss';
-  s.textContent='.rpill{display:inline-flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;cursor:pointer;user-select:none;vertical-align:middle;line-height:1}.rpill span{padding:5px 12px;color:var(--muted);transition:.12s}.rpill.on .rpy{background:var(--k-16a34a);color:#fff}.rpill.off .rpn{background:#8a9a9f;color:#fff}';
+  s.textContent='.rpill{display:inline-flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;cursor:pointer;user-select:none;vertical-align:middle;line-height:1}.rpill span{padding:5px 12px;color:var(--muted);transition:.12s}.rpill.on .rpy{background:var(--k-16a34a);color:#fff}.rpill.off .rpn{background:#8a9a9f;color:#fff}'
+    +'.rseg{display:inline-flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;cursor:pointer;user-select:none;vertical-align:middle;line-height:1}.rseg .rs{padding:5px 12px;color:var(--muted);transition:.12s;border-left:1px solid var(--line)}.rseg .rs:first-child{border-left:0}.rseg .rs.on[data-s=aus]{background:#8a9a9f;color:#fff}.rseg .rs.on[data-s=beta]{background:var(--k-b45309);color:#fff}.rseg .rs.on[data-s=alle]{background:var(--k-16a34a);color:#fff}';
   document.head.appendChild(s);
 }
 function rpill(on,onclick){ return '<span class="rpill '+(on?'on':'off')+'" onclick="'+onclick+'"><span class="rpy">Ja</span><span class="rpn">Nein</span></span>'; }
@@ -11549,6 +11551,48 @@ async function toggleFeature(tier,key,enabled){
   if(msg){ msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"; setTimeout(()=>{ if(msg) msg.textContent=""; },1400); }
   await refreshMyFeatures(); await ladeTierSets(); updateGate();
 }
+/* ===== Beta-Freigabe (Feature_Flags) auf der Stufen-Seite. Ralph 24.07.2026. =====
+   Listet ALLE Funktionen mit Beta-Schalter (Aus / Nur Beta / Für alle). Neue Funktionen
+   erscheinen automatisch, sobald sie eine Feature_Flags-Zeile haben (cb_feature_flag_ensure). */
+async function loadBetaFlags(){
+  ensureRpillCss();
+  var inner=document.getElementById("stufenInner"); if(!inner) return;
+  var host=document.getElementById("stufenBeta");
+  if(!host){ host=document.createElement("div"); host.id="stufenBeta"; host.style.marginTop="28px"; inner.appendChild(host); }
+  host.innerHTML='<div style="font-size:13px;color:var(--muted)">Beta-Freigabe lädt…</div>';
+  var r=await client.rpc("cb_feature_flags_list");
+  if(r.error){ host.innerHTML='<div style="color:var(--k-dc2626)">Beta-Freigabe: '+esc(r.error.message)+'</div>'; return; }
+  renderBetaFlags(r.data||[]);
+}
+function _betaSeg(key,state){
+  function seg(s,lab){ return '<span class="rs'+(state===s?' on':'')+'" data-s="'+s+'" onclick="betaSet(this,\''+key+'\',\''+s+'\')">'+lab+'</span>'; }
+  return '<span class="rseg">'+seg('aus','Aus')+seg('beta','Nur Beta')+seg('alle','Für alle')+'</span>';
+}
+function renderBetaFlags(rows){
+  var h='<h3 style="font-size:16px;margin:0 0 4px">Beta-Freigabe — welche Funktion ist schon für alle?</h3>';
+  h+='<p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;max-width:660px">Neue Funktionen starten „Nur Beta" — nur du und Beta-Tester sehen sie. „Für alle" schaltet öffentlich frei (sofort, ohne Deploy). „Aus" versteckt sie für alle. Es erscheint jede Funktion, die im Code an einen Schalter angeschlossen ist.</p>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">';
+  h+='<tr style="background:var(--bg)"><th style="text-align:left;padding:11px 13px;font-size:13px">Funktion</th><th style="padding:11px 13px;font-size:13px;text-align:center;white-space:nowrap">Sichtbarkeit</th></tr>';
+  if(!rows.length){ h+='<tr><td colspan="2" style="padding:14px 13px;color:var(--muted);font-size:13px">Noch keine schaltbaren Funktionen registriert.</td></tr>'; }
+  rows.forEach(function(f){
+    var state = f.Fuer_Alle ? 'alle' : (f.Fuer_Beta ? 'beta' : 'aus');
+    h+='<tr style="border-top:1px solid var(--line)"><td style="padding:11px 13px"><div style="font-weight:600;font-size:14px">'+esc(f.Schluessel)+'</div><div style="font-size:12px;color:var(--muted);margin-top:2px;max-width:520px">'+esc(f.Beschreibung||"")+'</div></td>';
+    h+='<td style="padding:11px 13px;text-align:center">'+_betaSeg(f.Schluessel,state)+'</td></tr>';
+  });
+  h+='</table></div><div id="betaMsg" style="font-size:13px;margin-top:8px;height:18px"></div>';
+  document.getElementById("stufenBeta").innerHTML=h;
+}
+function betaSet(el,key,state){
+  var seg=el.parentNode, kids=seg.querySelectorAll(".rs");
+  for(var i=0;i<kids.length;i++){ kids[i].classList.toggle("on", kids[i].getAttribute("data-s")===state); }
+  var beta=(state!=="aus"), alle=(state==="alle"), msg=document.getElementById("betaMsg");
+  client.rpc("cb_feature_flag_set",{p_key:key,p_fuer_beta:beta,p_fuer_alle:alle}).then(function(r){
+    if(r.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+r.error.message; } return; }
+    if(msg){ msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"; setTimeout(function(){ if(msg) msg.textContent=""; },1400); }
+    try{ ladeFeatures(); }catch(e){}
+  });
+}
+if(typeof window!=='undefined'){ window.betaSet=betaSet; window.loadBetaFlags=loadBetaFlags; }
 /* ---- Admin: Benutzerübersicht ---- */
 const TIERS=[["basis","Basis"],["vital","Vital"],["performance","Performance"],["komplett","Komplett"]];
 async function loadUsers(){
@@ -11779,7 +11823,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22y";
+const APP_BUILD = "2026-07-22z";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
