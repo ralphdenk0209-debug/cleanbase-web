@@ -3809,13 +3809,23 @@ function dashPortalCss(){
    +P+'bar i{display:block;height:100%}'
    /* Wächter-Badges (Apple-Stil: Icon + roter Zähler oben rechts + Tooltip) */
    +P+'wl{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:2px 0 7px}'
-   +P+'wg{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 16px}'
-   +P+'wi{position:relative;width:46px;height:46px;border-radius:12px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:21px;cursor:default;transition:transform .12s}'
-   +P+'wi:hover{transform:translateY(-2px)}'
-   +P+'wi.ok{opacity:.55}'
+   +P+'wg{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 16px}'
+   +P+'wi{position:relative;width:50px;height:50px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:transform .12s,box-shadow .12s}'
+   +P+'wi:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(20,40,70,.16)}'
+   +P+'wi.ok{opacity:.6}'
    +P+'wi.err{border-color:#f2ccc8;background:#fcefee}'
-   +P+'wb{position:absolute;top:-7px;right:-7px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:#e0352b;color:#fff;font-size:11px;font-weight:800;line-height:19px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.35);border:2px solid var(--card)}'
-   +P+'wok{position:absolute;top:-5px;right:-5px;width:15px;height:15px;border-radius:50%;background:#1e9e5a;color:#fff;font-size:9px;line-height:15px;text-align:center;border:2px solid var(--card)}';
+   +P+'wb{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#e0352b;color:#fff;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.35);border:2px solid var(--card)}'
+   +P+'wok{position:absolute;top:-4px;right:-4px;width:17px;height:17px;border-radius:50%;background:#1e9e5a;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)}'
+   /* Portal-M Chevron-Stepper (Produktweg) */
+   +P+'chev{display:flex;overflow:hidden;border-radius:10px;border:1px solid var(--line);margin:0 0 16px;background:var(--card)}'
+   +P+'cv{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:11px 6px 9px;position:relative;background:#eef4f6;color:#5b6d73;min-width:0}'
+   +P+'cv .ic{width:34px;height:34px;border-radius:50%;background:#dfeaee;display:flex;align-items:center;justify-content:center;font-size:16px;color:#3d7c8a}'
+   +P+'cv .l{font-size:10.5px;font-weight:700;text-align:center;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}'
+   +P+'cv.on{background:linear-gradient(#2f6470,#1f5966);color:#fff}'
+   +P+'cv.on .ic{background:rgba(255,255,255,.18);color:#fff}'
+   +P+'cv:not(:last-child)::after{content:"";position:absolute;right:-10px;top:0;bottom:0;width:20px;background:inherit;transform:skewX(-18deg);z-index:2;border-right:1px solid var(--line)}'
+   +P+'cv.on:not(:last-child)::after{background:#1f5966;border-right:0}'
+   +'@media(max-width:720px){'+P+'cv .l{font-size:9px}'+P+'cv .ic{width:28px;height:28px;font-size:14px}}';
   document.head.appendChild(s);
 }
 function dashPortalHtml(d){
@@ -3879,12 +3889,16 @@ function dashPortalHtml(d){
     if(/ballast/.test(n)) return '🌿';
     return '🛡️'; };
   var offenGes=waLst.reduce(function(a,w){ return a+num(w.offen); },0);
-  var wg=waLst.map(function(w){ var o=num(w.offen); var t=esc(w.name)+' — '+(o>0?(o+' offene(r) Fall/Fälle'):'still (0)');
-    return '<div class="pmwi '+(o>0?'err':'ok')+'" title="'+t+'">'+wIcon(w.name)
+  var wg=waLst.map(function(w){ var o=num(w.offen); var t=esc(w.name)+' — '+(o>0?(o+' offene(r) Fall/Fälle · klicken zum Ansehen'):'still (0) · klicken');
+    return '<div class="pmwi '+(o>0?'err':'ok')+'" title="'+t+'" onclick="dashWaechterKlick(\''+encodeURIComponent(w.name)+'\')">'+wIcon(w.name)
       +(o>0?'<span class="pmwb">'+(o>99?'99+':o)+'</span>':'<span class="pmwok">✓</span>')+'</div>'; }).join('');
   var waechterBlock = waLst.length
-    ? '<div class="pmwl">🛡️ Wächter · '+(offenGes>0?(offenGes+' offene Punkte'):'alle still')+'</div><div class="pmwg">'+wg+'</div>'
+    ? '<div class="pmwl">🛡️ Wächter · '+(offenGes>0?(offenGes+' offene Punkte – klick auf ein Symbol zeigt die Fälle'):'alle still')+'</div><div class="pmwg">'+wg+'</div>'
     : '';
+
+  /* Portal-M Chevron-Stepper: der Weg eines Produkts durch den Katalog. */
+  var stp=[['📥','Erfassung'],['🥣','Zutaten'],['📊','Nährwerte'],['🧪','Zusatzstoffe'],['🚦','Score / Dosis'],['✅','Freigabe']];
+  var chev='<div class="pmchev">'+stp.map(function(s,i){ return '<div class="pmcv'+(i===stp.length-1?' on':'')+'"><div class="ic">'+s[0]+'</div><div class="l">'+s[1]+'</div></div>'; }).join('')+'</div>';
   var panelDq='<div class="pmpanel" data-panel="dq"><div class="pmcards">'
     +'<div class="pmcard"><h4>Score-Verteilung <span '+sm+'>aktive Produkte</span></h4><div class="cb">'+svLi+'</div></div>'
     +'<div class="pmcard"><h4>Go-Live-Gate <span '+sm+'>'+(gruen?'✓ grün':'⚠ ZU · '+gateSum)+'</span></h4><div class="cb">'+waLi+'</div></div>'
@@ -3928,8 +3942,15 @@ function dashPortalHtml(d){
   return '<div class="pmwrap">'+rail
     +'<main><div class="pmhead"><div><h1>📊 Dashboard <span style="font-size:12px;color:var(--muted);font-weight:600">· Katalog auf einen Blick</span></h1><div class="sub">Live aus der Datenbank · '+stand+' Uhr</div></div>'
     +'<button class="btn" onclick="loadDashboard()">↻ Aktualisieren</button></div>'
-    +waechterBlock+kpis+tabs+panelDq+panelKat+panelBt+'</main></div>';
+    +chev+waechterBlock+kpis+tabs+panelDq+panelKat+panelBt+'</main></div>';
 }
+/* Klick auf ein Wächter-Symbol: öffnet die Wächter-Ansicht (dort alle Gates + Fälle).
+   Admin-only wie das Dashboard selbst. */
+function dashWaechterKlick(nameEnc){
+  var nm=''; try{ nm=decodeURIComponent(nameEnc||''); }catch(e){ nm=nameEnc||''; }
+  if(typeof waechterOpen==='function'){ waechterOpen(nm); }
+}
+if(typeof window!=='undefined'){ window.dashWaechterKlick=dashWaechterKlick; }
 /* Reiter im hellen Portal-M-Dashboard umschalten (nur Anzeige, kein neuer Datenabruf). */
 function dashPortalTab(id){
   var box=document.getElementById('fgDash'); if(!box) return;
@@ -12084,7 +12105,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24i";
+const APP_BUILD = "2026-07-24j";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
