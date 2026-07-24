@@ -3240,7 +3240,7 @@ function zutStammSave(id){
 /* Etappe 3 (Ralph 24.07.2026): die drei alten Dashboard-Umschalter (Command Center / Klassisch /
    Vorgang 1:1) sind weg. Es gibt nur noch EINE Dashboard-Ansicht. Der alte Klassisch/Vorgang-Code
    bleibt als toter Code stehen (Sicherheitsnetz), wird aber nie mehr aufgerufen. */
-function dashAnsichtGet(){ return 'command'; }
+function dashAnsichtGet(){ return 'klassisch'; }
 function dashAnsichtSet(v){ if(typeof loadDashboard==='function') loadDashboard(); }
 function dashSwitchHtml(ansicht){ return ''; }
 if(typeof window!=='undefined'){ window.dashAnsichtSet=dashAnsichtSet; }
@@ -11907,7 +11907,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24d";
+const APP_BUILD = "2026-07-24e";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
