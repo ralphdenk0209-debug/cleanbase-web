@@ -8776,6 +8776,7 @@ async function openFgEditor(id, prefill, targetEl){
             <button type="button" onclick="fgWirkFotoZoomBtn(1)" title="näher heranzoomen" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">+</button>
             <button type="button" onclick="fgWirkFotoZoomBtn(-1)" title="weiter weg" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>
             <button type="button" onclick="fgWirkFotoReset()" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Einpassen</button>
+            <button type="button" onclick="fgWirkFotoRiki(this)" title="Riki liest das angezeigte Bild aus (Nährwerte/Zutaten/Wirkstoffe)" style="padding:6px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">🤖 Riki liest das Bild</button>
             <span id="fe_wirkFotoNav" style="display:flex;gap:6px;align-items:center;margin-left:auto"></span>
           </div>
           <div id="fe_wirkFotoBox" style="position:relative;overflow:hidden;height:520px;border:1px solid var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7);cursor:grab;touch-action:none"><div id="fe_wirkFotoLeer" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:16px;line-height:1.5">Kein Etikett angehängt.<br>Über den Foto-Tab oben oder „+ Foto" (Bild-Karte) ein Etikett hinzufügen – es erscheint dann hier zum Ablesen.</div><img id="fe_wirkFotoImg" alt="Etikett" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none;display:none"></div>
@@ -9002,7 +9003,32 @@ function fgEtikettRender(){
    Mausrad zoomt zum Cursor, Ziehen verschiebt, „Einpassen" setzt auf Kastenbreite,
    Doppelklick öffnet das grosse Vollbild (fgEtikettZoom). Kein separates Fenster mehr nötig. */
 window._fgWirkFoto = window._fgWirkFoto || { idx:0, scale:1, x:0, y:0, baseFit:1 };
-function fgWirkFotoArr(){ return (window._fgEdit&&Array.isArray(window._fgEdit.etikett))?window._fgEdit.etikett:[]; }
+function fgWirkFotoArr(){
+  /* Angehängte Fotos + das hochgeladene PRODUKTBILD (bild_url) – damit ein hochgeladenes Bild
+     im Lesekasten erscheint und von Riki gelesen werden kann (Ralph 24.07.). */
+  var arr=(window._fgEdit&&Array.isArray(window._fgEdit.etikett))?window._fgEdit.etikett.slice():[];
+  var bp=document.getElementById('fe_bildPreview'); var bimg=bp?bp.querySelector('img'):null;
+  var bu=(bimg&&bimg.getAttribute('src'))||((window._fgEdit&&window._fgEdit.bild_url)||'');
+  if(bu && arr.indexOf(bu)<0) arr.push(bu);
+  return arr;
+}
+/* Riki liest das gerade angezeigte Bild (angehängtes Foto ODER Produktbild). Data-URL wird direkt
+   übergeben; eine http-URL (Produktbild aus dem Speicher) wird vorher zu Base64 geholt. */
+async function fgWirkFotoRiki(btn){
+  var arr=fgWirkFotoArr(); var src=arr[(window._fgWirkFoto&&window._fgWirkFoto.idx)||0];
+  if(!src){ return; }
+  var old=btn?btn.innerHTML:''; if(btn){ btn.disabled=true; btn.style.opacity='.6'; btn.innerHTML='⏳ Riki liest…'; }
+  try{
+    var b64=src;
+    if(!/^data:image\//.test(src)){
+      var resp=await fetch(src); var blob=await resp.blob();
+      b64=await new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){res(fr.result);}; fr.onerror=rej; fr.readAsDataURL(blob); });
+    }
+    if(typeof fgPullEtikett==='function') await fgPullEtikett(null,[b64]);
+  }catch(e){}
+  finally{ if(btn){ btn.disabled=false; btn.style.opacity=''; btn.innerHTML=old; } }
+}
+if(typeof window!=='undefined'){ window.fgWirkFotoRiki=fgWirkFotoRiki; }
 function fgWirkFotoApply(){ var img=document.getElementById('fe_wirkFotoImg'); if(!img) return; var s=window._fgWirkFoto; img.style.transform='translate('+Math.round(s.x)+'px,'+Math.round(s.y)+'px) scale('+s.scale+')'; }
 function fgWirkFotoReset(){
   var s=window._fgWirkFoto, box=document.getElementById('fe_wirkFotoBox'), img=document.getElementById('fe_wirkFotoImg');
@@ -9086,6 +9112,7 @@ async function fgImgUpload(inpEl){
   window._fgEdit.bild_url=url;
   document.getElementById("fe_bildPreview").innerHTML=`<img src="${esc(url)}" style="max-height:120px;border-radius:8px">`;
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ Bild hochgeladen";
+  try{ if(typeof fgWirkFotoRender==='function') fgWirkFotoRender(); }catch(e){}   /* Produktbild sofort im Lesekasten zeigen (Ralph 24.07.) */
 }
 /* Live-Index im Editor als Fluxkompensator (etwas dickere Balken als in der Produktliste).
    Liest die Achsen aus dem Vorschau-Objekt der DB (cb_score_vorschau), nicht selbst gerechnet -
@@ -12503,7 +12530,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-25a";
+const APP_BUILD = "2026-07-25b";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
