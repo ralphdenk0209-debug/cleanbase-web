@@ -2080,6 +2080,7 @@ function closeP(){
       ov.style.background=""; ov.style.backdropFilter=""; ov.style.padding=""; ov.style.alignItems=""; ov.style.justifyContent=""; ov.style.left=""; } }
   var pn=document.getElementById("panel"); if(pn){ pn.style.maxWidth=""; pn.style.width=""; pn.style.height=""; pn.style.maxHeight=""; pn.style.borderRadius=""; }
   try{ var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="none"; }catch(e){}
+  try{ feFreigabeLeisteHide(); }catch(e){}
 }
 /* Eine Karte beginnt oben. Immer. (Ralph, 18.07.2026)
    Wer eine Produktkarte weit unten schliesst und wieder oeffnet, landete bisher
@@ -2950,6 +2951,7 @@ function peClose(){ window._peSel=null;
   try{ peStatusBtnUpdate(); }catch(e){}
   var det=document.getElementById('peDetail'); if(det) det.innerHTML='<div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div>';
   try{ var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="none"; }catch(e){}
+  try{ feFreigabeLeisteHide(); }catch(e){}
   try{ peListSet(false); }catch(e){}   /* Editor zu → Liste wieder aufklappen */
   var box=document.getElementById('fgProdErf'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -8772,7 +8774,7 @@ async function openFgEditor(id, prefill, targetEl){
         `)}</div><div>${_refCard}</div></div>
     <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
-      <div style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
+      <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
         <span style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;flex:0 0 auto">Freigabe</span>
         <div id="fe_riegel" style="display:flex;gap:5px 14px;flex-wrap:wrap;font-size:12px;line-height:1.35;flex:1 1 auto;min-width:0"></div>
       </div>
@@ -9270,10 +9272,106 @@ function fePlaus(){
       }catch(e){}
       rg.innerHTML=h;
     }
+    /* ===== Punkte-Leiste rechts (Ralph 24.07.): dieselben Freigabe-Punkte als Farbcode.
+       NUR Darstellung – keine geänderte Freigabe-Regel. g grün=erfüllt · y gelb=offen, kein
+       Blocker · r rot=Blocker · x hohl=nicht nötig. „blockiert" = fehlt.length>0 (wie fe_ready). */
+    try{
+      var _it=[]; var _pi=function(c,t,hh){ _it.push({c:c,t:t,h:hh||""}); };
+      var _nwF=fehlt.filter(function(x){ return x!=="mind. 1 Zutat" && x!=="Quelle-Typ" && x!=="Kategorie" && x.indexOf("ohne Bewertung")<0 && x.indexOf("EAN")<0; });
+      _pi(_kat?'g':'r', _kat?'Kategorie gewählt':'Kategorie fehlt', _kat?'':'Pflichtfeld');
+      if(_istSupp) _pi('x','Nährwerte','Supplement – nicht nötig');
+      else if(_nwF.length) _pi('r',_nwF.length+' Nährwert(e) fehlen', _nwF.slice(0,4).join(', '));
+      else _pi('g','Nährwerte vollständig');
+      _pi(zMit.length===0?'r':'g', zMit.length===0?(_istSupp?'Kein Wirkstoff/Zutat erfasst':'Keine Zutat erfasst'):(zMit.length+(_istSupp?' Wirkstoffe/Zutaten erfasst':' Zutaten erfasst')));
+      _pi(zOhneNote>0?'r':'g', zOhneNote>0?(zOhneNote+(_istSupp?' Wirkstoff(e)/Zutat(en) unbewertet':' Zutat(en) unbewertet')):(_istSupp?'alle Wirkstoffe/Zutaten bewertet':'alle Zutaten bewertet'));
+      _pi(qt?'g':'r', qt?'Quelle belegt':'Quelle-Typ fehlt', qt?'':'Quelle-Typ im Editor setzen');
+      if(_eanV) _pi('g','EAN erfasst');
+      else if(_eanOffen) _pi('y','EAN als offen markiert','kein Barcode – blockiert die Freigabe nicht');
+      else _pi('r','EAN fehlt','eintragen oder „offen" markieren');
+      if(_istSupp){ if(_dosisLeer) _pi('y','Verzehrempfehlung fehlt','Bezug des Dosis-Checks – blockiert nicht'); else _pi('g','Verzehrempfehlung da'); }
+      if(_istSupp){ if(_wCount>0) _pi('g',_wCount+' Wirkstoff-Menge(n) für Dosis-Check'); else if(_wNone) _pi('x','Wirkstoff-Mengen','bewusst ohne'); else _pi('r','Wirkstoff-Mengen fehlen','für den Dosis-Check'); }
+      try{ var _abw2=_fgAbweichungRef(); if(_abw2 && _abw2.length) _pi('y',_abw2.length+' Zutat(en) laut Etikett offen','Freigabe nur mit Bestätigung'); }catch(e){}
+      try{ var _zu2=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")); }); if(_zu2.length) _pi('y',_zu2.length+' Zusatzstoff(e) nicht eingestuft','→ kein Index: '+_zu2.map(function(z){return z.name;}).slice(0,3).join(", ")); }catch(e){}
+      feFreigabeLeiste(_it, fehlt.length>0);
+    }catch(e){}
   }
   try{ feReqBorders(); }catch(e){}
   try{ if(typeof feScorePreview==="function") feScorePreview(); }catch(e){}
   try{ if(typeof feVorgangSync==="function") feVorgangSync(); }catch(e){}   /* Vorgangs-Ansicht (falls aktiv): Phasenleiste + Ampel live mitziehen */
+}
+
+/* ===== Freigabe als feste Punkte-Leiste rechts (Ralph 24.07.2026) ==========================
+   Ersetzt die lange Zeile unten durch eine schmale Leiste am rechten Rand (mitscrollend, fix).
+   Eingeklappt = ein Punkt je Prüfschritt (grün/gelb/rot/hohl); Klick klappt das Panel senkrecht
+   auf. Auto-Verhalten: bereit → eingeklappt, blockiert → automatisch offen. Zeigt NUR die schon
+   berechneten Punkte (feFreigabeLeiste wird aus fePlaus gefüttert) – keine geänderte Regel. */
+var _FRG_COL={g:'#2e9e57',y:'#e0a32e',r:'#cf5442'};
+var _FRG_IC={g:'✓',y:'!',r:'✕',x:'–'};
+var _FRG_PR={r:0,y:1,g:2,x:3};
+function feFreigabeOpen(o){
+  var rail=document.getElementById('frgRail'), panel=document.getElementById('frgPanel'); if(!panel) return;
+  panel.style.transform=o?'translateX(0)':'translateX(100%)';
+  if(rail) rail.style.transform=o?'translateX(120%)':'translateX(0)';
+  window._frgOpenState=!!o;
+}
+function feFreigabeLeisteHide(){
+  ['frgRail','frgPanel'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
+  window._frgBlocked=undefined; window._frgOpenState=false;
+}
+function feFreigabeLeiste(items, blocked){
+  items=items||[];
+  var rail=document.getElementById('frgRail'), panel=document.getElementById('frgPanel');
+  if(!rail){
+    rail=document.createElement('div'); rail.id='frgRail';
+    rail.style.cssText='position:fixed;top:120px;right:0;z-index:9992;display:flex;flex-direction:column;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);border-right:0;border-radius:14px 0 0 14px;padding:13px 10px;box-shadow:-7px 8px 24px -12px rgba(20,40,70,.4);cursor:pointer;transition:transform .28s ease';
+    rail.onclick=function(){ feFreigabeOpen(true); };
+    rail.innerHTML='<div id="frgDots" style="display:flex;flex-direction:column;gap:9px;align-items:center"></div>'
+      +'<span id="frgSum" style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:7px;white-space:nowrap"></span>'
+      +'<span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted);text-transform:uppercase">Freigabe</span>';
+    document.body.appendChild(rail);
+  }
+  if(!panel){
+    panel=document.createElement('aside'); panel.id='frgPanel';
+    panel.style.cssText='position:fixed;top:0;right:0;bottom:0;width:344px;max-width:88vw;z-index:9993;background:var(--card);border-left:1px solid var(--line);box-shadow:-14px 0 40px -18px rgba(20,40,70,.4);transform:translateX(100%);transition:transform .28s ease;display:flex;flex-direction:column';
+    panel.innerHTML=''
+      +'<div style="display:flex;align-items:center;gap:10px;padding:15px 16px 13px;border-bottom:1px solid var(--line)"><span id="frgPdot" style="width:12px;height:12px;border-radius:50%;flex:0 0 auto"></span><b id="frgTitle" style="font-size:15px"></b><span id="frgPill" style="margin-left:auto;font-size:11.5px;font-weight:800;padding:4px 11px;border-radius:999px"></span><button onclick="feFreigabeOpen(false)" title="einklappen" style="border:0;background:none;font-size:19px;color:var(--muted);cursor:pointer;line-height:1;padding:2px 4px">&rsaquo;</button></div>'
+      +'<div id="frgList" style="flex:1;overflow:auto;padding:6px 16px"></div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)">'
+        +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2e9e57;margin-right:5px;vertical-align:middle"></i>erfüllt</span>'
+        +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e0a32e;margin-right:5px;vertical-align:middle"></i>offen · kein Blocker</span>'
+        +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#cf5442;margin-right:5px;vertical-align:middle"></i>blockiert</span>'
+        +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:transparent;border:2px solid #c3ccd4;margin-right:5px;vertical-align:middle"></i>nicht nötig</span>'
+      +'</div>'
+      +'<div style="padding:12px 16px 16px;border-top:1px solid var(--line);background:var(--card)"><button id="frgGo" style="display:block;width:100%;border:0;border-radius:11px;color:#fff;font-weight:800;font-size:14px;padding:12px;cursor:pointer">✓ Speichern &amp; freigeben</button><button onclick="try{fgEditSave(false)}catch(e){}" style="display:block;width:100%;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);font-weight:600;font-size:13px;padding:10px;cursor:pointer;margin-top:7px">💾 Nur speichern</button></div>';
+    document.body.appendChild(panel);
+  }
+  rail.style.display=''; panel.style.display='';
+  document.getElementById('frgDots').innerHTML=items.map(function(it){
+    var st=(it.c==='x')?'background:transparent;border:2px solid #c3ccd4':('background:'+(_FRG_COL[it.c]||'#c3ccd4')+(it.c==='r'?';box-shadow:0 0 0 4px rgba(207,68,66,.16)':''));
+    return '<span title="'+esc((_FRG_IC[it.c]||'')+' '+it.t)+'" style="width:13px;height:13px;border-radius:50%;flex:0 0 auto;'+st+'"></span>';
+  }).join('');
+  var rot=items.filter(function(i){return i.c==='r';}).length, gelb=items.filter(function(i){return i.c==='y';}).length;
+  var sum=document.getElementById('frgSum');
+  sum.textContent=blocked?(rot+'✕'):'bereit';
+  sum.style.background=blocked?'#fcf3e3':'#e7f4ec'; sum.style.color=blocked?'#92400e':'#1f5e34';
+  rail.style.borderColor=blocked?'#e0a32e':'var(--line)';
+  var list=items.slice().sort(function(a,b){ return _FRG_PR[a.c]-_FRG_PR[b.c]; });
+  document.getElementById('frgList').innerHTML=list.map(function(it){
+    var icBg={g:'#e7f4ec',y:'#fcf3e3',r:'#fdeceb'}[it.c]||'#eef2f6', icFg={g:'#1f5e34',y:'#92400e',r:'#cf5442'}[it.c]||'#6b7280';
+    var icst=(it.c==='x')?'background:transparent;border:2px solid #c3ccd4;color:#c3ccd4':('background:'+icBg+';color:'+icFg);
+    var tc=(it.c==='r')?'color:#cf5442;font-weight:600':((it.c==='y')?'color:#92400e':((it.c==='x')?'color:#6b7280':''));
+    return '<div style="display:flex;align-items:center;gap:11px;padding:9px 0;font-size:13px;border-top:1px solid var(--line);'+tc+'"><span style="width:21px;height:21px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:0 0 auto;'+icst+'">'+(_FRG_IC[it.c]||'')+'</span><span>'+esc(it.t)+(it.h?'<span style="display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:1px">'+esc(it.h)+'</span>':'')+'</span></div>';
+  }).join('');
+  document.getElementById('frgPdot').style.cssText='width:12px;height:12px;border-radius:50%;flex:0 0 auto;background:'+(blocked?'#e0a32e':'#2e9e57')+';box-shadow:0 0 0 4px '+(blocked?'rgba(224,163,46,.18)':'rgba(46,158,87,.16)');
+  document.getElementById('frgTitle').textContent=blocked?('Noch '+rot+' Punkt'+(rot>1?'e':'')+' offen'):'Bereit zur Freigabe';
+  var pill=document.getElementById('frgPill');
+  pill.textContent=blocked?(rot+' Blocker'):('bereit'+(gelb?' · '+gelb+' gelb':''));
+  pill.style.background=blocked?'#fcf3e3':'#e7f4ec'; pill.style.color=blocked?'#92400e':'#1f5e34';
+  var go=document.getElementById('frgGo');
+  if(blocked){ go.disabled=true; go.style.background='#c7d2cc'; go.style.cursor='not-allowed'; go.textContent='Freigabe erst, wenn die roten Punkte erledigt sind'; go.onclick=null; }
+  else { go.disabled=false; go.style.background='#2e9e57'; go.style.cursor='pointer'; go.innerHTML='✓ Speichern &amp; freigeben'; go.onclick=function(){ try{fgEditSave(true)}catch(e){} }; }
+  if(window._frgBlocked!==blocked){ window._frgBlocked=blocked; feFreigabeOpen(blocked); }
+  try{ var _rr=document.getElementById('fe_riegelRow'); if(_rr) _rr.style.display='none'; }catch(e){}
 }
 
 /* ===== 2. Ansicht „Vorgang" (Ralph 22.07.2026) =========================================
@@ -12325,7 +12423,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24u";
+const APP_BUILD = "2026-07-24v";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
