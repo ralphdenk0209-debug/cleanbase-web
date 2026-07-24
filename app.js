@@ -382,6 +382,7 @@ function reinheitsAmpelHtml(a){
           : '<div style="font-size:12.5px;color:var(--muted);line-height:1.5">Kein Wirkstoff dieses Präparats hat einen EFSA-Grenzwert. Wir können die Dosierung deshalb nicht beurteilen – und behaupten auch nicht, sie sei in Ordnung.</div>')
       + nrvBox
       + '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:var(--k-5a6660);line-height:1.55">'
+        + '<b style="color:var(--k-1d3c24)">Grün heißt: sicher dosiert — nicht: nötig.</b> Ob dir ein Stoff wirklich fehlt, sagt keine Packung. '
         + '<b style="color:var(--k-1d3c24)">Du entscheidest.</b> Wir sagen dir nicht, ob du das nehmen sollst – nur, wo du damit stehst.'
         + '<div style="margin-top:5px;font-size:11px;color:var(--k-a89f8f)">'+esc(a.was_wir_nicht_sagen||'')+'</div>'
       + '</div>'
@@ -1799,25 +1800,36 @@ function detail2(d){
       + efPill(d.ernaehrungsform)
     + '</div>'
     + warn
+    /* 2026-07-24w: Feature-Schranken der alten Karte in detail2 uebernommen (Ralphs Fund 23.07.:
+       Free/Gast sahen alles - die Sperren sassen nur im toten Code der alten Karte). pk_ringe
+       sperrt NUR die Achsen-Grafik; die Index-ZAHL bleibt fuer alle sichtbar (ZdE). */
     + '<div style="display:flex;flex-direction:column;align-items:center;margin:16px 0 8px">'
-      + '<div style="width:250px;max-width:82%">'+pkFlux()+'</div>'
-      + '<div class="pkWord" style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:2px;opacity:0">'+esc(bewTxt||'–')+'</div>'
+      + (hasFeat('pk_ringe')
+          ? '<div style="width:250px;max-width:82%">'+pkFlux()+'</div>'
+            + '<div class="pkWord" style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:2px;opacity:0">'+esc(bewTxt||'–')+'</div>'
+          : '<div style="font-size:44px;font-weight:800;line-height:1;color:'+(s==null?'var(--muted)':fTxt)+'">'+(s==null?'–':Math.round(s))+'</div>'
+            + '<div style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:4px">'+esc(bewTxt||'–')+'</div>')
     + '</div>'
+    + (hasFeat('pk_ringe')?'':pkSperre('Die vier Achsen','Zutaten · Zusatzstoffe · Verarbeitung · Nährwerte als Grafik'))
     + sonder
-    + '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 2px">'
-      + kachel('m_kcal','Energie','kcal') + kachel('m_fett','Fett','g')
-      + kachel('m_protein','Eiweiß','g') + kachel('m_ballast','Ballaststoffe','g')
-    + '</div>'
+    + (hasFeat('pk_naehrwerte')
+        ? '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 2px">'
+          + kachel('m_kcal','Energie','kcal') + kachel('m_fett','Fett','g')
+          + kachel('m_protein','Eiweiß','g') + kachel('m_ballast','Ballaststoffe','g')
+          + '</div>'
+        : pkSperre('Nährwerte pro 100 g','Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz'))
     + '<div style="display:flex;gap:7px;margin:12px 0;flex-wrap:wrap">'
       + '<button onclick="prodToEinkauf(\''+d.id+'\')" style="padding:7px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px;font-weight:600">🛒 Einkaufsliste</button>'
       + amazonBtn(d,true)
     + '</div>'
     + (amazonUrl(d)?AMZ_HINWEIS:'')
     + '<div style="margin-top:6px">'
-      + (restRows?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 g</div>'+restRows):'')
+      + ((restRows&&hasFeat('pk_naehrwerte'))?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 g</div>'+restRows):'')
       + ACC('🧾','Zutaten &amp; Zusatzstoffe',zHtml+(hasFeat('score_detail')?naehrstoffHtml(d):''))
       + (bz?ACC('📈','Blutzucker-Verlauf',bzInner):'')
-      + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'+scoreFlow(d)+katRangHtml(d))
+      + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'
+          +(hasFeat('pk_regeln')?scoreFlow(d):pkSperre('So kommt der Index zustande','Regeln, Deckel-Check und Herleitung'))
+          +(hasFeat('pk_platzierung')?katRangHtml(d):pkSperre('Platzierung','Platz in der Kategorie und die Besten')))
       + ACC('🛡️','Quelle &amp; Beleg',quellenBlock(d))
     + '</div>';
   document.getElementById("overlay").classList.add("open");
@@ -12423,7 +12435,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24v";
+const APP_BUILD = "2026-07-24w";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
