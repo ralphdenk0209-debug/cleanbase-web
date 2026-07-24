@@ -5775,35 +5775,27 @@ function applyAdminMode(){
        Der Inhalt nutzt dadurch die volle Breite. */
     const top=document.createElement('div'); top.id='adminTop';
     top.innerHTML=
-       '<button id="adminBurger" onclick="adminDrawerToggle()" aria-label="Menü" title="Menü">☰</button>'
-      +'<div class="atWord">Root Index<small>Admin</small></div>'
+       '<div class="atWord">Root Index<small>Admin</small></div>'
       +'<div id="adminCrumb"></div>'
       +'<div class="atSpacer"></div>'
       +'<button class="atLogout" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">🚪</button>';
     document.body.appendChild(top);
-    /* Abdunkelnder Hintergrund – Klick schließt die Schublade. */
-    const scrim=document.createElement('div'); scrim.id='adminScrim'; scrim.onclick=function(){ adminDrawerClose(); };
-    document.body.appendChild(scrim);
-    /* Die einfahrende Menü-Schublade: dieselben Punkte wie zuvor die linke Spalte. */
-    const dr=document.createElement('div'); dr.id='adminDrawer';
-    dr.innerHTML=
-       '<div class="adHead"><div class="adTitle">Root Index<small>Admin</small></div><button class="adX" onclick="adminDrawerClose()" aria-label="Schließen">×</button></div>'
-      +'<div class="adminMenu">'
-      +'<button class="amBtn" data-k="dash"         onclick="adminGo(\'dash\')">📊 Dashboard</button>'
-      +'<button class="amBtn" data-k="bundles"      onclick="adminGo(\'bundles\')">🧩 Bundles</button>'
-      +'<button class="amBtn" data-k="rezepte"      onclick="adminGo(\'rezepte\')">🍳 Rezepte</button>'
-      +'<button class="amBtn" data-k="rezeptzutaten" onclick="adminDrawerClose();rezZutatenWaechterOpen()">🍽 Rezept-Zutaten</button>'
-      +'<button class="amBtn" data-k="empfehlungen" onclick="adminGo(\'empfehlungen\')">⭐ Empfehlungen</button>'
-      +'<button class="amBtn" id="amProdErf" data-k="produkterfassung" onclick="adminGo(\'produkterfassung\')" style="display:none">🗂️ Produkt-Erfassung</button>'
-      +'<button class="amBtn" id="amRegelwerk" data-k="regelwerk" onclick="adminGo(\'regelwerk\')" style="display:none">📖 Regelwerk</button>'
-      +'<div class="amSep"></div>'
-      +'<button class="amBtn" data-k="rikiimport"   onclick="adminGo(\'rikiimport\')">📤 Riki-Import</button>'
-      +'<button class="amBtn" data-k="stufen"       onclick="adminGo(\'stufen\')">🎚️ Stufen</button>'
-      +'<button class="amBtn" data-k="nutzer"       onclick="adminGo(\'nutzer\')">👥 Nutzer</button>'
-      +'<div class="amSep"></div>'
-      +'<button class="amBtn amLogout" onclick="doLogout()">🚪 Abmelden</button>'
-      +'</div>';
-    document.body.appendChild(dr);
+    /* Portal-M-Rahmen (Ralph 24.07.2026): runde Bereichs-Buttons oben statt Hamburger-Schublade.
+       Gleiche Ziele wie zuvor (adminGo); Wächter + Rezept-Zutaten öffnen ihre Overlays. Riki-Import raus. */
+    const nav=document.createElement('div'); nav.id='adminNav';
+    var _an=function(k,ico,lbl,oc,extra){ return '<button class="anBtn"'+(extra||'')+' data-k="'+k+'" onclick="'+oc+'"><span class="anIco">'+ico+'</span><span class="anLbl">'+lbl+'</span></button>'; };
+    nav.innerHTML=
+       _an('dash','📊','Dashboard',"adminGo('dash')")
+      +_an('waechter','🛡️','Wächter',"waechterOpen()")
+      +_an('bundles','🧩','Bundles',"adminGo('bundles')")
+      +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
+      +_an('rezeptzutaten','🍽️','Rezept-Zutaten',"rezZutatenWaechterOpen()")
+      +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
+      +_an('produkterfassung','🗂️','Erfassung',"adminGo('produkterfassung')",' id="amProdErf" style="display:none"')
+      +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
+      +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
+      +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
+    document.body.appendChild(nav);
     /* Die Freigabe-Checkliste (#fe_riegel) sitzt jetzt als volle Zeile in der Editor-Fußzeile
        (Ralph, 20.07.2026) – kein schwebendes Panel mehr. */
   }
@@ -5831,7 +5823,7 @@ function adminGo(k){
   const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
   else { try{ navTo(k); }catch(e){} }
-  try{ document.querySelectorAll('.adminMenu .amBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
+  try{ document.querySelectorAll('#adminNav .anBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
   try{ var cr=document.getElementById('adminCrumb'); if(cr) cr.textContent=AD_TITLES[k]||''; }catch(e){}
   /* Produkt-Erfassung bekommt einen hellen Arbeits-Hintergrund (Ralph: „Hintergrund zu hell"). */
   try{ document.body.classList.toggle('peLightBg', k==='produkterfassung'); }catch(e){}
@@ -11112,6 +11104,56 @@ function rezZwAnlegen(text){
 }
 function rezZwClose(){ var ov=document.getElementById("rezZwOv"); if(ov) ov.style.display="none"; }
 if(typeof window!=='undefined'){ window.rezZutatenWaechterOpen=rezZutatenWaechterOpen; window.rezZwZuordnen=rezZwZuordnen; window.rezZwIgnorieren=rezZwIgnorieren; window.rezZwAnlegen=rezZwAnlegen; window.rezZwClose=rezZwClose; }
+/* ===== Wächter-Übersicht (Portal-M-Umbau, Ralph 24.07.2026) =====
+   Der 🛡️-Bereichsknopf öffnet den täglichen TÜV: 10 harte Gates (müssen 0 sein) + offene Hinweise.
+   Zahlen live aus cb_admin_waechter. */
+async function waechterOpen(){
+  if(!(ME&&ME.is_admin)) return;
+  var ov=document.getElementById("waechterOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="waechterOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
+    document.body.appendChild(ov); }
+  ov.style.display="flex";
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:840px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><div style="font-weight:800;font-size:18px">🛡️ Wächter – täglicher TÜV über den Katalog</div><button onclick="waechterClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Harte Gates müssen 0 sein, sonst kein Livegang. Hinweise melden nur.</div>'
+    +'<div id="waechterBody" style="font-size:13px;color:var(--muted)">Lade …</div>'
+  +'</div>';
+  try{
+    var r=await client.rpc("cb_admin_waechter");
+    if(r.error) throw new Error(r.error.message);
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(_){} }
+    waechterRender(d||{});
+  }catch(e){ var b=document.getElementById("waechterBody"); if(b){ b.style.color="var(--k-dc2626)"; b.textContent="Konnte die Wächter nicht laden: "+(e&&e.message?e.message:e); } }
+}
+function waechterRender(d){
+  var b=document.getElementById("waechterBody"); if(!b) return;
+  var gates=(d&&d.gates)||[], hin=(d&&d.hinweise)||[];
+  var offen=0; gates.forEach(function(g){ offen+=(+g.n||0); });
+  var gruen=(offen===0);
+  function tile(x,warn){
+    var n=+x.n||0;
+    var col=n===0?'var(--k-166534)':(warn?'var(--k-b45309)':'var(--k-dc2626)');
+    var bg=n===0?'#eef8f1':(warn?'#fdf4e8':'#fcefee');
+    return '<div style="border:1px solid var(--line);border-radius:11px;padding:11px;background:'+bg+'">'
+      +'<div style="font-size:22px;font-weight:800;color:'+col+';line-height:1">'+n+'</div>'
+      +'<div style="font-size:11.5px;font-weight:700;margin-top:5px;color:var(--ink)">'+esc(x.t)+'</div>'
+      +(x.d?'<div style="font-size:10.5px;color:var(--muted);margin-top:3px">'+esc(x.d)+'</div>':'')
+    +'</div>';
+  }
+  var grid='display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:9px';
+  var h='<div style="display:flex;align-items:center;gap:12px;border-radius:12px;padding:12px 14px;margin-bottom:14px;background:'+(gruen?'#eef8f1':'#fcefee')+';border:1px solid '+(gruen?'#cfe8d8':'#f2ccc8')+'">'
+    +'<div style="width:22px;height:22px;border-radius:50%;flex:0 0 auto;background:'+(gruen?'var(--k-16a34a)':'var(--k-dc2626)')+'"></div>'
+    +'<div><b style="font-size:14px;color:'+(gruen?'#1e6b42':'#8a2019')+'">Go-Live-Gate: '+(gruen?'GRÜN':'ROT')+'</b>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+(gruen?'Alle harten Prüfungen auf 0 – der Katalog ist freigabefähig.':(offen+' harte Prüfung(en) offen – bitte beheben.'))+'</div></div></div>';
+  h+='<div style="font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:2px 0 8px">Harte Gates · müssen 0 sein</div>';
+  h+='<div style="'+grid+'">'+gates.map(function(g){return tile(g,false);}).join("")+'</div>';
+  h+='<div style="font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">Offene Hinweise · melden nur</div>';
+  h+='<div style="'+grid+'">'+hin.map(function(g){return tile(g,true);}).join("")+'</div>';
+  b.style.color="var(--ink)"; b.innerHTML=h;
+}
+function waechterClose(){ var ov=document.getElementById("waechterOv"); if(ov) ov.style.display="none"; }
+if(typeof window!=='undefined'){ window.waechterOpen=waechterOpen; window.waechterClose=waechterClose; }
 async function rezVorschlagRun(){
   var zutRaw=((document.getElementById("rezVorZut")||{}).value||"");
   var zutaten=zutRaw.split(/[\n,;]+/).map(function(s){return s.trim();}).filter(function(s){return s.length>0;});
@@ -11846,7 +11888,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24a";
+const APP_BUILD = "2026-07-24b";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
