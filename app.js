@@ -6138,6 +6138,9 @@ function adminGo(k){
   try{ var cr=document.getElementById('adminCrumb'); if(cr) cr.textContent=AD_TITLES[k]||''; }catch(e){}
   /* Produkt-Erfassung bekommt einen hellen Arbeits-Hintergrund (Ralph: „Hintergrund zu hell"). */
   try{ document.body.classList.toggle('peLightBg', k==='produkterfassung'); }catch(e){}
+  /* Freigabe-Leiste NUR im offenen Produkt-Editor (Ralph 24.07.): beim Wechsel in einen anderen
+     Bereich ausblenden; ein geöffneter Editor zeigt sie über fePlaus wieder an. */
+  try{ feFreigabeLeisteHide(); }catch(e){}
   try{ adminDrawerClose(); }catch(e){}
 }
 if(typeof window!=='undefined') window.adminGo=adminGo;
@@ -9332,32 +9335,36 @@ function feFreigabeLeisteHide(){
 }
 function feFreigabeLeiste(items, blocked){
   items=items||[];
+  if(!document.getElementById('frgStyle')){ var _st=document.createElement('style'); _st.id='frgStyle';
+    _st.textContent='@keyframes frgPulse{0%,100%{box-shadow:-7px 8px 24px -12px rgba(20,40,70,.4)}50%{box-shadow:0 0 0 6px rgba(46,158,87,.32),-7px 8px 24px -12px rgba(20,40,70,.4)}}';
+    document.head.appendChild(_st); }
   var rail=document.getElementById('frgRail'), panel=document.getElementById('frgPanel');
   if(!rail){
     rail=document.createElement('div'); rail.id='frgRail';
-    rail.style.cssText='position:fixed;top:120px;right:0;z-index:9992;display:flex;flex-direction:column;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);border-right:0;border-radius:14px 0 0 14px;padding:13px 10px;box-shadow:-7px 8px 24px -12px rgba(20,40,70,.4);cursor:pointer;transition:transform .28s ease';
+    rail.style.cssText='position:fixed;top:120px;right:0;z-index:9992;display:flex;flex-direction:column;align-items:center;gap:10px;background:#ffffff;border:1px solid #e2e8ef;border-right:0;border-radius:14px 0 0 14px;padding:12px 11px;box-shadow:-7px 8px 24px -12px rgba(20,40,70,.4);cursor:pointer;transition:transform .28s ease;min-width:48px';
     rail.onclick=function(){ feFreigabeOpen(true); };
-    rail.innerHTML='<div id="frgDots" style="display:flex;flex-direction:column;gap:9px;align-items:center"></div>'
-      +'<span id="frgSum" style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:7px;white-space:nowrap"></span>'
-      +'<span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted);text-transform:uppercase">Freigabe</span>';
+    rail.innerHTML='<span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:800;letter-spacing:.12em;color:#8a94a0;text-transform:uppercase;text-align:center">Freigabe</span>'
+      +'<div id="frgDots" style="display:flex;flex-direction:column;gap:9px;align-items:center"></div>'
+      +'<span id="frgSum" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px;white-space:nowrap;text-align:center"></span>';
     document.body.appendChild(rail);
   }
   if(!panel){
     panel=document.createElement('aside'); panel.id='frgPanel';
-    panel.style.cssText='position:fixed;top:0;right:0;bottom:0;width:344px;max-width:88vw;z-index:9993;background:var(--card);border-left:1px solid var(--line);box-shadow:-14px 0 40px -18px rgba(20,40,70,.4);transform:translateX(100%);transition:transform .28s ease;display:flex;flex-direction:column';
+    panel.style.cssText='position:fixed;top:0;right:0;bottom:0;width:344px;max-width:88vw;z-index:9993;background:#ffffff;border-left:1px solid #e2e8ef;box-shadow:-14px 0 40px -18px rgba(20,40,70,.4);transform:translateX(100%);transition:transform .28s ease;display:flex;flex-direction:column;color:#1d3c24';
     panel.innerHTML=''
-      +'<div style="display:flex;align-items:center;gap:10px;padding:15px 16px 13px;border-bottom:1px solid var(--line)"><span id="frgPdot" style="width:12px;height:12px;border-radius:50%;flex:0 0 auto"></span><b id="frgTitle" style="font-size:15px"></b><span id="frgPill" style="margin-left:auto;font-size:11.5px;font-weight:800;padding:4px 11px;border-radius:999px"></span><button onclick="feFreigabeOpen(false)" title="einklappen" style="border:0;background:none;font-size:19px;color:var(--muted);cursor:pointer;line-height:1;padding:2px 4px">&rsaquo;</button></div>'
+      +'<div style="display:flex;align-items:center;gap:10px;padding:15px 16px 13px;border-bottom:1px solid #e2e8ef"><span id="frgPdot" style="width:12px;height:12px;border-radius:50%;flex:0 0 auto"></span><b id="frgTitle" style="font-size:15px;color:#1d3c24"></b><span id="frgPill" style="margin-left:auto;font-size:11.5px;font-weight:800;padding:4px 11px;border-radius:999px"></span><button onclick="feFreigabeOpen(false)" title="einklappen" style="border:0;background:none;font-size:19px;color:#6b7280;cursor:pointer;line-height:1;padding:2px 4px">&rsaquo;</button></div>'
       +'<div id="frgList" style="flex:1;overflow:auto;padding:6px 16px"></div>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)">'
+      +'<div style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 16px;border-top:1px solid #e2e8ef;font-size:11px;color:#6b7280">'
         +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2e9e57;margin-right:5px;vertical-align:middle"></i>erfüllt</span>'
         +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e0a32e;margin-right:5px;vertical-align:middle"></i>offen · kein Blocker</span>'
         +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#cf5442;margin-right:5px;vertical-align:middle"></i>blockiert</span>'
         +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:transparent;border:2px solid #c3ccd4;margin-right:5px;vertical-align:middle"></i>nicht nötig</span>'
       +'</div>'
-      +'<div style="padding:12px 16px 16px;border-top:1px solid var(--line);background:var(--card)"><button id="frgGo" style="display:block;width:100%;border:0;border-radius:11px;color:#fff;font-weight:800;font-size:14px;padding:12px;cursor:pointer">✓ Speichern &amp; freigeben</button><button onclick="try{fgEditSave(false)}catch(e){}" style="display:block;width:100%;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);font-weight:600;font-size:13px;padding:10px;cursor:pointer;margin-top:7px">💾 Nur speichern</button></div>';
+      +'<div style="padding:12px 16px 16px;border-top:1px solid #e2e8ef;background:#ffffff"><button id="frgGo" style="display:block;width:100%;border:0;border-radius:11px;color:#fff;font-weight:800;font-size:14px;padding:12px;cursor:pointer">✓ Speichern &amp; freigeben</button><button onclick="try{fgEditSave(false)}catch(e){}" style="display:block;width:100%;border:1px solid #e2e8ef;border-radius:11px;background:#ffffff;color:#1d3c24;font-weight:600;font-size:13px;padding:10px;cursor:pointer;margin-top:7px">💾 Nur speichern</button></div>';
     document.body.appendChild(panel);
   }
   rail.style.display=''; panel.style.display='';
+  rail.style.animation = blocked ? '' : 'frgPulse 1.8s ease-in-out infinite';
   document.getElementById('frgDots').innerHTML=items.map(function(it){
     var st=(it.c==='x')?'background:transparent;border:2px solid #c3ccd4':('background:'+(_FRG_COL[it.c]||'#c3ccd4')+(it.c==='r'?';box-shadow:0 0 0 4px rgba(207,68,66,.16)':''));
     return '<span title="'+esc((_FRG_IC[it.c]||'')+' '+it.t)+'" style="width:13px;height:13px;border-radius:50%;flex:0 0 auto;'+st+'"></span>';
@@ -9366,13 +9373,13 @@ function feFreigabeLeiste(items, blocked){
   var sum=document.getElementById('frgSum');
   sum.textContent=blocked?(rot+'✕'):'bereit';
   sum.style.background=blocked?'#fcf3e3':'#e7f4ec'; sum.style.color=blocked?'#92400e':'#1f5e34';
-  rail.style.borderColor=blocked?'#e0a32e':'var(--line)';
+  rail.style.borderColor=blocked?'#e0a32e':'#e2e8ef';
   var list=items.slice().sort(function(a,b){ return _FRG_PR[a.c]-_FRG_PR[b.c]; });
   document.getElementById('frgList').innerHTML=list.map(function(it){
     var icBg={g:'#e7f4ec',y:'#fcf3e3',r:'#fdeceb'}[it.c]||'#eef2f6', icFg={g:'#1f5e34',y:'#92400e',r:'#cf5442'}[it.c]||'#6b7280';
     var icst=(it.c==='x')?'background:transparent;border:2px solid #c3ccd4;color:#c3ccd4':('background:'+icBg+';color:'+icFg);
     var tc=(it.c==='r')?'color:#cf5442;font-weight:600':((it.c==='y')?'color:#92400e':((it.c==='x')?'color:#6b7280':''));
-    return '<div style="display:flex;align-items:center;gap:11px;padding:9px 0;font-size:13px;border-top:1px solid var(--line);'+tc+'"><span style="width:21px;height:21px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:0 0 auto;'+icst+'">'+(_FRG_IC[it.c]||'')+'</span><span>'+esc(it.t)+(it.h?'<span style="display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:1px">'+esc(it.h)+'</span>':'')+'</span></div>';
+    return '<div style="display:flex;align-items:center;gap:11px;padding:9px 0;font-size:13px;border-top:1px solid #e2e8ef;'+tc+'"><span style="width:21px;height:21px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:0 0 auto;'+icst+'">'+(_FRG_IC[it.c]||'')+'</span><span>'+esc(it.t)+(it.h?'<span style="display:block;font-size:11px;color:#6b7280;font-weight:400;margin-top:1px">'+esc(it.h)+'</span>':'')+'</span></div>';
   }).join('');
   document.getElementById('frgPdot').style.cssText='width:12px;height:12px;border-radius:50%;flex:0 0 auto;background:'+(blocked?'#e0a32e':'#2e9e57')+';box-shadow:0 0 0 4px '+(blocked?'rgba(224,163,46,.18)':'rgba(46,158,87,.16)');
   document.getElementById('frgTitle').textContent=blocked?('Noch '+rot+' Punkt'+(rot>1?'e':'')+' offen'):'Bereit zur Freigabe';
@@ -12435,7 +12442,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24w";
+const APP_BUILD = "2026-07-24x";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
