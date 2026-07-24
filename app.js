@@ -11504,7 +11504,22 @@ async function loadStufen(){
   if(error){ document.getElementById("stufenMatrix").innerHTML='<div style="color:var(--k-dc2626)">Fehler: '+esc(error.message)+'</div>'; return; }
   renderStufenMatrix(data||[]);
 }
+/* Ja/Nein-Schiebe-Pille (Variante B) — statt Kästchen. Ralph 24.07.2026.
+   Eine Stelle, ein Ort: rpill() erzeugt das Markup, rpillSet() schaltet den Zustand,
+   stufenPill()/userPill() rufen dieselben RPCs wie die alten Checkboxen. */
+function ensureRpillCss(){
+  if(typeof document==='undefined' || document.getElementById('rpillCss')) return;
+  var s=document.createElement('style'); s.id='rpillCss';
+  s.textContent='.rpill{display:inline-flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;cursor:pointer;user-select:none;vertical-align:middle;line-height:1}.rpill span{padding:5px 12px;color:var(--muted);transition:.12s}.rpill.on .rpy{background:var(--k-16a34a);color:#fff}.rpill.off .rpn{background:#8a9a9f;color:#fff}';
+  document.head.appendChild(s);
+}
+function rpill(on,onclick){ return '<span class="rpill '+(on?'on':'off')+'" onclick="'+onclick+'"><span class="rpy">Ja</span><span class="rpn">Nein</span></span>'; }
+function rpillSet(el,on){ el.classList.toggle('on',!!on); el.classList.toggle('off',!on); }
+function stufenPill(el,tier,key){ var on=!el.classList.contains('on'); rpillSet(el,on); toggleFeature(tier,key,on); }
+function userPill(el,bid,which){ var on=!el.classList.contains('on'); rpillSet(el,on); if(which==='premium') setUserPremium(bid,on); else setUserAdmin(bid,on); }
+if(typeof window!=='undefined'){ window.stufenPill=stufenPill; window.userPill=userPill; }
 function renderStufenMatrix(rows){
+  ensureRpillCss();
   const tiers=[],tseen={},feats=[],fseen={},en={};
   rows.forEach(r=>{
     if(!tseen[r.tier]){ tseen[r.tier]=1; tiers.push({tier:r.tier,label:r.tier_label,sort:r.tier_sort}); }
@@ -11520,7 +11535,7 @@ function renderStufenMatrix(rows){
     h+='<tr style="border-top:1px solid var(--line)"><td style="padding:11px 13px;font-size:14px;font-weight:600">'+esc(f.label)+'</td>';
     tiers.forEach(t=>{
       const on=!!en[f.key+"|"+t.tier];
-      h+='<td style="padding:11px 13px;text-align:center"><input type="checkbox" '+(on?'checked':'')+' onchange="toggleFeature(\''+t.tier+'\',\''+f.key+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:var(--k-16a34a)"></td>';
+      h+='<td style="padding:11px 13px;text-align:center">'+rpill(on,"stufenPill(this,'"+t.tier+"','"+f.key+"')")+'</td>';
     });
     h+='</tr>';
   });
@@ -11546,6 +11561,7 @@ async function loadUsers(){
 }
 function _uDate(s){ if(!s) return '–'; try{ return new Date(s).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return '–'; } }
 function renderUsers(rows){
+  ensureRpillCss();
   const th='padding:10px 12px;font-size:12.5px;text-align:left';
   let h='<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">'+rows.length+' registrierte Nutzer. Premium-Häkchen = manuell freischalten; Abo/Test kommt automatisch über Stripe.</div>';
   h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:660px">';
@@ -11560,11 +11576,11 @@ function renderUsers(rows){
     const td='padding:10px 12px;font-size:13.5px;vertical-align:top';
     h+='<tr style="border-top:1px solid var(--line)">'
       +'<td style="'+td+'"><div style="font-weight:600">'+esc(u.name||u.benutzer_id)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(u.email||"")+'</div></td>'
-      +'<td style="'+td+';text-align:center"><input type="checkbox" '+(u.is_premium?'checked':'')+' onchange="setUserPremium(\''+u.benutzer_id+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:var(--k-16a34a)"></td>'
+      +'<td style="'+td+';text-align:center">'+rpill(!!u.is_premium,"userPill(this,'"+u.benutzer_id+"','premium')")+'</td>'
       +'<td style="'+td+'">'+abo+'</td>'
       +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+_uDate(u.angelegt_am)+'</td>'
       +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+(u.is_premium?_uDate(u.premium_since):'–')+'</td>'
-      +'<td style="'+td+';text-align:center"><input type="checkbox" '+(u.is_admin?'checked':'')+' onchange="setUserAdmin(\''+u.benutzer_id+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:var(--k-16a34a)"></td>'
+      +'<td style="'+td+';text-align:center">'+rpill(!!u.is_admin,"userPill(this,'"+u.benutzer_id+"','admin')")+'</td>'
       +'<td style="'+td+';text-align:center;white-space:nowrap"><button onclick="adminSetPassword(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">🔑</button>'
       +(u.is_admin?'':'<button title="Nutzer löschen" onclick="adminDeleteUser(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="margin-left:6px;padding:6px 9px;border:1px solid var(--k-fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:12.5px">🗑️</button>')
       +'</td>'
@@ -11763,7 +11779,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22x";
+const APP_BUILD = "2026-07-22y";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
