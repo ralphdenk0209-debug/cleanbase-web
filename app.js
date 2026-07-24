@@ -3895,16 +3895,13 @@ function dashPortalHtml(d){
     if(/ballast/.test(n)) return '🌿';
     return '🛡️'; };
   var offenGes=waLst.reduce(function(a,w){ return a+num(w.offen); },0);
-  var wg=waLst.map(function(w){ var o=num(w.offen); var t=esc(w.name)+' — '+(o>0?(o+' offene(r) Fall/Fälle · klicken zum Ansehen'):'still (0) · klicken');
-    return '<div class="pmwi '+(o>0?'err':'ok')+'" title="'+t+'" onclick="dashWaechterKlick(\''+encodeURIComponent(w.name)+'\')">'+wIcon(w.name)
+  var wg=waLst.map(function(w){ var o=num(w.offen); var t=esc(w.name)+' — '+(o>0?(o+' offene(r) Fall/Fälle · klicken zum Bearbeiten'):'still (0)');
+    return '<div class="pmwi '+(o>0?'err':'ok')+'" title="'+t+'" onclick="dashWaechterFaelle('+num(w.nr)+',\''+encodeURIComponent(w.name)+'\')">'+wIcon(w.name)
       +(o>0?'<span class="pmwb">'+(o>99?'99+':o)+'</span>':'<span class="pmwok">✓</span>')+'</div>'; }).join('');
   var waechterBlock = waLst.length
-    ? '<div class="pmwl">🛡️ Wächter · '+(offenGes>0?(offenGes+' offene Punkte – klick auf ein Symbol zeigt die Fälle'):'alle still')+'</div><div class="pmwg">'+wg+'</div>'
+    ? '<div class="pmwl">🛡️ Wächter · '+(offenGes>0?(offenGes+' offene Punkte – klick auf ein Symbol öffnet die Fälle'):'alle still')+'</div><div class="pmwg">'+wg+'</div>'
     : '';
 
-  /* Portal-M Chevron-Stepper: der Weg eines Produkts durch den Katalog. */
-  var stp=[['📥','Erfassung'],['🥣','Zutaten'],['📊','Nährwerte'],['🧪','Zusatzstoffe'],['🚦','Score / Dosis'],['✅','Freigabe']];
-  var chev='<div class="pmchev">'+stp.map(function(s,i){ return '<div class="pmcv'+(i===stp.length-1?' on':'')+'"><div class="ic">'+s[0]+'</div><div class="l">'+s[1]+'</div></div>'; }).join('')+'</div>';
   var panelDq='<div class="pmpanel" data-panel="dq"><div class="pmcards">'
     +'<div class="pmcard"><h4>Score-Verteilung <span '+sm+'>aktive Produkte</span></h4><div class="cb">'+svLi+'</div></div>'
     +'<div class="pmcard"><h4>Go-Live-Gate <span '+sm+'>'+(gruen?'✓ grün':'⚠ ZU · '+gateSum)+'</span></h4><div class="cb">'+waLi+'</div></div>'
@@ -3948,15 +3945,40 @@ function dashPortalHtml(d){
   return '<div class="pmwrap">'+rail
     +'<main><div class="pmhead"><div><h1>📊 Dashboard <span style="font-size:12px;color:var(--muted);font-weight:600">· Katalog auf einen Blick</span></h1><div class="sub">Live aus der Datenbank · '+stand+' Uhr</div></div>'
     +'<button class="btn" onclick="loadDashboard()">↻ Aktualisieren</button></div>'
-    +chev+waechterBlock+kpis+tabs+panelDq+panelKat+panelBt+'</main></div>';
+    +waechterBlock+kpis+tabs+panelDq+panelKat+panelBt+'</main></div>';
 }
-/* Klick auf ein Wächter-Symbol: öffnet die Wächter-Ansicht (dort alle Gates + Fälle).
-   Admin-only wie das Dashboard selbst. */
-function dashWaechterKlick(nameEnc){
+/* Klick auf ein Wächter-Symbol: lädt die KONKRETEN Fälle (cb_waechter_faelle nach nr)
+   und listet sie – Produkte sind direkt im Editor öffnenbar, Zutaten/Zusatzstoffe zeigen den Befund. */
+async function dashWaechterFaelle(nr, nameEnc){
+  if(!(ME&&ME.is_admin)) return;
   var nm=''; try{ nm=decodeURIComponent(nameEnc||''); }catch(e){ nm=nameEnc||''; }
-  if(typeof waechterOpen==='function'){ waechterOpen(nm); }
+  var ov=document.getElementById('waFaelleOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='waFaelleOv';
+    ov.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px';
+    ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov); }
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink,#22343a);border-radius:16px;max-width:720px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="font-weight:800;font-size:17px">🛡️ '+esc(nm)+'</div><button onclick="var o=document.getElementById(\'waFaelleOv\');if(o)o.remove()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
+    +'<div id="waFaelleBody" style="font-size:13px;color:var(--muted,#6b7a85);margin-top:10px">Lade Fälle …</div></div>';
+  try{
+    var r=await client.rpc('cb_waechter_faelle',{p_nr:nr});
+    if(r.error) throw new Error(r.error.message);
+    var rows=r.data||[]; var b=document.getElementById('waFaelleBody'); if(!b) return;
+    if(!rows.length){ b.innerHTML='<div style="color:#1e6b42">Keine offenen Fälle – dieser Wächter ist still. ✓</div>'; return; }
+    var html='<div style="margin-bottom:6px">'+rows.length+' Fall/Fälle zum Bearbeiten:</div>';
+    html+=rows.map(function(x){
+      var prod=(x.typ==='produkt');
+      var hint = prod ? '' : ' · '+(x.typ==='zutat'?'Zutat':'Zusatzstoff')+' → im Regelwerk/Stamm bearbeiten';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line,#e3e9ec)">'
+        +'<div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--ink,#22343a)">'+esc(x.name||x.id)+'</div>'
+        +'<div style="font-size:11.5px;color:var(--muted,#6b7a85)">'+esc(x.detail||'')+hint+'</div></div>'
+        +(prod?'<button onclick="dashOpenProdukt(\''+esc(x.id)+'\');var o=document.getElementById(\'waFaelleOv\');if(o)o.remove()" style="flex:0 0 auto;border:1px solid #107e3e;background:#eef8f1;color:#1e6b42;border-radius:9px;padding:7px 13px;font-weight:700;font-size:12.5px;cursor:pointer">Öffnen ›</button>':'')
+      +'</div>';
+    }).join('');
+    b.style.color='var(--ink,#22343a)'; b.innerHTML=html;
+  }catch(e){ var b2=document.getElementById('waFaelleBody'); if(b2){ b2.style.color='#cf5442'; b2.textContent='Konnte die Fälle nicht laden: '+((e&&e.message)||e); } }
 }
-if(typeof window!=='undefined'){ window.dashWaechterKlick=dashWaechterKlick; }
+if(typeof window!=='undefined'){ window.dashWaechterFaelle=dashWaechterFaelle; }
 /* Reiter im hellen Portal-M-Dashboard umschalten (nur Anzeige, kein neuer Datenabruf). */
 function dashPortalTab(id){
   var box=document.getElementById('fgDash'); if(!box) return;
@@ -12111,7 +12133,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24k";
+const APP_BUILD = "2026-07-24l";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
