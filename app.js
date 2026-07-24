@@ -6019,8 +6019,26 @@ function applyAdminMode(){
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
       +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
     document.body.appendChild(nav);
+    /* Pfeil-Chip: holt das beim Scrollen ausgeblendete Menü zurück (Ralph 24.07.2026). */
+    if(!document.getElementById('adminNavPeek')){
+      var peek=document.createElement('div'); peek.id='adminNavPeek'; peek.title='Menü einblenden';
+      peek.innerHTML='▾ Menü';
+      peek.onclick=function(){ document.body.classList.remove('navHidden'); window._navPinned=true; };
+      document.body.appendChild(peek);
+    }
     /* Die Freigabe-Checkliste (#fe_riegel) sitzt jetzt als volle Zeile in der Editor-Fußzeile
        (Ralph, 20.07.2026) – kein schwebendes Panel mehr. */
+  }
+  /* Scroll-Verhalten (nur einmal binden): runterscrollen blendet das Nav aus,
+     ganz oben kommt es von selbst zurück, dazwischen holt es der Pfeil-Chip. */
+  if(!window._adminNavScrollBound){
+    window._adminNavScrollBound=true; window._navLastY=0;
+    window.addEventListener('scroll', function(){
+      var y=window.scrollY||document.documentElement.scrollTop||0;
+      if(y<=36){ document.body.classList.remove('navHidden'); window._navPinned=false; }
+      else if(y>90 && y>window._navLastY+4 && !window._navPinned){ document.body.classList.add('navHidden'); }
+      window._navLastY=y;
+    }, {passive:true});
   }
   /* Beta-Menuepunkte direkt nach dem Bau des Menues sichtbar schalten (falls Flags schon geladen). */
   try{ var _ar=document.getElementById('amRegelwerk'); if(_ar) _ar.style.display=(FEATURES['regelwerk']===true?'':'none');
@@ -12133,7 +12151,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24l";
+const APP_BUILD = "2026-07-24m";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
