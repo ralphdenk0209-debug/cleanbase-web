@@ -8804,8 +8804,7 @@ async function openFgEditor(id, prefill, targetEl){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${targetEl&&id?`<button onclick="peDeaktiv('${esc(id)}')" style="padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--k-cf5442,#cf5442);cursor:pointer;font-size:13px">Löschen</button>`:""}
         ${targetEl?`<button onclick="peNeu()" style="padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Neu</button>`:""}
-        <button onclick="fgEditSave(false)" style="padding:10px 16px;border:1px solid ${targetEl?"#2a3f86":"var(--k-0ea5e9)"};border-radius:10px;background:${targetEl?"#3b56b0":"var(--k-0ea5e9)"};color:#fff;font-weight:600;cursor:pointer">💾 Speichern</button>
-        <button onclick="fgEditSave(true)" style="padding:10px 18px;border:0;border-radius:10px;background:${targetEl?"#2e9e57":"var(--k-16a34a)"};color:#fff;font-weight:700;cursor:pointer">✓ Speichern &amp; freigeben</button>
+        ${''/* „Speichern" + „Speichern & freigeben" sitzen jetzt in der Freigabe-Leiste rechts (Ralph 24.07.) – hier entfernt. */}
         ${targetEl?`<button onclick="peClose()" style="padding:10px 16px;border:1px solid #d3dbe6;border-radius:10px;background:#fff;color:#1f2a44;font-weight:600;cursor:pointer">Schließen</button>`:""}
       </div>
       </div>
@@ -9332,6 +9331,8 @@ function feFreigabeOpen(o){
   window._frgOpenState=!!o;
 }
 function feFreigabeLeisteHide(){
+  var p=document.getElementById('frgPanel'); if(p) p.style.transform='translateX(100%)';   /* eingeklappt lassen fürs nächste Öffnen */
+  var r=document.getElementById('frgRail'); if(r) r.style.transform='translateX(0)';
   ['frgRail','frgPanel'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
   window._frgBlocked=undefined; window._frgOpenState=false;
 }
@@ -9391,7 +9392,10 @@ function feFreigabeLeiste(items, blocked){
   var go=document.getElementById('frgGo');
   if(blocked){ go.disabled=true; go.style.background='#c7d2cc'; go.style.cursor='not-allowed'; go.textContent='Freigabe erst, wenn die roten Punkte erledigt sind'; go.onclick=null; }
   else { go.disabled=false; go.style.background='#2e9e57'; go.style.cursor='pointer'; go.innerHTML='✓ Speichern &amp; freigeben'; go.onclick=function(){ try{fgEditSave(true)}catch(e){} }; }
-  if(window._frgBlocked!==blocked){ window._frgBlocked=blocked; feFreigabeOpen(blocked); }
+  /* KEIN Auto-Aufspringen (Ralph 24.07.: „beim produkt anklicken springt die fahne auf, das sollte
+     sie nicht"): Panel bleibt eingeklappt; Farbe + Pulsieren zeigen den Status auch eingeklappt,
+     der Nutzer öffnet per Klick auf die Leiste. */
+  window._frgBlocked=blocked;
   try{ var _rr=document.getElementById('fe_riegelRow'); if(_rr) _rr.style.display='none'; }catch(e){}
 }
 
@@ -12464,7 +12468,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24y";
+const APP_BUILD = "2026-07-24z";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
