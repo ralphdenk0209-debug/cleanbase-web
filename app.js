@@ -2661,6 +2661,7 @@ async function loadProduktErfassung(){
       +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px" title="Filtert die Liste nach Kategorie und ist zugleich die Vorgabe für neue Produkte.">Kategorie</span>'
       +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px","peRender()","alle Kategorien")
       +'<button id="peStatusBtn" class="peBtn" onclick="peToggleStatus()">⇄ Status</button>'
+      +'<button id="peMarkenBtn" class="peBtn" onclick="peBrandBox(this)" title="Marken zum Ausblenden abwählen">🏷 Marken ▾</button>'
       +'<span style="flex:1"></span>'
     +'</div>'
     /* Filter-Chips (echte Zahlen) */
@@ -2740,6 +2741,36 @@ function peSetSort(v){ var s=document.getElementById('peSort'); if(s){ s.value=v
 function peChip(k){ window._peChip=k;
   document.querySelectorAll('#fgProdErf .peChip').forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-k')===k); });
   peRender(); }
+/* Marken-Filter (Ralph 24.07.2026): Checkbox-Liste zum ABWÄHLEN von Marken (Dr. Oetker, Wagner …),
+   damit man alles ANDERE sieht, das noch offen ist. Abgewählte stehen in window._peBrandOff. */
+function peMarkenListe(){ var s={}; (window._peRows||[]).forEach(function(p){ var m=String(p.marke||'').trim(); if(m) s[m]=(s[m]||0)+1; });
+  return Object.keys(s).sort(function(a,b){return a.toLowerCase()<b.toLowerCase()?-1:1;}).map(function(m){return {name:m,n:s[m]};}); }
+function peBrandLabelUpd(){ var b=document.getElementById('peMarkenBtn'); if(!b) return; var off=window._peBrandOff||{};
+  var n=Object.keys(off).filter(function(k){return off[k];}).length; b.textContent='🏷 Marken'+(n>0?' ('+n+' aus)':'')+' ▾'; }
+function peBrandBox(btn){
+  var ex=document.getElementById('peBrandBox'); if(ex){ ex.remove(); return; }
+  window._peBrandOff=window._peBrandOff||{};
+  var list=peMarkenListe();
+  var box=document.createElement('div'); box.id='peBrandBox';
+  box.style.cssText='position:absolute;z-index:80;background:#fff;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:10px;width:270px;max-height:60vh;overflow:auto';
+  var r=btn.getBoundingClientRect();
+  box.style.top=(window.scrollY+r.bottom+6)+'px'; box.style.left=(window.scrollX+Math.max(6,r.left))+'px';
+  var head='<div style="display:flex;gap:6px;margin-bottom:6px"><button type="button" onclick="peBrandAlle(true)" style="flex:1;padding:6px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">alle an</button><button type="button" onclick="peBrandAlle(false)" style="flex:1;padding:6px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">alle aus</button></div>'
+    +'<div style="font-size:11px;color:#7b8698;margin-bottom:4px">Abgewählte Marken werden ausgeblendet.</div>';
+  var rows=list.map(function(m){ var off=!!window._peBrandOff[m.name];
+    return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:13px;cursor:pointer;border-top:1px solid #eef2f7"><input type="checkbox" '+(off?'':'checked')+' data-m="'+esc(m.name)+'" onchange="peBrandToggle(this)" style="width:16px;height:16px;flex:0 0 auto"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(m.name)+'</span><span style="color:#9aa7b2;font-size:11px">'+m.n+'</span></label>'; }).join('')
+    || '<div style="color:#9aa7b2;font-size:12px;padding:6px 2px">keine Marken in der Liste</div>';
+  box.innerHTML=head+rows;
+  document.body.appendChild(box);
+  setTimeout(function(){ var close=function(e){ if(!box.contains(e.target)&&e.target!==btn){ box.remove(); document.removeEventListener('mousedown',close); } }; document.addEventListener('mousedown',close); },0);
+}
+function peBrandToggle(cb){ var name=cb.getAttribute('data-m')||''; window._peBrandOff=window._peBrandOff||{};
+  if(cb.checked) delete window._peBrandOff[name]; else window._peBrandOff[name]=true; peBrandLabelUpd(); peRender(); }
+function peBrandAlle(on){ window._peBrandOff=window._peBrandOff||{};
+  if(on){ window._peBrandOff={}; } else { peMarkenListe().forEach(function(m){ window._peBrandOff[m.name]=true; }); }
+  var bx=document.getElementById('peBrandBox'); if(bx) bx.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=on; });
+  peBrandLabelUpd(); peRender(); }
+if(typeof window!=='undefined'){ window.peBrandBox=peBrandBox; window.peBrandToggle=peBrandToggle; window.peBrandAlle=peBrandAlle; }
 function peRender(){
   var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
   var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
@@ -2748,6 +2779,7 @@ function peRender(){
   var sort=((document.getElementById('peSort')||{}).value)||'neu';
   var list=rows.filter(function(p){
     if(katf && String(p.kategorie||'')!==katf) return false;
+    if(window._peBrandOff && p.marke && window._peBrandOff[String(p.marke)]) return false;   /* abgewählte Marke ausblenden (Ralph 24.07.) */
     if(chipf==='offen'&&!peIstOffen(p)) return false;
     if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
     if(chipf==='keinscore'&&p.score!=null) return false;
@@ -8199,11 +8231,16 @@ function _fgAbweichungRef(){
   });
   return out;
 }
+/* Leer-/Statuswörter, die NICHT in die Referenz gehören (Ralph 24.07.2026: „keine" tauchte auf
+   und musste immer von Hand raus). „(keine)", „keine Zusatzstoffe" usw. sind keine Substanz. */
+function _refIstLeer(k){ var s=String(k||"").replace(/[()]/g,"").trim().toLowerCase();
+  return s===""||s==="keine"||s==="kein"||s==="keiner"||s==="keine zutaten"||s==="keine zusatzstoffe"||s==="none"||s==="-"||s==="–"||s==="n/a"; }
 /* Referenz setzen (nur durch Riki): merkt sich die von Riki gelesenen Namen und rendert die Box. */
 function fgRefSet(names){
   var seen={}, out=[];
   (names||[]).forEach(function(n){ n=String(n||"").trim(); if(!n) return; var k=n.toLowerCase();
     if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[k]) return;   /* reines Funktionswort → nicht in die Referenz */
+    if(_refIstLeer(k)) return;   /* „keine"/Statuswort → nie in die Referenz */
     if(seen[k]) return; seen[k]=1; out.push(n); });
   window._fgRef=out;
   /* Referenz pro Produkt merken, damit sie das Speichern & Neuöffnen überlebt (Ralph 21.07.2026).
@@ -8264,6 +8301,7 @@ function fgEnthaltenDel(btn){
 function fgRefAdd(){
   var inp=document.getElementById("fe_refNeu"); if(!inp) return;
   var v=(inp.value||"").trim(); if(!v) return;
+  if(_refIstLeer(v)){ inp.value=""; return; }   /* „keine" o. Ä. nicht in die Referenz */
   window._fgRef=window._fgRef||[];
   var low=v.toLowerCase();
   if(!window._fgRef.some(function(n){ return String(n).trim().toLowerCase()===low; })) window._fgRef.push(v);
@@ -8534,7 +8572,7 @@ async function openFgEditor(id, prefill, targetEl){
      rechts nie mehr (Ralph 24.07.2026). Zusätzlich per fgRefAdd von Hand ergänzbar. */
   var _boundNames=(d.zutaten||[]).map(function(z){ return z&&z.name; }).filter(Boolean);
   var _refSeen={}; window._fgRef=[];
-  (_savedRef||_boundNames).concat(_boundNames).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]) return; _refSeen[k]=1; window._fgRef.push(n); });
+  (_savedRef||_boundNames).concat(_boundNames).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]||_refIstLeer(k)) return; _refSeen[k]=1; window._fgRef.push(n); });
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
   const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
@@ -8547,6 +8585,9 @@ async function openFgEditor(id, prefill, targetEl){
   /* Kopfleiste der Vollbild-Maske: zurueck zum Posteingang + vor/zurueck durch die
      „Zu verifizieren"-Liste + persistentes Markieren. Vor/Zurueck nur, wenn das Produkt
      in der aktuellen Liste steht (window._verifRows). */
+  /* Referenz-Karte einmal definiert – sitzt jetzt als 3. Spalte NEBEN Zutaten/Zusatzstoffe
+     (Ralph 24.07.2026: die drei Boxen gleich hoch + oben bündig). */
+  const _refCard = card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen (als <b>Zutat</b> links oder <b>Zusatzstoff</b> unten)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div>`);
   var _rows=Array.isArray(window._verifRows)?window._verifRows:[];
   var _idx=id?_rows.findIndex(function(r){return String(r.id)===String(id);}):-1;
   var _nbtn=function(txt,act,on){ return '<button '+(on?'onclick="'+act+'"':'disabled')+' style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:'+(on?'var(--card)':'var(--bg)')+';color:'+(on?'var(--ink)':'var(--muted)')+';cursor:'+(on?'pointer':'default')+';font-size:13px;white-space:nowrap">'+txt+'</button>'; };
@@ -8634,7 +8675,7 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
           <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
         `)}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
+        <div style="display:grid;grid-template-columns:1fr 1fr minmax(240px,1fr);gap:12px;align-items:stretch"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -8671,7 +8712,7 @@ async function openFgEditor(id, prefill, targetEl){
           <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text||"keine")}">
           <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
           <label style="display:block;font-size:13px;margin-top:10px">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label>
-        `)}</div></div>
+        `)}</div><div>${_refCard}</div></div>
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
@@ -8679,7 +8720,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
           + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
-        ${card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen (als <b>Zutat</b> links oder <b>Zusatzstoff</b> unten)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div>`)}
+        ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
       </div>
     </div>
     <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
@@ -12151,7 +12192,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24m";
+const APP_BUILD = "2026-07-24o";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
