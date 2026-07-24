@@ -420,7 +420,7 @@ async function fetchAlleProdukte(){
   }
   return alle;
 }
-let ALL=[]; let STK={}; let SUPP_BIL={}; let WISSEN=[];
+let ALL=[]; let STK={}; let STKV={}; let SUPP_BIL={}; let WISSEN=[];
 function stkOf(pid){ const g=pid?num(STK[pid]):null; return (g&&g>0)?g:null; }
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
@@ -892,6 +892,8 @@ async function load(){
   try{ const {data:sb}=await client.from("v_supplement_bilanz").select("*"); SUPP_BIL={}; (sb||[]).forEach(x=>{ SUPP_BIL[x["Produkt_ID"]]=x; }); }catch(e){}
   try{ const {data:ww}=await client.from("v_wirkstoff_wissen").select("*"); WISSEN=ww||[]; }catch(e){ WISSEN=[]; }
   try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; (sm||[]).forEach(x=>{STK[x.id]=num(x.stueck_gramm);}); }catch(e){}
+  /* Stück-GRÖSSEN (S/M/L/XL …) je Produkt fürs Rezept-Dropdown – Gramm = essbarer Anteil (Ralph 24.07.). */
+  try{ const {data:sg}=await client.rpc("cb_stueck_groessen"); STKV={}; (sg||[]).forEach(x=>{ (STKV[x.produkt_id]=STKV[x.produkt_id]||[]).push({bez:x.bezeichnung, g:num(x.gramm), sch:!!x.ist_schaetzung}); }); }catch(e){}
   const _kc={}; ALL.forEach(d=>{ if(d.kategorie) _kc[d.kategorie]=(_kc[d.kategorie]||0)+1; });
   window._KATLIST=Object.keys(_kc).map(k=>({k:k,n:_kc[k]})).sort((a,b)=>b.n-a.n);
   render();
@@ -11233,6 +11235,8 @@ const RZ_UNITS=[["g",1],["ml",1],["Stück",null],["EL",15],["TL",5],["Prise",0.5
 /* Menge+Einheit -> Gramm (für Nährwerte/Index). Stück = Portionsgewicht des verknüpften Produkts. */
 function rzToGrams(amount, unit, pid){
   if(!(amount>0)) return null;
+  /* Stück-Größe (Ei S/M/L/XL …): Einheit ist als "stk:<gramm>" kodiert → Anzahl × Gramm/Stück. */
+  if(typeof unit==='string' && unit.indexOf('stk:')===0){ var _sg=parseFloat(unit.slice(4)); return (_sg>0)?amount*_sg:null; }
   const u=RZ_UNITS.find(x=>x[0]===unit);
   if(!u) return amount;
   if(u[1]!=null) return amount*u[1];
@@ -11252,6 +11256,22 @@ function zutatRowHtml(){
     <div class="rzZlink" style="font-size:11px;color:var(--muted);margin:2px 0 0 2px"></div>
   </div>`;
 }
+/* Stück-Größen ins Einheit-Dropdown einer Rezeptzeile einspielen (Ralph 24.07.): hat das
+   verknüpfte Produkt Größen (Ei S/M/L/XL …), erscheinen sie als Einheit; Wert = Anzahl × Gramm/Stück.
+   Kodierung "stk:<gramm>" (rzToGrams rechnet damit). M/mittel wird vorgewählt, Anzahl auf 1. */
+function rzApplyStueck(row, pid){
+  var sel=row&&row.querySelector('.rzZu'); if(!sel) return;
+  if(row.dataset.stkPid===(pid||'')) return;   /* schon passend gesetzt – Nutzerwahl nicht überschreiben */
+  row.dataset.stkPid=(pid||'');
+  [].slice.call(sel.querySelectorAll('option[data-stk]')).forEach(function(o){ o.remove(); });
+  var sizes=(pid&&STKV[pid])||[];
+  if(!sizes.length){ if(/^stk:/.test(sel.value)) sel.value='g'; return; }
+  sizes.forEach(function(s){ var o=document.createElement('option'); o.value='stk:'+s.g; o.setAttribute('data-stk','1'); o.textContent=s.bez+' ('+Math.round(s.g)+' g'+(s.sch?' ≈':'')+')'; sel.appendChild(o); });
+  var mOpt=sizes.filter(function(s){ return /mittel/i.test(s.bez)||/(^|[\s(–-])M([\s)–-]|$)/.test(s.bez); })[0]||sizes[0];
+  if(mOpt) sel.value='stk:'+mOpt.g;
+  var mng=row.querySelector('.rzZg'); if(mng && (mng.value===''||mng.value==null)) mng.value='1';
+}
+if(typeof window!=='undefined') window.rzApplyStueck=rzApplyStueck;
 function buildProdDL(){
   let dl=document.getElementById("prodDL");
   if(dl && dl.children.length) return;            // schon befüllt
@@ -11269,6 +11289,7 @@ function linkZutat(input){
   if(p){ pidEl.value=p.id; lk.style.color="var(--k-16a34a)";
     lk.textContent=`✓ verknüpft · ${p.m_kcal??"–"} kcal/100 g · Root Index ${p.clean_score??"–"}`; }
   else { pidEl.value=""; lk.style.color="var(--k-9aa7a0)"; lk.textContent=v?"freie Zutat (keine Nährwerte/Index)":""; }
+  try{ rzApplyStueck(row, pidEl.value); }catch(e){}
 }
 /* Server-Zuordnung beim VERLASSEN des Feldes (onchange), wenn die exakte Client-Suche nichts
    fand: cb_zutat_zuordnen kann Singular/Plural, Klammern und Umgangssprache (Eier→Ei,
@@ -11286,6 +11307,7 @@ async function linkZutatServer(input){
     if(t&&t.gefunden){
       pidEl.value=t.produkt_id; lk.style.color="var(--k-16a34a)";
       lk.textContent='✓ verknüpft mit '+(t.name||'')+(t.marke?(' · '+t.marke):'')+' · '+((t.score!=null)?('Root Index '+t.score):'noch nicht bewertet');
+      try{ rzApplyStueck(row, pidEl.value); }catch(e){}
     }
   }catch(e){}
 }
@@ -12442,7 +12464,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24x";
+const APP_BUILD = "2026-07-24y";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
