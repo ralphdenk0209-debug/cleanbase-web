@@ -3792,7 +3792,11 @@ function dashPortalCss(){
    +P+'kpi .n.gr{color:#107e3e}'+P+'kpi .n.am{color:#c07a10}'+P+'kpi .n.tl{color:#2c6070}'
    +P+'kpi .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:8px;font-weight:700}'
    +P+'kpi .s{font-size:11px;color:var(--muted);margin-top:2px}'
-   +P+'cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}'
+   +P+'tabs{display:flex;gap:6px;margin:16px 0 12px;flex-wrap:wrap}'
+   +P+'tab{padding:8px 15px;border:1px solid var(--line);border-radius:9px;background:var(--card);font-weight:700;font-size:12.5px;color:var(--muted);cursor:pointer}'
+   +P+'tab:hover{border-color:#b9c7cc}'
+   +P+'tab.on{background:linear-gradient(#2f6470,#1f5966);color:#fff;border-color:#1f5966}'
+   +P+'cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}'
    +'@media(max-width:900px){'+P+'cards{grid-template-columns:1fr}}'
    +P+'card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}'
    +P+'card h4{font-size:13px;font-weight:800;margin:0;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--bg)}'
@@ -3800,7 +3804,9 @@ function dashPortalCss(){
    +P+'li{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:6px 0;border-top:1px solid var(--line)}'
    +P+'li:first-child{border-top:0}'
    +P+'li .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto}'
-   +P+'li .nm{flex:1;color:var(--ink)}'+P+'li b{font-variant-numeric:tabular-nums;color:var(--ink)}';
+   +P+'li .nm{flex:1;color:var(--ink)}'+P+'li b{font-variant-numeric:tabular-nums;color:var(--ink)}'
+   +P+'bar{height:7px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:6px 0 2px}'
+   +P+'bar i{display:block;height:100%}';
   document.head.appendChild(s);
 }
 function dashPortalHtml(d){
@@ -3841,15 +3847,64 @@ function dashPortalHtml(d){
   var quLi=quArr.map(function(x,i){ return '<div class="pmli"><span class="sw" style="background:'+pal[i%pal.length]+'"></span><span class="nm">'+esc(x.typ)+'</span><b>'+fmt(num(x.anzahl))+'</b></div>'; }).join('')
     || '<div style="color:var(--muted);font-size:12px">keine Daten</div>';
 
-  var cards='<div class="pmcards">'
-    +'<div class="pmcard"><h4>Score-Verteilung <span style="font-weight:400;color:var(--muted);font-size:11px">aktive Produkte</span></h4><div class="cb">'+svLi+'</div></div>'
-    +'<div class="pmcard"><h4>Quellen <span style="font-weight:400;color:var(--muted);font-size:11px">nach Beleg</span></h4><div class="cb">'+quLi+'</div></div>'
+  var sm='style="font-weight:400;color:var(--muted);font-size:11px"';
+  var aktiv=num(k.aktiv);
+  var pct=function(a,b){ return b>0?Math.round(num(a)/b*100):0; };
+
+  /* Reiter 1 — Datenqualität: Score-Verteilung + Go-Live-Gate (echte Wächter) */
+  var waLst=Array.isArray(gate.waechter)?gate.waechter:[];
+  var waLi=waLst.map(function(w){ var o=num(w.offen); return '<div class="pmli"><span class="sw" style="background:'+(o>0?'#c07a10':'#107e3e')+'"></span><span class="nm">'+esc(w.name)+'</span><b>'+o+'</b></div>'; }).join('')
+    || '<div class="pmli"><span class="sw" style="background:#107e3e"></span><span class="nm">alle Wächter still</span><b>0</b></div>';
+  var panelDq='<div class="pmpanel" data-panel="dq"><div class="pmcards">'
+    +'<div class="pmcard"><h4>Score-Verteilung <span '+sm+'>aktive Produkte</span></h4><div class="cb">'+svLi+'</div></div>'
+    +'<div class="pmcard"><h4>Go-Live-Gate <span '+sm+'>'+(gruen?'✓ grün':'⚠ ZU · '+gateSum)+'</span></h4><div class="cb">'+waLi+'</div></div>'
+    +'</div></div>';
+
+  /* Reiter 2 — Katalog: Quellen + Zusammensetzung */
+  var zRow=function(label,v,col){ var p=pct(v,aktiv); return '<div class="pmli"><span class="nm">'+label+'</span><b>'+fmt(num(v))+' · '+p+'%</b></div><div class="pmbar"><i style="width:'+p+'%;background:'+col+'"></i></div>'; };
+  var katZus='<div class="pmcard"><h4>Zusammensetzung <span '+sm+'>Anteil am aktiven Katalog</span></h4><div class="cb">'
+    +zRow('Marken',k.markenprodukte,'#7a5cd0')
+    +zRow('Mit Barcode',k.mit_ean,'#2c6070')
+    +zRow('Supplements',k.supplements,'#c07a10')
+    +'</div></div>';
+  var panelKat='<div class="pmpanel" data-panel="kat" style="display:none"><div class="pmcards">'
+    +'<div class="pmcard"><h4>Quellen <span '+sm+'>nach Beleg</span></h4><div class="cb">'+quLi+'</div></div>'
+    +katZus+'</div></div>';
+
+  /* Reiter 3 — Betrieb: Riki-Budget + Nutzer (echt) */
+  var ri=d.riki||{}, u=d.nutzer||{};
+  var budget=Number(ri.monatslimit_usd||20), verbr=Number(ri.monat_usd||0);
+  var budPct=budget>0?Math.min(100,Math.round(verbr/budget*100)):0;
+  var budCol=budPct>=90?'#c23b2f':budPct>=60?'#c07a10':'#107e3e';
+  var rikiCard='<div class="pmcard"><h4>🤖 Riki <span '+sm+'>Budget diesen Monat</span></h4><div class="cb">'
+    +'<div class="pmli" style="border-top:0"><span class="nm">verbraucht</span><b style="color:'+budCol+'">$'+verbr.toFixed(2)+' / '+budget.toFixed(0)+'</b></div>'
+    +'<div class="pmbar"><i style="width:'+budPct+'%;background:'+budCol+'"></i></div>'
+    +'<div class="pmli"><span class="nm">Calls Monat</span><b>'+fmt(num(ri.monat_calls))+'</b></div>'
+    +'<div class="pmli"><span class="nm">Calls heute</span><b>'+fmt(num(ri.heute_calls))+'</b></div>'
+    +'</div></div>';
+  var nutzCard='<div class="pmcard"><h4>Nutzer <span '+sm+'>frühe Phase</span></h4><div class="cb">'
+    +'<div class="pmli" style="border-top:0"><span class="nm">gesamt</span><b>'+fmt(num(u.gesamt))+'</b></div>'
+    +'<div class="pmli"><span class="nm">aktiv 30 Tage</span><b>'+fmt(num(u.aktiv_30t))+'</b></div>'
+    +'<div class="pmli"><span class="nm">Premium</span><b>'+fmt(num(u.premium))+'</b></div>'
+    +'</div></div>';
+  var panelBt='<div class="pmpanel" data-panel="bt" style="display:none"><div class="pmcards">'+rikiCard+nutzCard+'</div></div>';
+
+  var tabs='<div class="pmtabs">'
+    +'<button class="pmtab on" data-tab="dq" onclick="dashPortalTab(\'dq\')">🔎 Datenqualität</button>'
+    +'<button class="pmtab" data-tab="kat" onclick="dashPortalTab(\'kat\')">📦 Katalog</button>'
+    +'<button class="pmtab" data-tab="bt" onclick="dashPortalTab(\'bt\')">⚙️ Betrieb</button>'
     +'</div>';
 
   return '<div class="pmwrap">'+rail
     +'<main><div class="pmhead"><div><h1>📊 Dashboard <span style="font-size:12px;color:var(--muted);font-weight:600">· Katalog auf einen Blick</span></h1><div class="sub">Live aus der Datenbank · '+stand+' Uhr</div></div>'
     +'<button class="btn" onclick="loadDashboard()">↻ Aktualisieren</button></div>'
-    +kpis+cards+'</main></div>';
+    +kpis+tabs+panelDq+panelKat+panelBt+'</main></div>';
+}
+/* Reiter im hellen Portal-M-Dashboard umschalten (nur Anzeige, kein neuer Datenabruf). */
+function dashPortalTab(id){
+  var box=document.getElementById('fgDash'); if(!box) return;
+  box.querySelectorAll('.pmpanel').forEach(function(p){ p.style.display=(p.getAttribute('data-panel')===id)?'':'none'; });
+  box.querySelectorAll('.pmtab').forEach(function(t){ t.classList.toggle('on', t.getAttribute('data-tab')===id); });
 }
 async function loadDashboard(){
   const box=document.getElementById("fgDash"); if(!box) return;
@@ -11999,7 +12054,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24g";
+const APP_BUILD = "2026-07-24h";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
