@@ -201,6 +201,38 @@ function rezeptScoreHinweis(r){
   return '<div style="font-size:11.5px;color:var(--muted);background:var(--k-f4f5f4);border-radius:7px;padding:6px 9px;margin-top:6px;line-height:1.35">'
     +'<b>Kein Rezept-Wert.</b> Wir rechnen erst, wenn jede Zutat bewertet ist – sonst würde ein Rezept mit Datenlücken besser dastehen als eines, das wir kennen.'+liste+'</div>';
 }
+/* ===== Flux-Ring auch für Rezepte (Ralph 24.07.: „bei rezepten soll der flux angezeigt werden") =====
+   Die 4 Achsen eines Rezepts = nach Gramm gewichtetes Mittel der Achsen seiner Zutaten (aus dem
+   geladenen Katalog ALL, per produkt_id). Wird NUR gezeigt, wenn das Rezept einen echten Wert hat –
+   dann sind alle Zutaten bewertet (rezeptScoreInfo), also liegen auch die Achsen vor. Keine Lücke. */
+function rezeptFluxAchsen(r){
+  var z=(Array.isArray(r&&r.zutaten)?r.zutaten:[]).filter(function(i){ return num(i&&i.menge_g)>0 && i.produkt_id; });
+  if(!z.length) return null;
+  var zut=0,zus=0,nov=0,nae=0,g=0;
+  for(var k=0;k<z.length;k++){ var i=z[k]; var p=(ALL||[]).find(function(x){return x.id===i.produkt_id;}); if(!p) return null;
+    if(num(p.p_zutaten)==null) return null;   /* fehlt eine Achse → kein Flux (ehrlich) */
+    var gg=num(i.menge_g);
+    zut+=num(p.p_zutaten)*gg; zus+=(num(p.p_zusatzstoffe)||0)*gg; nov+=(num(p.p_nova)||0)*gg; nae+=(num(p.p_naehrwert)||0)*gg; g+=gg;
+  }
+  if(!(g>0)) return null;
+  return [ {v:zut/g,max:30,f:"#16a34a"}, {v:zus/g,max:15,f:"#3987e5"}, {v:nov/g,max:15,f:"#7c6fe0"}, {v:(nae/g)*2,max:40,f:"#d97706"} ];
+}
+/* Statischer Flux-Ring (kein Count-up, damit er in Listen mit vielen Karten günstig bleibt).
+   ax = [{v,max,f}×4], score = Zahl in der Mitte, scoreCol = Farbe des Mittelrings, w = Breite px. */
+function fluxRingHtml(ax, score, scoreCol, w){
+  var A=(ax||[]).map(function(a){ var o={v:a.v,f:a.f}; o.pct=(a.v==null)?null:Math.max(0,Math.min(1,a.v/a.max)); return o; });
+  var L=92, bahn=["M26 34 H74 L106 64","M274 34 H226 L194 64","M26 142 H74 L106 112","M274 142 H226 L194 112"], kap=[[26,34],[274,34],[26,142],[274,142]];
+  var ziel=(score==null)?"–":String(Math.round(score));
+  return '<svg viewBox="0 0 300 176" style="width:'+(w||96)+'px;height:auto;display:block" role="img" aria-label="Root Index '+ziel+', vier Achsen">'
+    +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">'
+    + bahn.map(function(dd){ return '<path d="'+dd+'" stroke="rgba(120,120,120,.16)"/>'; }).join('')
+    + A.map(function(a,i){ var off=(a.pct==null)?L:L*(1-a.pct); return '<path d="'+bahn[i]+'" stroke="'+(a.pct==null?"rgba(120,120,120,.28)":a.f)+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+off.toFixed(1)+'"/>'; }).join('')
+    +'</g>'
+    + A.map(function(a,i){ return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="7" fill="'+(a.pct==null?"#9aa7a0":a.f)+'"/>'; }).join('')
+    +'<circle cx="150" cy="88" r="42" fill="none" stroke="'+(score==null?"#9aa7a0":(scoreCol||"#16a34a"))+'" stroke-width="5"/>'
+    +'<text x="150" y="103" text-anchor="middle" style="font-size:44px;font-weight:800" fill="var(--ink)">'+ziel+'</text>'
+    +'</svg>';
+}
 function statusTag(d){
   /* Supplements bekommen keinen Root Index - aber sie sind nicht "unbewertet".
      Die Ampel sagt, ob die Dosis innerhalb der EFSA-Grenzwerte liegt. */
@@ -11220,7 +11252,10 @@ function renderRezeptList(){
   data.forEach(r=>{
     const c=document.createElement("div");c.className="card";c.style.position="relative";c.onclick=()=>rezeptDetail(r);
     const rsc=rezeptScore(r), rbew=scoreBew(rsc);
-    const lead = rsc!=null ? donut(rsc,farbe(rbew),62) : `<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>`;
+    const _rfx = rsc!=null ? rezeptFluxAchsen(r) : null;
+    const lead = _rfx ? fluxRingHtml(_rfx, rsc, farbe(rbew), 104)
+               : (rsc!=null ? donut(rsc,farbe(rbew),62)
+               : `<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>`);
     const _fav=(window._rezFav&&window._rezFav.has(r.id));
     c.innerHTML=`<button onclick="event.stopPropagation();rezFavToggle('${r.id}',this)" title="Als Favorit" style="position:absolute;top:8px;right:8px;border:0;background:var(--k-w92);border-radius:50%;width:30px;height:30px;font-size:16px;line-height:1;cursor:pointer;color:${_fav?'var(--k-e11d48)':'var(--k-9aa7b2)'};box-shadow:0 1px 5px rgba(0,0,0,.15);z-index:2">${_fav?'♥':'♡'}</button>${lead}
       <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}${r.gesperrt?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-fde8e8);color:var(--k-dc2626)">⛔ gesperrt</span>`:""}${(ME&&ME.is_admin&&r.gemeldet)?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-fff7e6);color:var(--k-b45309)">⚐ ${r.gemeldet}</span>`:""}</div></div>`;
@@ -12024,7 +12059,7 @@ function rezeptDetail(r){
     <div class="marke">⏱ ${r.zeit_min??"–"} min · ${esc(r.ziel||"")} · <span id="rzPortInfo">${P0} Portion(en)</span> ${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}</div>
     ${imgHtml}
     <div class="scorebar">
-      ${rsc!=null?donut(rsc,farbe(rbew),76):''}
+      ${rsc!=null?(function(){var _a=rezeptFluxAchsen(r);return _a?fluxRingHtml(_a,rsc,farbe(rbew),150):donut(rsc,farbe(rbew),76);})():''}
       <div class="bigbadge" style="background:var(--green2)"><span class="num" id="rzKcalBadge">${r.kcal??"–"}</span><span style="font-size:10px">kcal</span></div>
       <div style="font-size:13.5px;line-height:1.6" id="rzMakros"></div>
     </div>
@@ -12468,7 +12503,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24z";
+const APP_BUILD = "2026-07-25a";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
