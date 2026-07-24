@@ -6056,6 +6056,7 @@ function applyAdminMode(){
        '<div class="atWord">Root Index<small>Admin</small></div>'
       +'<div id="adminCrumb"></div>'
       +'<div class="atSpacer"></div>'
+      +'<button id="atReload" onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;margin-right:8px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(APP_BUILD.replace("2026-07-","")):"")+'</button>'
       +'<button class="atLogout" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">🚪</button>';
     document.body.appendChild(top);
     /* Portal-M-Rahmen (Ralph 24.07.2026): runde Bereichs-Buttons oben statt Hamburger-Schublade.
@@ -12324,7 +12325,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24t";
+const APP_BUILD = "2026-07-24u";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
@@ -12384,6 +12385,22 @@ async function hartNeuLaden(){
   location.reload(true);
 }
 
+/* Manueller „Neu laden"-Knopf im Admin (Ralph 24.07.2026): Nach dem GitHub-Upload dauert es
+   ~1 Min, bis GitHub Pages die neue Version gebaut hat – DAS ist serverseitig und kann kein
+   Knopf abkürzen. Was der Knopf tut: Er fragt frisch bei GitHub nach der Live-Build-Nummer.
+   Ist online schon eine NEUERE da → sofort hart neu laden (Cache + Service-Worker leeren, §5).
+   Ist online noch dieselbe → kurze Rückmeldung „GitHub baut noch", KEIN sinnloses Neuladen. */
+async function adminNeuLaden(btn){
+  var old = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled=true; btn.style.opacity='.6'; btn.innerHTML='⏳ prüfe…'; }
+  try{
+    var t = await fetch('index.html?b='+Date.now(), {cache:'no-store'}).then(function(r){ return r.text(); });
+    var m = t.match(/APP_BUILD\s*=\s*"([^"]+)"/);
+    var live = m ? m[1] : null;
+    if(live && live !== APP_BUILD){ hartNeuLaden(); return; }   /* GitHub hat eine neuere Version → hart neu laden */
+    if(btn){ btn.innerHTML='✓ GitHub baut noch'; setTimeout(function(){ btn.disabled=false; btn.style.opacity=''; btn.innerHTML=old; }, 2600); }
+  }catch(e){ hartNeuLaden(); }   /* Abruf fehlgeschlagen → sicherheitshalber hart neu laden */
+}
 /* Beim Start prüfen, dann alle 5 Minuten, und immer wenn die App
    wieder in den Vordergrund kommt (der PWA-Fall). */
 setTimeout(pruefeUpdate, 2500);
