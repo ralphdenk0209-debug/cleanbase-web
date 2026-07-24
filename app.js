@@ -11044,8 +11044,8 @@ async function rezZutatenWaechterOpen(){
     +'<datalist id="rezZwDL"></datalist>'
     +'<div id="rezZwList" style="font-size:13px;color:var(--muted)">Lade …</div>'
   +'</div>';
-  try{ if(!window.ALL||!ALL.length){ var aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(function(x){ return Object.assign({}, x, {clean_score:num(x.clean_score)}); }); } }catch(e){}
-  try{ var dl=document.getElementById("rezZwDL"); if(dl&&window.ALL){ dl.innerHTML=ALL.slice().sort(function(a,b){ return (a.name||"").localeCompare(b.name||""); }).map(function(p){ return '<option value="'+esc(prodLabel(p))+'"></option>'; }).join(""); } }catch(e){}
+  try{ if(!ALL||!ALL.length){ var aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(function(x){ return Object.assign({}, x, {clean_score:num(x.clean_score)}); }); } }catch(e){}
+  try{ var dl=document.getElementById("rezZwDL"); if(dl&&ALL&&ALL.length){ dl.innerHTML=ALL.slice().sort(function(a,b){ return (a.name||"").localeCompare(b.name||""); }).map(function(p){ return '<option value="'+esc(prodLabel(p))+'"></option>'; }).join(""); } }catch(e){}
   try{
     var r=await client.rpc("cb_rezept_zutaten_offen");
     if(r.error) throw new Error(r.error.message);
@@ -11068,6 +11068,11 @@ function rezZwRender(){
           +'<input class="rezZwProd" list="rezZwDL" placeholder="Katalog-Produkt suchen…" style="flex:1;min-width:180px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink)">'
           +'<button onclick="rezZwZuordnen(this,'+JSON.stringify(o.text).replace(/"/g,'&quot;')+')" style="padding:7px 12px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:12.5px;cursor:pointer">→ Zuordnen</button>'
         +'</div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
+          +'<span style="font-size:11.5px;color:var(--muted);align-self:center">Nicht im Katalog?</span>'
+          +'<button onclick="rezZwAnlegen('+JSON.stringify(o.text).replace(/"/g,'&quot;')+')" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-weight:600;font-size:12px;cursor:pointer">➕ Als Produkt anlegen</button>'
+          +'<button onclick="rezZwIgnorieren(this,'+JSON.stringify(o.text).replace(/"/g,'&quot;')+')" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font-weight:600;font-size:12px;cursor:pointer">🚫 Kein Produkt nötig</button>'
+        +'</div>'
         +'<div class="rezZwMsg" style="font-size:12px;margin-top:5px"></div>'
       +'</div>';
     }).join("");
@@ -11076,7 +11081,7 @@ async function rezZwZuordnen(btn, text){
   var row=btn.closest(".rezZwRow"); if(!row) return;
   var inp=row.querySelector(".rezZwProd"), msg=row.querySelector(".rezZwMsg");
   var v=((inp.value||"").trim()).toLowerCase();
-  var p=(window.ALL||[]).find(function(x){ return prodLabel(x).toLowerCase()===v || (x.name||"").toLowerCase()===v; });
+  var p=(ALL||[]).find(function(x){ return prodLabel(x).toLowerCase()===v || (x.name||"").toLowerCase()===v; });
   if(!p){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte ein Produkt aus der Liste wählen (Name muss exakt passen)."; } return; }
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="Speichere …"; }
   try{
@@ -11087,8 +11092,26 @@ async function rezZwZuordnen(btn, text){
     row.style.opacity="0.55"; btn.disabled=true; inp.disabled=true;
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
 }
+async function rezZwIgnorieren(btn, text){
+  var row=btn.closest(".rezZwRow"); if(!row) return;
+  var msg=row.querySelector(".rezZwMsg");
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Speichere …"; }
+  try{
+    var r=await client.rpc("cb_rezept_zutat_ignorieren",{p_text:text});
+    if(r.error) throw new Error(r.error.message);
+    if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML='✓ „'+esc(text)+'" als „kein Produkt nötig" markiert – taucht nicht mehr auf.'; }
+    row.style.opacity="0.55";
+    var bs=row.querySelectorAll("button,input"); for(var i=0;i<bs.length;i++) bs[i].disabled=true;
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
+}
+function rezZwAnlegen(text){
+  try{ window._rezZwAnlegenName=text; }catch(e){}
+  try{ rezZwClose(); }catch(e){}
+  try{ adminGo('produkterfassung'); }catch(e){}
+  try{ if(typeof toast==='function') toast('Produkt-Erfassung geöffnet – „'+text+'" als neues Produkt anlegen.'); }catch(e){}
+}
 function rezZwClose(){ var ov=document.getElementById("rezZwOv"); if(ov) ov.style.display="none"; }
-if(typeof window!=='undefined'){ window.rezZutatenWaechterOpen=rezZutatenWaechterOpen; window.rezZwZuordnen=rezZwZuordnen; window.rezZwClose=rezZwClose; }
+if(typeof window!=='undefined'){ window.rezZutatenWaechterOpen=rezZutatenWaechterOpen; window.rezZwZuordnen=rezZwZuordnen; window.rezZwIgnorieren=rezZwIgnorieren; window.rezZwAnlegen=rezZwAnlegen; window.rezZwClose=rezZwClose; }
 async function rezVorschlagRun(){
   var zutRaw=((document.getElementById("rezVorZut")||{}).value||"");
   var zutaten=zutRaw.split(/[\n,;]+/).map(function(s){return s.trim();}).filter(function(s){return s.length>0;});
@@ -11823,7 +11846,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-22z";
+const APP_BUILD = "2026-07-24a";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
