@@ -3237,14 +3237,12 @@ function zutStammSave(id){
    vorhandene dashDrill(); die Ampel-Schiene und die Benutzerführung rufen genau ihn auf. */
 /* ===== Dashboard-Ansicht umschalten (Ralph 22.07.): klassisch <-> Vorgang 1:1 =====
    Merkt sich die Wahl in localStorage (ri_dash_ansicht), genau wie der Editor-Umschalter. */
-function dashAnsichtGet(){ try{ var v=localStorage.getItem('ri_dash_ansicht'); return (v==='vorgang'||v==='klassisch')?v:'command'; }catch(e){ return 'command'; } }
-function dashAnsichtSet(v){ try{ localStorage.setItem('ri_dash_ansicht', (v==='vorgang'||v==='klassisch')?v:'command'); }catch(e){} if(typeof loadDashboard==='function') loadDashboard(); }
-function dashSwitchHtml(ansicht){
-  var mk=function(key,label){ return '<button class="'+(ansicht===key?'active':'')+'" onclick="dashAnsichtSet(\''+key+'\')">'+label+'</button>'; };
-  return '<div class="dashSwitch"><span>Ansicht:</span><span class="grp">'
-    +mk('command','Command Center')+mk('klassisch','Klassisch')+mk('vorgang','Vorgang 1:1')
-    +'</span>'+(ansicht==='vorgang'?'<span class="hint">1:1-Layout &middot; Inhalte noch Platzhalter</span>':'')+'</div>';
-}
+/* Etappe 3 (Ralph 24.07.2026): die drei alten Dashboard-Umschalter (Command Center / Klassisch /
+   Vorgang 1:1) sind weg. Es gibt nur noch EINE Dashboard-Ansicht. Der alte Klassisch/Vorgang-Code
+   bleibt als toter Code stehen (Sicherheitsnetz), wird aber nie mehr aufgerufen. */
+function dashAnsichtGet(){ return 'command'; }
+function dashAnsichtSet(v){ if(typeof loadDashboard==='function') loadDashboard(); }
+function dashSwitchHtml(ansicht){ return ''; }
 if(typeof window!=='undefined'){ window.dashAnsichtSet=dashAnsichtSet; }
 /* ===== Neon Command Center (Ralph 23.07.2026) – dritte Dashboard-Ansicht, DEFAULT. =====
    Dunkles Neon-Layout (Kombination lila Dashboard + Klipfolio), alle Zahlen ECHT aus cb_dashboard.
@@ -11888,7 +11886,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-24b";
+const APP_BUILD = "2026-07-24c";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
