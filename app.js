@@ -12567,7 +12567,7 @@ function openTbMikro(){
   const ov=document.createElement("div"); ov.id="tbMikroOverlay";
   ov.style.cssText="position:fixed;inset:0;background:rgba(15,30,35,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:32px 12px;overflow:auto";
   ov.onclick=function(e){ if(e.target.id==="tbMikroOverlay") closeTbMikro(); };
-  ov.innerHTML='<div style="background:var(--tb-card);color:var(--tb-text);border-radius:16px;max-width:560px;width:100%;padding:14px 18px 20px;position:relative;box-shadow:0 24px 60px rgba(0,0,0,.4)">'
+  ov.innerHTML='<div style="--tb-card:var(--k-ffffff);--tb-card2:var(--k-e7eef8);--tb-line:var(--k-d8e2f0);--tb-text:var(--k-15304f);--tb-muted:var(--k-5b6b7e);--tb-track:var(--k-dbe6f4);background:var(--tb-card);color:var(--tb-text);border-radius:16px;max-width:560px;width:100%;padding:14px 18px 20px;position:relative;box-shadow:0 24px 60px rgba(0,0,0,.45)">'
     +'<div style="display:flex;justify-content:flex-end;margin:-2px -6px 2px 0"><button onclick="closeTbMikro()" aria-label="Schlie\u00dfen" style="border:0;background:var(--tb-track,#ece7db);border-radius:9px;width:32px;height:32px;font-size:15px;cursor:pointer;color:var(--tb-text)">\u2715</button></div>'
     +'<div id="tbMikroBody"></div></div>';
   document.body.appendChild(ov);
@@ -12616,7 +12616,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25d";
+const APP_BUILD = "2026-07-25e";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
