@@ -7927,13 +7927,19 @@ function _zusSplitTop(t){
   if(cur.trim()) out.push(cur.trim());
   return out;
 }
+/* 'keine' / 'keine E-Nummern laut Zutatenliste' / '-' u.ae. sind KEIN Zusatzstoff, sondern die
+   Aussage 'nichts deklariert' (Ralph 25.07.). Riki schreibt so etwas manchmal in den Zusatzstoff-Text;
+   ohne diese Abwehr landet es als grauer, ungepruefter Phantom-Eintrag, unterdrueckt den Index und
+   zeigt die verwirrende Freigabe-Meldung '1 Zusatzstoff nicht eingestuft'. */
+function _zusIstLeer(nm){ nm=String(nm||"").trim().toLowerCase(); return !nm || /^keine\b/.test(nm) || /^(k\.?\s?a\.?|n\/a|-|\u2013|nicht deklariert|nicht angegeben|entfaellt)$/.test(nm); }
 function zusSeed(text){
   window._fgZus=[];
   var t=String(text||"").trim();
-  if(!t || /^keine$/i.test(t)) return;
+  if(!t || _zusIstLeer(t)) return;
   var seen={};
   var push=function(tok){
     tok=String(tok||"").replace(/\s+/g," ").trim(); if(!tok) return;
+    if(_zusIstLeer(tok)) return;   /* Phantom-„keine" gar nicht erst anlegen */
     var low=tok.toLowerCase();
     /* Riki-Statusfetzen o.ä. sind keine Zusatzstoffe (Ralphs Fund 23.07.). */
     if(/keine zusatzstoffe|nicht erkannt|wird mit\s*\d+\s*zutaten|das produkt wird/i.test(low)) return;
@@ -8044,6 +8050,7 @@ async function zusFromRiki(zObj){
   var hasKey=function(k){ return window._fgZus.some(function(x){ return String(x.e||x.name||"").toLowerCase()===String(k).toLowerCase(); }); };
   toks.forEach(function(tok){
     tok=String(tok||"").replace(/\s+/g," ").trim(); if(!tok) return;
+    if(_zusIstLeer(tok)) return;   /* Phantom-„keine" gar nicht erst anlegen */
     /* nackter Name ohne Klammer/E-Nummer für Funktionswort-Test + Synonym-Lookup */
     var namePur=tok.replace(/\bE\s?\d{3,4}[a-z]?\b/ig,"").replace(/[().]/g,"").replace(/\s+/g," ").trim();
     var low=namePur.toLowerCase();
@@ -9387,7 +9394,7 @@ function fePlaus(){
       /* Ungeprüfter Zusatzstoff blockiert den Score (§1.11k) – schon hier sichtbar machen, damit
          nicht fälschlich „Nährwert fehlt" vermutet wird (Ralphs Gelierxucker-Fund 22.07.). */
       try{
-        var _zUngR=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")); });
+        var _zUngR=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")) && !_zusIstLeer(z.name); });
         if(_zUngR.length) h += no(_zUngR.length+" Zusatzstoff(e) noch nicht eingestuft → kein Index ("+esc(_zUngR.map(function(z){return z.name+(z.e?(" "+z.e):"");}).slice(0,3).join(", "))+(_zUngR.length>3?" …":"")+")");
       }catch(e){}
       rg.innerHTML=h;
@@ -9411,7 +9418,7 @@ function fePlaus(){
       if(_istSupp){ if(_dosisLeer) _pi('y','Verzehrempfehlung fehlt','Bezug des Dosis-Checks – blockiert nicht'); else _pi('g','Verzehrempfehlung da'); }
       if(_istSupp){ if(_wCount>0) _pi('g',_wCount+' Wirkstoff-Menge(n) für Dosis-Check'); else if(_wNone) _pi('x','Wirkstoff-Mengen','bewusst ohne'); else _pi('r','Wirkstoff-Mengen fehlen','für den Dosis-Check'); }
       try{ var _abw2=_fgAbweichungRef(); if(_abw2 && _abw2.length) _pi('y',_abw2.length+' Zutat(en) laut Etikett offen','Freigabe nur mit Bestätigung'); }catch(e){}
-      try{ var _zu2=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")); }); if(_zu2.length) _pi('y',_zu2.length+' Zusatzstoff(e) nicht eingestuft','→ kein Index: '+_zu2.map(function(z){return z.name;}).slice(0,3).join(", ")); }catch(e){}
+      try{ var _zu2=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")) && !_zusIstLeer(z.name); }); if(_zu2.length) _pi('y',_zu2.length+' Zusatzstoff(e) nicht eingestuft','→ kein Index: '+_zu2.map(function(z){return z.name;}).slice(0,3).join(", ")); }catch(e){}
       feFreigabeLeiste(_it, fehlt.length>0);
     }catch(e){}
   }
@@ -13465,7 +13472,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25t";
+const APP_BUILD = "2026-07-25u";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
