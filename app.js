@@ -2254,6 +2254,7 @@ function setMode(m){
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
   { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
+  { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
   { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
   if(m==="produkte"){ try{ render(); }catch(e){} }
   if(m==="rezepte") loadRezepte();
@@ -2267,6 +2268,7 @@ function setMode(m){
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="mikro"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } mikroZuordnungRender(); }
+  if(m==="todo"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } todoRender(); }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
   if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
   if(m!=="vorschlagen") stopScan();
@@ -6144,6 +6146,7 @@ function applyAdminMode(){
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
       +_an('rezeptzutaten','🍽️','Rezept-Zutaten',"rezZutatenWaechterOpen()")
       +_an('mikro','🥗','Nährstoffe',"adminGo('mikro')")
+      +_an('todo','📝','To-do',"adminGo('todo')")
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
       +_an('produkterfassung','🗂️','Erfassung',"adminGo('produkterfassung')",' id="amProdErf" style="display:none"')
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
@@ -6190,7 +6193,7 @@ if(typeof window!=='undefined'){ window.adminDrawerToggle=adminDrawerToggle; win
 /* Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Markiert den aktiven Punkt, setzt den
    Breadcrumb in der Kopfleiste und schließt die Schublade. */
-const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe'};
+const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do'};
 function adminGo(k){
   const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
@@ -11931,6 +11934,51 @@ async function mzKompSpeichern(btn){
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
 }
 if(typeof window!=='undefined'){ window.mikroZuordnungRender=mikroZuordnungRender; window.mzUebernehmen=mzUebernehmen; window.mzKeine=mzKeine; window.mzKompOpen=mzKompOpen; window.mzKompSchaetzen=mzKompSchaetzen; window.mzKompVorschau=mzKompVorschau; window.mzKompSpeichern=mzKompSpeichern; }
+function todoRender(){
+  if(!(ME&&ME.is_admin)) return;
+  var v=document.getElementById("todoView"); if(!v) return;
+  v.innerHTML='<div style="max-width:720px;margin:0 auto;padding:14px 6px 40px"><div style="background:var(--card,#fff);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px">'
+    +'<div style="font-weight:800;font-size:20px;margin:0 2px 2px">📝 To-do</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:0 2px 14px">Deine Notizen &amp; Aufgaben. Wird automatisch gespeichert. Zum Bearbeiten in den Text klicken.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:14px"><input id="todoInput" placeholder="Neue Aufgabe…" onkeydown="if(event.key===\'Enter\')todoAdd()" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:14px;background:var(--bg);color:var(--ink)"><button onclick="todoAdd()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:13px;cursor:pointer">+ Hinzufügen</button></div>'
+    +'<div id="todoMsg" style="font-size:12px;color:var(--k-dc2626);margin:0 2px 8px;min-height:0"></div>'
+    +'<div id="todoList" style="font-size:13px;color:var(--muted)">Lade …</div>'
+  +'</div></div>';
+  todoLoad();
+}
+async function todoLoad(){
+  var l=document.getElementById("todoList"); if(!l) return;
+  try{ var r=await client.rpc("cb_todo_list"); if(r.error) throw new Error(r.error.message); window._todo=(r&&r.data)||[]; todoListRender(); }
+  catch(e){ l.style.color="var(--k-dc2626)"; l.textContent="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e); }
+}
+function todoListRender(){
+  var l=document.getElementById("todoList"); if(!l) return; var arr=window._todo||[];
+  var offen=arr.filter(function(o){return !o.erledigt;}).length;
+  if(!arr.length){ l.style.color="var(--muted)"; l.innerHTML="Noch keine Eintraege — schreib oben deine erste Aufgabe."; return; }
+  l.style.color="var(--ink)";
+  l.innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:6px">'+offen+' offen · '+arr.length+' gesamt</div>'
+    + arr.map(function(o){
+    var done=o.erledigt;
+    return '<div style="display:flex;align-items:center;gap:9px;padding:8px 4px;border-bottom:1px solid var(--line)">'
+      +'<input type="checkbox" '+(done?'checked':'')+' onchange="todoToggle('+o.id+')" style="width:17px;height:17px;flex:none;cursor:pointer;accent-color:var(--green)">'
+      +(done
+        ? '<span style="flex:1;font-size:14px;color:var(--muted);text-decoration:line-through">'+esc(o.text)+'</span>'
+        : '<input value="'+esc(o.text)+'" onchange="todoEdit('+o.id+',this.value)" style="flex:1;font-size:14px;border:0;background:transparent;color:var(--ink);padding:4px 2px">')
+      +'<button onclick="todoDel('+o.id+')" title="Loeschen" style="flex:none;border:0;background:transparent;color:var(--muted);font-size:15px;cursor:pointer">✕</button>'
+    +'</div>';
+  }).join("");
+}
+async function todoAdd(){
+  var inp=document.getElementById("todoInput"), msg=document.getElementById("todoMsg"); if(!inp) return;
+  var t=(inp.value||"").trim(); if(!t) return; inp.value="";
+  if(msg) msg.textContent="";
+  try{ var r=await client.rpc("cb_todo_add",{p_text:t}); if(r.error) throw new Error(r.error.message); await todoLoad(); var i2=document.getElementById("todoInput"); if(i2) i2.focus(); }
+  catch(e){ if(msg) msg.textContent="Fehler beim Speichern: "+(e&&e.message?e.message:e); }
+}
+async function todoToggle(id){ try{ await client.rpc("cb_todo_toggle",{p_id:id}); await todoLoad(); }catch(e){} }
+async function todoEdit(id,val){ try{ await client.rpc("cb_todo_edit",{p_id:id,p_text:val}); }catch(e){} }
+async function todoDel(id){ try{ await client.rpc("cb_todo_del",{p_id:id}); await todoLoad(); }catch(e){} }
+if(typeof window!=='undefined'){ window.todoRender=todoRender; window.todoAdd=todoAdd; window.todoToggle=todoToggle; window.todoEdit=todoEdit; window.todoDel=todoDel; }
 
 /* ===== Wächter-Übersicht (Portal-M-Umbau, Ralph 24.07.2026) =====
    Der 🛡️-Bereichsknopf öffnet den täglichen TÜV: 10 harte Gates (müssen 0 sein) + offene Hinweise.
@@ -12802,7 +12850,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25h";
+const APP_BUILD = "2026-07-25i";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
