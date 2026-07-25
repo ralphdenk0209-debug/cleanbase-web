@@ -6904,7 +6904,7 @@ async function loadTagebuch(){
   if(_limited){
     dEl.value=tbToday();
     if(_ch)_ch.style.display="none"; if(_cn)_cn.style.display="none";
-    const _sb=document.getElementById("tbStatBox"); if(_sb)_sb.style.display="none";
+    const _sb=document.getElementById("tbStatBox"); if(_sb)_sb.style.display="none"; const _mb=document.getElementById("tbMikroBox"); if(_mb)_mb.style.display="none";
     const _kb=document.getElementById("tbKalBox"); if(_kb)_kb.style.display="none";
     if(_lh){ _lh.style.display=""; _lh.innerHTML='<div style="background:var(--greenlt);border:1px solid var(--green);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--greendk);line-height:1.5">🔒 <b>Free:</b> Du trackst den <b>heutigen Tag</b>. Verlauf, Auswertung &amp; weitere Tage gibt es mit Premium. <button onclick="'+(ME?'premiumInfo':'openLogin')+'()" style="margin-top:6px;display:block;padding:7px 13px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);font-weight:600;cursor:pointer">Premium – 7 Tage gratis</button></div>'; }
   } else {
@@ -12530,7 +12530,83 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Browser noch den Build von gestern lief. Das trifft JEDEN Nutzer bei JEDEM Deploy.
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
-const APP_BUILD = "2026-07-25b";
+
+/* ===== TAGEBUCH · MIKRONÄHRSTOFFE (Ralph 25.07.) =====
+   Kacheln je Nährstoff für den gewählten Tag: gegessen/Tagesbedarf; Farbe 0%=blau, 1-99%=orange, >=100%=grün.
+   ★ = laut DGE für DIESES Profil (Alter/Geschlecht/Ernaehrungsform) besonders wichtig. Selen: nur Empfehlung.
+   Ist-Werte: cb_tagebuch_mikro (BLS 4.0, read-only). Soll: EU-Referenzwerte (VO 1169/2011 Anh. XIII). */
+const MIKRO_REF = {
+  "Vitamin A":[800,"µg","vit"], "Vitamin D":[5,"µg","vit"], "Vitamin E":[12,"mg","vit"],
+  "Vitamin K":[75,"µg","vit"], "Vitamin C":[80,"mg","vit"], "Vitamin B1":[1.1,"mg","vit"],
+  "Vitamin B2":[1.4,"mg","vit"], "Niacin":[16,"mg","vit"], "Vitamin B6":[1400,"µg","vit"],
+  "Folat":[200,"µg","vit"], "Vitamin B12":[2.5,"µg","vit"], "Biotin":[50,"µg","vit"],
+  "Pantothensäure":[6,"mg","vit"],
+  "Kalium":[2000,"mg","min"], "Chlorid":[800,"mg","min"], "Calcium":[800,"mg","min"],
+  "Phosphor":[700,"mg","min"], "Magnesium":[375,"mg","min"], "Eisen":[14,"mg","min"],
+  "Zink":[10,"mg","min"], "Kupfer":[1000,"µg","min"], "Mangan":[2000,"µg","min"],
+  "Jod":[150,"µg","min"], "Molybdän":[50,"µg","min"], "Chrom":[40,"µg","min"],
+  "Selen":[55,"µg","min"]
+};
+const MIKRO_ORDER = Object.keys(MIKRO_REF);
+function mikroKrit(pf){
+  const s=new Set(["Vitamin D","Jod"]);
+  const alter=Number(pf&&pf.Alter)||0;
+  const w=(pf&&pf.Geschlecht)==="weiblich";
+  const ern=(pf&&pf.Ernaehrungsform)||"";
+  if(w && alter>=12 && alter<=50){ s.add("Folat"); s.add("Eisen"); }
+  if(alter>=65){ s.add("Calcium"); s.add("Vitamin B12"); }
+  if(ern==="Vegan"){ ["Vitamin B12","Eisen","Zink","Calcium","Jod","Selen","Vitamin B2"].forEach(function(x){s.add(x);}); }
+  else if(ern==="Vegetarisch"){ ["Vitamin B12","Eisen","Zink"].forEach(function(x){s.add(x);}); }
+  return s;
+}
+function _mkNum(x){ x=Number(x)||0; if(x>=100) return Math.round(x); if(x>=10) return Math.round(x*10)/10; return Math.round(x*100)/100; }
+function _mkDe(x){ return String(x).replace(".",","); }
+async function toggleTbMikro(){
+  const box=document.getElementById("tbMikroBox"); if(!box) return;
+  if(box.style.display!=="none"){ box.style.display="none"; return; }
+  const sb=document.getElementById("tbStatBox"); if(sb) sb.style.display="none";
+  box.style.display=""; await loadTbMikro(); box.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+async function loadTbMikro(){
+  const box=document.getElementById("tbMikroBox"); if(!box) return;
+  box.innerHTML='<div style="color:var(--tb-muted);font-size:13px">Lade Nährstoffe…</div>';
+  const datum=(document.getElementById("tbDatum")||{}).value || tbToday();
+  const {data,error}=await client.rpc("cb_tagebuch_mikro",{p_datum:datum,p_benutzer:null});
+  if(error){ box.innerHTML='<div style="color:var(--tb-muted);font-size:13px">Nährstoffe konnten nicht geladen werden.</div>'; return; }
+  let pf={}; try{ const r=await client.rpc("cb_profil"); pf=(r.data&&r.data[0])||{}; }catch(e){}
+  renderTbMikro(data||[], pf);
+}
+function renderTbMikro(rows, pf){
+  const box=document.getElementById("tbMikroBox"); if(!box) return;
+  const map={}; let nProd=0;
+  (rows||[]).forEach(function(r){ map[r.naehrstoff]={ist:Number(r.ist)||0,e:r.einheit,nd:r.n_mit_daten,np:r.n_produkte}; if(r.n_produkte>nProd)nProd=r.n_produkte; });
+  const KRIT=mikroKrit(pf);
+  function chip(name){
+    const ref=MIKRO_REF[name], soll=ref[0], eR=ref[1];
+    const star=KRIT.has(name)?'<span class="mkstar">★</span>':'';
+    const crit=KRIT.has(name)?' mkcrit':'';
+    if(name==="Selen") return '<div class="mkchip mkna'+crit+'">'+star+'<div class="mkn">'+name+'</div><div class="mkp">keine&nbsp;Angabe</div><div class="mkm">Soll '+_mkDe(soll)+' '+eR+'/Tag</div></div>';
+    const d=map[name];
+    if(!d) return '<div class="mkchip mkleer'+crit+'">'+star+'<div class="mkn">'+name+'</div><div class="mkp">–</div><div class="mkm">0 / '+_mkDe(soll)+' '+eR+'</div></div>';
+    const p=soll?Math.round(d.ist/soll*100):0;
+    const stufe=p<=0?'mkzero':(p>=100?'mkfull':'mkmid');
+    const done=p>=100?' mkdone':'';
+    const teil=(d.nd<nProd)?'<span class="mkteil" title="Nicht alle Lebensmittel des Tages haben Nährstoff-Daten">*</span>':'';
+    return '<div class="mkchip '+stufe+crit+done+'">'+star+'<div class="mkn">'+name+teil+'</div><div class="mkp">'+p+'%</div><div class="mkm">'+_mkDe(_mkNum(d.ist))+' / '+_mkDe(soll)+' '+eR+'</div></div>';
+  }
+  function pct(n){ if(n==="Selen") return -1; return map[n]?Math.round(map[n].ist/MIKRO_REF[n][0]*100):-2; }
+  function grp(kind){ return MIKRO_ORDER.filter(function(n){return MIKRO_REF[n][2]===kind;}).sort(function(a,b){return pct(b)-pct(a);}); }
+  const liste=Array.from(KRIT).join(", ");
+  box.innerHTML=
+    '<div class="mkhead"><div style="font-weight:700">🥗 Nährstoffe an diesem Tag</div>'
+    +'<div class="mklg"><span><i style="background:#5b86b0"></i>0&nbsp;%</span><span><i style="background:#cf9a2e"></i>1–99&nbsp;%</span><span><i style="background:#3f9d6b"></i>≥100&nbsp;% ✓</span></div></div>'
+    +'<div class="mksub">Zahl unter dem Prozent = <b>gegessen / Tagesbedarf</b>. <span style="color:#7d3ea6">★</span> = für <b>dich</b> laut DGE besonders wichtig'+(liste?': '+liste:'')+'.</div>'
+    +'<div class="mkgt">Vitamine</div><div class="mkgrid">'+grp("vit").map(chip).join("")+'</div>'
+    +'<div class="mkgt">Mineralstoffe &amp; Spurenelemente</div><div class="mkgrid">'+grp("min").map(chip).join("")+'</div>'
+    +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). Keine medizinische Beratung.</div>';
+}
+
+const APP_BUILD = "2026-07-25c";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
