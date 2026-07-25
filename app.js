@@ -8669,7 +8669,7 @@ async function openFgEditor(id, prefill, targetEl){
     }catch(e){}
   }
   window._fgEdit={ id:id, bild_url:d.bild_url||"", status:String(d.status||""),
-                   etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[],
+                   etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[], kcalOk:!!((d.naehrwerte||{}).kcal_ok),
                    ean_status:String(d.ean_status||d.EAN_Status||"") };
   /* Riki-Referenz (rechte Box): beim Öffnen zuerst die in DIESER Sitzung gemerkte Referenz nehmen
      (überlebt Speichern→Neuöffnen, Ralph 21.07.2026) – so bleiben auch die orangen „noch nicht
@@ -8787,9 +8787,9 @@ async function openFgEditor(id, prefill, targetEl){
         ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
       </div>
     </div>
-        <div id="fe_wirkCard" style="display:none;margin-top:2px">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
-            <div>${card(`<span>Wirkstoffe &amp; Dosis</span> <span style="text-transform:none;color:var(--muted)">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
+        <div id="fe_wirkCard" style="margin-top:2px">
+          <div id="fe_wirkGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
+            <div id="fe_wirkTblCol">${card(`<span>Wirkstoffe &amp; Dosis</span> <span style="text-transform:none;color:var(--muted)">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
           <div style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em"><span>Stoff</span><span style="text-align:right">Menge</span><span>Einheit</span><span style="text-align:right">%NRV</span><span></span></div>
           <div id="fe_wirkRows"></div>
@@ -8901,8 +8901,11 @@ function feKatChange(){
   var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
-  var wc=document.getElementById("fe_wirkCard"); if(wc) wc.style.display=supp?"":"none";   /* Wirkstoff-Dosis nur bei Supplement */
-  if(supp){ try{ fgWirkFotoRender(); }catch(e){} try{ feWirkFarbeAll(); }catch(e){} }   /* Etikett-Lesebox einpassen + Wirkstoff-Ampel färben, sobald sichtbar */
+  var wc=document.getElementById("fe_wirkCard"); if(wc) wc.style.display="";   /* Etikett-Lesebox jetzt fuer ALLE Produkte (Ralph 25.07.) */
+  var wg=document.getElementById("fe_wirkGrid"); if(wg) wg.style.gridTemplateColumns=supp?"1fr 1fr":"1fr";
+  var wtc=document.getElementById("fe_wirkTblCol"); if(wtc) wtc.style.display=supp?"":"none";   /* Wirkstoff-Dosis-Tabelle nur bei Supplement */
+  try{ fgWirkFotoRender(); }catch(e){}   /* Etikett-Lesebox immer einpassen */
+  if(supp){ try{ feWirkFarbeAll(); }catch(e){} }   /* Wirkstoff-Ampel nur bei Supplement */
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
@@ -9063,6 +9066,11 @@ async function fgWirkFotoRiki(btn){
   finally{ if(btn){ btn.disabled=false; btn.style.opacity=''; btn.innerHTML=old; } }
 }
 if(typeof window!=='undefined'){ window.fgWirkFotoRiki=fgWirkFotoRiki; }
+/* kcal-Waechter uebersteuern (Ralph 25.07.): kcal von der verifizierten Herstellerseite darf von der
+   Atwater-Rechnung abweichen. Admin bestaetigt "Quelle geprueft" -> Flag; produkt_freigeben ueberspringt
+   dann den kcal-Riegel (physikalische Checks Zucker>KH etc. bleiben hart). */
+function fgKcalOkSet(v){ if(!window._fgEdit){ window._fgEdit={}; } window._fgEdit.kcalOk=!!v; try{ fePlaus(); }catch(e){} }
+if(typeof window!=='undefined'){ window.fgKcalOkSet=fgKcalOkSet; }
 function fgWirkFotoApply(){ var img=document.getElementById('fe_wirkFotoImg'); if(!img) return; var s=window._fgWirkFoto; img.style.transform='translate('+Math.round(s.x)+'px,'+Math.round(s.y)+'px) scale('+s.scale+')'; }
 function fgWirkFotoReset(){
   var s=window._fgWirkFoto, box=document.getElementById('fe_wirkFotoBox'), img=document.getElementById('fe_wirkFotoImg');
@@ -9289,7 +9297,10 @@ function fePlaus(){
   else {
     var berMin=4*p+4*Math.max(kh-poly,0)+9*f+2*(b||0), berMax=berMin+2.4*poly, dev=Math.max(berMin-kcal,kcal-berMax,0);
     var spanne=Math.round(berMin)+(poly>0?("–"+Math.round(berMax)):"")+" kcal";
-    if(kcal>0 && dev>20 && dev/kcal>0.30) box.innerHTML='<span style="color:var(--k-b91c1c)">&#9888; kcal ('+Math.round(kcal)+') passt nicht – plausibel wären '+spanne+'.</span>';
+    if(kcal>0 && dev>20 && dev/kcal>0.30){
+      if(window._fgEdit && window._fgEdit.kcalOk) box.innerHTML='<span style="color:var(--k-b45309,#b45309)">&#9888; kcal ('+Math.round(kcal)+') weicht ab (rechnerisch '+spanne+') &ndash; <b>von der Quelle best&auml;tigt, W&auml;chter &uuml;bersteuert</b>. <a href="#" onclick="fgKcalOkSet(false);return false" style="color:var(--k-534ab7)">r&uuml;ckg&auml;ngig</a></span>';
+      else box.innerHTML='<span style="color:var(--k-b91c1c)">&#9888; kcal ('+Math.round(kcal)+') passt nicht &ndash; plausibel w&auml;ren '+spanne+'.</span> <button type="button" onclick="fgKcalOkSet(true)" style="margin-left:4px;padding:3px 9px;border:1px solid #cbc7f2;border-radius:7px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:11.5px;font-weight:700">Quelle gepr&uuml;ft &rarr; &uuml;bersteuern</button>';
+    }
     else box.innerHTML='<span style="color:var(--k-16a34a)">&#10003; Plausibel · rechnerisch '+spanne+'.</span>';
   }
   var rd=document.getElementById("fe_ready");
@@ -9907,6 +9918,8 @@ async function fgEditSave(alsoFreigeben){
       var _bnd=!!(g("fe_ballast_nd")&&g("fe_ballast_nd").checked);
       await client.rpc("cb_produkt_ballast_nichtdekl_setzen",{p_id:pid, p_flag:_bnd});
     }catch(e){}
+    /* kcal-Waechter-Uebersteuerung persistieren (Ralph 25.07.), laeuft VOR der Freigabe. */
+    try{ await client.rpc("cb_produkt_kcal_ok_setzen",{p_id:pid, p_flag:!!(window._fgEdit&&window._fgEdit.kcalOk)}); }catch(e){}
     /* Wirkstoff-Mengen (Supplements) → Produkt_Naehrstoffe, für den Dosis-Check (Ralph 23.07.).
        Läuft VOR der Freigabe, damit produkt_pruefen_freigeben die Wirkstoffe bzw. das
        „keine Mengen"-Flag schon sieht. */
@@ -13452,7 +13465,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25s";
+const APP_BUILD = "2026-07-25t";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
