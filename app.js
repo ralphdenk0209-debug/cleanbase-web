@@ -520,6 +520,7 @@ async function refreshMyFeatures(){
   }catch(e){ MY_FEATURES=null; }
 }
 async function _startCheckout(plan, consent){
+  if(typeof riNativeApp==="function" && riNativeApp()){ return riNativePurchase(plan, consent); }
   try{
     // Zustimmung (Zeitstempel + Text) best-effort persistieren; Fehler nicht blockierend
     if(consent){ try{ await client.rpc("cb_consent_speichern",{p_consent: consent}); }catch(_){} }
@@ -544,7 +545,7 @@ function premiumInfo(){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
   ov.innerHTML='<div style="background:var(--card,var(--k-ffffff));color:var(--ink,var(--k-1d3c24));max-width:430px;width:100%;max-height:92vh;overflow:auto;border-radius:16px;padding:20px;box-shadow:0 12px 44px rgba(0,0,0,.32)">'
    +'<div style="font-size:18px;font-weight:800;margin-bottom:4px">Premium – 7 Tage gratis 🌱</div>'
-   +'<p style="font-size:13.5px;color:var(--muted);line-height:1.5;margin:.2em 0 10px">7 Tage kostenlos testen. Nach Ablauf der 7-tägigen Testphase wird automatisch der gewählte Tarif berechnet, sofern nicht vorher gekündigt wird. Jederzeit zum Ende des laufenden Abrechnungszeitraums kündbar über das Stripe-Portal.</p>'
+   +'<p style="font-size:13.5px;color:var(--muted);line-height:1.5;margin:.2em 0 10px">7 Tage kostenlos testen. Nach Ablauf der 7-tägigen Testphase wird automatisch der gewählte Tarif berechnet, sofern nicht vorher gekündigt wird. Jederzeit zum Ende des laufenden Abrechnungszeitraums kündbar.</p>'
    +'<p style="font-size:11.5px;color:var(--muted);margin:0 0 12px">Alle Preise inklusive gesetzlicher Mehrwertsteuer.</p>'
    +_planRow('month','Monatlich','4,99 €/Monat','flexibel, monatlich kündbar','',true)
    +_planRow('quarter','Vierteljährlich','12,99 €','4,33 €/Monat','−13%',false)
@@ -562,6 +563,7 @@ function premiumInfo(){
 }
 (function(){ try{ const p=new URLSearchParams(location.search); if(p.get('checkout')==='success'){ history.replaceState(null,'',location.pathname); setTimeout(function(){ alert('Willkommen bei Premium! Deine 7 Tage gratis starten jetzt. 🌱'); },400); } }catch(_){} })();
 async function startPortal(){
+  if(typeof riNativeApp==="function" && riNativeApp()){ return riNativeManage(); }
   try{
     const {data,error}=await client.functions.invoke('stripe-portal',{});
     if(error||!data||!data.url) throw new Error((data&&data.error)||'no url');
@@ -5458,6 +5460,7 @@ function makroDonut(sum, prof){
 }
 const UNTERSTUETZEN_URL = "https://buy.stripe.com/bJedR88cq2V26jCbxB1gs00"; /* Stripe Payment Link – Root Index unterstützen (Pay what you want) */
 function unterstuetzenHtml(){
+  if(typeof riNativeApp==="function" && riNativeApp()) return "";
   if(!UNTERSTUETZEN_URL) return "";
   return '<div style="background:var(--greenlt,var(--k-ecfdf5));border:1px solid var(--green);border-radius:16px;padding:18px 16px;margin-top:12px;text-align:center">'
     /* Auch hier stand ein Blatt. Das Zeichen der App ist der Fluxkompensator. */
@@ -5961,7 +5964,7 @@ function buildMehr(){
     +'<button onclick="closeMehr();legalOpen(\'widerruf\')" style="padding-left:34px">↩️ Widerrufsbelehrung</button>'
     +'</div>';
   if(ME&&ME.is_premium) html+='<button onclick="closeMehr();startPortal()">💳 Abo verwalten / kündigen</button>';
-  html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button>'
+  html+= ME ? '<button onclick="closeMehr();doLogout()">🚪 Abmelden</button><button onclick="closeMehr();kontoLoeschenOpen()" style="color:var(--k-dc2626)">🗑️ Konto löschen</button>'
             : '<button onclick="closeMehr();openLogin()">🔑 Anmelden</button>';
   const c=document.getElementById('mehrCard'); if(c) c.innerHTML=html;
 }
@@ -12494,6 +12497,58 @@ function tbBatchLines(rows){
 }
 function tbDelRezept(b){ if(!b) return; client.rpc("cb_tb_rezept_del",{p_batch:b}).then(function(){ loadTagebuch(); }); }
 if(typeof window!=='undefined'){ window.tbRezOpen=tbRezOpen; window.tbRezBuchenRender=tbRezBuchenRender; window.tbRezMode=tbRezMode; window.tbRezVorschau=tbRezVorschau; window.tbRezBuchenSave=tbRezBuchenSave; window.tbBatchLines=tbBatchLines; window.tbDelRezept=tbDelRezept; }
+
+/* ===== APP-STORE-VORBEREITUNG (Ralph 25.07.) =====
+   1) Native-Erkennung (Capacitor), 2) Bezahl-Weiche (iOS -> Apple statt Stripe),
+   3) Konto-Löschung (Apple-Pflicht 5.1.1 + DSGVO). Im Browser ändert sich nichts:
+   riNativeApp() ist dort false, alle Web-Pfade bleiben wie bisher. */
+function riNativeApp(){
+  try{ if(window.Capacitor){ if(typeof Capacitor.isNativePlatform==='function') return !!Capacitor.isNativePlatform(); return true; } }catch(e){}
+  try{ return (new URLSearchParams(location.search)).get('native')==='1'; }catch(e){}
+  return false;
+}
+function riNativeIOS(){ try{ if(window.Capacitor && typeof Capacitor.getPlatform==='function') return Capacitor.getPlatform()==='ios'; }catch(e){} return riNativeApp(); }
+/* Platzhalter bis StoreKit/RevenueCat im nativen Projekt eingebaut ist. */
+function riNativePurchase(plan, consent){
+  try{ if(consent) client.rpc("cb_consent_speichern",{p_consent:consent}).catch(function(){}); }catch(e){}
+  alert("Premium läuft in der App über den App Store. Der Kauf wird beim App-Start eingerichtet.");
+}
+function riNativeManage(){
+  try{ window.location.href="itms-apps://apps.apple.com/account/subscriptions"; }
+  catch(e){ alert("Abo verwalten: App Store öffnen → dein Profil (oben rechts) → Abonnements."); }
+}
+try{ if(typeof document!=='undefined' && riNativeApp()) document.documentElement.classList.add('ri-native'); }catch(e){}
+
+/* ---- Konto löschen ---- */
+function kontoLoeschenOpen(){
+  if(!ME){ openLogin(); return; }
+  var ov=document.getElementById('delAccOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='delAccOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink,#1d3c24);max-width:420px;width:100%;max-height:92vh;overflow:auto;border-radius:16px;padding:20px;box-shadow:0 12px 44px rgba(0,0,0,.32)">'
+    +'<div style="font-size:18px;font-weight:800;color:var(--k-dc2626);margin-bottom:6px">Konto endgültig löschen</div>'
+    +'<div style="font-size:13.5px;line-height:1.55;margin-bottom:12px">Damit werden <b>alle deine Daten unwiderruflich gelöscht</b>: Tagebuch, Profil, Ziele, Körpermaße, Favoriten, eigene Rezepte, Training, Wasser & Supplements sowie dein Konto. Das lässt sich <b>nicht rückgängig</b> machen.</div>'
+    +'<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">Hast du ein laufendes Premium-Abo, kündige es bitte vorher (im Browser über das Kundenportal, in der App über die App-Store-Einstellungen). Gesetzlich vorgeschriebene Rechnungsdaten bleiben beim Zahlungsdienstleister gespeichert.</div>'
+    +'<label style="font-size:12.5px;font-weight:600">Zum Bestätigen tippe <b>LÖSCHEN</b>:</label>'
+    +'<input id="delAccWord" autocomplete="off" oninput="var b=document.getElementById(\'delAccGo\');var ok=(this.value||\'\').trim().toUpperCase()===\'LÖSCHEN\';b.disabled=!ok;b.style.opacity=ok?\'1\':\'.5\'" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;margin:6px 0 14px;box-sizing:border-box;font-size:15px">'
+    +'<div style="display:flex;gap:8px">'
+    +'<button onclick="document.getElementById(\'delAccOv\').remove()" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer">Abbrechen</button>'
+    +'<button id="delAccGo" disabled onclick="kontoLoeschenDo()" style="flex:1;padding:11px;border:0;border-radius:10px;background:var(--k-dc2626);color:#fff;font-weight:700;cursor:pointer;opacity:.5">Konto löschen</button>'
+    +'</div><div id="delAccMsg" style="font-size:12.5px;margin-top:8px"></div></div>';
+  document.body.appendChild(ov);
+}
+async function kontoLoeschenDo(){
+  var msg=document.getElementById('delAccMsg'); if(msg){ msg.style.color='var(--muted)'; msg.textContent='Lösche…'; }
+  try{
+    var r=await client.rpc('cb_konto_loeschen'); if(r&&r.error) throw new Error(r.error.message);
+    try{ await client.auth.signOut(); }catch(e){}
+    alert('Dein Konto und alle Daten wurden gelöscht.');
+    try{ location.href=location.pathname; }catch(e){ location.reload(); }
+  }catch(e){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler: '+((e&&e.message)||e)+' – bitte später erneut versuchen oder kontakt@root-index.de.'; } }
+}
+if(typeof window!=='undefined'){ window.riNativeApp=riNativeApp; window.riNativeIOS=riNativeIOS; window.riNativePurchase=riNativePurchase; window.riNativeManage=riNativeManage; window.kontoLoeschenOpen=kontoLoeschenOpen; window.kontoLoeschenDo=kontoLoeschenDo; }
+
 
 
 
