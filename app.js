@@ -8770,7 +8770,7 @@ async function openFgEditor(id, prefill, targetEl){
       <input type="file" id="fe_eti_up" accept="image/*" multiple style="display:none" onchange="fgPullEtikett(this.files)">
       <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:9px">Riki holt die <b>Herstellerseite</b>, die <b>EAN-Daten</b> (OFF/USDA) oder liest das <b>Etikett vom Foto</b>. Gefundene Werte füllen die Maske – du prüfst nur.</div>
     </div>
-        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch">
         ${card("Produkt",`<div style="display:grid;gap:9px">
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;display:block">Titel<input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){}" placeholder="Produktname…" style="width:100%;box-sizing:border-box;padding:6px 4px;border:0;border-bottom:2px solid var(--line);border-radius:0;font-size:19px;font-weight:800;color:var(--ink);background:transparent;margin-top:3px"></label>
           <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
@@ -8790,7 +8790,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><button type="button" onclick="fgBildLoeschen()" style="margin-left:8px;padding:5px 10px;border:1px solid var(--k-fca5a5,#fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:12.5px">🗑 Bild löschen</button><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
-          + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
+          + `<div style="margin-top:14px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
         ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
       </div>
@@ -9776,7 +9776,13 @@ function fePasteImg(ev){
     if(!files.length) return;   /* kein Bild in der Ablage → normalen (Text-)Paste zulassen */
     if(ev.preventDefault) ev.preventDefault();
     var zone=document.getElementById("fe_pasteZone"); if(zone) zone.innerHTML='📋 Bild übernommen – Riki liest…';
-    Promise.all(files.slice(0,3).map(_fileZuBase64)).then(function(b64){ fgPullEtikett([], b64); });
+    Promise.all(files.slice(0,3).map(_fileZuBase64)).then(function(b64){
+      try{ window._fgEdit=window._fgEdit||{}; window._fgEdit.etikett=window._fgEdit.etikett||[];
+        b64.forEach(function(bb){ if(bb && window._fgEdit.etikett.indexOf(bb)<0) window._fgEdit.etikett.push(bb); });
+        if(typeof fgEtikettRender==="function") fgEtikettRender();
+      }catch(e){}
+      fgPullEtikett([], b64);   /* Screenshot wird jetzt zusaetzlich als angehaengtes Foto gemerkt (Ralph 25.07.) */
+    });
   }catch(e){ try{console.log("fePasteImg:",e);}catch(_){} }
 }
 if(typeof window!=='undefined') window.fePasteImg=fePasteImg;
@@ -13508,7 +13514,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26b";
+const APP_BUILD = "2026-07-26c";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
