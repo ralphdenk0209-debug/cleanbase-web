@@ -12131,6 +12131,265 @@ async function wasserPrefSave(){
 }
 if(typeof window!=='undefined'){ window.wasserWidgetLoad=wasserWidgetLoad; window.wasserAdd=wasserAdd; window.wasserUndo=wasserUndo; window.wasserPrefRender=wasserPrefRender; window.wasserPrefSave=wasserPrefSave; }
 
+/* ===== NEUER GEFUEHRTER REZEPT-BAU (Ralph 25.07.) =====
+   Ersetzt beim Neu-Anlegen den alten Formular-Bau durch einen Schritt-fuer-Schritt-Ablauf:
+   Screen A (Rezept)  -> Name, Foto, Zutatenliste + Gesamt-Naehrwerte + Portionen, Speichern
+   Screen B (Zutaten) -> Suche + Scan, Katalogliste mit +, Sammel-Ablage (mehrere mit Menge)
+   Screen C (Detail)  -> Menge/Einheit einer Zutat + Naehrwerte -> Hinzufuegen
+   Speichern ueber cb_rezept_anlegen (per-Portion-Makros = Gesamt / Portionen).
+   Rezept ist eine Einheit: Gesamtgewicht + Gesamt-Naehrwerte werden mitgerechnet
+   (Basis fuers spaetere Gramm-Buchen im Tagebuch, Stufe 2). */
+function _rnNum(x){ return (typeof num==="function") ? (num(x)||0) : (parseFloat(x)||0); }
+function _rnMacros(pid, grams){
+  var pr=(ALL||[]).find(function(x){return x.id===pid;});
+  if(!pr) return {kcal:null,protein:null,kh:null,fett:null,hasN:false};
+  var f=grams/100;
+  var has = (pr.m_kcal!=null)||(pr.m_protein!=null)||(pr.m_kh!=null)||(pr.m_fett!=null);
+  return {kcal:_rnNum(pr.m_kcal)*f, protein:_rnNum(pr.m_protein)*f, kh:_rnNum(pr.m_kh)*f, fett:_rnNum(pr.m_fett)*f, hasN:has};
+}
+function openRezeptNeu(){
+  if(!ME){ openLogin(); return; }
+  if(!hasFeat('rezepte_anlegen')){ premiumInfo(); return; }
+  window._rn={ foto:null, fotoUrl:null, zutaten:[] };
+  if(!(ALL&&ALL.length)){ load().then(function(){ rnBuildOverlay(); rnMain(); }).catch(function(){ rnBuildOverlay(); rnMain(); }); }
+  else { rnBuildOverlay(); rnMain(); }
+}
+function rnBuildOverlay(){
+  var ov=document.getElementById("rnOv"); if(ov) ov.remove();
+  ov=document.createElement("div"); ov.id="rnOv";
+  ov.style.cssText="position:fixed;inset:0;z-index:10000;background:var(--bg,#f4f1ea);overflow:auto;-webkit-overflow-scrolling:touch";
+  ov.innerHTML='<div id="rnBody" style="max-width:600px;margin:0 auto;min-height:100%;background:var(--bg,#f4f1ea)"></div>';
+  document.body.appendChild(ov);
+}
+function rnClose(){ var ov=document.getElementById("rnOv"); if(ov) ov.remove(); }
+function _rnHead(title, backFn){
+  return '<div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--bg,#f4f1ea);border-bottom:1px solid var(--line)">'
+    +'<button onclick="'+backFn+'" style="border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:var(--ink);padding:2px 6px">‹</button>'
+    +'<div style="font-weight:800;font-size:19px">'+esc(title)+'</div>'
+    +'<button onclick="rnClose()" style="margin-left:auto;border:0;background:transparent;font-size:20px;cursor:pointer;color:var(--muted)">✕</button></div>';
+}
+/* ---------- Screen A: Rezept ---------- */
+function rnMain(){
+  var b=document.getElementById("rnBody"); if(!b) return;
+  var rn=window._rn, z=rn.zutaten;
+  var t=rnTotals();
+  var pad='padding:0 16px';
+  var card='background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 16px 14px';
+  var html=_rnHead("Rezept erstellen","rnClose()");
+  html+='<div style="'+pad+';padding-top:14px">';
+  // Foto
+  html+='<div onclick="rnFotoPick()" style="border:1px dashed var(--k-9ca3af,#9ca3af);border-radius:14px;padding:18px;text-align:center;cursor:pointer;margin-bottom:12px;background:var(--card)">'
+    + (rn.fotoUrl ? '<img src="'+rn.fotoUrl+'" style="max-height:120px;max-width:100%;border-radius:10px">' : '<div style="font-size:26px">⬆️</div><div style="font-size:12.5px;color:var(--muted);margin-top:4px">Rezeptfoto (optional)</div>')
+    +'</div>';
+  html+='<input type="file" id="rnFotoInp" accept="image/*" style="display:none" onchange="rnFotoSet(this.files)">';
+  // Name
+  html+='<label style="font-size:13px;font-weight:700">Name</label>';
+  html+='<input id="rnName" value="'+esc(rn.name||"")+'" oninput="window._rn.name=this.value" placeholder="z. B. Protein-Porridge" style="width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;margin:5px 0 14px;box-sizing:border-box;font-size:15px">';
+  html+='</div>';
+  // Zutaten-Karte
+  html+='<div style="'+card+'">';
+  html+='<div style="font-weight:700;font-size:15px;margin-bottom:8px">Zutaten</div>';
+  if(!z.length){ html+='<div style="font-size:13px;color:var(--muted);margin-bottom:12px">Noch keine Zutaten. Tippe unten und such sie im Katalog oder scanne.</div>'; }
+  else {
+    html+=z.map(function(it,i){
+      var sub=(it.menge_anzeige||(Math.round(it.menge_g)+' g'))+' · '+(it.kcal!=null?Math.round(it.kcal)+' kcal':'ohne Nährwerte');
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:'+(i?'1px solid var(--line)':'none')+'">'
+        +'<div style="flex:1"><div style="font-size:14px;font-weight:600">'+esc(it.name)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(sub)+'</div></div>'
+        +'<button onclick="rnRemove('+i+')" style="border:0;background:transparent;color:var(--muted);font-size:16px;cursor:pointer">✕</button></div>';
+    }).join("");
+  }
+  html+='<button onclick="rnGoSearch()" style="width:100%;margin-top:10px;padding:13px;border:0;border-radius:12px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:15px;cursor:pointer">+ Zutaten hinzufügen</button>';
+  html+='</div>';
+  // Gesamt-Naehrwerte + Portionen
+  if(z.length){
+    var port=Math.max(1, parseInt(rn.portionen)||1);
+    html+='<div style="'+card+'">';
+    html+='<div style="font-weight:700;font-size:15px;margin-bottom:2px">Nährwerte gesamt</div>';
+    html+='<div style="font-size:12px;color:var(--muted);margin-bottom:10px">'+Math.round(t.g)+' g Gesamtgewicht</div>';
+    html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+      +_rnStat('kcal',Math.round(t.kcal))+_rnStat('Eiweiß',Math.round(t.protein)+' g')+_rnStat('KH',Math.round(t.kh)+' g')+_rnStat('Fett',Math.round(t.fett)+' g')+'</div>';
+    html+='<label style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap">Wie viele Portionen ist das Rezept?'
+      +'<input id="rnPort" type="number" min="1" step="1" value="'+port+'" oninput="window._rn.portionen=this.value;rnMainPortUpd()" style="width:70px;padding:8px;border:1px solid var(--line);border-radius:8px"></label>';
+    html+='<div id="rnPerPort" style="font-size:12.5px;color:var(--muted);margin-top:8px">'+_rnPerPortTxt(t,port)+'</div>';
+    html+='</div>';
+    // Details (optional, eingeklappt)
+    html+='<div style="'+card+'"><details><summary style="font-weight:700;font-size:14px;cursor:pointer">Weitere Angaben (optional)</summary>'
+      +'<div style="margin-top:10px">'
+      +'<label style="font-size:12.5px;font-weight:600">Für welche Mahlzeit(en)?</label>'
+      +'<div style="display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 12px">'
+      + ["Frühstück","Mittag","Abendessen","Snack"].map(function(m){ return '<label style="display:flex;align-items:center;gap:5px;font-size:13px"><input type="checkbox" class="rnMeal" value="'+m+'" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'+m+'</label>'; }).join("")
+      +'</div>'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      +'<label style="flex:1;min-width:110px;font-size:12.5px;font-weight:600">Zeit (min)<input id="rnZeit" type="number" min="0" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:4px;box-sizing:border-box"></label>'
+      +'<label style="flex:1;min-width:110px;font-size:12.5px;font-weight:600">Ernährungsform<select id="rnEf" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;margin-top:4px;box-sizing:border-box"><option value="">–</option><option>vegan</option><option>vegetarisch</option><option>enthält Tierprodukte</option></select></label>'
+      +'</div>'
+      +'<label style="font-size:12.5px;font-weight:600;display:block;margin-top:10px">Zubereitung (ein Schritt pro Zeile)</label>'
+      +'<textarea id="rnPrep" rows="3" placeholder="Schritt 1…&#10;Schritt 2…" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin-top:4px;box-sizing:border-box;font-family:inherit"></textarea>'
+      +'</div></details></div>';
+  }
+  // Speichern
+  html+='<div style="'+pad+';padding-bottom:30px;display:flex;gap:10px;align-items:center">'
+    +'<button onclick="rnSave()" style="flex:1;padding:14px;border:0;border-radius:12px;background:var(--green);color:var(--auf-gruen);font-weight:800;font-size:15px;cursor:pointer">Rezept speichern</button>'
+    +'<span id="rnMsg" style="font-size:13px"></span></div>';
+  b.innerHTML=html;
+}
+function _rnStat(lbl,val){ return '<div style="flex:1;min-width:70px;text-align:center;background:var(--bg,#f4f1ea);border-radius:10px;padding:8px 4px"><div style="font-weight:800;font-size:16px">'+val+'</div><div style="font-size:11px;color:var(--muted)">'+lbl+'</div></div>'; }
+function _rnPerPortTxt(t,port){ var d=function(x){return Math.round(x/port);}; return 'Pro Portion: <b>'+d(t.kcal)+' kcal</b> · '+d(t.protein)+' g Eiweiß · '+d(t.kh)+' g KH · '+d(t.fett)+' g Fett'; }
+function rnMainPortUpd(){ var p=Math.max(1,parseInt((document.getElementById("rnPort")||{}).value)||1); var el=document.getElementById("rnPerPort"); if(el) el.innerHTML=_rnPerPortTxt(rnTotals(),p); }
+function rnTotals(){ var t={kcal:0,protein:0,kh:0,fett:0,g:0}; (window._rn.zutaten||[]).forEach(function(it){ t.kcal+=it.kcal||0; t.protein+=it.protein||0; t.kh+=it.kh||0; t.fett+=it.fett||0; t.g+=it.menge_g||0; }); return t; }
+function rnRemove(i){ window._rn.zutaten.splice(i,1); rnMain(); }
+function rnFotoPick(){ var i=document.getElementById("rnFotoInp"); if(i) i.click(); }
+function rnFotoSet(files){ var f=files&&files[0]; if(!f) return; window._rn.foto=f; try{ window._rn.fotoUrl=URL.createObjectURL(f); }catch(e){} rnMain(); }
+/* ---------- Screen B: Zutaten-Suche ---------- */
+function rnGoSearch(){
+  // Details der Hauptseite sichern, bevor wir wegblättern
+  rnStashDetails();
+  var b=document.getElementById("rnBody"); if(!b) return;
+  b.innerHTML=_rnHead("Zutaten","rnMain()")
+    +'<div style="padding:12px 16px 0">'
+    +'<div style="display:flex;gap:8px;margin-bottom:10px">'
+    +'<input id="rnSuch" oninput="rnSearchRender()" placeholder="Zutaten suchen…" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;box-sizing:border-box">'
+    +'<button onclick="rnScanOpen()" title="Scannen" style="flex:0 0 auto;width:48px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:20px;cursor:pointer">📷</button>'
+    +'</div>'
+    +'<div id="rnTray"></div>'
+    +'<div id="rnList" style="margin-top:6px"></div>'
+    +'</div>';
+  rnTrayRender(); rnSearchRender();
+  var s=document.getElementById("rnSuch"); if(s) s.focus();
+}
+function rnSearchRender(){
+  var l=document.getElementById("rnList"); if(!l) return;
+  var q=(_norm?_norm((document.getElementById("rnSuch")||{}).value||""):((document.getElementById("rnSuch")||{}).value||"").toLowerCase().trim());
+  var arr=(ALL||[]);
+  var res = q ? arr.filter(function(p){ return (_fuzzy?_fuzzy(p.name,q):(p.name||"").toLowerCase().indexOf(q)>=0) || (p.marke&&(""+p.marke).toLowerCase().indexOf(q)>=0); }) : arr.slice(0,40);
+  res=res.slice(0,60);
+  if(!res.length){ l.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 2px">Nichts gefunden. Tipp: über 📷 einen Barcode scannen.</div>'; return; }
+  l.innerHTML=res.map(function(p){
+    var k=(p.m_kcal!=null)?(Math.round(_rnNum(p.m_kcal))+' kcal/100 g'):'';
+    var mk=(typeof mkLabel==="function")?mkLabel(p.marke):(p.marke||"");
+    return '<div onclick="rnPick(\''+esc(String(p.id))+'\')" style="display:flex;align-items:center;gap:10px;padding:11px 4px;border-top:1px solid var(--line);cursor:pointer">'
+      +'<div style="flex:1"><div style="font-size:14px;font-weight:600">'+esc(p.name)+(mk?' <span style="font-size:11.5px;color:var(--muted);font-weight:400">'+esc(mk)+'</span>':'')+'</div>'
+      +(k?'<div style="font-size:12px;color:var(--muted)">'+k+'</div>':'')+'</div>'
+      +'<div style="font-size:24px;color:var(--green);line-height:1">＋</div></div>';
+  }).join("");
+}
+function rnTrayRender(){
+  var el=document.getElementById("rnTray"); if(!el) return;
+  var z=window._rn.zutaten||[];
+  if(!z.length){ el.innerHTML=""; return; }
+  el.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px">'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:6px">Hinzugefügt ('+z.length+')</div>'
+    + z.map(function(it,i){ return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px"><div style="flex:1">'+esc(it.name)+' <span style="color:var(--muted)">· '+esc(it.menge_anzeige||(Math.round(it.menge_g)+' g'))+'</span></div><button onclick="rnRemove('+i+');rnTrayRender()" style="border:0;background:transparent;color:var(--muted);cursor:pointer">✕</button></div>'; }).join("")
+    +'<button onclick="rnMain()" style="width:100%;margin-top:8px;padding:11px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);font-weight:700;cursor:pointer">Fertig – '+z.length+' Zutat'+(z.length===1?'':'en')+' übernehmen</button></div>';
+}
+/* ---------- Screen C: Zutat-Detail ---------- */
+function rnPick(pid){
+  var p=(ALL||[]).find(function(x){return x.id===pid;}); if(!p) return;
+  window._rnCur={ pid:pid };
+  var b=document.getElementById("rnBody"); if(!b) return;
+  var units=(typeof RZ_UNITS!=="undefined")?RZ_UNITS:[["g",1]];
+  var defG = (typeof tbDefaultPortion==="function")? tbDefaultPortion(p):100;
+  b.innerHTML=_rnHead(p.name,"rnGoSearch()")
+    +'<div style="padding:14px 16px">'
+    +((typeof mkLabel==="function"&&mkLabel(p.marke))?'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">'+esc(mkLabel(p.marke))+'</div>':'')
+    +'<div style="display:flex;gap:8px;margin-bottom:14px">'
+    +'<label style="flex:1;font-size:12.5px;font-weight:600">Menge<input id="rnAmt" type="number" min="0" step="0.1" value="'+defG+'" oninput="rnDetailCalc()" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:4px;box-sizing:border-box;font-size:15px"></label>'
+    +'<label style="flex:1;font-size:12.5px;font-weight:600">Einheit<select id="rnUnit" onchange="rnDetailCalc()" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:4px;box-sizing:border-box;font-size:15px">'+units.map(function(u){return '<option'+(u[0]==="g"?' selected':'')+'>'+u[0]+'</option>';}).join("")+'</select></label>'
+    +'</div>'
+    +'<div id="rnDetN" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:16px"></div>'
+    +'<button onclick="rnAddFromDetail()" style="width:100%;padding:14px;border:0;border-radius:12px;background:var(--green);color:var(--auf-gruen);font-weight:800;font-size:15px;cursor:pointer">Hinzufügen</button>'
+    +'</div>';
+  rnDetailCalc();
+}
+function rnDetailCalc(){
+  var cur=window._rnCur; if(!cur) return;
+  var amt=parseFloat((document.getElementById("rnAmt")||{}).value)||0;
+  var unit=(document.getElementById("rnUnit")||{}).value||"g";
+  var g=(typeof rzToGrams==="function")?rzToGrams(amt,unit,cur.pid):amt;
+  var box=document.getElementById("rnDetN"); if(!box) return;
+  if(!(g>0)){ box.innerHTML='<div style="color:var(--muted);font-size:13px">Menge eingeben…</div>'; return; }
+  var m=_rnMacros(cur.pid,g);
+  window._rnCur.g=g; window._rnCur.amt=amt; window._rnCur.unit=unit;
+  if(!m.hasN){ box.innerHTML='<div style="color:var(--k-b45309,#b45309);font-size:13px">Für diese Zutat sind keine Nährwerte hinterlegt – sie zählt in der Liste, aber ohne Nährwerte.</div>'; return; }
+  box.innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Nährwerte für '+Math.round(g)+' g</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +_rnStat('kcal',Math.round(m.kcal))+_rnStat('Eiweiß',Math.round(m.protein)+' g')+_rnStat('KH',Math.round(m.kh)+' g')+_rnStat('Fett',Math.round(m.fett)+' g')+'</div>';
+}
+function rnAddFromDetail(){
+  var cur=window._rnCur; if(!cur||!(cur.g>0)) return;
+  var p=(ALL||[]).find(function(x){return x.id===cur.pid;}); if(!p) return;
+  var m=_rnMacros(cur.pid,cur.g);
+  var disp=(cur.amt>0)?(String(cur.amt).replace(/\.0$/,"")+" "+cur.unit):(Math.round(cur.g)+" g");
+  window._rn.zutaten.push({ produkt_id:cur.pid, name:(typeof prodLabel==="function"?prodLabel(p):p.name),
+    menge_g:Math.round(cur.g*10)/10, menge_anzeige:disp, amount:cur.amt, unit:cur.unit,
+    kcal:m.hasN?m.kcal:null, protein:m.hasN?m.protein:null, kh:m.hasN?m.kh:null, fett:m.hasN?m.fett:null });
+  window._rnCur=null;
+  rnGoSearch();
+}
+/* ---------- Scan (Barcode) ---------- */
+function rnScanOpen(){
+  var b=document.getElementById("rnBody"); if(!b) return;
+  b.innerHTML=_rnHead("Scannen","rnGoSearch()")
+    +'<div style="padding:14px 16px">'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Barcode scannen – wir suchen die Zutat im Katalog.</div>'
+    +'<div id="rnReader" style="border-radius:12px;overflow:hidden;margin-bottom:10px"></div>'
+    +'<div id="rnScanMsg" style="font-size:13px"></div></div>';
+  try{
+    _startScan("rnReader", async function(code){
+      var msg=document.getElementById("rnScanMsg"); stopScan();
+      if(msg){ msg.style.color="var(--ink)"; msg.textContent="Barcode "+code+" – suche…"; }
+      try{ var r=await client.rpc("produkt_by_ean",{p_ean:code});
+        if(r&&r.data&&r.data.id){ rnPick(r.data.id); return; }
+      }catch(e){}
+      if(msg){ msg.style.color="var(--k-b45309,#b45309)"; msg.innerHTML="Kein Katalog-Produkt zu diesem Barcode. Such die Zutat per Name – oder leg das Produkt später über „Produkt fehlt“ an. <button onclick=\"rnGoSearch()\" style=\"margin-top:8px;padding:8px 12px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);cursor:pointer\">Zurück zur Suche</button>"; }
+    });
+  }catch(e){ var m=document.getElementById("rnScanMsg"); if(m){ m.style.color="var(--k-dc2626)"; m.textContent="Kamera nicht verfügbar: "+((e&&e.message)||e); } }
+}
+/* ---------- Speichern ---------- */
+function rnStashDetails(){
+  var rn=window._rn;
+  var nm=document.getElementById("rnName"); if(nm) rn.name=nm.value;
+  var pt=document.getElementById("rnPort"); if(pt) rn.portionen=pt.value;
+  var zt=document.getElementById("rnZeit"); if(zt) rn.zeit=zt.value;
+  var ef=document.getElementById("rnEf"); if(ef) rn.ef=ef.value;
+  var pp=document.getElementById("rnPrep"); if(pp) rn.prep=pp.value;
+  var meals=[]; document.querySelectorAll(".rnMeal:checked").forEach(function(c){ meals.push(c.value); }); if(document.querySelector(".rnMeal")) rn.mahlzeiten=meals;
+}
+async function rnSave(){
+  rnStashDetails();
+  var rn=window._rn, msg=document.getElementById("rnMsg");
+  var name=(rn.name||"").trim();
+  if(!name){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte einen Namen angeben."; } return; }
+  if(!rn.zutaten.length){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte mindestens eine Zutat hinzufügen."; } return; }
+  var port=Math.max(1, parseInt(rn.portionen)||1);
+  var t=rnTotals();
+  var payload={ name:name, portionen:String(port),
+    kcal:String(Math.round(t.kcal/port)), protein:String(Math.round(t.protein/port*10)/10),
+    kh:String(Math.round(t.kh/port*10)/10), fett:String(Math.round(t.fett/port*10)/10),
+    zeit:rn.zeit||null, ernaehrungsform:rn.ef||null, zubereitung:rn.prep||"",
+    mahlzeiten:rn.mahlzeiten||[],
+    zutaten: rn.zutaten.map(function(it){ return { name:it.name, produkt_id:it.produkt_id||null, menge_g:(it.menge_g!=null?it.menge_g:null), menge:it.menge_anzeige||null }; }) };
+  if(msg){ msg.style.color="var(--k-6b7280,#6b7280)"; msg.textContent="Speichere…"; }
+  try{
+    var r=await client.rpc("cb_rezept_anlegen",{p_payload:payload});
+    if(r&&r.error) throw new Error(r.error.message);
+    var rid=r&&r.data;
+    if(rn.foto && rid){
+      try{ var ext=((rn.foto.name.split(".").pop()||"jpg").toLowerCase()).replace(/[^a-z0-9]/g,"")||"jpg"; var path=rid+"."+ext;
+        var up=await client.storage.from("rezeptbilder").upload(path,rn.foto,{upsert:true,contentType:rn.foto.type||"image/jpeg"});
+        if(!up.error){ var pu=client.storage.from("rezeptbilder").getPublicUrl(path); if(pu&&pu.data&&pu.data.publicUrl) await client.rpc("cb_rezept_setbild",{p_rezept:rid,p_url:pu.data.publicUrl}); }
+      }catch(e){}
+    }
+    rnClose();
+    REZEPTE=null; if(typeof loadRezepte==="function") await loadRezepte();
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+((e&&e.message)||e); } }
+}
+/* Kopf-Knopf „Rezept abfotografieren“ auf der Rezeptseite: oeffnet den (klassischen)
+   Foto-Ablauf, den Riki ausfuellt. */
+function rezeptAbfotoStart(){ if(!ME){ openLogin(); return; } if(!hasFeat('rezepte_anlegen')){ premiumInfo(); return; } openRezeptForm(); setTimeout(function(){ try{ rezeptFotoOpen(); }catch(e){} }, 60); }
+if(typeof window!=='undefined'){ window.openRezeptNeu=openRezeptNeu; window.rnMain=rnMain; window.rnGoSearch=rnGoSearch; window.rnPick=rnPick; window.rnDetailCalc=rnDetailCalc; window.rnAddFromDetail=rnAddFromDetail; window.rnSearchRender=rnSearchRender; window.rnTrayRender=rnTrayRender; window.rnRemove=rnRemove; window.rnClose=rnClose; window.rnSave=rnSave; window.rnScanOpen=rnScanOpen; window.rnFotoPick=rnFotoPick; window.rnFotoSet=rnFotoSet; window.rnMainPortUpd=rnMainPortUpd; window.rezeptAbfotoStart=rezeptAbfotoStart; }
+
+
 
 /* ===== Wächter-Übersicht (Portal-M-Umbau, Ralph 24.07.2026) =====
    Der 🛡️-Bereichsknopf öffnet den täglichen TÜV: 10 harte Gates (müssen 0 sein) + offene Hinweise.
@@ -13004,7 +13263,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25n";
+const APP_BUILD = "2026-07-25o";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
