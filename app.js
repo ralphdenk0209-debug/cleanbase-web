@@ -9089,7 +9089,7 @@ if(typeof window!=='undefined'){ window.fgWirkFotoRiki=fgWirkFotoRiki; }
    dann den kcal-Riegel (physikalische Checks Zucker>KH etc. bleiben hart). */
 function fgKcalOkSet(v){ if(!window._fgEdit){ window._fgEdit={}; } window._fgEdit.kcalOk=!!v; try{ fePlaus(); }catch(e){} }
 if(typeof window!=='undefined'){ window.fgKcalOkSet=fgKcalOkSet; }
-function _fgIstSpecial(){ var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()); return (k==="supplement"||k==="salze"); }
+function _fgIstSpecial(){ var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()); return (k==="supplement"); }   /* nur Supplement = Supplementkarte; Salze & alle anderen = Produktkarte, Score ist eine SEPARATE Eigenschaft (Ralph 25.07.) */
 function fgRefMountFoto(){
   var col=document.getElementById('fe_wirkFotoCol'), back=document.getElementById('fe_refBack');
   if(col && back && col.parentNode!==back){ back.appendChild(col); }
@@ -13508,7 +13508,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26a";
+const APP_BUILD = "2026-07-26b";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
