@@ -2260,7 +2260,7 @@ function setMode(m){
   if(m==="rezepte") loadRezepte();
   if(m==="tagebuch"){ const _d=document.getElementById("tbDatum"); if(_d) _d.value=tbToday(); loadTagebuch(); }
   if(m==="planer") loadPlaner();
-  if(m==="profil") loadProfil();
+  if(m==="profil"){ loadProfil(); try{ suppPlanRender(); }catch(e){} }
   if(m==="training") loadTraining();
   if(m==="zyklus") renderZyklus();
   if(m==="darm") renderDarm();
@@ -11979,6 +11979,60 @@ async function todoToggle(id){ try{ await client.rpc("cb_todo_toggle",{p_id:id})
 async function todoEdit(id,val){ try{ await client.rpc("cb_todo_edit",{p_id:id,p_text:val}); }catch(e){} }
 async function todoDel(id){ try{ await client.rpc("cb_todo_del",{p_id:id}); await todoLoad(); }catch(e){} }
 if(typeof window!=='undefined'){ window.todoRender=todoRender; window.todoAdd=todoAdd; window.todoToggle=todoToggle; window.todoEdit=todoEdit; window.todoDel=todoDel; }
+async function suppPlanRender(){
+  if(!ME) return;
+  var box=document.getElementById("suppPlanBox"); if(!box) return;
+  box.innerHTML='<div style="margin-top:22px;border-top:1px solid var(--line);padding-top:16px">'
+    +'<div style="font-weight:700;font-size:15px;margin-bottom:2px">🔁 Meine Supplements</div>'
+    +'<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">Supplements, die du regelmäßig nimmst. Aktive zählen automatisch jeden Tag in deine Nährstoffe – bei „alle N Tage" wird die Dosis gleichmäßig auf die Tage verteilt.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:10px"><input id="suppSearch" list="suppDL" oninput="suppSearch(this.value)" placeholder="Supplement suchen…" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--k-ffffff);color:var(--ink)"><datalist id="suppDL"></datalist><button onclick="suppAdd()" style="padding:8px 14px;border:0;border-radius:8px;background:var(--k-16a34a);color:#fff;font-weight:600;cursor:pointer">+ Hinzufügen</button></div>'
+    +'<div id="suppMsg" style="font-size:12px;color:var(--k-dc2626);margin-bottom:6px"></div>'
+    +'<div id="suppItems" style="font-size:13px;color:var(--muted)">Lade …</div>'
+  +'</div>';
+  window._suppFound=[]; suppSearch(""); suppLoad();
+}
+async function suppSearch(q){
+  try{ var r=await client.rpc("cb_supp_produkte",{p_q:(q&&q.trim())?q.trim():null}); window._suppFound=(r&&r.data)||[];
+    var dl=document.getElementById("suppDL"); if(dl) dl.innerHTML=(window._suppFound).map(function(p){return '<option value="'+esc(p.name)+(p.marke?(' ('+esc(p.marke)+')'):'')+'"></option>';}).join(""); }catch(e){}
+}
+async function suppAdd(){
+  var inp=document.getElementById("suppSearch"), msg=document.getElementById("suppMsg"); if(!inp) return;
+  var v=(inp.value||"").trim().toLowerCase(); if(!v){ return; }
+  var p=(window._suppFound||[]).find(function(x){ var lbl=((x.name||'')+(x.marke?(' ('+x.marke+')'):'')).toLowerCase(); return lbl===v || (x.name||'').toLowerCase()===v; });
+  if(!p){ if(msg) msg.textContent="Bitte ein Supplement aus der Vorschlagsliste wählen."; return; }
+  if(msg) msg.textContent="";
+  try{ var r=await client.rpc("cb_supp_add",{p_produkt:p.id}); if(r&&r.error) throw new Error(r.error.message); inp.value=""; await suppLoad(); }
+  catch(e){ if(msg) msg.textContent="Fehler: "+(e&&e.message?e.message:e); }
+}
+async function suppLoad(){
+  var l=document.getElementById("suppItems"); if(!l) return;
+  try{ var r=await client.rpc("cb_supp_list"); if(r&&r.error) throw new Error(r.error.message); window._supp=(r&&r.data)||[]; suppItemsRender(); }
+  catch(e){ l.style.color="var(--k-dc2626)"; l.textContent="Konnte nicht laden: "+(e&&e.message?e.message:e); }
+}
+function suppItemsRender(){
+  var l=document.getElementById("suppItems"); if(!l) return; var arr=window._supp||[];
+  if(!arr.length){ l.style.color="var(--muted)"; l.innerHTML="Noch keine Supplements – such oben eins und füg es hinzu."; return; }
+  l.style.color="var(--ink)";
+  l.innerHTML=arr.map(function(o){
+    var verteil=(o.haeufigkeit_tage>1)?'<span style="color:var(--muted)">→ '+Math.round(100/o.haeufigkeit_tage)+' % Dosis/Tag</span>':'<span style="color:var(--muted)">(täglich)</span>';
+    return '<div class="suppRow" data-pid="'+esc(o.produkt_id)+'" style="border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px;opacity:'+(o.aktiv?'1':'0.55')+'">'
+      +'<div style="display:flex;align-items:center;gap:8px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1"><input type="checkbox" class="suppAktiv" '+(o.aktiv?'checked':'')+' onchange="suppSave(this)" style="width:16px;height:16px;accent-color:var(--k-16a34a)"><b style="font-size:14px">'+esc(o.name)+'</b>'+(o.marke?' <span style="font-size:11.5px;color:var(--muted)">'+esc(o.marke)+'</span>':'')+'</label><button onclick="suppDel(this)" title="Entfernen" style="border:0;background:transparent;color:var(--muted);font-size:15px;cursor:pointer">✕</button></div>'
+      +(o.wirkstoffe?'<div style="font-size:11px;color:var(--muted);margin:4px 0 0 22px">'+esc(o.wirkstoffe)+'</div>':'<div style="font-size:11px;color:var(--k-e8920c);margin:4px 0 0 22px">Keine Wirkstoffe hinterlegt – zählt noch nicht mit.</div>')
+      +'<div style="font-size:12.5px;color:var(--ink);margin:6px 0 0 22px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">Einnahme: alle <input type="number" class="suppHaeuf" min="1" max="60" value="'+esc(String(o.haeufigkeit_tage))+'" onchange="suppSave(this)" style="width:56px;padding:4px 6px;border:1px solid var(--line);border-radius:7px;background:var(--k-ffffff);color:var(--ink)"> Tag(e) '+verteil+'</div>'
+    +'</div>';
+  }).join("");
+}
+async function suppSave(el){
+  var row=el.closest(".suppRow"); if(!row) return; var pid=row.getAttribute("data-pid");
+  var aktiv=row.querySelector(".suppAktiv").checked;
+  var haeuf=Math.max(1, parseInt(row.querySelector(".suppHaeuf").value)||1);
+  try{ await client.rpc("cb_supp_set",{p_produkt:pid,p_aktiv:aktiv,p_haeufigkeit:haeuf}); await suppLoad(); }catch(e){}
+}
+async function suppDel(el){
+  var row=el.closest(".suppRow"); if(!row) return; var pid=row.getAttribute("data-pid");
+  try{ await client.rpc("cb_supp_del",{p_produkt:pid}); await suppLoad(); }catch(e){}
+}
+if(typeof window!=='undefined'){ window.suppPlanRender=suppPlanRender; window.suppSearch=suppSearch; window.suppAdd=suppAdd; window.suppSave=suppSave; window.suppDel=suppDel; }
 
 /* ===== Wächter-Übersicht (Portal-M-Umbau, Ralph 24.07.2026) =====
    Der 🛡️-Bereichsknopf öffnet den täglichen TÜV: 10 harte Gates (müssen 0 sein) + offene Hinweise.
@@ -12852,7 +12906,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25j";
+const APP_BUILD = "2026-07-25k";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
