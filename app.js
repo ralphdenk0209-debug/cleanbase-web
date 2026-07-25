@@ -4700,22 +4700,44 @@ async function loadScanEingang(){
   /* #2: Priorisieren. Was Riki plausibel und vollstaendig gelesen hat, ist schnell
      durchwinkbar; nur die unsicheren brauchen echte Handarbeit. Die schnellen zuerst -
      so raeumt man die Warteschlange in Minuten leer und behaelt Zeit fuers Schwierige. */
-  list.forEach(function(e){ e._st=scanStatus(e); });
-  list.sort(function(a,b){ return (a._st.gruen===b._st.gruen)?0:(a._st.gruen?-1:1); });
+  list.forEach(function(e){ e._st=scanStatus(e); e._grp = e.ohne_score ? 'ohne' : (e._st.gruen ? 'gruen' : 'gelb'); });
+  var _rang={gruen:0, gelb:1, ohne:2};
+  list.sort(function(a,b){ return (_rang[a._grp]==null?1:_rang[a._grp])-(_rang[b._grp]==null?1:_rang[b._grp]); });
   window._scanEingang=list;
   try{ if(typeof loadFreigabe==="function") loadFreigabe(); }catch(e){}   /* #2: Entwürfe-Liste ohne die Scan-Eingang-Dubletten neu rendern */
-  if(!list.length){ box.innerHTML=''; return; }
-  var _gruenN=list.filter(function(e){return e._st.gruen;}).length, _gelbN=list.length-_gruenN;
+  if(window._scanFilter===undefined) window._scanFilter='alle';
+  renderScanEingang();
+}
+
+/* Extra-Filter (Ralph, 25.07.2026): Die Eingangsliste getrennt nach Zustand rendern.
+   'ohne' = Scans, fuer die (noch) kein vorlaeufiger Index gebildet werden konnte
+   (typisch: Supplements ohne Naehrwerttabelle, oder eine noch unbewertete Zutat).
+   Solche Scans wurden frueher komplett ausgeblendet - jetzt eigene Lasche. */
+function scanFilterSet(f){ window._scanFilter=f; renderScanEingang(); }
+function renderScanEingang(){
+  var box=document.getElementById("fgScanPruef"); if(!box) return;
+  var full=window._scanEingang||[];
+  if(!full.length){ box.innerHTML=''; return; }
+  var flt=window._scanFilter||'alle';
+  var nG=full.filter(function(e){return e._grp==='gruen';}).length;
+  var nY=full.filter(function(e){return e._grp==='gelb';}).length;
+  var nO=full.filter(function(e){return e._grp==='ohne';}).length;
+  var list=full.filter(function(e){ return flt==='alle' || e._grp===flt; });
+  function _chip(key,label,bg,fg){ var akt=(flt===key); return '<button onclick="scanFilterSet(\''+key+'\')" style="padding:5px 12px;border-radius:999px;border:1px solid '+(akt?fg:'var(--line)')+';background:'+(akt?bg:'var(--card)')+';color:'+fg+';font-weight:700;font-size:12px;cursor:pointer;margin:0 5px 5px 0">'+label+'</button>'; }
 
   box.innerHTML='<div style="font-weight:700;font-size:15px;margin-bottom:2px;color:var(--ink)">'
-      +'Zur Prüfung: '+list.length+' Produkt'+(list.length===1?'':'e')+' aus Scans</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">'
+      +'Zur Prüfung: '+full.length+' Produkt'+(full.length===1?'':'e')+' aus Scans</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">'
       +'Vergleiche die Zahlen mit dem Foto. <b>Erst dann freigeben.</b> '
       +'Riki liest gut, aber sie belegt nichts &ndash; das tust du.</div>'
-    +'<div style="font-size:12px;margin-bottom:10px">'
-      +'<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:2px 9px;border-radius:999px;font-weight:700">✓ '+_gruenN+' schnell prüfbar</span>'
-      +(_gelbN?' <span style="background:var(--k-fff7ea);color:var(--k-8a5a0b);padding:2px 9px;border-radius:999px;font-weight:700;margin-left:4px">⚠ '+_gelbN+' brauchen Prüfung</span>':'')
+    +'<div style="margin-bottom:11px">'
+      +_chip('alle','Alle ('+full.length+')','var(--k-eef2f6)','var(--k-475569)')
+      +_chip('gruen','✓ schnell ('+nG+')','var(--k-e7f4ec)','var(--k-1f5e34)')
+      +_chip('gelb','⚠ prüfen ('+nY+')','var(--k-fff7ea)','var(--k-8a5a0b)')
+      +(nO?_chip('ohne','◻ ohne Score ('+nO+')','var(--k-fdf6e7)','var(--k-b45309)'):'')
     +'</div>'
+    +(flt==='ohne'?'<div style="font-size:12px;background:var(--k-fdf6e7);color:var(--k-7a5c1e);border-radius:8px;padding:8px 10px;margin-bottom:10px">Diese Scans haben (noch) keinen vorläufigen Index &ndash; typisch bei Supplements ohne Nährwerttabelle oder bei einer noch unbewerteten Zutat. Sie brauchen Handarbeit: Werte gegen das Foto prüfen, Zutaten/Wirkstoffe ergänzen, dann als Entwurf sichern oder freigeben.</div>':'')
+    +(list.length?'':'<div style="color:var(--muted);font-size:12.5px;padding:8px 0">Keine Einträge in dieser Ansicht.</div>')
     + list.map(function(e,i){
       const fotos=Array.isArray(e.fotos)?e.fotos.filter(function(s){return typeof s==="string"&&s.indexOf("data:image")===0;}):[];
       const rikiWarn=Array.isArray(e.warnungen)?e.warnungen:[];
@@ -4727,7 +4749,9 @@ async function loadScanEingang(){
       const inp='padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;width:100%;box-sizing:border-box';
 
       var hkS=(e.herkunft==="riki_etikett")?'<span style="background:var(--k-fdf6e7);color:var(--k-7a5c1e);padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap">Riki – prüfen</span>':'<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap">OFF</span>';
-      var statusB=(e._st&&e._st.gruen)?'<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">✓ schnell</span>':'<span style="background:var(--k-fff7ea);color:var(--k-8a5a0b);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">⚠ prüfen</span>';
+      var statusB=(e._grp==='ohne')
+        ?'<span style="background:var(--k-fdf6e7);color:var(--k-b45309);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">◻ ohne Score</span>'
+        :((e._st&&e._st.gruen)?'<span style="background:var(--k-e7f4ec);color:var(--k-1f5e34);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">✓ schnell</span>':'<span style="background:var(--k-fff7ea);color:var(--k-8a5a0b);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">⚠ prüfen</span>');
       var thumb=fotos.length?'<img src="'+fotos[0]+'" onclick="event.stopPropagation();fotoGross(\''+esc(e.ean)+'\',0)" style="width:42px;height:42px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;flex:0 0 auto" title="zum Vergrößern">':'';
       return '<div style="border:1px solid var(--line);border-radius:12px;margin-bottom:9px;background:var(--card);overflow:hidden">'
         +'<div onclick="seOeffnen(\''+esc(e.ean)+'\')" style="display:flex;align-items:center;gap:10px;padding:9px 11px;cursor:pointer">'
@@ -12696,7 +12720,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25f";
+const APP_BUILD = "2026-07-25g";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
