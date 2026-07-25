@@ -2740,7 +2740,7 @@ async function loadProduktErfassung(){
       +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px" title="Filtert die Liste nach Kategorie und ist zugleich die Vorgabe für neue Produkte.">Kategorie</span>'
       +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px","peRender()","alle Kategorien")
       +'<button id="peStatusBtn" class="peBtn" onclick="peToggleStatus()">⇄ Status</button>'
-      +'<button id="peMarkenBtn" class="peBtn" onclick="peBrandBox(this)" title="Marken zum Ausblenden abwählen">🏷 Marken ▾</button>'
+      +'<button id="peMarkenBtn" class="peBtn" onclick="peBrandBox(this)" title="Marken zum Ausblenden abwählen">🏷 Marken ▾</button>'+'<button id="peJunkBtn" class="peBtn" onclick="peHideMarkenToggle()" title="Dr. Oetker, Gustavo Gusto und Original Wagner ausblenden">🚫 Werbe-Marken</button>'
       +'<span style="flex:1"></span>'
     +'</div>'
     /* Filter-Chips (echte Zahlen) */
@@ -2859,6 +2859,7 @@ function peRender(){
   var list=rows.filter(function(p){
     if(katf && String(p.kategorie||'')!==katf) return false;
     if(window._peBrandOff && p.marke && window._peBrandOff[String(p.marke)]) return false;   /* abgewählte Marke ausblenden (Ralph 24.07.) */
+    if(window._peHideMarken && p.marke && /oetker|gustavo|wagner/i.test(String(p.marke))) return false;   /* Werbe-Marken ausblenden (Ralph 25.07.) */
     if(chipf==='offen'&&!peIstOffen(p)) return false;
     if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
     if(chipf==='keinscore'&&p.score!=null) return false;
@@ -8780,7 +8781,7 @@ async function openFgEditor(id, prefill, targetEl){
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
-        ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
+        ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><button type="button" onclick="fgBildLoeschen()" style="margin-left:8px;padding:5px 10px;border:1px solid var(--k-fca5a5,#fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:12.5px">🗑 Bild löschen</button><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
           + `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
         ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
@@ -12549,6 +12550,31 @@ async function kontoLoeschenDo(){
 }
 if(typeof window!=='undefined'){ window.riNativeApp=riNativeApp; window.riNativeIOS=riNativeIOS; window.riNativePurchase=riNativePurchase; window.riNativeManage=riNativeManage; window.kontoLoeschenOpen=kontoLoeschenOpen; window.kontoLoeschenDo=kontoLoeschenDo; }
 
+/* ===== ADMIN-ZUSATZ (Ralph 25.07.) ===== */
+/* Werbe-Marken ausblenden: Dr. Oetker, Gustavo Gusto, Original Wagner – case-insensitiv als
+   Teiltreffer, damit auch Varianten/Kombis ("Nestlé, Original Wagner", "GUSTAVO GUSTO",
+   "Dr. Oetker, Paula") erwischt werden. */
+function peHideMarkenToggle(){
+  window._peHideMarken=!window._peHideMarken;
+  var b=document.getElementById('peJunkBtn');
+  if(b){ var on=window._peHideMarken; b.style.background=on?'#fde8e8':''; b.style.color=on?'#b91c1c':''; b.style.borderColor=on?'#fca5a5':''; b.textContent=on?'🚫 Werbe-Marken (aus)':'🚫 Werbe-Marken'; }
+  if(typeof peRender==='function') peRender();
+}
+/* Produktbild löschen (Editor). Leerer String -> cb_produkt_bild_setzen setzt Bild_URL auf NULL. */
+async function fgBildLoeschen(){
+  if(!window._fgEdit) return;
+  if(!confirm('Produktbild löschen?')) return;
+  var pid=window._fgEdit.id, msg=document.getElementById('fe_bildMsg');
+  try{
+    if(pid){ var r=await client.rpc('cb_produkt_bild_setzen',{p_id:pid,p_url:''}); if(r&&r.error) throw new Error(r.error.message); }
+    window._fgEdit.bild_url='';
+    var bp=document.getElementById('fe_bildPreview'); if(bp) bp.innerHTML='<span style="color:var(--muted);font-size:13px">kein Bild</span>';
+    if(msg){ msg.style.color='var(--k-16a34a)'; msg.textContent='✓ Bild gelöscht'; }
+  }catch(e){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler: '+((e&&e.message)||e); } }
+}
+if(typeof window!=='undefined'){ window.peHideMarkenToggle=peHideMarkenToggle; window.fgBildLoeschen=fgBildLoeschen; }
+
+
 
 
 
@@ -13425,7 +13451,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25q";
+const APP_BUILD = "2026-07-25r";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
