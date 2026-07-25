@@ -9324,7 +9324,8 @@ function fePlaus(){
     var _kat=((document.getElementById("fe_kat")||{}).value||"").trim();
     if(!_kat) fehlt.push("Kategorie");
     var _istSupp = (_kat.toLowerCase()==="supplement");
-    if(!_istSupp){
+    var _istSalz = (_kat.toLowerCase()==="salze");
+    if(!_istSupp && !_istSalz){
       var nwReq=[["fe_kcal","Energie"],["fe_fett","Fett"],["fe_ges_fett","ges. Fett"],["fe_kh","Kohlenhydrate"],["fe_zucker","Zucker"],["fe_protein","Eiweiß"],["fe_salz","Salz"],["fe_ballaststoffe","Ballaststoffe"]];
       nwReq.forEach(function(r){ if(gv(r[0])==null) fehlt.push(r[1]); });
     }
@@ -9346,10 +9347,10 @@ function fePlaus(){
     if(_istSupp && _wCount===0 && !_wNone) fehlt.push("Wirkstoff-Mengen (Dosis-Check)");
     if(fehlt.length===0){
       rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe'
-        +(_istSupp?' – Supplement (kein Lebensmittel-Index, Nährwerte nicht nötig)':' – alle Achsen belegt')+'.</span>'
+        +(_istSupp?' – Supplement (kein Lebensmittel-Index, Nährwerte nicht nötig)':(_istSalz?' – reines Salz (kein Index, Nährwerte nicht nötig)':' – alle Achsen belegt'))+'.</span>'
         +(_dosisLeer?'<div style="color:var(--k-b45309);margin-top:4px">Ohne <b>Verzehrempfehlung</b> ist unklar, worauf sich der Dosis-Check bezieht – wenn möglich nachtragen.</div>':'');
     } else {
-      rd.innerHTML='<span style="color:var(--k-b45309)">Fehlt '+(_istSupp?'für die Freigabe':'für den Index')+': <b>'+fehlt.join(", ")+'</b>'
+      rd.innerHTML='<span style="color:var(--k-b45309)">Fehlt '+((_istSupp||_istSalz)?'für die Freigabe':'für den Index')+': <b>'+fehlt.join(", ")+'</b>'
         +(fehlt.indexOf("Ballaststoffe")>=0?' <span style="color:var(--muted)">· hat das Produkt keine, trag 0 ein</span>':'')+'</span>'
         +(_dosisLeer?'<div style="color:var(--muted);margin-top:4px">Verzehrempfehlung fehlt ebenfalls – blockiert die Freigabe nicht, fehlt aber für den Dosis-Check.</div>':'');
     }
@@ -9364,6 +9365,7 @@ function fePlaus(){
       var h="";
       h+= _kat ? ok("Kategorie gewählt") : no("Kategorie fehlt (Pflicht)");
       if(_istSupp) h+='<span style="color:var(--muted);white-space:nowrap">– Nährwerte (Supplement, nicht nötig)</span>';
+      else if(_istSalz) h+='<span style="color:var(--muted);white-space:nowrap">– Nährwerte (Salz, nicht nötig)</span>';
       else h+= nwFehlt.length ? no(nwFehlt.length+" Nährwert(e) fehlen") : ok("Nährwerte vollständig");
       h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
       h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
@@ -13473,7 +13475,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25v";
+const APP_BUILD = "2026-07-25w";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
