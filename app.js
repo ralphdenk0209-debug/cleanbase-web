@@ -8704,7 +8704,7 @@ async function openFgEditor(id, prefill, targetEl){
      in der aktuellen Liste steht (window._verifRows). */
   /* Referenz-Karte einmal definiert – sitzt jetzt als 3. Spalte NEBEN Zutaten/Zusatzstoffe
      (Ralph 24.07.2026: die drei Boxen gleich hoch + oben bündig). */
-  const _refCard = card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen (als <b>Zutat</b> links oder <b>Zusatzstoff</b> unten)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div>`);
+  const _refCard = card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div style="text-align:right;margin:-2px 0 8px"><button type="button" id="fe_refFlipBtn" onclick="fgRefFlip()" style="padding:4px 10px;border:1px solid #cbc7f2;border-radius:7px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:11.5px;font-weight:700;white-space:nowrap">🔍 Etikett ansehen</button></div><div id="fe_refFront"><div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen (als <b>Zutat</b> links oder <b>Zusatzstoff</b> unten)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div></div><div id="fe_refBack" style="display:none"></div>`);
   var _rows=Array.isArray(window._verifRows)?window._verifRows:[];
   var _idx=id?_rows.findIndex(function(r){return String(r.id)===String(id);}):-1;
   var _nbtn=function(txt,act,on){ return '<button '+(on?'onclick="'+act+'"':'disabled')+' style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:'+(on?'var(--card)':'var(--bg)')+';color:'+(on?'var(--ink)':'var(--muted)')+';cursor:'+(on?'pointer':'default')+';font-size:13px;white-space:nowrap">'+txt+'</button>'; };
@@ -8813,7 +8813,7 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
           <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
             `)}</div>
-            <div>${card(`Etikett zum Ablesen <span style="text-transform:none;color:var(--muted)">(zoombar – Mausrad / ziehen)</span>`,`
+            <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span style="text-transform:none;color:var(--muted)">(zoombar – Mausrad / ziehen)</span>`,`
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
             <button type="button" onclick="fgWirkFotoZoomBtn(1)" title="näher heranzoomen" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">+</button>
             <button type="button" onclick="fgWirkFotoZoomBtn(-1)" title="weiter weg" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>
@@ -8909,10 +8909,9 @@ function feKatChange(){
   var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
-  var wc=document.getElementById("fe_wirkCard"); if(wc) wc.style.display="";   /* Etikett-Lesebox jetzt fuer ALLE Produkte (Ralph 25.07.) */
-  var wg=document.getElementById("fe_wirkGrid"); if(wg) wg.style.gridTemplateColumns=supp?"1fr 1fr":"1fr";
-  var wtc=document.getElementById("fe_wirkTblCol"); if(wtc) wtc.style.display=supp?"":"none";   /* Wirkstoff-Dosis-Tabelle nur bei Supplement */
-  try{ fgWirkFotoRender(); }catch(e){}   /* Etikett-Lesebox immer einpassen */
+  var wc=document.getElementById("fe_wirkCard"); if(wc) wc.style.display=supp?"":"none";   /* nur noch Wirkstoff-Tabelle, nur bei Supplement (Ralph 25.07.) */
+  var wtc=document.getElementById("fe_wirkTblCol"); if(wtc) wtc.style.display="";
+  try{ fgRefMountFoto(); }catch(e){}   /* Etikett-Lesebox in die Rueckseite der Referenz-Karte haengen */
   if(supp){ try{ feWirkFarbeAll(); }catch(e){} }   /* Wirkstoff-Ampel nur bei Supplement */
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
@@ -9039,7 +9038,7 @@ function fgEtikettRender(){
   var arr=(window._fgEdit&&window._fgEdit.etikett)||[];
   var cnt=document.getElementById('fe_etikettCount'); if(cnt) cnt.textContent='('+arr.length+')';
   box.innerHTML = arr.length
-    ? arr.map(function(s,j){ return '<img src="'+s+'" onclick="fgEtikettZoom('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = groß · Rechtsklick = Riki-Menü" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">'; }).join('')
+    ? arr.map(function(s,j){ return '<img src="'+s+'" onclick="fgRefShowFoto('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = groß · Rechtsklick = Riki-Menü" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">'; }).join('')
     : '<span style="color:var(--muted);font-size:12.5px">keine – über „+ Foto" ein Bild hinzufügen</span>';
   try{ fgWirkFotoRender(); }catch(e){}   /* die Lesebox neben der Wirkstoff-Tabelle mitziehen */
 }
@@ -9079,6 +9078,27 @@ if(typeof window!=='undefined'){ window.fgWirkFotoRiki=fgWirkFotoRiki; }
    dann den kcal-Riegel (physikalische Checks Zucker>KH etc. bleiben hart). */
 function fgKcalOkSet(v){ if(!window._fgEdit){ window._fgEdit={}; } window._fgEdit.kcalOk=!!v; try{ fePlaus(); }catch(e){} }
 if(typeof window!=='undefined'){ window.fgKcalOkSet=fgKcalOkSet; }
+function fgRefMountFoto(){
+  var col=document.getElementById('fe_wirkFotoCol'), back=document.getElementById('fe_refBack');
+  if(col && back && col.parentNode!==back){ back.appendChild(col); }
+  var wg=document.getElementById('fe_wirkGrid'); if(wg) wg.style.gridTemplateColumns='1fr';
+  try{ fgWirkFotoRender(); }catch(e){}
+}
+function fgRefFlip(toBack){
+  var fr=document.getElementById('fe_refFront'), bk=document.getElementById('fe_refBack'), btn=document.getElementById('fe_refFlipBtn');
+  if(!fr||!bk) return;
+  var showBack=(typeof toBack==='undefined')?(bk.style.display==='none'):!!toBack;
+  fr.style.display=showBack?'none':''; bk.style.display=showBack?'':'none';
+  if(btn) btn.innerHTML=showBack?'&#8617; zur\u00fcck zur Referenz':'\ud83d\udd0d Etikett ansehen';
+  if(showBack){ try{ fgWirkFotoRender(); }catch(e){} }
+}
+function fgRefShowFoto(j){
+  window._fgWirkFoto=window._fgWirkFoto||{ idx:0, scale:1, x:0, y:0, baseFit:1 };
+  window._fgWirkFoto.idx=(j||0);
+  try{ fgRefMountFoto(); }catch(e){}
+  fgRefFlip(true);
+}
+if(typeof window!=='undefined'){ window.fgRefMountFoto=fgRefMountFoto; window.fgRefFlip=fgRefFlip; window.fgRefShowFoto=fgRefShowFoto; }
 function fgWirkFotoApply(){ var img=document.getElementById('fe_wirkFotoImg'); if(!img) return; var s=window._fgWirkFoto; img.style.transform='translate('+Math.round(s.x)+'px,'+Math.round(s.y)+'px) scale('+s.scale+')'; }
 function fgWirkFotoReset(){
   var s=window._fgWirkFoto, box=document.getElementById('fe_wirkFotoBox'), img=document.getElementById('fe_wirkFotoImg');
@@ -13475,7 +13495,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25w";
+const APP_BUILD = "2026-07-25z";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
