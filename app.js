@@ -12779,7 +12779,8 @@ const MIKRO_REF = {
   "Phosphor":[700,"mg","min"], "Magnesium":[375,"mg","min"], "Eisen":[14,"mg","min"],
   "Zink":[10,"mg","min"], "Kupfer":[1000,"µg","min"], "Mangan":[2000,"µg","min"],
   "Jod":[150,"µg","min"], "Molybdän":[50,"µg","min"], "Chrom":[40,"µg","min"],
-  "Selen":[55,"µg","min"]
+  "Selen":[55,"µg","min"],
+  "Omega-3 (EPA+DHA)":[250,"mg","omega"]
 };
 const MIKRO_ORDER = Object.keys(MIKRO_REF);
 function mikroKrit(pf){
@@ -12847,10 +12848,11 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mksub">Zahl unter dem Prozent = <b>gegessen / Tagesbedarf</b>. <span style="color:#7d3ea6">★</span> = für <b>dich</b> laut DGE besonders wichtig'+(liste?': '+liste:'')+'.</div>'
     +'<div class="mkgt">Vitamine</div><div class="mkgrid">'+grp("vit").map(chip).join("")+'</div>'
     +'<div class="mkgt">Mineralstoffe &amp; Spurenelemente</div><div class="mkgrid">'+grp("min").map(chip).join("")+'</div>'
-    +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). Keine medizinische Beratung.</div>';
+    +'<div class="mkgt">Omega-3 (Fettsäuren)</div><div class="mkgrid">'+grp("omega").map(chip).join("")+'</div>'
+    +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25i";
+const APP_BUILD = "2026-07-25j";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
