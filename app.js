@@ -2238,6 +2238,7 @@ function setMode(m){
   document.getElementById("tabFg").classList.toggle("active",m==="freigabe");
   document.getElementById("tabStufen").classList.toggle("active",m==="stufen");
   document.getElementById("tabUsers").classList.toggle("active",m==="nutzer");
+  { var _ts=document.getElementById("tabSupp"); if(_ts) _ts.classList.toggle("active",m==="supp"); }
   document.getElementById("startView").style.display = m==="start"?"":"none";
   document.getElementById("prodView").style.display = m==="produkte"?"":"none";
   document.getElementById("rezeptView").style.display = m==="rezepte"?"":"none";
@@ -2255,12 +2256,13 @@ function setMode(m){
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
   { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
   { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
+  { var _sv=document.getElementById("suppView"); if(_sv) _sv.style.display = m==="supp"?"":"none"; }
   { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
   if(m==="produkte"){ try{ render(); }catch(e){} }
   if(m==="rezepte") loadRezepte();
   if(m==="tagebuch"){ const _d=document.getElementById("tbDatum"); if(_d) _d.value=tbToday(); loadTagebuch(); }
   if(m==="planer") loadPlaner();
-  if(m==="profil"){ loadProfil(); try{ suppPlanRender(); }catch(e){} }
+  if(m==="profil"){ loadProfil(); }
   if(m==="training") loadTraining();
   if(m==="zyklus") renderZyklus();
   if(m==="darm") renderDarm();
@@ -2269,6 +2271,7 @@ function setMode(m){
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="mikro"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } mikroZuordnungRender(); }
   if(m==="todo"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } todoRender(); }
+  if(m==="supp"){ try{ suppPlanRender(); }catch(e){} }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
   if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
   if(m!=="vorschlagen") stopScan();
@@ -11982,26 +11985,36 @@ if(typeof window!=='undefined'){ window.todoRender=todoRender; window.todoAdd=to
 async function suppPlanRender(){
   if(!ME) return;
   var box=document.getElementById("suppPlanBox"); if(!box) return;
-  box.innerHTML='<div style="margin-top:22px;border-top:1px solid var(--line);padding-top:16px">'
-    +'<div style="font-weight:700;font-size:15px;margin-bottom:2px">🔁 Meine Supplements</div>'
-    +'<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">Supplements, die du regelmäßig nimmst. Aktive zählen automatisch jeden Tag in deine Nährstoffe – bei „alle N Tage" wird die Dosis gleichmäßig auf die Tage verteilt.</div>'
-    +'<div style="display:flex;gap:6px;margin-bottom:10px"><input id="suppSearch" list="suppDL" oninput="suppSearch(this.value)" placeholder="Supplement suchen…" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--k-ffffff);color:var(--ink)"><datalist id="suppDL"></datalist><button onclick="suppAdd()" style="padding:8px 14px;border:0;border-radius:8px;background:var(--k-16a34a);color:#fff;font-weight:600;cursor:pointer">+ Hinzufügen</button></div>'
-    +'<div id="suppMsg" style="font-size:12px;color:var(--k-dc2626);margin-bottom:6px"></div>'
+  box.innerHTML='<div>'
+    +'<div style="font-weight:700;font-size:16px;margin-bottom:2px">🔁 Meine Supplements</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:14px">Supplements, die du regelmäßig nimmst. Aktive zählen automatisch jeden Tag in deine Nährstoffe – bei „alle N Tage“ wird die Dosis gleichmäßig auf die Tage verteilt.</div>'
+    +'<div style="position:relative;margin-bottom:10px"><input id="suppSearch" autocomplete="off" oninput="suppSearch(this.value)" onfocus="suppSearch(this.value)" placeholder="Supplement suchen und antippen…" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--k-ffffff);color:var(--ink);font-size:14px"><div id="suppSug" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;background:var(--k-ffffff);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.15);max-height:260px;overflow:auto"></div></div>'
+    +'<div id="suppMsg" style="font-size:12px;color:var(--k-dc2626);margin-bottom:8px"></div>'
     +'<div id="suppItems" style="font-size:13px;color:var(--muted)">Lade …</div>'
   +'</div>';
-  window._suppFound=[]; suppSearch(""); suppLoad();
+  window._suppFound=[]; suppLoad();
 }
 async function suppSearch(q){
-  try{ var r=await client.rpc("cb_supp_produkte",{p_q:(q&&q.trim())?q.trim():null}); window._suppFound=(r&&r.data)||[];
-    var dl=document.getElementById("suppDL"); if(dl) dl.innerHTML=(window._suppFound).map(function(p){return '<option value="'+esc(p.name)+(p.marke?(' ('+esc(p.marke)+')'):'')+'"></option>';}).join(""); }catch(e){}
+  var sug=document.getElementById("suppSug"); if(!sug) return;
+  var qq=(q&&q.trim())?q.trim():null;
+  try{
+    var r=await client.rpc("cb_supp_produkte",{p_q:qq}); window._suppFound=(r&&r.data)||[];
+    var arr=window._suppFound;
+    if(!arr.length){ sug.innerHTML='<div style="padding:10px 12px;color:var(--muted);font-size:12.5px">Kein passendes Supplement gefunden.</div>'; sug.style.display="block"; return; }
+    sug.innerHTML=arr.map(function(p,i){
+      return '<div onclick="suppAdd('+i+')" style="padding:10px 12px;cursor:pointer;border-top:1px solid var(--line);font-size:13.5px" onmouseover="this.style.background=\'var(--k-f3f4f6)\'" onmouseout="this.style.background=\'transparent\'"><b>'+esc(p.name)+'</b>'+(p.marke?' <span style="color:var(--muted);font-size:12px">'+esc(p.marke)+'</span>':'')+'</div>';
+    }).join("");
+    if(sug.firstChild) sug.firstChild.style.borderTop="none";
+    sug.style.display="block";
+  }catch(e){ sug.style.display="none"; }
 }
-async function suppAdd(){
-  var inp=document.getElementById("suppSearch"), msg=document.getElementById("suppMsg"); if(!inp) return;
-  var v=(inp.value||"").trim().toLowerCase(); if(!v){ return; }
-  var p=(window._suppFound||[]).find(function(x){ var lbl=((x.name||'')+(x.marke?(' ('+x.marke+')'):'')).toLowerCase(); return lbl===v || (x.name||'').toLowerCase()===v; });
-  if(!p){ if(msg) msg.textContent="Bitte ein Supplement aus der Vorschlagsliste wählen."; return; }
+async function suppAdd(i){
+  var msg=document.getElementById("suppMsg"), inp=document.getElementById("suppSearch"), sug=document.getElementById("suppSug");
+  var p=(window._suppFound||[])[i];
+  if(!p){ if(msg) msg.textContent="Bitte ein Supplement aus der Liste antippen."; return; }
   if(msg) msg.textContent="";
-  try{ var r=await client.rpc("cb_supp_add",{p_produkt:p.id}); if(r&&r.error) throw new Error(r.error.message); inp.value=""; await suppLoad(); }
+  try{ var r=await client.rpc("cb_supp_add",{p_produkt:p.id}); if(r&&r.error) throw new Error(r.error.message);
+    if(inp) inp.value=""; if(sug){ sug.style.display="none"; sug.innerHTML=""; } window._suppFound=[]; await suppLoad(); }
   catch(e){ if(msg) msg.textContent="Fehler: "+(e&&e.message?e.message:e); }
 }
 async function suppLoad(){
@@ -12906,7 +12919,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25k";
+const APP_BUILD = "2026-07-25l";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
