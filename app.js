@@ -6953,6 +6953,7 @@ async function loadTagebuch(){
   if(lbl){ try{ const dd=new Date(datum+"T00:00:00"); lbl.textContent=dd.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+(datum===tbToday()?" · heute":""); }catch(e){ lbl.textContent=datum; } }
   const kb=document.getElementById("tbKalBox"); if(kb && kb.style.display!=="none") renderKalender();
   const {data:eintraege}=await client.rpc("cb_tagebuch",{p_datum:datum});
+  try{ const {data:_rt}=await client.rpc("cb_tb_rezept_tag",{p_datum:datum}); window._tbRezTags=_rt||[]; }catch(e){ window._tbRezTags=[]; }
   const {data:summe}=await client.rpc("cb_tagessumme",{p_datum:datum});
   const {data:profil}=await client.rpc("cb_profil");
   await ladeTrainingstag(datum);   // MUSS vor renderZiel laufen - sonst rechnet das Ziel ohne Zuschlag
@@ -7175,7 +7176,7 @@ function renderTbListe(items, goal){
           +pPart+fPart+`</div>`;
       }
       html+=tgt+(gK?`<div style="margin:2px 0 6px"><button onclick="tbAdjustMeal('${m}')" title="Mengen der Katalog-Produkte dieser Mahlzeit so skalieren, dass ${m} das kcal-Ziel trifft" style="border:1px solid var(--green);background:var(--greenlt);color:var(--greendk);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">🎯 Mengen ans Ziel anpassen</button></div>`:"");
-      rows.forEach(r=>{ html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--tb-line)">
+      var _bl=tbBatchLines(rows); html+=_bl.html; var _skip=_bl.skip; rows.forEach(r=>{ if(_skip&&_skip.has(Number(r.Eintrag_ID))) return; html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--tb-line)">
           <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Produktname||"?")}${num(r.Clean_Score)!=null?` <span style="font-size:11px;font-weight:700;color:${farbe(scoreBew(num(r.Clean_Score)))}">${num(r.Clean_Score)}</span>`:""}</div>
           <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g},'${r.Produkt_ID||''}');return false" style="color:var(--tb-muted);text-decoration:none;font-size:12.5px">${mengeLabel(r)} · ändern ✎</a>${(gK&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--k-2e7d32);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
           <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--tb-muted)">kcal</span></span>
@@ -7364,13 +7365,7 @@ async function tbRezList(){
   const box=document.getElementById("tbAddResults"); if(!box) return;
   box.innerHTML = rez.length ? rez.map((r,i)=>'<div style="display:flex;align-items:center;gap:8px;background:var(--k-ffffff);border:1px solid var(--k-e7e0d4);border-radius:10px;padding:10px;margin-bottom:6px"><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.name)+'</div><div style="font-size:11.5px;color:var(--k-6b6256)">Rezept</div></div><button onclick="tbAddRezept('+i+')" title="Als Mahlzeit einfügen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid var(--k-e7e0d4);color:var(--k-2e7d32);font-size:18px;cursor:pointer">+</button></div>').join("") : '<div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Keine Rezepte.</div>';
 }
-async function tbAddRezept(i){
-  const r=(window._tbRezList||[])[i]; if(!r) return;
-  const meal=window._tbAddMeal||"Frühstück", datum=document.getElementById("tbDatum").value||tbToday();
-  const {error}=await client.rpc("cb_tb_rezept",{p_mahlzeit:meal,p_rezept:r.id,p_datum:datum});
-  if(error){ alert("Fehler: "+error.message); return; }
-  const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
-}
+async function tbAddRezept(i){ tbRezOpen(i); }
 function tbAddFilter(q){
   const box=document.getElementById("tbAddResults"); if(!box) return;
   q=(q||"").trim(); let list=ALL||[];
@@ -12389,6 +12384,89 @@ async function rnSave(){
 function rezeptAbfotoStart(){ if(!ME){ openLogin(); return; } if(!hasFeat('rezepte_anlegen')){ premiumInfo(); return; } openRezeptForm(); setTimeout(function(){ try{ rezeptFotoOpen(); }catch(e){} }, 60); }
 if(typeof window!=='undefined'){ window.openRezeptNeu=openRezeptNeu; window.rnMain=rnMain; window.rnGoSearch=rnGoSearch; window.rnPick=rnPick; window.rnDetailCalc=rnDetailCalc; window.rnAddFromDetail=rnAddFromDetail; window.rnSearchRender=rnSearchRender; window.rnTrayRender=rnTrayRender; window.rnRemove=rnRemove; window.rnClose=rnClose; window.rnSave=rnSave; window.rnScanOpen=rnScanOpen; window.rnFotoPick=rnFotoPick; window.rnFotoSet=rnFotoSet; window.rnMainPortUpd=rnMainPortUpd; window.rezeptAbfotoStart=rezeptAbfotoStart; }
 
+/* ===== REZEPT INS TAGEBUCH (Stufe 2, Ralph 25.07.) =====
+   Buchung als Portion ODER Gramm (Faktor server-seitig in cb_tb_rezept_buchen);
+   Anzeige im Tagebuch als EINE Einheit (Gruppierung per Rezept_Batch). */
+function _tbNum1(x){ return (Math.round((+x||0)*100)/100).toString().replace('.',','); }
+function _tbRezPortTxt(p){ p=+p||1; return (p===1)?'1 Portion':(_tbNum1(p)+' Portionen'); }
+async function tbRezOpen(i){
+  var r=(window._tbRezList||[])[i]; if(!r) return;
+  window._tbRezPick={ id:r.id, name:r.name, modus:'portion', p:1, gesamt_g:null, kcal_portion:null };
+  try{ var res=await client.rpc("cb_rezept_portion_info",{p_rezept:r.id}); var info=(res&&res.data&&res.data[0])||{};
+    window._tbRezPick.p=info.portionen||1; window._tbRezPick.gesamt_g=info.gesamt_g||null; window._tbRezPick.kcal_portion=info.kcal_portion||null;
+  }catch(e){}
+  tbRezBuchenRender();
+}
+function tbRezBuchenRender(){
+  var box=document.getElementById("tbAddResults"); if(!box) return;
+  var s=window._tbRezPick; var perPortG=(s.gesamt_g&&s.p)?Math.round(s.gesamt_g/s.p):null;
+  var modP=(s.modus==='portion');
+  var chip=function(on){ return 'flex:1;padding:8px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid '+(on?'var(--k-16a34a)':'var(--k-e7e0d4)')+';background:'+(on?'rgba(22,163,74,.14)':'var(--k-fbf8f2)')+';color:'+(on?'var(--k-2e7d32)':'var(--k-57534e)'); };
+  box.innerHTML='<div style="background:var(--k-ffffff);border:1px solid var(--k-e7e0d4);border-radius:12px;padding:12px">'
+    +'<div style="font-weight:600;margin-bottom:2px">🍲 '+esc(s.name)+'</div>'
+    +'<div style="font-size:11.5px;color:var(--k-6b6256);margin-bottom:10px">Rezept = '+_tbRezPortTxt(s.p)+(perPortG?(' · 1 Portion ≈ '+perPortG+' g'):'')+'</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:10px">'
+    +'<button onclick="tbRezMode(\'portion\')" style="'+chip(modP)+'">Portion</button>'
+    +'<button onclick="tbRezMode(\'gramm\')" '+(s.gesamt_g?'':'disabled title="Rezept hat keine Zutaten mit Gewicht"')+' style="'+chip(!modP)+(s.gesamt_g?'':';opacity:.5;cursor:not-allowed')+'">Gramm</button>'
+    +'</div>'
+    +(modP
+        ? '<div style="display:flex;gap:8px;align-items:center"><input id="tbRezVal" type="number" min="0.25" step="0.25" value="1" oninput="tbRezVorschau()" style="width:88px;padding:10px;border:1px solid var(--k-e7e0d4);border-radius:10px;text-align:center;font-size:16px;background:var(--k-f3efe8);color:var(--k-1d3c24)"><span style="color:var(--k-6b6256)">Portion(en)</span></div>'
+        : '<div style="display:flex;gap:8px;align-items:center"><input id="tbRezVal" type="number" min="1" step="10" value="'+(perPortG||100)+'" oninput="tbRezVorschau()" style="width:88px;padding:10px;border:1px solid var(--k-e7e0d4);border-radius:10px;text-align:center;font-size:16px;background:var(--k-f3efe8);color:var(--k-1d3c24)"><span style="color:var(--k-6b6256)">g</span></div>')
+    +'<div id="tbRezVorschau" style="font-size:12.5px;color:var(--k-2e7d32);font-weight:600;margin-top:8px;min-height:16px"></div>'
+    +'<button onclick="tbRezBuchenSave()" style="margin-top:10px;width:100%;padding:11px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:600;cursor:pointer">Ins Tagebuch eintragen</button>'
+    +'<button onclick="tbSetTab(window._tbTab||\'rezepte\')" style="margin-top:8px;background:none;border:0;color:var(--k-6b6256);font-size:12px;cursor:pointer;text-decoration:underline">‹ zurück</button>'
+    +'<div id="tbRezMsg" style="font-size:12px;margin-top:6px"></div></div>';
+  tbRezVorschau();
+}
+function tbRezMode(m){ if(m==='gramm'&&!window._tbRezPick.gesamt_g) return; window._tbRezPick.modus=m; tbRezBuchenRender(); }
+function tbRezVorschau(){
+  var s=window._tbRezPick, el=document.getElementById("tbRezVorschau"); if(!el||!s) return;
+  var val=parseFloat((document.getElementById("tbRezVal")||{}).value)||0;
+  if(!(val>0)){ el.textContent=""; return; }
+  if(s.modus==='portion'){
+    var kc=(s.kcal_portion!=null)?('≈ '+Math.round(s.kcal_portion*val)+' kcal'):'';
+    el.textContent=_tbNum1(val)+' Portion(en)'+(kc?(' · '+kc):'');
+  } else {
+    var per100=(s.kcal_portion!=null&&s.p&&s.gesamt_g)?(s.kcal_portion*s.p/s.gesamt_g*100):null;
+    var kcal=(per100!=null)?(' · ≈ '+Math.round(per100*val/100)+' kcal'):'';
+    el.textContent=val+' g des Rezepts'+kcal;
+  }
+}
+async function tbRezBuchenSave(){
+  var s=window._tbRezPick, msg=document.getElementById("tbRezMsg");
+  var val=parseFloat((document.getElementById("tbRezVal")||{}).value)||0;
+  if(!(val>0)){ if(msg){ msg.style.color="var(--k-f87171)"; msg.textContent="Menge angeben."; } return; }
+  var meal=window._tbAddMeal||"Frühstück", datum=document.getElementById("tbDatum").value||tbToday();
+  var args={p_mahlzeit:meal,p_rezept:s.id,p_datum:datum,p_portionen:null,p_gramm:null};
+  if(s.modus==='portion') args.p_portionen=val; else args.p_gramm=val;
+  var r=await client.rpc("cb_tb_rezept_buchen",args);
+  if(r&&r.error){ if(msg){ msg.style.color="var(--k-f87171)"; msg.textContent="Fehler: "+r.error.message; } return; }
+  var ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
+}
+/* Gruppiert die Zutaten-Eintraege eines Rezepts zu EINER Zeile (per Rezept_Batch). */
+function tbBatchLines(rows){
+  var tags=window._tbRezTags||[]; if(!tags.length) return {html:'',skip:null};
+  var byId={}; tags.forEach(function(t){ byId[Number(t.eintrag_id)]=t; });
+  var groups={}, order=[];
+  rows.forEach(function(r){ var t=byId[Number(r.Eintrag_ID)]; if(!t) return; var b=t.batch;
+    if(!groups[b]){ groups[b]={name:t.rezept_name,menge:t.menge,kcal:0,ids:[]}; order.push(b); }
+    groups[b].kcal+=(+r.kcal||0); groups[b].ids.push(Number(r.Eintrag_ID)); });
+  if(!order.length) return {html:'',skip:null};
+  var skip=new Set(), html='';
+  order.forEach(function(b){ var g=groups[b]; g.ids.forEach(function(id){ skip.add(id); });
+    var nm=(g.name||'Rezept'); nm=nm.replace(/^aus Rezept:\s*/,'');
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--tb-line)">'
+      +'<div style="min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🍲 '+esc(nm)+'</div>'
+      +'<div style="color:var(--tb-muted);font-size:12.5px">'+esc(g.menge||'')+' · '+g.ids.length+' Zutat'+(g.ids.length===1?'':'en')+'</div></div>'
+      +'<div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>'+Math.round(g.kcal)+'</b> <span style="font-size:11px;color:var(--tb-muted)">kcal</span></span>'
+      +'<button onclick="tbDelRezept(\''+b+'\')" title="Rezept entfernen" style="border:0;background:var(--tb-card2);border-radius:8px;width:27px;height:27px;color:var(--k-f87171);cursor:pointer;font-size:14px">✕</button></div></div>';
+  });
+  return {html:html,skip:skip};
+}
+function tbDelRezept(b){ if(!b) return; client.rpc("cb_tb_rezept_del",{p_batch:b}).then(function(){ loadTagebuch(); }); }
+if(typeof window!=='undefined'){ window.tbRezOpen=tbRezOpen; window.tbRezBuchenRender=tbRezBuchenRender; window.tbRezMode=tbRezMode; window.tbRezVorschau=tbRezVorschau; window.tbRezBuchenSave=tbRezBuchenSave; window.tbBatchLines=tbBatchLines; window.tbDelRezept=tbDelRezept; }
+
+
 
 
 /* ===== Wächter-Übersicht (Portal-M-Umbau, Ralph 24.07.2026) =====
@@ -13263,7 +13341,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25o";
+const APP_BUILD = "2026-07-25p";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
