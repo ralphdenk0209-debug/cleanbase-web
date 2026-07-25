@@ -6904,7 +6904,7 @@ async function loadTagebuch(){
   if(_limited){
     dEl.value=tbToday();
     if(_ch)_ch.style.display="none"; if(_cn)_cn.style.display="none";
-    const _sb=document.getElementById("tbStatBox"); if(_sb)_sb.style.display="none"; const _mb=document.getElementById("tbMikroBox"); if(_mb)_mb.style.display="none";
+    const _sb=document.getElementById("tbStatBox"); if(_sb)_sb.style.display="none"; const _mb=document.getElementById("tbMikroOverlay"); if(_mb)_mb.remove();
     const _kb=document.getElementById("tbKalBox"); if(_kb)_kb.style.display="none";
     if(_lh){ _lh.style.display=""; _lh.innerHTML='<div style="background:var(--greenlt);border:1px solid var(--green);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--greendk);line-height:1.5">🔒 <b>Free:</b> Du trackst den <b>heutigen Tag</b>. Verlauf, Auswertung &amp; weitere Tage gibt es mit Premium. <button onclick="'+(ME?'premiumInfo':'openLogin')+'()" style="margin-top:6px;display:block;padding:7px 13px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);font-weight:600;cursor:pointer">Premium – 7 Tage gratis</button></div>'; }
   } else {
@@ -12561,23 +12561,33 @@ function mikroKrit(pf){
 }
 function _mkNum(x){ x=Number(x)||0; if(x>=100) return Math.round(x); if(x>=10) return Math.round(x*10)/10; return Math.round(x*100)/100; }
 function _mkDe(x){ return String(x).replace(".",","); }
-async function toggleTbMikro(){
-  const box=document.getElementById("tbMikroBox"); if(!box) return;
-  if(box.style.display!=="none"){ box.style.display="none"; return; }
+function openTbMikro(){
+  closeTbMikro();
   const sb=document.getElementById("tbStatBox"); if(sb) sb.style.display="none";
-  box.style.display=""; await loadTbMikro(); box.scrollIntoView({behavior:"smooth",block:"nearest"});
+  const ov=document.createElement("div"); ov.id="tbMikroOverlay";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(15,30,35,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:32px 12px;overflow:auto";
+  ov.onclick=function(e){ if(e.target.id==="tbMikroOverlay") closeTbMikro(); };
+  ov.innerHTML='<div style="background:var(--tb-card);color:var(--tb-text);border-radius:16px;max-width:560px;width:100%;padding:14px 18px 20px;position:relative;box-shadow:0 24px 60px rgba(0,0,0,.4)">'
+    +'<div style="display:flex;justify-content:flex-end;margin:-2px -6px 2px 0"><button onclick="closeTbMikro()" aria-label="Schlie\u00dfen" style="border:0;background:var(--tb-track,#ece7db);border-radius:9px;width:32px;height:32px;font-size:15px;cursor:pointer;color:var(--tb-text)">\u2715</button></div>'
+    +'<div id="tbMikroBody"></div></div>';
+  document.body.appendChild(ov);
+  document.addEventListener("keydown", _tbMikroEsc);
+  loadTbMikro();
 }
+function closeTbMikro(){ const ov=document.getElementById("tbMikroOverlay"); if(ov) ov.remove(); document.removeEventListener("keydown", _tbMikroEsc); }
+function _tbMikroEsc(e){ if(e.key==="Escape") closeTbMikro(); }
 async function loadTbMikro(){
-  const box=document.getElementById("tbMikroBox"); if(!box) return;
+  const box=document.getElementById("tbMikroBody"); if(!box) return;
   box.innerHTML='<div style="color:var(--tb-muted);font-size:13px">Lade Nährstoffe…</div>';
   const datum=(document.getElementById("tbDatum")||{}).value || tbToday();
   const {data,error}=await client.rpc("cb_tagebuch_mikro",{p_datum:datum,p_benutzer:null});
   if(error){ box.innerHTML='<div style="color:var(--tb-muted);font-size:13px">Nährstoffe konnten nicht geladen werden.</div>'; return; }
   let pf={}; try{ const r=await client.rpc("cb_profil"); pf=(r.data&&r.data[0])||{}; }catch(e){}
-  renderTbMikro(data||[], pf);
+  renderTbMikro(data||[], pf, datum);
 }
-function renderTbMikro(rows, pf){
-  const box=document.getElementById("tbMikroBox"); if(!box) return;
+function renderTbMikro(rows, pf, datum){
+  const box=document.getElementById("tbMikroBody"); if(!box) return;
+  var _dl=datum||""; try{ var _dd=new Date((datum||"")+"T00:00:00"); _dl=_dd.toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"long"}); }catch(e){}
   const map={}; let nProd=0;
   (rows||[]).forEach(function(r){ map[r.naehrstoff]={ist:Number(r.ist)||0,e:r.einheit,nd:r.n_mit_daten,np:r.n_produkte}; if(r.n_produkte>nProd)nProd=r.n_produkte; });
   const KRIT=mikroKrit(pf);
@@ -12598,7 +12608,7 @@ function renderTbMikro(rows, pf){
   function grp(kind){ return MIKRO_ORDER.filter(function(n){return MIKRO_REF[n][2]===kind;}).sort(function(a,b){return pct(b)-pct(a);}); }
   const liste=Array.from(KRIT).join(", ");
   box.innerHTML=
-    '<div class="mkhead"><div style="font-weight:700">🥗 Nährstoffe an diesem Tag</div>'
+    '<div class="mkhead"><div style="font-weight:700">🥗 Nährstoffe · '+_dl+'</div>'
     +'<div class="mklg"><span><i style="background:#5b86b0"></i>0&nbsp;%</span><span><i style="background:#cf9a2e"></i>1–99&nbsp;%</span><span><i style="background:#3f9d6b"></i>≥100&nbsp;% ✓</span></div></div>'
     +'<div class="mksub">Zahl unter dem Prozent = <b>gegessen / Tagesbedarf</b>. <span style="color:#7d3ea6">★</span> = für <b>dich</b> laut DGE besonders wichtig'+(liste?': '+liste:'')+'.</div>'
     +'<div class="mkgt">Vitamine</div><div class="mkgrid">'+grp("vit").map(chip).join("")+'</div>'
@@ -12606,7 +12616,7 @@ function renderTbMikro(rows, pf){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25c";
+const APP_BUILD = "2026-07-25d";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
