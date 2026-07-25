@@ -2253,6 +2253,7 @@ function setMode(m){
   document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
+  { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
   { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
   if(m==="produkte"){ try{ render(); }catch(e){} }
   if(m==="rezepte") loadRezepte();
@@ -2265,6 +2266,7 @@ function setMode(m){
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab((window._fgTab&&window._fgTab!=='produkte'&&window._fgTab!=='kontakt')?window._fgTab:'zuverif'); }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
+  if(m==="mikro"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } mikroZuordnungRender(); }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
   if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
   if(m!=="vorschlagen") stopScan();
@@ -6141,7 +6143,7 @@ function applyAdminMode(){
       +_an('bundles','🧩','Bundles',"adminGo('bundles')")
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
       +_an('rezeptzutaten','🍽️','Rezept-Zutaten',"rezZutatenWaechterOpen()")
-      +_an('mikrozuordnung','🥗','Nährstoffe',"mikroZuordnungOpen()")
+      +_an('mikro','🥗','Nährstoffe',"adminGo('mikro')")
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
       +_an('produkterfassung','🗂️','Erfassung',"adminGo('produkterfassung')",' id="amProdErf" style="display:none"')
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
@@ -6188,7 +6190,7 @@ if(typeof window!=='undefined'){ window.adminDrawerToggle=adminDrawerToggle; win
 /* Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Markiert den aktiven Punkt, setzt den
    Breadcrumb in der Kopfleiste und schließt die Schublade. */
-const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer'};
+const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe'};
 function adminGo(k){
   const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
@@ -11776,47 +11778,30 @@ if(typeof window!=='undefined'){ window.rezZutatenWaechterOpen=rezZutatenWaechte
    Produkte OHNE Mikronährstoffe mit dominanter Zutat: Vorschlag „= dieses Lebensmittel" (cb_mikro_zuordnung_offen).
    Admin bestätigt (kopiert BLS-Profil, cb_mikro_zuordnung_uebernehmen), wählt ein anderes Leitlebensmittel,
    oder markiert „zusammengesetzt → keine Angabe" (cb_mikro_zuordnung_keine). Nichts wird automatisch geschrieben. */
-async function mikroZuordnungOpen(){
+function mikroZuordnungRender(){
   if(!(ME&&ME.is_admin)) return;
-  var ov=document.getElementById("mzOv");
-  if(!ov){ ov=document.createElement("div"); ov.id="mzOv";
-    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
-    document.body.appendChild(ov); }
-  ov.style.display="flex";
-  window._mzMode=window._mzMode||"einzel";
-  var tb='padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font-weight:600;font-size:12.5px;cursor:pointer';
-  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:760px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
-    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><div style="font-weight:800;font-size:18px">🥗 Nährstoff-Zuordnung</div><button onclick="mzClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
-    +'<div style="display:flex;gap:6px;margin-bottom:10px"><button id="mzTabE" onclick="mzTab(\'einzel\')" style="'+tb+'">Einzel-Lebensmittel</button><button id="mzTabK" onclick="mzTab(\'komposit\')" style="'+tb+'">Zusammengesetzt</button></div>'
-    +'<div id="mzHint" style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px"></div>'
+  var v=document.getElementById("mikroView"); if(!v) return;
+  v.innerHTML='<div style="max-width:860px;margin:0 auto;padding:14px 6px 40px"><div style="background:var(--card,#fff);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px">'
+    +'<div style="font-weight:800;font-size:20px;margin:4px 2px 2px">🥗 Nährstoff-Zuordnung</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin:0 2px 18px">Produkten ohne Mikronährstoffe eine belegte Quelle geben. <b>Einzel-Lebensmittel</b>: das BLS-Profil eines Lebensmittel-Typs übernehmen (als „geschätzt"). <b>Zusammengesetzt</b>: aus den Zutaten berechnen (Anteile schätzbar). Nichts wird automatisch geschrieben.</div>'
     +'<datalist id="mzLeitDL"></datalist>'
-    +'<div id="mzList" style="font-size:13px;color:var(--muted)">Lade …</div>'
-  +'</div>';
+    +'<div style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin:6px 2px 8px">Einzel-Lebensmittel</div>'
+    +'<div id="mzListE" style="font-size:13px;color:var(--muted);margin-bottom:26px">Lade …</div>'
+    +'<div style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin:6px 2px 8px">Zusammengesetzt · aus Zutaten berechnen</div>'
+    +'<div id="mzListK" style="font-size:13px;color:var(--muted)">Lade …</div>'
+  +'</div></div>';
+  mzLoadAll();
+}
+async function mzLoadAll(){
   try{ var rl=await client.rpc("cb_mikro_leit_liste"); window._mzLeit=(rl&&rl.data)||[]; var dl=document.getElementById("mzLeitDL"); if(dl) dl.innerHTML=(window._mzLeit).map(function(x){return '<option value="'+esc(x.name)+'"></option>';}).join(""); }catch(e){ window._mzLeit=[]; }
-  mzSetTab(); mzLoad();
-}
-function mzTab(m){ window._mzMode=m; mzSetTab(); mzLoad(); }
-function mzSetTab(){
-  var e=document.getElementById("mzTabE"), k=document.getElementById("mzTabK"), h=document.getElementById("mzHint");
-  var base='padding:7px 12px;border:1px solid var(--line);border-radius:8px;font-weight:600;font-size:12.5px;cursor:pointer;';
-  var on='background:var(--green);color:var(--auf-gruen);border-color:var(--green)';
-  var off='background:var(--card);color:var(--muted)';
-  if(e) e.style.cssText=base+(window._mzMode==="einzel"?on:off);
-  if(k) k.style.cssText=base+(window._mzMode==="komposit"?on:off);
-  if(h) h.innerHTML=(window._mzMode==="komposit")
-    ? 'Zusammengesetzte Produkte (Müsli, Fertiggericht …). <b>🔧 aus Zutaten berechnen</b> öffnet die Zutatenliste – je Zutat ein Lebensmittel als Nährstoff-Quelle + Anteil %. Fehlt der Anteil, „aus Reihenfolge schätzen" (Annahme, anpassbar). Ergebnis = <b>berechnet aus Zutaten</b>. Passt gar nichts → <b>∅ keine Angabe</b>.'
-    : 'Produkte ohne Mikronährstoffe, die aussehen wie EIN Lebensmittel. <b>✓ Übernehmen</b> kopiert das BLS-Profil des Lebensmittel-Typs (als „geschätzt"). Öl/Pulver/Fertig ⇒ meist <b>∅</b>.';
-}
-async function mzLoad(){
-  var l=document.getElementById("mzList"); if(!l) return; l.style.color="var(--muted)"; l.innerHTML="Lade …";
-  try{
-    if(window._mzMode==="komposit"){ var r=await client.rpc("cb_mikro_komposit_offen"); if(r.error) throw new Error(r.error.message); window._mzKomp=(r&&r.data)||[]; mzKompListRender(); }
-    else { var r2=await client.rpc("cb_mikro_zuordnung_offen"); if(r2.error) throw new Error(r2.error.message); window._mzOffen=(r2&&r2.data)||[]; mzRender(); }
-  }catch(e){ l.style.color="var(--k-dc2626)"; l.textContent="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e); }
+  try{ var r=await client.rpc("cb_mikro_zuordnung_offen"); if(r.error) throw new Error(r.error.message); window._mzOffen=(r&&r.data)||[]; mzRender(); }
+  catch(e){ var l=document.getElementById("mzListE"); if(l){ l.style.color="var(--k-dc2626)"; l.textContent="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e); } }
+  try{ var r2=await client.rpc("cb_mikro_komposit_offen"); if(r2.error) throw new Error(r2.error.message); window._mzKomp=(r2&&r2.data)||[]; mzKompListRender(); }
+  catch(e){ var l2=document.getElementById("mzListK"); if(l2){ l2.style.color="var(--k-dc2626)"; l2.textContent="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e); } }
 }
 function mzConf(sim){ if(sim>=0.7) return ['sehr sicher','var(--k-166534)']; if(sim>=0.5) return ['sicher','var(--k-166534)']; if(sim>=0.34) return ['prüfen','var(--k-b45309)']; return ['unsicher','var(--k-dc2626)']; }
 function mzRender(){
-  var l=document.getElementById("mzList"); if(!l) return;
+  var l=document.getElementById("mzListE"); if(!l) return;
   var arr=window._mzOffen||[];
   if(!arr.length){ l.style.color="var(--k-166534)"; l.innerHTML="✓ Nichts mehr offen."; return; }
   l.style.color="var(--ink)";
@@ -11857,7 +11842,7 @@ async function mzKeine(btn){
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
 }
 function mzKompListRender(){
-  var l=document.getElementById("mzList"); if(!l) return; var arr=window._mzKomp||[];
+  var l=document.getElementById("mzListK"); if(!l) return; var arr=window._mzKomp||[];
   if(!arr.length){ l.style.color="var(--k-166534)"; l.innerHTML="✓ Nichts mehr offen."; return; }
   l.style.color="var(--ink)";
   l.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:8px">'+arr.length+' zusammengesetzte(s) Produkt(e)</div>'
@@ -11945,8 +11930,7 @@ async function mzKompSpeichern(btn){
     row.style.opacity="0.55"; var bs=row.querySelectorAll("button,input"); for(var i=0;i<bs.length;i++) bs[i].disabled=true;
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
 }
-function mzClose(){ var ov=document.getElementById("mzOv"); if(ov) ov.style.display="none"; }
-if(typeof window!=='undefined'){ window.mikroZuordnungOpen=mikroZuordnungOpen; window.mzTab=mzTab; window.mzUebernehmen=mzUebernehmen; window.mzKeine=mzKeine; window.mzKompOpen=mzKompOpen; window.mzKompSchaetzen=mzKompSchaetzen; window.mzKompVorschau=mzKompVorschau; window.mzKompSpeichern=mzKompSpeichern; window.mzClose=mzClose; }
+if(typeof window!=='undefined'){ window.mikroZuordnungRender=mikroZuordnungRender; window.mzUebernehmen=mzUebernehmen; window.mzKeine=mzKeine; window.mzKompOpen=mzKompOpen; window.mzKompSchaetzen=mzKompSchaetzen; window.mzKompVorschau=mzKompVorschau; window.mzKompSpeichern=mzKompSpeichern; }
 
 /* ===== Wächter-Übersicht (Portal-M-Umbau, Ralph 24.07.2026) =====
    Der 🛡️-Bereichsknopf öffnet den täglichen TÜV: 10 harte Gates (müssen 0 sein) + offene Hinweise.
@@ -12818,7 +12802,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25g";
+const APP_BUILD = "2026-07-25h";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
