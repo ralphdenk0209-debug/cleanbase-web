@@ -1229,6 +1229,7 @@ var KAT_META={
   "Süßwaren":{e:"🍬",bg:"var(--k-fbeaf0)",fg:"var(--k-993556)"},
   "Süßungsmittel":{e:"🍯",bg:"var(--k-faeeda)",fg:"var(--k-854f0b)"},
   "Würzen & Saucen":{e:"🧂",bg:"var(--k-f1efe8)",fg:"var(--k-5f5e5a)"},
+  "Salze":{e:"🧂",bg:"var(--k-f1efe8)",fg:"var(--k-5f5e5a)"},
   "Gewürze & Würzmittel":{e:"🧂",bg:"var(--k-f1efe8)",fg:"var(--k-5f5e5a)"},
   "Saucen & Dressings":{e:"🥫",bg:"var(--k-f1efe8)",fg:"var(--k-5f5e5a)"},
   "Brotaufstrich":{e:"🍯",bg:"var(--k-faeeda)",fg:"var(--k-854f0b)"},
@@ -4460,7 +4461,7 @@ const WIRK_EINHEITEN=["mg","µg","g","IU"];
 const KATEGORIEN=["Backen","Brot & Backwaren","Brotaufstrich","Energy-Gel","Fertigprodukte","Fleisch & Fisch","Getränk",
   "Getreide & Beilagen","Milchprodukte & Eier","Nüsse & Hülsenfrüchte","Obst & Gemüse","Öle & Fette",
   "Proteinpulver","Riegel","Snacks","Supplement","Süßungsmittel","Süßwaren",
-  "Tofu & Fleischalternativen","Würzen & Saucen","Lebensmittel","Sonstiges"];
+  "Tofu & Fleischalternativen","Würzen & Saucen","Salze","Lebensmittel","Sonstiges"];
 function katSelectHtml(id, aktuell, styleOverride, onChange, leerText){
   var a=(aktuell||"").trim();
   var opts=KATEGORIEN.slice();
@@ -13472,7 +13473,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25u";
+const APP_BUILD = "2026-07-25v";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
