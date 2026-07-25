@@ -9977,6 +9977,7 @@ async function fgEditSave(alsoFreigeben){
       /* Inline-Modus (Produkt-Erfassung): der Editor sitzt in #peDetail → nur die Produktliste
          neu laden (aktualisiert Status/Score der gespeicherten Zeile), Editor schließt sich dabei.
          Sonst der alte Vollbild-Weg (Posteingang). */
+      try{ feFreigabeLeisteHide(); }catch(e){}
       var det=document.getElementById("peDetail"), nm=document.getElementById("fe_name");
       if(det && nm && det.contains(nm)){ try{ loadProduktErfassung(); }catch(e){} }
       else { closeP(); loadFreigabe(); if(typeof render==="function") render(); }
@@ -13451,7 +13452,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25r";
+const APP_BUILD = "2026-07-25s";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
