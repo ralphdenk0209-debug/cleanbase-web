@@ -6117,6 +6117,7 @@ function applyAdminMode(){
       +_an('bundles','🧩','Bundles',"adminGo('bundles')")
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
       +_an('rezeptzutaten','🍽️','Rezept-Zutaten',"rezZutatenWaechterOpen()")
+      +_an('mikrozuordnung','🥗','Nährstoffe',"mikroZuordnungOpen()")
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
       +_an('produkterfassung','🗂️','Erfassung',"adminGo('produkterfassung')",' id="amProdErf" style="display:none"')
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
@@ -11746,6 +11747,85 @@ function rezZwAnlegen(text){
 }
 function rezZwClose(){ var ov=document.getElementById("rezZwOv"); if(ov) ov.style.display="none"; }
 if(typeof window!=='undefined'){ window.rezZutatenWaechterOpen=rezZutatenWaechterOpen; window.rezZwZuordnen=rezZwZuordnen; window.rezZwIgnorieren=rezZwIgnorieren; window.rezZwAnlegen=rezZwAnlegen; window.rezZwClose=rezZwClose; }
+
+/* ===== Admin: Nährstoff-Zuordnung (Leitlebensmittel) — Ralph 25.07. =====
+   Produkte OHNE Mikronährstoffe mit dominanter Zutat: Vorschlag „= dieses Lebensmittel" (cb_mikro_zuordnung_offen).
+   Admin bestätigt (kopiert BLS-Profil, cb_mikro_zuordnung_uebernehmen), wählt ein anderes Leitlebensmittel,
+   oder markiert „zusammengesetzt → keine Angabe" (cb_mikro_zuordnung_keine). Nichts wird automatisch geschrieben. */
+async function mikroZuordnungOpen(){
+  if(!(ME&&ME.is_admin)) return;
+  var ov=document.getElementById("mzOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="mzOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
+    document.body.appendChild(ov); }
+  ov.style.display="flex";
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:720px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><div style="font-weight:800;font-size:18px">🥗 Nährstoff-Zuordnung</div><button onclick="mzClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px">Produkte ohne Mikronährstoffe, die aussehen wie EIN Lebensmittel. Prüfe den Vorschlag: <b>✓ Übernehmen</b> kopiert das BLS-Nährstoff-Profil des Lebensmittel-Typs (als „geschätzt" gekennzeichnet). Passt es nicht, wähle ein anderes Lebensmittel oder markiere <b>∅ zusammengesetzt</b> (keine Angabe). Öl/Pulver/Fertig ⇒ meist ∅.</div>'
+    +'<datalist id="mzLeitDL"></datalist>'
+    +'<div id="mzList" style="font-size:13px;color:var(--muted)">Lade …</div>'
+  +'</div>';
+  try{ var rl=await client.rpc("cb_mikro_leit_liste"); var la=(rl&&rl.data)||[]; window._mzLeit=la;
+    var dl=document.getElementById("mzLeitDL"); if(dl){ dl.innerHTML=la.map(function(x){return '<option value="'+esc(x.name)+'"></option>';}).join(""); }
+  }catch(e){ window._mzLeit=[]; }
+  try{
+    var r=await client.rpc("cb_mikro_zuordnung_offen");
+    if(r.error) throw new Error(r.error.message);
+    var arr=r&&r.data; if(!Array.isArray(arr)) arr=[];
+    window._mzOffen=arr; mzRender();
+  }catch(e){ var l=document.getElementById("mzList"); if(l){ l.style.color="var(--k-dc2626)"; l.textContent="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e); } }
+}
+function mzConf(sim){ if(sim>=0.7) return ['sehr sicher','var(--k-166534)']; if(sim>=0.5) return ['sicher','var(--k-166534)']; if(sim>=0.34) return ['prüfen','var(--k-b45309)']; return ['unsicher','var(--k-dc2626)']; }
+function mzRender(){
+  var l=document.getElementById("mzList"); if(!l) return;
+  var arr=window._mzOffen||[];
+  if(!arr.length){ l.style.color="var(--k-166534)"; l.innerHTML="✓ Nichts mehr offen."; return; }
+  l.style.color="var(--ink)";
+  l.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:8px">'+arr.length+' Produkt(e) zu prüfen · nach Trefferqualität sortiert</div>'
+    + arr.map(function(o){
+      var c=mzConf(o.sim);
+      return '<div class="mzRow" data-pid="'+esc(o.produkt_id)+'" style="border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:9px">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b style="font-size:14px">'+esc(o.produkt)+'</b><span style="font-size:11px;color:'+c[1]+';white-space:nowrap;font-weight:700">'+c[0]+'</span></div>'
+        +'<div style="font-size:11.5px;color:var(--muted);margin:3px 0 8px">Zutat: <b>'+esc(o.zutat||'—')+'</b> · '+esc(String(o.n_zutaten))+' Zutat(en)</div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+          +'<span style="font-size:12px;color:var(--muted)">= Lebensmittel:</span>'
+          +'<input class="mzLeit" list="mzLeitDL" value="'+esc(o.leit_name||'')+'" style="flex:1;min-width:180px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink)">'
+          +'<button onclick="mzUebernehmen(this)" style="padding:7px 12px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:12.5px;cursor:pointer">✓ Übernehmen</button>'
+          +'<button onclick="mzKeine(this)" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font-weight:600;font-size:12px;cursor:pointer">∅ zusammengesetzt</button>'
+        +'</div>'
+        +'<div class="mzMsg" style="font-size:12px;margin-top:5px"></div>'
+      +'</div>';
+    }).join("");
+}
+async function mzUebernehmen(btn){
+  var row=btn.closest(".mzRow"); if(!row) return;
+  var pid=row.getAttribute("data-pid");
+  var inp=row.querySelector(".mzLeit"), msg=row.querySelector(".mzMsg");
+  var v=((inp.value||"").trim()).toLowerCase();
+  var leit=(window._mzLeit||[]).find(function(x){ return (x.name||"").toLowerCase()===v; });
+  if(!leit){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte ein Lebensmittel aus der Liste wählen (Name muss exakt passen)."; } return; }
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Übernehme …"; }
+  try{
+    var r=await client.rpc("cb_mikro_zuordnung_uebernehmen",{p_produkt:pid, p_leit:leit.id});
+    if(r.error) throw new Error(r.error.message);
+    if(msg){ msg.style.color="var(--k-166534)"; msg.innerHTML='✓ '+esc(String(r.data||0))+' Nährstoffe von „'+esc(leit.name)+'" übernommen.'; }
+    row.style.opacity="0.5"; var bs=row.querySelectorAll("button,input"); for(var i=0;i<bs.length;i++) bs[i].disabled=true;
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
+}
+async function mzKeine(btn){
+  var row=btn.closest(".mzRow"); if(!row) return;
+  var pid=row.getAttribute("data-pid"), msg=row.querySelector(".mzMsg");
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Merke …"; }
+  try{
+    var r=await client.rpc("cb_mikro_zuordnung_keine",{p_produkt:pid});
+    if(r.error) throw new Error(r.error.message);
+    if(msg){ msg.style.color="var(--k-166534)"; msg.textContent='✓ als „keine Angabe" gemerkt.'; }
+    row.style.opacity="0.5"; var bs=row.querySelectorAll("button,input"); for(var i=0;i<bs.length;i++) bs[i].disabled=true;
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
+}
+function mzClose(){ var ov=document.getElementById("mzOv"); if(ov) ov.style.display="none"; }
+if(typeof window!=='undefined'){ window.mikroZuordnungOpen=mikroZuordnungOpen; window.mzUebernehmen=mzUebernehmen; window.mzKeine=mzKeine; window.mzClose=mzClose; }
+
 /* ===== Wächter-Übersicht (Portal-M-Umbau, Ralph 24.07.2026) =====
    Der 🛡️-Bereichsknopf öffnet den täglichen TÜV: 10 harte Gates (müssen 0 sein) + offene Hinweise.
    Zahlen live aus cb_admin_waechter. */
@@ -12616,7 +12696,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25e";
+const APP_BUILD = "2026-07-25f";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
