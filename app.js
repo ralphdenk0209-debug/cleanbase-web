@@ -8909,10 +8909,21 @@ function feKatChange(){
   var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
-  var wc=document.getElementById("fe_wirkCard"); if(wc) wc.style.display=supp?"":"none";   /* nur noch Wirkstoff-Tabelle, nur bei Supplement (Ralph 25.07.) */
-  var wtc=document.getElementById("fe_wirkTblCol"); if(wtc) wtc.style.display="";
-  try{ fgRefMountFoto(); }catch(e){}   /* Etikett-Lesebox in die Rueckseite der Referenz-Karte haengen */
-  if(supp){ try{ feWirkFarbeAll(); }catch(e){} }   /* Wirkstoff-Ampel nur bei Supplement */
+  var special=_fgIstSpecial();   /* Supplement/Salze: Bild NEBEN der Wirkstoff-/Mineral-Tabelle, kein Lebensmittel-Score (Ralph 25.07.) */
+  var _wcol=document.getElementById("fe_wirkFotoCol"), _wg=document.getElementById("fe_wirkGrid"), _wback=document.getElementById("fe_refBack"), _wfbtn=document.getElementById("fe_refFlipBtn"), _wc=document.getElementById("fe_wirkCard"), _wtc=document.getElementById("fe_wirkTblCol");
+  if(special){
+    if(_wcol && _wg && _wcol.parentNode!==_wg){ _wg.appendChild(_wcol); }   /* Etikett-Box zurueck neben die Tabelle */
+    if(_wg) _wg.style.gridTemplateColumns="1fr 1fr";
+    if(_wc) _wc.style.display=""; if(_wtc) _wtc.style.display="";
+    if(_wfbtn) _wfbtn.style.display="none";   /* kein Umdrehen bei Supplement/Salze */
+    try{ fgRefFlip(false); }catch(e){}
+    try{ feWirkFarbeAll(); }catch(e){}
+  } else {
+    if(_wcol && _wback && _wcol.parentNode!==_wback){ _wback.appendChild(_wcol); }   /* normale Produkte: Etikett-Box in die Referenz-Rueckseite (Flip) */
+    if(_wc) _wc.style.display="none";
+    if(_wfbtn) _wfbtn.style.display="";
+  }
+  try{ fgWirkFotoRender(); }catch(e){}
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
@@ -9078,6 +9089,7 @@ if(typeof window!=='undefined'){ window.fgWirkFotoRiki=fgWirkFotoRiki; }
    dann den kcal-Riegel (physikalische Checks Zucker>KH etc. bleiben hart). */
 function fgKcalOkSet(v){ if(!window._fgEdit){ window._fgEdit={}; } window._fgEdit.kcalOk=!!v; try{ fePlaus(); }catch(e){} }
 if(typeof window!=='undefined'){ window.fgKcalOkSet=fgKcalOkSet; }
+function _fgIstSpecial(){ var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()); return (k==="supplement"||k==="salze"); }
 function fgRefMountFoto(){
   var col=document.getElementById('fe_wirkFotoCol'), back=document.getElementById('fe_refBack');
   if(col && back && col.parentNode!==back){ back.appendChild(col); }
@@ -9095,6 +9107,7 @@ function fgRefFlip(toBack){
 function fgRefShowFoto(j){
   window._fgWirkFoto=window._fgWirkFoto||{ idx:0, scale:1, x:0, y:0, baseFit:1 };
   window._fgWirkFoto.idx=(j||0);
+  if(_fgIstSpecial()){ try{ fgWirkFotoRender(); }catch(e){} return; }   /* Supplement/Salze: Box steht neben der Tabelle */
   try{ fgRefMountFoto(); }catch(e){}
   fgRefFlip(true);
 }
@@ -13495,7 +13508,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25z";
+const APP_BUILD = "2026-07-26a";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
