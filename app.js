@@ -11281,7 +11281,7 @@ function mealChips(m){
   return (""+m).split(",").map(s=>s.trim()).filter(Boolean).map(x=>
     `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-eef6ff);color:var(--k-1e3a8a)">${esc(x)}</span>`).join("");
 }
-function editRezept(id){ openRezeptForm(id); }
+function editRezept(id){ openRezeptNeu(id); }
 async function loadRezepte(){
   const {data,error}=await client.rpc("cb_rezepte_list");
   if(error){document.getElementById("rezeptStats").textContent="Fehler: "+error.message;return;}
@@ -12142,12 +12142,40 @@ function _rnMacros(pid, grams){
   var has = (pr.m_kcal!=null)||(pr.m_protein!=null)||(pr.m_kh!=null)||(pr.m_fett!=null);
   return {kcal:_rnNum(pr.m_kcal)*f, protein:_rnNum(pr.m_protein)*f, kh:_rnNum(pr.m_kh)*f, fett:_rnNum(pr.m_fett)*f, hasN:has};
 }
-function openRezeptNeu(){
+function openRezeptNeu(editId){
   if(!ME){ openLogin(); return; }
   if(!hasFeat('rezepte_anlegen')){ premiumInfo(); return; }
-  window._rn={ foto:null, fotoUrl:null, zutaten:[] };
-  if(!(ALL&&ALL.length)){ load().then(function(){ rnBuildOverlay(); rnMain(); }).catch(function(){ rnBuildOverlay(); rnMain(); }); }
-  else { rnBuildOverlay(); rnMain(); }
+  window._rn={ foto:null, fotoUrl:null, zutaten:[], editId:null };
+  var go=function(){ if(editId) rnPrefill(editId); rnBuildOverlay(); rnMain(); };
+  if(!(ALL&&ALL.length)){ load().then(go).catch(go); } else { go(); }
+}
+function rnPrefill(editId){
+  var ed=(REZEPTE||[]).find(function(x){return x.id===editId;}) || (window._rezept&&window._rezept.id===editId?window._rezept:null);
+  if(!ed) return;
+  var rn=window._rn; rn.editId=ed.id; rn.name=ed.name||""; rn.portionen=ed.portionen||1;
+  rn.zeit=(ed.zeit_min!=null?ed.zeit_min:(ed.zeit!=null?ed.zeit:"")); rn.ef=ed.ernaehrungsform||""; rn.prep=ed.zubereitung||"";
+  rn.mahlzeiten=(""+(ed.mahlzeiten||"")).split(",").map(function(s){return s.trim();}).filter(Boolean);
+  rn.fotoUrl=ed.bild_url||ed.bild||null;
+  var zs=Array.isArray(ed.zutaten)?ed.zutaten:[];
+  rn.zutaten=zs.map(function(z){
+    var pid=z.produkt_id||null; var g=(z.menge_g!=null?num(z.menge_g):null);
+    var pr=pid?(ALL||[]).find(function(x){return x.id===pid;}):null;
+    var m=(pid&&g!=null)?_rnMacros(pid,g):{kcal:null,protein:null,kh:null,fett:null,hasN:false};
+    return { produkt_id:pid, name:(pr&&typeof prodLabel==="function"?prodLabel(pr):(z.name||"")),
+      menge_g:(g!=null?g:null), menge_anzeige:(z.menge||(g!=null?Math.round(g)+" g":"")),
+      clean_score:(pr?num(pr.clean_score):null),
+      kcal:m.hasN?m.kcal:null, protein:m.hasN?m.protein:null, kh:m.hasN?m.kh:null, fett:m.hasN?m.fett:null };
+  });
+}
+function _rnFluxHtml(){
+  var z=(window._rn&&window._rn.zutaten)||[]; if(!z.length) return "";
+  var fobj={zutaten:z};
+  var ax=(typeof rezeptFluxAchsen==="function")?rezeptFluxAchsen(fobj):null;
+  var sc=(typeof rezeptScore==="function")?rezeptScore(fobj):null;
+  if(!ax || sc==null) return "";
+  var col=(typeof farbe==="function"&&typeof scoreBew==="function")?farbe(scoreBew(sc)):"#16a34a";
+  return '<div style="display:flex;justify-content:center;margin-bottom:8px">'+fluxRingHtml(ax,sc,col,120)+'</div>'
+    +'<div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:10px">Rezept-Index '+Math.round(sc)+' · &Oslash; der Zutaten-Indizes (nach Gewicht)</div>';
 }
 function rnBuildOverlay(){
   var ov=document.getElementById("rnOv"); if(ov) ov.remove();
@@ -12170,8 +12198,9 @@ function rnMain(){
   var t=rnTotals();
   var pad='padding:0 16px';
   var card='background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 16px 14px';
-  var html=_rnHead("Rezept erstellen","rnClose()");
+  var html=_rnHead(rn.editId?"Rezept bearbeiten":"Rezept erstellen","rnClose()");
   html+='<div style="'+pad+';padding-top:14px">';
+  html+=_rnFluxHtml();
   // Foto
   html+='<div onclick="rnFotoPick()" style="border:1px dashed var(--k-9ca3af,#9ca3af);border-radius:14px;padding:18px;text-align:center;cursor:pointer;margin-bottom:12px;background:var(--card)">'
     + (rn.fotoUrl ? '<img src="'+rn.fotoUrl+'" style="max-height:120px;max-width:100%;border-radius:10px">' : '<div style="font-size:26px">⬆️</div><div style="font-size:12.5px;color:var(--muted);margin-top:4px">Rezeptfoto (optional)</div>')
@@ -12316,7 +12345,7 @@ function rnAddFromDetail(){
   var m=_rnMacros(cur.pid,cur.g);
   var disp=(cur.amt>0)?(String(cur.amt).replace(/\.0$/,"")+" "+cur.unit):(Math.round(cur.g)+" g");
   window._rn.zutaten.push({ produkt_id:cur.pid, name:(typeof prodLabel==="function"?prodLabel(p):p.name),
-    menge_g:Math.round(cur.g*10)/10, menge_anzeige:disp, amount:cur.amt, unit:cur.unit,
+    menge_g:Math.round(cur.g*10)/10, menge_anzeige:disp, amount:cur.amt, unit:cur.unit, clean_score:num(p.clean_score),
     kcal:m.hasN?m.kcal:null, protein:m.hasN?m.protein:null, kh:m.hasN?m.kh:null, fett:m.hasN?m.fett:null });
   window._rnCur=null;
   rnGoSearch();
@@ -12358,7 +12387,7 @@ async function rnSave(){
   if(!rn.zutaten.length){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte mindestens eine Zutat hinzufügen."; } return; }
   var port=Math.max(1, parseInt(rn.portionen)||1);
   var t=rnTotals();
-  var payload={ name:name, portionen:String(port),
+  var payload={ name:name, rezept_id:(rn.editId||null), portionen:String(port),
     kcal:String(Math.round(t.kcal/port)), protein:String(Math.round(t.protein/port*10)/10),
     kh:String(Math.round(t.kh/port*10)/10), fett:String(Math.round(t.fett/port*10)/10),
     zeit:rn.zeit||null, ernaehrungsform:rn.ef||null, zubereitung:rn.prep||"",
