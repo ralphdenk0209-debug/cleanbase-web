@@ -5929,7 +5929,7 @@ function ktAntwort(i){ const x=(window._ktList||[])[i]; if(!x||!x.email) return;
 function buildMehr(){
   /* Training ist aus der unteren Leiste hierher gewandert - es ist die Funktion,
      die man am seltensten braucht. Der Platz gehoert dem Scannen. */
-  const items=[['einkauf','🛒 Einkaufsliste'],['rezepte','🍲 Rezepte'],['training','🏋️ Training'],['planer','📅 Planer'],['profil','👤 Mein Profil']];
+  const items=[['einkauf','🛒 Einkaufsliste'],['rezepte','🍲 Rezepte'],['training','🏋️ Training'],['planer','📅 Planer'],['profil','👤 Mein Profil'],['supp','🔁 Meine Supplements']];
   let html='<div class="mgrid">'+items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('')+'</div>';
   /* Wiki direkt unter die Funktionen - es erklaert die App und wird oft zuerst gesucht. */
   html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert Root Index</button>';
@@ -12919,7 +12919,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-25l";
+const APP_BUILD = "2026-07-25m";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
