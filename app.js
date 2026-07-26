@@ -4464,6 +4464,32 @@ const KATEGORIEN=["Backen","Brot & Backwaren","Brotaufstrich","Energy-Gel","Fert
   "Getreide & Beilagen","Milchprodukte & Eier","Nüsse & Hülsenfrüchte","Obst & Gemüse","Öle & Fette",
   "Proteinpulver","Riegel","Snacks","Supplement","Süßungsmittel","Süßwaren",
   "Tofu & Fleischalternativen","Würzen & Saucen","Salze","Lebensmittel","Sonstiges"];
+/* ===== Kategorie-Vorschlag von Riki pruefen (Ralph 27.07.2026) =====
+   Riki liefert kategorie_vorschlag als FREIEN TEXT. Bisher wurde er ungeprueft ins Dropdown
+   geschrieben - und ein <select> ignoriert stillschweigend jeden Wert, den es nicht als <option>
+   gibt. Ergebnis: das Feld blieb einfach leer, ohne Hinweis. Genau das hat Ralph gesehen.
+   🔴 Im Bestand stehen dadurch Kategorien, die es gar nicht gibt: "Backzutaten & Hilfsstoffe",
+   "Wasser", "Fleischalternative / Pilzprodukt" (6 Produkte, 27.07.). Eine Kategorie steuert die
+   Naehrwert-Logik - eine erfundene ist ein Score-Fehler, kein Schoenheitsfehler.
+   Deshalb: nur uebernehmen, was EXAKT auf der Liste steht (Schreibweise wird toleriert,
+   Bedeutung nicht). Kein Treffer = nichts setzen, der Mensch waehlt. */
+function katVorschlagPruefen(v){
+  var roh=String(v==null?"":v).trim();
+  if(!roh) return null;
+  /* Umlaut UND Ersatzschreibung zusammenfuehren: "Getraenk" muss "Getränk" treffen.
+     Genau derselbe Fall wie bei _zusNorm (Build 26u, "Apfelsaeure") - dort behoben, hier
+     zuerst wieder vergessen. Der eigene Test hat es gefunden. */
+  var norm=function(x){ return String(x||"").toLowerCase()
+    .replace(/\u00df/g,"ss").replace(/[\u00e4]/g,"a").replace(/[\u00f6]/g,"o").replace(/[\u00fc]/g,"u")
+    .replace(/ae/g,"a").replace(/oe/g,"o").replace(/ue/g,"u")
+    .replace(/[^a-z0-9]/g,""); };
+  var liste=(typeof KATEGORIEN!=="undefined")?KATEGORIEN:[];
+  for(var i=0;i<liste.length;i++){ if(liste[i]===roh) return liste[i]; }        /* exakt */
+  var k=norm(roh), treffer=[];
+  for(var j=0;j<liste.length;j++){ if(norm(liste[j])===k) treffer.push(liste[j]); }
+  return (treffer.length===1)?treffer[0]:null;   /* nur EINDEUTIG, sonst nichts (§5c) */
+}
+if(typeof window!=="undefined"){ window.katVorschlagPruefen=katVorschlagPruefen; }
 function katSelectHtml(id, aktuell, styleOverride, onChange, leerText){
   var a=(aktuell||"").trim();
   var opts=KATEGORIEN.slice();
@@ -8559,7 +8585,16 @@ function fgPickRikiUebernehmen(){
     if(res.error||!(res.data&&res.data.ok)){ if(box) box.innerHTML='<div style="color:var(--k-b45309);font-size:12.5px">Konnte nicht übernehmen: '+esc((res.error&&res.error.message)||"")+'</div>'; return; }
     var rr=res.data.rating;
     if(typeof ZUTATEN_MAP!=="undefined"&&ZUTATEN_MAP){ ZUTATEN_MAP[vs.name.toLowerCase()]={rating:rr,kritisch:"nein"}; }
-    if(Array.isArray(ZUTATEN_STAMM)){ ZUTATEN_STAMM.push({name:vs.name,rating:rr,kritisch:"nein"}); }
+    if(Array.isArray(ZUTATEN_STAMM)){
+      /* EINSORTIEREN statt anhaengen (Ralph 27.07.): der Stamm ist alphabetisch (cb_zutaten_liste
+         sortiert nach "Zutat"), und der Picker uebernimmt diese Reihenfolge. Ein push() haengt die
+         neue Zutat ans ENDE - bei 1739 Eintraegen findet man sie dann nur ueber die Suche, beim
+         Blaettern steht sie an einer Stelle, an der niemand sie erwartet. */
+      var _neu={name:vs.name,rating:rr,kritisch:"nein"};
+      var _pos=ZUTATEN_STAMM.findIndex(function(z){
+        return String(z&&z.name||"").localeCompare(String(vs.name||""),"de") > 0; });
+      if(_pos<0) ZUTATEN_STAMM.push(_neu); else ZUTATEN_STAMM.splice(_pos,0,_neu);
+    }
     var c=document.getElementById("fe_zutRows"); var key=vs.name.toLowerCase();
     var exists=c&&[].some.call(c.querySelectorAll(".fgZutRow"),function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key; });
     if(c&&!exists) c.insertAdjacentHTML("beforeend", fgZutRow(vs.name, rr, "nein"));
@@ -10314,7 +10349,7 @@ async function fgPullResearch(files, b64arr){
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     var vz=document.getElementById("fe_verzehr"); if(vz&&v.verzehrempfehlung&&!vz.value) vz.value=v.verzehrempfehlung;
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
-    var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
+    var ke=document.getElementById("fe_kat"); if(ke&&!ke.value){ var _kv=katVorschlagPruefen(v.kategorie_vorschlag); if(_kv) ke.value=_kv; }   /* nur gueltige Kategorien (Ralph 27.07.) */
     var ue=document.getElementById("fe_url"); if(ue&&d.quelle_url&&!ue.value.trim()) ue.value=d.quelle_url;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
     try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */
@@ -10373,7 +10408,7 @@ async function fgPullEtikett(files, b64arr){
     var ne=document.getElementById("fe_name"); if(ne&&v.name&&!ne.value) ne.value=v.name;
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
-    var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
+    var ke=document.getElementById("fe_kat"); if(ke&&!ke.value){ var _kv=katVorschlagPruefen(v.kategorie_vorschlag); if(_kv) ke.value=_kv; }   /* nur gueltige Kategorien (Ralph 27.07.) */
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
     try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
@@ -11305,7 +11340,7 @@ async function etikettResearch(){
     const quelle=(d&&d.quelle_url)||v.quelle_url||"";
     const warn=(d&&Array.isArray(d.warnungen)&&d.warnungen.length)?(" Hinweis: "+d.warnungen.join(" · ")):"";
     etikettClose();
-    openFgEditor(null, { name:v.name||"", marke:v.marke||"", ean:(v.ean||ETI_EAN||""), kategorie:v.kategorie_vorschlag||"",
+    openFgEditor(null, { name:v.name||"", marke:v.marke||"", ean:(v.ean||ETI_EAN||""), kategorie:(katVorschlagPruefen(v.kategorie_vorschlag)||""),   /* nur gueltige Kategorien (Ralph 27.07.) */
       naehrwerte:nw, zutaten:zut, zusatzstoffe_text:(v.zusatzstoffe&&v.zusatzstoffe.text)||"", fotos:arr.slice(),
       hinweis:"Von Riki_Research aus dem Web recherchiert – VORSCHLAG. Quelle: "+(quelle||"?")+". Gegen die Quelle/das Etikett prüfen, Quelle-Typ + Beleg (URL) eintragen, dann als Entwurf speichern."+warn });
   }catch(e){ etiMsg("Fehler: "+(e&&e.message?e.message:e),"var(--k-dc2626)"); }
@@ -11388,7 +11423,7 @@ async function etikettSend(){
     if(ETI_EAN){
       try{
         await client.rpc("cb_scan_cache_schreiben",{
-          p_ean:String(ETI_EAN), p_name:v.name||null, p_marke:v.marke||null, p_kategorie:v.kategorie_vorschlag||null,
+          p_ean:String(ETI_EAN), p_name:v.name||null, p_marke:v.marke||null, p_kategorie:(katVorschlagPruefen(v.kategorie_vorschlag)||null),   /* nie eine erfundene Kategorie speichern (Ralph 27.07.) */
           p_naehrwerte:v.naehrwerte_100g||null, p_zutaten:v.zutaten||null, p_zusatzstoffe:v.zusatzstoffe||null,
           p_score: d.score_erlaubt?vorlScore(v.naehrwerte_100g):null,
           p_score_erlaubt: !!d.score_erlaubt,
@@ -14240,7 +14275,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-27i";
+const APP_BUILD = "2026-07-27k";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
