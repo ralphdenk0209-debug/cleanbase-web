@@ -7900,6 +7900,7 @@ async function loadZusatzstoffeStamm(){
   all.forEach(function(z){
     if(z.e) ZUSATZSTOFFE_MAP[String(z.e).trim().toLowerCase()]=z;
     if(z.name) ZUSATZSTOFFE_MAP[String(z.name).trim().toLowerCase()]=z;
+    if(z.name_de) ZUSATZSTOFFE_MAP[String(z.name_de).trim().toLowerCase()]=z;   /* deutscher DB-Name (Ralph 25.07.) */
   });
 }
 /* Aroma ist KEIN Zusatzstoff (VO 1334/2008, nicht 1333/2008 – Prinzip 2 / §1.11m): es wirkt nur
@@ -8001,12 +8002,12 @@ function zusRenderPick(){
   _zusSynMaps(); var _synDe=window.__zusSynDe||{}, _synAll=window.__zusSynDeAll||{};   /* deutsche Namen (Anzeige+Suche) */
   var isSel=function(z){ return !!selE[String(z.e||"").toLowerCase()]; };
   var checked=all.filter(isSel), rest=all.filter(function(z){ return !isSel(z); });
-  if(q){ var mm=function(z){ var _e=String(z.e||"").toLowerCase(); return _e.indexOf(q)>=0 || String(z.name||"").toLowerCase().indexOf(q)>=0 || (_synAll[_e]||[]).join(" ").indexOf(q)>=0; }; checked=checked.filter(mm); rest=rest.filter(mm); }
+  if(q){ var mm=function(z){ var _e=String(z.e||"").toLowerCase(); return _e.indexOf(q)>=0 || String(z.name||"").toLowerCase().indexOf(q)>=0 || String(z.name_de||"").toLowerCase().indexOf(q)>=0 || (_synAll[_e]||[]).join(" ").indexOf(q)>=0; }; checked=checked.filter(mm); rest=rest.filter(mm); }
   var shown=checked.concat(rest);
   var row=function(z){ var on=isSel(z); var f=zusFarbe(z.einstufung);
     return '<label style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(on?"background:var(--greenlt,#eef7f0)":"")+'">'
       +'<input type="checkbox" '+(on?"checked":"")+' onchange="zusToggle(\''+esc(z.e)+'\')" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'
-      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+(function(){ var _de=_synDe[String(z.e||"").toLowerCase()]; return _de?(esc(_zusCap(_de))+' <span style="color:var(--muted);font-size:11px">'+esc(z.name)+'</span>'):esc(z.name); })()+(z.e?' <span style="color:var(--muted);font-size:11.5px">'+esc(z.e)+'</span>':'')+'</span>'
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+(function(){ var _de=z.name_de||_synDe[String(z.e||"").toLowerCase()]||z.name; return (_de&&_de!==z.name)?(esc(_de)+' <span style="color:var(--muted);font-size:11px">'+esc(z.name)+'</span>'):esc(z.name); })()+(z.e?' <span style="color:var(--muted);font-size:11.5px">'+esc(z.e)+'</span>':'')+'</span>'
       +'<span style="display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:11.5px;color:var(--muted)"><span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'+f.label+'</span>'
       +'</label>'; };
   var _st=box.scrollTop;
@@ -13535,7 +13536,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26f";
+const APP_BUILD = "2026-07-26g";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
