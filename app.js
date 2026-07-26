@@ -7986,7 +7986,18 @@ function zusSync(){
 /* zusRenderSel: eigener Auswahl-Kasten entfällt – die Auswahl steht (wie beim Zutaten-Picker)
    angehakt OBEN in derselben Liste. Diese Funktion synchronisiert nur noch das „Keine
    Zusatzstoffe"-Häkchen und zeichnet die Liste neu, damit alle alten Aufrufstellen weiter gelten. */
-function zusRenderSel(){ zusRenderPick(); }
+function zusRenderSel(){
+  var kc=document.getElementById("fe_zusKeine"); if(kc) kc.checked=((window._fgZus||[]).length===0);
+  var box=document.getElementById("fe_zusChosen");
+  if(box){
+    var arr=window._fgZus||[];
+    box.innerHTML = arr.length ? arr.map(function(z,i){
+      var f=zusFarbe(z.einst||z.einstufung);
+      return '<div style="display:grid;grid-template-columns:12px 1fr auto 22px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);font-size:13px"><span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+'"></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(z.name)+(z.e?' <span style="color:var(--muted);font-size:11.5px">'+esc(z.e)+'</span>':'')+'</span><span style="font-size:11px;color:var(--muted);white-space:nowrap">'+f.label+'</span><button type="button" onclick="zusDel('+i+')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1;padding:0">✕</button></div>';
+    }).join('') : '<div style="padding:9px;color:var(--muted);font-size:12.5px">noch keine – über „+ Zusatzstoff“ hinzufügen (oder „keine“ anhaken)</div>';
+  }
+  zusRenderPick();
+}
 /* Zusatzstoffe-Picker – IDENTISCH zum Zutaten-Picker (Ralph 23.07.2026): volle, scrollbare
    Häkchen-Liste des ganzen Zusatzstoff-Stamms, Ausgewählte immer oben, Suche filtert.
    Rechts statt einer Zahl der Gesundheits-Punkt (unbedenklich/abgewertet/ungeprüft) + Text. */
@@ -8077,6 +8088,29 @@ async function zusFromRiki(zObj){
   try{ zusSync(); zusRenderSel(); zusRenderPick(); }catch(e){}
 }
 if(typeof window!=='undefined'){ window.zusToggle=zusToggle; window.zusDel=zusDel; window.zusKeineToggle=zusKeineToggle; window.zusAddNeu=zusAddNeu; window.zusRenderPick=zusRenderPick; }
+/* Zusatzstoff hinzufuegen ueber ein Fenster (Ralph 26.07., Schritt 2 von 3): die Karte zeigt nur noch die
+   AUSGEWAEHLTEN Zusatzstoffe (zusRenderSel -> #fe_zusChosen); Suche + volle Stamm-Liste + "nicht im Stamm"
+   liegen in diesem Modal. window._fgZus / zusRenderSel bleiben die einzige Wahrheit, daher wirken Riki-Import,
+   Referenz-Gruen und der Trennmittel-Mover unveraendert. */
+function zusNeuKey(e){ if(e&&e.key==='Enter'){ e.preventDefault(); zusAddNeu(); } }
+function zusModalOpen(){
+  var ov=document.getElementById('fe_zusOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='fe_zusOv'; ov.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px'; document.body.appendChild(ov); }
+  ov.style.display='flex';
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px"><div style="font-weight:800;font-size:16px">Zusatzstoff hinzufügen</div><button type="button" onclick="zusModalClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
+    +'<input id="fe_zusSuche" oninput="zusRenderPick()" placeholder="🔍 Zusatzstoff / E-Nummer suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);margin-bottom:8px">'
+    +'<div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span title="enthalten">☑</span><span>Zusatzstoff</span><span style="text-align:right">Einstufung</span></div>'
+    +'<div id="fe_zusList" style="max-height:52vh;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card)"></div>'
+    +'<div style="display:flex;gap:6px;margin-top:8px"><input id="fe_zusNeu" onkeydown="zusNeuKey(event)" placeholder="nicht im Stamm? Name/E-Nummer…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--bg);color:var(--ink)"><button type="button" onclick="zusAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button></div>'
+    +'<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:9px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>unbedenklich</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#c0392b;vertical-align:middle;margin-right:4px"></span>abgewertet</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9aa7b2;vertical-align:middle;margin-right:4px"></span>ungeprüft</span></div>'
+    +'<div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="button" onclick="zusModalClose()" style="padding:8px 16px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;font-weight:700">Fertig</button></div>'
+  +'</div>';
+  try{ zusRenderPick(); }catch(e){}
+  try{ var si=document.getElementById('fe_zusSuche'); if(si) si.focus(); }catch(e){}
+}
+function zusModalClose(){ var ov=document.getElementById('fe_zusOv'); if(ov) ov.style.display='none'; }
+if(typeof window!=='undefined'){ window.zusModalOpen=zusModalOpen; window.zusModalClose=zusModalClose; window.zusNeuKey=zusNeuKey; window.zusRenderSel=zusRenderSel; }
 /* Auto-Umleitung (Ralph 25.07.): ein Zusatzstoff, den Riki faelschlich als ZUTAT gelistet hat (z.B.
    "Natriumferrocyanid (Trennmittel)"), gehoert nach RECHTS zu den Zusatzstoffen und darf nicht als Zutat
    bewertet werden. Eindeutige Signale: (a) Funktionswort in Klammern (Trennmittel/Konservierungsmittel/...)
@@ -8984,13 +9018,8 @@ async function openFgEditor(id, prefill, targetEl){
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
           <div id="fgOffBox" style="margin-top:8px"></div>`)}</div><div>${card("Zusatzstoffe",`
           <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:8px;cursor:pointer"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">Keine Zusatzstoffe im Produkt</label>
-          <input id="fe_zusSuche" oninput="zusRenderPick()" placeholder="🔍 Zusatzstoff / E-Nummer suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:8px">
-          <div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span title="enthalten">☑</span><span>Zusatzstoff</span><span style="text-align:right">Einstufung</span></div>
-          <div id="fe_zusList" style="max-height:420px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card)"></div>
-          <div style="display:flex;gap:6px;margin-top:6px">
-            <input id="fe_zusNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();zusAddNeu();}" placeholder="nicht im Stamm? Name/E-Nummer…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)">
-            <button type="button" onclick="zusAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button>
-          </div>
+          <div id="fe_zusChosen" style="border:1px solid var(--line);border-radius:8px;background:var(--card);padding:2px 0;min-height:40px"></div>
+          <button type="button" onclick="zusModalOpen()" style="margin-top:8px;padding:8px 13px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;font-weight:700">+ Zusatzstoff</button>
           <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:7px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>unbedenklich</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#c0392b;vertical-align:middle;margin-right:4px"></span>abgewertet (drückt den Index)<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9aa7b2;vertical-align:middle;margin-right:4px"></span>ungeprüft</span></div>
           <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text||"keine")}">
           <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
@@ -13709,7 +13738,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26q";
+const APP_BUILD = "2026-07-26r";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
