@@ -7976,6 +7976,17 @@ function _zusSplitTop(t){
    Aussage 'nichts deklariert' (Ralph 25.07.). Riki schreibt so etwas manchmal in den Zusatzstoff-Text;
    ohne diese Abwehr landet es als grauer, ungepruefter Phantom-Eintrag, unterdrueckt den Index und
    zeigt die verwirrende Freigabe-Meldung '1 Zusatzstoff nicht eingestuft'. */
+/* „Trennmittel Natriumferrocyanid" ist der Stoff DAHINTER – das Funktionswort davor beschreibt nur,
+   wozu er dient (§2 Prinzip 7). Bisher wurde es nur beim Referenz-VERGLEICH abgestreift, nicht beim
+   EINLESEN: dadurch entstand ein zweiter, unbekannter Zusatzstoff-Eintrag neben dem richtigen E535 –
+   und ein nicht eingestufter Zusatzstoff unterdrueckt nach §1.11k den ganzen Index. Ralphs Fund 26.07. */
+function _zusOhneFunktionswort(nm){
+  var t=String(nm||"").replace(/\([^)]*\)/g," ").replace(/^als\s+/i,"").replace(/[:.,;]/g," ").replace(/\s+/g," ").trim().toLowerCase();
+  if(typeof ZUS_FUNKTION==="undefined") return t;
+  var w=t.split(" ");
+  while(w.length>1 && ZUS_FUNKTION[w[0]]) w.shift();
+  return w.join(" ");
+}
 function _zusIstLeer(nm){ nm=String(nm||"").trim().toLowerCase(); if(!nm || /^keine\b/.test(nm) || /^(k\.?\s?a\.?|n\/a|-|\u2013|nicht deklariert|nicht angegeben|entfaellt)$/.test(nm)) return true; if(/^\(?(i{1,3}|iv|vi{0,3}|ix|x{1,3})\)?$/.test(nm)) return true;   /* Bruchstueck einer Aufzaehlung „(i) … (ii) …" – kein Stoff (Ralph 26.07.) */
   var np=nm.replace(/\([^)]*\)/g,"").replace(/^als\s+/,"").replace(/[:.]/g,"").replace(/\s+/g," ").trim(); return (typeof ZUS_FUNKTION!=="undefined" && !!ZUS_FUNKTION[np]); }
 function zusSeed(text){
@@ -8007,6 +8018,9 @@ function zusSeed(text){
     if(!found){ var _in=(tok.match(/\(([^)]*)\)/)||[])[1]; if(_in){ var il=_in.trim().toLowerCase(); var iem=_in.match(/\bE\s?\d{3,4}[a-z]?\b/i);
       found=(iem?ZUSATZSTOFFE_MAP[iem[0].replace(/\s/g,"").toLowerCase()]:null) || ZUSATZSTOFFE_MAP[il] || ((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[il])?ZUSATZSTOFFE_MAP[String(ZUS_SYN[il]).toLowerCase()]:null); } }
     if(!found) found=_zusFindStamm(nm);   /* Schreibvariante, nur eindeutig – Ralph 26.07. */
+    /* Funktionswort davor abstreifen: „Trennmittel Natriumferrocyanid" -> E535, statt zweiter Geister-Eintrag */
+    if(!found){ var _o=_zusOhneFunktionswort(tok);
+      if(_o && _o!==nm){ found=ZUSATZSTOFFE_MAP[_o] || ((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[_o])?ZUSATZSTOFFE_MAP[String(ZUS_SYN[_o]).toLowerCase()]:null) || _zusFindStamm(_o); } }
     var key = found ? ('e:'+String(found.e).toLowerCase()) : ('n:'+(nm||low));
     if(seen[key]) return; seen[key]=1;
     if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
@@ -8129,6 +8143,9 @@ async function zusFromRiki(zObj){
     var eNr=em?em[0].replace(/\s/g,"").toUpperCase():(ZUS_SYN[low]||null);
     var found=eNr?ZUSATZSTOFFE_MAP[eNr.toLowerCase()]:ZUSATZSTOFFE_MAP[low];
     if(!found) found=_zusFindStamm(namePur);   /* Schreibvariante (Apfel-/Äpfelsäure), nur eindeutig – Ralph 26.07. */
+    if(!found){ var _o2=_zusOhneFunktionswort(tok);
+      if(_o2 && _o2!==low){ found=ZUSATZSTOFFE_MAP[_o2] || ((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[_o2])?ZUSATZSTOFFE_MAP[String(ZUS_SYN[_o2]).toLowerCase()]:null) || _zusFindStamm(_o2);
+        if(found && !eNr) eNr=String(found.e||"").toUpperCase()||null; } }
     if(!found && !eNr) eNr=null;
     var dedup=(eNr||low);
     if(hasKey(eNr||"")||hasKey(low)||(found&&hasKey(String(found.e||"")))) return;   /* schon drin */
@@ -8537,17 +8554,27 @@ function _fgZusKeys(){ var k={};
 /* EINE Regel, ein Ort (§1.11i): fgEnthaltenRender (Farbe) und _fgAbweichungRef (Freigabe-Riegel)
    hatten diesen Abgleich zweimal kopiert – dieselbe Falle wie §1.2c. Jetzt entscheidet nur diese
    Funktion, ob ein Referenz-Eintrag schon erfasst ist. (Ralph 26.07.) */
+/* Schluessel der Zusatzstoffe, die zwar ERFASST, aber nicht eingestuft sind (nicht im Stamm oder
+   ungeprueft). Sie unterdruecken nach §1.11k den Index – in der Referenz duerfen sie deshalb NICHT
+   wie sauber uebernommene Eintraege aussehen. Ralphs Wunsch 26.07.: „eindeutig kennzeichnen". */
+function _fgZusUnklarKeys(){ var k={};
+  var add=function(v){ if(!v) return; k[String(v).trim().toLowerCase()]=1; try{ var n=_zusNorm(v); if(n&&n.length>=4) k["~"+n]=1; }catch(e){} };
+  (window._fgZus||[]).forEach(function(z){
+    var e=String(z.einst||z.einstufung||"").toLowerCase();
+    var unklar = z.nf || !e || e==="ungeprüft" || e==="ungeprueft";
+    if(!unklar) return;
+    if(z.e) k[String(z.e).toLowerCase()]=1;
+    add(z.name);
+    var st=(typeof ZUSATZSTOFFE_MAP!=="undefined"&&z.e)?ZUSATZSTOFFE_MAP[String(z.e).toLowerCase()]:null;
+    if(st){ add(st.name); add(st.name_de); }
+  });
+  return k; }
 function _fgRefStatus(raw, work, zk){
   var low=String(raw||"").trim().toLowerCase();
   var _np=low.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim();
   /* fuehrendes Funktionswort abstreifen: „Trennmittel Natriumferrocyanid" ist der Stoff dahinter
      (das Funktionswort allein faengt schon _zusIstLeer ab). */
-  var _ohne=_np;
-  if(typeof ZUS_FUNKTION!=="undefined"){
-    var w=_np.split(" ");
-    while(w.length>1 && ZUS_FUNKTION[w[0]]) w.shift();
-    _ohne=w.join(" ");
-  }
+  var _ohne=_zusOhneFunktionswort(raw)||_np;
   var em=String(raw||"").match(/\bE\s?\d{3,4}[a-z]?\b/i);
   var eNr=em?em[0].replace(/\s/g,"").toLowerCase()
           :((typeof ZUS_SYN!=="undefined"&&(ZUS_SYN[low]||ZUS_SYN[_np]||ZUS_SYN[_ohne]))?String(ZUS_SYN[low]||ZUS_SYN[_np]||ZUS_SYN[_ohne]).toLowerCase():null);
@@ -8559,8 +8586,36 @@ function _fgRefStatus(raw, work, zk){
     var nk=null; try{ var n=_zusNorm(_ohne); if(n&&n.length>=4) nk="~"+n; }catch(e){}
     if((eNr&&zk[eNr])||zk[low]||zk[_np]||zk[_ohne]||(nk&&zk[nk])){ inList=true; asZusatz=true; }
   }
-  return {inList:inList, asZusatz:asZusatz, isZus:isZus, eNr:eNr};
+  var unklar=false;
+  if(inList && asZusatz){
+    var uk=_fgZusUnklarKeys(), nk2=null; try{ var n2=_zusNorm(_ohne); if(n2&&n2.length>=4) nk2="~"+n2; }catch(e){}
+    unklar = !!((eNr&&uk[eNr])||uk[low]||uk[_np]||uk[_ohne]||(nk2&&uk[nk2]));
+  }
+  return {inList:inList, asZusatz:asZusatz, isZus:isZus, eNr:eNr, unklar:unklar};
 }
+/* KONZEPT A (Ralph 26.07.): Ein Klick auf eine Referenzzeile filtert rechts die Zutatenliste bzw.
+   oeffnet das Zusatzstoff-Fenster mit dem Suchbegriff. Damit uebernimmt die Maske das Suchen –
+   vorher musste der Name von Hand abgetippt werden, was bei 1.500 Stamm-Zutaten die eigentliche Arbeit war. */
+function fgRefFokus(el){
+  if(!el) return;
+  var raw=String(el.getAttribute('data-name')||'').trim(); if(!raw) return;
+  var such=raw.replace(/\bE\s?\d{3,4}[a-z]?\b/ig,'').replace(/\([^)]*\)/g,' ').replace(/\s+/g,' ').trim();
+  try{ var o=_zusOhneFunktionswort(raw); if(o && o.length>=3) such=o; }catch(e){}
+  if(!such) such=raw;
+  var istZus=false;
+  try{ istZus=!!_fgRefStatus(raw, _fgWorkSet(), _fgZusKeys()).isZus; }catch(e){}
+  if(istZus){
+    try{ if(typeof zusModalOpen==='function') zusModalOpen(); }catch(e){}
+    var zs=document.getElementById('fe_zusSuche');
+    if(zs){ zs.value=such; try{ zusRenderPick(); }catch(e){} try{ zs.focus(); }catch(e){} }
+    return;
+  }
+  var el2=document.getElementById('fe_zutSuche');
+  if(el2){ el2.value=such; try{ fgPickRender(); }catch(e){}
+    try{ el2.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){}
+    try{ el2.focus(); }catch(e){} }
+}
+if(typeof window!=='undefined'){ window.fgRefFokus=fgRefFokus; }
 function fgEnthaltenRender(){
   var box=document.getElementById("fe_enthalten"); if(!box) return;
   var ref=(window._fgRef&&window._fgRef.length)?window._fgRef:[];
@@ -8570,12 +8625,22 @@ function fgEnthaltenRender(){
     var raw=String(nm).trim(); var low=raw.toLowerCase();
     if((typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) || _zusIstLeer(raw)) return "";   /* Funktionswort (Antioxidationsmittel, Stabilisator …) → keine Substanz, nicht anzeigen */
     var _st=_fgRefStatus(raw, work, zk);
-    var inList=_st.inList, asZusatz=_st.asZusatz, isZus=_st.isZus;
+    var inList=_st.inList, asZusatz=_st.asZusatz, isZus=_st.isZus, unklar=_st.unklar;
     var chip='<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px;flex:0 0 auto;background:'+(isZus?"#ede9fe;color:#5b21b6":"#e0f2fe;color:#075985")+'">'+(isZus?"Zusatzstoff":"Zutat")+'</span>';
-    var tag = inList ? (asZusatz?' <span style="font-size:11px;opacity:.85">– als Zusatzstoff erfasst</span>':'') : ' <span style="font-size:11px;opacity:.85">– noch nicht übernommen</span>';
-    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;margin-bottom:3px;background:'+(inList?"#e7f6ec":"#fbf3e2")+';color:'+(inList?"#1f7d43":"#8a5a0b")+'">'
+    /* DREI Zustaende, nicht zwei (Ralph 26.07.): gruen = sauber uebernommen · GRAU-GESTRICHELT = uebernommen,
+       aber der Stoff ist nicht eingestuft (unterdrueckt den Index!) · orange = noch gar nicht uebernommen.
+       Vorher war „erfasst" und „erfasst, aber blockiert den Index" beides gruen – nicht unterscheidbar. */
+    var tag = !inList ? ' <span style="font-size:11px;opacity:.85">– noch nicht übernommen</span>'
+            : (unklar ? ' <span style="font-size:11px;font-weight:700">– erfasst, aber nicht eingestuft</span><span style="font-size:11px;opacity:.85"> · kein Index</span>'
+            : (asZusatz ? ' <span style="font-size:11px;opacity:.85">– als Zusatzstoff erfasst</span>' : ''));
+    var _bg = !inList ? "#fbf3e2" : (unklar ? "#f1f4f8" : "#e7f6ec");
+    var _fg = !inList ? "#8a5a0b" : (unklar ? "#475569" : "#1f7d43");
+    var _br = unklar ? ";border:1px dashed #94a3b8" : "";
+    var _ic = !inList ? "○" : (unklar ? "⚠" : "✓");
+    return '<div onclick="fgRefFokus(this)" data-name="'+esc(raw)+'" title="anklicken: rechts danach suchen" '
+      +'style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;margin-bottom:3px;cursor:pointer;background:'+_bg+';color:'+_fg+_br+'">'
       +chip
-      +'<span style="flex:1;min-width:0">'+(inList?"✓":"○")+" "+esc(raw)+tag+'</span>'
+      +'<span style="flex:1;min-width:0">'+_ic+" "+esc(raw)+tag+'</span>'
       +'<button onclick="fgEnthaltenDel(this)" data-name="'+esc(raw)+'" title="aus der Referenz entfernen (z. B. Riki-Fehllesung)" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;padding:0 3px;flex:0 0 auto">✕</button>'
       +'</div>';
   }).filter(Boolean).join("");
@@ -8962,7 +9027,7 @@ async function openFgEditor(id, prefill, targetEl){
      in der aktuellen Liste steht (window._verifRows). */
   /* Referenz-Karte einmal definiert – sitzt jetzt als 3. Spalte NEBEN Zutaten/Zusatzstoffe
      (Ralph 24.07.2026: die drei Boxen gleich hoch + oben bündig). */
-  const _refCard = card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`<div style="text-align:right;margin:-2px 0 8px"><button type="button" id="fe_refFlipBtn" onclick="fgRefFlip()" style="padding:4px 10px;border:1px solid #cbc7f2;border-radius:7px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:11.5px;font-weight:700;white-space:nowrap">🔍 Etikett ansehen</button></div><div id="fe_refFront"><div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen (als <b>Zutat</b> links oder <b>Zusatzstoff</b> unten)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Vergleiche sie mit deiner Auswahl links.</div></div><div id="fe_refBack" style="display:none"></div>`);
+  const _refCard = card(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`${''/* Flip-Knopf entfernt (Konzept A): das Etikett steht dauerhaft darueber, es gibt nichts mehr umzudrehen. */}<div id="fe_refFront"><div id="fe_enthalten" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);min-height:360px;max-height:520px;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4"><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen (als <b>Zutat</b> links oder <b>Zusatzstoff</b> unten)</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>laut Etikett da, <b>noch nicht übernommen</b></span></div><div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4">Diese Liste kommt <b>nur von Riki</b> – sie ist die Referenz, was auf Herstellerseite/Etikett steht. Zeile anklicken → rechts wird danach gesucht.</div></div><div id="fe_refBack" style="display:none"></div>`);
   var _rows=Array.isArray(window._verifRows)?window._verifRows:[];
   var _idx=id?_rows.findIndex(function(r){return String(r.id)===String(id);}):-1;
   var _nbtn=function(txt,act,on){ return '<button '+(on?'onclick="'+act+'"':'disabled')+' style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:'+(on?'var(--card)':'var(--bg)')+';color:'+(on?'var(--ink)':'var(--muted)')+';cursor:'+(on?'pointer':'default')+';font-size:13px;white-space:nowrap">'+txt+'</button>'; };
@@ -9070,7 +9135,7 @@ async function openFgEditor(id, prefill, targetEl){
             `)}</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr minmax(240px,1fr);gap:12px;align-items:start;margin-top:2px"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
+        <div id="fe_gridA" data-note="KONZEPT A (Ralph 26.07.): zwei Spalten statt drei. LINKS die QUELLE (Etikettfoto dauerhaft sichtbar + darunter die Riki-Referenz), RECHTS die ARBEIT (Zutaten, Zusatzstoffe, Mikros untereinander). Grund: die Taetigkeit ist ein VERGLEICH - das Foto ist die Quelle, nicht Beiwerk, und darf nicht hinter einem Flip liegen." style="display:grid;grid-template-columns:minmax(330px,.82fr) 1.18fr;gap:12px;align-items:start;margin-top:2px"><div id="fe_colQuelle"><div id="fe_fotoMount" data-note="klebt oben, damit das Etikett beim Scrollen der Referenz sichtbar bleibt" style="margin-bottom:12px;position:sticky;top:4px;z-index:6"></div>${_refCard}</div><div id="fe_colArbeit"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -9094,15 +9159,22 @@ async function openFgEditor(id, prefill, targetEl){
           <div id="fe_zutNeuInfo" style="margin-top:6px"></div>
           <div id="fe_zutRows" style="display:none">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
-          <div id="fgOffBox" style="margin-top:8px"></div>`)}</div><div>${card("Zusatzstoffe",`
+          <div id="fgOffBox" style="margin-top:8px"></div>`)}</div><div style="margin-top:12px">${card("Zusatzstoffe",`
           <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:8px;cursor:pointer"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">Keine Zusatzstoffe im Produkt</label>
           <div id="fe_zusChosen" style="border:1px solid var(--line);border-radius:8px;background:var(--card);padding:2px 0;min-height:40px"></div>
           <button type="button" onclick="zusModalOpen()" style="margin-top:8px;padding:8px 13px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;font-weight:700">+ Zusatzstoff</button>
           <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:7px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>unbedenklich</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#c0392b;vertical-align:middle;margin-right:4px"></span>abgewertet (drückt den Index)<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9aa7b2;vertical-align:middle;margin-right:4px"></span>ungeprüft</span></div>
           <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text||"keine")}">
           <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
-          <label style="display:block;font-size:13px;margin-top:10px">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label>
-        `)}<div style="margin-top:12px" data-note="MIKRO 26u: sitzt jetzt in Spalte 2 UNTER den Zusatzstoffen (Ralph 26.07.) – fuellt die Luecke, die die kurze Zusatzstoff-Karte laesst; vorher stand die Karte allein ueber dem Raster mit leerem Rest daneben.">${card(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:8px">Deklarierte Mineralstoffe/Vitamine <b>pro 100 g</b> (z. B. jodiertes/fluoridiertes Salz). Fließen in die Nährstoff-Übersicht wie beim Wasser. <b>Wird sofort gespeichert.</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}</div></div><div>${_refCard}</div></div>
+          ${''/* SÜSSSTOFF-AUSWAHL ENTFERNT (Ralph 26.07.): die Handeingabe fällt weg. Das FELD bleibt als
+               verstecktes Input bestehen — zwingend, aus zwei Gründen: (1) fgEditSave liest g("fe_suess").value
+               direkt, ohne Null-Prüfung → ohne Element bricht das Speichern ab. (2) Würde hier "nein" gespeichert,
+               würden die 18 bestehenden "ja_kuenstlich"-Werte beim nächsten Speichern still überschrieben.
+               Der geladene Wert wird also unverändert zurückgeschrieben; Riki darf ihn weiter setzen (zusFromRiki).
+               Die Bewertungsregel dahinter (Getränke-Deckel, §1.13e) hängt seit dem 26.07. nicht mehr an diesem
+               Feld allein: cb_hat_kuenstlichen_suessstoff() liest Handfeld + Zutaten + Zusatzstoff-Liste. */}
+          <input type="hidden" id="fe_suess" value="${esc(d.suessstoffe||"nein")}">
+        `)}<div style="margin-top:12px" data-note="MIKRO 26u: sitzt jetzt in Spalte 2 UNTER den Zusatzstoffen (Ralph 26.07.) – fuellt die Luecke, die die kurze Zusatzstoff-Karte laesst; vorher stand die Karte allein ueber dem Raster mit leerem Rest daneben.">${card(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:8px">Deklarierte Mineralstoffe/Vitamine <b>pro 100 g</b> (z. B. jodiertes/fluoridiertes Salz). Fließen in die Nährstoff-Übersicht wie beim Wasser. <b>Wird sofort gespeichert.</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}</div></div></div></div>
     <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
@@ -9158,17 +9230,18 @@ function feKatChange(){
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   var special=_fgIstSpecial();   /* Supplement/Salze: Bild NEBEN der Wirkstoff-/Mineral-Tabelle, kein Lebensmittel-Score (Ralph 25.07.) */
   var _wcol=document.getElementById("fe_wirkFotoCol"), _wg=document.getElementById("fe_wirkGrid"), _wback=document.getElementById("fe_refBack"), _wfbtn=document.getElementById("fe_refFlipBtn"), _wc=document.getElementById("fe_wirkCard"), _wtc=document.getElementById("fe_wirkTblCol");
+  /* KONZEPT A: das Etikettfoto haengt IMMER oben in der Quelle-Spalte – bei jeder Kategorie, ohne Flip.
+     Vorher wanderte es je nach Kategorie entweder neben die Wirkstoff-Tabelle oder auf die Rueckseite
+     der Referenz-Karte; letzteres versteckte ausgerechnet die Quelle, an der abgelesen wird. */
+  var _mount=document.getElementById("fe_fotoMount");
+  if(_wcol && _mount && _wcol.parentNode!==_mount){ _mount.appendChild(_wcol); }
+  if(_wg) _wg.style.gridTemplateColumns="1fr";
+  if(_wfbtn) _wfbtn.style.display="none";   /* kein Umdrehen mehr – das Foto steht ohnehin da */
   if(special){
-    if(_wcol && _wg && _wcol.parentNode!==_wg){ _wg.appendChild(_wcol); }   /* Etikett-Box zurueck neben die Tabelle */
-    if(_wg) _wg.style.gridTemplateColumns="1fr 1fr";
-    if(_wc) _wc.style.display=""; if(_wtc) _wtc.style.display="";
-    if(_wfbtn) _wfbtn.style.display="none";   /* kein Umdrehen bei Supplement/Salze */
-    try{ fgRefFlip(false); }catch(e){}
+    if(_wc) _wc.style.display=""; if(_wtc) _wtc.style.display="";   /* Wirkstoff-Tabelle nur bei Supplement/Salze */
     try{ feWirkFarbeAll(); }catch(e){}
   } else {
-    if(_wcol && _wback && _wcol.parentNode!==_wback){ _wback.appendChild(_wcol); }   /* normale Produkte: Etikett-Box in die Referenz-Rueckseite (Flip) */
     if(_wc) _wc.style.display="none";
-    if(_wfbtn) _wfbtn.style.display="";
   }
   try{ fgWirkFotoRender(); }catch(e){}
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
@@ -9396,26 +9469,29 @@ async function katKonfigSetIdx(i, darst, keinScore){
 function katKonfigClose(){ var ov=document.getElementById("katKonfigOv"); if(ov) ov.style.display="none"; }
 if(typeof window!=='undefined'){ window.katKonfigLoad=katKonfigLoad; window.katKonfigOpen=katKonfigOpen; window.katKonfigRender=katKonfigRender; window.katKonfigSetIdx=katKonfigSetIdx; window.katKonfigClose=katKonfigClose; }
 function _fgIstSpecial(){ var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()); var cfg=window._katKonfig; if(cfg&&cfg[k]) return cfg[k].darstellung==="supplement"; return (k==="supplement"); }   /* nur Supplement = Supplementkarte; Salze & alle anderen = Produktkarte, Score ist eine SEPARATE Eigenschaft (Ralph 25.07.) */
+/* KONZEPT A (Ralph 26.07.): Die Referenz-Karte hat keine Rueckseite mehr – das Etikettfoto steht
+   dauerhaft darueber in derselben Spalte. Die drei Flip-Funktionen bleiben als LEERLAUF bestehen,
+   weil sie an mehreren Stellen gerufen werden (Foto-Klick, Kategoriewechsel, Editor-Aufbau); sie
+   sorgen jetzt nur noch dafuer, dass das Foto sichtbar ist und die richtige Aufnahme zeigt.
+   Nicht geloescht, damit kein Aufrufer ins Leere laeuft. */
 function fgRefMountFoto(){
-  var col=document.getElementById('fe_wirkFotoCol'), back=document.getElementById('fe_refBack');
-  if(col && back && col.parentNode!==back){ back.appendChild(col); }
+  var col=document.getElementById('fe_wirkFotoCol'), mount=document.getElementById('fe_fotoMount');
+  if(col && mount && col.parentNode!==mount){ mount.appendChild(col); }
   var wg=document.getElementById('fe_wirkGrid'); if(wg) wg.style.gridTemplateColumns='1fr';
   try{ fgWirkFotoRender(); }catch(e){}
 }
 function fgRefFlip(toBack){
   var fr=document.getElementById('fe_refFront'), bk=document.getElementById('fe_refBack'), btn=document.getElementById('fe_refFlipBtn');
-  if(!fr||!bk) return;
-  var showBack=(typeof toBack==='undefined')?(bk.style.display==='none'):!!toBack;
-  fr.style.display=showBack?'none':''; bk.style.display=showBack?'':'none';
-  if(btn) btn.innerHTML=showBack?'&#8617; zur\u00fcck zur Referenz':'\ud83d\udd0d Etikett ansehen';
-  if(showBack){ try{ fgWirkFotoRender(); }catch(e){} }
+  if(fr) fr.style.display='';        /* die Referenzliste bleibt immer sichtbar */
+  if(bk) bk.style.display='none';    /* Rueckseite wird nicht mehr benutzt */
+  if(btn) btn.style.display='none';
+  try{ fgWirkFotoRender(); }catch(e){}
 }
 function fgRefShowFoto(j){
   window._fgWirkFoto=window._fgWirkFoto||{ idx:0, scale:1, x:0, y:0, baseFit:1 };
   window._fgWirkFoto.idx=(j||0);
-  if(_fgIstSpecial()){ try{ fgWirkFotoRender(); }catch(e){} return; }   /* Supplement/Salze: Box steht neben der Tabelle */
   try{ fgRefMountFoto(); }catch(e){}
-  fgRefFlip(true);
+  try{ var c=document.getElementById('fe_wirkFotoCol'); if(c&&c.scrollIntoView) c.scrollIntoView({block:'nearest',behavior:'smooth'}); }catch(e){}
 }
 if(typeof window!=='undefined'){ window.fgRefMountFoto=fgRefMountFoto; window.fgRefFlip=fgRefFlip; window.fgRefShowFoto=fgRefShowFoto; }
 function fgWirkFotoApply(){ var img=document.getElementById('fe_wirkFotoImg'); if(!img) return; var s=window._fgWirkFoto; img.style.transform='translate('+Math.round(s.x)+'px,'+Math.round(s.y)+'px) scale('+s.scale+')'; }
@@ -13823,7 +13899,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26v";
+const APP_BUILD = "2026-07-26x";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
