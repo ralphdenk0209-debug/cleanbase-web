@@ -7916,6 +7916,48 @@ function zusFarbe(einst){
   if(e==="abgewertet"||e==="kritisch")               return {dot:"#c0392b",bg:"#fde8e8",txt:"#8a1c14",label:"abgewertet"};
   return {dot:"#9aa7b2",bg:"#eef1f4",txt:"#5b6b7e",label:"ungeprüft"};
 }
+/* ---- Zusatzstoff-Namen robust gegen den Stamm aufloesen (Ralph 26.07., Build 26u) ----
+   Warum: Riki/Etikett schreiben „Apfelsäure", der Stamm fuehrt „Äpfelsäure" (englisch „Malic acid").
+   EIN Buchstabe Unterschied -> kein Treffer -> der Stoff galt als „ungeprueft" und unterdrueckte
+   nach §1.11k den ganzen Index, obwohl er im Stamm belegt neutral steht.
+   NICHT geraten: _zusNorm vereinheitlicht ausschliesslich die SCHREIBWEISE (Umlaute, Trennzeichen,
+   Klammern) - keine Bedeutung. Uebernommen wird ein Treffer NUR, wenn er EINDEUTIG ist; bei mehreren
+   Kandidaten bleibt es „nicht gefunden" (§5c: eine falsche Zuordnung ist schlimmer als keine). */
+function _zusNorm(s){
+  return String(s||"").toLowerCase()
+    .replace(/\([^)]*\)/g," ")
+    .replace(/\u00df/g,"ss")
+    .replace(/[\u00e4\u00e0\u00e1\u00e2\u00e3]/g,"a").replace(/[\u00f6\u00f2\u00f3\u00f4]/g,"o")
+    .replace(/[\u00fc\u00f9\u00fa\u00fb]/g,"u").replace(/[\u00e9\u00e8\u00ea\u00eb]/g,"e")
+    .replace(/ae/g,"a").replace(/oe/g,"o").replace(/ue/g,"u")   /* Umlaut-Ersatzschreibung: „Apfelsaeure" = „Äpfelsäure" (eigener Testfund 26.07.) */
+    .replace(/[^a-z0-9]/g,"");
+}
+function _zusNormMap(){
+  var n=(ZUSATZSTOFFE_STAMM||[]).length;
+  if(window.__zusNormMap && window.__zusNormMapN===n) return window.__zusNormMap;
+  var m={};
+  (ZUSATZSTOFFE_STAMM||[]).forEach(function(z){
+    [z.name,z.name_de].forEach(function(nn){
+      var k=_zusNorm(nn); if(!k||k.length<4) return;
+      if(!m[k]) m[k]=[];
+      if(m[k].indexOf(z)<0) m[k].push(z);
+    });
+  });
+  window.__zusNormMap=m; window.__zusNormMapN=n; return m;
+}
+function _zusFindStamm(nm){
+  var k=_zusNorm(nm); if(!k||k.length<4) return null;
+  var hit=_zusNormMap()[k];
+  return (hit&&hit.length===1)?hit[0]:null;   /* nur EINDEUTIG, sonst kein Treffer */
+}
+/* deutscher Anzeigename eines ausgewaehlten Zusatzstoffs (Stamm-name_de, sonst ZUS_SYN, sonst gespeichert) */
+function _zusDe(z){
+  if(!z) return "";
+  try{ _zusSynMaps(); }catch(e){}
+  var k=String(z.e||"").toLowerCase();
+  var st=(typeof ZUSATZSTOFFE_MAP!=="undefined")?ZUSATZSTOFFE_MAP[k]:null;
+  return (st&&st.name_de)||(window.__zusSynDe&&window.__zusSynDe[k])||z.name||"";
+}
 /* Rohtext des Zusatzstoff-Felds in Einzel-Zusatzstoffe zerlegen und gegen den Stamm auflösen. */
 /* Trennt Zusatzstoff-Rohtext nur auf TOP-Ebene (Kommas/Semikola INNERHALB von Klammern
    trennen NICHT) – „natürliche Aromen (Citrus, Blutorange)" bleibt EIN Eintrag statt in die
@@ -7934,7 +7976,8 @@ function _zusSplitTop(t){
    Aussage 'nichts deklariert' (Ralph 25.07.). Riki schreibt so etwas manchmal in den Zusatzstoff-Text;
    ohne diese Abwehr landet es als grauer, ungepruefter Phantom-Eintrag, unterdrueckt den Index und
    zeigt die verwirrende Freigabe-Meldung '1 Zusatzstoff nicht eingestuft'. */
-function _zusIstLeer(nm){ nm=String(nm||"").trim().toLowerCase(); if(!nm || /^keine\b/.test(nm) || /^(k\.?\s?a\.?|n\/a|-|\u2013|nicht deklariert|nicht angegeben|entfaellt)$/.test(nm)) return true; var np=nm.replace(/\([^)]*\)/g,"").replace(/^als\s+/,"").replace(/[:.]/g,"").replace(/\s+/g," ").trim(); return (typeof ZUS_FUNKTION!=="undefined" && !!ZUS_FUNKTION[np]); }
+function _zusIstLeer(nm){ nm=String(nm||"").trim().toLowerCase(); if(!nm || /^keine\b/.test(nm) || /^(k\.?\s?a\.?|n\/a|-|\u2013|nicht deklariert|nicht angegeben|entfaellt)$/.test(nm)) return true; if(/^\(?(i{1,3}|iv|vi{0,3}|ix|x{1,3})\)?$/.test(nm)) return true;   /* Bruchstueck einer Aufzaehlung „(i) … (ii) …" – kein Stoff (Ralph 26.07.) */
+  var np=nm.replace(/\([^)]*\)/g,"").replace(/^als\s+/,"").replace(/[:.]/g,"").replace(/\s+/g," ").trim(); return (typeof ZUS_FUNKTION!=="undefined" && !!ZUS_FUNKTION[np]); }
 function zusSeed(text){
   window._fgZus=[];
   var t=String(text||"").trim();
@@ -7963,10 +8006,11 @@ function zusSeed(text){
     if(!found && typeof ZUS_SYN!=="undefined" && ZUS_SYN[nm]) found=ZUSATZSTOFFE_MAP[String(ZUS_SYN[nm]).toLowerCase()];
     if(!found){ var _in=(tok.match(/\(([^)]*)\)/)||[])[1]; if(_in){ var il=_in.trim().toLowerCase(); var iem=_in.match(/\bE\s?\d{3,4}[a-z]?\b/i);
       found=(iem?ZUSATZSTOFFE_MAP[iem[0].replace(/\s/g,"").toLowerCase()]:null) || ZUSATZSTOFFE_MAP[il] || ((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[il])?ZUSATZSTOFFE_MAP[String(ZUS_SYN[il]).toLowerCase()]:null); } }
+    if(!found) found=_zusFindStamm(nm);   /* Schreibvariante, nur eindeutig – Ralph 26.07. */
     var key = found ? ('e:'+String(found.e).toLowerCase()) : ('n:'+(nm||low));
     if(seen[key]) return; seen[key]=1;
     if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
-    else window._fgZus.push({e:null,name:tok,einst:(_istAroma(tok)?"neutral":"ungeprüft")});
+    else window._fgZus.push({e:null,name:tok,einst:(_istAroma(tok)?"neutral":"ungeprüft"),nf:(_istAroma(tok)?0:1)});
   };
   _zusSplitTop(t).forEach(push);
 }
@@ -7976,7 +8020,10 @@ function zusSync(){
   var ztext=document.getElementById("fe_ztext"), zstat=document.getElementById("fe_zstatus");
   if(!sel.length){ if(ztext) ztext.value="keine"; if(zstat) zstat.value="keine"; }
   else{
-    if(ztext) ztext.value=sel.map(function(z){ return z.name+(z.e?(" ("+z.e+")"):""); }).join(", ");
+    /* DEUTSCHEN Namen speichern (Ralph 26.07.): der englische Katalogname („Sodium carbonates: (i) …")
+       wurde beim Neu-Oeffnen von fgFlattenZutaten in Bruchstuecke („ii", „Sodium carbonate") zerlegt,
+       die dann als offene Referenz-Zutaten die Freigabe blockierten. Ursache statt Symptom. */
+    if(ztext) ztext.value=sel.map(function(z){ return (_zusDe(z)||z.name)+(z.e?(" ("+z.e+")"):""); }).join(", ");
     var allNeutral=sel.every(function(z){ return /^(neutral|keine|unbedenklich)$/i.test(String(z.einst||"")); });
     if(zstat) zstat.value = allNeutral ? "neutral" : "enthalten";
   }
@@ -7989,11 +8036,12 @@ function zusSync(){
 function zusRenderSel(){
   var kc=document.getElementById("fe_zusKeine"); if(kc) kc.checked=((window._fgZus||[]).length===0);
   var box=document.getElementById("fe_zusChosen");
+  try{ _zusSynMaps(); }catch(e){}
   if(box){
     var arr=window._fgZus||[];
     box.innerHTML = arr.length ? arr.map(function(z,i){
       var f=zusFarbe(z.einst||z.einstufung);
-      return '<div style="display:grid;grid-template-columns:12px 1fr auto 22px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);font-size:13px"><span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+'"></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(z.name)+(z.e?' <span style="color:var(--muted);font-size:11.5px">'+esc(z.e)+'</span>':'')+'</span><span style="font-size:11px;color:var(--muted);white-space:nowrap">'+f.label+'</span><button type="button" onclick="zusDel('+i+')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1;padding:0">✕</button></div>';
+      return '<div style="display:grid;grid-template-columns:12px 1fr auto 22px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);font-size:13px"><span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+'"></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(_zusDe(z)||z.name)+(z.e?' <span style="color:var(--muted);font-size:11.5px">'+esc(z.e)+'</span>':'')+'</span><span style="font-size:11px;color:var(--muted);white-space:nowrap">'+(z.nf?"nicht im Stamm":f.label)+'</span><button type="button" onclick="zusDel('+i+')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1;padding:0">✕</button></div>';
     }).join('') : '<div style="padding:9px;color:var(--muted);font-size:12.5px">noch keine – über „+ Zusatzstoff“ hinzufügen (oder „keine“ anhaken)</div>';
   }
   zusRenderPick();
@@ -8046,7 +8094,9 @@ function zusAddNeu(){
   zusSync(); zusRenderSel(); zusRenderPick();
 }
 /* Funktionswörter (KEINE Substanz, nur die Rolle) – dürfen NICHT als Zusatzstoff erscheinen (§2.7). */
-var ZUS_FUNKTION={"antioxidationsmittel":1,"antioxidans":1,"stabilisator":1,"stabilisatoren":1,"farbstoff":1,"farbstoffe":1,"säuerungsmittel":1,"saeuerungsmittel":1,"säureregulator":1,"saeureregulator":1,"konservierungsmittel":1,"konservierungsstoff":1,"emulgator":1,"emulgatoren":1,"verdickungsmittel":1,"geliermittel":1,"trennmittel":1,"süßungsmittel":1,"suessungsmittel":1,"süssungsmittel":1,"backtriebmittel":1,"trägerstoff":1,"traegerstoff":1,"feuchthaltemittel":1,"geschmacksverstärker":1,"geschmacksverstaerker":1,"aroma":1,"aromen":1,"überzugsmittel":1,"ueberzugsmittel":1,"festigungsmittel":1,"mehlbehandlungsmittel":1,"schaumverhüter":1,"komplexbildner":1,"packgas":1,"treibgas":1,"füllstoff":1};
+var ZUS_FUNKTION={"antioxidationsmittel":1,"antioxidans":1,"stabilisator":1,"stabilisatoren":1,"farbstoff":1,"farbstoffe":1,"säuerungsmittel":1,"saeuerungsmittel":1,"säureregulator":1,"saeureregulator":1,"konservierungsmittel":1,"konservierungsstoff":1,"emulgator":1,"emulgatoren":1,"verdickungsmittel":1,"geliermittel":1,"trennmittel":1,"süßungsmittel":1,"suessungsmittel":1,"süssungsmittel":1,"backtriebmittel":1,"trägerstoff":1,"traegerstoff":1,"feuchthaltemittel":1,"geschmacksverstärker":1,"geschmacksverstaerker":1,"aroma":1,"aromen":1,"überzugsmittel":1,"ueberzugsmittel":1,"festigungsmittel":1,"mehlbehandlungsmittel":1,"schaumverhüter":1,"komplexbildner":1,"packgas":1,"treibgas":1,"füllstoff":1,
+  /* englische Funktionswoerter – stammen aus den englischen Katalognamen, sind keine Stoffe (Ralph 26.07.) */
+  "emulsifier":1,"emulsifiers":1,"stabiliser":1,"stabilizer":1,"stabilisers":1,"stabilizers":1,"antioxidant":1,"antioxidants":1,"preservative":1,"preservatives":1,"colour":1,"color":1,"colours":1,"colors":1,"thickener":1,"thickeners":1,"acid":1,"acidity regulator":1,"anticaking agent":1,"anti-caking agent":1,"sweetener":1,"sweeteners":1,"raising agent":1,"humectant":1,"flavour enhancer":1,"flavor enhancer":1,"firming agent":1,"glazing agent":1,"carrier":1,"bulking agent":1,"propellant":1,"packaging gas":1,"foaming agent":1,"gelling agent":1,"flour treatment agent":1,"sequestrant":1,"modified starch":1};
 /* Häufige DEUTSCHE Zusatzstoff-Namen → E-Nummer (der Stamm führt englische Namen).
    Damit „Natriumnitrit" nicht als eigener grauer Eintrag neben „E250" landet. Erweiterbar. */
 var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","steviolglycoside":"E960","steviolglykoside":"E960","steviolglycosid":"E960","sucralose":"E955","acesulfam":"E950","acesulfam-k":"E950","acesulfam k":"E950","aspartam":"E951","saccharin":"E954","cyclamat":"E952","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","polyphosphate":"E452","polyphosphates":"E452","natriumferrocyanid":"E535","kaliumferrocyanid":"E536","calciumferrocyanid":"E538","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","tocopherole":"E306","gemischte tocopherole":"E306","natürliche gemischte tocopherole":"E306","natürliche tocopherole":"E306","alpha-tocopherol":"E307","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
@@ -8078,11 +8128,12 @@ async function zusFromRiki(zObj){
     var em=tok.match(/\bE\s?\d{3,4}[a-z]?\b/i);
     var eNr=em?em[0].replace(/\s/g,"").toUpperCase():(ZUS_SYN[low]||null);
     var found=eNr?ZUSATZSTOFFE_MAP[eNr.toLowerCase()]:ZUSATZSTOFFE_MAP[low];
+    if(!found) found=_zusFindStamm(namePur);   /* Schreibvariante (Apfel-/Äpfelsäure), nur eindeutig – Ralph 26.07. */
     if(!found && !eNr) eNr=null;
     var dedup=(eNr||low);
     if(hasKey(eNr||"")||hasKey(low)||(found&&hasKey(String(found.e||"")))) return;   /* schon drin */
     if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
-    else window._fgZus.push({e:eNr,name:namePur,einst:(_istAroma(namePur)?"neutral":"ungeprüft")});
+    else window._fgZus.push({e:eNr,name:namePur,einst:(_istAroma(namePur)?"neutral":"ungeprüft"),nf:(_istAroma(namePur)?0:1)});   /* nf=1: gar nicht im Stamm gefunden – anderer Zustand als „im Stamm, aber unbewertet" */
   });
   if(zObj.suessstoffe){ var su=document.getElementById("fe_suess"); if(su&&su.value==="nein") su.value="ja"; }
   try{ zusSync(); zusRenderSel(); zusRenderPick(); }catch(e){}
@@ -8949,7 +9000,6 @@ async function openFgEditor(id, prefill, targetEl){
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr minmax(240px,1fr);gap:12px;align-items:start;margin-top:2px" data-note="MIKRO-BREITE 26p: nur Spalte 1, damit Referenz rechts daneben passt (Ralph 26.07.)"><div>${card(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:8px">Deklarierte Mineralstoffe/Vitamine <b>pro 100 g</b> (z. B. jodiertes/fluoridiertes Salz). Fließen in die Nährstoff-Übersicht wie beim Wasser. <b>Wird sofort gespeichert.</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}</div></div>
         ${''/* Wirkstoffe-Karte steht jetzt als eigene HALBE Reihe (Tabelle + Etikett-Lesebox) unter dem Raster – Ralph 24.07. Siehe #fe_wirkCard weiter unten. */}
       </div>
       <div>
@@ -8992,7 +9042,7 @@ async function openFgEditor(id, prefill, targetEl){
             `)}</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr minmax(240px,1fr);gap:12px;align-items:stretch;margin-top:2px"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
+        <div style="display:grid;grid-template-columns:1fr 1fr minmax(240px,1fr);gap:12px;align-items:start;margin-top:2px"><div>${card(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -9024,7 +9074,7 @@ async function openFgEditor(id, prefill, targetEl){
           <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text||"keine")}">
           <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
           <label style="display:block;font-size:13px;margin-top:10px">Süßstoffe${sel("fe_suess",d.suessstoffe||"nein",["nein","ja","ja_natuerlich","ja_kuenstlich"])}</label>
-        `)}</div><div>${_refCard}</div></div>
+        `)}<div style="margin-top:12px" data-note="MIKRO 26u: sitzt jetzt in Spalte 2 UNTER den Zusatzstoffen (Ralph 26.07.) – fuellt die Luecke, die die kurze Zusatzstoff-Karte laesst; vorher stand die Karte allein ueber dem Raster mit leerem Rest daneben.">${card(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:8px">Deklarierte Mineralstoffe/Vitamine <b>pro 100 g</b> (z. B. jodiertes/fluoridiertes Salz). Fließen in die Nährstoff-Übersicht wie beim Wasser. <b>Wird sofort gespeichert.</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}</div></div><div>${_refCard}</div></div>
     <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
@@ -13739,7 +13789,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26s";
+const APP_BUILD = "2026-07-26u";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
