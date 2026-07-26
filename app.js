@@ -8106,6 +8106,44 @@ async function fgZutAdditiveRoute(){
   if(moved){ try{ zusSync(); }catch(e){} try{ zusRenderPick(); }catch(e){} try{ fgEnthaltenRender(); }catch(e){} try{ fePlaus(); }catch(e){} }
 }
 if(typeof window!=='undefined'){ window.fgZutAdditiveRoute=fgZutAdditiveRoute; }
+/* Mikronaehrstoffe vom Etikett (Ralph 25.07.): deklarierte Mineralstoffe/Vitamine je Produkt in
+   Produkt_Mikronaehrstoffe (Quelle 'Etikett deklariert'); fliessen ueber cb_tagebuch_mikro in die
+   Naehrstoff-Uebersicht. Schreibt sofort (wie Bild-loeschen), nicht erst beim Freigeben. */
+window._fmEinheiten=window._fmEinheiten||null;
+async function fmMikroLoad(pid){
+  try{
+    if(!window._fmEinheiten){ var e=await client.rpc('cb_mikro_einheiten'); if(!e.error&&e.data) window._fmEinheiten=e.data; }
+    var sel=document.getElementById('fm_mikroStoff');
+    if(sel && window._fmEinheiten){ sel.innerHTML='<option value="">N\u00e4hrstoff\u2026</option>'+window._fmEinheiten.map(function(x){ return '<option value="'+esc(x.naehrstoff)+'" data-einheit="'+esc(x.einheit)+'">'+esc(x.naehrstoff)+' ('+esc(x.einheit)+')</option>'; }).join(''); fmMikroStoffChange(); }
+    var box=document.getElementById('fm_mikroRows');
+    if(!pid){ window._fmMikro=[]; if(box) box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Produkt zuerst speichern, dann Mikros erfassen.</span>'; return; }
+    var r=await client.rpc('cb_produkt_mikro_liste',{p_id:pid}); window._fmMikro=(!r.error&&r.data)?r.data:[];
+    fmMikroRender();
+  }catch(e){}
+}
+function fmMikroRender(){
+  var box=document.getElementById('fm_mikroRows'); if(!box) return; var arr=window._fmMikro||[];
+  box.innerHTML = arr.length ? arr.map(function(m){ return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="flex:1;min-width:0">'+esc(m.naehrstoff)+'</span><span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span><span style="font-size:10.5px;color:var(--muted)">'+esc(m.quelle||'')+'</span><button type="button" onclick="fmMikroDel(\''+esc(String(m.naehrstoff).replace(/'/g,"\\'"))+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">\u2715</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine \u2013 unten hinzuf\u00fcgen (z.\u202fB. Jod, Selen, Fluorid)</span>';
+}
+function fmMikroStoffChange(){ var sel=document.getElementById('fm_mikroStoff'), u=document.getElementById('fm_mikroEinheit'); if(!sel||!u) return; var o=sel.options[sel.selectedIndex]; u.textContent=(o&&o.getAttribute('data-einheit'))||'mg'; }
+async function fmMikroAdd(){
+  var msg=document.getElementById('fm_mikroMsg'); var pid=(window._fgEdit&&window._fgEdit.id);
+  if(!pid){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Bitte das Produkt zuerst speichern.'; } return; }
+  var sel=document.getElementById('fm_mikroStoff'), mg=document.getElementById('fm_mikroMenge');
+  var stoff=sel?sel.value:'', o=sel?sel.options[sel.selectedIndex]:null, einh=(o&&o.getAttribute('data-einheit'))||'mg';
+  var menge=(mg&&mg.value!=='')?Number(String(mg.value).replace(',','.')):null;
+  if(!stoff){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='N\u00e4hrstoff w\u00e4hlen.'; } return; }
+  if(menge==null||!isFinite(menge)||menge<=0){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Menge pro 100\u202fg eingeben.'; } return; }
+  try{ var r=await client.rpc('cb_produkt_mikro_setzen',{p_id:pid,p_stoff:stoff,p_menge:menge,p_einheit:einh}); if(r&&r.error) throw new Error(r.error.message);
+    if(mg) mg.value=''; if(msg){ msg.style.color='var(--k-16a34a)'; msg.textContent='\u2713 gespeichert'; } fmMikroLoad(pid);
+  }catch(e){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler: '+((e&&e.message)||e); } }
+}
+async function fmMikroDel(stoff){
+  var pid=(window._fgEdit&&window._fgEdit.id); if(!pid) return;
+  if(!confirm(stoff+' entfernen?')) return;
+  try{ var r=await client.rpc('cb_produkt_mikro_del',{p_id:pid,p_stoff:stoff}); if(r&&r.error) throw new Error(r.error.message); fmMikroLoad(pid); }catch(e){}
+}
+if(typeof window!=='undefined'){ window.fmMikroLoad=fmMikroLoad; window.fmMikroRender=fmMikroRender; window.fmMikroStoffChange=fmMikroStoffChange; window.fmMikroAdd=fmMikroAdd; window.fmMikroDel=fmMikroDel; }
 function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
   const hasR=!(rating===null||rating===undefined||rating==="");
@@ -8806,6 +8844,7 @@ async function openFgEditor(id, prefill, targetEl){
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
         </div>
+        ${card(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:8px">Deklarierte Mineralstoffe/Vitamine <b>pro 100 g</b> (z. B. jodiertes/fluoridiertes Salz). Fließen in die Nährstoff-Übersicht wie beim Wasser. <b>Wird sofort gespeichert.</b></div><div id="fm_mikroRows"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}
         ${''/* Wirkstoffe-Karte steht jetzt als eigene HALBE Reihe (Tabelle + Etikett-Lesebox) unter dem Raster – Ralph 24.07. Siehe #fe_wirkCard weiter unten. */}
       </div>
       <div>
@@ -8914,7 +8953,8 @@ async function openFgEditor(id, prefill, targetEl){
     if(_pn){ _pn.style.maxWidth="none"; _pn.style.width="100%"; _pn.style.height="100vh"; _pn.style.maxHeight="100vh"; _pn.style.borderRadius="0"; _pn.scrollTop=0; }
     }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
-    try{ feKatChange(); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
+    try{ feKatChange(); }catch(e){}
+    try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
     try{ feWirkLoad(d.wirkstoffe, d.wirkstoffe_nicht_verfuegbar); }catch(e){}   /* Wirkstoff-Mengen (Dosis) laden */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
     /* Zusatzstoff-Liste (neu): Stamm laden, Auswahl aus dem gespeicherten Text ableiten, farbig rendern. */
@@ -13536,7 +13576,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26g";
+const APP_BUILD = "2026-07-26h";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
