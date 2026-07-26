@@ -4460,7 +4460,14 @@ const NW_FELDER=[["kcal","kcal",""],["fett","Fett","g"],["ges_fett","davon gesä
 /* Wirkstoff-Eingabe (Supplements): Vorschlagsliste in der Schreibweise, die der Dosis-Check
    (v_ri_dosierung) erkennt – inkl. der Klammer-Formen der B-Vitamine (§1.11w-c/-d). Freitext
    bleibt erlaubt; die Liste ist nur Hilfe. Einheiten inkl. IU (Vitamin D wird in der View µg umgerechnet). */
-const WIRKSTOFF_NAMEN=["Vitamin A","Vitamin C","Vitamin D","Vitamin E","Vitamin K",
+const WIRKSTOFF_NAMEN=["Vitamin A","Vitamin C","Vitamin D","Vitamin D3","Vitamin E","Vitamin K","Vitamin K2",
+  /* D3 und K2 sind FORMEN, keine eigenen Naehrstoffe: die EU-Referenzwerte (VO 1169/2011 Anh. XIII)
+     kennen nur "Vitamin D" (5 µg) und "Vitamin K" (75 µg). Eine eigene Zeile mit eigenem Bezugswert
+     gaebe es nicht - man muesste eine Zahl erfinden. Sie stehen hier als SCHREIBWEISE, wie sie auf
+     dem Etikett steht; Dosis-Check (v_ri_dosierung, Muster "vitamin ?d"/"vitamin ?k") und Tagebuch
+     (Wirkstoff_Map) fuehren beide auf Vitamin D bzw. Vitamin K zurueck.
+     GENAU SO SCHREIBEN LASSEN: die Wirkstoff_Map vergleicht EXAKT, nicht per Muster - eine Klammer
+     zu viel und der Wert faellt im Tagebuch stumm heraus (der Fehler steckte in den B-Vitaminen). */
   "Vitamin B1 (Thiamin)","Vitamin B2 (Riboflavin)","Vitamin B3 (Niacin)","Vitamin B5 (Pantothensäure)",
   "Vitamin B6","Vitamin B7 (Biotin)","Vitamin B9 (Folsäure)","Vitamin B12","Zink","Magnesium","Eisen",
   "Selen","Jod","Calcium","Kupfer","Mangan","Chrom","Molybdän","Kalium","Omega-3"];
@@ -9246,7 +9253,7 @@ async function openFgEditor(id, prefill, targetEl){
      in der aktuellen Liste steht (window._verifRows). */
   /* Referenz-Karte einmal definiert – sitzt jetzt als 3. Spalte NEBEN Zutaten/Zusatzstoffe
      (Ralph 24.07.2026: die drei Boxen gleich hoch + oben bündig). */
-  const _refCard = cardF(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`${''/* Flip-Knopf entfernt (Konzept A): das Etikett steht dauerhaft darueber, es gibt nichts mehr umzudrehen. */}<div id="fe_refFront"><div id="fe_enthalten" data-note="Konzept D: fuellt die Kartenhoehe" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);flex:1 1 auto;min-height:0;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.35;flex:0 0 auto" title="Diese Liste kommt nur von Riki – sie ist die Referenz, was auf Herstellerseite/Etikett steht."><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch offen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>nicht eingestuft</span><span style="margin-left:auto">Zeile anklicken → links suchen</span></div></div><div id="fe_refBack" style="display:none"></div>`);
+  const _refCard = cardF(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`${''/* Flip-Knopf entfernt (Konzept A): das Etikett steht dauerhaft darueber, es gibt nichts mehr umzudrehen. */}<div id="fe_refFront"><div id="fe_enthalten" data-note="Konzept D: fuellt die Kartenhoehe" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);flex:1 1 auto;min-height:0;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.35;flex:0 0 auto"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch offen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>nicht eingestuft</span><span style="margin-left:auto">Zeile anklicken → links suchen</span></div></div><div id="fe_refBack" style="display:none"></div>`);
   var _rows=Array.isArray(window._verifRows)?window._verifRows:[];
   var _idx=id?_rows.findIndex(function(r){return String(r.id)===String(id);}):-1;
   var _nbtn=function(txt,act,on){ return '<button '+(on?'onclick="'+act+'"':'disabled')+' style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:'+(on?'var(--card)':'var(--bg)')+';color:'+(on?'var(--ink)':'var(--muted)')+';cursor:'+(on?'pointer':'default')+';font-size:13px;white-space:nowrap">'+txt+'</button>'; };
@@ -9467,9 +9474,7 @@ function feKatChange(){
   /* KONZEPT A: das Etikettfoto haengt IMMER oben in der Quelle-Spalte – bei jeder Kategorie, ohne Flip.
      Vorher wanderte es je nach Kategorie entweder neben die Wirkstoff-Tabelle oder auf die Rueckseite
      der Referenz-Karte; letzteres versteckte ausgerechnet die Quelle, an der abgelesen wird. */
-  var _mount=document.getElementById("fe_fotoMount");
-  if(_wcol && _mount && _wcol.parentNode!==_mount){ _mount.appendChild(_wcol); }
-  if(_wg) _wg.style.gridTemplateColumns="1fr";
+  try{ fgFotoPlatzieren(); }catch(e){}   /* eine Regel, ein Ort – siehe fgFotoPlatzieren */
   if(_wfbtn) _wfbtn.style.display="none";   /* kein Umdrehen mehr – das Foto steht ohnehin da */
   if(special){
     if(_wc) _wc.style.display=""; if(_wtc) _wtc.style.display="";   /* Wirkstoff-Tabelle nur bei Supplement/Salze */
@@ -9708,12 +9713,33 @@ function _fgIstSpecial(){ var k=(((document.getElementById("fe_kat")||{}).value|
    weil sie an mehreren Stellen gerufen werden (Foto-Klick, Kategoriewechsel, Editor-Aufbau); sie
    sorgen jetzt nur noch dafuer, dass das Foto sichtbar ist und die richtige Aufnahme zeigt.
    Nicht geloescht, damit kein Aufrufer ins Leere laeuft. */
-function fgRefMountFoto(){
-  var col=document.getElementById('fe_wirkFotoCol'), mount=document.getElementById('fe_fotoMount');
-  if(col && mount && col.parentNode!==mount){ mount.appendChild(col); }
-  var wg=document.getElementById('fe_wirkGrid'); if(wg) wg.style.gridTemplateColumns='1fr';
+/* ===== WO HAENGT DAS ETIKETTFOTO? Eine Regel, ein Ort (Ralph 27.07.) =====================
+   Ralph: "Bei Supplements ist die Ansicht anders, neben der Dosis war das Produktbild, also
+   dort zweispaltig, aber nur bei Supplements-Ansicht."
+   - SUPPLEMENT/Salze: Foto NEBEN die Wirkstoff-Tabelle (fe_wirkGrid zweispaltig). Beim Abtippen
+     einer Dosis-Tabelle schaut man staendig zwischen Etikett und Feld hin und her - liegen die
+     beiden untereinander, scrollt man bei jeder Zeile.
+   - ALLE ANDEREN: Foto oben in der Quelle-Spalte (Konzept A, 26.07.). Dort gibt es keine
+     Dosis-Tabelle, dafuer die Referenzliste, an der abgelesen wird.
+   Frueher entschieden das feKatChange() und fgRefMountFoto() JEDE FUER SICH. Jetzt rufen beide
+   nur noch hier herein - sonst zieht die eine Funktion das Foto weg, das die andere gesetzt hat. */
+function fgFotoPlatzieren(){
+  var col=document.getElementById('fe_wirkFotoCol');
+  var mount=document.getElementById('fe_fotoMount');
+  var grid=document.getElementById('fe_wirkGrid');
+  if(!col) return;
+  var special=false; try{ special=_fgIstSpecial(); }catch(e){}
+  if(special){
+    if(grid && col.parentNode!==grid) grid.appendChild(col);
+    if(grid) grid.style.gridTemplateColumns='1fr 1fr';
+  } else {
+    if(mount && col.parentNode!==mount) mount.appendChild(col);
+    if(grid) grid.style.gridTemplateColumns='1fr';
+  }
   try{ fgWirkFotoRender(); }catch(e){}
 }
+if(typeof window!=="undefined"){ window.fgFotoPlatzieren=fgFotoPlatzieren; }
+function fgRefMountFoto(){ fgFotoPlatzieren(); }
 function fgRefFlip(toBack){
   var fr=document.getElementById('fe_refFront'), bk=document.getElementById('fe_refBack'), btn=document.getElementById('fe_refFlipBtn');
   if(fr) fr.style.display='';        /* die Referenzliste bleibt immer sichtbar */
@@ -14406,7 +14432,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27o";
+const APP_BUILD = "2026-07-27p";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
