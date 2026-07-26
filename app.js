@@ -6142,9 +6142,29 @@ function applyAdminMode(){
        '<div class="atWord">Root Index<small>Admin</small></div>'
       +'<div id="adminCrumb"></div>'
       +'<div class="atSpacer"></div>'
+      +'<button id="atTodo" onclick="todoDockToggle()" title="Notizen &amp; To-do – bleibt beim Arbeiten offen" style="flex:0 0 auto;margin-right:6px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer;white-space:nowrap;position:relative">📝<span id="atTodoN" style="display:none;margin-left:5px;font-size:11px;font-weight:800;background:#ffd9a0;color:#7a4a00;border-radius:20px;padding:0 6px"></span></button>'
       +'<button id="atReload" onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;margin-right:8px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(APP_BUILD.replace("2026-07-","")):"")+'</button>'
       +'<button class="atLogout" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">🚪</button>';
     document.body.appendChild(top);
+    /* Notiz-Dock (Ralph 27.07.): war es zuletzt offen, ist es nach dem Seitenwechsel wieder offen –
+       sonst waere „bleibt beim Arbeiten offen" nur die halbe Wahrheit. Ist es zu, wird trotzdem einmal
+       geladen, damit der Zaehler am Knopf stimmt. */
+    try{
+      var _tdAuf=false; try{ _tdAuf=(localStorage.getItem('ri_todoDock')==='1'); }catch(e){}
+      setTimeout(function(){
+        if(!(window.ME && ME.is_admin)) return;
+        if(_tdAuf){ try{ todoDockToggle(true); }catch(e){} }
+        else { try{ todoLoad(); }catch(e){} }
+      }, 900);
+    }catch(e){}
+    /* Esc schliesst das Dock – aber nur, wenn der Fokus nicht in einem Eingabefeld steht. */
+    try{ document.addEventListener('keydown', function(ev){
+      if(ev.key!=='Escape') return;
+      var d=document.getElementById('todoDock'); if(!d || d.style.display==='none') return;
+      var a=document.activeElement, tn=a&&a.tagName;
+      if(tn==='INPUT'||tn==='TEXTAREA'||tn==='SELECT'){ if(d.contains(a)){ a.blur(); return; } return; }
+      todoDockToggle(false);
+    }); }catch(e){}
     /* Portal-M-Rahmen (Ralph 24.07.2026): runde Bereichs-Buttons oben statt Hamburger-Schublade.
        Gleiche Ziele wie zuvor (adminGo); Wächter + Rezept-Zutaten öffnen ihre Overlays. Riki-Import raus. */
     const nav=document.createElement('div'); nav.id='adminNav';
@@ -12415,10 +12435,72 @@ function todoRender(){
   +'</div></div>';
   todoLoad();
 }
+/* ===== NOTIZ-DOCK (Ralph 27.07.2026) =====
+   „Es kommt öfter vor, dass ich beim Arbeiten etwas notieren möchte, und umschalten ist da nicht
+   praktikabel." Deshalb ein schmales Panel, das sich aus der Kopfleiste ausklappt und OFFEN BLEIBT,
+   während weitergearbeitet wird. Es nutzt dieselbe Tabelle und dieselben RPCs wie die To-do-SEITE –
+   es ist eine zweite ANSICHT derselben Daten, keine zweite Liste (§1.11i).
+   Eigene IDs (todoDock*), damit nichts doppelt vergeben wird (§1.11n-p). */
+function todoDockEl(){
+  var d=document.getElementById('todoDock');
+  if(d) return d;
+  d=document.createElement('div'); d.id='todoDock';
+  d.style.cssText='position:fixed;right:12px;top:56px;width:340px;max-width:calc(100vw - 24px);'
+    +'max-height:calc(100vh - 76px);display:none;flex-direction:column;z-index:9500;'
+    +'background:var(--card,#fff);color:var(--ink);border:1px solid var(--line);border-radius:14px;'
+    +'box-shadow:0 18px 46px rgba(20,40,70,.26);overflow:hidden';
+  d.innerHTML='<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);flex:0 0 auto">'
+      +'<span style="font-weight:800;font-size:14px">📝 Notizen</span>'
+      +'<span id="todoDockN" style="font-size:11.5px;color:var(--muted)"></span>'
+      +'<button onclick="todoDockToggle(false)" title="schließen" style="margin-left:auto;border:0;background:transparent;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;padding:0 2px">✕</button>'
+    +'</div>'
+    +'<div style="padding:9px 12px 6px;flex:0 0 auto"><input id="todoDockInput" placeholder="Notiz eintippen, Enter…" '
+      +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();todoAdd(\'dock\');}" '
+      +'style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:var(--bg);color:var(--ink)">'
+      +'<div id="todoDockMsg" style="font-size:11.5px;color:var(--k-dc2626);margin-top:4px"></div></div>'
+    +'<div id="todoDockList" style="flex:1 1 auto;min-height:0;overflow:auto;padding:2px 8px 10px;font-size:13px"></div>';
+  document.body.appendChild(d);
+  return d;
+}
+function todoDockToggle(force){
+  var d=todoDockEl();
+  var auf=(typeof force==='boolean')?force:(d.style.display==='none'||!d.style.display);
+  d.style.display=auf?'flex':'none';
+  try{ localStorage.setItem('ri_todoDock', auf?'1':'0'); }catch(e){}
+  if(auf){ todoLoad(); try{ var i=document.getElementById('todoDockInput'); if(i) i.focus(); }catch(e){} }
+}
+/* Zaehler im Kopfleisten-Knopf – zeigt NUR offene Aufgaben, und nur wenn es welche gibt. */
+function todoBadge(){
+  var b=document.getElementById('atTodoN'); if(!b) return;
+  var offen=((window._todo)||[]).filter(function(o){return !o.erledigt;}).length;
+  b.textContent=offen?String(offen):''; b.style.display=offen?'':'none';
+}
+function todoDockRender(){
+  var l=document.getElementById('todoDockList'); if(!l) return;
+  var arr=(window._todo)||[], offen=arr.filter(function(o){return !o.erledigt;});
+  var n=document.getElementById('todoDockN'); if(n) n.textContent=arr.length?(offen.length+' offen'):'';
+  if(!arr.length){ l.innerHTML='<div style="color:var(--muted);padding:8px 4px">Noch nichts notiert.</div>'; return; }
+  /* Offene zuerst – Erledigtes wird zurueckgenommen, nicht betont (GOV.UK-Prinzip, siehe Recherche 26.07.) */
+  var sort=offen.concat(arr.filter(function(o){return o.erledigt;}));
+  l.innerHTML=sort.map(function(o){
+    var done=!!o.erledigt;
+    return '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line)">'
+      +'<input type="checkbox" '+(done?'checked':'')+' onchange="todoToggle('+o.id+')" style="width:16px;height:16px;flex:none;margin-top:2px;cursor:pointer;accent-color:var(--green)">'
+      +(done
+        ? '<span style="flex:1;color:var(--muted);text-decoration:line-through;word-break:break-word">'+esc(o.text)+'</span>'
+        : '<textarea rows="1" onchange="todoEdit('+o.id+',this.value)" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\'" style="flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;resize:none;overflow:hidden;padding:1px 0">'+esc(o.text)+'</textarea>')
+      +'<button onclick="todoDel('+o.id+')" title="löschen" style="flex:none;border:0;background:transparent;color:var(--muted);font-size:14px;cursor:pointer">✕</button>'
+    +'</div>';
+  }).join('');
+  try{ l.querySelectorAll('textarea').forEach(function(t){ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; }); }catch(e){}
+}
+if(typeof window!=='undefined'){ window.todoDockToggle=todoDockToggle; window.todoDockRender=todoDockRender; window.todoBadge=todoBadge; }
 async function todoLoad(){
-  var l=document.getElementById("todoList"); if(!l) return;
-  try{ var r=await client.rpc("cb_todo_list"); if(r.error) throw new Error(r.error.message); window._todo=(r&&r.data)||[]; todoListRender(); }
-  catch(e){ l.style.color="var(--k-dc2626)"; l.textContent="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e); }
+  var l=document.getElementById("todoList");   /* darf fehlen: das Dock laeuft auch ohne die To-do-SEITE (Ralph 27.07.) */
+  try{ var r=await client.rpc("cb_todo_list"); if(r.error) throw new Error(r.error.message); window._todo=(r&&r.data)||[]; todoListRender(); try{ todoDockRender(); }catch(e){} try{ todoBadge(); }catch(e){} }
+  catch(e){ var msg="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e);
+    if(l){ l.style.color="var(--k-dc2626)"; l.textContent=msg; }
+    var dm=document.getElementById("todoDockMsg"); if(dm) dm.textContent=msg;   /* Fehler NIE verschlucken (§1.13i) */ }
 }
 function todoListRender(){
   var l=document.getElementById("todoList"); if(!l) return; var arr=window._todo||[];
@@ -12437,11 +12519,17 @@ function todoListRender(){
     +'</div>';
   }).join("");
 }
-async function todoAdd(){
-  var inp=document.getElementById("todoInput"), msg=document.getElementById("todoMsg"); if(!inp) return;
+/* woher (Ralph 27.07.): "dock" = aus dem Notiz-Panel, sonst von der To-do-Seite. */
+async function todoAdd(woher){
+  var id=(woher==="dock")?"todoDockInput":"todoInput";
+  var inp=document.getElementById(id);
+  if(!inp){ id=(id==="todoInput")?"todoDockInput":"todoInput"; inp=document.getElementById(id); }
+  if(!inp) return;
+  var msg=document.getElementById(id==="todoDockInput"?"todoDockMsg":"todoMsg");
   var t=(inp.value||"").trim(); if(!t) return; inp.value="";
   if(msg) msg.textContent="";
-  try{ var r=await client.rpc("cb_todo_add",{p_text:t}); if(r.error) throw new Error(r.error.message); await todoLoad(); var i2=document.getElementById("todoInput"); if(i2) i2.focus(); }
+  try{ var r=await client.rpc("cb_todo_add",{p_text:t}); if(r.error) throw new Error(r.error.message); await todoLoad();
+    var i2=document.getElementById(id); if(i2) i2.focus(); }
   catch(e){ if(msg) msg.textContent="Fehler beim Speichern: "+(e&&e.message?e.message:e); }
 }
 async function todoToggle(id){ try{ await client.rpc("cb_todo_toggle",{p_id:id}); await todoLoad(); }catch(e){} }
@@ -13916,7 +14004,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-27b";
+const APP_BUILD = "2026-07-27c";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
