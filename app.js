@@ -8305,7 +8305,9 @@ if(typeof window!=='undefined'){ window.fgZutAdditiveRoute=fgZutAdditiveRoute; }
 window._fmEinheiten=window._fmEinheiten||null;
 async function fmMikroLoad(pid){
   try{
-    if(!window._fmEinheiten){ var e=await client.rpc('cb_mikro_einheiten'); if(!e.error&&e.data) window._fmEinheiten=e.data; }
+    if(!window._fmEinheiten){ var e=await client.rpc('cb_mikro_einheiten',{p_mit_formen:true});   /* ab 27q: mit den Etikett-Formen (D3/K2).
+      Der Schalter existiert, weil eine DB-Aenderung SOFORT live ist, ein Frontend-Build aber erst nach dem
+      Deploy - ohne ihn zeigte die alte App zweimal "Vitamin D (µg)" (Ralphs Fund 27.07.). Default ist aus. */ if(!e.error&&e.data) window._fmEinheiten=e.data; }
     var sel=document.getElementById('fm_mikroStoff');
     /* Die Liste liefert jetzt AUCH die Etikett-Schreibweisen der Formen (Vitamin D3, Vitamin K2 -
        Ralph 27.07.: "immer noch kein K2 und D3"). Wichtig: gespeichert wird immer der STAMMNAME
@@ -8316,7 +8318,10 @@ async function fmMikroLoad(pid){
        dass es jemand meldet. */
     if(sel && window._fmEinheiten){ sel.innerHTML='<option value="">N\u00e4hrstoff\u2026</option>'+window._fmEinheiten.map(function(x){
       var txt=x.anzeige||((x.naehrstoff||'')+' ('+(x.einheit||'')+')');
-      return '<option value="'+esc(x.naehrstoff)+'" data-einheit="'+esc(x.einheit)+'"'+(x.ist_form?' data-form="1"':'')+'>'+esc(txt)+'</option>'; }).join(''); fmMikroStoffChange(); }
+      /* data-form traegt den ETIKETT-NAMEN ("Vitamin D3"). Gespeichert wird beides: der Stammname
+         (fuer Bezugswert und Zaehlung) UND die Form (fuer die Anzeige). Ralph 27.07.: "Wenn es ein
+         normales Vitamin D AUCH gibt, passt die Bezeichnung nicht" - wer D3 waehlt, muss D3 sehen. */
+      return '<option value="'+esc(x.naehrstoff)+'" data-einheit="'+esc(x.einheit)+'" data-form="'+esc(x.form||'')+'">'+esc(txt)+'</option>'; }).join(''); fmMikroStoffChange(); }
     var box=document.getElementById('fm_mikroRows');
     if(!pid){ window._fmMikro=[]; if(box) box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Produkt zuerst speichern, dann Mikros erfassen.</span>'; return; }
     var r=await client.rpc('cb_produkt_mikro_liste',{p_id:pid}); window._fmMikro=(!r.error&&r.data)?r.data:[];
@@ -8325,7 +8330,7 @@ async function fmMikroLoad(pid){
 }
 function fmMikroRender(){
   var box=document.getElementById('fm_mikroRows'); if(!box) return; var arr=window._fmMikro||[];
-  box.innerHTML = arr.length ? arr.map(function(m){ return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="flex:1;min-width:0">'+esc(m.naehrstoff)+'</span><span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span><span style="font-size:10.5px;color:var(--muted)">'+esc(m.quelle||'')+'</span><button type="button" onclick="fmMikroDel(\''+esc(String(m.naehrstoff).replace(/'/g,"\\'"))+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">\u2715</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine \u2013 unten hinzuf\u00fcgen (z.\u202fB. Jod, Selen, Fluorid)</span>';
+  box.innerHTML = arr.length ? arr.map(function(m){ return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="flex:1;min-width:0">'+esc(m.anzeige||m.form||m.naehrstoff)+(m.form&&m.form!==m.naehrstoff?'<span style="color:var(--muted);font-size:11px"> \u00b7 z\u00e4hlt als '+esc(m.naehrstoff)+'</span>':'')+'</span><span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span><span style="font-size:10.5px;color:var(--muted)">'+esc(m.quelle||'')+'</span><button type="button" onclick="fmMikroDel(\''+esc(String(m.naehrstoff).replace(/'/g,"\\'"))+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">\u2715</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine \u2013 unten hinzuf\u00fcgen (z.\u202fB. Jod, Selen, Fluorid)</span>';
 }
 function fmMikroStoffChange(){ var sel=document.getElementById('fm_mikroStoff'), u=document.getElementById('fm_mikroEinheit'); if(!sel||!u) return; var o=sel.options[sel.selectedIndex]; u.textContent=(o&&o.getAttribute('data-einheit'))||'mg'; }
 async function fmMikroAdd(){
@@ -8333,10 +8338,11 @@ async function fmMikroAdd(){
   if(!pid){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Bitte das Produkt zuerst speichern.'; } return; }
   var sel=document.getElementById('fm_mikroStoff'), mg=document.getElementById('fm_mikroMenge');
   var stoff=sel?sel.value:'', o=sel?sel.options[sel.selectedIndex]:null, einh=(o&&o.getAttribute('data-einheit'))||'mg';
+  var frm=(o&&o.getAttribute('data-form'))||'';   /* Etikett-Form, z. B. "Vitamin D3" */
   var menge=(mg&&mg.value!=='')?Number(String(mg.value).replace(',','.')):null;
   if(!stoff){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='N\u00e4hrstoff w\u00e4hlen.'; } return; }
   if(menge==null||!isFinite(menge)||menge<=0){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Menge pro 100\u202fg eingeben.'; } return; }
-  try{ var r=await client.rpc('cb_produkt_mikro_setzen',{p_id:pid,p_stoff:stoff,p_menge:menge,p_einheit:einh}); if(r&&r.error) throw new Error(r.error.message);
+  try{ var r=await client.rpc('cb_produkt_mikro_setzen',{p_id:pid,p_stoff:stoff,p_menge:menge,p_einheit:einh,p_form:frm||null}); if(r&&r.error) throw new Error(r.error.message);
     if(mg) mg.value=''; if(msg){ msg.style.color='var(--k-16a34a)'; msg.textContent='\u2713 gespeichert'; } fmMikroLoad(pid);
   }catch(e){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler: '+((e&&e.message)||e); } }
 }
@@ -14441,7 +14447,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27q";
+const APP_BUILD = "2026-07-27r";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
