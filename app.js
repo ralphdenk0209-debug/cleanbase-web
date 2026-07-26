@@ -8036,7 +8036,7 @@ function zusAddNeu(){
 var ZUS_FUNKTION={"antioxidationsmittel":1,"antioxidans":1,"stabilisator":1,"stabilisatoren":1,"farbstoff":1,"farbstoffe":1,"säuerungsmittel":1,"saeuerungsmittel":1,"säureregulator":1,"saeureregulator":1,"konservierungsmittel":1,"konservierungsstoff":1,"emulgator":1,"emulgatoren":1,"verdickungsmittel":1,"geliermittel":1,"trennmittel":1,"süßungsmittel":1,"suessungsmittel":1,"süssungsmittel":1,"backtriebmittel":1,"trägerstoff":1,"traegerstoff":1,"feuchthaltemittel":1,"geschmacksverstärker":1,"geschmacksverstaerker":1,"aroma":1,"aromen":1,"überzugsmittel":1,"ueberzugsmittel":1,"festigungsmittel":1,"mehlbehandlungsmittel":1,"schaumverhüter":1,"komplexbildner":1,"packgas":1,"treibgas":1,"füllstoff":1};
 /* Häufige DEUTSCHE Zusatzstoff-Namen → E-Nummer (der Stamm führt englische Namen).
    Damit „Natriumnitrit" nicht als eigener grauer Eintrag neben „E250" landet. Erweiterbar. */
-var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","steviolglycoside":"E960","steviolglykoside":"E960","steviolglycosid":"E960","sucralose":"E955","acesulfam":"E950","acesulfam-k":"E950","acesulfam k":"E950","aspartam":"E951","saccharin":"E954","cyclamat":"E952","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","polyphosphate":"E452","polyphosphates":"E452","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","tocopherole":"E306","gemischte tocopherole":"E306","natürliche gemischte tocopherole":"E306","natürliche tocopherole":"E306","alpha-tocopherol":"E307","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
+var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","steviolglycoside":"E960","steviolglykoside":"E960","steviolglycosid":"E960","sucralose":"E955","acesulfam":"E950","acesulfam-k":"E950","acesulfam k":"E950","aspartam":"E951","saccharin":"E954","cyclamat":"E952","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","polyphosphate":"E452","polyphosphates":"E452","natriumferrocyanid":"E535","kaliumferrocyanid":"E536","calciumferrocyanid":"E538","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","tocopherole":"E306","gemischte tocopherole":"E306","natürliche gemischte tocopherole":"E306","natürliche tocopherole":"E306","alpha-tocopherol":"E307","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
 /* Rikis erkannte Zusatzstoffe automatisch in die Liste übernehmen (Ralph 21.07.2026:
    „warum muss ich das selber eintragen?"). Robust: E-Nummern zuerst; Text mit KLAMMER-Auflösung
    (Komma in der Klammer trennt NICHT die Substanz ab), Funktionswörter raus, deutsche Namen →
@@ -8075,6 +8075,36 @@ async function zusFromRiki(zObj){
   try{ zusSync(); zusRenderSel(); zusRenderPick(); }catch(e){}
 }
 if(typeof window!=='undefined'){ window.zusToggle=zusToggle; window.zusDel=zusDel; window.zusKeineToggle=zusKeineToggle; window.zusAddNeu=zusAddNeu; window.zusRenderPick=zusRenderPick; }
+/* Auto-Umleitung (Ralph 25.07.): ein Zusatzstoff, den Riki faelschlich als ZUTAT gelistet hat (z.B.
+   "Natriumferrocyanid (Trennmittel)"), gehoert nach RECHTS zu den Zusatzstoffen und darf nicht als Zutat
+   bewertet werden. Eindeutige Signale: (a) Funktionswort in Klammern (Trennmittel/Konservierungsmittel/...)
+   oder (b) Name/E-Nummer trifft den Zusatzstoff-Katalog bzw. ein deutsches Synonym. Nur diese klaren Faelle
+   werden verschoben; normale Zutaten ("Zucker (aus Rueben)" o.ae.) bleiben. */
+async function fgZutAdditiveRoute(){
+  var c=document.getElementById('fe_zutRows'); if(!c) return;
+  try{ if(typeof loadZusatzstoffeStamm==='function') await loadZusatzstoffeStamm(); }catch(e){}
+  if(typeof ZUSATZSTOFFE_MAP==='undefined') return;
+  window._fgZus=window._fgZus||[];
+  var rows=[].slice.call(c.querySelectorAll('.fgZutRow')), moved=0;
+  rows.forEach(function(row){
+    var inp=row.querySelector('.fgzName'); var nm=inp?String(inp.value||'').trim():''; if(!nm) return;
+    var funk=false, pm=nm.match(/\(([^)]*)\)/);
+    if(pm){ var inner=pm[1].replace(/[:.]/g,'').trim().toLowerCase(); if(typeof ZUS_FUNKTION!=='undefined' && ZUS_FUNKTION[inner]) funk=true; }
+    var namePur=nm.replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+    var em=nm.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+    var eNr=em?em[0].replace(/\s/g,'').toUpperCase():((typeof ZUS_SYN!=='undefined'&&ZUS_SYN[namePur])?ZUS_SYN[namePur]:null);
+    var found=eNr?ZUSATZSTOFFE_MAP[String(eNr).toLowerCase()]:ZUSATZSTOFFE_MAP[namePur];
+    if(!found && typeof ZUS_SYN!=='undefined' && ZUS_SYN[namePur]) found=ZUSATZSTOFFE_MAP[String(ZUS_SYN[namePur]).toLowerCase()];
+    if(!(funk || found || em)) return;   /* keine klare Zusatzstoff-Kennung -> bleibt Zutat */
+    var key=String((found&&found.e)||eNr||namePur).toLowerCase();
+    var drin=window._fgZus.some(function(z){ return (String(z.e||'').toLowerCase()===key && key) || String(z.name||'').trim().toLowerCase()===namePur; });
+    if(!drin){ if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung}); else window._fgZus.push({e:eNr||null,name:nm,einst:'ungepr\u00fcft'}); }
+    if(row.parentNode) row.parentNode.removeChild(row);
+    moved++;
+  });
+  if(moved){ try{ zusSync(); }catch(e){} try{ zusRenderPick(); }catch(e){} try{ fgEnthaltenRender(); }catch(e){} try{ fePlaus(); }catch(e){} }
+}
+if(typeof window!=='undefined'){ window.fgZutAdditiveRoute=fgZutAdditiveRoute; }
 function fgZutRow(name,rating,kritisch){
   const kr=(String(kritisch||"nein").toLowerCase()==="ja");
   const hasR=!(rating===null||rating===undefined||rating==="");
@@ -8566,7 +8596,7 @@ async function rikiAnalyse(){
     }
     /* Rikis erkannte Zusatzstoffe (inkl. E-Nummern aus den Salami-/Wurst-Klammern) automatisch
        in die Liste übernehmen – du tippst nichts nach. */
-    if(v.zusatzstoffe){ try{ zusFromRiki(v.zusatzstoffe); }catch(e){} }
+    if(v.zusatzstoffe){ try{ zusFromRiki(v.zusatzstoffe); }catch(e){} } try{ fgZutAdditiveRoute(); }catch(e){}
     /* Nährwerte NUR füllen, wenn das Feld leer ist – bestehende, geprüfte Werte werden nie überschrieben. */
     const n=v.naehrwerte_100g||{};
     Object.keys(n).forEach(function(k){
@@ -9704,7 +9734,7 @@ async function fgPullHersteller(){
        Eine EAN ist eine Identität – lieber leer und später gescannt als falsch verknüpft. */
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Herstellerseite";
     /* Die Herstellerseite hinterliess bis 18.07.2026 GAR KEINEN Beleg - sie setzte nur den
        Quelle-Typ. Ein Produkt trug damit "Herstellerseite", ohne dass irgendwo stand, welche. */
@@ -9744,7 +9774,7 @@ async function fgPullResearch(files, b64arr){
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     var ue=document.getElementById("fe_url"); if(ue&&d.quelle_url&&!ue.value.trim()) ue.value=d.quelle_url;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
     /* Quelle-Typ nach Domain: großer Händler -> Amazon/Händler, sonst Herstellerseite. Beleg = die echte URL. */
     var url=String(d.quelle_url||"");
     var haendler=/amazon\.|rewe\.|edeka\.|dm\.de|rossmann\.|kaufland\.|lidl\.|aldi\.|mueller\.|müller\./i.test(url);
@@ -9801,7 +9831,7 @@ async function fgPullEtikett(files, b64arr){
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
-    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){}
+    if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
     /* Supplements: liefert Riki Wirkstoff-Mengen mit (name/menge/einheit/nrv), direkt in die
        Wirkstoff-Tabelle übernehmen. Fehlen sie im Riki-Ergebnis, bleibt die Tabelle wie sie ist
        (dann von Hand füllen) – nichts wird erfunden. */
@@ -13505,7 +13535,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26e";
+const APP_BUILD = "2026-07-26f";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
