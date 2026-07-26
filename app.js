@@ -8330,7 +8330,7 @@ async function fmMikroLoad(pid){
 }
 function fmMikroRender(){
   var box=document.getElementById('fm_mikroRows'); if(!box) return; var arr=window._fmMikro||[];
-  box.innerHTML = arr.length ? arr.map(function(m){ return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="flex:1;min-width:0">'+esc(m.anzeige||m.form||m.naehrstoff)+(m.form&&m.form!==m.naehrstoff?'<span style="color:var(--muted);font-size:11px"> \u00b7 z\u00e4hlt als '+esc(m.naehrstoff)+'</span>':'')+'</span><span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span><span style="font-size:10.5px;color:var(--muted)">'+esc(m.quelle||'')+'</span><button type="button" onclick="fmMikroDel(\''+esc(String(m.naehrstoff).replace(/'/g,"\\'"))+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">\u2715</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine \u2013 unten hinzuf\u00fcgen (z.\u202fB. Jod, Selen, Fluorid)</span>';
+  box.innerHTML = arr.length ? arr.map(function(m){ return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="flex:1;min-width:0">'+esc(m.anzeige||m.form||m.naehrstoff)+(m.form&&m.form!==m.naehrstoff?'<span style="color:var(--muted);font-size:11px"> \u00b7 z\u00e4hlt als '+esc(m.naehrstoff)+'</span>':'')+'</span><span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span><span style="font-size:10.5px;color:var(--muted)">'+esc(m.quelle||'')+'</span><button type="button" onclick="fmMikroDel(\''+esc(String(m.naehrstoff).replace(/'/g,"\\'"))+'\',\''+esc(String(m.form||'').replace(/'/g,"\\'"))+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">\u2715</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine \u2013 unten hinzuf\u00fcgen (z.\u202fB. Jod, Selen, Fluorid)</span>';
 }
 function fmMikroStoffChange(){ var sel=document.getElementById('fm_mikroStoff'), u=document.getElementById('fm_mikroEinheit'); if(!sel||!u) return; var o=sel.options[sel.selectedIndex]; u.textContent=(o&&o.getAttribute('data-einheit'))||'mg'; }
 async function fmMikroAdd(){
@@ -8346,10 +8346,12 @@ async function fmMikroAdd(){
     if(mg) mg.value=''; if(msg){ msg.style.color='var(--k-16a34a)'; msg.textContent='\u2713 gespeichert'; } fmMikroLoad(pid);
   }catch(e){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler: '+((e&&e.message)||e); } }
 }
-async function fmMikroDel(stoff){
+/* Form MUSS mit: ein Produkt kann "Vitamin D" und "Vitamin D3" nebeneinander fuehren.
+   Ohne Form loeschte das rote X beide Zeilen - stiller Datenverlust. */
+async function fmMikroDel(stoff, form){
   var pid=(window._fgEdit&&window._fgEdit.id); if(!pid) return;
   if(!confirm(stoff+' entfernen?')) return;
-  try{ var r=await client.rpc('cb_produkt_mikro_del',{p_id:pid,p_stoff:stoff}); if(r&&r.error) throw new Error(r.error.message); fmMikroLoad(pid); }catch(e){}
+  try{ var r=await client.rpc('cb_produkt_mikro_del',{p_id:pid,p_stoff:stoff,p_form:form||null}); if(r&&r.error) throw new Error(r.error.message); fmMikroLoad(pid); }catch(e){}
 }
 if(typeof window!=='undefined'){ window.fmMikroLoad=fmMikroLoad; window.fmMikroRender=fmMikroRender; window.fmMikroStoffChange=fmMikroStoffChange; window.fmMikroAdd=fmMikroAdd; window.fmMikroDel=fmMikroDel; }
 /* Mikronaehrstoff hinzufuegen ueber ein Fenster (Ralph 26.07.): leere Liste + Button
@@ -9493,7 +9495,8 @@ function feKatChange(){
   if(_wfbtn) _wfbtn.style.display="none";   /* kein Umdrehen mehr – das Foto steht ohnehin da */
   if(special){
     if(_wc) _wc.style.display=""; if(_wtc) _wtc.style.display="";   /* Wirkstoff-Tabelle nur bei Supplement/Salze */
-    try{ feWirkFarbeAll(); }catch(e){}
+    try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
+  try{ feWirkFarbeAll(); }catch(e){}
   } else {
     if(_wc) _wc.style.display="none";
   }
@@ -9515,28 +9518,127 @@ function feWirkRow(w){ w=w||{};
     +'<button type="button" onclick="feWirkDel(this)" title="entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:7px;width:26px;height:28px;cursor:pointer;flex:0 0 auto">✕</button>'
     +'</div>';
 }
-/* ===== Wirkstoff-Ampel (Ralph 24.07.2026) – dreifarbige Zeilen-Markierung =====
-   GRÜN  = in EU-anerkannter wirksamer Menge: ≥ 15 % des Tagesbedarfs (NRV). Erst ab dieser
-           Menge ist eine gesundheitsbezogene Aussage nach VO (EU) 432/2012 überhaupt zulässig
-           (VO 1169/2011: „signifikante Menge" = 15 % NRV je Bezugsmenge).
-   GELB  = Nährstoff MIT EU-Nutzen, aber Dosis darunter (0 < NRV < 15 %) → „drauf, aber zu wenig".
-   GRAU  = kein Nährstoffbezugswert / keine zugelassene EU-Aussage (Aminosäuren, Pflanzenstoffe
-           wie Glycin, MSM, Ashwagandha). %NRV existiert nur für Vitamine/Mineralstoffe – fehlt er,
-           ist es kein claim-fähiger Nährstoff. GRÜN heißt „wirksame Menge", NICHT „gesund". */
+/* ===== WIRKSTOFF-AMPEL: RECHNET JETZT SELBST (Ralph-Go 27.07.2026) ========================
+   Vorher las die Ampel ausschliesslich das Handfeld %NRV. War es leer - und das ist der
+   Normalfall, weil auf Etiketten meist nur Mengen stehen - blieb die Zeile GRAU. Grau heisst
+   aber "keine zugelassene EU-Aussage". Ein leeres Feld sah damit aus wie ein Befund.
+
+   Jetzt: Handfeld hat Vorrang (steht ein %-Wert auf dem Etikett, ist DER der belegte);
+   ist es leer, rechnet die App aus Menge + Bezugswert. Gibt es keinen belegten Bezugswert,
+   bleibt die Zeile grau - da ist Grau die richtige Aussage (Ralph: "Wenn es wissenschaftlich
+   keine Empfehlung gibt, dann bleibt es leer").
+
+   Quelle der Zahlen: Tabelle Naehrstoff_Bezugswert, geladen ueber cb_bezugswerte().
+   KEINE Werte mehr im Code. */
+window._bezug = window._bezug || null;
+
+async function bezugLaden(){
+  if(window._bezug) return window._bezug;
+  try{
+    var r = await client.rpc('cb_bezugswerte');
+    if(r && !r.error && r.data){
+      var d = r.data;
+      var mapMuster = {};
+      (d.muster||[]).forEach(function(m){ mapMuster[String(m.muster||'').toLowerCase()] = m.naehrstoff; });
+      var mapWert = {};
+      (d.werte||[]).forEach(function(w){
+        var k = w.naehrstoff;
+        (mapWert[k] = mapWert[k] || {})[w.art] = w;
+      });
+      window._bezug = { muster: mapMuster, werte: mapWert };
+    }
+  }catch(e){}
+  return window._bezug;
+}
+
+/* Schreibweise -> Stammname. "– davon EPA" -> "epa" -> "Omega-3 (EPA+DHA)".
+   Dieselbe Vorbehandlung wie in cb_tagebuch_mikro: fuehrendes "davon" faellt weg. */
+function bezugNaehrstoff(name){
+  var b = window._bezug; if(!b) return null;
+  var k = String(name||'').trim().toLowerCase().replace(/^[\s\-–—]*davon\s+/,'').trim();
+  if(!k) return null;
+  return b.muster[k] || (b.werte[name] ? name : null);
+}
+
+/* Einheiten auf eine Basis bringen. IU nur fuer Vitamin D belegt (1 µg = 40 IU),
+   sonst wird NICHT umgerechnet - lieber keine Farbe als eine falsche. */
+function bezugInMg(menge, einheit, naehrstoff){
+  var e = String(einheit||'').toLowerCase(), m = Number(menge);
+  if(!isFinite(m)) return null;
+  if(e==='mg') return m;
+  if(e==='µg'||e==='ug'||e==='mcg') return m/1000;
+  if(e==='g') return m*1000;
+  if((e==='iu'||e==='ie'||e==='i.e.') && naehrstoff==='Vitamin D') return (m/40)/1000;
+  return null;
+}
+
+/* Summe aller Wirkstoff-Zeilen, die auf denselben Stammnamen zeigen.
+   Gebraucht fuer EPA+DHA: die 250 mg der EFSA und der VO 432/2012 gelten fuer BEIDE
+   ZUSAMMEN, auf dem Etikett stehen sie getrennt. Die Sammelzeile "Omega-3-Fettsaeuren"
+   zaehlt NICHT mit - sie enthaelt auch ALA und ist nicht dasselbe. */
+function bezugSummeMg(naehrstoff){
+  var summe = 0, gefunden = false;
+  [].forEach.call(document.querySelectorAll("#fe_wirkRows .feWirkRow"), function(r){
+    var nm = ((r.querySelector(".fwName")||{}).value||"").trim();
+    if(bezugNaehrstoff(nm) !== naehrstoff) return;
+    /* Nur echte Einzelstoffe addieren. Eine Zeile, die den Sammelbegriff traegt
+       ("Omega-3", "Omega-3-Fettsaeuren"), ist die SUMME inkl. ALA - sie mitzuzaehlen
+       waere doppelt und zu hoch. */
+    if(/^[\s\-–—]*omega[\s-]*3/i.test(nm)) return;
+    var mg = bezugInMg(((r.querySelector(".fwMenge")||{}).value||"").replace(",","."),
+                       ((r.querySelector(".fwEinheit")||{}).value||""), naehrstoff);
+    if(mg!=null){ summe += mg; gefunden = true; }
+  });
+  return gefunden ? summe : null;
+}
 function feWirkFarbe(r){
   if(!r||!r.style) return;
-  var nameEl=r.querySelector(".fwName"), nrvEl=r.querySelector(".fwNrv");
+  var nameEl=r.querySelector(".fwName"), nrvEl=r.querySelector(".fwNrv"), mgEl=r.querySelector(".fwMenge"), ehEl=r.querySelector(".fwEinheit");
   var nm=nameEl?String(nameEl.value||"").trim():"";
   var raw=nrvEl?String(nrvEl.value||"").trim().replace(",","."):"";
   var nrv=(raw===""?null:parseFloat(raw));
   var col="transparent", tip="";
   if(nm!==""){
-    if(nrv==null||!isFinite(nrv)||nrv<=0){ col="#9aa7b2"; tip="Grau: kein Nährstoffbezugswert / keine zugelassene EU-Aussage (z. B. Aminosäure, Pflanzenstoff)."; }
-    else if(nrv>=15){ col="#2e9e57"; tip="Grün: in EU-anerkannter wirksamer Menge (≥ 15 % Tagesbedarf – Aussage nach VO 432/2012 zulässig)."; }
-    else { col="#e0a32e"; tip="Gelb: Nährstoff mit EU-Nutzen, aber Dosis unter 15 % des Tagesbedarfs."; }
+    /* 1. Handfeld hat Vorrang: steht auf dem Etikett ein %-Wert, ist DER der belegte. */
+    if(nrv!=null && isFinite(nrv) && nrv>0){
+      if(nrv>=15){ col="#2e9e57"; tip="Grün: in EU-anerkannter wirksamer Menge (≥ 15 % Tagesbedarf – Aussage nach VO 432/2012 zulässig). Quelle: %NRV vom Etikett."; }
+      else { col="#e0a32e"; tip="Gelb: Nährstoff mit EU-Nutzen, aber Dosis unter 15 % des Tagesbedarfs. Quelle: %NRV vom Etikett."; }
+    } else {
+      /* 2. Sonst selbst rechnen – aus der Menge und dem hinterlegten Bezugswert. */
+      var stoff = bezugNaehrstoff(nm);
+      var eintrag = (stoff && window._bezug) ? window._bezug.werte[stoff] : null;
+      var mg = bezugInMg((mgEl?mgEl.value:"").replace(",","."), ehEl?ehEl.value:"", stoff);
+      if(!eintrag || mg==null){
+        /* 3. Kein belegter Bezugswert (Aminosäuren, Pflanzenstoffe, Gesamt-Omega-3) oder
+              Einheit nicht umrechenbar → grau. Hier IST Grau die richtige Aussage. */
+        col="#9aa7b2";
+        tip = stoff ? "Grau: für „"+stoff+"“ ist keine Empfehlung in mg/µg belegt – deshalb keine Farbe."
+                    : "Grau: kein Nährstoffbezugswert / keine zugelassene EU-Aussage (z. B. Aminosäure, Pflanzenstoff).";
+      } else if(eintrag.tagesbedarf){
+        var b = eintrag.tagesbedarf;
+        var bmg = bezugInMg(b.wert, b.einheit, stoff);
+        var pct = (bmg>0) ? (mg/bmg*100) : null;
+        if(pct==null){ col="#9aa7b2"; tip="Grau: Bezugswert nicht umrechenbar."; }
+        else if(pct>=15){ col="#2e9e57"; tip="Grün: "+Math.round(pct)+" % des Tagesbedarfs ("+b.wert+" "+b.einheit+") – ab 15 % ist eine Aussage nach VO 432/2012 zulässig. Berechnet, nicht vom Etikett."; }
+        else { col="#e0a32e"; tip="Gelb: "+Math.round(pct)+" % des Tagesbedarfs ("+b.wert+" "+b.einheit+") – unter der 15-%-Schwelle. Berechnet, nicht vom Etikett."; }
+      } else {
+        /* 4. Kein Tagesbedarf, aber eine belegte Mengen-Empfehlung (EPA/DHA, ALA).
+              Hier wird NIE in Prozent gerechnet – es gibt keinen Bedarf, auf den man
+              sich beziehen könnte. Verglichen wird die absolute Menge. */
+        var s = eintrag.zufuhrempfehlung || eintrag.aussage_schwelle;
+        var smg = s ? bezugInMg(s.wert, s.einheit, stoff) : null;
+        /* EPA und DHA stehen getrennt auf dem Etikett, die Empfehlung gilt für beide
+           ZUSAMMEN → summieren. Bei allen anderen Stoffen ist die Summe die Zeile selbst. */
+        var ist = bezugSummeMg(stoff); if(ist==null) ist = mg;
+        if(smg==null){ col="#9aa7b2"; tip="Grau: Empfehlung nicht umrechenbar."; }
+        else if(ist>=smg){ col="#2e9e57"; tip="Grün: "+Math.round(ist)+" mg von "+s.wert+" "+s.einheit+" empfohlener Tagesmenge"+(ist>mg?" (EPA+DHA zusammen)":"")+". "+(s.aussage||"")+" Quelle: "+(s.quelle||"")+"."; }
+        else { col="#e0a32e"; tip="Gelb: "+Math.round(ist)+" mg – unter der empfohlenen Tagesmenge von "+s.wert+" "+s.einheit+". Quelle: "+(s.quelle||"")+"."; }
+      }
+    }
   }
   r.style.borderLeft="4px solid "+col; r.style.paddingLeft="8px"; r.title=tip;
 }
+
 function feWirkFarbeRow(el){ var r=el&&el.closest?el.closest(".feWirkRow"):null; feWirkFarbe(r); }
 function feWirkFarbeAll(){ [].forEach.call(document.querySelectorAll("#fe_wirkRows .feWirkRow"), feWirkFarbe); }
 function feWirkAdd(w){ var c=document.getElementById("fe_wirkRows"); if(!c) return;
@@ -14447,7 +14549,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27r";
+const APP_BUILD = "2026-07-27t";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
