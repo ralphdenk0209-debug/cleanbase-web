@@ -2307,6 +2307,7 @@ function prodHome(){
 var RK_LETZTER=null;   /* letzter Vorschlag, für die Speicher-Funktion */
 
 async function rkInit(){
+  try{ rkBookmarkletBox(); }catch(e){}
   var dl=document.getElementById("rkProdListe"); if(!dl) return;
   if(!ALL.length){ try{ var d=await fetchAlleProdukte(); if(d) ALL=d.map(function(x){return Object.assign({},x,{clean_score:num(x.clean_score)});}); }catch(e){} }
   if(dl.children.length || !ALL.length) return;
@@ -14286,7 +14287,103 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-27l";
+
+/* ===== SCHNELLANLAGE PER LESEZEICHEN (Ralph 27.07.2026) ==============================
+   Ralph: "Kann man in Chrome oder Safari eine Funktion bauen, mit der ich, wenn ich eine
+   Webadresse ausgewaehlt habe, diese mit Riki als Produkt anlegen kann?"
+
+   Warum ein Lesezeichen und keine Browser-Erweiterung: Eine Erweiterung muesste gepackt,
+   installiert und bei jeder Chrome-Aenderung gepflegt werden - und Safari braucht eine
+   voellig andere Fassung. Das Lesezeichen ist EIN Klick, funktioniert in beiden Browsern
+   und hat keinen Wartungsanteil. Es oeffnet admin.html?neu=<Adresse>; von dort uebernimmt
+   der Empfaenger unten und laesst Riki die Seite sofort lesen (Ralph: "soll sofort loslegen").
+
+   Der Empfaenger wartet auf die Anmeldung, statt sie vorauszusetzen: Wer den Link im
+   Supermarkt anklickt, ist im neuen Tab oft noch nicht angemeldet. Ohne Warten waere der
+   Import still verloren - der schlimmste Fall, weil man den Verlust nicht bemerkt. */
+function rkBookmarkletCode(){
+  var ziel=location.origin+location.pathname;   /* immer die echte Adresse dieses Backends */
+  return "javascript:(function(){var u=location.href;if(!/^https?:/i.test(u)){alert('Das geht nur auf einer normalen Webseite.');return;}"
+       + "window.open('"+ziel+"?neu='+encodeURIComponent(u),'_blank');})();";
+}
+function rkBookmarkletBox(){
+  var box=document.getElementById("rkBmBox"); if(!box) return;
+  var code=rkBookmarkletCode();
+  var href=code.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  box.innerHTML=''
+    +'<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-bottom:14px">'
+    +'<div style="font-size:14px;font-weight:700;margin-bottom:2px">Noch schneller: das Lesezeichen</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;line-height:1.55">Einmal einrichten, danach reicht auf jeder Produktseite <b>ein Klick</b>: Der Editor geht auf und Riki liest die Seite sofort.</div>'
+    +'<div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:10px">'
+      +'<a href="'+href+'" onclick="alert(\'Nicht klicken \u2013 in die Lesezeichenleiste ZIEHEN.\');return false;" '
+      +'style="display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border:1px solid var(--k-16a34a);border-radius:9px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);font-weight:700;font-size:13.5px;text-decoration:none;cursor:grab">'
+      +'&#11015; Produkt anlegen (Root Index)</a>'
+      +'<span style="font-size:12px;color:var(--muted)">&larr; in die Lesezeichenleiste ziehen</span>'
+    +'</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.6">'
+      +'<b>Chrome / Edge am Rechner:</b> Lesezeichenleiste einblenden (&#8984;&#8679;B bzw. Strg&#8679;B), den gr&uuml;nen Knopf hineinziehen &ndash; fertig.<br>'
+      +'<b>Safari am Mac:</b> Favoritenleiste einblenden (&#8984;&#8679;B), Knopf hineinziehen. Fragt Safari nach, mit <i>Erlauben</i> best&auml;tigen.<br>'
+      +'<b>iPhone:</b> Diese Seite als Lesezeichen sichern, dann im Lesezeichen <i>Bearbeiten</i> die Adresse durch den Text unten ersetzen. Aufrufen &uuml;ber die Adresszeile durch Tippen des Lesezeichen-Namens.'
+    +'</div>'
+    +'<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12.5px;color:var(--muted)">Text zum Kopieren (f&uuml;rs iPhone oder wenn das Ziehen nicht geht)</summary>'
+      +'<textarea readonly onclick="this.select()" style="width:100%;box-sizing:border-box;height:74px;margin-top:7px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-family:ui-monospace,monospace;font-size:11px;line-height:1.45">'
+      +esc(code)+'</textarea></details>'
+    +'</div>';
+}
+if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
+
+/* Empfaenger: admin.html?neu=<Adresse> -> Editor auf, Riki liest sofort. */
+(function rkSchnellAnlageEmpfangen(){
+  if(typeof window==="undefined" || !window.__ADMIN_PAGE) return;
+  var ziel=null;
+  try{ ziel=new URLSearchParams(location.search).get("neu"); }catch(e){}
+  if(!ziel || !/^https?:\/\//i.test(ziel)) return;
+  /* Adresse SOFORT aus der Zeile nehmen: sonst legt ein Neuladen (oder ein wiederhergestellter
+     Tab) dasselbe Produkt ein zweites Mal an. */
+  try{ history.replaceState(null,"",location.pathname+location.hash); }catch(e){}
+
+  function hinweis(txt,farbe){
+    var b=document.getElementById("rkSchnellHinweis");
+    if(!b){ b=document.createElement("div"); b.id="rkSchnellHinweis";
+      b.style.cssText="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9998;max-width:min(560px,92vw);padding:11px 16px;border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 8px 26px -12px rgba(20,40,70,.5);background:#ffffff;border:1px solid #e2e8ef";
+      document.body.appendChild(b); }
+    b.style.color=farbe||"#1d3c24"; b.innerHTML=txt;
+    return b;
+  }
+  function weg(){ var b=document.getElementById("rkSchnellHinweis"); if(b) b.remove(); }
+
+  var kurz=ziel.replace(/^https?:\/\//i,"").split("/")[0];
+  hinweis('Schnellanlage: <b>'+esc(kurz)+'</b> &ndash; warte auf die Anmeldung&hellip;');
+
+  var seit=0, MAX=60000, TAKT=400;   /* 60 s: reicht auch, wenn erst noch angemeldet wird */
+  var loginGezeigt=false;
+  var timer=setInterval(function(){
+    seit+=TAKT;
+    if(typeof ME!=="undefined" && ME && ME.is_admin){
+      clearInterval(timer);
+      hinweis('Editor geht auf, Riki liest <b>'+esc(kurz)+'</b>&hellip;');
+      try{
+        var pr=openFgEditor(null);
+        var nach=function(){ try{ rkImpAfterOpen(ziel); }catch(e){}
+          setTimeout(function(){ hinweis('&#10003; Riki liest <b>'+esc(kurz)+'</b> &ndash; Werte pr&uuml;fen, dann freigeben.','#166534');
+            setTimeout(weg, 6000); }, 300); };
+        if(pr && typeof pr.then==="function") pr.then(nach); else setTimeout(nach,500);
+      }catch(e){ hinweis('Editor liess sich nicht oeffnen: '+esc(String(e&&e.message||e)),'#cf5442'); }
+      return;
+    }
+    if(seit>3000 && !loginGezeigt && (typeof ME==="undefined" || !ME)){
+      loginGezeigt=true;
+      hinweis('Bitte anmelden &ndash; die Seite <b>'+esc(kurz)+'</b> wird danach automatisch eingelesen.','#92400e');
+      try{ if(typeof openLogin==="function") openLogin(); }catch(e){}
+    }
+    if(seit>=MAX){
+      clearInterval(timer);
+      hinweis('Schnellanlage abgebrochen &ndash; keine Admin-Anmeldung. Adresse: <b>'+esc(ziel)+'</b> (kopieren und im Riki-Import einf&uuml;gen).','#cf5442');
+    }
+  }, TAKT);
+})();
+
+const APP_BUILD = "2026-07-27m";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
