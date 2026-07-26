@@ -8307,7 +8307,16 @@ async function fmMikroLoad(pid){
   try{
     if(!window._fmEinheiten){ var e=await client.rpc('cb_mikro_einheiten'); if(!e.error&&e.data) window._fmEinheiten=e.data; }
     var sel=document.getElementById('fm_mikroStoff');
-    if(sel && window._fmEinheiten){ sel.innerHTML='<option value="">N\u00e4hrstoff\u2026</option>'+window._fmEinheiten.map(function(x){ return '<option value="'+esc(x.naehrstoff)+'" data-einheit="'+esc(x.einheit)+'">'+esc(x.naehrstoff)+' ('+esc(x.einheit)+')</option>'; }).join(''); fmMikroStoffChange(); }
+    /* Die Liste liefert jetzt AUCH die Etikett-Schreibweisen der Formen (Vitamin D3, Vitamin K2 -
+       Ralph 27.07.: "immer noch kein K2 und D3"). Wichtig: gespeichert wird immer der STAMMNAME
+       (x.naehrstoff), angezeigt die Etikett-Schreibweise (x.anzeige). D3 und K2 sind FORMEN, keine
+       eigenen Naehrstoffe - die EU-Referenzwerte kennen nur "Vitamin D" und "Vitamin K". Ein eigener
+       Eintrag braeuchte einen eigenen Bezugswert, den es nicht gibt; und cb_tagebuch_mikro gruppiert
+       nach dem Naehrstoff-Namen - ein Extra-Name fiele aus der Naehrstoff-Uebersicht heraus, ohne
+       dass es jemand meldet. */
+    if(sel && window._fmEinheiten){ sel.innerHTML='<option value="">N\u00e4hrstoff\u2026</option>'+window._fmEinheiten.map(function(x){
+      var txt=x.anzeige||((x.naehrstoff||'')+' ('+(x.einheit||'')+')');
+      return '<option value="'+esc(x.naehrstoff)+'" data-einheit="'+esc(x.einheit)+'"'+(x.ist_form?' data-form="1"':'')+'>'+esc(txt)+'</option>'; }).join(''); fmMikroStoffChange(); }
     var box=document.getElementById('fm_mikroRows');
     if(!pid){ window._fmMikro=[]; if(box) box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Produkt zuerst speichern, dann Mikros erfassen.</span>'; return; }
     var r=await client.rpc('cb_produkt_mikro_liste',{p_id:pid}); window._fmMikro=(!r.error&&r.data)?r.data:[];
@@ -14432,7 +14441,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27p";
+const APP_BUILD = "2026-07-27q";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
