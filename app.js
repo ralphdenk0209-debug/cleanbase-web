@@ -9215,7 +9215,18 @@ async function openFgEditor(id, prefill, targetEl){
      Ein leeres Feld heisst "unbewertet" - und muss auch so aussehen. */
   const zText=(d.zutaten||[]).map(z=>`${z.name}; ${(z.rating===null||z.rating===undefined)?"":z.rating}; ${(String(z.kritisch||"nein").toLowerCase()==="ja")?"j":"n"}`).join("\n");
   const inp=(id2,val)=>`<input id="${id2}" value="${esc(val||"")}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px">`;
-  const sel=(id2,cur,opts)=>`<select id="${id2}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">${opts.map(o=>`<option ${((cur||opts[0])===o)?"selected":""}>${o}</option>`).join("")}</select>`;
+  /* Das <select> loeste bis 27l KEIN Ereignis aus: Quelle-Typ von Hand gewaehlt -> die Freigabe-Fahne
+     blieb rot, bis man speicherte und neu lud (Ralphs Fund 27.07.). Jetzt onchange -> fePlaus().
+     Zweitens: ein <select> VERSCHLUCKT still jeden Wert, den es nicht als <option> kennt (value wird "").
+     Steht im Datensatz eine Schreibweise, die nicht in der Liste ist, sah das Feld leer aus, obwohl
+     die Quelle belegt war. Deshalb wird ein unbekannter Ist-Wert jetzt als eigene Option ergaenzt
+     und sichtbar als "(nicht in der Liste)" markiert, statt zu verschwinden. */
+  const sel=(id2,cur,opts,onch)=>{ var _c=(cur==null?"":String(cur)); var _o=opts.slice();
+    if(_c && _o.indexOf(_c)<0) _o.push(_c);
+    return `<select id="${id2}" ${onch?`onchange="${onch}"`:""} style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">`
+      + _o.map(function(o){ var unbek=(o!=="" && opts.indexOf(o)<0);
+          return `<option value="${esc(o)}" ${(_c===o)?"selected":""}>${esc(o)}${unbek?" (nicht in der Liste)":""}</option>`; }).join("")
+      + `</select>`; };
   const card=(title,inner)=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">${title}</div>${inner}</div>`;
   /* KONZEPT D (Ralph 26.07.): Karte fuer die feste Arbeitsflaeche. Sie fuellt die Spaltenhoehe aus und
      scrollt INNEN – dadurch scrollt die Seite selbst nie und nichts verschiebt sich. Der Titel bleibt
@@ -9297,7 +9308,7 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
       <div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
-        ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"])}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
+        ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"],"try{fePlaus()}catch(e){}")}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><button type="button" onclick="fgBildLoeschen()" style="margin-left:8px;padding:5px 10px;border:1px solid var(--k-fca5a5,#fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:12.5px">🗑 Bild löschen</button><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
           + `<div style="margin-top:14px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
@@ -10357,7 +10368,7 @@ async function fgPullResearch(files, b64arr){
     /* Quelle-Typ nach Domain: großer Händler -> Amazon/Händler, sonst Herstellerseite. Beleg = die echte URL. */
     var url=String(d.quelle_url||"");
     var haendler=/amazon\.|rewe\.|edeka\.|dm\.de|rossmann\.|kaufland\.|lidl\.|aldi\.|mueller\.|müller\./i.test(url);
-    var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value=haendler?"Amazon/Händler":"Herstellerseite";
+    var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value=haendler?"Amazon/Haendler":"Herstellerseite";   /* 27l: "Amazon/Händler" mit ae-Umlaut steht nicht im Quellen_Stamm -> wurde verschluckt. */
     if(url) feBelegAdd(url);
     try{ fePlaus(); }catch(e){}
     var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
@@ -10422,7 +10433,7 @@ async function fgPullEtikett(files, b64arr){
       }
     } }catch(e){}
     try{ var _wqM=v.wirkstoffe||v.naehrstoffe||v.mineralstoffe||v.vitamine||null; if(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()!=="supplement" && Array.isArray(_wqM)&&_wqM.length && typeof fmMikroVorschlag==="function") fmMikroVorschlag(_wqM); }catch(e){}
-    var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Etikettfoto (Nutzer)";
+    var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Etikettfoto";   /* 27l: war "Etikettfoto (Nutzer)" - steht NICHT im Quellen_Stamm, das <select> verschluckte es still. Das "(Nutzer)" steht im Beleg. */
     try{ feBelegAdd("Etikettfoto (Nutzer)"+(ean?(" · EAN "+ean):"")); }catch(e){}
     try{ fePlaus(); }catch(e){}
     var warn=(Array.isArray(d.warnungen)&&d.warnungen.length)?(" &#9888; "+d.warnungen.map(esc).join(" · ")):"";
@@ -14275,7 +14286,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-27k";
+const APP_BUILD = "2026-07-27l";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
