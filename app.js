@@ -1861,7 +1861,7 @@ function detail2(d){
     + '</div>'
     + (amazonUrl(d)?AMZ_HINWEIS:'')
     + '<div style="margin-top:6px">'
-      + ((restRows&&hasFeat('pk_naehrwerte'))?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 g</div>'+restRows):'')
+      + ((restRows&&hasFeat('pk_naehrwerte'))?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 '+prodEinheit(d)+'</div>'+restRows):'')
       + ACC('🧾','Zutaten &amp; Zusatzstoffe',zHtml+(hasFeat('score_detail')?naehrstoffHtml(d):''))
       + (bz?ACC('📈','Blutzucker-Verlauf',bzInner):'')
       + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'
@@ -2094,8 +2094,8 @@ function detail(d){
     ${_azoWarn?`<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Enthält synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis „kann Aktivität und Aufmerksamkeit bei Kindern beeinträchtigen". Deckelt die Wertung auf höchstens „Gut".</div>`:""}
     ${_ksuessWarn?`<div class="note" style="background:var(--k-fffbeb);border-color:var(--k-fde68a);color:var(--k-92400e)">⚠️ <b>Enthält künstliche Süßstoffe</b> (z. B. Sucralose/Acesulfam) – kalorienarm, aber umstritten. Bei gesüßten Getränken deckelt es die Wertung auf höchstens „Mittel".</div>`:""}
     ${_istSupp?`<div id="riAmpel" data-pid="${esc(d.id)}"><div class="note" style="background:var(--k-f4f5f4);color:var(--muted)">Prüfe die Dosierung gegen die EFSA-Grenzwerte…</div></div>`:(!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:"")}
-    ${!hasFeat('pk_naehrwerte') ? pkSperre('Nährwerte pro 100 g','Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz')
-       : (mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 g</div>${mRows}`:"")}
+    ${!hasFeat('pk_naehrwerte') ? pkSperre('Nährwerte pro 100 '+prodEinheit(d),'Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz')
+       : (mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 ${prodEinheit(d)}</div>${mRows}`:"")}
     ${warumBlock}
     ${_sd ? zutatenBlock : ""}
     ${_sd ? naehrstoffHtml(d) : ""}
@@ -4490,7 +4490,7 @@ function nwForm(ean, n){
         +'</td></tr>';
     }).join("")
     +'</table>'
-    +'<div style="font-size:11px;color:var(--muted);margin-top:3px">je 100 g / 100 ml · <span style="color:var(--k-c2453a)">*</span> Pflicht</div>'
+    +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:4px">'      +'<span>Die Werte gelten je</span>'      +'<select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Naehrwerte? Steht auf dem Etikett - bei Fluessigem meist 100 ml." style="padding:3px 6px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:11.5px;font-weight:700">'        +'<option value="">100 g / ml (nicht festgelegt)</option><option value="g">100 g</option><option value="ml">100 ml</option></select>'      +'<span id="fe_ehHint" style="font-weight:600"></span>'      +'<span style="margin-left:auto"><span style="color:var(--k-c2453a)">*</span> Pflicht</span></div>'
     +'<div id="seCheck_'+esc(ean)+'" style="font-size:12px;margin-top:6px;line-height:1.45"></div>';
 }
 
@@ -6256,6 +6256,25 @@ function tbResolveId(){
 }
 /* Portions-Set: klein / mittel / groß (g bzw. ~ml) – realistisch je Produkttyp,
    keine festen 0,7/1,4-Multiplikatoren mehr. mittel = Vorbelegung. */
+/* ===== BEZUGSEINHEIT g oder ml (Ralph 27.07.2026) =====
+   "Milch als Gramm zum Eingeben, soll aber ml sein - alles was fluessig ist."
+   Die Einheit steht seit heute am Produkt (Produkte.Mengen_Einheit, ueber v_web_produkte als
+   mengen_einheit). Sie sagt, WORAUF sich die hinterlegten Naehrwerte beziehen - steht auf dem
+   Etikett "pro 100 ml", ist eine Eingabe in ml direkt richtig.
+   🔴 Es wird NICHTS umgerechnet: eine Dichte (Milch 1,03 - Oel 0,92 - Sirup 1,4) waere eine
+   erfundene Zahl (§1). Wir beschriften richtig, wir rechnen nicht um.
+   Ohne Angabe bleibt es bei g - das ist der bisherige Zustand, also kein Bruch. */
+function prodEinheit(x){
+  var p=x;
+  if(!p) return "g";
+  if(typeof p==="string"){ try{ p=(ALL||[]).find(function(q){ return q.id===x; }); }catch(e){ p=null; } }
+  if(!p) return "g";
+  var u=p.mengen_einheit||p.Mengen_Einheit||"";
+  return (String(u).toLowerCase()==="ml") ? "ml" : "g";
+}
+/* Einheit fuer eine Produkt-ID (Tagebuch-Zeilen haben nur die ID). */
+function prodEinheitById(pid){ return prodEinheit(pid); }
+if(typeof window!=="undefined"){ window.prodEinheit=prodEinheit; window.prodEinheitById=prodEinheitById; }
 function tbPortionSet(p){
   const u=(p.unterkategorie||"").toLowerCase(), k=(p.kategorie||"").toLowerCase(), nm=(p.name||"").toLowerCase();
   const DRINK=new Set(["getränk","pflanzendrink","protein-pflanzendrink","milch","saft","softdrink","wasser"]);
@@ -7168,7 +7187,7 @@ function scoreChip(s){ if(s==null) return ""; const b=scoreBew(s); return `<span
 function mengeLabel(r){
   const g=num(r.Menge_g), sg=stkOf(r.Produkt_ID);
   if(sg&&g!=null){ return Math.round(g/sg)+" Stück ("+Math.round(g)+" g)"; }
-  return (g!=null?Math.round(g):"?")+" g";
+  return (g!=null?Math.round(g):"?")+" "+prodEinheit(r.Produkt_ID);   /* g oder ml je Produkt (Ralph 27.07.) */
 }
 function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
@@ -7412,14 +7431,14 @@ function tbAddPick(i){
   const p=(window._tbAddList||[])[i]; if(!p) return;
   window._tbAddPickId=p.id;
   const box=document.getElementById("tbAddResults"); if(!box) return;
-  const ps=tbPortionSet(p); const g=ps.m; const unit=ps.unit||'g';
+  const ps=tbPortionSet(p); const g=ps.m; const eh=prodEinheit(p); const unit=ps.unit||eh;   /* ml bei fluessigen Produkten (Ralph 27.07.) */
   const sz=(lbl,val)=>{ let top=lbl, sub=val+' '+unit;
-    if(ps.piece){ const n=Math.round(val/ps.piece); top=n+' '+unit; sub=val+' g'; }
+    if(ps.piece){ const n=Math.round(val/ps.piece); top=n+' '+unit; sub=val+' '+eh; }
     return '<button type="button" onclick="tbSetSize('+val+')" style="flex:1;padding:7px 4px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt);color:var(--greendk);font-size:12px;line-height:1.25;cursor:pointer">'+top+'<br><b>'+sub+'</b></button>'; };
   box.innerHTML='<div style="background:var(--k-ffffff);border:1px solid var(--k-e7e0d4);border-radius:12px;padding:12px">'
     +'<div style="font-weight:600;margin-bottom:8px">'+esc(p.name)+(num(p.clean_score)!=null?' <span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(num(p.clean_score)))+'">'+num(p.clean_score)+'</span>':'')+'</div>'
     +'<div style="display:flex;gap:6px;margin-bottom:8px">'+sz('klein',ps.s)+sz('mittel',ps.m)+sz('groß',ps.l)+'</div>'
-    +'<div style="display:flex;gap:8px;align-items:center"><input id="tbAddMenge" type="number" inputmode="numeric" min="1" value="'+g+'" style="width:84px;flex:0 0 auto;font-size:16px;text-align:center;padding:10px 8px;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--k-f3efe8);color:var(--k-1d3c24)"><span style="color:var(--k-6b6256)">g</span>'
+    +'<div style="display:flex;gap:8px;align-items:center"><input id="tbAddMenge" type="number" inputmode="numeric" min="1" value="'+g+'" style="width:84px;flex:0 0 auto;font-size:16px;text-align:center;padding:10px 8px;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--k-f3efe8);color:var(--k-1d3c24)"><span style="color:var(--k-6b6256)">'+eh+'</span>'
     +'<button onclick="tbAddSave()" style="padding:10px 16px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:600;cursor:pointer">Eintragen</button></div>'
     +'<button onclick="tbSetTab(window._tbTab||\'suche\')" style="margin-top:8px;background:none;border:0;color:var(--k-6b6256);font-size:12px;cursor:pointer;text-decoration:underline">‹ zurück</button>'
     +'<div id="tbAddMsg" style="font-size:12px;color:var(--k-6b6256);margin-top:6px"></div></div>';
@@ -8130,7 +8149,16 @@ function zusAddNeu(){
 /* Funktionswörter (KEINE Substanz, nur die Rolle) – dürfen NICHT als Zusatzstoff erscheinen (§2.7). */
 var ZUS_FUNKTION={"antioxidationsmittel":1,"antioxidans":1,"stabilisator":1,"stabilisatoren":1,"farbstoff":1,"farbstoffe":1,"säuerungsmittel":1,"saeuerungsmittel":1,"säureregulator":1,"saeureregulator":1,"konservierungsmittel":1,"konservierungsstoff":1,"emulgator":1,"emulgatoren":1,"verdickungsmittel":1,"geliermittel":1,"trennmittel":1,"süßungsmittel":1,"suessungsmittel":1,"süssungsmittel":1,"backtriebmittel":1,"trägerstoff":1,"traegerstoff":1,"feuchthaltemittel":1,"geschmacksverstärker":1,"geschmacksverstaerker":1,"aroma":1,"aromen":1,"überzugsmittel":1,"ueberzugsmittel":1,"festigungsmittel":1,"mehlbehandlungsmittel":1,"schaumverhüter":1,"komplexbildner":1,"packgas":1,"treibgas":1,"füllstoff":1,
   /* englische Funktionswoerter – stammen aus den englischen Katalognamen, sind keine Stoffe (Ralph 26.07.) */
-  "emulsifier":1,"emulsifiers":1,"stabiliser":1,"stabilizer":1,"stabilisers":1,"stabilizers":1,"antioxidant":1,"antioxidants":1,"preservative":1,"preservatives":1,"colour":1,"color":1,"colours":1,"colors":1,"thickener":1,"thickeners":1,"acid":1,"acidity regulator":1,"anticaking agent":1,"anti-caking agent":1,"sweetener":1,"sweeteners":1,"raising agent":1,"humectant":1,"flavour enhancer":1,"flavor enhancer":1,"firming agent":1,"glazing agent":1,"carrier":1,"bulking agent":1,"propellant":1,"packaging gas":1,"foaming agent":1,"gelling agent":1,"flour treatment agent":1,"sequestrant":1,"modified starch":1};
+  "emulsifier":1,"emulsifiers":1,"stabiliser":1,"stabilizer":1,"stabilisers":1,"stabilizers":1,"antioxidant":1,"antioxidants":1,"preservative":1,"preservatives":1,"colour":1,"color":1,"colours":1,"colors":1,"thickener":1,"thickeners":1,"acid":1,"acidity regulator":1,"anticaking agent":1,"anti-caking agent":1,"sweetener":1,"sweeteners":1,"raising agent":1,"humectant":1,"flavour enhancer":1,"flavor enhancer":1,"firming agent":1,"glazing agent":1,"carrier":1,"bulking agent":1,"propellant":1,"packaging gas":1,"foaming agent":1,"gelling agent":1,"flour treatment agent":1,"sequestrant":1,"modified starch":1,
+  /* Pluralformen – rein mechanische Schreibvarianten derselben Woerter, keine neuen Begriffe.
+     Ralphs Etikett (P1164) sagt „Konservierungsstoffe (…)"; der Filter kannte nur den Singular
+     „Konservierungsstoff" und liess das Wort als Stoff durchgehen (§1.11n: eine Regel, die nur die
+     halbe Schreibweise faengt, ist eine halbe Regel). */
+  "konservierungsstoffe":1,"säureregulatoren":1,"saeureregulatoren":1,"säuerungsmittel":1,
+  "antioxidantien":1,"trägerstoffe":1,"traegerstoffe":1,"füllstoffe":1,"fuellstoffe":1,
+  "geliermittel":1,"verdickungsmittel":1,"festigungsmittel":1,"backtriebmittel":1,
+  "feuchthaltemittel":1,"überzugsmittel":1,"ueberzugsmittel":1,"schaumverhüter":1,"schaumverhueter":1,
+  "komplexbildner":1,"mehlbehandlungsmittel":1,"aromastoffe":1,"backtriebmittelmischung":1};
 /* Häufige DEUTSCHE Zusatzstoff-Namen → E-Nummer (der Stamm führt englische Namen).
    Damit „Natriumnitrit" nicht als eigener grauer Eintrag neben „E250" landet. Erweiterbar. */
 var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","steviolglycoside":"E960","steviolglykoside":"E960","steviolglycosid":"E960","sucralose":"E955","acesulfam":"E950","acesulfam-k":"E950","acesulfam k":"E950","aspartam":"E951","saccharin":"E954","cyclamat":"E952","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","polyphosphate":"E452","polyphosphates":"E452","natriumferrocyanid":"E535","kaliumferrocyanid":"E536","calciumferrocyanid":"E538","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","tocopherole":"E306","gemischte tocopherole":"E306","natürliche gemischte tocopherole":"E306","natürliche tocopherole":"E306","alpha-tocopherol":"E307","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
@@ -8614,6 +8642,51 @@ function _fgRefStatus(raw, work, zk){
 /* KONZEPT A (Ralph 26.07.): Ein Klick auf eine Referenzzeile filtert rechts die Zutatenliste bzw.
    oeffnet das Zusatzstoff-Fenster mit dem Suchbegriff. Damit uebernimmt die Maske das Suchen –
    vorher musste der Name von Hand abgetippt werden, was bei 1.500 Stamm-Zutaten die eigentliche Arbeit war. */
+/* ===== Bezugseinheit im Editor (Ralph 27.07.2026) =====
+   "Die Option brauchen wir auch beim Produkt anlegen, ggf. auch automatisch durch Riki befuellen."
+   Die Auswahl zeigt zusaetzlich, WOHER der Wert stammt - "Etikett" oder "Annahme". Eine Annahme,
+   die man sieht, kann man pruefen; eine versteckte nicht (§1.13f). Wer von Hand aendert, setzt
+   damit ausdruecklich "Etikett" - das ist die Aussage "ich habe nachgesehen". */
+function feEinheitPrefill(d){
+  var sel=document.getElementById("fe_mengenEinheit"); if(!sel) return;
+  var e=(d&&(d.mengen_einheit||d.Mengen_Einheit))||"";
+  sel.value=(String(e).toLowerCase()==="ml")?"ml":(String(e).toLowerCase()==="g"?"g":"");
+  window._fgEinheitQuelle=(d&&(d.mengen_einheit_quelle||d.Mengen_Einheit_Quelle))||"";
+  feEinheitHint();
+}
+function feEinheitHint(){
+  var h=document.getElementById("fe_ehHint"); if(!h) return;
+  var q=String(window._fgEinheitQuelle||"");
+  var sel=document.getElementById("fe_mengenEinheit");
+  if(!sel || !sel.value){ h.textContent=""; h.style.color="var(--muted)"; return; }
+  if(/^Annahme/i.test(q)){ h.textContent="\u26a0 "+q+" \u2013 bitte am Etikett pr\u00fcfen"; h.style.color="var(--k-b45309,#b45309)"; }
+  else if(q){ h.textContent="\u2713 "+q; h.style.color="var(--k-16a34a)"; }
+  else { h.textContent=""; }
+}
+/* Von Hand geaendert = jemand hat nachgesehen. Die Quelle wird dann zu "Etikett". */
+function feEinheitChange(){ window._fgEinheitQuelle="Etikett"; feEinheitHint(); }
+/* Riki-Vorbelegung: liest Riki eine Naehrwert-Basis vom Etikett/der Herstellerseite,
+   wird die Auswahl vorbelegt - aber NUR wenn noch nichts gesetzt ist. Ein bereits vom
+   Menschen gesetzter Wert wird nie ueberschrieben. */
+function feEinheitAusRiki(obj){
+  var sel=document.getElementById("fe_mengenEinheit"); if(!sel) return;
+  if(sel.value) return;                     /* nichts ueberschreiben */
+  if(!obj) return;
+  var t=[obj.basis,obj.naehrwerte_basis,obj.einheit,obj.bezug,obj.pro,obj.grundlage]
+          .filter(Boolean).join(" ").toLowerCase();
+  if(!t) return;
+  /* "pro 100 g/ml" ist der PLATZHALTER-Text und sagt ausdruecklich NICHTS - er darf nichts
+     vorbelegen. In der DB-Migration war er ausgeschlossen, hier hatte ich ihn zuerst uebersehen;
+     der eigene Test hat es gefunden. Wieder derselbe Fall an zwei Orten (§1.11n-h). */
+  if(/\bg\s*\/\s*ml\b|\bml\s*\/\s*g\b|100\s*g\s*\/\s*100\s*ml/.test(t)) return;
+  var istMl=/100\s*ml|je\s*ml|pro\s*ml|\bml\b/.test(t);
+  var istG =/100\s*g\b|je\s*g\b|pro\s*g\b/.test(t) && !/ml/.test(t);
+  if(istMl){ sel.value="ml"; window._fgEinheitQuelle="Riki (Etikett/Herstellerseite)"; }
+  else if(istG){ sel.value="g"; window._fgEinheitQuelle="Riki (Etikett/Herstellerseite)"; }
+  else return;
+  feEinheitHint();
+}
+if(typeof window!=="undefined"){ window.feEinheitChange=feEinheitChange; window.feEinheitPrefill=feEinheitPrefill; window.feEinheitAusRiki=feEinheitAusRiki; }
 function fgRefFokus(el){
   if(!el) return;
   var raw=String(el.getAttribute('data-name')||'').trim(); if(!raw) return;
@@ -8713,12 +8786,18 @@ function fgFlattenZutaten(raw){
   /* „Zutaten:"/„Ingredients:" vorne abschneiden, Spuren-/Allergiehinweis hinten abtrennen. */
   t=t.replace(/^[\s\S]*?\b(?:zutaten|ingredients|composition)\b\s*:?/i,"");
   t=t.split(/\bkann\b[\s\S]{0,60}?enth[aä]lt|enth[aä]lt\s+spuren|\bspuren\s+von\b|may\s+contain|traces\s+of/i)[0];
+  /* 🔴 Deutsches Dezimalkomma schuetzen, BEVOR an Kommas getrennt wird (Ralphs Etikett P1164:
+     "WEIZENEIWEISS 9,8%" wurde zu "WEIZENEIWEISS 9" + "8%"). Das ist der Fehler aus CLAUDE.md §5
+     ("Olivenoel 50,2 %"), der in dieser Funktion nie behoben war: die Prozent-Bereinigung unten
+     laeuft ZU SPAET - da ist der Name schon zerschnitten. */
+  t=t.replace(/(\d)\s*,\s*(\d)/g,"$1.$2");
   /* Klammern = weitere kommagetrennte Unter-Zutaten → in Kommata wandeln (auch verschachtelt). */
   t=t.replace(/[()\[\]]/g,",");
   return t.split(/[,;]/).map(function(s){
     return String(s||"")
       .replace(/^\s*[\d.,]+\s*%\s*/,"")     /* führende Prozentangabe */
       .replace(/\b[\d.,]+\s*%/g,"")          /* eingebettete Prozentangabe */
+      .replace(/\s+[\d.,]+\s*$/,"")          /* nackte Zahl am Ende (Rest einer Mengenangabe) */
       .replace(/^\s*(?:davon|inkl\.?|und|sowie)\s+/i,"")
       .replace(/[*.]/g,"")
       .replace(/\s+/g," ").trim();
@@ -8728,6 +8807,58 @@ function fgFlattenZutaten(raw){
     if(/^aus\b/i.test(s)) return false;              /* Herkunftsnotiz „aus biologischem Anbau" */
     return true;
   });
+}
+/* 🔴 Der Zusatzstoff-Text ist KEINE Zutatenliste – er darf nicht so zerlegt werden (Ralphs Fund
+   an P1164, 27.07.2026). fgFlattenZutaten macht aus JEDER Klammer ein Komma. Das ist bei Zutaten
+   richtig („Emulgator (Lecithine)" = zwei Angaben), beim Zusatzstoff-Feld aber zerstoerend: dort
+   steht „Name (E-Nummer)". Aus EINEM Stoff wurden so drei Referenz-Zeilen:
+       „Glycerol (emulsifier) (E422)"  ->  „Glycerol" · „emulsifier" · „E422"
+   und aus einem englischen Katalognamen mit Aufzaehlung ein gutes Dutzend Bruchstuecke
+   („Sodium carbonates:" · „i" · „Sodium carbonate" · „ii" · …). Genau das war Ralphs „extrem viele
+   Referenz". Hier wird nur auf TOP-Ebene getrennt (Kommas INNERHALB von Klammern trennen nicht),
+   je Eintrag EIN Stoff, und der Name kommt – wenn die E-Nummer aufloesbar ist – auf Deutsch aus
+   dem Stamm. Damit heilen auch die Alt-Produkte beim blossen Oeffnen, ohne Datenumbau. */
+function fgFlattenZus(raw){
+  var t=String(raw||"").trim();
+  if(!t || (typeof _zusIstLeer==="function" && _zusIstLeer(t))) return [];
+  /* Vor dem Trennen aufraeumen: ein abgeschnittener Katalogname laesst eine Klammer OFFEN
+     ("… (Sodium hydroge… (E500)"). _zusSplitTop zaehlt dann dauerhaft depth>0 und trennt ab da
+     nicht mehr - aus sechs Stoffen wurden drei. Klammern ohne E-Nummer tragen ohnehin keine
+     Information, die wir brauchen. */
+  for(var _r=0;_r<6;_r++){
+    var _vor=t;
+    t=t.replace(/\(([^()]*)\)/g, function(m,inner){ return /\bE\s?\d{3,4}[a-z]?\b/i.test(inner)?m:" "; });
+    if(t===_vor) break;
+  }
+  t=t.replace(/\((?![^()]*\))[^()]*/g," ");   /* offene Klammer ohne Schluss */
+  t=t.replace(/…/g," ").replace(/\s+/g," ").trim();
+  var out=[], seen={};
+  _zusSplitTop(t).forEach(function(tok){
+    tok=String(tok||"").replace(/\s+/g," ").trim();
+    if(!tok || _zusIstLeer(tok)) return;
+    var em=tok.match(/\bE\s?\d{3,4}[a-z]?\b/i);
+    var eNr=em?em[0].replace(/\s/g,"").toUpperCase():null;
+    var st=null;
+    if(eNr && typeof ZUSATZSTOFFE_MAP!=="undefined") st=ZUSATZSTOFFE_MAP[eNr.toLowerCase()]||null;
+    if(!st){
+      var ohne=(typeof _zusOhneFunktionswort==="function")?_zusOhneFunktionswort(tok):tok.toLowerCase();
+      if(typeof ZUSATZSTOFFE_MAP!=="undefined") st=ZUSATZSTOFFE_MAP[ohne]||null;
+      if(!st && typeof ZUS_SYN!=="undefined" && ZUS_SYN[ohne]) st=ZUSATZSTOFFE_MAP[String(ZUS_SYN[ohne]).toLowerCase()]||null;
+      if(!st && typeof _zusFindStamm==="function") st=_zusFindStamm(ohne);
+      if(st && !eNr) eNr=String(st.e||"").toUpperCase()||null;
+    }
+    var name;
+    if(st) name=(st.name_de||st.name||"");
+    else {
+      /* nicht aufloesbar: Klammern und das Abschneide-Zeichen weg, Rest stehen lassen (nichts erfinden) */
+      name=tok.replace(/\([^)]*\)/g," ").replace(/…/g,"").replace(/:\s*$/,"").replace(/\s+/g," ").trim();
+      if(!name) name=tok;
+    }
+    var key=String(eNr||name).toLowerCase();
+    if(seen[key]) return; seen[key]=1;
+    out.push(name+(eNr?(" ("+eNr+")"):""));
+  });
+  return out;
 }
 /* Referenz aus der rohen Etikett-Liste (bevorzugt) – fällt auf Rikis Namensliste zurück,
    wenn kein Rohtext da ist. EIN Weg für alle Riki-Pfade (Analyse/Herstellerseite/Etikett/OFF). */
@@ -8899,7 +9030,7 @@ async function rikiAnalyse(){
     }
     /* Rikis erkannte Zusatzstoffe (inkl. E-Nummern aus den Salami-/Wurst-Klammern) automatisch
        in die Liste übernehmen – du tippst nichts nach. */
-    if(v.zusatzstoffe){ try{ zusFromRiki(v.zusatzstoffe); }catch(e){} } try{ fgZutAdditiveRoute(); }catch(e){}
+    if(v.zusatzstoffe){ try{ zusFromRiki(v.zusatzstoffe); }catch(e){} } try{ fgZutAdditiveRoute(); }catch(e){} try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit vorbelegen, wenn Riki sie liest (Ralph 27.07.) */
     /* Nährwerte NUR füllen, wenn das Feld leer ist – bestehende, geprüfte Werte werden nie überschrieben. */
     const n=v.naehrwerte_100g||{};
     Object.keys(n).forEach(function(k){
@@ -9028,7 +9159,7 @@ async function openFgEditor(id, prefill, targetEl){
   var _boundNames=(d.zutaten||[]).map(function(z){ return z&&z.name; }).filter(Boolean);
   /* Zusatzstoffe gehoeren AUCH in die Referenz (Ralph 25.07.): aus dem gespeicherten Zusatzstoff-Text
      flach ziehen und mit den Zutaten kombinieren; fgRefSet entdoppelt (je E-Nummer 1 Eintrag). */
-  var _boundZus=(typeof fgFlattenZutaten==="function")?fgFlattenZutaten(String(d.zusatzstoffe_text||"")):[];
+  var _boundZus=(typeof fgFlattenZus==="function")?fgFlattenZus(String(d.zusatzstoffe_text||"")):[];   /* eigener Zerleger – NICHT der Zutaten-Zerleger (Ralphs Fund P1164, 27.07.) */
   try{ fgRefSet((_savedRef||_boundNames).concat(_boundNames).concat(_boundZus)); }
   catch(_e){ var _refSeen={}; window._fgRef=[]; (_savedRef||_boundNames).concat(_boundNames).concat(_boundZus).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]||_refIstLeer(k)) return; _refSeen[k]=1; window._fgRef.push(n); }); }
   await loadZutatenStamm();
@@ -9241,6 +9372,7 @@ async function openFgEditor(id, prefill, targetEl){
     }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
     try{ await katKonfigLoad(); }catch(e){}   /* Darstellung je Kategorie kennen, bevor die Karte gebaut wird (Ralph 25.07.) */
+    try{ feEinheitPrefill(d); }catch(e){}   /* Bezugseinheit g/ml vorbelegen (Ralph 27.07.) */
     try{ feKatChange(); }catch(e){}
     try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
     try{ feWirkLoad(d.wirkstoffe, d.wirkstoffe_nicht_verfuegbar); }catch(e){}   /* Wirkstoff-Mengen (Dosis) laden */
@@ -10132,6 +10264,7 @@ async function fgPullHersteller(){
        Eine EAN ist eine Identität – lieber leer und später gescannt als falsch verknüpft. */
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
+    try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
     try{ var _wqM2=v.wirkstoffe||v.naehrstoffe||v.mineralstoffe||v.vitamine||null; if(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()!=="supplement" && Array.isArray(_wqM2)&&_wqM2.length && typeof fmMikroVorschlag==="function") fmMikroVorschlag(_wqM2); }catch(e){}
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Herstellerseite";
@@ -10173,6 +10306,7 @@ async function fgPullResearch(files, b64arr){
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     var ue=document.getElementById("fe_url"); if(ue&&d.quelle_url&&!ue.value.trim()) ue.value=d.quelle_url;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
+    try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
     /* Quelle-Typ nach Domain: großer Händler -> Amazon/Händler, sonst Herstellerseite. Beleg = die echte URL. */
     var url=String(d.quelle_url||"");
@@ -10230,6 +10364,7 @@ async function fgPullEtikett(files, b64arr){
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     var ke=document.getElementById("fe_kat"); if(ke&&v.kategorie_vorschlag&&!ke.value) ke.value=v.kategorie_vorschlag;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
+    try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
     /* Supplements: liefert Riki Wirkstoff-Mengen mit (name/menge/einheit/nrv), direkt in die
        Wirkstoff-Tabelle übernehmen. Fehlen sie im Riki-Ergebnis, bleibt die Tabelle wie sie ist
@@ -10382,6 +10517,13 @@ async function fgEditSave(alsoFreigeben){
       var _eanV=(g("fe_ean")&&g("fe_ean").value||"").trim();
       var _st=_eanOffen?"offen":(_eanV?"vorhanden":null);
       if(_st){ await client.rpc("cb_produkt_ean_status_setzen",{p_id:pid, p_status:_st}); }
+    }catch(e){}
+    /* Bezugseinheit der Naehrwerte (g|ml) samt Quelle - eigener, enger Schreibweg wie beim
+       EAN-Status. Leere Auswahl bedeutet ausdruecklich "wissen wir nicht" und loescht auch die Quelle. */
+    try{
+      var _eh=(g("fe_mengenEinheit")&&g("fe_mengenEinheit").value||"").trim();
+      var _ehq=window._fgEinheitQuelle||"Etikett";
+      await client.rpc("cb_produkt_mengen_einheit_setzen",{p_id:pid, p_einheit:_eh||null, p_quelle:_eh?_ehq:null});
     }catch(e){}
     /* Vermerk „Ballaststoffe laut Etikett nicht angegeben" (Ralph 22.07.): setzt nur den Marker,
        der Wert bleibt 0 (Score unverändert) – der n6-Wächter meldet das Produkt dann nicht mehr. */
@@ -12773,7 +12915,7 @@ function rnMain(){
   if(!z.length){ html+='<div style="font-size:13px;color:var(--muted);margin-bottom:12px">Noch keine Zutaten. Tippe unten und such sie im Katalog oder scanne.</div>'; }
   else {
     html+=z.map(function(it,i){
-      var sub=(it.menge_anzeige||(Math.round(it.menge_g)+' g'))+' · '+(it.kcal!=null?Math.round(it.kcal)+' kcal':'ohne Nährwerte');
+      var sub=(it.menge_anzeige||(Math.round(it.menge_g)+' '+prodEinheit(it.produkt_id||it.id)))+' · '+(it.kcal!=null?Math.round(it.kcal)+' kcal':'ohne Nährwerte');   /* g oder ml (Ralph 27.07.) */
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:'+(i?'1px solid var(--line)':'none')+'">'
         +'<div style="flex:1"><div style="font-size:14px;font-weight:600">'+esc(it.name)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(sub)+'</div></div>'
         +'<button onclick="rnRemove('+i+')" style="border:0;background:transparent;color:var(--muted);font-size:16px;cursor:pointer">✕</button></div>';
@@ -14004,7 +14146,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-27d";
+const APP_BUILD = "2026-07-27g";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
