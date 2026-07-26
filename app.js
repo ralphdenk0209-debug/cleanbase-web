@@ -2258,6 +2258,7 @@ function setMode(m){
   document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
   { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
+  { var _ev=document.getElementById("einheitView"); if(_ev) _ev.style.display = m==="einheit"?"":"none"; }
   { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
   { var _sv=document.getElementById("suppView"); if(_sv) _sv.style.display = m==="supp"?"":"none"; }
   { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
@@ -2273,6 +2274,7 @@ function setMode(m){
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="mikro"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } mikroZuordnungRender(); }
+  if(m==="einheit"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } einheitRender(); }
   if(m==="todo"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } todoRender(); }
   if(m==="supp"){ try{ suppPlanRender(); }catch(e){} }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
@@ -6176,6 +6178,7 @@ function applyAdminMode(){
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
       +_an('rezeptzutaten','🍽️','Rezept-Zutaten',"rezZutatenWaechterOpen()")
       +_an('mikro','🥗','Nährstoffe',"adminGo('mikro')")
+      +_an('einheit','⚖️','g / ml',"adminGo('einheit')")
       +_an('todo','📝','To-do',"adminGo('todo')")
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
       +_an('produkterfassung','🗂️','Erfassung',"adminGo('produkterfassung')",' id="amProdErf" style="display:none"')
@@ -12565,6 +12568,89 @@ async function mzKompSpeichern(btn){
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+(e&&e.message?e.message:e); } }
 }
 if(typeof window!=='undefined'){ window.mikroZuordnungRender=mikroZuordnungRender; window.mzUebernehmen=mzUebernehmen; window.mzKeine=mzKeine; window.mzKompOpen=mzKompOpen; window.mzKompSchaetzen=mzKompSchaetzen; window.mzKompVorschau=mzKompVorschau; window.mzKompSpeichern=mzKompSpeichern; }
+/* ===== ADMIN: BEZUGSEINHEIT g / ml (Ralph 27.07.2026) =====
+   Arbeitsliste zum Nachtragen der Einheit. Zwei Sorten Zeilen:
+     - "ohne Einheit"  : wir wissen es nicht, die App zeigt g
+     - "Annahme"       : abgeleitet (Getraenk / fluessiger Name), noch nicht am Etikett geprueft
+   Beides ist KEIN Fehler, sondern ein Zustand - deshalb blockiert nichts, es steht nur hier.
+   Ein Klick setzt die Einheit ueber cb_produkt_mengen_einheit_setzen und schreibt als Quelle
+   "Etikett", denn wer hier klickt, hat nachgesehen. */
+function einheitRender(){
+  if(!(ME&&ME.is_admin)) return;
+  var v=document.getElementById("einheitView"); if(!v) return;
+  v.innerHTML='<div style="max-width:1000px;margin:0 auto;padding:14px 6px 40px">'
+    +'<div style="background:var(--card,#fff);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:18px">'
+    +'<div style="font-weight:800;font-size:20px;margin:0 2px 2px">\u2696\ufe0f Bezugseinheit g / ml</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:0 2px 6px;line-height:1.5">'
+      +'Worauf beziehen sich die N\u00e4hrwerte \u2013 auf 100\u00a0g oder 100\u00a0ml? Das steht auf dem Etikett. '
+      +'Bei Fl\u00fcssigem ist 100\u00a0ml der Regelfall.<br>'
+      +'<b>Es wird nichts umgerechnet</b> \u2013 die Einheit sagt nur, wie die vorhandenen Zahlen gemeint sind. '
+      +'Ohne Angabe zeigt die App weiterhin\u00a0g.</div>'
+    +'<div id="ehMsg" style="font-size:12.5px;margin:8px 2px"></div>'
+    +'<div id="ehList" style="font-size:13px;color:var(--muted)">Lade \u2026</div>'
+    +'</div></div>';
+  einheitLoad();
+}
+async function einheitLoad(){
+  var l=document.getElementById("ehList"); if(!l) return;
+  try{
+    var r=await client.rpc("cb_mengen_einheit_offen");
+    if(r.error) throw new Error(r.error.message);
+    window._ehRows=(r&&r.data)||[];
+    einheitListRender();
+  }catch(e){
+    l.style.color="var(--k-dc2626)";
+    l.textContent="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e);   /* Fehler nie verschlucken (§1.13i) */
+  }
+}
+function einheitListRender(){
+  var l=document.getElementById("ehList"); if(!l) return;
+  var arr=window._ehRows||[];
+  if(!arr.length){ l.style.color="var(--k-16a34a)"; l.innerHTML="\u2713 Nichts offen \u2013 jede fl\u00fcssig-verd\u00e4chtige Zeile hat eine belegte Einheit."; return; }
+  var ohne=arr.filter(function(o){ return !o.einheit; }).length;
+  var ann =arr.length-ohne;
+  l.style.color="var(--ink)";
+  l.innerHTML='<div style="font-size:12px;color:var(--muted);margin:2px 0 10px">'
+      +'<b>'+ohne+'</b> ohne Einheit \u00b7 <b>'+ann+'</b> als Annahme gesetzt \u00b7 '+arr.length+' gesamt</div>'
+    + arr.map(function(o,i){
+      var istAnn=/^Annahme/i.test(String(o.quelle||""));
+      var farbe=o.einheit?(istAnn?"#b45309":"#1f7d43"):"#64748b";
+      var stand=o.einheit?((istAnn?"\u26a0 ":"\u2713 ")+esc(o.einheit)+" \u00b7 "+esc(o.quelle||"")):"\u25cb keine Angabe \u2013 zeigt g";
+      return '<div style="display:flex;align-items:center;gap:9px;padding:8px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap">'
+        +'<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--muted);flex:0 0 58px">'+esc(o.produkt_id)+'</span>'
+        +'<span style="flex:1;min-width:160px">'+esc(o.produktname||"")
+          +(o.marke?' <span style="color:var(--muted);font-size:12px">'+esc(o.marke)+'</span>':'')
+          +(o.hinweis?'<br><span style="font-size:11.5px;color:#b45309">'+esc(o.hinweis)+'</span>':'')
+        +'</span>'
+        +'<span style="flex:0 0 auto;font-size:11.5px;color:var(--muted)">'+esc(o.kategorie||"")+'</span>'
+        +'<span style="flex:0 0 auto;font-size:11.5px;font-weight:600;color:'+farbe+';min-width:150px">'+stand+'</span>'
+        +'<span style="flex:0 0 auto;display:flex;gap:5px">'
+          +_ehBtn(o.produkt_id,"g","100 g",o.einheit==="g")
+          +_ehBtn(o.produkt_id,"ml","100 ml",o.einheit==="ml")
+          +'<button onclick="einheitSet(\''+esc(o.produkt_id)+'\',\'\')" title="unbekannt \u2013 l\u00f6scht auch die Quelle" style="padding:4px 8px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--muted);font-size:11.5px;cursor:pointer">?</button>'
+        +'</span>'
+      +'</div>';
+    }).join("");
+}
+function _ehBtn(pid,val,lbl,aktiv){
+  return '<button onclick="einheitSet(\''+esc(pid)+'\',\''+val+'\')" style="padding:4px 9px;border:1px solid '
+    +(aktiv?'var(--k-16a34a);background:var(--greenlt,#ecfdf5);color:var(--k-166534);font-weight:700'
+           :'var(--line);background:var(--card);color:var(--ink);font-weight:500')
+    +';border-radius:7px;font-size:11.5px;cursor:pointer">'+lbl+'</button>';
+}
+async function einheitSet(pid,val){
+  var m=document.getElementById("ehMsg");
+  try{
+    /* Quelle "Etikett": wer hier klickt, hat nachgesehen. Leer loescht auch die Quelle. */
+    var r=await client.rpc("cb_produkt_mengen_einheit_setzen",{p_id:pid, p_einheit:val||null, p_quelle:val?"Etikett":null});
+    if(r.error) throw new Error(r.error.message);
+    if(m){ m.style.color="var(--k-16a34a)"; m.textContent=esc(pid)+": "+(val?("auf "+val+" gesetzt (Etikett)"):"Einheit geleert"); }
+    await einheitLoad();
+  }catch(e){
+    if(m){ m.style.color="var(--k-dc2626)"; m.textContent="Fehler: "+(e&&e.message?e.message:e); }
+  }
+}
+if(typeof window!=='undefined'){ window.einheitRender=einheitRender; window.einheitSet=einheitSet; window.einheitLoad=einheitLoad; }
 function todoRender(){
   if(!(ME&&ME.is_admin)) return;
   var v=document.getElementById("todoView"); if(!v) return;
@@ -14146,7 +14232,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-27g";
+const APP_BUILD = "2026-07-27h";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
