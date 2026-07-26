@@ -8157,7 +8157,8 @@ async function zusFromRiki(zObj){
 }
 if(typeof window!=='undefined'){ window.zusToggle=zusToggle; window.zusDel=zusDel; window.zusKeineToggle=zusKeineToggle; window.zusAddNeu=zusAddNeu; window.zusRenderPick=zusRenderPick; }
 /* Zusatzstoff hinzufuegen ueber ein Fenster (Ralph 26.07., Schritt 2 von 3): die Karte zeigt nur noch die
-   AUSGEWAEHLTEN Zusatzstoffe (zusRenderSel -> #fe_zusChosen); Suche + volle Stamm-Liste + "nicht im Stamm"
+   AUSGEWAEHLTEN Zusatzstoffe (#fe_zusChosen - seit 27.07. entfallen, die Stamm-Liste zeigt sie an);
+   Suche + volle Stamm-Liste + "nicht im Stamm"
    liegen in diesem Modal. window._fgZus / zusRenderSel bleiben die einzige Wahrheit, daher wirken Riki-Import,
    Referenz-Gruen und der Trennmittel-Mover unveraendert. */
 function zusNeuKey(e){ if(e&&e.key==='Enter'){ e.preventDefault(); zusAddNeu(); } }
@@ -9167,9 +9168,12 @@ async function openFgEditor(id, prefill, targetEl){
           <div id="fe_zutNeuInfo" style="margin-top:6px"></div>
           <div id="fe_zutRows" style="display:none">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
-          <div id="fgOffBox" style="margin-top:8px"></div>`)}</div><div id="fe_colZus" data-note="Grid statt Flex: so bekommen Zusatzstoffe und Mikros einen FESTEN Anteil der Spaltenhoehe. Vorher nahm die Zusatzstoff-Karte allen Platz und schob die Mikros aus dem Bild (Ralphs Fund 26.07.)." style="min-height:0;display:grid;grid-template-rows:minmax(0,1.05fr) minmax(0,1fr);gap:10px"><div style="min-height:0;display:flex">${cardF("Zusatzstoffe",`
+          <div id="fgOffBox" style="margin-top:8px"></div>`)}</div><div id="fe_colZus" data-note="Grid statt Flex: so bekommen Zusatzstoffe und Mikros einen FESTEN Anteil der Spaltenhoehe. Vorher nahm die Zusatzstoff-Karte allen Platz und schob die Mikros aus dem Bild (Ralphs Fund 26.07.)." style="min-height:0;display:grid;grid-template-rows:minmax(0,3fr) minmax(0,1fr);gap:10px"><div style="min-height:0;display:flex">${cardF("Zusatzstoffe",`
           <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:8px;cursor:pointer;flex:0 0 auto"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">Keine Zusatzstoffe im Produkt</label>
-          <div id="fe_zusChosen" data-note="flex:0 0 auto – sonst quetscht der Flex-Container die Auswahl zusammen und ihr Inhalt laeuft unter das Suchfeld (Ralphs Fund 26.07.)" style="border:1px solid var(--line);border-radius:8px;background:var(--card);padding:2px 0;min-height:40px;max-height:34%;overflow:auto;flex:0 0 auto"></div>
+          ${''/* Die separate Auswahl-Liste oben ist entfallen (Ralph 27.07.): sie zeigte dasselbe
+               wie die Stamm-Liste darunter, in der die gewaehlten Zusatzstoffe angehakt und oben
+               einsortiert stehen. Zweimal dieselbe Information kostet nur Hoehe. zusRenderSel bleibt
+               unveraendert (prueft das Element ab) und haelt weiter den keine-Haken + die Liste synchron. */}
           ${''/* Ralph 26.07.: Suchzeile + anklickbare Liste gehoeren wieder IN die Karte (wie bei den Zutaten),
                nicht in ein „+“-Fenster. Das Fenster aus 26r entfaellt damit – zwei Orte mit denselben IDs
                waeren ein Bug. */}
@@ -13912,7 +13916,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-27a";
+const APP_BUILD = "2026-07-27b";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
