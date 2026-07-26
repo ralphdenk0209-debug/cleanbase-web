@@ -1775,7 +1775,7 @@ function detail2(d){
     return '<details style="border-top:1px solid var(--line)"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;padding:11px 2px;font-size:14px;color:var(--ink)"><span>'+icon+' '+titel+'</span><span style="color:var(--muted);font-size:12px">▾</span></summary><div style="padding:2px 2px 12px">'+inner+'</div></details>';
   }
 
-  var restRows=MACROS.filter(function(m){ return ['m_ges_fett','m_kh','m_zucker','m_salz'].indexOf(m[0])>=0 && d[m[0]]!=null; }).map(function(m){
+  var restRows=MACROS.filter(function(m){ return d[m[0]]!=null; }).map(function(m){  /* Ralph 26.07.: ALLE Makros zeigen (Fett/Energie/Eiweiss/Ballast standen vorher nur als Kachel, dadurch hing 'davon gesaettigte' ohne Fett-Zeile in der Luft). Null=unbekannt bleibt aussen vor, 0 ist ein echter Wert. */
     var raw=num(d[m[0]]); var val=Math.round(raw*10)/10;
     return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">'+m[1]+'</span><span style="font-weight:600">'+String(val).replace('.',',')+' '+m[2]+'</span></div>';
   }).join('');
@@ -8915,7 +8915,7 @@ async function openFgEditor(id, prefill, targetEl){
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
         </div>
-        ${card(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:8px">Deklarierte Mineralstoffe/Vitamine <b>pro 100 g</b> (z. B. jodiertes/fluoridiertes Salz). Fließen in die Nährstoff-Übersicht wie beim Wasser. <b>Wird sofort gespeichert.</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><button type="button" onclick="fmMikroModalOpen()" style="margin-top:9px;padding:8px 13px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;font-weight:700">+ Mikronährstoff</button><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}
+        <div style="display:grid;grid-template-columns:1fr 1fr minmax(240px,1fr);gap:12px;align-items:start;margin-top:2px" data-note="MIKRO-BREITE 26p: nur Spalte 1, damit Referenz rechts daneben passt (Ralph 26.07.)"><div>${card(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:8px">Deklarierte Mineralstoffe/Vitamine <b>pro 100 g</b> (z. B. jodiertes/fluoridiertes Salz). Fließen in die Nährstoff-Übersicht wie beim Wasser. <b>Wird sofort gespeichert.</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><button type="button" onclick="fmMikroModalOpen()" style="margin-top:9px;padding:8px 13px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;font-weight:700">+ Mikronährstoff</button><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}</div></div>
         ${''/* Wirkstoffe-Karte steht jetzt als eigene HALBE Reihe (Tabelle + Etikett-Lesebox) unter dem Raster – Ralph 24.07. Siehe #fe_wirkCard weiter unten. */}
       </div>
       <div>
@@ -13709,7 +13709,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26n";
+const APP_BUILD = "2026-07-26p";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
