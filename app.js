@@ -8443,7 +8443,7 @@ function fgEnthaltenRender(){
   var work=_fgWorkSet(); var zk=_fgZusKeys();
   var html=ref.map(function(nm){
     var raw=String(nm).trim(); var low=raw.toLowerCase();
-    if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) return "";   /* Funktionswort (Antioxidationsmittel, Stabilisator …) → keine Substanz, nicht anzeigen */
+    if((typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) || _zusIstLeer(raw)) return "";   /* Funktionswort (Antioxidationsmittel, Stabilisator …) → keine Substanz, nicht anzeigen */
     var inList=!!work[low]; var asZusatz=false;
     var _np=low.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim();
     var em=raw.match(/\bE\s?\d{3,4}[a-z]?\b/i);
@@ -8472,7 +8472,7 @@ function _fgAbweichungRef(){
   var work=_fgWorkSet(); var zk=_fgZusKeys(); var out=[];
   ref.forEach(function(nm){
     var raw=String(nm).trim(); var low=raw.toLowerCase();
-    if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) return;   /* Funktionswort ist keine Substanz */
+    if((typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) || _zusIstLeer(raw)) return;   /* Funktionswort, auch mit als-Praefix, ist keine Substanz (Ralph 26.07.) */
     var inList=!!work[low];
     if(!inList){
       var _np=low.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim();
@@ -8493,7 +8493,7 @@ function fgRefSet(names){
   var seen={}, out=[], eIdx={};
   (names||[]).forEach(function(n){ n=String(n||"").trim(); if(!n) return; var k=n.toLowerCase();
     if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[k]) return;   /* reines Funktionswort → nicht in die Referenz */
-    if(_refIstLeer(k)) return;   /* „keine"/Statuswort → nie in die Referenz */
+    if(_refIstLeer(k)||_zusIstLeer(n)) return;   /* „keine"/Statuswort → nie in die Referenz */
     if(seen[k]) return; seen[k]=1;
     var _np=k.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim();
     var _em=n.match(/\bE\s?\d{3,4}[a-z]?\b/i);
@@ -13709,7 +13709,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26p";
+const APP_BUILD = "2026-07-26q";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
