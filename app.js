@@ -8520,7 +8520,47 @@ function fgPickRefreshView(){
 function _fgWorkSet(){ var set={}; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var n=((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase(); if(n) set[n]=true; }); return set; }
 /* Schlüssel der aktuellen Zusatzstoff-Auswahl (E-Nummer + Name), damit die Referenz einen Stoff
    auch dann als „übernommen" erkennt, wenn er in der ZUSATZSTOFF-Liste steht (nicht bei den Zutaten). */
-function _fgZusKeys(){ var k={}; (window._fgZus||[]).forEach(function(z){ if(z.e) k[String(z.e).toLowerCase()]=1; if(z.name) k[String(z.name).trim().toLowerCase()]=1; }); return k; }
+/* Schluessel eines erfassten Zusatzstoffs – ALLE Namensraeume, unter denen die Referenz ihn nennen kann:
+   E-Nummer, englischer Katalogname, deutscher Stamm-Name UND die normalisierte Schreibweise.
+   Vorher nur E-Nummer + gespeicherter Name -> „Sodium ferrocyanide" (englisch, wie Riki es von der
+   Herstellerseite liest) fand den erfassten „Natriumferrocyanid E535" nicht und stand orange da,
+   obwohl er erfasst war. Gleiche Ursache wie §1.11n-c (Ralph 26.07.). */
+function _fgZusKeys(){ var k={};
+  var add=function(v){ if(!v) return; k[String(v).trim().toLowerCase()]=1; try{ var n=_zusNorm(v); if(n&&n.length>=4) k["~"+n]=1; }catch(e){} };
+  (window._fgZus||[]).forEach(function(z){
+    if(z.e) k[String(z.e).toLowerCase()]=1;
+    add(z.name);
+    var st=(typeof ZUSATZSTOFFE_MAP!=="undefined"&&z.e)?ZUSATZSTOFFE_MAP[String(z.e).toLowerCase()]:null;
+    if(st){ add(st.name); add(st.name_de); }
+  });
+  return k; }
+/* EINE Regel, ein Ort (§1.11i): fgEnthaltenRender (Farbe) und _fgAbweichungRef (Freigabe-Riegel)
+   hatten diesen Abgleich zweimal kopiert – dieselbe Falle wie §1.2c. Jetzt entscheidet nur diese
+   Funktion, ob ein Referenz-Eintrag schon erfasst ist. (Ralph 26.07.) */
+function _fgRefStatus(raw, work, zk){
+  var low=String(raw||"").trim().toLowerCase();
+  var _np=low.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim();
+  /* fuehrendes Funktionswort abstreifen: „Trennmittel Natriumferrocyanid" ist der Stoff dahinter
+     (das Funktionswort allein faengt schon _zusIstLeer ab). */
+  var _ohne=_np;
+  if(typeof ZUS_FUNKTION!=="undefined"){
+    var w=_np.split(" ");
+    while(w.length>1 && ZUS_FUNKTION[w[0]]) w.shift();
+    _ohne=w.join(" ");
+  }
+  var em=String(raw||"").match(/\bE\s?\d{3,4}[a-z]?\b/i);
+  var eNr=em?em[0].replace(/\s/g,"").toLowerCase()
+          :((typeof ZUS_SYN!=="undefined"&&(ZUS_SYN[low]||ZUS_SYN[_np]||ZUS_SYN[_ohne]))?String(ZUS_SYN[low]||ZUS_SYN[_np]||ZUS_SYN[_ohne]).toLowerCase():null);
+  /* letzte Instanz: ueber die Schreibweise eindeutig im Stamm aufloesen (nie raten – §1.11n-e) */
+  if(!eNr){ try{ var st=_zusFindStamm(_ohne)||_zusFindStamm(_np); if(st&&st.e) eNr=String(st.e).toLowerCase(); }catch(e){} }
+  var isZus=(typeof ZUSATZSTOFFE_MAP!=="undefined") && !!((eNr&&ZUSATZSTOFFE_MAP[eNr])||ZUSATZSTOFFE_MAP[low]||ZUSATZSTOFFE_MAP[_np]||ZUSATZSTOFFE_MAP[_ohne]);
+  var inList=!!(work&&(work[low]||work[_np]||work[_ohne])), asZusatz=false;
+  if(!inList && zk){
+    var nk=null; try{ var n=_zusNorm(_ohne); if(n&&n.length>=4) nk="~"+n; }catch(e){}
+    if((eNr&&zk[eNr])||zk[low]||zk[_np]||zk[_ohne]||(nk&&zk[nk])){ inList=true; asZusatz=true; }
+  }
+  return {inList:inList, asZusatz:asZusatz, isZus:isZus, eNr:eNr};
+}
 function fgEnthaltenRender(){
   var box=document.getElementById("fe_enthalten"); if(!box) return;
   var ref=(window._fgRef&&window._fgRef.length)?window._fgRef:[];
@@ -8529,14 +8569,8 @@ function fgEnthaltenRender(){
   var html=ref.map(function(nm){
     var raw=String(nm).trim(); var low=raw.toLowerCase();
     if((typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) || _zusIstLeer(raw)) return "";   /* Funktionswort (Antioxidationsmittel, Stabilisator …) → keine Substanz, nicht anzeigen */
-    var inList=!!work[low]; var asZusatz=false;
-    var _np=low.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim();
-    var em=raw.match(/\bE\s?\d{3,4}[a-z]?\b/i);
-    var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&(ZUS_SYN[low]||ZUS_SYN[_np]))?String(ZUS_SYN[low]||ZUS_SYN[_np]).toLowerCase():null);
-    var isZus=(typeof ZUSATZSTOFFE_MAP!=="undefined") && !!((eNr&&ZUSATZSTOFFE_MAP[eNr])||ZUSATZSTOFFE_MAP[low]||ZUSATZSTOFFE_MAP[_np]);
-    if(!inList){
-      if((eNr && zk[eNr]) || zk[low] || zk[_np]){ inList=true; asZusatz=true; }
-    }
+    var _st=_fgRefStatus(raw, work, zk);
+    var inList=_st.inList, asZusatz=_st.asZusatz, isZus=_st.isZus;
     var chip='<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px;flex:0 0 auto;background:'+(isZus?"#ede9fe;color:#5b21b6":"#e0f2fe;color:#075985")+'">'+(isZus?"Zusatzstoff":"Zutat")+'</span>';
     var tag = inList ? (asZusatz?' <span style="font-size:11px;opacity:.85">– als Zusatzstoff erfasst</span>':'') : ' <span style="font-size:11px;opacity:.85">– noch nicht übernommen</span>';
     return '<div style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;margin-bottom:3px;background:'+(inList?"#e7f6ec":"#fbf3e2")+';color:'+(inList?"#1f7d43":"#8a5a0b")+'">'
@@ -8558,13 +8592,7 @@ function _fgAbweichungRef(){
   ref.forEach(function(nm){
     var raw=String(nm).trim(); var low=raw.toLowerCase();
     if((typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) || _zusIstLeer(raw)) return;   /* Funktionswort, auch mit als-Praefix, ist keine Substanz (Ralph 26.07.) */
-    var inList=!!work[low];
-    if(!inList){
-      var _np=low.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim();
-      var em=raw.match(/\bE\s?\d{3,4}[a-z]?\b/i);
-      var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&(ZUS_SYN[low]||ZUS_SYN[_np]))?String(ZUS_SYN[low]||ZUS_SYN[_np]).toLowerCase():null);
-      if((eNr && zk[eNr]) || zk[low] || zk[_np]) inList=true;
-    }
+    var inList=_fgRefStatus(raw, work, zk).inList;
     if(!inList) out.push(raw);
   });
   return out;
@@ -9109,7 +9137,13 @@ async function openFgEditor(id, prefill, targetEl){
     try{ feWirkLoad(d.wirkstoffe, d.wirkstoffe_nicht_verfuegbar); }catch(e){}   /* Wirkstoff-Mengen (Dosis) laden */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
     /* Zusatzstoff-Liste (neu): Stamm laden, Auswahl aus dem gespeicherten Text ableiten, farbig rendern. */
-    (async function(){ try{ await loadZusatzstoffeStamm(); zusSeed(d.zusatzstoffe_text||""); zusRenderSel(); zusRenderPick(); }catch(e){} })();
+    (async function(){ try{ await loadZusatzstoffeStamm(); zusSeed(d.zusatzstoffe_text||""); zusRenderSel(); zusRenderPick();
+      /* 🔴 Die Zusatzstoffe kommen ASYNCHRON – die Referenz war da laengst gemalt (mit leerem _fgZus)
+         und wurde nie aufgefrischt. Ergebnis: erfasste Zusatzstoffe standen dauerhaft orange
+         „noch nicht uebernommen" und blockierten die Freigabe. Ralphs Fund 26.07. */
+      try{ fgEnthaltenRender(); }catch(e){}
+      try{ fePlaus(); }catch(e){}
+    }catch(e){} })();
     try{ fgEtikettRender(); }catch(e){}   /* angehängte Fotos (Laden + selbst hochgeladen) rendern */
     try{ feEanSync(); }catch(e){}   /* fehlt die EAN, „offen"-Haken automatisch setzen */
     try{ if(typeof feAnsichtGet==="function" && feAnsichtGet()==="vorgang") feVorgangApply(); }catch(e){}   /* 2. Ansicht „Vorgang" (Ralph): rein ADDITIVER Rahmen um denselben Editor – kein Feld, kein Speicher-Weg verändert */
@@ -13789,7 +13823,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26u";
+const APP_BUILD = "2026-07-26v";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
