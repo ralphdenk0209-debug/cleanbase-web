@@ -6161,6 +6161,7 @@ function applyAdminMode(){
       +_an('produkterfassung','🗂️','Erfassung',"adminGo('produkterfassung')",' id="amProdErf" style="display:none"')
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
+      +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
       +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
     document.body.appendChild(nav);
     /* Pfeil-Chip: holt das beim Scrollen ausgeblendete Menü zurück (Ralph 24.07.2026). */
@@ -8985,6 +8986,7 @@ async function openFgEditor(id, prefill, targetEl){
     if(_pn){ _pn.style.maxWidth="none"; _pn.style.width="100%"; _pn.style.height="100vh"; _pn.style.maxHeight="100vh"; _pn.style.borderRadius="0"; _pn.scrollTop=0; }
     }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
+    try{ await katKonfigLoad(); }catch(e){}   /* Darstellung je Kategorie kennen, bevor die Karte gebaut wird (Ralph 25.07.) */
     try{ feKatChange(); }catch(e){}
     try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
     try{ feWirkLoad(d.wirkstoffe, d.wirkstoffe_nicht_verfuegbar); }catch(e){}   /* Wirkstoff-Mengen (Dosis) laden */
@@ -9183,7 +9185,66 @@ if(typeof window!=='undefined'){ window.fgWirkFotoRiki=fgWirkFotoRiki; }
    dann den kcal-Riegel (physikalische Checks Zucker>KH etc. bleiben hart). */
 function fgKcalOkSet(v){ if(!window._fgEdit){ window._fgEdit={}; } window._fgEdit.kcalOk=!!v; try{ fePlaus(); }catch(e){} }
 if(typeof window!=='undefined'){ window.fgKcalOkSet=fgKcalOkSet; }
-function _fgIstSpecial(){ var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()); return (k==="supplement"); }   /* nur Supplement = Supplementkarte; Salze & alle anderen = Produktkarte, Score ist eine SEPARATE Eigenschaft (Ralph 25.07.) */
+/* Kategorie-Konfiguration (Ralph 25.07.): je Kategorie Darstellung (Produkt-/Supplement-Karte) und ob
+   die Kategorie einen Lebensmittel-Score bekommt. Einmal geladen, als window._katKonfig gecacht
+   (Schluessel = Kategorie klein geschrieben). */
+window._katKonfig=window._katKonfig||null;
+async function katKonfigLoad(force){
+  if(window._katKonfig && !force) return window._katKonfig;
+  var map={};
+  try{ var r=await client.rpc("cb_kategorie_konfig_liste"); if(!r.error && r.data){ r.data.forEach(function(x){ map[String(x.kategorie||"").trim().toLowerCase()]={ kategorie:x.kategorie, darstellung:String(x.darstellung||"produkt").trim().toLowerCase(), kein_score:!!x.kein_score }; }); } }catch(e){}
+  window._katKonfig=map; return map;
+}
+async function katKonfigOpen(){
+  if(!(ME&&ME.is_admin)) return;
+  var ov=document.getElementById("katKonfigOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="katKonfigOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
+    document.body.appendChild(ov); }
+  ov.style.display="flex";
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:720px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><div style="font-weight:800;font-size:18px">\ud83c\udff7\ufe0f Kategorien \u2013 Darstellung &amp; Score</div><button onclick="katKonfigClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">\u2715</button></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Je Kategorie: <b>Darstellung</b> (Produkt-Karte oder Supplement-Karte mit Bild neben der Tabelle) und ob die Kategorie einen <b>Lebensmittel-Score</b> bekommt. \u00c4nderungen greifen sofort; der Score wird beim n\u00e4chsten Speichern/Neuberechnen des Produkts gesetzt.</div>'
+    +'<div id="katKonfigBody" style="font-size:13px;color:var(--muted)">Lade \u2026</div>'
+  +'</div>';
+  try{ await katKonfigLoad(true); katKonfigRender(); }
+  catch(e){ var b=document.getElementById("katKonfigBody"); if(b){ b.style.color="var(--k-dc2626)"; b.textContent="Konnte die Kategorien nicht laden: "+(e&&e.message?e.message:e); } }
+}
+function katKonfigRender(){
+  var b=document.getElementById("katKonfigBody"); if(!b) return;
+  var cfg=window._katKonfig||{};
+  var keys=Object.keys(cfg).sort(function(a,c){ return String(cfg[a].kategorie||a).localeCompare(String(cfg[c].kategorie||c)); });
+  window._katKonfigOrder=keys;
+  if(!keys.length){ b.innerHTML='<span style="color:var(--muted)">Keine Kategorien.</span>'; return; }
+  var rows=keys.map(function(k,i){
+    var x=cfg[k];
+    var dd='<select onchange="katKonfigSetIdx('+i+',this.value,null)" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card,#fff);color:var(--ink)">'
+      +'<option value="produkt"'+(x.darstellung!=="supplement"?" selected":"")+'>Produkt-Karte</option>'
+      +'<option value="supplement"'+(x.darstellung==="supplement"?" selected":"")+'>Supplement-Karte</option></select>';
+    var cbx='<label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer"><input type="checkbox" '+(x.kein_score?"checked":"")+' onchange="katKonfigSetIdx('+i+',null,this.checked)"> kein Score</label>';
+    return '<tr style="border-top:1px solid var(--line)"><td style="padding:8px 10px 8px 0;font-weight:600">'+esc(x.kategorie||k)+'</td><td style="padding:8px 12px">'+dd+'</td><td style="padding:8px 0">'+cbx+'</td></tr>';
+  }).join("");
+  b.style.color="var(--ink)";
+  b.innerHTML='<div id="katKonfigMsg" style="font-size:12px;min-height:16px;margin-bottom:6px;color:var(--muted)"></div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px"><th style="padding-bottom:4px">Kategorie</th><th style="padding-bottom:4px">Darstellung</th><th style="padding-bottom:4px">Score</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+async function katKonfigSetIdx(i, darst, keinScore){
+  var keys=window._katKonfigOrder||[]; var k=keys[i]; if(k==null) return;
+  var cfg=window._katKonfig||{}; var cur=cfg[k]||{kategorie:k,darstellung:"produkt",kein_score:false};
+  var d=(darst!=null)?darst:cur.darstellung;
+  var ks=(keinScore!=null)?!!keinScore:!!cur.kein_score;
+  var msg=document.getElementById("katKonfigMsg");
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Speichere \u2026"; }
+  try{
+    var r=await client.rpc("cb_kategorie_konfig_setzen",{p_kat:(cur.kategorie||k), p_darstellung:d, p_kein_score:ks});
+    if(r&&r.error) throw new Error(r.error.message);
+    cfg[k]={kategorie:(cur.kategorie||k), darstellung:d, kein_score:ks}; window._katKonfig=cfg;
+    if(msg){ msg.style.color="var(--k-16a34a)"; msg.textContent="\u2713 "+(cur.kategorie||k)+" gespeichert."; }
+  }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Ging nicht: "+(e&&e.message?e.message:e); } }
+}
+function katKonfigClose(){ var ov=document.getElementById("katKonfigOv"); if(ov) ov.style.display="none"; }
+if(typeof window!=='undefined'){ window.katKonfigLoad=katKonfigLoad; window.katKonfigOpen=katKonfigOpen; window.katKonfigRender=katKonfigRender; window.katKonfigSetIdx=katKonfigSetIdx; window.katKonfigClose=katKonfigClose; }
+function _fgIstSpecial(){ var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()); var cfg=window._katKonfig; if(cfg&&cfg[k]) return cfg[k].darstellung==="supplement"; return (k==="supplement"); }   /* nur Supplement = Supplementkarte; Salze & alle anderen = Produktkarte, Score ist eine SEPARATE Eigenschaft (Ralph 25.07.) */
 function fgRefMountFoto(){
   var col=document.getElementById('fe_wirkFotoCol'), back=document.getElementById('fe_refBack');
   if(col && back && col.parentNode!==back){ back.appendChild(col); }
@@ -13610,7 +13671,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26l";
+const APP_BUILD = "2026-07-26m";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
