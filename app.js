@@ -7933,7 +7933,7 @@ function _zusSplitTop(t){
    Aussage 'nichts deklariert' (Ralph 25.07.). Riki schreibt so etwas manchmal in den Zusatzstoff-Text;
    ohne diese Abwehr landet es als grauer, ungepruefter Phantom-Eintrag, unterdrueckt den Index und
    zeigt die verwirrende Freigabe-Meldung '1 Zusatzstoff nicht eingestuft'. */
-function _zusIstLeer(nm){ nm=String(nm||"").trim().toLowerCase(); return !nm || /^keine\b/.test(nm) || /^(k\.?\s?a\.?|n\/a|-|\u2013|nicht deklariert|nicht angegeben|entfaellt)$/.test(nm); }
+function _zusIstLeer(nm){ nm=String(nm||"").trim().toLowerCase(); if(!nm || /^keine\b/.test(nm) || /^(k\.?\s?a\.?|n\/a|-|\u2013|nicht deklariert|nicht angegeben|entfaellt)$/.test(nm)) return true; var np=nm.replace(/\([^)]*\)/g,"").replace(/^als\s+/,"").replace(/[:.]/g,"").replace(/\s+/g," ").trim(); return (typeof ZUS_FUNKTION!=="undefined" && !!ZUS_FUNKTION[np]); }
 function zusSeed(text){
   window._fgZus=[];
   var t=String(text||"").trim();
@@ -8385,11 +8385,12 @@ function fgEnthaltenRender(){
     var raw=String(nm).trim(); var low=raw.toLowerCase();
     if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) return "";   /* Funktionswort (Antioxidationsmittel, Stabilisator …) → keine Substanz, nicht anzeigen */
     var inList=!!work[low]; var asZusatz=false;
+    var _np=low.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim();
     var em=raw.match(/\bE\s?\d{3,4}[a-z]?\b/i);
-    var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[low])?String(ZUS_SYN[low]).toLowerCase():null);
-    var isZus=(typeof ZUSATZSTOFFE_MAP!=="undefined") && !!((eNr&&ZUSATZSTOFFE_MAP[eNr])||ZUSATZSTOFFE_MAP[low]);
+    var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&(ZUS_SYN[low]||ZUS_SYN[_np]))?String(ZUS_SYN[low]||ZUS_SYN[_np]).toLowerCase():null);
+    var isZus=(typeof ZUSATZSTOFFE_MAP!=="undefined") && !!((eNr&&ZUSATZSTOFFE_MAP[eNr])||ZUSATZSTOFFE_MAP[low]||ZUSATZSTOFFE_MAP[_np]);
     if(!inList){
-      if((eNr && zk[eNr]) || zk[low]){ inList=true; asZusatz=true; }
+      if((eNr && zk[eNr]) || zk[low] || zk[_np]){ inList=true; asZusatz=true; }
     }
     var chip='<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px;flex:0 0 auto;background:'+(isZus?"#ede9fe;color:#5b21b6":"#e0f2fe;color:#075985")+'">'+(isZus?"Zusatzstoff":"Zutat")+'</span>';
     var tag = inList ? (asZusatz?' <span style="font-size:11px;opacity:.85">– als Zusatzstoff erfasst</span>':'') : ' <span style="font-size:11px;opacity:.85">– noch nicht übernommen</span>';
@@ -8414,9 +8415,10 @@ function _fgAbweichungRef(){
     if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) return;   /* Funktionswort ist keine Substanz */
     var inList=!!work[low];
     if(!inList){
+      var _np=low.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim();
       var em=raw.match(/\bE\s?\d{3,4}[a-z]?\b/i);
-      var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&ZUS_SYN[low])?String(ZUS_SYN[low]).toLowerCase():null);
-      if((eNr && zk[eNr]) || zk[low]) inList=true;
+      var eNr=em?em[0].replace(/\s/g,"").toLowerCase():((typeof ZUS_SYN!=="undefined"&&(ZUS_SYN[low]||ZUS_SYN[_np]))?String(ZUS_SYN[low]||ZUS_SYN[_np]).toLowerCase():null);
+      if((eNr && zk[eNr]) || zk[low] || zk[_np]) inList=true;
     }
     if(!inList) out.push(raw);
   });
@@ -10076,7 +10078,7 @@ async function fgEditSave(alsoFreigeben){
          Gelierxucker): ein noch nicht eingestufter Zusatzstoff (z.B. E967 Xylit) blockiert den
          Score nach §1.11k – nicht ein fehlender Nährwert. Das Frontend kennt die Einstufung
          selbst (window._fgZus[].einst), also kann es den Grund benennen. */
-      var _zUng=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")); });
+      var _zUng=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")) && !_zusIstLeer(z.name); });
       if(_zUng.length){
         var _zTxt=_zUng.map(function(z){ return z.name+(z.e?(" "+z.e):""); }).join(", ");
         msg.innerHTML="💾 Gespeichert – aber noch KEIN Index. Grund: <b>"+_zUng.length+" Zusatzstoff(e) noch nicht wissenschaftlich eingestuft</b> ("+esc(_zTxt)+"). Bis eine EFSA-/EU-Quelle vorliegt, zeigen wir bewusst keine Zahl – nichts erfinden. (Nicht die Nährwerte sind schuld.)";
@@ -13576,7 +13578,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26h";
+const APP_BUILD = "2026-07-26i";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
