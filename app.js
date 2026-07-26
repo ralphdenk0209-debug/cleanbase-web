@@ -8791,8 +8791,11 @@ async function openFgEditor(id, prefill, targetEl){
      (die kommen von Riki/der Webseite) plus eine evtl. gemerkte Roh-Referenz – so fehlen die Zutaten
      rechts nie mehr (Ralph 24.07.2026). Zusätzlich per fgRefAdd von Hand ergänzbar. */
   var _boundNames=(d.zutaten||[]).map(function(z){ return z&&z.name; }).filter(Boolean);
-  var _refSeen={}; window._fgRef=[];
-  (_savedRef||_boundNames).concat(_boundNames).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]||_refIstLeer(k)) return; _refSeen[k]=1; window._fgRef.push(n); });
+  /* Zusatzstoffe gehoeren AUCH in die Referenz (Ralph 25.07.): aus dem gespeicherten Zusatzstoff-Text
+     flach ziehen und mit den Zutaten kombinieren; fgRefSet entdoppelt (je E-Nummer 1 Eintrag). */
+  var _boundZus=(typeof fgFlattenZutaten==="function")?fgFlattenZutaten(String(d.zusatzstoffe_text||"")):[];
+  try{ fgRefSet((_savedRef||_boundNames).concat(_boundNames).concat(_boundZus)); }
+  catch(_e){ var _refSeen={}; window._fgRef=[]; (_savedRef||_boundNames).concat(_boundNames).concat(_boundZus).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]||_refIstLeer(k)) return; _refSeen[k]=1; window._fgRef.push(n); }); }
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
   const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
@@ -13607,7 +13610,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-26k";
+const APP_BUILD = "2026-07-26l";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
