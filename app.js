@@ -2123,6 +2123,7 @@ function pkSperre(titel, was){
   +'</div>';
 }
 function closeP(){
+  try{ window._rkSchnell=false; }catch(e){}   /* Schnellanlage-Merker gilt nur fuer DIESEN einen Vorgang */
   var ov=document.getElementById("overlay");
   if(ov){ ov.classList.remove("open");
     if(ov.classList.contains("fgEditorFull")){ ov.classList.remove("fgEditorFull");
@@ -10662,6 +10663,18 @@ async function fgEditSave(alsoFreigeben){
   if(pid && window._fgEdit) window._fgEdit.id = pid;
   /* Nur „Speichern & freigeben" schließt das Fenster (Ralph 23.07.). Reines „Speichern"
      lässt den Editor offen, damit man weiterarbeiten kann – vorher schloss BEIDES. */
+  if(alsoFreigeben && window._rkSchnell && pid){
+    /* Schnellanlage per Lesezeichen: Wer ein Produkt aus dem Netz anlegt, will danach GENAU
+       DIESES Produkt vor sich haben - Riki hat gelesen, geprueft ist es noch nicht. Der normale
+       Weg schliesst das Fenster und wirft einen in die Liste zurueck; dort muss man das eben
+       angelegte Produkt erst wiederfinden. Deshalb hier: offen lassen, mit der frischen ID neu
+       laden (jetzt mit Status, Index und Freigabe-Stand aus der Datenbank). */
+    window._rkSchnell=false;
+    msg.style.color="var(--k-16a34a)";
+    msg.innerHTML='&#10003; Angelegt &amp; freigegeben als <b>'+esc(pid)+'</b> &ndash; das Produkt bleibt offen, du kannst weiter pr&uuml;fen und anpassen.';
+    setTimeout(()=>{ try{ openFgEditor(pid); }catch(e){} try{ loadFreigabe(); }catch(e){} }, 600);
+    return;
+  }
   if(alsoFreigeben){
     setTimeout(()=>{
       /* Inline-Modus (Produkt-Erfassung): der Editor sitzt in #peDetail → nur die Produktliste
@@ -14370,7 +14383,11 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
       hinweis('Editor geht auf, Riki liest <b>'+esc(kurz)+'</b>&hellip;');
       try{
         var pr=openFgEditor(null);
-        var nach=function(){ try{ rkImpAfterOpen(ziel); }catch(e){}
+        var nach=function(){ window._rkSchnell=true;   /* merkt sich: dieser Editor kam per Lesezeichen.
+            Nach "Speichern & freigeben" bleibt er dann OFFEN und zeigt das angelegte Produkt
+            (Ralph 27.07.: "das angelegte Produkt soll offen sein, damit ich es pruefen und
+            anpassen kann"). Beim normalen Weg schliesst er weiter wie seit 23.07. */
+          try{ rkImpAfterOpen(ziel); }catch(e){}
           setTimeout(function(){ hinweis('&#10003; Riki liest <b>'+esc(kurz)+'</b> &ndash; Werte pr&uuml;fen, dann freigeben.','#166534');
             setTimeout(weg, 6000); }, 300); };
         if(pr && typeof pr.then==="function") pr.then(nach); else setTimeout(nach,500);
@@ -14389,7 +14406,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27n";
+const APP_BUILD = "2026-07-27o";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
