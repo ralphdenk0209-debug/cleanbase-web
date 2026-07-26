@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADMIN-BACKEND · Kopie der App-Huelle, laedt dieselbe app.js. Consumer-Bedienung ausgeblendet. build 2026-07-27m: Schnellanlage per Lesezeichen - admin.html?neu=<Adresse> oeffnet den Editor und laesst Riki die Seite sofort lesen; Lesezeichen zum Ziehen im Bereich Riki-Import. Davor 27l: Quelle-Typ loest jetzt die Freigabe-Pruefung aus und verschluckt keine unbekannten Werte mehr; Favicon = Fluxkompensator als eingebettetes SVG. -->
+<!-- ADMIN-BACKEND · Kopie der App-Huelle, laedt dieselbe app.js. Consumer-Bedienung ausgeblendet. build 2026-07-27n: Lesezeichen-Knopf "Produkt anlegen" sitzt jetzt im DASHBOARD (davor im Bereich Riki-Import, der seit 24.07. keinen Menue-Knopf mehr hat - also unerreichbar). Bewusst ausserhalb von #fgDash, damit er in allen vier Dashboard-Ansichten steht. Davor 27m: Schnellanlage admin.html?neu=<Adresse>; 27l: Quelle-Typ loest die Freigabe-Pruefung aus, Favicon = Fluxkompensator. -->
 
 
 <html lang="de">
@@ -1154,6 +1154,10 @@
       </div>
       <div id="fgPanelDash" style="display:none">
         <div id="fgDash"></div>
+        <!-- Lesezeichen-Knopf: bewusst AUSSERHALB von #fgDash. loadDashboard() kennt vier
+             Ansichten und steigt in drei davon frueh mit return aus - im Inneren waere der
+             Knopf je nach Ansicht mal da und mal weg. -->
+        <div id="rkBmBox" style="margin-top:14px"></div>
       </div>
       <div id="fgPanelProdErf" style="display:none">
         <div id="fgProdErf"></div>
@@ -1374,7 +1378,6 @@
         <div style="margin-top:10px"><button onclick="rkImportVonLink()" style="padding:9px 15px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen,#fff);font-weight:700;cursor:pointer;font-size:13.5px">&#9654; Riki liest &amp; Produkt anlegen</button></div>
         <div id="rkImpMsg" style="font-size:12.5px;margin-top:8px;line-height:1.5"></div>
       </div>
-      <div id="rkBmBox"></div>
       <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-bottom:14px">
         <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Produkt</label>
         <input id="rkProd" list="rkProdListe" placeholder="Name oder ID eingeben…" style="width:100%;box-sizing:border-box;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:14px">
@@ -1447,7 +1450,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 <script>/* Admin-Modus VOR app.js aktivieren - per Seiten-Flag (nicht mehr per URL-Hash). */
 window.__ADMIN_PAGE=true;</script>
-<script src="app.js?v=2026-07-27m"></script>
+<script src="app.js?v=2026-07-27n"></script>
 <button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
 <button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 <style id="adminOnly">

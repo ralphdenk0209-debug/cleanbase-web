@@ -2307,7 +2307,6 @@ function prodHome(){
 var RK_LETZTER=null;   /* letzter Vorschlag, für die Speicher-Funktion */
 
 async function rkInit(){
-  try{ rkBookmarkletBox(); }catch(e){}
   var dl=document.getElementById("rkProdListe"); if(!dl) return;
   if(!ALL.length){ try{ var d=await fetchAlleProdukte(); if(d) ALL=d.map(function(x){return Object.assign({},x,{clean_score:num(x.clean_score)});}); }catch(e){} }
   if(dl.children.length || !ALL.length) return;
@@ -2500,6 +2499,13 @@ function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   if(t==='zuverif' && typeof loadScans==='function') loadScans();
   try{ document.body.classList.toggle('dashFull', t==='dash'); }catch(e){}   /* Dashboard nutzt volle Breite (Ralph 22.07.): den 1040px-Deckel des Freigabe-Wrappers nur hier aufheben */
   if(t==='dash' && typeof loadDashboard==='function') loadDashboard();
+  /* Lesezeichen-Knopf im Dashboard (Ralph 27.07.: "auf der Seite oder im Dashboard").
+     Hier und nicht in loadDashboard(): die Funktion kennt vier Ansichten und steigt in
+     dreien frueh mit return aus - der Knopf waere dann je nach Ansicht mal da, mal weg.
+     Vorgeschichte: Erst lag er im Bereich Riki-Import, der seit dem 24.07. keinen
+     Menue-Knopf mehr hat. Ein Bedienelement an einem Ort, den niemand erreicht, ist
+     dasselbe wie keins. */
+  if(t==='dash'){ try{ rkBookmarkletBox(); }catch(e){} }
   if(t==='zuverif' && typeof loadZuVerif==='function') loadZuVerif();
   if(t==='regelwerk' && typeof loadRegelwerk==='function') loadRegelwerk();
   if(t==='produkterfassung' && typeof loadProduktErfassung==='function') loadProduktErfassung();
@@ -14383,7 +14389,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27m";
+const APP_BUILD = "2026-07-27n";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
