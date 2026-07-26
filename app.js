@@ -4492,7 +4492,7 @@ function nwForm(ean, n){
         +'</td></tr>';
     }).join("")
     +'</table>'
-    +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:4px">'      +'<span>Die Werte gelten je</span>'      +'<select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Naehrwerte? Steht auf dem Etikett - bei Fluessigem meist 100 ml." style="padding:3px 6px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:11.5px;font-weight:700">'        +'<option value="">100 g / ml (nicht festgelegt)</option><option value="g">100 g</option><option value="ml">100 ml</option></select>'      +'<span id="fe_ehHint" style="font-weight:600"></span>'      +'<span style="margin-left:auto"><span style="color:var(--k-c2453a)">*</span> Pflicht</span></div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:3px">je 100 g / 100 ml · <span style="color:var(--k-c2453a)">*</span> Pflicht</div>'
     +'<div id="seCheck_'+esc(ean)+'" style="font-size:12px;margin-top:6px;line-height:1.45"></div>';
 }
 
@@ -8675,7 +8675,15 @@ function feEinheitAusRiki(obj){
   var sel=document.getElementById("fe_mengenEinheit"); if(!sel) return;
   if(sel.value) return;                     /* nichts ueberschreiben */
   if(!obj) return;
-  var t=[obj.basis,obj.naehrwerte_basis,obj.einheit,obj.bezug,obj.pro,obj.grundlage]
+  /* Das ECHTE Feld heisst "bezug" und liefert "100g" | "100ml" | null - so steht es im Schema von
+     riki-etikett. riki-herstellerseite, riki-analyse und off-lookup melden die Basis derzeit NICHT
+     (geprueft am Quelltext der Edge Functions, 27.07.2026); fuer die bleibt das Feld leer und der
+     Mensch entscheidet. Die uebrigen Namen bleiben als Reserve stehen, falls die Functions spaeter
+     nachziehen - sie kosten nichts und schaden nicht.
+     Zusaetzlich wird ein verschachtelter vorschlag.bezug beruecksichtigt, falls der Aufrufer das
+     ganze Antwortobjekt statt des Vorschlags uebergibt. */
+  var vs=obj.vorschlag||{};
+  var t=[obj.bezug, vs.bezug, obj.basis, obj.naehrwerte_basis, obj.einheit, obj.pro, obj.grundlage]
           .filter(Boolean).join(" ").toLowerCase();
   if(!t) return;
   /* "pro 100 g/ml" ist der PLATZHALTER-Text und sagt ausdruecklich NICHTS - er darf nichts
@@ -9248,7 +9256,7 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:-2px">Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. <b>Bei Nahrungsergänzung wichtig:</b> Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.</div>
         </div>`)}
-        ${card("Nährwerte pro 100 g/ml",`${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
+        ${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
         </div>
         ${''/* Wirkstoffe-Karte steht jetzt als eigene HALBE Reihe (Tabelle + Etikett-Lesebox) unter dem Raster – Ralph 24.07. Siehe #fe_wirkCard weiter unten. */}
       </div>
@@ -14232,7 +14240,7 @@ function renderTbMikro(rows, pf, datum){
     +'<div class="mknote">Mengen aus dem Bundeslebensmittelschlüssel (amtliche Nährwert-Datenbank), auf deine Portionen hochgerechnet – sie zeigen, was das Essen <b>geliefert</b> hat, nicht was dein Körper braucht. <b>*</b> = nicht alle Lebensmittel des Tages haben Nährstoff-Daten. <b>Selen</b> führt unsere Quelle nicht (nur Empfehlung). <b>Omega-3</b>: Ziel 250 mg EPA+DHA (EU-Referenz, kein NRV). Keine medizinische Beratung.</div>';
 }
 
-const APP_BUILD = "2026-07-27h";
+const APP_BUILD = "2026-07-27i";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
