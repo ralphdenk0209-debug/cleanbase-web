@@ -1466,6 +1466,15 @@ function suppKarte(d){
     + '</div>'
     + '<div id="suppBody"><div class="note" style="background:var(--k-f4f5f4);color:var(--muted);margin-top:10px">Prüfe Dosierung und Nutzen gegen EFSA &amp; EU-Register …</div></div>';
   var ov=document.getElementById("overlay"); if(ov) ov.classList.add("open");
+  /* 2026-07-27u (Ralph): ohne Anmeldung nur der Index - Supplements haben keinen,
+     also sieht der Gast hier nur den Kopf + das Anmelde-Angebot. Der RPC wird gar
+     nicht erst gerufen: keine Daten an Nicht-Berechtigte, kein unnoetiger Aufruf.
+     pkSperre waehlt die CTA selbst: nicht angemeldet -> "Kostenlos anmelden". */
+  if(!hasFeat('pk_supplement')){
+    var gb=document.getElementById("suppBody");
+    if(gb) gb.innerHTML=pkSperre('Dosis-Check & Nutzen','Dosierung vs. EFSA-Grenzen, belegter EU-Nutzen, Zutaten & Verarbeitung');
+    return;
+  }
   client.rpc("cb_supplement_karte",{p_produkt_id:d.id}).then(function(r){
     var body=document.getElementById("suppBody"); if(body){ body.innerHTML=suppKarteFill(r&&r.data,d); try{ body.querySelectorAll(".suCnt").forEach(suppCountUp); }catch(e){} }
   },function(e){ console.log("cb_supplement_karte:",e); var body=document.getElementById("suppBody"); if(body) body.innerHTML=suppKarteFill(null,d); });
@@ -1827,6 +1836,16 @@ function detail2(d){
 
   var adminBar='';
 
+  /* 2026-07-27u (Ralph): Ohne Anmeldung zeigt die Karte NUR den Index.
+     Drei Inhalts-Schluessel steuern die Bloecke: pk_zutaten (Zutaten & Zusatzstoffe
+     + Quelle & Beleg), pk_naehrwerte (Kacheln + Alle Naehrwerte), pk_blutzucker.
+     Sind ALLE drei aus (= Gast-Matrix), ersetzt EINE Anmelde-Box (pkGastBox) die
+     einzelnen Schloesser - vier gestapelte Sperren saehen aus wie eine Fehlerseite.
+     Alles laeuft ueber hasFeat, damit der "Ansehen als"-Schalter (§3.05) dieselbe
+     Sicht zeigt wie ein echter Gast und die Stufen-Matrix ohne Deploy schalten kann. */
+  var _fZut=hasFeat('pk_zutaten'), _fBz=hasFeat('pk_blutzucker'), _fNw=hasFeat('pk_naehrwerte');
+  var _nurIndex=(!_fZut && !_fBz && !_fNw);
+
   var panel=document.getElementById("panel"); if(!panel) return;
   panel.innerHTML=
     '<button class="close" onclick="closeP()">Schließen ✕</button>'
@@ -1847,27 +1866,29 @@ function detail2(d){
           : '<div style="font-size:44px;font-weight:800;line-height:1;color:'+(s==null?'var(--muted)':fTxt)+'">'+(s==null?'–':Math.round(s))+'</div>'
             + '<div style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:4px">'+esc(bewTxt||'–')+'</div>')
     + '</div>'
-    + (hasFeat('pk_ringe')?'':pkSperre('Die vier Achsen','Zutaten · Zusatzstoffe · Verarbeitung · Nährwerte als Grafik'))
+    + ((hasFeat('pk_ringe')||_nurIndex)?'':pkSperre('Die vier Achsen','Zutaten · Zusatzstoffe · Verarbeitung · Nährwerte als Grafik'))
     + sonder
-    + (hasFeat('pk_naehrwerte')
+    + (_fNw
         ? '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 2px">'
           + kachel('m_kcal','Energie','kcal') + kachel('m_fett','Fett','g')
           + kachel('m_protein','Eiweiß','g') + kachel('m_ballast','Ballaststoffe','g')
           + '</div>'
-        : pkSperre('Nährwerte pro 100 g','Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz'))
+        : (_nurIndex?'':pkSperre('Nährwerte pro 100 g','Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz')))
     + '<div style="display:flex;gap:7px;margin:12px 0;flex-wrap:wrap">'
       + '<button onclick="prodToEinkauf(\''+d.id+'\')" style="padding:7px 11px;border:1px solid var(--green);border-radius:8px;background:var(--greenlt);color:var(--greendk);cursor:pointer;font-size:12.5px;font-weight:600">🛒 Einkaufsliste</button>'
       + amazonBtn(d,true)
     + '</div>'
     + (amazonUrl(d)?AMZ_HINWEIS:'')
     + '<div style="margin-top:6px">'
-      + ((restRows&&hasFeat('pk_naehrwerte'))?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 '+prodEinheit(d)+'</div>'+restRows):'')
-      + ACC('🧾','Zutaten &amp; Zusatzstoffe',zHtml+(hasFeat('score_detail')?naehrstoffHtml(d):''))
-      + (bz?ACC('📈','Blutzucker-Verlauf',bzInner):'')
-      + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'
-          +(hasFeat('pk_regeln')?scoreFlow(d):pkSperre('So kommt der Index zustande','Regeln, Deckel-Check und Herleitung'))
-          +(hasFeat('pk_platzierung')?katRangHtml(d):pkSperre('Platzierung','Platz in der Kategorie und die Besten')))
-      + ACC('🛡️','Quelle &amp; Beleg',quellenBlock(d))
+      + (_nurIndex
+        ? pkGastBox()
+        : ((restRows&&_fNw)?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 '+prodEinheit(d)+'</div>'+restRows):'')
+          + (_fZut?ACC('🧾','Zutaten &amp; Zusatzstoffe',zHtml+(hasFeat('score_detail')?naehrstoffHtml(d):'')):pkSperre('Zutaten & Zusatzstoffe','Zutaten mit Verarbeitungs-Ampel + Zusatzstoffe'))
+          + (bz?(_fBz?ACC('📈','Blutzucker-Verlauf',bzInner):pkSperre('Blutzucker-Verlauf','Wie stark das Produkt den Blutzucker treibt')):'')
+          + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'
+              +(hasFeat('pk_regeln')?scoreFlow(d):pkSperre('So kommt der Index zustande','Regeln, Deckel-Check und Herleitung'))
+              +(hasFeat('pk_platzierung')?katRangHtml(d):pkSperre('Platzierung','Platz in der Kategorie und die Besten')))
+          + (_fZut?ACC('🛡️','Quelle &amp; Beleg',quellenBlock(d)):''))
     + '</div>';
   document.getElementById("overlay").classList.add("open");
 }
@@ -2120,6 +2141,18 @@ function pkSperre(titel, was){
     +'<div style="font-size:13.5px;color:var(--ink);font-weight:600">'+esc(was)+'</div>'
     +'<div style="font-size:12.5px;color:var(--muted);margin-top:3px">'+txt+'</div>'
     + knopf
+  +'</div>';
+}
+/* Gast-Sicht (Ralph 27.07.2026): ohne Anmeldung nur der Index. EINE Box statt
+   vieler Schloesser; sie sagt konkret, was ein KOSTENLOSES Konto zusaetzlich zeigt.
+   (Die vier Achsen/Herleitung/Platzierung verspricht sie bewusst NICHT - die sind
+   Premium; ein Versprechen, das die naechste Stufe nicht einloest, kostet Vertrauen.) */
+function pkGastBox(){
+  return '<div style="margin:16px 0 4px;border:1px dashed var(--line);border-radius:14px;padding:16px 14px;text-align:center;background:var(--bg)">'
+    +'<div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:6px">Mehr sehen – kostenlos</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.8">🧾 Zutaten &amp; Zusatzstoffe<br>📊 Nährwerte pro 100 g/ml<br>📈 Blutzucker-Verlauf<br>🛡️ Quelle &amp; Beleg</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-top:6px">Mit kostenlosem Konto sichtbar.</div>'
+    +'<button onclick="closeP();openLogin()" style="margin-top:9px;padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-size:13.5px;font-weight:700;cursor:pointer">Kostenlos anmelden</button>'
   +'</div>';
 }
 function closeP(){
@@ -14549,7 +14582,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27t";
+const APP_BUILD = "2026-07-27u";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
