@@ -8531,9 +8531,13 @@ function zusRenderPick(){
   if(q){ var mm=function(z){ var _e=String(z.e||"").toLowerCase(); return _e.indexOf(q)>=0 || String(z.name||"").toLowerCase().indexOf(q)>=0 || String(z.name_de||"").toLowerCase().indexOf(q)>=0 || (_synAll[_e]||[]).join(" ").indexOf(q)>=0; }; checked=checked.filter(mm); rest=rest.filter(mm); }
   var shown=checked.concat(rest);
   var row=function(z){ var on=isSel(z); var f=zusFarbe(z.einstufung);
+    /* 27y: bei ERFASSTEN Stoffen zusaetzlich den Verarbeitungswert der (automatisch gebundenen)
+       Stamm-Zutat zeigen - beide Achsen an EINER Zeile lesbar (Prinzip 8, "1x anzeigen"). */
+    var wertTxt='';
+    if(on){ try{ var it=_fgZutZusIndex()[String(z.e||'').toUpperCase()]; if(it&&it.rating!=null) wertTxt=' <span style="color:var(--k-166534);font-weight:700;font-size:11px" title="Verarbeitungswert auf der Zutaten-Achse (automatisch gebunden)">· Wert '+it.rating+'</span>'; }catch(e){} }
     return '<label style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(on?"background:var(--greenlt,#eef7f0)":"")+'">'
       +'<input type="checkbox" '+(on?"checked":"")+' onchange="zusToggle(\''+esc(z.e)+'\')" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'
-      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+(function(){ var _de=z.name_de||_synDe[String(z.e||"").toLowerCase()]||z.name; return (_de&&_de!==z.name)?(esc(_de)+' <span style="color:var(--muted);font-size:11px">'+esc(z.name)+'</span>'):esc(z.name); })()+(z.e?' <span style="color:var(--muted);font-size:11.5px">'+esc(z.e)+'</span>':'')+'</span>'
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+(function(){ var _de=z.name_de||_synDe[String(z.e||"").toLowerCase()]||z.name; return (_de&&_de!==z.name)?(esc(_de)+' <span style="color:var(--muted);font-size:11px">'+esc(z.name)+'</span>'):esc(z.name); })()+(z.e?' <span style="color:var(--muted);font-size:11.5px">'+esc(z.e)+'</span>':'')+wertTxt+'</span>'
       +'<span style="display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:11.5px;color:var(--muted)"><span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'+f.label+'</span>'
       +'</label>'; };
   var _st=box.scrollTop;
@@ -8544,17 +8548,20 @@ function zusToggle(e){
   var key=String(e||"").toLowerCase(); var z=ZUSATZSTOFFE_MAP[key]; if(!z) return;
   window._fgZus=window._fgZus||[];
   var idx=window._fgZus.findIndex(function(x){ return String(x.e||"").toLowerCase()===key; });
-  if(idx>=0) window._fgZus.splice(idx,1); else window._fgZus.push({e:z.e,name:z.name,einst:z.einstufung});
+  /* 27y: Zutaten-Achse automatisch mitziehen (Prinzip 8) - anhaken bindet die Stamm-Zutat,
+     abhaken entfernt sie. Der Mensch pflegt EINE Stelle, der Code haelt beide Achsen synchron. */
+  if(idx>=0){ var raus=window._fgZus.splice(idx,1)[0]; try{ fgZusZutSync(false, raus); }catch(e2){} }
+  else { window._fgZus.push({e:z.e,name:z.name,einst:z.einstufung}); try{ fgZusZutSync(true, z); }catch(e2){} }
   zusSync(); zusRenderSel(); zusRenderPick();
 }
-function zusDel(i){ if(window._fgZus&&i>=0&&i<window._fgZus.length){ window._fgZus.splice(i,1); zusSync(); zusRenderSel(); zusRenderPick(); } }
-function zusKeineToggle(ck){ if(ck) window._fgZus=[]; zusSync(); zusRenderSel(); zusRenderPick(); }
+function zusDel(i){ if(window._fgZus&&i>=0&&i<window._fgZus.length){ var raus=window._fgZus.splice(i,1)[0]; try{ fgZusZutSync(false, raus); }catch(e2){} zusSync(); zusRenderSel(); zusRenderPick(); } }
+function zusKeineToggle(ck){ if(ck){ var alte=window._fgZus||[]; window._fgZus=[]; alte.forEach(function(z){ try{ fgZusZutSync(false, z); }catch(e2){} }); } zusSync(); zusRenderSel(); zusRenderPick(); }
 function zusAddNeu(){
   var inp=document.getElementById("fe_zusNeu"); var v=((inp||{}).value||"").trim(); if(!v) return;
   var em=v.match(/\bE\s?\d{3,4}[a-z]?\b/i);
   var found=em?ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()]:ZUSATZSTOFFE_MAP[v.toLowerCase()];
   window._fgZus=window._fgZus||[];
-  if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
+  if(found){ window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung}); try{ fgZusZutSync(true, found); }catch(e2){} }
   else window._fgZus.push({e:null,name:v,einst:(_istAroma(v)?"neutral":"ungeprüft")});
   if(inp) inp.value="";
   zusSync(); zusRenderSel(); zusRenderPick();
@@ -8610,7 +8617,7 @@ async function zusFromRiki(zObj){
     if(!found && !eNr) eNr=null;
     var dedup=(eNr||low);
     if(hasKey(eNr||"")||hasKey(low)||(found&&hasKey(String(found.e||"")))) return;   /* schon drin */
-    if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung});
+    if(found){ window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung}); try{ fgZusZutSync(true, found); }catch(e2){} }   /* 27y: Zutaten-Achse mitziehen (Prinzip 8) */
     else window._fgZus.push({e:eNr,name:namePur,einst:(_istAroma(namePur)?"neutral":"ungeprüft"),nf:(_istAroma(namePur)?0:1)});   /* nf=1: gar nicht im Stamm gefunden – anderer Zustand als „im Stamm, aber unbewertet" */
   });
   if(zObj.suessstoffe){ var su=document.getElementById("fe_suess"); if(su&&su.value==="nein") su.value="ja"; }
@@ -8638,11 +8645,62 @@ function zusModalOpen(){
    falsche Element. Tot im Code liegen lassen waere eine geladene Falle gewesen. */
 function zusModalClose(){ var ov=document.getElementById('fe_zusOv'); if(ov) ov.style.display='none'; }
 if(typeof window!=='undefined'){ window.zusModalOpen=zusModalOpen; window.zusModalClose=zusModalClose; window.zusNeuKey=zusNeuKey; window.zusRenderSel=zusRenderSel; }
+/* ===== 27y: EINMAL ANZEIGEN, DOPPELT SPEICHERN (Ralph: "1x reicht doch") =====
+   Prinzip 8 bleibt: ein E-Nummern-Stoff traegt BEIDE Achsen (Zutaten-Verarbeitung +
+   Zusatzstoff-Bedenklichkeit). Neu ist nur die MASKE: der Stoff erscheint EINMAL
+   (in der Zusatzstoff-Karte, mit beiden Werten); die Zutaten-Bindung haelt der Code
+   automatisch synchron. Die Daten (91 Doppel an 62 Produkten) bleiben unveraendert. */
+/* Welche E-Nummer steckt hinter einem Zutaten-Namen? (Klammer-E, Synonym, Katalog, Schreibvariante) */
+function fgZutZusE(name){
+  var low=String(name||'').toLowerCase().replace(/\s+/g,' ').trim(); if(!low) return null;
+  var em=low.match(/\be\s?\d{3,4}[a-z]?\b/i);
+  if(em) return em[0].replace(/\s/g,'').toUpperCase();
+  var nm=low.replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim();
+  if(typeof ZUS_SYN!=='undefined' && ZUS_SYN[nm]) return String(ZUS_SYN[nm]).toUpperCase();
+  if(typeof ZUSATZSTOFFE_MAP!=='undefined' && ZUSATZSTOFFE_MAP && ZUSATZSTOFFE_MAP[nm]) return String(ZUSATZSTOFFE_MAP[nm].e||'').toUpperCase()||null;
+  try{ var f=_zusFindStamm(nm); if(f) return String(f.e||'').toUpperCase()||null; }catch(e){}
+  return null;
+}
+/* E-Nummer -> Stamm-Zutat (fuer die automatische Bindung). Einmal je Stamm-Stand aufgebaut. */
+function _fgZutZusIndex(){
+  var st=(typeof ZUTATEN_STAMM!=='undefined'&&Array.isArray(ZUTATEN_STAMM))?ZUTATEN_STAMM:[];
+  if(window.__zutZusIdx && window.__zutZusIdxN===st.length) return window.__zutZusIdx;
+  var idx={};
+  st.forEach(function(it){ var e=fgZutZusE(it&&it.name); if(e && !idx[e]) idx[e]=it; });
+  window.__zutZusIdx=idx; window.__zutZusIdxN=st.length; return idx;
+}
+/* Zusatzstoff hinzugefuegt/entfernt -> Zutaten-Achse automatisch mitziehen (Prinzip 8,
+   ohne Handarbeit). add=true: passende Stamm-Zutat binden (falls vorhanden und noch nicht da).
+   add=false: die gebundene Zutat dieses Stoffs entfernen. */
+function fgZusZutSync(add, z){
+  try{
+    if(!z||!z.e) return;
+    var c=document.getElementById('fe_zutRows'); if(!c) return;
+    var eU=String(z.e).toUpperCase();
+    if(add){
+      var it=_fgZutZusIndex()[eU]; if(!it) return;   /* kein Stamm-Zutat-Gegenstueck -> nur Zusatzstoff-Achse */
+      var key=String(it.name||'').toLowerCase();
+      var exists=[].some.call(c.querySelectorAll('.fgZutRow'),function(r){ return ((r.querySelector('.fgzName')||{}).value||'').trim().toLowerCase()===key; });
+      if(!exists) c.insertAdjacentHTML('beforeend', fgZutRow(it.name, it.rating, it.kritisch||'nein'));
+    } else {
+      [].forEach.call(c.querySelectorAll('.fgZutRow'),function(r){
+        var n=((r.querySelector('.fgzName')||{}).value||'').trim();
+        if(n && fgZutZusE(n)===eU){ var inf=r.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains('fgRikiInfo')) inf.remove(); r.remove(); }
+      });
+    }
+    try{ fgPickRender(); }catch(e){}
+    try{ if(typeof fePlaus==='function') fePlaus(); }catch(e){}
+  }catch(e){}
+}
+if(typeof window!=='undefined'){ window.fgZusZutSync=fgZusZutSync; window.fgZutZusE=fgZutZusE; }
 /* Auto-Umleitung (Ralph 25.07.): ein Zusatzstoff, den Riki faelschlich als ZUTAT gelistet hat (z.B.
    "Natriumferrocyanid (Trennmittel)"), gehoert nach RECHTS zu den Zusatzstoffen und darf nicht als Zutat
    bewertet werden. Eindeutige Signale: (a) Funktionswort in Klammern (Trennmittel/Konservierungsmittel/...)
    oder (b) Name/E-Nummer trifft den Zusatzstoff-Katalog bzw. ein deutsches Synonym. Nur diese klaren Faelle
-   werden verschoben; normale Zutaten ("Zucker (aus Rueben)" o.ae.) bleiben. */
+   werden verschoben; normale Zutaten ("Zucker (aus Rueben)" o.ae.) bleiben.
+   ⚠ 27y-KORREKTUR (Prinzip 8, §4c): "darf nicht als Zutat bewertet werden" war der Stand vom 25.07.
+   und ist ueberholt - der Stoff SOLL beide Achsen tragen. Die Route ersetzt deshalb den rohen
+   Riki-Token jetzt durch die KANONISCHE Stamm-Zutat (fgZusZutSync), statt die Zutaten-Achse zu leeren. */
 async function fgZutAdditiveRoute(){
   var c=document.getElementById('fe_zutRows'); if(!c) return;
   try{ if(typeof loadZusatzstoffeStamm==='function') await loadZusatzstoffeStamm(); }catch(e){}
@@ -8661,9 +8719,17 @@ async function fgZutAdditiveRoute(){
     if(!(funk || found || em)) return;   /* keine klare Zusatzstoff-Kennung -> bleibt Zutat */
     var key=String((found&&found.e)||eNr||namePur).toLowerCase();
     var drin=window._fgZus.some(function(z){ return (String(z.e||'').toLowerCase()===key && key) || String(z.name||'').trim().toLowerCase()===namePur; });
-    if(!drin){ if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung}); else window._fgZus.push({e:eNr||null,name:nm,einst:'ungepr\u00fcft'}); }
-    if(row.parentNode) row.parentNode.removeChild(row);
-    moved++;
+    if(!drin){ if(found) window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung}); else window._fgZus.push({e:eNr||null,name:nm,einst:'ungepr\u00fcft'}); moved++; }
+    /* 27y (Prinzip 8): Ist die Zeile bereits die KANONISCHE Stamm-Zutat (gebunden, bewertet),
+       bleibt sie - sie IST die Zutaten-Achse dieses Stoffs. Nur rohe Riki-Tokens
+       ("Natriumferrocyanid (Trennmittel)") werden entfernt und durch die Stamm-Zutat ersetzt. */
+    var _map=(typeof ZUTATEN_MAP!=='undefined'&&ZUTATEN_MAP)?ZUTATEN_MAP:{};
+    var istStammZutat=!!(_map[nm.toLowerCase()]||_map[namePur]);
+    if(!istStammZutat){
+      if(row.parentNode) row.parentNode.removeChild(row);
+      moved++;
+      if(found) try{ fgZusZutSync(true,{e:found.e}); }catch(e){}   /* kanonische Zutat nachbinden */
+    }
   });
   if(moved){ try{ zusSync(); }catch(e){} try{ zusRenderPick(); }catch(e){} try{ fgEnthaltenRender(); }catch(e){} try{ fePlaus(); }catch(e){} }
 }
@@ -8913,8 +8979,20 @@ function fgPickRender(){
   var checked=all.filter(isSel), rest=all.filter(function(it){return !isSel(it);});
   if(q){ var mm=function(it){return (it.name||"").toLowerCase().indexOf(q)>=0;}; checked=checked.filter(mm); rest=rest.filter(mm); }
   var shown=checked.concat(rest);
+  /* 27y ("1x reicht"): Stoffe, die als ZUSATZSTOFF erfasst sind, erscheinen hier nicht mehr als
+     normale Doppel-Zeile - nur als schmaler ⚗-Verweis. Die Bindung selbst bleibt bestehen
+     (Prinzip 8, beide Achsen); geaendert wird sie ueber die Zusatzstoff-Karte. */
+  var zusE={}; (window._fgZus||[]).forEach(function(z){ if(z.e) zusE[String(z.e).toUpperCase()]=z; });
   var row=function(it){ var nm=it.name||"", chk=isSel(it), rt=(it.rating==null?"–":it.rating);
     var col=(it.rating==null)?"var(--muted)":(it.rating>=7?"#2e9e57":it.rating>=4?"#c88616":"#cf5442");
+    var ze=fgZutZusE(nm);
+    if(ze && zusE[ze]){
+      return '<div onclick="zusModalOpen()" title="Über die Zusatzstoff-Karte ändern – der Stoff zählt weiter auf BEIDEN Achsen (Prinzip 8)" style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;opacity:.62;background:var(--bg)">'
+        +'<span style="text-align:center;font-size:13px">⚗</span>'
+        +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px">'+esc(nm)+' <span style="color:var(--muted);font-size:11px">als Zusatzstoff erfasst'+(chk?' · Wert '+rt+' zählt':'')+'</span></span>'
+        +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+(chk?rt:'')+'</span>'
+      +'</div>';
+    }
     return '<label style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(chk?"background:var(--greenlt,#eef7f0)":"")+'">'
       +'<input type="checkbox" '+(chk?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(it.rating==null?"":it.rating)+'" data-krit="'+esc(it.kritisch||"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'
       +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+'</span>'
@@ -14918,7 +14996,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27x";
+const APP_BUILD = "2026-07-27y";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
