@@ -6413,7 +6413,7 @@ function tbDefaultPortion(p){ return tbPortionSet(p).m; }
    - Stueck/Scheibe/Kapsel, wenn eine Stueckgroesse belegt ist (Etikett-Portion hat Vorrang,
      sonst PIECE-Heuristik, sonst Stueckgroesse aus der DB) -> Wert x Gramm je Stueck
    Prise/EL/TL fehlen BEWUSST: eine Prise hat keine belegte Masse (Ralph-Entscheid offen). */
-function tbEinheitOptionen(p){
+function tbEinheitOptionen(p, km){
   var base=prodEinheit(p);
   var opts=[{key:base,label:base,f:1}];
   var piece=0, plabel='Stück';
@@ -6423,7 +6423,25 @@ function tbEinheitOptionen(p){
   }catch(e){}
   if(!piece){ var sg=stkOf(p&&p.id); if(sg) piece=sg; }
   if(piece>0) opts.push({key:'stueck',label:plabel,f:piece});
+  /* 27w (Ralph): Küchenmaße aus der DB (cb_kuechenmass_produkt) - Prise/EL/TL nur dort,
+     wo ein Wert hinterlegt ist (je Produkt oder Betreiber-Festlegung; Annahmen tragen ⚠).
+     Der Wert steht sichtbar im Label ("TL (6 g)") - keine versteckte Umrechnung. */
+  (km||[]).forEach(function(r){
+    var f=Number(r.menge); if(!(f>0)) return;
+    if(String(r.basis||'')!==base) return;   /* Sicherheitsnetz: Basis muss zum Produkt passen */
+    var lab=r.label+' ('+String(f).replace('.',',')+' '+base+')'+(r.art==='annahme'?' ⚠':'');
+    opts.push({key:'km_'+r.key, label:lab, f:f});
+  });
   return opts;
+}
+/* Küchenmaße je Produkt holen, je Sitzung gecacht - EIN Abruf pro Produkt. */
+async function tbKmFuer(pid){
+  try{
+    if(!window._kmCache) window._kmCache={};
+    if(window._kmCache[pid]) return window._kmCache[pid];
+    const {data}=await client.rpc('cb_kuechenmass_produkt',{p_produkt:pid});
+    const rows=data||[]; window._kmCache[pid]=rows; return rows;
+  }catch(e){ return []; }
 }
 /* Menge aus Eingabefeld + Einheiten-Auswahl -> Basiswert (g/ml) fuer die Datenbank.
    EINE Stelle rechnet um - Eintragen-Knopf und kcal-Vorschau nutzen dieselbe (§1.11i). */
@@ -6431,10 +6449,12 @@ function tbAddMengeBasis(){
   var el=document.getElementById('tbAddMenge'); if(!el) return 0;
   var v=parseFloat(String(el.value).replace(',','.'))||0; if(v<=0) return 0;
   var sel=document.getElementById('tbAddEinheit');
-  if(sel&&sel.value==='stueck'){
+  if(sel){
+    /* 27w: JEDE Option trägt ihren Faktor (data-f); Basis-Einheiten haben 1.
+       3 Prisen x 0,2 g = 0,6 g - auf 2 Nachkommastellen gerundet gegen Float-Reste. */
     var o=sel.selectedOptions&&sel.selectedOptions[0];
-    var f=o?(parseFloat(o.getAttribute('data-f'))||0):0;
-    return f>0?v*f:0;
+    var f=o?(parseFloat(o.getAttribute('data-f'))||1):1;
+    return Math.round(v*f*100)/100;
   }
   return v;
 }
@@ -7568,11 +7588,14 @@ function tbSetSize(g){ const el=document.getElementById("tbAddMenge"); if(el){ e
    Produktkopf mit Index-Pille, Portions-Chips, Stepper mit Einheiten-Dropdown,
    Eintragen-Knopf mit Live-kcal. IDs tbAddMenge/tbAddMsg bleiben - tbAddSave
    bedient alten UND neuen Weg (§1.11i: eine Speicherlogik). */
-function tbAddPickNeu(i){
+async function tbAddPickNeu(i){
   const p=(window._tbAddList||[])[i]; if(!p) return;
   window._tbAddPickId=p.id;
   const box=document.getElementById("tbAddResults"); if(!box) return;
-  const ps=tbPortionSet(p), opts=tbEinheitOptionen(p);
+  /* 27w: Küchenmaße VOR dem Malen holen (ein kleiner, gecachter Abruf) - nicht nachträglich
+     in die fertige Ansicht flicken (§1.11n-f: die Anzeige war fertig, bevor die Daten da waren). */
+  const km=await tbKmFuer(p.id);
+  const ps=tbPortionSet(p), opts=tbEinheitOptionen(p, km);
   const hatStk=opts.some(o=>o.key==='stueck');
   const piece=hatStk?(opts.find(o=>o.key==='stueck').f):0;
   const defUnit=hatStk?'stueck':opts[0].key;
@@ -7603,14 +7626,14 @@ function tbAddPickNeu(i){
     +'<div id="tbAddMsg" style="font-size:12px;color:var(--k-6b6256);margin-top:6px"></div></div>';
   tbAddCtaUpdate();
 }
-/* Chip setzt den Stepper (in der GERADE gewaehlten Einheit) und markiert sich selbst. */
+/* Chip setzt den Stepper (in der GERADE gewaehlten Einheit) und markiert sich selbst.
+   27w: generisch über den data-f-Faktor der gewaehlten Option (Basis hat 1). */
 function tbAddChip(btn,gval){
   const sel=document.getElementById('tbAddEinheit'), el=document.getElementById('tbAddMenge');
   if(el){
-    if(sel&&sel.value==='stueck'){
-      const o=sel.selectedOptions[0], f=o?(parseFloat(o.getAttribute('data-f'))||0):0;
-      el.value=f>0?Math.max(1,Math.round(gval/f)):gval;
-    } else el.value=gval;
+    const o=sel&&sel.selectedOptions&&sel.selectedOptions[0];
+    const f=o?(parseFloat(o.getAttribute('data-f'))||1):1;
+    el.value=(f!==1)?Math.max((sel.value==='stueck'?1:0.5),Math.round(gval/f*10)/10):gval;
   }
   document.querySelectorAll('.tbChip').forEach(c=>{
     const on=(c===btn);
@@ -7622,20 +7645,23 @@ function tbAddChip(btn,gval){
 function tbAddStep(d){
   const el=document.getElementById('tbAddMenge'), sel=document.getElementById('tbAddEinheit');
   if(!el) return;
-  const step=(sel&&sel.value==='stueck')?1:5;
+  /* Basis (g/ml) in 5er-Schritten, alles Gezählte (Stück, Prise, TL, EL) in 1er-Schritten. */
+  const step=(sel&&sel.value!=='g'&&sel.value!=='ml')?1:5;
   el.value=Math.max(step,(parseFloat(String(el.value).replace(',','.'))||0)+d*step);
   tbAddCtaUpdate();
 }
-/* Einheit gewechselt: den eingetragenen Wert MITNEHMEN (60 g Ei -> 1 Stueck), nicht verwerfen. */
+/* Einheit gewechselt: den eingetragenen Wert MITNEHMEN (60 g Ei -> 1 Stueck, 6 g Salz -> 1 TL),
+   nicht verwerfen. 27w: generisch über die data-f-Faktoren ALLER Optionen. */
 function tbAddUnitChange(sel){
   const el=document.getElementById('tbAddMenge'); if(!el||!sel) return;
   const prev=sel.getAttribute('data-prev')||'', now=sel.value;
-  const o=[...sel.options].find(x=>x.value==='stueck');
-  const f=o?(parseFloat(o.getAttribute('data-f'))||0):0;
+  const fOf=k=>{ const o=[...sel.options].find(x=>x.value===k); return o?(parseFloat(o.getAttribute('data-f'))||1):1; };
   let v=parseFloat(String(el.value).replace(',','.'))||0;
-  if(f>0&&v>0){
-    if(prev!=='stueck'&&now==='stueck') el.value=Math.max(1,Math.round(v/f));
-    else if(prev==='stueck'&&now!=='stueck') el.value=Math.round(v*f);
+  if(v>0&&prev&&prev!==now){
+    const basisWert=v*fOf(prev);
+    let nv=basisWert/fOf(now);
+    nv=(now==='stueck')?Math.max(1,Math.round(nv)):Math.round(nv*10)/10;
+    el.value=nv;
   }
   sel.setAttribute('data-prev',now);
   tbAddCtaUpdate();
@@ -14773,7 +14799,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27v";
+const APP_BUILD = "2026-07-27w";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
