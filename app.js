@@ -2914,8 +2914,12 @@ function peRender(){
     if(chipf==='naehrwerte'&&!p.naehrwerte_qa) return false;
     if(chipf==='portionsfalle'&&!p.portionsfalle_qa) return false;
     if(chipf==='unverif'&&p.verifiziert==='Ja') return false;
+    /* 27z (Ralph): Excel-artige Spaltenfilter - Klick auf den Spaltenkopf öffnet eine
+       Häkchen-Liste der Werte. Aktive Filter stehen in window._peColF (Spalte -> erlaubte Werte). */
+    var cf=window._peColF||{};
+    for(var col in cf){ if(cf.hasOwnProperty(col)&&cf[col]){ if(!cf[col][peColVal(p,col)]) return false; } }
     if(!q) return true;
-    return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')+' '+String(p.grund||'')).toLowerCase().indexOf(q)>=0; });
+    return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')+' '+String(p.herkunft||'')+' '+String(p.grund||'')).toLowerCase().indexOf(q)>=0; });
   if(sort==='mark') list=list.filter(function(p){return p.markiert;});
   list.sort(function(a,b){
     if(sort==='score'){ var sa=(a.score==null?9999:a.score), sb=(b.score==null?9999:b.score); if(sa!==sb) return sa-sb; }
@@ -2926,14 +2930,21 @@ function peRender(){
   var td=function(c,st,attr){ return '<td '+(attr||'')+' style="padding:9px 10px;border-bottom:1px solid #e2e8ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(st||'')+'">'+c+'</td>'; };
   /* Feste Spaltenbreiten (table-layout:fixed) – lange Titel werden abgeschnitten (…), statt die
      Tabelle zu sprengen. Titel-Spalte ohne feste Breite = nimmt den Rest. */
-  var cols='<colgroup><col style="width:64px"><col><col style="width:130px"><col style="width:130px"><col style="width:58px"><col style="width:112px"><col style="width:130px"><col style="width:130px"><col style="width:52px"></colgroup>';
+  var cols='<colgroup><col style="width:64px"><col><col style="width:120px"><col style="width:120px"><col style="width:58px"><col style="width:106px"><col style="width:120px"><col style="width:112px"><col style="width:130px"><col style="width:52px"></colgroup>';
   var scoreCell=function(s){ if(s==null) return '<span style="font-weight:800;color:#7b8698">–</span>';
     var c=s>=80?'#2e9e57':s>=60?'#c88616':'#cf5442'; return '<span style="font-weight:800;color:'+c+'">'+s+'</span>'; };
   var statPill=function(p){
     if(String(p.pstatus||'')==='Entwurf') return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">Entwurf</span>';
     if(p.zu_verifizieren) return '<span class="pePill" style="color:#3b56b0;border-color:#c3ccf0;background:#eef1fb">zu verifizieren</span>';
     return '<span class="pePill" style="color:#1f7d43;border-color:#bfe3cb;background:#e7f6ec">Aktiv</span>'; };
-  g.innerHTML=cols+'<thead><tr>'+['P-Nr','Titel','Marke','Kategorie','Index','Status','EAN','Quelle','⚑ 🛡'].map(th).join('')+'</tr></thead><tbody>'
+  /* 27z: filterbare Spaltenköpfe (Excel-artig) - Klick öffnet die Werte-Häkchen-Liste.
+     Aktiver Filter faerbt den Kopf blau und zeigt einen gefüllten Trichter. */
+  var thF=function(h,col){
+    if(!col) return th(h);
+    var on=!!(window._peColF&&window._peColF[col]);
+    return '<th onclick="peColFilter(event,\''+col+'\')" title="Klicken zum Filtern (wie in Excel)" style="position:sticky;top:0;background:'+(on?'#e3ebfb':'#eef3f8')+';text-align:left;padding:9px 10px;border-bottom:1px solid #e2e8ef;font-size:12px;color:'+(on?'#3b56b0':'#5b6b82')+';font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer">'+h+' <span style="font-size:10px">'+(on?'▼':'▾')+'</span></th>';
+  };
+  g.innerHTML=cols+'<thead><tr>'+[th('P-Nr'),th('Titel'),thF('Marke','marke'),thF('Kategorie','kategorie'),th('Index'),thF('Status','status'),thF('EAN','ean'),thF('Quelle','quelle'),thF('Herkunft','herkunft'),th('⚑ 🛡')].join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')">'
       +td(esc(p.id),'color:#7b8698')
@@ -2944,6 +2955,7 @@ function peRender(){
       +td(statPill(p),'overflow:visible')
       +td(p.ean?esc(p.ean):'<span style="color:#c88616">offen</span>','color:#7b8698')
       +td(p.quelle_typ?esc(p.quelle_typ):'<span style="color:#cf5442">fehlt</span>','color:#7b8698;font-size:12px','title="'+esc(p.quelle_typ||'')+'"')
+      +td(p.herkunft?esc(p.herkunft):'<span style="color:#9aa7b2">–</span>','color:#7b8698;font-size:12px','title="'+esc(p.herkunft||'')+'"')
       +td((p.markiert?'<span style="color:#cf5442">⚑</span>':'')+(peHatWaechter(p)?'<span title="Von einem Wächter gemeldet – bis zur Freigabe prüfen" style="color:#c88616">🛡</span>':''),'overflow:visible')
       +'</tr>'; }).join('')
     +'</tbody>';
@@ -2951,6 +2963,73 @@ function peRender(){
   var lh=document.getElementById('peListHint'); if(lh) lh.textContent='· '+list.length+' angezeigt';
   try{ peStatusBtnUpdate(); }catch(e){}
 }
+/* ===== 27z: EXCEL-SPALTENFILTER (Ralph: "bei klick auf status dann das dropdown mit
+   hacken zum auswählen und eingabefeld, wie in excel") =====
+   Ein Klick auf einen filterbaren Spaltenkopf öffnet die Werte-Liste mit Häkchen +
+   Suchfeld. window._peColF[spalte] = { wert:true } (erlaubte Werte); kein Eintrag = kein
+   Filter. peColVal ist die EINE Wertequelle - Filter und Anzeige nutzen dieselbe (§1.11i). */
+function peColVal(p,col){
+  if(col==='status') return String(p.pstatus||'')==='Entwurf'?'Entwurf':(p.zu_verifizieren?'zu verifizieren':'Aktiv');
+  if(col==='ean') return p.ean?'vorhanden':'offen';
+  if(col==='marke') return String(p.marke||'').trim()||'– leer –';
+  if(col==='kategorie') return String(p.kategorie||'').trim()||'– leer –';
+  if(col==='quelle') return String(p.quelle_typ||'').trim()||'– leer –';
+  if(col==='herkunft') return String(p.herkunft||'').trim()||'– leer –';
+  return '';
+}
+function peColFilter(ev,col){
+  try{ ev.stopPropagation(); }catch(e){}
+  var ex=document.getElementById('peColBox');
+  if(ex){ var same=(ex.getAttribute('data-col')===col); ex.remove(); if(same) return; }
+  var rows=window._peRows||[];
+  var cnt={}; rows.forEach(function(p){ var v=peColVal(p,col); cnt[v]=(cnt[v]||0)+1; });
+  var werte=Object.keys(cnt).sort(function(a,b){ return a.toLowerCase()<b.toLowerCase()?-1:1; });
+  var cf=(window._peColF&&window._peColF[col])||null;   /* null = alles erlaubt */
+  var box=document.createElement('div'); box.id='peColBox'; box.setAttribute('data-col',col);
+  box.style.cssText='position:absolute;z-index:85;background:#fff;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:10px;width:280px;max-height:60vh;display:flex;flex-direction:column';
+  var t=ev.target.closest?ev.target.closest('th'):ev.target; var r=t.getBoundingClientRect();
+  box.style.top=(window.scrollY+r.bottom+4)+'px';
+  box.style.left=(window.scrollX+Math.min(r.left, Math.max(6, innerWidth-292)))+'px';
+  box.innerHTML=
+    '<input id="peColSuche" oninput="peColRender()" placeholder="🔍 Werte suchen…" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;font-size:13px;margin-bottom:7px">'
+    +'<div style="display:flex;gap:6px;margin-bottom:6px">'
+      +'<button type="button" onclick="peColAlle(true)" style="flex:1;padding:6px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">alle an</button>'
+      +'<button type="button" onclick="peColAlle(false)" style="flex:1;padding:6px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">alle aus</button>'
+      +'<button type="button" onclick="peColReset()" style="flex:1;padding:6px;border:1px solid #c3ccf0;border-radius:8px;background:#eef1fb;color:#3b56b0;cursor:pointer;font-size:12px;font-weight:700">Filter weg</button>'
+    +'</div>'
+    +'<div id="peColList" style="flex:1;overflow:auto;min-height:0"></div>';
+  document.body.appendChild(box);
+  window._peColBoxDaten={col:col, werte:werte, cnt:cnt, sel:(function(){ var s={}; werte.forEach(function(v){ s[v]=cf?!!cf[v]:true; }); return s; })()};
+  peColRender();
+  setTimeout(function(){ var close=function(e){ if(!box.contains(e.target)){ box.remove(); document.removeEventListener('mousedown',close); } }; document.addEventListener('mousedown',close); },0);
+}
+function peColRender(){
+  var d=window._peColBoxDaten; var list=document.getElementById('peColList'); if(!d||!list) return;
+  var q=((document.getElementById('peColSuche')||{}).value||'').trim().toLowerCase();
+  var werte=q?d.werte.filter(function(v){ return v.toLowerCase().indexOf(q)>=0; }):d.werte;
+  list.innerHTML=werte.map(function(v){
+    return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:13px;cursor:pointer;border-top:1px solid #eef2f7">'
+      +'<input type="checkbox" '+(d.sel[v]?'checked':'')+' data-v="'+esc(v)+'" onchange="peColChk(this)" style="width:16px;height:16px;flex:0 0 auto;accent-color:#16a34a">'
+      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(v)+'</span>'
+      +'<span style="color:#9aa7b2;font-size:11px">'+d.cnt[v]+'</span></label>';
+  }).join('') || '<div style="color:#9aa7b2;font-size:12px;padding:6px 2px">kein Wert passt zur Suche</div>';
+}
+function _peColApply(){
+  var d=window._peColBoxDaten; if(!d) return;
+  var alleAn=d.werte.every(function(v){ return d.sel[v]; });
+  window._peColF=window._peColF||{};
+  if(alleAn) delete window._peColF[d.col];       /* alles erlaubt = kein Filter */
+  else { var m={}; d.werte.forEach(function(v){ if(d.sel[v]) m[v]=true; }); window._peColF[d.col]=m; }
+  peRender();
+}
+function peColChk(cb){ var d=window._peColBoxDaten; if(!d) return; d.sel[cb.getAttribute('data-v')]=cb.checked; _peColApply(); }
+function peColAlle(on){ var d=window._peColBoxDaten; if(!d) return;
+  var q=((document.getElementById('peColSuche')||{}).value||'').trim().toLowerCase();
+  d.werte.forEach(function(v){ if(!q||v.toLowerCase().indexOf(q)>=0) d.sel[v]=on; });
+  peColRender(); _peColApply(); }
+function peColReset(){ var d=window._peColBoxDaten; if(d){ d.werte.forEach(function(v){ d.sel[v]=true; }); }
+  peColRender(); _peColApply(); }
+if(typeof window!=='undefined'){ window.peColFilter=peColFilter; window.peColChk=peColChk; window.peColAlle=peColAlle; window.peColReset=peColReset; window.peColRender=peColRender; window.peColVal=peColVal; }
 /* Der Status-Knopf zeigt den ECHTEN Status des ausgewählten Produkts (Aktiv/Entwurf), farbig.
    Ohne Auswahl neutral „⇄ Status". Klick schaltet um (peToggleStatus). */
 function peStatusBtnUpdate(){
@@ -7341,11 +7420,14 @@ function tbMzRezOpen(meal){
     const man=!r.Produkt_ID;
     const g=num(r.Menge_g)||0;
     const eh=man?((String(r.Einheit||'').toLowerCase()==='ml')?'ml':'g'):prodEinheit(r.Produkt_ID);
-    return '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--k-e7e0d4);font-size:13px'+(man?';opacity:.55':'')+'">'
-      +'<input type="checkbox" class="tbMzChk" data-i="'+i+'" '+(man?'disabled':'checked')+' onchange="tbMzCalc()" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--k-16a34a)">'
-      +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.Produktname||'')+(man?'<br><span style="font-size:10.5px;color:var(--k-6b6256)">ohne Produkt – wird nicht übernommen</span>':'')+'</span>'
-      +(man?'':('<input type="number" inputmode="decimal" class="tbMzMenge" data-i="'+i+'" data-g0="'+g+'" value="'+g+'" min="0" oninput="tbMzCalc()" style="width:64px;flex:0 0 auto;text-align:center;padding:6px 4px;border:1px solid var(--k-e7e0d4);border-radius:8px;background:var(--k-fbf8f2);color:var(--k-1d3c24);font-size:13px;font-weight:600">'
-      +'<span style="flex:0 0 auto;color:var(--k-6b6256);font-size:12px;min-width:18px">'+eh+'</span>'))
+    /* 27z (Ralph, Sandras Fall): AUCH manuelle Eintraege kommen ins Rezept - als Zutat ohne
+       Produkt-Bindung (das Rezept-System kann das, saveRezept speichert Namens-Zutaten genauso).
+       Der kleine Hinweis bleibt, damit klar ist, warum diese Zeile keinen Index beitraegt. */
+    return '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--k-e7e0d4);font-size:13px">'
+      +'<input type="checkbox" class="tbMzChk" data-i="'+i+'" checked onchange="tbMzCalc()" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--k-16a34a)">'
+      +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.Produktname||'')+(man?'<br><span style="font-size:10.5px;color:var(--k-6b6256)">ohne Produkt-Bindung – zählt nicht in den Rezept-Index</span>':'')+'</span>'
+      +'<input type="number" inputmode="decimal" class="tbMzMenge" data-i="'+i+'" data-g0="'+g+'" value="'+g+'" min="0" oninput="tbMzCalc()" style="width:64px;flex:0 0 auto;text-align:center;padding:6px 4px;border:1px solid var(--k-e7e0d4);border-radius:8px;background:var(--k-fbf8f2);color:var(--k-1d3c24);font-size:13px;font-weight:600">'
+      +'<span style="flex:0 0 auto;color:var(--k-6b6256);font-size:12px;min-width:18px">'+eh+'</span>'
       +'</div>';
   }).join('');
   ov.innerHTML='<div style="width:100%;max-width:560px;background:var(--k-f3efe8);color:var(--k-1d3c24);border-radius:20px 20px 0 0;padding:10px 16px 16px;max-height:92vh;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.25)">'
@@ -7400,15 +7482,17 @@ async function tbMzSave(){
   const zut=[]; let K=0,P=0,KH=0,F=0;
   document.querySelectorAll('.tbMzChk').forEach(chk=>{
     if(!chk.checked||chk.disabled) return;
-    const i=Number(chk.getAttribute('data-i')), r=items[i]; if(!r||!r.Produkt_ID) return;
+    const i=Number(chk.getAttribute('data-i')), r=items[i]; if(!r) return;
     const inp=document.querySelector('.tbMzMenge[data-i="'+i+'"]');
     const g0=inp?(parseFloat(inp.getAttribute('data-g0'))||0):0;
     const g=inp?(parseFloat(String(inp.value).replace(',','.'))||0):g0;
     if(g<=0) return;
     const f=(g0>0)?g/g0:1;
     K+=(Number(r.kcal)||0)*f; P+=(Number(r.protein)||0)*f; KH+=(Number(r.kh)||0)*f; F+=(Number(r.fett)||0)*f;
-    const eh=prodEinheit(r.Produkt_ID);
-    zut.push({name:r.Produktname||'', menge_g:Math.round(g*10)/10, menge:String(g).replace('.',',')+' '+eh, produkt_id:r.Produkt_ID});
+    /* 27z: manuelle Eintraege (ohne Produkt_ID) werden als NAMENS-Zutat uebernommen -
+       gleiche Struktur, produkt_id null; Einheit aus der Eintrags-Spalte. */
+    const eh=r.Produkt_ID?prodEinheit(r.Produkt_ID):((String(r.Einheit||'').toLowerCase()==='ml')?'ml':'g');
+    zut.push({name:r.Produktname||'', menge_g:Math.round(g*10)/10, menge:String(g).replace('.',',')+' '+eh, produkt_id:r.Produkt_ID||null});
   });
   if(!zut.length){ if(msg){msg.style.color='var(--k-f87171)';msg.textContent='Mindestens eine Zutat anhaken.';} return; }
   /* Gleiche Payload-Struktur wie saveRezept: Makros JE PORTION = Summe / Portionen. */
@@ -7920,7 +8004,11 @@ async function tbAddManualSave(){
      die Tagebuch-Zeile zeigt dann "200 ml" statt falsch "200 g". Ohne Auswahl: g wie bisher. */
   const uSel=document.getElementById("tbmEinheit");
   const einheit=(uSel&&uSel.value==='ml')?'ml':null;
-  const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:meal,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum,p_einheit:einheit});
+  /* 27z (Ralph, Sandras Fall): EAN + Nährwerte je 100 MITSCHICKEN. Mit Barcode legt die DB
+     ein Produkt an (Status Entwurf, Herkunft "Nutzer: <Name>") und hängt den Eintrag daran -
+     das Produkt landet zur Prüfung in der Erfassungs-Liste. Ohne Barcode wie bisher Freitext. */
+  const ean=((document.getElementById("tbmEan")||{}).value||"").trim()||null;
+  const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:meal,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum,p_einheit:einheit,p_ean:ean,p_kcal100:p100.k,p_protein100:p100.e,p_kh100:p100.c,p_fett100:p100.ff});
   if(error){ if(m){m.style.color="var(--k-f87171)";m.textContent="Fehler: "+error.message;} return; }
   const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
 }
@@ -14996,7 +15084,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27y";
+const APP_BUILD = "2026-07-27z";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
