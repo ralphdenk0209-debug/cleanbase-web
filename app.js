@@ -8572,6 +8572,13 @@ function _zusOhneFunktionswort(nm){
   return w.join(" ");
 }
 function _zusIstLeer(nm){ nm=String(nm||"").trim().toLowerCase(); if(!nm || /^keine\b/.test(nm) || /^(k\.?\s?a\.?|n\/a|-|\u2013|nicht deklariert|nicht angegeben|entfaellt)$/.test(nm)) return true; if(/^\(?(i{1,3}|iv|vi{0,3}|ix|x{1,3})\)?$/.test(nm)) return true;   /* Bruchstueck einer Aufzaehlung „(i) … (ii) …" – kein Stoff (Ralph 26.07.) */
+  /* 27z3 (Ralphs Fund "Natrium < 3,6 mg"): NAEHRWERT-Zeilen sind keine Zutaten/Zusatzstoffe.
+     (a) "Natrium" allein ist NIE ein Stoffname (immer nur Teil einer Verbindung wie Natriumnitrit -
+     die bleibt unberuehrt, weil sie ein anderes Wort ist). (b) Ein Mineralstoff-Name MIT Mengen-/
+     Vergleichsangabe ("Kalium 12 mg") ist eine Deklarationszeile vom Etikett. Bare Mineralnamen
+     ausser Natrium bleiben erlaubt - Supplements fuehren sie als Wirkstoff. */
+  if(/^natrium($|[^a-zäöüß])/.test(nm)) return true;
+  if(/^(kalium|calcium|kalzium|magnesium|eisen|zink|jod|jodid|selen|fluorid|chlorid|phosphor|kupfer|mangan|molybdaen|chrom)[^a-zäöüß]*(<|>|\d)[\d.,]*\s*(mg|µg|mcg|g|%)/.test(nm)) return true;
   var np=nm.replace(/\([^)]*\)/g,"").replace(/^als\s+/,"").replace(/[:.]/g,"").replace(/\s+/g," ").trim(); return (typeof ZUS_FUNKTION!=="undefined" && !!ZUS_FUNKTION[np]); }
 function zusSeed(text){
   window._fgZus=[];
@@ -15133,7 +15140,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27z2";
+const APP_BUILD = "2026-07-27z3";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
