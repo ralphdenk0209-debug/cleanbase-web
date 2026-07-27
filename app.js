@@ -7321,6 +7321,120 @@ function mengeLabel(r){
   const eh=(!r.Produkt_ID && String(r.Einheit||'').toLowerCase()==='ml') ? 'ml' : prodEinheit(r.Produkt_ID);
   return (g!=null?Math.round(g):"?")+" "+eh;   /* g oder ml je Produkt (Ralph 27.07.) */
 }
+/* ===== 27x: MAHLZEIT ALS REZEPT ÜBERNEHMEN (Ralph-Entscheid: Variante B + änderbare Mengen) =====
+   Vorschau-Blatt: jeden Eintrag an-/abwählen UND die Menge anpassen, Portionen-Stepper,
+   live gerechnete Nährwerte je Portion. Speichert über den BESTEHENDEN Rezept-Weg
+   (cb_rezept_anlegen, gleiche Payload wie saveRezept) - kein zweiter Rezept-Pfad (§1.11i).
+   Manuelle Einträge (ohne Produkt) sind ausgegraut und werden NICHT übernommen - sichtbar,
+   nicht still. Nach dem Speichern: Brücke in den Rezept-Editor (Foto/Zubereitung). */
+function tbMzRezOpen(meal){
+  const items=(window._tbItems||[]).filter(r=>r.Mahlzeit===meal);
+  if(!items.length) return;
+  window._tbMzMeal=meal; window._tbMzItems=items;
+  let ov=document.getElementById('tbMzOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='tbMzOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:85';
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  const datum=(document.getElementById('tbDatum')||{}).value||tbToday();
+  let ds=datum; try{ ds=new Date(datum+'T00:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){}
+  const rowsH=items.map((r,i)=>{
+    const man=!r.Produkt_ID;
+    const g=num(r.Menge_g)||0;
+    const eh=man?((String(r.Einheit||'').toLowerCase()==='ml')?'ml':'g'):prodEinheit(r.Produkt_ID);
+    return '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--k-e7e0d4);font-size:13px'+(man?';opacity:.55':'')+'">'
+      +'<input type="checkbox" class="tbMzChk" data-i="'+i+'" '+(man?'disabled':'checked')+' onchange="tbMzCalc()" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--k-16a34a)">'
+      +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.Produktname||'')+(man?'<br><span style="font-size:10.5px;color:var(--k-6b6256)">ohne Produkt – wird nicht übernommen</span>':'')+'</span>'
+      +(man?'':('<input type="number" inputmode="decimal" class="tbMzMenge" data-i="'+i+'" data-g0="'+g+'" value="'+g+'" min="0" oninput="tbMzCalc()" style="width:64px;flex:0 0 auto;text-align:center;padding:6px 4px;border:1px solid var(--k-e7e0d4);border-radius:8px;background:var(--k-fbf8f2);color:var(--k-1d3c24);font-size:13px;font-weight:600">'
+      +'<span style="flex:0 0 auto;color:var(--k-6b6256);font-size:12px;min-width:18px">'+eh+'</span>'))
+      +'</div>';
+  }).join('');
+  ov.innerHTML='<div style="width:100%;max-width:560px;background:var(--k-f3efe8);color:var(--k-1d3c24);border-radius:20px 20px 0 0;padding:10px 16px 16px;max-height:92vh;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.25)">'
+    +'<div style="width:38px;height:4px;border-radius:4px;background:var(--k-e7e0d4);margin:2px auto 12px"></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:15.5px">🥗 '+esc(meal)+' → Rezept</b><span style="font-size:12px;color:var(--k-6b6256)">'+esc(ds)+'</span></div>'
+    +'<div style="font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-6b6256);margin:0 0 4px">Name</div>'
+    +'<input id="tbMzName" value="'+esc(meal+' '+ds)+'" style="width:100%;box-sizing:border-box;padding:10px 11px;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--k-ffffff);color:var(--k-1d3c24);font-size:14px">'
+    +'<div style="font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-6b6256);margin:12px 0 2px">Was kommt ins Rezept? <span style="font-weight:400;text-transform:none">Häkchen &amp; Mengen anpassbar</span></div>'
+    +rowsH
+    +'<div style="display:flex;gap:10px;align-items:center;margin-top:11px">'
+      +'<span style="font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-6b6256)">Ergibt Portionen</span>'
+      +'<span style="display:flex;align-items:center;border:1px solid var(--k-e7e0d4);border-radius:11px;background:var(--k-ffffff)">'
+        +'<button type="button" onclick="tbMzPort(-1)" style="border:0;background:none;font-size:17px;color:var(--k-166534);width:36px;padding:6px 0;cursor:pointer">−</button>'
+        +'<b id="tbMzPortN" style="width:30px;text-align:center;font-size:14px">1</b>'
+        +'<button type="button" onclick="tbMzPort(1)" style="border:0;background:none;font-size:17px;color:var(--k-166534);width:36px;padding:6px 0;cursor:pointer">+</button>'
+      +'</span></div>'
+    +'<div id="tbMzSum" style="display:flex;justify-content:space-between;background:var(--greenlt,var(--k-eaf5ee));border:1px solid var(--k-d5e6d5);border-radius:11px;padding:8px 12px;font-size:12px;color:var(--k-166534);font-weight:600;margin-top:10px"></div>'
+    +'<button id="tbMzCta" onclick="tbMzSave()" style="width:100%;margin-top:11px;background:var(--k-16a34a);color:var(--k-ffffff);border:0;border-radius:13px;padding:13px;font-size:15px;font-weight:800;cursor:pointer"></button>'
+    +'<button onclick="document.getElementById(\'tbMzOv\').remove()" style="width:100%;margin-top:8px;background:var(--k-ffffff);color:var(--k-6b6256);border:1px solid var(--k-e7e0d4);border-radius:13px;padding:11px;font-size:13px;cursor:pointer">Abbrechen</button>'
+    +'<div id="tbMzMsg" style="font-size:12px;color:var(--k-6b6256);margin-top:6px"></div>'
+  +'</div>';
+  document.body.appendChild(ov);
+  tbMzCalc();
+}
+function tbMzPort(d){ const el=document.getElementById('tbMzPortN'); if(!el) return; el.textContent=Math.max(1,(parseInt(el.textContent,10)||1)+d); tbMzCalc(); }
+/* Live-Summen: eine geänderte Menge skaliert die Zeilen-Nährwerte linear (neu/alt) -
+   die Zeilenwerte kommen fertig gerechnet aus der Tagebuch-View, hier wird nichts erfunden. */
+function tbMzCalc(){
+  const items=window._tbMzItems||[]; let n=0,K=0,P=0,KH=0,F=0;
+  document.querySelectorAll('.tbMzChk').forEach(chk=>{
+    if(!chk.checked||chk.disabled) return;
+    const i=Number(chk.getAttribute('data-i')), r=items[i]; if(!r) return;
+    const inp=document.querySelector('.tbMzMenge[data-i="'+i+'"]');
+    const g0=inp?(parseFloat(inp.getAttribute('data-g0'))||0):0;
+    const g=inp?(parseFloat(String(inp.value).replace(',','.'))||0):g0;
+    if(g<=0) return;
+    const f=(g0>0)?g/g0:1;
+    n++; K+=(Number(r.kcal)||0)*f; P+=(Number(r.protein)||0)*f; KH+=(Number(r.kh)||0)*f; F+=(Number(r.fett)||0)*f;
+  });
+  const port=Math.max(1,parseInt((document.getElementById('tbMzPortN')||{}).textContent,10)||1);
+  const sum=document.getElementById('tbMzSum'), cta=document.getElementById('tbMzCta');
+  const r1=x=>Math.round(x/port), r2=x=>Math.round(x/port*10)/10;
+  if(sum) sum.innerHTML='<span>Je Portion</span><span>'+r1(K)+' kcal · EW '+r2(P)+' g · KH '+r2(KH)+' g · F '+r2(F)+' g</span>';
+  if(cta){ cta.textContent='Als Rezept speichern · '+n+' Zutat'+(n===1?'':'en'); cta.disabled=!n; cta.style.opacity=n?'1':'.5'; }
+}
+async function tbMzSave(){
+  const items=window._tbMzItems||[], meal=window._tbMzMeal||'';
+  const msg=document.getElementById('tbMzMsg');
+  const name=((document.getElementById('tbMzName')||{}).value||'').trim();
+  if(!name){ if(msg){msg.style.color='var(--k-f87171)';msg.textContent='Bitte einen Namen angeben.';} return; }
+  const port=Math.max(1,parseInt((document.getElementById('tbMzPortN')||{}).textContent,10)||1);
+  const zut=[]; let K=0,P=0,KH=0,F=0;
+  document.querySelectorAll('.tbMzChk').forEach(chk=>{
+    if(!chk.checked||chk.disabled) return;
+    const i=Number(chk.getAttribute('data-i')), r=items[i]; if(!r||!r.Produkt_ID) return;
+    const inp=document.querySelector('.tbMzMenge[data-i="'+i+'"]');
+    const g0=inp?(parseFloat(inp.getAttribute('data-g0'))||0):0;
+    const g=inp?(parseFloat(String(inp.value).replace(',','.'))||0):g0;
+    if(g<=0) return;
+    const f=(g0>0)?g/g0:1;
+    K+=(Number(r.kcal)||0)*f; P+=(Number(r.protein)||0)*f; KH+=(Number(r.kh)||0)*f; F+=(Number(r.fett)||0)*f;
+    const eh=prodEinheit(r.Produkt_ID);
+    zut.push({name:r.Produktname||'', menge_g:Math.round(g*10)/10, menge:String(g).replace('.',',')+' '+eh, produkt_id:r.Produkt_ID});
+  });
+  if(!zut.length){ if(msg){msg.style.color='var(--k-f87171)';msg.textContent='Mindestens eine Zutat anhaken.';} return; }
+  /* Gleiche Payload-Struktur wie saveRezept: Makros JE PORTION = Summe / Portionen. */
+  const payload={name, portionen:port, zeit:null, ziel:null, ernaehrungsform:null,
+    kcal:Math.round(K/port), protein:Math.round(P/port*10)/10, kh:Math.round(KH/port*10)/10, fett:Math.round(F/port*10)/10,
+    zubereitung:'', zutaten:zut, mahlzeiten:[meal], rezept_id:null};
+  if(msg){ msg.style.color='var(--k-6b6256)'; msg.textContent='Speichere…'; }
+  const {data:rid,error}=await client.rpc('cb_rezept_anlegen',{p_payload:payload});
+  if(error){ if(msg){msg.style.color='var(--k-f87171)';msg.textContent='Fehler: '+error.message;} return; }
+  REZEPTE=null;
+  const ov=document.getElementById('tbMzOv');
+  if(ov){ ov.firstElementChild.innerHTML='<div style="text-align:center;padding:18px 6px">'
+    +'<div style="font-size:34px;color:var(--k-16a34a)">✓</div>'
+    +'<div style="font-weight:800;font-size:16px;margin:6px 0 2px">Rezept gespeichert</div>'
+    +'<div style="font-size:12.5px;color:var(--k-6b6256)">„'+esc(name)+'" · '+zut.length+' Zutat'+(zut.length===1?'':'en')+' · '+port+' Portion'+(port===1?'':'en')+' · privat</div>'
+    +'<button onclick="tbMzEditor(\''+esc(String(rid||''))+'\')" style="margin-top:14px;width:100%;background:var(--k-ffffff);color:var(--k-166534);border:1.5px solid var(--k-16a34a);border-radius:13px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Im Rezept-Editor öffnen ↗ <span style="font-weight:400;color:var(--k-6b6256)">(Foto &amp; Zubereitung)</span></button>'
+    +'<button onclick="document.getElementById(\'tbMzOv\').remove()" style="margin-top:8px;width:100%;background:var(--k-16a34a);color:var(--k-ffffff);border:0;border-radius:13px;padding:12px;font-size:14px;font-weight:800;cursor:pointer">Fertig</button>'
+    +'</div>'; }
+}
+/* Brücke in den bestehenden Rezept-Editor: Rezeptliste frisch laden (openRezeptForm
+   sucht das Rezept dort), dann das eben gespeicherte Rezept zum Bearbeiten öffnen. */
+async function tbMzEditor(rid){
+  const ov=document.getElementById('tbMzOv'); if(ov) ov.remove();
+  try{ await loadRezepte(); }catch(e){}
+  try{ openRezeptForm(rid); }catch(e){}
+}
 function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
   items=items||[]; window._tbItems=items; window._tbGoal=goal||{};
@@ -7337,8 +7451,13 @@ function renderTbListe(items, goal){
     rows.forEach(r=>{const sc=num(r.Clean_Score),g=num(r.Menge_g); if(sc!=null&&g!=null&&g>0){dSW+=sc*g;dSG+=g;}});
     const ms=mealScore(rows), sh=share[m]||0;
     const plusBtn=`<button onclick="tbOpenAdd('${m}')" title="Zu ${m} hinzufügen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid var(--tb-line);color:var(--k-2e7d32);font-size:18px;line-height:1;cursor:pointer;flex:0 0 auto">+</button>`;
+    /* 27x (Ralph, Variante B): Mahlzeit als Rezept übernehmen. Doppelt geschützt:
+       Beta-Flag mahlzeit_rezept (§3.0) UND die Stufen-Berechtigung rezepte_anlegen -
+       wer keine Rezepte anlegen darf, bekommt den Knopf gar nicht erst (§3.05). */
+    const rezBtn=(rows.length && typeof feat==='function' && feat('mahlzeit_rezept') && hasFeat('rezepte_anlegen'))
+      ? `<button onclick="tbMzRezOpen('${m}')" title="Diese Mahlzeit als Rezept speichern" style="width:30px;height:30px;border-radius:50%;background:var(--greenlt,var(--k-eaf5ee));border:1.5px solid var(--k-16a34a);color:var(--k-166534);font-size:14px;line-height:1;cursor:pointer;flex:0 0 auto">🥗</button>` : '';
     const rightHead = rows.length
-      ? `<span style="display:flex;align-items:center;gap:8px">${scoreChip(ms)}<span style="color:var(--k-2e7d32)">${Math.round(mk)} kcal</span>${plusBtn}</span>`
+      ? `<span style="display:flex;align-items:center;gap:8px">${scoreChip(ms)}<span style="color:var(--k-2e7d32)">${Math.round(mk)} kcal</span>${rezBtn}${plusBtn}</span>`
       : `<span style="display:flex;align-items:center;gap:8px"><span style="font-size:11.5px;color:var(--tb-muted)">${gK?('Empfohlen ~'+Math.round(gK*sh)+' kcal'):''}</span>${plusBtn}</span>`;
     html+=`<div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:14px;padding:4px 14px 8px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 ${rows.length?'7px':'9px'};${rows.length?'border-bottom:2px solid rgba(22,163,74,.28)':''}"><span>${icons[m]||"•"} ${m}</span>${rightHead}</div>`;
@@ -14799,7 +14918,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27w";
+const APP_BUILD = "2026-07-27x";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
