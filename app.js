@@ -7951,13 +7951,20 @@ function tbAddManualOpenNeu(){
       +'</div>'
     +'</div>'
     +'<div id="tbmOffMsg" style="font-size:11.5px;color:var(--k-6b6256);margin-bottom:8px"></div>'
-    +lbl('Nährwerte je 100 <span class="tbmU">g</span>')
+    +lbl('Nährwerte je 100 <span class="tbmU">g</span> <span style="font-weight:400;text-transform:none">– wie auf dem Etikett</span>')
+    /* 27z2 (Ralph): volle Felder wie in der Admin-Produktmaske, damit die automatische
+       Produkt-Anlage ALLES übernimmt (Zucker, gesättigte, Ballaststoffe, Salz). */
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
-      +'<div>'+lbl('kcal')+'<input id="tbmKcal" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
-      +'<div>'+lbl('Eiweiß (g)')+'<input id="tbmEiw" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
-      +'<div>'+lbl('Kohlenhydrate (g)')+'<input id="tbmKh" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('Energie (kcal)')+'<input id="tbmKcal" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
       +'<div>'+lbl('Fett (g)')+'<input id="tbmFett" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('&nbsp;&nbsp;davon gesättigte (g)')+'<input id="tbmGesFett" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('Kohlenhydrate (g)')+'<input id="tbmKh" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('&nbsp;&nbsp;davon Zucker (g)')+'<input id="tbmZucker" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('Ballaststoffe (g)')+'<input id="tbmBallast" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('Eiweiß (g)')+'<input id="tbmEiw" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('Salz (g)')+'<input id="tbmSalz" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
     +'</div>'
+    +'<div id="tbmPlaus" style="font-size:12px;margin-top:6px;min-height:15px"></div>'
     +'<div id="tbmVorschau" style="font-size:12.5px;color:var(--k-2e7d32);font-weight:600;margin-top:8px;min-height:16px"></div>'
     +'<button onclick="tbAddManualSave()" style="margin-top:8px;width:100%;padding:13px;border:0;border-radius:13px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:15px;font-weight:800;cursor:pointer">+ Eintragen</button>'
     +'<div style="font-size:11px;color:var(--k-6b6256);margin-top:6px;text-align:center">Wird gespeichert und dem Admin gemeldet, damit das Produkt bei Bedarf angelegt wird.</div>'
@@ -7986,6 +7993,26 @@ function tbmCalc(){
   const per=id=>{const v=parseFloat((document.getElementById(id)||{}).value); return isNaN(v)?0:v;};
   const f=g/100, r=x=>Math.round(x*10)/10;
   el.textContent="≈ "+Math.round(per("tbmKcal")*f)+" kcal für "+g+" "+u+" · EW "+r(per("tbmEiw")*f)+" g · KH "+r(per("tbmKh")*f)+" g · Fett "+r(per("tbmFett")*f)+" g";
+  /* 27z2: Plausibilitäts-Zeile mit EXAKT der Admin-Regel aus sePruefe (§1.11i - nicht
+     zwei Regeln an zwei Orten): rechnerisch = 4·EW + 4·KH + 9·Fett + 2·Ballaststoffe;
+     gewarnt wird erst ab >20 kcal UND >30 % Abweichung (kleine Werte wie Zitronensaft
+     29 vs. 13 kcal gelten als plausibel - so urteilt auch die Admin-Maske). Nur ein
+     HINWEIS, kein Riegel (§1.11t: organische Säuren kennt Atwater nicht). */
+  const pl=document.getElementById("tbmPlaus");
+  if(pl){
+    const k=per("tbmKcal"), zk=per("tbmZucker"), gf=per("tbmGesFett");
+    const rech=Math.round(4*per("tbmEiw")+4*per("tbmKh")+9*per("tbmFett")+2*per("tbmBallast"));
+    const w=[];
+    if(zk>per("tbmKh")+0.5) w.push('Zucker über Kohlenhydraten – unmöglich.');
+    if(gf>per("tbmFett")+0.5) w.push('Gesättigtes Fett über Gesamtfett – unmöglich.');
+    if(w.length) pl.innerHTML='<span style="color:var(--k-b91c1c)">⚠ '+w.join(' ')+'</span>';
+    else if(k>0&&(per("tbmEiw")>0||per("tbmKh")>0||per("tbmFett")>0)){
+      const dev=Math.abs(k-rech);
+      pl.innerHTML=(dev>20&&dev/k>0.30)
+        ?'<span style="color:var(--k-e8920c)">⚠ kcal ('+Math.round(k)+') passt nicht zu den Werten – rechnerisch '+rech+' kcal. Bitte prüfen.</span>'
+        :'<span style="color:var(--k-2e7d32)">✓ Plausibel · rechnerisch '+rech+' kcal.</span>';
+    } else pl.textContent='';
+  }
 }
 async function tbAddManualSave(){
   const name=(document.getElementById("tbmName").value||"").trim();
@@ -8008,7 +8035,18 @@ async function tbAddManualSave(){
      ein Produkt an (Status Entwurf, Herkunft "Nutzer: <Name>") und hängt den Eintrag daran -
      das Produkt landet zur Prüfung in der Erfassungs-Liste. Ohne Barcode wie bisher Freitext. */
   const ean=((document.getElementById("tbmEan")||{}).value||"").trim()||null;
-  const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:meal,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum,p_einheit:einheit,p_ean:ean,p_kcal100:p100.k,p_protein100:p100.e,p_kh100:p100.c,p_fett100:p100.ff});
+  /* 27z2: die vollen Etikett-Werte mitgeben - absolute Werte für den Eintrag (x Menge/100),
+     je-100-Werte für die automatische Produkt-Anlage. Felder gibt es nur in der neuen Maske;
+     im alten Layout bleibt p_mehr leer (per() liefert null bei fehlender ID). */
+  const perS=id=>{const e=document.getElementById(id); if(!e) return null; const v=parseFloat(e.value); return isNaN(v)?null:v;};   /* NULL-sicher: die Felder gibt es nur in der neuen Maske */
+  const zucker100=perS("tbmZucker"), gesfett100=perS("tbmGesFett"), ballast100=perS("tbmBallast"), salz100=perS("tbmSalz");
+  const abs1=(v,st)=>v==null?null:Math.round(v*f*(st||10))/(st||10);
+  let mehr=null;
+  if(zucker100!=null||gesfett100!=null||ballast100!=null||salz100!=null){
+    mehr={ zucker:abs1(zucker100), ges_fett:abs1(gesfett100), ballast:abs1(ballast100), salz:abs1(salz100,100),
+           zucker100:zucker100, gesfett100:gesfett100, ballast100:ballast100, salz100:salz100 };
+  }
+  const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:meal,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum,p_einheit:einheit,p_ean:ean,p_kcal100:p100.k,p_protein100:p100.e,p_kh100:p100.c,p_fett100:p100.ff,p_mehr:mehr});
   if(error){ if(m){m.style.color="var(--k-f87171)";m.textContent="Fehler: "+error.message;} return; }
   const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
 }
@@ -8021,7 +8059,7 @@ async function offLookup(){
   if(code.length<8){ if(msg){ msg.style.color="var(--k-e8920c)"; msg.textContent="Bitte gültigen Barcode (EAN) eingeben."; } return; }
   if(msg){ msg.style.color="var(--k-6b6256)"; msg.textContent="Suche bei Open Food Facts…"; }
   try{
-    const url="https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,product_name_de,brands,nutriments";
+    const url="https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,product_name_de,brands,nutriments";   /* nutriments enthält auch sugars/saturated-fat/fiber/salt */
     const r=await fetch(url,{headers:{"Accept":"application/json"}});
     const j=await r.json();
     if(!j || j.status!==1 || !j.product){
@@ -8041,6 +8079,12 @@ async function offLookup(){
     setV("tbmEiw",  n["proteins_100g"]);
     setV("tbmKh",   n["carbohydrates_100g"]);
     setV("tbmFett", n["fat_100g"]);
+    /* 27z2: auch Zucker/gesättigte/Ballaststoffe/Salz übernehmen (Felder gibt es in der
+       neuen Maske; setV prüft die ID und tut im alten Layout nichts). */
+    setV("tbmZucker",  n["sugars_100g"]);
+    setV("tbmGesFett", n["saturated-fat_100g"]);
+    setV("tbmBallast", n["fiber_100g"]);
+    setV("tbmSalz",    n["salt_100g"]);
     /* Den OFF-Treffer an die Scan-Warteschlange hängen: Dieses Produkt fehlt im Katalog,
        ein Nutzer hat es gerade gegessen UND es ist bei OFF vorhanden → bester Kandidat.
        Ohne das ging die Information nach dem Tagebuch-Eintrag verloren. */
@@ -12280,6 +12324,11 @@ async function tbAusScan(ean){
   setv("tbmEiw",  num(d.n.protein));
   setv("tbmKh",   num(d.n.kh));
   setv("tbmFett", num(d.n.fett));
+  /* 27z2: was der Scan zusätzlich kennt, gleich mit einfüllen (fehlt der Wert, passiert nichts). */
+  setv("tbmZucker",  num(d.n.zucker));
+  setv("tbmGesFett", num(d.n.ges_fett||d.n.gesfett));
+  setv("tbmBallast", num(d.n.ballast));
+  setv("tbmSalz",    num(d.n.salz));
 
   const m=document.getElementById("tbmOffMsg");
   if(m) m.innerHTML='&#10003; Werte aus dem Scan übernommen (je 100 g) &ndash; Quelle: <b>'
@@ -15084,7 +15133,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27z";
+const APP_BUILD = "2026-07-27z2";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
