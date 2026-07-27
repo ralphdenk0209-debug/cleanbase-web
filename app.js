@@ -6406,6 +6406,38 @@ function tbPortionSet(p){
   return out([70,100,140]);
 }
 function tbDefaultPortion(p){ return tbPortionSet(p).m; }
+/* ===== EINHEITEN-AUSWAHL an der Mengen-Eingabe (Ralph 27.07.2026, Build 27v) =====
+   "Dropdown bei allen Produkteingaben - vorgewaehlt die Einheit, die dem Produkt zugeordnet ist."
+   NUR Einheiten mit BELEGTER Umrechnung (§1: nichts erfinden):
+   - Basis des Produkts (g oder ml, prodEinheit) -> Wert 1:1, KEINE Dichte-Umrechnung
+   - Stueck/Scheibe/Kapsel, wenn eine Stueckgroesse belegt ist (Etikett-Portion hat Vorrang,
+     sonst PIECE-Heuristik, sonst Stueckgroesse aus der DB) -> Wert x Gramm je Stueck
+   Prise/EL/TL fehlen BEWUSST: eine Prise hat keine belegte Masse (Ralph-Entscheid offen). */
+function tbEinheitOptionen(p){
+  var base=prodEinheit(p);
+  var opts=[{key:base,label:base,f:1}];
+  var piece=0, plabel='Stück';
+  try{
+    var ps=tbPortionSet(p);
+    if(ps&&ps.piece>0){ piece=ps.piece; if(ps.unit&&!/^(g|ml)$/i.test(ps.unit)) plabel=ps.unit; }
+  }catch(e){}
+  if(!piece){ var sg=stkOf(p&&p.id); if(sg) piece=sg; }
+  if(piece>0) opts.push({key:'stueck',label:plabel,f:piece});
+  return opts;
+}
+/* Menge aus Eingabefeld + Einheiten-Auswahl -> Basiswert (g/ml) fuer die Datenbank.
+   EINE Stelle rechnet um - Eintragen-Knopf und kcal-Vorschau nutzen dieselbe (§1.11i). */
+function tbAddMengeBasis(){
+  var el=document.getElementById('tbAddMenge'); if(!el) return 0;
+  var v=parseFloat(String(el.value).replace(',','.'))||0; if(v<=0) return 0;
+  var sel=document.getElementById('tbAddEinheit');
+  if(sel&&sel.value==='stueck'){
+    var o=sel.selectedOptions&&sel.selectedOptions[0];
+    var f=o?(parseFloat(o.getAttribute('data-f'))||0):0;
+    return f>0?v*f:0;
+  }
+  return v;
+}
 function tbPrefillMenge(){
   const id=tbResolveId(); if(!id) return;
   const p=ALL.find(x=>x.id===id); if(!p) return;
@@ -7264,7 +7296,10 @@ function scoreChip(s){ if(s==null) return ""; const b=scoreBew(s); return `<span
 function mengeLabel(r){
   const g=num(r.Menge_g), sg=stkOf(r.Produkt_ID);
   if(sg&&g!=null){ return Math.round(g/sg)+" Stück ("+Math.round(g)+" g)"; }
-  return (g!=null?Math.round(g):"?")+" "+prodEinheit(r.Produkt_ID);   /* g oder ml je Produkt (Ralph 27.07.) */
+  /* Manuelle Eintraege koennen seit 27v eine eigene Einheit tragen (Spalte Einheit, nur ml);
+     Produkt-Eintraege beziehen die Einheit weiter vom Produkt. */
+  const eh=(!r.Produkt_ID && String(r.Einheit||'').toLowerCase()==='ml') ? 'ml' : prodEinheit(r.Produkt_ID);
+  return (g!=null?Math.round(g):"?")+" "+eh;   /* g oder ml je Produkt (Ralph 27.07.) */
 }
 function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
@@ -7409,6 +7444,13 @@ function tbRenderTabs(){
      Grund. Kontrast: 1,40:1. WCAG verlangt 4,5:1. Sie waren nicht "dezent",
      sie waren praktisch unsichtbar.
      Jetzt var(--k-57534e): 7,20:1. Klar sekundaer, aber lesbar. */
+  /* 27v (Ralph, Design A): EIN Segment-Schalter statt fuenf einzelner Knoepfe -
+     aktiver Reiter als weisse Pille. Nur hinter dem Beta-Flag; sonst der alte Look. */
+  if(typeof feat==='function' && feat('tb_add_neu')){
+    el.style.cssText='display:flex;background:var(--k-e9e4d7);border-radius:12px;padding:3px;gap:0';
+    el.innerHTML=tabs.map(([k,l])=>'<button onclick="tbSetTab(\''+k+'\')" style="flex:1;padding:8px 2px;border:0;border-radius:10px;font-size:11.5px;font-weight:600;cursor:pointer;background:'+(t===k?'var(--k-ffffff)':'transparent')+';color:'+(t===k?'var(--k-166534)':'var(--k-57534e)')+';'+(t===k?'box-shadow:0 1px 4px rgba(0,0,0,.09)':'')+'">'+l+'</button>').join("");
+    return;
+  }
   el.innerHTML=tabs.map(([k,l])=>'<button onclick="tbSetTab(\''+k+'\')" style="flex:1;padding:7px 3px;border-radius:9px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid '+(t===k?'var(--k-16a34a)':'var(--k-e7e0d4)')+';background:'+(t===k?'rgba(22,163,74,.18)':'var(--k-fbf8f2)')+';color:'+(t===k?'var(--k-2e7d32)':'var(--k-57534e)')+'">'+l+'</button>').join("");
 }
 async function tbSetTab(t){
@@ -7505,6 +7547,7 @@ function tbAddFilter(q){
   box.innerHTML=list.map((p,i)=>tbRowHtml(p,i)).join("");
 }
 function tbAddPick(i){
+  if(typeof feat==='function' && feat('tb_add_neu')) return tbAddPickNeu(i);
   const p=(window._tbAddList||[])[i]; if(!p) return;
   window._tbAddPickId=p.id;
   const box=document.getElementById("tbAddResults"); if(!box) return;
@@ -7521,9 +7564,97 @@ function tbAddPick(i){
     +'<div id="tbAddMsg" style="font-size:12px;color:var(--k-6b6256);margin-top:6px"></div></div>';
 }
 function tbSetSize(g){ const el=document.getElementById("tbAddMenge"); if(el){ el.value=g; el.focus(); } }
+/* ===== 27v: Suche-Weg im FOKUS-Layout (Ralph-Entscheid: Variante B) =====
+   Produktkopf mit Index-Pille, Portions-Chips, Stepper mit Einheiten-Dropdown,
+   Eintragen-Knopf mit Live-kcal. IDs tbAddMenge/tbAddMsg bleiben - tbAddSave
+   bedient alten UND neuen Weg (§1.11i: eine Speicherlogik). */
+function tbAddPickNeu(i){
+  const p=(window._tbAddList||[])[i]; if(!p) return;
+  window._tbAddPickId=p.id;
+  const box=document.getElementById("tbAddResults"); if(!box) return;
+  const ps=tbPortionSet(p), opts=tbEinheitOptionen(p);
+  const hatStk=opts.some(o=>o.key==='stueck');
+  const piece=hatStk?(opts.find(o=>o.key==='stueck').f):0;
+  const defUnit=hatStk?'stueck':opts[0].key;
+  const defVal=hatStk?Math.max(1,Math.round(ps.m/piece)):ps.m;
+  const sc=num(p.clean_score);
+  const chip=(lbl,gval)=>{
+    const on=(gval===ps.m);
+    let sub=gval+' '+opts[0].label;
+    if(hatStk) sub=Math.max(1,Math.round(gval/piece))+' '+opts.find(o=>o.key==='stueck').label+' · '+gval+' '+opts[0].label;
+    return '<button type="button" onclick="tbAddChip(this,'+gval+')" data-g="'+gval+'" class="tbChip" style="flex:1;padding:9px 2px;border:1.5px solid '+(on?'var(--green)':'var(--k-e7e0d4)')+';border-radius:13px;background:'+(on?'var(--greenlt)':'var(--k-ffffff)')+';color:'+(on?'var(--greendk)':'var(--k-57534e)')+';font-size:12px;line-height:1.3;cursor:pointer">'+lbl+'<br><b style="font-size:13.5px;color:'+(on?'var(--greendk)':'var(--k-1d3c24)')+'">'+sub+'</b></button>';
+  };
+  const unitSel='<select id="tbAddEinheit" onchange="tbAddUnitChange(this)" data-prev="'+defUnit+'" style="flex:0 0 92px;border:1px solid var(--k-e7e0d4);border-radius:12px;background:var(--greenlt);color:var(--greendk);font-weight:700;font-size:14px;padding:0 8px;outline:none">'
+    +opts.map(o=>'<option value="'+o.key+'" data-f="'+o.f+'"'+(o.key===defUnit?' selected':'')+'>'+esc(o.label)+'</option>').join('')+'</select>';
+  box.innerHTML='<div style="background:var(--k-ffffff);border:1px solid var(--k-e7e0d4);border-radius:16px;padding:14px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px"><b style="font-size:16.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.name)+'</b>'
+      +(sc!=null?'<span style="flex:0 0 auto;background:'+farbe(scoreBew(sc))+';color:var(--k-ffffff);font-size:12px;font-weight:800;border-radius:99px;padding:3px 10px">Index '+sc+'</span>':'')+'</div>'
+    +'<div style="font-size:12px;color:var(--k-6b6256);margin-bottom:11px">'+esc(mkLabel(p.marke)||'')+(p.kategorie?(' · '+esc(p.kategorie)):'')+' · Nährwerte je 100 '+esc(opts[0].label)+'</div>'
+    +'<div style="display:flex;gap:7px;margin-bottom:11px">'+chip('klein',ps.s)+chip('mittel',ps.m)+chip('groß',ps.l)+'</div>'
+    +'<div style="display:flex;gap:8px;align-items:stretch">'
+      +'<div style="display:flex;align-items:center;border:1px solid var(--k-e7e0d4);border-radius:12px;background:var(--k-ffffff);flex:1">'
+        +'<button type="button" onclick="tbAddStep(-1)" style="border:0;background:none;font-size:20px;color:var(--greendk);width:42px;padding:9px 0;cursor:pointer">−</button>'
+        +'<input id="tbAddMenge" type="number" inputmode="decimal" min="0" value="'+defVal+'" oninput="tbAddCtaUpdate()" style="border:0;width:100%;text-align:center;font-size:18px;font-weight:800;outline:none;background:none;color:var(--k-1d3c24)">'
+        +'<button type="button" onclick="tbAddStep(1)" style="border:0;background:none;font-size:20px;color:var(--greendk);width:42px;padding:9px 0;cursor:pointer">+</button>'
+      +'</div>'+unitSel
+    +'</div>'
+    +'<button id="tbAddCta" onclick="tbAddSave()" style="width:100%;margin-top:11px;background:var(--k-16a34a);color:var(--k-ffffff);border:0;border-radius:13px;padding:13px;font-size:15px;font-weight:800;cursor:pointer"></button>'
+    +'<button onclick="tbSetTab(window._tbTab||\'suche\')" style="margin-top:8px;background:none;border:0;color:var(--k-6b6256);font-size:12px;cursor:pointer;text-decoration:underline">‹ zurück</button>'
+    +'<div id="tbAddMsg" style="font-size:12px;color:var(--k-6b6256);margin-top:6px"></div></div>';
+  tbAddCtaUpdate();
+}
+/* Chip setzt den Stepper (in der GERADE gewaehlten Einheit) und markiert sich selbst. */
+function tbAddChip(btn,gval){
+  const sel=document.getElementById('tbAddEinheit'), el=document.getElementById('tbAddMenge');
+  if(el){
+    if(sel&&sel.value==='stueck'){
+      const o=sel.selectedOptions[0], f=o?(parseFloat(o.getAttribute('data-f'))||0):0;
+      el.value=f>0?Math.max(1,Math.round(gval/f)):gval;
+    } else el.value=gval;
+  }
+  document.querySelectorAll('.tbChip').forEach(c=>{
+    const on=(c===btn);
+    c.style.borderColor=on?'var(--green)':'var(--k-e7e0d4)';
+    c.style.background=on?'var(--greenlt)':'var(--k-ffffff)';
+  });
+  tbAddCtaUpdate();
+}
+function tbAddStep(d){
+  const el=document.getElementById('tbAddMenge'), sel=document.getElementById('tbAddEinheit');
+  if(!el) return;
+  const step=(sel&&sel.value==='stueck')?1:5;
+  el.value=Math.max(step,(parseFloat(String(el.value).replace(',','.'))||0)+d*step);
+  tbAddCtaUpdate();
+}
+/* Einheit gewechselt: den eingetragenen Wert MITNEHMEN (60 g Ei -> 1 Stueck), nicht verwerfen. */
+function tbAddUnitChange(sel){
+  const el=document.getElementById('tbAddMenge'); if(!el||!sel) return;
+  const prev=sel.getAttribute('data-prev')||'', now=sel.value;
+  const o=[...sel.options].find(x=>x.value==='stueck');
+  const f=o?(parseFloat(o.getAttribute('data-f'))||0):0;
+  let v=parseFloat(String(el.value).replace(',','.'))||0;
+  if(f>0&&v>0){
+    if(prev!=='stueck'&&now==='stueck') el.value=Math.max(1,Math.round(v/f));
+    else if(prev==='stueck'&&now!=='stueck') el.value=Math.round(v*f);
+  }
+  sel.setAttribute('data-prev',now);
+  tbAddCtaUpdate();
+}
+/* Live-kcal auf dem Knopf - NUR wenn das Produkt kcal je 100 traegt, sonst keine Zahl (§1.13). */
+function tbAddCtaUpdate(){
+  const cta=document.getElementById('tbAddCta'); if(!cta) return;
+  const meal=window._tbAddMeal||'Frühstück';
+  const p=(window._tbAddList||[]).find(x=>x.id===window._tbAddPickId);
+  const basis=tbAddMengeBasis(), kcal100=p?num(p.m_kcal):null;
+  let txt='Zu '+meal+' eintragen';
+  if(basis>0&&kcal100!=null) txt+=' · ~'+Math.round(kcal100*basis/100)+' kcal';
+  cta.textContent=txt;
+}
 async function tbAddSave(){
   const id=window._tbAddPickId; if(!id) return;
-  const menge=parseFloat(document.getElementById("tbAddMenge").value)||0;
+  /* 27v: Gibt es die Einheiten-Auswahl (neuer Weg), rechnet tbAddMengeBasis in die
+     Basis um (Stueck x Gramm). Ohne Auswahl (alter Weg) bleibt alles wie bisher. */
+  const menge=document.getElementById('tbAddEinheit') ? tbAddMengeBasis() : (parseFloat(document.getElementById("tbAddMenge").value)||0);
   const m=document.getElementById("tbAddMsg");
   if(menge<=0){ if(m){m.style.color="var(--k-f87171)";m.textContent="Menge angeben.";} return; }
   const meal=window._tbAddMeal||"Frühstück", datum=document.getElementById("tbDatum").value||tbToday();
@@ -7532,6 +7663,7 @@ async function tbAddSave(){
   const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
 }
 function tbAddManualOpen(){
+  if(typeof feat==='function' && feat('tb_add_neu')) return tbAddManualOpenNeu();
   const box=document.getElementById("tbAddResults"); if(!box) return;
   const nm=window._tbAddManualName||"";
   const ean=window._tbAddManualEan||"";
@@ -7563,13 +7695,68 @@ function tbAddManualOpen(){
     +'</div>'
     +'<div id="tbAddMsg" style="font-size:12px;color:var(--k-6b6256);margin-top:4px"></div></div>';
 }
+/* ===== 27v: Manuell im AUFGERÄUMT-Layout (Ralph-Entscheid: Variante A) =====
+   Beschriftete Felder statt Platzhalter-Raten, Menge+Einheit als EIN Feld (g/ml -
+   ml wird seit 27v als eigene Spalte gespeichert und richtig beschriftet, §1: keine
+   Dichte-Umrechnung). Gleiche IDs wie der alte Weg - tbmCalc/tbAddManualSave und
+   Riki/OFF-Vorbefuellung funktionieren unveraendert (§1.11i). */
+function tbAddManualOpenNeu(){
+  const box=document.getElementById("tbAddResults"); if(!box) return;
+  const nm=window._tbAddManualName||"";
+  const ean=window._tbAddManualEan||"";
+  const lbl=t=>'<div style="font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--k-6b6256);margin:0 0 4px">'+t+'</div>';
+  const inSt='width:100%;box-sizing:border-box;padding:10px 11px;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--k-fbf8f2);color:var(--k-1d3c24);font-size:14px';
+  box.innerHTML='<div style="background:var(--k-ffffff);border:1px solid var(--k-e7e0d4);border-radius:16px;padding:15px 14px">'
+    +'<div style="font-weight:700;font-size:15.5px;margin-bottom:11px">Manuell eintragen</div>'
+    +lbl('Lebensmittel')
+    +'<input id="tbmName" value="'+esc(nm)+'" placeholder="z. B. Bauernbrot vom Markt" style="'+inSt+';margin-bottom:10px">'
+    +'<div style="display:flex;gap:8px;margin-bottom:10px">'
+      +'<div style="flex:1">'+lbl('Menge')
+        +'<div style="display:flex;border:1.5px solid var(--green);border-radius:11px;overflow:hidden;background:var(--k-ffffff)">'
+          +'<input id="tbmMenge" type="number" inputmode="decimal" oninput="tbmCalc()" placeholder="0" style="border:0;width:100%;padding:10px 11px;font-size:15px;font-weight:700;outline:none;background:none;color:var(--k-1d3c24)">'
+          +'<select id="tbmEinheit" onchange="tbmUnitLbl()" style="border:0;border-left:1px solid var(--k-e7e0d4);background:var(--greenlt);color:var(--greendk);font-weight:700;font-size:13.5px;padding:0 7px;outline:none"><option value="g" selected>g</option><option value="ml">ml</option></select>'
+        +'</div></div>'
+      +'<div style="flex:1.3">'+lbl('Barcode (optional)')
+        +'<div style="display:flex;gap:6px"><input id="tbmEan" value="'+esc(ean)+'" placeholder="EAN" style="'+inSt+';min-width:0">'
+        +'<button onclick="offLookup()" title="Open Food Facts" style="flex:0 0 auto;padding:0 10px;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--k-fbf8f2);color:var(--k-2e7d32);font-size:13px;cursor:pointer">🔎 OFF</button></div>'
+      +'</div>'
+    +'</div>'
+    +'<div id="tbmOffMsg" style="font-size:11.5px;color:var(--k-6b6256);margin-bottom:8px"></div>'
+    +lbl('Nährwerte je 100 <span class="tbmU">g</span>')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      +'<div>'+lbl('kcal')+'<input id="tbmKcal" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('Eiweiß (g)')+'<input id="tbmEiw" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('Kohlenhydrate (g)')+'<input id="tbmKh" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+      +'<div>'+lbl('Fett (g)')+'<input id="tbmFett" type="number" oninput="tbmCalc()" placeholder="–" style="'+inSt+'"></div>'
+    +'</div>'
+    +'<div id="tbmVorschau" style="font-size:12.5px;color:var(--k-2e7d32);font-weight:600;margin-top:8px;min-height:16px"></div>'
+    +'<button onclick="tbAddManualSave()" style="margin-top:8px;width:100%;padding:13px;border:0;border-radius:13px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:15px;font-weight:800;cursor:pointer">+ Eintragen</button>'
+    +'<div style="font-size:11px;color:var(--k-6b6256);margin-top:6px;text-align:center">Wird gespeichert und dem Admin gemeldet, damit das Produkt bei Bedarf angelegt wird.</div>'
+    +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--k-e7e0d4)">'
+      +'<div style="font-size:11.5px;color:var(--k-6b6256);margin-bottom:6px">Werte abtippen ist lästig? <b>Riki liest die Nährwerttabelle vom Foto</b> und füllt die Felder aus.</div>'
+      +'<button onclick="etikettOpen(\''+esc(String(ean||"").replace(/[^0-9A-Za-z]/g,""))+'\')" style="width:100%;padding:11px;border:1.5px dashed var(--green,var(--k-16a34a));border-radius:12px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:13.5px;font-weight:600;cursor:pointer">📷 Etikett fotografieren – Riki liest es</button>'
+    +'</div>'
+    +'<div id="tbAddMsg" style="font-size:12px;color:var(--k-6b6256);margin-top:6px"></div></div>';
+  tbmUnitLbl();
+}
+/* Einheit umgeschaltet: alle "je 100 x"-Beschriftungen folgen. Reine Beschriftung -
+   die Rechnung je 100 Basis bleibt identisch. */
+function tbmUnitLbl(){
+  const sel=document.getElementById('tbmEinheit');
+  const u=(sel&&sel.value==='ml')?'ml':'g';
+  document.querySelectorAll('.tbmU').forEach(e=>{ e.textContent=u; });
+  tbmCalc();
+}
 function tbmCalc(){
   const el=document.getElementById("tbmVorschau"); if(!el) return;
+  /* 27v: Einheit aus der Auswahl (neuer Weg); ohne Auswahl (alter Weg) bleibt g. */
+  const sel=document.getElementById("tbmEinheit");
+  const u=(sel&&sel.value==='ml')?'ml':'g';
   const g=parseFloat((document.getElementById("tbmMenge")||{}).value)||0;
-  if(g<=0){ el.textContent="Menge in g eingeben → wird automatisch umgerechnet."; return; }
+  if(g<=0){ el.textContent="Menge in "+u+" eingeben → wird automatisch umgerechnet."; return; }
   const per=id=>{const v=parseFloat((document.getElementById(id)||{}).value); return isNaN(v)?0:v;};
   const f=g/100, r=x=>Math.round(x*10)/10;
-  el.textContent="≈ "+Math.round(per("tbmKcal")*f)+" kcal für "+g+" g · EW "+r(per("tbmEiw")*f)+" g · KH "+r(per("tbmKh")*f)+" g · Fett "+r(per("tbmFett")*f)+" g";
+  el.textContent="≈ "+Math.round(per("tbmKcal")*f)+" kcal für "+g+" "+u+" · EW "+r(per("tbmEiw")*f)+" g · KH "+r(per("tbmKh")*f)+" g · Fett "+r(per("tbmFett")*f)+" g";
 }
 async function tbAddManualSave(){
   const name=(document.getElementById("tbmName").value||"").trim();
@@ -7584,7 +7771,11 @@ async function tbAddManualSave(){
     kh=p100.c==null?null:Math.round(p100.c*f*10)/10,
     fett=p100.ff==null?null:Math.round(p100.ff*f*10)/10;
   const meal=window._tbAddMeal||"Frühstück", datum=document.getElementById("tbDatum").value||tbToday();
-  const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:meal,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum});
+  /* 27v: ml aus der Einheiten-Auswahl wird MITGESPEICHERT (neue Spalte Einheit) -
+     die Tagebuch-Zeile zeigt dann "200 ml" statt falsch "200 g". Ohne Auswahl: g wie bisher. */
+  const uSel=document.getElementById("tbmEinheit");
+  const einheit=(uSel&&uSel.value==='ml')?'ml':null;
+  const {error}=await client.rpc("cb_tb_manuell",{p_mahlzeit:meal,p_name:name,p_menge_g:menge,p_kcal:kcal,p_protein:eiw,p_kh:kh,p_fett:fett,p_datum:datum,p_einheit:einheit});
   if(error){ if(m){m.style.color="var(--k-f87171)";m.textContent="Fehler: "+error.message;} return; }
   const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
 }
@@ -14582,7 +14773,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27u";
+const APP_BUILD = "2026-07-27v";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
