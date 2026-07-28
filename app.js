@@ -10245,7 +10245,22 @@ async function openFgEditor(id, prefill, targetEl){
      in der aktuellen Liste steht (window._verifRows). */
   /* Referenz-Karte einmal definiert – sitzt jetzt als 3. Spalte NEBEN Zutaten/Zusatzstoffe
      (Ralph 24.07.2026: die drei Boxen gleich hoch + oben bündig). */
-  const _refCard = cardF(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span>`,`${''/* Flip-Knopf entfernt (Konzept A): das Etikett steht dauerhaft darueber, es gibt nichts mehr umzudrehen. */}<div id="fe_refFront"><div id="fe_enthalten" data-note="Konzept D: fuellt die Kartenhoehe" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);flex:1 1 auto;min-height:0;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.35;flex:0 0 auto"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch offen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>nicht eingestuft</span><span style="margin-left:auto">Zeile anklicken → links suchen</span></div></div><div id="fe_refBack" style="display:none"></div>`);
+  /* 28h (Ralph-Entscheid „flip pur"; auf das Parallel-28g rebased): Spalte 3 ist EINE Flipkarte -
+     vorn die Riki-Arbeitsliste in voller Spaltenhoehe, hinten „Etikett zum Ablesen". Der Flip von 26x
+     war ausgebaut worden, weil das Foto damals die QUELLE ueber der Referenz war; Ralphs neuer Entscheid
+     (28.07., nach Mockup samt dokumentiertem Einwand) dreht das um: die Arbeitsliste ist der Normalfall,
+     das Etikett die Rueckseite. Bei Supplements/Salzen haengt das Foto weiter NEBEN der Dosis-Tabelle
+     (fgFotoPlatzieren unveraendert, eine Regel ein Ort) - dort ist der Flip-Knopf aus und die Rueckseite
+     erklaert das (fe_fotoLeerHinweis). */
+  const _refCard = `<div id="fe_flipWrap" style="height:100%;min-height:0;perspective:1400px"><div id="fe_flipInner" style="position:relative;width:100%;height:100%;min-height:0;transition:transform .5s;transform-style:preserve-3d">`
+    +`<div style="position:absolute;inset:0;min-height:0;display:flex;backface-visibility:hidden;-webkit-backface-visibility:hidden">`
+    +cardF(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span><button type="button" id="fe_refFlipBtn" onclick="fgRefFlip(true)" title="Karte umdrehen – Etikett zum Ablesen" style="float:right;text-transform:none;letter-spacing:0;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.3">⇄ Etikett</button>`, `<div id="fe_refFront"><div id="fe_enthalten" data-note="Konzept D: fuellt die Kartenhoehe" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);flex:1 1 auto;min-height:0;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.35;flex:0 0 auto"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch offen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>nicht eingestuft</span><span style="margin-left:auto">Zeile anklicken → links suchen</span></div></div>`)
+    +`</div>`
+    +`<div id="fe_refBack" style="position:absolute;inset:0;min-height:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);display:flex;flex-direction:column;gap:6px">`
+    +`<div style="display:flex;justify-content:flex-end;flex:0 0 auto"><button type="button" onclick="fgRefFlip(false)" title="zurück zur Referenz-Arbeitsliste" style="border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);padding:4px 11px;font-size:11.5px;font-weight:700;cursor:pointer">⇄ Referenz</button></div>`
+    +`<div id="fe_fotoMount" data-note="28h: Etikett lebt auf der RUECKSEITE der Flipkarte. fgFotoPlatzieren haengt die Foto-Karte unveraendert hier ein (bzw. bei Supplements neben die Dosis-Tabelle)." style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column"></div>`
+    +`<div id="fe_fotoLeerHinweis" style="flex:1;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.6;padding:14px;border:1px dashed var(--line);border-radius:12px;background:var(--card)">Das Etikett hängt bei Supplements/Salzen<br>neben der Dosis-Tabelle (linke Spalte).<br>Zurück mit ⇄.</div>`
+    +`</div></div></div>`;
   var _rows=Array.isArray(window._verifRows)?window._verifRows:[];
   var _idx=id?_rows.findIndex(function(r){return String(r.id)===String(id);}):-1;
   var _nbtn=function(txt,act,on){ return '<button '+(on?'onclick="'+act+'"':'disabled')+' style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:'+(on?'var(--card)':'var(--bg)')+';color:'+(on?'var(--ink)':'var(--muted)')+';cursor:'+(on?'pointer':'default')+';font-size:13px;white-space:nowrap">'+txt+'</button>'; };
@@ -10358,7 +10373,11 @@ async function openFgEditor(id, prefill, targetEl){
      ihr Inhalt lief unter das Suchfeld. Statt jedes Element einzeln zu reparieren (das waere ein Pflaster,
      und beim naechsten neuen Element faellt es wieder auf), gilt hier: KEIN direktes Kind einer Karte wird
      gequetscht. Die scrollenden Listen tragen ihr flex INLINE und schlagen diese Regel bewusst. */}
-<style>#fe_gridA .cardFB > *{flex-shrink:0}</style>
+<style>#fe_gridA .cardFB > *{flex-shrink:0}
+#fe_flipInner.geflippt{transform:rotateY(180deg)}
+#fe_fotoMount #fe_wirkFotoBox{height:clamp(300px,52vh,720px)}
+#fe_fotoLeerHinweis{display:none}
+#fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
 <div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(310px,1.02fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - 235px);min-height:430px"><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
@@ -10406,7 +10425,7 @@ async function openFgEditor(id, prefill, targetEl){
                Die Bewertungsregel dahinter (Getränke-Deckel, §1.13e) hängt seit dem 26.07. nicht mehr an diesem
                Feld allein: cb_hat_kuenstlichen_suessstoff() liest Handfeld + Zutaten + Zusatzstoff-Liste. */}
           <input type="hidden" id="fe_suess" value="${esc(d.suessstoffe||"nein")}">
-        `)}</div><div style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}</div></div><div id="fe_colRef" style="min-height:0;display:flex;flex-direction:column;gap:10px"><div id="fe_fotoMount" data-note="Etikett oben in Spalte 3 – fester Platz, KEIN sticky. Die Hoehe kommt jetzt aus der Bildbox selbst (clamp), nicht aus einer Prozent-Deckelung mit overflow:hidden – die schnitt den Inhalt ab." style="flex:0 0 auto;min-height:0"></div><div style="flex:1 1 auto;min-height:0">${_refCard}</div></div></div>
+        `)}</div><div style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div>
     <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
@@ -10467,7 +10486,10 @@ function feKatChange(){
      Vorher wanderte es je nach Kategorie entweder neben die Wirkstoff-Tabelle oder auf die Rueckseite
      der Referenz-Karte; letzteres versteckte ausgerechnet die Quelle, an der abgelesen wird. */
   try{ fgFotoPlatzieren(); }catch(e){}   /* eine Regel, ein Ort – siehe fgFotoPlatzieren */
-  if(_wfbtn) _wfbtn.style.display="none";   /* kein Umdrehen mehr – das Foto steht ohnehin da */
+  /* 28h: Flip-Knopf ist wieder echt. Nur bei Supplement/Salz aus (Foto haengt neben der Dosis-Tabelle,
+     es gibt nichts umzudrehen) - und die Karte dreht dann zurueck auf die Referenz-Seite. */
+  if(_wfbtn) _wfbtn.style.display= special ? "none" : "";
+  if(special){ try{ fgRefFlip(false); }catch(e){} }
   if(special){
     if(_wc) _wc.style.display=""; if(_wtc) _wtc.style.display="";   /* Wirkstoff-Tabelle nur bei Supplement/Salze */
     try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
@@ -10834,17 +10856,21 @@ function fgFotoPlatzieren(){
 if(typeof window!=="undefined"){ window.fgFotoPlatzieren=fgFotoPlatzieren; }
 function fgRefMountFoto(){ fgFotoPlatzieren(); }
 function fgRefFlip(toBack){
-  var fr=document.getElementById('fe_refFront'), bk=document.getElementById('fe_refBack'), btn=document.getElementById('fe_refFlipBtn');
-  if(fr) fr.style.display='';        /* die Referenzliste bleibt immer sichtbar */
-  if(bk) bk.style.display='none';    /* Rueckseite wird nicht mehr benutzt */
-  if(btn) btn.style.display='none';
-  try{ fgWirkFotoRender(); }catch(e){}
+  /* 28h: echter Flip (Ralph „flip pur"). Ohne Argument: umschalten. Beim Drehen zur Rueckseite wird
+     das Foto frisch eingehaengt und eingepasst - die Box hat hinten eine andere Groesse als frueher. */
+  var inner=document.getElementById('fe_flipInner'); if(!inner) return;
+  var back=(toBack===undefined)?!inner.classList.contains('geflippt'):!!toBack;
+  inner.classList.toggle('geflippt', back);
+  if(back){ try{ fgRefMountFoto(); }catch(e){} setTimeout(function(){ try{ fgWirkFotoRender(); }catch(e){} }, 60); }
 }
 function fgRefShowFoto(j){
   window._fgWirkFoto=window._fgWirkFoto||{ idx:0, scale:1, x:0, y:0, baseFit:1 };
   window._fgWirkFoto.idx=(j||0);
-  try{ fgRefMountFoto(); }catch(e){}
-  try{ var c=document.getElementById('fe_wirkFotoCol'); if(c&&c.scrollIntoView) c.scrollIntoView({block:'nearest',behavior:'smooth'}); }catch(e){}
+  var special=false; try{ special=_fgIstSpecial(); }catch(e){}
+  if(special){ /* Foto haengt neben der Dosis-Tabelle - dorthin scrollen wie bisher */
+    try{ fgRefMountFoto(); }catch(e){}
+    try{ var c=document.getElementById('fe_wirkFotoCol'); if(c&&c.scrollIntoView) c.scrollIntoView({block:'nearest',behavior:'smooth'}); }catch(e){}
+  } else { try{ fgRefFlip(true); }catch(e){} }   /* 28h: Karte umdrehen statt scrollen */
 }
 if(typeof window!=='undefined'){ window.fgRefMountFoto=fgRefMountFoto; window.fgRefFlip=fgRefFlip; window.fgRefShowFoto=fgRefShowFoto; }
 function fgWirkFotoApply(){ var img=document.getElementById('fe_wirkFotoImg'); if(!img) return; var s=window._fgWirkFoto; img.style.transform='translate('+Math.round(s.x)+'px,'+Math.round(s.y)+'px) scale('+s.scale+')'; }
@@ -15534,7 +15560,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28g";
+const APP_BUILD = "2026-07-28h";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
