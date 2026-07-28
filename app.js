@@ -1879,7 +1879,8 @@ function detail2(d){
             + '</div>'
             + '<div style="font-size:12.5px;color:var(--muted);line-height:1.5">Salz ist kein Lebensmittel im Sinne der vier Achsen – es hat keine Nährwerte, keinen Verarbeitungsgrad im üblichen Sinn und keine Zutatenliste. Eine Punktzahl wäre irreführend. Was zählt, ist die <b>Menge</b>: Die WHO empfiehlt <b>höchstens 5 g Salz pro Tag</b>.</div>'
             + (salz!=null ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--ink)"><b>'+(Math.round(salz*10)/10)+' g</b> Salz je 100 g</div>' : '')
-          + '</div>';
+          + '</div>'
+          + '<div id="salzFakten" style="margin:8px 0"></div>';   /* wird nach dem Rendern von ladeSalzFakten gefuellt */
         })()
       : '<div style="display:flex;flex-direction:column;align-items:center;margin:16px 0 8px">'
       + (hasFeat('pk_ringe')
@@ -1913,6 +1914,56 @@ function detail2(d){
           + (_fZut?ACC('🛡️','Quelle &amp; Beleg',quellenBlock(d)):''))
     + '</div>';
   document.getElementById("overlay").classList.add("open");
+  if(_istSalz){ setTimeout(function(){ try{ ladeSalzFakten(d.id); }catch(e){} }, 30); }
+}
+/* Salz-Karte: "Was dieses Salz zusaetzlich liefert" (Jod/Fluorid/Folsaeure/Selen).
+   Belegt aus Produkt_Mikronaehrstoffe + EFSA_Grenzwerte (RPC cb_salz_fakten).
+   Ehrliche Doppelanzeige: Bedarf (NRV) UND Sicherheitsgrenze (EFSA-UL/safe level),
+   gerechnet fuer 5 g Salz/Tag (WHO-Maximum). Nichts erfunden - fehlt ein Wert, faellt er weg. */
+var SALZ_FUNK={
+  'jod':'wichtig für die Schilddrüse und die Hormonbildung',
+  'fluorid':'trägt zur Erhaltung normaler Zähne bei (Kariesschutz)',
+  'folsäure':'wichtig für Blutbildung und Zellteilung – besonders in der Schwangerschaft',
+  'folat':'wichtig für Blutbildung und Zellteilung – besonders in der Schwangerschaft',
+  'selen':'trägt zum Zellschutz und zur normalen Schilddrüsenfunktion bei'
+};
+async function ladeSalzFakten(pid){
+  var box=document.getElementById("salzFakten"); if(!box) return;
+  try{
+    const {data}=await client.rpc("cb_salz_fakten",{p_id:pid});
+    var arr=data||[];
+    if(!arr.length) return;
+    function fmt(v,e){ v=Number(v); if(!isFinite(v)) return "?"; if(e==="µg") return (v>=100?Math.round(v):Math.round(v*10)/10)+" µg"; if(e==="mg") return (Math.round(v*100)/100)+" mg"; return (Math.round(v*10)/10)+" "+e; }
+    function bar(pct,col){ var w=Math.max(2,Math.min(100,pct)); return '<div style="height:7px;border-radius:4px;background:rgba(120,120,120,.16);overflow:hidden;margin-top:3px"><div style="height:100%;width:'+w+'%;background:'+col+';border-radius:4px"></div></div>'; }
+    var GRUEN='var(--k-16a34a)', ROT='var(--k-dc2626)';
+    var rows=arr.map(function(x){
+      var nm=String(x.naehrstoff||''), e=String(x.einheit||'');
+      var funk=SALZ_FUNK[nm.toLowerCase()]||'';
+      var bei5=Number(x.menge_100g)*0.05;   /* 5 g von 100 g */
+      var html='<div style="padding:10px 0;border-top:1px solid var(--line)">'
+        + '<div style="font-size:13.5px;font-weight:700;color:var(--ink)">'+esc(nm)+'</div>'
+        + (funk?'<div style="font-size:12px;color:var(--muted);margin:1px 0 6px">'+esc(funk)+'</div>':'')
+        + '<div style="font-size:12.5px;color:var(--ink)">Bei 5 g Salz/Tag: <b>'+fmt(bei5,e)+'</b></div>';
+      if(x.nrv!=null){
+        var pctB=bei5/Number(x.nrv)*100;
+        html+='<div style="font-size:11.5px;color:var(--muted);margin-top:6px">Tagesbedarf gedeckt: <b style="color:var(--ink)">'+Math.round(pctB)+'%</b></div>'+bar(pctB,GRUEN);
+      }
+      if(x.ul!=null){
+        var pctG=bei5/Number(x.ul)*100;
+        var col=(pctG>=75)?ROT:GRUEN;
+        var lbl=(x.ul_art==='safe level')?'Vom sicheren Wert':'Von der Sicherheitsgrenze';
+        html+='<div style="font-size:11.5px;color:var(--muted);margin-top:6px">'+lbl+': <b style="color:var(--ink)">'+Math.round(pctG)+'%</b> ('+fmt(Number(x.ul),x.ul_einheit||e)+'/Tag)</div>'+bar(pctG,col);
+      }
+      if(x.hinweis){ html+='<div style="font-size:11px;color:var(--muted);margin-top:5px;font-style:italic">'+esc(x.hinweis)+'</div>'; }
+      return html+'</div>';
+    }).join('');
+    box.innerHTML='<div style="margin-top:4px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card)">'
+      + '<div style="font-size:14px;font-weight:800;color:var(--ink);margin-bottom:2px">🧪 Was dieses Salz zusätzlich liefert</div>'
+      + '<div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">Angereicherte Mikronährstoffe laut Etikett.</div>'
+      + rows
+      + '<div style="font-size:11px;color:var(--muted);margin-top:10px;padding-top:8px;border-top:1px solid var(--line)">Werte für 5 g Salz pro Tag (WHO-Tagesmaximum), Erwachsene. Weniger Salz ist besser fürs Herz – liefert dir aber auch weniger dieser Stoffe. <b>Du entscheidest.</b></div>'
+    + '</div>';
+  }catch(e){ /* still - keine Fehleranzeige noetig */ }
 }
 function detail(d){
   /* Aufruf mitzaehlen (fire-and-forget, blockiert die Anzeige nie). Aggregierter
@@ -15340,7 +15391,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28a";
+const APP_BUILD = "2026-07-28as";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
