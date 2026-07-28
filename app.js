@@ -10859,7 +10859,10 @@ function feKatChange(){
        "" setzte die Spalten-Property NICHT auf den Template-Wert zurueck, sondern LOESCHTE sie
        aus dem Inline-Style - das Raster verlor seine Spalten, die Bild-Spalte rutschte nach
        unten. Der Template-Wert wird jetzt ausdruecklich wiederhergestellt. */
-    if(_fg) _fg.style.gridTemplateColumns = supp ? "minmax(0,1fr) minmax(280px,320px)" : "minmax(0,1fr) minmax(300px,440px)";
+    /* 28z13 (Ralph: "supplements ist immer noch nicht ueber die volle breite"): bei Supplement
+       wird das AUSSEN-Raster EINSPALTIG - die Reihe Kopfdaten|Wirkstoffe|Etikett bekommt die
+       volle Fensterbreite, die Produktbild-Karte rueckt als volle Zeile darunter. */
+    if(_fg) _fg.style.gridTemplateColumns = supp ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(300px,440px)";
     var _wcMv=document.getElementById("fe_wirkCard"), _wAnker=document.getElementById("fe_wirkAnker");
     try{
       if(supp){ if(_png && _wcMv && _wcMv.parentNode!==_png){ _png.appendChild(_wcMv); _wcMv.style.marginTop="0"; } var _wg2=document.getElementById("fe_wirkGrid"); if(_wg2) _wg2.style.gridTemplateColumns="minmax(0,1.25fr) minmax(0,1fr)"; }
@@ -16075,7 +16078,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z12";
+const APP_BUILD = "2026-07-28z13";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
