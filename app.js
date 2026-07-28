@@ -9310,6 +9310,126 @@ async function fmMikroDel(stoff, form){
   try{ var r=await client.rpc('cb_produkt_mikro_del',{p_id:pid,p_stoff:stoff,p_form:form||null}); if(r&&r.error) throw new Error(r.error.message); fmMikroLoad(pid); }catch(e){}
 }
 if(typeof window!=='undefined'){ window.fmMikroLoad=fmMikroLoad; window.fmMikroRender=fmMikroRender; window.fmMikroStoffChange=fmMikroStoffChange; window.fmMikroAdd=fmMikroAdd; window.fmMikroDel=fmMikroDel; }
+
+/* ===== SCHNELLEINGABE „ein Feld für alles" (Ralph-Go 28.07.2026, Anlass P1766 Kreatin) =====
+   EIN Feld in Reiter 2: Name (+ optionale Menge/Einheit) eintippen, die Maske ordnet per
+   STAMM-NACHSCHLAGEN selbst zu — Zusatzstoff-Stamm (Name/E-Nummer/Synonym) -> Zusatzstoff-
+   Karte · Mikro-Stammliste -> Mikro-Karte (je 100 g) · Zutaten-Stamm (EXAKTER Name) ->
+   Zutaten-Arbeitsliste · bei Supplements zusätzlich -> „Wirkstoffe & Dosis" in Reiter 1
+   (Tagesdosis). MEHRDEUTIG -> Ralph wählt per Knopf, es wird NIE geraten. UNBEKANNT ->
+   Angebote über die BESTEHENDEN Anlege-Wege (Zutat via Riki-Bewertung fgPickAddNeu,
+   Zusatzstoff ungeprüft wie zusAddNeu, Wirkstoff-Freitext feWirkAdd). KEIN eigener
+   Speicherpfad (§1.11i): jede Route ruft exakt den Weg der jeweiligen Karte auf. */
+function fgQuickParse(v){
+  v=String(v||'').trim();
+  var m=v.match(/^(.*?)[\s:]+([0-9]+(?:[.,][0-9]+)?)\s*(µg|ug|mcg|mg|g|ml|%)?\s*$/i);
+  if(m && m[1].trim()){
+    var e=(m[3]||'').toLowerCase(); if(e==='ug'||e==='mcg') e='µg';
+    return { name:m[1].trim().replace(/[,;:]+$/,''), menge:Number(m[2].replace(',','.')), einheit:e||null };
+  }
+  return { name:v.replace(/[,;:]+$/,''), menge:null, einheit:null };
+}
+function fgQuickMsg(html){ var b=document.getElementById('fe_quickMsg'); if(b) b.innerHTML=html||''; }
+function _fgQuickChip(route,label){
+  return '<button type="button" onclick="fgQuickDo(\''+route+'\')" style="margin:2px 6px 2px 0;padding:6px 12px;border:1px solid var(--k-cecbf6);border-radius:8px;background:var(--card);color:var(--k-534ab7);font-weight:700;font-size:12.5px;cursor:pointer">'+label+'</button>';
+}
+function fgQuickGo(){
+  var inp=document.getElementById('fe_quickIn'); var raw=((inp||{}).value||'').trim();
+  if(!raw){ fgQuickMsg(''); return; }
+  var p=fgQuickParse(raw); var nl=p.name.toLowerCase();
+  var isSupp=(((document.getElementById('fe_kat')||{}).value||'').trim().toLowerCase()==='supplement');
+  /* Zusatzstoff: E-Nummer im Text ODER Stamm-Name/Synonym (gleiche Nachschlage-Reihenfolge wie zusAddNeu) */
+  var zus=null;
+  try{
+    var em=p.name.match(/\bE\s?[0-9]{3,4}[a-z]?\b/i);
+    zus=(em?ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,'').toLowerCase()]:null)
+      || (typeof ZUSATZSTOFFE_MAP!=='undefined'?ZUSATZSTOFFE_MAP[nl]:null)
+      || ((typeof ZUS_SYN!=='undefined'&&ZUS_SYN[nl])?ZUSATZSTOFFE_MAP[String(ZUS_SYN[nl]).toLowerCase()]:null) || null;
+  }catch(e){}
+  /* Zutat: EXAKTER Stamm-Treffer (kein Teilstring - deterministisch statt geraten) */
+  var zt=null;
+  try{
+    if(typeof ZUTATEN_MAP!=='undefined' && ZUTATEN_MAP[nl]){
+      var stEintrag=((typeof ZUTATEN_STAMM!=='undefined'&&ZUTATEN_STAMM)||[]).filter(function(z){ return String(z.name||'').trim().toLowerCase()===nl; })[0];
+      zt={ name:(stEintrag&&stEintrag.name)||p.name, rating:ZUTATEN_MAP[nl].rating, krit:ZUTATEN_MAP[nl].kritisch||'nein' };
+    }
+  }catch(e){}
+  /* Mikronährstoff: Stammliste der Mikro-Karte (Stammname, Etikett-Form oder Anzeige) */
+  var mk=null;
+  try{
+    mk=(window._fmEinheiten||[]).filter(function(x){
+      var kand=[x.naehrstoff,x.anzeige,x.form,String(x.anzeige||'').replace(/\s*\(.*\)\s*$/,'')];
+      return kand.some(function(t){ return String(t||'').trim().toLowerCase()===nl; });
+    })[0]||null;
+  }catch(e){}
+  window._fgQuickP={ p:p, zus:zus, zt:zt, mk:mk, isSupp:isSupp };
+  var routes=[]; if(zus) routes.push('zus'); if(zt) routes.push('zutat'); if(mk) routes.push('mikro');
+  if(routes.length===0){
+    var chips=_fgQuickChip('zutatNeu','Als ZUTAT aufnehmen (Riki bewertet)')+_fgQuickChip('zusNeu','Als ZUSATZSTOFF (ungeprüft)');
+    if(isSupp) chips=_fgQuickChip('wirk','Als WIRKSTOFF – Tagesdosis (Reiter 1)')+chips;
+    fgQuickMsg('„'+esc(p.name)+'" steht in keinem Stamm. Wie aufnehmen? '+chips);
+    return;
+  }
+  if(routes.length===1 && !(routes[0]==='mikro' && isSupp)){ fgQuickDo(routes[0]); return; }
+  /* mehrdeutig - oder Nährstoff am Supplement (Etikett nennt dort meist die TAGESDOSIS,
+     die Mikro-Karte will je 100 g): Ralph entscheidet, nie raten. */
+  var teile=[];
+  if(isSupp && (mk||p.menge!=null)) teile.push(_fgQuickChip('wirk','WIRKSTOFF – Tagesdosis (Reiter 1)'));
+  if(zus) teile.push(_fgQuickChip('zus','ZUSATZSTOFF: '+esc(zus.name)+(zus.e?' ('+esc(zus.e)+')':'')));
+  if(mk) teile.push(_fgQuickChip('mikro','MIKRONÄHRSTOFF je 100 g: '+esc(mk.anzeige||mk.naehrstoff)));
+  if(zt) teile.push(_fgQuickChip('zutat','ZUTAT: '+esc(zt.name)+(zt.rating!=null?' (Note '+zt.rating+')':'')));
+  fgQuickMsg('„'+esc(p.name)+'" passt auf mehrere Ziele – bitte wählen: '+teile.join(''));
+}
+function fgQuickDo(route){
+  var P=window._fgQuickP; if(!P) return; var p=P.p; var fertig=true;
+  if(route==='zus' && P.zus){
+    var z=P.zus; window._fgZus=window._fgZus||[];
+    var key=String(z.e||z.name||'').toLowerCase();
+    var schon=window._fgZus.some(function(x){ return String(x.e||x.name||'').toLowerCase()===key; });
+    if(schon){ fgQuickMsg('„'+esc(z.name)+'" ist bereits als Zusatzstoff erfasst.'); }
+    else{ window._fgZus.push({e:z.e,name:z.name,einst:z.einstufung}); try{ fgZusZutSync(true,z); }catch(e){}
+      zusSync(); zusRenderSel(); zusRenderPick();
+      fgQuickMsg('<span style="color:var(--k-166534)">✓ als <b>Zusatzstoff</b> erfasst: '+esc(z.name)+(z.e?' ('+esc(z.e)+')':'')+'</span>'); }
+  } else if(route==='zutat' && P.zt){
+    var c=document.getElementById('fe_zutRows');
+    if(c){ var key2=P.zt.name.toLowerCase();
+      var ex=[].some.call(c.querySelectorAll('.fgZutRow'),function(r){ return ((r.querySelector('.fgzName')||{}).value||'').trim().toLowerCase()===key2; });
+      if(ex){ fgQuickMsg('„'+esc(P.zt.name)+'" ist bereits als Zutat gebunden.'); }
+      else{ c.insertAdjacentHTML('beforeend', fgZutRow(P.zt.name, P.zt.rating, P.zt.krit));
+        try{ fgPickRender(); }catch(e){} try{ fePlaus(); }catch(e){}
+        fgQuickMsg('<span style="color:var(--k-166534)">✓ als <b>Zutat</b> gebunden: '+esc(P.zt.name)+(P.zt.rating!=null?' (Note '+P.zt.rating+')':' – noch ohne Note')+'</span>'); } }
+  } else if(route==='zutatNeu'){
+    var i2=document.getElementById('fe_zutNeu');
+    if(i2){ i2.value=p.name; try{ fgPickAddNeu(); }catch(e){}
+      fgQuickMsg('→ Riki bewertet „'+esc(p.name)+'" – Vorschlag unten in der Zutaten-Karte bestätigen (nichts wird ungeprüft übernommen).'); }
+  } else if(route==='zusNeu'){
+    window._fgZus=window._fgZus||[];
+    window._fgZus.push({e:null,name:p.name,einst:(typeof _istAroma==='function'&&_istAroma(p.name))?'neutral':'ungeprüft'});
+    zusSync(); zusRenderSel(); zusRenderPick();
+    fgQuickMsg('✓ als <b>Zusatzstoff (ungeprüft)</b> erfasst – die Einstufung folgt im Stamm; bis dahin blockiert er den Index (§1.11k).');
+  } else if(route==='mikro' && P.mk){
+    var sel=document.getElementById('fm_mikroStoff'), mg=document.getElementById('fm_mikroMenge');
+    if(sel){ sel.value=P.mk.naehrstoff; try{ fmMikroStoffChange(); }catch(e){} }
+    if(p.menge!=null && p.einheit && P.mk.einheit && p.einheit!=='%' && p.einheit!==String(P.mk.einheit).toLowerCase()){
+      if(mg){ mg.value=''; mg.focus(); } fertig=false;
+      fgQuickMsg('⚠ Einheit passt nicht: Der Stamm führt „'+esc(P.mk.anzeige||P.mk.naehrstoff)+'" in <b>'+esc(P.mk.einheit)+'</b>, du hast '+esc(p.einheit)+' getippt. Bitte die Menge je 100 g in '+esc(P.mk.einheit)+' eintragen – es wird nichts umgerechnet.');
+    } else if(p.menge!=null){
+      if(mg) mg.value=String(p.menge);
+      try{ fmMikroAdd(); }catch(e){}
+      fgQuickMsg('<span style="color:var(--k-166534)">✓ als <b>Mikronährstoff</b> gespeichert: '+esc(P.mk.anzeige||P.mk.naehrstoff)+' '+esc(String(p.menge))+' '+esc(P.mk.einheit||'')+' je 100 g.</span>');
+    } else {
+      if(mg){ mg.focus(); } fertig=false;
+      fgQuickMsg('Nährstoff vorgewählt: „'+esc(P.mk.anzeige||P.mk.naehrstoff)+'". Menge <b>je 100 g</b> in der Mikro-Karte eintragen und „+ setzen".');
+    }
+  } else if(route==='wirk'){
+    var wname=(P.mk&&(P.mk.anzeige||P.mk.naehrstoff))||p.name;
+    try{ feWirkAdd({naehrstoff:wname, menge:(p.menge==null?'':p.menge), einheit:p.einheit||((P.mk&&P.mk.einheit)||'mg')}); }catch(e){}
+    try{ fePlaus(); }catch(e){}
+    fgQuickMsg('<span style="color:var(--k-166534)">✓ als <b>Wirkstoff (Tagesdosis)</b> eingetragen – Reiter 1, Karte „Wirkstoffe &amp; Dosis"'+(p.menge==null?' – Menge dort ergänzen':'')+'.</span>');
+  } else { fgQuickMsg(''); }
+  if(fertig){ var q=document.getElementById('fe_quickIn'); if(q){ q.value=''; try{ q.focus(); }catch(e){} } window._fgQuickP=null; }
+}
+if(typeof window!=='undefined'){ window.fgQuickGo=fgQuickGo; window.fgQuickDo=fgQuickDo; window.fgQuickParse=fgQuickParse; }
 /* Mikronaehrstoff hinzufuegen ueber ein Fenster (Ralph 26.07.): leere Liste + Button
    "+ Mikronaehrstoff" oeffnet dieses Modal (wie beim Rezept). Speichert sofort via
    cb_produkt_mikro_setzen und laedt die Liste neu. Riki-Banner bleibt unveraendert. */
@@ -10431,7 +10551,7 @@ async function openFgEditor(id, prefill, targetEl){
 #fe_fotoMount #fe_wirkFotoBox{flex:1 1 auto;height:auto;min-height:280px}
 #fe_fotoLeerHinweis{display:none}
 #fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
-</div><div id="feTab2" style="display:none"><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - 235px);min-height:430px"><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
+</div><div id="feTab2" style="display:none"><div id="fe_quickBar" style="display:flex;gap:8px;align-items:center;margin:0 0 6px"><span style="font-size:15px;flex:0 0 auto" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu" style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px"><button type="button" onclick="fgQuickGo()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto">Zuordnen</button></div><div id="fe_quickMsg" style="font-size:12.5px;line-height:1.6;margin:0 0 6px 27px"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - 289px);min-height:430px" data-note28w="Hoehe um die Schnelleingabe-Leiste (~54px) verringert, sonst schiebt sie das Raster aus dem Bild"><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -15737,7 +15857,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28v";
+const APP_BUILD = "2026-07-28w";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
