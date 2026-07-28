@@ -7491,6 +7491,8 @@ function tbKopfNeuAnwenden(){
   try{
     var t=document.getElementById('tbTitle'); if(t&&t.parentElement) t.parentElement.style.display='none';
     var nav=document.getElementById('tbCtrlNav'); if(nav) nav.style.display='none';
+    /* 28g: der 🛒-Knopf unterm Tagebuch entfällt - Zugang über das ✎-Mengen-Blatt (Ralph). */
+    try{ var _eb=document.querySelector('#tagebuchView button[onclick*="tbEinkBox"]'); if(_eb&&_eb.parentElement) _eb.parentElement.style.display='none'; }catch(e){}
     var s=document.getElementById('tbTopSearch'); var srow=s?s.parentElement:null;
     if(srow){
       srow.id='tbSuchRow';
@@ -7843,7 +7845,9 @@ function renderTbListe(items, goal){
     html+=`</div>`;
   });
   const dayScore = dSG>0?Math.round(dSW/dSG):null;
-  html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--k-2f6fd6);color:var(--k-ffffff);border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:var(--k-w18);border-radius:8px;padding:2px 9px;font-size:13px">Index ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
+  /* 28g (Ralph): "tagessumme und einkaufsliste unten weg" - beides doppelt den Kopf (kcal + Ø Index
+     stehen in den Kacheln); der Einkaufslisten-Zugang steckt jetzt im ✎-Mengen-Blatt. */
+  if(!neu) html+=`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--k-2f6fd6);color:var(--k-ffffff);border-radius:14px;padding:13px 16px;font-weight:700;font-size:15px"><span>Tagessumme</span><span style="display:flex;align-items:center;gap:10px">${dayScore!=null?`<span style="background:var(--k-w18);border-radius:8px;padding:2px 9px;font-size:13px">Index ${dayScore}</span>`:""}<span>${Math.round(dayK)} kcal</span></span></div>`;
   el.innerHTML=html;
 }
 /* ---- Lifesum-Style: Top-Suche + Add-Popup ---- */
@@ -8465,7 +8469,12 @@ function editMengeNeu(id,cur,pid,mahl){
       +'<span style="font-size:13px;color:var(--tb-muted,var(--k-6b6256));flex:0 0 auto">'+(sg?('Stück ('+sg+' g)'):'g')+'</span>'
     +'</div>'
     +'<button onclick="tbMengeNeuSave('+id+','+(sg||0)+')" style="margin-top:10px;width:100%;background:var(--k-16a34a);color:var(--k-ffffff);border:0;border-radius:12px;padding:12px;font-size:14px;font-weight:800;cursor:pointer">Speichern</button>'
-    +(kannZiel?('<button onclick="document.getElementById(\'tbMengeOv\').remove();tbFillItem('+id+',\''+mahl+'\')" title="Diese Menge so anpassen, dass die Mahlzeit ihr kcal-Ziel trifft (andere Einträge bleiben)" style="margin-top:8px;width:100%;background:none;border:1px solid var(--tb-line,var(--k-e7e0d4));color:var(--tb-muted,var(--k-6b6256));border-radius:12px;padding:10px;font-size:13px;cursor:pointer">🎯 Menge ans Ziel auffüllen</button>'):'')
+    +(kannZiel?('<button onclick="document.getElementById(\'tbMengeOv\').remove();tbFillItem('+id+',\''+mahl+'\')" title="Diese Menge so anpassen, dass die Mahlzeit ihren rechnerischen kcal-Anteil trifft (andere Einträge bleiben)" style="margin-top:8px;width:100%;background:none;border:1px solid var(--tb-line,var(--k-e7e0d4));color:var(--tb-muted,var(--k-6b6256));border-radius:12px;padding:10px;font-size:13px;cursor:pointer">🎯 auf Mahlzeit-Ziel auffüllen</button>'):'')
+    /* 28g (Ralph): "wenn am abend noch was offen ist und ich nudeln mache, dann könnte ich mehr
+       davon machen um das tagesziel zu erreichen" - füllt gegen das ECHTE Tagesziel (inkl.
+       Trainingstag-Zuschlag), nicht gegen die gerechnete Mahlzeits-Aufteilung. */
+    +(kannZiel?('<button onclick="tbFillItemTag('+id+')" title="Diese Menge so anpassen, dass der ganze TAG sein kcal-Ziel erreicht (alle anderen Einträge bleiben)" style="margin-top:8px;width:100%;background:none;border:1px solid var(--k-bcd9be);color:var(--k-166534);border-radius:12px;padding:10px;font-size:13px;cursor:pointer;font-weight:600">📅 auf Tagesziel auffüllen</button>'):'')
+    +((pid&&typeof hasFeat==='function'&&hasFeat('einkaufsliste'))?('<button onclick="tbMengeEinkauf(this,\''+pid+'\')" title="Dieses Produkt auf die Einkaufsliste setzen" style="margin-top:8px;width:100%;background:none;border:1px solid var(--tb-line,var(--k-e7e0d4));color:var(--tb-muted,var(--k-6b6256));border-radius:12px;padding:10px;font-size:13px;cursor:pointer">🛒 in die Einkaufsliste übernehmen</button>'):'')
   +'</div>';
   document.body.appendChild(ov);
   try{ var _i=document.getElementById('tbMengeNeuVal'); _i.focus(); _i.select(); }catch(e){}
@@ -8475,6 +8484,41 @@ async function tbMengeNeuSave(id,sg){
   if(!v||v<=0) return;
   const g=sg?Math.round(v*sg):v;
   try{ await client.rpc("cb_tb_menge",{p_eintrag:id,p_menge_g:g}); }
+  catch(e){ alert("Speichern fehlgeschlagen: "+e.message); return; }
+  const ov=document.getElementById('tbMengeOv'); if(ov) ov.remove();
+  loadTagebuch();
+}
+/* 28g (Ralph): Produkt aus dem Mengen-Blatt auf die Einkaufsliste - gleicher RPC wie überall
+   (cb_einkauf_add), der Knopf bestätigt im Blatt statt mit einem Popup. */
+async function tbMengeEinkauf(btn,pid){
+  try{
+    const {error}=await client.rpc("cb_einkauf_add",{p_titel:null,p_menge:null,p_produkt_id:pid});
+    if(error) throw error;
+  }catch(e){ alert("Konnte nicht übernommen werden: "+e.message); return; }
+  try{ btn.textContent="✓ steht auf der Einkaufsliste"; btn.disabled=true; btn.style.opacity=".7"; }catch(e){}
+}
+/* 28g: EINE Position so vergrößern/verkleinern, dass der TAG sein kcal-Ziel trifft.
+   Rechnung aus belegten Werten des Eintrags selbst (kcal je g = kcal/Menge) - nichts erfunden.
+   Stück-Produkte werden auf ganze Stück gerundet. */
+async function tbFillItemTag(id){
+  const items=window._tbItems||[];
+  const r=items.find(function(x){ return Number(x.Eintrag_ID)===Number(id); });
+  if(!r){ alert("Eintrag nicht gefunden."); return; }
+  const g=window._tbGoal||{};
+  const basis=num(g.Kalorienziel_kcal);
+  if(basis==null){ alert("Kein Tagesziel gesetzt."); return; }
+  const zielK=(typeof TT!=='undefined'&&TT&&TT.ok&&TT.aktiv&&TT.kcal_heute)?Number(TT.kcal_heute):basis;
+  const sonst=items.reduce(function(a,b){ return a+(Number(b.Eintrag_ID)===Number(id)?0:(+b.kcal||0)); },0);
+  const rest=zielK-sonst;
+  const kcal=+r.kcal||0, menge=+r.Menge_g||0;
+  if(!(kcal>0&&menge>0)){ alert("Diese Position lässt sich nicht automatisch anpassen (keine kcal/Menge belegt)."); return; }
+  if(rest<=0){ alert("Das Tagesziel ist mit den übrigen Einträgen bereits erreicht ("+Math.round(sonst)+" von "+Math.round(zielK)+" kcal) – hier ist nichts mehr aufzufüllen."); return; }
+  const kcalProG=kcal/menge;
+  let neu=rest/kcalProG;
+  const sg=stkOf(r.Produkt_ID);
+  if(sg){ neu=Math.max(1,Math.round(neu/sg))*sg; } else { neu=Math.round(neu); }
+  if(!(neu>0)) return;
+  try{ await client.rpc("cb_tb_menge",{p_eintrag:id,p_menge_g:neu}); }
   catch(e){ alert("Speichern fehlgeschlagen: "+e.message); return; }
   const ov=document.getElementById('tbMengeOv'); if(ov) ov.remove();
   loadTagebuch();
@@ -15490,7 +15534,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28e";
+const APP_BUILD = "2026-07-28g";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
