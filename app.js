@@ -10855,12 +10855,16 @@ function feKatChange(){
        rechts schmaler (280-320px statt 300-440px) - auch dieser Platz fliesst in die Mitte. */
     if(_png) _png.style.gridTemplateColumns = supp ? "minmax(280px,340px) minmax(0,1fr)" : (_nwAus?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)");
     var _fg=document.getElementById("fe_grid");
-    if(_fg) _fg.style.gridTemplateColumns = supp ? "minmax(0,1fr) minmax(280px,320px)" : "";
+    /* 28z12-BUGFIX (Ralph: "das normale produktlayout war zuerst besser und nebeneinander"):
+       "" setzte die Spalten-Property NICHT auf den Template-Wert zurueck, sondern LOESCHTE sie
+       aus dem Inline-Style - das Raster verlor seine Spalten, die Bild-Spalte rutschte nach
+       unten. Der Template-Wert wird jetzt ausdruecklich wiederhergestellt. */
+    if(_fg) _fg.style.gridTemplateColumns = supp ? "minmax(0,1fr) minmax(280px,320px)" : "minmax(0,1fr) minmax(300px,440px)";
     var _wcMv=document.getElementById("fe_wirkCard"), _wAnker=document.getElementById("fe_wirkAnker");
     try{
       if(supp){ if(_png && _wcMv && _wcMv.parentNode!==_png){ _png.appendChild(_wcMv); _wcMv.style.marginTop="0"; } var _wg2=document.getElementById("fe_wirkGrid"); if(_wg2) _wg2.style.gridTemplateColumns="minmax(0,1.25fr) minmax(0,1fr)"; }
       else if(_wAnker && _wcMv && _wcMv.previousElementSibling!==_wAnker){ _wAnker.parentNode.insertBefore(_wcMv, _wAnker.nextSibling); _wcMv.style.marginTop="2px"; }
-      if(!supp){ var _wg3=document.getElementById("fe_wirkGrid"); if(_wg3) _wg3.style.gridTemplateColumns=""; }
+      if(!supp){ var _wg3=document.getElementById("fe_wirkGrid"); if(_wg3) _wg3.style.gridTemplateColumns="1fr 1fr"; }   /* 28z12: Template-Wert explizit, "" wuerde die Spalten loeschen (gleicher Bug wie fe_grid) */
     }catch(e){}
     var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display=_mikroAus?"none":"flex";
     var _c2=document.getElementById("fe_colZusMik"); if(_c2) _c2.style.gridTemplateRows=_mikroAus?"minmax(0,1fr)":"minmax(0,1.6fr) minmax(0,1fr)";
@@ -11934,12 +11938,24 @@ async function fgPullHersteller(){
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     /* Verzehrempfehlung: die Bezugsmenge, ohne die unsere EFSA-Prozente in der Luft hängen. */
     var vz=document.getElementById("fe_verzehr"); if(vz&&v.verzehrempfehlung&&!vz.value) vz.value=v.verzehrempfehlung;
+    var keH=document.getElementById("fe_kat"); if(keH&&!keH.value){ var _kvH=katVorschlagPruefen(v.kategorie_vorschlag); if(_kvH){ keH.value=_kvH; try{ feKatChange(); }catch(e){} } }   /* 28z12: wie beim Etikett - nur gueltige Werte, nur wenn leer */
     /* EAN nur, wenn sie ausgewiesen war UND die Prüfziffer stimmt UND das Feld leer ist.
        Eine EAN ist eine Identität – lieber leer und später gescannt als falsch verknüpft. */
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
     try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
+    /* 28z12 (Ralphs NORSAN-Fund: "warum erkennt riki das nicht beim omega 3?"): riki-herstellerseite v10
+       liefert jetzt "wirkstoffe" (Tagesdosis inkl. Omega-3/EPA/DPA/DHA-davon-Zeilen). Bei Kategorie
+       Supplement direkt in die Dosis-Tabelle - GLEICHER Weg wie der Etikett-Hook (feWirkLoad, §1.11i).
+       "Fuellt nur leere Felder" respektiert vorhandene Zeilen. */
+    try{ if(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement"){
+      var _wqH=v.wirkstoffe||null;
+      var _hatZeilen=[].slice.call(document.querySelectorAll("#fe_wirkRows .feWirkRow")).some(function(r){ return (((r.querySelector(".fwName")||{}).value)||"").trim()!==""; });
+      if(Array.isArray(_wqH)&&_wqH.length&&typeof feWirkLoad==="function" && !(window._fgNurLeer && _hatZeilen)){
+        feWirkLoad(_wqH.map(function(w){ return {naehrstoff:(w.name||w.naehrstoff||""), menge:(w.menge!=null?w.menge:w.wert), einheit:(w.einheit||w.unit||"mg"), nrv:(w.nrv!=null?w.nrv:w.nrv_prozent)}; }).filter(function(w){ return w.naehrstoff&&w.menge!=null; }), false);
+      }
+    } }catch(e){}
     try{ /* 28b: NUR mikronaehrstoffe_100g (echte 100-g-Werte, Riki v9). Vorher las der Hook v.wirkstoffe -
        das sind PORTIONS-/Tagesdosis-Werte; als Menge_100g gespeichert laegen sie beim Salz um Faktor 50 daneben
        (Jod 40 ug je 2-g-Portion vs. 2000 ug je 100 g). Portionswerte gehoeren in die Dosis-Tabelle, nicht hierher. */
@@ -16059,7 +16075,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z11";
+const APP_BUILD = "2026-07-28z12";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
