@@ -10805,7 +10805,13 @@ function feKatChange(){
        Spalte), die Kopfdaten werden schmaler (0.9fr zu 1.35fr). Beim Verlassen der Kategorie
        zieht die Karte an ihren Anker unter dem Raster zurueck. */
     var _png=document.getElementById("fe_prodNwGrid");
-    if(_png) _png.style.gridTemplateColumns = supp ? "minmax(0,0.9fr) minmax(0,1.35fr)" : (_nwAus?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)");
+    /* 28z8 (Ralph am Live-28z6/z7: "etwas zu schmal, wirkstoff und bild darf breiter sein"):
+       Kopfdaten auf feste ~340px statt Verhaeltnis-Anteil - ALLES Uebrige geht an
+       Wirkstoffe+Etikett. Zusaetzlich wird bei Supplement die Produktbild-Spalte ganz
+       rechts schmaler (280-320px statt 300-440px) - auch dieser Platz fliesst in die Mitte. */
+    if(_png) _png.style.gridTemplateColumns = supp ? "minmax(280px,340px) minmax(0,1fr)" : (_nwAus?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)");
+    var _fg=document.getElementById("fe_grid");
+    if(_fg) _fg.style.gridTemplateColumns = supp ? "minmax(0,1fr) minmax(280px,320px)" : "";
     var _wcMv=document.getElementById("fe_wirkCard"), _wAnker=document.getElementById("fe_wirkAnker");
     try{
       if(supp){ if(_png && _wcMv && _wcMv.parentNode!==_png){ _png.appendChild(_wcMv); _wcMv.style.marginTop="0"; } }
@@ -16008,7 +16014,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z7";
+const APP_BUILD = "2026-07-28z8";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
