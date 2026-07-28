@@ -2233,7 +2233,7 @@ function closeP(){
   var ov=document.getElementById("overlay");
   if(ov){ ov.classList.remove("open");
     if(ov.classList.contains("fgEditorFull")){ ov.classList.remove("fgEditorFull");
-      ov.style.background=""; ov.style.backdropFilter=""; ov.style.padding=""; ov.style.alignItems=""; ov.style.justifyContent=""; ov.style.left=""; } }
+      ov.style.background=""; ov.style.backdropFilter=""; ov.style.padding=""; ov.style.alignItems=""; ov.style.justifyContent=""; ov.style.left=""; ov.style.zIndex=""; } }
   var pn=document.getElementById("panel"); if(pn){ pn.style.maxWidth=""; pn.style.width=""; pn.style.height=""; pn.style.maxHeight=""; pn.style.borderRadius=""; }
   try{ var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="none"; }catch(e){}
   try{ feFreigabeLeisteHide(); }catch(e){}
@@ -10488,11 +10488,16 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
       </div>
     </div>`;
-    /* Vollbild-Seite statt schwebendem Overlay (Ralph 20.07.): Editor fuellt den Inhaltsbereich
-       rechts neben dem Admin-Menue (214px). Auf dem Consumer (kein Menue) volle Breite. */
+    /* Vollbild-Seite statt schwebendem Overlay (Ralph 20.07., seit 28m: volle Breite ganz links,
+       ueber den oberen Menueleisten - siehe Kommentar unten). */
     if(!targetEl){
     var _ov=document.getElementById("overlay"), _pn=document.getElementById("panel");
-    if(_ov){ _ov.classList.add("fgEditorFull"); _ov.style.background="var(--bg)"; _ov.style.backdropFilter="none"; _ov.style.padding="0"; _ov.style.alignItems="stretch"; _ov.style.justifyContent="stretch"; _ov.style.left=(window.__ADMIN_PAGE?"214px":"0"); }
+    /* 28m (Ralph): (a) left:214px war ein Relikt des alten SEITEN-Menues - das Admin-Menue liegt
+       laengst OBEN, der Editor liess links grundlos die Produktliste durchscheinen. (b) z-Index 70:
+       das Overlay lag mit 50 UNTER adminTop (60) und adminNav (59) - die Menueleisten stachen durch
+       und verdeckten den Kopf des Fensters. Jetzt liegt das Fenster wirklich im Vordergrund;
+       zurueck geht es ueber "← Posteingang" (closeP setzt beides zurueck). */
+    if(_ov){ _ov.classList.add("fgEditorFull"); _ov.style.background="var(--bg)"; _ov.style.backdropFilter="none"; _ov.style.padding="0"; _ov.style.alignItems="stretch"; _ov.style.justifyContent="stretch"; _ov.style.left="0"; _ov.style.zIndex="70"; }
     if(_pn){ _pn.style.maxWidth="none"; _pn.style.width="100%"; _pn.style.height="100vh"; _pn.style.maxHeight="100vh"; _pn.style.borderRadius="0"; _pn.scrollTop=0; }
     }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
@@ -15645,7 +15650,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28l";
+const APP_BUILD = "2026-07-28m";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
