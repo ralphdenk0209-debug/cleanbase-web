@@ -9384,11 +9384,14 @@ function fgQuickGo(){
     fgQuickMsg('„'+esc(p.name)+'" steht in keinem Stamm. Wie aufnehmen? '+chips);
     return;
   }
-  if(routes.length===1 && !(routes[0]==='mikro' && isSupp)){ fgQuickDo(routes[0]); return; }
-  /* mehrdeutig - oder Nährstoff am Supplement (Etikett nennt dort meist die TAGESDOSIS,
-     die Mikro-Karte will je 100 g): Ralph entscheidet, nie raten. */
+  /* 28y (Ralphs Fund am Kreatin: "ist nicht als wirkstoff knopf erschienen"): Bei SUPPLEMENTS
+     wird NIE automatisch ausgefuehrt - jeder Treffer bekommt die Auswahl inkl. Wirkstoff-Knopf.
+     Grund: dieselbe Substanz kann dort Zutat (Bindung) ODER Wirkstoff (Tagesdosis, Reiter 1)
+     sein - zwischen den beiden zu raten waere genau der verbotene stille Entscheid. Bei
+     Lebensmitteln bleibt der Ein-Treffer-Direktweg. */
+  if(routes.length===1 && !isSupp){ fgQuickDo(routes[0]); return; }
   var teile=[];
-  if(isSupp && (mk||p.menge!=null)) teile.push(_fgQuickChip('wirk','WIRKSTOFF – Tagesdosis (Reiter 1)'));
+  if(isSupp) teile.push(_fgQuickChip('wirk','WIRKSTOFF – Tagesdosis (Reiter 1)'));
   if(zus) teile.push(_fgQuickChip('zus','ZUSATZSTOFF: '+esc(zus.name)+(zus.e?' ('+esc(zus.e)+')':'')));
   if(mk) teile.push(_fgQuickChip('mikro','MIKRONÄHRSTOFF je 100 g: '+esc(mk.anzeige||mk.naehrstoff)));
   if(zt) teile.push(_fgQuickChip('zutat','ZUTAT: '+esc(zt.name)+(zt.rating!=null?' (Note '+zt.rating+')':'')));
@@ -15874,7 +15877,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28x";
+const APP_BUILD = "2026-07-28y";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
