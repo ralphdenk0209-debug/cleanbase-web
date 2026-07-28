@@ -104,13 +104,6 @@ function suppLead(d,size){
 function scoreLead(d,size){
   size=size||62;
   if(d && String(d.kategorie||'').toLowerCase()==='supplement'){ return suppLead(d,size); }
-  if(d && String(d.kategorie||'').toLowerCase()==='salze'){
-    /* Reines Salz bekommt bewusst KEINEN Lebensmittel-Score (§1.13/Salze). Statt "-" ein eigenes Zeichen. */
-    return '<div class="scLead" style="flex:0 0 '+size+'px;width:'+size+'px;text-align:center">'
-      +'<div style="width:'+Math.round(size*0.6)+'px;height:'+Math.round(size*0.6)+'px;margin:0 auto;border-radius:50%;background:var(--k-eeedfe);color:var(--k-534ab7);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.32)+'px">\u{1F9C2}</div>'
-      +'<div style="font-size:10px;color:var(--muted);margin-top:4px">Salz</div>'
-    +'</div>';
-  }
   const s=num(d&&d.clean_score);
   const txt=(s!=null)?String(Math.round(s)):"–";
   const fs=Math.round(size*(txt.length>=3?0.36:0.44));
@@ -1735,7 +1728,6 @@ function suppFuss(a){
 function detail2(d){
   try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}).then(function(){},function(){}); }catch(e){}
   if(String(d.kategorie||"").toLowerCase()==="supplement"){ return suppKarte(d); }
-  var _istSalz=String(d.kategorie||"").toLowerCase()==="salze";
   var s=num(d.clean_score);
   var voll=!!d.score_vollstaendig;
   var bewTxt = voll ? (d.bewertung||"") : "Vorläufig";
@@ -1867,28 +1859,14 @@ function detail2(d){
     /* 2026-07-24w: Feature-Schranken der alten Karte in detail2 uebernommen (Ralphs Fund 23.07.:
        Free/Gast sahen alles - die Sperren sassen nur im toten Code der alten Karte). pk_ringe
        sperrt NUR die Achsen-Grafik; die Index-ZAHL bleibt fuer alle sichtbar (ZdE). */
-    + (_istSalz
-      ? /* Reines Salz: bewusst KEIN Lebensmittel-Score (§1.13/Salze). Statt einer irrefuehrenden Zahl die belegbaren Fakten. */
-        (function(){
-          var salz=num(d.m_salz);
-          return '<div style="margin:16px 0 8px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--k-eeedfe)">'
-            + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
-              + '<div style="font-size:30px;line-height:1">\u{1F9C2}</div>'
-              + '<div><div style="font-size:16px;font-weight:800;color:var(--ink)">Reines Salz</div>'
-                + '<div style="font-size:12.5px;color:var(--k-534ab7);font-weight:600">Kein Lebensmittel-Score</div></div>'
-            + '</div>'
-            + '<div style="font-size:12.5px;color:var(--muted);line-height:1.5">Salz ist kein Lebensmittel im Sinne der vier Achsen – es hat keine Nährwerte, keinen Verarbeitungsgrad im üblichen Sinn und keine Zutatenliste. Eine Punktzahl wäre irreführend. Was zählt, ist die <b>Menge</b>: Die WHO empfiehlt <b>höchstens 5 g Salz pro Tag</b>.</div>'
-            + (salz!=null ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--ink)"><b>'+(Math.round(salz*10)/10)+' g</b> Salz je 100 g</div>' : '')
-          + '</div>';
-        })()
-      : '<div style="display:flex;flex-direction:column;align-items:center;margin:16px 0 8px">'
+    + '<div style="display:flex;flex-direction:column;align-items:center;margin:16px 0 8px">'
       + (hasFeat('pk_ringe')
           ? '<div style="width:250px;max-width:82%">'+pkFlux()+'</div>'
             + '<div class="pkWord" style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:2px;opacity:0">'+esc(bewTxt||'–')+'</div>'
           : '<div style="font-size:44px;font-weight:800;line-height:1;color:'+(s==null?'var(--muted)':fTxt)+'">'+(s==null?'–':Math.round(s))+'</div>'
             + '<div style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:4px">'+esc(bewTxt||'–')+'</div>')
-    + '</div>')
-    + ((_istSalz||hasFeat('pk_ringe')||_nurIndex)?'':pkSperre('Die vier Achsen','Zutaten · Zusatzstoffe · Verarbeitung · Nährwerte als Grafik'))
+    + '</div>'
+    + ((hasFeat('pk_ringe')||_nurIndex)?'':pkSperre('Die vier Achsen','Zutaten · Zusatzstoffe · Verarbeitung · Nährwerte als Grafik'))
     + sonder
     + (_fNw
         ? '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 2px">'
@@ -4606,30 +4584,6 @@ const WIRKSTOFF_NAMEN=["Vitamin A","Vitamin C","Vitamin D","Vitamin D3","Vitamin
   "Vitamin B6","Vitamin B7 (Biotin)","Vitamin B9 (Folsäure)","Vitamin B12","Zink","Magnesium","Eisen",
   "Selen","Jod","Calcium","Kupfer","Mangan","Chrom","Molybdän","Kalium","Omega-3"];
 const WIRK_EINHEITEN=["mg","µg","g","IU"];
-/* Dropdown "alle Wirkstoffe": EFSA-Namensliste + alle im Bestand erfassten Wirkstoffe (auch Botanicals wie Moenchspfeffer). Ralph 27.07. */
-function wirkDLOptions(){
-  try{
-    var set={}, out=[];
-    (WIRKSTOFF_NAMEN||[]).forEach(function(n){ var k=String(n||"").trim(); if(k && !set[k.toLowerCase()]){ set[k.toLowerCase()]=1; out.push(k); } });
-    (window._wirkDB||[]).forEach(function(n){ var k=String(n||"").trim(); if(k && !set[k.toLowerCase()]){ set[k.toLowerCase()]=1; out.push(k); } });
-    out.sort(function(a,b){ return a.localeCompare(b,'de'); });
-    return out.map(function(n){ return '<option value="'+esc(n)+'"></option>'; }).join("");
-  }catch(e){ return (WIRKSTOFF_NAMEN||[]).map(function(n){ return '<option value="'+esc(n)+'"></option>'; }).join(""); }
-}
-async function ladeWirkDB(){
-  try{
-    if(window._wirkDBGeladen) { return; }
-    const r = await client.from("Produkt_Naehrstoffe").select("naehrstoff").not("naehrstoff","is",null);
-    if(r && r.data){
-      var seen={}, arr=[];
-      r.data.forEach(function(x){ var k=String(x.naehrstoff||"").trim(); if(k && !seen[k.toLowerCase()]){ seen[k.toLowerCase()]=1; arr.push(k); } });
-      window._wirkDB = arr;
-      window._wirkDBGeladen = true;
-      var dl=document.getElementById("feWirkDL");
-      if(dl){ dl.innerHTML = wirkDLOptions(); }
-    }
-  }catch(e){ /* Dropdown bleibt bei EFSA-Liste - kein Blocker */ }
-}
 /* Produktkategorien als feste Auswahl - Freitext fuehrt zu Tippfehlern und Dubletten
    ("Nussprodukte / Pulver" vs "Nüsse & Hülsenfrüchte"). Riki darf vorschlagen, der
    Mensch waehlt aus der Liste. */
@@ -7256,6 +7210,9 @@ async function loadTagebuch(){
   const {data:summe}=await client.rpc("cb_tagessumme",{p_datum:datum});
   const {data:profil}=await client.rpc("cb_profil");
   await ladeTrainingstag(datum);   // MUSS vor renderZiel laufen - sonst rechnet das Ziel ohne Zuschlag
+  /* 27z4: Nutzer-Einstellungen (Kopf-Variante) VOR dem Malen laden - nicht nachträglich
+     hineinflicken (§1.11n-f). Gecacht, kostet nach dem ersten Mal nichts. */
+  if(typeof feat==='function' && feat('tagebuch_neu')){ try{ await einstLaden(); }catch(e){} }
   renderZiel(summe&&summe[0], profil&&profil[0]);
   if(window._zyklus===undefined){ try{ const {data:zk}=await client.rpc("cb_zyklus_get"); const r=(zk&&zk[0])||{}; window._zyklus=(r.start)?{start:r.start,laenge:r.laenge||28,ende:r.ende||null}:{}; }catch(e){ window._zyklus={}; } }
   renderZyklusHint();
@@ -7395,7 +7352,95 @@ function trainingstagBox(){
     + '</div>';
 }
 
+/* ===== 27z4: TAGEBUCH NEU (Ralph-Entscheide 27.07.) =====
+   Kopf wählbar: Fluxkompensator ODER Kacheln - kleiner Schalter oben, Wahl wird JE NUTZER
+   gespeichert (Benutzer_Einstellung, Schluessel 'tagebuch_kopf'). Beim Flux stehen die
+   Beschriftungen ÜBEREINANDER (Name oben, Zahlen darunter - Ralphs Vorgabe). */
+async function einstLaden(){
+  try{
+    if(window.__einst) return window.__einst;
+    const {data}=await client.rpc('cb_meine_einstellungen');
+    const m={}; (data||[]).forEach(r=>{ m[r.schluessel]=r.wert; });
+    window.__einst=m; return m;
+  }catch(e){ return (window.__einst=window.__einst||{}); }
+}
+function tbKopfSet(v){
+  window.__einst=window.__einst||{}; window.__einst.tagebuch_kopf=v;
+  try{ client.rpc('cb_einstellung_setzen',{p_key:'tagebuch_kopf',p_wert:v}).then(function(){},function(){}); }catch(e){}
+  const c=window._tbZielCache; if(c) renderZiel(c.s,c.ben);
+}
+/* Ein Makro als Flux-Bahn: Anteil 0..1 vom Ziel; ohne Ziel bleibt die Bahn grau (§1.13:
+   ohne Sollwert keine Fuellstands-Aussage). */
+function _fluxBahn(d, pct, col){
+  const L=92;
+  const grund='<path d="'+d+'" stroke="rgba(120,120,120,.16)"/>';
+  if(pct==null) return grund;
+  const off=(L*(1-Math.max(0,Math.min(1,pct)))).toFixed(1);
+  return grund+'<path d="'+d+'" stroke="'+col+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+off+'"/>';
+}
+function renderZielNeu(s,ben){
+  const el=document.getElementById("tbZiel"); if(!el) return;
+  const kcalBasis=num(ben&&ben.Kalorienziel_kcal), eiwZ=num(ben&&ben.Eiweiss_ziel_g), khZ=num(ben&&ben.KH_ziel_g), fettZ=num(ben&&ben.Fett_ziel_g);
+  if(!kcalBasis){ el.innerHTML='<div style="font-weight:600;margin-bottom:6px">Kein Tagesziel gesetzt</div>'+zielForm(); return; }
+  const anTraining=!!(TT&&TT.ok&&TT.aktiv);
+  const kcalZ=anTraining&&TT.kcal_heute?Number(TT.kcal_heute):kcalBasis;
+  const kc=Math.round((s&&s.kcal)||0), kp=kcalZ?Math.min(100,Math.round(kc/kcalZ*100)):0;
+  const variante=((window.__einst&&window.__einst.tagebuch_kopf)==='kacheln')?'kacheln':'flux';
+  const segBtn=(v,lbl)=>'<button onclick="tbKopfSet(\''+v+'\')" style="border:0;border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer;background:'+(variante===v?'var(--k-ffffff)':'transparent')+';color:'+(variante===v?'var(--k-166534)':'var(--tb-muted)')+';'+(variante===v?'box-shadow:0 1px 3px rgba(0,0,0,.12)':'')+'">'+lbl+'</button>';
+  const kopfzeile='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    +'<div style="font-weight:600">Tagesüberblick</div>'
+    +'<span style="display:flex;gap:8px;align-items:center">'
+      +'<span style="display:flex;background:var(--tb-card2,var(--k-e9e4d7));border-radius:10px;padding:2px;gap:0">'+segBtn('flux','⚛ Flux')+segBtn('kacheln','▦ Kacheln')+'</span>'
+      +'<button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:var(--tb-muted);cursor:pointer;text-decoration:underline">Ziel ändern</button>'
+    +'</span></div>';
+  const MK=[
+    {n:'EIWEISS',  ist:num(s&&s.protein),        ziel:eiwZ,        art:'min.', col:'#16a34a'},
+    {n:'KOHLENH.', ist:num(s&&s.kh),             ziel:khZ,         art:'max.', col:'#3987e5'},
+    {n:'BALLASTST.',ist:num(s&&s.ballaststoffe), ziel:BALLAST_ZIEL,art:'min.', col:'#d97706'},
+    {n:'FETT',     ist:num(s&&s.fett),           ziel:fettZ,       art:'max.', col:'#7c6fe0'}
+  ].map(m=>{ m.ist=Math.round(m.ist||0); m.pct=(m.ziel>0)?(m.ist/m.ziel):null; return m; });
+  let inner='';
+  if(variante==='flux'){
+    /* Bahnen wie auf der Produktkarte; Beschriftung GESTAPELT: Name oben, Zahlen darunter. */
+    const bahn=['M26 52 H74 L106 82','M274 52 H226 L194 82','M26 160 H74 L106 130','M274 160 H226 L194 130'];
+    const kap=[[26,52],[274,52],[26,160],[274,160]];
+    const lblY=[[26,24,36,'start'],[274,24,36,'end'],[26,180,192,'start'],[274,180,192,'end']];
+    let svg='<svg viewBox="0 0 300 206" style="width:100%;display:block" role="img" aria-label="Tagesüberblick als Fluxkompensator">'
+      +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">';
+    MK.forEach((m,i)=>{ svg+=_fluxBahn(bahn[i], m.pct, m.col); });
+    svg+='</g>';
+    MK.forEach((m,i)=>{ svg+='<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="7" fill="'+(m.pct==null?'#9aa7a0':m.col)+'"/>'; });
+    svg+='<circle cx="150" cy="106" r="42" fill="none" stroke="'+(kp>=100?'#c88616':'#16a34a')+'" stroke-width="5"/>'
+      +'<text x="150" y="102" text-anchor="middle" style="font-size:25px;font-weight:800" fill="var(--tb-text,#1d2b3a)">'+kc+'</text>'
+      +'<text x="150" y="120" text-anchor="middle" style="font-size:9.5px" fill="var(--tb-muted,#64748b)">von '+Math.round(kcalZ)+' kcal · '+kp+'%'+(anTraining?' · 💪':'')+'</text>';
+    MK.forEach((m,i)=>{ const L=lblY[i];
+      svg+='<text x="'+L[0]+'" y="'+L[1]+'" text-anchor="'+L[3]+'" style="font-size:10px;font-weight:700" fill="'+m.col+'">'+m.n+'</text>'
+         +'<text x="'+L[0]+'" y="'+L[2]+'" text-anchor="'+L[3]+'" style="font-size:9.5px" fill="var(--tb-muted,#64748b)">'+m.ist+(m.ziel?('/'+Math.round(m.ziel)):'')+' g · '+m.art+'</text>'; });
+    svg+='</svg>';
+    inner=svg;
+  } else {
+    const kachel=m=>'<div style="background:var(--tb-card2,var(--k-fbf8f2));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;padding:8px 10px">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--tb-muted)">'+m.n+' <span style="float:right;font-weight:400">'+m.art+'</span></div>'
+      +'<div style="font-size:15px;font-weight:700">'+m.ist+'<span style="font-weight:400;color:var(--tb-muted);font-size:11px">'+(m.ziel?('/'+Math.round(m.ziel)+' g'):' g')+'</span></div>'
+      +'<div style="height:4px;border-radius:99px;background:var(--tb-line,var(--k-e7e0d4));position:relative;overflow:hidden;margin-top:5px">'+(m.pct!=null?('<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.round(Math.max(0,Math.min(1,m.pct))*100)+'%;background:'+m.col+';border-radius:99px"></div>'):'')+'</div>'
+    +'</div>';
+    inner='<div style="display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:8px">'
+      +'<div style="grid-row:span 2;background:var(--tb-card2,var(--k-fbf8f2));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px">'
+        +'<div style="position:relative;width:84px;height:84px">'
+          +'<svg viewBox="0 0 100 100" style="width:100%"><circle cx="50" cy="50" r="42" fill="none" stroke="var(--tb-line,#e8edf5)" stroke-width="10"/><circle cx="50" cy="50" r="42" fill="none" stroke="'+(kp>=100?'#c88616':'#16a34a')+'" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="'+(264*(1-Math.min(1,kp/100))).toFixed(0)+'" transform="rotate(-90 50 50)"/></svg>'
+          +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><b style="font-size:17px">'+kp+'%</b></div>'
+        +'</div>'
+        +'<b style="margin-top:5px;font-size:13.5px">'+kc+' <span style="font-weight:400;color:var(--tb-muted);font-size:11px">/'+Math.round(kcalZ)+' kcal'+(anTraining?' · 💪':'')+'</span></b>'
+      +'</div>'
+      +kachel(MK[0])+kachel(MK[1])+kachel(MK[3])+kachel(MK[2])
+    +'</div>';
+  }
+  el.innerHTML=kopfzeile+inner+trainingstagBox()
+    +'<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein &amp; Ballaststoffe = Mindestziel · Fett/KH/kcal = Obergrenze'+((s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):'')+'</div>';
+}
 function renderZiel(s,ben){
+  window._tbZielCache={s:s,ben:ben};
+  if(typeof feat==='function' && feat('tagebuch_neu')) return renderZielNeu(s,ben);
   const el=document.getElementById("tbZiel");
   const kcalBasis=num(ben&&ben.Kalorienziel_kcal), eiwZ=num(ben&&ben.Eiweiss_ziel_g), khZ=num(ben&&ben.KH_ziel_g), fettZ=num(ben&&ben.Fett_ziel_g);
   if(!kcalBasis){ el.innerHTML='<div style="font-weight:600;margin-bottom:6px">Kein Tagesziel gesetzt</div>'+zielForm(); return; }
@@ -7565,9 +7610,21 @@ async function tbMzEditor(rid){
   try{ await loadRezepte(); }catch(e){}
   try{ openRezeptForm(rid); }catch(e){}
 }
+/* 27z4: Mahlzeit auf-/zuklappen (Ralph: Aufklappen statt Flip; beim Öffnen des Tagebuchs
+   ZUgeklappt). Der Merker lebt nur in der Sitzung: beim Seiten-Start leer (= alles zu),
+   beim Neu-Rendern nach einem Eintrag bleibt die gerade offene Mahlzeit offen - sonst
+   klappte die Karte nach jedem Hinzufügen zu, mitten in der Arbeit. */
+function tbMealToggle(m){
+  window._tbOpen=window._tbOpen||{};
+  window._tbOpen[m]=!window._tbOpen[m];
+  try{ renderTbListe(window._tbItems, window._tbGoal); }catch(e){}
+}
+if(typeof window!=='undefined'){ window.tbMealToggle=tbMealToggle; }
 function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
   items=items||[]; window._tbItems=items; window._tbGoal=goal||{};
+  const neu=(typeof feat==='function' && feat('tagebuch_neu'));
+  window._tbOpen=window._tbOpen||{};
   const icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
   const snackActive=items.some(i=>i.Mahlzeit==="Snack");
   const share=mealShares(goal, snackActive);
@@ -7580,17 +7637,26 @@ function renderTbListe(items, goal){
     dayK+=mk; dP+=mp; dF+=mf; dKh+=mkh;
     rows.forEach(r=>{const sc=num(r.Clean_Score),g=num(r.Menge_g); if(sc!=null&&g!=null&&g>0){dSW+=sc*g;dSG+=g;}});
     const ms=mealScore(rows), sh=share[m]||0;
-    const plusBtn=`<button onclick="tbOpenAdd('${m}')" title="Zu ${m} hinzufügen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid var(--tb-line);color:var(--k-2e7d32);font-size:18px;line-height:1;cursor:pointer;flex:0 0 auto">+</button>`;
+    /* stopPropagation: die Knöpfe sitzen im klickbaren Kopf - ohne Stopp würde jeder
+       Plus-Klick die Karte zusätzlich auf-/zuklappen (27z4). */
+    const plusBtn=`<button onclick="event.stopPropagation();tbOpenAdd('${m}')" title="Zu ${m} hinzufügen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid var(--tb-line);color:var(--k-2e7d32);font-size:18px;line-height:1;cursor:pointer;flex:0 0 auto">+</button>`;
     /* 27x (Ralph, Variante B): Mahlzeit als Rezept übernehmen. Doppelt geschützt:
        Beta-Flag mahlzeit_rezept (§3.0) UND die Stufen-Berechtigung rezepte_anlegen -
        wer keine Rezepte anlegen darf, bekommt den Knopf gar nicht erst (§3.05). */
     const rezBtn=(rows.length && typeof feat==='function' && feat('mahlzeit_rezept') && hasFeat('rezepte_anlegen'))
-      ? `<button onclick="tbMzRezOpen('${m}')" title="Diese Mahlzeit als Rezept speichern" style="width:30px;height:30px;border-radius:50%;background:var(--greenlt,var(--k-eaf5ee));border:1.5px solid var(--k-16a34a);color:var(--k-166534);font-size:14px;line-height:1;cursor:pointer;flex:0 0 auto">🥗</button>` : '';
+      ? `<button onclick="event.stopPropagation();tbMzRezOpen('${m}')" title="Diese Mahlzeit als Rezept speichern" style="width:30px;height:30px;border-radius:50%;background:var(--greenlt,var(--k-eaf5ee));border:1.5px solid var(--k-16a34a);color:var(--k-166534);font-size:14px;line-height:1;cursor:pointer;flex:0 0 auto">🥗</button>` : '';
+    /* 27z4: im neuen Layout ist der Kopf klickbar und traegt einen Pfeil; der Inhalt liegt
+       in einem zusammenklappbaren Container. Altes Layout unveraendert. */
+    const open=!!window._tbOpen[m];
+    const caret=(neu&&rows.length)?`<span style="color:var(--tb-muted);font-size:12px;flex:0 0 auto;transition:transform .25s;${open?'transform:rotate(180deg)':''}">▾</span>`:'';
     const rightHead = rows.length
-      ? `<span style="display:flex;align-items:center;gap:8px">${scoreChip(ms)}<span style="color:var(--k-2e7d32)">${Math.round(mk)} kcal</span>${rezBtn}${plusBtn}</span>`
+      ? `<span style="display:flex;align-items:center;gap:8px">${scoreChip(ms)}<span style="color:var(--k-2e7d32)">${Math.round(mk)} kcal</span>${rezBtn}${plusBtn}${caret}</span>`
       : `<span style="display:flex;align-items:center;gap:8px"><span style="font-size:11.5px;color:var(--tb-muted)">${gK?('Empfohlen ~'+Math.round(gK*sh)+' kcal'):''}</span>${plusBtn}</span>`;
+    const headKlick=(neu&&rows.length)?` onclick="tbMealToggle('${m}')" `:' ';
+    const headBorder=rows.length&&(!neu||open)?'border-bottom:2px solid rgba(22,163,74,.28)':'';
     html+=`<div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:14px;padding:4px 14px 8px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 ${rows.length?'7px':'9px'};${rows.length?'border-bottom:2px solid rgba(22,163,74,.28)':''}"><span>${icons[m]||"•"} ${m}</span>${rightHead}</div>`;
+      <div${headKlick}style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 ${rows.length?'7px':'9px'};${headBorder};${(neu&&rows.length)?'cursor:pointer;user-select:none':''}"><span>${icons[m]||"•"} ${m}</span>${rightHead}</div>`;
+    if(neu&&rows.length){ html+=`<div style="display:${open?'':'none'}">`; }
     if(rows.length){
       let tgt="";
       if(gK){
@@ -7610,6 +7676,7 @@ function renderTbListe(items, goal){
         </div>`; });
       html+=`<div style="font-size:11.5px;color:var(--tb-muted);padding:7px 0 2px">Mahlzeit gesamt: Eiweiß <b>${Math.round(mp)} g</b> · KH <b>${Math.round(mkh)} g</b> · Fett <b>${Math.round(mf)} g</b></div>`;
     }
+    if(neu&&rows.length){ html+=`</div>`; }   /* Ende Aufklapp-Container (27z4) */
     html+=`</div>`;
   });
   const dayScore = dSG>0?Math.round(dSW/dSG):null;
@@ -9995,7 +10062,7 @@ async function openFgEditor(id, prefill, targetEl){
             <div style="margin-top:5px">Der Balken links zeigt, ob die Menge einen <b>EU-anerkannten Nutzen</b> erreicht (gesundheitsbezogene Aussage nach VO&nbsp;432/2012 ab 15 % NRV). <b>Grün heißt „wirksame Menge", nicht „gesund".</b> Aminosäuren/Pflanzenstoffe (z. B. Glycin) haben keine zugelassene Aussage → grau.</div>
           </div>
           <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
-          <datalist id="feWirkDL">${wirkDLOptions()}</datalist>
+          <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
             `)}</div>
             <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span style="text-transform:none;color:var(--muted)">(zoombar – Mausrad / ziehen)</span>`,`
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
@@ -10128,7 +10195,6 @@ function feKatChange(){
   if(special){
     if(_wc) _wc.style.display=""; if(_wtc) _wtc.style.display="";   /* Wirkstoff-Tabelle nur bei Supplement/Salze */
     try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
-    try{ ladeWirkDB(); }catch(e){}   /* Dropdown "alle Wirkstoffe" aus DB nachfuellen (Ralph 27.07.) */
   try{ feWirkFarbeAll(); }catch(e){}
   } else {
     if(_wc) _wc.style.display="none";
@@ -15187,7 +15253,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27z3s";
+const APP_BUILD = "2026-07-27z4";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
