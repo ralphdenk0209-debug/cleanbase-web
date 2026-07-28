@@ -10410,6 +10410,22 @@ async function rikiBudget(){
       +' · '+b.aufrufe_monat+' Aufrufe'+(b.erlaubt?'':' <b>· LIMIT ERREICHT</b>');
   }catch(e){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e.message; }
 }
+/* 28z9 (Ralph): Der TEXT "Weblink" ist klickbar - steht eine URL im Feld (von Hand oder
+   nach "Riki liest die Seite"), oeffnet ein Klick sie in neuem Fenster (noopener). Der Link
+   liest IMMER den aktuellen Feldwert - kein zweiter Speicherort fuer die URL (§1.11i). */
+function feUrlOeffnen(){
+  var u=((document.getElementById('fe_url')||{}).value||'').trim();
+  if(/^https?:\/\//i.test(u)){ try{ window.open(u,'_blank','noopener'); }catch(e){} }
+}
+function feUrlLblSync(){
+  var l=document.getElementById('fe_urlLbl'); if(!l) return;
+  var u=((document.getElementById('fe_url')||{}).value||'').trim();
+  var ok=/^https?:\/\//i.test(u);
+  l.style.textDecoration=ok?'underline':'none';
+  l.style.cursor=ok?'pointer':'default';
+  l.title=ok?('Öffnet in neuem Fenster: '+u):'Link ins Feld einfügen, dann wird „Weblink" klickbar';
+}
+if(typeof window!=='undefined'){ window.feUrlOeffnen=feUrlOeffnen; window.feUrlLblSync=feUrlLblSync; }
 async function openFgEditor(id, prefill, targetEl){
   /* targetEl (optional): rendert den Editor INLINE in einen Container (z. B. Master-Detail-
      Seite „Produkt-Erfassung") statt ins Vollbild-Overlay. Ohne targetEl unveraendert. */
@@ -10551,8 +10567,8 @@ async function openFgEditor(id, prefill, targetEl){
       <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);cursor:pointer;margin-bottom:11px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px;padding:7px 10px"><input type="checkbox" id="fe_nurLeer" ${window._fgNurLeer?"checked":""} onchange="window._fgNurLeer=this.checked" style="width:16px;height:16px;flex:0 0 auto;accent-color:var(--k-16a34a)"><span><b>Füllt nur leere Felder</b> – ein neuer Lese-Vorgang überschreibt vorhandene Werte dann nicht (zum Nachfüllen fehlender Angaben).</span></label>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch">
         <div style="border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--card);display:flex;flex-direction:column;gap:7px">
-          <div style="font-size:12px;font-weight:700;color:#3b56b0">🔗 Weblink</div>
-          <input id="fe_url" value="${esc(d.produktlink||"")}" placeholder="https://… Herstellerseite" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px">
+          <div style="font-size:12px;font-weight:700;color:#3b56b0">🔗 <span id="fe_urlLbl" onclick="feUrlOeffnen()" title="Seite in neuem Fenster öffnen" style="cursor:default">Weblink</span></div>
+          <input id="fe_url" oninput="feUrlLblSync()" value="${esc(d.produktlink||"")}" placeholder="https://… Herstellerseite" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px">
           <button type="button" onclick="fgPullHersteller()" style="margin-top:auto;padding:8px 12px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap">Riki liest die Seite ▸</button>
         </div>
         <div id="fe_pasteZone" tabindex="0" onpaste="fePasteImg(event)" onclick="this.focus()" style="border:2px dashed #b9b3e8;border-radius:10px;padding:10px;background:var(--k-f6f5fd,#f6f5fd);color:var(--k-534ab7);font-size:12px;line-height:1.45;cursor:text;outline:none;display:flex;flex-direction:column;gap:5px">
@@ -10731,6 +10747,7 @@ async function openFgEditor(id, prefill, targetEl){
     try{ await katKonfigLoad(); }catch(e){}   /* Darstellung je Kategorie kennen, bevor die Karte gebaut wird (Ralph 25.07.) */
     try{ feEinheitPrefill(d); }catch(e){}   /* Bezugseinheit g/ml vorbelegen (Ralph 27.07.) */
     try{ feKatChange(); }catch(e){}
+    try{ feUrlLblSync(); }catch(e){}
     try{ keinScoreKatsLaden().then(function(){ try{ feKatChange(); }catch(e){} }); }catch(e){}   /* 28z3: Kein-Score-Liste nachladen, Layout+Pflichten dann korrekt */
     try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
     try{ feWirkLoad(d.wirkstoffe, d.wirkstoffe_nicht_verfuegbar); }catch(e){}   /* Wirkstoff-Mengen (Dosis) laden */
@@ -10814,8 +10831,9 @@ function feKatChange(){
     if(_fg) _fg.style.gridTemplateColumns = supp ? "minmax(0,1fr) minmax(280px,320px)" : "";
     var _wcMv=document.getElementById("fe_wirkCard"), _wAnker=document.getElementById("fe_wirkAnker");
     try{
-      if(supp){ if(_png && _wcMv && _wcMv.parentNode!==_png){ _png.appendChild(_wcMv); _wcMv.style.marginTop="0"; } }
+      if(supp){ if(_png && _wcMv && _wcMv.parentNode!==_png){ _png.appendChild(_wcMv); _wcMv.style.marginTop="0"; } var _wg2=document.getElementById("fe_wirkGrid"); if(_wg2) _wg2.style.gridTemplateColumns="minmax(0,1.25fr) minmax(0,1fr)"; }
       else if(_wAnker && _wcMv && _wcMv.previousElementSibling!==_wAnker){ _wAnker.parentNode.insertBefore(_wcMv, _wAnker.nextSibling); _wcMv.style.marginTop="2px"; }
+      if(!supp){ var _wg3=document.getElementById("fe_wirkGrid"); if(_wg3) _wg3.style.gridTemplateColumns=""; }
     }catch(e){}
     var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display=_mikroAus?"none":"flex";
     var _c2=document.getElementById("fe_colZusMik"); if(_c2) _c2.style.gridTemplateRows=_mikroAus?"minmax(0,1fr)":"minmax(0,1.6fr) minmax(0,1fr)";
@@ -10831,10 +10849,10 @@ function feKatChange(){
 function feWirkRow(w){ w=w||{};
   var opt=WIRK_EINHEITEN.map(function(u){ return '<option'+(String(w.einheit||"mg")===u?' selected':'')+'>'+u+'</option>'; }).join("");
   return '<div class="feWirkRow" style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;margin-bottom:6px;align-items:center">'
-    +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{feWirkFarbeRow(this)}catch(e){};try{fePlaus()}catch(e){}" placeholder="z. B. Vitamin C" style="padding:6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0">'
-    +'<input class="fwMenge" type="number" step="any" value="'+esc(w.menge==null?"":String(w.menge))+'" oninput="try{fePlaus()}catch(e){}" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0">'
-    +'<select class="fwEinheit" style="padding:6px 4px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0">'+opt+'</select>'
-    +'<input class="fwNrv" type="number" step="any" value="'+esc(w.nrv==null?"":String(w.nrv))+'" oninput="try{feWirkFarbeRow(this)}catch(e){}" placeholder="%" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0">'
+    +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{feWirkFarbeRow(this)}catch(e){};try{fePlaus()}catch(e){}" placeholder="z. B. Vitamin C" style="padding:6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
+    +'<input class="fwMenge" type="number" step="any" value="'+esc(w.menge==null?"":String(w.menge))+'" oninput="try{fePlaus()}catch(e){}" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
+    +'<select class="fwEinheit" style="padding:6px 4px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'+opt+'</select>'
+    +'<input class="fwNrv" type="number" step="any" value="'+esc(w.nrv==null?"":String(w.nrv))+'" oninput="try{feWirkFarbeRow(this)}catch(e){}" placeholder="%" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
     +'<button type="button" onclick="feWirkDel(this)" title="entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:7px;width:26px;height:28px;cursor:pointer;flex:0 0 auto">✕</button>'
     +'</div>';
 }
@@ -16014,7 +16032,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z8";
+const APP_BUILD = "2026-07-28z10";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
