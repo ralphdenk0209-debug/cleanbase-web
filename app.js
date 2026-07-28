@@ -6014,6 +6014,13 @@ function startProdSearch(v){ navTo('produkte'); setTimeout(function(){ var el=do
    Ergebnis, schliesst - und steht wieder genau dort, wo man war.
    =========================================================================== */
 function startProdScan(){
+  /* 28a (Ralph): Im TAGEBUCH scannt der große Knopf direkt INS Tagebuch (derselbe Weg wie
+     der frühere kleine ▦-Knopf: Scan -> Produkt -> Mengen-Ansicht -> Eintrag). Überall
+     sonst bleibt die Produkt-Suche unverändert. */
+  try{
+    var _tb=document.getElementById('tagebuchView');
+    if(_tb && _tb.style.display!=='none' && typeof feat==='function' && feat('tagebuch_neu')){ tbOpenScan(); return; }
+  }catch(e){}
   let ov=document.getElementById("scanFull");
   if(ov) ov.remove();
   ov=document.createElement("div");
@@ -7263,6 +7270,7 @@ async function loadTagebuch(){
   if(window._zyklus===undefined){ try{ const {data:zk}=await client.rpc("cb_zyklus_get"); const r=(zk&&zk[0])||{}; window._zyklus=(r.start)?{start:r.start,laenge:r.laenge||28,ende:r.ende||null}:{}; }catch(e){ window._zyklus={}; } }
   renderZyklusHint();
   renderTbListe(eintraege||[], profil&&profil[0]);
+  try{ tbKopfNeuAnwenden(); }catch(e){}   /* 28a: schlanker Kopf (nur mit Flag; NACH dem Datums-Label) */
   const {data:gw}=await client.rpc("cb_gewicht");
   document.getElementById("tbGewichtInfo").textContent = (gw&&gw[0])?("Zuletzt: "+gw[0].Gewicht_kg+" kg ("+gw[0].Datum+")"):"noch kein Gewicht erfasst";
 }
@@ -7410,20 +7418,74 @@ async function einstLaden(){
     window.__einst=m; return m;
   }catch(e){ return (window.__einst=window.__einst||{}); }
 }
-function tbKopfSet(v){
-  window.__einst=window.__einst||{}; window.__einst.tagebuch_kopf=v;
-  try{ client.rpc('cb_einstellung_setzen',{p_key:'tagebuch_kopf',p_wert:v}).then(function(){},function(){}); }catch(e){}
-  const c=window._tbZielCache; if(c) renderZiel(c.s,c.ben);
+/* 28a (Ralph): "der flux ist zu groß, wir nehmen die kacheln" - Flux-Kopf und Schalter
+   ENTFERNT (kein toter Code als geladene Falle, §1.11n-p). Die Tabelle Benutzer_Einstellung
+   und einstLaden bleiben: generischer Weg für künftige Nutzer-Vorlieben. */
+/* ===== 28a: SCHLANKER TAGEBUCH-KOPF (Ralph: Kopf 2, "aber ohne tagebuch … der name kann
+   auch weg … und der barcode button auch") =====
+   Zeile 1: nur "📊 Statistik · 🥗 Nährstoffe" als Text-Reiter. Zeile 2: ‹ Datum › + 🗓 + 🔍.
+   Die ALTEN Kopfzeilen werden versteckt, nicht entfernt - ihre Elemente (v.a. das
+   Datums-Feld #tbDatum) werden vom restlichen Code weiter gelesen; ein gelöschtes Feld
+   wäre die §1.11n-j-Falle. Suche klappt per 🔍 auf; der kleine ▦-Scan-Knopf entfällt,
+   den Job übernimmt im Tagebuch der große Knopf unten (startProdScan). */
+function tbSucheToggle(){
+  var r=document.getElementById('tbSuchRow'); if(!r) return;
+  var zu=(r.style.display==='none');
+  r.style.display=zu?'flex':'none';
+  window.__tbSuchOffen=zu;
+  if(zu){ try{ document.getElementById('tbTopSearch').focus(); }catch(e){} }
 }
-/* Ein Makro als Flux-Bahn: Anteil 0..1 vom Ziel; ohne Ziel bleibt die Bahn grau (§1.13:
-   ohne Sollwert keine Fuellstands-Aussage). */
-function _fluxBahn(d, pct, col){
-  const L=92;
-  const grund='<path d="'+d+'" stroke="rgba(120,120,120,.16)"/>';
-  if(pct==null) return grund;
-  const off=(L*(1-Math.max(0,Math.min(1,pct)))).toFixed(1);
-  return grund+'<path d="'+d+'" stroke="'+col+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+off+'"/>';
+function tbKopfNeuAnwenden(){
+  if(!(typeof feat==='function' && feat('tagebuch_neu'))) return;
+  try{
+    var t=document.getElementById('tbTitle'); if(t&&t.parentElement) t.parentElement.style.display='none';
+    var nav=document.getElementById('tbCtrlNav'); if(nav) nav.style.display='none';
+    var s=document.getElementById('tbTopSearch'); var srow=s?s.parentElement:null;
+    if(srow){
+      srow.id='tbSuchRow';
+      if(!window.__tbSuchOffen) srow.style.display='none';
+      var sb=srow.querySelector('button'); if(sb) sb.style.display='none';   /* kleiner ▦ entfällt (Ralph) */
+    }
+    var k=document.getElementById('tbKopfNeu');
+    if(!k){
+      k=document.createElement('div'); k.id='tbKopfNeu';
+      var inner=document.getElementById('tbInner'); var anker=document.getElementById('tbLimitHint');
+      if(inner&&anker) inner.insertBefore(k,anker); else if(inner) inner.prepend(k); else return;
+    }
+    var lbl=((document.getElementById('tbDatumLabel')||{}).textContent||'').trim();
+    var ib='width:34px;height:34px;border:1px solid var(--tb-line);border-radius:10px;background:var(--tb-card);color:var(--tb-muted);cursor:pointer;font-size:15px;line-height:1';
+    k.innerHTML=
+      '<div style="display:flex;gap:16px;align-items:baseline;margin-bottom:8px;padding:0 2px">'
+        +'<button onclick="toggleTbStatistik()" style="border:0;background:none;padding:0;font-size:14px;font-weight:700;color:var(--tb-text);cursor:pointer">📊 Statistik</button>'
+        +'<button onclick="openTbMikro()" style="border:0;background:none;padding:0;font-size:14px;font-weight:700;color:var(--tb-text);cursor:pointer">🥗 Nährstoffe</button>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:0 2px">'
+        +'<span style="display:flex;gap:6px;align-items:center">'
+          +'<button onclick="tbShiftDay(-1)" title="Tag zurück" style="'+ib+';width:30px;height:30px">‹</button>'
+          +'<b onclick="tbGoToday()" title="Tipp: zurück zu Heute" style="font-size:14.5px;color:var(--tb-text);cursor:pointer;user-select:none">'+esc(lbl||'…')+'</b>'
+          +'<button onclick="tbShiftDay(1)" title="Tag vor" style="'+ib+';width:30px;height:30px">›</button>'
+        +'</span>'
+        +'<span style="display:flex;gap:6px">'
+          +'<button onclick="toggleTbKalender()" title="Kalender" style="'+ib+'">🗓</button>'
+          +'<button onclick="tbSucheToggle()" title="Lebensmittel suchen" style="'+ib+'">🔍</button>'
+        +'</span>'
+      +'</div>';
+  }catch(e){}
 }
+if(typeof window!=='undefined'){ window.tbKopfNeuAnwenden=tbKopfNeuAnwenden; window.tbSucheToggle=tbSucheToggle; }
+/* 28a: Der große Scan-Knopf unten pulsiert DEZENT, solange das Tagebuch offen ist - dort
+   fügt er Gescanntes direkt ins Tagebuch ein. Beobachter statt Eingriff in setMode. */
+(function tbScanPulsStart(){
+  function start(){
+    var v=document.getElementById('tagebuchView'); var nav=document.querySelector('.bottomnav');
+    if(!v||!nav) return;
+    var sync=function(){ var an=(v.style.display!=='none') && (typeof feat==='function'&&feat('tagebuch_neu')); nav.classList.toggle('tbPuls', !!an); };
+    try{ new MutationObserver(sync).observe(v,{attributes:true,attributeFilter:['style']}); }catch(e){}
+    sync();
+  }
+  if(typeof document==='undefined') return;
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+})();
 function renderZielNeu(s,ben){
   const el=document.getElementById("tbZiel"); if(!el) return;
   const kcalBasis=num(ben&&ben.Kalorienziel_kcal), eiwZ=num(ben&&ben.Eiweiss_ziel_g), khZ=num(ben&&ben.KH_ziel_g), fettZ=num(ben&&ben.Fett_ziel_g);
@@ -7431,56 +7493,34 @@ function renderZielNeu(s,ben){
   const anTraining=!!(TT&&TT.ok&&TT.aktiv);
   const kcalZ=anTraining&&TT.kcal_heute?Number(TT.kcal_heute):kcalBasis;
   const kc=Math.round((s&&s.kcal)||0), kp=kcalZ?Math.min(100,Math.round(kc/kcalZ*100)):0;
-  const variante=((window.__einst&&window.__einst.tagebuch_kopf)==='kacheln')?'kacheln':'flux';
-  const segBtn=(v,lbl)=>'<button onclick="tbKopfSet(\''+v+'\')" style="border:0;border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer;background:'+(variante===v?'var(--k-ffffff)':'transparent')+';color:'+(variante===v?'var(--k-166534)':'var(--tb-muted)')+';'+(variante===v?'box-shadow:0 1px 3px rgba(0,0,0,.12)':'')+'">'+lbl+'</button>';
   const kopfzeile='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
     +'<div style="font-weight:600">Tagesüberblick</div>'
-    +'<span style="display:flex;gap:8px;align-items:center">'
-      +'<span style="display:flex;background:var(--tb-card2,var(--k-e9e4d7));border-radius:10px;padding:2px;gap:0">'+segBtn('flux','⚛ Flux')+segBtn('kacheln','▦ Kacheln')+'</span>'
-      +'<button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:var(--tb-muted);cursor:pointer;text-decoration:underline">Ziel ändern</button>'
-    +'</span></div>';
+    +'<button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:var(--tb-muted);cursor:pointer;text-decoration:underline">Ziel ändern</button>'
+    +'</div>';
   const MK=[
     {n:'EIWEISS',  ist:num(s&&s.protein),        ziel:eiwZ,        art:'min.', col:'#16a34a'},
     {n:'KOHLENH.', ist:num(s&&s.kh),             ziel:khZ,         art:'max.', col:'#3987e5'},
     {n:'BALLASTST.',ist:num(s&&s.ballaststoffe), ziel:BALLAST_ZIEL,art:'min.', col:'#d97706'},
     {n:'FETT',     ist:num(s&&s.fett),           ziel:fettZ,       art:'max.', col:'#7c6fe0'}
   ].map(m=>{ m.ist=Math.round(m.ist||0); m.pct=(m.ziel>0)?(m.ist/m.ziel):null; return m; });
-  let inner='';
-  if(variante==='flux'){
-    /* Bahnen wie auf der Produktkarte; Beschriftung GESTAPELT: Name oben, Zahlen darunter. */
-    const bahn=['M26 52 H74 L106 82','M274 52 H226 L194 82','M26 160 H74 L106 130','M274 160 H226 L194 130'];
-    const kap=[[26,52],[274,52],[26,160],[274,160]];
-    const lblY=[[26,24,36,'start'],[274,24,36,'end'],[26,180,192,'start'],[274,180,192,'end']];
-    let svg='<svg viewBox="0 0 300 206" style="width:100%;display:block" role="img" aria-label="Tagesüberblick als Fluxkompensator">'
-      +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">';
-    MK.forEach((m,i)=>{ svg+=_fluxBahn(bahn[i], m.pct, m.col); });
-    svg+='</g>';
-    MK.forEach((m,i)=>{ svg+='<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="7" fill="'+(m.pct==null?'#9aa7a0':m.col)+'"/>'; });
-    svg+='<circle cx="150" cy="106" r="42" fill="none" stroke="'+(kp>=100?'#c88616':'#16a34a')+'" stroke-width="5"/>'
-      +'<text x="150" y="102" text-anchor="middle" style="font-size:25px;font-weight:800" fill="var(--tb-text,#1d2b3a)">'+kc+'</text>'
-      +'<text x="150" y="120" text-anchor="middle" style="font-size:9.5px" fill="var(--tb-muted,#64748b)">von '+Math.round(kcalZ)+' kcal · '+kp+'%'+(anTraining?' · 💪':'')+'</text>';
-    MK.forEach((m,i)=>{ const L=lblY[i];
-      svg+='<text x="'+L[0]+'" y="'+L[1]+'" text-anchor="'+L[3]+'" style="font-size:10px;font-weight:700" fill="'+m.col+'">'+m.n+'</text>'
-         +'<text x="'+L[0]+'" y="'+L[2]+'" text-anchor="'+L[3]+'" style="font-size:9.5px" fill="var(--tb-muted,#64748b)">'+m.ist+(m.ziel?('/'+Math.round(m.ziel)):'')+' g · '+m.art+'</text>'; });
-    svg+='</svg>';
-    inner=svg;
-  } else {
-    const kachel=m=>'<div style="background:var(--tb-card2,var(--k-fbf8f2));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;padding:8px 10px">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--tb-muted)">'+m.n+' <span style="float:right;font-weight:400">'+m.art+'</span></div>'
-      +'<div style="font-size:15px;font-weight:700">'+m.ist+'<span style="font-weight:400;color:var(--tb-muted);font-size:11px">'+(m.ziel?('/'+Math.round(m.ziel)+' g'):' g')+'</span></div>'
-      +'<div style="height:4px;border-radius:99px;background:var(--tb-line,var(--k-e7e0d4));position:relative;overflow:hidden;margin-top:5px">'+(m.pct!=null?('<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.round(Math.max(0,Math.min(1,m.pct))*100)+'%;background:'+m.col+';border-radius:99px"></div>'):'')+'</div>'
-    +'</div>';
-    inner='<div style="display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:8px">'
-      +'<div style="grid-row:span 2;background:var(--tb-card2,var(--k-fbf8f2));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px">'
-        +'<div style="position:relative;width:84px;height:84px">'
-          +'<svg viewBox="0 0 100 100" style="width:100%"><circle cx="50" cy="50" r="42" fill="none" stroke="var(--tb-line,#e8edf5)" stroke-width="10"/><circle cx="50" cy="50" r="42" fill="none" stroke="'+(kp>=100?'#c88616':'#16a34a')+'" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="'+(264*(1-Math.min(1,kp/100))).toFixed(0)+'" transform="rotate(-90 50 50)"/></svg>'
-          +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><b style="font-size:17px">'+kp+'%</b></div>'
-        +'</div>'
-        +'<b style="margin-top:5px;font-size:13.5px">'+kc+' <span style="font-weight:400;color:var(--tb-muted);font-size:11px">/'+Math.round(kcalZ)+' kcal'+(anTraining?' · 💪':'')+'</span></b>'
+  /* Kacheln FARBLICH ABGESTIMMT (Ralph 28.07.): weiße Karten wie der Rest der Seite,
+     EINE Akzentfarbe (Grün) für Ring und Prozent, die vier Achsenfarben nur noch als
+     schmale Füllbalken - ruhig statt bunt. */
+  const kachel=m=>'<div style="background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;padding:8px 10px">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--tb-muted);letter-spacing:.02em">'+m.n+' <span style="float:right;font-weight:400">'+m.art+'</span></div>'
+    +'<div style="font-size:15px;font-weight:700;color:var(--tb-text)">'+m.ist+'<span style="font-weight:400;color:var(--tb-muted);font-size:11px">'+(m.ziel?('/'+Math.round(m.ziel)+' g'):' g')+'</span></div>'
+    +'<div style="height:4px;border-radius:99px;background:var(--tb-track,var(--k-e7e0d4));position:relative;overflow:hidden;margin-top:5px">'+(m.pct!=null?('<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.round(Math.max(0,Math.min(1,m.pct))*100)+'%;background:'+m.col+';border-radius:99px"></div>'):'')+'</div>'
+  +'</div>';
+  const inner='<div style="display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:8px">'
+    +'<div style="grid-row:span 2;background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px">'
+      +'<div style="position:relative;width:84px;height:84px">'
+        +'<svg viewBox="0 0 100 100" style="width:100%"><circle cx="50" cy="50" r="42" fill="none" stroke="var(--tb-track,#e8edf5)" stroke-width="10"/><circle cx="50" cy="50" r="42" fill="none" stroke="'+(kp>=100?'#c88616':'#16a34a')+'" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="'+(264*(1-Math.min(1,kp/100))).toFixed(0)+'" transform="rotate(-90 50 50)"/></svg>'
+        +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><b style="font-size:17px;color:var(--tb-text)">'+kp+'%</b></div>'
       +'</div>'
-      +kachel(MK[0])+kachel(MK[1])+kachel(MK[3])+kachel(MK[2])
-    +'</div>';
-  }
+      +'<b style="margin-top:5px;font-size:13.5px;color:var(--tb-text)">'+kc+' <span style="font-weight:400;color:var(--tb-muted);font-size:11px">/'+Math.round(kcalZ)+' kcal'+(anTraining?' · 💪':'')+'</span></b>'
+    +'</div>'
+    +kachel(MK[0])+kachel(MK[1])+kachel(MK[3])+kachel(MK[2])
+  +'</div>';
   el.innerHTML=kopfzeile+inner+trainingstagBox()
     +'<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein &amp; Ballaststoffe = Mindestziel · Fett/KH/kcal = Obergrenze'+((s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):'')+'</div>';
 }
@@ -15300,7 +15340,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27z4s";
+const APP_BUILD = "2026-07-28a";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
