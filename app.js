@@ -9362,6 +9362,20 @@ function fgQuickGo(){
       return kand.some(function(t){ return String(t||'').trim().toLowerCase()===nl; });
     })[0]||null;
   }catch(e){}
+  /* 28x: Etikett-Kopien kleben oft Zahl an Name ("Kreatin-Monohydrat3500 mg"). NICHT still
+     trennen - bei "Vitamin D325 µg" ist unentscheidbar, ob D3+25 oder D+325 gemeint ist.
+     Stattdessen den gelesenen Vorschlag ZEIGEN und bestätigen lassen (nie raten). */
+  if(p.menge==null){
+    var g=p.name.match(/^(.*[^0-9\s])([0-9]+(?:[.,][0-9]+)?)\s*(µg|ug|mcg|mg|g|ml)$/i);
+    if(g){
+      var ge=g[3].toLowerCase(); if(ge==='ug'||ge==='mcg') ge='µg';
+      window._fgQuickP={ p:p, split:{name:g[1].trim(), menge:g[2].replace(',','.'), einheit:ge}, isSupp:isSupp };
+      fgQuickMsg('Die Menge klebt am Namen. Ich lese daraus: <b>'+esc(g[1].trim())+'</b> + <b>'+esc(g[2])+' '+esc(ge)+'</b> – stimmt das? '
+        +_fgQuickChip('splitOk','Ja, so übernehmen')
+        +'<span style="color:var(--muted)"> · sonst mit Leerzeichen neu tippen (z. B. „Kreatin-Monohydrat 3500 mg")</span>');
+      return;
+    }
+  }
   window._fgQuickP={ p:p, zus:zus, zt:zt, mk:mk, isSupp:isSupp };
   var routes=[]; if(zus) routes.push('zus'); if(zt) routes.push('zutat'); if(mk) routes.push('mikro');
   if(routes.length===0){
@@ -9382,6 +9396,9 @@ function fgQuickGo(){
 }
 function fgQuickDo(route){
   var P=window._fgQuickP; if(!P) return; var p=P.p; var fertig=true;
+  if(route==='splitOk' && P.split){ var qi=document.getElementById('fe_quickIn');
+    if(qi){ qi.value=P.split.name+' '+P.split.menge+' '+P.split.einheit; window._fgQuickP=null; fgQuickGo(); }
+    return; }
   if(route==='zus' && P.zus){
     var z=P.zus; window._fgZus=window._fgZus||[];
     var key=String(z.e||z.name||'').toLowerCase();
@@ -15857,7 +15874,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28w";
+const APP_BUILD = "2026-07-28x";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
