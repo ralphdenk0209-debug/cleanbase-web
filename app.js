@@ -14631,19 +14631,29 @@ function tbBatchLines(rows){
     if(!groups[b]){ groups[b]={name:t.rezept_name,menge:t.menge,kcal:0,ids:[]}; order.push(b); }
     groups[b].kcal+=(+r.kcal||0); groups[b].ids.push(Number(r.Eintrag_ID)); });
   if(!order.length) return {html:'',skip:null};
+  /* 28s (Ralph: "wenn ich drauf klicke, sollten die einzelnen zutaten in der liste zum aendern sein"):
+     Klick auf die Rezept-Zeile klappt die ZUTATEN-Einzeleintraege auf - die existieren laengst
+     (eine Tagebuch-Zeile je Zutat), die Gruppierung hat sie nur versteckt. Aufgeklappt erscheinen
+     sie als normale Zeilen mit den BESTEHENDEN Aendern-/Loeschen-Wegen (Mengen-Blatt, ✕) -
+     Austausch = Zutat loeschen + neue hinzufuegen. Kein zweiter Aenderungspfad. Merker nur je Sitzung. */
+  window._tbBatchOpen=window._tbBatchOpen||{};
   var skip=new Set(), html='';
-  order.forEach(function(b){ var g=groups[b]; g.ids.forEach(function(id){ skip.add(id); });
+  order.forEach(function(b){ var g=groups[b];
+    var open=!!window._tbBatchOpen[b];
+    if(!open){ g.ids.forEach(function(id){ skip.add(id); }); }
     var nm=(g.name||'Rezept'); nm=nm.replace(/^aus Rezept:\s*/,'');
-    html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--tb-line)">'
-      +'<div style="min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🍲 '+esc(nm)+'</div>'
-      +'<div style="color:var(--tb-muted);font-size:12.5px">'+esc(g.menge||'')+' · '+g.ids.length+' Zutat'+(g.ids.length===1?'':'en')+'</div></div>'
+    var bq=String(b).replace(/'/g,"\\'");
+    html+='<div onclick="tbBatchToggle(\''+bq+'\')" title="'+(open?'zuklappen':'Klick: Zutaten einzeln ändern/tauschen')+'" style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--tb-line);cursor:pointer">'
+      +'<div style="min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="display:inline-block;width:13px;color:var(--tb-muted)">'+(open?'▾':'▸')+'</span>🍲 '+esc(nm)+'</div>'
+      +'<div style="color:var(--tb-muted);font-size:12.5px">'+esc(g.menge||'')+' · '+g.ids.length+' Zutat'+(g.ids.length===1?'':'en')+(open?' · <b>einzeln änderbar – Klick klappt zu</b>':'')+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>'+Math.round(g.kcal)+'</b> <span style="font-size:11px;color:var(--tb-muted)">kcal</span></span>'
-      +'<button onclick="tbDelRezept(\''+b+'\')" title="Rezept entfernen" style="border:0;background:var(--tb-card2);border-radius:8px;width:27px;height:27px;color:var(--k-f87171);cursor:pointer;font-size:14px">✕</button></div></div>';
+      +'<button onclick="event.stopPropagation();tbDelRezept(\''+bq+'\')" title="Rezept entfernen" style="border:0;background:var(--tb-card2);border-radius:8px;width:27px;height:27px;color:var(--k-f87171);cursor:pointer;font-size:14px">✕</button></div></div>';
   });
   return {html:html,skip:skip};
 }
+function tbBatchToggle(b){ window._tbBatchOpen=window._tbBatchOpen||{}; window._tbBatchOpen[b]=!window._tbBatchOpen[b]; try{ loadTagebuch(); }catch(e){} }
 function tbDelRezept(b){ if(!b) return; client.rpc("cb_tb_rezept_del",{p_batch:b}).then(function(){ loadTagebuch(); }); }
-if(typeof window!=='undefined'){ window.tbRezOpen=tbRezOpen; window.tbRezBuchenRender=tbRezBuchenRender; window.tbRezMode=tbRezMode; window.tbRezVorschau=tbRezVorschau; window.tbRezBuchenSave=tbRezBuchenSave; window.tbBatchLines=tbBatchLines; window.tbDelRezept=tbDelRezept; }
+if(typeof window!=='undefined'){ window.tbRezOpen=tbRezOpen; window.tbRezBuchenRender=tbRezBuchenRender; window.tbRezMode=tbRezMode; window.tbRezVorschau=tbRezVorschau; window.tbRezBuchenSave=tbRezBuchenSave; window.tbBatchLines=tbBatchLines; window.tbBatchToggle=tbBatchToggle; window.tbDelRezept=tbDelRezept; }
 
 /* ===== APP-STORE-VORBEREITUNG (Ralph 25.07.) =====
    1) Native-Erkennung (Capacitor), 2) Bezahl-Weiche (iOS -> Apple statt Stripe),
@@ -15697,7 +15707,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28r";
+const APP_BUILD = "2026-07-28s";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
