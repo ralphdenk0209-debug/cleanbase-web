@@ -10329,8 +10329,8 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
       <div style="min-width:0">
         <div id="feTabBar" style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:10px">
-          <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="border:0;background:none;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--k-166534);border-bottom-color:var(--k-16a34a)">📋 Produkt &amp; Nährwerte <span id="feTab1Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span><span id="feTab1Ean" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:#eef1f5;color:var(--muted)"></span></button>
-          <button type="button" id="feTabBtn2" onclick="feTabWechsel(2)" style="border:0;background:none;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🥣 Zutaten &amp; Referenz <span id="feTab2Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
+          <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="border:0;background:var(--greenlt,#ecfdf5);border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--k-166534);border-bottom-color:var(--k-16a34a)">📋 Produkt &amp; Nährwerte <span id="feTab1Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span><span id="feTab1Ean" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:#fef9c3;color:#854d0e"></span></button>
+          <button type="button" id="feTabBtn2" onclick="feTabWechsel(2)" style="border:0;background:none;border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🥣 Zutaten &amp; Referenz <span id="feTab2Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
         </div>
         <div id="feTab1">
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,440px);gap:14px;align-items:start" id="fe_grid">
@@ -10908,7 +10908,7 @@ function feTabWechsel(n){
   var t1=document.getElementById('feTab1'), t2=document.getElementById('feTab2');
   if(t1) t1.style.display=(n===1)?'':'none';
   if(t2) t2.style.display=(n===2)?'':'none';
-  var st=function(btn,on){ if(!btn) return; btn.style.color=on?'var(--k-166534)':'var(--muted)'; btn.style.borderBottomColor=on?'var(--k-16a34a)':'transparent'; };
+  var st=function(btn,on){ if(!btn) return; btn.style.color=on?'var(--k-166534)':'var(--muted)'; btn.style.borderBottomColor=on?'var(--k-16a34a)':'transparent'; btn.style.background=on?'var(--greenlt,#ecfdf5)':'none'; };   /* 28v (Ralph): aktiver Reiter zusaetzlich mit Flaeche hinterlegt - Unterstrich allein war zu unauffaellig */
   st(document.getElementById('feTabBtn1'),n===1); st(document.getElementById('feTabBtn2'),n===2);
   if(n===2){ try{ fgWirkFotoRender(); }catch(e){} }   /* Etikett-Einpassung, falls die Flip-Rueckseite offen ist */
 }
@@ -10932,7 +10932,7 @@ function feTab1BadgeUpdate(off, ean){
     else { b.style.display=''; b.textContent='\u2713'; b.style.background='var(--greenlt,#ecfdf5)'; b.style.color='var(--k-166534,#166534)'; } }
   var e=document.getElementById('feTab1Ean');
   if(e){ if(ean==='da'){ e.style.display=''; e.textContent='EAN \u2713'; e.style.background='var(--greenlt,#ecfdf5)'; e.style.color='var(--k-166534,#166534)'; }
-    else if(ean==='offen'){ e.style.display=''; e.textContent='EAN offen'; e.style.background='#eef1f5'; e.style.color='var(--muted)'; }
+    else if(ean==='offen'){ e.style.display=''; e.textContent='EAN offen'; e.style.background='#fef9c3'; e.style.color='#854d0e'; }   /* 28v: gelb (Ralph) - bewusst offen ist ein Merk-Zustand, kein Mangel (das bleibt orange) */
     else { e.style.display=''; e.textContent='EAN fehlt'; e.style.background='var(--k-fff7ed,#fff7ed)'; e.style.color='var(--k-d97706,#d97706)'; } }
 }
 if(typeof window!=='undefined'){ window.feTabWechsel=feTabWechsel; window.feTabBadgeUpdate=feTabBadgeUpdate; window.feTab1BadgeUpdate=feTab1BadgeUpdate; }
@@ -15737,7 +15737,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28u";
+const APP_BUILD = "2026-07-28v";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
