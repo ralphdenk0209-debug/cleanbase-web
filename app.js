@@ -2804,6 +2804,20 @@ function peSyncStickyTop(){
   });
   el.style.top=Math.max(0,Math.round(top))+'px';
 }
+/* 28z11 (Ralph: "meine filter sind nach dem aktualisieren weg, die sollten aber bleiben"):
+   ALLE Filter der Erfassungs-Liste (Chip, Suche, Sortierung, Kategorie, Spaltenfilter,
+   abgewaehlte Marken, Werbe-Marken-Schalter) leben jetzt in localStorage und ueberleben
+   sowohl das Neuladen nach einer Freigabe (28u) als auch einen Browser-Reload.
+   EINE Schreibstelle: peRender speichert bei jeder Aenderung (jede Filteraktion ruft es). */
+function peStateSave(){
+  try{ localStorage.setItem('peFilter', JSON.stringify({
+    chip:window._peChip||null, colF:window._peColF||null, brandOff:window._peBrandOff||null,
+    hideMarken:!!window._peHideMarken,
+    q:((document.getElementById('peSuche')||{}).value||''),
+    sort:((document.getElementById('peSort')||{}).value||'neu'),
+    kat:((document.getElementById('peVorKat')||{}).value||'') })); }catch(e){}
+}
+function peStateLoad(){ try{ return JSON.parse(localStorage.getItem('peFilter')||'null'); }catch(e){ return null; } }
 async function loadProduktErfassung(){
   var box=document.getElementById('fgProdErf'); if(!box) return;
   peLightCssInject();
@@ -2827,6 +2841,13 @@ async function loadProduktErfassung(){
   }catch(e){ box.innerHTML='<div style="color:#cf5442;font-size:12.5px;padding:8px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
   /* Standard-Ansicht: nur das, was ARBEIT braucht (Entwurf + zu verifizieren + EAN fehlt noch).
      Fertige Produkte (Aktiv & verifiziert & Score & EAN da/generisch) sind ausgeblendet – über „Alle". */
+  var _ps=peStateLoad();
+  if(_ps){
+    if(_ps.chip) window._peChip=_ps.chip;
+    if(_ps.colF) window._peColF=_ps.colF;
+    if(_ps.brandOff) window._peBrandOff=_ps.brandOff;
+    window._peHideMarken=!!_ps.hideMarken;
+  }
   if(window._peChip===undefined||window._peChip==='zuverif') window._peChip='offen';
   var rws=window._peRows;
   var cnt={ offen:rws.filter(peIstOffen).length,
@@ -2908,6 +2929,11 @@ async function loadProduktErfassung(){
     /* Kontextmenue */
     +'<div id="peCtx" style="position:fixed;z-index:60;background:#fff;border:1px solid #d3dbe6;border-radius:10px;padding:5px;min-width:210px;box-shadow:0 14px 38px rgba(20,40,70,.18);display:none"></div>';
   try{ var b=document.getElementById('peBearb'); if(b) b.value=(window._adminName||(window.__profil&&window.__profil.name)||'Angemeldet'); }catch(e){}
+  try{ if(_ps){
+    var _q=document.getElementById('peSuche'); if(_q&&_ps.q) _q.value=_ps.q;
+    var _s=document.getElementById('peSort'); if(_s&&_ps.sort) _s.value=_ps.sort;
+    var _k=document.getElementById('peVorKat'); if(_k&&_ps.kat) _k.value=_ps.kat;
+  } }catch(e){}
   peRender();
   try{ peSyncStickyTop(); if(!window._peStickyBound){ window._peStickyBound=true;
       window.addEventListener('scroll',function(){ if(window._peStickyRaf)return; window._peStickyRaf=requestAnimationFrame(function(){ window._peStickyRaf=0; peSyncStickyTop(); }); },{passive:true});
@@ -2972,6 +2998,7 @@ function peBrandAlle(on){ window._peBrandOff=window._peBrandOff||{};
 if(typeof window!=='undefined'){ window.peBrandBox=peBrandBox; window.peBrandToggle=peBrandToggle; window.peBrandAlle=peBrandAlle; }
 function peRender(){
   var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
+  try{ peStateSave(); }catch(e){}   /* NACH dem Guard: ohne aufgebaute Liste wuerden leere Felder den gespeicherten Zustand ueberschreiben */
   var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
   var chipf=window._peChip||'alle';
   var katf=((document.getElementById('peVorKat')||{}).value||'').trim();   /* Kategorie-Filter (Ralph 23.07.) */
@@ -16032,7 +16059,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z10";
+const APP_BUILD = "2026-07-28z11";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
