@@ -10548,7 +10548,7 @@ async function openFgEditor(id, prefill, targetEl){
       <input type="file" id="fe_eti_up" accept="image/*" multiple style="display:none" onchange="fgPullEtikett(this.files)">
       <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:9px">Riki holt die <b>Herstellerseite</b>, die <b>EAN-Daten</b> (OFF/USDA) oder liest das <b>Etikett vom Foto</b>. Gefundene Werte füllen die Maske – du prüfst nur.</div>
     </div>
-        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch">
+        <div id="fe_prodNwGrid" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch">
         ${card("Produkt",`<div style="display:grid;gap:9px">
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;display:block">Titel<input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){}" placeholder="Produktname…" style="width:100%;box-sizing:border-box;padding:6px 4px;border:0;border-bottom:2px solid var(--line);border-radius:0;font-size:19px;font-weight:800;color:var(--ink);background:transparent;margin-top:3px"></label>
           <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
@@ -10560,7 +10560,7 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
           <div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:-2px" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
         </div>`)}
-        ${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
+        <div id="fe_nwCard" style="display:contents">${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}</div>
         </div>
         ${''/* Wirkstoffe-Karte steht jetzt als eigene HALBE Reihe (Tabelle + Etikett-Lesebox) unter dem Raster – Ralph 24.07. Siehe #fe_wirkCard weiter unten. */}
       </div>
@@ -10639,7 +10639,7 @@ async function openFgEditor(id, prefill, targetEl){
           <div id="fe_zutNeuInfo" style="margin-top:6px"></div>
           <div id="fe_zutRows" style="display:none">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
-          <div id="fgOffBox" style="margin-top:8px"></div>`)}</div><div id="fe_colZus" data-note="Grid statt Flex: so bekommen Zusatzstoffe und Mikros einen FESTEN Anteil der Spaltenhoehe. Vorher nahm die Zusatzstoff-Karte allen Platz und schob die Mikros aus dem Bild (Ralphs Fund 26.07.)." style="min-height:0;display:grid;grid-template-rows:minmax(0,1.6fr) minmax(0,1fr);gap:10px"><div style="min-height:0;display:flex">${cardF("Zusatzstoffe",`
+          <div id="fgOffBox" style="margin-top:8px"></div>`)}</div><div id="fe_colZus" data-note="Grid statt Flex: so bekommen Zusatzstoffe und Mikros einen FESTEN Anteil der Spaltenhoehe. Vorher nahm die Zusatzstoff-Karte allen Platz und schob die Mikros aus dem Bild (Ralphs Fund 26.07.)." id="fe_colZusMik" style="min-height:0;display:grid;grid-template-rows:minmax(0,1.6fr) minmax(0,1fr);gap:10px"><div style="min-height:0;display:flex">${cardF("Zusatzstoffe",`
           <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:8px;cursor:pointer;flex:0 0 auto"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">Keine Zusatzstoffe im Produkt</label>
           ${''/* Die separate Auswahl-Liste oben ist entfallen (Ralph 27.07.): sie zeigte dasselbe
                wie die Stamm-Liste darunter, in der die gewaehlten Zusatzstoffe angehakt und oben
@@ -10662,7 +10662,7 @@ async function openFgEditor(id, prefill, targetEl){
                Die Bewertungsregel dahinter (Getränke-Deckel, §1.13e) hängt seit dem 26.07. nicht mehr an diesem
                Feld allein: cb_hat_kuenstlichen_suessstoff() liest Handfeld + Zutaten + Zusatzstoff-Liste. */}
           <input type="hidden" id="fe_suess" value="${esc(d.suessstoffe||"nein")}">
-        `)}</div><div style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;white-space:nowrap">🔎 USDA</button></div><div id="fm_usdaErg" style="max-height:180px;overflow:auto;margin-top:5px;flex:0 0 auto"></div>`)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div></div></div></div>
+        `)}</div><div id="fe_mikroWrap" style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;white-space:nowrap">🔎 USDA</button></div><div id="fm_usdaErg" style="max-height:180px;overflow:auto;margin-top:5px;flex:0 0 auto"></div>`)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div></div></div></div>
     <div id="fe_fussLeiste" style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
@@ -10704,6 +10704,7 @@ async function openFgEditor(id, prefill, targetEl){
     try{ await katKonfigLoad(); }catch(e){}   /* Darstellung je Kategorie kennen, bevor die Karte gebaut wird (Ralph 25.07.) */
     try{ feEinheitPrefill(d); }catch(e){}   /* Bezugseinheit g/ml vorbelegen (Ralph 27.07.) */
     try{ feKatChange(); }catch(e){}
+    try{ keinScoreKatsLaden().then(function(){ try{ feKatChange(); }catch(e){} }); }catch(e){}   /* 28z3: Kein-Score-Liste nachladen, Layout+Pflichten dann korrekt */
     try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
     try{ feWirkLoad(d.wirkstoffe, d.wirkstoffe_nicht_verfuegbar); }catch(e){}   /* Wirkstoff-Mengen (Dosis) laden */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
@@ -10719,6 +10720,16 @@ async function openFgEditor(id, prefill, targetEl){
     try{ feEanSync(); }catch(e){}   /* fehlt die EAN, „offen"-Haken automatisch setzen */
     try{ if(typeof feAnsichtGet==="function" && feAnsichtGet()==="vorgang") feVorgangApply(); }catch(e){}   /* 2. Ansicht „Vorgang" (Ralph): rein ADDITIVER Rahmen um denselben Editor – kein Feld, kein Speicher-Weg verändert */
   if(!targetEl) document.getElementById("overlay").classList.add("open");
+}
+/* 28z3: Kein-Score-Kategorien aus der DB-Konfig (Kategorie_Konfig via cb_kein_score_kategorien)
+   - DIESELBE Quelle wie Score-Trigger und Freigabe (die Doppel-Pflege stand heute schon einmal
+   an drei Orten, P056). Ohne geladene Liste gilt das alte Verhalten (nur Supplement/Salze). */
+async function keinScoreKatsLaden(){
+  if(window._ksKats) return window._ksKats;
+  try{ var r=await client.rpc('cb_kein_score_kategorien');
+    if(r && !r.error && Array.isArray(r.data)) window._ksKats=new Set(r.data.map(function(x){ return String(x||'').toLowerCase(); }));
+  }catch(e){}
+  return window._ksKats||null;
 }
 /* Kategorie-Wechsel im Editor: bei „Supplement" heisst die Zutaten-Sektion „Wirkstoffe"
    (da stehen die Wirkstoffe drin, nicht Lebensmittel-Zutaten) und die Vorschlagsliste
@@ -10745,6 +10756,28 @@ function feKatChange(){
   } else {
     if(_wc) _wc.style.display="none";
   }
+  /* 28z3 (Ralph: "wenn ich bei der kategorie supplements auswaehle aendert sich das layout" +
+     "salze genau so nach bedarf, suessungsmittel faellt auch darunter"). Je Kategorie faellt weg,
+     was sie nicht braucht - Felder werden VERSTECKT, nicht entfernt (§1.11n-j), Werte bleiben:
+     - Supplement:    Naehrwerte-Karte AUS (Freigabe braucht sie nicht) + Mikro-Karte AUS
+                      (Tagebuch zaehlt Supplemente ueber die Wirkstoff-Tabelle) -> eine Seite.
+     - Salze:         Naehrwerte-Karte AUS, Mikro-Karte bleibt AN (Jod/Fluorid je 100 g sind
+                      der Kern der Salz-Sektion, inkl. neuer USDA-Suche).
+     - Suessungsmittel (u. kuenftige Kein-Score-Kategorien): Naehrwerte-Karte bleibt AN, aber
+                      OHNE Pflicht (Tagebuch zaehlt kcal/KH - Erythrit hat 99 g KH bei 0 kcal;
+                      die Karte auszublenden wuerde diese Werte unerfassbar machen); Mikro AUS. */
+  try{
+    var _kat2=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
+    var _istSalz2=(_kat2==="salze");
+    var _ks=window._ksKats;
+    var _istKein2=supp||_istSalz2||!!(_ks?_ks.has(_kat2):(_kat2==="süßungsmittel"));
+    var _nwAus = supp||_istSalz2;
+    var _mikroAus = supp || (_istKein2 && !_istSalz2 && !supp);
+    var _nwC=document.getElementById("fe_nwCard"); if(_nwC) _nwC.style.display=_nwAus?"none":"contents";
+    var _png=document.getElementById("fe_prodNwGrid"); if(_png) _png.style.gridTemplateColumns=_nwAus?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)";
+    var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display=_mikroAus?"none":"flex";
+    var _c2=document.getElementById("fe_colZusMik"); if(_c2) _c2.style.gridTemplateRows=_mikroAus?"minmax(0,1fr)":"minmax(0,1.6fr) minmax(0,1fr)";
+  }catch(e){}
   try{ fgWirkFotoRender(); }catch(e){}
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
@@ -11401,7 +11434,11 @@ function fePlaus(){
     if(!_kat) fehlt.push("Kategorie");
     var _istSupp = (_kat.toLowerCase()==="supplement");
     var _istSalz = (_kat.toLowerCase()==="salze");
-    if(!_istSupp && !_istSalz){
+    /* 28z3: Kein-Score-Kategorie (Kategorie_Konfig, z. B. Süßungsmittel) → Nährwerte sind
+       KEINE Pflicht mehr - exakt die Regel der DB-Freigabe von heute (P056-Fix Teil 2/3).
+       Ohne geladene Liste gilt das alte Verhalten. */
+    var _istKeinScore = _istSupp || _istSalz || !!(window._ksKats && window._ksKats.has(_kat.toLowerCase()));
+    if(!_istKeinScore){
       var nwReq=[["fe_kcal","Energie"],["fe_fett","Fett"],["fe_ges_fett","ges. Fett"],["fe_kh","Kohlenhydrate"],["fe_zucker","Zucker"],["fe_protein","Eiweiß"],["fe_salz","Salz"],["fe_ballaststoffe","Ballaststoffe"]];
       nwReq.forEach(function(r){ if(gv(r[0])==null) fehlt.push(r[1]); });
     }
@@ -11430,7 +11467,7 @@ function fePlaus(){
     } }catch(e){}
     if(fehlt.length===0){
       rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe'
-        +(_istSupp?' – Supplement (kein Lebensmittel-Index, Nährwerte nicht nötig)':(_istSalz?' – reines Salz (kein Index, Nährwerte nicht nötig)':' – alle Achsen belegt'))+'.</span>'
+        +(_istSupp?' – Supplement (kein Lebensmittel-Index, Nährwerte nicht nötig)':(_istSalz?' – reines Salz (kein Index, Nährwerte nicht nötig)':(_istKeinScore?' – Kategorie ohne Lebensmittel-Index (Nährwerte optional)':' – alle Achsen belegt')))+'.</span>'
         +(_dosisLeer?'<div style="color:var(--k-b45309);margin-top:4px">Ohne <b>Verzehrempfehlung</b> ist unklar, worauf sich der Dosis-Check bezieht – wenn möglich nachtragen.</div>':'');
     } else {
       rd.innerHTML='<span style="color:var(--k-b45309)">Fehlt '+((_istSupp||_istSalz)?'für die Freigabe':'für den Index')+': <b>'+fehlt.join(", ")+'</b>'
@@ -11449,6 +11486,7 @@ function fePlaus(){
       h+= _kat ? ok("Kategorie gewählt") : no("Kategorie fehlt (Pflicht)");
       if(_istSupp) h+='<span style="color:var(--muted);white-space:nowrap">– Nährwerte (Supplement, nicht nötig)</span>';
       else if(_istSalz) h+='<span style="color:var(--muted);white-space:nowrap">– Nährwerte (Salz, nicht nötig)</span>';
+      else if(_istKeinScore) h+='<span style="color:var(--muted);white-space:nowrap">– Nährwerte (Kategorie ohne Index – optional)</span>';
       else h+= nwFehlt.length ? no(nwFehlt.length+" Nährwert(e) fehlen") : ok("Nährwerte vollständig");
       h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
       h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
@@ -15928,7 +15966,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z2";
+const APP_BUILD = "2026-07-28z3";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
