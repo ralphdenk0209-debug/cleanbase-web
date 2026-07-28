@@ -2912,6 +2912,9 @@ async function loadProduktErfassung(){
     +'</div>'
     /* Raster – einklappbar (Ralph 21.07.2026): beim Auswählen eines Produkts klappt die Liste zu,
        über den Pfeil in der Leiste wieder auf, damit sie beim Bearbeiten nicht stört. */
+    /* 28z14: Autopilot-Statuszeile (Ralph: Nutzer-Scans muessen sichtbar sein; Riki+Waechter
+       arbeiten sie ab, Zweifel bleiben als Entwurf 🤖 in DIESER Liste). Fuellt peAutoInfo(). */
+    +'<div id="peAutoBanner" style="display:none;margin:0 0 10px;padding:8px 12px;border:1px solid #cfe0d6;border-radius:11px;background:#eef7f1;color:#1f5e34;font-size:12.5px"></div>'
     +'<div id="peListWrap" style="border:1px solid #e2e8ef;border-radius:11px;overflow:hidden;margin-bottom:12px;background:#fff;box-shadow:0 1px 2px rgba(20,40,70,.04)">'
       +'<div id="peListBar" onclick="peListToggle()" title="Liste ein-/ausklappen" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;background:#eef3f8;border-bottom:1px solid #e2e8ef;user-select:none">'
         +'<span id="peListCaret" style="color:#3b56b0;font-weight:800;font-size:13px;width:12px">▾</span>'
@@ -2935,9 +2938,27 @@ async function loadProduktErfassung(){
     var _k=document.getElementById('peVorKat'); if(_k&&_ps.kat) _k.value=_ps.kat;
   } }catch(e){}
   peRender();
+  try{ peAutoInfo(); }catch(e){}
   try{ peSyncStickyTop(); if(!window._peStickyBound){ window._peStickyBound=true;
       window.addEventListener('scroll',function(){ if(window._peStickyRaf)return; window._peStickyRaf=requestAnimationFrame(function(){ window._peStickyRaf=0; peSyncStickyTop(); }); },{passive:true});
       window.addEventListener('resize',peSyncStickyTop); } }catch(e){}
+}
+/* 28z14: Autopilot-Statuszeile ueber der Produktliste. EINE Datenquelle: cb_autopilot_status.
+   Zeigt, was der Riki-Autopilot (Leser + Waechter, alle 30 Min) gerade zu tun hat -
+   und wie viele Foto-Scans trotz Versuch Handarbeit brauchen. Kein Banner = nichts offen. */
+async function peAutoInfo(){
+  var el=document.getElementById('peAutoBanner'); if(!el) return;
+  try{
+    var r=await client.rpc('cb_autopilot_status');
+    var d=r&&r.data; if(!d||d.ok!==true){ el.style.display='none'; return; }
+    var teile=[];
+    teile.push(d.an?'🤖 <b>Riki-Autopilot aktiv</b> (liest Foto-Scans alle 30 Min, Riki-Wächter prüft jede Lesung)':'🤖 <b>Riki-Autopilot AUS</b>');
+    if(Number(d.wartend)>0) teile.push('<b>'+d.wartend+'</b> Foto-Scan'+(d.wartend==1?' wartet':'s warten')+' auf den nächsten Lauf');
+    if(Number(d.handarbeit)>0) teile.push('<span style="color:#c88616"><b>'+d.handarbeit+'</b> Foto-Scan'+(d.handarbeit==1?' braucht':'s brauchen')+' HANDARBEIT (Riki kam nicht durch – Notiz in der Scan-Warteschlange)</span>');
+    teile.push('<span style="color:#7b8698">heute '+Number(d.heute_usd).toFixed(2)+' von '+Number(d.tageslimit_usd).toFixed(2)+' $ Tagesdeckel</span>');
+    el.innerHTML=teile.join(' · ');
+    el.style.display='block';
+  }catch(e){ el.style.display='none'; }
 }
 /* kleine Klapp-Menues fuer Aktionen/Einstellungen – bewusst schlank gehalten
    (Ralph will den Knopf-Inhalt spaeter feinschleifen). Nichts erfunden: nur Aktionen,
@@ -3061,7 +3082,7 @@ function peRender(){
       +td(p.ean?esc(p.ean):'<span style="color:#c88616">offen</span>','color:#7b8698')
       +td(p.quelle_typ?esc(p.quelle_typ):'<span style="color:#cf5442">fehlt</span>','color:#7b8698;font-size:12px','title="'+esc(p.quelle_typ||'')+'"')
       +td(p.herkunft?esc(p.herkunft):'<span style="color:#9aa7b2">–</span>','color:#7b8698;font-size:12px','title="'+esc(p.herkunft||'')+'"')
-      +td((p.markiert?'<span style="color:#cf5442">⚑</span>':'')+(peHatWaechter(p)?'<span title="Von einem Wächter gemeldet – bis zur Freigabe prüfen" style="color:#c88616">🛡</span>':''),'overflow:visible')
+      +td((String(p.herkunft||'')==='Riki-Autopilot'?'<span title="Vom Riki-Autopilot angelegt und vom Riki-Wächter geprüft – bitte verifizieren" style="margin-right:2px">🤖</span>':'')+(p.markiert?'<span style="color:#cf5442">⚑</span>':'')+(peHatWaechter(p)?'<span title="Von einem Wächter gemeldet – bis zur Freigabe prüfen" style="color:#c88616">🛡</span>':''),'overflow:visible')
       +'</tr>'; }).join('')
     +'</tbody>';
   var f=document.getElementById('peFoot'); if(f) f.textContent='Datensätze '+list.length+' von '+rows.length;
@@ -16078,7 +16099,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z13";
+const APP_BUILD = "2026-07-28z14";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
