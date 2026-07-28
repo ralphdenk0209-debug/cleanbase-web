@@ -2326,10 +2326,13 @@ let REZEPTE=null;
    des Admin-Bereichs wird sie einfach wieder angewendet. */
 var ADMIN_MODI = ["freigabe","stufen","nutzer","rikiimport"];
 function adminThemeAnwenden(m){
+  /* 28n: Der Dunkel-Zwang fuer Admin-Bereiche (Ralph 18.07.: "Arbeitsplatz dunkel") ist AUFGEHOBEN -
+     Ralphs neuere Entscheide sagen das Gegenteil (24.07. "keine dunklen elemente mehr" im admin.html-Kopf,
+     28.07. "das dunkle mag ich nicht - weiss, leichtes grau oder zartes lila"). Zwei widersprechende
+     Regeln lebten an zwei Orten, die aeltere gewann zur Laufzeit. Jetzt gilt ueberall die Theme-Wahl
+     (das Admin-Backend erzwingt in seinem Kopf-Skript ohnehin "hell" + Flieder-Ton im CSS). */
   try{
-    var istAdmin = ADMIN_MODI.indexOf(m) >= 0;
-    if(istAdmin){ document.documentElement.setAttribute("data-theme","dark"); }
-    else if(typeof window.riThemeAnwenden === "function"){
+    if(typeof window.riThemeAnwenden === "function"){
       window.riThemeAnwenden(window.riThemeWahl || "auto");
     }
   }catch(e){}
@@ -10365,7 +10368,7 @@ async function openFgEditor(id, prefill, targetEl){
           <input type="hidden" id="fe_ukat" value="${esc(d.unterkategorie||"")}">
           <input type="hidden" id="fe_basis" value="${esc(d.basis||"100g")}">
           <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:-2px">Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. <b>Bei Nahrungsergänzung wichtig:</b> Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.</div>
+          <div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:-2px" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
         </div>`)}
         ${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}
         </div>
@@ -10468,7 +10471,7 @@ async function openFgEditor(id, prefill, targetEl){
                Feld allein: cb_hat_kuenstlichen_suessstoff() liest Handfeld + Zutaten + Zusatzstoff-Liste. */}
           <input type="hidden" id="fe_suess" value="${esc(d.suessstoffe||"nein")}">
         `)}</div><div style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div></div></div></div>
-    <div style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
+    <div id="fe_fussLeiste" style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
         <span style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;flex:0 0 auto">Freigabe</span>
@@ -10498,6 +10501,11 @@ async function openFgEditor(id, prefill, targetEl){
        und verdeckten den Kopf des Fensters. Jetzt liegt das Fenster wirklich im Vordergrund;
        zurueck geht es ueber "← Posteingang" (closeP setzt beides zurueck). */
     if(_ov){ _ov.classList.add("fgEditorFull"); _ov.style.background="var(--bg)"; _ov.style.backdropFilter="none"; _ov.style.padding="0"; _ov.style.alignItems="stretch"; _ov.style.justifyContent="stretch"; _ov.style.left="0"; _ov.style.zIndex="70"; }
+    /* 28n (Ralph): Die untere "Bereit zur Freigabe"-Zeile ist im Vollbild doppelt (steht im Streifen
+       und im Kopf-Chip) -> Text VERSTECKEN, nicht entfernen (feVorgangStepperHtml liest fe_ready weiter,
+       par. 1.11n-j). Der Leisten-Rahmen verschwindet mit; fe_msg (Speicher-Feedback) bleibt sichtbar. */
+    try{ var _rdy=document.getElementById("fe_ready"); if(_rdy) _rdy.style.display="none"; }catch(e){}
+    try{ var _fl=document.getElementById("fe_fussLeiste"); if(_fl){ _fl.style.borderTop="0"; _fl.style.boxShadow="none"; _fl.style.background="transparent"; _fl.style.padding="2px"; } }catch(e){}
     if(_pn){ _pn.style.maxWidth="none"; _pn.style.width="100%"; _pn.style.height="100vh"; _pn.style.maxHeight="100vh"; _pn.style.borderRadius="0"; _pn.scrollTop=0; }
     }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
@@ -15650,7 +15658,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28m";
+const APP_BUILD = "2026-07-28n";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
