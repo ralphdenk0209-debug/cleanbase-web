@@ -2234,7 +2234,7 @@ function closeP(){
   if(ov){ ov.classList.remove("open");
     if(ov.classList.contains("fgEditorFull")){ ov.classList.remove("fgEditorFull");
       ov.style.background=""; ov.style.backdropFilter=""; ov.style.padding=""; ov.style.alignItems=""; ov.style.justifyContent=""; ov.style.left=""; ov.style.zIndex=""; } }
-  var pn=document.getElementById("panel"); if(pn){ pn.style.maxWidth=""; pn.style.width=""; pn.style.height=""; pn.style.maxHeight=""; pn.style.borderRadius=""; }
+  var pn=document.getElementById("panel"); if(pn){ pn.style.maxWidth=""; pn.style.width=""; pn.style.height=""; pn.style.maxHeight=""; pn.style.borderRadius=""; pn.style.background=""; }
   try{ var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="none"; }catch(e){}
   try{ feFreigabeLeisteHide(); }catch(e){}
 }
@@ -9803,7 +9803,7 @@ function fgEnthaltenRender(){
   });
   var _tot=_cnt.done+_cnt.offen+_cnt.unklar;
   var _mv=(window._fmVorschlag||[]).length;
-  try{ if(typeof feTabBadgeUpdate==='function') feTabBadgeUpdate(_cnt.offen+_cnt.unklar+_mv); }catch(e){}   /* 28l: Offen-Zaehler am Reiter, gleiche Zaehlung wie hier */
+  try{ if(typeof feTabBadgeUpdate==='function') feTabBadgeUpdate(_cnt.offen+_cnt.unklar+_mv, _cnt.done); }catch(e){}   /* 28l/28r: Zaehler am Reiter - offen ODER uebernommen, gleiche Zaehlung wie hier */
   var kopf="";
   if(_tot||_mv){
     var pct=_tot?Math.round(100*_cnt.done/_tot):0;
@@ -10303,6 +10303,9 @@ async function openFgEditor(id, prefill, targetEl){
       + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" '+(_mk?'checked':'')+' onclick="fgEditMark(\''+esc(id)+'\',this.checked)" style="width:17px;height:17px;accent-color:var(--k-16a34a)">🚩 markiert <span style="color:var(--muted);font-weight:400">(gespeichert)</span></label>';
   }
   if(_navInner.indexOf('fe_frgSlot')<0) _navInner+='<span id="fe_frgSlot" style="margin-left:auto;display:flex;align-items:center;min-width:0"></span>';   /* 28i: Slot auch ohne Listen-Navigation */
+  /* 28r (Ralph): Im Vollbild ist der Menue-Cluster (mit 🔄+Version) verdeckt -> derselbe
+     Neu-laden-Knopf samt aktueller Version sitzt auch hier in der Kopfzeile. */
+  if(window.__ADMIN_PAGE){ _navInner+='<button onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(APP_BUILD.replace("2026-07-","")):"")+'</button>'; }
   var _navBar='<div style="position:sticky;top:0;z-index:25;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 2px;margin:-8px 0 12px">'+_navInner+'</div>';
   if(targetEl) _navBar='';   /* Inline-Modus: die Master-Detail-Liste ersetzt die Kopf-Navigation */
   panel.innerHTML=`
@@ -10511,7 +10514,7 @@ async function openFgEditor(id, prefill, targetEl){
        par. 1.11n-j). Der Leisten-Rahmen verschwindet mit; fe_msg (Speicher-Feedback) bleibt sichtbar. */
     try{ var _rdy=document.getElementById("fe_ready"); if(_rdy) _rdy.style.display="none"; }catch(e){}
     try{ var _fl=document.getElementById("fe_fussLeiste"); if(_fl){ _fl.style.borderTop="0"; _fl.style.boxShadow="none"; _fl.style.background="transparent"; _fl.style.padding="2px"; } }catch(e){}
-    if(_pn){ _pn.style.maxWidth="none"; _pn.style.width="100%"; _pn.style.height="100vh"; _pn.style.maxHeight="100vh"; _pn.style.borderRadius="0"; _pn.scrollTop=0; }
+    if(_pn){ _pn.style.maxWidth="none"; _pn.style.width="100%"; _pn.style.height="100vh"; _pn.style.maxHeight="100vh"; _pn.style.borderRadius="0"; _pn.style.background="var(--bg)"; _pn.scrollTop=0; }   /* 28r: das Panel fuellte das Fenster KARTEN-weiss und deckte den Flieder-Hintergrund zu */
     }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
     try{ await katKonfigLoad(); }catch(e){}   /* Darstellung je Kategorie kennen, bevor die Karte gebaut wird (Ralph 25.07.) */
@@ -10909,9 +10912,14 @@ function feTabWechsel(n){
   st(document.getElementById('feTabBtn1'),n===1); st(document.getElementById('feTabBtn2'),n===2);
   if(n===2){ try{ fgWirkFotoRender(); }catch(e){} }   /* Etikett-Einpassung, falls die Flip-Rueckseite offen ist */
 }
-function feTabBadgeUpdate(off){
+function feTabBadgeUpdate(off, done){
+  /* 28r (Ralph): nicht nur Offenes zeigen - ist alles uebernommen, steht die ANZAHL da.
+     Orange "N offen" = Arbeit liegt an · gruen "✓ N" = N Eintraege sauber uebernommen. */
   var b=document.getElementById('feTab2Badge'); if(!b) return;
-  var n=Number(off)||0; b.style.display=n?'':'none'; b.textContent=n?(n+' offen'):'';
+  var n=Number(off)||0, d=Number(done)||0;
+  if(n){ b.style.display=''; b.textContent=n+' offen'; b.style.background='var(--k-fff7ed,#fff7ed)'; b.style.color='var(--k-d97706,#d97706)'; }
+  else if(d){ b.style.display=''; b.textContent='\u2713 '+d; b.style.background='var(--greenlt,#ecfdf5)'; b.style.color='var(--k-166534,#166534)'; }
+  else { b.style.display='none'; b.textContent=''; }
 }
 if(typeof window!=='undefined'){ window.feTabWechsel=feTabWechsel; window.feTabBadgeUpdate=feTabBadgeUpdate; }
 function fgFotoPlatzieren(){
@@ -11399,7 +11407,7 @@ function feFreigabeLeiste(items, blocked){
       if(!tbx){
         tbx=document.createElement('span'); tbx.id='frgTopBtns';
         tbx.style.cssText='display:flex;gap:6px;align-items:center;margin-left:6px;flex:0 0 auto';
-        tbx.innerHTML='<button type="button" id="frgSaveTop" onclick="try{fgEditSave(false)}catch(e){}" title="Nur speichern" style="width:36px;height:32px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>'
+        tbx.innerHTML='<button type="button" id="frgSaveTop" onclick="try{fgEditSave(false)}catch(e){}" title="Nur speichern" style="width:36px;height:32px;border:1px solid var(--k-bfdbfe,#bfdbfe);border-radius:9px;background:var(--card);color:#2563eb;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>'
           +'<button type="button" id="frgGoTop" style="height:32px;padding:0 14px;border:0;border-radius:9px;color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap">✓ freigeben</button>';
         _slot2.appendChild(tbx);
       }
@@ -15689,7 +15697,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28q";
+const APP_BUILD = "2026-07-28r";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
