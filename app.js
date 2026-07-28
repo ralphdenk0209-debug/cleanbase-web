@@ -6421,11 +6421,14 @@ function applyAdminMode(){
     /* Schlanke Kopfleiste + Hamburger-Schublade statt fester linker Spalte (Ralph, 20.07.2026).
        Kopfleiste: Hamburger · Wortmarke · Breadcrumb (wo bin ich) · Abmelden.
        Der Inhalt nutzt dadurch die volle Breite. */
+    /* 28o (Ralph): Die volle Kopfzeile ist weg - "die oberste kopfzeile brauche ich auch nicht,
+       nur das notizbuch". #adminTop ist jetzt ein kompakter Knopf-Cluster rechts oben IN der
+       Menuezeile (CSS in admin.html): Notizbuch, Version/Neu-laden, Abmelden. Wortmarke und
+       Breadcrumb entfallen; adminCrumb bleibt unsichtbar im DOM, weil adminGo hineinschreibt
+       (par. 1.11n-j: ein entferntes Feld darf nichts brechen). */
     const top=document.createElement('div'); top.id='adminTop';
     top.innerHTML=
-       '<div class="atWord">Root Index<small>Admin</small></div>'
-      +'<div id="adminCrumb"></div>'
-      +'<div class="atSpacer"></div>'
+       '<div id="adminCrumb" style="display:none"></div>'
       +'<button id="atTodo" onclick="todoDockToggle()" title="Notizen &amp; To-do – bleibt beim Arbeiten offen" style="flex:0 0 auto;margin-right:6px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer;white-space:nowrap;position:relative">📝<span id="atTodoN" style="display:none;margin-left:5px;font-size:11px;font-weight:800;background:#ffd9a0;color:#7a4a00;border-radius:20px;padding:0 6px"></span></button>'
       +'<button id="atReload" onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;margin-right:8px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(APP_BUILD.replace("2026-07-","")):"")+'</button>'
       +'<button class="atLogout" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">🚪</button>';
@@ -12968,7 +12971,10 @@ function feat(k){ return FEATURES[k] === true; }
    wirklich hat. Das Sternchen zeigt zusätzlich an, dass Beta-Funktionen aktiv sind. */
 function betaBadge(){
   let b=document.getElementById("betaBadge");
-  const zeigen = !!(typeof ME!=="undefined" && ME && ME.entwickler);
+  /* 28o (Ralph): "die versionsnummer ... sieht komisch aus ... hat im frontend nichts zu suchen."
+     Das schwebende Badge ist ueberall AUS - im Admin steht die Version am 🔄-Knopf im Menue,
+     im Consumer-Frontend erscheint sie gar nicht mehr. Update-Pruefung/Banner unveraendert. */
+  const zeigen = false;
   if(!zeigen){ if(b) b.remove(); return; }
   if(!b){
     b=document.createElement("div"); b.id="betaBadge";
@@ -15658,7 +15664,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28n";
+const APP_BUILD = "2026-07-28o";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
