@@ -994,12 +994,14 @@ function prodRef(id, opts){
   const thumb=bild?'<img src="'+esc(bild)+'" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:var(--k-ffffff);border:1px solid var(--line)">'
     :'<div style="width:40px;height:40px;border-radius:8px;flex:0 0 auto;background:var(--greenlt);display:flex;align-items:center;justify-content:center;font-size:18px">🌿</div>';
   const sc=(f&&f.clean_score!=null)?'<span style="font-size:12px;font-weight:800;color:var(--k-ffffff);background:'+farbe(scoreBew(f.clean_score))+';border-radius:999px;padding:3px 9px;flex:0 0 auto">'+f.clean_score+'</span>':'';
+  /* 28z15: optionaler +Punkte-Abstand (Alternativen-Reihe) - vor der Index-Pille */
+  const delta=(opts.delta!=null&&isFinite(opts.delta)&&opts.delta>0)?'<span style="font-size:11px;font-weight:800;color:var(--greendk,var(--k-166534));background:var(--greenlt,var(--k-eaf5ee));border-radius:6px;padding:2px 6px;flex:0 0 auto">+'+Math.round(opts.delta)+'</span>':'';
   const sub=(opts.label?'<span style="color:var(--green);font-weight:700">'+esc(opts.label)+'</span>'+(marke?' · ':''):'')+(marke?esc(marke):'')+(opts.note?' · '+esc(opts.note):'');
   return '<div onclick="event.stopPropagation();detailById(\''+id+'\')" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:6px;cursor:pointer;background:var(--card)">'
     +thumb
     +'<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(name)+'</div>'
     +(sub?'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+sub+'</div>':'')+'</div>'
-    +sc+'<span style="color:var(--muted);flex:0 0 auto">›</span></div>';
+    +delta+sc+'<span style="color:var(--muted);flex:0 0 auto">›</span></div>';
 }
 async function adminDeleteProdukt(id,name){
   if(!confirm('Produkt '+name+' ausblenden (aus dem Katalog entfernen)?')) return;
@@ -1102,6 +1104,49 @@ async function prodToEinkauf(id){
 function altBanner(d){
   const a=betterAlt(d); if(!a) return "";
   return prodRef(a.id, { label:'Bessere Alternative', name:a.name, marke:a.marke });
+}
+/* ===== 28z15: BESSERE ALTERNATIVEN (Ralph: "gleich die bessere alternative vorschlagen,
+   das hatten wir schon mal, war optisch unterirdisch und nicht klar") =====
+   Ralph-Entscheid: Variante A (Karten-Reihe, bis 3) + Produktkarte + Tagebuch-Hinweis.
+   LOGIK - bewusst nur EINE Regel, damit sie erklaerbar bleibt: gleiche KATEGORIE,
+   Root Index mindestens +10. Gleiche Unterkategorie sortiert nach vorn, dann hoechster
+   Index zuerst. Keine Werbung, keine bezahlten Plaetze - der Index entscheidet allein.
+   (Der alte betterAlt verlangte Unterkategorie UND Namens-Treffer -> feuerte fast nie;
+   er bleibt fuer die Empfehlungs-Seite unangetastet, §1.11n-j.) */
+function besteAlternativen(d, max){
+  max = max || 3;
+  const s = num(d && d.clean_score); if(s == null) return [];
+  const kat = (d.kategorie || '').trim(); if(!kat) return [];
+  const uk = (d.unterkategorie || '').trim();
+  const cands = (ALL || []).filter(function(q){
+    if(q.id === d.id) return false;
+    const qs = num(q.clean_score);
+    return qs != null && qs >= s + 10 && (q.kategorie || '').trim() === kat;
+  });
+  cands.sort(function(x, y){
+    const xu = (uk && (x.unterkategorie || '').trim() === uk) ? 1 : 0;
+    const yu = (uk && (y.unterkategorie || '').trim() === uk) ? 1 : 0;
+    if(xu !== yu) return yu - xu;
+    return num(y.clean_score) - num(x.clean_score);
+  });
+  return cands.slice(0, max);
+}
+function altSektion(d){
+  const alts = besteAlternativen(d, 3); if(!alts.length) return '';
+  const s = num(d.clean_score);
+  return '<div style="margin-top:14px">'
+    + '<div style="font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--greendk,var(--k-166534));display:flex;align-items:center;gap:6px">🌿 Bessere Alternativen in dieser Kategorie</div>'
+    + alts.map(function(a){ return prodRef(a.id, { name:a.name, marke:a.marke, delta:(num(a.clean_score) - s) }); }).join('')
+    + '<div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45">Besser heißt hier nur eines: höherer Root Index in derselben Kategorie. Keine Werbung, keine bezahlten Plätze.</div>'
+    + '</div>';
+}
+/* Dezente Ein-Zeilen-Fassung fuer den Tagebuch-Hinzufuegen-Dialog (Ralph-Entscheid "auch im Tagebuch"). */
+function altHinweisZeile(d){
+  const alts = besteAlternativen(d, 3); if(!alts.length) return '';
+  const b = alts[0]; const delta = num(b.clean_score) - num(d.clean_score);
+  const mehr = alts.length > 1 ? ' · +' + (alts.length - 1) + ' weitere' : '';
+  return '<div onclick="detailById(\'' + b.id + '\')" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--greendk,var(--k-166534));background:var(--greenlt,var(--k-eaf5ee));border:1px solid var(--k-d1e7d9,#d1e7d9);border-radius:10px;padding:7px 10px;margin-bottom:11px;cursor:pointer">'
+    + '<span>🌿</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Bessere Wahl: <b>' + esc(b.name) + '</b> (Index ' + num(b.clean_score) + ', +' + delta + ')' + mehr + '</span><span style="font-weight:800">›</span></div>';
 }
 function _norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,""); }
 function _lev(a,b){ const m=a.length,n=b.length; if(!m)return n; if(!n)return m; let prev=Array.from({length:n+1},(_,j)=>j),cur=new Array(n+1);
@@ -1902,6 +1947,7 @@ function detail2(d){
       + amazonBtn(d,true)
     + '</div>'
     + (amazonUrl(d)?AMZ_HINWEIS:'')
+    + altSektion(d)   /* 28z15: Variante A Karten-Reihe (Ralph-Entscheid) */
     + '<div style="margin-top:6px">'
       + (_nurIndex
         ? pkGastBox()
@@ -8179,6 +8225,7 @@ async function tbAddPickNeu(i){
     +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px"><b style="font-size:16.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.name)+'</b>'
       +(sc!=null?'<span style="flex:0 0 auto;background:'+farbe(scoreBew(sc))+';color:var(--k-ffffff);font-size:12px;font-weight:800;border-radius:99px;padding:3px 10px">Index '+sc+'</span>':'')+'</div>'
     +'<div style="font-size:12px;color:var(--k-6b6256);margin-bottom:11px">'+esc(mkLabel(p.marke)||'')+(p.kategorie?(' · '+esc(p.kategorie)):'')+' · Nährwerte je 100 '+esc(opts[0].label)+'</div>'
+    +altHinweisZeile(p)   /* 28z15: dezenter Alternativen-Hinweis (Ralph: "auch im Tagebuch") */
     +'<div style="display:flex;gap:7px;margin-bottom:11px">'+chip('klein',ps.s)+chip('mittel',ps.m)+chip('groß',ps.l)+'</div>'
     +'<div style="display:flex;gap:8px;align-items:stretch">'
       +'<div style="display:flex;align-items:center;border:1px solid var(--k-e7e0d4);border-radius:12px;background:var(--k-ffffff);flex:1">'
@@ -16099,7 +16146,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z14";
+const APP_BUILD = "2026-07-28z15";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
