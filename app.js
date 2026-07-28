@@ -6456,17 +6456,18 @@ function applyAdminMode(){
        Gleiche Ziele wie zuvor (adminGo); Wächter + Rezept-Zutaten öffnen ihre Overlays. Riki-Import raus. */
     const nav=document.createElement('div'); nav.id='adminNav';
     var _an=function(k,ico,lbl,oc,extra){ return '<button class="anBtn"'+(extra||'')+' data-k="'+k+'" onclick="'+oc+'"><span class="anIco">'+ico+'</span><span class="anLbl">'+lbl+'</span></button>'; };
+    /* 28z5 (Ralph): Erfassung direkt neben das Dashboard; To-do raus (Dublette - das
+       Notizbuch-Dock in der Kopfleiste zeigt DIESELBE Liste, 27c); Rezept-Zutaten + g/ml
+       wandern als Pruef-Werkzeuge INS Waechter-Fenster (siehe waechterOpen) - die
+       Ansichten/Funktionen bleiben vollstaendig erhalten, nur der Zugang zieht um. */
     nav.innerHTML=
        _an('dash','📊','Dashboard',"adminGo('dash')")
+      +_an('produkterfassung','🗂️','Erfassung',"adminGo('produkterfassung')",' id="amProdErf" style="display:none"')
       +_an('waechter','🛡️','Wächter',"waechterOpen()")
       +_an('bundles','🧩','Bundles',"adminGo('bundles')")
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
-      +_an('rezeptzutaten','🍽️','Rezept-Zutaten',"rezZutatenWaechterOpen()")
       +_an('mikro','🥗','Nährstoffe',"adminGo('mikro')")
-      +_an('einheit','⚖️','g / ml',"adminGo('einheit')")
-      +_an('todo','📝','To-do',"adminGo('todo')")
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
-      +_an('produkterfassung','🗂️','Erfassung',"adminGo('produkterfassung')",' id="amProdErf" style="display:none"')
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
       +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
@@ -14996,6 +14997,8 @@ if(typeof window!=='undefined'){ window.peHideMarkenToggle=peHideMarkenToggle; w
 /* ===== Wächter-Übersicht (Portal-M-Umbau, Ralph 24.07.2026) =====
    Der 🛡️-Bereichsknopf öffnet den täglichen TÜV: 10 harte Gates (müssen 0 sein) + offene Hinweise.
    Zahlen live aus cb_admin_waechter. */
+function rezZutatenWaecherOpenSafe(){ try{ rezZutatenWaechterOpen(); }catch(e){} }
+if(typeof window!=='undefined'){ window.rezZutatenWaecherOpenSafe=rezZutatenWaecherOpenSafe; }
 async function waechterOpen(){
   if(!(ME&&ME.is_admin)) return;
   var ov=document.getElementById("waechterOv");
@@ -15006,6 +15009,10 @@ async function waechterOpen(){
   ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:840px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><div style="font-weight:800;font-size:18px">🛡️ Wächter – täglicher TÜV über den Katalog</div><button onclick="waechterClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
     +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Harte Gates müssen 0 sein, sonst kein Livegang. Hinweise melden nur.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+      +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';rezZutatenWaecherOpenSafe()" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">🍽️ Rezept-Zutaten prüfen</button>'
+      +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';adminGo(\'einheit\')" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">⚖️ g / ml offen</button>'
+    +'</div>' 
     +'<div id="waechterBody" style="font-size:13px;color:var(--muted)">Lade …</div>'
   +'</div>';
   try{
@@ -15972,7 +15979,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z4";
+const APP_BUILD = "2026-07-28z5";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
