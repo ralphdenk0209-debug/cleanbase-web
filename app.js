@@ -7517,6 +7517,11 @@ function tbKopfNeuAnwenden(){
           +'<button onclick="tbShiftDay(1)" title="Tag vor" style="'+ib+';width:30px;height:30px">›</button>'
         +'</span>'
         +'<span style="display:flex;gap:6px">'
+          /* 28b: Trainingstag als kleiner Kopf-Schalter statt eigener Box (Ralph). Aktiv = grün.
+             trainingstagUmschalten() lädt das Tagebuch neu -> dieser Kopf wird mitgezeichnet. */
+          +((typeof TT!=='undefined'&&TT&&TT.ok)
+            ? '<button onclick="trainingstagUmschalten()" title="'+(TT.aktiv?('Trainingstag AN (+'+(TT.plus_prozent||20)+' % kcal) – antippen zum Ausschalten'):'Trainingstag – antippen, wenn du heute trainierst')+'" style="'+ib+(TT.aktiv?';background:var(--k-eef6ee);border-color:var(--k-bcd9be);opacity:1':';opacity:.55')+'">💪</button>'
+            : '')
           +'<button onclick="toggleTbKalender()" title="Kalender" style="'+ib+'">🗓</button>'
           +'<button onclick="tbSucheToggle()" title="Lebensmittel suchen" style="'+ib+'">🔍</button>'
         +'</span>'
@@ -7572,7 +7577,9 @@ function renderZielNeu(s,ben){
     +'</div>'
     +kachel(MK[0])+kachel(MK[1])+kachel(MK[3])+kachel(MK[2])
   +'</div>';
-  el.innerHTML=kopfzeile+inner+trainingstagBox()
+  /* 28b (Ralph): "der schieberegler für trainingstag, das ist zu viel" - die Box entfällt im
+     neuen Kopf; der Schalter ist das kleine 💪 in der Kopfzeile (tbKopfNeuAnwenden). */
+  el.innerHTML=kopfzeile+inner
     +'<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein &amp; Ballaststoffe = Mindestziel · Fett/KH/kcal = Obergrenze'+((s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):'')+'</div>';
 }
 function renderZiel(s,ben){
@@ -7765,12 +7772,17 @@ function renderTbListe(items, goal){
   const icons={"Frühstück":"🍳","Mittag":"🍽️","Abendessen":"🌙","Snack":"🍎"};
   const snackActive=items.some(i=>i.Mahlzeit==="Snack");
   const share=mealShares(goal, snackActive);
-  const gK=num((goal||{}).Kalorienziel_kcal), gP=num((goal||{}).Eiweiss_ziel_g), gF=num((goal||{}).Fett_ziel_g);
+  const gK=num((goal||{}).Kalorienziel_kcal), gP=num((goal||{}).Eiweiss_ziel_g), gF=num((goal||{}).Fett_ziel_g), gKh=num((goal||{}).KH_ziel_g);
+  /* 28b: Tages-Summen VORAB, damit die Mini-Werte im Mahlzeiten-Kopf ehrlich färben können -
+     amber erst, wenn das TAGESziel gerissen ist (eine Mahlzeits-Grenze wäre eine erfundene Zahl). */
+  const tagKh=items.reduce((a,b)=>a+(+b.kh||0),0), tagF=items.reduce((a,b)=>a+(+b.fett||0),0);
+  const khUeber=(gKh!=null&&tagKh>gKh), fUeber=(gF!=null&&tagF>gF);
   let html="", dayK=0, dP=0, dF=0, dKh=0, dSW=0, dSG=0;
   ["Frühstück","Mittag","Abendessen","Snack"].forEach(m=>{
     const rows=items.filter(i=>i.Mahlzeit===m);
     const mk=rows.reduce((a,b)=>a+(+b.kcal||0),0), mp=rows.reduce((a,b)=>a+(+b.protein||0),0),
-          mf=rows.reduce((a,b)=>a+(+b.fett||0),0), mkh=rows.reduce((a,b)=>a+(+b.kh||0),0);
+          mf=rows.reduce((a,b)=>a+(+b.fett||0),0), mkh=rows.reduce((a,b)=>a+(+b.kh||0),0),
+          mb=rows.reduce((a,b)=>a+(+b.ballaststoffe||0),0);   /* 28b: für die Kopf-Minizeile */
     dayK+=mk; dP+=mp; dF+=mf; dKh+=mkh;
     rows.forEach(r=>{const sc=num(r.Clean_Score),g=num(r.Menge_g); if(sc!=null&&g!=null&&g>0){dSW+=sc*g;dSG+=g;}});
     const ms=mealScore(rows), sh=share[m]||0;
@@ -7791,12 +7803,26 @@ function renderTbListe(items, goal){
       : `<span style="display:flex;align-items:center;gap:8px"><span style="font-size:11.5px;color:var(--tb-muted)">${gK?('Empfohlen ~'+Math.round(gK*sh)+' kcal'):''}</span>${plusBtn}</span>`;
     const headKlick=(neu&&rows.length)?` onclick="tbMealToggle('${m}')" `:' ';
     const headBorder=rows.length&&(!neu||open)?'border-bottom:2px solid rgba(22,163,74,.28)':'';
+    /* 28b (Ralph, Variante B): Mini-Werte der Mahlzeit direkt im Kopf - auch ZUgeklappt sichtbar.
+       Punkte in den Achsenfarben (wie die Kacheln oben); amber NUR, wenn das Tagesziel schon
+       gerissen ist (khUeber/fUeber) - Eiweiß/Ballast sind Mindestziele und färben nie. */
+    const _dot=c=>`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-right:4px;vertical-align:baseline"></span>`;
+    const _wv=(v,warn)=>`<b style="color:${warn?'var(--k-c2410c)':'var(--tb-text,var(--k-1d2b3a))'}">${Math.round(v)}</b>`;
+    const miniRow=(neu&&rows.length)
+      ? `<div onclick="tbMealToggle('${m}')" style="display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--tb-muted);padding:0 0 8px;cursor:pointer;user-select:none;${headBorder}">`
+        + `<span>${_dot('#16a34a')}${_wv(mp,false)} EW</span>`
+        + `<span>${_dot('#3987e5')}${_wv(mkh,khUeber)} KH${khUeber?' ⚠':''}</span>`
+        + `<span>${_dot('#7c6fe0')}${_wv(mf,fUeber)} F${fUeber?' ⚠':''}</span>`
+        + `<span>${_dot('#d97706')}${_wv(mb,false)} Bst</span>`
+      + `</div>` : '';
     html+=`<div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:14px;padding:4px 14px 8px;margin-bottom:10px">
-      <div${headKlick}style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 ${rows.length?'7px':'9px'};${headBorder};${(neu&&rows.length)?'cursor:pointer;user-select:none':''}"><span>${icons[m]||"•"} ${m}</span>${rightHead}</div>`;
+      <div${headKlick}style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14.5px;padding:9px 0 ${rows.length?(neu?'3px':'7px'):'9px'};${(neu&&rows.length)?'':headBorder};${(neu&&rows.length)?'cursor:pointer;user-select:none':''}"><span>${icons[m]||"•"} ${m}</span>${rightHead}</div>${miniRow}`;
     if(neu&&rows.length){ html+=`<div style="display:${open?'':'none'}">`; }
     if(rows.length){
       let tgt="";
-      if(gK){
+      /* 28b (Ralph): "brauchen wir das hier überhaupt?" - Bedarf-Zeile + Anpassen-Knopf sind eine
+         gerechnete Aufteilung des Tagesziels und doppeln den Kopf -> nur noch im alten Layout. */
+      if(gK && !neu){
         const tK=gK*sh, restK=Math.round(tK-mk);
         const pPart=gP?` · Eiweiß ~${Math.round(gP*sh)} g`+((gP*sh-mp)>1?` <span style="color:var(--k-16a34a)">(noch ${Math.round(gP*sh-mp)})</span>`:""):"";
         const fPart=gF?` · Fett ~${Math.round(gF*sh)} g`:"";
@@ -7804,14 +7830,14 @@ function renderTbListe(items, goal){
           +(restK>0?` · <b style="color:var(--k-16a34a)">noch ${restK} kcal</b>`:` · <b style="color:var(--k-b45309)">${Math.abs(restK)} kcal drüber</b>`)
           +pPart+fPart+`</div>`;
       }
-      html+=tgt+(gK?`<div style="margin:2px 0 6px"><button onclick="tbAdjustMeal('${m}')" title="Mengen der Katalog-Produkte dieser Mahlzeit so skalieren, dass ${m} das kcal-Ziel trifft" style="border:1px solid var(--green);background:var(--greenlt);color:var(--greendk);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">🎯 Mengen ans Ziel anpassen</button></div>`:"");
+      html+=tgt+((gK&&!neu)?`<div style="margin:2px 0 6px"><button onclick="tbAdjustMeal('${m}')" title="Mengen der Katalog-Produkte dieser Mahlzeit so skalieren, dass ${m} das kcal-Ziel trifft" style="border:1px solid var(--green);background:var(--greenlt);color:var(--greendk);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">🎯 Mengen ans Ziel anpassen</button></div>`:"");
       var _bl=tbBatchLines(rows); html+=_bl.html; var _skip=_bl.skip; rows.forEach(r=>{ if(_skip&&_skip.has(Number(r.Eintrag_ID))) return; html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--tb-line)">
           <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Produktname||"?")}${num(r.Clean_Score)!=null?` <span style="font-size:11px;font-weight:700;color:${farbe(scoreBew(num(r.Clean_Score)))}">${num(r.Clean_Score)}</span>`:""}</div>
-          <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g},'${r.Produkt_ID||''}');return false" style="color:var(--tb-muted);text-decoration:none;font-size:12.5px">${mengeLabel(r)} · ändern ✎</a>${(gK&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--k-2e7d32);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
+          <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g},'${r.Produkt_ID||''}','${m}');return false" style="color:var(--tb-muted);text-decoration:none;font-size:12.5px">${mengeLabel(r)}${neu?' ✎':' · ändern ✎'}</a>${(gK&&!neu&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--k-2e7d32);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
           <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--tb-muted)">kcal</span></span>
           <button onclick="delTb(${r.Eintrag_ID})" title="löschen" style="border:0;background:var(--tb-card2);border-radius:8px;width:27px;height:27px;color:var(--k-f87171);cursor:pointer;font-size:14px">✕</button></div>
         </div>`; });
-      html+=`<div style="font-size:11.5px;color:var(--tb-muted);padding:7px 0 2px">Mahlzeit gesamt: Eiweiß <b>${Math.round(mp)} g</b> · KH <b>${Math.round(mkh)} g</b> · Fett <b>${Math.round(mf)} g</b></div>`;
+      if(!neu) html+=`<div style="font-size:11.5px;color:var(--tb-muted);padding:7px 0 2px">Mahlzeit gesamt: Eiweiß <b>${Math.round(mp)} g</b> · KH <b>${Math.round(mkh)} g</b> · Fett <b>${Math.round(mf)} g</b></div>`;
     }
     if(neu&&rows.length){ html+=`</div>`; }   /* Ende Aufklapp-Container (27z4) */
     html+=`</div>`;
@@ -8406,7 +8432,10 @@ async function saveGewicht(){
   await client.rpc("cb_gewicht_eintragen",{p_kg:kg,p_datum:document.getElementById("tbDatum").value||tbToday()});
   document.getElementById("tbGewicht").value=""; loadTagebuch();
 }
-async function editMenge(id,cur,pid){
+async function editMenge(id,cur,pid,mahl){
+  /* 28b (Ralph): die "🎯 auffüllen"-Links unter jeder Zeile sind raus - die Funktion steckt
+     jetzt im Mengen-Blatt des ✎-Klicks. Altes Layout behält den prompt()-Weg unverändert. */
+  if(typeof feat==='function' && feat('tagebuch_neu')){ return editMengeNeu(id,cur,pid,mahl); }
   const sg=stkOf(pid);
   if(sg){
     const n=prompt("Neue Anzahl (Stück):", Math.round(cur/sg));
@@ -8419,6 +8448,35 @@ async function editMenge(id,cur,pid){
   if(n===null) return;
   const v=parseFloat(String(n).replace(",",".")); if(!v||v<=0) return;
   await client.rpc("cb_tb_menge",{p_eintrag:id,p_menge_g:v});
+  loadTagebuch();
+}
+/* 28b: Mengen-Blatt fürs neue Tagebuch - Eingabe + optional "ans Ziel auffüllen" (tbFillItem). */
+function editMengeNeu(id,cur,pid,mahl){
+  const sg=stkOf(pid);
+  const alt=document.getElementById('tbMengeOv'); if(alt) alt.remove();
+  const ov=document.createElement('div'); ov.id='tbMengeOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1200;display:flex;align-items:flex-end;justify-content:center';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  const kannZiel = !!mahl && (typeof tbFillItem==='function') && num((window._tbGoal||{}).Kalorienziel_kcal)!=null;
+  ov.innerHTML='<div style="background:var(--tb-card,var(--k-ffffff));border-radius:18px 18px 0 0;padding:16px 16px 22px;width:100%;max-width:520px">'
+    +'<div style="font-weight:800;font-size:15px;margin-bottom:10px;color:var(--tb-text,var(--k-1d2b3a))">Menge ändern</div>'
+    +'<div style="display:flex;gap:8px;align-items:center">'
+      +'<input id="tbMengeNeuVal" type="number" inputmode="decimal" min="0" step="any" value="'+(sg?Math.round(cur/sg):cur)+'" style="flex:1;padding:11px;border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;font-size:16px;background:var(--tb-card,var(--k-ffffff));color:var(--tb-text,var(--k-1d2b3a))">'
+      +'<span style="font-size:13px;color:var(--tb-muted,var(--k-6b6256));flex:0 0 auto">'+(sg?('Stück ('+sg+' g)'):'g')+'</span>'
+    +'</div>'
+    +'<button onclick="tbMengeNeuSave('+id+','+(sg||0)+')" style="margin-top:10px;width:100%;background:var(--k-16a34a);color:var(--k-ffffff);border:0;border-radius:12px;padding:12px;font-size:14px;font-weight:800;cursor:pointer">Speichern</button>'
+    +(kannZiel?('<button onclick="document.getElementById(\'tbMengeOv\').remove();tbFillItem('+id+',\''+mahl+'\')" title="Diese Menge so anpassen, dass die Mahlzeit ihr kcal-Ziel trifft (andere Einträge bleiben)" style="margin-top:8px;width:100%;background:none;border:1px solid var(--tb-line,var(--k-e7e0d4));color:var(--tb-muted,var(--k-6b6256));border-radius:12px;padding:10px;font-size:13px;cursor:pointer">🎯 Menge ans Ziel auffüllen</button>'):'')
+  +'</div>';
+  document.body.appendChild(ov);
+  try{ var _i=document.getElementById('tbMengeNeuVal'); _i.focus(); _i.select(); }catch(e){}
+}
+async function tbMengeNeuSave(id,sg){
+  const v=parseFloat(String((document.getElementById('tbMengeNeuVal')||{}).value||'').replace(',','.'));
+  if(!v||v<=0) return;
+  const g=sg?Math.round(v*sg):v;
+  try{ await client.rpc("cb_tb_menge",{p_eintrag:id,p_menge_g:g}); }
+  catch(e){ alert("Speichern fehlgeschlagen: "+e.message); return; }
+  const ov=document.getElementById('tbMengeOv'); if(ov) ov.remove();
   loadTagebuch();
 }
 async function loadRezeptDropdown(){
@@ -8918,7 +8976,9 @@ function zusRenderPick(){
   var isSel=function(z){ return !!selE[String(z.e||"").toLowerCase()]; };
   var checked=all.filter(isSel), rest=all.filter(function(z){ return !isSel(z); });
   if(q){ var mm=function(z){ var _e=String(z.e||"").toLowerCase(); return _e.indexOf(q)>=0 || String(z.name||"").toLowerCase().indexOf(q)>=0 || String(z.name_de||"").toLowerCase().indexOf(q)>=0 || (_synAll[_e]||[]).join(" ").indexOf(q)>=0; }; checked=checked.filter(mm); rest=rest.filter(mm); }
-  var shown=checked.concat(rest);
+  /* 28d (Mockup A): ohne Suchtext nur die ERFASSTEN Zusatzstoffe - nicht alle 518 E-Nummern. */
+  var shown = q ? checked.concat(rest) : checked;
+  var zusHintRow = q ? "" : '<div style="padding:8px;color:var(--muted);font-size:11.5px;text-align:center;border-top:1px dashed var(--line)">\ud83d\udd0e Tippen durchsucht alle '+all.length+' E-Nummern (deutsch/englisch/E-Nr.)</div>';
   var row=function(z){ var on=isSel(z); var f=zusFarbe(z.einstufung);
     /* 27y: bei ERFASSTEN Stoffen zusaetzlich den Verarbeitungswert der (automatisch gebundenen)
        Stamm-Zutat zeigen - beide Achsen an EINER Zeile lesbar (Prinzip 8, "1x anzeigen"). */
@@ -8930,7 +8990,7 @@ function zusRenderPick(){
       +'<span style="display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:11.5px;color:var(--muted)"><span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'+f.label+'</span>'
       +'</label>'; };
   var _st=box.scrollTop;
-  box.innerHTML=(shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Stamm wird geladen…")+'</div>');
+  box.innerHTML=(shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":((all.length?"Keine Zusatzstoffe erfasst \u2013 im Suchfeld tippen (oder \u201ekeine\u201c anhaken).":"Stamm wird geladen\u2026")))+'</div>') + zusHintRow;
   try{ box.scrollTop=_st; }catch(e){}
 }
 function zusToggle(e){
@@ -9223,16 +9283,18 @@ function fmMikroVorschlag(list){
   var einh=window._fmEinheiten||[];
   var norm=(list||[]).map(function(m){ var nm=String((m.name||m.naehrstoff||m.stoff||'')).trim(); if(!nm) return null; var menge=(m.menge!=null?m.menge:(m.wert!=null?m.wert:null)); if(menge==null||!isFinite(Number(menge))) return null; var canon=null; for(var i=0;i<einh.length;i++){ if(String(einh[i].naehrstoff).toLowerCase()===nm.toLowerCase()){ canon=einh[i]; break; } } return { name:(canon?canon.naehrstoff:nm), menge:Number(menge), einheit:(canon?canon.einheit:(m.einheit||m.unit||'mg')), bekannt:!!canon }; }).filter(Boolean);
   window._fmVorschlag=norm;
+  try{ if(typeof fgEnthaltenRender==='function') fgEnthaltenRender(); }catch(e){} /* 28d: Arbeitslisten-Kopf zaehlt die offenen Mikro-Vorschlaege mit */
   if(!norm.length){ box.style.display='none'; box.innerHTML=''; return; }
   box.style.display='';
-  box.innerHTML='<div style="border:1px solid #cbc7f2;border-radius:9px;background:var(--k-f6f5fd,#f6f5fd);padding:9px 11px;font-size:12px;line-height:1.5;color:var(--k-534ab7)"><b>\ud83e\udd16 Riki hat '+norm.length+' Mikron\u00e4hrstoff(e) gelesen:</b> '+norm.map(function(m){ return esc(m.name)+' '+esc(String(m.menge))+'\u202f'+esc(m.einheit); }).join(', ')+' <button type="button" onclick="fmMikroVorschlagUebernehmen()" style="margin-left:4px;padding:4px 10px;border:1px solid var(--k-16a34a);border-radius:7px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12px;font-weight:700">alle \u00fcbernehmen</button></div>';
+  box.innerHTML='<div style="border:1px solid #cbc7f2;border-radius:9px;background:var(--k-f6f5fd,#f6f5fd);padding:9px 11px;font-size:12px;line-height:1.5;color:var(--k-534ab7)"><b>\ud83e\udd16 Riki hat '+norm.length+' Mikron\u00e4hrstoff(e) je 100\u202fg gelesen:</b> '+norm.map(function(m){ return esc(m.name)+' '+esc(String(m.menge))+'\u202f'+esc(m.einheit)+(m.bekannt?'':' <span title="Name nicht im N\u00e4hrstoff-Stamm \u2013 wird gespeichert, z\u00e4hlt aber evtl. nicht in der N\u00e4hrstoff-\u00dcbersicht" style="color:var(--k-b45309)">?</span>'); }).join(', ')+' <button type="button" onclick="fmMikroVorschlagUebernehmen()" style="margin-left:4px;padding:4px 10px;border:1px solid var(--k-16a34a);border-radius:7px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12px;font-weight:700">alle \u00fcbernehmen</button></div>';
 }
 async function fmMikroVorschlagUebernehmen(){
   var pid=(window._fgEdit&&window._fgEdit.id), msg=document.getElementById('fm_mikroMsg');
   if(!pid){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Bitte das Produkt zuerst speichern.'; } return; }
   var list=window._fmVorschlag||[]; var ok=0;
-  for(var i=0;i<list.length;i++){ try{ var r=await client.rpc('cb_produkt_mikro_setzen',{p_id:pid,p_stoff:list[i].name,p_menge:list[i].menge,p_einheit:list[i].einheit}); if(!(r&&r.error)) ok++; }catch(e){} }
+  for(var i=0;i<list.length;i++){ try{ var r=await client.rpc('cb_produkt_mikro_setzen',{p_id:pid,p_stoff:list[i].name,p_menge:list[i].menge,p_einheit:list[i].einheit,p_form:null}); /* 28b: p_form MUSS mit - ohne es traf der Aufruf zwei Ueberladungen (42725); die 4-Param-Altfassung ist per Migration entfernt, der explizite Parameter haelt den Aufruf eindeutig. */ if(!(r&&r.error)) ok++; }catch(e){} }
   window._fmVorschlag=[]; var box=document.getElementById('fm_mikroVorschlag'); if(box){ box.style.display='none'; box.innerHTML=''; }
+  try{ if(typeof fgEnthaltenRender==='function') fgEnthaltenRender(); }catch(e){} /* 28d: Zaehler im Arbeitslisten-Kopf zuruecksetzen */
   try{ fmMikroLoad(pid); }catch(e){}
   if(msg){ msg.style.color='var(--k-16a34a)'; msg.textContent='\u2713 '+ok+' Mikron\u00e4hrstoff(e) \u00fcbernommen'; }
 }
@@ -9366,8 +9428,14 @@ function fgPickRender(){
   /* Vollständige Liste zeigen (Ralph): ALLE Stamm-Zutaten, die ausgewählten IMMER oben.
      Suche filtert beide Gruppen; Reihenfolge innerhalb bleibt (Stamm = alphabetisch). */
   var checked=all.filter(isSel), rest=all.filter(function(it){return !isSel(it);});
+  /* 28d (Ralph 28.07., Mockup A "Nur was drin ist"; auf das Parallel-28c rebased): OHNE Suchtext
+     zeigt die Karte NUR die gebundenen Zutaten - die Dauerliste aller ~1700 Stamm-Zutaten war der
+     Hauptlaerm der Maske. Der Stamm ist nicht weg: Tippen im Suchfeld durchsucht ihn weiter
+     vollstaendig (Gebundene zuerst, wie bisher). Die fruehere Regel "ALLE zeigen" (23.07.) ist
+     damit bewusst abgeloest - Ralphs neuer Entscheid: "zu unuebersichtlich zum Arbeiten". */
   if(q){ var mm=function(it){return (it.name||"").toLowerCase().indexOf(q)>=0;}; checked=checked.filter(mm); rest=rest.filter(mm); }
-  var shown=checked.concat(rest);
+  var shown = q ? checked.concat(rest) : checked;
+  var hintRow = q ? "" : '<div style="padding:8px;color:var(--muted);font-size:11.5px;text-align:center;border-top:1px dashed var(--line)">\ud83d\udd0e Tippen durchsucht alle '+all.length+' Stamm-Zutaten</div>';
   /* 27y ("1x reicht"): Stoffe, die als ZUSATZSTOFF erfasst sind, erscheinen hier nicht mehr als
      normale Doppel-Zeile - nur als schmaler ⚗-Verweis. Die Bindung selbst bleibt bestehen
      (Prinzip 8, beide Achsen); geaendert wird sie ueber die Zusatzstoff-Karte. */
@@ -9388,7 +9456,7 @@ function fgPickRender(){
       +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</label>'; };
   var _st=wrap.scrollTop;
-  wrap.innerHTML = (shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Stamm ist leer.")+'</div>');
+  wrap.innerHTML = (shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Noch keine Zutat gebunden \u2013 im Suchfeld tippen oder Riki lesen lassen.")+'</div>') + hintRow;
   try{ wrap.scrollTop=_st; }catch(e){}
 }
 function fgPickToggle(cb){
@@ -9649,7 +9717,34 @@ function fgEnthaltenRender(){
       +'<button onclick="fgEnthaltenDel(this)" data-name="'+esc(raw)+'" title="aus der Referenz entfernen (z. B. Riki-Fehllesung)" style="border:0;background:transparent;color:#b91c1c;cursor:pointer;font-size:15px;line-height:1;padding:0 3px;flex:0 0 auto">✕</button>'
       +'</div>';
   }).filter(Boolean).join("");
-  box.innerHTML = html || '<span style="color:#1f7d43;font-size:12.5px">✓ Alles vom Etikett ist erfasst – als Zutat oder als Zusatzstoff.</span>';
+  /* 28d (Mockup B "Die Referenz fuehrt"): Fortschritts-Kopf ueber der Arbeitsliste - wie viele
+     Referenz-Eintraege sind schon sauber uebernommen, wie viele offen, wie viele blockieren den
+     Index. Die REIHENFOLGE der Zeilen bleibt die des Etiketts (sie traegt Information: Zutaten
+     stehen nach Menge sortiert) - deshalb wird NICHT umsortiert, nur gezaehlt. Zaehlt auch die
+     offenen Riki-Mikro-Vorschlaege mit und verweist auf die Mikro-Karte - die UEBERNAHME
+     bleibt dort (eine Stelle, ein Weg, par. 1.11i). */
+  var _cnt={done:0,offen:0,unklar:0};
+  ref.forEach(function(nm){ var raw=String(nm).trim();
+    if((typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[raw.toLowerCase()]) || _zusIstLeer(raw)) return;
+    var s=_fgRefStatus(raw, work, zk);
+    if(!s.inList) _cnt.offen++; else if(s.unklar) _cnt.unklar++; else _cnt.done++;
+  });
+  var _tot=_cnt.done+_cnt.offen+_cnt.unklar;
+  var _mv=(window._fmVorschlag||[]).length;
+  var kopf="";
+  if(_tot||_mv){
+    var pct=_tot?Math.round(100*_cnt.done/_tot):0;
+    kopf='<div style="margin-bottom:7px">'
+      +'<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;margin-bottom:4px;flex-wrap:wrap">'
+      +'<b style="color:var(--ink)">'+_cnt.done+' von '+_tot+' \u00fcbernommen</b>'
+      +(_cnt.offen?'<span style="color:#8a5a0b">\u25cb '+_cnt.offen+' offen</span>':'')
+      +(_cnt.unklar?'<span style="color:#475569">\u26a0 '+_cnt.unklar+' nicht eingestuft \u00b7 kein Index</span>':'')
+      +(_mv?'<span onclick="try{var b=document.getElementById(\'fm_mikroVorschlag\');if(b)b.scrollIntoView({behavior:\'smooth\',block:\'center\'});}catch(e){}" style="color:#5b21b6;cursor:pointer" title="zur Mikron\u00e4hrstoff-Karte">\ud83e\udd16 '+_mv+' Mikro-Vorschl'+(_mv>1?'\u00e4ge':'ag')+' offen \u2192</span>':'')
+      +'</div>'
+      +(_tot?'<div style="height:6px;border-radius:99px;background:#e8edf2;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+(pct===100?'#2e9e57':'#e0a32e')+'"></div></div>':'')
+      +'</div>';
+  }
+  box.innerHTML = kopf + (html || '<span style="color:#1f7d43;font-size:12.5px">✓ Alles vom Etikett ist erfasst – als Zutat oder als Zusatzstoff.</span>');
 }
 /* Zutaten-Abweichung: welche Etikett-Referenz-Einträge sind NOCH NICHT übernommen (weder als
    Zutat links noch als Zusatzstoff unten)? Dieselbe Logik wie die orangen Zeilen in
@@ -11311,7 +11406,10 @@ async function fgPullHersteller(){
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
     try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
-    try{ var _wqM2=v.wirkstoffe||v.naehrstoffe||v.mineralstoffe||v.vitamine||null; if(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()!=="supplement" && Array.isArray(_wqM2)&&_wqM2.length && typeof fmMikroVorschlag==="function") fmMikroVorschlag(_wqM2); }catch(e){}
+    try{ /* 28b: NUR mikronaehrstoffe_100g (echte 100-g-Werte, Riki v9). Vorher las der Hook v.wirkstoffe -
+       das sind PORTIONS-/Tagesdosis-Werte; als Menge_100g gespeichert laegen sie beim Salz um Faktor 50 daneben
+       (Jod 40 ug je 2-g-Portion vs. 2000 ug je 100 g). Portionswerte gehoeren in die Dosis-Tabelle, nicht hierher. */
+      var _wqM2=v.mikronaehrstoffe_100g||null; if(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()!=="supplement" && Array.isArray(_wqM2)&&_wqM2.length && typeof fmMikroVorschlag==="function") fmMikroVorschlag(_wqM2); }catch(e){}
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Herstellerseite";
     /* Die Herstellerseite hinterliess bis 18.07.2026 GAR KEINEN Beleg - sie setzte nur den
        Quelle-Typ. Ein Produkt trug damit "Herstellerseite", ohne dass irgendwo stand, welche. */
@@ -11420,7 +11518,8 @@ async function fgPullEtikett(files, b64arr){
         feWirkLoad(_wq.map(function(w){ return {naehrstoff:(w.name||w.naehrstoff||w.stoff||""), menge:(w.menge!=null?w.menge:w.wert), einheit:(w.einheit||w.unit||"mg"), nrv:(w.nrv!=null?w.nrv:w.nrv_prozent)}; }).filter(function(w){ return w.naehrstoff&&w.menge!=null; }), false);
       }
     } }catch(e){}
-    try{ var _wqM=v.wirkstoffe||v.naehrstoffe||v.mineralstoffe||v.vitamine||null; if(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()!=="supplement" && Array.isArray(_wqM)&&_wqM.length && typeof fmMikroVorschlag==="function") fmMikroVorschlag(_wqM); }catch(e){}
+    try{ /* 28b: siehe Herstellerseiten-Pfad - nur echte 100-g-Werte, nie die Portions-"wirkstoffe". */
+      var _wqM=v.mikronaehrstoffe_100g||null; if(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()!=="supplement" && Array.isArray(_wqM)&&_wqM.length && typeof fmMikroVorschlag==="function") fmMikroVorschlag(_wqM); }catch(e){}
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="Etikettfoto";   /* 27l: war "Etikettfoto (Nutzer)" - steht NICHT im Quellen_Stamm, das <select> verschluckte es still. Das "(Nutzer)" steht im Beleg. */
     try{ feBelegAdd("Etikettfoto (Nutzer)"+(ean?(" · EAN "+ean):"")); }catch(e){}
     try{ fePlaus(); }catch(e){}
@@ -15391,7 +15490,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28as";
+const APP_BUILD = "2026-07-28d";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
