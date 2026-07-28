@@ -2880,9 +2880,9 @@ async function loadProduktErfassung(){
     +'</div>'
     +'</div>'  /* Ende Sticky-Menü: NUR Toolbar + Chips bleiben fixiert (Ralph) */
     /* Session-Leiste (Suche/Filter, Bearbeiter, Sortierung) – scrollt jetzt mit, unterhalb der Buttons */
-    +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin:2px 0 12px">'
+    +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin:2px 0 12px">'
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Suche / Filter</div><input id="peSuche" oninput="peRender()" placeholder="🔍 Titel, Marke, EAN, Kategorie…" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"></div>'
-      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Bearbeiter</div><input id="peBearb" disabled style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#eef2f7;color:#7b8698;font-size:13px"></div>'
+      /* 28k: Bearbeiter-Feld entfernt (Ralph: "nur Bearbeiter raus") - es war tot (disabled, zeigte nur den eigenen Namen). Der Befueller weiter unten prueft die Existenz und laeuft jetzt leer. */
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Sortierung</div>'
         +'<select id="peSort" onchange="peRender()" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"><option value="neu">Erfasst – neueste zuerst</option><option value="score">Index aufsteigend</option><option value="titel">Titel A–Z</option><option value="mark">Nur markierte</option></select></div>'
     +'</div>'
@@ -2990,7 +2990,9 @@ function peRender(){
     /* 27z (Ralph): Excel-artige Spaltenfilter - Klick auf den Spaltenkopf öffnet eine
        Häkchen-Liste der Werte. Aktive Filter stehen in window._peColF (Spalte -> erlaubte Werte). */
     var cf=window._peColF||{};
-    for(var col in cf){ if(cf.hasOwnProperty(col)&&cf[col]){ if(!cf[col][peColVal(p,col)]) return false; } }
+    for(var col in cf){ if(cf.hasOwnProperty(col)&&cf[col]){
+      if(cf[col].__q!==undefined){ if(String(peColVal(p,col)).toLowerCase().indexOf(cf[col].__q)<0) return false; }
+      else if(!cf[col][peColVal(p,col)]) return false; } }
     if(!q) return true;
     return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')+' '+String(p.herkunft||'')+' '+String(p.grund||'')).toLowerCase().indexOf(q)>=0; });
   if(sort==='mark') list=list.filter(function(p){return p.markiert;});
@@ -3003,7 +3005,7 @@ function peRender(){
   var td=function(c,st,attr){ return '<td '+(attr||'')+' style="padding:9px 10px;border-bottom:1px solid #e2e8ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(st||'')+'">'+c+'</td>'; };
   /* Feste Spaltenbreiten (table-layout:fixed) – lange Titel werden abgeschnitten (…), statt die
      Tabelle zu sprengen. Titel-Spalte ohne feste Breite = nimmt den Rest. */
-  var cols='<colgroup><col style="width:64px"><col><col style="width:120px"><col style="width:120px"><col style="width:58px"><col style="width:106px"><col style="width:120px"><col style="width:112px"><col style="width:130px"><col style="width:52px"></colgroup>';
+  var cols='<colgroup><col style="width:64px"><col><col style="width:120px"><col style="width:120px"><col style="width:58px"><col style="width:106px"><col style="width:112px"><col style="width:108px"><col style="width:178px"><col style="width:52px"></colgroup>';
   var scoreCell=function(s){ if(s==null) return '<span style="font-weight:800;color:#7b8698">–</span>';
     var c=s>=80?'#2e9e57':s>=60?'#c88616':'#cf5442'; return '<span style="font-weight:800;color:'+c+'">'+s+'</span>'; };
   var statPill=function(p){
@@ -3017,7 +3019,7 @@ function peRender(){
     var on=!!(window._peColF&&window._peColF[col]);
     return '<th onclick="peColFilter(event,\''+col+'\')" title="Klicken zum Filtern (wie in Excel)" style="position:sticky;top:0;background:'+(on?'#e3ebfb':'#eef3f8')+';text-align:left;padding:9px 10px;border-bottom:1px solid #e2e8ef;font-size:12px;color:'+(on?'#3b56b0':'#5b6b82')+';font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer">'+h+' <span style="font-size:10px">'+(on?'▼':'▾')+'</span></th>';
   };
-  g.innerHTML=cols+'<thead><tr>'+[th('P-Nr'),th('Titel'),thF('Marke','marke'),thF('Kategorie','kategorie'),th('Index'),thF('Status','status'),thF('EAN','ean'),thF('Quelle','quelle'),thF('Herkunft','herkunft'),th('⚑ 🛡')].join('')+'</tr></thead><tbody>'
+  g.innerHTML=cols+'<thead><tr>'+[thF('P-Nr','pnr'),thF('Titel','titel'),thF('Marke','marke'),thF('Kategorie','kategorie'),thF('Index','index'),thF('Status','status'),thF('EAN','ean'),thF('Quelle','quelle'),thF('Herkunft','herkunft'),th('⚑ 🛡')].join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')">'
       +td(esc(p.id),'color:#7b8698')
@@ -3048,23 +3050,44 @@ function peColVal(p,col){
   if(col==='kategorie') return String(p.kategorie||'').trim()||'– leer –';
   if(col==='quelle') return String(p.quelle_typ||'').trim()||'– leer –';
   if(col==='herkunft') return String(p.herkunft||'').trim()||'– leer –';
+  if(col==='pnr') return String(p.id||'');
+  if(col==='titel') return String(p.name||'');
+  /* Index: Zehner-Gruppen NUR fuers Filtern/Zaehlen (90–100 zusammen, weil 100 sonst allein steht).
+     Das sind Anzeige-Eimer, keine Bewertungsgrenzen. */
+  if(col==='index'){ var s=(p.score==null?null:Number(p.score)); if(s==null||!isFinite(s)) return 'ohne Index'; if(s>=90) return '90–100'; var lo=Math.floor(s/10)*10; return lo+'–'+(lo+9); }
   return '';
 }
 function peColFilter(ev,col){
   try{ ev.stopPropagation(); }catch(e){}
   var ex=document.getElementById('peColBox');
   if(ex){ var same=(ex.getAttribute('data-col')===col); ex.remove(); if(same) return; }
+  /* 28j: P-Nr und Titel filtern per TIPPEN (gleiche Huelle am Spaltenkopf, aber ein Text-Filter -
+     eine Haekchen-Liste aus ~1600 einmaligen Werten waere sinnlos). Leeres Feld = Filter weg. */
+  if(col==='pnr'||col==='titel'){
+    var cur=(((window._peColF||{})[col])||{}).__q||'';
+    var tb=document.createElement('div'); tb.id='peColBox'; tb.setAttribute('data-col',col);
+    tb.style.cssText='position:absolute;z-index:85;background:#fff;color:#1d2733;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:10px;width:260px;display:flex;flex-direction:column;gap:7px';
+    var t0=ev.target.closest?ev.target.closest('th'):ev.target; var r0=t0.getBoundingClientRect();
+    tb.style.top=(window.scrollY+r0.bottom+4)+'px';
+    tb.style.left=(window.scrollX+Math.min(r0.left, Math.max(6, innerWidth-272)))+'px';
+    tb.innerHTML='<input id="peColQ" oninput="peColQSet(\''+col+'\',this.value)" value="'+esc(cur)+'" placeholder="'+(col==='pnr'?'P-Nummer tippen…':'Titel tippen…')+'" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;font-size:13px;background:#fff;color:#1d2733">'
+      +'<button type="button" onclick="peColQSet(\''+col+'\',\'\');var q=document.getElementById(\'peColQ\');if(q)q.value=\'\';" style="padding:6px;border:1px solid #c3ccf0;border-radius:8px;background:#eef1fb;color:#3b56b0;cursor:pointer;font-size:12px;font-weight:700">Filter weg</button>';
+    document.body.appendChild(tb);
+    try{ var qi=document.getElementById('peColQ'); if(qi) qi.focus(); }catch(e){}
+    setTimeout(function(){ var close=function(e){ if(!tb.contains(e.target)){ tb.remove(); document.removeEventListener('mousedown',close); } }; document.addEventListener('mousedown',close); },0);
+    return;
+  }
   var rows=window._peRows||[];
   var cnt={}; rows.forEach(function(p){ var v=peColVal(p,col); cnt[v]=(cnt[v]||0)+1; });
   var werte=Object.keys(cnt).sort(function(a,b){ return a.toLowerCase()<b.toLowerCase()?-1:1; });
   var cf=(window._peColF&&window._peColF[col])||null;   /* null = alles erlaubt */
   var box=document.createElement('div'); box.id='peColBox'; box.setAttribute('data-col',col);
-  box.style.cssText='position:absolute;z-index:85;background:#fff;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:10px;width:280px;max-height:60vh;display:flex;flex-direction:column';
+  box.style.cssText='position:absolute;z-index:85;background:#fff;color:#1d2733;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:10px;width:280px;max-height:60vh;display:flex;flex-direction:column';
   var t=ev.target.closest?ev.target.closest('th'):ev.target; var r=t.getBoundingClientRect();
   box.style.top=(window.scrollY+r.bottom+4)+'px';
   box.style.left=(window.scrollX+Math.min(r.left, Math.max(6, innerWidth-292)))+'px';
   box.innerHTML=
-    '<input id="peColSuche" oninput="peColRender()" placeholder="🔍 Werte suchen…" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;font-size:13px;margin-bottom:7px">'
+    '<input id="peColSuche" oninput="peColRender()" placeholder="🔍 Werte suchen…" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;font-size:13px;margin-bottom:7px;background:#fff;color:#1d2733">'
     +'<div style="display:flex;gap:6px;margin-bottom:6px">'
       +'<button type="button" onclick="peColAlle(true)" style="flex:1;padding:6px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">alle an</button>'
       +'<button type="button" onclick="peColAlle(false)" style="flex:1;padding:6px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">alle aus</button>'
@@ -3102,7 +3125,8 @@ function peColAlle(on){ var d=window._peColBoxDaten; if(!d) return;
   peColRender(); _peColApply(); }
 function peColReset(){ var d=window._peColBoxDaten; if(d){ d.werte.forEach(function(v){ d.sel[v]=true; }); }
   peColRender(); _peColApply(); }
-if(typeof window!=='undefined'){ window.peColFilter=peColFilter; window.peColChk=peColChk; window.peColAlle=peColAlle; window.peColReset=peColReset; window.peColRender=peColRender; window.peColVal=peColVal; }
+function peColQSet(col,v){ v=String(v||'').trim().toLowerCase(); window._peColF=window._peColF||{}; if(v) window._peColF[col]={__q:v}; else delete window._peColF[col]; peRender(); }
+if(typeof window!=='undefined'){ window.peColFilter=peColFilter; window.peColChk=peColChk; window.peColAlle=peColAlle; window.peColReset=peColReset; window.peColRender=peColRender; window.peColVal=peColVal; window.peColQSet=peColQSet; }
 /* Der Status-Knopf zeigt den ECHTEN Status des ausgewählten Produkts (Aktiv/Entwurf), farbig.
    Ohne Auswahl neutral „⇄ Status". Klick schaltet um (peToggleStatus). */
 function peStatusBtnUpdate(){
@@ -10270,8 +10294,10 @@ async function openFgEditor(id, prefill, targetEl){
     _navInner+= _nbtn('‹ Vorheriges', "openFgEditor('"+_prev+"')", !!_prev)
       + '<span style="font-size:13px;color:var(--muted);white-space:nowrap">'+(_idx+1)+' / '+_rows.length+'</span>'
       + _nbtn('Nächstes ›', "openFgEditor('"+_next+"')", !!_next)
-      + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap;margin-left:auto"><input type="checkbox" '+(_mk?'checked':'')+' onclick="fgEditMark(\''+esc(id)+'\',this.checked)" style="width:17px;height:17px;accent-color:var(--k-16a34a)">🚩 markiert <span style="color:var(--muted);font-weight:400">(gespeichert)</span></label>';
+      + '<span id="fe_frgSlot" style="margin-left:auto;display:flex;align-items:center;min-width:0"></span>'
+      + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" '+(_mk?'checked':'')+' onclick="fgEditMark(\''+esc(id)+'\',this.checked)" style="width:17px;height:17px;accent-color:var(--k-16a34a)">🚩 markiert <span style="color:var(--muted);font-weight:400">(gespeichert)</span></label>';
   }
+  if(_navInner.indexOf('fe_frgSlot')<0) _navInner+='<span id="fe_frgSlot" style="margin-left:auto;display:flex;align-items:center;min-width:0"></span>';   /* 28i: Slot auch ohne Listen-Navigation */
   var _navBar='<div style="position:sticky;top:0;z-index:25;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 2px;margin:-8px 0 12px">'+_navInner+'</div>';
   if(targetEl) _navBar='';   /* Inline-Modus: die Master-Detail-Liste ersetzt die Kopf-Navigation */
   panel.innerHTML=`
@@ -10374,11 +10400,12 @@ async function openFgEditor(id, prefill, targetEl){
      und beim naechsten neuen Element faellt es wieder auf), gilt hier: KEIN direktes Kind einer Karte wird
      gequetscht. Die scrollenden Listen tragen ihr flex INLINE und schlagen diese Regel bewusst. */}
 <style>#fe_gridA .cardFB > *{flex-shrink:0}
+#fe_colZus > div > *{flex:1 1 auto;min-width:0}
 #fe_flipInner.geflippt{transform:rotateY(180deg)}
 #fe_fotoMount #fe_wirkFotoBox{height:clamp(300px,52vh,720px)}
 #fe_fotoLeerHinweis{display:none}
 #fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
-<div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(310px,1.02fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - 235px);min-height:430px"><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
+<div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - 235px);min-height:430px"><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -11235,7 +11262,7 @@ var _FRG_PR={r:0,y:1,g:2,x:3};
 function feFreigabeOpen(o){
   var rail=document.getElementById('frgRail'), panel=document.getElementById('frgPanel'); if(!panel) return;
   panel.style.transform=o?'translateX(0)':'translateX(100%)';
-  if(rail) rail.style.transform=o?'translateX(120%)':'translateX(0)';
+  if(rail && !rail._frgInline) rail.style.transform=o?'translateX(120%)':'translateX(0)';   /* 28i: der Kopfleisten-Chip bleibt stehen */
   window._frgOpenState=!!o;
 }
 function feFreigabeLeisteHide(){
@@ -11254,7 +11281,7 @@ function feFreigabeLeiste(items, blocked){
     rail=document.createElement('div'); rail.id='frgRail';
     rail.style.cssText='position:fixed;top:120px;right:0;z-index:9992;display:flex;flex-direction:column;align-items:center;gap:10px;background:#ffffff;border:1px solid #e2e8ef;border-right:0;border-radius:14px 0 0 14px;padding:12px 11px;box-shadow:-7px 8px 24px -12px rgba(20,40,70,.4);cursor:pointer;transition:transform .28s ease;min-width:48px';
     rail.onclick=function(){ feFreigabeOpen(true); };
-    rail.innerHTML='<span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:800;letter-spacing:.12em;color:#8a94a0;text-transform:uppercase;text-align:center">Freigabe</span>'
+    rail.innerHTML='<span id="frgLbl" style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:800;letter-spacing:.12em;color:#8a94a0;text-transform:uppercase;text-align:center">Freigabe</span>'
       +'<div id="frgDots" style="display:flex;flex-direction:column;gap:9px;align-items:center"></div>'
       +'<span id="frgSum" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px;white-space:nowrap;text-align:center"></span>';
     document.body.appendChild(rail);
@@ -11274,7 +11301,26 @@ function feFreigabeLeiste(items, blocked){
       +'<div style="padding:12px 16px 16px;border-top:1px solid #e2e8ef;background:#ffffff"><button id="frgGo" style="display:block;width:100%;border:0;border-radius:11px;color:#fff;font-weight:800;font-size:14px;padding:12px;cursor:pointer">✓ Speichern &amp; freigeben</button><button onclick="try{fgEditSave(false)}catch(e){}" style="display:block;width:100%;border:1px solid #e2e8ef;border-radius:11px;background:#ffffff;color:#1d3c24;font-weight:600;font-size:13px;padding:10px;cursor:pointer;margin-top:7px">💾 Nur speichern</button></div>';
     document.body.appendChild(panel);
   }
-  rail.style.display=''; panel.style.display='';
+  /* 28i (Ralph: „die Fahne kann weg und oben in die Leiste rechts rein"): Die Freigabe-Anzeige sitzt
+     jetzt als CHIP rechts in der Editor-Kopfleiste (Slot fe_frgSlot). Nur wenn es die Kopfleiste nicht
+     gibt (Inline-/Master-Detail-Modus), bleibt die alte Rand-Fahne als Rueckfall. Gleiche Daten, gleicher
+     Klick (oeffnet das Freigabe-Panel), nur ein anderer Ort - keine zweite Logik. */
+  var _slot=document.getElementById('fe_frgSlot');
+  var _lbl=document.getElementById('frgLbl'), _dotsEl=document.getElementById('frgDots');
+  if(_slot){
+    if(rail.parentNode!==_slot) _slot.appendChild(rail);
+    rail._frgInline=true;
+    rail.style.cssText='display:flex;align-items:center;gap:8px;background:#ffffff;border:1px solid #e2e8ef;border-radius:999px;padding:5px 12px;cursor:pointer;min-width:0;transition:box-shadow .28s ease';
+    if(_lbl) _lbl.style.cssText='writing-mode:horizontal-tb;font-size:9.5px;font-weight:800;letter-spacing:.12em;color:#8a94a0;text-transform:uppercase;white-space:nowrap';
+    if(_dotsEl) _dotsEl.style.cssText='display:flex;flex-direction:row;gap:5px;align-items:center';
+  } else {
+    if(rail.parentNode!==document.body) document.body.appendChild(rail);
+    rail._frgInline=false;
+    rail.style.cssText='position:fixed;top:120px;right:0;z-index:9992;display:flex;flex-direction:column;align-items:center;gap:10px;background:#ffffff;border:1px solid #e2e8ef;border-right:0;border-radius:14px 0 0 14px;padding:12px 11px;box-shadow:-7px 8px 24px -12px rgba(20,40,70,.4);cursor:pointer;transition:transform .28s ease;min-width:48px';
+    if(_lbl) _lbl.style.cssText='writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:800;letter-spacing:.12em;color:#8a94a0;text-transform:uppercase;text-align:center';
+    if(_dotsEl) _dotsEl.style.cssText='display:flex;flex-direction:column;gap:9px;align-items:center';
+  }
+  rail.style.display='flex'; panel.style.display='';
   rail.style.animation = blocked ? '' : 'frgPulse 1.8s ease-in-out infinite';
   document.getElementById('frgDots').innerHTML=items.map(function(it){
     var st=(it.c==='x')?'background:transparent;border:2px solid #c3ccd4':('background:'+(_FRG_COL[it.c]||'#c3ccd4')+(it.c==='r'?';box-shadow:0 0 0 4px rgba(207,68,66,.16)':''));
@@ -15560,7 +15606,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28h";
+const APP_BUILD = "2026-07-28k";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
