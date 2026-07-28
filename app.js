@@ -8860,6 +8860,17 @@ async function loadZutatenStamm(){
   }catch(e){}
   ZUTATEN_STAMM=all;
   ZUTATEN_MAP={}; ZUTATEN_STAMM.forEach(function(z){ ZUTATEN_MAP[(z.name||"").trim().toLowerCase()]={rating:z.rating,kritisch:z.kritisch}; });
+  /* 28z7 (Ralph, Tapioka-Fall): kuratierte SYNONYME aus Zutat_Synonym - belegte Gleichsetzungen
+     ("Tapioka" = Tapiokastärke). Der Automat behandelt sie wie einen exakten Namen: deterministisch,
+     KEIN Raten (§1.11n-e). Ein echter Stamm-Name hat Vorrang (Guard !ZUTATEN_MAP[k]);
+     'kanon' trägt den Stamm-Namen, damit Zeilen kanonisch beschriftet werden. */
+  try{
+    var syn=await client.rpc("cb_zutat_synonyme");
+    if(!syn.error && syn.data){ syn.data.forEach(function(s){
+      var k=String(s.synonym||"").trim().toLowerCase();
+      if(k && !ZUTATEN_MAP[k]) ZUTATEN_MAP[k]={rating:s.rating,kritisch:s.kritisch||'nein',kanon:s.name};
+    }); }
+  }catch(e){}
 }
 /* Zusatzstoff-Stamm (E-Nummer · Name · Einstufung) für die neue Zusatzstoff-Liste im Editor. */
 let ZUSATZSTOFFE_STAMM=null, ZUSATZSTOFFE_MAP={};
@@ -9402,7 +9413,7 @@ function fgQuickGo(){
   try{
     if(typeof ZUTATEN_MAP!=='undefined' && ZUTATEN_MAP[nl]){
       var stEintrag=((typeof ZUTATEN_STAMM!=='undefined'&&ZUTATEN_STAMM)||[]).filter(function(z){ return String(z.name||'').trim().toLowerCase()===nl; })[0];
-      zt={ name:(stEintrag&&stEintrag.name)||p.name, rating:ZUTATEN_MAP[nl].rating, krit:ZUTATEN_MAP[nl].kritisch||'nein' };
+      zt={ name:ZUTATEN_MAP[nl].kanon||(stEintrag&&stEintrag.name)||p.name, rating:ZUTATEN_MAP[nl].rating, krit:ZUTATEN_MAP[nl].kritisch||'nein' };   /* 28z7: Synonym -> kanonischer Name */
     }
   }catch(e){}
   /* Mikronährstoff: Stammliste der Mikro-Karte (Stammname, Etikett-Form oder Anzeige) */
@@ -9747,7 +9758,13 @@ function fgPickAddNeu(){
   var key=name.toLowerCase();
   var exists=[].some.call(c.querySelectorAll(".fgZutRow"),function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key; });
   var m=(typeof ZUTATEN_MAP!=="undefined"&&ZUTATEN_MAP)?ZUTATEN_MAP[key]:null;
-  if(m){ if(!exists) c.insertAdjacentHTML("beforeend", fgZutRow(name, m.rating, m.kritisch)); inp.value=""; var b0=document.getElementById("fe_zutNeuInfo"); if(b0) b0.innerHTML=""; fgPickRender(); try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){} return; }
+  if(m){
+    /* 28z7: Synonym-Treffer werden KANONISCH beschriftet ("Tapioka" -> Zeile "Tapiokastärke"),
+       damit Referenz-Abgleich und Stamm dieselbe Sprache sprechen. */
+    var zeigName=m.kanon||name; var zeigKey=zeigName.toLowerCase();
+    var exists2=exists||[].some.call(c.querySelectorAll(".fgZutRow"),function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===zeigKey; });
+    if(!exists2) c.insertAdjacentHTML("beforeend", fgZutRow(zeigName, m.rating, m.kritisch));
+    inp.value=""; var b0=document.getElementById("fe_zutNeuInfo"); if(b0) b0.innerHTML=""; fgPickRender(); try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){} return; }
   fgPickRikiPanel(name);
 }
 /* Riki bewertet eine noch unbekannte Zutat und zeigt Vorschlag + Verifikation. Nichts wird
@@ -9864,7 +9881,10 @@ function _fgRefStatus(raw, work, zk){
   /* letzte Instanz: ueber die Schreibweise eindeutig im Stamm aufloesen (nie raten – §1.11n-e) */
   if(!eNr){ try{ var st=_zusFindStamm(_ohne)||_zusFindStamm(_np); if(st&&st.e) eNr=String(st.e).toLowerCase(); }catch(e){} }
   var isZus=(typeof ZUSATZSTOFFE_MAP!=="undefined") && !!((eNr&&ZUSATZSTOFFE_MAP[eNr])||ZUSATZSTOFFE_MAP[low]||ZUSATZSTOFFE_MAP[_np]||ZUSATZSTOFFE_MAP[_ohne]);
-  var inList=!!(work&&(work[low]||work[_np]||work[_ohne])), asZusatz=false;
+  /* 28z7: Referenz "Tapioka" trifft die kanonisch beschriftete Zeile "Tapiokastärke" über das
+     kuratierte Synonym-Verzeichnis (nur belegte Gleichsetzungen, kein Raten). */
+  var kan=null; try{ var zsyn=(typeof ZUTATEN_MAP!=="undefined")?(ZUTATEN_MAP[low]||ZUTATEN_MAP[_np]||ZUTATEN_MAP[_ohne]):null; if(zsyn&&zsyn.kanon) kan=String(zsyn.kanon).trim().toLowerCase(); }catch(e){}
+  var inList=!!(work&&(work[low]||work[_np]||work[_ohne]||(kan&&work[kan]))), asZusatz=false;
   if(!inList && zk){
     var nk=null; try{ var n=_zusNorm(_ohne); if(n&&n.length>=4) nk="~"+n; }catch(e){}
     if((eNr&&zk[eNr])||zk[low]||zk[_np]||zk[_ohne]||(nk&&zk[nk])){ inList=true; asZusatz=true; }
@@ -10578,7 +10598,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
       </div>
     </div>
-        <div id="fe_wirkCard" style="margin-top:2px">
+        <span id="fe_wirkAnker" style="display:none" data-note="28z6: Heimatmarke der Wirkstoff-Karte - bei Supplement zieht sie in fe_prodNwGrid Spalte 2 (neben die Kopfdaten), sonst zurueck hierher; DOM-Knoten werden VERSCHOBEN, nie neu gebaut (keine Doppel-IDs)"></span><div id="fe_wirkCard" style="margin-top:2px">
           <div id="fe_wirkGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
             <div id="fe_wirkTblCol">${card(`<span>Wirkstoffe &amp; Dosis</span> <span style="text-transform:none;color:var(--muted)">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
@@ -10781,7 +10801,16 @@ function feKatChange(){
     var _nwAus = supp||_istSalz2;
     var _mikroAus = supp || (_istKein2 && !_istSalz2 && !supp);
     var _nwC=document.getElementById("fe_nwCard"); if(_nwC) _nwC.style.display=_nwAus?"none":"contents";
-    var _png=document.getElementById("fe_prodNwGrid"); if(_png) _png.style.gridTemplateColumns=_nwAus?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)";
+    /* 28z6 (Ralph): bei SUPPLEMENT ruecken die Wirkstoffe NEBEN die Kopfdaten (rechte, breitere
+       Spalte), die Kopfdaten werden schmaler (0.9fr zu 1.35fr). Beim Verlassen der Kategorie
+       zieht die Karte an ihren Anker unter dem Raster zurueck. */
+    var _png=document.getElementById("fe_prodNwGrid");
+    if(_png) _png.style.gridTemplateColumns = supp ? "minmax(0,0.9fr) minmax(0,1.35fr)" : (_nwAus?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)");
+    var _wcMv=document.getElementById("fe_wirkCard"), _wAnker=document.getElementById("fe_wirkAnker");
+    try{
+      if(supp){ if(_png && _wcMv && _wcMv.parentNode!==_png){ _png.appendChild(_wcMv); _wcMv.style.marginTop="0"; } }
+      else if(_wAnker && _wcMv && _wcMv.previousElementSibling!==_wAnker){ _wAnker.parentNode.insertBefore(_wcMv, _wAnker.nextSibling); _wcMv.style.marginTop="2px"; }
+    }catch(e){}
     var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display=_mikroAus?"none":"flex";
     var _c2=document.getElementById("fe_colZusMik"); if(_c2) _c2.style.gridTemplateRows=_mikroAus?"minmax(0,1fr)":"minmax(0,1.6fr) minmax(0,1fr)";
   }catch(e){}
@@ -15979,7 +16008,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z5";
+const APP_BUILD = "2026-07-28z7";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
