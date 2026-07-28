@@ -104,6 +104,13 @@ function suppLead(d,size){
 function scoreLead(d,size){
   size=size||62;
   if(d && String(d.kategorie||'').toLowerCase()==='supplement'){ return suppLead(d,size); }
+  if(d && String(d.kategorie||'').toLowerCase()==='salze'){
+    /* Reines Salz bekommt bewusst KEINEN Lebensmittel-Score (§1.13/Salze). Statt "-" ein eigenes Zeichen. */
+    return '<div class="scLead" style="flex:0 0 '+size+'px;width:'+size+'px;text-align:center">'
+      +'<div style="width:'+Math.round(size*0.6)+'px;height:'+Math.round(size*0.6)+'px;margin:0 auto;border-radius:50%;background:var(--k-eeedfe);color:var(--k-534ab7);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.32)+'px">\u{1F9C2}</div>'
+      +'<div style="font-size:10px;color:var(--muted);margin-top:4px">Salz</div>'
+    +'</div>';
+  }
   const s=num(d&&d.clean_score);
   const txt=(s!=null)?String(Math.round(s)):"–";
   const fs=Math.round(size*(txt.length>=3?0.36:0.44));
@@ -1728,6 +1735,7 @@ function suppFuss(a){
 function detail2(d){
   try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}).then(function(){},function(){}); }catch(e){}
   if(String(d.kategorie||"").toLowerCase()==="supplement"){ return suppKarte(d); }
+  var _istSalz=String(d.kategorie||"").toLowerCase()==="salze";
   var s=num(d.clean_score);
   var voll=!!d.score_vollstaendig;
   var bewTxt = voll ? (d.bewertung||"") : "Vorläufig";
@@ -1859,14 +1867,28 @@ function detail2(d){
     /* 2026-07-24w: Feature-Schranken der alten Karte in detail2 uebernommen (Ralphs Fund 23.07.:
        Free/Gast sahen alles - die Sperren sassen nur im toten Code der alten Karte). pk_ringe
        sperrt NUR die Achsen-Grafik; die Index-ZAHL bleibt fuer alle sichtbar (ZdE). */
-    + '<div style="display:flex;flex-direction:column;align-items:center;margin:16px 0 8px">'
+    + (_istSalz
+      ? /* Reines Salz: bewusst KEIN Lebensmittel-Score (§1.13/Salze). Statt einer irrefuehrenden Zahl die belegbaren Fakten. */
+        (function(){
+          var salz=num(d.m_salz);
+          return '<div style="margin:16px 0 8px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--k-eeedfe)">'
+            + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+              + '<div style="font-size:30px;line-height:1">\u{1F9C2}</div>'
+              + '<div><div style="font-size:16px;font-weight:800;color:var(--ink)">Reines Salz</div>'
+                + '<div style="font-size:12.5px;color:var(--k-534ab7);font-weight:600">Kein Lebensmittel-Score</div></div>'
+            + '</div>'
+            + '<div style="font-size:12.5px;color:var(--muted);line-height:1.5">Salz ist kein Lebensmittel im Sinne der vier Achsen – es hat keine Nährwerte, keinen Verarbeitungsgrad im üblichen Sinn und keine Zutatenliste. Eine Punktzahl wäre irreführend. Was zählt, ist die <b>Menge</b>: Die WHO empfiehlt <b>höchstens 5 g Salz pro Tag</b>.</div>'
+            + (salz!=null ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--ink)"><b>'+(Math.round(salz*10)/10)+' g</b> Salz je 100 g</div>' : '')
+          + '</div>';
+        })()
+      : '<div style="display:flex;flex-direction:column;align-items:center;margin:16px 0 8px">'
       + (hasFeat('pk_ringe')
           ? '<div style="width:250px;max-width:82%">'+pkFlux()+'</div>'
             + '<div class="pkWord" style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:2px;opacity:0">'+esc(bewTxt||'–')+'</div>'
           : '<div style="font-size:44px;font-weight:800;line-height:1;color:'+(s==null?'var(--muted)':fTxt)+'">'+(s==null?'–':Math.round(s))+'</div>'
             + '<div style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:4px">'+esc(bewTxt||'–')+'</div>')
-    + '</div>'
-    + ((hasFeat('pk_ringe')||_nurIndex)?'':pkSperre('Die vier Achsen','Zutaten · Zusatzstoffe · Verarbeitung · Nährwerte als Grafik'))
+    + '</div>')
+    + ((_istSalz||hasFeat('pk_ringe')||_nurIndex)?'':pkSperre('Die vier Achsen','Zutaten · Zusatzstoffe · Verarbeitung · Nährwerte als Grafik'))
     + sonder
     + (_fNw
         ? '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 2px">'
@@ -4584,6 +4606,30 @@ const WIRKSTOFF_NAMEN=["Vitamin A","Vitamin C","Vitamin D","Vitamin D3","Vitamin
   "Vitamin B6","Vitamin B7 (Biotin)","Vitamin B9 (Folsäure)","Vitamin B12","Zink","Magnesium","Eisen",
   "Selen","Jod","Calcium","Kupfer","Mangan","Chrom","Molybdän","Kalium","Omega-3"];
 const WIRK_EINHEITEN=["mg","µg","g","IU"];
+/* Dropdown "alle Wirkstoffe": EFSA-Namensliste + alle im Bestand erfassten Wirkstoffe (auch Botanicals wie Moenchspfeffer). Ralph 27.07. */
+function wirkDLOptions(){
+  try{
+    var set={}, out=[];
+    (WIRKSTOFF_NAMEN||[]).forEach(function(n){ var k=String(n||"").trim(); if(k && !set[k.toLowerCase()]){ set[k.toLowerCase()]=1; out.push(k); } });
+    (window._wirkDB||[]).forEach(function(n){ var k=String(n||"").trim(); if(k && !set[k.toLowerCase()]){ set[k.toLowerCase()]=1; out.push(k); } });
+    out.sort(function(a,b){ return a.localeCompare(b,'de'); });
+    return out.map(function(n){ return '<option value="'+esc(n)+'"></option>'; }).join("");
+  }catch(e){ return (WIRKSTOFF_NAMEN||[]).map(function(n){ return '<option value="'+esc(n)+'"></option>'; }).join(""); }
+}
+async function ladeWirkDB(){
+  try{
+    if(window._wirkDBGeladen) { return; }
+    const r = await client.from("Produkt_Naehrstoffe").select("naehrstoff").not("naehrstoff","is",null);
+    if(r && r.data){
+      var seen={}, arr=[];
+      r.data.forEach(function(x){ var k=String(x.naehrstoff||"").trim(); if(k && !seen[k.toLowerCase()]){ seen[k.toLowerCase()]=1; arr.push(k); } });
+      window._wirkDB = arr;
+      window._wirkDBGeladen = true;
+      var dl=document.getElementById("feWirkDL");
+      if(dl){ dl.innerHTML = wirkDLOptions(); }
+    }
+  }catch(e){ /* Dropdown bleibt bei EFSA-Liste - kein Blocker */ }
+}
 /* Produktkategorien als feste Auswahl - Freitext fuehrt zu Tippfehlern und Dubletten
    ("Nussprodukte / Pulver" vs "Nüsse & Hülsenfrüchte"). Riki darf vorschlagen, der
    Mensch waehlt aus der Liste. */
@@ -10062,7 +10108,7 @@ async function openFgEditor(id, prefill, targetEl){
             <div style="margin-top:5px">Der Balken links zeigt, ob die Menge einen <b>EU-anerkannten Nutzen</b> erreicht (gesundheitsbezogene Aussage nach VO&nbsp;432/2012 ab 15 % NRV). <b>Grün heißt „wirksame Menge", nicht „gesund".</b> Aminosäuren/Pflanzenstoffe (z. B. Glycin) haben keine zugelassene Aussage → grau.</div>
           </div>
           <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
-          <datalist id="feWirkDL">${WIRKSTOFF_NAMEN.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
+          <datalist id="feWirkDL">${wirkDLOptions()}</datalist>
             `)}</div>
             <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span style="text-transform:none;color:var(--muted)">(zoombar – Mausrad / ziehen)</span>`,`
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
@@ -10195,6 +10241,7 @@ function feKatChange(){
   if(special){
     if(_wc) _wc.style.display=""; if(_wtc) _wtc.style.display="";   /* Wirkstoff-Tabelle nur bei Supplement/Salze */
     try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
+    try{ ladeWirkDB(); }catch(e){}   /* Dropdown "alle Wirkstoffe" aus DB nachfuellen (Ralph 27.07.) */
   try{ feWirkFarbeAll(); }catch(e){}
   } else {
     if(_wc) _wc.style.display="none";
@@ -15253,7 +15300,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-27z4";
+const APP_BUILD = "2026-07-27z4s";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
