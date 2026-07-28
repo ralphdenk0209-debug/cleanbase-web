@@ -10321,7 +10321,7 @@ async function openFgEditor(id, prefill, targetEl){
     <div id="feRahmen" style="display:grid;grid-template-columns:242px minmax(0,1fr);gap:12px;align-items:start">
       <div id="feRail" style="display:flex;flex-direction:column;gap:10px;position:sticky;top:58px;min-width:0">
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
-        <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">Freigabe</div><div id="feRailAmpel" style="font-size:12px;line-height:1.5;color:var(--muted)">wird geprüft…</div><button type="button" onclick="try{feFreigabeOpen(true)}catch(e){}" style="margin-top:8px;width:100%;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:12px">Details öffnen</button></div>
+        <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">Freigabe</div><div id="feRailAmpel" style="font-size:12px;line-height:1.5;color:var(--muted)">wird geprüft…</div></div>
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"],"try{fePlaus()}catch(e){}")}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
       </div>
       <div style="min-width:0">
@@ -10410,7 +10410,7 @@ async function openFgEditor(id, prefill, targetEl){
             <button type="button" onclick="fgWirkFotoRiki(this)" title="Riki liest das angezeigte Bild aus (Nährwerte/Zutaten/Wirkstoffe)" style="padding:6px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">🤖 Riki liest das Bild</button>
             <span id="fe_wirkFotoNav" style="display:flex;gap:6px;align-items:center;margin-left:auto"></span>
           </div>
-          <div id="fe_wirkFotoBox" data-note="Hoehe passt sich der Bildschirmhoehe an statt fester 520px – die feste Hoehe wurde von der Etikett-Zone abgeschnitten, wodurch der zentrierte Text unten heraushing (Ralphs Fund 26.07.)" style="position:relative;overflow:hidden;height:clamp(150px,18vh,250px);border:1px solid var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7);cursor:grab;touch-action:none"><div id="fe_wirkFotoLeer" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:16px;line-height:1.5">Kein Etikett angehängt.<br>Über den Foto-Tab oben oder „+ Foto" (Bild-Karte) ein Etikett hinzufügen – es erscheint dann hier zum Ablesen.</div><img id="fe_wirkFotoImg" alt="Etikett" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none;display:none"></div>
+          <div id="fe_wirkFotoBox" data-note="28p: Hintergrund dunkler in Flieder (Ralph: mehr Kontrast zu hellen Etiketten). Hoehe: ausserhalb der Flip-Rueckseite clamp wie gehabt; AUF der Rueckseite dehnt die CSS-Regel #fe_fotoMount die Box auf die Resthoehe." style="position:relative;overflow:hidden;height:clamp(150px,18vh,250px);border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none"><div id="fe_wirkFotoLeer" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:16px;line-height:1.5">Kein Etikett angehängt.<br>Über den Foto-Tab oben oder „+ Foto" (Bild-Karte) ein Etikett hinzufügen – es erscheint dann hier zum Ablesen.</div><img id="fe_wirkFotoImg" alt="Etikett" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none;display:none"></div>
           <div style="font-size:11px;color:var(--muted);margin-top:6px">Mausrad = zoomen · ziehen = verschieben · Doppelklick = großes Vollbild.</div>
             `)}</div>
           </div>
@@ -10423,7 +10423,9 @@ async function openFgEditor(id, prefill, targetEl){
 <style>#fe_gridA .cardFB > *{flex-shrink:0}
 #fe_colZus > div > *{flex:1 1 auto;min-width:0}
 #fe_flipInner.geflippt{transform:rotateY(180deg)}
-#fe_fotoMount #fe_wirkFotoBox{height:clamp(300px,52vh,720px)}
+#fe_fotoMount > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
+#fe_fotoMount > div > *{flex:0 0 auto;min-height:0}
+#fe_fotoMount #fe_wirkFotoBox{flex:1 1 auto;height:auto;min-height:280px}
 #fe_fotoLeerHinweis{display:none}
 #fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
 </div><div id="feTab2" style="display:none"><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - 235px);min-height:430px"><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
@@ -11307,10 +11309,11 @@ var _FRG_COL={g:'#2e9e57',y:'#e0a32e',r:'#cf5442'};
 var _FRG_IC={g:'✓',y:'!',r:'✕',x:'–'};
 var _FRG_PR={r:0,y:1,g:2,x:3};
 function feFreigabeOpen(o){
-  var rail=document.getElementById('frgRail'), panel=document.getElementById('frgPanel'); if(!panel) return;
-  panel.style.transform=o?'translateX(0)':'translateX(100%)';
-  if(rail && !rail._frgInline) rail.style.transform=o?'translateX(120%)':'translateX(0)';   /* 28i: der Kopfleisten-Chip bleibt stehen */
-  window._frgOpenState=!!o;
+  /* 28q (Ralph: "die seitenleiste kann weg"): Das ausfahrende Freigabe-Panel ist abgeschafft.
+     Die Punkte stehen im Kopf-Chip, der Klartext im Streifen links, Speichern/Freigeben oben.
+     Die Funktion bleibt als Leerlauf, damit kein alter Aufrufer ins Leere greift; das Panel
+     wird weiter unsichtbar befuellt (alle IDs existieren), nur gezeigt wird es nie. */
+  window._frgOpenState=false;
 }
 function feFreigabeLeisteHide(){
   var p=document.getElementById('frgPanel'); if(p) p.style.transform='translateX(100%)';   /* eingeklappt lassen fürs nächste Öffnen */
@@ -11327,7 +11330,7 @@ function feFreigabeLeiste(items, blocked){
   if(!rail){
     rail=document.createElement('div'); rail.id='frgRail';
     rail.style.cssText='position:fixed;top:120px;right:0;z-index:9992;display:flex;flex-direction:column;align-items:center;gap:10px;background:#ffffff;border:1px solid #e2e8ef;border-right:0;border-radius:14px 0 0 14px;padding:12px 11px;box-shadow:-7px 8px 24px -12px rgba(20,40,70,.4);cursor:pointer;transition:transform .28s ease;min-width:48px';
-    rail.onclick=function(){ feFreigabeOpen(true); };
+    /* 28q: kein Klick-Ziel mehr - das Panel ist abgeschafft, der Klartext steht im Streifen. */
     rail.innerHTML='<span id="frgLbl" style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:800;letter-spacing:.12em;color:#8a94a0;text-transform:uppercase;text-align:center">Freigabe</span>'
       +'<div id="frgDots" style="display:flex;flex-direction:column;gap:9px;align-items:center"></div>'
       +'<span id="frgSum" style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px;white-space:nowrap;text-align:center"></span>';
@@ -11385,6 +11388,28 @@ function feFreigabeLeiste(items, blocked){
     var tc=(it.c==='r')?'color:#cf5442;font-weight:600':((it.c==='y')?'color:#92400e':((it.c==='x')?'color:#6b7280':''));
     return '<div style="display:flex;align-items:center;gap:11px;padding:9px 0;font-size:13px;border-top:1px solid #e2e8ef;'+tc+'"><span style="width:21px;height:21px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:0 0 auto;'+icst+'">'+(_FRG_IC[it.c]||'')+'</span><span>'+esc(it.t)+(it.h?'<span style="display:block;font-size:11px;color:#6b7280;font-weight:400;margin-top:1px">'+esc(it.h)+'</span>':'')+'</span></div>';
   }).join('');
+  /* 28q (Ralph): Speichern + Freigeben sitzen OBEN neben den Freigabe-Punkten.
+     Diskette als modernes Strich-Symbol; der Freigeben-Knopf wird bei Blockern grau und
+     erklaert im Tooltip, was fehlt (Klartext steht im Streifen links). Gleiche Aufrufe
+     wie vorher im Panel (fgEditSave) - kein zweiter Speicherweg. */
+  try{
+    var _slot2=document.getElementById('fe_frgSlot');
+    if(_slot2){
+      var tbx=document.getElementById('frgTopBtns');
+      if(!tbx){
+        tbx=document.createElement('span'); tbx.id='frgTopBtns';
+        tbx.style.cssText='display:flex;gap:6px;align-items:center;margin-left:6px;flex:0 0 auto';
+        tbx.innerHTML='<button type="button" id="frgSaveTop" onclick="try{fgEditSave(false)}catch(e){}" title="Nur speichern" style="width:36px;height:32px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>'
+          +'<button type="button" id="frgGoTop" style="height:32px;padding:0 14px;border:0;border-radius:9px;color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap">✓ freigeben</button>';
+        _slot2.appendChild(tbx);
+      }
+      var gt=document.getElementById('frgGoTop');
+      if(gt){
+        if(blocked){ gt.disabled=true; gt.style.background='#c7d2cc'; gt.style.cursor='not-allowed'; gt.title='Noch '+rot+' Punkt'+(rot>1?'e':'')+' offen – Klartext im Streifen links'; gt.onclick=null; }
+        else { gt.disabled=false; gt.style.background='#2e9e57'; gt.style.cursor='pointer'; gt.title='Speichern & freigeben'; gt.onclick=function(){ try{fgEditSave(true)}catch(e){} }; }
+      }
+    }
+  }catch(e){}
   /* 28l: Klartext-Ampel im Seitenstreifen - dieselbe (bereits sortierte) Liste wie frgList,
      nur kompakt. Keine zweite Pruefung, nur eine zweite Ansicht (par. 1.11i). */
   try{ var railA=document.getElementById('feRailAmpel');
@@ -15664,7 +15689,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28o";
+const APP_BUILD = "2026-07-28q";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
