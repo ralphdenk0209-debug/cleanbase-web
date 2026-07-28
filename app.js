@@ -6627,6 +6627,12 @@ function tbDefaultPortion(p){ return tbPortionSet(p).m; }
 function tbEinheitOptionen(p, km){
   var base=prodEinheit(p);
   var opts=[{key:base,label:base,f:1}];
+  /* 28z4 (Ralph/Sandra: "bei allen fluessigkeiten soll im dropdown auch g moeglich sein, wenn
+     man es einwiegt"): bei ml-Produkten zusaetzlich "g (gewogen)". BEWUSST Faktor 1 - eine
+     Dichte-Umrechnung (Oel 0,92 / Milch 1,03) waere eine erfundene Zahl (§1, 27f-Entscheid
+     "beschriften statt umrechnen"). Die BLS-Werte fluessiger Produkte sind ohnehin je 100 g
+     erhoben - Einwiegen ist die ehrlichere Eingabe; der Eintrag zaehlt 1:1 in der Basis. */
+  if(base==='ml') opts.push({key:'g',label:'g (gewogen)',f:1});
   var piece=0, plabel='Stück';
   try{
     var ps=tbPortionSet(p);
@@ -15966,7 +15972,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z3";
+const APP_BUILD = "2026-07-28z4";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
