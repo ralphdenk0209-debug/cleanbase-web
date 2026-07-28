@@ -10329,7 +10329,7 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
       <div style="min-width:0">
         <div id="feTabBar" style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:10px">
-          <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="border:0;background:none;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--k-166534);border-bottom-color:var(--k-16a34a)">📋 Produkt &amp; Nährwerte</button>
+          <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="border:0;background:none;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--k-166534);border-bottom-color:var(--k-16a34a)">📋 Produkt &amp; Nährwerte <span id="feTab1Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span><span id="feTab1Ean" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:#eef1f5;color:var(--muted)"></span></button>
           <button type="button" id="feTabBtn2" onclick="feTabWechsel(2)" style="border:0;background:none;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🥣 Zutaten &amp; Referenz <span id="feTab2Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
         </div>
         <div id="feTab1">
@@ -10921,7 +10921,21 @@ function feTabBadgeUpdate(off, done){
   else if(d){ b.style.display=''; b.textContent='\u2713 '+d; b.style.background='var(--greenlt,#ecfdf5)'; b.style.color='var(--k-166534,#166534)'; }
   else { b.style.display='none'; b.textContent=''; }
 }
-if(typeof window!=='undefined'){ window.feTabWechsel=feTabWechsel; window.feTabBadgeUpdate=feTabBadgeUpdate; }
+function feTab1BadgeUpdate(off, ean){
+  /* 28t (Ralph): Haken auch am Reiter 1. Orange N-offen = Pflichtfelder dieses Reiters fehlen
+     (Kategorie, Naehrwerte, bei Supplements Dosis-Check) - gruenes ✓ = Reiter komplett.
+     EAN bewusst als EIGENER Chip daneben: eine EAN muss nicht existieren (lose Ware) -
+     'EAN offen' (grau, angekreuzt) ist ein gueltiger Endzustand, kein Mangel. */
+  var b=document.getElementById('feTab1Badge');
+  if(b){ var n=Number(off)||0;
+    if(n){ b.style.display=''; b.textContent=n+' offen'; b.style.background='var(--k-fff7ed,#fff7ed)'; b.style.color='var(--k-d97706,#d97706)'; }
+    else { b.style.display=''; b.textContent='\u2713'; b.style.background='var(--greenlt,#ecfdf5)'; b.style.color='var(--k-166534,#166534)'; } }
+  var e=document.getElementById('feTab1Ean');
+  if(e){ if(ean==='da'){ e.style.display=''; e.textContent='EAN \u2713'; e.style.background='var(--greenlt,#ecfdf5)'; e.style.color='var(--k-166534,#166534)'; }
+    else if(ean==='offen'){ e.style.display=''; e.textContent='EAN offen'; e.style.background='#eef1f5'; e.style.color='var(--muted)'; }
+    else { e.style.display=''; e.textContent='EAN fehlt'; e.style.background='var(--k-fff7ed,#fff7ed)'; e.style.color='var(--k-d97706,#d97706)'; } }
+}
+if(typeof window!=='undefined'){ window.feTabWechsel=feTabWechsel; window.feTabBadgeUpdate=feTabBadgeUpdate; window.feTab1BadgeUpdate=feTab1BadgeUpdate; }
 function fgFotoPlatzieren(){
   var col=document.getElementById('fe_wirkFotoCol');
   var mount=document.getElementById('fe_fotoMount');
@@ -11223,6 +11237,13 @@ function fePlaus(){
     var _wCount = _istSupp && typeof feWirkCount==="function" ? feWirkCount() : 0;
     var _wNone  = _istSupp && !!((document.getElementById("fe_wirk_none")||{}).checked);
     if(_istSupp && _wCount===0 && !_wNone) fehlt.push("Wirkstoff-Mengen (Dosis-Check)");
+    /* 28t: Reiter-1-Haken - nur Punkte, die WIRKLICH auf Reiter 1 liegen. Quelle-Typ steht im
+       Seitenstreifen (beide Reiter sichtbar), Zutaten-Punkte zaehlt der Reiter-2-Badge, EAN hat
+       den eigenen Chip. indexOf("Zutat") faengt beide Zutaten-Texte, laesst "Wirkstoff-Mengen" stehen. */
+    try{ if(typeof feTab1BadgeUpdate==="function"){
+      var _t1=fehlt.filter(function(x){ return x!=="Quelle-Typ" && x.indexOf("EAN")<0 && x.indexOf("Zutat")<0; });
+      feTab1BadgeUpdate(_t1.length, _eanV?"da":(_eanOffen?"offen":"fehlt"));
+    } }catch(e){}
     if(fehlt.length===0){
       rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe'
         +(_istSupp?' – Supplement (kein Lebensmittel-Index, Nährwerte nicht nötig)':(_istSalz?' – reines Salz (kein Index, Nährwerte nicht nötig)':' – alle Achsen belegt'))+'.</span>'
@@ -15707,7 +15728,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28s";
+const APP_BUILD = "2026-07-28t";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
