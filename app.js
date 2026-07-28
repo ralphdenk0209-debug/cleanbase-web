@@ -2900,7 +2900,7 @@ async function loadProduktErfassung(){
         +'<span id="peListAction" style="color:#3b56b0;font-size:12px;font-weight:600"></span>'
       +'</div>'
       +'<div id="peListBody">'
-        +'<div style="max-height:280px;overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
+        +'<div style="max-height:max(280px,calc(100vh - 430px));overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
         +'<div id="peFoot" style="padding:7px 10px;color:#7b8698;font-size:12px;border-top:1px solid #e2e8ef;background:#eef3f8"></div>'
       +'</div>'
     +'</div>'
@@ -11987,7 +11987,16 @@ async function fgEditSave(alsoFreigeben){
       try{ feFreigabeLeisteHide(); }catch(e){}
       var det=document.getElementById("peDetail"), nm=document.getElementById("fe_name");
       if(det && nm && det.contains(nm)){ try{ loadProduktErfassung(); }catch(e){} }
-      else { closeP(); loadFreigabe(); if(typeof render==="function") render(); }
+      else {
+        closeP();
+        /* 28u (Ralph: "nach einer produktfreigabe wird die liste nicht aktualisiert"): Der
+           Vollbild-Editor (28l) haengt im Overlay, NICHT in #peDetail - der alte Zweig lud
+           deshalb nur den Posteingang (loadFreigabe), die Erfassungs-Liste dahinter blieb
+           auf dem alten Stand (Status/Index/Zaehler). Ist die Liste da, wird SIE neu geladen -
+           derselbe Weg wie im Inline-Modus, kein zweiter Lade-Pfad (par. 1.11i). */
+        if(document.getElementById("peGrid")){ try{ loadProduktErfassung(); }catch(e){} }
+        else { loadFreigabe(); if(typeof render==="function") render(); }
+      }
     }, 700);
   } else {
     /* Reines Speichern: Freigabe-Zeile aktualisieren, Fenster bleibt offen. */
@@ -15728,7 +15737,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28t";
+const APP_BUILD = "2026-07-28u";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
