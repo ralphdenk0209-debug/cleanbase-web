@@ -3010,7 +3010,7 @@ async function loadProduktErfassung(){
     if(_ps.brandOff) window._peBrandOff=_ps.brandOff;
     window._peHideMarken=!!_ps.hideMarken;
   }
-  if(window._peChip===undefined||window._peChip==='zuverif') window._peChip='offen';
+  if(window._peChip===undefined) window._peChip='offen';   /* 28z32: 'zuverif' ist wieder ein echter Chip */
   var rws=window._peRows;
   var cnt={ offen:rws.filter(peIstOffen).length,
             alle:rws.length,
@@ -3050,6 +3050,7 @@ async function loadProduktErfassung(){
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
       +chip('offen','Zu erledigen',cnt.offen)
       +chip('alle','Alle',cnt.alle)
+      +chip('zuverif','Zu verifizieren',cnt.zuverif)   /* 28z32: Posteingang entschlackt - die OFF-Unverifizierten wohnen jetzt hier */
       +chip('keinscore','Ohne Index',cnt.keinscore)
       +chip('keinquelle','Ohne Quelle',cnt.keinquelle)
       +chip('keinzut','Ohne Zutaten',cnt.keinzut)
@@ -9007,14 +9008,19 @@ async function loadFreigabe(){
 /* ---- Freigabe · Tab „Zu verifizieren": aktive, aber ungepruefte / score-lose Produkte (v. a. OFF-Import). Bleiben scannbar. (19.07.2026) ---- */
 async function loadZuVerif(){
   const el=document.getElementById("fgZuverif"); if(!el) return;
-  el.innerHTML='<div style="color:var(--muted)">Lade…</div>';
-  const {data,error}=await client.from("v_zu_verifizieren").select("*").limit(2000);
-  if(error){ el.innerHTML='<span style="color:var(--k-dc2626)">Fehler: '+esc(error.message)+'</span>'; return; }
-  const rows=data||[];
-  /* Neueste zuerst: nach Erfassungsdatum absteigend, bei Gleichstand nach P-Nummer absteigend. */
-  rows.sort(function(a,b){ var da=String(a.erfasst||""), db=String(b.erfasst||""); if(da!==db) return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0, nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
-  window._verifRows=rows;
-  verifRender();
+  /* 28z32 (Ralph: "brauchen wir die wirklich?" -> Entscheid: entschlacken).
+     Die OFF-Unverifizierten sind bekannter Bestand (by design ohne Score, Go-Live-Gate
+     dokumentiert), kein Tageswerk - sie ertraenkten die echten Entscheidungen (Scans,
+     Entwuerfe). Hier steht nur noch der Zaehler mit Sprung in die Erfassung
+     (neuer Chip "Zu verifizieren"). verifRender & Co. bleiben als Sicherheitsnetz. */
+  el.innerHTML='<div style="color:var(--muted);font-size:12.5px">Zähle…</div>';
+  var n=null;
+  try{ const r=await client.from("v_zu_verifizieren").select("id",{count:'exact',head:true}); if(r&&r.count!=null) n=r.count; }catch(e){}
+  el.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+    +'<span style="font-size:18px">🗂️</span>'
+    +'<div style="flex:1;min-width:220px;font-size:12.5px;color:var(--muted)"><b style="color:var(--ink)">'+(n==null?'–':n)+' unverifizierte Produkte</b> (v. a. OFF-Import, bewusst ohne Score) stehen nicht mehr hier im Posteingang – sie sind Bestand, keine Tagesaufgabe.</div>'
+    +'<button onclick="window._peChip=\'zuverif\';adminGo(\'produkterfassung\')" style="padding:8px 13px;border:1px solid var(--green,#2e7d46);border-radius:9px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);font-weight:700;font-size:12.5px;cursor:pointer">In der Erfassung öffnen →</button>'
+  +'</div>';
 }
 /* Markierung ist PERSISTENT (Produkte.Markiert, RPC cb_produkt_markieren) – sie ueberlebt
    Neuladen und Session. Kein fluechtiges Set mehr (Ralph 20.07.). */
@@ -16503,7 +16509,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z31";
+const APP_BUILD = "2026-07-28z32";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
