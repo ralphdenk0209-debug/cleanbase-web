@@ -4480,6 +4480,47 @@ function dashPortalHtml(d){
     +'</div></div>';
   var panelBt='<div class="pmpanel" data-panel="bt" style="display:none"><div class="pmcards">'+rikiCard+nutzCard+'</div></div>';
 
+  /* ===== 28z31 (Ralph-Entscheid: Variante A+B kombiniert) =====
+     B: Aufgaben-Liste zuerst - das Dashboard sagt, was ansteht, jede Zeile springt hin.
+     A: Bento-Helden - Waechter-Ring + Riki-Budget-Tacho mit Monats-Prognose. */
+  var sc2=d.scans||{};
+  var aufg=[];
+  if(!gruen) aufg.push({ico:'🔴',txt:'Go-Live-Gate ZU — '+gateSum+' Pflicht-Fall/Fälle',sub:'muss 0 sein vor jedem Livegang',oc:''});
+  waLst.forEach(function(w){ var o=num(w.offen); if(o>0) aufg.push({ico:'🟡',txt:esc(w.name)+' — '+o+' offen',sub:'Wächter · klick öffnet die Fälle',oc:"dashWaechterFaelle("+num(w.nr)+",'"+encodeURIComponent(w.name)+"')"}); });
+  if(num(sc2.wartet_pruefung)>0) aufg.push({ico:'📷',txt:num(sc2.wartet_pruefung)+' Scan(s) warten auf deine Prüfung',sub:'Posteingang „Zu verifizieren“',oc:"fgTab('zuverif')"});
+  if(num(q.unverifiziert)>0) aufg.push({ico:'🕵️',txt:fmt(num(q.unverifiziert))+' Produkte zu verifizieren',sub:'unverifiziert im Katalog',oc:"fgTab('zuverif')"});
+  aufg=aufg.slice(0,5);
+  var aufgRows=aufg.length?aufg.map(function(a){ return '<div onclick="'+(a.oc||'')+'" style="display:flex;align-items:center;gap:10px;padding:9px 13px;border-top:1px solid var(--line);'+(a.oc?'cursor:pointer':'')+'"><span style="font-size:15px">'+a.ico+'</span><div style="flex:1;min-width:0"><b style="font-size:13px">'+a.txt+'</b><div style="font-size:11px;color:var(--muted)">'+a.sub+'</div></div>'+(a.oc?'<span style="background:var(--green,#2e7d46);color:#fff;font-size:11.5px;font-weight:700;border-radius:8px;padding:5px 11px">öffnen</span>':'')+'</div>'; }).join('')
+    :'<div style="display:flex;align-items:center;gap:10px;padding:11px 13px"><span style="font-size:15px">✅</span><b style="font-size:13px;color:#1e6b42">Nichts wartet auf dich — alles grün.</b></div>';
+  var aufgBlock='<div style="border:1px solid var(--line);border-radius:14px;background:var(--card);overflow:hidden;margin-bottom:14px">'
+    +'<div style="padding:10px 13px;background:var(--greenlt,#eaf5ee);border-bottom:1px solid var(--line);font-weight:800;font-size:13px;color:var(--greendk,#166534)">🧭 '+(aufg.length?(aufg.length+' Aufgabe'+(aufg.length>1?'n':'')+' warte'+(aufg.length>1?'n':'t')+' auf dich'):'Alles erledigt')+'</div>'+aufgRows+'</div>';
+
+  var waTotal=waLst.length, waOk=waLst.filter(function(w){ return num(w.offen)===0; }).length;
+  var ringAnteil=waTotal>0?(waOk/waTotal):1; var ringU=2*Math.PI*31;
+  var heroW='<div style="background:linear-gradient(135deg,#173f24,#2e7d46);border-radius:14px;padding:14px;color:#fff;display:flex;align-items:center;gap:14px;min-width:0">'
+    +'<svg width="70" height="70" viewBox="0 0 74 74" style="flex:0 0 auto"><circle cx="37" cy="37" r="31" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="8"/><circle cx="37" cy="37" r="31" fill="none" stroke="#7ee2a2" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+ringU.toFixed(1)+'" stroke-dashoffset="'+(ringU*(1-ringAnteil)).toFixed(1)+'" transform="rotate(-90 37 37)"/><text x="37" y="43" text-anchor="middle" fill="#ffffff" font-size="17" font-weight="800">'+waOk+'/'+waTotal+'</text></svg>'
+    +'<div style="min-width:0"><div style="font-size:14.5px;font-weight:800">Wächter: '+waOk+' von '+waTotal+' grün</div>'
+    +'<div style="font-size:11.5px;opacity:.85;margin-top:2px">'+(offenGes>0?(offenGes+' offene Punkte — die Symbole unten öffnen die Fälle'):'alle still — nichts offen')+'</div>'
+    +'<div style="font-size:10.5px;opacity:.65;margin-top:4px">'+(gruen?'✓ Go-Live-Gate grün':'⚠ Go-Live-Gate ZU')+'</div></div></div>';
+  var _jetzt=new Date(), _tagNr=_jetzt.getDate(), _tageMon=new Date(_jetzt.getFullYear(),_jetzt.getMonth()+1,0).getDate();
+  var prognose=(_tagNr>0?verbr/_tagNr*_tageMon:0), progOk=prognose<=budget;
+  var tachoAnteil=Math.max(0,Math.min(1,budget>0?verbr/budget:0));
+  var rvA=(d.riki_verlauf||[]).slice(-14);
+  var rvMax2=Math.max.apply(null,[0.0001].concat(rvA.map(function(x){ return Number(x.usd)||0; })));
+  var rvBars=rvA.map(function(x){ var v=Number(x.usd)||0; var hh=Math.max(2,Math.round(v/rvMax2*26));
+    return '<i title="'+esc(x.tag)+': '+v.toFixed(2)+' $" style="flex:1;display:block;height:'+hh+'px;background:var(--green,#2e7d46);opacity:.75;border-radius:2px 2px 0 0"></i>'; }).join('')
+    ||'<span style="font-size:10px;color:var(--muted)">noch keine Tageswerte</span>';
+  var heroR='<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0">'
+    +'<div style="font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">🤖 Riki-Budget · Monat</div>'
+    +'<div style="display:flex;align-items:center;gap:12px;margin-top:4px">'
+    +'<svg width="104" height="60" viewBox="0 0 120 66" style="flex:0 0 auto"><path d="M12 60 A48 48 0 0 1 108 60" fill="none" stroke="#eceee9" stroke-width="11" stroke-linecap="round"/><path d="M12 60 A48 48 0 0 1 108 60" fill="none" stroke="'+budCol+'" stroke-width="11" stroke-linecap="round" stroke-dasharray="'+(150.8*tachoAnteil).toFixed(1)+' 999"/><text x="60" y="50" text-anchor="middle" font-size="14" font-weight="800" fill="#1d2733">'+verbr.toFixed(2)+' $</text><text x="60" y="62" text-anchor="middle" font-size="8.5" fill="#7b8698">von '+budget.toFixed(0)+' $</text></svg>'
+    +'<div style="min-width:0;flex:1">'
+      +'<div style="font-size:11.5px;color:'+(progOk?'#1e6b42':'#c23b2f')+';font-weight:700">Prognose Monatsende: ~'+prognose.toFixed(0)+' $ '+(progOk?'✓ im Rahmen':'⚠ über Budget')+'</div>'
+      +'<div style="display:flex;align-items:flex-end;gap:2px;height:26px;margin-top:6px">'+rvBars+'</div>'
+      +'<div style="font-size:10px;color:var(--muted);margin-top:2px">Kosten je Tag · letzte 14 Tage · Läuft das Budget voll, blockt Riki — gewollt.</div>'
+    +'</div></div></div>';
+  var heroBlock='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:14px">'+heroW+heroR+'</div>';
+
   var tabs='<div class="pmtabs">'
     +'<button class="pmtab on" data-tab="dq" onclick="dashPortalTab(\'dq\')">🔎 Datenqualität</button>'
     +'<button class="pmtab" data-tab="kat" onclick="dashPortalTab(\'kat\')">📦 Katalog</button>'
@@ -4489,7 +4530,7 @@ function dashPortalHtml(d){
   return '<div class="pmwrap">'+rail
     +'<main><div class="pmhead"><div><h1>📊 Dashboard <span style="font-size:12px;color:var(--muted);font-weight:600">· Katalog auf einen Blick</span></h1><div class="sub">Live aus der Datenbank · '+stand+' Uhr</div></div>'
     +'<button class="btn" onclick="loadDashboard()">↻ Aktualisieren</button></div>'
-    +waechterBlock+kpis+tabs+panelDq+panelKat+panelBt+'</main></div>';
+    +aufgBlock+heroBlock+waechterBlock+kpis+tabs+panelDq+panelKat+panelBt+'</main></div>';
 }
 /* Klick auf ein Wächter-Symbol: lädt die KONKRETEN Fälle (cb_waechter_faelle nach nr)
    und listet sie – Produkte sind direkt im Editor öffnenbar, Zutaten/Zusatzstoffe zeigen den Befund. */
@@ -6674,9 +6715,13 @@ function applyAdminMode(){
     nav.innerHTML=
        _an('dash','📊','Dashboard',"adminGo('dash')")
       +_an('produkterfassung','🗂️','Erfassung',"adminGo('produkterfassung')",' id="amProdErf" style="display:none"')
-      +_an('waechter','🛡️','Wächter',"waechterOpen()")
+      /* 28z31 (Ralph): Waechter-Knopf raus - die Waechter wohnen sichtbar im Dashboard.
+         Die Pruef-Werkzeuge aus dem Waechter-Fenster ziehen ins Menue (g/ml ist ueber
+         die Waechter-Symbole im Dashboard erreichbar). */
       +_an('bundles','🧩','Bundles',"adminGo('bundles')")
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
+      +_an('rezzut','🥣','Rezept-Zutaten',"rezZutatenWaecherOpenSafe()")
+      +_an('tausch','🔁','Tausch-Tipps',"adminGo('tausch')")
       +_an('mikro','🥗','Nährstoffe',"adminGo('mikro')")
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
@@ -16458,7 +16503,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z30";
+const APP_BUILD = "2026-07-28z31";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
