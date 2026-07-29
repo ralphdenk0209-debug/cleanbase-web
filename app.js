@@ -3132,7 +3132,22 @@ function peMenu(kind,anchor){
   var it=function(txt,fn){ return '<button onclick="document.getElementById(\'peCtx\').style.display=\'none\';'+fn+'" style="display:block;width:100%;text-align:left;background:none;border:0;color:#1f2a44;padding:8px 11px;border-radius:7px;font-size:13px;cursor:pointer">'+txt+'</button>'; };
   var html;
   if(kind==='akt'){
-    html= it('↻ Liste neu laden','loadProduktErfassung()')+it('⚑ Nur markierte zeigen','peChip(\'markiert\')')+it('🧹 Filter zurücksetzen','peChip(\'alle\')');
+    /* 2026-07-29 (Ralph-Go Sammel-Aktionen): Grundidee = ZWEI Schritte.
+       1. AUSWAEHLEN: filtern (Chips/Suche/Marke), dann "Alle gefilterten markieren".
+       2. HANDELN: eine Sammel-Aktion wirkt auf ALLE markierten. Fahnen sind gespeichert. */
+    var _sicht=(window._peSichtbar||[]).length;
+    var _markN=(window._peRows||[]).filter(function(p){return p.markiert;}).length;
+    var _sep2='<div style="height:1px;background:#e2e8ef;margin:4px 6px"></div>';
+    html= it('↻ Liste neu laden','loadProduktErfassung()')
+      +_sep2+'<div style="padding:5px 11px 3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#9aa7b2;font-weight:800">Schritt 1 · Auswählen</div>'
+      +it('⚑ Alle gefilterten markieren ('+_sicht+')','peBulkMarkieren(true)')
+      +it('⚐ Alle Markierungen aufheben ('+_markN+')','peBulkMarkieren(false)')
+      +it('👁 Nur markierte zeigen','peChip(\'markiert\')')
+      +_sep2+'<div style="padding:5px 11px 3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#9aa7b2;font-weight:800">Schritt 2 · Sammel-Aktion auf Markierte ('+_markN+')</div>'
+      +it('✓ Geprüfte Freigabe versuchen','peBulkStatus(\'Aktiv\')')
+      +it('🌱 Aktiv ohne Index setzen','peBulkStatus(\'Aktiv ohne Index\')')
+      +it('↩ Auf Entwurf zurücknehmen','peBulkStatus(\'Entwurf\')')
+      +_sep2+it('🧹 Filter zurücksetzen','peChip(\'alle\')');
   } else {
     var _cur=(typeof feAnsichtGet==='function')?feAnsichtGet():'klassisch';
     var _sep='<div style="height:1px;background:#e2e8ef;margin:4px 6px"></div>';
@@ -3148,6 +3163,45 @@ function peMenu(kind,anchor){
 }
 function peCtxHide(){ var c=document.getElementById('peCtx'); if(c)c.style.display='none'; document.removeEventListener('click',peCtxHide); }
 function peSetSort(v){ var s=document.getElementById('peSort'); if(s){ s.value=v; } peRender(); }
+/* ===== Sammel-Aktionen (Ralph-Go 29.07.) — wirken auf die gespeicherten ⚑-Markierungen ===== */
+async function peBulkMarkieren(an){
+  var ziel=an?(window._peSichtbar||[]):((window._peRows||[]).filter(function(p){return p.markiert;}));
+  if(!ziel.length){ alert(an?'Keine Produkte im Filter.':'Nichts markiert.'); return; }
+  if(!confirm(an?('Alle '+ziel.length+' GEFILTERTEN Produkte markieren?\n\n(Die Fähnchen bleiben gespeichert, bis du sie aufhebst.)'):('Alle '+ziel.length+' Markierungen entfernen?'))) return;
+  for(var i=0;i<ziel.length;i++){ var p=ziel[i];
+    try{ var r=await client.rpc('cb_produkt_markieren',{p_id:p.id,p_an:!!an}); if(!r.error) p.markiert=!!an; }catch(e){} }
+  peRender();
+}
+async function peBulkStatus(ziel){
+  var mark=(window._peRows||[]).filter(function(p){return p.markiert;});
+  if(!mark.length){ alert('Nichts markiert.\n\nSchritt 1: erst filtern (Chips, Suche, Marke), dann „Alle gefilterten markieren".'); return; }
+  var msg = ziel==='Aktiv' ? ('Für '+mark.length+' markierte Produkte die GEPRÜFTE Freigabe versuchen?\n\nDie Blocker gelten je Produkt weiter — blockierte bleiben unverändert und werden dir genannt.')
+    : ziel==='Aktiv ohne Index' ? (mark.length+' markierte Produkte BEWUSST OHNE Index in den Katalog stellen?\n\nNur für Produkte ohne belegbare Nährwerte (z. B. frische Sprossen).')
+    : (mark.length+' markierte Produkte auf „Entwurf" zurücknehmen?\n\nSie verschwinden aus dem Katalog, bleiben aber erhalten.');
+  if(!confirm(msg)) return;
+  var ok=0, blockiert=[], fehler=0;
+  for(var i=0;i<mark.length;i++){ var p=mark[i];
+    try{
+      if(ziel==='Aktiv'){
+        var r=await client.rpc('produkt_pruefen_freigeben',{p_id:p.id});
+        if(r.error){ blockiert.push(p.id); continue; }
+      } else if(ziel==='Aktiv ohne Index'){
+        var r2=await client.rpc('cb_produkt_ohne_index',{p_id:p.id,p_an:true});
+        var d2=r2&&r2.data; if(typeof d2==='string'){ try{ d2=JSON.parse(d2);}catch(e){} }
+        if(r2.error||!(d2&&d2.ok)){ fehler++; continue; }
+      } else {
+        var r3=await client.rpc('cb_produkt_status_setzen',{p_id:p.id,p_status:ziel});
+        if(r3.error){ fehler++; continue; }
+      }
+      ok++;
+    }catch(e){ fehler++; }
+  }
+  alert('Sammel-Aktion fertig:\n\u2713 '+ok+' umgestellt'
+    +(blockiert.length?('\n\u26a0 '+blockiert.length+' blockiert (Freigabe-Prüfung sagt je Produkt, was fehlt): '+blockiert.slice(0,8).join(', ')+(blockiert.length>8?' …':'')):'')
+    +(fehler?('\n\u2715 '+fehler+' Fehler'):''));
+  loadProduktErfassung();
+}
+if(typeof window!=='undefined'){ window.peBulkMarkieren=peBulkMarkieren; window.peBulkStatus=peBulkStatus; }
 function peChip(k){ window._peChip=k;
   document.querySelectorAll('#fgProdErf .peChip').forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-k')===k); });
   peRender(); }
@@ -3216,6 +3270,7 @@ function peRender(){
     else if(sort==='titel'){ var ta=String(a.name||'').toLowerCase(),tb=String(b.name||'').toLowerCase(); if(ta!==tb) return ta<tb?-1:1; }
     var da=String(a.erfasst||''),db=String(b.erfasst||''); if(da!==db) return da<db?1:-1;
     var na=parseInt(String(a.id).replace(/\D/g,''),10)||0,nb=parseInt(String(b.id).replace(/\D/g,''),10)||0; return nb-na; });
+  window._peSichtbar=list;   /* 2026-07-29: fuer Sammel-Aktionen (alle gefilterten markieren) */
   var th=function(h){ return '<th style="position:sticky;top:0;background:#eef3f8;text-align:left;padding:9px 10px;border-bottom:1px solid #e2e8ef;font-size:12px;color:#5b6b82;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+h+'</th>'; };
   var td=function(c,st,attr){ return '<td '+(attr||'')+' style="padding:9px 10px;border-bottom:1px solid #e2e8ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(st||'')+'">'+c+'</td>'; };
   /* Feste Spaltenbreiten (table-layout:fixed) – lange Titel werden abgeschnitten (…), statt die
@@ -4522,6 +4577,8 @@ function dashPortalHtml(d){
       +'<div style="font-size:10px;color:var(--muted);margin-top:2px">Kosten je Tag · letzte 14 Tage · Läuft das Budget voll, blockt Riki — gewollt.</div>'
     +'</div></div></div>';
   var heroBlock='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:14px">'+heroW+heroR+'</div>';
+  /* 2026-07-29-1649 (Ralph): Audit-Karte - die drei Pruef-Ebenen + Stichproben zum Gegenpruefen */
+  heroBlock+='<div id="dashAuditBox" style="margin-bottom:14px"></div>';
 
   var tabs='<div class="pmtabs">'
     +'<button class="pmtab on" data-tab="dq" onclick="dashPortalTab(\'dq\')">🔎 Datenqualität</button>'
@@ -4534,6 +4591,171 @@ function dashPortalHtml(d){
     +'<button class="btn" onclick="loadDashboard()">↻ Aktualisieren</button></div>'
     +aufgBlock+heroBlock+waechterBlock+kpis+tabs+panelDq+panelKat+panelBt+'</main></div>';
 }
+/* ===== ENTERPRISE-DASHBOARD (Ralph-Entscheid 29.07. abends: Variante B "Hell-Enterprise"
+   aus 3 Profi-Mockups; Vorlage Klipfolio, Umsetzung nach dataviz-Regeln: echte Achsen,
+   Rasterlinien, Limit-Linie, Statusfarben fest, Text in Texttoken). Ersetzt die
+   Portal-Ansicht als Standard; dashPortalHtml bleibt als Sicherheitsnetz. ===== */
+function entIc(name){
+  var P={dash:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    box:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    user:'<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5c2.8.3 5 2.6 5 5.5"/>',
+    gauge:'<path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1.6"/>'};
+  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2a78d6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(P[name]||P.dash)+'</svg>';
+}
+function entKostenChart(rv, limit){
+  var W=560,H=160,x0=36,x1=550,y0=14,y1=132;
+  var vals=(rv||[]).slice(-14);
+  if(!vals.length) return '<div style="font-size:12px;color:var(--muted)">noch keine Tageswerte</div>';
+  var vmax=0; vals.forEach(function(x){ var v=Number(x.usd)||0; if(v>vmax) vmax=v; });
+  var ymax=Math.max((limit||0)*1.1, vmax*1.15, 0.5);
+  var Y=function(v){ return y1-(v/ymax)*(y1-y0); };
+  var out=[];
+  var step=ymax>3?1:0.5;
+  for(var g=step; g<ymax; g+=step){
+    var gy=Y(g);
+    out.push('<line x1="'+x0+'" y1="'+gy.toFixed(1)+'" x2="'+x1+'" y2="'+gy.toFixed(1)+'" stroke="#e1e0d9" stroke-width="1"/>');
+    out.push('<text x="'+(x0-6)+'" y="'+(gy+3).toFixed(1)+'" text-anchor="end" font-size="9" fill="#898781">'+String(g.toFixed(step<1?1:0)).replace('.',',')+'</text>');
+  }
+  if(limit){ var yl=Y(limit);
+    out.push('<line x1="'+x0+'" y1="'+yl.toFixed(1)+'" x2="'+x1+'" y2="'+yl.toFixed(1)+'" stroke="#d03b3b" stroke-width="1.5" stroke-dasharray="5 4"/>');
+    out.push('<text x="'+x1+'" y="'+(yl-5).toFixed(1)+'" text-anchor="end" font-size="9" font-weight="700" fill="#d03b3b">Tageslimit '+String(limit.toFixed(2)).replace('.',',')+'&#8202;$</text>'); }
+  out.push('<line x1="'+x0+'" y1="'+y1+'" x2="'+x1+'" y2="'+y1+'" stroke="#c3c2b7" stroke-width="1"/>');
+  var slot=(x1-x0)/vals.length, bw=Math.min(24, slot-8), imax=0;
+  vals.forEach(function(x,i){ if((Number(x.usd)||0)>(Number(vals[imax].usd)||0)) imax=i; });
+  vals.forEach(function(x,i){
+    var v=Number(x.usd)||0, bx=x0+i*slot+(slot-bw)/2, by=Y(v), r=Math.min(4,bw/2);
+    if(y1-by<2) by=y1-2;
+    out.push('<path d="M'+bx.toFixed(1)+' '+y1+' V'+(by+r).toFixed(1)+' Q'+bx.toFixed(1)+' '+by.toFixed(1)+' '+(bx+r).toFixed(1)+' '+by.toFixed(1)+' H'+(bx+bw-r).toFixed(1)+' Q'+(bx+bw).toFixed(1)+' '+by.toFixed(1)+' '+(bx+bw).toFixed(1)+' '+(by+r).toFixed(1)+' V'+y1+' Z" fill="#2a78d6"><title>'+esc(String(x.tag||''))+': '+v.toFixed(2)+' $</title></path>');
+    if(i%2===0){ var lbl=String(x.tag||'').replace(/^\d{4}-\d{2}-/,'').replace(/(\d{2})$/,'$1.');
+      out.push('<text x="'+(bx+bw/2).toFixed(1)+'" y="'+(y1+12)+'" text-anchor="middle" font-size="8.5" fill="#898781">'+esc(lbl)+'</text>'); }
+    if(i===imax && v>0) out.push('<text x="'+(bx+bw/2).toFixed(1)+'" y="'+(by-6).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#0b0b0b">'+String(v.toFixed(2)).replace('.',',')+'&#8202;$</text>');
+  });
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;display:block">'+out.join('')+'</svg>';
+}
+function entAreaChart(rv){
+  var W=560,H=110,x0=36,x1=550,y0=10,y1=92;
+  var vals=(rv||[]).slice(-14); if(!vals.length) return '';
+  var kum=[], s=0; vals.forEach(function(x){ s+=Number(x.usd)||0; kum.push(s); });
+  var ymax=Math.max(s*1.15, 1);
+  var pts=kum.map(function(v,i){ var x=x0+(x1-x0)*i/(kum.length-1), y=y1-(v/ymax)*(y1-y0); return x.toFixed(1)+','+y.toFixed(1); });
+  var out=[];
+  for(var g=0.25; g<1; g+=0.25){ var gy=y1-g*(y1-y0);
+    out.push('<line x1="'+x0+'" y1="'+gy.toFixed(1)+'" x2="'+x1+'" y2="'+gy.toFixed(1)+'" stroke="#e1e0d9" stroke-width="1"/>'); }
+  out.push('<polygon points="'+x0+','+y1+' '+pts.join(' ')+' '+x1+','+y1+'" fill="rgba(42,120,214,0.16)"/>');
+  out.push('<polyline points="'+pts.join(' ')+'" fill="none" stroke="#2a78d6" stroke-width="2"/>');
+  var last=pts[pts.length-1].split(',');
+  out.push('<circle cx="'+last[0]+'" cy="'+last[1]+'" r="4" fill="#2a78d6"/>');
+  out.push('<text x="'+x0+'" y="'+(y1+12)+'" font-size="8.5" fill="#898781">'+esc(String(vals[0].tag||''))+'</text>');
+  out.push('<text x="'+x1+'" y="'+(y1+12)+'" text-anchor="end" font-size="8.5" fill="#898781">'+esc(String(vals[vals.length-1].tag||''))+'</text>');
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;display:block">'+out.join('')+'</svg>';
+}
+function dashEnterpriseHtml(d){
+  var k=d.katalog||{}, q=d.qualitaet||{}, gate=d.gate||{}, u=d.nutzer||{}, ri=d.riki||{}, sc=d.scans||{};
+  var num=function(n){ return (n==null?0:Number(n)); };
+  var fmt=function(n){ if(n==null) return '\u2013'; return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); };
+  var gateSum=num(gate.summe), gruen=(gateSum===0);
+  var waLst=Array.isArray(gate.waechter)?gate.waechter:[];
+  var stand=''; try{ stand=(new Date()).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }catch(e){}
+  var budget=Number(ri.monatslimit_usd||50), verbr=Number(ri.monat_usd||0);
+  var _j=new Date(), _t=_j.getDate(), _dim=new Date(_j.getFullYear(),_j.getMonth()+1,0).getDate();
+  var prog=(_t>0?verbr/_t*_dim:0), progOk=prog<=budget;
+  var tile=function(span,inner){ return '<div style="grid-column:span '+span+';background:var(--card,#fcfcfb);border:1px solid rgba(11,11,11,0.10);border-radius:10px;padding:14px 16px;min-width:0;box-shadow:0 1px 3px rgba(20,40,70,.06)">'+inner+'</div>'; };
+  var h3=function(t,sub){ return '<div style="font-size:12px;font-weight:700;color:var(--ink,#0b0b0b);margin-bottom:10px">'+t+(sub?' <span style="color:#898781;font-weight:400">'+sub+'</span>':'')+'</div>'; };
+  var kpi=function(icon,val,lbl,sub){
+    return '<div style="flex:1;min-width:150px;display:flex;gap:11px;align-items:center">'
+      +'<div style="width:34px;height:34px;border-radius:8px;background:#eef4fb;display:flex;align-items:center;justify-content:center;flex:0 0 auto">'+entIc(icon)+'</div>'
+      +'<div><div style="font-size:22px;font-weight:700;color:var(--ink,#0b0b0b);line-height:1.05;font-variant-numeric:tabular-nums">'+val+'</div>'
+      +'<div style="font-size:10.5px;color:#898781">'+lbl+(sub?' \u00b7 '+sub:'')+'</div></div></div>';
+  };
+  var row=function(farbe,icon,txt,val,oc){
+    var v = oc ? '<span onclick="'+oc+'" style="color:#2a78d6;font-weight:700;cursor:pointer;white-space:nowrap">'+val+' \u203a</span>'
+               : '<span style="color:#898781;white-space:nowrap">'+val+'</span>';
+    return '<div style="display:flex;align-items:center;gap:9px;font-size:12.5px;padding:6.5px 0;border-top:1px solid #e1e0d9;color:var(--ink,#0b0b0b)">'
+      +'<span style="width:8px;height:8px;border-radius:50%;background:'+farbe+';flex:0 0 auto"></span>'
+      +'<span style="width:13px;text-align:center;color:'+farbe+';font-weight:800">'+icon+'</span>'
+      +'<span style="flex:1;min-width:0">'+txt+'</span>'+v+'</div>';
+  };
+  /* KPI-Zeile */
+  var kpis='<div style="display:flex;gap:18px;flex-wrap:wrap">'
+    +kpi('box',fmt(num(k.aktiv)),'Produkte im Katalog','\u00d8 Index '+(k.schnitt_score!=null?k.schnitt_score:'\u2013'))
+    +kpi('gauge',fmt(num(q.unverifiziert)),'zu verifizieren','ohne Score '+fmt(num(q.ohne_score)))
+    +kpi('user',fmt(num(u.gesamt)),'Nutzer',num(u.aktiv_30t)+' aktiv \u00b7 '+num(u.premium)+' Premium')
+    +kpi('dash',(gruen?'gr\u00fcn':gateSum+' offen'),'Go-Live-Gate',gruen?'alle Pflicht-W\u00e4chter still':'Pflichtf\u00e4lle')
+    +'</div>';
+  /* Waechter-Kachel */
+  var okNamen=[], waRows='';
+  waLst.forEach(function(w){ var o=num(w.offen);
+    if(o>0) waRows+=row('#fab219','!',esc(w.name),o,"dashWaechterFaelle("+num(w.nr)+",'"+encodeURIComponent(w.name)+"')");
+    else okNamen.push(w.name); });
+  if(num(sc.wartet_pruefung)>0) waRows+=row('#fab219','!','Scans warten auf Pr\u00fcfung',num(sc.wartet_pruefung),"fgTab('zuverif')");
+  if(okNamen.length) waRows+=row('#0ca30c','\u2713',okNamen.length+' W\u00e4chter still','0');
+  /* Aufgaben */
+  var aufg='';
+  if(!gruen) aufg+=row('#d03b3b','\u2715','Go-Live-Gate ZU \u2014 Pflichtf\u00e4lle',gateSum,'');
+  waLst.forEach(function(w){ var o=num(w.offen); if(o>0) aufg+=row('#fab219','!',esc(w.name)+' pr\u00fcfen',o,"dashWaechterFaelle("+num(w.nr)+",'"+encodeURIComponent(w.name)+"')"); });
+  if(num(sc.wartet_pruefung)>0) aufg+=row('#fab219','!','Scans pr\u00fcfen',num(sc.wartet_pruefung),"fgTab('zuverif')");
+  if(!aufg) aufg=row('#0ca30c','\u2713','Nichts wartet auf dich \u2014 alles gr\u00fcn','');
+  aufg+=row('#898781','\u00b7','Stand',stand);
+  /* Karten-Platzhalter (Etappe 2, ehrlich) */
+  var karte=h3('Nutzer nach Region','Deutschland \u00b7 Welt folgt')
+    +'<div style="border:1px dashed #c3c2b7;border-radius:8px;padding:18px 12px;text-align:center;color:#898781;font-size:12px;line-height:1.55">'
+    +'<div style="font-size:22px;font-weight:700;color:var(--ink,#0b0b0b)">'+fmt(num(u.gesamt))+'</div>Nutzer gesamt<br><br>'
+    +'Die Karte kommt mit der anonymen Bundesland-Z\u00e4hlung (Etappe 2) \u2014 wir zeigen keine erfundenen Punkte.</div>';
+  return '<div style="background:var(--bg,#f9f9f7);margin:-4px;padding:4px">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin:2px 6px 10px"><h1 style="font-size:19px;font-weight:800;margin:0;color:var(--ink,#0b0b0b)">Dashboard</h1><span style="font-size:12px;color:#898781">Live aus der Datenbank \u00b7 '+stand+' Uhr</span>'
+    +'<button onclick="loadDashboard()" style="margin-left:auto;background:var(--card,#fff);border:1px solid rgba(11,11,11,0.14);border-radius:8px;padding:7px 12px;font-weight:700;font-size:12px;color:var(--ink,#0b0b0b);cursor:pointer">\u21bb Aktualisieren</button></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:10px">'
+    +tile(12,kpis)
+    +tile(5,h3('Riki-Kosten je Tag','letzte 14 Tage, $')+'<div id="entKostenBox">'+entKostenChart(d.riki_verlauf,null)+'</div>'
+      +'<div style="display:flex;gap:14px;font-size:10px;color:#898781;margin-top:6px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2a78d6;margin-right:5px;vertical-align:-1px"></span>Kosten/Tag</span><span id="entLimitLeg" style="color:#d03b3b;display:none">\u2212\u2212 Tageslimit</span></div>')
+    +tile(4,h3('Riki-Budget \u00b7 Monat','kumuliert, $')
+      +'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px;flex-wrap:wrap"><span style="font-size:26px;font-weight:700;color:var(--ink,#0b0b0b)">'+String(verbr.toFixed(2)).replace('.',',')+'&#8202;$</span>'
+      +'<span style="font-size:11px;font-weight:700;color:'+(progOk?'#006300':'#d03b3b')+'">'+(budget>0?Math.round(verbr/budget*100):0)+'&#8202;% von '+budget.toFixed(0)+'&#8202;$ \u00b7 Prognose ~'+prog.toFixed(0)+'&#8202;$ '+(progOk?'\u2713':'\u26a0')+'</span></div>'
+      +entAreaChart(d.riki_verlauf)
+      +'<div style="font-size:10px;color:#898781;margin-top:4px">L\u00e4uft das Budget voll, blockt Riki \u2014 gewollt.</div>')
+    +tile(3,karte)
+    +tile(4,h3('W\u00e4chter &amp; Takte','Klick \u00f6ffnet die F\u00e4lle')+waRows)
+    +tile(4,h3('Audit','drei Pr\u00fcf-Ebenen')+'<div id="dashAuditBox"></div>')
+    +tile(4,h3('Aufgaben heute','nach Dringlichkeit')+aufg)
+    +'</div></div>';
+}
+/* ===== Audit-Karte im Dashboard (Ralph 29.07.: "da hätte ich gerne eine anzeige im
+   dashboard und stichproben zum gegenprüfen") ===== */
+async function dashAuditLoad(){
+  var box=document.getElementById('dashAuditBox'); if(!box) return;
+  var d=null;
+  try{ var r=await client.rpc('cb_audit_status'); d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } }catch(e){}
+  if(!(d&&d.ok)){ box.innerHTML=''; return; }
+  var fmtT=function(t){ if(!t) return 'noch keiner'; try{ return new Date(t).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }catch(e){ return String(t); } };
+  var zeile=function(ico,titel,wert,warn){ return '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px"><span style="font-size:14px">'+ico+'</span><span style="flex:1;color:var(--ink)">'+titel+'</span><b style="color:'+(warn?'#c07a10':'var(--ink)')+'">'+wert+'</b></div>'; };
+  box.innerHTML='<div>'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">'
+      +'<button onclick="dashAuditProbe()" style="margin-left:auto;padding:6px 12px;border:1px solid #2a78d6;border-radius:8px;background:transparent;color:#2a78d6;font-weight:700;font-size:12px;cursor:pointer">Stichprobe ziehen</button>'
+    +'</div>'
+    +zeile('🤖','Autopilot 1.0 · letzter Lauf '+fmtT(d.ap1_letzter_lauf)+' · heute '+(Number(d.ap1_heute_usd)||0).toFixed(2)+' $', (d.ap1_wartend||0)+' wartend', (d.ap1_wartend||0)>0)
+    +zeile('🛡️','Sofort-Wächter · neue Zutaten seit letzter Wochenprüfung', (d.zutaten_ungeprueft||0)+' ungeprüft', false)
+    +zeile('📅','Wochenprüfung 2.0 · letzter Lauf: '+fmtT(d.ap2_letzter_lauf), (d.ap2_offene_todos||0)+' offene Prüf-Todos', (d.ap2_offene_todos||0)>0)
+    +zeile('🏷️','Automatisch entstandene Produkte (Autopilot/Crawl)', (Number(d.auto_produkte)||0)+' · davon auto-verifiziert '+(Number(d.auto_verifiziert)||0), false)
+    +'<div id="dashAuditProbe"></div>'
+  +'</div>';
+  /* Tageslimit-Linie im Kosten-Chart nachziehen, sobald bekannt (aus Riki_Config via cb_autopilot_status waere Admin-RPC; hier: fester Ralph-Wert 2,00 $ aus der Config-Historie NICHT hartkodieren -> Etappe 2 liefert den Wert in cb_audit_status). */
+}
+async function dashAuditProbe(){
+  var out=document.getElementById('dashAuditProbe'); if(!out) return;
+  out.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px 0">Ziehe Stichprobe…</div>';
+  var d=null;
+  try{ var r=await client.rpc('cb_audit_stichprobe',{p_n:5}); d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } }catch(e){}
+  var list=(d&&d.ok&&Array.isArray(d.produkte))?d.produkte:[];
+  if(!list.length){ out.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px 0">Keine automatischen Produkte gefunden.</div>'; return; }
+  out.innerHTML='<div style="font-size:11px;color:var(--muted);margin:8px 0 2px">Zufällige Auto-Produkte — gegen Etikett/Herstellerseite prüfen, dann ggf. verifizieren:</div>'
+    +list.map(function(p){
+      return '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px dashed var(--line);font-size:12.5px">'
+        +'<span style="flex:1;min-width:0"><b>'+esc(p.name||p.id)+'</b> <span style="color:var(--muted)">· '+esc(p.marke||'')+' · '+esc(p.herkunft||'')+' · '+esc(p.status||'')+' · verifiziert: '+esc(p.verifiziert||'Nein')+'</span>'
+        +(p.quelle?'<div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.quelle)+'</div>':'')+'</span>'
+        +'<button onclick="dashOpenProdukt(\''+esc(p.id)+'\')" style="flex:0 0 auto;border:1px solid #107e3e;background:#eef8f1;color:#1e6b42;border-radius:8px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">Öffnen ›</button>'
+      +'</div>'; }).join('');
+}
+if(typeof window!=='undefined'){ window.dashAuditLoad=dashAuditLoad; window.dashAuditProbe=dashAuditProbe; }
 /* Klick auf ein Wächter-Symbol: lädt die KONKRETEN Fälle (cb_waechter_faelle nach nr)
    und listet sie – Produkte sind direkt im Editor öffnenbar, Zutaten/Zusatzstoffe zeigen den Befund. */
 async function dashWaechterFaelle(nr, nameEnc){
@@ -4597,7 +4819,13 @@ async function loadDashboard(){
   }
 
   /* Portal-M-Dashboard (Default seit 24.07.2026) – heller Entwurf, echte Zahlen aus d. */
-  if(_ansicht==='portal'){ box.innerHTML=_sw+dashPortalHtml(d); return; }
+  if(_ansicht==='portal'){
+    /* 29.07. abends: Enterprise-Ansicht (Ralph-Wahl B) als Standard, Portal bleibt Netz */
+    try{ box.innerHTML=_sw+dashEnterpriseHtml(d); }
+    catch(e){ try{ console.error('Enterprise-Dashboard:',e); }catch(_){} box.innerHTML=_sw+dashPortalHtml(d); }
+    try{ dashAuditLoad(); }catch(e){}
+    try{ adminNavBadges(d); }catch(e){}
+    return; }
   /* Neon Command Center – eigenes dunkles Layout, echte Zahlen aus d. */
   if(_ansicht==='command'){ box.innerHTML=_sw+dashCommandHtml(d); return; }
 
@@ -6730,6 +6958,16 @@ function applyAdminMode(){
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
       +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
       +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
+    /* 29.07. Enterprise (Ralph): Arbeits-Zahlen als Plaketten am Menue */
+    window.adminNavBadges=function(d){
+      try{
+        var setB=function(k,n){ var b=document.querySelector('#adminNav .anBtn[data-k="'+k+'"]'); if(!b) return;
+          var e=b.querySelector('.anBdg');
+          if(!e){ e=document.createElement('span'); e.className='anBdg'; b.appendChild(e); }
+          if(n>0){ e.textContent=(n>99?'99+':n); e.style.display=''; } else e.style.display='none'; };
+        setB('produkterfassung', Number((d&&d.qualitaet&&d.qualitaet.unverifiziert)||0));
+      }catch(e){}
+    };
     document.body.appendChild(nav);
     /* Pfeil-Chip: holt das beim Scrollen ausgeblendete Menü zurück (Ralph 24.07.2026). */
     if(!document.getElementById('adminNavPeek')){
@@ -16703,7 +16941,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-29-1512";
+const APP_BUILD = "2026-07-29-1827";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
