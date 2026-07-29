@@ -12182,7 +12182,10 @@ function feFreigabeLeiste(items, blocked){
         tbx=document.createElement('span'); tbx.id='frgTopBtns';
         tbx.style.cssText='display:flex;gap:6px;align-items:center;margin-left:6px;flex:0 0 auto';
         tbx.innerHTML='<button type="button" id="frgSaveTop" onclick="try{fgEditSave(false)}catch(e){}" title="Nur speichern" style="width:36px;height:32px;border:1px solid var(--k-bfdbfe,#bfdbfe);border-radius:9px;background:var(--card);color:#2563eb;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>'
-          +'<button type="button" id="frgGoTop" style="height:32px;padding:0 14px;border:0;border-radius:9px;color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap">✓ freigeben</button>';
+          +'<button type="button" id="frgGoTop" style="height:32px;padding:0 14px;border:0;border-radius:9px;color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap">✓ freigeben</button>'
+          /* 2026-07-29-1427 (Ralph: "mir fehlt ein statusschalter"): der Ohne-Index-Knopf sass im
+             Freigabe-Panel, das im Vollbild seit 28q nicht mehr aufklappt - jetzt oben erreichbar. */
+          +'<button type="button" onclick="try{fgOhneIndexFreigeben()}catch(e){}" title="Ohne Index freigeben – für Produkte ohne belegbare Nährwerte (z. B. frische Sprossen). Rückweg: ⇄ Status in der Liste." style="width:36px;height:32px;border:1px dashed #e0a32e;border-radius:9px;background:#fffaf0;color:#92400e;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0">🌱</button>';
         _slot2.appendChild(tbx);
       }
       var gt=document.getElementById('frgGoTop');
@@ -16635,7 +16638,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-29-1350";
+const APP_BUILD = "2026-07-29-1427";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
