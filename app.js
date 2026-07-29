@@ -11440,8 +11440,17 @@ function fgEtikettRender(){
      WECHSELN das grosse Bild (28z33 oeffnete stattdessen das Vollbild). */
   var g=window._fgEtikGross=window._fgEtikGross||{idx:0,scale:1,x:0,y:0,baseFit:1};
   if(g.idx>=arr.length) g.idx=0;
+  /* 28z38 (Ralph): hoeherer Kasten + Werkzeugzeile wie an der Referenzkarte; Einpassen
+     laeuft jetzt robust ueber img.decode()/rAF - vorher rechnete es teils vor dem
+     Dekodieren und zeigte eine leere Bildecke ("bei klick passiert nichts"). */
   box.innerHTML = arr.length
-    ? ('<div id="fe_etikGrossBox" style="position:relative;overflow:hidden;height:280px;border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none" title="Rad = zoomen · Ziehen = verschieben · Doppelklick = Vollbild">'
+    ? ('<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
+        +'<button type="button" onclick="fgEtikGrossZoomBtn(1)" style="width:30px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-weight:800">＋</button>'
+        +'<button type="button" onclick="fgEtikGrossZoomBtn(-1)" style="width:30px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-weight:800">－</button>'
+        +'<button type="button" onclick="fgEtikGrossReset()" style="height:28px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px;font-weight:600">Einpassen</button>'
+        +'<span style="margin-left:auto;font-size:12px;color:var(--muted)">'+(g.idx+1)+' / '+arr.length+' Foto</span>'
+      +'</div>'
+      +'<div id="fe_etikGrossBox" style="position:relative;overflow:hidden;height:clamp(320px,46vh,620px);border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none" title="Rad = zoomen · Ziehen = verschieben · Doppelklick = Vollbild">'
         +'<img id="fe_etikGrossImg" alt="Etikett" draggable="false" oncontextmenu="fgEtikettCtx(event,window._fgEtikGross.idx)" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none">'
       +'</div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+arr.map(function(s,j){ var on=(j===g.idx);
@@ -11449,7 +11458,11 @@ function fgEtikettRender(){
       +'<div style="font-size:10.5px;color:var(--muted);margin-top:4px">Kleines Bild anklicken = wechseln · Rad zoomt · Ziehen verschiebt · Doppelklick = Vollbild</div>')
     : '<span style="color:var(--muted);font-size:12.5px">keine – über „+ Foto" ein Bild hinzufügen</span>';
   if(arr.length){ var _gi=document.getElementById('fe_etikGrossImg');
-    if(_gi){ _gi.onload=function(){ fgEtikGrossReset(); }; _gi.src=arr[g.idx]; if(_gi.complete) fgEtikGrossReset(); }
+    if(_gi){
+      _gi.onload=function(){ fgEtikGrossFit(); };
+      _gi.src=arr[g.idx];
+      fgEtikGrossFit();   /* deckt Cache-Treffer ab; wartet intern auf decode */
+    }
     fgEtikGrossBind(); }
   try{ fgWirkFotoRender(); }catch(e){}   /* die Lesebox neben der Wirkstoff-Tabelle mitziehen */
 }
@@ -11470,7 +11483,18 @@ function fgEtikGrossZoomAt(factor, cx, cy){
   s.y = py - (py - s.y)*(ns/s.scale);
   s.scale=ns; fgEtikGrossApply();
 }
-function fgEtikGrossShow(j){ var s=window._fgEtikGross=window._fgEtikGross||{idx:0,scale:1,x:0,y:0,baseFit:1}; s.idx=j; try{ fgEtikettRender(); }catch(e){} }
+function fgEtikGrossFit(){
+  /* Einpassen erst, wenn das Bild wirklich dekodiert UND der Kasten gemessen ist. */
+  var img=document.getElementById('fe_etikGrossImg'); if(!img||!img.src) return;
+  var los=function(){ requestAnimationFrame(function(){ fgEtikGrossReset(); }); };
+  if(img.decode){ img.decode().then(los).catch(los); } else los();
+}
+function fgEtikGrossZoomBtn(dir){
+  var box=document.getElementById('fe_etikGrossBox'); if(!box) return;
+  var r=box.getBoundingClientRect();
+  fgEtikGrossZoomAt(dir>0?1.3:0.77, r.left+r.width/2, r.top+r.height/2);
+}
+function fgEtikGrossShow(j){ var s=window._fgEtikGross=window._fgEtikGross||{idx:0,scale:1,x:0,y:0,baseFit:1}; s.idx=j; try{ fgEtikettRender(); }catch(e){} try{ fgEtikGrossFit(); }catch(e){} }
 function fgEtikGrossBind(){
   var box=document.getElementById('fe_etikGrossBox'); if(!box||box._fgB) return; box._fgB=true;
   box.addEventListener('wheel', function(e){ e.preventDefault(); fgEtikGrossZoomAt(e.deltaY<0?1.12:0.89, e.clientX, e.clientY); }, {passive:false});
@@ -11480,7 +11504,7 @@ function fgEtikGrossBind(){
   document.addEventListener('mouseup', function(){ if(drag){ drag=null; box.style.cursor='grab'; } });
   box.addEventListener('dblclick', function(){ try{ fgEtikettZoom(window._fgEtikGross.idx); }catch(e){} });
 }
-if(typeof window!=='undefined'){ window.fgEtikGrossShow=fgEtikGrossShow; }
+if(typeof window!=='undefined'){ window.fgEtikGrossShow=fgEtikGrossShow; window.fgEtikGrossZoomBtn=fgEtikGrossZoomBtn; window.fgEtikGrossReset=fgEtikGrossReset; }
 /* ===== Etikett-Lesebox NEBEN der Wirkstoff-Tabelle (Supplements, Ralph 24.07.2026) =====
    Zeigt dieselben angehängten Fotos (window._fgEdit.etikett) zoombar IM Kasten:
    Mausrad zoomt zum Cursor, Ziehen verschiebt, „Einpassen" setzt auf Kastenbreite,
@@ -16586,7 +16610,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z37";
+const APP_BUILD = "2026-07-28z38";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
