@@ -511,11 +511,15 @@ function mountTierOvChip(){
   if(ex) return;
   ladeTierSets();
   const c=document.createElement("div"); c.id="tierOvChip";
-  c.style.cssText="position:fixed;bottom:82px;right:10px;z-index:70;background:var(--k-111827);color:var(--k-ffffff);border-radius:999px;padding:5px 8px;font-size:11px;display:flex;gap:3px;align-items:center;box-shadow:0 4px 14px rgba(0,0,0,.3)";
+  /* 28z25 (Ralph): der Streifen sass fix unten rechts UEBER dem Inhalt - jetzt sitzt er
+     oben NEBEN dem Logo (in der .brand-Zeile). Faellt die Zeile mal weg: Rueckfall fix oben rechts. */
+  c.style.cssText="background:var(--k-111827);color:var(--k-ffffff);border-radius:999px;padding:4px 7px;font-size:11px;display:flex;gap:2px;align-items:center;box-shadow:0 3px 10px rgba(0,0,0,.25);margin-left:14px;flex:0 0 auto";
   c.innerHTML='<span style="opacity:.7;margin:0 3px">Ansehen als:</span>'
     +[['','ich'],['gast','Gast'],['free','Free'],['premium','Premium']].map(t=>
       '<button data-t="'+t[0]+'" onclick="setTierOverride(\''+t[0]+'\')" style="background:none;border:0;color:var(--k-ffffff);cursor:pointer;font-size:11px;padding:3px 7px;border-radius:8px">'+t[1]+'</button>').join("");
-  document.body.appendChild(c);
+  const brand=document.querySelector('.brand');
+  if(brand){ brand.appendChild(c); }
+  else { c.style.position='fixed'; c.style.top='10px'; c.style.right='10px'; c.style.zIndex='70'; document.body.appendChild(c); }
   setTierOverride(window._tierOverride||'');
 }
 /* Auch der GAST hat jetzt Rechte - vorher hatte er keine, und weil die Produktkarte
@@ -16369,7 +16373,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z24";
+const APP_BUILD = "2026-07-28z25";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
