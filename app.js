@@ -3069,6 +3069,7 @@ async function loadProduktErfassung(){
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
       +'<button class="peBtn pri" onclick="peNeu()">＋ Neues Produkt</button>'
       +'<button class="peBtn" onclick="peMenu(\'akt\',this)">☑ Aktionen ▾</button>'
+      +'<button class="peBtn" onclick="scanEingangToggle()" title="Scan-Eingang ein-/ausblenden: gescannte Produkte zur Prüfung, Entwürfe">📥 Scan-Eingang</button>'
       +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
       +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px" title="Filtert die Liste nach Kategorie und ist zugleich die Vorgabe für neue Produkte.">Kategorie</span>'
       +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px","peRender()","alle Kategorien")
@@ -4573,8 +4574,8 @@ function dashPortalHtml(d){
   var aufg=[];
   if(!gruen) aufg.push({ico:'🔴',txt:'Go-Live-Gate ZU — '+gateSum+' Pflicht-Fall/Fälle',sub:'muss 0 sein vor jedem Livegang',oc:''});
   waLst.forEach(function(w){ var o=num(w.offen); if(o>0) aufg.push({ico:'🟡',txt:esc(w.name)+' — '+o+' offen',sub:'Wächter · klick öffnet die Fälle',oc:"dashWaechterFaelle("+num(w.nr)+",'"+encodeURIComponent(w.name)+"')"}); });
-  if(num(sc2.wartet_pruefung)>0) aufg.push({ico:'📷',txt:num(sc2.wartet_pruefung)+' Scan(s) warten auf deine Prüfung',sub:'Posteingang „Zu verifizieren“',oc:"fgTab('zuverif')"});
-  if(num(q.unverifiziert)>0) aufg.push({ico:'🕵️',txt:fmt(num(q.unverifiziert))+' Produkte zu verifizieren',sub:'unverifiziert im Katalog',oc:"fgTab('zuverif')"});
+  if(num(sc2.wartet_pruefung)>0) aufg.push({ico:'📷',txt:num(sc2.wartet_pruefung)+' Scan(s) warten auf deine Prüfung',sub:'Scan-Eingang in der Erfassung',oc:"scanEingangOeffnen()"});
+  if(num(q.unverifiziert)>0) aufg.push({ico:'🕵️',txt:fmt(num(q.unverifiziert))+' Produkte zu verifizieren',sub:'unverifiziert im Katalog',oc:"window._peChip='zuverif';adminGo('produkterfassung')"});
   aufg=aufg.slice(0,5);
   var aufgRows=aufg.length?aufg.map(function(a){ return '<div onclick="'+(a.oc||'')+'" style="display:flex;align-items:center;gap:10px;padding:9px 13px;border-top:1px solid var(--line);'+(a.oc?'cursor:pointer':'')+'"><span style="font-size:15px">'+a.ico+'</span><div style="flex:1;min-width:0"><b style="font-size:13px">'+a.txt+'</b><div style="font-size:11px;color:var(--muted)">'+a.sub+'</div></div>'+(a.oc?'<span style="background:var(--green,#2e7d46);color:#fff;font-size:11.5px;font-weight:700;border-radius:8px;padding:5px 11px">öffnen</span>':'')+'</div>'; }).join('')
     :'<div style="display:flex;align-items:center;gap:10px;padding:11px 13px"><span style="font-size:15px">✅</span><b style="font-size:13px;color:#1e6b42">Nichts wartet auf dich — alles grün.</b></div>';
@@ -4717,13 +4718,13 @@ function dashEnterpriseHtml(d){
   waLst.forEach(function(w){ var o=num(w.offen);
     if(o>0) waRows+=row('#fab219','!',esc(w.name),o,"dashWaechterFaelle("+num(w.nr)+",'"+encodeURIComponent(w.name)+"')");
     else okNamen.push(w.name); });
-  if(num(sc.wartet_pruefung)>0) waRows+=row('#fab219','!','Scans warten auf Pr\u00fcfung',num(sc.wartet_pruefung),"fgTab('zuverif')");
+  if(num(sc.wartet_pruefung)>0) waRows+=row('#fab219','!','Scans warten auf Pr\u00fcfung',num(sc.wartet_pruefung),"scanEingangOeffnen()");
   if(okNamen.length) waRows+=row('#0ca30c','\u2713',okNamen.length+' W\u00e4chter still','0');
   /* Aufgaben */
   var aufg='';
   if(!gruen) aufg+=row('#d03b3b','\u2715','Go-Live-Gate ZU \u2014 Pflichtf\u00e4lle',gateSum,'');
   waLst.forEach(function(w){ var o=num(w.offen); if(o>0) aufg+=row('#fab219','!',esc(w.name)+' pr\u00fcfen',o,"dashWaechterFaelle("+num(w.nr)+",'"+encodeURIComponent(w.name)+"')"); });
-  if(num(sc.wartet_pruefung)>0) aufg+=row('#fab219','!','Scans pr\u00fcfen',num(sc.wartet_pruefung),"fgTab('zuverif')");
+  if(num(sc.wartet_pruefung)>0) aufg+=row('#fab219','!','Scans pr\u00fcfen',num(sc.wartet_pruefung),"scanEingangOeffnen()");
   if(!aufg) aufg=row('#0ca30c','\u2713','Nichts wartet auf dich \u2014 alles gr\u00fcn','');
   aufg+=row('#898781','\u00b7','Stand',stand);
   /* Etappe 2 (Ralph-Entscheid 29.07. abends): Kachel-Karte aus der FREIWILLIGEN
@@ -7108,6 +7109,31 @@ if(typeof window!=='undefined'){ window.adminDrawerToggle=adminDrawerToggle; win
    die eigenständigen Bereiche über navTo(). Markiert den aktiven Punkt, setzt den
    Breadcrumb in der Kopfleiste und schließt die Schublade. */
 const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do'};
+/* ===== Posteingang abgeschafft (Ralph 29.07. spät, Todo #50: "diese seite sollte es
+   eigentlich nicht mehr geben") =====
+   Die alte Posteingang-Seite (fgTab 'zuverif') hat keinen Einsprung mehr. Die Scan-Prüfung
+   ("Zur Prüfung: N aus Scans" + Entwürfe, Panel fgPanelScans) erscheint stattdessen MIT der
+   Produkt-Erfassung auf EINER Seite: Knopf 📥 in der Erfassungs-Toolbar oder Dashboard-Sprung.
+   Das Panel wird NICHT verschoben (peRender baut sein DOM per innerHTML neu - ein umgezogener
+   Knoten würde dabei zerstört); es wird als Nachbar-Panel einfach mit eingeblendet.
+   Panels + fgTab('zuverif') bleiben als Rückfall vollständig funktionsfähig (§1.11n-j). */
+function scanEingangOeffnen(){
+  try{ adminGo('produkterfassung'); }catch(e){}
+  setTimeout(function(){
+    var ps=document.getElementById('fgPanelScans');
+    if(!ps) return;
+    ps.style.display='';
+    try{ if(typeof loadScans==='function') loadScans(); }catch(e){}
+    try{ ps.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){}
+  }, 60);
+}
+function scanEingangToggle(){
+  var ps=document.getElementById('fgPanelScans'); if(!ps) return;
+  var zu = ps.style.display==='none';
+  ps.style.display = zu ? '' : 'none';
+  if(zu){ try{ if(typeof loadScans==='function') loadScans(); }catch(e){} try{ ps.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){} }
+}
+if(typeof window!=='undefined'){ window.scanEingangOeffnen=scanEingangOeffnen; window.scanEingangToggle=scanEingangToggle; }
 function adminGo(k){
   const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
@@ -17064,7 +17090,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-29-2030";
+const APP_BUILD = "2026-07-29-2128";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
