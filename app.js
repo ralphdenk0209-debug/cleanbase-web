@@ -2560,6 +2560,7 @@ function setMode(m){
   { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
   { var _ev=document.getElementById("einheitView"); if(_ev) _ev.style.display = m==="einheit"?"":"none"; }
   { var _tw=document.getElementById("tauschView"); if(_tw) _tw.style.display = m==="tausch"?"":"none"; }
+  { var _nv=document.getElementById("netzView"); if(_nv) _nv.style.display = m==="netz"?"":"none"; }
   { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
   { var _sv=document.getElementById("suppView"); if(_sv) _sv.style.display = m==="supp"?"":"none"; }
   { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
@@ -2571,12 +2572,13 @@ function setMode(m){
   if(m==="training") loadTraining();
   if(m==="zyklus") renderZyklus();
   if(m==="darm") renderDarm();
-  if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab((window._fgTab&&window._fgTab!=='produkte'&&window._fgTab!=='kontakt')?window._fgTab:'zuverif'); }
+  if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab((window._fgTab&&window._fgTab!=='produkte'&&window._fgTab!=='kontakt'&&window._fgTab!=='zuverif')?window._fgTab:'dash');  /* 29.07.: Posteingang abgeschafft - Standard ist das Dashboard */ }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="mikro"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } mikroZuordnungRender(); }
   if(m==="einheit"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } einheitRender(); }
   if(m==="tausch"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } tauschRender(); }
+  if(m==="netz"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } netzplanRender(); }
   if(m==="todo"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } todoRender(); }
   if(m==="supp"){ try{ suppPlanRender(); }catch(e){} }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
@@ -7056,7 +7058,8 @@ function applyAdminMode(){
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
       +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
-      +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
+      +_an('nutzer','👥','Nutzer',"adminGo('nutzer')")
+      +_an('netz','🚇','Netzplan',"adminGo('netz')");
     /* 29.07. Enterprise (Ralph): Arbeits-Zahlen als Plaketten am Menue */
     window.adminNavBadges=function(d){
       try{
@@ -7108,7 +7111,141 @@ if(typeof window!=='undefined'){ window.adminDrawerToggle=adminDrawerToggle; win
 /* Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Markiert den aktiven Punkt, setzt den
    Breadcrumb in der Kopfleiste und schließt die Schublade. */
-const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do'};
+const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do',netz:'Netzplan'};
+/* ===== NETZPLAN (Ralphs U-Bahn-Idee, 29.07., Go am Mockup) =====
+   Eigene Admin-Seite: das Betriebsnetz als Metro-Karte. 4 Linien (T Takte, R Riki-Leseweg,
+   S Score-Weg, W Wochenrhythmus), 19 klickbare Haltestellen mit ECHTEN Takten und Regeln.
+   Live-Ampeln NUR an Stationen mit belegbaren Daten (cb_dashboard + cb_audit_status) -
+   eine Station ohne Datenquelle bekommt KEINE Ampel statt einer erfundenen (§1). */
+var _NP_FARBEN={T:'#2a78d6',R:'#1baf7a',S:'#4a3aa7',W:'#eb6834'};
+var _NP_ST=[
+ {l:'T',x:120,y:80,n:'Push-Versand',z:'jede Minute',d:'Der Zeitplaner (pg_cron) prüft jede Minute, ob Mitteilungen anstehen — z. B. „Einkaufsliste geändert“ — und schickt sie an die angemeldeten Handys.',k:'Takt: minütlich · Edge-Funktion push-versand'},
+ {l:'T',x:300,y:80,n:'Riki-Autopilot',z:'alle 30 Min',amp:'autopilot',d:'Arbeitet die Scan-Warteschlange ab: liest Etikettfotos, füllt Produkte als Entwurf, prüft mit dem Wächter. Zweifel → Entwurf für dich, nie stille Freigabe.',k:'Takt: alle 30 Min · Tagesdeckel 2,00 $'},
+ {l:'T',x:480,y:80,n:'Score-Trigger',z:'sofort',d:'Die Automatik in der Datenbank: Bei jeder Änderung an Zutaten, Zusatzstoffen oder Nährwerten rechnet sie den Root Index sofort neu. Fehlt etwas Wichtiges, zeigt sie bewusst KEINE Zahl.',k:'Regel: „Nichts erfinden — lieber keine Zahl als eine falsche“'},
+ {l:'T',x:660,y:80,n:'Sofort-Wächter Zutat',z:'bei Anlage',amp:'zutat',d:'Jede NEUE Zutat wird im Moment der Anlage gegen ihre Familie geprüft. Weicht sie ab, landet ein Prüfauftrag in deinem Notizbuch; der Montag-Lauf prüft alle nach.',k:'Ändert NIE Noten — nur Vorschläge'},
+ {l:'T',x:840,y:80,n:'Budget-Bremse',z:'laufend',amp:'budget',d:'Jeder Riki-Aufruf wird mit Kosten gebucht. Tagesdeckel und Monatslimit blocken automatisch — gewollt, bevor es teuer wird.',k:'Sichtbar: Dashboard-Kosten-Diagramm mit Deckel-Linie'},
+ {l:'R',x:120,y:200,n:'Adresse / Foto',z:'Start',d:'Eine Herstellerseiten-Adresse oder ein Etikettfoto kommt herein — von dir, vom Scan eines Nutzers oder vom Autopiloten.',k:'Quellen: Weblink · Etikettfoto · Screenshot'},
+ {l:'R',x:255,y:200,n:'Abruf + Hilfen',z:'12 s Fenster',d:'Der Server holt die Seite. Seit v16 mit drei Hilfen: strukturierte Daten (JSON-LD) mitlesen, verlinkte Zutaten-/Nährwert-Unterseiten folgen, Fehl-Läufe protokollieren.',k:'Scheitert alles → ehrliche Meldung + Screenshot-Weg'},
+ {l:'R',x:390,y:200,n:'Riki liest',z:'KI',d:'Riki zieht Nährwerte je 100 g, Zutaten, Zusatzstoffe, Wirkstoffe und EAN aus dem Text. Oberste Regel im Prompt: NICHTS ERFINDEN — was nicht dasteht, bleibt leer.',k:'Nur Vorschlag — freigegeben wird nie automatisch ohne Prüfweg'},
+ {l:'R',x:525,y:245,n:'Server-Filter',z:'Schutzwall',u:1,d:'Was Riki liefert, wird serverseitig verteidigt: EAN nur mit gültiger Prüfziffer, Einheiten nur mg/µg/g, IU wird verworfen statt umgerechnet, Kategorien nur aus der 24er-Liste.',k:'Prinzip: das Modell ist ungeprüft — der Server prüft nach'},
+ {l:'R',x:700,y:320,n:'Wächter',z:'TÜV',u:1,amp:'waechter',d:'Zehn Prüf-Automatiken laufen über jeden Datensatz: Nährwert-Physik, g/ml, Portionsfalle, Quellen-Pflicht, Zutaten-Staffel u. a. Dunkel = still = gut.',k:'Umsteigen zur Linie S: ohne grünen Wächter keine Freigabe'},
+ {l:'R',x:840,y:320,n:'Ralph prüft',z:'Mensch',amp:'scans',d:'Riki liest gut, aber er belegt nichts — das tust du. Erst dein Klick gibt frei. Ausnahme: Auto-Verifizierung nur bei ZWEI unabhängigen Quellen (Etikett + Herstellerseite).',k:'Zwei-Quellen-Regel, von dir autorisiert'},
+ {l:'S',x:120,y:320,n:'Regelwerk (DB)',z:'Quelle',u:1,d:'Die verbindlichen Bewertungsregeln leben in der Datenbank (9 Bereiche). Jede Regel braucht eine Quelle (EFSA/WHO/EU) — Meinungen kommen nicht in den Score.',k:'Gleichlauf-Regel: Prompt-Änderung immer im selben Arbeitsgang'},
+ {l:'S',x:280,y:320,n:'4 Achsen',z:'30+15+15+40',d:'Zutaten (Verarbeitungsgrad, 30) + Zusatzstoffe (15) + NOVA (15) + Nährwert (40) = Root Index 0–100. Jede Eigenschaft zählt auf genau EINER Achse.',k:'Fleisch & Fisch: Fettqualität statt Fettmenge (seit 29.07.)'},
+ {l:'S',x:430,y:320,n:'Ehrlichkeits-Sperre',z:'Checkpoint',amp:'ohnescore',d:'Fehlt eine Achse oder ist ein Zusatzstoff unbewertet, gibt es KEINE Zahl — mit Klartext-Begründung auf der Produktkarte.',k:'„Wir zeigen lieber keine Zahl als eine erfundene“'},
+ {l:'S',x:700,y:200,n:'Root Index',z:'0–100',d:'Die eine Zahl auf der Produktkarte — mit Herleitung, Quelle und Platz in der Kategorie. Bessere Alternativen stehen mit belegter Begründung daneben.',k:'„Die Vorderseite verkauft. Wir lesen die Rückseite.“'},
+ {l:'S',x:840,y:200,n:'Katalog & App',z:'live',d:'Freigegebene Produkte erscheinen im Katalog, Tagebuch und in der Einkaufsliste. Deploy der App macht nur Ralph — die Datenbank ist sofort live.',k:'Zugriff: Nutzer nur über geprüfte Lese-Wege (RPCs), Admin nur mit Admin-Konto'},
+ {l:'W',x:150,y:420,n:'Mo 6:00 · Wochenprüfung',z:'Autopilot 2.0',amp:'woche',d:'Der große Wochenlauf: prüft neue Zutaten nach (Staffel-Audit), recherchiert die Unbekannt-Liste beim Hersteller, gleicht Autopilot-Produkte gegen Herstellerseiten ab.',k:'Bericht per Push + E-Mail'},
+ {l:'W',x:400,y:420,n:'Do 6:00 · Lese-Optimierer',z:'wöchentlich',d:'Wertet Rikis Fehl-Läufe der Woche aus, prüft Problem-Seiten und schlägt Verbesserungen vor. Ändert selbst NIE etwas.',k:'Bericht per Push + E-Mail'},
+ {l:'W',x:620,y:420,n:'Gleichlauf-Check',z:'Do, automatisch',u:1,d:'Teil des Lese-Optimierers: Stimmen Rikis Prompts noch mit der Datenbank überein (Kategorien-Liste, neue Regeln der Woche)? Abweichung = dringende Meldung.',k:'Regel seit 29.07. in CLAUDE.md'},
+ {l:'W',x:840,y:420,n:'Monatsanfang · Benchmark',z:'manuell',d:'Platzhirsch-Vergleich (Yuka & Co.) einmal im Monat gemeinsam durchgehen: Wo stehen wir, was fehlt, was ist unser Vorsprung.',k:'Nächster Termin: 01.08. · Todo #39'}
+];
+function netzplanRender(){
+  var v=document.getElementById('netzView'); if(!v) return;
+  v.innerHTML='<div style="max-width:1080px;margin:0 auto;padding:14px 10px 40px">'
+    +'<h2 style="font-size:19px;font-weight:800;margin:2px 0 2px">🚇 Betriebsnetz</h2>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">So arbeitet Root Index: vier Linien, jede Haltestelle ist klickbar. Ampeln zeigen den Live-Zustand — nur dort, wo es echte Daten gibt.</div>'
+    +'<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(20,40,70,.06)">'
+      +'<svg viewBox="0 0 1020 470" style="width:100%;display:block" id="npSvg">'
+        +'<path d="M70 80 H950" fill="none" stroke="'+_NP_FARBEN.T+'" stroke-width="7" stroke-linecap="round"/>'
+        +'<path d="M70 200 H540 Q560 200 560 220 V300 Q560 320 580 320 H950" fill="none" stroke="'+_NP_FARBEN.R+'" stroke-width="7" stroke-linecap="round"/>'
+        +'<path d="M70 320 H540 Q560 320 560 300 V220 Q560 200 580 200 H950" fill="none" stroke="'+_NP_FARBEN.S+'" stroke-width="7" stroke-linecap="round" opacity="0.96"/>'
+        +'<path d="M70 420 H950" fill="none" stroke="'+_NP_FARBEN.W+'" stroke-width="7" stroke-linecap="round"/>'
+        +'<g font-size="11.5" font-weight="800" fill="#fff">'
+          +'<rect x="20" y="68" width="34" height="24" rx="7" fill="'+_NP_FARBEN.T+'"/><text x="37" y="84" text-anchor="middle">T</text>'
+          +'<rect x="20" y="188" width="34" height="24" rx="7" fill="'+_NP_FARBEN.R+'"/><text x="37" y="204" text-anchor="middle">R</text>'
+          +'<rect x="20" y="308" width="34" height="24" rx="7" fill="'+_NP_FARBEN.S+'"/><text x="37" y="324" text-anchor="middle">S</text>'
+          +'<rect x="20" y="408" width="34" height="24" rx="7" fill="'+_NP_FARBEN.W+'"/><text x="37" y="424" text-anchor="middle">W</text>'
+        +'</g><g id="npStationen"></g>'
+      +'</svg>'
+      +'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:10px 2px 2px">'
+        +'<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'+_NP_FARBEN.T+';margin-right:6px;vertical-align:2px"></span>T · Takte</span>'
+        +'<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'+_NP_FARBEN.R+';margin-right:6px;vertical-align:2px"></span>R · Rikis Lese-Weg</span>'
+        +'<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'+_NP_FARBEN.S+';margin-right:6px;vertical-align:2px"></span>S · Score-Weg</span>'
+        +'<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'+_NP_FARBEN.W+';margin-right:6px;vertical-align:2px"></span>W · Wochenrhythmus</span>'
+        +'<span>◎ = Umsteigen · Ampel: 🟢 läuft · 🟡 wartet auf dich/den Lauf · 🔴 Achtung</span>'
+      +'</div>'
+      +'<div id="npInfo" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px;min-height:74px"></div>'
+    +'</div></div>';
+  var g=document.getElementById('npStationen'), NS='http://www.w3.org/2000/svg';
+  _NP_ST.forEach(function(s,i){
+    var grp=document.createElementNS(NS,'g'); grp.setAttribute('data-i',i); grp.style.cursor='pointer';
+    var c=document.createElementNS(NS,'circle');
+    c.setAttribute('cx',s.x); c.setAttribute('cy',s.y); c.setAttribute('r',s.u?8:7);
+    c.setAttribute('fill','#fff'); c.setAttribute('stroke',s.u?'#0b0b0b':_NP_FARBEN[s.l]); c.setAttribute('stroke-width',s.u?3:2.6);
+    grp.appendChild(c);
+    if(s.u){ var c2=document.createElementNS(NS,'circle'); c2.setAttribute('cx',s.x); c2.setAttribute('cy',s.y); c2.setAttribute('r',3.2); c2.setAttribute('fill','#0b0b0b'); grp.appendChild(c2); }
+    var oben=(s.l==='T')||(s.y<=200);
+    var t=document.createElementNS(NS,'text');
+    t.setAttribute('x',s.x); t.setAttribute('y',oben?s.y-26:s.y+24); t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size','11.5'); t.setAttribute('font-weight','700'); t.setAttribute('fill','var(--ink)');
+    t.textContent=s.n; grp.appendChild(t);
+    var t2=document.createElementNS(NS,'text');
+    t2.setAttribute('x',s.x); t2.setAttribute('y',oben?s.y-14:s.y+37); t2.setAttribute('text-anchor','middle');
+    t2.setAttribute('font-size','10'); t2.setAttribute('fill','#898781'); t2.setAttribute('id','npZ'+i);
+    t2.textContent=s.z||''; grp.appendChild(t2);
+    if(s.amp){ var a=document.createElementNS(NS,'circle'); a.setAttribute('id','npAmp'+i);
+      a.setAttribute('cx',s.x+10); a.setAttribute('cy',s.y-10); a.setAttribute('r',4.6);
+      a.setAttribute('fill','#e1e0d9'); a.setAttribute('stroke','#fff'); a.setAttribute('stroke-width','1.6'); grp.appendChild(a); }
+    grp.addEventListener('click',function(){ npZeige(i); });
+    g.appendChild(grp);
+  });
+  npZeige(9);
+  netzplanAmpeln();
+}
+function npZeige(i){
+  var s=_NP_ST[i], box=document.getElementById('npInfo'); if(!box||!s) return;
+  var amp=(window._npAmpeln||{})[i];
+  box.innerHTML='<div style="font-weight:800;font-size:14.5px;display:flex;align-items:center;gap:8px">'
+    +'<span style="width:11px;height:11px;border-radius:50%;display:inline-block;background:'+_NP_FARBEN[s.l]+'"></span>'+esc(s.n)
+    +' <span style="font-weight:400;color:#898781;font-size:12px">· Linie '+s.l+(s.u?' · Umsteigen':'')+'</span></div>'
+    +'<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-top:5px">'+esc(s.d)+'</div>'
+    +(s.k?'<div style="font-size:11px;color:#898781;margin-top:6px">📌 '+esc(s.k)+'</div>':'')
+    +(amp?'<div style="font-size:12px;margin-top:6px;font-weight:600;color:'+amp.farbe+'">● '+esc(amp.text)+'</div>':'');
+}
+async function netzplanAmpeln(){
+  /* Live-Zustand nur aus echten Quellen; jede Ampel dokumentiert ihren Grund. */
+  var d=null, au=null;
+  try{ var r1=await client.rpc('cb_dashboard'); d=r1&&r1.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } }catch(e){}
+  try{ var r2=await client.rpc('cb_audit_status'); au=r2&&r2.data; if(typeof au==='string'){ try{ au=JSON.parse(au);}catch(e){} } }catch(e){}
+  var GOOD='#0ca30c', WARN='#c07a10', CRIT='#d03b3b';
+  var st={};
+  try{
+    if(au&&au.ok){
+      var wart=Number(au.ap1_wartend)||0, letzt=au.ap1_letzter_lauf?new Date(au.ap1_letzter_lauf):null;
+      var minAlt=letzt?Math.round((Date.now()-letzt.getTime())/60000):null;
+      if(wart===0) st.autopilot={farbe:GOOD,text:'nichts wartet'+(minAlt!=null?' · letzter Lauf vor '+minAlt+' Min':'')};
+      else if(minAlt!=null&&minAlt<=45) st.autopilot={farbe:GOOD,text:wart+' wartend · Lauf vor '+minAlt+' Min'};
+      else st.autopilot={farbe:WARN,text:wart+' wartend · letzter Lauf '+(minAlt!=null?'vor '+minAlt+' Min':'unbekannt')};
+      var zu=Number(au.zutaten_ungeprueft)||0;
+      st.zutat= zu>0?{farbe:WARN,text:zu+' neue Zutat(en) warten auf den Montag-Lauf'}:{farbe:GOOD,text:'keine ungeprüften neuen Zutaten'};
+      if(au.ap2_letzter_lauf){ var t2=Date.parse(au.ap2_letzter_lauf); var tage=isFinite(t2)?Math.round((Date.now()-t2)/86400000):null;
+        st.woche= (tage!=null&&tage<=8)?{farbe:GOOD,text:'letzter Lauf vor '+tage+' Tag(en)'}:{farbe:WARN,text:'letzter Lauf liegt länger zurück'};
+      } else st.woche={farbe:WARN,text:'noch kein Lauf protokolliert (erster: Mo 6 Uhr)'};
+    }
+    if(d&&(d.riki||d.gate||d.scans||d.qualitaet)){
+      var ri=d.riki||{}; var verbr=Number(ri.monat_usd)||0, lim=Number(ri.monatslimit_usd)||0;
+      if(lim>0){ var q=verbr/lim;
+        st.budget= q>=1?{farbe:CRIT,text:'Monatsbudget voll — Riki blockt'}:(q>=0.8?{farbe:WARN,text:Math.round(q*100)+' % des Monatsbudgets verbraucht'}:{farbe:GOOD,text:verbr.toFixed(2).replace('.',',')+' $ von '+lim.toFixed(0)+' $'}); }
+      var gs=Number((d.gate||{}).summe)||0;
+      st.waechter= gs===0?{farbe:GOOD,text:'alle Pflicht-Wächter still'}:{farbe:WARN,text:gs+' offene Fälle'};
+      var sc=Number((d.scans||{}).wartet_pruefung)||0;
+      st.scans= sc>0?{farbe:WARN,text:sc+' Scan(s) warten auf deine Prüfung'}:{farbe:GOOD,text:'nichts wartet auf dich'};
+      var os=Number((d.qualitaet||{}).ohne_score)||0;
+      if(os>0) st.ohnescore={farbe:WARN,text:os+' Produkte zeigen bewusst keine Zahl'};
+      else st.ohnescore={farbe:GOOD,text:'alle aktiven Produkte haben eine Zahl'};
+    }
+  }catch(e){}
+  window._npAmpeln={};
+  _NP_ST.forEach(function(s,i){
+    if(!s.amp||!st[s.amp]) return;
+    window._npAmpeln[i]=st[s.amp];
+    var el=document.getElementById('npAmp'+i);
+    if(el){ el.setAttribute('fill', st[s.amp].farbe==='#c07a10'?'#fab219':st[s.amp].farbe); var tt=document.createElementNS('http://www.w3.org/2000/svg','title'); tt.textContent=s.n+': '+st[s.amp].text; el.appendChild(tt); }
+  });
+}
+if(typeof window!=='undefined'){ window.netzplanRender=netzplanRender; window.npZeige=npZeige; }
+
 /* ===== Posteingang abgeschafft (Ralph 29.07. spät, Todo #50: "diese seite sollte es
    eigentlich nicht mehr geben") =====
    Die alte Posteingang-Seite (fgTab 'zuverif') hat keinen Einsprung mehr. Die Scan-Prüfung
@@ -9587,6 +9724,7 @@ async function loadZutatenStamm(){
     }
   }catch(e){}
   ZUTATEN_STAMM=all;
+  try{ fgPickRender(); }catch(e){}   /* 29.07.: Karte war evtl. schon gemalt, bevor der Stamm da war (26v-Falle) */
   ZUTATEN_MAP={}; ZUTATEN_STAMM.forEach(function(z){ ZUTATEN_MAP[(z.name||"").trim().toLowerCase()]={rating:z.rating,kritisch:z.kritisch}; });
   /* 28z7 (Ralph, Tapioka-Fall): kuratierte SYNONYME aus Zutat_Synonym - belegte Gleichsetzungen
      ("Tapioka" = Tapiokastärke). Der Automat behandelt sie wie einen exakten Namen: deterministisch,
@@ -10445,6 +10583,12 @@ function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.in
    Vorteil: Riki-Analyse, OFF-Gegenprobe und Foto-Import fuellen weiterhin #fe_zutRows und werden
    automatisch mitgespiegelt – kein doppelter Datenpfad. */
 function _fgRowsSet(){ var set={}; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var n=((r.querySelector(".fgzName")||{}).value||"").trim(); if(n) set[n.toLowerCase()]=true; }); return set; }
+/* 29.07. (Ralphs Fund Mandelmehl): gebundene Zeilen MIT Wert lesen - fuer Zeilen,
+   die (noch) keinen Stamm-Treffer haben und sonst unsichtbar waeren. */
+function _fgRowsInfo(){ var out={}; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){
+  var n=((r.querySelector(".fgzName")||{}).value||"").trim(); if(!n) return;
+  var rv=(r.querySelector(".fgzRate")||{}).value; var kr=!!((r.querySelector(".fgzKrit")||{}).checked);
+  out[n.toLowerCase()]={name:n, rating:(rv===""||rv==null)?null:Number(rv), krit:kr?"ja":"nein"}; }); return out; }
 function _fgRowsNames(){ var out=[]; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var n=((r.querySelector(".fgzName")||{}).value||"").trim(); if(n) out.push(n); }); return out; }
 function fgPickRender(){
   var wrap=document.getElementById("fe_pickList"); if(!wrap) return;
@@ -10456,13 +10600,21 @@ function fgPickRender(){
   /* Vollständige Liste zeigen (Ralph): ALLE Stamm-Zutaten, die ausgewählten IMMER oben.
      Suche filtert beide Gruppen; Reihenfolge innerhalb bleibt (Stamm = alphabetisch). */
   var checked=all.filter(isSel), rest=all.filter(function(it){return !isSel(it);});
+  /* 29.07. (Ralphs Fund "Teilentöltes Mandelmehl", Index 88 aber Liste leer): eine gebundene
+     Zeile aus #fe_zutRows, die KEINEN exakten Stamm-Treffer hat (oder deren Stamm noch lädt),
+     war hier UNSICHTBAR - der Score rechnete sie mit, die Karte zeigte "keine Zutat gebunden",
+     und ein Nachtragen von Hand erzeugte eine Doppel-Bindung. Gleiche Fehlerklasse wie die
+     E-losen Zusatzstoffe (28z36). Jetzt: solche Zeilen erscheinen als eigene Zeilen ganz oben. */
+  var _stammSet={}; all.forEach(function(it){ _stammSet[(it.name||"").trim().toLowerCase()]=true; });
+  var _frei=[]; var _ri=_fgRowsInfo();
+  Object.keys(_ri).forEach(function(k){ if(!_stammSet[k]) _frei.push({name:_ri[k].name, rating:_ri[k].rating, kritisch:_ri[k].krit, _frei:true}); });
   /* 28d (Ralph 28.07., Mockup A "Nur was drin ist"; auf das Parallel-28c rebased): OHNE Suchtext
      zeigt die Karte NUR die gebundenen Zutaten - die Dauerliste aller ~1700 Stamm-Zutaten war der
      Hauptlaerm der Maske. Der Stamm ist nicht weg: Tippen im Suchfeld durchsucht ihn weiter
      vollstaendig (Gebundene zuerst, wie bisher). Die fruehere Regel "ALLE zeigen" (23.07.) ist
      damit bewusst abgeloest - Ralphs neuer Entscheid: "zu unuebersichtlich zum Arbeiten". */
-  if(q){ var mm=function(it){return (it.name||"").toLowerCase().indexOf(q)>=0;}; checked=checked.filter(mm); rest=rest.filter(mm); }
-  var shown = q ? checked.concat(rest) : checked;
+  if(q){ var mm=function(it){return (it.name||"").toLowerCase().indexOf(q)>=0;}; checked=checked.filter(mm); rest=rest.filter(mm); _frei=_frei.filter(mm); }
+  var shown = _frei.concat(q ? checked.concat(rest) : checked);
   var hintRow = q ? "" : '<div style="padding:8px;color:var(--muted);font-size:11.5px;text-align:center;border-top:1px dashed var(--line)">\ud83d\udd0e Tippen durchsucht alle '+all.length+' Stamm-Zutaten</div>';
   /* 27y ("1x reicht"): Stoffe, die als ZUSATZSTOFF erfasst sind, erscheinen hier nicht mehr als
      normale Doppel-Zeile - nur als schmaler ⚗-Verweis. Die Bindung selbst bleibt bestehen
@@ -10480,7 +10632,7 @@ function fgPickRender(){
     }
     return '<label style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(chk?"background:var(--greenlt,#eef7f0)":"")+'">'
       +'<input type="checkbox" '+(chk?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(it.rating==null?"":it.rating)+'" data-krit="'+esc(it.kritisch||"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'
-      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+'</span>'
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+(it._frei?' <span style="color:var(--muted);font-size:11px">· gebunden, kein Stamm-Treffer</span>':'')+'</span>'
       +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</label>'; };
   var _st=wrap.scrollTop;
@@ -11293,7 +11445,7 @@ async function openFgEditor(id, prefill, targetEl){
     ${_navBar}
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
       <h2 style="margin:0">${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
-      <span style="font-size:12px;color:var(--muted)">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"wird als Entwurf angelegt"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
+      <span id="fePNrInfo" style="font-size:12px;color:var(--muted)">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"P-Nummer kommt beim ersten Speichern"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
     </div>
     ${window._fgPrefillHinweis?`<div style="background:var(--k-fff7ea);border:1px solid var(--k-e4a343);color:var(--k-8a5a0b);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
     ${''/* 28l (Ralph-Entscheid Mockup 2): Vollbild-Editor mit ZWEI Reitern + festem Seitenstreifen.
@@ -13086,11 +13238,14 @@ async function fgEditSave(alsoFreigeben){
     zusatzstoffe_status:g("fe_zstatus").value, suessstoffe:g("fe_suess").value, zutaten:zut,
     quelle:_beleg||"Admin-Editor" };
   if(_qt) payload.quelle_typ=_qt;
+  const _warNeu=!(window._fgEdit&&window._fgEdit.id);
   if(window._fgEdit&&window._fgEdit.id) payload.produkt_id=window._fgEdit.id;
   const {data,error}=await client.rpc("cb_produkt_speichern",{p:payload});
   if(error){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+error.message; return; }
   const pid=data&&data.produkt_id;
-  if(pid){ window._fgEdit=window._fgEdit||{}; window._fgEdit.id=pid; try{ fmMikroLoad(pid); }catch(e){} }   /* frische Produkt-ID sofort ans Mikro-Formular (Ralph 26.07.): sonst bleibt es nach dem ersten Speichern auf "Produkt zuerst speichern" und Mikros lassen sich nicht erfassen */
+  if(pid){ window._fgEdit=window._fgEdit||{}; window._fgEdit.id=pid; try{ fmMikroLoad(pid); }catch(e){}
+    /* 29.07. (Ralph): die frisch vergebene P-Nummer sofort im Kopf zeigen */
+    try{ var _pn=document.getElementById("fePNrInfo"); if(_pn&&_warNeu) _pn.textContent=pid+" · Entwurf angelegt"; }catch(e){} }   /* frische Produkt-ID sofort ans Mikro-Formular (Ralph 26.07.): sonst bleibt es nach dem ersten Speichern auf "Produkt zuerst speichern" und Mikros lassen sich nicht erfassen */
   /* Verzehrempfehlung + Quelle-Link nachziehen. Bewusst über dieselbe enge Funktion wie der
      Riki-Import statt über einen zweiten Pfad in cb_produkt_speichern – ein Feld, ein Schreibweg. */
   if(pid){
@@ -17090,7 +17245,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-29-2128";
+const APP_BUILD = "2026-07-29-2145";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
