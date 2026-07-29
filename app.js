@@ -7321,7 +7321,7 @@ function einkRow(r,done){
     +'<span style="flex:1;min-width:0;font-size:14.5px;font-weight:600;line-height:1.3;color:'+tx+';'+(done?'text-decoration:line-through':'')+'">'+esc(r.titel)+'</span>'
     +(r.von?'<span title="Eingetragen von '+esc(r.von)+'" style="flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--greendk,var(--k-166534));background:var(--greenlt,var(--k-eaf5ee));border-radius:99px;padding:2px 7px">'+esc(String(r.von).trim().charAt(0).toUpperCase())+'</span>':'')
     +(r.menge?'<span style="flex:0 0 auto;font-size:13px;font-weight:700;color:'+tx2+'">'+esc(r.menge)+'</span>':'')
-    +(done?'':einkAngebotBtn(r.titel))
+    /* 28z26: Angebote-Marker vorerst raus (Ralph) - Funktion einkAngebotBtn bleibt fuer spaeter */
     +(done?'':einkAmzBtn(r.produkt_id))
     /* Diffuser Kreis hinter den drei Punkten: macht die Flaeche als antippbar
        erkennbar, ohne eine harte Knopf-Kante zu ziehen. Weicher Radialverlauf
@@ -16373,7 +16373,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z25";
+const APP_BUILD = "2026-07-28z26";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
