@@ -5770,7 +5770,7 @@ async function renderSchritte(){
     +'<div id="schrChart" style="display:'+open+';margin-top:8px">'
       +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
         +'<button onclick="schrShiftDay(-1)" title="Tag zurück" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹</button>'
-        +'<span style="flex:1;text-align:center;font-size:12.5px;color:var(--ink);font-weight:600">'+selLbl+' · Ziel '+ZIEL.toLocaleString("de-DE")+'</span>'
+        +'<span style="flex:1;text-align:center;font-size:12.5px;color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,.5);font-weight:700">'+selLbl+' · Ziel '+ZIEL.toLocaleString("de-DE")+'</span>'
         +'<button onclick="schrShiftDay(1)" '+(nextOff?'disabled':'')+' title="Tag vor" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:'+(nextOff?'not-allowed':'pointer')+';opacity:'+(nextOff?'.4':'1')+'">›</button></div>'
       +'<div style="display:flex;gap:4px;align-items:flex-end">'+bars+'</div>'
     +'</div>'
@@ -5826,7 +5826,7 @@ async function renderSchlaf(){
     +'<div id="schlChart" style="display:'+open+';margin-top:8px">'
       +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
         +'<button onclick="schlShiftDay(-1)" title="Tag zurück" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹</button>'
-        +'<span style="flex:1;text-align:center;font-size:12.5px;color:var(--ink);font-weight:600">'+selLbl+' · Ziel ~8 h</span>'
+        +'<span style="flex:1;text-align:center;font-size:12.5px;color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,.5);font-weight:700">'+selLbl+' · Ziel ~8 h</span>'
         +'<button onclick="schlShiftDay(1)" '+(nextOff?'disabled':'')+' title="Tag vor" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:'+(nextOff?'not-allowed':'pointer')+';opacity:'+(nextOff?'.4':'1')+'">›</button></div>'
       +'<div style="display:flex;gap:4px;align-items:flex-end">'+bars+'</div>'
     +'</div>'
@@ -14779,9 +14779,25 @@ if(typeof window!=='undefined'){ window.suppPlanRender=suppPlanRender; window.su
    fliessen ueber cb_tagebuch_mikro automatisch in die Naehrstoff-Uebersicht.
    Vorwahl (welches Wasser + Glasgroesse) steht im Profil. */
 function _wLiter(ml){ ml=+ml||0; var l=ml/1000; var s=(Math.round(l*100)/100).toString().replace('.',','); return s+' l'; }
+/* 28z23 (Sandra konnte gestern kein Wasser nachtragen): Tages-Navigation wie bei
+   Schritte/Schlaf. _wasserTag ist der angezeigte/bebuchte Tag; Zukunft ist gesperrt. */
+function wasserTagLbl(){
+  var t=window._wasserTag||tbToday();
+  if(t===tbToday()) return 'heute';
+  var g=new Date(tbToday()+"T00:00:00"); g.setDate(g.getDate()-1);
+  if(t===g.toISOString().slice(0,10)) return 'gestern';
+  return new Date(t+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"short"});
+}
+function wasserTagWechsel(delta){
+  var t=new Date((window._wasserTag||tbToday())+"T00:00:00"); t.setDate(t.getDate()+delta);
+  var neu=t.toISOString().slice(0,10);
+  if(neu>tbToday()) neu=tbToday();
+  window._wasserTag=neu; wasserWidgetLoad();
+}
 async function wasserWidgetLoad(){
   var el=document.getElementById("wasserWidget"); if(!el) return;
-  try{ var r=await client.rpc("cb_wasser_log_heute",{p_datum:tbToday()}); window._wasserH=(r&&r.data&&r.data[0])||{}; }
+  if(!window._wasserTag) window._wasserTag=tbToday();
+  try{ var r=await client.rpc("cb_wasser_log_heute",{p_datum:window._wasserTag}); window._wasserH=(r&&r.data&&r.data[0])||{}; }
   catch(e){ window._wasserH={_err:(e&&e.message)||"Fehler"}; }
   wasserWidgetRender();
 }
@@ -14792,7 +14808,10 @@ function wasserWidgetRender(){
   var h=window._wasserH||{};
   var card='position:relative;overflow:hidden;border-radius:16px;padding:14px 16px;margin-bottom:12px;background:radial-gradient(120% 120% at 22% 12%, #143a63 0%, #0b1420 62%);box-shadow:0 8px 22px rgba(15,25,40,.25)';
   var glow='<div style="position:absolute;top:2px;left:2px;width:80px;height:80px;background:radial-gradient(circle,#5ab6ff99 0%,transparent 70%);filter:blur(7px)"></div>';
-  var head='<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;position:relative;z-index:2"><span style="font-weight:700;font-size:14.5px;color:#ffffff;filter:drop-shadow(0 0 6px #5ab6ff88)">💧 Wasser heute</span>'
+  var istHeute=(window._wasserTag||tbToday())===tbToday();
+  var pfeil=function(d,dis){ return '<button onclick="wasserTagWechsel('+d+')" '+(dis?'disabled':'')+' style="width:24px;height:24px;border:0;border-radius:50%;background:rgba(255,255,255,'+(dis?'.06':'.14')+');color:'+(dis?'rgba(255,255,255,.25)':'#fff')+';font-size:13px;line-height:1;cursor:'+(dis?'default':'pointer')+'">'+(d<0?'‹':'›')+'</button>'; };
+  var head='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;position:relative;z-index:2"><span style="font-weight:700;font-size:14.5px;color:#ffffff;filter:drop-shadow(0 0 6px #5ab6ff88)">💧 Wasser</span>'
+    +pfeil(-1,false)+'<span style="font-size:12.5px;font-weight:700;color:#ffffff;min-width:52px;text-align:center">'+esc(wasserTagLbl())+'</span>'+pfeil(1,istHeute)
     +'<span style="margin-left:auto;font-weight:800;font-size:20px;color:#7cc4ff">'+_wLiter(h.ml)+'</span></div>';
   if(h._err){ el.innerHTML='<div style="'+card+'">'+glow+head+'<div style="position:relative;z-index:2;color:rgba(255,255,255,.6);font-size:13px">'+esc(h._err)+'</div></div>'; return; }
   if(!h.wasser_id){
@@ -14807,7 +14826,7 @@ function wasserWidgetRender(){
     return '<button onclick="wasserAdd('+ml+')" style="padding:8px 12px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.08);color:#ffffff;font-size:13px;cursor:pointer">+ '+_wLiter(ml)+'</button>';
   }).join("");
   el.innerHTML='<div style="'+card+'">'+glow+head
-    +'<div style="position:relative;z-index:2;font-size:12px;color:rgba(255,255,255,.6);margin-bottom:10px">'+esc(h.name||"")+' · '+cnt+' heute</div>'
+    +'<div style="position:relative;z-index:2;font-size:12px;color:rgba(255,255,255,.6);margin-bottom:10px">'+esc(h.name||"")+' · '+cnt+' '+esc(wasserTagLbl())+'</div>'
     +'<div style="position:relative;z-index:2;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
     +'<button onclick="wasserAdd(null)" style="padding:10px 16px;border:0;border-radius:12px;background:#5ab6ff;color:#0b1420;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 0 14px #5ab6ff55">+ Glas ('+_wLiter(glas)+')</button>'
     +chips
@@ -14816,12 +14835,12 @@ function wasserWidgetRender(){
     +'<div id="wasserMsg" style="position:relative;z-index:2;font-size:12px;color:#ffb4a8;margin-top:8px"></div></div>';
 }
 async function wasserAdd(ml){
-  try{ var r=await client.rpc("cb_wasser_log_add",{p_ml:(ml||null),p_datum:tbToday()}); if(r&&r.error) throw new Error(r.error.message); }
+  try{ var r=await client.rpc("cb_wasser_log_add",{p_ml:(ml||null),p_datum:(window._wasserTag||tbToday())}); if(r&&r.error) throw new Error(r.error.message); }
   catch(e){ var m=document.getElementById("wasserMsg"); if(m) m.textContent="Konnte nicht buchen: "+((e&&e.message)||e); return; }
   await wasserWidgetLoad();
 }
 async function wasserUndo(){
-  try{ await client.rpc("cb_wasser_log_undo",{p_datum:tbToday()}); }catch(e){}
+  try{ await client.rpc("cb_wasser_log_undo",{p_datum:(window._wasserTag||tbToday())}); }catch(e){}
   await wasserWidgetLoad();
 }
 async function wasserPrefRender(){
@@ -16304,7 +16323,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z22";
+const APP_BUILD = "2026-07-28z23";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
