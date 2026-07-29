@@ -748,6 +748,7 @@ async function loadProfil(){
   loadZielHistorie();
   renderProfilMass();
   try{ pushBoxRender(); }catch(e){}   /* 28z24 */
+  try{ hhProfilRender(); }catch(e){}   /* 28z29 */
   loadZyklus();
   pfTab('daten');
 }
@@ -7412,6 +7413,24 @@ function hhBoxHtml(hh){
     +'<button onclick="hhBeitreten()" style="padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12px;font-weight:600;cursor:pointer">Mit Code beitreten</button>'
     +'</div>';
 }
+/* 28z29 (Ralph): Der gruene Haushalts-Balken quetschte die Einkaufsliste - jetzt
+   dort nur eine dezente Mini-Zeile; die volle Verwaltung (Code, verlassen) wohnt
+   im Profil unter "Haushalt" (hhProfilRender -> pfHhBox). hhBoxHtml wird dort
+   wiederverwendet - eine Darstellung, ein Ort. */
+function hhMiniZeile(hh){
+  if(!hh) return hhBoxHtml(null);   /* ohne Haushalt: Gruenden/Beitreten bleibt sichtbar */
+  return '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">\u{1F46A} Gemeinsame Liste \u00B7 <b style="color:var(--greendk,var(--k-166534))">'+esc(hh.name)+'</b>'
+    +' \u00B7 <a href="#" onclick="event.preventDefault();navTo(\'profil\')" style="color:var(--muted);text-decoration:underline">verwalten im Profil</a></div>';
+}
+async function hhProfilRender(){
+  const box=document.getElementById('pfHhBox'); if(!box) return;
+  if(!ME || typeof feat!=='function' || !feat('haushalt')){ box.innerHTML=''; return; }
+  let hh=null;
+  try{ let {data:st}=await client.rpc("cb_haushalt_status"); if(typeof st==='string'){ try{ st=JSON.parse(st);}catch(e){} } if(st&&st.ok) hh=st.haushalt||null; window._HH=hh; }catch(e){}
+  box.innerHTML='<div style="font-weight:600;font-size:13px;margin-bottom:6px">\u{1F46A} Haushalt</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Mitglieder teilen sich EINE Einkaufsliste.</div>'
+    +hhBoxHtml(hh);
+}
 function hhCodeZeigen(){
   const hh=window._HH; if(!hh) return;
   try{ navigator.clipboard.writeText(hh.code); }catch(e){}
@@ -7438,7 +7457,7 @@ async function hhVerlassen(){
   let {data:d,error}=await client.rpc('cb_haushalt_verlassen');
   if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} }
   if(error||!(d&&d.ok)){ alert('Fehler: '+((error&&error.message)||(d&&d.grund)||'unbekannt')); return; }
-  window._HH=null; loadEinkauf();
+  window._HH=null; loadEinkauf(); try{ hhProfilRender(); }catch(e){}
 }
 async function loadEinkauf(){
   const box=document.getElementById(_einkTarget); if(!box) return;
@@ -7450,16 +7469,21 @@ async function loadEinkauf(){
     try{ let {data:st}=await client.rpc("cb_haushalt_status"); if(typeof st==='string'){ try{ st=JSON.parse(st);}catch(e){} } if(st&&st.ok) hh=st.haushalt||null; window._HH=hh; }catch(e){}
   }
   const offen=rows.filter(r=>!r.erledigt), erl=rows.filter(r=>r.erledigt);
-  let h=(ME && typeof feat==='function' && feat('haushalt'))?hhBoxHtml(hh):'';
-  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">' 
-    +'<input id="einkInput" autocomplete="off" placeholder="Ich brauche… (Produkt aus dem Katalog suchen)" oninput="einkSuggest(this.value)" onkeydown="if(event.key===\'Enter\')einkaufAdd()" style="flex:1;min-width:150px;padding:11px;border:1px solid var(--line);border-radius:10px">'
-    +'<button onclick="einkaufAdd()" style="padding:11px 17px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-weight:700;font-size:15px">+</button>'
-    +'<button onclick="einkaufScan()" style="padding:11px 14px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">📷 Barcode</button>'
+  let h=(ME && typeof feat==='function' && feat('haushalt'))?hhMiniZeile(hh):'';   /* 28z29: Balken -> Mini-Zeile */
+  /* 28z29 (Ralph): am Handy war die Zeile gequetscht - Input volle Breite, Knoepfe darunter */
+  h+='<div style="margin-bottom:8px">'
+    +'<input id="einkInput" autocomplete="off" placeholder="Ich brauche… (Produkt aus dem Katalog suchen)" oninput="einkSuggest(this.value)" onkeydown="if(event.key===\'Enter\')einkaufAdd()" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:10px">'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'
+    +'<button onclick="einkaufAdd()" style="padding:10px 16px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-weight:700;font-size:14px">+ Hinzufügen</button>'
+    +'<button onclick="einkaufScan()" style="padding:10px 14px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">📷 Barcode</button>'
+    +'<span style="flex:1"></span>'
+    +'<button onclick="einkaufFromPlan()" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);cursor:pointer;font-size:12.5px">Aus dieser Woche erzeugen</button>'
     +'</div>'
     +'<div id="einkSug" style="margin:-2px 0 8px"></div>'
     +'<div id="einkReader" style="margin-bottom:8px"></div>'
     +'<div id="einkMsg" style="font-size:12.5px;margin-bottom:8px;line-height:1.45"></div>'
-    +'<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="einkaufFromPlan()" style="padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);cursor:pointer;font-size:12.5px">Aus dieser Woche erzeugen</button></div>';
+    ;
   if(!rows.length){
     h+='<div style="color:var(--muted);font-size:13px;padding:14px 0">Liste ist leer – tippe oben ein, scanne einen Barcode oder erzeuge sie aus dem Wochenplan.</div>';
     box.innerHTML=h; return;
@@ -16393,7 +16417,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z28";
+const APP_BUILD = "2026-07-28z29";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
