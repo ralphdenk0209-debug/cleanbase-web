@@ -1171,6 +1171,22 @@ function katRangHtml(d){
         +r.top.map(function(x){ return '<a href="#" onclick="event.preventDefault();detailById(\''+x.id+'\')" style="color:var(--greendk,var(--k-166534));font-weight:600;text-decoration:none">'+esc(x.name)+' ('+x.clean_score+')</a>'; }).join(' · ')+'</div>'):'')
     +'</div>';
 }
+/* 28z27: Platz-Chip direkt am Index (Ralph #20: "der platz eines produkts wird
+   angegeben, aber etwas versteckt" -> jetzt sichtbar unter dem Flux).
+   Nur mit Recht pk_platzierung - sonst wuerde der Chip die Premium-Sperre aushebeln. */
+function platzChip(d){
+  try{
+    if(typeof hasFeat!=='function' || !hasFeat('pk_platzierung')) return '';
+    const r=katRang(d); if(!r) return '';
+    const anteil=r.platz/r.gesamt;
+    const top=anteil<=0.25;
+    const fg=top?'var(--greendk,var(--k-166534))':'var(--k-8a5a0b)';
+    const bg=top?'var(--greenlt,var(--k-eaf5ee))':'var(--k-fff7ea)';
+    const bd=top?'var(--k-16a34a)':'var(--k-e4a343)';
+    return '<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:'+bg+';border:1px solid '+bd+';color:'+fg+';font-size:12.5px;font-weight:700">'
+      +(top?'\u{1F3C6}':'\u{1F4CA}')+' Platz '+r.platz+' von '+r.gesamt+' in \u201E'+esc(r.kategorie)+'\u201C</div>';
+  }catch(e){ return ''; }
+}
 /* GL-5: Haftungsausschluss sichtbar dort, wo bewertet wird – nicht nur im Kleingedruckten. */
 const MED_HINWEIS='<div style="margin-top:8px;font-size:11.5px;color:var(--muted);line-height:1.5">Der Root Index bewertet <b>Zusammensetzung und Verarbeitungsgrad</b> eines Lebensmittels. Er ist keine Aussage darüber, ob ein Produkt für <b>dich persönlich</b> geeignet ist, und ersetzt <b>keine ärztliche oder ernährungstherapeutische Beratung</b>. Bei Beschwerden, Allergien, Erkrankungen, Schwangerschaft oder Medikamenteneinnahme: bitte ärztlich abklären.</div>';
 async function prodToEinkauf(id){
@@ -1596,10 +1612,10 @@ function suppKarte(d){
   var panel=document.getElementById("panel"); if(!panel) return;
   panel.innerHTML=
     '<button class="close" onclick="closeP()">Schließen ✕</button>'
-    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
-      + '<div style="min-width:0"><h2 style="margin:0 0 2px">'+esc(d.name)+'</h2>'
-      + '<div class="marke" style="margin:0">'+((mkLabel(d.marke)?esc(mkLabel(d.marke))+' · ':'')+esc(d.kategorie||''))+(d.unterkategorie?(' · '+esc(d.unterkategorie)):'')+'</div></div>'
-      + suppEfPill(d.ernaehrungsform)
+    /* 28z28: gleiche Kollision wie in detail2 - Pille unter die Marken-Zeile */
+    + '<div style="min-width:0"><h2 style="margin:0 0 2px">'+esc(d.name)+'</h2>'
+      + '<div class="marke" style="margin:0">'+((mkLabel(d.marke)?esc(mkLabel(d.marke))+' · ':'')+esc(d.kategorie||''))+(d.unterkategorie?(' · '+esc(d.unterkategorie)):'')+'</div>'
+      + (suppEfPill(d.ernaehrungsform)?('<div style="margin-top:6px">'+suppEfPill(d.ernaehrungsform)+'</div>'):'')
     + '</div>'
     + '<div style="display:flex;gap:9px;align-items:flex-start;background:var(--k-eef6ee);border:1px solid var(--k-d5e6d5);border-radius:12px;padding:10px 12px;margin:12px 0 4px">'
       + '<span style="font-size:16px">💊</span>'
@@ -1992,10 +2008,13 @@ function detail2(d){
   panel.innerHTML=
     '<button class="close" onclick="closeP()">Schließen ✕</button>'
     + adminBar
-    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
-      + '<div style="min-width:0"><h2 style="margin:0 0 2px">'+esc(d.name)+'</h2>'
-        + '<div class="marke" style="margin:0">'+((mkLabel(d.marke)?esc(mkLabel(d.marke))+' · ':'')+esc(d.kategorie||''))+(d.unterkategorie?(' · '+esc(d.unterkategorie)):'')+'</div></div>'
-      + efPill(d.ernaehrungsform)
+    /* 28z28: Pille raus aus der Kopf-Flexzeile (Ralph-Fund: vegan-Pille lag ueber dem
+       Schliessen-Knopf). Der Knopf ist float:right - Floats greifen NICHT in
+       Flex-Container, also schob sich die Zeile darunter. Jetzt normaler Block:
+       der Titel umfliesst den Knopf, die Pille steht unter der Marken-Zeile. */
+    + '<div style="min-width:0"><h2 style="margin:0 0 2px">'+esc(d.name)+'</h2>'
+      + '<div class="marke" style="margin:0">'+((mkLabel(d.marke)?esc(mkLabel(d.marke))+' · ':'')+esc(d.kategorie||''))+(d.unterkategorie?(' · '+esc(d.unterkategorie)):'')+'</div>'
+      + (efPill(d.ernaehrungsform)?('<div style="margin-top:6px">'+efPill(d.ernaehrungsform)+'</div>'):'')
     + '</div>'
     + warn
     /* 2026-07-24w: Feature-Schranken der alten Karte in detail2 uebernommen (Ralphs Fund 23.07.:
@@ -2022,6 +2041,7 @@ function detail2(d){
             + '<div class="pkWord" style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:2px;opacity:0">'+esc(bewTxt||'–')+'</div>'
           : '<div style="font-size:44px;font-weight:800;line-height:1;color:'+(s==null?'var(--muted)':fTxt)+'">'+(s==null?'–':Math.round(s))+'</div>'
             + '<div style="font-size:20px;font-weight:800;letter-spacing:.2px;color:'+(s==null?'var(--muted)':fCol)+';margin-top:4px">'+esc(bewTxt||'–')+'</div>')
+    + platzChip(d)
     + '</div>')
     + ((_istSalz||hasFeat('pk_ringe')||_nurIndex)?'':pkSperre('Die vier Achsen','Zutaten · Zusatzstoffe · Verarbeitung · Nährwerte als Grafik'))
     + sonder
@@ -16373,7 +16393,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z26";
+const APP_BUILD = "2026-07-28z28";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
