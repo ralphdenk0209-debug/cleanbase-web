@@ -6,7 +6,7 @@
    nie verworfen. Zusammen mit einer offen gelassenen App fuehrte das dazu,
    dass Nutzer weiter mit altem Code arbeiteten.
    BEI JEDEM DEPLOY DIESE ZAHL HOCHZAEHLEN – dann wirft activate den alten Cache weg. */
-const CACHE = 'rootindex-2026-07-28z23';
+const CACHE = 'rootindex-2026-07-28z24';
 const SHELL = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -57,4 +57,25 @@ self.addEventListener('fetch', (e) => {
         .catch(() => hit)
     )
   );
+});
+
+/* 28z24: WEB-PUSH (Haushalts-Mitteilungen, z. B. "Einkaufsliste geändert").
+   Der Server schickt {title, body, url}; Klick öffnet die App an der Ziel-Stelle. */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) {}
+  e.waitUntil(self.registration.showNotification(d.title || 'Root Index', {
+    body: d.body || '',
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    data: { url: d.url || './' },
+  }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const ziel = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ws) => {
+    for (const w of ws) { if ('focus' in w) { w.focus(); try { w.navigate(ziel); } catch (_) {} return; } }
+    return clients.openWindow(ziel);
+  }));
 });

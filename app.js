@@ -743,6 +743,7 @@ async function loadProfil(){
   renderTrainTage(b.Trainingstage, b.Trainingstag_Plus);
   loadZielHistorie();
   renderProfilMass();
+  try{ pushBoxRender(); }catch(e){}   /* 28z24 */
   loadZyklus();
   pfTab('daten');
 }
@@ -934,6 +935,51 @@ function renderZyklusHint(){
     +'<div style="font-weight:600;font-size:13.5px;margin-bottom:3px">'+z.hint.emoji+' '+esc(z.hint.title)+'</div>'
     +'<div style="font-size:12.5px;color:var(--tb-muted);line-height:1.55">'+z.hint.text+'</div>'
     +'<div style="font-size:11px;color:var(--tb-muted);opacity:.75;margin-top:6px">Allgemeine Info, keine medizinische Beratung.</div></div>';
+}
+/* ===== 28z24: WEB-PUSH-MITTEILUNGEN (Ralph-Go; v1 = Haushalts-Einkaufsliste) =====
+   Oeffentlicher VAPID-Schluessel (der private liegt NUR in den Supabase-Secrets). */
+const VAPID_PUBLIC = "BNlV0KXPsC-WavyXqqgKjIjL1FYOaNlWmhBfC2rnJv9DUzruvEUkKzxUP5jUL5Vxueku0psP6qYhqPZ66C0A3y8";
+function _vapidKey(){ const b=atob(VAPID_PUBLIC.replace(/-/g,'+').replace(/_/g,'/')); const u=new Uint8Array(b.length); for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i); return u; }
+async function pushBoxRender(){
+  const box=document.getElementById('pfPushBox'); if(!box) return;
+  if(!ME || (typeof feat==='function' && !feat('push'))){ box.innerHTML=''; return; }
+  const kopf='<div style="font-weight:600;font-size:13px;margin-bottom:4px">🔔 Mitteilungen aufs Handy</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">z. B. wenn jemand aus deinem Haushalt die Einkaufsliste ändert. Je Gerät einmal aktivieren.</div>';
+  if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+    box.innerHTML=kopf+'<div style="font-size:12px;color:var(--muted)">Dieses Gerät/dieser Browser unterstützt keine Web-Mitteilungen.<br><b>iPhone:</b> Root Index zuerst über Teilen → „Zum Home-Bildschirm" installieren und dort öffnen – dann erscheint hier der Knopf.</div>';
+    return;
+  }
+  let sub=null; try{ const reg=await navigator.serviceWorker.ready; sub=await reg.pushManager.getSubscription(); }catch(e){}
+  if(sub){
+    box.innerHTML=kopf+'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="font-size:12.5px;color:var(--greendk,var(--k-166534));font-weight:700">✓ Auf diesem Gerät aktiv</span>'
+      +'<button onclick="pushDeaktivieren()" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font-size:12px;cursor:pointer">deaktivieren</button></div>'
+      +'<div id="pfPushMsg" style="font-size:12px;margin-top:6px"></div>';
+  } else {
+    box.innerHTML=kopf+'<button onclick="pushAktivieren()" style="padding:9px 14px;border:0;border-radius:8px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:600;cursor:pointer">🔔 Auf diesem Gerät aktivieren</button>'
+      +'<div id="pfPushMsg" style="font-size:12px;margin-top:6px"></div>';
+  }
+}
+async function pushAktivieren(){
+  const msg=document.getElementById('pfPushMsg');
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){ if(msg){msg.style.color='var(--k-dc2626)'; msg.textContent='Mitteilungen wurden nicht erlaubt (Browser-Einstellung).';} return; }
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_vapidKey() });
+    const j=sub.toJSON();
+    let {data:d,error}=await client.rpc('cb_push_abo_speichern',{p_endpoint:sub.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth,p_ua:navigator.userAgent.slice(0,180)});
+    if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} }
+    if(error||!(d&&d.ok)) throw new Error((error&&error.message)||(d&&d.grund)||'Speichern fehlgeschlagen');
+    pushBoxRender();
+  }catch(e){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler: '+((e&&e.message)||e); } }
+}
+async function pushDeaktivieren(){
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub){ try{ await client.rpc('cb_push_abo_loeschen',{p_endpoint:sub.endpoint}); }catch(e){} await sub.unsubscribe(); }
+  }catch(e){}
+  pushBoxRender();
 }
 async function setMyPassword(){
   const pass=document.getElementById("pfPass").value||""; const msg=document.getElementById("pfPassMsg");
@@ -16323,7 +16369,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z23";
+const APP_BUILD = "2026-07-28z24";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
