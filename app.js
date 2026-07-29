@@ -11409,8 +11409,12 @@ function fgEtikettRender(){
   var box=document.getElementById('fe_etikettGrid'); if(!box) return;
   var arr=(window._fgEdit&&window._fgEdit.etikett)||[];
   var cnt=document.getElementById('fe_etikettCount'); if(cnt) cnt.textContent='('+arr.length+')';
+  /* 28z33 (Ralph): das erste angehaengte Foto erscheint GROSS in der rechten Karte
+     (vorher nur Mini-Kachel); Klick oeffnet IMMER die Grossansicht - vorher drehte
+     er nur die (auf Reiter 1 unsichtbare) Referenz-Karte von Reiter 2. */
   box.innerHTML = arr.length
-    ? arr.map(function(s,j){ return '<img src="'+s+'" onclick="fgRefShowFoto('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = groß · Rechtsklick = Riki-Menü" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">'; }).join('')
+    ? ('<img src="'+arr[0]+'" onclick="fgEtikettZoom(0)" oncontextmenu="fgEtikettCtx(event,0)" title="Klick = groß · Rechtsklick = Riki-Menü" style="width:100%;max-height:280px;object-fit:contain;background:#d9d2e9;border-radius:10px;border:1px solid var(--line);cursor:zoom-in;display:block">'
+      + (arr.length>1 ? ('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+arr.slice(1).map(function(s,j){ var k=j+1; return '<img src="'+s+'" onclick="fgEtikettZoom('+k+')" oncontextmenu="fgEtikettCtx(event,'+k+')" title="Klick = groß · Rechtsklick = Riki-Menü" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">'; }).join('')+'</div>') : ''))
     : '<span style="color:var(--muted);font-size:12.5px">keine – über „+ Foto" ein Bild hinzufügen</span>';
   try{ fgWirkFotoRender(); }catch(e){}   /* die Lesebox neben der Wirkstoff-Tabelle mitziehen */
 }
@@ -11588,6 +11592,9 @@ function fgRefFlip(toBack){
 function fgRefShowFoto(j){
   window._fgWirkFoto=window._fgWirkFoto||{ idx:0, scale:1, x:0, y:0, baseFit:1 };
   window._fgWirkFoto.idx=(j||0);
+  /* 28z33: auf Reiter 1 ist die Referenz-Karte unsichtbar - dann direkt die Grossansicht */
+  var _box=document.getElementById('fe_wirkFotoBox');
+  if(!(_box && _box.offsetParent!==null)){ try{ fgEtikettZoom(j||0); }catch(e){} return; }
   var special=false; try{ special=_fgIstSpecial(); }catch(e){}
   if(special){ /* Foto haengt neben der Dosis-Tabelle - dorthin scrollen wie bisher */
     try{ fgRefMountFoto(); }catch(e){}
@@ -16509,7 +16516,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z32";
+const APP_BUILD = "2026-07-28z33";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
