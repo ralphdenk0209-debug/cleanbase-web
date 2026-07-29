@@ -2207,7 +2207,7 @@ function detail(d){
         <b style="color:var(--greendk,var(--k-166534))">${_freiTitel}</b> ${_undListe(_frei)}.<br>
         <b style="color:var(--ink)">${_extraTitel}</b> ${_undListe(_extra)}.
       </div>
-      <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:9px 16px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13px">${ME?'Premium ansehen – 7 Tage gratis':'7 Tage gratis testen'}</button>
+      <button onclick="${ME?'premiumInfo()':'openLogin()'}" style="padding:9px 16px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt);color:var(--greendk);font-weight:600;cursor:pointer;font-size:13px">${ME?'Premium freischalten – 7 Tage gratis':'7 Tage gratis testen'}</button>
     </div>
   `;
   const panel=document.getElementById("panel");
@@ -2261,7 +2261,10 @@ function pkSperre(titel, was){
   var angemeldet = !!ME;
   var txt  = angemeldet ? 'Mit Premium freigeschaltet' : 'Mit kostenlosem Konto sichtbar';
   var knopf = angemeldet
-    ? '<button onclick="closeP();navTo(\'premium\')" style="margin-top:9px;padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-size:13.5px;font-weight:700;cursor:pointer">Premium ansehen</button>'
+    /* 28z18: navTo('premium') lief ins LEERE - eine Seite "premium" gab es nie (Ralphs Fund).
+       Jetzt oeffnet der Knopf das Premium-Fenster (premiumInfo, derselbe Weg wie ueberall).
+       Wortlaut "ansehen" -> "freischalten" (Ralph: "eher premium werden oder freischalten"). */
+    ? '<button onclick="closeP();premiumInfo()" style="margin-top:9px;padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-size:13.5px;font-weight:700;cursor:pointer">Premium freischalten – 7 Tage gratis</button>'
     : '<button onclick="closeP();openLogin()" style="margin-top:9px;padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-size:13.5px;font-weight:700;cursor:pointer">Kostenlos anmelden</button>';
   return '<div style="margin:16px 0 4px;border:1px dashed var(--line);border-radius:14px;padding:15px 14px;text-align:center;background:var(--bg)">'
     +'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px">'+esc(titel)+'</div>'
@@ -16266,7 +16269,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z17";
+const APP_BUILD = "2026-07-28z18";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
