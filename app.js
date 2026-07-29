@@ -7234,6 +7234,7 @@ function einkRow(r,done){
   let h='<div onclick="einkaufToggle('+id+','+(done?'false':'true')+')" style="cursor:pointer;border:1px solid '+bd+';border-radius:12px;background:'+bg+';padding:14px 12px;display:flex;align-items:center;gap:10px;'+(done?'opacity:.6':'')+'">'
     +(done?'<span style="flex:0 0 auto;font-size:15px;color:var(--muted);line-height:1">&#10003;</span>':'')
     +'<span style="flex:1;min-width:0;font-size:14.5px;font-weight:600;line-height:1.3;color:'+tx+';'+(done?'text-decoration:line-through':'')+'">'+esc(r.titel)+'</span>'
+    +(r.von?'<span title="Eingetragen von '+esc(r.von)+'" style="flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--greendk,var(--k-166534));background:var(--greenlt,var(--k-eaf5ee));border-radius:99px;padding:2px 7px">'+esc(String(r.von).trim().charAt(0).toUpperCase())+'</span>':'')
     +(r.menge?'<span style="flex:0 0 auto;font-size:13px;font-weight:700;color:'+tx2+'">'+esc(r.menge)+'</span>':'')
     +(done?'':einkAngebotBtn(r.titel))
     +(done?'':einkAmzBtn(r.produkt_id))
@@ -7287,12 +7288,65 @@ async function einkPick(id){
 function einkDetails(id){ const e=document.getElementById('einkD'+id); if(!e) return; e.style.display=(e.style.display==='none'||!e.style.display)?'block':'none'; }
 async function einkSetMenge(id,m){ try{ await client.rpc("cb_einkauf_menge",{p_eintrag:id,p_menge:(m||'').trim()||null}); }catch(e){ alert("Fehler: "+e.message); } await loadEinkauf(); }
 function einkMsg(t,c){ const m=document.getElementById("einkMsg"); if(!m) return; m.style.color=c||"var(--muted)"; m.innerHTML=t; }
+/* ===== 28z17: HAUSHALT - gemeinsame Einkaufsliste (Ralph-Go 29.07. frueh, Beta-Flag 'haushalt') =====
+   Der Haushalt ist die VEREINIGUNG der persoenlichen Listen (Server-Kreis cb_einkauf_benutzerkreis) -
+   kein Daten-Umzug, Beitritt vereint sofort, Austritt nimmt die eigenen Eintraege wieder mit. */
+function hhBoxHtml(hh){
+  if(hh){
+    const namen=(hh.mitglieder||[]).map(function(m){ return esc(m.name||m.benutzer_id); }).join(' + ');
+    return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--greenlt,var(--k-eaf5ee));border:1px solid var(--green,var(--k-16a34a));border-radius:12px;padding:9px 12px;margin-bottom:10px;font-size:12.5px;color:var(--greendk,var(--k-166534))">'
+      +'<span style="font-size:15px">👨‍👩‍👧</span><b>'+esc(hh.name)+'</b><span style="color:var(--muted)">·</span><span>'+namen+'</span>'
+      +'<span style="flex:1"></span>'
+      +'<button onclick="hhCodeZeigen()" title="Einladungs-Code teilen" style="padding:5px 10px;border:1px solid var(--green,var(--k-16a34a));border-radius:8px;background:var(--card);color:var(--greendk,var(--k-166534));font-size:12px;font-weight:700;cursor:pointer">Code: '+esc(hh.code)+'</button>'
+      +'<button onclick="hhVerlassen()" title="Haushalt verlassen - deine Eintraege nimmst du mit" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font-size:12px;cursor:pointer">verlassen</button>'
+      +'</div>';
+  }
+  return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--card);border:1px dashed var(--green,var(--k-16a34a));border-radius:12px;padding:9px 12px;margin-bottom:10px;font-size:12.5px">'
+    +'<span style="font-size:15px">👨‍👩‍👧</span><span style="color:var(--muted)">Gemeinsame Liste für den Haushalt:</span>'
+    +'<button onclick="hhGruenden()" style="padding:5px 10px;border:1px solid var(--green,var(--k-16a34a));border-radius:8px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:12px;font-weight:700;cursor:pointer">Haushalt gründen</button>'
+    +'<button onclick="hhBeitreten()" style="padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12px;font-weight:600;cursor:pointer">Mit Code beitreten</button>'
+    +'</div>';
+}
+function hhCodeZeigen(){
+  const hh=window._HH; if(!hh) return;
+  try{ navigator.clipboard.writeText(hh.code); }catch(e){}
+  alert('Einladungs-Code für "'+hh.name+'": '+hh.code+'\n\n(in die Zwischenablage kopiert)\nDer andere tippt ihn unter "Mit Code beitreten" ein - dann sind eure Listen sofort vereint.');
+}
+async function hhGruenden(){
+  const name=prompt('Wie soll euer Haushalt heißen?','Familie'); if(name==null) return;
+  let {data:d,error}=await client.rpc('cb_haushalt_anlegen',{p_name:name});
+  if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} }
+  if(error||!(d&&d.ok)){ alert('Fehler: '+((error&&error.message)||(d&&d.grund)||'unbekannt')); return; }
+  alert('✓ Haushalt angelegt. Einladungs-Code: '+d.code+'\nDen gibst du dem anderen - Beitritt vereint eure Listen sofort.');
+  loadEinkauf();
+}
+async function hhBeitreten(){
+  const code=prompt('Einladungs-Code eingeben (6 Zeichen):',''); if(!code) return;
+  let {data:d,error}=await client.rpc('cb_haushalt_beitreten',{p_code:code});
+  if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} }
+  if(error||!(d&&d.ok)){ alert('Fehler: '+((error&&error.message)||(d&&d.grund)||'unbekannt')); return; }
+  alert('✓ Beigetreten - eure Listen sind jetzt EINE.');
+  loadEinkauf();
+}
+async function hhVerlassen(){
+  if(!confirm('Haushalt wirklich verlassen? Deine eigenen Einträge nimmst du mit, die der anderen bleiben bei ihnen.')) return;
+  let {data:d,error}=await client.rpc('cb_haushalt_verlassen');
+  if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} }
+  if(error||!(d&&d.ok)){ alert('Fehler: '+((error&&error.message)||(d&&d.grund)||'unbekannt')); return; }
+  window._HH=null; loadEinkauf();
+}
 async function loadEinkauf(){
   const box=document.getElementById(_einkTarget); if(!box) return;
   box.innerHTML='<div style="color:var(--muted);font-size:13px">Lade…</div>';
   let rows=[]; try{ const {data}=await client.rpc("cb_einkauf_list"); rows=data||[]; }catch(e){}
+  /* 28z17: Haushalts-Status (Beta-Flag) - EINE kleine RPC je Anzeige */
+  let hh=null;
+  if(ME && typeof feat==='function' && feat('haushalt')){
+    try{ let {data:st}=await client.rpc("cb_haushalt_status"); if(typeof st==='string'){ try{ st=JSON.parse(st);}catch(e){} } if(st&&st.ok) hh=st.haushalt||null; window._HH=hh; }catch(e){}
+  }
   const offen=rows.filter(r=>!r.erledigt), erl=rows.filter(r=>r.erledigt);
-  let h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+  let h=(ME && typeof feat==='function' && feat('haushalt'))?hhBoxHtml(hh):'';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">' 
     +'<input id="einkInput" autocomplete="off" placeholder="Ich brauche… (Produkt aus dem Katalog suchen)" oninput="einkSuggest(this.value)" onkeydown="if(event.key===\'Enter\')einkaufAdd()" style="flex:1;min-width:150px;padding:11px;border:1px solid var(--line);border-radius:10px">'
     +'<button onclick="einkaufAdd()" style="padding:11px 17px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-weight:700;font-size:15px">+</button>'
     +'<button onclick="einkaufScan()" style="padding:11px 14px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">📷 Barcode</button>'
@@ -16212,7 +16266,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z16";
+const APP_BUILD = "2026-07-28z17";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
