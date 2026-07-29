@@ -932,6 +932,8 @@ async function load(){
   ALL = data.map(d=>({...d, clean_score:num(d.clean_score)}));
   try{ const {data:sb}=await client.from("v_supplement_bilanz").select("*"); SUPP_BIL={}; (sb||[]).forEach(x=>{ SUPP_BIL[x["Produkt_ID"]]=x; }); }catch(e){}
   try{ const {data:ww}=await client.from("v_wirkstoff_wissen").select("*"); WISSEN=ww||[]; }catch(e){ WISSEN=[]; }
+  /* 28z16: kuratierte Tausch-Tipps (kleine Map Produkt->Tausch, eine RPC) */
+  try{ const {data:tt}=await client.rpc("cb_tausch_tipps"); window._TAUSCH=(typeof tt==='string')?JSON.parse(tt):(tt||{}); }catch(e){ window._TAUSCH={}; }
   try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; (sm||[]).forEach(x=>{STK[x.id]=num(x.stueck_gramm);}); }catch(e){}
   /* Stück-GRÖSSEN (S/M/L/XL …) je Produkt fürs Rezept-Dropdown – Gramm = essbarer Anteil (Ralph 24.07.). */
   try{ const {data:sg}=await client.rpc("cb_stueck_groessen"); STKV={}; (sg||[]).forEach(x=>{ (STKV[x.produkt_id]=STKV[x.produkt_id]||[]).push({bez:x.bezeichnung, g:num(x.gramm), sch:!!x.ist_schaetzung}); }); }catch(e){}
@@ -1132,11 +1134,17 @@ function besteAlternativen(d, max){
   return cands.slice(0, max);
 }
 function altSektion(d){
-  const alts = besteAlternativen(d, 3); if(!alts.length) return '';
+  /* 28z16: kuratierter Tausch-Tipp (Ralphs Kuechentisch-Fall Schinken->Tatar) steht VOR der
+     Algorithmus-Reihe - gelebtes Wissen schlaegt Rechnung. Nur bestaetigte Tipps (cb_tausch_tipps). */
+  const tt = (window._TAUSCH||{})[d.id];
+  const tp = tt ? (ALL||[]).find(function(x){ return x.id===tt.tausch_id; }) : null;
+  const alts = besteAlternativen(d, 3).filter(function(a){ return !tp || a.id!==tp.id; });
+  if(!alts.length && !tp) return '';
   const s = num(d.clean_score);
   return '<div style="margin-top:14px">'
     + '<div style="font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--greendk,var(--k-166534));display:flex;align-items:center;gap:6px">🌿 Bessere Alternativen in dieser Kategorie</div>'
-    + alts.map(function(a){ return prodRef(a.id, { name:a.name, marke:a.marke, delta:(num(a.clean_score) - s) }); }).join('')
+    + (tp ? prodRef(tp.id, { name:tp.name, marke:tp.marke, label:'💡 Tausch-Tipp der Redaktion', delta:(s!=null&&num(tp.clean_score)!=null?num(tp.clean_score)-s:null), note:(tt.begruendung||'') }) : '')
+    + alts.map(function(a){ return prodRef(a.id, { name:a.name, marke:a.marke, delta:(s!=null?num(a.clean_score) - s:null) }); }).join('')
     + '<div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45">Besser heißt hier nur eines: höherer Root Index in derselben Kategorie. Keine Werbung, keine bezahlten Plätze.</div>'
     + '</div>';
 }
@@ -2415,6 +2423,7 @@ function setMode(m){
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
   { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
   { var _ev=document.getElementById("einheitView"); if(_ev) _ev.style.display = m==="einheit"?"":"none"; }
+  { var _tw=document.getElementById("tauschView"); if(_tw) _tw.style.display = m==="tausch"?"":"none"; }
   { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
   { var _sv=document.getElementById("suppView"); if(_sv) _sv.style.display = m==="supp"?"":"none"; }
   { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
@@ -2431,6 +2440,7 @@ function setMode(m){
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="mikro"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } mikroZuordnungRender(); }
   if(m==="einheit"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } einheitRender(); }
+  if(m==="tausch"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } tauschRender(); }
   if(m==="todo"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } todoRender(); }
   if(m==="supp"){ try{ suppPlanRender(); }catch(e){} }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
@@ -14116,6 +14126,61 @@ async function rezVorFotoSenden(files){
   }catch(e){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Ging nicht: "+(e&&e.message?e.message:e); } }
 }
 if(typeof window!=='undefined'){ window.rezVorFotoWahl=rezVorFotoWahl; window.rezVorFotoSenden=rezVorFotoSenden; }
+/* ===== 28z16: TAUSCH-TIPPS-ADMIN (Ralph: "eine liste mit 2 spalten, bestenfalls vorbefüllt
+   links und die tauschmöglichkeit rechts") =====
+   Links das schwache Produkt, rechts der Tausch. Vorbefüllt aus besteAlternativen (der beste
+   +10-Kandidat) - LIVE geht eine Zeile erst nach Ralphs ✓ (cb_tausch_tipp_setzen schreibt,
+   cb_tausch_tipps liefert nur Gespeichertes an die Karte). Kuratiert heißt kuratiert. */
+async function tauschRender(){
+  var v=document.getElementById("tauschView"); if(!v) return;
+  if(!(ALL&&ALL.length)){ try{ const data=await fetchAlleProdukte(); if(data) ALL=data.map(function(d){ return Object.assign({},d,{clean_score:num(d.clean_score)}); }); }catch(e){} }
+  try{ const {data:tt}=await client.rpc("cb_tausch_tipps"); window._TAUSCH=(typeof tt==='string')?JSON.parse(tt):(tt||{}); }catch(e){}
+  var q=(window._tauschQ||'').toLowerCase();
+  /* Kandidaten: Produkte mit Score, schwaechste zuerst; gespeicherte Tipps immer dabei */
+  var rows=(ALL||[]).filter(function(p){ return num(p.clean_score)!=null && (besteAlternativen(p,1).length || (window._TAUSCH||{})[p.id]); });
+  rows.sort(function(a,b){ var ta=((window._TAUSCH||{})[a.id])?0:1, tb=((window._TAUSCH||{})[b.id])?0:1; if(ta!==tb) return ta-tb; return num(a.clean_score)-num(b.clean_score); });
+  if(q) rows=rows.filter(function(p){ return ((p.name||'')+' '+(p.marke||'')+' '+(p.id||'')).toLowerCase().indexOf(q)>=0; });
+  var gezeigt=rows.slice(0,150);
+  v.innerHTML='<div style="max-width:980px;margin:0 auto">'
+    +'<h2 style="font-size:20px;font-weight:800;margin:6px 0 2px">🔁 Tausch-Tipps</h2>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Links das Produkt (schwächste zuerst), rechts die Tauschmöglichkeit — vorbefüllt mit dem besten Katalog-Kandidaten (gleiche Kategorie, mindestens +10). <b>Live auf der Produktkarte erscheint eine Zeile erst nach deinem ✓.</b> Gespeicherte stehen oben.</div>'
+    +'<input value="'+esc(window._tauschQ||'')+'" oninput="window._tauschQ=this.value;clearTimeout(window._tauschT);window._tauschT=setTimeout(tauschRender,250)" placeholder="🔍 Produkt suchen…" style="width:100%;max-width:340px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px;margin-bottom:10px">'
+    +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">'+rows.length+' Kandidaten'+(rows.length>150?' · die ersten 150 angezeigt (Suche eingrenzen)':'')+'</div>'
+    +gezeigt.map(function(p){ return tauschZeile(p); }).join('')
+    +'</div>';
+}
+function tauschZeile(p){
+  var s=num(p.clean_score);
+  var tip=(window._TAUSCH||{})[p.id]||null;
+  var alts=besteAlternativen(p,3);
+  if(tip && !alts.some(function(a){return a.id===tip.tausch_id;})){ var tpx=(ALL||[]).find(function(x){return x.id===tip.tausch_id;}); if(tpx) alts.unshift(tpx); }
+  var selId=tip?tip.tausch_id:(alts[0]?alts[0].id:'');
+  var opts=alts.map(function(a){ return '<option value="'+esc(a.id)+'"'+(a.id===selId?' selected':'')+'>'+esc(a.name)+' ('+num(a.clean_score)+', +'+(num(a.clean_score)-s)+')</option>'; }).join('');
+  return '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:10px;align-items:center;border:1px solid '+(tip?'var(--green,#2e7d46)':'var(--line)')+';border-radius:12px;padding:9px 12px;margin-bottom:7px;background:'+(tip?'var(--greenlt,#eaf5ee)':'var(--card)')+'">'
+    +'<div style="min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="detailById(\''+esc(p.id)+'\')">'+esc(p.name)+'</div>'
+      +'<div style="font-size:11.5px;color:var(--muted)">'+esc(p.marke||'')+(p.kategorie?' · '+esc(p.kategorie):'')+' · Index <b style="color:'+farbe(scoreBew(s))+'">'+s+'</b>'+(tip?' · <b style="color:var(--greendk,#166534)">✓ Tipp aktiv</b>':'')+'</div></div>'
+    +'<div style="display:flex;gap:6px;align-items:center;min-width:0">'
+      +'<select id="ttSel_'+esc(p.id)+'" style="flex:1;min-width:0;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px">'+opts+'</select>'
+      +'<input id="ttBeg_'+esc(p.id)+'" value="'+esc(tip&&tip.begruendung?tip.begruendung:'')+'" placeholder="Begründung (optional, z. B. ohne Pökelsalz)" style="flex:1;min-width:0;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px">'
+      +'<button onclick="tauschSave(\''+esc(p.id)+'\')" title="Als Tausch-Tipp bestätigen" style="flex:0 0 auto;padding:7px 11px;border:1px solid var(--green,#2e7d46);border-radius:8px;background:var(--green,#2e7d46);color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">✓</button>'
+      +(tip?'<button onclick="tauschDel(\''+esc(p.id)+'\')" title="Tipp entfernen" style="flex:0 0 auto;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--k-b91c1c,#b91c1c);font-weight:700;font-size:12.5px;cursor:pointer">✕</button>':'')
+    +'</div></div>';
+}
+async function tauschSave(pid){
+  var sel=document.getElementById('ttSel_'+pid), beg=document.getElementById('ttBeg_'+pid);
+  if(!sel||!sel.value){ alert('Kein Tausch-Kandidat gewählt.'); return; }
+  var r=await client.rpc('cb_tausch_tipp_setzen',{p_produkt_id:pid,p_tausch_id:sel.value,p_begruendung:(beg&&beg.value)||null});
+  var d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} }
+  if(r.error||!(d&&d.ok)){ alert('Fehler: '+((r.error&&r.error.message)||(d&&d.grund)||'unbekannt')); return; }
+  tauschRender();
+}
+async function tauschDel(pid){
+  if(!confirm('Tausch-Tipp für '+pid+' entfernen?')) return;
+  var r=await client.rpc('cb_tausch_tipp_loeschen',{p_produkt_id:pid});
+  if(r.error){ alert('Fehler: '+r.error.message); return; }
+  tauschRender();
+}
+
 /* ===== Admin-Wächter: Rezept-Zutaten ohne Katalog-Produkt (Ralph 23.07.) =====
    Zeigt die nicht zuordenbaren Rezept-Zutaten (cb_rezept_zutaten_offen). Je Zutat kann der Admin
    das richtige Katalog-Produkt wählen → als Alias speichern (cb_zutat_alias_setzen), das sofort in
@@ -15179,6 +15244,7 @@ async function waechterOpen(){
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
       +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';rezZutatenWaecherOpenSafe()" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">🍽️ Rezept-Zutaten prüfen</button>'
       +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';adminGo(\'einheit\')" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">⚖️ g / ml offen</button>'
+      +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';adminGo(\'tausch\')" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">🔁 Tausch-Tipps</button>' 
     +'</div>' 
     +'<div id="waechterBody" style="font-size:13px;color:var(--muted)">Lade …</div>'
   +'</div>';
@@ -16146,7 +16212,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z15";
+const APP_BUILD = "2026-07-28z16";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
