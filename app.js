@@ -3043,7 +3043,7 @@ async function loadProduktErfassung(){
       +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
       +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px" title="Filtert die Liste nach Kategorie und ist zugleich die Vorgabe für neue Produkte.">Kategorie</span>'
       +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px","peRender()","alle Kategorien")
-      +'<button id="peStatusBtn" class="peBtn" onclick="peToggleStatus()">⇄ Status</button>'
+      /* 2026-07-29 (Ralph): ⇄-Status-Knopf raus - der Status wohnt jetzt als Pille im Editor */
       +'<button id="peMarkenBtn" class="peBtn" onclick="peBrandBox(this)" title="Marken zum Ausblenden abwählen">🏷 Marken ▾</button>'+'<button id="peJunkBtn" class="peBtn" onclick="peHideMarkenToggle()" title="Dr. Oetker, Gustavo Gusto und Original Wagner ausblenden">🚫 Werbe-Marken</button>'
       +'<span style="flex:1"></span>'
     +'</div>'
@@ -12096,6 +12096,68 @@ async function fgOhneIndexFreigeben(){
   }catch(e){ alert('Fehler: '+((e&&e.message)||e)); }
 }
 if(typeof window!=='undefined'){ window.fgOhneIndexFreigeben=fgOhneIndexFreigeben; }
+/* ===== Status-Pille im Editor (Ralph-Entscheid Mockup A, 2026-07-29) =====
+   Pille = aktueller Status in Farbe · Klick = Menue (Entwurf / Aktiv via gepruefte
+   Freigabe / Aktiv ohne Index / Inaktiv, je mit Ein-Satz-Erklaerung). Der alte
+   ⇄-Status-Knopf in der Uebersicht ist raus (Ralph: "der kann weg"). */
+var _FGST={
+  'Entwurf':          {dot:'#e0a32e', bg:'#fff7ea', fg:'#92400e', bd:'#e0a32e', hint:'unsichtbar für Nutzer, in Bearbeitung'},
+  'Aktiv':            {dot:'#2e9e57', bg:'#eaf5ee', fg:'#166534', bd:'#2e9e57', hint:'sichtbar im Katalog, mit Index'},
+  'Aktiv ohne Index': {dot:'#8a5a0b', bg:'#fffaf0', fg:'#8a5a0b', bd:'#e0a32e', hint:'sichtbar im Katalog, ehrlich ohne Zahl'},
+  'Inaktiv':          {dot:'#9aa7b2', bg:'#eef1f4', fg:'#5b6b7e', bd:'#c3ccd4', hint:'aus dem Katalog genommen, bleibt erhalten'}
+};
+async function fgStatusLoad(){
+  var el=document.getElementById('frgStatusPill'); if(!el) return;
+  var id=(window._fgEdit&&window._fgEdit.id); if(!id){ el.innerHTML=''; return; }
+  var st=null;
+  try{ var r=await client.rpc('cb_produkt_status',{p_id:id}); var d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } if(d&&d.ok) st=d.status; }catch(e){}
+  window._fgStatus=st;
+  var c=_FGST[st]||{dot:'#9aa7b2',bg:'#eef1f4',fg:'#5b6b7e',bd:'#c3ccd4',hint:''};
+  el.innerHTML='<span onclick="fgStatusMenu(this)" title="'+esc((c.hint||'')+' – klicken zum Ändern')+'" style="display:inline-flex;align-items:center;gap:7px;border:1.5px solid '+c.bd+';background:'+c.bg+';color:'+c.fg+';border-radius:999px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap">'
+    +'<span style="width:9px;height:9px;border-radius:50%;background:'+c.dot+';flex:0 0 auto"></span>'+esc(st==='Aktiv ohne Index'?'🌱 ohne Index':(st||'?'))+' <span style="opacity:.55">▾</span></span>';
+}
+function fgStatusMenuHide(){ var m=document.getElementById('fgStatusMenuBox'); if(m) m.remove(); document.removeEventListener('click',fgStatusMenuHide); }
+function fgStatusMenu(anker){
+  fgStatusMenuHide();
+  var r=anker.getBoundingClientRect();
+  var cur=window._fgStatus||'';
+  var it=function(st,label,hint,oc){ var c=_FGST[st]||{}; var on=(st===cur);
+    return '<div onclick="fgStatusMenuHide();'+(on?'':oc)+'" style="display:flex;gap:10px;padding:9px 11px;border-radius:9px;align-items:flex-start;cursor:'+(on?'default':'pointer')+';'+(on?'background:var(--bg,#f4f2f9)':'')+'" onmouseover="if(!'+on+')this.style.background=\'var(--bg,#f4f2f9)\'" onmouseout="this.style.background=\''+(on?'var(--bg,#f4f2f9)':'')+'\'">'
+      +'<span style="width:11px;height:11px;border-radius:50%;background:'+(c.dot||'#9aa7b2')+';margin-top:3px;flex:0 0 auto"></span>'
+      +'<span style="min-width:0"><b style="font-size:13px;display:block;color:var(--ink,#1d2733)">'+label+(on?' <span style="font-weight:400;color:var(--muted,#7b8698)">· aktuell</span>':'')+'</b>'
+      +'<span style="font-size:11px;color:var(--muted,#7b8698);line-height:1.4">'+hint+'</span></span></div>'; };
+  var m=document.createElement('div'); m.id='fgStatusMenuBox';
+  m.style.cssText='position:fixed;top:'+Math.round(r.bottom+6)+'px;left:'+Math.max(8,Math.round(r.right-330))+'px;width:330px;z-index:10000;background:var(--card,#fff);border:1px solid var(--line,#e2e8ef);border-radius:12px;box-shadow:0 10px 30px rgba(20,40,70,.22);padding:6px';
+  m.innerHTML=
+     it('Entwurf','Entwurf','unsichtbar für Nutzer, in Bearbeitung',"fgStatusSet('Entwurf')")
+    +it('Aktiv','Aktiv','über die geprüfte Freigabe — Blocker müssen grün sein',"fgStatusSet('Aktiv')")
+    +it('Aktiv ohne Index','Aktiv ohne Index 🌱','sichtbar im Katalog, ehrlich ohne Zahl — für Frischware ohne belegbare Nährwerte',"fgStatusSet('Aktiv ohne Index')")
+    +it('Inaktiv','Inaktiv','aus dem Katalog nehmen, bleibt erhalten',"fgStatusSet('Inaktiv')");
+  document.body.appendChild(m);
+  setTimeout(function(){ document.addEventListener('click',fgStatusMenuHide); },0);
+}
+async function fgStatusSet(ziel){
+  var id=(window._fgEdit&&window._fgEdit.id); if(!id) return;
+  try{
+    if(ziel==='Aktiv'){
+      var fr=await client.rpc('produkt_pruefen_freigeben',{p_id:id});
+      if(fr.error){ alert('Kann NICHT auf „Aktiv" – die geprüfte Freigabe blockiert:\n\n'+fr.error.message); return; }
+    } else if(ziel==='Aktiv ohne Index'){
+      if(!confirm('Bewusst OHNE Index in den Katalog stellen?\n\nFür Produkte ohne belegbare Nährwerte (z. B. frische Sprossen). Sichtbar im Katalog, ehrlich ohne Zahl; die Wochenprüfung sucht keine Nährwerte mehr.')) return;
+      var r1=await client.rpc('cb_produkt_ohne_index',{p_id:id,p_an:true});
+      var d1=r1&&r1.data; if(typeof d1==='string'){ try{ d1=JSON.parse(d1);}catch(e){} }
+      if(r1.error||!(d1&&d1.ok)){ alert('Fehler: '+((r1.error&&r1.error.message)||(d1&&d1.grund)||'unbekannt')); return; }
+    } else {
+      if(!confirm('Status auf „'+ziel+'" setzen?'+(ziel==='Entwurf'?'\n\nDas Produkt verschwindet aus dem Katalog, bleibt aber erhalten.':''))) return;
+      var r2=await client.rpc('cb_produkt_status_setzen',{p_id:id,p_status:ziel});
+      if(r2.error){ alert('Fehler: '+r2.error.message); return; }
+    }
+    try{ fgStatusLoad(); }catch(e){}
+    try{ if(typeof loadProduktErfassung==='function') loadProduktErfassung(); }catch(e){}
+    try{ if(typeof loadScans==='function') loadScans(); }catch(e){}
+  }catch(e){ alert('Fehler: '+((e&&e.message)||e)); }
+}
+if(typeof window!=='undefined'){ window.fgStatusLoad=fgStatusLoad; window.fgStatusMenu=fgStatusMenu; window.fgStatusMenuHide=fgStatusMenuHide; window.fgStatusSet=fgStatusSet; }
 function feFreigabeLeisteHide(){
   var p=document.getElementById('frgPanel'); if(p) p.style.transform='translateX(100%)';   /* eingeklappt lassen fürs nächste Öffnen */
   var r=document.getElementById('frgRail'); if(r) r.style.transform='translateX(0)';
@@ -12182,10 +12244,12 @@ function feFreigabeLeiste(items, blocked){
         tbx=document.createElement('span'); tbx.id='frgTopBtns';
         tbx.style.cssText='display:flex;gap:6px;align-items:center;margin-left:6px;flex:0 0 auto';
         tbx.innerHTML='<button type="button" id="frgSaveTop" onclick="try{fgEditSave(false)}catch(e){}" title="Nur speichern" style="width:36px;height:32px;border:1px solid var(--k-bfdbfe,#bfdbfe);border-radius:9px;background:var(--card);color:#2563eb;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>'
-          +'<button type="button" id="frgGoTop" style="height:32px;padding:0 14px;border:0;border-radius:9px;color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap">✓ freigeben</button>'
-          /* 2026-07-29-1427 (Ralph: "mir fehlt ein statusschalter"): der Ohne-Index-Knopf sass im
-             Freigabe-Panel, das im Vollbild seit 28q nicht mehr aufklappt - jetzt oben erreichbar. */
-          +'<button type="button" onclick="try{fgOhneIndexFreigeben()}catch(e){}" title="Ohne Index freigeben – für Produkte ohne belegbare Nährwerte (z. B. frische Sprossen). Rückweg: ⇄ Status in der Liste." style="width:36px;height:32px;border:1px dashed #e0a32e;border-radius:9px;background:#fffaf0;color:#92400e;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0">🌱</button>';
+          +'<button type="button" id="frgGoTop" style="height:32px;padding:0 14px;border:0;border-radius:9px;color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap">✓ freigeben</button>';
+        /* Status-Pille VOR die Diskette (Ralph-Entscheid Mockup A, 29.07.):
+           zeigt den aktuellen Status, Klick oeffnet das Menue mit allen Zielen. */
+        var pil=document.createElement('span'); pil.id='frgStatusPill'; pil.style.cssText='flex:0 0 auto';
+        tbx.insertBefore(pil, tbx.firstChild);
+        try{ fgStatusLoad(); }catch(e){}
         _slot2.appendChild(tbx);
       }
       var gt=document.getElementById('frgGoTop');
@@ -12218,6 +12282,7 @@ function feFreigabeLeiste(items, blocked){
      der Nutzer öffnet per Klick auf die Leiste. */
   window._frgBlocked=blocked;
   try{ var _rr=document.getElementById('fe_riegelRow'); if(_rr) _rr.style.display='none'; }catch(e){}
+  try{ fgStatusLoad(); }catch(e){}   /* Status-Pille bei jedem Editor-Aufbau frisch */
 }
 
 /* ===== 2. Ansicht „Vorgang" (Ralph 22.07.2026) =========================================
@@ -16638,7 +16703,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-29-1427";
+const APP_BUILD = "2026-07-29-1512";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
