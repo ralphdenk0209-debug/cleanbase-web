@@ -11423,15 +11423,52 @@ function fgEtikettRender(){
   var box=document.getElementById('fe_etikettGrid'); if(!box) return;
   var arr=(window._fgEdit&&window._fgEdit.etikett)||[];
   var cnt=document.getElementById('fe_etikettCount'); if(cnt) cnt.textContent='('+arr.length+')';
-  /* 28z33 (Ralph): das erste angehaengte Foto erscheint GROSS in der rechten Karte
-     (vorher nur Mini-Kachel); Klick oeffnet IMMER die Grossansicht - vorher drehte
-     er nur die (auf Reiter 1 unsichtbare) Referenz-Karte von Reiter 2. */
+  /* 28z35 (Ralph): grosses Bild ist jetzt ein ZOOM-Kasten wie auf der Referenzkarte
+     (Rad = zoomen, Ziehen = verschieben, Doppelklick = Vollbild) und die Mini-Bilder
+     WECHSELN das grosse Bild (28z33 oeffnete stattdessen das Vollbild). */
+  var g=window._fgEtikGross=window._fgEtikGross||{idx:0,scale:1,x:0,y:0,baseFit:1};
+  if(g.idx>=arr.length) g.idx=0;
   box.innerHTML = arr.length
-    ? ('<img src="'+arr[0]+'" onclick="fgEtikettZoom(0)" oncontextmenu="fgEtikettCtx(event,0)" title="Klick = groß · Rechtsklick = Riki-Menü" style="width:100%;max-height:280px;object-fit:contain;background:#d9d2e9;border-radius:10px;border:1px solid var(--line);cursor:zoom-in;display:block">'
-      + (arr.length>1 ? ('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+arr.slice(1).map(function(s,j){ var k=j+1; return '<img src="'+s+'" onclick="fgEtikettZoom('+k+')" oncontextmenu="fgEtikettCtx(event,'+k+')" title="Klick = groß · Rechtsklick = Riki-Menü" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in">'; }).join('')+'</div>') : ''))
+    ? ('<div id="fe_etikGrossBox" style="position:relative;overflow:hidden;height:280px;border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none" title="Rad = zoomen · Ziehen = verschieben · Doppelklick = Vollbild">'
+        +'<img id="fe_etikGrossImg" alt="Etikett" draggable="false" oncontextmenu="fgEtikettCtx(event,window._fgEtikGross.idx)" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none">'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+arr.map(function(s,j){ var on=(j===g.idx);
+        return '<img src="'+s+'" onclick="fgEtikGrossShow('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = oben groß zeigen · Rechtsklick = Riki-Menü" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:2px solid '+(on?'var(--k-16a34a)':'var(--line)')+';cursor:pointer'+(on?'':';opacity:.8')+'">'; }).join('')+'</div>'
+      +'<div style="font-size:10.5px;color:var(--muted);margin-top:4px">Kleines Bild anklicken = wechseln · Rad zoomt · Ziehen verschiebt · Doppelklick = Vollbild</div>')
     : '<span style="color:var(--muted);font-size:12.5px">keine – über „+ Foto" ein Bild hinzufügen</span>';
+  if(arr.length){ var _gi=document.getElementById('fe_etikGrossImg');
+    if(_gi){ _gi.onload=function(){ fgEtikGrossReset(); }; _gi.src=arr[g.idx]; if(_gi.complete) fgEtikGrossReset(); }
+    fgEtikGrossBind(); }
   try{ fgWirkFotoRender(); }catch(e){}   /* die Lesebox neben der Wirkstoff-Tabelle mitziehen */
 }
+/* ===== 28z35: Zoom-Kasten der Angehaengte-Fotos-Karte (gleiches Muster wie fgWirkFoto*) ===== */
+function fgEtikGrossApply(){ var img=document.getElementById('fe_etikGrossImg'); if(!img) return; var s=window._fgEtikGross; img.style.transform='translate('+Math.round(s.x)+'px,'+Math.round(s.y)+'px) scale('+s.scale+')'; }
+function fgEtikGrossReset(){
+  var s=window._fgEtikGross, box=document.getElementById('fe_etikGrossBox'), img=document.getElementById('fe_etikGrossImg');
+  if(!s) return; s.x=0; s.y=0; s.scale=1; s.baseFit=1;
+  if(box&&img&&img.naturalWidth&&box.clientWidth){ var fit=Math.min(box.clientWidth/img.naturalWidth, box.clientHeight/img.naturalHeight); if(fit>0){ s.scale=fit; s.baseFit=fit; s.x=(box.clientWidth-img.naturalWidth*fit)/2; s.y=(box.clientHeight-img.naturalHeight*fit)/2; } }
+  fgEtikGrossApply();
+}
+function fgEtikGrossZoomAt(factor, cx, cy){
+  var s=window._fgEtikGross, box=document.getElementById('fe_etikGrossBox'); if(!s||!box) return;
+  var lo=(s.baseFit||0.1)*0.4, hi=(s.baseFit||1)*10;
+  var ns=Math.max(lo, Math.min(hi, s.scale*factor)); if(ns===s.scale) return;
+  var r=box.getBoundingClientRect(), px=cx-r.left, py=cy-r.top;
+  s.x = px - (px - s.x)*(ns/s.scale);
+  s.y = py - (py - s.y)*(ns/s.scale);
+  s.scale=ns; fgEtikGrossApply();
+}
+function fgEtikGrossShow(j){ var s=window._fgEtikGross=window._fgEtikGross||{idx:0,scale:1,x:0,y:0,baseFit:1}; s.idx=j; try{ fgEtikettRender(); }catch(e){} }
+function fgEtikGrossBind(){
+  var box=document.getElementById('fe_etikGrossBox'); if(!box||box._fgB) return; box._fgB=true;
+  box.addEventListener('wheel', function(e){ e.preventDefault(); fgEtikGrossZoomAt(e.deltaY<0?1.12:0.89, e.clientX, e.clientY); }, {passive:false});
+  var drag=null;
+  box.addEventListener('mousedown', function(e){ var s=window._fgEtikGross; drag={sx:e.clientX,sy:e.clientY,ox:s.x,oy:s.y}; box.style.cursor='grabbing'; e.preventDefault(); });
+  document.addEventListener('mousemove', function(e){ if(!drag) return; var s=window._fgEtikGross; s.x=drag.ox+(e.clientX-drag.sx); s.y=drag.oy+(e.clientY-drag.sy); fgEtikGrossApply(); });
+  document.addEventListener('mouseup', function(){ if(drag){ drag=null; box.style.cursor='grab'; } });
+  box.addEventListener('dblclick', function(){ try{ fgEtikettZoom(window._fgEtikGross.idx); }catch(e){} });
+}
+if(typeof window!=='undefined'){ window.fgEtikGrossShow=fgEtikGrossShow; }
 /* ===== Etikett-Lesebox NEBEN der Wirkstoff-Tabelle (Supplements, Ralph 24.07.2026) =====
    Zeigt dieselben angehängten Fotos (window._fgEdit.etikett) zoombar IM Kasten:
    Mausrad zoomt zum Cursor, Ziehen verschiebt, „Einpassen" setzt auf Kastenbreite,
@@ -16532,7 +16569,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z34";
+const APP_BUILD = "2026-07-28z35";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
