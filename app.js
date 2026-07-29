@@ -9419,8 +9419,22 @@ function zusRenderPick(){
       +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+(function(){ var _de=z.name_de||_synDe[String(z.e||"").toLowerCase()]||z.name; return (_de&&_de!==z.name)?(esc(_de)+' <span style="color:var(--muted);font-size:11px">'+esc(z.name)+'</span>'):esc(z.name); })()+(z.e?' <span style="color:var(--muted);font-size:11.5px">'+esc(z.e)+'</span>':'')+wertTxt+'</span>'
       +'<span style="display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:11.5px;color:var(--muted)"><span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'+f.label+'</span>'
       +'</label>'; };
+  /* 28z34 (Ralph P1774: "zusatzstoff nicht eingestuft. wird alles nicht angezeigt"):
+     _fgZus-Eintraege OHNE E-Nummer (frei hinzugefuegt oder von Riki gelesen) waren seit
+     dem fe_zusChosen-Wegfall (27.07.) UNSICHTBAR - die Ampel zaehlte sie, die Karte zeigte
+     sie nicht (Auswahl-Erkennung lief nur ueber die E-Nummer). Jetzt stehen sie als eigene
+     Zeilen ganz oben, mit Status und Loeschen-Knopf. */
+  var _freie=(window._fgZus||[]).map(function(z,i){ return {z:z,i:i}; }).filter(function(o){ return !o.z.e; });
+  var _freiRows=_freie.map(function(o){ var z=o.z; var f=zusFarbe(z.einst||z.einstufung);
+    var _lbl=z.nf?'nicht im Stamm \u00b7 kein Index':(((z.einst||z.einstufung))?f.label:'nicht eingestuft \u00b7 kein Index');
+    return '<div style="display:grid;grid-template-columns:12px 1fr auto 22px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);font-size:13px;background:#f1f4f8">'
+      +'<span style="width:9px;height:9px;border-radius:50%;background:'+f.dot+';flex:0 0 auto"></span>'
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(z.name||'?')+'</span>'
+      +'<span style="font-size:11px;color:#475569;white-space:nowrap;font-weight:700">'+_lbl+'</span>'
+      +'<button type="button" onclick="zusDel('+o.i+')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1;padding:0">\u2715</button></div>';
+  }).join('');
   var _st=box.scrollTop;
-  box.innerHTML=(shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":((all.length?"Keine Zusatzstoffe erfasst \u2013 im Suchfeld tippen (oder \u201ekeine\u201c anhaken).":"Stamm wird geladen\u2026")))+'</div>') + zusHintRow;
+  box.innerHTML=_freiRows+((shown.length)?shown.map(row).join(""):(_freie.length?'':'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":((all.length?"Keine Zusatzstoffe erfasst \u2013 im Suchfeld tippen (oder \u201ekeine\u201c anhaken).":"Stamm wird geladen\u2026")))+'</div>')) + zusHintRow;
   try{ box.scrollTop=_st; }catch(e){}
 }
 function zusToggle(e){
@@ -12081,7 +12095,9 @@ function feFreigabeLeiste(items, blocked){
     if(railA){ railA.innerHTML=list.map(function(it){
       var col=(_FRG_COL[it.c]||'#c3ccd4');
       var tc=(it.c==='r')?'#cf5442':(it.c==='y'?'#92400e':(it.c==='x'?'#9aa7b2':'var(--ink)'));
-      return '<div style="display:flex;align-items:center;gap:7px;padding:2.5px 0;color:'+tc+'"><span style="width:9px;height:9px;border-radius:50%;flex:0 0 auto;'+((it.c==='x')?'background:transparent;border:2px solid #c3ccd4':'background:'+col)+'"></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(it.t)+'">'+esc(it.t)+'</span></div>'; }).join(''); }
+      /* 28z34 (Ralph): WELCHE Naehrwerte fehlen / WELCHER Zusatzstoff blockiert stand nur
+         im Tooltip - jetzt als kleine Detailzeile darunter. */
+      return '<div style="display:flex;align-items:flex-start;gap:7px;padding:2.5px 0;color:'+tc+'"><span style="width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-top:3px;'+((it.c==='x')?'background:transparent;border:2px solid #c3ccd4':'background:'+col)+'"></span><span style="min-width:0">'+esc(it.t)+(it.h?'<span style="display:block;font-size:10.5px;color:var(--muted);font-weight:400;line-height:1.35">'+esc(it.h)+'</span>':'')+'</span></div>'; }).join(''); }
   }catch(e){}
   document.getElementById('frgPdot').style.cssText='width:12px;height:12px;border-radius:50%;flex:0 0 auto;background:'+(blocked?'#e0a32e':'#2e9e57')+';box-shadow:0 0 0 4px '+(blocked?'rgba(224,163,46,.18)':'rgba(46,158,87,.16)');
   document.getElementById('frgTitle').textContent=blocked?('Noch '+rot+' Punkt'+(rot>1?'e':'')+' offen'):'Bereit zur Freigabe';
@@ -16516,7 +16532,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z33";
+const APP_BUILD = "2026-07-28z34";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
