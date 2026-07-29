@@ -749,6 +749,7 @@ async function loadProfil(){
   renderProfilMass();
   try{ pushBoxRender(); }catch(e){}   /* 28z24 */
   try{ hhProfilRender(); }catch(e){}   /* 28z29 */
+  try{ blProfilRender(); }catch(e){}   /* Etappe 2: Bundesland (freiwillig) */
   loadZyklus();
   pfTab('daten');
 }
@@ -4683,6 +4684,7 @@ function dashEnterpriseHtml(d){
   var gateSum=num(gate.summe), gruen=(gateSum===0);
   var waLst=Array.isArray(gate.waechter)?gate.waechter:[];
   var stand=''; try{ stand=(new Date()).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }catch(e){}
+  try{ window._entVerlauf = d.riki_verlauf; window._entNutzerGesamt = num(u.gesamt); }catch(e){}  /* Etappe 2: fuer Limit-Linie + Karte */
   var budget=Number(ri.monatslimit_usd||50), verbr=Number(ri.monat_usd||0);
   var _j=new Date(), _t=_j.getDate(), _dim=new Date(_j.getFullYear(),_j.getMonth()+1,0).getDate();
   var prog=(_t>0?verbr/_t*_dim:0), progOk=prog<=budget;
@@ -4723,11 +4725,12 @@ function dashEnterpriseHtml(d){
   if(num(sc.wartet_pruefung)>0) aufg+=row('#fab219','!','Scans pr\u00fcfen',num(sc.wartet_pruefung),"fgTab('zuverif')");
   if(!aufg) aufg=row('#0ca30c','\u2713','Nichts wartet auf dich \u2014 alles gr\u00fcn','');
   aufg+=row('#898781','\u00b7','Stand',stand);
-  /* Karten-Platzhalter (Etappe 2, ehrlich) */
-  var karte=h3('Nutzer nach Region','Deutschland \u00b7 Welt folgt')
-    +'<div style="border:1px dashed #c3c2b7;border-radius:8px;padding:18px 12px;text-align:center;color:#898781;font-size:12px;line-height:1.55">'
+  /* Etappe 2 (Ralph-Entscheid 29.07. abends): Kachel-Karte aus der FREIWILLIGEN
+     Bundesland-Angabe im Profil. Anonyme Zaehlung (cb_bundesland_zaehlung), laedt nach. */
+  var karte=h3('Nutzer nach Region','freiwillig \u00b7 anonym')
+    +'<div id="entKarteBox"><div style="border:1px dashed #c3c2b7;border-radius:8px;padding:18px 12px;text-align:center;color:#898781;font-size:12px;line-height:1.55">'
     +'<div style="font-size:22px;font-weight:700;color:var(--ink,#0b0b0b)">'+fmt(num(u.gesamt))+'</div>Nutzer gesamt<br><br>'
-    +'Die Karte kommt mit der anonymen Bundesland-Z\u00e4hlung (Etappe 2) \u2014 wir zeigen keine erfundenen Punkte.</div>';
+    +'Z\u00e4hlung l\u00e4dt \u2026 gezeigt wird nur die anonyme Zahl je Bundesland \u2014 keine erfundenen Punkte.</div></div>';
   return '<div style="background:var(--bg,#f9f9f7);margin:-4px;padding:4px">'
     +'<div style="display:flex;align-items:center;gap:10px;margin:2px 6px 10px"><h1 style="font-size:19px;font-weight:800;margin:0;color:var(--ink,#0b0b0b)">Dashboard</h1><span style="font-size:12px;color:#898781">Live aus der Datenbank \u00b7 '+stand+' Uhr</span>'
     +'<button onclick="loadDashboard()" style="margin-left:auto;background:var(--card,#fff);border:1px solid rgba(11,11,11,0.14);border-radius:8px;padding:7px 12px;font-weight:700;font-size:12px;color:var(--ink,#0b0b0b);cursor:pointer">\u21bb Aktualisieren</button></div>'
@@ -4745,6 +4748,48 @@ function dashEnterpriseHtml(d){
     +tile(4,h3('Audit','drei Pr\u00fcf-Ebenen')+'<div id="dashAuditBox"></div>')
     +tile(4,h3('Aufgaben heute','nach Dringlichkeit')+aufg)
     +'</div></div>';
+}
+/* ===== Etappe 2: Deutschland als KACHEL-Karte (anonyme Bundesland-Zaehlung) =====
+   Ralph-Entscheid: Nutzer waehlen ihr Bundesland FREIWILLIG im Profil; gespeichert wird
+   nur das Bundesland, gezeigt nur das Aggregat. Bewusst eine Kachel-Karte (tile grid map,
+   16 gleiche Felder in grober Deutschland-Anordnung): ehrlicher und sauberer als eine aus
+   dem Gedaechtnis gezeichnete Landkarte, und dataviz-konform (sequenzielle Blau-Stufen,
+   Wert direkt im Feld, Tooltip je Land). Echte Umriss-Karte spaeter, wenn gewuenscht. */
+function entKarteDE(laender, gesamtAngabe, nutzerGesamt){
+  var POS={'Schleswig-Holstein':[1,0,'SH'],'Hamburg':[2,0,'HH'],'Mecklenburg-Vorpommern':[3,0,'MV'],
+    'Bremen':[0,1,'HB'],'Niedersachsen':[1,1,'NI'],'Brandenburg':[3,1,'BB'],'Berlin':[4,1,'BE'],
+    'Nordrhein-Westfalen':[0,2,'NW'],'Sachsen-Anhalt':[2,2,'ST'],'Sachsen':[3,2,'SN'],
+    'Rheinland-Pfalz':[0,3,'RP'],'Hessen':[1,3,'HE'],'Th\u00fcringen':[2,3,'TH'],
+    'Saarland':[0,4,'SL'],'Baden-W\u00fcrttemberg':[1,4,'BW'],'Bayern':[2,4,'BY']};
+  var cnt={}; (laender||[]).forEach(function(l){ if(l&&l.land!=null) cnt[l.land]=Number(l.anzahl)||0; });
+  var max=0; Object.keys(cnt).forEach(function(k){ if(cnt[k]>max) max=cnt[k]; });
+  var Z=34, G=4, svg='';
+  Object.keys(POS).forEach(function(land){
+    var p=POS[land], n=cnt[land]||0, x=p[0]*(Z+G), y=p[1]*(Z+G);
+    var fill='#fcfcfb', stroke='#e1e0d9', ink='#898781';
+    if(n>0 && max>0){ var r=n/max;
+      fill = r>0.66 ? '#2a78d6' : (r>0.33 ? '#6da7ec' : '#b7d3f6');
+      stroke='rgba(11,11,11,0.10)';
+      ink = r>0.66 ? '#ffffff' : '#0b0b0b'; }
+    svg+='<g><title>'+esc(land)+' \u00b7 '+n+' Nutzer</title>'
+      +'<rect x="'+x+'" y="'+y+'" width="'+Z+'" height="'+Z+'" rx="4" fill="'+fill+'" stroke="'+stroke+'"/>'
+      +'<text x="'+(x+Z/2)+'" y="'+(y+(n>0?14:20))+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="'+ink+'">'+p[2]+'</text>'
+      +(n>0?'<text x="'+(x+Z/2)+'" y="'+(y+26)+'" text-anchor="middle" font-size="11" font-weight="700" fill="'+ink+'">'+n+'</text>':'')
+      +'</g>';
+  });
+  var W=5*(Z+G)-G, H=5*(Z+G)-G;
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:200px;display:block;margin:2px auto 8px" role="img" aria-label="Nutzer je Bundesland">'+svg+'</svg>'
+    +'<div style="font-size:10.5px;color:#898781;text-align:center;line-height:1.5">'+gesamtAngabe+' von '+nutzerGesamt+' Nutzern mit Angabe<br>freiwillige Profil-Angabe \u00b7 anonym gez\u00e4hlt</div>';
+}
+async function dashKarteLoad(){
+  var box=document.getElementById('entKarteBox'); if(!box) return;
+  var d=null;
+  try{ var r=await client.rpc('cb_bundesland_zaehlung'); d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } }catch(e){}
+  if(!(d&&d.ok)) return;  /* Lade-Fallback bleibt stehen - keine erfundene Karte */
+  var ges=Number(d.gesamt_mit_angabe)||0;
+  var nutzer=Number(window._entNutzerGesamt)||0;
+  if(!ges){ box.innerHTML='<div style="border:1px dashed #c3c2b7;border-radius:8px;padding:16px 12px;text-align:center;color:#898781;font-size:12px;line-height:1.55">Noch keine Angaben.<br>Die Karte f\u00fcllt sich, sobald Nutzer im Profil ihr Bundesland w\u00e4hlen (freiwillig).</div>'; return; }
+  box.innerHTML=entKarteDE(d.laender, ges, nutzer);
 }
 /* ===== Audit-Karte im Dashboard (Ralph 29.07.: "da hätte ich gerne eine anzeige im
    dashboard und stichproben zum gegenprüfen") ===== */
@@ -4765,7 +4810,14 @@ async function dashAuditLoad(){
     +zeile('🏷️','Automatisch entstandene Produkte (Autopilot/Crawl)', (Number(d.auto_produkte)||0)+' · davon auto-verifiziert '+(Number(d.auto_verifiziert)||0), false)
     +'<div id="dashAuditProbe"></div>'
   +'</div>';
-  /* Tageslimit-Linie im Kosten-Chart nachziehen, sobald bekannt (aus Riki_Config via cb_autopilot_status waere Admin-RPC; hier: fester Ralph-Wert 2,00 $ aus der Config-Historie NICHT hartkodieren -> Etappe 2 liefert den Wert in cb_audit_status). */
+  /* Etappe 2: Autopilot-Tagesdeckel als Linie im Kosten-Diagramm - der Wert kommt jetzt
+     belegt aus cb_audit_status (Riki_Config autopilot_tageslimit_usd), nichts hartkodiert.
+     Ehrliche Beschriftung: der Deckel gilt fuer den AUTOPILOT, das Diagramm zeigt alle Riki-Kosten. */
+  try{ var lim=Number(d.ap1_tageslimit); var kb=document.getElementById('entKostenBox');
+    if(kb && isFinite(lim) && lim>0 && Array.isArray(window._entVerlauf) && typeof entKostenChart==='function'){
+      kb.innerHTML=entKostenChart(window._entVerlauf, lim);
+      var lg=document.getElementById('entLimitLeg');
+      if(lg){ lg.style.display=''; lg.textContent='\u2212\u2212 Autopilot-Deckel ('+lim.toFixed(2).replace('.',',')+'\u2009$)'; } } }catch(e){}
 }
 async function dashAuditProbe(){
   var out=document.getElementById('dashAuditProbe'); if(!out) return;
@@ -4851,6 +4903,7 @@ async function loadDashboard(){
     try{ box.innerHTML=_sw+dashEnterpriseHtml(d); }
     catch(e){ try{ console.error('Enterprise-Dashboard:',e); }catch(_){} box.innerHTML=_sw+dashPortalHtml(d); }
     try{ dashAuditLoad(); }catch(e){}
+    try{ dashKarteLoad(); }catch(e){}
     try{ adminNavBadges(d); }catch(e){}
     return; }
   /* Neon Command Center – eigenes dunkles Layout, echte Zahlen aus d. */
@@ -7734,6 +7787,31 @@ function hhMiniZeile(hh){
   if(!hh) return hhBoxHtml(null);   /* ohne Haushalt: Gruenden/Beitreten bleibt sichtbar */
   return '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">\u{1F46A} Gemeinsame Liste \u00B7 <b style="color:var(--greendk,var(--k-166534))">'+esc(hh.name)+'</b>'
     +' \u00B7 <a href="#" onclick="event.preventDefault();navTo(\'profil\')" style="color:var(--muted);text-decoration:underline">verwalten im Profil</a></div>';
+}
+/* ===== Etappe 2 (Ralph 29.07.): Bundesland - FREIWILLIGE Angabe im Profil =====
+   Ralph-Entscheid: keine automatische Schaetzung, die Nutzer waehlen selbst.
+   Gespeichert wird NUR das Bundesland (Benutzer_Einstellung, generischer Weg aus 27z4)
+   - keine Adresse, kein Ort. Daraus entsteht ausschliesslich eine anonyme Zaehlung
+   (Dashboard-Kachel-Karte). Hinter Beta-Flag bundesland_karte. */
+var BUNDESLAENDER=['Baden-W\u00fcrttemberg','Bayern','Berlin','Brandenburg','Bremen','Hamburg','Hessen','Mecklenburg-Vorpommern','Niedersachsen','Nordrhein-Westfalen','Rheinland-Pfalz','Saarland','Sachsen','Sachsen-Anhalt','Schleswig-Holstein','Th\u00fcringen'];
+async function blProfilRender(){
+  var box=document.getElementById('pfBlBox'); if(!box) return;
+  if(!ME || typeof feat!=='function' || !feat('bundesland_karte')){ box.innerHTML=''; return; }
+  var cur='';
+  try{ var r=await client.rpc('cb_meine_einstellungen'); (r&&r.data||[]).forEach(function(x){ if(x.schluessel==='bundesland') cur=x.wert||''; }); }catch(e){}
+  box.innerHTML='<div style="font-weight:600;font-size:13px;margin-bottom:6px">\u{1F5FA}\uFE0F Bundesland <span style="font-weight:400;color:var(--muted)">(freiwillig)</span></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Zeigt uns, wo Root Index genutzt wird. Gespeichert wird nur das Bundesland \u2013 keine Adresse, kein Ort. Sichtbar ist nur eine anonyme Z\u00e4hlung.</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><select id="pfBundesland" onchange="blSpeichern()" style="flex:1;min-width:180px;max-width:280px;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">'
+    +'<option value="">\u2013 keine Angabe \u2013</option>'
+    +BUNDESLAENDER.map(function(b){ return '<option value="'+esc(b)+'"'+(b===cur?' selected':'')+'>'+esc(b)+'</option>'; }).join('')
+    +'</select><span id="pfBlMsg" style="font-size:12px"></span></div>';
+}
+async function blSpeichern(){
+  var el=document.getElementById('pfBundesland'), msg=document.getElementById('pfBlMsg'); if(!el) return;
+  try{ var r=await client.rpc('cb_einstellung_setzen',{p_key:'bundesland',p_wert:el.value||''});
+    var err=r&&r.error;
+    if(msg){ msg.style.color=err?'var(--k-dc2626)':'var(--k-16a34a)'; msg.textContent=err?('Fehler: '+err.message):'\u2713 gespeichert'; }
+  }catch(e){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler beim Speichern.'; } }
 }
 async function hhProfilRender(){
   const box=document.getElementById('pfHhBox'); if(!box) return;
@@ -16968,7 +17046,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-29-1954";
+const APP_BUILD = "2026-07-29-2005";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
