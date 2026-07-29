@@ -9455,7 +9455,11 @@ function zusAddNeu(){
   var found=em?ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()]:ZUSATZSTOFFE_MAP[v.toLowerCase()];
   window._fgZus=window._fgZus||[];
   if(found){ window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung}); try{ fgZusZutSync(true, found); }catch(e2){} }
-  else window._fgZus.push({e:null,name:v,einst:(_istAroma(v)?"neutral":"ungeprüft")});
+  else {
+    var _zm2=(typeof ZUTATEN_MAP!=='undefined'&&ZUTATEN_MAP)?ZUTATEN_MAP[v.toLowerCase()]:null;
+    if(_zm2 && _zm2.rating!=null){ alert('„'+v+'“ ist als ZUTAT im Stamm (Wert '+_zm2.rating+') – bitte links in der Zutaten-Karte erfassen. Als freier Zusatzstoff würde der Eintrag den Index blockieren.'); if(inp) inp.value=""; return; }
+    window._fgZus.push({e:null,name:v,einst:(_istAroma(v)?"neutral":"ungeprüft")});
+  }
   if(inp) inp.value="";
   zusSync(); zusRenderSel(); zusRenderPick();
 }
@@ -9511,7 +9515,15 @@ async function zusFromRiki(zObj){
     var dedup=(eNr||low);
     if(hasKey(eNr||"")||hasKey(low)||(found&&hasKey(String(found.e||"")))) return;   /* schon drin */
     if(found){ window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung}); try{ fgZusZutSync(true, found); }catch(e2){} }   /* 27y: Zutaten-Achse mitziehen (Prinzip 8) */
-    else window._fgZus.push({e:eNr,name:namePur,einst:(_istAroma(namePur)?"neutral":"ungeprüft"),nf:(_istAroma(namePur)?0:1)});   /* nf=1: gar nicht im Stamm gefunden – anderer Zustand als „im Stamm, aber unbewertet" */
+    else {
+      /* 28z36 (Ralphs Vanillin-Fund P1774): Ist der Name eine bewertete ZUTAT im Stamm
+         (Vanillin, Wert 3), gehoert die Substanz auf die ZUTATEN-Achse - dort bindet die
+         Referenz sie laengst. Ein freier "nicht im Stamm"-Zusatzstoff daneben waere
+         doppelt UND blockierte den Index. Also: gar nicht erst anlegen. */
+      var _zm=(typeof ZUTATEN_MAP!=='undefined'&&ZUTATEN_MAP)?ZUTATEN_MAP[low]:null;
+      if(_zm && _zm.rating!=null) return;
+      window._fgZus.push({e:eNr,name:namePur,einst:(_istAroma(namePur)?"neutral":"ungeprüft"),nf:(_istAroma(namePur)?0:1)});   /* nf=1: gar nicht im Stamm gefunden – anderer Zustand als „im Stamm, aber unbewertet" */
+    }
   });
   if(zObj.suessstoffe){ var su=document.getElementById("fe_suess"); if(su&&su.value==="nein") su.value="ja"; }
   try{ zusSync(); zusRenderSel(); zusRenderPick(); }catch(e){}
@@ -11621,12 +11633,17 @@ function fgFotoPlatzieren(){
   var grid=document.getElementById('fe_wirkGrid');
   if(!col) return;
   var special=false; try{ special=_fgIstSpecial(); }catch(e){}
+  /* 28z37 (Ralph): bei Supplements darf der Etikett-Lesekasten HOCH sein - so hoch
+     wie die Produkt-Karte links, nicht der kleine 250px-Deckel des Normal-Layouts. */
+  var fbox=document.getElementById('fe_wirkFotoBox');
   if(special){
     if(grid && col.parentNode!==grid) grid.appendChild(col);
     if(grid) grid.style.gridTemplateColumns='1fr 1fr';
+    if(fbox) fbox.style.height='clamp(320px,48vh,640px)';
   } else {
     if(mount && col.parentNode!==mount) mount.appendChild(col);
     if(grid) grid.style.gridTemplateColumns='1fr';
+    if(fbox) fbox.style.height='clamp(150px,18vh,250px)';   /* Normal-Layout: alter Wert (Rueckseite dehnt per CSS weiter) */
   }
   try{ fgWirkFotoRender(); }catch(e){}
 }
@@ -16569,7 +16586,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z35";
+const APP_BUILD = "2026-07-28z37";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
