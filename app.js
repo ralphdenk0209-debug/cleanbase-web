@@ -111,39 +111,41 @@ function scoreLead(d,size){
       +'<div style="font-size:10px;color:var(--muted);margin-top:4px">Salz</div>'
     +'</div>';
   }
-  const s=num(d&&d.clean_score);
-  const txt=(s!=null)?String(Math.round(s)):"–";
-  const fs=Math.round(size*(txt.length>=3?0.36:0.44));
-  const col=(s!=null)?farbeText(d.bewertung):"var(--k-57534e)";
-  /* Reihenfolge WIE IN DER DETAILANSICHT - sonst sucht der Nutzer den Balken,
-     den er gerade gesehen hat, an der falschen Stelle wieder. */
-  const ax=[
-    ["Zutaten",      num(d&&d.p_zutaten),      30, ACHS_FARBE.zutaten],
-    ["Zusatzstoffe", num(d&&d.p_zusatzstoffe), 15, ACHS_FARBE.zusatz],
-    ["Verarbeitung", num(d&&d.p_nova),         15, ACHS_FARBE.nova],
-    ["Nährwert",     num(d&&d.p_naehrwert),    20, ACHS_FARBE.naehr]
-  ].map(function(r){
-    const a=(r[1]==null)?null:Math.max(0,Math.min(1,r[1]/r[2]));
-    return {n:r[0], a:a, f:r[3]};
-  });
-  const titel=ax.map(function(r){ return r.n+": "+(r.a==null?"keine Angabe":Math.round(r.a*100)+" %"); }).join(" · ");
-  /* WCAG 1.4.1: Farbe darf NICHT das einzige Unterscheidungsmerkmal sein.
-     Die LAENGE traegt die Information. Wer die Farben nicht auseinanderhaelt,
-     sieht immer noch, welcher Balken kurz ist. */
-  /* Die Balken wachsen mit: bei 62 px sind sie 13 breit, bei 96 px (Detailansicht) 20.
-     Feste 13 px saehen neben einer 42-px-Zahl verloren aus. */
-  const bw=Math.max(9, Math.round(size/4.8));
-  const bh=Math.max(4, Math.round(size/12));
-  const striche=ax.map(function(r){
-    const pct=(r.a==null)?0:Math.round(r.a*100);
-    return '<span class="scBar" style="width:'+bw+'px;height:'+bh+'px;border-radius:2px;background:'+ACHS_FARBE.leer+';overflow:hidden;display:inline-block">'
-         +   '<i style="display:block;height:100%;width:'+pct+'%;background:'+r.f+';border-radius:2px"></i>'
-         + '</span>';
-  }).join("");
-  return '<div class="scLead" style="flex:0 0 '+size+'px;width:'+size+'px;text-align:center" title="'+esc(titel)+'">'
-       +   '<div class="scNum" style="font-size:'+fs+'px;line-height:1;font-weight:800;color:'+col+'">'+txt+'</div>'
-       +   '<div class="scAx" style="display:flex;gap:2px;justify-content:center;margin-top:5px">'+striche+'</div>'
-       + '</div>';
+  /* 28z20 (Ralph: "die produktkarten haben immer noch den alten index, hier sollte auch
+     der flux sein"): Zahl+Achsen-Striche -> Mini-Fluxkompensator. GLEICHE Geometrie wie
+     pkFlux auf der Detailkarte (Bahnen/Ring/Kappen), aber STATISCH gezeichnet - eine
+     Listen-Seite malt hunderte Kacheln, Animations-Timer je Kachel waeren Verschwendung. */
+  return fluxMini(d, size);
+}
+function fluxMini(d, size){
+  size = size || 62;
+  const s = num(d && d.clean_score);
+  const col = (s != null) ? farbeText(d.bewertung) : "var(--k-57534e)";
+  const A = [
+    { n:"Zutaten",      v:num(d && d.p_zutaten),      max:30, f:"#16a34a" },
+    { n:"Zusatzstoffe", v:num(d && d.p_zusatzstoffe), max:15, f:"#3987e5" },
+    { n:"Verarbeitung", v:num(d && d.p_nova),         max:15, f:"#7c6fe0" },
+    { n:"Nährwert",     v:(num(d && d.p_naehrwert) != null ? num(d && d.p_naehrwert) * 2 : null), max:40, f:"#d97706" }
+  ].map(function(a){ a.pct = (a.v == null) ? null : Math.max(0, Math.min(1, a.v / a.max)); return a; });
+  const titel = A.map(function(a){ return a.n + ": " + (a.pct == null ? "keine Angabe" : Math.round(a.pct * 100) + " %"); }).join(" · ");
+  const bahn = ["M26 34 H74 L106 64", "M274 34 H226 L194 64", "M26 142 H74 L106 112", "M274 142 H226 L194 112"];
+  const kap = [[26,34],[274,34],[26,142],[274,142]];
+  const L = 92;
+  const w = Math.round(size * 1.18);   /* Flux ist breiter als hoch - etwas mehr Platz als die alte Zahl-Spalte */
+  const txt = (s != null) ? String(Math.round(s)) : "–";
+  let svg = '<svg viewBox="0 0 300 176" style="width:' + w + 'px;display:block;margin:0 auto" role="img" aria-label="Index ' + txt + '">'
+    + '<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="10">'
+    + bahn.map(function(dd){ return '<path d="' + dd + '" stroke="rgba(120,120,120,.16)"/>'; }).join('')
+    + A.map(function(a, i){
+        if (a.pct == null) return '<path d="' + bahn[i] + '" stroke="rgba(120,120,120,.28)"/>';
+        return '<path d="' + bahn[i] + '" stroke="' + a.f + '" stroke-dasharray="' + L + '" stroke-dashoffset="' + (L * (1 - a.pct)).toFixed(1) + '"/>';
+      }).join('')
+    + '</g>'
+    + A.map(function(a, i){ return '<circle cx="' + kap[i][0] + '" cy="' + kap[i][1] + '" r="8" fill="' + (a.pct == null ? "#9aa7a0" : a.f) + '"/>'; }).join('')
+    + '<circle cx="150" cy="88" r="42" fill="none" stroke="' + (s == null ? "#9aa7a0" : col) + '" stroke-width="6"/>'
+    + '<text x="150" y="104" text-anchor="middle" style="font-size:46px;font-weight:800" fill="' + col + '">' + txt + '</text>'
+    + '</svg>';
+  return '<div class="scLead" style="flex:0 0 ' + w + 'px;width:' + w + 'px;text-align:center" title="' + esc(titel) + '">' + svg + '</div>';
 }
 function donut(score,col,size){
   size=size||62;
@@ -1253,8 +1255,11 @@ function render(){
     grid.innerHTML=katKachelnHtml();
     return;
   }
+  /* 28z20 (Ralph: in der Kategorie-Ansicht fand die Suche nur die Kategorie - "alnatura"
+     in Fleisch & Fisch = 0 Treffer): SOBALD gesucht wird, gilt die Suche fuer ALLE
+     Produkte; die Kategorie filtert nur die stoeberende Ansicht ohne Suchbegriff. */
   let list=ALL.filter(d=>{
-    if(kat && d.kategorie!==kat)return false;
+    if(kat && !q && d.kategorie!==kat)return false;
     if(q && !_prodMatch(d,q))return false;
     return true;
   });
@@ -1272,7 +1277,8 @@ function render(){
   // Ohne Suche (Kategorie-Ansicht) bleibt es beim Score.
   if(q) list.sort((a,b)=> (_relevanz(b,q)-_relevanz(a,q)) || ((b.clean_score??-1)-(a.clean_score??-1)));
   else  list.sort((a,b)=> (b.clean_score??-1)-(a.clean_score??-1));
-  if(kat) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,var(--k-166534));font-weight:600">‹ Kategorien</span> · '+esc(kat)+' · '+list.length+' Produkt(e)';
+  if(kat && q) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,var(--k-166534));font-weight:600">‹ Kategorien</span> · Suche in <b>allen</b> Produkten · '+list.length+' Produkt(e)';
+  else if(kat) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,var(--k-166534));font-weight:600">‹ Kategorien</span> · '+esc(kat)+' · '+list.length+' Produkt(e)';
   else document.getElementById("stats").textContent=list.length+" Produkt(e)";
   grid.innerHTML="";
   list.forEach((d,i)=>{
@@ -5944,7 +5950,6 @@ async function renderStart(){
   dash.innerHTML=
     '<div style="display:flex;align-items:baseline;gap:8px;margin:2px 2px 12px"><span style="font-weight:600;font-size:16px">Hallo'+(vorname?(' '+esc(vorname)):"")+'</span><span style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</span>'+statusBadge+'</div>'
     +startKennzahlen(sum, prof)
-    +'<div id="wasserWidget"></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
     +riGlowTile('produkte','search','Produkte','suchen &amp; scannen','green','barcode','startProdScan()')
     +riGlowTile('rezepte','bowl','Rezepte','finden &amp; kochen','amber')
@@ -5953,6 +5958,7 @@ async function renderStart(){
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+riGlowTile('zyklus','heart','Zyklus &amp; Nährstoffe','B6, Magnesium &amp; Co.','berry')+riGlowTile('darm','leaf','Darmgesundheit','Basics &amp; mehr','terra')+'</div>'
     +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px">'+riGlowTile('einkauf','cart','Einkaufsliste','sammeln &amp; abhaken','teal')+'</div>'
+    +'<div id="wasserWidget"></div>'   /* 28z21: Wasser unter die Einkaufsliste (Ralph) */
     +schritteHtml
     +unterstuetzenHtml();
   if(ME&&ME.is_premium){ renderSchritte(); renderSchlaf(); }
@@ -14779,31 +14785,34 @@ async function wasserWidgetLoad(){
   wasserWidgetRender();
 }
 function wasserWidgetRender(){
+  /* 28z21 (Ralph): Wasser-Karte war eine weisse Insel zwischen den dunklen Glow-Kacheln.
+     Jetzt derselbe Bento-Stil wie riGlowTile - in BLAU (Wasser). Position: nach der Einkaufsliste. */
   var el=document.getElementById("wasserWidget"); if(!el) return;
   var h=window._wasserH||{};
-  var card='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)';
-  if(h._err){ el.innerHTML='<div style="'+card+';color:var(--muted);font-size:13px">💧 Wasser: '+esc(h._err)+'</div>'; return; }
-  var head='<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-weight:700;font-size:16px">💧 Wasser heute</span>'
-    +'<span style="margin-left:auto;font-weight:750;font-size:20px;color:#2563eb">'+_wLiter(h.ml)+'</span></div>';
+  var card='position:relative;overflow:hidden;border-radius:16px;padding:14px 16px;margin-bottom:12px;background:radial-gradient(120% 120% at 22% 12%, #143a63 0%, #0b1420 62%);box-shadow:0 8px 22px rgba(15,25,40,.25)';
+  var glow='<div style="position:absolute;top:2px;left:2px;width:80px;height:80px;background:radial-gradient(circle,#5ab6ff99 0%,transparent 70%);filter:blur(7px)"></div>';
+  var head='<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;position:relative;z-index:2"><span style="font-weight:700;font-size:14.5px;color:#ffffff;filter:drop-shadow(0 0 6px #5ab6ff88)">💧 Wasser heute</span>'
+    +'<span style="margin-left:auto;font-weight:800;font-size:20px;color:#7cc4ff">'+_wLiter(h.ml)+'</span></div>';
+  if(h._err){ el.innerHTML='<div style="'+card+'">'+glow+head+'<div style="position:relative;z-index:2;color:rgba(255,255,255,.6);font-size:13px">'+esc(h._err)+'</div></div>'; return; }
   if(!h.wasser_id){
-    el.innerHTML='<div style="'+card+'">'+head
-      +'<div style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:10px">Wähle einmal im Profil dein Wasser – dann zählen seine Mineralstoffe (z. B. Calcium, Magnesium) automatisch mit.</div>'
-      +'<button onclick="navTo(\'profil\')" style="padding:10px 14px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer">Wasser im Profil wählen</button></div>';
+    el.innerHTML='<div style="'+card+'">'+glow+head
+      +'<div style="position:relative;z-index:2;font-size:12.5px;color:rgba(255,255,255,.6);line-height:1.5;margin-bottom:10px">Wähle einmal im Profil dein Wasser – dann zählen seine Mineralstoffe (z. B. Calcium, Magnesium) automatisch mit.</div>'
+      +'<button onclick="navTo(\'profil\')" style="position:relative;z-index:2;padding:10px 14px;border:0;border-radius:10px;background:#5ab6ff;color:#0b1420;font-weight:700;cursor:pointer">Wasser im Profil wählen</button></div>';
     return;
   }
   var glaeser=h.glaeser||0, glas=h.glas_ml||500;
   var cnt=(glaeser===1)?'1 Glas':(glaeser+' Gläser');
   var chips=[200,300,500].map(function(ml){
-    return '<button onclick="wasserAdd('+ml+')" style="padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer">+ '+_wLiter(ml)+'</button>';
+    return '<button onclick="wasserAdd('+ml+')" style="padding:8px 12px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.08);color:#ffffff;font-size:13px;cursor:pointer">+ '+_wLiter(ml)+'</button>';
   }).join("");
-  el.innerHTML='<div style="'+card+'">'+head
-    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">'+esc(h.name||"")+' · '+cnt+' heute</div>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-    +'<button onclick="wasserAdd(null)" style="padding:11px 18px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-weight:700;font-size:15px;cursor:pointer">+ Glas ('+_wLiter(glas)+')</button>'
+  el.innerHTML='<div style="'+card+'">'+glow+head
+    +'<div style="position:relative;z-index:2;font-size:12px;color:rgba(255,255,255,.6);margin-bottom:10px">'+esc(h.name||"")+' · '+cnt+' heute</div>'
+    +'<div style="position:relative;z-index:2;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    +'<button onclick="wasserAdd(null)" style="padding:10px 16px;border:0;border-radius:12px;background:#5ab6ff;color:#0b1420;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 0 14px #5ab6ff55">+ Glas ('+_wLiter(glas)+')</button>'
     +chips
-    +(glaeser>0?'<button onclick="wasserUndo()" title="Letztes Glas zurücknehmen" style="margin-left:auto;padding:8px 10px;border:0;background:transparent;color:var(--muted);font-size:13px;cursor:pointer">↩︎ rückgängig</button>':'')
+    +(glaeser>0?'<button onclick="wasserUndo()" title="Letztes Glas zurücknehmen" style="margin-left:auto;padding:8px 10px;border:0;background:transparent;color:rgba(255,255,255,.55);font-size:13px;cursor:pointer">↩︎ rückgängig</button>':'')
     +'</div>'
-    +'<div id="wasserMsg" style="font-size:12px;color:var(--k-dc2626);margin-top:8px"></div></div>';
+    +'<div id="wasserMsg" style="position:relative;z-index:2;font-size:12px;color:#ffb4a8;margin-top:8px"></div></div>';
 }
 async function wasserAdd(ml){
   try{ var r=await client.rpc("cb_wasser_log_add",{p_ml:(ml||null),p_datum:tbToday()}); if(r&&r.error) throw new Error(r.error.message); }
@@ -16294,7 +16303,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z19";
+const APP_BUILD = "2026-07-28z21";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
