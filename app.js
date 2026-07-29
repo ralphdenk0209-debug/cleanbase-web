@@ -6268,11 +6268,12 @@ function scanFullClose(){
   window._prodScanMsgId=null;
 }
 function bnActive(m){
-  /* "bntraining" gibt es in der Leiste nicht mehr - Training liegt im Menue.
-     Wer dort ist, sieht deshalb das Menue als aktiv (der Fallback unten). */
-  const ids=['bnstart','bnprodukte','bntagebuch','bnmehr'];
-  const map={start:'bnstart',produkte:'bnprodukte',tagebuch:'bntagebuch'};
+  /* 28z22 (Ralph): Start ist aus der Leiste raus (Logo-Klick fuehrt hin), Einkauf ist drin.
+     Auf der Startseite leuchtet deshalb KEIN Leisten-Punkt - das ist gewollt. */
+  const ids=['bnprodukte','bneinkauf','bntagebuch','bnmehr'];
+  const map={produkte:'bnprodukte',einkauf:'bneinkauf',tagebuch:'bntagebuch'};
   ids.forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active');});
+  if(m==='start') return;
   const b=document.getElementById(map[m]||'bnmehr'); if(b) b.classList.add('active');
 }
 function toggleMehr(){ const s=document.getElementById('mehrSheet'); if(!s) return; if(s.classList.contains('open')){ closeMehr(); } else { buildMehr(); s.classList.add('open'); } }
@@ -16303,7 +16304,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z21";
+const APP_BUILD = "2026-07-28z22";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
