@@ -1228,6 +1228,33 @@ function besteAlternativen(d, max){
   cands.sort(function(x, y){ return num(y.clean_score) - num(x.clean_score); });
   return cands.slice(0, max);
 }
+/* ===== #33 (29.07.2026, Ralph-Go): BEGRUENDUNGS-ZEILE je Alternative =====
+   "z. B. unverarbeitet statt gepoekelt - nur wo belegbar" (Kuechentisch-Fall Schinken->Tatar).
+   Jede Begruendung wird aus ECHTEN Feldern des Produktpaars abgeleitet (Zutaten-Text,
+   NOVA-Punkte, Zusatzstoff-Text, Zucker/Salz je 100 g). Greift keine Regel, gibt es
+   KEINE Zeile - lieber keine Begruendung als eine erfundene (§1). Max. 2 Gruende. */
+function altGrund(d, a){
+  try{
+    var gruende = [];
+    var dz = String((d && d.zutaten) || ''), az = String((a && a.zutaten) || '');
+    /* 1) Poekel-Fall: das schwache Produkt ist gepoekelt, die Alternative nicht. */
+    if(/pökel|nitrit/i.test(dz) && az && !/pökel|nitrit/i.test(az)) gruende.push('ohne Pökelsalz');
+    /* 2) Verarbeitungsgrad: NOVA-Punkte (0-15, mehr = weniger verarbeitet). */
+    var dn = num(d && d.p_nova), an = num(a && a.p_nova);
+    if(gruende.length < 2 && dn != null && an != null && an - dn >= 4) gruende.push('weniger verarbeitet');
+    /* 3) Zusatzstoffe: das schwache Produkt deklariert welche, die Alternative keine. */
+    var dzs = String((d && d.zusatz) || '').trim(), azs = String((a && a.zusatz) || '').trim();
+    var ohneZs = function(t){ return !t || /^keine/i.test(t); };
+    if(gruende.length < 2 && !ohneZs(dzs) && ohneZs(azs)) gruende.push('ohne deklarierte Zusatzstoffe');
+    /* 4) Zucker je 100: mindestens halbiert und spuerbar (ab 5 g). */
+    var dzu = num(d && d.m_zucker), azu = num(a && a.m_zucker);
+    if(gruende.length < 2 && dzu != null && azu != null && dzu >= 5 && azu <= dzu / 2) gruende.push('Zucker ' + azu + ' statt ' + dzu + ' g');
+    /* 5) Salz je 100: mindestens halbiert und spuerbar (ab 1,5 g). */
+    var dsa = num(d && d.m_salz), asa = num(a && a.m_salz);
+    if(gruende.length < 2 && dsa != null && asa != null && dsa >= 1.5 && asa <= dsa / 2) gruende.push('Salz ' + asa + ' statt ' + dsa + ' g');
+    return gruende.slice(0, 2).join(' · ');
+  }catch(e){ return ''; }
+}
 function altSektion(d){
   /* 28z16: kuratierter Tausch-Tipp (Ralphs Kuechentisch-Fall Schinken->Tatar) steht VOR der
      Algorithmus-Reihe - gelebtes Wissen schlaegt Rechnung. Nur bestaetigte Tipps (cb_tausch_tipps). */
@@ -1239,7 +1266,7 @@ function altSektion(d){
   return '<div style="margin-top:14px">'
     + '<div style="font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--greendk,var(--k-166534));display:flex;align-items:center;gap:6px">🌿 Bessere Alternativen in dieser Kategorie</div>'
     + (tp ? prodRef(tp.id, { name:tp.name, marke:tp.marke, label:'💡 Tausch-Tipp der Redaktion', delta:(s!=null&&num(tp.clean_score)!=null?num(tp.clean_score)-s:null), note:(tt.begruendung||'') }) : '')
-    + alts.map(function(a){ return prodRef(a.id, { name:a.name, marke:a.marke, delta:(s!=null?num(a.clean_score) - s:null) }); }).join('')
+    + alts.map(function(a){ return prodRef(a.id, { name:a.name, marke:a.marke, delta:(s!=null?num(a.clean_score) - s:null), note:altGrund(d, a) }); }).join('')
     + '<div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45">Besser heißt hier nur eines: höherer Root Index in derselben Kategorie. Keine Werbung, keine bezahlten Plätze.</div>'
     + '</div>';
 }
@@ -16941,7 +16968,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-29-1827";
+const APP_BUILD = "2026-07-29-1954";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
