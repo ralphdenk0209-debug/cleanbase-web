@@ -11443,18 +11443,24 @@ function fgEtikettRender(){
   /* 28z38 (Ralph): hoeherer Kasten + Werkzeugzeile wie an der Referenzkarte; Einpassen
      laeuft jetzt robust ueber img.decode()/rAF - vorher rechnete es teils vor dem
      Dekodieren und zeigte eine leere Bildecke ("bei klick passiert nichts"). */
+  /* 2026-07-29-1259 (Ralphs Screenshot): #fe_etikettGrid ist im HTML eine FLEX-ZEILE
+     (Erbe der alten Mini-Kacheln) - meine Bloecke standen deshalb NEBENEINANDER, der
+     Zoom-Kasten wurde zum duennen Strich. Fix: Container per JS auf Block schalten
+     (nur Anzeige, kein anderer Code haengt am Flex). Reihenfolge neu (Ralph):
+     Mini-Bilder OBEN, Werkzeuge, Zoom-Kasten darunter - und noch ein Stueck hoeher. */
+  box.style.display='block';
   box.innerHTML = arr.length
-    ? ('<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
+    ? ('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+arr.map(function(s,j){ var on=(j===g.idx);
+        return '<img src="'+s+'" onclick="fgEtikGrossShow('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = unten groß zeigen · Rechtsklick = Riki-Menü" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:2px solid '+(on?'var(--k-16a34a)':'var(--line)')+';cursor:pointer'+(on?'':';opacity:.8')+'">'; }).join('')+'</div>'
+      +'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
         +'<button type="button" onclick="fgEtikGrossZoomBtn(1)" style="width:30px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-weight:800">＋</button>'
         +'<button type="button" onclick="fgEtikGrossZoomBtn(-1)" style="width:30px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-weight:800">－</button>'
         +'<button type="button" onclick="fgEtikGrossReset()" style="height:28px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px;font-weight:600">Einpassen</button>'
         +'<span style="margin-left:auto;font-size:12px;color:var(--muted)">'+(g.idx+1)+' / '+arr.length+' Foto</span>'
       +'</div>'
-      +'<div id="fe_etikGrossBox" style="position:relative;overflow:hidden;height:clamp(320px,46vh,620px);border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none" title="Rad = zoomen · Ziehen = verschieben · Doppelklick = Vollbild">'
+      +'<div id="fe_etikGrossBox" style="position:relative;overflow:hidden;height:clamp(380px,55vh,760px);border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none" title="Rad = zoomen · Ziehen = verschieben · Doppelklick = Vollbild">'
         +'<img id="fe_etikGrossImg" alt="Etikett" draggable="false" oncontextmenu="fgEtikettCtx(event,window._fgEtikGross.idx)" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none">'
       +'</div>'
-      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+arr.map(function(s,j){ var on=(j===g.idx);
-        return '<img src="'+s+'" onclick="fgEtikGrossShow('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = oben groß zeigen · Rechtsklick = Riki-Menü" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:2px solid '+(on?'var(--k-16a34a)':'var(--line)')+';cursor:pointer'+(on?'':';opacity:.8')+'">'; }).join('')+'</div>'
       +'<div style="font-size:10.5px;color:var(--muted);margin-top:4px">Kleines Bild anklicken = wechseln · Rad zoomt · Ziehen verschiebt · Doppelklick = Vollbild</div>')
     : '<span style="color:var(--muted);font-size:12.5px">keine – über „+ Foto" ein Bild hinzufügen</span>';
   if(arr.length){ var _gi=document.getElementById('fe_etikGrossImg');
@@ -16610,7 +16616,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z38";
+const APP_BUILD = "2026-07-29-1259";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
