@@ -2019,6 +2019,7 @@ function detail2(d){
       + (efPill(d.ernaehrungsform)?('<div style="margin-top:6px">'+efPill(d.ernaehrungsform)+'</div>'):'')
     + '</div>'
     + warn
+    + (d.ohne_index?'<div style="margin:12px 0 6px;padding:12px 14px;border:1px solid var(--k-e4a343,#e4a343);border-radius:12px;background:var(--k-fff7ea,#fff7ea);font-size:12.5px;line-height:1.55;color:var(--k-7a5c1e,#7a5c1e)"><b>🌱 Bewusst ohne Index.</b> Für dieses Produkt gibt es keine belegbaren Nährwerte (typisch bei frischen Sprossen/Keimlingen – weder Hersteller noch BLS/USDA führen Werte). Wir zeigen lieber keine Zahl als eine erfundene.</div>':'')
     /* 2026-07-24w: Feature-Schranken der alten Karte in detail2 uebernommen (Ralphs Fund 23.07.:
        Free/Gast sahen alles - die Sperren sassen nur im toten Code der alten Karte). pk_ringe
        sperrt NUR die Achsen-Grafik; die Index-ZAHL bleibt fuer alle sichtbar (ZdE). */
@@ -12078,6 +12079,23 @@ function feFreigabeOpen(o){
      wird weiter unsichtbar befuellt (alle IDs existieren), nur gezeigt wird es nie. */
   window._frgOpenState=false;
 }
+/* 2026-07-29-1350 (Ralph, Sprossen-Fall): "freigegeben aber nur bedingt" - Produkt
+   bewusst OHNE Index in den Katalog (Status 'Aktiv ohne Index', RPC cb_produkt_ohne_index).
+   Fuer Frischware ohne belegbare Naehrwerte; die Unbekannt-Liste laesst diese Produkte in Ruhe. */
+async function fgOhneIndexFreigeben(){
+  var id=(window._fgEdit&&window._fgEdit.id); if(!id){ alert('Kein Produkt geladen.'); return; }
+  if(!confirm('Dieses Produkt BEWUSST OHNE Index in den Katalog stellen?\n\nFuer Produkte ohne belegbare Naehrwerte (z. B. frische Sprossen/Keimlinge). Es erscheint im Katalog und beim Scannen, zeigt aber ehrlich KEINE Zahl. Die Wochenpruefung sucht dann nicht mehr nach Naehrwerten.\n\n(Rueckgaengig: Status wieder auf Entwurf setzen.)')) return;
+  try{
+    var r=await client.rpc('cb_produkt_ohne_index',{p_id:id,p_an:true});
+    var d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} }
+    if(r.error||!(d&&d.ok)) throw new Error((r.error&&r.error.message)||(d&&d.grund)||'unbekannt');
+    alert('\u2713 „Aktiv ohne Index" gesetzt - das Produkt ist im Katalog sichtbar, ohne Zahl.');
+    try{ closeP(); }catch(e){}
+    try{ if(typeof loadProduktErfassung==='function') loadProduktErfassung(); }catch(e){}
+    try{ if(typeof loadScans==='function') loadScans(); }catch(e){}
+  }catch(e){ alert('Fehler: '+((e&&e.message)||e)); }
+}
+if(typeof window!=='undefined'){ window.fgOhneIndexFreigeben=fgOhneIndexFreigeben; }
 function feFreigabeLeisteHide(){
   var p=document.getElementById('frgPanel'); if(p) p.style.transform='translateX(100%)';   /* eingeklappt lassen fürs nächste Öffnen */
   var r=document.getElementById('frgRail'); if(r) r.style.transform='translateX(0)';
@@ -12111,7 +12129,8 @@ function feFreigabeLeiste(items, blocked){
         +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#cf5442;margin-right:5px;vertical-align:middle"></i>blockiert</span>'
         +'<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:transparent;border:2px solid #c3ccd4;margin-right:5px;vertical-align:middle"></i>nicht nötig</span>'
       +'</div>'
-      +'<div style="padding:12px 16px 16px;border-top:1px solid #e2e8ef;background:#ffffff"><button id="frgGo" style="display:block;width:100%;border:0;border-radius:11px;color:#fff;font-weight:800;font-size:14px;padding:12px;cursor:pointer">✓ Speichern &amp; freigeben</button><button onclick="try{fgEditSave(false)}catch(e){}" style="display:block;width:100%;border:1px solid #e2e8ef;border-radius:11px;background:#ffffff;color:#1d3c24;font-weight:600;font-size:13px;padding:10px;cursor:pointer;margin-top:7px">💾 Nur speichern</button></div>';
+      +'<div style="padding:12px 16px 16px;border-top:1px solid #e2e8ef;background:#ffffff"><button id="frgGo" style="display:block;width:100%;border:0;border-radius:11px;color:#fff;font-weight:800;font-size:14px;padding:12px;cursor:pointer">✓ Speichern &amp; freigeben</button><button onclick="try{fgEditSave(false)}catch(e){}" style="display:block;width:100%;border:1px solid #e2e8ef;border-radius:11px;background:#ffffff;color:#1d3c24;font-weight:600;font-size:13px;padding:10px;cursor:pointer;margin-top:7px">💾 Nur speichern</button>'
+      +'<button onclick="try{fgOhneIndexFreigeben()}catch(e){}" title="Für Produkte ohne belegbare Nährwerte (z. B. frische Sprossen): sichtbar im Katalog, ehrlich ohne Zahl" style="display:block;width:100%;border:1px dashed #e0a32e;border-radius:11px;background:#fffaf0;color:#92400e;font-weight:600;font-size:12.5px;padding:9px;cursor:pointer;margin-top:7px">🌱 Ohne Index freigeben (keine belegbaren Nährwerte)</button></div>';
     document.body.appendChild(panel);
   }
   /* 28i (Ralph: „die Fahne kann weg und oben in die Leiste rechts rein"): Die Freigabe-Anzeige sitzt
@@ -16616,7 +16635,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-29-1259";
+const APP_BUILD = "2026-07-29-1350";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
