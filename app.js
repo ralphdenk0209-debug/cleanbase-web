@@ -592,8 +592,33 @@ function gateHtml(feat){
   var desc = i ? i.d : 'Diese Funktion ist in deiner Stufe nicht enthalten.';
   return '<div class="gatebox"><h3>Premium-Funktion</h3><p>'+desc+' Schalte <b>Premium</b> frei, um sie zu nutzen.</p>'+body+'<button class="authbtn" style="background:var(--k-16a34a);border-color:var(--k-16a34a)" onclick="premiumInfo()">Premium – 7 Tage gratis</button></div>';
 }
-function openLogin(){ const pw=document.getElementById("pwLogin"); if(pw) pw.style.display="none"; const cb=document.getElementById("codeBtn"); if(cb) cb.style.display=""; const box=document.getElementById("codeBox"); if(box) box.style.display="none"; const intro=document.getElementById("loginIntro"); if(intro) intro.innerHTML='Ohne Passwort: wir schicken dir einen <b>6-stelligen Code</b> an deine E-Mail.'; document.getElementById("loginOverlay").classList.add("open"); const e=document.getElementById("loginEmail"); if(e) setTimeout(()=>e.focus(),60); }
-function openAdminLogin(){ openLogin(); const pw=document.getElementById("pwLogin"); if(pw) pw.style.display=""; const intro=document.getElementById("loginIntro"); if(intro) intro.innerHTML='<b>Team-/Admin-Login</b> · mit E-Mail und Passwort. (Normale Nutzer melden sich per Code an.)'; }
+/* 28z19 (Ralph: "das anmeldefenster soll auch mit passwort gehen, weil wir das eh in den
+   App Store umstellen") - das Passwort-Feld war fertig gebaut, aber fuer normale Nutzer
+   VERSTECKT (nur der Admin-Login zeigte es). Jetzt sehen es alle; der Code-Weg bleibt. */
+function openLogin(){ const pw=document.getElementById("pwLogin"); if(pw) pw.style.display=""; const cb=document.getElementById("codeBtn"); if(cb) cb.style.display=""; const box=document.getElementById("codeBox"); if(box) box.style.display="none"; const intro=document.getElementById("loginIntro"); if(intro) intro.innerHTML='Mit <b>E-Mail und Passwort</b> anmelden – oder unten ohne Passwort per <b>6-stelligem Code</b>.'; document.getElementById("loginOverlay").classList.add("open"); const e=document.getElementById("loginEmail"); if(e) setTimeout(()=>e.focus(),60); }
+async function pwVergessen(){
+  const email=(document.getElementById("loginEmail").value||"").trim();
+  const msg=document.getElementById("loginMsg");
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte oben deine E-Mail eintragen, dann auf Passwort vergessen tippen."; return; }
+  msg.style.color="var(--k-374151)"; msg.textContent="⏳ Sende Zuruecksetz-Link…";
+  const {error}=await client.auth.resetPasswordForEmail(email,{ redirectTo: location.origin+location.pathname });
+  if(error){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+error.message; return; }
+  msg.style.color="var(--k-16a34a)";
+  msg.innerHTML="✅ Link gesendet an <b>"+esc(email)+"</b>. Nach dem Klick bist du angemeldet – neues Passwort dann unter <b>Mein Profil → Passwort</b> setzen.";
+}
+async function pwRegistrieren(){
+  const email=(document.getElementById("loginEmail").value||"").trim();
+  const pass=document.getElementById("loginPass").value||"";
+  const msg=document.getElementById("loginMsg");
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte oben E-Mail eintragen."; return; }
+  if(pass.length<6){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte ein Passwort mit mindestens 6 Zeichen eintragen, dann Konto erstellen."; return; }
+  msg.style.color="var(--k-374151)"; msg.textContent="⏳ Konto wird erstellt…";
+  const {error}=await client.auth.signUp({ email, password:pass, options:{ emailRedirectTo: location.origin+location.pathname } });
+  if(error){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+error.message; return; }
+  msg.style.color="var(--k-16a34a)";
+  msg.innerHTML="🆕 Fast geschafft: Bestätigungs-Mail an <b>"+esc(email)+"</b> gesendet. Nach dem Klick kannst du dich mit E-Mail + Passwort anmelden.";
+}
+function openAdminLogin(){ openLogin(); const intro=document.getElementById("loginIntro"); if(intro) intro.innerHTML='<b>Team-/Admin-Login</b> · mit E-Mail und Passwort.'; }
 function closeLogin(){ document.getElementById("loginOverlay").classList.remove("open"); }
 async function sendMagic(){
   const email=(document.getElementById("loginEmail").value||"").trim();
@@ -16269,7 +16294,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-28z18";
+const APP_BUILD = "2026-07-28z19";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
