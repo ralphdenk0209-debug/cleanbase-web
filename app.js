@@ -4751,6 +4751,7 @@ function dashEnterpriseHtml(d){
     +tile(4,h3('W\u00e4chter &amp; Takte','Klick \u00f6ffnet die F\u00e4lle')+waRows)
     +tile(4,h3('Audit','drei Pr\u00fcf-Ebenen')+'<div id="dashAuditBox"></div>')
     +tile(4,h3('Aufgaben heute','nach Dringlichkeit')+aufg)
+    +tile(4,h3('Supabase','Datenbank \u00b7 Speicher \u00b7 Paket')+'<div id="entSupaBox" style="font-size:12.5px;color:#898781">L\u00e4dt \u2026</div>')
     +'</div></div>';
 }
 /* Etappe 2b (Ralph: "mach eine saubere deutschlandkarte"): ECHTE Bundesland-Umrisse.
@@ -4801,6 +4802,33 @@ function entKarteDE(laender, gesamtAngabe, nutzerGesamt){
   });
   return '<svg viewBox="0 0 '+DE_KARTE.w+' '+DE_KARTE.h+'" style="width:100%;max-width:190px;display:block;margin:0 auto 8px" role="img" aria-label="Nutzer je Bundesland">'+svg+'</svg>'
     +'<div style="font-size:10.5px;color:#898781;text-align:center;line-height:1.5">'+gesamtAngabe+' von '+nutzerGesamt+' Nutzern mit Angabe \u00b7 freiwillig \u00b7 anonym gez\u00e4hlt<br>Karte: \u00a9 GeoBasis-DE / BKG (dl-de/by-2-0)</div>';
+}
+/* ===== Supabase-Status-Kachel (Ralph 30.07.: "größe, welches paket usw im dashboard") =====
+   Alles GEMESSENE Werte aus cb_supabase_status; das Paket ist ein gepflegter Config-Wert
+   (Riki_Config supabase_paket) - solange er leer ist, sagt die Kachel das ehrlich,
+   statt ein Paket zu raten. Limits erscheinen erst, wenn sie hinterlegt sind. */
+async function dashSupaLoad(){
+  var box=document.getElementById('entSupaBox'); if(!box) return;
+  var d=null;
+  try{ var r=await client.rpc('cb_supabase_status'); d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } }catch(e){}
+  if(!(d&&d.ok)){ box.innerHTML='<span style="color:#898781">Status nicht verf\u00fcgbar.</span>'; return; }
+  var mb=function(b){ b=Number(b)||0; return b>=1048576? (b/1048576>=1024? (b/1073741824).toFixed(2).replace('.',',')+'\u2009GB' : Math.round(b/1048576)+'\u2009MB') : Math.max(1,Math.round(b/1024))+'\u2009kB'; };
+  var balken=function(wert,limitMb){
+    if(!(limitMb>0)) return '';
+    var q=Math.min(1,(Number(wert)||0)/1048576/limitMb);
+    var farbe=q>=0.9?'#d03b3b':(q>=0.75?'#fab219':'#2a78d6');
+    return '<div style="height:6px;border-radius:4px;background:#e1e0d9;margin:4px 0 2px;overflow:hidden"><div style="height:100%;width:'+Math.max(2,Math.round(q*100))+'%;border-radius:4px;background:'+farbe+'"></div></div>'
+      +'<div style="font-size:10.5px;color:#898781">'+Math.round(q*100)+'\u2009% von '+(limitMb>=1024?(limitMb/1024).toFixed(0)+'\u2009GB':limitMb+'\u2009MB')+'</div>';
+  };
+  var zeile=function(t,w){ return '<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #e1e0d9;color:var(--ink,#0b0b0b)"><span style="color:#52514e">'+t+'</span><b>'+w+'</b></div>'; };
+  box.innerHTML=
+    '<div style="color:var(--ink,#0b0b0b);font-weight:700;margin-bottom:2px">'+esc(d.projekt||'')+'</div>'
+    +'<div style="font-size:11px;color:#898781;margin-bottom:6px">Postgres '+esc(String(d.pg_version||'').split(' ')[0])+'</div>'
+    +zeile('Paket', d.paket?esc(d.paket):'<span style="color:#c07a10">nicht hinterlegt</span>')
+    +zeile('Datenbank', mb(d.db_bytes))+balken(d.db_bytes, Number(d.db_limit_mb)||0)
+    +zeile('Dateispeicher', mb(d.storage_bytes)+' \u00b7 '+(Number(d.storage_dateien)||0)+' Dateien')+balken(d.storage_bytes, Number(d.storage_limit_mb)||0)
+    +zeile('Struktur', (Number(d.tabellen)||0)+' Tabellen \u00b7 '+(Number(d.views)||0)+' Sichten \u00b7 '+(Number(d.funktionen)||0)+' Funktionen')
+    +(d.paket?'':'<div style="font-size:10.5px;color:#898781;margin-top:6px">Paket einmal nennen \u2014 dann erscheinen die Limit-Balken.</div>');
 }
 async function dashKarteLoad(){
   var box=document.getElementById('entKarteBox'); if(!box) return;
@@ -4925,6 +4953,7 @@ async function loadDashboard(){
     catch(e){ try{ console.error('Enterprise-Dashboard:',e); }catch(_){} box.innerHTML=_sw+dashPortalHtml(d); }
     try{ dashAuditLoad(); }catch(e){}
     try{ dashKarteLoad(); }catch(e){}
+    try{ dashSupaLoad(); }catch(e){}
     try{ adminNavBadges(d); }catch(e){}
     return; }
   /* Neon Command Center – eigenes dunkles Layout, echte Zahlen aus d. */
@@ -17245,7 +17274,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-29-2145";
+const APP_BUILD = "2026-07-30-0616";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
