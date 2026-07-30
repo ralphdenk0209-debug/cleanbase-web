@@ -3698,21 +3698,11 @@ async function loadProduktErfassung(){
     window._peHideMarken=!!_ps.hideMarken;
   }
   if(window._peChip===undefined) window._peChip='offen';   /* 28z32: 'zuverif' ist wieder ein echter Chip */
-  var rws=window._peRows;
-  var cnt={ offen:rws.filter(peIstOffen).length,
-            alle:rws.length,
-            zuverif:rws.filter(function(p){return p.zu_verifizieren;}).length,
-            keinscore:rws.filter(function(p){return p.score==null;}).length,
-            keinquelle:rws.filter(function(p){return !p.quelle_typ;}).length,
-            keinzut:rws.filter(function(p){return !p.hat_zutaten;}).length,
-            markiert:rws.filter(function(p){return p.markiert;}).length,
-            /* Wächter-Filter (Ralph 22.07.2026): genau nach den Prüf-Automatiken filtern,
-               damit auffällige Produkte bis zur Freigabe wiederauffindbar sind. */
-            waechter:rws.filter(peHatWaechter).length,
-            naehrwerte:rws.filter(function(p){return p.naehrwerte_qa;}).length,
-            portionsfalle:rws.filter(function(p){return p.portionsfalle_qa;}).length,
-            unverif:rws.filter(function(p){return p.verifiziert!=='Ja';}).length };
-  var chip=function(k,txt,n){ return '<span class="peChip'+(window._peChip===k?' on':'')+'" data-k="'+k+'" onclick="peChip(\''+k+'\')">'+txt+' ('+n+')</span>'; };
+  /* Die Chip-Zaehlung lebt seit 30.07. in peChipRowsHtml (eine Regel, ein Ort) und
+     wird bei jedem peRender neu gerechnet. Die frueheren Konstanten cnt/chip standen
+     hier und wurden genau EINMAL beim Seitenaufbau gefuellt - genau das war der Fehler.
+     Sie sind entfernt statt auskommentiert: toter Code, der dieselben Namen vergibt,
+     ist eine geladene Falle (§1.11n-p). */
   box.innerHTML=
     /* Kopf im Mint-Verlauf wie im Entwurf */
     '<div style="background:linear-gradient(180deg,#d8efe9,#eef6f4 60%,#f4f7fa);border-radius:0 0 14px 14px;padding:14px 16px 12px;margin:-4px -4px 14px;position:relative">'
@@ -3734,25 +3724,10 @@ async function loadProduktErfassung(){
       +'<button id="peMarkenBtn" class="peBtn" onclick="peBrandBox(this)" title="Marken zum Ausblenden abwählen">🏷 Marken ▾</button>'+'<button id="peJunkBtn" class="peBtn" onclick="peHideMarkenToggle()" title="Dr. Oetker, Gustavo Gusto und Original Wagner ausblenden">🚫 Werbe-Marken</button>'
       +'<span style="flex:1"></span>'
     +'</div>'
-    /* Filter-Chips (echte Zahlen) */
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
-      +chip('offen','Zu erledigen',cnt.offen)
-      +chip('alle','Alle',cnt.alle)
-      +chip('zuverif','Zu verifizieren',cnt.zuverif)   /* 28z32: Posteingang entschlackt - die OFF-Unverifizierten wohnen jetzt hier */
-      +chip('keinscore','Ohne Index',cnt.keinscore)
-      +chip('keinquelle','Ohne Quelle',cnt.keinquelle)
-      +chip('keinzut','Ohne Zutaten',cnt.keinzut)
-      +chip('markiert','⚑ Markiert',cnt.markiert)
-    +'</div>'
-    /* Zweite Chip-Reihe: die Wächter einzeln (Ralph 22.07.2026). Rot abgesetzt, damit
-       klar ist: hier meldet eine Prüf-Automatik einen Verdacht. */
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
-      +'<span style="font-size:11px;color:#9aa7b2;font-weight:700;align-self:center;letter-spacing:.02em">WÄCHTER</span>'
-      +chip('waechter','🛡 Alle Auffälligen',cnt.waechter)
-      +chip('naehrwerte','⚠ Nährwerte',cnt.naehrwerte)
-      +chip('portionsfalle','⚠ Portionsfalle',cnt.portionsfalle)
-      +chip('unverif','Unverifiziert',cnt.unverif)
-    +'</div>'
+    /* Filter-Chips. Der INHALT kommt aus peChipRowsHtml und wird bei jedem peRender
+       neu gezeichnet - sonst stehen hier Zahlen aus dem Moment des Seitenaufbaus,
+       waehrend die Liste laengst gefiltert ist (Ralphs Fund 30.07.). */
+    +'<div id="peChipRows">'+peChipRowsHtml()+'</div>'
     +'</div>'  /* Ende Sticky-Menü: NUR Toolbar + Chips bleiben fixiert (Ralph) */
     /* Session-Leiste (Suche/Filter, Bearbeiter, Sortierung) – scrollt jetzt mit, unterhalb der Buttons */
     +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin:2px 0 12px">'
@@ -3938,9 +3913,9 @@ if(typeof window!=='undefined'){ window.peBrandBox=peBrandBox; window.peBrandTog
    Deshalb steht die Filterbedingung jetzt in EINER Funktion, die auch die
    Zaehler benutzen - mit `ohneSpalte`, damit man die eigene Spalte weiter
    auf- und zuklappen kann (Excel macht es genauso). */
-function pePasst(p, ohneSpalte){
+function pePasst(p, ohneSpalte, ohneChip){
   var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
-  var chipf=window._peChip||'alle';
+  var chipf=ohneChip ? 'alle' : (window._peChip||'alle');
   var katf=((document.getElementById('peVorKat')||{}).value||'').trim();
   if(katf && String(p.kategorie||'')!==katf) return false;
   if(window._peBrandOff && p.marke && window._peBrandOff[String(p.marke)]) return false;   /* abgewählte Marke ausblenden (Ralph 24.07.) */
@@ -3965,12 +3940,60 @@ function pePasst(p, ohneSpalte){
   if(!q) return true;
   return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')+' '+String(p.herkunft||'')+' '+String(p.grund||'')).toLowerCase().indexOf(q)>=0;
 }
-if(typeof window!=='undefined'){ window.pePasst=pePasst; }
+/* 🔴 30.07., Ralphs zweiter Fund am selben Bildschirm: "unten 9 aktiv, oben alle 1460".
+   Die Chips zaehlten ueber den GANZEN Katalog, obwohl die Kategorie auf Suessungsmittel
+   stand. Mein Fix davor hatte nur das Spalten-Menue erwischt - die Chips haben denselben
+   Fehler, eine Ebene hoeher. Genau §1.11s: ein Fix, der nur den gefundenen Fall abdeckt,
+   ist ein Pflaster.
+   Jetzt zaehlen die Chips ueber dieselbe Menge wie die Liste - nur ohne den Chip selbst,
+   sonst zeigte jeder nicht gewaehlte Chip 0 und man kaeme nie wieder heraus (das waere
+   die Einbahnstrasse aus §1.11n-nn). */
+function peChipRowsHtml(){
+  var rws=(window._peRows||[]).filter(function(p){ return pePasst(p, null, true); });
+  var cnt={ offen:rws.filter(peIstOffen).length,
+            alle:rws.length,
+            zuverif:rws.filter(function(p){return p.zu_verifizieren;}).length,
+            keinscore:rws.filter(function(p){return p.score==null;}).length,
+            keinquelle:rws.filter(function(p){return !p.quelle_typ;}).length,
+            keinzut:rws.filter(function(p){return !p.hat_zutaten;}).length,
+            markiert:rws.filter(function(p){return p.markiert;}).length,
+            waechter:rws.filter(peHatWaechter).length,
+            naehrwerte:rws.filter(function(p){return p.naehrwerte_qa;}).length,
+            portionsfalle:rws.filter(function(p){return p.portionsfalle_qa;}).length,
+            unverif:rws.filter(function(p){return p.verifiziert!=='Ja';}).length };
+  var chip=function(k,txt,n){
+    /* Ein Chip mit 0 bleibt sichtbar, wird aber blass - sonst springt die Leiste bei
+       jedem Filterwechsel um und man sucht einen Chip, der nur leer ist. */
+    return '<span class="peChip'+(window._peChip===k?' on':'')+'" data-k="'+k+'" onclick="peChip(\''+k+'\')"'
+      +(n===0&&window._peChip!==k?' style="opacity:.45"':'')+'>'+txt+' ('+n+')</span>'; };
+  var katf=((document.getElementById('peVorKat')||{}).value||'').trim();
+  return '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      +chip('offen','Zu erledigen',cnt.offen)
+      +chip('alle','Alle',cnt.alle)
+      +chip('zuverif','Zu verifizieren',cnt.zuverif)
+      +chip('keinscore','Ohne Index',cnt.keinscore)
+      +chip('keinquelle','Ohne Quelle',cnt.keinquelle)
+      +chip('keinzut','Ohne Zutaten',cnt.keinzut)
+      +chip('markiert','⚑ Markiert',cnt.markiert)
+      +(katf?'<span style="align-self:center;font-size:11.5px;color:#7b8698;margin-left:4px">gezählt in „'+esc(katf)+'"</span>':'')
+    +'</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
+      +'<span style="font-size:11px;color:#9aa7b2;font-weight:700;align-self:center;letter-spacing:.02em">WÄCHTER</span>'
+      +chip('waechter','🛡 Alle Auffälligen',cnt.waechter)
+      +chip('naehrwerte','⚠ Nährwerte',cnt.naehrwerte)
+      +chip('portionsfalle','⚠ Portionsfalle',cnt.portionsfalle)
+      +chip('unverif','Unverifiziert',cnt.unverif)
+    +'</div>';
+}
+if(typeof window!=='undefined'){ window.pePasst=pePasst; window.peChipRowsHtml=peChipRowsHtml; }
 function peRender(){
   var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
   try{ peStateSave(); }catch(e){}   /* NACH dem Guard: ohne aufgebaute Liste wuerden leere Felder den gespeicherten Zustand ueberschreiben */
   var sort=((document.getElementById('peSort')||{}).value)||'neu';
   var list=rows.filter(function(p){ return pePasst(p, null); });
+  /* Chips mitziehen: sie zaehlen dieselbe Menge wie die Liste. Vorher standen dort
+     die Zahlen vom Seitenaufbau - "Alle (1460)" ueber einer Liste mit 9 Zeilen. */
+  try{ var _cr=document.getElementById('peChipRows'); if(_cr) _cr.innerHTML=peChipRowsHtml(); }catch(e){}
   if(sort==='mark') list=list.filter(function(p){return p.markiert;});
   list.sort(function(a,b){
     if(sort==='score'){ var sa=(a.score==null?9999:a.score), sb=(b.score==null?9999:b.score); if(sa!==sb) return sa-sb; }
@@ -19191,7 +19214,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-2107";
+const APP_BUILD = "2026-07-30-2116";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
