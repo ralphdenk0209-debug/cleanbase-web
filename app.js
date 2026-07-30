@@ -2610,6 +2610,7 @@ function setMode(m){
   document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
   { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
   { var _ev=document.getElementById("einheitView"); if(_ev) _ev.style.display = m==="einheit"?"":"none"; }
+  { var _bv=document.getElementById("bioView"); if(_bv) _bv.style.display = m==="bio"?"":"none"; }
   { var _tw=document.getElementById("tauschView"); if(_tw) _tw.style.display = m==="tausch"?"":"none"; }
   { var _nv=document.getElementById("netzView"); if(_nv) _nv.style.display = m==="netz"?"":"none"; }
   { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
@@ -2628,6 +2629,7 @@ function setMode(m){
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
   if(m==="mikro"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } mikroZuordnungRender(); }
   if(m==="einheit"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } einheitRender(); }
+  if(m==="bio"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } bioKandRender(); }
   if(m==="tausch"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } tauschRender(); }
   if(m==="netz"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } netzplanRender(); }
   if(m==="todo"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } todoRender(); }
@@ -15934,6 +15936,124 @@ async function einheitSet(pid,val){
   }
 }
 if(typeof window!=='undefined'){ window.einheitRender=einheitRender; window.einheitSet=einheitSet; window.einheitLoad=einheitLoad; }
+
+/* ===== BIO-KANDIDATEN (Ralph 30.07.2026) ==============================================
+   Der Bio-Filter ist nur so gut wie die erfassten Angaben - und automatisch befuellen
+   waere derselbe Fehler wie damals bei der Bezugseinheit, wo 1547 Produkte faelschlich
+   als "belegt" markiert wurden (§1.11n-w). Deshalb: eine Liste zum BESTAETIGEN.
+
+   Zwei Gruppen, weil sie unterschiedlich verlaesslich sind:
+     "Bio" als eigenes Wort  -> verlaesslich, Sammelaktion erlaubt
+     "bio" im Wort verschmolzen -> einzeln pruefen. Hier steckte der Fehlalarm:
+       "Prebiotic Topping" enthaelt "bio" und ist kein Bio-Produkt.
+   Der Mensch entscheidet, wie sicher er ist:
+     ✓ Bio (geprueft)    -> Quelle "Etikett"      = ich habe nachgesehen
+     ≈ laut Name          -> Quelle "Annahme (Produktname)" = sichtbar unsicher, der
+                             Waechter v_bio_qa_offen fuehrt es weiter als offen
+     ✗ kein Bio / ? leeren
+   Eine sichtbare Annahme ist eine Rechenhilfe, eine versteckte ist eine Luege (§1.13f). */
+function bioKandRender(){
+  if(!(ME&&ME.is_admin)) return;
+  var v=document.getElementById("bioView"); if(!v) return;
+  v.innerHTML='<div style="max-width:1000px;margin:0 auto;padding:14px 6px 40px">'
+    +'<div style="background:var(--card,#fff);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:18px">'
+    +'<div style="font-weight:800;font-size:20px;margin:0 2px 2px">🌱 Bio bestätigen</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:0 2px 6px;line-height:1.5">'
+      +'Produkte, bei denen „Bio“ im Namen oder in der Marke steckt. '
+      +'<b>Nichts wird automatisch gesetzt</b> – der Name ist ein Hinweis, kein Beleg.<br>'
+      +'Bio ist ein <b>Merkmal und ein Filter</b>. Es gibt <b>keine Punkte</b> im Index – '
+      +'ein Siegel ist eine Zertifizierung, kein Messwert am Produkt.</div>'
+    +'<div id="bioMsg" style="font-size:12.5px;margin:8px 2px"></div>'
+    +'<div id="bioList" style="font-size:13px;color:var(--muted)">Lade …</div>'
+    +'</div></div>';
+  bioKandLoad();
+}
+async function bioKandLoad(){
+  var l=document.getElementById("bioList"); if(!l) return;
+  try{
+    var r=await client.rpc("cb_bio_kandidaten");
+    if(r.error) throw new Error(r.error.message);
+    window._bioRows=(r&&r.data)||[];
+    bioKandListRender();
+  }catch(e){
+    l.style.color="var(--k-dc2626)";
+    l.textContent="Konnte die Liste nicht laden: "+(e&&e.message?e.message:e);   /* Fehler nie verschlucken (§1.13i) */
+  }
+}
+function bioKandListRender(){
+  var l=document.getElementById("bioList"); if(!l) return;
+  var arr=window._bioRows||[];
+  if(!arr.length){ l.style.color="var(--k-16a34a)"; l.innerHTML="✓ Keine Kandidaten – kein aktives Produkt trägt „Bio“ im Namen oder in der Marke."; return; }
+  var offen=arr.filter(function(o){ return o.bio===null||o.bio===undefined; }).length;
+  var wortOffen=arr.filter(function(o){ return (o.bio===null||o.bio===undefined) && o.grund==="wort"; }).length;
+  l.style.color="var(--ink)";
+  l.innerHTML='<div style="font-size:12px;color:var(--muted);margin:2px 0 10px">'
+      +'<b>'+offen+'</b> noch offen · '+arr.length+' Kandidaten gesamt</div>'
+    +(wortOffen?('<div style="margin:0 0 12px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:12.5px;line-height:1.5">'
+      +'<b>'+wortOffen+'</b> davon tragen „Bio“ als <b>eigenes Wort</b> – das ist verlässlich genug für eine Sammelübernahme '
+      +'<b>als Annahme</b> (sichtbar gekennzeichnet, der Wächter führt sie weiter als zu prüfen).'
+      +'<button onclick="bioKandAlleAlsAnnahme()" style="margin-left:8px;padding:5px 11px;border:1px solid var(--k-b45309);border-radius:8px;background:var(--k-fff7e6);color:var(--k-b45309);font-size:12px;font-weight:700;cursor:pointer">≈ alle '+wortOffen+' als Annahme übernehmen</button>'
+      +'</div>'):'')
+    + arr.map(function(o){
+      var istAnn=/^Annahme/i.test(String(o.bio_quelle||""));
+      var stand, farbe;
+      if(o.bio===true){ stand=(istAnn?"⚠ Bio · ":"✓ Bio · ")+esc(o.bio_quelle||""); farbe=istAnn?"#b45309":"#1f7d43"; }
+      else if(o.bio===false){ stand="✗ kein Bio · "+esc(o.bio_quelle||""); farbe="#64748b"; }
+      else { stand="○ noch nicht geprüft"; farbe="#64748b"; }
+      return '<div style="display:flex;align-items:center;gap:9px;padding:8px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap">'
+        +'<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--muted);flex:0 0 58px">'+esc(o.produkt_id)+'</span>'
+        +'<span style="flex:1;min-width:170px">'+esc(o.produktname||"")
+          +(o.marke?' <span style="color:var(--muted);font-size:12px">'+esc(o.marke)+'</span>':'')
+          +(o.hinweis?'<br><span style="font-size:11.5px;color:#b45309">⚠ '+esc(o.hinweis)+'</span>':'')
+        +'</span>'
+        +'<span style="flex:0 0 auto;font-size:11.5px;color:var(--muted)">'+esc(o.kategorie||"")+'</span>'
+        +'<span style="flex:0 0 auto;font-size:11.5px;font-weight:600;color:'+farbe+';min-width:170px">'+stand+'</span>'
+        +'<span style="flex:0 0 auto;display:flex;gap:5px">'
+          +_bioBtn(o.produkt_id,"ja","Etikett","✓ Bio", o.bio===true&&!istAnn, "am Etikett geprüft")
+          +_bioBtn(o.produkt_id,"ja","Annahme (Produktname)","≈ laut Name", o.bio===true&&istAnn, "aus dem Namen abgeleitet, noch nicht geprüft")
+          +_bioBtn(o.produkt_id,"nein","Etikett","✗ kein Bio", o.bio===false, "geprüft: trägt keine Bio-Kennzeichnung")
+          +'<button onclick="bioKandSet(\''+esc(o.produkt_id)+'\',\'\',\'\')" title="zurück auf ungeprüft – löscht auch die Quelle" style="padding:4px 8px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--muted);font-size:11.5px;cursor:pointer">?</button>'
+        +'</span>'
+      +'</div>';
+    }).join("");
+}
+function _bioBtn(pid,val,quelle,lbl,aktiv,titel){
+  return '<button onclick="bioKandSet(\''+esc(pid)+'\',\''+val+'\',\''+esc(quelle)+'\')" title="'+esc(titel)+'" style="padding:4px 9px;border:1px solid '
+    +(aktiv?'var(--k-16a34a);background:var(--greenlt,#ecfdf5);color:var(--k-166534);font-weight:700'
+           :'var(--line);background:var(--card);color:var(--ink);font-weight:500')
+    +';border-radius:7px;font-size:11.5px;cursor:pointer">'+lbl+'</button>';
+}
+async function bioKandSet(pid,val,quelle){
+  var m=document.getElementById("bioMsg");
+  try{
+    var b=(val==="ja")?true:((val==="nein")?false:null);
+    var r=await client.rpc("cb_produkt_bio_setzen",{p_id:pid, p_bio:b, p_quelle:(b===null)?null:(quelle||"Etikett")});
+    if(r.error) throw new Error(r.error.message);
+    if(m){ m.style.color="var(--k-16a34a)"; m.textContent=esc(pid)+": "+(b===null?"zurück auf ungeprüft":(b?"als Bio gesetzt":"als kein Bio gesetzt")+" ("+(quelle||"Etikett")+")"); }
+    await bioKandLoad();
+  }catch(e){
+    if(m){ m.style.color="var(--k-dc2626)"; m.textContent="Fehler: "+(e&&e.message?e.message:e); }
+  }
+}
+/* Sammelaktion NUR fuer "Bio als eigenes Wort" und NUR als Annahme - die verschmolzenen
+   Faelle (dmBio, aber eben auch "Prebiotic") bleiben Handarbeit. */
+async function bioKandAlleAlsAnnahme(){
+  var arr=(window._bioRows||[]).filter(function(o){ return (o.bio===null||o.bio===undefined) && o.grund==="wort"; });
+  if(!arr.length) return;
+  if(!confirm(arr.length+" Produkte werden als Bio eingetragen – mit der sichtbaren Quelle „Annahme (Produktname)“.\n\nDas ist KEIN Etikett-Beleg: der Wächter führt sie weiter als zu prüfen, und in der App tragen sie den Zusatz „laut Produktname“.\n\nFortfahren?")) return;
+  var m=document.getElementById("bioMsg"), ok=0, bad=0;
+  for(var i=0;i<arr.length;i++){
+    try{
+      var r=await client.rpc("cb_produkt_bio_setzen",{p_id:arr[i].produkt_id, p_bio:true, p_quelle:"Annahme (Produktname)"});
+      if(r.error) throw new Error(r.error.message);
+      ok++;
+    }catch(e){ bad++; }
+    if(m){ m.style.color="var(--muted)"; m.textContent="Übernehme … "+(i+1)+" / "+arr.length; }
+  }
+  if(m){ m.style.color=bad?"var(--k-b45309)":"var(--k-16a34a)"; m.textContent=ok+" übernommen"+(bad?(", "+bad+" fehlgeschlagen"):"")+" – alle als Annahme gekennzeichnet."; }
+  await bioKandLoad();
+}
+if(typeof window!=='undefined'){ window.bioKandRender=bioKandRender; window.bioKandLoad=bioKandLoad; window.bioKandSet=bioKandSet; window.bioKandAlleAlsAnnahme=bioKandAlleAlsAnnahme; }
 function todoRender(){
   if(!(ME&&ME.is_admin)) return;
   var v=document.getElementById("todoView"); if(!v) return;
@@ -16693,7 +16813,8 @@ async function waechterOpen(){
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
       +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';rezZutatenWaecherOpenSafe()" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">🍽️ Rezept-Zutaten prüfen</button>'
       +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';adminGo(\'einheit\')" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">⚖️ g / ml offen</button>'
-      +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';adminGo(\'tausch\')" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">🔁 Tausch-Tipps</button>' 
+      +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';adminGo(\'bio\')" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">🌱 Bio bestätigen</button>'
+      +'<button type="button" onclick="document.getElementById(\'waechterOv\').style.display=\'none\';adminGo(\'tausch\')" style="padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer">🔁 Tausch-Tipps</button>'
     +'</div>' 
     +'<div id="waechterBody" style="font-size:13px;color:var(--muted)">Lade …</div>'
   +'</div>';
@@ -17661,7 +17782,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1102";
+const APP_BUILD = "2026-07-30-1113";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
