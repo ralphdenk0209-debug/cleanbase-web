@@ -183,6 +183,29 @@ function efChip(ef){
   const c=map[ef]||["var(--k-eef2f6)","var(--k-475569)"];
   return `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:${c[0]};color:${c[1]}">${esc(ef)}</span>`;
 }
+/* BIO ist ein MERKMAL, kein Punkt (Prinzip 4, Ralph-Go 30.07.2026).
+   Ein Siegel ist eine Zertifizierung, kein Messwert am Produkt - gaeben wir Punkte dafuer,
+   koennte ein Hersteller sich Note kaufen, ohne dass sich in der Packung etwas aendert.
+   Bio-Zucker bleibt Zucker. Yuka vergibt dafuer 10 %; genau das tun wir bewusst nicht.
+   Deshalb: sichtbar machen und filterbar machen - aber nirgends verrechnen.
+
+   Drei Zustaende, kein Default: true = belegt bio, false = belegt nicht bio,
+   null/undefined = wir wissen es nicht. "Unbekannt" wird NIE als "kein Bio" gezeigt -
+   das waere eine Behauptung ueber etwas, das wir nicht geprueft haben (§1.12).
+   Eine Angabe, die nur aus dem Produktnamen abgeleitet ist, traegt das sichtbar. */
+function bioAn(){ try{ return typeof feat==="function" && feat("bio_merkmal"); }catch(e){ return false; } }
+function bioPill(d){
+  if(!bioAn()) return "";                               /* Beta-Flag, §3.0 - im Zweifel nichts zeigen */
+  if(!d || d.bio!==true) return "";                     /* nur echtes Bio bekommt eine Pille */
+  var q=String(d.bio_quelle||"");
+  var ann=/^Annahme/i.test(q);
+  var t=ann?"🌱 Bio (laut Produktname)":"🌱 Bio";
+  var tip=ann
+    ? "Aus dem Produktnamen abgeleitet, noch nicht am Etikett geprüft. Bio gibt keine Punkte im Index."
+    : ("Belegt über: "+(q||"Etikett")+". Bio gibt keine Punkte im Index – es ist ein Merkmal, keine Bewertung.");
+  var bg=ann?"var(--k-fff7e6)":"var(--k-e7f4ec)", fg=ann?"var(--k-b45309)":"var(--k-1f5e34)";
+  return '<span title="'+esc(tip)+'" style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:'+bg+';color:'+fg+(ann?';border:1px dashed var(--k-b45309)':'')+'">'+t+'</span>';
+}
 function scoreBew(s){ if(s==null) return null; if(s>=90) return "Sehr gut"; if(s>=75) return "Gut"; if(s>=60) return "Mittel"; return "Schwach"; }
 /* Die alte Fassung strich Zutaten OHNE Score aus Zaehler UND Nenner. Ein Rezept, bei dem
    nur eine von sechs Zutaten bewertet war, zeigte trotzdem einen vollwertigen Score.
@@ -1341,14 +1364,36 @@ function _relevanz(p,q){
   if(_wortAnfang(m,q)||m.includes(q))return 40;    // Marke
   return 10;                                        // nur noch unscharf
 }
+/* Bio-Filter als Chip ueber der Liste. Prinzip 4 verlangt "Merkmal und Filter" seit je -
+   technisch gab es das bis 30.07.2026 nicht. Der Chip zeigt die Zahl der belegten
+   Bio-Produkte offen an; steht dort 0, ist das ein ehrlicher Zustand und keine leere Liste
+   ohne Erklaerung. Er sitzt in EINER Funktion, damit Kachel-Ansicht und Trefferliste
+   nicht auseinanderlaufen (§1.11i: eine Regel, ein Ort). */
+function bioAnzahl(){ try{ return (ALL||[]).filter(function(p){ return p&&p.bio===true; }).length; }catch(e){ return 0; } }
+function bioFilterChipHtml(){
+  if(!bioAn()) return "";                               /* Beta-Flag, §3.0 */
+  var an=!!window._prodNurBio, n=bioAnzahl();
+  return '<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px">'
+    +'<span onclick="prodBioToggle()" title="Zeigt nur Produkte, bei denen die Bio-Angabe belegt ist. Bio gibt keine Punkte im Index – es ist ein Merkmal."'
+    +' style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:999px;'
+    +(an?'background:var(--k-e7f4ec);color:var(--k-1f5e34);border:1px solid var(--k-1f5e34)':'background:var(--card);color:var(--muted);border:1px solid var(--line)')+'">'
+    +'🌱 Nur Bio'+(n?(' <span style="opacity:.7;font-weight:500">'+n+'</span>'):'')+(an?' ✕':'')+'</span>'
+    +(an?'<span style="font-size:11.5px;color:var(--muted)">Bio ist ein Merkmal – es fließt <b>nicht</b> in den Index ein.</span>':'')
+    +'</div>';
+}
+function prodBioToggle(){ window._prodNurBio=!window._prodNurBio; try{ render(); }catch(e){} }
+if(typeof window!=="undefined"){ window.prodBioToggle=prodBioToggle; window.bioFilterChipHtml=bioFilterChipHtml; window.bioPill=bioPill; }
 function render(){
   const rawQ=document.getElementById("q").value.trim();
   const q=_norm(rawQ);
   const kat=window._prodKat||"";
   const grid=document.getElementById("grid");
-  if(!q && !kat && !window._prodShowAll){
+  /* Bio-Filter (Ralph-Go 30.07.): zeigt NUR Produkte, bei denen Bio belegt ist.
+     Bewusst kein Dritt-Zustand im Filter - "unbekannt" ist kein "kein Bio". */
+  const nurBio=!!window._prodNurBio;
+  if(!q && !kat && !nurBio && !window._prodShowAll){
     document.getElementById("stats").textContent="";
-    grid.innerHTML=katKachelnHtml();
+    grid.innerHTML=bioFilterChipHtml()+katKachelnHtml();
     return;
   }
   /* 28z20 (Ralph: in der Kategorie-Ansicht fand die Suche nur die Kategorie - "alnatura"
@@ -1357,6 +1402,7 @@ function render(){
   let list=ALL.filter(d=>{
     if(kat && !q && d.kategorie!==kat)return false;
     if(q && !_prodMatch(d,q))return false;
+    if(nurBio && d.bio!==true)return false;
     return true;
   });
   /* Suche mitzaehlen - aber ERST wenn der Nutzer aufgehoert hat zu tippen (1 s),
@@ -1376,7 +1422,12 @@ function render(){
   if(kat && q) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,var(--k-166534));font-weight:600">‹ Kategorien</span> · Suche in <b>allen</b> Produkten · '+list.length+' Produkt(e)';
   else if(kat) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,var(--k-166534));font-weight:600">‹ Kategorien</span> · '+esc(kat)+' · '+list.length+' Produkt(e)';
   else document.getElementById("stats").textContent=list.length+" Produkt(e)";
-  grid.innerHTML="";
+  /* Der Filter-Chip steht IMMER da - auch in der Trefferliste, sonst kommt man aus dem
+     Bio-Filter nicht mehr heraus, ohne die Seite neu zu laden. */
+  grid.innerHTML=bioFilterChipHtml();
+  if(nurBio && !list.length){
+    grid.innerHTML+='<div style="grid-column:1/-1;padding:18px 16px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:13px;line-height:1.6">Noch kein Produkt ist als Bio <b>belegt</b> erfasst. Wir zeigen hier nur, was am Etikett oder beim Hersteller geprüft wurde – nicht, was „Bio“ im Namen trägt.</div>';
+  }
   list.forEach((d,i)=>{
     const c=document.createElement("div");c.className="card cardIn";c.onclick=()=>detail(d);
     // Gestaffeltes Einblenden: nur die ersten 12, danach waere die Verzoegerung
@@ -1387,7 +1438,7 @@ function render(){
       <div class="meta">
         <div class="name">${esc(d.name)}</div>
         <div class="sub">${subLine(d)}</div>
-        ${statusTag(d)}${efChip(d.ernaehrungsform)}
+        ${statusTag(d)}${efChip(d.ernaehrungsform)}${bioPill(d)}
       </div>`;
     grid.appendChild(c);
   });
@@ -2045,7 +2096,7 @@ function detail2(d){
        der Titel umfliesst den Knopf, die Pille steht unter der Marken-Zeile. */
     + '<div style="min-width:0"><h2 style="margin:0 0 2px">'+esc(d.name)+'</h2>'
       + '<div class="marke" style="margin:0">'+((mkLabel(d.marke)?esc(mkLabel(d.marke))+' · ':'')+esc(d.kategorie||''))+(d.unterkategorie?(' · '+esc(d.unterkategorie)):'')+'</div>'
-      + (efPill(d.ernaehrungsform)?('<div style="margin-top:6px">'+efPill(d.ernaehrungsform)+'</div>'):'')
+      + ((efPill(d.ernaehrungsform)||bioPill(d))?('<div style="margin-top:6px">'+efPill(d.ernaehrungsform)+bioPill(d)+'</div>'):'')
     + '</div>'
     + warn
     + (d.ohne_index?'<div style="margin:12px 0 6px;padding:12px 14px;border:1px solid var(--k-e4a343,#e4a343);border-radius:12px;background:var(--k-fff7ea,#fff7ea);font-size:12.5px;line-height:1.55;color:var(--k-7a5c1e,#7a5c1e)"><b>🌱 Bewusst ohne Index.</b> Für dieses Produkt gibt es keine belegbaren Nährwerte (typisch bei frischen Sprossen/Keimlingen – weder Hersteller noch BLS/USDA führen Werte). Wir zeigen lieber keine Zahl als eine erfundene.</div>':'')
@@ -4898,24 +4949,83 @@ async function dashWaechterFaelle(nr, nameEnc){
     +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="font-weight:800;font-size:17px">🛡️ '+esc(nm)+'</div><button onclick="var o=document.getElementById(\'waFaelleOv\');if(o)o.remove()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
     +'<div id="waFaelleBody" style="font-size:13px;color:var(--muted,#6b7a85);margin-top:10px">Lade Fälle …</div></div>';
   try{
-    var r=await client.rpc('cb_waechter_faelle',{p_nr:nr});
-    if(r.error) throw new Error(r.error.message);
-    var rows=r.data||[]; var b=document.getElementById('waFaelleBody'); if(!b) return;
+    /* Wächter 3 (Nährwerte) hat seit dem 30.07.2026 eine eigene, reichere Liste:
+       cb_naehrwerte_qa_faelle nennt die Regel, die WIRKLICH greift (Spalte befund
+       der View) und sagt je Fall, ob er bestätigbar ist. Vorher stand bei JEDEM
+       Fall der kcal-Text – Ralph hat vier Fälle geprüft ("die kcal passen"),
+       ausgelöst hatten n5/n6. Ein Hinweis, der nur für einen Fall stimmt, schickt
+       den Prüfer an die falsche Stelle. */
+    var rows=[];
+    if(Number(nr)===3){
+      var r3=await client.rpc('cb_naehrwerte_qa_faelle');
+      if(r3.error) throw new Error(r3.error.message);
+      rows=(r3.data||[]).map(function(x){
+        return { typ:'produkt', id:x.id, name:x.name, detail:x.befund,
+                 regeln:(x.regeln||[]), abhakbar:!!x.abhakbar };
+      });
+    } else {
+      var r=await client.rpc('cb_waechter_faelle',{p_nr:nr});
+      if(r.error) throw new Error(r.error.message);
+      rows=r.data||[];
+    }
+    var b=document.getElementById('waFaelleBody'); if(!b) return;
     if(!rows.length){ b.innerHTML='<div style="color:#1e6b42">Keine offenen Fälle – dieser Wächter ist still. ✓</div>'; return; }
     var html='<div style="margin-bottom:6px">'+rows.length+' Fall/Fälle zum Bearbeiten:</div>';
     html+=rows.map(function(x){
       var prod=(x.typ==='produkt');
       var hint = prod ? '' : ' · '+(x.typ==='zutat'?'Zutat':'Zusatzstoff')+' → im Regelwerk/Stamm bearbeiten';
-      return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line,#e3e9ec)">'
-        +'<div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--ink,#22343a)">'+esc(x.name||x.id)+'</div>'
-        +'<div style="font-size:11.5px;color:var(--muted,#6b7a85)">'+esc(x.detail||'')+hint+'</div></div>'
+      /* Bestätigen-Knöpfe: nur für die drei Regeln, die einen ZUSTAND beschreiben
+         (n1 kcal · n5 Salz · n6 Ballaststoffe). Zucker über Kohlenhydraten,
+         gesättigtes über Gesamtfett und eine Makro-Summe über 100 g sind
+         physikalisch unmöglich – die sind immer ein Datenfehler und bekommen
+         bewusst KEINEN Haken. Ein Riegel, den man wegklicken kann, ist kein Riegel. */
+      var okBtns='';
+      if(prod && x.abhakbar && (x.regeln||[]).length){
+        okBtns=(x.regeln||[]).filter(function(rg){ return WA_REGEL_OK_TEXT[rg]; }).map(function(rg){
+          return '<button onclick="waRegelOk(\''+esc(x.id)+'\',\''+esc(rg)+'\','+Number(nr)+',\''+encodeURIComponent(nm)+'\')"'
+            +' title="Fall geprüft und in Ordnung – wird mit Begründung und deinem Namen am Produkt vermerkt"'
+            +' style="flex:0 0 auto;border:1px solid #b8860b;background:#fdf6e3;color:#8a5a00;border-radius:9px;padding:7px 11px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">✓ '
+            +esc(WA_REGEL_OK_TEXT[rg])+' passt</button>';
+        }).join('');
+      }
+      var hart=(prod && x.abhakbar===false)
+        ? '<div style="font-size:11px;color:#cf5442;font-weight:700;margin-top:2px">Physikalisch unmöglich – muss korrigiert werden, nicht abgehakt.</div>' : '';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line,#e3e9ec);flex-wrap:wrap">'
+        +'<div style="flex:1 1 240px;min-width:0"><div style="font-weight:700;color:var(--ink,#22343a)">'+esc(x.name||x.id)+'</div>'
+        +'<div style="font-size:11.5px;color:var(--muted,#6b7a85)">'+esc(x.detail||'')+hint+'</div>'+hart+'</div>'
+        +okBtns
         +(prod?'<button onclick="dashOpenProdukt(\''+esc(x.id)+'\');var o=document.getElementById(\'waFaelleOv\');if(o)o.remove()" style="flex:0 0 auto;border:1px solid #107e3e;background:#eef8f1;color:#1e6b42;border-radius:9px;padding:7px 13px;font-weight:700;font-size:12.5px;cursor:pointer">Öffnen ›</button>':'')
       +'</div>';
     }).join('');
     b.style.color='var(--ink,#22343a)'; b.innerHTML=html;
   }catch(e){ var b2=document.getElementById('waFaelleBody'); if(b2){ b2.style.color='#cf5442'; b2.textContent='Konnte die Fälle nicht laden: '+((e&&e.message)||e); } }
 }
-if(typeof window!=='undefined'){ window.dashWaechterFaelle=dashWaechterFaelle; }
+/* Nur diese drei Nährwert-Regeln sind bestätigbar – sie beschreiben einen Zustand,
+   keinen Datenfehler. n2/n3/n4 fehlen hier absichtlich; die Datenbank lehnt sie
+   zusätzlich ab (cb_naehrwerte_regel_ok_setzen). Zwei Riegel, ein Grund. */
+var WA_REGEL_OK_TEXT={ n1:'kcal', n5:'Salzwert', n6:'Ballaststoffe' };
+var WA_REGEL_OK_FRAGE={
+  n1:'Warum stimmt die kcal-Zahl, obwohl sie nicht zur Atwater-Rechnung passt?\n(z. B. organische Säuren, mehrwertige Alkohole, Etikett vom Hersteller geprüft)',
+  n5:'Warum ist der Salzwert richtig?\n(z. B. Salzäquivalent aus Natriumverbindungen, Etikett geprüft)',
+  n6:'Warum stehen 0 g Ballaststoffe?\n(z. B. laut Etikett nicht angegeben, Produkt hat wirklich keine)'
+};
+/* Einen geprüften Wächter-Fall abhaken. Ohne Begründung passiert nichts:
+   ein Haken ohne Grund ist ein stiller Riegel-Verzicht. */
+async function waRegelOk(pid, regel, nr, nameEnc){
+  if(!(ME&&ME.is_admin)) return;
+  var frage=WA_REGEL_OK_FRAGE[regel]||'Begründung';
+  var grund=prompt(frage+'\n\nDie Begründung steht danach mit deinem Namen am Produkt.\nAbbrechen = nichts abhaken.','');
+  if(grund===null) return;
+  grund=String(grund||'').trim();
+  if(grund.length<5){ alert('Ohne Begründung kein Haken.\n\nEin Haken ohne Grund ist ein stiller Riegel-Verzicht – in drei Monaten weiß niemand mehr, warum der Fall in Ordnung war.'); return; }
+  try{
+    var r=await client.rpc('cb_naehrwerte_regel_ok_setzen',{p_id:pid, p_regel:regel, p_begruendung:grund, p_an:true});
+    if(r&&r.error) throw new Error(r.error.message);
+    await dashWaechterFaelle(nr, nameEnc);
+    try{ loadDashboard(); }catch(e){}
+  }catch(e){ alert('Konnte nicht abhaken: '+((e&&e.message)||e)); }
+}
+if(typeof window!=='undefined'){ window.dashWaechterFaelle=dashWaechterFaelle; window.waRegelOk=waRegelOk; }
 /* Reiter im hellen Portal-M-Dashboard umschalten (nur Anzeige, kein neuer Datenabruf). */
 function dashPortalTab(id){
   var box=document.getElementById('fgDash'); if(!box) return;
@@ -6414,14 +6524,35 @@ async function renderStart(){
   const trainHtml = saetze
     ? '<div style="font-size:14px">💪 <b>'+ueb+'</b> Übungen · <b>'+saetze+'</b> Sätze · Volumen <b>'+vol+' kg</b></div>'
     : '<div style="font-size:14px;color:var(--muted)">Heute noch kein Training erfasst.</div>';
+/* Diagonale Banderole oben rechts (Ralph-Wahl 30.07.).
+   Bewusst ohne feste Hoehe/Breite in px: der Streifen sitzt in einer quadratischen
+   Ecke, die per overflow:hidden beschnitten wird - so bleibt er auf schmalen
+   Handys im Rahmen und kann nichts ueberdecken (§1.11n-n: nichts, was ueber
+   dem liegt, womit man arbeitet). Ohne Status wird gar nichts gerendert. */
+function riBanderole(text, art){
+  if(!text) return '';
+  var bg  = (art==='premium') ? 'var(--green)'   : 'var(--greenlt)';
+  var fg  = (art==='premium') ? 'var(--auf-gruen)' : 'var(--greendk)';
+  return '<div style="position:relative;height:0;overflow:visible;z-index:2">'
+    +'<div style="position:absolute;right:-6px;top:-2px;width:132px;height:132px;overflow:hidden;pointer-events:none">'
+      +'<div style="position:absolute;transform:rotate(45deg);background:'+bg+';color:'+fg
+        +';font-size:10.5px;font-weight:800;letter-spacing:.06em;text-align:center;'
+        +'width:190px;top:26px;right:-52px;padding:5px 0;box-shadow:0 2px 6px rgba(20,40,70,.18)">'
+        +esc(text)+'</div>'
+    +'</div></div>';
+}
+if(typeof window!=='undefined'){ window.riBanderole=riBanderole; }
   const schritteHtml = (ME&&ME.is_premium) ? '<div id="schritteBox"></div><div id="schlafBox"></div>' : '';
-  let statusBadge='';
+  /* Status als Banderole: nur noch Text + Farbe, die Darstellung macht riBanderole. */
+  let statusText='', statusFarbe='';
   if(ME){ const tb=ME.trial_bis?new Date(ME.trial_bis):null; const isTrial=(ME.sub_status==='trialing')&&tb&&tb>new Date();
-    if(isTrial){ const d=Math.max(0,Math.ceil((tb-new Date())/86400000)); statusBadge='<span style="margin-left:auto;font-size:11.5px;font-weight:700;background:var(--greenlt);color:var(--greendk);padding:3px 10px;border-radius:999px;white-space:nowrap">🎁 '+d+' Tag'+(d===1?'':'e')+' Test übrig</span>'; }
-    else if(ME.is_premium){ statusBadge='<span style="margin-left:auto;font-size:11.5px;font-weight:700;background:var(--green);color:var(--auf-gruen);padding:3px 10px;border-radius:999px;white-space:nowrap">✓ Premium</span>'; }
+    if(isTrial){ const d=Math.max(0,Math.ceil((tb-new Date())/86400000)); statusText=d+' Tag'+(d===1?'':'e')+' Test'; statusFarbe='trial'; }
+    else if(ME.is_premium){ statusText='PREMIUM'; statusFarbe='premium'; }
   }
   dash.innerHTML=
-    '<div style="display:flex;align-items:baseline;gap:8px;margin:2px 2px 12px"><span style="font-weight:600;font-size:16px">Hallo'+(vorname?(' '+esc(vorname)):"")+'</span><span style="color:var(--muted);font-size:13px">'+new Date(today+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+'</span>'+statusBadge+'</div>'
+    /* Ralph 30.07.: Begruessung + Datum raus, der Status wandert als diagonale
+       Banderole in die obere rechte Ecke (riBanderole). Mehr Platz fuer die Kacheln. */
+    riBanderole(statusText, statusFarbe)
     +startKennzahlen(sum, prof)
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
     +riGlowTile('produkte','search','Produkte','suchen &amp; scannen','green','barcode','startProdScan()')
@@ -10857,6 +10988,33 @@ function feEinheitHint(){
 }
 /* Von Hand geaendert = jemand hat nachgesehen. Die Quelle wird dann zu "Etikett". */
 function feEinheitChange(){ window._fgEinheitQuelle="Etikett"; feEinheitHint(); }
+
+/* ---- Bio-Kennzeichnung im Editor (Ralph-Go 30.07.2026) -------------------------------
+   Gleiches Muster wie die Bezugseinheit: der Wert steht im Feld, die QUELLE daneben,
+   und eine Handaenderung setzt die Quelle auf "Etikett" (= "ich habe nachgesehen").
+   Wichtig: leer heisst "nicht geprueft", NICHT "kein Bio". Der Unterschied ist der
+   ganze Punkt - eine ungeprueft leere Angabe als "kein Bio" auszugeben waere eine
+   Behauptung ueber etwas, das niemand angesehen hat (§1.12).
+   Bio gibt KEINE Punkte. Der Hinweis unter dem Feld sagt das ausdruecklich, damit
+   niemand auf die Idee kommt, hier eine Bewertung zu vermuten. */
+function feBioPrefill(d){
+  var sel=document.getElementById("fe_bio"); if(!sel) return;
+  var b=(d&&(d.bio!==undefined?d.bio:d.Bio));
+  sel.value=(b===true)?"ja":((b===false)?"nein":"");
+  window._fgBioQuelle=(d&&(d.bio_quelle||d.Bio_Quelle))||"";
+  feBioHint();
+}
+function feBioHint(){
+  var h=document.getElementById("fe_bioHint"); if(!h) return;
+  var sel=document.getElementById("fe_bio"); if(!sel){ h.textContent=""; return; }
+  var q=String(window._fgBioQuelle||"");
+  if(!sel.value){ h.textContent="Leer = nicht geprüft (nicht „kein Bio“). Bio gibt keine Punkte im Index."; h.style.color="var(--muted)"; return; }
+  if(/^Annahme/i.test(q)){ h.textContent="⚠ "+q+" – bitte am Etikett prüfen. Bio gibt keine Punkte."; h.style.color="var(--k-b45309,#b45309)"; }
+  else if(q){ h.textContent="✓ "+q+" · Merkmal und Filter, keine Punkte im Index."; h.style.color="var(--k-16a34a)"; }
+  else { h.textContent="Merkmal und Filter, keine Punkte im Index."; h.style.color="var(--muted)"; }
+}
+function feBioChange(){ window._fgBioQuelle="Etikett"; feBioHint(); }
+if(typeof window!=="undefined"){ window.feBioPrefill=feBioPrefill; window.feBioHint=feBioHint; window.feBioChange=feBioChange; }
 /* Riki-Vorbelegung: liest Riki eine Naehrwert-Basis vom Etikett/der Herstellerseite,
    wird die Auswahl vorbelegt - aber NUR wenn noch nichts gesetzt ist. Ein bereits vom
    Menschen gesetzter Wert wird nie ueberschrieben. */
@@ -11533,6 +11691,8 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="font-size:13px">EAN / Barcode<input id="fe_ean" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){}" placeholder="z. B. 4001724040842" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"></label>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:-3px"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">kein EAN – als „offen“ markieren (blockiert die Freigabe dann nicht)</label>
           <label style="font-size:13px">Kategorie${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</label>
+          <label style="font-size:13px">Bio / Öko<select id="fe_bio" onchange="feBioChange()" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Das ist ein Merkmal und ein Filter – es gibt KEINE Punkte im Index (Prinzip 4). Leer lassen, wenn nicht geprüft." style="width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select></label>
+          <div id="fe_bioHint" style="font-size:11.5px;line-height:1.4;margin-top:-4px;color:var(--muted)"></div>
           <input type="hidden" id="fe_ukat" value="${esc(d.unterkategorie||"")}">
           <input type="hidden" id="fe_basis" value="${esc(d.basis||"100g")}">
           <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
@@ -11681,6 +11841,7 @@ async function openFgEditor(id, prefill, targetEl){
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
     try{ await katKonfigLoad(); }catch(e){}   /* Darstellung je Kategorie kennen, bevor die Karte gebaut wird (Ralph 25.07.) */
     try{ feEinheitPrefill(d); }catch(e){}   /* Bezugseinheit g/ml vorbelegen (Ralph 27.07.) */
+    try{ feBioPrefill(d); }catch(e){}       /* Bio-Kennzeichnung vorbelegen (Ralph 30.07.) */
     try{ feKatChange(); }catch(e){}
     try{ feUrlLblSync(); }catch(e){}
     try{ keinScoreKatsLaden().then(function(){ try{ feKatChange(); }catch(e){} }); }catch(e){}   /* 28z3: Kein-Score-Liste nachladen, Layout+Pflichten dann korrekt */
@@ -13300,6 +13461,14 @@ async function fgEditSave(alsoFreigeben){
       var _ehq=window._fgEinheitQuelle||"Etikett";
       await client.rpc("cb_produkt_mengen_einheit_setzen",{p_id:pid, p_einheit:_eh||null, p_quelle:_eh?_ehq:null});
     }catch(e){}
+    /* Bio-Kennzeichnung - eigener enger Schreibweg (Ralph 30.07.). Leere Auswahl heisst
+       ausdruecklich "nicht geprueft" und loescht auch die Quelle; sie heisst NICHT "kein Bio".
+       Bio ist ein Merkmal und ein Filter - es geht an keiner Stelle in den Score ein. */
+    try{
+      var _bioV=(g("fe_bio")&&g("fe_bio").value||"").trim();
+      var _bio=(_bioV==="ja")?true:((_bioV==="nein")?false:null);
+      await client.rpc("cb_produkt_bio_setzen",{p_id:pid, p_bio:_bio, p_quelle:(_bio===null)?null:(window._fgBioQuelle||"Etikett")});
+    }catch(e){}
     /* Vermerk „Ballaststoffe laut Etikett nicht angegeben" (Ralph 22.07.): setzt nur den Marker,
        der Wert bleibt 0 (Score unverändert) – der n6-Wächter meldet das Produkt dann nicht mehr. */
     try{
@@ -14722,7 +14891,220 @@ async function loadRezepte(){
   if(error){document.getElementById("rezeptStats").textContent="Fehler: "+error.message;return;}
   REZEPTE=data;
   try{ const {data:fv}=await client.rpc("cb_rezept_fav_liste"); window._rezFav=new Set((fv||[]).map(x=>x.rezept_id)); }catch(e){ if(!window._rezFav) window._rezFav=new Set(); }
+  try{ await rezKatLoad(); }catch(e){}
   renderRezeptList();
+}
+
+/* ===========================================================================
+   REZEPT-KATEGORIEN (Beta-Flag „rezept_kategorien", 30.07.2026)
+   Stamm + Zuordnungen lagen längst in der DB (32 Werte, 583 Zuordnungen), es
+   fehlte nur der Weg in die App. Vier Gruppen: Gericht-Art · Eigenschaften ·
+   Hauptzutat · eigene Sammlungen.
+   Filter-Logik: INNERHALB einer Gruppe ODER, ZWISCHEN den Gruppen UND.
+   („Salat oder Suppe" UND „vegan" – nicht „Salat und Suppe", das gibt es nicht.)
+   =========================================================================== */
+const REZ_KAT_GRUPPEN=[["gericht","Art des Gerichts"],["eigenschaft","Eigenschaften"],
+                       ["hauptzutat","Hauptzutat"],["sammlung","Meine Sammlungen"]];
+function rezKatAktiv(){ return typeof feat==="function" && feat("rezept_kategorien"); }
+function rezKatSelLoad(){
+  if(window._rezKatSel) return window._rezKatSel;
+  var s={gericht:[],eigenschaft:[],hauptzutat:[],sammlung:[]};
+  try{ var raw=localStorage.getItem("ri_rezkat_filter");
+    if(raw){ var o=JSON.parse(raw); REZ_KAT_GRUPPEN.forEach(function(g){ if(Array.isArray(o[g[0]])) s[g[0]]=o[g[0]]; }); }
+  }catch(e){}
+  window._rezKatSel=s; return s;
+}
+function rezKatSelSave(){ try{ localStorage.setItem("ri_rezkat_filter", JSON.stringify(rezKatSelLoad())); }catch(e){} }
+async function rezKatLoad(){
+  if(!rezKatAktiv()) return;
+  try{
+    var r=await client.rpc("cb_rezept_kategorien");
+    if(r&&r.error) throw new Error(r.error.message);
+    window._rezKat=r.data||[];
+  }catch(e){ window._rezKat=[]; }
+  rezKatBarRender();
+}
+function rezKatBarRender(){
+  var box=document.getElementById("rezKatBar"); if(!box) return;
+  if(!rezKatAktiv()||!(window._rezKat||[]).length){ box.innerHTML=""; box.style.display="none"; return; }
+  box.style.display="";
+  var sel=rezKatSelLoad(), aktiv=0;
+  REZ_KAT_GRUPPEN.forEach(function(g){ aktiv+=(sel[g[0]]||[]).length; });
+  var h="";
+  REZ_KAT_GRUPPEN.forEach(function(g){
+    var art=g[0], liste=(window._rezKat||[]).filter(function(k){ return k.art===art; });
+    /* Sammlungen zeigt die Leiste nur, wenn der Nutzer welche hat – eine leere
+       Gruppe ist eine Frage ohne Antwort. */
+    if(!liste.length) return;
+    h+='<div style="margin:0 0 7px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+esc(g[1])+'</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
+    h+=liste.map(function(k){
+      var an=(sel[art]||[]).indexOf(k.id)>=0;
+      return '<button onclick="rezKatToggle(\''+esc(k.id)+'\',\''+esc(art)+'\')"'
+        +' style="border:1px solid '+(an?'var(--green)':'var(--line)')+';background:'+(an?'var(--greenlt,#eaf5ee)':'var(--card)')
+        +';color:'+(an?'var(--greendk,#166534)':'var(--ink)')+';border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:'+(an?'700':'500')
+        +';cursor:pointer;white-space:nowrap">'+(k.symbol?esc(k.symbol)+' ':'')+esc(k.name)
+        +' <span style="opacity:.6;font-weight:500">'+(k.anzahl||0)+'</span></button>';
+    }).join("");
+    if(art==="sammlung") h+=rezKatSammlungKnopf();
+    h+='</div></div>';
+  });
+  /* Hat der Nutzer noch keine Sammlung, steht der Anlege-Knopf allein am Ende. */
+  if(!(window._rezKat||[]).some(function(k){ return k.art==="sammlung"; }))
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 7px">'+rezKatSammlungKnopf()+'</div>';
+  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px">';
+  if(aktiv) h+='<button onclick="rezKatReset()" style="border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer">✕ Alle '+aktiv+' Filter zurücksetzen</button>';
+  if(ME&&ME.is_admin) h+='<button onclick="rezKatAdminOpen()" title="Titel-Vorschläge bestätigen oder korrigieren" style="border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer">🏷 Vorschläge prüfen</button>';
+  h+='</div>';
+  box.innerHTML='<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px 8px;background:var(--card);margin:0 0 12px">'+h+'</div>';
+}
+function rezKatSammlungKnopf(){
+  if(!(ME&&ME.id)) return "";
+  return '<button onclick="rezKatSammlungNeu()" style="border:1px dashed var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:12.5px;cursor:pointer">+ neue Sammlung</button>';
+}
+function rezKatToggle(id, art){
+  var sel=rezKatSelLoad(); if(!sel[art]) sel[art]=[];
+  var i=sel[art].indexOf(id);
+  if(i>=0) sel[art].splice(i,1); else sel[art].push(id);
+  rezKatSelSave(); rezKatBarRender(); renderRezeptList();
+}
+function rezKatReset(){
+  window._rezKatSel={gericht:[],eigenschaft:[],hauptzutat:[],sammlung:[]};
+  rezKatSelSave(); rezKatBarRender(); renderRezeptList();
+}
+/* Innerhalb einer Gruppe ODER, zwischen den Gruppen UND. */
+function rezKatMatch(r){
+  if(!rezKatAktiv()) return true;
+  var sel=rezKatSelLoad();
+  var hat=(r.kategorien||[]).map(function(k){ return k.id; });
+  for(var i=0;i<REZ_KAT_GRUPPEN.length;i++){
+    var art=REZ_KAT_GRUPPEN[i][0], w=sel[art]||[];
+    if(!w.length) continue;
+    var treffer=w.some(function(id){ return hat.indexOf(id)>=0; });
+    if(!treffer) return false;
+  }
+  return true;
+}
+/* Chips auf der Rezeptkarte. Ein ungeprüfter Titel-Vorschlag bekommt einen
+   gestrichelten Rand – geprüft und ungeprüft müssen unterscheidbar sein
+   (§1.11n-m), und zwar nicht nur an der Farbe. */
+function rezKatChips(r){
+  if(!rezKatAktiv()) return "";
+  return (r.kategorien||[]).map(function(k){
+    var vor=/^Vorschlag/i.test(k.quelle||"");
+    return '<span onclick="event.stopPropagation();rezKatToggle(\''+esc(k.id)+'\',\''+esc(k.art)+'\')"'
+      +' title="'+esc(vor?("Vorschlag aus dem Titel – noch nicht geprüft. Klick filtert."):(( k.quelle||"")+" · Klick filtert"))+'"'
+      +' style="display:inline-block;margin:3px 5px 0 0;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;cursor:pointer;'
+      +(vor?'border:1px dashed var(--line);background:transparent;color:var(--muted)':'border:1px solid transparent;background:var(--k-eef2f6,#eef2f6);color:var(--k-475569,#475569)')+'">'
+      +(k.symbol?esc(k.symbol)+' ':'')+esc(k.name)+(vor?' ?':'')+'</span>';
+  }).join("");
+}
+async function rezKatSammlungNeu(){
+  if(!(ME&&ME.id)){ try{ openLogin(); }catch(e){} return; }
+  var nm=prompt('Name der neuen Sammlung\n(z. B. „Sonntagsessen“, „Sandras Favoriten“)','');
+  if(nm===null) return;
+  nm=String(nm||"").trim();
+  if(nm.length<2){ alert("Bitte einen Namen mit mindestens 2 Zeichen."); return; }
+  try{
+    var r=await client.rpc("cb_sammlung_anlegen",{p_name:nm,p_symbol:"📁"});
+    if(r&&r.error) throw new Error(r.error.message);
+    await rezKatLoad();
+  }catch(e){ alert("Konnte die Sammlung nicht anlegen: "+((e&&e.message)||e)); }
+}
+/* „+ zu Sammlung" auf der Rezeptkarte: eigene Sammlungen zum Anhaken. */
+function rezKatAddOpen(rid){
+  var r=(REZEPTE||[]).find(function(x){ return x.id===rid; }); if(!r) return;
+  var eigene=(window._rezKat||[]).filter(function(k){ return k.art==="sammlung"&&k.ist_eigene; });
+  var hat=(r.kategorien||[]).map(function(k){ return k.id; });
+  var ov=document.getElementById("rezKatAddOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="rezKatAddOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(20,32,48,.45);padding:20px";
+    ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov); }
+  var liste=eigene.length
+    ? eigene.map(function(k){
+        var an=hat.indexOf(k.id)>=0;
+        return '<label style="display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer;font-size:14px">'
+          +'<input type="checkbox" '+(an?"checked":"")+' onchange="rezKatSammlungSet(\''+esc(rid)+'\',\''+esc(k.id)+'\',this.checked)" style="width:17px;height:17px">'
+          +'<span>'+(k.symbol?esc(k.symbol)+' ':'')+esc(k.name)+'</span></label>';
+      }).join("")
+    : '<div style="color:var(--muted);font-size:13px;padding:8px 0">Du hast noch keine Sammlung. Leg eine an – sie bleibt privat und ist nur für dich sichtbar.</div>';
+  ov.innerHTML='<div style="background:var(--card);color:var(--ink);border-radius:16px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:18px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="font-weight:800;font-size:16px">📁 Zu Sammlung</div>'
+    +'<button onclick="var o=document.getElementById(\'rezKatAddOv\');if(o)o.remove()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:4px 0 6px">'+esc(r.name||"")+'</div>'
+    +liste
+    +'<div style="margin-top:12px"><button onclick="rezKatSammlungNeuAus(\''+esc(rid)+'\')" style="border:1px dashed var(--line);background:var(--card);color:var(--muted);border-radius:9px;padding:8px 12px;font-size:13px;cursor:pointer;width:100%">+ neue Sammlung anlegen</button></div></div>';
+}
+async function rezKatSammlungNeuAus(rid){ await rezKatSammlungNeu(); rezKatAddOpen(rid); }
+async function rezKatSammlungSet(rid, kid, an){
+  try{
+    var r=await client.rpc("cb_rezept_kategorie_setzen",{p_rezept:rid,p_kategorie:kid,p_an:!!an});
+    if(r&&r.error) throw new Error(r.error.message);
+    await loadRezepte();
+  }catch(e){ alert("Konnte nicht speichern: "+((e&&e.message)||e)); }
+}
+/* Admin: die ungeprüften Titel-Vorschläge bestätigen oder korrigieren.
+   Zweispalter – links das Rezept, rechts die Auswahl. */
+function rezKatAdminOpen(){
+  if(!(ME&&ME.is_admin)) return;
+  var offen=(REZEPTE||[]).filter(function(r){
+    return (r.kategorien||[]).some(function(k){ return /^Vorschlag/i.test(k.quelle||""); });
+  });
+  var ov=document.getElementById("rezKatAdmOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="rezKatAdmOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
+    ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov); }
+  var kopf='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">'
+    +'<div style="font-weight:800;font-size:17px">🏷 Kategorie-Vorschläge prüfen</div>'
+    +'<button onclick="var o=document.getElementById(\'rezKatAdmOv\');if(o)o.remove()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:5px 0 10px">'+offen.length+' Rezept(e) mit ungeprüftem Titel-Vorschlag. '
+    +'„Vorschlag" heißt: aus dem Rezeptnamen geraten, von niemandem bestätigt.</div>';
+  if(!offen.length){
+    ov.innerHTML='<div style="background:var(--card);color:var(--ink);border-radius:16px;max-width:860px;width:100%;padding:20px;margin:auto">'
+      +kopf+'<div style="color:#1e6b42">Kein Vorschlag offen – alle Kategorien sind bestätigt oder belegt. ✓</div></div>';
+    return;
+  }
+  var arten=[["gericht","Art des Gerichts"],["eigenschaft","Eigenschaft"],["hauptzutat","Hauptzutat"]];
+  var rows=offen.slice(0,60).map(function(r){
+    var hat=(r.kategorien||[]).map(function(k){ return k.id; });
+    var rechts=arten.map(function(a){
+      var liste=(window._rezKat||[]).filter(function(k){ return k.art===a[0]; });
+      if(!liste.length) return "";
+      return '<div style="margin-bottom:5px"><div style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">'+esc(a[1])+'</div>'
+        +'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:3px">'
+        +liste.map(function(k){
+            var an=hat.indexOf(k.id)>=0;
+            var vor=an&&(r.kategorien||[]).some(function(x){ return x.id===k.id&&/^Vorschlag/i.test(x.quelle||""); });
+            return '<button onclick="rezKatAdminSet(\''+esc(r.id)+'\',\''+esc(k.id)+'\','+(an&&!vor?'false':'true')+')"'
+              +' title="'+(vor?'Vorschlag – klick bestätigt ihn':(an?'bestätigt – klick entfernt':'klick setzt diese Kategorie'))+'"'
+              +' style="border:1px '+(vor?'dashed var(--line)':(an?'solid var(--green)':'solid var(--line)'))+';background:'+(an&&!vor?'var(--greenlt,#eaf5ee)':'var(--card)')
+              +';color:'+(an&&!vor?'var(--greendk,#166534)':'var(--ink)')+';border-radius:999px;padding:4px 9px;font-size:11.5px;cursor:pointer;white-space:nowrap">'
+              +(k.symbol?esc(k.symbol)+' ':'')+esc(k.name)+(vor?' ?':(an?' ✓':''))+'</button>';
+          }).join("")
+        +'</div></div>';
+    }).join("");
+    return '<div style="display:flex;gap:14px;padding:11px 0;border-top:1px solid var(--line);flex-wrap:wrap">'
+      +'<div style="flex:1 1 200px;min-width:0"><div style="font-weight:700">'+esc(r.name||r.id)+'</div>'
+      +'<div style="font-size:11.5px;color:var(--muted)">⏱ '+(r.zeit_min!=null?r.zeit_min:"–")+' min · '+(r.kcal!=null?r.kcal:"–")+' kcal</div></div>'
+      +'<div style="flex:2 1 380px;min-width:0">'+rechts+'</div></div>';
+  }).join("");
+  ov.innerHTML='<div style="background:var(--card);color:var(--ink);border-radius:16px;max-width:860px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +kopf+rows+(offen.length>60?'<div style="font-size:12px;color:var(--muted);margin-top:8px">… und '+(offen.length-60)+' weitere. Erst diese hier abarbeiten.</div>':'')+'</div>';
+}
+async function rezKatAdminSet(rid, kid, an){
+  try{
+    var r=await client.rpc("cb_rezept_kategorie_setzen",{p_rezept:rid,p_kategorie:kid,p_an:!!an});
+    if(r&&r.error) throw new Error(r.error.message);
+    await loadRezepte();
+    rezKatAdminOpen();
+  }catch(e){ alert("Konnte nicht speichern: "+((e&&e.message)||e)); }
+}
+if(typeof window!=='undefined'){
+  window.rezKatLoad=rezKatLoad; window.rezKatToggle=rezKatToggle; window.rezKatReset=rezKatReset;
+  window.rezKatSammlungNeu=rezKatSammlungNeu; window.rezKatSammlungNeuAus=rezKatSammlungNeuAus;
+  window.rezKatSammlungSet=rezKatSammlungSet; window.rezKatAddOpen=rezKatAddOpen;
+  window.rezKatAdminOpen=rezKatAdminOpen; window.rezKatAdminSet=rezKatAdminSet;
 }
 async function rezFavToggle(id, btn){
   try{ const {data}=await client.rpc("cb_rezept_fav_toggle",{p_rezept:id});
@@ -14738,8 +15120,13 @@ function renderRezeptList(){
   const q=_norm((document.getElementById("rezeptSuche")||{}).value||"");
   let data = q ? all.filter(r=> _fuzzy(r.name,q) || _fuzzy(r.ziel,q) || (Array.isArray(r.zutaten)&&r.zutaten.some(z=>_fuzzy((z&&z.name)||z||"",q))) ) : all.slice();
   if(window._rezFavOnly) data=data.filter(r=>window._rezFav&&window._rezFav.has(r.id));
+  let _katAn=0;
+  if(rezKatAktiv()){
+    const _s=rezKatSelLoad(); REZ_KAT_GRUPPEN.forEach(g=>{ _katAn+=(_s[g[0]]||[]).length; });
+    if(_katAn) data=data.filter(rezKatMatch);
+  }
   const mine=all.filter(r=>r.is_own).length, favN=(window._rezFav?window._rezFav.size:0);
-  document.getElementById("rezeptStats").textContent=`${data.length} Rezept(e)`+(window._rezFavOnly?" · nur ♥":"")+(mine?` · ${mine} eigene`:"")+(favN?` · ${favN} ♥`:"");
+  document.getElementById("rezeptStats").textContent=`${data.length} Rezept(e)`+(window._rezFavOnly?" · nur ♥":"")+(_katAn?` · ${_katAn} Kategorie-Filter`:"")+(mine?` · ${mine} eigene`:"")+(favN?` · ${favN} ♥`:"");
   const g=document.getElementById("rezeptGrid"); g.innerHTML="";
   data.forEach(r=>{
     const c=document.createElement("div");c.className="card";c.style.position="relative";c.onclick=()=>rezeptDetail(r);
@@ -14750,7 +15137,7 @@ function renderRezeptList(){
                : `<div class="badge" style="background:var(--green2)"><span class="num">${r.kcal??"–"}</span><span class="lbl">KCAL</span></div>`);
     const _fav=(window._rezFav&&window._rezFav.has(r.id));
     c.innerHTML=`<button onclick="event.stopPropagation();rezFavToggle('${r.id}',this)" title="Als Favorit" style="position:absolute;top:8px;right:8px;border:0;background:var(--k-w92);border-radius:50%;width:30px;height:30px;font-size:16px;line-height:1;cursor:pointer;color:${_fav?'var(--k-e11d48)':'var(--k-9aa7b2)'};box-shadow:0 1px 5px rgba(0,0,0,.15);z-index:2">${_fav?'♥':'♡'}</button>${lead}
-      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}${r.gesperrt?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-fde8e8);color:var(--k-dc2626)">⛔ gesperrt</span>`:""}${(ME&&ME.is_admin&&r.gemeldet)?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-fff7e6);color:var(--k-b45309)">⚐ ${r.gemeldet}</span>`:""}</div></div>`;
+      <div class="meta"><div class="name">${esc(r.name)}</div><div class="sub">⏱ ${r.zeit_min??"–"} min · ${r.kcal??"–"} kcal · ${esc(r.ziel||"")}</div><div style="margin-top:4px">${quelleChip(r)}${efChip(r.ernaehrungsform)}${mealChips(r.mahlzeiten)}${r.gesperrt?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-fde8e8);color:var(--k-dc2626)">⛔ gesperrt</span>`:""}${(ME&&ME.is_admin&&r.gemeldet)?`<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-fff7e6);color:var(--k-b45309)">⚐ ${r.gemeldet}</span>`:""}</div>${rezKatAktiv()?`<div style="margin-top:2px">${rezKatChips(r)}${(ME&&ME.id)?`<span onclick="event.stopPropagation();rezKatAddOpen('${r.id}')" title="Zu einer eigenen, privaten Sammlung hinzufügen" style="display:inline-block;margin:3px 0 0 2px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px dashed var(--line);color:var(--muted);cursor:pointer">+ zu Sammlung</span>`:""}</div>`:""}</div>`;
     g.appendChild(c);
   });
   if(!(ME && hasFeat('rezepte_alle'))){
@@ -17274,7 +17661,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-0616";
+const APP_BUILD = "2026-07-30-1042";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
