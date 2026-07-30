@@ -3372,7 +3372,6 @@ function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
      Vorgeschichte: Erst lag er im Bereich Riki-Import, der seit dem 24.07. keinen
      Menue-Knopf mehr hat. Ein Bedienelement an einem Ort, den niemand erreicht, ist
      dasselbe wie keins. */
-  if(t==='dash'){ try{ rkBookmarkletBox(); }catch(e){} }
   if(t==='zuverif' && typeof loadZuVerif==='function') loadZuVerif();
   if(t==='regelwerk' && typeof loadRegelwerk==='function') loadRegelwerk();
   if(t==='produkterfassung' && typeof loadProduktErfassung==='function') loadProduktErfassung();
@@ -5610,6 +5609,27 @@ async function loadDashboard(){
       +'<b>Arbeitsfläche nicht verfügbar.</b> Grund: '+esc(_npFehler||'cb_netzplan hat nichts geliefert')
       +' — unten das bisherige Dashboard.</div>';
     try{ box.innerHTML+=dashEnterpriseHtml(d); dashAuditLoad(); dashKarteLoad(); dashSupaLoad(); adminNavBadges(d); }catch(e){}
+    return;
+  }
+
+  /* „Klassisch": das alte Enterprise-Dashboard MIT vorangestelltem Umschalter. */
+  if((ME&&ME.is_admin) && dashArbeitAnsichtGet()==='klassisch'){
+    try{ if(typeof _abGraphStop==='function') _abGraphStop(); }catch(e){
+      try{ console.warn('Graph-Schleife liess sich nicht stoppen:',e); }catch(_){} }
+    dashArbeitCss();
+    var _kh='<div class="ab"><div class="abkopf"><h2>Dashboard · Klassisch</h2>'
+      +'<span class="st">die bisherige Ansicht — der Umschalter bleibt hier oben erreichbar</span>'
+      +'<span style="margin-left:auto;display:flex;gap:9px;align-items:center">'
+      +_abUmschalter('klassisch')
+      +'<button class="abbtn" id="abNeu">↻ Aktualisieren</button></span></div></div>';
+    try{ box.innerHTML=_kh+dashEnterpriseHtml(d); }
+    catch(e){ try{ console.error('Enterprise-Dashboard:',e); }catch(_){}
+      box.innerHTML=_kh+dashPortalHtml(d); }
+    _abUmschalterNach();
+    try{ dashAuditLoad(); }catch(e){ try{ console.warn('dashAuditLoad:',e); }catch(_){} }
+    try{ dashKarteLoad(); }catch(e){ try{ console.warn('dashKarteLoad:',e); }catch(_){} }
+    try{ dashSupaLoad(); }catch(e){ try{ console.warn('dashSupaLoad:',e); }catch(_){} }
+    try{ adminNavBadges(d); }catch(e){}
     return;
   }
 
@@ -7971,6 +7991,29 @@ function _abAbl(np){
 function _abWf(w){ return (Number(w.offen)||0)===0 ? _AB.gut : (w.gate===true?_AB.krit:_AB.warn); }
 function _abZf(z){ return (Number(z.wartend)||0)===0 ? _AB.gut : (z.weg==='keiner'?_AB.krit:_AB.warn); }
 
+/* 🔴 Der Umschalter steht an EINER Stelle und wird von der Arbeitsfläche UND von der
+   Klassisch-Ansicht benutzt. Vorher stand er nur in dashArbeitHtml — und „Klassisch"
+   rendert das ALTE Dashboard, das ihn nicht kennt. Ergebnis: eine Einbahnstraße, Ralph
+   sass in der alten Ansicht fest („jetzt kann ich nicht mehr umschalten").
+   Prüffrage für jeden künftigen Umschalter: Ist die AUSGESCHALTETE Stellung noch
+   erreichbar — und komme ich von dort auch wieder zurück? */
+function _abUmschalter(ans){
+  var b=[['flaeche','Arbeitsfläche','Ring, Arbeitsliste und Fluss'],
+         ['graph','Graph','beweglich, zum Erkunden'],
+         ['klassisch','Klassisch','das bisherige Enterprise-Dashboard']];
+  return '<span class="abum">'+b.map(function(x){
+    return '<button data-ans="'+x[0]+'" class="'+(ans===x[0]?'on':'')+'" title="'+x[2]+'">'
+      +x[1]+'</button>'; }).join('')+'</span>';
+}
+function _abUmschalterNach(){
+  var box=document.getElementById('fgDash'); if(!box) return;
+  box.querySelectorAll('.abum button[data-ans]').forEach(function(b){
+    b.addEventListener('click',function(){ dashArbeitAnsichtSet(b.dataset.ans); });
+  });
+  var nb=document.getElementById('abNeu');
+  if(nb) nb.addEventListener('click',function(){ if(typeof loadDashboard==='function') loadDashboard(); });
+}
+
 function dashArbeitAnsichtGet(){
   try{ var v=localStorage.getItem('ri_dash_ansicht'); return (v==='graph'||v==='klassisch')?v:'flaeche'; }
   catch(e){ return 'flaeche'; }
@@ -8182,9 +8225,7 @@ function dashArbeitHtml(d,np,fehler){
     +(A.gate_offen?_AB.krit:_AB.gut)+'">Go-Live-Gate: '+A.gate_offen+' offen</span>'
     +'<span class="st" id="abStand"></span>'
     +'<span style="margin-left:auto;display:flex;gap:9px;align-items:center">'
-    +'<span class="abum"><button data-ans="flaeche" class="'+(ans==='flaeche'?'on':'')+'">Arbeitsfläche</button>'
-    +'<button data-ans="graph" class="'+(ans==='graph'?'on':'')+'">Graph</button>'
-    +'<button data-ans="klassisch" title="Das bisherige Enterprise-Dashboard">Klassisch</button></span>'
+    +_abUmschalter(ans)
     +'<button class="abbtn" id="abNeu">↻ Aktualisieren</button></span></div>';
   if(fehler) h+='<div class="abfehler"><b>Live-Daten unvollständig.</b> '+esc(fehler)
     +' — betroffene Felder bleiben leer oder grau. Grau heißt: wir wissen es nicht.</div>';
@@ -8275,11 +8316,7 @@ function dashArbeitNach(d,np){
     catch(e){ st.textContent='Stand unbekannt';
       try{ console.warn('Stand-Zeit nicht lesbar:',np.stand,e); }catch(_){} }
   }
-  box.querySelectorAll('.abum button[data-ans]').forEach(function(b){
-    b.addEventListener('click',function(){ dashArbeitAnsichtSet(b.dataset.ans); });
-  });
-  var nb=document.getElementById('abNeu');
-  if(nb) nb.addEventListener('click',function(){ if(typeof loadDashboard==='function') loadDashboard(); });
+  _abUmschalterNach();
 
   /* Ring-Segmente: Klick springt in die passende Wächter-Gruppe */
   var wl=[]; ['anlage','tuer','bestand'].forEach(function(m){
@@ -18886,31 +18923,10 @@ function rkBookmarkletCode(){
   return "javascript:(function(){var u=location.href;if(!/^https?:/i.test(u)){alert('Das geht nur auf einer normalen Webseite.');return;}"
        + "window.open('"+ziel+"?neu='+encodeURIComponent(u),'_blank');})();";
 }
-function rkBookmarkletBox(){
-  var box=document.getElementById("rkBmBox"); if(!box) return;
-  var code=rkBookmarkletCode();
-  var href=code.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  box.innerHTML=''
-    +'<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-bottom:14px">'
-    +'<div style="font-size:14px;font-weight:700;margin-bottom:2px">Noch schneller: das Lesezeichen</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;line-height:1.55">Einmal einrichten, danach reicht auf jeder Produktseite <b>ein Klick</b>: Der Editor geht auf und Riki liest die Seite sofort.</div>'
-    +'<div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:10px">'
-      +'<a href="'+href+'" onclick="alert(\'Nicht klicken \u2013 in die Lesezeichenleiste ZIEHEN.\');return false;" '
-      +'style="display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border:1px solid var(--k-16a34a);border-radius:9px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);font-weight:700;font-size:13.5px;text-decoration:none;cursor:grab">'
-      +'&#11015; Produkt anlegen (Root Index)</a>'
-      +'<span style="font-size:12px;color:var(--muted)">&larr; in die Lesezeichenleiste ziehen</span>'
-    +'</div>'
-    +'<div style="font-size:12.5px;color:var(--muted);line-height:1.6">'
-      +'<b>Chrome / Edge am Rechner:</b> Lesezeichenleiste einblenden (&#8984;&#8679;B bzw. Strg&#8679;B), den gr&uuml;nen Knopf hineinziehen &ndash; fertig.<br>'
-      +'<b>Safari am Mac:</b> Favoritenleiste einblenden (&#8984;&#8679;B), Knopf hineinziehen. Fragt Safari nach, mit <i>Erlauben</i> best&auml;tigen.<br>'
-      +'<b>iPhone:</b> Diese Seite als Lesezeichen sichern, dann im Lesezeichen <i>Bearbeiten</i> die Adresse durch den Text unten ersetzen. Aufrufen &uuml;ber die Adresszeile durch Tippen des Lesezeichen-Namens.'
-    +'</div>'
-    +'<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12.5px;color:var(--muted)">Text zum Kopieren (f&uuml;rs iPhone oder wenn das Ziehen nicht geht)</summary>'
-      +'<textarea readonly onclick="this.select()" style="width:100%;box-sizing:border-box;height:74px;margin-top:7px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-family:ui-monospace,monospace;font-size:11px;line-height:1.45">'
-      +esc(code)+'</textarea></details>'
-    +'</div>';
-}
-if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
+/* rkBookmarkletBox ENTFERNT am 30.07.2026 (Ralph: „das unten kann raus, link habe ich
+   angelegt"). Der Kasten erklaerte das Lesezeichen - einmal gebraucht, danach Ballast unter
+   jedem Dashboard. Geloescht statt versteckt (§1.11n-p). rkBookmarkletCode() BLEIBT, und der
+   Empfaenger admin.html?neu=<Adresse> arbeitet weiter: Ralphs Lesezeichen funktioniert. */
 
 /* Empfaenger: admin.html?neu=<Adresse> -> Editor auf, Riki liest sofort. */
 (function rkSchnellAnlageEmpfangen(){
@@ -18967,7 +18983,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1447";
+const APP_BUILD = "2026-07-30-1457";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
