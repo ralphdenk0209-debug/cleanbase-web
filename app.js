@@ -274,22 +274,61 @@ function rueckGruppe(d){
   for(var i=0;i<arr.length;i++) if(arr[i].gruppe===g) return arr[i];
   return null;
 }
+/* Ralph 30.07., nach dem ersten Blick auf die Karte: "bio text nicht auf die karte, sondern
+   nur ein button als link oder auch popup, auf jeder karte anzeigen ist zuviel."
+   Er hat recht: der Kasten stand auf 279 Karten und sagte auf jeder derselben Warengruppe
+   dasselbe. Etwas, das immer gleich dasteht, liest niemand mehr - es kostet nur Platz und
+   drueckt das Eigentliche nach unten. Jetzt: EINE Zeile als Ausloeser, die Zahlen im Popup. */
 function rueckHinweisHtml(d){
   if(!rueckAn()) return "";
   var w=rueckGruppe(d); if(!w) return "";
+  return '<div style="margin:10px 0 2px">'
+    +'<span onclick="rueckPopupOpen(\''+esc(w.gruppe)+'\')" title="Was amtliche Stichproben über Bio und konventionelle Ware dieser Warengruppe sagen"'
+    +' style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);border-bottom:1px dotted var(--line);padding-bottom:1px">'
+    +'🌱 Bio bei '+esc(w.name)+': was Stichproben zeigen <span style="opacity:.6">›</span></span></div>';
+}
+/* Der volle Text - jetzt nur noch auf Wunsch. Inhaltlich unveraendert: nur was gemessen
+   wurde (§9), Warengruppe statt Produkt, kein Einfluss auf den Index, Probenzahlen und die
+   Nicht-Repraesentativitaet offen dabei. */
+function rueckPopupHtml(w){
   var kv=String(w.konv_gesamt).replace(".",","), bv=String(w.bio_gesamt).replace(".",",");
   var nk=Number(w.proben_konv).toLocaleString("de-DE"), nb=Number(w.proben_bio).toLocaleString("de-DE");
-  return '<div style="margin:14px 0 2px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg)">'
-    +'<div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:5px">🌱 Bio bei '+esc(w.name)+'</div>'
-    +'<div style="font-size:12.5px;line-height:1.6;color:var(--ink)">In amtlichen EU-Stichproben trugen '
+  return '<div style="font-size:12.5px;line-height:1.6;color:var(--ink)">In amtlichen EU-Stichproben trugen '
       +'<b>'+kv+' %</b> der konventionellen Proben Rückstände von Pflanzenschutzmitteln, bei Bio-Ware <b>'+bv+' %</b>.</div>'
-    +'<div style="font-size:11.5px;line-height:1.55;color:var(--muted);margin-top:6px">'
-      +'Gilt für die <b>Warengruppe</b>, nicht für dieses Produkt – und fließt <b>nicht</b> in den Index ein.<br>'
-      +esc(w.quelle.split(",")[0])+', Berichtsjahr '+w.jahr+' · '+nk+' konventionelle und '+nb+' Bio-Proben.<br>'
-      +'Die Proben werden gezielt dort gezogen, wo Rückstände erwartet werden – sie sind <b>nicht repräsentativ</b> für den Markt.'
-    +'</div></div>';
+    +'<div style="font-size:11.5px;line-height:1.6;color:var(--muted);margin-top:9px">'
+      +'Gilt für die <b>Warengruppe</b>, nicht für dieses Produkt – und fließt <b>nicht</b> in den Index ein. '
+      +'Ein Siegel ist eine Zertifizierung, kein Messwert am Produkt.<br><br>'
+      +esc(w.quelle)+'<br>'
+      +'Berichtsjahr '+w.jahr+' · '+nk+' konventionelle und '+nb+' Bio-Proben.<br><br>'
+      +'Die Proben werden gezielt dort gezogen, wo Rückstände erwartet werden – sie sind <b>nicht repräsentativ</b> für den Markt. '
+      +'„Rückstände“ heißt: nachweisbar. Über dem gesetzlichen Höchstgehalt lagen deutlich weniger Proben.'
+    +'</div>';
 }
-if(typeof window!=="undefined"){ window.rueckHinweisHtml=rueckHinweisHtml; window.rueckRefLaden=rueckRefLaden; window.rueckGruppe=rueckGruppe; }
+function rueckPopupOpen(gruppe){
+  var ref=window._rueckRef; if(!ref) return;
+  var arr=ref.warengruppen||[], w=null;
+  for(var i=0;i<arr.length;i++) if(arr[i].gruppe===gruppe) w=arr[i];
+  if(!w) return;
+  var ov=document.getElementById("rueckOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="rueckOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
+    ov.onclick=function(e){ if(e.target===ov) rueckPopupClose(); };   /* Klick auf den Rand schliesst */
+    document.body.appendChild(ov); }
+  ov.style.display="flex";
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">'
+      +'<div style="font-weight:800;font-size:16px">🌱 Bio bei '+esc(w.name)+'</div>'
+      +'<button onclick="rueckPopupClose()" style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;flex:0 0 auto">✕</button>'
+    +'</div>'
+    + rueckPopupHtml(w)
+  +'</div>';
+}
+function rueckPopupClose(){ var ov=document.getElementById("rueckOv"); if(ov) ov.style.display="none"; }
+if(typeof window!=="undefined"){
+  window.rueckHinweisHtml=rueckHinweisHtml; window.rueckRefLaden=rueckRefLaden; window.rueckGruppe=rueckGruppe;
+  window.rueckPopupOpen=rueckPopupOpen; window.rueckPopupClose=rueckPopupClose; window.rueckPopupHtml=rueckPopupHtml;
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") rueckPopupClose(); });
+}
 function bioPill(d){
   if(!bioAn()) return "";                               /* Beta-Flag, §3.0 - im Zweifel nichts zeigen */
   if(!d || d.bio!==true) return "";                     /* nur echtes Bio bekommt eine Pille */
@@ -17967,7 +18006,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1250";
+const APP_BUILD = "2026-07-30-1304";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
