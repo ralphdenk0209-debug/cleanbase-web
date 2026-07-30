@@ -11006,7 +11006,45 @@ function feBioPrefill(d){
   window._fgBioQuelle=(d&&(d.bio_quelle||d.Bio_Quelle))||"";
   feBioHint();
 }
+/* Ralph 30.07.2026: "auf der Produkt-erfassen-Karte soll ich das auch aktivieren koennen,
+   Schieberegler". Ein klassischer An/Aus-Schieberegler kann nur ZWEI Zustaende - er wuerde
+   "nicht geprueft" und "kein Bio" zu einem einzigen "Aus" verschmelzen. Genau das ist der
+   Fehler, den die dreiwertige Spalte vermeidet: ein ungepruefter Zustand darf nicht wie eine
+   Feststellung aussehen (§1.12). Deshalb ein Schieberegler mit DREI Stellungen.
+
+   Das <select> bleibt bestehen und ist weiterhin die Wahrheit - nur unsichtbar. Wer es
+   entfernt haette, haette fgEditSave gebrochen, das g("fe_bio").value ohne Null-Pruefung
+   liest (§1.11n-j, real passiert beim Suessstoff-Feld). Der Schieberegler schreibt in das
+   select und liest daraus; es gibt weiter nur EINEN Speicherort. */
+var FE_BIO_STUFEN=[
+  {v:"",     kurz:"? ungeprüft", titel:"Noch nicht angesehen. Das ist NICHT dasselbe wie „kein Bio“."},
+  {v:"ja",   kurz:"🌱 Bio",      titel:"Trägt eine Bio-Kennzeichnung nach EU-Öko-VO. Gibt keine Punkte im Index."},
+  {v:"nein", kurz:"✗ kein Bio",  titel:"Geprüft: trägt keine Bio-Kennzeichnung."}
+];
+function feBioSwRender(){
+  var box=document.getElementById("fe_bioSw"); if(!box) return;
+  var sel=document.getElementById("fe_bio"); var akt=sel?String(sel.value||""):"";
+  box.innerHTML=FE_BIO_STUFEN.map(function(s,i){
+    var an=(s.v===akt);
+    return '<button type="button" onclick="feBioSw(\''+s.v+'\')" title="'+esc(s.titel)+'"'
+      +' style="padding:7px 4px;border:0;'+(i?'border-left:1px solid var(--line);':'')+'cursor:pointer;font-size:12px;font-weight:'+(an?'700':'500')+';'
+      +(an?(s.v==="ja"?'background:var(--greenlt,#ecfdf5);color:var(--k-166534)'
+                     :(s.v==="nein"?'background:var(--k-eef2f6,#eef2f6);color:var(--k-475569)'
+                                   :'background:var(--card);color:var(--ink)'))
+          :'background:transparent;color:var(--muted)')
+      +'">'+s.kurz+'</button>';
+  }).join("");
+}
+/* Klick = jemand hat entschieden. Bei "Bio" oder "kein Bio" wird die Quelle zu "Etikett"
+   (= ich habe nachgesehen); zurueck auf ungeprueft loescht auch die Quelle. */
+function feBioSw(v){
+  var sel=document.getElementById("fe_bio"); if(!sel) return;
+  sel.value=v;
+  window._fgBioQuelle=v?"Etikett":"";
+  feBioSwRender(); feBioHint();
+}
 function feBioHint(){
+  try{ feBioSwRender(); }catch(e){}
   var h=document.getElementById("fe_bioHint"); if(!h) return;
   var sel=document.getElementById("fe_bio"); if(!sel){ h.textContent=""; return; }
   var q=String(window._fgBioQuelle||"");
@@ -11016,7 +11054,7 @@ function feBioHint(){
   else { h.textContent="Merkmal und Filter, keine Punkte im Index."; h.style.color="var(--muted)"; }
 }
 function feBioChange(){ window._fgBioQuelle="Etikett"; feBioHint(); }
-if(typeof window!=="undefined"){ window.feBioPrefill=feBioPrefill; window.feBioHint=feBioHint; window.feBioChange=feBioChange; }
+if(typeof window!=="undefined"){ window.feBioPrefill=feBioPrefill; window.feBioHint=feBioHint; window.feBioChange=feBioChange; window.feBioSw=feBioSw; window.feBioSwRender=feBioSwRender; }
 /* Riki-Vorbelegung: liest Riki eine Naehrwert-Basis vom Etikett/der Herstellerseite,
    wird die Auswahl vorbelegt - aber NUR wenn noch nichts gesetzt ist. Ein bereits vom
    Menschen gesetzter Wert wird nie ueberschrieben. */
@@ -11718,7 +11756,10 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="font-size:13px">EAN / Barcode<input id="fe_ean" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){}" placeholder="z. B. 4001724040842" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"></label>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:-3px"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">kein EAN – als „offen“ markieren (blockiert die Freigabe dann nicht)</label>
           <label style="font-size:13px">Kategorie${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</label>
-          <label style="font-size:13px">Bio / Öko<select id="fe_bio" onchange="feBioChange()" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Das ist ein Merkmal und ein Filter – es gibt KEINE Punkte im Index (Prinzip 4). Leer lassen, wenn nicht geprüft." style="width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select></label>
+          <div style="font-size:13px">Bio / Öko
+            <select id="fe_bio" onchange="feBioChange()" style="display:none"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select>
+            <div id="fe_bioSw" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Merkmal und Filter – es gibt KEINE Punkte im Index (Prinzip 4)." style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-top:4px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--bg)"></div>
+          </div>
           <div id="fe_bioHint" style="font-size:11.5px;line-height:1.4;margin-top:-4px;color:var(--muted)"></div>
           <input type="hidden" id="fe_ukat" value="${esc(d.unterkategorie||"")}">
           <input type="hidden" id="fe_basis" value="${esc(d.basis||"100g")}">
@@ -17807,7 +17848,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1129";
+const APP_BUILD = "2026-07-30-1152";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
