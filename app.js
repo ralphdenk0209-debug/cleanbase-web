@@ -2667,13 +2667,13 @@ var SALZ_FUNK={
   'folat':'wichtig für Blutbildung und Zellteilung – besonders in der Schwangerschaft',
   'selen':'trägt zum Zellschutz und zur normalen Schilddrüsenfunktion bei'
 };
-async function ladeSalzFakten(pid){
-  var box=document.getElementById("salzFakten"); if(!box) return;
-  try{
-    const {data}=await client.rpc("cb_salz_fakten",{p_id:pid});
-    var arr=data||[];
-    if(!arr.length) return;
-    function fmt(v,e){ v=Number(v); if(!isFinite(v)) return "?"; if(e==="µg") return (v>=100?Math.round(v):Math.round(v*10)/10)+" µg"; if(e==="mg") return (Math.round(v*100)/100)+" mg"; return (Math.round(v*10)/10)+" "+e; }
+/* 30.07. (Ralph): Der Editor soll dieselbe Anzeige zeigen wie die Produktkarte.
+   Deshalb ist das Bauen des HTML aus dem Laden herausgeloest - EIN Baustein, zwei
+   Orte. Haette ich fuer den Editor eine zweite Fassung geschrieben, waeren es zwei
+   Staende, die irgendwann auseinanderlaufen (§1.2c). */
+function salzFaktenHtml(arr){
+  if(!Array.isArray(arr) || !arr.length) return "";
+  { function fmt(v,e){ v=Number(v); if(!isFinite(v)) return "?"; if(e==="µg") return (v>=100?Math.round(v):Math.round(v*10)/10)+" µg"; if(e==="mg") return (Math.round(v*100)/100)+" mg"; return (Math.round(v*10)/10)+" "+e; }
     function bar(pct,col){ var w=Math.max(2,Math.min(100,pct)); return '<div style="height:7px;border-radius:4px;background:rgba(120,120,120,.16);overflow:hidden;margin-top:3px"><div style="height:100%;width:'+w+'%;background:'+col+';border-radius:4px"></div></div>'; }
     var GRUEN='var(--k-16a34a)', ROT='var(--k-dc2626)';
     var rows=arr.map(function(x){
@@ -2697,13 +2697,106 @@ async function ladeSalzFakten(pid){
       if(x.hinweis){ html+='<div style="font-size:11px;color:var(--muted);margin-top:5px;font-style:italic">'+esc(x.hinweis)+'</div>'; }
       return html+'</div>';
     }).join('');
-    box.innerHTML='<div style="margin-top:4px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card)">'
+    return '<div style="margin-top:4px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card)">'
       + '<div style="font-size:14px;font-weight:800;color:var(--ink);margin-bottom:2px">🧪 Was dieses Salz zusätzlich liefert</div>'
       + '<div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">Angereicherte Mikronährstoffe laut Etikett.</div>'
       + rows
       + '<div style="font-size:11px;color:var(--muted);margin-top:10px;padding-top:8px;border-top:1px solid var(--line)">Werte für 5 g Salz pro Tag (WHO-Tagesmaximum), Erwachsene. Weniger Salz ist besser fürs Herz – liefert dir aber auch weniger dieser Stoffe. <b>Du entscheidest.</b></div>'
     + '</div>';
+  }
+}
+async function ladeSalzFakten(pid){
+  var box=document.getElementById("salzFakten"); if(!box) return;
+  try{
+    const {data}=await client.rpc("cb_salz_fakten",{p_id:pid});
+    var h=salzFaktenHtml(data||[]);
+    if(h) box.innerHTML=h;
   }catch(e){ /* still - keine Fehleranzeige noetig */ }
+}
+if(typeof window!=="undefined"){ window.salzFaktenHtml=salzFaktenHtml; }
+
+/* ===========================================================================
+   NÄHRSTOFFWERTE IM EDITOR (Ralph 30.07.: "bei supplements und salz rechts eine
+   karte/container, der direkt den nährstoffwert anzeigt … wie auf der produkt-
+   karte, aber zum öffnen über einen button als popup")
+
+   Warum ein Popup und keine feste Karte: die Anzeige ist lang (zwei Balken je
+   Wirkstoff) und wird beim Erfassen nur zwischendurch gebraucht. Eine feste
+   Karte haette die Referenz-Spalte gefuellt, mit der man dauernd arbeitet -
+   dieselbe Lehre wie beim Rueckstands-Hinweis (Ralph: "nur ein button als link
+   oder auch popup, auf jeder karte anzeigen ist zuviel").
+
+   🔴 KEINE zweite Rechenlogik. Das Popup ruft dieselben RPCs und dieselben
+   HTML-Bausteine wie die Produktkarte:
+     Supplement -> cb_reinheits_ampel  -> reinheitsAmpelHtml   (Dosis-Check)
+     Salze      -> cb_salz_fakten      -> salzFaktenHtml       (bei 5 g/Tag)
+   Damit kann im Editor nichts anderes stehen als beim Nutzer.
+
+   Der Knopf erscheint NUR bei diesen beiden Kategorien (Ralph: "achtung nur
+   diese beiden") - und zwar konstruktiv: fuer jede andere Kategorie gibt es
+   keine Quelle, aus der er etwas zeigen koennte.
+   =========================================================================== */
+function feNaehrKat(){
+  var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
+  if(k==="supplement") return "supplement";
+  if(k==="salze")      return "salze";
+  return null;
+}
+function feNaehrBtnSync(){
+  var b=document.getElementById("fe_naehrBtn"); if(!b) return;
+  var kat=feNaehrKat();
+  b.style.display = kat ? "" : "none";
+  if(kat) b.textContent = (kat==="supplement") ? "🧪 Dosis-Check" : "🧪 Nährstoffe";
+}
+function feNaehrPopupClose(){ var ov=document.getElementById("feNaehrOv"); if(ov) ov.style.display="none"; }
+async function feNaehrPopupOpen(){
+  var kat=feNaehrKat(); if(!kat) return;
+  var pid=(window._fgEdit&&window._fgEdit.id)||null;
+  var ov=document.getElementById("feNaehrOv");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="feNaehrOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:28px 12px";
+    ov.onclick=function(e){ if(e.target===ov) feNaehrPopupClose(); };
+    document.body.appendChild(ov);
+  }
+  ov.style.display="flex";
+  var kopf=function(inner){
+    return '<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:540px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:18px;margin:auto">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">'
+      +'<b style="font-size:15px">'+(kat==="supplement"?"Dosis-Check":"Nährstoffe je 5 g Salz")+'</b>'
+      +'<button type="button" onclick="feNaehrPopupClose()" style="border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:5px 11px;font-size:12.5px;cursor:pointer;flex:0 0 auto">Schließen ✕</button>'
+      +'</div>'+inner+'</div>';
+  };
+  /* Das Produkt muss gespeichert sein - die Werte kommen aus der Datenbank, nicht
+     aus den Eingabefeldern. Das ehrlich sagen, statt eine leere Karte zu zeigen. */
+  if(!pid){
+    ov.innerHTML=kopf('<div style="font-size:13px;line-height:1.6;color:var(--muted)">Das Produkt ist noch nicht gespeichert. Diese Anzeige rechnet mit den Werten aus der Datenbank – dieselbe Rechnung wie später beim Nutzer. Speichere einmal, dann erscheint sie hier.</div>');
+    return;
+  }
+  ov.innerHTML=kopf('<div style="font-size:13px;color:var(--muted)">Wird geladen …</div>');
+  try{
+    if(kat==="salze"){
+      var r=await client.rpc("cb_salz_fakten",{p_id:pid});
+      if(r.error) throw new Error(r.error.message);
+      var h=salzFaktenHtml(r.data||[]);
+      ov.innerHTML=kopf(h || '<div style="font-size:13px;line-height:1.6;color:var(--muted)">Für dieses Salz sind noch keine Mikronährstoffe erfasst. Trag sie in der Mikronährstoff-Karte ein (Jod, Fluorid, Selen …) – dann rechnet die Anzeige sie auf 5 g Salz pro Tag um.</div>');
+    } else {
+      var r2=await client.rpc("cb_reinheits_ampel",{p_produkt_id:pid});
+      if(r2.error) throw new Error(r2.error.message);
+      var a=r2.data;
+      ov.innerHTML=kopf((a&&a.gilt) ? reinheitsAmpelHtml(a)
+        : '<div style="font-size:13px;line-height:1.6;color:var(--muted)">Noch kein Dosis-Check möglich. Er braucht mindestens einen Wirkstoff mit Menge in der Wirkstoff-Tabelle – und für die Sicherheitsgrenze einen Nährstoff, für den die EFSA einen Wert veröffentlicht hat. Ohne belegten Wert zeigen wir bewusst nichts.</div>');
+    }
+  }catch(e){
+    /* Nie stumm scheitern (§1.13i). */
+    if(typeof console!=="undefined") console.warn("Nährstoff-Popup:", e&&e.message?e.message:e);
+    ov.innerHTML=kopf('<div style="font-size:13px;line-height:1.6;color:var(--muted)">Die Werte konnten nicht geladen werden.<br><span style="font-size:11.5px">'+esc(e&&e.message?e.message:String(e))+'</span></div>');
+  }
+}
+if(typeof window!=="undefined"){
+  window.feNaehrPopupOpen=feNaehrPopupOpen; window.feNaehrPopupClose=feNaehrPopupClose;
+  window.feNaehrBtnSync=feNaehrBtnSync; window.feNaehrKat=feNaehrKat;
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") feNaehrPopupClose(); });
 }
 function detail(d){
   /* Aufruf mitzaehlen (fire-and-forget, blockiert die Anzeige nie). Aggregierter
@@ -12005,9 +12098,19 @@ function fgPickRender(){
     var col=(it.rating==null)?"var(--muted)":(it.rating>=7?"#2e9e57":it.rating>=4?"#c88616":"#cf5442");
     var ze=fgZutZusE(nm);
     if(ze && zusE[ze]){
-      return '<div onclick="zusModalOpen()" title="Über die Zusatzstoff-Karte ändern – der Stoff zählt weiter auf BEIDEN Achsen (Prinzip 8)" style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;opacity:.62;background:var(--bg)">'
-        +'<span style="text-align:center;font-size:13px">⚗</span>'
-        +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px">'+esc(nm)+' <span style="color:var(--muted);font-size:11px">als Zusatzstoff erfasst'+(chk?' · Wert '+rt+' zählt':'')+'</span></span>'
+      /* 🔴 30.07. (Ralphs Frage "warum ist kaliumchlorid grau?"): Die Zeile war auf
+         opacity .62 gesetzt. Grau heisst ueberall "abgeschaltet" - hier heisst es
+         aber "zaehlt, wird nur woanders bedient". Genau das hat Ralph beim Lesen
+         der eigenen Maske stolpern lassen, und die Erklaerung stand nur im Tooltip.
+         > Ein Zustand, den man erklaeren muss, darf nicht wie sein Gegenteil aussehen.
+         Jetzt: volle Deckkraft (die Zeile IST aktiv), ⚗ als Plakette, und der
+         Hinweis "bearbeiten in Zusatzstoffe ›" steht dauerhaft da. Die Logik ist
+         unveraendert - Prinzip 8, der Stoff zaehlt weiter auf beiden Achsen. */
+      return '<div onclick="zusModalOpen()" title="Zählt auf beiden Achsen (Prinzip 8) – geändert wird der Stoff in der Zusatzstoff-Karte" style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;background:var(--bg)">'
+        +'<span style="text-align:center;font-size:11px;line-height:1;color:var(--k-166534,#166534);background:var(--greenlt,#ecfdf5);border:1px solid var(--k-16a34a,#16a34a);border-radius:5px;padding:3px 0" title="als Zusatzstoff erfasst">⚗</span>'
+        +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;color:var(--ink)">'+esc(nm)
+          +(chk?' <span style="color:var(--muted);font-size:11px">· Wert '+rt+' zählt</span>':'')
+          +' <span style="color:var(--k-166534,#166534);font-size:11px;white-space:nowrap">· bearbeiten in Zusatzstoffe ›</span></span>'
         +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+(chk?rt:'')+'</span>'
       +'</div>';
     }
@@ -12891,7 +12994,7 @@ async function openFgEditor(id, prefill, targetEl){
      erklaert das (fe_fotoLeerHinweis). */
   const _refCard = `<div id="fe_flipWrap" style="height:100%;min-height:0;perspective:1400px"><div id="fe_flipInner" style="position:relative;width:100%;height:100%;min-height:0;transition:transform .5s;transform-style:preserve-3d">`
     +`<div style="position:absolute;inset:0;min-height:0;display:flex;backface-visibility:hidden;-webkit-backface-visibility:hidden">`
-    +cardF(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span><button type="button" id="fe_refFlipBtn" onclick="fgRefFlip(true)" title="Karte umdrehen – Etikett zum Ablesen" style="float:right;text-transform:none;letter-spacing:0;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.3">⇄ Etikett</button>`, `<div id="fe_refFront"><div id="fe_enthalten" data-note="Konzept D: fuellt die Kartenhoehe" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);flex:1 1 auto;min-height:0;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.35;flex:0 0 auto"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch offen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>nicht eingestuft</span><span style="margin-left:auto">Zeile anklicken → links suchen</span></div></div>`)
+    +cardF(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span><button type="button" id="fe_refFlipBtn" onclick="fgRefFlip(true)" title="Karte umdrehen – Etikett zum Ablesen" style="float:right;text-transform:none;letter-spacing:0;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.3">⇄ Etikett</button><button type="button" id="fe_naehrBtn" onclick="feNaehrPopupOpen()" title="Zeigt dieselbe Nährstoff-Anzeige wie später die Produktkarte – Bedarf und Sicherheitsgrenze je Wirkstoff" style="display:none;float:right;margin-right:6px;text-transform:none;letter-spacing:0;border:1px solid var(--k-16a34a);border-radius:7px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.3">🧪 Nährstoffe</button>`, `<div id="fe_refFront"><div id="fe_enthalten" data-note="Konzept D: fuellt die Kartenhoehe" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);flex:1 1 auto;min-height:0;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.35;flex:0 0 auto"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch offen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>nicht eingestuft</span><span style="margin-left:auto">Zeile anklicken → links suchen</span></div></div>`)
     +`</div>`
     +`<div id="fe_refBack" style="position:absolute;inset:0;min-height:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);display:flex;flex-direction:column;gap:6px">`
     +`<div style="display:flex;justify-content:flex-end;flex:0 0 auto"><button type="button" onclick="fgRefFlip(false)" title="zurück zur Referenz-Arbeitsliste" style="border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);padding:4px 11px;font-size:11.5px;font-weight:700;cursor:pointer">⇄ Referenz</button></div>`
@@ -13170,6 +13273,7 @@ function feKatChange(){
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   var special=_fgIstSpecial();   /* Supplement/Salze: Bild NEBEN der Wirkstoff-/Mineral-Tabelle, kein Lebensmittel-Score (Ralph 25.07.) */
+  try{ feNaehrBtnSync(); }catch(e){}   /* 30.07.: Nährstoff-Knopf nur bei Supplement/Salze (Ralph) */
   var _wcol=document.getElementById("fe_wirkFotoCol"), _wg=document.getElementById("fe_wirkGrid"), _wback=document.getElementById("fe_refBack"), _wfbtn=document.getElementById("fe_refFlipBtn"), _wc=document.getElementById("fe_wirkCard"), _wtc=document.getElementById("fe_wirkTblCol");
   /* KONZEPT A: das Etikettfoto haengt IMMER oben in der Quelle-Spalte – bei jeder Kategorie, ohne Flip.
      Vorher wanderte es je nach Kategorie entweder neben die Wirkstoff-Tabelle oder auf die Rueckseite
@@ -19050,7 +19154,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1848";
+const APP_BUILD = "2026-07-30-2051";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
