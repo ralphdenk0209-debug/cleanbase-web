@@ -339,8 +339,346 @@ function bioPill(d){
     ? "Aus dem Produktnamen abgeleitet, noch nicht am Etikett geprüft. Bio gibt keine Punkte im Index."
     : ("Belegt über: "+(q||"Etikett")+". Bio gibt keine Punkte im Index – es ist ein Merkmal, keine Bewertung.");
   var bg=ann?"var(--k-fff7e6)":"var(--k-e7f4ec)", fg=ann?"var(--k-b45309)":"var(--k-1f5e34)";
-  return '<span title="'+esc(tip)+'" style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:'+bg+';color:'+fg+(ann?';border:1px dashed var(--k-b45309)':'')+'">'+t+'</span>';
+  /* 30.07.: Genau hier entsteht die Frage "und warum gibt das keine Punkte?".
+     Steht die Methodik-Seite zur Verfuegung, fuehrt ein Klick direkt zur Antwort;
+     sonst bleibt die Pille exakt wie vorher (kein toter Klick). */
+  var klick = methodikAn();
+  var tipp  = klick ? (tip+" Tippen für die Begründung.") : tip;
+  return '<span'+(klick?' onclick="methodikGo(\'mdSekBio\')" role="link" tabindex="0"':'')
+    +' title="'+esc(tipp)+'" style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:'+bg+';color:'+fg
+    +(ann?';border:1px dashed var(--k-b45309)':'')+(klick?';cursor:pointer':'')+'">'+t+'</span>';
 }
+/* ===========================================================================
+   SEITE "UNSERE METHODE" (Ralph-Go 30.07.2026)
+
+   Warum sie es gibt: "Jede Quelle offen" ist unser Hauptargument gegen Yuka -
+   es verpufft, wenn niemand die Methode erklaert bekommt. Seit die Bio-Pille
+   live ist, sieht ein Nutzer ausserdem ein Merkmal, das den Index NICHT
+   veraendert. Ohne Antwort wirkt das wie ein Versaeumnis; mit Antwort ist es
+   das staerkste Argument der Marke.
+
+   🔴 DER WICHTIGSTE BAUENTSCHEID: Diese Seite erklaert NICHTS aus eigener
+   Kraft. Sie liest das Regelwerk, die Kategorie-Einstellungen und die
+   Quellenliste live aus der Datenbank (cb_methodik) - dieselben Zeilen, aus
+   denen Trigger und Freigabe lesen. Haette ich die Texte in den Code
+   geschrieben, waere genau der Fehler entstanden, den §4b als MIKRO_REF-Falle
+   fuehrt: zwei Staende, die auseinanderlaufen, und niemand merkt es.
+
+   > Eine Methodik-Seite, die falsch beschreibt wie gerechnet wird, ist
+   > schlimmer als keine - sie ist ein Versprechen, das der Code nicht haelt.
+
+   Ton: §7.0 (kurze Saetze, ein Gedanke pro Satz, sagen was etwas BEDEUTET).
+   Keine Gesundheitsaussagen (§9, Health-Claims-VO): Wir sagen, was gemessen
+   wurde - nie, was das fuer die Gesundheit heisst.
+   =========================================================================== */
+function methodikAn(){ try{ return typeof feat==="function" && feat("methodik_seite"); }catch(e){ return false; } }
+
+async function methodikLaden(){
+  if(window._methodik!==undefined) return window._methodik;
+  window._methodik=null;                                  /* verhindert Doppel-Laden */
+  try{
+    var r=await client.rpc("cb_methodik");
+    if(r.error) throw new Error(r.error.message);
+    window._methodik=r.data||null;
+  }catch(e){
+    window._methodik=null;
+    /* Nie stumm scheitern (§1.13i): ein weggeworfener Fehler kostet Monate. */
+    if(typeof console!=="undefined") console.warn("Methodik nicht geladen:", e&&e.message?e.message:e);
+  }
+  try{ await rueckRefLaden(); }catch(e){}                  /* dieselbe Quelle wie die Produktkarte */
+  return window._methodik;
+}
+
+/* Sprung auf die Seite, optional direkt zu einem Abschnitt. Genutzt von der
+   Produktkarte und von der Bio-Pille - dort entsteht die Frage. */
+function methodikGo(anker){
+  try{ if(typeof closeMehr==="function") closeMehr(); }catch(e){}
+  try{ var ov=document.getElementById("overlay"); if(ov) ov.classList.remove("open"); }catch(e){}
+  navTo("methodik");
+  if(!anker) return;
+  setTimeout(function(){
+    var el=document.getElementById(anker);
+    if(el&&el.scrollIntoView) el.scrollIntoView({behavior:"smooth",block:"start"});
+  }, 260);
+}
+
+/* --- Bausteine. Absichtlich klein gehalten: die Seite ist Text, kein Werkzeug. --- */
+function _mdH(nr,titel,id){
+  return '<h2 id="'+id+'" style="display:flex;align-items:baseline;gap:9px;font-size:17px;font-weight:800;color:var(--ink);margin:26px 0 8px;scroll-margin-top:16px">'
+    +'<span style="flex:0 0 auto;font-size:12px;font-weight:700;color:var(--green);border:1px solid var(--green);border-radius:999px;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center">'+nr+'</span>'
+    +'<span>'+esc(titel)+'</span></h2>';
+}
+function _mdP(t){ return '<p style="font-size:13.5px;line-height:1.62;color:var(--ink);margin:.35em 0">'+t+'</p>'; }
+function _mdKlein(t){ return '<div style="font-size:11.5px;line-height:1.55;color:var(--muted);margin-top:8px">'+t+'</div>'; }
+function _mdKarte(inner){
+  return '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0">'+inner+'</div>';
+}
+/* Quellenzeile an einer Regel. Fehlt die Quelle, steht NICHTS da - nicht
+   "unbekannt". Ein leeres Feld ist ehrlich, eine Behauptung ueber die Quelle
+   waere es nicht. */
+function _mdQuelle(q){
+  q=String(q||"").trim(); if(!q) return "";
+  return '<div style="font-size:11px;color:var(--muted);margin-top:6px">Grundlage: '+esc(q)+'</div>';
+}
+
+/* Abschnitt 1: die vier Achsen. Die Balkenbreiten werden aus den PUNKTEN der
+   Datenbank gerechnet, nicht gesetzt - aendert Ralph eine Achse im Regelwerk,
+   stimmt das Bild automatisch. Die Uebersichtszeile ist keine Achse und wird
+   als Kopftext gezeigt, nicht als Balken. */
+function _mdAchsenHtml(m){
+  var arr=(m&&m.achsen)||[], kopf=null, achsen=[];
+  arr.forEach(function(a){ if(a.schluessel==="uebersicht") kopf=a; else achsen.push(a); });
+  if(!achsen.length) return _mdP("Die Achsen konnten nicht geladen werden.");
+  var punkte=achsen.map(function(a){ var n=parseFloat(String(a.wert||"").replace(",",".")); return isNaN(n)?null:n; });
+  var summe=punkte.reduce(function(s,n){ return s+(n||0); },0);
+  var h="";
+  if(kopf) h+=_mdP(esc(kopf.inhalt||""));
+  h+='<div style="margin:12px 0 4px">';
+  achsen.forEach(function(a,i){
+    var n=punkte[i];
+    var breite=(n!=null&&summe>0)?Math.round(n/summe*100):0;
+    h+='<div style="margin-bottom:11px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px">'
+        +'<b style="color:var(--ink)">'+esc(a.titel||"")+'</b>'
+        +'<span style="flex:0 0 auto;color:var(--green);font-weight:700;font-size:12.5px">'+esc(a.wert||"")+'</span>'
+      +'</div>';
+    if(breite>0) h+='<div style="height:7px;border-radius:999px;background:var(--line);margin:5px 0 4px;overflow:hidden">'
+        +'<div style="height:100%;width:'+breite+'%;background:var(--green);border-radius:999px"></div></div>';
+    h+='<div style="font-size:12.5px;line-height:1.55;color:var(--muted)">'+esc(a.inhalt||"")+'</div>'
+      + _mdQuelle(a.quelle)
+      +'</div>';
+  });
+  h+='</div>';
+  /* Wenn die Achsen nicht auf 100 kommen, sagen wir es statt es zu verstecken.
+     Ein Balkendiagramm, das eine falsche Summe glatt zeichnet, luegt leise. */
+  if(summe && Math.round(summe)!==100)
+    h+=_mdKlein("Hinweis: Die vier Achsen ergeben derzeit "+esc(String(summe))+" Punkte statt 100. Der Index wird auf 100 normiert.");
+  return h;
+}
+
+/* Abschnitt 2: der Vergleich. Zahlen und Quelle stehen in der Datenbank
+   (Regelwerk-Bereich "vergleich"), damit sie nachgezogen werden koennen, wenn
+   Yuka seine Formel aendert. Die letzte Zeile nennt bewusst, wo SIE besser
+   sind - eine Gegenueberstellung, die nur Vorteile zeigt, glaubt niemand. */
+function _mdVergleichHtml(m){
+  var arr=(m&&m.vergleich)||[];
+  if(!arr.length) return _mdP("Der Vergleich konnte nicht geladen werden.");
+  var quellen={};
+  var h=arr.map(function(v){
+    if(v.quelle) quellen[v.quelle]=1;
+    return _mdKarte(
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px">'
+      +   '<b style="font-size:13.5px;color:var(--ink)">'+esc(v.titel||"")+'</b>'
+      +   '<span style="font-size:12.5px;font-weight:700;color:var(--green)">'+esc(v.wert||"")+'</span>'
+      + '</div>'
+      + '<div style="font-size:12.5px;line-height:1.58;color:var(--muted)">'+esc(v.inhalt||"")+'</div>');
+  }).join("");
+  var qs=Object.keys(quellen);
+  if(qs.length) h+=_mdKlein("Angaben über Yuka: "+qs.map(esc).join(" · ")+". Wir geben nur wieder, was der Anbieter selbst veröffentlicht.");
+  return h;
+}
+
+/* Abschnitt 3: Bio. Zwei Gruende, beide in einfachen Worten - und die Zahlen
+   kommen aus derselben RPC wie der Hinweis auf der Produktkarte
+   (cb_rueckstand_ref), nicht aus einer Kopie. */
+function _mdBioHtml(m){
+  var p4=null; ((m&&m.prinzipien)||[]).forEach(function(p){ if(p.schluessel==="p4") p4=p; });
+  /* 🔴 Ralph 30.07., zu Recht: "duerfen wir das schreiben, dass bio kaufbar ist?"
+     NEIN. Die erste Fassung sagte "ein Siegel ist kaufbar" und "Punkte fuer ein Siegel waeren
+     erpressbar". Das ist keine Aussage ueber unseren Index mehr, sondern eine Unterstellung
+     gegen die EU-Oeko-Zertifizierung und gegen jede Bio-Marke - also genau das, was §9 verbietet:
+     "Wir sagen: Auf der Packung steht X. Drin ist Y. Wir sagen NICHT: Die betruegen dich."
+     Dazu waere es herabsetzend im Sinne des UWG und wir koennten es nicht belegen.
+     Das ARGUMENT bleibt unveraendert und ist sachlich unstrittig: Das Siegel beschreibt das
+     Anbauverfahren, nicht die Zusammensetzung. Nur die Unterstellung ist weg. */
+  var h=_mdP("Kurz: <b>Ein Siegel sagt etwas über den Anbau. Der Index misst, was drin ist.</b>");
+  h+=_mdKarte('<b style="font-size:13px;color:var(--ink)">Grund 1 – ein Siegel beschreibt den Anbau, nicht die Zusammensetzung</b>'
+    +'<div style="font-size:12.5px;line-height:1.58;color:var(--muted);margin-top:4px">'
+    +'Das EU-Bio-Siegel sagt, <b>wie</b> ein Lebensmittel erzeugt wurde. Über Zucker, Salz, Zusatzstoffe '
+    +'oder Verarbeitungsgrad sagt es nichts – und genau die messen wir. Gäbe es Punkte für das Siegel, '
+    +'würde die Note steigen, ohne dass sich an der Rezeptur etwas ändert. <b>Bio-Zucker bleibt Zucker.</b><br><br>'
+    +'Das ist kein Urteil über Bio – es ist eine Aussage darüber, was unsere Zahl misst. Wir zeigen das '
+    +'Siegel deshalb als <b>Merkmal</b> und als <b>Filter</b>: du entscheidest, was es dir wert ist.'
+    +(p4?'<br><br><i>'+esc(p4.titel||"")+': '+esc(p4.inhalt||"")+'</i>':'')
+    +'</div>');
+
+  var ref=window._rueckRef, wg=((ref&&ref.warengruppen)||[]).slice();
+  /* Die RPC liefert alphabetisch (Gemüse, Getreide, Obst). Fuer den Leser ist der
+     groesste Unterschied die interessanteste Zeile - deshalb absteigend nach dem
+     konventionellen Wert. Deterministisch, keine Handsortierung. */
+  wg.sort(function(a,b){ return (b.konv_gesamt||0)-(a.konv_gesamt||0); });
+  h+=_mdKarte('<b style="font-size:13px;color:var(--ink)">Grund 2 – die Zahlen gelten für die Warengruppe, nicht für dein Produkt</b>'
+    +'<div style="font-size:12.5px;line-height:1.58;color:var(--muted);margin-top:4px">'
+    +'In amtlichen EU-Stichproben trugen Bio-Proben deutlich seltener Rückstände von Pflanzenschutzmitteln als konventionelle. '
+    +'Der Abstand ist aber <b>je Warengruppe verschieden</b> – und er sagt nichts über die einzelne Packung in deiner Hand.'
+    +'</div>'
+    + (wg.length
+      ? '<div style="overflow-x:auto;margin-top:10px"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+        + '<thead><tr>'
+        +   '<th style="text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:600">Warengruppe</th>'
+        +   '<th style="text-align:right;padding:6px 4px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:600">konventionell</th>'
+        +   '<th style="text-align:right;padding:6px 4px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:600">Bio</th>'
+        + '</tr></thead><tbody>'
+        + wg.map(function(w){
+            return '<tr>'
+              +'<td style="padding:6px 4px;border-bottom:1px solid var(--line);color:var(--ink)">'+esc(w.name)+'</td>'
+              +'<td style="padding:6px 4px;border-bottom:1px solid var(--line);text-align:right;color:var(--ink);font-weight:600">'+esc(String(w.konv_gesamt).replace(".",","))+' %</td>'
+              +'<td style="padding:6px 4px;border-bottom:1px solid var(--line);text-align:right;color:var(--green);font-weight:700">'+esc(String(w.bio_gesamt).replace(".",","))+' %</td>'
+              +'</tr>';
+          }).join("")
+        + '</tbody></table></div>'
+        + '<div style="font-size:12px;line-height:1.55;color:var(--muted);margin-top:8px">'
+        + 'Anteil der Proben mit nachweisbaren Rückständen. Das sind <b>Durchschnitte über tausende Proben</b> – '
+        + 'deine Bio-Erdbeere kann zu den unbelasteten gehören oder nicht, und dasselbe gilt für die konventionelle daneben. '
+        + 'Punkte zu vergeben hieße, vom Durchschnitt auf den Einzelfall zu schließen.'
+        + '</div>'
+        + _mdKlein('Die Proben werden gezielt dort gezogen, wo Rückstände erwartet werden – sie sind <b>nicht repräsentativ</b> für den Markt. '
+            +'„Rückstände“ heißt nachweisbar; über dem gesetzlichen Höchstgehalt lagen deutlich weniger Proben.<br>'
+            + esc((wg[0]&&wg[0].quelle)||"") + (wg[0]&&wg[0].jahr?('<br>Berichtsjahr '+esc(String(wg[0].jahr))):"")
+            + '<br>Warum nur diese drei Gruppen: Bei Tierprodukten und Säuglingsnahrung hängen die Werte an wenigen hundert Bio-Proben und drehen sich von einem Berichtsjahr zum nächsten. Eine Zahl, die je nach Jahr das Gegenteil sagt, taugt nicht als Hinweis.')
+      : _mdKlein("Die Referenzzahlen sind derzeit nicht abrufbar.")));
+  return h;
+}
+
+/* Abschnitt 4: der ehrlichste Teil. Die Kategorien kommen aus
+   Kategorie_Konfig - derselben Tabelle, aus der die Freigabe liest. Die
+   Stueckzahlen sind LIVE: eine von Hand gepflegte Zahl waere in einer Woche
+   falsch, und dann behauptet die Seite etwas. */
+function _mdKeineZahlHtml(m){
+  var z=(m&&m.zahlen)||{}, ks=(m&&m.kein_score)||[];
+  var p5=null; ((m&&m.prinzipien)||[]).forEach(function(p){ if(p.schluessel==="p5") p5=p; });
+  var nf=function(n){ return (n==null)?"–":Number(n).toLocaleString("de-DE"); };
+  var h=_mdP("<b>Eine fehlende Zahl ist ehrlich. Eine falsche ist es nicht.</b> Fehlt uns eine der vier Achsen, zeigen wir <b>keinen</b> Index – statt drei Achsen auf 100 hochzurechnen. Das sähe genauer aus, wäre aber geraten.");
+  if(z.aktiv!=null){
+    h+=_mdKarte('<div style="display:flex;gap:16px;flex-wrap:wrap">'
+      +'<div><div style="font-size:22px;font-weight:800;color:var(--green);line-height:1.1">'+nf(z.mit_zahl)+'</div>'
+        +'<div style="font-size:11.5px;color:var(--muted)">Produkte mit Index</div></div>'
+      +'<div><div style="font-size:22px;font-weight:800;color:var(--muted);line-height:1.1">'+nf(z.ohne_zahl)+'</div>'
+        +'<div style="font-size:11.5px;color:var(--muted)">bewusst ohne Index</div></div>'
+      +'<div><div style="font-size:22px;font-weight:800;color:var(--ink);line-height:1.1">'+nf(z.aktiv)+'</div>'
+        +'<div style="font-size:11.5px;color:var(--muted)">im Katalog</div></div>'
+      +'</div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:9px;line-height:1.55">'
+      +'Davon '+nf(z.ohne_zahl_kategorie)+' aus Kategorien, für die ein Lebensmittel-Index nicht passt, und '
+      +nf(z.ohne_zahl_daten)+', bei denen uns noch belegte Angaben fehlen. Diese Zahlen werden beim Öffnen dieser Seite frisch gezählt.'
+      +'</div>');
+  }
+  if(ks.length){
+    h+=_mdP("Diese Kategorien bekommen <b>grundsätzlich</b> keinen Index: "
+      + ks.map(function(k){ return '<b>'+esc(k)+'</b>'; }).join(" · ") + ".");
+    h+=_mdKlein("Eine Kapsel hat kein Nährwertprofil, Salz hat keine Zutatenliste, und ein Süßungsmittel besteht aus dem, was der Index abwerten würde. "
+      +"Eine Punktzahl wäre dort keine Messung, sondern eine Verkleidung.");
+  }
+  if(p5) h+=_mdKarte('<b style="font-size:13px;color:var(--ink)">Was Supplements stattdessen bekommen</b>'
+    +'<div style="font-size:12.5px;line-height:1.58;color:var(--muted);margin-top:4px">'+esc(p5.inhalt||"")
+    +'<br><br>Wir zeigen dort <b>zwei</b> Balken je Wirkstoff: wie viel deines Tagesbedarfs gedeckt ist – und wie nah die Dosis an der wissenschaftlichen Obergrenze liegt. '
+    +'Bei zwei Nährstoffen liegt die gesetzliche Angabe auf der Packung <b>über</b> dieser Grenze. Genau deshalb zeigen wir beides.'
+    +'</div>');
+  h+=_mdP("Dasselbe gilt für Rezepte: Ist auch nur eine Zutat unbewertet, nennen wir sie beim Namen – und zeigen keinen Rezept-Index.");
+  return h;
+}
+
+/* Abschnitt 5: die Quellen. Ausgeliefert werden nur Typen, die ein PRODUKT
+   belegen duerfen (§1.2e) - "Behoerdliches Monitoring" steht bewusst nicht
+   dabei, weil ein Rueckstandsbericht nichts ueber eine einzelne Packung sagt. */
+function _mdQuellenHtml(m){
+  var qs=(m&&m.quellen)||[], st=(m&&m.stamm)||{};
+  var h=_mdP('Ein Wert kommt bei uns nur aus einer von diesen Quellen. <b>Was nicht ausdrücklich als Quelle anerkannt ist, ist keine Quelle</b> – „das ist bei solchen Produkten üblich“ zählt nicht. Welche es bei einem Produkt war, steht auf der Produktkarte unter <i>Quelle &amp; Beleg</i>.');
+  if(qs.length){
+    h+='<ul style="margin:8px 0;padding-left:19px">'
+      + qs.map(function(q){
+          var b=String(q.beschreibung||"").split(".")[0];
+          return '<li style="font-size:12.5px;line-height:1.58;color:var(--muted);margin-bottom:5px">'
+               + '<b style="color:var(--ink)">'+esc(q.typ)+'</b>'+(b?' – '+esc(b)+'.':'')+'</li>';
+        }).join("")
+      +'</ul>';
+  }
+  h+=_mdP("Die Quelle ist bei uns <b>keine Textzeile, die man tippen kann</b>, sondern eine Auswahl aus dieser Liste. "
+    +"Das klingt nach einer Kleinigkeit und ist der Kern: Solange ein Mensch die Quelle tippen kann, kann er sie erfinden.");
+  if(st.e_nummern||st.zutaten){
+    h+=_mdKlein("Unser Bestand an Bewertungsgrundlagen: "
+      + (st.e_nummern?('<b>'+Number(st.e_nummern).toLocaleString("de-DE")+'</b> E-Nummern einzeln eingestuft'):"")
+      + ((st.e_nummern&&st.zutaten)?" · ":"")
+      + (st.zutaten?('<b>'+Number(st.zutaten).toLocaleString("de-DE")+'</b> Zutaten mit Verarbeitungsgrad'):"")
+      + ". Eine E-Nummer, die wir nicht eingestuft haben, führt dazu, dass das Produkt <b>keinen</b> Index bekommt – Unwissen darf nicht belohnen.");
+  }
+  return h;
+}
+
+/* Abschnitt 6: die Prinzipien, aufklappbar. Sie sind das Warum hinter den
+   Achsen und stehen unveraendert so da, wie sie im Regelwerk stehen. */
+function _mdPrinzipienHtml(m){
+  var arr=(m&&m.prinzipien)||[];
+  if(!arr.length) return "";
+  return '<div style="margin-top:8px">'
+    + arr.map(function(p,i){
+        var id="mdPr"+i;
+        return '<div style="border:1px solid var(--line);border-radius:10px;margin-bottom:6px;overflow:hidden">'
+          +'<button type="button" onclick="mdPrToggle(\''+id+'\',this)" aria-expanded="false" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px;padding:10px 12px;border:0;background:var(--card);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer">'
+          +'<span style="flex:1">'+esc(p.titel||"")+'</span><span style="color:var(--muted);font-size:12px">▸</span></button>'
+          +'<div id="'+id+'" style="display:none;padding:0 12px 11px;font-size:12.5px;line-height:1.58;color:var(--muted)">'
+          + esc(p.inhalt||"") + _mdQuelle(p.quelle) + '</div></div>';
+      }).join("")
+    +'</div>';
+}
+function mdPrToggle(id,btn){
+  var b=document.getElementById(id); if(!b) return;
+  var zu=(b.style.display==="none");
+  b.style.display= zu ? "" : "none";
+  btn.setAttribute("aria-expanded", String(zu));
+  var ch=btn.querySelector("span:last-child"); if(ch) ch.textContent = zu ? "▾" : "▸";
+}
+
+async function methodikRender(){
+  var box=document.getElementById("methodikView"); if(!box) return;
+  box.innerHTML='<div style="max-width:680px;margin:0 auto;padding:4px 2px 40px"><div style="font-size:13px;color:var(--muted)">Wird geladen …</div></div>';
+  var m=await methodikLaden();
+  if(!m){
+    /* Kein leerer Kasten: sagen, was nicht geht, und einen Weg zurueck geben. */
+    box.innerHTML='<div style="max-width:680px;margin:0 auto;padding:4px 2px 40px">'
+      +'<h1 style="font-size:21px;font-weight:800;color:var(--ink);margin:6px 0 8px">Unsere Methode</h1>'
+      + _mdP("Die Seite liest ihre Angaben direkt aus unserem Regelwerk. Das hat gerade nicht funktioniert, deshalb zeigen wir hier lieber nichts als etwas Ungeprüftes.")
+      +'<button onclick="methodikRender()" style="margin-top:8px;padding:9px 14px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt);color:var(--greendk);font-weight:600;font-size:13px;cursor:pointer">Nochmal versuchen</button>'
+      +'</div>';
+    return;
+  }
+  box.innerHTML='<div style="max-width:680px;margin:0 auto;padding:4px 2px 40px">'
+    + '<h1 style="font-size:21px;font-weight:800;color:var(--ink);margin:6px 0 4px">Unsere Methode</h1>'
+    + '<div style="font-size:13.5px;line-height:1.6;color:var(--muted);margin-bottom:4px">'
+    +   'Kein Urteil. Eine Herleitung. Hier steht, wie der Root Index entsteht – '
+    +   'und wo wir bewusst <b>keine</b> Zahl zeigen.'
+    + '</div>'
+
+    + _mdH(1,"Die vier Achsen","mdSekAchsen")      + _mdAchsenHtml(m)
+    + _mdH(2,"Der Unterschied zu Nutri-Score und Yuka","mdSekVergleich") + _mdVergleichHtml(m)
+    + _mdH(3,"Warum Bio keine Punkte bekommt","mdSekBio")   + _mdBioHtml(m)
+    + _mdH(4,"Warum manche Produkte keine Zahl haben","mdSekKeineZahl") + _mdKeineZahlHtml(m)
+    + _mdH(5,"Woher die Werte stammen","mdSekQuellen")      + _mdQuellenHtml(m)
+    + _mdH(6,"Die Prinzipien dahinter","mdSekPrinzipien")   + _mdPrinzipienHtml(m)
+
+    + '<div style="margin-top:26px;padding:13px 15px;border:1px solid var(--green);border-radius:12px;background:var(--greenlt)">'
+    +   '<div style="font-size:13px;font-weight:700;color:var(--greendk);margin-bottom:4px">Etwas gefunden, das nicht stimmt?</div>'
+    +   '<div style="font-size:12.5px;line-height:1.58;color:var(--greendk)">Dann ist das für uns ein Prüfauftrag, keine Kritik. '
+    +   'Schreib uns über <b>Mehr → Kontakt</b> – mit Produkt und Etikettfoto, wenn du eines hast.</div>'
+    + '</div>'
+    +'</div>';
+}
+/* Der Einstieg von der Produktkarte. Eine Zeile, kein Kasten - dieselbe Lehre wie
+   beim Rueckstands-Hinweis (Ralph 30.07.: "nur ein button als link"): Etwas, das auf
+   jeder Karte gleich dasteht, liest niemand mehr, es kostet nur Platz. */
+function methodikLinkHtml(){
+  if(!methodikAn()) return "";
+  return '<div style="margin-top:11px;padding-top:10px;border-top:1px solid var(--line)">'
+    +'<span onclick="methodikGo(\'mdSekAchsen\')" role="link" tabindex="0"'
+    +' style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);border-bottom:1px dotted var(--line);padding-bottom:1px">'
+    +'🧭 Warum wir so rechnen <span style="opacity:.6">›</span></span></div>';
+}
+if(typeof window!=="undefined"){
+  window.methodikAn=methodikAn; window.methodikGo=methodikGo;
+  window.methodikRender=methodikRender; window.mdPrToggle=mdPrToggle;
+  window.methodikLinkHtml=methodikLinkHtml;
+}
+
 function scoreBew(s){ if(s==null) return null; if(s>=90) return "Sehr gut"; if(s>=75) return "Gut"; if(s>=60) return "Mittel"; return "Schwach"; }
 /* Die alte Fassung strich Zutaten OHNE Score aus Zaehler UND Nenner. Ein Rezept, bei dem
    nur eine von sechs Zutaten bewertet war, zeigte trotzdem einen vollwertigen Score.
@@ -2302,7 +2640,10 @@ function detail2(d){
           + (bz?(_fBz?ACC('📈','Blutzucker-Verlauf',bzInner):pkSperre('Blutzucker-Verlauf','Wie stark das Produkt den Blutzucker treibt')):'')
           + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'
               +(hasFeat('pk_regeln')?scoreFlow(d):pkSperre('So kommt der Index zustande','Regeln, Deckel-Check und Herleitung'))
-              +(hasFeat('pk_platzierung')?katRangHtml(d):pkSperre('Platzierung','Platz in der Kategorie und die Besten')))
+              +(hasFeat('pk_platzierung')?katRangHtml(d):pkSperre('Platzierung','Platz in der Kategorie und die Besten'))
+              /* Die Herleitung erklaert DIESES Produkt. Wer wissen will, warum wir
+                 ueberhaupt so rechnen, kommt von hier auf die Methodik-Seite. */
+              +methodikLinkHtml())
           + (_fZut?ACC('🛡️','Quelle &amp; Beleg',quellenBlock(d)):''))
     + '</div>';
   document.getElementById("overlay").classList.add("open");
@@ -2621,7 +2962,11 @@ function pkGastBox(){
     +'<div style="font-size:12.5px;color:var(--muted);line-height:1.8">🧾 Zutaten &amp; Zusatzstoffe<br>📊 Nährwerte pro 100 g/ml<br>📈 Blutzucker-Verlauf<br>🛡️ Quelle &amp; Beleg</div>'
     +'<div style="font-size:12.5px;color:var(--muted);margin-top:6px">Mit kostenlosem Konto sichtbar.</div>'
     +'<button onclick="closeP();openLogin()" style="margin-top:9px;padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-size:13.5px;font-weight:700;cursor:pointer">Kostenlos anmelden</button>'
-  +'</div>';
+  +'</div>'
+  /* Der Gast sieht nur die Zahl - er ist derjenige, der am wenigsten weiss, wie sie
+     zustande kommt. Die Methode ist deshalb AUSDRUECKLICH nicht Teil des Anmelde-
+     Angebots, sondern steht daneben und offen (Ralph-Entscheid 30.07.). */
+  + methodikLinkHtml();
 }
 function closeP(){
   try{ window._rkSchnell=false; }catch(e){}   /* Schnellanlage-Merker gilt nur fuer DIESEN einen Vorgang */
@@ -2767,6 +3112,7 @@ function setMode(m){
   { var _bv=document.getElementById("bioView"); if(_bv) _bv.style.display = m==="bio"?"":"none"; }
   { var _tw=document.getElementById("tauschView"); if(_tw) _tw.style.display = m==="tausch"?"":"none"; }
   { var _nv=document.getElementById("netzView"); if(_nv) _nv.style.display = m==="netz"?"":"none"; }
+  { var _mdv=document.getElementById("methodikView"); if(_mdv) _mdv.style.display = m==="methodik"?"":"none"; }
   { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
   { var _sv=document.getElementById("suppView"); if(_sv) _sv.style.display = m==="supp"?"":"none"; }
   { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
@@ -2786,6 +3132,10 @@ function setMode(m){
   if(m==="bio"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } bioKandRender(); }
   if(m==="tausch"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } tauschRender(); }
   if(m==="netz"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } netzplanRender(); }
+  /* "Unsere Methode" ist BEWUSST ohne Admin- und ohne Stufen-Schranke: Vertrauensarbeit
+     ist kein Premium-Inhalt (Ralph-Entscheid 30.07.). Einzige Bremse ist das Beta-Flag
+     (§3.0) - ist es aus, gibt es die Seite fuer niemanden, auch nicht per Adresszeile. */
+  if(m==="methodik"){ if(!methodikAn()){ setMode("produkte"); return; } methodikRender(); }
   if(m==="todo"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } todoRender(); }
   if(m==="supp"){ try{ suppPlanRender(); }catch(e){} }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
@@ -7123,6 +7473,10 @@ function buildMehr(){
   let html='<div class="mgrid">'+items.map(it=>'<button onclick="navTo(\''+it[0]+'\')">'+esc(it[1])+'</button>').join('')+'</div>';
   /* Wiki direkt unter die Funktionen - es erklaert die App und wird oft zuerst gesucht. */
   html+='<button onclick="closeMehr();wikiOpen()">📖 Wiki · So funktioniert Root Index</button>';
+  /* "Unsere Methode" direkt darunter: das Wiki erklaert die BEDIENUNG, die Methodik-Seite
+     die BEWERTUNG. Zwei Fragen, zwei Orte - aber nebeneinander, weil wer eine sucht,
+     oft die andere meint. */
+  if(methodikAn()) html+='<button onclick="methodikGo()">🧭 Unsere Methode · so entsteht der Index</button>';
   /* Darstellung: "Automatisch" folgt dem Geraet - das ist die richtige Vorgabe.
      Wer ein Handy auf dunkel gestellt hat, will nicht von jeder App neu gefragt werden. */
   const w = window.riThemeWahl || 'auto';
@@ -7230,6 +7584,7 @@ function wikiOpen(){
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto"><b style="font-size:17px">📖 So funktioniert Root Index</b><button onclick="document.getElementById('wikiOv').remove()" style="border:0;background:var(--k-eef3ef);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px">Schließen ✕</button></div>
     <div style="flex:1;overflow:auto;padding:12px 16px 28px">
       <p style="font-size:13.5px;color:var(--muted);line-height:1.5">Transparent, wissenschaftsbasiert, nachvollziehbar. Hier steht, wie der <b>Root Index</b> und der <b>Kalorienrechner</b> rechnen – inklusive der Sonderfälle.</p>
+      ${methodikAn()?`<div style="margin:10px 0 2px"><span onclick="document.getElementById('wikiOv').remove();methodikGo('mdSekAchsen')" role="link" tabindex="0" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--k-16a34a);font-weight:600;border-bottom:1px dotted var(--line);padding-bottom:1px">🧭 Kurzfassung: Unsere Methode <span style="opacity:.6">›</span></span></div>`:``}
 
       ${H("Root Index (0–100)")}
       ${box(`Setzt sich aus vier Teilen zusammen:<br>
@@ -7242,8 +7597,8 @@ function wikiOpen(){
 
       ${H("Sonderregeln")}
       ${box(`<b>Öle &amp; Fette:</b> Statt des Makro-Profils zählt die <b>Fettqualität</b> – der Anteil ungesättigter Fettsäuren. So schneiden z. B. Oliven-, Lein- und Nussöle hoch ab, stark gesättigte Fette (Talg, Butterschmalz) niedriger. Öl nutzt man in kleinen Mengen, nicht pro 100 g.`)}
-      ${box(`<b>0‑kcal-Produkte</b> (Süßstoffe, Essig): Der Nährwert-Teil ist bei 0 kcal nicht sinnvoll und <b>entfällt</b>; die anderen drei Teile werden auf 100 % hochgerechnet. Bewertet werden also Zutaten, Verarbeitung &amp; Zusatzstoffe (natürlich, z. B. Stevia, besser als künstlich).`)}
-      ${box(`<b>Supplements:</b> ebenfalls ohne Nährwert-Teil (Fokus auf Inhaltsstoffe). <b>Ausnahme Proteinpulver:</b> Da man es in Mahlzeiten-Mengen isst (nicht mikro-dosiert wie eine Vitaminkapsel), zählt hier die Nährwert-Achse wie bei einem Lebensmittel – trotz Einordnung als Supplement.<br><br>
+      ${box(`<b>Süßungsmittel und Salze</b> bekommen <b>gar keinen</b> Index. Ein Süßungsmittel besteht aus dem, was der Index abwerten würde, und Salz hat weder Nährwertprofil noch Zutatenliste – eine Punktzahl wäre dort keine Messung. Bei <b>0‑kcal-Produkten</b> wie Essig ist der Nährwert-Teil nicht sinnvoll und <b>entfällt</b>; bewertet werden dann Zutaten, Verarbeitung &amp; Zusatzstoffe.`)}
+      ${box(`<b>Supplements bekommen keinen Index</b>, sondern einen <b>Dosis-Check</b>: eine Ampel je Wirkstoff gegen die EFSA-Referenzwerte. Eine Kapsel hat kein Nährwertprofil, und drei von vier Achsen sind bei Präparaten praktisch überall gleich – eine Summe daraus sähe genau aus und wüsste fast nichts. <b>Ausnahme Proteinpulver:</b> Da man es in Mahlzeiten-Mengen isst (nicht mikro-dosiert wie eine Vitaminkapsel), zählt die Nährwert-Achse wie bei einem Lebensmittel – es bekommt daher einen normalen Index.<br><br>
         <b>Trägerstoffe der Darreichung</b> – Kapselhülle (Gelatine, Cellulose/HPMC, Pullulan) und das Feuchthaltemittel Glycerin (E422) – werden bei Supplements <b>nicht als Verarbeitungs- oder Zutaten-Malus</b> gewertet: Sie sind pharmakopöe-/EU-zugelassen und gesundheitlich inert und machen ein Präparat nicht ungesünder. Bewertet wird der <b>Wirkstoff</b> (Form, Dosis, Reinheit). So wird eine Kapsel nicht wie ein hochverarbeitetes Lebensmittel behandelt. Ebenfalls inert und daher nicht abgewertet: <b>Magnesiumstearat (E470b)</b> und <b>mikrokristalline Cellulose (E460)</b> – EFSA-Neubewertungen 2018 ohne Sicherheitsbedenken. <b>Nicht</b> ausgenommen bleiben Siliciumdioxid (E551), Maltodextrin und Methylcellulose. <b>Titandioxid (E171)</b> zählt dagegen als Negativpunkt (EFSA 2021: nicht mehr sicher, EU-Verbot seit 2022). Grundlagen: EU-VO 1333/2008, EFSA-Bewertungen, Europäisches Arzneibuch.`)}
 
       ${H("Süßstoffe, Zuckeralkohole & schnelle Kohlenhydrate")}
@@ -7433,133 +7788,489 @@ const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rez
    S Score-Weg, W Wochenrhythmus), 19 klickbare Haltestellen mit ECHTEN Takten und Regeln.
    Live-Ampeln NUR an Stationen mit belegbaren Daten (cb_dashboard + cb_audit_status) -
    eine Station ohne Datenquelle bekommt KEINE Ampel statt einer erfundenen (§1). */
-var _NP_FARBEN={T:'#2a78d6',R:'#1baf7a',S:'#4a3aa7',W:'#eb6834'};
+/* ============================================================================
+   NETZPLAN (Admin) · Betriebsnetz als Metro-Karte
+   ----------------------------------------------------------------------------
+   UMBAU 30.07.2026 nach Ralphs Blick auf den Live-Plan:
+   „autopilot ist gestoppt und die zuflüsse fehlen mir, wo greifen die wächter?
+    wo greift das regelwerk?"
+
+   Drei Fragen, drei Bauteile:
+
+   1) LINIE Z · ZUFLÜSSE (neu). Links eine Sammelschiene mit allen Wegen, auf denen
+      etwas hereinkommt. Ein Zufluss OHNE automatischen Abnehmer endet in einem
+      ROTEN BALKEN vor der Schiene — man SIEHT, dass er nicht ankommt.
+      Das war Ralphs blinder Fleck: 30 Barcode-Scans ohne Foto warteten seit
+      15 Tagen auf einen Weg, den niemand gebaut hat.
+
+   2) DREI PRÜFPUNKTE (neu, Rautenform): Anlage · Tür · Bestand.
+      Keine Design-Idee, sondern Doktrin aus CLAUDE.md §1.11p — „Jede neue Regel
+      braucht zwei Wächter: einen an der Tür und einen im Bestand." Vorher stand
+      dafür EINE Sammelstation „Wächter", die nicht sagte, wo etwas zubeißt.
+      Klick zeigt, WELCHE Wächter dort greifen, mit Live-Zahl und Gate-Kennzeichen.
+
+   3) REGELWERK wirkt sichtbar. Die Station listet ihre Bereiche samt der Stationen,
+      auf die sie wirken; betroffene Stationen tragen ein § als Marke.
+
+   🔴 ALLE ZAHLEN KOMMEN AUS cb_netzplan() — KEINE im Code (§4b, MIKRO_REF-Falle).
+   Der alte Plan behauptete „Zehn Prüf-Automatiken" (es sind 25) und „9 Bereiche"
+   (es sind 10, der Bereich vergleich fehlte). Eine hartkodierte Zahl veraltet still:
+   sie wird nicht falsch gemeldet, sie wird einfach irgendwann unwahr.
+
+   AMPEL-REGEL: 🟢 läuft · 🟡 wartet · 🔴 Achtung · ⚪ GRAU = wir wissen es nicht.
+   Grau ist ein Eingeständnis, kein Urteil (§1.11v). Der Wochenlauf steht jetzt auf
+   grau, weil sein Protokoll-Schlüssel in Riki_Config gar nicht existiert — vorher
+   zeigte er dauerhaft GELB, also „überfällig". Eine Ampel, die immer gelb ist, wird
+   weggeklickt, und dann übersieht man die echte daneben (§1.11n-b).
+   ============================================================================ */
+var _NP_FARBEN={T:'#2a78d6',R:'#1baf7a',S:'#4a3aa7',W:'#eb6834',Z:'#0d8f9c'};
+var _NP_GRAU='#9a9a94', _NP_GOOD='#0ca30c', _NP_WARN='#c07a10', _NP_CRIT='#d03b3b';
+
+/* Statische Stationen. Die ZUFLÜSSE stehen absichtlich NICHT hier — sie kommen
+   vollständig aus cb_netzplan(), damit ein neuer Zufluss nicht an zwei Orten
+   gepflegt werden muss. Jede Station hat eine ID; npZeige arbeitet mit IDs statt
+   mit Array-Positionen, sonst zeigt beim nächsten Einschub der Klick auf die
+   falsche Station (dieselbe Falle wie doppelte DOM-IDs, §1.11n-p). */
 var _NP_ST=[
- {l:'T',x:120,y:80,n:'Push-Versand',z:'jede Minute',d:'Der Zeitplaner (pg_cron) prüft jede Minute, ob Mitteilungen anstehen — z. B. „Einkaufsliste geändert“ — und schickt sie an die angemeldeten Handys.',k:'Takt: minütlich · Edge-Funktion push-versand'},
- {l:'T',x:300,y:80,n:'Riki-Autopilot',z:'alle 30 Min',amp:'autopilot',d:'Arbeitet die Scan-Warteschlange ab: liest Etikettfotos, füllt Produkte als Entwurf, prüft mit dem Wächter. Zweifel → Entwurf für dich, nie stille Freigabe.',k:'Takt: alle 30 Min · Tagesdeckel 2,00 $'},
- {l:'T',x:480,y:80,n:'Score-Trigger',z:'sofort',d:'Die Automatik in der Datenbank: Bei jeder Änderung an Zutaten, Zusatzstoffen oder Nährwerten rechnet sie den Root Index sofort neu. Fehlt etwas Wichtiges, zeigt sie bewusst KEINE Zahl.',k:'Regel: „Nichts erfinden — lieber keine Zahl als eine falsche“'},
- {l:'T',x:660,y:80,n:'Sofort-Wächter Zutat',z:'bei Anlage',amp:'zutat',d:'Jede NEUE Zutat wird im Moment der Anlage gegen ihre Familie geprüft. Weicht sie ab, landet ein Prüfauftrag in deinem Notizbuch; der Montag-Lauf prüft alle nach.',k:'Ändert NIE Noten — nur Vorschläge'},
- {l:'T',x:840,y:80,n:'Budget-Bremse',z:'laufend',amp:'budget',d:'Jeder Riki-Aufruf wird mit Kosten gebucht. Tagesdeckel und Monatslimit blocken automatisch — gewollt, bevor es teuer wird.',k:'Sichtbar: Dashboard-Kosten-Diagramm mit Deckel-Linie'},
- {l:'R',x:120,y:200,n:'Adresse / Foto',z:'Start',d:'Eine Herstellerseiten-Adresse oder ein Etikettfoto kommt herein — von dir, vom Scan eines Nutzers oder vom Autopiloten.',k:'Quellen: Weblink · Etikettfoto · Screenshot'},
- {l:'R',x:255,y:200,n:'Abruf + Hilfen',z:'12 s Fenster',d:'Der Server holt die Seite. Seit v16 mit drei Hilfen: strukturierte Daten (JSON-LD) mitlesen, verlinkte Zutaten-/Nährwert-Unterseiten folgen, Fehl-Läufe protokollieren.',k:'Scheitert alles → ehrliche Meldung + Screenshot-Weg'},
- {l:'R',x:390,y:200,n:'Riki liest',z:'KI',d:'Riki zieht Nährwerte je 100 g, Zutaten, Zusatzstoffe, Wirkstoffe und EAN aus dem Text. Oberste Regel im Prompt: NICHTS ERFINDEN — was nicht dasteht, bleibt leer.',k:'Nur Vorschlag — freigegeben wird nie automatisch ohne Prüfweg'},
- {l:'R',x:525,y:245,n:'Server-Filter',z:'Schutzwall',u:1,d:'Was Riki liefert, wird serverseitig verteidigt: EAN nur mit gültiger Prüfziffer, Einheiten nur mg/µg/g, IU wird verworfen statt umgerechnet, Kategorien nur aus der 24er-Liste.',k:'Prinzip: das Modell ist ungeprüft — der Server prüft nach'},
- {l:'R',x:700,y:320,n:'Wächter',z:'TÜV',u:1,amp:'waechter',d:'Zehn Prüf-Automatiken laufen über jeden Datensatz: Nährwert-Physik, g/ml, Portionsfalle, Quellen-Pflicht, Zutaten-Staffel u. a. Dunkel = still = gut.',k:'Umsteigen zur Linie S: ohne grünen Wächter keine Freigabe'},
- {l:'R',x:840,y:320,n:'Ralph prüft',z:'Mensch',amp:'scans',d:'Riki liest gut, aber er belegt nichts — das tust du. Erst dein Klick gibt frei. Ausnahme: Auto-Verifizierung nur bei ZWEI unabhängigen Quellen (Etikett + Herstellerseite).',k:'Zwei-Quellen-Regel, von dir autorisiert'},
- {l:'S',x:120,y:320,n:'Regelwerk (DB)',z:'Quelle',u:1,d:'Die verbindlichen Bewertungsregeln leben in der Datenbank (9 Bereiche). Jede Regel braucht eine Quelle (EFSA/WHO/EU) — Meinungen kommen nicht in den Score.',k:'Gleichlauf-Regel: Prompt-Änderung immer im selben Arbeitsgang'},
- {l:'S',x:280,y:320,n:'4 Achsen',z:'30+15+15+40',d:'Zutaten (Verarbeitungsgrad, 30) + Zusatzstoffe (15) + NOVA (15) + Nährwert (40) = Root Index 0–100. Jede Eigenschaft zählt auf genau EINER Achse.',k:'Fleisch & Fisch: Fettqualität statt Fettmenge (seit 29.07.)'},
- {l:'S',x:430,y:320,n:'Ehrlichkeits-Sperre',z:'Checkpoint',amp:'ohnescore',d:'Fehlt eine Achse oder ist ein Zusatzstoff unbewertet, gibt es KEINE Zahl — mit Klartext-Begründung auf der Produktkarte.',k:'„Wir zeigen lieber keine Zahl als eine erfundene“'},
- {l:'S',x:700,y:200,n:'Root Index',z:'0–100',d:'Die eine Zahl auf der Produktkarte — mit Herleitung, Quelle und Platz in der Kategorie. Bessere Alternativen stehen mit belegter Begründung daneben.',k:'„Die Vorderseite verkauft. Wir lesen die Rückseite.“'},
- {l:'S',x:840,y:200,n:'Katalog & App',z:'live',d:'Freigegebene Produkte erscheinen im Katalog, Tagebuch und in der Einkaufsliste. Deploy der App macht nur Ralph — die Datenbank ist sofort live.',k:'Zugriff: Nutzer nur über geprüfte Lese-Wege (RPCs), Admin nur mit Admin-Konto'},
- {l:'W',x:150,y:420,n:'Mo 6:00 · Wochenprüfung',z:'Autopilot 2.0',amp:'woche',d:'Der große Wochenlauf: prüft neue Zutaten nach (Staffel-Audit), recherchiert die Unbekannt-Liste beim Hersteller, gleicht Autopilot-Produkte gegen Herstellerseiten ab.',k:'Bericht per Push + E-Mail'},
- {l:'W',x:400,y:420,n:'Do 6:00 · Lese-Optimierer',z:'wöchentlich',d:'Wertet Rikis Fehl-Läufe der Woche aus, prüft Problem-Seiten und schlägt Verbesserungen vor. Ändert selbst NIE etwas.',k:'Bericht per Push + E-Mail'},
- {l:'W',x:620,y:420,n:'Gleichlauf-Check',z:'Do, automatisch',u:1,d:'Teil des Lese-Optimierers: Stimmen Rikis Prompts noch mit der Datenbank überein (Kategorien-Liste, neue Regeln der Woche)? Abweichung = dringende Meldung.',k:'Regel seit 29.07. in CLAUDE.md'},
- {l:'W',x:840,y:420,n:'Monatsanfang · Benchmark',z:'manuell',d:'Platzhirsch-Vergleich (Yuka & Co.) einmal im Monat gemeinsam durchgehen: Wo stehen wir, was fehlt, was ist unser Vorsprung.',k:'Nächster Termin: 01.08. · Todo #39'}
+ /* ---------------- T · Takte (was von allein tickt) ---------------- */
+ {l:'T',id:'push',x:345,y:70,n:'Push-Versand',z:'jede Minute',
+  d:'Der Zeitplaner (pg_cron) prüft jede Minute, ob Mitteilungen anstehen — z. B. „Einkaufsliste geändert" — und schickt sie an die angemeldeten Handys.',
+  k:'Takt: minütlich · Edge-Funktion push-versand'},
+ {l:'T',id:'autopilot',x:505,y:70,n:'Riki-Autopilot',z:'alle 30 Min',amp:'autopilot',
+  d:'Arbeitet die Warteschlange ab — aber NUR Einträge MIT Etikettfoto. Reine Barcode-Scans überspringt er bewusst: ohne Bild hat Riki nichts zu lesen. Zweifel → Entwurf für dich, nie stille Freigabe.',
+  k:'Takt: alle 30 Min · Tagesdeckel 2,00 $ · Klick zeigt, was er erreichen kann und was nicht'},
+ {l:'T',id:'scoretrigger',x:665,y:70,n:'Score-Trigger',z:'sofort',
+  d:'Die Automatik in der Datenbank: bei jeder Änderung an Zutaten, Zusatzstoffen oder Nährwerten rechnet sie den Root Index sofort neu. Fehlt etwas Wichtiges, zeigt sie bewusst KEINE Zahl.',
+  k:'Regel: lieber keine Zahl als eine falsche'},
+ {l:'T',id:'sofortzutat',x:830,y:70,n:'Sofort-Wächter Zutat',z:'bei Anlage',amp:'zutat',
+  d:'Jede NEUE Zutat wird im Moment der Anlage gegen ihre Familie geprüft. Weicht sie ab, landet ein Prüfauftrag in deinem Notizbuch; der Montag-Lauf prüft alle nach.',
+  k:'Ändert NIE Noten — nur Vorschläge'},
+ {l:'T',id:'budget',x:1000,y:70,n:'Budget-Bremse',z:'laufend',amp:'budget',
+  d:'Jeder Riki-Aufruf wird mit Kosten gebucht. Tagesdeckel und Monatslimit blocken automatisch — gewollt, bevor es teuer wird.',
+  k:'Sichtbar: Kosten-Diagramm im Dashboard mit Deckel-Linie'},
+
+ /* ---------------- R · Rikis Lese-Weg ---------------- */
+ {l:'R',id:'erfassung',x:310,y:190,n:'Erfassung beginnt',z:'alle Zuflüsse münden hier',u:1,
+  d:'Der gemeinsame Eingang: Herstellerseiten-Adresse, Etikettfoto, Barcode oder Handeingabe. Links siehst du, welche Zuflüsse hier wirklich ankommen — und welche vorher stehen bleiben.',
+  k:'Umsteigen von Linie Z'},
+ {l:'R',id:'abruf',x:420,y:190,n:'Abruf + Hilfen',z:'12 s Fenster',
+  d:'Der Server holt die Seite. Mit drei Hilfen: strukturierte Daten (JSON-LD) mitlesen, verlinkten Zutaten-/Nährwert-Unterseiten folgen, Fehl-Läufe protokollieren.',
+  k:'Scheitert alles → ehrliche Meldung + Screenshot-Weg'},
+ {l:'R',id:'rikiliest',x:530,y:190,n:'Riki liest',z:'KI',
+  d:'Riki zieht Nährwerte je 100 g, Zutaten, Zusatzstoffe, Wirkstoffe, Bio-Beleg und EAN aus dem Text. Oberste Regel im Prompt: NICHTS ERFINDEN — was nicht dasteht, bleibt leer.',
+  k:'Nur Vorschlag. Riki belegt nichts — das tut ein Mensch'},
+ {l:'R',id:'serverfilter',x:635,y:190,n:'Server-Filter',z:'Schutzwall',u:1,
+  d:'Was Riki liefert, wird serverseitig verteidigt: EAN nur mit gültiger Prüfziffer, Einheiten nur mg/µg/g, IU wird verworfen statt umgerechnet, Kategorien nur aus der gepflegten Liste, Bio nur mit Beleg.',
+  k:'Prinzip: das Modell ist ungeprüft — der Server prüft nach'},
+ {l:'R',id:'pp_anlage',x:730,y:190,n:'Prüfpunkt Anlage',z:'sofort',f:'raute',amp:'pp_anlage',
+  d:'Der erste von drei Prüfpunkten. Hier greifen die Wächter, die im MOMENT DER ANLAGE zubeißen — bevor ein Wert im Katalog liegt.',
+  k:'Klick: welche Wächter hier greifen, mit Live-Zahl'},
+ {l:'R',id:'pp_tuer',x:860,y:310,n:'Prüfpunkt Tür',z:'blockiert',f:'raute',amp:'pp_tuer',u:1,
+  d:'Die Freigabe. Hier BLOCKIEREN Wächter — vier Riegel in dieser Reihenfolge: belegte Quelle → Verifiziert → Score vorhanden → Wächter still. Was hier hängt, geht nicht live.',
+  k:'Diese Wächter sind das Go-Live-Gate: ihre Summe muss 0 sein'},
+ {l:'R',id:'ralph',x:990,y:310,n:'Ralph gibt frei',z:'Mensch',amp:'scans',
+  d:'Riki liest gut, aber er belegt nichts — das tust du. Erst dein Klick gibt frei. Ausnahme: Auto-Verifizierung nur bei ZWEI unabhängigen Quellen (Etikett + Herstellerseite).',
+  k:'Zwei-Quellen-Regel, von dir autorisiert'},
+
+ /* ---------------- S · Score-Weg ---------------- */
+ {l:'S',id:'regelwerk',x:310,y:310,n:'Regelwerk (DB)',z:'die Quelle',u:1,
+  d:'Die verbindlichen Bewertungsregeln leben in der Datenbank, nicht im Code. Jede Regel braucht eine Quelle (EFSA/WHO/EU) — Meinungen kommen nicht in den Score.',
+  k:'Klick: alle Bereiche mit Anzahl und der Station, auf die sie wirken'},
+ {l:'S',id:'achsen',x:450,y:310,n:'4 Achsen',z:'30+15+15+40',
+  d:'Zutaten (Verarbeitungsgrad, 30) + Zusatzstoffe (15) + NOVA (15) + Nährwert (40) = Root Index 0–100. Jede Eigenschaft zählt auf genau EINER Achse.',
+  k:'Fleisch & Fisch: Fettqualität statt Fettmenge (seit 29.07.)'},
+ {l:'S',id:'sperre',x:600,y:310,n:'Ehrlichkeits-Sperre',z:'Checkpoint',amp:'ohnescore',
+  d:'Fehlt eine Achse oder ist ein Zusatzstoff unbewertet, gibt es KEINE Zahl — mit Klartext-Begründung auf der Produktkarte.',
+  k:'Wir zeigen lieber keine Zahl als eine erfundene'},
+ {l:'S',id:'index',x:860,y:190,n:'Root Index',z:'0–100',
+  d:'Die eine Zahl auf der Produktkarte — mit Herleitung, Quelle und Platz in der Kategorie. Bessere Alternativen stehen mit belegter Begründung daneben.',
+  k:'„Die Vorderseite verkauft. Wir lesen die Rückseite."'},
+ {l:'S',id:'katalog',x:990,y:190,n:'Katalog & App',z:'live',
+  d:'Freigegebene Produkte erscheinen im Katalog, Tagebuch und in der Einkaufsliste. Den App-Deploy macht nur Ralph — die Datenbank ist sofort live.',
+  k:'Nutzer lesen nur über geprüfte Wege (RPCs), Admin nur mit Admin-Konto'},
+ {l:'S',id:'pp_bestand',x:1110,y:190,n:'Prüfpunkt Bestand',z:'laufend',f:'raute',amp:'pp_bestand',
+  d:'Der dritte Prüfpunkt, und der am leichtesten zu vergessende: Wächter, die über SCHON FREIGEGEBENE Daten laufen. Eine neue Regel gilt ab sofort — der Bestand ist von gestern (§1.11p).',
+  k:'Klick: welche Wächter im Bestand suchen und was sie gerade finden'},
+
+ /* ---------------- W · Wochenrhythmus ---------------- */
+ {l:'W',id:'mo',x:360,y:430,n:'Mo 6:00 · Wochenprüfung',z:'Autopilot 2.0',amp:'woche',
+  d:'Der große Wochenlauf: prüft neue Zutaten nach (Staffel-Audit), recherchiert die Unbekannt-Liste beim Hersteller, gleicht Autopilot-Produkte gegen Herstellerseiten ab.',
+  k:'Bericht per Push + E-Mail'},
+ {l:'W',id:'do',x:570,y:430,n:'Do 6:00 · Lese-Optimierer',z:'wöchentlich',
+  d:'Wertet Rikis Fehl-Läufe der Woche aus, prüft Problem-Seiten und schlägt Verbesserungen vor. Ändert selbst NIE etwas.',
+  k:'Bericht per Push + E-Mail'},
+ {l:'W',id:'gleichlauf',x:780,y:430,n:'Gleichlauf-Check',z:'Do, automatisch',u:1,
+  d:'Teil des Lese-Optimierers: Stimmen Rikis Prompts noch mit der Datenbank überein (Kategorien-Liste, neue Regeln der Woche)? Abweichung = dringende Meldung.',
+  k:'Regel seit 29.07. in CLAUDE.md'},
+ {l:'W',id:'benchmark',x:990,y:430,n:'Monatsanfang · Benchmark',z:'manuell',
+  d:'Platzhirsch-Vergleich (Yuka & Co.) einmal im Monat gemeinsam durchgehen: Wo stehen wir, was fehlt, was ist unser Vorsprung.',
+  k:'Nächster Termin: 01.08. · Todo #39'}
 ];
+
+/* Welche Regelwerk-Bereiche wirken auf welche Station? Die Zuordnung kommt aus der
+   DB (Feld wirkt_auf) — hier steht nur, welche Station welchen Schlüssel trägt. */
+var _NP_REGEL_ZIEL={achsen:'achsen',index:'index',waechter:'pp_tuer',alles:'regelwerk'};
+/* 'dosis' fehlt hier ABSICHTLICH: es gibt keine Dosis-Station im Plan. Lieber kein
+   Pfeil als ein Pfeil auf die falsche Station - der Bereich steht trotzdem in der Liste. */
+
 function netzplanRender(){
   var v=document.getElementById('netzView'); if(!v) return;
-  v.innerHTML='<div style="max-width:1080px;margin:0 auto;padding:14px 10px 40px">'
+  v.innerHTML='<div style="max-width:1180px;margin:0 auto;padding:14px 10px 40px">'
     +'<h2 style="font-size:19px;font-weight:800;margin:2px 0 2px">🚇 Betriebsnetz</h2>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">So arbeitet Root Index: vier Linien, jede Haltestelle ist klickbar. Ampeln zeigen den Live-Zustand — nur dort, wo es echte Daten gibt.</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">So arbeitet Root Index. <b>Linie Z links zeigt, was hereinkommt</b> — endet ein Zufluss in einem roten Balken, holt ihn <b>keine Automatik</b> ab. Die drei <b>Rauten</b> sind die Prüfpunkte: dort greifen die Wächter. Jede Haltestelle ist klickbar.</div>'
+    +'<div id="npFehler" style="display:none;margin:0 0 10px;padding:9px 11px;border:1px solid #f0c2c2;background:#fdf1f1;border-radius:9px;font-size:12.5px;color:#8d2b2b"></div>'
     +'<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(20,40,70,.06)">'
-      +'<svg viewBox="0 0 1020 470" style="width:100%;display:block" id="npSvg">'
-        +'<path d="M70 80 H950" fill="none" stroke="'+_NP_FARBEN.T+'" stroke-width="7" stroke-linecap="round"/>'
-        +'<path d="M70 200 H540 Q560 200 560 220 V300 Q560 320 580 320 H950" fill="none" stroke="'+_NP_FARBEN.R+'" stroke-width="7" stroke-linecap="round"/>'
-        +'<path d="M70 320 H540 Q560 320 560 300 V220 Q560 200 580 200 H950" fill="none" stroke="'+_NP_FARBEN.S+'" stroke-width="7" stroke-linecap="round" opacity="0.96"/>'
-        +'<path d="M70 420 H950" fill="none" stroke="'+_NP_FARBEN.W+'" stroke-width="7" stroke-linecap="round"/>'
-        +'<g font-size="11.5" font-weight="800" fill="#fff">'
-          +'<rect x="20" y="68" width="34" height="24" rx="7" fill="'+_NP_FARBEN.T+'"/><text x="37" y="84" text-anchor="middle">T</text>'
-          +'<rect x="20" y="188" width="34" height="24" rx="7" fill="'+_NP_FARBEN.R+'"/><text x="37" y="204" text-anchor="middle">R</text>'
-          +'<rect x="20" y="308" width="34" height="24" rx="7" fill="'+_NP_FARBEN.S+'"/><text x="37" y="324" text-anchor="middle">S</text>'
-          +'<rect x="20" y="408" width="34" height="24" rx="7" fill="'+_NP_FARBEN.W+'"/><text x="37" y="424" text-anchor="middle">W</text>'
-        +'</g><g id="npStationen"></g>'
+      +'<svg viewBox="0 0 1220 505" style="width:100%;display:block" id="npSvg">'
+        /* Linien */
+        +'<path d="M300 70 H1140" fill="none" stroke="'+_NP_FARBEN.T+'" stroke-width="7" stroke-linecap="round"/>'
+        +'<path d="M300 190 H760 Q780 190 780 210 V290 Q780 310 800 310 H1140" fill="none" stroke="'+_NP_FARBEN.R+'" stroke-width="7" stroke-linecap="round"/>'
+        +'<path d="M300 310 H760 Q780 310 780 290 V210 Q780 190 800 190 H1140" fill="none" stroke="'+_NP_FARBEN.S+'" stroke-width="7" stroke-linecap="round" opacity="0.96"/>'
+        +'<path d="M300 430 H1140" fill="none" stroke="'+_NP_FARBEN.W+'" stroke-width="7" stroke-linecap="round"/>'
+        /* Linie Z: Sammelschiene + Einmuendung in die Erfassung */
+        +'<path d="M252 96 V416" fill="none" stroke="'+_NP_FARBEN.Z+'" stroke-width="7" stroke-linecap="round"/>'
+        +'<path d="M252 190 H302" fill="none" stroke="'+_NP_FARBEN.Z+'" stroke-width="7" stroke-linecap="round"/>'
+        +'<g id="npZuflus"></g><g id="npStationen"></g>'
       +'</svg>'
-      +'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:10px 2px 2px">'
-        +'<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'+_NP_FARBEN.T+';margin-right:6px;vertical-align:2px"></span>T · Takte</span>'
-        +'<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'+_NP_FARBEN.R+';margin-right:6px;vertical-align:2px"></span>R · Rikis Lese-Weg</span>'
-        +'<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'+_NP_FARBEN.S+';margin-right:6px;vertical-align:2px"></span>S · Score-Weg</span>'
-        +'<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'+_NP_FARBEN.W+';margin-right:6px;vertical-align:2px"></span>W · Wochenrhythmus</span>'
-        +'<span>◎ = Umsteigen · Ampel: 🟢 läuft · 🟡 wartet auf dich/den Lauf · 🔴 Achtung</span>'
+      +'<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:10px 2px 2px">'
+        +_npLegende('Z','Zuflüsse — was hereinkommt')
+        +_npLegende('T','Takte — was von allein tickt')
+        +_npLegende('R','Rikis Lese-Weg')
+        +_npLegende('S','Score-Weg')
+        +_npLegende('W','Wochenrhythmus')
+        +'<span>◆ Prüfpunkt · ◎ Umsteigen · <span style="color:'+_NP_CRIT+'">▮</span> Sackgasse: niemand holt es ab</span>'
+        +'<span>Ampel: 🟢 läuft · 🟡 wartet · 🔴 Achtung · ⚪ keine Aussage möglich</span>'
       +'</div>'
       +'<div id="npInfo" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px;min-height:74px"></div>'
     +'</div></div>';
-  var g=document.getElementById('npStationen'), NS='http://www.w3.org/2000/svg';
-  _NP_ST.forEach(function(s,i){
-    var grp=document.createElementNS(NS,'g'); grp.setAttribute('data-i',i); grp.style.cursor='pointer';
+
+  var g=document.getElementById('npStationen');
+  _NP_ST.forEach(function(s){ g.appendChild(_npStation(s)); });
+  npZeige('autopilot');
+  netzplanLive();
+}
+
+function _npLegende(l,t){
+  return '<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'
+    +_NP_FARBEN[l]+';margin-right:6px;vertical-align:2px"></span>'+l+' · '+t+'</span>';
+}
+
+/* Eine Haltestelle zeichnen. Raute = Prüfpunkt, Doppelring = Umsteigen.
+   Form UND Farbe UND Text tragen die Bedeutung — Farbe allein ist für
+   farbenschwache Augen nutzlos (§1.11n-m). */
+function _npStation(s){
+  var NS='http://www.w3.org/2000/svg';
+  var grp=document.createElementNS(NS,'g');
+  grp.setAttribute('data-id',s.id); grp.style.cursor='pointer';
+  if(s.f==='raute'){
+    var r=document.createElementNS(NS,'rect');
+    r.setAttribute('x',s.x-8); r.setAttribute('y',s.y-8);
+    r.setAttribute('width',16); r.setAttribute('height',16);
+    r.setAttribute('transform','rotate(45 '+s.x+' '+s.y+')');
+    r.setAttribute('fill','#fff'); r.setAttribute('stroke',_NP_FARBEN[s.l]); r.setAttribute('stroke-width',3);
+    grp.appendChild(r);
+  } else {
     var c=document.createElementNS(NS,'circle');
     c.setAttribute('cx',s.x); c.setAttribute('cy',s.y); c.setAttribute('r',s.u?8:7);
-    c.setAttribute('fill','#fff'); c.setAttribute('stroke',s.u?'#0b0b0b':_NP_FARBEN[s.l]); c.setAttribute('stroke-width',s.u?3:2.6);
-    grp.appendChild(c);
-    if(s.u){ var c2=document.createElementNS(NS,'circle'); c2.setAttribute('cx',s.x); c2.setAttribute('cy',s.y); c2.setAttribute('r',3.2); c2.setAttribute('fill','#0b0b0b'); grp.appendChild(c2); }
-    var oben=(s.l==='T')||(s.y<=200);
+    c.setAttribute('fill','#fff'); c.setAttribute('stroke',s.u?'#0b0b0b':_NP_FARBEN[s.l]);
+    c.setAttribute('stroke-width',s.u?3:2.6); grp.appendChild(c);
+    if(s.u){ var c2=document.createElementNS(NS,'circle'); c2.setAttribute('cx',s.x); c2.setAttribute('cy',s.y);
+      c2.setAttribute('r',3.2); c2.setAttribute('fill','#0b0b0b'); grp.appendChild(c2); }
+  }
+  var oben=(s.l==='T')||(s.y<=200);
+  var t=document.createElementNS(NS,'text');
+  t.setAttribute('x',s.x); t.setAttribute('y',oben?s.y-26:s.y+24); t.setAttribute('text-anchor','middle');
+  t.setAttribute('font-size','11.5'); t.setAttribute('font-weight','700'); t.setAttribute('fill','var(--ink)');
+  t.textContent=s.n; grp.appendChild(t);
+  var t2=document.createElementNS(NS,'text');
+  t2.setAttribute('x',s.x); t2.setAttribute('y',oben?s.y-14:s.y+37); t2.setAttribute('text-anchor','middle');
+  t2.setAttribute('font-size','10'); t2.setAttribute('fill','#898781'); t2.setAttribute('id','npZ_'+s.id);
+  t2.textContent=s.z||''; grp.appendChild(t2);
+  if(s.amp){ var a=document.createElementNS(NS,'circle'); a.setAttribute('id','npAmp_'+s.id);
+    a.setAttribute('cx',s.x+11); a.setAttribute('cy',s.y-11); a.setAttribute('r',4.6);
+    a.setAttribute('fill','#e1e0d9'); a.setAttribute('stroke','#fff'); a.setAttribute('stroke-width','1.6');
+    grp.appendChild(a); }
+  var sg=document.createElementNS(NS,'text');
+  sg.setAttribute('id','npReg_'+s.id); sg.setAttribute('x',s.x-13); sg.setAttribute('y',s.y+5);
+  sg.setAttribute('font-size','12'); sg.setAttribute('font-weight','800'); sg.setAttribute('fill',_NP_FARBEN.S);
+  sg.textContent=''; grp.appendChild(sg);
+  grp.addEventListener('click',function(){ npZeige(s.id); });
+  return grp;
+}
+
+/* ---------------------------------------------------------------------------
+   ZUFLÜSSE zeichnen — komplett aus cb_netzplan(), nichts aus dem Code.
+   weg='auto'  → Stichleitung erreicht die Sammelschiene (eine Automatik holt es ab)
+   weg='hand'  → erreicht die Schiene, trägt aber ein ✋ (fließt nur, wenn Ralph schiebt)
+   weg='keiner'→ endet in einem ROTEN BALKEN vor der Schiene: niemand holt es ab
+   --------------------------------------------------------------------------- */
+function _npZuflussZeichnen(liste){
+  var g=document.getElementById('npZuflus'); if(!g) return;
+  var NS='http://www.w3.org/2000/svg';
+  while(g.firstChild) g.removeChild(g.firstChild);
+  if(!liste||!liste.length){
+    var w=document.createElementNS(NS,'text');
+    w.setAttribute('x',132); w.setAttribute('y',210); w.setAttribute('text-anchor','end');
+    w.setAttribute('font-size','11.5'); w.setAttribute('font-weight','700'); w.setAttribute('fill',_NP_CRIT);
+    w.textContent='Zuflüsse nicht ladbar'; g.appendChild(w);
+    return;
+  }
+  window._npZuf={};
+  liste.forEach(function(z,i){
+    var y=96+i*64, kurz=String(z.name||'').split(' (')[0];
+    window._npZuf[z.id]=z;
+    var grp=document.createElementNS(NS,'g'); grp.style.cursor='pointer';
+    /* Stichleitung */
+    var ln=document.createElementNS(NS,'path');
+    ln.setAttribute('d','M132 '+y+' H'+(z.weg==='keiner'?208:252));
+    ln.setAttribute('stroke',_NP_FARBEN.Z); ln.setAttribute('stroke-width','4');
+    ln.setAttribute('fill','none'); ln.setAttribute('stroke-linecap','round');
+    if(z.weg==='hand') ln.setAttribute('stroke-dasharray','7 4');
+    grp.appendChild(ln);
+    if(z.weg==='keiner'){
+      var bar=document.createElementNS(NS,'path');
+      bar.setAttribute('d','M213 '+(y-10)+' V'+(y+10));
+      bar.setAttribute('stroke',_NP_CRIT); bar.setAttribute('stroke-width','5');
+      bar.setAttribute('stroke-linecap','round'); grp.appendChild(bar);
+    }
+    if(z.weg==='hand'){
+      var hd=document.createElementNS(NS,'text');
+      hd.setAttribute('x',196); hd.setAttribute('y',y-7); hd.setAttribute('font-size','11');
+      hd.textContent='✋'; grp.appendChild(hd);
+    }
+    /* Punkt */
+    var c=document.createElementNS(NS,'circle');
+    c.setAttribute('cx',132); c.setAttribute('cy',y); c.setAttribute('r',7);
+    c.setAttribute('fill','#fff');
+    c.setAttribute('stroke', z.weg==='keiner'?_NP_CRIT:_NP_FARBEN.Z);
+    c.setAttribute('stroke-width','2.8'); grp.appendChild(c);
+    /* Name + Wartestapel, linksseitig */
     var t=document.createElementNS(NS,'text');
-    t.setAttribute('x',s.x); t.setAttribute('y',oben?s.y-26:s.y+24); t.setAttribute('text-anchor','middle');
-    t.setAttribute('font-size','11.5'); t.setAttribute('font-weight','700'); t.setAttribute('fill','var(--ink)');
-    t.textContent=s.n; grp.appendChild(t);
+    t.setAttribute('x',118); t.setAttribute('y',y-2); t.setAttribute('text-anchor','end');
+    t.setAttribute('font-size','11'); t.setAttribute('font-weight','700'); t.setAttribute('fill','var(--ink)');
+    t.textContent=kurz; grp.appendChild(t);
+    var n=Number(z.wartend)||0, tage=(z.aeltester_tage==null?null:Number(z.aeltester_tage));
     var t2=document.createElementNS(NS,'text');
-    t2.setAttribute('x',s.x); t2.setAttribute('y',oben?s.y-14:s.y+37); t2.setAttribute('text-anchor','middle');
-    t2.setAttribute('font-size','10'); t2.setAttribute('fill','#898781'); t2.setAttribute('id','npZ'+i);
-    t2.textContent=s.z||''; grp.appendChild(t2);
-    if(s.amp){ var a=document.createElementNS(NS,'circle'); a.setAttribute('id','npAmp'+i);
-      a.setAttribute('cx',s.x+10); a.setAttribute('cy',s.y-10); a.setAttribute('r',4.6);
-      a.setAttribute('fill','#e1e0d9'); a.setAttribute('stroke','#fff'); a.setAttribute('stroke-width','1.6'); grp.appendChild(a); }
-    grp.addEventListener('click',function(){ npZeige(i); });
+    t2.setAttribute('x',118); t2.setAttribute('y',y+11); t2.setAttribute('text-anchor','end');
+    t2.setAttribute('font-size','9.5');
+    t2.setAttribute('fill', n===0?_NP_GOOD:(z.weg==='keiner'?_NP_CRIT:_NP_WARN));
+    t2.textContent = n===0 ? 'frei' : (n+' wartend'+(tage!=null?' · seit '+tage+' T':''));
+    grp.appendChild(t2);
+    var tt=document.createElementNS(NS,'title');
+    tt.textContent=z.name+': '+(n===0?'nichts offen':n+' laut Status')+' — '+(z.hinweis||'');
+    grp.appendChild(tt);
+    grp.addEventListener('click',function(){ npZeige('zf:'+z.id); });
     g.appendChild(grp);
   });
-  npZeige(9);
-  netzplanAmpeln();
 }
-function npZeige(i){
-  var s=_NP_ST[i], box=document.getElementById('npInfo'); if(!box||!s) return;
-  var amp=(window._npAmpeln||{})[i];
+
+/* ---------------------------------------------------------------------------
+   Info-Fenster unter dem Plan. IDs statt Positionen (siehe Kopf-Kommentar).
+   --------------------------------------------------------------------------- */
+function npZeige(id){
+  var box=document.getElementById('npInfo'); if(!box) return;
+  window._npOffen=id;
+  if(String(id).indexOf('zf:')===0){ _npZeigeZufluss(String(id).slice(3),box); return; }
+  var s=null; for(var i=0;i<_NP_ST.length;i++){ if(_NP_ST[i].id===id){ s=_NP_ST[i]; break; } }
+  if(!s) return;
+  var amp=(window._npAmpeln||{})[s.id];
   box.innerHTML='<div style="font-weight:800;font-size:14.5px;display:flex;align-items:center;gap:8px">'
-    +'<span style="width:11px;height:11px;border-radius:50%;display:inline-block;background:'+_NP_FARBEN[s.l]+'"></span>'+esc(s.n)
-    +' <span style="font-weight:400;color:#898781;font-size:12px">· Linie '+s.l+(s.u?' · Umsteigen':'')+'</span></div>'
+    +'<span style="width:11px;height:11px;'+(s.f==='raute'?'transform:rotate(45deg);':'border-radius:50%;')
+    +'display:inline-block;background:'+_NP_FARBEN[s.l]+'"></span>'+esc(s.n)
+    +' <span style="font-weight:400;color:#898781;font-size:12px">· Linie '+s.l
+    +(s.f==='raute'?' · Prüfpunkt':'')+(s.u?' · Umsteigen':'')+'</span></div>'
     +'<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-top:5px">'+esc(s.d)+'</div>'
     +(s.k?'<div style="font-size:11px;color:#898781;margin-top:6px">📌 '+esc(s.k)+'</div>':'')
-    +(amp?'<div style="font-size:12px;margin-top:6px;font-weight:600;color:'+amp.farbe+'">● '+esc(amp.text)+'</div>':'');
+    +(amp?'<div style="font-size:12.5px;margin-top:7px;font-weight:700;color:'+amp.farbe+'">● '+esc(amp.text)+'</div>':'')
+    +_npExtra(s.id);
 }
-async function netzplanAmpeln(){
-  /* Live-Zustand nur aus echten Quellen; jede Ampel dokumentiert ihren Grund. */
-  var d=null, au=null;
-  try{ var r1=await client.rpc('cb_dashboard'); d=r1&&r1.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } }catch(e){}
-  try{ var r2=await client.rpc('cb_audit_status'); au=r2&&r2.data; if(typeof au==='string'){ try{ au=JSON.parse(au);}catch(e){} } }catch(e){}
-  var GOOD='#0ca30c', WARN='#c07a10', CRIT='#d03b3b';
-  var st={};
+
+function _npZeigeZufluss(zid,box){
+  var z=(window._npZuf||{})[zid]; if(!z) return;
+  var n=Number(z.wartend)||0, tage=(z.aeltester_tage==null?null:Number(z.aeltester_tage));
+  var wegTxt={auto:'Eine Automatik holt es ab.',hand:'Fließt nur, wenn du es anfasst.',
+              keiner:'NIEMAND holt es ab — weder Automatik noch fester Arbeitsschritt.'}[z.weg]||'';
+  var farbe = n===0?_NP_GOOD:(z.weg==='keiner'?_NP_CRIT:_NP_WARN);
+  box.innerHTML='<div style="font-weight:800;font-size:14.5px;display:flex;align-items:center;gap:8px">'
+    +'<span style="width:11px;height:11px;border-radius:50%;display:inline-block;background:'
+    +(z.weg==='keiner'?_NP_CRIT:_NP_FARBEN.Z)+'"></span>'+esc(z.name)
+    +' <span style="font-weight:400;color:#898781;font-size:12px">· Zufluss</span></div>'
+    +'<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-top:5px">'+esc(z.was||'')+'</div>'
+    +'<div style="font-size:13px;line-height:1.6;margin-top:6px;font-weight:700;color:'+farbe+'">'
+      +(n===0?'Nichts offen.':n+' Einträge warten'+(tage!=null?' · ältester seit '+tage+' Tagen':''))
+      +' <span style="font-weight:400">— '+esc(wegTxt)+'</span></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:6px">'+esc(z.hinweis||'')+'</div>'
+    +(z.status_unsicher
+      ? '<div style="font-size:11px;color:#8d6b1f;background:#fdf7e6;border:1px solid #f0e2b8;border-radius:8px;padding:7px 9px;margin-top:8px">'
+        +'⚠ Die Zahl ist der <b>Status</b>, kein Arbeitsbeweis. Belegt: 43 Warteschlangen-Zeilen stehen auf „offen", '
+        +'haben aber längst ein Produkt. Ein Teil dieses Stapels kann also erledigt sein, ohne es zu sagen.</div>'
+      : '');
+}
+
+/* Zusatz-Inhalt je Station: Prüfpunkte listen ihre Wächter, das Regelwerk seine
+   Bereiche, der Autopilot seine erreichbaren und unerreichbaren Einträge. */
+function _npExtra(id){
+  var np=window._npDaten; if(!np||!np.ok) return '';
+  var moment={pp_anlage:'anlage',pp_tuer:'tuer',pp_bestand:'bestand'}[id];
+  if(moment){
+    var liste=(np.waechter||[]).filter(function(w){ return w.moment===moment; });
+    if(!liste.length) return '';
+    liste.sort(function(a,b){ return (Number(b.offen)||0)-(Number(a.offen)||0); });
+    var offen=liste.filter(function(w){ return (Number(w.offen)||0)>0; }).length;
+    var h='<div style="margin-top:9px;font-size:12px;font-weight:700">'+liste.length+' Wächter greifen hier'
+      +' <span style="font-weight:400;color:#898781">· '+offen+' davon melden gerade etwas</span></div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:7px">';
+    liste.forEach(function(w){
+      var n=Number(w.offen)||0, gate=(w.gate===true);
+      var f = n===0 ? _NP_GOOD : (gate?_NP_CRIT:_NP_WARN);
+      var bg = n===0 ? '#f0f9f0' : (gate?'#fdf1f1':'#fdf7e6');
+      h+='<span title="'+esc(w.kurz||'')+' · Quelle: '+esc(w.view||'')+'" style="font-size:11.5px;'
+        +'border:1px solid '+f+'33;background:'+bg+';color:'+f+';border-radius:7px;padding:3px 8px;font-weight:600">'
+        +(gate?'⛔ ':'')+esc(w.name)+' <b>'+n+'</b></span>';
+    });
+    h+='</div>';
+    if(moment==='tuer') h+='<div style="font-size:11px;color:#898781;margin-top:6px">⛔ = Go-Live-Gate. '
+      +'Summe aller Gate-Wächter: <b>'+(Number(np.gate_summe)||0)+'</b> — sie muss 0 sein.</div>';
+    if(moment==='bestand') h+='<div style="font-size:11px;color:#898781;margin-top:6px">'
+      +'Diese Wächter blockieren nichts. Sie melden, was im schon freigegebenen Bestand nicht zur Regel passt — '
+      +'eine neue Regel gilt ab sofort, der Bestand ist von gestern.</div>';
+    return h;
+  }
+  if(id==='regelwerk'){
+    var br=np.regelwerk||[]; if(!br.length) return '';
+    var summe=br.reduce(function(a,b){ return a+(Number(b.anzahl)||0); },0);
+    var h2='<div style="margin-top:9px;font-size:12px;font-weight:700">'+br.length+' Bereiche · '+summe+' aktive Regeln'
+      +' <span style="font-weight:400;color:#898781">· live aus der Tabelle Bewertungsregeln</span></div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:7px">';
+    br.forEach(function(b){
+      var ziel=_NP_REGEL_ZIEL[b.wirkt_auf]||null, zn=null;
+      if(ziel){ for(var i=0;i<_NP_ST.length;i++){ if(_NP_ST[i].id===ziel){ zn=_NP_ST[i].n; break; } } }
+      h2+='<span style="font-size:11.5px;border:1px solid var(--line);background:var(--bg);border-radius:7px;'
+        +'padding:3px 8px"><b>'+esc(b.bereich)+'</b> '+(Number(b.anzahl)||0)
+        +(zn?' <span style="color:#898781">→ '+esc(zn)+'</span>':'')+'</span>';
+    });
+    return h2+'</div>';
+  }
+  if(id==='autopilot'){
+    var ap=np.autopilot||{};
+    var err=Number(ap.wartend_erreichbar)||0, unerr=Number(ap.wartend_unerreichbar)||0;
+    return '<div style="margin-top:9px;font-size:12.5px;line-height:1.7">'
+      +'<div>Schalter: <b>'+(ap.an?'an':'AUS')+'</b> · heute verbraucht <b>'
+        +String(ap.heute_usd==null?'–':ap.heute_usd).replace('.',',')+' $</b> von '
+        +String(ap.tageslimit_usd==null?'–':ap.tageslimit_usd).replace('.',',')+' $</div>'
+      +'<div style="color:'+(err>0?_NP_WARN:_NP_GOOD)+'">Kann er lesen: <b>'+err+'</b> (mit Etikettfoto)</div>'
+      +'<div style="color:'+(unerr>0?_NP_CRIT:_NP_GOOD)+'">Kann er NICHT lesen: <b>'+unerr+'</b> (reine Barcode-Scans)</div>'
+      +'</div>'
+      +(unerr>0?'<div style="font-size:11.5px;color:#8d2b2b;background:#fdf1f1;border:1px solid #f0c2c2;'
+        +'border-radius:8px;padding:7px 9px;margin-top:8px">Das ist der Grund, warum der Autopilot „gestoppt" aussieht, '
+        +'obwohl er läuft: der letzte Lauf, der etwas getan hat, liegt so lange zurück wie das letzte Etikettfoto. '
+        +'Die '+unerr+' Barcode-Scans wären nie seine Arbeit gewesen — sie stehen links auf Linie Z in der Sackgasse.</div>':'');
+  }
+  return '';
+}
+
+/* ---------------------------------------------------------------------------
+   LIVE-ZUSTAND. Zwei Quellen: cb_netzplan (Zuflüsse, Wächter, Regelwerk, Takte)
+   und cb_dashboard (Budget, Scan-Cache, ohne Score).
+   🔴 KEIN leerer Fangblock (§1.13i): scheitert ein Abruf, sagt die Seite es —
+   sichtbar UND in der Konsole. Ein stiller Fehler kostete uns das Dashboard
+   monatelang, weil niemand den Grund sehen konnte.
+   --------------------------------------------------------------------------- */
+async function netzplanLive(){
+  var np=null, d=null, fehler=[];
   try{
-    if(au&&au.ok){
-      var wart=Number(au.ap1_wartend)||0, letzt=au.ap1_letzter_lauf?new Date(au.ap1_letzter_lauf):null;
-      var minAlt=letzt?Math.round((Date.now()-letzt.getTime())/60000):null;
-      if(wart===0) st.autopilot={farbe:GOOD,text:'nichts wartet'+(minAlt!=null?' · letzter Lauf vor '+minAlt+' Min':'')};
-      else if(minAlt!=null&&minAlt<=45) st.autopilot={farbe:GOOD,text:wart+' wartend · Lauf vor '+minAlt+' Min'};
-      else st.autopilot={farbe:WARN,text:wart+' wartend · letzter Lauf '+(minAlt!=null?'vor '+minAlt+' Min':'unbekannt')};
-      var zu=Number(au.zutaten_ungeprueft)||0;
-      st.zutat= zu>0?{farbe:WARN,text:zu+' neue Zutat(en) warten auf den Montag-Lauf'}:{farbe:GOOD,text:'keine ungeprüften neuen Zutaten'};
-      if(au.ap2_letzter_lauf){ var t2=Date.parse(au.ap2_letzter_lauf); var tage=isFinite(t2)?Math.round((Date.now()-t2)/86400000):null;
-        st.woche= (tage!=null&&tage<=8)?{farbe:GOOD,text:'letzter Lauf vor '+tage+' Tag(en)'}:{farbe:WARN,text:'letzter Lauf liegt länger zurück'};
-      } else st.woche={farbe:WARN,text:'noch kein Lauf protokolliert (erster: Mo 6 Uhr)'};
-    }
-    if(d&&(d.riki||d.gate||d.scans||d.qualitaet)){
-      var ri=d.riki||{}; var verbr=Number(ri.monat_usd)||0, lim=Number(ri.monatslimit_usd)||0;
-      if(lim>0){ var q=verbr/lim;
-        st.budget= q>=1?{farbe:CRIT,text:'Monatsbudget voll — Riki blockt'}:(q>=0.8?{farbe:WARN,text:Math.round(q*100)+' % des Monatsbudgets verbraucht'}:{farbe:GOOD,text:verbr.toFixed(2).replace('.',',')+' $ von '+lim.toFixed(0)+' $'}); }
-      var gs=Number((d.gate||{}).summe)||0;
-      st.waechter= gs===0?{farbe:GOOD,text:'alle Pflicht-Wächter still'}:{farbe:WARN,text:gs+' offene Fälle'};
-      var sc=Number((d.scans||{}).wartet_pruefung)||0;
-      st.scans= sc>0?{farbe:WARN,text:sc+' Scan(s) warten auf deine Prüfung'}:{farbe:GOOD,text:'nichts wartet auf dich'};
-      var os=Number((d.qualitaet||{}).ohne_score)||0;
-      if(os>0) st.ohnescore={farbe:WARN,text:os+' Produkte zeigen bewusst keine Zahl'};
-      else st.ohnescore={farbe:GOOD,text:'alle aktiven Produkte haben eine Zahl'};
-    }
-  }catch(e){}
-  window._npAmpeln={};
-  _NP_ST.forEach(function(s,i){
-    if(!s.amp||!st[s.amp]) return;
-    window._npAmpeln[i]=st[s.amp];
-    var el=document.getElementById('npAmp'+i);
-    if(el){ el.setAttribute('fill', st[s.amp].farbe==='#c07a10'?'#fab219':st[s.amp].farbe); var tt=document.createElementNS('http://www.w3.org/2000/svg','title'); tt.textContent=s.n+': '+st[s.amp].text; el.appendChild(tt); }
+    var r1=await client.rpc('cb_netzplan'); if(r1&&r1.error) throw r1.error;
+    np=r1&&r1.data; if(typeof np==='string'){ np=JSON.parse(np); }
+    if(np&&np.ok===false) throw new Error(np.grund||'abgelehnt');
+  }catch(e){ np=null; fehler.push('Zuflüsse/Wächter (cb_netzplan): '+(e&&e.message?e.message:e));
+    console.warn('Netzplan: cb_netzplan nicht verwertbar',e); }
+  try{
+    var r2=await client.rpc('cb_dashboard'); if(r2&&r2.error) throw r2.error;
+    d=r2&&r2.data; if(typeof d==='string'){ d=JSON.parse(d); }
+    if(d&&d.ok===false) throw new Error(d.grund||'abgelehnt');
+  }catch(e){ d=null; fehler.push('Budget/Scans (cb_dashboard): '+(e&&e.message?e.message:e));
+    console.warn('Netzplan: cb_dashboard nicht verwertbar',e); }
+
+  window._npDaten=np;
+  var fb=document.getElementById('npFehler');
+  if(fb){
+    if(fehler.length){ fb.style.display=''; fb.innerHTML='<b>Live-Daten unvollständig.</b> '
+      +esc(fehler.join(' · '))+' — betroffene Ampeln bleiben <b>grau</b>. Grau heißt: wir wissen es nicht, '
+      +'nicht: es ist in Ordnung.'; }
+    else fb.style.display='none';
+  }
+
+  _npZuflussZeichnen(np&&np.zufluesse);
+
+  var st={};
+  if(np&&np.ok){
+    var ap=np.autopilot||{};
+    var err=Number(ap.wartend_erreichbar)||0, unerr=Number(ap.wartend_unerreichbar)||0;
+    var alt=(ap.letzter_lauf_min==null?null:Number(ap.letzter_lauf_min));
+    if(ap.an!==true) st.autopilot={farbe:_NP_CRIT,text:'Schalter steht auf AUS — er läuft nicht'};
+    else if(err===0) st.autopilot={farbe:_NP_GOOD,
+      text:'läuft im 30-Minuten-Takt · nichts Lesbares offen'+(unerr>0?' · '+unerr+' Barcode-Scans sind nicht seine Arbeit':'')};
+    else if(alt!=null&&alt<=45) st.autopilot={farbe:_NP_GOOD,text:err+' mit Foto in Arbeit · Lauf vor '+alt+' Min'};
+    else st.autopilot={farbe:_NP_WARN,text:err+' mit Foto warten · letzter tätiger Lauf '+(alt!=null?'vor '+alt+' Min':'unbekannt')};
+
+    var wl=np.wochenlauf||{};
+    st.woche = (wl.protokolliert===true)
+      ? {farbe:_NP_GOOD,text:'letzter Lauf: '+String(wl.wert)}
+      : {farbe:_NP_GRAU,text:'wird nicht protokolliert — keine Aussage möglich'};
+
+    var sofort=(np.waechter||[]).filter(function(w){ return w.id==='w_sofort_zutat'; })[0];
+    var zu=sofort?(Number(sofort.offen)||0):0;
+    st.zutat = zu>0?{farbe:_NP_WARN,text:zu+' neue Zutat(en) warten auf den Montag-Lauf'}
+                   :{farbe:_NP_GOOD,text:'keine ungeprüften neuen Zutaten'};
+
+    ['anlage','tuer','bestand'].forEach(function(m){
+      var l=(np.waechter||[]).filter(function(w){ return w.moment===m; });
+      var gate=l.filter(function(w){ return w.gate===true; }).reduce(function(a,w){ return a+(Number(w.offen)||0); },0);
+      var rest=l.filter(function(w){ return w.gate!==true; }).reduce(function(a,w){ return a+(Number(w.offen)||0); },0);
+      var key='pp_'+m;
+      if(gate>0) st[key]={farbe:_NP_CRIT,text:gate+' Fälle blockieren die Freigabe'};
+      else if(rest>0) st[key]={farbe:_NP_WARN,text:'Gate still · '+rest+' Meldungen zum Nacharbeiten'};
+      else st[key]={farbe:_NP_GOOD,text:'alle '+l.length+' Wächter still'};
+    });
+
+    /* §-Marken an den Stationen, auf die das Regelwerk wirkt */
+    (np.regelwerk||[]).forEach(function(b){
+      var ziel=_NP_REGEL_ZIEL[b.wirkt_auf]; if(!ziel) return;
+      var el=document.getElementById('npReg_'+ziel); if(el) el.textContent='§';
+    });
+  }
+  if(d&&d.ok!==false){
+    var ri=d.riki||{}; var verbr=Number(ri.monat_usd)||0, lim=Number(ri.monatslimit_usd)||0;
+    if(lim>0){ var q=verbr/lim;
+      st.budget= q>=1?{farbe:_NP_CRIT,text:'Monatsbudget voll — Riki blockt'}
+        :(q>=0.8?{farbe:_NP_WARN,text:Math.round(q*100)+' % des Monatsbudgets verbraucht'}
+        :{farbe:_NP_GOOD,text:verbr.toFixed(2).replace('.',',')+' $ von '+lim.toFixed(0)+' $'}); }
+    var sc=Number((d.scans||{}).wartet_pruefung)||0;
+    st.scans= sc>0?{farbe:_NP_WARN,text:sc+' Scan(s) warten auf deine Prüfung'}
+                  :{farbe:_NP_GOOD,text:'nichts wartet auf dich'};
+    var os=Number((d.qualitaet||{}).ohne_score)||0;
+    st.ohnescore= os>0?{farbe:_NP_WARN,text:os+' Produkte zeigen bewusst keine Zahl'}
+                      :{farbe:_NP_GOOD,text:'alle aktiven Produkte haben eine Zahl'};
+  }
+
+  window._npAmpeln=st;
+  _NP_ST.forEach(function(s){
+    if(!s.amp) return;
+    var z=st[s.amp];
+    var el=document.getElementById('npAmp_'+s.id); if(!el) return;
+    if(!z){ el.setAttribute('fill',_NP_GRAU);
+      var t0=document.createElementNS('http://www.w3.org/2000/svg','title');
+      t0.textContent=s.n+': keine Aussage möglich (Live-Daten fehlen)'; el.appendChild(t0);
+      window._npAmpeln[s.amp]={farbe:_NP_GRAU,text:'keine Aussage möglich — Live-Daten fehlen'};
+      return; }
+    el.setAttribute('fill', z.farbe===_NP_WARN?'#fab219':z.farbe);
+    var tt=document.createElementNS('http://www.w3.org/2000/svg','title');
+    tt.textContent=s.n+': '+z.text; el.appendChild(tt);
   });
+  /* Das offene Info-Fenster nachziehen, sonst zeigt es den Stand VOR den Daten
+     (§1.11n-f: ein Vergleich gegen noch nicht geladene Daten sieht aus wie ein Befund) */
+  if(window._npOffen) npZeige(window._npOffen);
 }
+
 if(typeof window!=='undefined'){ window.netzplanRender=netzplanRender; window.npZeige=npZeige; }
 
 /* ===== Posteingang abgeschafft (Ralph 29.07. spät, Todo #50: "diese seite sollte es
@@ -18006,7 +18717,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1304";
+const APP_BUILD = "2026-07-30-1314";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
