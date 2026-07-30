@@ -193,7 +193,103 @@ function efChip(ef){
    null/undefined = wir wissen es nicht. "Unbekannt" wird NIE als "kein Bio" gezeigt -
    das waere eine Behauptung ueber etwas, das wir nicht geprueft haben (§1.12).
    Eine Angabe, die nur aus dem Produktnamen abgeleitet ist, traegt das sichtbar. */
+/* ===== QUELLEN-AUSWAHL AUS DER DATENBANK (Ralph 30.07.2026) ===========================
+   Die Auswahlliste im Editor war hartkodiert - eine zweite Wahrheit neben Quellen_Stamm
+   (§4b, die MIKRO_REF-Falle). Sie war zufaellig korrekt; beim naechsten neuen Quellentyp
+   waere sie es nicht mehr gewesen, ohne dass es jemandem auffaellt.
+
+   cb_quellen_typen() liefert NUR Typen, die ein Produkt belegen duerfen (§1.2e). Damit kann
+   man gar nicht erst waehlen, was die Freigabe hinterher ablehnt.
+
+   Der Rueckfall unten ist bewusst KEINE stille Kopie: schlaegt das Laden fehl, warnt die
+   Konsole UND das Feld sagt es. Ohne Rueckfall koennte niemand mehr eine Quelle setzen -
+   ein Schutz darf die Arbeit nicht blockieren, die er schuetzt (§1.11h). Mit stillem
+   Rueckfall haetten wir die zweite Wahrheit zurueck. Also: Rueckfall, aber laut. */
+var QUELLEN_NOTFALL=["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"];
+async function loadQuellenTypen(){
+  if(Array.isArray(window._quellenTypen)) return window._quellenTypen;
+  try{
+    var r=await client.rpc("cb_quellen_typen");
+    if(r.error) throw new Error(r.error.message);
+    var arr=(r&&r.data)||[];
+    if(!arr.length) throw new Error("Liste ist leer");
+    window._quellenTypen=[""].concat(arr.map(function(x){ return x.typ; }));
+    window._quellenNotfall=false;
+  }catch(e){
+    window._quellenTypen=QUELLEN_NOTFALL.slice();
+    window._quellenNotfall=true;
+    if(typeof console!=="undefined") console.warn("Quellenliste nicht geladen – Notfall-Liste aktiv:", e&&e.message?e.message:e);
+  }
+  return window._quellenTypen;
+}
+function quellenTypOptionen(){ return Array.isArray(window._quellenTypen)?window._quellenTypen:QUELLEN_NOTFALL; }
+function quellenTypHinweis(){
+  return window._quellenNotfall
+    ? '<div style="font-size:11.5px;color:var(--k-b45309,#b45309);margin-top:4px">⚠ Die Quellenliste konnte nicht geladen werden – angezeigt wird eine Notfall-Liste. Bitte den gewählten Typ prüfen.</div>'
+    : '';
+}
+if(typeof window!=="undefined"){ window.loadQuellenTypen=loadQuellenTypen; window.quellenTypOptionen=quellenTypOptionen; }
+
 function bioAn(){ try{ return typeof feat==="function" && feat("bio_merkmal"); }catch(e){ return false; } }
+
+/* ===== RUECKSTANDS-HINWEIS JE WARENGRUPPE (Ralph-Go 30.07.2026) =======================
+   Ralphs urspruengliche Idee war ein Hinweis je einzelner Warenart ("bei Erdbeeren lohnt Bio
+   besonders"). Den gibt es nicht: Oekomonitoring BW, BVL und EFSA vergleichen Bio und
+   konventionell nur aggregiert - geprueft am Original, Befund im FAHRPLAN.
+
+   Was es gibt, ist eine von EFSA SELBST veroeffentlichte Gegenueberstellung ueber sechs
+   Lebensmittelkategorien. Wir zeigen davon nur DREI: Obst und Nuesse, Gemuese, Getreide.
+   Weggelassen sind Tierprodukte und Saeuglingsnahrung - dort haengen die Werte an 458 bzw.
+   477 Bio-Proben und drehen sich im Folgejahr um. Eine Zahl, die je nach Berichtsjahr das
+   Gegenteil sagt, taugt nicht als Hinweis.
+
+   Drei Regeln fuer die Anzeige:
+   1. NEBEN dem Index, nie darin. Diese Zahlen aendern keinen Score (Prinzip 4).
+   2. Es ist eine Aussage ueber die WARENGRUPPE, nicht ueber dieses Produkt. Das steht dabei.
+   3. Nur was gemessen wurde - keine Gesundheitsaussage (§9). "In Stichproben wurden
+      Rueckstaende gefunden" ist zulaessig, "Bio ist gesuender" waere ein Health Claim.
+   Die Zahlen stehen NUR in der Datenbank (cb_rueckstand_ref), nicht im Code - sonst laufen
+   zwei Staende auseinander (§4b, die MIKRO_REF-Falle). */
+function rueckAn(){ try{ return typeof feat==="function" && feat("bio_rueckstand"); }catch(e){ return false; } }
+async function rueckRefLaden(){
+  if(window._rueckRef!==undefined) return window._rueckRef;
+  window._rueckRef=null;                                  /* verhindert Doppel-Laden */
+  try{
+    var r=await client.rpc("cb_rueckstand_ref");
+    if(r.error) throw new Error(r.error.message);
+    window._rueckRef=r.data||null;
+  }catch(e){
+    window._rueckRef=null;
+    if(typeof console!=="undefined") console.warn("Rueckstands-Referenz nicht geladen:", e&&e.message?e.message:e);
+  }
+  return window._rueckRef;
+}
+/* Findet die Warengruppe zu einem Produkt - NUR ueber die gepflegte Zuordnung.
+   Kein Raten am Produktnamen: ein Erdbeerjoghurt ist keine Erdbeere (§5c). */
+function rueckGruppe(d){
+  var ref=window._rueckRef; if(!ref||!d) return null;
+  var z=ref.zuordnung||{}, key=(d.kategorie||"")+"|"+(d.unterkategorie||"");
+  var g=z[key]; if(!g) return null;
+  var arr=ref.warengruppen||[];
+  for(var i=0;i<arr.length;i++) if(arr[i].gruppe===g) return arr[i];
+  return null;
+}
+function rueckHinweisHtml(d){
+  if(!rueckAn()) return "";
+  var w=rueckGruppe(d); if(!w) return "";
+  var kv=String(w.konv_gesamt).replace(".",","), bv=String(w.bio_gesamt).replace(".",",");
+  var nk=Number(w.proben_konv).toLocaleString("de-DE"), nb=Number(w.proben_bio).toLocaleString("de-DE");
+  return '<div style="margin:14px 0 2px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg)">'
+    +'<div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:5px">🌱 Bio bei '+esc(w.name)+'</div>'
+    +'<div style="font-size:12.5px;line-height:1.6;color:var(--ink)">In amtlichen EU-Stichproben trugen '
+      +'<b>'+kv+' %</b> der konventionellen Proben Rückstände von Pflanzenschutzmitteln, bei Bio-Ware <b>'+bv+' %</b>.</div>'
+    +'<div style="font-size:11.5px;line-height:1.55;color:var(--muted);margin-top:6px">'
+      +'Gilt für die <b>Warengruppe</b>, nicht für dieses Produkt – und fließt <b>nicht</b> in den Index ein.<br>'
+      +esc(w.quelle.split(",")[0])+', Berichtsjahr '+w.jahr+' · '+nk+' konventionelle und '+nb+' Bio-Proben.<br>'
+      +'Die Proben werden gezielt dort gezogen, wo Rückstände erwartet werden – sie sind <b>nicht repräsentativ</b> für den Markt.'
+    +'</div></div>';
+}
+if(typeof window!=="undefined"){ window.rueckHinweisHtml=rueckHinweisHtml; window.rueckRefLaden=rueckRefLaden; window.rueckGruppe=rueckGruppe; }
 function bioPill(d){
   if(!bioAn()) return "";                               /* Beta-Flag, §3.0 - im Zweifel nichts zeigen */
   if(!d || d.bio!==true) return "";                     /* nur echtes Bio bekommt eine Pille */
@@ -1966,6 +2062,21 @@ function suppFuss(a){
 }
 function detail2(d){
   try{ if(d&&d.id) client.rpc("cb_log_aufruf",{p_id:d.id}).then(function(){},function(){}); }catch(e){}
+  /* Rueckstands-Hinweis nachtragen, sobald die Referenz da ist. Laeuft nach dem Zeichnen,
+     blockiert die Karte also nie. Der Kasten wird nur befuellt, wenn die Karte noch offen
+     ist und dasselbe Produkt zeigt - sonst schriebe eine spaete Antwort in die naechste
+     Karte (dieselbe Falle wie bei der Score-Vorschau, die eine Sequenz-Wache braucht). */
+  try{
+    window._pkOffenId=d&&d.id;
+    if(rueckAn() && d && d.id){
+      rueckRefLaden().then(function(){
+        try{
+          if(window._pkOffenId!==d.id) return;
+          var el=document.getElementById("pkRueck"); if(el) el.innerHTML=rueckHinweisHtml(d);
+        }catch(e){}
+      });
+    }
+  }catch(e){}
   if(String(d.kategorie||"").toLowerCase()==="supplement"){ return suppKarte(d); }
   var _istSalz=String(d.kategorie||"").toLowerCase()==="salze";
   var s=num(d.clean_score);
@@ -2100,6 +2211,10 @@ function detail2(d){
     + '</div>'
     + warn
     + (d.ohne_index?'<div style="margin:12px 0 6px;padding:12px 14px;border:1px solid var(--k-e4a343,#e4a343);border-radius:12px;background:var(--k-fff7ea,#fff7ea);font-size:12.5px;line-height:1.55;color:var(--k-7a5c1e,#7a5c1e)"><b>🌱 Bewusst ohne Index.</b> Für dieses Produkt gibt es keine belegbaren Nährwerte (typisch bei frischen Sprossen/Keimlingen – weder Hersteller noch BLS/USDA führen Werte). Wir zeigen lieber keine Zahl als eine erfundene.</div>':'')
+    /* Platz fuer den Rueckstands-Hinweis. Er wird NACH dem Zeichnen befuellt, weil die
+       Referenz asynchron kommt - die Karte darf darauf nicht warten. Kommt nichts, bleibt
+       der Kasten leer und niemand merkt etwas (§1.11n-f: nach jedem await neu zeichnen). */
+    + '<div id="pkRueck"></div>'
     /* 2026-07-24w: Feature-Schranken der alten Karte in detail2 uebernommen (Ralphs Fund 23.07.:
        Free/Gast sahen alles - die Sperren sassen nur im toten Code der alten Karte). pk_ringe
        sperrt NUR die Achsen-Grafik; die Index-ZAHL bleibt fuer alle sichtbar (ZdE). */
@@ -11588,6 +11703,10 @@ async function openFgEditor(id, prefill, targetEl){
   /* targetEl (optional): rendert den Editor INLINE in einen Container (z. B. Master-Detail-
      Seite „Produkt-Erfassung") statt ins Vollbild-Overlay. Ohne targetEl unveraendert. */
   const panel=targetEl||document.getElementById("panel");
+  /* Quellenliste vor dem Zeichnen holen - das Auswahlfeld entsteht in einem Template-String
+     und kann nicht auf ein spaeteres Ergebnis warten. Beim zweiten Oeffnen kommt sie aus
+     dem Speicher, kostet also nur einmal. */
+  try{ await loadQuellenTypen(); }catch(e){}
   let d={id:null,name:"",marke:"",kategorie:"",unterkategorie:"",ean:"",basis:"100g",bild_url:"",status:"",
     naehrwerte:{},zusatzstoffe_text:"keine",zusatzstoffe_status:"keine",suessstoffe:"nein",zutaten:[]};
   if(id){
@@ -11710,7 +11829,7 @@ async function openFgEditor(id, prefill, targetEl){
       <div id="feRail" style="display:flex;flex-direction:column;gap:10px;position:sticky;top:58px;min-width:0">
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
         <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">Freigabe</div><div id="feRailAmpel" style="font-size:12px;line-height:1.5;color:var(--muted)">wird geprüft…</div></div>
-        ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",["","Etikettfoto","Herstellerseite","OpenFoodFacts","Amazon/Haendler","BLS 4.0","EU-Recht","USDA FoodData Central"],"try{fePlaus()}catch(e){}")}</label><div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
+        ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label>${quellenTypHinweis()}<div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
       </div>
       <div style="min-width:0">
         <div id="feTabBar" style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:10px">
@@ -17848,7 +17967,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1152";
+const APP_BUILD = "2026-07-30-1250";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
