@@ -3366,6 +3366,7 @@ function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   if(t==='empfehlungen' && typeof renderEmpfehlungen==='function') renderEmpfehlungen();
   if(t==='zuverif' && typeof loadScans==='function') loadScans();
   try{ document.body.classList.toggle('dashFull', t==='dash'); }catch(e){}   /* Dashboard nutzt volle Breite (Ralph 22.07.): den 1040px-Deckel des Freigabe-Wrappers nur hier aufheben */
+  if(t!=='dash'){ try{ if(typeof _abGraphStop==='function') _abGraphStop(); }catch(_g){} }
   if(t==='dash' && typeof loadDashboard==='function') loadDashboard();
   /* Lesezeichen-Knopf im Dashboard (Ralph 27.07.: "auf der Seite oder im Dashboard").
      Hier und nicht in loadDashboard(): die Funktion kennt vier Ansichten und steigt in
@@ -5566,6 +5567,47 @@ async function loadDashboard(){
     box.innerHTML=_sw+'<div style="color:var(--k-dc2626);font-size:12.5px"><b>Dashboard nicht verfügbar.</b><br>'
       +'<span style="color:var(--muted);font-size:11.5px">Grund: '+esc(grund)+'</span></div>';
     try{ console.error('cb_dashboard:', fehler, d); }catch(_){}
+    return;
+  }
+
+  /* ===== NEUES DASHBOARD „Arbeitsfläche" (Ralph-Entscheid 30.07.2026) =====
+     Hinter Beta-Flag `dashboard_neu` (§3.0). Solange das Flag aus ist, bleibt alles
+     wie vorher — das alte Enterprise-Dashboard ist der Rückfall, nicht ein Relikt.
+     Es braucht cb_netzplan zusätzlich (Zuflüsse, Wächter, Takte, Regelwerk).
+     🔴 Scheitert dieser Abruf, wird der Grund SICHTBAR gemeldet und die Seite fällt
+     auf Enterprise zurück — nie eine halbe Arbeitsfläche mit leeren Kacheln. */
+  if(typeof feat==='function' && feat('dashboard_neu')){
+    try{ if(typeof _abGraphStop==='function') _abGraphStop(); }catch(_g){}
+    var _np=null, _npFehler=null;
+    try{
+      const rn=await client.rpc('cb_netzplan');
+      if(rn && rn.error) throw rn.error;
+      _np=rn && rn.data; if(typeof _np==='string') _np=JSON.parse(_np);
+      if(_np && _np.ok===false) throw new Error(_np.grund||'abgelehnt');
+    }catch(e){ _np=null; _npFehler=(e&&e.message)||String(e);
+      try{ console.warn('Arbeitsfläche: cb_netzplan nicht verwertbar',e); }catch(_){} }
+    if(_np){
+      try{
+        dashArbeitCss();
+        box.innerHTML=dashArbeitHtml(d,_np,null);
+        dashArbeitNach(d,_np);
+        try{ adminNavBadges(d); }catch(_b){}
+        return;
+      }catch(e){
+        /* Baufehler in der neuen Ansicht darf den Admin nicht lahmlegen. */
+        try{ console.error('Arbeitsfläche konnte nicht gebaut werden:',e); }catch(_){}
+        box.innerHTML='<div style="font-size:12.5px;color:var(--k-dc2626);margin-bottom:10px">'
+          +'<b>Arbeitsfläche konnte nicht gebaut werden.</b> Grund: '+esc((e&&e.message)||String(e))
+          +' — unten steht das bisherige Dashboard.</div>';
+        try{ box.innerHTML+=dashEnterpriseHtml(d); dashAuditLoad(); dashKarteLoad(); dashSupaLoad(); }catch(_e){}
+        return;
+      }
+    }
+    /* cb_netzplan nicht erreichbar: Grund zeigen, dann das alte Dashboard darunter. */
+    box.innerHTML='<div style="font-size:12.5px;color:var(--k-dc2626);margin-bottom:10px">'
+      +'<b>Arbeitsfläche nicht verfügbar.</b> Grund: '+esc(_npFehler||'cb_netzplan hat nichts geliefert')
+      +' — unten das bisherige Dashboard.</div>';
+    try{ box.innerHTML+=dashEnterpriseHtml(d); dashAuditLoad(); dashKarteLoad(); dashSupaLoad(); adminNavBadges(d); }catch(e){}
     return;
   }
 
@@ -7838,6 +7880,683 @@ const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rez
    zeigte er dauerhaft GELB, also „überfällig". Eine Ampel, die immer gelb ist, wird
    weggeklickt, und dann übersieht man die echte daneben (§1.11n-b).
    ============================================================================ */
+/* ============================================================================
+   DASHBOARD „ARBEITSFLÄCHE" (Ralph-Entscheid 30.07.2026)
+   ----------------------------------------------------------------------------
+   Vorgeschichte: Der Netzplan (Metro-Karte) hat es nicht getroffen — Ralph:
+   „möchte eher etwas wie einen graph, aber interaktiv bzw lebend … soll dann mein
+   dashboard ersetzen und für die tägliche arbeit sein". Nach drei Mockups sein
+   Entscheid: **C als Grundgerüst, der Wächter-Ring aus B als Kopf-Element, A
+   (lebender Graph) als Zweitansicht.**
+
+   WARUM NICHT DER REINE GRAPH ALS HAUPTANSICHT — die Begründung gehört hierher,
+   damit sie in drei Monaten nicht als Willkür gelesen wird: Ein Kräfte-Graph hat
+   keine festen Plätze. Jeden Morgen liegt alles anders, man baut kein
+   Muskelgedächtnis auf, und jede Zahl kostet einen Hover. Ralphs Ausgangsproblem
+   war „ich verliere den Überblick" — Bewegung hilft dagegen nicht. Deshalb:
+   Arbeitsfläche mit festen Plätzen als Werkzeug, Graph zum Erkunden.
+
+   DREI BAUSTEINE
+   1) WÄCHTER-RING: 25 Segmente, eines je Wächter, in drei Gruppen (Anlage · Tür ·
+      Bestand) durch Lücken getrennt. Blass = still, gefüllt = meldet. Ein Ring statt
+      einer Liste, weil niemand 25 Zahlen liest — ein rotes Segment im Augenwinkel
+      aber sieht. In der Mitte die eine Zahl, um die es geht.
+   2) ARBEITSLISTE „Heute zu tun": wird aus denselben Zahlen ABGELEITET, nicht
+      gepflegt. Eine handgeführte Liste veraltet; diese kann es nicht (§4b).
+   3) FLUSS: Zuflüsse → Prüfung → Katalog. Dicke = Menge, laufende Punkte = lebendig,
+      und ein Zufluss ohne Abnehmer endet im ROTEN RIEGEL. Das ist der Befund vom
+      30.07.: 51 Einträge holt niemand ab (§1.11n-hh).
+
+   ALLE ZAHLEN AUS cb_dashboard + cb_netzplan. Keine im Code (§4b, MIKRO_REF-Falle).
+   Scheitert ein Abruf, wird es LAUT gemeldet und die Seite fällt auf das alte
+   Enterprise-Dashboard zurück — nie stilles Grün (§1.13i).
+   Hinter Beta-Flag `dashboard_neu`: erst Ralph + Sandra (§3.0).
+   ============================================================================ */
+var _AB={gut:'#0ca30c',warn:'#e0951a',krit:'#dc3a3a',grau:'#9aa1ab',
+         zu:'#0d8f9c',pr:'#6a4ac7',kern:'#2e7d46',ink:'#131a24',mut:'#6b7480'};
+
+function dashArbeitCss(){
+  if(document.getElementById('dashAbCss')) return;
+  var A='#fgDash .ab';
+  var css=A+'{--abbg:#f6f7f9;--abcard:#fff;--abink:#131a24;--abmut:#6b7480;--abline:#e6e9ee;'
+    +'color:var(--abink);font-size:14px;line-height:1.55}'
+   +A+' *{box-sizing:border-box}'
+   +A+' .abkopf{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:13px}'
+   +A+' .abkopf h2{font-size:19px;font-weight:800;margin:0;letter-spacing:-.2px}'
+   +A+' .abkopf .st{font-size:11.5px;color:var(--abmut)}'
+   +A+' .abum{display:inline-flex;border:1px solid var(--abline);border-radius:10px;overflow:hidden;background:#fff}'
+   +A+' .abum button{background:#fff;border:0;color:var(--abmut);font-size:12px;font-weight:700;padding:6px 13px;cursor:pointer}'
+   +A+' .abum button.on{background:var(--abink);color:#fff}'
+   +A+' .abbtn{background:#fff;border:1px solid var(--abline);border-radius:9px;padding:6px 12px;'
+    +'font-weight:700;font-size:12px;color:var(--abink);cursor:pointer}'
+   +A+' .abbtn:hover{border-color:#cfd5de}'
+   +A+' .abkpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:11px;margin-bottom:13px}'
+   +A+' .abk{background:#fff;border:1px solid var(--abline);border-radius:14px;padding:12px 14px;'
+    +'box-shadow:0 1px 2px rgba(16,24,40,.04)}'
+   +A+' .abk .l{font-size:11.5px;color:var(--abmut);font-weight:600}'
+   +A+' .abk .v{font-size:27px;font-weight:800;letter-spacing:-1.1px;line-height:1.15;margin-top:1px;'
+    +'font-variant-numeric:tabular-nums}'
+   +A+' .abk .s{font-size:11.5px;color:var(--abmut)}'
+   +A+' .abbar{height:6px;background:#eef0f4;border-radius:4px;margin-top:8px;overflow:hidden}'
+   +A+' .abbar i{display:block;height:6px;border-radius:4px}'
+   +A+' .abrow{display:grid;gap:13px;align-items:start;margin-bottom:13px}'
+   +A+' .abrow.r1{grid-template-columns:392px minmax(0,1fr)}'
+   +A+' .abrow.r2{grid-template-columns:minmax(0,1fr) 320px}'
+   +'@media (max-width:1080px){'+A+' .abrow.r1,'+A+' .abrow.r2{grid-template-columns:1fr}}'
+   +A+' .abp{background:#fff;border:1px solid var(--abline);border-radius:15px;'
+    +'box-shadow:0 1px 2px rgba(16,24,40,.04);min-width:0}'
+   +A+' .abph{display:flex;align-items:center;gap:9px;padding:11px 15px;border-bottom:1px solid var(--abline);flex-wrap:wrap}'
+   +A+' .abph h3{font-size:13.5px;font-weight:700;margin:0;flex:1;min-width:120px}'
+   +A+' .abtag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}'
+   +A+' .abpad{padding:13px 15px}'
+   +A+' .abjob{display:flex;gap:11px;align-items:flex-start;padding:11px 15px;border-bottom:1px solid #f1f3f6;'
+    +'text-decoration:none;color:inherit;cursor:pointer;transition:background .12s}'
+   +A+' .abjob:last-child{border-bottom:0}'+A+' .abjob:hover{background:#fbfcfd}'
+   +A+' .abjob .sv{width:3px;border-radius:3px;align-self:stretch;flex:0 0 3px}'
+   +A+' .abjob .nm{font-size:21px;font-weight:800;min-width:50px;text-align:right;letter-spacing:-.7px;'
+    +'font-variant-numeric:tabular-nums}'
+   +A+' .abjob .tx{flex:1;min-width:0}'
+   +A+' .abjob .t1{font-weight:700;font-size:13px}'
+   +A+' .abjob .t2{font-size:12px;color:var(--abmut);margin-top:1px}'
+   +A+' .abjob .go{font-size:11.5px;font-weight:700;color:#2e7d46;white-space:nowrap;align-self:center}'
+   +A+' .abfoot{font-size:11.5px;color:var(--abmut);padding:10px 15px;border-top:1px solid var(--abline)}'
+   +A+' .abwg{display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:7px;padding:13px 15px}'
+   +A+' .abwc{border:1px solid var(--abline);border-radius:10px;padding:8px 10px;cursor:pointer;'
+    +'background:#fff;transition:transform .12s,box-shadow .12s}'
+   +A+' .abwc:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,24,40,.08)}'
+   +A+' .abwc .g{font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase}'
+   +A+' .abwc .n{font-size:11.5px;font-weight:600;line-height:1.3;height:30px;overflow:hidden;margin-top:1px}'
+   +A+' .abwc .z{font-size:17px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}'
+   +A+' .abkv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:5px 0;'
+    +'border-bottom:1px dashed var(--abline)}'
+   +A+' .abkv:last-child{border-bottom:0}'+A+' .abkv b{font-variant-numeric:tabular-nums}'
+   +A+' .abtab{font-size:11.5px;border:1px solid var(--abline);background:#fafbfc;border-radius:999px;'
+    +'padding:4px 11px;cursor:pointer;font-weight:600;color:var(--abmut)}'
+   +A+' .abtab.on{background:var(--abink);color:#fff;border-color:var(--abink)}'
+   +A+' .abseg{cursor:pointer;transition:opacity .15s}'
+   +A+' .abfehler{font-size:12.5px;color:#8d2b2b;background:#fdf1f1;border:1px solid #f0c2c2;'
+    +'border-radius:10px;padding:9px 12px;margin-bottom:12px}'
+   +A+' svg{display:block;width:100%;height:auto}'
+   +A+' #abCv{display:block;width:100%;height:560px;cursor:grab}'
+   +A+' #abCv.zieh{cursor:grabbing}'
+   +A+' .abpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;'
+    +'background:#f4f6f8;border:1px solid var(--abline);border-radius:999px;padding:3px 9px;margin:0 4px 4px 0}'
+   +A+' .abdot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 auto}';
+  var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
+}
+
+/* Abgeleitete Summen EINMAL berechnen — sonst rechnet jede Kachel ihre eigene
+   Wahrheit, und zwei Zahlen auf derselben Seite widersprechen sich (§1.2c). */
+function _abAbl(np){
+  var w=(np&&np.waechter)||[], z=(np&&np.zufluesse)||[];
+  var grp=function(m){ return w.filter(function(x){return x.moment===m;}); };
+  var sum=function(a){ return a.reduce(function(s,x){return s+(Number(x.offen)||0);},0); };
+  var zs=function(weg){ return z.filter(function(x){return x.weg===weg;})
+                          .reduce(function(s,x){return s+(Number(x.wartend)||0);},0); };
+  return {
+    gate_offen:sum(w.filter(function(x){return x.gate===true;})),
+    gate_anzahl:w.filter(function(x){return x.gate===true;}).length,
+    anlage:{n:grp('anlage').length,o:sum(grp('anlage'))},
+    tuer:{n:grp('tuer').length,o:sum(grp('tuer'))},
+    bestand:{n:grp('bestand').length,o:sum(grp('bestand'))},
+    melden:w.filter(function(x){return (Number(x.offen)||0)>0;}).length,
+    sackgasse:zs('keiner'), handarbeit:zs('hand'), automatik:zs('auto'),
+    wartend:z.reduce(function(s,x){return s+(Number(x.wartend)||0);},0)
+  };
+}
+function _abWf(w){ return (Number(w.offen)||0)===0 ? _AB.gut : (w.gate===true?_AB.krit:_AB.warn); }
+function _abZf(z){ return (Number(z.wartend)||0)===0 ? _AB.gut : (z.weg==='keiner'?_AB.krit:_AB.warn); }
+
+function dashArbeitAnsichtGet(){
+  try{ var v=localStorage.getItem('ri_dash_ansicht'); return v==='graph'?'graph':'flaeche'; }
+  catch(e){ return 'flaeche'; }
+}
+function dashArbeitAnsichtSet(v){
+  try{ localStorage.setItem('ri_dash_ansicht',v); }
+  catch(e){ /* §1.13i: kein leerer Fangblock. Merkt sich die Wahl dann nicht - kein Beinbruch,
+     aber man soll es sehen koennen, statt es zu suchen. */
+    try{ console.warn('Ansicht-Wahl konnte nicht gespeichert werden:',e); }catch(_){} }
+  if(typeof loadDashboard==='function') loadDashboard();
+}
+
+/* ---------------------------------------------------------------------------
+   WÄCHTER-RING (aus Mockup B). 25 Segmente, drei Gruppen, feste Plätze.
+   --------------------------------------------------------------------------- */
+function _abRing(np,A){
+  var w=(np&&np.waechter)||[];
+  var ord=['anlage','tuer','bestand'], liste=[];
+  ord.forEach(function(m){ w.filter(function(x){return x.moment===m;}).forEach(function(x){ liste.push(x); }); });
+  if(!liste.length) return '<div class="abpad" style="color:'+_AB.krit+';font-size:12.5px">'
+    +'Wächter nicht ladbar — der Ring bleibt leer. Grau heißt hier: wir wissen es nicht.</div>';
+  var CXv=196, CYv=196, R1=112, R2=146, luecke=0.06;
+  var span=(Math.PI*2 - luecke*3)/liste.length, a=-Math.PI/2, letzt=liste[0].moment, s='';
+  var pol=function(r,ang){ return [(CXv+Math.cos(ang)*r).toFixed(1),(CYv+Math.sin(ang)*r).toFixed(1)]; };
+  liste.forEach(function(o,i){
+    if(o.moment!==letzt){ a+=luecke; letzt=o.moment; }
+    var a2=a+span*0.86, f=_abWf(o), still=(Number(o.offen)||0)===0;
+    var p1=pol(R2,a),p2=pol(R2,a2),p3=pol(R1,a2),p4=pol(R1,a);
+    s+='<path class="abseg" data-w="'+i+'" d="M'+p1[0]+' '+p1[1]+'A'+R2+' '+R2+' 0 0 1 '+p2[0]+' '+p2[1]
+      +'L'+p3[0]+' '+p3[1]+'A'+R1+' '+R1+' 0 0 0 '+p4[0]+' '+p4[1]+'Z" fill="'+f+'" opacity="'
+      +(still?'0.26':'1')+'"><title>'+esc(o.name)+' — '+(still?'still':(o.offen+' offen'))
+      +(o.gate===true?' · Go-Live-Gate':'')+'\n'+esc(o.kurz||'')+'</title></path>';
+    a=a2+span*0.14;
+  });
+  [['Anlage',-Math.PI/2+0.2],['Tür',0.5],['Bestand',2.5]].forEach(function(l){
+    var p=pol(R2+15,l[1]);
+    s+='<text x="'+p[0]+'" y="'+p[1]+'" text-anchor="middle" font-size="10" font-weight="700" '
+      +'fill="#9aa1ab" letter-spacing=".4">'+l[0]+'</text>';
+  });
+  var k=(np&&np.extra)||{};
+  s+='<circle cx="'+CXv+'" cy="'+CYv+'" r="'+(R1-8)+'" fill="#fff" stroke="#eceff3"/>'
+    +'<text x="'+CXv+'" y="'+(CYv-14)+'" text-anchor="middle" font-size="40" font-weight="800" '
+    +'fill="'+_AB.kern+'" letter-spacing="-1.8">'+(_abZahl(np,'aktiv'))+'</text>'
+    +'<text x="'+CXv+'" y="'+(CYv+7)+'" text-anchor="middle" font-size="11" fill="#8b93a0">aktive Produkte</text>'
+    +'<text x="'+CXv+'" y="'+(CYv+31)+'" text-anchor="middle" font-size="12.5" font-weight="700" '
+    +'fill="'+_AB.ink+'">Ø '+(_abZahl(np,'schnitt'))+' Index</text>'
+    +'<text x="'+CXv+'" y="'+(CYv+50)+'" text-anchor="middle" font-size="10.5" fill="#8b93a0">'
+    +(_abZahl(np,'ohne'))+' bewusst ohne Zahl</text>';
+  return '<div style="padding:6px 10px 10px"><svg viewBox="0 0 392 392" id="abRing">'+s+'</svg></div>';
+}
+/* Kern-Zahlen kommen aus cb_dashboard und werden hier nur GELESEN. */
+var _abD=null;
+function _abZahl(np,was){
+  var k=(_abD&&_abD.katalog)||{}, q=(_abD&&_abD.qualitaet)||{};
+  if(was==='aktiv')   return k.aktiv==null?'–':k.aktiv;
+  if(was==='schnitt') return k.schnitt_score==null?'–':String(k.schnitt_score).replace('.',',');
+  if(was==='ohne')    return q.ohne_score==null?'–':q.ohne_score;
+  return '–';
+}
+
+/* ---------------------------------------------------------------------------
+   ARBEITSLISTE — abgeleitet, nicht gepflegt.
+   --------------------------------------------------------------------------- */
+function _abJobs(np,A){
+  var jobs=[], z=(np&&np.zufluesse)||[], w=(np&&np.waechter)||[];
+  z.filter(function(x){return x.weg==='keiner'&&(Number(x.wartend)||0)>0;}).forEach(function(x){
+    jobs.push({p:0,n:x.wartend,t1:x.name+' — niemand holt sie ab',
+      t2:'ältester Eintrag '+(x.aeltester_tage==null?'?':x.aeltester_tage)+' Tage alt · '+(x.hinweis||''),
+      go:'Weg festlegen →',f:_AB.krit,ziel:'scan'});
+  });
+  if(A.gate_offen>0) jobs.push({p:1,n:A.gate_offen,t1:'Go-Live-Gate blockiert',
+    t2:'diese Fälle verhindern jede Freigabe',go:'Wächter →',f:_AB.krit,ziel:'waechter'});
+  z.filter(function(x){return x.weg==='hand'&&(Number(x.wartend)||0)>0;}).forEach(function(x){
+    jobs.push({p:2,n:x.wartend,t1:x.name+' prüfen',
+      t2:'ältester '+(x.aeltester_tage==null?'?':x.aeltester_tage)+' Tage · nur du kannst das',
+      go:'Öffnen →',f:_AB.warn,ziel:'scan'});
+  });
+  w.filter(function(x){return x.moment==='bestand'&&(Number(x.offen)||0)>0;})
+   .sort(function(a,b){return b.offen-a.offen;}).slice(0,3).forEach(function(x){
+    jobs.push({p:3,n:x.offen,t1:x.name,t2:(x.kurz||'')+' · blockiert nichts, will Nacharbeit',
+      go:'Liste →',f:_AB.warn,ziel:'waechter'});
+  });
+  var td=((np&&np.extra)||{}).todos;
+  if(td>0) jobs.push({p:4,n:td,t1:'Offene Notizen im Notizbuch',
+    t2:'eigene Merkzettel und Prüfaufträge',go:'Notizbuch →',f:_AB.warn,ziel:'todo'});
+  if(np&&np.wochenlauf&&np.wochenlauf.protokolliert===false)
+    jobs.push({p:5,n:'?',t1:'Wochenlauf protokolliert sich nicht',
+      t2:'wir wissen nicht, ob er lief — den Schlüssel schreibt niemand',
+      go:'offen',f:_AB.grau,ziel:null});
+  jobs.sort(function(a,b){ return a.p-b.p || ((Number(b.n)||0)-(Number(a.n)||0)); });
+  if(!jobs.length) return '<div class="abpad" style="color:'+_AB.gut+';font-weight:700;font-size:13px">'
+    +'Nichts offen. Alle Zuflüsse leer, alle Wächter still.</div>';
+  return jobs.map(function(j){
+    return '<div class="abjob" data-ziel="'+(j.ziel||'')+'">'
+      +'<span class="sv" style="background:'+j.f+'"></span>'
+      +'<span class="nm" style="color:'+j.f+'">'+j.n+'</span>'
+      +'<span class="tx"><span class="t1">'+esc(j.t1)+'</span>'
+      +'<div class="t2">'+esc(j.t2)+'</div></span>'
+      +'<span class="go">'+esc(j.go)+'</span></div>';
+  }).join('')+'<div class="abfoot">'+jobs.length+' Punkte · abgeleitet aus denselben Zahlen wie der Fluss — '
+    +'nichts von Hand gepflegt, kann also nicht veralten.</div>';
+}
+
+/* ---------------------------------------------------------------------------
+   FLUSS mit laufenden Punkten.
+   --------------------------------------------------------------------------- */
+function _abFluss(np,A){
+  var z=(np&&np.zufluesse)||[];
+  if(!z.length) return '<div class="abpad" style="color:'+_AB.krit
+    +';font-size:12.5px">Zuflüsse nicht ladbar.</div>';
+  var H=Math.max(300, 44+z.length*54+120), s='', pfade=[];
+  s+='<text x="14" y="16" font-size="9.5" font-weight="800" fill="#a4abb5" letter-spacing=".8">ZUFLUSS</text>'
+    +'<text x="330" y="16" text-anchor="middle" font-size="9.5" font-weight="800" fill="#a4abb5" '
+    +'letter-spacing=".8">PRÜFUNG</text>'
+    +'<text x="646" y="16" text-anchor="end" font-size="9.5" font-weight="800" fill="#a4abb5" '
+    +'letter-spacing=".8">LIVE</text>';
+  var mitte=44+Math.floor(z.length/2)*54;
+  z.forEach(function(x,i){
+    var y=44+i*54, n=Number(x.wartend)||0, f=_abZf(x);
+    var dick=Math.max(2.5,Math.min(15,Math.sqrt(n)*2.8));
+    var tot=(x.weg==='keiner'), endx=tot?206:300;
+    var d='M104 '+y+' C160 '+y+' 180 '+(tot?y:mitte)+' '+endx+' '+(tot?y:mitte);
+    s+='<path d="'+d+'" stroke="'+f+'" stroke-width="'+dick+'" fill="none" stroke-linecap="round" '
+      +'opacity="'+(n===0?'0.3':'0.75')+'"'+(x.weg==='hand'?' stroke-dasharray="8 6"':'')
+      +' id="abFl'+i+'"></path>';
+    if(!tot&&n>0) pfade.push({d:d,f:f,i:i});
+    if(tot){
+      s+='<path d="M214 '+(y-11)+' V'+(y+11)+'" stroke="'+_AB.krit+'" stroke-width="4.5" stroke-linecap="round"/>'
+        +'<text x="224" y="'+(y+4)+'" font-size="9.5" font-weight="700" fill="'+_AB.krit+'">Sackgasse</text>';
+    } else if(x.weg==='hand'){
+      s+='<text x="'+(endx+6)+'" y="'+(y+4)+'" font-size="11">✋</text>';
+    }
+    s+='<text x="96" y="'+(y-2)+'" text-anchor="end" font-size="11" font-weight="700" fill="'+_AB.ink+'">'
+      +esc(String(x.name).split(' (')[0])+'</text>'
+      +'<text x="96" y="'+(y+12)+'" text-anchor="end" font-size="10" font-weight="600" fill="'+f+'">'
+      +(n===0?'frei':n+(x.aeltester_tage!=null?' · '+x.aeltester_tage+' T':''))+'</text>';
+  });
+  s+='<rect x="300" y="'+(mitte-29)+'" width="98" height="58" rx="12" fill="#f7f5fd" stroke="#e2dcf5"/>'
+    +'<text x="349" y="'+(mitte-8)+'" text-anchor="middle" font-size="11" font-weight="700" fill="'+_AB.pr+'">'
+    +'3 Prüfpunkte</text>'
+    +'<text x="349" y="'+(mitte+7)+'" text-anchor="middle" font-size="10" fill="#8b93a0">'
+    +((np.waechter||[]).length)+' Wächter</text>'
+    +'<text x="349" y="'+(mitte+22)+'" text-anchor="middle" font-size="10" font-weight="700" fill="'
+    +(A.gate_offen?_AB.krit:_AB.gut)+'">'+(A.gate_offen?'Gate: '+A.gate_offen:'Gate still')+'</text>';
+  var dAus='M398 '+mitte+' H540';
+  s+='<path d="'+dAus+'" stroke="'+_AB.kern+'" stroke-width="11" fill="none" stroke-linecap="round" opacity=".75"/>';
+  pfade.push({d:dAus,f:_AB.kern,i:99});
+  s+='<circle cx="586" cy="'+mitte+'" r="38" fill="#fff" stroke="'+_AB.kern+'" stroke-width="4"/>'
+    +'<text x="586" y="'+(mitte-4)+'" text-anchor="middle" font-size="18" font-weight="800" fill="'+_AB.kern+'">'
+    +_abZahl(np,'aktiv')+'</text>'
+    +'<text x="586" y="'+(mitte+12)+'" text-anchor="middle" font-size="10" fill="#8b93a0">aktiv</text>';
+  var yr=mitte+42;
+  s+='<path d="M586 '+(mitte+42)+' C586 '+(yr+50)+' 430 '+(yr+50)+' 349 '+(yr+50)
+    +' C312 '+(yr+50)+' 312 '+(mitte+34)+' 349 '+(mitte+30)+'" stroke="'+_AB.warn
+    +'" stroke-width="2" fill="none" stroke-dasharray="5 5" opacity=".8"/>'
+    +'<text x="450" y="'+(yr+68)+'" text-anchor="middle" font-size="10" font-weight="600" fill="'+_AB.warn+'">'
+    +'Bestandsprüfung · '+A.bestand.o+' Meldungen über schon freigegebene Daten</text>';
+  pfade.forEach(function(p){
+    for(var k=0;k<2;k++){
+      s+='<circle r="3" fill="#fff" stroke="'+p.f+'" stroke-width="1.6">'
+        +'<animateMotion dur="'+(3.4+p.i*0.3)+'s" repeatCount="indefinite" begin="'+(k*1.7)+'s" '
+        +'path="'+p.d+'"/></circle>';
+    }
+  });
+  return '<div style="padding:8px 12px 12px"><svg viewBox="0 0 660 '+(yr+80)+'">'+s+'</svg></div>';
+}
+
+/* --------------------------------------------------------------------------- */
+function _abTakte(np){
+  var t=(np&&np.takte)||[], s='';
+  t.forEach(function(x,i){
+    var ser=Number(x.fehler_serie)||0, m=(x.minuten_her==null?null:Number(x.minuten_her));
+    var f=ser>0?_AB.krit:_AB.gut;
+    s+='<div class="abkv"><span><span class="abdot" style="background:'+f+';margin-right:7px"></span>'
+      +esc(x.takt)+'</span><b style="color:'+f+'">'
+      +(ser>0?'scheitert '+ser+'×':(m==null?'—':(m<1?'gerade eben':'vor '+m+' Min')))+'</b></div>';
+  });
+  if(!t.length) s+='<div class="abkv"><span>Takte</span><b style="color:'+_AB.grau
+    +'">noch nicht protokolliert</b></div>';
+  var pr=(np&&np.wochenlauf&&np.wochenlauf.protokolliert)===true;
+  s+='<div class="abkv"><span><span class="abdot" style="background:'+(pr?_AB.gut:_AB.grau)
+    +';margin-right:7px"></span>Wochenlauf</span><b style="color:'+(pr?_AB.gut:_AB.grau)+'">'
+    +(pr?esc(String(np.wochenlauf.wert)):'nicht protokolliert')+'</b></div>'
+    +'<div style="font-size:11px;color:'+_AB.mut+';margin-top:7px">Grau heißt: wir wissen es nicht — '
+    +'nicht: es ist in Ordnung.</div>';
+  return s;
+}
+function _abQuellen(np){
+  var q=(np&&np.bestand)||[]; if(!q.length) return '<div style="font-size:12px;color:'+_AB.mut+'">keine Angabe</div>';
+  var max=Math.max.apply(null,q.map(function(x){return Number(x.anzahl)||0;}))||1;
+  return q.map(function(x){
+    return '<div style="font-size:12px;margin-bottom:7px"><div style="display:flex;justify-content:space-between">'
+      +'<span>'+esc(x.typ)+'</span><b style="font-variant-numeric:tabular-nums">'+x.anzahl+'</b></div>'
+      +'<div class="abbar"><i style="width:'+((Number(x.anzahl)||0)/max*100)+'%;background:'+_AB.kern
+      +';opacity:.75"></i></div></div>';
+  }).join('');
+}
+
+/* --------------------------------------------------------------------------- */
+function dashArbeitHtml(d,np,fehler){
+  _abD=d;
+  var A=_abAbl(np);
+  var ri=(d&&d.riki)||{}, k=(d&&d.katalog)||{}, q=(d&&d.qualitaet)||{}, ex=(np&&np.extra)||{};
+  var lim=Number(ri.monatslimit_usd)||0, verbr=Number(ri.monat_usd)||0;
+  var ans=dashArbeitAnsichtGet();
+  var h='<div class="ab">';
+  h+='<div class="abkopf"><h2>Arbeitsfläche</h2>'
+    +'<span class="abtag" style="background:'+(A.gate_offen?'#fdf1f1':'#effaef')+';color:'
+    +(A.gate_offen?_AB.krit:_AB.gut)+'">Go-Live-Gate: '+A.gate_offen+' offen</span>'
+    +'<span class="st" id="abStand"></span>'
+    +'<span style="margin-left:auto;display:flex;gap:9px;align-items:center">'
+    +'<span class="abum"><button data-ans="flaeche" class="'+(ans==='flaeche'?'on':'')+'">Arbeitsfläche</button>'
+    +'<button data-ans="graph" class="'+(ans==='graph'?'on':'')+'">Graph</button></span>'
+    +'<button class="abbtn" id="abNeu">↻ Aktualisieren</button></span></div>';
+  if(fehler) h+='<div class="abfehler"><b>Live-Daten unvollständig.</b> '+esc(fehler)
+    +' — betroffene Felder bleiben leer oder grau. Grau heißt: wir wissen es nicht.</div>';
+
+  /* KPI */
+  var kpi=[
+    {l:'Katalog',v:(k.aktiv==null?'–':k.aktiv),s:(k.entwurf||0)+' Entwürfe · '+(q.ohne_score||0)+' ohne Zahl',f:_AB.kern},
+    {l:'Index-Schnitt',v:(k.schnitt_score==null?'–':String(k.schnitt_score).replace('.',',')),
+     s:'über alle aktiven Produkte',f:_AB.kern,bar:Number(k.schnitt_score)||0},
+    {l:'Wartestapel',v:A.wartend,s:A.sackgasse+' davon ohne Abnehmer',f:A.sackgasse>0?_AB.krit:_AB.gut},
+    {l:'Wächter melden',v:A.melden+' / '+((np&&np.waechter)||[]).length,
+     s:A.bestand.o+' Meldungen im Bestand',f:A.melden>0?_AB.warn:_AB.gut},
+    {l:'Riki-Budget',v:(lim?verbr.toFixed(2).replace('.',',')+' $':'–'),
+     s:(lim?'von '+lim.toFixed(0)+' $ im Monat':'kein Limit hinterlegt'),
+     f:(lim&&verbr/lim>=0.8)?_AB.warn:_AB.gut,bar:lim?verbr/lim*100:0}
+  ];
+  h+='<div class="abkpi">'+kpi.map(function(x){
+    return '<div class="abk"><div class="l">'+x.l+'</div><div class="v" style="color:'+x.f+'">'+x.v+'</div>'
+      +'<div class="s">'+x.s+'</div>'
+      +(x.bar!=null?'<div class="abbar"><i style="width:'+Math.min(100,x.bar)+'%;background:'+x.f+'"></i></div>':'')
+      +'</div>';
+  }).join('')+'</div>';
+
+  if(ans==='graph'){
+    h+='<div class="abrow r2"><div class="abp"><div class="abph"><h3>Graph</h3>'
+      +'<span class="abtab on" data-gf="alle">alles</span>'
+      +'<span class="abtab" data-gf="probleme">nur Probleme</span>'
+      +'<button class="abbtn" id="abRuhe">Bewegung aus</button></div>'
+      +'<canvas id="abCv"></canvas>'
+      +'<div class="abfoot">Ziehen sortiert · Klick auf einen Prüfpunkt klappt seine Wächter auf · '
+      +'ein Zufluss ohne Abnehmer endet im roten Riegel. '
+      +'<b>Feste Plätze hat nur die Arbeitsfläche</b> — der Graph ist zum Erkunden, nicht zum Abarbeiten.</div></div>'
+      +'<div class="abp abpad" id="abDet"></div></div>';
+    h+='</div>'; return h;
+  }
+
+  /* Reihe 1: Ring + Arbeitsliste */
+  h+='<div class="abrow r1">'
+    +'<div class="abp"><div class="abph"><h3>Wächter</h3>'
+    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">'+A.melden+' melden</span></div>'
+    +_abRing(np,A)
+    +'<div class="abfoot">Jedes Segment ist ein Wächter · blass = still · Zeiger drauf für Klartext · '
+    +'⛔ blockiert die Freigabe</div></div>'
+    +'<div class="abp"><div class="abph"><h3>Heute zu tun</h3>'
+    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">nach Dringlichkeit</span></div>'
+    +_abJobs(np,A)+'</div></div>';
+
+  /* Reihe 2: Fluss + Seitenspalte */
+  h+='<div class="abrow r2">'
+    +'<div class="abp"><div class="abph"><h3>Fluss</h3>'
+    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">Dicke = Menge</span></div>'
+    +_abFluss(np,A)+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:13px">'
+    +'<div class="abp abpad"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">Herzschlag</div>'
+    +_abTakte(np)+'</div>'
+    +'<div class="abp abpad"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">'
+    +'Woher der Katalog stammt</div>'+_abQuellen(np)+'</div>'
+    +'<div class="abp abpad"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">Bestand</div>'
+    +'<div class="abkv"><span>Rezepte</span><b>'+(ex.rezepte==null?'–':ex.rezepte)+'</b></div>'
+    +'<div class="abkv"><span>Zutaten im Stamm</span><b>'+(ex.zutaten==null?'–':ex.zutaten)+'</b></div>'
+    +'<div class="abkv"><span>Regelwerk</span><b>'+(((np&&np.regelwerk)||[]).length)+' Bereiche</b></div>'
+    +'<div class="abkv"><span>Tagebuch, 7 Tage</span><b>'
+    +(((d&&d.nutzung)||{}).eintraege_7t==null?'–':d.nutzung.eintraege_7t)+'</b></div></div>'
+    +'</div></div>';
+
+  /* Reihe 3: Wächter-Raster */
+  h+='<div class="abp"><div class="abph"><h3>Alle Wächter</h3>'
+    +'<span class="abtab on" data-wf="alle">alle '+((np&&np.waechter)||[]).length+'</span>'
+    +'<span class="abtab" data-wf="melden">melden ('+A.melden+')</span>'
+    +'<span class="abtab" data-wf="gate">Go-Live-Gate</span>'
+    +'<span class="abtab" data-wf="anlage">Anlage</span>'
+    +'<span class="abtab" data-wf="tuer">Tür</span>'
+    +'<span class="abtab" data-wf="bestand">Bestand</span></div>'
+    +'<div class="abwg" id="abWg"></div><div class="abfoot" id="abWf"></div></div>';
+  h+='</div>';
+  return h;
+}
+
+/* ---------------------------------------------------------------------------
+   Nach dem Rendern verdrahten. Getrennt, weil innerHTML die Handler wegwirft.
+   --------------------------------------------------------------------------- */
+function dashArbeitNach(d,np){
+  var A=_abAbl(np), box=document.getElementById('fgDash'); if(!box) return;
+  var st=document.getElementById('abStand');
+  if(st&&np&&np.stand){
+    try{ st.textContent='Stand '+new Date(np.stand)
+      .toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+    catch(e){ st.textContent='Stand unbekannt';
+      try{ console.warn('Stand-Zeit nicht lesbar:',np.stand,e); }catch(_){} }
+  }
+  box.querySelectorAll('.abum button[data-ans]').forEach(function(b){
+    b.addEventListener('click',function(){ dashArbeitAnsichtSet(b.dataset.ans); });
+  });
+  var nb=document.getElementById('abNeu');
+  if(nb) nb.addEventListener('click',function(){ if(typeof loadDashboard==='function') loadDashboard(); });
+
+  /* Ring-Segmente: Klick springt in die passende Wächter-Gruppe */
+  var wl=[]; ['anlage','tuer','bestand'].forEach(function(m){
+    ((np&&np.waechter)||[]).filter(function(x){return x.moment===m;}).forEach(function(x){ wl.push(x); }); });
+  box.querySelectorAll('#abRing .abseg').forEach(function(p){
+    var w=wl[Number(p.dataset.w)]; if(!w) return;
+    p.addEventListener('mouseenter',function(){ p.setAttribute('opacity','1'); });
+    p.addEventListener('mouseleave',function(){ p.setAttribute('opacity',(Number(w.offen)||0)===0?'0.26':'1'); });
+    p.addEventListener('click',function(){ _abWfSet(w.moment,np,A); });
+  });
+  /* Arbeitsliste: Sprünge in die bestehenden Ansichten - keine neuen Wege */
+  box.querySelectorAll('.abjob[data-ziel]').forEach(function(j){
+    j.addEventListener('click',function(){
+      var z=j.dataset.ziel;
+      try{
+        if(z==='scan'&&typeof scanEingangOeffnen==='function') scanEingangOeffnen();
+        else if(z==='todo'&&typeof todoDockAuf==='function') todoDockAuf();
+        else if(z==='waechter'){ var g=document.getElementById('abWg'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'}); }
+      }catch(e){ console.warn('Arbeitsliste-Sprung fehlgeschlagen:',e); }
+    });
+  });
+  box.querySelectorAll('.abtab[data-wf]').forEach(function(t){
+    t.addEventListener('click',function(){
+      box.querySelectorAll('.abtab[data-wf]').forEach(function(x){x.classList.remove('on');});
+      t.classList.add('on'); _abWgMal(t.dataset.wf,np,A);
+    });
+  });
+  if(document.getElementById('abWg')) _abWgMal('alle',np,A);
+  if(document.getElementById('abCv')) _abGraphStart(np,A);
+}
+function _abWfSet(m,np,A){
+  var box=document.getElementById('fgDash'); if(!box) return;
+  box.querySelectorAll('.abtab[data-wf]').forEach(function(x){
+    x.classList.toggle('on', x.dataset.wf===m); });
+  _abWgMal(m,np,A);
+  var g=document.getElementById('abWg'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function _abWgMal(f,np,A){
+  var g=document.getElementById('abWg'); if(!g) return;
+  var l=((np&&np.waechter)||[]).slice();
+  if(f==='melden') l=l.filter(function(x){return (Number(x.offen)||0)>0;});
+  else if(f==='gate') l=l.filter(function(x){return x.gate===true;});
+  else if(['anlage','tuer','bestand'].indexOf(f)>=0) l=l.filter(function(x){return x.moment===f;});
+  l.sort(function(a,b){ return (Number(b.offen)||0)-(Number(a.offen)||0)
+    || String(a.name).localeCompare(String(b.name)); });
+  var MOM={anlage:'ANLAGE',tuer:'TÜR',bestand:'BESTAND'};
+  g.innerHTML=l.map(function(w){
+    var n=Number(w.offen)||0, fb=_abWf(w), still=n===0;
+    return '<div class="abwc" style="border-color:'+(still?'#e6e9ee':fb+'44')+';background:'
+      +(still?'#fff':(w.gate===true?'#fdf1f1':'#fdf9ef'))+'" title="'+esc(w.kurz||'')
+      +' · Quelle: '+esc(w.view||'')+'">'
+      +'<div class="g" style="color:'+fb+'">'+(w.gate===true?'⛔ GATE':(MOM[w.moment]||''))+'</div>'
+      +'<div class="n">'+esc(w.name)+'</div>'
+      +'<div class="z" style="color:'+(still?'#c6cbd3':fb)+'">'+(still?'still':n)+'</div></div>';
+  }).join('')||'<div style="font-size:12.5px;color:'+_AB.mut+';padding:4px">Kein Wächter in dieser Auswahl.</div>';
+  var wf=document.getElementById('abWf');
+  if(wf) wf.innerHTML='<b>'+l.length+'</b> angezeigt · '+A.melden+' von '
+    +((np&&np.waechter)||[]).length+' melden etwas · Go-Live-Gate: <b style="color:'
+    +(A.gate_offen?_AB.krit:_AB.gut)+'">'+A.gate_offen+'</b> offen (muss 0 sein) · '
+    +'Prüfpunkte: Anlage '+A.anlage.n+' · Tür '+A.tuer.n+' · Bestand '+A.bestand.n;
+}
+
+/* ---------------------------------------------------------------------------
+   GRAPH-ANSICHT (Mockup A). Eigene Physik, kein CDN.
+   --------------------------------------------------------------------------- */
+var _abG={lauf:false,N:[],L:[],zieh:null,offen:null,filter:'alle',ruhe:false,sel:null};
+function _abGraphStop(){ _abG.lauf=false; }
+function _abGraphStart(np,A){
+  var cv=document.getElementById('abCv'); if(!cv) return;
+  var cx=cv.getContext('2d'), W=0;
+  function groesse(){ var r=cv.getBoundingClientRect(); cv.width=r.width*devicePixelRatio;
+    cv.height=560*devicePixelRatio; cx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); W=r.width; }
+  groesse(); addEventListener('resize',groesse);
+
+  function baue(){
+    _abG.N=[]; _abG.L=[];
+    var add=function(o){ _abG.N.push(Object.assign({vx:0,vy:0,r:9},o)); };
+    add({id:'kern',t:'Root Index',art:'kern',farbe:_AB.kern,r:26,x:W*0.55,y:280,
+         zahl:_abZahl(np,'aktiv'),unter:'aktive Produkte · Ø '+_abZahl(np,'schnitt')+' Index'});
+    ((np&&np.zufluesse)||[]).forEach(function(z,i){
+      var n=Number(z.wartend)||0;
+      add({id:'zf'+i,t:String(z.name).split(' (')[0],art:'zufluss',z:z,farbe:_abZf(z),
+        r:9+Math.min(15,Math.sqrt(n)*2.6),x:120,y:70+i*76,zahl:n,unter:z.was||''});
+      _abG.L.push({a:'zf'+i,b:'pp0',len:z.weg==='keiner'?250:180,tot:z.weg==='keiner'});
+    });
+    [['anlage','Prüfpunkt Anlage',A.anlage],['tuer','Prüfpunkt Tür',A.tuer],
+     ['bestand','Prüfpunkt Bestand',A.bestand]].forEach(function(p,i){
+      var gate=((np&&np.waechter)||[]).filter(function(w){
+        return w.moment===p[0]&&w.gate===true&&(Number(w.offen)||0)>0; }).length;
+      add({id:'pp'+i,t:p[1],art:'pruef',moment:p[0],
+        farbe:gate>0?_AB.krit:(p[2].o>0?_AB.warn:_AB.gut),
+        r:13+Math.min(11,Math.sqrt(p[2].o)),x:W*0.36,y:120+i*150,zahl:p[2].o,
+        unter:p[2].n+' Wächter · '+p[2].o+' Meldungen'});
+      _abG.L.push({a:'pp'+i,b:'kern',len:200});
+    });
+    _abG.L.push({a:'pp0',b:'pp1',len:150}); _abG.L.push({a:'pp1',b:'pp2',len:150});
+    ((np&&np.takte)||[]).forEach(function(t,i){
+      var ser=Number(t.fehler_serie)||0;
+      add({id:'tk'+i,t:t.takt,art:'takt',farbe:ser>0?_AB.krit:_AB.gut,r:11,x:W*0.8,y:90+i*70,
+        puls:ser===0,unter:(ser>0?'scheitert '+ser+'×':'läuft')
+          +(t.minuten_her==null?'':' · vor '+t.minuten_her+' Min')});
+      _abG.L.push({a:'tk'+i,b:i===0?'kern':'pp0',len:210});
+    });
+    if(_abG.offen){
+      var ws=((np&&np.waechter)||[]).filter(function(w){return w.moment===_abG.offen;});
+      var p=_abG.N.filter(function(n){return n.moment===_abG.offen;})[0];
+      if(p) ws.forEach(function(w,i){
+        var ang=(i/ws.length)*Math.PI*2, n=Number(w.offen)||0;
+        add({id:'w'+i,t:w.name,art:'waechter',w:w,farbe:n===0?_AB.grau:(w.gate===true?_AB.krit:_AB.warn),
+          r:6+Math.min(9,Math.sqrt(n)*1.5),x:p.x+Math.cos(ang)*105,y:p.y+Math.sin(ang)*105,
+          zahl:n,unter:w.kurz||''});
+        _abG.L.push({a:p.id,b:'w'+i,len:100,duenn:true});
+      });
+    }
+  }
+  function sicht(n){
+    if(_abG.filter==='probleme') return (Number(n.zahl)||0)>0||n.art==='kern'||n.farbe===_AB.krit;
+    return true;
+  }
+  function finde(id){ for(var i=0;i<_abG.N.length;i++) if(_abG.N[i].id===id) return _abG.N[i]; return null; }
+  var t0=0;
+  function schritt(ts){
+    if(!_abG.lauf) return;
+    var dt=Math.min(32,ts-t0)||16; t0=ts;
+    var vis=_abG.N.filter(sicht);
+    if(!_abG.ruhe){
+      for(var i=0;i<vis.length;i++) for(var j=i+1;j<vis.length;j++){
+        var a=vis[i],b=vis[j],dx=b.x-a.x,dy=b.y-a.y,d2=dx*dx+dy*dy; if(d2<1)d2=1;
+        var dd=Math.sqrt(d2), soll=(a.r+b.r)*2.1+32;
+        if(dd<soll*2.4){ var kk=Math.min(2.2,soll*soll/d2)*0.55;
+          a.vx-=dx/dd*kk;a.vy-=dy/dd*kk;b.vx+=dx/dd*kk;b.vy+=dy/dd*kk; }
+      }
+      _abG.L.forEach(function(l){
+        var a=finde(l.a),b=finde(l.b); if(!a||!b||!sicht(a)||!sicht(b)) return;
+        var dx=b.x-a.x,dy=b.y-a.y,dd=Math.hypot(dx,dy)||1,kk=(dd-l.len)*0.0055;
+        a.vx+=dx/dd*kk*10;a.vy+=dy/dd*kk*10;b.vx-=dx/dd*kk*10;b.vy-=dy/dd*kk*10;
+      });
+      vis.forEach(function(n){
+        if(n===_abG.zieh) return;
+        n.vx+=(W*0.5-n.x)*0.0009*(n.art==='kern'?4:1);
+        n.vy+=(280-n.y)*0.0009*(n.art==='kern'?4:1);
+        n.vx*=0.86;n.vy*=0.86; n.x+=n.vx*dt*0.06; n.y+=n.vy*dt*0.06;
+        n.x=Math.max(n.r+66,Math.min(W-n.r-66,n.x));
+        n.y=Math.max(n.r+22,Math.min(560-n.r-22,n.y));
+      });
+    }
+    cx.clearRect(0,0,W,560);
+    _abG.L.forEach(function(l){
+      var a=finde(l.a),b=finde(l.b); if(!a||!b||!sicht(a)||!sicht(b)) return;
+      if(l.tot){
+        var dx=b.x-a.x,dy=b.y-a.y,dd=Math.hypot(dx,dy)||1;
+        var ex=a.x+dx/dd*dd*0.42, ey=a.y+dy/dd*dd*0.42;
+        cx.strokeStyle='#e8b4b4';cx.lineWidth=2;cx.setLineDash([6,5]);
+        cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(ex,ey);cx.stroke();cx.setLineDash([]);
+        cx.strokeStyle=_AB.krit;cx.lineWidth=4;cx.beginPath();
+        cx.moveTo(ex-dy/dd*9,ey+dx/dd*9);cx.lineTo(ex+dy/dd*9,ey-dx/dd*9);cx.stroke();
+        return;
+      }
+      cx.strokeStyle=l.duenn?'#e9ecf1':'#dfe3ea'; cx.lineWidth=l.duenn?1:1.6;
+      cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke();
+    });
+    _abG.N.filter(sicht).forEach(function(n){
+      if(n.puls){ var p=(Math.sin(ts/560)+1)/2;
+        cx.strokeStyle=n.farbe;cx.globalAlpha=0.16+p*0.2;cx.lineWidth=2;
+        cx.beginPath();cx.arc(n.x,n.y,n.r+6+p*7,0,7);cx.stroke();cx.globalAlpha=1; }
+      if(n.id===_abG.sel){ cx.strokeStyle=n.farbe;cx.globalAlpha=0.3;cx.lineWidth=8;
+        cx.beginPath();cx.arc(n.x,n.y,n.r+5,0,7);cx.stroke();cx.globalAlpha=1; }
+      cx.fillStyle='#fff';cx.beginPath();cx.arc(n.x,n.y,n.r,0,7);cx.fill();
+      cx.strokeStyle=n.farbe;cx.lineWidth=n.art==='kern'?4:3;cx.stroke();
+      if(Number(n.zahl)>0||n.art==='kern'){ cx.fillStyle=n.farbe;
+        cx.font='700 '+Math.max(10,Math.min(15,n.r))+'px system-ui';
+        cx.textAlign='center';cx.textBaseline='middle';cx.fillText(n.zahl,n.x,n.y); }
+      cx.fillStyle=_AB.ink;cx.font=(n.art==='kern'?'700 12.5px':'600 11.5px')+' system-ui';
+      cx.textAlign='center';cx.textBaseline='top';cx.fillText(n.t,n.x,n.y+n.r+5);
+    });
+    requestAnimationFrame(schritt);
+  }
+  function treffer(mx,my){
+    var c=_abG.N.filter(sicht);
+    for(var i=c.length-1;i>=0;i--) if(Math.hypot(c[i].x-mx,c[i].y-my)<=c[i].r+6) return c[i];
+    return null;
+  }
+  cv.addEventListener('mousedown',function(e){ var r=cv.getBoundingClientRect();
+    _abG.zieh=treffer(e.clientX-r.left,e.clientY-r.top); if(_abG.zieh) cv.classList.add('zieh'); });
+  addEventListener('mousemove',function(e){ if(!_abG.zieh) return; var r=cv.getBoundingClientRect();
+    _abG.zieh.x=e.clientX-r.left; _abG.zieh.y=e.clientY-r.top; _abG.zieh.vx=_abG.zieh.vy=0; });
+  addEventListener('mouseup',function(){ _abG.zieh=null; cv.classList.remove('zieh'); });
+  cv.addEventListener('click',function(e){ var r=cv.getBoundingClientRect();
+    var n=treffer(e.clientX-r.left,e.clientY-r.top); if(!n) return;
+    _abG.sel=n.id;
+    if(n.art==='pruef'){ _abG.offen=(_abG.offen===n.moment)?null:n.moment; baue(); }
+    _abGDet(n,np,A); });
+  var rb=document.getElementById('abRuhe');
+  if(rb) rb.addEventListener('click',function(){ _abG.ruhe=!_abG.ruhe;
+    rb.textContent=_abG.ruhe?'Bewegung an':'Bewegung aus'; });
+  document.querySelectorAll('#fgDash .abtab[data-gf]').forEach(function(t){
+    t.addEventListener('click',function(){
+      document.querySelectorAll('#fgDash .abtab[data-gf]').forEach(function(x){x.classList.remove('on');});
+      t.classList.add('on'); _abG.filter=t.dataset.gf; });
+  });
+  baue(); _abG.lauf=true; _abGDet(finde('kern'),np,A); requestAnimationFrame(schritt);
+}
+function _abGDet(n,np,A){
+  var d=document.getElementById('abDet'); if(!d||!n) return;
+  var art={zufluss:'Zufluss',pruef:'Prüfpunkt',takt:'Takt',kern:'Kern',waechter:'Wächter'}[n.art]||'';
+  var h='<div style="font-weight:800;font-size:15px;display:flex;gap:8px;align-items:center">'
+    +'<span class="abdot" style="background:'+n.farbe+'"></span>'+esc(n.t)+'</div>'
+    +'<div style="font-size:11.5px;color:'+_AB.mut+';margin-top:2px">'+art+'</div>'
+    +'<div style="font-size:12.5px;color:'+_AB.mut+';line-height:1.6;margin-top:9px">'+esc(n.unter||'')+'</div>';
+  if(n.art==='zufluss'&&n.z){
+    h+='<div class="abkv"><span>wartet</span><b>'+(n.z.wartend||0)+'</b></div>'
+      +'<div class="abkv"><span>ältester</span><b>'
+      +(n.z.aeltester_tage==null?'—':n.z.aeltester_tage+' Tage')+'</b></div>';
+    if(n.z.weg==='keiner') h+='<div style="font-size:11.5px;color:#8d2b2b;background:#fdf1f1;'
+      +'border:1px solid #f0c2c2;border-radius:9px;padding:8px 10px;margin-top:9px">'
+      +'Sackgasse: keine Automatik greift hier. '+esc(n.z.hinweis||'')+'</div>';
+  }
+  if(n.art==='pruef'){
+    var ws=((np&&np.waechter)||[]).filter(function(w){return w.moment===n.moment;})
+      .sort(function(a,b){return (Number(b.offen)||0)-(Number(a.offen)||0);});
+    h+='<div class="abkv"><span>Wächter hier</span><b>'+ws.length+'</b></div>'
+      +'<div class="abkv"><span>davon Gate</span><b>'+ws.filter(function(w){return w.gate===true;}).length+'</b></div>'
+      +'<div style="max-height:240px;overflow:auto;margin-top:8px">';
+    ws.forEach(function(w){
+      var nn=Number(w.offen)||0;
+      h+='<div style="display:flex;gap:8px;align-items:center;font-size:12px;padding:5px 0;'
+        +'border-bottom:1px solid #f2f4f7"><span class="abdot" style="width:7px;height:7px;background:'
+        +_abWf(w)+'"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;'
+        +'white-space:nowrap">'+(w.gate===true?'⛔ ':'')+esc(w.name)+'</span>'
+        +'<b style="color:'+(nn===0?_AB.grau:_abWf(w))+'">'+nn+'</b></div>';
+    });
+    h+='</div>';
+  }
+  d.innerHTML=h;
+}
+
+if(typeof window!=='undefined'){
+  window.dashArbeitAnsichtSet=dashArbeitAnsichtSet;
+  window.dashArbeitHtml=dashArbeitHtml;
+  window.dashArbeitNach=dashArbeitNach;
+}
+
 var _NP_FARBEN={T:'#2a78d6',R:'#1baf7a',S:'#4a3aa7',W:'#eb6834',Z:'#0d8f9c'};
 var _NP_GRAU='#9a9a94', _NP_GOOD='#0ca30c', _NP_WARN='#c07a10', _NP_CRIT='#d03b3b';
 
@@ -18793,7 +19512,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1349";
+const APP_BUILD = "2026-07-30-1422";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
