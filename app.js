@@ -558,9 +558,16 @@ function _mdKeineZahlHtml(m){
       +'<div><div style="font-size:22px;font-weight:800;color:var(--ink);line-height:1.1">'+nf(z.aktiv)+'</div>'
         +'<div style="font-size:11.5px;color:var(--muted)">im Katalog</div></div>'
       +'</div>'
+      /* Drei Gruende, getrennt genannt. "Wir haben entschieden" und "uns fehlen Daten"
+         sind nicht dasselbe — sie zusammenzuwerfen wäre dieselbe Gleichmacherei wie
+         §1.11n-d ("nicht im Stamm" vs. "ungeprüft"). */
       +'<div style="font-size:12px;color:var(--muted);margin-top:9px;line-height:1.55">'
-      +'Davon '+nf(z.ohne_zahl_kategorie)+' aus Kategorien, für die ein Lebensmittel-Index nicht passt, und '
-      +nf(z.ohne_zahl_daten)+', bei denen uns noch belegte Angaben fehlen. Diese Zahlen werden beim Öffnen dieser Seite frisch gezählt.'
+      +'Davon '+nf(z.ohne_zahl_kategorie)+' aus Kategorien, für die ein Lebensmittel-Index nicht passt'
+      +((z.ohne_zahl_status!=null&&z.ohne_zahl_status>0)
+          ? (', '+nf(z.ohne_zahl_status)+' einzeln bewusst ohne Index freigegeben (meist Frischware, für die es keine belegbaren Nährwerte gibt)')
+          : '')
+      +' und '+nf(z.ohne_zahl_daten)+', bei denen uns noch belegte Angaben fehlen. '
+      +'Diese Zahlen werden beim Öffnen dieser Seite frisch gezählt.'
       +'</div>');
   }
   if(ks.length){
@@ -7817,6 +7824,14 @@ const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rez
    (es sind 10, der Bereich vergleich fehlte). Eine hartkodierte Zahl veraltet still:
    sie wird nicht falsch gemeldet, sie wird einfach irgendwann unwahr.
 
+   4) HERZSCHLAG (30.07., Ralph 3d): Die beiden pg_cron-Takte protokollieren sich seit
+      heute selbst (Takt_Status / Takt_Fehler). Vorher holten sie HTTP-Status und Antwort
+      der Edge-Function und WARFEN SIE WEG - pg_cron notierte nur „1 row". Ein 500er war
+      unsichtbar. Deshalb konnte niemand Ralphs Frage „ist der Autopilot gestoppt?" aus
+      dem System beantworten. Die Ampel prueft jetzt ZUERST den Herzschlag: ein Takt, der
+      scheitert oder stumm ist, uebertrumpft jede Arbeitszahl - sonst meldet sie „nichts
+      wartet" gruen, waehrend die Automatik dahinter tot ist.
+
    AMPEL-REGEL: 🟢 läuft · 🟡 wartet · 🔴 Achtung · ⚪ GRAU = wir wissen es nicht.
    Grau ist ein Eingeständnis, kein Urteil (§1.11v). Der Wochenlauf steht jetzt auf
    grau, weil sein Protokoll-Schlüssel in Riki_Config gar nicht existiert — vorher
@@ -7833,12 +7848,12 @@ var _NP_GRAU='#9a9a94', _NP_GOOD='#0ca30c', _NP_WARN='#c07a10', _NP_CRIT='#d03b3
    falsche Station (dieselbe Falle wie doppelte DOM-IDs, §1.11n-p). */
 var _NP_ST=[
  /* ---------------- T · Takte (was von allein tickt) ---------------- */
- {l:'T',id:'push',x:345,y:70,n:'Push-Versand',z:'jede Minute',
+ {l:'T',id:'push',x:345,y:70,n:'Push-Versand',z:'jede Minute',amp:'push',
   d:'Der Zeitplaner (pg_cron) prüft jede Minute, ob Mitteilungen anstehen — z. B. „Einkaufsliste geändert" — und schickt sie an die angemeldeten Handys.',
-  k:'Takt: minütlich · Edge-Funktion push-versand'},
+  k:'Takt: minütlich · seit 30.07. protokolliert er sich selbst — Klick zeigt den Herzschlag'},
  {l:'T',id:'autopilot',x:505,y:70,n:'Riki-Autopilot',z:'alle 30 Min',amp:'autopilot',
   d:'Arbeitet die Warteschlange ab — aber NUR Einträge MIT Etikettfoto. Reine Barcode-Scans überspringt er bewusst: ohne Bild hat Riki nichts zu lesen. Zweifel → Entwurf für dich, nie stille Freigabe.',
-  k:'Takt: alle 30 Min · Tagesdeckel 2,00 $ · Klick zeigt, was er erreichen kann und was nicht'},
+  k:'Takt: alle 30 Min · Tagesdeckel 2,00 $ · Klick zeigt Herzschlag + was er erreichen kann und was nicht'},
  {l:'T',id:'scoretrigger',x:665,y:70,n:'Score-Trigger',z:'sofort',
   d:'Die Automatik in der Datenbank: bei jeder Änderung an Zutaten, Zusatzstoffen oder Nährwerten rechnet sie den Root Index sofort neu. Fehlt etwas Wichtiges, zeigt sie bewusst KEINE Zahl.',
   k:'Regel: lieber keine Zahl als eine falsche'},
@@ -8106,6 +8121,41 @@ function _npZeigeZufluss(zid,box){
       : '');
 }
 
+/* Herzschlag eines Takts aus cb_netzplan holen. Seit 30.07. protokollieren sich die
+   beiden pg_cron-Takte selbst (Tabelle Takt_Status) — vorher warf cb_riki_autopilot_takt
+   HTTP-Status und Antwort weg und pg_cron notierte nur „1 row". Ein Absturz der
+   Edge-Function war damit unsichtbar (§1.13i). GENAU DAS war der Grund, warum Ralphs
+   Frage „ist der Autopilot gestoppt?" nicht aus dem System zu beantworten war. */
+function _npTakt(name){
+  var np=window._npDaten; if(!np||!np.ok) return null;
+  var l=np.takte||[];
+  for(var i=0;i<l.length;i++){ if(l[i].takt===name) return l[i]; }
+  return null;
+}
+
+/* Herzschlag als Textblock. Zeigt ausdrücklich BEIDE Zeiten: wann der Takt zuletzt
+   angeklopft hat UND wann er zuletzt erfolgreich war. Sie auseinanderzuhalten ist der
+   ganze Punkt — ein Takt, der jede Minute läuft und jede Minute scheitert, sah vorher
+   genauso aus wie einer, der sauber arbeitet. */
+function _npTaktBlock(name){
+  var tk=_npTakt(name);
+  if(!tk) return '<div style="font-size:11.5px;color:#898781;margin-top:8px">'
+    +'Herzschlag noch nicht protokolliert — die Aufzeichnung läuft seit 30.07., '
+    +'der erste Eintrag entsteht beim nächsten Takt.</div>';
+  var m=(tk.minuten_her==null?null:Number(tk.minuten_her));
+  var ser=Number(tk.fehler_serie)||0;
+  return '<div style="margin-top:9px;font-size:12.5px;line-height:1.7">'
+    +'<div><b>Herzschlag</b> · letzter Aufruf '+(m==null?'unbekannt':(m<1?'gerade eben':'vor '+m+' Min'))
+      +' · Antwort <b>'+esc(String(tk.status==null?'—':tk.status))+'</b></div>'
+    +'<div style="color:'+(ser>0?_NP_CRIT:_NP_GOOD)+'">'
+      +(ser>0?'scheitert '+ser+' mal in Folge':'läuft fehlerfrei')
+      +' <span style="color:#898781;font-weight:400">· '+(Number(tk.laeufe_gesamt)||0)+' Aufrufe protokolliert, '
+      +(Number(tk.fehler_gesamt)||0)+' Fehler</span></div>'
+    +(tk.antwort?'<div style="color:#898781;font-size:11.5px">letzte Antwort: '+esc(tk.antwort)+'</div>':'')
+    +(tk.letzter_fehler?'<div style="color:'+_NP_CRIT+';font-size:11.5px">letzter Fehler: '+esc(tk.letzter_fehler)+'</div>':'')
+    +'</div>';
+}
+
 /* Zusatz-Inhalt je Station: Prüfpunkte listen ihre Wächter, das Regelwerk seine
    Bereiche, der Autopilot seine erreichbaren und unerreichbaren Einträge. */
 function _npExtra(id){
@@ -8150,6 +8200,7 @@ function _npExtra(id){
     });
     return h2+'</div>';
   }
+  if(id==='push') return _npTaktBlock('push-versand');
   if(id==='autopilot'){
     var ap=np.autopilot||{};
     var err=Number(ap.wartend_erreichbar)||0, unerr=Number(ap.wartend_unerreichbar)||0;
@@ -8163,7 +8214,8 @@ function _npExtra(id){
       +(unerr>0?'<div style="font-size:11.5px;color:#8d2b2b;background:#fdf1f1;border:1px solid #f0c2c2;'
         +'border-radius:8px;padding:7px 9px;margin-top:8px">Das ist der Grund, warum der Autopilot „gestoppt" aussieht, '
         +'obwohl er läuft: der letzte Lauf, der etwas getan hat, liegt so lange zurück wie das letzte Etikettfoto. '
-        +'Die '+unerr+' Barcode-Scans wären nie seine Arbeit gewesen — sie stehen links auf Linie Z in der Sackgasse.</div>':'');
+        +'Die '+unerr+' Barcode-Scans wären nie seine Arbeit gewesen — sie stehen links auf Linie Z in der Sackgasse.</div>':'')
+      +_npTaktBlock('riki-autopilot');
   }
   return '';
 }
@@ -8206,11 +8258,35 @@ async function netzplanLive(){
     var ap=np.autopilot||{};
     var err=Number(ap.wartend_erreichbar)||0, unerr=Number(ap.wartend_unerreichbar)||0;
     var alt=(ap.letzter_lauf_min==null?null:Number(ap.letzter_lauf_min));
+    /* Reihenfolge ist die Regel: erst der Schalter, dann der HERZSCHLAG, dann die Arbeit.
+       Ein Takt, der scheitert oder stumm ist, muss die Arbeitszahlen uebertrumpfen — sonst
+       meldet die Ampel „nichts wartet" gruen, waehrend die Automatik dahinter tot ist. */
+    var tkA=_npTakt('riki-autopilot');
+    var serA=tkA?(Number(tkA.fehler_serie)||0):0;
+    var minA=(tkA&&tkA.minuten_her!=null)?Number(tkA.minuten_her):null;
     if(ap.an!==true) st.autopilot={farbe:_NP_CRIT,text:'Schalter steht auf AUS — er läuft nicht'};
+    else if(serA>0) st.autopilot={farbe:_NP_CRIT,
+      text:'Takt scheitert '+serA+' mal in Folge: '+String(tkA.letzter_fehler||tkA.antwort||'ohne Angabe').slice(0,70)};
+    else if(minA!=null&&minA>90) st.autopilot={farbe:_NP_CRIT,
+      text:'Takt hat seit '+minA+' Min nicht angeklopft (erwartet: alle 30 Min)'};
     else if(err===0) st.autopilot={farbe:_NP_GOOD,
       text:'läuft im 30-Minuten-Takt · nichts Lesbares offen'+(unerr>0?' · '+unerr+' Barcode-Scans sind nicht seine Arbeit':'')};
     else if(alt!=null&&alt<=45) st.autopilot={farbe:_NP_GOOD,text:err+' mit Foto in Arbeit · Lauf vor '+alt+' Min'};
     else st.autopilot={farbe:_NP_WARN,text:err+' mit Foto warten · letzter tätiger Lauf '+(alt!=null?'vor '+alt+' Min':'unbekannt')};
+
+    /* Push-Takt: eigene Ampel. Er tickt minuetlich, deshalb ist schon 10 Minuten
+       Stille ein Befund. Ohne Protokoll-Zeile: GRAU, nicht gruen (§1.11n-ii). */
+    var tkP=_npTakt('push-versand');
+    if(!tkP) st.push={farbe:_NP_GRAU,text:'Herzschlag noch nicht protokolliert — keine Aussage möglich'};
+    else {
+      var serP=Number(tkP.fehler_serie)||0, minP=(tkP.minuten_her==null?null:Number(tkP.minuten_her));
+      if(serP>0) st.push={farbe:_NP_CRIT,text:'scheitert '+serP+' mal in Folge: '
+        +String(tkP.letzter_fehler||'ohne Angabe').slice(0,70)};
+      else if(minP!=null&&minP>10) st.push={farbe:_NP_CRIT,
+        text:'seit '+minP+' Min still (erwartet: jede Minute)'};
+      else st.push={farbe:_NP_GOOD,text:'tickt · letzter Aufruf '
+        +(minP==null?'unbekannt':(minP<1?'gerade eben':'vor '+minP+' Min'))};
+    }
 
     var wl=np.wochenlauf||{};
     st.woche = (wl.protokolliert===true)
@@ -18717,7 +18793,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1335";
+const APP_BUILD = "2026-07-30-1349";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
