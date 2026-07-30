@@ -2801,6 +2801,21 @@ async function feNaehrPopupOpen(){
      Supplement -> cb_reinheits_ampel, je Tagesdosis
    Ohne Bezugswert bleibt die Kachel grau und ohne Prozent - grau ist bei uns
    kein Urteil, sondern ein Eingeständnis (§1.11v). */
+/* Basis-Abzug für die Höhe der Arbeitsfläche (fe_gridA). EIN Wert, zwei Leser:
+   das Editor-Template und feGridHoeheSync. Stünde er zweimal da, liefen sie beim
+   nächsten Umbau auseinander (§4b). */
+var FE_GRID_BASIS = 217;
+/* Der Kachel-Streifen steht UNTER der Arbeitsfläche. Ohne Korrektur schiebt er sie
+   über den Bildschirmrand - genau das, was Ralph gesehen hat. Die Höhe wird GEMESSEN
+   statt geschätzt: dann stimmt sie auch, wenn eine Kachel mehr dazukommt oder der
+   Streifen umbricht. */
+function feGridHoeheSync(){
+  var g=document.getElementById("fe_gridA"); if(!g) return;
+  var k=document.getElementById("fe_naehrKacheln");
+  var h=(k&&k.innerHTML)?Math.ceil(k.getBoundingClientRect().height)+10:0;   /* +10 = margin-top */
+  if(k) k.style.marginTop=(k.innerHTML?"10px":"0");
+  g.style.height="calc(100vh - "+(FE_GRID_BASIS+h)+"px)";
+}
 function _feKachel(name, wert, unter, pct){
   var gruen=(pct!=null&&pct>=100), gelb=(pct!=null&&pct>0&&pct<100);
   var bg=gruen?"var(--k-2e9e57,#2e9e57)":(gelb?"var(--k-c8952a,#c8952a)":"var(--bg)");
@@ -2816,7 +2831,7 @@ function _feKachel(name, wert, unter, pct){
 async function feNaehrKachelnSync(){
   var box=document.getElementById("fe_naehrKacheln"); if(!box) return;
   var kat=feNaehrKat(), pid=(window._fgEdit&&window._fgEdit.id)||null;
-  if(!kat || !pid){ box.innerHTML=""; return; }       /* andere Kategorie oder noch nicht gespeichert */
+  if(!kat || !pid){ box.innerHTML=""; try{ feGridHoeheSync(); }catch(e){} return; }       /* andere Kategorie oder noch nicht gespeichert */
   var kacheln=[], fuss="";
   try{
     if(kat==="salze"){
@@ -2843,9 +2858,9 @@ async function feNaehrKachelnSync(){
     }
   }catch(e){
     if(typeof console!=="undefined") console.warn("Nährstoff-Kacheln:", e&&e.message?e.message:e);
-    box.innerHTML=""; return;
+    box.innerHTML=""; try{ feGridHoeheSync(); }catch(e){} return;
   }
-  if(!kacheln.length){ box.innerHTML=""; return; }     /* nichts belegt = kein Streifen */
+  if(!kacheln.length){ box.innerHTML=""; try{ feGridHoeheSync(); }catch(e){} return; }   /* nichts belegt = kein Streifen */
   box.innerHTML='<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card)">'
     +'<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:7px">'
     +'<span style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800">Enthaltene Nährstoffe</span>'
@@ -2853,12 +2868,17 @@ async function feNaehrKachelnSync(){
     +'<button type="button" onclick="feNaehrPopupOpen()" style="margin-left:auto;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer">Details ›</button>'
     +'</div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'+kacheln.join("")+'</div></div>';
+  /* Erst nach dem Einhaengen messen - vorher hat der Streifen noch keine Hoehe. */
+  try{ feGridHoeheSync(); }catch(e){}
 }
 if(typeof window!=="undefined"){
   window.feNaehrPopupOpen=feNaehrPopupOpen; window.feNaehrPopupClose=feNaehrPopupClose;
   window.feNaehrBtnSync=feNaehrBtnSync; window.feNaehrKat=feNaehrKat;
-  window.feNaehrKachelnSync=feNaehrKachelnSync;
+  window.feNaehrKachelnSync=feNaehrKachelnSync; window.feGridHoeheSync=feGridHoeheSync;
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") feNaehrPopupClose(); });
+  /* Beim Verkleinern des Fensters bricht der Kachel-Streifen um und wird hoeher -
+     dann stimmt der abgezogene Wert nicht mehr. Einmal nachmessen genuegt. */
+  window.addEventListener("resize", function(){ try{ feGridHoeheSync(); }catch(e){} });
 }
 function detail(d){
   /* Aufruf mitzaehlen (fire-and-forget, blockiert die Anzeige nie). Aggregierter
@@ -13227,8 +13247,13 @@ async function openFgEditor(id, prefill, targetEl){
   if(targetEl) _navBar='';   /* Inline-Modus: die Master-Detail-Liste ersetzt die Kopf-Navigation */
   panel.innerHTML=`
     ${_navBar}
-    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-      <h2 style="margin:0">${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
+    ${/* 30.07. (Ralph: "die textzeile produkt erfassen weg, nur rechts die produktnummer soll
+         bleiben") - der Kachel-Streifen unten lief sonst ueber den Bildschirmrand. Die
+         Ueberschrift sagte ohnehin nur, was der Reiter darueber schon sagt. Die Zeile bleibt
+         als Traeger der P-Nummer bestehen, nur schmaler; die h2 ist VERSTECKT statt geloescht
+         (§1.11n-j), damit kein Aufrufer ins Leere greift. */""}
+    <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:2px">
+      <h2 style="margin:0;display:none">${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
       <span id="fePNrInfo" style="font-size:12px;color:var(--muted)">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"P-Nummer kommt beim ersten Speichern"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
     </div>
     ${window._fgPrefillHinweis?`<div style="background:var(--k-fff7ea);border:1px solid var(--k-e4a343);color:var(--k-8a5a0b);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
@@ -13353,7 +13378,7 @@ async function openFgEditor(id, prefill, targetEl){
 #fe_fotoMount #fe_wirkFotoBox{flex:1 1 auto;height:auto;min-height:280px}
 #fe_fotoLeerHinweis{display:none}
 #fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
-</div><div id="feTab2" style="display:none"><div id="fe_quickBar" style="display:flex;gap:8px;align-items:center;margin:0 0 6px"><span style="font-size:15px;flex:0 0 auto" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu" style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px"><button type="button" onclick="fgQuickGo()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto">Zuordnen</button></div><div id="fe_quickMsg" style="font-size:12.5px;line-height:1.6;margin:0 0 6px 27px"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - 289px);min-height:430px" data-note28w="Hoehe um die Schnelleingabe-Leiste (~54px) verringert, sonst schiebt sie das Raster aus dem Bild"><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
+</div><div id="feTab2" style="display:none"><div id="fe_quickBar" style="display:none;gap:8px;align-items:center;margin:0 0 6px" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span style="font-size:15px;flex:0 0 auto" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu" style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px"><button type="button" onclick="fgQuickGo()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto">Zuordnen</button></div><div id="fe_quickMsg" style="font-size:12.5px;line-height:1.6;margin:0 0 6px 27px"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -19367,7 +19392,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-2147";
+const APP_BUILD = "2026-07-30-2206";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
