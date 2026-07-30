@@ -2793,9 +2793,71 @@ async function feNaehrPopupOpen(){
     ov.innerHTML=kopf('<div style="font-size:13px;line-height:1.6;color:var(--muted)">Die Werte konnten nicht geladen werden.<br><span style="font-size:11.5px">'+esc(e&&e.message?e.message:String(e))+'</span></div>');
   }
 }
+/* --- Die Kacheln unter der Maske (Ralph 30.07.) -----------------------------
+   Optik bewusst wie in der Nährstoff-Übersicht des Tagebuchs: Name, große Zahl,
+   darunter "erreicht / Tagesbedarf". EIN Blick sagt, was drin ist.
+   Gezeigt wird NUR, was belegt ist:
+     Salze      -> cb_salz_fakten, gerechnet auf 5 g/Tag (WHO-Maximum)
+     Supplement -> cb_reinheits_ampel, je Tagesdosis
+   Ohne Bezugswert bleibt die Kachel grau und ohne Prozent - grau ist bei uns
+   kein Urteil, sondern ein Eingeständnis (§1.11v). */
+function _feKachel(name, wert, unter, pct){
+  var gruen=(pct!=null&&pct>=100), gelb=(pct!=null&&pct>0&&pct<100);
+  var bg=gruen?"var(--k-2e9e57,#2e9e57)":(gelb?"var(--k-c8952a,#c8952a)":"var(--bg)");
+  var fg=(gruen||gelb)?"#fff":"var(--muted)";
+  var rand=(gruen||gelb)?"transparent":"var(--line)";
+  return '<div style="flex:0 0 auto;min-width:132px;border:1px '+((gruen||gelb)?"solid":"dashed")+' '+rand+';'
+    +'background:'+bg+';border-radius:11px;padding:9px 12px">'
+    +'<div style="font-size:12px;font-weight:700;color:'+(gruen||gelb?"#fff":"var(--ink)")+'">'+esc(name)+'</div>'
+    +'<div style="font-size:17px;font-weight:800;color:'+fg+';line-height:1.2;margin-top:1px">'+esc(wert)+'</div>'
+    +'<div style="font-size:11px;color:'+(gruen||gelb?"rgba(255,255,255,.85)":"var(--muted)")+';margin-top:1px">'+esc(unter)+'</div>'
+    +'</div>';
+}
+async function feNaehrKachelnSync(){
+  var box=document.getElementById("fe_naehrKacheln"); if(!box) return;
+  var kat=feNaehrKat(), pid=(window._fgEdit&&window._fgEdit.id)||null;
+  if(!kat || !pid){ box.innerHTML=""; return; }       /* andere Kategorie oder noch nicht gespeichert */
+  var kacheln=[], fuss="";
+  try{
+    if(kat==="salze"){
+      var r=await client.rpc("cb_salz_fakten",{p_id:pid});
+      if(r.error) throw new Error(r.error.message);
+      (r.data||[]).forEach(function(x){
+        var bei5=Number(x.menge_100g)*0.05, e=String(x.einheit||"");
+        var pct=(x.nrv!=null)?Math.round(bei5/Number(x.nrv)*100):null;
+        var w=(e==="µg")?(bei5>=100?Math.round(bei5):Math.round(bei5*10)/10):Math.round(bei5*100)/100;
+        kacheln.push(_feKachel(String(x.naehrstoff||""), w+" "+e,
+          pct!=null?(pct+" % Tagesbedarf"):"kein Bezugswert", pct));
+      });
+      fuss="je 5 g Salz/Tag (WHO-Maximum)";
+    } else {
+      var r2=await client.rpc("cb_reinheits_ampel",{p_produkt_id:pid});
+      if(r2.error) throw new Error(r2.error.message);
+      var a=r2.data, bef=(a&&Array.isArray(a.befunde))?a.befunde:[];
+      bef.forEach(function(b){
+        var pct=(b.prozent_nrv!=null)?Math.round(Number(b.prozent_nrv)):null;
+        kacheln.push(_feKachel(String(b.wirkstoff||""), (b.menge_original!=null?b.menge_original:b.menge)+" "+(b.einheit_original||b.einheit||""),
+          pct!=null?(pct+" % Tagesbedarf"):"kein Bezugswert", pct));
+      });
+      fuss="je Tagesdosis";
+    }
+  }catch(e){
+    if(typeof console!=="undefined") console.warn("Nährstoff-Kacheln:", e&&e.message?e.message:e);
+    box.innerHTML=""; return;
+  }
+  if(!kacheln.length){ box.innerHTML=""; return; }     /* nichts belegt = kein Streifen */
+  box.innerHTML='<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card)">'
+    +'<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:7px">'
+    +'<span style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800">Enthaltene Nährstoffe</span>'
+    +'<span style="font-size:11px;color:var(--muted)">'+esc(fuss)+'</span>'
+    +'<button type="button" onclick="feNaehrPopupOpen()" style="margin-left:auto;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer">Details ›</button>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'+kacheln.join("")+'</div></div>';
+}
 if(typeof window!=="undefined"){
   window.feNaehrPopupOpen=feNaehrPopupOpen; window.feNaehrPopupClose=feNaehrPopupClose;
   window.feNaehrBtnSync=feNaehrBtnSync; window.feNaehrKat=feNaehrKat;
+  window.feNaehrKachelnSync=feNaehrKachelnSync;
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") feNaehrPopupClose(); });
 }
 function detail(d){
@@ -3728,6 +3790,9 @@ async function loadProduktErfassung(){
        neu gezeichnet - sonst stehen hier Zahlen aus dem Moment des Seitenaufbaus,
        waehrend die Liste laengst gefiltert ist (Ralphs Fund 30.07.). */
     +'<div id="peChipRows">'+peChipRowsHtml()+'</div>'
+    /* Zeile darunter nennt jeden aktiven Filter und laesst ihn einzeln abwerfen.
+       Ohne Filter ist sie leer und nimmt keinen Platz. */
+    +'<div id="peAktivFilter">'+peAktivFilterHtml()+'</div>'
     +'</div>'  /* Ende Sticky-Menü: NUR Toolbar + Chips bleiben fixiert (Ralph) */
     /* Session-Leiste (Suche/Filter, Bearbeiter, Sortierung) – scrollt jetzt mit, unterhalb der Buttons */
     +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin:2px 0 12px">'
@@ -3985,7 +4050,62 @@ function peChipRowsHtml(){
       +chip('unverif','Unverifiziert',cnt.unverif)
     +'</div>';
 }
-if(typeof window!=='undefined'){ window.pePasst=pePasst; window.peChipRowsHtml=peChipRowsHtml; }
+/* 🔴 30.07., Ralph: "jetzt sind nur noch 9 produkte da. was treibst du da? es sollen alle sein"
+   Es war nichts weg - der Kategorie-Filter stand auf Suessungsmittel, und er ueberlebt seit
+   28z11 sogar den Browser-Neustart. Aber MEIN Fix davor hat es schlimmer gemacht: vorher
+   sagte "Alle (1460)" wenigstens noch, dass da mehr ist. Ich habe die Zahl richtig gemacht
+   und damit den letzten Hinweis entfernt, dass ueberhaupt gefiltert wird.
+
+   > Eine Zahl zu korrigieren, ohne zu fragen, welche Aufgabe sie nebenbei erfuellt hat,
+   > macht die Anzeige praeziser und die Bedienung schlechter.
+
+   Deshalb jetzt eine eigene Zeile, die JEDEN aktiven Filter beim Namen nennt und einzeln
+   wieder abwerfen laesst - plus "alles zuruecksetzen". Ohne Filter ist die Zeile unsichtbar. */
+function peAktivFilterHtml(){
+  var teile=[];
+  var kat=((document.getElementById('peVorKat')||{}).value||'').trim();
+  var suche=((document.getElementById('peSuche')||{}).value||'').trim();
+  var chip=window._peChip||'alle';
+  var colF=window._peColF||{};
+  var colN=Object.keys(colF).length;
+  var brandN=window._peBrandOff?Object.keys(window._peBrandOff).length:0;
+  var CHIPNAME={offen:'Zu erledigen',zuverif:'Zu verifizieren',keinscore:'Ohne Index',keinquelle:'Ohne Quelle',
+                keinzut:'Ohne Zutaten',markiert:'Markiert',waechter:'Alle Auffälligen',naehrwerte:'Nährwerte',
+                portionsfalle:'Portionsfalle',unverif:'Unverifiziert'};
+  var pill=function(txt,weg){
+    return '<span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e0a32e;color:#8a5a0b;'
+      +'border-radius:999px;padding:3px 6px 3px 11px;font-size:12px;font-weight:700">'+txt
+      +'<button type="button" onclick="peFilterWeg(\''+weg+'\')" title="diesen Filter aufheben" '
+      +'style="border:0;background:#fdf0d8;color:#8a5a0b;border-radius:999px;width:18px;height:18px;line-height:1;'
+      +'cursor:pointer;font-size:12px;font-weight:700;padding:0">✕</button></span>'; };
+  if(kat)     teile.push(pill('Kategorie: '+esc(kat),'kat'));
+  if(chip&&chip!=='alle') teile.push(pill(esc(CHIPNAME[chip]||chip),'chip'));
+  if(suche)   teile.push(pill('Suche: „'+esc(suche.length>22?suche.slice(0,22)+'…':suche)+'"','suche'));
+  if(colN)    teile.push(pill('Spaltenfilter ('+colN+')','spalten'));
+  if(brandN)  teile.push(pill(brandN+' Marke'+(brandN===1?'':'n')+' ausgeblendet','marken'));
+  if(window._peHideMarken) teile.push(pill('Werbe-Marken aus','werbe'));
+  if(!teile.length) return '';
+  return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:7px 9px;'
+    +'background:#fff8ec;border:1px solid #f0dcb4;border-radius:10px">'
+    +'<span style="font-size:11.5px;font-weight:700;color:#8a5a0b;letter-spacing:.02em">FILTER AKTIV – nicht alle Produkte sichtbar</span>'
+    + teile.join('')
+    +'<button type="button" onclick="peFilterWeg(\'alle\')" style="margin-left:auto;border:1px solid #8a5a0b;background:#8a5a0b;color:#fff;'
+    +'border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">Alle Filter aufheben</button>'
+    +'</div>';
+}
+function peFilterWeg(was){
+  if(was==='kat'||was==='alle'){ var k=document.getElementById('peVorKat'); if(k) k.value=''; }
+  if(was==='chip'||was==='alle'){ window._peChip='alle'; }
+  if(was==='suche'||was==='alle'){ var s=document.getElementById('peSuche'); if(s) s.value=''; }
+  if(was==='spalten'||was==='alle'){ window._peColF={}; }
+  if(was==='marken'||was==='alle'){ window._peBrandOff=null; }
+  if(was==='werbe'||was==='alle'){ window._peHideMarken=false; }
+  try{ peRender(); }catch(e){}
+}
+if(typeof window!=='undefined'){
+  window.pePasst=pePasst; window.peChipRowsHtml=peChipRowsHtml;
+  window.peAktivFilterHtml=peAktivFilterHtml; window.peFilterWeg=peFilterWeg;
+}
 function peRender(){
   var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
   try{ peStateSave(); }catch(e){}   /* NACH dem Guard: ohne aufgebaute Liste wuerden leere Felder den gespeicherten Zustand ueberschreiben */
@@ -3994,6 +4114,7 @@ function peRender(){
   /* Chips mitziehen: sie zaehlen dieselbe Menge wie die Liste. Vorher standen dort
      die Zahlen vom Seitenaufbau - "Alle (1460)" ueber einer Liste mit 9 Zeilen. */
   try{ var _cr=document.getElementById('peChipRows'); if(_cr) _cr.innerHTML=peChipRowsHtml(); }catch(e){}
+  try{ var _af=document.getElementById('peAktivFilter'); if(_af) _af.innerHTML=peAktivFilterHtml(); }catch(e){}
   if(sort==='mark') list=list.filter(function(p){return p.markiert;});
   list.sort(function(a,b){
     if(sort==='score'){ var sa=(a.score==null?9999:a.score), sb=(b.score==null?9999:b.score); if(sa!==sb) return sa-sb; }
@@ -11314,23 +11435,43 @@ function _zusNorm(s){
     .replace(/ae/g,"a").replace(/oe/g,"o").replace(/ue/g,"u")   /* Umlaut-Ersatzschreibung: „Apfelsaeure" = „Äpfelsäure" (eigener Testfund 26.07.) */
     .replace(/[^a-z0-9]/g,"");
 }
+/* 🔴 30.07. (Ralphs Fund am Kaliumsalz P1842): „Magnesiumcarbonat" stand auf
+   „nicht im Stamm · kein Index" - obwohl E504 belegt neutral im Katalog steht.
+   Der Grund ist EIN Buchstabe: Die EU fuehrt Gruppen-Zusatzstoffe im PLURAL
+   („Magnesiumcarbonate", „Natriumcarbonate", „Kaliumphosphate"), Etiketten
+   schreiben den Singular. Dieselbe Fehlerklasse wie „Apfelsäure"/„Äpfelsäure"
+   vom 26.07. - und wieder kostet ein Buchstabe den ganzen Index (§1.11k).
+
+   GEMESSEN, nicht vermutet: 92 der deutschen Katalognamen enden auf „e".
+   Schneidet man das End-„e" ab, sind **genau dieselben 7 Schluessel mehrdeutig
+   wie vorher** - die Regel erzeugt also keine neue Mehrdeutigkeit. Und weil
+   _zusFindStamm nur EINDEUTIGE Treffer uebernimmt, bleiben diese 7 weiter
+   „nicht gefunden" (§5c: eine falsche Zuordnung ist schlimmer als keine).
+
+   Der Plural-Schluessel liegt in einer ZWEITEN Karte: der exakte Treffer hat
+   immer Vorrang, gekuerzt wird nur nachgeschlagen, wenn exakt nichts da ist. */
 function _zusNormMap(){
   var n=(ZUSATZSTOFFE_STAMM||[]).length;
   if(window.__zusNormMap && window.__zusNormMapN===n) return window.__zusNormMap;
-  var m={};
+  var m={}, m2={};
   (ZUSATZSTOFFE_STAMM||[]).forEach(function(z){
     [z.name,z.name_de].forEach(function(nn){
       var k=_zusNorm(nn); if(!k||k.length<4) return;
       if(!m[k]) m[k]=[];
       if(m[k].indexOf(z)<0) m[k].push(z);
+      var k2=k.replace(/e$/,"");                 /* Plural -> Singular */
+      if(k2.length>=4){ if(!m2[k2]) m2[k2]=[]; if(m2[k2].indexOf(z)<0) m2[k2].push(z); }
     });
   });
-  window.__zusNormMap=m; window.__zusNormMapN=n; return m;
+  window.__zusNormMap=m; window.__zusNormMap2=m2; window.__zusNormMapN=n; return m;
 }
 function _zusFindStamm(nm){
   var k=_zusNorm(nm); if(!k||k.length<4) return null;
   var hit=_zusNormMap()[k];
-  return (hit&&hit.length===1)?hit[0]:null;   /* nur EINDEUTIG, sonst kein Treffer */
+  if(hit&&hit.length===1) return hit[0];        /* exakter Treffer hat Vorrang */
+  if(hit&&hit.length>1)   return null;          /* mehrdeutig bleibt mehrdeutig */
+  var hit2=(window.__zusNormMap2||{})[k.replace(/e$/,"")];
+  return (hit2&&hit2.length===1)?hit2[0]:null;  /* nur EINDEUTIG, sonst kein Treffer */
 }
 /* deutscher Anzeigename eines ausgewaehlten Zusatzstoffs (Stamm-name_de, sonst ZUS_SYN, sonst gespeichert) */
 function _zusDe(z){
@@ -11729,6 +11870,11 @@ async function fmMikroLoad(pid){
   }catch(e){}
 }
 function fmMikroRender(){
+  /* Die Kacheln unter der Maske haengen an denselben Daten - ein Eintrag hier
+     muss dort sofort sichtbar werden, sonst arbeitet man gegen eine Anzeige,
+     die den Stand von vorhin zeigt (§1.11n-f: was asynchron nachlaedt, muss
+     alles neu zeichnen, was davon abhaengt). */
+  try{ feNaehrKachelnSync(); }catch(e){}
   var box=document.getElementById('fm_mikroRows'); if(!box) return; var arr=window._fmMikro||[];
   box.innerHTML = arr.length ? arr.map(function(m){ return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="flex:1;min-width:0">'+esc(m.anzeige||m.form||m.naehrstoff)+(m.form&&m.form!==m.naehrstoff?'<span style="color:var(--muted);font-size:11px"> \u00b7 z\u00e4hlt als '+esc(m.naehrstoff)+'</span>':'')+'</span><span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span><span style="font-size:10.5px;color:var(--muted)">'+esc(m.quelle||'')+'</span><button type="button" onclick="fmMikroDel(\''+esc(String(m.naehrstoff).replace(/'/g,"\\'"))+'\',\''+esc(String(m.form||'').replace(/'/g,"\\'"))+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">\u2715</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine \u2013 unten hinzuf\u00fcgen (z.\u202fB. Jod, Selen, Fluorid)</span>';
 }
@@ -13255,6 +13401,12 @@ async function openFgEditor(id, prefill, targetEl){
                Feld allein: cb_hat_kuenstlichen_suessstoff() liest Handfeld + Zutaten + Zusatzstoff-Liste. */}
           <input type="hidden" id="fe_suess" value="${esc(d.suessstoffe||"nein")}">
         `)}</div><div id="fe_mikroWrap" style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;white-space:nowrap">🔎 USDA</button></div><div id="fm_usdaErg" style="max-height:180px;overflow:auto;margin-top:5px;flex:0 0 auto"></div>`)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div></div></div></div>
+    ${/* 30.07. (Ralph): "die kästchen auf der supplements und salz produkt erfassen karte unten
+         anzeigen … und nur die, die enthalten sind". Streifen unter den drei Spalten, NUR bei
+         Supplement und Salze - fuer jede andere Kategorie gibt es keine Quelle. Gezeigt werden
+         ausschliesslich Naehrstoffe, die am Produkt belegt sind; ohne Eintrag bleibt der Streifen
+         leer und nimmt keinen Platz. Der Detailblick (zwei Balken, Quellen) bleibt im 🧪-Popup. */""}
+    <div id="fe_naehrKacheln" style="margin-top:10px"></div>
     <div id="fe_fussLeiste" style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
@@ -13333,7 +13485,8 @@ function feKatChange(){
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   var special=_fgIstSpecial();   /* Supplement/Salze: Bild NEBEN der Wirkstoff-/Mineral-Tabelle, kein Lebensmittel-Score (Ralph 25.07.) */
-  try{ feNaehrBtnSync(); }catch(e){}   /* 30.07.: Nährstoff-Knopf nur bei Supplement/Salze (Ralph) */
+  try{ feNaehrBtnSync(); }catch(e){}      /* 30.07.: Nährstoff-Knopf nur bei Supplement/Salze (Ralph) */
+  try{ feNaehrKachelnSync(); }catch(e){}  /* … und der Kachel-Streifen unter der Maske */
   var _wcol=document.getElementById("fe_wirkFotoCol"), _wg=document.getElementById("fe_wirkGrid"), _wback=document.getElementById("fe_refBack"), _wfbtn=document.getElementById("fe_refFlipBtn"), _wc=document.getElementById("fe_wirkCard"), _wtc=document.getElementById("fe_wirkTblCol");
   /* KONZEPT A: das Etikettfoto haengt IMMER oben in der Quelle-Spalte – bei jeder Kategorie, ohne Flip.
      Vorher wanderte es je nach Kategorie entweder neben die Wirkstoff-Tabelle oder auf die Rueckseite
@@ -19214,7 +19367,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-2116";
+const APP_BUILD = "2026-07-30-2147";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
