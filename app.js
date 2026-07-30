@@ -3118,7 +3118,6 @@ function setMode(m){
   { var _ev=document.getElementById("einheitView"); if(_ev) _ev.style.display = m==="einheit"?"":"none"; }
   { var _bv=document.getElementById("bioView"); if(_bv) _bv.style.display = m==="bio"?"":"none"; }
   { var _tw=document.getElementById("tauschView"); if(_tw) _tw.style.display = m==="tausch"?"":"none"; }
-  { var _nv=document.getElementById("netzView"); if(_nv) _nv.style.display = m==="netz"?"":"none"; }
   { var _mdv=document.getElementById("methodikView"); if(_mdv) _mdv.style.display = m==="methodik"?"":"none"; }
   { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
   { var _sv=document.getElementById("suppView"); if(_sv) _sv.style.display = m==="supp"?"":"none"; }
@@ -3138,7 +3137,6 @@ function setMode(m){
   if(m==="einheit"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } einheitRender(); }
   if(m==="bio"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } bioKandRender(); }
   if(m==="tausch"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } tauschRender(); }
-  if(m==="netz"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } netzplanRender(); }
   /* "Unsere Methode" ist BEWUSST ohne Admin- und ohne Stufen-Schranke: Vertrauensarbeit
      ist kein Premium-Inhalt (Ralph-Entscheid 30.07.). Einzige Bremse ist das Beta-Flag
      (§3.0) - ist es aus, gibt es die Seite fuer niemanden, auch nicht per Adresszeile. */
@@ -5571,12 +5569,16 @@ async function loadDashboard(){
   }
 
   /* ===== NEUES DASHBOARD „Arbeitsfläche" (Ralph-Entscheid 30.07.2026) =====
-     Hinter Beta-Flag `dashboard_neu` (§3.0). Solange das Flag aus ist, bleibt alles
-     wie vorher — das alte Enterprise-Dashboard ist der Rückfall, nicht ein Relikt.
+     KEIN Beta-Flag (Ralph 30.07.: „ist nur Admin!!! kein anderer nutzer"): das Dashboard
+     liegt in der Freigabe-Ansicht, die in setMode hart auf ME.is_admin prüft — es ist
+     konstruktiv admin-only. Ein Beta-Flag hätte in der NUTZER-Beta-Liste gestanden und
+     sich dort auf „für alle" stellen lassen: ein Schalter, der etwas verspricht, was er
+     nicht halten kann. Der Rückfall auf das alte Enterprise-Dashboard ist stattdessen
+     eine ADMIN-LOKALE dritte Ansicht („Klassisch"), gespeichert wie die Graph-Wahl.
      Es braucht cb_netzplan zusätzlich (Zuflüsse, Wächter, Takte, Regelwerk).
      🔴 Scheitert dieser Abruf, wird der Grund SICHTBAR gemeldet und die Seite fällt
      auf Enterprise zurück — nie eine halbe Arbeitsfläche mit leeren Kacheln. */
-  if(typeof feat==='function' && feat('dashboard_neu')){
+  if((ME&&ME.is_admin) && dashArbeitAnsichtGet()!=='klassisch'){
     try{ if(typeof _abGraphStop==='function') _abGraphStop(); }catch(_g){}
     var _np=null, _npFehler=null;
     try{
@@ -7778,8 +7780,7 @@ function applyAdminMode(){
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
       +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
-      +_an('nutzer','👥','Nutzer',"adminGo('nutzer')")
-      +_an('netz','🚇','Netzplan',"adminGo('netz')");
+      +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
     /* 29.07. Enterprise (Ralph): Arbeits-Zahlen als Plaketten am Menue */
     window.adminNavBadges=function(d){
       try{
@@ -7831,55 +7832,7 @@ if(typeof window!=='undefined'){ window.adminDrawerToggle=adminDrawerToggle; win
 /* Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Markiert den aktiven Punkt, setzt den
    Breadcrumb in der Kopfleiste und schließt die Schublade. */
-const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do',netz:'Netzplan'};
-/* ===== NETZPLAN (Ralphs U-Bahn-Idee, 29.07., Go am Mockup) =====
-   Eigene Admin-Seite: das Betriebsnetz als Metro-Karte. 4 Linien (T Takte, R Riki-Leseweg,
-   S Score-Weg, W Wochenrhythmus), 19 klickbare Haltestellen mit ECHTEN Takten und Regeln.
-   Live-Ampeln NUR an Stationen mit belegbaren Daten (cb_dashboard + cb_audit_status) -
-   eine Station ohne Datenquelle bekommt KEINE Ampel statt einer erfundenen (§1). */
-/* ============================================================================
-   NETZPLAN (Admin) · Betriebsnetz als Metro-Karte
-   ----------------------------------------------------------------------------
-   UMBAU 30.07.2026 nach Ralphs Blick auf den Live-Plan:
-   „autopilot ist gestoppt und die zuflüsse fehlen mir, wo greifen die wächter?
-    wo greift das regelwerk?"
-
-   Drei Fragen, drei Bauteile:
-
-   1) LINIE Z · ZUFLÜSSE (neu). Links eine Sammelschiene mit allen Wegen, auf denen
-      etwas hereinkommt. Ein Zufluss OHNE automatischen Abnehmer endet in einem
-      ROTEN BALKEN vor der Schiene — man SIEHT, dass er nicht ankommt.
-      Das war Ralphs blinder Fleck: 30 Barcode-Scans ohne Foto warteten seit
-      15 Tagen auf einen Weg, den niemand gebaut hat.
-
-   2) DREI PRÜFPUNKTE (neu, Rautenform): Anlage · Tür · Bestand.
-      Keine Design-Idee, sondern Doktrin aus CLAUDE.md §1.11p — „Jede neue Regel
-      braucht zwei Wächter: einen an der Tür und einen im Bestand." Vorher stand
-      dafür EINE Sammelstation „Wächter", die nicht sagte, wo etwas zubeißt.
-      Klick zeigt, WELCHE Wächter dort greifen, mit Live-Zahl und Gate-Kennzeichen.
-
-   3) REGELWERK wirkt sichtbar. Die Station listet ihre Bereiche samt der Stationen,
-      auf die sie wirken; betroffene Stationen tragen ein § als Marke.
-
-   🔴 ALLE ZAHLEN KOMMEN AUS cb_netzplan() — KEINE im Code (§4b, MIKRO_REF-Falle).
-   Der alte Plan behauptete „Zehn Prüf-Automatiken" (es sind 25) und „9 Bereiche"
-   (es sind 10, der Bereich vergleich fehlte). Eine hartkodierte Zahl veraltet still:
-   sie wird nicht falsch gemeldet, sie wird einfach irgendwann unwahr.
-
-   4) HERZSCHLAG (30.07., Ralph 3d): Die beiden pg_cron-Takte protokollieren sich seit
-      heute selbst (Takt_Status / Takt_Fehler). Vorher holten sie HTTP-Status und Antwort
-      der Edge-Function und WARFEN SIE WEG - pg_cron notierte nur „1 row". Ein 500er war
-      unsichtbar. Deshalb konnte niemand Ralphs Frage „ist der Autopilot gestoppt?" aus
-      dem System beantworten. Die Ampel prueft jetzt ZUERST den Herzschlag: ein Takt, der
-      scheitert oder stumm ist, uebertrumpft jede Arbeitszahl - sonst meldet sie „nichts
-      wartet" gruen, waehrend die Automatik dahinter tot ist.
-
-   AMPEL-REGEL: 🟢 läuft · 🟡 wartet · 🔴 Achtung · ⚪ GRAU = wir wissen es nicht.
-   Grau ist ein Eingeständnis, kein Urteil (§1.11v). Der Wochenlauf steht jetzt auf
-   grau, weil sein Protokoll-Schlüssel in Riki_Config gar nicht existiert — vorher
-   zeigte er dauerhaft GELB, also „überfällig". Eine Ampel, die immer gelb ist, wird
-   weggeklickt, und dann übersieht man die echte daneben (§1.11n-b).
-   ============================================================================ */
+const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do'};
 /* ============================================================================
    DASHBOARD „ARBEITSFLÄCHE" (Ralph-Entscheid 30.07.2026)
    ----------------------------------------------------------------------------
@@ -7910,8 +7863,19 @@ const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rez
    ALLE ZAHLEN AUS cb_dashboard + cb_netzplan. Keine im Code (§4b, MIKRO_REF-Falle).
    Scheitert ein Abruf, wird es LAUT gemeldet und die Seite fällt auf das alte
    Enterprise-Dashboard zurück — nie stilles Grün (§1.13i).
-   Hinter Beta-Flag `dashboard_neu`: erst Ralph + Sandra (§3.0).
+   NUR FÜR ADMINS, ohne Beta-Flag (Ralph 30.07.: „ist nur Admin!!! kein anderer nutzer“):
+   das Dashboard liegt in der Freigabe-Ansicht, die in setMode hart auf ME.is_admin prüft.
+   Ein Beta-Flag hätte in der NUTZER-Beta-Liste gestanden und sich dort auf „für alle“
+   stellen lassen — ein Schalter, der etwas verspricht, was er nicht halten kann.
+   Rückfall auf das alte Dashboard: admin-lokale dritte Ansicht „Klassisch“ im Umschalter.
    ============================================================================ */
+/* ===== NETZPLAN ENTFERNT am 30.07.2026 (Ralph: „netzplan kann raus!") =====
+   Die Metro-Karte ist durch das Dashboard „Arbeitsfläche" darunter ersetzt.
+   VOLLSTÄNDIG GELÖSCHT, nicht deaktiviert (§1.11n-p): toter Code, der DOM-IDs vergibt,
+   ist nicht tot — er wartet. npSvg/npStationen/npInfo hätten beim nächsten Umbau still
+   mit neuen IDs kollidiert. Was BLEIBT: die RPC cb_netzplan() — sie ist jetzt die
+   Datenquelle der Arbeitsfläche. Alter Stand: Git-Verlauf, Build 2026-07-30-1422. */
+
 var _AB={gut:'#0ca30c',warn:'#e0951a',krit:'#dc3a3a',grau:'#9aa1ab',
          zu:'#0d8f9c',pr:'#6a4ac7',kern:'#2e7d46',ink:'#131a24',mut:'#6b7480'};
 
@@ -8008,7 +7972,7 @@ function _abWf(w){ return (Number(w.offen)||0)===0 ? _AB.gut : (w.gate===true?_A
 function _abZf(z){ return (Number(z.wartend)||0)===0 ? _AB.gut : (z.weg==='keiner'?_AB.krit:_AB.warn); }
 
 function dashArbeitAnsichtGet(){
-  try{ var v=localStorage.getItem('ri_dash_ansicht'); return v==='graph'?'graph':'flaeche'; }
+  try{ var v=localStorage.getItem('ri_dash_ansicht'); return (v==='graph'||v==='klassisch')?v:'flaeche'; }
   catch(e){ return 'flaeche'; }
 }
 function dashArbeitAnsichtSet(v){
@@ -8219,7 +8183,8 @@ function dashArbeitHtml(d,np,fehler){
     +'<span class="st" id="abStand"></span>'
     +'<span style="margin-left:auto;display:flex;gap:9px;align-items:center">'
     +'<span class="abum"><button data-ans="flaeche" class="'+(ans==='flaeche'?'on':'')+'">Arbeitsfläche</button>'
-    +'<button data-ans="graph" class="'+(ans==='graph'?'on':'')+'">Graph</button></span>'
+    +'<button data-ans="graph" class="'+(ans==='graph'?'on':'')+'">Graph</button>'
+    +'<button data-ans="klassisch" title="Das bisherige Enterprise-Dashboard">Klassisch</button></span>'
     +'<button class="abbtn" id="abNeu">↻ Aktualisieren</button></span></div>';
   if(fehler) h+='<div class="abfehler"><b>Live-Daten unvollständig.</b> '+esc(fehler)
     +' — betroffene Felder bleiben leer oder grau. Grau heißt: wir wissen es nicht.</div>';
@@ -8557,516 +8522,6 @@ if(typeof window!=='undefined'){
   window.dashArbeitNach=dashArbeitNach;
 }
 
-var _NP_FARBEN={T:'#2a78d6',R:'#1baf7a',S:'#4a3aa7',W:'#eb6834',Z:'#0d8f9c'};
-var _NP_GRAU='#9a9a94', _NP_GOOD='#0ca30c', _NP_WARN='#c07a10', _NP_CRIT='#d03b3b';
-
-/* Statische Stationen. Die ZUFLÜSSE stehen absichtlich NICHT hier — sie kommen
-   vollständig aus cb_netzplan(), damit ein neuer Zufluss nicht an zwei Orten
-   gepflegt werden muss. Jede Station hat eine ID; npZeige arbeitet mit IDs statt
-   mit Array-Positionen, sonst zeigt beim nächsten Einschub der Klick auf die
-   falsche Station (dieselbe Falle wie doppelte DOM-IDs, §1.11n-p). */
-var _NP_ST=[
- /* ---------------- T · Takte (was von allein tickt) ---------------- */
- {l:'T',id:'push',x:345,y:70,n:'Push-Versand',z:'jede Minute',amp:'push',
-  d:'Der Zeitplaner (pg_cron) prüft jede Minute, ob Mitteilungen anstehen — z. B. „Einkaufsliste geändert" — und schickt sie an die angemeldeten Handys.',
-  k:'Takt: minütlich · seit 30.07. protokolliert er sich selbst — Klick zeigt den Herzschlag'},
- {l:'T',id:'autopilot',x:505,y:70,n:'Riki-Autopilot',z:'alle 30 Min',amp:'autopilot',
-  d:'Arbeitet die Warteschlange ab — aber NUR Einträge MIT Etikettfoto. Reine Barcode-Scans überspringt er bewusst: ohne Bild hat Riki nichts zu lesen. Zweifel → Entwurf für dich, nie stille Freigabe.',
-  k:'Takt: alle 30 Min · Tagesdeckel 2,00 $ · Klick zeigt Herzschlag + was er erreichen kann und was nicht'},
- {l:'T',id:'scoretrigger',x:665,y:70,n:'Score-Trigger',z:'sofort',
-  d:'Die Automatik in der Datenbank: bei jeder Änderung an Zutaten, Zusatzstoffen oder Nährwerten rechnet sie den Root Index sofort neu. Fehlt etwas Wichtiges, zeigt sie bewusst KEINE Zahl.',
-  k:'Regel: lieber keine Zahl als eine falsche'},
- {l:'T',id:'sofortzutat',x:830,y:70,n:'Sofort-Wächter Zutat',z:'bei Anlage',amp:'zutat',
-  d:'Jede NEUE Zutat wird im Moment der Anlage gegen ihre Familie geprüft. Weicht sie ab, landet ein Prüfauftrag in deinem Notizbuch; der Montag-Lauf prüft alle nach.',
-  k:'Ändert NIE Noten — nur Vorschläge'},
- {l:'T',id:'budget',x:1000,y:70,n:'Budget-Bremse',z:'laufend',amp:'budget',
-  d:'Jeder Riki-Aufruf wird mit Kosten gebucht. Tagesdeckel und Monatslimit blocken automatisch — gewollt, bevor es teuer wird.',
-  k:'Sichtbar: Kosten-Diagramm im Dashboard mit Deckel-Linie'},
-
- /* ---------------- R · Rikis Lese-Weg ---------------- */
- {l:'R',id:'erfassung',x:310,y:190,n:'Erfassung beginnt',z:'alle Zuflüsse münden hier',u:1,
-  d:'Der gemeinsame Eingang: Herstellerseiten-Adresse, Etikettfoto, Barcode oder Handeingabe. Links siehst du, welche Zuflüsse hier wirklich ankommen — und welche vorher stehen bleiben.',
-  k:'Umsteigen von Linie Z'},
- {l:'R',id:'abruf',x:420,y:190,n:'Abruf + Hilfen',z:'12 s Fenster',
-  d:'Der Server holt die Seite. Mit drei Hilfen: strukturierte Daten (JSON-LD) mitlesen, verlinkten Zutaten-/Nährwert-Unterseiten folgen, Fehl-Läufe protokollieren.',
-  k:'Scheitert alles → ehrliche Meldung + Screenshot-Weg'},
- {l:'R',id:'rikiliest',x:530,y:190,n:'Riki liest',z:'KI',
-  d:'Riki zieht Nährwerte je 100 g, Zutaten, Zusatzstoffe, Wirkstoffe, Bio-Beleg und EAN aus dem Text. Oberste Regel im Prompt: NICHTS ERFINDEN — was nicht dasteht, bleibt leer.',
-  k:'Nur Vorschlag. Riki belegt nichts — das tut ein Mensch'},
- {l:'R',id:'serverfilter',x:635,y:190,n:'Server-Filter',z:'Schutzwall',u:1,
-  d:'Was Riki liefert, wird serverseitig verteidigt: EAN nur mit gültiger Prüfziffer, Einheiten nur mg/µg/g, IU wird verworfen statt umgerechnet, Kategorien nur aus der gepflegten Liste, Bio nur mit Beleg.',
-  k:'Prinzip: das Modell ist ungeprüft — der Server prüft nach'},
- {l:'R',id:'pp_anlage',x:730,y:190,n:'Prüfpunkt Anlage',z:'sofort',f:'raute',amp:'pp_anlage',
-  d:'Der erste von drei Prüfpunkten. Hier greifen die Wächter, die im MOMENT DER ANLAGE zubeißen — bevor ein Wert im Katalog liegt.',
-  k:'Klick: welche Wächter hier greifen, mit Live-Zahl'},
- {l:'R',id:'pp_tuer',x:860,y:310,n:'Prüfpunkt Tür',z:'blockiert',f:'raute',amp:'pp_tuer',u:1,
-  d:'Die Freigabe. Hier BLOCKIEREN Wächter — vier Riegel in dieser Reihenfolge: belegte Quelle → Verifiziert → Score vorhanden → Wächter still. Was hier hängt, geht nicht live.',
-  k:'Diese Wächter sind das Go-Live-Gate: ihre Summe muss 0 sein'},
- {l:'R',id:'ralph',x:990,y:310,n:'Ralph gibt frei',z:'Mensch',amp:'scans',
-  d:'Riki liest gut, aber er belegt nichts — das tust du. Erst dein Klick gibt frei. Ausnahme: Auto-Verifizierung nur bei ZWEI unabhängigen Quellen (Etikett + Herstellerseite).',
-  k:'Zwei-Quellen-Regel, von dir autorisiert'},
-
- /* ---------------- S · Score-Weg ---------------- */
- {l:'S',id:'regelwerk',x:310,y:310,n:'Regelwerk (DB)',z:'die Quelle',u:1,
-  d:'Die verbindlichen Bewertungsregeln leben in der Datenbank, nicht im Code. Jede Regel braucht eine Quelle (EFSA/WHO/EU) — Meinungen kommen nicht in den Score.',
-  k:'Klick: alle Bereiche mit Anzahl und der Station, auf die sie wirken'},
- {l:'S',id:'achsen',x:450,y:310,n:'4 Achsen',z:'30+15+15+40',
-  d:'Zutaten (Verarbeitungsgrad, 30) + Zusatzstoffe (15) + NOVA (15) + Nährwert (40) = Root Index 0–100. Jede Eigenschaft zählt auf genau EINER Achse.',
-  k:'Fleisch & Fisch: Fettqualität statt Fettmenge (seit 29.07.)'},
- {l:'S',id:'sperre',x:600,y:310,n:'Ehrlichkeits-Sperre',z:'Checkpoint',amp:'ohnescore',
-  d:'Fehlt eine Achse oder ist ein Zusatzstoff unbewertet, gibt es KEINE Zahl — mit Klartext-Begründung auf der Produktkarte.',
-  k:'Wir zeigen lieber keine Zahl als eine erfundene'},
- {l:'S',id:'index',x:860,y:190,n:'Root Index',z:'0–100',
-  d:'Die eine Zahl auf der Produktkarte — mit Herleitung, Quelle und Platz in der Kategorie. Bessere Alternativen stehen mit belegter Begründung daneben.',
-  k:'„Die Vorderseite verkauft. Wir lesen die Rückseite."'},
- {l:'S',id:'katalog',x:990,y:190,n:'Katalog & App',z:'live',
-  d:'Freigegebene Produkte erscheinen im Katalog, Tagebuch und in der Einkaufsliste. Den App-Deploy macht nur Ralph — die Datenbank ist sofort live.',
-  k:'Nutzer lesen nur über geprüfte Wege (RPCs), Admin nur mit Admin-Konto'},
- {l:'S',id:'pp_bestand',x:1110,y:190,n:'Prüfpunkt Bestand',z:'laufend',f:'raute',amp:'pp_bestand',
-  d:'Der dritte Prüfpunkt, und der am leichtesten zu vergessende: Wächter, die über SCHON FREIGEGEBENE Daten laufen. Eine neue Regel gilt ab sofort — der Bestand ist von gestern (§1.11p).',
-  k:'Klick: welche Wächter im Bestand suchen und was sie gerade finden'},
-
- /* ---------------- W · Wochenrhythmus ---------------- */
- {l:'W',id:'mo',x:360,y:430,n:'Mo 6:00 · Wochenprüfung',z:'Autopilot 2.0',amp:'woche',
-  d:'Der große Wochenlauf: prüft neue Zutaten nach (Staffel-Audit), recherchiert die Unbekannt-Liste beim Hersteller, gleicht Autopilot-Produkte gegen Herstellerseiten ab.',
-  k:'Bericht per Push + E-Mail'},
- {l:'W',id:'do',x:570,y:430,n:'Do 6:00 · Lese-Optimierer',z:'wöchentlich',
-  d:'Wertet Rikis Fehl-Läufe der Woche aus, prüft Problem-Seiten und schlägt Verbesserungen vor. Ändert selbst NIE etwas.',
-  k:'Bericht per Push + E-Mail'},
- {l:'W',id:'gleichlauf',x:780,y:430,n:'Gleichlauf-Check',z:'Do, automatisch',u:1,
-  d:'Teil des Lese-Optimierers: Stimmen Rikis Prompts noch mit der Datenbank überein (Kategorien-Liste, neue Regeln der Woche)? Abweichung = dringende Meldung.',
-  k:'Regel seit 29.07. in CLAUDE.md'},
- {l:'W',id:'benchmark',x:990,y:430,n:'Monatsanfang · Benchmark',z:'manuell',
-  d:'Platzhirsch-Vergleich (Yuka & Co.) einmal im Monat gemeinsam durchgehen: Wo stehen wir, was fehlt, was ist unser Vorsprung.',
-  k:'Nächster Termin: 01.08. · Todo #39'}
-];
-
-/* Welche Regelwerk-Bereiche wirken auf welche Station? Die Zuordnung kommt aus der
-   DB (Feld wirkt_auf) — hier steht nur, welche Station welchen Schlüssel trägt. */
-var _NP_REGEL_ZIEL={achsen:'achsen',index:'index',waechter:'pp_tuer',alles:'regelwerk'};
-/* 'dosis' fehlt hier ABSICHTLICH: es gibt keine Dosis-Station im Plan. Lieber kein
-   Pfeil als ein Pfeil auf die falsche Station - der Bereich steht trotzdem in der Liste. */
-
-function netzplanRender(){
-  var v=document.getElementById('netzView'); if(!v) return;
-  v.innerHTML='<div style="max-width:1180px;margin:0 auto;padding:14px 10px 40px">'
-    +'<h2 style="font-size:19px;font-weight:800;margin:2px 0 2px">🚇 Betriebsnetz</h2>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">So arbeitet Root Index. <b>Linie Z links zeigt, was hereinkommt</b> — endet ein Zufluss in einem roten Balken, holt ihn <b>keine Automatik</b> ab. Die drei <b>Rauten</b> sind die Prüfpunkte: dort greifen die Wächter. Jede Haltestelle ist klickbar.</div>'
-    +'<div id="npFehler" style="display:none;margin:0 0 10px;padding:9px 11px;border:1px solid #f0c2c2;background:#fdf1f1;border-radius:9px;font-size:12.5px;color:#8d2b2b"></div>'
-    +'<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(20,40,70,.06)">'
-      +'<svg viewBox="0 0 1220 505" style="width:100%;display:block" id="npSvg">'
-        /* Linien */
-        +'<path d="M300 70 H1140" fill="none" stroke="'+_NP_FARBEN.T+'" stroke-width="7" stroke-linecap="round"/>'
-        +'<path d="M300 190 H760 Q780 190 780 210 V290 Q780 310 800 310 H1140" fill="none" stroke="'+_NP_FARBEN.R+'" stroke-width="7" stroke-linecap="round"/>'
-        +'<path d="M300 310 H760 Q780 310 780 290 V210 Q780 190 800 190 H1140" fill="none" stroke="'+_NP_FARBEN.S+'" stroke-width="7" stroke-linecap="round" opacity="0.96"/>'
-        +'<path d="M300 430 H1140" fill="none" stroke="'+_NP_FARBEN.W+'" stroke-width="7" stroke-linecap="round"/>'
-        /* Linie Z: Sammelschiene + Einmuendung in die Erfassung */
-        +'<path d="M252 96 V416" fill="none" stroke="'+_NP_FARBEN.Z+'" stroke-width="7" stroke-linecap="round"/>'
-        +'<path d="M252 190 H302" fill="none" stroke="'+_NP_FARBEN.Z+'" stroke-width="7" stroke-linecap="round"/>'
-        +'<g id="npZuflus"></g><g id="npStationen"></g>'
-      +'</svg>'
-      +'<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:10px 2px 2px">'
-        +_npLegende('Z','Zuflüsse — was hereinkommt')
-        +_npLegende('T','Takte — was von allein tickt')
-        +_npLegende('R','Rikis Lese-Weg')
-        +_npLegende('S','Score-Weg')
-        +_npLegende('W','Wochenrhythmus')
-        +'<span>◆ Prüfpunkt · ◎ Umsteigen · <span style="color:'+_NP_CRIT+'">▮</span> Sackgasse: niemand holt es ab</span>'
-        +'<span>Ampel: 🟢 läuft · 🟡 wartet · 🔴 Achtung · ⚪ keine Aussage möglich</span>'
-      +'</div>'
-      +'<div id="npInfo" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px;min-height:74px"></div>'
-    +'</div></div>';
-
-  var g=document.getElementById('npStationen');
-  _NP_ST.forEach(function(s){ g.appendChild(_npStation(s)); });
-  npZeige('autopilot');
-  netzplanLive();
-}
-
-function _npLegende(l,t){
-  return '<span><span style="display:inline-block;width:22px;height:5px;border-radius:3px;background:'
-    +_NP_FARBEN[l]+';margin-right:6px;vertical-align:2px"></span>'+l+' · '+t+'</span>';
-}
-
-/* Eine Haltestelle zeichnen. Raute = Prüfpunkt, Doppelring = Umsteigen.
-   Form UND Farbe UND Text tragen die Bedeutung — Farbe allein ist für
-   farbenschwache Augen nutzlos (§1.11n-m). */
-function _npStation(s){
-  var NS='http://www.w3.org/2000/svg';
-  var grp=document.createElementNS(NS,'g');
-  grp.setAttribute('data-id',s.id); grp.style.cursor='pointer';
-  if(s.f==='raute'){
-    var r=document.createElementNS(NS,'rect');
-    r.setAttribute('x',s.x-8); r.setAttribute('y',s.y-8);
-    r.setAttribute('width',16); r.setAttribute('height',16);
-    r.setAttribute('transform','rotate(45 '+s.x+' '+s.y+')');
-    r.setAttribute('fill','#fff'); r.setAttribute('stroke',_NP_FARBEN[s.l]); r.setAttribute('stroke-width',3);
-    grp.appendChild(r);
-  } else {
-    var c=document.createElementNS(NS,'circle');
-    c.setAttribute('cx',s.x); c.setAttribute('cy',s.y); c.setAttribute('r',s.u?8:7);
-    c.setAttribute('fill','#fff'); c.setAttribute('stroke',s.u?'#0b0b0b':_NP_FARBEN[s.l]);
-    c.setAttribute('stroke-width',s.u?3:2.6); grp.appendChild(c);
-    if(s.u){ var c2=document.createElementNS(NS,'circle'); c2.setAttribute('cx',s.x); c2.setAttribute('cy',s.y);
-      c2.setAttribute('r',3.2); c2.setAttribute('fill','#0b0b0b'); grp.appendChild(c2); }
-  }
-  var oben=(s.l==='T')||(s.y<=200);
-  var t=document.createElementNS(NS,'text');
-  t.setAttribute('x',s.x); t.setAttribute('y',oben?s.y-26:s.y+24); t.setAttribute('text-anchor','middle');
-  t.setAttribute('font-size','11.5'); t.setAttribute('font-weight','700'); t.setAttribute('fill','var(--ink)');
-  t.textContent=s.n; grp.appendChild(t);
-  var t2=document.createElementNS(NS,'text');
-  t2.setAttribute('x',s.x); t2.setAttribute('y',oben?s.y-14:s.y+37); t2.setAttribute('text-anchor','middle');
-  t2.setAttribute('font-size','10'); t2.setAttribute('fill','#898781'); t2.setAttribute('id','npZ_'+s.id);
-  t2.textContent=s.z||''; grp.appendChild(t2);
-  if(s.amp){ var a=document.createElementNS(NS,'circle'); a.setAttribute('id','npAmp_'+s.id);
-    a.setAttribute('cx',s.x+11); a.setAttribute('cy',s.y-11); a.setAttribute('r',4.6);
-    a.setAttribute('fill','#e1e0d9'); a.setAttribute('stroke','#fff'); a.setAttribute('stroke-width','1.6');
-    grp.appendChild(a); }
-  var sg=document.createElementNS(NS,'text');
-  sg.setAttribute('id','npReg_'+s.id); sg.setAttribute('x',s.x-13); sg.setAttribute('y',s.y+5);
-  sg.setAttribute('font-size','12'); sg.setAttribute('font-weight','800'); sg.setAttribute('fill',_NP_FARBEN.S);
-  sg.textContent=''; grp.appendChild(sg);
-  grp.addEventListener('click',function(){ npZeige(s.id); });
-  return grp;
-}
-
-/* ---------------------------------------------------------------------------
-   ZUFLÜSSE zeichnen — komplett aus cb_netzplan(), nichts aus dem Code.
-   weg='auto'  → Stichleitung erreicht die Sammelschiene (eine Automatik holt es ab)
-   weg='hand'  → erreicht die Schiene, trägt aber ein ✋ (fließt nur, wenn Ralph schiebt)
-   weg='keiner'→ endet in einem ROTEN BALKEN vor der Schiene: niemand holt es ab
-   --------------------------------------------------------------------------- */
-function _npZuflussZeichnen(liste){
-  var g=document.getElementById('npZuflus'); if(!g) return;
-  var NS='http://www.w3.org/2000/svg';
-  while(g.firstChild) g.removeChild(g.firstChild);
-  if(!liste||!liste.length){
-    var w=document.createElementNS(NS,'text');
-    w.setAttribute('x',132); w.setAttribute('y',210); w.setAttribute('text-anchor','end');
-    w.setAttribute('font-size','11.5'); w.setAttribute('font-weight','700'); w.setAttribute('fill',_NP_CRIT);
-    w.textContent='Zuflüsse nicht ladbar'; g.appendChild(w);
-    return;
-  }
-  window._npZuf={};
-  liste.forEach(function(z,i){
-    var y=96+i*64, kurz=String(z.name||'').split(' (')[0];
-    window._npZuf[z.id]=z;
-    var grp=document.createElementNS(NS,'g'); grp.style.cursor='pointer';
-    /* Stichleitung */
-    var ln=document.createElementNS(NS,'path');
-    ln.setAttribute('d','M132 '+y+' H'+(z.weg==='keiner'?208:252));
-    ln.setAttribute('stroke',_NP_FARBEN.Z); ln.setAttribute('stroke-width','4');
-    ln.setAttribute('fill','none'); ln.setAttribute('stroke-linecap','round');
-    if(z.weg==='hand') ln.setAttribute('stroke-dasharray','7 4');
-    grp.appendChild(ln);
-    if(z.weg==='keiner'){
-      var bar=document.createElementNS(NS,'path');
-      bar.setAttribute('d','M213 '+(y-10)+' V'+(y+10));
-      bar.setAttribute('stroke',_NP_CRIT); bar.setAttribute('stroke-width','5');
-      bar.setAttribute('stroke-linecap','round'); grp.appendChild(bar);
-    }
-    if(z.weg==='hand'){
-      var hd=document.createElementNS(NS,'text');
-      hd.setAttribute('x',196); hd.setAttribute('y',y-7); hd.setAttribute('font-size','11');
-      hd.textContent='✋'; grp.appendChild(hd);
-    }
-    /* Punkt */
-    var c=document.createElementNS(NS,'circle');
-    c.setAttribute('cx',132); c.setAttribute('cy',y); c.setAttribute('r',7);
-    c.setAttribute('fill','#fff');
-    c.setAttribute('stroke', z.weg==='keiner'?_NP_CRIT:_NP_FARBEN.Z);
-    c.setAttribute('stroke-width','2.8'); grp.appendChild(c);
-    /* Name + Wartestapel, linksseitig */
-    var t=document.createElementNS(NS,'text');
-    t.setAttribute('x',118); t.setAttribute('y',y-2); t.setAttribute('text-anchor','end');
-    t.setAttribute('font-size','11'); t.setAttribute('font-weight','700'); t.setAttribute('fill','var(--ink)');
-    t.textContent=kurz; grp.appendChild(t);
-    var n=Number(z.wartend)||0, tage=(z.aeltester_tage==null?null:Number(z.aeltester_tage));
-    var t2=document.createElementNS(NS,'text');
-    t2.setAttribute('x',118); t2.setAttribute('y',y+11); t2.setAttribute('text-anchor','end');
-    t2.setAttribute('font-size','9.5');
-    t2.setAttribute('fill', n===0?_NP_GOOD:(z.weg==='keiner'?_NP_CRIT:_NP_WARN));
-    t2.textContent = n===0 ? 'frei' : (n+' wartend'+(tage!=null?' · seit '+tage+' T':''));
-    grp.appendChild(t2);
-    var tt=document.createElementNS(NS,'title');
-    tt.textContent=z.name+': '+(n===0?'nichts offen':n+' laut Status')+' — '+(z.hinweis||'');
-    grp.appendChild(tt);
-    grp.addEventListener('click',function(){ npZeige('zf:'+z.id); });
-    g.appendChild(grp);
-  });
-}
-
-/* ---------------------------------------------------------------------------
-   Info-Fenster unter dem Plan. IDs statt Positionen (siehe Kopf-Kommentar).
-   --------------------------------------------------------------------------- */
-function npZeige(id){
-  var box=document.getElementById('npInfo'); if(!box) return;
-  window._npOffen=id;
-  if(String(id).indexOf('zf:')===0){ _npZeigeZufluss(String(id).slice(3),box); return; }
-  var s=null; for(var i=0;i<_NP_ST.length;i++){ if(_NP_ST[i].id===id){ s=_NP_ST[i]; break; } }
-  if(!s) return;
-  var amp=(window._npAmpeln||{})[s.id];
-  box.innerHTML='<div style="font-weight:800;font-size:14.5px;display:flex;align-items:center;gap:8px">'
-    +'<span style="width:11px;height:11px;'+(s.f==='raute'?'transform:rotate(45deg);':'border-radius:50%;')
-    +'display:inline-block;background:'+_NP_FARBEN[s.l]+'"></span>'+esc(s.n)
-    +' <span style="font-weight:400;color:#898781;font-size:12px">· Linie '+s.l
-    +(s.f==='raute'?' · Prüfpunkt':'')+(s.u?' · Umsteigen':'')+'</span></div>'
-    +'<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-top:5px">'+esc(s.d)+'</div>'
-    +(s.k?'<div style="font-size:11px;color:#898781;margin-top:6px">📌 '+esc(s.k)+'</div>':'')
-    +(amp?'<div style="font-size:12.5px;margin-top:7px;font-weight:700;color:'+amp.farbe+'">● '+esc(amp.text)+'</div>':'')
-    +_npExtra(s.id);
-}
-
-function _npZeigeZufluss(zid,box){
-  var z=(window._npZuf||{})[zid]; if(!z) return;
-  var n=Number(z.wartend)||0, tage=(z.aeltester_tage==null?null:Number(z.aeltester_tage));
-  var wegTxt={auto:'Eine Automatik holt es ab.',hand:'Fließt nur, wenn du es anfasst.',
-              keiner:'NIEMAND holt es ab — weder Automatik noch fester Arbeitsschritt.'}[z.weg]||'';
-  var farbe = n===0?_NP_GOOD:(z.weg==='keiner'?_NP_CRIT:_NP_WARN);
-  box.innerHTML='<div style="font-weight:800;font-size:14.5px;display:flex;align-items:center;gap:8px">'
-    +'<span style="width:11px;height:11px;border-radius:50%;display:inline-block;background:'
-    +(z.weg==='keiner'?_NP_CRIT:_NP_FARBEN.Z)+'"></span>'+esc(z.name)
-    +' <span style="font-weight:400;color:#898781;font-size:12px">· Zufluss</span></div>'
-    +'<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-top:5px">'+esc(z.was||'')+'</div>'
-    +'<div style="font-size:13px;line-height:1.6;margin-top:6px;font-weight:700;color:'+farbe+'">'
-      +(n===0?'Nichts offen.':n+' Einträge warten'+(tage!=null?' · ältester seit '+tage+' Tagen':''))
-      +' <span style="font-weight:400">— '+esc(wegTxt)+'</span></div>'
-    +'<div style="font-size:12px;color:var(--muted);margin-top:6px">'+esc(z.hinweis||'')+'</div>'
-    +(z.status_unsicher
-      ? '<div style="font-size:11px;color:#8d6b1f;background:#fdf7e6;border:1px solid #f0e2b8;border-radius:8px;padding:7px 9px;margin-top:8px">'
-        +'⚠ Die Zahl ist der <b>Status</b>, kein Arbeitsbeweis. Belegt: 43 Warteschlangen-Zeilen stehen auf „offen", '
-        +'haben aber längst ein Produkt. Ein Teil dieses Stapels kann also erledigt sein, ohne es zu sagen.</div>'
-      : '');
-}
-
-/* Herzschlag eines Takts aus cb_netzplan holen. Seit 30.07. protokollieren sich die
-   beiden pg_cron-Takte selbst (Tabelle Takt_Status) — vorher warf cb_riki_autopilot_takt
-   HTTP-Status und Antwort weg und pg_cron notierte nur „1 row". Ein Absturz der
-   Edge-Function war damit unsichtbar (§1.13i). GENAU DAS war der Grund, warum Ralphs
-   Frage „ist der Autopilot gestoppt?" nicht aus dem System zu beantworten war. */
-function _npTakt(name){
-  var np=window._npDaten; if(!np||!np.ok) return null;
-  var l=np.takte||[];
-  for(var i=0;i<l.length;i++){ if(l[i].takt===name) return l[i]; }
-  return null;
-}
-
-/* Herzschlag als Textblock. Zeigt ausdrücklich BEIDE Zeiten: wann der Takt zuletzt
-   angeklopft hat UND wann er zuletzt erfolgreich war. Sie auseinanderzuhalten ist der
-   ganze Punkt — ein Takt, der jede Minute läuft und jede Minute scheitert, sah vorher
-   genauso aus wie einer, der sauber arbeitet. */
-function _npTaktBlock(name){
-  var tk=_npTakt(name);
-  if(!tk) return '<div style="font-size:11.5px;color:#898781;margin-top:8px">'
-    +'Herzschlag noch nicht protokolliert — die Aufzeichnung läuft seit 30.07., '
-    +'der erste Eintrag entsteht beim nächsten Takt.</div>';
-  var m=(tk.minuten_her==null?null:Number(tk.minuten_her));
-  var ser=Number(tk.fehler_serie)||0;
-  return '<div style="margin-top:9px;font-size:12.5px;line-height:1.7">'
-    +'<div><b>Herzschlag</b> · letzter Aufruf '+(m==null?'unbekannt':(m<1?'gerade eben':'vor '+m+' Min'))
-      +' · Antwort <b>'+esc(String(tk.status==null?'—':tk.status))+'</b></div>'
-    +'<div style="color:'+(ser>0?_NP_CRIT:_NP_GOOD)+'">'
-      +(ser>0?'scheitert '+ser+' mal in Folge':'läuft fehlerfrei')
-      +' <span style="color:#898781;font-weight:400">· '+(Number(tk.laeufe_gesamt)||0)+' Aufrufe protokolliert, '
-      +(Number(tk.fehler_gesamt)||0)+' Fehler</span></div>'
-    +(tk.antwort?'<div style="color:#898781;font-size:11.5px">letzte Antwort: '+esc(tk.antwort)+'</div>':'')
-    +(tk.letzter_fehler?'<div style="color:'+_NP_CRIT+';font-size:11.5px">letzter Fehler: '+esc(tk.letzter_fehler)+'</div>':'')
-    +'</div>';
-}
-
-/* Zusatz-Inhalt je Station: Prüfpunkte listen ihre Wächter, das Regelwerk seine
-   Bereiche, der Autopilot seine erreichbaren und unerreichbaren Einträge. */
-function _npExtra(id){
-  var np=window._npDaten; if(!np||!np.ok) return '';
-  var moment={pp_anlage:'anlage',pp_tuer:'tuer',pp_bestand:'bestand'}[id];
-  if(moment){
-    var liste=(np.waechter||[]).filter(function(w){ return w.moment===moment; });
-    if(!liste.length) return '';
-    liste.sort(function(a,b){ return (Number(b.offen)||0)-(Number(a.offen)||0); });
-    var offen=liste.filter(function(w){ return (Number(w.offen)||0)>0; }).length;
-    var h='<div style="margin-top:9px;font-size:12px;font-weight:700">'+liste.length+' Wächter greifen hier'
-      +' <span style="font-weight:400;color:#898781">· '+offen+' davon melden gerade etwas</span></div>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:7px">';
-    liste.forEach(function(w){
-      var n=Number(w.offen)||0, gate=(w.gate===true);
-      var f = n===0 ? _NP_GOOD : (gate?_NP_CRIT:_NP_WARN);
-      var bg = n===0 ? '#f0f9f0' : (gate?'#fdf1f1':'#fdf7e6');
-      h+='<span title="'+esc(w.kurz||'')+' · Quelle: '+esc(w.view||'')+'" style="font-size:11.5px;'
-        +'border:1px solid '+f+'33;background:'+bg+';color:'+f+';border-radius:7px;padding:3px 8px;font-weight:600">'
-        +(gate?'⛔ ':'')+esc(w.name)+' <b>'+n+'</b></span>';
-    });
-    h+='</div>';
-    if(moment==='tuer') h+='<div style="font-size:11px;color:#898781;margin-top:6px">⛔ = Go-Live-Gate. '
-      +'Summe aller Gate-Wächter: <b>'+(Number(np.gate_summe)||0)+'</b> — sie muss 0 sein.</div>';
-    if(moment==='bestand') h+='<div style="font-size:11px;color:#898781;margin-top:6px">'
-      +'Diese Wächter blockieren nichts. Sie melden, was im schon freigegebenen Bestand nicht zur Regel passt — '
-      +'eine neue Regel gilt ab sofort, der Bestand ist von gestern.</div>';
-    return h;
-  }
-  if(id==='regelwerk'){
-    var br=np.regelwerk||[]; if(!br.length) return '';
-    var summe=br.reduce(function(a,b){ return a+(Number(b.anzahl)||0); },0);
-    var h2='<div style="margin-top:9px;font-size:12px;font-weight:700">'+br.length+' Bereiche · '+summe+' aktive Regeln'
-      +' <span style="font-weight:400;color:#898781">· live aus der Tabelle Bewertungsregeln</span></div>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:7px">';
-    br.forEach(function(b){
-      var ziel=_NP_REGEL_ZIEL[b.wirkt_auf]||null, zn=null;
-      if(ziel){ for(var i=0;i<_NP_ST.length;i++){ if(_NP_ST[i].id===ziel){ zn=_NP_ST[i].n; break; } } }
-      h2+='<span style="font-size:11.5px;border:1px solid var(--line);background:var(--bg);border-radius:7px;'
-        +'padding:3px 8px"><b>'+esc(b.bereich)+'</b> '+(Number(b.anzahl)||0)
-        +(zn?' <span style="color:#898781">→ '+esc(zn)+'</span>':'')+'</span>';
-    });
-    return h2+'</div>';
-  }
-  if(id==='push') return _npTaktBlock('push-versand');
-  if(id==='autopilot'){
-    var ap=np.autopilot||{};
-    var err=Number(ap.wartend_erreichbar)||0, unerr=Number(ap.wartend_unerreichbar)||0;
-    return '<div style="margin-top:9px;font-size:12.5px;line-height:1.7">'
-      +'<div>Schalter: <b>'+(ap.an?'an':'AUS')+'</b> · heute verbraucht <b>'
-        +String(ap.heute_usd==null?'–':ap.heute_usd).replace('.',',')+' $</b> von '
-        +String(ap.tageslimit_usd==null?'–':ap.tageslimit_usd).replace('.',',')+' $</div>'
-      +'<div style="color:'+(err>0?_NP_WARN:_NP_GOOD)+'">Kann er lesen: <b>'+err+'</b> (mit Etikettfoto)</div>'
-      +'<div style="color:'+(unerr>0?_NP_CRIT:_NP_GOOD)+'">Kann er NICHT lesen: <b>'+unerr+'</b> (reine Barcode-Scans)</div>'
-      +'</div>'
-      +(unerr>0?'<div style="font-size:11.5px;color:#8d2b2b;background:#fdf1f1;border:1px solid #f0c2c2;'
-        +'border-radius:8px;padding:7px 9px;margin-top:8px">Das ist der Grund, warum der Autopilot „gestoppt" aussieht, '
-        +'obwohl er läuft: der letzte Lauf, der etwas getan hat, liegt so lange zurück wie das letzte Etikettfoto. '
-        +'Die '+unerr+' Barcode-Scans wären nie seine Arbeit gewesen — sie stehen links auf Linie Z in der Sackgasse.</div>':'')
-      +_npTaktBlock('riki-autopilot');
-  }
-  return '';
-}
-
-/* ---------------------------------------------------------------------------
-   LIVE-ZUSTAND. Zwei Quellen: cb_netzplan (Zuflüsse, Wächter, Regelwerk, Takte)
-   und cb_dashboard (Budget, Scan-Cache, ohne Score).
-   🔴 KEIN leerer Fangblock (§1.13i): scheitert ein Abruf, sagt die Seite es —
-   sichtbar UND in der Konsole. Ein stiller Fehler kostete uns das Dashboard
-   monatelang, weil niemand den Grund sehen konnte.
-   --------------------------------------------------------------------------- */
-async function netzplanLive(){
-  var np=null, d=null, fehler=[];
-  try{
-    var r1=await client.rpc('cb_netzplan'); if(r1&&r1.error) throw r1.error;
-    np=r1&&r1.data; if(typeof np==='string'){ np=JSON.parse(np); }
-    if(np&&np.ok===false) throw new Error(np.grund||'abgelehnt');
-  }catch(e){ np=null; fehler.push('Zuflüsse/Wächter (cb_netzplan): '+(e&&e.message?e.message:e));
-    console.warn('Netzplan: cb_netzplan nicht verwertbar',e); }
-  try{
-    var r2=await client.rpc('cb_dashboard'); if(r2&&r2.error) throw r2.error;
-    d=r2&&r2.data; if(typeof d==='string'){ d=JSON.parse(d); }
-    if(d&&d.ok===false) throw new Error(d.grund||'abgelehnt');
-  }catch(e){ d=null; fehler.push('Budget/Scans (cb_dashboard): '+(e&&e.message?e.message:e));
-    console.warn('Netzplan: cb_dashboard nicht verwertbar',e); }
-
-  window._npDaten=np;
-  var fb=document.getElementById('npFehler');
-  if(fb){
-    if(fehler.length){ fb.style.display=''; fb.innerHTML='<b>Live-Daten unvollständig.</b> '
-      +esc(fehler.join(' · '))+' — betroffene Ampeln bleiben <b>grau</b>. Grau heißt: wir wissen es nicht, '
-      +'nicht: es ist in Ordnung.'; }
-    else fb.style.display='none';
-  }
-
-  _npZuflussZeichnen(np&&np.zufluesse);
-
-  var st={};
-  if(np&&np.ok){
-    var ap=np.autopilot||{};
-    var err=Number(ap.wartend_erreichbar)||0, unerr=Number(ap.wartend_unerreichbar)||0;
-    var alt=(ap.letzter_lauf_min==null?null:Number(ap.letzter_lauf_min));
-    /* Reihenfolge ist die Regel: erst der Schalter, dann der HERZSCHLAG, dann die Arbeit.
-       Ein Takt, der scheitert oder stumm ist, muss die Arbeitszahlen uebertrumpfen — sonst
-       meldet die Ampel „nichts wartet" gruen, waehrend die Automatik dahinter tot ist. */
-    var tkA=_npTakt('riki-autopilot');
-    var serA=tkA?(Number(tkA.fehler_serie)||0):0;
-    var minA=(tkA&&tkA.minuten_her!=null)?Number(tkA.minuten_her):null;
-    if(ap.an!==true) st.autopilot={farbe:_NP_CRIT,text:'Schalter steht auf AUS — er läuft nicht'};
-    else if(serA>0) st.autopilot={farbe:_NP_CRIT,
-      text:'Takt scheitert '+serA+' mal in Folge: '+String(tkA.letzter_fehler||tkA.antwort||'ohne Angabe').slice(0,70)};
-    else if(minA!=null&&minA>90) st.autopilot={farbe:_NP_CRIT,
-      text:'Takt hat seit '+minA+' Min nicht angeklopft (erwartet: alle 30 Min)'};
-    else if(err===0) st.autopilot={farbe:_NP_GOOD,
-      text:'läuft im 30-Minuten-Takt · nichts Lesbares offen'+(unerr>0?' · '+unerr+' Barcode-Scans sind nicht seine Arbeit':'')};
-    else if(alt!=null&&alt<=45) st.autopilot={farbe:_NP_GOOD,text:err+' mit Foto in Arbeit · Lauf vor '+alt+' Min'};
-    else st.autopilot={farbe:_NP_WARN,text:err+' mit Foto warten · letzter tätiger Lauf '+(alt!=null?'vor '+alt+' Min':'unbekannt')};
-
-    /* Push-Takt: eigene Ampel. Er tickt minuetlich, deshalb ist schon 10 Minuten
-       Stille ein Befund. Ohne Protokoll-Zeile: GRAU, nicht gruen (§1.11n-ii). */
-    var tkP=_npTakt('push-versand');
-    if(!tkP) st.push={farbe:_NP_GRAU,text:'Herzschlag noch nicht protokolliert — keine Aussage möglich'};
-    else {
-      var serP=Number(tkP.fehler_serie)||0, minP=(tkP.minuten_her==null?null:Number(tkP.minuten_her));
-      if(serP>0) st.push={farbe:_NP_CRIT,text:'scheitert '+serP+' mal in Folge: '
-        +String(tkP.letzter_fehler||'ohne Angabe').slice(0,70)};
-      else if(minP!=null&&minP>10) st.push={farbe:_NP_CRIT,
-        text:'seit '+minP+' Min still (erwartet: jede Minute)'};
-      else st.push={farbe:_NP_GOOD,text:'tickt · letzter Aufruf '
-        +(minP==null?'unbekannt':(minP<1?'gerade eben':'vor '+minP+' Min'))};
-    }
-
-    var wl=np.wochenlauf||{};
-    st.woche = (wl.protokolliert===true)
-      ? {farbe:_NP_GOOD,text:'letzter Lauf: '+String(wl.wert)}
-      : {farbe:_NP_GRAU,text:'wird nicht protokolliert — keine Aussage möglich'};
-
-    var sofort=(np.waechter||[]).filter(function(w){ return w.id==='w_sofort_zutat'; })[0];
-    var zu=sofort?(Number(sofort.offen)||0):0;
-    st.zutat = zu>0?{farbe:_NP_WARN,text:zu+' neue Zutat(en) warten auf den Montag-Lauf'}
-                   :{farbe:_NP_GOOD,text:'keine ungeprüften neuen Zutaten'};
-
-    ['anlage','tuer','bestand'].forEach(function(m){
-      var l=(np.waechter||[]).filter(function(w){ return w.moment===m; });
-      var gate=l.filter(function(w){ return w.gate===true; }).reduce(function(a,w){ return a+(Number(w.offen)||0); },0);
-      var rest=l.filter(function(w){ return w.gate!==true; }).reduce(function(a,w){ return a+(Number(w.offen)||0); },0);
-      var key='pp_'+m;
-      if(gate>0) st[key]={farbe:_NP_CRIT,text:gate+' Fälle blockieren die Freigabe'};
-      else if(rest>0) st[key]={farbe:_NP_WARN,text:'Gate still · '+rest+' Meldungen zum Nacharbeiten'};
-      else st[key]={farbe:_NP_GOOD,text:'alle '+l.length+' Wächter still'};
-    });
-
-    /* §-Marken an den Stationen, auf die das Regelwerk wirkt */
-    (np.regelwerk||[]).forEach(function(b){
-      var ziel=_NP_REGEL_ZIEL[b.wirkt_auf]; if(!ziel) return;
-      var el=document.getElementById('npReg_'+ziel); if(el) el.textContent='§';
-    });
-  }
-  if(d&&d.ok!==false){
-    var ri=d.riki||{}; var verbr=Number(ri.monat_usd)||0, lim=Number(ri.monatslimit_usd)||0;
-    if(lim>0){ var q=verbr/lim;
-      st.budget= q>=1?{farbe:_NP_CRIT,text:'Monatsbudget voll — Riki blockt'}
-        :(q>=0.8?{farbe:_NP_WARN,text:Math.round(q*100)+' % des Monatsbudgets verbraucht'}
-        :{farbe:_NP_GOOD,text:verbr.toFixed(2).replace('.',',')+' $ von '+lim.toFixed(0)+' $'}); }
-    var sc=Number((d.scans||{}).wartet_pruefung)||0;
-    st.scans= sc>0?{farbe:_NP_WARN,text:sc+' Scan(s) warten auf deine Prüfung'}
-                  :{farbe:_NP_GOOD,text:'nichts wartet auf dich'};
-    var os=Number((d.qualitaet||{}).ohne_score)||0;
-    st.ohnescore= os>0?{farbe:_NP_WARN,text:os+' Produkte zeigen bewusst keine Zahl'}
-                      :{farbe:_NP_GOOD,text:'alle aktiven Produkte haben eine Zahl'};
-  }
-
-  window._npAmpeln=st;
-  _NP_ST.forEach(function(s){
-    if(!s.amp) return;
-    var z=st[s.amp];
-    var el=document.getElementById('npAmp_'+s.id); if(!el) return;
-    if(!z){ el.setAttribute('fill',_NP_GRAU);
-      var t0=document.createElementNS('http://www.w3.org/2000/svg','title');
-      t0.textContent=s.n+': keine Aussage möglich (Live-Daten fehlen)'; el.appendChild(t0);
-      window._npAmpeln[s.amp]={farbe:_NP_GRAU,text:'keine Aussage möglich — Live-Daten fehlen'};
-      return; }
-    el.setAttribute('fill', z.farbe===_NP_WARN?'#fab219':z.farbe);
-    var tt=document.createElementNS('http://www.w3.org/2000/svg','title');
-    tt.textContent=s.n+': '+z.text; el.appendChild(tt);
-  });
-  /* Das offene Info-Fenster nachziehen, sonst zeigt es den Stand VOR den Daten
-     (§1.11n-f: ein Vergleich gegen noch nicht geladene Daten sieht aus wie ein Befund) */
-  if(window._npOffen) npZeige(window._npOffen);
-}
-
-if(typeof window!=='undefined'){ window.netzplanRender=netzplanRender; window.npZeige=npZeige; }
 
 /* ===== Posteingang abgeschafft (Ralph 29.07. spät, Todo #50: "diese seite sollte es
    eigentlich nicht mehr geben") =====
@@ -19512,7 +18967,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1422";
+const APP_BUILD = "2026-07-30-1437";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
