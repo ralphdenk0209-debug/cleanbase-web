@@ -9198,11 +9198,17 @@ function einkRow(r,done){
   const bd   = done ? 'var(--line)'  : EINK_C.bd;
   const tx   = done ? 'var(--muted)' : EINK_C.tx;
   const tx2  = done ? 'var(--muted)' : EINK_C.tx2;
-  let h='<div onclick="einkaufToggle('+id+','+(done?'false':'true')+')" style="cursor:pointer;border:1px solid '+bd+';border-radius:12px;background:'+bg+';padding:14px 12px;display:flex;align-items:center;gap:10px;'+(done?'opacity:.6':'')+'">'
+  let h='<div id="einkRow'+id+'" onclick="einkaufToggle('+id+','+(done?'false':'true')+')" style="cursor:pointer;border:1px solid '+bd+';border-radius:12px;background:'+bg+';padding:14px 12px;display:flex;align-items:center;gap:10px;'+(done?'opacity:.6':'')+'">'
     +(done?'<span style="flex:0 0 auto;font-size:15px;color:var(--muted);line-height:1">&#10003;</span>':'')
-    +'<span style="flex:1;min-width:0;font-size:14.5px;font-weight:600;line-height:1.3;color:'+tx+';'+(done?'text-decoration:line-through':'')+'">'+esc(r.titel)+'</span>'
+    /* Zwei Zeilen: Name oben, Menge/Notiz darunter (Ralph 30.07.). Die Menge stand
+       vorher rechts zwischen Kuerzel und Knoepfen - dort konkurriert sie um denselben
+       Platz und wird auf schmalen Handys als Erstes gequetscht. Unter dem Namen hat
+       sie so viel Platz wie der Name selbst. */
+    +'<span style="flex:1;min-width:0">'
+      +'<span style="display:block;font-size:14.5px;font-weight:600;line-height:1.3;color:'+tx+';'+(done?'text-decoration:line-through':'')+'">'+esc(r.titel)+'</span>'
+      +(r.menge?'<span style="display:block;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:2px;color:'+tx2+';opacity:.9;'+(done?'text-decoration:line-through':'')+'">'+esc(r.menge)+'</span>':'')
+    +'</span>'
     +(r.von?'<span title="Eingetragen von '+esc(r.von)+'" style="flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--greendk,var(--k-166534));background:var(--greenlt,var(--k-eaf5ee));border-radius:99px;padding:2px 7px">'+esc(String(r.von).trim().charAt(0).toUpperCase())+'</span>':'')
-    +(r.menge?'<span style="flex:0 0 auto;font-size:13px;font-weight:700;color:'+tx2+'">'+esc(r.menge)+'</span>':'')
     /* 28z26: Angebote-Marker vorerst raus (Ralph) - Funktion einkAngebotBtn bleibt fuer spaeter */
     +(done?'':einkAmzBtn(r.produkt_id))
     /* Diffuser Kreis hinter den drei Punkten: macht die Flaeche als antippbar
@@ -9347,7 +9353,16 @@ async function hhVerlassen(){
 }
 async function loadEinkauf(){
   const box=document.getElementById(_einkTarget); if(!box) return;
-  box.innerHTML='<div style="color:var(--muted);font-size:13px">Lade…</div>';
+  /* Position merken und den Platzhalter NUR beim ersten Aufbau zeigen. Sonst schrumpft
+     die Seite auf eine Zeile, der Scroll wird auf 0 geklemmt und ist danach verloren. */
+  const _y = window.pageYOffset || document.documentElement.scrollTop || 0;
+  const _hatte = box.children.length > 0;
+  if(!_hatte) box.innerHTML='<div style="color:var(--muted);font-size:13px">Lade…</div>';
+  const _fertig = function(html){
+    box.innerHTML = html;
+    if(_hatte){ try{ window.scrollTo(0,_y); }catch(e){
+      try{ console.warn('Einkaufsliste: Position konnte nicht gehalten werden',e); }catch(_){} } }
+  };
   let rows=[]; try{ const {data}=await client.rpc("cb_einkauf_list"); rows=data||[]; }catch(e){}
   /* 28z17: Haushalts-Status (Beta-Flag) - EINE kleine RPC je Anzeige */
   let hh=null;
@@ -9372,7 +9387,7 @@ async function loadEinkauf(){
     ;
   if(!rows.length){
     h+='<div style="color:var(--muted);font-size:13px;padding:14px 0">Liste ist leer – tippe oben ein, scanne einen Barcode oder erzeuge sie aus dem Wochenplan.</div>';
-    box.innerHTML=h; return;
+    _fertig(h); return;
   }
   const groups={};
   offen.forEach(function(r){ const k=r.kategorie||'Sonstiges'; (groups[k]=groups[k]||[]).push(r); });
@@ -9389,7 +9404,7 @@ async function loadEinkauf(){
     h+=einkGrid(erl.map(function(r){ return einkRow(r,true); }).join(''));
   }
   if(offen.some(function(r){ return einkAmzBtn(r.produkt_id); })) h+=AMZ_HINWEIS;
-  box.innerHTML=h;
+  _fertig(h);
 }
 async function einkaufAdd(){
   const t=document.getElementById("einkInput");
@@ -9428,8 +9443,60 @@ async function einkaufScan(){
     }catch(e){ einkMsg("Fehler: "+esc(e.message),"var(--k-dc2626)"); }
   });
 }
-async function einkaufToggle(id,checked){ await client.rpc("cb_einkauf_toggle",{p_eintrag:id,p_erledigt:checked}); await loadEinkauf(); }
-async function einkaufDel(id){ await client.rpc("cb_einkauf_del",{p_eintrag:id}); await loadEinkauf(); }
+function _einkRuhig(){
+  try{ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  catch(e){ return false; }
+}
+/* Kurz hervorheben, wo die Zeile gelandet ist. Ohne das haekelt man etwas ab und
+   sucht es danach - die Bewegung allein sagt nur, dass etwas weg ist, nicht wohin. */
+function _einkZeigen(id){
+  const el=document.getElementById('einkRow'+id); if(!el) return;
+  if(_einkRuhig()) return;
+  /* Erst fragen, dann rufen: wo es die Animations-Schnittstelle nicht gibt, ist das
+     kein Fehler, sondern ein fehlendes Extra - dafuer muss keine Warnung erscheinen. */
+  if(typeof el.animate!=='function') return;
+  try{
+    el.animate([{boxShadow:'0 0 0 0 rgba(46,125,70,0)'},
+                {boxShadow:'0 0 0 4px rgba(46,125,70,.28)'},
+                {boxShadow:'0 0 0 0 rgba(46,125,70,0)'}],{duration:900,easing:'ease-out'});
+  }catch(e){ try{ console.warn('Hervorheben nicht moeglich:',e); }catch(_){} }
+}
+async function einkaufToggle(id,checked){
+  const el=document.getElementById('einkRow'+id);
+  /* Abgehakt gleitet nach unten (dorthin wandert es), zurueckgeholt nach oben. */
+  if(el && !_einkRuhig()){
+    el.style.transition='transform .2s ease, opacity .2s ease';
+    el.style.transform='translateY('+(checked?14:-14)+'px)';
+    el.style.opacity='.25';
+    await new Promise(function(r){ setTimeout(r,170); });
+  }
+  try{ await client.rpc("cb_einkauf_toggle",{p_eintrag:id,p_erledigt:checked}); }
+  catch(e){
+    /* Fehlgeschlagen: die Zeile zurueckholen statt sie halb verschwunden stehenzulassen. */
+    if(el){ el.style.transform=''; el.style.opacity=''; }
+    try{ console.warn('Einkaufsliste: Abhaken fehlgeschlagen',e); }catch(_){}
+    einkMsg('Konnte nicht gespeichert werden: '+esc((e&&e.message)||String(e)),'var(--k-dc2626)');
+    return;
+  }
+  await loadEinkauf();
+  _einkZeigen(id);
+}
+async function einkaufDel(id){
+  const el=document.getElementById('einkRow'+id);
+  if(el && !_einkRuhig()){
+    el.style.transition='transform .18s ease, opacity .18s ease';
+    el.style.transform='scale(.96)'; el.style.opacity='.2';
+    await new Promise(function(r){ setTimeout(r,150); });
+  }
+  try{ await client.rpc("cb_einkauf_del",{p_eintrag:id}); }
+  catch(e){
+    if(el){ el.style.transform=''; el.style.opacity=''; }
+    try{ console.warn('Einkaufsliste: Entfernen fehlgeschlagen',e); }catch(_){}
+    einkMsg('Konnte nicht entfernt werden: '+esc((e&&e.message)||String(e)),'var(--k-dc2626)');
+    return;
+  }
+  await loadEinkauf();
+}
 async function einkaufClearDone(){ await client.rpc("cb_einkauf_clear_done"); await loadEinkauf(); }
 async function einkaufFromPlan(){
   const mon=_planMonday||planMondayOf(tbToday()); const e=new Date(mon+"T00:00:00"); e.setDate(e.getDate()+6);
@@ -18983,7 +19050,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1457";
+const APP_BUILD = "2026-07-30-1848";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
