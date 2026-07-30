@@ -11047,6 +11047,31 @@ function feEinheitAusRiki(obj){
   feEinheitHint();
 }
 if(typeof window!=="undefined"){ window.feEinheitChange=feEinheitChange; window.feEinheitPrefill=feEinheitPrefill; window.feEinheitAusRiki=feEinheitAusRiki; }
+
+/* Bio-Angabe aus dem Riki-Lesevorgang uebernehmen (Ralph 30.07.2026).
+   Das Feld heisst "bio" und liefert true | false | null - so steht es seit v13 im Schema von
+   riki-etikett und riki-herstellerseite. riki-analyse liefert es bewusst NICHT: sie sieht im
+   Regelfall nur Zutatenlisten-Text ohne Siegel, das Feld waere dort fast immer leer - und ein
+   Feld, das nie etwas liefert, erzeugt spaeter den falschen Eindruck "geprueft, kein Bio".
+
+   Zwei Riegel, beide wichtig:
+   1. Eine vorhandene Auswahl wird NIE ueberschrieben - die Entscheidung des Menschen gilt (§6).
+   2. null wird ignoriert, nicht als "kein Bio" eingetragen. null heisst "nicht geprueft".
+   Die Quelle wird nach dem Lesepfad gesetzt, damit spaeter nachvollziehbar ist, worauf die
+   Angabe beruht - Etikett und Herstellerseite sind beide belegte Quellen der Positivliste. */
+function feBioAusRiki(obj, quelle){
+  var sel=document.getElementById("fe_bio"); if(!sel) return;
+  if(sel.value) return;                     /* nichts ueberschreiben */
+  if(!obj) return;
+  var vs=obj.vorschlag||{};
+  var b=(obj.bio!==undefined&&obj.bio!==null)?obj.bio:vs.bio;
+  if(b===true){ sel.value="ja"; }
+  else if(b===false){ sel.value="nein"; }
+  else { return; }                          /* null/undefined = nicht geprueft, nichts eintragen */
+  window._fgBioQuelle=(quelle==="Herstellerseite")?"Herstellerseite":"Etikett";
+  try{ feBioHint(); }catch(e){}
+}
+if(typeof window!=="undefined"){ window.feBioAusRiki=feBioAusRiki; }
 function fgRefFokus(el){
   if(!el) return;
   var raw=String(el.getAttribute('data-name')||'').trim(); if(!raw) return;
@@ -13184,7 +13209,7 @@ async function fgPullHersteller(){
        Eine EAN ist eine Identität – lieber leer und später gescannt als falsch verknüpft. */
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
-    try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */
+    try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */   try{ feBioAusRiki(v,"Herstellerseite"); }catch(e){}   /* Bio-Kennzeichnung aus dem Riki-Lesevorgang (Ralph 30.07.) */
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
     /* 28z12 (Ralphs NORSAN-Fund: "warum erkennt riki das nicht beim omega 3?"): riki-herstellerseite v10
        liefert jetzt "wirkstoffe" (Tagesdosis inkl. Omega-3/EPA/DPA/DHA-davon-Zeilen). Bei Kategorie
@@ -13298,7 +13323,7 @@ async function fgPullEtikett(files, b64arr){
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
     var ke=document.getElementById("fe_kat"); if(ke&&!ke.value){ var _kv=katVorschlagPruefen(v.kategorie_vorschlag); if(_kv) ke.value=_kv; }   /* nur gueltige Kategorien (Ralph 27.07.) */
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
-    try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */
+    try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit aus dem Riki-Lesevorgang (Ralph 27.07.) */   try{ feBioAusRiki(v,"Etikett"); }catch(e){}   /* Bio-Kennzeichnung aus dem Riki-Lesevorgang (Ralph 30.07.) */
     if(Array.isArray(v.zutaten)&&v.zutaten.length){ var c=document.getElementById("fe_zutRows"); if(c) c.innerHTML=v.zutaten.map(function(z){ return fgZutRow(z.name,z.rating,z.kritisch?"ja":"nein"); }).join(""); try{ if(typeof fgRefFromLabel==="function") fgRefFromLabel((v.zutaten_text||v.zutatentext||v.zutaten_roh||"")+((v.zusatzstoffe&&v.zusatzstoffe.text)?(", "+v.zusatzstoffe.text):""), v.zutaten.map(function(z){return z.name;})); }catch(e){} } try{ if(v.zusatzstoffe) zusFromRiki(v.zusatzstoffe); }catch(e){} try{ fgZutAdditiveRoute(); }catch(e){}
     /* Supplements: liefert Riki Wirkstoff-Mengen mit (name/menge/einheit/nrv), direkt in die
        Wirkstoff-Tabelle übernehmen. Fehlen sie im Riki-Ergebnis, bleibt die Tabelle wie sie ist
@@ -17782,7 +17807,7 @@ if(typeof window!=="undefined"){ window.rkBookmarkletBox=rkBookmarkletBox; }
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-1113";
+const APP_BUILD = "2026-07-30-1129";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
