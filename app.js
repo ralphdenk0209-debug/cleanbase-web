@@ -3922,35 +3922,55 @@ function peBrandAlle(on){ window._peBrandOff=window._peBrandOff||{};
   var bx=document.getElementById('peBrandBox'); if(bx) bx.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=on; });
   peBrandLabelUpd(); peRender(); }
 if(typeof window!=='undefined'){ window.peBrandBox=peBrandBox; window.peBrandToggle=peBrandToggle; window.peBrandAlle=peBrandAlle; }
+/* ===========================================================================
+   EIN Filter-Urteil, EIN Ort (30.07.2026, Ralphs Fund "der filter zeigt keine
+   produkte mehr").
+
+   Was passiert war: Kategorie stand auf "Süßungsmittel", im Status-Menü stand
+   "Entwurf 4" - Ralph klickte und bekam 0 Zeilen. Die Liste war RICHTIG (es gibt
+   keinen Süßungsmittel-Entwurf), die ZAHL war falsch: sie wurde ueber den ganzen
+   Katalog gezaehlt, nicht ueber die gerade gefilterte Menge.
+
+   > Eine Zahl ueber eine andere Grundgesamtheit als die, auf die sie sich
+   > bezieht, verspricht etwas, das der Filter nicht halten kann. Dieselbe
+   > Fehlerklasse wie die Autopilot-Ampel (§1.11n-hh).
+
+   Deshalb steht die Filterbedingung jetzt in EINER Funktion, die auch die
+   Zaehler benutzen - mit `ohneSpalte`, damit man die eigene Spalte weiter
+   auf- und zuklappen kann (Excel macht es genauso). */
+function pePasst(p, ohneSpalte){
+  var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
+  var chipf=window._peChip||'alle';
+  var katf=((document.getElementById('peVorKat')||{}).value||'').trim();
+  if(katf && String(p.kategorie||'')!==katf) return false;
+  if(window._peBrandOff && p.marke && window._peBrandOff[String(p.marke)]) return false;   /* abgewählte Marke ausblenden (Ralph 24.07.) */
+  if(window._peHideMarken && p.marke && /oetker|gustavo|wagner/i.test(String(p.marke))) return false;   /* Werbe-Marken ausblenden (Ralph 25.07.) */
+  if(chipf==='offen'&&!peIstOffen(p)) return false;
+  if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
+  if(chipf==='keinscore'&&p.score!=null) return false;
+  if(chipf==='keinquelle'&&p.quelle_typ) return false;
+  if(chipf==='keinzut'&&p.hat_zutaten) return false;
+  if(chipf==='markiert'&&!p.markiert) return false;
+  if(chipf==='waechter'&&!peHatWaechter(p)) return false;
+  if(chipf==='naehrwerte'&&!p.naehrwerte_qa) return false;
+  if(chipf==='portionsfalle'&&!p.portionsfalle_qa) return false;
+  if(chipf==='unverif'&&p.verifiziert==='Ja') return false;
+  /* 27z (Ralph): Excel-artige Spaltenfilter - Klick auf den Spaltenkopf öffnet eine
+     Häkchen-Liste der Werte. Aktive Filter stehen in window._peColF (Spalte -> erlaubte Werte). */
+  var cf=window._peColF||{};
+  for(var col in cf){ if(cf.hasOwnProperty(col)&&cf[col]){
+    if(col===ohneSpalte) continue;      /* die eigene Spalte zaehlt sich nicht selbst weg */
+    if(cf[col].__q!==undefined){ if(String(peColVal(p,col)).toLowerCase().indexOf(cf[col].__q)<0) return false; }
+    else if(!cf[col][peColVal(p,col)]) return false; } }
+  if(!q) return true;
+  return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')+' '+String(p.herkunft||'')+' '+String(p.grund||'')).toLowerCase().indexOf(q)>=0;
+}
+if(typeof window!=='undefined'){ window.pePasst=pePasst; }
 function peRender(){
   var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
   try{ peStateSave(); }catch(e){}   /* NACH dem Guard: ohne aufgebaute Liste wuerden leere Felder den gespeicherten Zustand ueberschreiben */
-  var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
-  var chipf=window._peChip||'alle';
-  var katf=((document.getElementById('peVorKat')||{}).value||'').trim();   /* Kategorie-Filter (Ralph 23.07.) */
   var sort=((document.getElementById('peSort')||{}).value)||'neu';
-  var list=rows.filter(function(p){
-    if(katf && String(p.kategorie||'')!==katf) return false;
-    if(window._peBrandOff && p.marke && window._peBrandOff[String(p.marke)]) return false;   /* abgewählte Marke ausblenden (Ralph 24.07.) */
-    if(window._peHideMarken && p.marke && /oetker|gustavo|wagner/i.test(String(p.marke))) return false;   /* Werbe-Marken ausblenden (Ralph 25.07.) */
-    if(chipf==='offen'&&!peIstOffen(p)) return false;
-    if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
-    if(chipf==='keinscore'&&p.score!=null) return false;
-    if(chipf==='keinquelle'&&p.quelle_typ) return false;
-    if(chipf==='keinzut'&&p.hat_zutaten) return false;
-    if(chipf==='markiert'&&!p.markiert) return false;
-    if(chipf==='waechter'&&!peHatWaechter(p)) return false;
-    if(chipf==='naehrwerte'&&!p.naehrwerte_qa) return false;
-    if(chipf==='portionsfalle'&&!p.portionsfalle_qa) return false;
-    if(chipf==='unverif'&&p.verifiziert==='Ja') return false;
-    /* 27z (Ralph): Excel-artige Spaltenfilter - Klick auf den Spaltenkopf öffnet eine
-       Häkchen-Liste der Werte. Aktive Filter stehen in window._peColF (Spalte -> erlaubte Werte). */
-    var cf=window._peColF||{};
-    for(var col in cf){ if(cf.hasOwnProperty(col)&&cf[col]){
-      if(cf[col].__q!==undefined){ if(String(peColVal(p,col)).toLowerCase().indexOf(cf[col].__q)<0) return false; }
-      else if(!cf[col][peColVal(p,col)]) return false; } }
-    if(!q) return true;
-    return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')+' '+String(p.herkunft||'')+' '+String(p.grund||'')).toLowerCase().indexOf(q)>=0; });
+  var list=rows.filter(function(p){ return pePasst(p, null); });
   if(sort==='mark') list=list.filter(function(p){return p.markiert;});
   list.sort(function(a,b){
     if(sort==='score'){ var sa=(a.score==null?9999:a.score), sb=(b.score==null?9999:b.score); if(sa!==sb) return sa-sb; }
@@ -4034,9 +4054,26 @@ function peColFilter(ev,col){
     setTimeout(function(){ var close=function(e){ if(!tb.contains(e.target)){ tb.remove(); document.removeEventListener('mousedown',close); } }; document.addEventListener('mousedown',close); },0);
     return;
   }
-  var rows=window._peRows||[];
+  /* Gezaehlt wird ueber die Menge, die die ANDEREN Filter uebrig lassen - sonst
+     verspricht "Entwurf 4" vier Zeilen, die es unter der aktiven Kategorie nicht
+     gibt (Ralphs Fund 30.07.). Die eigene Spalte bleibt ausgenommen, sonst koennte
+     man einen einmal gesetzten Wert nie wieder dazuschalten. */
+  var rows=(window._peRows||[]).filter(function(p){ return pePasst(p, col); });
   var cnt={}; rows.forEach(function(p){ var v=peColVal(p,col); cnt[v]=(cnt[v]||0)+1; });
   var werte=Object.keys(cnt).sort(function(a,b){ return a.toLowerCase()<b.toLowerCase()?-1:1; });
+  /* Ehrlich bleiben, wenn hier nichts uebrig ist: eine leere Liste ohne Erklaerung
+     sieht aus wie ein Fehler (§1.13i - ein Zustand, den niemand erklaert). */
+  if(!werte.length){
+    var lb=document.createElement('div'); lb.id='peColBox'; lb.setAttribute('data-col',col);
+    lb.style.cssText='position:absolute;z-index:85;background:#fff;color:#1d2733;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:12px;width:260px;font-size:12.5px;line-height:1.5';
+    var t1=ev.target.closest?ev.target.closest('th'):ev.target; var r1=t1.getBoundingClientRect();
+    lb.style.top=(window.scrollY+r1.bottom+4)+'px';
+    lb.style.left=(window.scrollX+Math.min(r1.left, Math.max(6, innerWidth-272)))+'px';
+    lb.innerHTML='<b>Keine Werte übrig.</b><br>Die anderen Filter lassen für diese Spalte nichts stehen – setz oben Kategorie oder Chip zurück.';
+    document.body.appendChild(lb);
+    setTimeout(function(){ var c2=function(e){ if(!lb.contains(e.target)){ lb.remove(); document.removeEventListener('mousedown',c2); } }; document.addEventListener('mousedown',c2); },0);
+    return;
+  }
   var cf=(window._peColF&&window._peColF[col])||null;   /* null = alles erlaubt */
   var box=document.createElement('div'); box.id='peColBox'; box.setAttribute('data-col',col);
   box.style.cssText='position:absolute;z-index:85;background:#fff;color:#1d2733;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:10px;width:280px;max-height:60vh;display:flex;flex-direction:column';
@@ -19154,7 +19191,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-2051";
+const APP_BUILD = "2026-07-30-2107";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
