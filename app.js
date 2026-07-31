@@ -2801,6 +2801,53 @@ async function feNaehrPopupOpen(){
      Supplement -> cb_reinheits_ampel, je Tagesdosis
    Ohne Bezugswert bleibt die Kachel grau und ohne Prozent - grau ist bei uns
    kein Urteil, sondern ein Eingeständnis (§1.11v). */
+/* ===========================================================================
+   BREITE UND KATEGORIE ENTSCHEIDEN GEMEINSAM (Ralph 31.07., iPad: "die container
+   sind gequetscht … aber achtung, kategorie supplements und salz sind anders")
+
+   🔴 Warum das nicht mit @media-Regeln geht: Das Editor-Raster bekommt seine
+   Spalten per JavaScript INLINE gesetzt - je nach Kategorie (feKatChange, Zeilen
+   um 13991/14000/14005). Ein Inline-Style schlaegt jede @media-Regel. Haette ich
+   CSS-Breakpoints ergaenzt, waeren sie auf dem Desktop wirkungslos gewesen und
+   auf dem iPad je nach Kategorie mal wirksam, mal nicht - der schlimmste Zustand:
+   es haette manchmal funktioniert.
+
+   Deshalb: EINE Funktion, die beides kennt. feSpalten() ist rein (keine
+   Seiteneffekte, testbar), und bei Stufe "weit" liefert sie ZEICHENGLEICH die
+   Werte von heute - der Desktop bleibt damit unveraendert, und genau das prueft
+   der Test.
+
+   Stufen (CSS-Pixel der Fensterbreite):
+     weit   >= 1400  Desktop - unveraendert dreispaltig
+     mittel >= 1024  iPad quer: zweispaltig, Referenz ueber die volle Breite
+     eng    <  1024  iPad hoch / Handy: einspaltig, feste Hoehe faellt weg,
+                     die Seite scrollt normal statt drei Spalten einzeln
+   =========================================================================== */
+var FE_BP_MITTEL = 1400, FE_BP_ENG = 1024;
+function feStufe(){
+  var b = (typeof window!=="undefined" && window.innerWidth) ? window.innerWidth : 1600;
+  return b < FE_BP_ENG ? "eng" : (b < FE_BP_MITTEL ? "mittel" : "weit");
+}
+function feSpalten(welches, supp, nwAus, stufe){
+  stufe = stufe || feStufe();
+  if(stufe === "eng") return "minmax(0,1fr)";          /* alles untereinander */
+  switch(welches){
+    case "gridA":                                       /* Reiter 2, Arbeitsflaeche */
+      return (stufe === "mittel") ? "minmax(0,1fr) minmax(0,1fr)"
+                                  : "minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr)";
+    case "prodNw":                                      /* Kopfdaten | Naehrwerte bzw. Wirkstoffe */
+      if(supp) return (stufe === "mittel") ? "minmax(0,1fr)" : "minmax(280px,340px) minmax(0,1fr)";
+      return nwAus ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)";
+    case "grid":                                        /* Aussen-Raster mit Produktbild rechts */
+      if(supp) return "minmax(0,1fr)";
+      return (stufe === "mittel") ? "minmax(0,1fr) minmax(230px,300px)"
+                                  : "minmax(0,1fr) minmax(300px,440px)";
+    case "wirk":                                        /* Wirkstoff-Tabelle | Etikett */
+      if(stufe === "mittel") return "minmax(0,1fr)";
+      return supp ? "minmax(0,1.25fr) minmax(0,1fr)" : "1fr 1fr";
+  }
+  return "minmax(0,1fr)";
+}
 /* Basis-Abzug für die Höhe der Arbeitsfläche (fe_gridA). EIN Wert, zwei Leser:
    das Editor-Template und feGridHoeheSync. Stünde er zweimal da, liefen sie beim
    nächsten Umbau auseinander (§4b). */
@@ -2814,7 +2861,25 @@ function feGridHoeheSync(){
   var k=document.getElementById("fe_naehrKacheln");
   var h=(k&&k.innerHTML)?Math.ceil(k.getBoundingClientRect().height)+10:0;   /* +10 = margin-top */
   if(k) k.style.marginTop=(k.innerHTML?"10px":"0");
-  g.style.height="calc(100vh - "+(FE_GRID_BASIS+h)+"px)";
+  var stufe=feStufe();
+  /* Spaltenzahl nach Breite. Bei „mittel" bekommt die Referenz-Karte die volle
+     Zeile - sie ist die breiteste und wird sonst zur Schlucht. */
+  g.style.gridTemplateColumns=feSpalten("gridA", false, false, stufe);
+  var ref=document.getElementById("fe_colRef");
+  if(ref) ref.style.gridColumn=(stufe==="mittel")?"1 / -1":"";
+  if(stufe==="eng"){
+    /* Einspaltig ergibt eine feste Bildschirmhoehe keinen Sinn mehr: drei Karten
+       untereinander in einem nicht scrollenden Kasten waeren unbedienbar. Hier
+       scrollt die SEITE - und die Karten geben ihre Innen-Scrollerei ab. */
+    g.style.height="auto"; g.style.minHeight="0";
+  }else{
+    g.style.minHeight="430px";
+    /* 100dvh statt 100vh: auf iPad/iPhone zaehlt 100vh die Flaeche UNTER der
+       Safari-Leiste mit - der untere Rand liegt sonst hinter der Werkzeugleiste.
+       dvh gibt es seit iOS 15.4; aeltere Browser fallen auf vh zurueck. */
+    g.style.height="calc(100vh - "+(FE_GRID_BASIS+h)+"px)";
+    g.style.height="calc(100dvh - "+(FE_GRID_BASIS+h)+"px)";
+  }
 }
 function _feKachel(name, wert, unter, pct){
   var gruen=(pct!=null&&pct>=100), gelb=(pct!=null&&pct>0&&pct<100);
@@ -2878,7 +2943,13 @@ if(typeof window!=="undefined"){
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") feNaehrPopupClose(); });
   /* Beim Verkleinern des Fensters bricht der Kachel-Streifen um und wird hoeher -
      dann stimmt der abgezogene Wert nicht mehr. Einmal nachmessen genuegt. */
-  window.addEventListener("resize", function(){ try{ feGridHoeheSync(); }catch(e){} });
+  window.addEventListener("resize", function(){
+    /* Drehen des iPads aendert die Stufe - Spalten UND Hoehe muessen mit.
+       feKatChange setzt die kategorieabhaengigen Raster, feGridHoeheSync die
+       Arbeitsflaeche; zusammen decken sie alle vier Raster ab. */
+    try{ feKatChange(); }catch(e){}
+    try{ feGridHoeheSync(); }catch(e){}
+  });
 }
 function detail(d){
   /* Aufruf mitzaehlen (fire-and-forget, blockiert die Anzeige nie). Aggregierter
@@ -13713,7 +13784,7 @@ async function openFgEditor(id, prefill, targetEl){
       <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:8px">Daten holen <span style="text-transform:none;font-weight:400">— Riki füllt die Maske, du prüfst nur</span></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);cursor:pointer;margin-bottom:11px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px;padding:7px 10px"><input type="checkbox" id="fe_nurLeer" ${window._fgNurLeer?"checked":""} onchange="window._fgNurLeer=this.checked" style="width:16px;height:16px;flex:0 0 auto;accent-color:var(--k-16a34a)"><span><b>Füllt nur leere Felder</b> – ein neuer Lese-Vorgang überschreibt vorhandene Werte dann nicht (zum Nachfüllen fehlender Angaben).</span></label>
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;align-items:stretch">
         <div style="border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--card);display:flex;flex-direction:column;gap:7px">
           <div style="font-size:12px;font-weight:700;color:#3b56b0">🔗 <span id="fe_urlLbl" onclick="feUrlOeffnen()" title="Seite in neuem Fenster öffnen" style="cursor:default">Weblink</span></div>
           <input id="fe_url" oninput="feUrlLblSync()" value="${esc(d.produktlink||"")}" placeholder="https://… Herstellerseite" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px">
@@ -13988,7 +14059,7 @@ function feKatChange(){
        Kopfdaten auf feste ~340px statt Verhaeltnis-Anteil - ALLES Uebrige geht an
        Wirkstoffe+Etikett. Zusaetzlich wird bei Supplement die Produktbild-Spalte ganz
        rechts schmaler (280-320px statt 300-440px) - auch dieser Platz fliesst in die Mitte. */
-    if(_png) _png.style.gridTemplateColumns = supp ? "minmax(280px,340px) minmax(0,1fr)" : (_nwAus?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)");
+    if(_png) _png.style.gridTemplateColumns = feSpalten("prodNw", supp, _nwAus);
     var _fg=document.getElementById("fe_grid");
     /* 28z12-BUGFIX (Ralph: "das normale produktlayout war zuerst besser und nebeneinander"):
        "" setzte die Spalten-Property NICHT auf den Template-Wert zurueck, sondern LOESCHTE sie
@@ -13997,12 +14068,12 @@ function feKatChange(){
     /* 28z13 (Ralph: "supplements ist immer noch nicht ueber die volle breite"): bei Supplement
        wird das AUSSEN-Raster EINSPALTIG - die Reihe Kopfdaten|Wirkstoffe|Etikett bekommt die
        volle Fensterbreite, die Produktbild-Karte rueckt als volle Zeile darunter. */
-    if(_fg) _fg.style.gridTemplateColumns = supp ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(300px,440px)";
+    if(_fg) _fg.style.gridTemplateColumns = feSpalten("grid", supp, _nwAus);
     var _wcMv=document.getElementById("fe_wirkCard"), _wAnker=document.getElementById("fe_wirkAnker");
     try{
-      if(supp){ if(_png && _wcMv && _wcMv.parentNode!==_png){ _png.appendChild(_wcMv); _wcMv.style.marginTop="0"; } var _wg2=document.getElementById("fe_wirkGrid"); if(_wg2) _wg2.style.gridTemplateColumns="minmax(0,1.25fr) minmax(0,1fr)"; }
+      if(supp){ if(_png && _wcMv && _wcMv.parentNode!==_png){ _png.appendChild(_wcMv); _wcMv.style.marginTop="0"; } var _wg2=document.getElementById("fe_wirkGrid"); if(_wg2) _wg2.style.gridTemplateColumns=feSpalten("wirk", true, _nwAus); }
       else if(_wAnker && _wcMv && _wcMv.previousElementSibling!==_wAnker){ _wAnker.parentNode.insertBefore(_wcMv, _wAnker.nextSibling); _wcMv.style.marginTop="2px"; }
-      if(!supp){ var _wg3=document.getElementById("fe_wirkGrid"); if(_wg3) _wg3.style.gridTemplateColumns="1fr 1fr"; }   /* 28z12: Template-Wert explizit, "" wuerde die Spalten loeschen (gleicher Bug wie fe_grid) */
+      if(!supp){ var _wg3=document.getElementById("fe_wirkGrid"); if(_wg3) _wg3.style.gridTemplateColumns=feSpalten("wirk", false, _nwAus); }   /* 28z12: Template-Wert explizit, "" wuerde die Spalten loeschen (gleicher Bug wie fe_grid) */
     }catch(e){}
     var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display=_mikroAus?"none":"flex";
     var _c2=document.getElementById("fe_colZusMik"); if(_c2) _c2.style.gridTemplateRows=_mikroAus?"minmax(0,1fr)":"minmax(0,1.6fr) minmax(0,1fr)";
@@ -19396,18 +19467,36 @@ function _betaSeg(key,state){
   function seg(s,lab){ return '<span class="rs'+(state===s?' on':'')+'" data-s="'+s+'" onclick="betaSet(this,\''+key+'\',\''+s+'\')">'+lab+'</span>'; }
   return '<span class="rseg">'+seg('aus','Aus')+seg('beta','Nur Beta')+seg('alle','Für alle')+'</span>';
 }
-function renderBetaFlags(rows){
-  var h='<h3 style="font-size:16px;margin:0 0 4px">Beta-Freigabe — welche Funktion ist schon für alle?</h3>';
-  h+='<p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;max-width:660px">Neue Funktionen starten „Nur Beta" — nur du und Beta-Tester sehen sie. „Für alle" schaltet öffentlich frei (sofort, ohne Deploy). „Aus" versteckt sie für alle. Es erscheint jede Funktion, die im Code an einen Schalter angeschlossen ist.</p>';
-  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">';
-  h+='<tr style="background:var(--bg)"><th style="text-align:left;padding:11px 13px;font-size:13px">Funktion</th><th style="padding:11px 13px;font-size:13px;text-align:center;white-space:nowrap">Sichtbarkeit</th></tr>';
-  if(!rows.length){ h+='<tr><td colspan="2" style="padding:14px 13px;color:var(--muted);font-size:13px">Noch keine schaltbaren Funktionen registriert.</td></tr>'; }
+/* 30.07. (Ralph: "da sind punkte drin, die generell nur für admins sind" -> "ja rausnehmen"):
+   Reine Admin-Ansichten standen zwischen den Nutzer-Funktionen. Dort verspricht „Für alle"
+   etwas, was der Schalter nicht halten kann - der Consumer erreicht diese Seiten gar nicht.
+   Dieselbe Lehre wie beim geloeschten dashboard_neu-Flag.
+   GELOESCHT werden die Zeilen aber NICHT: beide gaten heute Admin-Menuepunkte ueber feat().
+   Ohne Zeile verschwindet der Menuepunkt - und der Schalter, der ihn zurueckholt, mit ihm
+   (Einbahnstrasse, §1.11n-nn). Also: eigener Block, ehrlich beschriftet, weiter schaltbar. */
+function _betaTabelle(rows, adminBlock){
+  var h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">';
+  h+='<tr style="background:var(--bg)"><th style="text-align:left;padding:11px 13px;font-size:13px">Funktion</th><th style="padding:11px 13px;font-size:13px;text-align:center;white-space:nowrap">'+(adminBlock?'Sichtbar für Admins':'Sichtbarkeit')+'</th></tr>';
   rows.forEach(function(f){
     var state = f.Fuer_Alle ? 'alle' : (f.Fuer_Beta ? 'beta' : 'aus');
     h+='<tr style="border-top:1px solid var(--line)"><td style="padding:11px 13px"><div style="font-weight:600;font-size:14px">'+esc(f.Schluessel)+'</div><div style="font-size:12px;color:var(--muted);margin-top:2px;max-width:520px">'+esc(f.Beschreibung||"")+'</div></td>';
     h+='<td style="padding:11px 13px;text-align:center">'+_betaSeg(f.Schluessel,state)+'</td></tr>';
   });
-  h+='</table></div><div id="betaMsg" style="font-size:13px;margin-top:8px;height:18px"></div>';
+  return h+'</table></div>';
+}
+function renderBetaFlags(rows){
+  var nutzer=[], admin=[];
+  (rows||[]).forEach(function(f){ (f.Nur_Admin?admin:nutzer).push(f); });
+  var h='<h3 style="font-size:16px;margin:0 0 4px">Beta-Freigabe — welche Funktion ist schon für alle?</h3>';
+  h+='<p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;max-width:660px">Neue Funktionen starten „Nur Beta" — nur du und Beta-Tester sehen sie. „Für alle" schaltet öffentlich frei (sofort, ohne Deploy). „Aus" versteckt sie für alle. Es erscheint jede Funktion, die im Code an einen Schalter angeschlossen ist.</p>';
+  h+= nutzer.length ? _betaTabelle(nutzer,false)
+    : '<div style="padding:14px 13px;color:var(--muted);font-size:13px;border:1px solid var(--line);border-radius:12px;background:var(--card)">Noch keine schaltbaren Nutzer-Funktionen registriert.</div>';
+  if(admin.length){
+    h+='<h3 style="font-size:15px;margin:26px 0 4px">Nur Admin-Ansichten</h3>';
+    h+='<p style="font-size:12.5px;color:var(--muted);margin:0 0 10px;max-width:660px">Diese Funktionen erreicht <b>kein</b> Nutzer – sie leben im Admin-Bereich. „Für alle" heißt hier deshalb <b>für alle Admins</b>, nicht für die Öffentlichkeit. Sie stehen getrennt, damit der Schalter oben kein Versprechen macht, das er nicht halten kann.</p>';
+    h+=_betaTabelle(admin,true);
+  }
+  h+='<div id="betaMsg" style="font-size:13px;margin-top:8px;height:18px"></div>';
   document.getElementById("stufenBeta").innerHTML=h;
 }
 function betaSet(el,key,state){
@@ -19825,7 +19914,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-31-1010";
+const APP_BUILD = "2026-07-31-1355";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
