@@ -9054,11 +9054,41 @@ async function offLaufRender(){
     +'</div>'
     +'<div id="oflMeldung" style="display:none;font-size:12.5px;margin:8px 0 4px;line-height:1.5"></div>'
     +'<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
+        +'<div style="font-size:12.5px;color:var(--muted);flex:1">Gemeinsam anschauen <span id="oflNachZahl"></span></div>'
+        +'<button onclick="oflNacharbeit()" style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">Liste zeigen</button></div>'
+      +'<div id="oflNach"></div></div>'
+    +'<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">'
       +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">Zuletzt bewertet</div>'
       +'<div id="oflLog"></div></div>'
     +'</div>';
   oflMalLog();
   oflMalStand(await oflStand());
+}
+/* Nacharbeit-Liste (Ralph 31.07.: "die anderen kennzeichnen, die sollten wir uns nach
+   Abschluss gemeinsam nochmal anschauen"). ABGELEITET, nicht gepflegt — ein Kennzeichen
+   veraltet, sobald sich eine Zutat bewegt; diese Liste kann es nicht (§4b). */
+async function oflNacharbeit(){
+  var box=document.getElementById("oflNach"); if(!box) return;
+  box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade …</div>';
+  var r=await client.rpc("cb_off_nacharbeit",{p_limit:500});
+  if(r.error){ box.innerHTML='<div style="color:var(--k-b91c1c,#b91c1c);font-size:12.5px">'+esc(r.error.message)+'</div>'; return; }
+  var d=r.data||[];
+  var zn=document.getElementById("oflNachZahl"); if(zn) zn.textContent="("+d.length+")";
+  if(!d.length){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Nichts offen.</div>'; return; }
+  var farbe=function(g){
+    return g==="Waechter widerspricht" ? "var(--k-b91c1c,#b91c1c)"
+         : g==="zwei Modelle deutlich uneinig" ? "var(--k-b91c1c,#b91c1c)"
+         : g==="Regelwerk widerspricht" ? "var(--k-b91c1c,#b91c1c)"
+         : "var(--k-b45309,#b45309)"; };
+  box.innerHTML=d.map(function(x){
+    var zwei=(x.stufe_2==null)?"–":String(x.stufe_2);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">'
+      +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name)+'</span>'
+      +'<span style="color:var(--muted);font-size:12px">'+esc(String(x.nennungen))+'×</span>'
+      +'<b style="width:56px;text-align:right">'+esc(String(x.stufe_1))+' <span style="color:var(--muted);font-weight:400">/</span> '+esc(zwei)+'</b>'
+      +'<span style="color:'+farbe(x.grund)+';font-size:12px;width:190px;display:inline-block;text-align:right">'+esc(x.grund)+'</span>'
+      +'</div>'; }).join("");
 }
 function oflStop(){ OFL.stop=true; oflSetMeldung("Wird angehalten – der laufende Aufruf wird noch zu Ende geführt.","var(--k-b45309,#b45309)"); }
 async function oflStart(){
@@ -9233,7 +9263,7 @@ async function oflUebernehmen(){
 }
 if(typeof window!=="undefined"){
   window.offLaufRender=offLaufRender; window.oflStart=oflStart; window.oflStop=oflStop;
-  window.oflPruefen=oflPruefen; window.oflUebernehmen=oflUebernehmen; window.oflGegen=oflGegen;
+  window.oflPruefen=oflPruefen; window.oflUebernehmen=oflUebernehmen; window.oflGegen=oflGegen; window.oflNacharbeit=oflNacharbeit;
 }
 
 function adminGo(k){
@@ -19749,7 +19779,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-31-0800";
+const APP_BUILD = "2026-07-31-0830";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
