@@ -8928,14 +8928,16 @@ function oflZahl(n){ return (n==null?"–":Number(n).toLocaleString("de-DE")); }
 /* Deutsche Schreibweise: toFixed liefert "8.29", die Oberflaeche ist deutsch. */
 function oflKomma(n,dez){ return (n==null?"–":Number(n).toLocaleString("de-DE",{minimumFractionDigits:dez,maximumFractionDigits:dez})); }
 function oflUrteilFarbe(u){
-  return u==="BESTAETIGT" ? "var(--k-16a34a,#16a34a)"
+  return u==="FREMD"      ? "var(--muted)"
+       : u==="BESTAETIGT" ? "var(--k-16a34a,#16a34a)"
        : u==="AUSNAHME"   ? "var(--k-b91c1c,#b91c1c)"
        : u==="PRUEFEN"    ? "var(--k-b45309,#b45309)" : "var(--muted)";
 }
 function oflUrteilWort(u){
   return u==="BESTAETIGT" ? "bestätigt"
        : u==="AUSNAHME"   ? "Widerspruch"
-       : u==="PRUEFEN"    ? "grenzwertig" : "kein Prüfsignal";
+       : u==="PRUEFEN"    ? "grenzwertig"
+       : u==="FREMD"      ? "fremdsprachig" : "kein Prüfsignal";
 }
 async function oflStand(){
   try{ var r=await client.rpc("cb_off_lauf_status");
@@ -9153,8 +9155,12 @@ async function oflStart(){
             continue;
           }
           var urt=(er.verifikation&&er.verifikation.gesamt)||"KEIN_SIGNAL";
-          await client.rpc("cb_off_lauf_merken",{p_name:nm,p_stufe:er.stufe,p_urteil:urt,p_begruendung:er.begruendung||null});
-          OFL.log.unshift({name:nm,nennungen:nenMap[nm],stufe:er.stufe,urteil:urt});
+          /* v20: Riki meldet die Sprache. "andere" wird in der DB sofort aussortiert -
+             die Bewertung bleibt trotzdem stehen, sie hat Geld gekostet. */
+          await client.rpc("cb_off_lauf_merken",{p_name:nm,p_stufe:er.stufe,p_urteil:urt,
+            p_begruendung:er.begruendung||null,p_sprache:er.sprache||null});
+          OFL.log.unshift({name:nm,nennungen:nenMap[nm],stufe:er.stufe,
+            urteil:(er.sprache==="andere"?"FREMD":urt)});
         }
       }
       if(OFL.log.length>60) OFL.log.length=60;
@@ -9243,7 +9249,8 @@ async function oflGegen(){
           await client.rpc("cb_off_gegen_merken",{p_name:name,p_fehler:String((dd&&dd.error)||"unbekannter Fehler")});
           OFL.log.unshift({name:name,nennungen:nen,fehler:true,gegen:true});
         }else{
-          await client.rpc("cb_off_gegen_merken",{p_name:name,p_stufe:dd.stufe,p_modell:OFL_GEGEN_MODELL});
+          await client.rpc("cb_off_gegen_merken",{p_name:name,p_stufe:dd.stufe,
+            p_modell:OFL_GEGEN_MODELL,p_sprache:dd.sprache||null});
           OFL.log.unshift({name:name,nennungen:nen,stufe:dd.stufe,erst:erst,gegen:true});
         }
         if(OFL.log.length>60) OFL.log.length=60;
@@ -19804,7 +19811,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-31-0900";
+const APP_BUILD = "2026-07-31-0930";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
