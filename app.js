@@ -2871,9 +2871,25 @@ function feGridHoeheSync(){
     /* Einspaltig ergibt eine feste Bildschirmhoehe keinen Sinn mehr: drei Karten
        untereinander in einem nicht scrollenden Kasten waeren unbedienbar. Hier
        scrollt die SEITE - und die Karten geben ihre Innen-Scrollerei ab. */
-    g.style.height="auto"; g.style.minHeight="0";
+    g.style.height="auto"; g.style.minHeight="0"; g.style.gridTemplateRows="";
+  }else if(stufe==="mittel"){
+    /* 🔴 31.07. (Ralph am iPad: "referenz wird unten abgeschnitten"). Zweispaltig
+       rutscht die Referenz in eine ZWEITE Reihe - und bekam vom festen
+       Bildschirm-Kasten nur den Rest einer Hoehe, die fuer EINE Reihe gedacht war.
+       Die Karte war nicht zu gross, der Kasten war zu klein.
+
+       > Wer ein Raster von drei Spalten auf zwei stellt, hat es nicht schmaler
+       > gemacht, sondern eine Reihe hinzugefuegt. Die Hoehe muss das wissen.
+
+       Jetzt: Reihe 1 (die zwei Spalten) behaelt eine begrenzte, innen scrollende
+       Hoehe - dafuer war das Konzept gedacht. Reihe 2 bekommt ihre eigene feste
+       Hoehe, und die SEITE scrollt um diesen Betrag. Lieber einmal wischen als
+       eine abgeschnittene Karte. */
+    var refH=360;
+    g.style.minHeight="0"; g.style.height="auto";
+    g.style.gridTemplateRows="minmax(380px, calc(100dvh - "+(FE_GRID_BASIS+h+refH+14)+"px)) "+refH+"px";
   }else{
-    g.style.minHeight="430px";
+    g.style.minHeight="430px"; g.style.gridTemplateRows="";
     /* 100dvh statt 100vh: auf iPad/iPhone zaehlt 100vh die Flaeche UNTER der
        Safari-Leiste mit - der untere Rand liegt sonst hinter der Werkzeugleiste.
        dvh gibt es seit iOS 15.4; aeltere Browser fallen auf vh zurueck. */
@@ -19914,7 +19930,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-31-1355";
+const APP_BUILD = "2026-07-31-1406";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
