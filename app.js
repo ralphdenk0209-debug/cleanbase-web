@@ -9110,47 +9110,67 @@ async function oflStart(){
       if(nx.error){ OFL.grund="Nachschub-Fehler: "+nx.error.message; break; }
       var liste=(nx.data)||[];
       if(!liste.length){ OFL.grund="fertig"; break; }
-      for(var i=0;i<liste.length && !OFL.stop;i++){
-        var name=liste[i].name, nen=liste[i].nennungen;
-        var s=await client.auth.getSession();
-        var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
-        if(!tok){ OFL.grund="Nicht mehr angemeldet."; OFL.stop=true; break; }
-        var dd=null, ok=false;
-        try{
-          var rr=await fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{
-            method:"POST",
-            headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
-            body:JSON.stringify({name:name})});
-          dd=await rr.json(); ok=rr.ok;
-        }catch(e){ dd={error:String(e)}; ok=false; }
-        if(dd && dd.budget_voll===true){
-          OFL.grund="budget"; OFL.stop=true;
-          oflSetMeldung(dd.error||"Monatslimit erreicht.","var(--k-b91c1c,#b91c1c)");
+      /* 31.07. STAPEL statt Einzelaufruf (Ralph-Go). GEMESSEN an 87 bereits einzeln
+         bewerteten Zutaten: 86 % exakt gleich. Die Streuung zwischen zwei EINZEL-Laeufen
+         lag am 30.07. bei 17 % - der Stapel ist also nicht schlechter, nur schneller
+         (1,6 s statt 3-5 s je Zutat). Alle vier groben Abweichungen betrafen NICHT-Zutaten
+         ("enthalten milch", "palme", "schweiz"); bei 83 echten Zutaten null.
+         ZEHNER-Stapel, nicht dreissiger: bei 30 gab es einen groben Ausrutscher bei einer
+         echten Zutat, bei 10 keinen. Kleiner Unterschied, kleine Stichprobe - im Zweifel
+         die vorsichtigere Groesse. */
+      var teil=liste.map(function(x){ return x.name; });
+      var nenMap={}; liste.forEach(function(x){ nenMap[x.name]=x.nennungen; });
+      var s=await client.auth.getSession();
+      var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+      if(!tok){ OFL.grund="Nicht mehr angemeldet."; OFL.stop=true; break; }
+      var dd=null, ok=false;
+      try{
+        var rr=await fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+          body:JSON.stringify({namen:teil})});
+        dd=await rr.json(); ok=rr.ok;
+      }catch(e){ dd={error:String(e)}; ok=false; }
+      if(dd && dd.budget_voll===true){
+        OFL.grund="budget"; OFL.stop=true;
+        oflSetMeldung(dd.error||"Monatslimit erreicht.","var(--k-b91c1c,#b91c1c)"); break;
+      }
+      if(!ok || !dd || !Array.isArray(dd.ergebnisse)){
+        /* Ein gescheiterter Stapel trifft ZEHN Zutaten auf einmal. Jede bekommt ihren
+           Fehlversuch gezaehlt - nach drei Versuchen bleibt sie liegen, statt den Lauf
+           zu blockieren. */
+        for(var f=0; f<teil.length; f++){
+          await client.rpc("cb_off_lauf_merken",{p_name:teil[f],p_fehler:String((dd&&dd.error)||"Stapel fehlgeschlagen")});
+          OFL.log.unshift({name:teil[f],nennungen:nenMap[teil[f]],fehler:true});
+        }
+      }else{
+        for(var e2=0; e2<dd.ergebnisse.length; e2++){
+          var er=dd.ergebnisse[e2];
+          var nm=(er&&er.name)||teil[e2];
+          if(!er || typeof er.stufe!=="number"){
+            await client.rpc("cb_off_lauf_merken",{p_name:nm,p_fehler:"keine Stufe im Stapel"});
+            OFL.log.unshift({name:nm,nennungen:nenMap[nm],fehler:true});
+            continue;
+          }
+          var urt=(er.verifikation&&er.verifikation.gesamt)||"KEIN_SIGNAL";
+          await client.rpc("cb_off_lauf_merken",{p_name:nm,p_stufe:er.stufe,p_urteil:urt,p_begruendung:er.begruendung||null});
+          OFL.log.unshift({name:nm,nennungen:nenMap[nm],stufe:er.stufe,urteil:urt});
+        }
+      }
+      if(OFL.log.length>60) OFL.log.length=60;
+      oflMalLog(); seit+=teil.length;
+      if(seit>=10){
+        seit=0;
+        var dz=await oflStand(); oflMalStand(dz);
+        if(dz && dz.notaus){
+          OFL.grund="notaus"; OFL.stop=true;
+          oflSetMeldung("NOTAUS: Widerspruchsquote der letzten "+dz.fenster_n+" bei "
+            +oflKomma(dz.ausnahme_quote,1)+" % (Schwelle 25 %). Der Lauf steht. Bitte ansehen, was Riki dort liefert – "
+            +"weiterlaufen zu lassen kostet Geld für Ergebnisse, die du ohnehin einzeln prüfen musst.","var(--k-b91c1c,#b91c1c)");
           break;
         }
-        if(!ok || !dd || typeof dd.stufe!=="number"){
-          await client.rpc("cb_off_lauf_merken",{p_name:name,p_fehler:String((dd&&dd.error)||"unbekannter Fehler")});
-          OFL.log.unshift({name:name,nennungen:nen,fehler:true});
-        }else{
-          var urt=(dd.verifikation&&dd.verifikation.gesamt)||"KEIN_SIGNAL";
-          await client.rpc("cb_off_lauf_merken",{p_name:name,p_stufe:dd.stufe,p_urteil:urt,p_begruendung:dd.begruendung||null});
-          OFL.log.unshift({name:name,nennungen:nen,stufe:dd.stufe,urteil:urt});
-        }
-        if(OFL.log.length>60) OFL.log.length=60;
-        oflMalLog(); seit++;
-        if(seit>=10){
-          seit=0;
-          var dz=await oflStand(); oflMalStand(dz);
-          if(dz && dz.notaus){
-            OFL.grund="notaus"; OFL.stop=true;
-            oflSetMeldung("NOTAUS: Widerspruchsquote der letzten "+dz.fenster_n+" bei "
-              +oflKomma(dz.ausnahme_quote,1)+" % (Schwelle 25 %). Der Lauf steht. Bitte ansehen, was Riki dort liefert – "
-              +"weiterlaufen zu lassen kostet Geld für Ergebnisse, die du ohnehin einzeln prüfen musst.","var(--k-b91c1c,#b91c1c)");
-            break;
-          }
-        }
-        await new Promise(function(r){ setTimeout(r,250); });
       }
+      await new Promise(function(r){ setTimeout(r,200); });
     }
   }catch(e){ OFL.grund="Abbruch: "+String(e); }
   OFL.laeuft=false;
@@ -9207,8 +9227,13 @@ async function oflGegen(){
           var rr=await fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{
             method:"POST",
             headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
-            body:JSON.stringify({name:name, modell:OFL_GEGEN_MODELL, quelle:"gegenleser"})});
+            body:JSON.stringify({namen:[name], modell:OFL_GEGEN_MODELL, quelle:"gegenleser"})});
           dd=await rr.json(); ok=rr.ok;
+          /* v19 antwortet im Stapel-Format. Ein Einer-Stapel bleibt ein Stapel - der
+             Gegenleser laeuft absichtlich Zutat fuer Zutat, damit er von den anderen
+             Namen im Stapel nicht beeinflusst wird. Er ist die zweite Meinung; eine
+             zweite Meinung, die dieselbe Nachbarschaft sieht, ist keine. */
+          if(ok && dd && Array.isArray(dd.ergebnisse) && dd.ergebnisse[0]) dd=dd.ergebnisse[0];
         }catch(e){ dd={error:String(e)}; ok=false; }
         if(dd && dd.budget_voll===true){
           OFL.grund="budget"; OFL.stop=true;
@@ -19779,7 +19804,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-31-0830";
+const APP_BUILD = "2026-07-31-0900";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
