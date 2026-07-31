@@ -9047,7 +9047,7 @@ async function offLaufRender(){
       +'<button id="oflBtnStart" onclick="oflStart()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:#fff;font-weight:700;cursor:pointer;font-size:13px">▶ Lauf starten</button>'
       +'<button id="oflBtnStop" onclick="oflStop()" style="display:none;padding:9px 16px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-weight:700;cursor:pointer;font-size:13px">■ Anhalten</button>'
       +'<button onclick="offLaufRender()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">↻ Aktualisieren</button>'
-      +'<button onclick="oflGegen()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">🔍 Gegenlesen</button>'
+      +'<button onclick="oflGegen()" style="padding:9px 14px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt,#eaf6ee);color:var(--greendk,#17505c);font-weight:700;cursor:pointer;font-size:13px" title="Zweite, unabhängige Bewertung mit einem anderen Modell – Voraussetzung für die Übernahme">🔍 Gegenlesen</button>'
       +'<div style="flex:1"></div>'
       +'<button onclick="oflPruefen()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">① Gegen Regelwerk prüfen</button>'
       +'<select id="oflDiff" title="Wie einig müssen die zwei Lesungen sein?" style="padding:9px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px">'
@@ -9192,8 +9192,15 @@ async function oflPruefen(){
   var r=await client.rpc("cb_off_lauf_regelpruefung");
   if(r.error){ oflSetMeldung("Prüfung fehlgeschlagen: "+r.error.message,"var(--k-b91c1c,#b91c1c)"); return; }
   var d=(r.data&&r.data[0])||{};
-  oflSetMeldung(oflZahl(d.geprueft)+" geprüft · "+oflZahl(d.sauber)+" ohne Widerspruch · "
-    +oflZahl(d.mit_verstoss)+" widersprechen dem Regelwerk (die bleiben liegen).",
+  /* „0 geprüft" ist irreführend, wenn schon alles geprüft war (Ralphs Rückfrage 31.07.):
+     es liest sich wie ein Fehlschlag, ist aber der Normalfall beim zweiten Klick.
+     Eine Zahl, die den Erfolgsfall wie einen Ausfall aussehen lässt, ist eine falsche Zahl. */
+  var neu=Number(d.geprueft||0);
+  oflSetMeldung(
+    (neu>0 ? (oflZahl(neu)+" neu geprüft · ") : "Nichts Neues zu prüfen – ")
+    + oflZahl(d.sauber)+" ohne Widerspruch · "
+    + oflZahl(d.mit_verstoss)+" widersprechen dem Regelwerk (die bleiben liegen)."
+    + (Number(d.rest_offen||0)>0 ? (" Noch offen: "+oflZahl(d.rest_offen)+" – nochmal drücken.") : ""),
     Number(d.mit_verstoss||0)>0?"var(--k-b45309,#b45309)":"var(--k-16a34a,#16a34a)");
   oflMalStand(await oflStand());
 }
@@ -9289,8 +9296,15 @@ async function oflUebernehmen(){
   var r=await client.rpc("cb_off_lauf_uebernehmen",{p_max:500,p_max_diff:diff,p_probe:false});
   if(r.error){ oflSetMeldung("Übernahme fehlgeschlagen: "+r.error.message,"var(--k-b91c1c,#b91c1c)"); return; }
   var d=(r.data&&r.data[0])||{};
+  /* 31.07.: Die Übernahme arbeitet in Blöcken zu 500 – ein größerer Block lief in das
+     Zeitlimit der Datenbank. Wer 1.500 übernehmen will, drückt dreimal. Das MUSS
+     dastehen, sonst hält man 500 für das Endergebnis. */
+  var rest=/wuerde uebernommen \((\d+)\)/.exec(String(d.grund_liste||""));
+  var offenNoch=rest?Number(rest[1]):0;
   oflSetMeldung(oflZahl(d.uebernommen)+" in den Stamm übernommen · "+oflZahl(d.uebersprungen)+" bleiben liegen"
-    +(d.grund_liste?(" – "+d.grund_liste):""), "var(--k-16a34a,#16a34a)");
+    +(d.grund_liste?(" – "+d.grund_liste):"")
+    +(offenNoch>0 ? ("  ⟳ Noch "+oflZahl(offenNoch)+" übernahmebereit – bitte nochmal drücken.") : ""),
+    offenNoch>0?"var(--k-b45309,#b45309)":"var(--k-16a34a,#16a34a)");
   oflMalStand(await oflStand());
 }
 if(typeof window!=="undefined"){
@@ -19811,7 +19825,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-31-0930";
+const APP_BUILD = "2026-07-31-1010";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
