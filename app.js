@@ -8957,6 +8957,12 @@ function oflMalStand(d){
   set("oflBest", oflZahl(d.bestaetigt)); set("oflPruef", oflZahl(d.pruefen));
   set("oflAusn", oflZahl(d.ausnahme));   set("oflKein", oflZahl(d.kein_signal));
   set("oflFehler", oflZahl(d.fehler));
+  set("oflGGleich", oflZahl(d.gegen_gleich)); set("oflGEins", oflZahl(d.gegen_eins));
+  set("oflGUneinig", oflZahl(d.gegen_uneinig)); set("oflGOffen", oflZahl(d.gegen_offen));
+  var gk=document.getElementById("oflGKosten");
+  if(gk) gk.textContent = Number(d.gegen_offen||0)>0
+    ? ("Gegenlesen kostet noch "+oflKomma(d.gegen_kosten_rest,2)+" $")
+    : (Number(d.gegen_fertig||0)>0 ? "vollständig gegengelesen" : "");
   var q=document.getElementById("oflQuote");
   if(q){
     var n=Number(d.fenster_n||0);
@@ -9014,13 +9020,23 @@ async function offLaufRender(){
       +pille("oflKein","kein Prüfsignal","var(--muted)")
       +pille("oflFehler","Fehler","var(--muted)")
       +'<span id="oflQuote" style="font-size:12px;color:var(--muted);margin-left:4px"></span></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:14px">'
+      +'<span style="font-size:12px;color:var(--muted);font-weight:700">Gegenleser:</span>'
+      +pille("oflGGleich","exakt einig","var(--k-16a34a,#16a34a)")
+      +pille("oflGEins","±1 Stufe","var(--k-b45309,#b45309)")
+      +pille("oflGUneinig","uneinig","var(--k-b91c1c,#b91c1c)")
+      +pille("oflGOffen","noch offen","var(--muted)")
+      +'<span id="oflGKosten" style="font-size:12px;color:var(--muted);margin-left:4px"></span></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'
       +'<button id="oflBtnStart" onclick="oflStart()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:#fff;font-weight:700;cursor:pointer;font-size:13px">▶ Lauf starten</button>'
       +'<button id="oflBtnStop" onclick="oflStop()" style="display:none;padding:9px 16px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-weight:700;cursor:pointer;font-size:13px">■ Anhalten</button>'
       +'<button onclick="offLaufRender()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">↻ Aktualisieren</button>'
+      +'<button onclick="oflGegen()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">🔍 Gegenlesen</button>'
       +'<div style="flex:1"></div>'
       +'<button onclick="oflPruefen()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">① Gegen Regelwerk prüfen</button>'
-      +'<button onclick="oflUebernehmen()" style="padding:9px 14px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt,#eaf6ee);color:var(--greendk,#17505c);font-weight:700;cursor:pointer;font-size:13px">② Bestätigte übernehmen</button>'
+      +'<select id="oflDiff" title="Wie einig müssen die zwei Lesungen sein?" style="padding:9px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px">'
+        +'<option value="0">Gegenleser exakt einig</option><option value="1">±1 Stufe erlaubt</option></select>'
+      +'<button onclick="oflUebernehmen()" style="padding:9px 14px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt,#eaf6ee);color:var(--greendk,#17505c);font-weight:700;cursor:pointer;font-size:13px">② Übernehmen</button>'
     +'</div>'
     +'<div id="oflMeldung" style="display:none;font-size:12.5px;margin:8px 0 4px;line-height:1.5"></div>'
     +'<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">'
@@ -9111,10 +9127,90 @@ async function oflPruefen(){
     Number(d.mit_verstoss||0)>0?"var(--k-b45309,#b45309)":"var(--k-16a34a,#16a34a)");
   oflMalStand(await oflStand());
 }
+/* ===== GEGENLESER (Ralph-Go 31.07.) =====
+   Dieselbe Zutat ein zweites Mal einstufen — BLIND (das zweite Modell sieht die erste
+   Stufe nicht) und mit einem ANDEREN Modell (Haiku statt Sonnet), aber demselben
+   Regelwerk. Grund: die drei gebauten Wächter können die meisten Namen nicht beurteilen
+   — an 72 Zutaten gemessen schwieg W-Ref 72×, W-Name 69×. Zwei unabhängige Lesungen,
+   die übereinstimmen, sind ein Prüfsignal, das für JEDEN Namen entsteht.
+   Ehrliche Grenze: zwei Modelle desselben Anbieters mit demselben Regeltext sind nicht
+   völlig unabhängig. Es ist ein Gegenleser, kein Beweis. */
+var OFL_GEGEN_MODELL="claude-haiku-4-5-20251001";
+async function oflGegen(){
+  if(OFL.laeuft) return;
+  var d0=await oflStand();
+  var n=Number((d0&&d0.gegen_offen)||0);
+  if(!n){ oflSetMeldung("Nichts gegenzulesen – alle bewerteten Zutaten sind bereits gegengelesen.","var(--muted)"); return; }
+  if(!confirm("Liest "+n+" bereits bewertete Zutaten ein zweites Mal – blind, mit einem anderen Modell.\n\n"
+    +"Geschätzte Kosten: "+oflKomma((d0&&d0.gegen_kosten_rest)||0,2)+" $\n\nStarten?")) return;
+  OFL.laeuft=true; OFL.stop=false; OFL.grund=""; OFL.start=Date.now(); OFL.log=[];
+  var bs=document.getElementById("oflBtnStart"), bp=document.getElementById("oflBtnStop");
+  if(bs) bs.style.display="none"; if(bp) bp.style.display="";
+  oflSetMeldung("Gegenleser läuft …","var(--muted)");
+  try{
+    while(!OFL.stop){
+      var nx=await client.rpc("cb_off_gegen_naechste",{p_anzahl:20});
+      if(nx.error){ OFL.grund="Nachschub-Fehler: "+nx.error.message; break; }
+      var liste=(nx.data)||[];
+      if(!liste.length){ OFL.grund="fertig"; break; }
+      for(var i=0;i<liste.length && !OFL.stop;i++){
+        var name=liste[i].name, nen=liste[i].nennungen;
+        var s=await client.auth.getSession();
+        var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+        if(!tok){ OFL.grund="Nicht mehr angemeldet."; OFL.stop=true; break; }
+        var dd=null, ok=false;
+        try{
+          var rr=await fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{
+            method:"POST",
+            headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+            body:JSON.stringify({name:name, modell:OFL_GEGEN_MODELL, quelle:"gegenleser"})});
+          dd=await rr.json(); ok=rr.ok;
+        }catch(e){ dd={error:String(e)}; ok=false; }
+        if(dd && dd.budget_voll===true){
+          OFL.grund="budget"; OFL.stop=true;
+          oflSetMeldung(dd.error||"Monatslimit erreicht.","var(--k-b91c1c,#b91c1c)"); break;
+        }
+        if(!ok || !dd || typeof dd.stufe!=="number"){
+          await client.rpc("cb_off_gegen_merken",{p_name:name,p_fehler:String((dd&&dd.error)||"unbekannter Fehler")});
+          OFL.log.unshift({name:name,nennungen:nen,fehler:true});
+        }else{
+          await client.rpc("cb_off_gegen_merken",{p_name:name,p_stufe:dd.stufe,p_modell:OFL_GEGEN_MODELL});
+          OFL.log.unshift({name:name,nennungen:nen,stufe:dd.stufe,urteil:"gegengelesen"});
+        }
+        if(OFL.log.length>60) OFL.log.length=60;
+        oflMalLog();
+        await new Promise(function(r){ setTimeout(r,250); });
+      }
+    }
+  }catch(e){ OFL.grund="Abbruch: "+String(e); }
+  OFL.laeuft=false;
+  if(bs) bs.style.display=""; if(bp) bp.style.display="none";
+  var dEnd=await oflStand(); oflMalStand(dEnd);
+  if(OFL.grund==="fertig") oflSetMeldung("Gegenlesen fertig. Einig: "+oflZahl(dEnd&&dEnd.gegen_gleich)
+    +" exakt · "+oflZahl(dEnd&&dEnd.gegen_eins)+" eine Stufe daneben · "
+    +oflZahl(dEnd&&dEnd.gegen_uneinig)+" uneinig.","var(--k-16a34a,#16a34a)");
+  else if(OFL.grund!=="budget") oflSetMeldung("Gegenleser angehalten. Ein Neustart macht dort weiter.","var(--muted)");
+}
+/* Zwei Stufen: erst VORSCHAU (schreibt nichts), dann auf Nachfrage schreiben.
+   Eine Funktion, deren einziger Modus schreibt, kann man nicht ausprobieren — man kann
+   sie nur auslösen. Das ist mir am 31.07. selbst passiert. */
 async function oflUebernehmen(){
-  if(!confirm("Übernimmt in den Zutaten-Stamm – aber NUR, wo Riki fertig ist, die Wächter bestätigt haben und das Regelwerk nicht widerspricht.\n\nAlles andere bleibt liegen. Fortfahren?")) return;
-  oflSetMeldung("Übernehme …","var(--muted)");
-  var r=await client.rpc("cb_off_lauf_uebernehmen",{p_max:500});
+  var sel=document.getElementById("oflDiff");
+  var diff=sel?Number(sel.value||0):0;
+  oflSetMeldung("Vorschau …","var(--muted)");
+  var v=await client.rpc("cb_off_lauf_uebernehmen",{p_max:500,p_max_diff:diff,p_probe:true});
+  if(v.error){ oflSetMeldung("Vorschau fehlgeschlagen: "+v.error.message,"var(--k-b91c1c,#b91c1c)"); return; }
+  var p=(v.data&&v.data[0])||{};
+  var n=Number(p.uebernommen||0);
+  if(!n){ oflSetMeldung("Nichts zu übernehmen. "+(p.grund_liste||""),"var(--k-b45309,#b45309)"); return; }
+  if(!confirm(n+" Zutaten würden in den Zutaten-Stamm geschrieben.\n\n"
+    +"Bedingung: Regelwerk widerspricht nicht · kein Wächter-Widerspruch · "
+    +(diff===0?"Gegenleser exakt derselben Meinung":"Gegenleser höchstens "+diff+" Stufe daneben")
+    +".\n\nAlles andere bleibt liegen:\n"+(p.grund_liste||"–")+"\n\nJetzt wirklich schreiben?")) {
+    oflSetMeldung("Abgebrochen – es wurde nichts geschrieben. Vorschau: "+n+" würden übernommen.","var(--muted)");
+    return;
+  }
+  var r=await client.rpc("cb_off_lauf_uebernehmen",{p_max:500,p_max_diff:diff,p_probe:false});
   if(r.error){ oflSetMeldung("Übernahme fehlgeschlagen: "+r.error.message,"var(--k-b91c1c,#b91c1c)"); return; }
   var d=(r.data&&r.data[0])||{};
   oflSetMeldung(oflZahl(d.uebernommen)+" in den Stamm übernommen · "+oflZahl(d.uebersprungen)+" bleiben liegen"
@@ -9123,7 +9219,7 @@ async function oflUebernehmen(){
 }
 if(typeof window!=="undefined"){
   window.offLaufRender=offLaufRender; window.oflStart=oflStart; window.oflStop=oflStop;
-  window.oflPruefen=oflPruefen; window.oflUebernehmen=oflUebernehmen;
+  window.oflPruefen=oflPruefen; window.oflUebernehmen=oflUebernehmen; window.oflGegen=oflGegen;
 }
 
 function adminGo(k){
@@ -19639,7 +19735,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-31-0620";
+const APP_BUILD = "2026-07-31-0745";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
