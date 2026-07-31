@@ -3294,6 +3294,7 @@ function setMode(m){
   { var _bv=document.getElementById("bioView"); if(_bv) _bv.style.display = m==="bio"?"":"none"; }
   { var _tw=document.getElementById("tauschView"); if(_tw) _tw.style.display = m==="tausch"?"":"none"; }
   { var _mdv=document.getElementById("methodikView"); if(_mdv) _mdv.style.display = m==="methodik"?"":"none"; }
+  { var _olv=document.getElementById("offLaufView"); if(_olv) _olv.style.display = m==="offlauf"?"":"none"; }
   { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
   { var _sv=document.getElementById("suppView"); if(_sv) _sv.style.display = m==="supp"?"":"none"; }
   { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
@@ -3317,6 +3318,8 @@ function setMode(m){
      (§3.0) - ist es aus, gibt es die Seite fuer niemanden, auch nicht per Adresszeile. */
   if(m==="methodik"){ if(!methodikAn()){ setMode("produkte"); return; } methodikRender(); }
   if(m==="todo"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } todoRender(); }
+  /* Admin-Riegel wie bei jeder anderen Admin-Ansicht: der Lauf gibt Geld aus. */
+  if(m==="offlauf"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } offLaufRender(); }
   if(m==="supp"){ try{ suppPlanRender(); }catch(e){} }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
   if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
@@ -8093,6 +8096,11 @@ function applyAdminMode(){
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
+      /* 31.07. (Ralph-Go): OFF-Zutatenlauf als eigener Punkt. Bewusst ein eigener Ort und
+         nicht ein Panel auf der Erfassungsseite: der Lauf dauert Stunden und braucht einen
+         stabilen Platz, an dem man ihn wiederfindet. Nach dem Pilot wird er GELOESCHT,
+         nicht deaktiviert (§1.11n-p). */
+      +_an('offlauf','🧪','OFF-Lauf',"adminGo('offlauf')")
       +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
       +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
     /* 29.07. Enterprise (Ralph): Arbeits-Zahlen als Plaketten am Menue */
@@ -8146,7 +8154,7 @@ if(typeof window!=='undefined'){ window.adminDrawerToggle=adminDrawerToggle; win
 /* Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Markiert den aktiven Punkt, setzt den
    Breadcrumb in der Kopfleiste und schließt die Schublade. */
-const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do'};
+const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do',offlauf:'OFF-Zutatenlauf'};
 /* ============================================================================
    DASHBOARD „ARBEITSFLÄCHE" (Ralph-Entscheid 30.07.2026)
    ----------------------------------------------------------------------------
@@ -8879,6 +8887,245 @@ function scanEingangToggle(){
   if(zu){ try{ if(typeof loadScans==='function') loadScans(); }catch(e){} try{ ps.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){} }
 }
 if(typeof window!=='undefined'){ window.scanEingangOeffnen=scanEingangOeffnen; window.scanEingangToggle=scanEingangToggle; }
+/* ============================================================================
+   OFF-ZUTATENLAUF (Ralph-Go 31.07.2026) — eigener Admin-Menuepunkt
+   ----------------------------------------------------------------------------
+   WAS ER TUT: arbeitet die offenen Zutaten des OFF-Piloten ab, eine nach der
+   anderen, haeufigste zuerst. Je Zutat ein Aufruf an riki-zutat-bewerten v17;
+   Stufe, Begruendung und Waechter-Urteil gehen in die ARBEITSTABELLE.
+
+   WAS ER NICHT TUT: er schreibt NICHTS in den Zutaten_Stamm. Das ist Schritt 4
+   und passiert ueber zwei getrennte Knoepfe — erst gegen das Regelwerk pruefen
+   (§2z-a), dann uebernehmen, und uebernommen wird nur, wo Riki fertig ist, die
+   Waechter BESTAETIGT sagen UND das Regelwerk nicht widerspricht.
+
+   WARUM IM BROWSER UND NICHT IM HINTERGRUND (Ralph-Entscheid 31.07.): ein echter
+   Hintergrund-Lauf braeuchte eine Aenderung an riki-zutat-bewerten (sie verlangt
+   einen angemeldeten NUTZER, ein Service-Aufruf laeuft ins Leere) — und die haengt
+   an vier Frontend-Stellen. Der Tab muss also offen bleiben. Das war der Grund,
+   den Tab-Weg zuerst abzulehnen; er faellt weg, weil der Fortschritt in der
+   DATENBANK steht: ein Abbruch kostet nichts, ein Neustart macht dort weiter.
+
+   DREI RIEGEL, jeder aus einem anderen Grund:
+   1. BUDGET  — riki-zutat-bewerten v17 antwortet mit budget_voll; der Lauf stoppt.
+   2. NOTAUS  — steigt die Widerspruchsquote der letzten 100 ueber 25 %, halten wir
+      an. Der Budget-Riegel schuetzt vor ZU VIEL Ausgabe, nicht vor UMSONST
+      ausgegebenem Geld: Unsinn soll nach 100 Zutaten fuer 1 $ auffallen, nicht
+      nach 3.000 fuer 34 $. Die Quote rechnet die DB (cb_off_lauf_status), nicht
+      der Browser — ein Neustart begaenne sonst mit leerem Fenster und der Notaus
+      waere ausgehebelt.
+   3. VERSUCHE — drei Fehlversuche je Zutat, dann liegen lassen. Kein Endlos-Loop
+      an einem Namen, den Riki nicht verarbeiten kann.
+============================================================================ */
+var OFL={laeuft:false,stop:false,grund:"",log:[],start:0};
+
+function oflSetMeldung(txt,farbe){
+  var e=document.getElementById("oflMeldung"); if(!e) return;
+  e.textContent=txt||""; e.style.color=farbe||"var(--muted)";
+  e.style.display=txt?"":"none";
+}
+function oflZahl(n){ return (n==null?"–":Number(n).toLocaleString("de-DE")); }
+/* Deutsche Schreibweise: toFixed liefert "8.29", die Oberflaeche ist deutsch. */
+function oflKomma(n,dez){ return (n==null?"–":Number(n).toLocaleString("de-DE",{minimumFractionDigits:dez,maximumFractionDigits:dez})); }
+function oflUrteilFarbe(u){
+  return u==="BESTAETIGT" ? "var(--k-16a34a,#16a34a)"
+       : u==="AUSNAHME"   ? "var(--k-b91c1c,#b91c1c)"
+       : u==="PRUEFEN"    ? "var(--k-b45309,#b45309)" : "var(--muted)";
+}
+function oflUrteilWort(u){
+  return u==="BESTAETIGT" ? "bestätigt"
+       : u==="AUSNAHME"   ? "Widerspruch"
+       : u==="PRUEFEN"    ? "grenzwertig" : "kein Prüfsignal";
+}
+async function oflStand(){
+  try{ var r=await client.rpc("cb_off_lauf_status");
+       if(r.error){ console.error("cb_off_lauf_status",r.error); return null; }
+       return (r.data&&r.data[0])||null;
+  }catch(e){ console.error("cb_off_lauf_status",e); return null; }
+}
+function oflMalStand(d){
+  if(!d) return;
+  var g=Number(d.gesamt||0), f=Number(d.fertig||0), fe=Number(d.fehler||0);
+  var erledigt=f+fe, pct=g>0?Math.round(erledigt/g*100):0;
+  var set=function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
+  var bar=document.getElementById("oflBar"); if(bar) bar.style.width=pct+"%";
+  set("oflFortschritt", erledigt.toLocaleString("de-DE")+" von "+g.toLocaleString("de-DE")+" ("+pct+" %)");
+  set("oflFertig", f.toLocaleString("de-DE"));
+  set("oflOffen", Number(d.offen||0).toLocaleString("de-DE"));
+  set("oflKosten", oflKomma(d.kosten_bisher,2)+" $");
+  set("oflRest", oflKomma(d.kosten_rest,2)+" $");
+  set("oflBest", oflZahl(d.bestaetigt)); set("oflPruef", oflZahl(d.pruefen));
+  set("oflAusn", oflZahl(d.ausnahme));   set("oflKein", oflZahl(d.kein_signal));
+  set("oflFehler", oflZahl(d.fehler));
+  var q=document.getElementById("oflQuote");
+  if(q){
+    var n=Number(d.fenster_n||0);
+    q.textContent = n>0 ? ("Widerspruch in den letzten "+n+": "+oflKomma(d.ausnahme_quote||0,1)+" %") : "noch keine Quote";
+    q.style.color = d.notaus ? "var(--k-b91c1c,#b91c1c)" : "var(--muted)";
+  }
+  /* Restzeit ehrlich aus der GEMESSENEN Dauer dieses Laufs, nicht aus einer geratenen
+     Sekundenzahl. Ohne eigene Messung steht dort nichts. */
+  var rz=document.getElementById("oflRestzeit");
+  if(rz){
+    if(OFL.laeuft && OFL.log.length>=3 && OFL.start){
+      var proStk=(Date.now()-OFL.start)/OFL.log.length;
+      var min=Math.round(Number(d.offen||0)*proStk/60000);
+      rz.textContent = min>0 ? ("noch etwa "+(min>=60?(Math.floor(min/60)+" h "+(min%60)+" min"):(min+" min"))) : "";
+    } else rz.textContent="";
+  }
+}
+function oflMalLog(){
+  var box=document.getElementById("oflLog"); if(!box) return;
+  if(!OFL.log.length){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Noch nichts bewertet.</div>'; return; }
+  box.innerHTML=OFL.log.slice(0,12).map(function(x){
+    var col=x.fehler?"var(--k-b91c1c,#b91c1c)":oflUrteilFarbe(x.urteil);
+    var rechts=x.fehler ? '<span style="color:'+col+';font-size:12px">Fehler</span>'
+      : '<b style="width:22px;text-align:right;display:inline-block">'+esc(String(x.stufe))+'</b>'
+        +'<span style="color:'+col+';font-size:12px;margin-left:10px">'+esc(oflUrteilWort(x.urteil))+'</span>';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">'
+      +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name)+'</span>'
+      +'<span style="color:var(--muted);font-size:12px">'+esc(String(x.nennungen))+'×</span>'
+      +rechts+'</div>';
+  }).join("");
+}
+async function offLaufRender(){
+  var v=document.getElementById("offLaufView"); if(!v) return;
+  var kachel=function(id,lbl){ return '<div style="background:var(--bg);border-radius:10px;padding:12px 14px">'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:3px">'+lbl+'</div>'
+    +'<div id="'+id+'" style="font-size:22px;font-weight:800;color:var(--ink)">–</div></div>'; };
+  var pille=function(id,lbl,col){ return '<span style="font-size:12px;padding:4px 11px;border-radius:9px;background:var(--bg);color:'+col+';font-weight:700">'
+    +lbl+' <span id="'+id+'">–</span></span>'; };
+  v.innerHTML='<div style="max-width:860px;margin:0 auto">'
+    +'<h2 style="margin:.1em 0 .25em;font-size:19px">OFF-Zutatenlauf</h2>'
+    +'<div style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.55">'
+      +'Riki stuft jede offene Zutat des Piloten ein. <b>Nichts geht in den Stamm</b> – erst prüfen, dann übernehmen.'
+      +' Der Fortschritt steht in der Datenbank: schließt du den Tab, macht der Lauf beim nächsten Start dort weiter.</div>'
+    +'<div style="height:9px;background:var(--bg);border-radius:99px;overflow:hidden;margin-bottom:7px">'
+      +'<div id="oflBar" style="width:0%;height:100%;background:var(--green);border-radius:99px;transition:width .3s"></div></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:14px">'
+      +'<span id="oflFortschritt">–</span><span id="oflRestzeit"></span></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px">'
+      +kachel("oflFertig","Bewertet")+kachel("oflOffen","Offen")
+      +kachel("oflKosten","Kosten bisher")+kachel("oflRest","Rest erwartet")+'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:14px">'
+      +pille("oflBest","bestätigt","var(--k-16a34a,#16a34a)")
+      +pille("oflPruef","grenzwertig","var(--k-b45309,#b45309)")
+      +pille("oflAusn","Widerspruch","var(--k-b91c1c,#b91c1c)")
+      +pille("oflKein","kein Prüfsignal","var(--muted)")
+      +pille("oflFehler","Fehler","var(--muted)")
+      +'<span id="oflQuote" style="font-size:12px;color:var(--muted);margin-left:4px"></span></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'
+      +'<button id="oflBtnStart" onclick="oflStart()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:#fff;font-weight:700;cursor:pointer;font-size:13px">▶ Lauf starten</button>'
+      +'<button id="oflBtnStop" onclick="oflStop()" style="display:none;padding:9px 16px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-weight:700;cursor:pointer;font-size:13px">■ Anhalten</button>'
+      +'<button onclick="offLaufRender()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">↻ Aktualisieren</button>'
+      +'<div style="flex:1"></div>'
+      +'<button onclick="oflPruefen()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">① Gegen Regelwerk prüfen</button>'
+      +'<button onclick="oflUebernehmen()" style="padding:9px 14px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt,#eaf6ee);color:var(--greendk,#17505c);font-weight:700;cursor:pointer;font-size:13px">② Bestätigte übernehmen</button>'
+    +'</div>'
+    +'<div id="oflMeldung" style="display:none;font-size:12.5px;margin:8px 0 4px;line-height:1.5"></div>'
+    +'<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">'
+      +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">Zuletzt bewertet</div>'
+      +'<div id="oflLog"></div></div>'
+    +'</div>';
+  oflMalLog();
+  oflMalStand(await oflStand());
+}
+function oflStop(){ OFL.stop=true; oflSetMeldung("Wird angehalten – der laufende Aufruf wird noch zu Ende geführt.","var(--k-b45309,#b45309)"); }
+async function oflStart(){
+  if(OFL.laeuft) return;
+  var d0=await oflStand();
+  if(d0 && d0.notaus){
+    oflSetMeldung("Notaus aktiv: die Widerspruchsquote der letzten "+d0.fenster_n+" liegt bei "
+      +oflKomma(d0.ausnahme_quote,1)+" %. Bitte erst ansehen, was Riki dort liefert.","var(--k-b91c1c,#b91c1c)");
+    return;
+  }
+  OFL.laeuft=true; OFL.stop=false; OFL.grund=""; OFL.start=Date.now(); OFL.log=[];
+  var bs=document.getElementById("oflBtnStart"), bp=document.getElementById("oflBtnStop");
+  if(bs) bs.style.display="none"; if(bp) bp.style.display="";
+  oflSetMeldung("Läuft …","var(--muted)");
+  var seit=0;
+  try{
+    while(!OFL.stop){
+      var nx=await client.rpc("cb_off_lauf_naechste",{p_anzahl:20});
+      if(nx.error){ OFL.grund="Nachschub-Fehler: "+nx.error.message; break; }
+      var liste=(nx.data)||[];
+      if(!liste.length){ OFL.grund="fertig"; break; }
+      for(var i=0;i<liste.length && !OFL.stop;i++){
+        var name=liste[i].name, nen=liste[i].nennungen;
+        var s=await client.auth.getSession();
+        var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+        if(!tok){ OFL.grund="Nicht mehr angemeldet."; OFL.stop=true; break; }
+        var dd=null, ok=false;
+        try{
+          var rr=await fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{
+            method:"POST",
+            headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+            body:JSON.stringify({name:name})});
+          dd=await rr.json(); ok=rr.ok;
+        }catch(e){ dd={error:String(e)}; ok=false; }
+        if(dd && dd.budget_voll===true){
+          OFL.grund="budget"; OFL.stop=true;
+          oflSetMeldung(dd.error||"Monatslimit erreicht.","var(--k-b91c1c,#b91c1c)");
+          break;
+        }
+        if(!ok || !dd || typeof dd.stufe!=="number"){
+          await client.rpc("cb_off_lauf_merken",{p_name:name,p_fehler:String((dd&&dd.error)||"unbekannter Fehler")});
+          OFL.log.unshift({name:name,nennungen:nen,fehler:true});
+        }else{
+          var urt=(dd.verifikation&&dd.verifikation.gesamt)||"KEIN_SIGNAL";
+          await client.rpc("cb_off_lauf_merken",{p_name:name,p_stufe:dd.stufe,p_urteil:urt,p_begruendung:dd.begruendung||null});
+          OFL.log.unshift({name:name,nennungen:nen,stufe:dd.stufe,urteil:urt});
+        }
+        if(OFL.log.length>60) OFL.log.length=60;
+        oflMalLog(); seit++;
+        if(seit>=10){
+          seit=0;
+          var dz=await oflStand(); oflMalStand(dz);
+          if(dz && dz.notaus){
+            OFL.grund="notaus"; OFL.stop=true;
+            oflSetMeldung("NOTAUS: Widerspruchsquote der letzten "+dz.fenster_n+" bei "
+              +oflKomma(dz.ausnahme_quote,1)+" % (Schwelle 25 %). Der Lauf steht. Bitte ansehen, was Riki dort liefert – "
+              +"weiterlaufen zu lassen kostet Geld für Ergebnisse, die du ohnehin einzeln prüfen musst.","var(--k-b91c1c,#b91c1c)");
+            break;
+          }
+        }
+        await new Promise(function(r){ setTimeout(r,250); });
+      }
+    }
+  }catch(e){ OFL.grund="Abbruch: "+String(e); }
+  OFL.laeuft=false;
+  if(bs) bs.style.display=""; if(bp) bp.style.display="none";
+  var dEnd=await oflStand(); oflMalStand(dEnd);
+  if(OFL.grund==="fertig") oflSetMeldung("Fertig – es sind keine offenen Zutaten mehr da.","var(--k-16a34a,#16a34a)");
+  else if(OFL.grund==="budget"||OFL.grund==="notaus"){ /* Meldung steht schon */ }
+  else if(OFL.grund) oflSetMeldung(OFL.grund,"var(--k-b91c1c,#b91c1c)");
+  else oflSetMeldung("Angehalten. Ein Neustart macht dort weiter, wo der Lauf stehen geblieben ist.","var(--muted)");
+}
+async function oflPruefen(){
+  oflSetMeldung("Prüfe gegen das Regelwerk …","var(--muted)");
+  var r=await client.rpc("cb_off_lauf_regelpruefung");
+  if(r.error){ oflSetMeldung("Prüfung fehlgeschlagen: "+r.error.message,"var(--k-b91c1c,#b91c1c)"); return; }
+  var d=(r.data&&r.data[0])||{};
+  oflSetMeldung(oflZahl(d.geprueft)+" geprüft · "+oflZahl(d.sauber)+" ohne Widerspruch · "
+    +oflZahl(d.mit_verstoss)+" widersprechen dem Regelwerk (die bleiben liegen).",
+    Number(d.mit_verstoss||0)>0?"var(--k-b45309,#b45309)":"var(--k-16a34a,#16a34a)");
+  oflMalStand(await oflStand());
+}
+async function oflUebernehmen(){
+  if(!confirm("Übernimmt in den Zutaten-Stamm – aber NUR, wo Riki fertig ist, die Wächter bestätigt haben und das Regelwerk nicht widerspricht.\n\nAlles andere bleibt liegen. Fortfahren?")) return;
+  oflSetMeldung("Übernehme …","var(--muted)");
+  var r=await client.rpc("cb_off_lauf_uebernehmen",{p_max:500});
+  if(r.error){ oflSetMeldung("Übernahme fehlgeschlagen: "+r.error.message,"var(--k-b91c1c,#b91c1c)"); return; }
+  var d=(r.data&&r.data[0])||{};
+  oflSetMeldung(oflZahl(d.uebernommen)+" in den Stamm übernommen · "+oflZahl(d.uebersprungen)+" bleiben liegen"
+    +(d.grund_liste?(" – "+d.grund_liste):""), "var(--k-16a34a,#16a34a)");
+  oflMalStand(await oflStand());
+}
+if(typeof window!=="undefined"){
+  window.offLaufRender=offLaufRender; window.oflStart=oflStart; window.oflStop=oflStop;
+  window.oflPruefen=oflPruefen; window.oflUebernehmen=oflUebernehmen;
+}
+
 function adminGo(k){
   const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
@@ -19392,7 +19639,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-30-2206";
+const APP_BUILD = "2026-07-31-0620";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
