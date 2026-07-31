@@ -8984,10 +8984,24 @@ function oflMalLog(){
   var box=document.getElementById("oflLog"); if(!box) return;
   if(!OFL.log.length){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Noch nichts bewertet.</div>'; return; }
   box.innerHTML=OFL.log.slice(0,12).map(function(x){
-    var col=x.fehler?"var(--k-b91c1c,#b91c1c)":oflUrteilFarbe(x.urteil);
-    var rechts=x.fehler ? '<span style="color:'+col+';font-size:12px">Fehler</span>'
-      : '<b style="width:22px;text-align:right;display:inline-block">'+esc(String(x.stufe))+'</b>'
-        +'<span style="color:'+col+';font-size:12px;margin-left:10px">'+esc(oflUrteilWort(x.urteil))+'</span>';
+    var rechts;
+    if(x.fehler){
+      rechts='<span style="color:var(--k-b91c1c,#b91c1c);font-size:12px">Fehler</span>';
+    }else if(x.gegen){
+      /* 31.07.: Beim Gegenlesen ist die EINZELNE Zahl nichtssagend - man muss sehen, ob
+         sie zustimmt. Deshalb "7 → 1" und das Urteil aus dem VERGLEICH, nicht aus den
+         Waechtern. Vorher stand hier faelschlich bei jeder Zeile "kein Prüfsignal". */
+      var dz=(x.erst==null||x.stufe==null)?null:Math.abs(x.stufe-x.erst);
+      var c=dz===null?"var(--muted)":dz===0?"var(--k-16a34a,#16a34a)":dz===1?"var(--k-b45309,#b45309)":"var(--k-b91c1c,#b91c1c)";
+      var w=dz===null?"gegengelesen":dz===0?"einig":dz===1?"±1 Stufe":"uneinig";
+      rechts='<b style="width:56px;text-align:right;display:inline-block">'
+        +esc(String(x.erst==null?"?":x.erst))+' <span style="color:var(--muted);font-weight:400">→</span> '+esc(String(x.stufe))+'</b>'
+        +'<span style="color:'+c+';font-size:12px;margin-left:10px;width:74px;display:inline-block">'+esc(w)+'</span>';
+    }else{
+      var col=oflUrteilFarbe(x.urteil);
+      rechts='<b style="width:56px;text-align:right;display:inline-block">'+esc(String(x.stufe))+'</b>'
+        +'<span style="color:'+col+';font-size:12px;margin-left:10px;width:74px;display:inline-block">'+esc(oflUrteilWort(x.urteil))+'</span>';
+    }
     return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">'
       +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name)+'</span>'
       +'<span style="color:var(--muted);font-size:12px">'+esc(String(x.nennungen))+'×</span>'
@@ -9154,7 +9168,7 @@ async function oflGegen(){
       var liste=(nx.data)||[];
       if(!liste.length){ OFL.grund="fertig"; break; }
       for(var i=0;i<liste.length && !OFL.stop;i++){
-        var name=liste[i].name, nen=liste[i].nennungen;
+        var name=liste[i].name, nen=liste[i].nennungen, erst=liste[i].erst_stufe;
         var s=await client.auth.getSession();
         var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
         if(!tok){ OFL.grund="Nicht mehr angemeldet."; OFL.stop=true; break; }
@@ -9172,10 +9186,10 @@ async function oflGegen(){
         }
         if(!ok || !dd || typeof dd.stufe!=="number"){
           await client.rpc("cb_off_gegen_merken",{p_name:name,p_fehler:String((dd&&dd.error)||"unbekannter Fehler")});
-          OFL.log.unshift({name:name,nennungen:nen,fehler:true});
+          OFL.log.unshift({name:name,nennungen:nen,fehler:true,gegen:true});
         }else{
           await client.rpc("cb_off_gegen_merken",{p_name:name,p_stufe:dd.stufe,p_modell:OFL_GEGEN_MODELL});
-          OFL.log.unshift({name:name,nennungen:nen,stufe:dd.stufe,urteil:"gegengelesen"});
+          OFL.log.unshift({name:name,nennungen:nen,stufe:dd.stufe,erst:erst,gegen:true});
         }
         if(OFL.log.length>60) OFL.log.length=60;
         oflMalLog();
@@ -19735,7 +19749,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-31-0745";
+const APP_BUILD = "2026-07-31-0800";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
