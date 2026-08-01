@@ -952,15 +952,44 @@ function erklaerung(d){
    Seiten in unstabiler Reihenfolge – ab >1000 Produkten überlappen sie, Zeilen fallen
    durch (gemessen: 1606 Zeilen roh, aber nur 1373 verschieden → 233 Produkte unsichtbar).
    .order("id") trennt die Seiten sauber. Jede seitenweise Abfrage MUSS sortieren. */
+/* 🔴 31.07.2026 UMGEBAUT. Vorher lud diese Funktion den GANZEN Katalog.
+   Das ging bei 1.517 Produkten; nach dem OFF-Import waren es 57.290 - die
+   Seite lud minutenlang und zeigte "Alle 20000 Produkte", weil die Schleife
+   nach 20 Seiten abbrach. Der Deckel war ein Bauteil, keine Katalogzahl.
+
+   Wer ruft sie? Vorschlagslisten (Tagebuch, Einkaufsliste, Rezept-Zutaten)
+   und die Empfehlungsbloecke. Die brauchen KURATIERTE Produkte - keine
+   zehntausende unverifizierten Import-Datensaetze ohne Index. Genau das
+   liefert sie jetzt: bewertete Produkte zuerst, hart begrenzt.
+
+   > Eine Vorschlagsliste soll vorschlagen, nicht alles zeigen.
+
+   Die vollstaendige Suche laeuft serverseitig (cb_produkte_suchen) und findet
+   weiterhin JEDES aktive Produkt - auch die ohne Index. */
+const PROD_VORSCHLAG_MAX = 3000;
 async function fetchAlleProdukte(){
   const SEITE=1000; let alle=[], von=0;
-  for(let i=0;i<20;i++){
-    const {data,error}=await client.from("v_web_produkte").select("*").order("id").range(von, von+SEITE-1);
+  const maxSeiten = Math.ceil(PROD_VORSCHLAG_MAX/SEITE);
+  for(let i=0;i<maxSeiten;i++){
+    /* Bewertete zuerst: sie sind kuratiert und die einzigen, die in
+       Empfehlungen und Rangfolgen ueberhaupt auftauchen duerfen (§1.11q). */
+    const {data,error}=await client.from("v_web_produkte").select("*")
+      .not("clean_score","is",null).order("id").range(von, von+SEITE-1);
     if(error) throw error;
     if(!data || !data.length) break;
     alle=alle.concat(data);
     if(data.length<SEITE) break;
     von+=SEITE;
+  }
+  /* Ist noch Platz, kommen unbewertete dazu - damit kleine Kataloge sich
+     verhalten wie frueher und nichts fehlt, was vorher da war. */
+  if(alle.length < PROD_VORSCHLAG_MAX){
+    const rest = PROD_VORSCHLAG_MAX - alle.length;
+    try{
+      const {data}=await client.from("v_web_produkte").select("*")
+        .is("clean_score",null).order("id").range(0, Math.min(rest,SEITE)-1);
+      if(data && data.length) alle=alle.concat(data);
+    }catch(e){ console.warn("fetchAlleProdukte (ohne Index):",e); }
   }
   return alle;
 }
@@ -1507,11 +1536,64 @@ async function saveProfilZiel(){
   loadZielHistorie();
 }
 
+/* ===========================================================================
+   SUCHE LÄUFT SERVERSEITIG (31.07.2026)
+   ---------------------------------------------------------------------------
+   Bis heute lud load() den GANZEN Katalog in den Browser und suchte dort.
+   Bei 1.517 Produkten ging das. Nach dem OFF-Import waren es 57.290 - die
+   Seite lud minutenlang und zeigte am Ende "Alle 20000 Produkte", weil
+   fetchAlleProdukte bei 20 Seiten à 1000 abbricht.
+
+   > Eine Architektur, die den ganzen Katalog in den Browser lädt, hat eine
+   > Obergrenze. Sie stand nur nirgends geschrieben.
+
+   Jetzt: cb_produkte_suchen sucht in der Datenbank (gemessen 26 ms über
+   57.290 Produkte), cb_katalog_zaehler liefert die Kachelzahlen.
+   🔴 Die Suchregel steht damit NUR NOCH DORT (§1.2c) - _prodMatch/_relevanz
+   bleiben im Code, werden vom Katalog aber nicht mehr benutzt; sie bedienen
+   weiterhin die Stellen, die mit einer kleinen geladenen Liste arbeiten.
+   =========================================================================== */
+var PROD_SEITE = 60;          // so viele Treffer je Nachladen
+window._KATGESAMT = 0;        // Gesamtzahl aktiver Produkte (aus dem Zähler)
+
+/* ALL ist kein Katalog mehr, sondern ein CACHE der zuletzt gesehenen Produkte.
+   detail(d) und detailById(id) greifen darauf zu; was nicht drin ist, wird
+   einzeln nachgeladen. Der Name bleibt, damit die 87 bestehenden Fundstellen
+   weiter funktionieren - ihr Inhalt ist jetzt aber eine Auswahl, keine
+   Gesamtheit. Wer "alle" braucht, muss suchen. */
+async function prodCacheDazu(liste){
+  if(!Array.isArray(liste)) return;
+  var bekannt={}; (ALL||[]).forEach(function(p){ if(p&&p.id) bekannt[p.id]=true; });
+  liste.forEach(function(p){ if(p&&p.id&&!bekannt[p.id]){ ALL.push(p); bekannt[p.id]=true; } });
+  if(ALL.length>4000) ALL=ALL.slice(-3000);   // Cache begrenzen, sonst wächst er endlos
+}
+/* Ein Produkt vollständig holen (alle Felder aus v_web_produkte).
+   Die Trefferliste liefert nur die Kachelfelder - die Detailkarte braucht mehr. */
+async function prodVoll(id){
+  if(!id) return null;
+  try{
+    const {data,error}=await client.from("v_web_produkte").select("*").eq("id",id).limit(1);
+    if(error) throw error;
+    const p=(data&&data[0])?{...data[0], clean_score:num(data[0].clean_score)}:null;
+    if(p) await prodCacheDazu([p]);
+    return p;
+  }catch(e){ console.warn("prodVoll:",e); return null; }
+}
 async function load(){
-  let data;
-  try{ data = await fetchAlleProdukte(); }
-  catch(error){ document.getElementById("stats").textContent="Fehler beim Laden: "+error.message; return; }
-  ALL = data.map(d=>({...d, clean_score:num(d.clean_score)}));
+  ALL = [];
+  try{
+    const {data:kz,error:ke}=await client.rpc("cb_katalog_zaehler",{p_nur_bio:false});
+    if(ke) throw ke;
+    window._KATLIST=(kz||[]).map(function(x){ return {k:x.kategorie, n:num(x.anzahl)}; });
+    window._KATGESAMT=(kz||[]).reduce(function(s,x){ return s+num(x.anzahl); },0);
+  }catch(error){
+    /* Kein stiller Fangblock (§1.13i): Wenn die Zähler nicht kommen, sieht der
+       Nutzer eine leere Seite - dann muss dort auch stehen, warum. */
+    console.error("cb_katalog_zaehler:",error);
+    const st=document.getElementById("stats");
+    if(st) st.textContent="Fehler beim Laden: "+(error.message||error);
+    window._KATLIST=[]; window._KATGESAMT=0;
+  }
   try{ const {data:sb}=await client.from("v_supplement_bilanz").select("*"); SUPP_BIL={}; (sb||[]).forEach(x=>{ SUPP_BIL[x["Produkt_ID"]]=x; }); }catch(e){}
   try{ const {data:ww}=await client.from("v_wirkstoff_wissen").select("*"); WISSEN=ww||[]; }catch(e){ WISSEN=[]; }
   /* 28z16: kuratierte Tausch-Tipps (kleine Map Produkt->Tausch, eine RPC) */
@@ -1519,9 +1601,9 @@ async function load(){
   try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; (sm||[]).forEach(x=>{STK[x.id]=num(x.stueck_gramm);}); }catch(e){}
   /* Stück-GRÖSSEN (S/M/L/XL …) je Produkt fürs Rezept-Dropdown – Gramm = essbarer Anteil (Ralph 24.07.). */
   try{ const {data:sg}=await client.rpc("cb_stueck_groessen"); STKV={}; (sg||[]).forEach(x=>{ (STKV[x.produkt_id]=STKV[x.produkt_id]||[]).push({bez:x.bezeichnung, g:num(x.gramm), sch:!!x.ist_schaetzung}); }); }catch(e){}
-  const _kc={}; ALL.forEach(d=>{ if(d.kategorie) _kc[d.kategorie]=(_kc[d.kategorie]||0)+1; });
-  window._KATLIST=Object.keys(_kc).map(k=>({k:k,n:_kc[k]})).sort((a,b)=>b.n-a.n);
-  render();
+  /* Die Kategorie-Zaehlung kam frueher aus ALL - das ging nur, solange ALL den
+     ganzen Katalog enthielt. Jetzt liefert sie cb_katalog_zaehler (oben). */
+  await render();
 }
 function mkLabel(m){ return (m && m.toLowerCase()!=="generisch") ? m : ""; }
 function subLine(d){ const m=mkLabel(d.marke); return (m?esc(m)+" · ":"")+esc(d.kategorie||""); }
@@ -1568,7 +1650,13 @@ function renderEmpfehlungen(){
       +'</div>';
   }).join('');
 }
-function detailById(id){ const p=(ALL||[]).find(x=>x.id===id); if(p) detail(p); }
+/* Sucht erst im Cache, laedt sonst nach. Frueher lag der ganze Katalog in ALL -
+   ein "nicht gefunden" konnte es gar nicht geben. Jetzt schon, und dann wird
+   geladen statt stillschweigend nichts zu tun. */
+async function detailById(id){
+  const p=(ALL||[]).find(x=>x&&x.id===id&&x.zutaten!==undefined) || await prodVoll(id);
+  if(p) detail(p);
+}
 /* Einheitliche Produkt-Referenz-Karte (Bundle, „bessere Alternative", Hinweise) – klickbar -> Produktansicht. */
 function prodRef(id, opts){
   opts=opts||{};
@@ -1863,7 +1951,8 @@ function bioFilterChipHtml(){
 }
 function prodBioToggle(){ window._prodNurBio=!window._prodNurBio; try{ render(); }catch(e){} }
 if(typeof window!=="undefined"){ window.prodBioToggle=prodBioToggle; window.bioFilterChipHtml=bioFilterChipHtml; window.bioPill=bioPill; }
-function render(){
+var _renderSeq = 0;   // Sequenz-Wache: eine späte Antwort darf eine neuere nicht überschreiben
+async function render(){
   const rawQ=document.getElementById("q").value.trim();
   const q=_norm(rawQ);
   const kat=window._prodKat||"";
@@ -1878,13 +1967,31 @@ function render(){
   }
   /* 28z20 (Ralph: in der Kategorie-Ansicht fand die Suche nur die Kategorie - "alnatura"
      in Fleisch & Fisch = 0 Treffer): SOBALD gesucht wird, gilt die Suche fuer ALLE
-     Produkte; die Kategorie filtert nur die stoeberende Ansicht ohne Suchbegriff. */
-  let list=ALL.filter(d=>{
-    if(kat && !q && d.kategorie!==kat)return false;
-    if(q && !_prodMatch(d,q))return false;
-    if(nurBio && d.bio!==true)return false;
-    return true;
-  });
+     Produkte; die Kategorie filtert nur die stoeberende Ansicht ohne Suchbegriff.
+     Serverseitig abgebildet: bei gesetztem Suchbegriff geht KEINE Kategorie mit. */
+  var _kat = (kat && !q) ? kat : null;
+  var _seq = ++_renderSeq;                 // Wache gegen spaete Antworten
+  var _res;
+  try{
+    const {data,error}=await client.rpc("cb_produkte_suchen",{
+      p_q: rawQ||null, p_kategorie:_kat, p_nur_bio:nurBio,
+      p_limit: PROD_SEITE, p_offset: 0
+    });
+    if(error) throw error;
+    _res=data||[];
+  }catch(err){
+    /* Kein leerer Fangblock (§1.13i): ein stiller Fehler kostet Monate. */
+    console.error("cb_produkte_suchen:",err);
+    document.getElementById("stats").textContent="Suche nicht verfügbar: "+(err.message||err);
+    grid.innerHTML=bioFilterChipHtml();
+    return;
+  }
+  if(_seq!==_renderSeq) return;            // eine neuere Suche ist schon unterwegs
+  let list=_res.map(function(d){ return Object.assign({},d,{clean_score:num(d.clean_score)}); });
+  await prodCacheDazu(list);
+  var _gesamt = list.length ? num(list[0].gesamt) : 0;
+  var _gedeckelt = !!(list.length && list[0].gesamt_gedeckelt);
+  window._prodMehr = { q:rawQ||null, kat:_kat, bio:nurBio, geladen:list.length, gesamt:_gesamt };
   /* Suche mitzaehlen - aber ERST wenn der Nutzer aufgehoert hat zu tippen (1 s),
      sonst laende jeder Tastendruck ("m","ma","man"...) als eigener Begriff.
      Gezaehlt wird der fertige Begriff + die Trefferzahl. 0 Treffer = Katalog-Luecke. */
@@ -1895,13 +2002,13 @@ function render(){
       try{ client.rpc("cb_log_suche",{p_begriff:_b, p_treffer:_n}).then(function(){},function(){}); }catch(e){}
     }, 1000);
   }
-  // Bei einer Suche zaehlt Relevanz zuerst, erst danach der Score.
-  // Ohne Suche (Kategorie-Ansicht) bleibt es beim Score.
-  if(q) list.sort((a,b)=> (_relevanz(b,q)-_relevanz(a,q)) || ((b.clean_score??-1)-(a.clean_score??-1)));
-  else  list.sort((a,b)=> (b.clean_score??-1)-(a.clean_score??-1));
-  if(kat && q) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,var(--k-166534));font-weight:600">‹ Kategorien</span> · Suche in <b>allen</b> Produkten · '+list.length+' Produkt(e)';
-  else if(kat) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,var(--k-166534));font-weight:600">‹ Kategorien</span> · '+esc(kat)+' · '+list.length+' Produkt(e)';
-  else document.getElementById("stats").textContent=list.length+" Produkt(e)";
+  /* Sortiert wird SERVERSEITIG (Relevanz, dann Score, dann Name) - dieselbe
+     Reihenfolge wie vorher, aber an einem Ort (§1.2c). Hier nicht nachsortieren:
+     bei nachgeladenen Seiten wuerde das die Reihenfolge zerreissen. */
+  var _zahl = _gedeckelt ? ('über 500') : (_gesamt+' Produkt(e)');
+  if(kat && q) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,var(--k-166534));font-weight:600">‹ Kategorien</span> · Suche in <b>allen</b> Produkten · '+_zahl;
+  else if(kat) document.getElementById("stats").innerHTML='<span onclick="prodKatReset()" style="cursor:pointer;color:var(--greendk,var(--k-166534));font-weight:600">‹ Kategorien</span> · '+esc(kat)+' · '+_zahl;
+  else document.getElementById("stats").textContent=_zahl;
   /* Der Filter-Chip steht IMMER da - auch in der Trefferliste, sonst kommt man aus dem
      Bio-Filter nicht mehr heraus, ohne die Seite neu zu laden. */
   grid.innerHTML=bioFilterChipHtml();
@@ -1909,7 +2016,12 @@ function render(){
     grid.innerHTML+='<div style="grid-column:1/-1;padding:18px 16px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:13px;line-height:1.6">Noch kein Produkt ist als Bio <b>belegt</b> erfasst. Wir zeigen hier nur, was am Etikett oder beim Hersteller geprüft wurde – nicht, was „Bio“ im Namen trägt.</div>';
   }
   list.forEach((d,i)=>{
-    const c=document.createElement("div");c.className="card cardIn";c.onclick=()=>detail(d);
+    const c=document.createElement("div");c.className="card cardIn";
+    /* 🔴 Die Trefferliste liefert nur die Kachelfelder. Die Detailkarte braucht
+       Zutaten, Naehrwerte, Zusatzstoffe - deshalb wird beim Oeffnen nachgeladen
+       (prodOeffnen). Frueher lag der ganze Datensatz schon im Browser; das ging
+       nur, solange der ganze Katalog geladen wurde. */
+    c.onclick=()=>prodOeffnen(d.id);
     // Gestaffeltes Einblenden: nur die ersten 12, danach waere die Verzoegerung
     // laenger als die Geduld. Nur transform+opacity - beides laeuft auf der GPU.
     c.style.animationDelay=(Math.min(i,11)*40)+"ms";
@@ -1922,7 +2034,60 @@ function render(){
       </div>`;
     grid.appendChild(c);
   });
+  /* Weitere Treffer nachladen. Ohne diesen Knopf waere bei 60 Treffern Schluss -
+     und der Nutzer wuesste nicht, dass es mehr gibt. Die Zahl daneben sagt,
+     wie viele noch kommen. */
+  if(_gesamt > list.length || _gedeckelt){
+    var rest = _gedeckelt ? null : (_gesamt - list.length);
+    var mb=document.createElement("div");
+    mb.style.cssText="grid-column:1/-1;margin-top:6px";
+    mb.innerHTML='<button id="prodMehrBtn" onclick="prodMehrLaden()" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:14px">'
+      +'Weitere '+(rest===null?'Treffer':(Math.min(rest,PROD_SEITE)+' von '+rest))+' laden</button>';
+    grid.appendChild(mb);
+  }
 }
+/* Ein Produkt aus der Trefferliste oeffnen: erst das vollstaendige Objekt holen,
+   dann die Karte zeigen. Schlaegt das Nachladen fehl, sagen wir das - eine Karte
+   mit halben Daten waere schlimmer als eine Meldung. */
+async function prodOeffnen(id){
+  var vorhanden=(ALL||[]).find(function(x){ return x&&x.id===id && x.zutaten!==undefined; });
+  if(vorhanden){ detail(vorhanden); return; }
+  var p=await prodVoll(id);
+  if(p) detail(p);
+  else alert("Das Produkt konnte gerade nicht geladen werden. Bitte noch einmal versuchen.");
+}
+/* Naechste Seite an die bestehende Liste anhaengen - NICHT neu rendern,
+   sonst springt die Ansicht nach oben. */
+async function prodMehrLaden(){
+  var m=window._prodMehr; if(!m) return;
+  var btn=document.getElementById("prodMehrBtn");
+  if(btn){ btn.disabled=true; btn.textContent="lädt …"; }
+  try{
+    const {data,error}=await client.rpc("cb_produkte_suchen",{
+      p_q:m.q, p_kategorie:m.kat, p_nur_bio:m.bio,
+      p_limit:PROD_SEITE, p_offset:m.geladen
+    });
+    if(error) throw error;
+    var neu=(data||[]).map(function(d){ return Object.assign({},d,{clean_score:num(d.clean_score)}); });
+    await prodCacheDazu(neu);
+    m.geladen += neu.length;
+    var grid=document.getElementById("grid");
+    var mb=btn?btn.parentNode:null;
+    neu.forEach(function(d){
+      var c=document.createElement("div"); c.className="card"; c.onclick=function(){ prodOeffnen(d.id); };
+      c.innerHTML=scoreLead(d,62)+'<div class="meta"><div class="name">'+esc(d.name)+'</div>'
+        +'<div class="sub">'+subLine(d)+'</div>'+statusTag(d)+efChip(d.ernaehrungsform)+bioPill(d)+'</div>';
+      if(mb) grid.insertBefore(c, mb); else grid.appendChild(c);
+    });
+    var rest = m.gesamt - m.geladen;
+    if(mb && rest>0 && neu.length){ btn.disabled=false; btn.textContent='Weitere '+Math.min(rest,PROD_SEITE)+' von '+rest+' laden'; }
+    else if(mb) mb.remove();
+  }catch(e){
+    console.error("prodMehrLaden:",e);
+    if(btn){ btn.disabled=false; btn.textContent="Fehler – nochmal versuchen"; }
+  }
+}
+if(typeof window!=="undefined"){ window.prodOeffnen=prodOeffnen; window.prodMehrLaden=prodMehrLaden; }
 var KAT_META={
   "Obst & Gemüse":{e:"🥦",bg:"var(--k-eaf3de)",fg:"var(--k-3b6d11)"},
   "Milchprodukte & Eier":{e:"🥛",bg:"var(--k-e6f1fb)",fg:"var(--k-185fa5)"},
@@ -1975,7 +2140,11 @@ function katKachelnHtml(){
   return '<div style="grid-column:1/-1;width:100%;box-sizing:border-box;max-width:760px;margin:0 auto">'
     +'<div style="font-size:14px;color:var(--muted,var(--k-6b6256));margin:2px 2px 10px">Kategorie wählen oder oben suchen &amp; Barcode scannen.</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+tiles+'</div>'
-    +'<button onclick="window._prodShowAll=true;render()" style="width:100%;box-sizing:border-box;margin-top:10px;padding:12px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:14px">Alle '+ALL.length+' Produkte anzeigen</button>'
+    /* Die Zahl kommt aus cb_katalog_zaehler, nicht mehr aus ALL.length - ALL ist
+       jetzt ein Cache und wuesste die Gesamtzahl gar nicht. Genau daher stammte
+       die irrefuehrende Anzeige "Alle 20000 Produkte": das war nicht der Katalog,
+       sondern der Deckel des Laders. */
+    +'<button onclick="window._prodShowAll=true;render()" style="width:100%;box-sizing:border-box;margin-top:10px;padding:12px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:14px">Alle '+(window._KATGESAMT||0).toLocaleString("de-DE")+' Produkte anzeigen</button>'
     +'</div>';
 }
 function prodKatPick(k){ window._prodKat=k; window._prodShowAll=false; var qi=document.getElementById("q"); if(qi) qi.value=""; render(); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(e){ window.scrollTo(0,0); } }
@@ -20042,7 +20211,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-01-0630";
+const APP_BUILD = "2026-08-01-0701";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
