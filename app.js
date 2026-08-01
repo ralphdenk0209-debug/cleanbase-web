@@ -1244,7 +1244,58 @@ function updateAuthUI(){
   const st=document.getElementById("tabStufen"); if(st) st.style.display="none";
   const us=document.getElementById("tabUsers"); if(us) us.style.display="none";
   try{ mountTierOvChip(); }catch(e){}
+  try{ riBanderoleKopf(); }catch(e){ console.warn("riBanderoleKopf:",e); }
 }
+/* ===========================================================================
+   PREMIUM-BANDEROLE IN DER KOPFLEISTE (Ralph 01.08.2026)
+   ---------------------------------------------------------------------------
+   Sie saß bisher im Dashboard-Kasten und war damit nur auf der Startseite zu
+   sehen. Jetzt sitzt sie in der Kopfleiste (.hero) - also auf JEDER Seite.
+
+   Warum hier und nicht im Dashboard eingehängt: der Status hängt an ME, und ME
+   ändert sich beim An- und Abmelden. updateAuthUI läuft genau dann - eine
+   Stelle, ein Zeitpunkt. Würde sie beim Rendern des Dashboards gebaut, zeigte
+   sie nach dem Abmelden noch den alten Stand, bis jemand die Seite wechselt.
+
+   .hero hat position:sticky - das ist ein Positionierungskontext, das absolut
+   gesetzte Band bleibt also in der Leiste. overflow:hidden ist PFLICHT, sonst
+   ragt die gedrehte Fläche über den Rand hinaus.
+   =========================================================================== */
+function riBanderoleStatus(){
+  if(!ME) return {text:'', art:''};
+  var tb = ME.trial_bis ? new Date(ME.trial_bis) : null;
+  var isTrial = (ME.sub_status==='trialing') && tb && tb > new Date();
+  if(isTrial){
+    var d = Math.max(0, Math.ceil((tb - new Date())/86400000));
+    return {text: d+' Tag'+(d===1?'':'e')+' Test', art:'trial'};
+  }
+  if(ME.is_premium) return {text:'PREMIUM', art:'premium'};
+  return {text:'', art:''};
+}
+function riBanderoleKopf(){
+  var hero = document.querySelector('.hero');
+  if(!hero) return;
+  var alt = document.getElementById('riBandKopf');
+  var s = riBanderoleStatus();
+  if(!s.text){ if(alt) alt.remove(); return; }   /* ohne Status kein Band */
+  if(!alt){
+    alt = document.createElement('div');
+    alt.id = 'riBandKopf';
+    /* Das Band darf nichts anklickbar machen, was darunter liegt */
+    alt.style.cssText = 'position:absolute;top:0;right:0;width:118px;height:118px;'
+      + 'overflow:hidden;pointer-events:none;z-index:5';
+    if(getComputedStyle(hero).position === 'static') hero.style.position = 'relative';
+    hero.style.overflow = 'hidden';
+    hero.appendChild(alt);
+  }
+  var bg = (s.art==='premium') ? 'var(--green)'     : 'var(--greenlt)';
+  var fg = (s.art==='premium') ? 'var(--auf-gruen)' : 'var(--greendk)';
+  alt.innerHTML = '<div style="position:absolute;transform:rotate(45deg);background:'+bg
+    + ';color:'+fg+';font-size:10px;font-weight:800;letter-spacing:.06em;text-align:center;'
+    + 'width:170px;top:22px;right:-48px;padding:4px 0;'
+    + 'box-shadow:0 2px 6px rgba(20,40,70,.18)">'+esc(s.text)+'</div>';
+}
+if(typeof window!=='undefined'){ window.riBanderoleKopf=riBanderoleKopf; }
 function updateGate(){
   const form=document.getElementById("vorForm"), gate=document.getElementById("vorGate");
   if(!form||!gate) return;
@@ -7806,31 +7857,16 @@ async function renderStart(){
    Ecke, die per overflow:hidden beschnitten wird - so bleibt er auf schmalen
    Handys im Rahmen und kann nichts ueberdecken (§1.11n-n: nichts, was ueber
    dem liegt, womit man arbeitet). Ohne Status wird gar nichts gerendert. */
-function riBanderole(text, art){
-  if(!text) return '';
-  var bg  = (art==='premium') ? 'var(--green)'   : 'var(--greenlt)';
-  var fg  = (art==='premium') ? 'var(--auf-gruen)' : 'var(--greendk)';
-  return '<div style="position:relative;height:0;overflow:visible;z-index:2">'
-    +'<div style="position:absolute;right:-6px;top:-2px;width:132px;height:132px;overflow:hidden;pointer-events:none">'
-      +'<div style="position:absolute;transform:rotate(45deg);background:'+bg+';color:'+fg
-        +';font-size:10.5px;font-weight:800;letter-spacing:.06em;text-align:center;'
-        +'width:190px;top:26px;right:-52px;padding:5px 0;box-shadow:0 2px 6px rgba(20,40,70,.18)">'
-        +esc(text)+'</div>'
-    +'</div></div>';
-}
-if(typeof window!=='undefined'){ window.riBanderole=riBanderole; }
+
   const schritteHtml = (ME&&ME.is_premium) ? '<div id="schritteBox"></div><div id="schlafBox"></div>' : '';
-  /* Status als Banderole: nur noch Text + Farbe, die Darstellung macht riBanderole. */
-  let statusText='', statusFarbe='';
-  if(ME){ const tb=ME.trial_bis?new Date(ME.trial_bis):null; const isTrial=(ME.sub_status==='trialing')&&tb&&tb>new Date();
-    if(isTrial){ const d=Math.max(0,Math.ceil((tb-new Date())/86400000)); statusText=d+' Tag'+(d===1?'':'e')+' Test'; statusFarbe='trial'; }
-    else if(ME.is_premium){ statusText='PREMIUM'; statusFarbe='premium'; }
-  }
   dash.innerHTML=
-    /* Ralph 30.07.: Begruessung + Datum raus, der Status wandert als diagonale
-       Banderole in die obere rechte Ecke (riBanderole). Mehr Platz fuer die Kacheln. */
-    riBanderole(statusText, statusFarbe)
-    +startKennzahlen(sum, prof)
+    /* Ralph 30.07.: Begruessung + Datum raus, der Status als diagonale Banderole
+       in die obere rechte Ecke.
+       Ralph 01.08.: Die Banderole ist von hier in die KOPFLEISTE gewandert
+       (riBanderoleKopf) - dort steht sie auf jeder Seite, nicht nur auf der
+       Startseite. Hier wird sie NICHT mehr gebaut, sonst stuende sie doppelt
+       (§1.11n-p: toter Code, der dieselben IDs vergibt, ist eine geladene Falle). */
+    startKennzahlen(sum, prof)
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
     +riGlowTile('produkte','search','Produkte','suchen &amp; scannen','green','barcode','startProdScan()')
     +riGlowTile('rezepte','bowl','Rezepte','finden &amp; kochen','amber')
@@ -20257,7 +20293,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-01-1406";
+const APP_BUILD = "2026-08-01-1832";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
