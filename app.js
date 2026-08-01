@@ -967,7 +967,19 @@ function erklaerung(d){
    Die vollstaendige Suche laeuft serverseitig (cb_produkte_suchen) und findet
    weiterhin JEDES aktive Produkt - auch die ohne Index. */
 const PROD_VORSCHLAG_MAX = 3000;
-async function fetchAlleProdukte(){
+/* 🔴 01.08.2026 (Doc, Ralphs Fund "Ladezeit sehr lange"): Beim App-Start riefen
+   MEHRERE Stellen gleichzeitig fetchAlleProdukte - jede prueft if(!ALL.length),
+   und solange die erste Antwort unterwegs ist, ist ALL fuer alle leer. Im
+   API-Log standen dieselben 1000er-Seiten DREI- bis VIERFACH (je Seite ~1-3 s
+   Datenbankzeit, mehrfach bezahlt). Ein laufender Abruf wird jetzt geteilt
+   (Single-Flight): Wer waehrend des Ladens fragt, bekommt dasselbe Promise. */
+let _fapLaufend = null;
+function fetchAlleProdukte(){
+  if(_fapLaufend) return _fapLaufend;
+  _fapLaufend = _fapLaden().finally(function(){ _fapLaufend = null; });
+  return _fapLaufend;
+}
+async function _fapLaden(){
   const SEITE=1000; let alle=[], von=0;
   const maxSeiten = Math.ceil(PROD_VORSCHLAG_MAX/SEITE);
   for(let i=0;i<maxSeiten;i++){
@@ -1581,17 +1593,29 @@ async function prodVoll(id){
 }
 async function load(){
   ALL = [];
+  window._katFehler=null;
   try{
-    const {data:kz,error:ke}=await client.rpc("cb_katalog_zaehler",{p_nur_bio:false});
-    if(ke) throw ke;
+    let _kzr = await client.rpc("cb_katalog_zaehler",{p_nur_bio:false});
+    /* 🔴 01.08.2026 (Doc): Der erste Aufruf nach laengerer Ruhe lief kalt in
+       das 3-Sekunden-Limit fuer Gaeste (im API-Log: HTTP 500) - danach ist der
+       Cache warm und derselbe Aufruf braucht ~66 ms. EIN zweiter Versuch
+       faengt genau diesen Einzelfall ab; ein echter Dauerfehler scheitert
+       auch beim zweiten Mal und wird unten sichtbar gemacht. */
+    if(_kzr.error) _kzr = await client.rpc("cb_katalog_zaehler",{p_nur_bio:false});
+    if(_kzr.error) throw _kzr.error;
+    const kz=_kzr.data;
     window._KATLIST=(kz||[]).map(function(x){ return {k:x.kategorie, n:num(x.anzahl)}; });
     window._KATGESAMT=(kz||[]).reduce(function(s,x){ return s+num(x.anzahl); },0);
   }catch(error){
     /* Kein stiller Fangblock (§1.13i): Wenn die Zähler nicht kommen, sieht der
-       Nutzer eine leere Seite - dann muss dort auch stehen, warum. */
+       Nutzer eine leere Seite - dann muss dort auch stehen, warum.
+       Der Fehler wird gemerkt, weil render() die #stats-Zeile gleich wieder
+       leert - die Meldung selbst malt render() ins Raster (Ralphs Screenshot:
+       leere Startseite OHNE ein Wort Erklaerung). */
     console.error("cb_katalog_zaehler:",error);
+    window._katFehler=(error&&error.message)?error.message:String(error);
     const st=document.getElementById("stats");
-    if(st) st.textContent="Fehler beim Laden: "+(error.message||error);
+    if(st) st.textContent="Fehler beim Laden: "+window._katFehler;
     window._KATLIST=[]; window._KATGESAMT=0;
   }
   try{ const {data:sb}=await client.from("v_supplement_bilanz").select("*"); SUPP_BIL={}; (sb||[]).forEach(x=>{ SUPP_BIL[x["Produkt_ID"]]=x; }); }catch(e){}
@@ -1962,7 +1986,19 @@ async function render(){
   const nurBio=!!window._prodNurBio;
   if(!q && !kat && !nurBio && !window._prodShowAll){
     document.getElementById("stats").textContent="";
-    grid.innerHTML=bioFilterChipHtml()+katKachelnHtml();
+    var _kacheln=katKachelnHtml();
+    /* 🔴 01.08.2026 (Doc): Schlug der Kachel-Zaehler fehl, schrieb load() die
+       Fehlermeldung nach #stats - und die Zeile direkt hierueber loeschte sie
+       wieder. Ergebnis war eine leere Startseite ohne ein Wort Erklaerung
+       (Ralphs Screenshot vom 01.08.). Jetzt steht am Platz der Kacheln eine
+       Meldung mit einem Knopf, der es erneut versucht. */
+    if(!_kacheln){
+      _kacheln='<div style="grid-column:1/-1;padding:18px 16px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:13px;line-height:1.6">'
+        +'Die Kategorien konnten gerade nicht geladen werden.'
+        +(window._katFehler?(' <span style="opacity:.75">('+esc(String(window._katFehler))+')</span>'):'')
+        +'<br><button onclick="load()" style="margin-top:10px;padding:10px 14px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:14px">Erneut versuchen</button></div>';
+    }
+    grid.innerHTML=bioFilterChipHtml()+_kacheln;
     return;
   }
   /* 28z20 (Ralph: in der Kategorie-Ansicht fand die Suche nur die Kategorie - "alnatura"
@@ -20221,7 +20257,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-01-1023";
+const APP_BUILD = "2026-08-01-1406";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
