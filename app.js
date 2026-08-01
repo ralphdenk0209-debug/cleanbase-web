@@ -3700,7 +3700,8 @@ function navTo(m){ closeMehr(); var c=window._curMode; if(c&&c!==m){ NAV_HIST.pu
    Wer in "Obst & Gemüse" nach unten gescrollt hat und wieder auf Produkte tippt, will
    von vorn anfangen, nicht dort weitermachen, wo er zuletzt war. Deshalb wird die zuletzt
    gewaehlte Kategorie und die "alle anzeigen"-Ansicht zurueckgesetzt.
-   navTo('produkte') an anderen Stellen (Suche vom Start) bleibt unberuehrt. */
+   Seit 31.07. nimmt auch die PRODUKTE-KACHEL auf der Startseite diesen Weg (Ralph).
+   Unberuehrt bleibt nur startProdSearch(): dort ist der Suchtext der Zweck des Klicks. */
 function prodHome(){
   window._prodKat=""; window._prodShowAll=false;
   var qi=document.getElementById("q"); if(qi) qi.value="";
@@ -7825,8 +7826,17 @@ function riIco(n,s){ s=s||18;
 }
 function riChip(n){ return '<span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--greenlt);color:var(--greendk)">'+riIco(n,21)+'</span>'; }
 function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
+  /* 🔴 31.07. (Ralph: "wenn man auf der startseite suchen klickt, kommt man auf die
+     vorherige suche"): Die Kachel rief navTo('produkte') und landete damit im ZUSTAND
+     von vorhin - alter Suchtext, alte Kategorie. Am 18.07. war das bewusst so
+     entschieden ("navTo an anderen Stellen bleibt unberuehrt"); Ralph dreht es jetzt um,
+     und er hat recht: Eine Kachel auf der STARTSEITE ist ein Einstieg, kein Zurueck.
+     Wer von vorn anfaengt, erwartet ein leeres Suchfeld.
+     Betrifft nur die Produkte-Kachel. startProdSearch() setzt seinen Suchtext NACH dem
+     Wechsel und bleibt dadurch unberuehrt - dort ist der Text ja gerade der Zweck. */
+  var _akt = (nav==='produkte') ? 'prodHome()' : ("navTo('"+nav+"')");
   var A={green:['#1f5e39','#0c1a12','#5ef2a0','#7cff9b'],amber:['#6b4410','#1a120a','#ffc24b','#ffcf6b'],blue:['#143a63','#0b1420','#5ab6ff','#7cc4ff'],violet:['#45256b','#120b1a','#b79bff','#c9b3ff'],berry:['#6b1f45','#1a0a12','#ff6fa8','#ffa8cb'],terra:['#7a3b1f','#1a0e08','#ff9e5e','#ffc59b'],teal:['#0e4a44','#081614','#4fd6c0','#8cf0e0']}[accent]||['#1f5e39','#0c1a12','#5ef2a0','#7cff9b'];
-  return '<div onclick="navTo(\''+nav+'\')" style="position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:13px;min-height:105px;display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(120% 120% at 22% 12%, '+A[0]+' 0%, '+A[1]+' 62%);box-shadow:0 8px 22px rgba(15,40,25,.22)">'
+  return '<div onclick="'+_akt+'" style="position:relative;overflow:hidden;cursor:pointer;border-radius:16px;padding:13px;min-height:105px;display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(120% 120% at 22% 12%, '+A[0]+' 0%, '+A[1]+' 62%);box-shadow:0 8px 22px rgba(15,40,25,.22)">'
     +'<div style="position:absolute;top:2px;left:2px;width:80px;height:80px;background:radial-gradient(circle,'+A[2]+'99 0%,transparent 70%);filter:blur(7px)"></div>'
     +'<div style="position:absolute;top:15px;left:16px;color:'+A[3]+';filter:drop-shadow(0 0 6px '+A[2]+'cc)">'+riIco(ico,38)+'</div>'
     +'<div style="color:#ffffff;font-size:13.5px;font-weight:700;line-height:1.25;position:relative;z-index:2">'+label+'</div>'
@@ -20211,7 +20221,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-01-0701";
+const APP_BUILD = "2026-08-01-1023";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
