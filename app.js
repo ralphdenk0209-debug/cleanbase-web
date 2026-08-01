@@ -2736,6 +2736,116 @@ if(typeof window!=="undefined"){ window.salzFaktenHtml=salzFaktenHtml; }
    diese beiden") - und zwar konstruktiv: fuer jede andere Kategorie gibt es
    keine Quelle, aus der er etwas zeigen koennte.
    =========================================================================== */
+/* ===========================================================================
+   DUBLETTEN-WÄCHTER BEIM ANLEGEN (Ralph 31.07.)
+
+   Ein Chip in der Kopfzeile, kein Popup, das beim Tippen dazwischenfährt: Man
+   soll es SEHEN, nicht wegklicken müssen. Klick öffnet die Übersicht.
+
+   Vier Stufen - und die vierte ist Ralphs eigener Hinweis:
+     sicher         gleiche EAN            → das Speichern wird abgewiesen (in der DB)
+     wahrscheinlich Name + Marke gleich    → warnen
+     ansehen        ähnlicher Name, gleiche Marke
+     variante       gleiche Nährwerte, gleiche Marke, ANDERER Name
+                    → das ist eine Geschmacksrichtung, KEINE Dublette. Wird
+                      gezeigt, aber nicht so genannt - sonst klickt man die
+                      Warnung nach dem dritten Mal weg (§1.11n-b).
+
+   Der Riegel selbst sitzt in cb_produkt_speichern, nicht hier. Eine Prüfung im
+   Browser wäre eine Kulisse (§1.2d) - und es gibt mehrere Wege ins Speichern.
+   Dieser Chip ist die Anzeige, nicht der Schutz.
+   =========================================================================== */
+var FE_DUB_STUFEN={
+  sicher:        {t:"Dublette", f:"#c0392b", bg:"#fdeceb", rand:"#c0392b"},
+  wahrscheinlich:{t:"sehr ähnlich", f:"#8a5a0b", bg:"#fff7ea", rand:"#e0a32e"},
+  ansehen:       {t:"ähnlich", f:"#8a5a0b", bg:"#fffaf0", rand:"#e8c98a"},
+  variante:      {t:"Geschmacksvariante", f:"#5b6b7e", bg:"#eef1f4", rand:"#c3ccd4"}
+};
+function feDubFelder(){
+  var g=function(id){ var e=document.getElementById(id); return e?String(e.value||"").trim():""; };
+  return { id:(window._fgEdit&&window._fgEdit.id)||null, ean:g("fe_ean"), name:g("fe_name"), marke:g("fe_marke") };
+}
+async function feDubPruefen(){
+  var el=document.getElementById("feDubChip"); if(!el) return;
+  var f=feDubFelder();
+  if(!f.ean && !f.name){ el.style.display="none"; window._feDub=null; return; }
+  /* Entprellt: bei jedem Tastendruck zu fragen waere teuer und unruhig. */
+  clearTimeout(window._feDubTimer);
+  window._feDubTimer=setTimeout(async function(){
+    try{
+      var r=await client.rpc("cb_dubletten_pruefen",{p_id:f.id,p_ean:f.ean||null,p_name:f.name||null,p_marke:f.marke||null});
+      if(r.error) throw new Error(r.error.message);
+      var d=r.data||{treffer:[],anzahl:0};
+      window._feDub=d;
+      feDubChipRender();
+    }catch(e){
+      /* Nie stumm scheitern (§1.13i) - aber auch nicht die Arbeit blockieren. */
+      if(typeof console!=="undefined") console.warn("Dubletten-Prüfung:", e&&e.message?e.message:e);
+      el.style.display="none"; window._feDub=null;
+    }
+  }, 450);
+}
+function feDubChipRender(){
+  var el=document.getElementById("feDubChip"); if(!el) return;
+  var d=window._feDub; var n=(d&&d.anzahl)||0;
+  if(!n){ el.style.display="none"; el.innerHTML=""; return; }
+  /* Echte Dubletten zuerst: die Farbe des Chips richtet sich nach dem
+     schlimmsten Treffer, nicht nach dem ersten. */
+  var schlimmste="variante";
+  (d.treffer||[]).forEach(function(t){
+    var rang={sicher:1,wahrscheinlich:2,ansehen:3,variante:4};
+    if(rang[t.stufe] < rang[schlimmste]) schlimmste=t.stufe;
+  });
+  var s=FE_DUB_STUFEN[schlimmste]||FE_DUB_STUFEN.variante;
+  var txt=(schlimmste==="variante")
+    ? (n+" gleiche Nährwerte")
+    : (n+"× "+s.t);
+  el.style.display="";
+  el.innerHTML='<button type="button" onclick="feDubOeffnen()" title="Ähnliche Produkte ansehen" '
+    +'style="border:1.5px solid '+s.rand+';background:'+s.bg+';color:'+s.f+';border-radius:999px;'
+    +'padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">'
+    +(schlimmste==="sicher"?"⛔ ":"⚠ ")+esc(txt)+' ›</button>';
+}
+function feDubSchliessen(){ var o=document.getElementById("feDubOv"); if(o) o.style.display="none"; }
+function feDubOeffnen(){
+  var d=window._feDub; if(!d||!d.anzahl) return;
+  var ov=document.getElementById("feDubOv");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="feDubOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:28px 12px";
+    ov.onclick=function(e){ if(e.target===ov) feDubSchliessen(); };
+    document.body.appendChild(ov);
+  }
+  ov.style.display="flex";
+  var zeile=function(t){
+    var s=FE_DUB_STUFEN[t.stufe]||FE_DUB_STUFEN.variante;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)">'
+      +'<span style="flex:0 0 auto;font-size:10.5px;font-weight:800;border:1px solid '+s.rand+';background:'+s.bg+';color:'+s.f+';border-radius:999px;padding:2px 8px;white-space:nowrap">'+esc(s.t)+'</span>'
+      +'<span style="flex:1;min-width:0"><span style="font-weight:600;font-size:13px;color:var(--ink)">'+esc(t.name||"")+'</span>'
+        +'<span style="font-size:11.5px;color:var(--muted)"> · '+esc(t.marke||"ohne Marke")+' · '+esc(t.id)
+        +(t.ean?(' · EAN '+esc(t.ean)):'')+(t.status&&t.status!=="Aktiv"?(' · '+esc(t.status)):'')+'</span></span>'
+      +'<button type="button" onclick="feDubSchliessen();openFgEditor(\''+esc(t.id)+'\')" style="flex:0 0 auto;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer">öffnen</button>'
+      +'</div>';
+  };
+  var hatSicher=(d.treffer||[]).some(function(t){ return t.stufe==="sicher"; });
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:620px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:18px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">'
+      +'<b style="font-size:15px">Ähnliche Produkte im Katalog</b>'
+      +'<button type="button" onclick="feDubSchliessen()" style="border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:5px 11px;font-size:12.5px;cursor:pointer;flex:0 0 auto">Schließen ✕</button>'
+    +'</div>'
+    +(hatSicher
+      ? '<div style="font-size:12.5px;line-height:1.55;color:#8a1c14;background:#fdeceb;border:1px solid #c0392b;border-radius:10px;padding:9px 11px;margin-bottom:8px"><b>Diese EAN gibt es schon.</b> Das Speichern wird abgewiesen – zwei Produkte mit derselben EAN führen beim Scannen zum falschen Ergebnis. Bearbeite das vorhandene Produkt, oder nimm die EAN hier heraus.</div>'
+      : '<div style="font-size:12.5px;line-height:1.55;color:var(--muted);margin-bottom:8px">Kein Grund zur Sorge – nur zum Vergleichen. Nichts davon blockiert das Speichern.</div>')
+    +(d.treffer||[]).map(zeile).join("")
+    +'<div style="font-size:11px;color:var(--muted);margin-top:10px;padding-top:8px;border-top:1px solid var(--line)">'
+    +'<b>Geschmacksvariante</b> heißt: gleiche Marke, gleiche Nährwerte, anderer Name. Das ist <b>keine</b> Dublette – dieselbe Rezeptur mit anderem Aroma ist der Normalfall.</div>'
+    +'</div>';
+}
+if(typeof window!=="undefined"){
+  window.feDubPruefen=feDubPruefen; window.feDubOeffnen=feDubOeffnen;
+  window.feDubSchliessen=feDubSchliessen; window.feDubChipRender=feDubChipRender;
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") feDubSchliessen(); });
+}
 function feNaehrKat(){
   var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
   if(k==="supplement") return "supplement";
@@ -13707,7 +13817,7 @@ async function openFgEditor(id, prefill, targetEl){
   /* Fuenfte Fundstelle des Default 5: Auch die Textliste machte aus NULL eine 5.
      Ein leeres Feld heisst "unbewertet" - und muss auch so aussehen. */
   const zText=(d.zutaten||[]).map(z=>`${z.name}; ${(z.rating===null||z.rating===undefined)?"":z.rating}; ${(String(z.kritisch||"nein").toLowerCase()==="ja")?"j":"n"}`).join("\n");
-  const inp=(id2,val)=>`<input id="${id2}" value="${esc(val||"")}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px">`;
+  const inp=(id2,val)=>`<input id="${id2}" value="${esc(val||"")}" oninput="try{feDubPruefen()}catch(e){}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px">`;   /* 31.07.: die Marke entscheidet fast alle Dubletten-Stufen mit - sie muss die Pruefung ausloesen wie Name und EAN. */
   /* Das <select> loeste bis 27l KEIN Ereignis aus: Quelle-Typ von Hand gewaehlt -> die Freigabe-Fahne
      blieb rot, bis man speicherte und neu lud (Ralphs Fund 27.07.). Jetzt onchange -> fePlaus().
      Zweitens: ein <select> VERSCHLUCKT still jeden Wert, den es nicht als <option> kennt (value wird "").
@@ -13774,6 +13884,7 @@ async function openFgEditor(id, prefill, targetEl){
          (§1.11n-j), damit kein Aufrufer ins Leere greift. */""}
     <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:2px">
       <h2 style="margin:0;display:none">${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
+      <span id="feDubChip" style="display:none"></span>
       <span id="fePNrInfo" style="font-size:12px;color:var(--muted)">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"P-Nummer kommt beim ersten Speichern"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
     </div>
     ${window._fgPrefillHinweis?`<div style="background:var(--k-fff7ea);border:1px solid var(--k-e4a343);color:var(--k-8a5a0b);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
@@ -13828,9 +13939,9 @@ async function openFgEditor(id, prefill, targetEl){
     </div>
         <div id="fe_prodNwGrid" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch">
         ${card("Produkt",`<div style="display:grid;gap:9px">
-          <label style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;display:block">Titel<input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){}" placeholder="Produktname…" style="width:100%;box-sizing:border-box;padding:6px 4px;border:0;border-bottom:2px solid var(--line);border-radius:0;font-size:19px;font-weight:800;color:var(--ink);background:transparent;margin-top:3px"></label>
+          <label style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;display:block">Titel<input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…" style="width:100%;box-sizing:border-box;padding:6px 4px;border:0;border-bottom:2px solid var(--line);border-radius:0;font-size:19px;font-weight:800;color:var(--ink);background:transparent;margin-top:3px"></label>
           <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
-          <label style="font-size:13px">EAN / Barcode<input id="fe_ean" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){}" placeholder="z. B. 4001724040842" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"></label>
+          <label style="font-size:13px">EAN / Barcode<input id="fe_ean" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"></label>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:-3px"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">kein EAN – als „offen“ markieren (blockiert die Freigabe dann nicht)</label>
           <label style="font-size:13px">Kategorie${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</label>
           <div style="font-size:13px">Bio / Öko
@@ -14031,6 +14142,7 @@ function feKatChange(){
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   var special=_fgIstSpecial();   /* Supplement/Salze: Bild NEBEN der Wirkstoff-/Mineral-Tabelle, kein Lebensmittel-Score (Ralph 25.07.) */
   try{ feNaehrBtnSync(); }catch(e){}      /* 30.07.: Nährstoff-Knopf nur bei Supplement/Salze (Ralph) */
+  try{ feDubPruefen(); }catch(e){}        /* 31.07.: Dubletten-Chip auch ohne Tippen - beim Oeffnen einmal ansehen */
   try{ feNaehrKachelnSync(); }catch(e){}  /* … und der Kachel-Streifen unter der Maske */
   var _wcol=document.getElementById("fe_wirkFotoCol"), _wg=document.getElementById("fe_wirkGrid"), _wback=document.getElementById("fe_refBack"), _wfbtn=document.getElementById("fe_refFlipBtn"), _wc=document.getElementById("fe_wirkCard"), _wtc=document.getElementById("fe_wirkTblCol");
   /* KONZEPT A: das Etikettfoto haengt IMMER oben in der Quelle-Spalte – bei jeder Kategorie, ohne Flip.
@@ -19930,7 +20042,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-07-31-1406";
+const APP_BUILD = "2026-08-01-0630";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
