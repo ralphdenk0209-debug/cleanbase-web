@@ -21747,6 +21747,77 @@ function rkBookmarkletCode(){
    jedem Dashboard. Geloescht statt versteckt (§1.11n-p). rkBookmarkletCode() BLEIBT, und der
    Empfaenger admin.html?neu=<Adresse> arbeitet weiter: Ralphs Lesezeichen funktioniert. */
 
+/* ============================================================================
+   Empfaenger: admin.html?json=<JSON>  (Ralph-Go 02.08.2026)
+
+   Sein Kurzbefehl liest die Produktseite und oeffnet damit direkt den Editor -
+   kein Kopieren, kein Einfuegen. Ein Skript auf edeka.de kann aus Sicherheits-
+   gruenden NICHT in unser Feld schreiben (Same-Origin), die Adresse ist der
+   einzige Weg ueber die Herkunftsgrenze.
+
+   🔴 Es wird NICHT automatisch uebernommen. Das JSON landet im Feld, den Knopf
+   drueckt der Mensch - so sieht er, was gefuellt wurde und was nicht (§6:
+   Riki/Skripte schlagen vor, der Mensch entscheidet).
+   ============================================================================ */
+(function rkJsonEmpfangen(){
+  if(typeof window==="undefined" || !window.__ADMIN_PAGE) return;
+  var roh=null;
+  try{ roh=new URLSearchParams(location.search).get("json"); }catch(e){}
+  if(!roh || !roh.trim()) return;
+  /* Adresse SOFORT leeren: ein Neuladen wuerde sonst dasselbe noch einmal einspielen. */
+  try{ history.replaceState(null,"",location.pathname+location.hash); }catch(e){}
+
+  function hinw(txt,farbe){
+    var b=document.getElementById("rkJsonHinweis");
+    if(!b){ b=document.createElement("div"); b.id="rkJsonHinweis";
+      b.style.cssText="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9998;max-width:min(560px,92vw);padding:11px 16px;border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 8px 26px -12px rgba(20,40,70,.5);background:#ffffff;border:1px solid #e2e8ef";
+      document.body.appendChild(b); }
+    b.style.color=farbe||"#1d3c24"; b.innerHTML=txt; return b;
+  }
+  function weg(){ var b=document.getElementById("rkJsonHinweis"); if(b) b.remove(); }
+
+  /* Nur zum Anzeigen im Hinweis - die eigentliche Pruefung macht fgJsonUebernehmen. */
+  var name="";
+  try{ var o=JSON.parse(roh); name=String((o&&o.produktname)||""); }catch(e){}
+
+  hinw('Produktseite empfangen'+(name?(': <b>'+esc(name)+'</b>'):'')+' &ndash; warte auf die Anmeldung&hellip;');
+
+  var seit=0, MAX=60000, TAKT=400, loginGezeigt=false;
+  var timer=setInterval(function(){
+    seit+=TAKT;
+    if(typeof ME!=="undefined" && ME && ME.is_admin){
+      clearInterval(timer);
+      try{
+        var pr=openFgEditor(null);
+        var nach=function(){
+          window._rkSchnell=true;   /* Editor bleibt nach dem Freigeben offen - wie beim Lesezeichen */
+          var ta=document.getElementById("fe_jsonIn");
+          if(!ta){ hinw('Das JSON-Feld ist nicht da &ndash; bitte den Editor melden.','#cf5442'); return; }
+          ta.value=roh;
+          try{ ta.scrollIntoView({block:"center"}); }catch(e){}
+          try{ ta.style.borderColor="#16a34a"; ta.style.background="#eaf5ee"; }catch(e){}
+          hinw('&#10003; Produktseite eingef&uuml;gt'+(name?(': <b>'+esc(name)+'</b>'):'')
+            +' &ndash; jetzt auf <b>&bdquo;&Uuml;bernehmen&ldquo;</b> klicken.','#166534');
+          setTimeout(weg, 9000);
+        };
+        if(pr && typeof pr.then==="function") pr.then(nach); else setTimeout(nach,500);
+      }catch(e){ hinw('Editor liess sich nicht oeffnen: '+esc(String(e&&e.message||e)),'#cf5442'); }
+      return;
+    }
+    if(seit>3000 && !loginGezeigt && (typeof ME==="undefined" || !ME)){
+      loginGezeigt=true;
+      hinw('Bitte anmelden &ndash; die Produktdaten werden danach eingef&uuml;gt.','#92400e');
+      try{ if(typeof openLogin==="function") openLogin(); }catch(e){}
+    }
+    if(seit>=MAX){
+      clearInterval(timer);
+      hinw('Abgebrochen &ndash; keine Admin-Anmeldung. Die Daten sind nicht verloren: '
+        +'im Kurzbefehl noch einmal ausf&uuml;hren.','#cf5442');
+      setTimeout(weg, 12000);
+    }
+  }, TAKT);
+})();
+
 /* Empfaenger: admin.html?neu=<Adresse> -> Editor auf, Riki liest sofort. */
 (function rkSchnellAnlageEmpfangen(){
   if(typeof window==="undefined" || !window.__ADMIN_PAGE) return;
@@ -21802,7 +21873,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-1955";
+const APP_BUILD = "2026-08-02-2030";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
