@@ -5701,7 +5701,12 @@ function peRowCtx(ev,id){
   /* Scan-Zeile: alle Produkt-Aktionen (Bearbeiten, Markieren, Loeschen) rufen RPCs, die eine
      P-Nummer erwarten. Es gibt hier genau EINE sinnvolle Handlung. */
   if(peIstScan(p)){
-    ctx.innerHTML=it('📥 Produkt aus diesem Scan anlegen','peScanAnlegen(\''+esc(id)+'\')');
+    /* 02.08.2026 (Ralph-Go "3b"): zweiter Eintrag zum VERWERFEN. Vorher gab es fuer eine
+       Scan-Zeile ueberhaupt keinen Weg, sie loszuwerden - sie verschwand nur, wenn zur EAN
+       ein aktives Produkt entstand. Kein neuer Loeschweg: cb_scan_verwerfen gibt es bereits
+       (der "Verwerfen"-Knopf im Scan-Eingang nutzt sie), also dieselbe RPC (CLAUDE.md 1.2c). */
+    ctx.innerHTML=it('📥 Produkt aus diesem Scan anlegen','peScanAnlegen(\''+esc(id)+'\')')
+      +sep+it('🗑 Scan verwerfen','peScanVerwerfen(\''+esc(id)+'\')',true);
     ctx.style.display='block';
     var w0=ctx.offsetWidth,h0=ctx.offsetHeight;
     ctx.style.left=Math.min(ev.clientX,innerWidth-w0-6)+'px'; ctx.style.top=Math.min(ev.clientY,innerHeight-h0-6)+'px';
@@ -5718,6 +5723,30 @@ function peRowCtx(ev,id){
   var w=ctx.offsetWidth,h=ctx.offsetHeight;
   ctx.style.left=Math.min(ev.clientX,innerWidth-w-6)+'px'; ctx.style.top=Math.min(ev.clientY,innerHeight-h-6)+'px';
   setTimeout(function(){ document.addEventListener('click',peCtxHide); },0);
+}
+/* Scan-Zeile aus dem Scan-Cache entfernen (Ralph 02.08.2026). Die Zeile ist KEIN Produkt -
+   es geht also nichts aus dem Katalog verloren, nur die vorlaeufigen Scan-Daten. Beim
+   naechsten Scan derselben EAN fragt die Kette wieder OpenFoodFacts. */
+async function peScanVerwerfen(id){
+  var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);});
+  if(!peIstScan(p)){ alert('Das ist keine Scan-Zeile.'); return; }
+  /* Die EAN steckt in der Pseudo-Nummer S-<EAN>. Lieber aus dem Datensatz nehmen -
+     wer sie aus der ID schneidet, verlaesst sich auf eine Schreibweise. */
+  var ean=String((p&&p.ean)||'').trim() || String(id).replace(/^S-/,'');
+  if(!ean){ alert('Zu dieser Zeile ist keine EAN hinterlegt.'); return; }
+  if(!confirm('Scan '+ean+' verwerfen?\n\n'+((p&&p.name)?('„'+p.name+'"\n\n'):'')
+    +'Es wird KEIN Produkt geloescht – nur die vorlaeufigen Scan-Daten.\nScannt jemand den Barcode erneut, wird er wieder gesucht.')) return;
+  try{
+    var r=await client.rpc('cb_scan_verwerfen',{p_ean:ean});
+    if(r.error) throw r.error;
+    /* Die RPC meldet ihr Scheitern im Ergebnis, nicht als Fehler - sonst sieht ein
+       abgelehnter Aufruf wie ein Erfolg aus. */
+    if(r.data && r.data.ok===false) throw new Error(r.data.grund||'abgelehnt');
+    window._peRows=(window._peRows||[]).filter(function(x){return String(x.id)!==String(id);});
+    if(String(window._peSel||'')===String(id)) window._peSel=null;
+    try{ peRender(); }catch(e){}
+    try{ peZaehlerHolen(); }catch(e){ console.error('peZaehlerHolen', e); }
+  }catch(e){ alert('Verwerfen fehlgeschlagen: '+(e&&e.message?e.message:e)); }
 }
 async function peToggleMark(id,an){
   if(peIstScan((window._peRows||[]).find(function(r){return String(r.id)===String(id);}))){
@@ -21523,7 +21552,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-1601";
+const APP_BUILD = "2026-08-02-1618";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
