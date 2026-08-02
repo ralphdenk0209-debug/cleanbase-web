@@ -2993,6 +2993,93 @@ if(typeof window!=="undefined"){ window.salzFaktenHtml=salzFaktenHtml; }
    keine Quelle, aus der er etwas zeigen koennte.
    =========================================================================== */
 /* ===========================================================================
+   DUBLETTEN-AUDIT, Bestandsansicht (Ralph-Go 02.08.2026)
+
+   Auslöser war Ralphs Fund: dieselben Kluth-Pistazien einmal mit 60 und einmal
+   mit 89. Die Messung ergab: von 1.962 Namensgruppen tragen 296 verschiedene
+   Noten — aber nur ein Teil davon ist ein Fehler. Diese Ansicht sortiert sie:
+
+     achsen_luecke   einem Zwilling fehlt eine Achse → sein Index ist HOCHGERECHNET
+                     und deshalb zu gut (§1.11s). Das ist der einzige echte Fehler.
+     datenfehler     gleiche Nährwerte, andere Note → Zutaten/Zusatzstoffe prüfen
+     name_zu_unscharf verschiedene Produkte, gleicher Name → der NAME trennt sie nicht
+     echte_dublette  alles gleich → zusammenführbar
+     variante        gleiche Note, andere Nährwerte → Geschmacksvariante, harmlos
+
+   🔴 Die Dublette ist meist nicht das Problem — sie ist der DETEKTOR. Zwei Zahlen
+   nebeneinander machen sichtbar, was bei einem Einzelprodukt niemandem auffällt.
+   Die Klassifizierung steckt in v_dubletten_offen, hier wird nur angezeigt (§1.11i).
+   =========================================================================== */
+var DUB_ART={
+  achsen_luecke:   {t:'Achsen-Lücke',    f:'#b91c1c', bg:'#fdeceb', hint:'Ein Zwilling hat keine Nährwert-Achse — sein Index ist hochgerechnet und dadurch zu gut.'},
+  datenfehler:     {t:'Datenfehler',     f:'#8a5a0b', bg:'#fff7ea', hint:'Gleiche Nährwerte, andere Note. Der Unterschied kann nur aus Zutaten oder Zusatzstoffen kommen.'},
+  name_zu_unscharf:{t:'Name zu unscharf',f:'#5b6b7e', bg:'#eef1f4', hint:'Verschiedene Produkte unter demselben Namen. Nicht die Note ist falsch, der Name trennt sie nicht.'},
+  echte_dublette:  {t:'Echte Dublette',  f:'#1f5e34', bg:'#e7f4ec', hint:'Alles gleich. Zusammenführbar — aber Vorsicht: verschiedene EANs sind verschiedene Packungen.'},
+  variante:        {t:'Variante',        f:'#5b6b7e', bg:'#f4f6f8', hint:'Gleiche Note, andere Nährwerte: dieselbe Marke mit anderem Aroma. Kein Fehler.'}
+};
+async function loadDubletten(art, off){
+  var box=document.getElementById('dubView'); if(!box) return;
+  if(art!==undefined) window._dubArt=art;
+  if(off!==undefined) window._dubOff=off; else if(art!==undefined) window._dubOff=0;
+  var a=window._dubArt||'achsen_luecke', o=window._dubOff||0;
+  var such=((document.getElementById('dubSuche')||{}).value||'').trim();
+  box.innerHTML='<div style="color:var(--muted);font-size:12.5px;padding:10px">Lade Dubletten-Audit…</div>';
+  var d=null;
+  try{
+    var r=await client.rpc('cb_dubletten_liste',{p_art:a,p_suche:such||null,p_offset:o,p_limit:50});
+    if(r.error) throw new Error(r.error.message);
+    d=r.data; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){} }
+    if(!d||!d.ok) throw new Error((d&&d.grund)||'unbekannt');
+  }catch(e){
+    /* Nie stumm scheitern (§1.13i) - der Grund gehoert auf den Schirm, nicht in die Konsole. */
+    box.innerHTML='<div style="color:#b91c1c;font-size:12.5px;padding:10px">Dubletten-Audit nicht ladbar: '+esc(e.message||String(e))
+      +' <button onclick="loadDubletten()" style="margin-left:8px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">Erneut versuchen</button></div>';
+    return;
+  }
+  var z=d.zaehler||{}, rows=d.rows||[], ges=d.gesamt||0;
+  var chip=function(k,label){
+    var c=DUB_ART[k]||{f:'var(--ink)',bg:'var(--card)'}, akt=(a===k), n=(k==='alle')?null:(z[k]||0);
+    return '<button onclick="loadDubletten(\''+k+'\',0)" title="'+esc((DUB_ART[k]||{}).hint||'')+'" style="padding:5px 12px;border-radius:999px;border:1px solid '+(akt?c.f:'var(--line)')+';background:'+(akt?c.bg:'var(--card)')+';color:'+c.f+';font-weight:700;font-size:12px;cursor:pointer;margin:0 6px 6px 0">'+label+(n!=null?(' ('+n+')'):'')+'</button>';
+  };
+  var kopf='<div style="font-weight:700;font-size:16px;color:var(--ink)">👯 Dubletten-Audit</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin:3px 0 10px;line-height:1.5">Gruppen mit <b>gleichem Namen und gleicher Marke</b>. '
+    +'Meist ist die Dublette nicht das Problem — sie macht nur sichtbar, dass zwei Produkte <b>verschiedene Noten</b> tragen. '
+    +'Nur <b>Achsen-Lücke</b> bedeutet einen falschen Index.</div>'
+    +'<div style="margin-bottom:8px">'+chip('achsen_luecke','⚠ Achsen-Lücke')+chip('datenfehler','Datenfehler')
+      +chip('name_zu_unscharf','Name unscharf')+chip('echte_dublette','Echte Dublette')+chip('variante','Variante')+chip('alle','Alle')+'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
+      +'<input id="dubSuche" value="'+esc(such)+'" onkeydown="if(event.key===\'Enter\')loadDubletten(null,0)" placeholder="Produkt, Marke oder P-Nummer…" style="flex:1;min-width:200px;max-width:420px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px">'
+      +'<button onclick="loadDubletten(null,0)" style="padding:8px 13px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">Suchen</button>'
+      +'<span style="color:var(--muted);font-size:12.5px">'+ges+' Gruppe(n)</span>'
+    +'</div>';
+  var liste = rows.length ? rows.map(function(x){
+    var c=DUB_ART[x.art]||{t:x.art,f:'var(--ink)',bg:'var(--card)'};
+    var teile=String(x.details||'').split(' | ').map(function(t){
+      var pid=(t.match(/^(P\d+)/)||[])[1];
+      return pid ? '<button onclick="openFgEditor(\''+pid+'\')" title="Im Editor öffnen" style="border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:2px 8px;font-size:11.5px;cursor:pointer;margin:2px 4px 2px 0;font-family:ui-monospace,monospace">'+esc(t)+'</button>' : esc(t);
+    }).join('');
+    return '<div style="background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px">'
+      +'<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap">'
+        +'<span style="font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 9px;background:'+c.bg+';color:'+c.f+';white-space:nowrap">'+esc(c.t)+'</span>'
+        +'<b style="font-size:13.5px;color:var(--ink)">'+esc(x.produkt||'')+'</b>'
+        +'<span style="font-size:12px;color:var(--muted)">'+esc(x.marke||'ohne Marke')+' · '+x.anzahl+'×'
+          +(x.spanne!=null&&x.spanne>0?(' · Spanne <b>'+x.spanne+'</b> Punkte'):'')+'</span>'
+      +'</div><div style="margin-top:6px">'+teile+'</div></div>';
+  }).join('') : '<div style="color:var(--muted);font-size:12.5px;padding:10px">Keine Gruppe in dieser Ansicht.</div>';
+  var seiten='';
+  if(ges>50){
+    var hat_zurueck=(o>0), hat_vor=(o+50<ges);
+    seiten='<div style="display:flex;gap:8px;align-items:center;margin-top:10px">'
+      +(hat_zurueck?'<button onclick="loadDubletten(null,'+Math.max(0,o-50)+')" style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">‹ zurück</button>':'')
+      +'<span style="color:var(--muted);font-size:12.5px">'+(o+1)+'–'+Math.min(o+50,ges)+' von '+ges+'</span>'
+      +(hat_vor?'<button onclick="loadDubletten(null,'+(o+50)+')" style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer">weiter ›</button>':'')
+      +'</div>';
+  }
+  box.innerHTML='<div style="max-width:1040px">'+kopf+liste+seiten+'</div>';
+}
+if(typeof window!=='undefined'){ window.loadDubletten=loadDubletten; }
+
+/* ===========================================================================
    BALLASTSTOFF-PRÜFUNG (Ralph 02.08.2026)
 
    Das Problem: 18.011 aktive Produkte haben keine Ballaststoff-Angabe — und die
@@ -3805,6 +3892,8 @@ function setMode(m){
   { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
   { var _ev=document.getElementById("einheitView"); if(_ev) _ev.style.display = m==="einheit"?"":"none"; }
   { var _bv=document.getElementById("bioView"); if(_bv) _bv.style.display = m==="bio"?"":"none"; }
+  { var _dv=document.getElementById("dubView"); if(_dv) _dv.style.display = m==="dubletten"?"":"none"; }
+  if(m==="dubletten"){ try{ loadDubletten(); }catch(e){} }
   { var _tw=document.getElementById("tauschView"); if(_tw) _tw.style.display = m==="tausch"?"":"none"; }
   { var _mdv=document.getElementById("methodikView"); if(_mdv) _mdv.style.display = m==="methodik"?"":"none"; }
   { var _olv=document.getElementById("offLaufView"); if(_olv) _olv.style.display = m==="offlauf"?"":"none"; }
@@ -8609,6 +8698,7 @@ function applyAdminMode(){
       +_an('rezzut','🥣','Rezept-Zutaten',"rezZutatenWaecherOpenSafe()")
       +_an('tausch','🔁','Tausch-Tipps',"adminGo('tausch')")
       +_an('mikro','🥗','Nährstoffe',"adminGo('mikro')")
+      +_an('dubletten','👯','Dubletten',"adminGo('dubletten')")
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
@@ -20447,7 +20537,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-0650";
+const APP_BUILD = "2026-08-02-0805";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
