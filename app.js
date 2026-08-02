@@ -3232,6 +3232,61 @@ async function feDubLoeschen(id){
 }
 if(typeof window!=='undefined'){ window.feDubLoeschen=feDubLoeschen; }
 function feDubSchliessen(){ var o=document.getElementById("feDubOv"); if(o) o.style.display="none"; }
+/* ---------------------------------------------------------------------------
+   Ralph 02.08.: "der vergleich ist so nicht optimal, weil ich die unterschiede
+   nicht sehe." Die Liste zeigte Name, Marke, P-Nummer, EAN - also genau das,
+   was bei einer Dublette GLEICH ist. Was man braucht, um zu entscheiden, ist
+   das Gegenteil: worin sie sich unterscheiden.
+
+   _feDubMeins liest den AKTUELLEN Editor-Stand, nicht den gespeicherten - beim
+   Anlegen gibt es noch keinen gespeicherten, und beim Bearbeiten ist der
+   getippte Wert der, um den es geht.
+   _feDubDiffHtml hebt nur ABWEICHENDE Werte hervor. Fehlt einer der beiden
+   Werte, wird nichts markiert: "nicht vergleichbar" ist kein Unterschied
+   (§1.11n-ii - kein Urteil ohne Grundlage).
+   --------------------------------------------------------------------------- */
+function _feDubMeins(){
+  var gv=function(id){ var e=document.getElementById(id);
+    var v=(e&&e.value!=="")?Number(String(e.value).replace(",",".")):null;
+    return (v!=null&&isFinite(v))?v:null; };
+  var zRows=[].slice.call(document.querySelectorAll("#fe_zutRows .fgZutRow"));
+  var zN=zRows.filter(function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim()!==""; }).length;
+  return { kcal:gv("fe_kcal"), zucker:gv("fe_zucker"), fett:gv("fe_fett"),
+           protein:gv("fe_protein"), ballast:gv("fe_ballaststoffe"), salz:gv("fe_salz"),
+           kh:gv("fe_kh"), zutaten_n:zN,
+           score:(window._fgEdit&&window._fgEdit.score!=null)?Number(window._fgEdit.score):null };
+}
+function _feDubZahl(v){
+  if(v==null||v==="") return null;
+  var n=Number(v); return isFinite(n)?n:null;
+}
+function _feDubDiffHtml(meins,t){
+  var felder=[
+    ["score","Index",""],["kcal","kcal",""],["zucker","Zucker"," g"],["fett","Fett"," g"],
+    ["protein","Eiweiß"," g"],["ballast","Ballast"," g"],["salz","Salz"," g"],
+    ["zutaten_n","Zutaten",""]
+  ];
+  var teile=[], abw=0;
+  felder.forEach(function(f){
+    var a=_feDubZahl(meins[f[0]]), b=_feDubZahl(t[f[0]]);
+    if(b==null && a==null) return;
+    var anders=(a!=null && b!=null && Math.abs(a-b)>0.0001);
+    if(anders) abw++;
+    var txt=(b==null?"–":(Math.round(b*100)/100)+f[2]);
+    teile.push('<span style="white-space:nowrap;'
+      +(anders?'font-weight:800;color:#b45309;background:#fff7ea;border-radius:5px;padding:1px 5px':'color:var(--muted)')
+      +'">'+esc(f[1])+' '+esc(txt)
+      +(anders?('<span style="font-weight:500;opacity:.85"> (du: '+esc(String(Math.round(a*100)/100))+')</span>'):'')
+      +'</span>');
+  });
+  if(!t.hat_bild) teile.push('<span style="color:var(--muted);white-space:nowrap">kein Bild</span>');
+  if(String(t.verifiziert||"")==="Ja") teile.push('<span style="color:#15803d;white-space:nowrap;font-weight:700">verifiziert</span>');
+  var kopf = abw
+    ? '<b style="color:#b45309">'+abw+' Unterschied'+(abw>1?'e':'')+'</b> · '
+    : '<b style="color:#15803d">alles gleich</b> · ';
+  return '<div style="font-size:11.5px;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 9px;align-items:center">'
+    + '<span style="flex:0 0 auto">'+kopf+'</span>' + teile.join("") + '</div>';
+}
 function feDubOeffnen(){
   var d=window._feDub; if(!d||!d.anzahl) return;
   var ov=document.getElementById("feDubOv");
@@ -3242,13 +3297,15 @@ function feDubOeffnen(){
     document.body.appendChild(ov);
   }
   ov.style.display="flex";
+  var meins=_feDubMeins();
   var zeile=function(t){
     var s=FE_DUB_STUFEN[t.stufe]||FE_DUB_STUFEN.variante;
-    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)">'
-      +'<span style="flex:0 0 auto;font-size:10.5px;font-weight:800;border:1px solid '+s.rand+';background:'+s.bg+';color:'+s.f+';border-radius:999px;padding:2px 8px;white-space:nowrap">'+esc(s.t)+'</span>'
+    return '<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--line)">'
+      +'<span style="flex:0 0 auto;font-size:10.5px;font-weight:800;border:1px solid '+s.rand+';background:'+s.bg+';color:'+s.f+';border-radius:999px;padding:2px 8px;white-space:nowrap;margin-top:2px">'+esc(s.t)+'</span>'
       +'<span style="flex:1;min-width:0"><span style="font-weight:600;font-size:13px;color:var(--ink)">'+esc(t.name||"")+'</span>'
         +'<span style="font-size:11.5px;color:var(--muted)"> · '+esc(t.marke||"ohne Marke")+' · '+esc(t.id)
-        +(t.ean?(' · EAN '+esc(t.ean)):'')+(t.status&&t.status!=="Aktiv"?(' · '+esc(t.status)):'')+'</span></span>'
+        +(t.ean?(' · EAN '+esc(t.ean)):'')+(t.status&&t.status!=="Aktiv"?(' · '+esc(t.status)):'')+'</span>'
+        +_feDubDiffHtml(meins,t)+'</span>'
       +'<button type="button" onclick="feDubSchliessen();openFgEditor(\''+esc(t.id)+'\')" style="flex:0 0 auto;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer">öffnen</button>'
       /* 02.08. (Ralph: "nur anzeigen reicht nicht"): direkt aus der Liste loeschen. Ruft
          peDeaktiv - denselben Weg wie ueberall, mit Nachfrage und Tagebuch-Schutz. */
@@ -3256,7 +3313,7 @@ function feDubOeffnen(){
       +'</div>';
   };
   var hatSicher=(d.treffer||[]).some(function(t){ return t.stufe==="sicher"; });
-  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:620px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:18px;margin:auto">'
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:780px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:18px;margin:auto">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">'
       +'<b style="font-size:15px">Ähnliche Produkte im Katalog</b>'
       +'<button type="button" onclick="feDubSchliessen()" style="border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:5px 11px;font-size:12.5px;cursor:pointer;flex:0 0 auto">Schließen ✕</button>'
@@ -3266,6 +3323,8 @@ function feDubOeffnen(){
       : '<div style="font-size:12.5px;line-height:1.55;color:var(--muted);margin-bottom:8px">Kein Grund zur Sorge – nur zum Vergleichen. Nichts davon blockiert das Speichern.</div>')
     +(d.treffer||[]).map(zeile).join("")
     +'<div style="font-size:11px;color:var(--muted);margin-top:10px;padding-top:8px;border-top:1px solid var(--line)">'
+    +'<b style="color:#b45309">Orange</b> = weicht von deinem aktuellen Stand ab, in Klammern steht dein Wert. Grau = gleich oder nicht vergleichbar. '
+    +'<b>„alles gleich" bei verschiedenen EANs</b> heißt meist: zwei Packungsgrößen desselben Produkts – dann ist es <b>keine</b> Dublette.<br>'
     +'<b>Geschmacksvariante</b> heißt: gleiche Marke, gleiche Nährwerte, anderer Name. Das ist <b>keine</b> Dublette – dieselbe Rezeptur mit anderem Aroma ist der Normalfall.</div>'
     +'</div>';
 }
@@ -14497,6 +14556,10 @@ async function openFgEditor(id, prefill, targetEl){
   }
   window._fgEdit={ id:id, bild_url:d.bild_url||"", status:String(d.status||""),
                    etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[], kcalOk:!!((d.naehrwerte||{}).kcal_ok),
+                   /* 02.08.: der GESPEICHERTE Index - Vergleichswert im Dubletten-Fenster.
+                      Bewusst nicht der Live-Wert aus der Flux-Vorschau: beim Anlegen gibt es
+                      keinen, und dann soll das Fenster gar nichts behaupten. */
+                   score:(d.clean_score!=null?Number(d.clean_score):null),
                    ean_status:String(d.ean_status||d.EAN_Status||"") };
   /* Riki-Referenz (rechte Box): beim Öffnen zuerst die in DIESER Sitzung gemerkte Referenz nehmen
      (überlebt Speichern→Neuöffnen, Ralph 21.07.2026) – so bleiben auch die orangen „noch nicht
@@ -20899,7 +20962,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-1145";
+const APP_BUILD = "2026-08-02-1215";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
