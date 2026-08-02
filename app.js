@@ -5747,6 +5747,138 @@ function peRowCtx(ev,id){
   ctx.style.left=Math.min(ev.clientX,innerWidth-w-6)+'px'; ctx.style.top=Math.min(ev.clientY,innerHeight-h-6)+'px';
   setTimeout(function(){ document.addEventListener('click',peCtxHide); },0);
 }
+/* ============================================================================
+   JSON aus Ralphs Lesezeichen-Skript uebernehmen (Ralph-Go 02.08.2026)
+
+   Warum nicht Riki: Riki laeuft serverseitig OHNE Browser und muss rohes HTML
+   von einem Sprachmodell lesen lassen - das kostet Geld und kann variieren.
+   Das Lesezeichen liest die fertig gerenderte Seite: kostenlos, deterministisch,
+   und die Quelle ist belegbar die Herstellerseite.
+
+   🔴 Es wird IMMER nur gefuellt, was leer ist (Ralph: "3b lassen wir weg" -
+   also kein Schalter, sondern die sichere Variante fest verdrahtet). Eine
+   geprueft eingetragene Zahl darf ein Skript nie ueberschreiben.
+   ============================================================================ */
+function fgJsonZeileAuf(el){
+  /* waechst beim Einfuegen mit, damit man sieht, dass etwas drin ist */
+  try{ el.rows = Math.min(8, Math.max(1, String(el.value||'').split('\n').length)); }catch(e){}
+}
+function _fgJsonMsg(html,farbe){
+  var m=document.getElementById('fe_jsonMsg'); if(!m) return;
+  m.style.color=farbe||'var(--muted)'; m.innerHTML=html;
+}
+/* Zahl aus dem JSON: der Leser liefert Strings ("8.5"), teils leer. */
+function _fgJsonZahl(x){
+  if(x==null) return null;
+  var s=String(x).trim().replace(',','.'); if(!s) return null;
+  var n=Number(s); return isFinite(n)?n:null;
+}
+async function fgJsonUebernehmen(){
+  var ta=document.getElementById('fe_jsonIn'); if(!ta) return;
+  var roh=String(ta.value||'').trim();
+  if(!roh){ _fgJsonMsg('Bitte zuerst das JSON aus der Produktseite einfügen.','var(--k-dc2626)'); return; }
+  var j;
+  try{ j=JSON.parse(roh); }
+  catch(e){ _fgJsonMsg('Das ist kein gültiges JSON: '+esc(e.message||String(e)),'var(--k-dc2626)'); return; }
+  if(!j || typeof j!=='object'){ _fgJsonMsg('Das JSON enthält kein Objekt.','var(--k-dc2626)'); return; }
+
+  var gefuellt=[], uebersprungen=[], hinweise=[];
+  /* nur leere Felder fuellen - an EINER Stelle entschieden, nicht je Feld */
+  var setzeWennLeer=function(id,wert,label){
+    var e=document.getElementById(id); if(!e||wert==null||wert==='') return;
+    if(String(e.value).trim()!==''){ uebersprungen.push(label); return; }
+    e.value=wert; gefuellt.push(label);
+  };
+
+  /* --- Name: NICHT blind uebernehmen ---------------------------------------
+     Ralphs erster Lauf lieferte "Mein EDEKA: Praktische Infos und Angebote" -
+     den Seitentitel statt des Produkts. Das Skript meldet jetzt selbst, woher
+     der Name stammt; ein aus der URL abgeleiteter wird uebernommen, aber
+     ausdruecklich zum Gegenlesen angemerkt. */
+  var nq=String(j.produktname_quelle||'').toLowerCase();
+  if(j.produktname && nq!=='keine'){
+    setzeWennLeer('fe_name', String(j.produktname).trim(), 'Titel');
+    if(nq==='url') hinweise.push('Der Titel wurde aus der Web-Adresse abgeleitet – bitte gegenlesen.');
+  } else if(j.produktname===''||nq==='keine'){
+    hinweise.push('Das Skript hat keinen belastbaren Produktnamen gefunden – Titel bitte selbst eintragen.');
+  }
+
+  /* --- EAN: nur wenn plausibel lang. Eine EAN ist eine Identitaet (§5). ---- */
+  var ean=String(j.ean||'').replace(/\D/g,'');
+  if(ean && (ean.length===8||ean.length===13)) setzeWennLeer('fe_ean', ean, 'EAN');
+  else if(ean) hinweise.push('EAN „'+esc(ean)+'" hat eine ungewöhnliche Länge – nicht übernommen.');
+
+  /* --- Quelle: der eigentliche Gewinn. Typ + Beleg-URL ohne Tippen. -------- */
+  if(j.url){
+    setzeWennLeer('fe_url', String(j.url), 'Produktlink');
+    setzeWennLeer('fe_beleg', String(j.url), 'Beleg');
+    var qt=document.getElementById('fe_quelle_typ');
+    if(qt && !String(qt.value||'').trim()){
+      /* nur waehlen, was die Liste kennt - sonst verschluckt das select den Wert (§1.11n-bb) */
+      for(var i=0;i<qt.options.length;i++){
+        if(qt.options[i].value==='Herstellerseite'){ qt.value='Herstellerseite'; gefuellt.push('Quelle-Typ'); break; }
+      }
+    }
+  }
+
+  /* --- Naehrwerte ---------------------------------------------------------- */
+  var n=j.naehrwerte||{};
+  var kcal=_fgJsonZahl(n.brennwert_kcal), kj=_fgJsonZahl(n.brennwert_kj);
+  /* kcal fehlt, kJ ist da: umrechnen ist eine DEFINITION (1 kcal = 4,184 kJ),
+     keine Schaetzung - deshalb erlaubt (im Gegensatz zu einer Dichte, §1.11n-y). */
+  if(kcal==null && kj!=null) { kcal=Math.round(kj/4.184*10)/10; hinweise.push('kcal aus kJ umgerechnet ('+kj+' kJ).'); }
+  var paare=[['fe_kcal',kcal,'Energie'],['fe_fett',_fgJsonZahl(n.fett_g),'Fett'],
+    ['fe_ges_fett',_fgJsonZahl(n.gesaettigte_fettsaeuren_g),'ges. Fett'],
+    ['fe_kh',_fgJsonZahl(n.kohlenhydrate_g),'Kohlenhydrate'],
+    ['fe_zucker',_fgJsonZahl(n.zucker_g),'Zucker'],
+    ['fe_ballaststoffe',_fgJsonZahl(n.ballaststoffe_g),'Ballaststoffe'],
+    ['fe_protein',_fgJsonZahl(n.eiweiss_g),'Eiweiß'],
+    ['fe_salz',_fgJsonZahl(n.salz_g),'Salz']];
+  paare.forEach(function(p){ setzeWennLeer(p[0],p[1],p[2]); });
+
+  /* --- Zutaten: gegen den Stamm aufloesen, NIE neu anlegen ----------------- */
+  var zutText=String(j.zutaten||'').trim(), nichtGefunden=[];
+  if(zutText){
+    try{ if(typeof fgRefSet==='function') fgRefSet(fgFlattenZutaten(zutText)); }catch(e){}
+    try{
+      /* Rueckgabe ist ein ARRAY mit {id,name,note,grund,gelesen,gefunden} - am echten
+         Aufruf abgelesen, nicht angenommen (1.11n-aa). Der Parameter ist jsonb. */
+      var r=await client.rpc('cb_zutaten_stamm_aufloesen',{p_namen:fgFlattenZutaten(zutText)});
+      if(r.error) throw r.error;
+      var tr=Array.isArray(r.data)?r.data:[];
+      var c=document.getElementById('fe_zutRows');
+      if(c && String(c.innerHTML||'').trim()===''){
+        var zeilen=[];
+        tr.forEach(function(t){
+          if(t && t.gefunden && t.id){ zeilen.push(fgZutRow(t.name, t.note, 'nein')); }
+          else if(t) nichtGefunden.push(String(t.gelesen||'?')+(t.grund?(' ('+t.grund+')'):''));
+        });
+        if(zeilen.length){ c.innerHTML=zeilen.join(''); gefuellt.push(zeilen.length+' Zutaten'); }
+      } else if(c){ uebersprungen.push('Zutaten (schon erfasst)'); }
+    }catch(e){ hinweise.push('Zutaten konnten nicht aufgelöst werden: '+esc(e.message||String(e))); }
+  }
+
+  /* --- Plausibilitaet: Atwater, bevor irgendetwas gespeichert wird --------- */
+  var P=_fgJsonZahl(n.eiweiss_g), K=_fgJsonZahl(n.kohlenhydrate_g), F=_fgJsonZahl(n.fett_g);
+  if(kcal!=null && P!=null && K!=null && F!=null){
+    var at=4*P+4*K+9*F, ab=Math.abs(at-kcal);
+    if(ab>20 && ab/Math.max(kcal,1)>0.30)
+      hinweise.push('⚠ kcal unplausibel: '+kcal+' angegeben, rechnerisch '+Math.round(at)+'.');
+  }
+
+  try{ fgPickRender(); }catch(e){}
+  try{ fePlaus(); }catch(e){}
+  try{ fgEnthaltenRender(); }catch(e){}
+  try{ _fgBallastAutoND(); }catch(e){}
+  try{ feScorePreview(); }catch(e){ console.error('feScorePreview', e); }
+
+  var h='<b style="color:var(--k-166534)">✓ Übernommen:</b> '+(gefuellt.length?esc(gefuellt.join(' · ')):'nichts (alle Felder waren schon gefüllt)');
+  if(uebersprungen.length) h+='<br><span style="color:var(--muted)">Nicht angetastet, weil bereits gefüllt: '+esc(uebersprungen.join(' · '))+'</span>';
+  if(nichtGefunden.length) h+='<br><span style="color:var(--k-b45309)">Nicht im Stamm gefunden: '+esc(nichtGefunden.join(' · '))+' – bitte von Hand ergänzen.</span>';
+  if(hinweise.length) h+='<br><span style="color:var(--k-b45309)">'+hinweise.map(esc).join('<br>')+'</span>';
+  _fgJsonMsg(h);
+}
+
 /* ===== Ziehbare Spaltenbreiten in der Erfassungsliste (Ralph 02.08.2026) =====
    Anlass: die EAN war abgeschnitten. Eine feste Breite ist immer fuer irgendeine Ansicht
    falsch - deshalb nicht "Titel schmaler machen", sondern verschiebbar (1.11n-o).
@@ -15293,6 +15425,13 @@ async function openFgEditor(id, prefill, targetEl){
           <button type="button" onclick="fgPullHersteller()" style="flex:0 0 auto;padding:7px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap">Riki liest ▸</button>
         </div>
         <div id="fe_pasteZone" tabindex="0" onpaste="fePasteImg(event)" onclick="this.focus()" title="Bild aus der Zwischenablage (z. B. Nährwert-Tabelle). Riki liest daraus; das Bild wird auch bei den angehängten Fotos gemerkt." style="border:2px dashed #b9b3e8;border-radius:8px;padding:6px 10px;background:var(--k-f6f5fd,#f6f5fd);color:var(--k-534ab7);font-size:12.5px;cursor:text;outline:none;display:flex;align-items:center;gap:7px;min-width:0"><span style="flex:0 0 auto">📷</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>Screenshot:</b> hier klicken, dann Strg+V</span></div>
+        ${''/* 02.08.2026 (Ralph): JSON aus seinem Lesezeichen-Skript einfuegen. Kostet nichts
+              (kein Riki-Aufruf), ist deterministisch und die Quelle ist die Herstellerseite. */}
+        <div style="display:flex;gap:6px;align-items:stretch;min-width:0">
+          <textarea id="fe_jsonIn" rows="1" oninput="fgJsonZeileAuf(this)" placeholder='📋 JSON aus der Produktseite hier einfügen…' style="flex:1 1 auto;min-width:0;box-sizing:border-box;padding:7px 8px;border:2px dashed #9fc6a8;border-radius:8px;background:var(--k-f4faf5,#f4faf5);color:var(--ink);font-size:12px;font-family:ui-monospace,monospace;resize:vertical"></textarea>
+          <button type="button" onclick="fgJsonUebernehmen()" style="flex:0 0 auto;padding:7px 11px;border:1px solid #9fc6a8;border-radius:8px;background:var(--k-eaf5ee,#eaf5ee);color:var(--k-166534);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap">Übernehmen ▸</button>
+        </div>
+        <div id="fe_jsonMsg" style="font-size:11.5px;line-height:1.45;margin-top:-2px"></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:7px;font-size:11.5px;color:var(--muted)">
         <span style="flex:0 0 auto">Auch:</span>
@@ -21629,7 +21768,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-1705";
+const APP_BUILD = "2026-08-02-1805";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
