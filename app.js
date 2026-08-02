@@ -5515,7 +5515,19 @@ function peRender(){
      Tabelle zu sprengen. Titel-Spalte ohne feste Breite = nimmt den Rest. */
   /* P-Nr-Spalte 64 auf 88px (02.08.2026, Ralphs Fund): seit dem OFF-Import sind die Nummern
      fuenfstellig (P72528) - in 64px war die Nummer abgeschnitten. */
-  var cols='<colgroup><col style="width:88px"><col><col style="width:120px"><col style="width:120px"><col style="width:58px"><col style="width:106px"><col style="width:112px"><col style="width:108px"><col style="width:178px"><col style="width:52px"></colgroup>';
+  /* 02.08.2026 (Ralph): Spaltenbreiten sind ZIEHBAR und werden gemerkt. Anlass war die
+     abgeschnittene EAN - eine feste Breite ist immer fuer irgendeine Ansicht falsch
+     (1.11n-o). EAN-Standard von 112 auf 136px: eine 13-stellige EAN passt in 112px nicht.
+     Die Titel-Spalte hat als Einzige KEINE feste Breite (nimmt den Rest) - bis sie
+     gezogen wird, dann bekommt sie eine. */
+  var _peColW=(function(){
+    try{ var s=JSON.parse(localStorage.getItem('peColW')||'null');
+         if(Array.isArray(s)&&s.length===PE_COL_STD.length) return s; }catch(e){}
+    return PE_COL_STD.slice();
+  })();
+  window._peColW=_peColW;
+  var cols='<colgroup>'+_peColW.map(function(w,i){
+    return '<col'+(w>0?(' style="width:'+w+'px"'):'')+'>'; }).join('')+'</colgroup>';
   var scoreCell=function(s){ if(s==null) return '<span style="font-weight:800;color:#7b8698">–</span>';
     var c=s>=80?'#2e9e57':s>=60?'#c88616':'#cf5442'; return '<span style="font-weight:800;color:'+c+'">'+s+'</span>'; };
   var statPill=function(p){
@@ -5528,12 +5540,23 @@ function peRender(){
     return '<span class="pePill" style="color:#1f7d43;border-color:#bfe3cb;background:#e7f6ec">Aktiv</span>'; };
   /* 27z: filterbare Spaltenköpfe (Excel-artig) - Klick öffnet die Werte-Häkchen-Liste.
      Aktiver Filter faerbt den Kopf blau und zeigt einen gefüllten Trichter. */
-  var thF=function(h,col){
-    if(!col) return th(h);
-    var on=!!(window._peColF&&window._peColF[col]);
-    return '<th onclick="peColFilter(event,\''+col+'\')" title="Klicken zum Filtern (wie in Excel)" style="position:sticky;top:0;background:'+(on?'#e3ebfb':'#eef3f8')+';text-align:left;padding:9px 10px;border-bottom:1px solid #e2e8ef;font-size:12px;color:'+(on?'#3b56b0':'#5b6b82')+';font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer">'+h+' <span style="font-size:10px">'+(on?'▼':'▾')+'</span></th>';
+  /* Der Ziehgriff sitzt IM Spaltenkopf, rechts. stopPropagation ist Pflicht: sonst
+     oeffnet jedes Ziehen zusaetzlich den Excel-Filter dieser Spalte. */
+  var _griff=function(i){
+    return '<span onmousedown="peColZiehStart(event,'+i+')" ondblclick="peColBreiteZuruecksetzen(event,'+i+')"'
+      +' title="Ziehen = Breite aendern · Doppelklick = zuruecksetzen"'
+      +' style="position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;user-select:none"></span>';
   };
-  g.innerHTML=cols+'<thead><tr>'+[thF('P-Nr','pnr'),thF('Titel','titel'),thF('Marke','marke'),thF('Kategorie','kategorie'),thF('Index','index'),thF('Status','status'),thF('EAN','ean'),thF('Quelle','quelle'),thF('Herkunft','herkunft'),th('⚑ 🛡')].join('')+'</tr></thead><tbody>'
+  var thF=function(h,col,i){
+    var on=!!(window._peColF&&window._peColF[col]);
+    var basis='position:sticky;top:0;background:'+(on?'#e3ebfb':'#eef3f8')+';text-align:left;padding:9px 10px;'
+      +'border-bottom:1px solid #e2e8ef;font-size:12px;color:'+(on?'#3b56b0':'#5b6b82')+';font-weight:700;'
+      +'white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    if(!col) return '<th style="'+basis+'">'+h+_griff(i)+'</th>';
+    return '<th onclick="peColFilter(event,\''+col+'\')" title="Klicken zum Filtern (wie in Excel)" style="'+basis+';cursor:pointer">'
+      +h+' <span style="font-size:10px">'+(on?'▼':'▾')+'</span>'+_griff(i)+'</th>';
+  };
+  g.innerHTML=cols+'<thead><tr>'+[thF('P-Nr','pnr',0),thF('Titel','titel',1),thF('Marke','marke',2),thF('Kategorie','kategorie',3),thF('Index','index',4),thF('Status','status',5),thF('EAN','ean',6),thF('Quelle','quelle',7),thF('Herkunft','herkunft',8),thF('⚑ 🛡',null,9)].join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       var _scan=peIstScan(p);
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')"'
@@ -5723,6 +5746,60 @@ function peRowCtx(ev,id){
   var w=ctx.offsetWidth,h=ctx.offsetHeight;
   ctx.style.left=Math.min(ev.clientX,innerWidth-w-6)+'px'; ctx.style.top=Math.min(ev.clientY,innerHeight-h-6)+'px';
   setTimeout(function(){ document.addEventListener('click',peCtxHide); },0);
+}
+/* ===== Ziehbare Spaltenbreiten in der Erfassungsliste (Ralph 02.08.2026) =====
+   Anlass: die EAN war abgeschnitten. Eine feste Breite ist immer fuer irgendeine Ansicht
+   falsch - deshalb nicht "Titel schmaler machen", sondern verschiebbar (1.11n-o).
+   Die Breiten liegen in localStorage und ueberleben den Seitenwechsel.
+   Es wird NUR das <col> angefasst, nicht neu gerendert - sonst ruckelt es beim Ziehen. */
+/* Die Standardbreiten stehen an EINEM Ort - sonst laufen Anzeige und Ruecksetzen
+   auseinander (1.2c). 0 = keine feste Breite (Titel nimmt den Rest). */
+var PE_COL_STD=[88,0,120,120,58,106,136,108,150,52];
+var _peZieh=null;
+function peColZiehStart(ev,i){
+  if(ev.stopPropagation) ev.stopPropagation();   /* sonst oeffnet sich der Excel-Filter */
+  if(ev.preventDefault) ev.preventDefault();
+  var g=document.getElementById('peGrid'); if(!g) return;
+  var col=g.querySelectorAll('colgroup col')[i]; if(!col) return;
+  var th=ev.target&&ev.target.parentNode;
+  _peZieh={ i:i, col:col, x0:ev.clientX, w0:(th?th.getBoundingClientRect().width:120) };
+  document.addEventListener('mousemove',peColZiehZug);
+  document.addEventListener('mouseup',peColZiehEnde);
+  try{ document.body.style.cursor='col-resize'; document.body.style.userSelect='none'; }catch(e){}
+}
+function peColZiehZug(ev){
+  if(!_peZieh) return;
+  /* Untergrenze 40px: eine Spalte, die man auf 0 zieht, ist danach nicht mehr greifbar -
+     der Nutzer koennte sie nie wieder aufziehen. */
+  var w=Math.max(40, Math.round(_peZieh.w0 + (ev.clientX - _peZieh.x0)));
+  _peZieh.col.style.width=w+'px';
+  _peZieh.wNeu=w;
+}
+function peColZiehEnde(){
+  document.removeEventListener('mousemove',peColZiehZug);
+  document.removeEventListener('mouseup',peColZiehEnde);
+  try{ document.body.style.cursor=''; document.body.style.userSelect=''; }catch(e){}
+  if(_peZieh && _peZieh.wNeu!=null){
+    /* 🔴 Rueckfall auf die Standardliste, NICHT auf ein leeres Array: ist _peColW noch
+       nicht gesetzt, haette ein leeres Array beim Merken alle uebrigen Breiten auf
+       "undefined" gesetzt - also stillschweigend geloescht. Vom Test gefunden. */
+    var arr=(Array.isArray(window._peColW)&&window._peColW.length===PE_COL_STD.length)
+              ? window._peColW.slice() : PE_COL_STD.slice();
+    arr[_peZieh.i]=_peZieh.wNeu;
+    window._peColW=arr;
+    try{ localStorage.setItem('peColW', JSON.stringify(arr)); }
+    catch(e){ console.error('Spaltenbreite konnte nicht gemerkt werden', e); }
+  }
+  _peZieh=null;
+}
+/* Doppelklick auf den Griff: NUR diese Spalte zurueck auf den Standard. Ohne Rueckweg
+   waere eine einmal verzogene Spalte dauerhaft kaputt (1.11n-nn: der Weg zurueck gehoert dazu). */
+function peColBreiteZuruecksetzen(ev,i){
+  if(ev.stopPropagation) ev.stopPropagation();
+  if(ev.preventDefault) ev.preventDefault();
+  var arr=(window._peColW||PE_COL_STD.slice()).slice(); arr[i]=PE_COL_STD[i]; window._peColW=arr;
+  try{ localStorage.setItem('peColW', JSON.stringify(arr)); }catch(e){}
+  try{ peRender(); }catch(e){ console.error('peRender', e); }
 }
 /* Scan-Zeile aus dem Scan-Cache entfernen (Ralph 02.08.2026). Die Zeile ist KEIN Produkt -
    es geht also nichts aus dem Katalog verloren, nur die vorlaeufigen Scan-Daten. Beim
@@ -21552,7 +21629,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-1618";
+const APP_BUILD = "2026-08-02-1705";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
