@@ -15829,7 +15829,10 @@ var _FGST={
 };
 async function fgStatusLoad(){
   var el=document.getElementById('frgStatusPill'); if(!el) return;
-  var id=(window._fgEdit&&window._fgEdit.id); if(!id){ el.innerHTML=''; return; }
+  var id=(window._fgEdit&&window._fgEdit.id);
+  /* Loeschknopf nur bei gespeichertem Produkt zeigen (Ralph 02.08.). */
+  try{ var _dl=document.getElementById('frgDelTop'); if(_dl) _dl.style.display = id ? 'flex' : 'none'; }catch(e){}
+  if(!id){ el.innerHTML=''; return; }
   var st=null;
   try{ var r=await client.rpc('cb_produkt_status',{p_id:id}); var d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } if(d&&d.ok) st=d.status; }catch(e){}
   window._fgStatus=st;
@@ -15996,7 +15999,13 @@ function feFreigabeLeiste(items, blocked){
         tbx=document.createElement('span'); tbx.id='frgTopBtns';
         tbx.style.cssText='display:flex;gap:6px;align-items:center;margin-left:6px;flex:0 0 auto';
         tbx.innerHTML='<button type="button" id="frgSaveTop" onclick="try{fgEditSave(false)}catch(e){}" title="Nur speichern" style="width:36px;height:32px;border:1px solid var(--k-bfdbfe,#bfdbfe);border-radius:9px;background:var(--card);color:#2563eb;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>'
-          +'<button type="button" id="frgGoTop" style="height:32px;padding:0 14px;border:0;border-radius:9px;color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap">✓ freigeben</button>';
+          +'<button type="button" id="frgGoTop" style="height:32px;padding:0 14px;border:0;border-radius:9px;color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap">✓ freigeben</button>'
+          /* 02.08. (Ralph, zweiter Anlauf): Der Loeschknopf stand nur im Status-Menue - zwei
+             Klicks tief und damit unauffindbar. Jetzt sichtbar, aber MIT ABSTAND und nur als
+             Umriss: er soll gefunden, nicht getroffen werden. Erscheint nur bei einem
+             gespeicherten Produkt (frgDelTop wird in fgStatusLoad ein-/ausgeblendet) - an
+             einem ungespeicherten gibt es nichts zu loeschen. */
+          +'<button type="button" id="frgDelTop" onclick="try{fgProduktLoeschen()}catch(e){}" title="Produkt endgültig löschen" style="display:none;height:32px;width:36px;margin-left:10px;border:1px solid #f0b8b4;border-radius:9px;background:var(--card);color:#b91c1c;cursor:pointer;align-items:center;justify-content:center;padding:0;flex:0 0 auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>';
         /* Status-Pille VOR die Diskette (Ralph-Entscheid Mockup A, 29.07.):
            zeigt den aktuellen Status, Klick oeffnet das Menue mit allen Zielen. */
         var pil=document.createElement('span'); pil.id='frgStatusPill'; pil.style.cssText='flex:0 0 auto';
@@ -20829,7 +20838,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-0930";
+const APP_BUILD = "2026-08-02-0950";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
