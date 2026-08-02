@@ -2993,6 +2993,61 @@ if(typeof window!=="undefined"){ window.salzFaktenHtml=salzFaktenHtml; }
    keine Quelle, aus der er etwas zeigen koennte.
    =========================================================================== */
 /* ===========================================================================
+   BALLASTSTOFF-PRÜFUNG (Ralph 02.08.2026)
+
+   Das Problem: 18.011 aktive Produkte haben keine Ballaststoff-Angabe — und die
+   fehlende Zahl bedeutet zweierlei. Bei Wurst ist 0 die WAHRHEIT (tierisches
+   Gewebe hat keine Ballaststoffe), bei Brot ist sie eine LÜCKE. Der Score-Trigger
+   kann das nicht unterscheiden und verwirft in beiden Fällen die ganze
+   40-Punkte-Achse — der Index wird dann aus 60 Punkten hochgerechnet (§1.11s).
+
+   Diese Prüfung sagt NUR, was die Warenart hergibt. Sie trägt nichts von selbst
+   ein: der Mensch klickt. Ein Automatismus würde 0 auch dort schreiben, wo
+   niemand hingesehen hat — genau der Default-Fehler aus §1.12.
+
+   Die Regel selbst steht in der DB (Naehrwert_Erwartung + cb_ballast_plausibel_kat),
+   NICHT hier. Zwei Kopien einer Regel laufen immer auseinander (§1.2c).
+   =========================================================================== */
+async function feBallastPruefen(){
+  var kat=((document.getElementById("fe_kat")||{}).value||"").trim();
+  if(!kat){ window._feBallast=null; return; }
+  /* Pflanzliche Zutaten im Formular zählen — sie schlagen die Kategorie-Regel:
+     ein Pesto steht in "Würzen & Saucen" (darf_fehlen), hat aber sehr wohl
+     Ballaststoffe. Die Ausnahme hängt damit an der Eigenschaft, nicht an der
+     Kategorie-Liste (§1.11n-gg). */
+  var pf=0;
+  try{
+    /* Im Formular steht nur der Zutaten-NAME, keine Kategorie (nachgesehen, nicht vermutet:
+       die Zeilen tragen fgzName/fgzRate/fgzKrit — eine Klasse fgzKat gibt es nicht).
+       Die Namensprüfung ist gröber als die Kategorie-Prüfung im Bestands-Wächter, aber die
+       FEHLERRICHTUNG stimmt: ein Fehltreffer führt dazu, dass wir KEINE 0 vorschlagen.
+       Lieber einmal zu wenig vorschlagen als eine 0 in ein Vollkornbrot schreiben (§1.12). */
+    var PFL=/(gem(ü|ue)se|obst|getreide|weizen|roggen|hafer|dinkel|mais|reis|kartoffel|tomate|paprika|zwiebel|karotte|m(ö|oe)hre|erbse|bohne|linse|kichererbse|nuss|n(ü|ue)sse|mandel|samen|kern|h(ü|ue)lsenfrucht|kr(ä|ae)uter|gew(ü|ue)rz|pilz|champignon|frucht|apfel|beere|kakao|soja|sesam|leinsamen|kokos|oliven)/i;
+    (document.querySelectorAll("#fe_zutRows .fgzName")||[]).forEach(function(e){ if(PFL.test(e.value||"")) pf++; });
+  }catch(e){}
+  try{
+    var r=await client.rpc("cb_ballast_plausibel_kat",{p_kat:kat,p_pflanzlich:pf});
+    if(r.error) throw new Error(r.error.message);
+    window._feBallast=r.data||null;
+  }catch(e){
+    if(typeof console!=="undefined") console.warn("Ballaststoff-Prüfung:", e&&e.message?e.message:e);
+    window._feBallast={stand:"unklar",grund:"Prüfung nicht erreichbar",fehler:true};
+  }
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}   /* §1.11n-f: nach dem await neu zeichnen */
+}
+/* Der Klick, den Ralph wollte: "wenn plausibel, 0 als Nährwert eintragen".
+   Setzt zusätzlich das Häkchen "laut Etikett nicht angegeben" — damit bleibt
+   sichtbar, dass die 0 eine begründete Angabe ist und keine Messung (§1.13f). */
+function feBallastNull(){
+  var b=document.getElementById("fe_ballaststoffe"), cb=document.getElementById("fe_ballast_nd");
+  if(!b) return;
+  b.value="0"; if(cb) cb.checked=true;
+  try{ fePlaus(); }catch(e){}
+  try{ if(typeof feScoreVorschau==="function") feScoreVorschau(); }catch(e){}
+}
+if(typeof window!=="undefined"){ window.feBallastPruefen=feBallastPruefen; window.feBallastNull=feBallastNull; }
+
+/* ===========================================================================
    DUBLETTEN-WÄCHTER BEIM ANLEGEN (Ralph 31.07.)
 
    Ein Chip in der Kopfzeile, kein Popup, das beim Tippen dazwischenfährt: Man
@@ -14404,6 +14459,7 @@ async function keinScoreKatsLaden(){
    (da stehen die Wirkstoffe drin, nicht Lebensmittel-Zutaten) und die Vorschlagsliste
    blendet Lebensmittel aus. Sonst normal „Zutaten". */
 function feKatChange(){
+  try{ if(typeof feBallastPruefen==="function") feBallastPruefen(); }catch(e){}   /* 02.08.: andere Warenart = andere Ballaststoff-Erwartung */
   var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
@@ -14414,7 +14470,9 @@ function feKatChange(){
      etwas anderes, und zwar eine, die richtig aussieht (§1.11n-f). undefined heisst hier
      ausdruecklich "noch nicht geprueft", nicht "nichts gefunden". */
   window._feDub=undefined;
-  try{ feDubPruefen(); }catch(e){}        /* 31.07.: Dubletten-Chip auch ohne Tippen - beim Oeffnen einmal ansehen */
+  try{ feDubPruefen(); }catch(e){}
+  window._feBallast=undefined;
+  try{ feBallastPruefen(); }catch(e){}   /* 02.08.: Ballaststoff-Erwartung zur Kategorie holen */        /* 31.07.: Dubletten-Chip auch ohne Tippen - beim Oeffnen einmal ansehen */
   try{ feNaehrKachelnSync(); }catch(e){}  /* … und der Kachel-Streifen unter der Maske */
   var _wcol=document.getElementById("fe_wirkFotoCol"), _wg=document.getElementById("fe_wirkGrid"), _wback=document.getElementById("fe_refBack"), _wfbtn=document.getElementById("fe_refFlipBtn"), _wc=document.getElementById("fe_wirkCard"), _wtc=document.getElementById("fe_wirkTblCol");
   /* KONZEPT A: das Etikettfoto haengt IMMER oben in der Quelle-Spalte – bei jeder Kategorie, ohne Flip.
@@ -15309,6 +15367,23 @@ function fePlaus(){
           var _tier=[];
           zMit.forEach(function(row){ var _rawnm=((row.querySelector(".fgzName")||{}).value||"").trim(); var _ln=_rawnm.toLowerCase(); if(_ln && _meatRe.test(_ln) && !_exRe.test(_ln)) _tier.push(_rawnm); });
           if(_tier.length) h='<div style="flex-basis:100%;width:100%;color:#b91c1c;font-weight:700;background:#fde8e8;border:1px solid #f3b4b4;border-radius:8px;padding:6px 9px">&#9888; Produkt heißt „vegan/vegetarisch“, enthält aber tierische Zutat: '+esc(_tier.join(", "))+' — falsches Produkt?</div>'+h;
+        }
+      }catch(e){}
+      /* Ballaststoffe: der häufigste Grund für einen hochgerechneten Index (Ralph 02.08.).
+         Drei Zustände, weil die fehlende Zahl dreierlei heißen kann — und nur einer davon
+         rechtfertigt eine 0. Die Regel kommt aus der DB, hier steht nur die Anzeige. */
+      try{
+        var _bs=(document.getElementById("fe_ballaststoffe")||{}).value;
+        if((_bs===""||_bs==null) && !_istSupp && !_istSalz){
+          var _bp=window._feBallast;
+          if(_bp && _bp.stand==="plausibel"){
+            h+='<span title="'+esc(_bp.grund||"")+'" style="color:var(--k-b45309);white-space:nowrap">&#9888; Ballaststoffe fehlen — bei dieser Warenart ist <b>0</b> belegt '
+              +'<button type="button" onclick="feBallastNull()" style="border:1px solid var(--k-16a34a);background:var(--greenlt,#ecfdf5);color:var(--k-166534);border-radius:999px;padding:1px 9px;font-size:11px;font-weight:800;cursor:pointer;margin-left:3px">0 eintragen</button></span>';
+          } else if(_bp && _bp.stand==="luecke"){
+            h+='<span title="'+esc(_bp.grund||"")+'" style="color:var(--k-b45309);white-space:nowrap;font-weight:600">&#9888; Ballaststoffe fehlen — diese Warenart hat welche, vom Etikett nachtragen (keine 0!)</span>';
+          } else if(_bp){
+            h+='<span title="'+esc(_bp.grund||"")+'" style="color:var(--muted);white-space:nowrap">&#9888; Ballaststoffe fehlen — am Etikett entscheiden</span>';
+          }
         }
       }catch(e){}
       /* Zutaten-Abweichung (Ralph 22.07.): Etikett-Referenz hat noch nicht übernommene Zutaten →
@@ -20337,7 +20412,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-0520";
+const APP_BUILD = "2026-08-02-0625";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
