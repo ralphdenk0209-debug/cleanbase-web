@@ -3034,10 +3034,15 @@ async function feDubPruefen(){
       var d=r.data||{treffer:[],anzahl:0};
       window._feDub=d;
       feDubChipRender();
+      /* §1.11n-f: Wer asynchron nachlaedt, muss alles neu zeichnen, was von den Daten abhaengt.
+         Die Freigabe-Zeile zeigt den Dubletten-Stand mit - ohne das hier bliebe sie auf
+         "Prüfung läuft" stehen, obwohl das Ergebnis da ist. */
+      try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
     }catch(e){
       /* Nie stumm scheitern (§1.13i) - aber auch nicht die Arbeit blockieren. */
       if(typeof console!=="undefined") console.warn("Dubletten-Prüfung:", e&&e.message?e.message:e);
-      el.style.display="none"; window._feDub=null;
+      el.style.display="none"; window._feDub={treffer:[],anzahl:0,fehler:true};
+      try{ if(typeof fePlaus==="function") fePlaus(); }catch(e2){}
     }
   }, 450);
 }
@@ -14167,34 +14172,37 @@ async function openFgEditor(id, prefill, targetEl){
         <div id="feTab1">
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,440px);gap:14px;align-items:start" id="fe_grid">
       <div>
-      <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:8px">Daten holen <span style="text-transform:none;font-weight:400">— Riki füllt die Maske, du prüfst nur</span></div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);cursor:pointer;margin-bottom:11px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px;padding:7px 10px"><input type="checkbox" id="fe_nurLeer" ${window._fgNurLeer?"checked":""} onchange="window._fgNurLeer=this.checked" style="width:16px;height:16px;flex:0 0 auto;accent-color:var(--k-16a34a)"><span><b>Füllt nur leere Felder</b> – ein neuer Lese-Vorgang überschreibt vorhandene Werte dann nicht (zum Nachfüllen fehlender Angaben).</span></label>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;align-items:stretch">
-        <div style="border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--card);display:flex;flex-direction:column;gap:7px">
-          <div style="font-size:12px;font-weight:700;color:#3b56b0">🔗 <span id="fe_urlLbl" onclick="feUrlOeffnen()" title="Seite in neuem Fenster öffnen" style="cursor:default">Weblink</span></div>
-          <input id="fe_url" oninput="feUrlLblSync()" value="${esc(d.produktlink||"")}" placeholder="https://… Herstellerseite" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px">
-          <button type="button" onclick="fgPullHersteller()" style="margin-top:auto;padding:8px 12px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap">Riki liest die Seite ▸</button>
-        </div>
-        <div id="fe_pasteZone" tabindex="0" onpaste="fePasteImg(event)" onclick="this.focus()" style="border:2px dashed #b9b3e8;border-radius:10px;padding:10px;background:var(--k-f6f5fd,#f6f5fd);color:var(--k-534ab7);font-size:12px;line-height:1.45;cursor:text;outline:none;display:flex;flex-direction:column;gap:5px">
-          <div style="font-size:12px;font-weight:700">📷 Screenshot</div>
-          <div>Hier klicken, dann <b>Strg+V</b> – Bild aus der Zwischenablage (z. B. Nährwert-Tabelle). Riki liest daraus; das Bild wird auch bei den angehängten Fotos gemerkt.</div>
-        </div>
-        <div style="border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--card);display:flex;flex-direction:column;gap:7px">
-          <div style="font-size:12px;font-weight:700;color:var(--k-534ab7)">📸 Foto</div>
-          <button type="button" onclick="document.getElementById('fe_eti_up').click()" style="padding:8px 12px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap">🏷 Etikett-Foto wählen</button>
-          <button type="button" onclick="fgUseKundenfoto('e')" style="margin-top:auto;padding:6px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600">🗂 Kundenfoto</button>
-        </div>
+      <!-- 02.08. (Ralph): Riki-Zeile schlank. Vorher ~280px Hoehe fuer drei gleich grosse
+           Kaesten - dabei nutzt Ralph fast immer Weblink oder Screenshot; der Datei-Upload
+           laeuft bei ihm ueber "Angehaengte Fotos". Also: die zwei Hauptwege gross und
+           nebeneinander, alles andere als Chip-Zeile darunter. Kein Element geloescht
+           (§1.11n-j) - alle IDs und Aufrufe bleiben, nur Anordnung und Groesse. -->
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 11px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;flex:1 1 auto;min-width:0">Daten holen <span style="text-transform:none;font-weight:400">— Riki füllt, du prüfst</span></div>
+        <label title="Ein neuer Lese-Vorgang überschreibt vorhandene Werte dann nicht — zum Nachfüllen fehlender Angaben." style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink);cursor:pointer;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:999px;padding:3px 9px;flex:0 0 auto;white-space:nowrap"><input type="checkbox" id="fe_nurLeer" ${window._fgNurLeer?"checked":""} onchange="window._fgNurLeer=this.checked" style="width:14px;height:14px;flex:0 0 auto;accent-color:var(--k-16a34a)">nur <b>leere</b> Felder füllen</label>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px;font-size:12px;color:var(--muted)">
-        <span>Weitere Quellen:</span>
-        <button type="button" onclick="fgPullOff()" style="padding:5px 11px;border:1px solid var(--k-16a34a);border-radius:20px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);font-weight:600;cursor:pointer;font-size:12px">🏷 OFF (per EAN)</button>
-        <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name)" style="padding:5px 11px;border:1px solid var(--line);border-radius:20px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:12px">USDA (per EAN)</button>
-        <button type="button" onclick="document.getElementById('fe_res_up').click()" title="Foto -> Riki sucht die Herstellerseite" style="padding:5px 11px;border:1px solid #cbc7f2;border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:12px">📸 Foto → Herstellerseite finden</button>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;align-items:stretch">
+        <div style="display:flex;gap:6px;align-items:center;min-width:0">
+          <span id="fe_urlLbl" onclick="feUrlOeffnen()" title="Seite in neuem Fenster öffnen" style="cursor:default;font-size:15px;flex:0 0 auto">🔗</span>
+          <input id="fe_url" oninput="feUrlLblSync()" value="${esc(d.produktlink||"")}" placeholder="https://… Herstellerseite" style="flex:1 1 auto;min-width:0;box-sizing:border-box;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px">
+          <button type="button" onclick="fgPullHersteller()" style="flex:0 0 auto;padding:7px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap">Riki liest ▸</button>
+        </div>
+        <div id="fe_pasteZone" tabindex="0" onpaste="fePasteImg(event)" onclick="this.focus()" title="Bild aus der Zwischenablage (z. B. Nährwert-Tabelle). Riki liest daraus; das Bild wird auch bei den angehängten Fotos gemerkt." style="border:2px dashed #b9b3e8;border-radius:8px;padding:6px 10px;background:var(--k-f6f5fd,#f6f5fd);color:var(--k-534ab7);font-size:12.5px;cursor:text;outline:none;display:flex;align-items:center;gap:7px;min-width:0"><span style="flex:0 0 auto">📷</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>Screenshot:</b> hier klicken, dann Strg+V</span></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:7px;font-size:11.5px;color:var(--muted)">
+        <span style="flex:0 0 auto">Auch:</span>
+        <button type="button" onclick="document.getElementById('fe_eti_up').click()" title="Etikett-Foto vom Rechner wählen — Riki liest es" style="padding:4px 10px;border:1px solid #cbc7f2;border-radius:20px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:600;cursor:pointer;font-size:11.5px">🏷 Etikett-Foto</button>
+        <button type="button" onclick="fgUseKundenfoto('e')" title="Foto aus der Scan-Warteschlange dieses Nutzers verwenden" style="padding:4px 10px;border:1px solid var(--line);border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:11.5px">🗂 Kundenfoto</button>
+        <button type="button" onclick="fgPullOff()" title="Open Food Facts über die EAN abfragen" style="padding:4px 10px;border:1px solid var(--k-16a34a);border-radius:20px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);font-weight:600;cursor:pointer;font-size:11.5px">🏷 OFF</button>
+        <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name)" style="padding:4px 10px;border:1px solid var(--line);border-radius:20px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:11.5px">USDA</button>
+        <button type="button" onclick="document.getElementById('fe_res_up').click()" title="Foto → Riki sucht die passende Herstellerseite" style="padding:4px 10px;border:1px solid var(--line);border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:11.5px">📸 Foto → Seite</button>
       </div>
       <input type="file" id="fe_res_up" accept="image/*" multiple style="display:none" onchange="fgPullResearch(this.files)">
       <input type="file" id="fe_eti_up" accept="image/*" multiple style="display:none" onchange="fgPullEtikett(this.files)">
-      <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:9px">Riki holt die <b>Herstellerseite</b>, die <b>EAN-Daten</b> (OFF/USDA) oder liest das <b>Etikett vom Foto</b>. Gefundene Werte füllen die Maske – du prüfst nur.</div>
+      <!-- fe_pullMsg bleibt (mehrere Lesewege schreiben ihren Status hierher, §1.11n-j),
+           startet aber LEER: der Erklaersatz stand bei jedem Produkt und war laengst gelesen. -->
+      <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:0"></div>
     </div>
         <div id="fe_prodNwGrid" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch">
         ${card("Produkt",`<div style="display:grid;gap:9px">
@@ -14401,6 +14409,11 @@ function feKatChange(){
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   var special=_fgIstSpecial();   /* Supplement/Salze: Bild NEBEN der Wirkstoff-/Mineral-Tabelle, kein Lebensmittel-Score (Ralph 25.07.) */
   try{ feNaehrBtnSync(); }catch(e){}      /* 30.07.: Nährstoff-Knopf nur bei Supplement/Salze (Ralph) */
+  /* 02.08.: Ergebnis des VORIGEN Produkts zuerst wegwerfen. Sonst zeigt die Freigabe-Zeile
+     450 ms lang den Dubletten-Stand des zuletzt geoeffneten Produkts - eine Aussage ueber
+     etwas anderes, und zwar eine, die richtig aussieht (§1.11n-f). undefined heisst hier
+     ausdruecklich "noch nicht geprueft", nicht "nichts gefunden". */
+  window._feDub=undefined;
   try{ feDubPruefen(); }catch(e){}        /* 31.07.: Dubletten-Chip auch ohne Tippen - beim Oeffnen einmal ansehen */
   try{ feNaehrKachelnSync(); }catch(e){}  /* … und der Kachel-Streifen unter der Maske */
   var _wcol=document.getElementById("fe_wirkFotoCol"), _wg=document.getElementById("fe_wirkGrid"), _wback=document.getElementById("fe_refBack"), _wfbtn=document.getElementById("fe_refFlipBtn"), _wc=document.getElementById("fe_wirkCard"), _wtc=document.getElementById("fe_wirkTblCol");
@@ -15258,6 +15271,29 @@ function fePlaus(){
       h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
       h+= qt ? ok("Quelle belegt") : no("Quelle-Typ fehlt");
       h+= (_eanV||_eanOffen) ? ok(_eanV?"EAN erfasst":"EAN als offen markiert") : no("EAN fehlt – eintragen oder „offen“ ankreuzen");
+      /* Dubletten-Stand (Ralph 02.08.: "sehe ihn nicht in der Freigabe"). Der Wächter gab es
+         seit 31.07., aber NUR als Chip in der Kopfzeile - und der erscheint ausschliesslich bei
+         Treffern. Eine Zeile, die nur bei Problemen da ist, sieht aus wie "nicht geprüft".
+         Darum steht sie jetzt hier IMMER, mit drei ehrlichen Zuständen (§1.11n-d/-m):
+         noch nicht geprüft (grau) · geprüft, nichts gefunden (grün) · Treffer (Warnung, klickbar).
+         Geprüft wird nichts neu - gelesen wird nur, was feDubPruefen schon geholt hat (§1.11i). */
+      try{
+        var _dub=window._feDub;
+        if(_dub===undefined||_dub===null){
+          h+='<span style="color:var(--muted);white-space:nowrap">… Dubletten-Prüfung läuft</span>';
+        } else if(_dub.fehler){
+          h+='<span style="color:var(--k-b45309);white-space:nowrap">&#9888; Dubletten-Prüfung nicht erreichbar</span>';
+        } else if(!_dub.anzahl){
+          h+= ok("keine Dublette");
+        } else {
+          var _rang={sicher:1,wahrscheinlich:2,ansehen:3,variante:4}, _s="variante";
+          (_dub.treffer||[]).forEach(function(t){ if(_rang[t.stufe]<_rang[_s]) _s=t.stufe; });
+          var _btn=function(txt,farbe,fett){ return '<span onclick="try{feDubOeffnen()}catch(e){}" title="Ähnliche Produkte ansehen" style="color:'+farbe+';white-space:nowrap;cursor:pointer;text-decoration:underline dotted'+(fett?';font-weight:600':'')+'">'+txt+'</span>'; };
+          if(_s==="sicher")             h+=_btn("&#9888; Dublette: diese EAN gibt es schon – Speichern wird abgewiesen ›","#b91c1c",true);
+          else if(_s==="variante")      h+=_btn("&#8250; "+_dub.anzahl+" Geschmacksvariante(n) – keine Dublette","var(--muted)",false);
+          else                          h+=_btn("&#9888; "+_dub.anzahl+"&times; sehr ähnlich – ansehen ›","var(--k-b45309)",true);
+        }
+      }catch(e){}
       if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
       if(_istSupp) h+= (_wCount>0) ? ok(_wCount+" Wirkstoff-Menge(n) für Dosis-Check")
                         : (_wNone ? '<span style="color:var(--muted);white-space:nowrap">– Wirkstoff-Mengen (bewusst ohne)</span>'
@@ -20301,7 +20337,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-0407";
+const APP_BUILD = "2026-08-02-0520";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
