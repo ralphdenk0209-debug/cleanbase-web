@@ -4355,6 +4355,142 @@ function peStateSave(){
     kat:((document.getElementById('peVorKat')||{}).value||'') })); }catch(e){}
 }
 function peStateLoad(){ try{ return JSON.parse(localStorage.getItem('peFilter')||'null'); }catch(e){ return null; } }
+/* ===========================================================================
+   SERVERSEITIGE ERFASSUNGS-LISTE (02.08.2026)
+   ---------------------------------------------------------------------------
+   WARUM: Bis heute hat die Seite den ganzen Katalog in den Browser geladen -
+   in einer Schleife, 1000 Zeilen je Abruf. Bei 1.517 Produkten waren das zwei
+   Abrufe. Nach dem OFF-Import sind es 58.120 Zeilen; die Schleife brach bei
+   20.000 ab. Die Liste war also gleichzeitig LANGSAM (rund 5 Sekunden) und
+   UNVOLLSTAENDIG - und die Unvollstaendigkeit war unsichtbar, weil unten eine
+   Zahl stand, die nach einem Ergebnis aussah.
+
+   JETZT: Ein einziger Aufruf an cb_erfassung_liste holt 100 Zeilen, gefiltert
+   und sortiert von der Datenbank. Die Chip-Zahlen kommen aus cb_erfassung_zaehler
+   und gelten fuer den GANZEN Katalog - nicht mehr fuer die zufaellig geladene
+   Menge (§1.11n-hh: eine Zahl ueber eine andere Grundgesamtheit als die, auf die
+   sie sich bezieht, verspricht etwas, das der Filter nicht halten kann).
+
+   WAS WEITER NUR AUF DER GELADENEN SEITE ARBEITET - und das ist Absicht, weil
+   es in der Datenbank keine Entsprechung gibt:
+   · Spaltenfilter (window._peColF)
+   · Marken-Ausblendung (window._peBrandOff, window._peHideMarken)
+   · Sortierung (Auswahlfeld peSort)
+   · die sechs Chips der zweiten Reihe (siehe PE_CHIP_NUR_SEITE)
+   Diese Filter sieben die 100 geladenen Zeilen. Damit daraus keine falsche
+   Aussage wird, sagt die Oberflaeche es im Klartext ("nur diese Seite").
+=========================================================================== */
+var PE_SEITE=100;   /* Seitengroesse. cb_erfassung_liste deckelt bei 300. */
+/* Uebersetzung Oberflaechen-Chip -> Datenbank-Chip. Die Liste kennt mehr Chips,
+   als die Datenbank filtern kann. Wo es keine Entsprechung gibt, holen wir die
+   naechstgroessere Menge (nie eine kleinere - sonst faellt weg, was der lokale
+   Filter noch finden koennte) und sieben auf der Seite nach. */
+var PE_CHIP_SERVER={
+  offen:'offen', alle:'alle', zuverif:'zuverif', keinscore:'ohne_score',
+  waechter:'waechter', scan:'scan',
+  /* Teilmengen des Waechter-Filters (er enthaelt "Quelle fehlt", "Naehrwert-QA"
+     und "Portionsfalle") - deshalb ist 'waechter' hier die richtige Obermenge. */
+  keinquelle:'waechter', naehrwerte:'waechter', portionsfalle:'waechter',
+  /* Ohne DB-Entsprechung: ganze Liste holen, Seite lokal sieben. */
+  keinzut:'alle', markiert:'alle', unverif:'alle'
+};
+var PE_CHIP_NUR_SEITE={keinquelle:1,keinzut:1,markiert:1,naehrwerte:1,portionsfalle:1,unverif:1};
+/* Eine Zeile aus dem Scan-Eingang ist KEIN Produkt: sie hat noch keine P-Nummer
+   (id = "S-<EAN>", echte_id = null). Alles, was eine Produkt-RPC ruft, muss sie
+   aussparen - sonst schickt die Oberflaeche eine Pseudo-Nummer an die Datenbank. */
+function peIstScan(p){ return !!(p && (p.quelle==='scan' || (p.echte_id==null && String(p.id||'').indexOf('S-')===0))); }
+/* Suchtext und Kategorie: solange die Maske noch nicht steht (erster Aufruf),
+   gilt der gespeicherte Wert - danach immer das Feld. Zwei Quellen waeren eine
+   zweite Wahrheit; deshalb EIN Leser je Wert. */
+function peSucheWert(){ var el=document.getElementById('peSuche'); return el?String(el.value||'').trim():String(window._peQVor||''); }
+function peKatWert(){ var el=document.getElementById('peVorKat'); return el?String(el.value||'').trim():String(window._peKatVor||''); }
+/* Fehler NIE stumm verschlucken (§1.13i): der Grund steht im Kasten, daneben ein
+   Knopf, der den Abruf wiederholt. Eine leere Liste ohne Grund sieht aus wie ein
+   Ergebnis. */
+function peFehlerHtml(e,retry){
+  return '<div style="color:#cf5442;font-size:12.5px;padding:10px;line-height:1.55;background:#fff;border:1px solid #f0c4bb;border-radius:11px">'
+    +'<b>Liste nicht ladbar.</b><br>'+esc((e&&e.message)||String(e))
+    +'<br><button type="button" onclick="'+retry+'" style="margin-top:9px;padding:6px 13px;border:1px solid #cf5442;border-radius:8px;background:#fff;color:#cf5442;font-weight:700;font-size:12.5px;cursor:pointer">Erneut versuchen</button></div>';
+}
+/* EIN Abruf, EINE Seite. Wirft bei Fehler weiter - der Aufrufer zeigt ihn an. */
+async function peDatenHolen(offset){
+  var chip=window._peChip||'offen';
+  var srv=PE_CHIP_SERVER[chip]||'alle';
+  var q=peSucheWert(), kat=peKatWert();
+  var r=await client.rpc('cb_erfassung_liste',{p_chip:srv,p_suche:q||null,p_kat:kat||null,
+                                               p_offset:Number(offset||0),p_limit:PE_SEITE});
+  if(r.error) throw r.error;
+  var d=r.data; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){} }
+  if(!d||d.ok!==true) throw new Error((d&&d.grund)||'Die Liste hat keine Antwort geliefert.');
+  var scan=Array.isArray(d.scan)?d.scan:[];
+  var rows=Array.isArray(d.rows)?d.rows:[];
+  /* Scan-Kandidaten ZUERST: sie sind das, was noch gar kein Produkt ist, also die
+     eigentliche Arbeit. Die Datenbank liefert sie nur auf Seite 1 (offset 0) -
+     das steht auch so am Blaetterer, damit niemand sie ab Seite 2 vermisst. */
+  window._peRows=scan.concat(rows);
+  window._verifRows=rows;   /* Editor-Navigation (vor/zurueck) darf nur echte Produkte kennen */
+  window._peGesamt=Number(d.gesamt||0);
+  window._peOffset=Number(d.offset||0);
+  window._peStand=d.stand||null;
+  /* 🔴 Die Scan-Zahl gilt NUR, wenn die Datenbank sie in diesem Aufruf auch gerechnet hat:
+     cb_erfassung_liste fuellt die Scan-Liste ausschliesslich bei offset 0 und den Chips
+     offen/alle/scan. Steht der Filter woanders, wissen wir die Zahl NICHT - dann null,
+     und der Chip zeigt keine Zahl. Eine 0 waere hier eine Behauptung (§1.11n-ii: NULL heisst
+     grau, nicht "es gibt nichts"). */
+  if(Number(d.offset||0)===0 && (srv==='offen'||srv==='alle'||srv==='scan'))
+       window._peScanGesamt=Number(d.scan_anzahl||scan.length);
+  else if(Number(d.offset||0)===0) window._peScanGesamt=null;
+  return d;
+}
+/* Chip-Zahlen fuer den GANZEN Katalog. Schlaegt der Abruf fehl, bleibt _peZaehler
+   null - die Chips zeigen dann KEINE Zahl statt einer falschen (§1.11n-ii: NULL
+   heisst grau, nicht gelb). */
+async function peZaehlerHolen(){
+  try{
+    var r=await client.rpc('cb_erfassung_zaehler');
+    if(r.error) throw r.error;
+    var d=r.data; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){} }
+    window._peZaehler=(d&&d.ok===true)?d:null;
+  }catch(e){ console.error('cb_erfassung_zaehler',e); window._peZaehler=null; }
+}
+/* Blaettern. Laedt die Seite neu und zeichnet nur die Liste - die Maske bleibt stehen. */
+async function peSeite(offset){
+  var pg=document.getElementById('pePager');
+  if(pg) pg.innerHTML='<span style="color:#7b8698;font-size:12px">Lade…</span>';
+  try{ await peDatenHolen(offset); }
+  catch(e){ console.error('cb_erfassung_liste',e);
+    if(pg) pg.innerHTML=peFehlerHtml(e,'peSeite('+Number(offset||0)+')');
+    return; }
+  try{ peRender(); }catch(e){}
+}
+/* Suche geht an die Datenbank, nicht mehr an den Browser. Gebremst (350 ms), damit
+   nicht jeder Tastendruck einen Abruf ausloest; jede Aenderung faengt wieder bei
+   Seite 1 an - sonst stuende man auf Seite 7 einer Liste, die es nicht mehr gibt. */
+function peSucheGeaendert(){
+  if(window._peSuchTimer) clearTimeout(window._peSuchTimer);
+  window._peSuchTimer=setTimeout(function(){ window._peSuchTimer=0;
+    try{ peStateSave(); }catch(e){}
+    peSeite(0); },350);
+}
+/* Kategorie-Auswahl: wirkt sofort, ebenfalls serverseitig, ebenfalls ab Seite 1. */
+function peFilterGeaendert(){ try{ peStateSave(); }catch(e){} peSeite(0); }
+/* Aus dem Scan-Eingang ein Produkt anlegen. Nutzt den BESTEHENDEN Anlege-Weg
+   (openFgEditor ohne id, mit Vorbelegung) - kein zweiter Weg, kein zweites
+   Formular (§1.11i). Der Editor bekommt bewusst nur, was die Datenbank belegt
+   liefert: Name, Marke, EAN, Kategorie. Naehrwerte werden NICHT geraten. */
+function peScanAnlegen(id){
+  var p=(window._peRows||[]).find(function(r){ return String(r.id)===String(id); });
+  if(!p){ alert('Diese Scan-Zeile ist nicht mehr in der Liste – bitte neu laden.'); return; }
+  try{
+    openFgEditor(null,{ name:p.name||'', marke:p.marke||'', ean:p.ean||'', kategorie:p.kategorie||'',
+      hinweis:'Aus dem Scan-Eingang übernommen (Barcode '+(p.ean||'—')+'). Die Angaben sind ein VORSCHLAG aus dem Scan-Zwischenspeicher – vor der Freigabe gegen das Etikett prüfen. Nährwerte sind bewusst leer.' });
+  }catch(e){ alert('Editor-Fehler: '+(e&&e.message||e)); }
+}
+if(typeof window!=='undefined'){
+  window.peIstScan=peIstScan; window.peSeite=peSeite; window.peSucheGeaendert=peSucheGeaendert;
+  window.peFilterGeaendert=peFilterGeaendert; window.peScanAnlegen=peScanAnlegen;
+  window.peDatenHolen=peDatenHolen; window.peZaehlerHolen=peZaehlerHolen;
+}
 async function loadProduktErfassung(){
   var box=document.getElementById('fgProdErf'); if(!box) return;
   peLightCssInject();
@@ -4362,31 +4498,13 @@ async function loadProduktErfassung(){
   /* Volle Breite (linke Menüspalte entfällt seit dem Hamburger-Layout, 20.07.2026). */
   box.style.cssText='width:100%;max-width:none;margin:0;';
   box.innerHTML='<div style="color:#7b8698;font-size:12.5px;padding:8px">Lade Produkte…</div>';
-  try{
-    /* GANZER aktiver Katalog (v_erfassung_katalog), damit die Tabelle Score/Quelle/Status
-       WIRKLICH zeigt – nicht nur der leere Posteingang. PostgREST kappt bei 1000 Zeilen,
-       darum blaettern (Pagination), sonst waeren >600 Produkte unsichtbar (CLAUDE.md). */
-    var rows=[],from=0,size=1000;
-    while(true){
-      /* 2026-08-02 (Ralphs Fund "Dubletten in der Liste"): .order('erfasst') allein ist ein
-         NICHT-eindeutiger Schluessel - der Massenimport gab tausenden Zeilen denselben
-         Zeitstempel. Ohne eindeutigen Zweitschluessel ist die Reihenfolge zwischen zwei
-         Seiten-Abrufen nicht stabil: dieselbe Zeile kam auf zwei Seiten, andere fielen in
-         die Luecke. Datenbank und View waren sauber (je Produkt 1 Zeile, gemessen). */
-      var r=await client.from('v_erfassung_katalog').select('*').order('erfasst',{ascending:false}).order('id',{ascending:false}).range(from,from+size-1);
-      if(r.error) throw r.error;
-      var d=r.data||[]; rows=rows.concat(d);
-      if(d.length<size) break; from+=size; if(from>20000) break;
-    }
-    /* Dubletten-Netz: faengt zusaetzlich den Fall, dass ein Parallel-Schreiber die Tabelle
-       ZWISCHEN zwei Seiten-Abrufen verschiebt (der Zweitschluessel macht nur die Sortierung
-       stabil, nicht die Menge). Erste Fundstelle gewinnt = beste Sortier-Position. */
-    var _peSeen={}; rows=rows.filter(function(x){ var k=String(x.id); if(_peSeen[k]) return false; _peSeen[k]=true; return true; });
-    rows.sort(function(a,b){ var da=String(a.erfasst||""),db=String(b.erfasst||""); if(da!==db)return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0,nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
-    window._verifRows=rows; window._peRows=rows;
-  }catch(e){ box.innerHTML='<div style="color:#cf5442;font-size:12.5px;padding:8px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
-  /* Standard-Ansicht: nur das, was ARBEIT braucht (Entwurf + zu verifizieren + EAN fehlt noch).
-     Fertige Produkte (Aktiv & verifiziert & Score & EAN da/generisch) sind ausgeblendet – über „Alle". */
+  /* 🔴 Reihenfolge umgedreht (02.08.2026): die gespeicherten Filter werden JETZT ZUERST
+     gelesen. Grund: Chip, Suchtext und Kategorie gehen an die Datenbank - der Abruf muss
+     sie also kennen, BEVOR er losgeht. Die Maske steht zu diesem Zeitpunkt noch nicht,
+     deshalb merken wir Suchtext und Kategorie in _peQVor/_peKatVor vor (peSucheWert/
+     peKatWert lesen sie, solange es kein Feld gibt).
+     Standard-Ansicht bleibt: nur das, was ARBEIT braucht (Entwurf + zu verifizieren +
+     EAN fehlt noch). Fertige Produkte sieht man über „Alle". */
   var _ps=peStateLoad();
   if(_ps){
     if(_ps.chip) window._peChip=_ps.chip;
@@ -4394,7 +4512,16 @@ async function loadProduktErfassung(){
     if(_ps.brandOff) window._peBrandOff=_ps.brandOff;
     window._peHideMarken=!!_ps.hideMarken;
   }
+  window._peQVor=(_ps&&_ps.q)||'';
+  window._peKatVor=(_ps&&_ps.kat)||'';
   if(window._peChip===undefined) window._peChip='offen';   /* 28z32: 'zuverif' ist wieder ein echter Chip */
+  /* EIN Abruf statt bis zu 20 Schleifendurchlaeufen. Die frueheren Netze gegen Dubletten
+     und instabile Sortierung sind hier nicht mehr noetig: die Datenbank sortiert und
+     blaettert selbst (erfasst desc, id desc) und liefert je Zeile genau einmal. */
+  try{ await peDatenHolen(0); }
+  catch(e){ console.error('cb_erfassung_liste',e);
+    box.innerHTML=peFehlerHtml(e,'loadProduktErfassung()'); return; }
+  await peZaehlerHolen();
   /* Die Chip-Zaehlung lebt seit 30.07. in peChipRowsHtml (eine Regel, ein Ort) und
      wird bei jedem peRender neu gerechnet. Die frueheren Konstanten cnt/chip standen
      hier und wurden genau EINMAL beim Seitenaufbau gefuellt - genau das war der Fehler.
@@ -4413,7 +4540,9 @@ async function loadProduktErfassung(){
       +'<button class="peBtn" onclick="scanEingangToggle()" title="Scan-Eingang ein-/ausblenden: gescannte Produkte zur Prüfung, Entwürfe">📥 Scan-Eingang</button>'
       +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
       +'<span style="color:#7b8698;margin-left:6px;font-size:12.5px" title="Filtert die Liste nach Kategorie und ist zugleich die Vorgabe für neue Produkte.">Kategorie</span>'
-      +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px","peRender()","alle Kategorien")
+      /* 02.08.2026: Kategorie filtert jetzt in der DATENBANK (peFilterGeaendert -> peSeite(0)),
+         nicht mehr im Browser - sonst filterte sie nur die 100 geladenen Zeilen. */
+      +katSelectHtml("peVorKat","","width:150px;height:34px;padding:6px 8px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px","peFilterGeaendert()","alle Kategorien")
       /* 2026-07-29 (Ralph): ⇄-Status-Knopf raus - der Status wohnt jetzt als Pille im Editor */
       +'<button id="peMarkenBtn" class="peBtn" onclick="peBrandBox(this)" title="Marken zum Ausblenden abwählen">🏷 Marken ▾</button>'+'<button id="peJunkBtn" class="peBtn" onclick="peHideMarkenToggle()" title="Dr. Oetker, Gustavo Gusto und Original Wagner ausblenden">🚫 Werbe-Marken</button>'
       +'<span style="flex:1"></span>'
@@ -4428,7 +4557,10 @@ async function loadProduktErfassung(){
     +'</div>'  /* Ende Sticky-Menü: NUR Toolbar + Chips bleiben fixiert (Ralph) */
     /* Session-Leiste (Suche/Filter, Bearbeiter, Sortierung) – scrollt jetzt mit, unterhalb der Buttons */
     +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin:2px 0 12px">'
-      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Suche / Filter</div><input id="peSuche" oninput="peRender()" placeholder="🔍 Titel, Marke, EAN, Kategorie…" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"></div>'
+      /* 02.08.2026: Die Suche laeuft SERVERSEITIG (cb_erfassung_liste, p_suche) - sie
+         durchsucht damit alle 58.120 Zeilen und nicht mehr nur die geladene Seite.
+         Gesucht wird in Titel, Marke, EAN und P-Nummer. */
+      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Suche / Filter</div><input id="peSuche" oninput="peSucheGeaendert()" placeholder="🔍 Titel, Marke, EAN, P-Nummer…" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"></div>'
       /* 28k: Bearbeiter-Feld entfernt (Ralph: "nur Bearbeiter raus") - es war tot (disabled, zeigte nur den eigenen Namen). Der Befueller weiter unten prueft die Existenz und laeuft jetzt leer. */
       +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Sortierung</div>'
         +'<select id="peSort" onchange="peRender()" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"><option value="neu">Erfasst – neueste zuerst</option><option value="score">Index aufsteigend</option><option value="titel">Titel A–Z</option><option value="mark">Nur markierte</option></select></div>'
@@ -4449,6 +4581,8 @@ async function loadProduktErfassung(){
       +'<div id="peListBody">'
         +'<div style="max-height:max(280px,calc(100vh - 430px));overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
         +'<div id="peFoot" style="padding:7px 10px;color:#7b8698;font-size:12px;border-top:1px solid #e2e8ef;background:#eef3f8"></div>'
+        /* Blaetterer (02.08.2026). Fuellt pePagerHtml() bei jedem peRender. */
+        +'<div id="pePager" style="padding:8px 10px;border-top:1px solid #e2e8ef;background:#f4f7fa"></div>'
       +'</div>'
     +'</div>'
     +'<div id="peDetail"><div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div></div>'
@@ -4494,11 +4628,17 @@ function peMenu(kind,anchor){
     /* 2026-07-29 (Ralph-Go Sammel-Aktionen): Grundidee = ZWEI Schritte.
        1. AUSWAEHLEN: filtern (Chips/Suche/Marke), dann "Alle gefilterten markieren".
        2. HANDELN: eine Sammel-Aktion wirkt auf ALLE markierten. Fahnen sind gespeichert. */
-    var _sicht=(window._peSichtbar||[]).length;
-    var _markN=(window._peRows||[]).filter(function(p){return p.markiert;}).length;
+    /* 02.08.2026: Beide Zahlen zaehlen die GELADENE SEITE - "alle gefilterten markieren"
+       markiert also hoechstens 100 Produkte, nicht den ganzen Filter. Das steht seit heute
+       als Zeile im Menue: eine Sammel-Aktion, die weniger tut als ihr Name sagt, ist
+       gefaehrlicher als eine, die gar nicht da ist. Scan-Zeilen zaehlen nicht mit -
+       sie haben keine P-Nummer. */
+    var _sicht=(window._peSichtbar||[]).filter(function(p){return !peIstScan(p);}).length;
+    var _markN=(window._peRows||[]).filter(function(p){return p.markiert && !peIstScan(p);}).length;
     var _sep2='<div style="height:1px;background:#e2e8ef;margin:4px 6px"></div>';
     html= it('↻ Liste neu laden','loadProduktErfassung()')
       +_sep2+'<div style="padding:5px 11px 3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#9aa7b2;font-weight:800">Schritt 1 · Auswählen</div>'
+      +'<div style="padding:0 11px 5px;font-size:11px;color:#9aa7b2;line-height:1.4">wirkt auf die geladene Seite (max. '+PE_SEITE+' Zeilen)</div>'
       +it('⚑ Alle gefilterten markieren ('+_sicht+')','peBulkMarkieren(true)')
       +it('⚐ Alle Markierungen aufheben ('+_markN+')','peBulkMarkieren(false)')
       +it('👁 Nur markierte zeigen','peChip(\'markiert\')')
@@ -4525,6 +4665,8 @@ function peSetSort(v){ var s=document.getElementById('peSort'); if(s){ s.value=v
 /* ===== Sammel-Aktionen (Ralph-Go 29.07.) — wirken auf die gespeicherten ⚑-Markierungen ===== */
 async function peBulkMarkieren(an){
   var ziel=an?(window._peSichtbar||[]):((window._peRows||[]).filter(function(p){return p.markiert;}));
+  /* Scan-Zeilen aussortieren: cb_produkt_markieren kennt keine Pseudo-Nummer S-<EAN>. */
+  ziel=ziel.filter(function(p){ return !peIstScan(p); });
   if(!ziel.length){ alert(an?'Keine Produkte im Filter.':'Nichts markiert.'); return; }
   if(!confirm(an?('Alle '+ziel.length+' GEFILTERTEN Produkte markieren?\n\n(Die Fähnchen bleiben gespeichert, bis du sie aufhebst.)'):('Alle '+ziel.length+' Markierungen entfernen?'))) return;
   for(var i=0;i<ziel.length;i++){ var p=ziel[i];
@@ -4532,7 +4674,9 @@ async function peBulkMarkieren(an){
   peRender();
 }
 async function peBulkStatus(ziel){
-  var mark=(window._peRows||[]).filter(function(p){return p.markiert;});
+  /* Nur echte Produkte: eine Scan-Zeile hat noch keine P-Nummer, die Freigabe-RPCs
+     wuerden sie nicht finden. */
+  var mark=(window._peRows||[]).filter(function(p){return p.markiert && !peIstScan(p);});
   if(!mark.length){ alert('Nichts markiert.\n\nSchritt 1: erst filtern (Chips, Suche, Marke), dann „Alle gefilterten markieren".'); return; }
   var msg = ziel==='Aktiv' ? ('Für '+mark.length+' markierte Produkte die GEPRÜFTE Freigabe versuchen?\n\nDie Blocker gelten je Produkt weiter — blockierte bleiben unverändert und werden dir genannt.')
     : ziel==='Aktiv ohne Index' ? (mark.length+' markierte Produkte BEWUSST OHNE Index in den Katalog stellen?\n\nNur für Produkte ohne belegbare Nährwerte (z. B. frische Sprossen).')
@@ -4561,11 +4705,17 @@ async function peBulkStatus(ziel){
   loadProduktErfassung();
 }
 if(typeof window!=='undefined'){ window.peBulkMarkieren=peBulkMarkieren; window.peBulkStatus=peBulkStatus; }
+/* 02.08.2026: Ein Chip-Wechsel ist jetzt eine neue ABFRAGE, kein Umsortieren im Browser -
+   deshalb zurueck auf Seite 1 und neu laden. */
 function peChip(k){ window._peChip=k;
   document.querySelectorAll('#fgProdErf .peChip').forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-k')===k); });
-  peRender(); }
+  try{ peStateSave(); }catch(e){}
+  peSeite(0); }
 /* Marken-Filter (Ralph 24.07.2026): Checkbox-Liste zum ABWÄHLEN von Marken (Dr. Oetker, Wagner …),
-   damit man alles ANDERE sieht, das noch offen ist. Abgewählte stehen in window._peBrandOff. */
+   damit man alles ANDERE sieht, das noch offen ist. Abgewählte stehen in window._peBrandOff.
+   ⚠ 02.08.2026: Die Marken-Liste kennt nur die GELADENE SEITE (100 Zeilen) - die Datenbank
+   liefert keine Marken-Liste. Ausblenden wirkt deshalb ebenfalls nur auf dieser Seite.
+   Wer eine Marke katalogweit sucht, nimmt das Suchfeld (das fragt die Datenbank). */
 function peMarkenListe(){ var s={}; (window._peRows||[]).forEach(function(p){ var m=String(p.marke||'').trim(); if(m) s[m]=(s[m]||0)+1; });
   return Object.keys(s).sort(function(a,b){return a.toLowerCase()<b.toLowerCase()?-1:1;}).map(function(m){return {name:m,n:s[m]};}); }
 function peBrandLabelUpd(){ var b=document.getElementById('peMarkenBtn'); if(!b) return; var off=window._peBrandOff||{};
@@ -4617,7 +4767,14 @@ function pePasst(p, ohneSpalte, ohneChip){
   if(katf && String(p.kategorie||'')!==katf) return false;
   if(window._peBrandOff && p.marke && window._peBrandOff[String(p.marke)]) return false;   /* abgewählte Marke ausblenden (Ralph 24.07.) */
   if(window._peHideMarken && p.marke && /oetker|gustavo|wagner/i.test(String(p.marke))) return false;   /* Werbe-Marken ausblenden (Ralph 25.07.) */
+  /* 02.08.2026: Suche, Kategorie und die Chips der ERSTEN Reihe filtert seit heute schon
+     die Datenbank (cb_erfassung_liste). Die Bedingungen bleiben hier trotzdem stehen -
+     sie sind wortgleich, sieben also nichts zusaetzlich weg und halten die Liste waehrend
+     des Tippens sofort aktuell, bevor die Antwort da ist. Fuer die Chips der ZWEITEN Reihe
+     (Ohne Quelle, Ohne Zutaten, Markiert, Naehrwerte, Portionsfalle, Unverifiziert) ist
+     diese Stelle der EINZIGE Filter - deshalb heisst die Reihe "nur auf dieser Seite". */
   if(chipf==='offen'&&!peIstOffen(p)) return false;
+  if(chipf==='scan'&&!peIstScan(p)) return false;
   if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
   if(chipf==='keinscore'&&p.score!=null) return false;
   if(chipf==='keinquelle'&&p.quelle_typ) return false;
@@ -4645,41 +4802,70 @@ function pePasst(p, ohneSpalte, ohneChip){
    Jetzt zaehlen die Chips ueber dieselbe Menge wie die Liste - nur ohne den Chip selbst,
    sonst zeigte jeder nicht gewaehlte Chip 0 und man kaeme nie wieder heraus (das waere
    die Einbahnstrasse aus §1.11n-nn). */
+/* 🔴 02.08.2026, dritte Fassung: Die Zahlen kommen jetzt aus cb_erfassung_zaehler und
+   gelten fuer den GANZEN Katalog. Vorher zaehlten sie ueber window._peRows - und das
+   waren seit der Umstellung nur noch die 100 geladenen Zeilen. Eine Chip-Zahl "Alle (100)"
+   ueber 58.120 Produkten waere schlimmer als gar keine Zahl.
+
+   ZWEI REIHEN, und die Trennung ist der Punkt:
+   · Reihe 1 = Chips, die die Datenbank filtern und zaehlen kann -> Zahl gilt fuer alles.
+   · Reihe 2 = Chips ohne DB-Entsprechung -> sie sieben nur die geladene Seite. Ihre Zahl
+     ist mit "auf dieser Seite" ueberschrieben, damit sie nichts verspricht, was sie nicht
+     halten kann (§1.11n-hh).
+   Faellt der Zaehler-Abruf aus, steht in Reihe 1 KEINE Zahl statt einer falschen. */
 function peChipRowsHtml(){
+  var z=window._peZaehler||null;
+  /* Reihe 2 zaehlt ueber dieselbe Menge wie die Liste - aber ohne den Chip selbst,
+     sonst zeigte jeder nicht gewaehlte Chip 0 und man kaeme nie wieder heraus
+     (das waere die Einbahnstrasse aus §1.11n-nn). */
   var rws=(window._peRows||[]).filter(function(p){ return pePasst(p, null, true); });
-  var cnt={ offen:rws.filter(peIstOffen).length,
-            alle:rws.length,
-            zuverif:rws.filter(function(p){return p.zu_verifizieren;}).length,
-            keinscore:rws.filter(function(p){return p.score==null;}).length,
-            keinquelle:rws.filter(function(p){return !p.quelle_typ;}).length,
-            keinzut:rws.filter(function(p){return !p.hat_zutaten;}).length,
-            markiert:rws.filter(function(p){return p.markiert;}).length,
-            waechter:rws.filter(peHatWaechter).length,
-            naehrwerte:rws.filter(function(p){return p.naehrwerte_qa;}).length,
-            portionsfalle:rws.filter(function(p){return p.portionsfalle_qa;}).length,
-            unverif:rws.filter(function(p){return p.verifiziert!=='Ja';}).length };
-  var chip=function(k,txt,n){
+  var chip=function(k,txt,n,nurSeite){
     /* Ein Chip mit 0 bleibt sichtbar, wird aber blass - sonst springt die Leiste bei
        jedem Filterwechsel um und man sucht einen Chip, der nur leer ist. */
-    return '<span class="peChip'+(window._peChip===k?' on':'')+'" data-k="'+k+'" onclick="peChip(\''+k+'\')"'
-      +(n===0&&window._peChip!==k?' style="opacity:.45"':'')+'>'+txt+' ('+n+')</span>'; };
-  var katf=((document.getElementById('peVorKat')||{}).value||'').trim();
+    var an=(window._peChip===k);
+    var zahl=(n==null)?'':(' ('+n+')');
+    var tip=nurSeite ? 'Diese Zahl zählt nur die geladene Seite – nicht den ganzen Katalog.'
+                     : (n==null ? 'Zahl gerade nicht abrufbar.' : 'Zahl gilt für den ganzen Katalog.');
+    return '<span class="peChip'+(an?' on':'')+'" data-k="'+k+'" onclick="peChip(\''+k+'\')" title="'+esc(tip)+'"'
+      +(n===0&&!an?' style="opacity:.45"':'')+'>'+txt+zahl+'</span>'; };
+  var katf=peKatWert();
+  var g=function(feld){ return z?Number(z[feld]||0):null; };
+  var scanN=(window._peScanGesamt==null)?null:Number(window._peScanGesamt);
   return '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-      +chip('offen','Zu erledigen',cnt.offen)
-      +chip('alle','Alle',cnt.alle)
-      +chip('zuverif','Zu verifizieren',cnt.zuverif)
-      +chip('keinscore','Ohne Index',cnt.keinscore)
-      +chip('keinquelle','Ohne Quelle',cnt.keinquelle)
-      +chip('keinzut','Ohne Zutaten',cnt.keinzut)
-      +chip('markiert','⚑ Markiert',cnt.markiert)
-      +(katf?'<span style="align-self:center;font-size:11.5px;color:#7b8698;margin-left:4px">gezählt in „'+esc(katf)+'"</span>':'')
+      +chip('offen','Zu erledigen',g('offen'))
+      +chip('alle','Alle',g('gesamt'))
+      +chip('zuverif','Zu verifizieren',g('zuverif'))
+      +chip('keinscore','Ohne Index',g('ohne_score'))
+      +chip('waechter','🛡 Alle Auffälligen',g('waechter'))
+      +chip('scan','📥 Scan-Eingang',scanN)
+      +(katf?'<span style="align-self:center;font-size:11.5px;color:#7b8698;margin-left:4px">gefiltert auf „'+esc(katf)+'"</span>':'')
+      +(z?'':'<span style="align-self:center;font-size:11.5px;color:#cf5442;margin-left:4px">Zahlen gerade nicht abrufbar</span>')
     +'</div>'
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
-      +'<span style="font-size:11px;color:#9aa7b2;font-weight:700;align-self:center;letter-spacing:.02em">WÄCHTER</span>'
-      +chip('waechter','🛡 Alle Auffälligen',cnt.waechter)
-      +chip('naehrwerte','⚠ Nährwerte',cnt.naehrwerte)
-      +chip('portionsfalle','⚠ Portionsfalle',cnt.portionsfalle)
-      +chip('unverif','Unverifiziert',cnt.unverif)
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">'
+      +'<span style="font-size:11px;color:#9aa7b2;font-weight:700;letter-spacing:.02em" title="Diese Filter arbeiten auf den geladenen '+PE_SEITE+' Zeilen – die Datenbank kann sie nicht filtern.">NUR AUF DIESER SEITE</span>'
+      +chip('keinquelle','Ohne Quelle',rws.filter(function(p){return !p.quelle_typ;}).length,true)
+      +chip('keinzut','Ohne Zutaten',rws.filter(function(p){return !p.hat_zutaten;}).length,true)
+      +chip('markiert','⚑ Markiert',rws.filter(function(p){return p.markiert;}).length,true)
+      +chip('naehrwerte','⚠ Nährwerte',rws.filter(function(p){return p.naehrwerte_qa;}).length,true)
+      +chip('portionsfalle','⚠ Portionsfalle',rws.filter(function(p){return p.portionsfalle_qa;}).length,true)
+      +chip('unverif','Unverifiziert',rws.filter(function(p){return p.verifiziert!=='Ja';}).length,true)
+    +'</div>';
+}
+/* Blaetterer unter der Liste. Zeigt, WO man steht - und sagt ab Seite 2 dazu, dass die
+   Scan-Kandidaten nur auf Seite 1 stehen (die Datenbank liefert sie nur dort). */
+function pePagerHtml(){
+  var ges=Number(window._peGesamt||0), off=Number(window._peOffset||0), lim=PE_SEITE;
+  var b=function(txt,ziel,an){
+    return an
+      ? '<button type="button" onclick="peSeite('+ziel+')" style="padding:6px 14px;border:1px solid #c3ccf0;border-radius:8px;background:#eef1fb;color:#3b56b0;font-weight:700;font-size:12.5px;cursor:pointer">'+txt+'</button>'
+      : '<button type="button" disabled style="padding:6px 14px;border:1px solid #e2e8ef;border-radius:8px;background:#fff;color:#c2cad6;font-weight:700;font-size:12.5px;cursor:default">'+txt+'</button>'; };
+  if(!ges) return '<div style="text-align:center;color:#9aa7b2;font-size:12px">Keine Produktzeilen in diesem Filter.</div>';
+  var von=off+1, bis=Math.min(off+lim,ges);
+  return '<div style="display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap">'
+    +b('‹ zurück', Math.max(0,off-lim), off>0)
+    +'<span style="font-size:12.5px;color:#5b6b82;font-weight:700">'+von+'–'+bis+' von '+ges+'</span>'
+    +b('weiter ›', off+lim, bis<ges)
+    +(off>0?'<span style="font-size:11.5px;color:#9aa7b2">Scan-Kandidaten stehen nur auf Seite 1</span>':'')
     +'</div>';
 }
 /* 🔴 30.07., Ralph: "jetzt sind nur noch 9 produkte da. was treibst du da? es sollen alle sein"
@@ -4703,7 +4889,7 @@ function peAktivFilterHtml(){
   var brandN=window._peBrandOff?Object.keys(window._peBrandOff).length:0;
   var CHIPNAME={offen:'Zu erledigen',zuverif:'Zu verifizieren',keinscore:'Ohne Index',keinquelle:'Ohne Quelle',
                 keinzut:'Ohne Zutaten',markiert:'Markiert',waechter:'Alle Auffälligen',naehrwerte:'Nährwerte',
-                portionsfalle:'Portionsfalle',unverif:'Unverifiziert'};
+                portionsfalle:'Portionsfalle',unverif:'Unverifiziert',scan:'Scan-Eingang'};
   var pill=function(txt,weg){
     return '<span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e0a32e;color:#8a5a0b;'
       +'border-radius:999px;padding:3px 6px 3px 11px;font-size:12px;font-weight:700">'+txt
@@ -4716,11 +4902,18 @@ function peAktivFilterHtml(){
   if(colN)    teile.push(pill('Spaltenfilter ('+colN+')','spalten'));
   if(brandN)  teile.push(pill(brandN+' Marke'+(brandN===1?'':'n')+' ausgeblendet','marken'));
   if(window._peHideMarken) teile.push(pill('Werbe-Marken aus','werbe'));
+  /* 02.08.2026: Wer einen der Chips aus der zweiten Reihe gewaehlt hat, arbeitet nur auf der
+     geladenen Seite. Das steht hier im Klartext - ein Filter, der weniger kann, als sein Name
+     verspricht, muss es sagen (§1.11n-hh). PE_CHIP_NUR_SEITE ist die EINE Liste dieser Chips;
+     peChipRowsHtml beschriftet dieselben. */
+  var _nurSeite = !!PE_CHIP_NUR_SEITE[chip] ||
+                  (colN>0) || (brandN>0) || !!window._peHideMarken;
   if(!teile.length) return '';
   return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:7px 9px;'
     +'background:#fff8ec;border:1px solid #f0dcb4;border-radius:10px">'
     +'<span style="font-size:11.5px;font-weight:700;color:#8a5a0b;letter-spacing:.02em">FILTER AKTIV – nicht alle Produkte sichtbar</span>'
     + teile.join('')
+    + (_nurSeite?'<span style="font-size:11.5px;color:#8a5a0b;background:#fdf0d8;border-radius:8px;padding:3px 8px" title="Diese Art Filter kann die Datenbank nicht – sie siebt die '+PE_SEITE+' geladenen Zeilen.">wirkt nur auf die geladene Seite</span>':'')
     +'<button type="button" onclick="peFilterWeg(\'alle\')" style="margin-left:auto;border:1px solid #8a5a0b;background:#8a5a0b;color:#fff;'
     +'border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">Alle Filter aufheben</button>'
     +'</div>';
@@ -4732,11 +4925,18 @@ function peFilterWeg(was){
   if(was==='spalten'||was==='alle'){ window._peColF={}; }
   if(was==='marken'||was==='alle'){ window._peBrandOff=null; }
   if(was==='werbe'||was==='alle'){ window._peHideMarken=false; }
-  try{ peRender(); }catch(e){}
+  /* 02.08.2026: Kategorie, Chip und Suche sind Datenbank-Filter - wer sie abwirft, braucht
+     eine neue Abfrage. Spalten-/Marken-Filter wirken auf der geladenen Seite, dort genuegt
+     ein Neuzeichnen. */
+  try{
+    if(was==='kat'||was==='chip'||was==='suche'||was==='alle'){ peStateSave(); peSeite(0); }
+    else peRender();
+  }catch(e){}
 }
 if(typeof window!=='undefined'){
   window.pePasst=pePasst; window.peChipRowsHtml=peChipRowsHtml;
   window.peAktivFilterHtml=peAktivFilterHtml; window.peFilterWeg=peFilterWeg;
+  window.pePagerHtml=pePagerHtml;
 }
 function peRender(){
   var rows=window._peRows||[]; var g=document.getElementById('peGrid'); if(!g) return;
@@ -4748,6 +4948,10 @@ function peRender(){
   try{ var _cr=document.getElementById('peChipRows'); if(_cr) _cr.innerHTML=peChipRowsHtml(); }catch(e){}
   try{ var _af=document.getElementById('peAktivFilter'); if(_af) _af.innerHTML=peAktivFilterHtml(); }catch(e){}
   if(sort==='mark') list=list.filter(function(p){return p.markiert;});
+  /* ⚠ Die Sortierung ordnet die GELADENE SEITE (100 Zeilen), nicht den Katalog. Die
+     Grundordnung macht die Datenbank (erfasst desc, id desc); wer nach Index oder Titel
+     sortiert, sortiert innerhalb dieser Seite. Eine katalogweite Sortierung braeuchte
+     einen weiteren Parameter an cb_erfassung_liste - der ist bewusst NICHT erfunden. */
   list.sort(function(a,b){
     if(sort==='score'){ var sa=(a.score==null?9999:a.score), sb=(b.score==null?9999:b.score); if(sa!==sb) return sa-sb; }
     else if(sort==='titel'){ var ta=String(a.name||'').toLowerCase(),tb=String(b.name||'').toLowerCase(); if(ta!==tb) return ta<tb?-1:1; }
@@ -4764,6 +4968,10 @@ function peRender(){
   var scoreCell=function(s){ if(s==null) return '<span style="font-weight:800;color:#7b8698">–</span>';
     var c=s>=80?'#2e9e57':s>=60?'#c88616':'#cf5442'; return '<span style="font-weight:800;color:'+c+'">'+s+'</span>'; };
   var statPill=function(p){
+    /* Scan-Zeile: noch kein Produkt. Statt der Status-Pille steht hier der Knopf, der den
+       bestehenden Anlege-Weg oeffnet (openFgEditor ohne id). stopPropagation, weil die
+       ganze Zeile sonst zusaetzlich peSelect ausloest. */
+    if(peIstScan(p)) return '<button type="button" onclick="event.stopPropagation();peScanAnlegen(\''+esc(p.id)+'\')" title="Aus diesem Scan ein Produkt anlegen – Name, Marke, EAN werden vorbelegt" style="padding:3px 9px;border:1px solid #3b56b0;border-radius:20px;background:#eef1fb;color:#3b56b0;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📥 anlegen</button>';
     if(String(p.pstatus||'')==='Entwurf') return '<span class="pePill" style="color:#c88616;border-color:#eddcb6;background:#fbf3e2">Entwurf</span>';
     if(p.zu_verifizieren) return '<span class="pePill" style="color:#3b56b0;border-color:#c3ccf0;background:#eef1fb">zu verifizieren</span>';
     return '<span class="pePill" style="color:#1f7d43;border-color:#bfe3cb;background:#e7f6ec">Aktiv</span>'; };
@@ -4776,8 +4984,12 @@ function peRender(){
   };
   g.innerHTML=cols+'<thead><tr>'+[thF('P-Nr','pnr'),thF('Titel','titel'),thF('Marke','marke'),thF('Kategorie','kategorie'),thF('Index','index'),thF('Status','status'),thF('EAN','ean'),thF('Quelle','quelle'),thF('Herkunft','herkunft'),th('⚑ 🛡')].join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
-      return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')">'
-      +td(esc(p.id),'color:#7b8698')
+      var _scan=peIstScan(p);
+      return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')"'
+      +(_scan?' style="background:#f7faff"':'')+'>'
+      /* Pseudo-Nummer S-<EAN> sichtbar anders: es ist KEINE P-Nummer, und man darf sie
+         nirgends als solche verwenden (§1.12 – ein Platzhalter, der sich als Wissen ausgibt). */
+      +td(_scan?('<span title="Scan-Kandidat – noch keine Produkt-Nummer" style="color:#3b56b0;font-weight:700">'+esc(p.id)+'</span>'):esc(p.id),'color:#7b8698')
       +td('<b>'+esc(p.name||'—')+'</b>','', 'title="'+esc(p.name||'')+'"')
       +td(esc(p.marke||''),'','title="'+esc(p.marke||'')+'"')
       +td(esc(p.kategorie||''))
@@ -4789,7 +5001,19 @@ function peRender(){
       +td((String(p.herkunft||'')==='Riki-Autopilot'?'<span title="Vom Riki-Autopilot angelegt und vom Riki-Wächter geprüft – bitte verifizieren" style="margin-right:2px">🤖</span>':'')+(p.markiert?'<span style="color:#cf5442">⚑</span>':'')+(peHatWaechter(p)?'<span title="Von einem Wächter gemeldet – bis zur Freigabe prüfen" style="color:#c88616">🛡</span>':''),'overflow:visible')
       +'</tr>'; }).join('')
     +'</tbody>';
-  var f=document.getElementById('peFoot'); if(f) f.textContent='Datensätze '+list.length+' von '+rows.length;
+  /* 02.08.2026: Die Fusszeile sagt jetzt BEIDE Zahlen - was auf dieser Seite steht und wie
+     viel es insgesamt gibt. Vorher stand dort "Datensätze 9 von 1460"; die 1460 war der
+     ganze geladene Katalog und ist seit der Umstellung sinnlos (es waeren 100). */
+  var f=document.getElementById('peFoot');
+  if(f){
+    var _ges=Number(window._peGesamt||0), _off=Number(window._peOffset||0);
+    var _nProd=rows.filter(function(p){ return !peIstScan(p); }).length;
+    var _nScan=rows.length-_nProd;
+    f.textContent='Auf dieser Seite '+list.length+' von '+rows.length+' geladenen Zeilen'
+      +(_ges?(' · Produkte '+(_nProd?(_off+1):0)+'–'+(_off+_nProd)+' von '+_ges):'')
+      +(_nScan?(' · '+_nScan+' Scan-Kandidat'+(_nScan===1?'':'en')):'');
+  }
+  try{ var _pg=document.getElementById('pePager'); if(_pg) _pg.innerHTML=pePagerHtml(); }catch(e){}
   var lh=document.getElementById('peListHint'); if(lh) lh.textContent='· '+list.length+' angezeigt';
   try{ peStatusBtnUpdate(); }catch(e){}
 }
@@ -4799,7 +5023,9 @@ function peRender(){
    Suchfeld. window._peColF[spalte] = { wert:true } (erlaubte Werte); kein Eintrag = kein
    Filter. peColVal ist die EINE Wertequelle - Filter und Anzeige nutzen dieselbe (§1.11i). */
 function peColVal(p,col){
-  if(col==='status') return String(p.pstatus||'')==='Entwurf'?'Entwurf':(p.zu_verifizieren?'zu verifizieren':'Aktiv');
+  /* Scan-Zeilen sind ein eigener Zustand, kein Produktstatus - sonst stuenden sie im
+     Spaltenfilter unter "zu verifizieren" und man haelt sie fuer Produkte. */
+  if(col==='status') return peIstScan(p)?'Scan':(String(p.pstatus||'')==='Entwurf'?'Entwurf':(p.zu_verifizieren?'zu verifizieren':'Aktiv'));
   if(col==='ean') return p.ean?'vorhanden':'offen';
   if(col==='marke') return String(p.marke||'').trim()||'– leer –';
   if(col==='kategorie') return String(p.kategorie||'').trim()||'– leer –';
@@ -4904,7 +5130,8 @@ if(typeof window!=='undefined'){ window.peColFilter=peColFilter; window.peColChk
 function peStatusBtnUpdate(){
   var b=document.getElementById('peStatusBtn'); if(!b) return;
   var id=window._peSel; var p=id?(window._peRows||[]).find(function(r){return String(r.id)===String(id);}):null;
-  if(!p){ b.innerHTML='⇄ Status'; b.style.background='#fff'; b.style.color='#7b8698'; b.style.borderColor='#d3dbe6'; b.style.fontWeight='600'; b.title='Erst ein Produkt in der Liste anklicken'; return; }
+  /* Scan-Zeile hat keinen Produktstatus – der Knopf bleibt neutral statt „Aktiv" zu behaupten. */
+  if(!p || peIstScan(p)){ b.innerHTML='⇄ Status'; b.style.background='#fff'; b.style.color='#7b8698'; b.style.borderColor='#d3dbe6'; b.style.fontWeight='600'; b.title=p?'Scan-Zeile – noch kein Produkt':'Erst ein Produkt in der Liste anklicken'; return; }
   b.style.fontWeight='700';
   if(String(p.pstatus||'')==='Entwurf'){ b.innerHTML='⇄ Entwurf'; b.style.background='#fbf3e2'; b.style.color='#c88616'; b.style.borderColor='#eddcb6'; b.title='„'+(p.name||id)+'" – umschalten auf Aktiv (über die geprüfte Freigabe)'; }
   else { b.innerHTML='⇄ Aktiv'; b.style.background='#e7f6ec'; b.style.color='#1f7d43'; b.style.borderColor='#bfe3cb'; b.title='„'+(p.name||id)+'" – umschalten auf Entwurf (aus dem Katalog nehmen)'; }
@@ -4920,6 +5147,16 @@ function peRowCtx(ev,id){
   var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
   var it=function(txt,fn,danger){ return '<button onclick="document.getElementById(\'peCtx\').style.display=\'none\';'+fn+'" style="display:block;width:100%;text-align:left;background:none;border:0;color:'+(danger?'#cf5442':'#1f2a44')+';padding:8px 11px;border-radius:7px;font-size:13px;cursor:pointer">'+txt+'</button>'; };
   var sep='<div style="height:1px;background:#e2e8ef;margin:4px 6px"></div>';
+  /* Scan-Zeile: alle Produkt-Aktionen (Bearbeiten, Markieren, Loeschen) rufen RPCs, die eine
+     P-Nummer erwarten. Es gibt hier genau EINE sinnvolle Handlung. */
+  if(peIstScan(p)){
+    ctx.innerHTML=it('📥 Produkt aus diesem Scan anlegen','peScanAnlegen(\''+esc(id)+'\')');
+    ctx.style.display='block';
+    var w0=ctx.offsetWidth,h0=ctx.offsetHeight;
+    ctx.style.left=Math.min(ev.clientX,innerWidth-w0-6)+'px'; ctx.style.top=Math.min(ev.clientY,innerHeight-h0-6)+'px';
+    setTimeout(function(){ document.addEventListener('click',peCtxHide); },0);
+    return;
+  }
   ctx.innerHTML=
      it('✎ Bearbeiten','peSelect(\''+esc(id)+'\')')
     +it('👁 Als Nutzer ansehen','peAlsNutzer(\''+esc(id)+'\')')
@@ -4932,11 +5169,17 @@ function peRowCtx(ev,id){
   setTimeout(function(){ document.addEventListener('click',peCtxHide); },0);
 }
 async function peToggleMark(id,an){
+  if(peIstScan((window._peRows||[]).find(function(r){return String(r.id)===String(id);}))){
+    alert('Scan-Zeilen lassen sich nicht markieren – sie sind noch kein Produkt.\n\nErst über „📥 anlegen" ein Produkt daraus machen.'); return; }
   try{ await fgEditMark(id, an===true||an==='true'); }catch(e){}
   var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);}); if(p) p.markiert=(an===true||an==='true');
   peRender();
 }
-function peAlsNutzer(id){ try{ if(typeof detail==='function'){ detail(id); return; } }catch(e){}
+function peAlsNutzer(id){
+  /* Eine Scan-Zeile gibt es in der Nutzer-Ansicht nicht – sie ist noch kein Produkt. */
+  if(peIstScan((window._peRows||[]).find(function(r){return String(r.id)===String(id);}))){
+    alert('Diese Zeile ist ein Scan-Kandidat und noch kein Produkt – es gibt keine Nutzer-Ansicht davon.'); return; }
+  try{ if(typeof detail==='function'){ detail(id); return; } }catch(e){}
   alert('Nutzer-Ansicht ist hier nicht verfügbar.'); }
 /* Status umschalten (Toolbar-Knopf). WICHTIG – die Freigabe-Riegel dürfen NICHT umgangen werden:
    · Aktiv → Entwurf: reines Zurücknehmen (Produkt verschwindet aus dem Katalog), reversibel, sicher.
@@ -4945,6 +5188,7 @@ function peAlsNutzer(id){ try{ if(typeof detail==='function'){ detail(id); retur
 async function peToggleStatus(){
   var id=window._peSel; if(!id){ alert('Bitte zuerst ein Produkt in der Liste anklicken.'); return; }
   var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
+  if(peIstScan(p)){ alert('Das ist eine Scan-Zeile – sie hat noch keinen Produktstatus.\n\nErst über „📥 anlegen" ein Produkt daraus machen.'); return; }
   var cur=String(p.pstatus||'Aktiv');
   try{
     if(cur==='Entwurf'){
@@ -4963,6 +5207,7 @@ async function peToggleStatus(){
    stehen, werden NICHT hart gelöscht (würde Historie zerstören) → dann Angebot zu archivieren. */
 async function peDeaktiv(id){
   var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
+  if(peIstScan(p)){ alert('Das ist eine Scan-Zeile, kein Produkt – es gibt nichts zu löschen.\n\nScans verwirft man im Scan-Eingang (📥 in der Toolbar).'); return; }
   if(!confirm('Produkt '+id+(p.name?(' – „'+p.name+'"'):'')+' WIRKLICH LÖSCHEN?\n\nEndgültig aus der Datenbank entfernt – NICHT rückgängig zu machen.')) return;
   try{
     var r=await client.rpc('cb_produkt_loeschen',{p_id:id});
@@ -4981,6 +5226,11 @@ async function peDeaktiv(id){
 function peSelect(id){ window._peSel=id;
   document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.toggle('sel', tr.getAttribute('data-id')===String(id)); });
   try{ peStatusBtnUpdate(); }catch(e){}
+  /* 🔴 openFgEditor(id) darf NUR eine echte P-Nummer bekommen. Eine Scan-Zeile hat keine
+     (id = "S-<EAN>"); cb_produkt_edit_get faende dazu nichts und der Editor stuende leer da,
+     ohne dass jemand den Grund sieht. Sie geht deshalb in den Anlege-Weg. */
+  var _p=(window._peRows||[]).find(function(r){ return String(r.id)===String(id); });
+  if(peIstScan(_p)){ peScanAnlegen(id); return; }
   /* 28l (Ralph): Klick oeffnet das VOLLBILD-Fenster (Overlay) - die Liste bleibt offen dahinter
      und wird NICHT mehr zugeklappt. Der Inline-Modus (targetEl) bleibt im Code als Rueckfall. */
   try{ openFgEditor(id); }catch(e){ alert('Editor-Fehler: '+(e&&e.message||e)); }
@@ -20537,7 +20787,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-0805";
+const APP_BUILD = "2026-08-02-0840";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
