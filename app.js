@@ -4219,11 +4219,20 @@ async function loadProduktErfassung(){
        darum blaettern (Pagination), sonst waeren >600 Produkte unsichtbar (CLAUDE.md). */
     var rows=[],from=0,size=1000;
     while(true){
-      var r=await client.from('v_erfassung_katalog').select('*').order('erfasst',{ascending:false}).range(from,from+size-1);
+      /* 2026-08-02 (Ralphs Fund "Dubletten in der Liste"): .order('erfasst') allein ist ein
+         NICHT-eindeutiger Schluessel - der Massenimport gab tausenden Zeilen denselben
+         Zeitstempel. Ohne eindeutigen Zweitschluessel ist die Reihenfolge zwischen zwei
+         Seiten-Abrufen nicht stabil: dieselbe Zeile kam auf zwei Seiten, andere fielen in
+         die Luecke. Datenbank und View waren sauber (je Produkt 1 Zeile, gemessen). */
+      var r=await client.from('v_erfassung_katalog').select('*').order('erfasst',{ascending:false}).order('id',{ascending:false}).range(from,from+size-1);
       if(r.error) throw r.error;
       var d=r.data||[]; rows=rows.concat(d);
       if(d.length<size) break; from+=size; if(from>20000) break;
     }
+    /* Dubletten-Netz: faengt zusaetzlich den Fall, dass ein Parallel-Schreiber die Tabelle
+       ZWISCHEN zwei Seiten-Abrufen verschiebt (der Zweitschluessel macht nur die Sortierung
+       stabil, nicht die Menge). Erste Fundstelle gewinnt = beste Sortier-Position. */
+    var _peSeen={}; rows=rows.filter(function(x){ var k=String(x.id); if(_peSeen[k]) return false; _peSeen[k]=true; return true; });
     rows.sort(function(a,b){ var da=String(a.erfasst||""),db=String(b.erfasst||""); if(da!==db)return da<db?1:-1; var na=parseInt(String(a.id).replace(/\D/g,""),10)||0,nb=parseInt(String(b.id).replace(/\D/g,""),10)||0; return nb-na; });
     window._verifRows=rows; window._peRows=rows;
   }catch(e){ box.innerHTML='<div style="color:#cf5442;font-size:12.5px;padding:8px">Liste nicht ladbar: '+esc(e.message||String(e))+'</div>'; return; }
@@ -4600,7 +4609,9 @@ function peRender(){
   var td=function(c,st,attr){ return '<td '+(attr||'')+' style="padding:9px 10px;border-bottom:1px solid #e2e8ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(st||'')+'">'+c+'</td>'; };
   /* Feste Spaltenbreiten (table-layout:fixed) – lange Titel werden abgeschnitten (…), statt die
      Tabelle zu sprengen. Titel-Spalte ohne feste Breite = nimmt den Rest. */
-  var cols='<colgroup><col style="width:64px"><col><col style="width:120px"><col style="width:120px"><col style="width:58px"><col style="width:106px"><col style="width:112px"><col style="width:108px"><col style="width:178px"><col style="width:52px"></colgroup>';
+  /* P-Nr-Spalte 64 auf 88px (02.08.2026, Ralphs Fund): seit dem OFF-Import sind die Nummern
+     fuenfstellig (P72528) - in 64px war die Nummer abgeschnitten. */
+  var cols='<colgroup><col style="width:88px"><col><col style="width:120px"><col style="width:120px"><col style="width:58px"><col style="width:106px"><col style="width:112px"><col style="width:108px"><col style="width:178px"><col style="width:52px"></colgroup>';
   var scoreCell=function(s){ if(s==null) return '<span style="font-weight:800;color:#7b8698">–</span>';
     var c=s>=80?'#2e9e57':s>=60?'#c88616':'#cf5442'; return '<span style="font-weight:800;color:'+c+'">'+s+'</span>'; };
   var statPill=function(p){
@@ -20290,7 +20301,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-01-2051";
+const APP_BUILD = "2026-08-02-0407";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
