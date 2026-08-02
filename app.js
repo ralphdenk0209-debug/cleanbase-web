@@ -3209,6 +3209,28 @@ function feDubChipRender(){
     +'padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">'
     +(schlimmste==="sicher"?"⛔ ":"⚠ ")+esc(txt)+' ›</button>';
 }
+/* Loeschen aus dem Dubletten-Fenster. peDeaktiv erwartet die Zeile in _peRows (fuer den
+   Namen in der Nachfrage) - im Editor gibt es die nicht, darum wird sie hier kurz
+   bereitgestellt. Danach faellt der Treffer aus der Liste und das Fenster zeichnet neu. */
+async function feDubLoeschen(id){
+  if(!id) return;
+  var t=((window._feDub&&window._feDub.treffer)||[]).find(function(x){ return String(x.id)===String(id); })||{id:id};
+  var alt=window._peRows;
+  if(!(alt||[]).some(function(x){ return String(x.id)===String(id); })){
+    window._peRows=(alt||[]).concat([{id:id, name:t.name||'', quelle:'produkt', echte_id:id}]);
+  }
+  try{ await peDeaktiv(id); }
+  catch(e){ alert('Konnte nicht löschen: '+((e&&e.message)||e)); }
+  var weg=!(window._peRows||[]).some(function(x){ return String(x.id)===String(id); });
+  if(weg && window._feDub){
+    window._feDub.treffer=(window._feDub.treffer||[]).filter(function(x){ return String(x.id)!==String(id); });
+    window._feDub.anzahl=window._feDub.treffer.length;
+    try{ feDubChipRender(); }catch(e){}
+    try{ if(typeof fePlaus==='function') fePlaus(); }catch(e){}
+    if(window._feDub.anzahl){ try{ feDubOeffnen(); }catch(e){} } else { feDubSchliessen(); }
+  }
+}
+if(typeof window!=='undefined'){ window.feDubLoeschen=feDubLoeschen; }
 function feDubSchliessen(){ var o=document.getElementById("feDubOv"); if(o) o.style.display="none"; }
 function feDubOeffnen(){
   var d=window._feDub; if(!d||!d.anzahl) return;
@@ -3228,6 +3250,9 @@ function feDubOeffnen(){
         +'<span style="font-size:11.5px;color:var(--muted)"> · '+esc(t.marke||"ohne Marke")+' · '+esc(t.id)
         +(t.ean?(' · EAN '+esc(t.ean)):'')+(t.status&&t.status!=="Aktiv"?(' · '+esc(t.status)):'')+'</span></span>'
       +'<button type="button" onclick="feDubSchliessen();openFgEditor(\''+esc(t.id)+'\')" style="flex:0 0 auto;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer">öffnen</button>'
+      /* 02.08. (Ralph: "nur anzeigen reicht nicht"): direkt aus der Liste loeschen. Ruft
+         peDeaktiv - denselben Weg wie ueberall, mit Nachfrage und Tagebuch-Schutz. */
+      +'<button type="button" onclick="feDubLoeschen(\''+esc(t.id)+'\')" title="Dieses Produkt endgültig löschen" style="flex:0 0 auto;border:1px solid #f0b8b4;border-radius:8px;background:var(--card);color:#b91c1c;padding:4px 9px;font-size:12px;font-weight:700;cursor:pointer;margin-left:5px">🗑</button>'
       +'</div>';
   };
   var hatSicher=(d.treffer||[]).some(function(t){ return t.stufe==="sicher"; });
@@ -15830,8 +15855,25 @@ var _FGST={
 async function fgStatusLoad(){
   var el=document.getElementById('frgStatusPill'); if(!el) return;
   var id=(window._fgEdit&&window._fgEdit.id);
-  /* Loeschknopf nur bei gespeichertem Produkt zeigen (Ralph 02.08.). */
-  try{ var _dl=document.getElementById('frgDelTop'); if(_dl) _dl.style.display = id ? 'flex' : 'none'; }catch(e){}
+  /* Ralph 02.08.: Der Knopf steht IMMER da, sagt aber ehrlich, was er tut.
+     Mit Produkt-ID: loeschen (aus der Datenbank). Ohne: verwerfen (nur die Eingaben).
+     Beides ist ein Wegwerfen, aber von zwei verschiedenen Dingen - eine gemeinsame
+     Beschriftung waere an einem der beiden Faelle gelogen. */
+  try{
+    var _dl=document.getElementById('frgDelTop');
+    if(_dl){
+      _dl.style.display='flex';
+      if(id){
+        _dl.title='Produkt endgültig löschen';
+        _dl.setAttribute('onclick','try{fgProduktLoeschen()}catch(e){}');
+        _dl.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+      } else {
+        _dl.title='Eingaben verwerfen und schließen – gespeichert wurde noch nichts';
+        _dl.setAttribute('onclick','try{fgEditorVerwerfen()}catch(e){}');
+        _dl.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+      }
+    }
+  }catch(e){}
   if(!id){ el.innerHTML=''; return; }
   var st=null;
   try{ var r=await client.rpc('cb_produkt_status',{p_id:id}); var d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } if(d&&d.ok) st=d.status; }catch(e){}
@@ -15854,7 +15896,15 @@ async function fgProduktLoeschen(){
   var nochDa=(window._peRows||[]).some(function(x){ return String(x.id)===String(vorher); });
   if(!nochDa){ try{ closeP(); }catch(e){} try{ if(typeof peClose==='function') peClose(); }catch(e){} }
 }
-if(typeof window!=='undefined'){ window.fgProduktLoeschen=fgProduktLoeschen; }
+/* Verwerfen = nur die Maske schliessen. Es wird NICHTS geschrieben und nichts geloescht -
+   das Produkt gibt es ja noch gar nicht. Trotzdem mit Nachfrage: bei einer halb ausgefuellten
+   Maske ist die Arbeit weg, und das merkt man erst hinterher. */
+function fgEditorVerwerfen(){
+  if(!confirm('Eingaben verwerfen und schließen?\n\nGespeichert wurde noch nichts – alles in dieser Maske geht verloren.')) return;
+  try{ closeP(); }catch(e){}
+  try{ if(typeof peClose==='function') peClose(); }catch(e){}
+}
+if(typeof window!=='undefined'){ window.fgProduktLoeschen=fgProduktLoeschen; window.fgEditorVerwerfen=fgEditorVerwerfen; }
 function fgStatusMenuHide(){ var m=document.getElementById('fgStatusMenuBox'); if(m) m.remove(); document.removeEventListener('click',fgStatusMenuHide); }
 function fgStatusMenu(anker){
   fgStatusMenuHide();
@@ -16012,6 +16062,16 @@ function feFreigabeLeiste(items, blocked){
         tbx.insertBefore(pil, tbx.firstChild);
         try{ fgStatusLoad(); }catch(e){}
         _slot2.appendChild(tbx);
+      }
+      /* 02.08. (Ralphs Fund "immer noch nicht da"): Der Loeschknopf haengte im Zweig
+         `if(!tbx)` - der laeuft nur beim ERSTEN Aufbau der Knopfleiste. Bestand die Leiste
+         schon (zweites Produkt in derselben Sitzung), entstand er nie. Jetzt wird er
+         eigenstaendig geprueft und nachgeruestet. */
+      if(!document.getElementById('frgDelTop')){
+        var _dz=document.createElement('button'); _dz.type='button'; _dz.id='frgDelTop';
+        _dz.style.cssText='display:none;height:32px;width:36px;margin-left:10px;border:1px solid #f0b8b4;border-radius:9px;background:var(--card);color:#b91c1c;cursor:pointer;align-items:center;justify-content:center;padding:0;flex:0 0 auto';
+        (document.getElementById('frgTopBtns')||_slot2).appendChild(_dz);
+        try{ fgStatusLoad(); }catch(e){}   /* fuellt Symbol, Titel und Klick je nach Lage */
       }
       var gt=document.getElementById('frgGoTop');
       if(gt){
@@ -20838,7 +20898,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-0950";
+const APP_BUILD = "2026-08-02-1025";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
