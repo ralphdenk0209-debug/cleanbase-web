@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-02-1513 (02.08. 15:13: Etikettfotos beim ANLEGEN ueber die EAN nachladen (neue RPC cb_etikettfotos_zu_ean) - vorher gaben nur 2 von 20 Editor-Einstiegen die Fotos mit; zwei leere Fangbloecke geschlossen, Ladefehler steht jetzt sichtbar an der Fotokarte. 14:20: PRODUKTVERGLEICH Stufe 2+3 - Zutaten je Spalte hinzufuegen/entfernen mit Stamm-Suche, Zusatzstoffe editierbar, Riki liest je Spalte eine Herstellerseite und FUELLT nur leere Felder; Zutaten werden gegen den Stamm aufgeloest, nie angelegt. 13:30: Vergleich Stufe 1. 12:50: Freigabe-Riegel bei Namenszwilling. 12:15: Dubletten-Fenster zeigt Unterschiede. 11:45: OFF-Bilder umgezogen) -->
+<!-- build 2026-08-02-1601 (02.08. 16:01: "Produkt loeschen" am Scan fand nichts mehr - cb_produkt_id_by_ean sah nur Produktstatus='Aktiv', seit M2 sind 32.067 auf Entwurf bzw. "Aktiv ohne Index"; neuer Schalter p_alle, nur der Admin-Loeschweg nutzt ihn. 15:13: Etikettfotos beim ANLEGEN ueber die EAN nachladen (neue RPC cb_etikettfotos_zu_ean) - vorher gaben nur 2 von 20 Editor-Einstiegen die Fotos mit; zwei leere Fangbloecke geschlossen, Ladefehler steht jetzt sichtbar an der Fotokarte. 14:20: PRODUKTVERGLEICH Stufe 2+3 - Zutaten je Spalte hinzufuegen/entfernen mit Stamm-Suche, Zusatzstoffe editierbar, Riki liest je Spalte eine Herstellerseite und FUELLT nur leere Felder; Zutaten werden gegen den Stamm aufgeloest, nie angelegt. 13:30: Vergleich Stufe 1. 12:50: Freigabe-Riegel bei Namenszwilling. 12:15: Dubletten-Fenster zeigt Unterschiede. 11:45: OFF-Bilder umgezogen) -->
 <!-- OFFEN: Stamm-Validität (230 „Auto"-Bewertungen – Import-Leck stoppen + Bestand prüfen). -->
 <html lang="de">
 <head>
@@ -1470,7 +1470,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
-<script src="app.js?v=2026-08-02-1513"></script>
+<script src="app.js?v=2026-08-02-1601"></script>
 <button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
 <button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 </body>

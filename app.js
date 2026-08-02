@@ -8420,7 +8420,14 @@ async function scanLoeschen(i){
 async function scanProduktLoeschen(i){
   const g=(window._scanGroups||[])[i]; if(!g||!g.ean){ alert('Kein Barcode zu diesem Scan.'); return; }
   let pid=null;
-  try{ const {data}=await client.rpc("cb_produkt_id_by_ean",{p_ean:String(g.ean)}); pid=data; }catch(e){}
+  /* 02.08.2026 (Ralphs Fund "scan produkt loeschen funktioniert nicht"): p_alle=true.
+     Ohne das sucht die Funktion nur Produktstatus='Aktiv' - seit M2 stehen 32.067 Produkte
+     auf Entwurf bzw. "Aktiv ohne Index", und der Knopf meldete "gibt es nicht", obwohl es
+     das Produkt gab. Nur hier true: die Nutzer-Scanwege sollen weiterhin keine Entwuerfe
+     finden. Fehler nicht mehr verschlucken - sonst sieht der Grund aus wie "kein Produkt". */
+  try{ const {data,error}=await client.rpc("cb_produkt_id_by_ean",{p_ean:String(g.ean),p_alle:true});
+       if(error) throw error; pid=data;
+  }catch(e){ alert('Suche fehlgeschlagen: '+(e&&e.message?e.message:e)); return; }
   if(!pid){ alert('Zu Barcode '+g.ean+' gibt es (noch) kein Produkt im Katalog – nichts zu löschen.'); return; }
   if(!confirm('Das zu Barcode '+g.ean+' angelegte Produkt ('+pid+') aus dem Katalog entfernen?\n\nDer Scan bleibt in der Warteschlange. Das Ausblenden ist umkehrbar.')) return;
   const {error}=await client.rpc("cb_produkt_loeschen",{p_id:pid});
@@ -21516,7 +21523,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-1513";
+const APP_BUILD = "2026-08-02-1601";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
