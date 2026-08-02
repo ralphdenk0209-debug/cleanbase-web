@@ -3058,12 +3058,20 @@ async function loadDubletten(art, off){
       var pid=(t.match(/^(P\d+)/)||[])[1];
       return pid ? '<button onclick="openFgEditor(\''+pid+'\')" title="Im Editor öffnen" style="border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:2px 8px;font-size:11.5px;cursor:pointer;margin:2px 4px 2px 0;font-family:ui-monospace,monospace">'+esc(t)+'</button>' : esc(t);
     }).join('');
+    /* 02.08. (Ralph): Gruppe nebeneinander ansehen, statt Produkt fuer Produkt zu oeffnen und
+       ueber "zurueck" in der Uebersicht zu landen. IDs kommen aus derselben details-Zeichenkette,
+       aus der auch die Knoepfe darunter gebaut werden - keine zweite Quelle. */
+    var _ids=String(x.details||'').match(/P\d+/g)||[];
+    var _vgl=_ids.length>1
+      ? '<button onclick="pvOeffnen(['+_ids.map(function(p){ return "'"+p+"'"; }).join(',')+'])" title="Alle nebeneinander vergleichen und bearbeiten" style="border:1px solid #a9a4e8;border-radius:7px;background:var(--k-eeedfe,#eeedfe);color:var(--k-534ab7,#534ab7);padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap">⇔ vergleichen</button>'
+      : '';
     return '<div style="background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px">'
       +'<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap">'
         +'<span style="font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 9px;background:'+c.bg+';color:'+c.f+';white-space:nowrap">'+esc(c.t)+'</span>'
         +'<b style="font-size:13.5px;color:var(--ink)">'+esc(x.produkt||'')+'</b>'
         +'<span style="font-size:12px;color:var(--muted)">'+esc(x.marke||'ohne Marke')+' · '+x.anzahl+'×'
           +(x.spanne!=null&&x.spanne>0?(' · Spanne <b>'+x.spanne+'</b> Punkte'):'')+'</span>'
+        +'<span style="flex:1"></span>'+_vgl
       +'</div><div style="margin-top:6px">'+teile+'</div></div>';
   }).join('') : '<div style="color:var(--muted);font-size:12.5px;padding:10px">Keine Gruppe in dieser Ansicht.</div>';
   var seiten='';
@@ -3316,6 +3324,14 @@ function feDubOeffnen(){
   ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:780px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:18px;margin:auto">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">'
       +'<b style="font-size:15px">Ähnliche Produkte im Katalog</b>'
+      +'<span style="flex:1"></span>'
+      /* 02.08. (Ralph): "wenn ich auf zurueck klicke, bin ich in der uebersicht" - der Vergleich
+         zeigt alle nebeneinander, ohne die Seite zu wechseln. Das eigene Produkt kommt mit, sonst
+         vergleicht man die Treffer nur untereinander. */
+      +'<button type="button" onclick="feDubSchliessen();pvOeffnen(['
+        + [((window._fgEdit&&window._fgEdit.id)||null)].concat((d.treffer||[]).map(function(t){ return t.id; }))
+            .filter(function(x){ return x; }).map(function(x){ return "'"+esc(x)+"'"; }).join(",")
+        + '])" style="border:1px solid #a9a4e8;border-radius:8px;background:var(--k-eeedfe,#eeedfe);color:var(--k-534ab7,#534ab7);padding:5px 11px;font-size:12.5px;font-weight:700;cursor:pointer;flex:0 0 auto">⇔ alle vergleichen</button>'
       +'<button type="button" onclick="feDubSchliessen()" style="border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:5px 11px;font-size:12.5px;cursor:pointer;flex:0 0 auto">Schließen ✕</button>'
     +'</div>'
     +(hatSicher
@@ -3332,6 +3348,457 @@ if(typeof window!=="undefined"){
   window.feDubPruefen=feDubPruefen; window.feDubOeffnen=feDubOeffnen;
   window.feDubSchliessen=feDubSchliessen; window.feDubChipRender=feDubChipRender;
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") feDubSchliessen(); });
+}
+/* ===========================================================================
+   PRODUKTVERGLEICH (Ralph 02.08.2026)
+   Ausloeser: "wenn ich auf ein produkt klicke, oeffnet es zwar, aber wenn ich
+   auf zurueck klicke, bin ich in der uebersicht." Das Problem war nie die
+   Liste - es war der Wechsel. Wer vergleicht, muss beide Produkte GLEICHZEITIG
+   sehen; jeder Seitenwechsel loescht die Haelfte aus dem Kopf.
+
+   Aufbau: Produkte als SPALTEN, Merkmale als ZEILEN. Nur so kann man zeilenweise
+   lesen ("was ist beim Zucker anders?"), statt zwei Karten gegeneinander zu halten.
+
+   Ralph-Entscheide vom 02.08.:
+     - bis zu 4 nebeneinander, ab dem fuenften eine zweite Seite
+     - KEIN neuer Menuepunkt ("menue ist schon uebervoll") -> Einstieg nur
+       aus dem Dubletten-Fenster und der Dubletten-Uebersicht
+     - Stufe 1: Naehrwerte editierbar. Zutaten/Zusatzstoffe lesend, mit Knopf
+       in den Editor - der Zutaten-Picker ist eine eigene Maschine und passt
+       nicht in eine schmale Spalte, ohne dass etwas verlorengeht.
+
+   Geschrieben wird ueber cb_produkt_naehrwerte_setzen - einen engen Weg, der NUR
+   Naehrwerte anfasst. cb_produkt_speichern erwartet das ganze Produkt und wuerde
+   Zutaten und Zusatzstoffe still leeren, wenn man ihr nur Naehrwerte gibt.
+   =========================================================================== */
+var PV_MAX = 4;
+var PV_NW = [["kcal","Energie","kcal"],["fett","Fett","g"],["ges_fett","ges. Fett","g"],
+             ["kh","Kohlenhydrate","g"],["zucker","Zucker","g"],["ballaststoffe","Ballaststoffe","g"],
+             ["protein","Eiweiß","g"],["salz","Salz","g"],["polyole","Polyole","g"]];
+function pvSchliessen(){ var o=document.getElementById("pvOv"); if(o) o.style.display="none"; }
+function pvBildGross(url){
+  if(!url) return;
+  var b=document.getElementById("pvLupe");
+  if(!b){
+    b=document.createElement("div"); b.id="pvLupe";
+    b.style.cssText="position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;background:rgba(10,18,28,.85);padding:20px;cursor:zoom-out";
+    b.onclick=function(){ b.style.display="none"; };
+    document.body.appendChild(b);
+  }
+  b.innerHTML='<img src="'+esc(url)+'" style="max-width:96vw;max-height:94vh;border-radius:10px;box-shadow:0 18px 60px rgba(0,0,0,.5)" alt="">';
+  b.style.display="flex";
+}
+/* Laedt die Produkte einzeln ueber cb_produkt_edit_get - dieselbe RPC wie der Editor,
+   kein zweiter Leseweg (§1.11i). Faellt eines aus, wird es benannt statt verschwiegen (§1.13i). */
+async function pvOeffnen(ids){
+  ids=(ids||[]).filter(function(x){ return x && String(x).trim(); });
+  ids=ids.filter(function(x,i){ return ids.indexOf(x)===i; });       /* Dubletten in der Auswahl */
+  if(!ids.length){ alert("Keine Produkte zum Vergleichen."); return; }
+  window._pvIds=ids; window._pvSeite=0; window._pvDaten={}; window._pvFehler={};
+  window._pvZut={}; window._pvDirty={};
+  var ov=document.getElementById("pvOv");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="pvOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:10000;background:var(--bg,#f4f6f5);overflow:auto;padding:0";
+    document.body.appendChild(ov);
+  }
+  ov.style.display="block";
+  ov.innerHTML='<div style="padding:26px;color:var(--muted);font-size:14px">⏳ Produkte werden geladen …</div>';
+  for(var i=0;i<ids.length;i++){
+    try{
+      var r=await client.rpc("cb_produkt_edit_get",{p_id:ids[i]});
+      if(r.error) throw new Error(r.error.message);
+      window._pvDaten[ids[i]]=r.data;
+      pvZutSetzen(ids[i], r.data);
+    }catch(e){ window._pvFehler[ids[i]]=(e&&e.message)||String(e); }
+  }
+  pvRender();
+}
+function pvSeiteSetzen(n){
+  var max=Math.ceil((window._pvIds||[]).length/PV_MAX)-1;
+  window._pvSeite=Math.max(0,Math.min(n,max)); pvRender();
+}
+function pvRender(){
+  var ov=document.getElementById("pvOv"); if(!ov) return;
+  var alle=window._pvIds||[], seiten=Math.ceil(alle.length/PV_MAX)||1;
+  var s=window._pvSeite||0, ids=alle.slice(s*PV_MAX,(s+1)*PV_MAX);
+  var D=window._pvDaten||{}, F=window._pvFehler||{};
+  var n=ids.length;
+  /* Eine Zeile gilt als "unterschiedlich", wenn nicht alle SICHTBAREN Spalten denselben
+     Wert tragen. Fehlende Werte zaehlen als eigener Wert - "einer hat nichts" IST ein
+     Unterschied, und zwar oft der wichtigste. */
+  var unterschied=function(werte){
+    var v=werte.filter(function(x){ return x!==undefined; });
+    if(v.length<2) return false;
+    var erst=String(v[0]==null?"":v[0]);
+    return v.some(function(x){ return String(x==null?"":x)!==erst; });
+  };
+  var zahl=function(x){ if(x==null||x==="") return null; var q=Number(x); return isFinite(q)?q:null; };
+  var kopfZelle=function(id){
+    var d=D[id];
+    if(!d) return '<div style="padding:10px;color:var(--k-b91c1c,#b91c1c);font-size:12.5px">'+esc(id)+' konnte nicht geladen werden.<br><span style="color:var(--muted)">'+esc(F[id]||"")+'</span></div>';
+    var bild=d.bild_url||d.bild_url_off||"";
+    return '<div style="padding:8px 6px">'
+      + (bild
+          ? '<img src="'+esc(bild)+'" onclick="pvBildGross(\''+esc(bild)+'\')" title="größer ansehen" style="width:100%;max-height:120px;object-fit:contain;background:var(--bg);border-radius:8px;cursor:zoom-in;display:block;margin-bottom:6px">'
+          : '<div style="height:70px;display:flex;align-items:center;justify-content:center;background:var(--bg);border-radius:8px;color:var(--muted);font-size:11.5px;margin-bottom:6px">kein Bild</div>')
+      + '<div style="font-weight:700;font-size:13px;line-height:1.3;color:var(--ink)">'+esc(d.name||"—")+'</div>'
+      + '<div style="font-size:11.5px;color:var(--muted);margin-top:2px">'+esc(d.marke||"ohne Marke")+'</div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-top:3px">'+esc(id)
+        +(d.ean?(' · EAN '+esc(d.ean)):' · ohne EAN')+'</div>'
+      + '<div style="font-size:11px;margin-top:3px">'+esc(d.status||"")
+        +(String(d.verifiziert||"")==="Ja"?' · <span style="color:#15803d;font-weight:700">verifiziert</span>':' · <span style="color:var(--k-b45309)">unverifiziert</span>')+'</div>'
+      + '</div>';
+  };
+  var zeile=function(label,zellen,istAnders,extra){
+    return '<div style="display:contents">'
+      +'<div style="padding:7px 9px;font-size:12px;font-weight:600;color:var(--muted);border-top:1px solid var(--line);background:'+(istAnders?'#fff7ea':'transparent')+'">'+esc(label)+(extra||'')+'</div>'
+      +zellen.map(function(c){ return '<div style="padding:5px 6px;border-top:1px solid var(--line);border-left:1px solid var(--line);background:'+(istAnders?'#fff7ea':'transparent')+'">'+c+'</div>'; }).join("")
+      +'</div>';
+  };
+  var h='';
+  /* Kopfleiste: fest oben, damit man beim Scrollen durch die Naehrwerte noch weiss,
+     welche Spalte welches Produkt ist. */
+  h+='<div style="position:sticky;top:0;z-index:3;background:var(--card,#fff);border-bottom:1px solid var(--line);padding:11px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+    +'<b style="font-size:15px">Produktvergleich</b>'
+    +'<span style="font-size:12.5px;color:var(--muted)">'+alle.length+' Produkt'+(alle.length===1?'':'e')
+      +(seiten>1?(' · Seite '+(s+1)+' von '+seiten):'')+'</span>';
+  if(seiten>1){
+    h+='<span style="display:flex;gap:5px">'
+      +'<button type="button" onclick="pvSeiteSetzen('+(s-1)+')" '+(s===0?'disabled':'')+' style="padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;cursor:'+(s===0?'default':'pointer')+';opacity:'+(s===0?'.45':'1')+'">‹ zurück</button>'
+      +'<button type="button" onclick="pvSeiteSetzen('+(s+1)+')" '+(s>=seiten-1?'disabled':'')+' style="padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;cursor:'+(s>=seiten-1?'default':'pointer')+';opacity:'+(s>=seiten-1?'.45':'1')+'">weiter ›</button>'
+      +'</span>';
+  }
+  h+='<span style="flex:1"></span>'
+    +'<span id="pvMsg" style="font-size:12.5px;color:var(--muted)"></span>'
+    +'<button type="button" onclick="pvSchliessen()" style="padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;cursor:pointer">Schließen ✕</button>'
+    +'</div>';
+  h+='<div style="padding:14px 16px 40px">'
+    +'<div style="display:grid;grid-template-columns:150px repeat('+n+',minmax(0,1fr));background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;overflow:hidden">';
+  /* Kopfzeile */
+  h+='<div style="padding:8px 9px"></div>'
+    + ids.map(function(id){ return '<div style="border-left:1px solid var(--line)">'+kopfZelle(id)+'</div>'; }).join("");
+  /* Index */
+  var idxW=ids.map(function(id){ return D[id]?D[id].clean_score:undefined; });
+  h+=zeile("Root Index", ids.map(function(id){
+      var d=D[id]; if(!d) return '';
+      return '<div style="font-size:19px;font-weight:800;color:'+(d.clean_score!=null?'var(--ink)':'var(--muted)')+'">'
+        +(d.clean_score!=null?esc(d.clean_score):'– <span style="font-size:11px;font-weight:400">keine Zahl</span>')+'</div>'
+        +'<div style="font-size:11px;color:var(--muted)">'+esc(d.bewertung||"")+'</div>';
+    }), unterschied(idxW));
+  /* Naehrwerte - editierbar */
+  PV_NW.forEach(function(f){
+    var w=ids.map(function(id){ var d=D[id]; return d?zahl((d.naehrwerte||{})[f[0]]):undefined; });
+    h+=zeile(f[1]+" ("+f[2]+")", ids.map(function(id){
+        var d=D[id]; if(!d) return '';
+        var v=(d.naehrwerte||{})[f[0]];
+        return '<input id="pv_'+esc(id)+'_'+f[0]+'" value="'+(v==null?'':esc(v))+'" inputmode="decimal" '
+          +'oninput="pvGeaendert(\''+esc(id)+'\')" '
+          +'style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font-size:13px">';
+      }), unterschied(w));
+  });
+  /* Zutaten - editierbar (Stufe 2). Die ARBEITSLISTE steht in window._pvZut, nicht im DOM:
+     sonst wuerde jedes Neuzeichnen die ungespeicherte Aenderung verwerfen. */
+  var zutW=ids.map(function(id){ return (window._pvZut&&window._pvZut[id])?window._pvZut[id].length:undefined; });
+  h+=zeile("Zutaten", ids.map(function(id){
+      var d=D[id]; if(!d) return '';
+      var z=(window._pvZut&&window._pvZut[id])||[];
+      var liste = z.length
+        ? z.map(function(x,i){
+            var r=(x.note==null||x.note==="")?'–':x.note;
+            return '<div style="display:flex;align-items:center;gap:5px;padding:1px 0">'
+              +'<span style="display:inline-block;min-width:19px;text-align:center;font-weight:700;font-size:11px;border-radius:4px;background:'+((x.note==null||x.note==="")?'#fff7ea':'var(--bg)')+';color:'+((x.note==null||x.note==="")?'#b45309':'var(--muted)')+'">'+esc(r)+'</span>'
+              +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(x.name||'')+'">'+esc(x.name||'')+'</span>'
+              +'<button type="button" onclick="pvZutRaus(\''+esc(id)+'\','+i+')" title="entfernen" style="flex:0 0 auto;border:none;background:none;color:#b91c1c;cursor:pointer;font-size:13px;line-height:1;padding:0 2px">×</button>'
+              +'</div>';
+          }).join("")
+        : '<div style="color:var(--k-b45309);font-size:12px">keine erfasst</div>';
+      return '<div style="font-size:11.5px;line-height:1.5">'
+        + '<div style="max-height:150px;overflow:auto">'+liste+'</div>'
+        + '<input id="pvZsuch_'+esc(id)+'" placeholder="+ Zutat aus dem Stamm…" '
+          + 'oninput="pvZutSuche(\''+esc(id)+'\')" onkeydown="if(event.key===\'Escape\')pvZutTrefferZu(\''+esc(id)+'\')" '
+          + 'style="width:100%;box-sizing:border-box;margin-top:5px;padding:4px 6px;border:1px dashed var(--line);border-radius:6px;background:var(--card);color:var(--ink);font-size:11.5px">'
+        + '<div id="pvZtreffer_'+esc(id)+'"></div>'
+        + '</div>';
+    }), unterschied(zutW), ' <span style="font-weight:400;font-size:10.5px">(Note vorn, aus dem Stamm)</span>');
+  /* Zusatzstoffe - editierbar. "Enthaelt_Suessstoffe" bleibt absichtlich aussen vor:
+     daran haengt der Getraenke-Deckel im Score-Trigger (§1.11n-i). */
+  var zusW=ids.map(function(id){ var d=D[id]; return d?String(d.zusatzstoffe_text||""):undefined; });
+  h+=zeile("Zusatzstoffe", ids.map(function(id){
+      var d=D[id]; if(!d) return '';
+      var st=String(d.zusatzstoffe_status||"keine");
+      var opt=["keine","neutral","enthalten","ungeprüft"].map(function(o){
+        return '<option value="'+o+'"'+((o===st||(o==="ungeprüft"&&st==="ungeprueft"))?' selected':'')+'>'+o+'</option>'; }).join("");
+      return '<textarea id="pvZus_'+esc(id)+'" rows="3" oninput="pvGeaendert(\''+esc(id)+'\',\'zus\')" '
+        +'style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font-size:11.5px;line-height:1.45;resize:vertical">'
+        + esc(d.zusatzstoffe_text||"") + '</textarea>'
+        +'<select id="pvZusSt_'+esc(id)+'" onchange="pvGeaendert(\''+esc(id)+'\',\'zus\')" '
+        +'style="width:100%;box-sizing:border-box;margin-top:4px;padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font-size:11.5px">'+opt+'</select>';
+    }), unterschied(zusW));
+  /* Riki je Spalte (Stufe 3). Kostet Geld -> hinter dem Flag "etikett_riki", wie die
+     Herstellerseiten-Lesung im Editor (§3.0). Ohne Flag erscheint die Zeile gar nicht. */
+  if(typeof feat!=="function" || feat("etikett_riki")){
+    h+=zeile("🤖 Riki", ids.map(function(id){
+        var d=D[id]; if(!d) return '';
+        return '<input id="pvUrl_'+esc(id)+'" value="'+esc(d.produktlink||"")+'" placeholder="https://… Herstellerseite" '
+          +'style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font-size:11px">'
+          +'<button type="button" id="pvRikiBtn_'+esc(id)+'" onclick="pvRikiLesen(\''+esc(id)+'\')" '
+          +'style="width:100%;margin-top:4px;padding:4px 6px;border:1px solid #cbc7f2;border-radius:7px;background:var(--k-eeedfe,#eeedfe);color:var(--k-534ab7,#534ab7);font-size:11.5px;font-weight:700;cursor:pointer">Seite lesen</button>'
+          +'<div id="pvRiki_'+esc(id)+'" style="font-size:11px;margin-top:4px;line-height:1.45"></div>';
+      }), false, ' <span style="font-weight:400;font-size:10.5px">(füllt nur aus – gespeichert wird erst unten)</span>');
+  }
+  /* Aktionen */
+  h+=zeile("", ids.map(function(id){
+      if(!D[id]) return '';
+      var dt=(window._pvDirty||{})[id]||{};
+      var offen=!!(dt.nw||dt.zut||dt.zus);
+      return '<div style="display:flex;flex-direction:column;gap:5px">'
+        +'<button type="button" id="pvSave_'+esc(id)+'" onclick="pvSpeichern(\''+esc(id)+'\')" style="padding:5px 8px;border:1px solid '+(offen?'#e0a32e':'#a7c9b4')+';border-radius:8px;background:'+(offen?'#fff7ea':'#eaf6ef')+';color:'+(offen?'#8a5a0b':'#166534')+';font-size:12px;font-weight:700;cursor:pointer">Speichern'+(offen?' *':'')+'</button>'
+        +'<button type="button" onclick="pvSchliessen();openFgEditor(\''+esc(id)+'\')" style="padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;cursor:pointer">im Editor öffnen</button>'
+        +'<button type="button" onclick="pvLoeschen(\''+esc(id)+'\')" style="padding:5px 8px;border:1px solid #f0b8b4;border-radius:8px;background:var(--card);color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer">🗑 löschen</button>'
+        +'</div>';
+    }), false);
+  h+='</div>'
+    +'<div style="font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.6">'
+    +'<b style="color:#b45309">Orange hinterlegte Zeilen</b> = die Produkte unterscheiden sich hier. Ein fehlender Wert zählt als Unterschied — meist ist er der wichtigste.<br>'
+    +'Nährwerte sind direkt änderbar; <b>Speichern gilt je Spalte</b> und fasst nur die Nährwerte an. Der Index rechnet danach von selbst neu.<br>'
+    +'Zutaten und Zusatzstoffe stehen hier zum Lesen — zum Ändern „im Editor öffnen".'
+    +'</div></div>';
+  ov.innerHTML=h;
+}
+/* Merkt, WAS geaendert wurde - nur das wird gespeichert. Ohne diese Unterscheidung wuerde ein
+   Klick auf Speichern die Zutaten neu binden, auch wenn niemand sie angefasst hat: Reihenfolge
+   und Quellenvermerk waeren still ueberschrieben. */
+function pvGeaendert(id,was){
+  window._pvDirty=window._pvDirty||{}; window._pvDirty[id]=window._pvDirty[id]||{};
+  window._pvDirty[id][was||"nw"]=true;
+  var b=document.getElementById("pvSave_"+id); if(!b) return;
+  b.style.background="#fff7ea"; b.style.borderColor="#e0a32e"; b.style.color="#8a5a0b";
+  b.textContent="Speichern *";
+}
+/* --- Zutaten: Arbeitsliste + Stamm-Suche ------------------------------------------------- */
+/* Eine Stelle, an der die Arbeitsliste aus den geladenen Daten entsteht - gerufen beim Laden
+   UND nach dem Speichern, damit beide denselben Stand erzeugen (§1.11i). */
+function pvZutSetzen(id,d){
+  window._pvZut=window._pvZut||{};
+  window._pvZut[id]=((d&&d.zutaten)||[]).map(function(x){
+    return { id:x.zutat_id||null, name:x.name||"", note:(x.rating==null?null:x.rating) };
+  }).filter(function(x){ return x.id; });     /* ohne Stamm-ID nicht bindbar - dann lieber weglassen */
+}
+function pvZutRaus(id,i){
+  var l=(window._pvZut||{})[id]; if(!l) return;
+  l.splice(i,1); pvGeaendert(id,"zut"); pvRender();
+}
+function pvZutTrefferZu(id){
+  var t=document.getElementById("pvZtreffer_"+id); if(t) t.innerHTML="";
+}
+async function pvZutSuche(id){
+  var e=document.getElementById("pvZsuch_"+id), t=document.getElementById("pvZtreffer_"+id);
+  if(!e||!t) return;
+  var q=String(e.value||"").trim();
+  clearTimeout(window["_pvZT_"+id]);
+  if(q.length<2){ t.innerHTML=""; return; }
+  window["_pvZT_"+id]=setTimeout(async function(){
+    try{
+      var r=await client.rpc("cb_zutaten_suchen",{p_suche:q, p_limit:12});
+      if(r.error) throw new Error(r.error.message);
+      var tr=r.data||[];
+      if(!tr.length){
+        /* Ehrlich sagen, dass hier NICHT angelegt wird - sonst sucht man den Knopf, den es
+           bewusst nicht gibt (§1.12: kein ungeprüfter Stamm-Eintrag). */
+        t.innerHTML='<div style="font-size:11px;color:var(--k-b45309);padding:4px 2px">Nicht im Stamm. Hier wird nichts angelegt – im Editor anlegen, dort wird bewertet und belegt.</div>';
+        return;
+      }
+      t.innerHTML='<div style="border:1px solid var(--line);border-radius:6px;margin-top:3px;max-height:150px;overflow:auto;background:var(--card)">'
+        + tr.map(function(x){
+            return '<div onclick="pvZutRein(\''+esc(id)+'\',\''+esc(x.id)+'\',\''+esc(String(x.name||"").replace(/'/g,"\\'"))+'\','+((x.note==null)?'null':JSON.stringify(String(x.note)))+')" '
+              +'style="padding:3px 6px;cursor:pointer;font-size:11.5px;display:flex;gap:6px;align-items:center;border-bottom:1px solid var(--line)">'
+              +'<span style="min-width:19px;text-align:center;font-weight:700;color:var(--muted)">'+esc(x.note==null?'–':x.note)+'</span>'
+              +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name||'')+'</span></div>';
+          }).join("")
+        + '</div>';
+    }catch(err){
+      t.innerHTML='<div style="font-size:11px;color:#b91c1c;padding:4px 2px">Suche nicht erreichbar: '+esc((err&&err.message)||err)+'</div>';
+    }
+  }, 250);
+}
+function pvZutRein(id,zid,name,note){
+  window._pvZut=window._pvZut||{}; window._pvZut[id]=window._pvZut[id]||[];
+  if(window._pvZut[id].some(function(x){ return String(x.id)===String(zid); })){
+    pvZutTrefferZu(id); return;                      /* schon drin - nicht doppelt binden */
+  }
+  window._pvZut[id].push({id:zid, name:name, note:note});
+  pvGeaendert(id,"zut"); pvRender();
+}
+/* --- Riki liest eine Herstellerseite und FUELLT diese Spalte ----------------------------- */
+/* Riki schlaegt vor, der Mensch speichert (§6). Nichts geht hier in die Datenbank - die Felder
+   werden befuellt, der Speichern-Knopf springt auf "geaendert", und Ralph entscheidet.
+   Zutaten werden gegen den Stamm AUFGELOEST, nicht angelegt: was nicht eindeutig ist, wird
+   benannt statt geraten (§5c). */
+async function pvRikiLesen(id){
+  var out=document.getElementById("pvRiki_"+id), btn=document.getElementById("pvRikiBtn_"+id);
+  var ue=document.getElementById("pvUrl_"+id);
+  var url=ue?String(ue.value||"").trim():"";
+  if(!out) return;
+  if(!/^https?:\/\//i.test(url)){
+    out.innerHTML='<span style="color:#b45309">Bitte einen vollständigen Link mit https:// eintragen.</span>'; return;
+  }
+  out.innerHTML='<span style="color:var(--muted)">⏳ Riki liest …</span>';
+  if(btn){ btn.disabled=true; btn.style.opacity=".55"; }
+  try{
+    var s=await client.auth.getSession();
+    var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
+    var r=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',
+      {method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},
+       body:JSON.stringify({url:url})});
+    var d=await r.json();
+    /* Budget zuerst: eine volle Kasse ist kein Lesefehler, sondern ein Zustand (§1.11h). */
+    if(d && d.error && /budget|limit|monatslimit/i.test(String(d.error))){
+      out.innerHTML='<span style="color:#b91c1c">Riki-Budget ist aufgebraucht – heute kein Lesen mehr.</span>'; return;
+    }
+    if(d && d.leer){ out.innerHTML='<span style="color:#b45309">'+esc(d.hinweis||"Auf der Seite nichts gefunden – die Seite lädt ihre Inhalte vermutlich per JavaScript.")+'</span>'; return; }
+    if(d && d.error){ out.innerHTML='<span style="color:#b91c1c">'+esc(d.error)+'</span>'; return; }
+
+    var v=(d&&d.vorschlag)||{}, n=v.naehrwerte_100g||{}, gefuellt=[];
+    /* Nur LEERE Felder fuellen - ein gelesener Wert darf eine gepruefte Zahl nicht ueberschreiben.
+       Wer neu lesen will, leert das Feld vorher. */
+    PV_NW.forEach(function(f){
+      var e=document.getElementById("pv_"+id+"_"+f[0]);
+      var x=n[f[0]];
+      if(!e || x==null || !isFinite(x)) return;
+      if(String(e.value||"").trim()!=="") return;
+      e.value=Math.round(Number(x)*100)/100; gefuellt.push(f[1]);
+    });
+    var txt='';
+    txt += gefuellt.length
+      ? '<span style="color:#166534">✓ gefüllt: '+esc(gefuellt.join(", "))+'</span>'
+      : '<span style="color:var(--muted)">Keine leeren Nährwert-Felder – nichts überschrieben.</span>';
+
+    /* Zusatzstoffe: als Vorschlag ins Textfeld, aber nur wenn dort nichts steht. */
+    if(v.zusatzstoffe){
+      var ta=document.getElementById("pvZus_"+id);
+      if(ta && String(ta.value||"").trim()===""){
+        ta.value=String(v.zusatzstoffe); pvGeaendert(id,"zus");
+        txt += '<br><span style="color:#166534">✓ Zusatzstoffe eingetragen</span>';
+      } else {
+        txt += '<br><span style="color:var(--muted)">Zusatzstoffe gelesen: '+esc(String(v.zusatzstoffe).slice(0,90))+'</span>';
+      }
+    }
+
+    /* Zutaten: auflösen, NICHT anlegen. */
+    var zut=(v.zutaten||[]).map(function(x){ return (typeof x==="string")?x:(x&&x.name)||""; }).filter(function(x){ return x; });
+    if(zut.length){
+      var ra=await client.rpc("cb_zutaten_stamm_aufloesen",{p_namen:zut});
+      if(!ra.error){
+        var res=ra.data||[], neu=0, offen=[];
+        window._pvZut=window._pvZut||{}; window._pvZut[id]=window._pvZut[id]||[];
+        res.forEach(function(x){
+          if(x.gefunden){
+            if(!window._pvZut[id].some(function(y){ return String(y.id)===String(x.id); })){
+              window._pvZut[id].push({id:x.id,name:x.name,note:x.note}); neu++;
+            }
+          } else offen.push(x.gelesen+" ("+(x.grund||"nicht im Stamm")+")");
+        });
+        if(neu){ pvGeaendert(id,"zut"); }
+        txt += '<br><span style="color:'+(neu?'#166534':'var(--muted)')+'">'+(neu?('✓ '+neu+' Zutat(en) übernommen'):'Keine neue Zutat')+'</span>';
+        if(offen.length){
+          txt += '<br><span style="color:#b45309">nicht übernommen (hier wird nichts angelegt): '
+               + esc(offen.slice(0,6).join(" · ")) + (offen.length>6?(" · +"+(offen.length-6)):"") + '</span>';
+        }
+      }
+    }
+    if(gefuellt.length) pvGeaendert(id,"nw");
+    txt += '<br><b style="color:var(--ink)">Nichts ist gespeichert</b> – erst „Speichern" schreibt.';
+    /* Erst neu zeichnen (die Zutatenliste hat sich geaendert), DANN die Meldung setzen -
+       pvRender ueberschreibt den Kasten sonst (§1.13w: eine Meldung, die die naechste Zeile
+       loescht, ist ein leerer Fangblock mit Umweg). */
+    if(zut.length){ pvRender(); }
+    var out2=document.getElementById("pvRiki_"+id); if(out2) out2.innerHTML=txt;
+    var ue2=document.getElementById("pvUrl_"+id); if(ue2 && !ue2.value) ue2.value=url;
+  }catch(e){
+    var o=document.getElementById("pvRiki_"+id);
+    if(o) o.innerHTML='<span style="color:#b91c1c">Riki nicht erreichbar: '+esc((e&&e.message)||e)+'</span>';
+  }finally{
+    var b2=document.getElementById("pvRikiBtn_"+id); if(b2){ b2.disabled=false; b2.style.opacity="1"; }
+  }
+}
+async function pvSpeichern(id){
+  var msg=document.getElementById("pvMsg");
+  var dt=(window._pvDirty||{})[id]||{};
+  /* Nichts geaendert? Dann auch nichts schreiben - ein Speichern ohne Aenderung setzt
+     Reihenfolge und Quellenvermerk der Zutaten unnoetig neu. */
+  var nwGeaendert = dt.nw!==false;   /* Naehrwerte immer mitschreiben: sie sind das Kerngeschaeft
+                                        dieser Ansicht und ein UPDATE ohne Aenderung ist harmlos */
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="⏳ speichere "+id+" …"; }
+  try{
+    if(nwGeaendert){
+      var nw={};
+      PV_NW.forEach(function(f){
+        var e=document.getElementById("pv_"+id+"_"+f[0]);
+        var v=e?String(e.value||"").trim():"";
+        nw[f[0]] = (v==="") ? null : v.replace(",",".");
+      });
+      var r=await client.rpc("cb_produkt_naehrwerte_setzen",{p_id:id, p:nw});
+      if(r.error) throw new Error(r.error.message);
+    }
+    if(dt.zut){
+      var ids=((window._pvZut||{})[id]||[]).map(function(x){ return x.id; });
+      var rz=await client.rpc("cb_produkt_zutaten_binden",{p_id:id, p_zutat_ids:ids});
+      if(rz.error) throw new Error(rz.error.message);
+    }
+    if(dt.zus){
+      var ta=document.getElementById("pvZus_"+id), se=document.getElementById("pvZusSt_"+id);
+      var rs=await client.rpc("cb_produkt_zusatzstoffe_setzen",{
+        p_id:id, p_text:(ta?ta.value:null), p_status:(se?se.value:null)});
+      if(rs.error) throw new Error(rs.error.message);
+    }
+    /* Frisch nachladen statt lokal zu raten: der Index kommt aus dem Trigger,
+       nicht aus dem Browser (§1.11n-f). */
+    var g=await client.rpc("cb_produkt_edit_get",{p_id:id});
+    if(!g.error){ window._pvDaten[id]=g.data; pvZutSetzen(id, g.data); }
+    if(window._pvDirty) window._pvDirty[id]={};
+    pvRender();
+    if(msg){
+      var d=(window._pvDaten[id]||{});
+      msg.style.color="var(--k-166534,#166534)";
+      msg.textContent="✓ "+id+" gespeichert · Index "+((d.clean_score==null)?"– (keine Zahl)":d.clean_score);
+    }
+  }catch(e){
+    if(msg){ msg.style.color="var(--k-b91c1c,#b91c1c)"; msg.textContent="Fehler bei "+id+": "+((e&&e.message)||e); }
+  }
+}
+/* Loeschen ueber peDeaktiv - derselbe Weg wie ueberall, mit Nachfrage und Tagebuch-Schutz.
+   Kein vierter Loeschpfad (§1.11i). */
+async function pvLoeschen(id){
+  var alt=window._peRows;
+  var d=window._pvDaten[id]||{};
+  if(!(alt||[]).some(function(x){ return String(x.id)===String(id); })){
+    window._peRows=(alt||[]).concat([{id:id, name:d.name||'', quelle:'produkt', echte_id:id}]);
+  }
+  try{ await peDeaktiv(id); }
+  catch(e){ alert('Konnte nicht löschen: '+((e&&e.message)||e)); return; }
+  var weg=!(window._peRows||[]).some(function(x){ return String(x.id)===String(id); });
+  if(weg){
+    window._pvIds=(window._pvIds||[]).filter(function(x){ return String(x)!==String(id); });
+    delete window._pvDaten[id];
+    if(!window._pvIds.length){ pvSchliessen(); return; }
+    var seiten=Math.ceil(window._pvIds.length/PV_MAX);
+    if(window._pvSeite>seiten-1) window._pvSeite=seiten-1;
+    pvRender();
+  }
+}
+if(typeof window!=="undefined"){
+  window.pvOeffnen=pvOeffnen; window.pvSchliessen=pvSchliessen; window.pvRender=pvRender;
+  window.pvSpeichern=pvSpeichern; window.pvLoeschen=pvLoeschen; window.pvSeiteSetzen=pvSeiteSetzen;
+  window.pvGeaendert=pvGeaendert; window.pvBildGross=pvBildGross;
+  window.pvZutSetzen=pvZutSetzen; window.pvZutRaus=pvZutRaus; window.pvZutRein=pvZutRein;
+  window.pvZutSuche=pvZutSuche; window.pvZutTrefferZu=pvZutTrefferZu; window.pvRikiLesen=pvRikiLesen;
+  document.addEventListener("keydown", function(e){
+    if(e.key!=="Escape") return;
+    var l=document.getElementById("pvLupe");
+    if(l && l.style.display!=="none"){ l.style.display="none"; return; }  /* erst die Lupe, dann die Seite */
+    pvSchliessen();
+  });
 }
 function feNaehrKat(){
   var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
@@ -14547,12 +15014,36 @@ async function openFgEditor(id, prefill, targetEl){
   /* Etikettfotos: beim Anlegen kommen sie aus dem Scan mit, bei einem bestehenden
      Produkt werden sie ueber die Verknuepfung nachgeladen. Nie kopiert - sie liegen
      weiterhin nur in Scan_Warteschlange. Fehlschlag ist unkritisch: dann eben keine Belege. */
+  /* 2026-08-02-1513 (Ralphs Fund "Fotos landen nicht auf der Anlege-Karte"):
+     Beim ANLEGEN gibt es keine P-Nummer - der Nachladeweg lief deshalb gar nicht erst an,
+     und von 20 Stellen, die den Editor oeffnen, gaben nur ZWEI die Fotos mit. Die Fotos
+     liegen aber laengst unter der EAN in der Warteschlange. Jetzt zweiter Einstieg ueber
+     die EAN (cb_etikettfotos_zu_ean). Fehler werden NICHT mehr verschluckt (1.13i). */
   let _etikett = (prefill && prefill.fotos) ? prefill.fotos.slice() : [];
-  if(id && !_etikett.length){
+  window._fgEtikettFehler="";
+  if(!_etikett.length){
     try{
-      const {data:ef}=await client.rpc("cb_produkt_etikettfotos",{p_id:id});
-      if(ef && ef.ok && Array.isArray(ef.fotos)) _etikett=ef.fotos;
-    }catch(e){}
+      let ef=null;
+      if(id){
+        const r=await client.rpc("cb_produkt_etikettfotos",{p_id:id});
+        if(r.error) throw r.error; ef=r.data;
+      } else {
+        /* Nur mit EAN suchen. Ohne sie gibt es nichts zu finden - und ein leerer Wert
+           darf keine fremden Fotos holen (die RPC lehnt ihn zusaetzlich selbst ab). */
+        const _ean=String((d&&d.ean)||"").trim();
+        if(_ean){ const r=await client.rpc("cb_etikettfotos_zu_ean",{p_ean:_ean});
+                  if(r.error) throw r.error; ef=r.data; }
+      }
+      if(ef && ef.ok && Array.isArray(ef.fotos)){
+        /* Dieselbe EAN kann mehrfach in der Warteschlange stehen (z. B. zweimal gesendet) -
+           dann kaeme jedes Bild doppelt. Entdoppeln, sonst zaehlt die Karte falsch. */
+        var _seen={}; _etikett=ef.fotos.filter(function(s){
+          if(typeof s!=="string"||!s||_seen[s]) return false; _seen[s]=1; return true; });
+      }
+    }catch(e){
+      window._fgEtikettFehler=(e&&e.message)?String(e.message):String(e);
+      console.error("[Editor] Etikettfotos konnten nicht geladen werden:", e);
+    }
   }
   window._fgEdit={ id:id, bild_url:d.bild_url||"", status:String(d.status||""),
                    etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[], kcalOk:!!((d.naehrwerte||{}).kcal_ok),
@@ -15205,7 +15696,22 @@ function fgEtikettZoom(j){
 function fgEtikettRender(){
   var box=document.getElementById('fe_etikettGrid'); if(!box) return;
   var arr=(window._fgEdit&&window._fgEdit.etikett)||[];
-  var cnt=document.getElementById('fe_etikettCount'); if(cnt) cnt.textContent='('+arr.length+')';
+  /* 2026-08-02-1513: Scheitert das Laden, stand hier frueher nur "(0)" - ein stiller
+     Fehler, den niemand sehen konnte (1.13i). Die Meldung wird BEI JEDEM Render neu
+     gesetzt, damit sie nicht vom naechsten Zeichnen ueberschrieben wird (1.13w). */
+  var cnt=document.getElementById('fe_etikettCount');
+  if(cnt){
+    /* IMMER zuerst die alte Fehlerzeile wegnehmen - sonst haengt sie nach einem
+       gelungenen Laden weiter da, und bei jedem Render kaeme eine weitere dazu. */
+    var _old=document.querySelectorAll('.fgEtikErr');
+    for(var _i=0;_i<_old.length;_i++) _old[_i].remove();
+    cnt.textContent='('+arr.length+')';
+    var _fehl=window._fgEtikettFehler||"";
+    if(_fehl && !arr.length){
+      cnt.insertAdjacentHTML('afterend',
+        '<span class="fgEtikErr" style="color:var(--k-dc2626);font-weight:600;text-transform:none;letter-spacing:0"> · konnten nicht geladen werden: '+esc(_fehl)+'</span>');
+    }
+  }
   /* 28z35 (Ralph): grosses Bild ist jetzt ein ZOOM-Kasten wie auf der Referenzkarte
      (Rad = zoomen, Ziehen = verschieben, Doppelklick = Vollbild) und die Mini-Bilder
      WECHSELN das grosse Bild (28z33 oeffnete stattdessen das Vollbild). */
@@ -15316,6 +15822,34 @@ if(typeof window!=='undefined'){ window.fgWirkFotoRiki=fgWirkFotoRiki; }
 /* kcal-Waechter uebersteuern (Ralph 25.07.): kcal von der verifizierten Herstellerseite darf von der
    Atwater-Rechnung abweichen. Admin bestaetigt "Quelle geprueft" -> Flag; produkt_freigeben ueberspringt
    dann den kcal-Riegel (physikalische Checks Zucker>KH etc. bleiben hart). */
+/* "ist ein eigenes Produkt" - loest den Freigabe-Riegel bei einem Namenszwilling (Ralph 02.08.).
+   Eigener enger Schreibweg (cb_produkt_dublette_ok_setzen), cb_produkt_speichern bleibt unberuehrt -
+   genau wie beim kcal-Wächter. Danach wird NEU GEFRAGT statt das Flag lokal zu setzen: sonst
+   stünde im Browser "frei" und in der DB "blockiert" (§1.11n-f). */
+async function fgDubletteOkSetzen(v){
+  var pid=(window._fgEdit&&window._fgEdit.id)||null;
+  if(!pid){ alert("Bitte das Produkt zuerst speichern."); return; }
+  try{
+    var r=await client.rpc("cb_produkt_dublette_ok_setzen",{p_id:pid, p_ok:!!v});
+    if(r.error) throw new Error(r.error.message);
+    await feDubPruefenSofort();
+  }catch(e){
+    alert("Konnte nicht speichern: "+((e&&e.message)||e));   /* nie stumm scheitern (§1.13i) */
+  }
+}
+/* Wie feDubPruefen, aber ohne die 450-ms-Entprellung: nach einem Klick will man das Ergebnis
+   sofort sehen, nicht eine halbe Sekunde später. Ruft dieselbe RPC - kein zweiter Prüfweg. */
+async function feDubPruefenSofort(){
+  var f=(typeof feDubFelder==="function")?feDubFelder():null; if(!f) return;
+  try{
+    var r=await client.rpc("cb_dubletten_pruefen",{p_id:f.id,p_ean:f.ean||null,p_name:f.name||null,p_marke:f.marke||null});
+    if(r.error) throw new Error(r.error.message);
+    window._feDub=r.data||{treffer:[],anzahl:0};
+    try{ feDubChipRender(); }catch(e){}
+    try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  }catch(e){ if(typeof console!=="undefined") console.warn("Dubletten-Prüfung:", e&&e.message?e.message:e); }
+}
+if(typeof window!=='undefined'){ window.fgDubletteOkSetzen=fgDubletteOkSetzen; window.feDubPruefenSofort=feDubPruefenSofort; }
 function fgKcalOkSet(v){ if(!window._fgEdit){ window._fgEdit={}; } window._fgEdit.kcalOk=!!v; try{ fePlaus(); }catch(e){} }
 if(typeof window!=='undefined'){ window.fgKcalOkSet=fgKcalOkSet; }
 /* Kategorie-Konfiguration (Ralph 25.07.): je Kategorie Darstellung (Produkt-/Supplement-Karte) und ob
@@ -15741,6 +16275,10 @@ function fePlaus(){
     var _wCount = _istSupp && typeof feWirkCount==="function" ? feWirkCount() : 0;
     var _wNone  = _istSupp && !!((document.getElementById("fe_wirk_none")||{}).checked);
     if(_istSupp && _wCount===0 && !_wNone) fehlt.push("Wirkstoff-Mengen (Dosis-Check)");
+    /* 02.08. (Ralph-Go): ungeklaerter Namenszwilling blockiert die FREIGABE, nicht das Speichern.
+       Die Bedingung wird NICHT hier nachgebaut - sie kommt aus cb_dublette_verdacht, derselben
+       Funktion, die auch produkt_pruefen_freigeben fragt (§1.2c). Wir zeigen nur an. */
+    if(window._feDub && window._feDub.freigabe_blockiert) fehlt.push("Namenszwilling ungeklärt");
     /* 28t: Reiter-1-Haken - nur Punkte, die WIRKLICH auf Reiter 1 liegen. Quelle-Typ steht im
        Seitenstreifen (beide Reiter sichtbar), Zutaten-Punkte zaehlt der Reiter-2-Badge, EAN hat
        den eigenen Chip. indexOf("Zutat") faengt beide Zutaten-Texte, laesst "Wirkstoff-Mengen" stehen. */
@@ -15796,6 +16334,22 @@ function fePlaus(){
           if(_s==="sicher")             h+=_btn("&#9888; Dublette: diese EAN gibt es schon – Speichern wird abgewiesen ›","#b91c1c",true);
           else if(_s==="variante")      h+=_btn("&#8250; "+_dub.anzahl+" Geschmacksvariante(n) – keine Dublette","var(--muted)",false);
           else                          h+=_btn("&#9888; "+_dub.anzahl+"&times; sehr ähnlich – ansehen ›","var(--k-b45309)",true);
+        }
+      }catch(e){}
+      /* 02.08. (Ralph-Go): Freigabe-Riegel bei ungeklaertem Namenszwilling. Eigene Zeile, weil es
+         etwas anderes ist als der Chip oben: der zeigt Aehnlichkeit, DIESE Zeile sagt, dass der
+         Livegang wartet. Die Bedingung kommt aus der DB (cb_dublette_verdacht), hier wird nur
+         angezeigt und der Knopf angeboten (§1.11i). */
+      try{
+        var _fd=window._feDub;
+        if(_fd && _fd.freigabe_blockiert){
+          var _zw=(_fd.freigabe_zwillinge||[]).map(function(x){ return x.id; }).join(", ");
+          h+='<span style="color:var(--k-b91c1c,#b91c1c);font-weight:600;white-space:nowrap">&#9888; Namenszwilling ungeklärt ('+esc(_zw||"?")+')</span>'
+            +'<button type="button" onclick="fgDubletteOkSetzen(true)" title="Bestätigen, dass dies ein eigenes Produkt ist – dann ist die Freigabe frei" '
+            +'style="padding:3px 9px;border:1px solid #cbc7f2;border-radius:7px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:11.5px;font-weight:700;white-space:nowrap">ist ein eigenes Produkt</button>';
+        } else if(_fd && _fd.freigabe_geprueft){
+          h+='<span style="color:var(--k-166534);white-space:nowrap">&#10003; Namenszwilling geprüft '
+            +'<a href="#" onclick="fgDubletteOkSetzen(false);return false" style="color:var(--muted);font-weight:400">rückgängig</a></span>';
         }
       }catch(e){}
       if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
@@ -16451,7 +17005,7 @@ function fePasteImg(ev){
       try{ window._fgEdit=window._fgEdit||{}; window._fgEdit.etikett=window._fgEdit.etikett||[];
         b64.forEach(function(bb){ if(bb && window._fgEdit.etikett.indexOf(bb)<0) window._fgEdit.etikett.push(bb); });
         if(typeof fgEtikettRender==="function") fgEtikettRender();
-      }catch(e){}
+      }catch(e){ console.error("[Editor] eingefuegtes Bild konnte nicht angehaengt werden:", e); }
       fgPullEtikett([], b64);   /* Screenshot wird jetzt zusaetzlich als angehaengtes Foto gemerkt (Ralph 25.07.) */
     });
   }catch(e){ try{console.log("fePasteImg:",e);}catch(_){} }
@@ -20962,7 +21516,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-1215";
+const APP_BUILD = "2026-08-02-1513";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
