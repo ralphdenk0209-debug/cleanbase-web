@@ -4243,14 +4243,11 @@ async function loadProduktErfassung(){
      Sie sind entfernt statt auskommentiert: toter Code, der dieselben Namen vergibt,
      ist eine geladene Falle (§1.11n-p). */
   box.innerHTML=
-    /* Kopf im Mint-Verlauf wie im Entwurf */
-    '<div style="background:linear-gradient(180deg,#d8efe9,#eef6f4 60%,#f4f7fa);border-radius:0 0 14px 14px;padding:14px 16px 12px;margin:-4px -4px 14px;position:relative">'
-      +'<div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);border:1.5px solid #5fb3a0;color:#2f7d6c;background:#ffffffcc;border-radius:20px;padding:3px 15px;font-size:12px;font-weight:700">Zentrale</div>'
-      +'<h2 style="font-size:20px;margin:0;font-weight:800;color:#1f2a44">Produkt-Erfassung</h2>'
-      +'<div style="color:#5a7d72;font-size:12.5px;margin-top:2px">Master-Detail – Liste oben, Editor unten. Rechtsklick öffnet das Kontextmenü.</div>'
-    +'</div>'
+    /* Kopfbereich entfernt 01.08.2026 (Ralph: "der bereich kann weg, ich kenne ihn,
+       schafft mehr platz") - Titel, Zentrale-Pille und Erklaerzeile sind raus,
+       die Liste beginnt direkt mit der Toolbar. */
     /* Sticky-Menü: Toolbar + Chips bleiben beim Scrollen oben stehen */
-    +'<div id="peSticky" style="position:sticky;top:0;z-index:22;background:#f4f7fa;margin:0 -10px;padding:8px 10px 6px;box-shadow:0 8px 10px -9px rgba(20,40,70,.30)">'
+    '<div id="peSticky" style="position:sticky;top:0;z-index:22;background:#f4f7fa;margin:0 -10px;padding:8px 10px 6px;box-shadow:0 8px 10px -9px rgba(20,40,70,.30)">'
     /* Toolbar */
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
       +'<button class="peBtn pri" onclick="peNeu()">＋ Neues Produkt</button>'
@@ -20293,7 +20290,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-01-1832";
+const APP_BUILD = "2026-08-01-2051";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
