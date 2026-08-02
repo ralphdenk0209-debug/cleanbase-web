@@ -14930,6 +14930,12 @@ function fgFlattenZutaten(raw){
     if(!s || s.length<2) return false;
     if(/^[\d.,%\s]+$/.test(s)) return false;         /* reine Zahlen */
     if(/^aus\b/i.test(s)) return false;              /* Herkunftsnotiz „aus biologischem Anbau" */
+    /* 🔴 Ralphs Fund 02.08.: "Säuerungskulturen (enthält MILCH)" wurde zu zwei Eintraegen,
+       der zweite hiess "enthält MILCH". Das ist eine ALLERGEN-Kennzeichnung nach
+       VO 1169/2011 Art. 21 - eine Information ueber eine schon genannte Zutat, keine
+       eigene Zutat. Sie darf weder in die Bewertung noch in die Referenzliste.
+       (Der Spuren-Hinweis oben faengt nur "kann Spuren enthalten", nicht diesen Fall.) */
+    if(/^(?:enth[aä]lt|contains|mit)\b/i.test(s)) return false;
     return true;
   });
 }
@@ -21796,7 +21802,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-1920";
+const APP_BUILD = "2026-08-02-1955";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
