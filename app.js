@@ -11719,9 +11719,26 @@ function tbScanPopup(){
     try{
       const {data}=await client.rpc("produkt_by_ean",{p_ean:code});
       if(data&&data.id){
-        const p=(ALL||[]).find(x=>x.id===data.id);
+        /* 🔴 02.08.2026 (Ralphs Fund: "wird erkannt, aber Mengeneingabe erscheint nicht").
+           Bis zum 01.08. lag der GANZE Katalog als ALL im Browser - ein Treffer war also
+           immer auch in ALL. Seit der Umstellung auf die serverseitige Suche haelt ALL nur
+           noch bis zu 3.000 kuratierte Produkte (§0.04). Traf der Scan eines der uebrigen
+           ~58.000, fand `ALL.find` nichts, und der Zweig endete bei der Meldung "erkannt" -
+           eine SACKGASSE ohne Mengeneingabe und ohne Fehler.
+           Das ist §1.11q: Als ALL aufhoerte, alles zu enthalten, hoerte dieser Pfad auf zu
+           funktionieren - lautlos. Jetzt wird das Produkt einzeln nachgeladen (prodVoll,
+           dieselbe Funktion, die auch die Detailkarte benutzt - kein zweiter Ladeweg). */
+        let p=(ALL||[]).find(x=>x.id===data.id);
+        if(!p){
+          if(msg){ msg.style.color="var(--muted)"; msg.textContent="✓ "+data.name+" – wird geladen…"; }
+          try{ p=await prodVoll(data.id); }catch(e){}
+          if(p && Array.isArray(ALL) && !ALL.some(x=>x.id===p.id)) ALL.push(p);   /* naechster Scan ist sofort da */
+        }
         if(p){ const b=document.getElementById("tbAddBody"); if(b) b.innerHTML='<div id="tbAddResults"></div>'; window._tbAddList=[p]; tbAddPick(0); return; }
-        if(msg){ msg.style.color="var(--k-2e7d32)"; msg.textContent="✓ "+data.name+" erkannt."; }
+        /* Erst wenn auch das Nachladen nichts bringt, ist es wirklich eine Sackgasse -
+           dann sagen wir das im Klartext, statt es bei "erkannt" bewenden zu lassen (§1.13i). */
+        if(msg){ msg.style.color="var(--k-b45309)"; msg.innerHTML="✓ "+esc(data.name)+" erkannt – die Produktdaten liessen sich gerade nicht laden. "
+          +'<button onclick="tbScanPopup()" style="margin-left:6px;padding:3px 10px;border:1px solid var(--k-e7e0d4);border-radius:8px;background:var(--k-fbf8f2);cursor:pointer;font-size:12px">Nochmal scannen</button>'; }
       } else {
         try{ await client.rpc("ean_vormerken",{p_ean:code,p_quelle:"Tagebuch-Scan",p_akteur:"Web-Tagebuch"}); }catch(e){}
 
@@ -20812,7 +20829,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-0910";
+const APP_BUILD = "2026-08-02-0930";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
