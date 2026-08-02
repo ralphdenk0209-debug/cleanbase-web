@@ -15568,7 +15568,12 @@ function feFreigabeLeiste(items, blocked){
   if(_slot){
     if(rail.parentNode!==_slot) _slot.appendChild(rail);
     rail._frgInline=true;
-    rail.style.cssText='display:flex;align-items:center;gap:8px;background:#ffffff;border:1px solid #e2e8ef;border-radius:999px;padding:5px 12px;cursor:pointer;min-width:0;transition:box-shadow .28s ease';
+    /* 02.08. (Ralph): "das kann weg, weil links die grosse Freigabe ist". Der Punkte-Chip
+       oben zeigte dieselben Punkte wie die Ampel-Karte links - zweimal dasselbe, und die
+       Karte links hat den Klartext dazu. Er wird VERSTECKT, nicht entfernt: feFreigabeLeiste
+       schreibt weiter in frgDots/frgSum (ohne Null-Pruefung), und im selben Slot sitzen
+       Status-Pille, Speichern und Freigeben - die bleiben sichtbar (§1.11n-j). */
+    rail.style.cssText='display:none';
     if(_lbl) _lbl.style.cssText='writing-mode:horizontal-tb;font-size:9.5px;font-weight:800;letter-spacing:.12em;color:#8a94a0;text-transform:uppercase;white-space:nowrap';
     if(_dotsEl) _dotsEl.style.cssText='display:flex;flex-direction:row;gap:5px;align-items:center';
   } else {
@@ -15578,8 +15583,9 @@ function feFreigabeLeiste(items, blocked){
     if(_lbl) _lbl.style.cssText='writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:800;letter-spacing:.12em;color:#8a94a0;text-transform:uppercase;text-align:center';
     if(_dotsEl) _dotsEl.style.cssText='display:flex;flex-direction:column;gap:9px;align-items:center';
   }
-  rail.style.display='flex'; panel.style.display='';
-  rail.style.animation = blocked ? '' : 'frgPulse 1.8s ease-in-out infinite';
+  if(!rail._frgInline) rail.style.display='flex';   /* nur die alte Rand-Fahne zeigen; inline ist der Chip versteckt */
+  panel.style.display='';
+  rail.style.animation = (blocked || rail._frgInline) ? '' : 'frgPulse 1.8s ease-in-out infinite';
   document.getElementById('frgDots').innerHTML=items.map(function(it){
     var st=(it.c==='x')?'background:transparent;border:2px solid #c3ccd4':('background:'+(_FRG_COL[it.c]||'#c3ccd4')+(it.c==='r'?';box-shadow:0 0 0 4px rgba(207,68,66,.16)':''));
     return '<span title="'+esc((_FRG_IC[it.c]||'')+' '+it.t)+'" style="width:13px;height:13px;border-radius:50%;flex:0 0 auto;'+st+'"></span>';
@@ -15699,8 +15705,14 @@ function feVorgangStepperHtml(){
 /* Ampel-Schiene links – spiegelt NUR die bereits berechnete Freigabe-Zeile (#fe_riegel).
    Eine Regel, ein Ort: fePlaus bleibt die einzige Wahrheit; hier wird nichts neu geprüft. */
 function feVorgangRailHtml(){
-  return '<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;position:sticky;top:8px">'
-    +'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;margin-bottom:10px">Freigabe-Ampel</div>'
+  /* 02.08. (Ralph): Diese Karte uebernimmt, was vorher der Punkte-Chip oben zeigte -
+     das Aufleuchten UND das Wort "bereit". Beides kommt aus derselben Rechnung
+     (window._frgBlocked, gesetzt von feFreigabeLeiste) - keine zweite Pruefung (§1.11i). */
+  return '<div id="feVorgangKarte" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;position:sticky;top:8px;transition:box-shadow .28s ease,border-color .28s ease">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+      +'<span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800">Freigabe</span>'
+      +'<span id="feVorgangBadge" style="margin-left:auto;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;white-space:nowrap;display:none"></span>'
+    +'</div>'
     +'<div id="feVorgangAmpel" style="font-size:12px;line-height:1.4"></div>'
     +'<div style="font-size:11px;color:var(--muted);margin-top:10px;padding-top:8px;border-top:1px solid var(--line);line-height:1.4">Alles ✓ und grün → die Freigabe unten ist frei. ⚠ zeigt, was noch fehlt.</div>'
     +'</div>';
@@ -15714,6 +15726,29 @@ function feVorgangSync(){
       amp.innerHTML = kids.length
         ? kids.map(function(sp){ return '<div style="padding:6px 0;border-bottom:1px dashed #eef1f3">'+sp.outerHTML+'</div>'; }).join("")
         : '<span style="color:var(--muted)">Trag zuerst die Basisdaten ein.</span>';
+    }
+    /* "bereit" + Leuchten - dieselbe Aussage wie vorher im Kopf-Chip, nur an einem Ort.
+       undefined heisst "noch nicht gerechnet": dann sagt die Karte nichts, statt "bereit"
+       zu behaupten (§1.11n-ii: NULL ist grau, kein Urteil). */
+    var _b=window._frgBlocked, _bd=document.getElementById("feVorgangBadge"),
+        _kt=document.getElementById("feVorgangKarte");
+    if(_bd){
+      if(_b===undefined||_b===null){ _bd.style.display='none'; }
+      else if(_b){ _bd.style.display=''; _bd.textContent='offen';
+                   _bd.style.background='#fcf3e3'; _bd.style.color='#92400e'; }
+      else { _bd.style.display=''; _bd.textContent='bereit';
+             _bd.style.background='#e7f4ec'; _bd.style.color='#1f5e34'; }
+    }
+    if(_kt){
+      if(!document.getElementById("feVorgangStyle")){
+        var _vs=document.createElement("style"); _vs.id="feVorgangStyle";
+        _vs.textContent='@keyframes feVorgangPulse{0%,100%{box-shadow:0 0 0 0 rgba(46,158,87,.30)}50%{box-shadow:0 0 0 7px rgba(46,158,87,0)}}';
+        document.head.appendChild(_vs);
+      }
+      var frei=(_b===false);
+      _kt.style.boxShadow  = frei ? '0 0 0 3px rgba(46,158,87,.22)' : '';
+      _kt.style.borderColor= frei ? '#2e9e57' : 'var(--line)';
+      _kt.style.animation  = frei ? 'feVorgangPulse 2s ease-in-out infinite' : '';
     }
   }catch(e){}
 }
@@ -20412,7 +20447,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-0625";
+const APP_BUILD = "2026-08-02-0650";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
