@@ -5759,10 +5759,6 @@ function peRowCtx(ev,id){
    also kein Schalter, sondern die sichere Variante fest verdrahtet). Eine
    geprueft eingetragene Zahl darf ein Skript nie ueberschreiben.
    ============================================================================ */
-function fgJsonZeileAuf(el){
-  /* waechst beim Einfuegen mit, damit man sieht, dass etwas drin ist */
-  try{ el.rows = Math.min(8, Math.max(1, String(el.value||'').split('\n').length)); }catch(e){}
-}
 function _fgJsonMsg(html,farbe){
   var m=document.getElementById('fe_jsonMsg'); if(!m) return;
   m.style.color=farbe||'var(--muted)'; m.innerHTML=html;
@@ -5777,12 +5773,38 @@ async function fgJsonUebernehmen(){
   var ta=document.getElementById('fe_jsonIn'); if(!ta) return;
   var roh=String(ta.value||'').trim();
   if(!roh){ _fgJsonMsg('Bitte zuerst das JSON aus der Produktseite einfügen.','var(--k-dc2626)'); return; }
-  var j;
+  var j, repariert=0;
   try{ j=JSON.parse(roh); }
-  catch(e){ _fgJsonMsg('Das ist kein gültiges JSON: '+esc(e.message||String(e)),'var(--k-dc2626)'); return; }
+  catch(e){
+    /* 02.08.2026 (Ralphs Fund): Beim Kopieren aus der Kurzbefehl-App fehlten am Ende
+       schliessende Klammern - das JSON war abgeschnitten. Statt nur zu meckern:
+       fehlende Klammern zaehlen und ergaenzen. Es wird NICHTS erfunden - nur der
+       Abschluss nachgetragen; was inhaltlich fehlt, fehlt weiterhin und bleibt leer. */
+    var auf=0, zu=0, aufE=0, zuE=0, inStr=false, esc2=false;
+    for(var i=0;i<roh.length;i++){
+      var c=roh[i];
+      if(esc2){ esc2=false; continue; }
+      if(c==='\\'){ esc2=true; continue; }
+      if(c==='"'){ inStr=!inStr; continue; }
+      if(inStr) continue;
+      if(c==='{') auf++; else if(c==='}') zu++;
+      else if(c==='[') aufE++; else if(c===']') zuE++;
+    }
+    var flick=roh.replace(/,\s*$/,'');            // haengendes Komma am Ende
+    while(zuE<aufE){ flick+=']'; zuE++; repariert++; }
+    while(zu<auf){ flick+='}'; zu++; repariert++; }
+    try{ j=JSON.parse(flick); }
+    catch(e2){
+      _fgJsonMsg('Das ist kein gültiges JSON: '+esc(e.message||String(e))
+        +'<br><span style="color:var(--muted)">Tipp: Ist beim Kopieren etwas abgeschnitten worden? '
+        +'Das JSON muss mit <b>{</b> beginnen und mit <b>}</b> enden.</span>','var(--k-dc2626)');
+      return;
+    }
+  }
   if(!j || typeof j!=='object'){ _fgJsonMsg('Das JSON enthält kein Objekt.','var(--k-dc2626)'); return; }
 
   var gefuellt=[], uebersprungen=[], hinweise=[];
+  if(repariert) hinweise.push('⚠ Das JSON war unvollständig – '+repariert+' fehlende Klammer(n) ergänzt. Bitte prüfen, ob am Ende Werte fehlen.');
   /* nur leere Felder fuellen - an EINER Stelle entschieden, nicht je Feld */
   var setzeWennLeer=function(id,wert,label){
     var e=document.getElementById(id); if(!e||wert==null||wert==='') return;
@@ -5802,6 +5824,8 @@ async function fgJsonUebernehmen(){
   } else if(j.produktname===''||nq==='keine'){
     hinweise.push('Das Skript hat keinen belastbaren Produktnamen gefunden – Titel bitte selbst eintragen.');
   }
+  /* Marke liefert das Skript seit 02.08. mit (die Zeile ueber dem Produktnamen). */
+  if(j.marke) setzeWennLeer('fe_marke', String(j.marke).trim(), 'Marke');
 
   /* --- EAN: nur wenn plausibel lang. Eine EAN ist eine Identitaet (§5). ---- */
   var ean=String(j.ean||'').replace(/\D/g,'');
@@ -15428,7 +15452,11 @@ async function openFgEditor(id, prefill, targetEl){
         ${''/* 02.08.2026 (Ralph): JSON aus seinem Lesezeichen-Skript einfuegen. Kostet nichts
               (kein Riki-Aufruf), ist deterministisch und die Quelle ist die Herstellerseite. */}
         <div style="display:flex;gap:6px;align-items:stretch;min-width:0">
-          <textarea id="fe_jsonIn" rows="1" oninput="fgJsonZeileAuf(this)" placeholder='📋 JSON aus der Produktseite hier einfügen…' style="flex:1 1 auto;min-width:0;box-sizing:border-box;padding:7px 8px;border:2px dashed #9fc6a8;border-radius:8px;background:var(--k-f4faf5,#f4faf5);color:var(--ink);font-size:12px;font-family:ui-monospace,monospace;resize:vertical"></textarea>
+          ${''/* Bewusst EINZEILIG und nicht mitwachsend: die Spalte ist schmal, ein
+                 aufgeklapptes Textfeld schob die ganze Maske auseinander (Ralphs
+                 Screenshot). Der Inhalt scrollt in einer Zeile - man muss ihn nicht
+                 lesen, nur einfügen. white-space:pre verhindert den Umbruch. */}
+          <textarea id="fe_jsonIn" rows="1" wrap="off" placeholder='📋 JSON aus der Produktseite hier einfügen…' title="JSON aus dem Lesezeichen-Skript einfügen, dann auf Übernehmen klicken" style="flex:1 1 auto;min-width:0;height:34px;box-sizing:border-box;padding:7px 8px;border:2px dashed #9fc6a8;border-radius:8px;background:var(--k-f4faf5,#f4faf5);color:var(--ink);font-size:12px;font-family:ui-monospace,monospace;white-space:pre;overflow:auto;resize:none"></textarea>
           <button type="button" onclick="fgJsonUebernehmen()" style="flex:0 0 auto;padding:7px 11px;border:1px solid #9fc6a8;border-radius:8px;background:var(--k-eaf5ee,#eaf5ee);color:var(--k-166534);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap">Übernehmen ▸</button>
         </div>
         <div id="fe_jsonMsg" style="font-size:11.5px;line-height:1.45;margin-top:-2px"></div>
@@ -21768,7 +21796,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-1805";
+const APP_BUILD = "2026-08-02-1920";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
