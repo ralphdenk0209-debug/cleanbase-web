@@ -15820,6 +15820,21 @@ async function fgStatusLoad(){
   el.innerHTML='<span onclick="fgStatusMenu(this)" title="'+esc((c.hint||'')+' – klicken zum Ändern')+'" style="display:inline-flex;align-items:center;gap:7px;border:1.5px solid '+c.bd+';background:'+c.bg+';color:'+c.fg+';border-radius:999px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap">'
     +'<span style="width:9px;height:9px;border-radius:50%;background:'+c.dot+';flex:0 0 auto"></span>'+esc(st==='Aktiv ohne Index'?'🌱 ohne Index':(st||'?'))+' <span style="opacity:.55">▾</span></span>';
 }
+/* Loeschen aus dem Editor heraus. Die eigentliche Arbeit macht peDeaktiv (Nachfrage,
+   admin-only RPC cb_produkt_loeschen, Tagebuch-Schutz mit Archivier-Angebot) - hier wird
+   nur die ID besorgt und hinterher der Editor geschlossen, damit man nicht auf einer
+   Karte sitzenbleibt, deren Produkt es nicht mehr gibt. */
+async function fgProduktLoeschen(){
+  var id=(window._fgEdit&&window._fgEdit.id);
+  if(!id){ alert('Dieses Produkt ist noch nicht gespeichert – es gibt nichts zu löschen.'); return; }
+  var vorher=id;
+  try{ await peDeaktiv(id); }catch(e){ alert('Konnte nicht löschen: '+((e&&e.message)||e)); return; }
+  /* peDeaktiv nimmt die Zeile aus _peRows, wenn es geklappt hat. Ist sie weg, ist das
+     Produkt weg -> Editor zu. Ist sie noch da, hat der Mensch abgebrochen: dann bleibt alles. */
+  var nochDa=(window._peRows||[]).some(function(x){ return String(x.id)===String(vorher); });
+  if(!nochDa){ try{ closeP(); }catch(e){} try{ if(typeof peClose==='function') peClose(); }catch(e){} }
+}
+if(typeof window!=='undefined'){ window.fgProduktLoeschen=fgProduktLoeschen; }
 function fgStatusMenuHide(){ var m=document.getElementById('fgStatusMenuBox'); if(m) m.remove(); document.removeEventListener('click',fgStatusMenuHide); }
 function fgStatusMenu(anker){
   fgStatusMenuHide();
@@ -15836,7 +15851,17 @@ function fgStatusMenu(anker){
      it('Entwurf','Entwurf','unsichtbar für Nutzer, in Bearbeitung',"fgStatusSet('Entwurf')")
     +it('Aktiv','Aktiv','über die geprüfte Freigabe — Blocker müssen grün sein',"fgStatusSet('Aktiv')")
     +it('Aktiv ohne Index','Aktiv ohne Index 🌱','sichtbar im Katalog, ehrlich ohne Zahl — für Frischware ohne belegbare Nährwerte',"fgStatusSet('Aktiv ohne Index')")
-    +it('Inaktiv','Inaktiv','aus dem Katalog nehmen, bleibt erhalten',"fgStatusSet('Inaktiv')");
+    +it('Inaktiv','Inaktiv','aus dem Katalog nehmen, bleibt erhalten',"fgStatusSet('Inaktiv')")
+    /* 02.08. (Ralph): Loeschen gehoert auch auf die Erfassungs-Karte, nicht nur in die Liste.
+       Es sitzt bewusst HIER im Status-Menue und nicht neben "Speichern": ein Loeschknopf
+       direkt neben dem meistgeklickten Knopf ist eine Falle. Zwei Klicks statt einer, dafuer
+       kein Fehlgriff. Ruft peDeaktiv - denselben Weg wie die Liste, mit Tagebuch-Schutz und
+       Nachfrage (eine Regel, ein Ort §1.11i; ein zweiter Loeschweg waere ein zweites Risiko). */
+    +'<div style="border-top:1px solid var(--line,#e2e8ef);margin:6px 4px 4px"></div>'
+    +'<div onclick="fgStatusMenuHide();fgProduktLoeschen()" style="display:flex;gap:10px;padding:9px 11px;border-radius:9px;align-items:flex-start;cursor:pointer" onmouseover="this.style.background=\'#fdeceb\'" onmouseout="this.style.background=\'\'">'
+      +'<span style="width:11px;height:11px;border-radius:50%;background:#b91c1c;margin-top:3px;flex:0 0 auto"></span>'
+      +'<span style="min-width:0"><b style="font-size:13px;display:block;color:#b91c1c">Produkt löschen</b>'
+      +'<span style="font-size:11px;color:var(--muted,#7b8698);line-height:1.4">endgültig aus der Datenbank &ndash; steht es in einem Nutzer-Tagebuch, wird stattdessen archiviert</span></span></div>';
   document.body.appendChild(m);
   setTimeout(function(){ document.addEventListener('click',fgStatusMenuHide); },0);
 }
@@ -20787,7 +20812,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-0840";
+const APP_BUILD = "2026-08-02-0910";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
