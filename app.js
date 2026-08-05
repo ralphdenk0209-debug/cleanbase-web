@@ -3920,27 +3920,40 @@ var FE_GRID_BASIS = 217;
    über den Bildschirmrand - genau das, was Ralph gesehen hat. Die Höhe wird GEMESSEN
    statt geschätzt: dann stimmt sie auch, wenn eine Kachel mehr dazukommt oder der
    Streifen umbricht. */
-/* 05.08. (Ralph): Der Kachel-Streifen soll nur so breit sein wie die drei Arbeitskarten und
-   rechts neben "Quelle & Beleg" beginnen - er lief bisher unter dem linken Streifen durch.
-   Zweimal habe ich versucht, ihn im Template umzuhaengen, und mich zweimal in der
-   Verschachtelung vertan (einmal wirkungslos, einmal in der falschen Spalte).
-   Darum jetzt GEMESSEN statt gezaehlt: der linke Streifen #feRail hat eine echte Breite, und
-   genau die (plus Spalten-Abstand) bekommt der Kachel-Streifen als linken Rand. Faellt das
-   Raster auf eine Spalte (schmaler Bildschirm) oder fehlt der Streifen, ist der Rand 0 -
-   dann steht der Streifen wieder wie frueher ueber die volle Breite. */
+/* 05.08., dritter Anlauf (Ralph: „nährstoffe ist noch etwas zu weit nach unten verschoben").
+   Die margin-Rechnung aus Build 1440/1500 stimmte nur in dem MOMENT, in dem sie lief:
+   rendert danach die linke Leiste asynchron nach (Freigabe-Liste, Flux-Ring), waechst
+   #feRahmen - und der Streifen, der im DOM dahinter stand, rutscht mit nach unten, waehrend
+   der vorher berechnete margin stehen bleibt. Auf Docs Rechner lief der letzte Sync NACH dem
+   Nachrendern, auf Ralphs davor: gleicher Code, zwei Ergebnisse. Eine Messung, die nur im
+   Messmoment gilt, ist keine Position.
+   Darum jetzt STRUKTUR statt Messung: der Streifen wird zur Laufzeit als Raster-Kind in
+   #feRahmen gehaengt - Zeile 2, Spalte 2 -, die linke Leiste ueberspannt beide Zeilen.
+   CSS-Grid haelt die Position dann von selbst aktuell, egal wer wann nachrendert.
+   Zwei live gemessene Fallen dabei: (1) Zeilen muessen max-content/1fr heissen - bei
+   auto/auto verteilt das Grid den Hoehen-Ueberschuss der Leiste auf BEIDE Zeilen und
+   drueckt den Streifen um die Haelfte nach unten (gemessen 72px). (2) DOM-Move zur
+   Laufzeit statt Template-Umbau - dieselbe Bauart wie fgRefMountFoto; die zwei
+   gescheiterten Template-Anlaeufe stehen in §1.13mm. Einspaltig (schmaler Bildschirm)
+   faellt alles auf volle Breite zurueck wie bisher. */
 function feKachelBreiteSync(){
   var k=document.getElementById("fe_naehrKacheln"); if(!k) return;
   var rail=document.getElementById("feRail"), rahmen=document.getElementById("feRahmen");
-  var breit=0;
-  if(rail && rahmen){
-    var rr=rail.getBoundingClientRect(), rg=rahmen.getBoundingClientRect();
-    /* Einspaltig? Dann ist der Streifen so breit wie der Rahmen - kein Versatz. */
-    if(rr.width > 0 && rg.width - rr.width > 200){
-      var abstand=parseFloat(getComputedStyle(rahmen).columnGap||getComputedStyle(rahmen).gap||"12")||12;
-      breit=Math.round(rr.width + abstand);
-    }
+  if(!rail || !rahmen) return;
+  var rr=rail.getBoundingClientRect(), rg=rahmen.getBoundingClientRect();
+  var zweispaltig=(rr.width > 0 && rg.width - rr.width > 200);
+  if(k.parentElement!==rahmen) rahmen.appendChild(k);   /* Fussleiste bleibt NACH dem Rahmen */
+  k.style.marginLeft="0";
+  k.style.alignSelf="start";
+  if(zweispaltig){
+    rahmen.style.gridTemplateRows="max-content 1fr";
+    rail.style.gridRow="1 / span 2";
+    k.style.gridColumn="2";
+  }else{
+    rahmen.style.gridTemplateRows="";
+    rail.style.gridRow="";
+    k.style.gridColumn="";
   }
-  k.style.marginLeft = breit ? (breit+"px") : "0";
 }
 function feGridHoeheSync(){
   var g=document.getElementById("fe_gridA"); if(!g) return;
@@ -3989,28 +4002,10 @@ function feGridHoeheSync(){
     g.style.height="calc(100vh - "+(FE_GRID_BASIS+h)+"px)";
     g.style.height="calc(100dvh - "+(FE_GRID_BASIS+h)+"px)";
   }
-  /* 05.08. (Ralph: „die enthaltenen naehrstoffe sind immer noch nach unten verschoben …
-     gesamtansicht sollte auf einem bildschirm passen"). Der Streifen steht im DOM NACH
-     #feRahmen – und dessen Hoehe bestimmt nicht die Arbeitsflaeche, sondern die LINKE
-     LEISTE (Root-Index + Freigabe + Quelle & Beleg, gemessen 835px). Sind die Karten
-     kuerzer als die Leiste – genau der Supplement-Fall, weil der Streifen ihnen Hoehe
-     abzieht –, klaffte dazwischen die Differenz als Leere (gemessen 405px). GEMESSEN
-     statt gerechnet (§1.13mm): der Streifen wird um den echten Ueberhang nach oben
-     gezogen. Er ueberlappt dabei nur den LEEREN Bereich rechts neben der Leiste
-     (marginLeft aus feKachelBreiteSync haelt ihn aus deren Spalte heraus). Kein
-     Ueberhang – der Normalfall ohne Streifen oder mit langem Reiter 1 – heisst
-     margin bleibt 10px, alles wie bisher. Muss NACH dem Setzen der Kartenhoehe
-     laufen, sonst misst man den alten Stand. */
+  /* Die POSITION des Streifens regelt seit Build 1520 das Raster selbst (feKachelBreiteSync:
+     Zeile 2, Spalte 2). Der margin-Hochzug aus 1440/1500 ist ersatzlos raus - er galt nur im
+     Messmoment und wurde vom Nachrendern der linken Leiste ueberholt (Ralphs Fund). */
   if(k && k.innerHTML){
-    var rahmen=document.getElementById("feRahmen"), unten=0;
-    ["feTab1","feTab2"].forEach(function(id){
-      var t=document.getElementById(id); if(!t) return;
-      var r=t.getBoundingClientRect(); if(r.height>0 && r.bottom>unten) unten=r.bottom;
-    });
-    if(rahmen && unten>0){
-      var ueberhang=Math.round(rahmen.getBoundingClientRect().bottom - unten);
-      if(ueberhang>0) k.style.marginTop=(10-ueberhang)+"px";
-    }
     /* 05.08. (Ralph: „der untere container ist abgeschnitten ... sollte von unten nach oben
        reichen"). Der Basis-Deckel 196px schnitt bei LaVita die dritte Kachelreihe an, obwohl
        unter dem Streifen noch Platz bis zum Bildschirmrand frei war. Darum: NACH dem
@@ -22254,7 +22249,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1500";
+const APP_BUILD = "2026-08-05-1520";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
