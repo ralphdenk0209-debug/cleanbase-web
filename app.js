@@ -16609,12 +16609,7 @@ function feKatChange(){
     try{ ladeWirkDB(); }catch(e){}   /* Dropdown "alle Wirkstoffe" aus DB nachfuellen (Ralph 27.07.) */
   try{ feWirkFarbeAll(); }catch(e){}
   } else {
-    /* 05.08. (Ralph-Auftrag, Punkt 4): Wirkstoffe sind KEIN Supplement-Privileg. Hat das
-       Produkt Wirkstoff-Zeilen (z. B. Laktase im Suessungsmittel-Pulver), bleibt die Karte
-       als „weitere deklarierte Inhaltsstoffe" sichtbar - Daten verstecken hiesse, sie beim
-       naechsten Speichern zu gefaehrden. Ohne Eintraege bleibt sie wie bisher aus. */
-    if(_wc) _wc.style.display=(typeof feWirkCount==="function"&&feWirkCount()>0)?"":"none";
-    if(_wc&&_wc.style.display===""){ try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){} }
+    if(_wc) _wc.style.display="none";
   }
   /* 28z3 (Ralph: "wenn ich bei der kategorie supplements auswaehle aendert sich das layout" +
      "salze genau so nach bedarf, suessungsmittel faellt auch darunter"). Je Kategorie faellt weg,
@@ -16631,12 +16626,8 @@ function feKatChange(){
     var _istSalz2=(_kat2==="salze");
     var _ks=window._ksKats;
     var _istKein2=supp||_istSalz2||!!(_ks?_ks.has(_kat2):(_kat2==="süßungsmittel"));
-    /* 05.08. (Ralph, Punkt 4): Naehrwerte-Karte bei Supplement/Salz nur ausblenden, wenn es
-       auch nichts zu zeigen gibt - vorhandene Makros (P73590!) bleiben sichtbar. Und die
-       Mikro-Karte ist ueberall zugaenglich (Supplement: sichtbar · Suessungsmittel: zugaenglich)
-       - fachlich vorhandene Daten werden nicht versteckt. */
-    var _nwAus = (supp||_istSalz2) && !(window._fgEdit&&window._fgEdit.hatMakros);
-    var _mikroAus = false;
+    var _nwAus = supp||_istSalz2;
+    var _mikroAus = supp || (_istKein2 && !_istSalz2 && !supp);
     var _nwC=document.getElementById("fe_nwCard"); if(_nwC) _nwC.style.display=_nwAus?"none":"contents";
     /* 28z6 (Ralph): bei SUPPLEMENT ruecken die Wirkstoffe NEBEN die Kopfdaten (rechte, breitere
        Spalte), die Kopfdaten werden schmaler (0.9fr zu 1.35fr). Beim Verlassen der Kategorie
@@ -18412,38 +18403,41 @@ async function fgEditSave(alsoFreigeben){
        stehen, und war schon vorher eine Vermutung statt einer Angabe. */
     const _u=(g("fe_url")&&g("fe_url").value||"").trim();
     const _lnk=/^https?:\/\//i.test(_u)?_u:(/^https?:\/\//i.test(_beleg)?_beleg.split(" · ").filter(function(x){return /^https?:\/\//i.test(x);})[0]||null:null);
-    if(_vz||_lnk){ try{ await client.rpc("cb_produkt_bezug_setzen",{p_id:pid, p_verzehr:_vz||null, p_form:null, p_link:_lnk}); }catch(e){} }
+    if(_vz||_lnk){ try{ var _r1=await client.rpc("cb_produkt_bezug_setzen",{p_id:pid, p_verzehr:_vz||null, p_form:null, p_link:_lnk}); if(_r1&&_r1.error) throw _r1.error; }catch(e){ _fehler.push("Verzehr/Link: "+((e&&e.message)||e)); } }
     /* EAN-Status festhalten: „offen" wenn bewusst ohne EAN angehakt, sonst „vorhanden" wenn
        eine EAN eingetragen ist. Leer+nicht angehakt: nichts ueberschreiben. */
     try{
       var _eanOffen=!!(g("fe_ean_offen")&&g("fe_ean_offen").checked);
       var _eanV=(g("fe_ean")&&g("fe_ean").value||"").trim();
       var _st=_eanOffen?"offen":(_eanV?"vorhanden":null);
-      if(_st){ await client.rpc("cb_produkt_ean_status_setzen",{p_id:pid, p_status:_st}); }
-    }catch(e){}
+      if(_st){ var _r2=await client.rpc("cb_produkt_ean_status_setzen",{p_id:pid, p_status:_st}); if(_r2&&_r2.error) throw _r2.error; }
+    }catch(e){ _fehler.push("EAN-Status: "+((e&&e.message)||e)); }
     /* Bezugseinheit der Naehrwerte (g|ml) samt Quelle - eigener, enger Schreibweg wie beim
        EAN-Status. Leere Auswahl bedeutet ausdruecklich "wissen wir nicht" und loescht auch die Quelle. */
     try{
       var _eh=(g("fe_mengenEinheit")&&g("fe_mengenEinheit").value||"").trim();
       var _ehq=window._fgEinheitQuelle||"Etikett";
-      await client.rpc("cb_produkt_mengen_einheit_setzen",{p_id:pid, p_einheit:_eh||null, p_quelle:_eh?_ehq:null});
-    }catch(e){}
+      var _r3=await client.rpc("cb_produkt_mengen_einheit_setzen",{p_id:pid, p_einheit:_eh||null, p_quelle:_eh?_ehq:null});
+      if(_r3&&_r3.error) throw _r3.error;
+    }catch(e){ _fehler.push("Bezugseinheit: "+((e&&e.message)||e)); }
     /* Bio-Kennzeichnung - eigener enger Schreibweg (Ralph 30.07.). Leere Auswahl heisst
        ausdruecklich "nicht geprueft" und loescht auch die Quelle; sie heisst NICHT "kein Bio".
        Bio ist ein Merkmal und ein Filter - es geht an keiner Stelle in den Score ein. */
     try{
       var _bioV=(g("fe_bio")&&g("fe_bio").value||"").trim();
       var _bio=(_bioV==="ja")?true:((_bioV==="nein")?false:null);
-      await client.rpc("cb_produkt_bio_setzen",{p_id:pid, p_bio:_bio, p_quelle:(_bio===null)?null:(window._fgBioQuelle||"Etikett")});
-    }catch(e){}
+      var _r4=await client.rpc("cb_produkt_bio_setzen",{p_id:pid, p_bio:_bio, p_quelle:(_bio===null)?null:(window._fgBioQuelle||"Etikett")});
+      if(_r4&&_r4.error) throw _r4.error;
+    }catch(e){ _fehler.push("Bio: "+((e&&e.message)||e)); }
     /* Vermerk „Ballaststoffe laut Etikett nicht angegeben" (Ralph 22.07.): setzt nur den Marker,
        der Wert bleibt 0 (Score unverändert) – der n6-Wächter meldet das Produkt dann nicht mehr. */
     try{
       var _bnd=!!(g("fe_ballast_nd")&&g("fe_ballast_nd").checked);
-      await client.rpc("cb_produkt_ballast_nichtdekl_setzen",{p_id:pid, p_flag:_bnd});
-    }catch(e){}
+      var _r5=await client.rpc("cb_produkt_ballast_nichtdekl_setzen",{p_id:pid, p_flag:_bnd});
+      if(_r5&&_r5.error) throw _r5.error;
+    }catch(e){ _fehler.push("Ballast-Vermerk: "+((e&&e.message)||e)); }
     /* kcal-Waechter-Uebersteuerung persistieren (Ralph 25.07.), laeuft VOR der Freigabe. */
-    try{ await client.rpc("cb_produkt_kcal_ok_setzen",{p_id:pid, p_flag:!!(window._fgEdit&&window._fgEdit.kcalOk)}); }catch(e){}
+    try{ var _r6=await client.rpc("cb_produkt_kcal_ok_setzen",{p_id:pid, p_flag:!!(window._fgEdit&&window._fgEdit.kcalOk)}); if(_r6&&_r6.error) throw _r6.error; }catch(e){ _fehler.push("kcal-Übersteuerung: "+((e&&e.message)||e)); }
     /* Wirkstoff-Mengen → Produkt_Naehrstoffe (Dosis-Check). 05.08. (Ralph-Auftrag P73590):
        KATEGORIEUNABHAENGIG - die Kategorie steuert nur die Anzeige, nie das Speichern.
        Geschrieben wird NUR, wenn der Bereich in dieser Sitzung geaendert wurde (Dirty-Flag);
@@ -18469,12 +18463,12 @@ async function fgEditSave(alsoFreigeben){
     }
   }
   if(pid && window._fgEdit && window._fgEdit.bild_url){
-    try{ await client.rpc("cb_produkt_bild_setzen",{p_id:pid, p_url:window._fgEdit.bild_url}); }catch(e){}
+    try{ var _r7=await client.rpc("cb_produkt_bild_setzen",{p_id:pid, p_url:window._fgEdit.bild_url}); if(_r7&&_r7.error) throw _r7.error; }catch(e){ _fehler.push("Produktbild: "+((e&&e.message)||e)); }
   }
   /* Etikettfotos am Produkt verankern: nicht die Bilder kopieren, nur die Scan-Eintraege
      mit der Produkt-ID versehen. Danach zeigt der Editor sie bei jedem Aufruf wieder an. */
   if(pid && window._fgEdit && (window._fgEdit.scanIds||[]).length){
-    try{ await client.rpc("cb_scan_produkt_verknuepfen",{p_ids:window._fgEdit.scanIds, p_produkt_id:pid}); }catch(e){}
+    try{ var _r8=await client.rpc("cb_scan_produkt_verknuepfen",{p_ids:window._fgEdit.scanIds, p_produkt_id:pid}); if(_r8&&_r8.error) throw _r8.error; }catch(e){ _fehler.push("Etikettfoto-Verknüpfung: "+((e&&e.message)||e)); }
   }
   if(alsoFreigeben && pid){
     /* Die geprüfte Freigabe (Quelle · Verifiziert · Score/Supplement · Wächter). Nur DIESE
@@ -22843,7 +22837,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-2100";
+const APP_BUILD = "2026-08-05-2135";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
