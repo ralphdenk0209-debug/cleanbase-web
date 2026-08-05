@@ -3946,6 +3946,12 @@ function feGridHoeheSync(){
   var g=document.getElementById("fe_gridA"); if(!g) return;
   var k=document.getElementById("fe_naehrKacheln");
   try{ feKachelBreiteSync(); }catch(e){}   /* erst ausrichten, dann messen - sonst misst man die alte Breite */
+  /* 05.08.: Die Kachelreihe wird unten ggf. bis zur Fussleiste aufgefuellt (siehe Funktionsende).
+     VOR der Hoehenmessung immer auf den Basis-Deckel 196 zurueck - sonst misst der naechste
+     Durchlauf die aufgefuellte Hoehe, zieht den Karten mehr ab, fuellt wieder auf... und die
+     Flaeche schrumpft sich Lauf fuer Lauf kleiner. Reset macht jeden Durchlauf idempotent. */
+  var reihe=document.getElementById("fe_naehrReihe");
+  if(reihe) reihe.style.maxHeight="196px";
   var h=(k&&k.innerHTML)?Math.ceil(k.getBoundingClientRect().height)+10:0;   /* +10 = margin-top */
   if(k) k.style.marginTop=(k.innerHTML?"10px":"0");
   var stufe=feStufe();
@@ -4005,6 +4011,21 @@ function feGridHoeheSync(){
       var ueberhang=Math.round(rahmen.getBoundingClientRect().bottom - unten);
       if(ueberhang>0) k.style.marginTop=(10-ueberhang)+"px";
     }
+    /* 05.08. (Ralph: „der untere container ist abgeschnitten ... sollte von unten nach oben
+       reichen"). Der Basis-Deckel 196px schnitt bei LaVita die dritte Kachelreihe an, obwohl
+       unter dem Streifen noch Platz bis zum Bildschirmrand frei war. Darum: NACH dem
+       Positionieren wird der echte Restplatz an der FUSSLEISTE gemessen (dem letzten Element
+       der Seite - der Streifen selbst waere zu frueh gemessen) und die Reihe genau um diesen
+       Rest erweitert. Normalfall (eine Kachelreihe): Deckel greift gar nicht, nichts aendert
+       sich. Extremfall: die Reihe reicht bis zur Unterkante und scrollt erst dann; fuer den
+       vollen Blick gibt es weiter den Details-Knopf (feNaehrPopupOpen). */
+    if(reihe){
+      var fuss=document.getElementById("fe_fussLeiste");
+      if(fuss){
+        var frei=Math.floor(window.innerHeight - fuss.getBoundingClientRect().bottom - 4);
+        if(frei>0) reihe.style.maxHeight=(196+frei)+"px";
+      }
+    }
   }
 }
 function _feKachel(name, wert, unter, pct){
@@ -4062,7 +4083,7 @@ async function feNaehrKachelnSync(){
        Genau deshalb ein DECKEL statt kleinerer Kacheln: im Normalfall aendert er nichts (eine
        Zeile passt darunter), und der seltene Extremfall scrollt IM Streifen, statt die drei
        Arbeitskarten vom Bildschirm zu schieben. feGridHoeheSync misst die gedeckelte Hoehe. */
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;max-height:196px;overflow:auto">'+kacheln.join("")+'</div></div>';
+    +'<div id="fe_naehrReihe" style="display:flex;gap:8px;flex-wrap:wrap;max-height:196px;overflow:auto">'+kacheln.join("")+'</div></div>';
   /* Erst nach dem Einhaengen messen - vorher hat der Streifen noch keine Hoehe. */
   try{ feGridHoeheSync(); }catch(e){}
 }
@@ -15888,8 +15909,14 @@ async function openFgEditor(id, prefill, targetEl){
    Flex-Durchreiche; seine Kinder tragen ihr flex bereits inline (fe_enthalten 1 1 auto,
    Eingabezeile und Legende 0 0 auto – dafuer waren sie gebaut, bevor Zug 1 sie wickelte).
    BEWUSST als CSS-Regel statt inline: fgRefV2Anzeigen schaltet mit style.display=leer/none
-   um, und ein Inline-display:flex waere beim ersten Umschalten geloescht worden (§1.11n-dd). */
-#fe_refFront{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+   um, und ein Inline-display:flex waere beim ersten Umschalten geloescht worden (§1.11n-dd).
+   05.08., zweiter Anlauf (Ralph: „referenz ist auch noch abgeschnitten und nicht scrollbar"):
+   Der erste Selektor hiess nur fe_refFront (Spezifitaet 1-0-0) und VERLOR das flex-shrink
+   gegen die Schutzregel eine Zeile hoeher (1-1-1) – computed stand flex auf 1 0 auto, der
+   Wrapper schrumpfte nie. Im Prototyp fiel das nicht auf, weil dort Inline-Styles galten
+   und Inline immer gewinnt. Darum jetzt fe_gridA davor (2-1-0). Diesmal an der Live-Seite
+   als CSS-REGEL nachgemessen, nicht als Inline-Prototyp. */
+#fe_gridA #fe_refFront{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
 #fe_colZus > div > *{flex:1 1 auto;min-width:0}
 #fe_flipInner.geflippt{transform:rotateY(180deg)}
 #fe_fotoMount > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
@@ -22227,7 +22254,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1440";
+const APP_BUILD = "2026-08-05-1500";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
