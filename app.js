@@ -3920,9 +3920,32 @@ var FE_GRID_BASIS = 217;
    über den Bildschirmrand - genau das, was Ralph gesehen hat. Die Höhe wird GEMESSEN
    statt geschätzt: dann stimmt sie auch, wenn eine Kachel mehr dazukommt oder der
    Streifen umbricht. */
+/* 05.08. (Ralph): Der Kachel-Streifen soll nur so breit sein wie die drei Arbeitskarten und
+   rechts neben "Quelle & Beleg" beginnen - er lief bisher unter dem linken Streifen durch.
+   Zweimal habe ich versucht, ihn im Template umzuhaengen, und mich zweimal in der
+   Verschachtelung vertan (einmal wirkungslos, einmal in der falschen Spalte).
+   Darum jetzt GEMESSEN statt gezaehlt: der linke Streifen #feRail hat eine echte Breite, und
+   genau die (plus Spalten-Abstand) bekommt der Kachel-Streifen als linken Rand. Faellt das
+   Raster auf eine Spalte (schmaler Bildschirm) oder fehlt der Streifen, ist der Rand 0 -
+   dann steht der Streifen wieder wie frueher ueber die volle Breite. */
+function feKachelBreiteSync(){
+  var k=document.getElementById("fe_naehrKacheln"); if(!k) return;
+  var rail=document.getElementById("feRail"), rahmen=document.getElementById("feRahmen");
+  var breit=0;
+  if(rail && rahmen){
+    var rr=rail.getBoundingClientRect(), rg=rahmen.getBoundingClientRect();
+    /* Einspaltig? Dann ist der Streifen so breit wie der Rahmen - kein Versatz. */
+    if(rr.width > 0 && rg.width - rr.width > 200){
+      var abstand=parseFloat(getComputedStyle(rahmen).columnGap||getComputedStyle(rahmen).gap||"12")||12;
+      breit=Math.round(rr.width + abstand);
+    }
+  }
+  k.style.marginLeft = breit ? (breit+"px") : "0";
+}
 function feGridHoeheSync(){
   var g=document.getElementById("fe_gridA"); if(!g) return;
   var k=document.getElementById("fe_naehrKacheln");
+  try{ feKachelBreiteSync(); }catch(e){}   /* erst ausrichten, dann messen - sonst misst man die alte Breite */
   var h=(k&&k.innerHTML)?Math.ceil(k.getBoundingClientRect().height)+10:0;   /* +10 = margin-top */
   if(k) k.style.marginTop=(k.innerHTML?"10px":"0");
   var stufe=feStufe();
@@ -15888,20 +15911,20 @@ async function openFgEditor(id, prefill, targetEl){
                Die Bewertungsregel dahinter (Getränke-Deckel, §1.13e) hängt seit dem 26.07. nicht mehr an diesem
                Feld allein: cb_hat_kuenstlichen_suessstoff() liest Handfeld + Zutaten + Zusatzstoff-Liste. */}
           <input type="hidden" id="fe_suess" value="${esc(d.suessstoffe||"nein")}">
-        `)}</div><div id="fe_mikroWrap" style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;white-space:nowrap">🔎 USDA</button></div><div id="fm_usdaErg" style="max-height:180px;overflow:auto;margin-top:5px;flex:0 0 auto"></div>`)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div></div></div>
-      <div id="fe_naehrKacheln" style="margin-top:10px;min-width:0"></div>
-      </div>
+        `)}</div><div id="fe_mikroWrap" style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;white-space:nowrap">🔎 USDA</button></div><div id="fm_usdaErg" style="max-height:180px;overflow:auto;margin-top:5px;flex:0 0 auto"></div>`)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div></div></div></div>
     ${/* 30.07. (Ralph): "die kästchen auf der supplements und salz produkt erfassen karte unten
          anzeigen … und nur die, die enthalten sind". Streifen unter den drei Spalten, NUR bei
          Supplement und Salze - fuer jede andere Kategorie gibt es keine Quelle. Gezeigt werden
          ausschliesslich Naehrstoffe, die am Produkt belegt sind; ohne Eintrag bleibt der Streifen
          leer und nimmt keinen Platz. Der Detailblick (zwei Balken, Quellen) bleibt im 🧪-Popup. */""}
-    ${''/* 🔴 05.08., zweiter Anlauf (Ralphs Fund "supplements ist immer noch gleich"): Der Streifen
-         stand AUSSERHALB von #feRahmen - als Geschwister NACH dem Raster. Deshalb lief er ueber die
-         volle Breite, auch unter Root Index / Freigabe / Quelle & Beleg, und mein erster Versuch mit
-         grid-column:2 ging ins Leere: was kein Raster-Kind ist, kennt keine Rasterspalte.
-         Er sitzt jetzt weiter oben, INNERHALB der rechten Spalte (direkt nach #feTab2), und ist
-         damit genau so breit wie die drei Arbeitskarten. In beiden Reitern sichtbar wie vorher. */}
+    ${''/* 🔴 05.08., dritter Anlauf. Zweimal habe ich die Verschachtelung GEZAEHLT und mich zweimal
+         um eine Ebene vertan: erst grid-column an einem Element, das gar kein Raster-Kind ist
+         (wirkungslos), dann verschoben - und es landete in der LINKEN Spalte.
+         Lehre: eine gezaehlte Verschachtelung in einem 1,8-MB-Template ist eine Vermutung.
+         Der Streifen bleibt deshalb genau dort, wo er immer stand (voller Breite, ausserhalb des
+         Rasters) - und wird zur Laufzeit an der GEMESSENEN Breite des linken Streifens ausgerichtet
+         (feKachelBreiteSync). Gemessen schlaegt gezaehlt. */}
+    <div id="fe_naehrKacheln" style="margin-top:10px"></div>
     <div id="fe_fussLeiste" style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
@@ -22168,7 +22191,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1215";
+const APP_BUILD = "2026-08-05-1230";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
