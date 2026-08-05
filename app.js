@@ -6319,7 +6319,83 @@ if(typeof window!=='undefined'){ window.rikiSammellauf=rikiSammellauf; }
    „Genau solche Dinge muss ich bearbeiten können." Ein kleiner Dialog: Note (0–10) + Kategorie,
    optional ein Riki-Vorschlag (riki-zutat-bewerten), den der Mensch bestätigt/überschreibt –
    kein blindes Setzen. Speichern über cb_zutat_stamm_bearbeiten (rechnet betroffene Produkte neu). */
+/* NOTFALL-Liste. Die gueltige Liste steht seit 05.08.2026 in der Tabelle
+   Zutat_Kategorie (31 Werte) - eine Liste, ein Ort. Diese hier greift nur, wenn
+   das Laden scheitert, und meldet sich dann LAUT in der Konsole. */
 var ZUT_KATEGORIEN = ["Gemüse","Obst","Getreide","Fleisch","Fisch & Meeresfrüchte","Milchprodukt","Käse","Ei","Nüsse & Samen","Hülsenfrüchte","Öl/Fett","Zucker & Süßungsmittel","Gewürze & Kräuter","Pilze","Stärke","Salz","Essig","Teigwaren","Ballaststoff","Protein","Aroma","Zusatzstoff","Vitamine & Mineralstoffe","Pflanzenextrakt","Wirkstoff","Bakterienkultur","Kapselhülle","einfache Küchenzutat","Sonstiges"];
+
+/* ============================================================================
+   Kategorie ist PFLICHT beim Anlegen einer Zutat (05.08.2026)
+   cb_zutat_stamm_anlegen leitet seit heute an cb_zutat_geprueft_anlegen weiter
+   und lehnt ohne Kategorie ab: {ok:false, grund:"Kategorie fehlt.", erlaubt:[...]}.
+   Die drei Anlegewege im Editor gaben nie eine mit - sie liefen ab sofort alle
+   in diesen Fehler. Der Wrapper unten fragt sie ab, an EINER Stelle: die Frage
+   soll nicht dreimal im Code stehen (§1.11i, eine Regel - ein Ort).
+   ========================================================================== */
+window._zutKatCache = null;
+function zutKatListe(){
+  if(window._zutKatCache) return Promise.resolve(window._zutKatCache);
+  return client.from('Zutat_Kategorie').select('Kategorie').eq('Aktiv',true).order('Sortierung')
+    .then(function(r){
+      if(r.error || !r.data || !r.data.length){
+        /* Lauter Rueckfall: ein stiller waere die zweite Wahrheit zurueck (§1.2e). */
+        console.warn('Zutat_Kategorie nicht ladbar – Rückfall auf die Liste im Code.', r.error);
+        window._zutKatCache = ZUT_KATEGORIEN.slice(); window._zutKatRueckfall = true;
+      } else {
+        window._zutKatCache = r.data.map(function(x){ return x.Kategorie; });
+        window._zutKatRueckfall = false;
+      }
+      return window._zutKatCache;
+    });
+}
+/* Fragt die Kategorie ab. Liefert ein Promise mit dem gewaehlten Wert oder null
+   (Abbruch). Bewusst OHNE Vorauswahl: ein Default waere geraten (§1.12). */
+function zutKatFrage(name){
+  return zutKatListe().then(function(kats){
+    return new Promise(function(fertig){
+      var alt=document.getElementById('zutKatOv'); if(alt) alt.remove();
+      var ov=document.createElement('div');
+      ov.id='zutKatOv';
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+      var opt='<option value="">– bitte wählen –</option>';
+      for(var i=0;i<kats.length;i++){ opt+='<option value="'+esc(kats[i])+'">'+esc(kats[i])+'</option>'; }
+      ov.innerHTML='<div style="background:var(--card);color:var(--ink);border-radius:14px;padding:18px;max-width:420px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3)">'
+        +'<div style="font-weight:700;margin-bottom:4px">Kategorie wählen</div>'
+        +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">für <b>'+esc(name||'')+'</b>. '
+        +'Ohne Kategorie wird die Zutat nicht angelegt.'
+        +(window._zutKatRueckfall?' <span style="color:var(--k-b45309)">⚠ Liste konnte nicht geladen werden – Notfall-Liste aus dem Code.</span>':'')+'</div>'
+        +'<select id="zutKatSel" style="width:100%;padding:9px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:14px">'+opt+'</select>'
+        +'<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">'
+        +'<button type="button" id="zutKatAbb" style="padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer">Abbrechen</button>'
+        +'<button type="button" id="zutKatOk" style="padding:8px 16px;border-radius:9px;border:0;background:var(--gruen,#2e7d46);color:#fff;font-weight:600;cursor:pointer">Übernehmen</button>'
+        +'</div></div>';
+      document.body.appendChild(ov);
+      var sel=ov.querySelector('#zutKatSel');
+      if(sel) sel.focus();
+      function schliessen(wert){ ov.remove(); document.removeEventListener('keydown',aufTaste); fertig(wert); }
+      function aufTaste(e){ if(e.key==='Escape') schliessen(null); }
+      document.addEventListener('keydown',aufTaste);
+      ov.querySelector('#zutKatAbb').onclick=function(){ schliessen(null); };
+      ov.querySelector('#zutKatOk').onclick=function(){
+        var v=(sel&&sel.value)||'';
+        if(!v){ if(sel) sel.style.borderColor='var(--k-b45309)'; return; }
+        schliessen(v);
+      };
+      ov.onclick=function(e){ if(e.target===ov) schliessen(null); };
+    });
+  });
+}
+/* Ersetzt client.rpc('cb_zutat_stamm_anlegen',…) an allen drei Anlegewegen und
+   haelt dieselbe Form {data,error} ein, damit die Aufrufer unveraendert bleiben.
+   Bricht der Nutzer die Kategorie-Abfrage ab, kommt {data:{ok:false,abbruch:true}}. */
+function zutStammAnlegenMitKat(p){
+  return zutKatFrage(p && p.p_name).then(function(kat){
+    if(!kat) return { data:{ ok:false, abbruch:true, grund:'Abgebrochen – keine Kategorie gewählt.' }, error:null };
+    var q={}; for(var k in p){ if(Object.prototype.hasOwnProperty.call(p,k)) q[k]=p[k]; }
+    q.p_kategorie = kat;
+    return client.rpc('cb_zutat_stamm_anlegen', q);
+  });
+}
 async function zutStammEdit(id){
   var ov=document.getElementById('zutEditOv'); if(ov) ov.remove();
   ov=document.createElement('div'); ov.id='zutEditOv';
@@ -6337,7 +6413,7 @@ async function zutStammEdit(id){
     var d=(r&&r.data)||{};
     var bew=(d.bewertung==null?'':String(d.bewertung));
     var kat=d.kategorie||'';
-    var opts=ZUT_KATEGORIEN.slice(); if(kat && opts.indexOf(kat)<0) opts.unshift(kat);
+    var opts=(window._zutKatCache||ZUT_KATEGORIEN).slice(); if(kat && opts.indexOf(kat)<0) opts.unshift(kat);
     var katSel='<select id="zeKat" style="width:100%;padding:9px;border:1px solid #d3dbe6;border-radius:9px;font-size:13px;background:#fff"><option value="">— keine —</option>'
       +opts.map(function(o){ return '<option'+(o===kat?' selected':'')+'>'+esc(o)+'</option>'; }).join('')+'</select>';
     body.innerHTML=
@@ -8172,7 +8248,7 @@ function seZutatInStamm(btn){
     var st=parseInt(btn.dataset.stufe,10);
     if(!(st>=0&&st<=10)) return;
     btn.disabled=true; var alt=btn.textContent; btn.textContent='…';
-    client.rpc('cb_zutat_stamm_anlegen',{p_name:name,p_rating:st,p_quelle:'Riki + Verifikation ('+(btn.dataset.gesamt||'')+'), Prüfmaske'}).then(function(res){
+    zutStammAnlegenMitKat({p_name:name,p_rating:st,p_quelle:'Riki + Verifikation ('+(btn.dataset.gesamt||'')+'), Prüfmaske'}).then(function(res){
       btn.disabled=false;
       if(res.error || !(res.data&&res.data.ok)){ btn.textContent='Fehler'; setTimeout(function(){btn.textContent=alt;},1500); return; }
       var rr=res.data.rating;
@@ -14380,7 +14456,7 @@ function fgZutRiki(btn){
   if(btn.dataset.mode==="save"){
     var st=parseInt(btn.dataset.stufe,10); if(!(st>=0&&st<=10)) return;
     btn.disabled=true; btn.textContent="…";
-    client.rpc("cb_zutat_stamm_anlegen",{p_name:name,p_rating:st,p_quelle:"Riki + Verifikation ("+(btn.dataset.gesamt||"")+"), Freigabe"}).then(function(res){
+    zutStammAnlegenMitKat({p_name:name,p_rating:st,p_quelle:"Riki + Verifikation ("+(btn.dataset.gesamt||"")+"), Freigabe"}).then(function(res){
       btn.disabled=false;
       if(res.error||!(res.data&&res.data.ok)){ btn.textContent="Fehler"; setTimeout(function(){btn.textContent="→ Riki";},1500); return; }
       var rr=res.data.rating;
@@ -14554,7 +14630,7 @@ function fgPickRikiPanel(name){
 function fgPickRikiUebernehmen(){
   var vs=window._fgNeuVorschlag; if(!vs) return;
   var box=document.getElementById("fe_zutNeuInfo");
-  client.rpc("cb_zutat_stamm_anlegen",{p_name:vs.name,p_rating:vs.stufe,p_quelle:"Riki + Verifikation ("+(vs.ges||"")+"), Produkt-Erfassung"}).then(function(res){
+  zutStammAnlegenMitKat({p_name:vs.name,p_rating:vs.stufe,p_quelle:"Riki + Verifikation ("+(vs.ges||"")+"), Produkt-Erfassung"}).then(function(res){
     if(res.error||!(res.data&&res.data.ok)){ if(box) box.innerHTML='<div style="color:var(--k-b45309);font-size:12.5px">Konnte nicht übernehmen: '+esc((res.error&&res.error.message)||"")+'</div>'; return; }
     var rr=res.data.rating;
     if(typeof ZUTATEN_MAP!=="undefined"&&ZUTATEN_MAP){ ZUTATEN_MAP[vs.name.toLowerCase()]={rating:rr,kritisch:"nein"}; }
@@ -21888,7 +21964,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-0610";
+const APP_BUILD = "2026-08-05-0633";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
