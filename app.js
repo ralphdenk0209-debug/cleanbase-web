@@ -13703,6 +13703,18 @@ function _zusNormMap(){
   window.__zusNormMap=m; window.__zusNormMap2=m2; window.__zusNormMapN=n; return m;
 }
 function _zusFindStamm(nm){
+  /* 05.08.2026: E-UNTERNUMMERN (OFF liefert E503II, E500I, E331III ...). Roemische Suffixe
+     (i/ii/iii/iv) fallen auf die HAUPTNUMMER zurueck, wenn die volle Form keinen eigenen
+     Stamm-Eintrag hat. BUCHSTABEN-Suffixe nie abstreifen (E160a ist NICHT E160 - zwei Stoffe).
+     Wortgleicher Spiegel der DB-Regel cb_zusatz_stamm_treffer (dort steht die Wahrheit,
+     hier nur das Sofort-Rendern vor der Antwort, §1.11n-h). */
+  var ec=String(nm||"").match(/\bE\s?(\d{3}[a-z]?(?:i{1,3}|iv)?)\b/i);
+  if(ec && typeof ZUSATZSTOFFE_MAP!=="undefined"){
+    var _voll="e"+ec[1].replace(/\s/g,"").toLowerCase();
+    if(ZUSATZSTOFFE_MAP[_voll]) return ZUSATZSTOFFE_MAP[_voll];
+    var _haupt=_voll.replace(/(i{1,3}|iv)$/,"");
+    if(_haupt!==_voll && ZUSATZSTOFFE_MAP[_haupt]) return ZUSATZSTOFFE_MAP[_haupt];
+  }
   var k=_zusNorm(nm); if(!k||k.length<4) return null;
   var hit=_zusNormMap()[k];
   if(hit&&hit.length===1) return hit[0];        /* exakter Treffer hat Vorrang */
@@ -13891,6 +13903,7 @@ function zusAddNeu(){
   var inp=document.getElementById("fe_zusNeu"); var v=((inp||{}).value||"").trim(); if(!v) return;
   var em=v.match(/\bE\s?\d{3,4}[a-z]?\b/i);
   var found=em?ZUSATZSTOFFE_MAP[em[0].replace(/\s/g,"").toLowerCase()]:ZUSATZSTOFFE_MAP[v.toLowerCase()];
+  if(!found){ try{ found=_zusFindStamm(v); }catch(e){ found=null; } }   /* 05.08.: loest auch E-Unternummern (E503II -> E503) */
   window._fgZus=window._fgZus||[];
   if(found){ window._fgZus.push({e:found.e,name:found.name,einst:found.einstufung}); try{ fgZusZutSync(true, found); }catch(e2){} }
   else {
@@ -13916,7 +13929,7 @@ var ZUS_FUNKTION={"antioxidationsmittel":1,"antioxidans":1,"stabilisator":1,"sta
   "komplexbildner":1,"mehlbehandlungsmittel":1,"aromastoffe":1,"backtriebmittelmischung":1};
 /* Häufige DEUTSCHE Zusatzstoff-Namen → E-Nummer (der Stamm führt englische Namen).
    Damit „Natriumnitrit" nicht als eigener grauer Eintrag neben „E250" landet. Erweiterbar. */
-var ZUS_SYN={"essigsäure":"E260","essigsaeure":"E260","steviolglycoside":"E960","steviolglykoside":"E960","steviolglycosid":"E960","sucralose":"E955","acesulfam":"E950","acesulfam-k":"E950","acesulfam k":"E950","aspartam":"E951","saccharin":"E954","cyclamat":"E952","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","polyphosphate":"E452","polyphosphates":"E452","natriumferrocyanid":"E535","kaliumferrocyanid":"E536","calciumferrocyanid":"E538","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","tocopherole":"E306","gemischte tocopherole":"E306","natürliche gemischte tocopherole":"E306","natürliche tocopherole":"E306","alpha-tocopherol":"E307","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
+var ZUS_SYN={"e960a":"E960","essigsäure":"E260","essigsaeure":"E260","steviolglycoside":"E960","steviolglykoside":"E960","steviolglycosid":"E960","sucralose":"E955","acesulfam":"E950","acesulfam-k":"E950","acesulfam k":"E950","aspartam":"E951","saccharin":"E954","cyclamat":"E952","natriumnitrit":"E250","kaliumnitrit":"E249","natriumnitrat":"E251","kaliumnitrat":"E252","natriumascorbat":"E301","ascorbinsäure":"E300","ascorbinsaeure":"E300","citronensäure":"E330","citronensaeure":"E330","zitronensäure":"E330","natriumcitrat":"E331","rosmarinextrakt":"E392","extrakt aus rosmarin":"E392","carotin":"E160a","beta-carotin":"E160a","betacarotin":"E160a","alpha-carotin":"E160a","gamma-carotin":"E160a","carotine":"E160a","carotene":"E160a","alpha-carotene":"E160a","beta-carotene":"E160a","gamma-carotene":"E160a","lecithin":"E322","sojalecithin":"E322","lecithine":"E322","guarkernmehl":"E412","xanthan":"E415","carrageen":"E407","natriumcarbonat":"E500","diphosphate":"E450","triphosphate":"E451","polyphosphate":"E452","polyphosphates":"E452","natriumferrocyanid":"E535","kaliumferrocyanid":"E536","calciumferrocyanid":"E538","mononatriumglutamat":"E621","kaliumsorbat":"E202","natriumbenzoat":"E211","schwefeldioxid":"E220","tocopherol":"E306","tocopherole":"E306","gemischte tocopherole":"E306","natürliche gemischte tocopherole":"E306","natürliche tocopherole":"E306","alpha-tocopherol":"E307","calciumchlorid":"E509","pektin":"E440","natriumphosphat":"E339","kaliumphosphat":"E340"};
 /* Rikis erkannte Zusatzstoffe automatisch in die Liste übernehmen (Ralph 21.07.2026:
    „warum muss ich das selber eintragen?"). Robust: E-Nummern zuerst; Text mit KLAMMER-Auflösung
    (Komma in der Klammer trennt NICHT die Substanz ab), Funktionswörter raus, deutsche Namen →
@@ -21964,7 +21977,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-0633";
+const APP_BUILD = "2026-08-05-0647";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
