@@ -4012,7 +4012,11 @@ async function feNaehrKachelnSync(){
     +'<span style="font-size:11px;color:var(--muted)">'+esc(fuss)+'</span>'
     +'<button type="button" onclick="feNaehrPopupOpen()" style="margin-left:auto;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer">Details ›</button>'
     +'</div>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'+kacheln.join("")+'</div></div>';
+    /* 05.08. (Ralph): "das lavita ist eine ausnahme, die meisten passen locker in eine zeile."
+       Genau deshalb ein DECKEL statt kleinerer Kacheln: im Normalfall aendert er nichts (eine
+       Zeile passt darunter), und der seltene Extremfall scrollt IM Streifen, statt die drei
+       Arbeitskarten vom Bildschirm zu schieben. feGridHoeheSync misst die gedeckelte Hoehe. */
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;max-height:196px;overflow:auto">'+kacheln.join("")+'</div></div>';
   /* Erst nach dem Einhaengen messen - vorher hat der Streifen noch keine Hoehe. */
   try{ feGridHoeheSync(); }catch(e){}
 }
@@ -15890,7 +15894,11 @@ async function openFgEditor(id, prefill, targetEl){
          Supplement und Salze - fuer jede andere Kategorie gibt es keine Quelle. Gezeigt werden
          ausschliesslich Naehrstoffe, die am Produkt belegt sind; ohne Eintrag bleibt der Streifen
          leer und nimmt keinen Platz. Der Detailblick (zwei Balken, Quellen) bleibt im 🧪-Popup. */""}
-    <div id="fe_naehrKacheln" style="margin-top:10px"></div>
+    ${''/* 05.08. (Ralph): Der Streifen lief ueber die VOLLE Breite - also auch unter dem linken
+         Streifen mit Root Index / Freigabe / Quelle & Beleg. Er ist ein direktes Kind von
+         #feRahmen (Raster 242px | 1fr); mit grid-column:2 sitzt er jetzt genau unter den drei
+         Arbeitskarten und beginnt rechts neben "Quelle & Beleg". */}
+    <div id="fe_naehrKacheln" style="margin-top:10px;grid-column:2;min-width:0"></div>
     <div id="fe_fussLeiste" style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
@@ -22157,7 +22165,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1130";
+const APP_BUILD = "2026-08-05-1200";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
