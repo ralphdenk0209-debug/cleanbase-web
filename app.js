@@ -3981,7 +3981,10 @@ function feGridHoeheSync(){
   if(stufe!=="eng" && stufe!=="mittel" && typeof fgRefV2An==="function" && fgRefV2An()
      && window._fgRefV2 && window._fgRefV2.d && Array.isArray(window._fgRefV2.d.elemente)
      && window._fgRefV2.d.elemente.length>0){
-    g.style.gridTemplateColumns="minmax(0,0.85fr) minmax(0,0.6fr) minmax(560px,1.9fr)";
+    /* 16:15 (Ralph: „immer noch zu breit"): von 1.9fr (~55 % der Flaeche) auf 1.4fr (~44 %)
+       zurueckgenommen - klassisch sind es 1.18fr (~37 %). Der Baum braucht Luft, aber die
+       Arbeitsspalten muessen lesbar bleiben. */
+    g.style.gridTemplateColumns="minmax(0,1fr) minmax(0,0.8fr) minmax(430px,1.4fr)";
   }
   var ref=document.getElementById("fe_colRef");
   if(ref) ref.style.gridColumn=(stufe==="mittel")?"1 / -1":"";
@@ -15122,9 +15125,20 @@ function _fgRefV2Farbe(e, pz, ctx){
     if(st==="UNSICHER")  return GELB("Stammzuordnung unsicher – bestätigen");
     if(st==="UNBEKANNT") return GELB("Nicht im Stamm – prüfen (blockiert nicht)");
     if(bestaetigt)       return GRUEN("Bestätigt");
+    /* Ralphs Abnahme-Regel (05.08.): Die Farbe der Unterzutat kommt aus dem KOMBINIERTEN
+       Zustand von Element und Parent. BLAU nur, wenn der Parent eindeutig erkannt, gebunden
+       oder bestätigt UND selbst nicht blockierend ist. Ist der Parent Blocker, unsicher oder
+       unbestätigt, sind die Kinder GELB – nicht rot (der Fehler liegt am Parent, nicht am
+       Kind), aber auch nicht blau (nichts ist hier fertig geklärt). Die Blocker-Menge kommt
+       weiter aus der RPC (ctx.blocker) – keine zweite fachliche Blockerlogik im Frontend. */
     var p=ctx.parent;
+    if(p && ctx.blocker && ctx.blocker[p.id])
+      return GELB("Parent „"+(p.name||"")+"“ ist blockiert – erst den Parent klären");
+    if(p && (st==="OK") && ["MEHRDEUTIG","UNSICHER","UNBEKANNT","FRAGMENT","HERSTELLERANGABE_UNVOLLSTAENDIG"].indexOf(String(p.status||""))>=0)
+      return GELB("Parent noch nicht geklärt – Unterzutat wartet");
     if(p && p.db_gebunden===true) return BLAU("Über gebundenen Parent abgedeckt – keine eigene Bindung erwartet");
-    if(p && (p.zutat_id || p.gruppe_erkannt || String(p.status||"")==="OK")) return BLAU("Parent eindeutig erkannt – keine eigene Bindung erwartet (Parent-Bindung noch offen)");
+    if(p && ctx.parentBest)       return BLAU("Parent bestätigt – keine eigene Bindung erwartet");
+    if(p) return GELB("Parent erkannt, aber noch nicht gebunden/bestätigt – Unterzutat wartet");
     return GELB("Parent unklar – Unterzutat unbestätigt");
   }
   if(typ==="mikronaehrstoff" || typ==="wirkstoff"){
@@ -15262,7 +15276,8 @@ function fgRefV2Render(d, st){
   /* --- Baum --- */
   var kinder={}; el.forEach(function(e){ if(e.parent_id!=null){ (kinder[e.parent_id]=kinder[e.parent_id]||[]).push(e); } });
   function zeile(e, tief, parentEl){
-    var f=_fgRefV2Farbe(e, pzMap[e.id], {blocker:blockMap, parent:parentEl});
+    var f=_fgRefV2Farbe(e, pzMap[e.id], {blocker:blockMap, parent:parentEl,
+      parentBest: parentEl?istBest(parentEl):false});
     var pz=pzMap[e.id];
     var kandidaten=(e.kandidaten||[]).map(function(k){ return esc(k.zutat)+" ("+String(k.aehnlichkeit).slice(0,4)+", "+esc(k.art)+")"; }).join(" · ");
     return '<div style="margin-left:'+(tief*16)+'px;margin-bottom:3px;padding:5px 8px;border-left:3px solid '+f.c+';border-radius:6px;background:'+f.bg+';font-size:12px;line-height:1.45">'
@@ -22404,7 +22419,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1600";
+const APP_BUILD = "2026-08-05-1615";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
