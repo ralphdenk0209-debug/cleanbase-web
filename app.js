@@ -14797,7 +14797,13 @@ function fgPickRikiPanel(name){
       +'<b>Riki: „'+esc(name)+'" → Stufe '+st+'</b>'+(rr.d.begruendung?" — "+esc(rr.d.begruendung):"")
       +'<br><span style="color:'+col+';font-weight:700">'+lbl+'</span>'
       +'<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
-        +'<button type="button" onclick="fgPickRikiUebernehmen()" style="padding:6px 11px;border:0;border-radius:8px;background:#2e9e57;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">✓ In den Stamm übernehmen &amp; anhaken</button>'
+        /* Ralphs Punkt 3 (05.08.): Beschriftung nach Kontext - eine Ebene-2-Unterzutat wird
+           NICHT als eigene Hauptzutat angehakt, sondern in der Referenz bestaetigt. */
+        +'<button type="button" onclick="fgPickRikiUebernehmen()" style="padding:6px 11px;border:0;border-radius:8px;background:#2e9e57;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">'
+        +((typeof _fgRefV2ElByName==="function"&&_fgRefV2IstUnterzutat(_fgRefV2ElByName(name)))
+            ?'✓ In den Stamm übernehmen &amp; als Unterzutat bestätigen'
+            :'✓ In den Stamm übernehmen &amp; am Produkt anhaken')
+        +'</button>'
         +'<button type="button" onclick="var b=document.getElementById(\'fe_zutNeuInfo\');if(b)b.innerHTML=\'\'" style="padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;cursor:pointer">Abbrechen</button>'
       +'</div>'
       +(ges!=="BESTAETIGT"?'<div style="color:var(--muted);margin-top:6px;font-size:11.5px">Kein klares „bestätigt" – bitte den Wert gegen Etikett/Regelwerk prüfen, bevor du übernimmst.</div>':'')
@@ -14821,12 +14827,23 @@ function fgPickRikiUebernehmen(){
         return String(z&&z.name||"").localeCompare(String(vs.name||""),"de") > 0; });
       if(_pos<0) ZUTATEN_STAMM.push(_neu); else ZUTATEN_STAMM.splice(_pos,0,_neu);
     }
-    var c=document.getElementById("fe_zutRows"); var key=vs.name.toLowerCase();
-    var exists=c&&[].some.call(c.querySelectorAll(".fgZutRow"),function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key; });
-    if(c&&!exists) c.insertAdjacentHTML("beforeend", fgZutRow(vs.name, rr, "nein"));
+    /* Ralphs Punkt 3 (05.08., Papaya): Eine UNTERZUTAT (Ebene 2 der V2-Referenz) bekommt
+       KEINE eigene Produkt-Hauptbindung - sie ist ueber ihren Parent abgedeckt. Statt
+       anzuhaken wird die Referenz-Pruefzeile mit dem neuen Stammtreffer BESTAETIGT
+       (strukturiertes Ziel), und die Ansicht laedt neu (Ralphs Punkte 1+6). */
+    var eb2El=(typeof _fgRefV2ElByName==="function")?_fgRefV2ElByName(vs.name):null;
+    var istUnter=(typeof _fgRefV2IstUnterzutat==="function")&&_fgRefV2IstUnterzutat(eb2El);
+    if(!istUnter){
+      var c=document.getElementById("fe_zutRows"); var key=vs.name.toLowerCase();
+      var exists=c&&[].some.call(c.querySelectorAll(".fgZutRow"),function(r){ return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key; });
+      if(c&&!exists) c.insertAdjacentHTML("beforeend", fgZutRow(vs.name, rr, "nein"));
+    }
     var inp=document.getElementById("fe_zutNeu"); if(inp) inp.value="";
-    if(box) box.innerHTML='<div style="color:#1f7d43;font-size:12.5px">✓ „'+esc(vs.name)+'" mit Stufe '+rr+' in den Stamm übernommen und angehakt.</div>';
+    if(box) box.innerHTML='<div style="color:#1f7d43;font-size:12.5px">✓ „'+esc(vs.name)+'" mit Stufe '+rr+' in den Stamm übernommen'
+      +(istUnter?' – als <b>Unterzutat</b> bestätigt, keine eigene Produktbindung.':' und angehakt.')+'</div>';
     window._fgNeuVorschlag=null; fgPickRender(); try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+    /* Referenzansicht in jedem Fall nachziehen, wenn V2-Daten geladen sind (Punkt 1) */
+    try{ if(window._fgRefV2&&window._fgRefV2.d&&typeof fgRefV2NachNeuanlage==="function") fgRefV2NachNeuanlage(vs.name, istUnter); }catch(e){}
   }, function(){ if(box) box.innerHTML='<div style="color:var(--k-b45309);font-size:12.5px">Fehler beim Übernehmen.</div>'; });
 }
 /* Textbox + Haekchen aus #fe_zutRows spiegeln – vom Observer aufgerufen, egal wer die Rows aendert. */
@@ -15249,6 +15266,38 @@ function fgRefV2Ignorieren(elId){
   fgRefV2Aktion(pz.Referenz_ID, "IGNORIERT", "IGNORIERT: bewusst übergangen", null);
 }
 function fgRefV2MenuZu(){ var m=document.getElementById("fgRefV2Menu"); if(m) m.remove(); }
+/* Zug-2-Nachtrag (Ralph 05.08., Papaya-Fall): Kontext einer Stamm-Neuanlage.
+   Ist der Name ein Ebene-2-Element der aktuellen V2-Referenz, ist er eine UNTERZUTAT -
+   dann gibt es KEINE eigene Produktbindung, sondern eine bestaetigte Referenz-Entscheidung. */
+function _fgRefV2ElByName(name){
+  var d=(window._fgRefV2||{}).d; if(!d||!Array.isArray(d.elemente)) return null;
+  var k=String(name||"").trim().toLowerCase(); if(!k) return null;
+  return d.elemente.find(function(e){
+    return e && (String(e.name||"").trim().toLowerCase()===k
+              || String(e.original_text||"").trim().toLowerCase()===k);
+  })||null;
+}
+function _fgRefV2IstUnterzutat(e){ return !!e && (Number(e.ebene)===2 || e.beziehung==="quelle"); }
+/* Nach einer Stamm-Neuanlage: Automatik-Felder der Pruefzeilen nachziehen (erheben),
+   frisch laden, und bei einer Unterzutat die Zeile direkt BESTAETIGEN - mit dem neuen
+   Stammtreffer als strukturiertem Ziel. Keine Produktbindung (Ralphs Punkt 3). */
+async function fgRefV2NachNeuanlage(name, alsUnterzutat){
+  var c=_fgRefV2Ctx(); if(!c.pid) return;
+  try{
+    if(c.d && c.d.pruefzeilen_vorhanden){
+      await client.rpc("cb_referenz_pruefung_erheben_admin",{p_produkt_id:c.pid});
+    }
+    await fgRefV2Laden();
+    if(!alsUnterzutat) return;
+    var e=_fgRefV2ElByName(name); if(!e||!_fgRefV2IstUnterzutat(e)) return;
+    var pz=_fgRefV2Pz(e.id); if(!pz) return;
+    if(String(pz.Manueller_Status||"OFFEN")!=="OFFEN") return;   /* bestehende Entscheidung nie ueberschreiben */
+    if(!e.zutat_id) return;
+    await fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT",
+      "STAMM-NEUANLAGE bestätigt als Unterzutat: "+String(e.stammname||name)+" ["+e.zutat_id+"]",
+      null, "Zutaten_Stamm", e.zutat_id);
+  }catch(err){ console.error("[Referenz V2] Nach Neuanlage", err); }
+}
 /* Untermenue-Ersatz (kompakt, ein Menue): Parent-Auswahl ersetzt den Menueinhalt. */
 function fgRefV2ParentListe(elId){
   var m=document.getElementById("fgRefV2Menu"); if(!m) return;
@@ -15551,6 +15600,9 @@ function fgRefV2Render(d, st){
       /* „nicht gebunden" ist nur auf Ebene 1 ein Befund - Unterzutaten haben per Konzept keine
          eigene Bindung, dort waere Rot ein Dauer-Fehlalarm (Ralph P1, 05.08.; §1.11n-b). */
       +((e.db_gebunden===false&&e.zutat_id&&!(Number(e.ebene)===2||e.beziehung==="quelle"))?' · <span style="color:#dc2626">nicht gebunden</span>':'')
+      /* Ralphs Punkt 4 (05.08.): doppelte Modellierung SICHTBAR machen, nichts loeschen -
+         Korrektur nur nach bewusster Entscheidung (Haekchen im Zutaten-Picker links). */
+      +((e.db_gebunden===true&&(Number(e.ebene)===2||e.beziehung==="quelle"))?' · <span style="color:#b45309">⚠ Unterzutat des Parents UND zusätzlich als Hauptzutat gebunden – mögliche Doppel-Modellierung, bewusst prüfen</span>':'')
       +(pz&&pz.Manueller_Status&&pz.Manueller_Status!=="OFFEN"?(' · <b>'+esc(pz.Manueller_Status)+'</b>'+(pz.Entschieden_Von?(' von '+esc(pz.Entschieden_Von)):'')):'')
       +'</span>'
       +(kandidaten?('<br><span style="font-size:10.5px;color:#b45309">Kandidaten: '+kandidaten+'</span>'):'')
@@ -15588,6 +15640,7 @@ if(typeof window!=='undefined'){
   window.fgRefV2Ablehnen=fgRefV2Ablehnen; window.fgRefV2Ignorieren=fgRefV2Ignorieren;
   window.fgRefV2KommentarFeld=fgRefV2KommentarFeld; window.fgRefV2KommentarSenden=fgRefV2KommentarSenden;
   window.fgRefV2Menu=fgRefV2Menu; window.fgRefV2MenuZu=fgRefV2MenuZu; window.fgRefV2Ergebnis=fgRefV2Ergebnis;
+  window.fgRefV2NachNeuanlage=fgRefV2NachNeuanlage;
 }
 
 function fgEnthaltenRender(){
@@ -22696,7 +22749,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1955";
+const APP_BUILD = "2026-08-05-2015";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
