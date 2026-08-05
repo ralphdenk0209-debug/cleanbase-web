@@ -5488,6 +5488,14 @@ function peChipRowsHtml(){
       +chip('waechter','🛡 Alle Auffälligen',g('waechter'))
       +chip('scan','📥 Scan-Eingang',scanN)
       +chip('import','📦 Import-Entwürfe',g('import_entwurf'))
+      /* Zug 2 (#17): Filter nach Freigabe_Status - kompaktes Select in der vorhandenen
+         Chip-Zeile (kein neuer Spaltenkopf, Layout-Freeze). Werte laedt peFreigabeWerte
+         beim ersten Oeffnen aus der DB; Filter laeuft ueber den vorhandenen p_colf-Weg. */
+      +'<select id="peFreigabeSel" onfocus="peFreigabeWerte()" onchange="peFreigabeFilterSet(this.value)" title="Nach Freigabe-Status filtern (ganzer Bestand)" style="align-self:center;font-size:11.5px;padding:3px 6px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1d2733;max-width:190px">'
+        +'<option value="">Freigabe: alle</option>'
+        +((window._peFreigabeWerte||[]).map(function(w){ var akt=(window._peColF&&window._peColF.freigabe&&window._peColF.freigabe[w.wert]); return '<option value="'+esc(w.wert)+'"'+(akt?' selected':'')+'>'+esc(w.wert)+' ('+w.n+')</option>'; }).join(''))
+        +((window._peColF&&window._peColF.freigabe&&!(window._peFreigabeWerte||[]).length)?('<option value="'+esc(Object.keys(window._peColF.freigabe)[0]||'')+'" selected>'+esc(Object.keys(window._peColF.freigabe)[0]||'')+'</option>'):'')
+      +'</select>'
       +(katf?'<span style="align-self:center;font-size:11.5px;color:#7b8698;margin-left:4px">gefiltert auf „'+esc(katf)+'"</span>':'')
       +(z?'':'<span style="align-self:center;font-size:11.5px;color:#cf5442;margin-left:4px">Zahlen gerade nicht abrufbar</span>')
     +'</div>'
@@ -5704,6 +5712,8 @@ function peColVal(p,col){
   if(col==='kategorie') return String(p.kategorie||'').trim()||'– leer –';
   if(col==='quelle') return String(p.quelle_typ||'').trim()||'– leer –';
   if(col==='herkunft') return String(p.herkunft||'').trim()||'– leer –';
+  /* Zug 2 (#17): Freigabe_Status - GLEICHLAUF mit cb_erf_menge (SQL, freigabe-Zweig) */
+  if(col==='freigabe') return String(p.freigabe_status||'').trim()||'– leer –';
   if(col==='pnr') return String(p.id||'');
   if(col==='titel') return String(p.name||'');
   /* Index: Zehner-Gruppen NUR fuers Filtern/Zaehlen (90–100 zusammen, weil 100 sonst allein steht).
@@ -5849,7 +5859,25 @@ function peColAlle(on){ var d=window._peColBoxDaten; if(!d) return;
 function peColReset(){ var d=window._peColBoxDaten; if(d){ d.werte.forEach(function(v){ d.sel[v]=true; }); }
   peColRender(); _peColApply(); }
 function peColQSet(col,v){ v=String(v||'').trim().toLowerCase(); window._peColF=window._peColF||{}; if(v) window._peColF[col]={__q:v}; else delete window._peColF[col]; peRender(); peColfReload(); }
-if(typeof window!=='undefined'){ window.peColFilter=peColFilter; window.peColChk=peColChk; window.peColAlle=peColAlle; window.peColReset=peColReset; window.peColRender=peColRender; window.peColVal=peColVal; window.peColQSet=peColQSet; window.peColServerSuche=peColServerSuche; window.peColfPayload=peColfPayload; window.peColfReload=peColfReload; window.peColWerteLaden=peColWerteLaden; }
+/* Zug 2 (#17): Freigabe_Status-Filter. Werte einmal je Sitzung aus der DB (ganzer Bestand,
+   Chip 'alle' - der Nutzer will sehen, was es ueberhaupt gibt), Auswahl laeuft als
+   normale Spaltenfilter-Menge ueber p_colf ('freigabe'). */
+async function peFreigabeWerte(){
+  if(window._peFreigabeWerte) return;
+  try{
+    var r=await client.rpc('cb_erfassung_spaltenwerte',{p_spalte:'freigabe',p_chip:'alle',p_colf:null});
+    if(r.error) throw r.error;
+    var a=r.data; if(typeof a==='string'){ try{a=JSON.parse(a);}catch(e){} }
+    if(a&&a.ok===true){ window._peFreigabeWerte=(a.werte||[]); try{ peRender(); }catch(e){} }
+  }catch(e){ console.error('cb_erfassung_spaltenwerte freigabe', e); }
+}
+function peFreigabeFilterSet(v){
+  window._peColF=window._peColF||{};
+  if(v){ var m={}; m[v]=true; window._peColF.freigabe=m; }
+  else delete window._peColF.freigabe;
+  peRender(); peColfReload();
+}
+if(typeof window!=='undefined'){ window.peColFilter=peColFilter; window.peColChk=peColChk; window.peColAlle=peColAlle; window.peColReset=peColReset; window.peColRender=peColRender; window.peColVal=peColVal; window.peColQSet=peColQSet; window.peColServerSuche=peColServerSuche; window.peColfPayload=peColfPayload; window.peColfReload=peColfReload; window.peColWerteLaden=peColWerteLaden; window.peFreigabeWerte=peFreigabeWerte; window.peFreigabeFilterSet=peFreigabeFilterSet; }
 /* Der Status-Knopf zeigt den ECHTEN Status des ausgewählten Produkts (Aktiv/Entwurf), farbig.
    Ohne Auswahl neutral „⇄ Status". Klick schaltet um (peToggleStatus). */
 function peStatusBtnUpdate(){
@@ -15099,6 +15127,175 @@ function fgRefV2RohGross(){
     ta.style.height=Math.max(150, ta.scrollHeight+10)+"px"; ta.dataset.gross="1"; if(b) b.textContent="Einklappen";
   }
 }
+/* ==========================================================================
+   REFERENZ V2 - ZUG 2: AKTIONEN (Ralph-Go 05.08.2026, STRIKTER LAYOUT-FREEZE)
+   Nur Funktion, kein Layout: kompakte Inline-Knoepfe in den VORHANDENEN Baumzeilen,
+   Menues und Meldungen SCHWEBEN (absolute/fixed) und veraendern keine Container.
+   Schreibwege AUSSCHLIESSLICH die vier Admin-RPCs:
+     cb_referenz_pruefung_erheben_admin     Pruefzeilen anlegen/auffrischen
+     cb_referenz_pruefung_entscheiden_admin eine Zeile entscheiden (Hash-verankert;
+                                            aendert NUR die Prueftabelle, bindet nichts)
+     cb_referenz_pruefung_widerrufen        Entscheidung zurueck auf OFFEN
+     cb_produkt_freigabebereit_setzen       Abschluss - wiederholt ALLE Bedingungen
+                                            serverseitig (§1.13ll), Frontend setzt den
+                                            Freigabe_Status NIE selbst
+   Ablehnungsgruende des Servers werden VOLLSTAENDIG angezeigt (fgRefV2Ergebnis).
+   ========================================================================== */
+function _fgRefV2Ctx(){
+  var w=window._fgRefV2||{}, d=w.d||{};
+  return {pid:d.produkt_id||((window._fgEdit||{}).id)||"", hash:d.originaltext_hash||"", d:d, st:w.st};
+}
+function _fgRefV2El(elId){ var d=(window._fgRefV2||{}).d||{}; return (d.elemente||[]).find(function(x){ return x&&x.id===elId; })||null; }
+function _fgRefV2Pz(elId){ var d=(window._fgRefV2||{}).d||{}; return (d.pruefzeilen||[]).find(function(p){ return p&&p.Parser_Element_ID===elId; })||null; }
+async function _fgRefV2Rpc(name, args, erfolgTxt){
+  try{
+    var r=await client.rpc(name, args);
+    if(r&&r.error) throw r.error;
+    var a=r&&r.data; if(typeof a==="string"){ try{ a=JSON.parse(a); }catch(e){} }
+    if(!a || a.ok!==true){
+      var gr=[String((a&&(a.fehler||a.grund))||"Keine Antwort vom Server.")];
+      if(a&&Array.isArray(a.gruende)) gr=gr.concat(a.gruende.map(String));
+      fgRefV2Ergebnis("Vom Server abgelehnt", gr, false);
+      return null;
+    }
+    if(erfolgTxt){ try{ toast&&toast(erfolgTxt); }catch(e){} }
+    return a;
+  }catch(e){
+    console.error("[Referenz V2] "+name, e);
+    fgRefV2Ergebnis("Fehler bei "+name, [String((e&&e.message)||e)], false);
+    return null;
+  }
+}
+/* Schwebende Ergebnis-Meldung: zeigt ALLE Serverzeilen, schliesst nur per Klick. */
+function fgRefV2Ergebnis(titel, zeilen, ok){
+  fgRefV2MenuZu();
+  var alt=document.getElementById("fgRefV2Ergebnis"); if(alt) alt.remove();
+  var b=document.createElement("div"); b.id="fgRefV2Ergebnis";
+  b.style.cssText="position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:96;background:#fff;color:#1d2733;border:2px solid "+(ok?"#16a34a":"#dc2626")+";border-radius:12px;box-shadow:0 18px 50px rgba(20,40,70,.3);padding:12px 14px;max-width:560px;width:calc(100vw - 40px);font-size:12.5px;line-height:1.55;max-height:60vh;overflow:auto";
+  b.innerHTML='<b style="color:'+(ok?"#166534":"#dc2626")+'">'+esc(titel)+'</b>'
+    +'<div style="margin-top:6px">'+(zeilen||[]).map(function(z){ return '<div>• '+esc(String(z))+'</div>'; }).join('')+'</div>'
+    +'<button type="button" onclick="document.getElementById(\'fgRefV2Ergebnis\').remove()" style="margin-top:8px;padding:5px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:12px">OK</button>';
+  document.body.appendChild(b);
+}
+async function fgRefV2Erheben(){
+  var c=_fgRefV2Ctx(); if(!c.pid) return;
+  var a=await _fgRefV2Rpc("cb_referenz_pruefung_erheben_admin",{p_produkt_id:c.pid},"Prüfzeilen erhoben");
+  if(a) fgRefV2Laden();
+}
+async function fgRefV2Aktion(refId, status, entscheidung, kommentar){
+  var c=_fgRefV2Ctx(); if(!c.pid||!refId) return;
+  var a=await _fgRefV2Rpc("cb_referenz_pruefung_entscheiden_admin",
+    {p_referenz_id:refId, p_produkt_id:c.pid, p_originaltext_hash:c.hash,
+     p_status:status, p_entscheidung:entscheidung||null, p_kommentar:kommentar||null},
+    "Gespeichert: "+status);
+  if(a){ fgRefV2MenuZu(); fgRefV2Laden(); }
+}
+async function fgRefV2Widerruf(refId){
+  var c=_fgRefV2Ctx(); if(!c.pid||!refId) return;
+  var a=await _fgRefV2Rpc("cb_referenz_pruefung_widerrufen",
+    {p_referenz_id:refId, p_produkt_id:c.pid, p_grund:"Vom Admin widerrufen (Referenzansicht V2)"},
+    "Entscheidung widerrufen");
+  if(a){ fgRefV2MenuZu(); fgRefV2Laden(); }
+}
+async function fgRefV2Abschliessen(){
+  var c=_fgRefV2Ctx(); if(!c.pid) return;
+  var a=await _fgRefV2Rpc("cb_produkt_freigabebereit_setzen",{p_produkt_id:c.pid},null);
+  if(a){
+    fgRefV2Ergebnis("Prüfung abgeschlossen", [String(a.hinweis||a.meldung||("Freigabe-Status: "+(a.freigabe_status||"FREIGABEBEREIT")))], true);
+    fgRefV2Laden();
+  }
+}
+function fgRefV2Schnell(elId){
+  var e=_fgRefV2El(elId), pz=_fgRefV2Pz(elId); if(!e||!pz) return;
+  var ent="BESTAETIGT wie erkannt: "+String(e.typ||"zutat")
+    +(e.stammname?(" → Stamm: "+e.stammname):"")+(e.zutat_id?(" ["+e.zutat_id+"]"):"");
+  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT", ent, null);
+}
+function fgRefV2KandWahl(elId, i){
+  var e=_fgRefV2El(elId), pz=_fgRefV2Pz(elId); if(!e||!pz) return;
+  var kd=(e.kandidaten||[])[i]; if(!kd) return;
+  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT",
+    "KANDIDAT="+String(kd.zutat)+" ("+String(kd.art)+", "+String(kd.aehnlichkeit).slice(0,4)+")", null);
+}
+function fgRefV2Typ(elId, t){
+  var pz=_fgRefV2Pz(elId); if(!pz) return;
+  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT", "TYP="+String(t), null);
+}
+function fgRefV2Beziehung(elId, bez){
+  var pz=_fgRefV2Pz(elId); if(!pz) return;
+  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT", "BEZIEHUNG="+String(bez), null);
+}
+function fgRefV2ParentWahl(elId, parentId){
+  var pz=_fgRefV2Pz(elId), pe=_fgRefV2El(parentId); if(!pz||!pe) return;
+  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT",
+    "PARENT="+String(pe.name)+" [Element "+parentId+"] · BEZIEHUNG=bestandteil", null);
+}
+function fgRefV2Ablehnen(elId){
+  var pz=_fgRefV2Pz(elId); if(!pz) return;
+  fgRefV2Aktion(pz.Referenz_ID, "ABGELEHNT", "ABGELEHNT: falsch erkannt oder falsch zerlegt", null);
+}
+function fgRefV2Ignorieren(elId){
+  var pz=_fgRefV2Pz(elId); if(!pz) return;
+  fgRefV2Aktion(pz.Referenz_ID, "IGNORIERT", "IGNORIERT: bewusst übergangen", null);
+}
+function fgRefV2MenuZu(){ var m=document.getElementById("fgRefV2Menu"); if(m) m.remove(); }
+/* Untermenue-Ersatz (kompakt, ein Menue): Parent-Auswahl ersetzt den Menueinhalt. */
+function fgRefV2ParentListe(elId){
+  var m=document.getElementById("fgRefV2Menu"); if(!m) return;
+  var d=(window._fgRefV2||{}).d||{};
+  var eb1=(d.elemente||[]).filter(function(x){ return x && x.parent_id==null && x.typ!=="kennzeichnungstext" && x.id!==elId; });
+  m.innerHTML='<div style="padding:2px 4px 6px"><b>Als Unterzutat von …</b></div>'
+    +eb1.map(function(p){ return '<button type="button" onclick="fgRefV2ParentWahl('+elId+','+p.id+')" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;border-top:1px solid #eef2f7;background:none;cursor:pointer;font-size:12.5px;color:#1d2733">'+esc(p.name||"")+(p.typ==="gruppe"?' <span style="color:#1d4ed8">[Gruppe]</span>':'')+'</button>'; }).join('')
+    +'<button type="button" onclick="fgRefV2MenuZu()" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;border-top:1px solid #eef2f7;background:none;cursor:pointer;font-size:12px;color:#9aa7b2">Abbrechen</button>';
+}
+function fgRefV2KommentarFeld(elId){
+  var m=document.getElementById("fgRefV2Menu"); if(!m) return;
+  var pz=_fgRefV2Pz(elId); if(!pz) return;
+  m.innerHTML='<div style="padding:2px 4px 6px"><b>Kommentar zu „'+esc((_fgRefV2El(elId)||{}).name||"")+'“</b></div>'
+    +'<textarea id="fgRefV2KomTxt" style="width:100%;box-sizing:border-box;height:74px;padding:6px;border:1px solid #d3dbe6;border-radius:8px;font-size:12.5px;background:#fff;color:#1d2733">'+esc(pz.Kommentar||"")+'</textarea>'
+    +'<div style="display:flex;gap:6px;margin-top:6px">'
+    +'<button type="button" onclick="fgRefV2KommentarSenden('+elId+')" style="flex:1;padding:6px;border:1px solid #bfe3cb;border-radius:8px;background:#e7f6ec;color:#1f7d43;cursor:pointer;font-size:12px;font-weight:700">Speichern</button>'
+    +'<button type="button" onclick="fgRefV2MenuZu()" style="flex:1;padding:6px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">Abbrechen</button>'
+    +'</div>';
+  try{ document.getElementById("fgRefV2KomTxt").focus(); }catch(e){}
+}
+function fgRefV2KommentarSenden(elId){
+  var pz=_fgRefV2Pz(elId); if(!pz) return;
+  var txt=String(((document.getElementById("fgRefV2KomTxt")||{}).value)||"").trim();
+  /* Status bleibt, wie er ist - ein Kommentar ist keine Entscheidung. */
+  fgRefV2Aktion(pz.Referenz_ID, String(pz.Manueller_Status||"OFFEN"), null, txt||null);
+}
+function fgRefV2Menu(ev, elId){
+  try{ ev.stopPropagation(); }catch(e){}
+  var offen=document.getElementById("fgRefV2Menu");
+  if(offen){ var same=(offen.getAttribute("data-el")===String(elId)); offen.remove(); if(same) return; }
+  var e=_fgRefV2El(elId), pz=_fgRefV2Pz(elId); if(!e||!pz) return;
+  var st=String(pz.Manueller_Status||"OFFEN");
+  var K=function(txt, js, farbe){
+    return '<button type="button" onclick="'+js+'" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;border-top:1px solid #eef2f7;background:none;cursor:pointer;font-size:12.5px;color:'+(farbe||"#1d2733")+'">'+txt+'</button>';
+  };
+  var TYPEN=[["zutat","Zutat"],["gruppe","Gruppe"],["mikronaehrstoff","Mikronährstoff"],["wirkstoff","Wirkstoff"],["zusatzstoff","Zusatzstoff"]];
+  var html='<div style="padding:2px 4px 6px"><b>'+esc(e.name||"")+'</b> <span style="color:#9aa7b2">· Status: '+esc(st)+'</span></div>';
+  html+=K('✓ Zuordnung bestätigen (wie erkannt)', 'fgRefV2Schnell('+elId+')', '#166534');
+  (e.kandidaten||[]).forEach(function(kd,i){
+    html+=K('→ Kandidat wählen: <b>'+esc(kd.zutat)+'</b> <span style="color:#9aa7b2">('+esc(kd.art)+', '+esc(String(kd.aehnlichkeit).slice(0,4))+')</span>', 'fgRefV2KandWahl('+elId+','+i+')');
+  });
+  TYPEN.forEach(function(t){ if(t[0]!==String(e.typ||"zutat")) html+=K('Typ ändern → '+t[1], "fgRefV2Typ("+elId+",'"+t[0]+"')"); });
+  html+=K('Als Unterzutat markieren (Parent wählen) …', 'fgRefV2ParentListe('+elId+')');
+  if(e.beziehung!=="quelle") html+=K('Als Quelle markieren (gewonnen aus)', "fgRefV2Beziehung("+elId+",'quelle')");
+  html+=K('✕ Ablehnen – falsch erkannt/zerlegt', 'fgRefV2Ablehnen('+elId+')', '#dc2626');
+  html+=K('◌ Ignorieren – bewusst übergehen', 'fgRefV2Ignorieren('+elId+')', '#6b7280');
+  html+=K('💬 Kommentar …', 'fgRefV2KommentarFeld('+elId+')');
+  if(st!=="OFFEN") html+=K('↩ Entscheidung widerrufen (zurück auf OFFEN)', 'fgRefV2Widerruf('+pz.Referenz_ID+')', '#b45309');
+  var m=document.createElement("div"); m.id="fgRefV2Menu"; m.setAttribute("data-el", String(elId));
+  m.style.cssText="position:absolute;z-index:95;background:#fff;color:#1d2733;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:8px;width:320px;max-height:60vh;overflow:auto";
+  var t=ev.target&&ev.target.closest?ev.target.closest("button"):null; var r=(t||ev.target).getBoundingClientRect();
+  m.style.top=(window.scrollY+r.bottom+4)+"px";
+  m.style.left=(window.scrollX+Math.min(r.left, Math.max(6, innerWidth-332)))+"px";
+  m.innerHTML=html;
+  document.body.appendChild(m);
+  setTimeout(function(){ var zu=function(e2){ if(!m.contains(e2.target)){ m.remove(); document.removeEventListener("mousedown",zu); } }; document.addEventListener("mousedown",zu); },0);
+}
 /* Farbschema laut Ralph (Etappe 4 D, verfeinert 05.08. nach visueller Pruefung von Zug 1).
    Reihenfolge ist die Regel: grau (Hinweis) -> rot (nur ECHTE Fehler: Blocker/mehrdeutig/
    Fragment) -> gelb (unsicher/unbestaetigt) -> blau (Nebenrolle: Unterzutat mit gebundenem
@@ -15258,7 +15455,12 @@ function fgRefV2Render(d, st){
     +'<div style="margin-top:4px;color:var(--muted);font-size:11px">Parseranalyse: vorhanden ('+esc(d.parser_version||"?")+')'
     +' · Prüfentscheidungen: '+(entsch?(entsch+' von '+el.length+' erhoben'):'noch keine erhoben')
     +((d.veraltete_zeilen)?(' · '+d.veraltete_zeilen+' veraltet'):'')
+    /* Zug 2: Erheben-Knopf inline in der vorhandenen Statuszeile (kein Layout-Eingriff) */
+    +((!d.pruefzeilen_vorhanden||entsch===0||d.veraltete_zeilen)?(' · <button type="button" onclick="fgRefV2Erheben()" style="font-size:10.5px;padding:1px 8px;border:1px solid #c3ccf0;border-radius:6px;background:#eef1fb;color:#3b56b0;cursor:pointer">Prüfzeilen '+(entsch?'aktualisieren':'erheben')+'</button>'):'')
     +(st?(' · '+(st.pruefung_abschliessbar?'<span style="color:#166534;font-weight:700">Prüfung abschließbar</span>':'noch nicht abschließbar')):'')
+    /* Zug 2 (#16): Abschluss-Knopf - der Server wiederholt ALLE Bedingungen (§1.13ll)
+       und liefert bei Ablehnung die Gruende, die vollstaendig angezeigt werden. */
+    +(st?(' · <button type="button" onclick="fgRefV2Abschliessen()" title="Serverseitige Prüfung aller Bedingungen – Ablehnungsgründe werden vollständig angezeigt" style="font-size:10.5px;padding:1px 8px;border:1px solid #bfe3cb;border-radius:6px;background:#e7f6ec;color:#1f7d43;cursor:pointer">Prüfung abschließen</button>'):'')
     +'</div></div>');
   if(st && Array.isArray(st.gruende) && st.gruende.length){
     H.push('<div style="margin-bottom:8px;font-size:11.5px;color:var(--muted)">Für die Freigabe offen: '+esc(st.gruende.join(" · "))+'</div>');
@@ -15286,7 +15488,19 @@ function fgRefV2Render(d, st){
       parentBest: parentEl?istBest(parentEl):false});
     var pz=pzMap[e.id];
     var kandidaten=(e.kandidaten||[]).map(function(k){ return esc(k.zutat)+" ("+String(k.aehnlichkeit).slice(0,4)+", "+esc(k.art)+")"; }).join(" · ");
+    /* Zug 2: kompakte Aktions-Knoepfe INLINE in der vorhandenen Zeile (float:right,
+       kleiner als die Zeilenhoehe - kein Layout-Eingriff). Nur wenn eine Pruefzeile
+       existiert; vorher gibt es nichts zu entscheiden (erst „Pruefzeilen erheben"). */
+    var akt='';
+    if(pz){
+      var stM=String(pz.Manueller_Status||'OFFEN');
+      akt='<span style="float:right;white-space:nowrap;margin-left:6px">'
+        +(stM==='OFFEN'?'<button type="button" onclick="fgRefV2Schnell('+e.id+')" title="Zuordnung bestätigen (wie erkannt)" style="font-size:10.5px;padding:0 6px;border:1px solid #bfe3cb;border-radius:6px;background:#e7f6ec;color:#1f7d43;cursor:pointer;line-height:1.5">✓</button>':'')
+        +'<button type="button" onclick="fgRefV2Menu(event,'+e.id+')" title="Aktionen (Kandidat, Typ, Parent, Ablehnen, Ignorieren, Kommentar, Widerruf)" style="font-size:10.5px;padding:0 6px;margin-left:3px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);cursor:pointer;line-height:1.5">⋯</button>'
+        +'</span>';
+    }
     return '<div style="margin-left:'+(tief*16)+'px;margin-bottom:3px;padding:5px 8px;border-left:3px solid '+f.c+';border-radius:6px;background:'+f.bg+';font-size:12px;line-height:1.45">'
+      +akt
       +(tief?'<span style="color:var(--muted)">└─ </span>':'')
       +'<b style="color:'+f.c+'">'+esc(e.name||"")+'</b>'
       +(e.anteil_prozent!=null?(' <span style="color:var(--muted)">'+esc(e.anteil_prozent)+' %</span>'):'')
@@ -15318,7 +15532,7 @@ function fgRefV2Render(d, st){
     +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#dc2626;vertical-align:middle;margin-right:4px"></span>blockierend</span>'
     +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#1d4ed8;vertical-align:middle;margin-right:4px"></span>Nebenrolle – über Parent abgedeckt bzw. Wirk-/Mikronährstoff</span>'
     +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>Hinweis</span>'
-    +'<span style="margin-left:auto">Zug 1: nur Anzeige – Aktionen folgen</span></div>');
+    +'<span style="margin-left:auto">Entscheidungen ändern nur die Prüftabelle – Bindungen bleiben unberührt</span></div>');
 
   box.innerHTML=H.join("");
 }
@@ -15327,6 +15541,15 @@ if(typeof window!=='undefined'){
   window.fgRefV2Init=fgRefV2Init; window.fgRefV2Laden=fgRefV2Laden; window.fgRefV2Render=fgRefV2Render;
   window.fgRefV2Kopieren=fgRefV2Kopieren; window.fgRefV2Anzeigen=fgRefV2Anzeigen;
   window.fgRefV2RohGross=fgRefV2RohGross;
+  /* Zug 2 */
+  window.fgRefV2Erheben=fgRefV2Erheben; window.fgRefV2Aktion=fgRefV2Aktion;
+  window.fgRefV2Widerruf=fgRefV2Widerruf; window.fgRefV2Abschliessen=fgRefV2Abschliessen;
+  window.fgRefV2Schnell=fgRefV2Schnell; window.fgRefV2KandWahl=fgRefV2KandWahl;
+  window.fgRefV2Typ=fgRefV2Typ; window.fgRefV2Beziehung=fgRefV2Beziehung;
+  window.fgRefV2ParentWahl=fgRefV2ParentWahl; window.fgRefV2ParentListe=fgRefV2ParentListe;
+  window.fgRefV2Ablehnen=fgRefV2Ablehnen; window.fgRefV2Ignorieren=fgRefV2Ignorieren;
+  window.fgRefV2KommentarFeld=fgRefV2KommentarFeld; window.fgRefV2KommentarSenden=fgRefV2KommentarSenden;
+  window.fgRefV2Menu=fgRefV2Menu; window.fgRefV2MenuZu=fgRefV2MenuZu; window.fgRefV2Ergebnis=fgRefV2Ergebnis;
 }
 
 function fgEnthaltenRender(){
@@ -22435,7 +22658,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1655";
+const APP_BUILD = "2026-08-05-1930";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
