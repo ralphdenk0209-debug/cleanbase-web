@@ -4865,10 +4865,17 @@ function peLightCssInject(){
 /* „Braucht noch Arbeit?" – Entwurf ODER (aktiv, aber unverifiziert/ohne Score) ODER EAN fehlt noch
    (Status „offen"/„noch_nicht_erfasst"). Freigegeben + EAN vorhanden/generisch = fertig = ausgeblendet.
    Ein Ort für die Regel, damit Zähler und Filter nie auseinanderlaufen. */
+/* 05.08.2026 (Ralph-Go): OFF-Massenimporte zaehlen NICHT mehr als "Zu erledigen" -
+   seit dem Entwurf-Schnitt (05.08., 30.989 auf Entwurf) bestand die Liste zu >99 % aus
+   Import-Entwuerfen und Ralphs echte Arbeit war unauffindbar. Sie haben den eigenen
+   Chip "Import-Entwuerfe". Spiegel der DB-Regel cb_ist_offimport (eine Regel, ein Ort:
+   die DB filtert, diese Kopie siebt nur wortgleich nach waehrend des Ladens, §1.11i). */
+function peIstOffImport(p){ return /^openfoodfacts massenimport/i.test(String(p.herkunft||'')); }
 function peIstOffen(p){
-  return String(p.pstatus||'')==='Entwurf'
+  return (String(p.pstatus||'')==='Entwurf'
       || p.zu_verifizieren
-      || ['offen','noch_nicht_erfasst'].indexOf(String(p.ean_status||''))>=0;
+      || ['offen','noch_nicht_erfasst'].indexOf(String(p.ean_status||''))>=0)
+      && !peIstOffImport(p);
 }
 /* „Auffällig durch die Wächter" = irgendeine Prüf-Automatik meldet einen Verdacht:
    Nährwert-Wächter (Atwater/Portion/Ballast), Portionsfalle, fehlende Quelle,
@@ -4938,7 +4945,7 @@ var PE_SEITE=100;   /* Seitengroesse. cb_erfassung_liste deckelt bei 300. */
    Filter noch finden koennte) und sieben auf der Seite nach. */
 var PE_CHIP_SERVER={
   offen:'offen', alle:'alle', zuverif:'zuverif', keinscore:'ohne_score',
-  waechter:'waechter', scan:'scan',
+  waechter:'waechter', scan:'scan', import:'import',
   /* Teilmengen des Waechter-Filters (er enthaelt "Quelle fehlt", "Naehrwert-QA"
      und "Portionsfalle") - deshalb ist 'waechter' hier die richtige Obermenge. */
   keinquelle:'waechter', naehrwerte:'waechter', portionsfalle:'waechter',
@@ -5259,6 +5266,12 @@ if(typeof window!=='undefined'){ window.peBulkMarkieren=peBulkMarkieren; window.
 /* 02.08.2026: Ein Chip-Wechsel ist jetzt eine neue ABFRAGE, kein Umsortieren im Browser -
    deshalb zurueck auf Seite 1 und neu laden. */
 function peChip(k){ window._peChip=k;
+  /* 05.08.2026 (Ralph-Go): Ein Chip ist eine NEUE Abfrage - der alte Spaltenfilter passt
+     fast nie dazu und versteckt sonst still Zeilen (Ralphs Fund: Status-Filter "Entwurf"
+     liess "Zu verifizieren" leer aussehen). Deshalb wird er beim Chip-Wechsel geleert.
+     Suche, Kategorie und der Chip selbst bleiben gespeichert (28z11 gilt weiter). */
+  window._peColF={};
+  try{ var _cb=document.getElementById('peColBox'); if(_cb) _cb.remove(); }catch(e){}
   document.querySelectorAll('#fgProdErf .peChip').forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-k')===k); });
   try{ peStateSave(); }catch(e){}
   peSeite(0); }
@@ -5325,6 +5338,7 @@ function pePasst(p, ohneSpalte, ohneChip){
      (Ohne Quelle, Ohne Zutaten, Markiert, Naehrwerte, Portionsfalle, Unverifiziert) ist
      diese Stelle der EINZIGE Filter - deshalb heisst die Reihe "nur auf dieser Seite". */
   if(chipf==='offen'&&!peIstOffen(p)) return false;
+  if(chipf==='import'&&!(String(p.pstatus||'')==='Entwurf'&&peIstOffImport(p))) return false;
   if(chipf==='scan'&&!peIstScan(p)) return false;
   if(chipf==='zuverif'&&!p.zu_verifizieren) return false;
   if(chipf==='keinscore'&&p.score!=null) return false;
@@ -5389,6 +5403,7 @@ function peChipRowsHtml(){
       +chip('keinscore','Ohne Index',g('ohne_score'))
       +chip('waechter','🛡 Alle Auffälligen',g('waechter'))
       +chip('scan','📥 Scan-Eingang',scanN)
+      +chip('import','📦 Import-Entwürfe',g('import_entwurf'))
       +(katf?'<span style="align-self:center;font-size:11.5px;color:#7b8698;margin-left:4px">gefiltert auf „'+esc(katf)+'"</span>':'')
       +(z?'':'<span style="align-self:center;font-size:11.5px;color:#cf5442;margin-left:4px">Zahlen gerade nicht abrufbar</span>')
     +'</div>'
@@ -5440,7 +5455,7 @@ function peAktivFilterHtml(){
   var brandN=window._peBrandOff?Object.keys(window._peBrandOff).length:0;
   var CHIPNAME={offen:'Zu erledigen',zuverif:'Zu verifizieren',keinscore:'Ohne Index',keinquelle:'Ohne Quelle',
                 keinzut:'Ohne Zutaten',markiert:'Markiert',waechter:'Alle Auffälligen',naehrwerte:'Nährwerte',
-                portionsfalle:'Portionsfalle',unverif:'Unverifiziert',scan:'Scan-Eingang'};
+                portionsfalle:'Portionsfalle',unverif:'Unverifiziert',scan:'Scan-Eingang',import:'Import-Entwürfe'};
   var pill=function(txt,weg){
     return '<span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e0a32e;color:#8a5a0b;'
       +'border-radius:999px;padding:3px 6px 3px 11px;font-size:12px;font-weight:700">'+txt
@@ -21873,7 +21888,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-02-2030";
+const APP_BUILD = "2026-08-05-0610";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
