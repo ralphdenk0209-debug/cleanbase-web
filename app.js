@@ -14908,6 +14908,185 @@ function fgRefFokus(el){
     try{ el2.focus(); }catch(e){} }
 }
 if(typeof window!=='undefined'){ window.fgRefFokus=fgRefFokus; }
+
+/* ==========================================================================
+   REFERENZ V2 - ZUG 1: REINE ANZEIGE (Etappe 4, Ralph-Go 05.08.2026)
+   Ruft AUSSCHLIESSLICH die beiden Lese-RPCs cb_referenz_pruefung_laden und
+   cb_referenz_pruefung_status. Speichert nichts, aendert keinen Status, loest
+   keine Freigabe aus, legt keine Stammzutat an. Die Aktionen kommen in Zug 2.
+   Der klassische Referenz-Block (#fe_refFront) bleibt vollstaendig erhalten und
+   ist der Rueckfall; der Umschalter ist in BEIDEN Stellungen sichtbar (§1.11n-nn).
+   ========================================================================== */
+function fgRefV2An(){ try{ return localStorage.getItem("ri_referenz_v2")==="an"; }catch(e){ return false; } }
+function fgRefV2Set(an){
+  try{ localStorage.setItem("ri_referenz_v2", an?"an":"aus"); }catch(e){}
+  fgRefV2Anzeigen();
+  if(an) fgRefV2Laden();
+}
+function fgRefV2Umschalten(){ fgRefV2Set(!fgRefV2An()); }
+function fgRefV2Anzeigen(){
+  var an=fgRefV2An();
+  var alt=document.getElementById("fe_refFront"), neu=document.getElementById("fe_refV2");
+  var btn=document.getElementById("fe_refV2Btn");
+  if(alt) alt.style.display = an?"none":"";
+  if(neu) neu.style.display = an?"":"none";
+  if(btn) btn.textContent = an?"⇦ Klassisch":"Referenz V2 ⇨";
+  var fl=document.getElementById("fe_refFlipBtn");
+  if(fl) fl.style.display = an?"none":"";
+}
+function fgRefV2Init(){
+  var btn=document.getElementById("fe_refV2Btn");
+  /* Der Umschalter ist admin-lokal (kein Beta-Flag, §0.05) und nur fuer Admins sichtbar. */
+  var adm=(typeof ME!=="undefined" && ME && ME.is_admin);
+  if(btn) btn.style.display = adm?"":"none";
+  if(!adm){ try{ localStorage.setItem("ri_referenz_v2","aus"); }catch(e){} }
+  fgRefV2Anzeigen();
+  if(adm && fgRefV2An()) fgRefV2Laden();
+}
+function fgRefV2Kopieren(){
+  var t=(window._fgRefV2 && window._fgRefV2.rohtext) || "";
+  if(!t) return;
+  try{ navigator.clipboard.writeText(t); toast && toast("Originaltext kopiert"); }
+  catch(e){ try{ var ta=document.getElementById("fe_refV2Roh"); if(ta){ ta.select(); document.execCommand("copy"); } }catch(_){} }
+}
+/* Farbschema laut Ralph (Etappe 4 D). Reihenfolge ist die Regel:
+   grau (Hinweis) -> rot (blockierend) -> gelb (unsicher/unbestaetigt) -> blau (Nebenrolle) -> gruen. */
+function _fgRefV2Farbe(e, pz){
+  var st=String(e.status||""), typ=String(e.typ||"");
+  var bestaetigt = pz && (pz.Manueller_Status==="BESTAETIGT" || pz.Manueller_Status==="IGNORIERT");
+  if(typ==="kennzeichnungstext") return {f:"grau", c:"#94a3b8", bg:"var(--k-f6f8f7,#f6f8f7)", t:"Kennzeichnungstext – bewusst nicht als Zutat gewertet"};
+  if(st==="FRAGMENT")                        return {f:"rot", c:"#dc2626", bg:"#fef2f2", t:"Fragment – blockiert"};
+  if(st==="HERSTELLERANGABE_UNVOLLSTAENDIG") return {f:"rot", c:"#dc2626", bg:"#fef2f2", t:"Klammern unausgeglichen – blockiert"};
+  if(st==="MEHRDEUTIG")                      return {f:"rot", c:"#dc2626", bg:"#fef2f2", t:"Mehrere Kandidaten – blockiert"};
+  if(st==="UNBEKANNT" && (e.zaehlt_als_hauptzutat===true || typ==="gruppe"))
+                                             return {f:"rot", c:"#dc2626", bg:"#fef2f2", t:"Hauptzutat/Gruppe nicht im Stamm – blockiert"};
+  if(st==="UNSICHER")                        return {f:"gelb", c:"#b45309", bg:"#fffbeb", t:"Nur ein Vorschlag – bestätigen"};
+  if(st==="OK" && !bestaetigt)               return {f:"gelb", c:"#b45309", bg:"#fffbeb", t:"Erkannt, noch nicht bestätigt"};
+  if(Number(e.ebene)===2 || typ==="mikronaehrstoff" || typ==="wirkstoff" || e.beziehung==="quelle")
+                                             return {f:"blau", c:"#1d4ed8", bg:"#eff6ff", t:"Zählt bewusst nicht als Hauptzutat"};
+  if(st==="UNBEKANNT")                       return {f:"gelb", c:"#b45309", bg:"#fffbeb", t:"Nicht im Stamm – zu prüfen"};
+  return {f:"gruen", c:"#166534", bg:"#ecfdf5", t:"Erkannt und bestätigt"};
+}
+function _fgRefV2TypLabel(e){
+  var t=String(e.typ||"");
+  if(t==="gruppe")          return "Gruppe";
+  if(t==="mikronaehrstoff") return "Mikronährstoff";
+  if(t==="wirkstoff")       return "Wirkstoff";
+  if(t==="zusatzstoff")     return "Zusatzstoff";
+  if(t==="kennzeichnungstext") return "Hinweis";
+  if(Number(e.ebene)===2)   return (e.beziehung==="quelle")?"Quelle":"Unterzutat";
+  return e.zaehlt_als_hauptzutat?"Hauptzutat":"Zutat";
+}
+async function fgRefV2Laden(){
+  var box=document.getElementById("fe_refV2"); if(!box) return;
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!pid){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px;padding:6px">Referenz V2 gibt es erst, wenn das Produkt gespeichert ist – vorher fehlt die Produkt-Nummer.</div>'; return; }
+  box.innerHTML='<div style="color:var(--muted);font-size:12.5px;padding:6px">Referenz V2 wird geladen …</div>';
+  var d=null, st=null, fehler="";
+  try{
+    var r1=await client.rpc("cb_referenz_pruefung_laden",{p_produkt_id:pid});
+    if(r1&&r1.error) throw r1.error; d=r1&&r1.data;
+    var r2=await client.rpc("cb_referenz_pruefung_status",{p_produkt_id:pid});
+    if(r2&&r2.error) throw r2.error; st=r2&&r2.data;
+  }catch(e){ fehler=(e&&e.message)?String(e.message):String(e); }
+  if(fehler){
+    /* Kein leerer Fangblock (§1.13i): der Grund muss sichtbar sein. */
+    console.error("[Referenz V2] Laden fehlgeschlagen:", fehler);
+    box.innerHTML='<div style="color:var(--k-dc2626,#dc2626);font-size:12.5px;padding:6px">Referenz V2 konnte nicht geladen werden: '+esc(fehler)+'</div>';
+    return;
+  }
+  window._fgRefV2={d:d, st:st, rohtext:(d&&d.rohtext)||""};
+  fgRefV2Render(d, st);
+}
+function fgRefV2Render(d, st){
+  var box=document.getElementById("fe_refV2"); if(!box) return;
+  if(!d || d.ok===false){
+    box.innerHTML='<div style="color:var(--k-dc2626,#dc2626);font-size:12.5px;padding:6px">'+esc((d&&d.fehler)||"Keine Daten.")+'</div>';
+    return;
+  }
+  var el=Array.isArray(d.elemente)?d.elemente:[];
+  var pzMap={}; (d.pruefzeilen||[]).forEach(function(p){ if(p&&p.Parser_Element_ID!=null) pzMap[p.Parser_Element_ID]=p; });
+  var zus=d.zusammenfassung||{};
+  var H=[];
+
+  /* --- Kennzeichnung: technisch aktiv, fachlich offen --- */
+  if(d.freigabe_status==="IMPORT_OFFEN"){
+    H.push('<div style="margin-bottom:8px;padding:7px 9px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#92400e;font-size:12px;font-weight:600">⚠ Technisch aktiv, fachliche Prüfung offen <span style="font-weight:400">(Freigabe-Status IMPORT_OFFEN)</span></div>');
+  } else if(d.freigabe_status){
+    H.push('<div style="margin-bottom:8px;font-size:11.5px;color:var(--muted)">Freigabe-Status: <b>'+esc(d.freigabe_status)+'</b></div>');
+  }
+
+  /* --- Prüfzusammenfassung --- */
+  var blocker=(d.blockierende_fehler||[]).length, pruefen=(d.zu_pruefen||[]).length;
+  H.push('<div style="margin-bottom:8px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:12px;line-height:1.6">'
+    +'<b>'+esc(zus.hauptzutaten!=null?zus.hauptzutaten:"?")+' Hauptzutaten</b>'
+    +' · '+esc(zus.gruppen||0)+' Gruppen'
+    +' · '+esc(zus.unterzutaten||0)+' Unterzutaten'
+    +' · '+esc(zus.wirkstoffe||0)+' Wirk-/Mikronährstoffe'
+    +' · '+esc(zus.zusatzstoffe||0)+' Zusatzstoffe'
+    +'<br><span style="color:'+(blocker?'#dc2626':'#166534')+';font-weight:700">'+(blocker?('⛔ '+blocker+' blockierend'):'✓ keine Blocker')+'</span>'
+    +' · <span style="color:#b45309">'+pruefen+' zu prüfen</span>'
+    +(st?(' · '+(st.pruefung_abschliessbar?'<span style="color:#166534;font-weight:700">Prüfung abschließbar</span>':'<span style="color:var(--muted)">noch nicht abschließbar</span>')):'')
+    +'<br><span style="color:var(--muted);font-size:11px">Parser '+esc(d.parser_version||"")+' · '+((d.pruefzeilen||[]).length)+' gespeicherte Entscheidungen'
+    +((d.veraltete_zeilen)?(' · '+d.veraltete_zeilen+' veraltet'):'')+'</span></div>');
+  if(st && Array.isArray(st.gruende) && st.gruende.length){
+    H.push('<div style="margin-bottom:8px;font-size:11.5px;color:var(--muted)">Offen: '+esc(st.gruende.join(" · "))+'</div>');
+  }
+
+  /* --- Originaletikett: vollständig, unverändert, kopierbar --- */
+  H.push('<details style="margin-bottom:8px" open><summary style="cursor:pointer;font-size:11.5px;color:var(--green);font-weight:700">Originaletikett'
+    +' <span style="font-weight:400;color:var(--muted);text-transform:none">– '+esc(d.rohtext_quelle||"")+'</span></summary>'
+    +'<textarea id="fe_refV2Roh" readonly style="width:100%;box-sizing:border-box;margin-top:6px;height:70px;padding:6px;border:1px solid var(--line);border-radius:8px;font-size:11.5px;line-height:1.45;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical">'+esc(d.rohtext||"")+'</textarea>'
+    +'<button type="button" onclick="fgRefV2Kopieren()" style="margin-top:5px;padding:4px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:11.5px">Kopieren</button>'
+    +((d.rohtext_zusammengesetzt)?'<div style="margin-top:5px;font-size:11px;color:#b45309">⚠ Keine Originalfassung – aus Einzelangaben zusammengesetzt. Reihenfolge und Gruppierung können abweichen.</div>':'')
+    +'</details>');
+
+  /* --- Baum --- */
+  var kinder={}; el.forEach(function(e){ if(e.parent_id!=null){ (kinder[e.parent_id]=kinder[e.parent_id]||[]).push(e); } });
+  function zeile(e, tief){
+    var f=_fgRefV2Farbe(e, pzMap[e.id]);
+    var pz=pzMap[e.id];
+    var kandidaten=(e.kandidaten||[]).map(function(k){ return esc(k.zutat)+" ("+String(k.aehnlichkeit).slice(0,4)+", "+esc(k.art)+")"; }).join(" · ");
+    return '<div style="margin-left:'+(tief*16)+'px;margin-bottom:3px;padding:5px 8px;border-left:3px solid '+f.c+';border-radius:6px;background:'+f.bg+';font-size:12px;line-height:1.45">'
+      +(tief?'<span style="color:var(--muted)">└─ </span>':'')
+      +'<b style="color:'+f.c+'">'+esc(e.name||"")+'</b>'
+      +(e.anteil_prozent!=null?(' <span style="color:var(--muted)">'+esc(e.anteil_prozent)+' %</span>'):'')
+      +' <span style="font-size:10.5px;color:var(--muted)">'+esc(_fgRefV2TypLabel(e))+'</span>'
+      +(e.beziehung_klartext?(' <span style="font-size:10.5px;color:#1d4ed8">· '+esc(e.beziehung_klartext)+'</span>'):'')
+      +(e.naehrstoff?(' <span style="font-size:10.5px;color:#1d4ed8">· zählt als '+esc(e.naehrstoff)+'</span>'):'')
+      +(e.e_nummer?(' <span style="font-size:10.5px;color:#1d4ed8">· '+esc(e.e_nummer)+'</span>'):'')
+      +'<br><span style="font-size:10.5px;color:var(--muted)">'+esc(f.t)
+      +(e.stammname?(' · Stamm: '+esc(e.stammname)+(e.note!=null?(' ('+esc(e.note)+')'):'')):'')
+      +(e.db_gebunden===false&&e.zutat_id?' · <span style="color:#dc2626">nicht gebunden</span>':'')
+      +(pz&&pz.Manueller_Status&&pz.Manueller_Status!=="OFFEN"?(' · <b>'+esc(pz.Manueller_Status)+'</b>'+(pz.Entschieden_Von?(' von '+esc(pz.Entschieden_Von)):'')):'')
+      +'</span>'
+      +(kandidaten?('<br><span style="font-size:10.5px;color:#b45309">Kandidaten: '+kandidaten+'</span>'):'')
+      +'</div>';
+  }
+  var baum=[];
+  el.filter(function(e){ return e.parent_id==null; }).forEach(function(e){
+    baum.push(zeile(e,0));
+    (kinder[e.id]||[]).forEach(function(k){ baum.push(zeile(k,1)); });
+  });
+  H.push('<div>'+(baum.length?baum.join(""):'<span style="color:var(--muted);font-size:12.5px">Keine Elemente.</span>')+'</div>');
+
+  /* --- Legende --- */
+  H.push('<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.35">'
+    +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#166534;vertical-align:middle;margin-right:4px"></span>bestätigt</span>'
+    +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#b45309;vertical-align:middle;margin-right:4px"></span>zu bestätigen</span>'
+    +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#dc2626;vertical-align:middle;margin-right:4px"></span>blockierend</span>'
+    +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#1d4ed8;vertical-align:middle;margin-right:4px"></span>zählt nicht als Hauptzutat</span>'
+    +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>Hinweis</span>'
+    +'<span style="margin-left:auto">Zug 1: nur Anzeige – Aktionen folgen</span></div>');
+
+  box.innerHTML=H.join("");
+}
+if(typeof window!=='undefined'){
+  window.fgRefV2An=fgRefV2An; window.fgRefV2Set=fgRefV2Set; window.fgRefV2Umschalten=fgRefV2Umschalten;
+  window.fgRefV2Init=fgRefV2Init; window.fgRefV2Laden=fgRefV2Laden; window.fgRefV2Render=fgRefV2Render;
+  window.fgRefV2Kopieren=fgRefV2Kopieren; window.fgRefV2Anzeigen=fgRefV2Anzeigen;
+}
+
 function fgEnthaltenRender(){
   var box=document.getElementById("fe_enthalten"); if(!box) return;
   var ref=(window._fgRef&&window._fgRef.length)?window._fgRef:[];
@@ -15484,7 +15663,7 @@ async function openFgEditor(id, prefill, targetEl){
      erklaert das (fe_fotoLeerHinweis). */
   const _refCard = `<div id="fe_flipWrap" style="height:100%;min-height:0;perspective:1400px"><div id="fe_flipInner" style="position:relative;width:100%;height:100%;min-height:0;transition:transform .5s;transform-style:preserve-3d">`
     +`<div style="position:absolute;inset:0;min-height:0;display:flex;backface-visibility:hidden;-webkit-backface-visibility:hidden">`
-    +cardF(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span><button type="button" id="fe_refFlipBtn" onclick="fgRefFlip(true)" title="Karte umdrehen – Etikett zum Ablesen" style="float:right;text-transform:none;letter-spacing:0;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.3">⇄ Etikett</button><button type="button" id="fe_naehrBtn" onclick="feNaehrPopupOpen()" title="Zeigt dieselbe Nährstoff-Anzeige wie später die Produktkarte – Bedarf und Sicherheitsgrenze je Wirkstoff" style="display:none;float:right;margin-right:6px;text-transform:none;letter-spacing:0;border:1px solid var(--k-16a34a);border-radius:7px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.3">🧪 Nährstoffe</button>`, `<div id="fe_refFront"><div id="fe_enthalten" data-note="Konzept D: fuellt die Kartenhoehe" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);flex:1 1 auto;min-height:0;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.35;flex:0 0 auto"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch offen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>nicht eingestuft</span><span style="margin-left:auto">Zeile anklicken → links suchen</span></div></div>`)
+    +cardF(`Referenz <span style="text-transform:none;color:var(--muted)">– von Riki gelesen (Herstellerseite/Etikett)</span><button type="button" id="fe_refV2Btn" onclick="fgRefV2Umschalten()" title="Referenzansicht V2 (hierarchischer Parser) – nur Anzeige, Rückfall bleibt die klassische Liste" style="display:none;float:right;margin-left:6px;text-transform:none;letter-spacing:0;border:1px solid var(--k-16a34a);border-radius:7px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.3">Referenz V2 ⇨</button><button type="button" id="fe_refFlipBtn" onclick="fgRefFlip(true)" title="Karte umdrehen – Etikett zum Ablesen" style="float:right;text-transform:none;letter-spacing:0;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.3">⇄ Etikett</button><button type="button" id="fe_naehrBtn" onclick="feNaehrPopupOpen()" title="Zeigt dieselbe Nährstoff-Anzeige wie später die Produktkarte – Bedarf und Sicherheitsgrenze je Wirkstoff" style="display:none;float:right;margin-right:6px;text-transform:none;letter-spacing:0;border:1px solid var(--k-16a34a);border-radius:7px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.3">🧪 Nährstoffe</button>`, `<div id="fe_refFront"><div id="fe_enthalten" data-note="Konzept D: fuellt die Kartenhoehe" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);flex:1 1 auto;min-height:0;overflow:auto"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fe_refNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgRefAdd();}" placeholder="Riki hat etwas übersehen? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="fgRefAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ einfügen</button></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.35;flex:0 0 auto"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>übernommen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:4px"></span>noch offen</span><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>nicht eingestuft</span><span style="margin-left:auto">Zeile anklicken → links suchen</span></div></div><div id="fe_refV2" data-note="Referenz V2, Zug 1: reine Anzeige. Rueckfall ist fe_refFront." style="display:none;width:100%;box-sizing:border-box;flex:1 1 auto;min-height:0;overflow:auto"></div>`)
     +`</div>`
     +`<div id="fe_refBack" style="position:absolute;inset:0;min-height:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);display:flex;flex-direction:column;gap:6px">`
     +`<div style="display:flex;justify-content:flex-end;flex:0 0 auto"><button type="button" onclick="fgRefFlip(false)" title="zurück zur Referenz-Arbeitsliste" style="border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);padding:4px 11px;font-size:11.5px;font-weight:700;cursor:pointer">⇄ Referenz</button></div>`
@@ -15769,6 +15948,7 @@ async function openFgEditor(id, prefill, targetEl){
     }catch(e){} })();
     try{ fgEtikettRender(); }catch(e){}   /* angehängte Fotos (Laden + selbst hochgeladen) rendern */
     try{ feEanSync(); }catch(e){}   /* fehlt die EAN, „offen"-Haken automatisch setzen */
+    try{ fgRefV2Init(); }catch(e){ console.error("[Referenz V2] Init:", e); }   /* Etappe 4 Zug 1: Umschalter setzen, bei V2 die beiden LESE-RPCs rufen */
     try{ if(typeof feAnsichtGet==="function" && feAnsichtGet()==="vorgang") feVorgangApply(); }catch(e){}   /* 2. Ansicht „Vorgang" (Ralph): rein ADDITIVER Rahmen um denselben Editor – kein Feld, kein Speicher-Weg verändert */
   if(!targetEl) document.getElementById("overlay").classList.add("open");
 }
@@ -21977,7 +22157,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-0716";
+const APP_BUILD = "2026-08-05-1130";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
