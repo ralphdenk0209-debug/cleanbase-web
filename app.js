@@ -13708,7 +13708,7 @@ function _zusFindStamm(nm){
      Stamm-Eintrag hat. BUCHSTABEN-Suffixe nie abstreifen (E160a ist NICHT E160 - zwei Stoffe).
      Wortgleicher Spiegel der DB-Regel cb_zusatz_stamm_treffer (dort steht die Wahrheit,
      hier nur das Sofort-Rendern vor der Antwort, §1.11n-h). */
-  var ec=String(nm||"").match(/\bE\s?(\d{3}[a-z]?(?:i{1,3}|iv)?)\b/i);
+  var ec=String(nm||"").match(/\bE\s?(\d{3,4}[a-z]?(?:i{1,3}|iv)?)\b/i);   /* 05.08.: auch 4-stellige (E1422) */
   if(ec && typeof ZUSATZSTOFFE_MAP!=="undefined"){
     var _voll="e"+ec[1].replace(/\s/g,"").toLowerCase();
     if(ZUSATZSTOFFE_MAP[_voll]) return ZUSATZSTOFFE_MAP[_voll];
@@ -21977,7 +21977,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-0647";
+const APP_BUILD = "2026-08-05-0716";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
