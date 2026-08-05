@@ -3975,7 +3975,12 @@ function feGridHoeheSync(){
      dritte Spalte den Loewenanteil, die Zusatzstoff-Spalte rueckt zusammen. Nur bei drei
      Spalten (weit) - bei „mittel" hat die Referenz ohnehin die volle Zeile. Die Entscheidung
      sitzt HIER, weil nur diese Funktion die Spalten setzt (§1.2c: keine zweite Kopie). */
-  if(stufe!=="eng" && stufe!=="mittel" && typeof fgRefV2An==="function" && fgRefV2An()){
+  /* 05.08., Ralphs Fund am normalen Produkt (P73588): Breite NUR, wenn der Parser auch
+     Inhalt geliefert hat - eine leere V2-Karte breit zu ziehen quetscht die Arbeitsspalten
+     fuer nichts. Ohne Elemente bleiben die Normalbreiten. */
+  if(stufe!=="eng" && stufe!=="mittel" && typeof fgRefV2An==="function" && fgRefV2An()
+     && window._fgRefV2 && window._fgRefV2.d && Array.isArray(window._fgRefV2.d.elemente)
+     && window._fgRefV2.d.elemente.length>0){
     g.style.gridTemplateColumns="minmax(0,0.85fr) minmax(0,0.6fr) minmax(560px,1.9fr)";
   }
   var ref=document.getElementById("fe_colRef");
@@ -5048,8 +5053,11 @@ async function peDatenHolen(offset){
   var chip=window._peChip||'offen';
   var srv=PE_CHIP_SERVER[chip]||'alle';
   var q=peSucheWert(), kat=peKatWert();
+  /* 05.08.: Spaltenfilter gehen als p_colf mit an die Datenbank - gesamt/Seiten gelten
+     damit fuer die GEFILTERTE Menge, nicht mehr nur fuer die 100 geladenen Zeilen. */
   var r=await client.rpc('cb_erfassung_liste',{p_chip:srv,p_suche:q||null,p_kat:kat||null,
-                                               p_offset:Number(offset||0),p_limit:PE_SEITE});
+                                               p_offset:Number(offset||0),p_limit:PE_SEITE,
+                                               p_colf:peColfPayload(null)});
   if(r.error) throw r.error;
   var d=r.data; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){} }
   if(!d||d.ok!==true) throw new Error((d&&d.grund)||'Die Liste hat keine Antwort geliefert.');
@@ -5700,6 +5708,69 @@ function peColVal(p,col){
   if(col==='index'){ var s=(p.score==null?null:Number(p.score)); if(s==null||!isFinite(s)) return 'ohne Index'; if(s>=90) return '90–100'; var lo=Math.floor(s/10)*10; return lo+'–'+(lo+9); }
   return '';
 }
+/* 05.08. (Ralph: „selbst wenn alle ausgewaehlt sind, werden nur max hundert angezeigt oder
+   gerechnet. jetzt haben wir aber pro bei supabase"): Der Spaltenfilter arbeitet jetzt
+   SERVERSEITIG. Werte+Zahlen kommen aus cb_erfassung_spaltenwerte (ganzer Bestand,
+   Excel-Semantik: die eigene Spalte zaehlt sich nicht weg - macht die DB), die Filterung
+   laeuft ueber p_colf in cb_erfassung_liste. pePasst behaelt die wortgleiche Klausel nur
+   fuer die Sofort-Reaktion auf der geladenen Seite (dasselbe Muster wie Suche/Chips).
+   Die Wertableitung lebt DOPPELT: peColVal (JS) und cb_erf_colwert (SQL) - GLEICHLAUF-PAAR,
+   wer eines aendert, zieht das andere nach (an beiden Orten dokumentiert). */
+function peColfPayload(ohneSpalte){
+  var cf=window._peColF||{}, out={}, n=0;
+  var DB={status:1,ean:1,marke:1,kategorie:1,quelle:1,herkunft:1,index:1,pnr:1,titel:1};
+  for(var col in cf){ if(!cf.hasOwnProperty(col)||!cf[col]||col===ohneSpalte||!DB[col]) continue;
+    if(cf[col].__q!==undefined){ if(cf[col].__q){ out[col]={q:cf[col].__q}; n++; } }
+    else { out[col]={werte:Object.keys(cf[col])}; n++; }
+  }
+  return n?out:null;
+}
+var _peColfT=null;
+function peColfReload(){
+  clearTimeout(_peColfT);
+  _peColfT=setTimeout(function(){
+    peDatenHolen(0).then(function(){ peRender(); })
+      .catch(function(e){ console.error('cb_erfassung_liste (Spaltenfilter)', e); });
+  }, 350);
+}
+async function peColWerteLaden(col, wq){
+  var d=window._peColBoxDaten; if(!d||d.col!==col) return;
+  try{
+    var srv=PE_CHIP_SERVER[window._peChip||'offen']||'alle';
+    var r=await client.rpc('cb_erfassung_spaltenwerte',{p_spalte:col,p_chip:srv,
+      p_suche:peSucheWert()||null,p_kat:peKatWert()||null,p_colf:peColfPayload(col),p_wertsuche:wq||null});
+    if(r.error) throw r.error;
+    var a=r.data; if(typeof a==='string'){ try{a=JSON.parse(a);}catch(e){} }
+    if(!a||a.ok!==true) throw new Error((a&&a.grund)||'keine Antwort');
+    d=window._peColBoxDaten; if(!d||d.col!==col) return;   /* Box wurde inzwischen geschlossen */
+    var cf=d.cfStart;
+    d.werte=(a.werte||[]).map(function(x){ return String(x.wert); });
+    d.cnt={}; (a.werte||[]).forEach(function(x){ d.cnt[String(x.wert)]=Number(x.n)||0; });
+    d.sel={}; d.werte.forEach(function(v){ d.sel[v]=cf?!!cf[v]:true; });
+    d.gekappt=!!a.gekappt; d.distinkt=Number(a.distinct_gesamt||d.werte.length); d.laed=false;
+    var h=document.getElementById('peColHinweis');
+    if(h) h.innerHTML=d.gekappt
+      ? '⚠ '+d.distinkt+' verschiedene Werte – gezeigt werden die häufigsten 400. Übers Suchfeld fragt die Datenbank nach.'
+      : '<span style="color:#9aa7b2">'+d.distinkt+' Werte · Zahlen gelten für den ganzen Bestand</span>';
+    peColRender();
+  }catch(e){
+    console.error('cb_erfassung_spaltenwerte', e);
+    var l=document.getElementById('peColList');
+    if(l) l.innerHTML='<div style="color:#cf5442;font-size:12px;padding:6px 2px">Werte nicht abrufbar: '+esc((e&&e.message)||e)+'</div>';
+  }
+}
+var _peColWqT=null;
+function peColServerSuche(){
+  var d=window._peColBoxDaten; if(!d) return;
+  /* Nur wenn die Liste gekappt ist, muss die DB nachsuchen - sonst reicht das
+     Client-Sieben in peColRender. */
+  if(!d.gekappt) return;
+  clearTimeout(_peColWqT);
+  _peColWqT=setTimeout(function(){
+    var q=((document.getElementById('peColSuche')||{}).value||'').trim();
+    peColWerteLaden(d.col, q);
+  }, 350);
+}
 function peColFilter(ev,col){
   try{ ev.stopPropagation(); }catch(e){}
   var ex=document.getElementById('peColBox');
@@ -5720,26 +5791,9 @@ function peColFilter(ev,col){
     setTimeout(function(){ var close=function(e){ if(!tb.contains(e.target)){ tb.remove(); document.removeEventListener('mousedown',close); } }; document.addEventListener('mousedown',close); },0);
     return;
   }
-  /* Gezaehlt wird ueber die Menge, die die ANDEREN Filter uebrig lassen - sonst
-     verspricht "Entwurf 4" vier Zeilen, die es unter der aktiven Kategorie nicht
-     gibt (Ralphs Fund 30.07.). Die eigene Spalte bleibt ausgenommen, sonst koennte
-     man einen einmal gesetzten Wert nie wieder dazuschalten. */
-  var rows=(window._peRows||[]).filter(function(p){ return pePasst(p, col); });
-  var cnt={}; rows.forEach(function(p){ var v=peColVal(p,col); cnt[v]=(cnt[v]||0)+1; });
-  var werte=Object.keys(cnt).sort(function(a,b){ return a.toLowerCase()<b.toLowerCase()?-1:1; });
-  /* Ehrlich bleiben, wenn hier nichts uebrig ist: eine leere Liste ohne Erklaerung
-     sieht aus wie ein Fehler (§1.13i - ein Zustand, den niemand erklaert). */
-  if(!werte.length){
-    var lb=document.createElement('div'); lb.id='peColBox'; lb.setAttribute('data-col',col);
-    lb.style.cssText='position:absolute;z-index:85;background:#fff;color:#1d2733;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:12px;width:260px;font-size:12.5px;line-height:1.5';
-    var t1=ev.target.closest?ev.target.closest('th'):ev.target; var r1=t1.getBoundingClientRect();
-    lb.style.top=(window.scrollY+r1.bottom+4)+'px';
-    lb.style.left=(window.scrollX+Math.min(r1.left, Math.max(6, innerWidth-272)))+'px';
-    lb.innerHTML='<b>Keine Werte übrig.</b><br>Die anderen Filter lassen für diese Spalte nichts stehen – setz oben Kategorie oder Chip zurück.';
-    document.body.appendChild(lb);
-    setTimeout(function(){ var c2=function(e){ if(!lb.contains(e.target)){ lb.remove(); document.removeEventListener('mousedown',c2); } }; document.addEventListener('mousedown',c2); },0);
-    return;
-  }
+  /* 05.08.: Werte + Zahlen kommen aus der DATENBANK (cb_erfassung_spaltenwerte) - ueber den
+     ganzen Bestand, nicht die geladene Seite. Die anderen Filter bleiben eingerechnet, die
+     eigene Spalte ausgenommen (Excel-Semantik, rechnet die DB per p_colf minus Spalte). */
   var cf=(window._peColF&&window._peColF[col])||null;   /* null = alles erlaubt */
   var box=document.createElement('div'); box.id='peColBox'; box.setAttribute('data-col',col);
   box.style.cssText='position:absolute;z-index:85;background:#fff;color:#1d2733;border:1px solid #d3dbe6;border-radius:11px;box-shadow:0 14px 40px rgba(20,40,70,.22);padding:10px;width:280px;max-height:60vh;display:flex;flex-direction:column';
@@ -5747,20 +5801,22 @@ function peColFilter(ev,col){
   box.style.top=(window.scrollY+r.bottom+4)+'px';
   box.style.left=(window.scrollX+Math.min(r.left, Math.max(6, innerWidth-292)))+'px';
   box.innerHTML=
-    '<input id="peColSuche" oninput="peColRender()" placeholder="🔍 Werte suchen…" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;font-size:13px;margin-bottom:7px;background:#fff;color:#1d2733">'
+    '<input id="peColSuche" oninput="peColRender();peColServerSuche()" placeholder="🔍 Werte suchen…" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;font-size:13px;margin-bottom:7px;background:#fff;color:#1d2733">'
     +'<div style="display:flex;gap:6px;margin-bottom:6px">'
       +'<button type="button" onclick="peColAlle(true)" style="flex:1;padding:6px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">alle an</button>'
       +'<button type="button" onclick="peColAlle(false)" style="flex:1;padding:6px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">alle aus</button>'
       +'<button type="button" onclick="peColReset()" style="flex:1;padding:6px;border:1px solid #c3ccf0;border-radius:8px;background:#eef1fb;color:#3b56b0;cursor:pointer;font-size:12px;font-weight:700">Filter weg</button>'
     +'</div>'
-    +'<div id="peColList" style="flex:1;overflow:auto;min-height:0"></div>';
+    +'<div id="peColHinweis" style="font-size:11px;color:#b45309;margin-bottom:5px;line-height:1.4"></div>'
+    +'<div id="peColList" style="flex:1;overflow:auto;min-height:0"><div style="color:#9aa7b2;font-size:12px;padding:6px 2px">Werte werden geladen (ganzer Bestand) …</div></div>';
   document.body.appendChild(box);
-  window._peColBoxDaten={col:col, werte:werte, cnt:cnt, sel:(function(){ var s={}; werte.forEach(function(v){ s[v]=cf?!!cf[v]:true; }); return s; })()};
-  peColRender();
+  window._peColBoxDaten={col:col, werte:[], cnt:{}, sel:{}, cfStart:cf, laed:true, gekappt:false};
+  peColWerteLaden(col, '');
   setTimeout(function(){ var close=function(e){ if(!box.contains(e.target)){ box.remove(); document.removeEventListener('mousedown',close); } }; document.addEventListener('mousedown',close); },0);
 }
 function peColRender(){
   var d=window._peColBoxDaten; var list=document.getElementById('peColList'); if(!d||!list) return;
+  if(d.laed) return;   /* Lade-Hinweis stehen lassen, bis die DB-Werte da sind */
   var q=((document.getElementById('peColSuche')||{}).value||'').trim().toLowerCase();
   var werte=q?d.werte.filter(function(v){ return v.toLowerCase().indexOf(q)>=0; }):d.werte;
   list.innerHTML=werte.map(function(v){
@@ -5774,9 +5830,13 @@ function _peColApply(){
   var d=window._peColBoxDaten; if(!d) return;
   var alleAn=d.werte.every(function(v){ return d.sel[v]; });
   window._peColF=window._peColF||{};
-  if(alleAn) delete window._peColF[d.col];       /* alles erlaubt = kein Filter */
+  /* Bei gekappten Listen (Marke: ~17.000 Werte, gezeigt 400) heisst „alle sichtbaren an"
+     nur dann „kein Filter", wenn vorher auch keiner da war - sonst wuerde ein bestehender
+     Filter durch blosses Oeffnen der Box verschwinden. */
+  if(alleAn && (!d.gekappt || !window._peColF[d.col])) delete window._peColF[d.col];
   else { var m={}; d.werte.forEach(function(v){ if(d.sel[v]) m[v]=true; }); window._peColF[d.col]=m; }
-  peRender();
+  peRender();          /* sofort: die geladene Seite siebt mit der wortgleichen Regel */
+  peColfReload();      /* und die Datenbank rechnet die echte Menge nach (350 ms gebuendelt) */
 }
 function peColChk(cb){ var d=window._peColBoxDaten; if(!d) return; d.sel[cb.getAttribute('data-v')]=cb.checked; _peColApply(); }
 function peColAlle(on){ var d=window._peColBoxDaten; if(!d) return;
@@ -5785,8 +5845,8 @@ function peColAlle(on){ var d=window._peColBoxDaten; if(!d) return;
   peColRender(); _peColApply(); }
 function peColReset(){ var d=window._peColBoxDaten; if(d){ d.werte.forEach(function(v){ d.sel[v]=true; }); }
   peColRender(); _peColApply(); }
-function peColQSet(col,v){ v=String(v||'').trim().toLowerCase(); window._peColF=window._peColF||{}; if(v) window._peColF[col]={__q:v}; else delete window._peColF[col]; peRender(); }
-if(typeof window!=='undefined'){ window.peColFilter=peColFilter; window.peColChk=peColChk; window.peColAlle=peColAlle; window.peColReset=peColReset; window.peColRender=peColRender; window.peColVal=peColVal; window.peColQSet=peColQSet; }
+function peColQSet(col,v){ v=String(v||'').trim().toLowerCase(); window._peColF=window._peColF||{}; if(v) window._peColF[col]={__q:v}; else delete window._peColF[col]; peRender(); peColfReload(); }
+if(typeof window!=='undefined'){ window.peColFilter=peColFilter; window.peColChk=peColChk; window.peColAlle=peColAlle; window.peColReset=peColReset; window.peColRender=peColRender; window.peColVal=peColVal; window.peColQSet=peColQSet; window.peColServerSuche=peColServerSuche; window.peColfPayload=peColfPayload; window.peColfReload=peColfReload; window.peColWerteLaden=peColWerteLaden; }
 /* Der Status-Knopf zeigt den ECHTEN Status des ausgewählten Produkts (Aktiv/Entwurf), farbig.
    Ohne Auswahl neutral „⇄ Status". Klick schaltet um (peToggleStatus). */
 function peStatusBtnUpdate(){
@@ -15109,6 +15169,10 @@ async function fgRefV2Laden(){
   }
   window._fgRefV2={d:d, st:st, rohtext:(d&&d.rohtext)||""};
   fgRefV2Render(d, st);
+  /* Die Spaltenbreite haengt daran, OB der Parser Inhalt geliefert hat - das weiss man
+     erst jetzt. Ohne diesen Aufruf bliebe die Karte nach dem Laden auf Normalbreite
+     (bzw. eine leere breit). */
+  try{ feGridHoeheSync(); }catch(e){}
 }
 function fgRefV2Render(d, st){
   var box=document.getElementById("fe_refV2"); if(!box) return;
@@ -15117,6 +15181,18 @@ function fgRefV2Render(d, st){
     return;
   }
   var el=Array.isArray(d.elemente)?d.elemente:[];
+  /* 05.08., Ralphs Fund (P73588): Ohne Parser-Elemente ist die ganze Ansicht leerer Rahmen -
+     „0 Hauptzutaten · Keine Elemente" sieht aus wie ein Fehler und laesst sich natuerlich
+     auch nicht scrollen. Ehrlicher Leerzustand statt leerer Geruest-Anzeige. */
+  if(!el.length){
+    var gr=(d.blockierende_fehler||[]).map(function(b){ return esc((b&&b.befund)||""); }).filter(Boolean);
+    box.innerHTML='<div style="padding:10px;font-size:12.5px;line-height:1.6;color:var(--muted)">'
+      +'Für dieses Produkt gibt es noch <b>keine Parseranalyse</b>'
+      +(d.rohtext?' mit Elementen':' – es ist kein Zutaten-Rohtext hinterlegt')+'.'
+      +(gr.length?('<br><span style="color:#dc2626">'+gr.join(' · ')+'</span>'):'')
+      +'<br>Die Riki-Referenz dieses Produkts zeigt die <b>klassische Ansicht</b> (Umschalter oben rechts).</div>';
+    return;
+  }
   var pzMap={}; (d.pruefzeilen||[]).forEach(function(p){ if(p&&p.Parser_Element_ID!=null) pzMap[p.Parser_Element_ID]=p; });
   /* Blocker-IDs aus der RPC: Baumfarben und Zaehler lesen DIESELBE Menge (§1.11i) */
   var blockMap={}; (d.blockierende_fehler||[]).forEach(function(b){ if(b&&b.id!=null) blockMap[b.id]=String(b.befund||b.art||"blockiert"); });
@@ -22328,7 +22404,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1540";
+const APP_BUILD = "2026-08-05-1600";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
