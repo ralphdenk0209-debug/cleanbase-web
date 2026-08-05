@@ -15265,7 +15265,13 @@ function fgRefV2Render(d, st){
   }
 
   /* --- Originaletikett: vollständig, unverändert, kopierbar --- */
-  H.push('<details style="margin-bottom:8px" open><summary style="cursor:pointer;font-size:11.5px;color:var(--green);font-weight:700">Originaletikett'
+  /* 05.08., Ralphs Fund „kein scrollen im container moeglich" - per Rad-Protokoll an der
+     Live-Seite ueberfuehrt: Das standardmaessig AUFGEKLAPPTE Originaletikett-Textarea nahm
+     den halben sichtbaren Kartenbereich ein und frass dort jedes Rad-Ereignis (ein Textarea
+     scrollt intern und kettet in Chrome nicht zum umgebenden Container weiter). Der Baum
+     darunter war so weder sichtbar noch erreichbar. Darum startet das Etikett ZU - wer es
+     braucht, klappt es auf; die Karte gehoert dem Baum. */
+  H.push('<details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:11.5px;color:var(--green);font-weight:700">Originaletikett'
     +' <span style="font-weight:400;color:var(--muted);text-transform:none">– '+esc(d.rohtext_quelle||"")+'</span></summary>'
     +'<textarea id="fe_refV2Roh" readonly style="width:100%;box-sizing:border-box;margin-top:6px;height:150px;padding:6px;border:1px solid var(--line);border-radius:8px;font-size:11.5px;line-height:1.45;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical">'+esc(d.rohtext||"")+'</textarea>'
     +'<button type="button" onclick="fgRefV2Kopieren()" style="margin-top:5px;padding:4px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:11.5px">Kopieren</button>'
@@ -22419,7 +22425,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1615";
+const APP_BUILD = "2026-08-05-1640";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
