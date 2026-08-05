@@ -15182,12 +15182,15 @@ async function fgRefV2Erheben(){
   var a=await _fgRefV2Rpc("cb_referenz_pruefung_erheben_admin",{p_produkt_id:c.pid},"Prüfzeilen erhoben");
   if(a) fgRefV2Laden();
 }
-async function fgRefV2Aktion(refId, status, entscheidung, kommentar){
+async function fgRefV2Aktion(refId, status, entscheidung, kommentar, zielTabelle, zielId){
   var c=_fgRefV2Ctx(); if(!c.pid||!refId) return;
-  var a=await _fgRefV2Rpc("cb_referenz_pruefung_entscheiden_admin",
-    {p_referenz_id:refId, p_produkt_id:c.pid, p_originaltext_hash:c.hash,
-     p_status:status, p_entscheidung:entscheidung||null, p_kommentar:kommentar||null},
-    "Gespeichert: "+status);
+  var args={p_referenz_id:refId, p_produkt_id:c.pid, p_originaltext_hash:c.hash,
+            p_status:status, p_entscheidung:entscheidung||null, p_kommentar:kommentar||null};
+  /* Ralphs Punkt 1-3: die Zielzuordnung geht STRUKTURIERT in die Prueftabelle
+     (Ziel_Tabelle + Ziel_ID), nicht nur als Text - der Server validiert Existenz
+     und die §1.13kk-Invariante (harte Status bekommen nie ein Ziel). */
+  if(zielId){ args.p_ziel_tabelle=zielTabelle||"Zutaten_Stamm"; args.p_ziel_id=zielId; }
+  var a=await _fgRefV2Rpc("cb_referenz_pruefung_entscheiden_admin", args, "Gespeichert: "+status);
   if(a){ fgRefV2MenuZu(); fgRefV2Laden(); }
 }
 async function fgRefV2Widerruf(refId){
@@ -15207,15 +15210,22 @@ async function fgRefV2Abschliessen(){
 }
 function fgRefV2Schnell(elId){
   var e=_fgRefV2El(elId), pz=_fgRefV2Pz(elId); if(!e||!pz) return;
+  /* Schnellbestaetigung gibt es bei MEHRDEUTIG und harten Strukturfehlern NICHT
+     (Ralph 05.08.): dort braucht es eine konkrete Kandidaten- bzw. Korrekturentscheidung. */
+  var st=String(e.status||"");
+  if(st==="MEHRDEUTIG"||st==="FRAGMENT"||st==="KLAMMER_FEHLER"||st==="FALSCH_ZERLEGT"||st==="HERSTELLERANGABE_UNVOLLSTAENDIG") return;
   var ent="BESTAETIGT wie erkannt: "+String(e.typ||"zutat")
     +(e.stammname?(" → Stamm: "+e.stammname):"")+(e.zutat_id?(" ["+e.zutat_id+"]"):"");
-  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT", ent, null);
+  /* Ist die automatische Zuordnung eine Stammzutat, geht sie auch STRUKTURIERT mit. */
+  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT", ent, null,
+    e.zutat_id?"Zutaten_Stamm":null, e.zutat_id||null);
 }
 function fgRefV2KandWahl(elId, i){
   var e=_fgRefV2El(elId), pz=_fgRefV2Pz(elId); if(!e||!pz) return;
   var kd=(e.kandidaten||[])[i]; if(!kd) return;
   fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT",
-    "KANDIDAT="+String(kd.zutat)+" ("+String(kd.art)+", "+String(kd.aehnlichkeit).slice(0,4)+")", null);
+    "KANDIDAT="+String(kd.zutat)+" ("+String(kd.art)+", "+String(kd.aehnlichkeit).slice(0,4)+")", null,
+    "Zutaten_Stamm", kd.zutat_id||null);
 }
 function fgRefV2Typ(elId, t){
   var pz=_fgRefV2Pz(elId); if(!pz) return;
@@ -15276,7 +15286,11 @@ function fgRefV2Menu(ev, elId){
   };
   var TYPEN=[["zutat","Zutat"],["gruppe","Gruppe"],["mikronaehrstoff","Mikronährstoff"],["wirkstoff","Wirkstoff"],["zusatzstoff","Zusatzstoff"]];
   var html='<div style="padding:2px 4px 6px"><b>'+esc(e.name||"")+'</b> <span style="color:#9aa7b2">· Status: '+esc(st)+'</span></div>';
-  html+=K('✓ Zuordnung bestätigen (wie erkannt)', 'fgRefV2Schnell('+elId+')', '#166534');
+  /* Bei MEHRDEUTIG nur konkrete Kandidatenwahl (Ralph 05.08.); harte Strukturfehler
+     brauchen Korrektur/Ablehnung - „wie erkannt" gibt es dort nicht. */
+  var eStA=String(e.status||"");
+  var kein_wie_erkannt=(eStA==="MEHRDEUTIG"||eStA==="FRAGMENT"||eStA==="KLAMMER_FEHLER"||eStA==="FALSCH_ZERLEGT"||eStA==="HERSTELLERANGABE_UNVOLLSTAENDIG");
+  if(!kein_wie_erkannt) html+=K('✓ Zuordnung bestätigen (wie erkannt)', 'fgRefV2Schnell('+elId+')', '#166534');
   (e.kandidaten||[]).forEach(function(kd,i){
     html+=K('→ Kandidat wählen: <b>'+esc(kd.zutat)+'</b> <span style="color:#9aa7b2">('+esc(kd.art)+', '+esc(String(kd.aehnlichkeit).slice(0,4))+')</span>', 'fgRefV2KandWahl('+elId+','+i+')');
   });
@@ -15314,10 +15328,31 @@ function _fgRefV2Farbe(e, pz, ctx){
   function BLAU(t){ return {f:"blau", c:"#1d4ed8", bg:"#eff6ff", t:t}; }
   function GRUEN(t){ return {f:"gruen", c:"#166534", bg:"#ecfdf5", t:t}; }
   if(typ==="kennzeichnungstext") return {f:"grau", c:"#94a3b8", bg:"var(--k-f6f8f7,#f6f8f7)", t:"Kennzeichnungstext – bewusst nicht als Zutat gewertet"};
+  /* Prioritaet (Ralphs Zug-2-Korrektur 05.08.): 1. HARTE Strukturfehler - durch blosse
+     Bestaetigung NICHT heilbar (§1.13kk-Liste, wortgleich zu cb_v2_status_ohne_zuordnung)
+     · 2. gueltige MANUELLE Entscheidung - uebersteuert MEHRDEUTIG/UNSICHER/UNBEKANNT und
+     automatische Blocker · 3. Automatik. ctx.blocker ist seit heute die EFFEKTIVE Menge
+     aus der RPC: uebersteuerte Blocker sind dort schon serverseitig herausgefiltert -
+     Farbe, Zaehler und Freigabe lesen dieselbe Prioritaet. */
+  var HART={FRAGMENT:1, KLAMMER_FEHLER:1, FALSCH_ZERLEGT:1, HERSTELLERANGABE_UNVOLLSTAENDIG:1};
+  if(HART[st]){
+    if(st==="FRAGMENT") return ROT("Fragment – blockiert (Strukturfehler, braucht Korrektur oder Ablehnung)");
+    if(st==="HERSTELLERANGABE_UNVOLLSTAENDIG") return ROT("Klammern unausgeglichen – blockiert (Strukturfehler)");
+    return ROT(st+" – blockiert (Strukturfehler, braucht Korrektur oder Ablehnung)");
+  }
+  var mSt=pz?String(pz.Manueller_Status||"OFFEN"):"OFFEN";
+  if(mSt==="BESTAETIGT"){
+    var ent=String(pz.Manuelle_Entscheidung||"");
+    var km=ent.match(/KANDIDAT=([^(]+)[(]/);
+    var ziel=pz.Ziel_ID?(" → Stamm: "+((km&&km[1].trim())||pz.Ziel_ID)):(ent?(" → "+ent.slice(0,60)):"");
+    return GRUEN("Manuell bestätigt"+ziel+((st&&st!=="OK")?(" · Parserhinweis: ursprünglich "+st):""));
+  }
+  if(mSt==="IGNORIERT")
+    return {f:"grau", c:"#94a3b8", bg:"var(--k-f6f8f7,#f6f8f7)", t:"Manuell ignoriert – bewusst übergangen"+((st&&st!=="OK")?(" · ursprünglich "+st):"")};
+  if(mSt==="ABGELEHNT" && !(ctx.blocker&&ctx.blocker[e.id]))
+    return {f:"grau", c:"#94a3b8", bg:"var(--k-f6f8f7,#f6f8f7)", t:"Manuell abgelehnt – falsch erkannt (wartet auf Korrektur/Neuzerlegung)"};
   if(ctx.blocker && ctx.blocker[e.id]) return ROT("⛔ "+ctx.blocker[e.id]);
-  if(st==="FRAGMENT")                        return ROT("Fragment – blockiert");
-  if(st==="HERSTELLERANGABE_UNVOLLSTAENDIG") return ROT("Klammern unausgeglichen – blockiert");
-  if(st==="MEHRDEUTIG")                      return ROT("Mehrere Kandidaten – eindeutig oder gar nicht");
+  if(st==="MEHRDEUTIG")                      return ROT("Mehrere Kandidaten – Kandidat wählen (⋯-Menü)");
   if(eb2){
     if(st==="UNSICHER")  return GELB("Stammzuordnung unsicher – bestätigen");
     if(st==="UNBEKANNT") return GELB("Nicht im Stamm – prüfen (blockiert nicht)");
@@ -15494,8 +15529,11 @@ function fgRefV2Render(d, st){
     var akt='';
     if(pz){
       var stM=String(pz.Manueller_Status||'OFFEN');
+      /* Kein Schnell-Haken bei MEHRDEUTIG (nur konkrete Kandidatenwahl, Ralph 05.08.)
+         und bei harten Strukturfehlern (§1.13kk - Bestaetigung heilt dort nichts). */
+      var kein_haken=(function(){ var s=String(e.status||''); return s==='MEHRDEUTIG'||s==='FRAGMENT'||s==='KLAMMER_FEHLER'||s==='FALSCH_ZERLEGT'||s==='HERSTELLERANGABE_UNVOLLSTAENDIG'; })();
       akt='<span style="float:right;white-space:nowrap;margin-left:6px">'
-        +(stM==='OFFEN'?'<button type="button" onclick="fgRefV2Schnell('+e.id+')" title="Zuordnung bestätigen (wie erkannt)" style="font-size:10.5px;padding:0 6px;border:1px solid #bfe3cb;border-radius:6px;background:#e7f6ec;color:#1f7d43;cursor:pointer;line-height:1.5">✓</button>':'')
+        +((stM==='OFFEN'&&!kein_haken)?'<button type="button" onclick="fgRefV2Schnell('+e.id+')" title="Zuordnung bestätigen (wie erkannt)" style="font-size:10.5px;padding:0 6px;border:1px solid #bfe3cb;border-radius:6px;background:#e7f6ec;color:#1f7d43;cursor:pointer;line-height:1.5">✓</button>':'')
         +'<button type="button" onclick="fgRefV2Menu(event,'+e.id+')" title="Aktionen (Kandidat, Typ, Parent, Ablehnen, Ignorieren, Kommentar, Widerruf)" style="font-size:10.5px;padding:0 6px;margin-left:3px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);cursor:pointer;line-height:1.5">⋯</button>'
         +'</span>';
     }
@@ -22658,7 +22696,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1930";
+const APP_BUILD = "2026-08-05-1955";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
