@@ -8205,7 +8205,10 @@ const WIRKSTOFF_NAMEN=["Vitamin A","Vitamin C","Vitamin D","Vitamin D3","Vitamin
   "Vitamin B1 (Thiamin)","Vitamin B2 (Riboflavin)","Vitamin B3 (Niacin)","Vitamin B5 (Pantothensäure)",
   "Vitamin B6","Vitamin B7 (Biotin)","Vitamin B9 (Folsäure)","Vitamin B12","Zink","Magnesium","Eisen",
   "Selen","Jod","Calcium","Kupfer","Mangan","Chrom","Molybdän","Kalium","Omega-3"];
-const WIRK_EINHEITEN=["mg","µg","g","IU"];
+/* 05.08. (Ralph, P73590): Einheiten NIE umdeuten - was auf dem Etikett steht, wird exakt so
+   gespeichert (FCC ist z. B. die Laktase-Aktivitaetseinheit, KEIN IU-Synonym). Umgerechnet
+   wird nur mit belegter Regel (bezugInMg: IU nur fuer Vitamin D). */
+const WIRK_EINHEITEN=["mg","µg","g","IU","I.E.","FCC","KBE","CFU"];
 /* Dropdown "alle Wirkstoffe": EFSA-Namensliste + alle im Bestand erfassten Wirkstoffe (auch Botanicals wie Moenchspfeffer). Ralph 27.07. */
 function wirkDLOptions(){
   try{
@@ -14668,7 +14671,7 @@ function fgZutRiki(btn){
     btn.textContent="✓ übernehmen"; btn.dataset.mode="save"; btn.dataset.stufe=st; btn.dataset.gesamt=ges;
   }, function(){ btn.disabled=false; btn.textContent="Fehler"; setTimeout(function(){btn.textContent="→ Riki";},1500); });
 }
-function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c) c.insertAdjacentHTML("beforeend", fgZutRow("",null,"nein")); }
+function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c){ c.insertAdjacentHTML("beforeend", fgZutRow("",null,"nein")); if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty.zut=true; } }
 /* ===== Zutaten/Wirkstoff-PICKER (Ralph 20.07.2026) =====
    Links: durchsuchbare, scrollbare Liste ALLER Stamm-Zutaten (bei Supplement nur Wirkstoffe)
    mit Checkbox „enthalten" + Bewertung. Rechts: mehrzeilige Textbox, die die angehakten Namen
@@ -16107,6 +16110,12 @@ async function openFgEditor(id, prefill, targetEl){
   /* targetEl (optional): rendert den Editor INLINE in einen Container (z. B. Master-Detail-
      Seite „Produkt-Erfassung") statt ins Vollbild-Overlay. Ohne targetEl unveraendert. */
   const panel=targetEl||document.getElementById("panel");
+  /* 05.08. (Ralph-Auftrag Erfassung): Ziel-Container merken, damit der Voll-Reload nach dem
+     Speichern (Test F) denselben Ort trifft. Und Dirty-Flags scharf erst NACH dem Befuellen -
+     sonst zaehlt das Laden selbst als Aenderung. */
+  window._fgEditorTarget=targetEl||null;
+  window._fgDirtyArmed=false;
+  window._fgDirty={makro:false,wirk:false,zut:false};
   /* Quellenliste vor dem Zeichnen holen - das Auswahlfeld entsteht in einem Template-String
      und kann nicht auf ein spaeteres Ergebnis warten. Beim zweiten Oeffnen kommt sie aus
      dem Speicher, kostet also nur einmal. */
@@ -16539,6 +16548,21 @@ async function openFgEditor(id, prefill, targetEl){
     try{ feEanSync(); }catch(e){}   /* fehlt die EAN, „offen"-Haken automatisch setzen */
     try{ fgRefV2Init(); }catch(e){ console.error("[Referenz V2] Init:", e); }   /* Etappe 4 Zug 1: Umschalter setzen, bei V2 die beiden LESE-RPCs rufen */
     try{ if(typeof feAnsichtGet==="function" && feAnsichtGet()==="vorgang") feVorgangApply(); }catch(e){}   /* 2. Ansicht „Vorgang" (Ralph): rein ADDITIVER Rahmen um denselben Editor – kein Feld, kein Speicher-Weg verändert */
+  /* 05.08. (Ralph-Auftrag Erfassung): Ausgangszustand fuer den Datenschutz beim Speichern merken
+     und Dirty-Verfolgung scharf schalten. Regel: Nur Bereiche schreiben, die in DIESER Sitzung
+     wirklich geaendert wurden - ausgeblendete Karten duerfen nie als leer gesendet werden. */
+  try{
+    window._fgEdit=window._fgEdit||{};
+    window._fgEdit.hatteWirkstoffe=Array.isArray(d.wirkstoffe)&&d.wirkstoffe.length>0;
+    window._fgEdit.hatMakros=!!(d.naehrwerte&&Object.keys(d.naehrwerte).some(function(k){ return d.naehrwerte[k]!=null&&d.naehrwerte[k]!==""; }));
+    var _dirtyHook=function(id,bereich){ var el=document.getElementById(id); if(!el||el._fgDirtyHooked) return; el._fgDirtyHooked=true;
+      el.addEventListener("input",function(){ if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty[bereich]=true; });
+      el.addEventListener("change",function(){ if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty[bereich]=true; }); };
+    _dirtyHook("fe_wirkRows","wirk"); _dirtyHook("fe_wirk_none","wirk");
+    _dirtyHook("fe_nwCard","makro");
+    _dirtyHook("fe_zutRows","zut"); _dirtyHook("fe_pickList","zut"); _dirtyHook("fe_zutNeu","zut");
+    setTimeout(function(){ window._fgDirtyArmed=true; },0);
+  }catch(e){ console.error("Dirty-Init:",e); }
   if(!targetEl) document.getElementById("overlay").classList.add("open");
 }
 /* 28z3: Kein-Score-Kategorien aus der DB-Konfig (Kategorie_Konfig via cb_kein_score_kategorien)
@@ -16585,7 +16609,12 @@ function feKatChange(){
     try{ ladeWirkDB(); }catch(e){}   /* Dropdown "alle Wirkstoffe" aus DB nachfuellen (Ralph 27.07.) */
   try{ feWirkFarbeAll(); }catch(e){}
   } else {
-    if(_wc) _wc.style.display="none";
+    /* 05.08. (Ralph-Auftrag, Punkt 4): Wirkstoffe sind KEIN Supplement-Privileg. Hat das
+       Produkt Wirkstoff-Zeilen (z. B. Laktase im Suessungsmittel-Pulver), bleibt die Karte
+       als „weitere deklarierte Inhaltsstoffe" sichtbar - Daten verstecken hiesse, sie beim
+       naechsten Speichern zu gefaehrden. Ohne Eintraege bleibt sie wie bisher aus. */
+    if(_wc) _wc.style.display=(typeof feWirkCount==="function"&&feWirkCount()>0)?"":"none";
+    if(_wc&&_wc.style.display===""){ try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){} }
   }
   /* 28z3 (Ralph: "wenn ich bei der kategorie supplements auswaehle aendert sich das layout" +
      "salze genau so nach bedarf, suessungsmittel faellt auch darunter"). Je Kategorie faellt weg,
@@ -16602,8 +16631,12 @@ function feKatChange(){
     var _istSalz2=(_kat2==="salze");
     var _ks=window._ksKats;
     var _istKein2=supp||_istSalz2||!!(_ks?_ks.has(_kat2):(_kat2==="süßungsmittel"));
-    var _nwAus = supp||_istSalz2;
-    var _mikroAus = supp || (_istKein2 && !_istSalz2 && !supp);
+    /* 05.08. (Ralph, Punkt 4): Naehrwerte-Karte bei Supplement/Salz nur ausblenden, wenn es
+       auch nichts zu zeigen gibt - vorhandene Makros (P73590!) bleiben sichtbar. Und die
+       Mikro-Karte ist ueberall zugaenglich (Supplement: sichtbar · Suessungsmittel: zugaenglich)
+       - fachlich vorhandene Daten werden nicht versteckt. */
+    var _nwAus = (supp||_istSalz2) && !(window._fgEdit&&window._fgEdit.hatMakros);
+    var _mikroAus = false;
     var _nwC=document.getElementById("fe_nwCard"); if(_nwC) _nwC.style.display=_nwAus?"none":"contents";
     /* 28z6 (Ralph): bei SUPPLEMENT ruecken die Wirkstoffe NEBEN die Kopfdaten (rechte, breitere
        Spalte), die Kopfdaten werden schmaler (0.9fr zu 1.35fr). Beim Verlassen der Kategorie
@@ -16774,12 +16807,13 @@ function feWirkFarbe(r){
 function feWirkFarbeRow(el){ var r=el&&el.closest?el.closest(".feWirkRow"):null; feWirkFarbe(r); }
 function feWirkFarbeAll(){ [].forEach.call(document.querySelectorAll("#fe_wirkRows .feWirkRow"), feWirkFarbe); }
 function feWirkAdd(w){ var c=document.getElementById("fe_wirkRows"); if(!c) return;
+  if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty.wirk=true;   /* DOM-Insert loest kein input-Event aus */
   c.insertAdjacentHTML("beforeend", feWirkRow(w));
   var none=document.getElementById("fe_wirk_none"); if(none&&none.checked){ none.checked=false; feWirkNoneToggle(false); }
   try{ feWirkFarbe(c.lastElementChild); }catch(e){}
   try{fePlaus()}catch(e){}
 }
-function feWirkDel(btn){ var r=btn&&btn.closest?btn.closest(".feWirkRow"):null; if(r) r.remove(); try{fePlaus()}catch(e){} }
+function feWirkDel(btn){ var r=btn&&btn.closest?btn.closest(".feWirkRow"):null; if(r){ r.remove(); if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty.wirk=true; } try{fePlaus()}catch(e){} }
 function feWirkCollect(){ var out=[];
   [].forEach.call(document.querySelectorAll("#fe_wirkRows .feWirkRow"),function(r){
     var nm=((r.querySelector(".fwName")||{}).value||"").trim();
@@ -18323,13 +18357,45 @@ async function fgEditSave(alsoFreigeben){
   if(alsoFreigeben && !_kat){ msg.style.color="var(--k-dc2626)"; msg.textContent="Kategorie fehlt – für die Freigabe bitte eine Kategorie wählen."; try{ fePlaus(); }catch(e){} return; }
   const _qt=(g("fe_quelle_typ")&&g("fe_quelle_typ").value||"").trim();
   const _beleg=(g("fe_beleg")&&g("fe_beleg").value||"").trim();
+  const _warNeu=!(window._fgEdit&&window._fgEdit.id);
+  const _dirty=window._fgDirty||{makro:true,wirk:true,zut:true};
+  const _fehler=[];
+  /* 05.08. (Ralph-Auftrag P73590, Punkt 6): auffaellige Werte verlangen BEWUSSTE Bestaetigung -
+     sie blockieren nicht, aber sie rutschen nicht mehr still durch (Protein 79 g bei einem
+     Geschmackspulver war mit hoher Wahrscheinlichkeit ein Quellen-/Vertauschungsfehler). */
+  if((_warNeu||_dirty.makro) && nw.protein!=null && nw.protein>60){
+    if(!confirm("⚠ Protein "+nw.protein+" g je 100 g ist ungewöhnlich hoch.\nMöglich: mit einem anderen Feld vertauscht oder Quellenfehler.\n\nWert bewusst bestätigen und speichern?")){
+      msg.style.color="var(--k-b45309)"; msg.textContent="Abgebrochen – Nährwerte prüfen."; return;
+    }
+  }
+  /* Punkt 7: kanonische Dubletten in der Zutatenliste (Sucralose↔E955, Steviolglykoside↔E960,
+     doppelte Namen). Altbestand wird NICHT bereinigt - nur Hinweis mit bewusster Bestätigung. */
+  try{
+    var _kan={}, _dup=[];
+    zut.forEach(function(z){
+      var kk=String(z.name||"").toLowerCase().trim();
+      try{ if(typeof _zusNorm==="function") kk=_zusNorm(z.name)||kk; }catch(_){ }
+      try{ if(typeof ZUS_SYN!=="undefined"&&ZUS_SYN[kk]) kk="e:"+String(ZUS_SYN[kk]).toLowerCase().replace(/\s+/g,""); }catch(_){ }
+      if(/^e ?\d{3,4}[a-z]?$/.test(kk)) kk="e:"+kk.replace(/\s+/g,"");
+      if(_kan[kk]) _dup.push(z.name+" ↔ "+_kan[kk]); else _kan[kk]=z.name;
+    });
+    if(_dup.length){
+      if(!confirm("⚠ Mögliche doppelte Zutatenbindung (derselbe kanonische Stoff):\n\n• "+_dup.join("\n• ")+"\n\nTrotzdem speichern? Bestehende Altdaten werden nicht automatisch bereinigt.")){
+        msg.style.color="var(--k-b45309)"; msg.textContent="Abgebrochen – Zutatenliste prüfen."; return;
+      }
+    }
+  }catch(e){}
   const payload={ name, marke:g("fe_marke").value.trim(), kategorie:_kat,
     unterkategorie:g("fe_ukat").value.trim(), ean:g("fe_ean").value.trim(), basis:g("fe_basis").value.trim()||"100g",
-    naehrwerte:nw, zusatzstoffe_text:g("fe_ztext").value.trim()||"keine",
-    zusatzstoffe_status:g("fe_zstatus").value, suessstoffe:g("fe_suess").value, zutaten:zut,
+    zusatzstoffe_text:g("fe_ztext").value.trim()||"keine",
+    zusatzstoffe_status:g("fe_zstatus").value, suessstoffe:g("fe_suess").value,
     quelle:_beleg||"Admin-Editor" };
+  /* Ralphs Kernregel (05.08.): NUR Bereiche schreiben, die in dieser Sitzung geaendert wurden.
+     Eine bei dieser Kategorie ausgeblendete (und darum leere) Karte darf gespeicherte Daten
+     nie ueberschreiben. Bei Neuanlage wird alles gesendet, was da ist. */
+  if(_warNeu||_dirty.makro) payload.naehrwerte=nw;
+  if(_warNeu||_dirty.zut)   payload.zutaten=zut;
   if(_qt) payload.quelle_typ=_qt;
-  const _warNeu=!(window._fgEdit&&window._fgEdit.id);
   if(window._fgEdit&&window._fgEdit.id) payload.produkt_id=window._fgEdit.id;
   const {data,error}=await client.rpc("cb_produkt_speichern",{p:payload});
   if(error){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+error.message; return; }
@@ -18378,15 +18444,28 @@ async function fgEditSave(alsoFreigeben){
     }catch(e){}
     /* kcal-Waechter-Uebersteuerung persistieren (Ralph 25.07.), laeuft VOR der Freigabe. */
     try{ await client.rpc("cb_produkt_kcal_ok_setzen",{p_id:pid, p_flag:!!(window._fgEdit&&window._fgEdit.kcalOk)}); }catch(e){}
-    /* Wirkstoff-Mengen (Supplements) → Produkt_Naehrstoffe, für den Dosis-Check (Ralph 23.07.).
-       Läuft VOR der Freigabe, damit produkt_pruefen_freigeben die Wirkstoffe bzw. das
-       „keine Mengen"-Flag schon sieht. */
-    if(((g("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement"){
-      try{
-        var _wl=(typeof feWirkCollect==="function")?feWirkCollect():[];
-        var _wnone=!!(g("fe_wirk_none")&&g("fe_wirk_none").checked);
-        await client.rpc("cb_produkt_wirkstoffe_setzen",{p_id:pid, p_liste:_wl, p_nicht_verfuegbar:_wnone});
-      }catch(e){ try{console.log("wirkstoffe_setzen:",e);}catch(_){} }
+    /* Wirkstoff-Mengen → Produkt_Naehrstoffe (Dosis-Check). 05.08. (Ralph-Auftrag P73590):
+       KATEGORIEUNABHAENGIG - die Kategorie steuert nur die Anzeige, nie das Speichern.
+       Geschrieben wird NUR, wenn der Bereich in dieser Sitzung geaendert wurde (Dirty-Flag);
+       die RPC arbeitet mit DELETE+INSERT, ein ungewollter Leeraufruf wuerde also loeschen.
+       Leerschreiben vorhandener Wirkstoffe verlangt eine BEWUSSTE Bestaetigung. */
+    if(_warNeu ? true : _dirty.wirk){
+      var _wl=(typeof feWirkCollect==="function")?feWirkCollect():[];
+      var _wnone=!!(g("fe_wirk_none")&&g("fe_wirk_none").checked);
+      var _hatte=!!(window._fgEdit&&window._fgEdit.hatteWirkstoffe);
+      var _wirkSenden=true;
+      if(_wl.length===0 && !_wnone){
+        if(_hatte){
+          _wirkSenden=confirm("⚠ Die Wirkstoff-Tabelle ist leer, in der Datenbank sind aber Wirkstoffe gespeichert.\n\nWirklich ALLE Wirkstoffe dieses Produkts löschen?\n(Abbrechen = Wirkstoffe behalten)");
+          if(!_wirkSenden) _fehler.push("Wirkstoffe: unverändert gelassen (leere Tabelle nicht gespeichert)");
+        } else if(_warNeu){ _wirkSenden=false; }   /* Neuanlage ohne Wirkstoffe: nichts zu schreiben */
+      }
+      if(_wirkSenden){
+        try{
+          var _wr=await client.rpc("cb_produkt_wirkstoffe_setzen",{p_id:pid, p_liste:_wl, p_nicht_verfuegbar:_wnone});
+          if(_wr&&_wr.error) throw _wr.error;
+        }catch(e){ _fehler.push("Wirkstoffe: "+String((e&&e.message)||e)); }
+      }
     }
   }
   if(pid && window._fgEdit && window._fgEdit.bild_url){
@@ -18441,6 +18520,21 @@ async function fgEditSave(alsoFreigeben){
      weil das Fenster jetzt OFFEN bleibt: ohne diese Zeile würde ein zweites „Speichern"
      ein DUPLIKAT anlegen (bisher fiel das nur nicht auf, weil sich das Fenster schloss). */
   if(pid && window._fgEdit) window._fgEdit.id = pid;
+  /* 05.08. (Ralph, Punkt 8/Test F): Nach dem reinen Speichern das Produkt VOLLSTAENDIG aus der
+     Datenbank neu laden und den Editor daraus neu aufbauen - die UI zeigt exakt den
+     gespeicherten Zustand, keine lokalen Altwerte. Teilfehler werden VOLLSTAENDIG genannt. */
+  if(!alsoFreigeben && pid){
+    var _mAlt=msg.textContent;
+    try{ await openFgEditor(pid, null, window._fgEditorTarget||undefined); }catch(e){ console.error("Reload nach Speichern:", e); }
+    try{
+      var _m2=document.getElementById("fe_msg");
+      if(_m2){
+        if(_fehler.length){ _m2.style.color="var(--k-b45309)"; _m2.style.fontWeight="700"; _m2.textContent="💾 Gespeichert, aber mit Teil-Fehlern: "+_fehler.join(" · "); }
+        else { _m2.style.color="var(--k-16a34a)"; _m2.textContent="✓ gespeichert – aus der Datenbank neu geladen"; }
+      }
+    }catch(e){}
+    return;
+  }
   /* Nur „Speichern & freigeben" schließt das Fenster (Ralph 23.07.). Reines „Speichern"
      lässt den Editor offen, damit man weiterarbeiten kann – vorher schloss BEIDES. */
   if(alsoFreigeben && window._rkSchnell && pid){
@@ -22749,7 +22843,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-2015";
+const APP_BUILD = "2026-08-05-2100";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
