@@ -3971,6 +3971,13 @@ function feGridHoeheSync(){
   /* Spaltenzahl nach Breite. Bei „mittel" bekommt die Referenz-Karte die volle
      Zeile - sie ist die breiteste und wird sonst zur Schlucht. */
   g.style.gridTemplateColumns=feSpalten("gridA", false, false, stufe);
+  /* Referenz V2 braucht Breite fuer den Baum (Ralph P4, 05.08.): im V2-Modus bekommt die
+     dritte Spalte den Loewenanteil, die Zusatzstoff-Spalte rueckt zusammen. Nur bei drei
+     Spalten (weit) - bei „mittel" hat die Referenz ohnehin die volle Zeile. Die Entscheidung
+     sitzt HIER, weil nur diese Funktion die Spalten setzt (§1.2c: keine zweite Kopie). */
+  if(stufe!=="eng" && stufe!=="mittel" && typeof fgRefV2An==="function" && fgRefV2An()){
+    g.style.gridTemplateColumns="minmax(0,0.85fr) minmax(0,0.6fr) minmax(560px,1.9fr)";
+  }
   var ref=document.getElementById("fe_colRef");
   if(ref) ref.style.gridColumn=(stufe==="mittel")?"1 / -1":"";
   if(stufe==="eng"){
@@ -14999,6 +15006,9 @@ function fgRefV2Anzeigen(){
   if(btn) btn.textContent = an?"⇦ Klassisch":"Referenz V2 ⇨";
   var fl=document.getElementById("fe_refFlipBtn");
   if(fl) fl.style.display = an?"none":"";
+  /* Spaltenbreiten haengen am V2-Zustand (P4) - nach jedem Umschalten neu setzen.
+     Rueckweg mitgedacht (§1.11n-nn): Klassisch stellt die Normalbreiten wieder her. */
+  try{ feGridHoeheSync(); }catch(e){}
 }
 function fgRefV2Init(){
   var btn=document.getElementById("fe_refV2Btn");
@@ -15015,23 +15025,59 @@ function fgRefV2Kopieren(){
   try{ navigator.clipboard.writeText(t); toast && toast("Originaltext kopiert"); }
   catch(e){ try{ var ta=document.getElementById("fe_refV2Roh"); if(ta){ ta.select(); document.execCommand("copy"); } }catch(_){} }
 }
-/* Farbschema laut Ralph (Etappe 4 D). Reihenfolge ist die Regel:
-   grau (Hinweis) -> rot (blockierend) -> gelb (unsicher/unbestaetigt) -> blau (Nebenrolle) -> gruen. */
-function _fgRefV2Farbe(e, pz){
+/* Originaletikett ganz aufklappen (Ralph P5, 05.08.): das Feld springt auf seine volle
+   Texthoehe und zurueck. Der Text selbst bleibt unveraendert (readonly, keine Umformung). */
+function fgRefV2RohGross(){
+  var ta=document.getElementById("fe_refV2Roh"), b=document.getElementById("fe_refV2RohBtn");
+  if(!ta) return;
+  if(ta.dataset.gross==="1"){
+    ta.style.height="150px"; ta.dataset.gross="0"; if(b) b.textContent="Ganz anzeigen";
+  }else{
+    ta.style.height=Math.max(150, ta.scrollHeight+10)+"px"; ta.dataset.gross="1"; if(b) b.textContent="Einklappen";
+  }
+}
+/* Farbschema laut Ralph (Etappe 4 D, verfeinert 05.08. nach visueller Pruefung von Zug 1).
+   Reihenfolge ist die Regel: grau (Hinweis) -> rot (nur ECHTE Fehler: Blocker/mehrdeutig/
+   Fragment) -> gelb (unsicher/unbestaetigt) -> blau (Nebenrolle: Unterzutat mit gebundenem
+   Parent, Mikro/Wirkstoff) -> gruen (bestaetigt).
+   Ralphs Unterzutaten-Logik: BLAU = Parent eindeutig erkannt UND gebunden, keine eigene
+   Bindung erwartet · GELB = unbestaetigt oder Stammzuordnung unsicher · ROT nur, wenn
+   tatsaechlich fehlend/mehrdeutig/falsch. ctx.blocker sind die IDs aus blockierende_fehler
+   der RPC - dieselbe Menge, die der Zaehler oben zaehlt (eine Regel, ein Ort, §1.11i). */
+function _fgRefV2Farbe(e, pz, ctx){
+  ctx=ctx||{};
   var st=String(e.status||""), typ=String(e.typ||"");
   var bestaetigt = pz && (pz.Manueller_Status==="BESTAETIGT" || pz.Manueller_Status==="IGNORIERT");
+  var eb2 = (Number(e.ebene)===2 || e.beziehung==="quelle");
+  function ROT(t){ return {f:"rot", c:"#dc2626", bg:"#fef2f2", t:t}; }
+  function GELB(t){ return {f:"gelb", c:"#b45309", bg:"#fffbeb", t:t}; }
+  function BLAU(t){ return {f:"blau", c:"#1d4ed8", bg:"#eff6ff", t:t}; }
+  function GRUEN(t){ return {f:"gruen", c:"#166534", bg:"#ecfdf5", t:t}; }
   if(typ==="kennzeichnungstext") return {f:"grau", c:"#94a3b8", bg:"var(--k-f6f8f7,#f6f8f7)", t:"Kennzeichnungstext – bewusst nicht als Zutat gewertet"};
-  if(st==="FRAGMENT")                        return {f:"rot", c:"#dc2626", bg:"#fef2f2", t:"Fragment – blockiert"};
-  if(st==="HERSTELLERANGABE_UNVOLLSTAENDIG") return {f:"rot", c:"#dc2626", bg:"#fef2f2", t:"Klammern unausgeglichen – blockiert"};
-  if(st==="MEHRDEUTIG")                      return {f:"rot", c:"#dc2626", bg:"#fef2f2", t:"Mehrere Kandidaten – blockiert"};
+  if(ctx.blocker && ctx.blocker[e.id]) return ROT("⛔ "+ctx.blocker[e.id]);
+  if(st==="FRAGMENT")                        return ROT("Fragment – blockiert");
+  if(st==="HERSTELLERANGABE_UNVOLLSTAENDIG") return ROT("Klammern unausgeglichen – blockiert");
+  if(st==="MEHRDEUTIG")                      return ROT("Mehrere Kandidaten – eindeutig oder gar nicht");
+  if(eb2){
+    if(st==="UNSICHER")  return GELB("Stammzuordnung unsicher – bestätigen");
+    if(st==="UNBEKANNT") return GELB("Nicht im Stamm – prüfen (blockiert nicht)");
+    if(bestaetigt)       return GRUEN("Bestätigt");
+    var p=ctx.parent;
+    if(p && p.db_gebunden===true) return BLAU("Über gebundenen Parent abgedeckt – keine eigene Bindung erwartet");
+    if(p && (p.zutat_id || p.gruppe_erkannt || String(p.status||"")==="OK")) return BLAU("Parent eindeutig erkannt – keine eigene Bindung erwartet (Parent-Bindung noch offen)");
+    return GELB("Parent unklar – Unterzutat unbestätigt");
+  }
+  if(typ==="mikronaehrstoff" || typ==="wirkstoff"){
+    if(bestaetigt) return GRUEN("Bestätigt");
+    if(st==="UNBEKANNT") return GELB((typ==="wirkstoff"?"Wirkstoff":"Mikronährstoff")+" nicht im Stamm/Wissen – prüfen");
+    return BLAU("Zählt nicht als Hauptzutat – "+(typ==="wirkstoff"?"Wirkstoff":"Mikronährstoff")+", unbestätigt");
+  }
   if(st==="UNBEKANNT" && (e.zaehlt_als_hauptzutat===true || typ==="gruppe"))
-                                             return {f:"rot", c:"#dc2626", bg:"#fef2f2", t:"Hauptzutat/Gruppe nicht im Stamm – blockiert"};
-  if(st==="UNSICHER")                        return {f:"gelb", c:"#b45309", bg:"#fffbeb", t:"Nur ein Vorschlag – bestätigen"};
-  if(st==="OK" && !bestaetigt)               return {f:"gelb", c:"#b45309", bg:"#fffbeb", t:"Erkannt, noch nicht bestätigt"};
-  if(Number(e.ebene)===2 || typ==="mikronaehrstoff" || typ==="wirkstoff" || e.beziehung==="quelle")
-                                             return {f:"blau", c:"#1d4ed8", bg:"#eff6ff", t:"Zählt bewusst nicht als Hauptzutat"};
-  if(st==="UNBEKANNT")                       return {f:"gelb", c:"#b45309", bg:"#fffbeb", t:"Nicht im Stamm – zu prüfen"};
-  return {f:"gruen", c:"#166534", bg:"#ecfdf5", t:"Erkannt und bestätigt"};
+                       return ROT("Hauptzutat/Gruppe nicht im Stamm – blockiert");
+  if(st==="UNSICHER")  return GELB("Nur ein Vorschlag – bestätigen");
+  if(st==="UNBEKANNT") return GELB("Nicht im Stamm – zu prüfen");
+  if(!bestaetigt)      return GELB("Erkannt, noch nicht bestätigt");
+  return GRUEN("Erkannt und bestätigt");
 }
 function _fgRefV2TypLabel(e){
   var t=String(e.typ||"");
@@ -15072,6 +15118,8 @@ function fgRefV2Render(d, st){
   }
   var el=Array.isArray(d.elemente)?d.elemente:[];
   var pzMap={}; (d.pruefzeilen||[]).forEach(function(p){ if(p&&p.Parser_Element_ID!=null) pzMap[p.Parser_Element_ID]=p; });
+  /* Blocker-IDs aus der RPC: Baumfarben und Zaehler lesen DIESELBE Menge (§1.11i) */
+  var blockMap={}; (d.blockierende_fehler||[]).forEach(function(b){ if(b&&b.id!=null) blockMap[b.id]=String(b.befund||b.art||"blockiert"); });
   var zus=d.zusammenfassung||{};
   var H=[];
 
@@ -15082,35 +15130,63 @@ function fgRefV2Render(d, st){
     H.push('<div style="margin-bottom:8px;font-size:11.5px;color:var(--muted)">Freigabe-Status: <b>'+esc(d.freigabe_status)+'</b></div>');
   }
 
-  /* --- Prüfzusammenfassung --- */
-  var blocker=(d.blockierende_fehler||[]).length, pruefen=(d.zu_pruefen||[]).length;
-  H.push('<div style="margin-bottom:8px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:12px;line-height:1.6">'
-    +'<b>'+esc(zus.hauptzutaten!=null?zus.hauptzutaten:"?")+' Hauptzutaten</b>'
-    +' · '+esc(zus.gruppen||0)+' Gruppen'
-    +' · '+esc(zus.unterzutaten||0)+' Unterzutaten'
-    +' · '+esc(zus.wirkstoffe||0)+' Wirk-/Mikronährstoffe'
-    +' · '+esc(zus.zusatzstoffe||0)+' Zusatzstoffe'
-    +'<br><span style="color:'+(blocker?'#dc2626':'#166534')+';font-weight:700">'+(blocker?('⛔ '+blocker+' blockierend'):'✓ keine Blocker')+'</span>'
-    +' · <span style="color:#b45309">'+pruefen+' zu prüfen</span>'
-    +(st?(' · '+(st.pruefung_abschliessbar?'<span style="color:#166534;font-weight:700">Prüfung abschließbar</span>':'<span style="color:var(--muted)">noch nicht abschließbar</span>')):'')
-    +'<br><span style="color:var(--muted);font-size:11px">Parser '+esc(d.parser_version||"")+' · '+((d.pruefzeilen||[]).length)+' gespeicherte Entscheidungen'
-    +((d.veraltete_zeilen)?(' · '+d.veraltete_zeilen+' veraltet'):'')+'</span></div>');
+  /* --- Prüfzusammenfassung: fachlich aufgeteilt statt einer Sammelzahl (Ralph 05.08., P2+P3+P6).
+     Vorher stand da „75 zu prüfen" – darin steckten 56 Kategorie-Lücken im Stamm und 14
+     Struktur-Unterzutaten, die nichts blockieren. Eine Sammelzahl macht aus Strukturkontrolle
+     scheinbare Arbeit. Und die Hauptzutaten-Zahl kommt NAMENTLICH aus den Elementen, nicht
+     aus einer Ebenenzählung – aufklappen zeigt, wer zählt und wer bewusst nicht. --- */
+  var pruefListe=(d.zu_pruefen||[]);
+  var arts={}; pruefListe.forEach(function(z){ if(z) arts[z.art]=(arts[z.art]||0)+1; });
+  function istBest(e){ var p=pzMap[e.id]; return !!(p&&(p.Manueller_Status==="BESTAETIGT"||p.Manueller_Status==="IGNORIERT")); }
+  function istEb1(e){ return Number(e.ebene)!==2 && e.beziehung!=="quelle"; }
+  var blocker=(d.blockierende_fehler||[]).length;
+  var unsichere=(arts.unsicherer_vorschlag||0);
+  var struktur=(arts.ohne_kategorie||0)+(arts.unbekannte_unterzutat||0);
+  var unbHaupt=el.filter(function(e){ return istEb1(e)&&(e.zaehlt_als_hauptzutat===true||e.typ==="gruppe")&&!istBest(e)&&!blockMap[e.id]; }).length;
+  var unbMikro=el.filter(function(e){ return e.typ==="mikronaehrstoff"&&!istBest(e)&&!blockMap[e.id]; }).length;
+  var unbWirk=el.filter(function(e){ return e.typ==="wirkstoff"&&!istBest(e)&&!blockMap[e.id]; }).length;
+  var entsch=(d.pruefzeilen||[]).length;
+  var hzListe=el.filter(function(e){ return istEb1(e)&&e.zaehlt_als_hauptzutat===true; })
+    .map(function(e){ return esc(e.name)+(e.typ==="gruppe"?' <span style="color:#1d4ed8">[Gruppe]</span>':''); });
+  var nichtHzWirk=el.filter(function(e){ return istEb1(e)&&e.zaehlt_als_hauptzutat!==true&&e.typ==="wirkstoff"; })
+    .map(function(e){ return esc(e.name); });
+  var nMikroEb1=el.filter(function(e){ return istEb1(e)&&e.typ==="mikronaehrstoff"; }).length;
+  H.push('<div style="margin-bottom:8px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:12px;line-height:1.65">'
+    +'<details><summary style="cursor:pointer"><b>'+hzListe.length+' Hauptzutaten</b> (davon '+esc(zus.gruppen||0)+' Gruppen)'
+    +' · '+esc(zus.unterzutaten||0)+' Unterzutaten · '+esc(zus.wirkstoffe||0)+' Wirk-/Mikronährstoffe · '+esc(zus.zusatzstoffe||0)+' Zusatzstoffe'
+    +' <span style="color:var(--muted);font-weight:400">– aufklappen: welche zählen</span></summary>'
+    +'<div style="margin:5px 0 3px 6px;font-size:11.5px;line-height:1.7">'+hzListe.join(' · ')+'</div>'
+    +((nichtHzWirk.length||nMikroEb1)?('<div style="margin:0 0 3px 6px;font-size:11px;color:var(--muted)">In der Zutatenliste auf oberster Ebene, zählt aber bewusst NICHT als Hauptzutat: '
+      +nichtHzWirk.map(function(n){return n+" (Wirkstoff)";}).join(' · ')
+      +(nMikroEb1?((nichtHzWirk.length?' · ':'')+nMikroEb1+' Mikronährstoffe'):'')+'</div>'):'')
+    +'</details>'
+    +'<div style="margin-top:4px"><span style="color:'+(blocker?'#dc2626':'#166534')+';font-weight:700">'
+    +(blocker?('⛔ '+blocker+' blockierende Fehler'):'✓ keine blockierenden Fehler')+'</span>'
+    +(unsichere?(' · <span style="color:#b45309">'+unsichere+' unsichere Treffer</span>'):'')+'</div>'
+    +'<div>Unbestätigt: <span style="color:#b45309">'+unbHaupt+' Hauptzutaten/Gruppen · '+unbMikro+' Mikronährstoffe · '+unbWirk+' Wirkstoffe</span></div>'
+    +'<div style="color:var(--muted)">Strukturkontrolle (blockiert nichts): '+struktur+' Punkte – Unterzutaten ohne Stammtreffer oder Stammzutat ohne Kategorie</div>'
+    +'<div style="margin-top:4px;color:var(--muted);font-size:11px">Parseranalyse: vorhanden ('+esc(d.parser_version||"?")+')'
+    +' · Prüfentscheidungen: '+(entsch?(entsch+' von '+el.length+' erhoben'):'noch keine erhoben')
+    +((d.veraltete_zeilen)?(' · '+d.veraltete_zeilen+' veraltet'):'')
+    +(st?(' · '+(st.pruefung_abschliessbar?'<span style="color:#166534;font-weight:700">Prüfung abschließbar</span>':'noch nicht abschließbar')):'')
+    +'</div></div>');
   if(st && Array.isArray(st.gruende) && st.gruende.length){
-    H.push('<div style="margin-bottom:8px;font-size:11.5px;color:var(--muted)">Offen: '+esc(st.gruende.join(" · "))+'</div>');
+    H.push('<div style="margin-bottom:8px;font-size:11.5px;color:var(--muted)">Für die Freigabe offen: '+esc(st.gruende.join(" · "))+'</div>');
   }
 
   /* --- Originaletikett: vollständig, unverändert, kopierbar --- */
   H.push('<details style="margin-bottom:8px" open><summary style="cursor:pointer;font-size:11.5px;color:var(--green);font-weight:700">Originaletikett'
     +' <span style="font-weight:400;color:var(--muted);text-transform:none">– '+esc(d.rohtext_quelle||"")+'</span></summary>'
-    +'<textarea id="fe_refV2Roh" readonly style="width:100%;box-sizing:border-box;margin-top:6px;height:70px;padding:6px;border:1px solid var(--line);border-radius:8px;font-size:11.5px;line-height:1.45;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical">'+esc(d.rohtext||"")+'</textarea>'
+    +'<textarea id="fe_refV2Roh" readonly style="width:100%;box-sizing:border-box;margin-top:6px;height:150px;padding:6px;border:1px solid var(--line);border-radius:8px;font-size:11.5px;line-height:1.45;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical">'+esc(d.rohtext||"")+'</textarea>'
     +'<button type="button" onclick="fgRefV2Kopieren()" style="margin-top:5px;padding:4px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:11.5px">Kopieren</button>'
+    +'<button type="button" id="fe_refV2RohBtn" onclick="fgRefV2RohGross()" style="margin-top:5px;margin-left:6px;padding:4px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:11.5px">Ganz anzeigen</button>'
     +((d.rohtext_zusammengesetzt)?'<div style="margin-top:5px;font-size:11px;color:#b45309">⚠ Keine Originalfassung – aus Einzelangaben zusammengesetzt. Reihenfolge und Gruppierung können abweichen.</div>':'')
     +'</details>');
 
   /* --- Baum --- */
   var kinder={}; el.forEach(function(e){ if(e.parent_id!=null){ (kinder[e.parent_id]=kinder[e.parent_id]||[]).push(e); } });
-  function zeile(e, tief){
-    var f=_fgRefV2Farbe(e, pzMap[e.id]);
+  function zeile(e, tief, parentEl){
+    var f=_fgRefV2Farbe(e, pzMap[e.id], {blocker:blockMap, parent:parentEl});
     var pz=pzMap[e.id];
     var kandidaten=(e.kandidaten||[]).map(function(k){ return esc(k.zutat)+" ("+String(k.aehnlichkeit).slice(0,4)+", "+esc(k.art)+")"; }).join(" · ");
     return '<div style="margin-left:'+(tief*16)+'px;margin-bottom:3px;padding:5px 8px;border-left:3px solid '+f.c+';border-radius:6px;background:'+f.bg+';font-size:12px;line-height:1.45">'
@@ -15123,7 +15199,9 @@ function fgRefV2Render(d, st){
       +(e.e_nummer?(' <span style="font-size:10.5px;color:#1d4ed8">· '+esc(e.e_nummer)+'</span>'):'')
       +'<br><span style="font-size:10.5px;color:var(--muted)">'+esc(f.t)
       +(e.stammname?(' · Stamm: '+esc(e.stammname)+(e.note!=null?(' ('+esc(e.note)+')'):'')):'')
-      +(e.db_gebunden===false&&e.zutat_id?' · <span style="color:#dc2626">nicht gebunden</span>':'')
+      /* „nicht gebunden" ist nur auf Ebene 1 ein Befund - Unterzutaten haben per Konzept keine
+         eigene Bindung, dort waere Rot ein Dauer-Fehlalarm (Ralph P1, 05.08.; §1.11n-b). */
+      +((e.db_gebunden===false&&e.zutat_id&&!(Number(e.ebene)===2||e.beziehung==="quelle"))?' · <span style="color:#dc2626">nicht gebunden</span>':'')
       +(pz&&pz.Manueller_Status&&pz.Manueller_Status!=="OFFEN"?(' · <b>'+esc(pz.Manueller_Status)+'</b>'+(pz.Entschieden_Von?(' von '+esc(pz.Entschieden_Von)):'')):'')
       +'</span>'
       +(kandidaten?('<br><span style="font-size:10.5px;color:#b45309">Kandidaten: '+kandidaten+'</span>'):'')
@@ -15131,8 +15209,8 @@ function fgRefV2Render(d, st){
   }
   var baum=[];
   el.filter(function(e){ return e.parent_id==null; }).forEach(function(e){
-    baum.push(zeile(e,0));
-    (kinder[e.id]||[]).forEach(function(k){ baum.push(zeile(k,1)); });
+    baum.push(zeile(e,0,null));
+    (kinder[e.id]||[]).forEach(function(k){ baum.push(zeile(k,1,e)); });
   });
   H.push('<div>'+(baum.length?baum.join(""):'<span style="color:var(--muted);font-size:12.5px">Keine Elemente.</span>')+'</div>');
 
@@ -15141,7 +15219,7 @@ function fgRefV2Render(d, st){
     +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#166534;vertical-align:middle;margin-right:4px"></span>bestätigt</span>'
     +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#b45309;vertical-align:middle;margin-right:4px"></span>zu bestätigen</span>'
     +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#dc2626;vertical-align:middle;margin-right:4px"></span>blockierend</span>'
-    +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#1d4ed8;vertical-align:middle;margin-right:4px"></span>zählt nicht als Hauptzutat</span>'
+    +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#1d4ed8;vertical-align:middle;margin-right:4px"></span>Nebenrolle – über Parent abgedeckt bzw. Wirk-/Mikronährstoff</span>'
     +'<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#94a3b8;vertical-align:middle;margin-right:4px"></span>Hinweis</span>'
     +'<span style="margin-left:auto">Zug 1: nur Anzeige – Aktionen folgen</span></div>');
 
@@ -15151,6 +15229,7 @@ if(typeof window!=='undefined'){
   window.fgRefV2An=fgRefV2An; window.fgRefV2Set=fgRefV2Set; window.fgRefV2Umschalten=fgRefV2Umschalten;
   window.fgRefV2Init=fgRefV2Init; window.fgRefV2Laden=fgRefV2Laden; window.fgRefV2Render=fgRefV2Render;
   window.fgRefV2Kopieren=fgRefV2Kopieren; window.fgRefV2Anzeigen=fgRefV2Anzeigen;
+  window.fgRefV2RohGross=fgRefV2RohGross;
 }
 
 function fgEnthaltenRender(){
@@ -22249,7 +22328,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1520";
+const APP_BUILD = "2026-08-05-1540";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
