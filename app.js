@@ -3982,6 +3982,21 @@ function feGridHoeheSync(){
        dvh gibt es seit iOS 15.4; aeltere Browser fallen auf vh zurueck. */
     g.style.height="calc(100vh - "+(FE_GRID_BASIS+h)+"px)";
     g.style.height="calc(100dvh - "+(FE_GRID_BASIS+h)+"px)";
+    /* 🔴 05.08. (Ralph: "größe passt, aber eben weiter nach oben"). Die feste Bildschirmhoehe
+       ist eine OBERGRENZE, kein Sollwert. Sind die drei Karten kuerzer als der Bildschirm -
+       bei Supplements mit wenigen Zutaten der Normalfall -, blieb der Kasten trotzdem auf voller
+       Hoehe stehen und schob den Kachel-Streifen ans untere Ende. Dazwischen: eine leere Flaeche.
+       Jetzt wird der TATSAECHLICHE Platzbedarf gemessen und der Kasten darauf verkleinert.
+       Ist der Inhalt laenger, bleibt es bei der Obergrenze und die Karten scrollen innen
+       weiter - das Konzept vom 26.07. bleibt unangetastet. */
+    try{
+      var frei=Math.round(g.getBoundingClientRect().height), noetig=0;
+      for(var i=0;i<g.children.length;i++){
+        var c=g.children[i];
+        noetig=Math.max(noetig, c.scrollHeight||0, c.getBoundingClientRect().height||0);
+      }
+      if(noetig>0 && noetig < frei-8) g.style.height=noetig+"px";
+    }catch(e){}
   }
 }
 function _feKachel(name, wert, unter, pct){
@@ -22191,7 +22206,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1230";
+const APP_BUILD = "2026-08-05-1245";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
