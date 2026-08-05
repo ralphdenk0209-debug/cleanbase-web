@@ -16090,6 +16090,16 @@ async function openFgEditor(id, prefill, targetEl){
 #fe_gridA #fe_refFront{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
 #fe_colZus > div > *{flex:1 1 auto;min-width:0}
 #fe_flipInner.geflippt{transform:rotateY(180deg)}
+/* 05.08. (Ralph: „referenz nicht, auch nicht klassisch" - Rad tot NUR auf der Referenzkarte):
+   fe_refBack liegt mit position:absolute;inset:0 DAUERHAFT ueber der ganzen Karte, nur per
+   backface-visibility unsichtbar. Das nimmt aber die KINDER (Etikett-Zoombox mit
+   wheel-preventDefault) nicht zuverlaessig aus dem Hit-Test - Chrome-Grauzone, backface
+   vererbt nicht. Ergebnis: das Rad traf die unsichtbare Rueckseite statt der Liste.
+   Darum: solange NICHT geflippt, ist die Rueckseite komplett raus (visibility nimmt auch
+   alle Kinder aus dem Hit-Test, aendert kein Layout); beim Flip wird sie wieder aktiv -
+   Rueckweg mitgedacht (§1.11n-nn). */
+#fe_flipInner:not(.geflippt) #fe_refBack{visibility:hidden;pointer-events:none}
+#fe_flipInner.geflippt #fe_refBack{visibility:visible;pointer-events:auto}
 #fe_fotoMount > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
 #fe_fotoMount > div > *{flex:0 0 auto;min-height:0}
 #fe_fotoMount #fe_wirkFotoBox{flex:1 1 auto;height:auto;min-height:280px}
@@ -22425,7 +22435,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1640";
+const APP_BUILD = "2026-08-05-1655";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
