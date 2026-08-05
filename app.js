@@ -3983,6 +3983,29 @@ function feGridHoeheSync(){
     g.style.height="calc(100vh - "+(FE_GRID_BASIS+h)+"px)";
     g.style.height="calc(100dvh - "+(FE_GRID_BASIS+h)+"px)";
   }
+  /* 05.08. (Ralph: „die enthaltenen naehrstoffe sind immer noch nach unten verschoben …
+     gesamtansicht sollte auf einem bildschirm passen"). Der Streifen steht im DOM NACH
+     #feRahmen – und dessen Hoehe bestimmt nicht die Arbeitsflaeche, sondern die LINKE
+     LEISTE (Root-Index + Freigabe + Quelle & Beleg, gemessen 835px). Sind die Karten
+     kuerzer als die Leiste – genau der Supplement-Fall, weil der Streifen ihnen Hoehe
+     abzieht –, klaffte dazwischen die Differenz als Leere (gemessen 405px). GEMESSEN
+     statt gerechnet (§1.13mm): der Streifen wird um den echten Ueberhang nach oben
+     gezogen. Er ueberlappt dabei nur den LEEREN Bereich rechts neben der Leiste
+     (marginLeft aus feKachelBreiteSync haelt ihn aus deren Spalte heraus). Kein
+     Ueberhang – der Normalfall ohne Streifen oder mit langem Reiter 1 – heisst
+     margin bleibt 10px, alles wie bisher. Muss NACH dem Setzen der Kartenhoehe
+     laufen, sonst misst man den alten Stand. */
+  if(k && k.innerHTML){
+    var rahmen=document.getElementById("feRahmen"), unten=0;
+    ["feTab1","feTab2"].forEach(function(id){
+      var t=document.getElementById(id); if(!t) return;
+      var r=t.getBoundingClientRect(); if(r.height>0 && r.bottom>unten) unten=r.bottom;
+    });
+    if(rahmen && unten>0){
+      var ueberhang=Math.round(rahmen.getBoundingClientRect().bottom - unten);
+      if(ueberhang>0) k.style.marginTop=(10-ueberhang)+"px";
+    }
+  }
 }
 function _feKachel(name, wert, unter, pct){
   var gruen=(pct!=null&&pct>=100), gelb=(pct!=null&&pct>0&&pct<100);
@@ -15857,6 +15880,16 @@ async function openFgEditor(id, prefill, targetEl){
      und beim naechsten neuen Element faellt es wieder auf), gilt hier: KEIN direktes Kind einer Karte wird
      gequetscht. Die scrollenden Listen tragen ihr flex INLINE und schlagen diese Regel bewusst. */}
 <style>#fe_gridA .cardFB > *{flex-shrink:0}
+/* 05.08. (Ralphs Fund „der rechte container wurde einfach abgeschnitten"): Zug 1 hat die
+   Referenz-Inhalte in den Wrapper fe_refFront gewickelt. Als direktes cardFB-Kind fiel der
+   unter die flex-shrink:0-Schutzregel eine Zeile hoeher und wuchs als display:block auf seine
+   Inhaltshoehe (gemessen 1308px in einer 430px-Karte) – die Liste konnte nie intern scrollen,
+   der Rest lief unsichtbar unter den Kachel-Streifen. Diese Regel macht den Wrapper zur
+   Flex-Durchreiche; seine Kinder tragen ihr flex bereits inline (fe_enthalten 1 1 auto,
+   Eingabezeile und Legende 0 0 auto – dafuer waren sie gebaut, bevor Zug 1 sie wickelte).
+   BEWUSST als CSS-Regel statt inline: fgRefV2Anzeigen schaltet mit style.display=leer/none
+   um, und ein Inline-display:flex waere beim ersten Umschalten geloescht worden (§1.11n-dd). */
+#fe_refFront{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
 #fe_colZus > div > *{flex:1 1 auto;min-width:0}
 #fe_flipInner.geflippt{transform:rotateY(180deg)}
 #fe_fotoMount > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
@@ -16541,6 +16574,9 @@ function feTabWechsel(n){
   var st=function(btn,on){ if(!btn) return; btn.style.color=on?'var(--k-166534)':'var(--muted)'; btn.style.borderBottomColor=on?'var(--k-16a34a)':'transparent'; btn.style.background=on?'var(--greenlt,#ecfdf5)':'none'; };   /* 28v (Ralph): aktiver Reiter zusaetzlich mit Flaeche hinterlegt - Unterstrich allein war zu unauffaellig */
   st(document.getElementById('feTabBtn1'),n===1); st(document.getElementById('feTabBtn2'),n===2);
   if(n===2){ try{ fgWirkFotoRender(); }catch(e){} }   /* Etikett-Einpassung, falls die Flip-Rueckseite offen ist */
+  /* 05.08.: Der Kachel-Streifen haengt gemessen an der Unterkante des SICHTBAREN Reiters
+     (feGridHoeheSync) – nach jedem Wechsel nachziehen, sonst steht er auf dem Mass des alten. */
+  try{ feGridHoeheSync(); }catch(e){}
 }
 function feTabBadgeUpdate(off, done){
   /* 28r (Ralph): nicht nur Offenes zeigen - ist alles uebernommen, steht die ANZAHL da.
@@ -22191,7 +22227,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-1315";
+const APP_BUILD = "2026-08-05-1440";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
