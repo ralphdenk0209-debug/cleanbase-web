@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-05-1245 (05.08. 12:45: Kachel-Streifen rueckt nach oben. Die feste Bildschirmhoehe der Arbeitsflaeche ist jetzt eine OBERGRENZE statt eines Sollwerts: sind die drei Karten kuerzer als der Bildschirm, wird der Kasten auf den gemessenen Platzbedarf verkleinert und der Streifen folgt direkt darunter. Ist der Inhalt laenger, bleibt die Obergrenze und die Karten scrollen innen weiter wie bisher. 12:30: Streifenbreite gemessen statt gezaehlt. 11:30: Etappe 4 Zug 1 - Referenzansicht V2 als reine Anzeige, nur Lese-RPCs.) -->
+<!-- build 2026-08-05-1300 (05.08. 13:00: Arbeitsflaeche ist jetzt HOECHSTENS bildschirmhoch statt immer bildschirmhoch - dadurch rueckt der Kachel-Streifen direkt unter die Karten. Kurze Karten: Kasten so hoch wie sie. Lange Karten: Deckel greift wie bisher, die Karten scrollen innen. Das gerechnete Schrumpfen aus 12:45 ist wieder raus. 12:30: Streifenbreite gemessen. 11:30: Etappe 4 Zug 1 - Referenzansicht V2 als reine Anzeige, nur Lese-RPCs.) -->
 <!-- OFFEN: Stamm-Validität (230 „Auto"-Bewertungen – Import-Leck stoppen + Bestand prüfen). -->
 <html lang="de">
 <head>
@@ -1470,7 +1470,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
-<script src="app.js?v=2026-08-05-1245"></script>
+<script src="app.js?v=2026-08-05-1300"></script>
 <button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
 <button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 </body>
