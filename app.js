@@ -15687,16 +15687,20 @@ async function openFgEditor(id, prefill, targetEl){
        neu gebaut - kein Feld, kein Speicherweg geaendert. */}
     <div id="feRahmen" style="display:grid;grid-template-columns:242px minmax(0,1fr);gap:12px;align-items:start">
       <div id="feRail" style="display:flex;flex-direction:column;gap:10px;position:sticky;top:58px;min-width:0">
+        ${''/* 06.08.2026 Etappe 3a (Mockup H): Aus der waagerechten Reiterleiste wird eine
+             senkrechte Stationsschiene im linken Streifen. Dieselben drei Knoepfe, dieselben IDs,
+             derselbe onclick - nur Ort und Aussehen. Keine Funktion geaendert. */}
+        <div id="feTabBar" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 8px;display:flex;flex-direction:column;gap:3px">
+          <div style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:2px 9px 6px">Stationen</div>
+        <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;border-left:3px solid transparent;background:none;border-radius:8px;padding:8px 9px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)"><span class="feStNr" style="width:21px;height:21px;flex:0 0 21px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10.5px;background:var(--card)">1</span><span style="min-width:0;line-height:1.25">📋 Kopfdaten <span id="feTab1Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span><span id="feTab1Ean" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:#fef9c3;color:#854d0e"></span></span></button>
+        <button type="button" id="feTabBtn2" onclick="feTabWechsel(2)" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;border-left:3px solid transparent;background:none;border-radius:8px;padding:8px 9px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)"><span class="feStNr" style="width:21px;height:21px;flex:0 0 21px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10.5px;background:var(--card)">2</span><span style="min-width:0;line-height:1.25">🧪 Nährwerte &amp; Wirkstoffe <span id="feTab2Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></span></button>
+        <button type="button" id="feTabBtn3" onclick="feTabWechsel(3)" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;border-left:3px solid transparent;background:none;border-radius:8px;padding:8px 9px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)"><span class="feStNr" style="width:21px;height:21px;flex:0 0 21px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10.5px;background:var(--card)">3</span><span style="min-width:0;line-height:1.25">🥣 Zutaten &amp; Referenz <span id="feTab3Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></span></button>
+        </div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
         <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">Freigabe</div><div id="feRailAmpel" style="font-size:12px;line-height:1.5;color:var(--muted)">wird geprüft…</div></div>
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label>${quellenTypHinweis()}<div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
       </div>
       <div id="feEditorBody" style="min-width:0">
-        <div id="feTabBar" style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:10px">
-          <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="border:0;background:var(--greenlt,#ecfdf5);border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--k-166534);border-bottom-color:var(--k-16a34a)">📋 Kopfdaten <span id="feTab1Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span><span id="feTab1Ean" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:#fef9c3;color:#854d0e"></span></button>
-          <button type="button" id="feTabBtn2" onclick="feTabWechsel(2)" style="border:0;background:none;border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🧪 Nährwerte &amp; Wirkstoffe <span id="feTab2Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
-          <button type="button" id="feTabBtn3" onclick="feTabWechsel(3)" style="border:0;background:none;border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🥣 Zutaten &amp; Referenz <span id="feTab3Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
-        </div>
         <div id="feTab1">
     <div id="feKopfLayout" style="display:flex;flex-direction:column;gap:12px;min-width:0">
       <!-- 02.08. (Ralph): Riki-Zeile schlank. Vorher ~280px Hoehe fuer drei gleich grosse
@@ -16519,7 +16523,16 @@ function feTabWechsel(n){
   n=(n===2||n===3)?n:1; window._feTab=n;
   var tabs=[document.getElementById('feTab1'),document.getElementById('feTab2'),document.getElementById('feTab3')];
   tabs.forEach(function(t,i){ if(t) t.style.display=(n===i+1)?'':'none'; });
-  var st=function(btn,on){ if(!btn) return; btn.style.color=on?'var(--k-166534)':'var(--muted)'; btn.style.borderBottomColor=on?'var(--k-16a34a)':'transparent'; btn.style.background=on?'var(--greenlt,#ecfdf5)':'none'; };
+  /* 06.08.2026 Etappe 3a: Die Knoepfe stehen jetzt senkrecht in der Schiene - die aktive
+     Station wird ueber einen linken Balken und den Ring markiert, nicht mehr ueber eine
+     Unterkante. Gleiche Funktion, gleiche IDs, nur die Anzeige passt zur neuen Form. */
+  var st=function(btn,on){ if(!btn) return;
+    btn.style.color=on?"var(--k-166534)":"var(--muted)";
+    btn.style.borderLeftColor=on?"var(--k-16a34a)":"transparent";
+    btn.style.background=on?"var(--greenlt,#ecfdf5)":"none";
+    var r=btn.querySelector(".feStNr");
+    if(r){ r.style.borderColor=on?"var(--k-16a34a)":"var(--line)"; r.style.color=on?"var(--k-166534)":"var(--muted)"; }
+  };
   st(document.getElementById('feTabBtn1'),n===1); st(document.getElementById('feTabBtn2'),n===2); st(document.getElementById('feTabBtn3'),n===3);
   if(n===2){ try{ fgFotoPlatzieren(); fgWirkFotoRender(); }catch(e){} }
   if(n===3){ try{ fgRefV2Init(); }catch(e){} }
@@ -22224,7 +22237,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-06-2245";
+const APP_BUILD = "2026-08-06-2310";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
