@@ -1,3 +1,4 @@
+/* build 2026-08-06-0350 · Supplement/Süßungsmittel Layout: Nährwerte sichtbar, Produktbild rechts, idempotente Kartenpositionen. */
 const SUPABASE_URL = "https://haurbpfkfaaehorirzee.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
 
@@ -16579,87 +16580,83 @@ async function keinScoreKatsLaden(){
    (da stehen die Wirkstoffe drin, nicht Lebensmittel-Zutaten) und die Vorschlagsliste
    blendet Lebensmittel aus. Sonst normal „Zutaten". */
 function feKatChange(){
-  try{ if(typeof feBallastPruefen==="function") feBallastPruefen(); }catch(e){}   /* 02.08.: andere Warenart = andere Ballaststoff-Erwartung */
-  var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
+  try{ if(typeof feBallastPruefen==="function") feBallastPruefen(); }catch(e){}
+  var _kat2=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
+  var supp=(_kat2==="supplement");
+  var suess=(_kat2==="süßungsmittel"||_kat2==="suessungsmittel");
+  var _istSalz2=(_kat2==="salze");
+  var special=supp||_istSalz2;
+
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
-  var special=_fgIstSpecial();   /* Supplement/Salze: Bild NEBEN der Wirkstoff-/Mineral-Tabelle, kein Lebensmittel-Score (Ralph 25.07.) */
-  try{ feNaehrBtnSync(); }catch(e){}      /* 30.07.: Nährstoff-Knopf nur bei Supplement/Salze (Ralph) */
-  /* 02.08.: Ergebnis des VORIGEN Produkts zuerst wegwerfen. Sonst zeigt die Freigabe-Zeile
-     450 ms lang den Dubletten-Stand des zuletzt geoeffneten Produkts - eine Aussage ueber
-     etwas anderes, und zwar eine, die richtig aussieht (§1.11n-f). undefined heisst hier
-     ausdruecklich "noch nicht geprueft", nicht "nichts gefunden". */
-  window._feDub=undefined;
-  try{ feDubPruefen(); }catch(e){}
-  window._feBallast=undefined;
-  try{ feBallastPruefen(); }catch(e){}   /* 02.08.: Ballaststoff-Erwartung zur Kategorie holen */        /* 31.07.: Dubletten-Chip auch ohne Tippen - beim Oeffnen einmal ansehen */
-  try{ feNaehrKachelnSync(); }catch(e){}  /* … und der Kachel-Streifen unter der Maske */
-  var _wcol=document.getElementById("fe_wirkFotoCol"), _wg=document.getElementById("fe_wirkGrid"), _wback=document.getElementById("fe_refBack"), _wfbtn=document.getElementById("fe_refFlipBtn"), _wc=document.getElementById("fe_wirkCard"), _wtc=document.getElementById("fe_wirkTblCol");
-  /* KONZEPT A: das Etikettfoto haengt IMMER oben in der Quelle-Spalte – bei jeder Kategorie, ohne Flip.
-     Vorher wanderte es je nach Kategorie entweder neben die Wirkstoff-Tabelle oder auf die Rueckseite
-     der Referenz-Karte; letzteres versteckte ausgerechnet die Quelle, an der abgelesen wird. */
-  try{ fgFotoPlatzieren(); }catch(e){}   /* eine Regel, ein Ort – siehe fgFotoPlatzieren */
-  /* 28h: Flip-Knopf ist wieder echt. Nur bei Supplement/Salz aus (Foto haengt neben der Dosis-Tabelle,
-     es gibt nichts umzudrehen) - und die Karte dreht dann zurueck auf die Referenz-Seite. */
-  if(_wfbtn) _wfbtn.style.display= special ? "none" : "";
+  try{ feNaehrBtnSync(); }catch(e){}
+
+  window._feDub=undefined; try{ feDubPruefen(); }catch(e){}
+  window._feBallast=undefined; try{ feBallastPruefen(); }catch(e){}
+  try{ feNaehrKachelnSync(); }catch(e){}
+
+  var _wfbtn=document.getElementById("fe_refFlipBtn");
+  var _wc=document.getElementById("fe_wirkCard");
+  var _wtc=document.getElementById("fe_wirkTblCol");
+  var _png=document.getElementById("fe_prodNwGrid");
+  var _fg=document.getElementById("fe_grid");
+  var _nwC=document.getElementById("fe_nwCard");
+  var _wAnker=document.getElementById("fe_wirkAnker");
+  var _wg=document.getElementById("fe_wirkGrid");
+
+  try{ fgFotoPlatzieren(); }catch(e){}
+  if(_wfbtn) _wfbtn.style.display=special?"none":"";
   if(special){ try{ fgRefFlip(false); }catch(e){} }
-  if(special){
-    if(_wc) _wc.style.display=""; if(_wtc) _wtc.style.display="";   /* Wirkstoff-Tabelle nur bei Supplement/Salze */
-    try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
-    try{ ladeWirkDB(); }catch(e){}   /* Dropdown "alle Wirkstoffe" aus DB nachfuellen (Ralph 27.07.) */
-  try{ feWirkFarbeAll(); }catch(e){}
-  } else {
-    if(_wc) _wc.style.display="none";
-  }
-  /* 28z3 (Ralph: "wenn ich bei der kategorie supplements auswaehle aendert sich das layout" +
-     "salze genau so nach bedarf, suessungsmittel faellt auch darunter"). Je Kategorie faellt weg,
-     was sie nicht braucht - Felder werden VERSTECKT, nicht entfernt (§1.11n-j), Werte bleiben:
-     - Supplement:    Naehrwerte-Karte AUS (Freigabe braucht sie nicht) + Mikro-Karte AUS
-                      (Tagebuch zaehlt Supplemente ueber die Wirkstoff-Tabelle) -> eine Seite.
-     - Salze:         Naehrwerte-Karte AUS, Mikro-Karte bleibt AN (Jod/Fluorid je 100 g sind
-                      der Kern der Salz-Sektion, inkl. neuer USDA-Suche).
-     - Suessungsmittel (u. kuenftige Kein-Score-Kategorien): Naehrwerte-Karte bleibt AN, aber
-                      OHNE Pflicht (Tagebuch zaehlt kcal/KH - Erythrit hat 99 g KH bei 0 kcal;
-                      die Karte auszublenden wuerde diese Werte unerfassbar machen); Mikro AUS. */
+
+  /* 06.08.2026: feste, idempotente Layouts fuer Supplement und Suessungsmittel.
+     Keine Datenlogik hier: Kategorie steuert nur die Anordnung. */
   try{
-    var _kat2=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
-    var _istSalz2=(_kat2==="salze");
-    var _ks=window._ksKats;
-    var _istKein2=supp||_istSalz2||!!(_ks?_ks.has(_kat2):(_kat2==="süßungsmittel"));
-    var _nwAus = supp||_istSalz2;
-    var _mikroAus = supp || (_istKein2 && !_istSalz2 && !supp);
-    var _nwC=document.getElementById("fe_nwCard"); if(_nwC) _nwC.style.display=_nwAus?"none":"contents";
-    /* 28z6 (Ralph): bei SUPPLEMENT ruecken die Wirkstoffe NEBEN die Kopfdaten (rechte, breitere
-       Spalte), die Kopfdaten werden schmaler (0.9fr zu 1.35fr). Beim Verlassen der Kategorie
-       zieht die Karte an ihren Anker unter dem Raster zurueck. */
-    var _png=document.getElementById("fe_prodNwGrid");
-    /* 28z8 (Ralph am Live-28z6/z7: "etwas zu schmal, wirkstoff und bild darf breiter sein"):
-       Kopfdaten auf feste ~340px statt Verhaeltnis-Anteil - ALLES Uebrige geht an
-       Wirkstoffe+Etikett. Zusaetzlich wird bei Supplement die Produktbild-Spalte ganz
-       rechts schmaler (280-320px statt 300-440px) - auch dieser Platz fliesst in die Mitte. */
-    if(_png) _png.style.gridTemplateColumns = feSpalten("prodNw", supp, _nwAus);
-    var _fg=document.getElementById("fe_grid");
-    /* 28z12-BUGFIX (Ralph: "das normale produktlayout war zuerst besser und nebeneinander"):
-       "" setzte die Spalten-Property NICHT auf den Template-Wert zurueck, sondern LOESCHTE sie
-       aus dem Inline-Style - das Raster verlor seine Spalten, die Bild-Spalte rutschte nach
-       unten. Der Template-Wert wird jetzt ausdruecklich wiederhergestellt. */
-    /* 28z13 (Ralph: "supplements ist immer noch nicht ueber die volle breite"): bei Supplement
-       wird das AUSSEN-Raster EINSPALTIG - die Reihe Kopfdaten|Wirkstoffe|Etikett bekommt die
-       volle Fensterbreite, die Produktbild-Karte rueckt als volle Zeile darunter. */
-    if(_fg) _fg.style.gridTemplateColumns = feSpalten("grid", supp, _nwAus);
-    var _wcMv=document.getElementById("fe_wirkCard"), _wAnker=document.getElementById("fe_wirkAnker");
-    try{
-      if(supp){ if(_png && _wcMv && _wcMv.parentNode!==_png){ _png.appendChild(_wcMv); _wcMv.style.marginTop="0"; } var _wg2=document.getElementById("fe_wirkGrid"); if(_wg2) _wg2.style.gridTemplateColumns=feSpalten("wirk", true, _nwAus); }
-      else if(_wAnker && _wcMv && _wcMv.previousElementSibling!==_wAnker){ _wAnker.parentNode.insertBefore(_wcMv, _wAnker.nextSibling); _wcMv.style.marginTop="2px"; }
-      if(!supp){ var _wg3=document.getElementById("fe_wirkGrid"); if(_wg3) _wg3.style.gridTemplateColumns=feSpalten("wirk", false, _nwAus); }   /* 28z12: Template-Wert explizit, "" wuerde die Spalten loeschen (gleicher Bug wie fe_grid) */
-    }catch(e){}
+    if(supp){
+      /* Produktbild bleibt rechts. Links stehen Produkt, Makros und Wirkstoff-/Etikettkarte
+         in einer Zeile. Nichts wird als Vollbreiten-Balken unter das Formular geschoben. */
+      if(_fg) _fg.style.gridTemplateColumns="minmax(0,1fr) minmax(280px,340px)";
+      if(_nwC) _nwC.style.display="block";
+      if(_png) _png.style.gridTemplateColumns="minmax(270px,320px) minmax(270px,340px) minmax(520px,1fr)";
+      if(_wc && _png && _wc.parentNode!==_png) _png.appendChild(_wc);
+      if(_wc){ _wc.style.display=""; _wc.style.marginTop="0"; }
+      if(_wtc) _wtc.style.display="";
+      if(_wg) _wg.style.gridTemplateColumns="minmax(300px,1fr) minmax(280px,.9fr)";
+      try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
+      try{ ladeWirkDB(); }catch(e){}
+    } else {
+      /* Fuer alle Nicht-Supplements kehrt die Wirkstoffkarte immer an denselben Anker zurueck.
+         So waechst oder wandert das Raster bei Kategorienwechseln nicht. */
+      if(_wAnker && _wc && _wc.previousElementSibling!==_wAnker){
+        _wAnker.parentNode.insertBefore(_wc,_wAnker.nextSibling);
+      }
+      if(_wc) _wc.style.marginTop="2px";
+      if(_fg) _fg.style.gridTemplateColumns="minmax(0,1fr) minmax(300px,440px)";
+      if(_png) _png.style.gridTemplateColumns="minmax(0,1fr) minmax(0,1fr)";
+      if(_nwC) _nwC.style.display=_istSalz2?"none":"block";
+      if(_wg) _wg.style.gridTemplateColumns="minmax(300px,1fr) minmax(280px,1fr)";
+
+      /* Suessungsmittel duerfen Wirkstoffe besitzen (z. B. Laktase). Nur dann zeigen;
+         normale Lebensmittel bleiben unveraendert schlank. */
+      var _hatWirk=(typeof feWirkCount==="function"&&feWirkCount()>0);
+      if(_wc) _wc.style.display=(suess&&_hatWirk)||_istSalz2?"":"none";
+      if(_wc&&_wc.style.display===""){
+        if(_wtc) _wtc.style.display="";
+        try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
+      }
+    }
+
+    /* Mikronaehrstoffbereich im zweiten Reiter: Salz sichtbar, Supplement/Suessungsmittel
+       wie bisher ausgeblendet. Die Daten bleiben durch den separaten Speicherweg erhalten. */
+    var _mikroAus=supp||suess;
     var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display=_mikroAus?"none":"flex";
     var _c2=document.getElementById("fe_colZusMik"); if(_c2) _c2.style.gridTemplateRows=_mikroAus?"minmax(0,1fr)":"minmax(0,1.6fr) minmax(0,1fr)";
-  }catch(e){}
+  }catch(e){ console.error("Kategorie-Layout:",e); }
+
   try{ fgWirkFotoRender(); }catch(e){}
-  try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}   /* Supplement → nur Wirkstoffe in der Liste */
+  try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
+
 /* ===== Wirkstoff-Mengen (Supplements) – Eingabe für den Dosis-Check =====
    Eine Zeile je Wirkstoff: Stoff · Menge · Einheit · %NRV. Wird beim Speichern über
    cb_produkt_wirkstoffe_setzen in Produkt_Naehrstoffe geschrieben. Erst damit zeigt die
