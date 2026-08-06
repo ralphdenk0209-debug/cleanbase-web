@@ -16020,11 +16020,14 @@ function feKatChange(){
   try{ feDreiReiterInit(); }catch(e){}
   var nw=document.getElementById("fe_nwCard"); if(nw) nw.style.display="block";
   var wc=document.getElementById("fe_wirkCard");
-  var hatW=(typeof feWirkCount==="function"&&feWirkCount()>0);
-  if(wc) wc.style.display=(supp||salz||hatW)?"":"none";
+  /* 06.08.2026 (Ralph-Auftrag): Die Wirkstoff-Karte steht in JEDER Kategorie gleich.
+     Vorher: nur bei Supplement/Salz oder wenn schon Eintraege da waren - dadurch war
+     dieselbe Maske je nach Kategorie eine andere. Das Speichern ist bereits
+     kategorieunabhaengig (Stand 05.08., 21:00), nur die Anzeige hing noch. */
+  if(wc) wc.style.display="";
   var mw=document.getElementById("fe_mikroWrap"); if(mw) mw.style.display="flex";
   try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
-  if(supp||salz){ try{ ladeWirkDB(); }catch(e){} }
+  try{ ladeWirkDB(); }catch(e){}   /* Auswahlliste in jeder Kategorie - die Funktion cached (window._wirkDBGeladen) */
   try{ fgFotoPlatzieren(); }catch(e){}
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
@@ -22211,7 +22214,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-06-1930";
+const APP_BUILD = "2026-08-06-2140";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
