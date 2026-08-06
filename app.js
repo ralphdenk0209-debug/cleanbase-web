@@ -1,4 +1,3 @@
-/* build 2026-08-06-0420 · Erfassungs-Layout: Produkt+Makros oben, Produktbild kompakt rechts, Wirkstoffe breit darunter mit Etikett; keine Quetschspalten. */
 const SUPABASE_URL = "https://haurbpfkfaaehorirzee.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
 
@@ -16281,8 +16280,9 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
       <div style="min-width:0">
         <div id="feTabBar" style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:10px">
-          <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="border:0;background:var(--greenlt,#ecfdf5);border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--k-166534);border-bottom-color:var(--k-16a34a)">📋 Produkt &amp; Nährwerte <span id="feTab1Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span><span id="feTab1Ean" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:#fef9c3;color:#854d0e"></span></button>
-          <button type="button" id="feTabBtn2" onclick="feTabWechsel(2)" style="border:0;background:none;border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🥣 Zutaten &amp; Referenz <span id="feTab2Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
+          <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="border:0;background:var(--greenlt,#ecfdf5);border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--k-166534);border-bottom-color:var(--k-16a34a)">📋 Kopfdaten <span id="feTab1Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span><span id="feTab1Ean" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:#fef9c3;color:#854d0e"></span></button>
+          <button type="button" id="feTabBtn2" onclick="feTabWechsel(2)" style="border:0;background:none;border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🧪 Nährwerte &amp; Wirkstoffe <span id="feTab2Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
+          <button type="button" id="feTabBtn3" onclick="feTabWechsel(3)" style="border:0;background:none;border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🥣 Zutaten &amp; Referenz <span id="feTab3Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
         </div>
         <div id="feTab1">
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,440px);gap:14px;align-items:start" id="fe_grid">
@@ -16347,7 +16347,7 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
           <div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:-2px" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
         </div>`)}
-        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}</div>
+        <div id="fe_nwCard" style="display:contents">${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}</div>
         </div>
         ${''/* Wirkstoffe-Karte steht jetzt als eigene HALBE Reihe (Tabelle + Etikett-Lesebox) unter dem Raster – Ralph 24.07. Siehe #fe_wirkCard weiter unten. */}
       </div>
@@ -16429,7 +16429,7 @@ async function openFgEditor(id, prefill, targetEl){
 #fe_fotoMount #fe_wirkFotoBox{flex:1 1 auto;height:auto;min-height:280px}
 #fe_fotoLeerHinweis{display:none}
 #fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
-</div><div id="feTab2" style="display:none"><div id="fe_quickBar" style="display:none;gap:8px;align-items:center;margin:0 0 6px" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span style="font-size:15px;flex:0 0 auto" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu" style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px"><button type="button" onclick="fgQuickGo()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto">Zuordnen</button></div><div id="fe_quickMsg" style="font-size:12.5px;line-height:1.6;margin:0 0 6px 27px"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
+</div><div id="feTab2" style="display:none"></div><div id="feTab3" style="display:none"><div id="fe_quickBar" style="display:none;gap:8px;align-items:center;margin:0 0 6px" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span style="font-size:15px;flex:0 0 auto" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu" style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px"><button type="button" onclick="fgQuickGo()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto">Zuordnen</button></div><div id="fe_quickMsg" style="font-size:12.5px;line-height:1.6;margin:0 0 6px 27px"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -16532,6 +16532,7 @@ async function openFgEditor(id, prefill, targetEl){
     try{ feEinheitPrefill(d); }catch(e){}   /* Bezugseinheit g/ml vorbelegen (Ralph 27.07.) */
     try{ feBioPrefill(d); }catch(e){}       /* Bio-Kennzeichnung vorbelegen (Ralph 30.07.) */
     try{ feKatChange(); }catch(e){}
+    try{ feDreiReiterInit(); feTabWechsel(window._feTab||1); }catch(e){ console.error("Drei-Reiter-Layout:",e); }
     try{ feUrlLblSync(); }catch(e){}
     try{ keinScoreKatsLaden().then(function(){ try{ feKatChange(); }catch(e){} }); }catch(e){}   /* 28z3: Kein-Score-Liste nachladen, Layout+Pflichten dann korrekt */
     try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
@@ -16581,72 +16582,30 @@ async function keinScoreKatsLaden(){
    blendet Lebensmittel aus. Sonst normal „Zutaten". */
 function feKatChange(){
   try{ if(typeof feBallastPruefen==="function") feBallastPruefen(); }catch(e){}
-  var _kat2=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
-  var supp=(_kat2==="supplement");
-  var suess=(_kat2==="süßungsmittel"||_kat2==="suessungsmittel");
-  var _istSalz2=(_kat2==="salze");
-  var special=supp||_istSalz2;
-
+  var kat=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
+  var supp=(kat==="supplement"), salz=(kat==="salze");
   var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   try{ feNaehrBtnSync(); }catch(e){}
-
   window._feDub=undefined; try{ feDubPruefen(); }catch(e){}
   window._feBallast=undefined; try{ feBallastPruefen(); }catch(e){}
   try{ feNaehrKachelnSync(); }catch(e){}
 
-  var _wfbtn=document.getElementById("fe_refFlipBtn");
-  var _wc=document.getElementById("fe_wirkCard");
-  var _wtc=document.getElementById("fe_wirkTblCol");
-  var _png=document.getElementById("fe_prodNwGrid");
-  var _fg=document.getElementById("fe_grid");
-  var _nwC=document.getElementById("fe_nwCard");
-  var _wAnker=document.getElementById("fe_wirkAnker");
-  var _wg=document.getElementById("fe_wirkGrid");
-  var _wfoto=document.getElementById("fe_wirkFotoCol");
-
+  /* 06.08. Drei-Reiter-Editor: Kategorie steuert fachliche Hinweise, NICHT mehr die Geometrie.
+     Nährwerte, Wirkstoffe und Bilder haben einen festen Arbeitsort. Dadurch wandern Karten beim
+     Kategorienwechsel nicht mehr durchs DOM und das Layout bleibt reproduzierbar. */
+  try{ feDreiReiterInit(); }catch(e){}
+  var nw=document.getElementById("fe_nwCard"); if(nw) nw.style.display="block";
+  var wc=document.getElementById("fe_wirkCard");
+  var hatW=(typeof feWirkCount==="function"&&feWirkCount()>0);
+  if(wc) wc.style.display=(supp||salz||hatW)?"":"none";
+  var mw=document.getElementById("fe_mikroWrap"); if(mw) mw.style.display="flex";
+  try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
+  if(supp||salz){ try{ ladeWirkDB(); }catch(e){} }
   try{ fgFotoPlatzieren(); }catch(e){}
-  if(_wfbtn) _wfbtn.style.display=special?"none":"";
-  if(special){ try{ fgRefFlip(false); }catch(e){} }
-
-  /* 06.08.2026: arbeitsorientiertes Layout. Oben immer Produkt + Makros, rechts kompakt
-     das Produktbild. Wirkstoffe stehen darunter breit mit Etikett daneben. Keine dritte
-     Mini-Spalte im Kopf, keine quergezogene Bildkarte, keine wandernden DOM-Knoten. */
-  try{
-    /* Wirkstoffkarte immer an ihrem festen Heimatanker belassen. */
-    if(_wAnker && _wc && _wc.previousElementSibling!==_wAnker){
-      _wAnker.parentNode.insertBefore(_wc,_wAnker.nextSibling);
-    }
-    if(_wc){ _wc.style.marginTop="12px"; _wc.style.width="100%"; }
-
-    /* Kopfbereich: Hauptarbeit breit, Produktbild kompakt rechts. */
-    if(_fg) _fg.style.gridTemplateColumns="minmax(0,1fr) minmax(260px,320px)";
-    if(_png) _png.style.gridTemplateColumns="minmax(320px,.9fr) minmax(420px,1.1fr)";
-    if(_nwC) _nwC.style.display=_istSalz2?"none":"block";
-
-    /* Wirkstoff-Arbeitsbereich darunter: Tabelle bekommt klar mehr Platz als das Foto. */
-    if(_wg) _wg.style.gridTemplateColumns="minmax(560px,1.45fr) minmax(380px,.9fr)";
-    if(_wtc) _wtc.style.display="";
-    if(_wfoto) _wfoto.style.display="";
-
-    var _hatWirk=(typeof feWirkCount==="function"&&feWirkCount()>0);
-    if(_wc) _wc.style.display=(supp||_istSalz2||(suess&&_hatWirk))?"":"none";
-    if(_wc&&_wc.style.display===""){
-      try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
-      try{ ladeWirkDB(); }catch(e){}
-    }
-
-    /* Mikronährstoffe im Zutaten-Reiter unverändert kategoriegerecht. */
-    var _mikroAus=supp||suess;
-    var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display=_mikroAus?"none":"flex";
-    var _c2=document.getElementById("fe_colZusMik"); if(_c2) _c2.style.gridTemplateRows=_mikroAus?"minmax(0,1fr)":"minmax(0,1.6fr) minmax(0,1fr)";
-  }catch(e){ console.error("Kategorie-Layout:",e); }
-
-  try{ fgWirkFotoRender(); }catch(e){}
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
-
 /* ===== Wirkstoff-Mengen (Supplements) – Eingabe für den Dosis-Check =====
    Eine Zeile je Wirkstoff: Stoff · Menge · Einheit · %NRV. Wird beim Speichern über
    cb_produkt_wirkstoffe_setzen in Produkt_Naehrstoffe geschrieben. Erst damit zeigt die
@@ -17100,60 +17059,99 @@ function _fgIstSpecial(){ var k=(((document.getElementById("fe_kat")||{}).value|
    nur noch hier herein - sonst zieht die eine Funktion das Foto weg, das die andere gesetzt hat. */
 /* 28l: Reiter-Wechsel im Vollbild-Editor. Reine Anzeige (display an/aus) - beide Reiter sind
    IMMER im DOM, alle IDs existieren weiter, kein Feld wird neu gebaut oder geleert. */
+function feDreiReiterInit(){
+  var kopf=document.getElementById('feTab1'), nwTab=document.getElementById('feTab2');
+  var grid=document.getElementById('fe_grid'), prodGrid=document.getElementById('fe_prodNwGrid');
+  if(!kopf||!nwTab||!grid||!prodGrid) return;
+
+  /* Nur einmal strukturell umbauen. Beim Voll-Reload baut openFgEditor frisches DOM. */
+  if(!kopf.dataset.dreiReiter){
+    kopf.dataset.dreiReiter='1';
+    var haupt=grid.firstElementChild, bild=grid.children[1];
+    var daten=haupt&&haupt.firstElementChild;
+    var produkt=prodGrid.firstElementChild;
+    var nw=document.getElementById('fe_nwCard');
+    var wirk=document.getElementById('fe_wirkCard');
+    var mikro=document.getElementById('fe_mikroWrap');
+
+    kopf.innerHTML='';
+    var kopfWrap=document.createElement('div'); kopfWrap.id='feKopfLayout';
+    kopfWrap.style.cssText='display:flex;flex-direction:column;gap:12px;min-width:0';
+    kopf.appendChild(kopfWrap);
+    if(daten){ daten.id='feDatenHolen'; kopfWrap.appendChild(daten); }
+    var kgrid=document.createElement('div'); kgrid.id='feKopfGrid';
+    kgrid.style.cssText='display:grid;grid-template-columns:minmax(420px,1.45fr) minmax(280px,.75fr);gap:12px;align-items:start';
+    kopfWrap.appendChild(kgrid);
+    if(produkt) kgrid.appendChild(produkt);
+    if(bild) kgrid.appendChild(bild);
+
+    var nwWrap=document.createElement('div'); nwWrap.id='feNwLayout';
+    nwWrap.style.cssText='display:flex;flex-direction:column;gap:12px;min-width:0';
+    nwTab.appendChild(nwWrap);
+    var oben=document.createElement('div'); oben.id='feNwOben';
+    oben.style.cssText='display:grid;grid-template-columns:minmax(430px,1fr) minmax(360px,.9fr);gap:12px;align-items:start';
+    nwWrap.appendChild(oben);
+    if(nw){ nw.style.display='block'; oben.appendChild(nw); }
+    var fotoSlot=document.createElement('div'); fotoSlot.id='feNwFotoSlot'; fotoSlot.style.cssText='min-width:0'; oben.appendChild(fotoSlot);
+    if(wirk){ wirk.style.marginTop='0'; nwWrap.appendChild(wirk); }
+    if(mikro){ mikro.style.display='flex'; mikro.style.minHeight='260px'; nwWrap.appendChild(mikro); }
+
+    /* Die alte Hülle bleibt nicht als leere Layoutbox zurück. */
+    grid.style.display='none';
+  }
+
+  try{ fgFotoPlatzieren(); }catch(e){}
+  var wg=document.getElementById('fe_wirkGrid'); if(wg) wg.style.gridTemplateColumns='minmax(0,1fr)';
+  var wt=document.getElementById('fe_wirkTblCol'); if(wt) wt.style.minWidth='0';
+  var fbox=document.getElementById('fe_wirkFotoBox'); if(fbox) fbox.style.height='clamp(360px,52vh,680px)';
+  try{ feEditorResponsive(); }catch(e){}
+}
+function feEditorResponsive(){
+  var w=window.innerWidth||1400, kg=document.getElementById('feKopfGrid'), ng=document.getElementById('feNwOben');
+  if(kg) kg.style.gridTemplateColumns=(w<1050)?'minmax(0,1fr)':'minmax(420px,1.45fr) minmax(280px,.75fr)';
+  if(ng) ng.style.gridTemplateColumns=(w<1180)?'minmax(0,1fr)':'minmax(430px,1fr) minmax(360px,.9fr)';
+}
+if(typeof window!=='undefined'&&!window._feRespBound){ window._feRespBound=true; window.addEventListener('resize',function(){ try{ feEditorResponsive(); }catch(e){} }); }
+
 function feTabWechsel(n){
-  n=(n===2)?2:1; window._feTab=n;
-  var t1=document.getElementById('feTab1'), t2=document.getElementById('feTab2');
-  if(t1) t1.style.display=(n===1)?'':'none';
-  if(t2) t2.style.display=(n===2)?'':'none';
-  var st=function(btn,on){ if(!btn) return; btn.style.color=on?'var(--k-166534)':'var(--muted)'; btn.style.borderBottomColor=on?'var(--k-16a34a)':'transparent'; btn.style.background=on?'var(--greenlt,#ecfdf5)':'none'; };   /* 28v (Ralph): aktiver Reiter zusaetzlich mit Flaeche hinterlegt - Unterstrich allein war zu unauffaellig */
-  st(document.getElementById('feTabBtn1'),n===1); st(document.getElementById('feTabBtn2'),n===2);
-  if(n===2){ try{ fgWirkFotoRender(); }catch(e){} }   /* Etikett-Einpassung, falls die Flip-Rueckseite offen ist */
-  /* 05.08.: Der Kachel-Streifen haengt gemessen an der Unterkante des SICHTBAREN Reiters
-     (feGridHoeheSync) – nach jedem Wechsel nachziehen, sonst steht er auf dem Mass des alten. */
+  n=(n===2||n===3)?n:1; window._feTab=n;
+  var tabs=[document.getElementById('feTab1'),document.getElementById('feTab2'),document.getElementById('feTab3')];
+  tabs.forEach(function(t,i){ if(t) t.style.display=(n===i+1)?'':'none'; });
+  var st=function(btn,on){ if(!btn) return; btn.style.color=on?'var(--k-166534)':'var(--muted)'; btn.style.borderBottomColor=on?'var(--k-16a34a)':'transparent'; btn.style.background=on?'var(--greenlt,#ecfdf5)':'none'; };
+  st(document.getElementById('feTabBtn1'),n===1); st(document.getElementById('feTabBtn2'),n===2); st(document.getElementById('feTabBtn3'),n===3);
+  if(n===2){ try{ fgFotoPlatzieren(); fgWirkFotoRender(); }catch(e){} }
+  if(n===3){ try{ fgRefV2Init(); }catch(e){} }
   try{ feGridHoeheSync(); }catch(e){}
 }
 function feTabBadgeUpdate(off, done){
-  /* 28r (Ralph): nicht nur Offenes zeigen - ist alles uebernommen, steht die ANZAHL da.
-     Orange "N offen" = Arbeit liegt an · gruen "✓ N" = N Eintraege sauber uebernommen. */
-  var b=document.getElementById('feTab2Badge'); if(!b) return;
+  var b=document.getElementById('feTab3Badge'); if(!b) return;
   var n=Number(off)||0, d=Number(done)||0;
   if(n){ b.style.display=''; b.textContent=n+' offen'; b.style.background='var(--k-fff7ed,#fff7ed)'; b.style.color='var(--k-d97706,#d97706)'; }
   else if(d){ b.style.display=''; b.textContent='\u2713 '+d; b.style.background='var(--greenlt,#ecfdf5)'; b.style.color='var(--k-166534,#166534)'; }
   else { b.style.display='none'; b.textContent=''; }
 }
 function feTab1BadgeUpdate(off, ean){
-  /* 28t (Ralph): Haken auch am Reiter 1. Orange N-offen = Pflichtfelder dieses Reiters fehlen
-     (Kategorie, Naehrwerte, bei Supplements Dosis-Check) - gruenes ✓ = Reiter komplett.
-     EAN bewusst als EIGENER Chip daneben: eine EAN muss nicht existieren (lose Ware) -
-     'EAN offen' (grau, angekreuzt) ist ein gueltiger Endzustand, kein Mangel. */
   var b=document.getElementById('feTab1Badge');
-  if(b){ var n=Number(off)||0;
-    if(n){ b.style.display=''; b.textContent=n+' offen'; b.style.background='var(--k-fff7ed,#fff7ed)'; b.style.color='var(--k-d97706,#d97706)'; }
-    else { b.style.display=''; b.textContent='\u2713'; b.style.background='var(--greenlt,#ecfdf5)'; b.style.color='var(--k-166534,#166534)'; } }
+  if(b){ var n=Number(off)||0; if(n){ b.style.display=''; b.textContent=n+' offen'; b.style.background='var(--k-fff7ed,#fff7ed)'; b.style.color='var(--k-d97706,#d97706)'; } else { b.style.display=''; b.textContent='\u2713'; b.style.background='var(--greenlt,#ecfdf5)'; b.style.color='var(--k-166534,#166534)'; } }
   var e=document.getElementById('feTab1Ean');
   if(e){ if(ean==='da'){ e.style.display=''; e.textContent='EAN \u2713'; e.style.background='var(--greenlt,#ecfdf5)'; e.style.color='var(--k-166534,#166534)'; }
-    else if(ean==='offen'){ e.style.display=''; e.textContent='EAN offen'; e.style.background='#fef9c3'; e.style.color='#854d0e'; }   /* 28v: gelb (Ralph) - bewusst offen ist ein Merk-Zustand, kein Mangel (das bleibt orange) */
+    else if(ean==='offen'){ e.style.display=''; e.textContent='EAN offen'; e.style.background='#fef9c3'; e.style.color='#854d0e'; }
     else { e.style.display=''; e.textContent='EAN fehlt'; e.style.background='var(--k-fff7ed,#fff7ed)'; e.style.color='var(--k-d97706,#d97706)'; } }
+  /* Der bisherige Pflichtzähler enthält Kopf- und Nährwertpunkte. Als Gesamtstatus zusätzlich am
+     Nährwertreiter zeigen, damit der Arbeitsort sichtbar bleibt, ohne Fachlogik zu duplizieren. */
+  var nb=document.getElementById('feTab2Badge'); if(nb){ var z=Number(off)||0; nb.style.display=z?'':'none'; nb.textContent=z?(z+' prüfen'):''; }
 }
-if(typeof window!=='undefined'){ window.feTabWechsel=feTabWechsel; window.feTabBadgeUpdate=feTabBadgeUpdate; window.feTab1BadgeUpdate=feTab1BadgeUpdate; }
+if(typeof window!=='undefined'){ window.feDreiReiterInit=feDreiReiterInit; window.feTabWechsel=feTabWechsel; window.feTabBadgeUpdate=feTabBadgeUpdate; window.feTab1BadgeUpdate=feTab1BadgeUpdate; }
 function fgFotoPlatzieren(){
   var col=document.getElementById('fe_wirkFotoCol');
-  var mount=document.getElementById('fe_fotoMount');
-  var grid=document.getElementById('fe_wirkGrid');
+  var slot=document.getElementById('feNwFotoSlot');
   if(!col) return;
-  var special=false; try{ special=_fgIstSpecial(); }catch(e){}
-  /* 28z37 (Ralph): bei Supplements darf der Etikett-Lesekasten HOCH sein - so hoch
-     wie die Produkt-Karte links, nicht der kleine 250px-Deckel des Normal-Layouts. */
-  var fbox=document.getElementById('fe_wirkFotoBox');
-  if(special){
-    if(grid && col.parentNode!==grid) grid.appendChild(col);
-    if(grid) grid.style.gridTemplateColumns='1fr 1fr';
-    if(fbox) fbox.style.height='clamp(320px,48vh,640px)';
-  } else {
-    if(mount && col.parentNode!==mount) mount.appendChild(col);
-    if(grid) grid.style.gridTemplateColumns='1fr';
-    if(fbox) fbox.style.height='clamp(150px,18vh,250px)';   /* Normal-Layout: alter Wert (Rueckseite dehnt per CSS weiter) */
-  }
+  /* Drei-Reiter-Editor: Das Etikett hat einen festen Ort rechts neben den Nährwerten.
+     Es wandert nicht mehr zwischen Referenzkarte und Wirkstofftabelle. */
+  if(slot && col.parentNode!==slot) slot.appendChild(col);
+  col.style.display='block';
+  var box=document.getElementById('fe_wirkFotoBox'); if(box) box.style.height='clamp(360px,52vh,680px)';
+  var grid=document.getElementById('fe_wirkGrid'); if(grid) grid.style.gridTemplateColumns='minmax(0,1fr)';
   try{ fgWirkFotoRender(); }catch(e){}
 }
 if(typeof window!=="undefined"){ window.fgFotoPlatzieren=fgFotoPlatzieren; }
@@ -22824,7 +22822,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-06-0420";
+const APP_BUILD = "2026-08-05-2135";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
