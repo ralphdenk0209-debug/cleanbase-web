@@ -16278,15 +16278,14 @@ async function openFgEditor(id, prefill, targetEl){
         <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">Freigabe</div><div id="feRailAmpel" style="font-size:12px;line-height:1.5;color:var(--muted)">wird geprüft…</div></div>
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label>${quellenTypHinweis()}<div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
       </div>
-      <div style="min-width:0">
+      <div id="feEditorBody" style="min-width:0">
         <div id="feTabBar" style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:10px">
           <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="border:0;background:var(--greenlt,#ecfdf5);border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--k-166534);border-bottom-color:var(--k-16a34a)">📋 Kopfdaten <span id="feTab1Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span><span id="feTab1Ean" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:#fef9c3;color:#854d0e"></span></button>
           <button type="button" id="feTabBtn2" onclick="feTabWechsel(2)" style="border:0;background:none;border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🧪 Nährwerte &amp; Wirkstoffe <span id="feTab2Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
           <button type="button" id="feTabBtn3" onclick="feTabWechsel(3)" style="border:0;background:none;border-radius:10px 10px 0 0;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px;color:var(--muted)">🥣 Zutaten &amp; Referenz <span id="feTab3Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></button>
         </div>
         <div id="feTab1">
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,440px);gap:14px;align-items:start" id="fe_grid">
-      <div>
+    <div id="feKopfLayout" style="display:flex;flex-direction:column;gap:12px;min-width:0">
       <!-- 02.08. (Ralph): Riki-Zeile schlank. Vorher ~280px Hoehe fuer drei gleich grosse
            Kaesten - dabei nutzt Ralph fast immer Weblink oder Screenshot; der Datei-Upload
            laeuft bei ihm ueber "Angehaengte Fotos". Also: die zwei Hauptwege gross und
@@ -16330,7 +16329,8 @@ async function openFgEditor(id, prefill, targetEl){
            startet aber LEER: der Erklaersatz stand bei jedem Produkt und war laengst gelesen. -->
       <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:0"></div>
     </div>
-        <div id="fe_prodNwGrid" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch">
+      <div id="feKopfGrid" style="display:grid;grid-template-columns:minmax(420px,1.45fr) minmax(280px,.75fr);gap:12px;align-items:start">
+      <div style="min-width:0">
         ${card("Produkt",`<div style="display:grid;gap:9px">
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;display:block">Titel<input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…" style="width:100%;box-sizing:border-box;padding:6px 4px;border:0;border-bottom:2px solid var(--line);border-radius:0;font-size:19px;font-weight:800;color:var(--ink);background:transparent;margin-top:3px"></label>
           <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
@@ -16347,49 +16347,16 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
           <div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:-2px" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
         </div>`)}
-        <div id="fe_nwCard" style="display:contents">${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}</div>
-        </div>
-        ${''/* Wirkstoffe-Karte steht jetzt als eigene HALBE Reihe (Tabelle + Etikett-Lesebox) unter dem Raster – Ralph 24.07. Siehe #fe_wirkCard weiter unten. */}
       </div>
-      <div>
+      <div style="min-width:0">
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><button type="button" onclick="fgBildLoeschen()" style="margin-left:8px;padding:5px 10px;border:1px solid var(--k-fca5a5,#fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:12.5px">🗑 Bild löschen</button><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
           + ((!d.bild_url && d.bild_url_off) ? `<div id="fe_bildOff" style="margin-top:12px;padding:9px 10px;border:1px dashed var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;margin-bottom:6px">Bild von OpenFoodFacts – nur intern</div><img src="${esc(d.bild_url_off)}" style="max-height:130px;border-radius:8px;display:block" alt=""><div style="font-size:11.5px;color:var(--muted);margin-top:6px"><b>Wird dem Nutzer NICHT gezeigt.</b> Lizenz (CC-BY-SA) noch nicht geklärt – siehe FAHRPLAN. Nur zum Abgleich beim Erfassen.</div></div>` : "")
           + `<div style="margin-top:14px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
         ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
       </div>
+      </div>
     </div>
-        <span id="fe_wirkAnker" style="display:none" data-note="28z6: Heimatmarke der Wirkstoff-Karte - bei Supplement zieht sie in fe_prodNwGrid Spalte 2 (neben die Kopfdaten), sonst zurueck hierher; DOM-Knoten werden VERSCHOBEN, nie neu gebaut (keine Doppel-IDs)"></span><div id="fe_wirkCard" style="margin-top:2px">
-          <div id="fe_wirkGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
-            <div id="fe_wirkTblCol">${card(`<span>Wirkstoffe &amp; Dosis</span> <span style="text-transform:none;color:var(--muted)">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
-          <div style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em"><span>Stoff</span><span style="text-align:right">Menge</span><span>Einheit</span><span style="text-align:right">%NRV</span><span></span></div>
-          <div id="fe_wirkRows"></div>
-          <button type="button" onclick="feWirkAdd()" style="margin-top:7px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ Wirkstoff</button>
-          <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.6">
-            <div style="display:flex;gap:14px;flex-wrap:wrap">
-              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:5px"></span>wirksame Menge (≥ 15 % Tagesbedarf)</span>
-              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:5px"></span>EU-Nutzen, aber Dosis &lt; 15 %</span>
-              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#9aa7b2;vertical-align:middle;margin-right:5px"></span>keine zugelassene EU-Aussage</span>
-            </div>
-            <div style="margin-top:5px">Der Balken links zeigt, ob die Menge einen <b>EU-anerkannten Nutzen</b> erreicht (gesundheitsbezogene Aussage nach VO&nbsp;432/2012 ab 15 % NRV). <b>Grün heißt „wirksame Menge", nicht „gesund".</b> Aminosäuren/Pflanzenstoffe (z. B. Glycin) haben keine zugelassene Aussage → grau.</div>
-          </div>
-          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
-          <datalist id="feWirkDL">${wirkDLOptions()}</datalist>
-            `)}</div>
-            <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span style="text-transform:none;color:var(--muted)">(zoombar – Mausrad / ziehen)</span>`,`
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-            <button type="button" onclick="fgWirkFotoZoomBtn(1)" title="näher heranzoomen" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">+</button>
-            <button type="button" onclick="fgWirkFotoZoomBtn(-1)" title="weiter weg" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>
-            <button type="button" onclick="fgWirkFotoReset()" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Einpassen</button>
-            <button type="button" onclick="fgWirkFotoRiki(this)" title="Riki liest das angezeigte Bild aus (Nährwerte/Zutaten/Wirkstoffe)" style="padding:6px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">🤖 Riki liest das Bild</button>
-            <span id="fe_wirkFotoNav" style="display:flex;gap:6px;align-items:center;margin-left:auto"></span>
-          </div>
-          <div id="fe_wirkFotoBox" data-note="28p: Hintergrund dunkler in Flieder (Ralph: mehr Kontrast zu hellen Etiketten). Hoehe: ausserhalb der Flip-Rueckseite clamp wie gehabt; AUF der Rueckseite dehnt die CSS-Regel #fe_fotoMount die Box auf die Resthoehe." style="position:relative;overflow:hidden;height:clamp(150px,18vh,250px);border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none"><div id="fe_wirkFotoLeer" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:16px;line-height:1.5">Kein Etikett angehängt.<br>Über den Foto-Tab oben oder „+ Foto" (Bild-Karte) ein Etikett hinzufügen – es erscheint dann hier zum Ablesen.</div><img id="fe_wirkFotoImg" alt="Etikett" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none;display:none"></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">Mausrad = zoomen · ziehen = verschieben · Doppelklick = großes Vollbild.</div>
-            `)}</div>
-          </div>
-        </div>
         ${''/* EINE Regel gegen den Quetsch-Fehler (Ralphs Fund 26.07.): in einem Flex-Column-Container
      schrumpfen alle Kinder standardmaessig. Dadurch wurde die Zusatzstoff-Auswahl zusammengedrueckt und
      ihr Inhalt lief unter das Suchfeld. Statt jedes Element einzeln zu reparieren (das waere ein Pflaster,
@@ -16429,7 +16396,50 @@ async function openFgEditor(id, prefill, targetEl){
 #fe_fotoMount #fe_wirkFotoBox{flex:1 1 auto;height:auto;min-height:280px}
 #fe_fotoLeerHinweis{display:none}
 #fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
-</div><div id="feTab2" style="display:none"></div><div id="feTab3" style="display:none"><div id="fe_quickBar" style="display:none;gap:8px;align-items:center;margin:0 0 6px" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span style="font-size:15px;flex:0 0 auto" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu" style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px"><button type="button" onclick="fgQuickGo()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto">Zuordnen</button></div><div id="fe_quickMsg" style="font-size:12.5px;line-height:1.6;margin:0 0 6px 27px"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
+</div>
+<div id="feTab2" style="display:none">
+  <div id="feNwOben" style="display:grid;grid-template-columns:minmax(430px,1fr) minmax(360px,.9fr);gap:12px;align-items:start">
+  <div id="feNwLinks" style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}</div>
+        <span id="fe_wirkAnker" style="display:none" data-note="06.08.2026: Die Wirkstoff-Karte hat einen FESTEN Ort im Reiter Naehrwerte. Nichts wird mehr verschoben - der Anker bleibt nur als Sprungmarke."></span><div id="fe_wirkCard" style="margin-top:2px">
+          <div id="fe_wirkGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
+            <div id="fe_wirkTblCol">${card(`<span>Wirkstoffe &amp; Dosis</span> <span style="text-transform:none;color:var(--muted)">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
+          <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
+          <div style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em"><span>Stoff</span><span style="text-align:right">Menge</span><span>Einheit</span><span style="text-align:right">%NRV</span><span></span></div>
+          <div id="fe_wirkRows"></div>
+          <button type="button" onclick="feWirkAdd()" style="margin-top:7px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ Wirkstoff</button>
+          <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.6">
+            <div style="display:flex;gap:14px;flex-wrap:wrap">
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:5px"></span>wirksame Menge (≥ 15 % Tagesbedarf)</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:5px"></span>EU-Nutzen, aber Dosis &lt; 15 %</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#9aa7b2;vertical-align:middle;margin-right:5px"></span>keine zugelassene EU-Aussage</span>
+            </div>
+            <div style="margin-top:5px">Der Balken links zeigt, ob die Menge einen <b>EU-anerkannten Nutzen</b> erreicht (gesundheitsbezogene Aussage nach VO&nbsp;432/2012 ab 15 % NRV). <b>Grün heißt „wirksame Menge", nicht „gesund".</b> Aminosäuren/Pflanzenstoffe (z. B. Glycin) haben keine zugelassene Aussage → grau.</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
+          <datalist id="feWirkDL">${wirkDLOptions()}</datalist>
+            `)}</div>
+          </div>
+        </div>
+  <div id="fe_mikroWrap" style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;white-space:nowrap">🔎 USDA</button></div><div id="fm_usdaErg" style="max-height:180px;overflow:auto;margin-top:5px;flex:0 0 auto"></div>`)}</div>
+    <div id="fe_naehrKacheln" style="margin-top:10px"></div>
+  </div>
+  <div id="feNwFotoSlot" style="min-width:0;position:sticky;top:8px">
+            <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span style="text-transform:none;color:var(--muted)">(zoombar – Mausrad / ziehen)</span>`,`
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <button type="button" onclick="fgWirkFotoZoomBtn(1)" title="näher heranzoomen" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">+</button>
+            <button type="button" onclick="fgWirkFotoZoomBtn(-1)" title="weiter weg" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>
+            <button type="button" onclick="fgWirkFotoReset()" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Einpassen</button>
+            <button type="button" onclick="fgWirkFotoRiki(this)" title="Riki liest das angezeigte Bild aus (Nährwerte/Zutaten/Wirkstoffe)" style="padding:6px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">🤖 Riki liest das Bild</button>
+            <span id="fe_wirkFotoNav" style="display:flex;gap:6px;align-items:center;margin-left:auto"></span>
+          </div>
+          <div id="fe_wirkFotoBox" data-note="28p: Hintergrund dunkler in Flieder (Ralph: mehr Kontrast zu hellen Etiketten). Hoehe: ausserhalb der Flip-Rueckseite clamp wie gehabt; AUF der Rueckseite dehnt die CSS-Regel #fe_fotoMount die Box auf die Resthoehe." style="position:relative;overflow:hidden;height:clamp(150px,18vh,250px);border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none"><div id="fe_wirkFotoLeer" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:16px;line-height:1.5">Kein Etikett angehängt.<br>Über den Foto-Tab oben oder „+ Foto" (Bild-Karte) ein Etikett hinzufügen – es erscheint dann hier zum Ablesen.</div><img id="fe_wirkFotoImg" alt="Etikett" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none;display:none"></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">Mausrad = zoomen · ziehen = verschieben · Doppelklick = großes Vollbild.</div>
+            `)}</div>
+  </div>
+  </div>
+</div>
+<div id="feTab3" style="display:none"><div id="fe_quickBar" style="display:none;gap:8px;align-items:center;margin:0 0 6px" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span style="font-size:15px;flex:0 0 auto" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu" style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px"><button type="button" onclick="fgQuickGo()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto">Zuordnen</button></div><div id="fe_quickMsg" style="font-size:12.5px;line-height:1.6;margin:0 0 6px 27px"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
           <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
             <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
             <div style="margin-top:8px">
@@ -16476,7 +16486,7 @@ async function openFgEditor(id, prefill, targetEl){
                Die Bewertungsregel dahinter (Getränke-Deckel, §1.13e) hängt seit dem 26.07. nicht mehr an diesem
                Feld allein: cb_hat_kuenstlichen_suessstoff() liest Handfeld + Zutaten + Zusatzstoff-Liste. */}
           <input type="hidden" id="fe_suess" value="${esc(d.suessstoffe||"nein")}">
-        `)}</div><div id="fe_mikroWrap" style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;white-space:nowrap">🔎 USDA</button></div><div id="fm_usdaErg" style="max-height:180px;overflow:auto;margin-top:5px;flex:0 0 auto"></div>`)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div></div></div></div>
+        `)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div></div></div></div>
     ${/* 30.07. (Ralph): "die kästchen auf der supplements und salz produkt erfassen karte unten
          anzeigen … und nur die, die enthalten sind". Streifen unter den drei Spalten, NUR bei
          Supplement und Salze - fuer jede andere Kategorie gibt es keine Quelle. Gezeigt werden
@@ -16489,7 +16499,7 @@ async function openFgEditor(id, prefill, targetEl){
          Der Streifen bleibt deshalb genau dort, wo er immer stand (voller Breite, ausserhalb des
          Rasters) - und wird zur Laufzeit an der GEMESSENEN Breite des linken Streifens ausgerichtet
          (feKachelBreiteSync). Gemessen schlaegt gezaehlt. */}
-    <div id="fe_naehrKacheln" style="margin-top:10px"></div>
+
     <div id="fe_fussLeiste" style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
       <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
       <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
@@ -17060,46 +17070,12 @@ function _fgIstSpecial(){ var k=(((document.getElementById("fe_kat")||{}).value|
 /* 28l: Reiter-Wechsel im Vollbild-Editor. Reine Anzeige (display an/aus) - beide Reiter sind
    IMMER im DOM, alle IDs existieren weiter, kein Feld wird neu gebaut oder geleert. */
 function feDreiReiterInit(){
-  var kopf=document.getElementById('feTab1'), nwTab=document.getElementById('feTab2');
-  var grid=document.getElementById('fe_grid'), prodGrid=document.getElementById('fe_prodNwGrid');
-  if(!kopf||!nwTab||!grid||!prodGrid) return;
-
-  /* Nur einmal strukturell umbauen. Beim Voll-Reload baut openFgEditor frisches DOM. */
-  if(!kopf.dataset.dreiReiter){
-    kopf.dataset.dreiReiter='1';
-    var haupt=grid.firstElementChild, bild=grid.children[1];
-    var daten=haupt&&haupt.firstElementChild;
-    var produkt=prodGrid.firstElementChild;
-    var nw=document.getElementById('fe_nwCard');
-    var wirk=document.getElementById('fe_wirkCard');
-    var mikro=document.getElementById('fe_mikroWrap');
-
-    kopf.innerHTML='';
-    var kopfWrap=document.createElement('div'); kopfWrap.id='feKopfLayout';
-    kopfWrap.style.cssText='display:flex;flex-direction:column;gap:12px;min-width:0';
-    kopf.appendChild(kopfWrap);
-    if(daten){ daten.id='feDatenHolen'; kopfWrap.appendChild(daten); }
-    var kgrid=document.createElement('div'); kgrid.id='feKopfGrid';
-    kgrid.style.cssText='display:grid;grid-template-columns:minmax(420px,1.45fr) minmax(280px,.75fr);gap:12px;align-items:start';
-    kopfWrap.appendChild(kgrid);
-    if(produkt) kgrid.appendChild(produkt);
-    if(bild) kgrid.appendChild(bild);
-
-    var nwWrap=document.createElement('div'); nwWrap.id='feNwLayout';
-    nwWrap.style.cssText='display:flex;flex-direction:column;gap:12px;min-width:0';
-    nwTab.appendChild(nwWrap);
-    var oben=document.createElement('div'); oben.id='feNwOben';
-    oben.style.cssText='display:grid;grid-template-columns:minmax(430px,1fr) minmax(360px,.9fr);gap:12px;align-items:start';
-    nwWrap.appendChild(oben);
-    if(nw){ nw.style.display='block'; oben.appendChild(nw); }
-    var fotoSlot=document.createElement('div'); fotoSlot.id='feNwFotoSlot'; fotoSlot.style.cssText='min-width:0'; oben.appendChild(fotoSlot);
-    if(wirk){ wirk.style.marginTop='0'; nwWrap.appendChild(wirk); }
-    if(mikro){ mikro.style.display='flex'; mikro.style.minHeight='260px'; nwWrap.appendChild(mikro); }
-
-    /* Die alte Hülle bleibt nicht als leere Layoutbox zurück. */
-    grid.style.display='none';
-  }
-
+  /* 06.08.2026 (Ralph-Auftrag "drei Arbeitsreiter"): Die Reiter stehen jetzt FEST IM TEMPLATE.
+     Der frühere Block, der feTab1 leerte und die Karten zur Laufzeit per appendChild in neu
+     erzeugte Hüllen umhängte, ist ersatzlos entfallen - er war die Ursache für springende
+     Karten beim Kategorienwechsel, gequetschte Wirkstofftabellen und tote Leerflächen
+     (er suchte Knoten über die POSITION: grid.firstElementChild, grid.children[1] …).
+     Hier bleibt nur, was Anzeige einstellt - kein DOM wird mehr verschoben. */
   try{ fgFotoPlatzieren(); }catch(e){}
   var wg=document.getElementById('fe_wirkGrid'); if(wg) wg.style.gridTemplateColumns='minmax(0,1fr)';
   var wt=document.getElementById('fe_wirkTblCol'); if(wt) wt.style.minWidth='0';
@@ -17912,7 +17888,7 @@ function feAnsichtSet(v){
   try{ localStorage.setItem("ri_editor_ansicht",v); }catch(e){}
   /* Ist gerade ein Editor offen, den Rahmen LIVE ein-/ausblenden – ohne Neu-Öffnen, damit
      laufende Eingaben erhalten bleiben (es werden nur DOM-Knoten verschoben, keine neu gebaut). */
-  try{ if(document.getElementById("fe_grid")){ if(v==="vorgang") feVorgangApply(); else feVorgangRemove(); } }catch(e){}
+  try{ if(document.getElementById("feEditorBody")){ if(v==="vorgang") feVorgangApply(); else feVorgangRemove(); } }catch(e){}
 }
 /* Phasenleiste oben – Zustand rein aus den Feldern abgeleitet (grün = erledigt, dunkel = aktuell,
    grau = offen). Nichts erfunden: nur, was wirklich ausgefüllt ist. */
@@ -17994,7 +17970,7 @@ function feVorgangSync(){
   }catch(e){}
 }
 function feVorgangApply(){
-  var grid=document.getElementById("fe_grid"); if(!grid) return;
+  var grid=document.getElementById("feEditorBody"); if(!grid) return;
   if(document.getElementById("feVorgangWrap")){ feVorgangSync(); return; }   /* schon aktiv */
   var step=document.createElement("div"); step.id="feVorgangStepper";
   step.style.cssText="display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:12px;background:#fff";
@@ -18009,7 +17985,7 @@ function feVorgangApply(){
   feVorgangSync();
 }
 function feVorgangRemove(){
-  var wrap=document.getElementById("feVorgangWrap"), grid=document.getElementById("fe_grid"), step=document.getElementById("feVorgangStepper");
+  var wrap=document.getElementById("feVorgangWrap"), grid=document.getElementById("feEditorBody"), step=document.getElementById("feVorgangStepper");
   try{ if(wrap&&grid){ wrap.parentNode.insertBefore(grid, wrap); wrap.remove(); } }catch(e){}   /* Raster zurück an seinen Platz */
   try{ if(step) step.remove(); }catch(e){}
 }
@@ -22822,7 +22798,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-2135";
+const APP_BUILD = "2026-08-06-0520";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
