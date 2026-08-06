@@ -15742,24 +15742,35 @@ async function openFgEditor(id, prefill, targetEl){
            startet aber LEER: der Erklaersatz stand bei jedem Produkt und war laengst gelesen. -->
       <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:0"></div>
     </div>
-      <div id="feKopfGrid" style="display:grid;grid-template-columns:minmax(420px,1.45fr) minmax(280px,.75fr);gap:12px;align-items:start">
-      <div style="min-width:0">
-        ${card("Produkt",`<div style="display:grid;gap:9px">
-          <label style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;display:block">Titel<input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…" style="width:100%;box-sizing:border-box;padding:6px 4px;border:0;border-bottom:2px solid var(--line);border-radius:0;font-size:19px;font-weight:800;color:var(--ink);background:transparent;margin-top:3px"></label>
-          <label style="font-size:13px">Marke${inp("fe_marke",d.marke)}</label>
-          <label style="font-size:13px">EAN / Barcode<input id="fe_ean" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"></label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:-3px"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">kein EAN – als „offen“ markieren (blockiert die Freigabe dann nicht)</label>
-          <label style="font-size:13px">Kategorie${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</label>
-          <div style="font-size:13px">Bio / Öko
+      ${''/* 06.08.2026 Etappe 2 (Mockup H): Die Produktkarte ist als Eingabetabelle über die volle
+             Breite aufgelöst. Vier Spalten, ein Feld je Zelle - der Kopf ist damit auf einen Blick
+             lesbar und beschreibbar. KEIN Feld entfernt, keine ID geändert, keine Speicherlogik
+             angefasst: fe_name, fe_marke, fe_ean, fe_ean_offen, fe_kat, fe_bio, fe_bioSw, fe_bioHint,
+             fe_ukat, fe_basis und fe_verzehr stehen unverändert hier. */}
+      <style>#feKopfGrid .mzr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+      #feKopfGrid .mz{padding:8px 12px 10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+      #feKopfGrid .mz:nth-child(4n){border-right:0}
+      #feKopfGrid .mz k{display:block;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:3px}
+      #feKopfGrid .mz input[type=text],#feKopfGrid .mz select{width:100%;box-sizing:border-box}
+      @media(max-width:1180px){#feKopfGrid .mzr{grid-template-columns:repeat(2,minmax(0,1fr))}#feKopfGrid .mz:nth-child(4n){border-right:1px solid var(--line)}#feKopfGrid .mz:nth-child(2n){border-right:0}}</style>
+      <div id="feKopfGrid" style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card);margin-bottom:12px">
+        <div class="mzr">
+          <div class="mz" style="grid-column:span 2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…" style="width:100%;box-sizing:border-box;padding:5px 4px;border:0;border-bottom:2px solid var(--line);border-radius:0;font-size:18px;font-weight:800;color:var(--ink);background:transparent"></div>
+          <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
+          <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
+          <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"></div>
+          <div class="mz"><k>EAN-Status</k><label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:6px"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">kein EAN – als „offen“ markieren</label></div>
+          <div class="mz" style="grid-column:span 2"><k>Bio / Öko</k>
             <select id="fe_bio" onchange="feBioChange()" style="display:none"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select>
-            <div id="fe_bioSw" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Merkmal und Filter – es gibt KEINE Punkte im Index (Prinzip 4)." style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-top:4px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--bg)"></div>
+            <div id="fe_bioSw" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Merkmal und Filter – es gibt KEINE Punkte im Index (Prinzip 4)." style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-top:2px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--bg)"></div>
           </div>
-          <div id="fe_bioHint" style="font-size:11.5px;line-height:1.4;margin-top:-4px;color:var(--muted)"></div>
-          <input type="hidden" id="fe_ukat" value="${esc(d.unterkategorie||"")}">
-          <input type="hidden" id="fe_basis" value="${esc(d.basis||"100g")}">
-          <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:-2px" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
-        </div>`)}
+          <div class="mz" style="grid-column:span 4;border-right:0"><k>Verzehrempfehlung / Tagesdosis</k>${inp("fe_verzehr",d.dosis_text||"")}
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:3px" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
+          </div>
+        </div>
+        <div id="fe_bioHint" style="font-size:11.5px;line-height:1.4;padding:7px 12px;border-top:1px solid var(--line);color:var(--muted)"></div>
+        <input type="hidden" id="fe_ukat" value="${esc(d.unterkategorie||"")}">
+        <input type="hidden" id="fe_basis" value="${esc(d.basis||"100g")}">
       </div>
       <div style="min-width:0">
         ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><button type="button" onclick="fgBildLoeschen()" style="margin-left:8px;padding:5px 10px;border:1px solid var(--k-fca5a5,#fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:12.5px">🗑 Bild löschen</button><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
@@ -15767,7 +15778,6 @@ async function openFgEditor(id, prefill, targetEl){
           + `<div style="margin-top:14px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
         ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
-      </div>
       </div>
     </div>
         ${''/* EINE Regel gegen den Quetsch-Fehler (Ralphs Fund 26.07.): in einem Flex-Column-Container
@@ -22214,7 +22224,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-06-2140";
+const APP_BUILD = "2026-08-06-2245";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
