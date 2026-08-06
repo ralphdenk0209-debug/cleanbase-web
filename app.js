@@ -1,4 +1,4 @@
-/* build 2026-08-06-0350 · Supplement/Süßungsmittel Layout: Nährwerte sichtbar, Produktbild rechts, idempotente Kartenpositionen. */
+/* build 2026-08-06-0420 · Erfassungs-Layout: Produkt+Makros oben, Produktbild kompakt rechts, Wirkstoffe breit darunter mit Etikett; keine Quetschspalten. */
 const SUPABASE_URL = "https://haurbpfkfaaehorirzee.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
 
@@ -16347,7 +16347,7 @@ async function openFgEditor(id, prefill, targetEl){
           <label style="font-size:13px">Verzehrempfehlung / Tagesdosis${inp("fe_verzehr",d.dosis_text||"")}</label>
           <div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:-2px" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
         </div>`)}
-        <div id="fe_nwCard" style="display:contents">${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}</div>
+        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}</div>
         </div>
         ${''/* Wirkstoffe-Karte steht jetzt als eigene HALBE Reihe (Tabelle + Etikett-Lesebox) unter dem Raster – Ralph 24.07. Siehe #fe_wirkCard weiter unten. */}
       </div>
@@ -16603,50 +16603,40 @@ function feKatChange(){
   var _nwC=document.getElementById("fe_nwCard");
   var _wAnker=document.getElementById("fe_wirkAnker");
   var _wg=document.getElementById("fe_wirkGrid");
+  var _wfoto=document.getElementById("fe_wirkFotoCol");
 
   try{ fgFotoPlatzieren(); }catch(e){}
   if(_wfbtn) _wfbtn.style.display=special?"none":"";
   if(special){ try{ fgRefFlip(false); }catch(e){} }
 
-  /* 06.08.2026: feste, idempotente Layouts fuer Supplement und Suessungsmittel.
-     Keine Datenlogik hier: Kategorie steuert nur die Anordnung. */
+  /* 06.08.2026: arbeitsorientiertes Layout. Oben immer Produkt + Makros, rechts kompakt
+     das Produktbild. Wirkstoffe stehen darunter breit mit Etikett daneben. Keine dritte
+     Mini-Spalte im Kopf, keine quergezogene Bildkarte, keine wandernden DOM-Knoten. */
   try{
-    if(supp){
-      /* Produktbild bleibt rechts. Links stehen Produkt, Makros und Wirkstoff-/Etikettkarte
-         in einer Zeile. Nichts wird als Vollbreiten-Balken unter das Formular geschoben. */
-      if(_fg) _fg.style.gridTemplateColumns="minmax(0,1fr) minmax(280px,340px)";
-      if(_nwC) _nwC.style.display="block";
-      if(_png) _png.style.gridTemplateColumns="minmax(270px,320px) minmax(270px,340px) minmax(520px,1fr)";
-      if(_wc && _png && _wc.parentNode!==_png) _png.appendChild(_wc);
-      if(_wc){ _wc.style.display=""; _wc.style.marginTop="0"; }
-      if(_wtc) _wtc.style.display="";
-      if(_wg) _wg.style.gridTemplateColumns="minmax(300px,1fr) minmax(280px,.9fr)";
+    /* Wirkstoffkarte immer an ihrem festen Heimatanker belassen. */
+    if(_wAnker && _wc && _wc.previousElementSibling!==_wAnker){
+      _wAnker.parentNode.insertBefore(_wc,_wAnker.nextSibling);
+    }
+    if(_wc){ _wc.style.marginTop="12px"; _wc.style.width="100%"; }
+
+    /* Kopfbereich: Hauptarbeit breit, Produktbild kompakt rechts. */
+    if(_fg) _fg.style.gridTemplateColumns="minmax(0,1fr) minmax(260px,320px)";
+    if(_png) _png.style.gridTemplateColumns="minmax(320px,.9fr) minmax(420px,1.1fr)";
+    if(_nwC) _nwC.style.display=_istSalz2?"none":"block";
+
+    /* Wirkstoff-Arbeitsbereich darunter: Tabelle bekommt klar mehr Platz als das Foto. */
+    if(_wg) _wg.style.gridTemplateColumns="minmax(560px,1.45fr) minmax(380px,.9fr)";
+    if(_wtc) _wtc.style.display="";
+    if(_wfoto) _wfoto.style.display="";
+
+    var _hatWirk=(typeof feWirkCount==="function"&&feWirkCount()>0);
+    if(_wc) _wc.style.display=(supp||_istSalz2||(suess&&_hatWirk))?"":"none";
+    if(_wc&&_wc.style.display===""){
       try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
       try{ ladeWirkDB(); }catch(e){}
-    } else {
-      /* Fuer alle Nicht-Supplements kehrt die Wirkstoffkarte immer an denselben Anker zurueck.
-         So waechst oder wandert das Raster bei Kategorienwechseln nicht. */
-      if(_wAnker && _wc && _wc.previousElementSibling!==_wAnker){
-        _wAnker.parentNode.insertBefore(_wc,_wAnker.nextSibling);
-      }
-      if(_wc) _wc.style.marginTop="2px";
-      if(_fg) _fg.style.gridTemplateColumns="minmax(0,1fr) minmax(300px,440px)";
-      if(_png) _png.style.gridTemplateColumns="minmax(0,1fr) minmax(0,1fr)";
-      if(_nwC) _nwC.style.display=_istSalz2?"none":"block";
-      if(_wg) _wg.style.gridTemplateColumns="minmax(300px,1fr) minmax(280px,1fr)";
-
-      /* Suessungsmittel duerfen Wirkstoffe besitzen (z. B. Laktase). Nur dann zeigen;
-         normale Lebensmittel bleiben unveraendert schlank. */
-      var _hatWirk=(typeof feWirkCount==="function"&&feWirkCount()>0);
-      if(_wc) _wc.style.display=(suess&&_hatWirk)||_istSalz2?"":"none";
-      if(_wc&&_wc.style.display===""){
-        if(_wtc) _wtc.style.display="";
-        try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
-      }
     }
 
-    /* Mikronaehrstoffbereich im zweiten Reiter: Salz sichtbar, Supplement/Suessungsmittel
-       wie bisher ausgeblendet. Die Daten bleiben durch den separaten Speicherweg erhalten. */
+    /* Mikronährstoffe im Zutaten-Reiter unverändert kategoriegerecht. */
     var _mikroAus=supp||suess;
     var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display=_mikroAus?"none":"flex";
     var _c2=document.getElementById("fe_colZusMik"); if(_c2) _c2.style.gridTemplateRows=_mikroAus?"minmax(0,1fr)":"minmax(0,1.6fr) minmax(0,1fr)";
@@ -22834,7 +22824,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-05-2135";
+const APP_BUILD = "2026-08-06-0420";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
