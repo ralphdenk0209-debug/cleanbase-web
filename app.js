@@ -15590,7 +15590,12 @@ async function openFgEditor(id, prefill, targetEl){
     }
   }
   window._fgEdit={ id:id, bild_url:d.bild_url||"", status:String(d.status||""),
-                   etikett:_etikett, scanIds:(prefill&&prefill.scanIds)||[], kcalOk:!!((d.naehrwerte||{}).kcal_ok),
+                   etikett:_etikett,
+                   /* 07.08.2026: Abzug der beim Laden VORHANDENEN Fotos. fgEditSave sendet
+                      beim Speichern nur die Differenz an cb_foto_vormerken - sonst legte
+                      jedes Speichern dieselben Bilder erneut in die Scan_Warteschlange. */
+                   etikettGeladen:_etikett.slice(),
+                   scanIds:(prefill&&prefill.scanIds)||[], kcalOk:!!((d.naehrwerte||{}).kcal_ok),
                    /* 02.08.: der GESPEICHERTE Index - Vergleichswert im Dubletten-Fenster.
                       Bewusst nicht der Live-Wert aus der Flux-Vorschau: beim Anlegen gibt es
                       keinen, und dann soll das Fenster gar nichts behaupten. */
@@ -17917,6 +17922,28 @@ async function fgEditSave(alsoFreigeben){
   }
   if(pid && window._fgEdit && window._fgEdit.bild_url){
     try{ var _r7=await client.rpc("cb_produkt_bild_setzen",{p_id:pid, p_url:window._fgEdit.bild_url}); if(_r7&&_r7.error) throw _r7.error; }catch(e){ _fehler.push("Produktbild: "+((e&&e.message)||e)); }
+  }
+  /* 07.08.2026 (Ralphs Fund: "das per Screenshot eingefuegte Bild ist nach dem Umschalten
+     weg, obwohl ich speichern geklickt habe"). Der Befund stimmte: fePasteImg legte das Bild
+     nur in window._fgEdit.etikett - also in den Browserspeicher - und schickte es an Riki zum
+     Auslesen. Einen SCHREIBWEG gab es nicht: fgEditSave rief elf RPCs, keine davon sicherte
+     angehaengte Fotos. Beim naechsten Laden war das Bild weg.
+
+     Jetzt: die seit dem Laden NEU dazugekommenen Bilder gehen ueber cb_foto_vormerken in die
+     Scan_Warteschlange, mit der Produkt-ID. Genau von dort liest cb_produkt_etikettfotos beim
+     Oeffnen wieder - die Kette schliesst sich, ohne einen zweiten Speicherort zu erfinden.
+     Nur die DIFFERENZ zu etikettGeladen wird gesendet, sonst entstuende bei jedem Speichern
+     eine neue Warteschlangenzeile mit denselben Bildern. */
+  if(pid && window._fgEdit && Array.isArray(window._fgEdit.etikett)){
+    var _alt=window._fgEdit.etikettGeladen||[];
+    var _neu=window._fgEdit.etikett.filter(function(b){ return b && _alt.indexOf(b)<0; });
+    if(_neu.length){
+      try{
+        var _r9=await client.rpc("cb_foto_vormerken",{p_fotos:_neu, p_produkt_id:pid, p_quelle:"Editor-Einfuegen"});
+        if(_r9&&_r9.error) throw _r9.error;
+        window._fgEdit.etikettGeladen=window._fgEdit.etikett.slice();   /* jetzt sind sie gesichert */
+      }catch(e){ _fehler.push("Angehängte Fotos ("+_neu.length+"): "+((e&&e.message)||e)); }
+    }
   }
   /* Etikettfotos am Produkt verankern: nicht die Bilder kopieren, nur die Scan-Eintraege
      mit der Produkt-ID versehen. Danach zeigt der Editor sie bei jedem Aufruf wieder an. */
@@ -22290,7 +22317,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1944";
+const APP_BUILD = "2026-08-07-1959";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
