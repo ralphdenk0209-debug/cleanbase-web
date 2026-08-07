@@ -25,7 +25,7 @@
    sonst gewinnt weiterhin der Inline-Stil und die Datei luegt.
 
    Angelegt 07.08.2026 · Build 2026-08-07-0645 · Probe-Durchgang "Kopfbereich".
-   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste" · Build 2026-08-07-1027 Durchgang 3b "Knopfleiste".
+   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste" · Build 2026-08-07-1027 Durchgang 3b "Knopfleiste" · Build 2026-08-07-1049 Durchgang 4 "Reiter 1 Rest" · Build 2026-08-07-1143 Durchgang 5 "Reiter 3".
    ============================================================================ */
 
 
@@ -463,7 +463,9 @@ body{ --admin-oben:64px }
 
 /* Kleingedruckter Zusatz in einer Kartenueberschrift. Dreimal verwendet:
    Wirkstoffe & Dosis, Mikronaehrstoffe, Etikett zum Ablesen. */
+#feTab1 .feKartenZusatz,
 #feTab2 .feKartenZusatz,
+#feTab3 .feKartenZusatz,
 #fe_wirkFotoCol .feKartenZusatz{ text-transform:none;color:var(--muted) }
 
 /* Wirkstoff-Tabelle: Hinweis, Spaltenkopf, "+ Wirkstoff", Legende, Fussschalter. */
@@ -727,3 +729,149 @@ body{ --admin-oben:64px }
   background:var(--card); color:#b91c1c; cursor:pointer;
   align-items:center; justify-content:center; padding:0; flex:0 0 auto;
 }
+
+
+/* ============================================================================
+   PRODUKTEDITOR · REITER 1 · REST  (Daten holen · Produktbild · Etiketten)
+   ----------------------------------------------------------------------------
+   Durchgang 4, 07.08.2026. Alle 49 Inline-Stile aus feTab1 ausserhalb des
+   Kopfbereichs: die Riki-Zeile "Daten holen" (URL, Einfuegefeld, JSON, die
+   sechs Chip-Knoepfe), die Produktbild-Karte und der Etiketten-Kasten.
+
+   VIER TEILUMZUEGE - dort steht ein Rest inline, weil die Laufzeit ihn schreibt:
+     fe_urlLbl      cursor      <- feUrlLblSync (dazu textDecoration)
+     fe_jsonIn      background, border <- die Einfuege-Rueckmeldung faerbt das Feld
+     fe_pullMsg     color       <- Meldungsfarbe je Ergebnis
+     fe_bildMsg     color       <- dito
+     fe_etikettGrid display     <- Z. 16316
+   Alles andere an diesen Elementen ist umgezogen.
+
+   ZWEI FUNDE BEIM SCHNEIDEN, die eine Zusicherung abgefangen hat:
+   · Zwei Kastentitel sahen gleich aus, unterscheiden sich aber um margin-bottom
+     -> .feKastenTitel und .feEtikettTitel, beide wortgleich zum Original.
+   · Zwei der sechs Chip-Knoepfe waren zeichengleich -> eine Klasse .feChipHell.
+
+   .feVersteckt fasst vier display:none zusammen: die drei Datei-Auswahlfelder
+   (fe_res_up, fe_eti_up, fe_etikett_up) und das versteckte Bio-Select fe_bio.
+   Sie sind FUNKTIONALE Verstecker - ein sichtbares Datei-Feld waere ein
+   Bedienfehler, kein Schoenheitsfehler.
+
+   WO SCHRAUBEN?
+   · Kasten "Daten holen" ..... .feHolBox
+   · Umbruch der zwei Spalten . .feHolGrid -> grid-template-columns (auto-fit)
+   · Chip-Knoepfe ............. .feChipLila / .feChipHell / .feChipGruen / .feChipBg
+   · Produktbild-Vorschau ..... .feBildVorschau -> max-height
+   ============================================================================ */
+#feTab1 #feKopfLayout{ display:flex;flex-direction:column;gap:12px;min-width:0 }
+#feTab1 .feHolBox{ background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 11px;margin-bottom:12px }
+#feTab1 .feHolKopf{ display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px }
+#feTab1 .feHolTitel{ font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;flex:1 1 auto;min-width:0 }
+#feTab1 .feHolTitelZus{ text-transform:none;font-weight:400 }
+#feTab1 .feNurLeerLbl{ display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink);cursor:pointer;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:999px;padding:3px 9px;flex:0 0 auto;white-space:nowrap }
+#feTab1 #fe_nurLeer{ width:14px;height:14px;flex:0 0 auto;accent-color:var(--k-16a34a) }
+#feTab1 .feHolGrid{ display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;align-items:stretch }
+#feTab1 .feHolZeile{ display:flex;gap:6px;align-items:center;min-width:0 }
+#feTab1 #fe_urlLbl{ font-size:15px;flex:0 0 auto }
+#feTab1 #fe_url{ flex:1 1 auto;min-width:0;box-sizing:border-box;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px }
+#feTab1 .feBtnLila{ flex:0 0 auto;padding:7px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap }
+#feTab1 #fe_pasteZone{ border:2px dashed #b9b3e8;border-radius:8px;padding:6px 10px;background:var(--k-f6f5fd,#f6f5fd);color:var(--k-534ab7);font-size:12.5px;cursor:text;outline:none;display:flex;align-items:center;gap:7px;min-width:0 }
+#feTab1 .feFlex0{ flex:0 0 auto }
+#feTab1 .feEllipsis{ min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+#feTab1 .feHolZeile2{ display:flex;gap:6px;align-items:stretch;min-width:0 }
+#feTab1 #fe_jsonIn{ flex:1 1 auto;min-width:0;height:34px;box-sizing:border-box;padding:7px 8px;border-radius:8px;color:var(--ink);font-size:12px;font-family:ui-monospace,monospace;white-space:pre;overflow:auto;resize:none }
+#feTab1 .feBtnGruenHell{ flex:0 0 auto;padding:7px 11px;border:1px solid #9fc6a8;border-radius:8px;background:var(--k-eaf5ee,#eaf5ee);color:var(--k-166534);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap }
+#feTab1 #fe_jsonMsg{ font-size:11.5px;line-height:1.45;margin-top:-2px }
+#feTab1 .feHolAuch{ display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:7px;font-size:11.5px;color:var(--muted) }
+#feTab1 .feChipLila{ padding:4px 10px;border:1px solid #cbc7f2;border-radius:20px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:600;cursor:pointer;font-size:11.5px }
+#feTab1 .feChipHell{ padding:4px 10px;border:1px solid var(--line);border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:11.5px }
+#feTab1 .feChipGruen{ padding:4px 10px;border:1px solid var(--k-16a34a);border-radius:20px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);font-weight:600;cursor:pointer;font-size:11.5px }
+#feTab1 .feChipBg{ padding:4px 10px;border:1px solid var(--line);border-radius:20px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:11.5px }
+#feTab1 .feVersteckt,
+#feTab3 .feVersteckt{ display:none }
+#feTab1 #fe_pullMsg{ font-size:12px;margin-top:0 }
+#feTab1 .feMinw0{ min-width:0 }
+#feTab1 #fe_bildPreview{ margin-bottom:6px }
+#feTab1 .feBildVorschau{ max-height:150px;border-radius:8px }
+#feTab1 .feHinweisGrau{ color:var(--muted);font-size:13px }
+#feTab1 .feDateiFeld{ font-size:13px }
+#feTab1 .feBtnRot{ margin-left:8px;padding:5px 10px;border:1px solid var(--k-fca5a5,#fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:12.5px }
+#feTab1 #fe_bildMsg{ font-size:12px;margin-top:4px }
+#feTab1 #fe_bildOff{ margin-top:12px;padding:9px 10px;border:1px dashed var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7) }
+#feTab1 .feKastenTitel{ font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;margin-bottom:6px }
+#feTab1 .feBildOffImg{ max-height:130px;border-radius:8px;display:block }
+#feTab1 .feKastenFuss{ font-size:11.5px;color:var(--muted);margin-top:6px }
+#feTab1 .feEtikettBox{ margin-top:14px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7) }
+#feTab1 .feEtikettKopf{ display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px }
+#feTab1 .feEtikettTitel{ font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700 }
+#feTab1 .feBtnLilaKlein{ padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap }
+#feTab1 #fe_etikettGrid{ gap:6px;flex-wrap:wrap }
+
+
+/* ============================================================================
+   PRODUKTEDITOR · REITER 3 "ZUTATEN & REFERENZ"  ·  Durchgang 5
+   ----------------------------------------------------------------------------
+   Die Drei-Spalten-Arbeitsflaeche: Zutaten · Zusatzstoffe+Mikros · Etikett und
+   Referenzpruefung. Dazu die Riki-Klappe, die Stammsuche und die Legende.
+
+   ⚠ EIN EINZIGER STIL BLEIBT INLINE, und zwar der wichtigste:
+
+       #fe_gridA  grid-template-columns · height · min-height
+
+   Alle drei schreibt feGridHoeheSync bei jedem Lauf - und `height` ist im
+   Template ein calc() mit der eingesetzten Konstanten FE_GRID_BASIS. Das ist
+   kein Stil, sondern eine Rechnung: die Arbeitsflaeche bekommt genau die
+   Bildschirmhoehe minus Kopf, minus Kachelstreifen, und bei "mittel" eine
+   zweite Zeile fuer die Referenzkarte. So etwas gehoert nicht in ein
+   Stylesheet. display, gap, align-items und margin-top stehen jetzt hier.
+
+   (feTab3 selbst behaelt display:none - feTabWechsel schaltet es.)
+
+   WO SCHRAUBEN?
+   · Abstand der drei Spalten .... #feTab3 #fe_gridA -> gap
+   · Spaltenteilung .............. NICHT hier, sondern feSpalten()/feGridHoeheSync
+   · Hoehe der Zutatenliste ...... #feTab3 #fe_pickList -> min-height
+   · Riki-Klappe (lila Kasten) ... #feTab3 .feRikiBox
+   · Farbpunkte der Zusatzstoff-Legende: .feZusPunktGr / -Rt / -Grau
+
+   Die drei Legendenpunkte stehen bewusst als drei eigene Regeln statt als
+   Grundform mit Modifikator - so bleibt jede Zeile wortgleich zu dem, was
+   vorher am Element stand. Gleiches Vorgehen wie bei der Wirkstoff-Ampel.
+   ============================================================================ */
+#feTab3 #fe_quickBar{ display:none;gap:8px;align-items:center;margin:0 0 6px }
+#feTab3 .feQuickIcon{ font-size:15px;flex:0 0 auto }
+#feTab3 #fe_quickIn{ flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px }
+#feTab3 .feBtnZuordnen{ padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto }
+#feTab3 #fe_quickMsg{ font-size:12.5px;line-height:1.6;margin:0 0 6px 27px }
+#feTab3 #fe_gridA{ display:grid;gap:10px;align-items:stretch;margin-top:2px }
+#feTab3 #fe_colZut{ min-height:0;display:flex;flex-direction:column }
+#feTab3 .feRikiBox{ background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px }
+#feTab3 .feRikiTitel{ font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none }
+#feTab3 .feMt8{ margin-top:8px }
+#feTab3 #rikiText{ width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--k-cecbf6);border-radius:8px;font-size:13px;background:var(--k-ffffff) }
+#feTab3 .feBtnReihe{ display:flex;gap:6px;flex-wrap:wrap;margin-top:6px }
+#feTab3 .feBtnLilaVoll{ padding:7px 12px;border:0;border-radius:8px;background:var(--k-534ab7);color:var(--k-ffffff);font-weight:600;font-size:13px;cursor:pointer }
+#feTab3 .feBtnGruenRand{ padding:7px 12px;border:1px solid var(--k-2e7d32);border-radius:8px;background:var(--k-fbf8f2);color:var(--k-2e7d32);cursor:pointer;font-size:13px }
+#feTab3 .feBtnLilaHell{ padding:7px 10px;border:1px solid var(--k-cecbf6);border-radius:8px;background:var(--k-ffffff);color:var(--k-534ab7);font-size:12px;cursor:pointer }
+#feTab3 #rikiMsg{ font-size:12.5px;margin-top:7px;line-height:1.5 }
+#feTab3 #fe_zutSuche{ width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:8px;flex:0 0 auto }
+#feTab3 .feListKopf{ display:grid;grid-template-columns:22px 1fr 46px;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line) }
+#feTab3 .feMitte{ text-align:center }
+#feTab3 #fe_pickList{ flex:1 1 auto;min-height:110px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card) }
+#feTab3 .feNeuZeile{ display:flex;gap:6px;margin-top:6px }
+#feTab3 #fe_zutNeu{ flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink) }
+#feTab3 .feBtnStamm{ padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap }
+#feTab3 #fe_zutNeuInfo{ margin-top:6px }
+#feTab3 #fgOffBox{ margin-top:8px }
+#feTab3 #fe_colZus{ min-height:0;display:grid;grid-template-rows:minmax(0,1.6fr) minmax(0,1fr);gap:10px }
+#feTab3 .feSpalteFlex{ min-height:0;display:flex }
+#feTab3 .feZusKeineLbl{ display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:8px;cursor:pointer;flex:0 0 auto }
+#feTab3 #fe_zusKeine{ width:15px;height:15px;flex:0 0 auto }
+#feTab3 #fe_zusSuche{ width:100%;box-sizing:border-box;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin:8px 0 6px;flex:0 0 auto }
+#feTab3 #fe_zusList{ flex:1 1 auto;min-height:110px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card) }
+#feTab3 .feNeuZeile2{ display:flex;gap:6px;margin-top:7px;flex:0 0 auto }
+#feTab3 #fe_zusNeu{ flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink) }
+#feTab3 .feZusLegende{ display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:7px }
+#feTab3 .feZusPunktGr{ display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e9e57;vertical-align:middle;margin-right:4px }
+#feTab3 .feZusPunktRt{ display:inline-block;width:9px;height:9px;border-radius:50%;background:#c0392b;vertical-align:middle;margin-right:4px }
+#feTab3 .feZusPunktGrau{ display:inline-block;width:9px;height:9px;border-radius:50%;background:#9aa7b2;vertical-align:middle;margin-right:4px }
+#feTab3 #fe_colRef{ min-height:0 }

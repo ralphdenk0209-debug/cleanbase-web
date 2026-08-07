@@ -15716,49 +15716,49 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
       <div id="feEditorBody" style="min-width:0">
         <div id="feTab1">
-    <div id="feKopfLayout" style="display:flex;flex-direction:column;gap:12px;min-width:0">
+    <div id="feKopfLayout">
       <!-- 02.08. (Ralph): Riki-Zeile schlank. Vorher ~280px Hoehe fuer drei gleich grosse
            Kaesten - dabei nutzt Ralph fast immer Weblink oder Screenshot; der Datei-Upload
            laeuft bei ihm ueber "Angehaengte Fotos". Also: die zwei Hauptwege gross und
            nebeneinander, alles andere als Chip-Zeile darunter. Kein Element geloescht
            (§1.11n-j) - alle IDs und Aufrufe bleiben, nur Anordnung und Groesse. -->
-      <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 11px;margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;flex:1 1 auto;min-width:0">Daten holen <span style="text-transform:none;font-weight:400">— Riki füllt, du prüfst</span></div>
-        <label title="Ein neuer Lese-Vorgang überschreibt vorhandene Werte dann nicht — zum Nachfüllen fehlender Angaben." style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink);cursor:pointer;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:999px;padding:3px 9px;flex:0 0 auto;white-space:nowrap"><input type="checkbox" id="fe_nurLeer" ${window._fgNurLeer?"checked":""} onchange="window._fgNurLeer=this.checked" style="width:14px;height:14px;flex:0 0 auto;accent-color:var(--k-16a34a)">nur <b>leere</b> Felder füllen</label>
+      <div class="feHolBox">
+      <div class="feHolKopf">
+        <div class="feHolTitel">Daten holen <span class="feHolTitelZus">— Riki füllt, du prüfst</span></div>
+        <label title="Ein neuer Lese-Vorgang überschreibt vorhandene Werte dann nicht — zum Nachfüllen fehlender Angaben." class="feNurLeerLbl"><input type="checkbox" id="fe_nurLeer" ${window._fgNurLeer?"checked":""} onchange="window._fgNurLeer=this.checked">nur <b>leere</b> Felder füllen</label>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;align-items:stretch">
-        <div style="display:flex;gap:6px;align-items:center;min-width:0">
-          <span id="fe_urlLbl" onclick="feUrlOeffnen()" title="Seite in neuem Fenster öffnen" style="cursor:default;font-size:15px;flex:0 0 auto">🔗</span>
-          <input id="fe_url" oninput="feUrlLblSync()" value="${esc(d.produktlink||"")}" placeholder="https://… Herstellerseite" style="flex:1 1 auto;min-width:0;box-sizing:border-box;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px">
-          <button type="button" onclick="fgPullHersteller()" style="flex:0 0 auto;padding:7px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap">Riki liest ▸</button>
+      <div class="feHolGrid">
+        <div class="feHolZeile">
+          <span id="fe_urlLbl" onclick="feUrlOeffnen()" title="Seite in neuem Fenster öffnen" style="cursor:default">🔗</span>
+          <input id="fe_url" oninput="feUrlLblSync()" value="${esc(d.produktlink||"")}" placeholder="https://… Herstellerseite">
+          <button type="button" onclick="fgPullHersteller()" class="feBtnLila">Riki liest ▸</button>
         </div>
-        <div id="fe_pasteZone" tabindex="0" onpaste="fePasteImg(event)" onclick="this.focus()" title="Bild aus der Zwischenablage (z. B. Nährwert-Tabelle). Riki liest daraus; das Bild wird auch bei den angehängten Fotos gemerkt." style="border:2px dashed #b9b3e8;border-radius:8px;padding:6px 10px;background:var(--k-f6f5fd,#f6f5fd);color:var(--k-534ab7);font-size:12.5px;cursor:text;outline:none;display:flex;align-items:center;gap:7px;min-width:0"><span style="flex:0 0 auto">📷</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>Screenshot:</b> hier klicken, dann Strg+V</span></div>
+        <div id="fe_pasteZone" tabindex="0" onpaste="fePasteImg(event)" onclick="this.focus()" title="Bild aus der Zwischenablage (z. B. Nährwert-Tabelle). Riki liest daraus; das Bild wird auch bei den angehängten Fotos gemerkt."><span class="feFlex0">📷</span><span class="feEllipsis"><b>Screenshot:</b> hier klicken, dann Strg+V</span></div>
         ${''/* 02.08.2026 (Ralph): JSON aus seinem Lesezeichen-Skript einfuegen. Kostet nichts
               (kein Riki-Aufruf), ist deterministisch und die Quelle ist die Herstellerseite. */}
-        <div style="display:flex;gap:6px;align-items:stretch;min-width:0">
+        <div class="feHolZeile2">
           ${''/* Bewusst EINZEILIG und nicht mitwachsend: die Spalte ist schmal, ein
                  aufgeklapptes Textfeld schob die ganze Maske auseinander (Ralphs
                  Screenshot). Der Inhalt scrollt in einer Zeile - man muss ihn nicht
                  lesen, nur einfügen. white-space:pre verhindert den Umbruch. */}
-          <textarea id="fe_jsonIn" rows="1" wrap="off" placeholder='📋 JSON aus der Produktseite hier einfügen…' title="JSON aus dem Lesezeichen-Skript einfügen, dann auf Übernehmen klicken" style="flex:1 1 auto;min-width:0;height:34px;box-sizing:border-box;padding:7px 8px;border:2px dashed #9fc6a8;border-radius:8px;background:var(--k-f4faf5,#f4faf5);color:var(--ink);font-size:12px;font-family:ui-monospace,monospace;white-space:pre;overflow:auto;resize:none"></textarea>
-          <button type="button" onclick="fgJsonUebernehmen()" style="flex:0 0 auto;padding:7px 11px;border:1px solid #9fc6a8;border-radius:8px;background:var(--k-eaf5ee,#eaf5ee);color:var(--k-166534);font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap">Übernehmen ▸</button>
+          <textarea id="fe_jsonIn" rows="1" wrap="off" placeholder='📋 JSON aus der Produktseite hier einfügen…' title="JSON aus dem Lesezeichen-Skript einfügen, dann auf Übernehmen klicken" style="border:2px dashed #9fc6a8;background:var(--k-f4faf5,#f4faf5)"></textarea>
+          <button type="button" onclick="fgJsonUebernehmen()" class="feBtnGruenHell">Übernehmen ▸</button>
         </div>
-        <div id="fe_jsonMsg" style="font-size:11.5px;line-height:1.45;margin-top:-2px"></div>
+        <div id="fe_jsonMsg"></div>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:7px;font-size:11.5px;color:var(--muted)">
-        <span style="flex:0 0 auto">Auch:</span>
-        <button type="button" onclick="document.getElementById('fe_eti_up').click()" title="Etikett-Foto vom Rechner wählen — Riki liest es" style="padding:4px 10px;border:1px solid #cbc7f2;border-radius:20px;background:var(--k-eeedfe);color:var(--k-534ab7);font-weight:600;cursor:pointer;font-size:11.5px">🏷 Etikett-Foto</button>
-        <button type="button" onclick="fgUseKundenfoto('e')" title="Foto aus der Scan-Warteschlange dieses Nutzers verwenden" style="padding:4px 10px;border:1px solid var(--line);border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:11.5px">🗂 Kundenfoto</button>
-        <button type="button" onclick="fgPullOff()" title="Open Food Facts über die EAN abfragen" style="padding:4px 10px;border:1px solid var(--k-16a34a);border-radius:20px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);font-weight:600;cursor:pointer;font-size:11.5px">🏷 OFF</button>
-        <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name)" style="padding:4px 10px;border:1px solid var(--line);border-radius:20px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:11.5px">USDA</button>
-        <button type="button" onclick="document.getElementById('fe_res_up').click()" title="Foto → Riki sucht die passende Herstellerseite" style="padding:4px 10px;border:1px solid var(--line);border-radius:20px;background:var(--card);color:var(--k-534ab7);cursor:pointer;font-size:11.5px">📸 Foto → Seite</button>
+      <div class="feHolAuch">
+        <span class="feFlex0">Auch:</span>
+        <button type="button" onclick="document.getElementById('fe_eti_up').click()" title="Etikett-Foto vom Rechner wählen — Riki liest es" class="feChipLila">🏷 Etikett-Foto</button>
+        <button type="button" onclick="fgUseKundenfoto('e')" title="Foto aus der Scan-Warteschlange dieses Nutzers verwenden" class="feChipHell">🗂 Kundenfoto</button>
+        <button type="button" onclick="fgPullOff()" title="Open Food Facts über die EAN abfragen" class="feChipGruen">🏷 OFF</button>
+        <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name)" class="feChipBg">USDA</button>
+        <button type="button" onclick="document.getElementById('fe_res_up').click()" title="Foto → Riki sucht die passende Herstellerseite" class="feChipHell">📸 Foto → Seite</button>
       </div>
-      <input type="file" id="fe_res_up" accept="image/*" multiple style="display:none" onchange="fgPullResearch(this.files)">
-      <input type="file" id="fe_eti_up" accept="image/*" multiple style="display:none" onchange="fgPullEtikett(this.files)">
+      <input type="file" id="fe_res_up" accept="image/*" multiple class="feVersteckt" onchange="fgPullResearch(this.files)">
+      <input type="file" id="fe_eti_up" accept="image/*" multiple class="feVersteckt" onchange="fgPullEtikett(this.files)">
       <!-- fe_pullMsg bleibt (mehrere Lesewege schreiben ihren Status hierher, §1.11n-j),
            startet aber LEER: der Erklaersatz stand bei jedem Produkt und war laengst gelesen. -->
-      <div id="fe_pullMsg" style="font-size:12px;color:var(--muted);margin-top:0"></div>
+      <div id="fe_pullMsg" style="color:var(--muted)"></div>
     </div>
       ${''/* 06.08.2026 Etappe 2 (Mockup H): Die Produktkarte ist als Eingabetabelle über die volle
              Breite aufgelöst. Vier Spalten, ein Feld je Zelle - der Kopf ist damit auf einen Blick
@@ -15778,7 +15778,7 @@ async function openFgEditor(id, prefill, targetEl){
           <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" class="fld" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842"></div>
           <div class="mz"><k>EAN-Status</k><label class="mzCheck"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}">kein EAN – als „offen“ markieren</label></div>
           <div class="mz mz-2"><k>Bio / Öko</k>
-            <select id="fe_bio" onchange="feBioChange()" style="display:none"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select>
+            <select id="fe_bio" onchange="feBioChange()" class="feVersteckt"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select>
             <div id="fe_bioSw" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Merkmal und Filter – es gibt KEINE Punkte im Index (Prinzip 4)."></div>
           </div>
           <div class="mz mz-4"><k>Verzehrempfehlung / Tagesdosis</k>${inp("fe_verzehr",d.dosis_text||"")}
@@ -15789,10 +15789,10 @@ async function openFgEditor(id, prefill, targetEl){
         <input type="hidden" id="fe_ukat" value="${esc(d.unterkategorie||"")}">
         <input type="hidden" id="fe_basis" value="${esc(d.basis||"100g")}">
       </div>
-      <div style="min-width:0">
-        ${card(`Produktbild <span style="text-transform:none;color:var(--muted)">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview" style="margin-bottom:6px">${d.bild_url?`<img src="${esc(d.bild_url)}" style="max-height:150px;border-radius:8px">`:'<span style="color:var(--muted);font-size:13px">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" style="font-size:13px"><button type="button" onclick="fgBildLoeschen()" style="margin-left:8px;padding:5px 10px;border:1px solid var(--k-fca5a5,#fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:12.5px">🗑 Bild löschen</button><div id="fe_bildMsg" style="font-size:12px;color:var(--muted);margin-top:4px"></div>`
-          + ((!d.bild_url && d.bild_url_off) ? `<div id="fe_bildOff" style="margin-top:12px;padding:9px 10px;border:1px dashed var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;margin-bottom:6px">Bild von OpenFoodFacts – nur intern</div><img src="${esc(d.bild_url_off)}" style="max-height:130px;border-radius:8px;display:block" alt=""><div style="font-size:11.5px;color:var(--muted);margin-top:6px"><b>Wird dem Nutzer NICHT gezeigt.</b> Lizenz (CC-BY-SA) noch nicht geklärt – siehe FAHRPLAN. Nur zum Abgleich beim Erfassen.</div></div>` : "")
-          + `<div style="margin-top:14px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--k-f6f8f7,#f6f8f7)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" style="padding:5px 10px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple style="display:none" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div><div style="font-size:11.5px;color:var(--muted);margin-top:6px">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
+      <div class="feMinw0">
+        ${card(`Produktbild <span class="feKartenZusatz">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview">${d.bild_url?`<img src="${esc(d.bild_url)}" class="feBildVorschau">`:'<span class="feHinweisGrau">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" class="feDateiFeld"><button type="button" onclick="fgBildLoeschen()" class="feBtnRot">🗑 Bild löschen</button><div id="fe_bildMsg" style="color:var(--muted)"></div>`
+          + ((!d.bild_url && d.bild_url_off) ? `<div id="fe_bildOff"><div class="feKastenTitel">Bild von OpenFoodFacts – nur intern</div><img src="${esc(d.bild_url_off)}" class="feBildOffImg" alt=""><div class="feKastenFuss"><b>Wird dem Nutzer NICHT gezeigt.</b> Lizenz (CC-BY-SA) noch nicht geklärt – siehe FAHRPLAN. Nur zum Abgleich beim Erfassen.</div></div>` : "")
+          + `<div class="feEtikettBox"><div class="feEtikettKopf"><div class="feEtikettTitel">Angehängte Fotos <span id="fe_etikettCount"></span> – zum Nachschauen</div><button type="button" onclick="document.getElementById('fe_etikett_up').click()" class="feBtnLilaKlein">+ Foto</button></div><input type="file" id="fe_etikett_up" accept="image/*" multiple class="feVersteckt" onchange="fgEtikettAddUpload(this.files)"><div id="fe_etikettGrid" style="display:flex"></div><div class="feKastenFuss">Vom Nutzer im Laden erfasst oder selbst hochgeladen. <b>Werden nicht veröffentlicht</b> – nur zum Abgleich. <b>Klick</b> = groß · <b>Rechtsklick</b> = Riki-Menü.</div></div>`
         )}
         ${''/* Referenz sitzt jetzt als 3. Spalte neben Zutaten/Zusatzstoffe (Ralph 24.07.2026) */}
       </div>
@@ -15879,32 +15879,32 @@ async function openFgEditor(id, prefill, targetEl){
   </div>
   </div>
 </div>
-<div id="feTab3" style="display:none"><div id="fe_quickBar" style="display:none;gap:8px;align-items:center;margin:0 0 6px" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span style="font-size:15px;flex:0 0 auto" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu" style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px"><button type="button" onclick="fgQuickGo()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto">Zuordnen</button></div><div id="fe_quickMsg" style="font-size:12.5px;line-height:1.6;margin:0 0 6px 27px"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);gap:10px;align-items:stretch;margin-top:2px;height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut" style="min-height:0;display:flex;flex-direction:column">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span style="text-transform:none;color:var(--muted)">(gebunden)</span>`,`
-          <details style="background:var(--k-f4f1fb);border:1px solid var(--k-cecbf6);border-radius:10px;padding:8px 10px;margin-bottom:10px">
-            <summary style="font-weight:700;font-size:13px;color:var(--k-3c3489);cursor:pointer;list-style:none">🤖 Riki – Zutatenliste analysieren</summary>
-            <div style="margin-top:8px">
-            <textarea id="rikiText" rows="2" placeholder="Zutatenliste vom Etikett hier einfügen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--k-cecbf6);border-radius:8px;font-size:13px;background:var(--k-ffffff)"></textarea>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-              <button type="button" onclick="rikiAnalyse()" style="padding:7px 12px;border:0;border-radius:8px;background:var(--k-534ab7);color:var(--k-ffffff);font-weight:600;font-size:13px;cursor:pointer">Analysieren</button>
-              <button type="button" onclick="fgOffZutaten()" style="padding:7px 12px;border:1px solid var(--k-2e7d32);border-radius:8px;background:var(--k-fbf8f2);color:var(--k-2e7d32);cursor:pointer;font-size:13px">OFF-Gegenprobe</button>
-              <button type="button" onclick="rikiBudget()" style="padding:7px 10px;border:1px solid var(--k-cecbf6);border-radius:8px;background:var(--k-ffffff);color:var(--k-534ab7);font-size:12px;cursor:pointer">Verbrauch</button>
+<div id="feTab3" style="display:none"><div id="fe_quickBar" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span class="feQuickIcon" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu"><button type="button" onclick="fgQuickGo()" class="feBtnZuordnen">Zuordnen</button></div><div id="fe_quickMsg"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span class="feKartenZusatz">(gebunden)</span>`,`
+          <details class="feRikiBox">
+            <summary class="feRikiTitel">🤖 Riki – Zutatenliste analysieren</summary>
+            <div class="feMt8">
+            <textarea id="rikiText" rows="2" placeholder="Zutatenliste vom Etikett hier einfügen…"></textarea>
+            <div class="feBtnReihe">
+              <button type="button" onclick="rikiAnalyse()" class="feBtnLilaVoll">Analysieren</button>
+              <button type="button" onclick="fgOffZutaten()" class="feBtnGruenRand">OFF-Gegenprobe</button>
+              <button type="button" onclick="rikiBudget()" class="feBtnLilaHell">Verbrauch</button>
             </div>
-            <div id="rikiMsg" style="font-size:12.5px;margin-top:7px;line-height:1.5"></div>
+            <div id="rikiMsg"></div>
             </div>
           </details>
           <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
-          <input id="fe_zutSuche" oninput="fgPickRender()" placeholder="🔍 Zutat / Wirkstoff im Stamm suchen…" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:8px;flex:0 0 auto">
-          <div style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line)"><span title="enthalten">☑</span><span>Zutat / Wirkstoff</span><span style="text-align:center">Wert</span></div>
-          <div id="fe_pickList" data-note="Konzept D: fuellt die Kartenhoehe und scrollt selbst - vorher feste 420px, die zusammen mit Riki-Block und Suchfeld die Karte zu hoch machten" style="flex:1 1 auto;min-height:110px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card)"></div>
-          <div style="display:flex;gap:6px;margin-top:6px">
-            <input id="fe_zutNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgPickAddNeu();}" placeholder="nicht im Stamm? Name eintippen…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)">
-            <button type="button" onclick="fgPickAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button>
+          <input id="fe_zutSuche" oninput="fgPickRender()" placeholder="🔍 Zutat / Wirkstoff im Stamm suchen…">
+          <div class="feListKopf"><span title="enthalten">☑</span><span>Zutat / Wirkstoff</span><span class="feMitte">Wert</span></div>
+          <div id="fe_pickList" data-note="Konzept D: fuellt die Kartenhoehe und scrollt selbst - vorher feste 420px, die zusammen mit Riki-Block und Suchfeld die Karte zu hoch machten"></div>
+          <div class="feNeuZeile">
+            <input id="fe_zutNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgPickAddNeu();}" placeholder="nicht im Stamm? Name eintippen…">
+            <button type="button" onclick="fgPickAddNeu()" class="feBtnStamm">+ hinzufügen</button>
           </div>
-          <div id="fe_zutNeuInfo" style="margin-top:6px"></div>
-          <div id="fe_zutRows" style="display:none">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
-          <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" style="display:none">+ Zutat</button>
-          <div id="fgOffBox" style="margin-top:8px"></div>`)}</div><div id="fe_colZus" data-note="Grid statt Flex: so bekommen Zusatzstoffe und Mikros einen FESTEN Anteil der Spaltenhoehe. Vorher nahm die Zusatzstoff-Karte allen Platz und schob die Mikros aus dem Bild (Ralphs Fund 26.07.)." id="fe_colZusMik" style="min-height:0;display:grid;grid-template-rows:minmax(0,1.6fr) minmax(0,1fr);gap:10px"><div style="min-height:0;display:flex">${cardF("Zusatzstoffe",`
-          <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-bottom:8px;cursor:pointer;flex:0 0 auto"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">Keine Zusatzstoffe im Produkt</label>
+          <div id="fe_zutNeuInfo"></div>
+          <div id="fe_zutRows" class="feVersteckt">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
+          <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" class="feVersteckt">+ Zutat</button>
+          <div id="fgOffBox"></div>`)}</div><div id="fe_colZus" data-note="Grid statt Flex: so bekommen Zusatzstoffe und Mikros einen FESTEN Anteil der Spaltenhoehe. Vorher nahm die Zusatzstoff-Karte allen Platz und schob die Mikros aus dem Bild (Ralphs Fund 26.07.)." id="fe_colZusMik"><div class="feSpalteFlex">${cardF("Zusatzstoffe",`
+          <label class="feZusKeineLbl"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)">Keine Zusatzstoffe im Produkt</label>
           ${''/* Die separate Auswahl-Liste oben ist entfallen (Ralph 27.07.): sie zeigte dasselbe
                wie die Stamm-Liste darunter, in der die gewaehlten Zusatzstoffe angehakt und oben
                einsortiert stehen. Zweimal dieselbe Information kostet nur Hoehe. zusRenderSel bleibt
@@ -15912,10 +15912,10 @@ async function openFgEditor(id, prefill, targetEl){
           ${''/* Ralph 26.07.: Suchzeile + anklickbare Liste gehoeren wieder IN die Karte (wie bei den Zutaten),
                nicht in ein „+“-Fenster. Das Fenster aus 26r entfaellt damit – zwei Orte mit denselben IDs
                waeren ein Bug. */}
-          <input id="fe_zusSuche" oninput="zusRenderPick()" placeholder="🔍 Zusatzstoff / E-Nummer suchen…" style="width:100%;box-sizing:border-box;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin:8px 0 6px;flex:0 0 auto">
-          <div id="fe_zusList" style="flex:1 1 auto;min-height:110px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)"></div>
-          <div style="display:flex;gap:6px;margin-top:7px;flex:0 0 auto"><input id="fe_zusNeu" onkeydown="zusNeuKey(event)" placeholder="nicht im Stamm? Name / E-Nummer…" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink)"><button type="button" onclick="zusAddNeu()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ hinzufügen</button></div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:7px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2e9e57;vertical-align:middle;margin-right:4px"></span>unbedenklich</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#c0392b;vertical-align:middle;margin-right:4px"></span>abgewertet (drückt den Index)<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9aa7b2;vertical-align:middle;margin-right:4px"></span>ungeprüft</span></div>
+          <input id="fe_zusSuche" oninput="zusRenderPick()" placeholder="🔍 Zusatzstoff / E-Nummer suchen…">
+          <div id="fe_zusList"></div>
+          <div class="feNeuZeile2"><input id="fe_zusNeu" onkeydown="zusNeuKey(event)" placeholder="nicht im Stamm? Name / E-Nummer…"><button type="button" onclick="zusAddNeu()" class="feBtnStamm">+ hinzufügen</button></div>
+          <div class="feZusLegende"><span><span class="feZusPunktGr"></span>unbedenklich</span><span><span class="feZusPunktRt"></span>abgewertet (drückt den Index)<span><span class="feZusPunktGrau"></span>ungeprüft</span></div>
           <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text||"keine")}">
           <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
           ${''/* SÜSSSTOFF-AUSWAHL ENTFERNT (Ralph 26.07.): die Handeingabe fällt weg. Das FELD bleibt als
@@ -15926,7 +15926,7 @@ async function openFgEditor(id, prefill, targetEl){
                Die Bewertungsregel dahinter (Getränke-Deckel, §1.13e) hängt seit dem 26.07. nicht mehr an diesem
                Feld allein: cb_hat_kuenstlichen_suessstoff() liest Handfeld + Zutaten + Zusatzstoff-Liste. */}
           <input type="hidden" id="fe_suess" value="${esc(d.suessstoffe||"nein")}">
-        `)}</div></div><div id="fe_colRef" style="min-height:0">${_refCard}</div></div></div></div></div>
+        `)}</div></div><div id="fe_colRef">${_refCard}</div></div></div></div></div>
     ${/* 30.07. (Ralph): "die kästchen auf der supplements und salz produkt erfassen karte unten
          anzeigen … und nur die, die enthalten sind". Streifen unter den drei Spalten, NUR bei
          Supplement und Salze - fuer jede andere Kategorie gibt es keine Quelle. Gezeigt werden
@@ -22265,7 +22265,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1027";
+const APP_BUILD = "2026-08-07-1143";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
