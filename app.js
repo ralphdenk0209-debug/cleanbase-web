@@ -15612,7 +15612,7 @@ async function openFgEditor(id, prefill, targetEl){
   catch(_e){ var _refSeen={}; window._fgRef=[]; (_savedRef||_boundNames).concat(_boundNames).concat(_boundZus).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]||_refIstLeer(k)) return; _refSeen[k]=1; window._fgRef.push(n); }); }
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
-  const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
+  const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett'||k==='einfach_unges'||k==='mehrfach_unges'||k==='transfette')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
   /* Fuenfte Fundstelle des Default 5: Auch die Textliste machte aus NULL eine 5.
      Ein leeres Feld heisst "unbewertet" - und muss auch so aussehen. */
   const zText=(d.zutaten||[]).map(z=>`${z.name}; ${(z.rating===null||z.rating===undefined)?"":z.rating}; ${(String(z.kritisch||"nein").toLowerCase()==="ja")?"j":"n"}`).join("\n");
@@ -15840,7 +15840,7 @@ async function openFgEditor(id, prefill, targetEl){
 <div id="feTab2" style="display:none">
   <div id="feNwOben">
   <div id="feNwLinks">
-        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" ></div>`)}</div>
+        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("einfach_unges","davon einfach ungesättigte","g")}${nf("mehrfach_unges","davon mehrfach ungesättigte","g")}${nf("transfette","davon Transfettsäuren","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" ></div>`)}</div>
         <span id="fe_wirkAnker"  data-note="06.08.2026: Die Wirkstoff-Karte hat einen FESTEN Ort im Reiter Naehrwerte. Nichts wird mehr verschoben - der Anker bleibt nur als Sprungmarke."></span><div id="fe_wirkCard">
           <div id="fe_wirkGrid">
             <div id="fe_wirkTblCol">${card(`<span>Wirkstoffe &amp; Dosis</span> <span class="feKartenZusatz">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
@@ -17779,7 +17779,12 @@ async function fgEditSave(alsoFreigeben){
   }
   msg.style.color="var(--k-374151)"; msg.style.fontWeight="400"; msg.textContent="⏳ speichern…";
   const numv=v=>{ v=(v==null?"":String(v)).trim(); return v===""?undefined:Number(v.replace(",",".")); };
-  const nw={}; ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(k=>{ const v=numv(g("fe_"+k).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
+  /* 07.08.2026 (Ralph): einfach_unges, mehrfach_unges und transfette ergaenzt.
+     Sie stehen auf dem Etikett, waren aber nirgends erfassbar - weder Feld noch
+     Schreibweg noch Spalte fuer "einfach". Sie fliessen NICHT in den Score:
+     der DGE-Richtwert fuer mehrfach ungesaettigte (7-10 En%) ist eine TAGES-
+     groesse, keine Produktgroesse. Bewertet wird das im Tagebuch. */
+  const nw={}; ["kcal","protein","kh","zucker","polyole","fett","ges_fett","einfach_unges","mehrfach_unges","transfette","ballaststoffe","salz"].forEach(k=>{ const v=numv(g("fe_"+k).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
   const zut=[...document.querySelectorAll("#fe_zutRows .fgZutRow")].map(row=>{
     const nm=(row.querySelector(".fgzName").value||"").trim();
     /* LEER heisst NULL, nicht 5. Wer das Feld leer laesst, sagt "ich weiss es nicht" -
@@ -22285,7 +22290,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1854";
+const APP_BUILD = "2026-08-07-1944";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
