@@ -15777,6 +15777,8 @@ async function openFgEditor(id, prefill, targetEl){
           <div class="mz"><k>EAN-Status</k><label class="mzCheck"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}">kein EAN – als „offen“ markieren</label></div>
           <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
           <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
+          <div class="mz"><k>Unterkategorie</k><input id="fe_ukat" class="fld" value="${esc(d.unterkategorie||"")}" placeholder="nicht erfasst"></div>
+          <div class="mz"><k>Bezugsbasis</k><input id="fe_basis" class="fld" value="${esc(d.basis||"100g")}" placeholder="100g"></div>
           <div class="mz mz-2"><k>Bio / Öko</k>
             <select id="fe_bio" onchange="feBioChange()" class="feVersteckt"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select>
             <div id="fe_bioSw" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Merkmal und Filter – es gibt KEINE Punkte im Index (Prinzip 4)."></div>
@@ -15786,8 +15788,6 @@ async function openFgEditor(id, prefill, targetEl){
           </div>
         </div>
         <div id="fe_bioHint"></div>
-        <input type="hidden" id="fe_ukat" value="${esc(d.unterkategorie||"")}">
-        <input type="hidden" id="fe_basis" value="${esc(d.basis||"100g")}">
       </div>
       <div class="feMinw0">
         ${card(`Produktbild <span class="feKartenZusatz">(optional, wird öffentlich gezeigt)</span>`,`<div id="fe_bildPreview">${d.bild_url?`<img src="${esc(d.bild_url)}" class="feBildVorschau">`:'<span class="feHinweisGrau">kein Bild</span>'}</div><input type="file" accept="image/*" onchange="fgImgUpload(this)" class="feDateiFeld"><button type="button" onclick="fgBildLoeschen()" class="feBtnRot">🗑 Bild löschen</button><div id="fe_bildMsg" style="color:var(--muted)"></div>`
@@ -22271,7 +22271,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1730";
+const APP_BUILD = "2026-08-07-1741";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
