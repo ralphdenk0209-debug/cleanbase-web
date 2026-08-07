@@ -25,7 +25,7 @@
    sonst gewinnt weiterhin der Inline-Stil und die Datei luegt.
 
    Angelegt 07.08.2026 · Build 2026-08-07-0645 · Probe-Durchgang "Kopfbereich".
-   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste".
+   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste" · Build 2026-08-07-1027 Durchgang 3b "Knopfleiste".
    ============================================================================ */
 
 
@@ -656,3 +656,74 @@ body{ --admin-oben:64px }
    Greift NICHT im Inline-Modus, weil der Editor dort nicht in #overlay steckt. */
 #overlay.fgEditorFull #fe_ready{ display:none }
 #overlay.fgEditorFull #fe_fussLeiste{ border-top:0; box-shadow:none; background:transparent; padding:2px }
+
+
+/* ============================================================================
+   PRODUKTEDITOR · KNOPFLEISTE DER KOPFZEILE  (#frgTopBtns)  ·  Durchgang 3b
+   ----------------------------------------------------------------------------
+   Die vier Bedienelemente rechts oben im Editor: Status-Pille · Speichern
+   (Diskette) · "✓ freigeben" · Loeschen. Sie werden von feFreigabeLeiste zur
+   Laufzeit erzeugt und in den Slot #fe_frgSlot der Kopfleiste gehaengt.
+
+   ⚠ ZWEI BEFUNDE, DIE DIESEN DURCHGANG AUSGELOEST HABEN
+
+   1. Der LOESCHKNOPF stand ZWEIMAL WORTGLEICH im Code (213 Zeichen, app.js
+      Z. 17289 und Z. 17303). Der zweite Ort ist die Nachruestung fuer den Fall,
+      dass die Knopfleiste beim zweiten Produkt derselben Sitzung schon besteht.
+      Zwei Kopien derselben Regel (§4.2) - wer eine aendert, aendert die andere
+      nicht. Jetzt steht sie hier, einmal.
+
+   2. Der FREIGEBEN-KNOPF bekam Farbe und Zeiger aus vier Inline-Zuweisungen
+      (gruen/Zeigefinger bzw. grau/verboten). Der Zustand steht aber laengst im
+      disabled-Attribut, das dieselbe Funktion ohnehin setzt. Statt einer neuen
+      Klasse liest ui.css jetzt #frgGoTop:disabled. Keine zweite Zustandsquelle.
+
+   WO SCHRAUBEN?
+   · Knopfhoehe ............ #frgGoTop / #frgSaveTop / #frgDelTop → height
+   · Abstand der Knoepfe ... #frgTopBtns → gap
+   · Abstand vor Loeschen .. #frgDelTop → margin-left (Ralph 02.08.: "er soll
+                             gefunden, nicht getroffen werden")
+   · Gruen bzw. Grau ....... #frgGoTop → background · #frgGoTop:disabled
+
+   NICHT HIER, BEWUSST: die Klartext-Ampel im linken Streifen (#feRailAmpel) und
+   die Punkte in frgDots/frgList. Ihre Farben kommen aus _FRG_COL (app.js
+   Z. 17049) - EINE Quelle fuer drei Ansichten. Sie hierher zu kopieren waere
+   eine zweite Wahrheit (§4.2). Wo die Ampelfarben leben sollen, ist eine
+   Regelfrage und braucht eine Entscheidung, keinen Optik-Durchgang.
+
+   NICHT HIER, WEIL UNSICHTBAR: die Rand-Fahne #frgRail und die Schublade
+   #frgPanel. Beide werden weiter aufgebaut und befuellt, sind im heutigen
+   Editor aber ausgeblendet (Z. 17242 setzt cssText auf display:none, das Panel
+   ist seit 28q abgeschafft). Sie umzuziehen waere Risiko ohne Nutzen - das ist
+   eine Altcode-Frage wie beim Dashboard am 06.08.
+   ============================================================================ */
+#frgTopBtns{ display:flex; gap:6px; align-items:center; margin-left:6px; flex:0 0 auto }
+#frgStatusPill{ flex:0 0 auto }
+
+#frgSaveTop{
+  width:36px; height:32px;
+  border:1px solid var(--k-bfdbfe,#bfdbfe); border-radius:9px;
+  background:var(--card); color:#2563eb; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; padding:0;
+}
+
+#frgGoTop{
+  height:32px; padding:0 14px;
+  border:0; border-radius:9px;
+  background:#2e9e57; color:#fff;
+  font-weight:800; font-size:12.5px;
+  cursor:pointer; white-space:nowrap;
+}
+/* Blockiert: das disabled-Attribut ist die Wahrheit, nicht eine zweite Klasse. */
+#frgGoTop:disabled{ background:#c7d2cc; cursor:not-allowed }
+
+/* Loeschknopf. display:none ist der Grundzustand - fgStatusLoad setzt ihn auf
+   flex, sobald es etwas zu loeschen gibt. Der Inline-Wert schlaegt diese Regel,
+   genau so ist es gemeint. */
+#frgDelTop{
+  display:none;
+  height:32px; width:36px; margin-left:10px;
+  border:1px solid #f0b8b4; border-radius:9px;
+  background:var(--card); color:#b91c1c; cursor:pointer;
+  align-items:center; justify-content:center; padding:0; flex:0 0 auto;
+}

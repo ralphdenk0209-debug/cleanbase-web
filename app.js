@@ -17278,18 +17278,17 @@ function feFreigabeLeiste(items, blocked){
       var tbx=document.getElementById('frgTopBtns');
       if(!tbx){
         tbx=document.createElement('span'); tbx.id='frgTopBtns';
-        tbx.style.cssText='display:flex;gap:6px;align-items:center;margin-left:6px;flex:0 0 auto';
-        tbx.innerHTML='<button type="button" id="frgSaveTop" onclick="try{fgEditSave(false)}catch(e){}" title="Nur speichern" style="width:36px;height:32px;border:1px solid var(--k-bfdbfe,#bfdbfe);border-radius:9px;background:var(--card);color:#2563eb;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>'
-          +'<button type="button" id="frgGoTop" style="height:32px;padding:0 14px;border:0;border-radius:9px;color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap">✓ freigeben</button>'
+        tbx.innerHTML='<button type="button" id="frgSaveTop" onclick="try{fgEditSave(false)}catch(e){}" title="Nur speichern"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>'
+          +'<button type="button" id="frgGoTop">✓ freigeben</button>'
           /* 02.08. (Ralph, zweiter Anlauf): Der Loeschknopf stand nur im Status-Menue - zwei
              Klicks tief und damit unauffindbar. Jetzt sichtbar, aber MIT ABSTAND und nur als
              Umriss: er soll gefunden, nicht getroffen werden. Erscheint nur bei einem
              gespeicherten Produkt (frgDelTop wird in fgStatusLoad ein-/ausgeblendet) - an
              einem ungespeicherten gibt es nichts zu loeschen. */
-          +'<button type="button" id="frgDelTop" onclick="try{fgProduktLoeschen()}catch(e){}" title="Produkt endgültig löschen" style="display:none;height:32px;width:36px;margin-left:10px;border:1px solid #f0b8b4;border-radius:9px;background:var(--card);color:#b91c1c;cursor:pointer;align-items:center;justify-content:center;padding:0;flex:0 0 auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>';
+          +'<button type="button" id="frgDelTop" onclick="try{fgProduktLoeschen()}catch(e){}" title="Produkt endgültig löschen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>';
         /* Status-Pille VOR die Diskette (Ralph-Entscheid Mockup A, 29.07.):
            zeigt den aktuellen Status, Klick oeffnet das Menue mit allen Zielen. */
-        var pil=document.createElement('span'); pil.id='frgStatusPill'; pil.style.cssText='flex:0 0 auto';
+        var pil=document.createElement('span'); pil.id='frgStatusPill';
         tbx.insertBefore(pil, tbx.firstChild);
         try{ fgStatusLoad(); }catch(e){}
         _slot2.appendChild(tbx);
@@ -17300,14 +17299,17 @@ function feFreigabeLeiste(items, blocked){
          eigenstaendig geprueft und nachgeruestet. */
       if(!document.getElementById('frgDelTop')){
         var _dz=document.createElement('button'); _dz.type='button'; _dz.id='frgDelTop';
-        _dz.style.cssText='display:none;height:32px;width:36px;margin-left:10px;border:1px solid #f0b8b4;border-radius:9px;background:var(--card);color:#b91c1c;cursor:pointer;align-items:center;justify-content:center;padding:0;flex:0 0 auto';
         (document.getElementById('frgTopBtns')||_slot2).appendChild(_dz);
         try{ fgStatusLoad(); }catch(e){}   /* fuellt Symbol, Titel und Klick je nach Lage */
       }
       var gt=document.getElementById('frgGoTop');
       if(gt){
-        if(blocked){ gt.disabled=true; gt.style.background='#c7d2cc'; gt.style.cursor='not-allowed'; gt.title='Noch '+rot+' Punkt'+(rot>1?'e':'')+' offen – Klartext im Streifen links'; gt.onclick=null; }
-        else { gt.disabled=false; gt.style.background='#2e9e57'; gt.style.cursor='pointer'; gt.title='Speichern & freigeben'; gt.onclick=function(){ try{fgEditSave(true)}catch(e){} }; }
+        /* 07.08.2026: Farbe und Zeiger des Knopfes kamen als vier Inline-Zuweisungen
+           von hier. Der Zustand steht aber schon im disabled-Attribut, das diese
+           Funktion ohnehin setzt - ui.css liest ihn per #frgGoTop:disabled. Keine
+           zweite Zustandsquelle, keine Klasse noetig. Verhalten unveraendert. */
+        if(blocked){ gt.disabled=true; gt.title='Noch '+rot+' Punkt'+(rot>1?'e':'')+' offen – Klartext im Streifen links'; gt.onclick=null; }
+        else { gt.disabled=false; gt.title='Speichern & freigeben'; gt.onclick=function(){ try{fgEditSave(true)}catch(e){} }; }
       }
     }
   }catch(e){}
@@ -22263,7 +22265,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1014";
+const APP_BUILD = "2026-08-07-1027";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
