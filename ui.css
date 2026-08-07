@@ -25,7 +25,7 @@
    sonst gewinnt weiterhin der Inline-Stil und die Datei luegt.
 
    Angelegt 07.08.2026 · Build 2026-08-07-0645 · Probe-Durchgang "Kopfbereich".
-   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste" · Build 2026-08-07-1027 Durchgang 3b "Knopfleiste" · Build 2026-08-07-1049 Durchgang 4 "Reiter 1 Rest" · Build 2026-08-07-1143 Durchgang 5 "Reiter 3" · Build 2026-08-07-1242 Durchgang 3c "Freigabe-Check" · Build 2026-08-07-1251 Durchgang 3d Teil 1 "Ampel" · Build 2026-08-07-1311 Kopfbereich zweispaltig.
+   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste" · Build 2026-08-07-1027 Durchgang 3b "Knopfleiste" · Build 2026-08-07-1049 Durchgang 4 "Reiter 1 Rest" · Build 2026-08-07-1143 Durchgang 5 "Reiter 3" · Build 2026-08-07-1242 Durchgang 3c "Freigabe-Check" · Build 2026-08-07-1251 Durchgang 3d Teil 1 "Ampel" · Build 2026-08-07-1311 Kopfbereich zweispaltig · Build 2026-08-07-1708 Mikro-Karte volle Breite.
    ============================================================================ */
 
 
@@ -570,6 +570,12 @@ body{ --admin-oben:64px }
 #feTab2 #fe_wirkGrid{ display:grid;gap:12px;align-items:start;
                       grid-template-columns:minmax(0,1fr) }
 #feTab2 #fe_mikroWrap{ min-height:0 }
+/* 07.08.2026 (Ralph: "mikronaehrstoffe soll die selbe breite haben wie wirkstoffe").
+   fe_mikroWrap ist display:flex in ZEILENRICHTUNG - das schreibt feKatChange inline,
+   darum steht es nicht hier. Die Karte darin (cardF) hat keine Breitenangabe und
+   bekam deshalb nur ihre Inhaltsbreite, waehrend die Wirkstoff-Karte in einem
+   Raster sitzt, das volle Breite vorgibt. Ein Kind, eine Regel: */
+#feTab2 #fe_mikroWrap > *{ flex:1 1 auto; min-width:0 }
 #feTab2 #feNwFotoSlot{ min-width:0;position:sticky;top:8px }
 #fe_wirkFotoCol #fe_wirkFotoBox{ position:relative;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none }
 #fe_wirkFotoCol #fe_wirkFotoImg{ position:absolute;left:0;top:0;max-width:none;user-select:none;-webkit-user-drag:none }
