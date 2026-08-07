@@ -3962,9 +3962,12 @@ function feGridHoeheSync(){
   /* 05.08.: Die Kachelreihe wird unten ggf. bis zur Fussleiste aufgefuellt (siehe Funktionsende).
      VOR der Hoehenmessung immer auf den Basis-Deckel 196 zurueck - sonst misst der naechste
      Durchlauf die aufgefuellte Hoehe, zieht den Karten mehr ab, fuellt wieder auf... und die
-     Flaeche schrumpft sich Lauf fuer Lauf kleiner. Reset macht jeden Durchlauf idempotent. */
+     Flaeche schrumpft sich Lauf fuer Lauf kleiner. Reset macht jeden Durchlauf idempotent.
+     07.08.2026: Der Deckel ist keine Zahl mehr an dieser Stelle. Zuruecksetzen heisst jetzt,
+     den Inline-Wert ZU LOESCHEN - dann gilt wieder --naehr-reihe-hoehe aus ui.css. Damit
+     bleibt der Reset idempotent wie vorher, aber die Zahl steht nur noch an einem Ort. */
   var reihe=document.getElementById("fe_naehrReihe");
-  if(reihe) reihe.style.maxHeight="196px";
+  if(reihe) reihe.style.maxHeight="";
   var h=(k&&k.innerHTML)?Math.ceil(k.getBoundingClientRect().height)+10:0;   /* +10 = margin-top */
   if(k) k.style.marginTop=(k.innerHTML?"10px":"0");
   var stufe=feStufe();
@@ -4033,7 +4036,12 @@ function feGridHoeheSync(){
       var fuss=document.getElementById("fe_fussLeiste");
       if(fuss){
         var frei=Math.floor(window.innerHeight - fuss.getBoundingClientRect().bottom - 4);
-        if(frei>0) reihe.style.maxHeight=(196+frei)+"px";
+        /* 07.08.2026: Basis kommt aus ui.css (--naehr-reihe-hoehe), nicht mehr als
+           Zahl aus dieser Zeile. Die 196 bleibt NUR als Rueckfall, falls ui.css
+           fehlt oder der Browser die Variable nicht liefert - dann verhaelt sich
+           die Aufstockung exakt wie vor dem Umbau. */
+        var basis=parseFloat(getComputedStyle(reihe).getPropertyValue("--naehr-reihe-hoehe"))||196;
+        if(frei>0) reihe.style.maxHeight=(basis+frei)+"px";
       }
     }
   }
@@ -4093,7 +4101,7 @@ async function feNaehrKachelnSync(){
        Genau deshalb ein DECKEL statt kleinerer Kacheln: im Normalfall aendert er nichts (eine
        Zeile passt darunter), und der seltene Extremfall scrollt IM Streifen, statt die drei
        Arbeitskarten vom Bildschirm zu schieben. feGridHoeheSync misst die gedeckelte Hoehe. */
-    +'<div id="fe_naehrReihe" style="display:flex;gap:8px;flex-wrap:wrap;max-height:196px;overflow:auto">'+kacheln.join("")+'</div></div>';
+    +'<div id="fe_naehrReihe">'+kacheln.join("")+'</div></div>';   /* Aussehen und Hoehendeckel: ui.css, --naehr-reihe-hoehe */
   /* Erst nach dem Einhaengen messen - vorher hat der Streifen noch keine Hoehe. */
   try{ feGridHoeheSync(); }catch(e){}
 }
@@ -15664,7 +15672,9 @@ async function openFgEditor(id, prefill, targetEl){
   /* 28r (Ralph): Im Vollbild ist der Menue-Cluster (mit 🔄+Version) verdeckt -> derselbe
      Neu-laden-Knopf samt aktueller Version sitzt auch hier in der Kopfzeile. */
   if(window.__ADMIN_PAGE){ _navInner+='<button onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(APP_BUILD.replace("2026-07-","")):"")+'</button>'; }
-  var _navBar='<div style="position:sticky;top:0;z-index:25;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 2px;margin:-8px 0 12px">'+_navInner+'</div>';
+  /* 07.08.2026: Aussehen und Klebehoehe der Editor-Kopfleiste stehen in ui.css
+     (#feNavLeiste, --nav-oben / --nav-hochzug). Hier bleibt nur der Inhalt. */
+  var _navBar='<div id="feNavLeiste">'+_navInner+'</div>';
   if(targetEl) _navBar='';   /* Inline-Modus: die Master-Detail-Liste ersetzt die Kopf-Navigation */
   panel.innerHTML=`
     ${_navBar}
@@ -15685,16 +15695,20 @@ async function openFgEditor(id, prefill, targetEl){
        sein muss: Root-Index live, Freigabe-Ampel im Klartext (gespeist aus DERSELBEN Liste wie das
        Freigabe-Panel - eine Quelle, par. 1.11i) und Quelle & Beleg. Karten wurden VERSCHOBEN, nicht
        neu gebaut - kein Feld, kein Speicherweg geaendert. */}
-    <div id="feRahmen" style="display:grid;grid-template-columns:242px minmax(0,1fr);gap:12px;align-items:start">
-      <div id="feRail" style="display:flex;flex-direction:column;gap:10px;position:sticky;top:58px;min-width:0">
+    ${''/* 07.08.2026: Rahmen, Streifen und Stationsschiene holen ihr Aussehen aus
+           webseite/ui.css. Streifenbreite und Stationsabstaende sind dort EINE Zeile.
+           grid-template-rows und die Zeilen-Spanne bleiben in feKachelBreiteSync -
+           die haengen vom gemessenen Platz ab und gehoeren nicht ins Stylesheet. */}
+    <div id="feRahmen">
+      <div id="feRail">
         ${''/* 06.08.2026 Etappe 3a (Mockup H): Aus der waagerechten Reiterleiste wird eine
              senkrechte Stationsschiene im linken Streifen. Dieselben drei Knoepfe, dieselben IDs,
              derselbe onclick - nur Ort und Aussehen. Keine Funktion geaendert. */}
-        <div id="feTabBar" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 8px;display:flex;flex-direction:column;gap:3px">
-          <div style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:2px 9px 6px">Stationen</div>
-        <button type="button" id="feTabBtn1" onclick="feTabWechsel(1)" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;border-left:3px solid transparent;background:none;border-radius:8px;padding:8px 9px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)"><span class="feStNr" style="width:21px;height:21px;flex:0 0 21px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10.5px;background:var(--card)">1</span><span style="min-width:0;line-height:1.25">📋 Kopfdaten <span id="feTab1Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span><span id="feTab1Ean" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:#fef9c3;color:#854d0e"></span></span></button>
-        <button type="button" id="feTabBtn2" onclick="feTabWechsel(2)" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;border-left:3px solid transparent;background:none;border-radius:8px;padding:8px 9px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)"><span class="feStNr" style="width:21px;height:21px;flex:0 0 21px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10.5px;background:var(--card)">2</span><span style="min-width:0;line-height:1.25">🧪 Nährwerte &amp; Wirkstoffe <span id="feTab2Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></span></button>
-        <button type="button" id="feTabBtn3" onclick="feTabWechsel(3)" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;border-left:3px solid transparent;background:none;border-radius:8px;padding:8px 9px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)"><span class="feStNr" style="width:21px;height:21px;flex:0 0 21px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10.5px;background:var(--card)">3</span><span style="min-width:0;line-height:1.25">🥣 Zutaten &amp; Referenz <span id="feTab3Badge" style="display:none;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;background:var(--k-fff7ed,#fff7ed);color:var(--k-d97706,#d97706)"></span></span></button>
+        <div id="feTabBar">
+          <div class="feStTitel">Stationen</div>
+          <button type="button" id="feTabBtn1" class="feSt" onclick="feTabWechsel(1)"><span class="feStNr">1</span><span class="feStTxt">📋 Kopfdaten <span id="feTab1Badge" class="feStBadge"></span><span id="feTab1Ean" class="feStBadge"></span></span></button>
+          <button type="button" id="feTabBtn2" class="feSt" onclick="feTabWechsel(2)"><span class="feStNr">2</span><span class="feStTxt">🧪 Nährwerte &amp; Wirkstoffe <span id="feTab2Badge" class="feStBadge warn"></span></span></button>
+          <button type="button" id="feTabBtn3" class="feSt" onclick="feTabWechsel(3)"><span class="feStNr">3</span><span class="feStTxt">🥣 Zutaten &amp; Referenz <span id="feTab3Badge" class="feStBadge"></span></span></button>
         </div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
         <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">Freigabe</div><div id="feRailAmpel" style="font-size:12px;line-height:1.5;color:var(--muted)">wird geprüft…</div></div>
@@ -15751,28 +15765,27 @@ async function openFgEditor(id, prefill, targetEl){
              lesbar und beschreibbar. KEIN Feld entfernt, keine ID geändert, keine Speicherlogik
              angefasst: fe_name, fe_marke, fe_ean, fe_ean_offen, fe_kat, fe_bio, fe_bioSw, fe_bioHint,
              fe_ukat, fe_basis und fe_verzehr stehen unverändert hier. */}
-      <style>#feKopfGrid .mzr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
-      #feKopfGrid .mz{padding:8px 12px 10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-      #feKopfGrid .mz:nth-child(4n){border-right:0}
-      #feKopfGrid .mz k{display:block;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:3px}
-      #feKopfGrid .mz input[type=text],#feKopfGrid .mz select{width:100%;box-sizing:border-box}
-      @media(max-width:1180px){#feKopfGrid .mzr{grid-template-columns:repeat(2,minmax(0,1fr))}#feKopfGrid .mz:nth-child(4n){border-right:1px solid var(--line)}#feKopfGrid .mz:nth-child(2n){border-right:0}}</style>
-      <div id="feKopfGrid" style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card);margin-bottom:12px">
+      ${''/* 07.08.2026 Probe-Durchgang: Das Aussehen dieses Kopfbereichs steht jetzt in
+             webseite/ui.css (Abschnitt "PRODUKTEDITOR · KOPFBEREICH") statt hier als
+             <style>-Block und Inline-Stile. Hier bleibt nur noch Struktur und Inhalt.
+             Groesse, Abstand, Spaltenzahl aendert man in ui.css - ohne app.js anzufassen.
+             KEINE ID geaendert, KEIN Feld entfernt, KEIN Handler angefasst. */}
+      <div id="feKopfGrid">
         <div class="mzr">
-          <div class="mz" style="grid-column:span 2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…" style="width:100%;box-sizing:border-box;padding:5px 4px;border:0;border-bottom:2px solid var(--line);border-radius:0;font-size:18px;font-weight:800;color:var(--ink);background:transparent"></div>
+          <div class="mz mz-2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…"></div>
           <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
           <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
-          <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"></div>
-          <div class="mz"><k>EAN-Status</k><label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:6px"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}" style="width:15px;height:15px;flex:0 0 auto">kein EAN – als „offen“ markieren</label></div>
-          <div class="mz" style="grid-column:span 2"><k>Bio / Öko</k>
+          <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" class="fld" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842"></div>
+          <div class="mz"><k>EAN-Status</k><label class="mzCheck"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}">kein EAN – als „offen“ markieren</label></div>
+          <div class="mz mz-2"><k>Bio / Öko</k>
             <select id="fe_bio" onchange="feBioChange()" style="display:none"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select>
-            <div id="fe_bioSw" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Merkmal und Filter – es gibt KEINE Punkte im Index (Prinzip 4)." style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-top:2px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--bg)"></div>
+            <div id="fe_bioSw" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Merkmal und Filter – es gibt KEINE Punkte im Index (Prinzip 4)."></div>
           </div>
-          <div class="mz" style="grid-column:span 4;border-right:0"><k>Verzehrempfehlung / Tagesdosis</k>${inp("fe_verzehr",d.dosis_text||"")}
-            <div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:3px" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
+          <div class="mz mz-4"><k>Verzehrempfehlung / Tagesdosis</k>${inp("fe_verzehr",d.dosis_text||"")}
+            <div class="mzHint" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
           </div>
         </div>
-        <div id="fe_bioHint" style="font-size:11.5px;line-height:1.4;padding:7px 12px;border-top:1px solid var(--line);color:var(--muted)"></div>
+        <div id="fe_bioHint"></div>
         <input type="hidden" id="fe_ukat" value="${esc(d.unterkategorie||"")}">
         <input type="hidden" id="fe_basis" value="${esc(d.basis||"100g")}">
       </div>
@@ -15825,43 +15838,43 @@ async function openFgEditor(id, prefill, targetEl){
 #fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
 </div>
 <div id="feTab2" style="display:none">
-  <div id="feNwOben" style="display:grid;grid-template-columns:minmax(430px,1fr) minmax(360px,.9fr);gap:12px;align-items:start">
-  <div id="feNwLinks" style="display:flex;flex-direction:column;gap:12px;min-width:0">
-        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." style="padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700"><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" style="font-weight:600"></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" style="width:14px;height:14px;flex:0 0 auto">laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" style="font-size:12px;margin-top:6px;line-height:1.4"></div>`)}</div>
-        <span id="fe_wirkAnker" style="display:none" data-note="06.08.2026: Die Wirkstoff-Karte hat einen FESTEN Ort im Reiter Naehrwerte. Nichts wird mehr verschoben - der Anker bleibt nur als Sprungmarke."></span><div id="fe_wirkCard" style="margin-top:2px">
-          <div id="fe_wirkGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
-            <div id="fe_wirkTblCol">${card(`<span>Wirkstoffe &amp; Dosis</span> <span style="text-transform:none;color:var(--muted)">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
-          <div style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em"><span>Stoff</span><span style="text-align:right">Menge</span><span>Einheit</span><span style="text-align:right">%NRV</span><span></span></div>
+  <div id="feNwOben" style="grid-template-columns:minmax(430px,1fr) minmax(360px,.9fr)">
+  <div id="feNwLinks">
+        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" ></div>`)}</div>
+        <span id="fe_wirkAnker"  data-note="06.08.2026: Die Wirkstoff-Karte hat einen FESTEN Ort im Reiter Naehrwerte. Nichts wird mehr verschoben - der Anker bleibt nur als Sprungmarke."></span><div id="fe_wirkCard">
+          <div id="fe_wirkGrid" style="grid-template-columns:1fr 1fr">
+            <div id="fe_wirkTblCol">${card(`<span>Wirkstoffe &amp; Dosis</span> <span class="feKartenZusatz">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
+          <div class="feWirkHinweis">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
+          <div class="feWirkKopf"><span>Stoff</span><span class="feRe">Menge</span><span>Einheit</span><span class="feRe">%NRV</span><span></span></div>
           <div id="fe_wirkRows"></div>
-          <button type="button" onclick="feWirkAdd()" style="margin-top:7px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ Wirkstoff</button>
-          <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.6">
-            <div style="display:flex;gap:14px;flex-wrap:wrap">
-              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:5px"></span>wirksame Menge (≥ 15 % Tagesbedarf)</span>
-              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:5px"></span>EU-Nutzen, aber Dosis &lt; 15 %</span>
-              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#9aa7b2;vertical-align:middle;margin-right:5px"></span>keine zugelassene EU-Aussage</span>
+          <button type="button" onclick="feWirkAdd()" class="feBtnAdd">+ Wirkstoff</button>
+          <div class="feWirkLegBox">
+            <div class="feWirkLegReihe">
+              <span><span class="feAmpelGr"></span>wirksame Menge (≥ 15 % Tagesbedarf)</span>
+              <span><span class="feAmpelGe"></span>EU-Nutzen, aber Dosis &lt; 15 %</span>
+              <span><span class="feAmpelGra"></span>keine zugelassene EU-Aussage</span>
             </div>
-            <div style="margin-top:5px">Der Balken links zeigt, ob die Menge einen <b>EU-anerkannten Nutzen</b> erreicht (gesundheitsbezogene Aussage nach VO&nbsp;432/2012 ab 15 % NRV). <b>Grün heißt „wirksame Menge", nicht „gesund".</b> Aminosäuren/Pflanzenstoffe (z. B. Glycin) haben keine zugelassene Aussage → grau.</div>
+            <div class="feWirkLegText">Der Balken links zeigt, ob die Menge einen <b>EU-anerkannten Nutzen</b> erreicht (gesundheitsbezogene Aussage nach VO&nbsp;432/2012 ab 15 % NRV). <b>Grün heißt „wirksame Menge", nicht „gesund".</b> Aminosäuren/Pflanzenstoffe (z. B. Glycin) haben keine zugelassene Aussage → grau.</div>
           </div>
-          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" style="width:15px;height:15px;flex:0 0 auto">keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
+          <label class="feWirkNone"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" >keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
           <datalist id="feWirkDL">${wirkDLOptions()}</datalist>
             `)}</div>
           </div>
         </div>
     <div id="fe_naehrKacheln" style="margin-top:10px"></div>
-  <div id="fe_mikroWrap" style="min-height:0;display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span style="text-transform:none;color:var(--muted)">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none;margin-bottom:8px"></div><div id="fm_mikroRows" style="flex:1 1 auto;min-height:0;overflow:auto"><span style="color:var(--muted);font-size:12.5px">lädt…</span></div><div style="display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box"><span id="fm_mikroEinheit" style="font-size:12.5px;color:var(--muted);text-align:center">mg</span><button type="button" onclick="fmMikroAdd()" style="padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap">+ setzen</button></div><div id="fm_mikroMsg" style="font-size:12px;color:var(--muted);margin-top:6px"></div><div style="display:flex;gap:6px;margin-top:8px;flex:0 0 auto"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" style="flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px"><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" style="padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;white-space:nowrap">🔎 USDA</button></div><div id="fm_usdaErg" style="max-height:180px;overflow:auto;margin-top:5px;flex:0 0 auto"></div>`)}</div>
+  <div id="fe_mikroWrap" style="display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span class="feKartenZusatz">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div class="feMikroHinweis" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none"></div><div id="fm_mikroRows" ><span class="feMikroLaedt">lädt…</span></div><div class="feMikroAddZeile"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" ><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" ><span id="fm_mikroEinheit" >mg</span><button type="button" onclick="fmMikroAdd()" class="feMikroBtn">+ setzen</button></div><div id="fm_mikroMsg" style="color:var(--muted)"></div><div class="feUsdaZeile"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" ><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" class="feUsdaBtn">🔎 USDA</button></div><div id="fm_usdaErg" ></div>`)}</div>
   </div>
-  <div id="feNwFotoSlot" style="min-width:0;position:sticky;top:8px">
-            <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span style="text-transform:none;color:var(--muted)">(zoombar – Mausrad / ziehen)</span>`,`
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-            <button type="button" onclick="fgWirkFotoZoomBtn(1)" title="näher heranzoomen" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">+</button>
-            <button type="button" onclick="fgWirkFotoZoomBtn(-1)" title="weiter weg" style="width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>
-            <button type="button" onclick="fgWirkFotoReset()" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px">Einpassen</button>
-            <button type="button" onclick="fgWirkFotoRiki(this)" title="Riki liest das angezeigte Bild aus (Nährwerte/Zutaten/Wirkstoffe)" style="padding:6px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">🤖 Riki liest das Bild</button>
-            <span id="fe_wirkFotoNav" style="display:flex;gap:6px;align-items:center;margin-left:auto"></span>
+  <div id="feNwFotoSlot">
+            <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span class="feKartenZusatz">(zoombar – Mausrad / ziehen)</span>`,`
+          <div class="feFotoWerkzeuge">
+            <button type="button" onclick="fgWirkFotoZoomBtn(1)" title="näher heranzoomen" class="feFotoZoom">+</button>
+            <button type="button" onclick="fgWirkFotoZoomBtn(-1)" title="weiter weg" class="feFotoZoom">−</button>
+            <button type="button" onclick="fgWirkFotoReset()" class="feFotoBtn">Einpassen</button>
+            <button type="button" onclick="fgWirkFotoRiki(this)" title="Riki liest das angezeigte Bild aus (Nährwerte/Zutaten/Wirkstoffe)" class="feBtnRiki">🤖 Riki liest das Bild</button>
+            <span id="fe_wirkFotoNav" ></span>
           </div>
-          <div id="fe_wirkFotoBox" data-note="28p: Hintergrund dunkler in Flieder (Ralph: mehr Kontrast zu hellen Etiketten). Hoehe: ausserhalb der Flip-Rueckseite clamp wie gehabt; AUF der Rueckseite dehnt die CSS-Regel #fe_fotoMount die Box auf die Resthoehe." style="position:relative;overflow:hidden;height:clamp(150px,18vh,250px);border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none"><div id="fe_wirkFotoLeer" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:16px;line-height:1.5">Kein Etikett angehängt.<br>Über den Foto-Tab oben oder „+ Foto" (Bild-Karte) ein Etikett hinzufügen – es erscheint dann hier zum Ablesen.</div><img id="fe_wirkFotoImg" alt="Etikett" draggable="false" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none;display:none"></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">Mausrad = zoomen · ziehen = verschieben · Doppelklick = großes Vollbild.</div>
+          <div id="fe_wirkFotoBox" data-note="28p: Hintergrund dunkler in Flieder (Ralph: mehr Kontrast zu hellen Etiketten). Hoehe: ausserhalb der Flip-Rueckseite clamp wie gehabt; AUF der Rueckseite dehnt die CSS-Regel #fe_fotoMount die Box auf die Resthoehe." style="height:clamp(150px,18vh,250px)"><div id="fe_wirkFotoLeer" style="display:flex">Kein Etikett angehängt.<br>Über den Foto-Tab oben oder „+ Foto" (Bild-Karte) ein Etikett hinzufügen – es erscheint dann hier zum Ablesen.</div><img id="fe_wirkFotoImg" alt="Etikett" draggable="false" style="transform-origin:0 0;display:none"></div>
+          <div class="feFotoFuss">Mausrad = zoomen · ziehen = verschieben · Doppelklick = großes Vollbild.</div>
             `)}</div>
   </div>
   </div>
@@ -16523,16 +16536,13 @@ function feTabWechsel(n){
   n=(n===2||n===3)?n:1; window._feTab=n;
   var tabs=[document.getElementById('feTab1'),document.getElementById('feTab2'),document.getElementById('feTab3')];
   tabs.forEach(function(t,i){ if(t) t.style.display=(n===i+1)?'':'none'; });
-  /* 06.08.2026 Etappe 3a: Die Knoepfe stehen jetzt senkrecht in der Schiene - die aktive
-     Station wird ueber einen linken Balken und den Ring markiert, nicht mehr ueber eine
-     Unterkante. Gleiche Funktion, gleiche IDs, nur die Anzeige passt zur neuen Form. */
-  var st=function(btn,on){ if(!btn) return;
-    btn.style.color=on?"var(--k-166534)":"var(--muted)";
-    btn.style.borderLeftColor=on?"var(--k-16a34a)":"transparent";
-    btn.style.background=on?"var(--greenlt,#ecfdf5)":"none";
-    var r=btn.querySelector(".feStNr");
-    if(r){ r.style.borderColor=on?"var(--k-16a34a)":"var(--line)"; r.style.color=on?"var(--k-166534)":"var(--muted)"; }
-  };
+  /* 06.08.2026 Etappe 3a: Die Knoepfe stehen senkrecht in der Schiene - die aktive
+     Station wird ueber einen linken Balken und den Ring markiert.
+     07.08.2026: Diese Funktion schrieb dafuer FUENF Inline-Stile je Knopf (drei am
+     Knopf, zwei am Ring) und legte damit fest, wie "aktiv" aussieht. Jetzt schaltet
+     sie nur noch die Klasse .on um; das Aussehen steht in ui.css (.feSt.on).
+     Gleiche Funktion, gleiche IDs, gleiches Ergebnis - eine Regel, ein Ort. */
+  var st=function(btn,on){ if(!btn) return; btn.classList.toggle("on", !!on); };
   st(document.getElementById('feTabBtn1'),n===1); st(document.getElementById('feTabBtn2'),n===2); st(document.getElementById('feTabBtn3'),n===3);
   if(n===2){ try{ fgFotoPlatzieren(); fgWirkFotoRender(); }catch(e){} }
   if(n===3){ try{ fgRefV2Init(); }catch(e){} }
@@ -16541,17 +16551,18 @@ function feTabWechsel(n){
 function feTabBadgeUpdate(off, done){
   var b=document.getElementById('feTab3Badge'); if(!b) return;
   var n=Number(off)||0, d=Number(done)||0;
-  if(n){ b.style.display=''; b.textContent=n+' offen'; b.style.background='var(--k-fff7ed,#fff7ed)'; b.style.color='var(--k-d97706,#d97706)'; }
-  else if(d){ b.style.display=''; b.textContent='\u2713 '+d; b.style.background='var(--greenlt,#ecfdf5)'; b.style.color='var(--k-166534,#166534)'; }
-  else { b.style.display='none'; b.textContent=''; }
+  /* 07.08.2026: Farbe und Sichtbarkeit kommen aus ui.css (.feStBadge / .warn / .ok).
+     Hier wird nur noch entschieden WELCHER Zustand gilt, nicht WIE er aussieht. */
+  b.className='feStBadge'+(n?' warn':(d?' ok':''));
+  b.textContent=n?(n+' offen'):(d?('\u2713 '+d):'');
 }
 function feTab1BadgeUpdate(off, ean){
   var b=document.getElementById('feTab1Badge');
-  if(b){ var n=Number(off)||0; if(n){ b.style.display=''; b.textContent=n+' offen'; b.style.background='var(--k-fff7ed,#fff7ed)'; b.style.color='var(--k-d97706,#d97706)'; } else { b.style.display=''; b.textContent='\u2713'; b.style.background='var(--greenlt,#ecfdf5)'; b.style.color='var(--k-166534,#166534)'; } }
+  /* 07.08.2026: nur noch Zustand als Klasse, Aussehen in ui.css (.feStBadge). */
+  if(b){ var n=Number(off)||0; b.className='feStBadge'+(n?' warn':' ok'); b.textContent=n?(n+' offen'):'\u2713'; }
   var e=document.getElementById('feTab1Ean');
-  if(e){ if(ean==='da'){ e.style.display=''; e.textContent='EAN \u2713'; e.style.background='var(--greenlt,#ecfdf5)'; e.style.color='var(--k-166534,#166534)'; }
-    else if(ean==='offen'){ e.style.display=''; e.textContent='EAN offen'; e.style.background='#fef9c3'; e.style.color='#854d0e'; }
-    else { e.style.display=''; e.textContent='EAN fehlt'; e.style.background='var(--k-fff7ed,#fff7ed)'; e.style.color='var(--k-d97706,#d97706)'; } }
+  if(e){ e.className='feStBadge'+(ean==='da'?' ok':(ean==='offen'?' gelb':' warn'));
+    e.textContent=(ean==='da')?'EAN \u2713':((ean==='offen')?'EAN offen':'EAN fehlt'); }
   /* Der bisherige Pflichtzähler enthält Kopf- und Nährwertpunkte. Als Gesamtstatus zusätzlich am
      Nährwertreiter zeigen, damit der Arbeitsort sichtbar bleibt, ohne Fachlogik zu duplizieren. */
   var nb=document.getElementById('feTab2Badge'); if(nb){ var z=Number(off)||0; nb.style.display=z?'':'none'; nb.textContent=z?(z+' prüfen'):''; }
@@ -22237,7 +22248,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-06-2310";
+const APP_BUILD = "2026-08-07-0851";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

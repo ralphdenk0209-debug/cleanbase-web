@@ -1,0 +1,570 @@
+/* ============================================================================
+   ui.css · Root Index · Oberflaechenregeln AUSSERHALB von app.js
+   ----------------------------------------------------------------------------
+   ZWECK
+   Groessen, Abstaende, Rahmen und Schriftgrade der Admin-Oberflaeche stehen
+   HIER — nicht als style="..." in einem JavaScript-Textbaustein.
+   Eine Optik-Aenderung ist damit EINE Zeile in dieser Datei: kein node --check,
+   kein Tiefenvergleich, kein ID-Zaehlen, kein Zeichen JavaScript angefasst.
+
+   WARUM
+   Am 07.08.2026 gemessen: 3.854 HTML-Tags stehen in app.js (in JS-Strings),
+   nur 456 in admin.html. Dazu 3.696 Inline-Stile und 987 zur Laufzeit gesetzte
+   Groessen. Ein Inline-Stil schlaegt jede Stylesheet-Regel — deshalb wirkten
+   saubere CSS-Aenderungen oft nicht, und es wurde nachkorrigiert.
+   Diese Datei dreht das um, Bereich fuer Bereich.
+
+   GELADEN VON admin.html UND index.html.
+   app.js ist gemeinsam (CLAUDE.md §10.1), der Produkteditor kann von beiden
+   Seiten gerendert werden. Eine reine admin.css wuerde die Consumer-Seite
+   ungestylt lassen.
+
+   HAUSREGEL FUER DIESE DATEI (CLAUDE.md §4.2 "eine Regel, ein Ort")
+   Was hier steht, steht NICHT zusaetzlich inline am Element.
+   Wer eine Regel hierher holt, entfernt den Inline-Stil im selben Durchgang —
+   sonst gewinnt weiterhin der Inline-Stil und die Datei luegt.
+
+   Angelegt 07.08.2026 · Build 2026-08-07-0645 · Probe-Durchgang "Kopfbereich".
+   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2".
+   ============================================================================ */
+
+
+/* ============================================================================
+   ADMIN-SEITE · LUFT ZWISCHEN OBERKANTE UND INHALT  (--admin-oben)
+   ----------------------------------------------------------------------------
+   #adminNav ist position:fixed; top:0 (admin.html Z. 1503). Damit der Inhalt
+   nicht darunter liegt, traegt .container oben ein Polster in dieser Hoehe.
+
+   Bis 07.08.2026 waren das 112px — ein Rest aus der Zeit mit ZWEI gestapelten
+   Leisten. Die obere Kopfzeile ist seit 28o entfernt, das Polster blieb stehen.
+
+   #adminNav allein misst rechnerisch rund 56px:
+       12px Polster oben + ~35px Knopfhoehe + 8px Polster unten + 1px Rahmen.
+   Darum jetzt 64px = Leiste plus etwas Luft.
+
+   ⚠ GESCHAETZT, nicht am Bildschirm gemessen. Wenn der Inhalt die Leiste
+   beruehrt: Zahl erhoehen. Wenn zu viel Luft bleibt: verkleinern.
+
+   ⚠ Diese Zahl gilt fuer JEDE Admin-Seite — Dashboard, Listen, Erfassung.
+   Beim Scrollen faehrt #adminNav weg und admin.html Z. 1509 setzt das Polster
+   ohnehin auf 14px; diese Zahl hier betrifft nur den ungescrollten Zustand.
+   ============================================================================ */
+body{ --admin-oben:64px }
+
+
+/* ============================================================================
+   PRODUKTEDITOR · KOPFLEISTE  (#feNavLeiste)
+   ----------------------------------------------------------------------------
+   Die schwebende Leiste mit Posteingang / Blaettern / Status / Freigeben /
+   markiert / Build. Sie klebt beim Scrollen oben.
+
+   WO SCHRAUBEN?
+   · Abstand zur Oberkante beim Kleben .... --nav-oben
+   · Hochzug gegen das Polster darueber ... --nav-hochzug   (negativ = weiter hoch)
+   · Hoehe der Leiste .................... padding
+
+   ⚠ ZUM VERSTAENDNIS, warum oben Luft sein KANN:
+   In admin.html konkurrieren zwei Leisten um die Oberkante.
+   1. #adminNav ist position:fixed; top:0 - die Admin-Navigation. Damit der
+      Inhalt nicht darunter verschwindet, traegt .container ein Polster von
+      padding-top:112px !important (admin.html, Z. 1548).
+   2. Beim Scrollen bekommt der body die Klasse .navHidden: #adminNav faehrt
+      hoch und das Polster schrumpft auf 14px (admin.html, Z. 1509).
+   Diese Leiste hier klebt mit --nav-oben und weiss von #adminNav nichts.
+   Wer sie hoeher haben will, stellt --nav-oben und --nav-hochzug nach; wer das
+   Polster selbst meint, aendert die 112px in admin.html - das betrifft dann
+   ABER JEDE Admin-Seite, nicht nur den Editor.
+   ============================================================================ */
+#feNavLeiste{
+  --nav-oben:0px;
+  --nav-hochzug:-8px;
+  position:sticky;
+  top:var(--nav-oben);
+  z-index:25;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  background:var(--bg);
+  border-bottom:1px solid var(--line);
+  padding:8px 2px;
+  margin:var(--nav-hochzug) 0 12px;
+}
+
+
+/* ============================================================================
+   PRODUKTEDITOR · RAHMEN UND LINKER STREIFEN  (#feRahmen, #feRail)
+   ----------------------------------------------------------------------------
+   Zweispaltiger Rahmen: links der Streifen mit Stationsschiene, Root-Index,
+   Freigabe-Ampel und Quelle — rechts die Arbeitsflaeche.
+
+   WO SCHRAUBEN?
+   · Breite des linken Streifens .. #feRahmen → erster Wert in grid-template-columns
+   · Abstand der beiden Spalten ... #feRahmen → gap
+   · Streifen klebt ab Hoehe ...... #feRail   → top
+
+   NICHT hier: grid-template-rows und die Zeilen-Spanne des Streifens. Die setzt
+   feKachelBreiteSync zur Laufzeit, weil sie vom gemessenen Platz abhaengen.
+   ============================================================================ */
+#feRahmen{
+  display:grid;
+  grid-template-columns:242px minmax(0,1fr);
+  gap:12px;
+  align-items:start;
+}
+#feRail{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  position:sticky;
+  top:58px;
+  min-width:0;
+}
+
+
+/* ============================================================================
+   PRODUKTEDITOR · STATIONSSCHIENE  (#feTabBar, .feSt)
+   ----------------------------------------------------------------------------
+   Die drei Arbeitsstationen stehen senkrecht im linken Streifen (Etappe 3a).
+
+   Die aktive Station ist die Klasse .on am Knopf — sonst nichts.
+   Vorher schrieb feTabWechsel fuenf Inline-Stile je Knopf und noch zwei an den
+   Ring; jetzt schaltet es EINE Klasse um, das Aussehen steht vollstaendig hier.
+
+   WO SCHRAUBEN?
+   · Abstand der Stationen ...... #feTabBar → gap / padding
+   · Knopfhoehe ................. .feSt     → padding
+   · Ringgroesse ................ .feStNr   → width / height / flex
+   · Farbe der aktiven Station .. .feSt.on
+   ============================================================================ */
+#feTabBar{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:9px 8px;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+
+/* Ueberschrift "Stationen". */
+#feTabBar .feStTitel{
+  font-size:10px;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--muted);
+  font-weight:700;
+  padding:2px 9px 6px;
+}
+
+/* Eine Station. */
+.feSt{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  width:100%;
+  text-align:left;
+  border:0;
+  border-left:3px solid transparent;
+  background:none;
+  border-radius:8px;
+  padding:8px 9px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  color:var(--muted);
+}
+.feSt .feStTxt{ min-width:0; line-height:1.25 }
+
+/* Der nummerierte Ring. */
+.feStNr{
+  width:21px;
+  height:21px;
+  flex:0 0 21px;
+  border-radius:50%;
+  border:2px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:10.5px;
+  background:var(--card);
+  color:var(--muted);
+}
+
+/* Aktive Station: linker Balken, gruener Ring, heller Grund. */
+.feSt.on{
+  color:var(--k-166534);
+  border-left-color:var(--k-16a34a);
+  background:var(--greenlt,#ecfdf5);
+}
+.feSt.on .feStNr{
+  border-color:var(--k-16a34a);
+  color:var(--k-166534);
+}
+
+/* Zahlenperlen an den Stationen. Die Klasse sagt den Zustand:
+   ohne Zusatz = versteckt · .warn = etwas offen · .ok = erledigt · .gelb = Hinweis.
+   Die Badge-Funktionen in app.js setzen nur noch className und Text. */
+.feStBadge{
+  display:none;
+  border-radius:999px;
+  padding:1px 8px;
+  font-size:11px;
+  font-weight:800;
+}
+.feStBadge.warn{ display:inline; background:var(--k-fff7ed,#fff7ed); color:var(--k-d97706,#d97706) }
+.feStBadge.ok  { display:inline; background:var(--greenlt,#ecfdf5);  color:var(--k-166534,#166534) }
+.feStBadge.gelb{ display:inline; background:#fef9c3;                 color:#854d0e }
+
+
+/* ============================================================================
+   PRODUKTEDITOR · KOPFBEREICH  (#feKopfGrid)
+   ----------------------------------------------------------------------------
+   Die Vierspalten-Eingabetabelle aus Etappe 2 (Vorlage: Mockup H).
+   Aufbau:  #feKopfGrid  >  .mzr (das Raster)  >  .mz (eine Zelle je Feld)
+            .mz-2 / .mz-4 = Zelle ueber zwei bzw. vier Spalten
+            <k> = die kleine Grossbuchstaben-Beschriftung ueber dem Feld
+
+   WO SCHRAUBEN?
+   · Zelle groesser/kleiner ......... .mz            → padding
+   · mehr/weniger Spalten ........... .mzr           → grid-template-columns
+   · Umbruchpunkt ................... @media unten   → max-width
+   · Eingabefeld allgemein .......... .fld
+   · Produktname (Schlagzeile) ...... #fe_name
+   ============================================================================ */
+
+#feKopfGrid{
+  border:1px solid var(--line);
+  border-radius:12px;
+  overflow:hidden;
+  background:var(--card);
+  margin-bottom:12px;
+}
+
+/* Das Raster selbst. Spaltenzahl hier aendern, nicht an den Zellen. */
+#feKopfGrid .mzr{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+
+/* Eine Zelle = ein Feld. Der Innenabstand bestimmt die Zeilenhoehe des Kopfes. */
+#feKopfGrid .mz{
+  padding:8px 12px 10px;
+  border-right:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  min-width:0;
+}
+
+/* Letzte Spalte traegt keinen rechten Strich. */
+#feKopfGrid .mz:nth-child(4n){ border-right:0 }
+
+/* Zellen ueber mehrere Spalten.
+   BEWUSST mit .mzr > .mz.mz-N (Spezifitaet 1-3-0): sie muessen die
+   :nth-child-Regeln (1-2-0) schlagen — auch die im @media-Block ganz unten,
+   der spaeter in der Datei steht. Vorher stand das als Inline-Stil am Element
+   und gewann dadurch immer; dieses Verhalten bleibt unveraendert. */
+#feKopfGrid .mzr > .mz.mz-2{ grid-column:span 2 }
+#feKopfGrid .mzr > .mz.mz-4{ grid-column:span 4; border-right:0 }
+
+/* Beschriftung ueber dem Feld. */
+#feKopfGrid .mz k{
+  display:block;
+  font-size:9.5px;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--muted);
+  font-weight:700;
+  margin-bottom:3px;
+}
+
+/* Felder fuellen ihre Zelle. */
+#feKopfGrid .mz input[type=text],
+#feKopfGrid .mz select{ width:100%; box-sizing:border-box }
+
+/* Grundform eines Eingabefeldes im Kopf. */
+#feKopfGrid .fld{
+  width:100%;
+  box-sizing:border-box;
+  padding:6px 8px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--bg);
+  color:var(--ink);
+  font-size:13px;
+}
+
+/* Produktname — die Schlagzeile des Kopfes, bewusst ohne Kasten. */
+#feKopfGrid #fe_name{
+  width:100%;
+  box-sizing:border-box;
+  padding:5px 4px;
+  border:0;
+  border-bottom:2px solid var(--line);
+  border-radius:0;
+  font-size:18px;
+  font-weight:800;
+  color:var(--ink);
+  background:transparent;
+}
+
+/* Ankreuzfeld mit Beschriftung in einer Zelle (EAN-Status). */
+#feKopfGrid .mzCheck{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  color:var(--muted);
+  cursor:pointer;
+  margin-top:6px;
+}
+#feKopfGrid .mzCheck input{ width:15px; height:15px; flex:0 0 auto }
+
+/* Bio-Umschalter (drei Felder nebeneinander).
+   display steht BEWUSST hier und nicht inline: Umschalten per
+   element.style.display="" wuerde einen Inline-Wert loeschen — der bekannte
+   Fall aus CLAUDE.md-Chronik §1.11n-dd. Aus dem Stylesheet kommt er zurueck. */
+#feKopfGrid #fe_bioSw{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:0;
+  margin-top:2px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  overflow:hidden;
+  background:var(--bg);
+}
+
+/* Kleine Erklaerzeile unter einem Feld. */
+#feKopfGrid .mzHint{
+  font-size:11.5px;
+  color:var(--muted);
+  line-height:1.4;
+  margin-top:3px;
+}
+
+/* Fusszeile des Kopfes (Bio-Hinweis, wird zur Laufzeit gefuellt). */
+#feKopfGrid #fe_bioHint{
+  font-size:11.5px;
+  line-height:1.4;
+  padding:7px 12px;
+  border-top:1px solid var(--line);
+  color:var(--muted);
+}
+
+/* Schmales Fenster: vier Spalten werden zwei. */
+@media(max-width:1180px){
+  #feKopfGrid .mzr{ grid-template-columns:repeat(2,minmax(0,1fr)) }
+  #feKopfGrid .mz:nth-child(4n){ border-right:1px solid var(--line) }
+  #feKopfGrid .mz:nth-child(2n){ border-right:0 }
+}
+
+
+/* ============================================================================
+   PRODUKTEDITOR · KACHELSTREIFEN "ENTHALTENE NAEHRSTOFFE"  (#fe_naehrReihe)
+   ----------------------------------------------------------------------------
+   Der Streifen ist in der Hoehe gedeckelt und scrollt intern; fuer den vollen
+   Blick gibt es den Knopf "Details".
+
+   Der Deckel stand bis 07.08.2026 DREIMAL als Zahl 196 in app.js — im Template,
+   im Reset und in der Aufstockung. Dieselbe Regel an drei Orten (§4.2).
+   Jetzt steht er hier, einmal:
+
+        --naehr-reihe-hoehe   ← DIESE Zahl aendern, sonst nichts
+
+   app.js liest den Wert und stockt ihn nur noch um den freien Platz an der
+   Fussleiste auf. Faellt ui.css aus, greift in app.js weiter der Altwert 196.
+
+   Anhaltswerte: 196px war der bisherige Deckel (zwei volle Kachelreihen).
+   300px ist auf drei Reihen GESCHAETZT, nicht gemessen — bitte am Bildschirm
+   nachstellen, dafuer steht die Zahl hier.
+   ============================================================================ */
+#fe_naehrReihe{
+  --naehr-reihe-hoehe:300px;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  max-height:var(--naehr-reihe-hoehe);
+  overflow:auto;
+}
+
+
+/* ============================================================================
+   VOLLBILD-EDITOR · LUFT UEBER DER KOPFLEISTE  (--editor-oben)
+   ----------------------------------------------------------------------------
+   BEFUND 07.08.2026, am Bildschirmfoto GEMESSEN (Ralph: "das schwebende Menue
+   hat nach oben immer noch Abstand" - auch nach --admin-oben 112 -> 64):
+
+   Der Produkteditor sitzt NICHT in .container. openFgEditor schaltet #overlay
+   auf .fgEditorFull (padding:0, left:0, z-index:70) und legt sich damit UEBER
+   #adminNav (z-index:59) - darum ist die Admin-Leiste im Editor unsichtbar und
+   --admin-oben wirkt hier ueberhaupt nicht.
+
+   Der Inhalt liegt in #panel. Die Vollbild-Umstellung setzt dort maxWidth,
+   width, height, maxHeight, borderRadius und background - padding NICHT.
+   Also galt weiter .panel{padding:24px} aus admin.html Z. 693.
+
+   Gemessen (Bildschirmfoto 3410x250, Massstab 2x belegt an #frgGoTop mit
+   CSS height:32px = 64 Bildpunkte): 32 CSS-Pixel leer ueber der ersten Tinte.
+        24px Panel-Polster + 8px Polster der Leiste = 32px  ✓
+
+   WO SCHRAUBEN? Nur hier, eine Zahl. Links, rechts und unten bleiben bei 24px.
+   Die Regel trifft ausschliesslich den Vollbild-Editor - kein anderes Overlay,
+   keine andere Admin-Seite. Spezifitaet 2-1-0 schlaegt .panel (0-1-0)
+   unabhaengig von der Ladereihenfolge.
+   ============================================================================ */
+#overlay.fgEditorFull > #panel{ padding-top:var(--editor-oben,2px) }
+
+
+/* ============================================================================
+   PRODUKTEDITOR · REITER 2 "NAEHRWERTE & WIRKSTOFFE"  (Durchgang 2a)
+   ----------------------------------------------------------------------------
+   Umgezogen am 07.08.2026: 45 der 56 Inline-Stile aus dem Block feTab2.
+   Block vorher 10.735 Zeichen, nachher 6.896.
+
+   ⚠ ELF STILE BLEIBEN BEWUSST INLINE (Durchgang 2b, noch nicht ausgefuehrt).
+   Es sind die Layout-Container, deren Eigenschaften eine Funktion ZUR LAUFZEIT
+   schreibt. Ein Inline-Stil schlaegt jede Regel hier - eine Regel fuer diese
+   Eigenschaften waere eine Luege in der Datei (Hausregel oben):
+
+     feTab2            display              <- feTabWechsel
+     feNwOben          gridTemplateColumns  <- feEditorResponsive
+     fe_nwCard         display              <- feKatChange
+     fe_wirkGrid       gridTemplateColumns  <- feDreiReiterInit, fgFotoPlatzieren
+     fe_naehrKacheln   marginTop            <- feGridHoeheSync
+                       marginLeft, alignSelf, gridColumn + DOM-Umzug nach
+                       #feRahmen             <- feKachelBreiteSync
+     fe_mikroWrap      display              <- feKatChange
+     fe_wirkFotoBox    height               <- feDreiReiterInit, fgFotoPlatzieren
+     fe_wirkFotoImg    display, transform   <- fgWirkFotoRender, fgWirkFotoApply
+     feNwLinks / fe_wirkCard / feNwFotoSlot: kein Schreiber gefunden, gehoeren
+     aber als Layout-Container in denselben gepruefeten Durchgang.
+
+   ⚠ DREI TEILUMZUEGE - dort steht noch ein Rest inline, weil die Laufzeit ihn
+   schreibt:  fm_mikroVorschlag (display) · fm_mikroMsg (color) ·
+              fe_wirkFotoLeer (display)
+
+   ⚠ Alle Selektoren tragen bewusst das Praefix #feTab2. Grund: fm_mikroStoff,
+   fm_mikroMenge und fm_mikroEinheit gibt es ein ZWEITES Mal im Mikro-Dialog
+   (app.js ab Z. 13939). Ohne Praefix wuerde dieser Block den Dialog mitfaerben.
+   Nebeneffekt: Spezifitaet 1-1-0 bzw. 2-0-0 - schlaegt die <style>-Bloecke in
+   admin.html, die frueher nur vom Inline-Stil geschlagen wurden.
+
+   NICHT ANGEFASST: keine ID, kein onclick/onchange/oninput, keine
+   Speicherlogik, keine Fachlogik, card() und cardF() unveraendert.
+   ============================================================================ */
+/* Naehrwert-Karte: Bezugseinheit, Ballaststoff-Haken, Plausibilitaetszeile. */
+#feTab2 .feNwEinheit{ display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px }
+#feTab2 #fe_mengenEinheit{ padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700 }
+#feTab2 #fe_ehHint{ font-weight:600 }
+#feTab2 .feNwBallast{ display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px }
+#feTab2 #fe_ballast_nd{ width:14px;height:14px;flex:0 0 auto }
+#feTab2 #fe_plaus{ font-size:12px;margin-top:6px;line-height:1.4 }
+#feTab2 #fe_wirkAnker{ display:none }
+
+/* Kleingedruckter Zusatz in einer Kartenueberschrift. Dreimal verwendet:
+   Wirkstoffe & Dosis, Mikronaehrstoffe, Etikett zum Ablesen. */
+#feTab2 .feKartenZusatz,
+#fe_wirkFotoCol .feKartenZusatz{ text-transform:none;color:var(--muted) }
+
+/* Wirkstoff-Tabelle: Hinweis, Spaltenkopf, "+ Wirkstoff", Legende, Fussschalter. */
+#feTab2 .feWirkHinweis{ font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px }
+#feTab2 .feWirkKopf{ display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em }
+#feTab2 .feRe{ text-align:right }
+#feTab2 .feBtnAdd{ margin-top:7px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap }
+#feTab2 .feWirkLegBox{ margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.6 }
+#feTab2 .feWirkLegReihe{ display:flex;gap:14px;flex-wrap:wrap }
+#feTab2 .feWirkLegText{ margin-top:5px }
+#feTab2 .feWirkNone{ display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4 }
+#feTab2 #fe_wirk_none{ width:15px;height:15px;flex:0 0 auto }
+
+/* Die drei Farbpunkte der Wirkstoff-Ampel.
+   gruen = wirksame Menge (>=15 % NRV) · gelb = EU-Nutzen, Dosis darunter ·
+   grau  = keine zugelassene EU-Aussage. Die Farben stehen bewusst hier und
+   nicht in einer gemeinsamen Regel mit Modifikator - so bleibt jede Zeile
+   wortgleich zu dem, was vorher am Element stand. */
+#feTab2 .feAmpelGr{ display:inline-block;width:10px;height:10px;border-radius:2px;background:#2e9e57;vertical-align:middle;margin-right:5px }
+#feTab2 .feAmpelGe{ display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0a32e;vertical-align:middle;margin-right:5px }
+#feTab2 .feAmpelGra{ display:inline-block;width:10px;height:10px;border-radius:2px;background:#9aa7b2;vertical-align:middle;margin-right:5px }
+
+/* Mikronaehrstoff-Karte: Hinweis, Riki-Vorschlag, Liste, Eingabezeile, USDA. */
+#feTab2 .feMikroHinweis{ font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:6px;flex:0 0 auto }
+#feTab2 #fm_mikroVorschlag{ margin-bottom:8px }
+#feTab2 #fm_mikroRows{ flex:1 1 auto;min-height:0;overflow:auto }
+#feTab2 .feMikroLaedt{ color:var(--muted);font-size:12.5px }
+#feTab2 .feMikroAddZeile{ display:grid;grid-template-columns:1fr 84px 46px auto;gap:6px;align-items:center;margin-top:9px }
+#feTab2 #fm_mikroStoff{ padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px }
+#feTab2 #fm_mikroMenge{ padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;width:100%;box-sizing:border-box }
+#feTab2 #fm_mikroEinheit{ font-size:12.5px;color:var(--muted);text-align:center }
+#feTab2 .feMikroBtn{ padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap }
+#feTab2 #fm_mikroMsg{ font-size:12px;margin-top:6px }
+#feTab2 .feUsdaZeile{ display:flex;gap:6px;margin-top:8px;flex:0 0 auto }
+#feTab2 #fm_usdaSuche{ flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px }
+#feTab2 .feUsdaBtn{ padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px;white-space:nowrap }
+#feTab2 #fm_usdaErg{ max-height:180px;overflow:auto;margin-top:5px;flex:0 0 auto }
+
+/* Etikett-Karte: Werkzeugzeile, Zoomknoepfe, Riki-Knopf, Leerhinweis, Fusszeile. */
+#fe_wirkFotoCol .feFotoWerkzeuge{ display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap }
+#fe_wirkFotoCol .feFotoZoom{ width:32px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;font-weight:700;line-height:1 }
+#fe_wirkFotoCol .feFotoBtn{ padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px }
+#fe_wirkFotoCol .feBtnRiki{ padding:6px 11px;border:1px solid #cbc7f2;border-radius:8px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap }
+#fe_wirkFotoCol #fe_wirkFotoNav{ display:flex;gap:6px;align-items:center;margin-left:auto }
+#fe_wirkFotoCol #fe_wirkFotoLeer{ position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:16px;line-height:1.5 }
+#fe_wirkFotoCol .feFotoFuss{ font-size:11px;color:var(--muted);margin-top:6px }
+
+
+/* ============================================================================
+   PRODUKTEDITOR · REITER 2 — LAYOUT-CONTAINER  (Durchgang 2b)
+   ----------------------------------------------------------------------------
+   Der heikle Rest aus Reiter 2, ausgefuehrt am 07.08.2026 nach Ralphs Abnahme
+   von 2a. Hier gilt die Sonderregel dieses Abschnitts:
+
+   >>> EINE EIGENSCHAFT, DIE EINE FUNKTION ZUR LAUFZEIT SCHREIBT, DARF HIER
+   >>> NICHT STEHEN. Ein Inline-Stil schlaegt jede Regel — die Datei wuerde
+   >>> etwas behaupten, was am Bildschirm nicht gilt.
+
+   Darum steht an diesen sieben Elementen weiterhin ein Rest inline. Das ist
+   Absicht, kein vergessener Stil:
+
+     feTab2           display:none              <- feTabWechsel
+     fe_nwCard        display:block             <- feKatChange
+     fe_naehrKacheln  margin-top:10px           <- feGridHoeheSync
+                      (dazu marginLeft/alignSelf/gridColumn und der DOM-Umzug
+                       nach #feRahmen durch feKachelBreiteSync — deshalb hat
+                       dieser Streifen bewusst KEINE Regel mit #feTab2-Praefix)
+     feNwOben         grid-template-columns     <- feEditorResponsive
+     fe_wirkGrid      grid-template-columns     <- feDreiReiterInit, fgFotoPlatzieren
+                      ⚠ der Template-Wert "1fr 1fr" ist tot: beide Funktionen
+                        schreiben minmax(0,1fr). Nicht mitrepariert (§2.3).
+     fe_mikroWrap     display:flex              <- feKatChange
+     fe_wirkFotoBox   height:clamp(...)         <- feDreiReiterInit, fgFotoPlatzieren
+     fe_wirkFotoImg   display + transform-origin
+                      display  <- fgWirkFotoRender · transform <- fgWirkFotoApply
+                      transform-origin bleibt BEWUSST daneben inline: es rechnet
+                      mit transform zusammen, und ein halber Zoom aus zwei
+                      Quellen ist schlimmer als ein Stil zu viel.
+
+   ⚠ PRAEFIX #fe_wirkFotoCol STATT #feTab2 fuer die Etikett-Karte.
+   fgFotoPlatzieren haengt fe_wirkFotoCol per appendChild um. Heute immer nach
+   feNwFotoSlot (in feTab2) — aber #fe_fotoMount (app.js Z. 15656, die
+   Flip-Rueckseite) und die Regel #fe_fotoMount #fe_wirkFotoBox (Z. 15836)
+   stehen noch im Code. Wird der Flip je wieder angeschlossen, wandert die
+   Karte aus feTab2 heraus. Mit dem Karten-Praefix wandert ihr Aussehen mit.
+   Aus demselben Grund wurden am 07.08. acht Regeln aus 2a nachtraeglich
+   umgehaengt (feFotoWerkzeuge, feFotoZoom, feFotoBtn, feBtnRiki, feFotoFuss,
+   fe_wirkFotoNav, fe_wirkFotoLeer, feKartenZusatz).
+
+   WO SCHRAUBEN?
+   · Spaltenteilung oben ......... #feNwOben grid-template-columns (INLINE,
+                                   app.js — Breakpoint sitzt in feEditorResponsive)
+   · Abstand der beiden Spalten .. #feTab2 #feNwOben → gap
+   · Klebehoehe der Etikettsaeule  #feTab2 #feNwFotoSlot → top
+   · Etikett-Box: Rahmen, Grund .. #fe_wirkFotoCol #fe_wirkFotoBox
+   ============================================================================ */
+#feTab2 #feNwOben{ display:grid;gap:12px;align-items:start }
+#feTab2 #feNwLinks{ display:flex;flex-direction:column;gap:12px;min-width:0 }
+#feTab2 #fe_wirkCard{ margin-top:2px }
+#feTab2 #fe_wirkGrid{ display:grid;gap:12px;align-items:start }
+#feTab2 #fe_mikroWrap{ min-height:0 }
+#feTab2 #feNwFotoSlot{ min-width:0;position:sticky;top:8px }
+#fe_wirkFotoCol #fe_wirkFotoBox{ position:relative;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none }
+#fe_wirkFotoCol #fe_wirkFotoImg{ position:absolute;left:0;top:0;max-width:none;user-select:none;-webkit-user-drag:none }
