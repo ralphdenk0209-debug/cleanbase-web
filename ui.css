@@ -1159,3 +1159,33 @@ body{ --karten-titel:#534AB7 }
    Vorher #f7f5fb. Neu #e8e4f2, rund 8 Prozent dunkler, im selben Lila-Grau.
    ---------------------------------------------------------------------------- */
 body.peLightBg{ --bg:#e8e4f2 }
+
+
+/* ============================================================================
+   PRODUKTEDITOR · ONE-PAGE MIT ANKERN  ·  07.08.2026 (Ralph-Konzeptkorrektur)
+   ----------------------------------------------------------------------------
+   Ralph: "es ist mit den drei seiten eher so gedacht, dass es ein one page ist
+   und punkt 2 und drei ueber ankerpunkte erreichbar sind, nicht eigene seiten."
+
+   Das ist Mockup H: die Stationen sind Sprungmarken, keine Reiter. feTabWechsel
+   schaltet kein display mehr um, sondern springt (scrollIntoView). Die Knoepfe,
+   ihre IDs und ihre onclick-Aufrufe sind unveraendert.
+
+   ⚠ scroll-margin-top ist hier KEIN Schoenheitswert.
+   #feNavLeiste klebt oben. Ohne diesen Abstand landet die angesprungene Station
+   genau darunter und ihre Ueberschrift ist verdeckt - der Sprung sieht dann aus,
+   als haette er das falsche Ziel getroffen. Die Zahl muss zur Hoehe der Leiste
+   passen: aendert sich deren padding, aendert sich auch diese.
+
+   WO SCHRAUBEN?
+   · Abstand unter der Leiste beim Springen .. --station-anker
+   · Luft zwischen den Stationen ............. #feTab2 / #feTab3 margin-top
+   ============================================================================ */
+#feTab1, #feTab2, #feTab3{
+  --station-anker:64px;
+  scroll-margin-top:var(--station-anker);
+}
+
+/* Luft zwischen den Stationen, damit man den Uebergang sieht.
+   Station 1 braucht keinen - sie steht direkt unter der Leiste. */
+#feTab2, #feTab3{ margin-top:22px }

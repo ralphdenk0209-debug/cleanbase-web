@@ -3991,35 +3991,13 @@ function feGridHoeheSync(){
   }
   var ref=document.getElementById("fe_colRef");
   if(ref) ref.style.gridColumn=(stufe==="mittel")?"1 / -1":"";
-  if(stufe==="eng"){
-    /* Einspaltig ergibt eine feste Bildschirmhoehe keinen Sinn mehr: drei Karten
-       untereinander in einem nicht scrollenden Kasten waeren unbedienbar. Hier
-       scrollt die SEITE - und die Karten geben ihre Innen-Scrollerei ab. */
-    g.style.height="auto"; g.style.minHeight="0"; g.style.gridTemplateRows="";
-  }else if(stufe==="mittel"){
-    /* 🔴 31.07. (Ralph am iPad: "referenz wird unten abgeschnitten"). Zweispaltig
-       rutscht die Referenz in eine ZWEITE Reihe - und bekam vom festen
-       Bildschirm-Kasten nur den Rest einer Hoehe, die fuer EINE Reihe gedacht war.
-       Die Karte war nicht zu gross, der Kasten war zu klein.
-
-       > Wer ein Raster von drei Spalten auf zwei stellt, hat es nicht schmaler
-       > gemacht, sondern eine Reihe hinzugefuegt. Die Hoehe muss das wissen.
-
-       Jetzt: Reihe 1 (die zwei Spalten) behaelt eine begrenzte, innen scrollende
-       Hoehe - dafuer war das Konzept gedacht. Reihe 2 bekommt ihre eigene feste
-       Hoehe, und die SEITE scrollt um diesen Betrag. Lieber einmal wischen als
-       eine abgeschnittene Karte. */
-    var refH=360;
-    g.style.minHeight="0"; g.style.height="auto";
-    g.style.gridTemplateRows="minmax(380px, calc(100dvh - "+(FE_GRID_BASIS+h+refH+14)+"px)) "+refH+"px";
-  }else{
-    g.style.minHeight="430px"; g.style.gridTemplateRows="";
-    /* 100dvh statt 100vh: auf iPad/iPhone zaehlt 100vh die Flaeche UNTER der
-       Safari-Leiste mit - der untere Rand liegt sonst hinter der Werkzeugleiste.
-       dvh gibt es seit iOS 15.4; aeltere Browser fallen auf vh zurueck. */
-    g.style.height="calc(100vh - "+(FE_GRID_BASIS+h)+"px)";
-    g.style.height="calc(100dvh - "+(FE_GRID_BASIS+h)+"px)";
-  }
+  /* 07.08.2026 ONE-PAGE: Die Arbeitsflaeche gibt ihre feste Bildschirmhoehe ab.
+     Eine Karte kann nicht gleichzeitig "volle Bildschirmhoehe" haben UND mitscrollen -
+     auf einer durchgehenden Seite scrollt die Seite. Genau das stand schon im
+     "eng"-Zweig fuer schmale Bildschirme; er wird jetzt der Normalfall.
+     Die SPALTENZAHL bleibt breitenabhaengig (feSpalten weiter oben) - nur die
+     Hoehenrechnung entfaellt. FE_GRID_BASIS wird dadurch nicht mehr gebraucht. */
+  g.style.height="auto"; g.style.minHeight="0"; g.style.gridTemplateRows="";
   /* Die POSITION des Streifens regelt seit Build 1520 das Raster selbst (feKachelBreiteSync:
      Zeile 2, Spalte 2). Der margin-Hochzug aus 1440/1500 ist ersatzlos raus - er galt nur im
      Messmoment und wurde vom Nachrendern der linken Leiste ueberholt (Ralphs Fund). */
@@ -15842,7 +15820,7 @@ async function openFgEditor(id, prefill, targetEl){
 #fe_fotoLeerHinweis{display:none}
 #fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
 </div>
-<div id="feTab2" style="display:none">
+<div id="feTab2">
   <div id="feNwOben">
   <div id="feNwLinks">
         <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("einfach_unges","davon einfach ungesättigte","g")}${nf("mehrfach_unges","davon mehrfach ungesättigte","g")}${nf("transfette","davon Transfettsäuren","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" ></div>`)}</div>
@@ -15884,7 +15862,7 @@ async function openFgEditor(id, prefill, targetEl){
   </div>
   </div>
 </div>
-<div id="feTab3" style="display:none"><div id="fe_quickBar" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span class="feQuickIcon" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu"><button type="button" onclick="fgQuickGo()" class="feBtnZuordnen">Zuordnen</button></div><div id="fe_quickMsg"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span class="feKartenZusatz">(gebunden)</span>`,`
+<div id="feTab3"><div id="fe_quickBar" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span class="feQuickIcon" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu"><button type="button" onclick="fgQuickGo()" class="feBtnZuordnen">Zuordnen</button></div><div id="fe_quickMsg"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span class="feKartenZusatz">(gebunden)</span>`,`
           <details class="feRikiBox">
             <summary class="feRikiTitel">🤖 Riki – Zutatenliste analysieren</summary>
             <div class="feMt8">
@@ -15992,7 +15970,7 @@ async function openFgEditor(id, prefill, targetEl){
     try{ feEinheitPrefill(d); }catch(e){}   /* Bezugseinheit g/ml vorbelegen (Ralph 27.07.) */
     try{ feBioPrefill(d); }catch(e){}       /* Bio-Kennzeichnung vorbelegen (Ralph 30.07.) */
     try{ feKatChange(); }catch(e){}
-    try{ feDreiReiterInit(); feTabWechsel(window._feTab||1); }catch(e){ console.error("Drei-Reiter-Layout:",e); }
+    try{ feDreiReiterInit(); feStationBeobachten(); }catch(e){ console.error("One-Page-Layout:",e); }   /* 07.08.: kein Sprung beim Oeffnen - die Seite startet oben */
     try{ feUrlLblSync(); }catch(e){}
     try{ keinScoreKatsLaden().then(function(){ try{ feKatChange(); }catch(e){} }); }catch(e){}   /* 28z3: Kein-Score-Liste nachladen, Layout+Pflichten dann korrekt */
     try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
@@ -16554,9 +16532,17 @@ function feDreiReiterInit(){
    bei jedem Lauf). Eigener Durchgang, Entscheidung Ralph. */
 
 function feTabWechsel(n){
+  /* 07.08.2026 (Ralph-Konzeptkorrektur): "es ist mit den drei seiten eher so gedacht,
+     dass es ein one page ist und punkt 2 und drei ueber ankerpunkte erreichbar sind,
+     nicht eigene seiten." Das ist Mockup H - dort sind die Stationen Sprungmarken.
+
+     Vorher schaltete diese Funktion display:none um, es waren also drei echte Seiten.
+     Jetzt stehen alle drei untereinander und die Funktion SPRINGT nur noch hin.
+     Name, Signatur und alle Aufrufer bleiben - der Knopf heisst weiter
+     onclick="feTabWechsel(2)", er tut nur etwas anderes. */
   n=(n===2||n===3)?n:1; window._feTab=n;
-  var tabs=[document.getElementById('feTab1'),document.getElementById('feTab2'),document.getElementById('feTab3')];
-  tabs.forEach(function(t,i){ if(t) t.style.display=(n===i+1)?'':'none'; });
+  var ziel=document.getElementById('feTab'+n);
+  if(ziel && ziel.scrollIntoView){ try{ ziel.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){ ziel.scrollIntoView(); } }
   /* 06.08.2026 Etappe 3a: Die Knoepfe stehen senkrecht in der Schiene - die aktive
      Station wird ueber einen linken Balken und den Ring markiert.
      07.08.2026: Diese Funktion schrieb dafuer FUENF Inline-Stile je Knopf (drei am
@@ -16588,7 +16574,29 @@ function feTab1BadgeUpdate(off, ean){
      Nährwertreiter zeigen, damit der Arbeitsort sichtbar bleibt, ohne Fachlogik zu duplizieren. */
   var nb=document.getElementById('feTab2Badge'); if(nb){ var z=Number(off)||0; nb.style.display=z?'':'none'; nb.textContent=z?(z+' prüfen'):''; }
 }
-if(typeof window!=='undefined'){ window.feDreiReiterInit=feDreiReiterInit; window.feTabWechsel=feTabWechsel; window.feTabBadgeUpdate=feTabBadgeUpdate; window.feTab1BadgeUpdate=feTab1BadgeUpdate; }
+/* 07.08.2026 ONE-PAGE: Welche Station gerade dran ist, entscheidet nicht mehr der
+   letzte Klick, sondern was im Bild steht. Ein Beobachter markiert die oberste
+   sichtbare Station in der Schiene. Ohne ihn bliebe die Markierung beim Scrollen
+   auf der zuletzt angeklickten stehen und wuerde luegen. */
+function feStationBeobachten(){
+  try{
+    if(window._feStObs){ window._feStObs.disconnect(); window._feStObs=null; }
+    var ziele=[document.getElementById('feTab1'),document.getElementById('feTab2'),document.getElementById('feTab3')].filter(Boolean);
+    if(!ziele.length || typeof IntersectionObserver!=='function') return;
+    var sichtbar={};
+    window._feStObs=new IntersectionObserver(function(eintraege){
+      eintraege.forEach(function(e){ sichtbar[e.target.id]=e.isIntersecting; });
+      var n=1;
+      if(sichtbar.feTab3) n=3; else if(sichtbar.feTab2) n=2; else n=1;
+      window._feTab=n;
+      ['feTabBtn1','feTabBtn2','feTabBtn3'].forEach(function(id,i){
+        var b=document.getElementById(id); if(b) b.classList.toggle('on', i+1===n);
+      });
+    }, { rootMargin:'-45% 0px -45% 0px', threshold:0 });
+    ziele.forEach(function(z){ window._feStObs.observe(z); });
+  }catch(e){ console.error('[Editor] Stationsbeobachter:', e); }
+}
+if(typeof window!=='undefined'){ window.feStationBeobachten=feStationBeobachten; window.feDreiReiterInit=feDreiReiterInit; window.feTabWechsel=feTabWechsel; window.feTabBadgeUpdate=feTabBadgeUpdate; window.feTab1BadgeUpdate=feTab1BadgeUpdate; }
 function fgFotoPlatzieren(){
   var col=document.getElementById('fe_wirkFotoCol');
   if(!col) return;
@@ -16603,15 +16611,19 @@ function fgFotoPlatzieren(){
      dasselbe Element wechselt den Elternknoten (§4.2). Ausgeloest wird das von
      feTabWechsel, feKatChange, feDreiReiterInit und fgRefFlip; alle rufen hier
      herein, damit die Entscheidung an EINER Stelle faellt. */
-  var aufZutaten=(window._feTab===3);
-  var ziel=document.getElementById(aufZutaten?'fe_fotoMount':'feNwFotoSlot');
+  /* 07.08.2026, NACH der One-Page-Umstellung: das Wandern zwischen den Stationen
+     (Weg A von 18:54) ist gegenstandslos geworden. Alle Stationen stehen jetzt
+     untereinander auf einer Seite - das Etikett rechts neben den Naehrwerten ist
+     beim Abtippen der Zutaten mit einem Blick erreichbar, ohne DOM-Verschiebung.
+     Ein Element, ein fester Ort - das ist die stabilere Loesung. */
+  var ziel=document.getElementById('feNwFotoSlot');
   if(ziel && col.parentNode!==ziel) ziel.appendChild(col);
   col.style.display='block';
   /* Auf der Rueckseite dehnt die CSS-Regel #fe_fotoMount #fe_wirkFotoBox die Box
      auf die Resthoehe (Z. 15836). Dafuer muss der Inline-Wert WEG - ein Inline-Stil
      schlaegt jede Regel, sonst bliebe die Box auf der Rueckseite zu hoch. */
   var box=document.getElementById('fe_wirkFotoBox');
-  if(box) box.style.height = aufZutaten ? '' : 'clamp(360px,52vh,680px)';
+  if(box) box.style.height = 'clamp(360px,52vh,680px)';
   try{ fgWirkFotoRender(); }catch(e){}
 }
 if(typeof window!=="undefined"){ window.fgFotoPlatzieren=fgFotoPlatzieren; }
@@ -22317,7 +22329,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1959";
+const APP_BUILD = "2026-08-07-2140";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
