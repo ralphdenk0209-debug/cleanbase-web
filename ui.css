@@ -25,7 +25,7 @@
    sonst gewinnt weiterhin der Inline-Stil und die Datei luegt.
 
    Angelegt 07.08.2026 · Build 2026-08-07-0645 · Probe-Durchgang "Kopfbereich".
-   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste" · Build 2026-08-07-1027 Durchgang 3b "Knopfleiste" · Build 2026-08-07-1049 Durchgang 4 "Reiter 1 Rest" · Build 2026-08-07-1143 Durchgang 5 "Reiter 3".
+   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste" · Build 2026-08-07-1027 Durchgang 3b "Knopfleiste" · Build 2026-08-07-1049 Durchgang 4 "Reiter 1 Rest" · Build 2026-08-07-1143 Durchgang 5 "Reiter 3" · Build 2026-08-07-1242 Durchgang 3c "Freigabe-Check".
    ============================================================================ */
 
 
@@ -875,3 +875,120 @@ body{ --admin-oben:64px }
 #feTab3 .feZusPunktRt{ display:inline-block;width:9px;height:9px;border-radius:50%;background:#c0392b;vertical-align:middle;margin-right:4px }
 #feTab3 .feZusPunktGrau{ display:inline-block;width:9px;height:9px;border-radius:50%;background:#9aa7b2;vertical-align:middle;margin-right:4px }
 #feTab3 #fe_colRef{ min-height:0 }
+
+
+/* ============================================================================
+   PRODUKTEDITOR · FREIGABE-CHECK IN KLARTEXT  ·  Durchgang 3c (fePlaus)
+   ----------------------------------------------------------------------------
+   fePlaus schreibt in drei Kaesten: die Plausibilitaetszeile (#fe_plaus), die
+   "Bereit / Fehlt"-Zeile (#fe_ready) und die Freigabe-Checkliste (#fe_riegel).
+   29 Inline-Stile, fast alle nach demselben Muster: eine Farbe je Zustand.
+
+   ⚠ BEFUND BEIM UMZUG — NICHT BEHOBEN, NUR SICHTBAR GEMACHT (§2.3)
+
+   Dieselbe Aussage traegt im Code mehrere Farbtoene, und einer davon ist im
+   Dunkelmodus kaputt. Die Farbvariablen sind Theme-Paare (hell/dunkel):
+
+       --k-166534   #166534  /  #b8cec1      "erfuellt", dunkelgruen
+       --k-16a34a   #16a34a  /  #36ca6d      "plausibel", helleres Gruen
+       --k-b45309   #b45309  /  #dd8039      "offen"
+       --k-b91c1c   #b91c1c  /  #e27878      "blockiert"
+
+   1. GRUEN gibt es zweimal: die Checkliste nutzt --k-166534, die
+      Plausibilitaetszeile --k-16a34a. Beide heissen "in Ordnung".
+   2. ROT steht in DREI Schreibweisen: var(--k-b91c1c) · var(--k-b91c1c,#b91c1c)
+      · und einmal ROH als #b91c1c (im Dubletten-Hinweis, Klasse .rDubRoh).
+      Der rohe Wert kennt kein Theme - im Dunkelmodus bleibt genau dieser eine
+      Hinweis hart rot, waehrend alle anderen aufhellen.
+   3. Der Tier-Warnkasten (.rTierWarnung) arbeitet komplett mit rohen Hexwerten.
+
+   Alle vier Klassen unten sind WORTGLEICH zu dem, was vorher am Element stand.
+   Vereinheitlichen waere eine Aussehensaenderung und braucht Ralphs Entscheid.
+
+   WO SCHRAUBEN? Eine Zeile je Zustand. Wer die Toene angleichen will, aendert
+   .pGruen auf denselben Wert wie .rOk - und traegt es im FAHRPLAN ein.
+   ============================================================================ */
+
+/* ⚠ ZWEI ORTE, EIN SATZ REGELN — feVorgangSync (app.js Z. 17408) kopiert die
+   Punkte per outerHTML aus #fe_riegel in #feVorgangAmpel, die SICHTBARE
+   Freigabe-Ampel im linken Streifen. Ein Selektor nur auf #fe_riegel haette dort
+   nicht gegriffen: alle Punkte waeren schwarz statt gruen/gelb/rot - und zwar
+   lautlos. Darum traegt jede Regel unten BEIDE Container. Wer eine Klasse
+   ergaenzt, ergaenzt beide Selektoren.
+   (Die Checkliste #fe_riegel selbst ist im Vollbild ausgeblendet - sichtbar ist
+   praktisch nur die Spiegelung. Umso wichtiger, dass sie stimmt.) */
+
+/* Plausibilitaetszeile #fe_plaus - ohne nowrap, eigene Toene. */
+#fe_plaus .pGrau { color:var(--muted) }
+#fe_plaus .pWarn { color:var(--k-b45309,#b45309) }
+#fe_plaus .pRot  { color:var(--k-b91c1c) }
+#fe_plaus .pGruen{ color:var(--k-16a34a) }
+
+/* "Bereit / Fehlt"-Zeile #fe_ready. */
+#fe_ready .rReady     { color:var(--k-166534); font-weight:600 }
+#fe_ready .rFehlt     { color:var(--k-b45309) }
+#fe_ready .rHintWarn  { color:var(--k-b45309); margin-top:4px }
+#fe_ready .rHintGrau  { color:var(--muted); margin-top:4px }
+#fe_ready .rGrauEinfach{ color:var(--muted) }
+
+/* Checkliste #fe_riegel - hier gilt ueberall white-space:nowrap, damit die
+   Punkte als geschlossene Marken umbrechen und nicht mitten im Wort. */
+#fe_riegel .rOk,
+#feVorgangAmpel .rOk    { color:var(--k-166534); white-space:nowrap }
+#fe_riegel .rWarn,
+#feVorgangAmpel .rWarn  { color:var(--k-b45309); white-space:nowrap }
+#fe_riegel .rWarnF,
+#feVorgangAmpel .rWarnF { color:var(--k-b45309); white-space:nowrap; font-weight:600 }
+#fe_riegel .rRot,
+#feVorgangAmpel .rRot   { color:var(--k-b91c1c,#b91c1c); font-weight:600; white-space:nowrap }
+#fe_riegel .rGrau,
+#feVorgangAmpel .rGrau  { color:var(--muted); white-space:nowrap }
+#fe_riegel .rLinkGrau,
+#feVorgangAmpel .rLinkGrau{ color:var(--muted); font-weight:400 }
+
+/* Dubletten-Hinweis: anklickbar, gepunktet unterstrichen. Die Farbe kam frueher
+   als Zeichenkette in die Funktion _btn - jetzt als Klassenname. */
+#fe_riegel .rDub,
+#feVorgangAmpel .rDub    { white-space:nowrap; cursor:pointer; text-decoration:underline dotted }
+#fe_riegel .rDubRoh,
+#feVorgangAmpel .rDubRoh { color:#b91c1c; font-weight:600 }   /* ⚠ roh, ohne Theme - siehe Befund 2 oben */
+#fe_riegel .rDubGrau,
+#feVorgangAmpel .rDubGrau{ color:var(--muted) }
+#fe_riegel .rDubWarn,
+#feVorgangAmpel .rDubWarn{ color:var(--k-b45309); font-weight:600 }
+
+/* Zwei Knoepfe in der Checkliste. */
+#fe_riegel .rBtnLila,
+#feVorgangAmpel .rBtnLila{
+  padding:3px 9px; border:1px solid #cbc7f2; border-radius:7px;
+  background:var(--k-eeedfe); color:var(--k-534ab7);
+  cursor:pointer; font-size:11.5px; font-weight:700; white-space:nowrap;
+}
+#fe_riegel .rBtn0,
+#feVorgangAmpel .rBtn0{
+  border:1px solid var(--k-16a34a); background:var(--greenlt,#ecfdf5); color:var(--k-166534);
+  border-radius:999px; padding:1px 9px; font-size:11px; font-weight:800;
+  cursor:pointer; margin-left:3px;
+}
+
+/* Warnkasten "vegan, aber tierische Zutat" - volle Zeilenbreite, rohe Hexwerte
+   wie im Original (siehe Befund 3 oben). */
+#fe_riegel .rTierWarnung,
+#feVorgangAmpel .rTierWarnung{
+  flex-basis:100%; width:100%;
+  color:#b91c1c; font-weight:700;
+  background:#fde8e8; border:1px solid #f3b4b4;
+  border-radius:8px; padding:6px 9px;
+}
+
+/* Nachgezogen: die zwei Stile, die in Z. 16848/16849 als ZWEITES style= auf
+   derselben Zeile standen - der Knopf "kcal ist so belegt" und seine Beschriftung.
+   Merksatz: eine Zeile kann mehr als einen Inline-Stil tragen; die Erhebung muss
+   je Vorkommen zaehlen, nicht je Zeile. */
+#fe_plaus .pLila{ color:var(--k-534ab7) }
+#fe_plaus .pBtnLila{
+  margin-left:4px; padding:3px 9px;
+  border:1px solid #cbc7f2; border-radius:7px;
+  background:var(--k-eeedfe); color:var(--k-534ab7);
+  cursor:pointer; font-size:11.5px; font-weight:700;
+}

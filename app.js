@@ -16840,15 +16840,15 @@ function fePlaus(){
   var box=document.getElementById("fe_plaus"); if(!box) return;
   var gv=function(id){ var e=document.getElementById(id); var v=e&&e.value!==""?Number(String(e.value).replace(",",".")):null; return (v!=null&&isFinite(v))?v:null; };
   var kcal=gv("fe_kcal"), p=gv("fe_protein"), kh=gv("fe_kh"), f=gv("fe_fett"), b=gv("fe_ballaststoffe"), poly=gv("fe_polyole")||0;
-  if(kcal==null||p==null||kh==null||f==null){ box.innerHTML='<span style="color:var(--muted)">Für die Plausibilität: kcal, Eiweiß, KH, Fett.</span>'; }
+  if(kcal==null||p==null||kh==null||f==null){ box.innerHTML='<span class="pGrau">Für die Plausibilität: kcal, Eiweiß, KH, Fett.</span>'; }
   else {
     var berMin=4*p+4*Math.max(kh-poly,0)+9*f+2*(b||0), berMax=berMin+2.4*poly, dev=Math.max(berMin-kcal,kcal-berMax,0);
     var spanne=Math.round(berMin)+(poly>0?("–"+Math.round(berMax)):"")+" kcal";
     if(kcal>0 && dev>20 && dev/kcal>0.30){
-      if(window._fgEdit && window._fgEdit.kcalOk) box.innerHTML='<span style="color:var(--k-b45309,#b45309)">&#9888; kcal ('+Math.round(kcal)+') weicht ab (rechnerisch '+spanne+') &ndash; <b>von der Quelle best&auml;tigt, W&auml;chter &uuml;bersteuert</b>. <a href="#" onclick="fgKcalOkSet(false);return false" style="color:var(--k-534ab7)">r&uuml;ckg&auml;ngig</a></span>';
-      else box.innerHTML='<span style="color:var(--k-b91c1c)">&#9888; kcal ('+Math.round(kcal)+') passt nicht &ndash; plausibel w&auml;ren '+spanne+'.</span> <button type="button" onclick="fgKcalOkSet(true)" style="margin-left:4px;padding:3px 9px;border:1px solid #cbc7f2;border-radius:7px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:11.5px;font-weight:700">Quelle gepr&uuml;ft &rarr; &uuml;bersteuern</button>';
+      if(window._fgEdit && window._fgEdit.kcalOk) box.innerHTML='<span class="pWarn">&#9888; kcal ('+Math.round(kcal)+') weicht ab (rechnerisch '+spanne+') &ndash; <b>von der Quelle best&auml;tigt, W&auml;chter &uuml;bersteuert</b>. <a href="#" onclick="fgKcalOkSet(false);return false" class="pLila">r&uuml;ckg&auml;ngig</a></span>';
+      else box.innerHTML='<span class="pRot">&#9888; kcal ('+Math.round(kcal)+') passt nicht &ndash; plausibel w&auml;ren '+spanne+'.</span> <button type="button" onclick="fgKcalOkSet(true)" class="pBtnLila">Quelle gepr&uuml;ft &rarr; &uuml;bersteuern</button>';
     }
-    else box.innerHTML='<span style="color:var(--k-16a34a)">&#10003; Plausibel · rechnerisch '+spanne+'.</span>';
+    else box.innerHTML='<span class="pGruen">&#10003; Plausibel · rechnerisch '+spanne+'.</span>';
   }
   var rd=document.getElementById("fe_ready");
   if(rd){
@@ -16900,27 +16900,27 @@ function fePlaus(){
       feTab1BadgeUpdate(_t1.length, _eanV?"da":(_eanOffen?"offen":"fehlt"));
     } }catch(e){}
     if(fehlt.length===0){
-      rd.innerHTML='<span style="color:var(--k-166534);font-weight:600">✓ Bereit zur Freigabe'
+      rd.innerHTML='<span class="rReady">✓ Bereit zur Freigabe'
         +(_istSupp?' – Supplement (kein Lebensmittel-Index, Nährwerte nicht nötig)':(_istSalz?' – reines Salz (kein Index, Nährwerte nicht nötig)':(_istKeinScore?' – Kategorie ohne Lebensmittel-Index (Nährwerte optional)':' – alle Achsen belegt')))+'.</span>'
-        +(_dosisLeer?'<div style="color:var(--k-b45309);margin-top:4px">Ohne <b>Verzehrempfehlung</b> ist unklar, worauf sich der Dosis-Check bezieht – wenn möglich nachtragen.</div>':'');
+        +(_dosisLeer?'<div class="rHintWarn">Ohne <b>Verzehrempfehlung</b> ist unklar, worauf sich der Dosis-Check bezieht – wenn möglich nachtragen.</div>':'');
     } else {
-      rd.innerHTML='<span style="color:var(--k-b45309)">Fehlt '+((_istSupp||_istSalz)?'für die Freigabe':'für den Index')+': <b>'+fehlt.join(", ")+'</b>'
-        +(fehlt.indexOf("Ballaststoffe")>=0?' <span style="color:var(--muted)">· hat das Produkt keine, trag 0 ein</span>':'')+'</span>'
-        +(_dosisLeer?'<div style="color:var(--muted);margin-top:4px">Verzehrempfehlung fehlt ebenfalls – blockiert die Freigabe nicht, fehlt aber für den Dosis-Check.</div>':'');
+      rd.innerHTML='<span class="rFehlt">Fehlt '+((_istSupp||_istSalz)?'für die Freigabe':'für den Index')+': <b>'+fehlt.join(", ")+'</b>'
+        +(fehlt.indexOf("Ballaststoffe")>=0?' <span class="rGrauEinfach">· hat das Produkt keine, trag 0 ein</span>':'')+'</span>'
+        +(_dosisLeer?'<div class="rHintGrau">Verzehrempfehlung fehlt ebenfalls – blockiert die Freigabe nicht, fehlt aber für den Dosis-Check.</div>':'');
     }
     /* Riegel-Karte: dieselbe Pruefung, nur dauerhaft sichtbar statt als eine Textzeile.
        Bis 18.07.2026 erfuhr man erst BEIM Klick auf Freigeben, was blockiert -
        daran sind die Supplements zweimal hintereinander gescheitert. */
     var rg=document.getElementById("fe_riegel");
     if(rg){
-      var ok=function(t){ return '<span style="color:var(--k-166534);white-space:nowrap">&#10003; '+t+'</span>'; };
-      var no=function(t){ return '<span style="color:var(--k-b45309);white-space:nowrap;font-weight:600">&#9888; '+t+'</span>'; };
+      var ok=function(t){ return '<span class="rOk">&#10003; '+t+'</span>'; };
+      var no=function(t){ return '<span class="rWarnF">&#9888; '+t+'</span>'; };
       var nwFehlt=fehlt.filter(function(x){ return x!=="mind. 1 Zutat" && x!=="Quelle-Typ" && x!=="Kategorie" && x.indexOf("ohne Bewertung")<0 && x.indexOf("EAN")<0; });
       var h="";
       h+= _kat ? ok("Kategorie gewählt") : no("Kategorie fehlt (Pflicht)");
-      if(_istSupp) h+='<span style="color:var(--muted);white-space:nowrap">– Nährwerte (Supplement, nicht nötig)</span>';
-      else if(_istSalz) h+='<span style="color:var(--muted);white-space:nowrap">– Nährwerte (Salz, nicht nötig)</span>';
-      else if(_istKeinScore) h+='<span style="color:var(--muted);white-space:nowrap">– Nährwerte (Kategorie ohne Index – optional)</span>';
+      if(_istSupp) h+='<span class="rGrau">– Nährwerte (Supplement, nicht nötig)</span>';
+      else if(_istSalz) h+='<span class="rGrau">– Nährwerte (Salz, nicht nötig)</span>';
+      else if(_istKeinScore) h+='<span class="rGrau">– Nährwerte (Kategorie ohne Index – optional)</span>';
       else h+= nwFehlt.length ? no(nwFehlt.length+" Nährwert(e) fehlen") : ok("Nährwerte vollständig");
       h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
       h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
@@ -16935,18 +16935,20 @@ function fePlaus(){
       try{
         var _dub=window._feDub;
         if(_dub===undefined||_dub===null){
-          h+='<span style="color:var(--muted);white-space:nowrap">… Dubletten-Prüfung läuft</span>';
+          h+='<span class="rGrau">… Dubletten-Prüfung läuft</span>';
         } else if(_dub.fehler){
-          h+='<span style="color:var(--k-b45309);white-space:nowrap">&#9888; Dubletten-Prüfung nicht erreichbar</span>';
+          h+='<span class="rWarn">&#9888; Dubletten-Prüfung nicht erreichbar</span>';
         } else if(!_dub.anzahl){
           h+= ok("keine Dublette");
         } else {
           var _rang={sicher:1,wahrscheinlich:2,ansehen:3,variante:4}, _s="variante";
           (_dub.treffer||[]).forEach(function(t){ if(_rang[t.stufe]<_rang[_s]) _s=t.stufe; });
-          var _btn=function(txt,farbe,fett){ return '<span onclick="try{feDubOeffnen()}catch(e){}" title="Ähnliche Produkte ansehen" style="color:'+farbe+';white-space:nowrap;cursor:pointer;text-decoration:underline dotted'+(fett?';font-weight:600':'')+'">'+txt+'</span>'; };
-          if(_s==="sicher")             h+=_btn("&#9888; Dublette: diese EAN gibt es schon – Speichern wird abgewiesen ›","#b91c1c",true);
-          else if(_s==="variante")      h+=_btn("&#8250; "+_dub.anzahl+" Geschmacksvariante(n) – keine Dublette","var(--muted)",false);
-          else                          h+=_btn("&#9888; "+_dub.anzahl+"&times; sehr ähnlich – ansehen ›","var(--k-b45309)",true);
+          /* 07.08.2026: nahm vorher Farbe und Fettung als Zeichenketten und baute daraus
+             einen Inline-Stil. Jetzt eine Klasse - das Aussehen steht in ui.css. */
+          var _btn=function(txt,klasse){ return '<span onclick="try{feDubOeffnen()}catch(e){}" title="Ähnliche Produkte ansehen" class="rDub '+klasse+'">'+txt+'</span>'; };
+          if(_s==="sicher")             h+=_btn("&#9888; Dublette: diese EAN gibt es schon – Speichern wird abgewiesen ›","rDubRoh");
+          else if(_s==="variante")      h+=_btn("&#8250; "+_dub.anzahl+" Geschmacksvariante(n) – keine Dublette","rDubGrau");
+          else                          h+=_btn("&#9888; "+_dub.anzahl+"&times; sehr ähnlich – ansehen ›","rDubWarn");
         }
       }catch(e){}
       /* 02.08. (Ralph-Go): Freigabe-Riegel bei ungeklaertem Namenszwilling. Eigene Zeile, weil es
@@ -16957,17 +16959,17 @@ function fePlaus(){
         var _fd=window._feDub;
         if(_fd && _fd.freigabe_blockiert){
           var _zw=(_fd.freigabe_zwillinge||[]).map(function(x){ return x.id; }).join(", ");
-          h+='<span style="color:var(--k-b91c1c,#b91c1c);font-weight:600;white-space:nowrap">&#9888; Namenszwilling ungeklärt ('+esc(_zw||"?")+')</span>'
+          h+='<span class="rRot">&#9888; Namenszwilling ungeklärt ('+esc(_zw||"?")+')</span>'
             +'<button type="button" onclick="fgDubletteOkSetzen(true)" title="Bestätigen, dass dies ein eigenes Produkt ist – dann ist die Freigabe frei" '
-            +'style="padding:3px 9px;border:1px solid #cbc7f2;border-radius:7px;background:var(--k-eeedfe);color:var(--k-534ab7);cursor:pointer;font-size:11.5px;font-weight:700;white-space:nowrap">ist ein eigenes Produkt</button>';
+            +'class="rBtnLila">ist ein eigenes Produkt</button>';
         } else if(_fd && _fd.freigabe_geprueft){
-          h+='<span style="color:var(--k-166534);white-space:nowrap">&#10003; Namenszwilling geprüft '
-            +'<a href="#" onclick="fgDubletteOkSetzen(false);return false" style="color:var(--muted);font-weight:400">rückgängig</a></span>';
+          h+='<span class="rOk">&#10003; Namenszwilling geprüft '
+            +'<a href="#" onclick="fgDubletteOkSetzen(false);return false" class="rLinkGrau">rückgängig</a></span>';
         }
       }catch(e){}
       if(_istSupp) h+= _dosisLeer ? no("Verzehrempfehlung fehlt") : ok("Verzehrempfehlung da");
       if(_istSupp) h+= (_wCount>0) ? ok(_wCount+" Wirkstoff-Menge(n) für Dosis-Check")
-                        : (_wNone ? '<span style="color:var(--muted);white-space:nowrap">– Wirkstoff-Mengen (bewusst ohne)</span>'
+                        : (_wNone ? '<span class="rGrau">– Wirkstoff-Mengen (bewusst ohne)</span>'
                                   : no("Wirkstoff-Mengen fehlen (Dosis-Check)"));
       /* Live-Wächter (Ralph 21.07.2026): Produkt heißt „vegan/vegetarisch", aber eine tierische
          Zutat ist gebunden → sehr wahrscheinlich ins FALSCHE Produkt importiert. Nur Warnung,
@@ -16979,7 +16981,7 @@ function fePlaus(){
           var _exRe=/(vegan|vegetarisch|pflanzlich|ersatz|alternativ|analog|tofu|seitan|\bsoja|erbsenprotein|frucht|tomate|kokos)/;
           var _tier=[];
           zMit.forEach(function(row){ var _rawnm=((row.querySelector(".fgzName")||{}).value||"").trim(); var _ln=_rawnm.toLowerCase(); if(_ln && _meatRe.test(_ln) && !_exRe.test(_ln)) _tier.push(_rawnm); });
-          if(_tier.length) h='<div style="flex-basis:100%;width:100%;color:#b91c1c;font-weight:700;background:#fde8e8;border:1px solid #f3b4b4;border-radius:8px;padding:6px 9px">&#9888; Produkt heißt „vegan/vegetarisch“, enthält aber tierische Zutat: '+esc(_tier.join(", "))+' — falsches Produkt?</div>'+h;
+          if(_tier.length) h='<div class="rTierWarnung">&#9888; Produkt heißt „vegan/vegetarisch“, enthält aber tierische Zutat: '+esc(_tier.join(", "))+' — falsches Produkt?</div>'+h;
         }
       }catch(e){}
       /* Ballaststoffe: der häufigste Grund für einen hochgerechneten Index (Ralph 02.08.).
@@ -16990,12 +16992,12 @@ function fePlaus(){
         if((_bs===""||_bs==null) && !_istSupp && !_istSalz){
           var _bp=window._feBallast;
           if(_bp && _bp.stand==="plausibel"){
-            h+='<span title="'+esc(_bp.grund||"")+'" style="color:var(--k-b45309);white-space:nowrap">&#9888; Ballaststoffe fehlen — bei dieser Warenart ist <b>0</b> belegt '
-              +'<button type="button" onclick="feBallastNull()" style="border:1px solid var(--k-16a34a);background:var(--greenlt,#ecfdf5);color:var(--k-166534);border-radius:999px;padding:1px 9px;font-size:11px;font-weight:800;cursor:pointer;margin-left:3px">0 eintragen</button></span>';
+            h+='<span title="'+esc(_bp.grund||"")+'" class="rWarn">&#9888; Ballaststoffe fehlen — bei dieser Warenart ist <b>0</b> belegt '
+              +'<button type="button" onclick="feBallastNull()" class="rBtn0">0 eintragen</button></span>';
           } else if(_bp && _bp.stand==="luecke"){
-            h+='<span title="'+esc(_bp.grund||"")+'" style="color:var(--k-b45309);white-space:nowrap;font-weight:600">&#9888; Ballaststoffe fehlen — diese Warenart hat welche, vom Etikett nachtragen (keine 0!)</span>';
+            h+='<span title="'+esc(_bp.grund||"")+'" class="rWarnF">&#9888; Ballaststoffe fehlen — diese Warenart hat welche, vom Etikett nachtragen (keine 0!)</span>';
           } else if(_bp){
-            h+='<span title="'+esc(_bp.grund||"")+'" style="color:var(--muted);white-space:nowrap">&#9888; Ballaststoffe fehlen — am Etikett entscheiden</span>';
+            h+='<span title="'+esc(_bp.grund||"")+'" class="rGrau">&#9888; Ballaststoffe fehlen — am Etikett entscheiden</span>';
           }
         }
       }catch(e){}
@@ -22265,7 +22267,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1143";
+const APP_BUILD = "2026-08-07-1242";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
