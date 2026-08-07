@@ -15838,11 +15838,11 @@ async function openFgEditor(id, prefill, targetEl){
 #fe_fotoMount:empty + #fe_fotoLeerHinweis{display:flex}</style>
 </div>
 <div id="feTab2" style="display:none">
-  <div id="feNwOben" style="grid-template-columns:minmax(430px,1fr) minmax(360px,.9fr)">
+  <div id="feNwOben">
   <div id="feNwLinks">
         <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" ></div>`)}</div>
         <span id="fe_wirkAnker"  data-note="06.08.2026: Die Wirkstoff-Karte hat einen FESTEN Ort im Reiter Naehrwerte. Nichts wird mehr verschoben - der Anker bleibt nur als Sprungmarke."></span><div id="fe_wirkCard">
-          <div id="fe_wirkGrid" style="grid-template-columns:1fr 1fr">
+          <div id="fe_wirkGrid">
             <div id="fe_wirkTblCol">${card(`<span>Wirkstoffe &amp; Dosis</span> <span class="feKartenZusatz">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
           <div class="feWirkHinweis">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
           <div class="feWirkKopf"><span>Stoff</span><span class="feRe">Menge</span><span>Einheit</span><span class="feRe">%NRV</span><span></span></div>
@@ -15940,23 +15940,23 @@ async function openFgEditor(id, prefill, targetEl){
          Rasters) - und wird zur Laufzeit an der GEMESSENEN Breite des linken Streifens ausgerichtet
          (feKachelBreiteSync). Gemessen schlaegt gezaehlt. */}
 
-    <div id="fe_fussLeiste" style="margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35)">
-      <div id="fe_msg" style="font-size:13px;font-weight:600;margin-bottom:8px"></div>
-      <div id="fe_riegelRow" style="display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px">
-        <span style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;flex:0 0 auto">Freigabe</span>
-        <div id="fe_riegel" style="display:flex;gap:5px 14px;flex-wrap:wrap;font-size:12px;line-height:1.35;flex:1 1 auto;min-width:0"></div>
+    <div id="fe_fussLeiste">
+      <div id="fe_msg" style="font-weight:600"></div>
+      <div id="fe_riegelRow" style="display:flex">
+        <span class="feFussLabel">Freigabe</span>
+        <div id="fe_riegel"></div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;width:100%">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <div id="fe_ready" style="font-size:12px;color:var(--muted)"></div>
-        ${targetEl?`<button onclick="try{feScorePreview()}catch(e){}" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">↻ Index neu</button>
-        ${id?`<button onclick="peAlsNutzer('${esc(id)}')" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">👁 Als Nutzer</button>`:""}`:""}
+      <div class="feFussZeile">
+      <div class="feFussLinks">
+        <div id="fe_ready"></div>
+        ${targetEl?`<button onclick="try{feScorePreview()}catch(e){}" class="feFussBtn">↻ Index neu</button>
+        ${id?`<button onclick="peAlsNutzer('${esc(id)}')" class="feFussBtn">👁 Als Nutzer</button>`:""}`:""}
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${targetEl&&id?`<button onclick="peDeaktiv('${esc(id)}')" style="padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--k-cf5442,#cf5442);cursor:pointer;font-size:13px">Löschen</button>`:""}
-        ${targetEl?`<button onclick="peNeu()" style="padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">Neu</button>`:""}
+      <div class="feFussRechts">
+        ${targetEl&&id?`<button onclick="peDeaktiv('${esc(id)}')" class="feFussBtnRot">Löschen</button>`:""}
+        ${targetEl?`<button onclick="peNeu()" class="feFussBtnGross">Neu</button>`:""}
         ${''/* „Speichern" + „Speichern & freigeben" sitzen jetzt in der Freigabe-Leiste rechts (Ralph 24.07.) – hier entfernt. */}
-        ${targetEl?`<button onclick="peClose()" style="padding:10px 16px;border:1px solid #d3dbe6;border-radius:10px;background:#fff;color:#1f2a44;font-weight:600;cursor:pointer">Schließen</button>`:""}
+        ${targetEl?`<button onclick="peClose()" class="feFussBtnZu">Schließen</button>`:""}
       </div>
       </div>
     </div>`;
@@ -15973,8 +15973,13 @@ async function openFgEditor(id, prefill, targetEl){
     /* 28n (Ralph): Die untere "Bereit zur Freigabe"-Zeile ist im Vollbild doppelt (steht im Streifen
        und im Kopf-Chip) -> Text VERSTECKEN, nicht entfernen (feVorgangStepperHtml liest fe_ready weiter,
        par. 1.11n-j). Der Leisten-Rahmen verschwindet mit; fe_msg (Speicher-Feedback) bleibt sichtbar. */
-    try{ var _rdy=document.getElementById("fe_ready"); if(_rdy) _rdy.style.display="none"; }catch(e){}
-    try{ var _fl=document.getElementById("fe_fussLeiste"); if(_fl){ _fl.style.borderTop="0"; _fl.style.boxShadow="none"; _fl.style.background="transparent"; _fl.style.padding="2px"; } }catch(e){}
+    /* 07.08.2026: Diese zwei Zeilen setzten fuenf Inline-Stile, um im VOLLBILD anders
+       auszusehen als im Inline-Modus (fe_ready versteckt, Fussleiste ohne Rahmen,
+       Schatten, Grund und mit knappem Polster). Das ist eine Zustandsfrage, keine
+       Rechenaufgabe - der Zustand steht bereits als Klasse am Overlay. Beides jetzt
+       als zwei Regeln in ui.css unter #overlay.fgEditorFull. closeP entfernt die
+       Klasse ohnehin sauber; vorher mussten die Inline-Stile mit dem Panel-innerHTML
+       verschwinden. Verhalten unveraendert, fuenf Schreibzugriffe weniger. */
     if(_pn){ _pn.style.maxWidth="none"; _pn.style.width="100%"; _pn.style.height="100vh"; _pn.style.maxHeight="100vh"; _pn.style.borderRadius="0"; _pn.style.background="var(--bg)"; _pn.scrollTop=0; }   /* 28r: das Panel fuellte das Fenster KARTEN-weiss und deckte den Flieder-Hintergrund zu */
     }
     try{ var _katEl=document.getElementById("fe_kat"); if(_katEl) _katEl.addEventListener("change", feKatChange); }catch(e){}
@@ -16520,17 +16525,28 @@ function feDreiReiterInit(){
      (er suchte Knoten über die POSITION: grid.firstElementChild, grid.children[1] …).
      Hier bleibt nur, was Anzeige einstellt - kein DOM wird mehr verschoben. */
   try{ fgFotoPlatzieren(); }catch(e){}
-  var wg=document.getElementById('fe_wirkGrid'); if(wg) wg.style.gridTemplateColumns='minmax(0,1fr)';
   var wt=document.getElementById('fe_wirkTblCol'); if(wt) wt.style.minWidth='0';
   var fbox=document.getElementById('fe_wirkFotoBox'); if(fbox) fbox.style.height='clamp(360px,52vh,680px)';
-  try{ feEditorResponsive(); }catch(e){}
 }
-function feEditorResponsive(){
-  var w=window.innerWidth||1400, kg=document.getElementById('feKopfGrid'), ng=document.getElementById('feNwOben');
-  if(kg) kg.style.gridTemplateColumns=(w<1050)?'minmax(0,1fr)':'minmax(420px,1.45fr) minmax(280px,.75fr)';
-  if(ng) ng.style.gridTemplateColumns=(w<1180)?'minmax(0,1fr)':'minmax(430px,1fr) minmax(360px,.9fr)';
-}
-if(typeof window!=='undefined'&&!window._feRespBound){ window._feRespBound=true; window.addEventListener('resize',function(){ try{ feEditorResponsive(); }catch(e){} }); }
+/* 07.08.2026 - feEditorResponsive ist ERSATZLOS ENTFALLEN, samt Resize-Bindung.
+   Sie setzte bei jeder Fenstergroessenaenderung zwei Rasterbreiten inline:
+
+     #feKopfGrid  -> TOT seit Etappe 2 (06.08.). Der Kopfbereich ist kein Raster
+                     mehr, das Raster ist sein Kind .mzr. Die Zuweisung lief ins
+                     Leere - waere aber sofort zur Falle geworden, sobald jemand
+                     #feKopfGrid in ui.css ein display:grid gibt: Layoutsprung bei
+                     jedem Resize, Ursache 800 Zeilen entfernt.
+     #feNwOben    -> lebendig, jetzt als @media-Regel in ui.css.
+
+   ⚠ Der Umbruchpunkt heisst dort max-width:1179px statt w<1180.
+   window.innerWidth zaehlt eine klassische Scrollleiste MIT, die Media-Query je
+   nach Browser nicht - der Umbruch kann darum um deren Breite versetzt liegen.
+   NICHT nachgemessen. Wen es stoert: eine Zahl in ui.css.
+
+   Zwei Laufzeit-Konstanten stehen weiter oben in feDreiReiterInit und sind NICHT
+   Teil dieses Durchgangs (§2.3): fe_wirkTblCol minWidth und fe_wirkFotoBox height
+   (clamp(360px,52vh,680px) - ueberschreibt den Template-Wert clamp(150px,18vh,250px)
+   bei jedem Lauf). Eigener Durchgang, Entscheidung Ralph. */
 
 function feTabWechsel(n){
   n=(n===2||n===3)?n:1; window._feTab=n;
@@ -16577,7 +16593,6 @@ function fgFotoPlatzieren(){
   if(slot && col.parentNode!==slot) slot.appendChild(col);
   col.style.display='block';
   var box=document.getElementById('fe_wirkFotoBox'); if(box) box.style.height='clamp(360px,52vh,680px)';
-  var grid=document.getElementById('fe_wirkGrid'); if(grid) grid.style.gridTemplateColumns='minmax(0,1fr)';
   try{ fgWirkFotoRender(); }catch(e){}
 }
 if(typeof window!=="undefined"){ window.fgFotoPlatzieren=fgFotoPlatzieren; }
@@ -22248,7 +22263,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-0851";
+const APP_BUILD = "2026-08-07-1014";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

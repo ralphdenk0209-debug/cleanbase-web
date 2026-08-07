@@ -25,7 +25,7 @@
    sonst gewinnt weiterhin der Inline-Stil und die Datei luegt.
 
    Angelegt 07.08.2026 · Build 2026-08-07-0645 · Probe-Durchgang "Kopfbereich".
-   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2".
+   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste".
    ============================================================================ */
 
 
@@ -427,9 +427,9 @@ body{ --admin-oben:64px }
    Eigenschaften waere eine Luege in der Datei (Hausregel oben):
 
      feTab2            display              <- feTabWechsel
-     feNwOben          gridTemplateColumns  <- feEditorResponsive
+     feNwOben          grid-template-columns  <- @media unten (07.08. aufgeraeumt)
      fe_nwCard         display              <- feKatChange
-     fe_wirkGrid       gridTemplateColumns  <- feDreiReiterInit, fgFotoPlatzieren
+     fe_wirkGrid       grid-template-columns  <- steht hier (07.08. aufgeraeumt)
      fe_naehrKacheln   marginTop            <- feGridHoeheSync
                        marginLeft, alignSelf, gridColumn + DOM-Umzug nach
                        #feRahmen             <- feKachelBreiteSync
@@ -531,10 +531,8 @@ body{ --admin-oben:64px }
                       (dazu marginLeft/alignSelf/gridColumn und der DOM-Umzug
                        nach #feRahmen durch feKachelBreiteSync — deshalb hat
                        dieser Streifen bewusst KEINE Regel mit #feTab2-Praefix)
-     feNwOben         grid-template-columns     <- feEditorResponsive
-     fe_wirkGrid      grid-template-columns     <- feDreiReiterInit, fgFotoPlatzieren
-                      ⚠ der Template-Wert "1fr 1fr" ist tot: beide Funktionen
-                        schreiben minmax(0,1fr). Nicht mitrepariert (§2.3).
+     feNwOben  }  beide am 07.08. AUFGERAEUMT - die Rasterbreiten stehen jetzt
+     fe_wirkGrid }  hier unten, nicht mehr inline. Siehe Block "AUFGERAEUMT".
      fe_mikroWrap     display:flex              <- feKatChange
      fe_wirkFotoBox   height:clamp(...)         <- feDreiReiterInit, fgFotoPlatzieren
      fe_wirkFotoImg   display + transform-origin
@@ -554,17 +552,107 @@ body{ --admin-oben:64px }
    fe_wirkFotoNav, fe_wirkFotoLeer, feKartenZusatz).
 
    WO SCHRAUBEN?
-   · Spaltenteilung oben ......... #feNwOben grid-template-columns (INLINE,
-                                   app.js — Breakpoint sitzt in feEditorResponsive)
+   · Spaltenteilung oben ......... #feTab2 #feNwOben → grid-template-columns
+   · Umbruchpunkt dafuer ......... @media ganz unten in dieser Datei
    · Abstand der beiden Spalten .. #feTab2 #feNwOben → gap
    · Klebehoehe der Etikettsaeule  #feTab2 #feNwFotoSlot → top
    · Etikett-Box: Rahmen, Grund .. #fe_wirkFotoCol #fe_wirkFotoBox
    ============================================================================ */
-#feTab2 #feNwOben{ display:grid;gap:12px;align-items:start }
+#feTab2 #feNwOben{ display:grid;gap:12px;align-items:start;
+                   grid-template-columns:minmax(430px,1fr) minmax(360px,.9fr) }
 #feTab2 #feNwLinks{ display:flex;flex-direction:column;gap:12px;min-width:0 }
 #feTab2 #fe_wirkCard{ margin-top:2px }
-#feTab2 #fe_wirkGrid{ display:grid;gap:12px;align-items:start }
+#feTab2 #fe_wirkGrid{ display:grid;gap:12px;align-items:start;
+                      grid-template-columns:minmax(0,1fr) }
 #feTab2 #fe_mikroWrap{ min-height:0 }
 #feTab2 #feNwFotoSlot{ min-width:0;position:sticky;top:8px }
 #fe_wirkFotoCol #fe_wirkFotoBox{ position:relative;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none }
 #fe_wirkFotoCol #fe_wirkFotoImg{ position:absolute;left:0;top:0;max-width:none;user-select:none;-webkit-user-drag:none }
+
+
+/* ============================================================================
+   AUFGERAEUMT 07.08.2026 · feEditorResponsive ist weg
+   ----------------------------------------------------------------------------
+   BEFUND (06.08. gefunden, 07.08. behoben):
+   feEditorResponsive setzte bei JEDER Fenstergroessenaenderung zwei Rasterbreiten
+   als Inline-Stil. Eine davon war seit Etappe 2 TOT: #feKopfGrid ist kein Raster
+   mehr, das Raster ist sein Kind .mzr. Die Zuweisung lief ins Leere - waere aber
+   sofort zur Falle geworden, sobald jemand #feKopfGrid hier ein display:grid gibt.
+   Das Layout haette dann bei jedem Ziehen am Fenster gesprungen, und die Ursache
+   stand 800 Zeilen entfernt in einer Funktion, die niemand verdaechtigt.
+
+   Dieselbe Bauart hatte fe_wirkGrid: Template "1fr 1fr", aber feDreiReiterInit
+   UND fgFotoPlatzieren schrieben bei jedem Lauf minmax(0,1fr) darueber. Seit dem
+   Drei-Reiter-Umbau hat das Etikett einen festen Ort (feNwFotoSlot), die zweite
+   Spalte wird nicht mehr gebraucht.
+
+   Beides steht jetzt hier: die Grundbreiten oben an den Regeln, der Umbruch als
+   @media. In app.js sind die Funktion, ihre Resize-Bindung, ihr Aufruf und beide
+   Inline-Reste ersatzlos entfallen.
+
+   ⚠ max-width:1179px entspricht dem frueheren w<1180 NICHT auf den Pixel:
+   window.innerWidth zaehlt eine klassische Scrollleiste mit, die Media-Query je
+   nach Browser nicht. Der Umbruch kann darum um deren Breite versetzt liegen.
+   NICHT nachgemessen - wen es stoert, aendert die Zahl hier.
+
+   WO SCHRAUBEN? Umbruchpunkt = die 1179 in der Zeile darunter.
+   ============================================================================ */
+@media(max-width:1179px){
+  #feTab2 #feNwOben{ grid-template-columns:minmax(0,1fr) }
+}
+
+
+/* ============================================================================
+   PRODUKTEDITOR · FUSSLEISTE  (#fe_fussLeiste)  ·  Durchgang 3a
+   ----------------------------------------------------------------------------
+   Die klebende Leiste am unteren Rand des Editors: Speicher-Meldung, Freigabe-
+   Checkliste, "Bereit"-Zeile und die Knoepfe des Inline-Modus.
+
+   ⚠ SIE IST EIN MESSPUNKT, NICHT NUR EIN KASTEN.
+   feGridHoeheSync misst ihre Unterkante (app.js Z. 4036), um den Kachelstreifen
+   "Enthaltene Naehrstoffe" bis zum Bildschirmrand aufzufuellen. Wer hier Polster
+   oder Rahmen aendert, aendert damit die Hoehe des Streifens mit. Das ist kein
+   Fehler, sondern gewollt - aber man sollte es wissen, bevor man schraubt.
+
+   WO SCHRAUBEN?
+   · Hoehe der Leiste ............ #fe_fussLeiste → padding
+   · Abstand zum Inhalt darueber . #fe_fussLeiste → margin-top
+   · Schatten nach oben .......... #fe_fussLeiste → box-shadow
+   · Knopfgroessen ............... .feFussBtn / .feFussBtnGross / .feFussBtnZu
+
+   ZWEI ZUSTAENDE, EINE STELLE:
+   Im Vollbild sieht die Leiste anders aus als im Inline-Modus (Master-Detail-
+   Liste). Das stand bis 07.08.2026 als fuenf Inline-Zuweisungen in openFgEditor
+   (fe_ready verstecken, Rahmen/Schatten/Grund weg, Polster auf 2px). Der Zustand
+   steckt aber laengst als Klasse am Overlay - also steht er jetzt hier, ganz
+   unten in diesem Block. Kein JavaScript mehr fuer eine Aussehensfrage.
+
+   INLINE GEBLIEBEN, weil die Laufzeit sie schreibt:
+     fe_msg       font-weight  <- fgEditSave setzt 700 bei Teil-Fehlern
+                               (dazu color, das im Template gar nicht stand)
+     fe_riegelRow display      <- feFreigabeLeiste (Z. 17331) blendet die Zeile
+                               am Ende JEDES Aufbaus aus. ⚠ Sie wird nirgends
+                               wieder eingeblendet - das Template-display:flex
+                               ist damit praktisch tot. Gleiche Bauart wie
+                               feKopfGrid und fe_wirkGrid. NICHT mitrepariert
+                               (§2.3), gehoert zu Durchgang 3b.
+   ============================================================================ */
+#fe_fussLeiste{ margin-top:8px;padding:10px 2px 8px;border-top:1px solid var(--line);position:sticky;bottom:0;z-index:15;background:var(--bg);box-shadow:0 -8px 10px -9px rgba(20,40,70,.35) }
+#fe_msg{ font-size:13px;margin-bottom:8px }
+#fe_riegelRow{ align-items:baseline;gap:8px 14px;flex-wrap:wrap;width:100%;margin-bottom:8px }
+.feFussLabel{ font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;flex:0 0 auto }
+#fe_riegel{ display:flex;gap:5px 14px;flex-wrap:wrap;font-size:12px;line-height:1.35;flex:1 1 auto;min-width:0 }
+.feFussZeile{ display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;width:100% }
+.feFussLinks{ display:flex;gap:8px;align-items:center;flex-wrap:wrap }
+#fe_ready{ font-size:12px;color:var(--muted) }
+.feFussBtn{ padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px }
+.feFussRechts{ display:flex;gap:8px;flex-wrap:wrap }
+.feFussBtnRot{ padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--k-cf5442,#cf5442);cursor:pointer;font-size:13px }
+.feFussBtnGross{ padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px }
+.feFussBtnZu{ padding:10px 16px;border:1px solid #d3dbe6;border-radius:10px;background:#fff;color:#1f2a44;font-weight:600;cursor:pointer }
+
+/* Vollbild: knapper, ohne Rahmen und Schatten - die Leiste sitzt dort direkt auf
+   dem Arbeitshintergrund. Spezifitaet 2-1-0 schlaegt die Grundregel oben (1-0-0).
+   Greift NICHT im Inline-Modus, weil der Editor dort nicht in #overlay steckt. */
+#overlay.fgEditorFull #fe_ready{ display:none }
+#overlay.fgEditorFull #fe_fussLeiste{ border-top:0; box-shadow:none; background:transparent; padding:2px }
