@@ -15654,7 +15654,7 @@ async function openFgEditor(id, prefill, targetEl){
     +`<div id="fe_refBack" style="position:absolute;inset:0;min-height:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);display:flex;flex-direction:column;gap:6px">`
     +`<div style="display:flex;justify-content:flex-end;flex:0 0 auto"><button type="button" onclick="fgRefFlip(false)" title="zurück zur Referenz-Arbeitsliste" style="border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);padding:4px 11px;font-size:11.5px;font-weight:700;cursor:pointer">⇄ Referenz</button></div>`
     +`<div id="fe_fotoMount" data-note="28h: Etikett lebt auf der RUECKSEITE der Flipkarte. fgFotoPlatzieren haengt die Foto-Karte unveraendert hier ein (bzw. bei Supplements neben die Dosis-Tabelle)." style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column"></div>`
-    +`<div id="fe_fotoLeerHinweis" style="flex:1;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.6;padding:14px;border:1px dashed var(--line);border-radius:12px;background:var(--card)">Das Etikett hängt bei Supplements/Salzen<br>neben der Dosis-Tabelle (linke Spalte).<br>Zurück mit ⇄.</div>`
+    +`<div id="fe_fotoLeerHinweis" style="flex:1;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.6;padding:14px;border:1px dashed var(--line);border-radius:12px;background:var(--card)">Das Etikett steht in Station 2<br>„Nährwerte &amp; Wirkstoffe", rechts neben den Nährwerten.<br>Zurück mit ⇄.</div>`
     +`</div></div></div>`;
   var _rows=Array.isArray(window._verifRows)?window._verifRows:[];
   var _idx=id?_rows.findIndex(function(r){return String(r.id)===String(id);}):-1;
@@ -16561,7 +16561,7 @@ function feTabWechsel(n){
   var st=function(btn,on){ if(!btn) return; btn.classList.toggle("on", !!on); };
   st(document.getElementById('feTabBtn1'),n===1); st(document.getElementById('feTabBtn2'),n===2); st(document.getElementById('feTabBtn3'),n===3);
   if(n===2){ try{ fgFotoPlatzieren(); fgWirkFotoRender(); }catch(e){} }
-  if(n===3){ try{ fgRefV2Init(); }catch(e){} }
+  if(n===3){ try{ fgFotoPlatzieren(); fgRefV2Init(); }catch(e){} }   /* 07.08.: Etikett auf die Flip-Rueckseite mitnehmen */
   try{ feGridHoeheSync(); }catch(e){}
 }
 function feTabBadgeUpdate(off, done){
@@ -16586,13 +16586,27 @@ function feTab1BadgeUpdate(off, ean){
 if(typeof window!=='undefined'){ window.feDreiReiterInit=feDreiReiterInit; window.feTabWechsel=feTabWechsel; window.feTabBadgeUpdate=feTabBadgeUpdate; window.feTab1BadgeUpdate=feTab1BadgeUpdate; }
 function fgFotoPlatzieren(){
   var col=document.getElementById('fe_wirkFotoCol');
-  var slot=document.getElementById('feNwFotoSlot');
   if(!col) return;
-  /* Drei-Reiter-Editor: Das Etikett hat einen festen Ort rechts neben den Nährwerten.
-     Es wandert nicht mehr zwischen Referenzkarte und Wirkstofftabelle. */
-  if(slot && col.parentNode!==slot) slot.appendChild(col);
+  /* 07.08.2026 (Ralph-Entscheid "A"): Das Etikett wandert mit der STATION.
+       Station 3 "Zutaten & Referenz" -> auf die Rueckseite der Referenz-Flipkarte.
+         Beim Abtippen der Zutatenliste liest man dort ab, ohne die Station zu
+         wechseln. Genau dafuer war fe_fotoMount gebaut (28h) - der Zweig war seit
+         dem Drei-Reiter-Umbau entfallen, die Rueckseite blieb leer.
+       sonst -> rechts neben den Naehrwerten (feNwFotoSlot, Station 2).
+
+     ES BLEIBT EINE EINZIGE ETIKETT-KARTE. Kein zweiter Aufbau, keine Kopie -
+     dasselbe Element wechselt den Elternknoten (§4.2). Ausgeloest wird das von
+     feTabWechsel, feKatChange, feDreiReiterInit und fgRefFlip; alle rufen hier
+     herein, damit die Entscheidung an EINER Stelle faellt. */
+  var aufZutaten=(window._feTab===3);
+  var ziel=document.getElementById(aufZutaten?'fe_fotoMount':'feNwFotoSlot');
+  if(ziel && col.parentNode!==ziel) ziel.appendChild(col);
   col.style.display='block';
-  var box=document.getElementById('fe_wirkFotoBox'); if(box) box.style.height='clamp(360px,52vh,680px)';
+  /* Auf der Rueckseite dehnt die CSS-Regel #fe_fotoMount #fe_wirkFotoBox die Box
+     auf die Resthoehe (Z. 15836). Dafuer muss der Inline-Wert WEG - ein Inline-Stil
+     schlaegt jede Regel, sonst bliebe die Box auf der Rueckseite zu hoch. */
+  var box=document.getElementById('fe_wirkFotoBox');
+  if(box) box.style.height = aufZutaten ? '' : 'clamp(360px,52vh,680px)';
   try{ fgWirkFotoRender(); }catch(e){}
 }
 if(typeof window!=="undefined"){ window.fgFotoPlatzieren=fgFotoPlatzieren; }
@@ -22271,7 +22285,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1741";
+const APP_BUILD = "2026-08-07-1854";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
