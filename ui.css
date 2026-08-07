@@ -1117,3 +1117,45 @@ body{ --admin-oben:64px }
 @media(max-width:1180px){
   #feTab1 #feKopfLayout{ grid-template-columns:minmax(0,1fr) }
 }
+
+
+/* ============================================================================
+   FARBEN · KARTENTITEL UND ARBEITSGRUND  (Ralph 07.08.2026)
+   ----------------------------------------------------------------------------
+   Ralph: "das gruen bei z.b. wirkstoffe ist zu hell, ich moechte eine kraeftige
+   farbe, blau, lila... der helle graublaue hintergrund ist auch zu hell."
+
+   ⚠ WARUM NICHT EINFACH --green GEAENDERT WURDE
+   var(--green) kommt 169 Mal vor: 119 in app.js, 27 in admin.html und 23 in
+   index.html - der OEFFENTLICHEN Seite. Es haengt dort an Fortschrittsbalken,
+   aktiven Reitern, Primaerknoepfen, der Premium-Kennzeichnung und Zahlenwerten.
+   --green ist nicht die Farbe der Kartentitel, sondern die MARKENFARBE von
+   Root Index. Sie auf Lila zu setzen haette die Consumer-Seite mitgefaerbt.
+
+   Darum eine eigene Variable, die NUR die Kartentitel im Editor traegt.
+   card() und cardF() in app.js lesen sie als var(--karten-titel,var(--green)) -
+   faellt sie weg, steht wieder das alte Gruen da. Zurueck geht es mit dem
+   Loeschen EINER Zeile.
+
+   #534AB7 ist kein neuer Ton, sondern das Riki-Lila, das im System schon
+   vorkommt: Einfuegefeld, Riki-Knoepfe, Dubletten-Chip, Zuordnen-Knopf.
+   ============================================================================ */
+body{ --karten-titel:#534AB7 }
+
+/* Die Karte "Freigabe" im linken Streifen traegt denselben Titel-Stil. */
+.feRailKarteTitel{ color:var(--karten-titel,var(--green)) }
+
+/* ----------------------------------------------------------------------------
+   ARBEITSGRUND  (--bg)
+   --bg faerbt nicht nur die Flaeche, sondern auch ALLE Eingabefelder (.fld,
+   fe_url, die Auswahlfelder) - dunkler heisst: die Felder heben sich staerker
+   von den weissen Karten ab.
+
+   ⚠ BEWUSST NUR IN DER PRODUKTERFASSUNG. body.peLightBg setzt app.js genau
+   dann, wenn die Erfassung offen ist (Z. 10677). Dashboard, Listen und die
+   oeffentliche Seite bleiben unberuehrt. Soll es ueberall gelten, wandert die
+   Zeile von body.peLightBg nach body - eine Aenderung, eine Zeile.
+
+   Vorher #f7f5fb. Neu #e8e4f2, rund 8 Prozent dunkler, im selben Lila-Grau.
+   ---------------------------------------------------------------------------- */
+body.peLightBg{ --bg:#e8e4f2 }

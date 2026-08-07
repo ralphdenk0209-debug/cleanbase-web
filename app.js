@@ -15629,12 +15629,12 @@ async function openFgEditor(id, prefill, targetEl){
       + _o.map(function(o){ var unbek=(o!=="" && opts.indexOf(o)<0);
           return `<option value="${esc(o)}" ${(_c===o)?"selected":""}>${esc(o)}${unbek?" (nicht in der Liste)":""}</option>`; }).join("")
       + `</select>`; };
-  const card=(title,inner)=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">${title}</div>${inner}</div>`;
+  const card=(title,inner)=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--karten-titel,var(--green));margin:0 0 8px">${title}</div>${inner}</div>`;
   /* KONZEPT D (Ralph 26.07.): Karte fuer die feste Arbeitsflaeche. Sie fuellt die Spaltenhoehe aus und
      scrollt INNEN – dadurch scrollt die Seite selbst nie und nichts verschiebt sich. Der Titel bleibt
      stehen, der Inhalt ist ein Flex-Strom: Elemente mit flex:0 0 auto (Suchfeld) bleiben oben,
      die Liste bekommt flex:1 und den ganzen Rest. */
-  const cardF=(title,inner)=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;min-height:0;overflow:auto;height:100%"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px;flex:0 0 auto">${title}</div><div class="cardFB" style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column">${inner}</div></div>`;
+  const cardF=(title,inner)=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;min-height:0;overflow:auto;height:100%"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--karten-titel,var(--green));margin:0 0 8px;flex:0 0 auto">${title}</div><div class="cardFB" style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column">${inner}</div></div>`;
   /* Kopfleiste der Vollbild-Maske: zurueck zum Posteingang + vor/zurueck durch die
      „Zu verifizieren"-Liste + persistentes Markieren. Vor/Zurueck nur, wenn das Produkt
      in der aktuellen Liste steht (window._verifRows). */
@@ -22271,7 +22271,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1708";
+const APP_BUILD = "2026-08-07-1730";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
