@@ -15711,7 +15711,7 @@ async function openFgEditor(id, prefill, targetEl){
           <button type="button" id="feTabBtn3" class="feSt" onclick="feTabWechsel(3)"><span class="feStNr">3</span><span class="feStTxt">🥣 Zutaten &amp; Referenz <span id="feTab3Badge" class="feStBadge"></span></span></button>
         </div>
         ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
-        <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:0 0 8px">Freigabe</div><div id="feRailAmpel" style="font-size:12px;line-height:1.5;color:var(--muted)">wird geprüft…</div></div>
+        <div class="feRailKarte"><div class="feRailKarteTitel">Freigabe</div><div id="feRailAmpel">wird geprüft…</div></div>
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label>${quellenTypHinweis()}<div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
       </div>
       <div id="feEditorBody" style="min-width:0">
@@ -15773,10 +15773,10 @@ async function openFgEditor(id, prefill, targetEl){
       <div id="feKopfGrid">
         <div class="mzr">
           <div class="mz mz-2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…"></div>
-          <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
-          <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
           <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" class="fld" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842"></div>
           <div class="mz"><k>EAN-Status</k><label class="mzCheck"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}">kein EAN – als „offen“ markieren</label></div>
+          <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
+          <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
           <div class="mz mz-2"><k>Bio / Öko</k>
             <select id="fe_bio" onchange="feBioChange()" class="feVersteckt"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select>
             <div id="fe_bioSw" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Merkmal und Filter – es gibt KEINE Punkte im Index (Prinzip 4)."></div>
@@ -17048,7 +17048,10 @@ function fePlaus(){
    Eingeklappt = ein Punkt je Prüfschritt (grün/gelb/rot/hohl); Klick klappt das Panel senkrecht
    auf. Auto-Verhalten: bereit → eingeklappt, blockiert → automatisch offen. Zeigt NUR die schon
    berechneten Punkte (feFreigabeLeiste wird aus fePlaus gefüttert) – keine geänderte Regel. */
-var _FRG_COL={g:'#2e9e57',y:'#e0a32e',r:'#cf5442'};
+/* 07.08.2026: bleibt DIE eine Farbquelle der Ampel (frgDots, frgList, feRailAmpel) -
+   nur stehen die Werte jetzt in ui.css als --frg-gruen/-gelb/-rot. Gleiche Farben,
+   aber an einem Ort, der sich ohne app.js aendern laesst und ein Theme kennt. */
+var _FRG_COL={g:'var(--frg-gruen)',y:'var(--frg-gelb)',r:'var(--frg-rot)'};
 var _FRG_IC={g:'✓',y:'!',r:'✕',x:'–'};
 var _FRG_PR={r:0,y:1,g:2,x:3};
 function feFreigabeOpen(o){
@@ -17319,11 +17322,12 @@ function feFreigabeLeiste(items, blocked){
      nur kompakt. Keine zweite Pruefung, nur eine zweite Ansicht (par. 1.11i). */
   try{ var railA=document.getElementById('feRailAmpel');
     if(railA){ railA.innerHTML=list.map(function(it){
-      var col=(_FRG_COL[it.c]||'#c3ccd4');
-      var tc=(it.c==='r')?'#cf5442':(it.c==='y'?'#92400e':(it.c==='x'?'#9aa7b2':'var(--ink)'));
+      /* 07.08.2026: Farbe und Punktform kommen aus ui.css, der Zustand steht als
+         Klasse am Element (ra-g/-y/-r/-x). Vorher wurden hier drei Zeichenketten
+         zusammengebaut und als Inline-Stil eingesetzt. */
       /* 28z34 (Ralph): WELCHE Naehrwerte fehlen / WELCHER Zusatzstoff blockiert stand nur
          im Tooltip - jetzt als kleine Detailzeile darunter. */
-      return '<div style="display:flex;align-items:flex-start;gap:7px;padding:2.5px 0;color:'+tc+'"><span style="width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-top:3px;'+((it.c==='x')?'background:transparent;border:2px solid #c3ccd4':'background:'+col)+'"></span><span style="min-width:0">'+esc(it.t)+(it.h?'<span style="display:block;font-size:10.5px;color:var(--muted);font-weight:400;line-height:1.35">'+esc(it.h)+'</span>':'')+'</span></div>'; }).join(''); }
+      return '<div class="raZ ra-'+it.c+'"><span class="raPunkt"></span><span class="raTxt">'+esc(it.t)+(it.h?'<span class="raSub">'+esc(it.h)+'</span>':'')+'</span></div>'; }).join(''); }
   }catch(e){}
   document.getElementById('frgPdot').style.cssText='width:12px;height:12px;border-radius:50%;flex:0 0 auto;background:'+(blocked?'#e0a32e':'#2e9e57')+';box-shadow:0 0 0 4px '+(blocked?'rgba(224,163,46,.18)':'rgba(46,158,87,.16)');
   document.getElementById('frgTitle').textContent=blocked?('Noch '+rot+' Punkt'+(rot>1?'e':'')+' offen'):'Bereit zur Freigabe';
@@ -22267,7 +22271,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-1242";
+const APP_BUILD = "2026-08-07-1311";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

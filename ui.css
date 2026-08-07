@@ -25,7 +25,7 @@
    sonst gewinnt weiterhin der Inline-Stil und die Datei luegt.
 
    Angelegt 07.08.2026 · Build 2026-08-07-0645 · Probe-Durchgang "Kopfbereich".
-   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste" · Build 2026-08-07-1027 Durchgang 3b "Knopfleiste" · Build 2026-08-07-1049 Durchgang 4 "Reiter 1 Rest" · Build 2026-08-07-1143 Durchgang 5 "Reiter 3" · Build 2026-08-07-1242 Durchgang 3c "Freigabe-Check".
+   Zuletzt erweitert Build 2026-08-07-0851 · Durchgaenge 2a + 2b "Reiter 2" und Aufraeumen feEditorResponsive · Build 2026-08-07-1014 Durchgang 3a "Fussleiste" · Build 2026-08-07-1027 Durchgang 3b "Knopfleiste" · Build 2026-08-07-1049 Durchgang 4 "Reiter 1 Rest" · Build 2026-08-07-1143 Durchgang 5 "Reiter 3" · Build 2026-08-07-1242 Durchgang 3c "Freigabe-Check" · Build 2026-08-07-1251 Durchgang 3d Teil 1 "Ampel" · Build 2026-08-07-1311 Kopfbereich zweispaltig.
    ============================================================================ */
 
 
@@ -241,10 +241,14 @@ body{ --admin-oben:64px }
   margin-bottom:12px;
 }
 
-/* Das Raster selbst. Spaltenzahl hier aendern, nicht an den Zellen. */
+/* Das Raster selbst. Spaltenzahl hier aendern, nicht an den Zellen.
+   07.08.2026 (Ralph): von VIER auf ZWEI Spalten - rechts steht jetzt die
+   Bildspalte, das Formular hat nur noch die halbe Breite. Die Zellen sind in
+   app.js in der Reihenfolge Produktname / EAN / EAN-Status / Marke / Kategorie
+   / Bio / Verzehr angeordnet; damit steht Marke unter EAN und Bio darunter. */
 #feKopfGrid .mzr{
   display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(2,minmax(0,1fr));
 }
 
 /* Eine Zelle = ein Feld. Der Innenabstand bestimmt die Zeilenhoehe des Kopfes. */
@@ -256,15 +260,15 @@ body{ --admin-oben:64px }
 }
 
 /* Letzte Spalte traegt keinen rechten Strich. */
-#feKopfGrid .mz:nth-child(4n){ border-right:0 }
+#feKopfGrid .mz:nth-child(2n){ border-right:0 }
 
 /* Zellen ueber mehrere Spalten.
    BEWUSST mit .mzr > .mz.mz-N (Spezifitaet 1-3-0): sie muessen die
    :nth-child-Regeln (1-2-0) schlagen — auch die im @media-Block ganz unten,
    der spaeter in der Datei steht. Vorher stand das als Inline-Stil am Element
    und gewann dadurch immer; dieses Verhalten bleibt unveraendert. */
-#feKopfGrid .mzr > .mz.mz-2{ grid-column:span 2 }
-#feKopfGrid .mzr > .mz.mz-4{ grid-column:span 4; border-right:0 }
+#feKopfGrid .mzr > .mz.mz-2{ grid-column:1 / -1 }
+#feKopfGrid .mzr > .mz.mz-4{ grid-column:1 / -1; border-right:0 }
 
 /* Beschriftung ueber dem Feld. */
 #feKopfGrid .mz k{
@@ -351,12 +355,11 @@ body{ --admin-oben:64px }
   color:var(--muted);
 }
 
-/* Schmales Fenster: vier Spalten werden zwei. */
-@media(max-width:1180px){
-  #feKopfGrid .mzr{ grid-template-columns:repeat(2,minmax(0,1fr)) }
-  #feKopfGrid .mz:nth-child(4n){ border-right:1px solid var(--line) }
-  #feKopfGrid .mz:nth-child(2n){ border-right:0 }
-}
+/* Der frueher hier stehende @media-Block regelte den Sprung von vier auf zwei
+   Spalten. Den gibt es nicht mehr - zwei ist die Grundeinstellung. Der neue
+   Umbruch (Bildspalte unter das Formular) steht am DATEIENDE, direkt hinter
+   der Regel fuer #feKopfLayout. Grund: gleiche Spezifitaet, da gewinnt die
+   spaetere Regel - stuende der @media-Block hier oben, waere er wirkungslos. */
 
 
 /* ============================================================================
@@ -762,7 +765,8 @@ body{ --admin-oben:64px }
    · Chip-Knoepfe ............. .feChipLila / .feChipHell / .feChipGruen / .feChipBg
    · Produktbild-Vorschau ..... .feBildVorschau -> max-height
    ============================================================================ */
-#feTab1 #feKopfLayout{ display:flex;flex-direction:column;gap:12px;min-width:0 }
+/* #feKopfLayout: siehe Abschnitt "KOPFBEREICH ZWEISPALTIG" am Dateiende -
+   dort steht die EINE Regel dafuer (07.08.2026, war bis dahin flex-column). */
 #feTab1 .feHolBox{ background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 11px;margin-bottom:12px }
 #feTab1 .feHolKopf{ display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px }
 #feTab1 .feHolTitel{ font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;flex:1 1 auto;min-width:0 }
@@ -991,4 +995,119 @@ body{ --admin-oben:64px }
   border:1px solid #cbc7f2; border-radius:7px;
   background:var(--k-eeedfe); color:var(--k-534ab7);
   cursor:pointer; font-size:11.5px; font-weight:700;
+}
+
+
+/* ============================================================================
+   FREIGABE-AMPEL · FARBEN UND KLARTEXT-ZEILEN  ·  Durchgang 3d (Teil 1)
+   ----------------------------------------------------------------------------
+   DIE DREI AMPELFARBEN, EINMAL FUER ALLES.
+   app.js liest sie ueber _FRG_COL (Z. 17049) und faerbt damit die Punkte in
+   frgDots und frgList; die Klartext-Zeilen im linken Streifen nehmen sie direkt
+   aus den Regeln unten. _FRG_COL bleibt die EINE Quelle im Code - nur stehen
+   die Werte jetzt hier statt als Hexzahlen im JavaScript.
+
+   Werte unveraendert uebernommen. Wer die Ampel umfaerbt, aendert drei Zeilen -
+   und trifft damit alle drei Ansichten gleichzeitig.
+   ============================================================================ */
+:root{
+  --frg-gruen:#2e9e57;
+  --frg-gelb :#e0a32e;
+  --frg-rot  :#cf5442;
+  --frg-leer :#c3ccd4;   /* "nicht noetig" - hohler Ring */
+}
+
+/* Die Karte "Freigabe" im linken Streifen. Sie ist im klassischen Editor
+   IMMER sichtbar - anders als die Checkliste #fe_riegel und die alte
+   Rand-Fahne #frgRail, die beide ausgeblendet sind. */
+.feRailKarte{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:10px 12px;
+}
+.feRailKarteTitel{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  color:var(--green);
+  margin:0 0 8px;
+}
+#feRailAmpel{ font-size:12px; line-height:1.5; color:var(--muted) }
+
+/* Eine Zeile der Klartext-Ampel. Der Zustand steht als Klasse am Element:
+   ra-g = erfuellt · ra-y = offen · ra-r = blockiert · ra-x = nicht noetig.
+   Vorher baute feFreigabeLeiste daraus drei Zeichenketten und setzte sie als
+   Inline-Stil ein - die Textfarbe kam aus einer verschachtelten Bedingung,
+   die Punktfarbe aus _FRG_COL, die Sonderform fuer "x" aus einer vierten. */
+#feRailAmpel .raZ{
+  display:flex;
+  align-items:flex-start;
+  gap:7px;
+  padding:2.5px 0;
+  color:var(--ink);
+}
+#feRailAmpel .raZ.ra-r{ color:#cf5442 }
+#feRailAmpel .raZ.ra-y{ color:#92400e }
+#feRailAmpel .raZ.ra-x{ color:#9aa7b2 }
+
+#feRailAmpel .raPunkt{
+  width:9px; height:9px;
+  border-radius:50%;
+  flex:0 0 auto;
+  margin-top:3px;
+  background:var(--frg-leer);
+}
+#feRailAmpel .ra-g .raPunkt{ background:var(--frg-gruen) }
+#feRailAmpel .ra-y .raPunkt{ background:var(--frg-gelb) }
+#feRailAmpel .ra-r .raPunkt{ background:var(--frg-rot) }
+#feRailAmpel .ra-x .raPunkt{ background:transparent; border:2px solid var(--frg-leer) }
+
+#feRailAmpel .raTxt{ min-width:0 }
+#feRailAmpel .raSub{
+  display:block;
+  font-size:10.5px;
+  color:var(--muted);
+  font-weight:400;
+  line-height:1.35;
+}
+
+
+/* ============================================================================
+   PRODUKTEDITOR · KOPFBEREICH ZWEISPALTIG  (#feKopfLayout)
+   ----------------------------------------------------------------------------
+   Ralph, 07.08.2026: "marke und bio sollte unter ean stehen, und rechts das
+   produktbild und die angehaengten bilder."
+
+   Der Kopfbereich hat genau DREI direkte Kinder, darum genuegt ein Raster:
+
+     .feHolBox     Riki-Zeile "Daten holen"  -> ueber beide Spalten
+     #feKopfGrid   das Formular              -> links
+     .feMinw0      Produktbild, OFF-Bild,
+                   angehaengte Fotos         -> rechts
+
+   Damit ist ein Teil von Etappe 3b (Mockup H, "Anker rechts") erledigt - aber
+   OHNE DOM-Verschiebung: kein Element wandert, nur die Anordnung aendert sich.
+   Das Etikett (#fe_wirkFotoBox) bleibt in Reiter 2, wo fgFotoPlatzieren es
+   hinhaengt; das umzuziehen ist der riskante Rest von 3b.
+
+   WO SCHRAUBEN?
+   · Breite der Bildspalte ... --kopf-bildspalte
+   · Umbruchpunkt ............ @media weiter oben im Kopfbereich-Abschnitt
+   ============================================================================ */
+#feTab1 #feKopfLayout{
+  --kopf-bildspalte:300px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) var(--kopf-bildspalte);
+  gap:12px;
+  align-items:start;
+  min-width:0;          /* aus der frueheren flex-column-Regel uebernommen */
+}
+#feTab1 #feKopfLayout > .feHolBox{ grid-column:1 / -1 }
+
+/* Schmales Fenster: die Bildspalte rutscht unter das Formular.
+   MUSS NACH der Regel darueber stehen - gleiche Spezifitaet, die spaetere
+   gewinnt. Umbruchpunkt = die Zahl hier. */
+@media(max-width:1180px){
+  #feTab1 #feKopfLayout{ grid-template-columns:minmax(0,1fr) }
 }
