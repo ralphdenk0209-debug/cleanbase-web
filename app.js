@@ -15428,6 +15428,10 @@ function fgEnthaltenRender(){
   var ref=(window._fgRef&&window._fgRef.length)?window._fgRef:[];
   if(!ref.length){ box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Noch keine Referenz – lass Riki die <b>Herstellerseite</b> oder das <b>Etikett</b> lesen (oder die Zutatenliste analysieren).</span>'; return; }
   var work=_fgWorkSet(); var zk=_fgZusKeys();
+  /* 08.08.2026: Herkunft je Eintrag – gelesen (Riki) oder aus den Bindungen vorbelegt.
+     Muss VOR der Zeilenschleife stehen, die Zeilen kennzeichnen sich selbst. */
+  var _gel=window._fgRefGelesen||null;
+  var _istGelesen=function(raw){ return !_gel || !!_gel[String(raw).trim().toLowerCase()]; };
   var html=ref.map(function(nm){
     var raw=String(nm).trim(); var low=raw.toLowerCase();
     if((typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[low]) || _zusIstLeer(raw)) return "";   /* Funktionswort (Antioxidationsmittel, Stabilisator …) → keine Substanz, nicht anzeigen */
@@ -15440,6 +15444,9 @@ function fgEnthaltenRender(){
     var tag = !inList ? ' <span style="font-size:11px;opacity:.85">– noch nicht übernommen</span>'
             : (unklar ? ' <span style="font-size:11px;font-weight:700">– erfasst, aber nicht eingestuft</span><span style="font-size:11px;opacity:.85"> · kein Index</span>'
             : (asZusatz ? ' <span style="font-size:11px;opacity:.85">– als Zusatzstoff erfasst</span>' : ''));
+    /* 08.08.2026: Hinweis, KEINE neue Farbe – die Farblogik steht unter Bestandsschutz
+       (bereiche/zutaten.md, „Die Referenz bleibt Referenz"). Nur ein Wort mehr. */
+    if(!_istGelesen(raw)) tag += ' <span style="font-size:10.5px;opacity:.7" title="aus den gebundenen Zutaten vorbelegt, nicht von Riki gelesen – zählt nicht im Balken">· vorbelegt</span>';
     var _bg = !inList ? "#fbf3e2" : (unklar ? "#f1f4f8" : "#e7f6ec");
     var _fg = !inList ? "#8a5a0b" : (unklar ? "#475569" : "#1f7d43");
     var _br = unklar ? ";border:1px dashed #94a3b8" : "";
@@ -15457,9 +15464,13 @@ function fgEnthaltenRender(){
      stehen nach Menge sortiert) - deshalb wird NICHT umsortiert, nur gezaehlt. Zaehlt auch die
      offenen Riki-Mikro-Vorschlaege mit und verweist auf die Mikro-Karte - die UEBERNAHME
      bleibt dort (eine Stelle, ein Weg, par. 1.11i). */
-  var _cnt={done:0,offen:0,unklar:0};
+  /* 08.08.2026 (Ralph-Entscheid A): gezaehlt wird NUR die GELESENE Referenz.
+     Vorbelegte Eintraege stammen aus den gebundenen Zutaten - sie gegen dieselbe Bindung zu
+     zaehlen ergibt zwangslaeufig 100 %. Sie bleiben sichtbar, zaehlen aber nicht mit. */
+  var _cnt={done:0,offen:0,unklar:0}, _vorbelegt=0;
   ref.forEach(function(nm){ var raw=String(nm).trim();
     if((typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[raw.toLowerCase()]) || _zusIstLeer(raw)) return;
+    if(!_istGelesen(raw)){ _vorbelegt++; return; }
     var s=_fgRefStatus(raw, work, zk);
     if(!s.inList) _cnt.offen++; else if(s.unklar) _cnt.unklar++; else _cnt.done++;
   });
@@ -15467,11 +15478,23 @@ function fgEnthaltenRender(){
   var _mv=(window._fmVorschlag||[]).length;
   try{ if(typeof feTabBadgeUpdate==='function') feTabBadgeUpdate(_cnt.offen+_cnt.unklar+_mv, _cnt.done); }catch(e){}   /* 28l/28r: Zaehler am Reiter - offen ODER uebernommen, gleiche Zaehlung wie hier */
   var kopf="";
-  if(_tot||_mv){
+  /* Kein Gelesenes -> KEINE Prozentzahl. Frueher stand hier "N von N uebernommen" mit vollem
+     gruenem Balken, obwohl nie jemand ein Etikett gelesen hatte (Ralphs Fund an P68673/P73592).
+     "unbekannt" ist die einzige ehrliche Aussage, wenn die Vergleichsgrundlage fehlt (\u00a71.2). */
+  if(!_tot && _vorbelegt){
+    kopf='<div style="margin-bottom:7px;padding:6px 8px;border:1px dashed var(--line);border-radius:8px;font-size:11.5px;line-height:1.5;color:var(--muted)">'
+      +'<b style="color:var(--ink)">Vollst\u00e4ndigkeit unbekannt</b> \u2013 es wurde noch kein Etikett und keine Herstellerseite gelesen.<br>'
+      +'Die '+_vorbelegt+' Zeile'+(_vorbelegt===1?'':'n')+' unten sind aus den bereits gebundenen Zutaten <b>vorbelegt</b>, keine Referenz. '
+      +'Gegen sie zu pr\u00fcfen h\u00e4tte immer 100\u202f% ergeben.<br>'
+      +'<span style="color:var(--ink)">Lass Riki das <b>Etikett</b> oder die <b>Herstellerseite</b> lesen \u2013 dann z\u00e4hlt hier etwas.</span>'
+      +'</div>';
+  }
+  else if(_tot||_mv){
     var pct=_tot?Math.round(100*_cnt.done/_tot):0;
     kopf='<div style="margin-bottom:7px">'
       +'<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;margin-bottom:4px;flex-wrap:wrap">'
       +'<b style="color:var(--ink)">'+_cnt.done+' von '+_tot+' \u00fcbernommen</b>'
+      +(_vorbelegt?'<span style="color:var(--muted)" title="aus den gebundenen Zutaten vorbelegt \u2013 z\u00e4hlt nicht mit, weil sie aus derselben Quelle stammen">+ '+_vorbelegt+' vorbelegt</span>':'')
       +(_cnt.offen?'<span style="color:#8a5a0b">\u25cb '+_cnt.offen+' offen</span>':'')
       +(_cnt.unklar?'<span style="color:#475569">\u26a0 '+_cnt.unklar+' nicht eingestuft \u00b7 kein Index</span>':'')
       +(_mv?'<span onclick="try{var b=document.getElementById(\'fm_mikroVorschlag\');if(b)b.scrollIntoView({behavior:\'smooth\',block:\'center\'});}catch(e){}" style="color:#5b21b6;cursor:pointer" title="zur Mikron\u00e4hrstoff-Karte">\ud83e\udd16 '+_mv+' Mikro-Vorschl'+(_mv>1?'\u00e4ge':'ag')+' offen \u2192</span>':'')
@@ -15501,9 +15524,28 @@ function _fgAbweichungRef(){
    und musste immer von Hand raus). „(keine)", „keine Zusatzstoffe" usw. sind keine Substanz. */
 function _refIstLeer(k){ var s=String(k||"").replace(/[()]/g,"").trim().toLowerCase();
   return s===""||s==="keine"||s==="kein"||s==="keiner"||s==="keine zutaten"||s==="keine zusatzstoffe"||s==="none"||s==="-"||s==="–"||s==="n/a"; }
-/* Referenz setzen (nur durch Riki): merkt sich die von Riki gelesenen Namen und rendert die Box. */
-function fgRefSet(names){
+/* Referenz setzen (nur durch Riki): merkt sich die von Riki gelesenen Namen und rendert die Box.
+
+   08.08.2026 – HERKUNFT je Eintrag (Ralph-Entscheid A):
+   Bis heute war jeder Eintrag gleich viel wert. Beim Oeffnen wird die Referenz aber aus den
+   GEBUNDENEN Zutaten vorbelegt (fgEditOpen, "so fehlen die Zutaten rechts nie mehr",
+   Ralph 24.07.2026). Dadurch mass der Fortschrittsbalken seine eigene Vorbelegung gegen die
+   Arbeitsliste – zwei Mengen aus derselben Quelle. "6 von 6 uebernommen" war deshalb keine
+   Fehlzaehlung, sondern eine Tautologie: es KONNTE nie etwas anderes herauskommen.
+
+   Die Vorbelegung bleibt (sie loest ein echtes Problem). Neu ist nur, dass wir wissen,
+   welcher Eintrag woher kommt:
+     opt weggelassen        -> ALLE Namen gelten als GELESEN (jeder echte Riki-Aufruf)
+     opt.gelesen = [...]    -> nur diese gelten als gelesen, der Rest ist VORBELEGT
+   Gezaehlt wird ab jetzt nur noch das Gelesene. Ohne Gelesenes gibt es keine Prozentzahl,
+   sondern "unbekannt" – eine fehlende Aussage ist ehrlicher als eine erfundene (§1.2). */
+function fgRefSet(names, opt){
   var seen={}, out=[], eIdx={};
+  var _gelSet=null;
+  if(opt && Object.prototype.hasOwnProperty.call(opt,'gelesen')){
+    _gelSet={};
+    (opt.gelesen||[]).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(k) _gelSet[k]=1; });
+  }
   (names||[]).forEach(function(n){ n=String(n||"").trim(); if(!n) return; var k=n.toLowerCase();
     if(typeof ZUS_FUNKTION!=="undefined" && ZUS_FUNKTION[k]) return;   /* reines Funktionswort → nicht in die Referenz */
     if(_refIstLeer(k)||_zusIstLeer(n)) return;   /* „keine"/Statuswort → nie in die Referenz */
@@ -15515,10 +15557,22 @@ function fgRefSet(names){
     if(_e){ if(eIdx[_e]!==undefined){ if(eIdx[_e].bare && !_bare){ out[eIdx[_e].i]=n; eIdx[_e].bare=false; } return; } eIdx[_e]={i:out.length, bare:_bare}; }
     out.push(n); });
   window._fgRef=out;
+  /* Herkunftskarte zur Liste: welcher Eintrag ist GELESEN, welcher nur vorbelegt.
+     Ohne opt ist alles gelesen - so verhalten sich alle bestehenden Riki-Aufrufe unveraendert. */
+  var _gel={};
+  out.forEach(function(n){ var k=String(n).trim().toLowerCase();
+    if(!_gelSet || _gelSet[k]) _gel[k]=1; });
+  window._fgRefGelesen=_gel;
   /* Referenz pro Produkt merken, damit sie das Speichern & Neuöffnen überlebt (Ralph 21.07.2026).
      Sitzungs-Ablage (kein DB-Schema nötig); überlebt Speichern→Neuladen der Erfassung, nicht aber
      einen kompletten Seiten-Reload. */
-  try{ var _pid=(window._fgEdit&&window._fgEdit.id); if(_pid){ window._fgRefMap=window._fgRefMap||{}; window._fgRefMap[_pid]=out.slice(); } }catch(e){}
+  try{ var _pid=(window._fgEdit&&window._fgEdit.id); if(_pid){
+    window._fgRefMap=window._fgRefMap||{}; window._fgRefMap[_pid]=out.slice();
+    /* Die Herkunft muss dasselbe ueberleben wie die Liste - sonst gilt nach dem
+       Speichern wieder alles als vorbelegt und der Balken verstummt zu Unrecht. */
+    window._fgRefGelesenMap=window._fgRefGelesenMap||{};
+    window._fgRefGelesenMap[_pid]=Object.keys(_gel);
+  } }catch(e){}
   try{ fgEnthaltenRender(); }catch(e){}
 }
 /* Flacht eine ROHE Etikett-Zutatenliste in einzelne Namen auf – inkl. Unter-Zutaten aus
@@ -15973,8 +16027,13 @@ async function openFgEditor(id, prefill, targetEl){
   /* Zusatzstoffe gehoeren AUCH in die Referenz (Ralph 25.07.): aus dem gespeicherten Zusatzstoff-Text
      flach ziehen und mit den Zutaten kombinieren; fgRefSet entdoppelt (je E-Nummer 1 Eintrag). */
   var _boundZus=(typeof fgFlattenZus==="function")?fgFlattenZus(String(d.zusatzstoffe_text||"")):[];   /* eigener Zerleger – NICHT der Zutaten-Zerleger (Ralphs Fund P1164, 27.07.) */
-  try{ fgRefSet((_savedRef||_boundNames).concat(_boundNames).concat(_boundZus)); }
-  catch(_e){ var _refSeen={}; window._fgRef=[]; (_savedRef||_boundNames).concat(_boundNames).concat(_boundZus).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]||_refIstLeer(k)) return; _refSeen[k]=1; window._fgRef.push(n); }); }
+  /* 08.08.2026: Die Vorbelegung BLEIBT (Ralph 24.07.), bekommt aber ein Etikett. Nur was in
+     dieser Sitzung wirklich GELESEN wurde, zaehlt spaeter im Fortschrittsbalken mit. Sonst
+     misst der Balken die Vorbelegung gegen die Bindung, aus der sie stammt - siehe fgRefSet. */
+  var _gelesenVorher=[];
+  try{ if(id && window._fgRefGelesenMap && Array.isArray(window._fgRefGelesenMap[id])) _gelesenVorher=window._fgRefGelesenMap[id].slice(); }catch(_e){}
+  try{ fgRefSet((_savedRef||_boundNames).concat(_boundNames).concat(_boundZus), {gelesen:_gelesenVorher}); }
+  catch(_e){ var _refSeen={}; window._fgRef=[]; window._fgRefGelesen={}; (_savedRef||_boundNames).concat(_boundNames).concat(_boundZus).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]||_refIstLeer(k)) return; _refSeen[k]=1; window._fgRef.push(n); }); }
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
   const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett'||k==='einfach_unges'||k==='mehrfach_unges'||k==='transfette')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
@@ -22822,7 +22881,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1510";
+const APP_BUILD = "2026-08-08-1649";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
