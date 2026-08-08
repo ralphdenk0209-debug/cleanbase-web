@@ -5649,7 +5649,51 @@ function peRender(){
     return '<th onclick="peColFilter(event,\''+col+'\')" title="Klicken zum Filtern (wie in Excel)" style="'+basis+';cursor:pointer">'
       +h+' <span style="font-size:10px">'+(on?'▼':'▾')+'</span>'+_griff(i)+'</th>';
   };
-  g.innerHTML=cols+'<thead><tr>'+[thF('P-Nr','pnr',0),thF('Titel','titel',1),thF('Marke','marke',2),thF('Kategorie','kategorie',3),thF('Index','index',4),thF('Status','status',5),thF('EAN','ean',6),thF('Quelle','quelle',7),thF('Herkunft','herkunft',8),thF('⚑ 🛡',null,9)].join('')+'</tr></thead><tbody>'
+  /* ===== Freigabe-Punkte je Zeile (Ralph 08.08.2026, FAHRPLAN Punkt 10) =====
+     Dieselben sechs Punkte wie auf der Erfassungskarte (fe_riegel, Z. 16969-16977).
+     WICHTIG: hier wird NICHTS gerechnet. Jeder Punkt liest genau ein Feld, das
+     v_erfassung_katalog liefert - kat_ok, nw_stand, hat_zutaten, zut_unbewertet,
+     quelle_ok, ean_ampel. Wer die Regel aendern will, aendert die View, nicht diese
+     Zeilen (§4.2: eine Regel, ein Ort). Scan-Zeilen sind keine Produkte und bleiben leer. */
+  var pePkt=function(kl,titel){ return '<span class="pePkt pePkt-'+kl+'" title="'+esc(titel)+'"></span>'; };
+  var pePunkte=function(p){
+    if(peIstScan(p)) return ['','','','','',''];
+    var _zu=Number(p.zut_unbewertet||0);
+    return [
+      p.kat_ok ? pePkt('g','Kategorie gewählt') : pePkt('r','Kategorie fehlt'),
+      (p.nw_stand==='ok')   ? pePkt('g','Nährwerte vollständig')
+       : (p.nw_stand==='fehlt') ? pePkt('r','Nährwerte fehlen')
+       : pePkt('x','Nährwerte – für diese Kategorie nicht nötig'),
+      p.hat_zutaten ? pePkt('g','Zutaten erfasst') : pePkt('r','keine Zutat erfasst'),
+      /* Ohne Zutaten ist "alle bewertet" keine Aussage - dann hohl statt gruen.
+         Die Karte zeigt hier heute gruen; im FAHRPLAN als offener Punkt vermerkt. */
+      !p.hat_zutaten ? pePkt('x','keine Zutaten – Bewertung nicht beurteilbar')
+       : (_zu>0 ? pePkt('r',_zu+' Zutat(en) unbewertet') : pePkt('g','alle Zutaten bewertet')),
+      p.quelle_ok ? pePkt('g','Quelle belegt') : pePkt('r','Quelle-Typ fehlt oder ist nicht anerkannt'),
+      (p.ean_ampel==='gruen') ? pePkt('g','EAN erfasst')
+       : (p.ean_ampel==='blau') ? pePkt('b','bewusst ohne Barcode – blockiert die Freigabe nicht')
+       : pePkt('r','EAN fehlt – eintragen oder „offen“ markieren')
+    ];
+  };
+  /* Anlagedatum. Kommt aus Erstellt_am, NICHT aus dem Feld "erfasst" (das ist
+     Letzte_Pruefung). Kurzform TT.MM.JJ - die Spalte ist schmal, die Uhrzeit steht
+     im Tooltip. Fehlt der Wert, steht dort ein Strich (Ralph: nicht schlimm). */
+  var peDatum=function(v){
+    if(!v) return '<span style="color:#9aa7b2">–</span>';
+    var d=new Date(v); if(isNaN(d.getTime())) return esc(String(v).slice(0,10));
+    var z=function(n){ return (n<10?'0':'')+n; };
+    return '<span title="'+esc(String(v))+'">'+z(d.getDate())+'.'+z(d.getMonth()+1)+'.'+String(d.getFullYear()).slice(2)+'</span>';
+  };
+  var _thPkt=function(kurz,lang,i){
+    return '<th title="'+esc(lang)+'" style="position:sticky;top:0;background:#eef3f8;text-align:center;padding:9px 2px;'
+      +'border-bottom:1px solid #e2e8ef;font-size:11px;color:#5b6b82;font-weight:700;white-space:nowrap;overflow:hidden">'
+      +kurz+_griff(i)+'</th>';
+  };
+  g.innerHTML=cols+'<thead><tr>'+[thF('P-Nr','pnr',0),thF('Titel','titel',1),thF('Marke','marke',2),thF('Kategorie','kategorie',3),thF('Index','index',4),thF('Status','status',5),thF('EAN','ean',6),thF('Quelle','quelle',7),
+      thF('Angelegt',null,8),
+      _thPkt('K','Kategorie gewählt',9),_thPkt('N','Nährwerte vollständig',10),_thPkt('Z','Zutaten erfasst',11),
+      _thPkt('B','Zutaten bewertet',12),_thPkt('Q','Quelle belegt',13),_thPkt('E','EAN erfasst oder bewusst ohne',14),
+      thF('⚑ 🛡',null,15)].join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       var _scan=peIstScan(p);
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')"'
@@ -5664,7 +5708,8 @@ function peRender(){
       +td(statPill(p),'overflow:visible')
       +td(p.ean?esc(p.ean):'<span style="color:#c88616">offen</span>','color:#7b8698')
       +td(p.quelle_typ?esc(p.quelle_typ):'<span style="color:#cf5442">fehlt</span>','color:#7b8698;font-size:12px','title="'+esc(p.quelle_typ||'')+'"')
-      +td(p.herkunft?esc(p.herkunft):'<span style="color:#9aa7b2">–</span>','color:#7b8698;font-size:12px','title="'+esc(p.herkunft||'')+'"')
+      +td(peDatum(p.angelegt),'color:#7b8698;font-size:12px')
+      +pePunkte(p).map(function(pk){ return td(pk,'text-align:center;padding:9px 2px;overflow:visible'); }).join('')
       +td((String(p.herkunft||'')==='Riki-Autopilot'?'<span title="Vom Riki-Autopilot angelegt und vom Riki-Wächter geprüft – bitte verifizieren" style="margin-right:2px">🤖</span>':'')+(p.markiert?'<span style="color:#cf5442">⚑</span>':'')+(peHatWaechter(p)?'<span title="Von einem Wächter gemeldet – bis zur Freigabe prüfen" style="color:#c88616">🛡</span>':''),'overflow:visible')
       +'</tr>'; }).join('')
     +'</tbody>';
@@ -6075,7 +6120,11 @@ async function fgJsonUebernehmen(){
    Es wird NUR das <col> angefasst, nicht neu gerendert - sonst ruckelt es beim Ziehen. */
 /* Die Standardbreiten stehen an EINEM Ort - sonst laufen Anzeige und Ruecksetzen
    auseinander (1.2c). 0 = keine feste Breite (Titel nimmt den Rest). */
-var PE_COL_STD=[88,0,120,120,58,106,136,108,150,52];
+/* 08.08.2026 (Ralph, FAHRPLAN Punkt 10): "Herkunft" ist raus - sie sagte dasselbe wie
+   "Quelle". An ihrer Stelle steht "Angelegt", danach die sechs Freigabepunkte der
+   Erfassungskarte, je einer in einer schmalen Spalte. 10 -> 16 Eintraege; die geaenderte
+   Laenge verwirft die gemerkten Breiten automatisch (peRender prueft sie). */
+var PE_COL_STD=[88,0,120,120,58,106,136,108,104,26,26,26,26,26,26,52];
 var _peZieh=null;
 function peColZiehStart(ev,i){
   if(ev.stopPropagation) ev.stopPropagation();   /* sonst oeffnet sich der Excel-Filter */
@@ -16314,28 +16363,20 @@ function fgEtikettRender(){
      Zoom-Kasten wurde zum duennen Strich. Fix: Container per JS auf Block schalten
      (nur Anzeige, kein anderer Code haengt am Flex). Reihenfolge neu (Ralph):
      Mini-Bilder OBEN, Werkzeuge, Zoom-Kasten darunter - und noch ein Stueck hoeher. */
+  /* 08.08.2026 (Ralph): Die grosse Darstellung IN dieser Karte ist raus - Zoom-Kasten,
+     Werkzeugzeile (+ / - / Einpassen) und Blaetterzaehler. Grund: dasselbe Bild steht
+     schon in „Etikett zum Ablesen", zweimal dieselbe Ansicht braucht niemand.
+     Was bleibt: die Mini-Bilder, der Zaehler oben und das Riki-Menue per Rechtsklick.
+     Der Klick auf ein Mini-Bild wechselt jetzt das Bild in der LESEBOX statt in einem
+     eigenen Kasten - deshalb setzt er _fgWirkFoto.idx (fgEtikettZuLesebox).
+     Die Funktionen fgEtikGross* bleiben stehen: sie greifen ins Leere (jede prueft ihr
+     Element) und werden nicht mehr aufgerufen. Entfernt werden sie erst nach Ralphs
+     Entscheid - Loeschen ist hier kein Gewinn, aber ein Risiko (§2.3, §3.7). */
   box.style.display='block';
   box.innerHTML = arr.length
-    ? ('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+arr.map(function(s,j){ var on=(j===g.idx);
-        return '<img src="'+s+'" onclick="fgEtikGrossShow('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = unten groß zeigen · Rechtsklick = Riki-Menü" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:2px solid '+(on?'var(--k-16a34a)':'var(--line)')+';cursor:pointer'+(on?'':';opacity:.8')+'">'; }).join('')+'</div>'
-      +'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
-        +'<button type="button" onclick="fgEtikGrossZoomBtn(1)" style="width:30px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-weight:800">＋</button>'
-        +'<button type="button" onclick="fgEtikGrossZoomBtn(-1)" style="width:30px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-weight:800">－</button>'
-        +'<button type="button" onclick="fgEtikGrossReset()" style="height:28px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12px;font-weight:600">Einpassen</button>'
-        +'<span style="margin-left:auto;font-size:12px;color:var(--muted)">'+(g.idx+1)+' / '+arr.length+' Foto</span>'
-      +'</div>'
-      +'<div id="fe_etikGrossBox" style="position:relative;overflow:hidden;height:clamp(380px,55vh,760px);border:1px solid var(--line);border-radius:10px;background:#d9d2e9;cursor:grab;touch-action:none" title="Rad = zoomen · Ziehen = verschieben · Doppelklick = Vollbild">'
-        +'<img id="fe_etikGrossImg" alt="Etikett" draggable="false" oncontextmenu="fgEtikettCtx(event,window._fgEtikGross.idx)" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none">'
-      +'</div>'
-      +'<div style="font-size:10.5px;color:var(--muted);margin-top:4px">Kleines Bild anklicken = wechseln · Rad zoomt · Ziehen verschiebt · Doppelklick = Vollbild</div>')
+    ? ('<div style="display:flex;gap:6px;flex-wrap:wrap">'+arr.map(function(s,j){ var on=(j===((window._fgWirkFoto&&window._fgWirkFoto.idx)||0));
+        return '<img src="'+s+'" onclick="fgEtikettZuLesebox('+j+')" oncontextmenu="fgEtikettCtx(event,'+j+')" title="Klick = im Lesekasten „Etikett zum Ablesen“ zeigen · Rechtsklick = Riki-Menü" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:2px solid '+(on?'var(--k-16a34a)':'var(--line)')+';cursor:pointer'+(on?'':';opacity:.8')+'">'; }).join('')+'</div>')
     : '<span style="color:var(--muted);font-size:12.5px">keine – über „+ Foto" ein Bild hinzufügen</span>';
-  if(arr.length){ var _gi=document.getElementById('fe_etikGrossImg');
-    if(_gi){
-      _gi.onload=function(){ fgEtikGrossFit(); };
-      _gi.src=arr[g.idx];
-      fgEtikGrossFit();   /* deckt Cache-Treffer ab; wartet intern auf decode */
-    }
-    fgEtikGrossBind(); }
   try{ fgWirkFotoRender(); }catch(e){}   /* die Lesebox neben der Wirkstoff-Tabelle mitziehen */
 }
 /* ===== 28z35: Zoom-Kasten der Angehaengte-Fotos-Karte (gleiches Muster wie fgWirkFoto*) ===== */
@@ -16367,6 +16408,17 @@ function fgEtikGrossZoomBtn(dir){
   fgEtikGrossZoomAt(dir>0?1.3:0.77, r.left+r.width/2, r.top+r.height/2);
 }
 function fgEtikGrossShow(j){ var s=window._fgEtikGross=window._fgEtikGross||{idx:0,scale:1,x:0,y:0,baseFit:1}; s.idx=j; try{ fgEtikettRender(); }catch(e){} try{ fgEtikGrossFit(); }catch(e){} }
+/* 08.08.2026: Klick auf ein Mini-Bild der Foto-Karte. Seit die grosse Darstellung dort
+   weg ist, wechselt er das Bild im Lesekasten „Etikett zum Ablesen" (fe_wirkFotoBox).
+   Die Bildliste ist dieselbe - fgWirkFotoArr() ist _fgEdit.etikett, ggf. plus Produktbild
+   am Ende; die Indizes der angehaengten Fotos stimmen deshalb ueberein. */
+function fgEtikettZuLesebox(j){
+  var s=window._fgWirkFoto=window._fgWirkFoto||{idx:0,scale:1,x:0,y:0,baseFit:1};
+  s.idx=j;
+  try{ fgWirkFotoRender(); }catch(e){ console.error('fgWirkFotoRender', e); }
+  try{ fgEtikettRender(); }catch(e){ console.error('fgEtikettRender', e); }   /* gruener Rahmen mitziehen */
+}
+if(typeof window!=='undefined'){ window.fgEtikettZuLesebox=fgEtikettZuLesebox; }
 function fgEtikGrossBind(){
   var box=document.getElementById('fe_etikGrossBox'); if(!box||box._fgB) return; box._fgB=true;
   box.addEventListener('wheel', function(e){ e.preventDefault(); fgEtikGrossZoomAt(e.deltaY<0?1.12:0.89, e.clientX, e.clientY); }, {passive:false});
@@ -22378,7 +22430,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-0740";
+const APP_BUILD = "2026-08-08-0940";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

@@ -1021,7 +1021,19 @@ body{ --admin-oben:64px }
   --frg-gelb :#e0a32e;
   --frg-rot  :#cf5442;
   --frg-leer :#c3ccd4;   /* "nicht noetig" - hohler Ring */
+  --frg-blau :#3b56b0;   /* 08.08.2026: "bewusst ohne" - z. B. Produkt ohne Barcode.
+                            Blau ist KEIN Mangel: es heisst, jemand hat entschieden.
+                            Wert uebernommen aus den vorhandenen Blau-Zustaenden in app.js. */
 }
+
+/* ===== Freigabe-Punkte als Spalten in der Erfassungsliste (Ralph 08.08.2026) =====
+   Dieselben sechs Punkte wie auf der Erfassungskarte, nur je Zeile statt je Produkt.
+   Die Liste RECHNET NICHTS - sie zeigt, was v_erfassung_katalog liefert. */
+.pePkt{ display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle }
+.pePkt-g{ background:var(--frg-gruen) }
+.pePkt-r{ background:var(--frg-rot) }
+.pePkt-b{ background:var(--frg-blau) }
+.pePkt-x{ background:transparent;border:2px solid var(--frg-leer);width:9px;height:9px }
 
 /* Die Karte "Freigabe" im linken Streifen. Sie ist im klassischen Editor
    IMMER sichtbar - anders als die Checkliste #fe_riegel und die alte
