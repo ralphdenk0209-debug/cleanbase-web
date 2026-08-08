@@ -14771,24 +14771,77 @@ function feBioPrefill(d){
    entfernt haette, haette fgEditSave gebrochen, das g("fe_bio").value ohne Null-Pruefung
    liest (§1.11n-j, real passiert beim Suessstoff-Feld). Der Schieberegler schreibt in das
    select und liest daraus; es gibt weiter nur EINEN Speicherort. */
+/* ---------------------------------------------------------------------------
+   EINE Chip-Form fuer Bio und EAN-Status (08.08.2026, Ralph: "EAN-Status und
+   Bio auf dieselbe Chip-Form").
+   Form, Radius, Groesse und Zustandslogik sind Zeichen fuer Zeichen die aus
+   feErnaehrRender vom selben Tag - uebernommen, nicht nachgebaut (§22). Die
+   FARBEN kommen je Reihe aus ihrer eigenen Stufentabelle; die Bio-Farben
+   stehen wortgleich in bioPill (Z. 341), damit Editor und Produktkarte
+   dieselbe Aussage nicht verschieden faerben.
+   ⚠ Notiert, NICHT hier behoben (§19.2): feErnaehrRender zeichnet seine Chips
+   noch selbst und sollte auf fePill umgestellt werden. Das ist ein eigener
+   Durchgang - die Reihe wurde am 08.08. gerade erst im Browser geprueft und
+   wird in diesem Durchgang nicht angefasst. */
+function fePill(o){
+  var an=!!o.an, aus=!!o.aus;
+  var st = an ? ("background:"+o.bg+";color:"+o.fg+";border:1.5px solid "+o.fg)
+              : ("background:var(--card);color:var(--muted);border:1px solid var(--line)");
+  return '<button type="button"'+(aus?' disabled':'')
+    + (o.klick&&!aus ? (' onclick="'+o.klick+'"') : '')
+    + ' title="'+esc(o.titel||"")+'"'
+    + ' style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;'
+    + 'padding:4px 11px;border-radius:999px;cursor:'+(aus?'not-allowed':'pointer')+';'
+    + (aus?'opacity:.45;':'') + st + '">'
+    + '<span aria-hidden="true">'+o.ico+'</span>'+esc(o.kurz)+'</button>';
+}
+/* Ein Chip, der nur ANZEIGT: die Quelle einer Angabe oder einen abgeleiteten
+   Zustand. Bewusst KEIN <button> - er ist nicht klickbar und darf auch per
+   Tastatur nicht angesteuert werden, sonst sieht eine Feststellung aus wie
+   eine Wahlmoeglichkeit. */
+function feInfoPill(ico,text,titel,bg,fg,strich){
+  return '<span title="'+esc(titel||"")+'" style="display:inline-flex;align-items:center;gap:4px;'
+    + 'font-size:12px;font-weight:600;padding:4px 11px;border-radius:999px;background:'+bg+';color:'+fg
+    + ';border:'+(strich?'1px dashed ':'1.5px solid ')+fg+'">'
+    + '<span aria-hidden="true">'+ico+'</span>'+esc(text)+'</span>';
+}
+/* Der senkrechte Strich zwischen Wahl und Anzeige - wortgleich aus
+   feErnaehrRender (Z. 14847). */
+function feTrenner(){
+  return '<span style="display:inline-block;width:1px;height:19px;background:var(--line);margin:0 3px;vertical-align:middle"></span>';
+}
 var FE_BIO_STUFEN=[
-  {v:"",     kurz:"? ungeprüft", titel:"Noch nicht angesehen. Das ist NICHT dasselbe wie „kein Bio“."},
-  {v:"ja",   kurz:"🌱 Bio",      titel:"Trägt eine Bio-Kennzeichnung nach EU-Öko-VO. Gibt keine Punkte im Index."},
-  {v:"nein", kurz:"✗ kein Bio",  titel:"Geprüft: trägt keine Bio-Kennzeichnung."}
+  {v:"",     ico:"?",  kurz:"ungeprüft", bg:"var(--k-eef2f6)", fg:"var(--k-475569)",
+   titel:"Noch nicht angesehen. Das ist NICHT dasselbe wie „kein Bio“."},
+  {v:"ja",   ico:"🌱", kurz:"Bio",       bg:"var(--k-e7f4ec)", fg:"var(--k-1f5e34)",
+   titel:"Trägt eine Bio-Kennzeichnung nach EU-Öko-VO 2018/848. Gibt keine Punkte im Index."},
+  {v:"nein", ico:"✗",  kurz:"kein Bio",  bg:"var(--k-eef2f6)", fg:"var(--k-475569)",
+   titel:"Geprüft: trägt keine Bio-Kennzeichnung."}
 ];
 function feBioSwRender(){
-  var box=document.getElementById("fe_bioSw"); if(!box) return;
+  var box=document.getElementById("fe_bioSw");
+  /* §1.7: kein stiller Ausfall. Wer nichts zeichnen kann, sagt WARUM - genau
+     dieser Satz hat am 08.08. bei den Ernaehrungs-Chips eine halbe Stunde
+     Suche gespart. */
+  if(!box){ console.warn("fe_bioSw nicht im DOM – Bio-Chips werden nicht gezeichnet."); return; }
   var sel=document.getElementById("fe_bio"); var akt=sel?String(sel.value||""):"";
-  box.innerHTML=FE_BIO_STUFEN.map(function(s,i){
-    var an=(s.v===akt);
-    return '<button type="button" onclick="feBioSw(\''+s.v+'\')" title="'+esc(s.titel)+'"'
-      +' style="padding:7px 4px;border:0;'+(i?'border-left:1px solid var(--line);':'')+'cursor:pointer;font-size:12px;font-weight:'+(an?'700':'500')+';'
-      +(an?(s.v==="ja"?'background:var(--greenlt,#ecfdf5);color:var(--k-166534)'
-                     :(s.v==="nein"?'background:var(--k-eef2f6,#eef2f6);color:var(--k-475569)'
-                                   :'background:var(--card);color:var(--ink)'))
-          :'background:transparent;color:var(--muted)')
-      +'">'+s.kurz+'</button>';
+  var h=FE_BIO_STUFEN.map(function(s){
+    return fePill({an:(s.v===akt), ico:s.ico, kurz:s.kurz, bg:s.bg, fg:s.fg,
+      titel:s.titel, klick:"feBioSw('"+s.v+"')"});
   }).join("");
+  /* Der Quellen-Chip (Ralph 08.08.: "Bio behaelt seine drei Stufen und bekommt
+     den Quellen-Chip dazu"). Er sagt, WORAUF die Angabe beruht - dieselbe
+     Unterscheidung, die bioPill auf der Produktkarte trifft: eine aus dem
+     Produktnamen abgeleitete Annahme ist kein geprueftes Etikett (§3.2).
+     Ohne gespeicherte Quelle KEIN Chip - "Etikett" wird nicht geraten (§1.1). */
+  var q=String(window._fgBioQuelle||"");
+  if(akt && q){
+    h += feTrenner();
+    h += /^Annahme/i.test(q)
+      ? feInfoPill("⚠", q, "Aus dem Produktnamen abgeleitet, noch nicht am Etikett geprüft.", "var(--k-fff7e6)", "var(--k-b45309)", true)
+      : feInfoPill("📷", q, "Belegt über: "+q+". Bio ist Merkmal und Filter – es gibt keine Punkte im Index.", "var(--k-eef2f6)", "var(--k-475569)", false);
+  }
+  box.innerHTML=h;
 }
 /* Klick = jemand hat entschieden. Bei "Bio" oder "kein Bio" wird die Quelle zu "Etikett"
    (= ich habe nachgesehen); zurueck auf ungeprueft loescht auch die Quelle. */
@@ -16292,11 +16345,28 @@ async function openFgEditor(id, prefill, targetEl){
         <div class="mzr">
           <div class="mz mz-2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…"></div>
           <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" class="fld" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842"></div>
-          <div class="mz"><k>EAN-Status</k><select id="fe_ean_status" class="fld" onchange="try{fePlaus()}catch(e){}" title="Nur wichtig, wenn oben keine EAN steht. Beide Angaben blockieren die Freigabe nicht – sie sagen nur, WARUM keine da ist.">
-            <option value=""${String(d.ean_ampel||"")==="rot"?" selected":""}>— noch nicht entschieden —</option>
-            <option value="noch_nicht_erfasst"${String(d.ean_ampel||"")==="gelb"?" selected":""}>Barcode gibt es, wir haben ihn noch nicht</option>
-            <option value="kein_barcode"${String(d.ean_ampel||"")==="blau"?" selected":""}>Produkt hat keinen Barcode</option>
-          </select></div>
+          ${''/* 08.08.2026: aus der Auswahlliste wird eine Chip-Reihe (Ralph: "EAN-Status
+                 und Bio auf dieselbe Chip-Form"). Das <select> BLEIBT als einziger
+                 Speicherort stehen, nur verborgen - genau das Muster von fe_bio/fe_bioSw.
+                 Wer es entfernt, bricht feEanStatusWahl und fgEditSave (§22, §4.2).
+                 ZWEI Korrekturen dabei:
+                 (1) Vorbelegt wird jetzt aus d.ean_status statt aus d.ean_ampel. Die Ampel
+                     kennt nur rot/gelb/blau; 'vorhanden' (60.868 Produkte) und 'generisch'
+                     (748) fielen dadurch auf "noch nicht entschieden" zurueck - die Maske
+                     zeigte bei 61.616 von 62.094 Produkten etwas anderes an als die
+                     Datenbank (§1.7).
+                 (2) 'generisch' ist als vierter Wert aufgenommen (Ralph-Entscheid 08.08.).
+                     Er steht im CHECK der Tabelle, war aber nicht waehlbar. */}
+          <div class="mz"><k>EAN-Status</k>
+            <select id="fe_ean_status" class="feVersteckt" onchange="try{feEanRender()}catch(e){};try{fePlaus()}catch(e){}">
+            <option value=""${["noch_nicht_erfasst","kein_barcode","generisch"].indexOf(String(d.ean_status||""))<0?" selected":""}>— noch nicht entschieden —</option>
+            <option value="noch_nicht_erfasst"${String(d.ean_status||"")==="noch_nicht_erfasst"?" selected":""}>Barcode gibt es, wir haben ihn noch nicht</option>
+            <option value="kein_barcode"${String(d.ean_status||"")==="kein_barcode"?" selected":""}>Produkt hat keinen Barcode</option>
+            <option value="generisch"${String(d.ean_status||"")==="generisch"?" selected":""}>Generisches Produkt ohne Marken-Barcode</option>
+          </select>
+            <div id="fe_eanChips" title="Nur wichtig, wenn oben keine EAN steht. Keine dieser Angaben blockiert die Freigabe – sie sagen nur, WARUM keine da ist."></div>
+            <div id="fe_eanHint" class="mzHint"></div>
+          </div>
           <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
           <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
           <div class="mz"><k>Unterkategorie</k><input id="fe_ukat" class="fld" value="${esc(d.unterkategorie||"")}" placeholder="nicht erfasst"></div>
@@ -16834,17 +16904,89 @@ if(typeof window!=='undefined'){ window.feEanBewusstOhne=feEanBewusstOhne; }
 function feEanStatusWahl(){
   var s=document.getElementById("fe_ean_status");
   var v=s?String(s.value||"").trim():"";
-  return (v==="kein_barcode"||v==="noch_nicht_erfasst")?v:"";
+  /* Positivliste, wortgleich mit dem CHECK auf Produkte und mit der Liste in
+     cb_produkt_ean_status_setzen. 'vorhanden' steht bewusst NICHT darin: dieser
+     Zustand wird aus dem EAN-Feld ABGELEITET und nie von Hand gesendet. */
+  if(v!=="kein_barcode" && v!=="noch_nicht_erfasst" && v!=="generisch") return "";
+  /* 🔴 DER RIEGEL (08.08.2026). cb_produkt_ean_status_setzen setzt bei
+     'kein_barcode' UND 'generisch' ausdruecklich EAN_GTIN = null.
+     Vorher wurde das Feld bei getippter EAN nur auf disabled gesetzt - ein
+     disabled <select> liefert seinen Wert aber weiterhin, und fgEditSave hat
+     ihn gesendet. Wer eine EAN zu einem Produkt tippte, das auf "kein Barcode"
+     stand, verlor sie beim Speichern OHNE MELDUNG (§1.7, §10.3).
+     Steht eine EAN im Feld, wird ab jetzt gar kein Status mehr gesendet. */
+  var e=document.getElementById("fe_ean");
+  var voll=((((e&&e.value)||"").replace(/\D/g,"")).length>=8);
+  return voll ? "" : v;
 }
 if(typeof window!=='undefined'){ window.feEanStatusWahl=feEanStatusWahl; }
+/* Die drei Zustaende, die von HAND gesetzt werden. 'vorhanden' fehlt hier mit
+   Absicht - es folgt dem Feld (Ralph 08.08.: "EAN-Chip folgt dem Feld").
+   'generisch' ist der vierte erlaubte Wert des CHECK und traegt 748 Produkte;
+   ohne ihn koennte die Maske einen gespeicherten Zustand nicht anzeigen
+   (Ralph-Entscheid 08.08.). */
+var FE_EAN_STUFEN=[
+  {v:"noch_nicht_erfasst", ico:"🕓", kurz:"noch nicht erfasst", bg:"var(--k-fff7e6)", fg:"var(--k-b45309)",
+   titel:"Das Produkt hat einen Barcode – wir haben ihn nur noch nicht erfasst."},
+  {v:"kein_barcode",       ico:"🚫", kurz:"kein Barcode",       bg:"var(--k-eef2f6)", fg:"var(--k-475569)",
+   titel:"Dieses Stück trägt keinen Barcode. Achtung: setzt eine gespeicherte EAN zurück."},
+  {v:"generisch",          ico:"📦", kurz:"generisch",          bg:"var(--k-eef2f6)", fg:"var(--k-475569)",
+   titel:"Allgemeines Produkt (z. B. „Apfel“), das systembedingt keinen Marken-Barcode hat. Achtung: setzt eine gespeicherte EAN zurück."}
+];
+function feEanRender(){
+  var box=document.getElementById("fe_eanChips");
+  if(!box){ console.warn("fe_eanChips nicht im DOM – EAN-Chips werden nicht gezeichnet."); return; }
+  var e=document.getElementById("fe_ean"), s=document.getElementById("fe_ean_status");
+  if(!s){ console.warn("fe_ean_status fehlt – ohne den Speicherort wird nichts gezeichnet."); return; }
+  var voll=((((e&&e.value)||"").replace(/\D/g,"")).length>=8);
+  var akt=String(s.value||"");
+  var h="";
+  if(voll){
+    /* Abgeleitet, nicht gewaehlt - deshalb ein Anzeige-Chip und kein Knopf. */
+    h += feInfoPill("✓","vorhanden","Oben steht eine EAN – der Status ergibt sich daraus und wird nicht von Hand gesetzt.","var(--k-e7f4ec)","var(--k-1f5e34)",false);
+    h += feTrenner();
+  }
+  h += FE_EAN_STUFEN.map(function(st){
+    return fePill({an:(!voll && st.v===akt), aus:voll, ico:st.ico, kurz:st.kurz, bg:st.bg, fg:st.fg,
+      titel: voll ? ("Nicht wählbar, solange oben eine EAN steht – „"+st.kurz+"“ würde sie löschen.") : st.titel,
+      klick:"feEanWahl('"+st.v+"')"});
+  }).join("");
+  box.innerHTML=h;
+  feEanHint(voll,akt);
+}
+/* Nochmal auf denselben Chip = Ruecknahme. Das ist der Widerruf aus §5.4: die
+   Angabe verschwindet, sie wird nicht durch eine andere Behauptung ersetzt. */
+function feEanWahl(v){
+  var s=document.getElementById("fe_ean_status"); if(!s) return;
+  s.value=(String(s.value||"")===String(v))?"":String(v);
+  feEanRender();
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e2){}
+}
+function feEanHint(voll,akt){
+  var h=document.getElementById("fe_eanHint"); if(!h) return;
+  if(voll){
+    h.textContent="Folgt dem Feld: „vorhanden“. Die drei Angaben würden die EAN löschen und sind deshalb gesperrt.";
+    h.style.color="var(--muted)"; return;
+  }
+  if(!akt){
+    h.textContent="Noch nicht entschieden. Blockiert die Freigabe nicht – sagt nur nicht, WARUM keine EAN da ist.";
+    h.style.color="var(--muted)"; return;
+  }
+  h.textContent="Von dir gesetzt. Nochmal auf denselben Chip nimmt es zurück.";
+  h.style.color="var(--k-16a34a)";
+}
+if(typeof window!=='undefined'){ window.feEanRender=feEanRender; window.feEanWahl=feEanWahl; window.fePill=fePill; window.feInfoPill=feInfoPill; }
 function feEanSync(){
   var e=document.getElementById("fe_ean"), s=document.getElementById("fe_ean_status"); if(!e||!s) return;
   var voll=(((e.value||"").replace(/\D/g,"")).length>=8);
   /* Steht eine EAN da, ist die Frage "warum keine?" gegenstandslos - das Feld wird
      stillgelegt, aber NICHT geleert: nimmt jemand die EAN wieder heraus, steht seine
-     fruehere Angabe noch da. Leeren waere ein stiller Datenverlust (§10.3). */
+     fruehere Angabe noch da. Leeren waere ein stiller Datenverlust (§10.3).
+     Das Stilllegen allein hat NICHT gereicht - siehe den Riegel in
+     feEanStatusWahl. Beides bleibt: die Sperre sichtbar, der Riegel wirksam. */
   s.disabled=voll;
   s.style.opacity=voll?"0.5":"";
+  try{ feEanRender(); }catch(e3){ console.error("EAN-Chips konnten nicht gezeichnet werden:", e3); }
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e2){}
 }
 /* Etikettfoto gross ansehen - beim Abtippen der Naehrwerte ist das der eigentliche Zweck. */
@@ -23071,7 +23213,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-2115";
+const APP_BUILD = "2026-08-08-2155";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

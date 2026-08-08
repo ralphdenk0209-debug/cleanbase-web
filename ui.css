@@ -323,19 +323,22 @@ body{ --admin-oben:64px }
 }
 #feKopfGrid .mzCheck input{ width:15px; height:15px; flex:0 0 auto }
 
-/* Bio-Umschalter (drei Felder nebeneinander).
+/* Bio- und EAN-Status-Chips (08.08.2026, Ralph: beides auf dieselbe Chip-Form
+   wie die Ernaehrungsform).
+   VORHER war #fe_bioSw ein Segmentbalken: display:grid mit drei gleichen
+   Spalten in einem gemeinsamen Rahmen. Die Chips tragen ihren Rahmen und ihre
+   Rundung selbst - der gemeinsame Kasten muss deshalb weg, sonst steckten drei
+   runde Chips in einem eckigen Balken.
    display steht BEWUSST hier und nicht inline: Umschalten per
    element.style.display="" wuerde einen Inline-Wert loeschen — der bekannte
    Fall aus CLAUDE.md-Chronik §1.11n-dd. Aus dem Stylesheet kommt er zurueck. */
-#feKopfGrid #fe_bioSw{
-  display:grid;
-  grid-template-columns:1fr 1fr 1fr;
-  gap:0;
+#feKopfGrid #fe_bioSw,
+#feKopfGrid #fe_eanChips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  align-items:center;
   margin-top:2px;
-  border:1px solid var(--line);
-  border-radius:9px;
-  overflow:hidden;
-  background:var(--bg);
 }
 
 /* Kleine Erklaerzeile unter einem Feld. */
