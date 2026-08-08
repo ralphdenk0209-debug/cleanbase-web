@@ -16359,10 +16359,10 @@ async function openFgEditor(id, prefill, targetEl){
                      Er steht im CHECK der Tabelle, war aber nicht waehlbar. */}
           <div class="mz"><k>EAN-Status</k>
             <select id="fe_ean_status" class="feVersteckt" onchange="try{feEanRender()}catch(e){};try{fePlaus()}catch(e){}">
-            <option value=""${["noch_nicht_erfasst","kein_barcode","generisch"].indexOf(String(d.ean_status||""))<0?" selected":""}>— noch nicht entschieden —</option>
-            <option value="noch_nicht_erfasst"${String(d.ean_status||"")==="noch_nicht_erfasst"?" selected":""}>Barcode gibt es, wir haben ihn noch nicht</option>
-            <option value="kein_barcode"${String(d.ean_status||"")==="kein_barcode"?" selected":""}>Produkt hat keinen Barcode</option>
-            <option value="generisch"${String(d.ean_status||"")==="generisch"?" selected":""}>Generisches Produkt ohne Marken-Barcode</option>
+            <option value=""${feEanVorwahl(d)===""?" selected":""}>— noch nicht entschieden —</option>
+            <option value="noch_nicht_erfasst"${feEanVorwahl(d)==="noch_nicht_erfasst"?" selected":""}>Barcode gibt es, wir haben ihn noch nicht</option>
+            <option value="kein_barcode"${feEanVorwahl(d)==="kein_barcode"?" selected":""}>Produkt hat keinen Barcode</option>
+            <option value="generisch"${feEanVorwahl(d)==="generisch"?" selected":""}>Generisches Produkt ohne Marken-Barcode (Auslaufwert)</option>
           </select>
             <div id="fe_eanChips" title="Nur wichtig, wenn oben keine EAN steht. Keine dieser Angaben blockiert die Freigabe – sie sagen nur, WARUM keine da ist."></div>
             <div id="fe_eanHint" class="mzHint"></div>
@@ -16920,19 +16920,34 @@ function feEanStatusWahl(){
   return voll ? "" : v;
 }
 if(typeof window!=='undefined'){ window.feEanStatusWahl=feEanStatusWahl; }
-/* Die drei Zustaende, die von HAND gesetzt werden. 'vorhanden' fehlt hier mit
-   Absicht - es folgt dem Feld (Ralph 08.08.: "EAN-Chip folgt dem Feld").
-   'generisch' ist der vierte erlaubte Wert des CHECK und traegt 748 Produkte;
-   ohne ihn koennte die Maske einen gespeicherten Zustand nicht anzeigen
-   (Ralph-Entscheid 08.08.). */
+/* Die ZWEI Zustaende, die von Hand gesetzt werden (Ralph 08.08. nach dem
+   Browsertest: "nur der generische kann weg").
+   'vorhanden' fehlt hier mit Absicht - es folgt dem Feld.
+   'generisch' ebenfalls, aber aus einem anderen Grund: es soll NEU nicht mehr
+   entstehen. Es bleibt trotzdem im CHECK der Tabelle und traegt 748 Produkte -
+   deshalb steht es unten als ANZEIGE-Chip, sobald ein Produkt ihn gespeichert
+   hat. Waere er ganz weg, koennte die Maske bei diesen 748 wieder etwas
+   anderes anzeigen als die Datenbank - genau der Fehler, den dieser Durchgang
+   geschlossen hat. Auslaufmodell statt Loeschung (§3.7, §1.7). */
 var FE_EAN_STUFEN=[
   {v:"noch_nicht_erfasst", ico:"🕓", kurz:"noch nicht erfasst", bg:"var(--k-fff7e6)", fg:"var(--k-b45309)",
    titel:"Das Produkt hat einen Barcode – wir haben ihn nur noch nicht erfasst."},
   {v:"kein_barcode",       ico:"🚫", kurz:"kein Barcode",       bg:"var(--k-eef2f6)", fg:"var(--k-475569)",
-   titel:"Dieses Stück trägt keinen Barcode. Achtung: setzt eine gespeicherte EAN zurück."},
-  {v:"generisch",          ico:"📦", kurz:"generisch",          bg:"var(--k-eef2f6)", fg:"var(--k-475569)",
-   titel:"Allgemeines Produkt (z. B. „Apfel“), das systembedingt keinen Marken-Barcode hat. Achtung: setzt eine gespeicherte EAN zurück."}
+   titel:"Dieses Stück trägt keinen Barcode. Achtung: setzt eine gespeicherte EAN zurück."}
 ];
+/* Vorbelegung (Ralph 08.08. nach dem Browsertest: "Vorbelegung noch nicht erfasst").
+   Ein GESPEICHERTER Status gewinnt immer - auch 'generisch'. Erst wenn gar
+   nichts gespeichert ist UND keine EAN am Produkt steht, wird
+   'noch_nicht_erfasst' vorbelegt. Vorher stand dort "noch nicht entschieden",
+   und ein Produkt ohne beides kam nicht zur Freigabe.
+   ⚠ Das ist eine ANNAHME und wird hier ausdruecklich benannt: "noch nicht
+   erfasst" behauptet, dass es einen Barcode GIBT. Deshalb greift sie nur ins
+   Leere hinein und ueberschreibt nie einen vorhandenen Wert (§5.4, §1.1). */
+function feEanVorwahl(d){
+  var st=String((d&&d.ean_status)||"");
+  if(st==="noch_nicht_erfasst"||st==="kein_barcode"||st==="generisch") return st;
+  return (String((d&&d.ean)||"").replace(/\D/g,"").length>=8) ? "" : "noch_nicht_erfasst";
+}
 function feEanRender(){
   var box=document.getElementById("fe_eanChips");
   if(!box){ console.warn("fe_eanChips nicht im DOM – EAN-Chips werden nicht gezeichnet."); return; }
@@ -16951,6 +16966,15 @@ function feEanRender(){
       titel: voll ? ("Nicht wählbar, solange oben eine EAN steht – „"+st.kurz+"“ würde sie löschen.") : st.titel,
       klick:"feEanWahl('"+st.v+"')"});
   }).join("");
+  /* Auslaufmodell 'generisch': nur sichtbar, wenn dieses Produkt ihn wirklich
+     gespeichert hat - und dann nicht als Knopf, sondern als Feststellung. So
+     entsteht er nie neu, verschwindet aber auch nicht aus der Anzeige. */
+  if(akt==="generisch"){
+    h += feTrenner();
+    h += feInfoPill("📦","generisch",
+      "Gespeicherter Altwert: ein allgemeines Produkt ohne Marken-Barcode. Wird nicht mehr neu vergeben – ein Klick auf „kein Barcode“ oder eine eingetragene EAN ersetzt ihn.",
+      "var(--k-eef2f6)","var(--k-475569)",true);
+  }
   box.innerHTML=h;
   feEanHint(voll,akt);
 }
@@ -23213,7 +23237,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-2155";
+const APP_BUILD = "2026-08-08-2230";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
