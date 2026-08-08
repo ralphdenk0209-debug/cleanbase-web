@@ -22822,7 +22822,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1155";
+const APP_BUILD = "2026-08-08-1510";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
@@ -22835,6 +22835,44 @@ const RIKI_LESE_MODELL = "claude-sonnet-4-6";
 /* Feature-Flags laden: beim Start und immer, wenn sich die Anmeldung ändert. */
 ladeFeatures();
 try{ client.auth.onAuthStateChange(function(){ ladeFeatures(); }); }catch(e){}
+
+/* ---------------------------------------------------------------------------
+   BUILD MELDEN  (08.08.2026, Ralph-Entscheid "A": anschliessen)
+   ---------------------------------------------------------------------------
+   Die ausgelieferte Seite sagt selbst, welcher Build sie ist. Das Register
+   App_Build_Live und der Schreibweg cb_build_melden waren laengst gebaut und
+   wurden nie gerufen - derselbe Fall wie fe_fotoMount und der "-> Riki"-Knopf
+   (CLAUDE.md §22). Solange niemand meldet, bleibt "was ist live?" eine Frage
+   an Ralph statt eine Messung.
+
+   Absichtlich so:
+   - laeuft auch fuer GAESTE. anon hat EXECUTE, und Gaeste laden die Seite auch.
+     Nur so ist es ein Register des LIVE-Stands und nicht der Admin-Sitzungen.
+   - EINMAL je Seitenaufruf. Der Zaehler "Meldungen" soll Aufrufe zaehlen,
+     nicht Funktionsaufrufe.
+   - nach dem Laden, nicht davor: nichts an der Anzeige darf darauf warten.
+   - KEIN stiller Fehlschlag (§11.4). Ein Register, das leer bleibt und dabei
+     schweigt, ist genau das Problem, das hier behoben wird. Deshalb Konsole.
+   - Die Formatpruefung macht der Server (regulaerer Ausdruck in cb_build_melden).
+     Hier wird nichts nachgebaut (§4.2).
+--------------------------------------------------------------------------- */
+let _buildGemeldet = false;
+async function meldeBuild(){
+  if(_buildGemeldet) return;
+  _buildGemeldet = true;
+  if(typeof APP_BUILD !== "string" || !APP_BUILD) return;
+  try{
+    const { error } = await client.rpc('cb_build_melden', {
+      p_build: APP_BUILD,
+      p_seite: (location.pathname || '/')
+    });
+    if(error) console.warn('Build-Meldung fehlgeschlagen:', error.message);
+  }catch(e){
+    console.warn('Build-Meldung fehlgeschlagen:', e && e.message ? e.message : e);
+  }
+}
+if(document.readyState === 'complete'){ meldeBuild(); }
+else { addEventListener('load', meldeBuild, { once:true }); }
 
 async function pruefeUpdate(){
   if(_updateGezeigt) return;
