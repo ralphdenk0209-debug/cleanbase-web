@@ -14759,7 +14759,7 @@ function feBioPrefill(d){
     window._fgEdit.ernaehrAuto = _efManuell ? "" : ((d&&d.ernaehrungsform)||"");
     window._fgEdit.ernaehrWahl = _efManuell ? ((d&&d.ernaehrungsform)||"") : "";
     feErnaehrRender();
-  }catch(e){}
+  }catch(e){ console.error("Ernährungsform-Chips konnten nicht gezeichnet werden:", e); }
 }
 /* Ralph 30.07.2026: "auf der Produkt-erfassen-Karte soll ich das auch aktivieren koennen,
    Schieberegler". Ein klassischer An/Aus-Schieberegler kann nur ZWEI Zustaende - er wuerde
@@ -14826,7 +14826,11 @@ var FE_EF_STUFEN=[
    Aussagen gleich stark, von denen nur eine gilt. Der Herkunfts-Chip rechts sagt, WER
    sie gesetzt hat; ohne ihn sieht ein gerechneter Wert aus wie ein geprueter (§5.3). */
 function feErnaehrRender(){
-  var box=document.getElementById("fe_ernaehrChips"); if(!box) return;
+  var box=document.getElementById("fe_ernaehrChips");
+  /* §1.7: kein stiller Ausfall. Am 08.08. wurde eine halbe Stunde gesucht, warum die Chips
+     fehlen - genau weil hier nur "return" stand und daneben ein leerer catch. Wer nichts
+     zeichnen kann, sagt WARUM. */
+  if(!box){ console.warn("fe_ernaehrChips nicht im DOM – Chips werden nicht gezeichnet. Läuft feBioPrefill vor dem Einfügen der Maske?"); return; }
   var akt=String((window._fgEdit&&window._fgEdit.ernaehrWahl)||"");
   var auto=String((window._fgEdit&&window._fgEdit.ernaehrAuto)||"");
   var h=FE_EF_STUFEN.map(function(s){
@@ -23067,7 +23071,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-2045";
+const APP_BUILD = "2026-08-08-2115";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
