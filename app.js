@@ -14233,7 +14233,10 @@ function fgPickRender(){
     }
     return '<label style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(chk?"background:var(--greenlt,#eef7f0)":"")+'">'
       +'<input type="checkbox" '+(chk?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(it.rating==null?"":it.rating)+'" data-krit="'+esc(it.kritisch||"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'
-      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+(it._frei?' <span style="color:var(--muted);font-size:11px">· gebunden, kein Stamm-Treffer</span>':'')+'</span>'
+      /* 08.08.2026 (Ralph, P73592): stand hier grau als Randnotiz - grau heisst "nebensaechlich".
+         Es ist aber das Gegenteil: diese Zeile wird beim Speichern NICHT gebunden und ist danach
+         weg. Jetzt rot und im Klartext, gleiche Aussage wie die Freigabe-Karte. */
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+(it._frei?' <span style="color:var(--frg-rot);font-size:11px;font-weight:600" title="Diese Zutat gibt es im Stamm nicht. Beim Speichern wird sie nicht gebunden – sie ist danach weg. Erst anlegen lassen.">· nicht im Stamm – wird nicht gespeichert</span>':'')+'</span>'
       +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</label>'; };
   var _st=wrap.scrollTop;
@@ -16100,6 +16103,32 @@ async function openFgEditor(id, prefill, targetEl){
     _dirtyHook("fe_wirkRows","wirk"); _dirtyHook("fe_wirk_none","wirk");
     _dirtyHook("fe_nwCard","makro");
     _dirtyHook("fe_zutRows","zut"); _dirtyHook("fe_pickList","zut"); _dirtyHook("fe_zutNeu","zut");
+    /* 🔴 08.08.2026 (Ralph, P73592 „Bio Crispy Mix-Salat"): Von Riki eingetragene Zutaten
+       gingen beim Speichern VERLOREN - still, ohne Fehlermeldung.
+
+       Ursache: Der Editor sendet seit 05.08. nur geaenderte Bereiche. Das Zutaten-Flag
+       setzte aber NUR fgAddZutat() - der Knopf "+ Zutat" von Hand. Riki und die
+       Referenzuebernahme haengen ihre Zeilen per insertAdjacentHTML ein, und ein
+       DOM-Insert loest weder "input" noch "change" aus. Also blieb _dirty.zut false,
+       payload.zutaten wurde gar nicht erst mitgeschickt, und cb_produkt_ingest liess
+       die Bindungen unberuehrt. Beweis: bei P73592 stand auch in Zutat_Offen nichts -
+       die Namen kamen nie an der Datenbank an.
+       Bei den WIRKSTOFFEN war das bedacht (feWirkAdd), bei den Zutaten nicht.
+
+       Der Beobachter faengt JEDEN Weg, der eine Zeile einhaengt oder entfernt - auch
+       den naechsten, den noch niemand geschrieben hat. Das ist der Grund, warum hier
+       ein Beobachter steht und nicht an drei Einfuegestellen je eine Zeile Flag:
+       eine vergessene Stelle waere derselbe Fehler noch einmal.
+       Er wirkt erst nach _fgDirtyArmed - der Aufbau der Maske ist keine Aenderung. */
+    try{
+      var _zc=document.getElementById("fe_zutRows");
+      if(_zc && !_zc._fgZutObs && typeof MutationObserver!=="undefined"){
+        _zc._fgZutObs=new MutationObserver(function(){
+          if(window._fgDirtyArmed && window._fgDirty) window._fgDirty.zut=true;
+        });
+        _zc._fgZutObs.observe(_zc,{childList:true,subtree:true});
+      }
+    }catch(e){ console.error("Zutaten-Beobachter:",e); }
     setTimeout(function(){ window._fgDirtyArmed=true; },0);
   }catch(e){ console.error("Dirty-Init:",e); }
   if(!targetEl) document.getElementById("overlay").classList.add("open");
@@ -17024,6 +17053,24 @@ function fePlaus(){
     var zOhneNote=zMit.filter(function(row){ return ((row.querySelector(".fgzRate")||{}).value||"").trim()===""; }).length;
     if(zMit.length===0) fehlt.push(_istSupp?"mind. 1 Wirkstoff/Zutat":"mind. 1 Zutat");
     if(zOhneNote>0) fehlt.push(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) ohne Bewertung":" Zutat(en) ohne Bewertung"));
+    /* 🔴 08.08.2026 (Ralph, P73592): Zeilen OHNE Stamm-Treffer werden beim Speichern
+       NICHT gebunden - cb_produkt_ingest legt keinen Zutatenstamm aus einer Vermutung
+       an (§5.7, Entscheid 05.08.). Sie landen in Zutat_Offen, das Produkt faellt auf
+       Entwurf zurueck. Bis heute sah man das hier NICHT: die Zeilen standen gruen mit
+       Note 10 in der Liste, als waeren sie erledigt.
+       > Ein Zustand, der die Freigabe verhindert, darf nicht wie ein Haken aussehen.
+       Gezaehlt wird nur, wenn der Stamm wirklich geladen ist - sonst wuerde eine noch
+       leere Liste JEDE Zutat als unbekannt melden (§1: nichts behaupten). */
+    var zOhneStamm=null;
+    try{
+      if(typeof ZUTATEN_STAMM!=="undefined" && ZUTATEN_STAMM && ZUTATEN_STAMM.length){
+        var _ss={}; ZUTATEN_STAMM.forEach(function(it){ _ss[String(it.name||"").trim().toLowerCase()]=true; });
+        zOhneStamm=zMit.filter(function(row){
+          var n=((row.querySelector(".fgzName")||{}).value||"").trim().toLowerCase();
+          return n && !_ss[n]; }).length;
+      }
+    }catch(e){ console.error("Stamm-Abgleich:",e); zOhneStamm=null; }
+    if(zOhneStamm>0) fehlt.push(zOhneStamm+" Zutat(en) nicht im Stamm – werden NICHT gespeichert");
     var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
     if(!qt) fehlt.push("Quelle-Typ");
     var _eanV=((document.getElementById("fe_ean")||{}).value||"").trim();
@@ -17071,6 +17118,11 @@ function fePlaus(){
       else h+= nwFehlt.length ? no(nwFehlt.length+" Nährwert(e) fehlen") : ok("Nährwerte vollständig");
       h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
       h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
+      /* 08.08.2026: eigene Zeile, weil es etwas anderes ist als "unbewertet". Unbewertet
+         heisst "Note fehlt", hier heisst es "die Zutat gibt es im Stamm gar nicht - was
+         du siehst, wird beim Speichern verschwinden". Das ist die Zeile, die bei Ralphs
+         Salat gefehlt hat. */
+      if(zOhneStamm>0) h+= no(zOhneStamm+' Zutat(en) nicht im Stamm – sie werden beim Speichern NICHT gebunden und gehen verloren');
       h+= qt ? ok("Quelle belegt") : no("Quelle-Typ fehlt");
       /* 08.08.2026: "bewusst ohne Barcode" ist blau, nicht gruen - gleicher Farbcode wie
          die Punkt-Spalte E in der Produktliste. Gruen heisst "erledigt", blau "entschieden". */
@@ -17178,6 +17230,7 @@ function fePlaus(){
       else _pi('g','Nährwerte vollständig');
       _pi(zMit.length===0?'r':'g', zMit.length===0?(_istSupp?'Kein Wirkstoff/Zutat erfasst':'Keine Zutat erfasst'):(zMit.length+(_istSupp?' Wirkstoffe/Zutaten erfasst':' Zutaten erfasst')));
       _pi(zOhneNote>0?'r':'g', zOhneNote>0?(zOhneNote+(_istSupp?' Wirkstoff(e)/Zutat(en) unbewertet':' Zutat(en) unbewertet')):(_istSupp?'alle Wirkstoffe/Zutaten bewertet':'alle Zutaten bewertet'));
+      if(zOhneStamm>0) _pi('r',zOhneStamm+' Zutat(en) nicht im Stamm','werden beim Speichern nicht gebunden – erst anlegen lassen');
       _pi(qt?'g':'r', qt?'Quelle belegt':'Quelle-Typ fehlt', qt?'':'Quelle-Typ im Editor setzen');
       if(_eanV) _pi('g','EAN erfasst');
       else if(_eanOffen) _pi('b','kein Barcode – bewusst ohne','blockiert die Freigabe nicht');
@@ -22484,7 +22537,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1030";
+const APP_BUILD = "2026-08-08-1105";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
