@@ -5698,9 +5698,13 @@ function peRender(){
       !p.hat_zutaten ? pePkt('x','keine Zutaten – Bewertung nicht beurteilbar')
        : (_zu>0 ? pePkt('r',_zu+' Zutat(en) unbewertet') : pePkt('g','alle Zutaten bewertet')),
       p.quelle_ok ? pePkt('g','Quelle belegt') : pePkt('r','Quelle-Typ fehlt oder ist nicht anerkannt'),
+      /* 08.08.2026: vierter Zustand gelb aus cb_ean_ampel. Ohne diesen Zweig waere
+         „noch nicht erfasst" hier rot gelandet - dieselbe Ampel, zwei Urteile (§4.2).
+         Keiner der vier Zustaende blockiert die Freigabe. */
       (p.ean_ampel==='gruen') ? pePkt('g','EAN erfasst')
-       : (p.ean_ampel==='blau') ? pePkt('b','bewusst ohne Barcode – blockiert die Freigabe nicht')
-       : pePkt('r','EAN fehlt – eintragen oder „offen“ markieren')
+       : (p.ean_ampel==='blau') ? pePkt('b','Produkt hat keinen Barcode – entschieden')
+       : (p.ean_ampel==='gelb') ? pePkt('y','Barcode noch nicht erfasst – blockiert nicht')
+       : pePkt('y','EAN-Status nicht entschieden – blockiert nicht')
     ];
   };
   /* Anlagedatum. Kommt aus Erstellt_am, NICHT aus dem Feld "erfasst" (das ist
@@ -16187,8 +16191,11 @@ async function openFgEditor(id, prefill, targetEl){
       ${''/* 06.08.2026 Etappe 2 (Mockup H): Die Produktkarte ist als Eingabetabelle über die volle
              Breite aufgelöst. Vier Spalten, ein Feld je Zelle - der Kopf ist damit auf einen Blick
              lesbar und beschreibbar. KEIN Feld entfernt, keine ID geändert, keine Speicherlogik
-             angefasst: fe_name, fe_marke, fe_ean, fe_ean_offen, fe_kat, fe_bio, fe_bioSw, fe_bioHint,
-             fe_ukat, fe_basis und fe_verzehr stehen unverändert hier. */}
+             angefasst: fe_name, fe_marke, fe_ean, fe_ean_status, fe_kat, fe_bio, fe_bioSw, fe_bioHint,
+             fe_ukat, fe_basis und fe_verzehr stehen unverändert hier.
+             08.08.2026: fe_ean_offen (Haken) ist durch fe_ean_status (Auswahl mit drei
+             Zustaenden) ERSETZT - der Haken konnte "noch nicht erfasst" nicht ausdruecken.
+             Funktionsinventar §10.5 entsprechend nachziehen. */}
       ${''/* 07.08.2026 Probe-Durchgang: Das Aussehen dieses Kopfbereichs steht jetzt in
              webseite/ui.css (Abschnitt "PRODUKTEDITOR · KOPFBEREICH") statt hier als
              <style>-Block und Inline-Stile. Hier bleibt nur noch Struktur und Inhalt.
@@ -16198,7 +16205,11 @@ async function openFgEditor(id, prefill, targetEl){
         <div class="mzr">
           <div class="mz mz-2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…"></div>
           <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" class="fld" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842"></div>
-          <div class="mz"><k>EAN-Status</k><label class="mzCheck" title="Für Ware ohne Barcode – lose Ware, Eigenabfüllung, Hofladen. Der Punkt in der Freigabe wird dadurch blau statt rot. NICHT ankreuzen, wenn es einen Barcode gibt, der nur noch nicht erfasst ist."><input type="checkbox" id="fe_ean_offen" ${String(d.ean_ampel||"")==="blau"?"checked":""} onchange="try{fePlaus()}catch(e){}">Produkt hat <b>keinen</b> Barcode</label></div>
+          <div class="mz"><k>EAN-Status</k><select id="fe_ean_status" class="fld" onchange="try{fePlaus()}catch(e){}" title="Nur wichtig, wenn oben keine EAN steht. Beide Angaben blockieren die Freigabe nicht – sie sagen nur, WARUM keine da ist.">
+            <option value=""${String(d.ean_ampel||"")==="rot"?" selected":""}>— noch nicht entschieden —</option>
+            <option value="noch_nicht_erfasst"${String(d.ean_ampel||"")==="gelb"?" selected":""}>Barcode gibt es, wir haben ihn noch nicht</option>
+            <option value="kein_barcode"${String(d.ean_ampel||"")==="blau"?" selected":""}>Produkt hat keinen Barcode</option>
+          </select></div>
           <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
           <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
           <div class="mz"><k>Unterkategorie</k><input id="fe_ukat" class="fld" value="${esc(d.unterkategorie||"")}" placeholder="nicht erfasst"></div>
@@ -16718,14 +16729,24 @@ function feEanBewusstOhne(){
   return /^(offen|generisch|kein_barcode)$/i.test(String((window._fgEdit&&window._fgEdit.ean_status)||""));
 }
 if(typeof window!=='undefined'){ window.feEanBewusstOhne=feEanBewusstOhne; }
+/* 08.08.2026 (Ralph): aus einem Haken wurden DREI Zustaende. Der Haken konnte nur
+   "es gibt keinen Barcode" sagen; "wir haben ihn noch nicht" liess sich gar nicht
+   ausdruecken - und wer nichts ankreuzte, stand rot da und kam nicht zur Freigabe.
+   Rueckgabe ist der DB-Wert aus der Positivliste, oder "" fuer "nicht entschieden". */
+function feEanStatusWahl(){
+  var s=document.getElementById("fe_ean_status");
+  var v=s?String(s.value||"").trim():"";
+  return (v==="kein_barcode"||v==="noch_nicht_erfasst")?v:"";
+}
+if(typeof window!=='undefined'){ window.feEanStatusWahl=feEanStatusWahl; }
 function feEanSync(){
-  var e=document.getElementById("fe_ean"), o=document.getElementById("fe_ean_offen"); if(!e||!o) return;
-  var empty=(((e.value||"").replace(/\D/g,"")).length<8);
-  /* Leer + die DB kennt einen bewussten Grund -> Haken setzen, damit der Punkt nicht
-     rot steht. Leer ohne Grund -> ebenfalls Haken (der Admin hat gerade geleert).
-     Gefuellt -> Haken weg. */
-  if(empty) o.checked=true;
-  else o.checked=false;
+  var e=document.getElementById("fe_ean"), s=document.getElementById("fe_ean_status"); if(!e||!s) return;
+  var voll=(((e.value||"").replace(/\D/g,"")).length>=8);
+  /* Steht eine EAN da, ist die Frage "warum keine?" gegenstandslos - das Feld wird
+     stillgelegt, aber NICHT geleert: nimmt jemand die EAN wieder heraus, steht seine
+     fruehere Angabe noch da. Leeren waere ein stiller Datenverlust (§10.3). */
+  s.disabled=voll;
+  s.style.opacity=voll?"0.5":"";
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e2){}
 }
 /* Etikettfoto gross ansehen - beim Abtippen der Naehrwerte ist das der eigentliche Zweck. */
@@ -17423,8 +17444,15 @@ function fePlaus(){
     var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
     if(!qt) fehlt.push("Quelle-Typ");
     var _eanV=((document.getElementById("fe_ean")||{}).value||"").trim();
-    var _eanOffen=!!((document.getElementById("fe_ean_offen")||{}).checked);
-    if(!_eanV && !_eanOffen) fehlt.push("EAN (oder „offen“ markieren)");
+    var _eanSt=(typeof feEanStatusWahl==="function")?feEanStatusWahl():"";
+    var _eanOffen=(_eanSt==="kein_barcode");
+    /* 08.08.2026 (Ralph-Entscheid): die EAN blockiert die Freigabe NICHT MEHR.
+       Hier stand: if(!_eanV && !_eanOffen) fehlt.push("EAN ...") - ein Blocker, den
+       die Datenbank gar nicht kennt. produkt_pruefen_freigeben prueft die EAN an
+       KEINER Stelle; das Frontend war also strenger als der Server und hat sich eine
+       eigene Freigaberegel gebaut (§4.2, §10.2). Ralph blieb damit an einem Produkt
+       haengen, dessen Barcode schlicht noch nicht bekannt war.
+       Die Zeile bleibt in der Punkte-Leiste sichtbar - als Hinweis, nicht als Riegel. */
     var _dosisLeer = _istSupp && !(((document.getElementById("fe_verzehr")||{}).value||"").trim());
     /* Supplement: Wirkstoff-Mengen (Dosis-Check) müssen befüllt ODER bewusst deaktiviert sein
        (Ralph 23.07.) – sonst geht das Produkt mit leerem Dosis-Check live. */
@@ -17476,8 +17504,11 @@ function fePlaus(){
       /* 08.08.2026: "bewusst ohne Barcode" ist blau, nicht gruen - gleicher Farbcode wie
          die Punkt-Spalte E in der Produktliste. Gruen heisst "erledigt", blau "entschieden". */
       h+= _eanV ? ok("EAN erfasst")
-          : (_eanOffen ? '<span class="rBlau">&#9679; kein Barcode – bewusst ohne (blockiert die Freigabe nicht)</span>'
-                       : no("EAN fehlt – eintragen oder „offen“ ankreuzen"));
+          : (_eanSt==='kein_barcode'
+              ? '<span class="rBlau">&#9679; Produkt hat keinen Barcode – entschieden (blockiert die Freigabe nicht)</span>'
+              : (_eanSt==='noch_nicht_erfasst'
+                  ? '<span style="color:#8a5a0b">&#9679; Barcode noch nicht erfasst (blockiert die Freigabe nicht)</span>'
+                  : '<span style="color:#8a5a0b">&#9679; EAN-Status nicht entschieden (blockiert die Freigabe nicht)</span>'));
       /* Dubletten-Stand (Ralph 02.08.: "sehe ihn nicht in der Freigabe"). Der Wächter gab es
          seit 31.07., aber NUR als Chip in der Kopfzeile - und der erscheint ausschliesslich bei
          Treffern. Eine Zeile, die nur bei Problemen da ist, sieht aus wie "nicht geprüft".
@@ -17582,8 +17613,9 @@ function fePlaus(){
       if(zOhneStamm>0) _pi('r',zOhneStamm+' Zutat(en) nicht im Stamm','werden beim Speichern nicht gebunden – erst anlegen lassen');
       _pi(qt?'g':'r', qt?'Quelle belegt':'Quelle-Typ fehlt', qt?'':'Quelle-Typ im Editor setzen');
       if(_eanV) _pi('g','EAN erfasst');
-      else if(_eanOffen) _pi('b','kein Barcode – bewusst ohne','blockiert die Freigabe nicht');
-      else _pi('r','EAN fehlt','eintragen oder „offen" markieren');
+      else if(_eanSt==='kein_barcode')       _pi('b','Produkt hat keinen Barcode','entschieden – blockiert die Freigabe nicht');
+      else if(_eanSt==='noch_nicht_erfasst') _pi('y','Barcode noch nicht erfasst','offen – blockiert die Freigabe nicht');
+      else _pi('y','EAN-Status nicht entschieden','im Kopf auswählen – blockiert die Freigabe nicht');
       if(_istSupp){ if(_dosisLeer) _pi('y','Verzehrempfehlung fehlt','Bezug des Dosis-Checks – blockiert nicht'); else _pi('g','Verzehrempfehlung da'); }
       if(_istSupp){ if(_wCount>0) _pi('g',_wCount+' Wirkstoff-Menge(n) für Dosis-Check'); else if(_wNone) _pi('x','Wirkstoff-Mengen','bewusst ohne'); else _pi('r','Wirkstoff-Mengen fehlen','für den Dosis-Check'); }
       try{ var _abw2=_fgAbweichungRef(); if(_abw2 && _abw2.length) _pi('y',_abw2.length+' Zutat(en) laut Etikett offen','Freigabe nur mit Bestätigung'); }catch(e){}
@@ -18434,14 +18466,16 @@ async function fgEditSave(alsoFreigeben){
     /* EAN-Status festhalten: „offen" wenn bewusst ohne EAN angehakt, sonst „vorhanden" wenn
        eine EAN eingetragen ist. Leer+nicht angehakt: nichts ueberschreiben. */
     try{
-      var _eanOffen=!!(g("fe_ean_offen")&&g("fe_ean_offen").checked);
+      var _eanWahl=(typeof feEanStatusWahl==="function")?feEanStatusWahl():"";
       var _eanV=(g("fe_ean")&&g("fe_ean").value||"").trim();
       /* 08.08.2026: hier stand "offen". Dieser Wert verletzt den CHECK auf
          Produkte.EAN_Status (zulaessig: vorhanden | kein_barcode | noch_nicht_erfasst |
          generisch) - jeder Versuch, ein Produkt bewusst ohne Barcode zu speichern,
          endete deshalb in einer Fehlermeldung, und danach stand die alte EAN wieder da.
          Gemessen am 08.08.: 0 Produkte mit 'offen'. Es ist nie gelungen. */
-      var _st=_eanOffen?"kein_barcode":(_eanV?"vorhanden":null);
+      /* Eine EAN im Feld schlaegt jede Auswahl. Sonst gilt die Auswahl; ohne Auswahl
+         wird NICHTS geschrieben - "nicht entschieden" ueberschreibt keinen frueheren Wert. */
+      var _st=_eanV?"vorhanden":(_eanWahl||null);
       if(_st){ var _r2=await client.rpc("cb_produkt_ean_status_setzen",{p_id:pid, p_status:_st}); if(_r2&&_r2.error) throw _r2.error; }
     }catch(e){ _fehler.push("EAN-Status: "+((e&&e.message)||e)); }
     /* Bezugseinheit der Naehrwerte (g|ml) samt Quelle - eigener, enger Schreibweg wie beim
@@ -22891,7 +22925,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1713";
+const APP_BUILD = "2026-08-08-1731";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
