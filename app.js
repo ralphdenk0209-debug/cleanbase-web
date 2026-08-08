@@ -15839,12 +15839,19 @@ async function rikiAnalyse(){
     /* Rikis erkannte Zusatzstoffe (inkl. E-Nummern aus den Salami-/Wurst-Klammern) automatisch
        in die Liste übernehmen – du tippst nichts nach. */
     if(v.zusatzstoffe){ try{ zusFromRiki(v.zusatzstoffe); }catch(e){} } try{ fgZutAdditiveRoute(); }catch(e){} try{ feEinheitAusRiki(v); }catch(e){}   /* Bezugseinheit vorbelegen, wenn Riki sie liest (Ralph 27.07.) */
-    /* Nährwerte NUR füllen, wenn das Feld leer ist – bestehende, geprüfte Werte werden nie überschrieben. */
+    /* Nährwerte NUR füllen, wenn das Feld leer ist – bestehende, geprüfte Werte werden nie überschrieben.
+       M1 08.08.2026: der SECHSTE Setzweg. Er ist bewusst NICHT auf fgSetNW umgestellt, weil er
+       eine andere Fachregel hat - er fuellt ausschliesslich leere Felder, unabhaengig vom Haken
+       "nur leere Felder fuellen", und rundet nicht. Diese Regel steht seit dem Bau hier und wird
+       nicht nebenbei geaendert (§2.3). Gemeinsam ist beiden nur die Flag-Zeile, und die steht
+       jetzt an beiden Orten - gesetzt NUR, wenn wirklich geschrieben wurde. */
     const n=v.naehrwerte_100g||{};
+    var _nwGesetzt=false;
     Object.keys(n).forEach(function(k){
       const el=document.getElementById("fe_"+(k==="ballaststoffe"?"ballaststoffe":k));
-      if(el && !el.value && n[k]!=null) el.value=n[k];
+      if(el && !el.value && n[k]!=null){ el.value=n[k]; _nwGesetzt=true; }
     });
+    if(_nwGesetzt && window._fgDirtyArmed && window._fgDirty) window._fgDirty.makro=true;   /* DOM-Insert loest kein input-Event aus */
     let h='<div style="color:var(--k-166534)"><b>✓ Vorschlag eingefügt</b> · '+(v.zutaten||[]).length+' Zutaten · '
       +(data.meta?('Kosten: $'+Number(data.meta.kosten_usd).toFixed(4)+' · '+data.meta.dauer_ms+' ms'):'')+'</div>';
     if(v.unsicher) h+='<div style="color:var(--k-b45309);margin-top:3px">⚠️ <b>Riki ist unsicher:</b> '+esc(v.unsicher_warum||'')+' – nicht ungeprüft freigeben.</div>';
@@ -18067,6 +18074,43 @@ function _fgBallastAutoND(){
   if(!hatBallast && kcal!=null && rest>=2){ b.value='0'; cb.checked=true; }
 }
 if(typeof window!=='undefined'){ window._fgBallastAutoND=_fgBallastAutoND; }
+/* ===========================================================================
+   M1 aus dem Riki-Testlauf P73596 (08.08.2026, Ralph-Auftrag): Riki las die
+   Naehrwerte richtig, sie standen sichtbar im Editor - und "Naehrwerte_Makro"
+   blieb bei 0 Zeilen. Ueber VIER Wege reproduziert.
+
+   URSACHE: ein per JavaScript gesetzter Feldwert loest kein input-Ereignis aus.
+   "_fgDirty.makro" blieb false, und fgEditSave sendet die Naehrwerte nur bei
+   "_warNeu || _dirty.makro". Bei NEUEN Produkten faellt es nicht auf - nur beim
+   Nachbearbeiten, also im Regelfall.
+
+   WARUM EINE FUNKTION UND NICHT FUENF ZEILEN: der Testlaufbericht sprach von
+   "derselben sv()-Setzfunktion". Das stimmte nicht. Gezaehlt wurden fuenf
+   eigene, bis aufs Zeichen gleiche lokale Kopien (fgPullOff, fgPullHersteller,
+   fgPullResearch, fgPullEtikett, fgPullUsda). Die Flag-Zeile dort einzeln
+   nachzutragen waere die sechste Kopie derselben Fachregel gewesen (§4.2, §17)
+   - genau der Fehler, der die Naehrwerte ueberhaupt erst uebersehen liess: am
+   08.08. wurden Zutaten (Z. 16482) und Wirkstoffe (Z. 16671) je EINZELN
+   repariert, und die Naehrwerte blieben uebrig.
+
+   VERHALTEN UNVERAENDERT: Rundung auf zwei Stellen, der "_fgNurLeer"-Riegel und
+   das Auslassen von null/NaN sind wortgleich uebernommen. Neu ist allein die
+   letzte Zeile.
+
+   RIEGEL: das Flag wird NUR gesetzt, wenn wirklich geschrieben wurde. Ein
+   uebersprungener Wert (Feld schon gefuellt bei "nur leere Felder fuellen")
+   darf den Bereich nicht als geaendert markieren - sonst wuerde ein Lesevorgang,
+   der nichts veraendert hat, die gespeicherten Naehrwerte neu schreiben (§10.3).
+   =========================================================================== */
+function fgSetNW(id,x){
+  var e=document.getElementById(id);
+  if(!(e && x!=null && isFinite(x))) return false;
+  if(window._fgNurLeer && String(e.value).trim()!=="") return false;
+  e.value=Math.round(x*100)/100;
+  if(window._fgDirtyArmed && window._fgDirty) window._fgDirty.makro=true;   /* DOM-Insert loest kein input-Event aus */
+  return true;
+}
+if(typeof window!=='undefined'){ window.fgSetNW=fgSetNW; }
 async function fgPullOff(){
   var msg=document.getElementById("fe_pullMsg");
   var ean=((document.getElementById("fe_ean")||{}).value||"").replace(/\D/g,"");
@@ -18077,7 +18121,7 @@ async function fgPullOff(){
     var r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+ean+'.json?fields=product_name,product_name_de,brands,ingredients_text_de,ingredients_text,nutriments',{headers:{'Accept':'application/json'}});
     var j=await r.json(); var p=(j&&j.status===1)?j.product:null;
     if(!p){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent="OFF kennt diese EAN nicht – Herstellerseite oder Etikett nutzen."; } return; }
-    var n=p.nutriments||{}, sv=function(id,v){ var e=document.getElementById(id); if(e&&v!=null&&isFinite(v) && !(window._fgNurLeer && String(e.value).trim()!=="")) e.value=Math.round(v*100)/100; };
+    var n=p.nutriments||{}, sv=fgSetNW;   /* M1 08.08.2026: eine Setzfunktion statt fuenf Kopien - sie setzt _fgDirty.makro mit */
     var nm=(p.product_name_de||p.product_name||"").trim(), mk=(p.brands||"").split(",")[0].trim();
     var ne=document.getElementById("fe_name"); if(ne&&nm&&!ne.value) ne.value=nm;
     var me=document.getElementById("fe_marke"); if(me&&mk&&!me.value) me.value=mk;
@@ -18121,7 +18165,7 @@ async function fgPullHersteller(){
     var d=await r.json();
     if(d.leer){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent=d.hinweis||"Keine Werte gefunden – Screenshot/Etikett nutzen."; } return; }
     if(d.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent=d.error; } return; }
-    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=function(id,x){ var e=document.getElementById(id); if(e&&x!=null&&isFinite(x) && !(window._fgNurLeer && String(e.value).trim()!=="")) e.value=Math.round(x*100)/100; };
+    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=fgSetNW;   /* M1 08.08.2026: eine Setzfunktion statt fuenf Kopien - sie setzt _fgDirty.makro mit */
     var ne=document.getElementById("fe_name"); if(ne&&v.name&&!ne.value) ne.value=v.name;
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     /* Verzehrempfehlung: die Bezugsmenge, ohne die unsere EFSA-Prozente in der Luft hängen. */
@@ -18210,7 +18254,7 @@ async function fgPullResearch(files, b64arr){
     var d=await r.json();
     if(d.leer){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent=d.hinweis||"Riki hat das Produkt nicht eindeutig gefunden."; } return; }
     if(d.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent=d.error; } return; }
-    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=function(id,x){ var e=document.getElementById(id); if(e&&x!=null&&isFinite(x) && !(window._fgNurLeer && String(e.value).trim()!=="")) e.value=Math.round(x*100)/100; };
+    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=fgSetNW;   /* M1 08.08.2026: eine Setzfunktion statt fuenf Kopien - sie setzt _fgDirty.makro mit */
     var ne=document.getElementById("fe_name"); if(ne&&v.name&&!ne.value) ne.value=v.name;
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     var vz=document.getElementById("fe_verzehr"); if(vz&&v.verzehrempfehlung&&!vz.value) vz.value=v.verzehrempfehlung;
@@ -18270,7 +18314,7 @@ async function fgPullEtikett(files, b64arr){
     var r=await fetch(client.supabaseUrl+"/functions/v1/riki-etikett",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},body:JSON.stringify({bilder:bilder, ean:ean||undefined, modell:RIKI_LESE_MODELL})});
     var d=await r.json();
     if(!r.ok||d.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent=d.error||"Riki konnte das Etikett nicht lesen."; } return; }
-    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=function(id,x){ var e=document.getElementById(id); if(e&&x!=null&&isFinite(x) && !(window._fgNurLeer && String(e.value).trim()!=="")) e.value=Math.round(x*100)/100; };
+    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=fgSetNW;   /* M1 08.08.2026: eine Setzfunktion statt fuenf Kopien - sie setzt _fgDirty.makro mit */
     var ne=document.getElementById("fe_name"); if(ne&&v.name&&!ne.value) ne.value=v.name;
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
@@ -18356,7 +18400,7 @@ async function fgPullUsda(){
     var d=await r.json();
     if(d.fehler){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="USDA: "+d.fehler; } return; }
     if(!d.gefunden){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent="Kein USDA-Treffer für „"+q+"\" – USDA kennt nur generische, englische Namen."; } return; }
-    var n=d.naehrwerte||{}, sv=function(id,x){ var e=document.getElementById(id); if(e&&x!=null&&isFinite(x) && !(window._fgNurLeer && String(e.value).trim()!=="")) e.value=Math.round(x*100)/100; };
+    var n=d.naehrwerte||{}, sv=fgSetNW;   /* M1 08.08.2026: eine Setzfunktion statt fuenf Kopien - sie setzt _fgDirty.makro mit */
     sv("fe_kcal",n.kcal); sv("fe_protein",n.protein); sv("fe_kh",n.kh); sv("fe_zucker",n.zucker); sv("fe_fett",n.fett); sv("fe_ges_fett",n.ges_fett); sv("fe_ballaststoffe",n.ballaststoffe); sv("fe_salz",n.salz); _fgBallastAutoND();
     var qt=document.getElementById("fe_quelle_typ"); if(qt) qt.value="USDA FoodData Central";
     feBelegAdd("USDA FoodData Central: "+(d.name||q)+(d.fdc_id?(" (FDC "+d.fdc_id+")"):""));
@@ -22925,7 +22969,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1731";
+const APP_BUILD = "2026-08-08-1915";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
