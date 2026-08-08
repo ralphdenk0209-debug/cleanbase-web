@@ -5398,6 +5398,28 @@ function pePasst(p, ohneSpalte, ohneChip){
   var q=((document.getElementById('peSuche')||{}).value||'').trim().toLowerCase();
   var chipf=ohneChip ? 'alle' : (window._peChip||'alle');
   var katf=((document.getElementById('peVorKat')||{}).value||'').trim();
+  /* ===== 08.08.2026, Ralph: Scan-Zeilen dürfen NIE weggefiltert werden =====
+     "die müssen immer angezeigt werden, egal welcher filter aktiv ist."
+     Eine Scan-Zeile ist kein Produkt mit Eigenschaften, sondern ein EINGANG, der
+     abgearbeitet werden muss. Ein Filter über Produktzustände (Status, Quelle,
+     Kategorie, Marke, Chips, Spaltenfilter) darf ihn nicht verstecken.
+
+     Warum sie vorher verschwanden - der eigentliche Fehler: Die Werteliste des
+     Spaltenfilters kommt aus cb_erfassung_spaltenwerte, also aus v_erfassung_katalog.
+     Dort gibt es KEINE Scan-Zeilen (die stammen aus Scan_Cache). Der Wert 'Scan'
+     stand deshalb nie in der Häkchenliste, konnte nie angehakt werden - und die
+     Zeile fiel durch, sobald irgendein Spaltenfilter aktiv war.
+
+     Ausnahme mit Absicht: die SUCHE wirkt weiter (unten, nach diesem Block). Wer
+     einen Produktnamen eintippt, will dieses Produkt sehen und nicht zusätzlich
+     vierzig unbeteiligte Scan-Zeilen. Serverseitig gilt dasselbe (cb_erfassung_liste).
+     Der Chip 'scan' zeigt weiterhin NUR Scans - das ist kein Wegfiltern, sondern
+     die umgekehrte Richtung, deshalb steht er vor der Ausnahme. */
+  if(peIstScan(p)){
+    if(chipf==='scan') return true;
+    if(!q) return true;
+    return (String(p.name||'')+' '+String(p.marke||'')+' '+String(p.id||'')+' '+String(p.ean||'')+' '+String(p.kategorie||'')).toLowerCase().indexOf(q)>=0;
+  }
   if(katf && String(p.kategorie||'')!==katf) return false;
   if(window._peBrandOff && p.marke && window._peBrandOff[String(p.marke)]) return false;   /* abgewählte Marke ausblenden (Ralph 24.07.) */
   if(window._peHideMarken && p.marke && /oetker|gustavo|wagner/i.test(String(p.marke))) return false;   /* Werbe-Marken ausblenden (Ralph 25.07.) */
@@ -5453,7 +5475,13 @@ function peChipRowsHtml(){
   /* Reihe 2 zaehlt ueber dieselbe Menge wie die Liste - aber ohne den Chip selbst,
      sonst zeigte jeder nicht gewaehlte Chip 0 und man kaeme nie wieder heraus
      (das waere die Einbahnstrasse aus §1.11n-nn). */
-  var rws=(window._peRows||[]).filter(function(p){ return pePasst(p, null, true); });
+  /* 08.08.2026: Scan-Zeilen zaehlen hier NICHT mit. Seit sie von jedem Filter
+     ausgenommen sind (pePasst), waeren sie sonst in jeder Zahl der zweiten Reihe
+     drin - "Ohne Quelle" haette schlagartig 40 mehr gezeigt, obwohl eine Scan-Zeile
+     gar keine Quelle haben KANN. Die Chips zaehlen Produktzustaende, und ein Scan
+     ist kein Produkt (§3.4: eine Zahl, die etwas anderes zaehlt als ihr Text sagt,
+     ist eine falsche Zahl). Der eigene Chip "Scan-Eingang" zaehlt sie weiterhin. */
+  var rws=(window._peRows||[]).filter(function(p){ return !peIstScan(p) && pePasst(p, null, true); });
   var chip=function(k,txt,n,nurSeite){
     /* Ein Chip mit 0 bleibt sichtbar, wird aber blass - sonst springt die Leiste bei
        jedem Filterwechsel um und man sucht einen Chip, der nur leer ist. */
@@ -22456,7 +22484,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1010";
+const APP_BUILD = "2026-08-08-1030";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
