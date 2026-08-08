@@ -13692,7 +13692,25 @@ function fmMikroRender(){
      alles neu zeichnen, was davon abhaengt). */
   try{ feNaehrKachelnSync(); }catch(e){}
   var box=document.getElementById('fm_mikroRows'); if(!box) return; var arr=window._fmMikro||[];
-  box.innerHTML = arr.length ? arr.map(function(m){ return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="flex:1;min-width:0">'+esc(m.anzeige||m.form||m.naehrstoff)+(m.form&&m.form!==m.naehrstoff?'<span style="color:var(--muted);font-size:11px"> \u00b7 z\u00e4hlt als '+esc(m.naehrstoff)+'</span>':'')+'</span><span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span><span style="font-size:10.5px;color:var(--muted)">'+esc(m.quelle||'')+'</span><button type="button" onclick="fmMikroDel(\''+esc(String(m.naehrstoff).replace(/'/g,"\\'"))+'\',\''+esc(String(m.form||'').replace(/'/g,"\\'"))+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">\u2715</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine \u2013 unten hinzuf\u00fcgen (z.\u202fB. Jod, Selen, Fluorid)</span>';
+  /* Herkunft je Zeile (Entscheidung 8, Ralph 08.08.2026, Weg A). Anlass: Die Karte hiess
+     "vom Etikett deklariert" und zeigte 16.337 von 16.354 Zeilen aus BLS-Ableitung.
+     Die Klassifizierung kommt aus cb_produkt_mikro_liste (m.herkunft) und wird hier NUR
+     angezeigt, nicht neu berechnet (§4.2 eine Regel, ein Ort). Wer hier eine eigene
+     Praefix-Pruefung einbaut, erzeugt die zweite Kopie, die §17 verbietet. */
+  var kopf=(function(){ if(!arr.length) return '';
+    var e=0,a=0,u=0; arr.forEach(function(m){ if(m.herkunft==='etikett')e++; else if(m.herkunft==='abgeleitet')a++; else u++; });
+    return '<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted);padding:0 0 5px 0;border-bottom:1px solid var(--line);margin-bottom:4px">'
+      +'<span><b style="color:var(--k-166534)">'+e+'</b> vom Etikett</span>'
+      +'<span><b>'+a+'</b> abgeleitet</span>'
+      +(u?'<span style="color:var(--k-dc2626)"><b>'+u+'</b> Quelle unklar</span>':'')+'</div>'; })();
+  box.innerHTML = arr.length ? kopf+arr.map(function(m){
+    var hk=m.herkunft||'unbekannt';
+    var chip = hk==='etikett'
+      ? '<span title="Auf der Packung deklariert. Quelle: '+esc(m.quelle||'')+'" style="border:1px solid var(--k-bcd9be);background:var(--k-ecfdf5);color:var(--k-166534);border-radius:99px;padding:1px 7px;font-size:10px;white-space:nowrap">Etikett</span>'
+      : hk==='abgeleitet'
+      ? '<span title="Aus dem Nachschlagewerk uebernommen \u2013 KEIN Produktbeleg (\u00a78.3). Quelle: '+esc(m.quelle||'')+(m.herkunft_detail?' \u00b7 '+esc(m.herkunft_detail):'')+'" style="border:1px dashed var(--line);color:var(--muted);border-radius:99px;padding:1px 7px;font-size:10px;white-space:nowrap">abgeleitet</span>'
+      : '<span title="Quellenart steht nicht in der Positivliste (\u00a73.3): '+esc(m.quelle||'(leer)')+'" style="border:1px solid var(--k-dc2626);color:var(--k-dc2626);border-radius:99px;padding:1px 7px;font-size:10px;white-space:nowrap">Quelle unklar</span>';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px'+(hk==='etikett'?'':';opacity:.72')+'"><span style="flex:1;min-width:0">'+esc(m.anzeige||m.form||m.naehrstoff)+(m.form&&m.form!==m.naehrstoff?'<span style="color:var(--muted);font-size:11px"> \u00b7 z\u00e4hlt als '+esc(m.naehrstoff)+'</span>':'')+'</span><span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span>'+chip+'<button type="button" onclick="fmMikroDel(\''+esc(String(m.naehrstoff).replace(/'/g,"\\'"))+'\',\''+esc(String(m.form||'').replace(/'/g,"\\'"))+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">\u2715</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine \u2013 unten hinzuf\u00fcgen (z.\u202fB. Jod, Selen, Fluorid)</span>';
 }
 function fmMikroStoffChange(){ var sel=document.getElementById('fm_mikroStoff'), u=document.getElementById('fm_mikroEinheit'); if(!sel||!u) return; var o=sel.options[sel.selectedIndex]; u.textContent=(o&&o.getAttribute('data-einheit'))||'mg'; }
 async function fmMikroAdd(){
@@ -15845,7 +15863,7 @@ async function openFgEditor(id, prefill, targetEl){
           </div>
         </div>
     <div id="fe_naehrKacheln" style="margin-top:10px"></div>
-  <div id="fe_mikroWrap" style="display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span class="feKartenZusatz">– vom Etikett deklariert (Jod, Selen, Fluorid …)</span>`,`<div class="feMikroHinweis" title="Deklarierte Mineralstoffe/Vitamine je 100 g (z. B. jodiertes/fluoridiertes Salz) – fließen in die Nährstoff-Übersicht wie beim Wasser.">Deklarierte Werte <b>pro 100 g</b> · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none"></div><div id="fm_mikroRows" ><span class="feMikroLaedt">lädt…</span></div><div class="feMikroAddZeile"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" ><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" ><span id="fm_mikroEinheit" >mg</span><button type="button" onclick="fmMikroAdd()" class="feMikroBtn">+ setzen</button></div><div id="fm_mikroMsg" style="color:var(--muted)"></div><div class="feUsdaZeile"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" ><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" class="feUsdaBtn">🔎 USDA</button></div><div id="fm_usdaErg" ></div>`)}</div>
+  <div id="fe_mikroWrap" style="display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span class="feKartenZusatz">– je 100 g, Herkunft je Zeile</span>`,`<div class="feMikroHinweis" title="Mineralstoffe/Vitamine je 100 g. ETIKETT = auf der Packung deklariert. ABGELEITET = aus dem BLS-/USDA-Nachschlagewerk übernommen, also KEIN Beleg für DIESES Produkt (CLAUDE.md §3.2, §8.3). Bis 08.08.2026 hieß die Karte „vom Etikett deklariert“ – falsch: 16.337 von 16.354 Zeilen sind abgeleitet.">Werte <b>pro 100 g</b> · Herkunft je Zeile · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none"></div><div id="fm_mikroRows" ><span class="feMikroLaedt">lädt…</span></div><div class="feMikroAddZeile"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" ><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" ><span id="fm_mikroEinheit" >mg</span><button type="button" onclick="fmMikroAdd()" class="feMikroBtn">+ setzen</button></div><div id="fm_mikroMsg" style="color:var(--muted)"></div><div class="feUsdaZeile"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" ><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" class="feUsdaBtn">🔎 USDA</button></div><div id="fm_usdaErg" ></div>`)}</div>
   </div>
   <div id="feNwFotoSlot">
             <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span class="feKartenZusatz">(zoombar – Mausrad / ziehen)</span>`,`
@@ -22360,7 +22378,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-0610";
+const APP_BUILD = "2026-08-08-0740";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
