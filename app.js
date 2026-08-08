@@ -14748,6 +14748,15 @@ function feBioPrefill(d){
   sel.value=(b===true)?"ja":((b===false)?"nein":"");
   window._fgBioQuelle=(d&&(d.bio_quelle||d.Bio_Quelle))||"";
   feBioHint();
+  /* M2 a2b: den BERECHNETEN Wert merken, bevor Ralph ihn ueberschreibt. Nur so kann der
+     Hinweis auch bei manueller Setzung sagen, was die Automatik rechnen wuerde.
+     Beim Oeffnen mit Herkunft=automatik IST der gespeicherte Wert der berechnete. */
+  try{
+    window._fgEdit = window._fgEdit || {};
+    window._fgEdit.ernaehrAuto = (d && String(d.ernaehrungsform_herkunft||"automatik")!=="manuell")
+      ? (d.ernaehrungsform||"") : "";
+    feErnaehrHint();
+  }catch(e){}
 }
 /* Ralph 30.07.2026: "auf der Produkt-erfassen-Karte soll ich das auch aktivieren koennen,
    Schieberegler". Ein klassischer An/Aus-Schieberegler kann nur ZWEI Zustaende - er wuerde
@@ -14797,6 +14806,26 @@ function feBioHint(){
   else { h.textContent="Merkmal und Filter, keine Punkte im Index."; h.style.color="var(--muted)"; }
 }
 function feBioChange(){ window._fgBioQuelle="Etikett"; feBioHint(); }
+
+/* M2 a2b: der Hinweis unter dem Ernaehrungsform-Feld. Er sagt IMMER, WER den Wert gesetzt hat -
+   sonst sieht ein berechneter Wert aus wie ein gepruefter (§5.3, §10.2 "serverseitige Gruende
+   vollstaendig anzeigen"). Der berechnete Wert wird beim Oeffnen gemerkt, damit die Automatik
+   auch dann benannt werden kann, wenn Ralph gerade von Hand ueberschreibt. */
+function feErnaehrHint(){
+  var sel=document.getElementById("fe_ernaehr"), h=document.getElementById("fe_ernaehrHint");
+  if(!sel||!h) return;
+  var auto=(window._fgEdit&&window._fgEdit.ernaehrAuto)||"";
+  if(String(sel.value||"")===""){
+    h.innerHTML = auto
+      ? ("Automatik: <b>"+esc(auto)+"</b> – aus den <b>gebundenen</b> Zutaten gerechnet. "
+        +"Steht eine tierische Zutat nicht im Stamm, wird sie nicht gebunden und fehlt in dieser Rechnung.")
+      : "Wird beim Speichern aus den gebundenen Zutaten berechnet.";
+  }else{
+    h.innerHTML = "<b>Von dir gesetzt</b> – überschreibt die Automatik dauerhaft"
+      + (auto?(", die hier <b>"+esc(auto)+"</b> rechnet"):"")
+      + ". Zum Widerrufen wieder auf „↺ automatisch berechnen“ stellen.";
+  }
+}
 if(typeof window!=="undefined"){ window.feBioPrefill=feBioPrefill; window.feBioHint=feBioHint; window.feBioChange=feBioChange; window.feBioSw=feBioSw; window.feBioSwRender=feBioSwRender; }
 /* Riki-Vorbelegung: liest Riki eine Naehrwert-Basis vom Etikett/der Herstellerseite,
    wird die Auswahl vorbelegt - aber NUR wenn noch nichts gesetzt ist. Ein bereits vom
@@ -16224,6 +16253,22 @@ async function openFgEditor(id, prefill, targetEl){
           <div class="mz mz-2"><k>Bio / Öko</k>
             <select id="fe_bio" onchange="feBioChange()" class="feVersteckt"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select>
             <div id="fe_bioSw" title="Trägt das Produkt eine Bio-Kennzeichnung nach EU-Öko-Verordnung 2018/848? Merkmal und Filter – es gibt KEINE Punkte im Index (Prinzip 4)."></div>
+          </div>
+          ${''/* M2 a2b, 08.08.2026 (Ralph: "ich habe keinen Schalter auf der Produkterfassen-Seite
+                 fuer vegan, vegetarisch, tierisch"). Bis hierhin rechnete die Automatik allein und
+                 niemand konnte sie ueberstimmen - §5.3 verlangt aber, dass eine manuelle
+                 Entscheidung die Automatik schlaegt. Belegt an 6 aktiven Produkten, die auf
+                 "vegan" standen und tierische Zutaten fuehren.
+                 Die leere Auswahl ist KEIN Loeschen, sondern der Widerruf: sie gibt an die
+                 Automatik zurueck, die sofort neu rechnet (cb_produkt_ernaehrungsform_setzen). */}
+          <div class="mz mz-2"><k>Ernährungsform</k>
+            <select id="fe_ernaehr" onchange="feErnaehrHint()" class="fld">
+              <option value=""${(d.ernaehrungsform_herkunft!=="manuell")?" selected":""}>↺ automatisch berechnen</option>
+              <option value="vegan"${(d.ernaehrungsform_herkunft==="manuell"&&d.ernaehrungsform==="vegan")?" selected":""}>vegan</option>
+              <option value="vegetarisch"${(d.ernaehrungsform_herkunft==="manuell"&&d.ernaehrungsform==="vegetarisch")?" selected":""}>vegetarisch</option>
+              <option value="enthält Tierprodukte"${(d.ernaehrungsform_herkunft==="manuell"&&d.ernaehrungsform==="enthält Tierprodukte")?" selected":""}>enthält Tierprodukte</option>
+            </select>
+            <div id="fe_ernaehrHint" class="mzHint"></div>
           </div>
           <div class="mz mz-4"><k>Verzehrempfehlung / Tagesdosis</k>${inp("fe_verzehr",d.dosis_text||"")}
             <div class="mzHint" title="Worauf sich die Werte beziehen – z. B. „2 Kapseln pro Tag“, „1 Portion = 6 g“. Bei Nahrungsergänzung wichtig: Der EFSA-Grenzwert ist ein Tageswert; ohne diese Angabe weiß niemand, worauf sich die Prozente beziehen. Leer lassen, wenn nichts angegeben ist.">z. B. „2 Kapseln pro Tag“ · bei Supplements wichtig (EFSA = Tageswert) · leer = nicht angegeben</div>
@@ -18539,6 +18584,17 @@ async function fgEditSave(alsoFreigeben){
       var _r4=await client.rpc("cb_produkt_bio_setzen",{p_id:pid, p_bio:_bio, p_quelle:(_bio===null)?null:(window._fgBioQuelle||"Etikett")});
       if(_r4&&_r4.error) throw _r4.error;
     }catch(e){ _fehler.push("Bio: "+((e&&e.message)||e)); }
+    /* Ernaehrungsform - M2 a2b, 08.08.2026. Eigener enger Schreibweg nach demselben Muster
+       wie Bio (§22: cb_produkt_ingest bewusst NICHT angefasst).
+       Leere Auswahl heisst WIDERRUF, nicht "loeschen": die RPC gibt an die Automatik zurueck
+       und rechnet im selben Zug neu - es bleibt also nie ein leeres Feld stehen (§5.4).
+       Der Aufruf ist idempotent, deshalb wird er immer gesendet; ein unveraenderter Wert
+       schreibt sich selbst neu und aendert nichts. */
+    try{
+      var _efV=(g("fe_ernaehr")&&g("fe_ernaehr").value||"").trim();
+      var _r4b=await client.rpc("cb_produkt_ernaehrungsform_setzen",{p_id:pid, p_form:_efV||null});
+      if(_r4b&&_r4b.error) throw _r4b.error;
+    }catch(e){ _fehler.push("Ernährungsform: "+((e&&e.message)||e)); }
     /* Vermerk „Ballaststoffe laut Etikett nicht angegeben" (Ralph 22.07.): setzt nur den Marker,
        der Wert bleibt 0 (Score unverändert) – der n6-Wächter meldet das Produkt dann nicht mehr. */
     try{
@@ -22969,7 +23025,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1915";
+const APP_BUILD = "2026-08-08-2045";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
