@@ -14559,32 +14559,52 @@ function fgZutSammelUebernehmen(){
           return;
         }
         var rr=res.data.rating;
-        gut.push(w.it.name);
-        if(typeof ZUTATEN_MAP!=="undefined"&&ZUTATEN_MAP){ ZUTATEN_MAP[w.it.name.toLowerCase()]={rating:rr,kritisch:"nein"}; }
-        if(Array.isArray(ZUTATEN_STAMM)){
+        /* 🔴 08.08.2026, Korrektur noch am selben Tag: NICHT den eingetippten Namen weiter-
+           verwenden, sondern den, den der SERVER zurueckgibt. cb_zutat_geprueft_anlegen
+           antwortet auch dann ok, wenn es die Zutat laengst gibt (status VORHANDEN) - ueber
+           exakten Namen, Normalform ODER Synonym. Belegter Fall: "Blattspinat" trifft per
+           Synonym den Eintrag "Blattspinat (Bio)". Mit dem Eingabenamen weiterzuarbeiten
+           haette einen Eintrag in die Browser-Stammliste geschrieben, den die Datenbank gar
+           nicht hat - ein Phantom, das beim naechsten Laden verschwindet. Genau der
+           Fehlertyp aus §0.4: eine Antwort mit unvollstaendiger Sicht fuer die Wahrheit nehmen. */
+        var kanon=(res.data.name||w.it.name), kkey=kanon.toLowerCase();
+        var warNeu=(res.data.neu!==false);
+        gut.push(kanon + (kkey!==w.it.name.toLowerCase() ? (' (als „'+w.it.name+'" erkannt)') : '')
+                       + (warNeu?'':' – gab es schon'));
+        if(typeof ZUTATEN_MAP!=="undefined"&&ZUTATEN_MAP){
+          ZUTATEN_MAP[kkey]={rating:rr,kritisch:"nein"};
+          /* Schreibweise vom Etikett ebenfalls merken, damit die Pickliste sie nicht
+             erneut als "nicht im Stamm" fuehrt - kanonisch bleibt der Servername. */
+          if(kkey!==w.it.name.toLowerCase()) ZUTATEN_MAP[w.it.name.toLowerCase()]={rating:rr,kritisch:"nein",kanon:kanon};
+        }
+        if(Array.isArray(ZUTATEN_STAMM) && !ZUTATEN_STAMM.some(function(z){ return String(z&&z.name||"").trim().toLowerCase()===kkey; })){
           /* einsortieren statt anhaengen - der Picker uebernimmt die alphabetische
              Reihenfolge des Stamms (wie fgPickRikiUebernehmen, Ralph 27.07.) */
-          var neu={name:w.it.name, rating:rr, kritisch:"nein", kategorie:w.kat};
-          var pos=ZUTATEN_STAMM.findIndex(function(z){ return String(z&&z.name||"").localeCompare(String(w.it.name||""),"de")>0; });
+          var neu={name:kanon, rating:rr, kritisch:"nein", kategorie:w.kat};
+          var pos=ZUTATEN_STAMM.findIndex(function(z){ return String(z&&z.name||"").localeCompare(kanon,"de")>0; });
           if(pos<0) ZUTATEN_STAMM.push(neu); else ZUTATEN_STAMM.splice(pos,0,neu);
           var dl=document.getElementById("fgZutDL");
-          if(dl){ var op=document.createElement("option"); op.value=w.it.name; dl.appendChild(op); }
+          if(dl){ var op=document.createElement("option"); op.value=kanon; dl.appendChild(op); }
         }
-        /* Bestehende Zeile in #fe_zutRows bekommt den Wert - die BINDUNG selbst bleibt
-           unangetastet, die Zeile war ja schon da (§5.5). */
+        /* Bestehende Zeile in #fe_zutRows bekommt den Wert. Weicht der Stammname von der
+           Etikettschreibweise ab, wird die Zeile auf den KANONISCHEN Namen gesetzt - sonst
+           sucht die Bindung beim Speichern einen Stammnamen, den es nicht gibt (28z7, gleiche
+           Regel wie fgPickAddNeu). Die Bindung selbst wird nicht angefasst (§5.5). */
         var c=document.getElementById("fe_zutRows"), key=w.it.name.toLowerCase();
         if(c) [].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){
-          if(((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()!==key) return;
+          var ni=r.querySelector(".fgzName");
+          if(((ni&&ni.value)||"").trim().toLowerCase()!==key) return;
+          if(ni && kkey!==key) ni.value=kanon;
           var rate=r.querySelector(".fgzRate"); if(rate){ rate.value=rr; rate.style.color="var(--ink)"; }
           var rb=r.querySelector(".fgzRiki"); if(rb) rb.style.display="none";
         });
         try{
           if(window._fgRefV2&&window._fgRefV2.d&&typeof fgRefV2NachNeuanlage==="function"){
-            var el=(typeof _fgRefV2ElByName==="function")?_fgRefV2ElByName(w.it.name):null;
+            var el=(typeof _fgRefV2ElByName==="function")?_fgRefV2ElByName(kanon):null;
             var unter=(typeof _fgRefV2IstUnterzutat==="function")&&_fgRefV2IstUnterzutat(el);
-            fgRefV2NachNeuanlage(w.it.name, unter);
+            fgRefV2NachNeuanlage(kanon, unter);
           }
-        }catch(e){ schlecht.push(w.it.name+": Referenzansicht nicht nachgezogen ("+((e&&e.message)||"")+")"); }
+        }catch(e){ schlecht.push(kanon+": Referenzansicht nicht nachgezogen ("+((e&&e.message)||"")+")"); }
       }, function(e){ schlecht.push(w.it.name+": "+((e&&e.message)||"Fehler beim Anlegen")); });
     });
   }, Promise.resolve()).then(function(){
@@ -22802,7 +22822,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1130";
+const APP_BUILD = "2026-08-08-1155";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
