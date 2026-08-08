@@ -17605,6 +17605,36 @@ async function fgPullHersteller(){
    Ergebnis ist ein VORSCHLAG in einem ENTWURF – du prüfst und gibst frei. */
 function fgResearchPick(){ var f=document.getElementById("fe_researchFile"); if(f){ f.value=""; f.click(); } }
 function _fileZuBase64(file){ return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(){ res(String(r.result)); }; r.onerror=function(){ rej(r.error); }; r.readAsDataURL(file); }); }
+/* 08.08.2026 (Ralphs Pruefauftrag: "schau nochmal, ob alle bilder und screenshots die dann
+   riki liest auch im produkt gespeichert werden"). Der Befund stimmte: fgPullEtikett und
+   fgPullResearch haben ZWEI Zweige. Der b64arr-Zweig (Strg+V, Kundenfoto) hatte einen
+   Anhaenger davor, der files-Zweig (Datei/Kamera) NICHT - das per Datei hochgeladene
+   Etikettfoto ging an Riki und war danach weg. Der Beleg verschwand also genau dann,
+   wenn er als Datei kam.
+
+   Jetzt haengen BEIDE Zweige ueber diese eine Funktion an; fgEditSave sichert die Differenz
+   spaeter ueber cb_foto_vormerken. Angehaengt wird VOR dem Riki-Aufruf - nach dem Vorbild der
+   Barcode-Etikett-Erfassung ("Fotos IMMER speichern, auch wenn Riki gleich scheitert").
+   Ein Ort, eine Regel (§4.2) - fePasteImg ruft dieselbe Funktion, statt sie zu kopieren.
+   Idempotent: schon vorhandene Bilder werden nicht doppelt eingehaengt, deshalb ist der
+   Aufruf auch aus fgUseKundenfoto heraus gefahrlos. */
+function _fgEtikettAnhaengen(bilder){
+  try{
+    if(!Array.isArray(bilder) || !bilder.length) return 0;
+    window._fgEdit = window._fgEdit || {};
+    if(!Array.isArray(window._fgEdit.etikett)) window._fgEdit.etikett = [];
+    var ziel = window._fgEdit.etikett, neu = 0;
+    bilder.slice().forEach(function(b){
+      if(b && ziel.indexOf(b) < 0){ ziel.push(b); neu++; }
+    });
+    if(neu && typeof fgEtikettRender === "function") fgEtikettRender();
+    return neu;
+  }catch(e){
+    console.error("[Editor] Bild konnte nicht an das Produkt angehaengt werden:", e);
+    return 0;
+  }
+}
+if(typeof window!=='undefined') window._fgEtikettAnhaengen=_fgEtikettAnhaengen;
 async function fgPullResearch(files, b64arr){
   var msg=document.getElementById("fe_pullMsg");
   var list=files?Array.prototype.slice.call(files,0,3):[];
@@ -17615,6 +17645,7 @@ async function fgPullResearch(files, b64arr){
     var bilder=(b64arr&&b64arr.length)?b64arr.slice(0,3):await Promise.all(list.map(_fileZuBase64));
     bilder=bilder.filter(function(b){ return /^data:image\//.test(b); });
     if(!bilder.length){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bild konnte nicht gelesen werden."; } return; }
+    _fgEtikettAnhaengen(bilder);   /* 08.08.: Beleg sichern, BEVOR Riki liest (§19.4) */
     var ean=((document.getElementById("fe_ean")||{}).value||"").trim();
     var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
     var r=await fetch(client.supabaseUrl+'/functions/v1/riki-research',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({bilder:bilder, ean:ean||undefined, modell:RIKI_LESE_MODELL})});
@@ -17654,10 +17685,9 @@ function fePasteImg(ev){
     if(ev.preventDefault) ev.preventDefault();
     var zone=document.getElementById("fe_pasteZone"); if(zone) zone.innerHTML='📋 Bild übernommen – Riki liest…';
     Promise.all(files.slice(0,3).map(_fileZuBase64)).then(function(b64){
-      try{ window._fgEdit=window._fgEdit||{}; window._fgEdit.etikett=window._fgEdit.etikett||[];
-        b64.forEach(function(bb){ if(bb && window._fgEdit.etikett.indexOf(bb)<0) window._fgEdit.etikett.push(bb); });
-        if(typeof fgEtikettRender==="function") fgEtikettRender();
-      }catch(e){ console.error("[Editor] eingefuegtes Bild konnte nicht angehaengt werden:", e); }
+      /* 08.08.: eigene Anhaenge-Kopie entfernt - dieselbe Regel lag hier ein zweites Mal (§4.2).
+         _fgEtikettAnhaengen ist idempotent, fgPullEtikett ruft sie ohnehin gleich noch einmal. */
+      _fgEtikettAnhaengen(b64);
       fgPullEtikett([], b64);   /* Screenshot wird jetzt zusaetzlich als angehaengtes Foto gemerkt (Ralph 25.07.) */
     });
   }catch(e){ try{console.log("fePasteImg:",e);}catch(_){} }
@@ -17676,6 +17706,7 @@ async function fgPullEtikett(files, b64arr){
     var bilder=(b64arr&&b64arr.length)?b64arr.slice(0,3):await Promise.all(list.map(_fileZuBase64));
     bilder=bilder.filter(function(b){ return /^data:image\//.test(b); });
     if(!bilder.length){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bild konnte nicht gelesen werden."; } return; }
+    _fgEtikettAnhaengen(bilder);   /* 08.08.: Beleg sichern, BEVOR Riki liest (§19.4) */
     var ean=((document.getElementById("fe_ean")||{}).value||"").trim();
     var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
     var r=await fetch(client.supabaseUrl+"/functions/v1/riki-etikett",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},body:JSON.stringify({bilder:bilder, ean:ean||undefined, modell:RIKI_LESE_MODELL})});
@@ -22329,7 +22360,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-07-2140";
+const APP_BUILD = "2026-08-08-0610";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
