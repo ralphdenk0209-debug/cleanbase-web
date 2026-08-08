@@ -949,6 +949,11 @@ body{ --admin-oben:64px }
 #feVorgangAmpel .rWarn  { color:var(--k-b45309); white-space:nowrap }
 #fe_riegel .rWarnF,
 #feVorgangAmpel .rWarnF { color:var(--k-b45309); white-space:nowrap; font-weight:600 }
+/* 08.08.2026 (Punkt 10b): "bewusst ohne" - z. B. ein Produkt ohne Barcode. Weder gruen
+   (da fehlt nichts Erledigtes) noch gelb (es ist kein offener Punkt): jemand hat
+   entschieden. Gleiche Farbe wie die blaue Punkt-Spalte in der Produktliste. */
+#fe_riegel .rBlau,
+#feVorgangAmpel .rBlau  { color:var(--frg-blau); white-space:nowrap; font-weight:600 }
 #fe_riegel .rRot,
 #feVorgangAmpel .rRot   { color:var(--k-b91c1c,#b91c1c); font-weight:600; white-space:nowrap }
 #fe_riegel .rGrau,

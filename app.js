@@ -15645,7 +15645,11 @@ async function openFgEditor(id, prefill, targetEl){
                       Bewusst nicht der Live-Wert aus der Flux-Vorschau: beim Anlegen gibt es
                       keinen, und dann soll das Fenster gar nichts behaupten. */
                    score:(d.clean_score!=null?Number(d.clean_score):null),
-                   ean_status:String(d.ean_status||d.EAN_Status||"") };
+                   ean_status:String(d.ean_status||d.EAN_Status||""),
+                   /* 08.08.2026: kommt aus cb_ean_ampel ueber cb_produkt_edit_get.
+                      Bis heute lieferte die RPC nicht einmal ean_status - das Feld
+                      oben war deshalb IMMER leer, der Haken nie vorbelegt. */
+                   ean_ampel:String(d.ean_ampel||"") };
   /* Riki-Referenz (rechte Box): beim Öffnen zuerst die in DIESER Sitzung gemerkte Referenz nehmen
      (überlebt Speichern→Neuöffnen, Ralph 21.07.2026) – so bleiben auch die orangen „noch nicht
      übernommen"-Einträge erhalten. Sonst aus der gespeicherten Zutatenliste vorbelegen. Neue
@@ -15824,7 +15828,7 @@ async function openFgEditor(id, prefill, targetEl){
         <div class="mzr">
           <div class="mz mz-2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…"></div>
           <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" class="fld" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842"></div>
-          <div class="mz"><k>EAN-Status</k><label class="mzCheck"><input type="checkbox" id="fe_ean_offen" ${/offen|kein/i.test(String(d.ean_status||d.EAN_Status||""))?"checked":""} onchange="try{fePlaus()}catch(e){}">kein EAN – als „offen“ markieren</label></div>
+          <div class="mz"><k>EAN-Status</k><label class="mzCheck"><input type="checkbox" id="fe_ean_offen" ${String(d.ean_ampel||"")==="blau"?"checked":""} onchange="try{fePlaus()}catch(e){}">kein EAN – als „offen“ markieren</label></div>
           <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
           <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
           <div class="mz"><k>Unterkategorie</k><input id="fe_ukat" class="fld" value="${esc(d.unterkategorie||"")}" placeholder="nicht erfasst"></div>
@@ -16295,13 +16299,27 @@ function feReqBorders(){
   };
   mark("fe_name"); mark("fe_kat"); mark("fe_quelle_typ");
 }
+/* 08.08.2026 (Punkt 10b): Die Frage "zaehlt dieses Produkt als bewusst ohne Barcode?"
+   beantwortet die Datenbank - cb_ean_ampel, gelesen ueber cb_produkt_edit_get als
+   d.ean_ampel. Hier wird sie NICHT nachgebaut (§4.2). Vorher stand die Regel an zwei
+   Orten und urteilte verschieden: die Liste zaehlte 'generisch' als bewusst ohne, der
+   Editor nicht - 747 Produkte standen dort falsch rot.
+   Fallback nur, wenn die Ampel fehlt (alter Cache, Produkt noch nicht gespeichert):
+   dann gilt die alte, engere Pruefung - lieber zu streng als still falsch. */
+function feEanBewusstOhne(){
+  var a=String((window._fgEdit&&window._fgEdit.ean_ampel)||"");
+  if(a) return a==="blau";
+  return /^(offen|generisch|kein_barcode)$/i.test(String((window._fgEdit&&window._fgEdit.ean_status)||""));
+}
+if(typeof window!=='undefined'){ window.feEanBewusstOhne=feEanBewusstOhne; }
 function feEanSync(){
   var e=document.getElementById("fe_ean"), o=document.getElementById("fe_ean_offen"); if(!e||!o) return;
-  var orig=String((window._fgEdit&&window._fgEdit.ean_status)||"").toLowerCase();
-  var legitOhne=(orig==="generisch"||orig==="kein_barcode");
   var empty=(((e.value||"").replace(/\D/g,"")).length<8);
-  if(empty){ if(!legitOhne) o.checked=true; }
-  else { o.checked=false; }
+  /* Leer + die DB kennt einen bewussten Grund -> Haken setzen, damit der Punkt nicht
+     rot steht. Leer ohne Grund -> ebenfalls Haken (der Admin hat gerade geleert).
+     Gefuellt -> Haken weg. */
+  if(empty) o.checked=true;
+  else o.checked=false;
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e2){}
 }
 /* Etikettfoto gross ansehen - beim Abtippen der Naehrwerte ist das der eigentliche Zweck. */
@@ -17026,7 +17044,11 @@ function fePlaus(){
       h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
       h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
       h+= qt ? ok("Quelle belegt") : no("Quelle-Typ fehlt");
-      h+= (_eanV||_eanOffen) ? ok(_eanV?"EAN erfasst":"EAN als offen markiert") : no("EAN fehlt – eintragen oder „offen“ ankreuzen");
+      /* 08.08.2026: "bewusst ohne Barcode" ist blau, nicht gruen - gleicher Farbcode wie
+         die Punkt-Spalte E in der Produktliste. Gruen heisst "erledigt", blau "entschieden". */
+      h+= _eanV ? ok("EAN erfasst")
+          : (_eanOffen ? '<span class="rBlau">&#9679; kein Barcode – bewusst ohne (blockiert die Freigabe nicht)</span>'
+                       : no("EAN fehlt – eintragen oder „offen“ ankreuzen"));
       /* Dubletten-Stand (Ralph 02.08.: "sehe ihn nicht in der Freigabe"). Der Wächter gab es
          seit 31.07., aber NUR als Chip in der Kopfzeile - und der erscheint ausschliesslich bei
          Treffern. Eine Zeile, die nur bei Problemen da ist, sieht aus wie "nicht geprüft".
@@ -17130,7 +17152,7 @@ function fePlaus(){
       _pi(zOhneNote>0?'r':'g', zOhneNote>0?(zOhneNote+(_istSupp?' Wirkstoff(e)/Zutat(en) unbewertet':' Zutat(en) unbewertet')):(_istSupp?'alle Wirkstoffe/Zutaten bewertet':'alle Zutaten bewertet'));
       _pi(qt?'g':'r', qt?'Quelle belegt':'Quelle-Typ fehlt', qt?'':'Quelle-Typ im Editor setzen');
       if(_eanV) _pi('g','EAN erfasst');
-      else if(_eanOffen) _pi('y','EAN als offen markiert','kein Barcode – blockiert die Freigabe nicht');
+      else if(_eanOffen) _pi('b','kein Barcode – bewusst ohne','blockiert die Freigabe nicht');
       else _pi('r','EAN fehlt','eintragen oder „offen" markieren');
       if(_istSupp){ if(_dosisLeer) _pi('y','Verzehrempfehlung fehlt','Bezug des Dosis-Checks – blockiert nicht'); else _pi('g','Verzehrempfehlung da'); }
       if(_istSupp){ if(_wCount>0) _pi('g',_wCount+' Wirkstoff-Menge(n) für Dosis-Check'); else if(_wNone) _pi('x','Wirkstoff-Mengen','bewusst ohne'); else _pi('r','Wirkstoff-Mengen fehlen','für den Dosis-Check'); }
@@ -17152,9 +17174,13 @@ function fePlaus(){
 /* 07.08.2026: bleibt DIE eine Farbquelle der Ampel (frgDots, frgList, feRailAmpel) -
    nur stehen die Werte jetzt in ui.css als --frg-gruen/-gelb/-rot. Gleiche Farben,
    aber an einem Ort, der sich ohne app.js aendern laesst und ein Theme kennt. */
-var _FRG_COL={g:'var(--frg-gruen)',y:'var(--frg-gelb)',r:'var(--frg-rot)'};
-var _FRG_IC={g:'✓',y:'!',r:'✕',x:'–'};
-var _FRG_PR={r:0,y:1,g:2,x:3};
+/* 08.08.2026: vierter Zustand "b" = bewusst ohne (blau). Reihenfolge in _FRG_PR:
+   rot zuerst, dann gelb (offen), dann blau und gruen (beide erledigt/entschieden),
+   zuletzt hohl. Blau steht vor gruen, damit eine bewusste Entscheidung sichtbar
+   bleibt und nicht zwischen lauter Haken untergeht. */
+var _FRG_COL={g:'var(--frg-gruen)',y:'var(--frg-gelb)',r:'var(--frg-rot)',b:'var(--frg-blau)'};
+var _FRG_IC={g:'✓',y:'!',r:'✕',x:'–',b:'●'};
+var _FRG_PR={r:0,y:1,b:2,g:3,x:4};
 function feFreigabeOpen(o){
   /* 28q (Ralph: "die seitenleiste kann weg"): Das ausfahrende Freigabe-Panel ist abgeschafft.
      Die Punkte stehen im Kopf-Chip, der Klartext im Streifen links, Speichern/Freigeben oben.
@@ -22430,7 +22456,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-0940";
+const APP_BUILD = "2026-08-08-1010";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
