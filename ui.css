@@ -871,6 +871,30 @@ body{ --admin-oben:64px }
 #feTab3 #fe_zutNeu{ flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink) }
 #feTab3 .feBtnStamm{ padding:7px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap }
 #feTab3 #fe_zutNeuInfo{ margin-top:6px }
+
+/* ---- Riki-Sammelweg (08.08.2026, Ralph-Entscheid Weg C zu FAHRPLAN 14) ----------------
+   Anlass: der Knopf "→ Riki" liegt in #fe_zutRows und ist durch .feVersteckt unerreichbar.
+   Statt ihn freizulegen (Weg B haette die alte Doppelliste zurueckgebracht) sitzt hier ein
+   Sammelknopf UEBER der Liste: alle Zeilen ohne Stamm-Treffer auf einmal einstufen lassen,
+   danach eine Ergebnisliste zum Durchsehen mit Haken UND Kategorie je Zeile.
+   Vorgehakt wird nur BESTAETIGT - PRUEFEN und AUSNAHME muss Ralph aktiv anhaken. */
+#feTab3 #fe_zutSammelLeiste{ flex:0 0 auto;margin-bottom:8px }
+#feTab3 .feSammelBtn{ width:100%;padding:8px 11px;border:1px solid var(--frg-rot,#c0392b);border-radius:8px;background:var(--card);color:var(--frg-rot,#c0392b);font-weight:700;font-size:12.5px;cursor:pointer;text-align:left }
+#feTab3 .feSammelBtn:disabled{ opacity:.6;cursor:default }
+#feTab3 #fe_zutSammelBox{ flex:0 0 auto }
+#feTab3 .feSammelKasten{ margin-bottom:8px;border:1px solid var(--line);border-left:3px solid var(--k-534ab7);border-radius:8px;background:var(--k-f2f5f3);padding:8px 9px;font-size:12px;line-height:1.5;color:var(--ink) }
+#feTab3 .feSammelKopf{ font-weight:700;font-size:12.5px;margin-bottom:6px }
+#feTab3 .feSammelHinweis{ color:var(--muted);font-size:11.5px;margin-bottom:7px }
+#feTab3 .feSammelZeile{ display:grid;grid-template-columns:18px 1fr;gap:7px;align-items:start;padding:6px 0;border-top:1px solid var(--line) }
+#feTab3 .feSammelZeile input[type=checkbox]{ width:16px;height:16px;margin-top:2px;accent-color:var(--k-16a34a) }
+#feTab3 .feSammelName{ font-weight:700;font-size:12.5px }
+#feTab3 .feSammelMeta{ color:var(--muted);font-size:11.5px }
+#feTab3 .feSammelKat{ width:100%;margin-top:4px;padding:5px 6px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:11.5px }
+#feTab3 .feSammelFuss{ display:flex;gap:6px;margin-top:9px;flex-wrap:wrap }
+#feTab3 .feSammelOk{ padding:7px 12px;border:0;border-radius:8px;background:#2e9e57;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer }
+#feTab3 .feSammelOk:disabled{ opacity:.55;cursor:default }
+#feTab3 .feSammelAbb{ padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;cursor:pointer }
+
 #feTab3 #fgOffBox{ margin-top:8px }
 #feTab3 #fe_colZus{ min-height:0;display:grid;grid-template-rows:minmax(0,1.6fr) minmax(0,1fr);gap:10px }
 #feTab3 .feSpalteFlex{ min-height:0;display:flex }

@@ -6616,7 +6616,13 @@ function zutKatFrage(name){
    haelt dieselbe Form {data,error} ein, damit die Aufrufer unveraendert bleiben.
    Bricht der Nutzer die Kategorie-Abfrage ab, kommt {data:{ok:false,abbruch:true}}. */
 function zutStammAnlegenMitKat(p){
-  return zutKatFrage(p && p.p_name).then(function(kat){
+  /* 08.08.2026 (Sammelweg, FAHRPLAN 14): Ist die Kategorie schon gewaehlt, wird nicht noch
+     einmal gefragt. Der Riegel "ohne Kategorie keine Anlage" bleibt unveraendert - er wird
+     nur vorher bedient, in der Ergebnisliste. Ein eigener zweiter Anlegeweg waere die
+     zweite Kopie derselben Regel (§4.2). Alle bisherigen Aufrufer uebergeben p_kategorie
+     nicht und verhalten sich damit exakt wie vorher. */
+  var vorgewaehlt = p && p.p_kategorie;
+  return (vorgewaehlt ? Promise.resolve(vorgewaehlt) : zutKatFrage(p && p.p_name)).then(function(kat){
     if(!kat) return { data:{ ok:false, abbruch:true, grund:'Abgebrochen – keine Kategorie gewählt.' }, error:null };
     var q={}; for(var k in p){ if(Object.prototype.hasOwnProperty.call(p,k)) q[k]=p[k]; }
     q.p_kategorie = kat;
@@ -14242,6 +14248,29 @@ function fgPickRender(){
   var _st=wrap.scrollTop;
   wrap.innerHTML = (shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Noch keine Zutat gebunden \u2013 im Suchfeld tippen oder Riki lesen lassen.")+'</div>') + hintRow;
   try{ wrap.scrollTop=_st; }catch(e){}
+  /* 08.08.2026, Weg C: Sammelknopf hier anstossen, weil die Liste sich geaendert hat.
+     \u26a0 Die Zahl kommt NICHT aus dem _frei oben, sondern aus _fgFreieZutaten() - zwei
+     Gruende: das _frei oben ist von der SUCHE gefiltert (q), und es misst gegen die
+     bereits gefilterte Stammliste `all`. Fuer den Sammelknopf zaehlt beides nicht.
+     Dass die beiden Mengen bei Supplements auseinandergehen koennen, ist ein eigener
+     Befund - siehe FAHRPLAN 14b, hier bewusst nicht mitgeaendert (\u00a719.2). */
+  fgZutSammelLeiste();
+}
+/* Alle Zeilen aus #fe_zutRows, zu denen es KEINEN Stamm-Eintrag gibt - ungefiltert,
+   gegen den vollstaendigen ZUTATEN_STAMM. Quelle fuer Sammelknopf und Sammellauf. */
+function _fgFreieZutaten(){
+  var stamm={}; (ZUTATEN_STAMM||[]).forEach(function(it){ stamm[(it.name||"").trim().toLowerCase()]=true; });
+  var ri=_fgRowsInfo(), out=[];
+  Object.keys(ri).forEach(function(k){ if(!stamm[k]) out.push(ri[k].name); });
+  return out;
+}
+function fgZutSammelLeiste(){
+  var el=document.getElementById("fe_zutSammelLeiste"); if(!el) return;
+  if(window._fgSammel && window._fgSammel.laeuft) return;   /* Lauf nicht unter den Fuessen wegrendern */
+  var frei=_fgFreieZutaten();
+  if(!frei.length){ el.innerHTML=""; return; }
+  el.innerHTML='<button type="button" class="feSammelBtn" onclick="fgZutSammelStart()" title="Riki stuft jede dieser Zutaten gegen unser Regelwerk ein, zwei Waechter pruefen mit. Angelegt wird erst nach deiner Bestaetigung.">'
+    +'\ud83e\udd16 '+frei.length+' Zutat'+(frei.length===1?"":"en")+' nicht im Stamm \u2013 von Riki einstufen lassen</button>';
 }
 function fgPickToggle(cb){
   var name=(cb.dataset.name||"").trim(); if(!name) return;
@@ -14346,6 +14375,237 @@ function fgPickRikiUebernehmen(){
     try{ if(window._fgRefV2&&window._fgRefV2.d&&typeof fgRefV2NachNeuanlage==="function") fgRefV2NachNeuanlage(vs.name, istUnter); }catch(e){}
   }, function(){ if(box) box.innerHTML='<div style="color:var(--k-b45309);font-size:12.5px">Fehler beim Übernehmen.</div>'; });
 }
+/* ===== SAMMELWEG: alle Zutaten ohne Stamm-Treffer auf einmal einstufen lassen ==========
+   Ralph-Entscheid 08.08.2026 (Weg C zu FAHRPLAN 14). Anlass: der fertige Knopf "→ Riki"
+   liegt in #fe_zutRows und ist durch .feVersteckt unerreichbar; der einzige sichtbare Weg
+   war "+ hinzufuegen" mit Abtippen des Namens - bei P73592 sechsmal, mit Tippfehlerrisiko
+   direkt in den Stamm.
+
+   Bewusst NICHT gebaut:
+   - Weg B (#fe_zutRows einblenden) - haette die am 28.07. abgeschaffte Doppelliste zurueckgeholt.
+   - Eine Sammelbestaetigung "alle sechs uebernehmen" - das waere eine Automatik, die die
+     Waechter uebergeht. Vorgehakt ist nur BESTAETIGT; PRUEFEN und AUSNAHME muss Ralph
+     aktiv anhaken, nachdem er die Begruendung gelesen hat (§1.3, §5.5).
+
+   Was der Weg NICHT tut: er aendert KEINE Produktbindung. Die Zeilen stehen bereits in
+   #fe_zutRows - genau deshalb sind sie "frei". Angelegt wird nur der STAMM-Eintrag, danach
+   greift die Bindung beim Speichern von selbst. Keine neue Hauptzutat, keine Ebene-2-Bindung
+   (§5.5), kein direkter INSERT (§5.7) - geschrieben wird ueber cb_zutat_stamm_anlegen. */
+var FG_SAMMEL_MAX=25;   /* Riegel: ein Lauf ruft hoechstens 25x riki-zutat-bewerten */
+/* Der Server lehnt auf ZWEI Arten ab, und "abgelehnt" waere fuer beide eine nutzlose
+   Meldung (§11.4). Gemessen 08.08.2026 an Ralphs sechs Salatzutaten: fuenf laufen durch,
+   "Blattspinat" faellt auf status=PRUEFEN, weil "Blattspinat (Bio)" mit Aehnlichkeit 1.00
+   im Stamm steht. Dieser Fall traegt 'hinweis' + 'kandidaten', NICHT 'grund' - wer nur
+   'grund' liest, zeigt dem Nutzer nichts.
+   ⚠ Ueberschreiben ist derzeit unmoeglich: cb_zutat_stamm_anlegen ruft
+   cb_zutat_geprueft_anlegen fest mit p_trotz_warnung => false auf. Siehe FAHRPLAN 14c. */
+function _fgSammelGrund(res){
+  if(res && res.error && res.error.message) return res.error.message;
+  var d=(res&&res.data)||{};
+  if(d.grund) return d.grund + (Array.isArray(d.regeln)&&d.regeln.length ? (" ("+d.regeln.join("; ")+")") : "");
+  if(d.status==="PRUEFEN"){
+    var k=(d.kandidaten||[]).map(function(x){
+      return (x.name||"?") + (x.aehnlichkeit!=null ? (" "+Math.round(Number(x.aehnlichkeit)*100)+" %") : "");
+    });
+    return "Dublettenverdacht – nicht angelegt."
+      + (k.length ? (" Im Stamm steht schon: "+k.join(" · ")+".") : "")
+      + " Bitte von Hand entscheiden: binden, umbenennen oder als eigene Zutat anlegen.";
+  }
+  return "abgelehnt" + (d.status ? (" (Status "+d.status+")") : "");
+}
+function fgZutSammelAbbruch(){
+  window._fgSammel=null;
+  var box=document.getElementById("fe_zutSammelBox"); if(box) box.innerHTML="";
+  fgZutSammelLeiste();
+}
+function fgZutSammelStart(){
+  var box=document.getElementById("fe_zutSammelBox"); if(!box) return;
+  var namen=_fgFreieZutaten(); if(!namen.length){ fgZutSammelLeiste(); return; }
+  var gekappt=0;
+  if(namen.length>FG_SAMMEL_MAX){ gekappt=namen.length-FG_SAMMEL_MAX; namen=namen.slice(0,FG_SAMMEL_MAX); }
+  window._fgSammel={laeuft:true, items:[], gekappt:gekappt};
+  var leiste=document.getElementById("fe_zutSammelLeiste");
+  if(leiste) leiste.innerHTML='<button type="button" class="feSammelBtn" disabled>🤖 Riki liest… 0 von '+namen.length+'</button>';
+  box.innerHTML='<div class="feSammelKasten"><div class="feSammelKopf">Riki stuft ein…</div>'
+    +'<div class="feSammelHinweis">Es wird noch nichts gespeichert.</div></div>';
+
+  client.auth.getSession().then(function(s){
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok){ throw new Error("Nicht angemeldet – bitte neu einloggen."); }
+    return zutKatListe().then(function(kats){ return {tok:tok, kats:kats||[]}; });
+  }).then(function(ctx){
+    var erg=[];
+    /* NACHEINANDER, nicht parallel: die Edge Function hat einen Budget-Riegel, und ein
+       Schwall von 25 gleichzeitigen Anfragen wuerde ihn ohne Not ausloesen (§24: Budget-
+       Logik nicht anfassen - also auch nicht umgehen). */
+    var kette=namen.reduce(function(p,name,i){
+      return p.then(function(){
+        return fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":"Bearer "+ctx.tok,"apikey":client.supabaseKey},
+          body:JSON.stringify({name:name})
+        }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); })
+         .then(function(rr){
+           if(!rr.ok||typeof rr.d.stufe!=="number"){
+             erg.push({name:name, fehler:(rr.d&&(rr.d.error||rr.d.message))||"Riki konnte nicht einstufen"});
+           } else {
+             var v=rr.d.verifikation||{}, w=v.waechter||{};
+             erg.push({name:name, stufe:rr.d.stufe, grund:rr.d.begruendung||"",
+                       ges:v.gesamt||"KEIN_SIGNAL",
+                       wn:(w.w_name||{}).urteil, wp:(w.w_peer||{}).urteil,
+                       wtext:(w.w_peer&&w.w_peer.text)||""});
+           }
+         }, function(e){ erg.push({name:name, fehler:(e&&e.message)||"Netzwerkfehler"}); })
+         .then(function(){
+           var lb=document.getElementById("fe_zutSammelLeiste");
+           if(lb) lb.innerHTML='<button type="button" class="feSammelBtn" disabled>🤖 Riki liest… '+(i+1)+' von '+namen.length+'</button>';
+         });
+      });
+    }, Promise.resolve());
+    return kette.then(function(){ return {erg:erg, kats:ctx.kats}; });
+  }).then(function(res){
+    window._fgSammel={laeuft:false, items:res.erg, kats:res.kats, gekappt:gekappt};
+    fgZutSammelRender();
+  }, function(e){
+    window._fgSammel=null;
+    box.innerHTML='<div class="feSammelKasten"><div class="feSammelKopf" style="color:var(--k-b45309)">Sammellauf abgebrochen</div>'
+      +'<div>'+esc((e&&e.message)||"Unbekannter Fehler")+'</div>'
+      +'<div class="feSammelFuss"><button type="button" class="feSammelAbb" onclick="fgZutSammelAbbruch()">Schließen</button></div></div>';
+  });
+}
+/* Ergebnisliste zum Durchsehen. Ein Haken UND eine Kategorie je Zeile - ohne Kategorie
+   legt cb_zutat_stamm_anlegen nicht an, und 80 % des Stamms haben heute keine (FAHRPLAN 13a).
+   Deshalb wird sie hier gleich mit abgefragt statt in sechs Einzeldialogen danach. */
+function fgZutSammelRender(){
+  var box=document.getElementById("fe_zutSammelBox"), S=window._fgSammel; if(!box||!S) return;
+  var opt='<option value="">– Kategorie wählen –</option>';
+  (S.kats||[]).forEach(function(k){ opt+='<option value="'+esc(k)+'">'+esc(k)+'</option>'; });
+  var zeilen=S.items.map(function(it,i){
+    if(it.fehler){
+      return '<div class="feSammelZeile"><span></span><div><div class="feSammelName">'+esc(it.name)+'</div>'
+        +'<div class="feSammelMeta" style="color:var(--k-b45309)">'+esc(it.fehler)+' – von Hand prüfen.</div></div></div>';
+    }
+    var col=it.ges==="BESTAETIGT"?"var(--k-16a34a)":it.ges==="AUSNAHME"?"var(--k-b91c1c)":"var(--k-b45309)";
+    var lbl=it.ges==="BESTAETIGT"?"bestätigt":it.ges==="AUSNAHME"?"Widerspruch – prüfen":it.ges==="PRUEFEN"?"grenzwertig":"kein Prüfsignal";
+    var vor=(it.ges==="BESTAETIGT");
+    return '<div class="feSammelZeile">'
+      +'<input type="checkbox" data-idx="'+i+'" '+(vor?"checked":"")+' onchange="fgZutSammelZaehl()">'
+      +'<div><div class="feSammelName">'+esc(it.name)+' – Stufe '+it.stufe+'</div>'
+      +'<div class="feSammelMeta"><span style="color:'+col+';font-weight:700">'+lbl+'</span>'
+        +' · Name '+_wIcon(it.wn)+' · Statistik '+_wIcon(it.wp)+'</div>'
+      +(it.grund?'<div class="feSammelMeta">'+esc(it.grund)+'</div>':'')
+      +(it.wtext?'<div class="feSammelMeta">'+esc(it.wtext)+'</div>':'')
+      +'<select class="feSammelKat" data-idx="'+i+'" onchange="fgZutSammelZaehl()">'+opt+'</select>'
+      +'</div></div>';
+  }).join("");
+  var fehl=S.items.filter(function(x){return x.fehler;}).length;
+  var schwach=S.items.filter(function(x){return !x.fehler && x.ges!=="BESTAETIGT";}).length;
+  box.innerHTML='<div class="feSammelKasten">'
+    +'<div class="feSammelKopf">Rikis Vorschläge – nichts ist gespeichert</div>'
+    /* Der Server prueft die Kategorie gegen Zutat_Kategorie und lehnt unbekannte ab.
+       Greift die Notfall-Liste aus dem Code, kann genau das passieren - dann muss der
+       Hinweis hier stehen und nicht erst in der Fehlerzeile (§1.10). */
+    +(window._zutKatRueckfall?'<div class="feSammelHinweis" style="color:var(--k-b45309)">⚠ Kategorienliste konnte nicht geladen werden – Notfall-Liste aus dem Code. Der Server kann eine Auswahl daraus ablehnen.</div>':'')
+    +'<div class="feSammelHinweis">Vorgehakt ist nur, was beide Wächter bestätigt haben'
+      +(schwach?' – '+schwach+' ohne klare Bestätigung, bitte erst die Begründung lesen':'')
+      +(fehl?' · '+fehl+' konnte Riki nicht einstufen':'')
+      +(S.gekappt?' · '+S.gekappt+' weitere nicht geladen (Riegel bei '+FG_SAMMEL_MAX+')':'')
+      +'. Ohne Kategorie wird nicht angelegt.</div>'
+    +zeilen
+    +'<div class="feSammelFuss">'
+      +'<button type="button" class="feSammelOk" id="fe_sammelOk" onclick="fgZutSammelUebernehmen()">✓ übernehmen</button>'
+      +'<button type="button" class="feSammelAbb" onclick="fgZutSammelAbbruch()">Abbrechen</button>'
+    +'</div>'
+    +'<div id="fe_sammelMsg" class="feSammelMeta" style="margin-top:7px"></div>'
+  +'</div>';
+  fgZutSammelZaehl();
+}
+/* Knopfbeschriftung und Sperre aus dem aktuellen Zustand – der Knopf darf nicht anbieten,
+   was er nicht tun kann (angehakt ohne Kategorie waere ein stiller Ausfall, §1.7). */
+function fgZutSammelZaehl(){
+  var box=document.getElementById("fe_zutSammelBox"), ok=document.getElementById("fe_sammelOk"); if(!box||!ok) return;
+  var an=0, ohneKat=0;
+  box.querySelectorAll('input[type=checkbox][data-idx]').forEach(function(cb){
+    if(!cb.checked) return; an++;
+    var sel=box.querySelector('select.feSammelKat[data-idx="'+cb.dataset.idx+'"]');
+    if(!sel||!sel.value) ohneKat++;
+  });
+  ok.disabled=(an===0||ohneKat>0);
+  ok.textContent = an===0 ? "✓ nichts ausgewählt"
+    : ohneKat>0 ? ("Kategorie fehlt bei "+ohneKat)
+    : ("✓ "+an+" in den Stamm übernehmen");
+}
+function fgZutSammelUebernehmen(){
+  var box=document.getElementById("fe_zutSammelBox"), S=window._fgSammel; if(!box||!S) return;
+  var msg=document.getElementById("fe_sammelMsg"), ok=document.getElementById("fe_sammelOk");
+  var wahl=[];
+  box.querySelectorAll('input[type=checkbox][data-idx]').forEach(function(cb){
+    if(!cb.checked) return;
+    var i=Number(cb.dataset.idx), it=S.items[i]; if(!it||it.fehler) return;
+    var sel=box.querySelector('select.feSammelKat[data-idx="'+i+'"]');
+    var kat=(sel&&sel.value)||""; if(!kat) return;
+    wahl.push({it:it, kat:kat});
+  });
+  if(!wahl.length) return;
+  if(ok){ ok.disabled=true; ok.textContent="…"; }
+  var gut=[], schlecht=[];
+  wahl.reduce(function(p,w){
+    return p.then(function(){
+      return zutStammAnlegenMitKat({p_name:w.it.name, p_rating:w.it.stufe, p_kategorie:w.kat,
+        p_quelle:"Riki + Verifikation ("+(w.it.ges||"")+"), Sammellauf Produkt-Erfassung"})
+      .then(function(res){
+        if(res.error||!(res.data&&res.data.ok)){
+          schlecht.push(w.it.name+": "+_fgSammelGrund(res));
+          return;
+        }
+        var rr=res.data.rating;
+        gut.push(w.it.name);
+        if(typeof ZUTATEN_MAP!=="undefined"&&ZUTATEN_MAP){ ZUTATEN_MAP[w.it.name.toLowerCase()]={rating:rr,kritisch:"nein"}; }
+        if(Array.isArray(ZUTATEN_STAMM)){
+          /* einsortieren statt anhaengen - der Picker uebernimmt die alphabetische
+             Reihenfolge des Stamms (wie fgPickRikiUebernehmen, Ralph 27.07.) */
+          var neu={name:w.it.name, rating:rr, kritisch:"nein", kategorie:w.kat};
+          var pos=ZUTATEN_STAMM.findIndex(function(z){ return String(z&&z.name||"").localeCompare(String(w.it.name||""),"de")>0; });
+          if(pos<0) ZUTATEN_STAMM.push(neu); else ZUTATEN_STAMM.splice(pos,0,neu);
+          var dl=document.getElementById("fgZutDL");
+          if(dl){ var op=document.createElement("option"); op.value=w.it.name; dl.appendChild(op); }
+        }
+        /* Bestehende Zeile in #fe_zutRows bekommt den Wert - die BINDUNG selbst bleibt
+           unangetastet, die Zeile war ja schon da (§5.5). */
+        var c=document.getElementById("fe_zutRows"), key=w.it.name.toLowerCase();
+        if(c) [].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){
+          if(((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()!==key) return;
+          var rate=r.querySelector(".fgzRate"); if(rate){ rate.value=rr; rate.style.color="var(--ink)"; }
+          var rb=r.querySelector(".fgzRiki"); if(rb) rb.style.display="none";
+        });
+        try{
+          if(window._fgRefV2&&window._fgRefV2.d&&typeof fgRefV2NachNeuanlage==="function"){
+            var el=(typeof _fgRefV2ElByName==="function")?_fgRefV2ElByName(w.it.name):null;
+            var unter=(typeof _fgRefV2IstUnterzutat==="function")&&_fgRefV2IstUnterzutat(el);
+            fgRefV2NachNeuanlage(w.it.name, unter);
+          }
+        }catch(e){ schlecht.push(w.it.name+": Referenzansicht nicht nachgezogen ("+((e&&e.message)||"")+")"); }
+      }, function(e){ schlecht.push(w.it.name+": "+((e&&e.message)||"Fehler beim Anlegen")); });
+    });
+  }, Promise.resolve()).then(function(){
+    window._fgSammel=null;
+    var rest=_fgFreieZutaten().length;
+    box.innerHTML='<div class="feSammelKasten">'
+      +'<div class="feSammelKopf" style="color:'+(schlecht.length?"var(--k-b45309)":"#1f7d43")+'">'
+        +(gut.length?('✓ '+gut.length+' in den Stamm übernommen'):'Nichts übernommen')
+        +(schlecht.length?(' · '+schlecht.length+' fehlgeschlagen'):'')+'</div>'
+      +(gut.length?'<div class="feSammelMeta">'+esc(gut.join(" · "))+'</div>':'')
+      +(schlecht.length?'<div class="feSammelMeta" style="color:var(--k-b45309)">'+schlecht.map(esc).join("<br>")+'</div>':'')
+      +'<div class="feSammelMeta" style="margin-top:5px">'+(rest?(rest+' Zutat'+(rest===1?"":"en")+' weiterhin nicht im Stamm.'):'Alle Zutaten dieses Produkts stehen jetzt im Stamm.')
+        +' <b>Noch nicht gespeichert</b> – dafür unten auf Speichern.</div>'
+      +'<div class="feSammelFuss"><button type="button" class="feSammelAbb" onclick="fgZutSammelAbbruch()">Schließen</button></div>'
+    +'</div>';
+    if(window._fgDirtyArmed&&window._fgDirty&&gut.length) window._fgDirty.zut=true;
+    fgPickRender(); fgPickRefreshView();
+    try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  });
+}
+
 /* Textbox + Haekchen aus #fe_zutRows spiegeln – vom Observer aufgerufen, egal wer die Rows aendert. */
 function fgPickRefreshView(){
   var names=_fgRowsNames(), set={}; names.forEach(function(n){ set[n.toLowerCase()]=true; });
@@ -15979,6 +16239,11 @@ async function openFgEditor(id, prefill, targetEl){
           </details>
           <datalist id="fgZutDL">${(ZUTATEN_STAMM||[]).map(z=>`<option value="${esc(z.name)}"></option>`).join("")}</datalist>
           <input id="fe_zutSuche" oninput="fgPickRender()" placeholder="🔍 Zutat / Wirkstoff im Stamm suchen…">
+          ${''/* 08.08.2026, Weg C zu FAHRPLAN 14: Sammelknopf UEBER der Liste. Wird von
+                fgPickRender befuellt - dort ist die _frei-Menge ohnehin schon gerechnet,
+                also gibt es keine zweite Zaehlung (§4.2). Leer = kein Knopf. */}
+          <div id="fe_zutSammelLeiste"></div>
+          <div id="fe_zutSammelBox"></div>
           <div class="feListKopf"><span title="enthalten">☑</span><span>Zutat / Wirkstoff</span><span class="feMitte">Wert</span></div>
           <div id="fe_pickList" data-note="Konzept D: fuellt die Kartenhoehe und scrollt selbst - vorher feste 420px, die zusammen mit Riki-Block und Suchfeld die Karte zu hoch machten"></div>
           <div class="feNeuZeile">
@@ -22537,7 +22802,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1105";
+const APP_BUILD = "2026-08-08-1130";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
