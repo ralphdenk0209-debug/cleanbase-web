@@ -16198,7 +16198,7 @@ async function openFgEditor(id, prefill, targetEl){
         <div class="mzr">
           <div class="mz mz-2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…"></div>
           <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" class="fld" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842"></div>
-          <div class="mz"><k>EAN-Status</k><label class="mzCheck"><input type="checkbox" id="fe_ean_offen" ${String(d.ean_ampel||"")==="blau"?"checked":""} onchange="try{fePlaus()}catch(e){}">kein EAN – als „offen“ markieren</label></div>
+          <div class="mz"><k>EAN-Status</k><label class="mzCheck" title="Für Ware ohne Barcode – lose Ware, Eigenabfüllung, Hofladen. Der Punkt in der Freigabe wird dadurch blau statt rot. NICHT ankreuzen, wenn es einen Barcode gibt, der nur noch nicht erfasst ist."><input type="checkbox" id="fe_ean_offen" ${String(d.ean_ampel||"")==="blau"?"checked":""} onchange="try{fePlaus()}catch(e){}">Produkt hat <b>keinen</b> Barcode</label></div>
           <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
           <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
           <div class="mz"><k>Unterkategorie</k><input id="fe_ukat" class="fld" value="${esc(d.unterkategorie||"")}" placeholder="nicht erfasst"></div>
@@ -16710,6 +16710,11 @@ function feReqBorders(){
 function feEanBewusstOhne(){
   var a=String((window._fgEdit&&window._fgEdit.ean_ampel)||"");
   if(a) return a==="blau";
+  /* Rueckfallweg, wenn die Ampel (cb_ean_ampel) nicht mitgeliefert wurde. Dieselben Werte
+     wie dort. 'offen' bleibt nur als Altlast stehen: der CHECK auf der Tabelle laesst ihn
+     nicht zu, es kann ihn also gar nicht geben - schaden kann er hier aber auch nicht.
+     'noch_nicht_erfasst' zaehlt bewusst NICHT dazu: das heisst "kennen wir noch nicht",
+     nicht "gibt es nicht". */
   return /^(offen|generisch|kein_barcode)$/i.test(String((window._fgEdit&&window._fgEdit.ean_status)||""));
 }
 if(typeof window!=='undefined'){ window.feEanBewusstOhne=feEanBewusstOhne; }
@@ -18431,7 +18436,12 @@ async function fgEditSave(alsoFreigeben){
     try{
       var _eanOffen=!!(g("fe_ean_offen")&&g("fe_ean_offen").checked);
       var _eanV=(g("fe_ean")&&g("fe_ean").value||"").trim();
-      var _st=_eanOffen?"offen":(_eanV?"vorhanden":null);
+      /* 08.08.2026: hier stand "offen". Dieser Wert verletzt den CHECK auf
+         Produkte.EAN_Status (zulaessig: vorhanden | kein_barcode | noch_nicht_erfasst |
+         generisch) - jeder Versuch, ein Produkt bewusst ohne Barcode zu speichern,
+         endete deshalb in einer Fehlermeldung, und danach stand die alte EAN wieder da.
+         Gemessen am 08.08.: 0 Produkte mit 'offen'. Es ist nie gelungen. */
+      var _st=_eanOffen?"kein_barcode":(_eanV?"vorhanden":null);
       if(_st){ var _r2=await client.rpc("cb_produkt_ean_status_setzen",{p_id:pid, p_status:_st}); if(_r2&&_r2.error) throw _r2.error; }
     }catch(e){ _fehler.push("EAN-Status: "+((e&&e.message)||e)); }
     /* Bezugseinheit der Naehrwerte (g|ml) samt Quelle - eigener, enger Schreibweg wie beim
@@ -22881,7 +22891,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-1649";
+const APP_BUILD = "2026-08-08-1713";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
