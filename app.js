@@ -14753,9 +14753,12 @@ function feBioPrefill(d){
      Beim Oeffnen mit Herkunft=automatik IST der gespeicherte Wert der berechnete. */
   try{
     window._fgEdit = window._fgEdit || {};
-    window._fgEdit.ernaehrAuto = (d && String(d.ernaehrungsform_herkunft||"automatik")!=="manuell")
-      ? (d.ernaehrungsform||"") : "";
-    feErnaehrHint();
+    var _efManuell = (d && String(d.ernaehrungsform_herkunft||"automatik")==="manuell");
+    /* Bei Herkunft=automatik IST der gespeicherte Wert der berechnete. Bei manuell kennen wir
+       den berechneten nicht - dann bleibt das Feld leer statt zu raten (§1.1). */
+    window._fgEdit.ernaehrAuto = _efManuell ? "" : ((d&&d.ernaehrungsform)||"");
+    window._fgEdit.ernaehrWahl = _efManuell ? ((d&&d.ernaehrungsform)||"") : "";
+    feErnaehrRender();
   }catch(e){}
 }
 /* Ralph 30.07.2026: "auf der Produkt-erfassen-Karte soll ich das auch aktivieren koennen,
@@ -14807,23 +14810,67 @@ function feBioHint(){
 }
 function feBioChange(){ window._fgBioQuelle="Etikett"; feBioHint(); }
 
-/* M2 a2b: der Hinweis unter dem Ernaehrungsform-Feld. Er sagt IMMER, WER den Wert gesetzt hat -
-   sonst sieht ein berechneter Wert aus wie ein gepruefter (§5.3, §10.2 "serverseitige Gruende
-   vollstaendig anzeigen"). Der berechnete Wert wird beim Oeffnen gemerkt, damit die Automatik
-   auch dann benannt werden kann, wenn Ralph gerade von Hand ueberschreibt. */
+/* M2 a2b, 08.08.2026 (Ralph: "die haben wir doch schon so auf der Produktkarte").
+   Icon, Farben und die Kurzform "tierisch" sind WOERTLICH die aus efPill/suppEfPill -
+   nicht nachgebaut, sondern uebernommen (§22). Es entsteht keine dritte Farbtabelle:
+   diese hier ist die einzige im Editor, und sie ist Zeichen fuer Zeichen dieselbe.
+   ⚠ Notiert, NICHT hier behoben (§19.2): efPill (Z. 2760) und suppEfPill (Z. 2422) sind
+   bereits zwei identische Kopien voneinander - §17 "keine zweite Kopie einer Fachregel".
+   Das gehoert in einen eigenen Durchgang, nicht in diesen. */
+var FE_EF_STUFEN=[
+  {v:"vegan",                ico:"🌱", kurz:"vegan",       bg:"var(--k-e7f4ec)", fg:"var(--k-1f5e34)"},
+  {v:"vegetarisch",          ico:"🥚", kurz:"vegetarisch", bg:"var(--k-eef6e9)", fg:"var(--k-4d7c0f)"},
+  {v:"enthält Tierprodukte", ico:"🥩", kurz:"tierisch",    bg:"var(--k-f3eee6)", fg:"var(--k-7c5e3a)"}
+];
+/* Der GEWAEHLTE Chip traegt seine Farbe, die uebrigen sind grau - sonst leuchten drei
+   Aussagen gleich stark, von denen nur eine gilt. Der Herkunfts-Chip rechts sagt, WER
+   sie gesetzt hat; ohne ihn sieht ein gerechneter Wert aus wie ein geprueter (§5.3). */
+function feErnaehrRender(){
+  var box=document.getElementById("fe_ernaehrChips"); if(!box) return;
+  var akt=String((window._fgEdit&&window._fgEdit.ernaehrWahl)||"");
+  var auto=String((window._fgEdit&&window._fgEdit.ernaehrAuto)||"");
+  var h=FE_EF_STUFEN.map(function(s){
+    var an=(s.v===akt);
+    var st=an?("background:"+s.bg+";color:"+s.fg+";border:1.5px solid "+s.fg)
+             :("background:var(--card);color:var(--muted);border:1px solid var(--line)");
+    return '<button type="button" onclick="feErnaehrWahl(\''+s.v.replace(/'/g,"\\'")+'\')"'
+      + ' title="'+esc(s.v)+' – von Hand setzen. Überschreibt die Automatik dauerhaft."'
+      + ' style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;'
+      + 'padding:4px 11px;border-radius:999px;cursor:pointer;'+st+'">'
+      + '<span aria-hidden="true">'+s.ico+'</span>'+esc(s.kurz)+'</button>';
+  }).join('');
+  var manuell=(akt!=="");
+  h += '<span style="display:inline-block;width:1px;height:19px;background:var(--line);margin:0 3px;vertical-align:middle"></span>';
+  h += '<button type="button" onclick="feErnaehrWahl(\'\')"'
+     + ' title="Zurück an die Automatik. Sie rechnet aus den gebundenen Zutaten und schreibt den Wert sofort neu – es bleibt kein leeres Feld stehen."'
+     + ' style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 11px;border-radius:999px;cursor:pointer;'
+     + (manuell?'background:var(--card);color:var(--muted);border:1px dashed var(--line)'
+               :'background:var(--k-eef2f6);color:var(--k-475569);border:1.5px solid var(--k-475569)')+'">'
+     + '<span aria-hidden="true">⚙</span>Automatik'+(auto?(' · '+esc(FE_EF_KURZ(auto))):'')+'</button>';
+  if(manuell) h += '<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 11px;border-radius:999px;background:var(--k-eef2f6);color:var(--k-475569);border:1.5px solid var(--k-475569)"><span aria-hidden="true">✋</span>von dir</span>';
+  box.innerHTML=h;
+  feErnaehrHint();
+}
+function FE_EF_KURZ(v){ for(var i=0;i<FE_EF_STUFEN.length;i++) if(FE_EF_STUFEN[i].v===v) return FE_EF_STUFEN[i].kurz; return v; }
+function feErnaehrWahl(v){
+  window._fgEdit=window._fgEdit||{}; window._fgEdit.ernaehrWahl=String(v||"");
+  feErnaehrRender();
+}
+/* Der Hinweistext sagt IMMER, WER den Wert gesetzt hat, und benennt die Automatik auch
+   dann, wenn Ralph sie gerade ueberstimmt - sonst weiss er nicht, wogegen er entscheidet. */
 function feErnaehrHint(){
-  var sel=document.getElementById("fe_ernaehr"), h=document.getElementById("fe_ernaehrHint");
-  if(!sel||!h) return;
+  var h=document.getElementById("fe_ernaehrHint"); if(!h) return;
+  var akt=String((window._fgEdit&&window._fgEdit.ernaehrWahl)||"");
   var auto=(window._fgEdit&&window._fgEdit.ernaehrAuto)||"";
-  if(String(sel.value||"")===""){
+  if(akt===""){
     h.innerHTML = auto
-      ? ("Automatik: <b>"+esc(auto)+"</b> – aus den <b>gebundenen</b> Zutaten gerechnet. "
-        +"Steht eine tierische Zutat nicht im Stamm, wird sie nicht gebunden und fehlt in dieser Rechnung.")
-      : "Wird beim Speichern aus den gebundenen Zutaten berechnet.";
+      ? ("Aus den <b>gebundenen</b> Zutaten gerechnet. Steht eine tierische Zutat nicht im Stamm, "
+        +"wird sie nicht gebunden und fehlt in dieser Rechnung.")
+      : "Wird aus den gebundenen Zutaten berechnet, sobald welche gebunden sind.";
   }else{
     h.innerHTML = "<b>Von dir gesetzt</b> – überschreibt die Automatik dauerhaft"
-      + (auto?(", die hier <b>"+esc(auto)+"</b> rechnet"):"")
-      + ". Zum Widerrufen wieder auf „↺ automatisch berechnen“ stellen.";
+      + (auto?(", die hier <b>"+esc(FE_EF_KURZ(auto))+"</b> rechnet"):"")
+      + ". Klick auf <b>⚙ Automatik</b> widerruft.";
   }
 }
 if(typeof window!=="undefined"){ window.feBioPrefill=feBioPrefill; window.feBioHint=feBioHint; window.feBioChange=feBioChange; window.feBioSw=feBioSw; window.feBioSwRender=feBioSwRender; }
@@ -16262,12 +16309,7 @@ async function openFgEditor(id, prefill, targetEl){
                  Die leere Auswahl ist KEIN Loeschen, sondern der Widerruf: sie gibt an die
                  Automatik zurueck, die sofort neu rechnet (cb_produkt_ernaehrungsform_setzen). */}
           <div class="mz mz-2"><k>Ernährungsform</k>
-            <select id="fe_ernaehr" onchange="feErnaehrHint()" class="fld">
-              <option value=""${(d.ernaehrungsform_herkunft!=="manuell")?" selected":""}>↺ automatisch berechnen</option>
-              <option value="vegan"${(d.ernaehrungsform_herkunft==="manuell"&&d.ernaehrungsform==="vegan")?" selected":""}>vegan</option>
-              <option value="vegetarisch"${(d.ernaehrungsform_herkunft==="manuell"&&d.ernaehrungsform==="vegetarisch")?" selected":""}>vegetarisch</option>
-              <option value="enthält Tierprodukte"${(d.ernaehrungsform_herkunft==="manuell"&&d.ernaehrungsform==="enthält Tierprodukte")?" selected":""}>enthält Tierprodukte</option>
-            </select>
+            <div id="fe_ernaehrChips" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></div>
             <div id="fe_ernaehrHint" class="mzHint"></div>
           </div>
           <div class="mz mz-4"><k>Verzehrempfehlung / Tagesdosis</k>${inp("fe_verzehr",d.dosis_text||"")}
@@ -18591,7 +18633,7 @@ async function fgEditSave(alsoFreigeben){
        Der Aufruf ist idempotent, deshalb wird er immer gesendet; ein unveraenderter Wert
        schreibt sich selbst neu und aendert nichts. */
     try{
-      var _efV=(g("fe_ernaehr")&&g("fe_ernaehr").value||"").trim();
+      var _efV=String((window._fgEdit&&window._fgEdit.ernaehrWahl)||"").trim();
       var _r4b=await client.rpc("cb_produkt_ernaehrungsform_setzen",{p_id:pid, p_form:_efV||null});
       if(_r4b&&_r4b.error) throw _r4b.error;
     }catch(e){ _fehler.push("Ernährungsform: "+((e&&e.message)||e)); }
