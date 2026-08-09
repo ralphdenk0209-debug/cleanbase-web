@@ -4513,8 +4513,8 @@ function setMode(m){
   { var _dv=document.getElementById("dubView"); if(_dv) _dv.style.display = m==="dubletten"?"":"none"; }
   if(m==="dubletten"){ try{ loadDubletten(); }catch(e){} }
   { var _tw=document.getElementById("tauschView"); if(_tw) _tw.style.display = m==="tausch"?"":"none"; }
+  { var _fsv=document.getElementById("fotoView"); if(_fsv) _fsv.style.display = m==="fotostudio"?"":"none"; }
   { var _mdv=document.getElementById("methodikView"); if(_mdv) _mdv.style.display = m==="methodik"?"":"none"; }
-  { var _olv=document.getElementById("offLaufView"); if(_olv) _olv.style.display = m==="offlauf"?"":"none"; }
   { var _tv=document.getElementById("todoView"); if(_tv) _tv.style.display = m==="todo"?"":"none"; }
   { var _sv=document.getElementById("suppView"); if(_sv) _sv.style.display = m==="supp"?"":"none"; }
   { var _rv=document.getElementById("rikiView"); if(_rv) _rv.style.display = m==="rikiimport"?"":"none"; }
@@ -4533,13 +4533,14 @@ function setMode(m){
   if(m==="einheit"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } einheitRender(); }
   if(m==="bio"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } bioKandRender(); }
   if(m==="tausch"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } tauschRender(); }
+  /* Fotostudio: reines Admin-Werkzeug, gleiche Schranke wie die Nachbarseiten. */
+  if(m==="fotostudio"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } fsRender(); }
   /* "Unsere Methode" ist BEWUSST ohne Admin- und ohne Stufen-Schranke: Vertrauensarbeit
      ist kein Premium-Inhalt (Ralph-Entscheid 30.07.). Einzige Bremse ist das Beta-Flag
      (§3.0) - ist es aus, gibt es die Seite fuer niemanden, auch nicht per Adresszeile. */
   if(m==="methodik"){ if(!methodikAn()){ setMode("produkte"); return; } methodikRender(); }
   if(m==="todo"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } todoRender(); }
   /* Admin-Riegel wie bei jeder anderen Admin-Ansicht: der Lauf gibt Geld aus. */
-  if(m==="offlauf"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } offLaufRender(); }
   if(m==="supp"){ try{ suppPlanRender(); }catch(e){} }
   if(m==="rikiimport"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } rkInit(); }
   if(m==="vorschlagen"){ updateGate(); renderVorShots(); }
@@ -9520,7 +9521,7 @@ function applyAdminMode(){
          nicht ein Panel auf der Erfassungsseite: der Lauf dauert Stunden und braucht einen
          stabilen Platz, an dem man ihn wiederfindet. Nach dem Pilot wird er GELOESCHT,
          nicht deaktiviert (§1.11n-p). */
-      +_an('offlauf','🧪','OFF-Lauf',"adminGo('offlauf')")
+      +_an('fotostudio','📸','Fotostudio',"adminGo('fotostudio')")
       +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
       +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
     /* 29.07. Enterprise (Ralph): Arbeits-Zahlen als Plaketten am Menue */
@@ -9574,7 +9575,7 @@ if(typeof window!=='undefined'){ window.adminDrawerToggle=adminDrawerToggle; win
 /* Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Markiert den aktiven Punkt, setzt den
    Breadcrumb in der Kopfleiste und schließt die Schublade. */
-const AD_TITLES={dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do',offlauf:'OFF-Zutatenlauf'};
+const AD_TITLES={fotostudio:'Fotostudio',dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do'};
 /* ============================================================================
    DASHBOARD „ARBEITSFLÄCHE" (Ralph-Entscheid 30.07.2026)
    ----------------------------------------------------------------------------
@@ -10307,430 +10308,6 @@ function scanEingangToggle(){
   if(zu){ try{ if(typeof loadScans==='function') loadScans(); }catch(e){} try{ ps.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){} }
 }
 if(typeof window!=='undefined'){ window.scanEingangOeffnen=scanEingangOeffnen; window.scanEingangToggle=scanEingangToggle; }
-/* ============================================================================
-   OFF-ZUTATENLAUF (Ralph-Go 31.07.2026) — eigener Admin-Menuepunkt
-   ----------------------------------------------------------------------------
-   WAS ER TUT: arbeitet die offenen Zutaten des OFF-Piloten ab, eine nach der
-   anderen, haeufigste zuerst. Je Zutat ein Aufruf an riki-zutat-bewerten v17;
-   Stufe, Begruendung und Waechter-Urteil gehen in die ARBEITSTABELLE.
-
-   WAS ER NICHT TUT: er schreibt NICHTS in den Zutaten_Stamm. Das ist Schritt 4
-   und passiert ueber zwei getrennte Knoepfe — erst gegen das Regelwerk pruefen
-   (§2z-a), dann uebernehmen, und uebernommen wird nur, wo Riki fertig ist, die
-   Waechter BESTAETIGT sagen UND das Regelwerk nicht widerspricht.
-
-   WARUM IM BROWSER UND NICHT IM HINTERGRUND (Ralph-Entscheid 31.07.): ein echter
-   Hintergrund-Lauf braeuchte eine Aenderung an riki-zutat-bewerten (sie verlangt
-   einen angemeldeten NUTZER, ein Service-Aufruf laeuft ins Leere) — und die haengt
-   an vier Frontend-Stellen. Der Tab muss also offen bleiben. Das war der Grund,
-   den Tab-Weg zuerst abzulehnen; er faellt weg, weil der Fortschritt in der
-   DATENBANK steht: ein Abbruch kostet nichts, ein Neustart macht dort weiter.
-
-   DREI RIEGEL, jeder aus einem anderen Grund:
-   1. BUDGET  — riki-zutat-bewerten v17 antwortet mit budget_voll; der Lauf stoppt.
-   2. NOTAUS  — steigt die Widerspruchsquote der letzten 100 ueber 25 %, halten wir
-      an. Der Budget-Riegel schuetzt vor ZU VIEL Ausgabe, nicht vor UMSONST
-      ausgegebenem Geld: Unsinn soll nach 100 Zutaten fuer 1 $ auffallen, nicht
-      nach 3.000 fuer 34 $. Die Quote rechnet die DB (cb_off_lauf_status), nicht
-      der Browser — ein Neustart begaenne sonst mit leerem Fenster und der Notaus
-      waere ausgehebelt.
-   3. VERSUCHE — drei Fehlversuche je Zutat, dann liegen lassen. Kein Endlos-Loop
-      an einem Namen, den Riki nicht verarbeiten kann.
-============================================================================ */
-var OFL={laeuft:false,stop:false,grund:"",log:[],start:0};
-
-function oflSetMeldung(txt,farbe){
-  var e=document.getElementById("oflMeldung"); if(!e) return;
-  e.textContent=txt||""; e.style.color=farbe||"var(--muted)";
-  e.style.display=txt?"":"none";
-}
-function oflZahl(n){ return (n==null?"–":Number(n).toLocaleString("de-DE")); }
-/* Deutsche Schreibweise: toFixed liefert "8.29", die Oberflaeche ist deutsch. */
-function oflKomma(n,dez){ return (n==null?"–":Number(n).toLocaleString("de-DE",{minimumFractionDigits:dez,maximumFractionDigits:dez})); }
-function oflUrteilFarbe(u){
-  return u==="FREMD"      ? "var(--muted)"
-       : u==="BESTAETIGT" ? "var(--k-16a34a,#16a34a)"
-       : u==="AUSNAHME"   ? "var(--k-b91c1c,#b91c1c)"
-       : u==="PRUEFEN"    ? "var(--k-b45309,#b45309)" : "var(--muted)";
-}
-function oflUrteilWort(u){
-  return u==="BESTAETIGT" ? "bestätigt"
-       : u==="AUSNAHME"   ? "Widerspruch"
-       : u==="PRUEFEN"    ? "grenzwertig"
-       : u==="FREMD"      ? "fremdsprachig" : "kein Prüfsignal";
-}
-async function oflStand(){
-  try{ var r=await client.rpc("cb_off_lauf_status");
-       if(r.error){ console.error("cb_off_lauf_status",r.error); return null; }
-       return (r.data&&r.data[0])||null;
-  }catch(e){ console.error("cb_off_lauf_status",e); return null; }
-}
-function oflMalStand(d){
-  if(!d) return;
-  var g=Number(d.gesamt||0), f=Number(d.fertig||0), fe=Number(d.fehler||0);
-  var erledigt=f+fe, pct=g>0?Math.round(erledigt/g*100):0;
-  var set=function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
-  var bar=document.getElementById("oflBar"); if(bar) bar.style.width=pct+"%";
-  set("oflFortschritt", erledigt.toLocaleString("de-DE")+" von "+g.toLocaleString("de-DE")+" ("+pct+" %)");
-  set("oflFertig", f.toLocaleString("de-DE"));
-  set("oflOffen", Number(d.offen||0).toLocaleString("de-DE"));
-  set("oflKosten", oflKomma(d.kosten_bisher,2)+" $");
-  set("oflRest", oflKomma(d.kosten_rest,2)+" $");
-  set("oflBest", oflZahl(d.bestaetigt)); set("oflPruef", oflZahl(d.pruefen));
-  set("oflAusn", oflZahl(d.ausnahme));   set("oflKein", oflZahl(d.kein_signal));
-  set("oflFehler", oflZahl(d.fehler));
-  set("oflGGleich", oflZahl(d.gegen_gleich)); set("oflGEins", oflZahl(d.gegen_eins));
-  set("oflGUneinig", oflZahl(d.gegen_uneinig)); set("oflGOffen", oflZahl(d.gegen_offen));
-  var gk=document.getElementById("oflGKosten");
-  if(gk) gk.textContent = Number(d.gegen_offen||0)>0
-    ? ("Gegenlesen kostet noch "+oflKomma(d.gegen_kosten_rest,2)+" $")
-    : (Number(d.gegen_fertig||0)>0 ? "vollständig gegengelesen" : "");
-  var q=document.getElementById("oflQuote");
-  if(q){
-    var n=Number(d.fenster_n||0);
-    q.textContent = n>0 ? ("Widerspruch in den letzten "+n+": "+oflKomma(d.ausnahme_quote||0,1)+" %") : "noch keine Quote";
-    q.style.color = d.notaus ? "var(--k-b91c1c,#b91c1c)" : "var(--muted)";
-  }
-  /* Restzeit ehrlich aus der GEMESSENEN Dauer dieses Laufs, nicht aus einer geratenen
-     Sekundenzahl. Ohne eigene Messung steht dort nichts. */
-  var rz=document.getElementById("oflRestzeit");
-  if(rz){
-    if(OFL.laeuft && OFL.log.length>=3 && OFL.start){
-      var proStk=(Date.now()-OFL.start)/OFL.log.length;
-      var min=Math.round(Number(d.offen||0)*proStk/60000);
-      rz.textContent = min>0 ? ("noch etwa "+(min>=60?(Math.floor(min/60)+" h "+(min%60)+" min"):(min+" min"))) : "";
-    } else rz.textContent="";
-  }
-}
-function oflMalLog(){
-  var box=document.getElementById("oflLog"); if(!box) return;
-  if(!OFL.log.length){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Noch nichts bewertet.</div>'; return; }
-  box.innerHTML=OFL.log.slice(0,12).map(function(x){
-    var rechts;
-    if(x.fehler){
-      rechts='<span style="color:var(--k-b91c1c,#b91c1c);font-size:12px">Fehler</span>';
-    }else if(x.gegen){
-      /* 31.07.: Beim Gegenlesen ist die EINZELNE Zahl nichtssagend - man muss sehen, ob
-         sie zustimmt. Deshalb "7 → 1" und das Urteil aus dem VERGLEICH, nicht aus den
-         Waechtern. Vorher stand hier faelschlich bei jeder Zeile "kein Prüfsignal". */
-      var dz=(x.erst==null||x.stufe==null)?null:Math.abs(x.stufe-x.erst);
-      var c=dz===null?"var(--muted)":dz===0?"var(--k-16a34a,#16a34a)":dz===1?"var(--k-b45309,#b45309)":"var(--k-b91c1c,#b91c1c)";
-      var w=dz===null?"gegengelesen":dz===0?"einig":dz===1?"±1 Stufe":"uneinig";
-      rechts='<b style="width:56px;text-align:right;display:inline-block">'
-        +esc(String(x.erst==null?"?":x.erst))+' <span style="color:var(--muted);font-weight:400">→</span> '+esc(String(x.stufe))+'</b>'
-        +'<span style="color:'+c+';font-size:12px;margin-left:10px;width:74px;display:inline-block">'+esc(w)+'</span>';
-    }else{
-      var col=oflUrteilFarbe(x.urteil);
-      rechts='<b style="width:56px;text-align:right;display:inline-block">'+esc(String(x.stufe))+'</b>'
-        +'<span style="color:'+col+';font-size:12px;margin-left:10px;width:74px;display:inline-block">'+esc(oflUrteilWort(x.urteil))+'</span>';
-    }
-    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">'
-      +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name)+'</span>'
-      +'<span style="color:var(--muted);font-size:12px">'+esc(String(x.nennungen))+'×</span>'
-      +rechts+'</div>';
-  }).join("");
-}
-async function offLaufRender(){
-  var v=document.getElementById("offLaufView"); if(!v) return;
-  var kachel=function(id,lbl){ return '<div style="background:var(--bg);border-radius:10px;padding:12px 14px">'
-    +'<div style="font-size:12px;color:var(--muted);margin-bottom:3px">'+lbl+'</div>'
-    +'<div id="'+id+'" style="font-size:22px;font-weight:800;color:var(--ink)">–</div></div>'; };
-  var pille=function(id,lbl,col){ return '<span style="font-size:12px;padding:4px 11px;border-radius:9px;background:var(--bg);color:'+col+';font-weight:700">'
-    +lbl+' <span id="'+id+'">–</span></span>'; };
-  v.innerHTML='<div style="max-width:860px;margin:0 auto">'
-    +'<h2 style="margin:.1em 0 .25em;font-size:19px">OFF-Zutatenlauf</h2>'
-    +'<div style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.55">'
-      +'Riki stuft jede offene Zutat des Piloten ein. <b>Nichts geht in den Stamm</b> – erst prüfen, dann übernehmen.'
-      +' Der Fortschritt steht in der Datenbank: schließt du den Tab, macht der Lauf beim nächsten Start dort weiter.</div>'
-    +'<div style="height:9px;background:var(--bg);border-radius:99px;overflow:hidden;margin-bottom:7px">'
-      +'<div id="oflBar" style="width:0%;height:100%;background:var(--green);border-radius:99px;transition:width .3s"></div></div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:14px">'
-      +'<span id="oflFortschritt">–</span><span id="oflRestzeit"></span></div>'
-    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px">'
-      +kachel("oflFertig","Bewertet")+kachel("oflOffen","Offen")
-      +kachel("oflKosten","Kosten bisher")+kachel("oflRest","Rest erwartet")+'</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:14px">'
-      +pille("oflBest","bestätigt","var(--k-16a34a,#16a34a)")
-      +pille("oflPruef","grenzwertig","var(--k-b45309,#b45309)")
-      +pille("oflAusn","Widerspruch","var(--k-b91c1c,#b91c1c)")
-      +pille("oflKein","kein Prüfsignal","var(--muted)")
-      +pille("oflFehler","Fehler","var(--muted)")
-      +'<span id="oflQuote" style="font-size:12px;color:var(--muted);margin-left:4px"></span></div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:14px">'
-      +'<span style="font-size:12px;color:var(--muted);font-weight:700">Gegenleser:</span>'
-      +pille("oflGGleich","exakt einig","var(--k-16a34a,#16a34a)")
-      +pille("oflGEins","±1 Stufe","var(--k-b45309,#b45309)")
-      +pille("oflGUneinig","uneinig","var(--k-b91c1c,#b91c1c)")
-      +pille("oflGOffen","noch offen","var(--muted)")
-      +'<span id="oflGKosten" style="font-size:12px;color:var(--muted);margin-left:4px"></span></div>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'
-      +'<button id="oflBtnStart" onclick="oflStart()" style="padding:9px 16px;border:0;border-radius:9px;background:var(--green);color:#fff;font-weight:700;cursor:pointer;font-size:13px">▶ Lauf starten</button>'
-      +'<button id="oflBtnStop" onclick="oflStop()" style="display:none;padding:9px 16px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-weight:700;cursor:pointer;font-size:13px">■ Anhalten</button>'
-      +'<button onclick="offLaufRender()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">↻ Aktualisieren</button>'
-      +'<button onclick="oflGegen()" style="padding:9px 14px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt,#eaf6ee);color:var(--greendk,#17505c);font-weight:700;cursor:pointer;font-size:13px" title="Zweite, unabhängige Bewertung mit einem anderen Modell – Voraussetzung für die Übernahme">🔍 Gegenlesen</button>'
-      +'<div style="flex:1"></div>'
-      +'<button onclick="oflPruefen()" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px">① Gegen Regelwerk prüfen</button>'
-      +'<select id="oflDiff" title="Wie einig müssen die zwei Lesungen sein?" style="padding:9px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px">'
-        +'<option value="0">Gegenleser exakt einig</option><option value="1">±1 Stufe erlaubt</option></select>'
-      +'<button onclick="oflUebernehmen()" style="padding:9px 14px;border:1px solid var(--green);border-radius:9px;background:var(--greenlt,#eaf6ee);color:var(--greendk,#17505c);font-weight:700;cursor:pointer;font-size:13px">② Übernehmen</button>'
-    +'</div>'
-    +'<div id="oflMeldung" style="display:none;font-size:12.5px;margin:8px 0 4px;line-height:1.5"></div>'
-    +'<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">'
-      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
-        +'<div style="font-size:12.5px;color:var(--muted);flex:1">Gemeinsam anschauen <span id="oflNachZahl"></span></div>'
-        +'<button onclick="oflNacharbeit()" style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">Liste zeigen</button></div>'
-      +'<div id="oflNach"></div></div>'
-    +'<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">'
-      +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">Zuletzt bewertet</div>'
-      +'<div id="oflLog"></div></div>'
-    +'</div>';
-  oflMalLog();
-  oflMalStand(await oflStand());
-}
-/* Nacharbeit-Liste (Ralph 31.07.: "die anderen kennzeichnen, die sollten wir uns nach
-   Abschluss gemeinsam nochmal anschauen"). ABGELEITET, nicht gepflegt — ein Kennzeichen
-   veraltet, sobald sich eine Zutat bewegt; diese Liste kann es nicht (§4b). */
-async function oflNacharbeit(){
-  var box=document.getElementById("oflNach"); if(!box) return;
-  box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade …</div>';
-  var r=await client.rpc("cb_off_nacharbeit",{p_limit:500});
-  if(r.error){ box.innerHTML='<div style="color:var(--k-b91c1c,#b91c1c);font-size:12.5px">'+esc(r.error.message)+'</div>'; return; }
-  var d=r.data||[];
-  var zn=document.getElementById("oflNachZahl"); if(zn) zn.textContent="("+d.length+")";
-  if(!d.length){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Nichts offen.</div>'; return; }
-  var farbe=function(g){
-    return g==="Waechter widerspricht" ? "var(--k-b91c1c,#b91c1c)"
-         : g==="zwei Modelle deutlich uneinig" ? "var(--k-b91c1c,#b91c1c)"
-         : g==="Regelwerk widerspricht" ? "var(--k-b91c1c,#b91c1c)"
-         : "var(--k-b45309,#b45309)"; };
-  box.innerHTML=d.map(function(x){
-    var zwei=(x.stufe_2==null)?"–":String(x.stufe_2);
-    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">'
-      +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name)+'</span>'
-      +'<span style="color:var(--muted);font-size:12px">'+esc(String(x.nennungen))+'×</span>'
-      +'<b style="width:56px;text-align:right">'+esc(String(x.stufe_1))+' <span style="color:var(--muted);font-weight:400">/</span> '+esc(zwei)+'</b>'
-      +'<span style="color:'+farbe(x.grund)+';font-size:12px;width:190px;display:inline-block;text-align:right">'+esc(x.grund)+'</span>'
-      +'</div>'; }).join("");
-}
-function oflStop(){ OFL.stop=true; oflSetMeldung("Wird angehalten – der laufende Aufruf wird noch zu Ende geführt.","var(--k-b45309,#b45309)"); }
-async function oflStart(){
-  if(OFL.laeuft) return;
-  var d0=await oflStand();
-  if(d0 && d0.notaus){
-    oflSetMeldung("Notaus aktiv: die Widerspruchsquote der letzten "+d0.fenster_n+" liegt bei "
-      +oflKomma(d0.ausnahme_quote,1)+" %. Bitte erst ansehen, was Riki dort liefert.","var(--k-b91c1c,#b91c1c)");
-    return;
-  }
-  OFL.laeuft=true; OFL.stop=false; OFL.grund=""; OFL.start=Date.now(); OFL.log=[];
-  var bs=document.getElementById("oflBtnStart"), bp=document.getElementById("oflBtnStop");
-  if(bs) bs.style.display="none"; if(bp) bp.style.display="";
-  oflSetMeldung("Läuft …","var(--muted)");
-  var seit=0;
-  try{
-    while(!OFL.stop){
-      var nx=await client.rpc("cb_off_lauf_naechste",{p_anzahl:20});
-      if(nx.error){ OFL.grund="Nachschub-Fehler: "+nx.error.message; break; }
-      var liste=(nx.data)||[];
-      if(!liste.length){ OFL.grund="fertig"; break; }
-      /* 31.07. STAPEL statt Einzelaufruf (Ralph-Go). GEMESSEN an 87 bereits einzeln
-         bewerteten Zutaten: 86 % exakt gleich. Die Streuung zwischen zwei EINZEL-Laeufen
-         lag am 30.07. bei 17 % - der Stapel ist also nicht schlechter, nur schneller
-         (1,6 s statt 3-5 s je Zutat). Alle vier groben Abweichungen betrafen NICHT-Zutaten
-         ("enthalten milch", "palme", "schweiz"); bei 83 echten Zutaten null.
-         ZEHNER-Stapel, nicht dreissiger: bei 30 gab es einen groben Ausrutscher bei einer
-         echten Zutat, bei 10 keinen. Kleiner Unterschied, kleine Stichprobe - im Zweifel
-         die vorsichtigere Groesse. */
-      var teil=liste.map(function(x){ return x.name; });
-      var nenMap={}; liste.forEach(function(x){ nenMap[x.name]=x.nennungen; });
-      var s=await client.auth.getSession();
-      var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
-      if(!tok){ OFL.grund="Nicht mehr angemeldet."; OFL.stop=true; break; }
-      var dd=null, ok=false;
-      try{
-        var rr=await fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{
-          method:"POST",
-          headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
-          body:JSON.stringify({namen:teil})});
-        dd=await rr.json(); ok=rr.ok;
-      }catch(e){ dd={error:String(e)}; ok=false; }
-      if(dd && dd.budget_voll===true){
-        OFL.grund="budget"; OFL.stop=true;
-        oflSetMeldung(dd.error||"Monatslimit erreicht.","var(--k-b91c1c,#b91c1c)"); break;
-      }
-      if(!ok || !dd || !Array.isArray(dd.ergebnisse)){
-        /* Ein gescheiterter Stapel trifft ZEHN Zutaten auf einmal. Jede bekommt ihren
-           Fehlversuch gezaehlt - nach drei Versuchen bleibt sie liegen, statt den Lauf
-           zu blockieren. */
-        for(var f=0; f<teil.length; f++){
-          await client.rpc("cb_off_lauf_merken",{p_name:teil[f],p_fehler:String((dd&&dd.error)||"Stapel fehlgeschlagen")});
-          OFL.log.unshift({name:teil[f],nennungen:nenMap[teil[f]],fehler:true});
-        }
-      }else{
-        for(var e2=0; e2<dd.ergebnisse.length; e2++){
-          var er=dd.ergebnisse[e2];
-          var nm=(er&&er.name)||teil[e2];
-          if(!er || typeof er.stufe!=="number"){
-            await client.rpc("cb_off_lauf_merken",{p_name:nm,p_fehler:"keine Stufe im Stapel"});
-            OFL.log.unshift({name:nm,nennungen:nenMap[nm],fehler:true});
-            continue;
-          }
-          var urt=(er.verifikation&&er.verifikation.gesamt)||"KEIN_SIGNAL";
-          /* v20: Riki meldet die Sprache. "andere" wird in der DB sofort aussortiert -
-             die Bewertung bleibt trotzdem stehen, sie hat Geld gekostet. */
-          await client.rpc("cb_off_lauf_merken",{p_name:nm,p_stufe:er.stufe,p_urteil:urt,
-            p_begruendung:er.begruendung||null,p_sprache:er.sprache||null});
-          OFL.log.unshift({name:nm,nennungen:nenMap[nm],stufe:er.stufe,
-            urteil:(er.sprache==="andere"?"FREMD":urt)});
-        }
-      }
-      if(OFL.log.length>60) OFL.log.length=60;
-      oflMalLog(); seit+=teil.length;
-      if(seit>=10){
-        seit=0;
-        var dz=await oflStand(); oflMalStand(dz);
-        if(dz && dz.notaus){
-          OFL.grund="notaus"; OFL.stop=true;
-          oflSetMeldung("NOTAUS: Widerspruchsquote der letzten "+dz.fenster_n+" bei "
-            +oflKomma(dz.ausnahme_quote,1)+" % (Schwelle 25 %). Der Lauf steht. Bitte ansehen, was Riki dort liefert – "
-            +"weiterlaufen zu lassen kostet Geld für Ergebnisse, die du ohnehin einzeln prüfen musst.","var(--k-b91c1c,#b91c1c)");
-          break;
-        }
-      }
-      await new Promise(function(r){ setTimeout(r,200); });
-    }
-  }catch(e){ OFL.grund="Abbruch: "+String(e); }
-  OFL.laeuft=false;
-  if(bs) bs.style.display=""; if(bp) bp.style.display="none";
-  var dEnd=await oflStand(); oflMalStand(dEnd);
-  if(OFL.grund==="fertig") oflSetMeldung("Fertig – es sind keine offenen Zutaten mehr da.","var(--k-16a34a,#16a34a)");
-  else if(OFL.grund==="budget"||OFL.grund==="notaus"){ /* Meldung steht schon */ }
-  else if(OFL.grund) oflSetMeldung(OFL.grund,"var(--k-b91c1c,#b91c1c)");
-  else oflSetMeldung("Angehalten. Ein Neustart macht dort weiter, wo der Lauf stehen geblieben ist.","var(--muted)");
-}
-async function oflPruefen(){
-  oflSetMeldung("Prüfe gegen das Regelwerk …","var(--muted)");
-  var r=await client.rpc("cb_off_lauf_regelpruefung");
-  if(r.error){ oflSetMeldung("Prüfung fehlgeschlagen: "+r.error.message,"var(--k-b91c1c,#b91c1c)"); return; }
-  var d=(r.data&&r.data[0])||{};
-  /* „0 geprüft" ist irreführend, wenn schon alles geprüft war (Ralphs Rückfrage 31.07.):
-     es liest sich wie ein Fehlschlag, ist aber der Normalfall beim zweiten Klick.
-     Eine Zahl, die den Erfolgsfall wie einen Ausfall aussehen lässt, ist eine falsche Zahl. */
-  var neu=Number(d.geprueft||0);
-  oflSetMeldung(
-    (neu>0 ? (oflZahl(neu)+" neu geprüft · ") : "Nichts Neues zu prüfen – ")
-    + oflZahl(d.sauber)+" ohne Widerspruch · "
-    + oflZahl(d.mit_verstoss)+" widersprechen dem Regelwerk (die bleiben liegen)."
-    + (Number(d.rest_offen||0)>0 ? (" Noch offen: "+oflZahl(d.rest_offen)+" – nochmal drücken.") : ""),
-    Number(d.mit_verstoss||0)>0?"var(--k-b45309,#b45309)":"var(--k-16a34a,#16a34a)");
-  oflMalStand(await oflStand());
-}
-/* ===== GEGENLESER (Ralph-Go 31.07.) =====
-   Dieselbe Zutat ein zweites Mal einstufen — BLIND (das zweite Modell sieht die erste
-   Stufe nicht) und mit einem ANDEREN Modell (Haiku statt Sonnet), aber demselben
-   Regelwerk. Grund: die drei gebauten Wächter können die meisten Namen nicht beurteilen
-   — an 72 Zutaten gemessen schwieg W-Ref 72×, W-Name 69×. Zwei unabhängige Lesungen,
-   die übereinstimmen, sind ein Prüfsignal, das für JEDEN Namen entsteht.
-   Ehrliche Grenze: zwei Modelle desselben Anbieters mit demselben Regeltext sind nicht
-   völlig unabhängig. Es ist ein Gegenleser, kein Beweis. */
-var OFL_GEGEN_MODELL="claude-haiku-4-5-20251001";
-async function oflGegen(){
-  if(OFL.laeuft) return;
-  var d0=await oflStand();
-  var n=Number((d0&&d0.gegen_offen)||0);
-  if(!n){ oflSetMeldung("Nichts gegenzulesen – alle bewerteten Zutaten sind bereits gegengelesen.","var(--muted)"); return; }
-  if(!confirm("Liest "+n+" bereits bewertete Zutaten ein zweites Mal – blind, mit einem anderen Modell.\n\n"
-    +"Geschätzte Kosten: "+oflKomma((d0&&d0.gegen_kosten_rest)||0,2)+" $\n\nStarten?")) return;
-  OFL.laeuft=true; OFL.stop=false; OFL.grund=""; OFL.start=Date.now(); OFL.log=[];
-  var bs=document.getElementById("oflBtnStart"), bp=document.getElementById("oflBtnStop");
-  if(bs) bs.style.display="none"; if(bp) bp.style.display="";
-  oflSetMeldung("Gegenleser läuft …","var(--muted)");
-  try{
-    while(!OFL.stop){
-      var nx=await client.rpc("cb_off_gegen_naechste",{p_anzahl:20});
-      if(nx.error){ OFL.grund="Nachschub-Fehler: "+nx.error.message; break; }
-      var liste=(nx.data)||[];
-      if(!liste.length){ OFL.grund="fertig"; break; }
-      for(var i=0;i<liste.length && !OFL.stop;i++){
-        var name=liste[i].name, nen=liste[i].nennungen, erst=liste[i].erst_stufe;
-        var s=await client.auth.getSession();
-        var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
-        if(!tok){ OFL.grund="Nicht mehr angemeldet."; OFL.stop=true; break; }
-        var dd=null, ok=false;
-        try{
-          var rr=await fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",{
-            method:"POST",
-            headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
-            body:JSON.stringify({namen:[name], modell:OFL_GEGEN_MODELL, quelle:"gegenleser"})});
-          dd=await rr.json(); ok=rr.ok;
-          /* v19 antwortet im Stapel-Format. Ein Einer-Stapel bleibt ein Stapel - der
-             Gegenleser laeuft absichtlich Zutat fuer Zutat, damit er von den anderen
-             Namen im Stapel nicht beeinflusst wird. Er ist die zweite Meinung; eine
-             zweite Meinung, die dieselbe Nachbarschaft sieht, ist keine. */
-          if(ok && dd && Array.isArray(dd.ergebnisse) && dd.ergebnisse[0]) dd=dd.ergebnisse[0];
-        }catch(e){ dd={error:String(e)}; ok=false; }
-        if(dd && dd.budget_voll===true){
-          OFL.grund="budget"; OFL.stop=true;
-          oflSetMeldung(dd.error||"Monatslimit erreicht.","var(--k-b91c1c,#b91c1c)"); break;
-        }
-        if(!ok || !dd || typeof dd.stufe!=="number"){
-          await client.rpc("cb_off_gegen_merken",{p_name:name,p_fehler:String((dd&&dd.error)||"unbekannter Fehler")});
-          OFL.log.unshift({name:name,nennungen:nen,fehler:true,gegen:true});
-        }else{
-          await client.rpc("cb_off_gegen_merken",{p_name:name,p_stufe:dd.stufe,
-            p_modell:OFL_GEGEN_MODELL,p_sprache:dd.sprache||null});
-          OFL.log.unshift({name:name,nennungen:nen,stufe:dd.stufe,erst:erst,gegen:true});
-        }
-        if(OFL.log.length>60) OFL.log.length=60;
-        oflMalLog();
-        await new Promise(function(r){ setTimeout(r,250); });
-      }
-    }
-  }catch(e){ OFL.grund="Abbruch: "+String(e); }
-  OFL.laeuft=false;
-  if(bs) bs.style.display=""; if(bp) bp.style.display="none";
-  var dEnd=await oflStand(); oflMalStand(dEnd);
-  if(OFL.grund==="fertig") oflSetMeldung("Gegenlesen fertig. Einig: "+oflZahl(dEnd&&dEnd.gegen_gleich)
-    +" exakt · "+oflZahl(dEnd&&dEnd.gegen_eins)+" eine Stufe daneben · "
-    +oflZahl(dEnd&&dEnd.gegen_uneinig)+" uneinig.","var(--k-16a34a,#16a34a)");
-  else if(OFL.grund!=="budget") oflSetMeldung("Gegenleser angehalten. Ein Neustart macht dort weiter.","var(--muted)");
-}
-/* Zwei Stufen: erst VORSCHAU (schreibt nichts), dann auf Nachfrage schreiben.
-   Eine Funktion, deren einziger Modus schreibt, kann man nicht ausprobieren — man kann
-   sie nur auslösen. Das ist mir am 31.07. selbst passiert. */
-async function oflUebernehmen(){
-  var sel=document.getElementById("oflDiff");
-  var diff=sel?Number(sel.value||0):0;
-  oflSetMeldung("Vorschau …","var(--muted)");
-  var v=await client.rpc("cb_off_lauf_uebernehmen",{p_max:500,p_max_diff:diff,p_probe:true});
-  if(v.error){ oflSetMeldung("Vorschau fehlgeschlagen: "+v.error.message,"var(--k-b91c1c,#b91c1c)"); return; }
-  var p=(v.data&&v.data[0])||{};
-  var n=Number(p.uebernommen||0);
-  if(!n){ oflSetMeldung("Nichts zu übernehmen. "+(p.grund_liste||""),"var(--k-b45309,#b45309)"); return; }
-  if(!confirm(n+" Zutaten würden in den Zutaten-Stamm geschrieben.\n\n"
-    +"Bedingung: Regelwerk widerspricht nicht · kein Wächter-Widerspruch · "
-    +(diff===0?"Gegenleser exakt derselben Meinung":"Gegenleser höchstens "+diff+" Stufe daneben")
-    +".\n\nAlles andere bleibt liegen:\n"+(p.grund_liste||"–")+"\n\nJetzt wirklich schreiben?")) {
-    oflSetMeldung("Abgebrochen – es wurde nichts geschrieben. Vorschau: "+n+" würden übernommen.","var(--muted)");
-    return;
-  }
-  var r=await client.rpc("cb_off_lauf_uebernehmen",{p_max:500,p_max_diff:diff,p_probe:false});
-  if(r.error){ oflSetMeldung("Übernahme fehlgeschlagen: "+r.error.message,"var(--k-b91c1c,#b91c1c)"); return; }
-  var d=(r.data&&r.data[0])||{};
-  /* 31.07.: Die Übernahme arbeitet in Blöcken zu 500 – ein größerer Block lief in das
-     Zeitlimit der Datenbank. Wer 1.500 übernehmen will, drückt dreimal. Das MUSS
-     dastehen, sonst hält man 500 für das Endergebnis. */
-  var rest=/wuerde uebernommen \((\d+)\)/.exec(String(d.grund_liste||""));
-  var offenNoch=rest?Number(rest[1]):0;
-  oflSetMeldung(oflZahl(d.uebernommen)+" in den Stamm übernommen · "+oflZahl(d.uebersprungen)+" bleiben liegen"
-    +(d.grund_liste?(" – "+d.grund_liste):"")
-    +(offenNoch>0 ? ("  ⟳ Noch "+oflZahl(offenNoch)+" übernahmebereit – bitte nochmal drücken.") : ""),
-    offenNoch>0?"var(--k-b45309,#b45309)":"var(--k-16a34a,#16a34a)");
-  oflMalStand(await oflStand());
-}
-if(typeof window!=="undefined"){
-  window.offLaufRender=offLaufRender; window.oflStart=oflStart; window.oflStop=oflStop;
-  window.oflPruefen=oflPruefen; window.oflUebernehmen=oflUebernehmen; window.oflGegen=oflGegen; window.oflNacharbeit=oflNacharbeit;
-}
 
 function adminGo(k){
   const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
@@ -23389,7 +22966,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-09-1853";
+const APP_BUILD = "2026-08-09-2020";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
@@ -23510,3 +23087,234 @@ setInterval(pruefeUpdate, 5*60*1000);
 document.addEventListener("visibilitychange", function(){
   if(document.visibilityState === "visible") pruefeUpdate();
 });
+
+/* ============================================================================
+   FOTOSTUDIO — zwei Root-Index-Anzeigen nebeneinander (Ralph 09.08.2026)
+   ----------------------------------------------------------------------------
+   ZWECK: Vergleichsbilder fuer Produktfotos. Links ein Produkt, rechts eins,
+   beide zeigen ihren Root Index. Per Knopf faellt daraus eine PNG-Datei —
+   damit ist kein Bildschirmfoto noetig, das Ausschneiden und Skalieren spart.
+
+   WARUM EIN EIGENER ZEICHNER (fsFluxSvg) UND NICHT feFluxWidget:
+   feFluxWidget schreibt Farben als CSS-Variablen (var(--ink), var(--k-...)) und
+   startet eine Animation per setTimeout. Beides ueberlebt das Rastern nach PNG
+   nicht: eine losgeloeste SVG-Datei kennt die Variablen des Dokuments nicht und
+   waere farblos, und der Export traefe die Animation mitten im Lauf. fsFluxSvg
+   loest die Farben BEIM ZEICHNEN auf und malt den Endzustand.
+   GEOMETRIE UND ACHSEN-OBERGRENZEN sind wortgleich aus feFluxWidget/pkFlux
+   uebernommen (bahn, kap, 30/15/15/40, p_naehrwert mal 2) — es gibt nur EINE
+   Bildsprache; weicht sie hier ab, luegt das Foto ueber das Produkt.
+
+   DATENWEG: Suche ueber cb_produkte_suchen (ganzer Katalog, nicht die im
+   Browser gehaltenen 3.000 aus fetchAlleProdukte). Die vier Achsenwerte liefert
+   die Suche NICHT — die holt fsLade() einzeln aus v_web_produkte nach.
+   Es wird NICHTS gespeichert und NICHTS gerechnet: gezeigt wird, was in der
+   Datenbank steht.
+   ========================================================================= */
+var _fsSel={l:null,r:null};
+var _fsTreffer={l:[],r:[]};
+var _fsOpt={grund:'weiss', beschriftung:true, px:1600};
+
+function fsNum(v){ if(v===null||v===undefined||v==='') return null; var n=Number(v); return isFinite(n)?n:null; }
+/* Farbwert einer CSS-Variablen zur Laufzeit aufloesen (wegen Hell-/Dunkelmodus).
+   Faellt sie aus, gilt der Wert, der im Namen steckt (--k-16a34a -> #16a34a). */
+function fsVar(n,fb){ try{ var v=getComputedStyle(document.documentElement).getPropertyValue(n).trim(); return v||fb; }catch(e){ return fb; } }
+function fsNoteFarbe(b){
+  if(b==='Sehr gut') return fsVar('--k-16a34a','#16a34a');
+  if(b==='Gut')      return fsVar('--k-65a30d','#65a30d');
+  if(b==='Mittel')   return fsVar('--k-e8920c','#e8920c');
+  if(b==='Schwach')  return fsVar('--k-dc2626','#dc2626');
+  return fsVar('--k-9aa7a0','#9aa7a0');
+}
+function fsXml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* Eine Tafel: Flux-Ring plus Beschriftung, als SVG-Gruppe in einem 340x250-Feld. */
+function fsTafel(p, dx, dy){
+  var tinte=fsVar('--ink','#1d3c24'), grau=fsVar('--muted','#6b6256');
+  if(!p){
+    return '<g transform="translate('+dx+','+dy+')">'
+      +'<text x="170" y="120" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" fill="'+grau+'">Kein Produkt gewählt</text></g>';
+  }
+  var s=fsNum(p.clean_score);
+  var A=[
+    {v:fsNum(p.p_zutaten),      max:30, f:'#16a34a'},
+    {v:fsNum(p.p_zusatzstoffe), max:15, f:'#3987e5'},
+    {v:fsNum(p.p_nova),         max:15, f:'#7c6fe0'},
+    {v:(fsNum(p.p_naehrwert)!=null ? fsNum(p.p_naehrwert)*2 : null), max:40, f:'#d97706'}
+  ].map(function(a){ a.pct=(a.v==null)?null:Math.max(0,Math.min(1,a.v/a.max)); return a; });
+  var bahn=['M26 34 H74 L106 64','M274 34 H226 L194 64','M26 142 H74 L106 112','M274 142 H226 L194 112'];
+  var kap=[[26,34],[274,34],[26,142],[274,142]];
+  var L=92, ringF=(s==null)?fsVar('--k-9aa7a0','#9aa7a0'):fsNoteFarbe(p.bewertung);
+  var g='<g transform="translate('+dx+','+dy+')">'
+    +'<g transform="translate(20,0)">'
+      +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">'
+      + bahn.map(function(d){ return '<path d="'+d+'" stroke="rgba(120,120,120,0.16)"/>'; }).join('')
+      + A.map(function(a,i){ var off=(a.pct==null)?L:L*(1-a.pct);
+          return '<path d="'+bahn[i]+'" stroke="'+(a.pct==null?'rgba(120,120,120,0.28)':a.f)+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+off.toFixed(1)+'"/>'; }).join('')
+      +'</g>'
+      + A.map(function(a,i){ return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="7" fill="'+(a.pct==null?'#9aa7a0':a.f)+'"/>'; }).join('')
+      +'<circle cx="150" cy="88" r="42" fill="none" stroke="'+ringF+'" stroke-width="5"/>'
+      +'<text x="150" y="101" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="42" font-weight="800" fill="'+tinte+'">'+(s==null?'–':String(Math.round(s)))+'</text>'
+    +'</g>';
+  if(_fsOpt.beschriftung){
+    var nm=String(p.name||''); if(nm.length>34) nm=nm.slice(0,33)+'…';
+    var mk=String(p.marke||'');  if(mk.length>34) mk=mk.slice(0,33)+'…';
+    g+='<text x="170" y="200" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="17" font-weight="700" fill="'+tinte+'">'+fsXml(nm)+'</text>';
+    if(mk) g+='<text x="170" y="220" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="13" fill="'+grau+'">'+fsXml(mk)+'</text>';
+    g+='<text x="170" y="242" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" font-weight="700" fill="'+fsNoteFarbe(p.bewertung)+'">'+fsXml(p.bewertung||'')+'</text>';
+  }
+  return g+'</g>';
+}
+
+/* Die ganze Buehne als eigenstaendiges SVG. seiten: 'l', 'r' oder 'beide'. */
+function fsSvg(seiten){
+  /* Hoehe MIT Beschriftung: Ring endet bei y=196 (20 oben + 176), darunter Name 200,
+     Marke 220, Note 242 - plus 26 Luft, sonst schneidet der Rand die Note an.
+     OHNE Beschriftung reicht der Ring plus dieselbe Luft. Beides nachgemessen. */
+  var H=_fsOpt.beschriftung?268:216;
+  var eins=(seiten!=='beide');
+  var W=eins?340:700;
+  var grund=(_fsOpt.grund==='weiss')?'<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="#ffffff"/>'
+           :(_fsOpt.grund==='karte')?'<rect x="0" y="0" width="'+W+'" height="'+H+'" rx="16" fill="'+fsVar('--card','#ffffff')+'"/>':'';
+  var inhalt = eins ? fsTafel(_fsSel[seiten], 0, 20)
+                    : (fsTafel(_fsSel.l, 0, 20) + fsTafel(_fsSel.r, 360, 20));
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'">'+grund+inhalt+'</svg>';
+}
+
+/* SVG -> PNG. Laeuft ohne Fremdbibliothek: das SVG wird als Datenadresse in ein
+   Bild geladen und auf eine Leinwand gemalt. Die Breite bestimmt _fsOpt.px. */
+async function fsPng(seiten){
+  var msg=document.getElementById('fsMsg');
+  var setz=function(t,rot){ if(msg){ msg.textContent=t; msg.style.color=rot?fsVar('--k-dc2626','#dc2626'):fsVar('--muted','#6b6256'); } };
+  try{
+    if(seiten==='beide' && (!_fsSel.l || !_fsSel.r)){ setz('Für ein Doppelbild müssen beide Seiten ein Produkt haben.',true); return; }
+    if(seiten!=='beide' && !_fsSel[seiten]){ setz('Auf dieser Seite ist kein Produkt gewählt.',true); return; }
+    setz('Bild wird erzeugt…');
+    var svg=fsSvg(seiten);
+    var m=svg.match(/viewBox="0 0 (\d+) (\d+)"/), vw=Number(m[1]), vh=Number(m[2]);
+    var breite=Math.max(300, Math.round(_fsOpt.px)), hoehe=Math.round(breite*vh/vw);
+    var url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    var bild=await new Promise(function(ok,fehl){ var i=new Image(); i.onload=function(){ok(i);}; i.onerror=function(){fehl(new Error('SVG nicht ladbar'));}; i.src=url; });
+    var c=document.createElement('canvas'); c.width=breite; c.height=hoehe;
+    var ctx=c.getContext('2d'); ctx.drawImage(bild,0,0,breite,hoehe);
+    var teil=(seiten==='beide')?((_fsSel.l.id||'')+'_vs_'+(_fsSel.r.id||'')):(_fsSel[seiten].id||'produkt');
+    var a=document.createElement('a');
+    a.download='rootindex_'+String(teil).replace(/[^A-Za-z0-9_-]/g,'')+'_'+breite+'.png';
+    a.href=c.toDataURL('image/png');
+    document.body.appendChild(a); a.click(); a.remove();
+    setz('Fertig: '+breite+' × '+hoehe+' px gespeichert.');
+  }catch(e){ setz('Bild konnte nicht erzeugt werden: '+(e&&e.message?e.message:'unbekannt'),true); }
+}
+
+/* Suche im ganzen Katalog. Entprellt, mit Sequenz-Wache gegen spaete Antworten. */
+var _fsSeq={l:0,r:0}, _fsTimer={l:null,r:null};
+function fsSuche(seite, q){
+  if(_fsTimer[seite]) clearTimeout(_fsTimer[seite]);
+  _fsTimer[seite]=setTimeout(function(){ fsSucheLauf(seite, q); }, 280);
+}
+async function fsSucheLauf(seite, q){
+  q=String(q||'').trim();
+  var liste=document.getElementById('fsListe_'+seite); if(!liste) return;
+  if(q.length<2){ _fsTreffer[seite]=[]; liste.innerHTML=''; return; }
+  var seq=(++_fsSeq[seite]);
+  liste.innerHTML='<div style="padding:8px 10px;font-size:12.5px;color:var(--muted)">⏳ suche…</div>';
+  try{
+    var r=await client.rpc('cb_produkte_suchen',{p_q:q, p_limit:12, p_offset:0});
+    if(seq!==_fsSeq[seite]) return;
+    if(r.error) throw r.error;
+    var rows=r.data||[];
+    _fsTreffer[seite]=rows;
+    if(!rows.length){ liste.innerHTML='<div style="padding:8px 10px;font-size:12.5px;color:var(--muted)">Kein Treffer.</div>'; return; }
+    liste.innerHTML=rows.map(function(p,i){
+      return '<button onclick="fsWaehle(\''+seite+'\','+i+')" style="display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:8px 10px;font-size:13px;cursor:pointer">'
+        +'<b>'+esc(p.name||'')+'</b>'+(p.marke?' <span style="color:var(--muted)">· '+esc(p.marke)+'</span>':'')
+        +' <span style="color:var(--muted);font-size:11.5px">'+(p.clean_score==null?'ohne Index':('Index '+Math.round(Number(p.clean_score))))+'</span></button>';
+    }).join('');
+  }catch(e){
+    if(seq!==_fsSeq[seite]) return;
+    liste.innerHTML='<div style="padding:8px 10px;font-size:12.5px;color:var(--k-dc2626)">Suche fehlgeschlagen.</div>';
+  }
+}
+
+/* Treffer uebernehmen: die vier Achsenwerte fehlen in der Suche und werden
+   einzeln aus v_web_produkte nachgeladen. Ohne sie bleiben die Balken grau —
+   dann fehlt der Wert wirklich, wir setzen keine Null ein. */
+async function fsWaehle(seite, i){
+  var t=(_fsTreffer[seite]||[])[i]; if(!t) return;
+  var liste=document.getElementById('fsListe_'+seite); if(liste) liste.innerHTML='';
+  var such=document.getElementById('fsQ_'+seite); if(such) such.value='';
+  _fsSel[seite]={id:t.id, name:t.name, marke:t.marke, clean_score:t.clean_score, bewertung:t.bewertung};
+  fsBuehneZeichnen();
+  try{
+    var r=await client.from('v_web_produkte')
+      .select('id,name,marke,clean_score,bewertung,p_zutaten,p_zusatzstoffe,p_nova,p_naehrwert')
+      .eq('id', t.id).limit(1);
+    if(r.error) throw r.error;
+    var p=(r.data||[])[0];
+    if(p && _fsSel[seite] && _fsSel[seite].id===t.id){ _fsSel[seite]=p; fsBuehneZeichnen(); }
+  }catch(e){ /* Achsen bleiben leer, der Ring zeigt trotzdem die Note */ }
+}
+function fsLeeren(seite){ _fsSel[seite]=null; fsBuehneZeichnen(); }
+function fsTauschen(){ var x=_fsSel.l; _fsSel.l=_fsSel.r; _fsSel.r=x; fsBuehneZeichnen(); }
+function fsOptSetzen(k,v){ _fsOpt[k]=(k==='px')?Number(v):v; fsBuehneZeichnen(); }
+function fsOptSchalten(k,v){ _fsOpt[k]=!!v; fsBuehneZeichnen(); }
+
+function fsBuehneZeichnen(){
+  var b=document.getElementById('fsBuehne'); if(!b) return;
+  /* Auf dem Schirm soll die Buehne die Breite fuellen; die festen Masse braucht nur
+     der Export (dort bestimmen sie die Rasterhoehe). Darum hier herausgenommen. */
+  b.innerHTML=fsSvg('beide').replace(/ width="\d+" height="\d+"/, ' style="width:100%;height:auto;display:block"');
+  var kl=document.getElementById('fsGewaehlt_l'), kr=document.getElementById('fsGewaehlt_r');
+  var txt=function(p){ return p?('<b>'+esc(p.name||'')+'</b>'+(p.marke?' · '+esc(p.marke):'')+' <span style="color:var(--muted)">('+esc(p.id||'')+')</span>'):'<span style="color:var(--muted)">nichts gewählt</span>'; };
+  if(kl) kl.innerHTML=txt(_fsSel.l);
+  if(kr) kr.innerHTML=txt(_fsSel.r);
+}
+
+function fsSeiteHtml(seite, titel){
+  return '<div style="flex:1 1 300px;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:12px">'
+    +'<div style="font-weight:800;font-size:14px;margin-bottom:8px">'+titel+'</div>'
+    +'<input id="fsQ_'+seite+'" oninput="fsSuche(\''+seite+'\',this.value)" placeholder="🔍 Produkt suchen (mind. 2 Zeichen)…" '
+      +'style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:13.5px">'
+    +'<div id="fsListe_'+seite+'" style="max-height:250px;overflow:auto;margin-top:6px;border-radius:9px"></div>'
+    +'<div style="margin-top:10px;font-size:13px;line-height:1.5" id="fsGewaehlt_'+seite+'"></div>'
+    +'<button onclick="fsLeeren(\''+seite+'\')" style="margin-top:8px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font-size:12px;cursor:pointer">Seite leeren</button>'
+    +'</div>';
+}
+
+function fsRender(){
+  var v=document.getElementById('fotoView'); if(!v) return;
+  v.innerHTML='<div style="max-width:1040px;margin:0 auto">'
+    +'<h2 style="font-size:20px;font-weight:800;margin:6px 0 2px">📸 Fotostudio</h2>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Links und rechts je ein Produkt wählen – beide zeigen ihren Root Index, wie ihn die Datenbank hat. Es wird nichts gerechnet und nichts gespeichert.</div>'
+    +'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">'
+      + fsSeiteHtml('l','Linke Seite')
+      + fsSeiteHtml('r','Rechte Seite')
+    +'</div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0 10px">'
+      +'<button onclick="fsTauschen()" style="padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px;cursor:pointer">⇄ Seiten tauschen</button>'
+      +'<label style="font-size:12.5px;color:var(--muted)">Hintergrund '
+        +'<select onchange="fsOptSetzen(\'grund\',this.value)" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px">'
+          +'<option value="weiss">Weiß</option><option value="transparent">Transparent</option><option value="karte">Kartenfarbe</option></select></label>'
+      +'<label style="font-size:12.5px;color:var(--muted)">Breite '
+        +'<select onchange="fsOptSetzen(\'px\',this.value)" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px">'
+          +'<option value="800">800 px</option><option value="1600" selected>1600 px</option><option value="2400">2400 px</option></select></label>'
+      +'<label style="font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px">'
+        +'<input type="checkbox" checked onchange="fsOptSchalten(\'beschriftung\',this.checked)"> Beschriftung</label>'
+    +'</div>'
+    +'<div id="fsBuehne" style="border:1px dashed var(--line);border-radius:12px;padding:10px;background:'
+      +'repeating-conic-gradient(rgba(120,120,120,.10) 0% 25%, transparent 0% 50%) 50%/18px 18px"></div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'
+      +'<button onclick="fsPng(\'beide\')" style="padding:9px 14px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:13px;cursor:pointer">⬇ Beide als PNG</button>'
+      +'<button onclick="fsPng(\'l\')" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer">⬇ Nur links</button>'
+      +'<button onclick="fsPng(\'r\')" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer">⬇ Nur rechts</button>'
+    +'</div>'
+    +'<div id="fsMsg" style="margin-top:8px;font-size:12.5px;color:var(--muted);min-height:18px"></div>'
+    +'<div style="margin-top:14px;font-size:11.5px;color:var(--muted);line-height:1.6">Achsen wie im Produkt: <span style="color:#16a34a">■</span> Zutaten (max 30) · <span style="color:#3987e5">■</span> Zusatzstoffe (15) · <span style="color:#7c6fe0">■</span> Verarbeitung/NOVA (15) · <span style="color:#d97706">■</span> Nährwert (20, doppelt gewichtet = 40). Ein <b>grauer</b> Balken heißt: für diese Achse liegt kein Wert vor – nicht Null.</div>'
+    +'</div>';
+  fsBuehneZeichnen();
+}
+if(typeof window!=='undefined'){
+  window.fsRender=fsRender; window.fsSuche=fsSuche; window.fsWaehle=fsWaehle;
+  window.fsLeeren=fsLeeren; window.fsTauschen=fsTauschen; window.fsPng=fsPng;
+  window.fsOptSetzen=fsOptSetzen; window.fsOptSchalten=fsOptSchalten;
+}
