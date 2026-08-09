@@ -13000,6 +13000,9 @@ function _zusIstLeer(nm){ nm=String(nm||"").trim().toLowerCase(); if(!nm || /^ke
   var np=nm.replace(/\([^)]*\)/g,"").replace(/^als\s+/,"").replace(/[:.]/g,"").replace(/\s+/g," ").trim(); return (typeof ZUS_FUNKTION!=="undefined" && !!ZUS_FUNKTION[np]); }
 function zusSeed(text){
   window._fgZus=[];
+  /* M3 09.08.: der gespeicherte Status entscheidet, ob das Haekchen beim Oeffnen steht.
+     Nur ein Text, der "keine" bedeutet, ist eine Aussage - ein LEERER Text ist keine. */
+  window._fgZusKeine = (function(){ var t=String(text||"").trim(); return !!t && _zusIstLeer(t); })();
   var t=String(text||"").trim();
   if(!t || _zusIstLeer(t)) return;
   var seen={};
@@ -13041,7 +13044,17 @@ function zusSeed(text){
 function zusSync(){
   var sel=window._fgZus||[];
   var ztext=document.getElementById("fe_ztext"), zstat=document.getElementById("fe_zstatus");
-  if(!sel.length){ if(ztext) ztext.value="keine"; if(zstat) zstat.value="keine"; }
+  /* M3 09.08.2026 (Knoten m_zus, Ralph-Entscheid): "nichts ausgewaehlt" ist NICHT "keine
+     vorhanden". Vorher setzte diese Zeile bei leerer Auswahl immer keine/keine - damit war
+     "nie angesehen" vom geprueften Fall nicht zu unterscheiden, und beides gab 15 von 15
+     Punkten (§3.4, §4.3). Jetzt entscheidet allein das ausdrueckliche Haekchen.
+     Leerer Status ist Absicht: v_zusatzstoffe_punkte liefert dafuer NULL, also
+     "nicht berechenbar" - dieser Weg war schon da und musste nur beliefert werden (§22). */
+  if(!sel.length){
+    var _bewusst = !!window._fgZusKeine;
+    if(ztext) ztext.value = _bewusst ? "keine" : "";
+    if(zstat) zstat.value = _bewusst ? "keine" : "";
+  }
   else{
     /* DEUTSCHEN Namen speichern (Ralph 26.07.): der englische Katalogname („Sodium carbonates: (i) …")
        wurde beim Neu-Oeffnen von fgFlattenZutaten in Bruchstuecke („ii", „Sodium carbonate") zerlegt,
@@ -13057,7 +13070,7 @@ function zusSync(){
    angehakt OBEN in derselben Liste. Diese Funktion synchronisiert nur noch das „Keine
    Zusatzstoffe"-Häkchen und zeichnet die Liste neu, damit alle alten Aufrufstellen weiter gelten. */
 function zusRenderSel(){
-  var kc=document.getElementById("fe_zusKeine"); if(kc) kc.checked=((window._fgZus||[]).length===0);
+  var kc=document.getElementById("fe_zusKeine"); if(kc) kc.checked=!!window._fgZusKeine;   /* M3 09.08.: bewusster Zustand, keine Ableitung aus "nichts ausgewaehlt" */
   var box=document.getElementById("fe_zusChosen");
   try{ _zusSynMaps(); }catch(e){}
   if(box){
@@ -13078,7 +13091,7 @@ function _zusCap(s){ s=String(s||""); return s.charAt(0).toUpperCase()+s.slice(1
 function _zusSynMaps(){ if(window.__zusSynDe) return; var m={}, all={}; if(typeof ZUS_SYN!=="undefined"){ for(var k in ZUS_SYN){ if(!ZUS_SYN.hasOwnProperty(k)) continue; var e=String(ZUS_SYN[k]).toLowerCase(); if(!m[e]) m[e]=k; (all[e]=all[e]||[]).push(k); } } window.__zusSynDe=m; window.__zusSynDeAll=all; }
 function zusRenderPick(){
   var box=document.getElementById("fe_zusList"); if(!box) return;
-  var kc=document.getElementById("fe_zusKeine"); if(kc) kc.checked=((window._fgZus||[]).length===0);
+  var kc=document.getElementById("fe_zusKeine"); if(kc) kc.checked=!!window._fgZusKeine;   /* M3 09.08.: bewusster Zustand, keine Ableitung aus "nichts ausgewaehlt" */
   var q=((document.getElementById("fe_zusSuche")||{}).value||"").trim().toLowerCase();
   var selE={}; (window._fgZus||[]).forEach(function(z){ if(z.e) selE[String(z.e).toLowerCase()]=1; });
   var all=(ZUSATZSTOFFE_STAMM||[]);
@@ -13128,7 +13141,8 @@ function zusToggle(e){
   zusSync(); zusRenderSel(); zusRenderPick();
 }
 function zusDel(i){ if(window._fgZus&&i>=0&&i<window._fgZus.length){ var raus=window._fgZus.splice(i,1)[0]; try{ fgZusZutSync(false, raus); }catch(e2){} zusSync(); zusRenderSel(); zusRenderPick(); } }
-function zusKeineToggle(ck){ if(ck){ var alte=window._fgZus||[]; window._fgZus=[]; alte.forEach(function(z){ try{ fgZusZutSync(false, z); }catch(e2){} }); } zusSync(); zusRenderSel(); zusRenderPick(); }
+function zusKeineToggle(ck){ window._fgZusKeine=!!ck;   /* M3 09.08.: Ralphs ausdrueckliche Aussage */
+  if(ck){ var alte=window._fgZus||[]; window._fgZus=[]; alte.forEach(function(z){ try{ fgZusZutSync(false, z); }catch(e2){} }); } zusSync(); zusRenderSel(); zusRenderPick(); }
 function zusAddNeu(){
   var inp=document.getElementById("fe_zusNeu"); var v=((inp||{}).value||"").trim(); if(!v) return;
   var em=v.match(/\bE\s?\d{3,4}[a-z]?\b/i);
@@ -16127,8 +16141,8 @@ async function openFgEditor(id, prefill, targetEl){
           <div id="fe_zusList"></div>
           <div class="feNeuZeile2"><input id="fe_zusNeu" onkeydown="zusNeuKey(event)" placeholder="nicht im Stamm? Name / E-Nummer…"><button type="button" onclick="zusAddNeu()" class="feBtnStamm">+ hinzufügen</button></div>
           <div class="feZusLegende"><span><span class="feZusPunktGr"></span>unbedenklich</span><span><span class="feZusPunktRt"></span>abgewertet (drückt den Index)<span><span class="feZusPunktGrau"></span>ungeprüft</span></div>
-          <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text||"keine")}">
-          <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status||"keine")}">
+          <input type="hidden" id="fe_ztext" value="${esc(d.zusatzstoffe_text)}">
+          <input type="hidden" id="fe_zstatus" value="${esc(d.zusatzstoffe_status)}">
           ${''/* SÜSSSTOFF-AUSWAHL ENTFERNT (Ralph 26.07.): die Handeingabe fällt weg. Das FELD bleibt als
                verstecktes Input bestehen — zwingend, aus zwei Gründen: (1) fgEditSave liest g("fe_suess").value
                direkt, ohne Null-Prüfung → ohne Element bricht das Speichern ab. (2) Würde hier "nein" gespeichert,
@@ -17340,8 +17354,8 @@ async function _feScoreRun(box){
   }).filter(function(z){ return z.name; });
   var payload={ name:name, marke:((g("fe_marke")||{}).value||"").trim(), kategorie:((g("fe_kat")||{}).value||"").trim()||"Lebensmittel",
     basis:((g("fe_basis")||{}).value||"").trim()||"100g", naehrwerte:nw,
-    zusatzstoffe_text:((g("fe_ztext")||{}).value||"").trim()||"keine",
-    zusatzstoffe_status:((g("fe_zstatus")||{}).value||"keine"), suessstoffe:((g("fe_suess")||{}).value||"nein"), zutaten:zut };
+    zusatzstoffe_text:((g("fe_ztext")||{}).value||"").trim(),   /* M3 09.08.: leer bleibt leer */
+    zusatzstoffe_status:((g("fe_zstatus")||{}).value||null), suessstoffe:((g("fe_suess")||{}).value||"nein"), zutaten:zut };
   var seq=(++_feScoreSeq);
   box.innerHTML='<div style="color:var(--muted);font-size:12.5px">⏳ Index wird berechnet…</div>';
   try{
@@ -18449,7 +18463,7 @@ async function fgEditSave(alsoFreigeben){
   }catch(e){}
   const payload={ name, marke:g("fe_marke").value.trim(), kategorie:_kat,
     unterkategorie:g("fe_ukat").value.trim(), ean:g("fe_ean").value.trim(), basis:g("fe_basis").value.trim()||"100g",
-    zusatzstoffe_text:g("fe_ztext").value.trim()||"keine",
+    zusatzstoffe_text:g("fe_ztext").value.trim(),   /* M3 09.08.: leer heisst ungeprueft, nicht "keine" */
     zusatzstoffe_status:g("fe_zstatus").value, suessstoffe:g("fe_suess").value,
     quelle:_beleg||"Admin-Editor" };
   /* Ralphs Kernregel (05.08.): NUR Bereiche schreiben, die in dieser Sitzung geaendert wurden.
@@ -22989,7 +23003,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-09-2100";
+const APP_BUILD = "2026-08-09-2140";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
