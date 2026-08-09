@@ -17467,11 +17467,76 @@ function fgWirkFotoBind(){
   document.addEventListener('mouseup', function(){ if(drag){ drag=null; box.style.cursor='grab'; } });
   box.addEventListener('dblclick', function(){ if(typeof fgEtikettZoom==='function') fgEtikettZoom(window._fgWirkFoto.idx); });
 }
+/* ===== 09.08.2026 · Fotos vor dem Hochladen verkleinern · Knoten m_foto =====
+   GEMESSEN AM 09.08.: Ralph haengte 3 Etikettfotos an - 6,80 + 6,92 + 7,23 MB,
+   zusammen 20,95 MB. Zum Vergleich Eintrag 232, ebenfalls drei Fotos: 0,37 MB.
+   Der Schnitt ueber alle 162 gespeicherten Fotos liegt bei 0,12 MB.
+   FOLGEN, beide belegt: das Speichern lief in den 8-s-Riegel von
+   statement_timeout (die Datenbank braucht fuer 21 MB rund 4 s, dazu kamen
+   Sperrwartezeiten), und das Oeffnen des Produkts dauerte ueber 5 Sekunden -
+   nicht wegen der Datenbank (die antwortet in 223 ms), sondern weil 21 MB
+   durch die Leitung muessen.
+   WARUM VERKLEINERN UND NICHT DAS LIMIT ERHOEHEN: diese Fotos sind zum
+   NACHSCHAUEN da - Zutatenliste lesen, Naehrwerte abtippen. Dafuer reicht
+   eine lange Kante von 1600 px. Ein hoeheres Limit macht den Timeout
+   unwahrscheinlicher; das Verkleinern macht ihn unmoeglich.
+   NICHT GEAENDERT: das Produktbild (fgImgUpload) - das wird veroeffentlicht
+   und hat andere Anforderungen. Hier geht es nur um die Etikettfotos. */
+var FE_FOTO_KANTE = 1600;      /* lange Kante in Pixeln */
+var FE_FOTO_QUALI = 0.82;      /* JPEG-Qualitaet */
+function _bildVerkleinern(b64){
+  return new Promise(function(fertig){
+    try{
+      var img=new Image();
+      /* §1.7: kein stiller Ausfall. Kann der Browser das Bild nicht lesen, wird
+         das ORIGINAL durchgereicht - lieber gross gespeichert als gar nicht. */
+      img.onerror=function(){ console.warn("Foto konnte zum Verkleinern nicht gelesen werden – Original wird verwendet."); fertig(b64); };
+      img.onload=function(){
+        try{
+          var w=img.naturalWidth, h=img.naturalHeight;
+          if(!w || !h){ fertig(b64); return; }
+          var f=Math.min(1, FE_FOTO_KANTE/Math.max(w,h));
+          if(f>=1){ fertig(b64); return; }          /* schon klein genug: nicht anfassen */
+          var c=document.createElement("canvas");
+          c.width=Math.round(w*f); c.height=Math.round(h*f);
+          var ctx=c.getContext("2d");
+          ctx.imageSmoothingQuality="high";
+          ctx.drawImage(img,0,0,c.width,c.height);
+          var neu=c.toDataURL("image/jpeg", FE_FOTO_QUALI);
+          /* Sicherung gegen den Fall, dass die Umwandlung groesser wird als das
+             Original (kommt bei kleinen PNG-Screenshots vor). */
+          fertig((neu && neu.length < b64.length) ? neu : b64);
+        }catch(e){ console.warn("Verkleinern fehlgeschlagen, Original wird verwendet:", e); fertig(b64); }
+      };
+      img.src=b64;
+    }catch(e){ console.warn("Verkleinern fehlgeschlagen, Original wird verwendet:", e); fertig(b64); }
+  });
+}
+if(typeof window!=="undefined"){ window._bildVerkleinern=_bildVerkleinern; }
 async function fgEtikettAddUpload(files){
   var list=files?Array.prototype.slice.call(files):[]; if(!list.length) return;
   if(!window._fgEdit) window._fgEdit={};
   if(!Array.isArray(window._fgEdit.etikett)) window._fgEdit.etikett=[];
-  for(var i=0;i<list.length;i++){ try{ var b64=await _fileZuBase64(list[i]); if(/^data:image\//.test(b64)) window._fgEdit.etikett.push(b64); }catch(e){} }
+  var _vorher=0, _nachher=0;
+  for(var i=0;i<list.length;i++){
+    try{
+      var b64=await _fileZuBase64(list[i]);
+      if(!/^data:image\//.test(b64)) continue;
+      _vorher += b64.length;
+      var klein=await _bildVerkleinern(b64);
+      _nachher += klein.length;
+      window._fgEdit.etikett.push(klein);
+    }catch(e){ console.error("Foto konnte nicht angehängt werden:", e); }
+  }
+  /* Sichtbar machen, was passiert ist (§10.2: serverseitige wie lokale Gruende
+     vollstaendig anzeigen). Ralph soll nicht raten, ob verkleinert wurde. */
+  if(_vorher>0){
+    var mbV=(_vorher/1048576).toFixed(1), mbN=(_nachher/1048576).toFixed(1);
+    if(_nachher < _vorher*0.95){
+      try{ fgEtikettMeldung(""); }catch(e){}
+      console.info("Etikettfotos verkleinert: "+mbV+" MB → "+mbN+" MB (lange Kante "+FE_FOTO_KANTE+" px)");
+    }
+  }
   try{ fgEtikettRender(); }catch(e){}
 }
 /* ===== 08.08.2026 · M3 Teil 1 · Wirkdiagramm-Knoten m_foto =====
@@ -18956,11 +19021,35 @@ async function fgEditSave(alsoFreigeben){
      gespeicherten Zustand, keine lokalen Altwerte. Teilfehler werden VOLLSTAENDIG genannt. */
   if(!alsoFreigeben && pid){
     var _mAlt=msg.textContent;
-    try{ await openFgEditor(pid, null, window._fgEditorTarget||undefined); }catch(e){ console.error("Reload nach Speichern:", e); }
+    /* 🔴 09.08.2026 DER RIEGEL (Ralph-Auftrag nach realem Datenverlust).
+       WAS PASSIERT IST: 3 Etikettfotos liefen beim Speichern in den 8-s-Timeout.
+       fgEditSave meldete den Teil-Fehler korrekt - und lud danach TROTZDEM neu.
+       Der Neuaufbau ersetzt window._fgEdit durch den Datenbankstand, und genau
+       dort fehlten die Fotos ja. Damit war die letzte Kopie im Browser weg:
+       nicht bloss ungespeichert, sondern vernichtet. Zweimal hintereinander.
+       WARUM DER RELOAD SONST RICHTIG IST: er zeigt exakt den gespeicherten
+       Zustand statt lokaler Altwerte (Ralph 05.08., Punkt 8/Test F). Genau
+       deshalb darf er nur laufen, wenn AUCH ALLES gespeichert wurde - §10.3
+       sagt "nach ERFOLGREICHEM Speichern neu laden", und das Wort ist der
+       ganze Unterschied.
+       WAS STATTDESSEN PASSIERT: bei Teil-Fehlern bleibt der Editor stehen wie
+       er ist. Der Nutzer sieht, was nicht ankam, und kann denselben
+       Speichern-Knopf erneut druecken - beim naechsten Versuch geht die
+       fehlende Haelfte mit. Nichts geht verloren, nichts wird still korrigiert. */
+    if(_fehler.length){
+      console.warn("Reload nach Speichern ÜBERSPRUNGEN – es gab Teil-Fehler, "
+        + "der Editorstand bleibt erhalten:", _fehler);
+    } else {
+      try{ await openFgEditor(pid, null, window._fgEditorTarget||undefined); }catch(e){ console.error("Reload nach Speichern:", e); }
+    }
     try{
       var _m2=document.getElementById("fe_msg");
       if(_m2){
-        if(_fehler.length){ _m2.style.color="var(--k-b45309)"; _m2.style.fontWeight="700"; _m2.textContent="💾 Gespeichert, aber mit Teil-Fehlern: "+_fehler.join(" · "); }
+        if(_fehler.length){ _m2.style.color="var(--k-b45309)"; _m2.style.fontWeight="700";
+          /* Der Zusatzsatz ist kein Trost, sondern eine Anweisung: der Editorstand
+             steht noch, also ist ein zweiter Klick der richtige naechste Schritt. */
+          _m2.textContent="💾 Gespeichert, aber mit Teil-Fehlern: "+_fehler.join(" · ")
+            +" — nichts ist verloren, dein Stand bleibt stehen. Nochmal auf Speichern klicken versucht genau diese Teile erneut."; }
         else { _m2.style.color="var(--k-16a34a)"; _m2.textContent="✓ gespeichert – aus der Datenbank neu geladen"; }
       }
     }catch(e){}
@@ -23274,7 +23363,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-2250";
+const APP_BUILD = "2026-08-09-0955";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
