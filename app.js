@@ -15125,7 +15125,33 @@ async function fgRefV2Aktion(refId, status, entscheidung, kommentar, zielTabelle
      und die §1.13kk-Invariante (harte Status bekommen nie ein Ziel). */
   if(zielId){ args.p_ziel_tabelle=zielTabelle||"Zutaten_Stamm"; args.p_ziel_id=zielId; }
   var a=await _fgRefV2Rpc("cb_referenz_pruefung_entscheiden_admin", args, "Gespeichert: "+status);
-  if(a){ fgRefV2MenuZu(); fgRefV2Laden(); }
+  if(a){
+    /* 09.08.2026, Ralph-Entscheid „ja automatisch binden". Vorher war Bestaetigen
+       folgenlos: Ralph bestaetigte alle Zeilen an P73597, und "Erdnussbutter" stand
+       weiter auf "nicht gebunden" - der Bindeweg hatte 0 Aufrufer (§22).
+       HIER und nur hier, weil fgRefV2Aktion der EINE Ort ist, an dem eine Entscheidung
+       gespeichert wird (§4.2). Gebunden wird ausschliesslich bei BESTAETIGT; ABGELEHNT
+       und IGNORIERT binden nie.
+       Der RPC ist additiv und idempotent, bindet nur Ebene 1 und nur bestaetigte Zeilen -
+       Unterzutaten bleiben aussen vor (§5.5).
+       Scheitert das Binden, bleibt die Entscheidung gespeichert und der Grund wird
+       ANGEZEIGT (§1.7) - nicht still verschluckt. */
+    if(String(status)==="BESTAETIGT"){
+      try{
+        var _b=await client.rpc("cb_referenz_bestaetigt_binden",{p_produkt_id:c.pid});
+        if(_b&&_b.error) throw _b.error;
+        var _bd=_b&&_b.data; if(typeof _bd==="string"){ try{ _bd=JSON.parse(_bd); }catch(e){} }
+        if(_bd&&_bd.neu_gebunden>0){
+          try{ toast&&toast(_bd.neu_gebunden+" Zutat(en) gebunden ("+_bd.vorher+" → "+_bd.nachher+")"); }catch(e){}
+        }
+      }catch(e){
+        fgRefV2Ergebnis("Bestätigt, aber nicht gebunden",
+          [String((e&&e.message)||e),
+           "Die Bestätigung selbst ist gespeichert. Die Zutatenliste links ist unverändert."], false);
+      }
+    }
+    fgRefV2MenuZu(); fgRefV2Laden();
+  }
 }
 async function fgRefV2Widerruf(refId){
   var c=_fgRefV2Ctx(); if(!c.pid||!refId) return;
@@ -23363,7 +23389,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-09-0955";
+const APP_BUILD = "2026-08-09-1853";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
