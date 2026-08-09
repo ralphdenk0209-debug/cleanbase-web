@@ -16222,6 +16222,12 @@ async function openFgEditor(id, prefill, targetEl){
   try{
     window._fgEdit=window._fgEdit||{};
     window._fgEdit.hatteWirkstoffe=Array.isArray(d.wirkstoffe)&&d.wirkstoffe.length>0;
+    /* M3 09.08.2026 (Knoten m_zut): Ausgangsstand der Zutaten merken - genau wie oben bei den
+       Wirkstoffen. Gebraucht wird er NICHT zum Loeschen, sondern um beim Speichern zu erkennen,
+       dass jemand ALLE Zutaten entfernt hat. cb_produkt_ingest fuehrt das naemlich nicht aus
+       (Leerschreibschutz, §9.4/§17) - und meldete das bisher nicht. Quelle ist dieselbe wie
+       fuer #fe_zutRows in Z. 16115, also d.zutaten. */
+    window._fgEdit.hatteZutaten=Array.isArray(d.zutaten)&&d.zutaten.length>0;
     window._fgEdit.hatMakros=!!(d.naehrwerte&&Object.keys(d.naehrwerte).some(function(k){ return d.naehrwerte[k]!=null&&d.naehrwerte[k]!==""; }));
     var _dirtyHook=function(id,bereich){ var el=document.getElementById(id); if(!el||el._fgDirtyHooked) return; el._fgDirtyHooked=true;
       el.addEventListener("input",function(){ if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty[bereich]=true; });
@@ -18450,7 +18456,24 @@ async function fgEditSave(alsoFreigeben){
      Eine bei dieser Kategorie ausgeblendete (und darum leere) Karte darf gespeicherte Daten
      nie ueberschreiben. Bei Neuanlage wird alles gesendet, was da ist. */
   if(_warNeu||_dirty.makro) payload.naehrwerte=nw;
-  if(_warNeu||_dirty.zut)   payload.zutaten=zut;
+  /* ══ M3 09.08.2026 (Knoten m_zut, Prio 1): das Schweigen beim Leeren beheben ══
+     BEFUND (Testlauf P73596, 08.08.): Ralph nimmt alle Haken heraus, speichert, bekommt
+     "gespeichert" - und beim Neuoeffnen stehen die Zutaten wieder da. Auch in der Datenbank.
+     URSACHE: cb_produkt_ingest loescht nur bei GEFUELLTER Liste (jsonb_array_length>0). Bei
+     leerer Liste passiert nichts. Das ist der Leerschreibschutz aus §9.4, und er arbeitet
+     richtig - §17 verbietet die vollstaendige Loeschung bestehender Bindungen ausdruecklich.
+     WAS HIER GEBAUT WIRD: nur die Meldung. Der Schutz bleibt unangetastet.
+     WARUM KEIN confirm() wie bei den Wirkstoffen: dort loescht die RPC nach einem "Ja"
+     tatsaechlich. Hier wuerde sie es NICHT tun - eine Rueckfrage waere also eine Zusage,
+     die niemand einloest. Ehrlicher ist die Feststellung (§1.7, §1.10).
+     TEILWEISES Entfernen ist davon nicht betroffen: bleibt eine Zutat uebrig, ist die Liste
+     nicht leer, DELETE+INSERT laeuft, und der Abgang kommt an. */
+  if((_warNeu||_dirty.zut) && zut.length===0 && !_warNeu
+     && !!(window._fgEdit&&window._fgEdit.hatteZutaten)){
+    _fehler.push("Zutaten: NICHT geleert. Der Server nimmt keine leere Zutatenliste an "
+      + "(Schutz gegen versehentliches Leerschreiben). Einzelne Zutaten entfernst du, indem "
+      + "mindestens eine stehen bleibt; alle auf einmal zu loeschen ist bewusst nicht vorgesehen.");
+  } else if(_warNeu||_dirty.zut) payload.zutaten=zut;
   if(_qt) payload.quelle_typ=_qt;
   if(window._fgEdit&&window._fgEdit.id) payload.produkt_id=window._fgEdit.id;
   const {data,error}=await client.rpc("cb_produkt_speichern",{p:payload});
@@ -22966,7 +22989,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-09-2020";
+const APP_BUILD = "2026-08-09-2100";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
