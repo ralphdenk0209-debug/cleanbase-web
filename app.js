@@ -17474,9 +17474,46 @@ async function fgEtikettAddUpload(files){
   for(var i=0;i<list.length;i++){ try{ var b64=await _fileZuBase64(list[i]); if(/^data:image\//.test(b64)) window._fgEdit.etikett.push(b64); }catch(e){} }
   try{ fgEtikettRender(); }catch(e){}
 }
-function fgEtikettDel(idx){
+/* ===== 08.08.2026 · M3 Teil 1 · Wirkdiagramm-Knoten m_foto =====
+   VORHER: arr.splice + Neuzeichnen, mehr nicht. Der Loeschwunsch kam nie an der Datenbank
+   an, weil fgEditSave ausschliesslich die ZUGAENGE sendet (etikett minus etikettGeladen) -
+   ein Abgang war in dieser Rechnung gar nicht ausdrueckbar. Folge fuer Ralph: Bild weg,
+   "gespeichert", beim naechsten Oeffnen wieder da.
+   JETZT: Fotos, die aus der Datenbank kamen (also in etikettGeladen stehen), gehen ueber
+   cb_produkt_etikettfoto_entfernen. Der Weg laeuft ueber den INHALT, nicht ueber den Index:
+   cb_produkt_etikettfotos flacht mehrere Warteschlangenzeilen mit jsonb_agg OHNE ORDER BY
+   zu EINER Liste ab - ein Index zeigt dort auf keine feste Zeile und keine feste Position.
+   Frisch eingefuegte, noch nicht gespeicherte Fotos werden weiterhin nur lokal entfernt;
+   fuer sie gibt es in der Datenbank nichts zu entfernen.
+   Scheitert der Aufruf, BLEIBT das Bild stehen und es erscheint eine Meldung (§1.7 keine
+   stillen Fehler) - statt es aus der Maske zu nehmen und beim Neuoeffnen zurueckzubekommen.
+   Geloescht wird nichts: der RPC verschiebt das Foto nach Fotos_Entfernt (§1.8). */
+function fgEtikettMeldung(txt){
+  var cnt=document.getElementById('fe_etikettCount'); if(!cnt) return;
+  var _old=document.querySelectorAll('.fgEtikErr');
+  for(var _i=0;_i<_old.length;_i++) _old[_i].remove();
+  if(!txt) return;
+  cnt.insertAdjacentHTML('afterend',
+    '<span class="fgEtikErr" style="color:var(--k-dc2626);font-weight:600;text-transform:none;letter-spacing:0"> · '+esc(txt)+'</span>');
+}
+async function fgEtikettDel(idx){
   var arr=(window._fgEdit&&window._fgEdit.etikett)||[]; if(idx<0||idx>=arr.length) return;
-  arr.splice(idx,1); try{ fgEtikettRender(); }catch(e){}
+  var foto=arr[idx];
+  var gel=(window._fgEdit&&window._fgEdit.etikettGeladen)||[];
+  var pid=(window._fgEdit&&window._fgEdit.id)||null;
+  if(gel.indexOf(foto)>=0){                       /* kam aus der Datenbank */
+    if(!pid){ fgEtikettMeldung('nicht entfernt – keine Produkt-ID'); return; }
+    try{
+      var _r=await client.rpc("cb_produkt_etikettfoto_entfernen",{p_id:pid, p_foto:foto});
+      if(_r&&_r.error) throw _r.error;
+      var _d=_r&&_r.data;
+      if(!_d||_d.ok!==true){ fgEtikettMeldung('nicht entfernt – in der Datenbank nicht gefunden'); return; }
+    }catch(e){ fgEtikettMeldung('nicht entfernt: '+((e&&e.message)||e)); return; }
+    var _gi=gel.indexOf(foto); if(_gi>=0) gel.splice(_gi,1);
+  }
+  arr.splice(idx,1);
+  fgEtikettMeldung('');
+  try{ fgEtikettRender(); }catch(e){}
 }
 function fgEtikettAnalyse(idx){
   var arr=(window._fgEdit&&window._fgEdit.etikett)||[]; var src=arr[idx]; if(!src) return;
@@ -23237,7 +23274,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-08-2230";
+const APP_BUILD = "2026-08-08-2250";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
