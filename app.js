@@ -16251,6 +16251,15 @@ async function openFgEditor(id, prefill, targetEl){
        (Leerschreibschutz, §9.4/§17) - und meldete das bisher nicht. Quelle ist dieselbe wie
        fuer #fe_zutRows in Z. 16115, also d.zutaten. */
     window._fgEdit.hatteZutaten=Array.isArray(d.zutaten)&&d.zutaten.length>0;
+    /* 🔴 10.08.2026 (Befund 1, gemessen an P73596): der Boolean allein reichte nicht.
+       Wird der Leerungsversuch abgewehrt, zeigte der Editor danach 0 Zutaten und die
+       Freigabe-Karte sprang auf rot - waehrend die Datenbank unveraendert 4 hatte. Der
+       stille Fehler war damit durch eine falsche Anzeige ersetzt (§25.2 Frage 2).
+       Deshalb wird hier zusaetzlich der Ausgangsstand als LISTE gemerkt, aus derselben
+       Quelle d.zutaten. §22: aufgebaut wird er spaeter mit der vorhandenen fgZutRow(),
+       die genau dafuer schon an drei Stellen benutzt wird - nichts Neues gebaut. */
+    window._fgEdit.zutStart=Array.isArray(d.zutaten)?d.zutaten.map(function(z){
+      return {name:z.name, rating:z.rating, kritisch:z.kritisch}; }):[];
     window._fgEdit.hatMakros=!!(d.naehrwerte&&Object.keys(d.naehrwerte).some(function(k){ return d.naehrwerte[k]!=null&&d.naehrwerte[k]!==""; }));
     var _dirtyHook=function(id,bereich){ var el=document.getElementById(id); if(!el||el._fgDirtyHooked) return; el._fgDirtyHooked=true;
       el.addEventListener("input",function(){ if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty[bereich]=true; });
@@ -18491,11 +18500,14 @@ async function fgEditSave(alsoFreigeben){
      die niemand einloest. Ehrlicher ist die Feststellung (§1.7, §1.10).
      TEILWEISES Entfernen ist davon nicht betroffen: bleibt eine Zutat uebrig, ist die Liste
      nicht leer, DELETE+INSERT laeuft, und der Abgang kommt an. */
+  var _zutLeerungAbgewehrt=false;
   if((_warNeu||_dirty.zut) && zut.length===0 && !_warNeu
      && !!(window._fgEdit&&window._fgEdit.hatteZutaten)){
+    _zutLeerungAbgewehrt=true;
     _fehler.push("Zutaten: NICHT geleert. Der Server nimmt keine leere Zutatenliste an "
       + "(Schutz gegen versehentliches Leerschreiben). Einzelne Zutaten entfernst du, indem "
-      + "mindestens eine stehen bleibt; alle auf einmal zu loeschen ist bewusst nicht vorgesehen.");
+      + "mindestens eine stehen bleibt; alle auf einmal zu loeschen ist bewusst nicht vorgesehen. "
+      + "Die Liste steht wieder wie vorher - ein zweiter Klick auf Speichern aendert daran nichts.");
   } else if(_warNeu||_dirty.zut) payload.zutaten=zut;
   if(_qt) payload.quelle_typ=_qt;
   if(window._fgEdit&&window._fgEdit.id) payload.produkt_id=window._fgEdit.id;
@@ -18688,6 +18700,28 @@ async function fgEditSave(alsoFreigeben){
     if(_fehler.length){
       console.warn("Reload nach Speichern ÜBERSPRUNGEN – es gab Teil-Fehler, "
         + "der Editorstand bleibt erhalten:", _fehler);
+      /* ══ Befund 1, 10.08.2026 (Knoten m_zut) ══
+         DER RIEGEL OBEN BLEIBT UNANGETASTET. Er traegt die Foto-Lehre vom 05.08. und ist
+         nach §27 verifiziert (Knoten m_foto): bei Teil-Fehlern darf der Editorstand NICHT
+         durch den Datenbankstand ersetzt werden, sonst ist die letzte Kopie im Browser weg.
+         GENAU EIN FALL IST ANDERS: der abgewehrte Leerungsversuch. Dort ist der lokale
+         Stand eine LEERE Liste - also nichts, was verloren gehen koennte -, und die
+         Datenbank hat ihre Zutaten unveraendert behalten. Ihn stehen zu lassen hiess:
+         die Maske zeigt 0, die Datenbank hat 4 (§25.2 Frage 2, gemessen an P73596).
+         Deshalb wird HIER NUR DIE ZUTATENLISTE aus dem gemerkten Ausgangsstand
+         zurueckgeschrieben - kein Reload, kein anderer Bereich, keine Datenbankabfrage. */
+      if(_zutLeerungAbgewehrt){
+        try{
+          var _zs=(window._fgEdit&&Array.isArray(window._fgEdit.zutStart))?window._fgEdit.zutStart:[];
+          var _zc=document.getElementById("fe_zutRows");
+          if(_zc&&_zs.length){
+            _zc.innerHTML=_zs.map(function(z){ return fgZutRow(z.name, z.rating, z.kritisch?"ja":"nein"); }).join("");
+            if(typeof fgPickRender==="function") fgPickRender();
+            /* Score-Vorschau und Textbox zieht der MutationObserver auf #fe_zutRows selbst
+               nach - hier wird kein zweiter Weg aufgemacht (§4.2). */
+          }
+        }catch(e){ console.error("Zutatenliste nach abgewehrtem Leeren wiederherstellen:", e); }
+      }
     } else {
       try{ await openFgEditor(pid, null, window._fgEditorTarget||undefined); }catch(e){ console.error("Reload nach Speichern:", e); }
     }
@@ -23012,7 +23046,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-0600";
+const APP_BUILD = "2026-08-10-0640";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
