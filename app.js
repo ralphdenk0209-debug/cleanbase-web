@@ -2927,6 +2927,35 @@ var SALZ_FUNK={
    Deshalb ist das Bauen des HTML aus dem Laden herausgeloest - EIN Baustein, zwei
    Orte. Haette ich fuer den Editor eine zweite Fassung geschrieben, waeren es zwei
    Staende, die irgendwann auseinanderlaufen (§1.2c). */
+/* MIKRONAEHRSTOFF-TABELLE fuer normale Lebensmittel (10.08.2026, Ralph-Auftrag).
+   Bezug ist 100 g. Die HERKUNFT steht je Zeile, weil BLS ein Nachschlagewerk ist und
+   kein Etikett (§3.2, §8.3): ein abgeleiteter Wert darf nicht wie ein abgelesener aussehen.
+   Gerechnet wird nur der Dreisatz gegen den NRV, den die Datenbank liefert - keine
+   Bezugswerte im Frontend (§8.1). Fehlt der NRV, bleibt es bei "kein offizieller
+   Tagesbedarf"; es wird nichts geschaetzt (§3.4). */
+function mikroFaktenHtml(arr){
+  if(!Array.isArray(arr) || !arr.length) return "";
+  function fmtM(v,e){ v=Number(v); if(!isFinite(v)) return "?";
+    if(e==="\u00b5g") return (v>=100?Math.round(v):Math.round(v*10)/10)+" \u00b5g";
+    return (Math.round(v*100)/100)+" "+e; }
+  var HERK={etikett:["Etikett","var(--k-16a34a)"],abgeleitet:["N\u00e4hrstoffdatenbank","var(--k-b45309)"],unbekannt:["Quelle unklar","var(--muted)"]};
+  var rows=arr.map(function(x){
+    var nm=String(x.anzeige||x.naehrstoff||""), e=String(x.einheit||"");
+    var nrv=(x.nrv!=null&&Number(x.nrv)>0)?Number(x.nrv):null;
+    var pct=nrv!=null?Math.round(Number(x.menge_100g)/nrv*100):null;
+    var h=HERK[String(x.herkunft||"unbekannt")]||HERK.unbekannt;
+    return '<div style="padding:9px 0;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px">'
+      + '<div style="flex:1 1 auto;min-width:0">'
+        + '<div style="font-size:13.5px;font-weight:700;color:var(--ink)">'+esc(nm)+'</div>'
+        + '<div style="font-size:11.5px;color:'+h[1]+'">'+esc(h[0])+(x.herkunft_detail?" \u00b7 "+esc(String(x.herkunft_detail)):"")+'</div>'
+      + '</div>'
+      + '<div style="flex:0 0 auto;font-size:12.5px;color:var(--ink);white-space:nowrap">'+fmtM(x.menge_100g,e)+'</div>'
+      + '<div style="flex:0 0 96px;text-align:right;font-size:12px;'+(pct!=null?'color:var(--ink);font-weight:700':'color:var(--muted)')+'">'
+        + (pct!=null?(pct+" % Tagesbedarf"):"kein offizieller<br>Tagesbedarf")+'</div>'
+      + '</div>';
+  }).join("");
+  return '<div style="font-size:12.5px;color:var(--muted);margin-bottom:2px">Alle Werte je 100 g. Prozent bezogen auf den EU-Tagesbedarf (NRV).</div>'+rows;
+}
 function salzFaktenHtml(arr){
   if(!Array.isArray(arr) || !arr.length) return "";
   { function fmt(v,e){ v=Number(v); if(!isFinite(v)) return "?"; if(e==="µg") return (v>=100?Math.round(v):Math.round(v*10)/10)+" µg"; if(e==="mg") return (Math.round(v*100)/100)+" mg"; return (Math.round(v*10)/10)+" "+e; }
@@ -3810,7 +3839,13 @@ function feNaehrKat(){
   var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
   if(k==="supplement") return "supplement";
   if(k==="salze")      return "salze";
-  return null;
+  /* 10.08.2026 (Ralph): „die untere Tabelle mit den Naehrstoffen will ich bei ALLEN
+     Produkten sehen, weil manche auch Naehrstoffe haben." Bis dahin gab dieser Zweig
+     null zurueck und der Streifen wurde geleert - obwohl 773 Nicht-Supplement-Produkte
+     mit 16.350 Mikronaehrstoff-Zeilen in der Datenbank stehen (gemessen 10.08.).
+     Kein leerer Kasten: liefert die RPC nichts, greift weiter der Deckel unten
+     (kacheln.length === 0 -> Streifen bleibt weg). */
+  return "mikro";
 }
 function feNaehrBtnSync(){
   var b=document.getElementById("fe_naehrBtn"); if(!b) return;
@@ -3833,7 +3868,7 @@ async function feNaehrPopupOpen(){
   var kopf=function(inner){
     return '<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:540px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:18px;margin:auto">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">'
-      +'<b style="font-size:15px">'+(kat==="supplement"?"Dosis-Check":"Nährstoffe je 5 g Salz")+'</b>'
+      +'<b style="font-size:15px">'+(kat==="supplement"?"Dosis-Check":(kat==="salze"?"Nährstoffe je 5 g Salz":"Nährstoffe je 100 g"))+'</b>'
       +'<button type="button" onclick="feNaehrPopupClose()" style="border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:5px 11px;font-size:12.5px;cursor:pointer;flex:0 0 auto">Schließen ✕</button>'
       +'</div>'+inner+'</div>';
   };
@@ -3850,6 +3885,10 @@ async function feNaehrPopupOpen(){
       if(r.error) throw new Error(r.error.message);
       var h=salzFaktenHtml(r.data||[]);
       ov.innerHTML=kopf(h || '<div style="font-size:13px;line-height:1.6;color:var(--muted)">Für dieses Salz sind noch keine Mikronährstoffe erfasst. Trag sie in der Mikronährstoff-Karte ein (Jod, Fluorid, Selen …) – dann rechnet die Anzeige sie auf 5 g Salz pro Tag um.</div>');
+    } else if(kat==="mikro"){
+      var r3=await client.rpc("cb_produkt_mikro_liste",{p_id:pid});
+      if(r3.error) throw new Error(r3.error.message);
+      ov.innerHTML=kopf(mikroFaktenHtml(r3.data||[]) || '<div style="font-size:13px;line-height:1.6;color:var(--muted)">F\u00fcr dieses Produkt sind noch keine Mikron\u00e4hrstoffe erfasst.</div>');
     } else {
       var r2=await client.rpc("cb_reinheits_ampel",{p_produkt_id:pid});
       if(r2.error) throw new Error(r2.error.message);
@@ -4059,7 +4098,7 @@ async function feNaehrKachelnSync(){
           pct!=null?(pct+" % Tagesbedarf"):"kein Bezugswert", pct));
       });
       fuss="je 5 g Salz/Tag (WHO-Maximum)";
-    } else {
+    } else if(kat==="supplement"){
       var r2=await client.rpc("cb_reinheits_ampel",{p_produkt_id:pid});
       if(r2.error) throw new Error(r2.error.message);
       var a=r2.data, bef=(a&&Array.isArray(a.befunde))?a.befunde:[];
@@ -4069,6 +4108,29 @@ async function feNaehrKachelnSync(){
           pct!=null?(pct+" % Tagesbedarf"):"kein Bezugswert", pct));
       });
       fuss="je Tagesdosis";
+    } else {
+      /* MIKRONAEHRSTOFFE (normale Lebensmittel), 10.08.2026.
+         BEZUGSGROESSE IST 100 g, NICHT eine Tagesdosis: ohne Verzehrempfehlung gibt es
+         keine andere belegbare Basis. Das steht auch so im Fuss - sonst liest jemand
+         "100 %" und denkt, eine Portion deckt den Bedarf.
+         DER BEZUGSWERT KOMMT AUS DER DATENBANK (cb_produkt_mikro_liste -> EFSA_Grenzwerte),
+         nicht aus einer Liste im Frontend (§8.1). Fehlt er, bleibt die Kachel bei
+         "kein Bezugswert" - es wird nichts geschaetzt (§3.4). Gemessen 10.08.:
+         23 von 29 Naehrstoffen haben einen NRV, 13.828 von 16.355 Zeilen. */
+      var r3=await client.rpc("cb_produkt_mikro_liste",{p_id:pid});
+      if(r3.error) throw new Error(r3.error.message);
+      var mrows=r3.data||[];
+      mrows.forEach(function(x){
+        var mg=Number(x.menge_100g), e=String(x.einheit||"");
+        var pct=(x.nrv!=null && Number(x.nrv)>0)?Math.round(mg/Number(x.nrv)*100):null;
+        var w=(e==="\u00b5g")?(mg>=100?Math.round(mg):Math.round(mg*10)/10):Math.round(mg*100)/100;
+        kacheln.push(_feKachel(String(x.anzeige||x.naehrstoff||""), w+" "+e,
+          pct!=null?(pct+" % Tagesbedarf"):"kein Bezugswert", pct));
+      });
+      /* §3.2 sichtbar machen: BLS ist ein Nachschlagewerk, kein Etikett. Wer den Wert
+         liest, soll wissen, woher er kommt - ohne dafuer das Popup oeffnen zu muessen. */
+      var abg=mrows.filter(function(x){return x.herkunft==="abgeleitet";}).length;
+      fuss="je 100 g"+(abg?(" \u00b7 "+abg+" von "+mrows.length+" aus N\u00e4hrstoffdatenbank abgeleitet"):"");
     }
   }catch(e){
     if(typeof console!=="undefined") console.warn("Nährstoff-Kacheln:", e&&e.message?e.message:e);
@@ -23108,7 +23170,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-1610";
+const APP_BUILD = "2026-08-10-2121";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
