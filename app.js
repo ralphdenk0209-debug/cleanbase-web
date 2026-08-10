@@ -15022,6 +15022,16 @@ function _fgRefV2Farbe(e, pz, ctx){
   function GELB(t){ return {f:"gelb", c:"#b45309", bg:"#fffbeb", t:t}; }
   function BLAU(t){ return {f:"blau", c:"#1d4ed8", bg:"#eff6ff", t:t}; }
   function GRUEN(t){ return {f:"gruen", c:"#166534", bg:"#ecfdf5", t:t}; }
+  /* ══ 10.08.2026, Ralph: „ich klicke da nur auf gut Glück und nicht aufgrund von Wissen" ══
+     GRAU = hier ist NICHTS zu tun. Vorher trugen diese Zeilen Blau oder Gelb, also die
+     Farben fuer „schau hin" – waehrend der Text daneben „keine eigene Bindung erwartet"
+     sagte. Farbe und Text widersprachen sich, und dann bleibt nur Raten.
+     Die Regel ab hier: die Farbe sagt, OB Ralph gemeint ist, nicht was der Server denkt.
+       grau  = nichts zu tun      gelb = Ralph muss entscheiden
+       gruen = erledigt           rot  = blockiert die Freigabe
+     Geraten wird sonst eine MANUELLE Entscheidung, und die schlaegt nach §5.3 die
+     Automatik und bleibt stehen – ein geratener Klick ist schlimmer als kein Klick. */
+  function GRAU(t){ return {f:"grau", c:"#94a3b8", bg:"var(--k-f6f8f7,#f6f8f7)", t:t}; }
   if(typ==="kennzeichnungstext") return {f:"grau", c:"#94a3b8", bg:"var(--k-f6f8f7,#f6f8f7)", t:"Kennzeichnungstext – bewusst nicht als Zutat gewertet"};
   /* Prioritaet (Ralphs Zug-2-Korrektur 05.08.): 1. HARTE Strukturfehler - durch blosse
      Bestaetigung NICHT heilbar (§1.13kk-Liste, wortgleich zu cb_v2_status_ohne_zuordnung)
@@ -15062,19 +15072,19 @@ function _fgRefV2Farbe(e, pz, ctx){
     if(p && ctx.blocker && ctx.blocker[p.id])
       return GELB("Parent „"+(p.name||"")+"“ ist blockiert – erst den Parent klären");
     if(p && (st==="OK") && ["MEHRDEUTIG","UNSICHER","UNBEKANNT","FRAGMENT","HERSTELLERANGABE_UNVOLLSTAENDIG"].indexOf(String(p.status||""))>=0)
-      return GELB("Parent noch nicht geklärt – Unterzutat wartet");
-    if(p && p.db_gebunden===true) return BLAU("Über gebundenen Parent abgedeckt – keine eigene Bindung erwartet");
-    if(p && ctx.parentBest)       return BLAU("Parent bestätigt – keine eigene Bindung erwartet");
-    if(p) return GELB("Parent erkannt, aber noch nicht gebunden/bestätigt – Unterzutat wartet");
-    return GELB("Parent unklar – Unterzutat unbestätigt");
+      return GRAU("Nichts zu tun – erst „"+(p.name||"die Zeile darüber")+"“ oben klären");
+    if(p && p.db_gebunden===true) return GRAU("✓ Nichts zu tun – gehört zu „"+(p.name||"der Zeile darüber")+"“");
+    if(p && ctx.parentBest)       return GRAU("✓ Nichts zu tun – gehört zu „"+(p.name||"der Zeile darüber")+"“");
+    if(p) return GRAU("Nichts zu tun – erst „"+(p.name||"die Zeile darüber")+"“ oben klären");
+    return GRAU("Nichts zu tun – gehört zu der Zeile darüber");
   }
   if(typ==="mikronaehrstoff" || typ==="wirkstoff"){
     if(bestaetigt) return GRUEN("Bestätigt");
-    if(st==="UNBEKANNT") return GELB((typ==="wirkstoff"?"Wirkstoff":"Mikronährstoff")+" nicht im Stamm/Wissen – prüfen");
-    return BLAU("Zählt nicht als Hauptzutat – "+(typ==="wirkstoff"?"Wirkstoff":"Mikronährstoff")+", unbestätigt");
+    if(st==="UNBEKANNT") return GELB("Diesen Namen kennen wir noch nicht – sag Bescheid, ich lege ihn an");
+    return GRAU("✓ Nichts zu tun – zählt als "+(typ==="wirkstoff"?"Wirkstoff":"Mikronährstoff")+", nicht als Zutat");
   }
   if(st==="UNBEKANNT" && (e.zaehlt_als_hauptzutat===true || typ==="gruppe"))
-                       return ROT("Hauptzutat/Gruppe nicht im Stamm – blockiert");
+                       return ROT("Diesen Namen kennen wir nicht – blockiert die Freigabe. Sag Bescheid, ich lege ihn an");
   if(st==="UNSICHER")  return GELB("Nur ein Vorschlag – bestätigen");
   if(st==="UNBEKANNT") return GELB("Nicht im Stamm – zu prüfen");
   if(!bestaetigt)      return GELB("Erkannt, noch nicht bestätigt");
@@ -15248,7 +15258,7 @@ function fgRefV2Render(d, st){
       +((e.db_gebunden===false&&e.zutat_id&&!(Number(e.ebene)===2||e.beziehung==="quelle"))?' · <span style="color:#dc2626">nicht gebunden</span>':'')
       /* Ralphs Punkt 4 (05.08.): doppelte Modellierung SICHTBAR machen, nichts loeschen -
          Korrektur nur nach bewusster Entscheidung (Haekchen im Zutaten-Picker links). */
-      +((e.db_gebunden===true&&(Number(e.ebene)===2||e.beziehung==="quelle"))?' · <span style="color:#b45309">⚠ Unterzutat des Parents UND zusätzlich als Hauptzutat gebunden – mögliche Doppel-Modellierung, bewusst prüfen</span>':'')
+      +((e.db_gebunden===true&&(Number(e.ebene)===2||e.beziehung==="quelle"))?' · <span style="color:#b45309">⚠ Steht doppelt drin – einmal hier, einmal als eigene Zutat. Sag Bescheid, ich räume es auf</span>':'')
       +(pz&&pz.Manueller_Status&&pz.Manueller_Status!=="OFFEN"?(' · <b>'+esc(pz.Manueller_Status)+'</b>'+(pz.Entschieden_Von?(' von '+esc(pz.Entschieden_Von)):'')):'')
       +'</span>'
       +(kandidaten?('<br><span style="font-size:10.5px;color:#b45309">Kandidaten: '+kandidaten+'</span>'):'')
@@ -23227,7 +23237,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-2140";
+const APP_BUILD = "2026-08-10-2210";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
