@@ -16365,6 +16365,16 @@ async function openFgEditor(id, prefill, targetEl){
     window._fgEdit.zutStart=Array.isArray(d.zutaten)?d.zutaten.map(function(z){
       return {name:z.name, rating:z.rating, kritisch:z.kritisch}; }):[];
     window._fgEdit.hatMakros=!!(d.naehrwerte&&Object.keys(d.naehrwerte).some(function(k){ return d.naehrwerte[k]!=null&&d.naehrwerte[k]!==""; }));
+    /* ══ M3 (b), 10.08.2026 (Knoten m_zus): Zusatzstoffe waren die EINZIGE Achse ohne Schutz ══
+       makro, wirk und zut werden nur gespeichert, wenn sie in dieser Sitzung geaendert wurden
+       (§10.3). Text und Status der Zusatzstoffe gingen bei JEDEM Speichern bedingungslos mit.
+       BEWUSST KEIN Dirty-Flag wie bei den anderen dreien: ein Ereignis-Flag kann in die
+       GEFAEHRLICHE Richtung irren - feuert es nicht, hoert der Bereich still auf zu speichern,
+       also genau die Fehlerklasse, die M3 behebt. Ein WERTVERGLEICH kann das nicht: weicht der
+       Wert ab, wird geschrieben; sind sie gleich, ist Weglassen folgenlos.
+       Belegt: cb_produkt_ingest schreibt nur bei GEFUELLTEM zusatzstoffe_text
+       (`if coalesce(p->>'zusatzstoffe_text','')<>''`). Ein fehlendes Feld aendert dort nichts. */
+    window._fgEdit.zusStart={ text:String(d.zusatzstoffe_text||""), status:String(d.zusatzstoffe_status||"") };
     var _dirtyHook=function(id,bereich){ var el=document.getElementById(id); if(!el||el._fgDirtyHooked) return; el._fgDirtyHooked=true;
       el.addEventListener("input",function(){ if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty[bereich]=true; });
       el.addEventListener("change",function(){ if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty[bereich]=true; }); };
@@ -18634,9 +18644,21 @@ async function fgEditSave(alsoFreigeben){
   }catch(e){}
   const payload={ name, marke:g("fe_marke").value.trim(), kategorie:_kat,
     unterkategorie:g("fe_ukat").value.trim(), ean:g("fe_ean").value.trim(), basis:g("fe_basis").value.trim()||"100g",
-    zusatzstoffe_text:g("fe_ztext").value.trim(),   /* M3 09.08.: leer heisst ungeprueft, nicht "keine" */
-    zusatzstoffe_status:g("fe_zstatus").value, suessstoffe:g("fe_suess").value,
+    suessstoffe:g("fe_suess").value,
     quelle:_beleg||"Admin-Editor" };
+  /* ══ M3 (b), 10.08.2026: Zusatzstoffe nur senden, wenn sie sich WIRKLICH geaendert haben ══
+     Wertvergleich gegen den beim Oeffnen gemerkten Stand (_fgEdit.zusStart), nicht gegen ein
+     Ereignis-Flag - Begruendung steht dort. Bei Neuanlage geht immer alles mit. */
+  var _zusJetzt={ text:String((g("fe_ztext")||{}).value||"").trim(),
+                  status:String((g("fe_zstatus")||{}).value||"") };
+  var _zusStart=(window._fgEdit&&window._fgEdit.zusStart)||{text:"",status:""};
+  var _zusGeaendert = _warNeu
+        || _zusJetzt.text   !== String(_zusStart.text||"").trim()
+        || _zusJetzt.status !== String(_zusStart.status||"");
+  if(_zusGeaendert){
+    payload.zusatzstoffe_text   = _zusJetzt.text;    /* M3 09.08.: leer heisst ungeprueft, nicht "keine" */
+    payload.zusatzstoffe_status = _zusJetzt.status;
+  }
   /* Ralphs Kernregel (05.08.): NUR Bereiche schreiben, die in dieser Sitzung geaendert wurden.
      Eine bei dieser Kategorie ausgeblendete (und darum leere) Karte darf gespeicherte Daten
      nie ueberschreiben. Bei Neuanlage wird alles gesendet, was da ist. */
@@ -23205,7 +23227,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-2145";
+const APP_BUILD = "2026-08-10-2140";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
