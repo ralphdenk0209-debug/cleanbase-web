@@ -2942,7 +2942,9 @@ function mikroFaktenHtml(arr){
   var rows=arr.map(function(x){
     var nm=String(x.anzeige||x.naehrstoff||""), e=String(x.einheit||"");
     var nrv=(x.nrv!=null&&Number(x.nrv)>0)?Number(x.nrv):null;
-    var pct=nrv!=null?Math.round(Number(x.menge_100g)/nrv*100):null;
+    /* Bei Werten je Tagesdosis rechnet die Datenbank den Prozentsatz schon aus
+       (v_ri_dosierung.prozent_nrv) - dann wird er uebernommen, nicht neu gerechnet (§4.2). */
+    var pct=(x.vorgabe_pct!=null)?x.vorgabe_pct:(nrv!=null?Math.round(Number(x.menge_100g)/nrv*100):null);
     var h=HERK[String(x.herkunft||"unbekannt")]||HERK.unbekannt;
     return '<div style="padding:9px 0;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px">'
       + '<div style="flex:1 1 auto;min-width:0">'
@@ -3888,7 +3890,20 @@ async function feNaehrPopupOpen(){
     } else if(kat==="mikro"){
       var r3=await client.rpc("cb_produkt_mikro_liste",{p_id:pid});
       if(r3.error) throw new Error(r3.error.message);
-      ov.innerHTML=kopf(mikroFaktenHtml(r3.data||[]) || '<div style="font-size:13px;line-height:1.6;color:var(--muted)">F\u00fcr dieses Produkt sind noch keine Mikron\u00e4hrstoffe erfasst.</div>');
+      var mr=r3.data||[];
+      if(mr.length){ ov.innerHTML=kopf(mikroFaktenHtml(mr)); }
+      else {
+        /* Rueckfall wie im Streifen: Werte je Tagesdosis statt je 100 g. */
+        var r4=await client.rpc("cb_produkt_wirkstoff_liste",{p_id:pid});
+        if(r4.error) throw new Error(r4.error.message);
+        var wr=(r4.data||[]).map(function(x){ return {
+          anzeige:x.naehrstoff, naehrstoff:x.naehrstoff,
+          menge_100g:(x.menge_original!=null?x.menge_original:x.menge),
+          einheit:(x.einheit_original||x.einheit||""),
+          nrv:null, vorgabe_pct:(x.prozent_nrv!=null?Math.round(Number(x.prozent_nrv)):null),
+          herkunft:"etikett", herkunft_detail:"je Tagesdosis" }; });
+        ov.innerHTML=kopf(mikroFaktenHtml(wr) || '<div style="font-size:13px;line-height:1.6;color:var(--muted)">F\u00fcr dieses Produkt sind noch keine N\u00e4hrstoffe erfasst.</div>');
+      }
     } else {
       var r2=await client.rpc("cb_reinheits_ampel",{p_produkt_id:pid});
       if(r2.error) throw new Error(r2.error.message);
@@ -4120,6 +4135,25 @@ async function feNaehrKachelnSync(){
       var r3=await client.rpc("cb_produkt_mikro_liste",{p_id:pid});
       if(r3.error) throw new Error(r3.error.message);
       var mrows=r3.data||[];
+      /* 10.08.2026, Ralphs Befund „P1809 nichts drin, steht auf sonstiges":
+         Manche Produkte fuehren ihre Naehrstoffe NICHT je 100 g, sondern je Tagesdosis -
+         P1809 LaVita hat 24 Wirkstoffe und 0 Mikros. Frueher kamen die ueber
+         cb_reinheits_ampel, aber die liefert {gilt:false}, sobald die Kategorie nicht
+         „Supplement" ist. Ein Produkt mit 24 erfassten Wirkstoffen darf nicht unsichtbar
+         sein, weil ein Kategorie-Feld auf „Sonstiges" steht (§3.4).
+         Deshalb: keine Werte je 100 g -> die erfassten Wirkstoffe je Dosis zeigen.
+         cb_produkt_wirkstoff_liste hat KEIN Kategorie-Gate und rechnet nichts neu. */
+      if(!mrows.length){
+        var r4=await client.rpc("cb_produkt_wirkstoff_liste",{p_id:pid});
+        if(r4.error) throw new Error(r4.error.message);
+        (r4.data||[]).forEach(function(x){
+          var pct=(x.prozent_nrv!=null)?Math.round(Number(x.prozent_nrv)):null;
+          kacheln.push(_feKachel(String(x.naehrstoff||""),
+            (x.menge_original!=null?x.menge_original:x.menge)+" "+(x.einheit_original||x.einheit||""),
+            pct!=null?(pct+" % Tagesbedarf"):"kein Bezugswert", pct));
+        });
+        fuss="je Tagesdosis";
+      } else {
       mrows.forEach(function(x){
         var mg=Number(x.menge_100g), e=String(x.einheit||"");
         var pct=(x.nrv!=null && Number(x.nrv)>0)?Math.round(mg/Number(x.nrv)*100):null;
@@ -4131,6 +4165,7 @@ async function feNaehrKachelnSync(){
          liest, soll wissen, woher er kommt - ohne dafuer das Popup oeffnen zu muessen. */
       var abg=mrows.filter(function(x){return x.herkunft==="abgeleitet";}).length;
       fuss="je 100 g"+(abg?(" \u00b7 "+abg+" von "+mrows.length+" aus N\u00e4hrstoffdatenbank abgeleitet"):"");
+      }
     }
   }catch(e){
     if(typeof console!=="undefined") console.warn("Nährstoff-Kacheln:", e&&e.message?e.message:e);
@@ -23170,7 +23205,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-2121";
+const APP_BUILD = "2026-08-10-2145";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
