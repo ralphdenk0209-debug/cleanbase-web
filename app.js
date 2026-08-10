@@ -13824,12 +13824,21 @@ function fgPickRender(){
          Jetzt: volle Deckkraft (die Zeile IST aktiv), ⚗ als Plakette, und der
          Hinweis "bearbeiten in Zusatzstoffe ›" steht dauerhaft da. Die Logik ist
          unveraendert - Prinzip 8, der Stoff zaehlt weiter auf beiden Achsen. */
-      return '<div onclick="zusModalOpen()" title="Zählt auf beiden Achsen (Prinzip 8) – geändert wird der Stoff in der Zusatzstoff-Karte" style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;background:var(--bg)">'
-        +'<span style="text-align:center;font-size:11px;line-height:1;color:var(--k-166534,#166534);background:var(--greenlt,#ecfdf5);border:1px solid var(--k-16a34a,#16a34a);border-radius:5px;padding:3px 0" title="als Zusatzstoff erfasst">⚗</span>'
-        +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;color:var(--ink)">'+esc(nm)
-          +(chk?' <span style="color:var(--muted);font-size:11px">· Wert '+rt+' zählt</span>':'')
-          +' <span style="color:var(--k-166534,#166534);font-size:11px;white-space:nowrap">· bearbeiten in Zusatzstoffe ›</span></span>'
-        +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+(chk?rt:'')+'</span>'
+      /* 🔴 10.08.2026, gemessen an P73596/carotin: diese Zeile hatte KEINE Checkbox.
+         Solange die Bindung besteht, war das Ralphs "1x reicht" (27y). Fehlt sie, gab es
+         keinen Weg zurueck - der Editor konnte eine Zutatenbindung loesen, die er selbst
+         nicht wiederherstellen kann. §4.6 sagt aber ausdruecklich, dass ein Stoff auf
+         BEIDEN Achsen zaehlt; dann muessen auch beide bedienbar bleiben.
+         Jetzt: Checkbox in Spalte 1 wie in jeder anderen Zeile, die ⚗-Plakette wandert vor
+         den Namen, und "bearbeiten in Zusatzstoffe ›" bleibt als eigener Klickbereich.
+         An der ZUSATZSTOFF-Achse aendert sich nichts - nur die ZUTATEN-Achse ist wieder
+         erreichbar. Der Hinweis "· Wert X zaehlt" entfaellt: das sagt jetzt der Haken. */
+      return '<div title="Zählt auf beiden Achsen (§4.6) – der Haken bindet die ZUTAT, den Zusatzstoff pflegst du in der Zusatzstoff-Karte" style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);background:'+(chk?"var(--greenlt,#eef7f0)":"var(--bg)")+'">'
+        +'<input type="checkbox" '+(chk?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(it.rating==null?"":it.rating)+'" data-krit="'+esc(it.kritisch||"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'
+        +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;color:var(--ink)">'
+          +'<span style="font-size:11px;color:var(--k-166534,#166534);background:var(--greenlt,#ecfdf5);border:1px solid var(--k-16a34a,#16a34a);border-radius:5px;padding:1px 4px" title="als Zusatzstoff erfasst">⚗</span> '+esc(nm)
+          +' <span onclick="zusModalOpen()" style="color:var(--k-166534,#166534);font-size:11px;white-space:nowrap;cursor:pointer;text-decoration:underline">· bearbeiten in Zusatzstoffe ›</span></span>'
+        +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</div>';
     }
     return '<label style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(chk?"background:var(--greenlt,#eef7f0)":"")+'">'
@@ -23003,7 +23012,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-09-2140";
+const APP_BUILD = "2026-08-10-0600";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
