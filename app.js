@@ -16226,6 +16226,7 @@ async function openFgEditor(id, prefill, targetEl){
     try{ keinScoreKatsLaden().then(function(){ try{ feKatChange(); }catch(e){} }); }catch(e){}   /* 28z3: Kein-Score-Liste nachladen, Layout+Pflichten dann korrekt */
     try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
     try{ feWirkLoad(d.wirkstoffe, d.wirkstoffe_nicht_verfuegbar); }catch(e){}   /* Wirkstoff-Mengen (Dosis) laden */
+    try{ feWirkHerkunft((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* 10.08.: Marke „zugesetzt" je Zeile - reine Anzeige, Regel steht in cb_produkt_wirkstoff_herkunft */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
     /* Zusatzstoff-Liste (neu): Stamm laden, Auswahl aus dem gespeicherten Text ableiten, farbig rendern. */
     (async function(){ try{ await loadZusatzstoffeStamm(); zusSeed(d.zusatzstoffe_text||""); zusRenderSel(); zusRenderPick();
@@ -16346,7 +16347,10 @@ function feKatChange(){
 function feWirkRow(w){ w=w||{};
   var opt=WIRK_EINHEITEN.map(function(u){ return '<option'+(String(w.einheit||"mg")===u?' selected':'')+'>'+u+'</option>'; }).join("");
   return '<div class="feWirkRow" style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;margin-bottom:6px;align-items:center">'
-    +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{feWirkFarbeRow(this)}catch(e){};try{fePlaus()}catch(e){}" placeholder="z. B. Vitamin C" style="padding:6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
+    +'<div class="fwNameCell" style="position:relative;min-width:0">'
+      +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{feWirkFarbeRow(this)}catch(e){};try{fePlaus()}catch(e){}" placeholder="z. B. Vitamin C" style="padding:6px 22px 6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
+      +'<span class="fwHerk" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:12px;line-height:1;pointer-events:none;color:var(--muted)"></span>'
+    +'</div>'
     +'<input class="fwMenge" type="number" step="any" value="'+esc(w.menge==null?"":String(w.menge))+'" oninput="try{fePlaus()}catch(e){}" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
     +'<select class="fwEinheit" style="padding:6px 4px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'+opt+'</select>'
     +'<input class="fwNrv" type="number" step="any" value="'+esc(w.nrv==null?"":String(w.nrv))+'" oninput="try{feWirkFarbeRow(this)}catch(e){}" placeholder="%" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
@@ -16506,7 +16510,53 @@ function feWirkLoad(liste, none){
   var n=document.getElementById("fe_wirk_none"); if(n){ n.checked=!!none; feWirkNoneToggle(!!none); }
   try{ feWirkFarbeAll(); }catch(e){}
 }
-if(typeof window!=='undefined'){ window.feWirkAdd=feWirkAdd; window.feWirkDel=feWirkDel; window.feWirkNoneToggle=feWirkNoneToggle; }
+/* ===== HERKUNFTSMARKE JE WIRKSTOFFZEILE (Ralph-Go 10.08.2026, Weg A) ======================
+   Zeigt an, ob ein Naehrstoff ueber eine ISOLIERTE ZUTAT zugesetzt wurde oder aus den
+   Lebensmittelzutaten stammt. Anlass: P1809 LaVita - 21 von 24 Wirkstoffen sind zugesetzt,
+   und das stand nirgends in der Oberflaeche.
+
+   ⚠ DIE REGEL LIEGT IN DER DATENBANK, NICHT HIER (§4.2, §10.2). Diese Funktion urteilt
+   nicht, sie stellt dar. Gerechnet wird in cb_produkt_wirkstoff_herkunft(p_id), die
+   Zutatenbindung UND Etikett-Rohtext gegen Wirkstoff_Map/Wirkstoff_Formen haelt - exakt,
+   ohne Aehnlichkeitstreffer (§3.5).
+
+   Drei Zustaende, und der dritte ist der wichtige:
+     zugesetzt  ⊕  - eine isolierte Zutat auf dem Etikett liefert ihn, Tooltip nennt sie
+     aus_matrix -  - keine Marke; er kommt aus den Lebensmittelzutaten
+     unbekannt  ?  - die Bruecke kennt den Namen nicht. NICHT als "aus der Matrix" ausgeben,
+                     das waere eine Behauptung aus Unwissen (§1.2).
+
+   Faellt die RPC aus, bleiben die Marken LEER statt falsch (§1.7 - lieber nichts sagen). */
+async function feWirkHerkunft(pid){
+  var c=document.getElementById("fe_wirkRows"); if(!c) return;
+  [].forEach.call(c.querySelectorAll(".fwHerk"), function(s){ s.textContent=""; s.removeAttribute("title"); });
+  if(!pid) return;
+  var rows;
+  try{
+    var res = await client.rpc("cb_produkt_wirkstoff_herkunft", { p_id: pid });
+    if(res && res.error){ console.warn("Wirkstoff-Herkunft:", res.error.message||res.error); return; }
+    rows = (res && res.data) || [];
+  }catch(e){ console.warn("Wirkstoff-Herkunft:", e); return; }
+  if(!Array.isArray(rows) || !rows.length) return;
+  var karte={};
+  rows.forEach(function(r){ var k=String(r.naehrstoff||"").trim().toLowerCase(); if(k) karte[k]=r; });
+  [].forEach.call(c.querySelectorAll(".feWirkRow"), function(r){
+    var nm=((r.querySelector(".fwName")||{}).value||"").trim().toLowerCase();
+    var sp=r.querySelector(".fwHerk"); if(!sp) return;
+    var h=karte[nm]; if(!h) return;
+    if(h.herkunft==="zugesetzt"){
+      sp.textContent="⊕";
+      sp.title="Zugesetzt – als isolierte Zutat auf dem Etikett: "+(h.beleg_zutat||"?")+(h.beleg_quelle?" ("+h.beleg_quelle+")":"");
+    } else if(h.herkunft==="unbekannt"){
+      sp.textContent="?";
+      sp.title="Nicht bestimmbar – für diesen Nährstoff ist keine Zutatenform hinterlegt. Es wird bewusst nichts behauptet.";
+    } else {
+      sp.textContent="";
+      sp.title="Aus den Lebensmittelzutaten – keine isolierte Zutat auf dem Etikett";
+    }
+  });
+}
+if(typeof window!=='undefined'){ window.feWirkAdd=feWirkAdd; window.feWirkDel=feWirkDel; window.feWirkNoneToggle=feWirkNoneToggle; window.feWirkHerkunft=feWirkHerkunft; }
 /* Fehlt die EAN, wird der „offen"-Haken automatisch gesetzt (blockiert die Freigabe nicht) –
    AUSSER das Produkt ist legitim ohne Barcode (Status „generisch"/„kein_barcode"): das nicht anfassen,
    sonst würde es beim Speichern auf „offen" heruntergestuft und tauchte fälschlich in „Zu erledigen" auf.
@@ -23052,7 +23102,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-0650";
+const APP_BUILD = "2026-08-10-1521";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
