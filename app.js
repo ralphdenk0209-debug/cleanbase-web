@@ -3526,9 +3526,13 @@ function pvRender(){
   var zusW=ids.map(function(id){ var d=D[id]; return d?String(d.zusatzstoffe_text||""):undefined; });
   h+=zeile("Zusatzstoffe", ids.map(function(id){
       var d=D[id]; if(!d) return '';
-      var st=String(d.zusatzstoffe_status||"keine");
-      var opt=["keine","neutral","enthalten","ungeprüft"].map(function(o){
-        return '<option value="'+o+'"'+((o===st||(o==="ungeprüft"&&st==="ungeprueft"))?' selected':'')+'>'+o+'</option>'; }).join("");
+      /* M3 (a), 10.08.2026: KEIN ||"keine" mehr. Ein leerer Status heisst „nie angesehen" und
+         darf nicht als „geprueft, keine vorhanden" vorbelegt werden - das ist dieselbe
+         Erfindung, die im Editor am 09.08. behoben wurde, hier als zweite Kopie (§4.2, §3.4).
+         Die Liste bekommt dafuer einen ausdruecklich leeren Eintrag. */
+      var st=String(d.zusatzstoffe_status||"");
+      var opt=["","keine","neutral","enthalten","ungeprüft"].map(function(o){
+        return '<option value="'+o+'"'+((o===st||(o==="ungeprüft"&&st==="ungeprueft"))?' selected':'')+'>'+(o===""?"— keine Angabe —":o)+'</option>'; }).join("");
       return '<textarea id="pvZus_'+esc(id)+'" rows="3" oninput="pvGeaendert(\''+esc(id)+'\',\'zus\')" '
         +'style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font-size:11.5px;line-height:1.45;resize:vertical">'
         + esc(d.zusatzstoffe_text||"") + '</textarea>'
@@ -3748,8 +3752,10 @@ async function pvSpeichern(id){
     }
     if(dt.zus){
       var ta=document.getElementById("pvZus_"+id), se=document.getElementById("pvZusSt_"+id);
+      /* M3 (a): leere Auswahl geht als null raus, nicht als Leerstring - sonst haenge die
+         Unterscheidung „nie angesehen" / „geprueft" wieder am Zufall der Serialisierung. */
       var rs=await client.rpc("cb_produkt_zusatzstoffe_setzen",{
-        p_id:id, p_text:(ta?ta.value:null), p_status:(se?se.value:null)});
+        p_id:id, p_text:(ta?ta.value:null), p_status:((se&&se.value)?se.value:null)});
       if(rs.error) throw new Error(rs.error.message);
     }
     /* Frisch nachladen statt lokal zu raten: der Index kommt aus dem Trigger,
@@ -23102,7 +23108,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-1521";
+const APP_BUILD = "2026-08-10-1610";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
