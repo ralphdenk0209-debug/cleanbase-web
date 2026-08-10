@@ -18718,7 +18718,13 @@ async function fgEditSave(alsoFreigeben){
             _zc.innerHTML=_zs.map(function(z){ return fgZutRow(z.name, z.rating, z.kritisch?"ja":"nein"); }).join("");
             if(typeof fgPickRender==="function") fgPickRender();
             /* Score-Vorschau und Textbox zieht der MutationObserver auf #fe_zutRows selbst
-               nach - hier wird kein zweiter Weg aufgemacht (§4.2). */
+               nach - hier wird kein zweiter Weg aufgemacht (§4.2).
+               Die FREIGABE-KARTE zieht er NICHT nach: sie wurde beim Speichern mit der leeren
+               Liste gerechnet und blieb danach auf "Keine Zutat erfasst" stehen - gemessen am
+               10.08. an P73596, Build 0640 dieses Tages. feFreigabeLeiste() behebt es; im Browser
+               gegengeprueft, BEVOR die Zeile hier stand (§1.1 - beim ersten Anlauf hatte ich
+               eine Funktion aufgerufen, die es gar nicht gibt). */
+            if(typeof feFreigabeLeiste==="function") feFreigabeLeiste();
           }
         }catch(e){ console.error("Zutatenliste nach abgewehrtem Leeren wiederherstellen:", e); }
       }
@@ -23046,7 +23052,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-0640";
+const APP_BUILD = "2026-08-10-0650";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
