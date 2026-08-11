@@ -9626,6 +9626,7 @@ function applyAdminMode(){
          nicht deaktiviert (§1.11n-p). */
       +_an('fotostudio','📸','Fotostudio',"adminGo('fotostudio')")
       +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
+      +_an('werangelegt','👤','Wer hat angelegt',"admWerAngelegtOpen()")
       +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
     /* 29.07. Enterprise (Ralph): Arbeits-Zahlen als Plaketten am Menue */
     window.adminNavBadges=function(d){
@@ -17026,6 +17027,63 @@ async function katKonfigLoad(force){
   try{ var r=await client.rpc("cb_kategorie_konfig_liste"); if(!r.error && r.data){ r.data.forEach(function(x){ map[String(x.kategorie||"").trim().toLowerCase()]={ kategorie:x.kategorie, darstellung:String(x.darstellung||"produkt").trim().toLowerCase(), kein_score:!!x.kein_score }; }); } }catch(e){}
   window._katKonfig=map; return map;
 }
+/* ══ WER HAT WAS ANGELEGT (Ralph-Auftrag 10.08.2026) ═══════════════════════════════════
+   Ralph: „ich will eine Liste, welche Person oder Nutzer welche Produkte angelegt hat."
+   Gebaut als Overlay nach dem Muster von katKonfigOpen - kein neuer Seitentyp, kein
+   Umbau der Navigation (§2.3).
+   Die Regel liegt in cb_admin_produkte_je_nutzer(): sie joint Produkte.Angelegt_Von auf
+   Benutzer.auth_id und faellt auf Produkte.Herkunft zurueck, wo der Trigger noch nicht
+   greifen konnte. Das Frontend rechnet nichts (§10.2).
+   ⚠ Der Altbestand steht auf „(nicht erfasst)" - die Angabe wurde bis zum 10.08.2026 NIE
+   gespeichert. Das ist kein Anzeigefehler, sondern der ehrliche Zustand (§3.4). */
+async function admWerAngelegtOpen(){
+  if(!(window.ME&&ME.is_admin)) return;
+  var ov=document.getElementById("werAngelegtOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="werAngelegtOv";
+    ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
+    ov.onclick=function(e){ if(e.target===ov) ov.style.display="none"; };
+    document.body.appendChild(ov); }
+  ov.style.display="flex";
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink);border-radius:16px;max-width:820px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">'
+      +'<div style="font-weight:800;font-size:18px">👤 Wer hat welche Produkte angelegt</div>'
+      +'<button type="button" onclick="document.getElementById(\'werAngelegtOv\').style.display=\'none\'" style="border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:9px;padding:5px 12px;cursor:pointer;font-size:13px">Schließen</button>'
+    +'</div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Erfasst wird seit dem <b>10.08.2026</b>. Alles davor steht auf „nicht erfasst" – die Angabe wurde vorher nicht gespeichert und lässt sich nicht nachträglich ermitteln.</div>'
+    +'<div id="werAngelegtBody" style="font-size:13px;color:var(--muted)">Lade …</div>'
+  +'</div>';
+  var b=document.getElementById("werAngelegtBody");
+  try{
+    var r=await client.rpc("cb_admin_produkte_je_nutzer");
+    if(r&&r.error) throw r.error;
+    var rows=(r&&r.data)||[];
+    if(!rows.length){ b.textContent="Keine Zeilen."; return; }
+    var fmt=function(n){ return Number(n||0).toLocaleString("de-DE"); };
+    var dat=function(s){ if(!s) return "–"; try{ return new Date(s).toLocaleDateString("de-DE"); }catch(e){ return "–"; } };
+    b.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +'<thead><tr style="text-align:left;color:var(--muted);border-bottom:1px solid var(--line)">'
+        +'<th style="padding:6px 8px">Wer</th><th style="padding:6px 8px">E-Mail</th>'
+        +'<th style="padding:6px 8px;text-align:right">Produkte</th>'
+        +'<th style="padding:6px 8px;text-align:right">aktiv</th>'
+        +'<th style="padding:6px 8px;text-align:right">verifiziert</th>'
+        +'<th style="padding:6px 8px">von</th><th style="padding:6px 8px">bis</th></tr></thead><tbody>'
+      +rows.map(function(z){
+        var leise=(String(z.urheber||"").indexOf("nicht erfasst")>=0);
+        return '<tr style="border-bottom:1px solid var(--line)'+(leise?';color:var(--muted)':'')+'">'
+          +'<td style="padding:6px 8px'+(leise?'':';font-weight:600')+'">'+esc(z.urheber||"–")+'</td>'
+          +'<td style="padding:6px 8px">'+esc(z.email||"–")+'</td>'
+          +'<td style="padding:6px 8px;text-align:right">'+fmt(z.produkte)+'</td>'
+          +'<td style="padding:6px 8px;text-align:right">'+fmt(z.aktiv)+'</td>'
+          +'<td style="padding:6px 8px;text-align:right">'+fmt(z.verifiziert)+'</td>'
+          +'<td style="padding:6px 8px">'+dat(z.erstes)+'</td>'
+          +'<td style="padding:6px 8px">'+dat(z.letztes)+'</td></tr>'; }).join("")
+      +'</tbody></table>';
+  }catch(e){
+    if(b){ b.style.color="var(--k-dc2626,#dc2626)"; b.textContent="Konnte die Liste nicht laden: "+((e&&e.message)||e); }
+  }
+}
+if(typeof window!=='undefined'){ window.admWerAngelegtOpen=admWerAngelegtOpen; }
+
 async function katKonfigOpen(){
   if(!(ME&&ME.is_admin)) return;
   var ov=document.getElementById("katKonfigOv");
@@ -23237,7 +23295,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-2210";
+const APP_BUILD = "2026-08-10-2245";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
