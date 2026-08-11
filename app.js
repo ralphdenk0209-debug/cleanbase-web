@@ -5825,11 +5825,11 @@ function peRender(){
       +'border-bottom:1px solid #e2e8ef;font-size:11px;color:#5b6b82;font-weight:700;white-space:nowrap;overflow:hidden">'
       +kurz+_griff(i)+'</th>';
   };
-  g.innerHTML=cols+'<thead><tr>'+[thF('P-Nr','pnr',0),thF('Titel','titel',1),thF('Marke','marke',2),thF('Kategorie','kategorie',3),thF('Index','index',4),thF('Status','status',5),thF('EAN','ean',6),thF('Quelle','quelle',7),
-      thF('Angelegt',null,8),
-      _thPkt('K','Kategorie gewählt',9),_thPkt('N','Nährwerte vollständig',10),_thPkt('Z','Zutaten erfasst',11),
-      _thPkt('B','Zutaten bewertet',12),_thPkt('Q','Quelle belegt',13),_thPkt('E','EAN erfasst oder bewusst ohne',14),
-      thF('⚑ 🛡',null,15)].join('')+'</tr></thead><tbody>'
+  g.innerHTML=cols+'<thead><tr>'+[thF('P-Nr','pnr',0),thF('Titel','titel',1),thF('Marke','marke',2),thF('Index','index',3),thF('Status','status',4),thF('EAN','ean',5),thF('Quelle','quelle',6),
+      thF('Angelegt',null,7),
+      _thPkt('K','Kategorie gewählt',8),_thPkt('N','Nährwerte vollständig',9),_thPkt('Z','Zutaten erfasst',10),
+      _thPkt('B','Zutaten bewertet',11),_thPkt('Q','Quelle belegt',12),_thPkt('E','EAN erfasst oder bewusst ohne',13),
+      thF('⚑ 🛡',null,14)].join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       var _scan=peIstScan(p);
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')"'
@@ -5839,7 +5839,6 @@ function peRender(){
       +td(_scan?('<span title="Scan-Kandidat – noch keine Produkt-Nummer" style="color:#3b56b0;font-weight:700">'+esc(p.id)+'</span>'):esc(p.id),'color:#7b8698')
       +td('<b>'+esc(p.name||'—')+'</b>','', 'title="'+esc(p.name||'')+'"')
       +td(esc(p.marke||''),'','title="'+esc(p.marke||'')+'"')
-      +td(esc(p.kategorie||''))
       +td(scoreCell(p.score),'overflow:visible')
       +td(statPill(p),'overflow:visible')
       +td(p.ean?esc(p.ean):'<span style="color:#c88616">offen</span>','color:#7b8698')
@@ -6260,7 +6259,11 @@ async function fgJsonUebernehmen(){
    "Quelle". An ihrer Stelle steht "Angelegt", danach die sechs Freigabepunkte der
    Erfassungskarte, je einer in einer schmalen Spalte. 10 -> 16 Eintraege; die geaenderte
    Laenge verwirft die gemerkten Breiten automatisch (peRender prueft sie). */
-var PE_COL_STD=[88,0,120,120,58,106,136,108,104,26,26,26,26,26,26,52];
+/* 10.08.2026 (Ralph): Spalte „Kategorie" entfernt - sie stand in der taeglichen Liste
+   und wurde nicht gelesen; der Kategorie-FILTER oben bleibt. 16 -> 15 Eintraege.
+   Ein alter peColW aus dem localStorage hat jetzt die falsche Laenge und faellt
+   automatisch auf den Standard zurueck (Laengenpruefung in Z. 5750) - kein Reset noetig. */
+var PE_COL_STD=[88,0,120,58,106,136,108,104,26,26,26,26,26,26,52];
 var _peZieh=null;
 function peColZiehStart(ev,i){
   if(ev.stopPropagation) ev.stopPropagation();   /* sonst oeffnet sich der Excel-Filter */
@@ -23308,7 +23311,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-2325";
+const APP_BUILD = "2026-08-10-2350";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
