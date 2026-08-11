@@ -9584,7 +9584,11 @@ function applyAdminMode(){
     try{
       var _tdAuf=false; try{ _tdAuf=(localStorage.getItem('ri_todoDock')==='1'); }catch(e){}
       setTimeout(function(){
-        if(!(window.ME && ME.is_admin)) return;
+        /* 10.08.2026: hier stand `window.ME && ME.is_admin` — derselbe Fehler wie bei
+           admWerAngelegtOpen. ME ist eine Modulvariable (Z. 1015), window.ME ist immer
+           undefined, also kehrte diese Funktion IMMER zurueck und das Notiz-Dock wurde
+           nie geladen. Gefunden beim Beheben des Nachbarn, mitbehoben (§29 R3). */
+        if(!(typeof ME!=="undefined" && ME && ME.is_admin)) return;
         if(_tdAuf){ try{ todoDockToggle(true); }catch(e){} }
         else { try{ todoLoad(); }catch(e){} }
       }, 900);
@@ -17037,7 +17041,16 @@ async function katKonfigLoad(force){
    ⚠ Der Altbestand steht auf „(nicht erfasst)" - die Angabe wurde bis zum 10.08.2026 NIE
    gespeichert. Das ist kein Anzeigefehler, sondern der ehrliche Zustand (§3.4). */
 async function admWerAngelegtOpen(){
-  if(!(window.ME&&ME.is_admin)) return;
+  /* 🔴 KORREKTUR 10.08.2026, Ralphs Fund „wird nichts geöffnet": hier stand
+     `if(!(window.ME&&ME.is_admin)) return;`. ME ist aber eine Modulvariable
+     (`let ME = null`, Z. 1015) und NICHT window.ME - der Test war immer falsch und die
+     Funktion brach STILL ab. Zwei Fehler in einer Zeile: der falsche Zugriff und das
+     Schweigen (§1.7). Jetzt wie in katKonfigOpen direkt ME, und wer nicht Admin ist,
+     bekommt eine Meldung statt nichts. */
+  if(!(typeof ME!=="undefined" && ME && ME.is_admin)){
+    try{ alert("Diese Liste ist Admins vorbehalten – oder die Anmeldung ist noch nicht geladen. Seite neu laden und erneut versuchen."); }catch(e){}
+    return;
+  }
   var ov=document.getElementById("werAngelegtOv");
   if(!ov){ ov=document.createElement("div"); ov.id="werAngelegtOv";
     ov.style.cssText="position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px";
@@ -23295,7 +23308,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-2245";
+const APP_BUILD = "2026-08-10-2325";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
