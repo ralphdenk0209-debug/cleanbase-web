@@ -11508,7 +11508,15 @@ function zielForm(){
     <div id="tbCalcOut" style="margin-top:10px;font-size:13px"></div>
   </div>`; }
 function tbBar(ist,soll,col){ const p=soll?Math.min(100,Math.max(0,ist/soll*100)):0; return '<div style="height:7px;background:var(--tb-track);border-radius:5px;overflow:hidden"><div style="height:100%;width:'+p.toFixed(0)+'%;background:'+col+';border-radius:5px;transition:width .5s"></div></div>'; }
-function tbMacroCol(name,ist,soll,col){ ist=Math.round(ist||0); soll=Math.round(soll||0); return '<div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:600;color:var(--tb-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div><div style="font-size:11px;color:var(--tb-muted);margin:1px 0 4px;white-space:nowrap">'+ist+' / '+soll+' g</div>'+tbBar(ist,soll,col)+'</div>'; }
+/* 11.08.2026: vierter Parameter "nk" (Nachkommastellen) ADDITIV ergänzt - ohne ihn verhält sich
+   die Funktion exakt wie vorher, alle bestehenden Aufrufer bleiben unberührt (§2.3, §11.2).
+   Grund: Salz bewegt sich zwischen 0 und 5 g. Auf ganze Gramm gerundet wären 2,4 g und 1,6 g
+   beide "2" - bei einem Tagesziel von 5 g ist das ein Fünftel Auflösung, das man verschenkt. */
+function tbMacroCol(name,ist,soll,col,nk){
+  var f=function(v){ return nk?(Number(v)||0).toFixed(nk):Math.round(Number(v)||0); };
+  var istN=Number(ist)||0, sollN=Number(soll)||0;
+  return '<div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:600;color:var(--tb-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div><div style="font-size:11px;color:var(--tb-muted);margin:1px 0 4px;white-space:nowrap">'+f(istN)+' / '+f(sollN)+' g</div>'+tbBar(istN,sollN,col)+'</div>';
+}
 /* ---- Trainingstage im Profil (Wochentag-Knoepfe) ----
    ISO-Wochentage: 1 = Montag ... 7 = Sonntag. Dieselbe Zaehlung nutzt der Server
    (extract(isodow)) - damit die beiden Seiten nicht auseinanderlaufen. */
@@ -11747,8 +11755,8 @@ function renderZielNeu(s,ben){
   +'</div>';
   /* 28b (Ralph): "der schieberegler für trainingstag, das ist zu viel" - die Box entfällt im
      neuen Kopf; der Schalter ist das kleine 💪 in der Kopfzeile (tbKopfNeuAnwenden). */
-  el.innerHTML=kopfzeile+inner
-    +'<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein &amp; Ballaststoffe = Mindestziel · Fett/KH/kcal = Obergrenze'+((s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):'')+'</div>';
+  el.innerHTML=kopfzeile+inner+grenzZeile
+    +'<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein &amp; Ballaststoffe = Mindestziel · Fett/KH/kcal/Zucker/Salz = Obergrenze'+((s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):'')+'</div>';
 }
 function renderZiel(s,ben){
   window._tbZielCache={s:s,ben:ben};
@@ -11773,8 +11781,15 @@ function renderZiel(s,ben){
       + tbMacroCol('Fett', s&&s.fett, fettZ, 'var(--k-eab308)')
       + tbMacroCol('Ballaststoffe', s&&s.ballaststoffe, BALLAST_ZIEL, 'var(--k-0d9488)')
     + '</div>'
+    /* 11.08.2026: dieselben zwei Werte auch im ALTEN Kopf - sonst sehen sie nur die Nutzer
+       mit dem Flag tagebuch_neu, und §4.2 hätte zwei Oberflächen mit zwei Wahrheiten. */
+    + '<div style="display:flex;gap:10px;margin-top:10px">'
+      + tbMacroCol('Zucker', s&&s.zucker, tbZuckerZiel(kcalBasis), 'var(--k-e0559a,#e0559a)')
+      + tbMacroCol('Salz',   s&&s.salz,   SALZ_ZIEL_G,             'var(--k-6b8fa3,#6b8fa3)', 1)
+    + '</div>'
+    + '<div style="font-size:10.5px;color:var(--tb-muted);margin-top:6px;line-height:1.45">Richtwerte, keine medizinische Empfehlung: Zucker &lt; 10 % der Tagesenergie (DGE/DAG/DDG 2018) · Salz 5 g (EFSA 2019).<br>⚠ Der Zucker-Richtwert meint <b>freien Zucker</b> (zugesetzt, Honig, Saft). Gezählt wird der <b>Gesamtzucker vom Etikett</b> — der aus Obst und Milch ist mit drin.</div>'
     + trainingstagBox()
-    + `<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein &amp; Ballaststoffe = Mindestziel · Fett/KH/kcal = Obergrenze${(s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):''}</div>`;
+    + `<div style="font-size:11px;color:var(--tb-muted);margin-top:10px">Protein &amp; Ballaststoffe = Mindestziel · Fett/KH/kcal/Zucker/Salz = Obergrenze${(s&&s.score_schnitt!=null)?(' · Ø Root Index '+s.score_schnitt):''}</div>`;
 }
 async function setZiel(){
   const kcal=parseFloat(document.getElementById("zKcal").value)||null, eiw=parseFloat(document.getElementById("zEiw").value)||null,
@@ -23367,7 +23382,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-10-2350";
+const APP_BUILD = "2026-08-11-0510";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
