@@ -8995,6 +8995,34 @@ function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
   +'</div>';
 }
 var BALLAST_ZIEL=30; // DGE-Richtwert (Standard-Tagesziel Ballaststoffe, später ggf. im Profil einstellbar)
+/* ===== 11.08.2026, Ralph-Auftrag: Zucker und Salz gehören in die Tagessumme =====
+   §22-Fall: v_tagebuch_tagessumme führt zucker und salz seit jeher, cb_tagessumme gibt sie
+   mit "select *" zurück - es fehlte NUR die Anzeige. Kein DB-Umbau.
+
+   ZUCKER - der Richtwert ist ein ANTEIL, keine feste Grammzahl. Deshalb steht hier 0.10 und
+   nicht 50: die 50 g sind nur das Rechenbeispiel für 2.000 kcal. Wer 1.600 kcal als Ziel hat,
+   bekommt 40 g. Die Regel bleibt an einem Ort (§4.2).
+     Quelle: Konsensuspapier DGE / DAG / DDG, Dezember 2018 - "maximale Zufuhr freier Zucker
+     < 10 % der Gesamtenergiezufuhr", übernommen aus WHO Guideline 2015.
+     Fundstelle: dge.de/fileadmin/dok/wissenschaft/stellungnahmen/Konsensuspapier_Zucker_DAG_DDG_DGE_2018.pdf
+     Die DDG hat mitgezeichnet - derselbe Wert gilt damit auch bei Diabetes.
+   🔴 DIE FALLE, die die Beschriftung tragen muss: der Richtwert gilt für FREIE Zucker
+     (zugesetzt, Honig, Sirup, Saft). Die Tagessumme addiert den DEKLARIERTEN GESAMTZUCKER,
+     also auch den aus Obst und Milch. Die EU-Kennzeichnung kennt den Unterschied nicht
+     (bereiche/diabetes.md §5). Wer viel Obst isst, reißt die Zahl ohne ein Gramm freien
+     Zucker. Deshalb steht der Unterschied AM Balken, nicht nur in einer Datei (§1.10).
+
+   SALZ - fester Wert, nicht energieabhängig.
+     Quelle: EFSA NDA Panel, Dietary Reference Values for sodium, EFSA Journal 2019;17(9):5778
+     -> 2.000 mg Natrium/Tag. Umrechnung Salz = Natrium × 2,5 (VO (EU) 1169/2011 Anhang I).
+     Die Natriumzeile steht bereits in Naehrstoff_Bezugswert; das Frontend liest diese Tabelle
+     heute noch nicht - notiert am Wirkdiagramm-Knoten W5 (Bezugswerte anschließen). */
+var ZUCKER_EN_ANTEIL=0.10;   // Anteil an der Tagesenergie
+var ZUCKER_KCAL_JE_G=4;      // Kohlenhydrate liefern 4 kcal/g
+var SALZ_ZIEL_G=5;           // 2.000 mg Natrium × 2,5
+/* Beide Ziele aus dem kcal-BASISZIEL rechnen, NICHT aus dem Tagesziel mit Trainingszuschlag:
+   mehr Sport rechtfertigt nicht mehr Zucker. Gleiche Begründung wie bei den Makro-Zielen. */
+function tbZuckerZiel(kcalBasis){ kcalBasis=Number(kcalBasis)||0; return kcalBasis>0 ? (kcalBasis*ZUCKER_EN_ANTEIL/ZUCKER_KCAL_JE_G) : 0; }
 function startKennzahlen(sum, prof){
   sum=sum||{}; prof=prof||{};
   var idx=(sum.score_schnitt!=null)?Math.round(num(sum.score_schnitt)||0):0;
@@ -11688,6 +11716,34 @@ function renderZielNeu(s,ben){
       +'<b style="margin-top:5px;font-size:13.5px;color:var(--tb-text)">'+kc+' <span style="font-weight:400;color:var(--tb-muted);font-size:11px">/'+Math.round(kcalZ)+' kcal'+(anTraining?' · 💪':'')+'</span></b>'
     +'</div>'
     +kachel(MK[0])+kachel(MK[1])+kachel(MK[3])+kachel(MK[2])
+  +'</div>';
+  /* 11.08.2026 (Ralph): Zucker und Salz als EIGENE Zeile unter den vier Makros - nicht als
+     Kachel 5 und 6 im Raster. Zwei Gründe: das Raster ist auf 2×2 neben dem kcal-Ring gebaut
+     und würde bei sechs Kacheln kippen; und fachlich sind das die beiden Werte mit EXTERNER
+     Quelle (DGE/DDG, EFSA), während die vier oben aus dem Bedarfsrechner kommen. */
+  const zZiel=tbZuckerZiel(kcalBasis), zIst=Math.round(num(s&&s.zucker)||0), saIst=num(s&&s.salz);
+  const zPct=zZiel>0?Math.min(1,zIst/zZiel):0, saPct=SALZ_ZIEL_G>0?Math.min(1,(saIst||0)/SALZ_ZIEL_G):0;
+  /* Über dem Ziel wird ROT, darunter der jeweilige Achsenton - eine Obergrenze soll man sehen. */
+  const grenzKachel=(nm,ist,ziel,pct,col,einh,nachkomma)=>
+    '<div style="background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;padding:8px 10px">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--tb-muted);letter-spacing:.02em">'+nm+' <span style="float:right;font-weight:400">max.</span></div>'
+    +'<div style="font-size:15px;font-weight:700;color:'+((ist!=null&&ziel>0&&ist>ziel)?'#c0392b':'var(--tb-text)')+'">'
+      +(ist==null?'–':(nachkomma?ist.toFixed(1):Math.round(ist)))
+      +'<span style="font-weight:400;color:var(--tb-muted);font-size:11px">'+(ziel>0?('/'+(nachkomma?ziel.toFixed(1):Math.round(ziel))+' '+einh):' '+einh)+'</span></div>'
+    +'<div style="height:4px;border-radius:99px;background:var(--tb-track,var(--k-e7e0d4));position:relative;overflow:hidden;margin-top:5px">'
+      +(ist!=null?('<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.round(pct*100)+'%;background:'+((ziel>0&&ist>ziel)?'#c0392b':col)+';border-radius:99px"></div>'):'')
+    +'</div></div>';
+  const grenzZeile='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'
+    +grenzKachel('ZUCKER', (s&&s.zucker!=null)?zIst:null, zZiel, zPct, '#e0559a', 'g', false)
+    +grenzKachel('SALZ',   saIst,                          SALZ_ZIEL_G, saPct, '#6b8fa3', 'g', true)
+  +'</div>'
+  /* 🔴 Der Unterschied freie Zucker / Gesamtzucker MUSS hier stehen. Ohne diesen Satz behauptet
+     der Balken etwas, das er nicht misst - und ein Apfel sähe aus wie ein Bonbon (§1.10). */
+  +'<div style="font-size:10.5px;color:var(--tb-muted);margin-top:6px;line-height:1.45">'
+    +'Richtwerte, keine medizinische Empfehlung: Zucker &lt; 10 % der Tagesenergie '
+    +'(DGE/DAG/DDG 2018) · Salz 5 g (EFSA 2019).<br>'
+    +'⚠ Der Zucker-Richtwert meint <b>freien Zucker</b> (zugesetzt, Honig, Saft). Gezählt wird der '
+    +'<b>Gesamtzucker vom Etikett</b> — der aus Obst und Milch ist mit drin.'
   +'</div>';
   /* 28b (Ralph): "der schieberegler für trainingstag, das ist zu viel" - die Box entfällt im
      neuen Kopf; der Schalter ist das kleine 💪 in der Kopfzeile (tbKopfNeuAnwenden). */
