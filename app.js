@@ -1337,6 +1337,10 @@ async function loadProfil(){
   _selVal("pfAlter",b.Alter); _selVal("pfGeschlecht",b.Geschlecht); _selVal("pfGroesse",b.Groesse_cm);
   pfAgeFromGeb();
   _selVal("pfGewicht",b.Gewicht_kg); _selVal("pfAktiv",b.Aktivitaetslevel); _selVal("pfErn",b.Ernaehrungsform);
+  /* W8 Baustein 2 (12.08.2026): Diabetestyp vorbesetzen. cb_profil liefert SETOF "Benutzer",
+     die Spalte kommt also ohne zweiten Leseweg mit (§22 - kein neuer Ladeweg noetig).
+     NULL wird zu "" und trifft damit die Option "Keine Angabe". */
+  _selVal("pfDiab", b.Diabetes_Typ);
   _selVal("pfKcal",b.Kalorienziel_kcal); _selVal("pfEiw",b.Eiweiss_ziel_g); _selVal("pfKh",b.KH_ziel_g); _selVal("pfFett",b.Fett_ziel_g);
   _selVal("pfAnFr",b.Anteil_Fr); _selVal("pfAnMi",b.Anteil_Mi); _selVal("pfAnAb",b.Anteil_Ab); _selVal("pfAnSn",b.Anteil_Sn);
   renderTrainTage(b.Trainingstage, b.Trainingstag_Plus);
@@ -1391,6 +1395,17 @@ async function saveProfil(){
   const news=!!(document.getElementById("pfNews")||{}).checked;
   const {error:e2}=await client.rpc("cb_profil_extra",{p_geburtsdatum:geb,p_newsletter:news});
   if(e2){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+e2.message; return; }
+  /* W8 Baustein 2 (12.08.2026): Diabetestyp ueber den EIGENEN Schreibweg cb_profil_diabetes -
+     eine Gesundheitsangabe gehoert nicht in denselben Aufruf wie Groesse und Gewicht.
+     Leere Auswahl geht als NULL raus, nicht als Leerstring - sonst schlaegt der CHECK auf
+     Benutzer.Diabetes_Typ zu (§3.4: leer heisst "keine Angabe", nicht "sonstiger").
+     Fehler wird BENANNT, nicht verschluckt (§1.7, §11.4). */
+  const _dEl=document.getElementById("pfDiab");
+  if(_dEl){
+    const dia=(_dEl.value||"").trim()||null;
+    const {error:e3}=await client.rpc("cb_profil_diabetes",{p_diabetes_typ:dia});
+    if(e3){ msg.style.color="var(--k-dc2626)"; msg.textContent="Profil gespeichert – Diabetes-Angabe nicht: "+e3.message; loadProfil(); return; }
+  }
   const ttOk = await saveTrainTage();
   if(!ttOk){ msg.style.color="var(--k-e8920c)"; msg.textContent="Profil gespeichert – Trainingstage nicht. Bitte nochmal."; loadProfil(); return; }
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"; loadProfil(); refreshMe();
@@ -12064,6 +12079,34 @@ function tbMealToggle(m){
   try{ renderTbListe(window._tbItems, window._tbGoal); }catch(e){}
 }
 if(typeof window!=='undefined'){ window.tbMealToggle=tbMealToggle; }
+/* 11.08.2026 (Ralph-Entscheid "Weg A"): Der Produktname im Tagebuch oeffnet die
+   BESTEHENDE Produktkarte. Ausdruecklich KEIN zweiter Zutaten-/Zusatzstoffbereich
+   im Tagebuch - das waere dieselbe Information an einem zweiten Ort (§4.2).
+
+   Warum prodOeffnen und nicht detailById: beide holen dasselbe Produkt und rufen
+   detail() -> detail2(). Aber detailById schweigt, wenn das Nachladen fehlschlaegt
+   (Z. 1731: "if(p) detail(p)" ohne else) - ein Klick ohne Wirkung und ohne Meldung,
+   also §1.7. prodOeffnen (Z. 2139) sagt es dem Nutzer. Derselbe Weg gehen auch
+   Trefferliste, Bundles und "bessere Alternative" - kein zweiter Ladeweg (§22).
+
+   NICHT klickbar bleiben Zeilen ohne Produkt_ID: manuelle Eintraege und Freitext
+   haben kein Produkt im Katalog. Ein Klick, der nichts tut, ist schlimmer als
+   kein Klick - deshalb bekommen sie auch keinen Zeiger und keine Unterstreichung.
+
+   Der Zutatenbereich der Karte bleibt vorerst am alten Weg (v_web_produkte).
+   Die Umstellung auf cb_app_tagebuch_zutaten/-zusatzstoffe kommt erst, wenn der
+   neue Canonical-Stamm bewertet ist - sonst verloeren alle Zutatenchips ihre
+   gruen/gelb/rot-Faerbung, weil v_app_tagebuch_zutaten kein Bewertungsfeld hat
+   (Ralph 11.08.: keine Uebergangsloesung, die alte Ratings mit neuen Zutaten
+   im Browser zusammenfuehrt). */
+function tbNameHtml(r){
+  const name=esc(r.Produktname||"?");
+  const pid=r&&r.Produkt_ID?String(r.Produkt_ID):"";
+  if(!pid) return name;
+  const q=pid.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  return `<span onclick="event.stopPropagation();prodOeffnen('${q}')" title="Produktkarte öffnen – Nährwerte, Zutaten, Zusatzstoffe und Bewertung" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--tb-muted);text-underline-offset:3px">${name}</span>`;
+}
+if(typeof window!=='undefined'){ window.tbNameHtml=tbNameHtml; }
 function renderTbListe(items, goal){
   const el=document.getElementById("tbListe");
   items=items||[]; window._tbItems=items; window._tbGoal=goal||{};
@@ -12132,7 +12175,7 @@ function renderTbListe(items, goal){
       }
       html+=tgt+((gK&&!neu)?`<div style="margin:2px 0 6px"><button onclick="tbAdjustMeal('${m}')" title="Mengen der Katalog-Produkte dieser Mahlzeit so skalieren, dass ${m} das kcal-Ziel trifft" style="border:1px solid var(--green);background:var(--greenlt);color:var(--greendk);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">🎯 Mengen ans Ziel anpassen</button></div>`:"");
       var _bl=tbBatchLines(rows); html+=_bl.html; var _skip=_bl.skip; rows.forEach(r=>{ if(_skip&&_skip.has(Number(r.Eintrag_ID))) return; html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--tb-line)">
-          <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Produktname||"?")}${num(r.Clean_Score)!=null?` <span style="font-size:11px;font-weight:700;color:${farbe(scoreBew(num(r.Clean_Score)))}">${num(r.Clean_Score)}</span>`:""}</div>
+          <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tbNameHtml(r)}${num(r.Clean_Score)!=null?` <span style="font-size:11px;font-weight:700;color:${farbe(scoreBew(num(r.Clean_Score)))}">${num(r.Clean_Score)}</span>`:""}</div>
           <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g},'${r.Produkt_ID||''}','${m}');return false" style="color:var(--tb-muted);text-decoration:none;font-size:12.5px">${mengeLabel(r)}${neu?' ✎':' · ändern ✎'}</a>${(gK&&!neu&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--k-2e7d32);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
           <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--tb-muted)">kcal</span></span>
           <button onclick="delTb(${r.Eintrag_ID})" title="löschen" style="border:0;background:var(--tb-card2);border-radius:8px;width:27px;height:27px;color:var(--k-f87171);cursor:pointer;font-size:14px">✕</button></div>
@@ -23499,7 +23542,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-11-0605";
+const APP_BUILD = "2026-08-12-0040";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
