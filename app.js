@@ -2672,6 +2672,11 @@ function wirkstoffWissenHtml(d){
 }
 function suppZutaten(d){
   var zlist=Array.isArray(d.zutaten)?d.zutaten:[];
+  if(d && d._zutaten_v2_fehler){
+    return '<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:13px">'
+      +'<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:9px">Wirkstoffe &amp; Zutaten</div>'
+      +'<div style="font-size:13px;color:var(--k-b91c1c);background:var(--k-fde8e8);border-radius:9px;padding:9px 11px">Zutaten konnten gerade nicht geladen werden.</div></div>';
+  }
   if(!zlist.length) return "";
   /* Zusatzstoffe (Farbstoff, Aroma, Säureregulator …) von den Wirkstoffen/Zutaten TRENNEN und
      NEUTRAL zeigen (§1.11o: „was drin ist", keine Gesundheitsnote). Wir bauen für Supplements
@@ -2681,9 +2686,10 @@ function suppZutaten(d){
   var _echt=zlist.filter(function(z){ return String(z.kategorie||'')!=='Zusatzstoff'; });
   var _zusL=zlist.filter(function(z){ return String(z.kategorie||'')==='Zusatzstoff'; });
   var _chip=function(z){
+    /* 12.08.2026: wie in detail2 - rating == null ist neutral grau, nicht rot (§3.4). */
     var r=num(z.rating);
-    var bg=(r!=null&&r>=8)?"var(--k-e7f4ec)":(r!=null&&r>=5)?"var(--k-fff7e6)":"var(--k-fde8e8)";
-    var tc=(r!=null&&r>=8)?"var(--k-1f5e34)":(r!=null&&r>=5)?"var(--k-92400e)":"var(--k-b91c1c)";
+    var bg=(r==null)?"var(--k-eef2f6)":(r>=8)?"var(--k-e7f4ec)":(r>=5)?"var(--k-fff7e6)":"var(--k-fde8e8)";
+    var tc=(r==null)?"var(--k-475569)":(r>=8)?"var(--k-1f5e34)":(r>=5)?"var(--k-92400e)":"var(--k-b91c1c)";
     return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:'+bg+';color:'+tc+'">'+esc(z.name)+'</span>';
   };
   var _neutral=function(nm){ return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:var(--k-eef2f6);color:var(--k-475569)">'+esc(nm)+'</span>'; };
@@ -2802,9 +2808,13 @@ function detail2(d){
      Zusatzstoffe bewusst NEUTRAL/grau: ihre Verarbeitungsfarbe ist keine Gesundheitsaussage
      (§1.11o) – wie gesund/bedenklich ein Zusatzstoff ist, steht in der Zusatzstoff-Achse. */
   var _zChip=function(z){
+    /* 12.08.2026: VIERTER Zweig fuer rating == null - neutral grau. Vorher fiel NULL durch
+       beide Bedingungen und landete in ROT, also bei "stark verarbeitet". Das war eine
+       Falschaussage: NULL heisst NICHT BELASTBAR BEWERTET (§3.4). kritisch behaelt Vorrang. */
     var krit=(String(z.kritisch||'')).toLowerCase()==='ja';
-    var bg=krit?'var(--k-fde8e8)':(z.rating>=8?'var(--k-e7f4ec)':(z.rating>=5?'var(--k-fff7e6)':'var(--k-fde8e8)'));
-    var tc=krit?'var(--k-b91c1c)':(z.rating>=8?'var(--k-1f5e34)':(z.rating>=5?'var(--k-92400e)':'var(--k-b91c1c)'));
+    var _r=num(z.rating);
+    var bg=krit?'var(--k-fde8e8)':(_r==null?'var(--k-eef2f6)':(_r>=8?'var(--k-e7f4ec)':(_r>=5?'var(--k-fff7e6)':'var(--k-fde8e8)')));
+    var tc=krit?'var(--k-b91c1c)':(_r==null?'var(--k-475569)':(_r>=8?'var(--k-1f5e34)':(_r>=5?'var(--k-92400e)':'var(--k-b91c1c)')));
     return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:'+bg+';color:'+tc+'">'+esc(z.name)+(krit?" ⚠️":"")+'</span>';
   };
   var _zNeutral=function(nm){ return '<span style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:var(--k-eef2f6);color:var(--k-475569)">'+esc(nm)+'</span>'; };
@@ -2817,7 +2827,12 @@ function detail2(d){
   var _zusExtra=(_zusTxt&&!/^(keine|keine zusatzstoffe|-)$/i.test(_zusTxt))
       ? _zusTxt.split(/[,;]/).map(function(t){return t.trim();}).filter(function(t){ return t && !_zusNamen[t.toLowerCase()]; })
       : [];
-  var zHtml='<div style="font-size:11px;color:var(--muted);margin-bottom:6px">grün = Vollwert · gelb = verarbeitet · rot = stark verarbeitet</div>'
+  /* Ein Ladefehler wird SICHTBAR gemeldet - kein stilles "keine Zutaten hinterlegt" und
+     kein Rueckfall auf die alten v_web_produkte-Werte (§1.7, Ralph 12.08.: zwei Wahrheiten
+     waeren schlimmer). Grau steht jetzt in der Legende, weil NULL grau ist. */
+  var zHtml=(d._zutaten_v2_fehler)
+    ? '<div style="font-size:13px;color:var(--k-b91c1c);background:var(--k-fde8e8);border-radius:9px;padding:9px 11px">Zutaten konnten gerade nicht geladen werden.</div>'
+    : '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">grün = Vollwert · gelb = verarbeitet · rot = stark verarbeitet · grau = noch nicht belastbar bewertet</div>'
       + (_echt.length?_echt.map(_zChip).join(''):'<span style="color:var(--muted);font-size:13px">keine Zutaten hinterlegt</span>');
   if(_zusL.length || _zusExtra.length){
     zHtml+='<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--line)">'
@@ -4216,7 +4231,47 @@ if(typeof window!=="undefined"){
     try{ feGridHoeheSync(); }catch(e){}
   });
 }
-function detail(d){
+/* ===== W8: DIE Zutatenquelle der Produktkarte (Ralph-Auftrag 12.08.2026) =====
+   WARUM hier und nicht in prodVoll(): ALL wird beim Start aus v_web_produkte gefuellt und
+   traegt bereits alte zutaten; prodOeffnen()/detailById() nehmen dann den Cache und der neue
+   RPC liefe nie. Auch die Scannerpfade rufen detail(p) direkt. detail() ist der EINZIGE Ort,
+   durch den alle gehen - deshalb steht die Hydrierung hier.
+   Kein zweiter Zutatenpfad, kein Legacy-Rueckfall: faellt der RPC aus, MELDET die Karte das
+   (siehe _zutaten_v2_fehler in detail2/suppZutaten) statt still die alten Werte zu zeigen -
+   zwei Wahrheiten waeren schlimmer als eine Fehlermeldung (§4.2, §1.7).
+   Reihenfolge kommt fertig aus dem RPC und wird hier NICHT neu sortiert. */
+async function produktZutatenV2(d){
+  if(!d || !d.id) return d;
+  if(d._zutaten_v2===true) return d;          /* je Karte genau ein Aufruf */
+  try{
+    const {data,error}=await client.rpc("cb_app_produkt_zutaten",{p_produkt_id:d.id});
+    if(error) throw error;
+    d.zutaten=(data||[]).map(function(r){ return {
+      name: r.sichtbarer_name,
+      kategorie: r.sichtbare_kategorie || r.canonical_category,
+      rating: r.resolved_rating,
+      kritisch: r.resolved_critical ? "ja" : "nein",
+      canonical_name: r.canonical_name,
+      rating_source: r.rating_source,
+      rating_disposition: r.rating_disposition,
+      rating_disposition_reason: r.rating_disposition_reason,
+      resolution_path: r.resolution_path,
+      processing_modifier: r.processing_modifier,
+      score_leaf: r.score_leaf,               /* nur mitgefuehrt, NICHT ausgewertet */
+      hierarchy_source: r.hierarchy_source
+    }; });
+    d._zutaten_v2=true; d._zutaten_v2_fehler=null;
+  }catch(e){
+    console.warn("cb_app_produkt_zutaten:", e);
+    d.zutaten=[]; d._zutaten_v2=false; d._zutaten_v2_fehler=(e&&e.message)||"unbekannt";
+  }
+  return d;
+}
+if(typeof window!=='undefined'){ window.produktZutatenV2=produktZutatenV2; }
+async function detail(d){
+  /* Chokepoint: einmal hydrieren, dann zeichnen. Kein Aufrufer wertet den Rueckgabewert aus
+     (alle sechs geprueft, kein await/return) - async ist deshalb gefahrlos. */
+  try{ await produktZutatenV2(d); }catch(e){}
   /* Aufruf mitzaehlen (fire-and-forget, blockiert die Anzeige nie). Aggregierter
      Tageszaehler pro Produkt - keine Nutzer-Verknuepfung. Zeigt den Schwerpunkt:
      welche Produkte oeffnen die Leute wirklich. */
@@ -6360,7 +6415,11 @@ function peAlsNutzer(id){
   /* Eine Scan-Zeile gibt es in der Nutzer-Ansicht nicht – sie ist noch kein Produkt. */
   if(peIstScan((window._peRows||[]).find(function(r){return String(r.id)===String(id);}))){
     alert('Diese Zeile ist ein Scan-Kandidat und noch kein Produkt – es gibt keine Nutzer-Ansicht davon.'); return; }
-  try{ if(typeof detail==='function'){ detail(id); return; } }catch(e){}
+  /* 12.08.2026: hier stand detail(id) - detail() erwartet aber ein PRODUKTOBJEKT, kein id.
+     d.id waere undefined gewesen und detail2 haette einen String bekommen. Jetzt prodOeffnen(id):
+     es laedt das Objekt nach UND meldet einen Ladefehler sichtbar (§1.7). Der Chokepoint
+     produktZutatenV2 bleibt damit streng objektbasiert - kein String-Sonderfall. */
+  try{ if(typeof prodOeffnen==='function'){ prodOeffnen(id); return; } }catch(e){}
   alert('Nutzer-Ansicht ist hier nicht verfügbar.'); }
 /* Status umschalten (Toolbar-Knopf). WICHTIG – die Freigabe-Riegel dürfen NICHT umgangen werden:
    · Aktiv → Entwurf: reines Zurücknehmen (Produkt verschwindet aus dem Katalog), reversibel, sicher.
@@ -23542,7 +23601,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-12-0040";
+const APP_BUILD = "2026-08-12-0120";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
