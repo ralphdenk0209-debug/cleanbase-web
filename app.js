@@ -2703,7 +2703,11 @@ function suppZutaten(d){
     +'<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:9px">Wirkstoffe &amp; Zutaten</div>'
     +'<div style="margin-bottom:8px">'+(_echt.length?_echt.map(_chip).join(""):'<span style="color:var(--muted);font-size:13px">keine hinterlegt</span>')+'</div>'
     +'<div style="font-size:11px;color:var(--muted);line-height:1.5">Farbe = Verarbeitungsgrad, nicht gut/schlecht. Bei Nahrungsergänzung ist alles isoliert oder verarbeitet – das ist normal.</div>';
-  if(_zusL.length || _zusExtra.length){
+  /* 12.08.2026: Supplementkarte nutzt DENSELBEN Zusatzstoffpfad wie die Produktkarte
+     (Ralph-Vorgabe) - zusatzBlockHtml, gespeist aus cb_app_produkt_zusatzstoffe.
+     Der alte Zweig darunter ist unerreichbar und wird separat als Altcode entfernt. */
+  html+=zusatzBlockHtml(d);
+  if(false && (_zusL.length || _zusExtra.length)){   /* ALTCODE - unerreichbar seit 12.08.2026 */
     html+='<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--line)">'
       +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:2px">Zusatzstoffe</div>'
       +'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Was zusätzlich drin ist – z. B. Farb-, Aroma- oder Säuerungsstoffe. Neutral gezeigt: keine Gesundheitsnote, nur Transparenz.</div>'
@@ -2834,7 +2838,11 @@ function detail2(d){
     ? '<div style="font-size:13px;color:var(--k-b91c1c);background:var(--k-fde8e8);border-radius:9px;padding:9px 11px">Zutaten konnten gerade nicht geladen werden.</div>'
     : '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">grün = Vollwert · gelb = verarbeitet · rot = stark verarbeitet · grau = noch nicht belastbar bewertet</div>'
       + (_echt.length?_echt.map(_zChip).join(''):'<span style="color:var(--muted);font-size:13px">keine Zutaten hinterlegt</span>');
-  if(_zusL.length || _zusExtra.length){
+  /* 12.08.2026: Zusatzstoffe kommen aus cb_app_produkt_zusatzstoffe (zusatzBlockHtml).
+     Der ALTE Zweig darunter ist damit unerreichbar - er bleibt bewusst stehen und wird in
+     einem eigenen Altcode-Durchgang entfernt (Ralph-Vorgabe, §17: nichts nebenbei loeschen). */
+  zHtml += zusatzBlockHtml(d);
+  if(false && (_zusL.length || _zusExtra.length)){   /* ALTCODE - unerreichbar seit 12.08.2026 */
     zHtml+='<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--line)">'
       +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:2px">Zusatzstoffe</div>'
       +'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Was drin ist – die gesundheitliche Einordnung steht unten unter „Im Root Index".</div>'
@@ -4231,6 +4239,60 @@ if(typeof window!=="undefined"){
     try{ feGridHoeheSync(); }catch(e){}
   });
 }
+/* ===== W8: DIE Zusatzstoffquelle der Produktkarte (Ralph-Auftrag 12.08.2026) =====
+   Der Legacy-Text d.zusatz.text wird NICHT mehr als Zusatzstoffliste gerendert. Er enthaelt
+   produktweit teils echte Zusatzstoffe, teils normale Zutaten und Freitext - bei P1025 stand
+   dort "Reismehl". Stoffidentitaeten kommen ausschliesslich aus dem RPC: keine E-Nummern-
+   Aufloesung im Browser, kein Regex, keine Namensfilter (§10.2 - Frontend stellt dar).
+   source_text ist Audit-Quelltext, keine Renderliste. unresolved_candidates sind KEINE
+   Zusatzstoffe, solange sie nicht aufgeloest sind - sie werden nicht als Chip ausgegeben. */
+async function produktZusatzstoffeV2(d){
+  if(!d || !d.id) return d;
+  if(d._zusatz_v2===true) return d;
+  try{
+    const {data,error}=await client.rpc("cb_app_produkt_zusatzstoffe",{p_produkt_id:d.id});
+    if(error) throw error;
+    d._zusatzV2=data||null; d._zusatz_v2=true; d._zusatz_v2_fehler=null;
+  }catch(e){
+    console.warn("cb_app_produkt_zusatzstoffe:", e);
+    d._zusatzV2=null; d._zusatz_v2=false; d._zusatz_v2_fehler=(e&&e.message)||"unbekannt";
+  }
+  return d;
+}
+/* EINE Renderfunktion fuer Produktkarte UND Supplementkarte - kein zweiter Zusatzstoffpfad (§4.2).
+   Die Bewertung kommt aus item.evaluation, NICHT aus der Zutatenbewertung resolved_rating:
+   die Zusatzstoffachse ist eine eigene Achse und bleibt getrennt. */
+function zusatzBlockHtml(d){
+  var kopf='<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--line)">'
+    +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px">Zusatzstoffe</div>';
+  var fuss='</div>';
+  var hinweis=function(t){ return '<div style="font-size:12.5px;color:var(--muted)">'+esc(t)+'</div>'; };
+  if(d && d._zusatz_v2_fehler)
+    return kopf+'<div style="font-size:13px;color:var(--k-b91c1c);background:var(--k-fde8e8);border-radius:9px;padding:9px 11px">Zusatzstoffe konnten gerade nicht geladen werden.</div>'+fuss;
+  var z=d&&d._zusatzV2; if(!z) return "";
+  var st=String(z.resolution_status||"");
+  if(st==="none_declared") return kopf+hinweis("Keine deklarationspflichtigen Zusatzstoffe angegeben.")+fuss;
+  if(st==="no_data")       return kopf+hinweis("Keine belastbare Zusatzstoffangabe vorhanden.")+fuss;
+  if(st==="unresolved")    return kopf+hinweis("Zusatzstoffangaben noch nicht eindeutig eingeordnet.")+fuss;
+  var items=Array.isArray(z.items)?z.items:[];
+  if(!items.length) return kopf+hinweis("Zusatzstoffangaben noch nicht eindeutig eingeordnet.")+fuss;
+  var chip=function(it){
+    var ev=String(it.evaluation||"").toLowerCase();
+    var ab=(ev==="abgewertet");
+    var bg=ab?"var(--k-fde8e8)":"var(--k-eef2f6)";
+    var tc=ab?"var(--k-b91c1c)":"var(--k-475569)";
+    var nm=String(it.name||""); if(it.e_number) nm=nm+" ("+it.e_number+")";
+    var titel=(it.function?it.function:"")+(it.eu_status?(it.function?" · ":"")+it.eu_status:"");
+    return '<span title="'+esc(titel)+'" style="display:inline-block;margin:3px 3px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;background:'+bg+';color:'+tc+'">'
+      +esc(nm)+(ab?" ⚠️":"")+'</span>';
+  };
+  var h=kopf+'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Was drin ist – die gesundheitliche Einordnung steht unten unter „Im Root Index".</div>'
+    +items.map(chip).join("");
+  if(st==="partial")
+    h+='<div style="font-size:11.5px;color:var(--muted);margin-top:8px">Weitere Angaben konnten noch nicht eindeutig als Zusatzstoff eingeordnet werden.</div>';
+  return h+fuss;
+}
+if(typeof window!=='undefined'){ window.produktZusatzstoffeV2=produktZusatzstoffeV2; window.zusatzBlockHtml=zusatzBlockHtml; }
 /* ===== W8: DIE Zutatenquelle der Produktkarte (Ralph-Auftrag 12.08.2026) =====
    WARUM hier und nicht in prodVoll(): ALL wird beim Start aus v_web_produkte gefuellt und
    traegt bereits alte zutaten; prodOeffnen()/detailById() nehmen dann den Cache und der neue
@@ -4272,6 +4334,7 @@ async function detail(d){
   /* Chokepoint: einmal hydrieren, dann zeichnen. Kein Aufrufer wertet den Rueckgabewert aus
      (alle sechs geprueft, kein await/return) - async ist deshalb gefahrlos. */
   try{ await produktZutatenV2(d); }catch(e){}
+  try{ await produktZusatzstoffeV2(d); }catch(e){}
   /* Aufruf mitzaehlen (fire-and-forget, blockiert die Anzeige nie). Aggregierter
      Tageszaehler pro Produkt - keine Nutzer-Verknuepfung. Zeigt den Schwerpunkt:
      welche Produkte oeffnen die Leute wirklich. */
@@ -13247,7 +13310,13 @@ async function loadZutatenStamm(){
     }
   }catch(e){}
   ZUTATEN_STAMM=all;
-  try{ fgPickRender(); }catch(e){}   /* 29.07.: Karte war evtl. schon gemalt, bevor der Stamm da war (26v-Falle) */
+  /* 🔴 12.08.2026 (Ralphs Fund an P1025: "Reismehl - nicht im Stamm", obwohl es dort steht):
+     Hier stand fgPickRender() - VOR dem Aufbau von ZUTATEN_MAP und vor dem await auf die
+     Synonyme. Die Karte wurde also mit einer LEEREN Map gezeichnet, und in dem Moment ist
+     JEDE Zutat "nicht im Stamm". Der Render war als Schutz gegen die 26v-Falle gedacht
+     (Karte schon gemalt, bevor der Stamm da war) - er hat den Fehler aber nicht behoben,
+     sondern einen zweiten erzeugt. Der Aufruf steht jetzt am ENDE, nach Stamm, Map und
+     Synonymen; der Schutz bleibt damit erhalten, nur eben mit vollstaendigen Daten. */
   ZUTATEN_MAP={}; ZUTATEN_STAMM.forEach(function(z){ ZUTATEN_MAP[(z.name||"").trim().toLowerCase()]={rating:z.rating,kritisch:z.kritisch}; });
   /* 28z7 (Ralph, Tapioka-Fall): kuratierte SYNONYME aus Zutat_Synonym - belegte Gleichsetzungen
      ("Tapioka" = Tapiokastärke). Der Automat behandelt sie wie einen exakten Namen: deterministisch,
@@ -13259,6 +13328,9 @@ async function loadZutatenStamm(){
       var k=String(s.synonym||"").trim().toLowerCase();
       if(k && !ZUTATEN_MAP[k]) ZUTATEN_MAP[k]={rating:s.rating,kritisch:s.kritisch||'nein',kanon:s.name};
     }); }
+  /* Ein einziger Render, und zwar ERST JETZT: Stamm vollstaendig, Map vollstaendig,
+     Synonyme drin. Kein Zwischenrender mit leerer ZUTATEN_MAP mehr (Ralph 12.08.). */
+  try{ fgPickRender(); }catch(e){}
   }catch(e){}
 }
 /* Zusatzstoff-Stamm (E-Nummer · Name · Einstufung) für die neue Zusatzstoff-Liste im Editor. */
@@ -23601,7 +23673,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-12-0120";
+const APP_BUILD = "2026-08-12-1610";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
