@@ -8219,6 +8219,111 @@ function scanStatus(e){
   return {gruen:g.length===0, gruende:g};
 }
 /* Eingang: Klick öffnet die Prüf-Karte im gleichen Editor wie „Produkt anlegen". */
+/* ===========================================================================
+   D4 — SCAN ÖFFNEN LEGT EINEN ENTWURF AN (Ralph-Auftrag 12.08.2026)
+
+   WARUM: Riki-Analyse, Referenz V2 und die Prüftabelle brauchen alle eine
+   Produkt_ID. Bis heute gab es sie vor dem ersten Speichern nicht — deshalb
+   stand in V2 „Referenz V2 gibt es erst, wenn das Produkt gespeichert ist"
+   (Z. 15490). Der Öffnen-Klick ging über openFgEditor(NULL, …).
+
+   §22-ERHEBUNG 13.08.2026 — es fehlte NICHTS, es war nur nicht angeschlossen:
+     · Spalte Scan_Warteschlange.Produkt_ID existiert (text, nullable)
+     · cb_scan_produkt_verknuepfen(p_ids, p_produkt_id) existiert, Admin-Riegel,
+       setzt AUSSCHLIESSLICH Produkt_ID — kein DELETE (§17, §3.7)
+     · Trigger trg_scan_status_folgt_produkt (BEFORE UPDATE OF Produkt_ID) zieht
+       den Status nach. loadScans filtert auf Status='offen' — der Scan
+       verschwindet also von selbst aus der Arbeitsliste und BLEIBT in der
+       Tabelle stehen, rückholbar. Gemessen: 154 'erledigt' (146 mit Produkt_ID)
+       gegen 109 'offen' (0 mit Produkt_ID) — der Mechanismus arbeitet.
+
+   WAS BEWUSST NICHT MITGESCHRIEBEN WIRD:
+     · ZUTATEN. Produkt_Zutaten ist §30-gesperrt. Die gelesenen Zeilen bleiben
+       VORSCHLAG im Editor und werden erst gebunden, wenn Ralph speichert —
+       genau wie bisher. Der Entwurf bekommt nur Kopfdaten und Nährwerte.
+     · quelle_typ. cb_produkt_ingest wirft eine Ausnahme bei einem Wert, der
+       nicht im Quellen_Stamm steht. Geraten wird hier nichts (§1); den Typ
+       setzt Ralph im Editor.
+
+   GESCHRIEBEN WIRD ÜBER cb_produkt_speichern — derselbe Weg wie im Editor
+   (§4.2). Er trägt den Admin-Riegel und den EAN-Dublettenriegel und legt über
+   cb_produkt_ingest mit Produktstatus='Entwurf' an.
+
+   🔴 BEKANNTE GRENZE, gemessen: produkt_by_ean filtert auf Produktstatus='Aktiv'
+   und findet ENTWÜRFE NICHT. Existiert zur EAN bereits ein Entwurf, weist
+   cb_produkt_speichern das Anlegen mit Klartext ab („Diese EAN gibt es schon:
+   P… — Name"). Diese Meldung wird VOLLSTÄNDIG angezeigt statt geparst (§11.4) —
+   eine Fehlermeldung auseinanderzunehmen wäre ein Vertrag, den niemand
+   vereinbart hat. Der Leseweg „Produkt zu dieser EAN, gleich welchen Status"
+   fehlt und ist als Vertragspunkt an ChatGPT notiert (§31.2).
+   =========================================================================== */
+/* Eintrag_IDs der offenen Scans zu einer EAN — aus der bereits geladenen
+   Warteschlange (_scanGroups, gefüllt von loadScans). Kein neuer Leseweg. */
+function _scanIdsZuEan(ean){
+  var k=String(ean||"").trim(); if(!k) return [];
+  var g=(window._scanGroups||[]).find(function(x){ return String(x&&x.ean||"")===k; });
+  return (g&&Array.isArray(g.ids))?g.ids.slice():[];
+}
+if(typeof window!=="undefined"){ window._scanIdsZuEan=_scanIdsZuEan; }
+
+async function scanEntwurfAnlegen(v){
+  v=v||{};
+  var _ean=String(v.ean||"").trim();
+  var _name=String(v.name||"").trim();
+  /* Ohne Name UND ohne EAN gibt es nichts, woran ein Entwurf hängen könnte.
+     Dann bleibt es beim leeren Editor wie bisher — kein erfundener Platzhalter. */
+  if(!_ean && !_name){
+    openFgEditor(null, v.prefill||{});
+    return null;
+  }
+  var payload={};
+  if(_ean)  payload.ean=_ean;
+  if(_name) payload.name=_name;
+  if(v.marke)     payload.marke=String(v.marke);
+  if(v.kategorie) payload.kategorie=String(v.kategorie);
+  if(v.quelle)    payload.quelle=String(v.quelle);
+  if(v.naehrwerte && Object.keys(v.naehrwerte).length){ payload.naehrwerte=v.naehrwerte; payload.basis="100g"; }
+  var pid=null;
+  try{
+    var r=await client.rpc("cb_produkt_speichern",{p:payload});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    pid=(d&&d.produkt_id)||null;
+    if(!pid) throw new Error((d&&(d.grund||d.fehler))||"Der Server hat keine Produkt-Nummer zurückgegeben.");
+  }catch(e){
+    /* Kein leerer Fangblock und kein stiller Rückfall (§1.7, §11.4): Ralph muss
+       sehen, WARUM kein Entwurf entstand — die Servermeldung nennt bei einer
+       vorhandenen EAN die P-Nummer im Klartext. */
+    console.error("[Scan] Entwurf anlegen:", e);
+    alert("Es wurde KEIN Entwurf angelegt.\n\n"+((e&&e.message)||e)
+      +"\n\nDer Editor öffnet jetzt ohne Produkt-Nummer — Referenz V2 und die Prüftabelle bleiben dann leer.");
+    openFgEditor(null, v.prefill||{});
+    return null;
+  }
+  /* Scan an das Produkt hängen. NICHT löschen (§17, §3.7): der Trigger setzt den
+     Status, der Eintrag bleibt mit Produkt_ID als Verweis stehen. Schlägt es fehl,
+     ist der Entwurf trotzdem da — dann nur melden, nicht abbrechen. */
+  if(Array.isArray(v.scanIds) && v.scanIds.length){
+    try{
+      var rv=await client.rpc("cb_scan_produkt_verknuepfen",{p_ids:v.scanIds, p_produkt_id:pid});
+      if(rv&&rv.error) throw rv.error;
+    }catch(e){
+      console.error("[Scan] Verknüpfen:", e);
+      try{ toast&&toast("Entwurf "+pid+" angelegt, aber der Scan blieb offen: "+((e&&e.message)||e)); }catch(_){}
+    }
+  }
+  /* Mit ID öffnen: Kopfdaten und Nährwerte kommen jetzt aus der Datenbank
+     (cb_produkt_edit_get), Fotos und die gelesenen Zutaten aus dem Prefill.
+     openFgEditor ignoriert bei gesetzter ID die Prefill-Stammdaten (Z. 16227) —
+     genau richtig, sie stehen ja schon in der DB. */
+  var pf=Object.assign({}, v.prefill||{});
+  pf.scanIds=v.scanIds||[];
+  await openFgEditor(pid, pf);
+  try{ if(typeof loadScans==="function") loadScans(); }catch(e){}
+  return pid;
+}
+if(typeof window!=="undefined"){ window.scanEntwurfAnlegen=scanEntwurfAnlegen; }
+
 function seOeffnen(ean){
   var e=(window._scanEingang||[]).find(function(x){ return String(x.ean)===String(ean); });
   if(!e) return;
@@ -8230,9 +8335,24 @@ function seOeffnen(ean){
   var nw={};
   ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(function(k){ if(e.naehrwerte&&e.naehrwerte[k]!=null) nw[k]=e.naehrwerte[k]; });
   var zut=Array.isArray(e.zutaten)?e.zutaten.map(function(z){ return {name:z.name, rating:z.rating, kritisch:z.kritisch}; }):[];
-  openFgEditor(null, { name:e.name||'', marke:e.marke||'', ean:String(e.ean||''), kategorie:e.kategorie||'',
-    naehrwerte:nw, zutaten:zut, zusatzstoffe_text:(e.zusatzstoffe&&e.zusatzstoffe.text)||'',
-    hinweis:'Aus dem Scan-Eingang. Werte gegen das Etikett prüfen; Zutaten bei Bedarf über „Zutaten aus OFF" oder Riki ergänzen.' });
+  /* 13.08.2026 (Ralph, D4): war openFgEditor(NULL, …) — der Editor hatte keine
+     Produkt_ID, also gab es weder Referenz V2 noch Prüfzeilen noch Riki-Analyse.
+     Jetzt entsteht zuerst ein Entwurf; siehe scanEntwurfAnlegen oben. */
+  scanEntwurfAnlegen({
+    ean:String(e.ean||''), name:e.name||'', marke:e.marke||'', kategorie:e.kategorie||'',
+    naehrwerte:nw, quelle:'Scan-Eingang · EAN '+String(e.ean||''),
+    /* 🔴 Gemessen 13.08.2026: cb_scan_eingang liefert KEINE Eintrag_IDs — die Felder
+       sind ean · name · marke · kategorie · naehrwerte · zutaten · zusatzstoffe ·
+       fotos · treffer · score · vorhanden_als · warnungen · herkunft · erfasst_am ·
+       auto_faehig · ohne_score · score_erlaubt. Ohne IDs lässt sich der Scan nicht
+       verknüpfen. Deshalb über die EAN aus der Warteschlange (_scanGroups) nachsehen;
+       fehlt sie, bleibt der Scan offen — angelegt wird der Entwurf trotzdem.
+       Nichts wird geraten (§1). Als Vertragspunkt an ChatGPT notiert (§31.2). */
+    scanIds:_scanIdsZuEan(e.ean),
+    prefill:{ name:e.name||'', marke:e.marke||'', ean:String(e.ean||''), kategorie:e.kategorie||'',
+      naehrwerte:nw, zutaten:zut, zusatzstoffe_text:(e.zusatzstoffe&&e.zusatzstoffe.text)||'',
+      hinweis:'Aus dem Scan-Eingang. Werte gegen das Etikett prüfen; Zutaten bei Bedarf über „Zutaten aus OFF" oder Riki ergänzen.' }
+  });
 }
 async function loadScanEingang(){
   const box=document.getElementById("fgScanPruef"); if(!box) return;
@@ -8641,8 +8761,15 @@ async function scanAnlegen(i){
   /* Die Etikettfotos aus dem Laden wandern in den Editor - zum Abgleich beim Eintippen.
      Sie sind BELEG, nicht Produktbild: das Produktbild macht Ralph selbst (Feld darunter).
      scanIds merken wir uns, um die Fotos nach dem Speichern am Produkt zu verankern. */
-  openFgEditor(null, {name:o.name||'', marke:o.marke||'', ean:g.ean||'', naehrwerte:nw, zutaten:zut, hinweis:hinweis,
-                      fotos:(g.fotos||[]), scanIds:(g.ids||[])});
+  /* 13.08.2026 (Ralph, D4): zweiter Einstieg auf denselben Weg. War
+     openFgEditor(NULL, …) — ohne Produkt_ID gab es keine Prüfzeilen. */
+  await scanEntwurfAnlegen({
+    ean:g.ean||'', name:o.name||'', marke:o.marke||'',
+    naehrwerte:nw, quelle:'Scan-Warteschlange · EAN '+String(g.ean||''),
+    scanIds:(g.ids||[]),
+    prefill:{name:o.name||'', marke:o.marke||'', ean:g.ean||'', naehrwerte:nw, zutaten:zut,
+             hinweis:hinweis, fotos:(g.fotos||[]), scanIds:(g.ids||[])}
+  });
 }
 /* „Erledigt" nur, wenn die EAN wirklich im Katalog gelandet ist. */
 async function scanErledigt(i){
@@ -16224,6 +16351,18 @@ async function openFgEditor(id, prefill, targetEl){
     const {data,error}=await client.rpc("cb_produkt_edit_get",{p_id:id});
     if(error){ alert("Fehler: "+error.message); return; }
     d=data||d; d.naehrwerte=d.naehrwerte||{}; d.zutaten=d.zutaten||[];
+    /* 13.08.2026 (Ralph, D4): Ein frisch aus einem Scan angelegter Entwurf hat eine
+       Produkt_ID, aber noch KEINE gebundenen Zutaten — die Bindung entsteht erst beim
+       Speichern (Produkt_Zutaten ist §30-gesperrt, der Entwurf bekommt nur Kopfdaten
+       und Nährwerte). Ohne diese Zeilen käme der Editor mit ID, aber leerer
+       Zutatenliste hoch, und das vom Scan Gelesene wäre weg.
+       ERGÄNZEND, NIE ÜBERSCHREIBEND: nur wenn die Datenbank an dieser Stelle leer ist.
+       Ein gespeicherter Stand gewinnt immer gegen einen Vorschlag (§10.3). */
+    if(prefill){
+      if((!d.zutaten||!d.zutaten.length) && prefill.zutaten && prefill.zutaten.length) d.zutaten=prefill.zutaten;
+      if((!d.zusatzstoffe_text||d.zusatzstoffe_text==="keine") && prefill.zusatzstoffe_text) d.zusatzstoffe_text=prefill.zusatzstoffe_text;
+      window._fgPrefillHinweis=prefill.hinweis||"";
+    }
   } else if(prefill){
     d.name=prefill.name||d.name; d.marke=prefill.marke||d.marke; d.ean=prefill.ean||d.ean;
     d.kategorie=prefill.kategorie||d.kategorie;
@@ -23727,7 +23866,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-13-0530";
+const APP_BUILD = "2026-08-13-0705";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
