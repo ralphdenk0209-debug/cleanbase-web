@@ -14403,11 +14403,24 @@ function _fgzV2Render(menu){
   var t=_fgzV2.treffer;
   if(_fgzV2.laeuft){ menu.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--muted)">Canonical-Suche läuft …</div>'; menu.style.display="block"; return true; }
   if(t===null){
-    /* Rückfall sichtbar machen, nicht verschweigen. */
+    /* Rückfall sichtbar machen, nicht verschweigen. NUR bei technischem Fehler. */
     menu.innerHTML='<div style="padding:7px 10px;font-size:11.5px;color:var(--k-b45309,#b45309);border-bottom:1px solid var(--line)">⚠ Canonical-Suche nicht erreichbar – alte Stammliste als Rückfall. '+esc(_fgzV2.fehler)+'</div>';
     return false;   /* Aufrufer hängt die Legacy-Liste an */
   }
-  if(!t.length) return false;
+  /* 🔴 13.08.2026, Ralph-Addendum Punkt 1: KEIN Treffer ist eine Antwort, kein Fehler.
+     Vorher fiel die Suche hier auf die alte Stammliste durch — und damit standen die
+     Schreibweisen wieder da, die der Umbau gerade abschafft (Bio-Garnelen,
+     Eismeergarnelen, getrocknete Garnelen …). Ein Rückfall bei „nichts gefunden"
+     macht Legacy zur zweiten normalen Auswahl, und genau das soll es nicht mehr sein.
+     Legacy greift ab jetzt AUSSCHLIESSLICH, wenn die RPC technisch nicht antwortet. */
+  if(!t.length){
+    menu.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--muted);line-height:1.5">'
+      +'Keine <b>Canonical-Identität</b> zu „'+esc(_fgzV2.q)+'".'
+      +'<br><span style="font-size:11.5px">Tippen und speichern geht weiter – die Zeile läuft dann über den bisherigen Weg. '
+      +'Die alten Schreibweisen werden bewusst nicht mehr vorgeschlagen.</span></div>';
+    menu.style.display="block";
+    return true;
+  }
   menu.innerHTML='<div style="padding:5px 10px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line)">Canonical · Identität wählen, dann Verarbeitung</div>'
     +t.map(function(x){
       return '<div style="padding:7px 10px 3px;font-size:13px;font-weight:700;color:var(--ink)">'+esc(String(x.name||""))
@@ -14471,7 +14484,73 @@ async function fgzCanonPick(el){
       +"\n\nDer Name steht im Feld und geht beim Speichern den bisherigen Weg.");
   }
 }
-if(typeof window!=="undefined"){ window.fgzCanonPick=fgzCanonPick; window._fgzV2Suchen=_fgzV2Suchen; }
+/* ===========================================================================
+   CANONICAL-WERT STATT LEGACY-DEFAULT IN DER GEBUNDENEN ZEILE
+   (Ralph-Addendum Punkt 2, 13.08.2026)
+
+   Die Zahl an einer gebundenen Zeile ist NICHT der Canonical-Default, sondern
+   das aufgelöste Rating zur tatsächlichen Verarbeitung. Gemessen an P32667:
+   Entity „Garnele", processing_modifier 'gekocht' ⇒ shadow_v1.ingredient_rating
+   liefert 9 (Kontext 'cooked'). Die 10 ist der ROH-Wert und gehört nicht ans
+   Produkt. Angezeigt wird deshalb „gekocht · 9", nicht „Garnele (10)".
+
+   🔴 GRENZE, gemessen 13.08.: cb_app_produkt_zutaten liefert für P32667 NICHTS.
+   Ursache ist kein Rechtefehler, sondern ein Statusfilter in der Basis-Sicht
+   shadow_v1.v_product_ingredient_resolution:
+       JOIN "Produkte" p ON … AND p."Produktstatus" IN ('Aktiv','Aktiv ohne Index')
+   P32667 steht auf 'Abgelehnt'. Gegenprobe geht exakt auf: 4.052 Produkte mit
+   Bindungen sind aktiv, und die Sicht führt genau 4.052. Ausgeblendet sind
+   28.637 Produkte mit 220.179 Bindungen — und 220.179 + 36.945 = 257.124, die
+   Gesamtzahl in Produkt_Zutaten. Die Erfassung arbeitet aber gerade an dem,
+   was NICHT aktiv ist. Der Admin-Leseweg dafür fehlt (§31.2, an ChatGPT).
+
+   Bis dahin ändert diese Funktion nichts und behauptet auch nichts: liegt keine
+   Vertragszeile vor, bleibt die bisherige Anzeige stehen (§1).
+   =========================================================================== */
+async function fgCanonLaden(pid){
+  window._fgCanon=null; window._fgCanonFehler="";
+  if(!pid) return;
+  try{
+    var r=await client.rpc("cb_app_produkt_zutaten",{p_produkt_id:pid});
+    if(r&&r.error) throw r.error;
+    window._fgCanon=Array.isArray(r&&r.data)?r.data:[];
+  }catch(e){
+    console.error("[Canonical] cb_app_produkt_zutaten:", e);
+    window._fgCanonFehler=(e&&e.message)?String(e.message):String(e);
+  }
+}
+function fgCanonAnwenden(){
+  var rows=window._fgCanon; if(!Array.isArray(rows)||!rows.length) return 0;
+  var nach={};
+  rows.forEach(function(z){
+    [z.canonical_name, z.sichtbarer_name].forEach(function(n){
+      var k=String(n||"").trim().toLowerCase(); if(k && !nach[k]) nach[k]=z;
+    });
+  });
+  var n=0;
+  [].forEach.call(document.querySelectorAll("#fe_zutRows .fgZutRow"), function(row){
+    var inp=row.querySelector(".fgzName"); if(!inp) return;
+    var z=nach[String(inp.value||"").trim().toLowerCase()]; if(!z) return;
+    var rate=row.querySelector(".fgzRate");
+    /* Nur setzen, wenn der Vertrag wirklich eine Zahl hat. NULL heißt „nicht
+       belegt" und darf die vorhandene Anzeige nicht mit einer 0 überschreiben. */
+    if(rate && z.resolved_rating!=null) rate.value=String(z.resolved_rating);
+    var alt=row.nextElementSibling;
+    if(alt && alt.classList && alt.classList.contains("fgCanonZeile")) alt.remove();
+    var mod=String(z.processing_modifier||"").trim();
+    var txt=(mod && mod!=="unspecified_processing")?mod:"Verarbeitung nicht belegt";
+    var zahl=(z.resolved_rating!=null)?String(z.resolved_rating):"nicht belegt";
+    var grau=(z.resolved_rating==null);
+    row.insertAdjacentHTML("afterend",
+      '<div class="fgCanonZeile" style="padding:0 0 5px 2px;margin-top:-3px;font-size:11.5px;color:'
+      +(grau?"var(--muted)":"var(--k-166534,#166534)")+'">'+esc(txt)+' · '+esc(zahl)
+      +(z.canonical_name?' <span style="color:var(--muted)">· '+esc(String(z.canonical_name))+'</span>':'')+'</div>');
+    n++;
+  });
+  return n;
+}
+if(typeof window!=="undefined"){ window.fgzCanonPick=fgzCanonPick; window._fgzV2Suchen=_fgzV2Suchen;
+  window.fgCanonLaden=fgCanonLaden; window.fgCanonAnwenden=fgCanonAnwenden; }
 
 function fgzMenu(inp){
   var wrap=inp.closest(".fgzWrap"); if(!wrap) return;
@@ -17072,6 +17151,10 @@ async function openFgEditor(id, prefill, targetEl){
     try{ fgEtikettRender(); }catch(e){}   /* angehängte Fotos (Laden + selbst hochgeladen) rendern */
     try{ feEanSync(); }catch(e){}   /* fehlt die EAN, „offen"-Haken automatisch setzen */
     try{ fgRefV2Init(); }catch(e){ console.error("[Referenz V2] Init:", e); }   /* Etappe 4 Zug 1: Umschalter setzen, bei V2 die beiden LESE-RPCs rufen */
+    /* 13.08.2026 (Ralph-Addendum Punkt 2): Canonical-Werte der gebundenen Zeilen
+       nachziehen — gekocht · 9 statt des rohen Default 10. Ändert nichts, solange
+       der Vertrag für dieses Produkt leer ist (siehe fgCanonLaden). */
+    try{ if(id && typeof fgCanonLaden==="function"){ fgCanonLaden(id).then(function(){ try{ fgCanonAnwenden(); }catch(e){ console.error("[Canonical] anwenden:",e); } }); } }catch(e){ console.error("[Canonical] Init:", e); }
     try{ if(typeof feAnsichtGet==="function" && feAnsichtGet()==="vorgang") feVorgangApply(); }catch(e){}   /* 2. Ansicht „Vorgang" (Ralph): rein ADDITIVER Rahmen um denselben Editor – kein Feld, kein Speicher-Weg verändert */
   /* 05.08. (Ralph-Auftrag Erfassung): Ausgangszustand fuer den Datenschutz beim Speichern merken
      und Dirty-Verfolgung scharf schalten. Regel: Nur Bereiche schreiben, die in DIESER Sitzung
@@ -24063,7 +24146,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-13-0830";
+const APP_BUILD = "2026-08-13-0910";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
