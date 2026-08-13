@@ -14338,7 +14338,165 @@ function fgZutAuto(inp){
    (kein „Paprika"). Wir blenden die klaren Lebensmittel-Kategorien aus; Wirkstoffe, Extrakte,
    Vitamine/Mineralstoffe, Füllstoffe und Unbekanntes bleiben. Tippen funktioniert immer. */
 var FG_FOOD_KATS={'Gemüse':1,'Getreide':1,'Obst':1,'Fleisch':1,'Milchprodukt':1,'Fisch & Meeresfrüchte':1,'Gewürze & Kräuter':1,'Hülsenfrüchte/Nüsse':1,'Käse':1,'Nüsse & Samen':1,'Pilze':1,'Ei':1,'Teigwaren':1,'Essig':1,'einfache Küchenzutat':1,'Hülsenfrüchte':1,'Gemüse, Obst':1,'Nüsse & Hülsenfrüchte':1,'Obst & Gemüse':1,'Milchprodukte & Eier':1,'Fleisch & Fisch':1,'Frucht/Nuss':1,'Gemüse, Obst, Hülsenfrüchte':1,'Frucht-/Gemüsekonzentrat':1};
+/* ===========================================================================
+   CANONICAL-SUCHE V2 (Ralph-Auftrag 13.08.2026)
+
+   Ralph hat mit diesem Auftrag das §30.3-Go erteilt: die neuen Zutatenlisten
+   dürfen angeschlossen werden. Gebaut wird AUSSCHLIESSLICH im Frontend, keine
+   DB-Änderung, keine Ratingregel, keine Canonical-Logik in JavaScript.
+
+   NORMALWEG ist jetzt cb_admin_zutaten_suchen_v2 — eine fachliche Identität
+   statt einer Liste von Schreibweisen. Gemessen 13.08. für „garne": genau EIN
+   Treffer „Garnele · Fisch & Meeresfrüchte", entity_id
+   f9d76b2e-a926-4ba5-9d42-8e322be0b651, mit fünf Verarbeitungskontexten:
+     roh 10 · gekocht/gegart/blanchiert 9 · Zubereitung/Paste 5 ·
+     getrocknet NULL · Verarbeitung nicht belegt NULL
+   Die beiden NULL sind KEIN Fehler, sondern eine ehrliche Aussage (§3.4): die
+   Identität steht fest, die Verarbeitungsstufe ist nicht belegt. Sie werden
+   grau angezeigt, nicht als 0 und nicht als geratene 9.
+
+   LEGACY BLEIBT ALS RÜCKFALL, nicht als gleichwertige Auswahl: antwortet die
+   V2-Suche nicht, greift die alte Liste aus ZUTATEN_STAMM. Ein Rückfall, der
+   still passiert, wäre ein stiller Fehler (§1.7) — deshalb sagt die Kopfzeile
+   des Menüs, welcher Weg gerade gilt.
+
+   KEIN Legacy-Namensfilter im Browser: gefiltert wird nicht, es kommt schlicht
+   nur noch, was die RPC liefert.
+   =========================================================================== */
+var _fgzV2={q:"", treffer:null, laeuft:false, timer:0, fehler:""};
+async function _fgzV2Suchen(q, danach){
+  q=String(q||"").trim();
+  if(q.length<2){ _fgzV2={q:q, treffer:[], laeuft:false, timer:0, fehler:""}; if(danach) danach(); return; }
+  if(_fgzV2.q===q && _fgzV2.treffer){ if(danach) danach(); return; }
+  _fgzV2.laeuft=true; _fgzV2.q=q;
+  try{
+    var r=await client.rpc("cb_admin_zutaten_suchen_v2",{p_suche:q, p_limit:8});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    _fgzV2.treffer=Array.isArray(d)?d:[]; _fgzV2.fehler="";
+  }catch(e){
+    /* Kein leerer Fangblock (§11.4): der Grund steht in der Konsole UND im Menü. */
+    console.error("[Canonical-Suche] cb_admin_zutaten_suchen_v2:", e);
+    _fgzV2.treffer=null; _fgzV2.fehler=(e&&e.message)?String(e.message):String(e);
+  }
+  _fgzV2.laeuft=false;
+  if(danach) danach();
+}
+/* Farbe der Kontextzeile nach der globalen Statusregel (Ralph 13.08.):
+   grau = Identität bekannt, aber bewusst ohne belastbare Zahl. */
+function _fgzKontextHtml(t, c){
+  var hatZahl=(c && c.rating!=null && isFinite(c.rating));
+  var farbe=hatZahl?"var(--k-166534,#166534)":"var(--muted)";
+  var zahl=hatZahl?String(c.rating):"nicht belegt";
+  return '<div onmousedown="fgzCanonPick(this)"'
+    +' data-eid="'+esc(String(t.entity_id||""))+'"'
+    +' data-mod="'+esc(String(c.modifier||"unspecified_processing"))+'"'
+    +' data-name="'+esc(String(t.name||""))+'"'
+    +' data-rating="'+(hatZahl?String(c.rating):"")+'"'
+    +' title="'+esc(String(c.reason||""))+'"'
+    +' onmouseenter="this.style.background=\'var(--k-f2f5f3)\'" onmouseleave="this.style.background=\'\'"'
+    +' style="display:flex;justify-content:space-between;gap:10px;padding:6px 10px 6px 20px;font-size:12.5px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line)">'
+    +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(String(c.processing_context||c.modifier||""))+'</span>'
+    +'<b style="flex:0 0 auto;color:'+farbe+'">'+esc(zahl)+'</b></div>';
+}
+function _fgzV2Render(menu){
+  var t=_fgzV2.treffer;
+  if(_fgzV2.laeuft){ menu.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--muted)">Canonical-Suche läuft …</div>'; menu.style.display="block"; return true; }
+  if(t===null){
+    /* Rückfall sichtbar machen, nicht verschweigen. */
+    menu.innerHTML='<div style="padding:7px 10px;font-size:11.5px;color:var(--k-b45309,#b45309);border-bottom:1px solid var(--line)">⚠ Canonical-Suche nicht erreichbar – alte Stammliste als Rückfall. '+esc(_fgzV2.fehler)+'</div>';
+    return false;   /* Aufrufer hängt die Legacy-Liste an */
+  }
+  if(!t.length) return false;
+  menu.innerHTML='<div style="padding:5px 10px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line)">Canonical · Identität wählen, dann Verarbeitung</div>'
+    +t.map(function(x){
+      return '<div style="padding:7px 10px 3px;font-size:13px;font-weight:700;color:var(--ink)">'+esc(String(x.name||""))
+        +' <span style="font-weight:400;font-size:11.5px;color:var(--muted)">'+esc(String(x.category||""))+'</span></div>'
+        +(Array.isArray(x.contexts)?x.contexts.map(function(c){ return _fgzKontextHtml(x,c); }).join(""):"");
+    }).join("");
+  menu.style.display="block";
+  return true;
+}
+/* Auswahl einer Identität MIT Verarbeitungskontext. Bindet serverseitig über
+   cb_admin_canonical_zutat_binden — das Frontend wählt NIE eine Legacy-Zutat-ID
+   (Ralph 13.08.); die RPC sucht den technischen Träger selbst. */
+async function fgzCanonPick(el){
+  var wrap=el.closest(".fgzWrap"), inp=wrap&&wrap.querySelector(".fgzName");
+  var menu=el.closest(".fgzMenu"); if(menu) menu.style.display="none";
+  var eid=el.getAttribute("data-eid"), mod=el.getAttribute("data-mod");
+  var nm=el.getAttribute("data-name"), rt=el.getAttribute("data-rating");
+  if(inp){
+    inp.value=nm||"";
+    var row=inp.closest(".fgZutRow"), rate=row&&row.querySelector(".fgzRate");
+    if(rate) rate.value=(rt===""?"":rt);
+    var rk=row&&row.querySelector(".fgzRiki"); if(rk) rk.style.display="none";
+  }
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!pid || !eid){
+    /* Ohne Produkt_ID kann nicht gebunden werden — der Name steht trotzdem im
+       Feld und wird beim Speichern über den bisherigen Weg verarbeitet. */
+    try{ toast&&toast("Ohne Produkt-Nummer wird noch nicht gebunden – beim Speichern entsteht sie."); }catch(e){}
+    return;
+  }
+  /* Referenz_ID nur, wenn GENAU EINE gültige Prüfzeile denselben Text trägt.
+     Bei mehreren oder keiner: null. Eine geratene Zuordnung wäre eine
+     Entscheidung am falschen Etikettelement (§1, §5.4). */
+  var refId=null;
+  try{
+    var pz=(((window._fgRefV2||{}).d)||{}).pruefzeilen||[];
+    var k=String(nm||"").trim().toLowerCase();
+    var kand=pz.filter(function(p){
+      return p && String(p.Manueller_Status||"OFFEN")==="OFFEN"
+        && (String(p.Erkannter_Name||"").trim().toLowerCase()===k
+         || String(p.Original_Text||"").trim().toLowerCase()===k);
+    });
+    if(kand.length===1) refId=kand[0].Referenz_ID;
+  }catch(e){ console.error("[Canonical] Referenzzeile bestimmen:", e); }
+  try{
+    var r=await client.rpc("cb_admin_canonical_zutat_binden",
+      {p_produkt_id:pid, p_entity_id:eid, p_processing_modifier:mod||"unspecified_processing", p_referenz_id:refId});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    if(!d||d.ok!==true) throw new Error((d&&(d.fehler||d.grund))||"Der Server hat die Bindung nicht bestätigt.");
+    try{ toast&&toast("Gebunden: "+(d.canonical_name||nm)+" · "+(d.processing_modifier||mod)
+      +(d.rating!=null?(" · Rating "+d.rating):" · Rating nicht belegt")); }catch(e){}
+    var row2=inp&&inp.closest(".fgZutRow"), rate2=row2&&row2.querySelector(".fgzRate");
+    if(rate2) rate2.value=(d.rating!=null?String(d.rating):"");
+    try{ if(typeof fgRefV2Laden==="function") await fgRefV2Laden(); }catch(e){}
+    try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  }catch(e){
+    console.error("[Canonical] cb_admin_canonical_zutat_binden:", e);
+    alert("Die Bindung wurde NICHT gespeichert.\n\n"+((e&&e.message)||e)
+      +"\n\nDer Name steht im Feld und geht beim Speichern den bisherigen Weg.");
+  }
+}
+if(typeof window!=="undefined"){ window.fgzCanonPick=fgzCanonPick; window._fgzV2Suchen=_fgzV2Suchen; }
+
 function fgzMenu(inp){
+  var wrap=inp.closest(".fgzWrap"); if(!wrap) return;
+  var menu=wrap.querySelector(".fgzMenu"); if(!menu) return;
+  var q=(inp.value||"").trim().toLowerCase();
+  /* V2 zuerst, entprellt (250 ms) — sonst ein RPC-Aufruf je Tastendruck.
+     Liefert sie Treffer, ist das Menü fertig; sonst fällt es unten auf die
+     alte Liste durch, die als ALTCODE bewusst stehen bleibt (§17). */
+  if(q.length>=2){
+    if(_fgzV2.timer) clearTimeout(_fgzV2.timer);
+    if(_fgzV2.q===q && _fgzV2.treffer!==null && _fgzV2.treffer){ if(_fgzV2Render(menu)) return; }
+    else {
+      _fgzV2.timer=setTimeout(function(){ _fgzV2.timer=0;
+        _fgzV2Suchen(q, function(){ try{ if(document.body.contains(menu)) { if(!_fgzV2Render(menu)) fgzMenuLegacy(inp); } }catch(e){} });
+      }, 250);
+      menu.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--muted)">Canonical-Suche läuft …</div>';
+      menu.style.display="block";
+      return;
+    }
+  }
+  fgzMenuLegacy(inp);
+}
+/* ALTCODE-Rückfall: die bisherige Suche über ZUTATEN_STAMM. Nicht gelöscht —
+   Entfernen ist ein eigener Durchgang (Ralph 13.08.). */
+function fgzMenuLegacy(inp){
   var wrap=inp.closest(".fgzWrap"); if(!wrap) return;
   var menu=wrap.querySelector(".fgzMenu"); if(!menu) return;
   var q=(inp.value||"").trim().toLowerCase();
@@ -23905,7 +24063,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-13-0745";
+const APP_BUILD = "2026-08-13-0830";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
