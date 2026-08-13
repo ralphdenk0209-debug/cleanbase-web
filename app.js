@@ -14494,28 +14494,34 @@ async function fgzCanonPick(el){
    liefert 9 (Kontext 'cooked'). Die 10 ist der ROH-Wert und gehört nicht ans
    Produkt. Angezeigt wird deshalb „gekocht · 9", nicht „Garnele (10)".
 
-   🔴 GRENZE, gemessen 13.08.: cb_app_produkt_zutaten liefert für P32667 NICHTS.
-   Ursache ist kein Rechtefehler, sondern ein Statusfilter in der Basis-Sicht
-   shadow_v1.v_product_ingredient_resolution:
-       JOIN "Produkte" p ON … AND p."Produktstatus" IN ('Aktiv','Aktiv ohne Index')
-   P32667 steht auf 'Abgelehnt'. Gegenprobe geht exakt auf: 4.052 Produkte mit
-   Bindungen sind aktiv, und die Sicht führt genau 4.052. Ausgeblendet sind
-   28.637 Produkte mit 220.179 Bindungen — und 220.179 + 36.945 = 257.124, die
-   Gesamtzahl in Produkt_Zutaten. Die Erfassung arbeitet aber gerade an dem,
-   was NICHT aktiv ist. Der Admin-Leseweg dafür fehlt (§31.2, an ChatGPT).
+   ✅ GELÖST am 13.08.2026 durch Ralphs Hinweis auf cb_admin_produkt_zutaten.
+   Vorgeschichte, damit der Irrtum nicht wiederkehrt: zuerst stand hier
+   cb_app_produkt_zutaten — ein ÖFFENTLICHER Lesevertrag. Seine Basis-Sicht
+   shadow_v1.v_product_ingredient_resolution filtert per JOIN auf
+   Produktstatus IN ('Aktiv','Aktiv ohne Index'); P32667 steht auf 'Abgelehnt'
+   und fiel deshalb heraus. Gemessen: 4.052 Produkte sichtbar (36.945 Zeilen),
+   28.637 ausgeblendet (220.179 Zeilen) — Gegenprobe 220.179+36.945 = 257.124 =
+   Produkt_Zutaten gesamt. Die Erfassung arbeitet aber genau an dem, was noch
+   NICHT aktiv ist. Ein öffentlicher Vertrag ist für die Admin-Maske also per
+   Konstruktion blind — der Unterschied app/admin ist keine Namensfrage.
 
-   Bis dahin ändert diese Funktion nichts und behauptet auch nichts: liegt keine
-   Vertragszeile vor, bleibt die bisherige Anzeige stehen (§1).
+   Der ADMIN-Vertrag kennt Entwurf und Abgelehnt. Gemessen 13.08. für P32667:
+     Garnele · gekocht · 9 (rating_source 'context')
+     Speisesalz · 5 · Citronensäure · 3 · Natriummetabisulfit · 3
+   Genau das, was Ralph erwartet — und die 10 taucht nirgends auf.
+
+   Liegt trotzdem keine Vertragszeile vor, ändert diese Funktion nichts und
+   behauptet auch nichts (§1).
    =========================================================================== */
 async function fgCanonLaden(pid){
   window._fgCanon=null; window._fgCanonFehler="";
   if(!pid) return;
   try{
-    var r=await client.rpc("cb_app_produkt_zutaten",{p_produkt_id:pid});
+    var r=await client.rpc("cb_admin_produkt_zutaten",{p_produkt_id:pid});
     if(r&&r.error) throw r.error;
     window._fgCanon=Array.isArray(r&&r.data)?r.data:[];
   }catch(e){
-    console.error("[Canonical] cb_app_produkt_zutaten:", e);
+    console.error("[Canonical] cb_admin_produkt_zutaten:", e);
     window._fgCanonFehler=(e&&e.message)?String(e.message):String(e);
   }
 }
@@ -15912,8 +15918,119 @@ async function fgRefV2Laden(){
      (bzw. eine leere breit). */
   try{ feGridHoeheSync(); }catch(e){}
 }
+/* ===========================================================================
+   ETIKETT & ABGLEICH — die rechte Karte (Ralph-Auftrag 13.08.2026)
+
+   „Rechts ist Quelle, links ist unsere Interpretation."
+
+   Gezeigt wird deshalb AUSSCHLIESSLICH, was aus einer Quelle stammt: der
+   Originaltext der Etikettelemente. Nicht der Canonical-Name, nicht die
+   Produktbindung, und die E-Nummer ist ein Metadatum der ZEILE, keine eigene
+   Zeile. Gemessen an P32667 sind es genau vier:
+     White Tiger Garnelen · Speisesalz ·
+     Antioxidationsmittel: Citronensäure · E330 · Natriummetabisulfit · E223
+   Die E-Nummer liegt bereits als Feld e_nummer am Element — die doppelte
+   Anzeige („einmal als Name, einmal als (E223)") entsteht in der KLASSISCHEN
+   Karte aus fgFlattenZus, nicht hier.
+
+   VIER VERGLEICHSSTATUS, mehr nicht (Ralph): übernommen · Bindung offen ·
+   prüfen · ignoriert. Sie kommen aus dem effektiven Status der Prüfzeile —
+   das Frontend rechnet keinen eigenen aus (§4.2, §5.3).
+
+   Parser-Version, Hash und der technische Baum stehen im Aufklappbereich
+   „Technische Details". Der alte Render ist dafür unverändert erhalten und
+   heißt jetzt fgRefV2RenderTechnik — nicht gelöscht (§17).
+   =========================================================================== */
+var _ETI_ST={
+  uebernommen:{t:"übernommen",  f:"var(--k-166534,#166534)", b:"var(--k-dcfce7,#dcfce7)"},
+  offen:      {t:"Bindung offen",f:"var(--k-1d4ed8,#1d4ed8)", b:"var(--k-dbeafe,#dbeafe)"},
+  pruefen:    {t:"prüfen",       f:"var(--k-92400e,#92400e)", b:"var(--k-fef3c7,#fef3c7)"},
+  ignoriert:  {t:"ignoriert",    f:"var(--muted)",            b:"var(--k-eef1f4,#eef1f4)"}
+};
+/* Ein Element, ein Status. Reihenfolge = Priorität und entspricht §5.3:
+   harter Strukturfehler → manuelle Entscheidung → Automatik. */
+function _etiStatus(e, pz){
+  var man=String((pz&&pz.Manueller_Status)||e.manueller_status||"OFFEN").toUpperCase();
+  if(man==="IGNORIERT"||man==="ABGELEHNT") return "ignoriert";
+  if(String(e.blockiert)==="true"||e.blocker_aktiv===true) return "pruefen";
+  if(man==="BESTAETIGT") return "uebernommen";
+  var ziel=(pz&&pz.Ziel_ID)||e.zutat_id||e.ziel_id_manuell;
+  return ziel?"offen":"pruefen";
+}
+function fgEtikettZeile(e, pz, i){
+  var s=_ETI_ST[_etiStatus(e,pz)]||_ETI_ST.pruefen;
+  var txt=String(e.original_text||e.name||"");
+  var en=String(e.e_nummer||"").trim();
+  var unter=(Number(e.ebene)===2);
+  return '<div class="etiZeile" data-eid="'+esc(String(e.id))+'"'
+    +' onclick="fgEtikettKlick('+JSON.stringify(String(e.id)).replace(/"/g,'&quot;')+')"'
+    +' title="Anklicken – die zugehörige Zeile links wird hervorgehoben"'
+    +' style="display:flex;align-items:baseline;gap:8px;padding:7px 9px;border-bottom:1px solid var(--line);cursor:pointer'
+    +(unter?';padding-left:22px':'')+'">'
+    +'<span style="flex:1 1 auto;min-width:0;font-size:12.5px;color:var(--ink);overflow-wrap:anywhere">'+esc(txt)
+    +(en?' <span style="color:var(--muted);font-size:11.5px">· '+esc(en)+'</span>':'')+'</span>'
+    +'<span style="flex:0 0 auto;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;background:'+s.b+';color:'+s.f+'">'+esc(s.t)+'</span>'
+    +'</div>';
+}
+/* Klick rechts → Zeile links hervorheben. Verglichen wird über den ORIGINALTEXT
+   und den Stammnamen; getroffen wird nur, was wirklich übereinstimmt — geraten
+   wird nichts (§1). Findet sich nichts, sagt die Karte das. */
+function fgEtikettKlick(elId){
+  var d=(window._fgRefV2||{}).d||{};
+  var e=(d.elemente||[]).find(function(x){ return x && String(x.id)===String(elId); });
+  if(!e) return;
+  var kand=[e.original_text, e.name, e.stammname].map(function(x){ return String(x||"").trim().toLowerCase(); }).filter(Boolean);
+  var treffer=null;
+  [].forEach.call(document.querySelectorAll("#fe_zutRows .fgZutRow"), function(row){
+    var inp=row.querySelector(".fgzName"); if(!inp||treffer) return;
+    if(kand.indexOf(String(inp.value||"").trim().toLowerCase())>=0) treffer=row;
+  });
+  [].forEach.call(document.querySelectorAll("#fe_zutRows .fgZutRow"), function(r){ r.style.background=""; });
+  if(!treffer){
+    try{ toast&&toast("Links gibt es dazu noch keine Zeile: „"+String(e.original_text||e.name||"")+"\""); }catch(_){}
+    return;
+  }
+  treffer.style.background="var(--k-fef3c7,#fef3c7)";
+  try{ treffer.scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
+  try{ var inp2=treffer.querySelector(".fgzName"); if(inp2) inp2.focus(); }catch(_){}
+  setTimeout(function(){ try{ treffer.style.background=""; }catch(_){} }, 2600);
+}
+if(typeof window!=="undefined"){ window.fgEtikettKlick=fgEtikettKlick; }
+
 function fgRefV2Render(d, st){
   var box=document.getElementById("fe_refV2"); if(!box) return;
+  if(!d || d.ok===false){
+    box.innerHTML='<div style="color:var(--k-dc2626,#dc2626);font-size:12.5px;padding:6px">'+esc((d&&d.fehler)||"Keine Daten.")+'</div>';
+    return;
+  }
+  var el=Array.isArray(d.elemente)?d.elemente:[];
+  if(!el.length){ fgRefV2RenderTechnik(d, st, box); return; }   /* ehrlicher Leerzustand steht dort */
+  var pzMap={}; (d.pruefzeilen||[]).forEach(function(p){ if(p&&p.Parser_Element_ID!=null) pzMap[p.Parser_Element_ID]=p; });
+  var zaehl={uebernommen:0,offen:0,pruefen:0,ignoriert:0};
+  el.forEach(function(e){ zaehl[_etiStatus(e,pzMap[e.id])]++; });
+  var H='<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:0 2px 7px">'
+    +'<b style="font-size:12px;letter-spacing:.04em;color:var(--ink)">ETIKETT &amp; ABGLEICH</b>'
+    +'<span style="font-size:11px;color:var(--muted)">'+el.length+' Zeile'+(el.length===1?'':'n')+' vom Etikett</span></div>';
+  H+='<div style="display:flex;gap:5px;flex-wrap:wrap;padding:0 2px 8px">'
+    +Object.keys(zaehl).filter(function(k){ return zaehl[k]>0; }).map(function(k){
+      var s=_ETI_ST[k];
+      return '<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:'+s.b+';color:'+s.f+'">'+zaehl[k]+' '+esc(s.t)+'</span>';
+    }).join('')+'</div>';
+  H+='<div style="border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--card)">'
+    +el.map(function(e,i){ return fgEtikettZeile(e, pzMap[e.id], i); }).join('')+'</div>';
+  H+='<div style="font-size:10.5px;color:var(--muted);padding:6px 2px 0;line-height:1.45">'
+    +'Das ist die <b>Quelle</b> – Originaltext vom Etikett. Links steht unsere Interpretation. '
+    +'Zeile anklicken: die passende Zeile links wird hervorgehoben.</div>';
+  H+='<details style="margin-top:8px"><summary style="cursor:pointer;font-size:11.5px;color:var(--muted);padding:4px 2px">Technische Details (Parser '
+    +esc(String(d.parser_version||"?"))+', Hash '+esc(String(d.originaltext_hash||"").slice(0,8))+' …)</summary>'
+    +'<div id="fe_refV2Tech" style="margin-top:6px"></div></details>';
+  box.innerHTML=H;
+  try{ fgRefV2RenderTechnik(d, st, document.getElementById("fe_refV2Tech")); }catch(e){ console.error("[Etikett] Technikbereich:", e); }
+}
+/* ALTCODE, unverändert: der vollständige Parserbaum mit allen Aktionen. Er ist
+   jetzt der Inhalt des Aufklappbereichs und der technische Rückfall (§17). */
+function fgRefV2RenderTechnik(d, st, box){
+  if(!box) return;
   if(!d || d.ok===false){
     box.innerHTML='<div style="color:var(--k-dc2626,#dc2626);font-size:12.5px;padding:6px">'+esc((d&&d.fehler)||"Keine Daten.")+'</div>';
     return;
@@ -24146,7 +24263,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-13-0910";
+const APP_BUILD = "2026-08-13-1015";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
