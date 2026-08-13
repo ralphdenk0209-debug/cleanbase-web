@@ -14314,12 +14314,21 @@ function fgPickRender(){
         +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</div>';
     }
-    return '<label style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+(chk?"background:var(--greenlt,#eef7f0)":"")+'">'
-      +'<input type="checkbox" '+(chk?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(it.rating==null?"":it.rating)+'" data-krit="'+esc(it.kritisch||"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;accent-color:var(--k-16a34a)">'
-      /* 08.08.2026 (Ralph, P73592): stand hier grau als Randnotiz - grau heisst "nebensaechlich".
-         Es ist aber das Gegenteil: diese Zeile wird beim Speichern NICHT gebunden und ist danach
-         weg. Jetzt rot und im Klartext, gleiche Aussage wie die Freigabe-Karte. */
-      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+(it._frei?' <span style="color:var(--frg-rot);font-size:11px;font-weight:600" title="Diese Zutat gibt es im Stamm nicht. Beim Speichern wird sie nicht gebunden – sie ist danach weg. Erst anlegen lassen.">· nicht im Stamm – wird nicht gespeichert</span>':'')+'</span>'
+    /* 🔵 12.08.2026 (Ralph an P32667): eine NICHT gebundene Zeile darf nicht gruen aussehen.
+       Gruen hiess hier bisher nur "Haken gesetzt" - also Bedienzustand, nicht Qualitaet. Damit
+       sah eine Zutat, die beim Speichern verlorengeht, genauso aus wie eine sauber gebundene.
+       Jetzt entscheidet _frei ueber die Farbe und der Haken nur noch ueber die Auswahl:
+         gebunden + ausgewaehlt = gruen · nicht im Stamm = BLAU, damit es auffaellt.
+       Die Farbe ist damit eine Aussage ueber den Datenzustand, nicht ueber den Klick. */
+    var _blau=!!it._frei;
+    var _bg = _blau ? "background:var(--k-eef6ff,#eef6ff);box-shadow:inset 3px 0 0 var(--k-2f6fd6,#2f6fd6)"
+                    : (chk?"background:var(--greenlt,#eef7f0)":"");
+    return '<label style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;'+_bg+'">'
+      +'<input type="checkbox" '+(chk?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(it.rating==null?"":it.rating)+'" data-krit="'+esc(it.kritisch||"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;accent-color:'+(_blau?'var(--k-2f6fd6,#2f6fd6)':'var(--k-16a34a)')+'">'
+      /* 12.08.2026: Text ersetzt. "wird nicht gespeichert" war seit der Review-Persistenz falsch -
+         die Zutat steht sehr wohl in Produkt_Zutaten_Referenz_Pruefung, nur nicht als Bindung in
+         Produkt_Zutaten. Der alte Satz stand hier seit 08.08. und war damals richtig. */
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+(it._frei?' <span style="color:var(--k-1e40af,#1e40af);font-size:11px;font-weight:600" title="Diese Zutat ist gelesen und bleibt als Pruefzeile erhalten, hat aber noch keine Bindung an eine Stammzutat. Erst nach dem Zuordnen zaehlt sie zum Produkt.">· gelesen – Bindung offen</span>':'')+'</span>'
       +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</label>'; };
   var _st=wrap.scrollTop;
@@ -15088,7 +15097,12 @@ if(typeof window!=='undefined'){ window.fgRefFokus=fgRefFokus; }
    Der klassische Referenz-Block (#fe_refFront) bleibt vollstaendig erhalten und
    ist der Rueckfall; der Umschalter ist in BEIDEN Stellungen sichtbar (§1.11n-nn).
    ========================================================================== */
-function fgRefV2An(){ try{ return localStorage.getItem("ri_referenz_v2")==="an"; }catch(e){ return false; } }
+/* 12.08.2026 (Ralph): Referenz V2 ist der STANDARD, nicht mehr die Ausnahme. Sie zeigt die
+   tatsaechlich gelesenen Etikettelemente samt blockierenden Befunden - genau das, was vor der
+   Freigabe zu sehen sein muss. Die klassische Liste bleibt als Rueckfall erreichbar; wer sie
+   bewusst waehlt, bekommt sie weiterhin (localStorage "aus"). Vorher war es umgekehrt: V2 nur
+   nach Klick, und ohne Klick sah das Produkt vollstaendig aus, obwohl es Blocker hatte. */
+function fgRefV2An(){ try{ return localStorage.getItem("ri_referenz_v2")!=="aus"; }catch(e){ return true; } }
 function fgRefV2Set(an){
   try{ localStorage.setItem("ri_referenz_v2", an?"an":"aus"); }catch(e){}
   fgRefV2Anzeigen();
@@ -23673,7 +23687,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-12-1610";
+const APP_BUILD = "2026-08-12-1845";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
