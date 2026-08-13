@@ -89,10 +89,13 @@ function suppLead(d,size){
   if(!b || !Number(b.ws_gesamt)) return pill;
   var g=Number(b.ws_gesamt), wk=Number(b.ws_wirksam)||0, zg=Number(b.ws_zu_gering)||0, kr=Number(b.ws_kein_ref)||0;
   var C=size/2, Rr=(size*0.40).toFixed(1), sw=Math.max(5,Math.round(size/9));
-  var segs='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-track)" stroke-width="'+sw+'"/>';
-  if(kr>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-grau)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+kr+' '+(g-kr)+'" stroke-dashoffset="'+(-(wk+zg))+'"/>';
-  if(zg>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-gelb)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+zg+' '+(g-zg)+'" stroke-dashoffset="'+(-wk)+'"/>';
-  if(wk>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-gruen)" stroke-width="'+sw+'" stroke-linecap="round" pathLength="'+g+'" stroke-dasharray="'+wk+' '+(g-wk)+'" stroke-dashoffset="0"/>';
+  /* Ersatzwerte: dieselbe Ursache wie beim Editor-Donut — in admin.html sind die
+     vier --ri-* nicht definiert, und ein ungültiger stroke wird SCHWARZ.
+     Siehe den Block über feSuppBilanzDonut. */
+  var segs='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-track,#f0ece3)" stroke-width="'+sw+'"/>';
+  if(kr>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-grau,#c9c4bb)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+kr+' '+(g-kr)+'" stroke-dashoffset="'+(-(wk+zg))+'"/>';
+  if(zg>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-gelb,#e8920c)" stroke-width="'+sw+'" pathLength="'+g+'" stroke-dasharray="'+zg+' '+(g-zg)+'" stroke-dashoffset="'+(-wk)+'"/>';
+  if(wk>0) segs+='<circle cx="'+C+'" cy="'+C+'" r="'+Rr+'" fill="none" stroke="var(--ri-gruen,#4d7c3a)" stroke-width="'+sw+'" stroke-linecap="round" pathLength="'+g+'" stroke-dasharray="'+wk+' '+(g-wk)+'" stroke-dashoffset="0"/>';
   return '<div class="scLead" style="flex:0 0 '+size+'px;width:'+size+'px;text-align:center">'
     +'<div style="position:relative;width:'+size+'px;height:'+size+'px;margin:0 auto">'
       +'<svg viewBox="0 0 '+size+' '+size+'" style="width:100%;height:100%;transform:rotate(-90deg)">'+segs+'</svg>'
@@ -2567,12 +2570,15 @@ function suppKarteFill(a,d){
   if(a.bilanz && Number(a.bilanz.gesamt)>0){
     var g=Number(a.bilanz.gesamt)||0, wk=Number(a.bilanz.wirksam)||0, zg=Number(a.bilanz.zu_gering)||0, kr=Number(a.bilanz.kein_ref)||0;
     var CX=60,CY=60,RO=52,RI=41,GAP=(g>1?6:0),SEG=360/g,ring="";
+    /* Ersatzwerte wie bei feSuppBilanzDonut — in admin.html („👁 Als Nutzer") sind die
+       --ri-* nicht definiert und ein ungültiger fill/stroke wird SCHWARZ. */
+    ring='<circle cx="60" cy="60" r="46.5" fill="none" stroke="var(--ri-track,#f0ece3)" stroke-width="11"/>';
     if(g===1){
-      var c1=(wk>0)?"var(--ri-gruen)":((zg>0)?"var(--ri-gelb)":"var(--ri-grau)");
-      ring='<circle cx="60" cy="60" r="46.5" fill="none" stroke="'+c1+'" stroke-width="11"/>';
+      var c1=(wk>0)?"var(--ri-gruen,#4d7c3a)":((zg>0)?"var(--ri-gelb,#e8920c)":"var(--ri-grau,#c9c4bb)");
+      ring+='<circle cx="60" cy="60" r="46.5" fill="none" stroke="'+c1+'" stroke-width="11"/>';
     } else {
       for(var i=0;i<g;i++){
-        var col=(i<wk)?"var(--ri-gruen)":((i<wk+zg)?"var(--ri-gelb)":"var(--ri-grau)");
+        var col=(i<wk)?"var(--ri-gruen,#4d7c3a)":((i<wk+zg)?"var(--ri-gelb,#e8920c)":"var(--ri-grau,#c9c4bb)");
         var a0=(-90+i*SEG+GAP/2)*Math.PI/180, a1=(-90+(i+1)*SEG-GAP/2)*Math.PI/180, lg=(SEG-GAP)>180?1:0;
         ring+='<path d="M'+(CX+RO*Math.cos(a0)).toFixed(2)+' '+(CY+RO*Math.sin(a0)).toFixed(2)
           +' A'+RO+' '+RO+' 0 '+lg+' 1 '+(CX+RO*Math.cos(a1)).toFixed(2)+' '+(CY+RO*Math.sin(a1)).toFixed(2)
@@ -2581,8 +2587,8 @@ function suppKarteFill(a,d){
           +' Z" fill="'+col+'"/>';
       }
     }
-    var xtra=""; if(zg>0) xtra+='<br><span style="color:var(--ri-gelb)">■</span> '+zg+' zu gering dosiert';
-    if(kr>0) xtra+='<br><span style="color:var(--ri-grau)">■</span> '+kr+' ohne offiziellen Referenzwert';
+    var xtra=""; if(zg>0) xtra+='<br><span style="color:var(--ri-gelb,#e8920c)">■</span> '+zg+' zu gering dosiert';
+    if(kr>0) xtra+='<br><span style="color:var(--ri-grau,#c9c4bb)">■</span> '+kr+' ohne offiziellen Referenzwert';
     bilanzHtml='<div style="margin-top:12px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px 13px">'
       +'<div style="display:flex;align-items:center;gap:15px">'
         +'<div style="position:relative;width:104px;height:104px;flex:0 0 auto">'
@@ -2594,7 +2600,7 @@ function suppKarteFill(a,d){
         +'</div>'
         +'<div style="flex:1;min-width:0">'
           +'<div style="font-size:13px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:6px">Wirkstoffe in wirksamer Menge</div>'
-          +'<div style="font-size:11px;color:var(--muted);line-height:1.6"><span style="color:var(--ri-gruen)">■</span> '+wk+' mit belegtem EU-Nutzen (≥ 15 % Tagesbedarf)'+xtra+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);line-height:1.6"><span style="color:var(--ri-gruen,#4d7c3a)">■</span> '+wk+' mit belegtem EU-Nutzen (≥ 15 % Tagesbedarf)'+xtra+'</div>'
         +'</div>'
       +'</div>'
     +'</div>';
@@ -14555,8 +14561,156 @@ function fgCanonAnwenden(){
   });
   return n;
 }
+/* ===========================================================================
+   GEMEINSAME PRODUKTBESTANDTEILLISTE  (Ralph-Auftrag 13.08.2026, P1–P5)
+
+   EINE Produkt_Zutat_ID = EINE Arbeitszeile. Der separate Zusatzstoff-Kasten
+   entfällt; ein Zusatzstoff ist keine zweite Zeile, sondern ein Merkmal der
+   Bestandteilzeile, aus der er aufgelöst wurde.
+
+   DER JOIN LÄUFT ÜBER IDs, NICHT ÜBER NAMEN. Das ist der ganze Fortschritt.
+   Gemessen 13.08. an P1025:
+     Bestandteilzeile  PZ-P1025-15  „Trennmittel Magnesiumstearat"
+     Zusatzstoff       E470b        „Magnesiumsalze von Speisefettsäuren"
+   Kein gemeinsames Wort. Ein Namensvergleich hätte hier zwei Zeilen erzeugt
+   oder — schlimmer — über `source_text` scheinbar funktioniert und beim
+   nächsten Etikett stillschweigend danebengegriffen (§3.5).
+   Seit heute liefert cb_app_produkt_zusatzstoffe die `produkt_zutat_id` mit;
+   damit ist die Zusammenführung belegt statt geraten.
+
+   ZWEI QUELLEN, ZWEI ROLLEN:
+     cb_admin_produkt_zutaten(pid)     → Grunddaten (Name, Verarbeitung, Note)
+     cb_app_produkt_zusatzstoffe(pid)  → Zusatzstoffmerkmal je Zeile
+   Beide werden nur GELESEN. Geschrieben wird weiterhin ausschließlich über
+   #fe_zutRows und die bestehenden Speicherwege — der Zutatenstamm ist gesperrt
+   (§30), und dieser Durchgang fasst ihn nicht an.
+
+   RECHTS BLEIBT QUELLE (P5). Canonical-Namen und Produktbindungen erscheinen
+   NUR hier links. Die rechte Karte (fgRefV2Render) ist unverändert.
+   =========================================================================== */
+async function fgZusV2Laden(pid){
+  window._fgZusV2=null; window._fgZusV2Fehler="";
+  if(!pid) return;
+  try{
+    var r=await client.rpc("cb_app_produkt_zusatzstoffe",{p_produkt_id:pid});
+    if(r&&r.error) throw r.error;
+    window._fgZusV2=(r&&r.data)||null;
+  }catch(e){
+    /* Kein leerer Fangblock (§11.4): fällt die Quelle aus, bleibt das Zusatzstoff-
+       Merkmal LEER statt falsch – und der Grund steht in der Konsole. */
+    console.error("[Bestandteile] cb_app_produkt_zusatzstoffe:", e);
+    window._fgZusV2Fehler=(e&&e.message)?String(e.message):String(e);
+  }
+}
+/* produkt_zutat_id → Zusatzstoff-Merkmal. Eine Zeile kann über produkt_zutat_ids
+   auch mehrfach genannt sein; dann zählt sie für jede genannte ID. */
+function _fgZusNachPz(){
+  var out={}, d=window._fgZusV2;
+  var items=(d&&Array.isArray(d.items))?d.items:[];
+  items.forEach(function(it){
+    var ids=Array.isArray(it.produkt_zutat_ids)&&it.produkt_zutat_ids.length
+      ? it.produkt_zutat_ids : (it.produkt_zutat_id?[it.produkt_zutat_id]:[]);
+    ids.forEach(function(id){ var k=String(id||"").trim(); if(k) (out[k]=out[k]||[]).push(it); });
+  });
+  return out;
+}
+var _ZUS_BEW={
+  neutral:    {t:"neutral",    f:"var(--muted)"},
+  abgewertet: {t:"abgewertet", f:"var(--k-cf5442,#cf5442)"},
+  unbedenklich:{t:"unbedenklich",f:"var(--k-166534,#166534)"}
+};
+/* Eine Arbeitszeile. Die Checkbox bleibt an fgPickToggle und damit am
+   BESTEHENDEN Speicherweg (#fe_zutRows) – dieser Durchgang ändert die Anzeige,
+   nicht das Speichern (§2.3). */
+function _fgBestZeile(z, zusListe, gebunden){
+  var nm=String(z.sichtbarer_name||z.canonical_name||"").trim();
+  var rt=(z.resolved_rating==null)?"–":String(z.resolved_rating);
+  var col=(z.resolved_rating==null)?"var(--muted)"
+    :(z.resolved_rating>=7?"var(--k-2e9e57,#2e9e57)":(z.resolved_rating>=4?"var(--k-c88616,#c88616)":"var(--k-cf5442,#cf5442)"));
+  var mod=String(z.processing_modifier||"").trim();
+  var unter=[];
+  if(mod && mod!=="unspecified_processing") unter.push(esc(mod));
+  /* Die NOTE steht rechts in der Wertspalte – hier nur, wenn sie FEHLT. Sie beidseits
+     zu zeigen war der erste Entwurf und las sich als „gekocht · 9    9". Eine Zahl an
+     zwei Orten ist eine Zahl zu viel (§4.2, im Kleinen). */
+  if(z.resolved_rating==null) unter.push('<span style="color:var(--muted)">Note nicht belegt</span>');
+  (zusListe||[]).forEach(function(it){
+    var b=_ZUS_BEW[String(it.evaluation||"").toLowerCase()]||{t:String(it.evaluation||"ungeprüft"),f:"var(--muted)"};
+    var zn=String(it.name||"").trim();
+    /* Heißt der Zusatzstoff wie die Zeile (P32667: „Citronensäure"), wird der Name NICHT
+       wiederholt – dann genügt „E330 · Zusatzstoff neutral" (Ralph P4). Heißt er anders
+       (P1025: „Trennmittel Magnesiumstearat" ↔ „Magnesiumsalze von Speisefettsäuren"),
+       MUSS er dastehen, sonst verschwindet genau die Information, für die der ID-Merge
+       gebaut wurde (Ralph P3). */
+    var gleich=(zn.toLowerCase()===nm.toLowerCase());
+    unter.push('<span title="Zusatzstoff dieser Bestandteilzeile – zusammengeführt über die ID '+esc(String(it.produkt_zutat_id||""))+', nicht über den Namen">'
+      +(gleich?'':'Zusatzstoff: '+esc(zn)+' · ')
+      +(it.e_number?'<b>'+esc(String(it.e_number))+'</b> · ':'')
+      +'<span style="color:'+b.f+'">Zusatzstoff '+esc(b.t)+'</span></span>');
+  });
+  var hatZus=(zusListe&&zusListe.length>0);
+  return '<label data-pz="'+esc(String(z.produkt_zutat_id||""))+'"'
+    +' style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:start;padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer'
+    +(gebunden?'':';background:var(--k-eef6ff,#eef6ff);box-shadow:inset 3px 0 0 var(--k-2f6fd6,#2f6fd6)')+'">'
+    +'<input type="checkbox" '+(gebunden?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(z.resolved_rating==null?"":z.resolved_rating)+'" data-krit="'+(z.resolved_critical?"ja":"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;margin-top:2px;accent-color:var(--k-16a34a)">'
+    +'<span style="min-width:0">'
+      +'<span style="display:block;font-size:13px;color:var(--ink);overflow-wrap:anywhere">'+esc(nm)
+      +(hatZus?' <span style="font-size:11px;color:var(--k-166534,#166534);background:var(--greenlt,#ecfdf5);border:1px solid var(--k-16a34a,#16a34a);border-radius:5px;padding:0 4px" title="Diese Zeile trägt einen Zusatzstoff">⚗</span>':'')
+      +'</span>'
+      +'<span style="display:block;font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:1px">'+unter.join(' · ')+'</span>'
+    +'</span>'
+    +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+esc(rt)+'</span>'
+  +'</label>';
+}
+/* Rendert die gemeinsame Liste. Gibt true zurück, wenn sie gerendert hat –
+   sonst übernimmt der bestehende Picker (fgPickRender), unverändert (§17). */
+function fgBestandteileRender(){
+  var wrap=document.getElementById("fe_pickList"); if(!wrap) return false;
+  var rows=window._fgCanon;
+  if(!Array.isArray(rows)||!rows.length) return false;
+  /* Bei aktiver Suche gilt der Picker: dort wird der STAMM durchsucht, und genau
+     dafür ist das Suchfeld da. Die Bestandteilliste zeigt dieses Produkt. */
+  var q=((document.getElementById("fe_zutSuche")||{}).value||"").trim();
+  if(q) return false;
+
+  var zusMap=_fgZusNachPz();
+  var gebunden=(typeof _fgRowsSet==="function")?_fgRowsSet():{};
+  var sortiert=rows.slice().sort(function(a,b){ return (Number(a.reihenfolge)||0)-(Number(b.reihenfolge)||0); });
+  var gesehen={};
+  var H=sortiert.map(function(z){
+    var k=String(z.produkt_zutat_id||""); if(k) gesehen[k]=true;
+    var nm=String(z.sichtbarer_name||z.canonical_name||"").trim().toLowerCase();
+    return _fgBestZeile(z, zusMap[k], !!gebunden[nm]);
+  });
+  /* Ein Zusatzstoff, dessen produkt_zutat_id in KEINER Bestandteilzeile vorkommt,
+     darf nicht verschwinden – er bekommt eine eigene Zeile mit ehrlichem Hinweis.
+     Nichts wird stillschweigend weggelassen (§1.10). */
+  var rest=[];
+  Object.keys(zusMap).forEach(function(k){ if(!gesehen[k]) rest=rest.concat(zusMap[k]); });
+  var d=window._fgZusV2;
+  (((d&&Array.isArray(d.items))?d.items:[])).forEach(function(it){
+    var hat=(Array.isArray(it.produkt_zutat_ids)&&it.produkt_zutat_ids.length)||it.produkt_zutat_id;
+    if(!hat) rest.push(it);
+  });
+  if(rest.length){
+    H.push('<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-fffbeb,#fffbeb)">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--k-92400e,#92400e)">Zusatzstoff ohne Bestandteilzeile</div>'
+      +rest.map(function(it){ return '<div style="font-size:12px;color:var(--ink);margin-top:2px">'
+          +(it.e_number?'<b>'+esc(String(it.e_number))+'</b> · ':'')+esc(String(it.name||""))
+          +' <span style="color:var(--muted)">– zu diesem Zusatzstoff gibt es keine Zeile in Produkt_Zutaten. Er wird angezeigt, aber nicht zusammengeführt.</span></div>'; }).join("")
+      +'</div>');
+  }
+  var st=wrap.scrollTop;
+  wrap.innerHTML=H.join("")
+    +'<div style="padding:8px;color:var(--muted);font-size:11.5px;text-align:center;border-top:1px dashed var(--line)">'
+    +'🔎 Tippen durchsucht den Zutatenstamm</div>';
+  try{ wrap.scrollTop=st; }catch(e){}
+  try{ fgZutSammelLeiste(); }catch(e){}
+  return true;
+}
 if(typeof window!=="undefined"){ window.fgzCanonPick=fgzCanonPick; window._fgzV2Suchen=_fgzV2Suchen;
-  window.fgCanonLaden=fgCanonLaden; window.fgCanonAnwenden=fgCanonAnwenden; }
+  window.fgCanonLaden=fgCanonLaden; window.fgCanonAnwenden=fgCanonAnwenden;
+  window.fgZusV2Laden=fgZusV2Laden; window.fgBestandteileRender=fgBestandteileRender; }
 
 function fgzMenu(inp){
   var wrap=inp.closest(".fgzWrap"); if(!wrap) return;
@@ -14666,6 +14820,12 @@ function _fgRowsInfo(){ var out={}; var c=document.getElementById("fe_zutRows");
 function _fgRowsNames(){ var out=[]; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var n=((r.querySelector(".fgzName")||{}).value||"").trim(); if(n) out.push(n); }); return out; }
 function fgPickRender(){
   var wrap=document.getElementById("fe_pickList"); if(!wrap) return;
+  /* 13.08.2026 (Ralph P2): Liegt der Produktvertrag vor und ist kein Suchtext
+     getippt, zeigt die Karte die GEMEINSAME Bestandteilliste – eine Zeile je
+     Produkt_Zutat_ID, Zusatzstoff als Merkmal daran. Der Picker darunter bleibt
+     unverändert stehen und übernimmt, sobald gesucht wird oder kein Vertrag da
+     ist (§17: nichts gelöscht, nur vorgeschaltet). */
+  try{ if(fgBestandteileRender()) return; }catch(e){ console.error("[Bestandteile] rendern:", e); }
   var q=((document.getElementById("fe_zutSuche")||{}).value||"").trim().toLowerCase();
   var supp=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase()==="supplement");
   var sel=_fgRowsSet();
@@ -16911,6 +17071,7 @@ async function openFgEditor(id, prefill, targetEl){
       <span id="feDubChip" style="display:none"></span>
       <span id="fePNrInfo" style="font-size:12px;color:var(--muted)">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"P-Nummer kommt beim ersten Speichern"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
     </div>
+    <div id="fe_gesamtstatus" data-note="P1: EIN Gesamtstatus. Gefüllt von feStatusStreifen() aus getErfassungsStatus() – keine eigene Rechnung."></div>
     ${window._fgPrefillHinweis?`<div style="background:var(--k-fff7ea);border:1px solid var(--k-e4a343);color:var(--k-8a5a0b);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
     ${''/* 28l (Ralph-Entscheid Mockup 2): Vollbild-Editor mit ZWEI Reitern + festem Seitenstreifen.
        Reiter 1 = Produkt & Naehrwerte (Daten holen, Kopfdaten, Naehrwerte, Bild, Dosis), Reiter 2 =
@@ -16933,7 +17094,12 @@ async function openFgEditor(id, prefill, targetEl){
           <button type="button" id="feTabBtn2" class="feSt" onclick="feTabWechsel(2)"><span class="feStNr">2</span><span class="feStTxt">🧪 Nährwerte &amp; Wirkstoffe <span id="feTab2Badge" class="feStBadge warn"></span></span></button>
           <button type="button" id="feTabBtn3" class="feSt" onclick="feTabWechsel(3)"><span class="feStNr">3</span><span class="feStTxt">🥣 Zutaten &amp; Referenz <span id="feTab3Badge" class="feStBadge"></span></span></button>
         </div>
-        ${card(`Root Index <span style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
+        ${''/* 13.08.2026 (Ralph P13): Bei einem Supplement heißt diese Karte DOSIS-CHECK,
+              nicht ROOT INDEX — sie zeigt dort auch keinen Index, sondern den Wirkstoff-Donut
+              (siehe _feScoreRun, Zweig _kat==='supplement'). Der Titel stand bisher fest im
+              Template und widersprach dem Inhalt. Gesetzt wird er in feKatChange, dem EINEN
+              Ort, an dem die Maske auf die Kategorie reagiert (§4.2). */}
+        ${card(`<span id="fe_indexTitel">Root Index</span> <span id="fe_indexTitelZusatz" style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
         <div class="feRailKarte"><div class="feRailKarteTitel">Freigabe</div><div id="feRailAmpel">wird geprüft…</div></div>
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label>${quellenTypHinweis()}<div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
       </div>
@@ -17024,7 +17190,11 @@ async function openFgEditor(id, prefill, targetEl){
           </div>
           <div class="mz"><k>Marke</k>${inp("fe_marke",d.marke)}</div>
           <div class="mz"><k>Kategorie *</k>${katSelectHtml("fe_kat",d.kategorie,"width:100%;box-sizing:border-box;height:34px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px")}</div>
-          <div class="mz"><k>Unterkategorie</k><input id="fe_ukat" class="fld" value="${esc(d.unterkategorie||"")}" placeholder="nicht erfasst"></div>
+          ${''/* 13.08.2026 (Ralph P6): Die Unterkategorie steuert die Mineralwasser-Ansicht.
+                Ohne dieses oninput bliebe die Karte bei „Wirkstoffe & Dosis" stehen, bis der
+                Editor neu geöffnet wird — ein Feld, dessen Wirkung man nicht sieht, wird für
+                wirkungslos gehalten. */}
+          <div class="mz"><k>Unterkategorie</k><input id="fe_ukat" class="fld" value="${esc(d.unterkategorie||"")}" oninput="try{feWirkAnsicht()}catch(e){}" placeholder="nicht erfasst"></div>
           <div class="mz"><k>Bezugsbasis</k><input id="fe_basis" class="fld" value="${esc(d.basis||"100g")}" placeholder="100g"></div>
           <div class="mz mz-2"><k>Bio / Öko</k>
             <select id="fe_bio" onchange="feBioChange()" class="feVersteckt"><option value="">nicht geprüft</option><option value="ja">Bio (EU-Öko-VO)</option><option value="nein">kein Bio</option></select>
@@ -17101,9 +17271,13 @@ async function openFgEditor(id, prefill, targetEl){
         <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("einfach_unges","davon einfach ungesättigte","g")}${nf("mehrfach_unges","davon mehrfach ungesättigte","g")}${nf("transfette","davon Transfettsäuren","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" ></div>`)}</div>
         <span id="fe_wirkAnker"  data-note="06.08.2026: Die Wirkstoff-Karte hat einen FESTEN Ort im Reiter Naehrwerte. Nichts wird mehr verschoben - der Anker bleibt nur als Sprungmarke."></span><div id="fe_wirkCard">
           <div id="fe_wirkGrid">
-            <div id="fe_wirkTblCol">${card(`<span>Wirkstoffe &amp; Dosis</span> <span class="feKartenZusatz">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
-          <div class="feWirkHinweis">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
-          <div class="feWirkKopf"><span>Stoff</span><span class="feRe">Menge</span><span>Einheit</span><span class="feRe">%NRV</span><span></span></div>
+            ${''/* 13.08.2026 (Ralph P7): Bei Unterkategorie „Mineralwasser" heißt diese Karte
+                  MINERALSTOFFANALYSE. „Wirkstoffe & Dosis / Nahrungsergänzung / Dosis-Check" ist
+                  bei einem Wasser schlicht falsche Sprache — Wasser ist kein Präparat und hat
+                  keine Tagesdosis. Titel, Untertitel und Spaltenkopf setzt feWirkAnsicht(). */}
+            <div id="fe_wirkTblCol">${card(`<span id="fe_wirkTitel">Wirkstoffe &amp; Dosis</span> <span id="fe_wirkTitelZusatz" class="feKartenZusatz">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
+          <div class="feWirkHinweis" id="fe_wirkHinweis">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
+          <div class="feWirkKopf"><span>Stoff</span><span class="feRe">Menge</span><span id="fe_wirkKopfEinheit">Einheit</span><span class="feRe">%NRV</span><span></span></div>
           <div id="fe_wirkRows"></div>
           <button type="button" onclick="feWirkAdd()" class="feBtnAdd">+ Wirkstoff</button>
           <div class="feWirkLegBox">
@@ -17137,7 +17311,7 @@ async function openFgEditor(id, prefill, targetEl){
   </div>
   </div>
 </div>
-<div id="feTab3"><div id="fe_quickBar" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span class="feQuickIcon" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu"><button type="button" onclick="fgQuickGo()" class="feBtnZuordnen">Zuordnen</button></div><div id="fe_quickMsg"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr);height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut">${cardF(`<span id="fe_zutLabel">Zutaten</span> <span class="feKartenZusatz">(gebunden)</span>`,`
+<div id="feTab3"><div id="fe_quickBar" data-note="30.07. (Ralph: 'die zuordnungszeile kannst du ausblenden, nutze ich nicht'): Schnelleingabe VERSTECKT, nicht geloescht - fgQuickGo und das Eingabefeld bleiben erreichbar (§1.11n-j), und wer sie zurueckwill, setzt display auf flex."><span class="feQuickIcon" title="Schnelleingabe">⚡</span><input id="fe_quickIn" onkeydown="if(event.key==='Enter'){event.preventDefault();fgQuickGo();}" placeholder="Schnelleingabe – egal was: „Kaliumsorbat“, „E202“, „Jod 200 µg“, „Kreatin-Monohydrat 3500 mg“ … die Maske ordnet selbst zu"><button type="button" onclick="fgQuickGo()" class="feBtnZuordnen">Zuordnen</button></div><div id="fe_quickMsg"></div><div id="fe_gridA" data-note="KONZEPT D (Ralph-Entscheid 26.07.): DREI Spalten mit fester Bildschirmhoehe. Jede Spalte scrollt fuer sich, die SEITE scrollt nie - dadurch verschiebt sich nichts mehr und alles hat einen festen Ort. Spalte 1 Zutaten, Spalte 2 Zusatzstoffe + Mikros, Spalte 3 Etikett + Referenz. Kein sticky mehr: nichts legt sich mehr ueber etwas anderes." style="grid-template-columns:minmax(0,1fr) minmax(340px,1.18fr);height:calc(100vh - ${FE_GRID_BASIS}px);min-height:430px" data-note13="13.08.2026: ZWEI Spalten statt drei. Die mittlere war der Zusatzstoff-Kasten; er ist jetzt display:none und damit KEIN Rasterkind mehr. Bliebe die Vorlage dreispaltig, rutschte die Etikettkarte in die schmale 1fr-Spalte und die 340px-Spalte bliebe leer – die Karte wurde am 26.07. ausdruecklich breiter gebaut." data-note28w="30.07.: Basis 289 -> FE_GRID_BASIS (217), weil die Schnelleingabe-Leiste (~54px) und die Ueberschrift (~18px) auf Ralphs Wunsch weg sind. Steht der Kachel-Streifen darunter, zieht feNaehrKachelnSync seine GEMESSENE Hoehe zusaetzlich ab - kein geratener Pixelwert, und er passt sich an, wenn eine Kachel mehr dazukommt."><div id="fe_colZut">${cardF(`<span id="fe_zutLabel">Produktbestandteile</span> <span id="fe_zutLabelZusatz" class="feKartenZusatz">(eine Zeile je Bestandteil – Zusatzstoff inbegriffen)</span>`,`
           <details class="feRikiBox">
             <summary class="feRikiTitel">🤖 Riki – Zutatenliste analysieren</summary>
             <div class="feMt8">
@@ -17166,7 +17340,14 @@ async function openFgEditor(id, prefill, targetEl){
           <div id="fe_zutNeuInfo"></div>
           <div id="fe_zutRows" class="feVersteckt">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" class="feVersteckt">+ Zutat</button>
-          <div id="fgOffBox"></div>`)}</div><div id="fe_colZus" data-note="Grid statt Flex: so bekommen Zusatzstoffe und Mikros einen FESTEN Anteil der Spaltenhoehe. Vorher nahm die Zusatzstoff-Karte allen Platz und schob die Mikros aus dem Bild (Ralphs Fund 26.07.)." id="fe_colZusMik"><div class="feSpalteFlex">${cardF("Zusatzstoffe",`
+          <div id="fgOffBox"></div>`)}</div>${''/* 🔴 13.08.2026 (Ralph P2): DER SEPARATE ZUSATZSTOFF-KASTEN IST AUS DER ANSICHT.
+             Er ist NICHT gelöscht (§17, Ralph P16 „noch keinen Altcode löschen") und darf es
+             auch nicht sein: fgEditSave liest fe_ztext, fe_zstatus und fe_suess DIREKT und ohne
+             Null-Prüfung – ohne diese Elemente bricht das Speichern ab, und fe_suess würde 18
+             bestehende „ja_kuenstlich"-Werte überschreiben. Die Spalte bekommt deshalb
+             display:none statt einer Löschung; alle IDs, zusSeed, zusRenderSel und
+             zusRenderPick arbeiten unverändert weiter. Der Rückbau ist ein eigener Durchgang
+             nach Ralphs Browserabnahme. */}<div id="fe_colZus" style="display:none" data-note="13.08.2026 ausgeblendet (Ralph P2): Zusatzstoffe sind jetzt Merkmal der Bestandteilzeile links. DOM bleibt, weil fgEditSave die versteckten Felder liest." id="fe_colZusMik"><div class="feSpalteFlex">${cardF("Zusatzstoffe",`
           <label class="feZusKeineLbl"><input type="checkbox" id="fe_zusKeine" onchange="zusKeineToggle(this.checked)">Keine Zusatzstoffe im Produkt</label>
           ${''/* Die separate Auswahl-Liste oben ist entfallen (Ralph 27.07.): sie zeigte dasselbe
                wie die Stamm-Liste darunter, in der die gewaehlten Zusatzstoffe angehakt und oben
@@ -17271,7 +17452,22 @@ async function openFgEditor(id, prefill, targetEl){
     /* 13.08.2026 (Ralph-Addendum Punkt 2): Canonical-Werte der gebundenen Zeilen
        nachziehen — gekocht · 9 statt des rohen Default 10. Ändert nichts, solange
        der Vertrag für dieses Produkt leer ist (siehe fgCanonLaden). */
-    try{ if(id && typeof fgCanonLaden==="function"){ fgCanonLaden(id).then(function(){ try{ fgCanonAnwenden(); }catch(e){ console.error("[Canonical] anwenden:",e); } }); } }catch(e){ console.error("[Canonical] Init:", e); }
+    /* 13.08.2026 (Ralph P1/P2): BEIDE Verträge holen, dann EINMAL rendern. Nacheinander
+       zu rendern hätte die Liste zweimal aufgebaut – beim ersten Mal ohne Zusatzstoffe,
+       was aussieht, als gäbe es keine. Genau der Fehler vom 26.07. („erfasste Zusatzstoffe
+       standen dauerhaft orange"): eine asynchrone Quelle kam nach dem Zeichnen. */
+    try{ if(id && typeof fgCanonLaden==="function"){
+      Promise.all([ fgCanonLaden(id),
+                    (typeof fgZusV2Laden==="function")?fgZusV2Laden(id):Promise.resolve() ])
+        .then(function(){
+          try{ fgCanonAnwenden(); }catch(e){ console.error("[Canonical] anwenden:",e); }
+          try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){ console.error("[Bestandteile] Erstaufbau:",e); }
+          try{ fePlaus(); }catch(e){}
+        });
+    } }catch(e){ console.error("[Canonical] Init:", e); }
+    /* P3: der Referenz-Blockerstand kommt vom Server, einmal je Produkt. Danach
+       fePlaus neu — Streifen, Box und Knopf lesen ihn dann aus derselben Struktur. */
+    try{ if(id && typeof fgRefStatusLaden==="function"){ fgRefStatusLaden(id).then(function(){ try{ fePlaus(); }catch(e){} }); } }catch(e){ console.error("[Status] Init:", e); }
     try{ if(typeof feAnsichtGet==="function" && feAnsichtGet()==="vorgang") feVorgangApply(); }catch(e){}   /* 2. Ansicht „Vorgang" (Ralph): rein ADDITIVER Rahmen um denselben Editor – kein Feld, kein Speicher-Weg verändert */
   /* 05.08. (Ralph-Auftrag Erfassung): Ausgangszustand fuer den Datenschutz beim Speichern merken
      und Dirty-Verfolgung scharf schalten. Regel: Nur Bereiche schreiben, die in DIESER Sitzung
@@ -17377,7 +17573,10 @@ function feKatChange(){
      kategorieunabhaengig (Stand 05.08., 21:00), nur die Anzeige hing noch. */
   if(wc) wc.style.display="";
   var mw=document.getElementById("fe_mikroWrap"); if(mw) mw.style.display="flex";
-  try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} }); }catch(e){}
+  /* 13.08.2026 (Ralph P7 + P13): Titel je Kategorie/Unterkategorie. bezugLaden() muss
+     davor stehen — feWirkAnsicht rechnet die %NRV aus den Bezugswerten. */
+  try{ bezugLaden().then(function(){ try{ feWirkFarbeAll(); }catch(e){} try{ feWirkAnsicht(); }catch(e){} }); }catch(e){}
+  try{ feWirkAnsicht(); }catch(e){ console.error("[Wirkstoff-Ansicht]", e); }
   try{ ladeWirkDB(); }catch(e){}   /* Auswahlliste in jeder Kategorie - die Funktion cached (window._wirkDBGeladen) */
   try{ fgFotoPlatzieren(); }catch(e){}
   try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}
@@ -17389,15 +17588,23 @@ function feKatChange(){
    Produktkarte den Dosis-Kreis + die zwei Balken (Tagesbedarf/EFSA-Grenze). */
 function feWirkRow(w){ w=w||{};
   var opt=WIRK_EINHEITEN.map(function(u){ return '<option'+(String(w.einheit||"mg")===u?' selected':'')+'>'+u+'</option>'; }).join("");
-  return '<div class="feWirkRow" style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;margin-bottom:6px;align-items:center">'
+  /* 13.08.2026 (Ralph P12): Der BEZUG reist an der Zeile mit. cb_produkt_wirkstoffe_setzen
+     schreibt die Liste neu und setzt `Bezug` auf NULL, wenn das Feld fehlt — ohne dieses
+     data-Attribut würde ein Speichern die acht `pro_liter` von P73614 stillschweigend
+     löschen. Genau die Sorte Verlust, die man erst Wochen später bemerkt. */
+  var _bez=String(w.bezug||"").trim();
+  /* %NRV wird neu gerechnet, sobald Stoff, Menge oder Einheit sich ändern (Ralph P9). */
+  var _neu=";try{feWirkNrvRow(this.closest('.feWirkRow'), feIstMineralwasser())}catch(e){}";
+  return '<div class="feWirkRow" data-bezug="'+esc(_bez)+'" style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px 6px;margin-bottom:6px;align-items:center">'
     +'<div class="fwNameCell" style="position:relative;min-width:0">'
-      +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{feWirkFarbeRow(this)}catch(e){};try{fePlaus()}catch(e){}" placeholder="z. B. Vitamin C" style="padding:6px 22px 6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
+      +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{feWirkFarbeRow(this)}catch(e){};try{fePlaus()}catch(e){}'+_neu+'" placeholder="z. B. Vitamin C" style="padding:6px 22px 6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
       +'<span class="fwHerk" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:12px;line-height:1;pointer-events:none;color:var(--muted)"></span>'
     +'</div>'
-    +'<input class="fwMenge" type="number" step="any" value="'+esc(w.menge==null?"":String(w.menge))+'" oninput="try{fePlaus()}catch(e){}" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
-    +'<select class="fwEinheit" style="padding:6px 4px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'+opt+'</select>'
+    +'<input class="fwMenge" type="number" step="any" value="'+esc(w.menge==null?"":String(w.menge))+'" oninput="try{fePlaus()}catch(e){}'+_neu+'" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
+    +'<select class="fwEinheit" onchange="try{feWirkFarbeRow(this)}catch(e){}'+_neu+'" style="padding:6px 4px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'+opt+'</select>'
     +'<input class="fwNrv" type="number" step="any" value="'+esc(w.nrv==null?"":String(w.nrv))+'" oninput="try{feWirkFarbeRow(this)}catch(e){}" placeholder="%" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
     +'<button type="button" onclick="feWirkDel(this)" title="entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:7px;width:26px;height:28px;cursor:pointer;flex:0 0 auto">✕</button>'
+    +'<div class="fwNote" style="grid-column:1/-1;font-size:11px;color:var(--muted);line-height:1.4;margin-top:-3px"></div>'
     +'</div>';
 }
 /* ===== WIRKSTOFF-AMPEL: RECHNET JETZT SELBST (Ralph-Go 27.07.2026) ========================
@@ -17532,14 +17739,30 @@ function feWirkAdd(w){ var c=document.getElementById("fe_wirkRows"); if(!c) retu
 }
 function feWirkDel(btn){ var r=btn&&btn.closest?btn.closest(".feWirkRow"):null; if(r){ r.remove(); if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty.wirk=true; } try{fePlaus()}catch(e){} }
 function feWirkCollect(){ var out=[];
+  var wasser=(typeof feIstMineralwasser==="function")&&feIstMineralwasser();
   [].forEach.call(document.querySelectorAll("#fe_wirkRows .feWirkRow"),function(r){
     var nm=((r.querySelector(".fwName")||{}).value||"").trim();
     var mgRaw=((r.querySelector(".fwMenge")||{}).value||"").trim();
     if(!nm||mgRaw==="") return;
-    var nrvRaw=((r.querySelector(".fwNrv")||{}).value||"").trim();
-    out.push({ naehrstoff:nm, menge:Number(mgRaw.replace(",",".")),
+    var nrvEl=r.querySelector(".fwNrv");
+    var nrvRaw=((nrvEl||{}).value||"").trim();
+    /* 🔴 BERECHNETE PROZENTE WERDEN NICHT GESPEICHERT (13.08.2026, bewusste Abweichung).
+       Ralphs P9 verlangt „automatisch berechnen" und „readonly kennzeichnen" — er sagt
+       nichts über das Speichern. Ein berechneter Wert in Produkt_Naehrstoffe wäre eine
+       ZWEITE Kopie des NRV aus cb_bezugswerte (§4.2) und würde veralten, sobald dort
+       ein Rechtsakt nachgezogen wird. Gespeichert wird deshalb nur ein HANDWERT vom
+       Etikett. Die Anzeige rechnet jedes Mal neu — das ist billiger als eine falsche
+       Zahl in 8 Zeilen je Wasser. Widerspricht Ralph, wird die Zeile umgestellt. */
+    var berechnet=(nrvEl&&nrvEl.getAttribute("data-berechnet")==="1");
+    var o={ naehrstoff:nm, menge:Number(mgRaw.replace(",",".")),
       einheit:((r.querySelector(".fwEinheit")||{}).value||"mg"),
-      nrv:(nrvRaw===""?null:Number(nrvRaw.replace(",","."))) });
+      nrv:((berechnet||nrvRaw==="")?null:Number(nrvRaw.replace(",","."))) };
+    /* P12: den Bezug der Zeile zurückschreiben. Fehlt er und ist das Produkt ein
+       Mineralwasser, gilt der erklärte Bezug des Produkts – geraten wird er nicht:
+       „pro Liter" steht als Untertitel über der Karte und ist damit Ralphs Angabe. */
+    var bez=String(r.getAttribute("data-bezug")||"").trim() || (wasser?"pro_liter":"");
+    if(bez) o.bezug=bez;
+    out.push(o);
   });
   return out;
 }
@@ -17552,7 +17775,160 @@ function feWirkLoad(liste, none){
   c.innerHTML=(Array.isArray(liste)?liste:[]).map(function(w){ return feWirkRow(w); }).join("");
   var n=document.getElementById("fe_wirk_none"); if(n){ n.checked=!!none; feWirkNoneToggle(!!none); }
   try{ feWirkFarbeAll(); }catch(e){}
+  try{ feWirkAnsicht(); }catch(e){ console.error("[Wirkstoff-Ansicht] laden:", e); }
 }
+/* ===========================================================================
+   MINERALSTOFFANALYSE + AUTOMATISCHE %NRV  (Ralph-Auftrag 13.08.2026, P6–P11)
+
+   ERKANNT WIRD ÜBER DIE UNTERKATEGORIE, NICHT ÜBER DEN NAMEN (P6).
+   Gemessen 13.08.: P73614 „Abenstaler Quelle naturell" trägt Kategorie
+   `Getränk` + Unterkategorie `Mineralwasser`, und Produkt_Naehrstoffe führt
+   alle 8 Zeilen mit `Bezug='pro_liter'`. Ein Produktname wäre geraten (§1.1);
+   ein Feld, das der Erfasser gesetzt hat, ist ein Beleg.
+
+   Verglichen wird auf ENTHÄLT „mineralwasser" nach Kleinschreibung — das Feld
+   ist ein Freitext, und „Natürliches Mineralwasser" ist dasselbe Produkt.
+   Groß-/Kleinschreibung zu vereinheitlichen ist erlaubt, ein Wortstamm-Rateweg
+   wäre es nicht (§3.5).
+
+   DIE PROZENTE KOMMEN AUS cb_bezugswerte(), NICHT AUS DEM CODE (P9).
+   Im Code steht keine einzige NRV-Zahl. Gerechnet wird Menge / NRV × 100, und
+   zwar nur, wenn der Stoff dort einen Eintrag der Art `tagesbedarf` hat — das
+   ist der EU-NRV aus VO (EU) 1169/2011 Anhang XIII.
+
+   DREI FÄLLE, und die Trennung ist der ganze Punkt:
+     1. EU-NRV vorhanden  → %NRV berechnet, Feld schreibgeschützt („berechnet")
+     2. nur EFSA-Wert     → KEIN %NRV. Natrium hat 2.000 mg als EFSA-DRV, aber
+                            keinen EU-NRV. Das als „%NRV" auszugeben wäre eine
+                            falsche Rechtsgrundlage (§3.2). Angezeigt wird der
+                            Prozentwert ausdrücklich „der EFSA-Zufuhrempfehlung".
+     3. gar kein Wert     → „kein EU-NRV", grau, kein Rot. Sulfat, Nitrat und
+                            Hydrogencarbonat sind seit heute in Wirkstoff_Map
+                            bekannt (gemessen über cb_bezugswerte().muster) und
+                            damit KEINE unbekannten Stoffe mehr — sie haben nur
+                            keinen Referenzwert. Das ist eine Grenze, kein Mangel.
+
+   EIN HANDWERT WIRD NIE ÜBERSCHRIEBEN (§5.4). Steht im Feld schon ein Prozent
+   vom Etikett, bleibt er stehen und behält den Vorrang — dieselbe Reihenfolge,
+   nach der feWirkFarbe seit dem 27.07. färbt.
+   =========================================================================== */
+function feIstMineralwasser(){
+  var u=((document.getElementById("fe_ukat")||{}).value||"").trim().toLowerCase();
+  return u.indexOf("mineralwasser")>=0;
+}
+/* 0,04 statt 0 %. Eine Zahl auf null zu runden behauptet „nicht enthalten"
+   (Ralph P8: „Nicht auf 0 % wegrunden"). */
+function feNrvText(pct){
+  if(pct==null||!isFinite(pct)) return "";
+  if(pct>0 && pct<0.01) return "< 0,01";
+  var s=(pct<1)?pct.toFixed(2):pct.toFixed(1);
+  s=s.replace(/(\.\d*?)0+$/,"$1").replace(/\.$/,"");
+  return s.replace(".",",");
+}
+/* Eine Zeile: %NRV rechnen, Feld sperren, Notenzeile darunter setzen. */
+function feWirkNrvRow(r, wasser){
+  if(!r||!r.querySelector) return;
+  var nameEl=r.querySelector(".fwName"), mgEl=r.querySelector(".fwMenge"),
+      ehEl=r.querySelector(".fwEinheit"), nrvEl=r.querySelector(".fwNrv"),
+      note=r.querySelector(".fwNote");
+  if(!nameEl||!nrvEl) return;
+  var nm=String(nameEl.value||"").trim();
+  var eh=ehEl?String(ehEl.value||"mg"):"mg";
+  var mengeRoh=mgEl?String(mgEl.value||"").trim():"";
+  var einheitTxt=wasser?(eh+"/l"):eh;
+
+  /* Handwert vom Etikett: unangetastet lassen, nur die Sperre wieder aufheben. */
+  var berechnet=(nrvEl.getAttribute("data-berechnet")==="1");
+  var handWert=(!berechnet && String(nrvEl.value||"").trim()!=="");
+  if(handWert){
+    nrvEl.readOnly=false; nrvEl.style.background="";
+    nrvEl.title="%NRV vom Etikett – von Hand eingetragen, hat Vorrang vor der Rechnung.";
+    if(note) note.innerHTML=(mengeRoh?esc(mengeRoh.replace(".",","))+" "+esc(einheitTxt)+" · ":"")
+      +'<span style="color:var(--muted)">%NRV laut Etikett</span>';
+    return;
+  }
+
+  var stoff=(typeof bezugNaehrstoff==="function")?bezugNaehrstoff(nm):null;
+  var eintrag=(stoff && window._bezug)?window._bezug.werte[stoff]:null;
+  var mg=(typeof bezugInMg==="function")?bezugInMg(mengeRoh.replace(",","."), eh, stoff):null;
+
+  var setz=function(wert, tip, notizHtml){
+    nrvEl.value=(wert==null?"":wert);
+    nrvEl.setAttribute("data-berechnet", wert==null?"":"1");
+    nrvEl.readOnly=true;
+    nrvEl.style.background="var(--k-f6f8f7,#f6f8f7)";
+    nrvEl.title=tip;
+    if(note) note.innerHTML=notizHtml;
+  };
+  var kopf=(mengeRoh!=="")?(esc(mengeRoh.replace(".",","))+" "+esc(einheitTxt)+" · "):"";
+
+  if(!eintrag){
+    setz(null, "Für „"+nm+"“ gibt es keinen EU-Referenzwert. Es wird bewusst nichts gerechnet.",
+      kopf+'<span style="color:var(--muted)">kein EU-NRV</span>');
+    return;
+  }
+  if(eintrag.tagesbedarf){
+    var b=eintrag.tagesbedarf;
+    var bmg=(typeof bezugInMg==="function")?bezugInMg(b.wert, b.einheit, stoff):null;
+    if(mg==null||bmg==null||!(bmg>0)){
+      setz(null, "Menge oder Bezugswert nicht umrechenbar – deshalb kein Prozentwert.",
+        kopf+'<span style="color:var(--muted)">%NRV nicht berechenbar</span>');
+      return;
+    }
+    var pct=mg/bmg*100, txt=feNrvText(pct);
+    setz(txt,
+      "Berechnet: "+mengeRoh+" "+eh+" von "+b.wert+" "+b.einheit+" ("+(b.quelle||"")+"). Kein Etikettwert.",
+      kopf+'<span style="color:var(--muted)">'+esc(txt)+' % NRV · berechnet aus '
+        +esc(String(b.wert))+' '+esc(String(b.einheit))+' ('+esc(String(b.quelle||""))+')</span>');
+    return;
+  }
+  /* Kein EU-NRV, aber eine belegte Empfehlung (Natrium: EFSA-DRV 2.000 mg).
+     Ausdrücklich NICHT als %NRV ausgeben (Ralph P10). */
+  var s=eintrag.zufuhrempfehlung||eintrag.aussage_schwelle;
+  var smg=(s&&typeof bezugInMg==="function")?bezugInMg(s.wert, s.einheit, stoff):null;
+  var anteil=(mg!=null&&smg!=null&&smg>0)?feNrvText(mg/smg*100):null;
+  setz(null,
+    "Für „"+stoff+"“ gibt es keinen EU-NRV. Belegt ist "+s.wert+" "+s.einheit+" ("+(s.quelle||"")+").",
+    kopf+'<span style="color:var(--muted)">kein EU-NRV · '+esc(String(s.quelle||"Referenz"))+': '
+      +esc(String(s.wert))+' '+esc(String(s.einheit))+'/Tag'
+      +(anteil?' · '+esc(anteil)+' % der Zufuhrempfehlung':'')+'</span>');
+}
+function feWirkNrvAlle(){
+  var wasser=feIstMineralwasser();
+  [].forEach.call(document.querySelectorAll("#fe_wirkRows .feWirkRow"), function(r){ feWirkNrvRow(r, wasser); });
+}
+/* Titel, Untertitel und Spaltenkopf je Kategorie/Unterkategorie + %NRV neu rechnen. */
+function feWirkAnsicht(){
+  var wasser=feIstMineralwasser();
+  var kat=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
+  var t=document.getElementById("fe_wirkTitel"),
+      tz=document.getElementById("fe_wirkTitelZusatz"),
+      h=document.getElementById("fe_wirkHinweis"),
+      ke=document.getElementById("fe_wirkKopfEinheit");
+  if(wasser){
+    if(t)  t.textContent="Mineralstoffanalyse";
+    if(tz) tz.textContent="";
+    if(ke) ke.textContent="Einheit";
+    if(h)  h.innerHTML='Angaben <b>laut Etikett pro Liter</b>. Gespeichert wird die Einheit fachlich als '
+      +'<code>mg</code> mit dem Bezug <code>pro_liter</code> – angezeigt als <b>mg/l</b>. '
+      +'Der <b>%NRV</b> wird berechnet, wo die EU einen Referenzwert kennt; wo nicht, steht das dort.';
+  } else {
+    if(t)  t.textContent="Wirkstoffe & Dosis";
+    if(tz) tz.textContent=(kat==="supplement")?"(Nahrungsergänzung – für den Dosis-Check)":"(Mengen laut Etikett)";
+    if(ke) ke.textContent="Einheit";
+    if(h)  h.innerHTML='Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). '
+      +'Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. '
+      +'Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.';
+  }
+  /* Der Index-Kasten links: bei Supplement heißt er Dosis-Check (Ralph P13) – er zeigt
+     dort auch keinen Index, sondern den Wirkstoff-Donut. */
+  var it=document.getElementById("fe_indexTitel"), iz=document.getElementById("fe_indexTitelZusatz");
+  if(it) it.textContent=(kat==="supplement")?"Dosis-Check":"Root Index";
+  if(iz) iz.textContent=(kat==="supplement")?"(Wirkstoffe in wirksamer Menge)":"(live berechnet)";
+  try{ feWirkNrvAlle(); }catch(e){ console.error("[%NRV] rechnen:", e); }
+}
+if(typeof window!=="undefined"){ window.feWirkAnsicht=feWirkAnsicht; window.feIstMineralwasser=feIstMineralwasser;
+  window.feWirkNrvAlle=feWirkNrvAlle; window.feWirkNrvRow=feWirkNrvRow; window.feNrvText=feNrvText; }
 /* ===== HERKUNFTSMARKE JE WIRKSTOFFZEILE (Ralph-Go 10.08.2026, Weg A) ======================
    Zeigt an, ob ein Naehrstoff ueber eine ISOLIERTE ZUTAT zugesetzt wurde oder aus den
    Lebensmittelzutaten stammt. Anlass: P1809 LaVita - 21 von 24 Wirkstoffen sind zugesetzt,
@@ -18446,6 +18822,26 @@ function feFluxWidget(v){
   setTimeout(function(){ document.querySelectorAll("."+uid+"-b").forEach(function(el){ el.style.strokeDashoffset=el.getAttribute("data-ziel"); }); }, 60);
   return svg;
 }
+/* ===========================================================================
+   🔴 SCHWARZE SEGMENTE — URSACHE GEMESSEN, NICHT VERMUTET (13.08.2026, Ralph P13)
+
+   Die vier Ringfarben `--ri-gruen · --ri-gelb · --ri-grau · --ri-track` stehen
+   AUSSCHLIESSLICH in `index.html` (Zeile 327 hell, Zeile 579 dunkel).
+   `admin.html` kennt sie nicht. Ein SVG-`stroke="var(--x)"` ohne Ersatzwert ist
+   dann eine ungültige Angabe — und SVG fällt auf seinen Vorgabewert zurück:
+   SCHWARZ. Genau die Segmente, die Ralph im Editor sieht.
+
+   Deshalb bekommt jeder var()-Aufruf hier seinen Ersatzwert, wie es der Rest
+   der Datei bei `var(--k-166534,#166534)` längst tut. Bewusst NICHT gewählt:
+   die vier Variablen in `ui.css` zu wiederholen — `ui.css` wird NACH dem
+   `<style>`-Block von `index.html` geladen und würde dort die DUNKLE Fassung
+   überschreiben. Ein Ersatzwert greift nur, wo die Variable fehlt; eine zweite
+   Definition hätte eine funktionierende Stelle kaputtgemacht (§4.2).
+
+   Die Ersatzwerte sind die HELLEN aus index.html:327 — Admin läuft hell.
+   =========================================================================== */
+var RI_GRUEN="var(--ri-gruen,#4d7c3a)", RI_GELB="var(--ri-gelb,#e8920c)",
+    RI_GRAU ="var(--ri-grau,#c9c4bb)",  RI_TRACK="var(--ri-track,#f0ece3)";
 /* Supplement-Donut „Wirkstoffe in wirksamer Menge" (X von Y) – dieselbe Anzeige wie in der
    Produktansicht (suppKarteFill). Supplements bekommen KEINEN Lebensmittel-Index; im Editor
    steht deshalb dieser Donut statt des Flux-Rings. Daten: a.bilanz aus cb_supplement_karte. */
@@ -18453,12 +18849,15 @@ function feSuppBilanzDonut(bil){
   var g=Number(bil.gesamt)||0, wk=Number(bil.wirksam)||0, zg=Number(bil.zu_gering)||0, kr=Number(bil.kein_ref)||0;
   if(g<=0) return "";
   var CX=60,CY=60,RO=52,RI=41,GAP=(g>1?6:0),SEG=360/g,ring="";
+  /* Der REST-Ring in Hell liegt unter den Segmenten: ohne ihn wäre die Lücke bei
+     g>1 der Seitenhintergrund und bei einem Teilkreis gar nichts (Ralph: „hell = Rest"). */
+  ring='<circle cx="60" cy="60" r="46.5" fill="none" stroke="'+RI_TRACK+'" stroke-width="11"/>';
   if(g===1){
-    var c1=(wk>0)?"var(--ri-gruen)":((zg>0)?"var(--ri-gelb)":"var(--ri-grau)");
-    ring='<circle cx="60" cy="60" r="46.5" fill="none" stroke="'+c1+'" stroke-width="11"/>';
+    var c1=(wk>0)?RI_GRUEN:((zg>0)?RI_GELB:RI_GRAU);
+    ring+='<circle cx="60" cy="60" r="46.5" fill="none" stroke="'+c1+'" stroke-width="11"/>';
   } else {
     for(var i=0;i<g;i++){
-      var col=(i<wk)?"var(--ri-gruen)":((i<wk+zg)?"var(--ri-gelb)":"var(--ri-grau)");
+      var col=(i<wk)?RI_GRUEN:((i<wk+zg)?RI_GELB:RI_GRAU);
       var a0=(-90+i*SEG+GAP/2)*Math.PI/180, a1=(-90+(i+1)*SEG-GAP/2)*Math.PI/180, lg=(SEG-GAP)>180?1:0;
       ring+='<path d="M'+(CX+RO*Math.cos(a0)).toFixed(2)+' '+(CY+RO*Math.sin(a0)).toFixed(2)
         +' A'+RO+' '+RO+' 0 '+lg+' 1 '+(CX+RO*Math.cos(a1)).toFixed(2)+' '+(CY+RO*Math.sin(a1)).toFixed(2)
@@ -18467,8 +18866,8 @@ function feSuppBilanzDonut(bil){
         +' Z" fill="'+col+'"/>';
     }
   }
-  var xtra=""; if(zg>0) xtra+='<br><span style="color:var(--ri-gelb)">■</span> '+zg+' zu gering dosiert';
-  if(kr>0) xtra+='<br><span style="color:var(--ri-grau)">■</span> '+kr+' ohne offiziellen Referenzwert';
+  var xtra=""; if(zg>0) xtra+='<br><span style="color:'+RI_GELB+'">■</span> '+zg+' zu gering dosiert';
+  if(kr>0) xtra+='<br><span style="color:'+RI_GRAU+'">■</span> '+kr+' ohne offiziellen Referenzwert';
   return '<div style="display:flex;align-items:center;gap:15px">'
     +'<div style="position:relative;width:104px;height:104px;flex:0 0 auto">'
       +'<svg viewBox="0 0 120 120" style="width:100%;height:100%;display:block">'+ring+'</svg>'
@@ -18479,7 +18878,7 @@ function feSuppBilanzDonut(bil){
     +'</div>'
     +'<div style="flex:1;min-width:0">'
       +'<div style="font-size:13px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:6px">Wirkstoffe in wirksamer Menge</div>'
-      +'<div style="font-size:11px;color:var(--muted);line-height:1.6"><span style="color:var(--ri-gruen)">■</span> '+wk+' mit belegtem EU-Nutzen (≥ 15 % Tagesbedarf)'+xtra+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);line-height:1.6"><span style="color:'+RI_GRUEN+'">■</span> '+wk+' mit belegtem EU-Nutzen (≥ 15 % Tagesbedarf)'+xtra+'</div>'
     +'</div>'
   +'</div>';
 }
@@ -18792,7 +19191,30 @@ function fePlaus(){
         var _zUngR=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")) && !_zusIstLeer(z.name); });
         if(_zUngR.length) h += no(_zUngR.length+" Zusatzstoff(e) noch nicht eingestuft → kein Index ("+esc(_zUngR.map(function(z){return z.name+(z.e?(" "+z.e):"");}).slice(0,3).join(", "))+(_zUngR.length>3?" …":"")+")");
       }catch(e){}
-      rg.innerHTML=h;
+      /* 🔴 13.08.2026 (Ralph P2/P5/P6): Die Box zeigte alle Bedingungen dauerhaft —
+         zehn Zeilen, in denen der eine rote Punkt unterging. Jetzt: Kopf, dann NUR
+         die offenen Punkte, dann Hinweise grau, dann die vollständige alte Liste
+         im Aufklappbereich. `h` ist unverändert und wird nicht gelöscht (§17, P19).
+         Rot bekommt ausschließlich, was die Freigabe wirklich verhindert (P6). */
+      try{
+        var S=getErfassungsStatus();
+        var K=S.freigabe_moeglich
+          ? '<div style="display:flex;align-items:center;gap:7px;padding:6px 2px 8px"><span style="width:9px;height:9px;border-radius:50%;background:var(--k-16a34a,#16a34a);flex:0 0 auto"></span>'
+            +'<b style="font-size:13px;color:var(--k-166534,#166534)">Freigabe möglich</b>'
+            +'<span style="font-size:11.5px;color:var(--muted)">Alle Pflichtprüfungen bestanden</span></div>'
+          : '<div style="display:flex;align-items:center;gap:7px;padding:6px 2px 4px"><span style="width:9px;height:9px;border-radius:50%;background:var(--k-dc2626,#dc2626);flex:0 0 auto"></span>'
+            +'<b style="font-size:13px;color:var(--k-b91c1c,#b91c1c)">Freigabe blockiert · '+S.freigabe_gruende.length+' Punkt'+(S.freigabe_gruende.length===1?'':'e')+'</b></div>'
+            +'<div style="padding:0 2px 8px;font-size:12px;line-height:1.6;color:var(--k-b91c1c,#b91c1c)">'
+            +S.freigabe_gruende.map(function(g){ return '• <b>'+esc(g.t)+'</b>'+(g.d?'<br><span style="color:var(--muted);font-size:11.5px;padding-left:11px">'+esc(g.d)+'</span>':''); }).join('<br>')
+            +'</div>';
+        if(S.hinweise.length){
+          K+='<div style="padding:0 2px 8px;font-size:11.5px;line-height:1.55;color:var(--muted)">'
+            +S.hinweise.map(function(x){ return '· '+esc(x.t); }).join('<br>')
+            +'<br><span style="font-size:10.5px">Diese Punkte blockieren die Freigabe nicht.</span></div>';
+        }
+        K+='<details><summary style="cursor:pointer;font-size:11.5px;color:var(--muted);padding:3px 2px">Alle Bedingungen im Einzelnen</summary><div style="margin-top:5px">'+h+'</div></details>';
+        rg.innerHTML=K;
+      }catch(e){ console.error("[Freigabe-Box]", e); rg.innerHTML=h; }
     }
     /* ===== Punkte-Leiste rechts (Ralph 24.07.): dieselben Freigabe-Punkte als Farbcode.
        NUR Darstellung – keine geänderte Freigabe-Regel. g grün=erfüllt · y gelb=offen, kein
@@ -18818,13 +19240,191 @@ function fePlaus(){
       if(_istSupp){ if(_wCount>0) _pi('g',_wCount+' Wirkstoff-Menge(n) für Dosis-Check'); else if(_wNone) _pi('x','Wirkstoff-Mengen','bewusst ohne'); else _pi('r','Wirkstoff-Mengen fehlen','für den Dosis-Check'); }
       try{ var _abw2=_fgAbweichungRef(); if(_abw2 && _abw2.length) _pi('y',_abw2.length+' Zutat(en) laut Etikett offen','Freigabe nur mit Bestätigung'); }catch(e){}
       try{ var _zu2=(window._fgZus||[]).filter(function(z){ return !/^(neutral|keine|unbedenklich|abgewertet|kritisch)$/i.test(String(z.einst||"")) && !_zusIstLeer(z.name); }); if(_zu2.length) _pi('y',_zu2.length+' Zusatzstoff(e) nicht eingestuft','→ kein Index: '+_zu2.map(function(z){return z.name;}).slice(0,3).join(", ")); }catch(e){}
-      feFreigabeLeiste(_it, fehlt.length>0);
+      /* 🔴 13.08.2026 (Ralph, P1–P3+P15): AB HIER GIBT ES GENAU EINE STATUSQUELLE.
+         fePlaus rechnet weiter wie bisher — es legt sein Ergebnis nur zusätzlich
+         als Rohdaten ab. Gesamtstreifen, Freigabe-Box und Freigabeknopf lesen
+         danach dieselbe Struktur (getErfassungsStatus) statt jeweils selbst zu
+         rechnen. Keine neue fachliche Bewertung, nur ein Ort (§4.2). */
+      window._fgStatusRoh={
+        kat:_kat, istSupp:_istSupp, istSalz:_istSalz, istKeinScore:_istKeinScore,
+        nwFehlt:_nwFehltListe.slice(), fehlt:fehlt.slice(),
+        zMit:zMit.length, zOhneNote:zOhneNote, zOhneStamm:zOhneStamm,
+        quelleTyp:qt, eanWert:_eanV, eanStatus:_eanSt,
+        dosisLeer:_dosisLeer, wCount:_wCount, wNone:_wNone,
+        punkte:_it.slice()
+      };
+      feFreigabeLeiste(_it, _fgBlockiert());
     }catch(e){}
   }
   try{ feReqBorders(); }catch(e){}
   try{ if(typeof feScorePreview==="function") feScorePreview(); }catch(e){}
   try{ if(typeof feVorgangSync==="function") feVorgangSync(); }catch(e){}   /* Vorgangs-Ansicht (falls aktiv): Phasenleiste + Ampel live mitziehen */
+  /* P1: der Gesamtstreifen zieht bei jeder Neuberechnung mit — er liest nur,
+     er rechnet nicht (§4.2). Steht bewusst am Ende: _fgStatusRoh muss stehen. */
+  try{ feStatusStreifen(); }catch(e){ console.error("[Gesamtstatus]", e); }
 }
+
+/* ===========================================================================
+   getErfassungsStatus() — DIE EINE STATUSSTRUKTUR (Ralph-Auftrag 13.08.2026)
+
+   Sie BEWERTET NICHTS. Sie führt zusammen, was schon da ist:
+     · fePlaus  → window._fgStatusRoh (Kategorie, Nährwert-Positivliste, Zutaten,
+                  Quelle, EAN, Supplement-Sonderfälle)
+     · cb_referenz_pruefung_status(pid) → window._fgRefStatus (blocker, gruende)
+     · cb_admin_produkt_zutaten(pid)    → window._fgCanon (Bestandteile)
+     · window._fgSaveState              → Speicherzustand
+
+   🔴 GEMESSENE UI-vs-SERVER-WIDERSPRÜCHE (Ralph-Auftrag Punkt 9), aus dem
+   Rumpf von produkt_pruefen_freigeben gelesen — nicht vermutet:
+
+   (a) Das Frontend blockierte über `fehlt.length>0`, also bei JEDEM offenen
+       Punkt. Der Server prüft im Normalzweig aber nur: Admin-Recht · Kategorie ·
+       cb_referenz_freigabe_guard · cb_dublette_verdacht · Scores.Score_vollstaendig.
+       „Zutat(en) ohne Bewertung" und „Zutat(en) nicht im Stamm" prüft er NICHT
+       einzeln — sie wirken nur mittelbar über Score_vollstaendig.
+   (b) ✅ ERLEDIGT 13.08.2026 18:17 (ChatGPT, Migration
+       `manual_release_requires_product_source`). Der Befund von gestern lautete:
+       „Quelle_Typ ist im Normalzweig kein Riegel". Er ist überholt — es gibt
+       jetzt EINEN Riegel `cb_quelle_belegt(v_quelle)` VOR allen drei Zweigen.
+       Das Frontend behandelt Quelle deshalb wieder als echten Blocker.
+       Der Satz bleibt als Beleg stehen, nicht als offene Aufgabe (§28.5).
+   (c) Umgekehrt fehlte im Frontend der Riegel, den der Server WIRKLICH hat:
+       cb_referenz_freigabe_guard. Er wirft, sobald
+       pruefzeilen_gueltig > 0 UND blocker > 0. Gemessen: P1198 „Pizza Diavola"
+       hat blocker=4 — das Frontend hätte den Knopf trotzdem freigegeben, wenn
+       sonst alles grün war, und der Server hätte erst beim Klick abgelehnt.
+
+   Beide Richtungen werden hier NICHT lokal repariert, sondern abgebildet:
+   Serverriegel sperren (rot), frontendeigene Zusatzwünsche werden zu Hinweisen
+   (gelb). Der Befund ist an ChatGPT gemeldet (§31.2).
+   =========================================================================== */
+function getErfassungsStatus(){
+  var roh=window._fgStatusRoh||null;
+  var ref=window._fgRefStatus||null;
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  var S={
+    produkt_id:pid,
+    gespeichert:(window._fgSaveState||(pid?"saved":"neu")),
+    quelle_ok:null, naehrwerte_ok:null,
+    bestandteile_gesamt:0, bestandteile_offen:0,
+    referenz_blocker:0, referenz_gruende:[],
+    freigabe_moeglich:false, freigabe_gruende:[], hinweise:[],
+    bekannt:!!roh
+  };
+  if(!roh) return S;
+  /* --- Quelle: Feld gefüllt. Ob sie die Freigabe SPERRT, hängt vom Zweig ab (b). */
+  S.quelle_ok=!!roh.quelleTyp;
+  /* --- Nährwerte: die Positivliste aus fePlaus, nicht neu gezählt. */
+  S.naehrwerte_ok=(roh.istSupp||roh.istSalz||roh.istKeinScore)?null:(roh.nwFehlt.length===0);
+  /* --- Bestandteile: gebundene Zeilen aus dem Admin-Vertrag, sonst die Maske. */
+  var canon=Array.isArray(window._fgCanon)?window._fgCanon:null;
+  S.bestandteile_gesamt=canon?canon.length:roh.zMit;
+  S.bestandteile_offen=(roh.zOhneStamm!=null?roh.zOhneStamm:0)+(roh.zOhneNote||0);
+  /* --- Referenz: AUSSCHLIESSLICH der Serverwert (Ralph Punkt 3). Nicht
+         pruefung_abschliessbar, nicht „unentschieden" — nur `blocker`. */
+  if(ref){
+    S.referenz_blocker=Number(ref.blocker||0)||0;
+    S.referenz_gueltige_zeilen=Number(ref.pruefzeilen_gueltig||0)||0;
+    S.referenz_gruende=Array.isArray(ref.gruende)?ref.gruende.slice():[];
+  }
+  /* --- Was die Freigabe WIRKLICH verhindert (Serverbedingungen, in der
+         Reihenfolge, in der produkt_pruefen_freigeben sie prüft). */
+  var G=[];
+  if(!roh.kat) G.push({t:"Kategorie fehlt", d:"Pflichtfeld – der Server bricht hier zuerst ab."});
+  if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0){
+    G.push({t:S.referenz_blocker+" blockierende Befunde am Etikett",
+            d:(S.referenz_gruende[0]||"cb_referenz_freigabe_guard sperrt.")});
+  }
+  if(window._feDub && window._feDub.freigabe_blockiert) G.push({t:"Namenszwilling ungeklärt", d:"Im Editor bestätigen, dass es ein eigenes Produkt ist."});
+  if(roh.istSupp){
+    if(roh.wCount===0 && !roh.wNone && roh.zMit===0) G.push({t:"Supplement ohne Inhalt", d:"Weder Wirkstoffe noch Zutaten."});
+    else if(roh.wCount===0 && !roh.wNone) G.push({t:"Wirkstoff-Mengen fehlen", d:"Dosis-Check kann nichts anzeigen – oder Haken „keine Mengen auf dem Etikett\" setzen."});
+    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", d:"Bei Supplements verlangt der Server ihn."});
+  } else if(roh.istKeinScore || roh.istSalz){
+    if(roh.zMit===0) G.push({t:"mindestens eine Zutat nötig", d:"Kategorie ohne Lebensmittel-Index."});
+    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", d:"In dieser Kategorie verlangt der Server ihn."});
+  } else {
+    if(S.naehrwerte_ok===false) G.push({t:"Nährwerte unvollständig", d:roh.nwFehlt.join(", ")});
+    if(roh.zMit===0) G.push({t:"keine Zutat erfasst", d:"Ohne Zutaten ist der Score nicht vollständig."});
+    /* 🔴 13.08.2026, KORREKTUR DES GESTRIGEN BEFUNDS (b) — und meines eigenen von heute.
+       Gestern stand hier: „Quelle_Typ ist im Normalzweig kein Riegel". Das galt bis
+       13.08. 18:17. Migration `manual_release_requires_product_source` hat einen
+       EINHEITLICHEN Riegel VOR alle drei Zweige gesetzt:
+         if not public.cb_quelle_belegt(v_quelle) then raise ...
+       Er prüft nicht „Feld gefüllt", sondern „steht in Quellen_Stamm mit
+       Fuer_Produkte" — eine Positivliste (§3.3), keine Leerprüfung.
+
+       Ich habe das heute ZWEIMAL falsch gemessen: einmal per Textsuche über die ganze
+       Funktion („Quelle_Typ kommt vor" — zu grob), einmal per Ausschnitt auf den
+       Normalzweig („kein Riegel" — zu eng, der Riegel steht davor). Derselbe Fehlertyp
+       wie am 11.08. bei `left(inhalt,150)`: ein Werkzeug mit unvollständiger Sicht
+       antwortet trotzdem (§31.2). Festgehalten, damit der Irrtum nicht wiederkehrt
+       (§28.5).
+
+       Das Frontend ist damit NICHT strenger als der Server, sondern gleich streng.
+       Die Auswahlliste kommt bereits aus cb_quellen_typen und kennt nur zulässige
+       Typen — ein gefülltes Feld ist hier also auch ein belegtes (§22). */
+    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", d:"Seit 13.08. verlangt der Server ihn in JEDER Kategorie (cb_quelle_belegt)."});
+  }
+  S.freigabe_gruende=G;
+  S.freigabe_moeglich=(G.length===0);
+  /* --- Hinweise: wahr, aber KEIN Riegel. */
+  var H=[];
+  if(roh.zOhneNote>0) H.push({t:roh.zOhneNote+" Zutat(en) unbewertet", d:"Wirkt mittelbar über den Score."});
+  if(roh.zOhneStamm>0) H.push({t:roh.zOhneStamm+" Zutat(en) nicht im Stamm", d:"Werden beim Speichern nicht gebunden."});
+  if(!roh.eanWert && roh.eanStatus!=="kein_barcode") H.push({t:"EAN offen", d:"Blockiert die Freigabe nicht."});
+  if(roh.dosisLeer) H.push({t:"Verzehrempfehlung fehlt", d:"Blockiert nicht, fehlt aber für den Dosis-Check."});
+  S.hinweise=H;
+  return S;
+}
+function _fgBlockiert(){ try{ var S=getErfassungsStatus(); return S.bekannt?!S.freigabe_moeglich:true; }catch(e){ return true; } }
+/* Referenzstatus vom Server holen — eine Quelle, ein Aufruf (Ralph Punkt 3). */
+async function fgRefStatusLaden(pid){
+  window._fgRefStatus=null;
+  if(!pid) return;
+  try{
+    var r=await client.rpc("cb_referenz_pruefung_status",{p_produkt_id:pid});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    window._fgRefStatus=d||null;
+  }catch(e){ console.error("[Status] cb_referenz_pruefung_status:", e); }
+}
+/* ---- Der Gesamtstreifen oben ------------------------------------------------ */
+function _stChip(txt, art, sub){
+  var F={ok:["var(--k-dcfce7,#dcfce7)","var(--k-166534,#166534)"],
+          rot:["var(--k-fee2e2,#fee2e2)","var(--k-b91c1c,#b91c1c)"],
+          gelb:["var(--k-fef3c7,#fef3c7)","var(--k-92400e,#92400e)"],
+          blau:["var(--k-dbeafe,#dbeafe)","var(--k-1d4ed8,#1d4ed8)"],
+          grau:["var(--k-eef1f4,#eef1f4)","var(--muted)"]}[art]||["var(--k-eef1f4,#eef1f4)","var(--muted)"];
+  return '<span title="'+esc(sub||"")+'" style="display:inline-flex;align-items:baseline;gap:5px;padding:3px 9px;border-radius:999px;background:'+F[0]+';color:'+F[1]+';font-size:11.5px;font-weight:700;white-space:nowrap">'+esc(txt)+'</span>';
+}
+function feStatusStreifen(){
+  var box=document.getElementById("fe_gesamtstatus"); if(!box) return;
+  var S=getErfassungsStatus();
+  if(!S.bekannt){ box.innerHTML=""; return; }
+  var C=[];
+  var sp={neu:["noch nicht gespeichert","grau"],saving:["Speichert …","blau"],
+          saved:["Gespeichert ✓","ok"],error:["Speichern fehlgeschlagen","rot"]}[S.gespeichert]||["Gespeichert ✓","ok"];
+  C.push(_stChip(sp[0], sp[1]));
+  C.push(_stChip("Quelle "+(S.quelle_ok?"✓":"offen"), S.quelle_ok?"ok":"gelb", S.quelle_ok?"":"Quelle-Typ im Editor setzen"));
+  C.push(S.naehrwerte_ok===null ? _stChip("Nährwerte nicht nötig","grau","Kategorie ohne Lebensmittel-Index")
+        : _stChip("Nährwerte "+(S.naehrwerte_ok?"✓":"unvollständig"), S.naehrwerte_ok?"ok":"rot",
+                  S.naehrwerte_ok?"":(window._fgStatusRoh&&window._fgStatusRoh.nwFehlt.join(", "))||""));
+  var ges=S.bestandteile_gesamt, off=S.bestandteile_offen;
+  C.push(_stChip("Bestandteile "+(ges-off)+"/"+ges+(off?"":" ✓"), off?"gelb":"ok",
+                 off?(off+" offen"):"alle gebunden"));
+  if(S.referenz_blocker>0) C.push(_stChip(S.referenz_blocker+" Blocker am Etikett","rot",S.referenz_gruende.join(" · ")));
+  C.push(S.freigabe_moeglich ? _stChip("Freigabe möglich","ok")
+        : _stChip("Freigabe blockiert · "+S.freigabe_gruende.length+" Punkt"+(S.freigabe_gruende.length===1?"":"e"),"rot",
+                  S.freigabe_gruende.map(function(g){return g.t;}).join(" · ")));
+  box.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:10px">'
+    +C.join("")
+    +(S.freigabe_moeglich?"":'<span style="flex:1 1 100%;font-size:11.5px;color:var(--k-b91c1c,#b91c1c);padding-top:3px;line-height:1.5">'
+        +S.freigabe_gruende.map(function(g){ return '• <b>'+esc(g.t)+'</b>'+(g.d?' – '+esc(g.d):''); }).join('<br>')+'</span>')
+    +'</div>';
+}
+if(typeof window!=="undefined"){ window.getErfassungsStatus=getErfassungsStatus;
+  window.feStatusStreifen=feStatusStreifen; window.fgRefStatusLaden=fgRefStatusLaden; window._fgBlockiert=_fgBlockiert; }
 
 /* ===== Freigabe als feste Punkte-Leiste rechts (Ralph 24.07.2026) ==========================
    Ersetzt die lange Zeile unten durch eine schmale Leiste am rechten Rand (mitscrollend, fix).
@@ -19100,7 +19700,16 @@ function feFreigabeLeiste(items, blocked){
            von hier. Der Zustand steht aber schon im disabled-Attribut, das diese
            Funktion ohnehin setzt - ui.css liest ihn per #frgGoTop:disabled. Keine
            zweite Zustandsquelle, keine Klasse noetig. Verhalten unveraendert. */
-        if(blocked){ gt.disabled=true; gt.title='Noch '+rot+' Punkt'+(rot>1?'e':'')+' offen – Klartext im Streifen links'; gt.onclick=null; }
+        /* P15, 13.08.2026: Grund und Zahl kommen aus derselben Struktur wie Streifen
+           und Box — vorher zählte der Knopf seine eigenen roten Punkte (§4.2). */
+        var _S=null; try{ _S=getErfassungsStatus(); }catch(e){}
+        var _n=(_S&&_S.bekannt)?_S.freigabe_gruende.length:rot;
+        if(blocked){
+          gt.disabled=true;
+          gt.title='Freigabe blockiert: '+_n+' offene'+(_n===1?'r Befund':' Punkte')
+            +((_S&&_S.freigabe_gruende.length)?('\n• '+_S.freigabe_gruende.map(function(g){return g.t;}).join('\n• ')):'');
+          gt.onclick=null;
+        }
         else { gt.disabled=false; gt.title='Speichern & freigeben'; gt.onclick=function(){ try{fgEditSave(true)}catch(e){} }; }
       }
     }
@@ -19122,8 +19731,15 @@ function feFreigabeLeiste(items, blocked){
   pill.textContent=blocked?(rot+' Blocker'):('bereit'+(gelb?' · '+gelb+' gelb':''));
   pill.style.background=blocked?'#fcf3e3':'#e7f4ec'; pill.style.color=blocked?'#92400e':'#1f5e34';
   var go=document.getElementById('frgGo');
-  if(blocked){ go.disabled=true; go.style.background='#c7d2cc'; go.style.cursor='not-allowed'; go.textContent='Freigabe erst, wenn die roten Punkte erledigt sind'; go.onclick=null; }
-  else { go.disabled=false; go.style.background='#2e9e57'; go.style.cursor='pointer'; go.innerHTML='✓ Speichern &amp; freigeben'; go.onclick=function(){ try{fgEditSave(true)}catch(e){} }; }
+  if(blocked){
+    var _S2=null; try{ _S2=getErfassungsStatus(); }catch(e){}
+    var _n2=(_S2&&_S2.bekannt)?_S2.freigabe_gruende.length:rot;
+    go.disabled=true; go.style.background='#c7d2cc'; go.style.cursor='not-allowed';
+    go.textContent='Freigabe blockiert: '+_n2+' offene'+(_n2===1?'r Befund':' Punkte');
+    go.title=(_S2&&_S2.freigabe_gruende.length)?('• '+_S2.freigabe_gruende.map(function(g){return g.t+(g.d?' – '+g.d:'');}).join('\n• ')):'';
+    go.onclick=null;
+  }
+  else { go.disabled=false; go.style.background='#2e9e57'; go.style.cursor='pointer'; go.innerHTML='✓ Speichern &amp; freigeben'; go.title='Der Server prüft beim Klick alles erneut.'; go.onclick=function(){ try{fgEditSave(true)}catch(e){} }; }
   /* KEIN Auto-Aufspringen (Ralph 24.07.: „beim produkt anklicken springt die fahne auf, das sollte
      sie nicht"): Panel bleibt eingeklappt; Farbe + Pulsieren zeigen den Status auch eingeklappt,
      der Nutzer öffnet per Klick auf die Leiste. */
@@ -19605,6 +20221,11 @@ async function fgPullUsda(){
 async function fgEditSave(alsoFreigeben){
   const g=id=>document.getElementById(id);
   const msg=g("fe_msg");
+  /* P12/P14, 13.08.2026: „Gespeichert ✓" erst nach dem erfolgreichen DB-Reload.
+     Kein optimistisches Grün — genau darum steht hier 'saving' und nicht 'saved'.
+     Zurückgesetzt wird der Zustand an den drei Ausgängen weiter unten. */
+  window._fgSaveState="saving";
+  try{ feStatusStreifen(); }catch(e){}
   /* Zutaten-Abweichung darf nicht VERSEHENTLICH freigeben (Ralph 22.07.): stehen auf dem
      Etikett noch nicht übernommene Zutaten, fragt „Speichern & freigeben" ausdrücklich nach.
      Abbrechen = nur speichern (kein Freigeben). Speichern selbst bleibt immer erlaubt. */
@@ -19635,7 +20256,7 @@ async function fgEditSave(alsoFreigeben){
     return { name:nm, rating:(rt===null||isNaN(rt))?null:rt, kritisch:row.querySelector(".fgzKrit").checked?"ja":"nein" };
   }).filter(z=>z.name);
   const name=(g("fe_name").value||"").trim();
-  if(!name){ msg.style.color="var(--k-dc2626)"; msg.textContent="Titel fehlt."; return; }
+  if(!name){ window._fgSaveState="error"; try{ feStatusStreifen(); }catch(e){} msg.style.color="var(--k-dc2626)"; msg.textContent="Titel fehlt."; return; }
   const _kat=(g("fe_kat").value||"").trim();
   /* Kategorie ist Pflicht ZUR FREIGABE (nicht beim reinen Zwischenspeichern). Kein stilles
      Default-"Lebensmittel" mehr – der Admin waehlt bewusst, sonst kippen Produkte falsch einsortiert rein. */
@@ -19715,7 +20336,7 @@ async function fgEditSave(alsoFreigeben){
   if(_qt) payload.quelle_typ=_qt;
   if(window._fgEdit&&window._fgEdit.id) payload.produkt_id=window._fgEdit.id;
   const {data,error}=await client.rpc("cb_produkt_speichern",{p:payload});
-  if(error){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+error.message; return; }
+  if(error){ window._fgSaveState="error"; try{ feStatusStreifen(); }catch(e){} msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+error.message; return; }
   const pid=data&&data.produkt_id;
   if(pid){ window._fgEdit=window._fgEdit||{}; window._fgEdit.id=pid; try{ fmMikroLoad(pid); }catch(e){}
     /* 29.07. (Ralph): die frisch vergebene P-Nummer sofort im Kopf zeigen */
@@ -19847,6 +20468,11 @@ async function fgEditSave(alsoFreigeben){
     if(fr.error){
       msg.style.color="var(--k-b45309)"; msg.style.fontWeight="700";
       msg.textContent="💾 Gespeichert – aber NICHT freigegeben: "+fr.error.message;
+      /* P8, 13.08.2026: Der Server ist die Autorität. Seine Ablehnung wird WÖRTLICH
+         gezeigt und der Status danach frisch vom Server geholt — nicht aus dem
+         Gedächtnis des Browsers ergänzt. Keine Sonderfall-Reparatur im JavaScript. */
+      window._fgSaveState="saved";
+      try{ var _p=(window._fgEdit&&window._fgEdit.id); if(_p&&typeof fgRefStatusLaden==="function") fgRefStatusLaden(_p).then(function(){ try{ fePlaus(); }catch(e){} }); }catch(e){}
       try{ fePlaus(); }catch(e){}
       try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
       loadFreigabe(); return;
@@ -19882,6 +20508,7 @@ async function fgEditSave(alsoFreigeben){
       loadFreigabe(); return;
     }
   }
+  window._fgSaveState="saved"; try{ feStatusStreifen(); }catch(e){}
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"+(alsoFreigeben?" & freigegeben":"");
   try{ const aa=await fetchAlleProdukte(); if(aa) ALL=aa.map(x=>({...x, clean_score:num(x.clean_score)})); }catch(e){}
   /* Nach dem Speichern kennt der Editor jetzt die Produkt-ID. Wichtig beim reinen Speichern,
@@ -19953,6 +20580,10 @@ async function fgEditSave(alsoFreigeben){
         else { _m2.style.color="var(--k-16a34a)"; _m2.textContent="✓ gespeichert – aus der Datenbank neu geladen"; }
       }
     }catch(e){}
+    /* P12/P14: HIER — nach dem DB-Reload — und nur hier wird der Streifen grün.
+       Bei Teil-Fehlern bleibt er auf „Speichern fehlgeschlagen" (§1.7). */
+    window._fgSaveState=_fehler.length?"error":"saved";
+    try{ feStatusStreifen(); }catch(e){}
     return;
   }
   /* Nur „Speichern & freigeben" schließt das Fenster (Ralph 23.07.). Reines „Speichern"
@@ -24263,7 +24894,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-13-1015";
+const APP_BUILD = "2026-08-13-2045";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
