@@ -18044,9 +18044,34 @@ function fePlaus(){
        KEINE Pflicht mehr - exakt die Regel der DB-Freigabe von heute (P056-Fix Teil 2/3).
        Ohne geladene Liste gilt das alte Verhalten. */
     var _istKeinScore = _istSupp || _istSalz || !!(window._ksKats && window._ksKats.has(_kat.toLowerCase()));
+    /* 🔴 13.08.2026 (Ralph, P32667) — POSITIVLISTE statt Ausschlussliste (§3.3).
+       BEFUND: Die Freigabe-Karte meldete „1 Nährwert(e) fehlen", obwohl alle acht
+       Pflichtwerte gefüllt waren (gemessen in Naehrwerte_Makro: kcal 72 · Fett 0,9 ·
+       ges. 0,3 · KH 0 · Zucker 0 · Ballaststoffe 0 · Eiweiß 16 · Salz 1).
+       URSACHE: die Nährwert-Zahl wurde aus `fehlt` HERAUSGEFILTERT, statt an der
+       Quelle gezählt zu werden — ein Ausschlussfilter, der vier Namen kennt und alles
+       Unbekannte durchlässt. Der Eintrag „3 Zutat(en) nicht im Stamm …" passte auf
+       keinen der vier Namen, landete in der Nährwert-Zahl und erzeugte genau die
+       verschobene Zeile, die Ralph gesehen hat: Überschrift „1 Nährwert(e) fehlen",
+       Detailtext „3 Zutat(en) nicht im Stamm".
+       FOLGE: die Liste wird jetzt HIER geführt, wo die Nährwerte definiert sind.
+       Ein neuer Blocker-Text kann sie nicht mehr verunreinigen — er müsste dafür
+       ausdrücklich eingetragen werden (§3.3, §4.2: eine Regel, ein Ort).
+       WIDERLEGT im selben Zug: „0 könnte mit leer verwechselt werden" trifft NICHT zu.
+       gv() liefert für "0" die Zahl 0, und `0 == null` ist falsch — KH und Zucker
+       standen nie in der Fehlliste. Gemessen, nicht vermutet (§1). */
+    var _nwFehltListe=[];
     if(!_istKeinScore){
+      /* Ballaststoffe: „laut Etikett nicht angegeben" ist eine ENTSCHEIDUNG, kein Loch.
+         Ist der Haken gesetzt, ist die Pflicht erfüllt — und zwar SOFORT, nicht erst
+         nach dem Speichern: das onchange des Hakens ruft fePlaus() bereits auf, es
+         fehlte nur, dass fePlaus den Haken überhaupt kennt (Ralph 13.08.). */
+      var _bndChk=!!((document.getElementById("fe_ballast_nd")||{}).checked);
       var nwReq=[["fe_kcal","Energie"],["fe_fett","Fett"],["fe_ges_fett","ges. Fett"],["fe_kh","Kohlenhydrate"],["fe_zucker","Zucker"],["fe_protein","Eiweiß"],["fe_salz","Salz"],["fe_ballaststoffe","Ballaststoffe"]];
-      nwReq.forEach(function(r){ if(gv(r[0])==null) fehlt.push(r[1]); });
+      nwReq.forEach(function(r){
+        if(r[0]==="fe_ballaststoffe" && _bndChk) return;
+        if(gv(r[0])==null){ fehlt.push(r[1]); _nwFehltListe.push(r[1]); }
+      });
     }
     var zRows=[].slice.call(document.querySelectorAll("#fe_zutRows .fgZutRow"));
     var zMit=zRows.filter(function(row){ return ((row.querySelector(".fgzName")||{}).value||"").trim()!==""; });
@@ -18116,7 +18141,9 @@ function fePlaus(){
     if(rg){
       var ok=function(t){ return '<span class="rOk">&#10003; '+t+'</span>'; };
       var no=function(t){ return '<span class="rWarnF">&#9888; '+t+'</span>'; };
-      var nwFehlt=fehlt.filter(function(x){ return x!=="mind. 1 Zutat" && x!=="Quelle-Typ" && x!=="Kategorie" && x.indexOf("ohne Bewertung")<0 && x.indexOf("EAN")<0; });
+      /* 13.08.2026: war ein Ausschlussfilter über `fehlt` und zählte jeden fremden
+         Blocker als Nährwert mit. Jetzt die Liste von der Quelle (siehe oben). */
+      var nwFehlt=_nwFehltListe;
       var h="";
       h+= _kat ? ok("Kategorie gewählt") : no("Kategorie fehlt (Pflicht)");
       if(_istSupp) h+='<span class="rGrau">– Nährwerte (Supplement, nicht nötig)</span>';
@@ -18202,7 +18229,10 @@ function fePlaus(){
          rechtfertigt eine 0. Die Regel kommt aus der DB, hier steht nur die Anzeige. */
       try{
         var _bs=(document.getElementById("fe_ballaststoffe")||{}).value;
-        if((_bs===""||_bs==null) && !_istSupp && !_istSalz){
+        /* 13.08.2026 (Ralph): bei gesetztem Haken „laut Etikett nicht angegeben" ist die
+           Frage beantwortet — dann keine Aufforderung mehr, sie zu beantworten. */
+        var _bsND=!!((document.getElementById("fe_ballast_nd")||{}).checked);
+        if((_bs===""||_bs==null) && !_bsND && !_istSupp && !_istSalz){
           var _bp=window._feBallast;
           if(_bp && _bp.stand==="plausibel"){
             h+='<span title="'+esc(_bp.grund||"")+'" class="rWarn">&#9888; Ballaststoffe fehlen — bei dieser Warenart ist <b>0</b> belegt '
@@ -18233,7 +18263,9 @@ function fePlaus(){
        Blocker · r rot=Blocker · x hohl=nicht nötig. „blockiert" = fehlt.length>0 (wie fe_ready). */
     try{
       var _it=[]; var _pi=function(c,t,hh){ _it.push({c:c,t:t,h:hh||""}); };
-      var _nwF=fehlt.filter(function(x){ return x!=="mind. 1 Zutat" && x!=="Quelle-Typ" && x!=="Kategorie" && x.indexOf("ohne Bewertung")<0 && x.indexOf("EAN")<0; });
+      /* 13.08.2026: zweite Kopie desselben Ausschlussfilters (§4.2). Beide lesen jetzt
+         dieselbe Liste — sonst zeigen Karte und Punkte-Leiste verschiedene Zahlen. */
+      var _nwF=_nwFehltListe;
       _pi(_kat?'g':'r', _kat?'Kategorie gewählt':'Kategorie fehlt', _kat?'':'Pflichtfeld');
       if(_istSupp) _pi('x','Nährwerte','Supplement – nicht nötig');
       else if(_nwF.length) _pi('r',_nwF.length+' Nährwert(e) fehlen', _nwF.slice(0,4).join(', '));
@@ -19299,7 +19331,15 @@ async function fgEditSave(alsoFreigeben){
         var _zTxt=_zUng.map(function(z){ return z.name+(z.e?(" "+z.e):""); }).join(", ");
         msg.innerHTML="💾 Gespeichert – aber noch KEIN Index. Grund: <b>"+_zUng.length+" Zusatzstoff(e) noch nicht wissenschaftlich eingestuft</b> ("+esc(_zTxt)+"). Bis eine EFSA-/EU-Quelle vorliegt, zeigen wir bewusst keine Zahl – nichts erfinden. (Nicht die Nährwerte sind schuld.)";
       } else {
-        msg.textContent="💾 Gespeichert – aber noch KEIN Index. Siehe die Freigabe-Zeile oben; trag den fehlenden Wert ein (fehlt nur Ballaststoffe? 0 eintragen).";
+        /* 13.08.2026 (Ralph, P32667): der Ballaststoff-Nachsatz stand hier IMMER — auch
+           wenn der Haken „laut Etikett nicht angegeben" gesetzt und die 0 längst
+           eingetragen war. Ein Rat, der einen erledigten Schritt vorschlägt, liest sich
+           wie ein Fehler. Er erscheint jetzt nur noch, wenn das Feld wirklich leer und
+           der Haken nicht gesetzt ist. */
+        var _bsV=((g("fe_ballaststoffe")||{}).value||"").trim();
+        var _bsNDs=!!(g("fe_ballast_nd")&&g("fe_ballast_nd").checked);
+        msg.textContent="💾 Gespeichert – aber noch KEIN Index. Siehe die Freigabe-Zeile oben; trag den fehlenden Wert ein"
+          +((_bsV===""&&!_bsNDs)?" (fehlt nur Ballaststoffe? 0 eintragen)":"")+".";
       }
       try{ fePlaus(); }catch(e){}
       try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
@@ -23687,7 +23727,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-12-1845";
+const APP_BUILD = "2026-08-13-0530";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
