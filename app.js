@@ -14649,9 +14649,20 @@ function _fgBestZeile(z, zusListe, gebunden){
       +'<span style="color:'+b.f+'">Zusatzstoff '+esc(b.t)+'</span></span>');
   });
   var hatZus=(zusListe&&zusListe.length>0);
-  return '<label data-pz="'+esc(String(z.produkt_zutat_id||""))+'"'
+  /* 🔴 13.08.2026 (Ralph, Browserabnahme Punkt 4): GRÜN heißt hier „Bestandteil
+     vorhanden", NICHT „numerisch bewertet". Vorher bekam jede gebundene Zeile den
+     grünen Grund — auch die zehn P1025-Zeilen mit `resolved_rating = NULL`. Damit
+     sah eine bewusst offene Note aus wie eine fertig bewertete (§1.10).
+     Jetzt entscheidet die NOTE über den Grund und der Haken über die Bindung:
+       gebunden + Note  = grün   · gebunden ohne Note = neutral, kein Grund
+       nicht gebunden   = blau (fällt auf, ist ein Datenzustand) */
+  var _ohneNote=(z.resolved_rating==null);
+  var _bg = !gebunden ? ';background:var(--k-eef6ff,#eef6ff);box-shadow:inset 3px 0 0 var(--k-2f6fd6,#2f6fd6)'
+          : (_ohneNote ? '' : ';background:var(--greenlt,#eef7f0)');
+  return '<label data-pz="'+esc(String(z.produkt_zutat_id||""))+'" data-note-offen="'+(_ohneNote?"1":"0")+'"'
+    +' title="'+(_ohneNote?'Bestandteil ist erfasst, aber ohne belastbare Verarbeitungsnote – bewusst offen, keine 0':'Bestandteil erfasst und bewertet')+'"'
     +' style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:start;padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer'
-    +(gebunden?'':';background:var(--k-eef6ff,#eef6ff);box-shadow:inset 3px 0 0 var(--k-2f6fd6,#2f6fd6)')+'">'
+    +_bg+'">'
     +'<input type="checkbox" '+(gebunden?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(z.resolved_rating==null?"":z.resolved_rating)+'" data-krit="'+(z.resolved_critical?"ja":"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;margin-top:2px;accent-color:var(--k-16a34a)">'
     +'<span style="min-width:0">'
       +'<span style="display:block;font-size:13px;color:var(--ink);overflow-wrap:anywhere">'+esc(nm)
@@ -14662,6 +14673,38 @@ function _fgBestZeile(z, zusListe, gebunden){
     +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+esc(rt)+'</span>'
   +'</label>';
 }
+/* ===========================================================================
+   BESTANDTEIL-BILANZ AUS DEM VERTRAG  (Ralph, Browserabnahme 13.08. Punkt 3)
+
+   🔴 GEMESSENE URSACHE der falschen grünen Zeile „alle Wirkstoffe/Zutaten
+   bewertet" bei P1025:
+   fePlaus zählt `zOhneNote` als „Zeilen in #fe_zutRows, deren .fgzRate LEER ist".
+   Dort steht aber die LEGACY-Note aus Clean_Bewertung — und die ist gefüllt.
+   `fgCanonAnwenden` schreibt den Vertragswert nur hinein, wenn er NICHT NULL ist
+   (bewusst, §3.4: eine 0 wäre eine erfundene Note). Ergebnis: 10 Bestandteile mit
+   `resolved_rating = NULL` zeigen in der Liste ehrlich „–", während der Zähler
+   danebenliegt und „alle bewertet" meldet. Zwei Quellen, zwei Wahrheiten (§4.2).
+
+   Ab hier zählt der VERTRAG, wenn er vorliegt. Drei getrennte Aussagen, weil
+   Ralph sie getrennt braucht — sie sind wirklich drei verschiedene Dinge:
+     erfasst        = es gibt eine Zeile in Produkt_Zutaten
+     identitaet_ok  = die Zeile zeigt auf eine Canonical-Entity
+     ohne_note      = resolved_rating IS NULL (bewusst offen, KEINE 0)
+
+   ⚠ DAS ÄNDERT KEINE FREIGABEREGEL (Ralph ausdrücklich). `fehlt` und damit der
+   Freigabeknopf bleiben unverändert; korrigiert wird ausschließlich, was dasteht.
+   =========================================================================== */
+function _fgBestandteilBilanz(){
+  var rows=window._fgCanon;
+  if(!Array.isArray(rows)||!rows.length) return null;   /* kein Vertrag ⇒ alte Anzeige */
+  var b={quelle:"vertrag", gesamt:rows.length, ohne_note:0, ohne_identitaet:0};
+  rows.forEach(function(z){
+    if(z.resolved_rating==null) b.ohne_note++;
+    if(!z.canonical_entity_id) b.ohne_identitaet++;
+  });
+  return b;
+}
+if(typeof window!=="undefined"){ window._fgBestandteilBilanz=_fgBestandteilBilanz; }
 /* Rendert die gemeinsame Liste. Gibt true zurück, wenn sie gerendert hat –
    sonst übernimmt der bestehende Picker (fgPickRender), unverändert (§17). */
 function fgBestandteileRender(){
@@ -17280,7 +17323,14 @@ async function openFgEditor(id, prefill, targetEl){
           <div class="feWirkKopf"><span>Stoff</span><span class="feRe">Menge</span><span id="fe_wirkKopfEinheit">Einheit</span><span class="feRe">%NRV</span><span></span></div>
           <div id="fe_wirkRows"></div>
           <button type="button" onclick="feWirkAdd()" class="feBtnAdd">+ Wirkstoff</button>
-          <div class="feWirkLegBox">
+          ${''/* 13.08.2026 (Ralph, Browserabnahme P5/P6): Legende UND Dosis-Checkbox gehören
+                ausschließlich zum Supplement-Dosis-Check. Bei einem Mineralwasser standen dort
+                „wirksame Menge", „EU-Nutzen", „Dosis < 15 %" und „keine Wirkstoff-Mengen auf dem
+                Etikett (Dosis-Check nicht möglich)" — Sprache aus einem anderen Produkttyp.
+                Beide bekommen eine ID und werden von feWirkAnsicht() geschaltet; ein eigener
+                neutraler Kasten tritt bei Wasser an ihre Stelle. Nichts gelöscht (§17). */}
+          <div id="fe_wirkWasserHinweis" style="display:none"></div>
+          <div class="feWirkLegBox" id="fe_wirkLegBox">
             <div class="feWirkLegReihe">
               <span><span class="feAmpelGr"></span>wirksame Menge (≥ 15 % Tagesbedarf)</span>
               <span><span class="feAmpelGe"></span>EU-Nutzen, aber Dosis &lt; 15 %</span>
@@ -17288,7 +17338,7 @@ async function openFgEditor(id, prefill, targetEl){
             </div>
             <div class="feWirkLegText">Der Balken links zeigt, ob die Menge einen <b>EU-anerkannten Nutzen</b> erreicht (gesundheitsbezogene Aussage nach VO&nbsp;432/2012 ab 15 % NRV). <b>Grün heißt „wirksame Menge", nicht „gesund".</b> Aminosäuren/Pflanzenstoffe (z. B. Glycin) haben keine zugelassene Aussage → grau.</div>
           </div>
-          <label class="feWirkNone"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" >keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
+          <label class="feWirkNone" id="fe_wirkNoneLbl"><input type="checkbox" id="fe_wirk_none" onchange="feWirkNoneToggle(this.checked)" >keine Wirkstoff-Mengen auf dem Etikett (Dosis-Check nicht möglich – blockiert die Freigabe dann nicht)</label>
           <datalist id="feWirkDL">${wirkDLOptions()}</datalist>
             `)}</div>
           </div>
@@ -17554,7 +17604,17 @@ function feKatChange(){
   try{ if(typeof feBallastPruefen==="function") feBallastPruefen(); }catch(e){}
   var kat=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
   var supp=(kat==="supplement"), salz=(kat==="salze");
-  var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent=supp?"Wirkstoffe & Zutaten":"Zutaten";
+  /* 🔴 13.08.2026, Ralphs Browserabnahme Punkt 2 — GEMESSENE URSACHE:
+     Hier stand `lbl.textContent = supp ? "Wirkstoffe & Zutaten" : "Zutaten"`.
+     Die Vorlage setzt „Produktbestandteile", und diese Zeile hat sie beim ersten
+     feKatChange sofort wieder überschrieben. Ralph sah deshalb ZUTATEN, obwohl im
+     Quelltext „Produktbestandteile" steht — ein Titel an zwei Orten, und der zweite
+     gewinnt (§4.2).
+     Der Begriff „Zutaten" ist außerdem zu eng: in derselben Liste stehen jetzt
+     Wirkstoffe, Zutaten UND Zusatzstoffe. Der Titel ist ab hier kategorieunabhängig. */
+  var lbl=document.getElementById("fe_zutLabel"); if(lbl) lbl.textContent="Produktbestandteile";
+  var lblz=document.getElementById("fe_zutLabelZusatz");
+  if(lblz) lblz.textContent="(eine Zeile je Bestandteil · Zusatzstoffe integriert)";
   var ab=document.getElementById("fe_addZutBtn"); if(ab) ab.textContent=supp?"+ Wirkstoff":"+ Zutat";
   try{ feNaehrBtnSync(); }catch(e){}
   window._feDub=undefined; try{ feDubPruefen(); }catch(e){}
@@ -17602,7 +17662,19 @@ function feWirkRow(w){ w=w||{};
     +'</div>'
     +'<input class="fwMenge" type="number" step="any" value="'+esc(w.menge==null?"":String(w.menge))+'" oninput="try{fePlaus()}catch(e){}'+_neu+'" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
     +'<select class="fwEinheit" onchange="try{feWirkFarbeRow(this)}catch(e){}'+_neu+'" style="padding:6px 4px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'+opt+'</select>'
-    +'<input class="fwNrv" type="number" step="any" value="'+esc(w.nrv==null?"":String(w.nrv))+'" oninput="try{feWirkFarbeRow(this)}catch(e){}" placeholder="%" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
+    /* 🔴 13.08.2026 (Ralph, Browserabnahme Punkt 7) — GEMESSENE URSACHE:
+       Das Feld war <input type="number">. Ein solches Element VERWIRFT jeden Wert,
+       der keine gültige HTML5-Fließkommazahl ist — und das Dezimalkomma ist keine.
+       Deshalb stand bei Calcium „7" (kein Komma, gültig) und bei Magnesium 6,7 ·
+       Kalium 0,04 · Chlorid 0,16 NICHTS. Der Erklärtext darunter kommt aus einer
+       anderen Zuweisung und war die ganze Zeit richtig — das Feld daneben war leer.
+       Es hat NICHT geschwiegen, es hat still verworfen; genau die Sorte Fehler, die
+       wie „nicht berechnet" aussieht.
+       Kein Workaround durch Rundung (das hätte 0,04 zu 0 gemacht, §3.4). Stattdessen
+       ein TEXTfeld mit inputmode="decimal": es zeigt deutsche Kommazahlen und wirft
+       auf dem Handy dieselbe Zifferntastatur auf. feWirkCollect und feWirkFarbe
+       rechnen Komma bereits selbst um — sie bleiben unverändert. */
+    +'<input class="fwNrv" type="text" inputmode="decimal" value="'+esc(w.nrv==null?"":String(w.nrv).replace(".",","))+'" oninput="try{feWirkFarbeRow(this)}catch(e){}" placeholder="%" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
     +'<button type="button" onclick="feWirkDel(this)" title="entfernen" style="border:0;background:var(--k-fee2e2);color:var(--k-b91c1c);border-radius:7px;width:26px;height:28px;cursor:pointer;flex:0 0 auto">✕</button>'
     +'<div class="fwNote" style="grid-column:1/-1;font-size:11px;color:var(--muted);line-height:1.4;margin-top:-3px"></div>'
     +'</div>';
@@ -17904,14 +17976,31 @@ function feWirkAnsicht(){
   var t=document.getElementById("fe_wirkTitel"),
       tz=document.getElementById("fe_wirkTitelZusatz"),
       h=document.getElementById("fe_wirkHinweis"),
-      ke=document.getElementById("fe_wirkKopfEinheit");
+      ke=document.getElementById("fe_wirkKopfEinheit"),
+      leg=document.getElementById("fe_wirkLegBox"),
+      non=document.getElementById("fe_wirkNoneLbl"),
+      wh=document.getElementById("fe_wirkWasserHinweis");
   if(wasser){
     if(t)  t.textContent="Mineralstoffanalyse";
     if(tz) tz.textContent="";
     if(ke) ke.textContent="Einheit";
+    /* Keine Dosis-Check-Sprache: kein „Tagesdosis", kein „wirksame Menge", keine
+       „EU-Nutzen-Schwelle". Ein Wasser hat keine Verzehrempfehlung (Ralph P6).
+       „%NRV" bleibt – als reiner Vergleich zur Tagesreferenz, ausdrücklich benannt. */
     if(h)  h.innerHTML='Angaben <b>laut Etikett pro Liter</b>. Gespeichert wird die Einheit fachlich als '
-      +'<code>mg</code> mit dem Bezug <code>pro_liter</code> – angezeigt als <b>mg/l</b>. '
-      +'Der <b>%NRV</b> wird berechnet, wo die EU einen Referenzwert kennt; wo nicht, steht das dort.';
+      +'<code>mg</code> mit dem Bezug <code>pro_liter</code> – angezeigt als <b>mg/l</b>.';
+    /* 🔴 Supplement-Reste ausblenden, NICHT löschen (§17). feWirkCount und
+       feWirkNoneToggle lesen fe_wirk_none weiter; ein entferntes Element hätte den
+       Supplement-Zweig von fePlaus mitgenommen. */
+    if(leg) leg.style.display="none";
+    if(non) non.style.display="none";
+    if(wh){ wh.style.display="";
+      wh.innerHTML='<div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);line-height:1.5">'
+        +'<b>Vergleich mit dem EU-NRV; keine Verzehrempfehlung.</b> Der Prozentwert sagt, wie viel '
+        +'ein Liter zur Tagesreferenz beiträgt – er ist <b>keine Dosisempfehlung</b> und keine Aussage '
+        +'über Wirksamkeit. Stoffe ohne EU-Referenzwert (z. B. Sulfat, Nitrat, Hydrogencarbonat) '
+        +'stehen bewusst ohne Prozentwert; das ist eine Grenze der Rechtsgrundlage, kein Mangel am Produkt.</div>';
+    }
   } else {
     if(t)  t.textContent="Wirkstoffe & Dosis";
     if(tz) tz.textContent=(kat==="supplement")?"(Nahrungsergänzung – für den Dosis-Check)":"(Mengen laut Etikett)";
@@ -17919,6 +18008,9 @@ function feWirkAnsicht(){
     if(h)  h.innerHTML='Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). '
       +'Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. '
       +'Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.';
+    if(leg) leg.style.display="";
+    if(non) non.style.display="";
+    if(wh)  wh.style.display="none";
   }
   /* Der Index-Kasten links: bei Supplement heißt er Dosis-Check (Ralph P13) – er zeigt
      dort auch keinen Index, sondern den Wirkstoff-Donut. */
@@ -19085,8 +19177,23 @@ function fePlaus(){
       else if(_istSalz) h+='<span class="rGrau">– Nährwerte (Salz, nicht nötig)</span>';
       else if(_istKeinScore) h+='<span class="rGrau">– Nährwerte (Kategorie ohne Index – optional)</span>';
       else h+= nwFehlt.length ? no(nwFehlt.length+" Nährwert(e) fehlen") : ok("Nährwerte vollständig");
-      h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
-      h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
+      /* 13.08.2026 (Ralph Punkt 3+4): Liegt der Produktvertrag vor, ZÄHLT ER.
+         „erfasst" und „bewertet" sind zwei verschiedene Aussagen und stehen
+         deshalb in zwei Zeilen. Eine bewusst offene Note ist NEUTRAL, nicht rot —
+         sie ist kein Fehler, sondern ein ehrliches „noch nicht belegt" (§3.4).
+         Die Freigabe hängt an keiner der beiden Zeilen (unverändert). */
+      var _bb=(typeof _fgBestandteilBilanz==="function")?_fgBestandteilBilanz():null;
+      var neutral=function(t){ return '<span class="rGrau">– '+t+'</span>'; };
+      if(_bb){
+        h+= (_bb.gesamt===0) ? no("kein Bestandteil erfasst") : ok(_bb.gesamt+" Bestandteile erfasst");
+        h+= (_bb.ohne_note>0)
+          ? neutral(_bb.ohne_note+" ohne belastbare Verarbeitungsnote (blockiert die Freigabe nicht)")
+          : ok("alle Bestandteile mit Verarbeitungsnote");
+        if(_bb.ohne_identitaet>0) h+= neutral(_bb.ohne_identitaet+" ohne geklärte Identität – noch keiner Canonical-Zutat zugeordnet");
+      } else {
+        h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
+        h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
+      }
       /* 08.08.2026: eigene Zeile, weil es etwas anderes ist als "unbewertet". Unbewertet
          heisst "Note fehlt", hier heisst es "die Zutat gibt es im Stamm gar nicht - was
          du siehst, wird beim Speichern verschwinden". Das ist die Zeile, die bei Ralphs
@@ -19228,8 +19335,17 @@ function fePlaus(){
       if(_istSupp) _pi('x','Nährwerte','Supplement – nicht nötig');
       else if(_nwF.length) _pi('r',_nwF.length+' Nährwert(e) fehlen', _nwF.slice(0,4).join(', '));
       else _pi('g','Nährwerte vollständig');
-      _pi(zMit.length===0?'r':'g', zMit.length===0?(_istSupp?'Kein Wirkstoff/Zutat erfasst':'Keine Zutat erfasst'):(zMit.length+(_istSupp?' Wirkstoffe/Zutaten erfasst':' Zutaten erfasst')));
-      _pi(zOhneNote>0?'r':'g', zOhneNote>0?(zOhneNote+(_istSupp?' Wirkstoff(e)/Zutat(en) unbewertet':' Zutat(en) unbewertet')):(_istSupp?'alle Wirkstoffe/Zutaten bewertet':'alle Zutaten bewertet'));
+      /* 13.08.2026 (Ralph Punkt 3): dieselbe Korrektur wie in der Freigabe-Box —
+         der Vertrag zählt, und eine offene Note ist neutral ('x'), nicht rot. */
+      var _bbP=(typeof _fgBestandteilBilanz==="function")?_fgBestandteilBilanz():null;
+      if(_bbP){
+        _pi(_bbP.gesamt===0?'r':'g', _bbP.gesamt===0?'Kein Bestandteil erfasst':(_bbP.gesamt+' Bestandteile erfasst'));
+        _pi(_bbP.ohne_note>0?'x':'g', _bbP.ohne_note>0?(_bbP.ohne_note+' ohne Verarbeitungsnote'):'alle mit Verarbeitungsnote',
+            _bbP.ohne_note>0?'bewusst offen – blockiert die Freigabe nicht':'');
+      } else {
+        _pi(zMit.length===0?'r':'g', zMit.length===0?(_istSupp?'Kein Wirkstoff/Zutat erfasst':'Keine Zutat erfasst'):(zMit.length+(_istSupp?' Wirkstoffe/Zutaten erfasst':' Zutaten erfasst')));
+        _pi(zOhneNote>0?'r':'g', zOhneNote>0?(zOhneNote+(_istSupp?' Wirkstoff(e)/Zutat(en) unbewertet':' Zutat(en) unbewertet')):(_istSupp?'alle Wirkstoffe/Zutaten bewertet':'alle Zutaten bewertet'));
+      }
       if(zOhneStamm>0) _pi('r',zOhneStamm+' Zutat(en) nicht im Stamm','werden beim Speichern nicht gebunden – erst anlegen lassen');
       _pi(qt?'g':'r', qt?'Quelle belegt':'Quelle-Typ fehlt', qt?'':'Quelle-Typ im Editor setzen');
       if(_eanV) _pi('g','EAN erfasst');
@@ -19316,10 +19432,17 @@ function getErfassungsStatus(){
   S.quelle_ok=!!roh.quelleTyp;
   /* --- Nährwerte: die Positivliste aus fePlaus, nicht neu gezählt. */
   S.naehrwerte_ok=(roh.istSupp||roh.istSalz||roh.istKeinScore)?null:(roh.nwFehlt.length===0);
-  /* --- Bestandteile: gebundene Zeilen aus dem Admin-Vertrag, sonst die Maske. */
+  /* --- Bestandteile: gebundene Zeilen aus dem Admin-Vertrag, sonst die Maske.
+     🔴 13.08.2026 (Ralph Punkt 3): „offen" hieß hier `zOhneStamm + zOhneNote`.
+     Eine fehlende Verarbeitungsnote ist aber NICHT offen — sie ist bewusst NULL
+     und blockiert nichts. Sie hier mitzuzählen erzeugte genau den Widerspruch,
+     den Ralph gesehen hat. Offen ist ab jetzt: Identität ungeklärt (Vertrag) bzw.
+     nicht im Stamm (Maske) — beides heißt „die Bindung fehlt". */
   var canon=Array.isArray(window._fgCanon)?window._fgCanon:null;
+  var bb=(typeof _fgBestandteilBilanz==="function")?_fgBestandteilBilanz():null;
   S.bestandteile_gesamt=canon?canon.length:roh.zMit;
-  S.bestandteile_offen=(roh.zOhneStamm!=null?roh.zOhneStamm:0)+(roh.zOhneNote||0);
+  S.bestandteile_offen=bb?bb.ohne_identitaet:(roh.zOhneStamm||0);
+  S.bestandteile_ohne_note=bb?bb.ohne_note:(roh.zOhneNote||0);
   /* --- Referenz: AUSSCHLIESSLICH der Serverwert (Ralph Punkt 3). Nicht
          pruefung_abschliessbar, nicht „unentschieden" — nur `blocker`. */
   if(ref){
@@ -19370,7 +19493,8 @@ function getErfassungsStatus(){
   S.freigabe_moeglich=(G.length===0);
   /* --- Hinweise: wahr, aber KEIN Riegel. */
   var H=[];
-  if(roh.zOhneNote>0) H.push({t:roh.zOhneNote+" Zutat(en) unbewertet", d:"Wirkt mittelbar über den Score."});
+  if(S.bestandteile_ohne_note>0) H.push({t:S.bestandteile_ohne_note+" Bestandteil(e) ohne Verarbeitungsnote",
+    d:"Bewusst offen (NULL), keine 0. Blockiert die Freigabe nicht; wirkt nur mittelbar über den Score."});
   if(roh.zOhneStamm>0) H.push({t:roh.zOhneStamm+" Zutat(en) nicht im Stamm", d:"Werden beim Speichern nicht gebunden."});
   if(!roh.eanWert && roh.eanStatus!=="kein_barcode") H.push({t:"EAN offen", d:"Blockiert die Freigabe nicht."});
   if(roh.dosisLeer) H.push({t:"Verzehrempfehlung fehlt", d:"Blockiert nicht, fehlt aber für den Dosis-Check."});
@@ -19410,18 +19534,42 @@ function feStatusStreifen(){
   C.push(S.naehrwerte_ok===null ? _stChip("Nährwerte nicht nötig","grau","Kategorie ohne Lebensmittel-Index")
         : _stChip("Nährwerte "+(S.naehrwerte_ok?"✓":"unvollständig"), S.naehrwerte_ok?"ok":"rot",
                   S.naehrwerte_ok?"":(window._fgStatusRoh&&window._fgStatusRoh.nwFehlt.join(", "))||""));
+  /* 🔴 13.08.2026 (Ralph, Browserabnahme Punkt 8): „Bestandteile 0/0 ✓" stand
+     grün, während zwei Zeilen darunter „keine Zutat erfasst" stand. Ursache: der
+     Haken hing an `off===0`, und bei NULL Bestandteilen ist NULL auch offen —
+     „nichts zu tun" wurde als „alles erledigt" gelesen.
+     Ein Haken behauptet etwas. Bei 0 Bestandteilen wissen wir NICHT, ob keine
+     nötig sind — das steht im Serververtrag, und den gibt es für Mineralwasser
+     noch nicht (Ralph Punkt 9). Also: neutral, nicht grün. KEINE Wasser-Sonderregel
+     im JavaScript — die Anzeige sagt nur ehrlich, was sie weiß (§1.2, §3.4). */
   var ges=S.bestandteile_gesamt, off=S.bestandteile_offen;
-  C.push(_stChip("Bestandteile "+(ges-off)+"/"+ges+(off?"":" ✓"), off?"gelb":"ok",
+  if(!ges) C.push(_stChip("Bestandteile: keine erfasst","grau",
+      "Ob für diese Produktart überhaupt welche nötig sind, steht im Serververtrag – das ist hier nicht entschieden."));
+  else C.push(_stChip("Bestandteile "+(ges-off)+"/"+ges+(off?"":" ✓"), off?"gelb":"ok",
                  off?(off+" offen"):"alle gebunden"));
   if(S.referenz_blocker>0) C.push(_stChip(S.referenz_blocker+" Blocker am Etikett","rot",S.referenz_gruende.join(" · ")));
+  /* Bei GENAU EINEM Grund steht er im Chip selbst – dann braucht es darunter keinen
+     zweiten roten Satz mit demselben Wortlaut (Ralph Punkt 11). Ab zwei Gründen zählt
+     der Chip nur, und die Liste darunter ist der Inhalt. */
   C.push(S.freigabe_moeglich ? _stChip("Freigabe möglich","ok")
-        : _stChip("Freigabe blockiert · "+S.freigabe_gruende.length+" Punkt"+(S.freigabe_gruende.length===1?"":"e"),"rot",
-                  S.freigabe_gruende.map(function(g){return g.t;}).join(" · ")));
+        : (S.freigabe_gruende.length===1
+            ? _stChip("Freigabe blockiert · "+S.freigabe_gruende[0].t,"rot",S.freigabe_gruende[0].d||"")
+            : _stChip("Freigabe blockiert · "+S.freigabe_gruende.length+" Punkte","rot",
+                      S.freigabe_gruende.map(function(g){return g.t;}).join(" · "))));
+  /* 13.08.2026 (Ralph Punkt 11): Der Grund stand ZWEIMAL — als Chip-Kurztext und
+     direkt darunter noch einmal als voller roter Satz. Bei einem einzigen Grund
+     ist die zweite Zeile reine Wiederholung. Ab zwei Gründen ist die Liste der
+     eigentliche Inhalt und der Chip nur die Zahl — dann bleibt sie.
+     Sichtbar bleibt der Grund in jedem Fall, nur eben einmal. */
+  var _mehrere=(S.freigabe_gruende.length>1);
+  var _detail = (!S.freigabe_moeglich && _mehrere)
+    ? '<span style="flex:1 1 100%;font-size:11.5px;color:var(--k-b91c1c,#b91c1c);padding-top:3px;line-height:1.5">'
+      +S.freigabe_gruende.map(function(g){ return '• <b>'+esc(g.t)+'</b>'+(g.d?' – '+esc(g.d):''); }).join('<br>')+'</span>'
+    : (!S.freigabe_moeglich && S.freigabe_gruende.length===1 && S.freigabe_gruende[0].d
+        ? '<span style="flex:1 1 100%;font-size:11.5px;color:var(--muted);padding-top:3px;line-height:1.5">'+esc(S.freigabe_gruende[0].d)+'</span>'
+        : '');
   box.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:10px">'
-    +C.join("")
-    +(S.freigabe_moeglich?"":'<span style="flex:1 1 100%;font-size:11.5px;color:var(--k-b91c1c,#b91c1c);padding-top:3px;line-height:1.5">'
-        +S.freigabe_gruende.map(function(g){ return '• <b>'+esc(g.t)+'</b>'+(g.d?' – '+esc(g.d):''); }).join('<br>')+'</span>')
-    +'</div>';
+    +C.join("")+_detail+'</div>';
 }
 if(typeof window!=="undefined"){ window.getErfassungsStatus=getErfassungsStatus;
   window.feStatusStreifen=feStatusStreifen; window.fgRefStatusLaden=fgRefStatusLaden; window._fgBlockiert=_fgBlockiert; }
@@ -24894,7 +25042,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-13-2045";
+const APP_BUILD = "2026-08-13-2215";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
