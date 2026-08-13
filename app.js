@@ -17392,6 +17392,15 @@ async function openFgEditor(id, prefill, targetEl){
             <button type="button" onclick="fgPickAddNeu()" class="feBtnStamm">+ hinzufügen</button>
           </div>
           <div id="fe_zutNeuInfo"></div>
+          ${''/* 🔴 14.08.2026 — REGRESSION AUS MEINEM EIGENEN BAU VON 2045, hier behoben.
+                Mit der Zusatzstoff-Spalte ist auch der Haken „Keine Zusatzstoffe im Produkt"
+                aus der Ansicht verschwunden. Er ist die EINE Stelle, an der Ralph belegen
+                kann, dass ein Produkt keine Zusatzstoffe hat — und genau die braucht P73614,
+                um die letzte offene Score-Achse zu schließen.
+                Es wird KEIN zweiter Haken gebaut (§4.2): feZusKeineUmhaengen() verschiebt
+                das VORHANDENE Label mitsamt seiner ID und seinem onchange hierher. Ein
+                Element, ein Zustand, ein Handler — nur an einem sichtbaren Ort. */}
+          <div id="fe_zusKeineSlot"></div>
           <div id="fe_zutRows" class="feVersteckt">${(d.zutaten||[]).map(z=>fgZutRow(z.name,z.rating,z.kritisch)).join("")}</div>
           <button type="button" id="fe_addZutBtn" onclick="fgAddZutat()" class="feVersteckt">+ Zutat</button>
           <div id="fgOffBox"></div>`)}</div>${''/* 🔴 13.08.2026 (Ralph P2): DER SEPARATE ZUSATZSTOFF-KASTEN IST AUS DER ANSICHT.
@@ -17493,7 +17502,9 @@ async function openFgEditor(id, prefill, targetEl){
     try{ feWirkHerkunft((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* 10.08.: Marke „zugesetzt" je Zeile - reine Anzeige, Regel steht in cb_produkt_wirkstoff_herkunft */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
     /* Zusatzstoff-Liste (neu): Stamm laden, Auswahl aus dem gespeicherten Text ableiten, farbig rendern. */
+    try{ feZusKeineUmhaengen(); }catch(e){ console.error("[Zusatzstoffe] Haken:", e); }   /* 14.08.: sichtbar machen, siehe fe_zusKeineSlot */
     (async function(){ try{ await loadZusatzstoffeStamm(); zusSeed(d.zusatzstoffe_text||""); zusRenderSel(); zusRenderPick();
+      try{ feZusKeineUmhaengen(); }catch(e){}   /* zusRenderSel kann die Spalte neu zeichnen – dann erneut umhängen */
       /* 🔴 Die Zusatzstoffe kommen ASYNCHRON – die Referenz war da laengst gemalt (mit leerem _fgZus)
          und wurde nie aufgefrischt. Ergebnis: erfasste Zusatzstoffe standen dauerhaft orange
          „noch nicht uebernommen" und blockierten die Freigabe. Ralphs Fund 26.07. */
@@ -17629,7 +17640,14 @@ function feKatChange(){
      Nährwerte, Wirkstoffe und Bilder haben einen festen Arbeitsort. Dadurch wandern Karten beim
      Kategorienwechsel nicht mehr durchs DOM und das Layout bleibt reproduzierbar. */
   try{ feDreiReiterInit(); }catch(e){}
-  var nw=document.getElementById("fe_nwCard"); if(nw) nw.style.display="block";
+  /* 🔴 13.08.2026 (Ralph-Korrektur Punkt 4): Der Makroblock wird bei Mineralwasser
+     AUSGEBLENDET, nicht geleert. Die Felder bleiben im DOM und behalten ihren Wert —
+     fgEditSave liest sie unverändert, ein historischer Wert wird also weder beim Öffnen
+     noch beim Speichern überschrieben (§10.3: ausgeblendete Bereiche dürfen keine Daten
+     leeren). Sichtbarkeit und Erforderlichkeit, sonst nichts. */
+  var nw=document.getElementById("fe_nwCard");
+  var _nwP=(typeof feNaehrwertPflicht==="function")?feNaehrwertPflicht():{art:"lebensmittel"};
+  if(nw) nw.style.display=(_nwP.art==="mineralwasser")?"none":"block";
   var wc=document.getElementById("fe_wirkCard");
   /* 06.08.2026 (Ralph-Auftrag): Die Wirkstoff-Karte steht in JEDER Kategorie gleich.
      Vorher: nur bei Supplement/Salz oder wenn schon Eintraege da waren - dadurch war
@@ -17888,10 +17906,60 @@ function feWirkLoad(liste, none){
    vom Etikett, bleibt er stehen und behält den Vorrang — dieselbe Reihenfolge,
    nach der feWirkFarbe seit dem 27.07. färbt.
    =========================================================================== */
+/* Das vorhandene Label „Keine Zutsatzstoffe im Produkt" aus der ausgeblendeten Spalte in die
+   sichtbare Bestandteilkarte umhängen. VERSCHIEBEN, nicht nachbauen — die ID `fe_zusKeine`,
+   das onchange auf zusKeineToggle und der gelesene Zustand bleiben dieselben (§4.2, §22). */
+function feZusKeineUmhaengen(){
+  try{
+    var slot=document.getElementById("fe_zusKeineSlot");
+    var box=document.getElementById("fe_zusKeine");
+    if(!slot||!box) return;
+    var lbl=box.closest?box.closest("label"):null; if(!lbl) return;
+    if(lbl.parentNode===slot) return;                 /* schon umgehängt */
+    lbl.style.marginTop="8px";
+    lbl.title="Belegt, dass auf dem Etikett keine Zusatzstoffe stehen. Erst damit kann der Server die Zusatzstoff-Achse (15 P.) rechnen – ohne Beleg bleibt sie leer (§3.4).";
+    slot.appendChild(lbl);
+  }catch(e){ console.error("[Zusatzstoffe] Haken umhängen:", e); }
+}
+if(typeof window!=="undefined"){ window.feZusKeineUmhaengen=feZusKeineUmhaengen; }
 function feIstMineralwasser(){
   var u=((document.getElementById("fe_ukat")||{}).value||"").trim().toLowerCase();
   return u.indexOf("mineralwasser")>=0;
 }
+/* ===========================================================================
+   feNaehrwertPflicht() — DER EINE ZUSTAND „braucht dieses Produkt Makros?"
+   (Ralph-Korrektur 13.08.2026, Punkte 1 und 2)
+
+   Ralph ausdrücklich: „Nicht nur den roten Text verstecken. Alle sichtbaren
+   Statusstellen sollen denselben Zustand benutzen."
+
+   Vorher hing die Makro-Pflicht an `_istKeinScore` — einer lokalen Variablen
+   mitten in fePlaus. Wer sie woanders brauchte (Stationsbadge, Makro-Karte,
+   Gesamtstreifen), musste sie nachbauen. Genau so entstehen zwei Wahrheiten
+   (§4.2). Ab hier fragt jede Stelle DIESE Funktion.
+
+   Sie ist eine ANZEIGEregel und ersetzt keine Serverprüfung: der Server
+   entscheidet über `Score_vollstaendig` weiter selbst, und wenn er blockiert,
+   wird das gezeigt statt umgangen (§10.2, Ralph Punkt 8).
+
+   Mineralwasser: Makros sind hier keine fehlenden Daten, sondern eine falsche
+   Frage. Ein Liter Wasser hat keine Makros — „8 Nährwert(e) fehlen" behauptet
+   eine Lücke, wo keine ist (§3.4).
+   =========================================================================== */
+function feNaehrwertPflicht(){
+  var kat=((document.getElementById("fe_kat")||{}).value||"").trim();
+  var k=kat.toLowerCase();
+  var supp=(k==="supplement"), salz=(k==="salze");
+  var keinScore=!!(window._ksKats && window._ksKats.has(k));
+  if(feIstMineralwasser()) return {makros_erforderlich:false, art:"mineralwasser",
+    kurz:"Mineralstoffanalyse", grund:"Mineralwasser hat kein Makronährstoffprofil – gefragt ist die Mineralstoffanalyse pro Liter."};
+  if(supp) return {makros_erforderlich:false, art:"supplement",
+    kurz:"Wirkstoffe", grund:"Supplement – eine Kapsel hat kein Makro-Profil pro 100 g."};
+  if(salz||keinScore) return {makros_erforderlich:false, art:"kein_score",
+    kurz:"Nährwerte optional", grund:"Kategorie ohne Lebensmittel-Index – Nährwerte sind hier nicht Pflicht."};
+  return {makros_erforderlich:true, art:"lebensmittel", kurz:"Nährwerte", grund:""};
+}
+if(typeof window!=="undefined"){ window.feNaehrwertPflicht=feNaehrwertPflicht; }
 /* 0,04 statt 0 %. Eine Zahl auf null zu runden behauptet „nicht enthalten"
    (Ralph P8: „Nicht auf 0 % wegrunden"). */
 function feNrvText(pct){
@@ -17928,11 +17996,18 @@ function feWirkNrvRow(r, wasser){
   var eintrag=(stoff && window._bezug)?window._bezug.werte[stoff]:null;
   var mg=(typeof bezugInMg==="function")?bezugInMg(mengeRoh.replace(",","."), eh, stoff):null;
 
+  /* 13.08.2026 (Ralph-Korrektur Punkt 6): Ein Stoff OHNE EU-NRV bekommt „—" ins Feld,
+     nicht leer. Leer sieht aus wie „noch nicht ausgefüllt" und lädt zum Eintippen ein;
+     „—" sagt „hier gibt es nichts einzutragen".
+     `data-berechnet="1"` wird IMMER gesetzt, auch für „—": das Feld ist dann
+     maschinengesteuert, und feWirkCollect sendet für solche Zeilen `nrv:null`. Ohne das
+     Attribut würde „—" durch Number() zu NaN und als Zahl verschickt. */
   var setz=function(wert, tip, notizHtml){
-    nrvEl.value=(wert==null?"":wert);
-    nrvEl.setAttribute("data-berechnet", wert==null?"":"1");
+    nrvEl.value=(wert==null?"—":wert);
+    nrvEl.setAttribute("data-berechnet","1");
     nrvEl.readOnly=true;
     nrvEl.style.background="var(--k-f6f8f7,#f6f8f7)";
+    nrvEl.style.color=(wert==null?"var(--muted)":"");
     nrvEl.title=tip;
     if(note) note.innerHTML=notizHtml;
   };
@@ -17959,15 +18034,21 @@ function feWirkNrvRow(r, wasser){
     return;
   }
   /* Kein EU-NRV, aber eine belegte Empfehlung (Natrium: EFSA-DRV 2.000 mg).
-     Ausdrücklich NICHT als %NRV ausgeben (Ralph P10). */
+     🔴 NIEMALS als %NRV ausgeben (Ralph-Korrektur Punkt 6). Der EU-NRV steht in
+     VO (EU) 1169/2011 Anhang XIII; für Natrium gibt es dort keinen. Eine EFSA-
+     Zufuhrempfehlung ist eine wissenschaftliche Stellungnahme, kein Kennzeichnungswert
+     — beides „%NRV" zu nennen wäre eine falsche Rechtsgrundlage (§3.2).
+     Der Prozentwert wird deshalb ausdrücklich „der EFSA-Referenz" zugeschrieben. */
   var s=eintrag.zufuhrempfehlung||eintrag.aussage_schwelle;
   var smg=(s&&typeof bezugInMg==="function")?bezugInMg(s.wert, s.einheit, stoff):null;
   var anteil=(mg!=null&&smg!=null&&smg>0)?feNrvText(mg/smg*100):null;
+  var _wertTxt=String(s.wert);
+  if(Number(s.wert)>=1000) _wertTxt=Number(s.wert).toLocaleString("de-DE");
   setz(null,
-    "Für „"+stoff+"“ gibt es keinen EU-NRV. Belegt ist "+s.wert+" "+s.einheit+" ("+(s.quelle||"")+").",
-    kopf+'<span style="color:var(--muted)">kein EU-NRV · '+esc(String(s.quelle||"Referenz"))+': '
-      +esc(String(s.wert))+' '+esc(String(s.einheit))+'/Tag'
-      +(anteil?' · '+esc(anteil)+' % der Zufuhrempfehlung':'')+'</span>');
+    "Für „"+stoff+"“ gibt es KEINEN EU-NRV. Belegt ist "+_wertTxt+" "+s.einheit+" ("+(s.quelle||"")+") – das ist eine Referenz, kein Kennzeichnungswert.",
+    kopf+'<span style="color:var(--muted)"><b>kein EU-NRV</b> · EFSA-Referenz '
+      +esc(_wertTxt)+' '+esc(String(s.einheit))+'/Tag'
+      +(anteil?' · '+esc(anteil)+' % der EFSA-Referenz':'')+'</span>');
 }
 function feWirkNrvAlle(){
   var wasser=feIstMineralwasser();
@@ -18022,6 +18103,14 @@ function feWirkAnsicht(){
   if(it) it.textContent=(kat==="supplement")?"Dosis-Check":"Root Index";
   if(iz) iz.textContent=(kat==="supplement")?"(Wirkstoffe in wirksamer Menge)":"(live berechnet)";
   try{ feWirkNrvAlle(); }catch(e){ console.error("[%NRV] rechnen:", e); }
+  /* 13.08.2026 (Ralph-Korrektur Punkt 3): Die Unterkategorie entscheidet jetzt auch über
+     die Makro-Pflicht. Ohne diesen Aufruf blieben Stationsbadge, Makro-Karte und
+     Gesamtstreifen auf dem Stand von vor der Eingabe stehen — dieselbe Aussage an drei
+     Orten, zwei davon veraltet. fePlaus zieht alle drei nach (es ruft feTab1BadgeUpdate
+     und feStatusStreifen selbst). */
+  var _mk=document.getElementById("fe_nwCard");
+  if(_mk) _mk.style.display=wasser?"none":"block";
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
 if(typeof window!=="undefined"){ window.feWirkAnsicht=feWirkAnsicht; window.feIstMineralwasser=feIstMineralwasser;
   window.feWirkNrvAlle=feWirkNrvAlle; window.feWirkNrvRow=feWirkNrvRow; window.feNrvText=feNrvText; }
@@ -18623,7 +18712,44 @@ function feTab1BadgeUpdate(off, ean){
     e.textContent=(ean==='da')?'EAN \u2713':((ean==='offen')?'EAN offen':'EAN fehlt'); }
   /* Der bisherige Pflichtzähler enthält Kopf- und Nährwertpunkte. Als Gesamtstatus zusätzlich am
      Nährwertreiter zeigen, damit der Arbeitsort sichtbar bleibt, ohne Fachlogik zu duplizieren. */
-  var nb=document.getElementById('feTab2Badge'); if(nb){ var z=Number(off)||0; nb.style.display=z?'':'none'; nb.textContent=z?(z+' prüfen'):''; }
+  /* 🔴 13.08.2026 (Ralph-Korrektur Punkt 3): Die Station heißt bei einem Mineralwasser
+     nicht mehr „Nährwerte & Wirkstoffe · 8 prüfen". Der Zähler `off` enthält die
+     Makro-Pflichtfelder, und die gelten hier nicht — das Badge behauptete acht offene
+     Punkte, die es nicht gibt. Die SPRUNGMARKE bleibt dieselbe (feTabBtn2, feTabWechsel(2));
+     nur die Beschriftung folgt der Produktart, und zwar aus feNaehrwertPflicht — demselben
+     Zustand, den auch fePlaus und der Gesamtstreifen lesen (§4.2). */
+  var P=(typeof feNaehrwertPflicht==="function")?feNaehrwertPflicht():{makros_erforderlich:true,art:"lebensmittel"};
+  var t2=document.getElementById('feTabBtn2');
+  var t2txt=t2?t2.querySelector('.feStTxt'):null;
+  var nb=document.getElementById('feTab2Badge');
+  if(t2txt){
+    var _titel=(P.art==="mineralwasser")?'🧪 Mineralstoffanalyse'
+             :(P.art==="supplement")   ?'🧪 Wirkstoffe &amp; Dosis'
+             :'🧪 Nährwerte &amp; Wirkstoffe';
+    /* Badge-Element NICHT neu erzeugen – es wird gleich unten wieder befüllt und
+       hängt an einer festen ID (§10.5). Nur der Text davor wird ersetzt. */
+    var _b=nb||document.getElementById('feTab2Badge');
+    t2txt.innerHTML=_titel+' ';
+    if(_b) t2txt.appendChild(_b);
+    nb=_b;
+  }
+  if(nb){
+    if(!P.makros_erforderlich){
+      /* Kein Pflichtzähler – stattdessen, was hier wirklich zählt. Bei Mineralwasser
+         die Zahl der erfassten Mineralstoffe; sie steht in den Wirkstoffzeilen. */
+      var _n=(typeof feWirkCount==="function")?feWirkCount():0;
+      nb.style.display='';
+      nb.className='feStBadge ok';
+      nb.textContent=(P.art==="mineralwasser")?(_n?(_n+' erfasst'):'✓'):'✓';
+      nb.title=P.grund||"";
+    } else {
+      var z=Number(off)||0;
+      nb.className='feStBadge'+(z?' warn':' ok');
+      nb.style.display=z?'':'none';
+      nb.textContent=z?(z+' prüfen'):'';
+      nb.title="";
+    }
+  }
 }
 /* 07.08.2026 ONE-PAGE: Welche Station gerade dran ist, entscheidet nicht mehr der
    letzte Klick, sondern was im Bild steht. Ein Beobachter markiert die oberste
@@ -19036,6 +19162,35 @@ async function _feScoreRun(box){
     if(res.error){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Index nicht berechenbar.</div>'; return; }
     var v=res.data; if(Array.isArray(v)) v=v[0];
     if(!v){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Index nicht berechenbar.</div>'; return; }
+    /* 🔴 13.08.2026 (Ralph-Korrektur Punkt 8/9): DEN SERVERBEFUND FESTHALTEN, NICHT UMGEHEN.
+       `cb_score_vorschau` rechnet über denselben Trigger wie die echte Freigabe und schreibt
+       nichts. Ihr `vollstaendig` ist damit exakt das `Scores.Score_vollstaendig`, das
+       produkt_pruefen_freigeben im Normalzweig verlangt. Der Gesamtstreifen liest es von
+       hier — statt dass das Frontend sich eine eigene Meinung bildet (§10.2).
+       Welche Achse fehlt, steht in den drei p_*-Feldern; NULL heißt „Achse fehlt". */
+    /* 🔴 14.08.2026 — NULL HEISST NICHT IMMER „FEHLT".
+       ChatGPT hat die Wasserlogik nachgezogen: bei Unterkategorie Mineralwasser ist die
+       Makroachse serverseitig N/A, nicht lückenhaft. Gemessen an P73614: `p_naehrwert`
+       ist NULL, aber die Herleitung des Servers nennt sie NICHT —
+         „Kein Score: Es fehlt die Achse Zusatzstoffe (15 P.)."
+       Wer hier stumpf alle NULL-Achsen aufzählt, meldet drei Lücken, wo eine ist.
+
+       ⚠ VERTRAGSLÜCKE, an ChatGPT gemeldet: `cb_score_vorschau` liefert `Score_Herleitung`
+       NICHT mit. Deshalb muss das Frontend die N/A-Achse hier selbst ausnehmen — die
+       einzige Stelle in diesem Durchgang, an der eine Serveraussage nachgebildet wird.
+       Sauber wäre ein Feld `achsen_na` bzw. `herleitung` in der Vorschau; dann fällt
+       dieser Block ersatzlos weg. Bis dahin: eng gefasst und hier benannt (§4.2). */
+    var _naP=(typeof feNaehrwertPflicht==="function")?feNaehrwertPflicht():{makros_erforderlich:true};
+    window._fgScoreServer={
+      vollstaendig:(v.vollstaendig===true), status:String(v.status||""),
+      achsen_na:(_naP.makros_erforderlich?[]:["Nährwerte"]),
+      achsen_fehlend:[["Zutaten",v.p_zutaten],["Zusatzstoffe",v.p_zusatzstoffe],
+                      ["Nährwerte",v.p_naehrwert]]
+        .filter(function(a){ return a[1]==null; })
+        .map(function(a){ return a[0]; })
+        .filter(function(nm){ return !(nm==="Nährwerte" && !_naP.makros_erforderlich); })
+    };
+    try{ feStatusStreifen(); }catch(e){}
     var voll=(v.vollstaendig!==false && v.clean_score!=null);
     box.innerHTML='<div style="max-width:230px;margin:0 auto">'+feFluxWidget(v)+'</div>'
       +'<div style="text-align:center;font-size:12.5px;margin-top:2px;color:'+((typeof farbe==="function")?farbe(v.bewertung):"var(--muted)")+';font-weight:700">'+esc(v.bewertung||"")+'</div>'
@@ -19092,7 +19247,13 @@ function fePlaus(){
        gv() liefert für "0" die Zahl 0, und `0 == null` ist falsch — KH und Zucker
        standen nie in der Fehlliste. Gemessen, nicht vermutet (§1). */
     var _nwFehltListe=[];
-    if(!_istKeinScore){
+    /* 🔴 13.08.2026 (Ralph-Korrektur Punkt 1+2): die Makro-Pflicht kommt ab jetzt aus
+       feNaehrwertPflicht() — DEM einen Zustand, den auch Stationsbadge, Makro-Karte und
+       Gesamtstreifen lesen. `_istKeinScore` allein reichte nicht: Mineralwasser ist
+       KEINE Kein-Score-Kategorie (Getränk hat Kein_Score=false, gemessen), braucht aber
+       trotzdem keine Makros. Der Unterschied ist fachlich und gehört an einen Ort. */
+    var _nwPflicht=(typeof feNaehrwertPflicht==="function")?feNaehrwertPflicht():{makros_erforderlich:!_istKeinScore,art:"lebensmittel"};
+    if(_nwPflicht.makros_erforderlich){
       /* Ballaststoffe: „laut Etikett nicht angegeben" ist eine ENTSCHEIDUNG, kein Loch.
          Ist der Haken gesetzt, ist die Pflicht erfüllt — und zwar SOFORT, nicht erst
          nach dem Speichern: das onchange des Hakens ruft fePlaus() bereits auf, es
@@ -19371,6 +19532,7 @@ function fePlaus(){
          rechnen. Keine neue fachliche Bewertung, nur ein Ort (§4.2). */
       window._fgStatusRoh={
         kat:_kat, istSupp:_istSupp, istSalz:_istSalz, istKeinScore:_istKeinScore,
+        nwPflicht:_nwPflicht,
         nwFehlt:_nwFehltListe.slice(), fehlt:fehlt.slice(),
         zMit:zMit.length, zOhneNote:zOhneNote, zOhneStamm:zOhneStamm,
         quelleTyp:qt, eanWert:_eanV, eanStatus:_eanSt,
@@ -19438,8 +19600,14 @@ function getErfassungsStatus(){
   if(!roh) return S;
   /* --- Quelle: Feld gefüllt. Ob sie die Freigabe SPERRT, hängt vom Zweig ab (b). */
   S.quelle_ok=!!roh.quelleTyp;
-  /* --- Nährwerte: die Positivliste aus fePlaus, nicht neu gezählt. */
-  S.naehrwerte_ok=(roh.istSupp||roh.istSalz||roh.istKeinScore)?null:(roh.nwFehlt.length===0);
+  /* --- Nährwerte: die Positivliste aus fePlaus, nicht neu gezählt.
+     13.08.2026 (Ralph-Korrektur Punkt 2): OB Makros überhaupt Pflicht sind, sagt
+     feNaehrwertPflicht — dieselbe Funktion, die fePlaus benutzt. `null` heißt
+     „nicht erforderlich", nicht „unbekannt-und-deshalb-grün". */
+  var _P=roh.nwPflicht||{makros_erforderlich:!(roh.istSupp||roh.istSalz||roh.istKeinScore),art:"lebensmittel"};
+  S.makros_erforderlich=!!_P.makros_erforderlich;
+  S.produktart=_P.art;
+  S.naehrwerte_ok=_P.makros_erforderlich?(roh.nwFehlt.length===0):null;
   /* --- Bestandteile: gebundene Zeilen aus dem Admin-Vertrag, sonst die Maske.
      🔴 13.08.2026 (Ralph Punkt 3): „offen" hieß hier `zOhneStamm + zOhneNote`.
      Eine fehlende Verarbeitungsnote ist aber NICHT offen — sie ist bewusst NULL
@@ -19477,6 +19645,29 @@ function getErfassungsStatus(){
   } else {
     if(S.naehrwerte_ok===false) G.push({t:"Nährwerte unvollständig", d:roh.nwFehlt.join(", ")});
     if(roh.zMit===0) G.push({t:"keine Zutat erfasst", d:"Ohne Zutaten ist der Score nicht vollständig."});
+    /* 🔴 13.08.2026 (Ralph-Korrektur Punkt 8/9): Der Server verlangt im Normalzweig
+       `Scores.Score_vollstaendig`. Er kann aus einem Grund fehlen, den das Frontend gar
+       nicht kennt — bei P73614 fehlt die ZUTATEN-Achse, weil `cb_zutaten_punkte` die
+       Zeile `lower(zs."Zutat") !~ 'wasser$'` trägt und Wasser dort die einzige Zutat ist.
+       Das ist eine SCOREREGEL und wird hier NICHT umgangen (§10.2, §17). Angezeigt wird,
+       was der Server sagt, mit der Achse, die er selbst nennt. Ohne Vorschau-Antwort
+       (noch nicht gerechnet) wird nichts behauptet. */
+    var _sv=window._fgScoreServer;
+    if(_sv && _sv.vollstaendig===false && !(S.naehrwerte_ok===false && _sv.achsen_fehlend.length===1 && _sv.achsen_fehlend[0]==="Nährwerte")){
+      var _fa=_sv.achsen_fehlend||[];
+      /* 14.08.: Ist die Zusatzstoff-Achse der EINZIGE Rest, wird das auch so gesagt – samt
+         der Handlung, die sie schließt. „Score nicht vollständig" ist ein Zustand,
+         „Zusatzstoffstatus noch nicht bestätigt" ist eine Aufgabe (Ralph 14.08.). */
+      if(_fa.length===1 && _fa[0]==="Zusatzstoffe"){
+        G.push({t:"Zusatzstoffstatus noch nicht bestätigt",
+                d:"Letzte offene Score-Achse (15 P.). Entweder die Zusatzstoffe erfassen oder „Keine Zusatzstoffe im Produkt\" anhaken – ohne Beleg bleibt die Achse leer (§3.4)."});
+      } else {
+        G.push({t:"Server: Score nicht vollständig",
+                d:(_fa.length?("Es fehlt die Achse "+_fa.join(", ")+". "):"")
+                  +(_sv.achsen_na&&_sv.achsen_na.length?("Nicht anwendbar für diese Produktart: "+_sv.achsen_na.join(", ")+". "):"")
+                  +"Gemeldet von cb_score_vorschau – dieselbe Rechnung, die produkt_pruefen_freigeben prüft."});
+      }
+    }
     /* 🔴 13.08.2026, KORREKTUR DES GESTRIGEN BEFUNDS (b) — und meines eigenen von heute.
        Gestern stand hier: „Quelle_Typ ist im Normalzweig kein Riegel". Das galt bis
        13.08. 18:17. Migration `manual_release_requires_product_source` hat einen
@@ -20628,7 +20819,29 @@ async function fgEditSave(alsoFreigeben){
          gezeigt und der Status danach frisch vom Server geholt — nicht aus dem
          Gedächtnis des Browsers ergänzt. Keine Sonderfall-Reparatur im JavaScript. */
       window._fgSaveState="saved";
-      try{ var _p=(window._fgEdit&&window._fgEdit.id); if(_p&&typeof fgRefStatusLaden==="function") fgRefStatusLaden(_p).then(function(){ try{ fePlaus(); }catch(e){} }); }catch(e){}
+      /* 🔴 14.08.2026 — EIGENER FEHLER AUS DEM BAU VON HEUTE, beim Durchsehen gefunden.
+         Dieser Zweig heißt „gespeichert, aber Freigabe abgelehnt". Gespeichert IST es also,
+         und damit kann sich der Produktvertrag geändert haben — eine neue Bindung, eine
+         andere Note. Geholt wurde bisher nur der Referenzstatus; `_fgCanon` und `_fgZusV2`
+         blieben auf dem Stand VOR dem Speichern. Die neue Bestandteilliste hätte hier also
+         genau den Fehler wiederholt, für den der Knoten m_karte steht (12b): eine Karte,
+         die nach dem Speichern nicht gegen die Datenbank nachlädt.
+         Der saubere Speicherweg lädt den Editor komplett neu (openFgEditor) und war nie
+         betroffen — nur dieser Zweig und der Teilfehler-Zweig, die bewusst NICHT neu
+         aufbauen, weil sie den Editorstand halten müssen (§10.3, Foto-Lehre vom 05.08.).
+         Deshalb hier kein Neuaufbau, sondern gezielt die beiden Leseverträge. */
+      try{ var _p=(window._fgEdit&&window._fgEdit.id);
+        if(_p){
+          Promise.all([
+            (typeof fgRefStatusLaden==="function")?fgRefStatusLaden(_p):Promise.resolve(),
+            (typeof fgCanonLaden==="function")?fgCanonLaden(_p):Promise.resolve(),
+            (typeof fgZusV2Laden==="function")?fgZusV2Laden(_p):Promise.resolve()
+          ]).then(function(){
+            try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){ console.error("[Bestandteile] nach Freigabe-Ablehnung:", e); }
+            try{ fePlaus(); }catch(e){}
+          });
+        }
+      }catch(e){ console.error("[Status] nach Freigabe-Ablehnung:", e); }
       try{ fePlaus(); }catch(e){}
       try{ msg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
       loadFreigabe(); return;
@@ -25050,7 +25263,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-13-2320";
+const APP_BUILD = "2026-08-14-0210";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
