@@ -14668,7 +14668,11 @@ function _fgBestZeile(z, zusListe, gebunden){
       +'<span style="display:block;font-size:13px;color:var(--ink);overflow-wrap:anywhere">'+esc(nm)
       +(hatZus?' <span style="font-size:11px;color:var(--k-166534,#166534);background:var(--greenlt,#ecfdf5);border:1px solid var(--k-16a34a,#16a34a);border-radius:5px;padding:0 4px" title="Diese Zeile trägt einen Zusatzstoff">⚗</span>':'')
       +'</span>'
-      +'<span style="display:block;font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:1px">'+unter.join(' · ')+'</span>'
+      /* Kein leerer Unterzeilen-Platzhalter: bei P73614 „Wasser" gibt es weder eine
+         Verarbeitungsangabe (`unspecified_processing`) noch einen Zusatzstoff noch eine
+         fehlende Note – die Zeile hat schlicht nichts zu ergänzen. Ein leerer Kasten mit
+         Abstand sieht aus wie eine Information, die nicht geladen hat. */
+      +(unter.length?'<span style="display:block;font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:1px">'+unter.join(' · ')+'</span>':'')
     +'</span>'
     +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+esc(rt)+'</span>'
   +'</label>';
@@ -19185,7 +19189,11 @@ function fePlaus(){
       var _bb=(typeof _fgBestandteilBilanz==="function")?_fgBestandteilBilanz():null;
       var neutral=function(t){ return '<span class="rGrau">– '+t+'</span>'; };
       if(_bb){
-        h+= (_bb.gesamt===0) ? no("kein Bestandteil erfasst") : ok(_bb.gesamt+" Bestandteile erfasst");
+        /* 13.08.2026: Einzahl. P73614 hat seit ChatGPTs Wasser-Konsolidierung GENAU EINEN
+           Bestandteil („Wasser", Rating 10) – „1 Bestandteile erfasst" wäre die erste Zeile,
+           an der Ralph hängenbleibt, und zwar zu Recht. */
+        h+= (_bb.gesamt===0) ? no("kein Bestandteil erfasst")
+           : ok(_bb.gesamt+(_bb.gesamt===1?" Bestandteil erfasst":" Bestandteile erfasst"));
         h+= (_bb.ohne_note>0)
           ? neutral(_bb.ohne_note+" ohne belastbare Verarbeitungsnote (blockiert die Freigabe nicht)")
           : ok("alle Bestandteile mit Verarbeitungsnote");
@@ -19339,7 +19347,7 @@ function fePlaus(){
          der Vertrag zählt, und eine offene Note ist neutral ('x'), nicht rot. */
       var _bbP=(typeof _fgBestandteilBilanz==="function")?_fgBestandteilBilanz():null;
       if(_bbP){
-        _pi(_bbP.gesamt===0?'r':'g', _bbP.gesamt===0?'Kein Bestandteil erfasst':(_bbP.gesamt+' Bestandteile erfasst'));
+        _pi(_bbP.gesamt===0?'r':'g', _bbP.gesamt===0?'Kein Bestandteil erfasst':(_bbP.gesamt+(_bbP.gesamt===1?' Bestandteil erfasst':' Bestandteile erfasst')));
         _pi(_bbP.ohne_note>0?'x':'g', _bbP.ohne_note>0?(_bbP.ohne_note+' ohne Verarbeitungsnote'):'alle mit Verarbeitungsnote',
             _bbP.ohne_note>0?'bewusst offen – blockiert die Freigabe nicht':'');
       } else {
@@ -25042,7 +25050,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-13-2215";
+const APP_BUILD = "2026-08-13-2320";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
