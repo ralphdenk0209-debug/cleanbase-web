@@ -5346,9 +5346,23 @@ function peFilterGeaendert(){ try{ peStateSave(); }catch(e){} peSeite(0); }
 function peScanAnlegen(id){
   var p=(window._peRows||[]).find(function(r){ return String(r.id)===String(id); });
   if(!p){ alert('Diese Scan-Zeile ist nicht mehr in der Liste – bitte neu laden.'); return; }
+  /* 🔴 13.08.2026 (Ralph, D4 — mein Erhebungsfehler): DAS ist der Knopf, den Ralph
+     benutzt. Er stand nicht in meiner Erhebung, weil ich nach „scan" in den beiden
+     Scan-Ansichten gesucht habe und nicht in der Erfassungsliste. §2.1 verlangt
+     ALLE Aufrufer — drei gibt es: seOeffnen (Scan-Eingang), scanAnlegen
+     (Warteschlange) und peScanAnlegen (Erfassungsliste, hier). Zwei umzustellen
+     und den dritten zu übersehen heißt: der Fehler bleibt genau dort, wo gearbeitet
+     wird. Belegt am Screenshot vom 13.08.: Build 0705 lief, und oben stand weiter
+     „P-Nummer kommt beim ersten Speichern".
+     Nährwerte bleiben hier bewusst leer — daran ändert der Entwurf nichts. */
   try{
-    openFgEditor(null,{ name:p.name||'', marke:p.marke||'', ean:p.ean||'', kategorie:p.kategorie||'',
-      hinweis:'Aus dem Scan-Eingang übernommen (Barcode '+(p.ean||'—')+'). Die Angaben sind ein VORSCHLAG aus dem Scan-Zwischenspeicher – vor der Freigabe gegen das Etikett prüfen. Nährwerte sind bewusst leer.' });
+    scanEntwurfAnlegen({
+      ean:p.ean||'', name:p.name||'', marke:p.marke||'', kategorie:p.kategorie||'',
+      quelle:'Scan-Eingang · EAN '+(p.ean||'—'),
+      scanIdsFuerEan:String(p.ean||''),
+      prefill:{ name:p.name||'', marke:p.marke||'', ean:p.ean||'', kategorie:p.kategorie||'',
+        hinweis:'Aus dem Scan-Eingang übernommen (Barcode '+(p.ean||'—')+'). Die Angaben sind ein VORSCHLAG aus dem Scan-Zwischenspeicher – vor der Freigabe gegen das Etikett prüfen. Nährwerte sind bewusst leer.' }
+    });
   }catch(e){ alert('Editor-Fehler: '+(e&&e.message||e)); }
 }
 if(typeof window!=='undefined'){
@@ -8257,12 +8271,34 @@ function scanStatus(e){
    vereinbart hat. Der Leseweg „Produkt zu dieser EAN, gleich welchen Status"
    fehlt und ist als Vertragspunkt an ChatGPT notiert (§31.2).
    =========================================================================== */
-/* Eintrag_IDs der offenen Scans zu einer EAN — aus der bereits geladenen
-   Warteschlange (_scanGroups, gefüllt von loadScans). Kein neuer Leseweg. */
-function _scanIdsZuEan(ean){
+/* Eintrag_IDs der offenen Scans zu einer EAN.
+   🔴 Gemessen 13.08.2026 — KEINE der drei Scan-Listen liefert Eintrag_IDs:
+     · cb_scan_eingang  → ean · name · marke · kategorie · naehrwerte · zutaten ·
+       zusatzstoffe · fotos · treffer · score · vorhanden_als · warnungen ·
+       herkunft · erfasst_am · auto_faehig · ohne_score · score_erlaubt
+     · cb_erfassung_liste (Block "scan") → id · ean · ean_status · echte_id ·
+       erfasst · hat_zutaten · herkunft · kategorie · marke · name · ohne_score ·
+       pstatus · quelle · score · treffer · verifiziert · zu_verifizieren.
+       Das Feld `id` ist "S-<EAN>", NICHT die Eintrag_ID — nachgesehen, nicht
+       angenommen: S-4020655243009 zu EAN 4020655243009.
+   Deshalb zwei Wege, in dieser Reihenfolge: erst die schon geladene Warteschlange
+   (_scanGroups), sonst direkt die Tabelle — denselben Zugriff nutzt loadScans
+   seit jeher (Z. 8481), er ist also belegt und kein neuer Leseweg (§22).
+   Als Vertragspunkt an ChatGPT notiert (§31.2). */
+async function _scanIdsZuEan(ean){
   var k=String(ean||"").trim(); if(!k) return [];
   var g=(window._scanGroups||[]).find(function(x){ return String(x&&x.ean||"")===k; });
-  return (g&&Array.isArray(g.ids))?g.ids.slice():[];
+  if(g && Array.isArray(g.ids) && g.ids.length) return g.ids.slice();
+  try{
+    var r=await client.from("Scan_Warteschlange").select("Eintrag_ID").eq("EAN",k).eq("Status","offen");
+    if(r&&r.error) throw r.error;
+    return (r&&r.data||[]).map(function(x){ return x.Eintrag_ID; });
+  }catch(e){
+    /* Kein stiller Rückfall (§11.4): ohne IDs bleibt der Scan offen, und das
+       muss in der Konsole stehen statt als „hat schon geklappt" durchzugehen. */
+    console.error("[Scan] Eintrag_IDs zu EAN "+k+" nicht ermittelbar:", e);
+    return [];
+  }
 }
 if(typeof window!=="undefined"){ window._scanIdsZuEan=_scanIdsZuEan; }
 
@@ -8303,6 +8339,9 @@ async function scanEntwurfAnlegen(v){
   /* Scan an das Produkt hängen. NICHT löschen (§17, §3.7): der Trigger setzt den
      Status, der Eintrag bleibt mit Produkt_ID als Verweis stehen. Schlägt es fehl,
      ist der Entwurf trotzdem da — dann nur melden, nicht abbrechen. */
+  if((!v.scanIds || !v.scanIds.length) && v.scanIdsFuerEan){
+    v.scanIds=await _scanIdsZuEan(v.scanIdsFuerEan);
+  }
   if(Array.isArray(v.scanIds) && v.scanIds.length){
     try{
       var rv=await client.rpc("cb_scan_produkt_verknuepfen",{p_ids:v.scanIds, p_produkt_id:pid});
@@ -8348,7 +8387,7 @@ function seOeffnen(ean){
        verknüpfen. Deshalb über die EAN aus der Warteschlange (_scanGroups) nachsehen;
        fehlt sie, bleibt der Scan offen — angelegt wird der Entwurf trotzdem.
        Nichts wird geraten (§1). Als Vertragspunkt an ChatGPT notiert (§31.2). */
-    scanIds:_scanIdsZuEan(e.ean),
+    scanIdsFuerEan:String(e.ean||''),
     prefill:{ name:e.name||'', marke:e.marke||'', ean:String(e.ean||''), kategorie:e.kategorie||'',
       naehrwerte:nw, zutaten:zut, zusatzstoffe_text:(e.zusatzstoffe&&e.zusatzstoffe.text)||'',
       hinweis:'Aus dem Scan-Eingang. Werte gegen das Etikett prüfen; Zutaten bei Bedarf über „Zutaten aus OFF" oder Riki ergänzen.' }
@@ -23866,7 +23905,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-13-0705";
+const APP_BUILD = "2026-08-13-0745";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
