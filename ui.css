@@ -867,7 +867,17 @@ body{ --admin-oben:64px }
 #feTab3 .feBtnLilaHell{ padding:7px 10px;border:1px solid var(--k-cecbf6);border-radius:8px;background:var(--k-ffffff);color:var(--k-534ab7);font-size:12px;cursor:pointer }
 #feTab3 #rikiMsg{ font-size:12.5px;margin-top:7px;line-height:1.5 }
 #feTab3 #fe_zutSuche{ width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:8px;flex:0 0 auto }
-#feTab3 .feListKopf{ display:grid;grid-template-columns:22px 1fr 46px;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line) }
+/* 🔴 15.08.2026 BEFUND (Ralph: „die Ueberschriften ueberlagern sich"):
+   Die Kopfzeile traegt ZWEI Klassen — `feListKopf fgBestKopf`. Diese Regel hier
+   hat mit `#feTab3` eine hoehere Spezifitaet als `.fgBestKopf` und setzte deshalb
+   DREI Spalten (22px 1fr 46px), waehrend die Datenzeile FUENF hatte. Fuenf
+   <span> in drei Spalten heisst: die letzten beiden landen in Zeile 2, unter den
+   ersten. Genau das war zu sehen.
+   Das `grid-template-columns` ist hier ENTFERNT — die Spaltenzahl gehoert der
+   Tabelle, nicht ihrer Schriftformatierung. */
+#feTab3 .feListKopf{ display:grid;gap:8px;padding:0 8px 5px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--line) }
+/* Dreispaltiger Rueckfall NUR fuer die alte Pickliste ohne Fokusmodus (§17). */
+#feTab3 .feListKopf:not(.fgBestKopf){ grid-template-columns:22px 1fr 46px }
 #feTab3 .feMitte{ text-align:center }
 #feTab3 #fe_pickList{ flex:1 1 auto;min-height:110px;overflow:auto;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card) }
 #feTab3 .feNeuZeile{ display:flex;gap:6px;margin-top:6px }
@@ -1262,10 +1272,12 @@ body.peLightBg{ --bg:#e6ecf4 }
    STATUS | BESTANDTEIL | VERARBEITUNG | ZUSATZSTOFF | WERT
    Farbe traegt der Statuspunkt, nicht die Zeilenflaeche (§23).
    ============================================================================ */
-.fgBestKopf{ display:grid; grid-template-columns:44px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.3fr) 52px;
+/* Kopf und Zeile lesen DIESELBE Variable. Ein zweiter Spaltenvertrag waere
+   genau der Fehler, der gerade behoben wurde (Ralph P1). */
+.fgBestKopf{ display:grid; grid-template-columns:var(--best-spalten);
   gap:8px; font-size:10px; letter-spacing:.04em; color:var(--muted); font-weight:700;
   padding:5px 8px; border-bottom:1px solid var(--line) }
-.fgBestZeile{ display:grid; grid-template-columns:44px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.3fr) 52px;
+.fgBestZeile{ display:grid; grid-template-columns:var(--best-spalten);
   gap:8px; align-items:start; padding:7px 8px; border-bottom:1px solid var(--line);
   cursor:pointer; font-size:12.5px }
 .fgBestZeile:hover{ background:var(--k-f6f8f7,#f6f8f7) }
@@ -1287,10 +1299,12 @@ body.peLightBg{ --bg:#e6ecf4 }
 .feSchrittKurz{ display:block; font-size:11.5px; color:var(--muted); margin-top:1px }
 .feSchrittFuss{ display:flex; justify-content:space-between; align-items:center;
   gap:10px; margin-top:16px; padding-top:12px; border-top:1px solid var(--line) }
-.feSchrittBtnPrim{ background:var(--k-2f6fd6,#2f6fd6); color:#fff; border:0; border-radius:9px;
-  padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer }
-.feSchrittBtnSek{ background:transparent; color:var(--muted); border:1px solid var(--line);
-  border-radius:9px; padding:8px 14px; font-size:12.5px; cursor:pointer }
+/* 15.08. (Ralph P10): Pill-Sprache und weniger Hoehe — HIER, an der einzigen
+   Definition. Ein Nachtrag am Dateiende waere die vierte Schicht gewesen. */
+.feSchrittBtnPrim{ background:var(--k-2f6fd6,#2f6fd6); color:#fff; border:0; border-radius:999px;
+  padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer }
+.feSchrittBtnSek{ background:var(--card); color:var(--muted); border:1px solid var(--line);
+  border-radius:999px; padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer }
 .feFokusBreit{ grid-column:1/-1 !important }
 .feFokusBreit > k{ font-size:13px; font-weight:700; color:var(--ink) }
 
@@ -1364,9 +1378,10 @@ body.peLightBg{ --bg:#e6ecf4 }
    Die zweispaltige Grundvorlage von #feRahmen bleibt unveraendert; die dritte
    Spalte kommt ueber :has() dazu und faellt weg, sobald #feKontext aus ist.
    ============================================================================ */
-#feRahmen:has(> #feKontext:not([style*="display:none"])){
-  grid-template-columns:242px minmax(0,1fr) 260px;
-}
+/* 15.08. ENTFERNT (Ralph P12): tote Regel. Die Kontextspalte entsteht NUR im
+   Fokusmodus — `feKontextRender` setzt sie ausserhalb auf display:none. Diese
+   242/260-Fassung konnte deshalb nie greifen und war ein Breitenbesitzer auf
+   Vorrat. Der Fokus-Zweig steht weiter unten im Arbeitsraster. */
 #feKontext{ display:flex; flex-direction:column; gap:10px; align-self:start; position:sticky; top:12px }
 .feKtxBlock{ border:1px solid var(--line); border-radius:10px; background:var(--card); padding:10px 12px }
 .feKtxTit{ font-size:9.5px; letter-spacing:.06em; text-transform:uppercase;
@@ -1451,8 +1466,14 @@ table.feAbgTab td{ padding:7px 8px; border-bottom:1px solid var(--line); vertica
 .feSchrittKopf b{ font-size:15px }
 .feSchrittNr{ width:21px; height:21px; font-size:11px }
 .feSchrittFuss{ margin-top:14px; padding-top:10px }
-.feSchrittBtnPrim{ padding:8px 14px; font-size:12.5px; border-radius:8px }
-.feSchrittBtnSek{ padding:7px 12px; font-size:12px; border-radius:8px }
+/* 15.08. ENTFERNT (Ralph P10): der 8px-Wert von 1740 stand nach dem neuen
+   Pill-Block und gewann bei gleicher Spezifitaet ueber die Quellreihenfolge.
+   Zwei Groessen fuer denselben Knopf — dieselbe Sorte Konflikt wie bei den
+   Tabellenspalten, nur kleiner. Die Pill-Regel unten ist jetzt die einzige. */
+/* 15.08. ENTFERNT: zweiter Groessenwert aus dem Feinschliff von 1740. Er stand
+   NACH der Basisdefinition und gewann bei gleicher Spezifitaet - der Zurueck-
+   Knopf blieb deshalb eckig, waehrend Weiter schon rund war. Genau die Sorte
+   Rest, die mit `keine fuenfte Schicht` gemeint ist. */
 
 /* --- 2. Schrittleiste: ruhig, kein farbiger Block -------------------------- */
 .feFokusSt{ padding:5px 7px; border-radius:7px; border-left:2px solid transparent }
@@ -1615,7 +1636,7 @@ body.riFokus #feRahmen:has(> #feKontext:not([style*="display:none"])){
   /* Ralph P9 woertlich: `minmax(0,1fr) 380px`. Das feste 720er-Minimum von 0215
      war ein zweiter Breitenbesitzer und drueckte die Kontextspalte bei schmalen
      Fenstern aus dem Raster. */
-  grid-template-columns: var(--rail-breite) minmax(0,1fr) var(--ktx-breite);
+  grid-template-columns: var(--rail-breite) minmax(var(--mitte-min,0),1fr) var(--ktx-breite);
 }
 /* Schritt 2 Analyse — das Etikett rechts muss LESBAR sein (Ralph: 380-420). */
 body.riFokus[data-fe-schritt="analyse"] #feRahmen{ --ktx-breite:410px }
@@ -1733,8 +1754,24 @@ body.riFokus .feZurueckFokus{ display:none !important }
 .feProdFrgTxt.rot{ color:var(--k-b91c1c,#b91c1c) }
 
 /* --- Die ausgeliehene Referenzkarte fuellt den Kontextplatz ---------------- */
-.feKtxInhalt > #fe_colRef{ width:100%; min-width:0; display:flex; flex-direction:column }
-.feKtxInhalt > #fe_colRef #fe_flipWrap{ height:clamp(320px,52vh,620px) }
+/* 🔴 15.08.2026 BEFUND (Ralph P4: „nur ein flacher weisser Streifen mit Titel"):
+   URSACHE, gemessen — eine Kette aus drei Elementen, die alle ihre Hoehe vom
+   Elternteil beziehen:
+     `#fe_colRef`      hat im Kontextplatz KEINE Hoehe (im Original kam sie von
+                        `fe_gridA` mit `height:calc(100vh - X)`)
+     `#fe_flipWrap`    inline `height:100%`  → also 0
+     die Karte `cardF` inline `height:100%`  → also 0
+     `#fe_refFront`    `position:absolute; inset:0` in 0 Hoehe → unsichtbar
+   Uebrig blieb genau der Titel, den `cardF` ausserhalb der Flaeche zeichnet.
+
+   Meine Regel von 0215 (`#fe_flipWrap{ height:clamp(...) }`) konnte NIE greifen:
+   inline schlaegt jede Stylesheet-Regel. Das ist die DRITTE Stelle dieser Art an
+   einem Tag — nach dem Wirkstoffraster und den Tabellenkoepfen.
+
+   LOESUNG ohne !important: die Hoehe kommt an `#fe_colRef`. Damit hat `height:100%`
+   endlich einen Bezug, und die ganze Kette rechnet von selbst richtig. */
+.feKtxInhalt > #fe_colRef{ width:100%; min-width:0; display:flex; flex-direction:column;
+  height:clamp(340px,56vh,640px) }
 
 /* ============================================================================
    DESKTOP-FEINSCHLIFF 15.08.2026 (Ralph, Punkte 2-8, 10, 12-14)
@@ -1809,3 +1846,171 @@ body.riFokus[data-fe-schritt="eigen"] #feKopfGrid{ row-gap:10px }
 
 /* --- 12. Statusstreifen farbruhiger --------------------------------------- */
 .feStLinks > span{ font-weight:600 }
+
+/* ============================================================================
+   LAYOUTKORREKTUR 15.08.2026 (Ralph nach Live-Blick)
+
+   „Alte interne Grid-Regeln funken noch durch das neue aeussere Raster."
+   Genau so war es. Zwei Ursachen, beide an der Wurzel behoben:
+
+     1. `#feTab3 .feListKopf` setzte DREI Spalten, `.fgBestZeile` FUENF —
+        die Kopfzeile traegt beide Klassen, und der ID-Selektor gewann.
+     2. Das Wirkstoffraster stand INLINE im style-Attribut und schlug damit
+        jede Stylesheet-Regel. Inline gewinnt immer.
+
+   Ab hier haben beide Tabellen genau EINEN Spaltenvertrag, als Variable.
+   ============================================================================ */
+
+/* --- 1+2. Bestandteiltabelle: ein Vertrag, Ralphs Masse -------------------- */
+#fe_colZut{
+  --best-spalten: 56px minmax(260px,1.8fr) minmax(150px,.8fr) minmax(170px,.9fr) 84px;
+}
+/* Rueckfall fuer die alte Ansicht ohne Fokus - dort ist die Karte schmaler. */
+body:not(.riFokus) #fe_colZut{
+  --best-spalten: 44px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.3fr) 52px;
+}
+.fgBestKopf, .fgBestZeile{ width:100%; min-width:0 }
+/* Bestandteil waechst zuerst, Wert bleibt kompakt (Ralph P2). */
+.fgbName{ min-width:0; overflow-wrap:anywhere }
+.fgbWert{ white-space:nowrap }
+.fgbVerarb, .fgbZus{ min-width:0; overflow-wrap:anywhere }
+/* KORREKTUR an mir selbst (15.08.): `.fgbOrig` gibt es nicht — die Etikettzeile
+   wird als <span> mit Inline-Style erzeugt. Geregelt wird deshalb der Kindknoten,
+   nicht eine erfundene Klasse. Eine CSS-Regel auf einen nicht existierenden
+   Selektor ist kein harmloser Rest, sondern eine Behauptung, die nie greift. */
+.fgbName > span{ display:block; white-space:normal; overflow-wrap:anywhere }
+body.riFokus #fe_colZut .feListe,
+body.riFokus #fe_pickList{ min-width:0 }
+
+/* --- 5. Mineralstoff-/Wirkstofftabelle: ein Vertrag, Ralphs Masse ---------- */
+#fe_wirkCard{
+  --wirk-spalten: minmax(0,1fr) 100px 80px 90px 40px;
+}
+body:not(.riFokus) #fe_wirkCard{
+  --wirk-spalten: 1fr 70px 62px 56px 26px;
+}
+#feTab2 .feWirkKopf{ grid-template-columns:var(--wirk-spalten) }
+#feTab2 .feWirkRow .fwName,
+#feTab2 .feWirkRow .fwNameCell{ min-width:0 }
+/* Die erklaerende Zeile darunter bricht um, statt zu ueberlagern. */
+#feTab2 .feWirkRow .fwNote{ grid-column:1 / -1; white-space:normal;
+  overflow-wrap:anywhere; line-height:1.45 }
+
+/* --- 4. Schritt 2: Mitte breiter, Etikett Kontext statt Hauptinhalt -------- */
+/* Das zweispaltige `#feTab2 #feNwOben` reservierte im Fokus weiter eine
+   360px-Spalte fuer den Etikettplatz — obwohl der laengst als Reiter rechts
+   haengt. Das war der grosse Leerraum in der Mitte. */
+body.riFokus #feTab2 #feNwOben{ grid-template-columns:minmax(0,1fr) }
+body.riFokus[data-fe-schritt="analyse"] #feRahmen{
+  --ktx-breite:370px;        /* Ralph P4: 360-380 statt erzwungener 410 */
+  --mitte-min:760px;         /* Ralph P4 woertlich */
+}
+
+/* --- 3. Referenzkarte rechts vollstaendig sichtbar ------------------------- */
+/* Nur noch das, was oben nicht steht — zwei Regeln fuer dasselbe Element waeren
+   genau die Schicht, die vermieden werden soll. */
+.feKtxInhalt > #fe_colRef{ overflow:visible }
+.feKtxInhalt > #fe_colRef .feKarte,
+.feKtxInhalt > #fe_colRef > div{ width:100%; min-width:0; max-width:none }
+.feKtxInhalt > #fe_colRef #fe_enthalten{ min-width:0; overflow-wrap:anywhere }
+/* Der Kartentitel darf umbrechen statt abgeschnitten zu werden. */
+.feKtxInhalt > #fe_colRef .feKartenTitel,
+.feKtxInhalt > #fe_colRef > div > div:first-child{ white-space:normal; min-width:0 }
+
+/* --- 8. Rail schmaler, Name darf umbrechen -------------------------------- */
+body.riFokus #feRahmen{ --rail-breite:220px }   /* Ralph P8: 220, nicht unter 210 */
+.feProdTxt b{ white-space:normal; overflow-wrap:anywhere; line-height:1.3 }
+/* 11. Die P-Nummer der Rail bleibt klein - gross steht sie oben im Kopf. */
+.feProdId{ font-size:10.5px; font-weight:600; color:var(--muted) }
+
+/* --- 7. Statusstreifen: zwei benannte Gruppen ------------------------------ */
+.feStLinks{ gap:18px; align-items:flex-start }
+.feStGrp{ display:flex; flex-direction:column; gap:4px; min-width:0 }
+.feStGrpTit{ font-size:8.5px; letter-spacing:.09em; text-transform:uppercase;
+  font-weight:800; color:var(--muted); opacity:.75 }
+.feStGrpChips{ display:flex; gap:5px; flex-wrap:wrap; align-items:center }
+
+/* --- 9. Schrittueberschrift: Untertitel einzeilig -------------------------- */
+/* KORREKTUR: die Klasse heisst `feSchrittKurz`, nicht `feSchrittSub`. Gemessen
+   in `feFokusKopfFuss`, nicht geraten. */
+.feSchrittKopf .feSchrittKurz{ display:block; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; color:var(--muted); font-size:11px; margin-top:2px }
+
+/* --- 10. Weiter/Zurueck als kompakte Pills -------------------------------- */
+/* Die Knopfmasse stehen an ihrer EINEN Definition weiter oben, nicht hier.
+   Hier bleibt nur der Abstand der Leiste. */
+.feSchrittFuss{ padding-top:9px; gap:8px }
+
+/* --- 6. Tooltips duerfen nichts ueberdecken ------------------------------- */
+/* Native title-Tooltips lassen sich per CSS NICHT positionieren — das ist eine
+   Browserfunktion. Der einzige wirksame Hebel ist der AUFHAENGER: er wurde in
+   `app.js` vom ganzen <label> auf das Statuszeichen verkleinert. Damit erscheint
+   der Tooltip nur noch ueber dem Zeichen, das ihn erklaert, und nicht mehr ueber
+   Ueberschrift oder Eingabefeld. Hier steht deshalb bewusst KEINE Regel — eine
+   leere Regel haette so ausgesehen, als sei das Problem in CSS geloest worden. */
+
+/* ============================================================================
+   LETZTER DESKTOP-FEINSCHLIFF 15.08.2026 (Ralph, Punkte 1-8)
+   ============================================================================ */
+
+/* --- 1. Schritt 1: Quelle und Kopf in EINER weissen Karte ----------------- */
+/* Kein DOM-Umbau: `.feHolBox` und `#feKopfGrid` bleiben Geschwister. Die Karte
+   wandert nur nach AUSSEN auf ihren gemeinsamen Elternteil, und die beiden
+   verlieren innen ihre eigene Kartenoptik. Aus zwei Karten wird eine. */
+body.riFokus[data-fe-schritt="kopf"] #feKopfLayout{
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:14px 16px; display:flex; flex-direction:column; gap:0;
+}
+body.riFokus[data-fe-schritt="kopf"] .feHolBox{
+  background:transparent; border:0; border-radius:0; padding:0 0 12px; margin:0;
+  border-bottom:1px solid var(--line); box-shadow:none;
+}
+body.riFokus[data-fe-schritt="kopf"] #feKopfGrid{
+  background:transparent; border:0; border-radius:0; padding:12px 0 0; margin:0;
+  box-shadow:none;
+}
+/* Die Sektionsueberschrift „QUELLE" — die Kopfdaten tragen ihre Feldnamen selbst. */
+body.riFokus[data-fe-schritt="kopf"] .feHolTitel{
+  font-size:9.5px; letter-spacing:.07em; text-transform:uppercase;
+  font-weight:800; color:var(--muted); margin-bottom:8px }
+body.riFokus[data-fe-schritt="kopf"] .feHolTitelZus{ display:none }
+/* Die Fertig-Zeile ist jetzt eine Zeile, kein Kasten mehr. */
+body.riFokus[data-fe-schritt="kopf"] .feQuelleFertig{
+  border:0; padding:0; background:transparent; max-width:none }
+
+/* --- 2. Schritt 2: Mitte breiter, rechts unveraendert schmal --------------- */
+body.riFokus[data-fe-schritt="analyse"] #feRahmen{
+  --mitte-min:820px;         /* Ralph: 800-850 */
+  --ktx-breite:360px;        /* Ralph: 350-370, NICHT vergroessern */
+}
+#feTab2 .feWirkRow .fwNote{ margin-top:1px }
+#feTab2 .feWirkHinweis, #feTab2 .feKartenZusatz{ white-space:normal; line-height:1.5 }
+
+/* --- 3. Schritt 3: Kopfzeile visuell auf die Datenzeile ziehen ------------- */
+/* Der Spaltenvertrag bleibt unangetastet — nur Abstaende und Ausrichtung. */
+body.riFokus .fgBestKopf{ padding-left:0; padding-right:0; gap:inherit }
+body.riFokus .fgBestKopf, body.riFokus .fgBestZeile{ column-gap:10px }
+body.riFokus .fgBestKopf > span:first-child{ font-size:9px }
+body.riFokus .fgBestKopf > span:last-child,
+body.riFokus .fgbWert{ text-align:right }
+body.riFokus .fgBestZeile{ padding-left:0; padding-right:0 }
+
+/* --- 5. Schritt 4: gleiche Aussenkante, engerer Abstand ------------------- */
+body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feTab1,
+body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feAbgleich{
+  margin-left:0; margin-right:0; width:100% }
+body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feAbgleich{ margin-top:18px }
+
+/* --- 6. Rail kompakter ---------------------------------------------------- */
+#feRailNav{ gap:6px; padding-bottom:9px; margin-bottom:10px }
+#feRailNav #feNavPost{ padding:4px 11px !important; font-size:11.5px !important }
+#feRailNav #feNavBlaett button{ padding:3px 7px !important; font-size:10.5px !important }
+#feRailNav #feNavBlaett > span{ font-size:10.5px !important }
+#feProdKopf{ padding-bottom:10px; margin-bottom:11px }
+.feProdZeile{ margin-bottom:0 }
+.feProdStatus{ margin:7px 0 2px }
+.feProdZust{ margin-bottom:7px }
+/* Speichern und Freigeben nebeneinander statt untereinander. */
+.feProdAkt{ display:flex; gap:7px; flex-wrap:wrap; align-items:center }
+.feProdSave, .feProdFrei{ margin-top:0 }
+.feProdId{ font-size:10px }

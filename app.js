@@ -14722,10 +14722,13 @@ function _fgBestZeile(z, zusListe, gebunden){
     var _stZ=!gebunden ? ['○','var(--k-2f6fd6,#2f6fd6)','nicht gebunden – zählt noch nicht zum Produkt']
            : (z.resolved_rating==null ? ['●','var(--muted)','erfasst · noch keine belastbare Verarbeitungsnote']
                                       : ['✓','var(--k-16a34a,#16a34a)','erfasst und bewertet']);
-    return '<label class="fgBestZeile" data-pz="'+esc(String(z.produkt_zutat_id||""))+'" data-note-offen="'+((z.resolved_rating==null)?"1":"0")+'"'
-      +' title="'+esc(_stZ[2])+'">'
+    /* 🔴 15.08. (Ralph P6): Der Tooltip hing am GANZEN <label> und erschien deshalb
+       ueberall, wo die Maus gerade stand — auch mitten ueber Ueberschrift und
+       Eingabe. Er gehoert an das Statuszeichen, das ihn erklaert. Kein neuer
+       Tooltip, nur ein kleinerer Aufhaenger. */
+    return '<label class="fgBestZeile" data-pz="'+esc(String(z.produkt_zutat_id||""))+'" data-note-offen="'+((z.resolved_rating==null)?"1":"0")+'">'
       +'<span class="fgbSt"><input type="checkbox" '+(gebunden?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(z.resolved_rating==null?"":z.resolved_rating)+'" data-krit="'+(z.resolved_critical?"ja":"nein")+'" onchange="fgPickToggle(this)">'
-        +'<span class="fgbIco" style="color:'+_stZ[1]+'">'+_stZ[0]+'</span></span>'
+        +'<span class="fgbIco" style="color:'+_stZ[1]+'" title="'+esc(_stZ[2])+'">'+_stZ[0]+'</span></span>'
       +'<span class="fgbName">'+esc(nm)+_origHtml+'</span>'
       +'<span class="fgbVerarb">'+_mod2+'</span>'
       +'<span class="fgbZus">'+_zus2+'</span>'
@@ -17861,7 +17864,13 @@ function feWirkRow(w){ w=w||{};
   var _bez=String(w.bezug||"").trim();
   /* %NRV wird neu gerechnet, sobald Stoff, Menge oder Einheit sich ändern (Ralph P9). */
   var _neu=";try{feWirkNrvRow(this.closest('.feWirkRow'), feIstMineralwasser())}catch(e){}";
-  return '<div class="feWirkRow" data-bezug="'+esc(_bez)+'" style="display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px 6px;margin-bottom:6px;align-items:center">'
+  /* 🔴 15.08.2026 BEFUND (Ralph: „alte interne Grid-Regeln funken durch"):
+     Dieses Raster stand INLINE im style-Attribut und schlug damit JEDE Regel des
+     Stylesheets — auch die Kopfzeile, die ihr eigenes `#feTab2 .feWirkKopf` hat.
+     Inline gewinnt immer; das ist kein Spezifitaetsstreit, den man gewinnen kann.
+     Jetzt zeigt die Zeile auf `--wirk-spalten`. Kopfzeile und Datenzeile lesen
+     dieselbe Variable — EIN Spaltenvertrag, an einem Ort (§4.2). */
+  return '<div class="feWirkRow" data-bezug="'+esc(_bez)+'" style="display:grid;grid-template-columns:var(--wirk-spalten,1fr 70px 62px 56px 26px);gap:6px 6px;margin-bottom:6px;align-items:center">'
     +'<div class="fwNameCell" style="position:relative;min-width:0">'
       +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{feWirkFarbeRow(this)}catch(e){};try{fePlaus()}catch(e){}'+_neu+'" placeholder="z. B. Vitamin C" style="padding:6px 22px 6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
       +'<span class="fwHerk" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:12px;line-height:1;pointer-events:none;color:var(--muted)"></span>'
@@ -19659,6 +19668,14 @@ function feFokusStand(s){
        jemand hinsieht. FERTIG ist dieser Schritt erst, wenn das Produkt WIRKLICH freigegeben
        ist; das steht im Produktstatus und kommt vom Server, nicht aus einer Klickhistorie.
        Der Freigabe-Guard bleibt unangetastet — hier wird nur anders beschriftet. */
+    /* ⚠ TOTER ZWEIG seit 0215, beim Testen am 15.08. gefunden: den Schritt
+       `freigabe` gibt es nicht mehr (Freigabe ist eine Aktion in der Rail).
+       `feFokusStand` wird ausschliesslich fuer Eintraege aus FE_SCHRITTE
+       gerufen — dieser `case` kann also nicht mehr erreicht werden.
+       NICHT GELOESCHT (§17): er waere sofort wieder gueltig, falls der Schritt
+       zurueckkaeme, und er kostet nichts. Aber er wird hier BENANNT, damit ihn
+       beim naechsten Lesen niemand fuer aktiven Code haelt. Dasselbe gilt fuer
+       `case 'etikett'` weiter oben. */
     case 'freigabe':
       var _ps=String((window._fgEdit&&window._fgEdit.status)||"").toLowerCase();
       var _frei=(_ps==="aktiv"||_ps==="aktiv ohne index");
@@ -19802,16 +19819,22 @@ function feProduktKopf(){
           +(frei?' (aus dem Katalog nehmen)':' (über die geprüfte Freigabe)'))+'">'
       +esc(stAlt)+' <span class="feProdStatusPfeil">⇄</span></button>'
     +'<div class="feProdZust">'+esc(zt)+'</div>'
-    +'<button type="button" class="feProdSave" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>'
-    /* Freigeben nur, solange es etwas freizugeben gibt. */
+    /* 🔴 15.08. (Ralph P7): „Freigabe möglich" stand ZWEIMAL — oben rechts im
+       Produktkopf und noch einmal unter dem grünen Knopf. Der Knopf selbst sagt
+       es bereits: er ist da und er ist klickbar. Die Zeile darunter erscheint
+       jetzt NUR noch, wenn die Freigabe blockiert ist — dann ist sie keine
+       Wiederholung, sondern die Erklärung für einen ausgegrauten Knopf. */
+    +'<div class="feProdAkt">'
+      +'<button type="button" class="feProdSave" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>'
+      +(frei ? '' : '<button type="button" class="feProdFrei"'+(moeglich?'':' disabled')
+             +' onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}">Freigeben</button>')
+    +'</div>'
     +(frei ? '<div class="feProdFrgTxt ok">Dieses Produkt ist freigegeben.</div>'
-           : '<button type="button" class="feProdFrei"'+(moeglich?'':' disabled')
-             +' onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}">Freigeben</button>'
-             +'<div class="feProdFrgTxt'+(moeglich?' ok':' rot')+'">'
-             +(moeglich?'Freigabe möglich'
-                      :'Freigabe nicht möglich'+((S&&S.bekannt&&S.freigabe_gruende.length)
-                          ?' · '+S.freigabe_gruende.length+' Punkt'+(S.freigabe_gruende.length===1?'':'e'):''))
-             +'</div>');
+           : (moeglich ? ''
+                       : '<div class="feProdFrgTxt rot">Freigabe nicht möglich'
+                         +((S&&S.bekannt&&S.freigabe_gruende.length)
+                            ?' · '+S.freigabe_gruende.length+' Punkt'+(S.freigabe_gruende.length===1?'':'e'):'')
+                         +'</div>'));
 }
 /* Der Rail-Umschalter. Er rechnet nichts, er reicht durch — und laedt danach
    denselben Editor neu, damit der angezeigte Status vom Server kommt und nicht
@@ -21309,7 +21332,16 @@ function feStatusStreifen(){
      gerade bearbeitet. */
   box.innerHTML='<div class="feStStreifen">'
       +_feStreifenIdent()
-      +'<div class="feStLinks">'+C.join("")+'</div>'
+      /* Ralph P7: „nicht alles in einer Linie ohne Hierarchie."
+         DATENSTATUS = was erfasst ist · PRUEFUNG = was kontrolliert wurde.
+         Die Chips selbst sind unveraendert; nur der letzte (Etikettpruefung)
+         wandert in die zweite Gruppe. Er wurde oben als letzter angehaengt. */
+      +'<div class="feStLinks">'
+        +'<div class="feStGrp"><span class="feStGrpTit">Datenstatus</span>'
+          +'<div class="feStGrpChips">'+C.slice(0,-1).join("")+'</div></div>'
+        +'<div class="feStGrp"><span class="feStGrpTit">Prüfung</span>'
+          +'<div class="feStGrpChips">'+C.slice(-1).join("")+'</div></div>'
+      +'</div>'
       +'<div class="feStRechts">'+_feStreifenBewertung()
         +'<div class="feStFrg">'+_frgChip+'</div></div>'
       +(_detail||_hw ? '<div class="feStFuss">'+_detail+_hw+'</div>' : '')
@@ -26870,7 +26902,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-0430";
+const APP_BUILD = "2026-08-15-0810";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
