@@ -16951,6 +16951,40 @@ async function openFgEditor(id, prefill, targetEl){
     const {data,error}=await client.rpc("cb_produkt_edit_get",{p_id:id});
     if(error){ alert("Fehler: "+error.message); return; }
     d=data||d; d.naehrwerte=d.naehrwerte||{}; d.zutaten=d.zutaten||[];
+    /* ===================================================================
+       🔴 14.08.2026 — DER GESPEICHERTE SCORE IST DIE STATUS-WAHRHEIT,
+       NICHT DIE VORSCHAU (Ralph-Korrektur, von ChatGPT belegt).
+
+       BEFUND: `cb_score_vorschau(p jsonb)` entfernt `ean` und `produkt_id`
+       aus der Nutzlast und legt über `cb_produkt_ingest` ein TEMPORÄRES
+       Produkt an. Die bereits bestehenden `Produkt_Zutaten`- und
+       Canonical-Bindungen des echten Produkts wandern dabei NICHT mit.
+       Für ein gespeichertes Produkt misst sie deshalb etwas anderes als
+       den Produktzustand — sie simuliert das Formular.
+
+       WAS DAS ANGERICHTET HAT, gemessen an P73614: die Vorschau meldete
+       „p_zutaten NULL", der Editor schrieb „Es fehlt die Achse Zutaten".
+       In `Scores` steht zur selben Zeit `Zutatenqualitaet 30`,
+       `Clean_Score 100`, `Score_vollstaendig true`. Der Editor hat also
+       eine Lücke behauptet, die es nicht gibt — derselbe Fehlertyp wie
+       der `build.txt`-Cache: ein Werkzeug mit anderer Sicht wird für die
+       Wahrheit genommen (§0.4).
+
+       ES WIRD KEIN NEUER LESEWEG GEBAUT (§22, Ralph Punkt 2): dieselbe
+       RPC, die der Editor ohnehin ruft, liefert die Werte flach mit —
+       `clean_score` · `bewertung` · `vollstaendig` aus `Scores`.
+       =================================================================== */
+    window._fgScoreGespeichert={
+      produkt_id:id,
+      clean_score:(d.clean_score==null?null:Number(d.clean_score)),
+      bewertung:(d.bewertung==null?"":String(d.bewertung)),
+      vollstaendig:(d.vollstaendig===true),
+      quelle:"cb_produkt_edit_get"
+    };
+    /* Ein Vorschauergebnis aus einem VORHER geöffneten Produkt darf hier nicht
+       stehenbleiben — sonst urteilt der Editor über Produkt B mit den Zahlen
+       von Produkt A. */
+    window._fgScoreServer=null;
     /* 13.08.2026 (Ralph, D4): Ein frisch aus einem Scan angelegter Entwurf hat eine
        Produkt_ID, aber noch KEINE gebundenen Zutaten — die Bindung entsteht erst beim
        Speichern (Produkt_Zutaten ist §30-gesperrt, der Entwurf bekommt nur Kopfdaten
@@ -19143,6 +19177,32 @@ async function _feScoreRun(box){
     }catch(e){ if(seqS===_feScoreSeq) box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Supplement – kein Lebensmittel-Index.</div>'; }
     return;
   }
+  /* 🔴 14.08.2026 (Ralph Punkt 1/3/6): BEI EINEM GESPEICHERTEN PRODUKT ZEIGT DIESER KASTEN
+     DEN GESPEICHERTEN SCORE, nicht die Simulation. Die Vorschau baut ein Temp-Produkt ohne
+     die bestehenden Bindungen — sie hätte bei P73614 „nicht berechenbar" gezeigt, während in
+     `Scores` eine 100 steht. Zwei Zahlen für dieselbe Sache auf einem Bildschirm.
+     Die Simulation bleibt für NEUE Produkte (ohne ID) erhalten — dort ist sie das Richtige,
+     weil es noch nichts Gespeichertes gibt. */
+  var _sg=window._fgScoreGespeichert;
+  var _pid=(window._fgEdit&&window._fgEdit.id)||null;
+  if(_pid && _sg && _sg.produkt_id===_pid){
+    var _cs=_sg.clean_score;
+    if(_cs==null){
+      box.innerHTML='<div style="color:var(--muted);font-size:12.5px;line-height:1.5">Gespeicherter Stand: <b>kein Index</b>'
+        +(_sg.vollstaendig?'':' – der Server führt den Score als nicht vollständig')
+        +'.<div style="margin-top:6px">Nach dem Speichern rechnet der Server neu und dieser Kasten zieht mit.</div></div>';
+    } else {
+      var _f=(typeof farbe==="function")?farbe(_sg.bewertung):"var(--ink)";
+      box.innerHTML='<div style="text-align:center;padding:6px 0">'
+        +'<div style="font-size:44px;font-weight:800;line-height:1;color:'+_f+'">'+esc(String(Math.round(_cs)))+'</div>'
+        +'<div style="font-size:13px;font-weight:700;color:'+_f+';margin-top:3px">'+esc(_sg.bewertung||"")+'</div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">'
+        +'<b>Gespeicherter Stand</b> aus <code>Scores</code>, gelesen über <code>cb_produkt_edit_get</code> – keine Simulation. '
+        +'Nach dem Speichern rechnet der Server neu und dieser Kasten zieht mit.</div>';
+    }
+    return;
+  }
   var nw={}; ["kcal","protein","kh","zucker","polyole","fett","ges_fett","ballaststoffe","salz"].forEach(function(k){ var v=numv((g("fe_"+k)||{}).value); if(v!==undefined&&!isNaN(v)) nw[k]=v; });
   var zut=[].slice.call(document.querySelectorAll("#fe_zutRows .fgZutRow")).map(function(row){
     var nm=((row.querySelector(".fgzName")||{}).value||"").trim();
@@ -19168,6 +19228,18 @@ async function _feScoreRun(box){
        produkt_pruefen_freigeben im Normalzweig verlangt. Der Gesamtstreifen liest es von
        hier — statt dass das Frontend sich eine eigene Meinung bildet (§10.2).
        Welche Achse fehlt, steht in den drei p_*-Feldern; NULL heißt „Achse fehlt". */
+    /* 🔴 14.08.2026, ZWEITE KORREKTUR AM SELBEN TAG (Ralph, von ChatGPT belegt):
+       BEI EINEM GESPEICHERTEN PRODUKT SETZT DIE VORSCHAU KEINEN STATUS MEHR.
+       `cb_score_vorschau` baut aus der Formularnutzlast ein Temp-Produkt (ohne `ean`
+       und `produkt_id`) und übernimmt die bestehenden Bindungen NICHT. Ihr Ergebnis
+       ist eine Simulation des Formulars, kein Produktzustand.
+       Für ein Produkt MIT ID gilt allein `window._fgScoreGespeichert` aus
+       `cb_produkt_edit_get`. Die Vorschau bleibt erhalten — aber nur dort, wo sie
+       das Richtige misst: bei einem noch nicht gespeicherten Produkt (Ralph Punkt 6). */
+    if(window._fgEdit && window._fgEdit.id){
+      window._fgScoreServer=null;
+      try{ feStatusStreifen(); }catch(e){}
+    } else {
     /* 🔴 14.08.2026 — NULL HEISST NICHT IMMER „FEHLT".
        ChatGPT hat die Wasserlogik nachgezogen: bei Unterkategorie Mineralwasser ist die
        Makroachse serverseitig N/A, nicht lückenhaft. Gemessen an P73614: `p_naehrwert`
@@ -19191,6 +19263,7 @@ async function _feScoreRun(box){
         .filter(function(nm){ return !(nm==="Nährwerte" && !_naP.makros_erforderlich); })
     };
     try{ feStatusStreifen(); }catch(e){}
+    }
     var voll=(v.vollstaendig!==false && v.clean_score!=null);
     box.innerHTML='<div style="max-width:230px;margin:0 auto">'+feFluxWidget(v)+'</div>'
       +'<div style="text-align:center;font-size:12.5px;margin-top:2px;color:'+((typeof farbe==="function")?farbe(v.bewertung):"var(--muted)")+';font-weight:700">'+esc(v.bewertung||"")+'</div>'
@@ -19652,7 +19725,25 @@ function getErfassungsStatus(){
        Das ist eine SCOREREGEL und wird hier NICHT umgangen (§10.2, §17). Angezeigt wird,
        was der Server sagt, mit der Achse, die er selbst nennt. Ohne Vorschau-Antwort
        (noch nicht gerechnet) wird nichts behauptet. */
-    var _sv=window._fgScoreServer;
+    /* 🔴 14.08.2026 — SCORESTATUS UND REFERENZSTATUS SIND ZWEI DINGE (Ralph Punkt 5).
+       Der SCORESTATUS kommt bei einem gespeicherten Produkt aus `Scores`, gelesen über
+       `cb_produkt_edit_get`. Der REFERENZSTATUS kommt aus `cb_referenz_pruefung_status`.
+       Die Freigabe verbindet beides erst hier am Ende — vorher werden sie nicht vermischt.
+       Gemessen an P73614: Score vollständig (100), Referenz meldet 1 Blocker. Zwei wahre
+       Aussagen über zwei verschiedene Sachen. */
+    var _sg=window._fgScoreGespeichert;
+    if(_sg && _sg.produkt_id===pid){
+      S.score_quelle="gespeichert";
+      S.clean_score=_sg.clean_score;
+      S.score_vollstaendig=_sg.vollstaendig;
+      if(_sg.vollstaendig===false){
+        /* Ohne Achsenaufschlüsselung: der Vertrag liefert sie nicht (siehe RPC-Lücke
+           unten). Lieber ohne Detail als mit einem geratenen (§1). */
+        G.push({t:"Score nicht vollständig",
+                d:"Gespeicherter Stand aus Scores (über cb_produkt_edit_get). Welche Achse fehlt, liefert der Vertrag derzeit nicht mit."});
+      }
+    }
+    var _sv=(_sg && _sg.produkt_id===pid) ? null : window._fgScoreServer;
     if(_sv && _sv.vollstaendig===false && !(S.naehrwerte_ok===false && _sv.achsen_fehlend.length===1 && _sv.achsen_fehlend[0]==="Nährwerte")){
       var _fa=_sv.achsen_fehlend||[];
       /* 14.08.: Ist die Zusatzstoff-Achse der EINZIGE Rest, wird das auch so gesagt – samt
@@ -19665,7 +19756,8 @@ function getErfassungsStatus(){
         G.push({t:"Server: Score nicht vollständig",
                 d:(_fa.length?("Es fehlt die Achse "+_fa.join(", ")+". "):"")
                   +(_sv.achsen_na&&_sv.achsen_na.length?("Nicht anwendbar für diese Produktart: "+_sv.achsen_na.join(", ")+". "):"")
-                  +"Gemeldet von cb_score_vorschau – dieselbe Rechnung, die produkt_pruefen_freigeben prüft."});
+                  +"Simulation aus dem Formular (cb_score_vorschau) – dieses Produkt ist noch nicht gespeichert, "
+                  +"es gibt also noch keinen gespeicherten Scorestand."});
       }
     }
     /* 🔴 13.08.2026, KORREKTUR DES GESTRIGEN BEFUNDS (b) — und meines eigenen von heute.
@@ -19695,6 +19787,15 @@ function getErfassungsStatus(){
   if(S.bestandteile_ohne_note>0) H.push({t:S.bestandteile_ohne_note+" Bestandteil(e) ohne Verarbeitungsnote",
     d:"Bewusst offen (NULL), keine 0. Blockiert die Freigabe nicht; wirkt nur mittelbar über den Score."});
   if(roh.zOhneStamm>0) H.push({t:roh.zOhneStamm+" Zutat(en) nicht im Stamm", d:"Werden beim Speichern nicht gebunden."});
+  /* 14.08.2026 (Ralph Punkt 4/5): Der Referenzbefund wird IMMER sichtbar, auch wenn er
+     nicht sperrt. `cb_referenz_freigabe_guard` wirft erst bei `pruefzeilen_gueltig > 0
+     UND blocker > 0` — bei P73614 sind 0 Zeilen erhoben, der Riegel greift also nicht.
+     Ihn deshalb zu verschweigen wäre falsch: „noch nicht erhoben" ist eine echte Aussage
+     über den Bearbeitungsstand. Er steht als Hinweis, nicht als Sperre — sonst wäre das
+     Frontend wieder strenger als der Server (§4.2, §10.2). */
+  if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)===0)
+    H.push({t:S.referenz_blocker+" Befund am Etikett", d:(S.referenz_gruende.join(" · ")||"cb_referenz_pruefung_status")
+      +" — blockiert die Freigabe NICHT, solange keine Prüfzeile erhoben ist."});
   if(!roh.eanWert && roh.eanStatus!=="kein_barcode") H.push({t:"EAN offen", d:"Blockiert die Freigabe nicht."});
   if(roh.dosisLeer) H.push({t:"Verzehrempfehlung fehlt", d:"Blockiert nicht, fehlt aber für den Dosis-Check."});
   S.hinweise=H;
@@ -25263,7 +25364,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-14-0210";
+const APP_BUILD = "2026-08-14-0330";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
