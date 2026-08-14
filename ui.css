@@ -1565,3 +1565,17 @@ body.riFokus #feTopbar{ display:none !important }
 .feProdMenuBox button.rot{ color:var(--k-b91c1c,#b91c1c) }
 .feProdSave{ width:100%; margin-top:9px; background:var(--k-2f6fd6,#2f6fd6); color:#fff;
   border:0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer }
+
+/* ============================================================================
+   KONTEXTREITER (Ralph, Live-Abnahme 1950, Punkt 2-5)
+   Ein Platz, wechselnder Inhalt. Der grosse Lesekasten wird hierher umgehaengt.
+   ============================================================================ */
+.feKtxTabs{ display:flex; gap:3px; margin-bottom:8px; flex-wrap:wrap }
+.feKtxTab{ background:transparent; border:1px solid var(--line); border-radius:7px;
+  padding:4px 9px; font-size:10.5px; color:var(--muted); cursor:pointer; white-space:nowrap }
+.feKtxTab.akt{ background:var(--k-eef6ff,#eef6ff); border-color:var(--k-2f6fd6,#2f6fd6);
+  color:var(--k-2f6fd6,#2f6fd6); font-weight:700 }
+.feKtxInhalt{ display:flex; flex-direction:column; gap:9px; min-width:0 }
+/* Der umgehaengte Lesekasten fuellt den Kontextplatz statt seiner alten Spalte. */
+.feKtxInhalt > #fe_wirkFotoCol{ width:100%; min-width:0 }
+.feKtxInhalt #fe_wirkFotoBox{ height:clamp(180px,32vh,420px) }

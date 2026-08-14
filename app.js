@@ -19156,34 +19156,87 @@ function _feKtxRohtext(){
     +'<div class="feKtxRoh">'+esc(r)+'</div>'
     +'<div class="feKtxSub">So steht es auf der Quelle. Links unsere Zuordnung.</div></div>';
 }
+/* ===========================================================================
+   RECHTS: EIN KONTEXTPLATZ MIT REITERN (Ralph, Live-Abnahme 1950, Punkt 2–5)
+
+   „Ein Kontextpanel, ein aktiver Reiter. Der Nutzer schaltet selbst."
+
+   Damit ist die Doppelung endgueltig weg: Produktbild, Etikettfoto und
+   Zutaten-Rohtext teilen sich EINEN Platz und schliessen sich gegenseitig aus.
+
+   Der grosse Lesekasten `fe_wirkFotoCol` wird dafuer UMGEHAENGT, nicht kopiert —
+   genau wie `fgFotoPlatzieren` es seit jeher tut. Sein Aussehen wandert mit,
+   weil seine CSS-Regeln bewusst am Karten-Praefix haengen und nicht an `#feTab2`
+   (so im Stylesheet vermerkt). Beim Verlassen kommt er zurueck in `feNwFotoSlot`.
+   =========================================================================== */
+var FE_KTX_REITER={
+  quelle:   [["quelle","Quelle"],["etikett","Etikett/Bild"]],
+  kopf:     [["quelle","Quelle"],["bild","Produktbild"]],
+  analyse:  [["etikett","Etikett"],["quelle","Quelle"]],
+  bestand:  [["rohtext","Zutaten-Rohtext"],["etikett","Etikett"],["referenz","Referenz"]],
+  eigen:    [["quelle","Quelle"]],
+  etikett:  [],                                   /* Gegenueberstellung traegt die Quelle selbst */
+  freigabe: [["produkt","Produkt"],["quelle","Quelle"]]
+};
+function _feKtxLesekastenHeim(){
+  var lk=document.getElementById("fe_wirkFotoCol"); if(!lk) return;
+  var heim=document.getElementById("feNwFotoSlot");
+  if(heim && lk.parentNode!==heim) heim.appendChild(lk);
+  lk.style.display="";
+}
+function feKontextReiter(id){
+  window._feKtxReiter=id;
+  /* Der Schritt kommt aus `_feKtxSchritt` — dem Wert, den feKontextRender selbst
+     gesetzt hat. Ueber `_feSchritt` zu gehen waere ein zweiter Weg zur selben
+     Auskunft (§4.2) und laege daneben, sobald einer der beiden nicht gepflegt ist. */
+  var sid=window._feKtxSchritt;
+  var s=FE_SCHRITTE.find(function(x){ return x.id===sid; })
+     || FE_SCHRITTE.find(function(x){ return x.nr===(window._feSchritt||1); });
+  try{ feKontextRender(s); }catch(e){ console.error("[Kontextreiter]", e); }
+}
 function feKontextRender(s){
   var box=document.getElementById("feKontext"); if(!box) return;
-  if(!feFokusAn() || !s){ box.style.display="none"; box.innerHTML=""; return; }
-  var H="";
-  switch(s.id){
-    case 'quelle':
-      var typ=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
-      H = typ ? (_feKtxEtikett()||_feKtxBild("Vorschau"))+_feKtxQuelle()
-              : '<div class="feKtxBlock"><div class="feKtxLeer">Noch keine Quelle. '
-                +'Weblink, Screenshot oder Bild – Riki liest daraus.</div></div>';
-      break;
-    case 'kopf':     H=_feKtxBild()+_feKtxQuelle(); break;
-    case 'analyse':  H=_feKtxEtikett()||_feKtxBild("Vorschau"); break;
-    /* Der wertvollste Fall: links unsere Tabelle, rechts der Originaltext. */
-    case 'bestand':  H=_feKtxRohtext(); break;
-    /* Ralph: „nur wenn wirklich hilfreich, sonst leer." Hier hilft nichts. */
-    case 'eigen':    H=""; break;
-    /* Ralph: „Der Vergleich selbst braucht Breite." Keine Spalte. */
-    case 'etikett':  box.style.display="none"; box.innerHTML=""; return;
-    case 'freigabe':
-      var ps=String((window._fgEdit&&window._fgEdit.status)||"Entwurf");
-      H=_feKtxBild()+'<div class="feKtxBlock"><div class="feKtxTit">Produktstatus</div>'
-        +'<div class="feKtxWert">'+esc(ps)+'</div></div>'+_feKtxQuelle();
-      break;
-  }
-  if(!H){ box.style.display=""; box.innerHTML='<div class="feKtxStill"></div>'; return; }
+  if(!feFokusAn() || !s){ box.style.display="none"; box.innerHTML=""; _feKtxLesekastenHeim(); return; }
+  /* Schrittwechsel setzt den Reiter auf den Standard zurueck; innerhalb eines
+     Schritts bleibt die Wahl des Nutzers stehen. Gemerkt wird hier, weil hier
+     ohnehin bekannt ist, welcher Schritt gilt (§4.2). */
+  if(window._feKtxSchritt!==s.id){ window._feKtxReiter=null; window._feKtxSchritt=s.id; }
+  var R=FE_KTX_REITER[s.id]||[];
+  if(!R.length){ box.style.display="none"; box.innerHTML=""; _feKtxLesekastenHeim(); return; }
+  /* Der Standardreiter ist der ERSTE der Liste — Ralphs Reihenfolge ist die Vorgabe. */
+  var akt=window._feKtxReiter;
+  if(!akt || !R.some(function(r){ return r[0]===akt; })) akt=R[0][0];
+  window._feKtxReiter=akt;
+  var H='<div class="feKtxTabs">'+R.map(function(r){
+    return '<button type="button" class="feKtxTab'+(r[0]===akt?' akt':'')+'" onclick="feKontextReiter(\''+r[0]+'\')">'+esc(r[1])+'</button>';
+  }).join('')+'</div><div class="feKtxInhalt" id="feKtxInhalt"></div>';
   box.style.display=""; box.innerHTML=H;
+  var ziel=document.getElementById("feKtxInhalt");
+  /* NUR EIN Inhalt — der Lesekasten kommt heim, sobald ein anderer Reiter gilt. */
+  if(akt!=="etikett") _feKtxLesekastenHeim();
+  if(akt==="etikett"){
+    var lk=document.getElementById("fe_wirkFotoCol");
+    if(lk && ziel){ ziel.appendChild(lk); lk.style.display=""; }
+    else if(ziel) ziel.innerHTML='<div class="feKtxLeer">Kein Etikettbild vorhanden.</div>';
+    return;
+  }
+  var inh="";
+  if(akt==="quelle")   inh=_feKtxQuelle()||'<div class="feKtxBlock"><div class="feKtxLeer">Noch keine Quelle. Weblink, Screenshot oder Bild – Riki liest daraus.</div></div>';
+  if(akt==="bild")     inh=_feKtxBild()||'<div class="feKtxBlock"><div class="feKtxLeer">Kein Produktbild hinterlegt. Es ist Publikationsinformation, keine Arbeitsquelle.</div></div>';
+  if(akt==="rohtext")  inh=_feKtxRohtext();
+  if(akt==="produkt")  inh=_feKtxBild()+'<div class="feKtxBlock"><div class="feKtxTit">Produktstatus</div>'
+      +'<div class="feKtxWert">'+esc(String((window._fgEdit&&window._fgEdit.status)||"Entwurf"))+'</div></div>';
+  if(akt==="referenz"){
+    var w=window._fgRefV2||{}, d=w.d||{}, el=Array.isArray(d.elemente)?d.elemente:[];
+    inh=el.length
+      ? '<div class="feKtxBlock"><div class="feKtxTit">Referenz</div><div class="feKtxRoh">'
+        +el.map(function(e){ return esc(String(e.original_text||e.name||"")); }).join("\n")+'</div>'
+        +'<div class="feKtxSub">'+el.length+' Zeilen vom Etikett. Der volle Abgleich steht in Schritt 6.</div></div>'
+      : '<div class="feKtxBlock"><div class="feKtxTit">Referenz</div><div class="feKtxLeer">Etikettprüfung noch nicht erhoben.</div></div>';
+  }
+  if(ziel) ziel.innerHTML=inh||'<div class="feKtxStill"></div>';
 }
+if(typeof window!=="undefined"){ window.feKontextReiter=feKontextReiter; window.FE_KTX_REITER=FE_KTX_REITER; }
 if(typeof window!=="undefined"){ window.feKontextRender=feKontextRender; }
 /* ===========================================================================
    SCHRITT 6 — GEGENÜBERSTELLUNG (Ralph-Auftrag 14.08.2026)
@@ -19295,6 +19348,60 @@ function feAbgleichRender(nurAbw){
   box.innerHTML=H;
 }
 if(typeof window!=="undefined"){ window.feAbgleichRender=feAbgleichRender; }
+/* ===========================================================================
+   MITTE SCHRITTREIN (Ralph, Live-Abnahme 1950, Punkt 1)
+
+   BEFUND: die Tabs lagen zwar in derselben Rasterzelle, aber INNERHALB eines
+   Tabs war weiter alles sichtbar. In Schritt 4 standen deshalb oben noch
+   EAN-Chips und Bildkarten aus Reiter 1.
+
+   LOESUNG: eine Positivliste je Schritt (§3.3). Alle direkten Kinder der drei
+   Arbeitscontainer werden ausgeblendet, ausser den ausdruecklich erlaubten.
+   Ein neuer Block, den niemand zuordnet, verschwindet damit — und das ist
+   Absicht: er faellt beim naechsten Blick auf, statt sich dazwischenzumogeln.
+
+   DOM und IDs bleiben unangetastet, nur `display`.
+   =========================================================================== */
+var FE_MITTE={
+  quelle:   [".feHolBox"],
+  kopf:     ["feKopfGrid"],
+  analyse:  ["feNwLinks","fe_naehrKacheln","fe_mikroWrap"],
+  bestand:  ["fe_gridA"],
+  eigen:    ["feKopfGrid"],
+  etikett:  [],            /* feAbgleich liegt ausserhalb der Tabs */
+  freigabe: []             /* feAbschluss ebenso */
+};
+function feFokusMitte(s){
+  var erlaubt={}; (FE_MITTE[s.id]||[]).forEach(function(x){ erlaubt[x]=1; });
+  var setz=function(el, an){ if(el&&el.style) el.style.display=an?"":"none"; };
+  /* Reiter 1 — feKopfLayout traegt Quellbox, Kopfraster und die Bildkarten. */
+  var kl=document.getElementById("feKopfLayout");
+  if(kl) [].forEach.call(kl.children, function(c){
+    var kenn=c.id||(c.className?("."+String(c.className).split(/\s+/)[0]):"");
+    setz(c, !!erlaubt[kenn]||!!erlaubt[c.id]);
+  });
+  /* Reiter 2 — Naehrwerte/Wirkstoffe links, Etikettspalte rechts. */
+  var no=document.getElementById("feNwOben");
+  if(no) [].forEach.call(no.children, function(c){ setz(c, !!erlaubt[c.id]); });
+  ["fe_naehrKacheln","fe_mikroWrap"].forEach(function(id){
+    var e=document.getElementById(id); if(!e) return;
+    e.style.display = erlaubt[id] ? (id==="fe_mikroWrap"?"flex":"") : "none";
+  });
+  /* Reiter 3 — Bestandteile und Etikettkarte. */
+  var qb=document.getElementById("fe_quickBar"); setz(qb,false);
+  var ga=document.getElementById("fe_gridA"); setz(ga, !!erlaubt["fe_gridA"]);
+}
+/* Der Rueckweg macht alles wieder sichtbar — die alte One-Page ist vollstaendig. */
+function feFokusMitteZurueck(){
+  ["feKopfLayout","feNwOben"].forEach(function(id){
+    var p=document.getElementById(id); if(!p) return;
+    [].forEach.call(p.children, function(c){ if(c.style) c.style.display=""; });
+  });
+  ["fe_naehrKacheln","fe_gridA","fe_quickBar"].forEach(function(id){
+    var e=document.getElementById(id); if(e) e.style.display=""; });
+  var mw=document.getElementById("fe_mikroWrap"); if(mw) mw.style.display="flex";
+}
+if(typeof window!=="undefined"){ window.feFokusMitte=feFokusMitte; window.FE_MITTE=FE_MITTE; }
 function feFokusAn(){ try{ return localStorage.getItem("ri_fokus")!=="aus"; }catch(e){ return true; } }
 function feFokusSet(an){ try{ localStorage.setItem("ri_fokus", an?"an":"aus"); }catch(e){}
   if(!an) feFokusAlleZeigen();
@@ -19337,6 +19444,9 @@ function feFokusAlleZeigen(){
      One-Page vollstaendig her, samt Root-Index-, Freigabe- und Quellenkarte. */
   try{ document.body.classList.remove("riFokus"); }catch(e){}
   try{ feRailAufraeumen(false); }catch(e){}
+  try{ feFokusMitteZurueck(); }catch(e){}
+  try{ _feKtxLesekastenHeim(); }catch(e){}
+  try{ window._feKtxReiter=null; }catch(e){}
   var pk=document.getElementById("feProdKopf"); if(pk) pk.style.display="none";
   var lk=document.getElementById("fe_wirkFotoCol"); if(lk) lk.style.display="";
   var pv=document.getElementById("fe_bildPreview");
@@ -19423,14 +19533,26 @@ var _FEZ={fertig:["✓","var(--k-16a34a,#16a34a)"], aktuell:["●","var(--k-2f6f
        an den sieben Schritten; zweimal ist eine Liste zu viel (§4.2)
      · QUELLE & BELEG — gehoert in Schritt 1 bzw. die Kontextspalte
    Der alte „alle Bereiche zeigen"-Modus zeigt sie unveraendert. */
+/* 🔴 KORREKTUR 14.08.2026 (Ralph nach Live-Abnahme 1950: „Root Index und Quelle &
+   Beleg sind noch da").
+   BEFUND: Die Kartenhilfe `card(titel,inhalt)` des Editors erzeugt `<div style="…">`
+   OHNE Klasse. `closest(".feKarte")` fand deshalb nie etwas, und die beiden Karten
+   blieben stehen — die Freigabe-Karte verschwand nur, weil sie zufaellig als einzige
+   `.feRailKarte` traegt.
+   FOLGE: Statt einer Ausschlussliste nach Klassen jetzt eine POSITIVLISTE nach
+   direkten Kindern (§3.3). Sichtbar bleibt, was ausdruecklich erlaubt ist; alles
+   andere geht auf `none` — auch das, was morgen dazukommt. Nichts wird geloescht,
+   der alte Reitermodus bekommt alles zurueck (§17). */
+var FE_RAIL_ERLAUBT={ feProdKopf:1, feFokusNav:1 };
 function feRailAufraeumen(an){
   var rail=document.getElementById("feRail"); if(!rail) return;
-  ["fe_index","feRailAmpel","fe_quelle_typ"].forEach(function(id){
-    var e=document.getElementById(id); if(!e) return;
-    var k=e.closest?(e.closest(".feKarte")||e.closest(".feRailKarte")):null;
-    if(k) k.style.display=an?"none":"";
+  [].forEach.call(rail.children, function(c){
+    if(!c || !c.style) return;
+    if(an) c.style.display = FE_RAIL_ERLAUBT[c.id] ? "" : "none";
+    else   c.style.display = FE_RAIL_ERLAUBT[c.id] ? c.style.display : "";
   });
 }
+if(typeof window!=="undefined"){ window.FE_RAIL_ERLAUBT=FE_RAIL_ERLAUBT; }
 function feProduktKopf(){
   var rail=document.getElementById("feRail"); if(!rail) return;
   var k=document.getElementById("feProdKopf");
@@ -19593,20 +19715,24 @@ function feFokusSchritt(n){
   if(hb) hb.style.display=(s.id==='quelle')?"":"none";
   try{ feFokusQuelle(s.id==='quelle'); }catch(e){ console.error("[Fokus] Quelle:", e); }
 
+  /* 🔴 MITTE SCHRITTREIN (Ralph, Live-Abnahme 1950): Positivliste statt Einzelschalter. */
+  try{ feFokusMitte(s); }catch(e){ console.error("[Fokus] Mitte:", e); }
   /* ── ETIKETT ZUM ABLESEN: NUR IN SCHRITT 3 (Ralph 14.08., Live-Abnahme) ──
      Es gibt genau EINEN grossen Lesekasten (`fe_wirkFotoCol`). Er stand bisher in
      jedem Schritt von Reiter 2 — und war damit gleichzeitig mit der kleinen
      Quellvorschau der Kontextspalte sichtbar: dasselbe Foto zweimal.
      Abtippen tut man in Schritt 3, sonst nirgends. Nicht kopiert, nur geschaltet. */
-  var lk=document.getElementById("fe_wirkFotoCol");
-  if(lk) lk.style.display=(s.id==='analyse')?"":"none";
+  /* Der Lesekasten wird NICHT mehr hier geschaltet: er ist ab 2130 ein Reiter der
+     Kontextspalte und wird dort umgehaengt (feKontextRender). Zwei Orte, die dasselbe
+     Element schalten, waeren genau die Doppelung, die weg soll (§4.2). */
   /* Das Produktbild ist SEKUNDAER: es ist die spaetere oeffentliche Darstellung,
      nicht die Arbeitsquelle (Ralph P9). Im Fokus steht es nur in Schritt 2 gross. */
-  var pb=document.getElementById("fe_bildPreview");
-  if(pb){ var pk=pb.closest?pb.closest(".feKarte"):null;
-    if(pk) pk.style.display=(s.id==='kopf')?"":"none"; }
+
 
   try{ feFokusKopfFuss(s); }catch(e){ console.error("[Fokus] Kopf/Fuss:", e); }
+  /* Beim SCHRITTwechsel faellt der Reiter auf den Standard des neuen Schritts zurueck
+     (Ralph gibt die Reihenfolge vor: der erste ist der Standard). Innerhalb eines
+     Schritts bleibt die Wahl des Nutzers stehen. */
   try{ feKontextRender(s); }catch(e){ console.error("[Kontextspalte]", e); }
   try{ feTopbarRender(); }catch(e){ console.error("[Topbar]", e); }
   /* Der Freigabe-Chip in der Admin-Navigation ist Teil der schwebenden oberen
@@ -26377,7 +26503,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-14-1950";
+const APP_BUILD = "2026-08-14-2130";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
