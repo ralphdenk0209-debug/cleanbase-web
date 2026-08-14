@@ -16994,6 +16994,13 @@ function feUrlLblSync(){
 }
 if(typeof window!=='undefined'){ window.feUrlOeffnen=feUrlOeffnen; window.feUrlLblSync=feUrlLblSync; }
 async function openFgEditor(id, prefill, targetEl){
+  /* 🔴 14.08.2026 (Ralph): Die Komplettansicht ist FLÜCHTIG. Jedes Öffnen eines
+     Produkts beginnt in der Fokusansicht — auch das nächste in derselben Sitzung.
+     Genau hier lag der Unterschied zur alten Lösung: die schrieb in den Browser
+     und galt deshalb für alle folgenden Produkte weiter.
+     Ebenso zurückgesetzt: der aufgeklappte Quellenkasten, denn er gehörte zum
+     vorherigen Produkt und nicht zu diesem. */
+  window._feAlleBereiche=false; window._feQuelleOffen=false;
   /* targetEl (optional): rendert den Editor INLINE in einen Container (z. B. Master-Detail-
      Seite „Produkt-Erfassung") statt ins Vollbild-Overlay. Ohne targetEl unveraendert. */
   const panel=targetEl||document.getElementById("panel");
@@ -19445,12 +19452,67 @@ function feFokusMitteZurueck(){
   var mw=document.getElementById("fe_mikroWrap"); if(mw) mw.style.display="flex";
 }
 if(typeof window!=="undefined"){ window.feFokusMitte=feFokusMitte; window.FE_MITTE=FE_MITTE; }
-function feFokusAn(){ try{ return localStorage.getItem("ri_fokus")!=="aus"; }catch(e){ return true; } }
-function feFokusSet(an){ try{ localStorage.setItem("ri_fokus", an?"an":"aus"); }catch(e){}
+/* ===========================================================================
+   🔴 FEHLER 14.08.2026, von Ralph gefunden und richtig diagnostiziert:
+   „ALLE BEREICHE ZEIGEN" HAT DEN FOKUSEDITOR DAUERHAFT ABGESCHALTET.
+
+   BEFUND (gemessen an Build 2320):
+     · `feFokusAn()`  las `localStorage.ri_fokus`
+     · `feFokusSet(false)` schrieb `ri_fokus="aus"` — dauerhaft
+     · „alle Bereiche zeigen" rief genau das
+   FOLGE: ein Klick auf einen Knopf, der wie ein Blick in die Vollansicht aussieht,
+   war in Wahrheit eine dauerhafte Programmeinstellung. Nach Reload, Produktwechsel
+   und Neustart blieb der alte Editor. Ralphs Screenshot war kein Layoutfehler,
+   sondern genau das.
+
+   URSACHE hinter der Ursache: der Schalter stammt aus der Zeit, als der Fokusmodus
+   ein VERSUCH war, den man abwählen können musste. Seit Ralphs Entscheid ist der
+   Fokuseditor die Hauptansicht — damit ist ein dauerhafter Ausschalter nicht mehr
+   eine Einstellung, sondern eine Falle.
+
+   ÄNDERUNG (Ralph-Entscheid, wörtlich): zwei Dinge, die vorher eines waren —
+     1. DAUERHAFT: der Fokuseditor ist die Hauptansicht. Immer. Keine Präferenz.
+     2. FLÜCHTIG:  `window._feAlleBereiche` öffnet die komplette Altansicht für
+        den Moment. Sie überlebt Reload, Produktwechsel und Schließen NICHT.
+
+   `localStorage` wird ab hier weder gelesen noch geschrieben. Der Altwert
+   `ri_fokus="aus"` liegt bei Ralph im Browser und wird schlicht IGNORIERT — er
+   muss nichts löschen. Gelöscht wird der Schlüssel bewusst nicht: das gehört in
+   den Altcode-Cleanup, und ein Aufräumschritt in einem Fehlerfix ist genau die
+   Nebenarbeit, die §2.3 verbietet.
+   =========================================================================== */
+function feFokusAn(){ return !window._feAlleBereiche; }
+/* Der Altwert wird EINMAL beim Laden gemeldet, damit der Befund sichtbar bleibt
+   statt stillschweigend zu verschwinden (§28.5). Er ändert nichts mehr. */
+try{ if(localStorage.getItem("ri_fokus")==="aus")
+       console.info("[Fokus] Alter Schalter ri_fokus=aus gefunden und ignoriert — "
+         +"der Fokuseditor ist seit 14.08. die Hauptansicht. Kein Handeln nötig."); }catch(e){}
+
+function feFokusSet(an){
+  /* KEIN localStorage mehr. Das ist der ganze Fehler und seine ganze Behebung. */
+  window._feAlleBereiche = !an;
   if(!an) feFokusAlleZeigen();
   try{ feFokusNavBauen(); }catch(e){}
   try{ feFokusSchritt(window._feSchritt||1); }catch(e){}
+  try{ feAlleBereicheLeiste(); }catch(e){}
 }
+/* Der Rückweg AUS der Komplettansicht. Ohne ihn wäre die Vollansicht das, was der
+   Fokusmodus vorher war: ein Zustand ohne Ausgang. Er sitzt oben im Arbeitsbereich,
+   wo der Blick beim Umschalten ohnehin landet. */
+function feAlleBereicheLeiste(){
+  var body=document.getElementById("feEditorBody"); if(!body) return;
+  var alt=document.getElementById("feZurueckFokus");
+  if(feFokusAn()){ if(alt) alt.remove(); return; }
+  if(!alt){
+    alt=document.createElement("div"); alt.id="feZurueckFokus"; alt.className="feZurueckFokus";
+    alt.innerHTML='<button type="button" onclick="feFokusSet(true)">← Zur Fokusansicht</button>'
+      +'<span>Komplettansicht – alle Bereiche gleichzeitig. Sie gilt nur jetzt; '
+      +'beim nächsten Produkt und nach dem Neuladen ist die Fokusansicht wieder da.</span>';
+    body.insertBefore(alt, body.firstChild);
+  }
+  alt.style.display="";
+}
+if(typeof window!=="undefined"){ window.feAlleBereicheLeiste=feAlleBereicheLeiste; }
 /* Alles wieder sichtbar machen — der Rückweg in die alte Reiteransicht.
    Er muss existieren: ein Modus ohne Ausgang ist eine Falle (§1.11h). */
 function feFokusAlleZeigen(){
@@ -19670,7 +19732,7 @@ function feProdMenu(btn){
   var m=document.createElement("div"); m.id="feProdMenuBox"; m.className="feProdMenuBox";
   m.innerHTML=(pid?'<button type="button" onclick="document.getElementById(\'feProdMenuBox\').remove();try{peMarkieren(\''+esc(pid)+'\')}catch(e){try{feMarkieren()}catch(_){}}">Markieren</button>':'')
     +(pid?'<button type="button" class="rot" onclick="document.getElementById(\'feProdMenuBox\').remove();try{peDeaktiv(\''+esc(pid)+'\')}catch(e){alert(e&&e.message||e)}">Produkt löschen</button>':'')
-    +'<button type="button" onclick="document.getElementById(\'feProdMenuBox\').remove();feFokusSet(false)">Alle Bereiche zeigen</button>';
+    +'<button type="button" title="Öffnet die komplette Altansicht – nur für jetzt. Beim nächsten Produkt und nach dem Neuladen ist die Fokusansicht wieder da." onclick="document.getElementById(\'feProdMenuBox\').remove();feFokusSet(false)">Alle Bereiche zeigen</button>';
   btn.parentNode.appendChild(m);
 }
 if(typeof window!=="undefined"){ window.feProdMenu=feProdMenu; window.feProduktKopf=feProduktKopf;
@@ -19696,7 +19758,7 @@ function feFokusNavBauen(){
         +'<span class="feFokusTxt"><b>'+s.nr+' '+esc(s.t)+'</b>'
         +(st.txt?'<span class="feFokusSub">'+esc(st.txt)+'</span>':'')+'</span></button>';
     }).join("")
-    +'<button type="button" class="feFokusAus" onclick="feFokusSet(false)" title="Zurück zur alten Reiteransicht – alle Bereiche gleichzeitig">alle Bereiche zeigen</button>';
+    +'<button type="button" class="feFokusAus" onclick="feFokusSet(false)" title="Komplette Altansicht – alle Bereiche gleichzeitig. Nur für jetzt; beim nächsten Produkt und nach dem Neuladen ist die Fokusansicht wieder da.">alle Bereiche zeigen</button>';
 }
 function feFokusSchritt(n){
   window._feSchritt=n;
@@ -26600,7 +26662,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-14-2320";
+const APP_BUILD = "2026-08-15-0040";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

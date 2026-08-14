@@ -1636,3 +1636,17 @@ body.riFokus #feNavLeiste{ display:none !important }
 /* --- Quelle: der Aufklappzustand ist sichtbar ------------------------------ */
 .feQuelleFertig.offen{ border-style:dashed }
 .feQuelleFertig.offen + .feHolGrid{ margin-top:8px }
+
+/* ============================================================================
+   RUECKWEG AUS DER KOMPLETTANSICHT (Ralph 14.08.2026)
+   Sie ist seit diesem Build fluechtig. Der Rueckweg steht deshalb sichtbar oben
+   im Arbeitsbereich — ein Modus ohne Ausgang waere eine Falle.
+   ============================================================================ */
+.feZurueckFokus{ display:flex; align-items:center; gap:11px; flex-wrap:wrap;
+  padding:9px 12px; margin-bottom:12px; border:1px solid var(--k-2f6fd6,#2f6fd6);
+  border-radius:10px; background:var(--k-eef6ff,#eef6ff) }
+.feZurueckFokus button{ flex:0 0 auto; border:0; border-radius:8px; cursor:pointer;
+  background:var(--k-2f6fd6,#2f6fd6); color:#fff; font-size:12.5px; font-weight:700;
+  padding:7px 13px }
+.feZurueckFokus span{ font-size:11.5px; color:var(--muted); line-height:1.45; min-width:0 }
+body.riFokus .feZurueckFokus{ display:none !important }
