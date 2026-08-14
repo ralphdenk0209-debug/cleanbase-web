@@ -17690,15 +17690,12 @@ async function openFgEditor(id, prefill, targetEl){
     try{
       if(typeof feFokusNavBauen==="function"){
         feFokusNavBauen();
-        var _start=1;
-        try{
-          for(var _i=0;_i<FE_SCHRITTE.length;_i++){
-            var _st=feFokusStand(FE_SCHRITTE[_i]);
-            if(_st.z!=="fertig"){ _start=FE_SCHRITTE[_i].nr; break; }
-            _start=Math.min(FE_SCHRITTE[_i].nr+1, 7);
-          }
-        }catch(e){}
-        feFokusSchritt(_start);
+        /* 🔴 15.08.2026 (Ralph Punkt 1): IMMER Schritt 1. Der Sprung auf den ersten
+           unfertigen Schritt sah aus wie Hilfe, war aber eine Entscheidung, die
+           niemand getroffen hat — und man landete jedes Mal woanders.
+           Die Schrittzustaende bleiben unveraendert; sie stehen weiter an der Rail
+           und werden von `feFokusStand` berechnet wie bisher (nichts entfernt). */
+        feFokusSchritt(1);
       }
     }catch(e){ console.error("[Fokus-Editor] Init:", e); }
     /* 13.08.2026 (Ralph-Addendum Punkt 2): Canonical-Werte der gebundenen Zeilen
@@ -18948,8 +18945,12 @@ var FE_SCHRITTE=[
  {nr:1, id:'kopf',    t:'Kopf & Quelle',       tab:1,
   kurz:'Quelle geben, Identität prüfen',
   el:['fe_urlLbl','fe_url','fe_pasteZone','fe_jsonIn','fe_jsonMsg','fe_nurLeer'],
-  zelle:['fe_name','fe_marke','fe_ean','fe_kat','fe_ukat','fe_basis','fe_verzehr',
-         'fe_quelle_typ','fe_beleg']},
+  /* 🔴 15.08. BEFUND (Ralph Punkt 11): `fe_ean_status`, `fe_eanChips` und
+     `fe_eanHint` standen in KEINER Schrittliste. Wer nirgends genannt ist, gilt
+     nirgends als fremd — und blieb deshalb in jedem Schritt sichtbar, auch in
+     Schritt 4. Sie gehoeren zur EAN und damit zu Schritt 1. */
+  zelle:['fe_name','fe_marke','fe_ean','fe_ean_status','fe_eanChips','fe_eanHint',
+         'fe_kat','fe_ukat','fe_basis','fe_verzehr','fe_quelle_typ','fe_beleg']},
  {nr:2, id:'analyse', t:'Nährwerte / Analyse', tab:2,
   kurz:'je Produktart: Makros · Wirkstoffe · Mineralstoffe'},
  {nr:3, id:'bestand', t:'Produktbestandteile & Referenz', tab:3,
@@ -21200,8 +21201,11 @@ function _stChip(txt, art, sub){
           rot:["var(--k-fee2e2,#fee2e2)","var(--k-b91c1c,#b91c1c)"],
           gelb:["var(--k-fef3c7,#fef3c7)","var(--k-92400e,#92400e)"],
           blau:["var(--k-dbeafe,#dbeafe)","var(--k-1d4ed8,#1d4ed8)"],
-          grau:["var(--k-eef1f4,#eef1f4)","var(--muted)"]}[art]||["var(--k-eef1f4,#eef1f4)","var(--muted)"];
-  return '<span title="'+esc(sub||"")+'" style="display:inline-flex;align-items:baseline;gap:5px;padding:3px 9px;border-radius:999px;background:'+F[0]+';color:'+F[1]+';font-size:11.5px;font-weight:700;white-space:nowrap">'+esc(txt)+'</span>';
+          grau:["var(--k-eef1f4,#eef1f4)","var(--muted)"],
+          /* 15.08. (Ralph P12): randlos-ruhig. Fuer Aussagen, die WAHR sind, aber
+             keine Leistung — „nicht noetig", „noch nicht erhoben", „gespeichert". */
+          still:["transparent","var(--muted)"]}[art]||["var(--k-eef1f4,#eef1f4)","var(--muted)"];
+  return '<span title="'+esc(sub||"")+'" style="display:inline-flex;align-items:baseline;gap:5px;padding:3px 9px;border-radius:999px;background:'+F[0]+';color:'+F[1]+';font-size:11.5px;font-weight:'+(art==="still"?"600":"700")+';white-space:nowrap">'+esc(txt)+'</span>';
 }
 function feStatusStreifen(){
   var box=document.getElementById("fe_gesamtstatus"); if(!box) return;
@@ -21209,10 +21213,12 @@ function feStatusStreifen(){
   if(!S.bekannt){ box.innerHTML=""; return; }
   var C=[];
   var sp={neu:["noch nicht gespeichert","grau"],saving:["Speichert …","blau"],
-          saved:["Gespeichert ✓","ok"],error:["Speichern fehlgeschlagen","rot"]}[S.gespeichert]||["Gespeichert ✓","ok"];
+          saved:["Gespeichert","still"],error:["Speichern fehlgeschlagen","rot"]}[S.gespeichert]||["Gespeichert","still"];
   C.push(_stChip(sp[0], sp[1]));
   C.push(_stChip("Quelle "+(S.quelle_ok?"✓":"offen"), S.quelle_ok?"ok":"gelb", S.quelle_ok?"":"Quelle-Typ im Editor setzen"));
-  C.push(S.naehrwerte_ok===null ? _stChip("Nährwerte nicht nötig","grau","Kategorie ohne Lebensmittel-Index")
+  /* Ralph P12: „nicht wie eine Reihe Bonbons". `still` ist neu und heisst:
+     wahr, aber keine Leistung — grau ohne Fuellung. */
+  C.push(S.naehrwerte_ok===null ? _stChip("Nährwerte nicht nötig","still","Kategorie ohne Lebensmittel-Index")
         : _stChip("Nährwerte "+(S.naehrwerte_ok?"✓":"unvollständig"), S.naehrwerte_ok?"ok":"rot",
                   S.naehrwerte_ok?"":(window._fgStatusRoh&&window._fgStatusRoh.nwFehlt.join(", "))||""));
   /* 🔴 13.08.2026 (Ralph, Browserabnahme Punkt 8): „Bestandteile 0/0 ✓" stand
@@ -21224,7 +21230,7 @@ function feStatusStreifen(){
      noch nicht (Ralph Punkt 9). Also: neutral, nicht grün. KEINE Wasser-Sonderregel
      im JavaScript — die Anzeige sagt nur ehrlich, was sie weiß (§1.2, §3.4). */
   var ges=S.bestandteile_gesamt, off=S.bestandteile_offen;
-  if(!ges) C.push(_stChip("Bestandteile: keine erfasst","grau",
+  if(!ges) C.push(_stChip("Bestandteile: keine erfasst","still",
       "Ob für diese Produktart überhaupt welche nötig sind, steht im Serververtrag – das ist hier nicht entschieden."));
   else C.push(_stChip("Bestandteile "+(ges-off)+"/"+ges+(off?"":" ✓"), off?"gelb":"ok",
                  off?(off+" offen"):"alle gebunden"));
@@ -21238,6 +21244,14 @@ function feStatusStreifen(){
      visuellen Gewichtung wie ein echter. */
   if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0)
     C.push(_stChip(S.referenz_blocker+" Blocker am Etikett","rot",S.referenz_gruende.join(" · ")));
+  /* Ralph P12 nennt „Etikettprüfung noch nicht erhoben" ausdrücklich als GRAUEN
+     Chip. Bisher stand das nur in der Hinweiszeile darunter — richtig gewichtet,
+     aber schwer zu finden. Jetzt steht es in der Reihe, still statt bunt. */
+  else if((S.referenz_gueltige_zeilen||0)>0)
+    C.push(_stChip("Etikettprüfung geprüft","still","alle Prüfzeilen ohne Blocker"));
+  else
+    C.push(_stChip("Etikettprüfung noch nicht erhoben","still",
+      "Kein Blocker – die Referenzprüfung ist eine Kontrollhilfe."));
   /* Bei GENAU EINEM Grund steht er im Chip selbst – dann braucht es darunter keinen
      zweiten roten Satz mit demselben Wortlaut (Ralph Punkt 11). Ab zwei Gründen zählt
      der Chip nur, und die Liste darunter ist der Inhalt. */
@@ -21289,13 +21303,47 @@ function feStatusStreifen(){
      zuletzt an `C` gehaengt und wird hier wieder entnommen; damit gibt es ihn
      weiterhin genau einmal und mit unveraenderter Logik (§4.2). */
   var _frgChip=C.pop();
-  var _rechts=_feStreifenBewertung()+_frgChip;
+  /* 🔴 15.08. (Ralph Punkte 2+3+13): DER WEISSE BALKEN IST DER PRODUKTKOPF.
+     Links Identitaet, Mitte fachlicher Zustand, rechts Bewertung. Bisher war es
+     eine reine Chipreihe — und damit stand nirgends gross, WELCHES Produkt man
+     gerade bearbeitet. */
   box.innerHTML='<div class="feStStreifen">'
+      +_feStreifenIdent()
       +'<div class="feStLinks">'+C.join("")+'</div>'
-      +'<div class="feStRechts">'+_rechts+'</div>'
+      +'<div class="feStRechts">'+_feStreifenBewertung()
+        +'<div class="feStFrg">'+_frgChip+'</div></div>'
       +(_detail||_hw ? '<div class="feStFuss">'+_detail+_hw+'</div>' : '')
     +'</div>';
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   IDENTITAET IM PRODUKTKOPF (Ralph 15.08., Punkte 2+3)
+
+   P-Nummer als Primaer-ID, Name darunter, Status und Erfassungsdatum klein.
+
+   🔴 DAS DATUM WIRD NICHT ERFUNDEN. Es kommt aus `_fgEdit.erfasst_am` — demselben
+   Feld, das die alte Kopfzeile `fePNrInfo` seit jeher anzeigt (§22). Fehlt es,
+   steht dort NICHTS statt eines Platzhalters (§3.4).
+   ═══════════════════════════════════════════════════════════════════════════ */
+function _feDatumDE(v){
+  var t=String(v||"").trim(); if(!t) return "";
+  /* Erwartet wird ISO (2026-08-13 bzw. 2026-08-13T…). Passt das Muster nicht,
+     wird der Wert UNVERAENDERT durchgereicht statt umgedeutet — eine falsch
+     geratene Datumsordnung ist schlimmer als ein unschoenes Datum (§3.5). */
+  var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  return m ? (m[3]+"."+m[2]+"."+m[1]) : t;
+}
+function _feStreifenIdent(){
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  var nm=((document.getElementById("fe_name")||{}).value||"").trim();
+  var ps=String((window._fgEdit&&window._fgEdit.status)||"Entwurf");
+  var dt=_feDatumDE(window._fgEdit&&window._fgEdit.erfasst_am);
+  return '<div class="feStIdent">'
+    +(pid?'<div class="feStPid">'+esc(pid)+'</div>':'')
+    +'<div class="feStName">'+esc(nm||"Neues Produkt")+'</div>'
+    +'<div class="feStMeta">'+esc(ps)+(dt?' · erfasst am '+esc(dt):'')+'</div>'
+    +'</div>';
+}
+if(typeof window!=="undefined"){ window._feDatumDE=_feDatumDE; window._feStreifenIdent=_feStreifenIdent; }
 /* ═══════════════════════════════════════════════════════════════════════════
    BEWERTUNG KOMPAKT IM STREIFEN (Ralph 15.08., Punkt 4)
 
@@ -26822,7 +26870,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-0215";
+const APP_BUILD = "2026-08-15-0430";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
