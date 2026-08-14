@@ -3883,6 +3883,22 @@ if(typeof window!=="undefined"){
 }
 function feNaehrKat(){
   var k=(((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase());
+  /* 🔴 14.08.2026 (Ralph-Korrektur, Variante A) — BEI MINERALWASSER KEINE ZWEITE KACHELREIHE.
+     BEFUND aus Ralphs Screenshot von P73614: unter der Mineralstoffanalyse stand noch
+     „ENTHALTENE NÄHRSTOFFE je Tagesdosis" mit Karten wie „Kalium 0,8 mg · 0 % Tagesbedarf".
+     Drei Dinge waren daran falsch:
+       (1) SPRACHE — ein Wasser hat keine Tagesdosis.
+       (2) ZWEITER RECHENWEG — oben stand „Kalium 0,04 % NRV", unten „0 % Tagesbedarf".
+           Derselbe Stoff, zwei Zahlen: die Kachel rundet mit Math.round auf ganze Prozent,
+           und 0,04 wird dabei zu 0. Genau die Rundung, die §3.4 verbietet — sie behauptet
+           „nicht enthalten", wo 0,8 mg/l stehen.
+       (3) DOPPELUNG — es sind dieselben acht Werte wie in der Tabelle darüber.
+     Ralphs bevorzugte Lösung ist A: weglassen. Das ist auch die ehrlichste — eine zweite
+     Darstellung derselben Zahlen kann nur auseinanderlaufen, und genau das hat sie getan.
+     KEIN neuer Renderpfad (§22): `null` greift in den vorhandenen Deckel von
+     feNaehrKachelnSync (`if(!kat || !pid){ box.innerHTML=""; return; }`).
+     Die Kacheln bleiben für Supplement, Salze und alle anderen Kategorien unverändert. */
+  if(typeof feIstMineralwasser==="function" && feIstMineralwasser()) return null;
   if(k==="supplement") return "supplement";
   if(k==="salze")      return "salze";
   /* 10.08.2026 (Ralph): „die untere Tabelle mit den Naehrstoffen will ich bei ALLEN
@@ -18172,6 +18188,12 @@ function feWirkAnsicht(){
      und feStatusStreifen selbst). */
   var _mk=document.getElementById("fe_nwCard");
   if(_mk) _mk.style.display=wasser?"none":"block";
+  /* 14.08.2026: Der Kachelstreifen hängt seit heute an feNaehrKat() und damit an der
+     UNTERKATEGORIE. Er wurde bisher nur von feKatChange nachgezogen — wer nur die
+     Unterkategorie tippt, hätte die Kacheln stehen sehen, obwohl sie nicht mehr gelten.
+     Ein Fix, den man nur nach einem Kategoriewechsel sieht, ist kein Fix. */
+  try{ if(typeof feNaehrKachelnSync==="function") feNaehrKachelnSync(); }catch(e){ console.error("[Kachelstreifen]", e); }
+  try{ if(typeof feNaehrBtnSync==="function") feNaehrBtnSync(); }catch(e){}
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
 }
 if(typeof window!=="undefined"){ window.feWirkAnsicht=feWirkAnsicht; window.feIstMineralwasser=feIstMineralwasser;
@@ -18761,17 +18783,41 @@ function feTabBadgeUpdate(off, done){
   var b=document.getElementById('feTab3Badge'); if(!b) return;
   var n=Number(off)||0, d=Number(done)||0;
   /* 07.08.2026: Farbe und Sichtbarkeit kommen aus ui.css (.feStBadge / .warn / .ok).
-     Hier wird nur noch entschieden WELCHER Zustand gilt, nicht WIE er aussieht. */
+     Hier wird nur noch entschieden WELCHER Zustand gilt, nicht WIE er aussieht.
+     \u2b07 14.08. (UX-Durchgang 1, P3): \u201e4/4" statt \u201e\u2713 4" \u2014 Ralphs Vorlage. Die Zahl sagt
+     mehr als der Haken: sie nennt auch, WIE VIEL erledigt ist. Station 3 hei\u00dft jetzt
+     \u201eProduktbestandteile", weil dort seit dem 13.08. Zutaten UND Zusatzstoffe stehen. */
   b.className='feStBadge'+(n?' warn':(d?' ok':''));
-  b.textContent=n?(n+' offen'):(d?('\u2713 '+d):'');
+  b.textContent=n?(n+' offen'):(d?(d+'/'+d):'');
+  b.title=n?(n+' Bestandteil(e) noch offen'):(d?(d+' Bestandteile erfasst'):'');
+  var t3=document.getElementById('feTabBtn3');
+  var t3t=t3?t3.querySelector('.feStTxt'):null;
+  if(t3t && t3t.innerHTML.indexOf('Produktbestandteile')<0){
+    t3t.innerHTML='\ud83e\udd63 Produktbestandteile ';
+    t3t.appendChild(b);
+  }
 }
 function feTab1BadgeUpdate(off, ean){
+  /* \u2b07 UX-DURCHGANG 1, PUNKT 3+4 (Ralph 14.08.): EIN PRIMAERSTATUS JE STATION.
+     Vorher trug Station 1 gleichzeitig eine Zahl (\u201e3 offen") UND einen eigenen
+     EAN-Chip. Zwei Statusanzeigen an einer Station heisst: Ralph muss beide lesen
+     und selbst gewichten. Ab hier gilt die schwerere Aussage; die EAN wandert in
+     den Tooltip, weil sie die Freigabe nicht blockiert (Entscheid 08.08.).
+     Das ELEMENT bleibt (\u00a710.5) \u2014 es wird nur nicht mehr als zweiter Status gef\u00fchrt. */
   var b=document.getElementById('feTab1Badge');
-  /* 07.08.2026: nur noch Zustand als Klasse, Aussehen in ui.css (.feStBadge). */
   if(b){ var n=Number(off)||0; b.className='feStBadge'+(n?' warn':' ok'); b.textContent=n?(n+' offen'):'\u2713'; }
   var e=document.getElementById('feTab1Ean');
-  if(e){ e.className='feStBadge'+(ean==='da'?' ok':(ean==='offen'?' gelb':' warn'));
-    e.textContent=(ean==='da')?'EAN \u2713':((ean==='offen')?'EAN offen':'EAN fehlt'); }
+  if(e){
+    var _eanTxt=(ean==='da')?'EAN erfasst':((ean==='offen')?'EAN bewusst offen':'EAN fehlt \u2013 blockiert die Freigabe nicht');
+    if(ean==='da'){ e.style.display='none'; e.textContent=''; e.removeAttribute('title'); }
+    else {
+      e.style.display='';
+      e.className='feStBadge'+(ean==='offen'?' gelb':' warn');
+      e.textContent=(ean==='offen')?'EAN offen':'EAN fehlt';
+      e.title=_eanTxt;
+    }
+    if(b) b.title=(Number(off)||0)?((Number(off))+' offene Pflichtpunkte auf dieser Station \u00b7 '+_eanTxt):('Station vollst\u00e4ndig \u00b7 '+_eanTxt);
+  }
   /* Der bisherige Pflichtzähler enthält Kopf- und Nährwertpunkte. Als Gesamtstatus zusätzlich am
      Nährwertreiter zeigen, damit der Arbeitsort sichtbar bleibt, ohne Fachlogik zu duplizieren. */
   /* 🔴 13.08.2026 (Ralph-Korrektur Punkt 3): Die Station heißt bei einem Mineralwasser
@@ -19242,10 +19288,15 @@ async function _feScoreRun(box){
         +'<div style="font-size:44px;font-weight:800;line-height:1;color:'+_f+'">'+esc(String(Math.round(_cs)))+'</div>'
         +'<div style="font-size:13px;font-weight:700;color:'+_f+';margin-top:3px">'+esc(_sg.bewertung||"")+'</div>'
         +'</div>'
+        /* ⬇ UX-Durchgang 1, Punkt 5+24: die Achsen bleiben sichtbar, der technische
+           Vertrag wandert in „Details". Die Hauptansicht traegt eine Handlungsaussage,
+           die Erklaerung liegt einen Klick tiefer — sie ist nicht weg, nur nicht dauernd da. */
         +'<div style="font-size:11.5px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">'+_achsHtml+'</div>'
-        +'<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">'
-        +'<b>Gespeicherter Stand</b> aus <code>cb_score_achsen_status</code>, gelesen über <code>cb_produkt_edit_get</code> – keine Simulation. '
-        +'Nach dem Speichern rechnet der Server neu und dieser Kasten zieht mit.</div>';
+        +'<details style="margin-top:8px;padding-top:6px;border-top:1px solid var(--line)">'
+        +'<summary style="cursor:pointer;font-size:10.5px;color:var(--muted)">Gespeicherter Score · Details</summary>'
+        +'<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:5px">'
+        +'Gelesen aus <code>cb_score_achsen_status</code> über <code>cb_produkt_edit_get</code> – keine Simulation. '
+        +'Nach dem Speichern rechnet der Server neu und dieser Kasten zieht mit.</div></details>';
     }
     return;
   }
@@ -19926,13 +19977,12 @@ function feStatusStreifen(){
      Server-Guard wirklich greift. `cb_referenz_freigabe_guard` wirft erst bei
      `pruefzeilen_gueltig > 0 UND blocker > 0`. Gemessen an P73614: blocker=1, aber
      `pruefzeilen_gueltig=0` — der Guard sperrt nicht, und ein roter Chip hätte eine
-     Sperre behauptet, die es nicht gibt. Rot ist eine Aussage, kein Aufmerksamkeitston. */
+     Sperre behauptet, die es nicht gibt. Rot ist eine Aussage, kein Aufmerksamkeitston.
+     ⬇ UX-Durchgang 1 (P7): Greift der Guard NICHT, ist es kein Chip mehr, sondern eine
+     Zeile in den Hinweisen darunter — sonst steht ein Nichtblocker in derselben
+     visuellen Gewichtung wie ein echter. */
   if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0)
     C.push(_stChip(S.referenz_blocker+" Blocker am Etikett","rot",S.referenz_gruende.join(" · ")));
-  else if(S.referenz_blocker>0)
-    C.push(_stChip("Etikettprüfung noch nicht erhoben","grau",
-      "Die Referenzprüfung ist eine Kontrollhilfe und sperrt eine von Hand erfasste Aufnahme nicht, "
-      +"solange keine gültige Prüfzeile vorliegt (cb_referenz_freigabe_guard)."));
   /* Bei GENAU EINEM Grund steht er im Chip selbst – dann braucht es darunter keinen
      zweiten roten Satz mit demselben Wortlaut (Ralph Punkt 11). Ab zwei Gründen zählt
      der Chip nur, und die Liste darunter ist der Inhalt. */
@@ -19953,8 +20003,20 @@ function feStatusStreifen(){
     : (!S.freigabe_moeglich && S.freigabe_gruende.length===1 && S.freigabe_gruende[0].d
         ? '<span style="flex:1 1 100%;font-size:11.5px;color:var(--muted);padding-top:3px;line-height:1.5">'+esc(S.freigabe_gruende[0].d)+'</span>'
         : '');
+  /* ⬇ UX-DURCHGANG 1, PUNKT 7 (Ralph 14.08.): HINWEISE SIND KEINE CHIPS.
+     Vorher standen echte Blocker und blosse Hinweise in derselben Reihe und damit in
+     derselben visuellen Gewichtung. Ab hier gilt: die Chipreihe traegt den ZUSTAND
+     (Gespeichert · Quelle · Naehrwerte · Bestandteile · Freigabe), darunter steht in
+     kleiner grauer Schrift, was wahr, aber kein Riegel ist. Ein Blocker bleibt rot und
+     bekommt seinen Grund direkt darunter. */
+  var _hw="";
+  if(S.hinweise && S.hinweise.length){
+    _hw='<div style="flex:1 1 100%;font-size:11px;color:var(--muted);line-height:1.5;padding-top:2px">'
+      +S.hinweise.map(function(x){ return '<span title="'+esc(x.d||"")+'">· '+esc(x.t)+'</span>'; }).join('&nbsp;&nbsp;')
+      +'</div>';
+  }
   box.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:10px">'
-    +C.join("")+_detail+'</div>';
+    +C.join("")+_detail+_hw+'</div>';
 }
 if(typeof window!=="undefined"){ window.getErfassungsStatus=getErfassungsStatus;
   window.feStatusStreifen=feStatusStreifen; window.fgRefStatusLaden=fgRefStatusLaden; window._fgBlockiert=_fgBlockiert; }
@@ -25449,7 +25511,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-14-0510";
+const APP_BUILD = "2026-08-14-0650";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
