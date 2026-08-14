@@ -16974,11 +16974,21 @@ async function openFgEditor(id, prefill, targetEl){
        RPC, die der Editor ohnehin ruft, liefert die Werte flach mit —
        `clean_score` · `bewertung` · `vollstaendig` aus `Scores`.
        =================================================================== */
+    /* 14.08.2026, NACHTRAG: ChatGPT hat den Vertrag um die ACHSEN erweitert
+       (`cb_score_achsen_status`, flach durchgereicht). Damit sagt der Server
+       selbst, welche Achse FEHLT und welche NICHT ANWENDBAR ist — das Frontend
+       muss die Produktart dafür nicht mehr auslegen. Der lokale Mineralwasser-
+       N/A-Block ist deshalb ersatzlos entfallen (Ralph 14.08.). */
+    var _mz=function(v){ return (v==null?null:Number(v)); };
     window._fgScoreGespeichert={
       produkt_id:id,
-      clean_score:(d.clean_score==null?null:Number(d.clean_score)),
+      clean_score:_mz(d.clean_score),
       bewertung:(d.bewertung==null?"":String(d.bewertung)),
       vollstaendig:(d.vollstaendig===true),
+      achsen:{zutaten:_mz(d.p_zutaten), zusatzstoffe:_mz(d.p_zusatzstoffe),
+              nova:_mz(d.p_nova), naehrwert:_mz(d.p_naehrwert)},
+      achsen_na:Array.isArray(d.achsen_na)?d.achsen_na.slice():[],
+      achsen_fehlend:Array.isArray(d.achsen_fehlend)?d.achsen_fehlend.slice():[],
       quelle:"cb_produkt_edit_get"
     };
     /* Ein Vorschauergebnis aus einem VORHER geöffneten Produkt darf hier nicht
@@ -17956,9 +17966,27 @@ function feZusKeineUmhaengen(){
   }catch(e){ console.error("[Zusatzstoffe] Haken umhängen:", e); }
 }
 if(typeof window!=="undefined"){ window.feZusKeineUmhaengen=feZusKeineUmhaengen; }
+/* ⏳ ÜBERGANGSVERTRAG, NICHT AUSBAUEN (Ralph-Korrektur 14.08.2026, Punkt 4/5).
+   ChatGPT baut später einen zentralen Serververtrag für Produktart und Nährwertpflicht
+   (`makros_erforderlich` · `mineralstoffanalyse` · `dosis_check` ·
+   `naehrwertachse_anwendbar`). Sobald er steht, fällt dieser Block ERSATZLOS weg.
+   Bis dahin gilt er eng gefasst:
+
+     · Es zählt die KOMBINATION Kategorie + Unterkategorie, nicht die Unterkategorie
+       allein. Ein „Mineralwasser" unter einer anderen Kategorie fällt NICHT darunter.
+     · Die Unterkategorie wird gegen eine kurze POSITIVLISTE geprüft (§3.3), nicht mit
+       „enthält" — sonst würde jede neue Unterkategorie mit dem Wortbestandteil
+       stillschweigend mitgenommen. „Natürliches Mineralwasser" steht ausdrücklich drin,
+       weil es rechtlich derselbe Begriff ist, nicht weil es ähnlich klingt.
+     · KEIN Produktname, KEINE Regex auf „wasser" — das wäre geraten (§1.1, §3.5).
+     · Keine weitere Unterkategorie per Analogie ergänzen. Cola, Limonade, Saft und
+       Smoothie behalten die normale Nährwertprüfung. */
+var MW_UNTERKAT={"mineralwasser":1, "natürliches mineralwasser":1, "naturliches mineralwasser":1};
 function feIstMineralwasser(){
+  var k=((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase();
   var u=((document.getElementById("fe_ukat")||{}).value||"").trim().toLowerCase();
-  return u.indexOf("mineralwasser")>=0;
+  if(k!=="getränk" && k!=="getraenk") return false;
+  return !!MW_UNTERKAT[u];
 }
 /* ===========================================================================
    feNaehrwertPflicht() — DER EINE ZUSTAND „braucht dieses Produkt Makros?"
@@ -19193,12 +19221,30 @@ async function _feScoreRun(box){
         +'.<div style="margin-top:6px">Nach dem Speichern rechnet der Server neu und dieser Kasten zieht mit.</div></div>';
     } else {
       var _f=(typeof farbe==="function")?farbe(_sg.bewertung):"var(--ink)";
+      /* Die vier Achsen kommen seit 14.08. aus cb_score_achsen_status (über
+         cb_produkt_edit_get). „nicht anwendbar" sagt der Server über `achsen_na`,
+         nicht das Frontend über die Produktart. */
+      var _A=[["zutaten","Zutaten",30],["zusatzstoffe","Zusatzstoffe",15],
+              ["nova","NOVA",15],["naehrwert","Nährwerte",40]];
+      var _achsHtml=_A.map(function(a){
+        var _ac=_sg.achsen||{}, _na=Array.isArray(_sg.achsen_na)?_sg.achsen_na:[],
+            _fh=Array.isArray(_sg.achsen_fehlend)?_sg.achsen_fehlend:[];
+        var v=_ac[a[0]], na=(_na.indexOf(a[0])>=0), fehlt=(_fh.indexOf(a[0])>=0);
+        var txt, col;
+        if(na){ txt="nicht anwendbar"; col="var(--muted)"; }
+        else if(v==null||fehlt){ txt=fehlt?"fehlt":"nicht belegt"; col="var(--k-cf5442,#cf5442)"; }
+        else { txt=String(v).replace(".",",")+"/"+a[2]; col="var(--ink)"; }
+        return '<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0">'
+          +'<span style="color:var(--muted)">'+esc(a[1])+'</span>'
+          +'<span style="font-weight:700;color:'+col+'">'+esc(txt)+'</span></div>';
+      }).join("");
       box.innerHTML='<div style="text-align:center;padding:6px 0">'
         +'<div style="font-size:44px;font-weight:800;line-height:1;color:'+_f+'">'+esc(String(Math.round(_cs)))+'</div>'
         +'<div style="font-size:13px;font-weight:700;color:'+_f+';margin-top:3px">'+esc(_sg.bewertung||"")+'</div>'
         +'</div>'
+        +'<div style="font-size:11.5px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">'+_achsHtml+'</div>'
         +'<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">'
-        +'<b>Gespeicherter Stand</b> aus <code>Scores</code>, gelesen über <code>cb_produkt_edit_get</code> – keine Simulation. '
+        +'<b>Gespeicherter Stand</b> aus <code>cb_score_achsen_status</code>, gelesen über <code>cb_produkt_edit_get</code> – keine Simulation. '
         +'Nach dem Speichern rechnet der Server neu und dieser Kasten zieht mit.</div>';
     }
     return;
@@ -19240,27 +19286,19 @@ async function _feScoreRun(box){
       window._fgScoreServer=null;
       try{ feStatusStreifen(); }catch(e){}
     } else {
-    /* 🔴 14.08.2026 — NULL HEISST NICHT IMMER „FEHLT".
-       ChatGPT hat die Wasserlogik nachgezogen: bei Unterkategorie Mineralwasser ist die
-       Makroachse serverseitig N/A, nicht lückenhaft. Gemessen an P73614: `p_naehrwert`
-       ist NULL, aber die Herleitung des Servers nennt sie NICHT —
-         „Kein Score: Es fehlt die Achse Zusatzstoffe (15 P.)."
-       Wer hier stumpf alle NULL-Achsen aufzählt, meldet drei Lücken, wo eine ist.
-
-       ⚠ VERTRAGSLÜCKE, an ChatGPT gemeldet: `cb_score_vorschau` liefert `Score_Herleitung`
-       NICHT mit. Deshalb muss das Frontend die N/A-Achse hier selbst ausnehmen — die
-       einzige Stelle in diesem Durchgang, an der eine Serveraussage nachgebildet wird.
-       Sauber wäre ein Feld `achsen_na` bzw. `herleitung` in der Vorschau; dann fällt
-       dieser Block ersatzlos weg. Bis dahin: eng gefasst und hier benannt (§4.2). */
-    var _naP=(typeof feNaehrwertPflicht==="function")?feNaehrwertPflicht():{makros_erforderlich:true};
+    /* 14.08.2026: Dieser Zweig gilt NUR noch für ein Produkt OHNE ID — dort gibt es
+       nichts Gespeichertes, und die Simulation ist das Richtige. Der frühere lokale
+       N/A-Block (Produktart im Browser auslegen, um NULL-Achsen zu erklären) ist
+       ERSATZLOS ENTFALLEN: seit ChatGPTs Erweiterung liefert der Server `achsen_na`
+       und `achsen_fehlend` strukturiert mit. Eine Regel, ein Ort (§4.2).
+       Für ein ungespeichertes Produkt gibt es diese Felder noch nicht — hier zählt
+       deshalb schlicht, welche Achse die Simulation nicht rechnen konnte. */
     window._fgScoreServer={
       vollstaendig:(v.vollstaendig===true), status:String(v.status||""),
-      achsen_na:(_naP.makros_erforderlich?[]:["Nährwerte"]),
+      achsen_na:[],
       achsen_fehlend:[["Zutaten",v.p_zutaten],["Zusatzstoffe",v.p_zusatzstoffe],
                       ["Nährwerte",v.p_naehrwert]]
-        .filter(function(a){ return a[1]==null; })
-        .map(function(a){ return a[0]; })
-        .filter(function(nm){ return !(nm==="Nährwerte" && !_naP.makros_erforderlich); })
+        .filter(function(a){ return a[1]==null; }).map(function(a){ return a[0]; })
     };
     try{ feStatusStreifen(); }catch(e){}
     }
@@ -19681,6 +19719,27 @@ function getErfassungsStatus(){
   S.makros_erforderlich=!!_P.makros_erforderlich;
   S.produktart=_P.art;
   S.naehrwerte_ok=_P.makros_erforderlich?(roh.nwFehlt.length===0):null;
+  /* 🔴 14.08.2026, NACHTRAG: BEI EINEM GESPEICHERTEN PRODUKT ENTSCHEIDET DER SERVER,
+     ob die Nährwertachse fehlt oder nicht anwendbar ist — nicht die Produktart im
+     Browser. `achsen_na` und `achsen_fehlend` kommen aus `cb_score_achsen_status`,
+     durchgereicht von `cb_produkt_edit_get`. Gemessen: P73614 na=[naehrwert] ⇒ „nicht
+     anwendbar"; P1025 fehlend=[naehrwert] ⇒ fehlt wirklich. Denselben Unterschied hätte
+     eine Produktartregel im Browser nicht getroffen — bei beiden ist `p_naehrwert` NULL.
+     Die Anzeigeregel `feNaehrwertPflicht` bleibt, aber nur für das, wofür sie da ist:
+     Makro-Karte und Stationsbeschriftung. Sie erklärt keine Achsen mehr. */
+  /* ⚠ Null-sicher: liefert der Server die Achsenfelder (noch) nicht — alter Stand,
+     gecachte Fassung, Teilausfall —, bleibt es bei der lokalen Anzeigeregel, statt
+     dass der ganze Statusstreifen mit einem TypeError ausfällt. Ein fehlendes Feld
+     darf nicht mehr kosten als das Feld (§11.4). */
+  var _sgA=window._fgScoreGespeichert;
+  if(_sgA && _sgA.produkt_id===pid){
+    var _na=Array.isArray(_sgA.achsen_na)?_sgA.achsen_na:[];
+    var _fh=Array.isArray(_sgA.achsen_fehlend)?_sgA.achsen_fehlend:[];
+    var _ac=_sgA.achsen||{};
+    if(_na.indexOf("naehrwert")>=0)      S.naehrwerte_ok=null;
+    else if(_fh.indexOf("naehrwert")>=0) S.naehrwerte_ok=false;
+    else if(_ac.naehrwert!=null)         S.naehrwerte_ok=true;
+  }
   /* --- Bestandteile: gebundene Zeilen aus dem Admin-Vertrag, sonst die Maske.
      🔴 13.08.2026 (Ralph Punkt 3): „offen" hieß hier `zOhneStamm + zOhneNote`.
      Eine fehlende Verarbeitungsnote ist aber NICHT offen — sie ist bewusst NULL
@@ -19716,7 +19775,12 @@ function getErfassungsStatus(){
     if(roh.zMit===0) G.push({t:"mindestens eine Zutat nötig", d:"Kategorie ohne Lebensmittel-Index."});
     if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", d:"In dieser Kategorie verlangt der Server ihn."});
   } else {
-    if(S.naehrwerte_ok===false) G.push({t:"Nährwerte unvollständig", d:roh.nwFehlt.join(", ")});
+    /* 14.08.2026: Liegt der Achsenvertrag vor, sagt der Server genauer, WAS fehlt —
+       dann entfällt der lokale Nährwertgrund, sonst stünde derselbe Punkt zweimal
+       („Nährwerte unvollständig" + „Achse Nährwerte fehlt"). Die Feldliste bleibt als
+       Detail am Servergrund erhalten. */
+    var _hatAchsen=!!(window._fgScoreGespeichert && window._fgScoreGespeichert.produkt_id===pid);
+    if(S.naehrwerte_ok===false && !_hatAchsen) G.push({t:"Nährwerte unvollständig", d:roh.nwFehlt.join(", ")});
     if(roh.zMit===0) G.push({t:"keine Zutat erfasst", d:"Ohne Zutaten ist der Score nicht vollständig."});
     /* 🔴 13.08.2026 (Ralph-Korrektur Punkt 8/9): Der Server verlangt im Normalzweig
        `Scores.Score_vollstaendig`. Er kann aus einem Grund fehlen, den das Frontend gar
@@ -19736,11 +19800,20 @@ function getErfassungsStatus(){
       S.score_quelle="gespeichert";
       S.clean_score=_sg.clean_score;
       S.score_vollstaendig=_sg.vollstaendig;
+      S.achsen=_sg.achsen||{};
+      S.achsen_na=Array.isArray(_sg.achsen_na)?_sg.achsen_na:[];
+      S.achsen_fehlend=Array.isArray(_sg.achsen_fehlend)?_sg.achsen_fehlend:[];
       if(_sg.vollstaendig===false){
-        /* Ohne Achsenaufschlüsselung: der Vertrag liefert sie nicht (siehe RPC-Lücke
-           unten). Lieber ohne Detail als mit einem geratenen (§1). */
-        G.push({t:"Score nicht vollständig",
-                d:"Gespeicherter Stand aus Scores (über cb_produkt_edit_get). Welche Achse fehlt, liefert der Vertrag derzeit nicht mit."});
+        /* Der Server nennt die fehlende Achse jetzt selbst (`achsen_fehlend`) —
+           nichts wird abgeleitet oder geraten (§1). */
+        var _AN={zutaten:"Zutaten", zusatzstoffe:"Zusatzstoffe", nova:"NOVA", naehrwert:"Nährwerte"};
+        var _fl=(S.achsen_fehlend||[]).map(function(a){ return _AN[a]||a; });
+        G.push({t:(_fl.length===1?("Achse „"+_fl[0]+"“ fehlt"):"Score nicht vollständig"),
+                d:(_fl.length?("Der Server meldet als fehlend: "+_fl.join(", ")+". "):"")
+                  +((_fl.indexOf("Nährwerte")>=0 && roh.nwFehlt.length)?("Offene Felder: "+roh.nwFehlt.join(", ")+". "):"")
+                  +(S.achsen_na.length?("Nicht anwendbar für dieses Produkt: "
+                     +S.achsen_na.map(function(a){ return _AN[a]||a; }).join(", ")+". "):"")
+                  +"Gespeicherter Stand aus cb_score_achsen_status."});
       }
     }
     var _sv=(_sg && _sg.produkt_id===pid) ? null : window._fgScoreServer;
@@ -19794,8 +19867,10 @@ function getErfassungsStatus(){
      über den Bearbeitungsstand. Er steht als Hinweis, nicht als Sperre — sonst wäre das
      Frontend wieder strenger als der Server (§4.2, §10.2). */
   if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)===0)
-    H.push({t:S.referenz_blocker+" Befund am Etikett", d:(S.referenz_gruende.join(" · ")||"cb_referenz_pruefung_status")
-      +" — blockiert die Freigabe NICHT, solange keine Prüfzeile erhoben ist."});
+    H.push({t:"Etikettprüfung noch nicht erhoben",
+      d:"Die Referenzprüfung ist eine Kontrollhilfe. Sie sperrt eine sauber von Hand erfasste "
+        +"Aufnahme nicht allein deshalb, weil noch keine Parser-Prüfzeile vorliegt "
+        +"(cb_referenz_freigabe_guard wirft erst ab einer gültigen Zeile)."});
   if(!roh.eanWert && roh.eanStatus!=="kein_barcode") H.push({t:"EAN offen", d:"Blockiert die Freigabe nicht."});
   if(roh.dosisLeer) H.push({t:"Verzehrempfehlung fehlt", d:"Blockiert nicht, fehlt aber für den Dosis-Check."});
   S.hinweise=H;
@@ -19847,7 +19922,17 @@ function feStatusStreifen(){
       "Ob für diese Produktart überhaupt welche nötig sind, steht im Serververtrag – das ist hier nicht entschieden."));
   else C.push(_stChip("Bestandteile "+(ges-off)+"/"+ges+(off?"":" ✓"), off?"gelb":"ok",
                  off?(off+" offen"):"alle gebunden"));
-  if(S.referenz_blocker>0) C.push(_stChip(S.referenz_blocker+" Blocker am Etikett","rot",S.referenz_gruende.join(" · ")));
+  /* 🔴 14.08.2026 (Ralph-Korrektur): „N Blocker am Etikett" in ROT nur, wenn der
+     Server-Guard wirklich greift. `cb_referenz_freigabe_guard` wirft erst bei
+     `pruefzeilen_gueltig > 0 UND blocker > 0`. Gemessen an P73614: blocker=1, aber
+     `pruefzeilen_gueltig=0` — der Guard sperrt nicht, und ein roter Chip hätte eine
+     Sperre behauptet, die es nicht gibt. Rot ist eine Aussage, kein Aufmerksamkeitston. */
+  if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0)
+    C.push(_stChip(S.referenz_blocker+" Blocker am Etikett","rot",S.referenz_gruende.join(" · ")));
+  else if(S.referenz_blocker>0)
+    C.push(_stChip("Etikettprüfung noch nicht erhoben","grau",
+      "Die Referenzprüfung ist eine Kontrollhilfe und sperrt eine von Hand erfasste Aufnahme nicht, "
+      +"solange keine gültige Prüfzeile vorliegt (cb_referenz_freigabe_guard)."));
   /* Bei GENAU EINEM Grund steht er im Chip selbst – dann braucht es darunter keinen
      zweiten roten Satz mit demselben Wortlaut (Ralph Punkt 11). Ab zwei Gründen zählt
      der Chip nur, und die Liste darunter ist der Inhalt. */
@@ -25364,7 +25449,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-14-0330";
+const APP_BUILD = "2026-08-14-0510";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
