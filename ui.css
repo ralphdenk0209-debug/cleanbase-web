@@ -1415,3 +1415,153 @@ table.feAbgTab td{ padding:7px 8px; border-bottom:1px solid var(--line); vertica
 .feAbgRoh summary{ cursor:pointer; font-size:11.5px; color:var(--muted); padding:4px 0 }
 .feAbgRohTxt{ font-size:11.5px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere;
   background:var(--k-f6f8f7,#f6f8f7); border-radius:8px; padding:10px; margin-top:6px; max-height:300px; overflow:auto }
+
+/* ============================================================================
+   DESKTOP-FEINSCHLIFF · FOKUS-EDITOR  (Ralph-Auftrag 14.08.2026)
+
+   KEINE neue Funktion, KEINE neue Regel — nur Darstellung. Dieser Block steht
+   bewusst am ENDE der Datei und ueberschreibt die Werte der vorherigen
+   Fokus-Abschnitte. So bleibt nachvollziehbar, WAS am 14.08. beruhigt wurde,
+   ohne dass die urspruenglichen Regeln aus der Datei verschwinden (§17).
+
+   Leitsatz fuer die Farben (Ralph P12):
+     gruen = bestaetigt/fertig — NICHT „dieses Element existiert"
+     blau  = Fokus und Aktion
+     gelb  = Entscheidung noetig
+     rot   = echter Blocker
+     grau  = Standard
+   ============================================================================ */
+
+/* --- 3. Arbeitsflaeche: lesbare Breite statt voller Bildschirm ------------- */
+#feEditorBody{ max-width:1080px }
+#feKopfGrid, #feAbschluss, #feAbgleich, .feHolBox{ max-width:820px }
+#feSchrittKopf, #feSchrittFuss{ max-width:820px }
+
+/* --- 1./13. Dichte und Abstaende vereinheitlichen -------------------------- */
+.feSchrittKopf{ padding:0 0 10px }
+.feSchrittKopf b{ font-size:15px }
+.feSchrittNr{ width:21px; height:21px; font-size:11px }
+.feSchrittFuss{ margin-top:14px; padding-top:10px }
+.feSchrittBtnPrim{ padding:8px 14px; font-size:12.5px; border-radius:8px }
+.feSchrittBtnSek{ padding:7px 12px; font-size:12px; border-radius:8px }
+
+/* --- 2. Schrittleiste: ruhig, kein farbiger Block -------------------------- */
+.feFokusSt{ padding:5px 7px; border-radius:7px; border-left:2px solid transparent }
+.feFokusSt.akt{ background:transparent; border-color:transparent;
+  border-left-color:var(--k-2f6fd6,#2f6fd6) }
+.feFokusSt.akt .feFokusTxt b{ font-weight:700; color:var(--k-2f6fd6,#2f6fd6) }
+.feFokusTxt b{ font-size:12px; font-weight:500 }
+.feFokusSub{ font-size:10px }
+.feFokusIco{ font-size:11px }
+#feFokusNav{ gap:1px; margin-bottom:10px }
+
+/* --- 4. Schritt 1: die drei Wege sind eine Entscheidung, kein Werkzeug ----- */
+.feHolGrid.feQuelleFokus{ gap:7px; max-width:520px }
+.feHolGrid.feQuelleFokus .feHolZeile input{ padding:10px 11px; font-size:13px }
+.feHolGrid.feQuelleFokus #fe_pasteZone{ padding:12px; font-size:13px }
+.feQuelleBtn{ padding:11px 12px; font-size:13px }
+.feHolBox .feHolKopf{ margin-bottom:8px }
+
+/* --- 5. Schritt 2: Kopfdaten kompakt -------------------------------------- */
+#feKopfGrid .mz k{ font-size:10px; letter-spacing:.02em }
+#feKopfGrid .mz input, #feKopfGrid .mz select{ padding:7px 9px; font-size:12.5px }
+#feKopfGrid .mzr{ gap:8px }
+
+/* --- 7. Schritt 4: Tabelle verdichten, Rohtext sekundaer ------------------- */
+.fgBestZeile{ padding:5px 8px; font-size:12px }
+.fgbWert{ font-size:12.5px }
+.fgbVerarb,.fgbZus{ font-size:11px }
+.fgbName span{ font-size:10px }
+.feKtxRoh{ font-size:11px; line-height:1.5; color:var(--muted) }
+
+/* --- 8. Schritt 5: hier DARF es auffallen — es ist der aktuelle Schritt ---- */
+.feFokusBreit{ padding:14px 0 }
+.feFokusBreit > k{ font-size:13.5px; font-weight:700; margin-bottom:8px; display:block }
+.feFokusBreit #fe_ernaehrChips button,
+.feFokusBreit #fe_bioSw button{ padding:9px 16px; font-size:13px; border-radius:9px }
+.feFokusBreit #fe_ernaehrChips{ gap:7px }
+
+/* --- 9. Schritt 6: Abweichungen zuerst lesbar ----------------------------- */
+table.feAbgTab td{ padding:6px 8px }
+.feAbgTab{ padding:6px 12px; font-size:12px }
+.feAbgSt{ font-size:10px }
+
+/* --- 10. Schritt 7: ruhig, erfuellte Bedingungen nicht betonen ------------- */
+.feAbGr{ padding:12px 14px; border-radius:10px }
+.feAbZahl{ font-size:44px }
+.feAbBew{ font-size:13px }
+.feAbZeile{ padding:2px 0; font-size:12px }
+.feAbBtnPrim{ padding:9px 18px; font-size:13px; border-radius:8px }
+.feAbBtnSek{ padding:8px 14px; font-size:12px; border-radius:8px }
+.feAbSatz{ font-size:13px }
+
+/* --- 11. Topbar schlank --------------------------------------------------- */
+#feTopbar{ padding:7px 12px; border-radius:8px; margin-bottom:8px }
+.feTbName{ font-size:14px }
+.feTbBtn{ padding:7px 14px; font-size:12px }
+
+/* --- 12. Gruen sparsam: keine Flaechen, nur Zeichen ----------------------- */
+.feQuelleFertig{ background:transparent; border-color:var(--line) }
+.feQuelleFertig .feKtxTit{ color:var(--muted) }
+
+/* --- Kontextspalte etwas leiser ------------------------------------------ */
+.feKtxBlock{ padding:9px 11px; border-radius:9px }
+.feKtxTit{ font-size:9px }
+
+/* ============================================================================
+   🔴 FESTE ARBEITSPOSITION IM FOKUSMODUS (Ralph, Live-Abnahme 1740, Punkt 1+12)
+
+   BEFUND: die Schritte wurden nur ein- und ausgeblendet, blieben aber an ihren
+   historischen Y-Positionen der alten One-Page. Beim Wechsel sprang die Seite
+   oben -> weit unten -> oben. Das ist kein Step-by-Step.
+
+   WARUM HIER NICHT GEMOUNTET WIRD: ueber 100 CSS-Regeln haengen an den Pfaden
+   `#feTab1 …`, `#feTab2 …`, `#feTab3 …`. Ein in einen neuen Container
+   verschobener Knoten verliert sie alle. Ralph nennt die Alternative selbst:
+   „alle sieben Schrittcontainer dieselbe Grid-Zelle belegen lassen".
+
+   Genau das passiert hier — ohne einen einzigen Knoten zu bewegen und ohne
+   einen einzigen bestehenden Selektor zu aendern:
+     #feEditorBody wird zum Raster mit drei Zeilen
+       Zeile 1  Schrittkopf
+       Zeile 2  ALLE Schrittcontainer uebereinander (grid-area 2/1)
+       Zeile 3  Weiter/Zurueck
+   Der jeweils sichtbare Container beginnt damit immer an derselben Oberkante.
+   Ohne Fokusmodus (Klasse fehlt) gilt die alte One-Page unveraendert.
+   ============================================================================ */
+body.riFokus #feEditorBody{
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-columns:minmax(0,1fr);
+  align-content:start;
+}
+body.riFokus #feEditorBody > #feSchrittKopf{ grid-area:1 / 1 }
+body.riFokus #feEditorBody > #feTab1,
+body.riFokus #feEditorBody > #feTab2,
+body.riFokus #feEditorBody > #feTab3,
+body.riFokus #feEditorBody > #feAbgleich,
+body.riFokus #feEditorBody > #feAbschluss{ grid-area:2 / 1; align-self:start; min-width:0 }
+body.riFokus #feEditorBody > #feSchrittFuss{ grid-area:3 / 1 }
+
+/* Die Stationsschiene und die alten Rail-Karten gehoeren nicht in den Fokus. */
+body.riFokus #feTabBar{ display:none }
+body.riFokus #feTopbar{ display:none !important }
+
+/* Produktkopf in der Rail — klein, keine Karte. */
+#feProdKopf{ padding:0 0 12px; border-bottom:1px solid var(--line); margin-bottom:12px }
+.feProdZeile{ display:flex; align-items:flex-start; gap:6px }
+.feProdTxt{ min-width:0; flex:1 1 auto }
+.feProdId{ display:block; font-size:10px; color:var(--muted); font-weight:700 }
+.feProdTxt b{ display:block; font-size:13px; line-height:1.3; overflow-wrap:anywhere }
+.feProdZust{ display:block; font-size:10px; color:var(--muted); margin-top:2px }
+.feProdMehr{ flex:0 0 auto; background:transparent; border:1px solid var(--line);
+  border-radius:7px; padding:2px 7px; font-size:13px; color:var(--muted); cursor:pointer; position:relative }
+.feProdMenuBox{ position:absolute; right:0; top:26px; z-index:30; min-width:170px;
+  background:var(--card); border:1px solid var(--line); border-radius:9px;
+  box-shadow:0 6px 20px rgba(0,0,0,.14); padding:4px; display:flex; flex-direction:column }
+.feProdMenuBox button{ text-align:left; background:transparent; border:0; border-radius:6px;
+  padding:7px 9px; font-size:12px; color:var(--ink); cursor:pointer }
+.feProdMenuBox button:hover{ background:var(--k-f6f8f7,#f6f8f7) }
+.feProdMenuBox button.rot{ color:var(--k-b91c1c,#b91c1c) }
+.feProdSave{ width:100%; margin-top:9px; background:var(--k-2f6fd6,#2f6fd6); color:#fff;
+  border:0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer }

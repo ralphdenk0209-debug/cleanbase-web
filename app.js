@@ -18960,16 +18960,20 @@ function feAbschlussRender(){
   H+='</div>';
 
   /* ── B) PRÜFSTATUS ──────────────────────────────────────────────── */
-  var _z=function(t,w,c){ return '<div class="feAbZeile"><span>'+esc(t)+'</span><b style="color:'+(c||"var(--ink)")+'">'+esc(w)+'</b></div>'; };
+  /* 14.08. Feinschliff (Ralph P10/P12): ERFÜLLTE Bedingungen werden nicht überbetont.
+     Grün heißt „bestätigt/fertig", nicht „existiert" — ein erfüllter Prüfpunkt steht
+     deshalb NEUTRAL da; Farbe bekommt nur, was fehlt oder blockiert. */
+  var _z=function(t,w,c){ return '<div class="feAbZeile"><span>'+esc(t)+'</span><b'+(c?' style="color:'+c+'"':'')+'>'+esc(w)+'</b></div>'; };
+  var _ROT="var(--k-cf5442,#cf5442)";
   H+='<div class="feAbGr"><div class="feAbTit">Prüfstatus</div>'
-    +_z("Quelle", S.quelle_ok?"vorhanden ✓":"fehlt", S.quelle_ok?"var(--k-166534,#166534)":"var(--k-cf5442,#cf5442)")
-    +_z("Nährwerte", S.naehrwerte_ok===null?"nicht nötig":(S.naehrwerte_ok?"vollständig ✓":"unvollständig"),
-        S.naehrwerte_ok===null?"var(--muted)":(S.naehrwerte_ok?"var(--k-166534,#166534)":"var(--k-cf5442,#cf5442)"))
+    +_z("Quelle", S.quelle_ok?"vorhanden":"fehlt", S.quelle_ok?"":_ROT)
+    +_z("Nährwerte", S.naehrwerte_ok===null?"nicht nötig":(S.naehrwerte_ok?"vollständig":"unvollständig"),
+        S.naehrwerte_ok===null?"var(--muted)":(S.naehrwerte_ok?"":_ROT))
     +_z("Bestandteile", S.bestandteile_gesamt?((S.bestandteile_gesamt-S.bestandteile_offen)+"/"+S.bestandteile_gesamt):"keine erfasst",
-        S.bestandteile_gesamt&&!S.bestandteile_offen?"var(--k-166534,#166534)":"var(--muted)")
+        S.bestandteile_gesamt?"":"var(--muted)")
     +_z("Etikettprüfung",
-        (S.referenz_gueltige_zeilen||0)>0 ? (S.referenz_blocker>0?(S.referenz_blocker+" Blocker"):"geprüft ✓") : "noch nicht erhoben",
-        (S.referenz_gueltige_zeilen||0)>0 ? (S.referenz_blocker>0?"var(--k-dc2626,#dc2626)":"var(--k-166534,#166534)") : "var(--muted)")
+        (S.referenz_gueltige_zeilen||0)>0 ? (S.referenz_blocker>0?(S.referenz_blocker+" Blocker"):"geprüft") : "noch nicht erhoben",
+        (S.referenz_gueltige_zeilen||0)>0 ? (S.referenz_blocker>0?"var(--k-dc2626,#dc2626)":"") : "var(--muted)")
     +_z("Dublette", (window._feDub&&window._feDub.anzahl)?((window._feDub.anzahl)+" Treffer"):"keine",
         (window._feDub&&window._feDub.freigabe_blockiert)?"var(--k-dc2626,#dc2626)":"var(--muted)")
     +'</div>';
@@ -19072,7 +19076,20 @@ if(typeof window!=="undefined"){ window.feFokusQuelle=feFokusQuelle; }
    =========================================================================== */
 function feTopbarRender(){
   var t=document.getElementById("feTopbar"); if(!t) return;
-  if(!feFokusAn()){ t.innerHTML=""; t.style.display="none"; return; }
+  /* 🔴 14.08., Live-Abnahme: DIE OBERE LEISTE IST IM FOKUSMODUS WEG (Ralph P2).
+     Sie lag ueber dem Arbeitsbereich und verschob dessen Anfang. Produkt-ID, Name,
+     Zustand und Speichern stehen jetzt im Produktkopf der linken Rail — dort nehmen
+     sie normalen Layoutplatz ein, statt ueber dem Inhalt zu schweben (Ralph P10).
+     Die Funktion bleibt: ohne Fokus (alte One-Page) ist sie ohnehin leer, und wer
+     sie zurueckholen will, hat sie hier unveraendert. */
+  t.innerHTML=""; t.style.display="none";
+}
+/* ALTCODE, unveraendert und aufrufbar: die Topbar von Build 1310. Sie ist nicht
+   geloescht (§17, Ralph P16) - sie wird nur nicht mehr gerufen, weil ihr Inhalt
+   jetzt im Produktkopf der linken Rail steht. Wer sie zurueckwill, ruft
+   feTopbarRenderAlt(). Kein toter Code hinter einem return. */
+function feTopbarRenderAlt(){
+  var t=document.getElementById("feTopbar"); if(!t) return;
   t.style.display="";
   var pid=(window._fgEdit&&window._fgEdit.id)||"";
   var nm=((document.getElementById("fe_name")||{}).value||"").trim();
@@ -19090,7 +19107,7 @@ function feTopbarRender(){
       +'<button type="button" class="feTbBtn" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>'
     +'</div>';
 }
-if(typeof window!=="undefined"){ window.feTopbarRender=feTopbarRender; }
+if(typeof window!=="undefined"){ window.feTopbarRender=feTopbarRender; window.feTopbarRenderAlt=feTopbarRenderAlt; }
 /* ===========================================================================
    KONTEXTSPALTE (Ralph-Auftrag 14.08.2026)
 
@@ -19316,6 +19333,14 @@ function feFokusAlleZeigen(){
     var z=e.closest?e.closest(".mz"):null; if(z&&z.classList) z.classList.remove("feFokusBreit"); });
   var hb=document.querySelector(".feHolBox"); if(hb) hb.style.display="";
   try{ feFokusQuelle(false); }catch(e){}
+  /* Fokus-Raster und Rail-Umbau zuruecknehmen — der Rueckweg stellt die alte
+     One-Page vollstaendig her, samt Root-Index-, Freigabe- und Quellenkarte. */
+  try{ document.body.classList.remove("riFokus"); }catch(e){}
+  try{ feRailAufraeumen(false); }catch(e){}
+  var pk=document.getElementById("feProdKopf"); if(pk) pk.style.display="none";
+  var lk=document.getElementById("fe_wirkFotoCol"); if(lk) lk.style.display="";
+  var pv=document.getElementById("fe_bildPreview");
+  if(pv){ var pvk=pv.closest?pv.closest(".feKarte"):null; if(pvk) pvk.style.display=""; }
   var tp=document.getElementById("feTopbar"); if(tp){ tp.innerHTML=""; tp.style.display="none"; }
   var kx=document.getElementById("feKontext"); if(kx){ kx.innerHTML=""; kx.style.display="none"; }
   var ag=document.getElementById("feAbgleich"); if(ag){ ag.innerHTML=""; ag.style.display="none"; }
@@ -19386,15 +19411,68 @@ function _feStandPruef(s, st){
 var _FEZ={fertig:["✓","var(--k-16a34a,#16a34a)"], aktuell:["●","var(--k-2f6fd6,#2f6fd6)"],
           offen:["○","var(--muted)"], entscheid:["!","var(--k-e0a32e,#e0a32e)"],
           blocker:["!","var(--k-dc2626,#dc2626)"], neutral:["·","var(--muted)"]};
+/* ===========================================================================
+   LINKE RAIL ALS STEUERZENTRALE (Ralph 14.08., Live-Abnahme 1740)
+
+   Im Fokusmodus enthaelt sie NUR: Produktkopf · ⋯-Menue · die sieben Schritte ·
+   unten „alle Bereiche zeigen" und „Speichern".
+
+   AUSGEBLENDET, NICHT GELOESCHT (Ralph P6/P16):
+     · ROOT INDEX (live berechnet) — gehoert in Schritt 7
+     · FREIGABE-Karte mit der Kriterienliste — dieselbe Aussage steht bereits
+       an den sieben Schritten; zweimal ist eine Liste zu viel (§4.2)
+     · QUELLE & BELEG — gehoert in Schritt 1 bzw. die Kontextspalte
+   Der alte „alle Bereiche zeigen"-Modus zeigt sie unveraendert. */
+function feRailAufraeumen(an){
+  var rail=document.getElementById("feRail"); if(!rail) return;
+  ["fe_index","feRailAmpel","fe_quelle_typ"].forEach(function(id){
+    var e=document.getElementById(id); if(!e) return;
+    var k=e.closest?(e.closest(".feKarte")||e.closest(".feRailKarte")):null;
+    if(k) k.style.display=an?"none":"";
+  });
+}
+function feProduktKopf(){
+  var rail=document.getElementById("feRail"); if(!rail) return;
+  var k=document.getElementById("feProdKopf");
+  if(!feFokusAn()){ if(k) k.style.display="none"; return; }
+  if(!k){ k=document.createElement("div"); k.id="feProdKopf"; rail.insertBefore(k, rail.firstChild); }
+  k.style.display="";
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  var nm=((document.getElementById("fe_name")||{}).value||"").trim();
+  var ps=String((window._fgEdit&&window._fgEdit.status)||"Entwurf");
+  var sv=window._fgSaveState||(pid?"saved":"neu");
+  var zt={neu:"noch nicht gespeichert",saving:"speichert …",saved:"gespeichert",error:"Speichern fehlgeschlagen"}[sv]||"gespeichert";
+  /* ⋯ traegt die seltenen und die gefaehrlichen Aktionen. Loeschen behaelt seine
+     bestehende Sicherheitsabfrage — hier wird nur der Ort geaendert (§22). */
+  k.innerHTML='<div class="feProdZeile">'
+      +'<div class="feProdTxt">'+(pid?'<span class="feProdId">'+esc(pid)+'</span>':'')
+      +'<b>'+esc(nm||"Neues Produkt")+'</b>'
+      +'<span class="feProdZust">'+esc(ps)+' · '+esc(zt)+'</span></div>'
+      +'<button type="button" class="feProdMehr" onclick="feProdMenu(this)" title="Weitere Aktionen">⋯</button>'
+    +'</div>'
+    +'<button type="button" class="feProdSave" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>';
+}
+function feProdMenu(btn){
+  var alt=document.getElementById("feProdMenuBox"); if(alt){ alt.remove(); return; }
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  var m=document.createElement("div"); m.id="feProdMenuBox"; m.className="feProdMenuBox";
+  m.innerHTML=(pid?'<button type="button" onclick="document.getElementById(\'feProdMenuBox\').remove();try{peMarkieren(\''+esc(pid)+'\')}catch(e){try{feMarkieren()}catch(_){}}">Markieren</button>':'')
+    +(pid?'<button type="button" class="rot" onclick="document.getElementById(\'feProdMenuBox\').remove();try{peDeaktiv(\''+esc(pid)+'\')}catch(e){alert(e&&e.message||e)}">Produkt löschen</button>':'')
+    +'<button type="button" onclick="document.getElementById(\'feProdMenuBox\').remove();feFokusSet(false)">Alle Bereiche zeigen</button>';
+  btn.parentNode.appendChild(m);
+}
+if(typeof window!=="undefined"){ window.feProdMenu=feProdMenu; window.feProduktKopf=feProduktKopf;
+  window.feRailAufraeumen=feRailAufraeumen; }
 function feFokusNavBauen(){
   var rail=document.getElementById("feRail"); if(!rail) return;
   var nav=document.getElementById("feFokusNav");
   if(!nav){
     nav=document.createElement("div"); nav.id="feFokusNav";
-    rail.insertBefore(nav, rail.firstChild);
+    rail.appendChild(nav);
   }
-  if(!feFokusAn()){ nav.style.display="none"; return; }
+  if(!feFokusAn()){ nav.style.display="none"; feRailAufraeumen(false); feProduktKopf(); return; }
   nav.style.display="";
+  feRailAufraeumen(true); feProduktKopf();
   var akt=window._feSchritt||1;
   nav.innerHTML='<div class="feStTitel">Arbeitsschritte</div>'
     +FE_SCHRITTE.map(function(s){
@@ -19411,6 +19489,9 @@ function feFokusNavBauen(){
 function feFokusSchritt(n){
   window._feSchritt=n;
   var s=FE_SCHRITTE.find(function(x){ return x.nr===n; }); if(!s) return;
+  /* Die Klasse am <body> schaltet das Fokus-Raster in ui.css (alle Schrittcontainer
+     in derselben Zelle). Ohne sie gilt die alte One-Page unveraendert. */
+  try{ document.body.classList.toggle("riFokus", !!feFokusAn()); }catch(e){}
   if(!feFokusAn()){ try{ feTabWechsel(s.tab); }catch(e){} return; }
   var tb=document.getElementById("feTabBar"); if(tb) tb.style.display="none";
   try{ feTabWechsel(s.tab); }catch(e){}
@@ -19512,10 +19593,36 @@ function feFokusSchritt(n){
   if(hb) hb.style.display=(s.id==='quelle')?"":"none";
   try{ feFokusQuelle(s.id==='quelle'); }catch(e){ console.error("[Fokus] Quelle:", e); }
 
+  /* ── ETIKETT ZUM ABLESEN: NUR IN SCHRITT 3 (Ralph 14.08., Live-Abnahme) ──
+     Es gibt genau EINEN grossen Lesekasten (`fe_wirkFotoCol`). Er stand bisher in
+     jedem Schritt von Reiter 2 — und war damit gleichzeitig mit der kleinen
+     Quellvorschau der Kontextspalte sichtbar: dasselbe Foto zweimal.
+     Abtippen tut man in Schritt 3, sonst nirgends. Nicht kopiert, nur geschaltet. */
+  var lk=document.getElementById("fe_wirkFotoCol");
+  if(lk) lk.style.display=(s.id==='analyse')?"":"none";
+  /* Das Produktbild ist SEKUNDAER: es ist die spaetere oeffentliche Darstellung,
+     nicht die Arbeitsquelle (Ralph P9). Im Fokus steht es nur in Schritt 2 gross. */
+  var pb=document.getElementById("fe_bildPreview");
+  if(pb){ var pk=pb.closest?pb.closest(".feKarte"):null;
+    if(pk) pk.style.display=(s.id==='kopf')?"":"none"; }
+
   try{ feFokusKopfFuss(s); }catch(e){ console.error("[Fokus] Kopf/Fuss:", e); }
   try{ feKontextRender(s); }catch(e){ console.error("[Kontextspalte]", e); }
   try{ feTopbarRender(); }catch(e){ console.error("[Topbar]", e); }
+  /* Der Freigabe-Chip in der Admin-Navigation ist Teil der schwebenden oberen
+     Leiste (Ralph P2/P4) — im Fokusmodus leeren, das Element selbst bleibt. */
+  try{ var _fs=document.getElementById("fe_frgSlot"); if(_fs) _fs.innerHTML=""; }catch(e){}
   try{ feFokusNavBauen(); }catch(e){}
+  /* 🔴 RALPHS WICHTIGSTER PUNKT (13): der Arbeitsbereich beginnt IMMER oben.
+     Kein scrollIntoView auf historische Stationen — der Schritt wechselt, nicht
+     die Seitenposition. Das Raster (ui.css) legt alle Schrittcontainer in
+     dieselbe Zelle; hier wird nur der Blick zurueckgeholt. */
+  try{
+    var _r=document.getElementById("feRahmen");
+    if(_r && _r.scrollIntoView) _r.scrollIntoView({block:"start"});
+    var _ov=document.getElementById("panel"); if(_ov) _ov.scrollTop=0;
+    var _eb=document.getElementById("feEditorBody"); if(_eb) _eb.scrollTop=0;
+  }catch(e){}
 }
 /* Kopfzeile und Weiter/Zurück. Ralph: „Kein Sprung per versteckter Logik ohne
    sichtbare Nutzeraktion" — deshalb schaltet NUR ein Klick weiter, nie eine
@@ -26270,7 +26377,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-14-1625";
+const APP_BUILD = "2026-08-14-1950";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
