@@ -17195,12 +17195,19 @@ async function openFgEditor(id, prefill, targetEl){
   var _rows=Array.isArray(window._verifRows)?window._verifRows:[];
   var _idx=id?_rows.findIndex(function(r){return String(r.id)===String(id);}):-1;
   var _nbtn=function(txt,act,on){ return '<button '+(on?'onclick="'+act+'"':'disabled')+' style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:'+(on?'var(--card)':'var(--bg)')+';color:'+(on?'var(--ink)':'var(--muted)')+';cursor:'+(on?'pointer':'default')+';font-size:13px;white-space:nowrap">'+txt+'</button>'; };
-  var _navInner='<button onclick="closeP()" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">← Posteingang</button>';
+  /* 14.08.2026: eigene IDs, damit der Fokusmodus diese beiden Bloecke GEZIELT in die
+     linke Rail umhaengen kann — verschieben statt nachbauen. Ein zweiter Vor-/Zurueck-
+     Rechner waere eine zweite Wahrheit ueber `window._verifRows` (§4.2), und beim
+     Nachbauen geht regelmaessig genau ein Randfall verloren. onclick und Aussehen
+     bleiben unveraendert. */
+  var _navInner='<button id="feNavPost" onclick="closeP()" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">← Posteingang</button>';
   if(_idx>=0){
     var _prev=_idx>0?_rows[_idx-1].id:null, _next=_idx<_rows.length-1?_rows[_idx+1].id:null, _mk=!!_rows[_idx].markiert;
-    _navInner+= _nbtn('‹ Vorheriges', "openFgEditor('"+_prev+"')", !!_prev)
+    _navInner+= '<span id="feNavBlaett" style="display:flex;align-items:center;gap:8px">'
+      + _nbtn('‹ Vorheriges', "openFgEditor('"+_prev+"')", !!_prev)
       + '<span style="font-size:13px;color:var(--muted);white-space:nowrap">'+(_idx+1)+' / '+_rows.length+'</span>'
       + _nbtn('Nächstes ›', "openFgEditor('"+_next+"')", !!_next)
+      + '</span>'
       + '<span id="fe_frgSlot" style="margin-left:auto;display:flex;align-items:center;min-width:0"></span>'
       + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" '+(_mk?'checked':'')+' onclick="fgEditMark(\''+esc(id)+'\',this.checked)" style="width:17px;height:17px;accent-color:var(--k-16a34a)">🚩 markiert <span style="color:var(--muted);font-weight:400">(gespeichert)</span></label>';
   }
@@ -18891,24 +18898,29 @@ function feTabWechsel(n){
    Die sieben Schritte sind Ralphs eigene Reihenfolge und decken sich mit der
    Arbeitsfluss-Ansicht im Wirkdiagramm.
    ============================================================================ */
+/* 🔴 14.08.2026, Ralph nach Abnahme 2130: AUS SIEBEN SCHRITTEN WERDEN SECHS.
+   „Die eigene Seite ist zu duenn und unterbricht den Arbeitsfluss."
+   Der alte Schritt 1 `quelle` ist NICHT geloescht, sondern in `kopf` aufgegangen:
+   dieselben Element-IDs, dieselben Riki-Wege, dieselbe `feFokusQuelle`-Umgruppierung
+   — nur eine Seite weniger. Fachlich aendert sich nichts (§17).
+   Die Quellbox steht im mittleren Bereich ganz oben, weil sie im Template bereits
+   das erste Kind von `feKopfLayout` ist; es musste nichts umgehaengt werden (§22). */
 var FE_SCHRITTE=[
- {nr:1, id:'quelle',  t:'Quelle starten',      tab:1,
-  kurz:'Material geben, aus dem Daten entstehen',
+ {nr:1, id:'kopf',    t:'Kopf & Quelle',       tab:1,
+  kurz:'Quelle geben, Identität prüfen',
   el:['fe_urlLbl','fe_url','fe_pasteZone','fe_jsonIn','fe_jsonMsg','fe_nurLeer'],
-  zelle:['fe_ean','fe_quelle_typ','fe_beleg']},
- {nr:2, id:'kopf',    t:'Kopf prüfen',         tab:1,
-  kurz:'Identität des Produkts',
-  zelle:['fe_name','fe_marke','fe_ean','fe_kat','fe_ukat','fe_basis','fe_verzehr']},
- {nr:3, id:'analyse', t:'Nährwerte / Analyse', tab:2,
+  zelle:['fe_name','fe_marke','fe_ean','fe_kat','fe_ukat','fe_basis','fe_verzehr',
+         'fe_quelle_typ','fe_beleg']},
+ {nr:2, id:'analyse', t:'Nährwerte / Analyse', tab:2,
   kurz:'je Produktart: Makros · Wirkstoffe · Mineralstoffe'},
- {nr:4, id:'bestand', t:'Produktbestandteile', tab:3,
+ {nr:3, id:'bestand', t:'Produktbestandteile', tab:3,
   kurz:'eine Zeile je Bestandteil', nur:['fe_colZut']},
- {nr:5, id:'eigen',   t:'Eigenschaften',       tab:1,
+ {nr:4, id:'eigen',   t:'Eigenschaften',       tab:1,
   kurz:'abgeleitete Merkmale prüfen',
   zelle:['fe_bioSw','fe_ernaehrChips']},
- {nr:6, id:'etikett', t:'Etikett & Abgleich',  tab:3,
+ {nr:5, id:'etikett', t:'Etikett & Abgleich',  tab:3,
   kurz:'Quelle gegen unsere Erfassung', nur:['fe_colRef']},
- {nr:7, id:'freigabe',t:'Prüfen & Freigeben',  tab:1,
+ {nr:6, id:'freigabe',t:'Prüfen & Freigeben',  tab:1,
   kurz:'Score, Blocker, Freigabe'}
 ];
 /* ===========================================================================
@@ -19040,6 +19052,7 @@ function feFokusQuelle(an){
     if(grid){ grid.classList.remove("feQuelleFokus"); grid.style.display=""; }
     var fz=box.querySelector("#feQuelleFertig")||document.getElementById("feQuelleFertig");
     if(fz) fz.remove();
+    window._feQuelleOffen=false;
     return;
   }
   if(titel) titel.innerHTML='Quelle hinzufügen <span class="feHolTitelZus">— Riki liest, du prüfst</span>';
@@ -19058,17 +19071,47 @@ function feFokusQuelle(an){
   /* Liegt bereits eine Quelle vor, faellt der Schritt zusammen (Ralph): eine Zeile
      statt der grossen Flaeche. Aufklappen bleibt moeglich — ein Wechsel der Quelle
      muss weiter gehen. */
+  /* 🔴 KORREKTUR 14.08.2026 — RALPHS BEFUND: „weder Weblink noch Screenshot
+     sinnvoll eingeben", ein Funktionsrueckschritt.
+
+     URSACHE, gemessen: bei vorhandener Quelle (P73614 hat `Etikettfoto`) wurde
+     `.feHolGrid` auf `display:none` gesetzt. Der Aufklapper war zwar da, aber er
+     schaltete nur das Attribut — und JEDER Neuaufbau (Schrittwechsel, Speichern,
+     Statusaktualisierung) rief `feFokusQuelle` erneut und klappte sofort wieder zu.
+     Ein Zustand, der bei jedem Neuzeichnen verlorengeht, ist kein Zustand.
+
+     LOESUNG: der Aufklappzustand wird GEMERKT (`window._feQuelleOffen`) statt am
+     `style` abgelesen. Damit bleibt offen, was Ralph geoeffnet hat. Die drei Wege
+     — Weblink, Screenshot, Bild hochladen — behalten ihre bestehenden IDs und
+     Handler; es wurde kein einziger neu gebaut (§22). */
   var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
   var alt=document.getElementById("feQuelleFertig"); if(alt) alt.remove();
-  if(qt){
+  if(qt && !window._feQuelleOffen){
     var d=document.createElement("div");
     d.id="feQuelleFertig"; d.className="feQuelleFertig";
     d.innerHTML='<span class="feQuelleHaken">✓</span><span><b>Quelle</b><span>'+esc(qt)+'</span></span>'
-      +'<button type="button" class="feQuelleWechsel" onclick="var g=this.closest(\'.feHolBox\').querySelector(\'.feHolGrid\'); if(g) g.style.display=(g.style.display===\'none\'?\'\':\'none\');">ändern</button>';
+      +'<button type="button" class="feQuelleWechsel" onclick="feQuelleAufklappen(true)">ändern</button>';
     box.insertBefore(d, box.firstChild);
     if(grid) grid.style.display="none";
-  } else if(grid){ grid.style.display=""; }
+  } else {
+    if(grid) grid.style.display="";
+    if(qt){
+      var d2=document.createElement("div");
+      d2.id="feQuelleFertig"; d2.className="feQuelleFertig offen";
+      d2.innerHTML='<span class="feQuelleHaken">✓</span><span><b>Quelle</b><span>'+esc(qt)+'</span></span>'
+        +'<button type="button" class="feQuelleWechsel" onclick="feQuelleAufklappen(false)">fertig</button>';
+      box.insertBefore(d2, box.firstChild);
+    }
+  }
 }
+/* Merkt den Aufklappzustand, statt ihn am `style` abzulesen — sonst ueberlebt er
+   den naechsten Neuaufbau nicht (der Fehler, den Ralph an 2130 gefunden hat). */
+function feQuelleAufklappen(an){
+  window._feQuelleOffen=!!an;
+  try{ feFokusQuelle(true); }catch(e){ console.error("[Quelle] Aufklappen:", e); }
+  if(an){ var u=document.getElementById("fe_url"); if(u&&u.focus) try{ u.focus(); }catch(e){} }
+}
+if(typeof window!=="undefined"){ window.feQuelleAufklappen=feQuelleAufklappen; }
 if(typeof window!=="undefined"){ window.feFokusQuelle=feFokusQuelle; }
 /* ===========================================================================
    TOPBAR (Ralph 14.08.): P-ID · Name · Zustand · Speichern. Sonst nichts.
@@ -19170,7 +19213,6 @@ function _feKtxRohtext(){
    (so im Stylesheet vermerkt). Beim Verlassen kommt er zurueck in `feNwFotoSlot`.
    =========================================================================== */
 var FE_KTX_REITER={
-  quelle:   [["quelle","Quelle"],["etikett","Etikett/Bild"]],
   kopf:     [["quelle","Quelle"],["bild","Produktbild"]],
   analyse:  [["etikett","Etikett"],["quelle","Quelle"]],
   bestand:  [["rohtext","Zutaten-Rohtext"],["etikett","Etikett"],["referenz","Referenz"]],
@@ -19363,8 +19405,9 @@ if(typeof window!=="undefined"){ window.feAbgleichRender=feAbgleichRender; }
    DOM und IDs bleiben unangetastet, nur `display`.
    =========================================================================== */
 var FE_MITTE={
-  quelle:   [".feHolBox"],
-  kopf:     ["feKopfGrid"],
+  /* 14.08.: Quellbox UND Kopfraster, in dieser Reihenfolge — sie ist die
+     Template-Reihenfolge von `feKopfLayout`, nichts wurde verschoben. */
+  kopf:     [".feHolBox","feKopfGrid"],
   analyse:  ["feNwLinks","fe_naehrKacheln","fe_mikroWrap"],
   bestand:  ["fe_gridA"],
   eigen:    ["feKopfGrid"],
@@ -19443,10 +19486,12 @@ function feFokusAlleZeigen(){
   /* Fokus-Raster und Rail-Umbau zuruecknehmen — der Rueckweg stellt die alte
      One-Page vollstaendig her, samt Root-Index-, Freigabe- und Quellenkarte. */
   try{ document.body.classList.remove("riFokus"); }catch(e){}
+  try{ feRailNav(false); }catch(e){}
   try{ feRailAufraeumen(false); }catch(e){}
   try{ feFokusMitteZurueck(); }catch(e){}
   try{ _feKtxLesekastenHeim(); }catch(e){}
   try{ window._feKtxReiter=null; }catch(e){}
+  try{ document.body.removeAttribute("data-fe-schritt"); }catch(e){}
   var pk=document.getElementById("feProdKopf"); if(pk) pk.style.display="none";
   var lk=document.getElementById("fe_wirkFotoCol"); if(lk) lk.style.display="";
   var pv=document.getElementById("fe_bildPreview");
@@ -19469,8 +19514,12 @@ function feFokusStand(s){
   if(!R||!S||!S.bekannt) return {z:"offen", txt:""};
   var g=function(id){ return ((document.getElementById(id)||{}).value||"").trim(); };
   switch(s.id){
-    case 'quelle':   return R.quelleTyp ? {z:"fertig", txt:R.quelleTyp} : {z:"offen", txt:"noch keine Quelle"};
-    case 'kopf':     return (g("fe_name") && R.kat)
+    /* Zusammengelegt 14.08.: der Schritt ist erst fertig, wenn BEIDES steht —
+       eine Quelle und die Identitaet. Die Quellenpruefung ist dieselbe wie vorher
+       an `quelle`, sie hat nur keine eigene Seite mehr. Zuerst genannt wird, was
+       fehlt: ohne Quelle gibt es nichts zu pruefen. */
+    case 'kopf':     if(!R.quelleTyp) return {z:"offen", txt:"noch keine Quelle"};
+                     return (g("fe_name") && R.kat)
                        ? {z:"fertig", txt:(g("fe_ukat")||R.kat)}
                        : {z:"offen", txt:(!g("fe_name")?"Name fehlt":"Kategorie fehlt")};
     case 'analyse':  return (S.naehrwerte_ok===null) ? {z:"fertig", txt:"nicht erforderlich"}
@@ -19543,7 +19592,7 @@ var _FEZ={fertig:["✓","var(--k-16a34a,#16a34a)"], aktuell:["●","var(--k-2f6f
    direkten Kindern (§3.3). Sichtbar bleibt, was ausdruecklich erlaubt ist; alles
    andere geht auf `none` — auch das, was morgen dazukommt. Nichts wird geloescht,
    der alte Reitermodus bekommt alles zurueck (§17). */
-var FE_RAIL_ERLAUBT={ feProdKopf:1, feFokusNav:1 };
+var FE_RAIL_ERLAUBT={ feRailNav:1, feProdKopf:1, feFokusNav:1 };
 function feRailAufraeumen(an){
   var rail=document.getElementById("feRail"); if(!rail) return;
   [].forEach.call(rail.children, function(c){
@@ -19553,6 +19602,47 @@ function feRailAufraeumen(an){
   });
 }
 if(typeof window!=="undefined"){ window.FE_RAIL_ERLAUBT=FE_RAIL_ERLAUBT; }
+/* ===========================================================================
+   NAVIGATION IN DIE LINKE RAIL (Ralph, Abnahme 2130, Punkt 5)
+
+   „Posteingang · Vorheriges · 1/1 · Nächstes soll nicht mehr als horizontale
+   Kopfzeile über dem Arbeitsbereich stehen." — Sie lag genau dort, wo der
+   Hauptbereich frei beginnen soll.
+
+   🔴 VERSCHOBEN, NICHT NACHGEBAUT. `#feNavPost` und `#feNavBlaett` sind dieselben
+   Knoten wie in der Kopfleiste, samt `closeP()` und `openFgEditor(id)`. Die Frage
+   „welches Produkt ist das vorherige?" wird weiterhin an genau einer Stelle
+   beantwortet (§4.2, §22). Der Rest der Kopfleiste — Markierung, Freigabe-Slot,
+   Neu-laden — bleibt unangetastet im DOM und kommt mit „alle Bereiche zeigen"
+   zurueck (§17).
+   =========================================================================== */
+function feRailNav(an){
+  var rail=document.getElementById("feRail"); if(!rail) return;
+  var leiste=document.getElementById("feNavLeiste");
+  var post=document.getElementById("feNavPost"), blaett=document.getElementById("feNavBlaett");
+  var kasten=document.getElementById("feRailNav");
+  if(!an){
+    /* Rueckweg: die beiden Bloecke gehen an ihren Platz in der Kopfleiste zurueck. */
+    if(leiste){
+      if(post && post.parentNode!==leiste) leiste.insertBefore(post, leiste.firstChild);
+      if(blaett && blaett.parentNode!==leiste) leiste.insertBefore(blaett, post?post.nextSibling:leiste.firstChild);
+      leiste.style.display="";
+    }
+    if(kasten) kasten.remove();
+    return;
+  }
+  if(!kasten){
+    kasten=document.createElement("div"); kasten.id="feRailNav";
+    rail.insertBefore(kasten, rail.firstChild);
+  }
+  /* Immer ganz oben — auch wenn der Produktkopf zwischenzeitlich neu gebaut wurde. */
+  if(rail.firstChild!==kasten) rail.insertBefore(kasten, rail.firstChild);
+  if(post && post.parentNode!==kasten) kasten.appendChild(post);
+  if(blaett && blaett.parentNode!==kasten) kasten.appendChild(blaett);
+  /* Die Kopfleiste verschwindet erst, wenn ihre Knoepfe umgezogen sind. */
+  if(leiste) leiste.style.display="none";
+}
+if(typeof window!=="undefined"){ window.feRailNav=feRailNav; }
 function feProduktKopf(){
   var rail=document.getElementById("feRail"); if(!rail) return;
   var k=document.getElementById("feProdKopf");
@@ -19592,9 +19682,9 @@ function feFokusNavBauen(){
     nav=document.createElement("div"); nav.id="feFokusNav";
     rail.appendChild(nav);
   }
-  if(!feFokusAn()){ nav.style.display="none"; feRailAufraeumen(false); feProduktKopf(); return; }
+  if(!feFokusAn()){ nav.style.display="none"; feRailNav(false); feRailAufraeumen(false); feProduktKopf(); return; }
   nav.style.display="";
-  feRailAufraeumen(true); feProduktKopf();
+  feRailAufraeumen(true); feRailNav(true); feProduktKopf();
   var akt=window._feSchritt||1;
   nav.innerHTML='<div class="feStTitel">Arbeitsschritte</div>'
     +FE_SCHRITTE.map(function(s){
@@ -19712,11 +19802,18 @@ function feFokusSchritt(n){
   /* ── SCHRITT 1: nur die drei Eingänge. Die feHolBox gehört zu Schritt 1 und
      verschwindet in allen anderen Schritten — sie ist Werkzeug, nicht Inhalt. */
   var hb=document.querySelector(".feHolBox");
-  if(hb) hb.style.display=(s.id==='quelle')?"":"none";
-  try{ feFokusQuelle(s.id==='quelle'); }catch(e){ console.error("[Fokus] Quelle:", e); }
+  /* Die Quellbox gehoert seit 14.08. zu Schritt 1 „Kopf & Quelle". Ihre Sichtbarkeit
+     entscheidet ausschliesslich FE_MITTE — hier wird nur noch umgruppiert, damit es
+     nicht zwei Stellen gibt, die dasselbe `display` setzen (§4.2). */
+  try{ feFokusQuelle(s.id==='kopf'); }catch(e){ console.error("[Fokus] Quelle:", e); }
 
   /* 🔴 MITTE SCHRITTREIN (Ralph, Live-Abnahme 1950): Positivliste statt Einzelschalter. */
   try{ feFokusMitte(s); }catch(e){ console.error("[Fokus] Mitte:", e); }
+  /* 🔴 SPALTENBREITEN JE SCHRITT (Ralph, Abnahme 2130, Punkt 7+8).
+     Der Schritt steht als Attribut am <body>; die Breiten selbst stehen im
+     Stylesheet. Hier werden KEINE Pixel gerechnet — sonst haette das Layout zwei
+     Besitzer und die eine Zahl, die zaehlt, stuende an der falschen Stelle (§4.2). */
+  try{ document.body.setAttribute("data-fe-schritt", s.id); }catch(e){}
   /* ── ETIKETT ZUM ABLESEN: NUR IN SCHRITT 3 (Ralph 14.08., Live-Abnahme) ──
      Es gibt genau EINEN grossen Lesekasten (`fe_wirkFotoCol`). Er stand bisher in
      jedem Schritt von Reiter 2 — und war damit gleichzeitig mit der kleinen
@@ -26503,7 +26600,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-14-2130";
+const APP_BUILD = "2026-08-14-2320";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

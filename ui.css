@@ -1579,3 +1579,60 @@ body.riFokus #feTopbar{ display:none !important }
 /* Der umgehaengte Lesekasten fuellt den Kontextplatz statt seiner alten Spalte. */
 .feKtxInhalt > #fe_wirkFotoCol{ width:100%; min-width:0 }
 .feKtxInhalt #fe_wirkFotoBox{ height:clamp(180px,32vh,420px) }
+
+/* ============================================================================
+   SPALTENBREITEN JE SCHRITT + NAVIGATION IN DER RAIL
+   (Ralph, Abnahme 2130, Punkte 5–8)
+
+   „Der Arbeitsbereich ist teilweise zu schmal und rechts zu dominant … kein
+    riesiger Leerraum zwischen Mitte und rechts."
+
+   Eine Regel, ein Ort: die Breiten stehen NUR hier. `app.js` setzt lediglich
+   `data-fe-schritt` am <body> und rechnet keine Pixel (§4.2).
+   ============================================================================ */
+body.riFokus #feRahmen{
+  --rail-breite: 232px;      /* Ralph: 220–240 */
+  --ktx-breite:  360px;      /* Grundwert, je Schritt unten ueberschrieben */
+  --mitte-max:   900px;      /* Ralph: Kopf und Analyse 760–900 */
+  grid-template-columns: var(--rail-breite) minmax(0,1fr);
+}
+body.riFokus #feRahmen:has(> #feKontext:not([style*="display:none"])){
+  grid-template-columns: var(--rail-breite) minmax(700px,1fr) var(--ktx-breite);
+}
+/* Schritt 1 Kopf & Quelle — schmalere Kontextspalte, Ralph: 320–360 */
+body.riFokus[data-fe-schritt="kopf"]     #feRahmen{ --ktx-breite:340px }
+/* Schritt 2 Analyse — das Etikett muss LESBAR sein, Ralph: 380–420 */
+body.riFokus[data-fe-schritt="analyse"]  #feRahmen{ --ktx-breite:400px }
+/* Schritt 3 Bestandteile — Mitte moeglichst breit, Ralph: rechts 340–380 */
+body.riFokus[data-fe-schritt="bestand"]  #feRahmen{ --ktx-breite:350px; --mitte-max:none }
+/* Schritt 4 Eigenschaften — rechte Spalte nur, wenn noetig */
+body.riFokus[data-fe-schritt="eigen"]    #feRahmen{ --ktx-breite:300px }
+/* Schritt 5 Gegenueberstellung — volle Breite, es gibt ohnehin keine Spalte */
+body.riFokus[data-fe-schritt="etikett"]  #feRahmen{ --mitte-max:none }
+/* Schritt 6 Abschluss — ruhige Breite */
+body.riFokus[data-fe-schritt="freigabe"] #feRahmen{ --ktx-breite:340px; --mitte-max:820px }
+
+/* Der 820er-Deckel von 1740 galt fuer ALLE Schritte gleich und liess rechts
+   Leerraum stehen. Er wird nicht geloescht, sondern schrittabhaengig gemacht. */
+body.riFokus #feEditorBody{ max-width:none }
+body.riFokus #feKopfGrid,
+body.riFokus #feAbschluss,
+body.riFokus .feHolBox,
+body.riFokus #feSchrittKopf,
+body.riFokus #feSchrittFuss{ max-width:var(--mitte-max,900px) }
+body.riFokus #feAbgleich{ max-width:none }          /* Gegenueberstellung braucht Breite */
+body.riFokus #fe_gridA{ max-width:none }
+
+/* --- Navigation oben links in der Rail ------------------------------------ */
+#feRailNav{ display:flex; flex-direction:column; gap:7px; padding:0 0 11px;
+  margin-bottom:11px; border-bottom:1px solid var(--line) }
+#feRailNav #feNavPost{ width:100%; text-align:left }
+#feRailNav #feNavBlaett{ display:flex; align-items:center; gap:5px; justify-content:space-between }
+#feRailNav #feNavBlaett button{ padding:5px 8px !important; font-size:11.5px !important;
+  border-radius:7px !important; flex:0 0 auto }
+#feRailNav #feNavBlaett > span{ font-size:11.5px !important }
+body.riFokus #feNavLeiste{ display:none !important }
+
+/* --- Quelle: der Aufklappzustand ist sichtbar ------------------------------ */
+.feQuelleFertig.offen{ border-style:dashed }
+.feQuelleFertig.offen + .feHolGrid{ margin-top:8px }
