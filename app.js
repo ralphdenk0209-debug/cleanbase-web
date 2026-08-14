@@ -14665,6 +14665,52 @@ function _fgBestZeile(z, zusListe, gebunden){
       +'<span style="color:'+b.f+'">Zusatzstoff '+esc(b.t)+'</span></span>');
   });
   var hatZus=(zusListe&&zusListe.length>0);
+  /* ========================================================================
+     🧭 14.08.2026 — TABELLENZEILE (Ralph-Auftrag, Schritt 4)
+     STATUS | BESTANDTEIL | VERARBEITUNG | ZUSATZSTOFF | WERT
+
+     Die alte Zeile war eine Pickliste: Haken, Name, Zahl — und alles Weitere in
+     einer Unterzeile aus Punkten. Als Tabelle steht jede Aussage in ihrer eigenen
+     Spalte, und man sieht auf einen Blick, WELCHE Angabe fehlt statt nur DASS
+     etwas fehlt.
+
+     Der Haken bleibt an fgPickToggle und damit am BESTEHENDEN Speicherweg
+     (#fe_zutRows) — diese Änderung betrifft die Darstellung, nicht das Speichern.
+
+     FARBE (Ralph P23): keine ganzen Zeilen mehr einfärben, nur weil sie in Ordnung
+     sind. Der Status ist ein Zeichen, kein Hintergrund. Blau bleibt nur dort, wo
+     wirklich etwas fehlt — die nicht gebundene Zeile.
+     ======================================================================== */
+  if(typeof feFokusAn==="function" && feFokusAn()){
+    var _rt=(z.resolved_rating==null)?"—":String(z.resolved_rating);
+    var _rc=(z.resolved_rating==null)?"var(--muted)"
+      :(z.resolved_rating>=7?"var(--k-2e9e57,#2e9e57)":(z.resolved_rating>=4?"var(--k-c88616,#c88616)":"var(--k-cf5442,#cf5442)"));
+    var _mod2=(mod && mod!=="unspecified_processing")?esc(mod):'<span style="color:var(--muted)">–</span>';
+    var _zus2=(zusListe||[]).map(function(it){
+      var b=_ZUS_BEW[String(it.evaluation||"").toLowerCase()]||{t:String(it.evaluation||"ungeprüft"),f:"var(--muted)"};
+      var zn=String(it.name||"").trim(), gleich=(zn.toLowerCase()===nm.toLowerCase());
+      return (it.e_number?'<b>'+esc(String(it.e_number))+'</b> · ':'')
+        +(gleich?'':esc(zn)+' · ')+'<span style="color:'+b.f+'">'+esc(b.t)+'</span>';
+    }).join('<br>') || '<span style="color:var(--muted)">–</span>';
+    /* Originaltext nur, wenn er vom Canonical-Namen ABWEICHT — sonst wäre es
+       dieselbe Zeile zweimal (Ralph: „Original: …" nur bei Abweichung). */
+    var _orig=String(z.zutatenliste_rohtext||z.sichtbarer_name||"").trim();
+    var _cn=String(z.canonical_name||"").trim();
+    var _origHtml=(_cn && _orig && _orig.toLowerCase()!==_cn.toLowerCase())
+      ? '<span style="display:block;font-size:10.5px;color:var(--muted);margin-top:1px">Etikett: '+esc(_orig)+'</span>' : '';
+    var _stZ=!gebunden ? ['○','var(--k-2f6fd6,#2f6fd6)','nicht gebunden – zählt noch nicht zum Produkt']
+           : (z.resolved_rating==null ? ['●','var(--muted)','erfasst · noch keine belastbare Verarbeitungsnote']
+                                      : ['✓','var(--k-16a34a,#16a34a)','erfasst und bewertet']);
+    return '<label class="fgBestZeile" data-pz="'+esc(String(z.produkt_zutat_id||""))+'" data-note-offen="'+((z.resolved_rating==null)?"1":"0")+'"'
+      +' title="'+esc(_stZ[2])+'">'
+      +'<span class="fgbSt"><input type="checkbox" '+(gebunden?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(z.resolved_rating==null?"":z.resolved_rating)+'" data-krit="'+(z.resolved_critical?"ja":"nein")+'" onchange="fgPickToggle(this)">'
+        +'<span class="fgbIco" style="color:'+_stZ[1]+'">'+_stZ[0]+'</span></span>'
+      +'<span class="fgbName">'+esc(nm)+_origHtml+'</span>'
+      +'<span class="fgbVerarb">'+_mod2+'</span>'
+      +'<span class="fgbZus">'+_zus2+'</span>'
+      +'<span class="fgbWert" style="color:'+_rc+'">'+esc(_rt)+'</span>'
+    +'</label>';
+  }
   /* 🔴 13.08.2026 (Ralph, Browserabnahme Punkt 4): GRÜN heißt hier „Bestandteil
      vorhanden", NICHT „numerisch bewertet". Vorher bekam jede gebundene Zeile den
      grünen Grund — auch die zehn P1025-Zeilen mit `resolved_rating = NULL`. Damit
@@ -17211,6 +17257,10 @@ async function openFgEditor(id, prefill, targetEl){
         ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label>${quellenTypHinweis()}<div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
       </div>
       <div id="feEditorBody" style="min-width:0">
+        ${''/* 🧭 14.08.2026, Fokus-Editor: Kopf und Fuss des aktuellen Schritts.
+              Beide sind LEER und werden von feFokusSchritt() gefuellt — im alten
+              Reitermodus bleiben sie leer und nehmen keinen Platz (§17). */}
+        <div id="feSchrittKopf"></div>
         <div id="feTab1">
     <div id="feKopfLayout">
       <!-- 02.08. (Ralph): Riki-Zeile schlank. Vorher ~280px Hoehe fuer drei gleich grosse
@@ -17445,7 +17495,11 @@ async function openFgEditor(id, prefill, targetEl){
                 also gibt es keine zweite Zaehlung (§4.2). Leer = kein Knopf. */}
           <div id="fe_zutSammelLeiste"></div>
           <div id="fe_zutSammelBox"></div>
-          <div class="feListKopf"><span title="enthalten">☑</span><span>Zutat / Wirkstoff</span><span class="feMitte">Wert</span></div>
+          ${''/* 14.08.2026 (Schritt 4): Der Kopf traegt jetzt die fuenf Spalten der
+                Bestandteiltabelle. Die alte dreispaltige Fassung bleibt als
+                Rueckfall stehen und wird von fgBestandteileRender gesetzt, wenn
+                der Fokusmodus aus ist (§17). */}
+          <div class="feListKopf fgBestKopf"><span title="enthalten / Status">STATUS</span><span>BESTANDTEIL</span><span>VERARBEITUNG</span><span>ZUSATZSTOFF</span><span class="feRe">WERT</span></div>
           <div id="fe_pickList" data-note="Konzept D: fuellt die Kartenhoehe und scrollt selbst - vorher feste 420px, die zusammen mit Riki-Block und Suchfeld die Karte zu hoch machten"></div>
           <div class="feNeuZeile">
             <input id="fe_zutNeu" onkeydown="if(event.key==='Enter'){event.preventDefault();fgPickAddNeu();}" placeholder="nicht im Stamm? Name eintippen…">
@@ -17493,7 +17547,12 @@ async function openFgEditor(id, prefill, targetEl){
                Die Bewertungsregel dahinter (Getränke-Deckel, §1.13e) hängt seit dem 26.07. nicht mehr an diesem
                Feld allein: cb_hat_kuenstlichen_suessstoff() liest Handfeld + Zutaten + Zusatzstoff-Liste. */}
           <input type="hidden" id="fe_suess" value="${esc(d.suessstoffe||"nein")}">
-        `)}</div></div><div id="fe_colRef">${_refCard}</div></div></div></div></div>
+        `)}</div></div><div id="fe_colRef">${_refCard}</div></div></div>
+        ${''/* SCHRITT 7 — Abschlussansicht. Leer im Template, gefuellt von feAbschlussRender()
+              aus getErfassungsStatus() und _fgScoreGespeichert. Sie RECHNET NICHTS: alle Zahlen
+              stammen aus denselben Strukturen, die auch Streifen und Freigabe-Box lesen (§4.2). */}
+        <div id="feAbschluss" style="display:none"></div>
+        <div id="feSchrittFuss"></div></div></div>
     ${/* 30.07. (Ralph): "die kästchen auf der supplements und salz produkt erfassen karte unten
          anzeigen … und nur die, die enthalten sind". Streifen unter den drei Spalten, NUR bei
          Supplement und Salze - fuer jede andere Kategorie gibt es keine Quelle. Gezeigt werden
@@ -17574,6 +17633,25 @@ async function openFgEditor(id, prefill, targetEl){
     try{ fgEtikettRender(); }catch(e){}   /* angehängte Fotos (Laden + selbst hochgeladen) rendern */
     try{ feEanSync(); }catch(e){}   /* fehlt die EAN, „offen"-Haken automatisch setzen */
     try{ fgRefV2Init(); }catch(e){ console.error("[Referenz V2] Init:", e); }   /* Etappe 4 Zug 1: Umschalter setzen, bei V2 die beiden LESE-RPCs rufen */
+    /* 🧭 14.08.2026: Fokus-Editor aufsetzen. Der Einstiegsschritt folgt dem fachlichen
+       Zustand, nicht einem Klick (Ralph: „Fortschritt ergibt sich aus fachlichem
+       Zustand"): ohne Quelle beginnt es bei 1, sonst beim ersten unfertigen Schritt.
+       Läuft der Aufbau schief, bleibt die alte Reiteransicht stehen — der Editor ist
+       dann unschön, aber vollständig bedienbar (§1.11h). */
+    try{
+      if(typeof feFokusNavBauen==="function"){
+        feFokusNavBauen();
+        var _start=1;
+        try{
+          for(var _i=0;_i<FE_SCHRITTE.length;_i++){
+            var _st=feFokusStand(FE_SCHRITTE[_i]);
+            if(_st.z!=="fertig"){ _start=FE_SCHRITTE[_i].nr; break; }
+            _start=Math.min(FE_SCHRITTE[_i].nr+1, 7);
+          }
+        }catch(e){}
+        feFokusSchritt(_start);
+      }
+    }catch(e){ console.error("[Fokus-Editor] Init:", e); }
     /* 13.08.2026 (Ralph-Addendum Punkt 2): Canonical-Werte der gebundenen Zeilen
        nachziehen — gekocht · 9 statt des rohen Default 10. Ändert nichts, solange
        der Vertrag für dieses Produkt leer ist (siehe fgCanonLaden). */
@@ -18779,6 +18857,367 @@ function feTabWechsel(n){
   if(n===3){ try{ fgFotoPlatzieren(); fgRefV2Init(); }catch(e){} }   /* 07.08.: Etikett auf die Flip-Rueckseite mitnehmen */
   try{ feGridHoeheSync(); }catch(e){}
 }
+/* ============================================================================
+   🧭 FOKUS-EDITOR — SIEBEN SCHRITTE, EINER OFFEN (Ralph-Auftrag 14.08.2026)
+
+   Ralphs Maßstab, wörtlich: die Seite soll nicht mehr sagen „hier sind alle
+   Informationen", sondern „das hier ist jetzt dein nächster Arbeitsschritt".
+
+   🔴 WARUM HIER NICHTS VERSCHOBEN UND NICHTS NEU GEBAUT WIRD:
+   Der Editor hängt an rund 120 festen IDs, die `fgEditSave` DIREKT liest — teils
+   ohne Null-Prüfung. Ein Feld aus dem DOM zu nehmen, weil es gerade nicht dran
+   ist, würde das Speichern abbrechen (§10.3: ausgeblendete Bereiche dürfen keine
+   Daten leeren). Und die CSS-Regeln hängen an Pfaden wie `#feTab3 #fe_colZut` —
+   ein verschobener Knoten verliert sein Aussehen.
+
+   DESHALB: eine ZUORDNUNG Schritt → vorhandene Elemente, und `display`. Jedes
+   Feld bleibt im DOM, jede ID, jeder Handler, jeder Speicherweg. Der Fokus ist
+   eine Sicht auf dieselbe Maske, kein zweiter Editor (§4.2, §22).
+
+   Die sieben Schritte sind Ralphs eigene Reihenfolge und decken sich mit der
+   Arbeitsfluss-Ansicht im Wirkdiagramm.
+   ============================================================================ */
+var FE_SCHRITTE=[
+ {nr:1, id:'quelle',  t:'Quelle starten',      tab:1,
+  kurz:'Material geben, aus dem Daten entstehen',
+  el:['fe_urlLbl','fe_url','fe_pasteZone','fe_jsonIn','fe_jsonMsg','fe_nurLeer'],
+  zelle:['fe_ean','fe_quelle_typ','fe_beleg']},
+ {nr:2, id:'kopf',    t:'Kopf prüfen',         tab:1,
+  kurz:'Identität des Produkts',
+  zelle:['fe_name','fe_marke','fe_ean','fe_kat','fe_ukat','fe_basis','fe_verzehr']},
+ {nr:3, id:'analyse', t:'Nährwerte / Analyse', tab:2,
+  kurz:'je Produktart: Makros · Wirkstoffe · Mineralstoffe'},
+ {nr:4, id:'bestand', t:'Produktbestandteile', tab:3,
+  kurz:'eine Zeile je Bestandteil', nur:['fe_colZut']},
+ {nr:5, id:'eigen',   t:'Eigenschaften',       tab:1,
+  kurz:'abgeleitete Merkmale prüfen',
+  zelle:['fe_bioSw','fe_ernaehrChips']},
+ {nr:6, id:'etikett', t:'Etikett & Abgleich',  tab:3,
+  kurz:'Quelle gegen unsere Erfassung', nur:['fe_colRef']},
+ {nr:7, id:'freigabe',t:'Prüfen & Freigeben',  tab:1,
+  kurz:'Score, Blocker, Freigabe'}
+];
+/* ===========================================================================
+   SCHRITT 7 — ABSCHLUSSANSICHT (Ralph-Auftrag 14.08.2026)
+
+   Drei Gruppen, mehr nicht: BEWERTUNG · PRÜFSTATUS · FREIGABE.
+   Sie ist der EINZIGE Ort, an dem der Root Index gross sein darf.
+
+   Sie rechnet NICHTS. Jede Zahl kommt aus `getErfassungsStatus()` bzw.
+   `_fgScoreGespeichert` — denselben Strukturen, die auch der Gesamtstreifen und
+   die Freigabe-Box lesen. Eine vierte Rechnung waere die vierte Wahrheit (§4.2).
+   =========================================================================== */
+function feAbschlussRender(){
+  var box=document.getElementById("feAbschluss"); if(!box) return;
+  var S=null; try{ S=(typeof getErfassungsStatus==="function")?getErfassungsStatus():null; }catch(e){}
+  if(!S||!S.bekannt){ box.innerHTML='<div class="feAbSp">Der Status wird geladen …</div>'; return; }
+  var sg=window._fgScoreGespeichert, pid=(window._fgEdit&&window._fgEdit.id)||"";
+  var supp=(String((document.getElementById("fe_kat")||{}).value||"").toLowerCase()==="supplement");
+  var H="";
+
+  /* ── A) BEWERTUNG ───────────────────────────────────────────────── */
+  H+='<div class="feAbGr"><div class="feAbTit">Bewertung</div>';
+  if(supp){
+    H+='<div class="feAbZeile"><span>Dosis-Check</span><b>siehe Wirkstoffe &amp; Dosis</b></div>'
+      +'<div class="feAbSp">Nahrungsergänzung bekommt keinen Lebensmittel-Index – eine Kapsel hat kein Nährwertprofil.</div>';
+  } else if(sg && sg.produkt_id===pid){
+    /* 🔴 14.08.: Die Achsen erscheinen AUCH OHNE Gesamtzahl. Beim ersten Bau standen
+       sie nur bei vorhandenem Clean_Score — ausgerechnet bei einem blockierten Produkt
+       fielen sie damit weg, obwohl dort die Frage „welche Achse fehlt?" die einzige ist,
+       die zählt. Gefunden an P1198 (Score NULL, Achse Zusatzstoffe fehlt). */
+    var _f=(typeof farbe==="function")?farbe(sg.bewertung):"var(--ink)";
+    var A=[["zutaten","Zutaten",30],["zusatzstoffe","Zusatzstoffe",15],["nova","NOVA",15],["naehrwert","Nährwerte",40]];
+    var _na=Array.isArray(sg.achsen_na)?sg.achsen_na:[], _fh=Array.isArray(sg.achsen_fehlend)?sg.achsen_fehlend:[], _ac=sg.achsen||{};
+    H+=(sg.clean_score!=null
+        ? '<div class="feAbScore"><div class="feAbZahl" style="color:'+_f+'">'+esc(String(Math.round(sg.clean_score)))+'</div>'
+          +'<div class="feAbBew" style="color:'+_f+'">'+esc(sg.bewertung||"")+'</div></div>'
+        : '<div class="feAbScore"><div class="feAbZahl" style="color:var(--muted)">–</div>'
+          +'<div class="feAbBew" style="color:var(--muted)">kein Index – eine Achse fehlt</div></div>')
+      +'<div class="feAbAchsen">'+A.map(function(a){
+        var v=_ac[a[0]], txt, col;
+        if(_na.indexOf(a[0])>=0){ txt="nicht anwendbar"; col="var(--muted)"; }
+        else if(v==null||_fh.indexOf(a[0])>=0){ txt=(_fh.indexOf(a[0])>=0?"fehlt":"nicht belegt"); col="var(--k-cf5442,#cf5442)"; }
+        else { txt=String(v).replace(".",",")+"/"+a[2]; col="var(--ink)"; }
+        return '<div class="feAbZeile"><span>'+esc(a[1])+'</span><b style="color:'+col+'">'+esc(txt)+'</b></div>';
+      }).join('')+'</div>';
+  } else {
+    H+='<div class="feAbSp">Noch kein gespeicherter Index – er entsteht beim Speichern.</div>';
+  }
+  H+='</div>';
+
+  /* ── B) PRÜFSTATUS ──────────────────────────────────────────────── */
+  var _z=function(t,w,c){ return '<div class="feAbZeile"><span>'+esc(t)+'</span><b style="color:'+(c||"var(--ink)")+'">'+esc(w)+'</b></div>'; };
+  H+='<div class="feAbGr"><div class="feAbTit">Prüfstatus</div>'
+    +_z("Quelle", S.quelle_ok?"vorhanden ✓":"fehlt", S.quelle_ok?"var(--k-166534,#166534)":"var(--k-cf5442,#cf5442)")
+    +_z("Nährwerte", S.naehrwerte_ok===null?"nicht nötig":(S.naehrwerte_ok?"vollständig ✓":"unvollständig"),
+        S.naehrwerte_ok===null?"var(--muted)":(S.naehrwerte_ok?"var(--k-166534,#166534)":"var(--k-cf5442,#cf5442)"))
+    +_z("Bestandteile", S.bestandteile_gesamt?((S.bestandteile_gesamt-S.bestandteile_offen)+"/"+S.bestandteile_gesamt):"keine erfasst",
+        S.bestandteile_gesamt&&!S.bestandteile_offen?"var(--k-166534,#166534)":"var(--muted)")
+    +_z("Etikettprüfung",
+        (S.referenz_gueltige_zeilen||0)>0 ? (S.referenz_blocker>0?(S.referenz_blocker+" Blocker"):"geprüft ✓") : "noch nicht erhoben",
+        (S.referenz_gueltige_zeilen||0)>0 ? (S.referenz_blocker>0?"var(--k-dc2626,#dc2626)":"var(--k-166534,#166534)") : "var(--muted)")
+    +_z("Dublette", (window._feDub&&window._feDub.anzahl)?((window._feDub.anzahl)+" Treffer"):"keine",
+        (window._feDub&&window._feDub.freigabe_blockiert)?"var(--k-dc2626,#dc2626)":"var(--muted)")
+    +'</div>';
+
+  /* ── C) FREIGABE ────────────────────────────────────────────────── */
+  var _ps=String((window._fgEdit&&window._fgEdit.status)||"").toLowerCase();
+  var _frei=(_ps==="aktiv"||_ps==="aktiv ohne index");
+  H+='<div class="feAbGr"><div class="feAbTit">Freigabe</div>';
+  if(_frei){
+    H+='<div class="feAbSatz ok">Dieses Produkt ist freigegeben.</div>';
+  } else if(S.freigabe_moeglich){
+    H+='<div class="feAbSatz ok">Produkt kann freigegeben werden.</div>';
+  } else {
+    H+='<div class="feAbSatz rot">Freigabe nicht möglich.</div>'
+      +'<ul class="feAbListe">'+S.freigabe_gruende.map(function(g){
+         return '<li><b>'+esc(g.t)+'</b>'+(g.d?'<span>'+esc(g.d)+'</span>':'')+'</li>'; }).join('')+'</ul>';
+  }
+  if(S.hinweise && S.hinweise.length)
+    H+='<details class="feAbDet"><summary>Hinweise, die nicht blockieren ('+S.hinweise.length+')</summary><ul class="feAbListe">'
+      +S.hinweise.map(function(x){ return '<li><b>'+esc(x.t)+'</b>'+(x.d?'<span>'+esc(x.d)+'</span>':'')+'</li>'; }).join('')+'</ul></details>';
+  H+='<div class="feAbBtns">'
+    +'<button type="button" class="feAbBtnPrim" onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}"'+(S.freigabe_moeglich||_frei?'':' disabled')+'>Freigeben</button>'
+    +'<button type="button" class="feAbBtnSek" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Als Entwurf speichern</button>'
+    +'</div>'
+    +'<details class="feAbDet"><summary>Alle Bedingungen im Einzelnen</summary><div id="feAbDetail">siehe Freigabe-Karte im Seitenstreifen</div></details>'
+    +'</div>';
+  box.innerHTML=H;
+}
+if(typeof window!=="undefined"){ window.feAbschlussRender=feAbschlussRender; }
+function feFokusAn(){ try{ return localStorage.getItem("ri_fokus")!=="aus"; }catch(e){ return true; } }
+function feFokusSet(an){ try{ localStorage.setItem("ri_fokus", an?"an":"aus"); }catch(e){}
+  if(!an) feFokusAlleZeigen();
+  try{ feFokusNavBauen(); }catch(e){}
+  try{ feFokusSchritt(window._feSchritt||1); }catch(e){}
+}
+/* Alles wieder sichtbar machen — der Rückweg in die alte Reiteransicht.
+   Er muss existieren: ein Modus ohne Ausgang ist eine Falle (§1.11h). */
+function feFokusAlleZeigen(){
+  var alle=[]; FE_SCHRITTE.forEach(function(s){
+    (s.el||[]).forEach(function(x){ alle.push(x); });
+    (s.zelle||[]).forEach(function(x){ alle.push(x); });
+    (s.nur||[]).forEach(function(x){ alle.push(x); });
+  });
+  alle.forEach(function(id){
+    var e=document.getElementById(id); if(!e) return;
+    var z=e.closest?e.closest(".mz"):null;
+    if(z) z.style.display=""; e.style.display="";
+  });
+  /* Die drei Analyse-Blöcke gehören keiner Schritt-Zuordnung an (sie sind ganze Karten,
+     keine Felder) — sie werden hier ausdrücklich mit zurückgeholt. Danach entscheidet
+     feWirkAnsicht erneut, ob die Makro-Karte gilt: bei Mineralwasser bleibt sie aus,
+     und dieses Urteil darf der Rückweg nicht überschreiben (§4.2). */
+  ["fe_nwCard","fe_wirkCard"].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=""; });
+  var mw=document.getElementById("fe_mikroWrap"); if(mw) mw.style.display="flex";
+  try{ if(typeof feWirkAnsicht==="function") feWirkAnsicht(); }catch(e){}
+  /* Auch die Fokus-eigenen Bereiche zurückstellen — sonst bliebe die Abschlussansicht
+     stehen oder die Root-Index-Karte im Streifen verschwunden. Der Rückweg muss den
+     Zustand VOR dem Fokus wiederherstellen, nicht irgendeinen. */
+  var ab=document.getElementById("feAbschluss"); if(ab){ ab.style.display="none"; ab.innerHTML=""; }
+  var kg=document.getElementById("feKopfGrid"); if(kg) kg.style.display="";
+  var ik=document.getElementById("fe_index");
+  if(ik){ var kar=ik.closest?ik.closest(".feKarte,.feRailKarte"):null; if(kar) kar.style.display=""; else ik.style.display=""; }
+  ["fe_bioSw","fe_ernaehrChips"].forEach(function(id){
+    var e=document.getElementById(id); if(!e) return;
+    var z=e.closest?e.closest(".mz"):null; if(z&&z.classList) z.classList.remove("feFokusBreit"); });
+  var sk=document.getElementById("feSchrittKopf"); if(sk) sk.innerHTML="";
+  var sf=document.getElementById("feSchrittFuss"); if(sf) sf.innerHTML="";
+  var tb=document.getElementById("feTabBar"); if(tb) tb.style.display="";
+  var nv=document.getElementById("feFokusNav"); if(nv) nv.style.display="none";
+}
+/* Status je Schritt — ABGELEITET aus dem, was ohnehin schon gerechnet wird
+   (getErfassungsStatus, _fgStatusRoh, _fgBestandteilBilanz). Keine neue
+   Wahrheit im Frontend (Ralph ausdrücklich). */
+function feFokusStand(s){
+  var R=window._fgStatusRoh||null, S=null;
+  try{ S=(typeof getErfassungsStatus==="function")?getErfassungsStatus():null; }catch(e){}
+  if(!R||!S||!S.bekannt) return {z:"offen", txt:""};
+  var g=function(id){ return ((document.getElementById(id)||{}).value||"").trim(); };
+  switch(s.id){
+    case 'quelle':   return R.quelleTyp ? {z:"fertig", txt:R.quelleTyp} : {z:"offen", txt:"noch keine Quelle"};
+    case 'kopf':     return (g("fe_name") && R.kat)
+                       ? {z:"fertig", txt:(g("fe_ukat")||R.kat)}
+                       : {z:"offen", txt:(!g("fe_name")?"Name fehlt":"Kategorie fehlt")};
+    case 'analyse':  return (S.naehrwerte_ok===null) ? {z:"fertig", txt:"nicht erforderlich"}
+                       : (S.naehrwerte_ok ? {z:"fertig", txt:"vollständig"}
+                                          : {z:"entscheid", txt:(R.nwFehlt.length+" offen")});
+    case 'bestand':  var b=(typeof _fgBestandteilBilanz==="function")?_fgBestandteilBilanz():null;
+                     if(!b) return {z:"offen", txt:"noch nichts erfasst"};
+                     /* 🔴 14.08. (Ralph P1): Zahl und Symbol duerfen sich nicht widersprechen.
+                        Offen ist nur, was WIRKLICH offen ist — eine ungeklaerte Identitaet.
+                        Eine fehlende Verarbeitungsnote ist bewusst NULL und blockiert nichts;
+                        sie steht als Zusatz im Text, nicht als Warnzeichen. */
+                     if(b.gesamt===0) return {z:"offen", txt:"noch nichts erfasst"};
+                     if(b.ohne_identitaet>0) return {z:"entscheid", txt:(b.ohne_identitaet+" von "+b.gesamt+" offen")};
+                     return {z:"fertig", txt:(b.gesamt+"/"+b.gesamt+(b.ohne_note>0?(" · "+b.ohne_note+" ohne Note"):""))};
+    case 'eigen':    return {z:"neutral", txt:""};
+    case 'etikett':  return (S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0)
+                       ? {z:"blocker", txt:(S.referenz_blocker+" Blocker")}
+                       : ((S.referenz_gueltige_zeilen||0)>0 ? {z:"fertig", txt:"geprüft"}
+                                                            : {z:"neutral", txt:"nicht erhoben"});
+    /* 🔴 14.08. (Ralph P2): „Freigabe technisch moeglich" ist NICHT „Pruefen & Freigeben
+       abgeschlossen". Ein Haken hier wuerde behaupten, der Abschluss sei erledigt, obwohl
+       das Produkt noch als Entwurf dasteht — und der letzte Schritt ist genau der, bei dem
+       jemand hinsieht. FERTIG ist dieser Schritt erst, wenn das Produkt WIRKLICH freigegeben
+       ist; das steht im Produktstatus und kommt vom Server, nicht aus einer Klickhistorie.
+       Der Freigabe-Guard bleibt unangetastet — hier wird nur anders beschriftet. */
+    case 'freigabe':
+      var _ps=String((window._fgEdit&&window._fgEdit.status)||"").toLowerCase();
+      var _frei=(_ps==="aktiv"||_ps==="aktiv ohne index");
+      if(_frei) return {z:"fertig", txt:"freigegeben"};
+      return S.freigabe_moeglich ? {z:"offen", txt:"Freigabe möglich"}
+        : {z:"blocker", txt:(S.freigabe_gruende.length+" Punkt"+(S.freigabe_gruende.length===1?"":"e"))};
+  }
+  return {z:"offen", txt:""};
+}
+/* Wächter gegen genau den Widerspruch, den Ralph gefunden hat: „! … 1/1".
+   Er REPARIERT nichts still, sondern meldet in die Konsole — eine stumme Korrektur
+   würde den Pflegefehler verstecken, statt ihn zu zeigen (§1.7, §28.4). */
+function _feStandPruef(s, st){
+  try{
+    var voll=/^(\d+)\/(\1)\b/.exec(String(st.txt||""));
+    if(voll && (st.z==="entscheid"||st.z==="blocker"))
+      console.warn("[Fokus] Widerspruch am Schritt „"+s.t+"“: Zustand "+st.z+" bei vollständiger Bilanz "+st.txt);
+    if(st.z==="fertig" && /offen|fehlt|Blocker/i.test(String(st.txt||"")))
+      console.warn("[Fokus] Widerspruch am Schritt „"+s.t+"“: fertig, aber Text sagt "+st.txt);
+  }catch(e){}
+  return st;
+}
+var _FEZ={fertig:["✓","var(--k-16a34a,#16a34a)"], aktuell:["●","var(--k-2f6fd6,#2f6fd6)"],
+          offen:["○","var(--muted)"], entscheid:["!","var(--k-e0a32e,#e0a32e)"],
+          blocker:["!","var(--k-dc2626,#dc2626)"], neutral:["·","var(--muted)"]};
+function feFokusNavBauen(){
+  var rail=document.getElementById("feRail"); if(!rail) return;
+  var nav=document.getElementById("feFokusNav");
+  if(!nav){
+    nav=document.createElement("div"); nav.id="feFokusNav";
+    rail.insertBefore(nav, rail.firstChild);
+  }
+  if(!feFokusAn()){ nav.style.display="none"; return; }
+  nav.style.display="";
+  var akt=window._feSchritt||1;
+  nav.innerHTML='<div class="feStTitel">Arbeitsschritte</div>'
+    +FE_SCHRITTE.map(function(s){
+      var st=_feStandPruef(s, feFokusStand(s));
+      if(s.nr===akt) st={z:"aktuell", txt:st.txt};
+      var d=_FEZ[st.z]||_FEZ.offen;
+      return '<button type="button" class="feFokusSt'+(s.nr===akt?" akt":"")+'" onclick="feFokusSchritt('+s.nr+')" title="'+esc(s.kurz)+'">'
+        +'<span class="feFokusIco" style="color:'+d[1]+'">'+d[0]+'</span>'
+        +'<span class="feFokusTxt"><b>'+s.nr+' '+esc(s.t)+'</b>'
+        +(st.txt?'<span class="feFokusSub">'+esc(st.txt)+'</span>':'')+'</span></button>';
+    }).join("")
+    +'<button type="button" class="feFokusAus" onclick="feFokusSet(false)" title="Zurück zur alten Reiteransicht – alle Bereiche gleichzeitig">alle Bereiche zeigen</button>';
+}
+function feFokusSchritt(n){
+  window._feSchritt=n;
+  var s=FE_SCHRITTE.find(function(x){ return x.nr===n; }); if(!s) return;
+  if(!feFokusAn()){ try{ feTabWechsel(s.tab); }catch(e){} return; }
+  var tb=document.getElementById("feTabBar"); if(tb) tb.style.display="none";
+  try{ feTabWechsel(s.tab); }catch(e){}
+  /* Erst alles des betroffenen Reiters zeigen, dann gezielt ausblenden — so bleibt
+     ein Feld, das keiner Zuordnung angehört, sichtbar statt still zu verschwinden. */
+  feFokusAlleZeigen();
+  var tb2=document.getElementById("feTabBar"); if(tb2) tb2.style.display="none";
+  var nv=document.getElementById("feFokusNav"); if(nv) nv.style.display="";
+  var zeig={}; (s.el||[]).concat(s.zelle||[], s.nur||[]).forEach(function(x){ zeig[x]=1; });
+  /* Kopfzellen: alles ausblenden, was einem ANDEREN Schritt gehört. */
+  var fremd={};
+  FE_SCHRITTE.forEach(function(o){ if(o.nr===n) return;
+    (o.zelle||[]).forEach(function(x){ if(!zeig[x]) fremd[x]=1; });
+    (o.el||[]).forEach(function(x){ if(!zeig[x]) fremd[x]=1; }); });
+  Object.keys(fremd).forEach(function(id){
+    var e=document.getElementById(id); if(!e) return;
+    var z=e.closest?e.closest(".mz"):null;
+    if(z) z.style.display="none"; else e.style.display="none";
+  });
+  /* ── SCHRITT 3: NÄHRWERTE / ANALYSE — je Produktart NUR der passende Block ──
+     Ralph: „Nicht alle Varianten gleichzeitig rendern."
+     Welcher Block gilt, entscheidet feNaehrwertPflicht() — dieselbe Funktion, die auch
+     die Makro-Karte und die Stationsbeschriftung steuert (§4.2). Hier wird nichts neu
+     beurteilt, nur ein- und ausgeblendet:
+       Lebensmittel  → Makros + Mikronährstoffe
+       Mineralwasser → Mineralstoffanalyse (Makro-Karte ist ohnehin aus)
+       Supplement    → Wirkstoffe & Dosis
+     Der Kachelstreifen bleibt, wo er steht — bei Mineralwasser ist er seit 0650 leer. */
+  if(s.id==='analyse'){
+    var _p=(typeof feNaehrwertPflicht==="function")?feNaehrwertPflicht():{art:"lebensmittel",makros_erforderlich:true};
+    var _z=function(id,an){ var e=document.getElementById(id); if(e) e.style.display=an?"":"none"; };
+    _z("fe_nwCard",   _p.art==="lebensmittel");
+    _z("fe_wirkCard", true);                       /* trägt Wirkstoffe UND Mineralstoffanalyse */
+    _z("fe_mikroWrap",_p.art==="lebensmittel");
+    if(_p.art==="lebensmittel"){ var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display="flex"; }
+  } else if(s.tab===2){
+    ["fe_nwCard","fe_wirkCard"].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=""; });
+    var _mw2=document.getElementById("fe_mikroWrap"); if(_mw2) _mw2.style.display="flex";
+  }
+  /* `nur` heisst: in diesem Reiter zaehlt genau diese Spalte. */
+  if(s.nur && s.nur.length){
+    ["fe_colZut","fe_colZus","fe_colRef"].forEach(function(id){
+      var e=document.getElementById(id); if(!e) return;
+      e.style.display=(s.nur.indexOf(id)>=0)?"":"none";
+    });
+    var g=document.getElementById("fe_gridA");
+    if(g) g.style.gridTemplateColumns="minmax(0,1fr)";
+  } else {
+    var g2=document.getElementById("fe_gridA");
+    if(g2) g2.style.gridTemplateColumns="minmax(0,1fr) minmax(340px,1.18fr)";
+    var z2=document.getElementById("fe_colZut"); if(z2) z2.style.display="";
+    var r2=document.getElementById("fe_colRef"); if(r2) r2.style.display="";
+  }
+  /* ── SCHRITT 5: EIGENSCHAFTEN ── Ralph: „Ernährungsform nicht als Randinfo".
+     Die beiden Zellen sind bereits `mz-2` (halbe Breite); im Fokus bekommen sie die
+     volle Zeile, damit die Entscheidung als Entscheidung dasteht. Die CHIPS selbst
+     bleiben unangetastet — feErnaehrChips und feBioPrefill zeichnen sie wie bisher,
+     inklusive der Sekundärzeile „automatisch abgeleitet" aus feErnaehrHint (§22). */
+  ["fe_bioSw","fe_ernaehrChips"].forEach(function(id){
+    var e=document.getElementById(id); if(!e) return;
+    var z=e.closest?e.closest(".mz"):null; if(!z||!z.classList) return;
+    z.classList.toggle("feFokusBreit", s.id==='eigen');
+  });
+
+  /* ── SCHRITT 7: ABSCHLUSS ── nur hier ist der Index gross. */
+  var ab=document.getElementById("feAbschluss");
+  if(ab){
+    if(s.id==='freigabe'){
+      ab.style.display="";
+      var kg=document.getElementById("feKopfGrid"); if(kg) kg.style.display="none";
+      try{ feAbschlussRender(); }catch(e){ console.error("[Abschluss]", e); }
+    } else {
+      ab.style.display="none";
+      var kg2=document.getElementById("feKopfGrid"); if(kg2) kg2.style.display="";
+    }
+  }
+  /* Root-Index-Karte im Streifen: vor Schritt 7 nur eine schmale Zeile (Ralph). */
+  var ik=document.getElementById("fe_index");
+  if(ik){ var kar=ik.closest?ik.closest(".feKarte,.feRailKarte"):null;
+    var ziel=(s.id==='freigabe')?"":"none";
+    if(kar) kar.style.display=ziel; else ik.style.display=ziel; }
+
+  try{ feFokusKopfFuss(s); }catch(e){ console.error("[Fokus] Kopf/Fuss:", e); }
+  try{ feFokusNavBauen(); }catch(e){}
+}
+/* Kopfzeile und Weiter/Zurück. Ralph: „Kein Sprung per versteckter Logik ohne
+   sichtbare Nutzeraktion" — deshalb schaltet NUR ein Klick weiter, nie eine
+   Neuberechnung. feFokusSchritt wird ausser beim Öffnen von nichts automatisch gerufen. */
+function feFokusKopfFuss(s){
+  var k=document.getElementById("feSchrittKopf"), fz=document.getElementById("feSchrittFuss");
+  if(k){ k.innerHTML=feFokusAn()
+    ? '<div class="feSchrittKopf"><span class="feSchrittNr">'+s.nr+'</span>'
+      +'<span><b>'+esc(s.t)+'</b><span class="feSchrittKurz">'+esc(s.kurz||"")+'</span></span></div>' : ""; }
+  if(fz){
+    if(!feFokusAn()){ fz.innerHTML=""; return; }
+    var vor=FE_SCHRITTE.find(function(x){ return x.nr===s.nr-1; });
+    var nach=FE_SCHRITTE.find(function(x){ return x.nr===s.nr+1; });
+    fz.innerHTML='<div class="feSchrittFuss">'
+      +(vor?'<button type="button" class="feSchrittBtnSek" onclick="feFokusSchritt('+vor.nr+')">← Zurück</button>':'<span></span>')
+      +(nach?'<button type="button" class="feSchrittBtnPrim" onclick="feFokusSchritt('+nach.nr+')">Weiter: '+esc(nach.t)+' →</button>':'<span></span>')
+      +'</div>';
+  }
+}
+if(typeof window!=="undefined"){ window.feFokusKopfFuss=feFokusKopfFuss;
+  window.feFokusSchritt=feFokusSchritt; window.feFokusSet=feFokusSet;
+  window.feFokusNavBauen=feFokusNavBauen; window.feFokusAn=feFokusAn; window.FE_SCHRITTE=FE_SCHRITTE; }
 function feTabBadgeUpdate(off, done){
   var b=document.getElementById('feTab3Badge'); if(!b) return;
   var n=Number(off)||0, d=Number(done)||0;
@@ -25511,7 +25950,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-14-0650";
+const APP_BUILD = "2026-08-14-1120";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

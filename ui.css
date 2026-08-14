@@ -1233,3 +1233,85 @@ body.peLightBg{ --bg:#e8e4f2 }
 /* Luft zwischen den Stationen, damit man den Uebergang sieht.
    Station 1 braucht keinen - sie steht direkt unter der Leiste. */
 #feTab2, #feTab3{ margin-top:22px }
+
+/* ============================================================================
+   FOKUS-EDITOR — Workflow-Leiste (Ralph-Auftrag 14.08.2026)
+   Sieben Schritte, einer offen. Die Leiste ersetzt im Fokusmodus die
+   Stationsschiene; #feTabBar bleibt im DOM und kommt beim Umschalten zurueck.
+   ============================================================================ */
+#feFokusNav{ display:flex; flex-direction:column; gap:2px; margin-bottom:12px }
+#feFokusNav .feStTitel{ margin-bottom:4px }
+.feFokusSt{ display:flex; align-items:flex-start; gap:8px; width:100%; text-align:left;
+  background:transparent; border:1px solid transparent; border-radius:8px;
+  padding:6px 8px; cursor:pointer; font:inherit; color:var(--ink); line-height:1.3 }
+.feFokusSt:hover{ background:var(--k-f6f8f7,#f6f8f7) }
+.feFokusSt.akt{ background:var(--k-eef6ff,#eef6ff); border-color:var(--k-2f6fd6,#2f6fd6) }
+.feFokusIco{ flex:0 0 12px; font-size:12px; line-height:1.5; text-align:center }
+.feFokusTxt{ min-width:0; display:flex; flex-direction:column }
+.feFokusTxt b{ font-size:12.5px; font-weight:600 }
+.feFokusSt.akt .feFokusTxt b{ font-weight:800 }
+.feFokusSub{ font-size:10.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.feFokusAus{ margin-top:8px; background:transparent; border:1px solid var(--line);
+  border-radius:7px; padding:4px 8px; font-size:10.5px; color:var(--muted); cursor:pointer }
+.feFokusAus:hover{ color:var(--ink) }
+
+/* ============================================================================
+   BESTANDTEILTABELLE (Fokus-Editor, Schritt 4) — Ralph 14.08.2026
+   STATUS | BESTANDTEIL | VERARBEITUNG | ZUSATZSTOFF | WERT
+   Farbe traegt der Statuspunkt, nicht die Zeilenflaeche (§23).
+   ============================================================================ */
+.fgBestKopf{ display:grid; grid-template-columns:44px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.3fr) 52px;
+  gap:8px; font-size:10px; letter-spacing:.04em; color:var(--muted); font-weight:700;
+  padding:5px 8px; border-bottom:1px solid var(--line) }
+.fgBestZeile{ display:grid; grid-template-columns:44px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.3fr) 52px;
+  gap:8px; align-items:start; padding:7px 8px; border-bottom:1px solid var(--line);
+  cursor:pointer; font-size:12.5px }
+.fgBestZeile:hover{ background:var(--k-f6f8f7,#f6f8f7) }
+.fgbSt{ display:flex; align-items:center; gap:5px }
+.fgbSt input{ width:15px; height:15px; accent-color:var(--k-16a34a,#16a34a) }
+.fgbIco{ font-size:12px; line-height:1 }
+.fgbName{ min-width:0; overflow-wrap:anywhere; color:var(--ink) }
+.fgbVerarb,.fgbZus{ min-width:0; font-size:11.5px; overflow-wrap:anywhere; line-height:1.45 }
+.fgbWert{ text-align:right; font-weight:700; font-size:13px }
+
+/* ============================================================================
+   FOKUS-EDITOR — Schrittkopf, Weiter/Zurueck, Abschlussansicht (14.08.2026)
+   ============================================================================ */
+.feSchrittKopf{ display:flex; align-items:baseline; gap:10px; padding:2px 2px 12px }
+.feSchrittNr{ flex:0 0 auto; width:24px; height:24px; border-radius:50%;
+  background:var(--k-eef6ff,#eef6ff); color:var(--k-2f6fd6,#2f6fd6);
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800 }
+.feSchrittKopf b{ font-size:16px; display:block; line-height:1.25 }
+.feSchrittKurz{ display:block; font-size:11.5px; color:var(--muted); margin-top:1px }
+.feSchrittFuss{ display:flex; justify-content:space-between; align-items:center;
+  gap:10px; margin-top:16px; padding-top:12px; border-top:1px solid var(--line) }
+.feSchrittBtnPrim{ background:var(--k-2f6fd6,#2f6fd6); color:#fff; border:0; border-radius:9px;
+  padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer }
+.feSchrittBtnSek{ background:transparent; color:var(--muted); border:1px solid var(--line);
+  border-radius:9px; padding:8px 14px; font-size:12.5px; cursor:pointer }
+.feFokusBreit{ grid-column:1/-1 !important }
+.feFokusBreit > k{ font-size:13px; font-weight:700; color:var(--ink) }
+
+#feAbschluss{ display:flex; flex-direction:column; gap:14px; max-width:720px }
+.feAbGr{ border:1px solid var(--line); border-radius:12px; background:var(--card); padding:14px 16px }
+.feAbTit{ font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); font-weight:800; margin-bottom:9px }
+.feAbScore{ text-align:center; padding:4px 0 10px }
+.feAbZahl{ font-size:52px; font-weight:800; line-height:1 }
+.feAbBew{ font-size:14px; font-weight:700; margin-top:3px }
+.feAbAchsen{ border-top:1px solid var(--line); padding-top:9px }
+.feAbZeile{ display:flex; justify-content:space-between; gap:12px; padding:3px 0; font-size:12.5px }
+.feAbZeile span{ color:var(--muted) }
+.feAbSp{ font-size:11.5px; color:var(--muted); line-height:1.5 }
+.feAbSatz{ font-size:14px; font-weight:700; margin-bottom:8px }
+.feAbSatz.ok{ color:var(--k-166534,#166534) }
+.feAbSatz.rot{ color:var(--k-b91c1c,#b91c1c) }
+.feAbListe{ margin:0 0 6px; padding-left:18px; font-size:12.5px; line-height:1.6 }
+.feAbListe span{ display:block; font-size:11px; color:var(--muted) }
+.feAbDet summary{ cursor:pointer; font-size:11.5px; color:var(--muted); padding:4px 0 }
+.feAbBtns{ display:flex; gap:9px; margin-top:12px; flex-wrap:wrap }
+.feAbBtnPrim{ background:var(--k-16a34a,#16a34a); color:#fff; border:0; border-radius:9px;
+  padding:10px 20px; font-size:13.5px; font-weight:700; cursor:pointer }
+.feAbBtnPrim[disabled]{ background:var(--k-c3ccd4,#c3ccd4); cursor:not-allowed }
+.feAbBtnSek{ background:transparent; border:1px solid var(--line); border-radius:9px;
+  padding:9px 16px; font-size:12.5px; color:var(--ink); cursor:pointer }
