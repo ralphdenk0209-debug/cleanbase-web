@@ -1315,3 +1315,103 @@ body.peLightBg{ --bg:#e8e4f2 }
 .feAbBtnPrim[disabled]{ background:var(--k-c3ccd4,#c3ccd4); cursor:not-allowed }
 .feAbBtnSek{ background:transparent; border:1px solid var(--line); border-radius:9px;
   padding:9px 16px; font-size:12.5px; color:var(--ink); cursor:pointer }
+
+/* ============================================================================
+   SCHRITT 1 „QUELLE HINZUFÜGEN" + TOPBAR (Ralph 14.08.2026)
+   Drei Eingaenge, sonst nichts. OFF/USDA/JSON/Kundenfoto/Foto→Seite sind im
+   Fokusmodus ausgeblendet — im DOM und im Code unveraendert vorhanden.
+   ============================================================================ */
+.feHolGrid.feQuelleFokus{ display:flex; flex-direction:column; gap:9px; max-width:560px }
+.feHolGrid.feQuelleFokus .feHolZeile{ display:flex; gap:8px; align-items:center }
+.feHolGrid.feQuelleFokus #fe_pasteZone{ padding:14px 12px; border:2px dashed var(--line);
+  border-radius:10px; cursor:text; display:flex; gap:8px; align-items:center }
+.feHolGrid.feQuelleFokus #fe_pasteZone:focus{ border-color:var(--k-2f6fd6,#2f6fd6); outline:none }
+.feQuelleBtn{ display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:13px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg);
+  color:var(--ink); font-size:13px; font-weight:600; cursor:pointer; width:100% }
+.feQuelleBtn:hover{ border-color:var(--k-2f6fd6,#2f6fd6) }
+.feQuelleFertig{ display:flex; align-items:center; gap:10px; padding:10px 12px;
+  border:1px solid var(--k-16a34a,#16a34a); border-radius:10px;
+  background:var(--greenlt,#eef7f0); margin-bottom:10px; max-width:560px }
+.feQuelleHaken{ color:var(--k-16a34a,#16a34a); font-weight:800 }
+.feQuelleFertig b{ display:block; font-size:12.5px }
+.feQuelleFertig span span{ display:block; font-size:11px; color:var(--muted) }
+.feQuelleWechsel{ margin-left:auto; background:transparent; border:1px solid var(--line);
+  border-radius:7px; padding:4px 10px; font-size:11.5px; color:var(--muted); cursor:pointer }
+
+#feTopbar{ display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:9px 14px; border:1px solid var(--line); border-radius:10px;
+  background:var(--card); margin-bottom:10px }
+.feTbLinks{ display:flex; align-items:baseline; gap:10px; min-width:0 }
+.feTbId{ font-size:11px; color:var(--muted); font-weight:700 }
+.feTbName{ font-size:15px; font-weight:700; color:var(--ink);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.feTbZust{ font-size:11px; color:var(--muted); white-space:nowrap }
+.feTbBtn{ background:var(--k-2f6fd6,#2f6fd6); color:#fff; border:0; border-radius:8px;
+  padding:8px 16px; font-size:12.5px; font-weight:700; cursor:pointer }
+
+/* ============================================================================
+   KONTEXTSPALTE (Fokus-Editor, Ralph 14.08.2026)
+   Dritte Spalte. Sie erscheint NUR im Fokusmodus und nur, wenn der aktuelle
+   Schritt etwas zu zeigen hat — in Schritt 5 leer, in Schritt 6 gar nicht.
+   Die zweispaltige Grundvorlage von #feRahmen bleibt unveraendert; die dritte
+   Spalte kommt ueber :has() dazu und faellt weg, sobald #feKontext aus ist.
+   ============================================================================ */
+#feRahmen:has(> #feKontext:not([style*="display:none"])){
+  grid-template-columns:242px minmax(0,1fr) 260px;
+}
+#feKontext{ display:flex; flex-direction:column; gap:10px; align-self:start; position:sticky; top:12px }
+.feKtxBlock{ border:1px solid var(--line); border-radius:10px; background:var(--card); padding:10px 12px }
+.feKtxTit{ font-size:9.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); font-weight:800; margin-bottom:5px }
+.feKtxWert{ font-size:12.5px; font-weight:600; color:var(--ink) }
+.feKtxSub{ font-size:10.5px; color:var(--muted); margin-top:3px; line-height:1.45 }
+.feKtxLink{ display:inline-block; margin-top:5px; font-size:11px; color:var(--k-2f6fd6,#2f6fd6) }
+.feKtxImg{ width:100%; border-radius:8px; display:block; background:var(--bg) }
+.feKtxLeer{ font-size:11.5px; color:var(--muted); line-height:1.5 }
+.feKtxRoh{ font-size:11.5px; line-height:1.55; color:var(--ink); max-height:340px;
+  overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere;
+  background:var(--k-f6f8f7,#f6f8f7); border-radius:7px; padding:8px 9px }
+.feKtxStill{ min-height:1px }
+
+/* ============================================================================
+   SCHRITT 6 — GEGENUEBERSTELLUNG (Ralph 14.08.2026)
+   Kompakte Zeilen, wenig Farbe, keine Kartenlawine. Uebereinstimmung ist dezent,
+   Abweichung faellt auf — nicht umgekehrt.
+   ============================================================================ */
+#feAbgleich{ max-width:100% }
+.feAbgTabs{ display:flex; gap:6px; margin-bottom:12px }
+.feAbgTab{ background:transparent; border:1px solid var(--line); border-radius:8px;
+  padding:7px 14px; font-size:12.5px; color:var(--muted); cursor:pointer }
+.feAbgTab.akt{ background:var(--k-eef6ff,#eef6ff); border-color:var(--k-2f6fd6,#2f6fd6);
+  color:var(--k-2f6fd6,#2f6fd6); font-weight:700 }
+.feAbgZahl{ background:var(--k-e0a32e,#e0a32e); color:#fff; border-radius:999px;
+  padding:0 6px; font-size:10.5px; font-weight:800; margin-left:4px }
+.feAbgTab.akt .feAbgZahl{ background:var(--k-2f6fd6,#2f6fd6) }
+.feAbgTab_ { }
+table.feAbgTab{ width:100%; border-collapse:collapse; font-size:12.5px }
+table.feAbgTab th{ text-align:left; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--muted); font-weight:800; padding:5px 8px; border-bottom:1px solid var(--line) }
+table.feAbgTab td{ padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top }
+.feAbgZ{ cursor:pointer }
+.feAbgZ:hover{ background:var(--k-f6f8f7,#f6f8f7) }
+.feAbgZ.abw td:first-child{ box-shadow:inset 3px 0 0 var(--k-e0a32e,#e0a32e) }
+.feAbgKopfZ td{ color:var(--muted) }
+.feAbgBer{ color:var(--ink) }
+.feAbgBer span{ display:block; font-size:10px; color:var(--muted) }
+.feAbgBer span.feAbgWarn{ color:var(--k-b45309,#b45309) }
+.feAbgNote{ display:block; font-size:10px; color:var(--muted) }
+.feAbgStill{ color:var(--muted) }
+.feAbgSt{ font-size:10.5px; font-weight:700; white-space:nowrap; padding:2px 7px; border-radius:999px }
+.feAbgSt.ok{ color:var(--muted); background:transparent; font-weight:600 }
+.feAbgSt.info{ color:var(--k-1d4ed8,#1d4ed8); background:var(--k-dbeafe,#dbeafe) }
+.feAbgSt.warn{ color:var(--k-92400e,#92400e); background:var(--k-fef3c7,#fef3c7) }
+.feAbgSt.rot{ color:#fff; background:var(--k-dc2626,#dc2626) }
+.feAbgSt.still{ color:var(--muted) }
+.feAbgLeer{ border:1px solid var(--line); border-radius:10px; background:var(--card);
+  padding:16px; font-size:13px; color:var(--ink) }
+.feAbgLeer div{ font-size:11.5px; color:var(--muted); margin-top:4px; line-height:1.5 }
+.feAbgRoh{ margin-top:14px }
+.feAbgRoh summary{ cursor:pointer; font-size:11.5px; color:var(--muted); padding:4px 0 }
+.feAbgRohTxt{ font-size:11.5px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere;
+  background:var(--k-f6f8f7,#f6f8f7); border-radius:8px; padding:10px; margin-top:6px; max-height:300px; overflow:auto }

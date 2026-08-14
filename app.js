@@ -17236,6 +17236,9 @@ async function openFgEditor(id, prefill, targetEl){
            webseite/ui.css. Streifenbreite und Stationsabstaende sind dort EINE Zeile.
            grid-template-rows und die Zeilen-Spanne bleiben in feKachelBreiteSync -
            die haengen vom gemessenen Platz ab und gehoeren nicht ins Stylesheet. */}
+    ${''/* 🧭 14.08.2026: schlanke Topbar. Leer im Template, gefuellt von feTopbarRender();
+          im alten Reitermodus bleibt sie leer und ausgeblendet (§17). */}
+    <div id="feTopbar" style="display:none"></div>
     <div id="feRahmen">
       <div id="feRail">
         ${''/* 06.08.2026 Etappe 3a (Mockup H): Aus der waagerechten Reiterleiste wird eine
@@ -17294,7 +17297,11 @@ async function openFgEditor(id, prefill, targetEl){
       </div>
       <div class="feHolAuch">
         <span class="feFlex0">Auch:</span>
-        <button type="button" onclick="document.getElementById('fe_eti_up').click()" title="Etikett-Foto vom Rechner wählen — Riki liest es" class="feChipLila">🏷 Etikett-Foto</button>
+        ${''/* 14.08.2026: eigene ID, damit der Fokusmodus diesen Knopf GEZIELT greifen kann.
+              Vorher haette er „der erste Knopf in der Zeile" heissen muessen — eine Annahme
+              ueber die Template-Reihenfolge, und genau die lag in dieser Datei schon zweimal
+              daneben. onclick, Klasse und Beschriftung sind unveraendert. */}
+        <button type="button" id="feQuelleEtikettBtn" onclick="document.getElementById('fe_eti_up').click()" title="Etikett-Foto vom Rechner wählen — Riki liest es" class="feChipLila">🏷 Etikett-Foto</button>
         <button type="button" onclick="fgUseKundenfoto('e')" title="Foto aus der Scan-Warteschlange dieses Nutzers verwenden" class="feChipHell">🗂 Kundenfoto</button>
         <button type="button" onclick="fgPullOff()" title="Open Food Facts über die EAN abfragen" class="feChipGruen">🏷 OFF</button>
         <button type="button" onclick="fgPullUsda()" title="Generische Nährwerte aus USDA FoodData Central (englischer Name)" class="feChipBg">USDA</button>
@@ -17551,8 +17558,15 @@ async function openFgEditor(id, prefill, targetEl){
         ${''/* SCHRITT 7 — Abschlussansicht. Leer im Template, gefuellt von feAbschlussRender()
               aus getErfassungsStatus() und _fgScoreGespeichert. Sie RECHNET NICHTS: alle Zahlen
               stammen aus denselben Strukturen, die auch Streifen und Freigabe-Box lesen (§4.2). */}
+        ${''/* SCHRITT 6 — Gegenueberstellung. Leer im Template, gefuellt von
+              feAbgleichRender() aus dem BESTEHENDEN Referenzvertrag. */}
+        <div id="feAbgleich" style="display:none"></div>
         <div id="feAbschluss" style="display:none"></div>
-        <div id="feSchrittFuss"></div></div></div>
+        <div id="feSchrittFuss"></div></div>
+      ${''/* 🧭 14.08.2026: Kontextspalte. Leer im Template, gefuellt von feKontextRender()
+            je nach Schritt — in Schritt 5 bewusst leer, in Schritt 6 gar nicht da.
+            Im alten Reitermodus ausgeblendet und ohne Platzbedarf (§17). */}
+      <div id="feKontext" style="display:none"></div></div>
     ${/* 30.07. (Ralph): "die kästchen auf der supplements und salz produkt erfassen karte unten
          anzeigen … und nur die, die enthalten sind". Streifen unter den drei Spalten, NUR bei
          Supplement und Salze - fuer jede andere Kategorie gibt es keine Quelle. Gezeigt werden
@@ -18985,6 +18999,285 @@ function feAbschlussRender(){
   box.innerHTML=H;
 }
 if(typeof window!=="undefined"){ window.feAbschlussRender=feAbschlussRender; }
+/* ===========================================================================
+   SCHRITT 1 — QUELLE STARTEN (Ralph-Auftrag 14.08.2026)
+
+   „Der einfachste Schritt der Seite." Drei Eingänge, mehr nicht:
+     Weblink · Screenshot · Bild hochladen
+   Alle drei sind BEREITS DA und behalten ihre Aktion — hier wird nur
+   umgruppiert und ausgeblendet. Der Etikett-Foto-Knopf wird VERSCHOBEN
+   (nicht nachgebaut), damit es weiterhin genau einen davon gibt (§4.2, §22).
+
+   🔴 AUS DEM SICHTBAREN WORKFLOW GENOMMEN, NICHT GELÖSCHT (Ralph ausdrücklich):
+     · Open Food Facts — „aktuell keine vertrauensgleiche Quelle"
+     · USDA · JSON-Übernahme · Kundenfoto · Foto → Seite
+   Alle Funktionen, IDs und Aufrufe bleiben im DOM und im Code. Sie kommen mit
+   „alle Bereiche zeigen" zurück und stehen für Altprozesse weiter bereit.
+
+   ⚠ BEFUND: `fgPullOff` ist der EINZIGE Leseweg, der an der EAN hängt (gemessen).
+   Mit OFF draußen gibt es damit KEINEN „Daten zur EAN holen"-Weg mehr. Ein
+   solcher Knopf wird deshalb NICHT gebaut — er hätte nichts zu rufen (§1).
+   =========================================================================== */
+function feFokusQuelle(an){
+  var box=document.querySelector(".feHolBox"); if(!box) return;
+  var q=function(sel){ return box.querySelector(sel); };
+  var grid=q(".feHolGrid"), auch=q(".feHolAuch"), json=q(".feHolZeile2"),
+      titel=q(".feHolTitel"), nurLeer=q(".feNurLeerLbl"), jsonMsg=document.getElementById("fe_jsonMsg");
+  if(!an){
+    /* Rückweg: alles wieder so, wie es die Vorlage baut. */
+    [auch,json,nurLeer].forEach(function(e){ if(e) e.style.display=""; });
+    if(jsonMsg) jsonMsg.style.display="";
+    if(titel) titel.innerHTML='Daten holen <span class="feHolTitelZus">— Riki füllt, du prüfst</span>';
+    var eb=box.querySelector("#feQuelleEtikettBtn")||document.getElementById("feQuelleEtikettBtn");
+    if(eb && auch && eb.parentNode!==auch){
+      eb.className="feChipLila"; eb.textContent="🏷 Etikett-Foto";
+      auch.insertBefore(eb, auch.children[1]||null);
+    }
+    if(grid){ grid.classList.remove("feQuelleFokus"); grid.style.display=""; }
+    var fz=box.querySelector("#feQuelleFertig")||document.getElementById("feQuelleFertig");
+    if(fz) fz.remove();
+    return;
+  }
+  if(titel) titel.innerHTML='Quelle hinzufügen <span class="feHolTitelZus">— Riki liest, du prüfst</span>';
+  [auch,json,nurLeer].forEach(function(e){ if(e) e.style.display="none"; });
+  if(jsonMsg) jsonMsg.style.display="none";
+  /* Den vorhandenen Etikett-Foto-Knopf zum dritten Haupteingang machen — verschieben,
+     nicht nachbauen. Er behält seinen onclick auf den versteckten fe_eti_up. */
+  /* Gezielt über die eigene ID — keine Annahme über die Reihenfolge in der Zeile. */
+  var btn=box.querySelector("#feQuelleEtikettBtn")||document.getElementById("feQuelleEtikettBtn");
+  if(btn && grid && btn.parentNode!==grid){
+    btn.className="feQuelleBtn";
+    btn.textContent="🖼 Bild hochladen";
+    grid.appendChild(btn);
+  }
+  if(grid) grid.classList.add("feQuelleFokus");
+  /* Liegt bereits eine Quelle vor, faellt der Schritt zusammen (Ralph): eine Zeile
+     statt der grossen Flaeche. Aufklappen bleibt moeglich — ein Wechsel der Quelle
+     muss weiter gehen. */
+  var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
+  var alt=document.getElementById("feQuelleFertig"); if(alt) alt.remove();
+  if(qt){
+    var d=document.createElement("div");
+    d.id="feQuelleFertig"; d.className="feQuelleFertig";
+    d.innerHTML='<span class="feQuelleHaken">✓</span><span><b>Quelle</b><span>'+esc(qt)+'</span></span>'
+      +'<button type="button" class="feQuelleWechsel" onclick="var g=this.closest(\'.feHolBox\').querySelector(\'.feHolGrid\'); if(g) g.style.display=(g.style.display===\'none\'?\'\':\'none\');">ändern</button>';
+    box.insertBefore(d, box.firstChild);
+    if(grid) grid.style.display="none";
+  } else if(grid){ grid.style.display=""; }
+}
+if(typeof window!=="undefined"){ window.feFokusQuelle=feFokusQuelle; }
+/* ===========================================================================
+   TOPBAR (Ralph 14.08.): P-ID · Name · Zustand · Speichern. Sonst nichts.
+   Keine Statuschips, keine Scoreanzeige — die stehen im Streifen bzw. Schritt 7.
+   =========================================================================== */
+function feTopbarRender(){
+  var t=document.getElementById("feTopbar"); if(!t) return;
+  if(!feFokusAn()){ t.innerHTML=""; t.style.display="none"; return; }
+  t.style.display="";
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  var nm=((document.getElementById("fe_name")||{}).value||"").trim();
+  var ps=String((window._fgEdit&&window._fgEdit.status)||"Entwurf");
+  var sv=window._fgSaveState||(pid?"saved":"neu");
+  var zt={neu:["noch nicht gespeichert","var(--muted)"],saving:["Speichert …","var(--k-2f6fd6,#2f6fd6)"],
+          saved:["Gespeichert","var(--k-166534,#166534)"],error:["Speichern fehlgeschlagen","var(--k-dc2626,#dc2626)"]}[sv]
+        ||["Gespeichert","var(--k-166534,#166534)"];
+  t.innerHTML='<div class="feTbLinks">'
+      +(pid?'<span class="feTbId">'+esc(pid)+'</span>':'')
+      +'<span class="feTbName">'+esc(nm||"Neues Produkt")+'</span>'
+      +'<span class="feTbZust">'+esc(ps)+' · <span style="color:'+zt[1]+'">'+esc(zt[0])+'</span></span>'
+    +'</div>'
+    +'<div class="feTbRechts">'
+      +'<button type="button" class="feTbBtn" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>'
+    +'</div>';
+}
+if(typeof window!=="undefined"){ window.feTopbarRender=feTopbarRender; }
+/* ===========================================================================
+   KONTEXTSPALTE (Ralph-Auftrag 14.08.2026)
+
+   „Sie zeigt nur das, was beim AKTUELLEN Schritt hilft. Sie ist kein zweites
+   Dashboard." — und: „Leerraum ist ausdrücklich erlaubt."
+
+   Sie LIEST nur, was ohnehin schon geladen ist:
+     window._fgEdit.bild_url   · Produktbild
+     window._fgEdit.etikett[]  · angehängte Etikettfotos
+     window._fgRefV2.rohtext   · Original-Zutatentext vom Etikett
+     fe_quelle_typ / fe_beleg / fe_url · Quelle
+   Keine neue Ableitung, kein neuer RPC, keine DB-Abfrage (Ralph ausdrücklich).
+
+   Schritt 6 bekommt KEINE Spalte: die Gegenüberstellung braucht die Breite.
+   Schritt 5 bleibt bewusst leer — dort hilft nichts.
+   =========================================================================== */
+function _feKtxQuelle(){
+  var typ=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
+  var beleg=((document.getElementById("fe_beleg")||{}).value||"").trim();
+  var url=((document.getElementById("fe_url")||{}).value||"").trim();
+  if(!typ && !beleg && !url) return "";
+  return '<div class="feKtxBlock"><div class="feKtxTit">Quelle</div>'
+    +(typ?'<div class="feKtxWert">'+esc(typ)+'</div>':'')
+    +(beleg?'<div class="feKtxSub">'+esc(beleg)+'</div>':'')
+    +(url?'<a class="feKtxLink" href="'+esc(url)+'" target="_blank" rel="noopener">Seite öffnen ↗</a>':'')
+    +'</div>';
+}
+function _feKtxBild(titel){
+  var u=String((window._fgEdit&&window._fgEdit.bild_url)||"").trim();
+  if(!u) return "";
+  return '<div class="feKtxBlock"><div class="feKtxTit">'+esc(titel||"Produktbild")+'</div>'
+    +'<img class="feKtxImg" src="'+esc(u)+'" alt="Produktbild" loading="lazy"></div>';
+}
+function _feKtxEtikett(){
+  var e=(window._fgEdit&&window._fgEdit.etikett)||[];
+  if(!Array.isArray(e)||!e.length) return "";
+  return '<div class="feKtxBlock"><div class="feKtxTit">Etikett</div>'
+    +'<img class="feKtxImg" src="'+esc(String(e[0]))+'" alt="Etikett" loading="lazy">'
+    +(e.length>1?'<div class="feKtxSub">'+e.length+' Bilder angehängt</div>':'')+'</div>';
+}
+function _feKtxRohtext(){
+  var r=String((window._fgRefV2&&window._fgRefV2.rohtext)||"").trim();
+  if(!r) return '<div class="feKtxBlock"><div class="feKtxTit">Original-Zutatenliste</div>'
+    +'<div class="feKtxLeer">Für dieses Produkt ist kein Etiketttext hinterlegt.</div></div>';
+  return '<div class="feKtxBlock"><div class="feKtxTit">Original-Zutatenliste</div>'
+    +'<div class="feKtxRoh">'+esc(r)+'</div>'
+    +'<div class="feKtxSub">So steht es auf der Quelle. Links unsere Zuordnung.</div></div>';
+}
+function feKontextRender(s){
+  var box=document.getElementById("feKontext"); if(!box) return;
+  if(!feFokusAn() || !s){ box.style.display="none"; box.innerHTML=""; return; }
+  var H="";
+  switch(s.id){
+    case 'quelle':
+      var typ=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
+      H = typ ? (_feKtxEtikett()||_feKtxBild("Vorschau"))+_feKtxQuelle()
+              : '<div class="feKtxBlock"><div class="feKtxLeer">Noch keine Quelle. '
+                +'Weblink, Screenshot oder Bild – Riki liest daraus.</div></div>';
+      break;
+    case 'kopf':     H=_feKtxBild()+_feKtxQuelle(); break;
+    case 'analyse':  H=_feKtxEtikett()||_feKtxBild("Vorschau"); break;
+    /* Der wertvollste Fall: links unsere Tabelle, rechts der Originaltext. */
+    case 'bestand':  H=_feKtxRohtext(); break;
+    /* Ralph: „nur wenn wirklich hilfreich, sonst leer." Hier hilft nichts. */
+    case 'eigen':    H=""; break;
+    /* Ralph: „Der Vergleich selbst braucht Breite." Keine Spalte. */
+    case 'etikett':  box.style.display="none"; box.innerHTML=""; return;
+    case 'freigabe':
+      var ps=String((window._fgEdit&&window._fgEdit.status)||"Entwurf");
+      H=_feKtxBild()+'<div class="feKtxBlock"><div class="feKtxTit">Produktstatus</div>'
+        +'<div class="feKtxWert">'+esc(ps)+'</div></div>'+_feKtxQuelle();
+      break;
+  }
+  if(!H){ box.style.display=""; box.innerHTML='<div class="feKtxStill"></div>'; return; }
+  box.style.display=""; box.innerHTML=H;
+}
+if(typeof window!=="undefined"){ window.feKontextRender=feKontextRender; }
+/* ===========================================================================
+   SCHRITT 6 — GEGENÜBERSTELLUNG (Ralph-Auftrag 14.08.2026)
+
+   BEREICH | UNSERE ERFASSUNG | QUELLE | STATUS — eine Zeile je Etikettelement.
+
+   🔴 ES WIRD NICHTS ABGELEITET. Der Vertrag `cb_referenz_pruefung_laden` liefert
+   die Gegenüberstellung bereits fertig; sie wurde nur nie so gezeigt. Je Element:
+     `original_text`  → was auf der Quelle steht
+     `stammname`/`name` → was wir daraus gemacht haben
+     `db_gebunden` · `db_zusatzstoff_gebunden` · `db_naehrstoff_gebunden` → wo es landete
+     `blockiert` · `blocker_aktiv` · `effektiver_status` → der Vergleichsstatus
+   Der Status kommt aus `_etiStatus()` — derselben Funktion, die die rechte Karte
+   seit dem 13.08. benutzt (§4.2).
+
+   ⚠ 0650-LOGIK BLEIBT: echte Blocker sind nur gültige Prüfzeilen mit blocker > 0.
+   Gemessen 14.08.: P1198 hat `blocker=4`, aber `pruefzeilen_gueltig=0` — der
+   Server-Guard greift dort also NICHT. Die vier blockierten Elemente sind offene
+   Punkte, keine Sperre. Sie rot zu malen wäre eine Sperre, die es nicht gibt.
+   =========================================================================== */
+var _ABG_ST={
+  uebernommen:{t:"übereinstimmend", k:"ok",    ico:"✓"},
+  offen:      {t:"Bindung offen",   k:"info",  ico:"·"},
+  pruefen:    {t:"prüfen",          k:"warn",  ico:"!"},
+  ignoriert:  {t:"ignoriert",       k:"still", ico:"–"}
+};
+function _abgZeilen(){
+  var w=window._fgRefV2||{}, d=w.d||{};
+  var el=Array.isArray(d.elemente)?d.elemente:[];
+  var pzMap={}; (d.pruefzeilen||[]).forEach(function(p){ if(p&&p.Parser_Element_ID!=null) pzMap[p.Parser_Element_ID]=p; });
+  return el.map(function(e){
+    var st=(typeof _etiStatus==="function")?_etiStatus(e, pzMap[e.id]):"pruefen";
+    /* Wo ist das Element bei uns gelandet? Steht als Feld im Vertrag, wird nicht geraten. */
+    var wo=[];
+    if(e.db_gebunden) wo.push("Zutat");
+    if(e.db_zusatzstoff_gebunden) wo.push("Zusatzstoff");
+    if(e.db_naehrstoff_gebunden) wo.push("Nährstoff");
+    var unser=String(e.stammname||e.name||"").trim();
+    var quelle=String(e.original_text||e.name||"").trim();
+    /* Eine ABWEICHUNG im Sinne dieser Ansicht ist: nicht übernommen, nicht gebunden,
+       blockiert, doppelt oder mit Regelverstoss. Alles aus Vertragsfeldern. */
+    var abw = (st!=="uebernommen") || !wo.length
+            || String(e.blockiert)==="true" || e.blocker_aktiv===true
+            || !!e.db_doppelt || (Array.isArray(e.db_regelverstoesse)&&e.db_regelverstoesse.length>0);
+    return {e:e, st:st, unser:unser, quelle:quelle, wo:wo, abw:abw,
+            ebene:(Number(e.ebene)===2?"Unterzutat":"Bestandteil"),
+            note:(e.note==null?null:e.note)};
+  });
+}
+function feAbgleichRender(nurAbw){
+  var box=document.getElementById("feAbgleich"); if(!box) return;
+  var w=window._fgRefV2||{}, d=w.d||{}, st=w.st||{};
+  var gueltig=Number(st.pruefzeilen_gueltig||0)||0, blocker=Number(st.blocker||0)||0;
+  var Z=_abgZeilen();
+  var H='<div class="feAbgTabs">'
+    +'<button type="button" class="feAbgTab'+(nurAbw?'':' akt')+'" onclick="feAbgleichRender(false)">Gegenüberstellung</button>'
+    +'<button type="button" class="feAbgTab'+(nurAbw?' akt':'')+'" onclick="feAbgleichRender(true)">Nur Abweichungen'
+      +(Z.filter(function(z){return z.abw;}).length?' <span class="feAbgZahl">'+Z.filter(function(z){return z.abw;}).length+'</span>':'')
+    +'</button></div>';
+
+  if(!Z.length){
+    /* Ralph: neutral, kein roter Blocker. Der Server sperrt hier auch nicht. */
+    H+='<div class="feAbgLeer"><b>Etikettprüfung noch nicht erhoben.</b>'
+      +'<div>Für dieses Produkt liegen keine Prüfzeilen vor. Das ist kein Blocker – '
+      +'die Referenzprüfung ist eine Kontrollhilfe.</div></div>';
+    box.innerHTML=H; return;
+  }
+  var zeig=nurAbw?Z.filter(function(z){ return z.abw; }):Z;
+  if(nurAbw && !zeig.length){
+    H+='<div class="feAbgLeer"><b>Keine Abweichungen gefunden.</b>'
+      +'<div>Alle '+Z.length+' Zeilen der Quelle sind übernommen.</div></div>';
+    box.innerHTML=H; return;
+  }
+  /* Kopfzeilen: bewusst NUR als neutrale Einordnung. Die Quelle liefert dafür
+     keine strukturierte Entsprechung — das wird gesagt, nicht behauptet (§1). */
+  var kopf="";
+  if(!nurAbw){
+    var nm=((document.getElementById("fe_name")||{}).value||"").trim();
+    var kt=((document.getElementById("fe_kat")||{}).value||"").trim();
+    var uk=((document.getElementById("fe_ukat")||{}).value||"").trim();
+    kopf='<tr class="feAbgKopfZ"><td>Produkt</td><td>'+esc(nm||"—")+'</td>'
+      +'<td class="feAbgStill">nicht als Prüfzeile erfasst</td><td><span class="feAbgSt still">–</span></td></tr>'
+      +'<tr class="feAbgKopfZ"><td>Kategorie</td><td>'+esc(kt+(uk?(" / "+uk):""))+'</td>'
+      +'<td class="feAbgStill">nicht aus der Quelle ableitbar</td><td><span class="feAbgSt still">–</span></td></tr>';
+  }
+  H+='<table class="feAbgTab"><thead><tr>'
+    +'<th>Bereich</th><th>Unsere Erfassung</th><th>Quelle</th><th>Status</th></tr></thead><tbody>'
+    +kopf
+    +zeig.map(function(z){
+      var s=_ABG_ST[z.st]||_ABG_ST.pruefen;
+      /* Echter Blocker nur, wenn der Server-Guard wirklich greifen würde. */
+      var echt=(gueltig>0 && blocker>0 && (String(z.e.blockiert)==="true"||z.e.blocker_aktiv===true));
+      var kl=echt?"rot":s.k;
+      var gleich=(z.unser && z.quelle && z.unser.toLowerCase()===z.quelle.toLowerCase());
+      return '<tr class="feAbgZ'+(z.abw?" abw":"")+'" data-eid="'+esc(String(z.e.id))+'"'
+        +(typeof fgEtikettKlick==="function"?' onclick="try{fgEtikettKlick(\''+esc(String(z.e.id))+'\')}catch(e){}"':'')
+        +' title="Anklicken – die passende Zeile in den Produktbestandteilen wird hervorgehoben">'
+        +'<td class="feAbgBer">'+esc(z.ebene)+(z.wo.length?'<span>'+esc(z.wo.join(" · "))+'</span>':'<span class="feAbgWarn">nicht gebunden</span>')+'</td>'
+        +'<td>'+(z.unser?esc(z.unser):'<span class="feAbgStill">—</span>')
+          +(z.note!=null?'<span class="feAbgNote">Note '+esc(String(z.note))+'</span>':'')+'</td>'
+        +'<td>'+(gleich?'<span class="feAbgStill">gleich</span>':esc(z.quelle||"—"))
+          +(z.e.e_nummer?'<span class="feAbgNote">'+esc(String(z.e.e_nummer))+'</span>':'')+'</td>'
+        +'<td><span class="feAbgSt '+kl+'">'+s.ico+' '+esc(echt?"Blocker":s.t)+'</span></td></tr>';
+    }).join('')
+    +'</tbody></table>';
+  var roh=String(w.rohtext||"").trim();
+  if(roh) H+='<details class="feAbgRoh"><summary>Originalquelle anzeigen</summary>'
+    +'<div class="feAbgRohTxt">'+esc(roh)+'</div></details>';
+  box.innerHTML=H;
+}
+if(typeof window!=="undefined"){ window.feAbgleichRender=feAbgleichRender; }
 function feFokusAn(){ try{ return localStorage.getItem("ri_fokus")!=="aus"; }catch(e){ return true; } }
 function feFokusSet(an){ try{ localStorage.setItem("ri_fokus", an?"an":"aus"); }catch(e){}
   if(!an) feFokusAlleZeigen();
@@ -19021,6 +19314,12 @@ function feFokusAlleZeigen(){
   ["fe_bioSw","fe_ernaehrChips"].forEach(function(id){
     var e=document.getElementById(id); if(!e) return;
     var z=e.closest?e.closest(".mz"):null; if(z&&z.classList) z.classList.remove("feFokusBreit"); });
+  var hb=document.querySelector(".feHolBox"); if(hb) hb.style.display="";
+  try{ feFokusQuelle(false); }catch(e){}
+  var tp=document.getElementById("feTopbar"); if(tp){ tp.innerHTML=""; tp.style.display="none"; }
+  var kx=document.getElementById("feKontext"); if(kx){ kx.innerHTML=""; kx.style.display="none"; }
+  var ag=document.getElementById("feAbgleich"); if(ag){ ag.innerHTML=""; ag.style.display="none"; }
+  var ga=document.getElementById("fe_gridA"); if(ga) ga.style.display="";
   var sk=document.getElementById("feSchrittKopf"); if(sk) sk.innerHTML="";
   var sf=document.getElementById("feSchrittFuss"); if(sf) sf.innerHTML="";
   var tb=document.getElementById("feTabBar"); if(tb) tb.style.display="";
@@ -19151,6 +19450,19 @@ function feFokusSchritt(n){
     ["fe_nwCard","fe_wirkCard"].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=""; });
     var _mw2=document.getElementById("fe_mikroWrap"); if(_mw2) _mw2.style.display="flex";
   }
+  /* ── SCHRITT 6: volle Arbeitsbreite. Die alte rechte Karte bleibt im DOM, tritt aber
+     hinter die Gegenüberstellung zurück — Ralph: „Der Vergleich selbst braucht Breite." */
+  var agb=document.getElementById("feAbgleich");
+  if(agb){
+    if(s.id==='etikett'){
+      agb.style.display="";
+      var gr=document.getElementById("fe_gridA"); if(gr) gr.style.display="none";
+      try{ feAbgleichRender(false); }catch(e){ console.error("[Abgleich]", e); }
+    } else {
+      agb.style.display="none"; agb.innerHTML="";
+      var gr2=document.getElementById("fe_gridA"); if(gr2) gr2.style.display="";
+    }
+  }
   /* `nur` heisst: in diesem Reiter zaehlt genau diese Spalte. */
   if(s.nur && s.nur.length){
     ["fe_colZut","fe_colZus","fe_colRef"].forEach(function(id){
@@ -19194,7 +19506,15 @@ function feFokusSchritt(n){
     var ziel=(s.id==='freigabe')?"":"none";
     if(kar) kar.style.display=ziel; else ik.style.display=ziel; }
 
+  /* ── SCHRITT 1: nur die drei Eingänge. Die feHolBox gehört zu Schritt 1 und
+     verschwindet in allen anderen Schritten — sie ist Werkzeug, nicht Inhalt. */
+  var hb=document.querySelector(".feHolBox");
+  if(hb) hb.style.display=(s.id==='quelle')?"":"none";
+  try{ feFokusQuelle(s.id==='quelle'); }catch(e){ console.error("[Fokus] Quelle:", e); }
+
   try{ feFokusKopfFuss(s); }catch(e){ console.error("[Fokus] Kopf/Fuss:", e); }
+  try{ feKontextRender(s); }catch(e){ console.error("[Kontextspalte]", e); }
+  try{ feTopbarRender(); }catch(e){ console.error("[Topbar]", e); }
   try{ feFokusNavBauen(); }catch(e){}
 }
 /* Kopfzeile und Weiter/Zurück. Ralph: „Kein Sprung per versteckter Logik ohne
@@ -25950,7 +26270,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-14-1120";
+const APP_BUILD = "2026-08-14-1625";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
