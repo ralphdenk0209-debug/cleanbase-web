@@ -6524,22 +6524,43 @@ function peAlsNutzer(id){
    · Aktiv → Entwurf: reines Zurücknehmen (Produkt verschwindet aus dem Katalog), reversibel, sicher.
    · Entwurf → Aktiv: läuft über die geprüfte Freigabe `produkt_pruefen_freigeben` (Quelle/Score/Wächter);
      schlägt die fehl, bleibt das Produkt Entwurf und der Grund wird angezeigt. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   15.08.2026: DER STATUSWECHSEL STEHT AB HIER AN GENAU EINEM ORT.
+
+   Ralph will den Status auch in der linken Rail des Editors aendern koennen. Die
+   Regel dafuer zweimal zu schreiben waere §4.2 — und beim Nachbauen geht
+   erfahrungsgemaess genau der Riegel verloren, auf den es ankommt. Deshalb ist
+   der Rumpf jetzt `feStatusWechsel(id, cur, name, fertig)`; `peToggleStatus`
+   (Produktliste) und der Rail-Knopf rufen beide ihn.
+
+   🔴 UNVERAENDERTE FACHLOGIK, woertlich uebernommen:
+     Entwurf → Aktiv:  `produkt_pruefen_freigeben` — der gepruefte Weg mit allen
+                       serverseitigen Riegeln. Schlaegt er fehl, bleibt Entwurf.
+     Aktiv → Entwurf:  `cb_produkt_status_setzen` nach Rueckfrage.
+   Kein neuer Statusvertrag, keine neue RPC, keine dritte Moeglichkeit. Genau
+   diese zwei Uebergaenge kennt das Frontend — mehr wird nicht angeboten, weil
+   es fuer mehr keinen Weg gibt (§1). */
+async function feStatusWechsel(id, cur, name, fertig){
+  if(!id) return false;
+  try{
+    if(String(cur)==='Entwurf'){
+      var fr=await client.rpc('produkt_pruefen_freigeben',{p_id:id});
+      if(fr.error){ alert('„'+(name||id)+'" kann NICHT auf „Aktiv" – die Freigabe blockiert:\n\n'+fr.error.message+'\n\nDas Produkt bleibt Entwurf.'); return false; }
+    } else {
+      if(!confirm('„'+(name||id)+'" auf „Entwurf" zurücknehmen?\n\nDas Produkt verschwindet aus dem Katalog (Nutzer sehen es nicht mehr), bleibt aber erhalten und kann jederzeit wieder freigegeben werden.')) return false;
+      var r=await client.rpc('cb_produkt_status_setzen',{p_id:id,p_status:'Entwurf'});
+      if(r.error) throw r.error;
+    }
+    if(typeof fertig==="function") fertig();
+    return true;
+  }catch(e){ alert('Status konnte nicht geändert werden: '+(e.message||e)); return false; }
+}
+if(typeof window!=="undefined"){ window.feStatusWechsel=feStatusWechsel; }
 async function peToggleStatus(){
   var id=window._peSel; if(!id){ alert('Bitte zuerst ein Produkt in der Liste anklicken.'); return; }
   var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
   if(peIstScan(p)){ alert('Das ist eine Scan-Zeile – sie hat noch keinen Produktstatus.\n\nErst über „📥 anlegen" ein Produkt daraus machen.'); return; }
-  var cur=String(p.pstatus||'Aktiv');
-  try{
-    if(cur==='Entwurf'){
-      var fr=await client.rpc('produkt_pruefen_freigeben',{p_id:id});
-      if(fr.error){ alert('„'+ (p.name||id) +'" kann NICHT auf „Aktiv" – die Freigabe blockiert:\n\n'+fr.error.message+'\n\nDas Produkt bleibt Entwurf.'); return; }
-    } else {
-      if(!confirm('„'+(p.name||id)+'" auf „Entwurf" zurücknehmen?\n\nDas Produkt verschwindet aus dem Katalog (Nutzer sehen es nicht mehr), bleibt aber erhalten und kann jederzeit wieder freigegeben werden.')) return;
-      var r=await client.rpc('cb_produkt_status_setzen',{p_id:id,p_status:'Entwurf'});
-      if(r.error) throw r.error;
-    }
-    loadProduktErfassung();
-  }catch(e){ alert('Status konnte nicht geändert werden: '+(e.message||e)); }
+  await feStatusWechsel(id, String(p.pstatus||'Aktiv'), p.name, loadProduktErfassung);
 }
 /* „Löschen" = ECHTES Löschen (Ralph: „löschen heisst löschen"). Über die admin-only RPC
    cb_produkt_loeschen (SECURITY DEFINER, umgeht RLS). Schutz: Produkte, die in Nutzer-Tagebüchern
@@ -18912,6 +18933,17 @@ function feTabWechsel(n){
    — nur eine Seite weniger. Fachlich aendert sich nichts (§17).
    Die Quellbox steht im mittleren Bereich ganz oben, weil sie im Template bereits
    das erste Kind von `feKopfLayout` ist; es musste nichts umgehaengt werden (§22). */
+/* 🔴 15.08.2026, Ralph: AUS SECHS SCHRITTEN WERDEN VIER.
+   „Die Schritte 4, 5 und 6 sind teilweise redundant."
+
+   Zusammengelegt wurde zweimal, geloescht nichts:
+     · `etikett` geht in `eigen` auf → ein gemeinsamer letzter Qualitaetsschritt
+       mit zwei getrennten Abschnitten (A Eigenschaften · B Etikett & Abgleich).
+     · `freigabe` entfaellt als SEITE. Der Prüfstatus steht oben im Streifen, der
+       Score jetzt ebenfalls, und die Freigabe ist eine AKTION in der linken Rail.
+       `feAbschlussRender` bleibt vollstaendig erhalten und aufrufbar — die
+       Komplettansicht behaelt sie (§17, Ralph ausdruecklich).
+   Freigabe ist damit keine Station mehr, sondern ein Knopf. */
 var FE_SCHRITTE=[
  {nr:1, id:'kopf',    t:'Kopf & Quelle',       tab:1,
   kurz:'Quelle geben, Identität prüfen',
@@ -18920,15 +18952,11 @@ var FE_SCHRITTE=[
          'fe_quelle_typ','fe_beleg']},
  {nr:2, id:'analyse', t:'Nährwerte / Analyse', tab:2,
   kurz:'je Produktart: Makros · Wirkstoffe · Mineralstoffe'},
- {nr:3, id:'bestand', t:'Produktbestandteile', tab:3,
-  kurz:'eine Zeile je Bestandteil', nur:['fe_colZut']},
- {nr:4, id:'eigen',   t:'Eigenschaften',       tab:1,
-  kurz:'abgeleitete Merkmale prüfen',
-  zelle:['fe_bioSw','fe_ernaehrChips']},
- {nr:5, id:'etikett', t:'Etikett & Abgleich',  tab:3,
-  kurz:'Quelle gegen unsere Erfassung', nur:['fe_colRef']},
- {nr:6, id:'freigabe',t:'Prüfen & Freigeben',  tab:1,
-  kurz:'Score, Blocker, Freigabe'}
+ {nr:3, id:'bestand', t:'Produktbestandteile & Referenz', tab:3,
+  kurz:'links unsere Zuordnung, rechts das Gelesene', nur:['fe_colZut']},
+ {nr:4, id:'eigen',   t:'Eigenschaften & Abgleich', tab:1,
+  kurz:'Merkmale prüfen, dann Quelle gegen Erfassung',
+  zelle:['fe_bioSw','fe_ernaehrChips']}
 ];
 /* ===========================================================================
    SCHRITT 7 — ABSCHLUSSANSICHT (Ralph-Auftrag 14.08.2026)
@@ -19222,10 +19250,16 @@ function _feKtxRohtext(){
 var FE_KTX_REITER={
   kopf:     [["quelle","Quelle"],["bild","Produktbild"]],
   analyse:  [["etikett","Etikett"],["quelle","Quelle"]],
-  bestand:  [["rohtext","Zutaten-Rohtext"],["etikett","Etikett"],["referenz","Referenz"]],
-  eigen:    [["quelle","Quelle"]],
-  etikett:  [],                                   /* Gegenueberstellung traegt die Quelle selbst */
-  freigabe: [["produkt","Produkt"],["quelle","Quelle"]]
+  /* 🔴 15.08. Ralph: „Die Referenz aus dem Etikett muss hier wieder sichtbar sein …
+     Nicht nur Rohtext zeigen. Die bestehende Referenz-V2 verwenden."
+     Deshalb steht REFERENZ vorn und ist der Standard — und der Reiter zeigt die
+     ECHTE Referenzkarte `fe_colRef` samt Riki-Arbeitsliste, Nachtrag-Feld und
+     V2-Umschalter. Sie wird UMGEHAENGT wie der Etikett-Lesekasten, nicht
+     nachgebaut; ihr Heimatplatz ist `fe_gridA` (§22, keine neue Vergleichslogik). */
+  bestand:  [["referenz","Referenz"],["etikett","Etikett"],["rohtext","Rohtext"]],
+  /* Ralph P12, Option B: bei der Gegenueberstellung faellt die rechte Spalte weg.
+     Die Tabelle braucht die Breite, und eine dritte Quelle daneben will er nicht. */
+  eigen:    []
 };
 function _feKtxLesekastenHeim(){
   var lk=document.getElementById("fe_wirkFotoCol"); if(!lk) return;
@@ -19233,6 +19267,17 @@ function _feKtxLesekastenHeim(){
   if(heim && lk.parentNode!==heim) heim.appendChild(lk);
   lk.style.display="";
 }
+/* Die Referenzkarte hat denselben Mechanismus und denselben Heimatplatz-Gedanken:
+   sie WOHNT in `fe_gridA` (dritte Spalte) und wird fuer den Reiter nur ausgeliehen.
+   Kein zweites Rendern, keine Kopie — sonst gaebe es zwei Referenzlisten, von denen
+   eine still veraltet (§4.2). */
+function _feKtxReferenzHeim(){
+  var rk=document.getElementById("fe_colRef"); if(!rk) return;
+  var heim=document.getElementById("fe_gridA");
+  if(heim && rk.parentNode!==heim) heim.appendChild(rk);
+}
+/* EIN Aufraeumer fuer beide ausgeliehenen Karten — damit nie eine haengenbleibt. */
+function _feKtxAllesHeim(){ _feKtxLesekastenHeim(); _feKtxReferenzHeim(); }
 function feKontextReiter(id){
   window._feKtxReiter=id;
   /* Der Schritt kommt aus `_feKtxSchritt` — dem Wert, den feKontextRender selbst
@@ -19245,13 +19290,13 @@ function feKontextReiter(id){
 }
 function feKontextRender(s){
   var box=document.getElementById("feKontext"); if(!box) return;
-  if(!feFokusAn() || !s){ box.style.display="none"; box.innerHTML=""; _feKtxLesekastenHeim(); return; }
+  if(!feFokusAn() || !s){ box.style.display="none"; box.innerHTML=""; _feKtxAllesHeim(); return; }
   /* Schrittwechsel setzt den Reiter auf den Standard zurueck; innerhalb eines
      Schritts bleibt die Wahl des Nutzers stehen. Gemerkt wird hier, weil hier
      ohnehin bekannt ist, welcher Schritt gilt (§4.2). */
   if(window._feKtxSchritt!==s.id){ window._feKtxReiter=null; window._feKtxSchritt=s.id; }
   var R=FE_KTX_REITER[s.id]||[];
-  if(!R.length){ box.style.display="none"; box.innerHTML=""; _feKtxLesekastenHeim(); return; }
+  if(!R.length){ box.style.display="none"; box.innerHTML=""; _feKtxAllesHeim(); return; }
   /* Der Standardreiter ist der ERSTE der Liste — Ralphs Reihenfolge ist die Vorgabe. */
   var akt=window._feKtxReiter;
   if(!akt || !R.some(function(r){ return r[0]===akt; })) akt=R[0][0];
@@ -19261,12 +19306,21 @@ function feKontextRender(s){
   }).join('')+'</div><div class="feKtxInhalt" id="feKtxInhalt"></div>';
   box.style.display=""; box.innerHTML=H;
   var ziel=document.getElementById("feKtxInhalt");
-  /* NUR EIN Inhalt — der Lesekasten kommt heim, sobald ein anderer Reiter gilt. */
-  if(akt!=="etikett") _feKtxLesekastenHeim();
+  /* NUR EIN Inhalt — jede ausgeliehene Karte geht heim, sobald ein anderer Reiter gilt. */
+  if(akt!=="etikett")  _feKtxLesekastenHeim();
+  if(akt!=="referenz") _feKtxReferenzHeim();
   if(akt==="etikett"){
     var lk=document.getElementById("fe_wirkFotoCol");
     if(lk && ziel){ ziel.appendChild(lk); lk.style.display=""; }
     else if(ziel) ziel.innerHTML='<div class="feKtxLeer">Kein Etikettbild vorhanden.</div>';
+    return;
+  }
+  if(akt==="referenz"){
+    /* Die echte Referenzkarte, nicht ihre Beschreibung. Sie bringt ihre Riki-Liste,
+       den V2-Umschalter und das Nachtragsfeld mit — alles bestehende Funktionen. */
+    var rk=document.getElementById("fe_colRef");
+    if(rk && ziel){ rk.style.display=""; ziel.appendChild(rk); }
+    else if(ziel) ziel.innerHTML='<div class="feKtxLeer">Referenzkarte nicht geladen.</div>';
     return;
   }
   var inh="";
@@ -19275,14 +19329,9 @@ function feKontextRender(s){
   if(akt==="rohtext")  inh=_feKtxRohtext();
   if(akt==="produkt")  inh=_feKtxBild()+'<div class="feKtxBlock"><div class="feKtxTit">Produktstatus</div>'
       +'<div class="feKtxWert">'+esc(String((window._fgEdit&&window._fgEdit.status)||"Entwurf"))+'</div></div>';
-  if(akt==="referenz"){
-    var w=window._fgRefV2||{}, d=w.d||{}, el=Array.isArray(d.elemente)?d.elemente:[];
-    inh=el.length
-      ? '<div class="feKtxBlock"><div class="feKtxTit">Referenz</div><div class="feKtxRoh">'
-        +el.map(function(e){ return esc(String(e.original_text||e.name||"")); }).join("\n")+'</div>'
-        +'<div class="feKtxSub">'+el.length+' Zeilen vom Etikett. Der volle Abgleich steht in Schritt 6.</div></div>'
-      : '<div class="feKtxBlock"><div class="feKtxTit">Referenz</div><div class="feKtxLeer">Etikettprüfung noch nicht erhoben.</div></div>';
-  }
+  /* Der Textnachbau der Referenz von 2130 ist WEG: er listete nur `original_text`
+     und war damit eine zweite, aermere Referenzliste neben der echten Karte.
+     Ralph: „Nicht nur Rohtext zeigen." Jetzt haengt die echte Karte im Reiter. */
   if(ziel) ziel.innerHTML=inh||'<div class="feKtxStill"></div>';
 }
 if(typeof window!=="undefined"){ window.feKontextReiter=feKontextReiter; window.FE_KTX_REITER=FE_KTX_REITER; }
@@ -19417,9 +19466,11 @@ var FE_MITTE={
   kopf:     [".feHolBox","feKopfGrid"],
   analyse:  ["feNwLinks","fe_naehrKacheln","fe_mikroWrap"],
   bestand:  ["fe_gridA"],
-  eigen:    ["feKopfGrid"],
-  etikett:  [],            /* feAbgleich liegt ausserhalb der Tabs */
-  freigabe: []             /* feAbschluss ebenso */
+  /* Schritt 4 traegt ZWEI Abschnitte: oben die Eigenschaftsfelder aus Reiter 1,
+     darunter die Gegenueberstellung. `feAbgleich` liegt ausserhalb der Tabs und
+     bekommt eine eigene Rasterzeile — sonst laege es UEBER dem Kopfraster, weil
+     beide sich `grid-area: 2/1` teilen (so gebaut am 14.08., Ralph P-Position). */
+  eigen:    ["feKopfGrid"]
 };
 function feFokusMitte(s){
   var erlaubt={}; (FE_MITTE[s.id]||[]).forEach(function(x){ erlaubt[x]=1; });
@@ -19551,7 +19602,7 @@ function feFokusAlleZeigen(){
   try{ feRailNav(false); }catch(e){}
   try{ feRailAufraeumen(false); }catch(e){}
   try{ feFokusMitteZurueck(); }catch(e){}
-  try{ _feKtxLesekastenHeim(); }catch(e){}
+  try{ _feKtxAllesHeim(); }catch(e){}
   try{ window._feKtxReiter=null; }catch(e){}
   try{ document.body.removeAttribute("data-fe-schritt"); }catch(e){}
   var pk=document.getElementById("feProdKopf"); if(pk) pk.style.display="none";
@@ -19705,6 +19756,22 @@ function feRailNav(an){
   if(leiste) leiste.style.display="none";
 }
 if(typeof window!=="undefined"){ window.feRailNav=feRailNav; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRODUKTKOPF IN DER RAIL (Ralph 15.08., Punkt 6+7)
+
+   „Speichern / Status / Freigeben vollstaendig links."
+
+   🔴 ZUM STATUSFELD, weil ich hier eine Entscheidung getroffen habe:
+   Ein Aufklappmenue „[ Entwurf ▾ ]" mit freier Wahl gibt es nicht — gemessen kennt
+   das Frontend genau ZWEI Uebergaenge (`produkt_pruefen_freigeben` und
+   `cb_produkt_status_setzen`). Fuer „Archiviert" oder „Aktiv ohne Index" existiert
+   kein Schreibweg; ihn zu bauen waere neue Freigabelogik, und die schliesst Ralphs
+   Punkt 15 aus. Angeboten wird deshalb ein Umschalter mit genau diesen zwei Werten.
+   Er ruft `feStatusWechsel` — dieselbe Funktion wie die Produktliste (§4.2).
+
+   FREIGEBEN steht nur da, wenn es einen Sinn hat, und traegt darunter EINE kurze
+   Zeile mit dem Warum. Die Gruende selbst stehen im Statusstreifen und an den
+   Arbeitsschritten — hier waere die dritte Kopie (Ralph Punkt 7). */
 function feProduktKopf(){
   var rail=document.getElementById("feRail"); if(!rail) return;
   var k=document.getElementById("feProdKopf");
@@ -19716,16 +19783,48 @@ function feProduktKopf(){
   var ps=String((window._fgEdit&&window._fgEdit.status)||"Entwurf");
   var sv=window._fgSaveState||(pid?"saved":"neu");
   var zt={neu:"noch nicht gespeichert",saving:"speichert …",saved:"gespeichert",error:"Speichern fehlgeschlagen"}[sv]||"gespeichert";
-  /* ⋯ traegt die seltenen und die gefaehrlichen Aktionen. Loeschen behaelt seine
-     bestehende Sicherheitsabfrage — hier wird nur der Ort geaendert (§22). */
+  /* Freigabefaehigkeit kommt aus derselben Struktur wie der Streifen — nicht neu beurteilt. */
+  var S=null; try{ S=(typeof getErfassungsStatus==="function")?getErfassungsStatus():null; }catch(e){}
+  var frei=(ps.toLowerCase()==="aktiv"||ps.toLowerCase()==="aktiv ohne index");
+  var moeglich=!!(S&&S.bekannt&&S.freigabe_moeglich);
+  var stAlt=frei?"Aktiv":"Entwurf";
+  var stZiel=frei?"Entwurf":"Aktiv";
   k.innerHTML='<div class="feProdZeile">'
       +'<div class="feProdTxt">'+(pid?'<span class="feProdId">'+esc(pid)+'</span>':'')
-      +'<b>'+esc(nm||"Neues Produkt")+'</b>'
-      +'<span class="feProdZust">'+esc(ps)+' · '+esc(zt)+'</span></div>'
+      +'<b>'+esc(nm||"Neues Produkt")+'</b></div>'
       +'<button type="button" class="feProdMehr" onclick="feProdMenu(this)" title="Weitere Aktionen">⋯</button>'
     +'</div>'
-    +'<button type="button" class="feProdSave" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>';
+    /* Status als Umschalter: er zeigt den IST-Wert und nennt im Titel das Ziel. */
+    +'<button type="button" class="feProdStatus '+(frei?'aktiv':'entwurf')+'"'
+      +(pid?'':' disabled')
+      +' onclick="feRailStatus()" title="'+esc(stAlt+' → '+stZiel
+          +(frei?' (aus dem Katalog nehmen)':' (über die geprüfte Freigabe)'))+'">'
+      +esc(stAlt)+' <span class="feProdStatusPfeil">⇄</span></button>'
+    +'<div class="feProdZust">'+esc(zt)+'</div>'
+    +'<button type="button" class="feProdSave" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>'
+    /* Freigeben nur, solange es etwas freizugeben gibt. */
+    +(frei ? '<div class="feProdFrgTxt ok">Dieses Produkt ist freigegeben.</div>'
+           : '<button type="button" class="feProdFrei"'+(moeglich?'':' disabled')
+             +' onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}">Freigeben</button>'
+             +'<div class="feProdFrgTxt'+(moeglich?' ok':' rot')+'">'
+             +(moeglich?'Freigabe möglich'
+                      :'Freigabe nicht möglich'+((S&&S.bekannt&&S.freigabe_gruende.length)
+                          ?' · '+S.freigabe_gruende.length+' Punkt'+(S.freigabe_gruende.length===1?'':'e'):''))
+             +'</div>');
 }
+/* Der Rail-Umschalter. Er rechnet nichts, er reicht durch — und laedt danach
+   denselben Editor neu, damit der angezeigte Status vom Server kommt und nicht
+   aus der Annahme, der Klick habe schon gewirkt (§12.4). */
+async function feRailStatus(){
+  var pid=(window._fgEdit&&window._fgEdit.id)||""; if(!pid) return;
+  var ps=String((window._fgEdit&&window._fgEdit.status)||"Entwurf");
+  var nm=((document.getElementById("fe_name")||{}).value||"").trim();
+  var cur=(ps.toLowerCase()==="aktiv"||ps.toLowerCase()==="aktiv ohne index")?"Aktiv":"Entwurf";
+  await feStatusWechsel(pid, cur, nm||pid, function(){
+    try{ openFgEditor(pid); }catch(e){ location.reload(); }
+  });
+}
+if(typeof window!=="undefined"){ window.feRailStatus=feRailStatus; }
 function feProdMenu(btn){
   var alt=document.getElementById("feProdMenuBox"); if(alt){ alt.remove(); return; }
   var pid=(window._fgEdit&&window._fgEdit.id)||"";
@@ -19758,7 +19857,11 @@ function feFokusNavBauen(){
         +'<span class="feFokusTxt"><b>'+s.nr+' '+esc(s.t)+'</b>'
         +(st.txt?'<span class="feFokusSub">'+esc(st.txt)+'</span>':'')+'</span></button>';
     }).join("")
-    +'<button type="button" class="feFokusAus" onclick="feFokusSet(false)" title="Komplette Altansicht – alle Bereiche gleichzeitig. Nur für jetzt; beim nächsten Produkt und nach dem Neuladen ist die Fokusansicht wieder da.">alle Bereiche zeigen</button>';
+    /* 🔴 15.08. (Ralph Punkt 14): „Alle Bereiche zeigen" steht nur noch im ⋯-Menue.
+       Als Dauerknopf unter den Schritten sah es aus wie ein fuenfter Schritt — und
+       genau das ist es nicht. Der Eintrag im Menue ist derselbe Aufruf; es gibt
+       ihn weiterhin genau einmal (§4.2). */
+    ;
 }
 function feFokusSchritt(n){
   window._feSchritt=n;
@@ -19805,11 +19908,17 @@ function feFokusSchritt(n){
     ["fe_nwCard","fe_wirkCard"].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=""; });
     var _mw2=document.getElementById("fe_mikroWrap"); if(_mw2) _mw2.style.display="flex";
   }
-  /* ── SCHRITT 6: volle Arbeitsbreite. Die alte rechte Karte bleibt im DOM, tritt aber
-     hinter die Gegenüberstellung zurück — Ralph: „Der Vergleich selbst braucht Breite." */
+  /* ── SCHRITT 4, ABSCHNITT B: DIE GEGENUEBERSTELLUNG ────────────────────────
+     15.08.2026, Ralph: „Aus Eigenschaften → Etikett prüfen wird ein gemeinsamer
+     letzter Qualitaetsschritt … zwei klar getrennte Abschnitte, keine zwei Seiten."
+
+     Der Abgleich liegt AUSSERHALB der drei Reiter und teilte sich bisher die
+     Rasterzelle `2/1` mit ihnen. Beide gleichzeitig sichtbar haetten uebereinander
+     gelegen. Deshalb bekommt er im Schritt `eigen` eine EIGENE Rasterzeile — das
+     macht das Stylesheet ueber `data-fe-schritt="eigen"`, nicht diese Funktion. */
   var agb=document.getElementById("feAbgleich");
   if(agb){
-    if(s.id==='etikett'){
+    if(s.id==='eigen'){
       agb.style.display="";
       var gr=document.getElementById("fe_gridA"); if(gr) gr.style.display="none";
       try{ feAbgleichRender(false); }catch(e){ console.error("[Abgleich]", e); }
@@ -19843,23 +19952,18 @@ function feFokusSchritt(n){
     z.classList.toggle("feFokusBreit", s.id==='eigen');
   });
 
-  /* ── SCHRITT 7: ABSCHLUSS ── nur hier ist der Index gross. */
+  /* ── DIE ABSCHLUSSSEITE ENTFAELLT IM FOKUSMODUS (Ralph 15.08., Punkt 3) ────
+     „Prüfstatus steht bereits oben. Freigabemöglichkeit steht bereits oben. Score
+      kann ebenfalls oben gezeigt werden. Freigabe-Aktion wandert in die linke Rail."
+     `feAbschlussRender` ist NICHT geloescht und wird von der Komplettansicht
+     weiterhin gezeigt (§17). Im Fokus bleibt sie schlicht leer. */
   var ab=document.getElementById("feAbschluss");
-  if(ab){
-    if(s.id==='freigabe'){
-      ab.style.display="";
-      var kg=document.getElementById("feKopfGrid"); if(kg) kg.style.display="none";
-      try{ feAbschlussRender(); }catch(e){ console.error("[Abschluss]", e); }
-    } else {
-      ab.style.display="none";
-      var kg2=document.getElementById("feKopfGrid"); if(kg2) kg2.style.display="";
-    }
-  }
-  /* Root-Index-Karte im Streifen: vor Schritt 7 nur eine schmale Zeile (Ralph). */
+  if(ab){ ab.style.display="none"; ab.innerHTML=""; }
+  /* Die Root-Index-Karte der Rail bleibt im Fokus aus — der Score steht jetzt
+     kompakt im oberen Statusstreifen (Punkt 4), und zweimal ist einmal zu viel. */
   var ik=document.getElementById("fe_index");
   if(ik){ var kar=ik.closest?ik.closest(".feKarte,.feRailKarte"):null;
-    var ziel=(s.id==='freigabe')?"":"none";
-    if(kar) kar.style.display=ziel; else ik.style.display=ziel; }
+    if(kar) kar.style.display="none"; else ik.style.display="none"; }
 
   /* ── SCHRITT 1: nur die drei Eingänge. Die feHolBox gehört zu Schritt 1 und
      verschwindet in allen anderen Schritten — sie ist Werkzeug, nicht Inhalt. */
@@ -21160,15 +21264,71 @@ function feStatusStreifen(){
      (Gespeichert · Quelle · Naehrwerte · Bestandteile · Freigabe), darunter steht in
      kleiner grauer Schrift, was wahr, aber kein Riegel ist. Ein Blocker bleibt rot und
      bekommt seinen Grund direkt darunter. */
-  var _hw="";
+  /* 🔴 15.08.: Die Dublettenwarnung stand bisher NUR auf der Abschlussseite. Die
+     entfaellt im Fokus — also kommt sie hierher, sonst waere sie im Arbeitsfluss
+     unsichtbar, obwohl sie ein Freigabegrund sein kann. Sie wird nicht neu
+     berechnet, sondern aus `window._feDub` gelesen wie zuvor (§4.2). */
+  var _hw="", _dub=window._feDub;
+  if(_dub && _dub.anzahl){
+    _hw+='<div class="feStDub'+(_dub.freigabe_blockiert?' rot':'')+'">'
+      +(_dub.freigabe_blockiert?'⛔ ':'· ')+esc(String(_dub.anzahl))
+      +' möglicher Dublettentreffer'+(_dub.anzahl===1?'':'e')
+      +(_dub.freigabe_blockiert?' – blockiert die Freigabe':'')+'</div>';
+  }
   if(S.hinweise && S.hinweise.length){
-    _hw='<div style="flex:1 1 100%;font-size:11px;color:var(--muted);line-height:1.5;padding-top:2px">'
+    _hw+='<div style="flex:1 1 100%;font-size:11px;color:var(--muted);line-height:1.5;padding-top:2px">'
       +S.hinweise.map(function(x){ return '<span title="'+esc(x.d||"")+'">· '+esc(x.t)+'</span>'; }).join('&nbsp;&nbsp;')
       +'</div>';
   }
-  box.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:10px">'
-    +C.join("")+_detail+_hw+'</div>';
+  /* ═══ ZWEI ZONEN (Ralph 15.08., Punkt 4+5) ══════════════════════════════
+     links fachlicher Zustand · rechts Bewertung und Freigabe.
+     „Nicht wieder acht Chips nebeneinander."
+
+     Der Freigabe-Chip wandert aus der linken Reihe nach rechts zum Score — er ist
+     eine Aussage ueber das Ergebnis, nicht ueber die Erfassung. Er wurde oben
+     zuletzt an `C` gehaengt und wird hier wieder entnommen; damit gibt es ihn
+     weiterhin genau einmal und mit unveraenderter Logik (§4.2). */
+  var _frgChip=C.pop();
+  var _rechts=_feStreifenBewertung()+_frgChip;
+  box.innerHTML='<div class="feStStreifen">'
+      +'<div class="feStLinks">'+C.join("")+'</div>'
+      +'<div class="feStRechts">'+_rechts+'</div>'
+      +(_detail||_hw ? '<div class="feStFuss">'+_detail+_hw+'</div>' : '')
+    +'</div>';
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   BEWERTUNG KOMPAKT IM STREIFEN (Ralph 15.08., Punkt 4)
+
+   „Keine grosse Karte." — deshalb eine Zeile, kein Ring, kein Kasten.
+
+   🔴 ES WIRD NICHTS GERECHNET. Der Wert kommt aus `_fgScoreGespeichert`, derselben
+   Struktur, die bis 0040 die Abschlussseite gelesen hat. Fehlt sie oder gehoert sie
+   zu einem anderen Produkt, steht das da — kein Platzhalter, keine Schaetzung (§1).
+
+   Drei Faelle, wie Ralph sie vorgibt:
+     Supplement           → Dosis-Check statt Root Index (eine Kapsel hat kein Profil)
+     Score vorhanden      → „ROOT INDEX 100 · Sehr gut"
+     Achse fehlt / kein Wert → „Index unvollstaendig"
+   ═══════════════════════════════════════════════════════════════════════════ */
+function _feStreifenBewertung(){
+  var sg=window._fgScoreGespeichert, pid=(window._fgEdit&&window._fgEdit.id)||"";
+  var supp=(String((document.getElementById("fe_kat")||{}).value||"").toLowerCase()==="supplement");
+  if(supp) return '<span class="feStBew still" title="Nahrungsergänzung bekommt keinen Lebensmittel-Index. Die Bewertung steht als Dosis-Check bei Wirkstoffe &amp; Dosis.">'
+    +'<b>Dosis-Check</b><i>siehe Schritt 2</i></span>';
+  if(!sg || sg.produkt_id!==pid)
+    return '<span class="feStBew still" title="Der Index entsteht beim Speichern.">'
+      +'<b>–</b><i>noch kein gespeicherter Index</i></span>';
+  if(sg.clean_score==null){
+    var _fh=Array.isArray(sg.achsen_fehlend)?sg.achsen_fehlend:[];
+    return '<span class="feStBew fehlt" title="'+esc(_fh.length?("fehlende Achse: "+_fh.join(", ")):"")+'">'
+      +'<b>Index unvollständig</b>'+(_fh.length?'<i>'+esc(_fh.join(", "))+' fehlt</i>':'')+'</span>';
+  }
+  var _f=(typeof farbe==="function")?farbe(sg.bewertung):"var(--ink)";
+  return '<span class="feStBew" style="color:'+_f+'"><em>Root Index</em>'
+    +'<b>'+esc(String(Math.round(sg.clean_score)))+'</b>'
+    +'<i style="color:'+_f+'">'+esc(sg.bewertung||"")+'</i></span>';
+}
+if(typeof window!=="undefined"){ window._feStreifenBewertung=_feStreifenBewertung; }
 if(typeof window!=="undefined"){ window.getErfassungsStatus=getErfassungsStatus;
   window.feStatusStreifen=feStatusStreifen; window.fgRefStatusLaden=fgRefStatusLaden; window._fgBlockiert=_fgBlockiert; }
 
@@ -26662,7 +26822,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-0040";
+const APP_BUILD = "2026-08-15-0215";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

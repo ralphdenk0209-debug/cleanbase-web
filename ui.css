@@ -1581,47 +1581,75 @@ body.riFokus #feTopbar{ display:none !important }
 .feKtxInhalt #fe_wirkFotoBox{ height:clamp(180px,32vh,420px) }
 
 /* ============================================================================
-   SPALTENBREITEN JE SCHRITT + NAVIGATION IN DER RAIL
-   (Ralph, Abnahme 2130, Punkte 5–8)
+   EIN GEMEINSAMES ARBEITSRASTER (Ralph 15.08., Punkte 8-12)
 
-   „Der Arbeitsbereich ist teilweise zu schmal und rechts zu dominant … kein
-    riesiger Leerraum zwischen Mitte und rechts."
+   „Kopf 780, Analyse 660, Bestandteile 1000, Abgleich 1200 — das wirkt wie
+    verschiedene Anwendungen."  Stimmt: es waren gewachsene Einzelwerte aus
+   verschiedenen Durchgaengen, und jeder hatte fuer sich recht.
 
-   Eine Regel, ein Ort: die Breiten stehen NUR hier. `app.js` setzt lediglich
-   `data-fe-schritt` am <body> und rechnet keine Pixel (§4.2).
+   Ab hier gibt es GENAU EIN Raster. Alle Hauptkarten fuellen die Mittelspalte
+   (`width:100%`), und wie breit die ist, entscheidet ausschliesslich dieses
+   Raster — nicht die Karte. Damit haben alle vier Schritte dieselbe Startkante,
+   dieselbe Breite und denselben Abstand nach rechts.
+
+   `app.js` setzt nur `data-fe-schritt` und rechnet keine Pixel (§4.2).
    ============================================================================ */
 body.riFokus #feRahmen{
-  --rail-breite: 232px;      /* Ralph: 220–240 */
-  --ktx-breite:  360px;      /* Grundwert, je Schritt unten ueberschrieben */
-  --mitte-max:   900px;      /* Ralph: Kopf und Analyse 760–900 */
+  --rail-breite: 230px;      /* Ralph: 230 */
+  --ktx-breite:  380px;      /* Ralph: 380, je Schritt unten fein justiert */
+  --raster-gap:   22px;      /* Ralph: 20-24 */
+  gap: var(--raster-gap);
   grid-template-columns: var(--rail-breite) minmax(0,1fr);
 }
 body.riFokus #feRahmen:has(> #feKontext:not([style*="display:none"])){
-  grid-template-columns: var(--rail-breite) minmax(700px,1fr) var(--ktx-breite);
+  grid-template-columns: var(--rail-breite) minmax(720px,1fr) var(--ktx-breite);
 }
-/* Schritt 1 Kopf & Quelle — schmalere Kontextspalte, Ralph: 320–360 */
-body.riFokus[data-fe-schritt="kopf"]     #feRahmen{ --ktx-breite:340px }
-/* Schritt 2 Analyse — das Etikett muss LESBAR sein, Ralph: 380–420 */
-body.riFokus[data-fe-schritt="analyse"]  #feRahmen{ --ktx-breite:400px }
-/* Schritt 3 Bestandteile — Mitte moeglichst breit, Ralph: rechts 340–380 */
-body.riFokus[data-fe-schritt="bestand"]  #feRahmen{ --ktx-breite:350px; --mitte-max:none }
-/* Schritt 4 Eigenschaften — rechte Spalte nur, wenn noetig */
-body.riFokus[data-fe-schritt="eigen"]    #feRahmen{ --ktx-breite:300px }
-/* Schritt 5 Gegenueberstellung — volle Breite, es gibt ohnehin keine Spalte */
-body.riFokus[data-fe-schritt="etikett"]  #feRahmen{ --mitte-max:none }
-/* Schritt 6 Abschluss — ruhige Breite */
-body.riFokus[data-fe-schritt="freigabe"] #feRahmen{ --ktx-breite:340px; --mitte-max:820px }
+/* Schritt 2 Analyse — das Etikett rechts muss LESBAR sein (Ralph: 380-420). */
+body.riFokus[data-fe-schritt="analyse"] #feRahmen{ --ktx-breite:410px }
+/* Schritt 3 Bestandteile — Referenz rechts (Ralph: 360-400), Tabelle nicht quetschen. */
+body.riFokus[data-fe-schritt="bestand"] #feRahmen{ --ktx-breite:380px }
+/* Schritt 1 Kopf & Quelle — Formularfelder brauchen rechts weniger. */
+body.riFokus[data-fe-schritt="kopf"]    #feRahmen{ --ktx-breite:340px }
 
-/* Der 820er-Deckel von 1740 galt fuer ALLE Schritte gleich und liess rechts
-   Leerraum stehen. Er wird nicht geloescht, sondern schrittabhaengig gemacht. */
-body.riFokus #feEditorBody{ max-width:none }
+/* --- Die Mitte: EINE Breite fuer alle Karten ------------------------------- */
+/* Ohne rechte Spalte darf sie wachsen (Ralph: 1100-1200), sonst fuellt sie das
+   Raster. Der alte 820er-Deckel ist damit abgeloest — er stand fuer alle Schritte
+   gleich und liess rechts Leerraum stehen. */
+body.riFokus #feEditorBody{ max-width:1180px }
+body.riFokus #feRahmen:has(> #feKontext:not([style*="display:none"])) #feEditorBody{ max-width:none }
 body.riFokus #feKopfGrid,
 body.riFokus #feAbschluss,
+body.riFokus #feAbgleich,
+body.riFokus #fe_gridA,
 body.riFokus .feHolBox,
+body.riFokus #feNwOben,
+body.riFokus #fe_naehrKacheln,
+body.riFokus #fe_mikroWrap,
 body.riFokus #feSchrittKopf,
-body.riFokus #feSchrittFuss{ max-width:var(--mitte-max,900px) }
-body.riFokus #feAbgleich{ max-width:none }          /* Gegenueberstellung braucht Breite */
-body.riFokus #fe_gridA{ max-width:none }
+body.riFokus #feSchrittFuss{ width:100%; max-width:none; box-sizing:border-box }
+/* Gleiche Innenabstaende und gleicher Radius fuer die Hauptkarten aller Schritte. */
+body.riFokus #feEditorBody .feKarte,
+body.riFokus #feEditorBody .cardF{ border-radius:12px }
+
+/* --- Schritt 4: zwei Abschnitte UNTEREINANDER ------------------------------ */
+/* `#feTab1` und `#feAbgleich` teilen sich sonst die Zelle 2/1 und laegen
+   uebereinander. Hier bekommt der Abgleich eine eigene Zeile. */
+body.riFokus[data-fe-schritt="eigen"] #feEditorBody{
+  grid-template-rows:auto auto auto auto;
+}
+body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feAbgleich{
+  grid-area:3 / 1; align-self:start; margin-top:6px;
+}
+body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feSchrittFuss{ grid-area:4 / 1 }
+/* Die beiden Abschnitte bekommen sichtbare Ueberschriften — sonst geht Bio in der
+   Abgleichtabelle unter, und genau das soll nicht passieren (Ralph Punkt 2). */
+body.riFokus[data-fe-schritt="eigen"] #feKopfGrid::before,
+body.riFokus[data-fe-schritt="eigen"] #feAbgleich::before{
+  display:block; font-size:9.5px; letter-spacing:.07em; text-transform:uppercase;
+  font-weight:800; color:var(--muted); margin:0 0 8px;
+}
+body.riFokus[data-fe-schritt="eigen"] #feKopfGrid::before{ content:"A · Eigenschaften"; grid-column:1/-1 }
+body.riFokus[data-fe-schritt="eigen"] #feAbgleich::before{ content:"B · Etikett & Abgleich" }
 
 /* --- Navigation oben links in der Rail ------------------------------------ */
 #feRailNav{ display:flex; flex-direction:column; gap:7px; padding:0 0 11px;
@@ -1650,3 +1678,47 @@ body.riFokus #feNavLeiste{ display:none !important }
   padding:7px 13px }
 .feZurueckFokus span{ font-size:11.5px; color:var(--muted); line-height:1.45; min-width:0 }
 body.riFokus .feZurueckFokus{ display:none !important }
+
+/* ============================================================================
+   STATUSSTREIFEN IN ZWEI ZONEN + PRODUKTKOPF DER RAIL (Ralph 15.08.)
+   ============================================================================ */
+.feStStreifen{ display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+  padding:8px 12px; border:1px solid var(--line); border-radius:10px;
+  background:var(--card); margin-bottom:12px }
+.feStLinks{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; flex:1 1 auto; min-width:0 }
+.feStRechts{ display:flex; gap:9px; align-items:center; flex:0 0 auto; margin-left:auto }
+.feStFuss{ flex:1 1 100%; display:flex; gap:8px; flex-wrap:wrap }
+.feStBew{ display:inline-flex; align-items:baseline; gap:6px; white-space:nowrap }
+.feStBew em{ font-style:normal; font-size:9.5px; letter-spacing:.07em;
+  text-transform:uppercase; font-weight:800; color:var(--muted) }
+.feStBew b{ font-size:19px; font-weight:800; line-height:1 }
+.feStBew i{ font-style:normal; font-size:11.5px; font-weight:700 }
+.feStBew.still b, .feStBew.still i{ color:var(--muted) }
+.feStBew.still b{ font-size:15px }
+.feStBew.fehlt b{ font-size:12.5px; color:var(--k-92400e,#92400e) }
+.feStBew.fehlt i{ color:var(--muted) }
+.feStDub{ flex:1 1 100%; font-size:11px; color:var(--muted); line-height:1.5 }
+.feStDub.rot{ color:var(--k-b91c1c,#b91c1c); font-weight:700 }
+
+/* --- Produktkopf: Status, Speichern, Freigeben ----------------------------- */
+#feProdStatusPfeil{ opacity:.6 }
+.feProdStatus{ display:flex; align-items:center; justify-content:space-between;
+  width:100%; margin:8px 0 4px; padding:6px 10px; border-radius:8px; cursor:pointer;
+  font-size:12px; font-weight:700; border:1px solid var(--line); background:var(--card) }
+.feProdStatus.entwurf{ background:var(--k-fbf3e2,#fbf3e2); color:var(--k-c88616,#c88616);
+  border-color:var(--k-eddcb6,#eddcb6) }
+.feProdStatus.aktiv{ background:var(--k-e7f6ec,#e7f6ec); color:var(--k-1f7d43,#1f7d43);
+  border-color:var(--k-bfe3cb,#bfe3cb) }
+.feProdStatus[disabled]{ opacity:.5; cursor:default }
+.feProdStatusPfeil{ opacity:.55; font-weight:400 }
+.feProdZust{ font-size:10.5px; color:var(--muted); margin-bottom:8px }
+.feProdFrei{ width:100%; margin-top:7px; padding:8px 12px; border:0; border-radius:8px;
+  background:var(--k-16a34a,#16a34a); color:#fff; font-size:12.5px; font-weight:700; cursor:pointer }
+.feProdFrei[disabled]{ background:var(--k-eef1f4,#eef1f4); color:var(--muted); cursor:default }
+.feProdFrgTxt{ font-size:10.5px; margin-top:4px; line-height:1.4 }
+.feProdFrgTxt.ok{ color:var(--muted) }
+.feProdFrgTxt.rot{ color:var(--k-b91c1c,#b91c1c) }
+
+/* --- Die ausgeliehene Referenzkarte fuellt den Kontextplatz ---------------- */
+.feKtxInhalt > #fe_colRef{ width:100%; min-width:0; display:flex; flex-direction:column }
+.feKtxInhalt > #fe_colRef #fe_flipWrap{ height:clamp(320px,52vh,620px) }
