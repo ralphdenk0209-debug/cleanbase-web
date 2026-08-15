@@ -1654,43 +1654,59 @@ body.riFokus #feTopbar{ display:none !important }
    Alle drei Bereiche stehen ausdruecklich in Zeile 1, Spalte 1/2/3. Damit KANN
    nichts mehr in eine zweite Zeile rutschen, auch wenn eine kuenftige Regel die
    Spaltenzahl versehentlich aendert. */
+/* +=======================================================================+
+   |  DER EINE DESKTOP-RASTERVERTRAG (Ralph 15.08., Punkte 1-5, 12)        |
+   +=======================================================================+
+   180px | 18 | minmax(0,1fr) | 20 | 480px
+
+   EIN Kontextwert fuer ALLE Schritte. Die schrittabhaengigen Werte
+   (380 / 430 / 450) sind entfernt - sie waren der Grund, warum das Layout
+   immer wieder auseinanderlief (Ralph P12 woertlich).
+
+   WARUM DIE GAPS EIGENE SPALTEN SIND: Ralph will 18px links und 20px rechts.
+   CSS Grid kennt nur EIN column-gap fuer alle Spalten. Zwei verschiedene
+   Abstaende gehen deshalb nur als echte Spalten - gap:0 und die Zwischenraeume
+   ausgeschrieben. Das ist kein Trick, sondern die einzige Form, in der beide
+   Zahlen wirklich stimmen. Folge: Rail=1, Mitte=3, Kontext=5. */
 body.riFokus #feRahmen{
-  /* 15.08. neu balanciert (Ralph P6): weniger ungenutzte Breite links, mehr Platz
-     fuer Etikett und Referenz rechts. Geaendert wird HIER, an der einzigen
-     Definition — nicht durch einen Nachtrag. */
-  --rail-breite: 196px;      /* Ralph: 190-200 */
-  --ktx-breite:  440px;      /* Ralph: 420-460 */
-  --raster-gap:   20px;      /* Ralph: 20-22 */
-  gap: var(--raster-gap);
-  grid-template-columns: var(--rail-breite) minmax(0,1fr);
+  --rail-breite:    180px;   /* Ralph P3: fest 180, nirgends ueberschrieben */
+  --kontext-breite: 480px;   /* Ralph P4: fest 480, nirgends ueberschrieben */
+  --gap-rail:        18px;   /* Ralph P1: Rail -> Mitte */
+  --gap-kontext:     20px;   /* Ralph P1: Mitte -> Kontext */
+  gap: 0;
+  grid-template-columns:
+    var(--rail-breite) var(--gap-rail) minmax(0,1fr);
   grid-template-rows: auto;
 }
 body.riFokus #feRahmen.riDrei{
-  grid-template-columns: var(--rail-breite) minmax(0,1fr) var(--ktx-breite);
+  grid-template-columns:
+    var(--rail-breite) var(--gap-rail) minmax(0,1fr)
+    var(--gap-kontext) var(--kontext-breite);
 }
-/* Explizites Placement — Ralph P2 woertlich. */
+/* Explizites Placement - kein Auto-Placement, in keinem Zustand. */
 body.riFokus #feRahmen > #feRail{       grid-column:1; grid-row:1 }
-body.riFokus #feRahmen > #feEditorBody{ grid-column:2; grid-row:1; min-width:0 }
+body.riFokus #feRahmen > #feEditorBody{ grid-column:3; grid-row:1; min-width:0 }
 body.riFokus #feRahmen.riDrei > #feKontext{
-  grid-column:3; grid-row:1; width:100%; max-width:100%; min-width:0 }
-/* Ohne dritte Spalte ist der Kontext AUS — er faellt nicht nach unten (P3). */
+  grid-column:5; grid-row:1; width:100%; max-width:100%; min-width:0 }
+/* Ralph P9: ohne Kontext KEIN reservierter Leerraum - die Spalte existiert nicht,
+   die Mitte nimmt den Platz mit. */
 body.riFokus #feRahmen:not(.riDrei) > #feKontext{ display:none !important }
 /* Schritt 2 Analyse — das Etikett rechts muss LESBAR sein (Ralph: 380-420). */
 /* 15.08. ENTFERNT: 410 wurde unten von 360 ueberschrieben, war also tot. */
 /* Schritt 3 Bestandteile — Referenz rechts (Ralph: 360-400), Tabelle nicht quetschen. */
-body.riFokus[data-fe-schritt="bestand"] #feRahmen{ --ktx-breite:450px }  /* Ralph P8: 420-460 */
 /* Schritt 1 Kopf & Quelle — Formularfelder brauchen rechts weniger. */
-body.riFokus[data-fe-schritt="kopf"]    #feRahmen{ --ktx-breite:380px }  /* Formularfelder brauchen rechts weniger */
 
 /* --- Die Mitte: EINE Breite fuer alle Karten ------------------------------- */
 /* Ohne rechte Spalte darf sie wachsen (Ralph: 1100-1200), sonst fuellt sie das
    Raster. Der alte 820er-Deckel ist damit abgeloest — er stand fuer alle Schritte
    gleich und liess rechts Leerraum stehen. */
-body.riFokus #feEditorBody{ max-width:1200px }   /* Ralph: 1180-1220 */
+/* 15.08. ENTFERNT (Ralph P5): keine 820/900/1080/1180px im Fokusmodus innerhalb
+   der mittleren Spalte. Der aeussere Grid-Vertrag bestimmt die Breite. */
+body.riFokus #feEditorBody{ max-width:none; width:100%; min-width:0 }
 /* 🔴 ZWEITE Stelle mit demselben fragilen Selektor — vom Test gefunden, nicht
    von mir erinnert. Sie hing an derselben Textsuche und war damit genauso
    zufaellig. Jetzt an derselben Klasse wie das Raster. */
-body.riFokus #feRahmen.riDrei #feEditorBody{ max-width:none }
+/* (Sonderfall gegenstandslos - die Mitte hat generell keinen Deckel) */
 body.riFokus #feKopfGrid,
 body.riFokus #feAbschluss,
 body.riFokus #feAbgleich,
@@ -1924,7 +1940,11 @@ body.riFokus #fe_pickList{ min-width:0 }
 
 /* --- 5. Mineralstoff-/Wirkstofftabelle: ein Vertrag, Ralphs Masse ---------- */
 #fe_wirkCard{
-  --wirk-spalten: minmax(0,1fr) 100px 80px 90px 40px;
+  /* 15.08. (Ralph P1): EINHEIT von 80 auf 92px. Die Liste enthaelt `I.E.` und
+     `µg` — bei 80px war die Auswahl kaum lesbar, und genau das laesst eine
+     echte Auswahl wie ein festes `mg` aussehen. Die LISTE selbst ist
+     unveraendert: WIRK_EINHEITEN, an genau einem Ort. */
+  --wirk-spalten: minmax(0,1fr) 100px 92px 90px 40px;
 }
 body:not(.riFokus) #fe_wirkCard{
   --wirk-spalten: 1fr 70px 62px 56px 26px;
@@ -2019,7 +2039,6 @@ body.riFokus[data-fe-schritt="kopf"] .feQuelleFertig{
 /* --- 2. Schritt 2: Mitte breiter, rechts unveraendert schmal --------------- */
 /* Schritt 2: die Mitte bekommt ihre Breite dadurch, dass rechts wenig steht —
    nicht durch ein Minimum, das das Raster sprengt (Ursache B). */
-body.riFokus[data-fe-schritt="analyse"] #feRahmen{ --ktx-breite:430px }  /* Ralph P7: 420-440, Etikett groesser */
 #feTab2 .feWirkRow .fwNote{ margin-top:1px }
 #feTab2 .feWirkHinweis, #feTab2 .feKartenZusatz{ white-space:normal; line-height:1.5 }
 
@@ -2058,15 +2077,17 @@ body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich{ margin-top:
    auf Desktop NICHTS umbricht und bei wirklich schmalen Fenstern etwas
    Sinnvolles passiert statt eines Ueberlaufs.
 
-   Rechnung fuer die Grenze (15.08. nachgerechnet): 196 (Rail) + 620 (Mitte, noch
-   arbeitsfaehig) + 440 (Kontext) + 2x20 (Gap) = 1296. Bei 1200 px waere die Mitte
-   nur noch 524 px — dort ist Stapeln ehrlicher als Quetschen.
+   Rechnung fuer die Grenze (Ralph P2, nachgerechnet): 180 (Rail) + 18 (Gap)
+   + 700 (sinnvolle Mitte) + 20 (Gap) + 480 (Kontext) = 1398. Der Drei-Spalten-
+   Modus gilt deshalb ab 1400 px. Darunter kommt spaeter Responsive - nicht
+   versuchen, bei 1200 px dieselben drei Spalten zu erzwingen.
    ============================================================================ */
-@media (max-width:1199px){
+@media (max-width:1399px){
   /* Zwei Spalten: Rail bleibt, der Kontext geht UNTER den Hauptbereich.
      Das ist hier ausdruecklich gewollt — auf Desktop passiert es nicht mehr. */
-  body.riFokus #feRahmen.riDrei{ grid-template-columns: var(--rail-breite) minmax(0,1fr) }
-  body.riFokus #feRahmen.riDrei > #feKontext{ grid-column:2; grid-row:2; margin-top:14px }
+  body.riFokus #feRahmen.riDrei{
+    grid-template-columns: var(--rail-breite) var(--gap-rail) minmax(0,1fr) }
+  body.riFokus #feRahmen.riDrei > #feKontext{ grid-column:3; grid-row:2; margin-top:14px }
   body.riFokus #feKontext{ position:static }
 }
 
@@ -2145,3 +2166,28 @@ body.riFokus #fe_gridA{
 body.riFokus #fe_colZut{ grid-column:1; width:100%; min-width:0 }
 /* 6. Der Abgleich darunter bekommt dieselbe Aussenbreite wie die Tabelle. */
 body.riFokus #feAbgleich{ width:100%; min-width:0 }
+
+
+/* ============================================================================
+   RAIL-GRUPPEN FERTIG (Ralph 15.08., Punkt 10)
+   NAVIGATION · PRODUKT · AKTIONEN · EIGENSCHAFTEN · ARBEITSFLUSS
+   Feine Trennlinien, keine Kartenwand.
+   ============================================================================ */
+.feRailGrpTit{ margin-top:0 }
+.feProdAkt{ margin-top:2px }
+/* Bio und Ernaehrungsform nebeneinander, solange 180px es tragen. */
+.feRailEigen{ gap:4px }
+.feEigChip{ padding:3px 8px; font-size:10px }
+/* Bei 180px Rail darf beides umbrechen statt abzuschneiden (Ralph P3). */
+.feProdTxt b{ white-space:normal; overflow-wrap:anywhere }
+.feFokusTxt b{ white-space:normal; overflow-wrap:anywhere }
+.feFokusSub{ white-space:normal }
+
+/* ============================================================================
+   ⌘V-HINWEIS IM ETIKETTBEREICH (Ralph 15.08., Punkt 7)
+   „Sehr dezent unter/bei den Werkzeugen. Nicht als grosser Button noetig."
+   ============================================================================ */
+.feEtikettPasteTip{ display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;
+  margin-top:7px; font-size:10.5px; font-weight:700; color:var(--muted);
+  letter-spacing:.01em }
+.feEtikettPasteTip span{ font-weight:400; opacity:.8 }

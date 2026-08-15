@@ -18892,6 +18892,7 @@ function feDreiReiterInit(){
   try{ fgFotoPlatzieren(); }catch(e){}
   var wt=document.getElementById('fe_wirkTblCol'); if(wt) wt.style.minWidth='0';
   var fbox=document.getElementById('fe_wirkFotoBox'); if(fbox) fbox.style.height='clamp(360px,52vh,680px)';
+  try{ feEtikettPasteHinweis(); }catch(e){}
 }
 /* 07.08.2026 - feEditorResponsive ist ERSATZLOS ENTFALLEN, samt Resize-Bindung.
    Sie setzte bei jeder Fenstergroessenaenderung zwei Rasterbreiten inline:
@@ -19887,7 +19888,7 @@ function feProduktKopf(){
           +(frei?' (aus dem Katalog nehmen)':' (über die geprüfte Freigabe)'))+'">'
       +esc(stAlt)+' <span class="feProdStatusPfeil">⇄</span></button>'
     +'<div class="feProdZust">'+esc(zt)+'</div>'
-    +_feRailEigen()
+    +'<div class="feRailGrpTit">Aktionen</div>'
     /* 🔴 15.08. (Ralph P7): „Freigabe möglich" stand ZWEIMAL — oben rechts im
        Produktkopf und noch einmal unter dem grünen Knopf. Der Knopf selbst sagt
        es bereits: er ist da und er ist klickbar. Die Zeile darunter erscheint
@@ -19898,6 +19899,8 @@ function feProduktKopf(){
       +(frei ? '' : '<button type="button" class="feProdFrei"'+(moeglich?'':' disabled')
              +' onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}">Freigeben</button>')
     +'</div>'
+    +'<div class="feRailGrpTit" style="margin-top:11px">Eigenschaften</div>'
+    +_feRailEigen()
     +(frei ? '<div class="feProdFrgTxt ok">Dieses Produkt ist freigegeben.</div>'
            : (moeglich ? ''
                        : '<div class="feProdFrgTxt rot">Freigabe nicht möglich'
@@ -22151,6 +22154,23 @@ function _fgEtikettAnhaengen(bilder){
       if(b && ziel.indexOf(b) < 0){ ziel.push(b); neu++; }
     });
     if(neu && typeof fgEtikettRender === "function") fgEtikettRender();
+    /* 🔴 15.08. (Ralph P8): „Neu eingefuegtes Bild direkt auswaehlen/anzeigen.
+       Vorhandene Navigation ‹ 1/2 Foto › entsprechend aktualisieren. Kein Reload."
+
+       `fgEtikettRender` zeichnet die BILDKARTE — den Lesekasten rechts nicht; das
+       ist ein eigener Renderer (gemessen: kein Aufruf darin). Deshalb hier, an der
+       EINEN Stelle, an der ein Bild dazukommt: auf das neue Bild springen und
+       neu zeichnen. `fgWirkFotoRender` baut die Navigation selbst — sie wird
+       nicht nachgebaut (§4.2). */
+    if(neu){
+      try{
+        if(window._fgWirkFoto && typeof fgWirkFotoArr==="function"){
+          var a=fgWirkFotoArr()||[];
+          if(a.length) window._fgWirkFoto.idx=a.length-1;   /* das zuletzt angehaengte */
+        }
+        if(typeof fgWirkFotoRender==="function") fgWirkFotoRender();
+      }catch(e){ console.error("[Etikett] Lesekasten nach Paste:", e); }
+    }
     return neu;
   }catch(e){
     console.error("[Editor] Bild konnte nicht an das Produkt angehaengt werden:", e);
@@ -22216,6 +22236,66 @@ function fePasteImg(ev){
   }catch(e){ try{console.log("fePasteImg:",e);}catch(_){} }
 }
 if(typeof window!=='undefined') window.fePasteImg=fePasteImg;
+/* ═══════════════════════════════════════════════════════════════════════════
+   ⌘V / STRG+V AUCH IM ETIKETTBEREICH (Ralph 15.08., Punkte 4-8)
+
+   „Ralph kann rechts das Etikett zoomen und verschieben und trotzdem jederzeit
+   einen Screenshot aus der Zwischenablage einfuegen."
+
+   🔴 KEIN ZWEITER UPLOAD-WEG (Ralph P6 ausdruecklich). Dieser Horcher entscheidet
+   nur, OB gepastet wird — das WIE macht `fePasteImg`, unveraendert. Damit gibt es
+   weiterhin genau einen Speicherpfad: fePasteImg → _fgEtikettAnhaengen →
+   fgEtikettRender (§4.2, §22).
+
+   🔴 KEIN PASTE-KLAU (Ralph P5). Liegt der Fokus in einem Eingabefeld, passiert
+   hier NICHTS — dann gilt das normale Text-Einfuegen. Das ist die wichtigere
+   Haelfte der Regel: ein Screenshot-Fang, der die Menge im Wirkstofffeld
+   verschluckt, waere schlimmer als gar kein Screenshot-Fang.
+
+   Der Horcher haengt am DOKUMENT, nicht am Etikettkasten. Grund: der Kasten wird
+   zwischen `feNwFotoSlot` und der Kontextspalte UMGEHAENGT (seit 2130). Ein
+   Listener am Element muesste bei jedem Umhaengen mitwandern — einer am Dokument
+   nicht. Er greift ohnehin nur im Editor. */
+function _feIstEingabe(el){
+  if(!el) return false;
+  var tag=String(el.tagName||"").toLowerCase();
+  if(tag==="input"||tag==="textarea"||tag==="select") return true;
+  if(el.isContentEditable) return true;
+  return false;
+}
+function feEtikettPaste(ev){
+  try{
+    /* 1. Ralph P5: Eingabefelder haben Vorrang. Immer. */
+    if(_feIstEingabe(document.activeElement)) return;
+    /* 2. Nur im geoeffneten Editor — sonst hat der Paste hier nichts zu suchen. */
+    if(!document.getElementById("feRahmen")) return;
+    /* 3. Nur wenn wirklich ein BILD in der Ablage liegt. Text laeuft normal weiter;
+          das entscheidet fePasteImg selbst (es kehrt bei „kein Bild" zurueck). */
+    var items=(ev&&ev.clipboardData&&ev.clipboardData.items)||[];
+    var hatBild=false;
+    for(var i=0;i<items.length;i++){ if(items[i].type&&items[i].type.indexOf("image")===0){ hatBild=true; break; } }
+    if(!hatBild) return;
+    /* 4. Der EINE bestehende Weg. */
+    fePasteImg(ev);
+  }catch(e){ console.error("[Etikett-Paste]", e); }
+}
+if(typeof document!=="undefined") document.addEventListener("paste", feEtikettPaste, true);
+/* Ralph P7: ein dezenter Hinweis, kein grosser Knopf. Die Taste richtet sich nach
+   dem System — auf macOS ⌘V, sonst Strg+V. Erkannt wird das an der Plattform,
+   nicht geraten; faellt die Erkennung aus, steht die neutrale Fassung da. */
+function feEtikettPasteHinweis(){
+  var col=document.getElementById("fe_wirkFotoCol"); if(!col) return;
+  var alt=document.getElementById("feEtikettPasteTip"); if(alt) alt.remove();
+  var mac=false;
+  try{ mac=/Mac|iPhone|iPad/i.test((navigator.platform||"")+" "+(navigator.userAgent||"")); }catch(e){}
+  var d=document.createElement("div");
+  d.id="feEtikettPasteTip"; d.className="feEtikettPasteTip";
+  d.innerHTML=(mac?"⌘V":"Strg+V")+" Screenshot einfügen"
+    +'<span> – nicht, während ein Feld aktiv ist</span>';
+  col.appendChild(d);
+}
+if(typeof window!=='undefined') window.feEtikettPasteHinweis=feEtikettPasteHinweis;
+if(typeof window!=='undefined'){ window.feEtikettPaste=feEtikettPaste; window._feIstEingabe=_feIstEingabe; }
 /* „Foto → Etikett auslesen": Riki liest die Naehrwerte/Zutaten direkt vom Etikettfoto
    (riki-etikett) und fuellt die Maske – analog zu fgPullResearch, nur ohne Web-Suche.
    Foto-Quelle: Datei/Kamera (files) ODER hinterlegte Kundenfotos (b64arr). */
@@ -27030,7 +27110,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-1520";
+const APP_BUILD = "2026-08-15-1900";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
