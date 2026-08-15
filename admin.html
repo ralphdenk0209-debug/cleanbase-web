@@ -1546,7 +1546,16 @@ window.__ADMIN_PAGE=true;</script>
     padding:11px 10px 16px; gap:1px;
     border-bottom:0; border-right:1px solid var(--line);
     box-shadow:2px 0 10px rgba(20,40,28,.05);
-    transition:width .22s cubic-bezier(.4,0,.2,1);
+    /* 🔴 KEINE transition auf width — IM BROWSER GEMESSEN, nicht vermutet (15.08.2026).
+       Mit `transition:width .22s` BLIEB DIE BREITE KLEBEN: nach dem Einklappen meldete
+       getComputedStyle viermal in Folge 62px, egal ob ein- oder ausgeklappt; davor
+       dreimal 208px. Ausgeklappt stand die Spalte dann 62px schmal, während der Inhalt
+       auf 228px einrückte — 166px Lücke. Gegenprobe im Browser: ohne die Zeile wechselt
+       die Breite viermal sauber 62 ↔ 208. Zweite Gegenprobe: mit festen px-Werten statt
+       var() klebt es GENAUSO — es liegt an der Transition, nicht an der Variablen.
+       42 statische Ablauftests waren grün und haben davon nichts gesehen; das hier war
+       nur an der laufenden Seite zu finden. Der Wechsel springt jetzt, und das ist
+       richtig so: eine Navigation, die korrekt springt, schlägt eine, die weich klebt. */
   }
   /* Die Zentrierregel ab 1040px gilt für die waagerechte Leiste. In der Spalte
      würde sie die Knöpfe senkrecht zusammenschieben. */
