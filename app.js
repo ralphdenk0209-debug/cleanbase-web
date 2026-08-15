@@ -10438,14 +10438,69 @@ function applyAdminMode(){
       peek.onclick=function(){ document.body.classList.remove('navHidden'); window._navPinned=true; };
       document.body.appendChild(peek);
     }
+    /* --------------------------------------------------------------------
+       SEITENLAGE: Einklapp-Knopf. Durchgang 4, Ralph-Auftrag 15.08.2026.
+       Er steht als ERSTES Kind der Nav, damit er beim Einklappen an
+       derselben Stelle bleibt und der Zeiger nicht hinterherwandern muss.
+       In der Oben-Lage ist er per CSS unsichtbar (#adminNavKlapp{display:none}) —
+       ein Knopf, der dort nichts bewirkt, darf auch nicht dastehen. */
+    if(!document.getElementById('adminNavKlapp')){
+      var kl=document.createElement('button'); kl.id='adminNavKlapp'; kl.type='button';
+      kl.innerHTML='<span class="nkIco">☰</span><span class="nkTxt">Menü</span>';
+      kl.onclick=function(){ adminNavSchmalSetzen(!document.body.classList.contains('navSchmal')); };
+      nav.insertBefore(kl, nav.firstChild);
+    }
     /* Die Freigabe-Checkliste (#fe_riegel) sitzt jetzt als volle Zeile in der Editor-Fußzeile
        (Ralph, 20.07.2026) – kein schwebendes Panel mehr. */
+  }
+  /* --------------------------------------------------------------------------
+     SEITENLAGE ein- und ausschalten. Durchgang 4, Ralph 15.08.2026.
+
+     Die Breite entscheidet, nicht der Nutzer: unter der Umbruchbreite bleibt die
+     bewährte waagerechte Leiste, darüber steht die Spalte links. Gemessen wird mit
+     matchMedia statt mit innerWidth, damit derselbe Wert gilt wie in den
+     CSS-Media-Queries — innerWidth zählt je nach Browser die Scrollleiste mit und
+     weicht dann um ein paar Pixel ab (der Fehler steckte schon einmal in
+     feEditorResponsive, siehe Kopfkommentar admin.html 07.08.).
+
+     1100px, weil das Bento-Raster daneben noch vier Spalten tragen muss:
+     208 Nav + 20 Polster + 4 Kacheln. Darunter kippt es ohnehin auf zwei Spalten
+     (.abrow-Media-Query bei 1080px), und dann ist die Spalte nur noch im Weg. */
+  if(!window._adminNavSeiteBound){
+    window._adminNavSeiteBound=true;
+    var mq=(window.matchMedia?window.matchMedia('(min-width:1100px)'):null);
+    var setzen=function(an){
+      document.body.classList.toggle('navSeite', !!an);
+      if(an){
+        /* Ein vom Scrollen hängengebliebenes navHidden würde die Spalte nach oben
+           wegkippen lassen. Beim Wechsel in die Seitenlage ausdrücklich lösen. */
+        document.body.classList.remove('navHidden'); window._navPinned=false;
+        var s=false; try{ s=(localStorage.getItem('ri_navSchmal')==='1'); }catch(e){}
+        document.body.classList.toggle('navSchmal', s);
+      } else {
+        /* Zurück in die Oben-Lage: navSchmal ist dort bedeutungslos und würde
+           sonst als toter Zustand mitlaufen. Der GEMERKTE Wert bleibt im
+           localStorage stehen — beim nächsten breiten Schirm gilt er wieder. */
+        document.body.classList.remove('navSchmal');
+      }
+    };
+    if(mq){
+      setzen(mq.matches);
+      if(mq.addEventListener) mq.addEventListener('change', function(e){ setzen(e.matches); });
+      else if(mq.addListener) mq.addListener(function(e){ setzen(e.matches); });
+    }
   }
   /* Scroll-Verhalten (nur einmal binden): runterscrollen blendet das Nav aus,
      ganz oben kommt es von selbst zurück, dazwischen holt es der Pfeil-Chip. */
   if(!window._adminNavScrollBound){
     window._adminNavScrollBound=true; window._navLastY=0;
     window.addEventListener('scroll', function(){
+      /* 15.08.2026: In der SEITENLAGE tut dieser Handler nichts mehr. Eine linke
+         Spalte nimmt keine vertikale Höhe weg — sie beim Scrollen auszublenden
+         wäre Bewegung ohne Nutzen, und der Nutzer verlöre die Navigation genau
+         dann, wenn er in einer langen Liste steht. Der Handler bleibt vollständig
+         erhalten und arbeitet in der Oben-Lage unverändert weiter (Ralph P9). */
+      if(document.body.classList.contains('navSeite')) return;
       var y=window.scrollY||document.documentElement.scrollTop||0;
       if(y<=36){ document.body.classList.remove('navHidden'); window._navPinned=false; }
       else if(y>90 && y>window._navLastY+4 && !window._navPinned){ document.body.classList.add('navHidden'); }
@@ -10462,6 +10517,24 @@ function applyAdminMode(){
   if(ME&&ME.is_admin){ ADMIN_START_DONE=true; setMode('freigabe'); }
   else { openAdminLogin(); }
 }
+
+/* --------------------------------------------------------------------------
+   Hauptnav ein- und ausklappen (Seitenlage). Durchgang 4, Ralph 15.08.2026.
+
+   Der Zustand wird gemerkt, weil er eine Arbeitsgewohnheit ist und keine
+   Einzelentscheidung: wer schmal arbeitet, will nicht nach jedem Seitenwechsel
+   erneut klicken. Gemerkt wird nur die STELLUNG, nicht die Sichtbarkeit — ob die
+   Seitenlage überhaupt gilt, entscheidet allein die Breite.
+
+   Ein Fehler beim Schreiben in den localStorage darf die Bedienung nicht
+   anhalten: die Klasse ist dann trotzdem gesetzt, nur die Erinnerung fehlt. */
+function adminNavSchmalSetzen(schmal){
+  try{ document.body.classList.toggle('navSchmal', !!schmal); }catch(e){ return; }
+  try{ localStorage.setItem('ri_navSchmal', schmal?'1':'0'); }catch(e){}
+  var k=document.getElementById('adminNavKlapp');
+  if(k) k.title = schmal ? 'Menü ausklappen' : 'Menü einklappen';
+}
+if(typeof window!=='undefined'){ window.adminNavSchmalSetzen=adminNavSchmalSetzen; }
 
 /* Schublade öffnen/schließen (Hamburger-Menü, Ralph 20.07.2026). */
 function adminDrawerToggle(){ var d=document.getElementById('adminDrawer'),s=document.getElementById('adminScrim'); if(!d)return; var open=d.classList.toggle('open'); if(s)s.classList.toggle('open',open); }
@@ -10545,7 +10618,13 @@ function dashArbeitCss(){
    +A+' .abrow{display:grid;gap:13px;align-items:start;margin-bottom:13px}'
    +A+' .abrow.r1{grid-template-columns:392px minmax(0,1fr)}'
    +A+' .abrow.r2{grid-template-columns:minmax(0,1fr) 320px}'
-   +'@media (max-width:1080px){'+A+' .abrow.r1,'+A+' .abrow.r2{grid-template-columns:1fr}}'
+   /* .r3 seit 15.08.2026: drei gleich breite Kästen (Herzschlag · Herkunft · Bestand).
+      Sie standen bis dahin als 320px-Säule rechts NEBEN dem Fluss. Ohne den Fluss wäre
+      dort ein leeres Feld über zwei Drittel der Breite geblieben. .r2 bleibt unverändert —
+      die Graph-Ansicht benutzt sie weiter (eine Regel ändern, die zwei Ansichten teilen,
+      hätte den Graph mitgerissen). */
+   +A+' .abrow.r3{grid-template-columns:repeat(3,minmax(0,1fr))}'
+   +'@media (max-width:1080px){'+A+' .abrow.r1,'+A+' .abrow.r2,'+A+' .abrow.r3{grid-template-columns:1fr}}'
    +A+' .abp{background:#fff;border:1px solid var(--abline);border-radius:15px;'
     +'box-shadow:0 1px 2px rgba(16,24,40,.04);min-width:0}'
    +A+' .abph{display:flex;align-items:center;gap:9px;padding:11px 15px;border-bottom:1px solid var(--abline);flex-wrap:wrap}'
@@ -10718,7 +10797,7 @@ function _abZf(z){ return (Number(z.wartend)||0)===0 ? _AB.gut : (z.weg==='keine
    Prüffrage für jeden künftigen Umschalter: Ist die AUSGESCHALTETE Stellung noch
    erreichbar — und komme ich von dort auch wieder zurück? */
 function _abUmschalter(ans){
-  var b=[['flaeche','Arbeitsfläche','Ring, Arbeitsliste und Fluss'],
+  var b=[['flaeche','Arbeitsfläche','Hero, Kacheln, Ring und Arbeitsliste'],
          ['graph','Graph','beweglich, zum Erkunden'],
          ['klassisch','Klassisch','das bisherige Enterprise-Dashboard']];
   return '<span class="abum">'+b.map(function(x){
@@ -10844,75 +10923,30 @@ function _abJobs(np,A){
       +'<span class="tx"><span class="t1">'+esc(j.t1)+'</span>'
       +'<div class="t2">'+esc(j.t2)+'</div></span>'
       +'<span class="go">'+esc(j.go)+'</span></div>';
-  }).join('')+'<div class="abfoot">'+jobs.length+' Punkte · abgeleitet aus denselben Zahlen wie der Fluss — '
+  }).join('')+'<div class="abfoot">'+jobs.length+' Punkte · abgeleitet aus Wächtern und Zuflüssen — '
     +'nichts von Hand gepflegt, kann also nicht veralten.</div>';
 }
 
 /* ---------------------------------------------------------------------------
-   FLUSS mit laufenden Punkten.
-   --------------------------------------------------------------------------- */
-function _abFluss(np,A){
-  var z=(np&&np.zufluesse)||[];
-  if(!z.length) return '<div class="abpad" style="color:'+_AB.krit
-    +';font-size:12.5px">Zuflüsse nicht ladbar.</div>';
-  var H=Math.max(300, 44+z.length*54+120), s='', pfade=[];
-  s+='<text x="14" y="16" font-size="9.5" font-weight="800" fill="#a4abb5" letter-spacing=".8">ZUFLUSS</text>'
-    +'<text x="330" y="16" text-anchor="middle" font-size="9.5" font-weight="800" fill="#a4abb5" '
-    +'letter-spacing=".8">PRÜFUNG</text>'
-    +'<text x="646" y="16" text-anchor="end" font-size="9.5" font-weight="800" fill="#a4abb5" '
-    +'letter-spacing=".8">LIVE</text>';
-  var mitte=44+Math.floor(z.length/2)*54;
-  z.forEach(function(x,i){
-    var y=44+i*54, n=Number(x.wartend)||0, f=_abZf(x);
-    var dick=Math.max(2.5,Math.min(15,Math.sqrt(n)*2.8));
-    var tot=(x.weg==='keiner'), endx=tot?206:300;
-    var d='M104 '+y+' C160 '+y+' 180 '+(tot?y:mitte)+' '+endx+' '+(tot?y:mitte);
-    s+='<path d="'+d+'" stroke="'+f+'" stroke-width="'+dick+'" fill="none" stroke-linecap="round" '
-      +'opacity="'+(n===0?'0.3':'0.75')+'"'+(x.weg==='hand'?' stroke-dasharray="8 6"':'')
-      +' id="abFl'+i+'"></path>';
-    if(!tot&&n>0) pfade.push({d:d,f:f,i:i});
-    if(tot){
-      s+='<path d="M214 '+(y-11)+' V'+(y+11)+'" stroke="'+_AB.krit+'" stroke-width="4.5" stroke-linecap="round"/>'
-        +'<text x="224" y="'+(y+4)+'" font-size="9.5" font-weight="700" fill="'+_AB.krit+'">Sackgasse</text>';
-    } else if(x.weg==='hand'){
-      s+='<text x="'+(endx+6)+'" y="'+(y+4)+'" font-size="11">✋</text>';
-    }
-    s+='<text x="96" y="'+(y-2)+'" text-anchor="end" font-size="11" font-weight="700" fill="'+_AB.ink+'">'
-      +esc(String(x.name).split(' (')[0])+'</text>'
-      +'<text x="96" y="'+(y+12)+'" text-anchor="end" font-size="10" font-weight="600" fill="'+f+'">'
-      +(n===0?'frei':n+(x.aeltester_tage!=null?' · '+x.aeltester_tage+' T':''))+'</text>';
-  });
-  s+='<rect x="300" y="'+(mitte-29)+'" width="98" height="58" rx="12" fill="#f7f5fd" stroke="#e2dcf5"/>'
-    +'<text x="349" y="'+(mitte-8)+'" text-anchor="middle" font-size="11" font-weight="700" fill="'+_AB.pr+'">'
-    +'3 Prüfpunkte</text>'
-    +'<text x="349" y="'+(mitte+7)+'" text-anchor="middle" font-size="10" fill="#8b93a0">'
-    +((np.waechter||[]).length)+' Wächter</text>'
-    +'<text x="349" y="'+(mitte+22)+'" text-anchor="middle" font-size="10" font-weight="700" fill="'
-    +(A.gate_offen?_AB.krit:_AB.gut)+'">'+(A.gate_offen?'Gate: '+A.gate_offen:'Gate still')+'</text>';
-  var dAus='M398 '+mitte+' H540';
-  s+='<path d="'+dAus+'" stroke="'+_AB.kern+'" stroke-width="11" fill="none" stroke-linecap="round" opacity=".75"/>';
-  pfade.push({d:dAus,f:_AB.kern,i:99});
-  s+='<circle cx="586" cy="'+mitte+'" r="38" fill="#fff" stroke="'+_AB.kern+'" stroke-width="4"/>'
-    +'<text x="586" y="'+(mitte-4)+'" text-anchor="middle" font-size="18" font-weight="800" fill="'+_AB.kern+'">'
-    +_abZahl(np,'aktiv')+'</text>'
-    +'<text x="586" y="'+(mitte+12)+'" text-anchor="middle" font-size="10" fill="#8b93a0">aktiv</text>';
-  var yr=mitte+42;
-  s+='<path d="M586 '+(mitte+42)+' C586 '+(yr+50)+' 430 '+(yr+50)+' 349 '+(yr+50)
-    +' C312 '+(yr+50)+' 312 '+(mitte+34)+' 349 '+(mitte+30)+'" stroke="'+_AB.warn
-    +'" stroke-width="2" fill="none" stroke-dasharray="5 5" opacity=".8"/>'
-    +'<text x="450" y="'+(yr+68)+'" text-anchor="middle" font-size="10" font-weight="600" fill="'+_AB.warn+'">'
-    +'Bestandsprüfung · '+A.bestand.o+' Meldungen über schon freigegebene Daten</text>';
-  pfade.forEach(function(p){
-    for(var k=0;k<2;k++){
-      s+='<circle r="3" fill="#fff" stroke="'+p.f+'" stroke-width="1.6">'
-        +'<animateMotion dur="'+(3.4+p.i*0.3)+'s" repeatCount="indefinite" begin="'+(k*1.7)+'s" '
-        +'path="'+p.d+'"/></circle>';
-    }
-  });
-  return '<div style="padding:8px 12px 12px"><svg viewBox="0 0 660 '+(yr+80)+'">'+s+'</svg></div>';
-}
+   🔴 15.08.2026, Ralph-Auftrag: HIER STAND DER FLUSS (_abFluss, 60 Zeilen).
+   Ein SVG-Diagramm Zufluss → Prüfung → Live, mit Strichdicke nach Menge,
+   laufenden Punkten und rotem Riegel bei Zuflüssen ohne Abnehmer.
 
-/* --------------------------------------------------------------------------- */
+   ERSATZLOS ENTFERNT, nicht auskommentiert und nicht hinter if(false) gelegt —
+   sonst wäre es totes Werkzeug wie ladeStammPanel und ladeNutzungPanel, die
+   beide monatelang im Code standen und beim Suchen jedes Mal Zeit gekostet
+   haben. Rücksprungpunkt mit dem vollständigen Code:
+   webseite/_sicherungen/2026-08-15-work22-hauptnav/app.js
+
+   WAS DABEI NICHT VERLORENGEGANGEN IST, vor dem Löschen einzeln geprüft:
+   · die Zahlen — np.zufluesse wird weiter von _abAbl, _abJobsListe und dem
+     Graph gelesen. Nur die Zeichnung ist weg, nicht die Quelle.
+   · die Aussage „Zufluss ohne Abnehmer" — sie steht im Hero als eigene Zahl
+     und in der Kachel „Heute — offene Aufgaben" als eigene Zeile.
+   · der Drilldown — die Hero-Zahlen sprangen ohnehin nach #abDetail
+     („Alle offenen Punkte"), nie in den Fluss (Ralph P12 eingehalten).
+   · _abZf (Farbe je Zufluss) bleibt stehen, der Graph benutzt sie.
+   --------------------------------------------------------------------------- */
 function _abTakte(np){
   var t=(np&&np.takte)||[], s='';
   t.forEach(function(x,i){
@@ -10991,8 +11025,12 @@ function _abHero(d,np,A,ans){
     +'<div><div class="hzust"><span class="hpunkt" style="background:'+farbe+'"></span>'+esc(zust)+'</div>'
       +'<div style="font-size:11.5px;opacity:.85;margin-top:3px">'+esc(warum)+'</div></div>'
     +'<div class="hzahlen">'
-      + zahl(A.wartend, 'Vorgänge warten', 'fluss')
-      + zahl(A.sackgasse, 'davon ohne Abnehmer', 'fluss')
+      /* Sprungziel hiess bis 15.08. 'fluss' — es hat aber nie in den Fluss gesprungen,
+         sondern immer nach #abDetail. Mit dem Wegfall des Flusses waere der Name eine
+         Zeitbombe geworden: der naechste Leser haette einen Weg gesucht, den es nicht
+         gibt. Umbenannt, Verhalten unveraendert. */
+      + zahl(A.wartend, 'Vorgänge warten', 'punkte')
+      + zahl(A.sackgasse, 'davon ohne Abnehmer', 'punkte')
       + zahl(A.melden+' / '+w.length, 'Wächter melden', 'waechter')
     +'</div>'
     +'<div class="hr"><span id="abStand"></span>'
@@ -11035,7 +11073,7 @@ function _abBento(d,np,A){
   h+=_abKachel('Heute — offene Aufgaben',
     '<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">nach Dringlichkeit</span>',
     jh,
-    jobs.length>6 ? ('und '+(jobs.length-6)+' weitere — der Fluss unten zeigt alle') : 'Jede Zeile springt an ihre Stelle.',
+    jobs.length>6 ? ('und '+(jobs.length-6)+' weitere — „Alle offenen Punkte" unten zeigt sie') : 'Jede Zeile springt an ihre Stelle.',
     true);
 
   /* ---- 2) DATENBESTAND ---------------------------------------------------- */
@@ -11343,12 +11381,20 @@ function dashArbeitHtml(d,np,fehler){
     +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">vollständig, nach Dringlichkeit</span></div>'
     +_abJobs(np,A)+'</div></div>';
 
-  /* Reihe 2: Fluss + Seitenspalte */
-  h+='<div class="abrow r2">'
-    +'<div class="abp"><div class="abph"><h3>Fluss</h3>'
-    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">Dicke = Menge</span></div>'
-    +_abFluss(np,A)+'</div>'
-    +'<div style="display:flex;flex-direction:column;gap:13px">'
+  /* Reihe 2: Herzschlag · Woher der Katalog stammt · Bestand
+     🔴 15.08.2026, Ralph-Auftrag: DER FLUSS IST RAUS — Panel und Funktion _abFluss.
+     Vorher stand hier links das Fluss-Diagramm (Zufluss → Prüfung → Live) und rechts
+     eine 320px-Seitenspalte mit diesen drei Kästen. Die Kästen bleiben unverändert,
+     sie stehen jetzt nebeneinander in einer eigenen Reihe (.r3, drei gleiche Spalten).
+     GEPRÜFT VOR DEM LÖSCHEN, damit keine Zahl und kein Weg verlorengeht:
+     · _abFluss hatte GENAU EINEN Aufrufer — diese Stelle. Kein zweiter Pfad.
+     · Die Hero-Zahlen „Vorgänge warten" und „davon ohne Abnehmer" springen NICHT
+       zum Fluss, sondern zu #abDetail, also zu „Alle offenen Punkte" in Reihe 1.
+       Der Drilldown bleibt damit vollständig erhalten (Ralph P12).
+     · _abZf (Farbe je Zufluss) bleibt — der Graph benutzt sie weiter.
+     · np.zufluesse wird weiter gelesen: von _abAbl, _abJobsListe und dem Graph.
+       Weggefallen ist die Darstellung, nicht die Datenquelle. */
+  h+='<div class="abrow r3">'
     +'<div class="abp abpad"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">Herzschlag</div>'
     +_abTakte(np)+'</div>'
     +'<div class="abp abpad"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">'
@@ -11359,7 +11405,7 @@ function dashArbeitHtml(d,np,fehler){
     +'<div class="abkv"><span>Regelwerk</span><b>'+(((np&&np.regelwerk)||[]).length)+' Bereiche</b></div>'
     +'<div class="abkv"><span>Tagebuch, 7 Tage</span><b>'
     +(((d&&d.nutzung)||{}).eintraege_7t==null?'–':d.nutzung.eintraege_7t)+'</b></div></div>'
-    +'</div></div>';
+    +'</div>';
 
   /* Reihe 3: Wächter-Raster */
   h+='<div class="abp"><div class="abph"><h3>Alle Wächter</h3>'
@@ -11407,7 +11453,9 @@ function dashArbeitNach(d,np){
       if(z==='scan'&&typeof scanEingangOeffnen==='function') scanEingangOeffnen();
       else if(z==='todo'&&typeof todoDockAuf==='function') todoDockAuf();
       else if(z==='waechter'){ var g=document.getElementById('abWg'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'}); }
-      else if(z==='fluss'){ var f=document.getElementById('abDetail'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'}); }
+      /* 'fluss' bleibt als Schluessel bestehen, damit ein alter, noch im DOM stehender
+         data-ziel-Wert nicht ins Leere laeuft — beide zeigen auf dieselbe Stelle. */
+      else if(z==='punkte'||z==='fluss'){ var f=document.getElementById('abDetail'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'}); }
     }catch(e){ try{ console.warn('Sprung fehlgeschlagen:',z,e); }catch(_){} }
   };
   box.querySelectorAll('.abjob[data-ziel]').forEach(function(j){
@@ -21042,12 +21090,20 @@ function feProduktKopf(){
   var moeglich=!!(S&&S.bekannt&&S.freigabe_moeglich);
   var stAlt=frei?"Aktiv":"Entwurf";
   var stZiel=frei?"Entwurf":"Aktiv";
+  /* 🔴 15.08.2026 (Work #23, Ralph: „dafür kann links das produkt raus"): P-Nummer und
+     Produktname standen hier UND im fixierten Kopfstreifen — dieselbe Angabe zweimal
+     auf einem Bildschirm (§4.2 im Kleinen). Seit der Streifen oben klebt, ist er immer
+     sichtbar; die Wiederholung hier kostet nur Platz in einer 180px schmalen Spalte.
+
+     ENTFERNT wurde ausschliesslich die IDENTITAETSZEILE (`feProdZeile`: P-Nummer + Name).
+     NICHT entfernt, weil es Funktion ist und kein Duplikat (Ralph P9, §10.5):
+       · der Statusumschalter Entwurf ⇄ Aktiv  (`feProdStatus`)
+       · der Speicherzustand                    (`feProdZust`)
+       · das ⋯-Menue                            (`feProdMehr`) — es wandert zu „Aktionen",
+         wo es hingehoert; ohne die Zeile darueber haette es sonst frei geschwebt.
+     Die Ueberschrift „Produkt" bleibt: die Gruppe beschreibt weiterhin das Produkt,
+     nur nicht mehr seinen Namen. */
   k.innerHTML='<div class="feRailGrpTit">Produkt</div>'
-    +'<div class="feProdZeile">'
-      +'<div class="feProdTxt">'+(pid?'<span class="feProdId">'+esc(pid)+'</span>':'')
-      +'<b>'+esc(nm||"Neues Produkt")+'</b></div>'
-      +'<button type="button" class="feProdMehr" onclick="feProdMenu(this)" title="Weitere Aktionen">⋯</button>'
-    +'</div>'
     /* Status als Umschalter: er zeigt den IST-Wert und nennt im Titel das Ziel. */
     +'<button type="button" class="feProdStatus '+(frei?'aktiv':'entwurf')+'"'
       +(pid?'':' disabled')
@@ -21065,6 +21121,9 @@ function feProduktKopf(){
       +'<button type="button" class="feProdSave" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>'
       +(frei ? '' : '<button type="button" class="feProdFrei"'+(moeglich?'':' disabled')
              +' onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}">Freigeben</button>')
+      /* Work #23: unveraendert derselbe Knopf, dieselbe Klasse, derselbe onclick —
+         nur an einem Ort, an dem er nicht mehr an einer geloeschten Zeile haengt. */
+      +'<button type="button" class="feProdMehr" onclick="feProdMenu(this)" title="Weitere Aktionen">⋯</button>'
     +'</div>'
     +'<div class="feRailGrpTit" style="margin-top:11px">Eigenschaften</div>'
     +_feRailEigen()
@@ -22738,8 +22797,17 @@ function _feStreifenIdent(){
   var nm=((document.getElementById("fe_name")||{}).value||"").trim();
   var ps=String((window._fgEdit&&window._fgEdit.status)||"Entwurf");
   var dt=_feDatumDE(window._fgEdit&&window._fgEdit.erfasst_am);
+  /* 🔴 15.08.2026 (Work #23, Ralph: „unter pnummer marke einfügen"): Die MARKE stand
+     im Editor bisher NUR als Formularfeld in Schritt 1 — im Kopf war sie nirgends,
+     obwohl sie zur Identität gehört: „Pesto Basilikum" sagt ohne „PPURA" nicht, um
+     wessen Pesto es geht.
+     §22 EINGEHALTEN: der Wert kommt aus `#fe_marke`, demselben Feld, aus dem auch
+     der Name kommt — keine zweite Abfrage, keine zweite Wahrheit. Ist das Feld leer,
+     steht dort NICHTS statt eines Platzhalters (§3.4), genau wie beim Datum. */
+  var mk=((document.getElementById("fe_marke")||{}).value||"").trim();
   return '<div class="feStIdent">'
     +(pid?'<div class="feStPid">'+esc(pid)+'</div>':'')
+    +(mk?'<div class="feStMarke">'+esc(mk)+'</div>':'')
     +'<div class="feStName">'+esc(nm||"Neues Produkt")+'</div>'
     +'<div class="feStMeta">'+esc(ps)+(dt?' · erfasst am '+esc(dt):'')+'</div>'
     +'</div>';
@@ -28355,7 +28423,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2620";
+const APP_BUILD = "2026-08-15-2700";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

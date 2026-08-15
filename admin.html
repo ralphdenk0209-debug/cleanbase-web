@@ -1518,6 +1518,83 @@ window.__ADMIN_PAGE=true;</script>
     font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(20,40,70,.14);}
   body.navHidden #adminNavPeek{display:flex;}
   #adminNavPeek:hover{color:var(--green);}
+
+  /* ==========================================================================
+     SEITENLAGE der Hauptnav — Durchgang 4, Ralph-Auftrag 15.08.2026
+     („links kompakte Hauptnav · rechts Bento-Raster", „Nav einklappbar").
+     --------------------------------------------------------------------------
+     ALLES HIER HÄNGT AN body.navSeite. Ohne die Klasse gilt keine einzige Regel
+     darunter — die waagerechte Leiste oben bleibt damit vollständig erhalten und
+     ist der Rückfall für schmale Schirme. Kein Altcode entfernt (Ralph P9).
+
+     §22: der Einklapp-Mechanismus wurde NICHT neu gebaut. body.navHidden,
+     #adminNavPeek und der Scroll-Handler bleiben unverändert stehen und greifen
+     weiter in der Oben-Lage. Die Seitenlage bekommt ihren eigenen Zustand
+     (body.navSchmal), weil sie etwas anderes meint: nicht „weg", sondern
+     „nur Symbole". Eine bestehende Klasse umzudeuten hätte die Oben-Lage
+     stillschweigend mitverändert.
+
+     Zwei Breiten als Stellschraube, damit die Zahl an EINEM Ort steht und die
+     .container-Regel unten mit derselben rechnet. */
+  :root{ --nav-breit:208px; --nav-schmal:62px; }
+
+  body.navSeite #adminNav{
+    top:0; left:0; right:auto; bottom:0;
+    width:var(--nav-breit);
+    flex-direction:column; flex-wrap:nowrap; justify-content:flex-start;
+    overflow-x:hidden; overflow-y:auto;
+    padding:11px 10px 16px; gap:1px;
+    border-bottom:0; border-right:1px solid var(--line);
+    box-shadow:2px 0 10px rgba(20,40,28,.05);
+    transition:width .22s cubic-bezier(.4,0,.2,1);
+  }
+  /* Die Zentrierregel ab 1040px gilt für die waagerechte Leiste. In der Spalte
+     würde sie die Knöpfe senkrecht zusammenschieben. */
+  @media(min-width:1040px){ body.navSeite #adminNav{justify-content:flex-start;} }
+
+  body.navSeite #adminNav .anBtn{width:100%; justify-content:flex-start; padding:9px 11px;}
+  body.navSeite #adminNav .anBtn .anIco{flex:0 0 20px; font-size:17px;}
+  body.navSeite #adminNav .anBtn .anLbl{flex:1 1 auto; overflow:hidden; text-overflow:ellipsis;}
+  /* Die Plakette sitzt in der Leiste oben rechts am Knopf. In der Spalte ist der
+     Knopf breit — dort gehört sie ans Zeilenende, sonst klebt sie im Leerraum. */
+  body.navSeite #adminNav .anBdg{position:static;margin-left:auto;flex:0 0 auto;}
+
+  /* Einklapp-Knopf. Steht als erstes Element in der Spalte, damit er beim
+     Einklappen an derselben Stelle bleibt und nicht wandert. */
+  #adminNavKlapp{display:none;}
+  body.navSeite #adminNavKlapp{
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    width:100%;margin-bottom:7px;padding:7px 11px;
+    border:1px solid var(--line);border-radius:9px;background:var(--card);
+    color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;
+  }
+  body.navSeite #adminNavKlapp:hover{border-color:var(--green);color:var(--green);}
+
+  /* --- eingeklappt: nur Symbole ------------------------------------------- */
+  body.navSeite.navSchmal #adminNav{width:var(--nav-schmal);padding-left:7px;padding-right:7px;}
+  body.navSeite.navSchmal #adminNav .anBtn{justify-content:center;padding:9px 0;}
+  body.navSeite.navSchmal #adminNav .anBtn .anLbl{display:none;}
+  body.navSeite.navSchmal #adminNav .anBdg{
+    position:absolute;top:-1px;right:1px;margin-left:0;
+  }
+  body.navSeite.navSchmal #adminNavKlapp{padding:7px 0;}
+  body.navSeite.navSchmal #adminNavKlapp .nkTxt{display:none;}
+
+  /* Die .container-Regeln der Seitenlage stehen NICHT hier, sondern unten hinter
+     der Basisregel `.container{margin-left:0 !important; … padding:… !important}`.
+     Grund: beide tragen !important, und dann entscheidet erst die Spezifität und
+     bei Gleichstand die Reihenfolge. Hier oben stünden sie VOR der Basisregel —
+     das ist derselbe Fehler, der am 07.08. schon einmal passiert ist („der neue
+     @media-Umbruch stand VOR der Basisregel und wäre wirkungslos gewesen"). Ein
+     Ablauftest prüft die Reihenfolge jetzt selbst (§28.4). */
+
+  /* --- die Oben-Lage darf in der Seitenlage nicht dazwischenfunken --------- */
+  /* Der Scroll-Handler setzt body.navHidden. In der Seitenlage ist er still
+     (app.js prüft das), aber die Klasse kann vom vorherigen Zustand noch hängen —
+     dann würde die Spalte nach oben wegkippen. Hier ausdrücklich zurückgesetzt. */
+  body.navSeite.navHidden #adminNav{transform:none;pointer-events:auto;}
+  body.navSeite.navHidden .container{padding-top:74px !important;}
+  body.navSeite #adminNavPeek{display:none !important;}
   /* 29.07. Enterprise-Menue (Ralph-Wahl B): kompakte Reihe Icon+Label, aktive Seite als Pille,
      Arbeits-Zahlen als gelbe Plakette (.anBdg). Alte runde Knoepfe ersetzt. */
   .anBtn{flex:0 0 auto;display:flex;flex-direction:row;align-items:center;gap:7px;cursor:pointer;position:relative;
@@ -1557,6 +1634,17 @@ window.__ADMIN_PAGE=true;</script>
      --admin-oben und ist dort EINE Zeile. Der Rueckfallwert 112px greift nur, wenn
      ui.css fehlt - dann sieht es aus wie vorher. */
   .container{margin-left:0 !important;max-width:none !important;width:auto !important;padding:var(--admin-oben,112px) 20px 60px !important;}
+  /* SEITENLAGE (Durchgang 4, 15.08.2026): der Inhalt rückt neben die linke Spalte.
+     Steht bewusst DIREKT hinter der Basisregel — beide tragen !important, also
+     gewinnt die spätere bei gleicher Spezifität. Die Zahl kommt aus derselben
+     Stellschraube wie die Navbreite, damit Spalte und Einrückung nicht
+     auseinanderlaufen können. padding-top ist kleiner als --admin-oben, weil oben
+     keine Leiste mehr steht — nur noch der Knopf-Cluster #adminTop (42px + 10px). */
+  body.navSeite .container{
+    padding-left:calc(var(--nav-breit) + 20px) !important;
+    padding-top:74px !important;
+  }
+  body.navSeite.navSchmal .container{padding-left:calc(var(--nav-schmal) + 20px) !important;}
   /* Die alten Unter-Reiter im Content sind jetzt Teil des Menues -> ausblenden. */
   #fgTabs{display:none !important;}
   /* Produkt-Erfassung: heller Arbeits-Hintergrund, damit der (helle) Editor nicht auf dunklem

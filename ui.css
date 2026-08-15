@@ -1685,20 +1685,59 @@ body.riFokus #feTopbar{ display:none !important }
    Abstaende gehen deshalb nur als echte Spalten - gap:0 und die Zwischenraeume
    ausgeschrieben. Das ist kein Trick, sondern die einzige Form, in der beide
    Zahlen wirklich stimmen. Folge: Rail=1, Mitte=3, Kontext=5. */
+/* 🔴 15.08.2026 — WORK #23 (Ralph: „linker container also produkt bestandteile ist viel
+   zu breit. ein drittel weniger breit."), Entscheid A: der Platz geht an die Etikettkarte.
+
+   GEMESSENE URSACHE: die Mitte war `minmax(0,1fr)` und nahm damit ALLEN Restplatz. Sie
+   war nicht zu breit eingestellt — sie hatte gar keine Obergrenze. Bei Ralphs Fenster
+   (1908px) wurde sie 1162px, bei 1512px nur 766px. Derselbe Code, zwei Welten.
+
+   GERECHNET, nicht geschaetzt (feRahmen bei Ralph rund 1860):
+     vorher:  180 + 18 + 1162 + 20 + 480 = 1860
+     jetzt:   180 + 18 +  780 + 20 + 640 = 1638, Rest 222 als Aussenrand
+   Mitte -33 %, Kontext +33 %.
+
+   WARUM NICHT EINFACH `.55fr` FUER DEN KONTEXT, wie ich es zuerst vorgeschlagen hatte:
+   das haette die Mitte nur auf 1059 gebracht (-8 %) — Ralphs Wunsch waere nicht erfuellt
+   gewesen. Und ein Kontext ganz ohne Obergrenze waere bei Zielbreite 867px geworden,
+   breiter als die Bestandteiltabelle daneben; fuer eine Liste aus Text und Plakette ist
+   das absurd. Beide Spalten brauchen deshalb eine Obergrenze, und der Rest wird Rand.
+
+   🔴 `--kontext-breite` war als „Ralph P4: fest 480" markiert. Das ist mit diesem
+   Entscheid ueberholt: 480 ist ab jetzt die UNTERgrenze, 640 die Obergrenze. Der Wert
+   wird nirgends sonst ueberschrieben — die Zeile steht hier, damit niemand die alte
+   Festlegung im naechsten Durchgang wiederherstellt (§28.5).
+
+   Die Zwischenraeume bleiben echte Spalten bei gap:0 — siehe der Kommentarblock
+   darueber. Wer das aendert, bringt die Rechnung durcheinander. */
 body.riFokus #feRahmen{
   --rail-breite:    180px;   /* Ralph P3: fest 180, nirgends ueberschrieben */
-  --kontext-breite: 480px;   /* Ralph P4: fest 480, nirgends ueberschrieben */
+  --kontext-breite: 480px;   /* Untergrenze (Ralph P4) */
+  --kontext-max:    640px;   /* Obergrenze, Ralph-Entscheid A 15.08. */
+  --mitte-max:      780px;   /* Ralph 15.08.: ein Drittel schmaler als vorher */
   --gap-rail:        18px;   /* Ralph P1: Rail -> Mitte */
   --gap-kontext:     20px;   /* Ralph P1: Mitte -> Kontext */
   gap: 0;
   grid-template-columns:
-    var(--rail-breite) var(--gap-rail) minmax(0,1fr);
+    var(--rail-breite) var(--gap-rail) minmax(0,var(--mitte-max));
   grid-template-rows: auto;
+  /* Bleibt der Platz uebrig, steht der Editor mittig statt links geklebt. */
+  justify-content: center;
 }
 body.riFokus #feRahmen.riDrei{
   grid-template-columns:
+    var(--rail-breite) var(--gap-rail) minmax(0,var(--mitte-max))
+    var(--gap-kontext) minmax(var(--kontext-breite),var(--kontext-max));
+}
+/* Schmale Fenster: die Obergrenzen duerfen nie zur Untergrenze werden. Unterhalb von
+   1400px gibt es ohnehin keinen Rest zu verteilen — dort gilt wieder 1fr, sonst
+   entstuende ein Rand, wo der Platz gebraucht wird. */
+@media (max-width: 1400px){
+  body.riFokus #feRahmen{ justify-content:stretch; grid-template-columns:
+    var(--rail-breite) var(--gap-rail) minmax(0,1fr); }
+  body.riFokus #feRahmen.riDrei{ grid-template-columns:
     var(--rail-breite) var(--gap-rail) minmax(0,1fr)
-    var(--gap-kontext) var(--kontext-breite);
+    var(--gap-kontext) var(--kontext-breite); }
 }
 /* Explizites Placement - kein Auto-Placement, in keinem Zustand. */
 body.riFokus #feRahmen > #feRail{       grid-column:1; grid-row:1 }
@@ -1857,10 +1896,30 @@ body.riFokus .feZurueckFokus{ display:none !important }
   border-right:1px solid var(--line); align-self:stretch }
 .feStPid{ font-size:15px; font-weight:700; color:var(--ink); line-height:1.2;
   letter-spacing:.01em }
+/* 15.08.2026 (Work #23): die MARKE steht zwischen P-Nummer und Produktname. Sie ist
+   Herkunft, nicht Titel — deshalb kleiner und in Versalien, damit sie den Namen nicht
+   verdraengt, aber ohne Suchen gefunden wird. Fehlt sie, faellt die Zeile ganz weg. */
+.feStMarke{ font-size:10.5px; font-weight:700; color:var(--muted); line-height:1.3;
+  letter-spacing:.06em; text-transform:uppercase; margin-top:2px; overflow-wrap:anywhere }
 .feStName{ font-size:13.5px; font-weight:600; color:var(--ink); line-height:1.35;
   margin-top:1px; overflow-wrap:anywhere }
 .feStMeta{ font-size:10.5px; color:var(--muted); margin-top:3px }
 .feStLinks{ padding-top:2px }
+
+/* --- Work #23: der Kopfstreifen bleibt beim Scrollen stehen ----------------
+   Ralph 15.08.: „obere weisse zeile fixieren".
+   GEMESSEN, welches Element wirklich scrollt: `#panel` hat `overflow-y:auto`
+   (scrollHeight 951 gegen clientHeight 813) — NICHT das Fenster und nicht
+   `#overlay`. `position:sticky` wirkt nur im scrollenden Vorfahren, deshalb
+   haette `top:0` an einem beliebigen Container nichts getan. Nachgesehen,
+   nicht angenommen.
+   Der Streifen ist 76px hoch; er bekommt einen eigenen Hintergrund, sonst
+   scrollt der Inhalt sichtbar durch ihn hindurch. */
+#panel > #fe_gesamtstatus{
+  position:sticky; top:0; z-index:40;
+  background:var(--card,#fff);
+  box-shadow:0 1px 0 var(--line), 0 6px 14px -12px rgba(0,0,0,.35);
+}
 
 /* --- 13. Score deutlich, aber kompakt ------------------------------------- */
 .feStRechts{ flex-direction:column; align-items:flex-end; gap:5px }
