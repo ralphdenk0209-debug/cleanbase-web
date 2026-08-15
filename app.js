@@ -11035,7 +11035,16 @@ function dashArbeitCss(){
     +'clip-path:polygon(0 0,70% 0,100% 50%,70% 100%,0 100%)}'
    +A+' .abbento .bleg i.gr{background:'+_AB.gut+'}'
    +A+' .abbento .bleg i.ge{background:'+_AB.warn+'}'
-   +A+' .abbento .bleg i.r{background:'+_AB.krit+'}';
+   +A+' .abbento .bleg i.r{background:'+_AB.krit+'}'
+   /* Markenkachel: der Fluxkompensator fuellt die Flaeche, der Text sitzt
+      unten links davor. */
+   +A+' .abbento .bmarke{position:relative;display:flex;align-items:center;'
+    +'justify-content:center;padding:0;min-height:150px}'
+   +A+' .abbento .bmarke svg{position:absolute;inset:0;width:100%;height:100%;opacity:.9}'
+   +A+' .abbento .bmtext{position:relative;z-index:2;align-self:flex-end;padding:0 0 10px 2px;'
+    +'display:flex;align-items:center;gap:10px;width:100%}'
+   +A+' .abbento .bmtext b{font-size:27px;font-weight:800;color:'+_AB.gut+';letter-spacing:-1px}'
+   +A+' .abbento .bmtext span{font-size:11px;color:var(--abmut);line-height:1.45}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -11739,12 +11748,22 @@ var _AB_KACHELN=[
   {id:'aktivitaet',reihe:2, titel:'Letzte Aktivitäten',       breit:true,  bau:_abkAkt,      foto:'wellen',    leds:'gr'},
   {id:'region',    reihe:2, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion,   foto:'regionen',  leds:'gr'},
   {id:'stammu',    reihe:2, titel:'Stamm-Überblick',          breit:false, bau:_abkStammU,   foto:'stamm',     leds:'ge gr'},
-  {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell,   foto:'ringe'},
+  {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell},
+  /* C3, 15.08.: zwei neue Kacheln, beide mit ECHTEN Zahlen aus vorhandenen
+     RPCs. §22 hat sich wieder ausgezahlt — gesucht statt gebaut:
+       Stamm    -> cb_admin_stamm_waechter()      (das Dashboard ruft ihn schon)
+       Wirkkette-> cb_admin_architektur_liste()   (seit 15.08. in der Datenbank)
+     Die Deutschlandkarte wurde NICHT gebaut: entKarteDE und
+     cb_bundesland_zaehlung gibt es seit Juli, sie haengen in der Kachel
+     „Nutzer & Regionen". Im Entwurf hatte ich sie nachgezeichnet — das waere
+     die zweite Kopie gewesen (§4.2). */
+  {id:'marke',     reihe:1, titel:'Root Index',                breit:false, bau:_abkMarke},
+  {id:'wirk',      reihe:2, titel:'Wirkkette',                 breit:false, bau:_abkWirk,     foto:'ringe',  leds:'r ge'},
   /* Die freie Kachel: Ralph bestimmt ihren INHALT, nicht nur ihren Platz.
      Sie steht in der gespeicherten Standardvariante auf aus - wer sie will,
      schaltet sie im Anordnen-Modus ein. Ein Dashboard, das sich von selbst um
      eine Kachel erweitert, waere eine Ueberraschung, keine Verbesserung. */
-  {id:'frei',      reihe:1, titel:'Meine Zahlen',             breit:false, bau:_abkFrei, waehlbar:true, foto:'ringe'}
+  {id:'frei',      reihe:1, titel:'Meine Zahlen',             breit:false, bau:_abkFrei, waehlbar:true}
 ];
 
 /* ============================================================================
@@ -11820,6 +11839,49 @@ var _AB_TYPEN={
   liste:  {titel:'Liste',      bau:function(c,x){ return _abkListe(c,x); },   quelle:true},
   bild:   {titel:'Bild',       bau:function(c,x){ return _abkBild(c,x); },    text:true}
 };
+
+/* ---- MARKE mit Fluxkompensator -------------------------------------------
+   Ralph wollte ihn ausdruecklich als Hintergrund. Ein Foto gibt es davon nicht,
+   also gezeichnet — und zwar EINMAL hier, nicht als Datei: eine Zeichnung, die
+   sich aus drei Zahlen ergibt, gehoert in den Code, nicht in ein Bild. */
+function _abkMarke(){
+  var G=_AB.gut, S='#8c969b', l='', cx=150, cy=98;
+  l+='<defs><radialGradient id="riKern"><stop offset="0" stop-color="'+G+'" stop-opacity=".9"/>'
+    +'<stop offset="1" stop-color="'+G+'" stop-opacity="0"/></radialGradient></defs>';
+  [-90,150,30].forEach(function(grad){
+    var w=grad*Math.PI/180, ex=cx+Math.cos(w)*66, ey=cy+Math.sin(w)*66;
+    l+='<line x1="'+cx+'" y1="'+cy+'" x2="'+ex+'" y2="'+ey+'" stroke="'+G
+      +'" stroke-width="8" stroke-linecap="round" opacity=".35"/>'
+      +'<line x1="'+cx+'" y1="'+cy+'" x2="'+ex+'" y2="'+ey+'" stroke="'+G
+      +'" stroke-width="2.4" stroke-linecap="round" opacity=".85"/>'
+      +'<circle cx="'+ex+'" cy="'+ey+'" r="10" fill="none" stroke="'+S+'" stroke-width="1.8" opacity=".5"/>'
+      +'<circle cx="'+ex+'" cy="'+ey+'" r="4.5" fill="'+G+'" opacity=".8"/>';
+  });
+  l+='<circle cx="'+cx+'" cy="'+cy+'" r="42" fill="url(#riKern)" opacity=".5"/>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="28" fill="none" stroke="'+G
+    +'" stroke-width="1" opacity=".45" stroke-dasharray="4 7"/>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="19" fill="none" stroke="'+S+'" stroke-width="2.2" opacity=".6"/>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="12" fill="'+G+'" opacity=".9"/>';
+  return {
+    tag:'',
+    inhalt:'<div class="bleib bmarke">'
+      +'<svg viewBox="0 0 300 196" preserveAspectRatio="xMidYMid meet">'+l+'</svg>'
+      +'<div class="bmtext"><b>[ri!]</b><span>Root Index<br>Erfassen · Bewerten · Freigeben</span></div>'
+      +'</div>',
+    fuss:''
+  };
+}
+
+/* ---- WIRKKETTE ------------------------------------------------------------
+   Laedt NACH, wie die anderen Kacheln der zweiten Reihe: cb_admin_architektur_liste
+   liefert das ganze Diagramm, das ist nichts fuer den Seitenaufbau (Work #17). */
+function _abkWirk(){
+  return {
+    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">Architektur</span>',
+    inhalt:'<div class="bleib" id="abWirk"><div class="blade">lädt…</div></div>',
+    fuss:''
+  };
+}
 
 /* ---- D5 VERLAUF ------------------------------------------------------------
    🔴 EHRLICH GEZAEHLT: im Dashboard liegt GENAU EINE Reihe ueber Zeit vor -
@@ -13007,7 +13069,7 @@ function _abBentoNach(box){
 
   /* Reihe 2 laedt NACH — sie darf den Seitenaufbau nicht aufhalten (Work #17). */
   if(document.getElementById('abAkt')||document.getElementById('abRegion')
-     ||document.getElementById('abStammU')){
+     ||document.getElementById('abStammU')||document.getElementById('abWirk')){
     try{ _abBento2Laden(_abD); }
     catch(e){ try{ console.error('Bento-Reihe 2:',e); }catch(_){} }
   }
@@ -13273,6 +13335,33 @@ async function _abBento2Laden(d){
         : '<div class="bleerk">Keine erfolglosen Suchen — gut.</div>';
       setz('abAkt',h);
     }catch(e){ fehl('abAkt',e,'Aktivitäten'); }
+  })();
+
+  /* --- Wirkkette (C3, 15.08.) ---------------------------------------------
+     Zahlen aus cb_admin_architektur_liste. Sie kommen SERVERSEITIG gezaehlt
+     aus dem Feld `counts` — hier wird nichts nachgerechnet, sonst gaebe es
+     eine zweite Bilanz neben der des Diagramms (§4.2, §28.4). */
+  (async function(){
+    if(!document.getElementById('abWirk')) return;
+    try{
+      var r=await client.rpc('cb_admin_architektur_liste',{p_diagram_key:'produkterfassung'});
+      if(r.error) throw r.error;
+      var j=r.data; if(typeof j==='string') j=JSON.parse(j);
+      var c=(j&&j.counts)||{};
+      var z=function(l,v,f){ return '<div class="bzeile"><span>'+l+'</span><b'
+        +(f?' style="color:'+f+'"':'')+'>'+(v==null?'–':v)+'</b></div>'; };
+      setz('abWirk',
+        '<div class="bort">Knoten gesamt: <b>'+(c.gesamt==null?'–':c.gesamt)+'</b></div>'
+        + z('Bruch', c.bruch, (Number(c.bruch)>0?_AB.krit:null))
+        + z('Lücke', c.lueck, (Number(c.lueck)>0?_AB.warn:null))
+        + z('grün oder Grenze', (Number(c.gut)||0)+(Number(c.grenze)||0), _AB.gut)
+        + z('Prio ① — blockiert das Ziel', c.prio1, (Number(c.prio1)>0?_AB.warn:null))
+        + z('Prüfung offen', c.review_offen)
+        + (Number(c.ralph_entscheid)>0
+            ? '<div class="bleg" style="padding-top:8px"><span><i class="r"></i>'
+              +c.ralph_entscheid+' wartet auf deine Entscheidung</span></div>' : '')
+      );
+    }catch(e){ fehl('abWirk',e,'Wirkkette'); }
   })();
 
   /* --- Nutzer & Regionen --------------------------------------------------- */
@@ -30844,7 +30933,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3280";
+const APP_BUILD = "2026-08-15-3380";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

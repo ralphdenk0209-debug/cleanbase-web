@@ -767,12 +767,33 @@ body{ --admin-oben:64px }
 /* Loeschknopf. display:none ist der Grundzustand - fgStatusLoad setzt ihn auf
    flex, sobald es etwas zu loeschen gibt. Der Inline-Wert schlaegt diese Regel,
    genau so ist es gemeint. */
+/* 🔴 15.08.2026 SPAET — RALPH: "mein loesch button ist auch nicht richtig sichtbar",
+   praezisiert auf "produkt loesch knopf", Entscheid A: kraeftiger, bleibt ein Symbol.
+
+   WAS HIER STAND: weisser Grund (var(--card)) und ein blassrosa Rand #f0b8b4. Der Knopf
+   war damit nicht unsichtbar, sondern LEISE — 36x32 px, kein Wort, heller Grund zwischen
+   kraeftigen Nachbarn. Genau so liest sich in diesem Editor ein DEAKTIVIERTER Knopf
+   (vgl. #frgGoTop:disabled zwei Regeln darueber: blasser Grund, kein Kontrast). Ein
+   scharfer Knopf, der aussieht wie ein stumpfer, ist schlimmer als ein fehlender.
+
+   RICHTIGSTELLUNG, damit die falsche Fassung nicht wiederkommt: ich hatte zuerst
+   gemeldet, der Knopf trage GAR KEINE Optik und haenge an einer fehlenden CSS-Regel.
+   Das war falsch — diese Regel gibt es seit jeher. `display:none` ist ihr gewollter
+   Grundzustand, `fgStatusLoad` schaltet auf flex, sobald es etwas zu loeschen gibt.
+   Geaendert wird deshalb NUR die Farbe, nicht die Mechanik (§28.5).
+
+   Grund und Rand kommen aus dem Ton, den das Loeschen im System schon traegt:
+   #fdeceb ist der Hoverton der Loeschzeile im Statusmenue (app.js 25329). Kein neuer
+   Farbton, nur derselbe an einer zweiten Stelle. */
 #frgDelTop{
   display:none;
   height:32px; width:36px; margin-left:10px;
-  border:1px solid #f0b8b4; border-radius:9px;
-  background:var(--card); color:#b91c1c; cursor:pointer;
+  border:1px solid var(--k-e08a82,#e08a82); border-radius:9px;
+  background:var(--k-fdeceb,#fdeceb); color:var(--k-b91c1c,#b91c1c); cursor:pointer;
   align-items:center; justify-content:center; padding:0; flex:0 0 auto;
+}
+#frgDelTop:hover{
+  background:var(--k-f8cfca,#f8cfca); border-color:var(--k-cf5442,#cf5442);
 }
 
 
