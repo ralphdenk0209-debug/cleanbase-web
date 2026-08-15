@@ -4096,6 +4096,39 @@ function feKachelBreiteSync(){
   if(k.parentElement!==rahmen) rahmen.appendChild(k);   /* Fussleiste bleibt NACH dem Rahmen */
   k.style.marginLeft="0";
   k.style.alignSelf="start";
+  /* 🔴 15.08.2026 SPAET — DIESE FUNKTION IST FUER DEN ALTEN ZWEISPALTIGEN RAHMEN
+     GEBAUT UND DARF IM FOKUSMODUS NICHTS MEHR SETZEN.
+
+     RALPHS BEFUND: "seite 2: ENTHALTENE NAEHRSTOFFE nicht vergessen" — "nein, nicht
+     normal", dazu ein Bild von P1809: die Kachelreihe steht als rund 40 px schmaler
+     Streifen links unten, die Kacheln senkrecht abgeschnitten. Am Nachmittag hatte er
+     dasselbe Element schon mit 43 px gemessen. 43 ist exakt --gap-rail.
+
+     URSACHE, und sie stand die ganze Zeit in Ralphs Inspektor: `k.style.gridColumn="2"`
+     ist ein INLINE-STIL. Er schlaegt JEDE CSS-Regel. Die Regel ui.css 1895
+     (body.riFokus #feRahmen > #fe_naehrKacheln{grid-column:3;grid-row:2}) konnte also
+     nie greifen — sie wurde geschrieben, um genau diesen Fehler zu beheben, und stand
+     von Anfang an gegen einen Inline-Stil, den niemand gesucht hat. Ralphs Werkzeug hat
+     es woertlich gemeldet: "stehen als style=... am Element (aus app.js). Dafuer reicht
+     keine CSS-Regel — das muss Claude im Code aendern." Er hatte die Antwort vor mir.
+
+     WARUM SPALTE 2 EINMAL RICHTIG WAR: der alte Rahmen hiess
+     #feRahmen{grid-template-columns:242px minmax(0,1fr)} — dort IST Spalte 2 die breite
+     Arbeitsflaeche. Im Fokusmodus hat der Rahmen fuenf Spuren, und Spur 2 ist der
+     Zwischenraum (--gap-rail, 43px als echte Spalte). Die Funktion wurde beim Umbau nie
+     nachgezogen. Dasselbe gilt fuer gridTemplateRows und rail.gridRow: beide ueber-
+     schreiben das explizite Placement aus ui.css 1893-1897.
+
+     AB JETZT: im Fokusmodus setzt diese Funktion GAR NICHTS mehr und raeumt ihre alten
+     Inline-Stile weg. Die Spalte steht in ui.css, an genau einem Ort (§4.2). Ausserhalb
+     des Fokusmodus bleibt die alte One-Page unveraendert. */
+  var _fokus = document.body && document.body.classList.contains("riFokus");
+  if(_fokus){
+    rahmen.style.gridTemplateRows="";
+    rail.style.gridRow="";
+    k.style.gridColumn="";
+    return;
+  }
   if(zweispaltig){
     rahmen.style.gridTemplateRows="max-content 1fr";
     rail.style.gridRow="1 / span 2";
