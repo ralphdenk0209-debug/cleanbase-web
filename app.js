@@ -10750,6 +10750,10 @@ function dashArbeitCss(){
    +A+' .abhero .hbtn{background:rgba(255,255,255,.17);border:1px solid rgba(255,255,255,.32);'
     +'color:#fff;padding:6px 13px;border-radius:9px;font-weight:700;cursor:pointer;font-size:12.5px}'
    +A+' .abhero .hbtn:hover{background:rgba(255,255,255,.26)}'
+   /* Work #42/E5: der Anordnen-Knopf muss ANGESCHALTET aussehen, solange der
+      Modus laeuft — sonst sieht Ralph im Hero nicht, warum das Dashboard
+      ploetzlich gestrichelte Rahmen hat. */
+   +A+' .abhero .hbtn.on{background:#fff;color:'+_AB.kern+';border-color:#fff;font-weight:800}'
    +'@media (max-width:720px){'+A+' .abhero .hr{margin-left:0;width:100%}}'
    /* Bento: 4 Spalten, die erste Kachel nimmt zwei — „HEUTE" ist die Hauptsache
       und darf nicht so gross wie eine Nebenzahl sein (Ralph: keine zehn gleich
@@ -10829,7 +10833,32 @@ function dashArbeitCss(){
     +'font-family:inherit}'
    +A+' .abschnell:hover{background:#f5f8f9;border-color:#cfd5de}'
    +A+' .abschnell .ic{font-size:15px;line-height:1}'
-   +A+' .abschnell .pf{margin-left:auto;color:var(--abmut)}';
+   +A+' .abschnell .pf{margin-left:auto;color:var(--abmut)}'
+   /* ----- Anordnen-Modus (Work #42, Etappe 5) -----
+      Der Modus muss auf den ERSTEN Blick erkennbar sein. Wer nicht sieht, dass
+      er im Bearbeiten steckt, haelt eine ausgeblendete Kachel fuer verloren. */
+   +A+' .abeleiste{display:flex;align-items:center;gap:9px;flex-wrap:wrap;'
+    +'background:#fff8e8;border:1px solid #e8d7a8;border-radius:12px;'
+    +'padding:9px 12px;margin-bottom:13px;font-size:12.5px}'
+   +A+' .abeleiste b{font-size:12.5px}'
+   +A+' .abeleiste .abesp{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap}'
+   +A+' .abeb{background:#fff;border:1px solid var(--abline);border-radius:8px;'
+    +'padding:5px 9px;font-size:11.5px;font-weight:700;color:var(--abink);'
+    +'cursor:pointer;font-family:inherit;white-space:nowrap}'
+   +A+' .abeb:hover{background:#f5f8f9;border-color:#cfd5de}'
+   +A+' .abeb[disabled]{opacity:.5;cursor:not-allowed}'
+   +A+' .abeb.hin{background:#eef6ee;border-color:#bcd9bc}'
+   +A+' .abbento .bk.bedit{outline:2px dashed #d9b45f;outline-offset:-2px}'
+   +A+' .abbento .bk.bedit.bzieh{opacity:.45}'
+   +A+' .abbento .bk.bedit.bziel{outline:2px solid '+_AB.kern+'}'
+   +A+' .abedit{display:flex;align-items:center;gap:7px;flex-wrap:wrap;'
+    +'background:#fbf3df;border-bottom:1px solid #e8d7a8;padding:6px 10px;'
+    +'border-radius:15px 15px 0 0}'
+   +A+' .abedit .abgriff{cursor:grab;font-size:14px;color:#9a8a5e}'
+   +A+' .abedit .abename{font-size:11px;font-weight:800;text-transform:uppercase;'
+    +'letter-spacing:.04em;color:var(--abmut);overflow:hidden;text-overflow:ellipsis;'
+    +'white-space:nowrap;min-width:0}'
+   +A+' .abedit .abesp{margin-left:auto;display:flex;gap:5px}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -11294,6 +11323,10 @@ function _abRing(np,A){
 }
 /* Kern-Zahlen kommen aus cb_dashboard und werden hier nur GELESEN. */
 var _abD=null;
+/* np gehoert dazu: der Anordnen-Modus zeichnet die Kacheln neu und braucht
+   dieselben Daten wie der Erstaufbau — sonst holt er sie ein zweites Mal und
+   zeigt womoeglich einen anderen Stand als der Rest der Seite (§4.2). */
+var _abNp=null;
 function _abZahl(np,was){
   var k=(_abD&&_abD.katalog)||{}, q=(_abD&&_abD.qualitaet)||{};
   if(was==='aktiv')   return k.aktiv==null?'–':k.aktiv;
@@ -11463,6 +11496,8 @@ function _abHero(d,np,A,ans){
       + zahl(A.melden+' / '+w.length, 'Wächter melden', 'waechter')
     +'</div>'
     +'<div class="hr"><span id="abStand"></span>'
+      +'<button class="hbtn" id="abAnordnen" type="button" '
+        +'title="Kacheln anordnen, ein-/ausblenden, Breite umschalten">🧩 Anordnen</button>'
       +_abUmschalter(ans)
       +'<button class="hbtn" id="abNeu">↻ Aktualisieren</button></div>'
   +'</div>';
@@ -11470,8 +11505,10 @@ function _abHero(d,np,A,ans){
 
 /* Kachelrahmen. Eine Stelle, damit die vier Kacheln nicht viermal leicht
    unterschiedlich aussehen. */
-function _abKachel(titel, tag, inhalt, fuss, gross){
-  return '<div class="bk'+(gross?' bgross':'')+'">'
+function _abKachel(titel, tag, inhalt, fuss, gross, zus){
+  zus=zus||{};
+  return '<div class="bk'+(gross?' bgross':'')+(zus.klasse||'')+'"'+(zus.attr||'')+'>'
+    +(zus.vor||'')
     +'<div class="bkopf"><h3>'+titel+'</h3>'+(tag||'')+'</div>'
     +inhalt
     +(fuss?'<div class="bfuss">'+fuss+'</div>':'')
@@ -11595,11 +11632,218 @@ function _abKachelListe(reihe){
 function _abReihe(reihe, klasse, c){
   var h='<div class="'+klasse+'">';
   _abKachelListe(reihe).forEach(function(x){
-    if(x.roh){ h+=x.roh(c); return; }
+    var zus=_AB_EDIT?_abEditRahmen(x):null;
+    if(x.roh){
+      /* Kacheln mit eigenem Rahmen (Schnellzugriff) bekommen die Leiste
+         nachtraeglich hinter das erste > gesetzt — ihr Markup gehoert ihnen. */
+      var r=x.roh(c);
+      if(zus) r=r.replace('<div class="bk"','<div class="bk'+(zus.klasse||'')+'"'+(zus.attr||''))
+                 .replace(/>/, '>'+(zus.vor||''));
+      h+=r; return;
+    }
     var t=x.bau(c)||{};
-    h+=_abKachel(x.titel, t.tag||'', t.inhalt||'', t.fuss||'', !!x.breit);
+    h+=_abKachel(x.titel, t.tag||'', t.inhalt||'', t.fuss||'', !!x.breit, zus);
   });
   return h+'</div>';
+}
+
+/* ============================================================================
+   ANORDNEN-MODUS  ·  Work #42, Etappe 5  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   Ralph bedient, die Wirkung gilt fuer alle Admins (Entscheid C). Hier steht
+   die BEDIENUNG; die Ablage kommt aus Work #44 und wird in E4 angeschlossen.
+
+   Bis dahin wirkt eine Aenderung nur in der offenen Sitzung. Das steht in der
+   Leiste als Satz, nicht im Kleingedruckten — ein Editor, der so tut, als haette
+   er gespeichert, ist schlimmer als einer ohne Speicherknopf.
+
+   🔴 Ausblenden ist KEINE Sackgasse: ausgeblendete Kacheln stehen mit Namen in
+   der Leiste und lassen sich einzeln zurueckholen. Sonst waere „aus" ein Knopf,
+   den man nur einmal druecken kann — und die Kachel gilt als verloren.
+   ========================================================================== */
+var _AB_EDIT=false;
+var _AB_VORHER=null;   /* Stand beim Betreten, fuer „Verwerfen" */
+
+function _abEditRahmen(x){
+  return {
+    klasse:' bedit',
+    attr:' data-kid="'+esc(x.id)+'" draggable="true"',
+    vor:'<div class="abedit">'
+      +'<span class="abgriff" title="Ziehen zum Verschieben">⠿</span>'
+      +'<span class="abename">'+x.titel+'</span>'
+      +'<span class="abesp">'
+      +'<button type="button" class="abeb" data-abe="breit" data-kid="'+esc(x.id)+'" '
+        +'title="Breite umschalten">'+(x.breit?'▭▭ breit':'▭ schmal')+'</button>'
+      +'<button type="button" class="abeb" data-abe="aus" data-kid="'+esc(x.id)+'" '
+        +'title="Kachel ausblenden — sie bleibt in der Leiste oben abrufbar">✕ aus</button>'
+      +'</span></div>'
+  };
+}
+
+/* Der aktuelle Zustand als Konfiguration — abgeleitet aus dem, was wirklich
+   gezeichnet wird, nicht aus einer zweiten Buchfuehrung (§4.2). */
+function _abLayoutAktuell(){
+  var raus=[], drin={};
+  [1,2].forEach(function(r){
+    _abKachelListe(r).forEach(function(x,i){
+      drin[x.id]=true;
+      raus.push({id:x.id, reihe:r, pos:i, breit:!!x.breit, aus:false});
+    });
+  });
+  /* Ausgeblendete gehen NICHT verloren — sie behalten Reihe und Breite. */
+  if(_AB_LAYOUT) _AB_LAYOUT.kacheln.forEach(function(e){
+    if(drin[e.id]) return;
+    var reg=_AB_KACHELN.filter(function(k){ return k.id===e.id; })[0];
+    raus.push({id:e.id, reihe:(e.reihe==null?(reg?reg.reihe:1):e.reihe),
+               pos:(e.pos==null?999:e.pos),
+               breit:(e.breit==null?!!(reg&&reg.breit):e.breit), aus:true});
+  });
+  return {name:(_AB_LAYOUT&&_AB_LAYOUT.name)||'', kacheln:raus};
+}
+
+function _abAusgeblendet(){
+  if(!_AB_LAYOUT) return [];
+  return _AB_LAYOUT.kacheln.filter(function(e){ return e.aus; }).map(function(e){
+    var reg=_AB_KACHELN.filter(function(k){ return k.id===e.id; })[0];
+    return {id:e.id, titel:(reg?reg.titel:e.id)};
+  });
+}
+
+function _abEditLeiste(){
+  if(!_AB_EDIT) return '';
+  var weg=_abAusgeblendet();
+  return '<div class="abeleiste">'
+    +'<b>🧩 Anordnen</b>'
+    +'<span style="color:'+_AB.mut+'">Kacheln ziehen · Breite umschalten · ausblenden. '
+      +'<b>Gilt nur in dieser Sitzung</b> — die Ablage für alle Admins folgt (#44).</span>'
+    +(weg.length
+       ? '<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+         +'<span style="color:'+_AB.mut+'">ausgeblendet:</span>'
+         + weg.map(function(w){
+             return '<button type="button" class="abeb hin" data-abe="ein" data-kid="'
+               +esc(w.id)+'" title="wieder einblenden">+ '+w.titel+'</button>'; }).join('')
+         +'</span>'
+       : '')
+    +'<span class="abesp">'
+    +'<button type="button" class="abeb" data-abe="standard" '
+      +'title="Zurück auf die im Code hinterlegte Anordnung">↺ Standard</button>'
+    +'<button type="button" class="abeb" data-abe="verwerfen">Verwerfen</button>'
+    +'<button type="button" class="abeb" data-abe="speichern" disabled '
+      +'title="Braucht die Ablage aus Work #44 — noch nicht vorhanden">💾 Speichern</button>'
+    +'<button type="button" class="abeb hin" data-abe="fertig">✓ Fertig</button>'
+    +'</span></div>';
+}
+
+/* Eine Aenderung, ein Weg: alles laeuft ueber _abLayoutSetzen und zeichnet neu. */
+function _abEditAendern(fn){
+  var cfg=_abLayoutAktuell();
+  fn(cfg.kacheln, function(id){
+    for(var i=0;i<cfg.kacheln.length;i++) if(cfg.kacheln[i].id===id) return cfg.kacheln[i];
+    return null;
+  });
+  cfg.kacheln.forEach(function(e,i){ if(e.pos==null) e.pos=i; });
+  _abLayoutSetzen(cfg);
+  _abNeuZeichnen();
+}
+
+function _abEditVerschieben(vonId, aufId){
+  if(!vonId||!aufId||vonId===aufId) return;
+  _abEditAendern(function(l){
+    var v=-1,z=-1;
+    l.forEach(function(e,i){ if(e.id===vonId) v=i; if(e.id===aufId) z=i; });
+    if(v<0||z<0) return;
+    var reihe=l[z].reihe;
+    var e=l.splice(v,1)[0];
+    e.reihe=reihe;                                  /* Ziehen wechselt die Reihe mit */
+    var zi=-1; l.forEach(function(x,i){ if(x.id===aufId) zi=i; });
+    if(zi<0) l.push(e);
+    else l.splice(v<z ? zi+1 : zi, 0, e);           /* von oben: dahinter, von unten: davor */
+    /* Positionen je Reihe neu durchzaehlen, damit kein Gleichstand entsteht. */
+    var z1=0,z2=0;
+    l.forEach(function(x){ x.pos=(x.reihe===2?z2++:z1++); });
+  });
+}
+
+/* Verdrahtung ALLES, was in den Bento-Reihen haengt. Wird beim Erstaufbau und
+   nach jedem Neuzeichnen im Anordnen-Modus gerufen — dieselbe Fassung, nicht
+   zwei (§4.2). innerHTML wirft die Handler weg, deshalb muss das so laufen. */
+function _abBentoNach(box){
+  box=box||document.getElementById('fgDash'); if(!box) return;
+
+  box.querySelectorAll('.baufg[data-job]').forEach(function(j){
+    j.addEventListener('click',function(){
+      if(_AB_EDIT) return;                 /* im Anordnen-Modus wird nicht gesprungen */
+      _abSprung(j.getAttribute('data-job'));
+    });
+  });
+  /* Schnellzugriff: adminGo statt eigener Navigation — es gibt genau einen Weg
+     in einen Adminbereich (§4.2). */
+  box.querySelectorAll('.abschnell[data-go]').forEach(function(b){
+    b.addEventListener('click',function(){
+      if(_AB_EDIT) return;
+      var k=b.getAttribute('data-go');
+      try{ if(typeof adminGo==='function') adminGo(k); }
+      catch(e){ try{ console.warn('Schnellzugriff:',k,e); }catch(_){} }
+    });
+  });
+
+  /* ---- Anordnen-Modus: Knoepfe ------------------------------------------- */
+  box.querySelectorAll('[data-abe]').forEach(function(b){
+    b.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      var was=b.getAttribute('data-abe'), id=b.getAttribute('data-kid');
+      if(was==='aus')       _abEditAendern(function(l,find){ var e=find(id); if(e) e.aus=true; });
+      else if(was==='ein')  _abEditAendern(function(l,find){ var e=find(id); if(e) e.aus=false; });
+      else if(was==='breit')_abEditAendern(function(l,find){ var e=find(id); if(e) e.breit=!e.breit; });
+      else if(was==='standard'){ _abLayoutSetzen(null); _abNeuZeichnen(); }
+      else if(was==='verwerfen'){ _abLayoutSetzen(_AB_VORHER); _abNeuZeichnen(); }
+      else if(was==='fertig'){ _AB_EDIT=false;
+        var an=document.getElementById('abAnordnen'); if(an) an.classList.remove('on');
+        _abNeuZeichnen(); }
+    });
+  });
+
+  /* ---- Anordnen-Modus: Ziehen -------------------------------------------- */
+  if(_AB_EDIT){
+    var zieht=null;
+    box.querySelectorAll('.bk.bedit[data-kid]').forEach(function(k){
+      k.addEventListener('dragstart',function(ev){
+        zieht=k.getAttribute('data-kid');
+        k.classList.add('bzieh');
+        try{ ev.dataTransfer.effectAllowed='move';
+             ev.dataTransfer.setData('text/plain',zieht); }catch(e){}
+      });
+      k.addEventListener('dragend',function(){ zieht=null;
+        box.querySelectorAll('.bzieh,.bziel').forEach(function(x){
+          x.classList.remove('bzieh'); x.classList.remove('bziel'); }); });
+      k.addEventListener('dragover',function(ev){
+        if(!zieht||zieht===k.getAttribute('data-kid')) return;
+        ev.preventDefault(); k.classList.add('bziel');
+        try{ ev.dataTransfer.dropEffect='move'; }catch(e){}
+      });
+      k.addEventListener('dragleave',function(){ k.classList.remove('bziel'); });
+      k.addEventListener('drop',function(ev){
+        ev.preventDefault(); k.classList.remove('bziel');
+        var von=zieht; try{ von=ev.dataTransfer.getData('text/plain')||zieht; }catch(e){}
+        _abEditVerschieben(von, k.getAttribute('data-kid'));
+      });
+    });
+  }
+
+  /* Reihe 2 laedt NACH — sie darf den Seitenaufbau nicht aufhalten (Work #17). */
+  if(document.getElementById('abAkt')||document.getElementById('abRegion')
+     ||document.getElementById('abStammU')){
+    try{ _abBento2Laden(_abD); }
+    catch(e){ try{ console.error('Bento-Reihe 2:',e); }catch(_){} }
+  }
+}
+
+function _abNeuZeichnen(){
+  var box=document.getElementById('abBentoBox'); if(!box) return;
+  var A=null;
+  try{ if(_abNp && typeof _abAbl==='function') A=_abAbl(_abNp); }catch(e){}
+  box.innerHTML=_abEditLeiste()+_abBento(_abD,_abNp,A)+_abBento2();
+  _abBentoNach(box);
 }
 
 /* Zeile Beschriftung/Wert. Stand vorher zweimal als lokales z() in _abBento. */
@@ -11939,7 +12183,7 @@ function _abRingKlein(w,A){
 
 /* --------------------------------------------------------------------------- */
 function dashArbeitHtml(d,np,fehler){
-  _abD=d;
+  _abD=d; _abNp=np;
   var A=_abAbl(np);
   var ri=(d&&d.riki)||{}, k=(d&&d.katalog)||{}, q=(d&&d.qualitaet)||{}, ex=(np&&np.extra)||{};
   var lim=Number(ri.monatslimit_usd)||0, verbr=Number(ri.monat_usd)||0;
@@ -11959,7 +12203,9 @@ function dashArbeitHtml(d,np,fehler){
   if(fehler) h+='<div class="abfehler"><b>Live-Daten unvollständig.</b> '+esc(fehler)
     +' — betroffene Felder bleiben leer oder grau. Grau heißt: wir wissen es nicht.</div>';
 
-  if(ans!=='graph') h+=_abBento(d,np,A)+_abBento2();
+  /* Beide Bento-Reihen liegen in EINEM Behaelter, damit der Anordnen-Modus sie
+     zusammen neu zeichnen kann, ohne die Seite neu zu laden (Work #42/E5). */
+  if(ans!=='graph') h+='<div id="abBentoBox">'+_abEditLeiste()+_abBento(d,np,A)+_abBento2()+'</div>';
 
   if(ans==='graph'){
     h+='<div class="abrow r2"><div class="abp"><div class="abph"><h3>Graph</h3>'
@@ -12058,7 +12304,16 @@ function dashArbeitNach(d,np){
   /* 🔴 15.08.2026: der Sprung steht jetzt an EINER Stelle und wird von der alten
      Liste UND von den neuen Bento-Zeilen benutzt. Vorher haette die Kachel ihre
      eigene Sprungtabelle gebraucht — zwei Orte, die auseinanderlaufen (§4.2). */
-  var _abSprung=function(z){
+  /* 15.08. Work #42/E5: aus der lokalen Variablen wurde eine Funktion im
+     Dateikopf-Rang — der Anordnen-Modus verdrahtet die Bento-Zeilen neu und
+     kommt an eine Closure hier drin nicht heran. Inhalt unveraendert. */
+  box.querySelectorAll('.abjob[data-ziel]').forEach(function(j){
+    j.addEventListener('click',function(){ _abSprung(j.dataset.ziel); });
+  });
+  _abNachRest(box,d,np,A);
+}
+
+function _abSprung(z){
     try{
       if(z==='scan'&&typeof scanEingangOeffnen==='function') scanEingangOeffnen();
       else if(z==='todo'&&typeof todoDockAuf==='function') todoDockAuf();
@@ -12067,31 +12322,23 @@ function dashArbeitNach(d,np){
          data-ziel-Wert nicht ins Leere laeuft — beide zeigen auf dieselbe Stelle. */
       else if(z==='punkte'||z==='fluss'){ var f=document.getElementById('abDetail'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'}); }
     }catch(e){ try{ console.warn('Sprung fehlgeschlagen:',z,e); }catch(_){} }
-  };
-  box.querySelectorAll('.abjob[data-ziel]').forEach(function(j){
-    j.addEventListener('click',function(){ _abSprung(j.dataset.ziel); });
-  });
-  /* Bento-Aufgabenzeilen und die klickbaren Hero-Zahlen — dieselbe Sprungtabelle. */
-  box.querySelectorAll('.baufg[data-job]').forEach(function(j){
-    j.addEventListener('click',function(){ _abSprung(j.getAttribute('data-job')); });
-  });
+}
+
+function _abNachRest(box,d,np,A){
   box.querySelectorAll('.abhero [data-hero]').forEach(function(x){
     x.addEventListener('click',function(){ _abSprung(x.getAttribute('data-hero')); });
   });
-  /* Schnellzugriff (Durchgang 3): adminGo statt eigener Navigation — es gibt
-     genau einen Weg in einen Adminbereich (§4.2). */
-  box.querySelectorAll('.abschnell[data-go]').forEach(function(b){
-    b.addEventListener('click',function(){
-      var k=b.getAttribute('data-go');
-      try{ if(typeof adminGo==='function') adminGo(k); }
-      catch(e){ try{ console.warn('Schnellzugriff:',k,e); }catch(_){} }
-    });
+  /* Alles, was IN den Bento-Reihen haengt, wird an EINER Stelle verdrahtet —
+     der Anordnen-Modus zeichnet sie neu und braucht dieselbe Verdrahtung.
+     Zwei Fassungen davon waeren genau der Fall aus §4.2. */
+  _abBentoNach(box);
+  var an=document.getElementById('abAnordnen');
+  if(an) an.addEventListener('click',function(){
+    if(!_AB_EDIT){ _AB_VORHER=_AB_LAYOUT?JSON.parse(JSON.stringify(_AB_LAYOUT)):null; }
+    _AB_EDIT=!_AB_EDIT;
+    an.classList.toggle('on',_AB_EDIT);
+    _abNeuZeichnen();
   });
-  /* Reihe 2 laedt NACH — sie darf den Seitenaufbau nicht aufhalten (Work #17). */
-  if(document.getElementById('abAkt')){
-    try{ _abBento2Laden(d); }
-    catch(e){ try{ console.error('Bento-Reihe 2:',e); }catch(_){} }
-  }
   box.querySelectorAll('.abtab[data-wf]').forEach(function(t){
     t.addEventListener('click',function(){
       box.querySelectorAll('.abtab[data-wf]').forEach(function(x){x.classList.remove('on');});
@@ -16617,11 +16864,24 @@ async function fgBestVerarbEdit(el, ev){
     console.error("[Bestandteil] Verarbeitungen laden:", e);
     fehler=(e&&e.message)?String(e.message):String(e);
   }
+  /* 🔴 15.08.2026, EIGENFEHLER, im selben Durchgang korrigiert: hier stand ein
+     `alert(...)`. GEMESSEN an P73617/Hühnerkarkassen: cb_admin_zutaten_suchen_v2
+     FINDET die Entity (5dd44c76…, erster Treffer), liefert aber `contexts: []`.
+     Der Zustand „keine Stufen hinterlegt" ist damit NICHT die Ausnahme, sondern
+     der Normalfall — 942 aktive Entities, und der Bestand kennt insgesamt sieben
+     Verarbeitungswerte. Ein modaler Dialog bei jedem zweiten Klick ist kein
+     Hinweis, sondern eine Sperre; mein Testklick hat den Browser prompt
+     eingefroren. Ein Datenzustand gehört in die Zeile, nicht in einen Dialog.
+     Der Dialog bleibt genau dort, wo er hingehört: wenn ein SCHREIBEN scheitert. */
   if(!ctx){
-    el.innerHTML=alt;
-    alert("Die Verarbeitungsstufen konnten NICHT geladen werden – es wurde nichts geändert.\n\n"
-      +(fehler||"Der Server liefert zu dieser Identität keine Verarbeitungskontexte.")
-      +"\n\nEs wird keine Stufe geraten.");
+    el.innerHTML=alt
+      +'<span style="display:block;font-size:10.5px;color:var(--k-b45309,#b45309);line-height:1.35;margin-top:1px">'
+      +(fehler ? '⚠ nicht erreichbar' : '⚠ keine Stufen hinterlegt')
+      +'</span>';
+    if(fehler) console.error("[Bestandteil] Verarbeitungen laden fehlgeschlagen:", fehler);
+    /* Nach 4 Sekunden zurück auf die reine Anzeige – der Hinweis soll die Tabelle
+       nicht dauerhaft verbreitern, und beim nächsten Render ist er ohnehin weg. */
+    setTimeout(function(){ if(el.isConnected && !el.querySelector("select")) el.innerHTML=alt; }, 4000);
     return;
   }
 
@@ -29351,7 +29611,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2960";
+const APP_BUILD = "2026-08-15-2970";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
