@@ -5179,6 +5179,22 @@ function fgStammPanelBauen(){
           +'<option value="active">aktiv</option>'
           +'<option value="retired">stillgelegt</option>'
           +'<option value="">alle</option></select>'
+        /* 🔴 NEU 15.08.2026 — der Bewertungsfilter. Bis eben war „342 unbewertet"
+           eine Zahl, die nirgendwohin fuehrte: der Waechter zaehlte sie, und es
+           gab keinen Weg, sie sich anzeigen zu lassen. Genau das ist eine
+           Attrappe (Ralph P12). Ich habe es als Work #14 an ChatGPT gemeldet
+           statt im Browser nachzufiltern — eine lokale Filterung haette bei
+           Pagination ohnehin nur die geladene Seite erwischt und eine falsche
+           Trefferzahl erzeugt (Ralph P5).
+           ChatGPT hat p_bewertung=alle|ohne|mit geliefert; von mir gegengeprueft
+           und verifiziert: Waechter „unbewertet" und Liste „ohne" nennen zum
+           selben Zeitpunkt DIESELBE Zahl (205), und ohne+mit ergibt active_total.
+           Hier wird er nur noch angeschlossen — §22, kein Nachbau. */
+        +'<select id="fgStBew" onchange="_fgStamm.offset=0;fgStammListe()" '
+          +'title="Hat der Canonical-Eintrag eine Note? Die Auswahl „ohne Note" zeigt genau die Einträge, die der Wächter als unbewertet zählt.">'
+          +'<option value="alle">Note: alle</option>'
+          +'<option value="ohne">ohne Note</option>'
+          +'<option value="mit">mit Note</option></select>'
         +'<button type="button" onclick="_fgStamm.offset=0;fgStammListe()">Suchen</button>'
         +'<span id="fgStZahl" class="fgStZahl"></span>'
       +'</div>'
@@ -5193,13 +5209,22 @@ function fgStammPanelBauen(){
 function fgStammTab(t){
   _fgStamm.tab=t; _fgStamm.offset=0;
   var a=document.getElementById('fgStTabNeu'), b=document.getElementById('fgStTabAlt'),
-      tag=document.getElementById('fgStTag'), st=document.getElementById('fgStStatus');
+      tag=document.getElementById('fgStTag'), st=document.getElementById('fgStStatus'),
+      bw=document.getElementById('fgStBew');
   if(a) a.className='fgStTab'+(t==='neu'?' akt':'');
   if(b) b.className='fgStTab'+(t==='alt'?' akt':'');
   /* Die Kennzeichnung wechselt mit — beide sind NICHT gleichwertig (Ralph). */
   if(tag){ tag.className='fgSwTag '+(t==='neu'?'canon':'legacy');
     tag.textContent=(t==='neu')?'Canonical · maßgeblich':'Legacy · Übergang / Kontrolle'; }
   if(st) st.style.display=(t==='neu')?'':'none';   /* Lifecycle gibt es nur neu */
+  /* Der Bewertungsfilter ebenso: cb_admin_stamm_alt_liste kennt ihn nicht. Ein
+     sichtbares Auswahlfeld, das nichts bewirkt, ist schlimmer als keines — es
+     behauptet eine Faehigkeit (derselbe Grund, aus dem der Wert „review" raus
+     musste). */
+  if(bw) bw.style.display=(t==='neu')?'':'none';
+  /* Beim Wechsel auf den Alt-Tab wird der Filter zurueckgesetzt, sonst wirkt er
+     unsichtbar weiter, wenn Ralph zurueckwechselt. */
+  if(bw && t!=='neu') bw.value='alle';
   fgStammListe();
 }
 function fgStammBlaettern(d){
@@ -5212,10 +5237,11 @@ async function fgStammListe(){
   var box=document.getElementById('fgStTabelle'); if(!box) return;
   var such=((document.getElementById('fgStSuche')||{}).value||'').trim()||null;
   var stat=((document.getElementById('fgStStatus')||{}).value||'active');
+  var bew=((document.getElementById('fgStBew')||{}).value||'alle');
   box.innerHTML='<div class="fgSwLad">Wird geladen …</div>';
   try{
     var r = (_fgStamm.tab==='neu')
-      ? await client.rpc('cb_admin_stamm_neu_liste',{p_suche:such,p_limit:_fgStamm.limit,p_offset:_fgStamm.offset,p_status:(stat||null)})
+      ? await client.rpc('cb_admin_stamm_neu_liste',{p_suche:such,p_limit:_fgStamm.limit,p_offset:_fgStamm.offset,p_status:(stat||null),p_bewertung:bew})
       : await client.rpc('cb_admin_stamm_alt_liste',{p_suche:such,p_limit:_fgStamm.limit,p_offset:_fgStamm.offset});
     if(r.error) throw r.error;
     var d=r.data||{}, rows=Array.isArray(d.rows)?d.rows:[];
@@ -5247,7 +5273,17 @@ function _fgStFeld(id, feld, wert, art){
      Weicht der IST-Wert ab ('false', 'true', 'Nein', …), bleibt er als eigene Option
      stehen statt still auf 'nein' normalisiert zu werden. Eine Anzeige, die den
      Bestand schoener macht, als er ist, verhindert genau die Korrektur, die noetig
-     waere — die Bereinigung laeuft als Work Item #13 bei ChatGPT (§31). */
+     waere.
+
+     ✅ NACHTRAG 15.08.2026, 14:30 — Work #13 ist ERLEDIGT und von mir verifiziert.
+     Der Bestand traegt nur noch drei Zustaende (nein 8.361 · NULL 46 · ja 42, Summe
+     8.449 = unveraendert, es wurde normalisiert und nichts geloescht). Dazu gibt es
+     den Check-Constraint `zutaten_stamm_kritisch_check` und eine serverseitige
+     Normalisierung in cb_admin_stamm_alt_aktualisieren.
+     DIE VIERTE OPTION KANN DAMIT NICHT MEHR AUFTRETEN. Der Zweig bleibt trotzdem
+     stehen — als Riegel, falls doch je ein Fremdwert ankommt. Was sich geaendert
+     hat, steht hier ausdruecklich dabei: eine stillschweigend ueberholte Aussage
+     sieht beim naechsten Lesen aus wie eine, die immer galt (§28.5). */
   if(art==='janein'){
     var opts=[['','—'],['ja','ja'],['nein','nein']];
     if(w && w!=='ja' && w!=='nein') opts.push([w, w+' (Ist-Wert, abweichende Schreibweise)']);
@@ -28185,7 +28221,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2530";
+const APP_BUILD = "2026-08-15-2550";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
