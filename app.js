@@ -8134,6 +8134,22 @@ function dashPortalTab(id){
 async function loadDashboard(){
   const box=document.getElementById("fgDash"); if(!box) return;
   dashVorgangCss();
+
+  /* Architektur-Ansicht (Work #29). Steht BEWUSST vor dem cb_dashboard-Abruf:
+     sie braucht dessen Kennzahlen nicht, und eine Ansicht auf eine fremde RPC
+     warten zu lassen, die sie nie liest, macht sie ohne Grund von deren
+     Verfuegbarkeit abhaengig. Faellt cb_dashboard aus, ist das Wirkdiagramm
+     genau dann noch erreichbar, wenn man es am dringendsten braucht. */
+  if((ME&&ME.is_admin) && dashArbeitAnsichtGet()==='architektur'){
+    try{ if(typeof _abGraphStop==='function') _abGraphStop(); }catch(e){
+      try{ console.warn('Graph-Schleife liess sich nicht stoppen:',e); }catch(_){} }
+    arCss();
+    box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Architektur…</div>';
+    await arLaden();
+    arRender();
+    return;
+  }
+
   var _ansicht = dashAnsichtGet();
   var _sw = dashSwitchHtml(_ansicht);
   box.innerHTML=_sw+'<div style="color:var(--muted);font-size:12.5px">Lade Kennzahlen…</div>';
@@ -10799,6 +10815,7 @@ function _abZf(z){ return (Number(z.wartend)||0)===0 ? _AB.gut : (z.weg==='keine
 function _abUmschalter(ans){
   var b=[['flaeche','Arbeitsfläche','Hero, Kacheln, Ring und Arbeitsliste'],
          ['graph','Graph','beweglich, zum Erkunden'],
+         ['architektur','Architektur','Wirkdiagramm — Knoten, Kanten und Wächter aus der Datenbank'],
          ['klassisch','Klassisch','das bisherige Enterprise-Dashboard']];
   return '<span class="abum">'+b.map(function(x){
     return '<button data-ans="'+x[0]+'" class="'+(ans===x[0]?'on':'')+'" title="'+x[2]+'">'
@@ -10814,7 +10831,7 @@ function _abUmschalterNach(){
 }
 
 function dashArbeitAnsichtGet(){
-  try{ var v=localStorage.getItem('ri_dash_ansicht'); return (v==='graph'||v==='klassisch')?v:'flaeche'; }
+  try{ var v=localStorage.getItem('ri_dash_ansicht'); return (v==='graph'||v==='klassisch'||v==='architektur')?v:'flaeche'; }
   catch(e){ return 'flaeche'; }
 }
 function dashArbeitAnsichtSet(v){
@@ -10823,6 +10840,369 @@ function dashArbeitAnsichtSet(v){
      aber man soll es sehen koennen, statt es zu suchen. */
     try{ console.warn('Ansicht-Wahl konnte nicht gespeichert werden:',e); }catch(_){} }
   if(typeof loadDashboard==='function') loadDashboard();
+}
+
+/* ===========================================================================
+   ARCHITEKTUR / WIRKDIAGRAMM — Work #29 (Ralph-Entscheid 15.08.2026)
+
+   Die Erfassungs-Architektur liegt seit 15.08. in shadow_v1.architecture_* und
+   wird ueber cb_admin_architektur_* gelesen und gepflegt. Diese Ansicht rendert
+   sie. Die HTML-Datei bereiche/wirkdiagramm-erfassung.html ist damit nur noch
+   Import- und Archivquelle, nicht mehr die Wahrheit.
+
+   🔴 KEINE ZWEITE KNOTEN-KONSTANTE (§4.2, Ralph-Auflage zu diesem Durchgang).
+   In dieser Datei steht kein einziger Knoten, keine Lane-Liste, keine
+   Statusliste und keine Zahl. Alles kommt aus der RPC:
+     - die Kopfzahlen aus a.counts, SERVERSEITIG gezaehlt und hier nur angezeigt.
+       Nicht nachgerechnet — eine nachgerechnete Bilanz ist die zweite Wahrheit,
+       die §26 und §28.4 gerade verhindern sollen.
+     - die Reihenfolge der Bahnen aus dem kleinsten sort_order ihrer Knoten,
+       also ABGELEITET statt gepflegt. Verschiebt ChatGPT einen Knoten, wandert
+       die Bahn mit, ohne dass hier jemand etwas nachtraegt.
+     - die Auswahlwerte der Schreibfelder aus den tatsaechlich vorkommenden
+       Werten. Kommt serverseitig ein neuer Status dazu, steht er hier, ohne
+       dass diese Datei angefasst werden muss.
+
+   Geschrieben wird ausschliesslich ueber cb_admin_architektur_node_setzen und
+   cb_admin_architektur_verifizieren, beide mit Pflichtbegruendung.
+   =========================================================================== */
+function arCss(){
+  if(document.getElementById('arCssTag')) return;
+  var s=document.createElement('style'); s.id='arCssTag';
+  s.textContent=[
+   '.arWrap{font-size:13px}',
+   '.arKopf{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:0 0 12px}',
+   '.arZ{display:flex;flex-direction:column;padding:7px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);min-width:74px}',
+   '.arZ b{font-size:17px;line-height:1.15}',
+   '.arZ span{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}',
+   '.arZ.on{outline:2px solid var(--k-2563eb,#2563eb);outline-offset:1px}',
+   '.arZ[role=button]{cursor:pointer}',
+   '.arBahn{margin:16px 0 0}',
+   '.arBahnT{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 7px;padding-bottom:4px;border-bottom:1px solid var(--line)}',
+   '.arGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:9px}',
+   '.arK{border:1px solid var(--line);border-left-width:4px;border-radius:9px;background:var(--card);padding:9px 11px}',
+   '.arK[data-st=gut]{border-left-color:#16a34a}',
+   '.arK[data-st=lueck]{border-left-color:#d97706}',
+   '.arK[data-st=bruch]{border-left-color:#dc2626}',
+   '.arK[data-st=grenze]{border-left-color:#64748b}',
+   '.arKt{font-weight:650;font-size:13px;margin:0 0 3px;display:flex;gap:6px;align-items:baseline}',
+   '.arAdr{font-size:10.5px;color:var(--muted);font-weight:500;flex:0 0 auto}',
+   '.arKs{color:var(--muted);font-size:11.5px;line-height:1.45}',
+   '.arKm{font-size:11.5px;margin-top:5px;line-height:1.45}',
+   '.arP{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;margin:5px 4px 0 0;border:1px solid var(--line)}',
+   '.arP.p1{background:#fee2e2;color:#991b1b;border-color:#fecaca}',
+   '.arP.p2{background:#ffedd5;color:#9a3412;border-color:#fed7aa}',
+   '.arP.p3{background:#f1f5f9;color:#475569}',
+   '.arP.rev{background:#fef9c3;color:#854d0e;border-color:#fde68a}',
+   '.arP.ver{background:#dcfce7;color:#166534;border-color:#bbf7d0}',
+   '.arP.ent{background:#dbeafe;color:#1e40af;border-color:#bfdbfe}',
+   '.arP.own{background:transparent;color:var(--muted)}',
+   '.arDet{margin-top:8px;font-size:11.5px}',
+   '.arDet>summary{cursor:pointer;color:var(--muted);font-size:11px;user-select:none}',
+   '.arDet dl{margin:7px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 9px}',
+   '.arDet dt{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}',
+   '.arDet dd{margin:0;font-size:11.5px;word-break:break-word}',
+   '.arKante{display:block;font-size:11px;color:var(--muted);margin-top:2px}',
+   '.arForm{margin-top:9px;padding-top:8px;border-top:1px dashed var(--line);display:grid;gap:6px}',
+   '.arForm label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}',
+   '.arForm select,.arForm input,.arForm textarea{width:100%;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--bg,#fff);color:var(--ink);font-size:12px;font-family:inherit}',
+   '.arForm .arRow{display:flex;gap:6px}',
+   '.arBtn{padding:5px 11px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:11.5px;font-weight:650;cursor:pointer}',
+   '.arBtn.pri{background:#1d4ed8;color:#fff;border-color:#1d4ed8}',
+   '.arBtn:disabled{opacity:.5;cursor:not-allowed}',
+   '.arMsg{font-size:11.5px;margin-top:6px}',
+   '.arWa{border:1px solid #fecaca;background:#fef2f2;border-radius:9px;padding:9px 11px;margin:0 0 12px}',
+   '.arWa ul{margin:6px 0 0;padding-left:17px}',
+   '.arWa li{font-size:11.5px;margin-bottom:3px}',
+   '.arLeer{color:var(--muted);font-size:12px;padding:16px 0}'
+  ].join('\n');
+  document.head.appendChild(s);
+}
+
+function arFilterGet(){
+  try{ return localStorage.getItem('ri_ar_filter')||'alle'; }catch(e){ return 'alle'; }
+}
+function arFilterSet(v){
+  try{ localStorage.setItem('ri_ar_filter',v); }
+  catch(e){ try{ console.warn('Architektur-Filter nicht speicherbar:',e); }catch(_){} }
+  arRender();
+}
+
+/* Beide Abrufe getrennt gefangen: faellt der Waechter aus, soll das Diagramm
+   trotzdem stehen — und der Grund sichtbar sein, nicht im Nichts verschwinden. */
+async function arLaden(){
+  var out={a:null,w:null,aFehler:'',wFehler:''};
+  try{
+    var r=await client.rpc('cb_admin_architektur_liste',{p_diagram_key:'produkterfassung'});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==='string') d=JSON.parse(d);
+    out.a=d;
+  }catch(e){
+    out.aFehler=(e&&e.message)?String(e.message):String(e);
+    try{ console.error('[Architektur] cb_admin_architektur_liste:',e); }catch(_){}
+  }
+  try{
+    var rw=await client.rpc('cb_admin_architektur_waechter',{p_diagram_key:'produkterfassung'});
+    if(rw&&rw.error) throw rw.error;
+    var dw=rw&&rw.data; if(typeof dw==='string') dw=JSON.parse(dw);
+    out.w=Array.isArray(dw)?dw:[];
+  }catch(e){
+    out.wFehler=(e&&e.message)?String(e.message):String(e);
+    try{ console.error('[Architektur] cb_admin_architektur_waechter:',e); }catch(_){}
+  }
+  window._arDaten=out;
+  return out;
+}
+
+/* Welche Knoten der aktive Filter zeigt. Die Kopfzahlen kommen aus a.counts und
+   werden hier NICHT nachgerechnet; diese Funktion entscheidet nur, was sichtbar
+   ist — sie behauptet keine Bilanz. */
+function arGefiltert(nodes,filter){
+  return nodes.filter(function(n){
+    if(n.is_archived) return false;
+    switch(filter){
+      case 'prio1':    return String(n.priority)==='1';
+      case 'offen':    return n.review_state!=='current';
+      case 'entscheid':return !!n.decision_text;
+      case 'arbeit':   return n.status==='lueck'||n.status==='bruch';
+      case 'verif':    return !!n.verified_at;
+      default:         return true;
+    }
+  });
+}
+
+function arHtml(){
+  var D=window._arDaten||{}, a=D.a, w=D.w||[];
+  var kopf='<div class="ab"><div class="abkopf"><h2>Architektur · Wirkdiagramm</h2>'
+    +'<span class="st">aus der Datenbank — cb_admin_architektur_liste</span>'
+    +'<span style="margin-left:auto;display:flex;gap:9px;align-items:center">'
+    +_abUmschalter('architektur')
+    +'<button class="abbtn" id="abNeu">↻ Aktualisieren</button></span></div></div>';
+
+  if(!a || !a.nodes){
+    return kopf+'<div class="arWrap"><div style="color:var(--k-dc2626);font-size:12.5px">'
+      +'<b>Architektur nicht verfügbar.</b> Grund: '+esc(D.aFehler||'cb_admin_architektur_liste hat nichts geliefert')
+      +'</div></div>';
+  }
+
+  var nodes=a.nodes||[], edges=a.edges||[], c=a.counts||{}, dia=a.diagram||{};
+  var filter=arFilterGet();
+
+  /* Nachbarn je Knoten aus den Kanten — ebenfalls abgeleitet, nicht gepflegt. */
+  var raus={}, rein={};
+  edges.forEach(function(e){
+    if(e.is_active===false) return;
+    (raus[e.from_node_key]=raus[e.from_node_key]||[]).push(e);
+    (rein[e.to_node_key]=rein[e.to_node_key]||[]).push(e);
+  });
+  var titelVon={}; nodes.forEach(function(n){ titelVon[n.node_key]=n.title||n.node_key; });
+
+  /* Die Kopfzahlen: NUR anzeigen, was der Server gezaehlt hat. Steht ein
+     Schluessel nicht in counts, wird die Kachel weggelassen statt geraten. */
+  var kacheln=[['gesamt','Knoten','alle'],['gut','gut','—'],['lueck','Lücke','arbeit'],
+               ['bruch','Bruch','arbeit'],['grenze','Grenze','—'],['prio1','Prio 1','prio1'],
+               ['review_offen','Review offen','offen'],['ralph_entscheid','bei Ralph','entscheid']];
+  var zahlen=kacheln.filter(function(k){ return c[k[0]]!=null; }).map(function(k){
+    var klick=(k[2]!=='—');
+    return '<div class="arZ'+(klick&&filter===k[2]?' on':'')+'"'
+      +(klick?' role="button" tabindex="0" data-fil="'+esc(k[2])+'"':'')
+      +'><b>'+esc(String(c[k[0]]))+'</b><span>'+esc(k[1])+'</span></div>';
+  }).join('');
+
+  var filterLeiste='<div class="arKopf">'+zahlen
+    +'<div style="margin-left:auto;display:flex;gap:6px;align-items:center">'
+    +'<span style="font-size:11px;color:var(--muted)">Filter</span>'
+    +'<select id="arFil" class="arBtn" style="font-weight:500">'
+    +[['alle','alle Knoten'],['arbeit','nur Lücke und Bruch'],['prio1','nur Prio 1'],
+      ['offen','Review offen'],['entscheid','Entscheidung bei Ralph'],['verif','verifiziert']]
+      .map(function(o){ return '<option value="'+o[0]+'"'+(filter===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
+    +'</select></div></div>';
+
+  /* Waechter: kritische Meldungen zuerst, der Rest zusammengefasst. */
+  var waBlock='';
+  if(D.wFehler){
+    waBlock='<div class="arWa"><b>Wächter nicht abrufbar.</b> Grund: '+esc(D.wFehler)+'</div>';
+  }else if(w.length){
+    var krit=w.filter(function(x){ return x.severity==='kritisch'; });
+    waBlock='<div class="arWa"><b>Wächter: '+esc(String(w.length))+' Meldungen</b>'
+      +(krit.length?' · '+esc(String(krit.length))+' kritisch':'')
+      +'<ul>'+krit.slice(0,6).map(function(x){
+          return '<li><b>'+esc(x.title||x.node_key)+'</b> — '+esc(x.problem||'')
+            +(x.owner_agent?' <span style="color:var(--muted)">('+esc(x.owner_agent)+')</span>':'')+'</li>';
+        }).join('')
+      +(krit.length>6?'<li style="color:var(--muted)">… und '+esc(String(krit.length-6))+' weitere kritische</li>':'')
+      +'</ul></div>';
+  }
+
+  var sicht=arGefiltert(nodes,filter);
+  if(!sicht.length){
+    return kopf+'<div class="arWrap">'+filterLeiste+waBlock
+      +'<div class="arLeer">Kein Knoten passt zu diesem Filter.</div></div>';
+  }
+
+  /* Bahnenreihenfolge ABGELEITET aus dem kleinsten sort_order je Bahn. */
+  var bahnMin={};
+  nodes.forEach(function(n){
+    var s=(n.sort_order==null)?1e9:Number(n.sort_order);
+    if(bahnMin[n.lane]==null||s<bahnMin[n.lane]) bahnMin[n.lane]=s;
+  });
+  var bahnen=Object.keys(bahnMin).sort(function(x,y){ return bahnMin[x]-bahnMin[y]; });
+
+  /* Adresse Bahn.Position — berechnet, nicht gepflegt (§26.7). Sie zaehlt ueber
+     ALLE Knoten der Bahn, nicht nur die sichtbaren; sonst wuerde ein Filter die
+     Adressen verschieben und der Verweis waere beim naechsten Mal falsch. */
+  var adr={};
+  bahnen.forEach(function(b){
+    nodes.filter(function(n){ return n.lane===b; })
+      .sort(function(x,y){ return (x.sort_order||0)-(y.sort_order||0); })
+      .forEach(function(n,i){ adr[n.node_key]=(bahnen.indexOf(b)+1)+'.'+(i+1); });
+  });
+
+  /* Auswahlwerte aus dem Bestand ableiten statt hier zu hinterlegen. */
+  function werte(feld){
+    var s={}; nodes.forEach(function(n){ if(n[feld]!=null&&n[feld]!=='') s[String(n[feld])]=1; });
+    return Object.keys(s).sort();
+  }
+  var stWerte=werte('status'), prWerte=werte('priority'), rvWerte=werte('review_state');
+
+  var koerper=bahnen.map(function(b){
+    var drin=sicht.filter(function(n){ return n.lane===b; })
+      .sort(function(x,y){ return (x.sort_order||0)-(y.sort_order||0); });
+    if(!drin.length) return '';
+    return '<div class="arBahn"><div class="arBahnT">'+esc(b)+' · '+esc(String(drin.length))+'</div>'
+      +'<div class="arGrid">'+drin.map(function(n){
+        var pl='';
+        if(n.priority!=null) pl+='<span class="arP p'+esc(String(n.priority))+'">Prio '+esc(String(n.priority))+'</span>';
+        if(n.review_state!=='current') pl+='<span class="arP rev">Review offen</span>';
+        if(n.verified_at) pl+='<span class="arP ver">🔒 verifiziert</span>';
+        if(n.decision_text) pl+='<span class="arP ent">🙋 bei Ralph</span>';
+        if(n.owner_agent) pl+='<span class="arP own">'+esc(n.owner_agent)+'</span>';
+
+        var nb='';
+        (rein[n.node_key]||[]).forEach(function(e){
+          nb+='<span class="arKante">← '+esc(titelVon[e.from_node_key]||e.from_node_key)
+            +(e.edge_type&&e.edge_type!=='flow'?' ['+esc(e.edge_type)+']':'')
+            +(e.label?' · '+esc(e.label):'')+'</span>'; });
+        (raus[n.node_key]||[]).forEach(function(e){
+          nb+='<span class="arKante">→ '+esc(titelVon[e.to_node_key]||e.to_node_key)
+            +(e.edge_type&&e.edge_type!=='flow'?' ['+esc(e.edge_type)+']':'')
+            +(e.label?' · '+esc(e.label):'')+'</span>'; });
+
+        var dl='';
+        function zeile(t,v){ if(v==null||v==='') return; dl+='<dt>'+esc(t)+'</dt><dd>'+esc(String(v))+'</dd>'; }
+        zeile('Schlüssel',n.node_key);
+        zeile('Beleg',n.evidence_text);
+        zeile('Entscheidung',n.decision_text);
+        zeile('Status',n.status); zeile('Review',n.review_state);
+        zeile('Verifiziert',n.verified_at?(String(n.verified_at).slice(0,10)+(n.verified_by_agent?' · '+n.verified_by_agent:'')):null);
+        zeile('Prüfnotiz',n.verification_note);
+        zeile('Herkunft',n.source_ref);
+        zeile('Work',n.work_id);
+        zeile('Geändert',String(n.updated_at||'').slice(0,10)+(n.updated_by_agent?' · '+n.updated_by_agent:''));
+
+        var form='<div class="arForm" data-key="'+esc(n.node_key)+'">'
+          +'<div class="arRow">'
+          +'<div style="flex:1"><label>Status</label><select data-f="status">'
+          +stWerte.map(function(v){ return '<option'+(v===n.status?' selected':'')+'>'+esc(v)+'</option>'; }).join('')
+          +'</select></div>'
+          +'<div style="flex:1"><label>Prio</label><select data-f="priority">'
+          +'<option value=""'+(n.priority==null?' selected':'')+'>—</option>'
+          +prWerte.map(function(v){ return '<option'+(String(n.priority)===v?' selected':'')+'>'+esc(v)+'</option>'; }).join('')
+          +'</select></div>'
+          +'<div style="flex:1"><label>Review</label><select data-f="review_state">'
+          +rvWerte.map(function(v){ return '<option'+(v===n.review_state?' selected':'')+'>'+esc(v)+'</option>'; }).join('')
+          +'</select></div></div>'
+          +'<div><label>Begründung — Pflicht</label>'
+          +'<input type="text" data-f="reason" placeholder="warum diese Änderung, mit Messung"></div>'
+          +'<div class="arRow"><button class="arBtn pri" data-akt="setzen">Änderung speichern</button>'
+          +'<button class="arBtn" data-akt="verif">🔒 verifizieren</button></div>'
+          +'<div class="arMsg" data-rolle="msg"></div></div>';
+
+        return '<div class="arK" data-st="'+esc(n.status||'')+'" data-key="'+esc(n.node_key)+'">'
+          +'<div class="arKt"><span class="arAdr">'+esc(adr[n.node_key]||'')+'</span>'
+          +'<span>'+esc(n.title||n.node_key)+'</span></div>'
+          +(n.summary?'<div class="arKs">'+esc(n.summary)+'</div>':'')
+          +(n.metric?'<div class="arKm">'+esc(n.metric)+'</div>':'')
+          +'<div>'+pl+'</div>'
+          +'<details class="arDet"><summary>Details, Nachbarn und Pflege</summary>'
+          +(nb?'<div style="margin-top:6px">'+nb+'</div>':'')
+          +(dl?'<dl>'+dl+'</dl>':'')
+          +form
+          +'</details></div>';
+      }).join('')+'</div></div>';
+  }).join('');
+
+  var fuss='<div style="margin-top:16px;font-size:11px;color:var(--muted)">'
+    +esc(dia.title||'Wirkdiagramm')+' · '+esc(String(nodes.length))+' Knoten · '
+    +esc(String(edges.length))+' Kanten · Stand '+esc(String(dia.updated_at||'').slice(0,16).replace('T',' '))
+    +' · Herkunft '+esc(dia.source_ref||'—')
+    +' — gepflegt wird in der Datenbank, nicht in der HTML-Datei.</div>';
+
+  return kopf+'<div class="arWrap">'+filterLeiste+waBlock+koerper+fuss+'</div>';
+}
+
+function arRender(){
+  var box=document.getElementById('fgDash'); if(!box) return;
+  arCss();
+  box.innerHTML=arHtml();
+  arNach();
+}
+
+function arNach(){
+  var box=document.getElementById('fgDash'); if(!box) return;
+  _abUmschalterNach();
+  var sel=document.getElementById('arFil');
+  if(sel) sel.addEventListener('change',function(){ arFilterSet(sel.value); });
+  box.querySelectorAll('.arZ[data-fil]').forEach(function(z){
+    z.addEventListener('click',function(){ arFilterSet(z.dataset.fil); });
+    z.addEventListener('keydown',function(ev){
+      if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); arFilterSet(z.dataset.fil); } });
+  });
+  box.querySelectorAll('.arForm').forEach(function(f){
+    var key=f.dataset.key;
+    var msg=f.querySelector('[data-rolle=msg]');
+    function sag(t,farbe){ if(msg){ msg.textContent=t; msg.style.color=farbe||'var(--muted)'; } }
+    function grund(){ var i=f.querySelector('[data-f=reason]'); return i?i.value.trim():''; }
+    f.querySelectorAll('button[data-akt]').forEach(function(b){
+      b.addEventListener('click',async function(){
+        var g=grund();
+        if(!g){ sag('Ohne Begründung wird nichts geschrieben — eine Änderung ohne Grund ist beim nächsten Lesen nicht nachvollziehbar.','#b45309'); return; }
+        var akt=b.dataset.akt;
+        var alt=b.textContent;
+        b.disabled=true; b.textContent='…';
+        try{
+          if(akt==='verif'){
+            var rv=await client.rpc('cb_admin_architektur_verifizieren',
+              {p_diagram_key:'produkterfassung',p_node_key:key,p_agent:'claude',p_note:g});
+            if(rv&&rv.error) throw rv.error;
+            sag('Verifiziert gespeichert. Wird beim Neuladen sichtbar.','#166534');
+          }else{
+            var patch={};
+            f.querySelectorAll('[data-f]').forEach(function(el){
+              var name=el.dataset.f; if(name==='reason') return;
+              var v=el.value;
+              patch[name]=(v===''||v==='—')?null:(name==='priority'?Number(v):v);
+            });
+            var rs=await client.rpc('cb_admin_architektur_node_setzen',
+              {p_diagram_key:'produkterfassung',p_node_key:key,p_patch:patch,p_reason:g,p_agent:'claude'});
+            if(rs&&rs.error) throw rs.error;
+            sag('Gespeichert. Wird beim Neuladen sichtbar.','#166534');
+          }
+        }catch(e){
+          /* Kein leerer Fangblock (§11.4): der Grund steht sichtbar am Knoten,
+             nicht nur in der Konsole — sonst sieht ein misslungener Schreibvorgang
+             aus wie ein gelungener. */
+          var t=(e&&e.message)?String(e.message):String(e);
+          sag('Nicht gespeichert: '+t,'#dc2626');
+          try{ console.error('[Architektur] Schreiben fehlgeschlagen',key,e); }catch(_){}
+        }
+        b.disabled=false; b.textContent=alt;
+      });
+    });
+  });
+}
+if(typeof window!=='undefined'){
+  window.arRender=arRender; window.arLaden=arLaden; window.arFilterSet=arFilterSet;
 }
 
 /* ---------------------------------------------------------------------------
@@ -22739,13 +23119,28 @@ function feStatusStreifen(){
      ist die zweite Zeile reine Wiederholung. Ab zwei Gründen ist die Liste der
      eigentliche Inhalt und der Chip nur die Zahl — dann bleibt sie.
      Sichtbar bleibt der Grund in jedem Fall, nur eben einmal. */
+  /* 🔴 15.08.2026 (Work #23, Ralph): „der text oben im weissen balken … kann weg,
+     anzeigen der fehlenden infos ist rechts über die chips eh da."
+
+     Er hat recht, und es war dieselbe Angabe DREIMAL auf einem Bildschirm:
+       1. Chip rechts oben:  „Freigabe blockiert · Achse „Zusatzstoffe" fehlt"
+       2. Fusstext darunter: „Der Server meldet als fehlend: Zusatzstoffe. …"
+       3. Rail links:        „Freigabe nicht möglich · 1 Punkt"
+     Der Chip nennt den Grund bereits im Klartext — der Fusstext hat ihn nur noch
+     einmal ausformuliert und dabei den Funktionsnamen `cb_score_achsen_status`
+     in eine Zeile geschrieben, die ein Erfasser lesen soll.
+
+     BEI GENAU EINEM GRUND faellt der Fusstext deshalb ganz weg: der Chip trägt ihn.
+     AB ZWEI GRUENDEN bleibt die Liste — dort kann der Chip nur noch die ANZAHL
+     nennen („Freigabe blockiert · 3 Punkte"), und welche drei es sind, stuende sonst
+     nirgends. Nichts verschwindet still (§1.7), es wird nur nicht wiederholt.
+     Die technische Herkunft („Gespeicherter Stand aus …") entfaellt in beiden
+     Faellen — sie gehoert in die Konsole, nicht in den Produktkopf. */
   var _mehrere=(S.freigabe_gruende.length>1);
   var _detail = (!S.freigabe_moeglich && _mehrere)
     ? '<span style="flex:1 1 100%;font-size:11.5px;color:var(--k-b91c1c,#b91c1c);padding-top:3px;line-height:1.5">'
-      +S.freigabe_gruende.map(function(g){ return '• <b>'+esc(g.t)+'</b>'+(g.d?' – '+esc(g.d):''); }).join('<br>')+'</span>'
-    : (!S.freigabe_moeglich && S.freigabe_gruende.length===1 && S.freigabe_gruende[0].d
-        ? '<span style="flex:1 1 100%;font-size:11.5px;color:var(--muted);padding-top:3px;line-height:1.5">'+esc(S.freigabe_gruende[0].d)+'</span>'
-        : '');
+      +S.freigabe_gruende.map(function(g){ return '• <b>'+esc(g.t)+'</b>'; }).join('<br>')+'</span>'
+    : '';
   /* ⬇ UX-DURCHGANG 1, PUNKT 7 (Ralph 14.08.): HINWEISE SIND KEINE CHIPS.
      Vorher standen echte Blocker und blosse Hinweise in derselben Reihe und damit in
      derselben visuellen Gewichtung. Ab hier gilt: die Chipreihe traegt den ZUSTAND
@@ -22763,10 +23158,19 @@ function feStatusStreifen(){
       +' möglicher Dublettentreffer'+(_dub.anzahl===1?'':'e')
       +(_dub.freigabe_blockiert?' – blockiert die Freigabe':'')+'</div>';
   }
+  /* 🔴 15.08.2026 (Work #23): „· Etikettprüfung noch nicht erhoben" stand hier UND als
+     Chip in der Reihe „PRÜFUNG" — zwei Zeilen uebereinander mit demselben Satz.
+     Gezeigt werden ab jetzt nur noch Hinweise, die NICHT schon als Chip oben stehen.
+     Der Abgleich laeuft ueber den Chiptext, nicht ueber eine gepflegte Ausschlussliste:
+     eine Liste muesste jemand nachziehen, sobald ein Chip umbenannt wird (§28.4). */
   if(S.hinweise && S.hinweise.length){
-    _hw+='<div style="flex:1 1 100%;font-size:11px;color:var(--muted);line-height:1.5;padding-top:2px">'
-      +S.hinweise.map(function(x){ return '<span title="'+esc(x.d||"")+'">· '+esc(x.t)+'</span>'; }).join('&nbsp;&nbsp;')
-      +'</div>';
+    var _chipTxt=C.join(" ");
+    var _hwRest=S.hinweise.filter(function(x){ return _chipTxt.indexOf(esc(x.t))<0; });
+    if(_hwRest.length){
+      _hw+='<div style="flex:1 1 100%;font-size:11px;color:var(--muted);line-height:1.5;padding-top:2px">'
+        +_hwRest.map(function(x){ return '<span title="'+esc(x.d||"")+'">· '+esc(x.t)+'</span>'; }).join('&nbsp;&nbsp;')
+        +'</div>';
+    }
   }
   /* ═══ ZWEI ZONEN (Ralph 15.08., Punkt 4+5) ══════════════════════════════
      links fachlicher Zustand · rechts Bewertung und Freigabe.
@@ -28446,7 +28850,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2740";
+const APP_BUILD = "2026-08-15-2760";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
