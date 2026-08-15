@@ -10885,7 +10885,12 @@ function dashArbeitCss(){
     +'cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,#d9b45f 50%);'
     +'border-bottom-right-radius:15px;display:none}'
    +A+' .abfrei.bearb .abziehe{display:block}'
-   +A+' .abedit[data-zieh]{cursor:grab}';
+   +A+' .abedit[data-zieh]{cursor:grab}'
+   +A+' .abeb.weg{color:'+_AB.krit+';border-color:#f2cfcf}'
+   +A+' .abeb.weg:hover{background:#fdf1f1}'
+   +A+' .abetitel{flex:1;min-width:60px;font:inherit;font-size:11px;font-weight:800;'
+    +'text-transform:uppercase;letter-spacing:.04em;color:var(--abink);'
+    +'background:#fff;border:1px solid #e8d7a8;border-radius:6px;padding:2px 6px}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -11619,6 +11624,27 @@ function _abKz(quelle, gruppe, feld){
 }
 var _AB_FREI_VORGABE=['aktiv','ohne_score','wartend','melden'];
 
+/* ============================================================================
+   EIGENE KACHELN  ·  Work #42  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   🔴 RICHTIGSTELLUNG. Ralph: „neue kacheln einfuegen und loeschen glaub ich
+   sind schon drin." Waren sie NICHT. Bis Build 3070 gab es genau die neun
+   Kacheln aus dem Code; „✕" hat eine davon nur AUSGEBLENDET. Neu anlegen ging
+   gar nicht. Hier steht es jetzt wirklich.
+
+   DER UNTERSCHIED, der auch in der Oberflaeche sichtbar ist:
+     · Kacheln aus dem Code (Aufgaben, Datenbestand, Riki …) kann man
+       AUSBLENDEN, nicht loeschen — sie gehoeren zur App, nicht zum Layout.
+       Zeichen: ✕. Sie kommen ueber die Leiste zurueck.
+     · Selbst angelegte Kacheln kann man LOESCHEN. Zeichen: 🗑. Sie stehen nur
+       im Layout, also verschwinden sie mit ihm.
+   Ein Loeschknopf, der in Wahrheit nur ausblendet, waere eine Luege in der
+   Oberflaeche - und ein Ausblendknopf, der in Wahrheit loescht, ein Datenverlust.
+   ========================================================================== */
+var _AB_TYPEN={
+  frei:{titel:'Meine Zahlen', bau:function(c,x){ return _abkFrei(c,x); }, waehlbar:true}
+};
+
 function _abFreiWahl(x){
   var w=(x&&x.inhalt&&x.inhalt.length)?x.inhalt:_AB_FREI_VORGABE;
   /* Nur bekannte Kennzahlen - eine gespeicherte, spaeter entfernte id wird
@@ -11752,7 +11778,7 @@ function _abLage(id, e, std){
    still zu schlucken, was nicht passt. Der Bericht ist der Beleg dafuer, dass
    Regel 2 und 3 gegriffen haben. */
 function _abLayoutSetzen(cfg){
-  var bericht={uebernommen:0, unbekannt:[], ergaenzt:[], name:''};
+  var bericht={uebernommen:0, unbekannt:[], ergaenzt:[], eigene:0, name:''};
   var liste=(cfg&&cfg.kacheln)||[];
   if(!liste.length){ _AB_LAYOUT=null; return bericht; }
   var bekannt={};
@@ -11760,11 +11786,18 @@ function _abLayoutSetzen(cfg){
   var rein=[], gesehen={};
   liste.forEach(function(e,i){
     if(!e||!e.id) return;
-    if(!bekannt[e.id]){ bericht.unbekannt.push(String(e.id)); return; }
+    /* Eine id, die der Code nicht kennt, ist nur dann Unrat, wenn sie auch
+       keinen bekannten TYP traegt. Mit Typ ist es eine selbst angelegte
+       Kachel - die MUSS durchkommen, sonst loescht das Laden sie weg. */
+    var eigen=(!bekannt[e.id] && e.typ && _AB_TYPEN[e.typ]);
+    if(!bekannt[e.id] && !eigen){ bericht.unbekannt.push(String(e.id)); return; }
     if(gesehen[e.id]) return;
     gesehen[e.id]=true;
+    if(eigen) bericht.eigene++;
     rein.push({
       id:e.id,
+      typ:(eigen?e.typ:null),
+      titel:(eigen?(e.titel||_AB_TYPEN[e.typ].titel):null),
       reihe:(e.reihe==null?null:Number(e.reihe)),
       pos:(e.pos==null?i:Number(e.pos)),
       breit:(e.breit==null?null:!!e.breit),
@@ -11802,6 +11835,16 @@ function _abKachelFlaeche(){
     if(e&&e.inhalt) k={id:x.id,titel:x.titel,bau:x.bau,roh:x.roh,waehlbar:x.waehlbar,
                        reihe:x.reihe,breit:x.breit,inhalt:e.inhalt};
     raus.push({k:k, lage:lage, i:i});
+  });
+  /* Dazu die selbst angelegten. Sie stehen NUR im Layout, nicht im Code. */
+  if(_AB_LAYOUT) _AB_LAYOUT.kacheln.forEach(function(e,j){
+    if(!e.typ || e.aus) return;
+    var t=_AB_TYPEN[e.typ]; if(!t) return;
+    if(_AB_KACHELN.some(function(x){ return x.id===e.id; })) return;
+    raus.push({
+      k:{id:e.id, typ:e.typ, titel:e.titel||t.titel, bau:t.bau,
+         waehlbar:t.waehlbar, inhalt:e.inhalt, eigen:true},
+      lage:_abLage(e.id, e, std), i:1000+j});
   });
   /* Kleines z zuerst zeichnen; bei Gleichstand entscheidet die Registerfolge,
      damit die Reihenfolge nie zufaellig ist. */
@@ -11929,14 +11972,21 @@ function _abEditRahmen(x){
     attr:'',
     vor:'<div class="abedit" data-zieh="'+esc(x.id)+'" title="Zum Verschieben hier anfassen">'
       +'<span class="abgriff">⠿</span>'
-      +'<span class="abename">'+x.titel+'</span>'
+      +(x.eigen
+         ? '<input class="abetitel" data-abtitel="'+esc(x.id)+'" value="'+esc(x.titel)+'" '
+           +'title="Überschrift ändern">'
+         : '<span class="abename">'+x.titel+'</span>')
       +'<span class="abesp">'
       +'<button type="button" class="abeb" data-abe="vor" data-kid="'+esc(x.id)+'" '
         +'title="nach vorn holen">▲</button>'
       +'<button type="button" class="abeb" data-abe="zurueck" data-kid="'+esc(x.id)+'" '
         +'title="nach hinten legen">▼</button>'
-      +'<button type="button" class="abeb" data-abe="aus" data-kid="'+esc(x.id)+'" '
-        +'title="Kachel ausblenden — sie bleibt in der Leiste oben abrufbar">✕</button>'
+      /* Zwei verschiedene Knoepfe, weil es zwei verschiedene Dinge sind. */
+      +(x.eigen
+         ? '<button type="button" class="abeb weg" data-abe="weg" data-kid="'+esc(x.id)+'" '
+           +'title="Diese selbst angelegte Kachel löschen">🗑</button>'
+         : '<button type="button" class="abeb" data-abe="aus" data-kid="'+esc(x.id)+'" '
+           +'title="Ausblenden — die Kachel gehört zur App und bleibt oben abrufbar">✕</button>')
       +'</span></div>'
       +'<i class="abziehe" data-groesse="'+esc(x.id)+'" title="Größe ziehen"></i>'
   };
@@ -11953,6 +12003,42 @@ function _abLageSetzen(id, neu){
     if(neu.h!=null) e.h=Math.max(_AB_MINH, Math.round(neu.h/_AB_RASTERY)*_AB_RASTERY);
     if(neu.z!=null) e.z=neu.z;
   });
+}
+
+/* Neue Kachel. Sie landet UNTEN auf der Flaeche, nicht bei 0,0 - sonst
+   verdeckt sie beim Anlegen alles und man haelt das Dashboard fuer kaputt. */
+function _abKachelNeu(typ){
+  typ=typ||'frei';
+  var t=_AB_TYPEN[typ]; if(!t) return;
+  var unten=0;
+  _abKachelFlaeche().forEach(function(e){ unten=Math.max(unten, e.lage.y+e.lage.h); });
+  var cfg=_abLayoutAktuell();
+  cfg.kacheln.push({id:'k'+Date.now().toString(36), typ:typ, titel:t.titel, aus:false,
+    x:0, y:unten+20, b:285, h:250, z:1, inhalt:_AB_FREI_VORGABE.slice()});
+  _abLayoutSetzen(cfg);
+  _AB_MELDUNG='Neue Kachel unten auf der Fläche angelegt — noch NICHT gespeichert.';
+  _abNeuZeichnen();
+}
+
+/* Loeschen gibt es NUR fuer selbst angelegte Kacheln. Eine Kachel aus dem Code
+   kann man ausblenden; sie zu loeschen wuerde eine Funktion der App entfernen,
+   und das entscheidet kein Layout. */
+function _abKachelWeg(id){
+  var eigen=_abKachelFlaeche().filter(function(e){ return e.k.id===id && e.k.eigen; })[0];
+  if(!eigen){ _AB_MELDUNG='Diese Kachel gehört zur App und kann nur ausgeblendet werden (✕).';
+    _abNeuZeichnen(); return; }
+  var cfg=_abLayoutAktuell(), vorher=cfg.kacheln.length;
+  cfg.kacheln=cfg.kacheln.filter(function(e){ return e.id!==id; });
+  if(cfg.kacheln.length===vorher) return;
+  _abLayoutSetzen(cfg);
+  _AB_MELDUNG='Kachel gelöscht — noch nicht gespeichert. „Verwerfen" holt sie zurück.';
+  _abNeuZeichnen();
+}
+
+function _abTitelSetzen(id, titel){
+  titel=String(titel||'').trim();
+  if(!titel) return;
+  _abEditAendern(function(l,find){ var e=find(id); if(e&&e.typ) e.titel=titel; });
 }
 
 /* „nach vorn" heisst: eins ueber den hoechsten, der GERADE sichtbar ist.
@@ -11973,6 +12059,7 @@ function _abLayoutAktuell(){
   _abKachelFlaeche().forEach(function(e,i){
     drin[e.k.id]=true;
     raus.push({id:e.k.id, reihe:e.k.reihe, pos:i, breit:!!e.k.breit, aus:false,
+               typ:e.k.typ||null, titel:(e.k.eigen?e.k.titel:null),
                x:e.lage.x, y:e.lage.y, b:e.lage.b, h:e.lage.h, z:e.lage.z,
                inhalt:(e.k.inhalt&&e.k.inhalt.length)?e.k.inhalt.slice():null});
   });
@@ -11983,6 +12070,7 @@ function _abLayoutAktuell(){
     raus.push({id:e.id, reihe:(e.reihe==null?(reg?reg.reihe:1):e.reihe),
                pos:(e.pos==null?999:e.pos),
                breit:(e.breit==null?!!(reg&&reg.breit):e.breit), aus:true,
+               typ:e.typ||null, titel:e.titel||null,
                x:e.x, y:e.y, b:e.b, h:e.h, z:e.z,
                inhalt:(e.inhalt&&e.inhalt.length)?e.inhalt.slice():null});
   });
@@ -12030,6 +12118,8 @@ function _abEditLeiste(){
     +'<input id="abVarName" class="abeb" style="font-weight:600;min-width:150px" '
       +'value="'+esc(_AB_VARNAME||'Standard')+'" '
       +'title="Name, unter dem gespeichert wird" placeholder="Name des Layouts">'
+    +'<button type="button" class="abeb hin" data-abe="neu" data-typ="frei" '
+      +'title="Eine eigene Kachel anlegen — sie erscheint unten auf der Fläche">+ Kachel</button>'
     +'<span class="abesp">'
     +'<button type="button" class="abeb" data-abe="standard" '
       +'title="Zurück auf die im Code hinterlegte Anordnung — noch nicht gespeichert">↺ Standard</button>'
@@ -12096,6 +12186,8 @@ function _abBentoNach(box){
       else if(was==='ein')  _abEditAendern(function(l,find){ var e=find(id); if(e) e.aus=false; });
       else if(was==='vor')     _abStapel(id,true);
       else if(was==='zurueck') _abStapel(id,false);
+      else if(was==='weg')     _abKachelWeg(id);
+      else if(was==='neu')     _abKachelNeu(b.getAttribute('data-typ'));
       else if(was==='standard'){ _abLayoutSetzen(null);
         _AB_MELDUNG='Standardanordnung aus dem Code — noch NICHT gespeichert.'; _abNeuZeichnen(); }
       else if(was==='verwerfen'){ _abLayoutSetzen(_AB_VORHER);
@@ -12121,6 +12213,11 @@ function _abBentoNach(box){
         e.inhalt=w;
       });
     });
+  });
+
+  box.querySelectorAll('[data-abtitel]').forEach(function(f){
+    f.addEventListener('change',function(){ _abTitelSetzen(f.getAttribute('data-abtitel'), f.value); });
+    f.addEventListener('mousedown',function(ev){ ev.stopPropagation(); });  /* nicht schieben */
   });
 
   var vw=document.getElementById('abVarWahl');
@@ -30012,7 +30109,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3070";
+const APP_BUILD = "2026-08-15-3090";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
