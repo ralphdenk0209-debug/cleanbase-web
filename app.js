@@ -8146,7 +8146,18 @@ async function loadDashboard(){
     arCss();
     box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Architektur…</div>';
     await arLaden();
-    arRender();
+    /* Ein Baufehler in dieser Ansicht darf den Admin nicht bei „Lade Architektur…"
+       stehen lassen — genau so sieht ein Absturz sonst aus wie ein langsamer Abruf.
+       Gleiche Bauart wie der Rückfall der Arbeitsfläche weiter unten. */
+    try{ arRender(); }
+    catch(e){
+      try{ console.error('Architektur-Ansicht konnte nicht gebaut werden:',e); }catch(_){}
+      box.innerHTML='<div style="font-size:12.5px;color:var(--k-dc2626)">'
+        +'<b>Architektur-Ansicht konnte nicht gebaut werden.</b> Grund: '
+        +esc((e&&e.message)||String(e))
+        +'</div><div style="margin-top:8px">'+_abUmschalter('architektur')+'</div>';
+      try{ _abUmschalterNach(); }catch(_){}
+    }
     return;
   }
 
@@ -15414,14 +15425,81 @@ function fmMikroRender(){
       : hk==='abgeleitet'
       ? '<span title="Aus dem Nachschlagewerk uebernommen \u2013 KEIN Produktbeleg (\u00a78.3). Quelle: '+esc(m.quelle||'')+(m.herkunft_detail?' \u00b7 '+esc(m.herkunft_detail):'')+'" style="border:1px dashed var(--line);color:var(--muted);border-radius:99px;padding:1px 7px;font-size:10px;white-space:nowrap">abgeleitet</span>'
       : '<span title="Quellenart steht nicht in der Positivliste (\u00a73.3): '+esc(m.quelle||'(leer)')+'" style="border:1px solid var(--k-dc2626);color:var(--k-dc2626);border-radius:99px;padding:1px 7px;font-size:10px;white-space:nowrap">Quelle unklar</span>';
-    return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px'+(hk==='etikett'?'':';opacity:.72')+'"><span style="flex:1;min-width:0">'+esc(m.anzeige||m.form||m.naehrstoff)+(m.form&&m.form!==m.naehrstoff?'<span style="color:var(--muted);font-size:11px"> \u00b7 z\u00e4hlt als '+esc(m.naehrstoff)+'</span>':'')+'</span><span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span>'+chip+'<button type="button" onclick="fmMikroDel(\''+esc(String(m.naehrstoff).replace(/'/g,"\\'"))+'\',\''+esc(String(m.form||'').replace(/'/g,"\\'"))+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">\u2715</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine \u2013 unten hinzuf\u00fcgen (z.\u202fB. Jod, Selen, Fluorid)</span>';
+    var _s=String(m.naehrstoff).replace(/'/g,"\\'"), _f=String(m.form||'').replace(/'/g,"\\'");
+    var _ed=window._fmMikroEdit;
+    var _istEd=!!(_ed && _ed.stoff===String(m.naehrstoff) && _ed.form===String(m.form||''));
+    var _name='<span style="flex:1;min-width:0">'+esc(m.anzeige||m.form||m.naehrstoff)+(m.form&&m.form!==m.naehrstoff?'<span style="color:var(--muted);font-size:11px"> · zählt als '+esc(m.naehrstoff)+'</span>':'')+'</span>';
+    /* Work #18: dieselbe Zeile, nur mit Feldern statt Text. Kein Dialog — wer eine
+       Zahl korrigiert, soll die Nachbarzeilen weiter sehen. Die Herkunftsplakette
+       bleibt sichtbar, damit erkennbar ist, WAS man da gerade aendert. */
+    if(_istEd){
+      return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px;background:var(--k-fffbeb,#fffbeb)">'
+        +_name
+        +'<input id="fm_editMenge" type="number" step="any" value="'+esc(String(m.menge_100g))+'" onkeydown="if(event.key===\'Enter\'){event.preventDefault();fmMikroEditSave();}if(event.key===\'Escape\'){fmMikroEditAbbruch();}" style="width:82px;padding:5px 6px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:13px">'
+        +'<select id="fm_editEinheit" style="padding:5px 6px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:13px"></select>'
+        +chip
+        +'<button type="button" onclick="fmMikroEditSave()" title="Änderung speichern" style="border:1px solid var(--k-16a34a);background:var(--greenlt,#ecfdf5);color:var(--k-166534);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:12px;font-weight:700">Speichern</button>'
+        +'<button type="button" onclick="fmMikroEditAbbruch()" title="Abbrechen" style="border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1">✕</button>'
+        +'<span id="fm_editMsg" style="flex:1 1 100%;font-size:11px"></span>'
+      +'</div>';
+    }
+    return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px'+(hk==='etikett'?'':';opacity:.72')+'">'+_name+'<span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span>'+chip
+      /* Work #18: Korrigieren steht VOR Loeschen — §3.7, und Ralph musste bisher
+         loeschen, um einen Tippfehler zu beheben. */
+      +'<button type="button" onclick="fmMikroEdit(\''+esc(_s)+'\',\''+esc(_f)+'\')" title="Menge oder Einheit ändern" style="border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;line-height:1">✎</button>'
+      +'<button type="button" onclick="fmMikroDel(\''+esc(_s)+'\',\''+esc(_f)+'\')" title="entfernen" style="border:0;background:transparent;color:var(--k-dc2626);cursor:pointer;font-size:15px;line-height:1">✕</button></div>'; }).join('') : '<span style="color:var(--muted);font-size:12.5px">keine – unten hinzufügen (z. B. Jod, Selen, Fluorid)</span>';
+  /* Das Einheitenfeld der Bearbeitungszeile wird erst NACH dem Einhaengen gefuellt —
+     vorher gibt es das <select> im DOM noch nicht. */
+  if(window._fmMikroEdit){
+    var _cur=(arr||[]).filter(function(x){ return String(x.naehrstoff)===window._fmMikroEdit.stoff
+        && String(x.form||'')===window._fmMikroEdit.form; })[0];
+    if(_cur) _fmEinheitFuellen(document.getElementById('fm_editEinheit'), _cur.einheit);
+  }
 }
-function fmMikroStoffChange(){ var sel=document.getElementById('fm_mikroStoff'), u=document.getElementById('fm_mikroEinheit'); if(!sel||!u) return; var o=sel.options[sel.selectedIndex]; u.textContent=(o&&o.getAttribute('data-einheit'))||'mg'; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORK #18 — DIE EINHEIT IST EINE WAHL, KEIN URTEIL   (Ralph 15.08.2026)
+
+   BEFUND: Ralph hatte am Etikett von P73617 „Natrium 4,0 g" und konnte es nicht
+   eintragen — die Maske bot nur mg an. Er hat selbst auf 4000 mg umgerechnet.
+
+   GEMESSENE URSACHE: die Einheit kam aus `data-einheit` am <option> und wurde per
+   `textContent` in ein <span> geschrieben. Es war nie ein Eingabefeld.
+
+   🎯 §22, das WERKZEUG WAR DA: `cb_produkt_mikro_setzen` nimmt `p_einheit` seit
+   jeher als Parameter entgegen — der Server war nie festgelegt. Nur das Frontend
+   hat sich selbst festgelegt. Und `WIRK_EINHEITEN` (Z. 8429) ist die bereits
+   bestehende Liste mit echtem <select>; sie wird hier WIEDERVERWENDET statt eine
+   zweite anzulegen (§4.2). Keine DB-Aenderung noetig, keine neue RPC.
+
+   Die hinterlegte Einheit des Naehrstoffs bleibt die VORAUSWAHL — sie stimmt in
+   den allermeisten Faellen. Sie ist ab jetzt nur kein Riegel mehr.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function _fmEinheitFuellen(el, vorgabe){
+  if(!el) return;
+  var v=String(vorgabe||'mg');
+  if(String(el.tagName).toUpperCase()!=='SELECT'){ el.textContent=v; return; }   /* Rueckfall: altes <span> */
+  /* Steht am Naehrstoff eine Einheit, die die Liste nicht kennt, wird sie ERGAENZT
+     statt verworfen — sonst schriebe die Maske eine andere Einheit als die
+     hinterlegte, und das waere ein stiller Datenwechsel (§1, §3.4). */
+  var liste=WIRK_EINHEITEN.slice();
+  if(v && liste.indexOf(v)<0) liste.unshift(v);
+  el.innerHTML=liste.map(function(u){ return '<option'+(u===v?' selected':'')+'>'+esc(u)+'</option>'; }).join('');
+  el.value=v;
+}
+function _fmEinheitLesen(el, rueckfall){
+  if(!el) return rueckfall||'mg';
+  var v=(String(el.tagName).toUpperCase()==='SELECT') ? el.value : el.textContent;
+  return String(v||'').trim() || rueckfall || 'mg';
+}
+function fmMikroStoffChange(){ var sel=document.getElementById('fm_mikroStoff'), u=document.getElementById('fm_mikroEinheit'); if(!sel||!u) return; var o=sel.options[sel.selectedIndex]; _fmEinheitFuellen(u,(o&&o.getAttribute('data-einheit'))||'mg'); }
 async function fmMikroAdd(){
   var msg=document.getElementById('fm_mikroMsg'); var pid=(window._fgEdit&&window._fgEdit.id);
   if(!pid){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Bitte das Produkt zuerst speichern.'; } return; }
   var sel=document.getElementById('fm_mikroStoff'), mg=document.getElementById('fm_mikroMenge');
-  var stoff=sel?sel.value:'', o=sel?sel.options[sel.selectedIndex]:null, einh=(o&&o.getAttribute('data-einheit'))||'mg';
+  /* Work #18: die Einheit kommt aus der WAHL, nicht mehr aus data-einheit. Die
+     hinterlegte Einheit ist nur noch die Vorauswahl (siehe _fmEinheitFuellen). */
+  var stoff=sel?sel.value:'', o=sel?sel.options[sel.selectedIndex]:null,
+      einh=_fmEinheitLesen(document.getElementById('fm_mikroEinheit'), (o&&o.getAttribute('data-einheit'))||'mg');
   var frm=(o&&o.getAttribute('data-form'))||'';   /* Etikett-Form, z. B. "Vitamin D3" */
   var menge=(mg&&mg.value!=='')?Number(String(mg.value).replace(',','.')):null;
   if(!stoff){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='N\u00e4hrstoff w\u00e4hlen.'; } return; }
@@ -15430,6 +15508,77 @@ async function fmMikroAdd(){
     if(mg) mg.value=''; if(msg){ msg.style.color='var(--k-16a34a)'; msg.textContent='\u2713 gespeichert'; } fmMikroLoad(pid);
   }catch(e){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler: '+((e&&e.message)||e); } }
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORK #18, TEIL 2 — EINE ZEILE KORRIGIEREN, OHNE SIE ZU LOESCHEN
+
+   RALPHS BEFUND (15.08.): jede Mikro-Zeile bot NUR das rote ✕. Wer sich vertippt
+   hatte, musste loeschen und neu anlegen — genau das hat er bei Natrium getan.
+
+   Warum das mehr als unbequem war:
+     · §3.7 sagt ausdruecklich, dass Loeschen NICHT der Standardweg ist.
+     · Beim Loeschen geht die HERKUNFT verloren (Etikett / abgeleitet / unklar) und
+       muss neu gesetzt werden — eine belegte Etikettangabe wurde so unbemerkt zu
+       einer unbelegten.
+
+   🎯 §22, WIEDER: es braucht keine neue RPC. `cb_produkt_mikro_setzen` loescht
+   intern die Zeile mit gleichem (Produkt, Naehrstoff, Form) und schreibt sie neu —
+   es IST bereits ein Upsert. Gefehlt hat nur der Weg dorthin.
+
+   🔴 DIE FALLE, gemessen an der Funktionsdefinition: faellt `p_quelle` weg, setzt
+   der Server `Quelle_Status` auf den Vorgabewert 'Etikett deklariert'. Ein
+   abgeleiteter BLS-Wert waere durch eine blosse Mengenkorrektur zur
+   Etikettangabe geworden — eine erfundene Belegkraft (§3.2). Deshalb wird die
+   bestehende Quelle GELESEN und unveraendert mitgeschickt.
+
+   Umgerechnet wird NICHTS: gibt Ralph 4,0 g ein, stehen 4,0 g in der Zeile. Eine
+   stille Umrechnung waere derselbe Informationsverlust wie beim „<" in Work #7.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function fmMikroEdit(stoff, form){
+  var arr=window._fmMikro||[];
+  var m=arr.filter(function(x){ return String(x.naehrstoff)===String(stoff)
+      && String(x.form||'')===String(form||''); })[0];
+  if(!m) return;
+  window._fmMikroEdit={stoff:String(stoff), form:String(form||'')};
+  fmMikroRender();
+  try{ var f=document.getElementById('fm_editMenge'); if(f){ f.focus(); f.select(); } }catch(e){}
+}
+function fmMikroEditAbbruch(){ window._fmMikroEdit=null; fmMikroRender(); }
+async function fmMikroEditSave(){
+  var st=window._fmMikroEdit; if(!st) return;
+  var pid=(window._fgEdit&&window._fgEdit.id); if(!pid) return;
+  var mgEl=document.getElementById('fm_editMenge'), eiEl=document.getElementById('fm_editEinheit');
+  var msg=document.getElementById('fm_editMsg');
+  var alt=(window._fmMikro||[]).filter(function(x){ return String(x.naehrstoff)===st.stoff
+      && String(x.form||'')===st.form; })[0];
+  if(!alt) return;
+  var menge=(mgEl&&mgEl.value!=='')?Number(String(mgEl.value).replace(',','.')):null;
+  var einh=_fmEinheitLesen(eiEl, alt.einheit);
+  if(menge==null||!isFinite(menge)||menge<=0){
+    if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Menge eingeben – zum Entfernen das ✕ nutzen.'; }
+    return;   /* 0 ist keine Korrektur, sondern eine Loeschung. Die hat ihren eigenen Knopf. */
+  }
+  if(Number(alt.menge_100g)===menge && String(alt.einheit)===einh){ fmMikroEditAbbruch(); return; }
+  try{
+    var r=await client.rpc('cb_produkt_mikro_setzen',{
+      p_id:pid, p_stoff:st.stoff, p_menge:menge, p_einheit:einh,
+      p_form:st.form||null,
+      /* Die bestehende Herkunft bleibt erhalten — sonst wuerde ein abgeleiteter
+         Wert durch eine Mengenkorrektur zur Etikettangabe (§3.2). */
+      p_quelle:(alt.quelle||null)
+    });
+    if(r&&r.error) throw new Error(r.error.message);
+    window._fmMikroEdit=null;
+    fmMikroLoad(pid);
+    var mc=document.getElementById('fm_mikroMsg');
+    if(mc){ mc.style.color='var(--k-16a34a)';
+      mc.textContent='✓ '+(alt.anzeige||st.stoff)+' geändert: '+menge+' '+einh; }
+  }catch(e){
+    if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler: '+((e&&e.message)||e); }
+  }
+}
+if(typeof window!=='undefined'){ window.fmMikroEdit=fmMikroEdit;
+  window.fmMikroEditAbbruch=fmMikroEditAbbruch; window.fmMikroEditSave=fmMikroEditSave;
+  window._fmEinheitFuellen=_fmEinheitFuellen; window._fmEinheitLesen=_fmEinheitLesen; }
 /* Form MUSS mit: ein Produkt kann "Vitamin D" und "Vitamin D3" nebeneinander fuehren.
    Ohne Form loeschte das rote X beide Zeilen - stiller Datenverlust. */
 async function fmMikroDel(stoff, form){
@@ -15638,7 +15787,7 @@ function fmMikroModalOpen(){
     +'<label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nährstoff</label>'
     +'<select id="fm_mikroStoff" onchange="fmMikroStoffChange()" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;margin-bottom:10px">'+opts+'</select>'
     +'<label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Menge pro 100 g</label>'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><input id="fm_mikroMenge" type="number" step="any" placeholder="z. B. 25" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"><span id="fm_mikroEinheit" style="font-size:13px;color:var(--muted);min-width:34px">mg</span></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><input id="fm_mikroMenge" type="number" step="any" placeholder="z. B. 25" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px"><select id="fm_mikroEinheit" title="Einheit laut Etikett – Vorauswahl ist die hinterlegte Einheit des Nährstoffs (Work #18)" style="font-size:13px;color:var(--ink);min-width:64px;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg)"></select></div>'
     +'<div id="fm_mikroModalMsg" style="font-size:12px;color:var(--muted);min-height:16px;margin-bottom:8px"></div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" onclick="fmMikroModalClose()" style="padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:13px">Abbrechen</button><button type="button" onclick="fmMikroModalSave()" style="padding:8px 16px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:13px;font-weight:700">Speichern</button></div>'
   +'</div>';
@@ -15649,7 +15798,10 @@ async function fmMikroModalSave(){
   var pid=(window._fgEdit&&window._fgEdit.id); var msg=document.getElementById('fm_mikroModalMsg');
   if(!pid){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Bitte das Produkt zuerst speichern.'; } return; }
   var sel=document.getElementById('fm_mikroStoff'), mg=document.getElementById('fm_mikroMenge');
-  var stoff=sel?sel.value:'', o=sel?sel.options[sel.selectedIndex]:null, einh=(o&&o.getAttribute('data-einheit'))||'mg';
+  /* Work #18: die Einheit kommt aus der WAHL, nicht mehr aus data-einheit. Die
+     hinterlegte Einheit ist nur noch die Vorauswahl (siehe _fmEinheitFuellen). */
+  var stoff=sel?sel.value:'', o=sel?sel.options[sel.selectedIndex]:null,
+      einh=_fmEinheitLesen(document.getElementById('fm_mikroEinheit'), (o&&o.getAttribute('data-einheit'))||'mg');
   var menge=(mg&&mg.value!=='')?Number(String(mg.value).replace(',','.')):null;
   if(!stoff){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Nährstoff wählen.'; } return; }
   if(menge==null||!isFinite(menge)||menge<=0){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Menge pro 100 g eingeben.'; } return; }
@@ -19069,7 +19221,7 @@ async function openFgEditor(id, prefill, targetEl){
           </div>
         </div>
     <div id="fe_naehrKacheln" style="margin-top:10px"></div>
-  <div id="fe_mikroWrap" style="display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span class="feKartenZusatz">– je 100 g, Herkunft je Zeile</span>`,`<div class="feMikroHinweis" title="Mineralstoffe/Vitamine je 100 g. ETIKETT = auf der Packung deklariert. ABGELEITET = aus dem BLS-/USDA-Nachschlagewerk übernommen, also KEIN Beleg für DIESES Produkt (CLAUDE.md §3.2, §8.3). Bis 08.08.2026 hieß die Karte „vom Etikett deklariert“ – falsch: 16.337 von 16.354 Zeilen sind abgeleitet.">Werte <b>pro 100 g</b> · Herkunft je Zeile · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none"></div><div id="fm_mikroRows" ><span class="feMikroLaedt">lädt…</span></div><div class="feMikroAddZeile"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" ><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" ><span id="fm_mikroEinheit" >mg</span><button type="button" onclick="fmMikroAdd()" class="feMikroBtn">+ setzen</button></div><div id="fm_mikroMsg" style="color:var(--muted)"></div><div class="feUsdaZeile"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" ><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" class="feUsdaBtn">🔎 USDA</button></div><div id="fm_usdaErg" ></div>`)}</div>
+  <div id="fe_mikroWrap" style="display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span class="feKartenZusatz">– je 100 g, Herkunft je Zeile</span>`,`<div class="feMikroHinweis" title="Mineralstoffe/Vitamine je 100 g. ETIKETT = auf der Packung deklariert. ABGELEITET = aus dem BLS-/USDA-Nachschlagewerk übernommen, also KEIN Beleg für DIESES Produkt (CLAUDE.md §3.2, §8.3). Bis 08.08.2026 hieß die Karte „vom Etikett deklariert“ – falsch: 16.337 von 16.354 Zeilen sind abgeleitet.">Werte <b>pro 100 g</b> · Herkunft je Zeile · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none"></div><div id="fm_mikroRows" ><span class="feMikroLaedt">lädt…</span></div><div class="feMikroAddZeile"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" ><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" ><select id="fm_mikroEinheit" title="Einheit laut Etikett – Vorauswahl ist die hinterlegte Einheit des Nährstoffs (Work #18)"></select><button type="button" onclick="fmMikroAdd()" class="feMikroBtn">+ setzen</button></div><div id="fm_mikroMsg" style="color:var(--muted)"></div><div class="feUsdaZeile"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" ><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" class="feUsdaBtn">🔎 USDA</button></div><div id="fm_usdaErg" ></div>`)}</div>
   </div>
   <div id="feNwFotoSlot">
             <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span class="feKartenZusatz">(zoombar – Mausrad / ziehen)</span>`,`
@@ -28850,7 +29002,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2760";
+const APP_BUILD = "2026-08-15-2780";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
