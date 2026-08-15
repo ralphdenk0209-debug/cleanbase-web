@@ -10777,6 +10777,7 @@ function dashArbeitHtml(d,np,fehler){
     +'<span class="abtab" data-wf="tuer">Tür</span>'
     +'<span class="abtab" data-wf="bestand">Bestand</span></div>'
     +'<div class="abwg" id="abWg"></div><div class="abfoot" id="abWf"></div></div>';
+
   h+='</div>';
   return h;
 }
