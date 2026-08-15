@@ -15607,7 +15607,7 @@ function _fgZutOffenHtml(){
         +'<span style="display:block;font-size:11px;color:var(--muted);line-height:1.45">'
           +'gelesen'+(am?' am '+esc(am):'')
           +(z.quelle?' · Quelle: '+esc(String(z.quelle)):'')
-          +' · zaehlt noch nicht zum Produkt – erst nach dem Anlegen im Stamm und dem Binden</span>'
+          +' · zählt noch nicht zum Produkt – erst nach dem Anlegen im Stamm und dem Binden</span>'
       +'</div>';
     }).join("")
   +'</div>';
@@ -16009,7 +16009,10 @@ function fgPickRender(){
       /* 12.08.2026: Text ersetzt. "wird nicht gespeichert" war seit der Review-Persistenz falsch -
          die Zutat steht sehr wohl in Produkt_Zutaten_Referenz_Pruefung, nur nicht als Bindung in
          Produkt_Zutaten. Der alte Satz stand hier seit 08.08. und war damals richtig. */
-      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+(it._frei?' <span style="color:var(--k-1e40af,#1e40af);font-size:11px;font-weight:600" title="Diese Zutat ist gelesen und bleibt als Pruefzeile erhalten, hat aber noch keine Bindung an eine Stammzutat. Erst nach dem Zuordnen zaehlt sie zum Produkt.">· gelesen – Bindung offen</span>':'')+'</span>'
+      /* 15.08.2026 (Work #20, Ralph): „Bindung" ist ein technisches Wort und
+         gehoert nicht ins Erfasser-UI. Die Aussage bleibt dieselbe, sie ist nur
+         in der Sprache formuliert, in der Ralph arbeitet: zugeordnet oder nicht. */
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+(it._frei?' <span style="color:var(--k-1e40af,#1e40af);font-size:11px;font-weight:600" title="Diese Zutat ist vom Etikett gelesen und bleibt als Pruefzeile erhalten, ist aber noch keiner Stammzutat zugeordnet. Erst nach dem Zuordnen zaehlt sie zum Produkt.">· gelesen – noch nicht zugeordnet</span>':'')+'</span>'
       +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</label>'; };
   /* Work #2, zweiter Renderweg: liegt KEIN Produktvertrag vor (fgBestandteileRender
@@ -16031,10 +16034,38 @@ function fgPickRender(){
 }
 /* Alle Zeilen aus #fe_zutRows, zu denen es KEINEN Stamm-Eintrag gibt - ungefiltert,
    gegen den vollstaendigen ZUTATEN_STAMM. Quelle fuer Sammelknopf und Sammellauf. */
+/* 🔴 15.08.2026 — WORK #20, Ralph-Befund an P64352: „5 Zutaten nicht im Stamm",
+   während alle sechs canonical gebunden und bewertet sind.
+
+   GEMESSENE URSACHE: diese Funktion vergleicht DOM-Namen gegen `ZUTATEN_STAMM` —
+   den LEGACY-Stamm. Seit die normale Zuordnung über Canonical läuft (§31, Knoten
+   `m_zut`), sagt ein fehlender Legacy-Treffer nichts mehr darüber aus, ob die
+   Zutat zugeordnet ist. Der rote Knopf hat damit eine eigene, dritte Definition
+   von „nicht im Stamm" geführt — §4.2, Verstoß gegen server_ssot.
+
+   KORREKTUR: eine Zeile, für die der Produktvertrag eine `canonical_entity_id`
+   führt, ist zugeordnet und fällt hier heraus. Der Vertrag wird GELESEN, nicht
+   nachgerechnet.
+
+   BEWUSST NICHT der ganze Ersatz durch `cb_admin_zutat_offen`: diese Menge speist
+   auch `fgZutSammelStart()`. Eine von Hand getippte neue Zeile kennt der Server
+   noch gar nicht — sie muss weiterhin einstufbar bleiben, sonst nähme die
+   Korrektur dem Erfasser ein Werkzeug weg. Der DOM-Blick bleibt also die
+   Grundmenge; abgezogen wird nur, was der Server nachweislich schon hat. */
 function _fgFreieZutaten(){
   var stamm={}; (ZUTATEN_STAMM||[]).forEach(function(it){ stamm[(it.name||"").trim().toLowerCase()]=true; });
+  /* Alle Namen, unter denen der Vertrag eine zugeordnete Zeile führt: Canonical-,
+     Anzeige- und Etikettschreibweise. Ohne `canonical_entity_id` zählt sie NICHT
+     als zugeordnet – eine Zeile ohne Identität ist genau der offene Fall. */
+  var zug={};
+  (Array.isArray(window._fgCanon)?window._fgCanon:[]).forEach(function(z){
+    if(!z||!z.canonical_entity_id) return;
+    [z.canonical_name, z.sichtbarer_name, z.zutatenliste_rohtext].forEach(function(n){
+      n=String(n||"").trim().toLowerCase(); if(n) zug[n]=true;
+    });
+  });
   var ri=_fgRowsInfo(), out=[];
-  Object.keys(ri).forEach(function(k){ if(!stamm[k]) out.push(ri[k].name); });
+  Object.keys(ri).forEach(function(k){ if(!stamm[k] && !zug[k]) out.push(ri[k].name); });
   return out;
 }
 function fgZutSammelLeiste(){
@@ -17256,20 +17287,50 @@ async function fgRefV2Laden(){
    Anzeige („einmal als Name, einmal als (E223)") entsteht in der KLASSISCHEN
    Karte aus fgFlattenZus, nicht hier.
 
-   VIER VERGLEICHSSTATUS, mehr nicht (Ralph): übernommen · Bindung offen ·
-   prüfen · ignoriert. Sie kommen aus dem effektiven Status der Prüfzeile —
+   VIER VERGLEICHSSTATUS, mehr nicht (Ralph): übernommen · nicht zugeordnet ·
+   Prüfung nötig · ignoriert. Sie kommen aus dem effektiven Status der Prüfzeile —
    das Frontend rechnet keinen eigenen aus (§4.2, §5.3).
+
+   🔴 15.08.2026 — WORK #20, Ralph-Befund an P64352, GEMESSENE URSACHE:
+   Die rechte Karte zeigte sechsmal „Bindung offen", obwohl alle sechs Zutaten
+   canonical gebunden und bewertet sind. Gemessen an cb_referenz_pruefung_laden:
+     elemente[*].db_gebunden = true   (alle sechs)
+     pruefzeilen              = []    (KEINE einzige)
+   `_etiStatus` konnte „übernommen" bis dahin NUR über
+   `Manueller_Status='BESTAETIGT'` erreichen — also nur über eine von Hand
+   bestätigte Prüfzeile. Gibt es keine Prüfzeile, fiel `man` auf „OFFEN" zurück,
+   `ziel` war über `e.zutat_id` trotzdem gesetzt, und die Funktion gab zwingend
+   „offen" zurück. Der Etikettabgleich hat damit eine DRITTE Definition von
+   „offen" geführt, neben `cb_admin_produkt_zutaten.canonical_entity_id` und
+   `cb_admin_zutat_offen.ist_offen` — §4.2, und ein Verstoß gegen server_ssot.
+
+   > Eine Zutat, die der Server als gebunden führt, darf im Editor nicht als
+   > offener Punkt dastehen. Das ist keine Anzeigefrage, das ist eine Lüge.
+
+   `db_gebunden` ist ein FELD DES VERTRAGS, kein Frontend-Schluss — es wird
+   gelesen, nicht gerechnet. Damit steht die Aussage weiterhin an genau einem
+   Ort, nur am richtigen. Der manuelle Status behält Vorrang (§5.3): eine
+   ignorierte oder blockierte Zeile bleibt ignoriert bzw. blockiert.
 
    Parser-Version, Hash und der technische Baum stehen im Aufklappbereich
    „Technische Details". Der alte Render ist dafür unverändert erhalten und
    heißt jetzt fgRefV2RenderTechnik — nicht gelöscht (§17).
    =========================================================================== */
 var _ETI_ST={
-  uebernommen:{t:"übernommen",  f:"var(--k-166534,#166534)", b:"var(--k-dcfce7,#dcfce7)"},
-  offen:      {t:"Bindung offen",f:"var(--k-1d4ed8,#1d4ed8)", b:"var(--k-dbeafe,#dbeafe)"},
-  pruefen:    {t:"prüfen",       f:"var(--k-92400e,#92400e)", b:"var(--k-fef3c7,#fef3c7)"},
-  ignoriert:  {t:"ignoriert",    f:"var(--muted)",            b:"var(--k-eef1f4,#eef1f4)"}
+  uebernommen:{t:"übernommen",     f:"var(--k-166534,#166534)", b:"var(--k-dcfce7,#dcfce7)"},
+  offen:      {t:"nicht zugeordnet",f:"var(--k-1d4ed8,#1d4ed8)", b:"var(--k-dbeafe,#dbeafe)"},
+  pruefen:    {t:"Prüfung nötig",   f:"var(--k-92400e,#92400e)", b:"var(--k-fef3c7,#fef3c7)"},
+  ignoriert:  {t:"ignoriert",       f:"var(--muted)",            b:"var(--k-eef1f4,#eef1f4)"}
 };
+/* Liest das Bindungsfeld des Vertrags, ohne es zu interpretieren. Der Wert kommt
+   je nach Weg als echtes true oder als Text "true" an – beides heißt gebunden.
+   Ein fehlendes Feld heißt NICHT „nicht gebunden", sondern „unbekannt": dann
+   entscheidet weiter unten der alte Weg (§1, §3.4). */
+function _etiGebunden(e){
+  if(!e) return false;
+  var f=function(v){ return v===true||String(v)==="true"; };
+  return f(e.db_gebunden)||f(e.db_zusatzstoff_gebunden)||f(e.db_naehrstoff_gebunden);
+}
 /* Ein Element, ein Status. Reihenfolge = Priorität und entspricht §5.3:
    harter Strukturfehler → manuelle Entscheidung → Automatik. */
 function _etiStatus(e, pz){
@@ -17277,11 +17338,25 @@ function _etiStatus(e, pz){
   if(man==="IGNORIERT"||man==="ABGELEHNT") return "ignoriert";
   if(String(e.blockiert)==="true"||e.blocker_aktiv===true) return "pruefen";
   if(man==="BESTAETIGT") return "uebernommen";
+  /* 🔴 Work #20: die Automatikstufe des §5.3-Vorrangs. Führt der Vertrag das
+     Element als gebunden, ist es übernommen – auch ohne bestätigte Prüfzeile.
+     Steht VOR dem `ziel`-Zweig, weil `ziel` nur sagt „es gibt ein Ziel", nicht
+     „es ist gebunden". Genau diese Verwechslung war der Befund an P64352. */
+  if(_etiGebunden(e)) return "uebernommen";
   var ziel=(pz&&pz.Ziel_ID)||e.zutat_id||e.ziel_id_manuell;
   return ziel?"offen":"pruefen";
 }
 function fgEtikettZeile(e, pz, i){
-  var s=_ETI_ST[_etiStatus(e,pz)]||_ETI_ST.pruefen;
+  var _k=_etiStatus(e,pz);
+  var s=_ETI_ST[_k]||_ETI_ST.pruefen;
+  /* Work #20: die übernommene Zeile bekommt KEINE farbige Plakette mehr, nur ein
+     ruhiges grünes „✓ übernommen". Eine Plakette ist ein Signal, und bei einer
+     Zeile, an der nichts zu tun ist, gibt es nichts zu signalisieren. Die
+     auffälligen Plaketten bleiben genau dort, wo eine Handlung nötig ist. */
+  var _pill=(_k==="uebernommen")
+    ? 'color:var(--k-166534,#166534);font-weight:600'
+    : 'font-weight:700;padding:2px 7px;border-radius:999px;background:'+s.b+';color:'+s.f;
+  var _txtSt=(_k==="uebernommen")?('✓ '+s.t):s.t;
   var txt=String(e.original_text||e.name||"");
   var en=String(e.e_nummer||"").trim();
   var unter=(Number(e.ebene)===2);
@@ -17292,7 +17367,7 @@ function fgEtikettZeile(e, pz, i){
     +(unter?';padding-left:22px':'')+'">'
     +'<span style="flex:1 1 auto;min-width:0;font-size:12.5px;color:var(--ink);overflow-wrap:anywhere">'+esc(txt)
     +(en?' <span style="color:var(--muted);font-size:11.5px">· '+esc(en)+'</span>':'')+'</span>'
-    +'<span style="flex:0 0 auto;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;background:'+s.b+';color:'+s.f+'">'+esc(s.t)+'</span>'
+    +'<span style="flex:0 0 auto;font-size:10.5px;'+_pill+'">'+esc(_txtSt)+'</span>'
     +'</div>';
 }
 /* Klick rechts → Zeile links hervorheben. Verglichen wird über den ORIGINALTEXT
@@ -17331,14 +17406,24 @@ function fgRefV2Render(d, st){
   var pzMap={}; (d.pruefzeilen||[]).forEach(function(p){ if(p&&p.Parser_Element_ID!=null) pzMap[p.Parser_Element_ID]=p; });
   var zaehl={uebernommen:0,offen:0,pruefen:0,ignoriert:0};
   el.forEach(function(e){ zaehl[_etiStatus(e,pzMap[e.id])]++; });
+  /* 🔴 15.08.2026 — Work #20, Ralph: „Rechte Seite ist QUELLE, keine Aufgabenliste."
+     Die Pillenreihe zählte bisher ALLE vier Status auf, auch „übernommen". Damit
+     stand über der Quelle eine Bilanz, die aussah wie eine Liste offener Punkte –
+     bei P64352 sechsmal. Jetzt: sind alle Zeilen übernommen, steht EIN ruhiger
+     Satz da. Sind es nicht alle, stehen NUR die Status da, die eine Handlung
+     brauchen; „übernommen" wird nicht mitgezählt, weil daran nichts zu tun ist. */
+  var _alleUeb=(zaehl.uebernommen===el.length);
   var H='<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:0 2px 7px">'
-    +'<b style="font-size:12px;letter-spacing:.04em;color:var(--ink)">ETIKETT &amp; ABGLEICH</b>'
+    +'<b style="font-size:12px;letter-spacing:.04em;color:var(--ink)">ETIKETT</b>'
     +'<span style="font-size:11px;color:var(--muted)">'+el.length+' Zeile'+(el.length===1?'':'n')+' vom Etikett</span></div>';
   H+='<div style="display:flex;gap:5px;flex-wrap:wrap;padding:0 2px 8px">'
-    +Object.keys(zaehl).filter(function(k){ return zaehl[k]>0; }).map(function(k){
-      var s=_ETI_ST[k];
-      return '<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:'+s.b+';color:'+s.f+'">'+zaehl[k]+' '+esc(s.t)+'</span>';
-    }).join('')+'</div>';
+    +(_alleUeb
+      ? '<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--k-dcfce7,#dcfce7);color:var(--k-166534,#166534)">✓ alle '+el.length+' übernommen</span>'
+      : Object.keys(zaehl).filter(function(k){ return zaehl[k]>0 && k!=="uebernommen"; }).map(function(k){
+          var s=_ETI_ST[k];
+          return '<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:'+s.b+';color:'+s.f+'">'+zaehl[k]+' '+esc(s.t)+'</span>';
+        }).join(''))
+    +'</div>';
   H+='<div style="border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--card)">'
     +el.map(function(e,i){ return fgEtikettZeile(e, pzMap[e.id], i); }).join('')+'</div>';
   H+='<div style="font-size:10.5px;color:var(--muted);padding:6px 2px 0;line-height:1.45">'
@@ -18920,9 +19005,9 @@ function feWirkRow(w){ w=w||{};
   var _OPS=[["","–","Wert gilt genau so, wie er dasteht"],
             ["<","<","kleiner als – der Wert ist eine Obergrenze"],
             ["<=","≤","kleiner oder gleich"],
-            [">",">","groesser als – der Wert ist eine Untergrenze"],
-            [">=","≥","groesser oder gleich"],
-            ["~","≈","ungefaehr / Durchschnittswert"]];
+            [">",">","größer als – der Wert ist eine Untergrenze"],
+            [">=","≥","größer oder gleich"],
+            ["~","≈","ungefähr / Durchschnittswert"]];
   if(_op && !_OPS.some(function(o){ return o[0]===_op; })) _OPS.push([_op,_op,"unbekanntes Zeichen aus der Datenbank – bleibt erhalten"]);
   var _opOpt=_OPS.map(function(o){
     return '<option value="'+esc(o[0])+'" title="'+esc(o[2])+'"'+(_op===o[0]?' selected':'')+'>'+esc(o[1])+'</option>';
@@ -20458,10 +20543,10 @@ if(typeof window!=="undefined"){ window.feKontextRender=feKontextRender; }
    Punkte, keine Sperre. Sie rot zu malen wäre eine Sperre, die es nicht gibt.
    =========================================================================== */
 var _ABG_ST={
-  uebernommen:{t:"übereinstimmend", k:"ok",    ico:"✓"},
-  offen:      {t:"Bindung offen",   k:"info",  ico:"·"},
-  pruefen:    {t:"prüfen",          k:"warn",  ico:"!"},
-  ignoriert:  {t:"ignoriert",       k:"still", ico:"–"}
+  uebernommen:{t:"übereinstimmend",  k:"ok",    ico:"✓"},
+  offen:      {t:"nicht zugeordnet", k:"info",  ico:"·"},
+  pruefen:    {t:"Prüfung nötig",    k:"warn",  ico:"!"},
+  ignoriert:  {t:"ignoriert",        k:"still", ico:"–"}
 };
 function _abgZeilen(){
   var w=window._fgRefV2||{}, d=w.d||{};
@@ -20486,15 +20571,42 @@ function _abgZeilen(){
             note:(e.note==null?null:e.note)};
   });
 }
+/* ===========================================================================
+   🔴 15.08.2026 — WORK #20, Ralph: „Nur Abweichungen zeigen, die eine Handlung
+   benoetigen."
+
+   Vorher stand hier IMMER die vollstaendige Gegenueberstellung offen da – bei
+   P64352 also sechs Zeilen, in denen sechsmal dasselbe stand: alles in Ordnung.
+   Eine Tabelle, die im Normalfall nur bestaetigt, dass nichts zu tun ist, wird
+   nach dem dritten Mal nicht mehr gelesen. Dann faellt der eine Fall, der doch
+   drinsteht, auch nicht mehr auf.
+
+   Jetzt entscheidet der Befund ueber die Ansicht:
+     keine Abweichung → ein Satz, Tabelle eingeklappt
+     Abweichungen     → „N Punkte pruefen", Tabelle offen und auf die Punkte gefiltert
+   Die Tabelle ist nicht weg, sie ist nur zu (§3.7 im Kleinen: zuklappen statt
+   loeschen). Ein Klick auf „Gegenueberstellung" zeigt weiterhin alles.
+   =========================================================================== */
 function feAbgleichRender(nurAbw){
   var box=document.getElementById("feAbgleich"); if(!box) return;
   var w=window._fgRefV2||{}, d=w.d||{}, st=w.st||{};
   var gueltig=Number(st.pruefzeilen_gueltig||0)||0, blocker=Number(st.blocker||0)||0;
   var Z=_abgZeilen();
-  var H='<div class="feAbgTabs">'
+  var _abwN=Z.filter(function(z){ return z.abw; }).length;
+  /* Ohne ausdrueckliche Angabe entscheidet der Befund, nicht der Aufrufer. */
+  if(nurAbw===undefined||nurAbw===null) nurAbw=(_abwN>0);
+  var _uebN=Z.length-_abwN;
+  var _fazit=Z.length
+    ? (_abwN
+        ? '<div class="feAbgFazit warn">⚠ '+_abwN+' Punkt'+(_abwN===1?'':'e')+' prüfen'
+          +'<span>'+_uebN+' von '+Z.length+' Etikett-Zutaten zugeordnet</span></div>'
+        : '<div class="feAbgFazit ok">✓ '+Z.length+' von '+Z.length+' Etikett-Zutaten zugeordnet'
+          +'<span>Keine offenen Abweichungen</span></div>')
+    : '';
+  var H=_fazit+'<div class="feAbgTabs">'
     +'<button type="button" class="feAbgTab'+(nurAbw?'':' akt')+'" onclick="feAbgleichRender(false)">Gegenüberstellung</button>'
     +'<button type="button" class="feAbgTab'+(nurAbw?' akt':'')+'" onclick="feAbgleichRender(true)">Nur Abweichungen'
-      +(Z.filter(function(z){return z.abw;}).length?' <span class="feAbgZahl">'+Z.filter(function(z){return z.abw;}).length+'</span>':'')
+      +(_abwN?' <span class="feAbgZahl">'+_abwN+'</span>':'')
     +'</button></div>';
 
   if(!Z.length){
@@ -20522,6 +20634,10 @@ function feAbgleichRender(nurAbw){
       +'<tr class="feAbgKopfZ"><td>Kategorie</td><td>'+esc(kt+(uk?(" / "+uk):""))+'</td>'
       +'<td class="feAbgStill">nicht aus der Quelle ableitbar</td><td><span class="feAbgSt still">–</span></td></tr>';
   }
+  /* Ist nichts zu tun, wandert die Tabelle in einen zugeklappten Bereich – sie
+     bleibt vollständig erreichbar, drängt sich aber nicht auf (Work #20). */
+  var _zu=(_abwN===0 && !nurAbw);
+  if(_zu) H+='<details class="feAbgAlle"><summary>Alle '+Z.length+' Zeilen im Detail zeigen</summary>';
   H+='<table class="feAbgTab"><thead><tr>'
     +'<th>Bereich</th><th>Unsere Erfassung</th><th>Quelle</th><th>Status</th></tr></thead><tbody>'
     +kopf
@@ -20542,6 +20658,7 @@ function feAbgleichRender(nurAbw){
         +'<td><span class="feAbgSt '+kl+'">'+s.ico+' '+esc(echt?"Blocker":s.t)+'</span></td></tr>';
     }).join('')
     +'</tbody></table>';
+  if(_zu) H+='</details>';
   var roh=String(w.rohtext||"").trim();
   if(roh) H+='<details class="feAbgRoh"><summary>Originalquelle anzeigen</summary>'
     +'<div class="feAbgRohTxt">'+esc(roh)+'</div></details>';
@@ -21175,7 +21292,10 @@ function feFokusSchritt(n){
   if(agb){
     if(s.id==='bestand'){
       agb.style.display="";
-      try{ feAbgleichRender(false); }catch(e){ console.error("[Abgleich]", e); }
+      /* Work #20: OHNE Argument – die Ansicht richtet sich nach dem Befund, nicht
+         nach einer festen Vorgabe. Bei Abweichungen oeffnet sie gefiltert, sonst
+         steht der Ein-Satz-Befund da. */
+      try{ feAbgleichRender(); }catch(e){ console.error("[Abgleich]", e); }
     } else {
       agb.style.display="none"; agb.innerHTML="";
     }
@@ -21954,16 +22074,30 @@ function fePlaus(){
        > Ein Zustand, der die Freigabe verhindert, darf nicht wie ein Haken aussehen.
        Gezaehlt wird nur, wenn der Stamm wirklich geladen ist - sonst wuerde eine noch
        leere Liste JEDE Zutat als unbekannt melden (§1: nichts behaupten). */
+    /* 🔴 15.08.2026 (Work #20): derselbe Fehler wie in `_fgFreieZutaten` – hier
+       wurde ebenfalls gegen den LEGACY-`ZUTATEN_STAMM` gezählt. Bei P64352 hätte
+       diese Zeile „nicht im Stamm – werden NICHT gespeichert" gemeldet, obwohl
+       alle sechs Zeilen canonical gebunden SIND und sehr wohl gespeichert werden.
+       Ein falscher Blocker in der Punkteliste ist schlimmer als gar keiner: er
+       hält den Erfasser an einem Produkt fest, das fertig ist.
+       Der Vertrag hat Vorrang, weil er die zuständige Quelle ist (§4.2). */
     var zOhneStamm=null;
     try{
       if(typeof ZUTATEN_STAMM!=="undefined" && ZUTATEN_STAMM && ZUTATEN_STAMM.length){
         var _ss={}; ZUTATEN_STAMM.forEach(function(it){ _ss[String(it.name||"").trim().toLowerCase()]=true; });
+        var _zug={};
+        (Array.isArray(window._fgCanon)?window._fgCanon:[]).forEach(function(z){
+          if(!z||!z.canonical_entity_id) return;
+          [z.canonical_name, z.sichtbarer_name, z.zutatenliste_rohtext].forEach(function(n){
+            n=String(n||"").trim().toLowerCase(); if(n) _zug[n]=true;
+          });
+        });
         zOhneStamm=zMit.filter(function(row){
           var n=((row.querySelector(".fgzName")||{}).value||"").trim().toLowerCase();
-          return n && !_ss[n]; }).length;
+          return n && !_ss[n] && !_zug[n]; }).length;
       }
     }catch(e){ console.error("Stamm-Abgleich:",e); zOhneStamm=null; }
-    if(zOhneStamm>0) fehlt.push(zOhneStamm+" Zutat(en) nicht im Stamm – werden NICHT gespeichert");
+    if(zOhneStamm>0) fehlt.push(zOhneStamm+" Zutat(en) nicht zugeordnet – werden NICHT gespeichert");
     var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
     if(!qt) fehlt.push("Quelle-Typ");
     var _eanV=((document.getElementById("fe_ean")||{}).value||"").trim();
@@ -28221,7 +28355,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2550";
+const APP_BUILD = "2026-08-15-2620";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

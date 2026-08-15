@@ -1406,6 +1406,19 @@ body.peLightBg{ --bg:#e6ecf4 }
    Abweichung faellt auf — nicht umgekehrt.
    ============================================================================ */
 #feAbgleich{ max-width:100% }
+/* 15.08.2026 (Work #20): der Befund in einem Satz, VOR den Reitern. Gruen ist
+   ruhig und ohne Rahmenfarbe – es ist kein Signal, sondern eine Bestaetigung.
+   Gelb bekommt einen Balken, weil dort wirklich etwas zu tun ist. */
+.feAbgFazit{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  border-radius:10px; padding:9px 12px; margin-bottom:10px;
+  font-size:13px; font-weight:700 }
+.feAbgFazit span{ font-size:11.5px; font-weight:500; color:var(--muted) }
+.feAbgFazit.ok{ background:var(--greenlt,#eef7f0); color:var(--k-166534,#166534) }
+.feAbgFazit.warn{ background:var(--k-fef3c7,#fef3c7); color:var(--k-92400e,#92400e);
+  box-shadow:inset 3px 0 0 var(--k-e0a32e,#e0a32e) }
+.feAbgAlle > summary{ cursor:pointer; font-size:11.5px; color:var(--muted);
+  padding:4px 2px; list-style:revert }
+.feAbgAlle[open] > summary{ margin-bottom:4px }
 .feAbgTabs{ display:flex; gap:6px; margin-bottom:12px }
 .feAbgTab{ background:transparent; border:1px solid var(--line); border-radius:8px;
   padding:7px 14px; font-size:12.5px; color:var(--muted); cursor:pointer }
