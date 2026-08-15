@@ -10915,7 +10915,17 @@ function dashArbeitCss(){
    +A+' .abeb.weg:hover{background:#fdf1f1}'
    +A+' .abetitel{flex:1;min-width:60px;font:inherit;font-size:11px;font-weight:800;'
     +'text-transform:uppercase;letter-spacing:.04em;color:var(--abink);'
-    +'background:#fff;border:1px solid #e8d7a8;border-radius:6px;padding:2px 6px}';
+    +'background:#fff;border:1px solid #e8d7a8;border-radius:6px;padding:2px 6px}'
+   /* D3: ausgewaehlt und festgenagelt muessen auf einen Blick zu sehen sein. */
+   +A+' .abfrei .bk.bwahl{outline:2px solid '+_AB.kern+';outline-offset:-2px;'
+    +'box-shadow:0 4px 16px rgba(31,111,235,.22)}'
+   +A+' .abfrei .bk.bfest .abziehe{display:none}'
+   +A+' .abfrei .bk.bfest .abedit{background:#eef1f5;border-bottom-color:#dfe4ea;cursor:default}'
+   /* D4: Notizkachel */
+   +A+' .abnotiz{width:100%;height:100%;min-height:80px;box-sizing:border-box;resize:none;'
+    +'font:inherit;font-size:13px;line-height:1.5;color:var(--abink);'
+    +'border:1px solid var(--abline);border-radius:9px;padding:8px 10px;background:#fffdf6}'
+   +A+' .abnotizText{font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -11667,8 +11677,36 @@ var _AB_FREI_VORGABE=['aktiv','ohne_score','wartend','melden'];
    Oberflaeche - und ein Ausblendknopf, der in Wahrheit loescht, ein Datenverlust.
    ========================================================================== */
 var _AB_TYPEN={
-  frei:{titel:'Meine Zahlen', bau:function(c,x){ return _abkFrei(c,x); }, waehlbar:true}
+  frei: {titel:'Meine Zahlen', bau:function(c,x){ return _abkFrei(c,x); }, waehlbar:true},
+  /* D4, Ralph: „notizen wird spaeter eine kachel." Die einzige Kachelart, die
+     KEINE Datenfrage aufwirft — der Inhalt kommt von ihm. */
+  notiz:{titel:'Notiz',        bau:function(c,x){ return _abkNotiz(c,x); }, text:true}
 };
+
+/* Notizkachel. Der Text liegt im Layout und wird mit ihm gespeichert — also
+   fuer alle Admins sichtbar, wie alles andere auch (Ralph-Entscheid C).
+   🔴 Das ist KEIN Ersatz fuer das Notizbuch (📝): dort haengen To-dos mit
+   Zaehler. Hier steht ein Zettel auf dem Schreibtisch. Wer beides
+   zusammenwirft, hat zwei Orte fuer dieselbe Aufgabe. */
+function _abkNotiz(c,x){
+  var t=(x&&typeof x.text==='string')?x.text:'';
+  if(_AB_EDIT){
+    return {
+      tag:'<span class="abtag" style="background:#fbf3df;color:#8a7440">Text</span>',
+      inhalt:'<div class="bleib"><textarea class="abnotiz" data-abnotiz="'+esc(x?x.id:'')+'" '
+        +'placeholder="Notiz schreiben — sie wird mit dem Layout gespeichert">'+esc(t)+'</textarea></div>',
+      fuss:t.length+' Zeichen'
+    };
+  }
+  return {
+    tag:'',
+    inhalt:'<div class="bleib"><div class="abnotizText">'
+      + (t ? esc(t).replace(/\n/g,'<br>')
+           : '<span class="bleerk">Leere Notiz — „🧩 Anordnen" öffnen und schreiben.</span>')
+      +'</div></div>',
+    fuss:''
+  };
+}
 
 function _abFreiWahl(x){
   var w=(x&&x.inhalt&&x.inhalt.length)?x.inhalt:_AB_FREI_VORGABE;
@@ -11827,6 +11865,8 @@ function _abLayoutSetzen(cfg){
       pos:(e.pos==null?i:Number(e.pos)),
       breit:(e.breit==null?null:!!e.breit),
       aus:!!e.aus,
+      sperre:!!e.sperre,
+      text:(typeof e.text==='string'?e.text:null),
       /* inhalt reist mit, auch wenn diese Fassung damit nichts anfangen kann —
          eine gespeicherte Auswahl darf nicht verlorengehen, nur weil sie
          gerade niemand liest. */
@@ -11868,7 +11908,7 @@ function _abKachelFlaeche(){
     if(_AB_KACHELN.some(function(x){ return x.id===e.id; })) return;
     raus.push({
       k:{id:e.id, typ:e.typ, titel:e.titel||t.titel, bau:t.bau,
-         waehlbar:t.waehlbar, inhalt:e.inhalt, eigen:true},
+         waehlbar:t.waehlbar, inhalt:e.inhalt, text:e.text, eigen:true},
       lage:_abLage(e.id, e, std), i:1000+j});
   });
   /* Kleines z zuerst zeichnen; bei Gleichstand entscheidet die Registerfolge,
@@ -11962,6 +12002,7 @@ async function _abVarianteWaehlen(name){
     var cfg=r.data; if(typeof cfg==='string') cfg=JSON.parse(cfg);
     if(!cfg){ _AB_MELDUNG='❌ Variante „'+name+'" gibt es nicht (mehr).'; }
     else{
+      _abMerken();                       /* auch ein Variantenwechsel ist EIN Zug */
       var b=_abLayoutSetzen(cfg);
       _AB_VARNAME=b.name||name;
       _AB_MELDUNG='Variante „'+_AB_VARNAME+'" geladen — noch nicht gespeichert.';
@@ -11992,8 +12033,9 @@ async function _abLayoutSpeichern(){
 }
 
 function _abEditRahmen(x){
+  var g=_abGesperrt(x.id);
   return {
-    klasse:' bedit',
+    klasse:' bedit'+(_abGewaehlt(x.id)?' bwahl':'')+(g?' bfest':''),
     attr:'',
     vor:'<div class="abedit" data-zieh="'+esc(x.id)+'" title="Zum Verschieben hier anfassen">'
       +'<span class="abgriff">⠿</span>'
@@ -12002,6 +12044,13 @@ function _abEditRahmen(x){
            +'title="Überschrift ändern">'
          : '<span class="abename">'+x.titel+'</span>')
       +'<span class="abesp">'
+      +'<button type="button" class="abeb" data-abe="sperre" data-kid="'+esc(x.id)+'" '
+        +'title="'+(g?'Kachel wieder freigeben':'Kachel festnageln, damit sie nicht verrutscht')+'">'
+        +(g?'🔒':'🔓')+'</button>'
+      +(x.eigen
+         ? '<button type="button" class="abeb" data-abe="kopie" data-kid="'+esc(x.id)+'" '
+           +'title="Kachel duplizieren">⧉</button>'
+         : '')
       +'<button type="button" class="abeb" data-abe="vor" data-kid="'+esc(x.id)+'" '
         +'title="nach vorn holen">▲</button>'
       +'<button type="button" class="abeb" data-abe="zurueck" data-kid="'+esc(x.id)+'" '
@@ -12017,8 +12066,106 @@ function _abEditRahmen(x){
   };
 }
 
+/* ============================================================================
+   AUSWAHL, TASTATUR, DUPLIZIEREN, SPERREN  ·  Work #52, Stufe D3  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   Vier Dinge in EINEM Durchgang, weil alle vier an derselben Sache haengen:
+   an der Frage „welche Kachel ist gemeint". Getrennt gebaut waere es dreimal
+   derselbe Umbau (§2.2).
+
+     · Auswaehlen: Klick auf den Kachelkopf. Mit Umschalt kommt eine dazu.
+     · Tastatur:   Pfeiltasten schieben die Auswahl, mit Umschalt fein.
+     · Duplizieren: nur EIGENE Kacheln. Eine Code-Kachel zweimal zu zeigen
+       hiesse, dieselbe Zahl an zwei Orten zu haben (§4.2) — das ist genau der
+       Fehler, den dieses Projekt seit Wochen jagt.
+     · Sperren: eine fertig gelegte Kachel laesst sich festnageln, damit sie
+       beim Arbeiten an der Nachbarin nicht verrutscht.
+   ========================================================================== */
+var _AB_WAHL=[];
+
+/* 🔴 Kennung fuer eine neue Kachel. Der Zaehler ist NICHT Zierde: die erste
+   Fassung nahm nur Date.now(), und beim Duplizieren im selben Millisekundenwert
+   bekam die Kopie DIESELBE Kennung wie das Original — der Doppelte-Filter warf
+   sie sofort wieder weg. Sichtbar war nur „der Knopf tut nichts". Gefunden vom
+   Ablauftest T13k, nicht beim Ausprobieren. */
+var _AB_ID_ZAEHLER=0;
+function _abNeueId(){ return 'k'+Date.now().toString(36)+'-'+(++_AB_ID_ZAEHLER); }
+
+function _abWahlSetzen(id, dazu){
+  if(!id){ _AB_WAHL=[]; return; }
+  if(!dazu){ _AB_WAHL=[id]; return; }
+  var i=_AB_WAHL.indexOf(id);
+  if(i>=0) _AB_WAHL.splice(i,1); else _AB_WAHL.push(id);
+}
+function _abGewaehlt(id){ return _AB_WAHL.indexOf(id)>=0; }
+
+/* Gesperrt heisst: nicht schieben, nicht ziehen, nicht mit den Pfeiltasten
+   bewegen. Ausblenden und Loeschen bleiben moeglich — eine Sperre gegen das
+   Verrutschen ist keine Sperre gegen das Aufraeumen. */
+function _abGesperrt(id){
+  if(!_AB_LAYOUT) return false;
+  var e=_AB_LAYOUT.kacheln.filter(function(k){ return k.id===id; })[0];
+  return !!(e&&e.sperre);
+}
+function _abSperreUm(id){
+  _abEditAendern(function(l,find){ var e=find(id); if(e) e.sperre=!e.sperre; });
+}
+
+/* Die Auswahl um einen Betrag verschieben — ein Zug fuer ALLE ausgewaehlten,
+   nicht einer je Kachel. Sonst braeuchte man fuenf Mal Rueckgaengig fuer
+   einen Tastendruck. */
+function _abWahlSchieben(dx, dy){
+  var ids=_AB_WAHL.filter(function(id){ return !_abGesperrt(id); });
+  if(!ids.length) return false;
+  /* 🔴 Erst rechnen, dann aendern. Am Rand bewegt sich nichts mehr — dann darf
+     auch kein Zug auf den Rueckgaengig-Stapel wandern. Sonst druecken zehn
+     Tastendruecke am Rand zehn Schritte auf den Stapel, die alle nichts
+     rueckgaengig machen, und der Nutzer haelt „zurueck" fuer kaputt. */
+  var ziel={}, aendert=false;
+  ids.forEach(function(id){
+    var lage=_abLage(id, (_AB_LAYOUT&&_AB_LAYOUT.kacheln.filter(function(k){return k.id===id;})[0])||null);
+    var nx=Math.max(0, Math.min(_AB_LW-lage.b, lage.x+dx));
+    var ny=Math.max(0, lage.y+dy);
+    ziel[id]={x:nx, y:ny};
+    if(nx!==lage.x||ny!==lage.y) aendert=true;
+  });
+  if(!aendert) return false;
+  _abEditAendern(function(l,find){
+    ids.forEach(function(id){
+      var e=find(id); if(!e||!ziel[id]) return;
+      e.x=ziel[id].x; e.y=ziel[id].y;
+    });
+  });
+  return true;
+}
+
+/* Duplizieren. Der Zwilling liegt leicht versetzt — genau uebereinander waere
+   er unsichtbar, und man haelt den Knopf fuer kaputt. */
+function _abDuplizieren(id){
+  var q=_abKachelFlaeche().filter(function(e){ return e.k.id===id; })[0];
+  if(!q){ return; }
+  if(!q.k.eigen){
+    _AB_MELDUNG='Nur selbst angelegte Kacheln lassen sich duplizieren — eine Kachel der App zweimal zu zeigen hieße, dieselbe Zahl an zwei Orten zu führen.';
+    _abNeuZeichnen(); return;
+  }
+  _abMerken();
+  var cfg=_abLayoutAktuell();
+  var alt=cfg.kacheln.filter(function(e){ return e.id===id; })[0];
+  var neu=_abTief(alt);
+  neu.id=_abNeueId();
+  neu.titel=(alt.titel||'Kachel')+' (Kopie)';
+  neu.x=Math.min(_AB_LW-neu.b, neu.x+20); neu.y=neu.y+20;
+  neu.sperre=false;
+  cfg.kacheln.push(neu);
+  _abLayoutSetzen(cfg);
+  _abWahlSetzen(neu.id,false);
+  _AB_MELDUNG='Kopie angelegt — noch nicht gespeichert.';
+  _abNeuZeichnen();
+}
+
 /* Eine Lage aendern. Laeuft ueber dieselbe eine Spur wie alles andere. */
 function _abLageSetzen(id, neu){
+  if(_abGesperrt(id)) return;
   _abEditAendern(function(l,find){
     var e=find(id); if(!e) return;
     if(neu.x!=null) e.x=Math.max(0, Math.round(neu.x/_AB_RASTER)*_AB_RASTER);
@@ -12030,6 +12177,93 @@ function _abLageSetzen(id, neu){
   });
 }
 
+/* ============================================================================
+   EINRASTEN AN NACHBARN  ·  Work #52, Stufe D2  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   Bisher fing eine Kachel nur am 10er-Raster. Buendige Kanten entstanden damit
+   nur zufaellig: zwei Kacheln konnten 10 Einheiten versetzt stehen und sahen
+   schief aus, obwohl beide „im Raster" lagen.
+
+   Jetzt sucht die gezogene Kachel waehrend der Bewegung nach Kanten der
+   ANDEREN Kacheln und faengt daran. Gefangen wird an:
+     · linker Kante, Mitte, rechter Kante   (waagerecht)
+     · Oberkante, Mitte, Unterkante         (senkrecht)
+     · den beiden Raendern der Flaeche
+     · und an „Kante an Kante" — rechte Kante der einen auf linke der anderen,
+       damit zwei Kacheln buendig nebeneinander sitzen statt mit 3 Einheiten Luft.
+
+   Die gefundene Linie wird ANGEZEIGT. Ein Fang, den man nicht sieht, fuehlt
+   sich wie ein Ruckeln an; erst die Linie macht daraus eine Hilfe.
+   ========================================================================== */
+var _AB_FANG=14;    /* logische Einheiten, in denen gefangen wird */
+var _AB_FANGY=10;   /* Bildpunkte senkrecht */
+
+/* Liefert die korrigierte Lage und die Linien, die dabei getroffen wurden.
+   Reine Rechnung, kein DOM — deshalb pruefbar. */
+function _abFangen(id, n, andere){
+  andere=andere||_abKachelFlaeche().filter(function(e){ return e.k.id!==id; })
+                                   .map(function(e){ return e.lage; });
+  var xz=[0,_AB_LW], yz=[0];
+  andere.forEach(function(g){
+    xz.push(g.x, g.x+g.b/2, g.x+g.b);
+    yz.push(g.y, g.y+g.h/2, g.y+g.h);
+  });
+  var lx=[], ly=[], erg={x:n.x, y:n.y, b:n.b, h:n.h};
+
+  /* Waagerecht: die drei Kanten der bewegten Kachel gegen alle Ziele. */
+  var kandidatenX=[{eigen:n.x, art:'l'}, {eigen:n.x+n.b/2, art:'m'}, {eigen:n.x+n.b, art:'r'}];
+  var bestX=null;
+  kandidatenX.forEach(function(k){
+    xz.forEach(function(ziel){
+      var d=Math.abs(k.eigen-ziel);
+      if(d<=_AB_FANG && (!bestX || d<bestX.d)) bestX={d:d, ziel:ziel, art:k.art};
+    });
+  });
+  if(bestX){
+    erg.x = bestX.art==='l' ? bestX.ziel
+          : bestX.art==='m' ? bestX.ziel-n.b/2
+          : bestX.ziel-n.b;
+    lx.push(bestX.ziel);
+  }
+  var kandidatenY=[{eigen:n.y, art:'o'}, {eigen:n.y+n.h/2, art:'m'}, {eigen:n.y+n.h, art:'u'}];
+  var bestY=null;
+  kandidatenY.forEach(function(k){
+    yz.forEach(function(ziel){
+      var d=Math.abs(k.eigen-ziel);
+      if(d<=_AB_FANGY && (!bestY || d<bestY.d)) bestY={d:d, ziel:ziel, art:k.art};
+    });
+  });
+  if(bestY){
+    erg.y = bestY.art==='o' ? bestY.ziel
+          : bestY.art==='m' ? bestY.ziel-n.h/2
+          : bestY.ziel-n.h;
+    ly.push(bestY.ziel);
+  }
+  erg.x=Math.max(0,erg.x); erg.y=Math.max(0,erg.y);
+  return {x:erg.x, y:erg.y, b:erg.b, h:erg.h, linienX:lx, linienY:ly};
+}
+
+/* Dasselbe fuer das Ziehen an der Ecke: hier wandern nur rechte und untere
+   Kante, die linke obere bleibt liegen. */
+function _abFangenGroesse(id, n, andere){
+  andere=andere||_abKachelFlaeche().filter(function(e){ return e.k.id!==id; })
+                                   .map(function(e){ return e.lage; });
+  var xz=[_AB_LW], yz=[];
+  andere.forEach(function(g){ xz.push(g.x, g.x+g.b); yz.push(g.y, g.y+g.h); });
+  var lx=[], ly=[], b=n.b, h=n.h, bd=null, hd=null;
+  xz.forEach(function(ziel){
+    var d=Math.abs((n.x+n.b)-ziel);
+    if(d<=_AB_FANG && (bd===null||d<bd)){ bd=d; b=ziel-n.x; lx[0]=ziel; }
+  });
+  yz.forEach(function(ziel){
+    var d=Math.abs((n.y+n.h)-ziel);
+    if(d<=_AB_FANGY && (hd===null||d<hd)){ hd=d; h=ziel-n.y; ly[0]=ziel; }
+  });
+  return {x:n.x, y:n.y, b:Math.max(_AB_MINB,b), h:Math.max(_AB_MINH,h),
+          linienX:lx.filter(function(v){return v!=null;}),
+          linienY:ly.filter(function(v){return v!=null;})};
+}
+
 /* Neue Kachel. Sie landet UNTEN auf der Flaeche, nicht bei 0,0 - sonst
    verdeckt sie beim Anlegen alles und man haelt das Dashboard fuer kaputt. */
 function _abKachelNeu(typ){
@@ -12037,9 +12271,12 @@ function _abKachelNeu(typ){
   var t=_AB_TYPEN[typ]; if(!t) return;
   var unten=0;
   _abKachelFlaeche().forEach(function(e){ unten=Math.max(unten, e.lage.y+e.lage.h); });
+  _abMerken();
   var cfg=_abLayoutAktuell();
-  cfg.kacheln.push({id:'k'+Date.now().toString(36), typ:typ, titel:t.titel, aus:false,
-    x:0, y:unten+20, b:285, h:250, z:1, inhalt:_AB_FREI_VORGABE.slice()});
+  cfg.kacheln.push({id:_abNeueId(), typ:typ, titel:t.titel, aus:false,
+    x:0, y:unten+20, b:285, h:250, z:1,
+    inhalt:(t.text?null:_AB_FREI_VORGABE.slice()),
+    text:(t.text?'':null)});
   _abLayoutSetzen(cfg);
   _AB_MELDUNG='Neue Kachel unten auf der Fläche angelegt — noch NICHT gespeichert.';
   _abNeuZeichnen();
@@ -12055,6 +12292,7 @@ function _abKachelWeg(id){
   var cfg=_abLayoutAktuell(), vorher=cfg.kacheln.length;
   cfg.kacheln=cfg.kacheln.filter(function(e){ return e.id!==id; });
   if(cfg.kacheln.length===vorher) return;
+  _abMerken();
   _abLayoutSetzen(cfg);
   _AB_MELDUNG='Kachel gelöscht — noch nicht gespeichert. „Verwerfen" holt sie zurück.';
   _abNeuZeichnen();
@@ -12085,6 +12323,7 @@ function _abLayoutAktuell(){
     drin[e.k.id]=true;
     raus.push({id:e.k.id, reihe:e.k.reihe, pos:i, breit:!!e.k.breit, aus:false,
                typ:e.k.typ||null, titel:(e.k.eigen?e.k.titel:null),
+               sperre:_abGesperrt(e.k.id), text:(e.k.text==null?null:e.k.text),
                x:e.lage.x, y:e.lage.y, b:e.lage.b, h:e.lage.h, z:e.lage.z,
                inhalt:(e.k.inhalt&&e.k.inhalt.length)?e.k.inhalt.slice():null});
   });
@@ -12096,6 +12335,7 @@ function _abLayoutAktuell(){
                pos:(e.pos==null?999:e.pos),
                breit:(e.breit==null?!!(reg&&reg.breit):e.breit), aus:true,
                typ:e.typ||null, titel:e.titel||null,
+               sperre:!!e.sperre, text:(e.text==null?null:e.text),
                x:e.x, y:e.y, b:e.b, h:e.h, z:e.z,
                inhalt:(e.inhalt&&e.inhalt.length)?e.inhalt.slice():null});
   });
@@ -12143,8 +12383,20 @@ function _abEditLeiste(){
     +'<input id="abVarName" class="abeb" style="font-weight:600;min-width:150px" '
       +'value="'+esc(_AB_VARNAME||'Standard')+'" '
       +'title="Name, unter dem gespeichert wird" placeholder="Name des Layouts">'
+    +'<span class="abesp" style="margin-left:0">'
+    +'<button type="button" class="abeb" data-abe="zurueck1"'
+      +(_AB_ZURUECK.length?'':' disabled')
+      +' title="Rückgängig (Strg+Z)">↶ zurück'
+      +(_AB_ZURUECK.length?' <b>'+_AB_ZURUECK.length+'</b>':'')+'</button>'
+    +'<button type="button" class="abeb" data-abe="vor1"'
+      +(_AB_VOR.length?'':' disabled')
+      +' title="Wiederherstellen (Strg+Umschalt+Z)">↷ vor'
+      +(_AB_VOR.length?' <b>'+_AB_VOR.length+'</b>':'')+'</button>'
+    +'</span>'
     +'<button type="button" class="abeb hin" data-abe="neu" data-typ="frei" '
-      +'title="Eine eigene Kachel anlegen — sie erscheint unten auf der Fläche">+ Kachel</button>'
+      +'title="Kachel mit Zahlen anlegen — erscheint unten auf der Fläche">+ Zahlen</button>'
+    +'<button type="button" class="abeb hin" data-abe="neu" data-typ="notiz" '
+      +'title="Notizzettel anlegen — dein Text, mit dem Layout gespeichert">+ Notiz</button>'
     +'<span class="abesp">'
     +'<button type="button" class="abeb" data-abe="standard" '
       +'title="Zurück auf die im Code hinterlegte Anordnung — noch nicht gespeichert">↺ Standard</button>'
@@ -12158,8 +12410,86 @@ function _abEditLeiste(){
     +'</div>';
 }
 
+/* ============================================================================
+   RUECKGAENGIG  ·  Work #52, Stufe D1  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   Bis hierher gab es nur „Verwerfen" — alles oder nichts. Ein falsch gezogener
+   Rahmen war damit nur zu beheben, indem man die ganze Sitzung wegwarf. Wer so
+   arbeitet, probiert nichts aus, und genau das Ausprobieren ist der Sinn eines
+   Editors.
+
+   WIE ES FUNKTIONIERT, in einem Satz: vor jeder Aenderung wird der ganze
+   Zustand als Kopie auf einen Stapel gelegt; „Rueckgaengig" nimmt die oberste
+   Kopie zurueck und legt den aktuellen Stand auf den Gegenstapel.
+
+   🔴 EIN ZUG PRO HANDGRIFF, nicht pro Bildpunkt. Beim Schieben wird die Lage
+   erst beim LOSLASSEN eingetragen — sonst laegen nach einem Zug 200 Schritte
+   auf dem Stapel und „Rueckgaengig" bewegte die Kachel um einen Pixel.
+
+   NICHT gemerkt wird das erste Laden aus der Datenbank: sonst koennte man
+   „hinter" den Ausgangszustand zurueckgehen, und das Dashboard stuende ohne
+   das gespeicherte Layout da, das es gerade geholt hat.
+   ========================================================================== */
+var _AB_ZURUECK=[], _AB_VOR=[];
+var _AB_STAPEL_MAX=40;   /* mehr braucht niemand, und der Speicher bleibt endlich */
+
+function _abTief(x){ return x?JSON.parse(JSON.stringify(x)):null; }
+
+/* Vor einer Aenderung aufrufen. Der Gegenstapel wird geleert: wer nach einem
+   Rueckgaengig etwas Neues tut, hat den alten Weg verlassen. */
+function _abMerken(){
+  _AB_ZURUECK.push(_abTief(_abLayoutAktuell()));
+  if(_AB_ZURUECK.length>_AB_STAPEL_MAX) _AB_ZURUECK.shift();
+  _AB_VOR.length=0;
+}
+
+/* Modus umschalten. Steht als FUNKTION hier und nicht im Klick-Handler, weil
+   an ihm zwei Dinge haengen, die man sonst nur durch Klicken pruefen koennte:
+   der Verwerfen-Bezugspunkt und das Leeren der Stapel. Beim ersten Testlauf
+   lagen deshalb 12 fremde Zuege auf dem Stapel — der Test hat den Bau
+   korrigiert, nicht umgekehrt. */
+function _abEditModus(an){
+  an=!!an;
+  if(an && !_AB_EDIT){
+    _AB_VORHER=_abTief(_AB_LAYOUT);
+    /* Der Stapel gehoert der Bearbeitung, nicht der Seite. Beim Oeffnen leer:
+       sonst koennte man hinter den Zustand zurueckgehen, mit dem man angefangen
+       hat, und „Verwerfen" und „Rueckgaengig" wuerden sich widersprechen. */
+    _AB_ZURUECK.length=0; _AB_VOR.length=0; _AB_MELDUNG='';
+  }
+  _AB_EDIT=an;
+  return _AB_EDIT;
+}
+
+function _abZurueck(){
+  if(!_AB_ZURUECK.length){ _AB_MELDUNG='Nichts mehr rückgängig zu machen.'; _abNeuZeichnen(); return; }
+  _AB_VOR.push(_abTief(_abLayoutAktuell()));
+  _abLayoutSetzen(_AB_ZURUECK.pop());
+  _AB_MELDUNG='Rückgängig — noch '+_AB_ZURUECK.length+' Schritt(e) zurück möglich.';
+  _abNeuZeichnen();
+}
+
+function _abVor(){
+  if(!_AB_VOR.length){ _AB_MELDUNG='Nichts zum Wiederherstellen.'; _abNeuZeichnen(); return; }
+  _AB_ZURUECK.push(_abTief(_abLayoutAktuell()));
+  _abLayoutSetzen(_AB_VOR.pop());
+  _AB_MELDUNG='Wiederhergestellt.';
+  _abNeuZeichnen();
+}
+
+/* Ein ganzer Layoutwechsel (Standard, Verwerfen, andere Variante) ist EIN Zug —
+   auch er muss sich zurueckholen lassen, sonst ist ein Fehlgriff auf „Standard"
+   genauso teuer wie vorher die ganze Sitzung. */
+function _abLayoutWechsel(cfg, satz){
+  _abMerken();
+  _abLayoutSetzen(cfg);
+  if(satz) _AB_MELDUNG=satz;
+  _abNeuZeichnen();
+}
+
 /* Eine Aenderung, ein Weg: alles laeuft ueber _abLayoutSetzen und zeichnet neu. */
 function _abEditAendern(fn){
+  _abMerken();
   var cfg=_abLayoutAktuell();
   fn(cfg.kacheln, function(id){
     for(var i=0;i<cfg.kacheln.length;i++) if(cfg.kacheln[i].id===id) return cfg.kacheln[i];
@@ -12178,6 +12508,22 @@ function _abEditAendern(fn){
    RUECKHOLBAR: der letzte Stand MIT diesen drei Funktionen ist Build
    2026-08-15-3040 und liegt im ausgelieferten Repo (git). Es wurde KEINE
    zusaetzliche Sicherungsdatei angelegt — das hier ist die Fundstelle. */
+
+/* Hilfslinien zeichnen. Sie liegen IN der Flaeche und verschwinden mit dem
+   Loslassen — sie sind Werkzeug, nicht Inhalt, und stehen deshalb in keiner
+   Konfiguration. */
+function _abHilfslinien(xs, ys){
+  var f=document.getElementById('abFlaeche'); if(!f) return;
+  f.querySelectorAll('.abhilf').forEach(function(e){ e.remove(); });
+  (xs||[]).forEach(function(v){
+    var i=document.createElement('i'); i.className='abhilf x';
+    i.style.left=(v/_AB_LW*100)+'%'; f.appendChild(i);
+  });
+  (ys||[]).forEach(function(v){
+    var i=document.createElement('i'); i.className='abhilf y';
+    i.style.top=v+'px'; f.appendChild(i);
+  });
+}
 
 /* Verdrahtung ALLES, was in den Bento-Reihen haengt. Wird beim Erstaufbau und
    nach jedem Neuzeichnen im Anordnen-Modus gerufen — dieselbe Fassung, nicht
@@ -12213,10 +12559,14 @@ function _abBentoNach(box){
       else if(was==='zurueck') _abStapel(id,false);
       else if(was==='weg')     _abKachelWeg(id);
       else if(was==='neu')     _abKachelNeu(b.getAttribute('data-typ'));
-      else if(was==='standard'){ _abLayoutSetzen(null);
-        _AB_MELDUNG='Standardanordnung aus dem Code — noch NICHT gespeichert.'; _abNeuZeichnen(); }
-      else if(was==='verwerfen'){ _abLayoutSetzen(_AB_VORHER);
-        _AB_MELDUNG='Zurück auf den Stand beim Öffnen.'; _abNeuZeichnen(); }
+      else if(was==='sperre')  _abSperreUm(id);
+      else if(was==='kopie')   _abDuplizieren(id);
+      else if(was==='standard')  _abLayoutWechsel(null,
+        'Standardanordnung aus dem Code — noch NICHT gespeichert.');
+      else if(was==='verwerfen') _abLayoutWechsel(_AB_VORHER,
+        'Zurück auf den Stand beim Öffnen.');
+      else if(was==='zurueck1')  _abZurueck();
+      else if(was==='vor1')      _abVor();
       else if(was==='speichern'){ _abLayoutSpeichern(); }
       else if(was==='fertig'){ _AB_EDIT=false;
         var an=document.getElementById('abAnordnen'); if(an) an.classList.remove('on');
@@ -12240,6 +12590,13 @@ function _abBentoNach(box){
     });
   });
 
+  box.querySelectorAll('[data-abnotiz]').forEach(function(t){
+    t.addEventListener('mousedown',function(ev){ ev.stopPropagation(); });
+    t.addEventListener('change',function(){
+      var id=t.getAttribute('data-abnotiz'), wert=t.value;
+      _abEditAendern(function(l,find){ var e=find(id); if(e) e.text=wert; });
+    });
+  });
   box.querySelectorAll('[data-abtitel]').forEach(function(f){
     f.addEventListener('change',function(){ _abTitelSetzen(f.getAttribute('data-abtitel'), f.value); });
     f.addEventListener('mousedown',function(ev){ ev.stopPropagation(); });  /* nicht schieben */
@@ -12262,10 +12619,20 @@ function _abBentoNach(box){
       return br/_AB_LW;   /* Bildpunkte je logischer Einheit */
     };
     var starten=function(ev, id, modus){
+      _abWahlSetzen(id, ev.shiftKey);
+      if(_abGesperrt(id)){
+        _AB_MELDUNG='Diese Kachel ist festgenagelt (🔒). Erst freigeben, dann schieben.';
+        _abNeuZeichnen(); return;
+      }
       var el=box.querySelector('.bk[data-kid="'+id+'"]'); if(!el) return;
       var l=_abKachelFlaeche().filter(function(e){ return e.k.id===id; })[0];
       if(!l) return;
+      /* Die Lagen der anderen EINMAL beim Anfassen holen, nicht bei jedem
+         Mausschritt: sie aendern sich waehrend des Ziehens nicht, und
+         hundertmal dieselbe Liste zu bauen macht das Ziehen zaeh. */
       lauf={id:id, modus:modus, el:el, start:l.lage,
+            andere:_abKachelFlaeche().filter(function(e){ return e.k.id!==id; })
+                                     .map(function(e){ return e.lage; }),
             mx:ev.clientX, my:ev.clientY, f:jeEinheit(), neu:null};
       el.classList.add('bzieh');
       if(flaeche) flaeche.classList.add('zieht');
@@ -12277,10 +12644,13 @@ function _abBentoNach(box){
       var s=lauf.start, n;
       if(lauf.modus==='ziehen'){
         n={x:Math.max(0,Math.min(_AB_LW-s.b, s.x+dx)), y:Math.max(0,s.y+dy), b:s.b, h:s.h};
+        n=_abFangen(lauf.id, n, lauf.andere);
       }else{
         n={x:s.x, y:s.y, b:Math.max(_AB_MINB,Math.min(_AB_LW-s.x, s.b+dx)),
            h:Math.max(_AB_MINH, s.h+dy)};
+        n=_abFangenGroesse(lauf.id, n, lauf.andere);
       }
+      _abHilfslinien(n.linienX, n.linienY);
       lauf.neu=n;
       lauf.el.style.left=(n.x/_AB_LW*100)+'%';
       lauf.el.style.top=Math.round(n.y)+'px';
@@ -12292,6 +12662,7 @@ function _abBentoNach(box){
       var l=lauf; lauf=null;
       l.el.classList.remove('bzieh');
       if(flaeche) flaeche.classList.remove('zieht');
+      _abHilfslinien([],[]);
       if(l.neu) _abLageSetzen(l.id, l.neu);   /* erst hier wird es gespeichert */
     };
     box.querySelectorAll('[data-zieh]').forEach(function(g){
@@ -12315,6 +12686,30 @@ function _abBentoNach(box){
       _AB_MAUS=true;
       window.addEventListener('mousemove',function(ev){ if(_AB_BEWEGEN) _AB_BEWEGEN(ev); });
       window.addEventListener('mouseup',  function(){    if(_AB_LOS)     _AB_LOS(); });
+      /* Strg+Z / Cmd+Z. Nur im Anordnen-Modus, und nicht waehrend jemand in ein
+         Feld schreibt — dort gehoert das Rueckgaengig dem Textfeld. */
+      window.addEventListener('keydown',function(ev){
+        if(!_AB_EDIT) return;
+        var z=document.activeElement;
+        if(z && (z.tagName==='INPUT'||z.tagName==='TEXTAREA'||z.isContentEditable)) return;
+        if(ev.ctrlKey||ev.metaKey){
+          if(String(ev.key).toLowerCase()!=='z') return;
+          ev.preventDefault();
+          if(ev.shiftKey) _abVor(); else _abZurueck();
+          return;
+        }
+        /* Pfeiltasten: grob 10, mit Umschalt fein 1. Die Feinstufe ist der
+           einzige Weg, unter das Fangraster zu kommen — ohne sie waere „genau
+           hier hin" mit der Tastatur unmoeglich. */
+        var s=ev.shiftKey?1:10, dx=0, dy=0;
+        if(ev.key==='ArrowLeft')  dx=-s;
+        else if(ev.key==='ArrowRight') dx=s;
+        else if(ev.key==='ArrowUp')    dy=-s;
+        else if(ev.key==='ArrowDown')  dy=s;
+        else if(ev.key==='Escape'){ _abWahlSetzen(null); _abNeuZeichnen(); return; }
+        else return;
+        if(_abWahlSchieben(dx,dy)){ ev.preventDefault(); _abNeuZeichnen(); }
+      });
     }
   }
 
@@ -12857,9 +13252,7 @@ function _abNachRest(box,d,np,A){
   try{ _abLayoutHolen(); }catch(e){ try{ console.warn('[Layout]',e); }catch(_){} }
   var an=document.getElementById('abAnordnen');
   if(an) an.addEventListener('click',function(){
-    if(!_AB_EDIT){ _AB_VORHER=_AB_LAYOUT?JSON.parse(JSON.stringify(_AB_LAYOUT)):null; }
-    _AB_EDIT=!_AB_EDIT;
-    an.classList.toggle('on',_AB_EDIT);
+    an.classList.toggle('on', _abEditModus(!_AB_EDIT));
     _abNeuZeichnen();
   });
   box.querySelectorAll('.abtab[data-wf]').forEach(function(t){
@@ -30134,7 +30527,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3110";
+const APP_BUILD = "2026-08-15-3180";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
