@@ -10865,7 +10865,27 @@ function dashArbeitCss(){
     +'padding:4px 9px;font-size:11px;font-weight:700;color:var(--abmut);'
     +'cursor:pointer;font-family:inherit}'
    +A+' .abkz:hover{border-color:#cfd5de}'
-   +A+' .abkz.an{background:#eef6ee;border-color:#bcd9bc;color:'+_AB.gut+'}';
+   +A+' .abkz.an{background:#eef6ee;border-color:#bcd9bc;color:'+_AB.gut+'}'
+   /* ----- Freie Flaeche (Work #42, Umbau 15.08.) -----
+      Die Kacheln liegen absolut. Die Flaeche selbst ist relativ und bekommt
+      ihre Hoehe aus der untersten Kachel — sonst faellt der Rest der Seite
+      in sie hinein. */
+   +A+' .abfrei{position:relative;width:100%;margin-bottom:13px}'
+   +A+' .abfrei .bk{background:#fff;border:1px solid var(--abline);border-radius:16px;'
+    +'display:flex;flex-direction:column;box-shadow:0 1px 2px rgba(16,24,40,.05)}'
+   +A+' .abfrei.bearb{background:'
+    +'repeating-linear-gradient(0deg,#eef1f5 0 1px,transparent 1px 40px),'
+    +'repeating-linear-gradient(90deg,#eef1f5 0 1px,transparent 1px 40px);'
+    +'outline:1px dashed #d9b45f;outline-offset:6px;border-radius:8px}'
+   +A+' .abfrei.zieht{user-select:none;cursor:grabbing}'
+   +A+' .abfrei .bk.bzieh{opacity:.85;box-shadow:0 8px 24px rgba(16,24,40,.18)}'
+   +A+' .abfrei .bleib{overflow:auto}'
+   /* Der Anfasser fuer die Groesse, unten rechts. */
+   +A+' .abziehe{position:absolute;right:0;bottom:0;width:18px;height:18px;'
+    +'cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,#d9b45f 50%);'
+    +'border-bottom-right-radius:15px;display:none}'
+   +A+' .abfrei.bearb .abziehe{display:block}'
+   +A+' .abedit[data-zieh]{cursor:grab}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -11514,7 +11534,8 @@ function _abHero(d,np,A,ans){
    unterschiedlich aussehen. */
 function _abKachel(titel, tag, inhalt, fuss, gross, zus){
   zus=zus||{};
-  return '<div class="bk'+(gross?' bgross':'')+(zus.klasse||'')+'"'+(zus.attr||'')+'>'
+  return '<div class="bk'+(gross?' bgross':'')+(zus.klasse||'')+'"'+(zus.attr||'')
+    +(zus.stil?' style="'+zus.stil+'"':'')+'>'
     +(zus.vor||'')
     +'<div class="bkopf"><h3>'+titel+'</h3>'+(tag||'')+'</div>'
     +inhalt
@@ -11666,6 +11687,67 @@ function _abkFrei(c,x){
    ========================================================================== */
 var _AB_LAYOUT=null;
 
+/* ============================================================================
+   FREIE FLAECHE  ·  Work #42, Umbau  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   🔴 RALPH, WOERTLICH: „ich wollte einen freien editor, z.b. wie powerpoint, in
+   dem kann ich auch bilder schieben, vergroessern verkleinern und wenn ich
+   will, uebereinander legen."
+
+   Bis hierher war es ein RASTER: die Kacheln standen in zwei Reihen, und
+   „anordnen" hiess nur, ihre Reihenfolge zu tauschen. Das war nicht der
+   Auftrag, sondern die naechstliegende Umsetzung davon - mein Fehler.
+
+   Ab jetzt ist es eine FLAECHE. Jede Kachel hat vier Zahlen und eine fuenfte:
+     x, b  — waagerecht, in logischen Einheiten 0.._AB_LW (nicht in Pixeln,
+             damit dieselbe Anordnung auf jedem Bildschirm gleich aussieht)
+     y, h  — senkrecht, in Bildpunkten
+     z     — was oben liegt, wenn sich zwei ueberlappen
+   Ueberlappen ist ausdruecklich erlaubt, nicht ein Fehler, der verhindert wird.
+
+   WAS DIESER UMBAU KOSTET, ehrlich gesagt: das alte Raster ordnete sich auf
+   schmalen Bildschirmen selbst um (5 Spalten -> 2 -> 1). Eine frei gelegte
+   Flaeche kann das nicht - sie skaliert stattdessen mit. Auf dem Telefon wird
+   das Dashboard damit klein statt umgebrochen. Das Adminboard ist ein
+   Schreibtischwerkzeug; wenn du es anders willst, ist das eine Entscheidung
+   und kein Nachbessern.
+   ========================================================================== */
+var _AB_LW=1200;        /* logische Breite der Flaeche */
+var _AB_RASTER=10;      /* Fangraster waagerecht, in logischen Einheiten */
+var _AB_RASTERY=10;     /* Fangraster senkrecht, in Bildpunkten */
+var _AB_MINB=140, _AB_MINH=90;   /* kleiner geht nicht - sonst ist nichts mehr lesbar */
+
+function _abZahl(v){ var n=Number(v); return (v==null||v===''||isNaN(n))?null:n; }
+
+/* Die Standardaufteilung: daraus bekommt jede Kachel ihre erste Lage, solange
+   niemand sie verschoben hat. Sie ist HERGELEITET, nicht gespeichert - eine
+   neue Kachel im Code bekommt so von selbst einen Platz statt bei 0,0 zu
+   liegen und alles zu verdecken. */
+function _abStandardLagen(){
+  var k={}, x=0, y=0, zeile=0;
+  _AB_KACHELN.forEach(function(t){
+    var b=t.breit?590:285, h=(t.reihe===2?300:250);
+    if(x+b>_AB_LW){ x=0; y+=zeile+20; zeile=0; }
+    k[t.id]={x:x, y:y, b:b, h:h, z:1};
+    x+=b+20; zeile=Math.max(zeile,h);
+  });
+  return k;
+}
+
+/* Die wirksame Lage einer Kachel: gespeichert, sonst hergeleitet. Einzelne
+   fehlende Werte werden einzeln ergaenzt - eine halb gespeicherte Lage darf
+   nicht die ganze Kachel auf 0,0 werfen. */
+function _abLage(id, e, std){
+  var s=(std||_abStandardLagen())[id]||{x:0,y:0,b:285,h:250,z:1};
+  e=e||{};
+  return {
+    x:(e.x==null?s.x:e.x), y:(e.y==null?s.y:e.y),
+    b:Math.max(_AB_MINB,(e.b==null?s.b:e.b)),
+    h:Math.max(_AB_MINH,(e.h==null?s.h:e.h)),
+    z:(e.z==null?s.z:e.z)
+  };
+}
+
 /* Nimmt eine gespeicherte Anordnung an und gibt einen BERICHT zurueck, statt
    still zu schlucken, was nicht passt. Der Bericht ist der Beleg dafuer, dass
    Regel 2 und 3 gegriffen haben. */
@@ -11690,7 +11772,12 @@ function _abLayoutSetzen(cfg){
       /* inhalt reist mit, auch wenn diese Fassung damit nichts anfangen kann —
          eine gespeicherte Auswahl darf nicht verlorengehen, nur weil sie
          gerade niemand liest. */
-      inhalt:(Array.isArray(e.inhalt)?e.inhalt.slice():null)
+      inhalt:(Array.isArray(e.inhalt)?e.inhalt.slice():null),
+      /* Freie Lage: x/breite in logischen Einheiten (0.._AB_LW), y/hoehe in
+         Bildpunkten, z fuer „was liegt oben". Fehlt eine davon, rechnet
+         _abLage() sie aus der Standardaufteilung aus — nie geraten, nur
+         hergeleitet, und immer sichtbar (§3.4). */
+      x:_abZahl(e.x), y:_abZahl(e.y), b:_abZahl(e.b), h:_abZahl(e.h), z:_abZahl(e.z)
     });
   });
   _AB_KACHELN.forEach(function(x){ if(!gesehen[x.id]) bericht.ergaenzt.push(x.id); });
@@ -11700,55 +11787,30 @@ function _abLayoutSetzen(cfg){
   return bericht;
 }
 
-function _abKachelListe(reihe){
-  var basis=_AB_KACHELN.filter(function(x){ return x.reihe===reihe; });
-  if(!_AB_LAYOUT) return basis;                       /* Regel 1 */
-  var konf={};
-  _AB_LAYOUT.kacheln.forEach(function(e){ konf[e.id]=e; });
+/* ALLE sichtbaren Kacheln mit ihrer Lage, von hinten nach vorn sortiert.
+   Das ist ab jetzt die EINE Liste, aus der gezeichnet wird - es gibt keine
+   Reihen mehr, nur noch Lagen. */
+function _abKachelFlaeche(){
+  var std=_abStandardLagen(), konf={};
+  if(_AB_LAYOUT) _AB_LAYOUT.kacheln.forEach(function(e){ konf[e.id]=e; });
   var raus=[];
   _AB_KACHELN.forEach(function(x,i){
     var e=konf[x.id];
-    if(!e){                                            /* Regel 3 */
-      if(x.reihe===reihe) raus.push({k:x, pos:1000000+i});
-      return;
-    }
-    if(e.aus) return;                                  /* Regel 4 */
-    if((e.reihe==null?x.reihe:e.reihe)!==reihe) return;
+    if(e&&e.aus) return;                              /* ausgeblendet */
+    var lage=_abLage(x.id, e, std);
     var k=x;
-    if((e.breit!=null && e.breit!==!!x.breit) || e.inhalt){
-      /* Kopie statt Aenderung — das Register bleibt der unberuehrte Rueckfall. */
-      k={id:x.id, reihe:x.reihe, titel:x.titel,
-         breit:(e.breit==null?!!x.breit:e.breit),
-         bau:x.bau, roh:x.roh, waehlbar:x.waehlbar, inhalt:e.inhalt};
-    }
-    raus.push({k:k, pos:e.pos});
+    if(e&&e.inhalt) k={id:x.id,titel:x.titel,bau:x.bau,roh:x.roh,waehlbar:x.waehlbar,
+                       reihe:x.reihe,breit:x.breit,inhalt:e.inhalt};
+    raus.push({k:k, lage:lage, i:i});
   });
-  raus.sort(function(a,b){ return a.pos-b.pos; });
-  return raus.map(function(x){ return x.k; });
+  /* Kleines z zuerst zeichnen; bei Gleichstand entscheidet die Registerfolge,
+     damit die Reihenfolge nie zufaellig ist. */
+  raus.sort(function(a,b){ return (a.lage.z-b.lage.z)||(a.i-b.i); });
+  return raus;
 }
 
-/* Der eine Zeichner. Er weiss nichts ueber einzelne Kacheln — er laeuft ueber
-   das Register. Kommt E2, wird hier die Konfiguration davorgeschaltet, und
-   sonst nirgends. */
-function _abReihe(reihe, klasse, c){
-  var h='<div class="'+klasse+'">';
-  _abKachelListe(reihe).forEach(function(x){
-    var zus=_AB_EDIT?_abEditRahmen(x):null;
-    if(x.roh){
-      /* Kacheln mit eigenem Rahmen (Schnellzugriff) bekommen die Leiste
-         nachtraeglich hinter das erste > gesetzt — ihr Markup gehoert ihnen. */
-      var r=x.roh(c,x);
-      if(zus) r=r.replace('<div class="bk"','<div class="bk'+(zus.klasse||'')+'"'+(zus.attr||''))
-                 .replace(/>/, '>'+(zus.vor||''));
-      h+=r; return;
-    }
-    /* Zweiter Parameter: der WIRKSAME Eintrag samt gewaehltem Inhalt. Die
-       bisherigen Baufunktionen sehen ihn nicht an — ihre Ausgabe bleibt gleich. */
-    var t=x.bau(c,x)||{};
-    h+=_abKachel(x.titel, t.tag||'', t.inhalt||'', t.fuss||'', !!x.breit, zus);
-  });
-  return h+'</div>';
-}
+
+
 
 /* ============================================================================
    ANORDNEN-MODUS  ·  Work #42, Etappe 5  ·  15.08.2026
@@ -11770,6 +11832,8 @@ var _AB_VARIANTEN=[];  /* [{name,standard}] aus der Datenbank */
 var _AB_VARNAME='';    /* Name der gerade geladenen Variante */
 var _AB_GELADEN=false; /* Riegel: einmal holen, nicht bei jedem Neuzeichnen */
 var _AB_MELDUNG='';    /* letzter Satz fuer die Leiste — Erfolg UND Fehler */
+var _AB_MAUS=false;    /* Fenster-Zuhoerer genau einmal anmelden */
+var _AB_BEWEGEN=null, _AB_LOS=null;
 
 /* ============================================================================
    ABLAGE ANSCHLIESSEN  ·  Work #42, Etappe 4  ·  15.08.2026
@@ -11862,29 +11926,55 @@ async function _abLayoutSpeichern(){
 function _abEditRahmen(x){
   return {
     klasse:' bedit',
-    attr:' data-kid="'+esc(x.id)+'" draggable="true"',
-    vor:'<div class="abedit">'
-      +'<span class="abgriff" title="Ziehen zum Verschieben">⠿</span>'
+    attr:'',
+    vor:'<div class="abedit" data-zieh="'+esc(x.id)+'" title="Zum Verschieben hier anfassen">'
+      +'<span class="abgriff">⠿</span>'
       +'<span class="abename">'+x.titel+'</span>'
       +'<span class="abesp">'
-      +'<button type="button" class="abeb" data-abe="breit" data-kid="'+esc(x.id)+'" '
-        +'title="Breite umschalten">'+(x.breit?'▭▭ breit':'▭ schmal')+'</button>'
+      +'<button type="button" class="abeb" data-abe="vor" data-kid="'+esc(x.id)+'" '
+        +'title="nach vorn holen">▲</button>'
+      +'<button type="button" class="abeb" data-abe="zurueck" data-kid="'+esc(x.id)+'" '
+        +'title="nach hinten legen">▼</button>'
       +'<button type="button" class="abeb" data-abe="aus" data-kid="'+esc(x.id)+'" '
-        +'title="Kachel ausblenden — sie bleibt in der Leiste oben abrufbar">✕ aus</button>'
+        +'title="Kachel ausblenden — sie bleibt in der Leiste oben abrufbar">✕</button>'
       +'</span></div>'
+      +'<i class="abziehe" data-groesse="'+esc(x.id)+'" title="Größe ziehen"></i>'
   };
+}
+
+/* Eine Lage aendern. Laeuft ueber dieselbe eine Spur wie alles andere. */
+function _abLageSetzen(id, neu){
+  _abEditAendern(function(l,find){
+    var e=find(id); if(!e) return;
+    if(neu.x!=null) e.x=Math.max(0, Math.round(neu.x/_AB_RASTER)*_AB_RASTER);
+    if(neu.y!=null) e.y=Math.max(0, Math.round(neu.y/_AB_RASTERY)*_AB_RASTERY);
+    if(neu.b!=null) e.b=Math.max(_AB_MINB, Math.min(_AB_LW,
+                       Math.round(neu.b/_AB_RASTER)*_AB_RASTER));
+    if(neu.h!=null) e.h=Math.max(_AB_MINH, Math.round(neu.h/_AB_RASTERY)*_AB_RASTERY);
+    if(neu.z!=null) e.z=neu.z;
+  });
+}
+
+/* „nach vorn" heisst: eins ueber den hoechsten, der GERADE sichtbar ist.
+   Nicht z+1 — sonst klettert eine Kachel nach zwei Klicks ueber alles,
+   ohne dass man sieht, warum. */
+function _abStapel(id, nachVorn){
+  var l=_abKachelFlaeche();
+  var werte=l.map(function(e){ return e.lage.z; });
+  var hoch=Math.max.apply(null,[1].concat(werte));
+  var tief=Math.min.apply(null,[1].concat(werte));
+  _abLageSetzen(id, {z: nachVorn ? hoch+1 : tief-1});
 }
 
 /* Der aktuelle Zustand als Konfiguration — abgeleitet aus dem, was wirklich
    gezeichnet wird, nicht aus einer zweiten Buchfuehrung (§4.2). */
 function _abLayoutAktuell(){
   var raus=[], drin={};
-  [1,2].forEach(function(r){
-    _abKachelListe(r).forEach(function(x,i){
-      drin[x.id]=true;
-      raus.push({id:x.id, reihe:r, pos:i, breit:!!x.breit, aus:false,
-                 inhalt:(x.inhalt&&x.inhalt.length)?x.inhalt.slice():null});
-    });
+  _abKachelFlaeche().forEach(function(e,i){
+    drin[e.k.id]=true;
+    raus.push({id:e.k.id, reihe:e.k.reihe, pos:i, breit:!!e.k.breit, aus:false,
+               x:e.lage.x, y:e.lage.y, b:e.lage.b, h:e.lage.h, z:e.lage.z,
+               inhalt:(e.k.inhalt&&e.k.inhalt.length)?e.k.inhalt.slice():null});
   });
   /* Ausgeblendete gehen NICHT verloren — sie behalten Reihe und Breite. */
   if(_AB_LAYOUT) _AB_LAYOUT.kacheln.forEach(function(e){
@@ -11893,6 +11983,7 @@ function _abLayoutAktuell(){
     raus.push({id:e.id, reihe:(e.reihe==null?(reg?reg.reihe:1):e.reihe),
                pos:(e.pos==null?999:e.pos),
                breit:(e.breit==null?!!(reg&&reg.breit):e.breit), aus:true,
+               x:e.x, y:e.y, b:e.b, h:e.h, z:e.z,
                inhalt:(e.inhalt&&e.inhalt.length)?e.inhalt.slice():null});
   });
   return {name:(_AB_LAYOUT&&_AB_LAYOUT.name)||'', kacheln:raus};
@@ -11964,23 +12055,14 @@ function _abEditAendern(fn){
   _abNeuZeichnen();
 }
 
-function _abEditVerschieben(vonId, aufId){
-  if(!vonId||!aufId||vonId===aufId) return;
-  _abEditAendern(function(l){
-    var v=-1,z=-1;
-    l.forEach(function(e,i){ if(e.id===vonId) v=i; if(e.id===aufId) z=i; });
-    if(v<0||z<0) return;
-    var reihe=l[z].reihe;
-    var e=l.splice(v,1)[0];
-    e.reihe=reihe;                                  /* Ziehen wechselt die Reihe mit */
-    var zi=-1; l.forEach(function(x,i){ if(x.id===aufId) zi=i; });
-    if(zi<0) l.push(e);
-    else l.splice(v<z ? zi+1 : zi, 0, e);           /* von oben: dahinter, von unten: davor */
-    /* Positionen je Reihe neu durchzaehlen, damit kein Gleichstand entsteht. */
-    var z1=0,z2=0;
-    l.forEach(function(x){ x.pos=(x.reihe===2?z2++:z1++); });
-  });
-}
+/* 15.08. ENTFERNT beim Umbau auf die freie Flaeche: _abKachelListe,
+   _abReihe und _abEditVerschieben waren der RASTER-Zeichner (zwei Reihen,
+   Plaetze tauschen). Sie hatten nach dem Umbau keinen Aufrufer mehr. Stehen
+   lassen hiesse zwei Anordnungslogiken im selben Code (§4.2) - genau der
+   Fehler, gegen den die Regel geschrieben ist.
+   RUECKHOLBAR: der letzte Stand MIT diesen drei Funktionen ist Build
+   2026-08-15-3040 und liegt im ausgelieferten Repo (git). Es wurde KEINE
+   zusaetzliche Sicherungsdatei angelegt — das hier ist die Fundstelle. */
 
 /* Verdrahtung ALLES, was in den Bento-Reihen haengt. Wird beim Erstaufbau und
    nach jedem Neuzeichnen im Anordnen-Modus gerufen — dieselbe Fassung, nicht
@@ -12012,7 +12094,8 @@ function _abBentoNach(box){
       var was=b.getAttribute('data-abe'), id=b.getAttribute('data-kid');
       if(was==='aus')       _abEditAendern(function(l,find){ var e=find(id); if(e) e.aus=true; });
       else if(was==='ein')  _abEditAendern(function(l,find){ var e=find(id); if(e) e.aus=false; });
-      else if(was==='breit')_abEditAendern(function(l,find){ var e=find(id); if(e) e.breit=!e.breit; });
+      else if(was==='vor')     _abStapel(id,true);
+      else if(was==='zurueck') _abStapel(id,false);
       else if(was==='standard'){ _abLayoutSetzen(null);
         _AB_MELDUNG='Standardanordnung aus dem Code — noch NICHT gespeichert.'; _abNeuZeichnen(); }
       else if(was==='verwerfen'){ _abLayoutSetzen(_AB_VORHER);
@@ -12043,31 +12126,74 @@ function _abBentoNach(box){
   var vw=document.getElementById('abVarWahl');
   if(vw) vw.addEventListener('change',function(){ _abVarianteWaehlen(vw.value); });
 
-  /* ---- Anordnen-Modus: Ziehen -------------------------------------------- */
+  /* ---- Schieben und Groesse ziehen ---------------------------------------
+     Kein HTML5-Drag: das kann nur „von A auf B fallen lassen" und kennt keine
+     freie Lage. Hier wird mit der Maus gerechnet — waagerecht in logischen
+     Einheiten, damit dieselbe Anordnung auf jedem Bildschirm gleich aussieht.
+     Waehrend des Ziehens wird nur der Stil der einen Kachel angefasst; erst
+     beim Loslassen geht die neue Lage durch die normale Aenderungsspur. */
   if(_AB_EDIT){
-    var zieht=null;
-    box.querySelectorAll('.bk.bedit[data-kid]').forEach(function(k){
-      k.addEventListener('dragstart',function(ev){
-        zieht=k.getAttribute('data-kid');
-        k.classList.add('bzieh');
-        try{ ev.dataTransfer.effectAllowed='move';
-             ev.dataTransfer.setData('text/plain',zieht); }catch(e){}
-      });
-      k.addEventListener('dragend',function(){ zieht=null;
-        box.querySelectorAll('.bzieh,.bziel').forEach(function(x){
-          x.classList.remove('bzieh'); x.classList.remove('bziel'); }); });
-      k.addEventListener('dragover',function(ev){
-        if(!zieht||zieht===k.getAttribute('data-kid')) return;
-        ev.preventDefault(); k.classList.add('bziel');
-        try{ ev.dataTransfer.dropEffect='move'; }catch(e){}
-      });
-      k.addEventListener('dragleave',function(){ k.classList.remove('bziel'); });
-      k.addEventListener('drop',function(ev){
-        ev.preventDefault(); k.classList.remove('bziel');
-        var von=zieht; try{ von=ev.dataTransfer.getData('text/plain')||zieht; }catch(e){}
-        _abEditVerschieben(von, k.getAttribute('data-kid'));
+    var flaeche=document.getElementById('abFlaeche');
+    var lauf=null;
+    var jeEinheit=function(){
+      var br=flaeche?flaeche.getBoundingClientRect().width:_AB_LW;
+      return br/_AB_LW;   /* Bildpunkte je logischer Einheit */
+    };
+    var starten=function(ev, id, modus){
+      var el=box.querySelector('.bk[data-kid="'+id+'"]'); if(!el) return;
+      var l=_abKachelFlaeche().filter(function(e){ return e.k.id===id; })[0];
+      if(!l) return;
+      lauf={id:id, modus:modus, el:el, start:l.lage,
+            mx:ev.clientX, my:ev.clientY, f:jeEinheit(), neu:null};
+      el.classList.add('bzieh');
+      if(flaeche) flaeche.classList.add('zieht');
+      ev.preventDefault();
+    };
+    var bewegen=function(ev){
+      if(!lauf) return;
+      var dx=(ev.clientX-lauf.mx)/(lauf.f||1), dy=ev.clientY-lauf.my;
+      var s=lauf.start, n;
+      if(lauf.modus==='ziehen'){
+        n={x:Math.max(0,Math.min(_AB_LW-s.b, s.x+dx)), y:Math.max(0,s.y+dy), b:s.b, h:s.h};
+      }else{
+        n={x:s.x, y:s.y, b:Math.max(_AB_MINB,Math.min(_AB_LW-s.x, s.b+dx)),
+           h:Math.max(_AB_MINH, s.h+dy)};
+      }
+      lauf.neu=n;
+      lauf.el.style.left=(n.x/_AB_LW*100)+'%';
+      lauf.el.style.top=Math.round(n.y)+'px';
+      lauf.el.style.width=(n.b/_AB_LW*100)+'%';
+      lauf.el.style.height=Math.round(n.h)+'px';
+    };
+    var loslassen=function(){
+      if(!lauf) return;
+      var l=lauf; lauf=null;
+      l.el.classList.remove('bzieh');
+      if(flaeche) flaeche.classList.remove('zieht');
+      if(l.neu) _abLageSetzen(l.id, l.neu);   /* erst hier wird es gespeichert */
+    };
+    box.querySelectorAll('[data-zieh]').forEach(function(g){
+      g.addEventListener('mousedown',function(ev){
+        if(ev.target.closest&&ev.target.closest('button')) return;  /* Knopf bleibt Knopf */
+        starten(ev, g.getAttribute('data-zieh'), 'ziehen');
       });
     });
+    box.querySelectorAll('[data-groesse]').forEach(function(g){
+      g.addEventListener('mousedown',function(ev){
+        starten(ev, g.getAttribute('data-groesse'), 'groesse');
+      });
+    });
+    /* Die beiden Zuhoerer haengen am FENSTER, nicht an der Kachel: sonst bleibt
+       eine Kachel kleben, sobald die Maus schneller ist als das Nachzeichnen
+       und den Rand verlaesst. Sie werden EINMAL angemeldet und rufen den
+       jeweils aktuellen Rechner - jedes Neuzeichnen sonst einen neuen Zuhoerer
+       anhaengen, und nach zehn Umbauten liefen zehn davon. */
+    _AB_BEWEGEN=bewegen; _AB_LOS=loslassen;
+    if(!_AB_MAUS){
+      _AB_MAUS=true;
+      window.addEventListener('mousemove',function(ev){ if(_AB_BEWEGEN) _AB_BEWEGEN(ev); });
+      window.addEventListener('mouseup',  function(){    if(_AB_LOS)     _AB_LOS(); });
+    }
   }
 
   /* Reihe 2 laedt NACH — sie darf den Seitenaufbau nicht aufhalten (Work #17). */
@@ -12192,8 +12318,36 @@ function _abkWaechter(c){
   };
 }
 
+/* Die Flaeche zeichnen. EIN Behaelter, absolute Lagen, Ueberlappung erlaubt. */
+function _abFlaeche(c){
+  var l=_abKachelFlaeche(), unten=0;
+  l.forEach(function(e){ unten=Math.max(unten, e.lage.y+e.lage.h); });
+  var h='<div class="abfrei'+(_AB_EDIT?' bearb':'')+'" id="abFlaeche" '
+    +'style="height:'+(unten+16)+'px">';
+  l.forEach(function(e){
+    var g=e.lage, x=e.k;
+    var stil='position:absolute;left:'+(g.x/_AB_LW*100).toFixed(4)+'%;top:'+g.y+'px;'
+      +'width:'+(g.b/_AB_LW*100).toFixed(4)+'%;height:'+g.h+'px;z-index:'+g.z+';overflow:hidden';
+    var zus=_AB_EDIT?_abEditRahmen(x):{};
+    zus=Object.assign({}, zus, {stil:stil,
+      attr:(zus.attr||'')+' data-kid="'+esc(x.id)+'"'});
+    if(x.roh){
+      var r=x.roh(c,x);
+      /* Kacheln mit eigenem Rahmen: Klasse, Attribute und Stil nachtraeglich an
+         das erste <div — ihr Markup gehoert ihnen, die Lage nicht. */
+      r=r.replace('<div class="bk"','<div class="bk'+(zus.klasse||'')+'"'+zus.attr
+        +' style="'+stil+'"');
+      if(zus.vor) r=r.replace(/>/, '>'+zus.vor);
+      h+=r; return;
+    }
+    var t=x.bau(c,x)||{};
+    h+=_abKachel(x.titel, t.tag||'', t.inhalt||'', t.fuss||'', false, zus);
+  });
+  return h+'</div>';
+}
+
 function _abBento(d,np,A){
-  return _abReihe(1,'abbento',{d:d||{},np:np||{},A:A});
+  return _abFlaeche({d:d||{},np:np||{},A:A});
 }
 
 /* ============================================================================
@@ -12237,9 +12391,11 @@ function _abkStammU(){
   };
 }
 
-function _abBento2(){
-  return _abReihe(2,'abbento ab2',{});
-}
+/* Die zweite Reihe ist mit dem Umbau auf die freie Flaeche entfallen — ihre
+   vier Kacheln liegen jetzt in derselben Flaeche wie die anderen. Die Funktion
+   bleibt als leere Huelle stehen, weil dashArbeitHtml sie ruft; entfernt wird
+   sie erst, wenn der Aufrufer angefasst wird (§2.3: keine Nebenaenderung). */
+function _abBento2(){ return ''; }
 
 /* Schnellzugriff. Reine Wege, keine Zahlen — deshalb sofort da und ohne Nachladen.
    Die Ziele sind adminGo-Schluessel, die es WIRKLICH gibt (aus der fg-Tabelle in
@@ -29856,7 +30012,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3040";
+const APP_BUILD = "2026-08-15-3070";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

@@ -127,7 +127,17 @@ body{ --admin-oben:64px }
      Jetzt hat sie einen eigenen Grund und eine Kante nach rechts — dieselbe Rolle,
      dieselbe Optik. Kein Rahmen ringsum: sie beginnt am Bildschirmrand und soll dort
      auch anliegen, nicht als Kaestchen schweben. */
-  background:var(--bg-2, #f6f7f9);
+  /* 🔴 15.08.2026 abends, Ralph: „was aber nicht passt, ist das menue, das soll
+     auch weiss hinterlegt sein." Hier stand `--bg-2` (#f6f7f9) — ein Grauton, der
+     die Rail vom Rest ABSETZEN sollte. Genau das war der Fehler: sie ist kein
+     Beiwerk neben den Karten, sie IST eine Karte. Auf dem Bild von Ralph steht sie
+     als einziger Block grau zwischen lauter weissen — das liest sich wie
+     „ausgegraut, nicht benutzbar", und das ist das Gegenteil ihrer Rolle.
+     Jetzt derselbe Grund wie jede andere Karte (`--card`), damit die Farbe nicht
+     doppelt gepflegt wird und beim naechsten Themenwechsel mitzieht.
+     Der Ausgangspunkt aus Work #23 bleibt: Kante rechts, links am Bildschirmrand
+     anliegend, kein Rahmen ringsum. Geaendert wird die FARBE, nicht die Form. */
+  background:var(--card);
   border-right:1px solid var(--line);
   border-radius:10px 0 0 10px;
   padding:12px 12px 16px 12px;
