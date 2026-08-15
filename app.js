@@ -5126,9 +5126,19 @@ function fgStammPanelBauen(){
         +'</div>'
         +'<span id="fgStTag" class="fgSwTag canon">Canonical · maßgeblich</span>'
         +'<input id="fgStSuche" placeholder="Name suchen …" onkeydown="if(event.key===\'Enter\'){_fgStamm.offset=0;fgStammListe();}">'
-        +'<select id="fgStStatus" onchange="_fgStamm.offset=0;fgStammListe()">'
-          +'<option value="active">active</option><option value="review">review</option>'
-          +'<option value="retired">retired</option><option value="">alle</option></select>'
+        /* 🔴 KORREKTUR 15.08.2026: hier stand zusaetzlich <option value="review">.
+           p_status filtert auf lifecycle_status, und den Wert "review" gibt es dort
+           NICHT — gemessen: active 941, retired 5, sonst nichts. "review" gehoert zu
+           assessment_status (approved 599 · draft 325 · review 14), einer anderen
+           Achse. Wer ihn waehlte, bekam 0 Treffer und musste glauben, der Stamm sei
+           leer. Eine Auswahl, die eine falsche Aussage erzeugt, ist schlimmer als
+           eine fehlende (§25.2, Frage 2: „Luegt es?"). */
+        +'<select id="fgStStatus" onchange="_fgStamm.offset=0;fgStammListe()" '
+          +'title="Lebenszyklus des Canonical-Eintrags. Nicht zu verwechseln mit dem '
+          +'Bewertungsstatus (draft/review/approved) in der Spalte Status.">'
+          +'<option value="active">aktiv</option>'
+          +'<option value="retired">stillgelegt</option>'
+          +'<option value="">alle</option></select>'
         +'<button type="button" onclick="_fgStamm.offset=0;fgStammListe()">Suchen</button>'
         +'<span id="fgStZahl" class="fgStZahl"></span>'
       +'</div>'
@@ -5187,6 +5197,26 @@ function _fgStFeld(id, feld, wert, art){
   if(art==='bool') return '<select data-id="'+esc(id)+'" data-feld="'+esc(feld)+'" onchange="fgStammPatch(this)">'
     +'<option value="false"'+(String(wert)==='true'||wert===true?'':' selected')+'>nein</option>'
     +'<option value="true"'+(String(wert)==='true'||wert===true?' selected':'')+'>ja</option></select>';
+  /* 🔴 NEU 15.08.2026 — art='janein' fuer den ALTEN Stamm.
+     Zutaten_Stamm."Kritisch" ist eine TEXTspalte, und cb_admin_stamm_alt_aktualisieren
+     legt p_patch->>'kritisch' unveraendert als Text ab. Vorher lief das Feld ueber
+     art='bool' und haette beim naechsten Speichern 'true'/'false' hineingeschrieben —
+     in eine Spalte, die im Bestand 'ja'/'nein' traegt (gemessen 15.08.: nein 8320,
+     ja 41). Es gab noch keinen Schaden: shadow_v1.audit_event ist leer, der
+     Schreibweg wurde nie benutzt.
+     Weicht der IST-Wert ab ('false', 'true', 'Nein', …), bleibt er als eigene Option
+     stehen statt still auf 'nein' normalisiert zu werden. Eine Anzeige, die den
+     Bestand schoener macht, als er ist, verhindert genau die Korrektur, die noetig
+     waere — die Bereinigung laeuft als Work Item #13 bei ChatGPT (§31). */
+  if(art==='janein'){
+    var opts=[['','—'],['ja','ja'],['nein','nein']];
+    if(w && w!=='ja' && w!=='nein') opts.push([w, w+' (Ist-Wert, abweichende Schreibweise)']);
+    return '<select data-id="'+esc(id)+'" data-feld="'+esc(feld)+'" onchange="fgStammPatch(this)"'
+      +(w && w!=='ja' && w!=='nein' ? ' title="Diese Zeile traegt eine abweichende Schreibweise. Wird sie geaendert, steht danach ja oder nein da."' : '')
+      +'>'+opts.map(function(o){
+        return '<option value="'+esc(o[0])+'"'+(w===o[0]?' selected':'')+'>'+esc(o[1])+'</option>';
+      }).join('')+'</select>';
+  }
   return '<input data-id="'+esc(id)+'" data-feld="'+esc(feld)+'" value="'+esc(w)+'"'
     +(art==='num'?' inputmode="numeric"':'')+' onchange="fgStammPatch(this)">';
 }
@@ -5222,7 +5252,9 @@ function _fgStammAltTab(rows){
         +'<td>'+_fgStFeld(id,'zutat',x.zutat)+'</td>'
         +'<td>'+_fgStFeld(id,'kategorie',x.kategorie)+'</td>'
         +'<td class="fgStBew">'+_fgStFeld(id,'bewertung',x.bewertung,'num')+'</td>'
-        +'<td>'+_fgStFeld(id,'kritisch',(String(x.kritisch)==='ja'||x.kritisch===true),'bool')+'</td>'
+        /* Text, nicht Boolean — siehe Begruendung an _fgStFeld, art='janein'.
+           Der ROHE Ist-Wert wird durchgereicht, nicht vorher auf ja/nein gebogen. */
+        +'<td>'+_fgStFeld(id,'kritisch',x.kritisch,'janein')+'</td>'
         +'<td>'+_fgStFeld(id,'traegerstoff',x.traegerstoff,'bool')+'</td>'
         +'<td title="'+esc(String(x.quelle_detail||''))+'">'+_fgStFeld(id,'quelle_status',x.quelle_status)+'</td>'
         +'<td class="fgStNum">'+esc(String(x.produktbindungen==null?'–':x.produktbindungen))+'</td>'
@@ -5236,9 +5268,31 @@ async function fgStammPatch(el){
   var roh=String(el.value==null?'':el.value).trim();
   var erlaubt=(_fgStamm.tab==='neu')?FG_STAMM_PATCH_NEU:FG_STAMM_PATCH_ALT;
   if(erlaubt.indexOf(feld)<0){ alert('Feld „'+feld+'" ist serverseitig nicht änderbar.'); return; }
+  /* 🔴 KORREKTUR 15.08.2026 — die Umwandlung haengt am TAB, nicht nur am Feldnamen.
+     Vorher wurde "kritisch" in BEIDEN Taben zu einem Boolean gemacht. Das ist nur
+     fuer den neuen Stamm richtig: shadow_v1.ingredient_profile.critical ist boolean,
+     public."Zutaten_Stamm"."Kritisch" dagegen TEXT mit 'ja'/'nein'. Der Server
+     schreibt p_patch->>'kritisch' unveraendert hinein — ein Boolean waere dort als
+     'true'/'false' gelandet, eine siebte Schreibweise in einer Spalte, die schon
+     sechs hat. "traegerstoff" bleibt in beiden bool: beide Vertraege casten ::boolean. */
+  var istNeu=(_fgStamm.tab==='neu');
   var wert;
-  if(feld==='kritisch'||feld==='traegerstoff') wert=(roh==='true');
-  else if(feld==='bewertung') wert=(roh===''?null:Number(roh.replace(',','.')));
+  if(feld==='traegerstoff' || (istNeu && feld==='kritisch')) wert=(roh==='true');
+  else if(feld==='bewertung'){
+    if(roh===''){ wert=null; }
+    else {
+      var z=Number(roh.replace(',','.'));
+      /* 🔴 NaN darf NICHT ans Netz. JSON.stringify(NaN) ergibt null — eine Eingabe
+         wie „gut" haette die Note also STILL GELOESCHT, statt eine Fehlermeldung zu
+         erzeugen. Ein stiller Datenverlust ist schlimmer als eine abgelehnte
+         Eingabe (§1.7). Gefunden beim Umbau der kritisch-Umwandlung. */
+      if(!isFinite(z)){
+        alert('Nicht gespeichert:\n\n„'+roh+'" ist keine Zahl. Die Note muss 0 bis 10 sein oder leer bleiben.');
+        fgStammListe(); return;
+      }
+      wert=z;
+    }
+  }
   else wert=(roh===''?null:roh);
   /* Ralph: „Der Server lehnt Bewertungsänderung ohne Grund ab." Deshalb wird der
      Grund HIER erfragt — geprueft wird er weiterhin nur serverseitig (§4.2). */
@@ -27462,7 +27516,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2355";
+const APP_BUILD = "2026-08-15-2420";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
