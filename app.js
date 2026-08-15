@@ -19564,7 +19564,12 @@ try{ if(localStorage.getItem("ri_fokus")==="aus")
 function feFokusSet(an){
   /* KEIN localStorage mehr. Das ist der ganze Fehler und seine ganze Behebung. */
   window._feAlleBereiche = !an;
-  if(!an) feFokusAlleZeigen();
+  if(!an){
+    feFokusAlleZeigen();
+    /* HIER wird der Modus wirklich verlassen — und nur hier. */
+    try{ document.body.classList.remove("riFokus"); }catch(e){}
+    try{ document.body.removeAttribute("data-fe-schritt"); }catch(e){}
+  }
   try{ feFokusNavBauen(); }catch(e){}
   try{ feFokusSchritt(window._feSchritt||1); }catch(e){}
   try{ feAlleBereicheLeiste(); }catch(e){}
@@ -19618,9 +19623,27 @@ function feFokusAlleZeigen(){
     var z=e.closest?e.closest(".mz"):null; if(z&&z.classList) z.classList.remove("feFokusBreit"); });
   var hb=document.querySelector(".feHolBox"); if(hb) hb.style.display="";
   try{ feFokusQuelle(false); }catch(e){}
-  /* Fokus-Raster und Rail-Umbau zuruecknehmen — der Rueckweg stellt die alte
-     One-Page vollstaendig her, samt Root-Index-, Freigabe- und Quellenkarte. */
-  try{ document.body.classList.remove("riFokus"); }catch(e){}
+  /* 🔴 15.08.2026, DER FEHLER HINTER RALPHS SCREENSHOTS — gemessen, nicht vermutet:
+     Hier stand `document.body.classList.remove("riFokus")`.
+
+     Diese Funktion hat ZWEI Aufgaben, und das war die Falle:
+       1. Sie ist der RUECKWEG in die Komplettansicht (feFokusSet(false)).
+       2. Sie ist der RESET am Anfang JEDES Schrittwechsels — `feFokusSchritt`
+          ruft sie in Zeile 12, direkt nachdem Zeile 6 `riFokus` GESETZT hat.
+
+     Folge: bei jedem Schrittwechsel wurde der Fokusmodus sechs Zeilen nach dem
+     Einschalten wieder abgeschaltet. Danach griff KEINE einzige `body.riFokus`-
+     Regel mehr — weder das dreispaltige Raster noch die expliziten
+     `grid-column`-Zuweisungen. Uebrig blieb die alte Zweispalten-Grundregel
+     `#feRahmen{ 242px minmax(0,1fr) }`, und `#feKontext` fiel als drittes Kind
+     per Auto-Placement in Zeile 2 — unter den Arbeitsbereich. Genau Ralphs Bild.
+
+     Das erklaert auch, warum die Klasse `riDrei` von 0930 nichts half: die Regel
+     lautet `body.riFokus #feRahmen.riDrei` und braucht BEIDE.
+
+     Das Abschalten gehoert dorthin, wo der Modus wirklich verlassen wird — nach
+     `feFokusSet(false)`. Eine Funktion, die aufraeumt, darf nicht nebenbei den
+     Modus wechseln (§4.2: eine Aufgabe, ein Ort). */
   try{ feRailNav(false); }catch(e){}
   try{ feRailAufraeumen(false); }catch(e){}
   try{ feFokusMitteZurueck(); }catch(e){}
@@ -26915,7 +26938,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-0930";
+const APP_BUILD = "2026-08-15-1130";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
