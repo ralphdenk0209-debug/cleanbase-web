@@ -2125,4 +2125,23 @@ body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich{ margin-top:
 /* `#feTab3` und `#feAbgleich` teilen sich sonst die Zelle 2/1. */
 body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich::before{
   content:"B · Etikett & Abgleich" }
-body.riFokus[data-fe-schritt="bestand"] #fe_gridA{ height:auto; min-height:340px }
+/* 🔴 15.08.2026: DER EINE ORT fuer das Innenraster von Schritt 3.
+   Im Fokusmodus ist `fe_gridA` EINSPALTIG — die Referenz steht rechts im Kontext,
+   der Zusatzstoffkasten ist seit 13.08. `display:none`. Es gibt hier also nichts
+   mehr, was eine zweite oder dritte Spalte fuellen koennte; sie waeren nur Leere.
+
+   Das Template setzt inline zwei Spalten und eine Bildschirmhoehe — beides wird
+   im Fokus von `feFokusSchritt` und `feGridHoeheSync` GELOESCHT, damit diese
+   Regel ueberhaupt greifen kann. Inline schlaegt Stylesheet; das war heute
+   dreimal die Ursache.
+
+   Der ALTE Modus behaelt sein Raster vollstaendig (Ralph P5) — diese Regel haengt
+   an `body.riFokus` und gilt dort nicht. */
+body.riFokus #fe_gridA{
+  grid-template-columns:minmax(0,1fr) !important;
+  height:auto !important; min-height:0 !important;
+}
+/* Die Bestandteilkarte fuellt die ganze Spalte — keine Reservebreite. */
+body.riFokus #fe_colZut{ grid-column:1; width:100%; min-width:0 }
+/* 6. Der Abgleich darunter bekommt dieselbe Aussenbreite wie die Tabelle. */
+body.riFokus #feAbgleich{ width:100%; min-width:0 }

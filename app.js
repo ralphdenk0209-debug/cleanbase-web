@@ -4091,6 +4091,30 @@ function feGridHoeheSync(){
   var h=(k&&k.innerHTML)?Math.ceil(k.getBoundingClientRect().height)+10:0;   /* +10 = margin-top */
   if(k) k.style.marginTop=(k.innerHTML?"10px":"0");
   var stufe=feStufe();
+  /* 🔴 15.08.2026, RALPHS BEFUND „springt nach kurzem Vollbreit-Render auf 1/3":
+     GEMESSEN — genau hier lag es. Diese Funktion schrieb den ALTEN Mehrspalten-
+     vertrag `feSpalten("gridA", …)` inline auf `fe_gridA`, also bei breiten
+     Fenstern DREI Spalten: `minmax(0,1fr) minmax(0,1fr) minmax(340px,1.18fr)`.
+
+     Im Fokusmodus steht die Referenz laengst AUSSERHALB im rechten Kontext, und
+     der Zusatzstoffkasten ist seit 13.08. `display:none`. Uebrig blieb also die
+     Bestandteiltabelle in Spalte 1 von drei — rund ein Drittel der Mitte, der
+     Rest leer. Exakt Ralphs Screenshot.
+
+     Der SPRUNG entstand aus der Reihenfolge: `feFokusSchritt` setzte korrekt
+     einspaltig, danach lief `feGridHoeheSync` (aus `feNaehrKachelnSync`, aus dem
+     Resize-Horcher und aus drei weiteren Nachrenderpfaden) und ueberschrieb es.
+
+     🔴 IM FOKUSMODUS SETZT DIESE FUNKTION DIE SPALTEN NICHT MEHR. Die Hoehe
+     regelt sie weiter — dafuer ist sie da. Der ALTE Modus bleibt vollstaendig
+     unangetastet (Ralph P5): dort gilt `feSpalten` unveraendert. */
+  var _fokus=false; try{ _fokus=(typeof feFokusAn==="function") && feFokusAn(); }catch(e){}
+  if(_fokus){
+    /* Inline LOESCHEN statt einen zweiten Wert schreiben — dann greift die eine
+       Regel im Stylesheet. Inline haette sie geschlagen (die Lektion von heute). */
+    g.style.gridTemplateColumns="";
+    g.style.height=""; g.style.minHeight="";
+  } else {
   /* Spaltenzahl nach Breite. Bei „mittel" bekommt die Referenz-Karte die volle
      Zeile - sie ist die breiteste und wird sonst zur Schlucht. */
   g.style.gridTemplateColumns=feSpalten("gridA", false, false, stufe);
@@ -4111,13 +4135,14 @@ function feGridHoeheSync(){
   }
   var ref=document.getElementById("fe_colRef");
   if(ref) ref.style.gridColumn=(stufe==="mittel")?"1 / -1":"";
+  }   /* Ende des Nicht-Fokus-Zweigs */
   /* 07.08.2026 ONE-PAGE: Die Arbeitsflaeche gibt ihre feste Bildschirmhoehe ab.
      Eine Karte kann nicht gleichzeitig "volle Bildschirmhoehe" haben UND mitscrollen -
      auf einer durchgehenden Seite scrollt die Seite. Genau das stand schon im
      "eng"-Zweig fuer schmale Bildschirme; er wird jetzt der Normalfall.
      Die SPALTENZAHL bleibt breitenabhaengig (feSpalten weiter oben) - nur die
      Hoehenrechnung entfaellt. FE_GRID_BASIS wird dadurch nicht mehr gebraucht. */
-  g.style.height="auto"; g.style.minHeight="0"; g.style.gridTemplateRows="";
+  if(!_fokus){ g.style.height="auto"; g.style.minHeight="0"; g.style.gridTemplateRows=""; }
   /* Die POSITION des Streifens regelt seit Build 1520 das Raster selbst (feKachelBreiteSync:
      Zeile 2, Spalte 2). Der margin-Hochzug aus 1440/1500 ist ersatzlos raus - er galt nur im
      Messmoment und wurde vom Nachrendern der linken Leiste ueberholt (Ralphs Fund). */
@@ -20056,8 +20081,12 @@ function feFokusSchritt(n){
       var e=document.getElementById(id); if(!e) return;
       e.style.display=(s.nur.indexOf(id)>=0)?"":"none";
     });
+    /* 🔴 15.08.: Inline wird GELOESCHT, nicht gesetzt. Der Fokuswert steht im
+       Stylesheet (`body.riFokus #fe_gridA`) — an genau einem Ort und damit immun
+       gegen jeden weiteren Schreiber. Ein Inline-Wert hier waere der zweite
+       Besitzer gewesen, und genau daran ist es dreimal heute gescheitert. */
     var g=document.getElementById("fe_gridA");
-    if(g) g.style.gridTemplateColumns="minmax(0,1fr)";
+    if(g){ g.style.gridTemplateColumns=""; g.style.height=""; g.style.minHeight=""; }
   } else {
     var g2=document.getElementById("fe_gridA");
     if(g2) g2.style.gridTemplateColumns="minmax(0,1fr) minmax(340px,1.18fr)";
@@ -27001,7 +27030,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-1340";
+const APP_BUILD = "2026-08-15-1520";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
