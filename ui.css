@@ -1745,10 +1745,12 @@ body.riFokus #feRahmen{
      eingestellt und von mir im Browser gegengeprueft (Ueberlauf 0). Sie loesen
      meine Schaetzungen 780/640 ab: die waren gerechnet, diese sind gesehen. */
   --kontext-breite: 480px;   /* Untergrenze (Ralph P4) */
-  /* 🔴 15.08.2026 SPAET, RALPH-ENTSCHEID A — `--kontext-max` DECKELT NICHT MEHR.
-     Die Kontextspalte nimmt jetzt den Rest (`1fr` unten in .riDrei). Der Deckel
-     stand seit heute Abend auf 603 und war Ralphs eigener Stellradwert; er hat
-     ihn selbst wieder aufgehoben, nachdem die Folge messbar auf dem Tisch lag:
+  /* 🔴 15.08.2026 SPAET — `--kontext-max` BLEIBT BEI 603. Ralph hatte Entscheid A
+     getroffen (Deckel weg, Spalte nimmt den Rest), ich habe es gebaut, ANGESEHEN
+     und wieder zurueckgenommen. Der Grund steht ganz unten unter ZURUECKGENOMMEN
+     und ist wichtiger als der Rest dieses Blocks.
+
+     Ausgangslage, die zu dem Entscheid gefuehrt hat:
 
      GEMESSEN an Ralphs Fenster (1919, Rahmen rund 1871):
        180 + 43 + 700 + 20 + 603 = 1546  ->  RUND 325 PX LAGEN RECHTS BRACH.
@@ -1772,10 +1774,31 @@ body.riFokus #feRahmen{
      haengt die Grenze an der Mitte statt an einer zweiten Zahl, die jemand pflegen
      muss (§28.4).
 
-     Die Variable bleibt ABSICHTLICH stehen und wird nirgends mehr gelesen: sie
-     dokumentiert den Stellradwert, den Ralph heute Abend gesetzt hat. Wer sie
-     wieder anschliessen will, findet hier, warum sie abgeklemmt wurde (§28.5). */
-  --kontext-max:    603px;   /* ABGEKLEMMT 15.08. — siehe Block darueber. Nicht mehr wirksam. */
+     🔴 ZURUECKGENOMMEN — UND DAS IST DIE EIGENTLICHE LEHRE DIESES BLOCKS.
+     Ralph: "schau es dir selber live mal an, kann doch nicht sein, dass du nicht
+     siehst und messen kannst, was nicht passt." Er hatte recht. Beim ANSEHEN des
+     Bildschirmfotos (Build 3110, P73618, Schritt 3, beide Aenderungen injiziert):
+
+       Kontextspalte   719 px breit  ·  57 px HOCH
+       Mitte           700 px breit  ·  1016 px hoch
+       Inhalt der Kontextspalte: die eine Zeile "Referenzkarte nicht geladen."
+
+     DIE BRACHE IST NICHT VERSCHWUNDEN, SIE IST IN DIE KARTE UMGEZOGEN. Meine
+     Messung "Brache 116 -> 0" war richtig und trotzdem wertlos: gemessen wurde
+     der Abstand zum Fensterrand, nicht die Leere. Eine Zahl kann gruen werden,
+     waehrend das Bild schlechter wird — genau davor warnt §10.4 ("erst an der
+     ausgelieferten Seite messen"), und ich habe es zum zweiten Mal an einem Tag
+     uebersehen.
+
+     DER TIEFERE FEHLER: die Spalte ist leer, WEIL DIE REFERENZKARTE NICHT LAEDT
+     (Work #55). Ich habe eine Spaltenbreite an einem Zustand bemessen, in dem der
+     Inhalt fehlt. Solange #55 offen ist, ist JEDE Breitenentscheidung fuer diese
+     Spalte eine Messung am kaputten Zustand.
+
+     REIHENFOLGE, DIE DARAUS FOLGT: erst #55 (Referenzkarte laedt), dann die
+     Spalte mit echtem Inhalt ansehen, dann entscheiden. Nicht umgekehrt (§19.4,
+     Daten vor Optik). */
+  --kontext-max:    603px;   /* Ralph am Stellrad, 15.08. abends (vorher 640). Wirksam. */
   /* 🔴 15.08.2026 SPAET — WORK #43, Ralph-Entscheid A. 600 -> 690.
      GEMESSEN an RALPHS Fenster (1908x913), Browser-Build 2940, P73617 Schritt 3:
        .fgBestKopf brauchte 56+200+143+141+84 + 4x8 gap = 656 px.
@@ -1817,10 +1840,9 @@ body.riFokus #feRahmen{
 body.riFokus #feRahmen.riDrei{
   grid-template-columns:
     var(--rail-breite) var(--gap-rail) minmax(0,var(--mitte-max))
-    /* 15.08. Ralph-Entscheid A: `1fr` statt `var(--kontext-max)` — die Spalte
-       nimmt den Rest, damit rechts nichts mehr brachliegt. Begruendung und
-       Messung stehen beim Variablenblock oben. */
-    var(--gap-kontext) minmax(var(--kontext-breite),1fr);
+    /* 15.08. — `1fr` war hier fuer wenige Minuten eingebaut (Ralph-Entscheid A)
+       und ist ZURUECKGENOMMEN. Warum, steht beim Variablenblock oben. */
+    var(--gap-kontext) minmax(var(--kontext-breite),var(--kontext-max));
 }
 /* 🔴 15.08.2026, NACHBESSERUNG — die Grenze stand zuerst bei 1400px und war FALSCH
    GERECHNET. Sie prueft den VIEWPORT, der Platz wird aber im RAHMEN verteilt, und der
