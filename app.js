@@ -10919,9 +10919,13 @@ function dashArbeitCss(){
       Die Kacheln liegen absolut. Die Flaeche selbst ist relativ und bekommt
       ihre Hoehe aus der untersten Kachel — sonst faellt der Rest der Seite
       in sie hinein. */
-   +A+' .abfrei{position:relative;width:100%;margin-bottom:13px}'
-   +A+' .abfrei .bk{background:#fff;border:1px solid var(--abline);border-radius:16px;'
-    +'display:flex;flex-direction:column;box-shadow:0 1px 2px rgba(16,24,40,.05)}'
+   /* display:block hebt das Raster aus .abbento auf — die Kacheln liegen hier
+      absolut. Alles ANDERE aus .abbento gilt weiter und soll das auch. */
+   +A+' .abfrei{display:block;position:relative;width:100%;margin-bottom:13px}'
+   /* Nur was die freie Lage braucht. Aussehen kommt aus .abbento .bk. */
+   +A+' .abfrei .bk{position:absolute;overflow:hidden}'
+   +A+' .abfrei .bkopf{flex:0 0 auto}'
+   +A+' .abfrei .bfuss{flex:0 0 auto}'
    +A+' .abfrei.bearb{background:'
     +'repeating-linear-gradient(0deg,#eef1f5 0 1px,transparent 1px 40px),'
     +'repeating-linear-gradient(90deg,#eef1f5 0 1px,transparent 1px 40px);'
@@ -13025,7 +13029,18 @@ function _abkWaechter(c){
 function _abFlaeche(c){
   var l=_abKachelFlaeche(), unten=0;
   l.forEach(function(e){ unten=Math.max(unten, e.lage.y+e.lage.h); });
-  var h='<div class="abfrei'+(_AB_EDIT?' bearb':'')+'" id="abFlaeche" '
+  /* 🔴 15.08.2026, Ralph: „die neuen inhalte sind nicht sauber formatiert, nur
+     reingeklatscht, das war alles schon mal viel schoener." ER HAT RECHT, und
+     die Ursache war EINE Klasse.
+     Das gesamte Kachel-Aussehen haengt an Regeln der Form `.abbento .bzeile`,
+     `.abbento .baufg`, `.abbento .bzahl` — 38 Stueck. Beim Umbau auf die freie
+     Flaeche hiess der Behaelter nur noch `abfrei`, und damit griff KEINE davon
+     mehr: „Entwürfe58065" statt Beschriftung links und Zahl rechts, der
+     Waechterring in voller Groesse, die Landkarte ungebremst.
+     Der Behaelter traegt deshalb BEIDE Klassen. Nicht 38 Regeln kopieren
+     (§4.2) — eine Klasse dazu. `.abfrei` setzt danach nur noch das um, was die
+     freie Lage wirklich braucht. */
+  var h='<div class="abbento abfrei'+(_AB_EDIT?' bearb':'')+'" id="abFlaeche" '
     +'style="height:'+(unten+16)+'px">';
   l.forEach(function(e){
     var g=e.lage, x=e.k;

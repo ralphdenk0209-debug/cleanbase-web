@@ -2203,9 +2203,35 @@ body.riFokus #feTab2 #feNwOben{ grid-template-columns:minmax(0,1fr) }
 /* Kein DOM-Umbau: `.feHolBox` und `#feKopfGrid` bleiben Geschwister. Die Karte
    wandert nur nach AUSSEN auf ihren gemeinsamen Elternteil, und die beiden
    verlieren innen ihre eigene Kartenoptik. Aus zwei Karten wird eine. */
+/* 🔴 15.08.2026 SPAET — `#feTab1` IM SELEKTOR ERGAENZT. Ohne das war diese Regel
+   zur Haelfte wirkungslos, und zwar seit sie existiert.
+
+   GEMESSEN (Spezifitaet, nicht geschaetzt):
+     ui.css 1191  #feTab1 #feKopfLayout                              = (2,0,0)
+     hier         body.riFokus[data-fe-schritt="kopf"] #feKopfLayout = (1,2,1)
+   (2,0,0) schlaegt (1,2,1). `display:flex` und `flex-direction:column` kamen also
+   NIE an — der Kopfbereich blieb das Zweispaltenraster aus 1191 mit fester 300px
+   Bildspalte. `background`, `border` und `padding` griffen weiter, weil 1191 sie
+   nicht deklariert: es SAH aus wie eine Karte und rechnete als Raster. Genau
+   deshalb hat es niemand gesehen. Der Kommentar darueber beschrieb einen Zustand,
+   den es nie gab.
+
+   BELEG, im laufenden Browser gemessen (Build 3110, P73618, Schritt 1, per
+   Style-Injektion vor dem Ablegen — die Ablauftests rendern nicht, Work #37):
+     vorher   display:grid   grid-template-columns 354px 300px   #feKopfGrid = 354
+     nachher  display:flex   grid-template-columns none          #feKopfGrid = 666
+   Ralph hatte am Inspektor 680 eingestellt. Seine Zahl war keine Wunschbreite,
+   sondern die richtige Diagnose: er wollte das Formular ueber die volle Breite,
+   und genau das war die Absicht dieser Regel.
+
+   `grid-template-columns:none` steht ausdruecklich dabei, damit die geerbte
+   Spaltenangabe aus 1191 nicht als Leiche stehenbleibt, falls jemand spaeter
+   wieder auf `display:grid` schaltet. */
+body.riFokus[data-fe-schritt="kopf"] #feTab1 #feKopfLayout,
 body.riFokus[data-fe-schritt="kopf"] #feKopfLayout{
   background:var(--card); border:1px solid var(--line); border-radius:12px;
   padding:14px 16px; display:flex; flex-direction:column; gap:0;
+  grid-template-columns:none;
 }
 body.riFokus[data-fe-schritt="kopf"] .feHolBox{
   background:transparent; border:0; border-radius:0; padding:0 0 12px; margin:0;
