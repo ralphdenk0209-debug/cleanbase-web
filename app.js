@@ -10858,7 +10858,14 @@ function dashArbeitCss(){
    +A+' .abedit .abename{font-size:11px;font-weight:800;text-transform:uppercase;'
     +'letter-spacing:.04em;color:var(--abmut);overflow:hidden;text-overflow:ellipsis;'
     +'white-space:nowrap;min-width:0}'
-   +A+' .abedit .abesp{margin-left:auto;display:flex;gap:5px}';
+   +A+' .abedit .abesp{margin-left:auto;display:flex;gap:5px}'
+   /* Inhaltsauswahl der freien Kachel */
+   +A+' .abwahl{display:flex;flex-wrap:wrap;gap:5px}'
+   +A+' .abkz{background:#fff;border:1px solid var(--abline);border-radius:20px;'
+    +'padding:4px 9px;font-size:11px;font-weight:700;color:var(--abmut);'
+    +'cursor:pointer;font-family:inherit}'
+   +A+' .abkz:hover{border-color:#cfd5de}'
+   +A+' .abkz.an{background:#eef6ee;border-color:#bcd9bc;color:'+_AB.gut+'}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -11541,8 +11548,96 @@ var _AB_KACHELN=[
   {id:'aktivitaet',reihe:2, titel:'Letzte Aktivitäten',       breit:true,  bau:_abkAkt},
   {id:'region',    reihe:2, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion},
   {id:'stammu',    reihe:2, titel:'Stamm-Überblick',          breit:false, bau:_abkStammU},
-  {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell}
+  {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell},
+  /* Die freie Kachel: Ralph bestimmt ihren INHALT, nicht nur ihren Platz.
+     Sie steht in der gespeicherten Standardvariante auf aus - wer sie will,
+     schaltet sie im Anordnen-Modus ein. Ein Dashboard, das sich von selbst um
+     eine Kachel erweitert, waere eine Ueberraschung, keine Verbesserung. */
+  {id:'frei',      reihe:1, titel:'Meine Zahlen',             breit:false, bau:_abkFrei, waehlbar:true}
 ];
+
+/* ============================================================================
+   KENNZAHL-REGISTER  ·  Work #42, „inhalt bestimmen"  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   Ralphs Auftrag hiess „container verschieben, INHALT BESTIMMEN usw." Das
+   Verschieben steht; hier kommt der Inhalt.
+
+   🔴 KURATIERTE LISTE, kein freier Datenbankzugriff aus dem Browser (§10.2).
+   Waehlbar ist genau das, was das Dashboard ohnehin schon geladen hat - keine
+   einzige zusaetzliche Abfrage, keine neue Zaehlung. Jede Zahl hier hat ihre
+   Quelle in denselben Daten wie die Kacheln daneben; damit kann keine zweite
+   Wahrheit entstehen (§4.2).
+
+   Erweitern heisst: eine Zeile in dieser Liste. Nicht: eine Migration.
+   ========================================================================== */
+var _AB_KENNZAHLEN=[
+  {id:'aktiv',      titel:'aktive Produkte',      wert:function(c){ return _abKz(c.d,'katalog','aktiv'); }},
+  {id:'entwurf',    titel:'Entwürfe',             wert:function(c){ return _abKz(c.d,'katalog','entwurf'); }},
+  {id:'schnitt',    titel:'Index-Schnitt',        wert:function(c){ var v=_abKz(c.d,'katalog','schnitt_score');
+                                                     return v==null?null:String(v).replace('.',','); }},
+  {id:'ohne_score', titel:'ohne Index-Zahl',      warn:true, wert:function(c){ return _abKz(c.d,'qualitaet','ohne_score'); }},
+  {id:'zutaten',    titel:'Zutaten im Stamm',     wert:function(c){ return _abKz(c.np,'extra','zutaten'); }},
+  {id:'rezepte',    titel:'Rezepte',              wert:function(c){ return _abKz(c.np,'extra','rezepte'); }},
+  {id:'nutzer',     titel:'Nutzer gesamt',        wert:function(c){ return _abKz(c.d,'nutzer','gesamt'); }},
+  {id:'aktiv30',    titel:'aktiv, 30 Tage',       wert:function(c){ return _abKz(c.d,'nutzer','aktiv_30t'); }},
+  {id:'premium',    titel:'Premium',              wert:function(c){ return _abKz(c.d,'nutzer','premium'); }},
+  {id:'tagebuch',   titel:'Tagebuch, 7 Tage',     wert:function(c){ return _abKz(c.d,'nutzung','eintraege_7t'); }},
+  {id:'wartend',    titel:'Vorgänge warten',      wert:function(c){ return c.A?c.A.wartend:null; }},
+  {id:'sackgasse',  titel:'ohne Abnehmer',        warn:true, wert:function(c){ return c.A?c.A.sackgasse:null; }},
+  {id:'melden',     titel:'Wächter melden',       warn:true, wert:function(c){ return c.A?c.A.melden:null; }},
+  {id:'gate',       titel:'Gate-Fälle',           warn:true, wert:function(c){ return c.A?c.A.gate_offen:null; }},
+  {id:'riki_monat', titel:'Riki, Monat',          wert:function(c){ var r=(c.d&&c.d.riki)||{}, v=Number(r.monat_usd);
+                                                     return isNaN(v)?null:v.toFixed(2).replace('.',',')+' $'; }},
+  {id:'regelwerk',  titel:'Regelwerk-Bereiche',   wert:function(c){ var r=(c.np&&c.np.regelwerk); return r?r.length:null; }}
+];
+/* Ein Griff, damit keine 16 eigene Null-Pruefungen entstehen. */
+function _abKz(quelle, gruppe, feld){
+  var g=(quelle&&quelle[gruppe])||{};
+  var v=g[feld];
+  return (v==null||v==='')?null:v;
+}
+var _AB_FREI_VORGABE=['aktiv','ohne_score','wartend','melden'];
+
+function _abFreiWahl(x){
+  var w=(x&&x.inhalt&&x.inhalt.length)?x.inhalt:_AB_FREI_VORGABE;
+  /* Nur bekannte Kennzahlen - eine gespeicherte, spaeter entfernte id wird
+     uebergangen statt als leere Zeile gezeigt (§3.4: fehlend ist nicht 0). */
+  return w.filter(function(id){
+    return _AB_KENNZAHLEN.some(function(k){ return k.id===id; }); });
+}
+
+function _abkFrei(c,x){
+  var gewaehlt=_abFreiWahl(x);
+  if(_AB_EDIT){
+    /* Im Anordnen-Modus zeigt die Kachel die AUSWAHL, nicht die Zahlen. */
+    return {
+      tag:'<span class="abtag" style="background:#fbf3df;color:#8a7440">Inhalt wählen</span>',
+      inhalt:'<div class="bleib"><div class="abwahl">'
+        + _AB_KENNZAHLEN.map(function(k){
+            var an=gewaehlt.indexOf(k.id)>=0;
+            return '<button type="button" class="abkz'+(an?' an':'')+'" '
+              +'data-abkz="'+esc(k.id)+'" data-kid="'+esc(x?x.id:'frei')+'">'
+              +(an?'✓ ':'+ ')+esc(k.titel)+'</button>';
+          }).join('')
+        +'</div></div>',
+      fuss:gewaehlt.length+' von '+_AB_KENNZAHLEN.length+' gewählt · Klick schaltet um'
+    };
+  }
+  return {
+    tag:'',
+    inhalt:'<div class="bleib">'
+      + (gewaehlt.length
+          ? gewaehlt.map(function(id){
+              var k=_AB_KENNZAHLEN.filter(function(y){ return y.id===id; })[0];
+              var v=null; try{ v=k.wert(c); }catch(e){ v=null; }
+              return _abZeile(esc(k.titel), (v==null?'–':v),
+                (k.warn && Number(v)>0)?_AB.warn:null);
+            }).join('')
+          : '<div class="bleerk">Noch nichts gewählt — „🧩 Anordnen" öffnen.</div>')
+      +'</div>',
+    fuss:''
+  };
+}
 
 /* ============================================================================
    LAYOUT-KONFIGURATION  ·  Work #42, Etappe 2  ·  15.08.2026
@@ -11591,7 +11686,11 @@ function _abLayoutSetzen(cfg){
       reihe:(e.reihe==null?null:Number(e.reihe)),
       pos:(e.pos==null?i:Number(e.pos)),
       breit:(e.breit==null?null:!!e.breit),
-      aus:!!e.aus
+      aus:!!e.aus,
+      /* inhalt reist mit, auch wenn diese Fassung damit nichts anfangen kann —
+         eine gespeicherte Auswahl darf nicht verlorengehen, nur weil sie
+         gerade niemand liest. */
+      inhalt:(Array.isArray(e.inhalt)?e.inhalt.slice():null)
     });
   });
   _AB_KACHELN.forEach(function(x){ if(!gesehen[x.id]) bericht.ergaenzt.push(x.id); });
@@ -11616,9 +11715,11 @@ function _abKachelListe(reihe){
     if(e.aus) return;                                  /* Regel 4 */
     if((e.reihe==null?x.reihe:e.reihe)!==reihe) return;
     var k=x;
-    if(e.breit!=null && e.breit!==!!x.breit){
+    if((e.breit!=null && e.breit!==!!x.breit) || e.inhalt){
       /* Kopie statt Aenderung — das Register bleibt der unberuehrte Rueckfall. */
-      k={id:x.id, reihe:x.reihe, titel:x.titel, breit:e.breit, bau:x.bau, roh:x.roh};
+      k={id:x.id, reihe:x.reihe, titel:x.titel,
+         breit:(e.breit==null?!!x.breit:e.breit),
+         bau:x.bau, roh:x.roh, waehlbar:x.waehlbar, inhalt:e.inhalt};
     }
     raus.push({k:k, pos:e.pos});
   });
@@ -11636,12 +11737,14 @@ function _abReihe(reihe, klasse, c){
     if(x.roh){
       /* Kacheln mit eigenem Rahmen (Schnellzugriff) bekommen die Leiste
          nachtraeglich hinter das erste > gesetzt — ihr Markup gehoert ihnen. */
-      var r=x.roh(c);
+      var r=x.roh(c,x);
       if(zus) r=r.replace('<div class="bk"','<div class="bk'+(zus.klasse||'')+'"'+(zus.attr||''))
                  .replace(/>/, '>'+(zus.vor||''));
       h+=r; return;
     }
-    var t=x.bau(c)||{};
+    /* Zweiter Parameter: der WIRKSAME Eintrag samt gewaehltem Inhalt. Die
+       bisherigen Baufunktionen sehen ihn nicht an — ihre Ausgabe bleibt gleich. */
+    var t=x.bau(c,x)||{};
     h+=_abKachel(x.titel, t.tag||'', t.inhalt||'', t.fuss||'', !!x.breit, zus);
   });
   return h+'</div>';
@@ -11663,6 +11766,98 @@ function _abReihe(reihe, klasse, c){
    ========================================================================== */
 var _AB_EDIT=false;
 var _AB_VORHER=null;   /* Stand beim Betreten, fuer „Verwerfen" */
+var _AB_VARIANTEN=[];  /* [{name,standard}] aus der Datenbank */
+var _AB_VARNAME='';    /* Name der gerade geladenen Variante */
+var _AB_GELADEN=false; /* Riegel: einmal holen, nicht bei jedem Neuzeichnen */
+var _AB_MELDUNG='';    /* letzter Satz fuer die Leiste — Erfolg UND Fehler */
+
+/* ============================================================================
+   ABLAGE ANSCHLIESSEN  ·  Work #42, Etappe 4  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   §22 hat sich zum vierten Mal ausgezahlt: die Serverseite war schon da.
+   ChatGPT hatte zu Work #44 geliefert — Tabelle dashboard_layout_variant plus
+   cb_admin_dashboard_layout_standard() · _varianten() · _speichern(). Es fehlte
+   genau ein Weg: eine BENANNTE Variante lesen. Den hat Claude als exakte
+   Schwester von _standard() ergaenzt (Migration dashboard_layout_variante_laden),
+   Hinweis dazu steht in Work #44.
+
+   Gespeichert wird immer als STANDARD — Ralphs Entscheid C: er bedient, und was
+   er anpasst, sehen alle Admins. Eine Variante, die niemand sieht, waere ein
+   viertes Layout an einem fuenften Ort.
+
+   🔴 Faellt das Laden aus, bleibt die Codereihenfolge stehen und der Grund steht
+   IN der Leiste. Ein Dashboard, das wegen einer fehlgeschlagenen Abfrage leer
+   oder wahllos sortiert erscheint, waere schlimmer als eines ohne Ablage.
+   ========================================================================== */
+async function _abLayoutHolen(){
+  if(_AB_GELADEN) return;
+  _AB_GELADEN=true;                        /* vor dem await, sonst laufen zwei */
+  try{
+    var r=await client.rpc('cb_admin_dashboard_layout_standard');
+    if(r.error) throw r.error;
+    var cfg=r.data; if(typeof cfg==='string') cfg=JSON.parse(cfg);
+    if(cfg&&cfg.kacheln&&cfg.kacheln.length){
+      var b=_abLayoutSetzen(cfg);
+      _AB_VARNAME=b.name||'';
+      _AB_MELDUNG='Layout „'+(_AB_VARNAME||'ohne Namen')+'" geladen'
+        +(b.unbekannt.length?' · '+b.unbekannt.length+' unbekannte übergangen ('+b.unbekannt.join(', ')+')':'')
+        +(b.ergaenzt.length?' · '+b.ergaenzt.length+' neue hinten angehängt':'');
+      _abNeuZeichnen();
+    }
+  }catch(e){
+    _AB_MELDUNG='⚠ Gespeichertes Layout nicht ladbar — es gilt die Standardanordnung. '
+      +esc((e&&e.message)||String(e));
+    try{ console.warn('[Layout] laden:',e); }catch(_){}
+  }
+  _abVariantenHolen();
+}
+
+async function _abVariantenHolen(){
+  try{
+    var r=await client.rpc('cb_admin_dashboard_layout_varianten');
+    if(r.error) throw r.error;
+    var v=r.data; if(typeof v==='string') v=JSON.parse(v);
+    _AB_VARIANTEN=(v&&v.rows)||[];
+    if(_AB_EDIT) _abNeuZeichnen();
+  }catch(e){ try{ console.warn('[Layout] Varianten:',e); }catch(_){} }
+}
+
+async function _abVarianteWaehlen(name){
+  if(!name) return;
+  try{
+    var r=await client.rpc('cb_admin_dashboard_layout_laden',{p_name:name});
+    if(r.error) throw r.error;
+    var cfg=r.data; if(typeof cfg==='string') cfg=JSON.parse(cfg);
+    if(!cfg){ _AB_MELDUNG='❌ Variante „'+name+'" gibt es nicht (mehr).'; }
+    else{
+      var b=_abLayoutSetzen(cfg);
+      _AB_VARNAME=b.name||name;
+      _AB_MELDUNG='Variante „'+_AB_VARNAME+'" geladen — noch nicht gespeichert.';
+    }
+  }catch(e){ _AB_MELDUNG='❌ '+((e&&e.message)||String(e)); }
+  _abNeuZeichnen();
+}
+
+async function _abLayoutSpeichern(){
+  var el=document.getElementById('abVarName');
+  var name=((el&&el.value)||'').trim()||_AB_VARNAME||'Standard';
+  var kacheln=_abLayoutAktuell().kacheln;
+  var knopf=document.querySelector('[data-abe="speichern"]');
+  if(knopf){ knopf.disabled=true; knopf.textContent='… speichert'; }
+  try{
+    var r=await client.rpc('cb_admin_dashboard_layout_speichern',
+      {p_name:name, p_kacheln:kacheln, p_als_standard:true});
+    if(r.error) throw r.error;
+    _AB_VARNAME=name;
+    _AB_MELDUNG='✅ „'+name+'" gespeichert · '+kacheln.length+' Kacheln · gilt für alle Admins.';
+  }catch(e){
+    /* Kein Schein-Erfolg: der Fehler steht im Klartext da, wo gedrueckt wurde. */
+    _AB_MELDUNG='❌ NICHT gespeichert: '+((e&&e.message)||String(e));
+    try{ console.error('[Layout] speichern:',e); }catch(_){}
+  }
+  await _abVariantenHolen();
+  _abNeuZeichnen();
+}
 
 function _abEditRahmen(x){
   return {
@@ -11687,7 +11882,8 @@ function _abLayoutAktuell(){
   [1,2].forEach(function(r){
     _abKachelListe(r).forEach(function(x,i){
       drin[x.id]=true;
-      raus.push({id:x.id, reihe:r, pos:i, breit:!!x.breit, aus:false});
+      raus.push({id:x.id, reihe:r, pos:i, breit:!!x.breit, aus:false,
+                 inhalt:(x.inhalt&&x.inhalt.length)?x.inhalt.slice():null});
     });
   });
   /* Ausgeblendete gehen NICHT verloren — sie behalten Reihe und Breite. */
@@ -11696,7 +11892,8 @@ function _abLayoutAktuell(){
     var reg=_AB_KACHELN.filter(function(k){ return k.id===e.id; })[0];
     raus.push({id:e.id, reihe:(e.reihe==null?(reg?reg.reihe:1):e.reihe),
                pos:(e.pos==null?999:e.pos),
-               breit:(e.breit==null?!!(reg&&reg.breit):e.breit), aus:true});
+               breit:(e.breit==null?!!(reg&&reg.breit):e.breit), aus:true,
+               inhalt:(e.inhalt&&e.inhalt.length)?e.inhalt.slice():null});
   });
   return {name:(_AB_LAYOUT&&_AB_LAYOUT.name)||'', kacheln:raus};
 }
@@ -11710,7 +11907,14 @@ function _abAusgeblendet(){
 }
 
 function _abEditLeiste(){
-  if(!_AB_EDIT) return '';
+  /* Eine WARNUNG darf nicht im Anordnen-Modus versteckt sein: wer die Leiste nie
+     oeffnet, saehe sonst nie, dass sein gespeichertes Layout nicht geladen
+     werden konnte (§1.7 keine stillen Fehler). */
+  if(!_AB_EDIT){
+    return (_AB_MELDUNG && /^[⚠❌]/.test(_AB_MELDUNG))
+      ? '<div class="abeleiste" style="background:#fdf1f1;border-color:#f2cfcf">'+_AB_MELDUNG+'</div>'
+      : '';
+  }
   var weg=_abAusgeblendet();
   return '<div class="abeleiste">'
     +'<b>🧩 Anordnen</b>'
@@ -11724,14 +11928,28 @@ function _abEditLeiste(){
                +esc(w.id)+'" title="wieder einblenden">+ '+w.titel+'</button>'; }).join('')
          +'</span>'
        : '')
+    +(_AB_VARIANTEN.length>1
+       ? '<select id="abVarWahl" class="abeb" title="gespeicherte Variante laden">'
+         +'<option value="">– Variante laden –</option>'
+         + _AB_VARIANTEN.map(function(v){
+             return '<option value="'+esc(v.name)+'"'+(v.name===_AB_VARNAME?' selected':'')+'>'
+               +esc(v.name)+(v.standard?' ★':'')+'</option>'; }).join('')
+         +'</select>'
+       : '')
+    +'<input id="abVarName" class="abeb" style="font-weight:600;min-width:150px" '
+      +'value="'+esc(_AB_VARNAME||'Standard')+'" '
+      +'title="Name, unter dem gespeichert wird" placeholder="Name des Layouts">'
     +'<span class="abesp">'
     +'<button type="button" class="abeb" data-abe="standard" '
-      +'title="Zurück auf die im Code hinterlegte Anordnung">↺ Standard</button>'
+      +'title="Zurück auf die im Code hinterlegte Anordnung — noch nicht gespeichert">↺ Standard</button>'
     +'<button type="button" class="abeb" data-abe="verwerfen">Verwerfen</button>'
-    +'<button type="button" class="abeb" data-abe="speichern" disabled '
-      +'title="Braucht die Ablage aus Work #44 — noch nicht vorhanden">💾 Speichern</button>'
-    +'<button type="button" class="abeb hin" data-abe="fertig">✓ Fertig</button>'
-    +'</span></div>';
+    +'<button type="button" class="abeb hin" data-abe="speichern" '
+      +'title="Speichert als Standard — gilt sofort für alle Admins">💾 Speichern</button>'
+    +'<button type="button" class="abeb" data-abe="fertig">✓ Fertig</button>'
+    +'</span>'
+    +(_AB_MELDUNG?'<div style="flex-basis:100%;font-size:11.5px;color:'+_AB.mut+'">'
+       +_AB_MELDUNG+'</div>':'')
+    +'</div>';
 }
 
 /* Eine Aenderung, ein Weg: alles laeuft ueber _abLayoutSetzen und zeichnet neu. */
@@ -11795,13 +12013,35 @@ function _abBentoNach(box){
       if(was==='aus')       _abEditAendern(function(l,find){ var e=find(id); if(e) e.aus=true; });
       else if(was==='ein')  _abEditAendern(function(l,find){ var e=find(id); if(e) e.aus=false; });
       else if(was==='breit')_abEditAendern(function(l,find){ var e=find(id); if(e) e.breit=!e.breit; });
-      else if(was==='standard'){ _abLayoutSetzen(null); _abNeuZeichnen(); }
-      else if(was==='verwerfen'){ _abLayoutSetzen(_AB_VORHER); _abNeuZeichnen(); }
+      else if(was==='standard'){ _abLayoutSetzen(null);
+        _AB_MELDUNG='Standardanordnung aus dem Code — noch NICHT gespeichert.'; _abNeuZeichnen(); }
+      else if(was==='verwerfen'){ _abLayoutSetzen(_AB_VORHER);
+        _AB_MELDUNG='Zurück auf den Stand beim Öffnen.'; _abNeuZeichnen(); }
+      else if(was==='speichern'){ _abLayoutSpeichern(); }
       else if(was==='fertig'){ _AB_EDIT=false;
         var an=document.getElementById('abAnordnen'); if(an) an.classList.remove('on');
         _abNeuZeichnen(); }
     });
   });
+
+  /* Inhalt einer waehlbaren Kachel umschalten. Dieselbe eine Aenderungsspur
+     wie Breite und Ein/Aus - kein zweiter Schreibweg (§4.2). */
+  box.querySelectorAll('[data-abkz]').forEach(function(b){
+    b.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      var kz=b.getAttribute('data-abkz'), id=b.getAttribute('data-kid');
+      _abEditAendern(function(l,find){
+        var e=find(id); if(!e) return;
+        var w=(e.inhalt&&e.inhalt.length)?e.inhalt.slice():_AB_FREI_VORGABE.slice();
+        var i=w.indexOf(kz);
+        if(i>=0) w.splice(i,1); else w.push(kz);
+        e.inhalt=w;
+      });
+    });
+  });
+
+  var vw=document.getElementById('abVarWahl');
+  if(vw) vw.addEventListener('change',function(){ _abVarianteWaehlen(vw.value); });
 
   /* ---- Anordnen-Modus: Ziehen -------------------------------------------- */
   if(_AB_EDIT){
@@ -12332,6 +12572,11 @@ function _abNachRest(box,d,np,A){
      der Anordnen-Modus zeichnet sie neu und braucht dieselbe Verdrahtung.
      Zwei Fassungen davon waeren genau der Fall aus §4.2. */
   _abBentoNach(box);
+  /* Gespeichertes Layout holen — NACH dem ersten Zeichnen, nicht davor. Das
+     Dashboard darf nicht auf eine Abfrage warten (dieselbe Regel wie Reihe 2,
+     Work #17). Der Riegel in _abLayoutHolen sorgt dafuer, dass es genau einmal
+     laeuft und das Neuzeichnen es nicht wieder anstoesst. */
+  try{ _abLayoutHolen(); }catch(e){ try{ console.warn('[Layout]',e); }catch(_){} }
   var an=document.getElementById('abAnordnen');
   if(an) an.addEventListener('click',function(){
     if(!_AB_EDIT){ _AB_VORHER=_AB_LAYOUT?JSON.parse(JSON.stringify(_AB_LAYOUT)):null; }
@@ -29611,7 +29856,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2980";
+const APP_BUILD = "2026-08-15-3040";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
