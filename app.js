@@ -10428,7 +10428,7 @@ function applyAdminMode(){
     top.innerHTML=
        '<div id="adminCrumb" style="display:none"></div>'
       +'<button id="atTodo" onclick="todoDockToggle()" title="Notizen &amp; To-do – bleibt beim Arbeiten offen" style="flex:0 0 auto;margin-right:6px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer;white-space:nowrap;position:relative">📝<span id="atTodoN" style="display:none;margin-left:5px;font-size:11px;font-weight:800;background:#ffd9a0;color:#7a4a00;border-radius:20px;padding:0 6px"></span></button>'
-      +'<button id="atReload" onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;margin-right:8px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(APP_BUILD.replace("2026-07-","")):"")+'</button>'
+      +'<button id="atReload" onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;margin-right:8px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 <span class="atBuild">'+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(APP_BUILD.replace("2026-07-","")):"")+'</span></button>'
       +'<button class="atLogout" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">🚪</button>';
     document.body.appendChild(top);
     /* Notiz-Dock (Ralph 27.07.): war es zuletzt offen, ist es nach dem Seitenwechsel wieder offen –
@@ -10534,8 +10534,25 @@ function applyAdminMode(){
   if(!window._adminNavSeiteBound){
     window._adminNavSeiteBound=true;
     var mq=(window.matchMedia?window.matchMedia('(min-width:1100px)'):null);
+    /* ------------------------------------------------------------------
+       15.08.2026, Ralph: „der obere graue balken weg und seite nach oben
+       schieben. version kann ins linke menue unten rein."
+       Der Balken war kein Balken, sondern LEERE Seite: #adminTop stand fest
+       oben rechts, und .container hielt darunter 74px frei. In der Seitenlage
+       WANDERT der Knopf-Cluster jetzt ans untere Ende der linken Spalte —
+       er wird NICHT kopiert. Dasselbe Verfahren wie bei der Waechterbox, die
+       in das jeweils sichtbare Panel wandert: ein Element, ein Ort (§4.2).
+       Eine zweite, nachgebaute Fussleiste haette zwei Notizzaehler und zwei
+       Build-Nummern erzeugt, die auseinanderlaufen. */
+    var clusterUmhaengen=function(anSeite){
+      var t=document.getElementById('adminTop'), nav=document.getElementById('adminNav');
+      if(!t) return;
+      if(anSeite && nav){ if(t.parentNode!==nav) nav.appendChild(t); }
+      else if(t.parentNode!==document.body) document.body.appendChild(t);
+    };
     var setzen=function(an){
       document.body.classList.toggle('navSeite', !!an);
+      clusterUmhaengen(!!an);
       if(an){
         /* Ein vom Scrollen hängengebliebenes navHidden würde die Spalte nach oben
            wegkippen lassen. Beim Wechsel in die Seitenlage ausdrücklich lösen. */
@@ -10554,7 +10571,15 @@ function applyAdminMode(){
       if(mq.addEventListener) mq.addEventListener('change', function(e){ setzen(e.matches); });
       else if(mq.addListener) mq.addListener(function(e){ setzen(e.matches); });
     }
+    window._adminClusterUmhaengen=clusterUmhaengen;
   }
+  /* Reihenfolge absichern: #adminTop und #adminNav entstehen in derselben
+     Funktion, aber die Bindung oben laeuft nur EINMAL. Wird das Menue spaeter
+     neu gebaut, haengt der Cluster sonst wieder frei im Fenster. Deshalb hier
+     bei jedem Durchlauf nachziehen — kostet nichts und kann nicht danebengehen. */
+  try{ if(window._adminClusterUmhaengen)
+         window._adminClusterUmhaengen(document.body.classList.contains('navSeite')); }
+  catch(e){ try{ console.warn('Knopf-Cluster:',e); }catch(_){} }
   /* Scroll-Verhalten (nur einmal binden): runterscrollen blendet das Nav aus,
      ganz oben kommt es von selbst zurück, dazwischen holt es der Pfeil-Chip. */
   if(!window._adminNavScrollBound){
@@ -30109,7 +30134,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3090";
+const APP_BUILD = "2026-08-15-3110";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
