@@ -5330,6 +5330,18 @@ function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif',regelwerk:'fgPanelRegelwerk',produkterfassung:'fgPanelProdErf',stamm:'fgPanelStamm'};
   if(t==='stamm'){ try{ fgStammPanelBauen(); }catch(e){ console.error('[Stamm] Panel:',e); } }
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
+  /* 🔴 KORREKTUR 15.08.2026, im Browser gemessen: die Stammwaechter-Box haengt in
+     fgPanelDash. Beim Wechsel auf den Stamm-Reiter wird fgPanelDash ausgeblendet —
+     die Zahlen waren also unsichtbar, GENAU waehrend man im Stamm arbeitet. Ralph
+     P5 verlangt sie aber am Stamm-Bereich. Gemessen an Build 2026-08-15-2420:
+     dashDisplay 'none', waechterHoehe 0.
+     Die Box WANDERT, sie wird nicht kopiert: ein Element, ein Ort, eine Datenquelle
+     (§4.2). Eine zweite Anzeige derselben Zahlen wuerde irgendwann auseinanderlaufen. */
+  try{
+    var _w=document.getElementById('fgStammWaechter');
+    var _ziel=document.getElementById(t==='stamm'?'fgPanelStamm':'fgPanelDash');
+    if(_w && _ziel && _w.parentNode!==_ziel) _ziel.insertBefore(_w, _ziel.firstChild);
+  }catch(e){ try{ console.warn('[Stammwächter] Umhaengen:',e); }catch(_){} }
   /* „Eingang" als eigener Reiter zurueckgezogen (Ralph 19.07.): sein Inhalt (Scan-Eingang mit
      Uebernehmen, Entwuerfe, Auto-Verify, Riki-Audit) erscheint jetzt UNTER „Zu verifizieren" –
      ein einziger Posteingang, in dem alles gesammelt wird. Nichts wird automatisch angelegt. */
@@ -10496,7 +10508,67 @@ function dashArbeitCss(){
    +A+' #abCv.zieh{cursor:grabbing}'
    +A+' .abpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;'
     +'background:#f4f6f8;border:1px solid var(--abline);border-radius:999px;padding:3px 9px;margin:0 4px 4px 0}'
-   +A+' .abdot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 auto}';
+   +A+' .abdot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 auto}'
+   /* ===== HERO + BENTO — Durchgang 2 (Ralph-Auftrag „Variante B", 15.08.2026) =====
+      Ralphs Vorgaben woertlich: weisse Karten, 14–18px Radius, leichte Schatten,
+      Gruen=gut · Blau=neutral · Orange=pruefen · Rot=Blocker · Grau=Hintergrund,
+      KEINE bunte Ampelwand. Desktop 4 Spalten · mittel 2 · klein 1.
+      Die Farben kommen aus _AB — es wird KEINE zweite Palette aufgemacht (§4.2). */
+   +A+' .abhero{background:linear-gradient(135deg,#17502c,#2e7d46);border-radius:16px;'
+    +'padding:15px 19px;color:#fff;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:14px;'
+    +'box-shadow:0 6px 20px rgba(23,80,44,.18)}'
+   +A+' .abhero .hzust{font-size:17px;font-weight:800;letter-spacing:-.2px;display:flex;align-items:center;gap:9px}'
+   +A+' .abhero .hpunkt{width:11px;height:11px;border-radius:50%;flex:0 0 auto;'
+    +'box-shadow:0 0 0 3px rgba(255,255,255,.22)}'
+   +A+' .abhero .hzahlen{display:flex;gap:22px;flex-wrap:wrap}'
+   +A+' .abhero .hz{min-width:0}'
+   +A+' .abhero .hz b{display:block;font-size:20px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}'
+   +A+' .abhero .hz span{font-size:11px;opacity:.82;letter-spacing:.02em}'
+   +A+' .abhero .hz.klick{cursor:pointer;border-radius:8px;padding:2px 6px;margin:-2px -6px}'
+   +A+' .abhero .hz.klick:hover{background:rgba(255,255,255,.13)}'
+   +A+' .abhero .hr{margin-left:auto;display:flex;align-items:center;gap:11px;font-size:12px;opacity:.92}'
+   +A+' .abhero .hbtn{background:rgba(255,255,255,.17);border:1px solid rgba(255,255,255,.32);'
+    +'color:#fff;padding:6px 13px;border-radius:9px;font-weight:700;cursor:pointer;font-size:12.5px}'
+   +A+' .abhero .hbtn:hover{background:rgba(255,255,255,.26)}'
+   +'@media (max-width:720px){'+A+' .abhero .hr{margin-left:0;width:100%}}'
+   /* Bento: 4 Spalten, die erste Kachel nimmt zwei — „HEUTE" ist die Hauptsache
+      und darf nicht so gross wie eine Nebenzahl sein (Ralph: keine zehn gleich
+      grossen Kaesten). */
+   +A+' .abbento{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;'
+    +'align-items:stretch;margin-bottom:14px}'
+   +A+' .abbento .bgross{grid-column:span 2}'
+   +'@media (max-width:1180px){'+A+' .abbento{grid-template-columns:repeat(2,minmax(0,1fr))}'
+    +A+' .abbento .bgross{grid-column:span 2}}'
+   +'@media (max-width:640px){'+A+' .abbento{grid-template-columns:1fr}'
+    +A+' .abbento .bgross{grid-column:span 1}}'
+   +A+' .abbento .bk{background:#fff;border:1px solid var(--abline);border-radius:16px;'
+    +'display:flex;flex-direction:column;min-width:0;overflow:hidden;box-shadow:0 2px 7px rgba(19,26,36,.05)}'
+   +A+' .abbento .bkopf{display:flex;align-items:center;gap:8px;padding:11px 14px 0;flex-wrap:wrap}'
+   +A+' .abbento .bkopf h3{margin:0;font-size:10.5px;font-weight:800;text-transform:uppercase;'
+    +'letter-spacing:.06em;color:var(--abmut);flex:1;min-width:90px}'
+   +A+' .abbento .bleib{padding:11px 14px 13px;flex:1;min-width:0}'
+   +A+' .abbento .bzahl{font-size:31px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}'
+   +A+' .abbento .bunter{font-size:11.5px;color:var(--abmut);margin-top:4px;line-height:1.4}'
+   /* Aufgabenzeilen. Jede Zeile springt hin — eine Zahl ohne Weg ist eine Attrappe (Ralph P12). */
+   +A+' .abbento .baufg{display:flex;align-items:center;gap:10px;padding:8px 14px;'
+    +'border-top:1px solid var(--abline);cursor:pointer}'
+   +A+' .abbento .baufg:hover{background:#f7f9fa}'
+   +A+' .abbento .baufg .bp{flex:0 0 auto;width:22px;height:22px;border-radius:50%;color:#fff;'
+    +'font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;'
+    +'font-variant-numeric:tabular-nums}'
+   +A+' .abbento .baufg .bt{flex:1;min-width:0}'
+   +A+' .abbento .baufg .bt1{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+   +A+' .abbento .baufg .bt2{font-size:11px;color:var(--abmut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+   +A+' .abbento .baufg .bgo{flex:0 0 auto;color:var(--abmut);font-size:15px}'
+   +A+' .abbento .bleer{padding:20px 14px;text-align:center;color:var(--abmut);font-size:12.5px}'
+   +A+' .abbento .bzeile{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;'
+    +'padding:5px 0;border-bottom:1px dashed var(--abline)}'
+   +A+' .abbento .bzeile:last-child{border-bottom:0}'
+   +A+' .abbento .bzeile b{font-variant-numeric:tabular-nums;flex:0 0 auto}'
+   +A+' .abbento .bfuss{font-size:11px;color:var(--abmut);padding:9px 14px;border-top:1px solid var(--abline)}'
+   +A+' .abbento .bring{display:flex;align-items:center;gap:12px;padding:4px 0}'
+   +A+' .abbento .bspark{display:flex;align-items:flex-end;gap:2px;height:30px;margin-top:7px}'
+   +A+' .abbento .bspark i{flex:1;display:block;border-radius:2px 2px 0 0;background:'+_AB.kern+';opacity:.72}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -10608,7 +10680,13 @@ function _abZahl(np,was){
 /* ---------------------------------------------------------------------------
    ARBEITSLISTE — abgeleitet, nicht gepflegt.
    --------------------------------------------------------------------------- */
-function _abJobs(np,A){
+/* 🔴 15.08.2026 AUFGETEILT (Durchgang 2): die ERHEBUNG steht jetzt in
+   _abJobsListe, das MARKUP in _abJobs. Grund: die neue Bento-Kachel „Heute"
+   braucht dieselben Aufgaben in anderer Form. Haette ich sie dort neu erhoben,
+   gaebe es zwei Vorstellungen davon, was dringend ist — und irgendwann
+   widersprechen sich zwei Kacheln auf derselben Seite (§4.2).
+   Die Reihenfolge, die Schwellen und die Texte sind UNVERAENDERT uebernommen. */
+function _abJobsListe(np,A){
   var jobs=[], z=(np&&np.zufluesse)||[], w=(np&&np.waechter)||[];
   z.filter(function(x){return x.weg==='keiner'&&(Number(x.wartend)||0)>0;}).forEach(function(x){
     jobs.push({p:0,n:x.wartend,t1:x.name+' — niemand holt sie ab',
@@ -10635,6 +10713,11 @@ function _abJobs(np,A){
       t2:'wir wissen nicht, ob er lief — den Schlüssel schreibt niemand',
       go:'offen',f:_AB.grau,ziel:null});
   jobs.sort(function(a,b){ return a.p-b.p || ((Number(b.n)||0)-(Number(a.n)||0)); });
+  return jobs;
+}
+
+function _abJobs(np,A){
+  var jobs=_abJobsListe(np,A);
   if(!jobs.length) return '<div class="abpad" style="color:'+_AB.gut+';font-weight:700;font-size:13px">'
     +'Nichts offen. Alle Zuflüsse leer, alle Wächter still.</div>';
   return jobs.map(function(j){
@@ -10743,6 +10826,175 @@ function _abQuellen(np){
   }).join('');
 }
 
+/* ============================================================================
+   HERO + BENTO-REIHE 1  ·  Dashboard Variante B, Durchgang 2  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   §22 zuerst geprueft: NICHTS hiervon ist neu erhoben. Alle Zahlen kommen aus
+   _abAbl(np) — derselben Ableitung, die die alte KPI-Reihe benutzte. Die
+   Aufgabenliste ist _abJobs, der Ring ist _abRing; beide bleiben unveraendert
+   und werden nur anders eingerahmt. Es gibt keine zweite Rechnung (§4.2).
+
+   🔴 KEINE MOCKUP-ZAHLEN. Ralphs Auftragstext nannte „System gesund · 248
+   Aufgaben · 4 kritische Bereiche". 248 stimmt und ist die Summe der wartenden
+   Zuflüsse (gemessen 15.08.: 19+85+47+21+51+25). „4 kritische Bereiche" liess
+   sich NICHT belegen — gemessen sind 6 offene Gate-Waechter und 2 Zufluesse
+   ohne Abnehmer. Es wird deshalb benannt, was gemessen ist, statt eine Zahl
+   nachzustellen, die zufaellig zum Mockup passt (§1.1).
+   ========================================================================== */
+function _abHero(d,np,A,ans){
+  var w=(np&&np.waechter)||[];
+  /* Der Zustandssatz haengt an EINER Bedingung, damit Farbe und Text nicht
+     auseinanderlaufen koennen. Rot schlaegt Orange schlaegt Gruen. */
+  var zust, farbe, warum;
+  /* 🔴 A.gate_offen ist die Summe der FAELLE bei Gate-Waechtern, nicht die Anzahl
+     der Waechter — gemessen 15.08.: 248 Faelle bei 6 meldenden von 9 Gate-Waechtern.
+     Ein erster Entwurf schrieb hier „248 Pflicht-Waechter melden". Das waere eine
+     erfundene Aussage gewesen, die nur deshalb nicht auffaellt, weil die Zahl echt
+     ist (§1.1). Beide Groessen werden jetzt getrennt genannt. */
+  var gateW=w.filter(function(x){ return x.gate===true; });
+  var gateMelden=gateW.filter(function(x){ return (Number(x.offen)||0)>0; }).length;
+  if(A.gate_offen>0){
+    zust='Go-Live-Gate ZU'; farbe='#ff8a8a';
+    warum=A.gate_offen+' Pflicht-Fälle offen bei '+gateMelden+' von '+gateW.length
+      +' Gate-Wächtern — vor jedem Livegang muss das 0 sein';
+  } else if(A.sackgasse>0){
+    zust='Läuft, mit Rückstau'; farbe='#ffcf6b';
+    warum=A.sackgasse+' wartende Vorgänge haben keinen Abnehmer';
+  } else if(A.melden>0){
+    zust='Läuft'; farbe='#b7f0c8';
+    warum=A.melden+' von '+w.length+' Wächtern melden etwas';
+  } else {
+    zust='System gesund'; farbe='#7ee2a2'; warum='kein Wächter meldet etwas';
+  }
+  var zahl=function(v,txt,ziel){
+    return '<div class="hz'+(ziel?' klick':'')+'"'+(ziel?' data-hero="'+ziel+'"':'')+'>'
+      +'<b>'+v+'</b><span>'+txt+'</span></div>';
+  };
+  return '<div class="abhero">'
+    +'<div><div class="hzust"><span class="hpunkt" style="background:'+farbe+'"></span>'+esc(zust)+'</div>'
+      +'<div style="font-size:11.5px;opacity:.85;margin-top:3px">'+esc(warum)+'</div></div>'
+    +'<div class="hzahlen">'
+      + zahl(A.wartend, 'Vorgänge warten', 'fluss')
+      + zahl(A.sackgasse, 'davon ohne Abnehmer', 'fluss')
+      + zahl(A.melden+' / '+w.length, 'Wächter melden', 'waechter')
+    +'</div>'
+    +'<div class="hr"><span id="abStand"></span>'
+      +_abUmschalter(ans)
+      +'<button class="hbtn" id="abNeu">↻ Aktualisieren</button></div>'
+  +'</div>';
+}
+
+/* Kachelrahmen. Eine Stelle, damit die vier Kacheln nicht viermal leicht
+   unterschiedlich aussehen. */
+function _abKachel(titel, tag, inhalt, fuss, gross){
+  return '<div class="bk'+(gross?' bgross':'')+'">'
+    +'<div class="bkopf"><h3>'+titel+'</h3>'+(tag||'')+'</div>'
+    +inhalt
+    +(fuss?'<div class="bfuss">'+fuss+'</div>':'')
+  +'</div>';
+}
+
+function _abBento(d,np,A){
+  var k=(d&&d.katalog)||{}, q=(d&&d.qualitaet)||{}, ri=(d&&d.riki)||{}, ex=(np&&np.extra)||{};
+  var w=(np&&np.waechter)||[];
+  var lim=Number(ri.monatslimit_usd)||0, verbr=Number(ri.monat_usd)||0;
+  var h='<div class="abbento">';
+
+  /* ---- 1) HEUTE — OFFENE AUFGABEN (doppelt breit) --------------------------
+     Die Liste kommt aus _abJobs, damit es nicht zwei Vorstellungen davon gibt,
+     was dringend ist. _abJobs liefert fertiges Markup fuer die alte Ansicht;
+     hier wird dieselbe Quelle in Bento-Zeilen gegossen. */
+  var jobs=_abJobsListe(np,A);
+  var jh=jobs.length
+    ? jobs.slice(0,6).map(function(j){
+        var f=(j.p===0)?_AB.krit:(j.p===1)?_AB.warn:_AB.zu;
+        return '<div class="baufg" data-job="'+esc(j.ziel||'')+'">'
+          +'<span class="bp" style="background:'+f+'">'+(j.n>99?'99+':j.n)+'</span>'
+          +'<span class="bt"><span class="bt1">'+esc(j.t1)+'</span>'
+          +'<span class="bt2" title="'+esc(j.t2)+'">'+esc(j.t2)+'</span></span>'
+          +'<span class="bgo">›</span></div>';
+      }).join('')
+    : '<div class="bleer">Nichts wartet auf dich — alles abgearbeitet.</div>';
+  h+=_abKachel('Heute — offene Aufgaben',
+    '<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">nach Dringlichkeit</span>',
+    jh,
+    jobs.length>6 ? ('und '+(jobs.length-6)+' weitere — der Fluss unten zeigt alle') : 'Jede Zeile springt an ihre Stelle.',
+    true);
+
+  /* ---- 2) DATENBESTAND ---------------------------------------------------- */
+  var z=function(l,v,f){ return '<div class="bzeile"><span>'+l+'</span><b'
+    +(f?' style="color:'+f+'"':'')+'>'+(v==null?'–':v)+'</b></div>'; };
+  h+=_abKachel('Datenbestand', '',
+    '<div class="bleib"><div class="bzahl" style="color:'+_AB.kern+'">'
+      +(k.aktiv==null?'–':k.aktiv)+'</div>'
+    +'<div class="bunter">aktive Produkte · Index-Schnitt '
+      +(k.schnitt_score==null?'–':String(k.schnitt_score).replace('.',','))+'</div>'
+    +'<div style="margin-top:9px">'
+      + z('Entwürfe', k.entwurf)
+      + z('ohne Index-Zahl', q.ohne_score, (Number(q.ohne_score)>0?_AB.warn:null))
+      + z('Zutaten im Stamm', ex.zutaten)
+      + z('Rezepte', ex.rezepte)
+    +'</div></div>', '');
+
+  /* ---- 3) RIKI-BUDGET ----------------------------------------------------- */
+  var anteil=lim?Math.max(0,Math.min(1,verbr/lim)):0;
+  var bf=anteil>=0.9?_AB.krit:anteil>=0.6?_AB.warn:_AB.gut;
+  var jetzt=new Date(), tagNr=jetzt.getDate();
+  var tageMon=new Date(jetzt.getFullYear(),jetzt.getMonth()+1,0).getDate();
+  var prog=(tagNr>0?verbr/tagNr*tageMon:0), progOk=(lim? prog<=lim : true);
+  var rv=((d&&d.riki_verlauf)||[]).slice(-14);
+  var rvMax=Math.max.apply(null,[0.0001].concat(rv.map(function(x){ return Number(x.usd)||0; })));
+  var spark=rv.length
+    ? '<div class="bspark">'+rv.map(function(x){ var v=Number(x.usd)||0;
+        return '<i title="'+esc(x.tag)+': '+v.toFixed(2)+' $" style="height:'
+          +Math.max(2,Math.round(v/rvMax*28))+'px"></i>'; }).join('')+'</div>'
+    : '<div class="bunter">noch keine Tageswerte</div>';
+  h+=_abKachel('Riki-Budget', '',
+    '<div class="bleib"><div class="bzahl" style="color:'+bf+'">'
+      +(lim? verbr.toFixed(2).replace('.',',')+' $' : '–')+'</div>'
+    +'<div class="bunter">'+(lim? 'von '+lim.toFixed(0)+' $ im Monat' : 'kein Limit hinterlegt')+'</div>'
+    +(lim?'<div class="abbar" style="margin-top:8px"><i style="width:'+Math.round(anteil*100)
+      +'%;background:'+bf+'"></i></div>':'')
+    +spark+'</div>',
+    lim ? ('Prognose Monatsende ~'+prog.toFixed(0)+' $ · '
+      +(progOk?'im Rahmen':'<b style="color:'+_AB.krit+'">über Budget</b>')
+      +' — läuft es voll, blockt Riki. Gewollt.') : '');
+
+  /* ---- 4) WÄCHTER-STATUS -------------------------------------------------- */
+  var still=w.length-A.melden;
+  h+=_abKachel('Wächter-Status',
+    (A.gate_offen>0
+      ? '<span class="abtag" style="background:#fdf1f1;color:'+_AB.krit+'" '
+        +'title="Summe der offenen Fälle bei den Wächtern, die die Freigabe blockieren">'
+        +A.gate_offen+' Gate-Fälle</span>'
+      : '<span class="abtag" style="background:#effaef;color:'+_AB.gut+'">Gate frei</span>'),
+    '<div class="bleib"><div class="bring">'+_abRingKlein(w,A)
+      +'<div style="min-width:0"><div class="bzahl" style="font-size:24px;color:'
+        +(A.melden>0?_AB.warn:_AB.gut)+'">'+still+' / '+w.length+'</div>'
+      +'<div class="bunter">still — '+A.melden+' melden</div></div></div>'
+    +'<div style="margin-top:9px">'
+      + z('Meldungen gesamt', A.anlage.o+A.tuer.o+A.bestand.o)
+      + z('davon im Bestand', A.bestand.o)
+    +'</div></div>',
+    'Das Raster unten öffnet jeden einzelnen.');
+
+  return h+'</div>';
+}
+
+/* Kleiner Ring fuer die Kachel. Bewusst NUR eine Zusammenfassung — den
+   klickbaren Ring mit Einzelsegmenten gibt es weiter unten in voller Groesse
+   (_abRing). Hier waere er zu klein zum Treffen. */
+function _abRingKlein(w,A){
+  var ges=w.length||1, still=ges-A.melden;
+  var u=2*Math.PI*26, anteil=still/ges;
+  var f=(A.gate_offen>0)?_AB.krit:(A.melden>0?_AB.warn:_AB.gut);
+  return '<svg width="62" height="62" viewBox="0 0 62 62" style="flex:0 0 auto">'
+    +'<circle cx="31" cy="31" r="26" fill="none" stroke="#eef0f4" stroke-width="7"/>'
+    +'<circle cx="31" cy="31" r="26" fill="none" stroke="'+f+'" stroke-width="7" '
+      +'stroke-linecap="round" stroke-dasharray="'+(u*anteil).toFixed(1)+' '+u.toFixed(1)+'" '
+      +'transform="rotate(-90 31 31)"/></svg>';
+}
+
 /* --------------------------------------------------------------------------- */
 function dashArbeitHtml(d,np,fehler){
   _abD=d;
@@ -10751,34 +11003,21 @@ function dashArbeitHtml(d,np,fehler){
   var lim=Number(ri.monatslimit_usd)||0, verbr=Number(ri.monat_usd)||0;
   var ans=dashArbeitAnsichtGet();
   var h='<div class="ab">';
-  h+='<div class="abkopf"><h2>Arbeitsfläche</h2>'
-    +'<span class="abtag" style="background:'+(A.gate_offen?'#fdf1f1':'#effaef')+';color:'
-    +(A.gate_offen?_AB.krit:_AB.gut)+'">Go-Live-Gate: '+A.gate_offen+' offen</span>'
-    +'<span class="st" id="abStand"></span>'
-    +'<span style="margin-left:auto;display:flex;gap:9px;align-items:center">'
-    +_abUmschalter(ans)
-    +'<button class="abbtn" id="abNeu">↻ Aktualisieren</button></span></div>';
+  /* 🔴 DURCHGANG 2 (15.08.2026): Kopfzeile und KPI-Reihe sind durch Hero + Bento
+     ERSETZT, nicht ergaenzt. Beides zu zeigen hiesse, dieselbe Zahl zweimal auf
+     eine Seite zu schreiben — und zwei Zahlen auf derselben Seite widersprechen
+     sich irgendwann (§4.2). Der Umschalter und der Aktualisieren-Knopf sind in
+     den Hero gewandert und behalten ihre IDs (#abStand, #abNeu), damit
+     _abUmschalterNach() unveraendert weiterfunktioniert.
+     Was aus der KPI-Reihe wohin ging: Katalog + Index-Schnitt -> Kachel
+     „Datenbestand" · Wartestapel -> Hero · Waechter melden -> Hero und Kachel
+     „Waechter-Status" · Riki-Budget -> Kachel „Riki-Budget". Keine Zahl ist
+     weggefallen. */
+  h+=_abHero(d,np,A,ans);
   if(fehler) h+='<div class="abfehler"><b>Live-Daten unvollständig.</b> '+esc(fehler)
     +' — betroffene Felder bleiben leer oder grau. Grau heißt: wir wissen es nicht.</div>';
 
-  /* KPI */
-  var kpi=[
-    {l:'Katalog',v:(k.aktiv==null?'–':k.aktiv),s:(k.entwurf||0)+' Entwürfe · '+(q.ohne_score||0)+' ohne Zahl',f:_AB.kern},
-    {l:'Index-Schnitt',v:(k.schnitt_score==null?'–':String(k.schnitt_score).replace('.',',')),
-     s:'über alle aktiven Produkte',f:_AB.kern,bar:Number(k.schnitt_score)||0},
-    {l:'Wartestapel',v:A.wartend,s:A.sackgasse+' davon ohne Abnehmer',f:A.sackgasse>0?_AB.krit:_AB.gut},
-    {l:'Wächter melden',v:A.melden+' / '+((np&&np.waechter)||[]).length,
-     s:A.bestand.o+' Meldungen im Bestand',f:A.melden>0?_AB.warn:_AB.gut},
-    {l:'Riki-Budget',v:(lim?verbr.toFixed(2).replace('.',',')+' $':'–'),
-     s:(lim?'von '+lim.toFixed(0)+' $ im Monat':'kein Limit hinterlegt'),
-     f:(lim&&verbr/lim>=0.8)?_AB.warn:_AB.gut,bar:lim?verbr/lim*100:0}
-  ];
-  h+='<div class="abkpi">'+kpi.map(function(x){
-    return '<div class="abk"><div class="l">'+x.l+'</div><div class="v" style="color:'+x.f+'">'+x.v+'</div>'
-      +'<div class="s">'+x.s+'</div>'
-      +(x.bar!=null?'<div class="abbar"><i style="width:'+Math.min(100,x.bar)+'%;background:'+x.f+'"></i></div>':'')
-      +'</div>';
-  }).join('')+'</div>';
+  if(ans!=='graph') h+=_abBento(d,np,A);
 
   if(ans==='graph'){
     h+='<div class="abrow r2"><div class="abp"><div class="abph"><h3>Graph</h3>'
@@ -10793,15 +11032,21 @@ function dashArbeitHtml(d,np,fehler){
     h+='</div>'; return h;
   }
 
-  /* Reihe 1: Ring + Arbeitsliste */
-  h+='<div class="abrow r1">'
-    +'<div class="abp"><div class="abph"><h3>Wächter</h3>'
+  /* Reihe 1 — jetzt die DETAILEBENE unter dem Bento (Durchgang 2).
+     Sie ist keine Dopplung im schaedlichen Sinn: beide Ansichten lesen dieselbe
+     Quelle (_abAbl und _abJobsListe), oben in Uebersicht, hier vollstaendig und
+     klickbar. Genau deshalb durfte die Kachel oben die Liste NICHT selbst
+     erheben — sonst waeren es zwei Wahrheiten statt zweier Aufloesungen.
+     Behalten, weil hier die Drilldowns sitzen, die das Bento nicht hat
+     (Ralph P12: was einen Weg hat, behaelt ihn). */
+  h+='<div class="abrow r1" id="abDetail">'
+    +'<div class="abp"><div class="abph"><h3>Wächter im Einzelnen</h3>'
     +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">'+A.melden+' melden</span></div>'
     +_abRing(np,A)
     +'<div class="abfoot">Jedes Segment ist ein Wächter · blass = still · Zeiger drauf für Klartext · '
     +'⛔ blockiert die Freigabe</div></div>'
-    +'<div class="abp"><div class="abph"><h3>Heute zu tun</h3>'
-    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">nach Dringlichkeit</span></div>'
+    +'<div class="abp"><div class="abph"><h3>Alle offenen Punkte</h3>'
+    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">vollständig, nach Dringlichkeit</span></div>'
     +_abJobs(np,A)+'</div></div>';
 
   /* Reihe 2: Fluss + Seitenspalte */
@@ -10860,15 +11105,26 @@ function dashArbeitNach(d,np){
     p.addEventListener('click',function(){ _abWfSet(w.moment,np,A); });
   });
   /* Arbeitsliste: Sprünge in die bestehenden Ansichten - keine neuen Wege */
+  /* 🔴 15.08.2026: der Sprung steht jetzt an EINER Stelle und wird von der alten
+     Liste UND von den neuen Bento-Zeilen benutzt. Vorher haette die Kachel ihre
+     eigene Sprungtabelle gebraucht — zwei Orte, die auseinanderlaufen (§4.2). */
+  var _abSprung=function(z){
+    try{
+      if(z==='scan'&&typeof scanEingangOeffnen==='function') scanEingangOeffnen();
+      else if(z==='todo'&&typeof todoDockAuf==='function') todoDockAuf();
+      else if(z==='waechter'){ var g=document.getElementById('abWg'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'}); }
+      else if(z==='fluss'){ var f=document.getElementById('abDetail'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'}); }
+    }catch(e){ try{ console.warn('Sprung fehlgeschlagen:',z,e); }catch(_){} }
+  };
   box.querySelectorAll('.abjob[data-ziel]').forEach(function(j){
-    j.addEventListener('click',function(){
-      var z=j.dataset.ziel;
-      try{
-        if(z==='scan'&&typeof scanEingangOeffnen==='function') scanEingangOeffnen();
-        else if(z==='todo'&&typeof todoDockAuf==='function') todoDockAuf();
-        else if(z==='waechter'){ var g=document.getElementById('abWg'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'}); }
-      }catch(e){ console.warn('Arbeitsliste-Sprung fehlgeschlagen:',e); }
-    });
+    j.addEventListener('click',function(){ _abSprung(j.dataset.ziel); });
+  });
+  /* Bento-Aufgabenzeilen und die klickbaren Hero-Zahlen — dieselbe Sprungtabelle. */
+  box.querySelectorAll('.baufg[data-job]').forEach(function(j){
+    j.addEventListener('click',function(){ _abSprung(j.getAttribute('data-job')); });
+  });
+  box.querySelectorAll('.abhero [data-hero]').forEach(function(x){
+    x.addEventListener('click',function(){ _abSprung(x.getAttribute('data-hero')); });
   });
   box.querySelectorAll('.abtab[data-wf]').forEach(function(t){
     t.addEventListener('click',function(){
@@ -27516,7 +27772,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2420";
+const APP_BUILD = "2026-08-15-2445";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
