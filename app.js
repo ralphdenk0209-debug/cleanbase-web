@@ -15805,6 +15805,9 @@ function feBioPrefill(d){
   var b=(d&&(d.bio!==undefined?d.bio:d.Bio));
   sel.value=(b===true)?"ja":((b===false)?"nein":"");
   window._fgBioQuelle=(d&&(d.bio_quelle||d.Bio_Quelle))||"";
+  /* 15.08.: die GELADENE Quelle getrennt merken - sie muss den Ausflug ueber
+     "ungeprueft" ueberleben, sonst wird beim Zurueckschalten "Etikett" behauptet. */
+  window._fgBioQuelleOriginal=window._fgBioQuelle;
   feBioHint();
   /* M2 a2b: den BERECHNETEN Wert merken, bevor Ralph ihn ueberschreibt. Nur so kann der
      Hinweis auch bei manueller Setzung sagen, was die Automatik rechnen wuerde.
@@ -15920,10 +15923,23 @@ function feBioSwRender(){
 
    Regel A: eine vorhandene Quelle BLEIBT STEHEN. 'Etikett' wird nur gesetzt, wenn
    gar keine Quelle da ist - dann ist der Klick tatsaechlich der einzige Beleg.
-   Ungeprueft loescht die Quelle weiterhin: ohne Bio-Wert gibt es nichts zu belegen. */
+   Ungeprueft loescht die Quelle weiterhin: ohne Bio-Wert gibt es nichts zu belegen.
+
+   🔴 NACHTRAG 15.08. NACH DEM DEPLOY VON 2340 - DER ERSTE FIX WAR UNVOLLSTAENDIG.
+   Gemessen an P73616 im LIVE-Browser: "Herstellerseite" -> ungeprueft -> Bio ergab
+   wieder "Etikett". Ursache: der Schritt ueber "ungeprueft" LOESCHT _fgBioQuelle;
+   beim Zurueckschalten ist nichts mehr da, was gewinnen koennte, und der Fallback
+   greift. Mein Node-Test prueft die Funktion mit VORBELEGTER Quelle - er hat den
+   Ablauf nie durchgespielt. Zaehlen ist nicht messen.
+   Deshalb merkt sich feBioPrefill die GELADENE Quelle getrennt in
+   _fgBioQuelleOriginal. Sie ueberlebt den Ausflug ueber "ungeprueft" und wird beim
+   Zurueckschalten wiederhergestellt. "Etikett" bleibt nur fuer den Fall, dass es
+   noch nie eine Quelle gab - dann ist der Klick tatsaechlich der einzige Beleg. */
 function feBioQuelleBeiHand(v){
-  if(!v) return "";                                   /* ungeprueft = keine Quelle */
-  return String(window._fgBioQuelle||"") || "Etikett"; /* vorhandene gewinnt */
+  if(!v) return "";                                    /* ungeprueft = keine Quelle */
+  return String(window._fgBioQuelle||"")               /* noch gesetzt? gewinnt */
+      || String(window._fgBioQuelleOriginal||"")       /* sonst die geladene */
+      || "Etikett";                                    /* nie eine dagewesen */
 }
 if(typeof window!=="undefined"){ window.feBioQuelleBeiHand=feBioQuelleBeiHand; }
 /* Klick = jemand hat entschieden. Die QUELLE bleibt dabei, was sie war (siehe oben);
@@ -27445,7 +27461,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2340";
+const APP_BUILD = "2026-08-15-2355";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
