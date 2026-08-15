@@ -15901,12 +15901,37 @@ function feBioSwRender(){
   }
   box.innerHTML=h;
 }
-/* Klick = jemand hat entschieden. Bei "Bio" oder "kein Bio" wird die Quelle zu "Etikett"
-   (= ich habe nachgesehen); zurueck auf ungeprueft loescht auch die Quelle. */
+/* 🔴 15.08.2026 - DIE BIO-QUELLE WIRD NICHT MEHR UEBERSCHRIEBEN (Ralph-Entscheid A).
+
+   GEMESSEN an P73616, nicht vermutet: der Round-Trip "Bio -> ungeprueft -> Bio"
+   machte aus Bio_Quelle='Herstellerseite' still ein 'Etikett'. Der Feldvergleich der
+   ganzen Produktzeile gegen den Abzug doc_bak_20260815_p73616_vor_biotest zeigte
+   genau diese EINE Abweichung.
+
+   TRAGWEITE: 11.216 Produkte tragen Bio, davon 11.203 mit einer Quelle, die NICHT
+   'Etikett' ist - 11.130 'OpenFoodFacts (Label)', 65 'Annahme (Produktname)',
+   8 'Herstellerseite'. Jedes haette beim ersten Bio-Klick in der Rail behauptet,
+   der Beleg stamme vom Etikett. Das ist eine erfundene Quellenart (§1.1) und
+   verletzt die Quellenrolle (§3.2) - eine Importangabe ist kein geprueftes Etikett.
+
+   DIE REGEL STEHT AB HIER AN GENAU EINEM ORT (§4.2). Sie stand vorher dreimal da:
+   feBioSw, feBioChange und der Fallback in fgEditSave - drei Orte, dieselbe
+   Behauptung, und keiner kannte den anderen.
+
+   Regel A: eine vorhandene Quelle BLEIBT STEHEN. 'Etikett' wird nur gesetzt, wenn
+   gar keine Quelle da ist - dann ist der Klick tatsaechlich der einzige Beleg.
+   Ungeprueft loescht die Quelle weiterhin: ohne Bio-Wert gibt es nichts zu belegen. */
+function feBioQuelleBeiHand(v){
+  if(!v) return "";                                   /* ungeprueft = keine Quelle */
+  return String(window._fgBioQuelle||"") || "Etikett"; /* vorhandene gewinnt */
+}
+if(typeof window!=="undefined"){ window.feBioQuelleBeiHand=feBioQuelleBeiHand; }
+/* Klick = jemand hat entschieden. Die QUELLE bleibt dabei, was sie war (siehe oben);
+   zurueck auf ungeprueft loescht auch die Quelle. */
 function feBioSw(v){
   var sel=document.getElementById("fe_bio"); if(!sel) return;
   sel.value=v;
-  window._fgBioQuelle=v?"Etikett":"";
+  window._fgBioQuelle=feBioQuelleBeiHand(v);
   feBioSwRender(); feBioHint();
 }
 function feBioHint(){
@@ -15919,7 +15944,11 @@ function feBioHint(){
   else if(q){ h.textContent="✓ "+q+" · Merkmal und Filter, keine Punkte im Index."; h.style.color="var(--k-16a34a)"; }
   else { h.textContent="Merkmal und Filter, keine Punkte im Index."; h.style.color="var(--muted)"; }
 }
-function feBioChange(){ window._fgBioQuelle="Etikett"; feBioHint(); }
+function feBioChange(){
+  var sel=document.getElementById("fe_bio");
+  window._fgBioQuelle=feBioQuelleBeiHand(sel && sel.value);   /* §4.2: dieselbe Regel, EIN Ort */
+  feBioHint();
+}
 
 /* M2 a2b, 08.08.2026 (Ralph: "die haben wir doch schon so auf der Produktkarte").
    Icon, Farben und die Kurzform "tierisch" sind WOERTLICH die aus efPill/suppEfPill -
@@ -22877,7 +22906,10 @@ async function fgEditSave(alsoFreigeben){
     try{
       var _bioV=(g("fe_bio")&&g("fe_bio").value||"").trim();
       var _bio=(_bioV==="ja")?true:((_bioV==="nein")?false:null);
-      var _r4=await client.rpc("cb_produkt_bio_setzen",{p_id:pid, p_bio:_bio, p_quelle:(_bio===null)?null:(window._fgBioQuelle||"Etikett")});
+      /* 15.08.: dritter Ort derselben Regel - jetzt ueber feBioQuelleBeiHand (§4.2).
+         Der alte Fallback `||"Etikett"` stand hier als eigener Schreiber und haette
+         die Korrektur oben wieder ausgehebelt, sobald _fgBioQuelle leer ankommt. */
+      var _r4=await client.rpc("cb_produkt_bio_setzen",{p_id:pid, p_bio:_bio, p_quelle:(_bio===null)?null:feBioQuelleBeiHand(_bioV)});
       if(_r4&&_r4.error) throw _r4.error;
     }catch(e){ _fehler.push("Bio: "+((e&&e.message)||e)); }
     /* Ernaehrungsform - M2 a2b, 08.08.2026. Eigener enger Schreibweg nach demselben Muster
@@ -27413,7 +27445,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2250";
+const APP_BUILD = "2026-08-15-2340";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
