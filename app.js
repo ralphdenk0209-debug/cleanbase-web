@@ -8219,6 +8219,14 @@ async function loadDashboard(){
   if((ME&&ME.is_admin) && dashArbeitAnsichtGet()==='architektur'){
     try{ if(typeof _abGraphStop==='function') _abGraphStop(); }catch(e){
       try{ console.warn('Graph-Schleife liess sich nicht stoppen:',e); }catch(_){} }
+    /* 🔴 dashArbeitCss() MUSS hier stehen, nicht nur arCss(). Der Kopf von arHtml()
+       benutzt .ab, .abkopf, .abum, .abbtn und .st — die kommen aus dashArbeitCss(),
+       nicht aus arCss(). Gefunden am 15.08. beim Reload-Test in Build 3260: wer direkt
+       in die Architektur-Ansicht laedt, bekam einen unformatierten Kopf mit gestapelten
+       Knoepfen. Im Vorschautest fiel es nicht auf, weil dort die Arbeitsflaeche vorher
+       gelaufen war und ihr CSS schon hing — ein Test, der den Zustand des Vorgaengers
+       erbt, misst den Ablauf nicht (§ build_vs_verified). */
+    dashArbeitCss();
     arCss();
     box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Architektur…</div>';
     await arLaden();
@@ -10986,7 +10994,48 @@ function dashArbeitCss(){
    +A+' .abnotiz{width:100%;height:100%;min-height:80px;box-sizing:border-box;resize:none;'
     +'font:inherit;font-size:13px;line-height:1.5;color:var(--abink);'
     +'border:1px solid var(--abline);border-radius:9px;padding:8px 10px;background:#fffdf6}'
-   +A+' .abnotizText{font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word}';
+   +A+' .abnotizText{font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word}'
+
+   /* ======================================================================
+      ROOT COCKPIT · C2 · 15.08.2026 — Ralph-Go nach acht Entwurfsrunden.
+      Vorlage: bereiche/Mockup-ROOTCOCKPIT.html, dort steht auch, WORAN die
+      Optik haengt. Kurz: Foto unter der Kachel, Verlauf darueber, Ueberschrift
+      gross in Versalien, Statuspunkte rechts, Standort-Pille im Inhalt.
+      🔴 Nur EIN Gruen. Rot und Gelb sind Warnstufen, keine Dekoration.
+      ====================================================================== */
+   /* Foto und Verlauf: zwei getrennte Ebenen. Der Verlauf deckt frueher als
+      bei einer Zeichnung — sonst steht die Beschriftung auf einem Ast. */
+   +A+' .abbento .bk{position:relative;overflow:hidden}'
+   +A+' .abbento .bfoto{position:absolute;inset:0;z-index:0;background-repeat:no-repeat;'
+    +'background-position:center right;background-size:cover;opacity:.55}'
+   +A+' .abbento .bschleier{position:absolute;inset:0;z-index:1;background:'
+    +'linear-gradient(90deg,#fff 0%,#fff 42%,rgba(255,255,255,.55) 74%,rgba(255,255,255,0) 100%),'
+    +'linear-gradient(0deg,rgba(255,255,255,.5) 0%,rgba(255,255,255,0) 45%)}'
+   +A+' .abbento .bkopf,'+A+' .abbento .bleib,'+A+' .abbento .bfuss{position:relative;z-index:2}'
+   /* Ueberschrift: aus 10,5px Kleinschrift wird die grosse Versalzeile der
+      Vorlage. Das ist der auffaelligste Einzelunterschied. */
+   +A+' .abbento .bkopf h3{font-size:15px;font-weight:800;letter-spacing:.02em;'
+    +'text-transform:uppercase;color:var(--abink);line-height:1.15}'
+   /* Statuspunkte rechts oben — der Zustand steht am Rand, nicht im Text. */
+   +A+' .abbento .bleds{margin-left:auto;display:flex;gap:4px;flex:0 0 auto}'
+   +A+' .abbento .bleds i{width:9px;height:9px;border-radius:50%;background:#c6cbce;display:block}'
+   +A+' .abbento .bleds i.gr{background:'+_AB.gut+'}'
+   +A+' .abbento .bleds i.r{background:'+_AB.krit+'}'
+   +A+' .abbento .bleds i.ge{background:'+_AB.warn+'}'
+   /* Standort-Pille: grauer Chip, Beschriftung grau, Wert gruen. */
+   +A+' .abbento .bort{display:inline-flex;align-items:center;gap:5px;background:#eef0f1;'
+    +'border-radius:13px;padding:4px 11px;font-size:11.5px;color:var(--abmut);'
+    +'margin-bottom:9px;align-self:flex-start;max-width:100%}'
+   +A+' .abbento .bort b{color:'+_AB.gut+';font-weight:700}'
+   /* Legende mit Pfeil-Chips statt Punkten. */
+   +A+' .abbento .bleg{display:flex;gap:13px;flex-wrap:wrap;padding-top:9px}'
+   +A+' .abbento .bleg span{display:flex;align-items:center;gap:6px;font-size:10px;'
+    +'color:var(--abmut);text-transform:uppercase;letter-spacing:.03em;line-height:1.25}'
+   +A+' .abbento .bleg i{width:15px;height:11px;flex:0 0 auto;'
+    +'clip-path:polygon(0 0,70% 0,100% 50%,70% 100%,0 100%)}'
+   +A+' .abbento .bleg i.gr{background:'+_AB.gut+'}'
+   +A+' .abbento .bleg i.ge{background:'+_AB.warn+'}'
+   +A+' .abbento .bleg i.r{background:'+_AB.krit+'}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -11635,10 +11684,23 @@ function _abHero(d,np,A,ans){
    unterschiedlich aussehen. */
 function _abKachel(titel, tag, inhalt, fuss, gross, zus){
   zus=zus||{};
+  /* Foto und Schleier liegen UNTER dem Inhalt. Zwei getrennte Ebenen, damit
+     der Verlauf unabhaengig vom Bild eingestellt werden kann — beim ersten
+     Versuch steckte beides in einer, und jede Aenderung am Verlauf hat das
+     Bild mitverschoben. */
+  var _foto = zus.foto
+    ? '<div class="bfoto" style="background-image:url(bg-'+zus.foto+'.jpg)"></div>'
+      +'<div class="bschleier"></div>'
+    : '';
+  var _leds = zus.leds
+    ? '<span class="bleds">'+String(zus.leds).split(' ').map(function(f){
+        return '<i class="'+f+'"></i>'; }).join('')+'</span>'
+    : '';
   return '<div class="bk'+(gross?' bgross':'')+(zus.klasse||'')+'"'+(zus.attr||'')
     +(zus.stil?' style="'+zus.stil+'"':'')+'>'
+    +_foto
     +(zus.vor||'')
-    +'<div class="bkopf"><h3>'+titel+'</h3>'+(tag||'')+'</div>'
+    +'<div class="bkopf"><h3>'+titel+'</h3>'+(tag||'')+_leds+'</div>'
     +inhalt
     +(fuss?'<div class="bfuss">'+fuss+'</div>':'')
   +'</div>';
@@ -11662,20 +11724,27 @@ function _abKachel(titel, tag, inhalt, fuss, gross, zus){
    mitbringen (Schnellzugriff). Etappe 2 legt eine Konfiguration darueber;
    liegt keine vor, gilt diese Liste als Rueckfall.
    ========================================================================== */
+/* 🔴 C2, 15.08.2026 — ROOT-COCKPIT-OPTIK (Ralph-Go: „ja, kannst du so bauen").
+   Jede Kachel bekommt ein FOTO als Hintergrund. Die Dateien liegen FLACH in
+   webseite/ als bg-*.jpg — nicht in einem Unterordner: deploy.command kopiert
+   nur regulaere Dateien direkt aus webseite/ und ueberspringt Ordner. Waeren
+   sie unten drin, waeren sie gebaut und trotzdem nie live (gemessen, C1).
+   `foto` ist die Kennung ohne Vorsilbe und Endung. Fehlt sie, bleibt die
+   Kachel weiss — kein Fehler, nur ohne Bild. */
 var _AB_KACHELN=[
-  {id:'aufgaben',  reihe:1, titel:'Heute — offene Aufgaben',  breit:true,  bau:_abkAufgaben},
-  {id:'bestand',   reihe:1, titel:'Datenbestand',             breit:false, bau:_abkBestand},
-  {id:'riki',      reihe:1, titel:'Riki-Budget',              breit:false, bau:_abkRiki},
-  {id:'waechter',  reihe:1, titel:'Wächter-Status',           breit:false, bau:_abkWaechter},
-  {id:'aktivitaet',reihe:2, titel:'Letzte Aktivitäten',       breit:true,  bau:_abkAkt},
-  {id:'region',    reihe:2, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion},
-  {id:'stammu',    reihe:2, titel:'Stamm-Überblick',          breit:false, bau:_abkStammU},
-  {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell},
+  {id:'aufgaben',  reihe:1, titel:'Heute — offene Aufgaben',  breit:true,  bau:_abkAufgaben, foto:'flusslauf', leds:'r ge'},
+  {id:'bestand',   reihe:1, titel:'Datenbestand',             breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr'},
+  {id:'riki',      reihe:1, titel:'Riki-Budget',              breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
+  {id:'waechter',  reihe:1, titel:'Wächter-Status',           breit:false, bau:_abkWaechter, foto:'stroem',    leds:'r ge'},
+  {id:'aktivitaet',reihe:2, titel:'Letzte Aktivitäten',       breit:true,  bau:_abkAkt,      foto:'wellen',    leds:'gr'},
+  {id:'region',    reihe:2, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion,   foto:'regionen',  leds:'gr'},
+  {id:'stammu',    reihe:2, titel:'Stamm-Überblick',          breit:false, bau:_abkStammU,   foto:'stamm',     leds:'ge gr'},
+  {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell,   foto:'ringe'},
   /* Die freie Kachel: Ralph bestimmt ihren INHALT, nicht nur ihren Platz.
      Sie steht in der gespeicherten Standardvariante auf aus - wer sie will,
      schaltet sie im Anordnen-Modus ein. Ein Dashboard, das sich von selbst um
      eine Kachel erweitert, waere eine Ueberraschung, keine Verbesserung. */
-  {id:'frei',      reihe:1, titel:'Meine Zahlen',             breit:false, bau:_abkFrei, waehlbar:true}
+  {id:'frei',      reihe:1, titel:'Meine Zahlen',             breit:false, bau:_abkFrei, waehlbar:true, foto:'ringe'}
 ];
 
 /* ============================================================================
@@ -13080,7 +13149,7 @@ function _abFlaeche(c){
     var stil='position:absolute;left:'+(g.x/_AB_LW*100).toFixed(4)+'%;top:'+g.y+'px;'
       +'width:'+(g.b/_AB_LW*100).toFixed(4)+'%;height:'+g.h+'px;z-index:'+g.z+';overflow:hidden';
     var zus=_AB_EDIT?_abEditRahmen(x):{};
-    zus=Object.assign({}, zus, {stil:stil,
+    zus=Object.assign({}, zus, {stil:stil, foto:x.foto, leds:x.leds,
       attr:(zus.attr||'')+' data-kid="'+esc(x.id)+'"'});
     if(x.roh){
       var r=x.roh(c,x);
@@ -30775,7 +30844,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3260";
+const APP_BUILD = "2026-08-15-3280";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
