@@ -1040,6 +1040,20 @@ function hasFeat(k){
   if(MY_FEATURES) return MY_FEATURES.has(k);
   return !!(ME&&ME.is_premium);   /* Notfall: RPC nicht erreichbar */
 }
+/* Work #25 (15.08.2026, Ralph-Entscheid B): hat der Nutzer im Profil einen Diabetestyp
+   angegeben? Der Wert kommt seit Work #31 aus cb_me und steht damit in ME.
+
+   🔴 DAS IST KEINE BERECHTIGUNG, und der Satz steht hier, damit es niemand dafuer haelt.
+   Ralph hat am 15.08. ausdruecklich GEGEN Weg A entschieden: die Angabe schaltet NICHTS
+   frei. pk_blutzucker bleibt zahlungspflichtig, und die einzige Frage danach bleibt
+   hasFeat(). meDiabetes() darf ausschliesslich REIHENFOLGE und WORTLAUT steuern.
+   Wer damit je eine Sichtbarkeit entscheidet, hat Weg A durch die Hintertuer gebaut -
+   und zwar im Browser, wo jeder Nutzer den Wert selbst setzen kann.
+
+   Bewusst tolerant: JEDER der fuenf CHECK-Werte zaehlt (typ1, typ2, praediabetes,
+   gestationsdiabetes, sonstiger). Eine Unterscheidung waere eine fachliche Aussage
+   darueber, wer Zuckerinformationen braucht - die steht mir nicht zu (§1.1). */
+function meDiabetes(){ return !!(ME && ME.diabetes_typ); }
 function setTierOverride(t){
   window._tierOverride = t || null;
   const c=document.getElementById("tierOvChip"); if(c) c.querySelectorAll('button').forEach(b=>b.style.fontWeight=(b.dataset.t===(t||''))?'800':'400');
@@ -2802,8 +2816,12 @@ function detail2(d){
     return '<div style="background:var(--bg);border-radius:10px;padding:8px 9px;min-width:0"><div style="font-size:11.5px;color:var(--muted)">'+label+'</div><div style="font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap">'+String(val).replace('.',',')+' '+unit+'</div></div>';
   }
 
-  function ACC(icon,titel,inner){
-    return '<details style="border-top:1px solid var(--line)"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;padding:11px 2px;font-size:14px;color:var(--ink)"><span>'+icon+' '+titel+'</span><span style="color:var(--muted);font-size:12px">▾</span></summary><div style="padding:2px 2px 12px">'+inner+'</div></details>';
+  /* Work #25 (15.08.2026): vierter Parameter "offen" - das <details> startet
+     aufgeklappt statt zugeklappt. Reine Darstellung; der Inhalt ist derselbe,
+     er ist nur schon sichtbar. Alle uebrigen Aufrufer uebergeben ihn nicht und
+     bekommen unveraendert ein zugeklapptes Akkordeon (undefined ist falsy). */
+  function ACC(icon,titel,inner,offen){
+    return '<details'+(offen?' open':'')+' style="border-top:1px solid var(--line)"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;padding:11px 2px;font-size:14px;color:var(--ink)"><span>'+icon+' '+titel+'</span><span style="color:var(--muted);font-size:12px">▾</span></summary><div style="padding:2px 2px 12px">'+inner+'</div></details>';
   }
 
   var restRows=MACROS.filter(function(m){ return d[m[0]]!=null; }).map(function(m){  /* Ralph 26.07.: ALLE Makros zeigen (Fett/Energie/Eiweiss/Ballast standen vorher nur als Kachel, dadurch hing 'davon gesaettigte' ohne Fett-Zeile in der Luft). Null=unbekannt bleibt aussen vor, 0 ist ein echter Wert. */
@@ -2944,7 +2962,20 @@ function detail2(d){
         ? pkGastBox()
         : ((restRows&&_fNw)?ACC('📊','Alle Nährwerte','<div style="font-size:12px;color:var(--muted);margin-bottom:6px">pro 100 '+prodEinheit(d)+'</div>'+restRows):'')
           + (_fZut?ACC('🧾','Zutaten &amp; Zusatzstoffe',zHtml+(hasFeat('score_detail')?naehrstoffHtml(d):'')):pkSperre('Zutaten & Zusatzstoffe','Zutaten mit Verarbeitungs-Ampel + Zusatzstoffe'))
-          + (bz?(_fBz?ACC('📈','Blutzucker-Verlauf',bzInner):pkSperre('Blutzucker-Verlauf','Wie stark das Produkt den Blutzucker treibt')):'')
+          /* Work #25 (15.08.2026, Ralph-Entscheid B): die EINZIGE Stelle, an der die
+             Diabetes-Angabe wirkt - und sie wirkt auf beiden Seiten der Sperre, ohne
+             sie zu verschieben. MIT Premium: das Akkordeon startet aufgeklappt, wer
+             es angegeben hat, muss nicht erst suchen. OHNE Premium: derselbe Riegel,
+             aber ein Satz, der sagt, dass genau dieser Teil gemeint ist - statt der
+             allgemeinen Abweisung, die alle bekommen.
+             🔴 _fBz entscheidet weiterhin ALLEIN ueber die Sichtbarkeit. meDiabetes()
+             steht bewusst NICHT in dieser Bedingung, sondern nur in ihren beiden
+             Zweigen. Wer es dorthin schiebt, hat den verworfenen Weg A gebaut.
+             Der Satz nennt keine Diagnose und keine Empfehlung - er sagt nur, wofuer
+             der Block gebaut ist (Riegel aus dem Knoten W10: Anzeige, keine Therapie). */
+          + (bz?(_fBz?ACC('📈','Blutzucker-Verlauf',bzInner,meDiabetes())
+                     :pkSperre('Blutzucker-Verlauf','Wie stark das Produkt den Blutzucker treibt',
+                               meDiabetes()?'Du hast im Profil einen Diabetestyp angegeben – dieser Teil ist dafür gemacht.':'')):'')
           + ACC('🔬','Im Root Index','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Die vier Achsen mit Punkten und Herleitung.</div>'
               +(hasFeat('pk_regeln')?scoreFlow(d):pkSperre('So kommt der Index zustande','Regeln, Deckel-Check und Herleitung'))
               +(hasFeat('pk_platzierung')?katRangHtml(d):pkSperre('Platzierung','Platz in der Kategorie und die Besten'))
@@ -4619,7 +4650,13 @@ async function detail(d){
 }
 /* Ein gesperrter Block sagt, WAS fehlt und WARUM - er verschwindet nicht einfach.
    Ein Block, der spurlos fehlt, sieht aus wie ein Fehler; einer mit Schloss wie ein Angebot. */
-function pkSperre(titel, was){
+/* Work #25 (15.08.2026): dritter Parameter "fuerDich" - ein zusaetzlicher Satz UEBER
+   dem Knopf, der sagt, warum genau dieser Block fuer diesen Nutzer gebaut ist.
+   Alle uebrigen Aufrufer uebergeben ihn nicht und sehen die Box unveraendert.
+   🔴 Er aendert NICHTS an der Sperre. Wer kein Premium hat, sieht den Inhalt weiterhin
+   nicht - er liest nur einen passenderen Satz davor. Das ist der ganze Unterschied
+   zwischen Ralphs Weg B und dem verworfenen Weg A. */
+function pkSperre(titel, was, fuerDich){
   var angemeldet = !!ME;
   var txt  = angemeldet ? 'Mit Premium freigeschaltet' : 'Mit kostenlosem Konto sichtbar';
   var knopf = angemeldet
@@ -4632,6 +4669,7 @@ function pkSperre(titel, was){
     +'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px">'+esc(titel)+'</div>'
     +'<div style="font-size:13.5px;color:var(--ink);font-weight:600">'+esc(was)+'</div>'
     +'<div style="font-size:12.5px;color:var(--muted);margin-top:3px">'+txt+'</div>'
+    + (fuerDich?'<div style="font-size:12.5px;color:var(--ink);margin-top:7px;line-height:1.45">'+esc(fuerDich)+'</div>':'')
     + knopf
   +'</div>';
 }
@@ -29002,7 +29040,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2820";
+const APP_BUILD = "2026-08-15-2905";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
