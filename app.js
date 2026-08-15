@@ -5101,8 +5101,27 @@ async function fgStammWaechter(){
         +'</div>'
       +'<div class="fgSwFuss"><button type="button" onclick="navTo(\'freigabe\');fgTab(\'stamm\')">Stamm öffnen →</button></div>';
   }catch(e){
-    box.innerHTML='<div class="fgSwFehl">Stammwächter nicht ladbar: '+esc(e&&e.message||String(e))+'</div>';
-    console.error('[Stammwächter]', e);
+    /* 🔴 15.08.2026, im Browser gemessen: cb_admin_stamm_waechter braucht 4,9 s
+       bei 2.041.329 Buffer-Treffern (EXPLAIN ANALYZE). Beim Seitenaufbau lief es
+       deshalb in „canceling statement due to statement timeout", und oben auf dem
+       Dashboard stand ein rotes Band. Der zweite, warme Aufruf ging in 4,1 s durch.
+       Die URSACHE ist serverseitig und gehoert ChatGPT (§31) — als Work Item #16
+       uebergeben. Hier wird nur die Wirkung ertraeglich gemacht: der Grund steht
+       im Klartext da, und ein Knopf holt die Zahlen nach. Ein stiller Fehlschlag
+       waere schlimmer, ein rotes Band ohne Ausweg nutzlos (§1.7, §11.4). */
+    var m=(e&&e.message)||String(e);
+    var timeout=/timeout|canceling statement/i.test(m);
+    box.innerHTML='<div class="fgSwFehl"><b>Stammwächterzahlen fehlen.</b> '
+      +(timeout
+        ? 'Die Abfrage hat zu lange gebraucht und wurde abgebrochen. Das ist bekannt und liegt an der Datenbank, nicht an dieser Seite.'
+        : esc(m))
+      +' <button type="button" onclick="fgStammWaechter()" '
+      +'style="margin-left:6px;padding:3px 10px;border-radius:7px;border:1px solid currentColor;'
+      +'background:transparent;color:inherit;font-weight:700;cursor:pointer">nochmal holen</button>'
+      +(timeout?'<div style="font-size:11px;opacity:.85;margin-top:4px">Gemessen 15.08.: 4,9 s · '
+        +'der zweite Versuch geht meist durch.</div>':'')
+      +'</div>';
+    try{ console.error('[Stammwächter]', e); }catch(_){}
   }
 }
 if(typeof window!=='undefined') window.fgStammWaechter=fgStammWaechter;
@@ -10534,7 +10553,12 @@ function dashArbeitCss(){
    /* Bento: 4 Spalten, die erste Kachel nimmt zwei — „HEUTE" ist die Hauptsache
       und darf nicht so gross wie eine Nebenzahl sein (Ralph: keine zehn gleich
       grossen Kaesten). */
-   +A+' .abbento{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;'
+   /* 🔴 KORREKTUR 15.08.2026, am Bild gemessen: bei 4 Spalten und einer doppelt
+      breiten Kachel passen nur DREI der vier Kacheln in die Reihe — „Waechter-
+      Status" fiel in eine zweite Zeile und wurde dort riesig. Ralphs Bild hat
+      vier Kacheln nebeneinander, die erste gross. Das sind 2+1+1+1 = FUENF
+      Spalten, nicht vier. */
+   +A+' .abbento{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:13px;'
     +'align-items:stretch;margin-bottom:14px}'
    +A+' .abbento .bgross{grid-column:span 2}'
    +'@media (max-width:1180px){'+A+' .abbento{grid-template-columns:repeat(2,minmax(0,1fr))}'
@@ -10553,12 +10577,22 @@ function dashArbeitCss(){
    +A+' .abbento .baufg{display:flex;align-items:center;gap:10px;padding:8px 14px;'
     +'border-top:1px solid var(--abline);cursor:pointer}'
    +A+' .abbento .baufg:hover{background:#f7f9fa}'
-   +A+' .abbento .baufg .bp{flex:0 0 auto;width:22px;height:22px;border-radius:50%;color:#fff;'
-    +'font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;'
-    +'font-variant-numeric:tabular-nums}'
+   /* 🔴 KORREKTUR: die Plakette war fest 22px breit, deshalb wurde bei >99 auf
+      „99+" gekuerzt — und 248 sah aus wie 543. Zwei verschiedene Rueckstaende
+      duerfen nicht gleich aussehen; genau die Zahl ist ja die Aussage. Jetzt
+      waechst die Plakette mit der Stelligkeit (min-width statt width). */
+   +A+' .abbento .baufg .bp{flex:0 0 auto;min-width:22px;height:22px;padding:0 5px;'
+    +'border-radius:11px;color:#fff;font-size:11px;font-weight:800;display:flex;'
+    +'align-items:center;justify-content:center;font-variant-numeric:tabular-nums}'
+   /* 🔴 KORREKTUR: bt1/bt2 sind <span> und damit inline — im Bild lief
+      „…niemand holt sie abältester Eintrag 31 Tage alt" in EINER Zeile
+      ineinander. display:block trennt sie. Am Bild gemessen, nicht im Code
+      gefunden: der Rendertest prueft Markup, nicht Umbruch. */
    +A+' .abbento .baufg .bt{flex:1;min-width:0}'
-   +A+' .abbento .baufg .bt1{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
-   +A+' .abbento .baufg .bt2{font-size:11px;color:var(--abmut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+   +A+' .abbento .baufg .bt1{display:block;font-size:12.5px;font-weight:700;'
+    +'overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+   +A+' .abbento .baufg .bt2{display:block;font-size:11px;color:var(--abmut);'
+    +'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}'
    +A+' .abbento .baufg .bgo{flex:0 0 auto;color:var(--abmut);font-size:15px}'
    +A+' .abbento .bleer{padding:20px 14px;text-align:center;color:var(--abmut);font-size:12.5px}'
    +A+' .abbento .bzeile{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;'
@@ -10566,9 +10600,35 @@ function dashArbeitCss(){
    +A+' .abbento .bzeile:last-child{border-bottom:0}'
    +A+' .abbento .bzeile b{font-variant-numeric:tabular-nums;flex:0 0 auto}'
    +A+' .abbento .bfuss{font-size:11px;color:var(--abmut);padding:9px 14px;border-top:1px solid var(--abline)}'
+   /* 🔴 KORREKTUR: weiter oben steht `.ab svg{width:100%;height:auto}` — fuer den
+      grossen Waechter-Ring und den Fluss richtig, fuer den kleinen Kachelring
+      verheerend. Er wurde auf Kachelbreite aufgeblasen und sprengte die Zeile.
+      Die Breitenangabe im <svg>-Tag allein half nicht: die Regel ist
+      spezifischer. Deshalb hier gezielt zurueckgesetzt statt die allgemeine
+      Regel anzufassen — die haengt an Bausteinen, die ich nicht anfasse (§2.3). */
    +A+' .abbento .bring{display:flex;align-items:center;gap:12px;padding:4px 0}'
+   +A+' .abbento .bring svg{width:62px;height:62px;flex:0 0 auto}'
    +A+' .abbento .bspark{display:flex;align-items:flex-end;gap:2px;height:30px;margin-top:7px}'
-   +A+' .abbento .bspark i{flex:1;display:block;border-radius:2px 2px 0 0;background:'+_AB.kern+';opacity:.72}';
+   +A+' .abbento .bspark i{flex:1;display:block;border-radius:2px 2px 0 0;background:'+_AB.kern+';opacity:.72}'
+   /* ----- Bento-Reihe 2 (Durchgang 3) ----- */
+   +A+' .abbento.ab2 .bleib{padding-top:9px}'
+   +A+' .abbento .blade{color:var(--abmut);font-size:12px;padding:14px 0;text-align:center}'
+   +A+' .abbento .bleerk{color:var(--abmut);font-size:12px;padding:8px 0}'
+   +A+' .abbento .babs{font-size:10.5px;font-weight:800;text-transform:uppercase;'
+    +'letter-spacing:.05em;color:var(--abmut);margin-bottom:3px}'
+   +A+' .abbento .bfehl{font-size:11.5px;line-height:1.45;color:'+_AB.krit+';'
+    +'background:#fdf1f1;border:1px solid #f2cfcf;border-radius:9px;padding:9px 10px}'
+   /* Die Karte war Ralph zu gross. Sie wird NICHT neu gezeichnet — die Kachel
+      begrenzt sie, und das SVG skaliert mit (§22: entKarteDE bleibt unberuehrt). */
+   +A+' .abbento .abkarte{max-width:100%;overflow:hidden}'
+   +A+' .abbento .abkarte svg{width:100%;height:auto;max-height:210px;display:block}'
+   +A+' .abschnell{display:flex;align-items:center;gap:9px;width:100%;text-align:left;'
+    +'background:#fff;border:1px solid var(--abline);border-radius:10px;padding:8px 11px;'
+    +'margin-bottom:7px;font-size:12.5px;font-weight:700;color:var(--abink);cursor:pointer;'
+    +'font-family:inherit}'
+   +A+' .abschnell:hover{background:#f5f8f9;border-color:#cfd5de}'
+   +A+' .abschnell .ic{font-size:15px;line-height:1}'
+   +A+' .abschnell .pf{margin-left:auto;color:var(--abmut)}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -10909,7 +10969,7 @@ function _abBento(d,np,A){
     ? jobs.slice(0,6).map(function(j){
         var f=(j.p===0)?_AB.krit:(j.p===1)?_AB.warn:_AB.zu;
         return '<div class="baufg" data-job="'+esc(j.ziel||'')+'">'
-          +'<span class="bp" style="background:'+f+'">'+(j.n>99?'99+':j.n)+'</span>'
+          +'<span class="bp" style="background:'+f+'">'+esc(String(j.n))+'</span>'
           +'<span class="bt"><span class="bt1">'+esc(j.t1)+'</span>'
           +'<span class="bt2" title="'+esc(j.t2)+'">'+esc(j.t2)+'</span></span>'
           +'<span class="bgo">›</span></div>';
@@ -10981,6 +11041,172 @@ function _abBento(d,np,A){
   return h+'</div>';
 }
 
+/* ============================================================================
+   BENTO-REIHE 2  ·  Durchgang 3  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   §22 zuerst gesucht, und es hat sich wieder gelohnt: NICHTS hiervon ist neu.
+     · „Letzte Aktivitaeten"  -> cb_top_aufrufe / cb_top_suchen. Beide standen in
+       `ladeNutzungPanel` — einer Funktion, die NIRGENDS gerufen wird und deren
+       Container `#dashNutzung` in keinem Markup steht. Totes Werkzeug, genau wie
+       `ladeStammPanel`. Es fehlte nicht, es war nur nicht angeschlossen.
+     · „Nutzer & Regionen"    -> dashKarteLoad + entKarteDE, vorhanden.
+     · „Stamm-Ueberblick"     -> cb_admin_stamm_waechter, dieselbe Quelle wie der
+       Stammwaechter. KEINE zweite Zaehlung (§4.2).
+     · „Schnellzugriff"       -> adminGo, vorhanden.
+
+   🔴 ALLE VIER LADEN NACH. Der Seitenaufbau darf nicht auf sie warten —
+   cb_admin_stamm_waechter braucht gemessene 4,9 s und laeuft in den Timeout
+   (Work #17). Eine Kachel, die den Rest der Seite blockiert, waere ein
+   Rueckschritt gegenueber dem, was vorher da war.
+   ========================================================================== */
+function _abBento2(){
+  var kachel=function(id,titel,tag){
+    return '<div class="bk"><div class="bkopf"><h3>'+titel+'</h3>'+(tag||'')+'</div>'
+      +'<div class="bleib" id="'+id+'"><div class="blade">lädt…</div></div></div>';
+  };
+  return '<div class="abbento ab2">'
+    + '<div class="bk bgross"><div class="bkopf"><h3>Letzte Aktivitäten</h3>'
+      + '<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">30 Tage</span></div>'
+      + '<div class="bleib" id="abAkt"><div class="blade">lädt…</div></div></div>'
+    + kachel('abRegion','Nutzer &amp; Regionen','')
+    + kachel('abStammU','Stamm-Überblick',
+        '<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">neu / alt</span>')
+    + _abSchnell()
+  +'</div>';
+}
+
+/* Schnellzugriff. Reine Wege, keine Zahlen — deshalb sofort da und ohne Nachladen.
+   Die Ziele sind adminGo-Schluessel, die es WIRKLICH gibt (aus der fg-Tabelle in
+   adminGo gelesen, nicht geraten). */
+function _abSchnell(){
+  var z=[['produkterfassung','✏️','Produkt erfassen'],
+         ['zuverif','🕵️','Zu verifizieren'],
+         ['stamm','🧬','Stamm bearbeiten'],
+         ['regelwerk','📖','Regelwerk'],
+         ['rezepte','🍲','Rezepte']];
+  return '<div class="bk"><div class="bkopf"><h3>Schnellzugriff</h3></div>'
+    +'<div class="bleib" style="padding-top:6px">'
+    + z.map(function(x){
+        return '<button type="button" class="abschnell" data-go="'+esc(x[0])+'">'
+          +'<span class="ic">'+x[1]+'</span>'+esc(x[2])+'<span class="pf">›</span></button>';
+      }).join('')
+    +'</div></div>';
+}
+
+/* Nachladen. Jede Kachel EINZELN und mit eigenem Fangblock: faellt eine aus,
+   stehen die anderen drei trotzdem (§11.4 — und der Grund landet sichtbar in
+   der Kachel, nicht nur in der Konsole). */
+async function _abBento2Laden(d){
+  var setz=function(id,html){ var e=document.getElementById(id); if(e) e.innerHTML=html; };
+  var fehl=function(id,e,was){
+    var m=(e&&e.message)||String(e);
+    setz(id,'<div class="bfehl"><b>'+esc(was)+' nicht ladbar.</b><br>'+esc(m)+'</div>');
+    try{ console.error('[Bento2] '+was, e); }catch(_){}
+  };
+
+  /* --- Letzte Aktivitaeten ------------------------------------------------- */
+  (async function(){
+    try{
+      var r=await Promise.all([
+        client.rpc('cb_top_aufrufe',{p_tage:30,p_limit:6}),
+        client.rpc('cb_top_suchen',{p_tage:30,p_nur_ohne_treffer:true,p_limit:6})
+      ]);
+      if(r[0].error) throw r[0].error;
+      if(r[1].error) throw r[1].error;
+      var auf=r[0].data||[], such=r[1].data||[];
+      var zeile=function(l,rechts,warn){
+        return '<div class="bzeile"><span style="overflow:hidden;text-overflow:ellipsis;'
+          +'white-space:nowrap">'+l+'</span><b'+(warn?' style="color:'+_AB.warn+'"':'')+'>'
+          +rechts+'</b></div>'; };
+      var h='<div class="babs">Meistgeöffnete Produkte</div>';
+      h+= auf.length
+        ? auf.map(function(x){ return zeile(esc(x.produktname||x.Produkt_ID||'?')
+            +(x.marke?' <span style="color:var(--abmut)">· '+esc(x.marke)+'</span>':''),
+            (x.aufrufe==null?'–':x.aufrufe)); }).join('')
+        : '<div class="bleerk">Noch keine Aufrufe gezählt.</div>';
+      h+='<div class="babs" style="margin-top:10px">Gesucht, aber nicht gefunden '
+        +'<span style="font-weight:400;color:var(--abmut)">— Katalog-Lücken</span></div>';
+      h+= such.length
+        ? such.map(function(x){ return zeile(esc(x.begriff),(x.gesucht==null?'–':x.gesucht+'×'),true); }).join('')
+        : '<div class="bleerk">Keine erfolglosen Suchen — gut.</div>';
+      setz('abAkt',h);
+    }catch(e){ fehl('abAkt',e,'Aktivitäten'); }
+  })();
+
+  /* --- Nutzer & Regionen --------------------------------------------------- */
+  (async function(){
+    var u=(d&&d.nutzer)||{};
+    var kopf='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px">'
+      +'<div><div class="bzahl" style="font-size:24px;color:'+_AB.kern+'">'
+        +(u.gesamt==null?'–':u.gesamt)+'</div>'
+      +'<div class="bunter">Nutzer gesamt</div></div>'
+      +'<div><div class="bzahl" style="font-size:24px;color:'+_AB.mut+'">'
+        +(u.aktiv_30t==null?'–':u.aktiv_30t)+'</div>'
+      +'<div class="bunter">aktiv, 30 Tage</div></div>'
+      +'<div><div class="bzahl" style="font-size:24px;color:'+_AB.mut+'">'
+        +(u.premium==null?'–':u.premium)+'</div>'
+      +'<div class="bunter">Premium</div></div></div>';
+    setz('abRegion',kopf+'<div id="abKarte" class="abkarte"><div class="blade">Karte lädt…</div></div>');
+    try{
+      var r=await client.rpc('cb_bundesland_zaehlung');
+      var k=r&&r.data; if(typeof k==='string') k=JSON.parse(k);
+      if(r&&r.error) throw r.error;
+      var box=document.getElementById('abKarte'); if(!box) return;
+      if(!(k&&k.ok)){ box.innerHTML='<div class="bleerk">Keine Regionsdaten.</div>'; return; }
+      var ges=Number(k.gesamt_mit_angabe)||0;
+      if(!ges){ box.innerHTML='<div class="bleerk">Noch keine Angabe zum Bundesland.</div>'; return; }
+      /* entKarteDE ist die BESTEHENDE Kartenfunktion — nicht nachgebaut (§22).
+         Ralph wollte die Karte kleiner; das macht die Kachelbreite, nicht ein
+         zweiter Zeichner. */
+      box.innerHTML=entKarteDE(k.laender, ges, Number(u.gesamt)||0);
+    }catch(e){
+      var b=document.getElementById('abKarte');
+      if(b) b.innerHTML='<div class="bfehl">Karte nicht ladbar.<br>'
+        +esc((e&&e.message)||String(e))+'</div>';
+      try{ console.error('[Bento2] Karte', e); }catch(_){}
+    }
+  })();
+
+  /* --- Stamm-Ueberblick ---------------------------------------------------- */
+  (async function(){
+    try{
+      var r=await client.rpc('cb_admin_stamm_waechter');
+      if(r.error) throw r.error;
+      var s=r.data||{}, N=s.neu||{}, AL=s.alt||{};
+      var z=function(l,v,warn){ return '<div class="bzeile"><span>'+l+'</span><b'
+        +(warn&&Number(v)>0?' style="color:'+_AB.warn+'"':'')+'>'
+        +(v==null?'–':v)+'</b></div>'; };
+      setz('abStammU',
+         '<div class="babs" style="color:'+_AB.kern+'">Neu · Canonical, maßgeblich</div>'
+        + z('aktiv',N.active_total)
+        + z('unbewertet',N.unbewertet,true)
+        + z('ohne Profil',N.ohne_profil,true)
+        +'<div class="babs" style="margin-top:10px;color:'+_AB.grau+'">Alt · Legacy, Übergang</div>'
+        + z('Einträge',AL.gesamt)
+        + z('Quelle offen',AL.quelle_offen,true)
+        + z('Widersprüche',AL.widersprueche_aktiv,true));
+    }catch(e){
+      /* Derselbe Timeout wie beim Stammwaechter (#17). Hier steht er in einer
+         Kachel und blockiert nichts — mit Knopf statt Sackgasse. */
+      var m=(e&&e.message)||String(e);
+      var to=/timeout|canceling statement/i.test(m);
+      setz('abStammU','<div class="bfehl"><b>Zahlen fehlen.</b><br>'
+        +(to?'Die Abfrage brauchte zu lange (bekannt, Datenbankseite).':esc(m))
+        +'<br><button type="button" class="abschnell" style="margin-top:7px" '
+        +'onclick="_abStammUNach()">nochmal holen</button></div>');
+      try{ console.error('[Bento2] Stamm', e); }catch(_){}
+    }
+  })();
+}
+/* Eigener Einstieg fuer den Wiederholen-Knopf — er darf nicht die ganze Reihe
+   neu laden, nur seine Kachel. */
+async function _abStammUNach(){
+  var e=document.getElementById('abStammU'); if(!e) return;
+  e.innerHTML='<div class="blade">lädt…</div>';
+  try{ await _abBento2Laden(_abD); }catch(x){ try{ console.error('_abStammUNach',x); }catch(_){} }
+}
+if(typeof window!=='undefined') window._abStammUNach=_abStammUNach;
+
 /* Kleiner Ring fuer die Kachel. Bewusst NUR eine Zusammenfassung — den
    klickbaren Ring mit Einzelsegmenten gibt es weiter unten in voller Groesse
    (_abRing). Hier waere er zu klein zum Treffen. */
@@ -11017,7 +11243,7 @@ function dashArbeitHtml(d,np,fehler){
   if(fehler) h+='<div class="abfehler"><b>Live-Daten unvollständig.</b> '+esc(fehler)
     +' — betroffene Felder bleiben leer oder grau. Grau heißt: wir wissen es nicht.</div>';
 
-  if(ans!=='graph') h+=_abBento(d,np,A);
+  if(ans!=='graph') h+=_abBento(d,np,A)+_abBento2();
 
   if(ans==='graph'){
     h+='<div class="abrow r2"><div class="abp"><div class="abph"><h3>Graph</h3>'
@@ -11126,6 +11352,20 @@ function dashArbeitNach(d,np){
   box.querySelectorAll('.abhero [data-hero]').forEach(function(x){
     x.addEventListener('click',function(){ _abSprung(x.getAttribute('data-hero')); });
   });
+  /* Schnellzugriff (Durchgang 3): adminGo statt eigener Navigation — es gibt
+     genau einen Weg in einen Adminbereich (§4.2). */
+  box.querySelectorAll('.abschnell[data-go]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var k=b.getAttribute('data-go');
+      try{ if(typeof adminGo==='function') adminGo(k); }
+      catch(e){ try{ console.warn('Schnellzugriff:',k,e); }catch(_){} }
+    });
+  });
+  /* Reihe 2 laedt NACH — sie darf den Seitenaufbau nicht aufhalten (Work #17). */
+  if(document.getElementById('abAkt')){
+    try{ _abBento2Laden(d); }
+    catch(e){ try{ console.error('Bento-Reihe 2:',e); }catch(_){} }
+  }
   box.querySelectorAll('.abtab[data-wf]').forEach(function(t){
     t.addEventListener('click',function(){
       box.querySelectorAll('.abtab[data-wf]').forEach(function(x){x.classList.remove('on');});
@@ -27772,7 +28012,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2445";
+const APP_BUILD = "2026-08-15-2520";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
