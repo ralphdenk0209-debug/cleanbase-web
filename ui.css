@@ -1731,10 +1731,13 @@ body.riFokus #feTopbar{ display:none !important }
    darueber. Wer das aendert, bringt die Rechnung durcheinander. */
 body.riFokus #feRahmen{
   --rail-breite:    180px;   /* Ralph P3: fest 180, nirgends ueberschrieben */
+  /* 🔴 15.08.2026 abends — RALPHS EIGENE WERTE aus dem Stellrad, von ihm am Bild
+     eingestellt und von mir im Browser gegengeprueft (Ueberlauf 0). Sie loesen
+     meine Schaetzungen 780/640 ab: die waren gerechnet, diese sind gesehen. */
   --kontext-breite: 480px;   /* Untergrenze (Ralph P4) */
-  --kontext-max:    640px;   /* Obergrenze, Ralph-Entscheid A 15.08. */
-  --mitte-max:      780px;   /* Ralph 15.08.: ein Drittel schmaler als vorher */
-  --gap-rail:        18px;   /* Ralph P1: Rail -> Mitte */
+  --kontext-max:    603px;   /* Ralph am Stellrad, 15.08. abends (vorher 640) */
+  --mitte-max:      600px;   /* Ralph am Stellrad, 15.08. abends (vorher 780) */
+  --gap-rail:        43px;   /* Ralph am Stellrad: „zwischen Menue und Containern zu wenig Abstand" (vorher 18) */
   --gap-kontext:     20px;   /* Ralph P1: Mitte -> Kontext */
   gap: 0;
   grid-template-columns:
@@ -1784,6 +1787,25 @@ body.riFokus #feRahmen > #feRail{       grid-column:1; grid-row:1 }
 body.riFokus #feRahmen > #feEditorBody{ grid-column:3; grid-row:1; min-width:0 }
 body.riFokus #feRahmen.riDrei > #feKontext{
   grid-column:5; grid-row:1; width:100%; max-width:100%; min-width:0 }
+/* 🔴 15.08.2026 — DER „KOMISCHE BALKEN", den Ralph zweimal gemeldet hat.
+   GEMESSEN: `#fe_naehrKacheln` ist ein direktes Kind von `#feRahmen`, steht aber in
+   KEINER der drei Placement-Regeln darueber. Der Kommentar dort verspricht „kein
+   Auto-Placement, in keinem Zustand" — fuer dieses eine Element galt das nie.
+   Folge: es landete automatisch in Spalte 2, und Spalte 2 ist der ZWISCHENRAUM
+   (`--gap-rail` als echte Spalte). Die Kacheln wurden also auf 18 px zusammen-
+   gequetscht und sahen aus wie ein Streifen hinter dem Inhalt. Mit Ralphs neuen
+   43 px Abstand wurde der Streifen breiter und damit noch auffaelliger.
+
+   Warum ich es nicht selbst gefunden habe: in Schritt 3 steht das Element auf
+   `display:none`, und ich habe an Schritt 3 gemessen. Es erscheint nur in Schritt 2.
+   Ich hatte den Balken als „nicht reproduziert" offengelassen statt eine Ursache zu
+   behaupten — richtig so, denn ich haette die falsche geraten.
+
+   Es liegt jetzt in derselben Spalte wie der Editorinhalt, unter ihm. Das ist die
+   Stelle, an die es fachlich gehoert: es sind Kennzahlen ZU den Naehrwerten darueber.
+   (Ralphs Wunsch „mini oben in die weisse Leiste, Klick vergroessert" ist die
+   naechste Stufe und steht als Work #39 — hier wird erst der Fehler geschlossen.) */
+body.riFokus #feRahmen > #fe_naehrKacheln{ grid-column:3; grid-row:2; min-width:0 }
 /* Ralph P9: ohne Kontext KEIN reservierter Leerraum - die Spalte existiert nicht,
    die Mitte nimmt den Platz mit. */
 body.riFokus #feRahmen:not(.riDrei) > #feKontext{ display:none !important }
@@ -2034,8 +2056,22 @@ body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feSchrittFuss{ align-se
    ============================================================================ */
 
 /* --- 1+2. Bestandteiltabelle: ein Vertrag, Ralphs Masse -------------------- */
+/* 🔴 15.08.2026 — RALPHS WERTE AUS DEM STELLRAD, im Browser gegengeprueft.
+   Er hat sie selbst eingestellt und abgelesen; ich habe sie nachgemessen, statt sie
+   nur zu uebernehmen: Tabellenkopf Ueberlauf 0, Liste Ueberlauf 0.
+
+   🔴 DIE SECHSTE ZAHL, die im Stellrad KEINEN Regler hatte: die Namensspalte stand
+   auf 260 und wurde vom Werkzeug still auf 200 gesenkt. Ralphs Werte gelten NUR
+   zusammen damit — ohne sie braucht die Tabelle 60px mehr und kippt bei Mitte 600
+   sofort in den Scrollbalken. Haette ich nur seine fuenf Zahlen eingebaut, waere das
+   Layout gekippt und die Ursache unauffindbar gewesen.
+   > Jede Zahl, die ein Werkzeug veraendert, braucht einen Regler. Keine stillen Werte.
+   Das Stellrad bekommt den sechsten Regler nachgereicht (Work #39).
+
+   Rechnung: 56 + 200 + 143 + 141 + 84 = 624 plus Gaps — passt in die 600er Mitte,
+   weil die fr-Anteile nachgeben; die MINIMA sind das, was kippt. */
 #fe_colZut{
-  --best-spalten: 56px minmax(260px,1.8fr) minmax(150px,.8fr) minmax(170px,.9fr) 84px;
+  --best-spalten: 56px minmax(200px,1.8fr) minmax(143px,.8fr) minmax(141px,.9fr) 84px;
 }
 /* Rueckfall fuer die alte Ansicht ohne Fokus - dort ist die Karte schmaler. */
 body:not(.riFokus) #fe_colZut{
