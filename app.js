@@ -20174,25 +20174,79 @@ function feProduktKopf(){
    Es heisst, dass niemand nachgesehen hat (§3.4).
    ═══════════════════════════════════════════════════════════════════════════ */
 function _feRailEigen(){
+  /* 🔴 15.08.2026, Ralph: „diese Chips sind praktisch nur Anzeige. Ralph muss Bio
+     und Ernaehrungsform dort direkt aendern koennen."  Stimmt — sie waren Knoepfe,
+     die nur zum Feld sprangen. Jetzt sind es echte Segmented Controls.
+
+     🔴 KEINE ZWEITE ZUSTANDSVARIABLE (Ralph P6). Gesetzt wird ueber die
+     BESTEHENDEN Wege:
+       Bio             → `#fe_bio` (das versteckte <select>) + `feBioChange()`
+       Ernaehrungsform → `feErnaehrWahl(v)` — derselbe Setter wie die grossen Chips
+     Die alten Felder bleiben die technische Wahrheit; die Rail bedient sie nur.
+     Gespeichert wird weiter ueber `fgEditSave` — hier wird nichts geschrieben. */
   var bio=String(((document.getElementById("fe_bio")||{}).value||"")).trim();
-  var bioTxt={ja:"Bio", nein:"kein Bio"}[bio] || "Bio ungeprüft";
-  var bioKl ={ja:"ok",  nein:"still"}[bio]    || "offen";
   var wahl=String((window._fgEdit&&window._fgEdit.ernaehrWahl)||"").trim();
   var auto=String((window._fgEdit&&window._fgEdit.ernaehrAuto)||"").trim();
   var kurz=function(v){ try{ return (typeof FE_EF_KURZ==="function")?FE_EF_KURZ(v):v; }catch(e){ return v; } };
-  var efTxt, efKl, efTit;
-  if(wahl){ efTxt=kurz(wahl); efKl="ok";   efTit="Von dir gesetzt – überschreibt die Automatik."; }
-  else if(auto){ efTxt=kurz(auto); efKl="auto"; efTit="Automatisch aus den gebundenen Zutaten gerechnet."; }
-  else { efTxt="Form unbekannt"; efKl="offen";
-         efTit="Wird aus den gebundenen Zutaten berechnet, sobald welche gebunden sind."; }
-  return '<div class="feRailEigen">'
-    +'<button type="button" class="feEigChip '+bioKl+'" onclick="feRailEigenOeffnen(\'fe_bioSw\')"'
-      +' title="Bio-Kennzeichnung nach EU-Öko-Verordnung. Merkmal und Filter, keine Punkte im Index.">'
-      +esc(bioTxt)+'</button>'
-    +'<button type="button" class="feEigChip '+efKl+'" onclick="feRailEigenOeffnen(\'fe_ernaehrChips\')"'
-      +' title="'+esc(efTit)+'">'+esc(efTxt)+'</button>'
+  var seg=function(akt, wert, txt, titel){
+    return '<button type="button" class="feSegBtn'+(String(akt)===String(wert)?' akt':'')+'"'
+      +' title="'+esc(titel||"")+'" data-wert="'+esc(String(wert))+'">'+esc(txt)+'</button>';
+  };
+  /* BIO — genau die drei Werte des vorhandenen <select>, kein neuer Status. */
+  var B='<div class="feSegTitel">Bio</div><div class="feSeg" data-feld="bio">'
+    + seg(bio,'', '? ungeprüft','Niemand hat nachgesehen. Das ist NICHT „kein Bio".')
+    + seg(bio,'ja','🌱 Bio','Bio-Kennzeichnung nach EU-Öko-VO 2018/848. Merkmal und Filter, keine Punkte im Index.')
+    + seg(bio,'nein','× kein Bio','Geprüft und ohne Bio-Kennzeichnung.')
     +'</div>';
+  /* ERNAEHRUNGSFORM — die Stufen kommen aus FE_EF_STUFEN, nicht aus einer Kopie. */
+  var stufen=[];
+  try{ stufen=(FE_EF_STUFEN||[]).map(function(x){ return [x.v, (x.ico?x.ico+' ':'')+x.kurz]; }); }catch(e){}
+  var E='<div class="feSegTitel">Ernährungsform</div><div class="feSeg" data-feld="ef">'
+    + stufen.map(function(x){ return seg(wahl, x[0], x[1], 'Von dir gesetzt – überschreibt die Automatik.'); }).join('')
+    + seg(wahl,'','auto','Automatisch aus den GEBUNDENEN Zutaten gerechnet. Steht eine tierische Zutat nicht im Stamm, fehlt sie in dieser Rechnung.')
+    +'</div>'
+    /* Bei „auto" wird der abgeleitete Zustand darunter gezeigt (Ralph P3) — als
+       Ableitung gekennzeichnet, nicht als Bestätigung. */
+    + (wahl==='' ? '<div class="feSegAuto">'
+        +(auto ? ('berechnet: <b>'+esc(kurz(auto))+'</b>')
+               : 'wird berechnet, sobald Zutaten gebunden sind')+'</div>' : '');
+  return '<div class="feRailEigen">'+B+E+'</div>';
 }
+/* Der EINE Klickweg fuer beide Segmentleisten. Er ruft die bestehenden Setter und
+   zeichnet danach die Rail neu — er speichert NICHT (das bleibt „Speichern"). */
+function feRailEigenSetz(feld, wert){
+  try{
+    if(feld==='bio'){
+      var sel=document.getElementById("fe_bio");
+      if(sel){ sel.value=wert; }
+      /* Derselbe Aufruf, den auch das <select> per onchange ausloest (§4.2). */
+      try{ if(typeof feBioChange==="function") feBioChange(); }catch(e){}
+      /* KORREKTUR beim Bauen: `feBioPrefillSw` gibt es nicht — gemessen heisst der
+         Renderer des Bio-Schalters `feBioSwRender`. Ein Aufruf auf einen erfundenen
+         Namen waere still fehlgeschlagen und der grosse Schalter haette den neuen
+         Wert nicht gezeigt. */
+      try{ if(typeof feBioSwRender==="function") feBioSwRender(); }catch(e){}
+    } else {
+      /* feErnaehrWahl ist der zentrale Setter — er pflegt `_fgEdit.ernaehrWahl`
+         und zeichnet die grossen Chips selbst nach. */
+      if(typeof feErnaehrWahl==="function") feErnaehrWahl(wert);
+    }
+    if(window._fgDirtyArmed && window._fgDirty) window._fgDirty.kopf=true;
+    try{ feProduktKopf(); }catch(e){}   /* Rail sofort nachziehen */
+    try{ fePlaus(); }catch(e){}
+  }catch(e){ console.error("[Rail-Eigenschaften] setzen:", e); }
+}
+/* Ein Klickhorcher statt Inline-onclick je Knopf: die Werte enthalten Leerzeichen
+   und Umlaute („enthält Tierprodukte"), und die Reihenfolge der Stufen kann sich
+   aendern. Ein Attribut ist dafuer robuster als ein zusammengebauter Aufruf. */
+if(typeof document!=="undefined") document.addEventListener("click", function(ev){
+  var b=ev.target&&ev.target.closest?ev.target.closest(".feSeg .feSegBtn"):null;
+  if(!b) return;
+  var seg=b.closest(".feSeg"); if(!seg) return;
+  ev.preventDefault();
+  feRailEigenSetz(seg.getAttribute("data-feld"), b.getAttribute("data-wert")||"");
+});
+if(typeof window!=="undefined") window.feRailEigenSetz=feRailEigenSetz;
 /* Der Klick oeffnet den BESTEHENDEN Bereich und springt hin — er baut keinen
    zweiten Editor. Die Felder gehoeren zu Schritt 3; von dort sind sie erreichbar. */
 function feRailEigenOeffnen(zielId){
@@ -27359,7 +27413,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2110";
+const APP_BUILD = "2026-08-15-2250";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
