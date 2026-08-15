@@ -19298,15 +19298,26 @@ function feKontextReiter(id){
      || FE_SCHRITTE.find(function(x){ return x.nr===(window._feSchritt||1); });
   try{ feKontextRender(s); }catch(e){ console.error("[Kontextreiter]", e); }
 }
+/* 🔴 15.08.2026: die dritte Rasterspalte wird ueber eine KLASSE geschaltet, nicht
+   ueber eine Textsuche im style-Attribut. Der alte Selektor
+   `:has(> #feKontext:not([style*="display:none"]))` traf nur, solange NIEMAND per
+   JavaScript geschrieben hatte — der Browser serialisiert `display: none;` mit
+   Leerzeichen, die Suche lief ohne. Ergebnis: mal drei Spalten, mal zwei, und im
+   Zweifel fiel der Kontext per Auto-Placement in Zeile 2 ueber die volle Breite.
+   Wer die Sichtbarkeit setzt, setzt jetzt auch die Spalte. Ein Ort, ein Zustand. */
+function _feKtxSpalte(an){
+  var r=document.getElementById("feRahmen");
+  if(r && r.classList) r.classList.toggle("riDrei", !!an);
+}
 function feKontextRender(s){
   var box=document.getElementById("feKontext"); if(!box) return;
-  if(!feFokusAn() || !s){ box.style.display="none"; box.innerHTML=""; _feKtxAllesHeim(); return; }
+  if(!feFokusAn() || !s){ box.style.display="none"; box.innerHTML=""; _feKtxSpalte(false); _feKtxAllesHeim(); return; }
   /* Schrittwechsel setzt den Reiter auf den Standard zurueck; innerhalb eines
      Schritts bleibt die Wahl des Nutzers stehen. Gemerkt wird hier, weil hier
      ohnehin bekannt ist, welcher Schritt gilt (§4.2). */
   if(window._feKtxSchritt!==s.id){ window._feKtxReiter=null; window._feKtxSchritt=s.id; }
   var R=FE_KTX_REITER[s.id]||[];
-  if(!R.length){ box.style.display="none"; box.innerHTML=""; _feKtxAllesHeim(); return; }
+  if(!R.length){ box.style.display="none"; box.innerHTML=""; _feKtxSpalte(false); _feKtxAllesHeim(); return; }
   /* Der Standardreiter ist der ERSTE der Liste — Ralphs Reihenfolge ist die Vorgabe. */
   var akt=window._feKtxReiter;
   if(!akt || !R.some(function(r){ return r[0]===akt; })) akt=R[0][0];
@@ -19314,7 +19325,7 @@ function feKontextRender(s){
   var H='<div class="feKtxTabs">'+R.map(function(r){
     return '<button type="button" class="feKtxTab'+(r[0]===akt?' akt':'')+'" onclick="feKontextReiter(\''+r[0]+'\')">'+esc(r[1])+'</button>';
   }).join('')+'</div><div class="feKtxInhalt" id="feKtxInhalt"></div>';
-  box.style.display=""; box.innerHTML=H;
+  box.style.display=""; box.innerHTML=H; _feKtxSpalte(true);
   var ziel=document.getElementById("feKtxInhalt");
   /* NUR EIN Inhalt — jede ausgeliehene Karte geht heim, sobald ein anderer Reiter gilt. */
   if(akt!=="etikett")  _feKtxLesekastenHeim();
@@ -19344,7 +19355,8 @@ function feKontextRender(s){
      Ralph: „Nicht nur Rohtext zeigen." Jetzt haengt die echte Karte im Reiter. */
   if(ziel) ziel.innerHTML=inh||'<div class="feKtxStill"></div>';
 }
-if(typeof window!=="undefined"){ window.feKontextReiter=feKontextReiter; window.FE_KTX_REITER=FE_KTX_REITER; }
+if(typeof window!=="undefined"){ window.feKontextReiter=feKontextReiter; window.FE_KTX_REITER=FE_KTX_REITER;
+  window._feKtxSpalte=_feKtxSpalte; }
 if(typeof window!=="undefined"){ window.feKontextRender=feKontextRender; }
 /* ===========================================================================
    SCHRITT 6 — GEGENÜBERSTELLUNG (Ralph-Auftrag 14.08.2026)
@@ -19621,6 +19633,7 @@ function feFokusAlleZeigen(){
   if(pv){ var pvk=pv.closest?pv.closest(".feKarte"):null; if(pvk) pvk.style.display=""; }
   var tp=document.getElementById("feTopbar"); if(tp){ tp.innerHTML=""; tp.style.display="none"; }
   var kx=document.getElementById("feKontext"); if(kx){ kx.innerHTML=""; kx.style.display="none"; }
+  try{ _feKtxSpalte(false); }catch(e){}
   var ag=document.getElementById("feAbgleich"); if(ag){ ag.innerHTML=""; ag.style.display="none"; }
   var ga=document.getElementById("fe_gridA"); if(ga) ga.style.display="";
   var sk=document.getElementById("feSchrittKopf"); if(sk) sk.innerHTML="";
@@ -26902,7 +26915,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-0810";
+const APP_BUILD = "2026-08-15-0930";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

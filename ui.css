@@ -1625,21 +1625,55 @@ body.riFokus #feTopbar{ display:none !important }
 
    `app.js` setzt nur `data-fe-schritt` und rechnet keine Pixel (§4.2).
    ============================================================================ */
+/* 🔴 BUGFIX 15.08.2026 (Ralph: „der Kontext haengt in der falschen Grid-Zeile").
+   Das stimmte. ZWEI belegte Ursachen:
+
+   ── URSACHE A: der `:has()`-Selektor war eine Zufallsregel ──────────────────
+   Er lautete `:has(> #feKontext:not([style*="display:none"]))` — er suchte den
+   Text `display:none` OHNE Leerzeichen. Das TEMPLATE schreibt genau so
+   (`style="display:none"`), aber sobald JavaScript `el.style.display="none"`
+   setzt, serialisiert der Browser `display: none;` MIT Leerzeichen. Der Selektor
+   traf danach nicht mehr — und umgekehrt: nach `display=""` blieb je nach
+   Reihenfolge mal ein leeres, mal gar kein Attribut stehen.
+   Ob die dritte Spalte existierte, hing also davon ab, wer zuletzt geschrieben
+   hatte. Ohne dritte Spalte landet `#feKontext` als drittes Kind per
+   AUTO-PLACEMENT in Zeile 2 — und dort ueber die volle Breite. Genau Ralphs Bild.
+   → Ab jetzt eine KLASSE, die `feKontextRender` selbst setzt: derselbe Ort, der
+     ueber die Sichtbarkeit entscheidet, entscheidet auch ueber die Spalte (§4.2).
+     Eine Klasse ist messbar; eine Attribut-Textsuche ist eine Vermutung.
+
+   ── URSACHE B: 1444 px Mindestbreite in Schritt 2 ──────────────────────────
+   `220 + minmax(820px,1fr) + 360 + 2x22 = 1444 px`. Eine Spalte mit 820 px
+   Minimum kann NICHT schrumpfen — darunter passt das Raster schlicht nicht.
+   → `--mitte-min` ist ERSATZLOS entfernt. Die Mitte ist wieder `minmax(0,1fr)`
+     und nimmt, was uebrig bleibt. Ralphs Wunschbreite von 800-850 px entsteht
+     ab etwa 1400 px Fensterbreite von selbst — ohne Zwang, der bei schmaleren
+     Fenstern das ganze Raster sprengt.
+
+   ── KEIN AUTO-PLACEMENT MEHR ───────────────────────────────────────────────
+   Alle drei Bereiche stehen ausdruecklich in Zeile 1, Spalte 1/2/3. Damit KANN
+   nichts mehr in eine zweite Zeile rutschen, auch wenn eine kuenftige Regel die
+   Spaltenzahl versehentlich aendert. */
 body.riFokus #feRahmen{
-  --rail-breite: 236px;      /* Ralph 15.08.: 230-240 */
-  --ktx-breite:  380px;      /* Ralph: 380, je Schritt unten fein justiert */
-  --raster-gap:   22px;      /* Ralph: 20-24 */
+  --rail-breite: 220px;      /* Ralph 15.08.: 220 */
+  --ktx-breite:  370px;      /* Ralph: 360-380 */
+  --raster-gap:   22px;      /* Ralph: 20-22 */
   gap: var(--raster-gap);
   grid-template-columns: var(--rail-breite) minmax(0,1fr);
+  grid-template-rows: auto;
 }
-body.riFokus #feRahmen:has(> #feKontext:not([style*="display:none"])){
-  /* Ralph P9 woertlich: `minmax(0,1fr) 380px`. Das feste 720er-Minimum von 0215
-     war ein zweiter Breitenbesitzer und drueckte die Kontextspalte bei schmalen
-     Fenstern aus dem Raster. */
-  grid-template-columns: var(--rail-breite) minmax(var(--mitte-min,0),1fr) var(--ktx-breite);
+body.riFokus #feRahmen.riDrei{
+  grid-template-columns: var(--rail-breite) minmax(0,1fr) var(--ktx-breite);
 }
+/* Explizites Placement — Ralph P2 woertlich. */
+body.riFokus #feRahmen > #feRail{       grid-column:1; grid-row:1 }
+body.riFokus #feRahmen > #feEditorBody{ grid-column:2; grid-row:1; min-width:0 }
+body.riFokus #feRahmen.riDrei > #feKontext{
+  grid-column:3; grid-row:1; width:100%; max-width:100%; min-width:0 }
+/* Ohne dritte Spalte ist der Kontext AUS — er faellt nicht nach unten (P3). */
+body.riFokus #feRahmen:not(.riDrei) > #feKontext{ display:none !important }
 /* Schritt 2 Analyse — das Etikett rechts muss LESBAR sein (Ralph: 380-420). */
-body.riFokus[data-fe-schritt="analyse"] #feRahmen{ --ktx-breite:410px }
+/* 15.08. ENTFERNT: 410 wurde unten von 360 ueberschrieben, war also tot. */
 /* Schritt 3 Bestandteile — Referenz rechts (Ralph: 360-400), Tabelle nicht quetschen. */
 body.riFokus[data-fe-schritt="bestand"] #feRahmen{ --ktx-breite:380px }
 /* Schritt 1 Kopf & Quelle — Formularfelder brauchen rechts weniger. */
@@ -1650,7 +1684,10 @@ body.riFokus[data-fe-schritt="kopf"]    #feRahmen{ --ktx-breite:340px }
    Raster. Der alte 820er-Deckel ist damit abgeloest — er stand fuer alle Schritte
    gleich und liess rechts Leerraum stehen. */
 body.riFokus #feEditorBody{ max-width:1200px }   /* Ralph: 1180-1220 */
-body.riFokus #feRahmen:has(> #feKontext:not([style*="display:none"])) #feEditorBody{ max-width:none }
+/* 🔴 ZWEITE Stelle mit demselben fragilen Selektor — vom Test gefunden, nicht
+   von mir erinnert. Sie hing an derselben Textsuche und war damit genauso
+   zufaellig. Jetzt an derselben Klasse wie das Raster. */
+body.riFokus #feRahmen.riDrei #feEditorBody{ max-width:none }
 body.riFokus #feKopfGrid,
 body.riFokus #feAbschluss,
 body.riFokus #feAbgleich,
@@ -1901,10 +1938,7 @@ body:not(.riFokus) #fe_wirkCard{
    360px-Spalte fuer den Etikettplatz — obwohl der laengst als Reiter rechts
    haengt. Das war der grosse Leerraum in der Mitte. */
 body.riFokus #feTab2 #feNwOben{ grid-template-columns:minmax(0,1fr) }
-body.riFokus[data-fe-schritt="analyse"] #feRahmen{
-  --ktx-breite:370px;        /* Ralph P4: 360-380 statt erzwungener 410 */
-  --mitte-min:760px;         /* Ralph P4 woertlich */
-}
+/* (abgeloest 0930 — siehe Bugfix-Block) */
 
 /* --- 3. Referenzkarte rechts vollstaendig sichtbar ------------------------- */
 /* Nur noch das, was oben nicht steht — zwei Regeln fuer dasselbe Element waeren
@@ -1918,7 +1952,8 @@ body.riFokus[data-fe-schritt="analyse"] #feRahmen{
 .feKtxInhalt > #fe_colRef > div > div:first-child{ white-space:normal; min-width:0 }
 
 /* --- 8. Rail schmaler, Name darf umbrechen -------------------------------- */
-body.riFokus #feRahmen{ --rail-breite:220px }   /* Ralph P8: 220, nicht unter 210 */
+/* 15.08. ENTFERNT: 220px steht seit dem Bugfix in der Basisdefinition des
+   Rasters. Ein zweiter Ort fuer denselben Wert ist eine Schicht, kein Feinschliff. */
 .feProdTxt b{ white-space:normal; overflow-wrap:anywhere; line-height:1.3 }
 /* 11. Die P-Nummer der Rail bleibt klein - gross steht sie oben im Kopf. */
 .feProdId{ font-size:10.5px; font-weight:600; color:var(--muted) }
@@ -1979,10 +2014,9 @@ body.riFokus[data-fe-schritt="kopf"] .feQuelleFertig{
   border:0; padding:0; background:transparent; max-width:none }
 
 /* --- 2. Schritt 2: Mitte breiter, rechts unveraendert schmal --------------- */
-body.riFokus[data-fe-schritt="analyse"] #feRahmen{
-  --mitte-min:820px;         /* Ralph: 800-850 */
-  --ktx-breite:360px;        /* Ralph: 350-370, NICHT vergroessern */
-}
+/* Schritt 2: die Mitte bekommt ihre Breite dadurch, dass rechts wenig steht —
+   nicht durch ein Minimum, das das Raster sprengt (Ursache B). */
+body.riFokus[data-fe-schritt="analyse"] #feRahmen{ --ktx-breite:360px }
 #feTab2 .feWirkRow .fwNote{ margin-top:1px }
 #feTab2 .feWirkHinweis, #feTab2 .feKartenZusatz{ white-space:normal; line-height:1.5 }
 
@@ -2014,3 +2048,21 @@ body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feAbgleich{ margin-top:18
 .feProdAkt{ display:flex; gap:7px; flex-wrap:wrap; align-items:center }
 .feProdSave, .feProdFrei{ margin-top:0 }
 .feProdId{ font-size:10px }
+
+/* ============================================================================
+   RESPONSIVE-GRENZE (Ralph P5) — vorerst NUR die untere Kante.
+   Der volle Responsive-Durchgang kommt danach; hier geht es allein darum, dass
+   auf Desktop NICHTS umbricht und bei wirklich schmalen Fenstern etwas
+   Sinnvolles passiert statt eines Ueberlaufs.
+
+   Rechnung fuer die Grenze: 220 (Rail) + 620 (Mitte, noch arbeitsfaehig)
+   + 370 (Kontext) + 2x22 (Gap) = 1254. Bei 1150 px waere die Mitte nur noch
+   516 px — dort ist Stapeln ehrlicher als Quetschen.
+   ============================================================================ */
+@media (max-width:1149px){
+  /* Zwei Spalten: Rail bleibt, der Kontext geht UNTER den Hauptbereich.
+     Das ist hier ausdruecklich gewollt — auf Desktop passiert es nicht mehr. */
+  body.riFokus #feRahmen.riDrei{ grid-template-columns: var(--rail-breite) minmax(0,1fr) }
+  body.riFokus #feRahmen.riDrei > #feKontext{ grid-column:2; grid-row:2; margin-top:14px }
+  body.riFokus #feKontext{ position:static }
+}
