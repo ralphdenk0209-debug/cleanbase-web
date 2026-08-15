@@ -1745,7 +1745,37 @@ body.riFokus #feRahmen{
      eingestellt und von mir im Browser gegengeprueft (Ueberlauf 0). Sie loesen
      meine Schaetzungen 780/640 ab: die waren gerechnet, diese sind gesehen. */
   --kontext-breite: 480px;   /* Untergrenze (Ralph P4) */
-  --kontext-max:    603px;   /* Ralph am Stellrad, 15.08. abends (vorher 640) */
+  /* 🔴 15.08.2026 SPAET, RALPH-ENTSCHEID A — `--kontext-max` DECKELT NICHT MEHR.
+     Die Kontextspalte nimmt jetzt den Rest (`1fr` unten in .riDrei). Der Deckel
+     stand seit heute Abend auf 603 und war Ralphs eigener Stellradwert; er hat
+     ihn selbst wieder aufgehoben, nachdem die Folge messbar auf dem Tisch lag:
+
+     GEMESSEN an Ralphs Fenster (1919, Rahmen rund 1871):
+       180 + 43 + 700 + 20 + 603 = 1546  ->  RUND 325 PX LAGEN RECHTS BRACH.
+     Ralph hat das am Inspektor von Hand umbaut (.feKtxBlock auf 692, dazu
+     margin-left 127) — also den Deckel umgangen statt ihn zu aendern. Genau das
+     ist der Fehlertyp, den §4.2 meint: die Regel bleibt falsch, und daneben steht
+     eine Handkorrektur, die beim naechsten Fenster nicht mehr passt.
+
+     GEMESSEN vor dem Ablegen, per Style-Injektion im laufenden Browser
+     (Build 3110, P73618, Viewport 1710, Rahmen 1662):
+       vorher   180px 43px 700px 20px 603px   Kontext 603   Brache 116
+       nachher  180px 43px 700px 20px 719px   Kontext 719   Brache 0
+       Injektion entfernt, Rueckfall geprueft: wieder 603. Kein Rest.
+
+     🔴 WAS DAS BEI 1919 BEDEUTET, damit es niemand uebersieht: dort werden aus
+     603 rund 928. Die Kontextspalte ist dann BREITER als die Arbeitsmitte (700).
+     Das ist die logische Folge von "nimm den Rest" und war so entschieden — aber
+     es ist eine Formentscheidung, keine Rechenfolge. Soll die Nebenspalte nicht
+     breiter werden als die Hauptspalte, ist der Weg NICHT ein neuer Deckel hier,
+     sondern `minmax(var(--kontext-breite), min(1fr, var(--mitte-max)))`. Dann
+     haengt die Grenze an der Mitte statt an einer zweiten Zahl, die jemand pflegen
+     muss (§28.4).
+
+     Die Variable bleibt ABSICHTLICH stehen und wird nirgends mehr gelesen: sie
+     dokumentiert den Stellradwert, den Ralph heute Abend gesetzt hat. Wer sie
+     wieder anschliessen will, findet hier, warum sie abgeklemmt wurde (§28.5). */
+  --kontext-max:    603px;   /* ABGEKLEMMT 15.08. — siehe Block darueber. Nicht mehr wirksam. */
   /* 🔴 15.08.2026 SPAET — WORK #43, Ralph-Entscheid A. 600 -> 690.
      GEMESSEN an RALPHS Fenster (1908x913), Browser-Build 2940, P73617 Schritt 3:
        .fgBestKopf brauchte 56+200+143+141+84 + 4x8 gap = 656 px.
@@ -1787,7 +1817,10 @@ body.riFokus #feRahmen{
 body.riFokus #feRahmen.riDrei{
   grid-template-columns:
     var(--rail-breite) var(--gap-rail) minmax(0,var(--mitte-max))
-    var(--gap-kontext) minmax(var(--kontext-breite),var(--kontext-max));
+    /* 15.08. Ralph-Entscheid A: `1fr` statt `var(--kontext-max)` — die Spalte
+       nimmt den Rest, damit rechts nichts mehr brachliegt. Begruendung und
+       Messung stehen beim Variablenblock oben. */
+    var(--gap-kontext) minmax(var(--kontext-breite),1fr);
 }
 /* 🔴 15.08.2026, NACHBESSERUNG — die Grenze stand zuerst bei 1400px und war FALSCH
    GERECHNET. Sie prueft den VIEWPORT, der Platz wird aber im RAHMEN verteilt, und der
