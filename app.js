@@ -5451,9 +5451,14 @@ function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
      dashDisplay 'none', waechterHoehe 0.
      Die Box WANDERT, sie wird nicht kopiert: ein Element, ein Ort, eine Datenquelle
      (§4.2). Eine zweite Anzeige derselben Zahlen wuerde irgendwann auseinanderlaufen. */
+  /* 🔴 15.08.2026 GEAENDERT, Ralph: „stamm oben raus, da habe ich link dazu."
+     Das Wandern zwischen Dashboard und Stamm entfaellt — die Box hat nur noch
+     EINEN Ort: den Stamm-Bereich. Der Umhaenger bleibt als Riegel stehen, falls
+     sie beim ersten Aufbau woanders gelandet ist; er zieht sie dann dorthin,
+     wo sie hingehoert, statt sie zu verlieren. */
   try{
     var _w=document.getElementById('fgStammWaechter');
-    var _ziel=document.getElementById(t==='stamm'?'fgPanelStamm':'fgPanelDash');
+    var _ziel=document.getElementById('fgPanelStamm');
     if(_w && _ziel && _w.parentNode!==_ziel) _ziel.insertBefore(_w, _ziel.firstChild);
   }catch(e){ try{ console.warn('[Stammwächter] Umhaengen:',e); }catch(_){} }
   /* „Eingang" als eigener Reiter zurueckgezogen (Ralph 19.07.): sein Inhalt (Scan-Eingang mit
@@ -10424,11 +10429,30 @@ function applyAdminMode(){
        Menuezeile (CSS in admin.html): Notizbuch, Version/Neu-laden, Abmelden. Wortmarke und
        Breadcrumb entfallen; adminCrumb bleibt unsichtbar im DOM, weil adminGo hineinschreibt
        (par. 1.11n-j: ein entferntes Feld darf nichts brechen). */
+    /* 🔴 15.08.2026, Ralph: „wie soll ich die version so lesen?" — berechtigt,
+       und der Fehler war groesser als der Screenshot zeigt. ZWEI Sachen:
+       (1) Hier stand APP_BUILD.replace("2026-07-",""). Das ist eine im JULI
+           fest eingetippte Vorsilbe. Seit dem 1. August traf sie NIE mehr zu,
+           also stand die volle Nummer „2026-08-15-3180" im Knopf statt „3180".
+           Eine von Hand gepflegte Zeichenkette, die still veraltet — derselbe
+           Fehlertyp wie die Cache-Nummern von heute frueh (§28.4).
+       (2) Ich hatte die Nummer in der schmalen Spalte einfach AUSGEBLENDET,
+           statt sie lesbar zu machen. Das loest kein Problem, es versteckt es.
+       Jetzt: gezeigt wird die letzte Gruppe der Build-Nummer, egal welcher
+       Monat. Die vollstaendige steht im Titel und wird damit nicht verschluckt. */
+    var _bKurz='', _bVoll='';
+    try{
+      if(typeof APP_BUILD!=='undefined' && APP_BUILD){
+        _bVoll=String(APP_BUILD);
+        var _t=_bVoll.split('-');
+        _bKurz=_t[_t.length-1]||_bVoll;
+      }
+    }catch(e){}
     const top=document.createElement('div'); top.id='adminTop';
     top.innerHTML=
        '<div id="adminCrumb" style="display:none"></div>'
       +'<button id="atTodo" onclick="todoDockToggle()" title="Notizen &amp; To-do – bleibt beim Arbeiten offen" style="flex:0 0 auto;margin-right:6px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer;white-space:nowrap;position:relative">📝<span id="atTodoN" style="display:none;margin-left:5px;font-size:11px;font-weight:800;background:#ffd9a0;color:#7a4a00;border-radius:20px;padding:0 6px"></span></button>'
-      +'<button id="atReload" onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;margin-right:8px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 <span class="atBuild">'+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(APP_BUILD.replace("2026-07-","")):"")+'</span></button>'
+      +'<button id="atReload" onclick="adminNeuLaden(this)" title="Version '+esc(_bVoll)+' – neueste holen: leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;margin-right:8px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap" data-voll="'+esc(_bVoll)+'">🔄 <span class="atBuild">'+esc(_bKurz)+'</span></button>'
       +'<button class="atLogout" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">🚪</button>';
     document.body.appendChild(top);
     /* Notiz-Dock (Ralph 27.07.): war es zuletzt offen, ist es nach dem Seitenwechsel wieder offen –
@@ -11680,8 +11704,142 @@ var _AB_TYPEN={
   frei: {titel:'Meine Zahlen', bau:function(c,x){ return _abkFrei(c,x); }, waehlbar:true},
   /* D4, Ralph: „notizen wird spaeter eine kachel." Die einzige Kachelart, die
      KEINE Datenfrage aufwirft — der Inhalt kommt von ihm. */
-  notiz:{titel:'Notiz',        bau:function(c,x){ return _abkNotiz(c,x); }, text:true}
+  notiz:{titel:'Notiz',        bau:function(c,x){ return _abkNotiz(c,x); }, text:true},
+  /* D5-D7. 🔴 ALLE DREI ARBEITEN NUR MIT DATEN, DIE DAS DASHBOARD SCHON HAT.
+     Ralph hat „weiter d5 bis d7" gesagt, aber die offenen Fragen dazu nicht
+     beantwortet - welche Reihen ueber Zeit, welche Filter, ob Bilder gemeint
+     waren. Statt zu raten (§1) ist jede Art auf das begrenzt, was messbar
+     vorliegt; was fehlt, sagt die Kachel selbst. */
+  verlauf:{titel:'Verlauf',    bau:function(c,x){ return _abkVerlauf(c,x); }, reihe:true},
+  liste:  {titel:'Liste',      bau:function(c,x){ return _abkListe(c,x); },   quelle:true},
+  bild:   {titel:'Bild',       bau:function(c,x){ return _abkBild(c,x); },    text:true}
 };
+
+/* ---- D5 VERLAUF ------------------------------------------------------------
+   🔴 EHRLICH GEZAEHLT: im Dashboard liegt GENAU EINE Reihe ueber Zeit vor -
+   der taegliche Riki-Verbrauch (d.riki_verlauf, 14 Tage). Mehr ist nicht da.
+   Die Auswahlliste hat deshalb einen Eintrag. Das ist kein Versehen und wird
+   auch nicht mit erfundenen Reihen aufgefuellt; kommt serverseitig eine dazu,
+   ist es hier eine Zeile. */
+var _AB_REIHEN=[
+  {id:'riki', titel:'Riki-Verbrauch je Tag', einheit:'$',
+   werte:function(c){
+     return (((c.d||{}).riki_verlauf)||[]).map(function(p){
+       return {marke:p.tag, wert:Number(p.usd)||0}; });
+   }}
+];
+function _abkVerlauf(c,x){
+  var wahl=(x&&x.reihe_id)||_AB_REIHEN[0].id;
+  var r=_AB_REIHEN.filter(function(y){ return y.id===wahl; })[0]||_AB_REIHEN[0];
+  if(_AB_EDIT){
+    return {
+      tag:'<span class="abtag" style="background:#fbf3df;color:#8a7440">Reihe wählen</span>',
+      inhalt:'<div class="bleib"><div class="abwahl">'
+        + _AB_REIHEN.map(function(y){
+            var an=(y.id===r.id);
+            return '<button type="button" class="abkz'+(an?' an':'')+'" data-abreihe="'+esc(y.id)
+              +'" data-kid="'+esc(x?x.id:'')+'">'+(an?'✓ ':'+ ')+esc(y.titel)+'</button>'; }).join('')
+        +'</div><div class="bunter" style="margin-top:8px">Mehr Reihen gibt es zurzeit nicht — '
+        +'sobald der Server eine liefert, steht sie hier.</div></div>',
+      fuss:''
+    };
+  }
+  var w=[]; try{ w=r.werte(c)||[]; }catch(e){ w=[]; }
+  if(!w.length) return {tag:'', inhalt:'<div class="bleib"><div class="bleerk">'
+    +'Für „'+esc(r.titel)+'" liegen keine Tageswerte vor.</div></div>', fuss:''};
+  var max=Math.max.apply(null,[0.0001].concat(w.map(function(p){ return p.wert; })));
+  var summe=w.reduce(function(a,p){ return a+p.wert; },0);
+  return {
+    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">'+w.length+' Tage</span>',
+    inhalt:'<div class="bleib"><div class="bzahl" style="color:'+_AB.kern+'">'
+      +summe.toFixed(2).replace('.',',')+' '+esc(r.einheit)+'</div>'
+      +'<div class="bunter">'+esc(r.titel)+'</div>'
+      +'<div class="bspark" style="height:60px">'
+      + w.map(function(p){
+          return '<i title="'+esc(String(p.marke))+': '+p.wert.toFixed(2)+'" style="height:'
+            +Math.max(2,Math.round(p.wert/max*56))+'px"></i>'; }).join('')
+      +'</div></div>',
+    fuss:''
+  };
+}
+
+/* ---- D6 LISTE --------------------------------------------------------------
+   Auch hier nur Vorhandenes: die Arbeitsliste aus _abJobsListe (dieselbe
+   Quelle wie die Kachel „Heute") und die Waechter, die melden. KEINE neue
+   Abfrage, KEINE zweite Zaehlung (§4.2). */
+var _AB_QUELLEN=[
+  {id:'aufgaben', titel:'Offene Aufgaben',
+   zeilen:function(c){
+     return (_abJobsListe(c.np,c.A)||[]).map(function(j){
+       return {links:j.t1, rechts:j.n, warn:(j.p===0), ziel:j.ziel}; });
+   }},
+  {id:'melder', titel:'Wächter, die melden',
+   zeilen:function(c){
+     return (((c.np||{}).waechter)||[])
+       .filter(function(w){ return (Number(w.offen)||0)>0; })
+       .sort(function(a,b){ return (Number(b.offen)||0)-(Number(a.offen)||0); })
+       .map(function(w){ return {links:w.name, rechts:w.offen, warn:(w.gate===true)}; });
+   }}
+];
+function _abkListe(c,x){
+  var wahl=(x&&x.quelle)||_AB_QUELLEN[0].id;
+  var q=_AB_QUELLEN.filter(function(y){ return y.id===wahl; })[0]||_AB_QUELLEN[0];
+  var max=Number(x&&x.anzahl)||8;
+  if(_AB_EDIT){
+    return {
+      tag:'<span class="abtag" style="background:#fbf3df;color:#8a7440">Quelle wählen</span>',
+      inhalt:'<div class="bleib"><div class="abwahl">'
+        + _AB_QUELLEN.map(function(y){
+            var an=(y.id===q.id);
+            return '<button type="button" class="abkz'+(an?' an':'')+'" data-abquelle="'+esc(y.id)
+              +'" data-kid="'+esc(x?x.id:'')+'">'+(an?'✓ ':'+ ')+esc(y.titel)+'</button>'; }).join('')
+        +'</div><div class="bunter" style="margin-top:8px">Zeigt die '+max+' obersten Zeilen. '
+        +'Die Kachel höher ziehen zeigt mehr.</div></div>',
+      fuss:''
+    };
+  }
+  var z=[]; try{ z=q.zeilen(c)||[]; }catch(e){ z=[]; }
+  return {
+    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">'+z.length+'</span>',
+    inhalt:'<div class="bleib">'
+      +(z.length
+        ? z.slice(0,max).map(function(r){
+            return _abZeile(esc(String(r.links)), r.rechts, r.warn?_AB.krit:null); }).join('')
+          +(z.length>max?'<div class="bunter" style="margin-top:6px">und '+(z.length-max)+' weitere</div>':'')
+        : '<div class="bleerk">Nichts offen — '+esc(q.titel)+'.</div>')
+      +'</div>',
+    fuss:''
+  };
+}
+
+/* ---- D7 BILD ---------------------------------------------------------------
+   🔴 NUR UEBER EINE ADRESSE, KEIN HOCHLADEN. Hochladen braeuchte einen
+   Ablageort fuer Dateien (Storage) samt Rechten - das ist ChatGPTs Haelfte
+   (§31) und war nicht beauftragt. Mit einer Adresse geht es sofort und ohne
+   fremde Entscheidung. Was das NICHT kann, steht in der Kachel, nicht nur hier. */
+function _abkBild(c,x){
+  var url=(x&&typeof x.text==='string')?x.text.trim():'';
+  if(_AB_EDIT){
+    return {
+      tag:'<span class="abtag" style="background:#fbf3df;color:#8a7440">Bildadresse</span>',
+      inhalt:'<div class="bleib"><input class="abetitel" style="width:100%;text-transform:none;'
+        +'font-size:12px;font-weight:600" data-abnotiz="'+esc(x?x.id:'')+'" value="'+esc(url)+'" '
+        +'placeholder="https://… — Adresse eines Bildes"></div>',
+      fuss:'Hochladen geht hier nicht — dafür fehlt ein Ablageort für Dateien.'
+    };
+  }
+  if(!url) return {tag:'', inhalt:'<div class="bleib"><div class="bleerk">'
+    +'Kein Bild hinterlegt — „🧩 Anordnen" öffnen und eine Adresse eintragen.</div></div>', fuss:''};
+  return {
+    tag:'',
+    inhalt:'<div class="bleib" style="padding:0"><img src="'+esc(url)+'" alt="" '
+      +'style="display:block;width:100%;height:100%;object-fit:contain" '
+      +'onerror="this.style.display=\'none\';this.insertAdjacentHTML(\'afterend\','
+      +'\'&lt;div class=&quot;bleerk&quot; style=&quot;padding:10px&quot;&gt;'
+      +'Bild nicht ladbar — Adresse prüfen.&lt;/div&gt;\')"></div>',
+    fuss:''
+  };
+}
 
 /* Notizkachel. Der Text liegt im Layout und wird mit ihm gespeichert — also
    fuer alle Admins sichtbar, wie alles andere auch (Ralph-Entscheid C).
@@ -11867,6 +12025,7 @@ function _abLayoutSetzen(cfg){
       aus:!!e.aus,
       sperre:!!e.sperre,
       text:(typeof e.text==='string'?e.text:null),
+      reihe_id:(e.reihe_id||null), quelle:(e.quelle||null), anzahl:_abZahl(e.anzahl),
       /* inhalt reist mit, auch wenn diese Fassung damit nichts anfangen kann —
          eine gespeicherte Auswahl darf nicht verlorengehen, nur weil sie
          gerade niemand liest. */
@@ -11908,7 +12067,12 @@ function _abKachelFlaeche(){
     if(_AB_KACHELN.some(function(x){ return x.id===e.id; })) return;
     raus.push({
       k:{id:e.id, typ:e.typ, titel:e.titel||t.titel, bau:t.bau,
-         waehlbar:t.waehlbar, inhalt:e.inhalt, text:e.text, eigen:true},
+         waehlbar:t.waehlbar, inhalt:e.inhalt, text:e.text, eigen:true,
+         /* 🔴 NICHT `reihe`: das Feld traegt bei den Code-Kacheln die Reihennummer
+            aus dem alten Raster. Beide Bedeutungen auf einem Namen — der erste
+            Testlauf hat genau das gemeldet (T15m), weil die gespeicherte Reihe
+            beim Rundlauf verschwand. Zwei Bedeutungen, zwei Namen. */
+         reihe_id:e.reihe_id, quelle:e.quelle, anzahl:e.anzahl},
       lage:_abLage(e.id, e, std), i:1000+j});
   });
   /* Kleines z zuerst zeichnen; bei Gleichstand entscheidet die Registerfolge,
@@ -12324,6 +12488,7 @@ function _abLayoutAktuell(){
     raus.push({id:e.k.id, reihe:e.k.reihe, pos:i, breit:!!e.k.breit, aus:false,
                typ:e.k.typ||null, titel:(e.k.eigen?e.k.titel:null),
                sperre:_abGesperrt(e.k.id), text:(e.k.text==null?null:e.k.text),
+               reihe_id:(e.k.reihe_id||null), quelle:(e.k.quelle||null), anzahl:(e.k.anzahl||null),
                x:e.lage.x, y:e.lage.y, b:e.lage.b, h:e.lage.h, z:e.lage.z,
                inhalt:(e.k.inhalt&&e.k.inhalt.length)?e.k.inhalt.slice():null});
   });
@@ -12336,6 +12501,7 @@ function _abLayoutAktuell(){
                breit:(e.breit==null?!!(reg&&reg.breit):e.breit), aus:true,
                typ:e.typ||null, titel:e.titel||null,
                sperre:!!e.sperre, text:(e.text==null?null:e.text),
+               reihe_id:(e.reihe_id||null), quelle:(e.quelle||null), anzahl:(e.anzahl||null),
                x:e.x, y:e.y, b:e.b, h:e.h, z:e.z,
                inhalt:(e.inhalt&&e.inhalt.length)?e.inhalt.slice():null});
   });
@@ -12397,6 +12563,12 @@ function _abEditLeiste(){
       +'title="Kachel mit Zahlen anlegen — erscheint unten auf der Fläche">+ Zahlen</button>'
     +'<button type="button" class="abeb hin" data-abe="neu" data-typ="notiz" '
       +'title="Notizzettel anlegen — dein Text, mit dem Layout gespeichert">+ Notiz</button>'
+    +'<button type="button" class="abeb hin" data-abe="neu" data-typ="verlauf" '
+      +'title="Verlauf über Tage — zurzeit gibt es eine Reihe: Riki-Verbrauch">+ Verlauf</button>'
+    +'<button type="button" class="abeb hin" data-abe="neu" data-typ="liste" '
+      +'title="Liste aus einer vorhandenen Quelle: offene Aufgaben oder meldende Wächter">+ Liste</button>'
+    +'<button type="button" class="abeb hin" data-abe="neu" data-typ="bild" '
+      +'title="Bild über eine Adresse — Hochladen geht noch nicht">+ Bild</button>'
     +'<span class="abesp">'
     +'<button type="button" class="abeb" data-abe="standard" '
       +'title="Zurück auf die im Code hinterlegte Anordnung — noch nicht gespeichert">↺ Standard</button>'
@@ -12590,6 +12762,20 @@ function _abBentoNach(box){
     });
   });
 
+  /* Reihe bzw. Quelle einer Verlaufs- oder Listenkachel umschalten — dieselbe
+     eine Aenderungsspur wie alles andere. */
+  box.querySelectorAll('[data-abreihe]').forEach(function(b){
+    b.addEventListener('click',function(ev){ ev.stopPropagation();
+      var w=b.getAttribute('data-abreihe'), id=b.getAttribute('data-kid');
+      _abEditAendern(function(l,find){ var e=find(id); if(e) e.reihe_id=w; });
+    });
+  });
+  box.querySelectorAll('[data-abquelle]').forEach(function(b){
+    b.addEventListener('click',function(ev){ ev.stopPropagation();
+      var w=b.getAttribute('data-abquelle'), id=b.getAttribute('data-kid');
+      _abEditAendern(function(l,find){ var e=find(id); if(e) e.quelle=w; });
+    });
+  });
   box.querySelectorAll('[data-abnotiz]').forEach(function(t){
     t.addEventListener('mousedown',function(ev){ ev.stopPropagation(); });
     t.addEventListener('change',function(){
@@ -15961,11 +16147,25 @@ async function loadFreigabe(){
   /* 🔴 15.08.: Der Stammwaechter-Block. Er haengt oben im Dashboard und RECHNET
      NICHTS im Browser (Ralph ausdruecklich) — jede Zahl kommt aus
      `cb_admin_stamm_waechter()`. Der Container wird einmal angelegt. */
+  /* 🔴 GEAENDERT 15.08.2026, Ralph: „und stamm oben raus, da habe ich link dazu."
+     Die Box haengt jetzt im STAMM-Bereich, nicht mehr im Dashboard. Vorher stand
+     sie oben in fgPanelDash und wanderte beim Reiterwechsel mit — sie war damit
+     an ZWEI Stellen im Weg: auf dem Dashboard, wo Ralph sie nicht braucht (er
+     kommt ueber das Menue in den Stamm), und als Vorbau ueber der eigentlichen
+     Arbeitsflaeche.
+     Der Container wird deshalb in fgPanelStamm angelegt. Die Zahlen sind NICHT
+     weg — sie stehen weiter dort, wo mit ihnen gearbeitet wird (Ralph P5), und
+     zusaetzlich in der Bento-Kachel „Stamm-Überblick" auf dem Dashboard, die
+     dieselbe Quelle liest (cb_admin_stamm_waechter, §4.2).
+     🔴 FOLGE FUER WORK #34: dort stand „fgStammWaechter nicht anfassen, die
+     Doppelanzeige erst entfernen, wenn die Chips stehen". Diese Bedingung ist
+     mit Ralphs Entscheid hinfaellig — er hat den oberen Ort selbst gestrichen.
+     Im Work Item vermerkt statt stillschweigend uebergangen. */
   try{
-    var _d=document.getElementById('fgPanelDash');
-    if(_d && !document.getElementById('fgStammWaechter')){
+    var _z=document.getElementById('fgPanelStamm')||document.getElementById('fgPanelDash');
+    if(_z && !document.getElementById('fgStammWaechter')){
       var _w=document.createElement('div'); _w.id='fgStammWaechter'; _w.className='fgStammWaechter';
-      _d.insertBefore(_w, _d.firstChild);
+      _z.insertBefore(_w, _z.firstChild);
     }
     fgStammWaechter();
   }catch(e){ console.error('[Stammwächter] Einhaengen:', e); }
@@ -20488,7 +20688,7 @@ async function openFgEditor(id, prefill, targetEl){
   if(_navInner.indexOf('fe_frgSlot')<0) _navInner+='<span id="fe_frgSlot" style="margin-left:auto;display:flex;align-items:center;min-width:0"></span>';   /* 28i: Slot auch ohne Listen-Navigation */
   /* 28r (Ralph): Im Vollbild ist der Menue-Cluster (mit 🔄+Version) verdeckt -> derselbe
      Neu-laden-Knopf samt aktueller Version sitzt auch hier in der Kopfzeile. */
-  if(window.__ADMIN_PAGE){ _navInner+='<button onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(APP_BUILD.replace("2026-07-","")):"")+'</button>'; }
+  if(window.__ADMIN_PAGE){ _navInner+='<button onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(String(APP_BUILD).split("-").pop()):"")+'</button>'; }
   /* 07.08.2026: Aussehen und Klebehoehe der Editor-Kopfleiste stehen in ui.css
      (#feNavLeiste, --nav-oben / --nav-hochzug). Hier bleibt nur der Inhalt. */
   var _navBar='<div id="feNavLeiste">'+_navInner+'</div>';
@@ -30527,7 +30727,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3180";
+const APP_BUILD = "2026-08-15-3240";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
