@@ -11280,15 +11280,38 @@ async function _abBento2Laden(d){
       var z=function(l,v,warn){ return '<div class="bzeile"><span>'+l+'</span><b'
         +(warn&&Number(v)>0?' style="color:'+_AB.warn+'"':'')+'>'
         +(v==null?'–':v)+'</b></div>'; };
+      /* 🔴 15.08.2026, Ralph: „den Stammwaechter oben brauchen wir dann nicht mehr, der ist
+         unten in Stamm-Ueberblick — ggf. fehlendes unten ergaenzen."
+         GEMESSENE DIFFERENZ vor dem Ergaenzen: die Kachel zeigte 6 von 12 Zahlen. Es fehlten
+         vier des neuen Stamms (Reviewproblem · retired ohne Nachfolger · Alias auf nicht aktiv ·
+         Legacy-Bindung auf nicht aktiv) und zwei des alten (Regelfaelle · Notenkonflikte) —
+         ausgerechnet die vier ROTEN, also die, bei denen etwas zu tun ist. Dazu fehlten der
+         Weg in den Stamm-Bereich (Ralph P12: was einen Weg hat, behaelt ihn) und der Hinweis,
+         woher die Alt-Zahlen kommen.
+         Die Reihenfolge ist woertlich die der Box oben uebernommen, damit niemand zwei
+         Anordnungen derselben Zahlen im Kopf halten muss. */
       setz('abStammU',
          '<div class="babs" style="color:'+_AB.kern+'">Neu · Canonical, maßgeblich</div>'
         + z('aktiv',N.active_total)
         + z('unbewertet',N.unbewertet,true)
         + z('ohne Profil',N.ohne_profil,true)
+        + z('Reviewproblem',N.bewertet_nicht_approved,true)
+        + z('retired ohne Nachfolger',N.retired_ohne_nachfolger,true)
+        + z('Alias auf nicht aktiv',N.auto_alias_auf_nichtaktiv,true)
+        + z('Legacy-Bindung auf nicht aktiv',N.legacy_bindung_auf_nichtaktiv,true)
         +'<div class="babs" style="margin-top:10px;color:'+_AB.grau+'">Alt · Legacy, Übergang</div>'
         + z('Einträge',AL.gesamt)
-        + z('Quelle offen',AL.quelle_offen,true)
+        + z('Regelfälle',AL.regelfaelle,true)
         + z('Widersprüche',AL.widersprueche_aktiv,true)
+        + z('Notenkonflikte',AL.doppelte_note,true)
+        + z('Quelle offen',AL.quelle_offen,true)
+        +'<div style="font-size:10.5px;color:'+_AB.mut+';margin-top:7px;line-height:1.4">'
+        +'Alt-Zahlen aus <code>public.Zutaten_Stamm</code>, nicht aus dem Canonical-Stamm — '
+        +'Kontrolle für den Übergang.</div>'
+        +'<button type="button" class="bgo2" onclick="navTo(\'freigabe\');fgTab(\'stamm\')" '
+        +'style="margin-top:9px;padding:5px 11px;border:1px solid var(--line);border-radius:8px;'
+        +'background:var(--card);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer">'
+        +'Stamm öffnen →</button>'
         +(zweiter?'<div style="font-size:10.5px;color:'+_AB.warn+';margin-top:7px;line-height:1.4">'
           +'⚠ erst im zweiten Anlauf geladen — die Abfrage liegt auf der Zeitgrenze.</div>':''));
     }catch(e){
@@ -28423,7 +28446,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2720";
+const APP_BUILD = "2026-08-15-2740";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
