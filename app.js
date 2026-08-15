@@ -11478,17 +11478,63 @@ function _abKachel(titel, tag, inhalt, fuss, gross){
   +'</div>';
 }
 
-function _abBento(d,np,A){
-  var k=(d&&d.katalog)||{}, q=(d&&d.qualitaet)||{}, ri=(d&&d.riki)||{}, ex=(np&&np.extra)||{};
-  var w=(np&&np.waechter)||[];
-  var lim=Number(ri.monatslimit_usd)||0, verbr=Number(ri.monat_usd)||0;
-  var h='<div class="abbento">';
+/* ============================================================================
+   KACHEL-REGISTER  ·  Work #42, Etappe 1  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   Bis hierher stand die ANORDNUNG im Code: _abBento und _abBento2 riefen ihre
+   Kacheln in fester Reihenfolge auf. Ab jetzt steht sie in EINER Liste, und der
+   Code laeuft ueber die Liste. Das Verhalten ist unveraendert — genau das ist
+   der Zweck: E1 ist die risikolose Etappe, die Ausgabe muss zeichengleich
+   bleiben (Abnahme: Screenshot vorher/nachher identisch).
 
-  /* ---- 1) HEUTE — OFFENE AUFGABEN (doppelt breit) --------------------------
-     Die Liste kommt aus _abJobs, damit es nicht zwei Vorstellungen davon gibt,
-     was dringend ist. _abJobs liefert fertiges Markup fuer die alte Ansicht;
-     hier wird dieselbe Quelle in Bento-Zeilen gegossen. */
-  var jobs=_abJobsListe(np,A);
+   §22 hat sich wieder ausgezahlt: _abKachel gab es bereits. Neu gebaut wurde
+   nichts; zusammengefuehrt wurde nur der EINE Sonderweg, den _abBento2 mit
+   seiner eigenen kleinen kachel()-Funktion noch hatte.
+
+   Ein Eintrag: id · reihe · titel · breit · bau(c) -> {tag,inhalt,fuss}
+   Alternativ roh(c) -> fertiges Markup, fuer Kacheln, die ihren Rahmen selbst
+   mitbringen (Schnellzugriff). Etappe 2 legt eine Konfiguration darueber;
+   liegt keine vor, gilt diese Liste als Rueckfall.
+   ========================================================================== */
+var _AB_KACHELN=[
+  {id:'aufgaben',  reihe:1, titel:'Heute — offene Aufgaben',  breit:true,  bau:_abkAufgaben},
+  {id:'bestand',   reihe:1, titel:'Datenbestand',             breit:false, bau:_abkBestand},
+  {id:'riki',      reihe:1, titel:'Riki-Budget',              breit:false, bau:_abkRiki},
+  {id:'waechter',  reihe:1, titel:'Wächter-Status',           breit:false, bau:_abkWaechter},
+  {id:'aktivitaet',reihe:2, titel:'Letzte Aktivitäten',       breit:true,  bau:_abkAkt},
+  {id:'region',    reihe:2, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion},
+  {id:'stammu',    reihe:2, titel:'Stamm-Überblick',          breit:false, bau:_abkStammU},
+  {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell}
+];
+
+function _abKachelListe(reihe){
+  return _AB_KACHELN.filter(function(x){ return x.reihe===reihe; });
+}
+
+/* Der eine Zeichner. Er weiss nichts ueber einzelne Kacheln — er laeuft ueber
+   das Register. Kommt E2, wird hier die Konfiguration davorgeschaltet, und
+   sonst nirgends. */
+function _abReihe(reihe, klasse, c){
+  var h='<div class="'+klasse+'">';
+  _abKachelListe(reihe).forEach(function(x){
+    if(x.roh){ h+=x.roh(c); return; }
+    var t=x.bau(c)||{};
+    h+=_abKachel(x.titel, t.tag||'', t.inhalt||'', t.fuss||'', !!x.breit);
+  });
+  return h+'</div>';
+}
+
+/* Zeile Beschriftung/Wert. Stand vorher zweimal als lokales z() in _abBento. */
+function _abZeile(l,v,f){
+  return '<div class="bzeile"><span>'+l+'</span><b'
+    +(f?' style="color:'+f+'"':'')+'>'+(v==null?'–':v)+'</b></div>';
+}
+
+/* ---- 1) HEUTE — OFFENE AUFGABEN (doppelt breit) ---------------------------
+   Die Liste kommt aus _abJobsListe, damit es nicht zwei Vorstellungen davon
+   gibt, was dringend ist. */
+function _abkAufgaben(c){
+  var jobs=_abJobsListe(c.np,c.A);
   var jh=jobs.length
     ? jobs.slice(0,6).map(function(j){
         var f=(j.p===0)?_AB.krit:(j.p===1)?_AB.warn:_AB.zu;
@@ -11499,17 +11545,23 @@ function _abBento(d,np,A){
           +'<span class="bgo">›</span></div>';
       }).join('')
     : '<div class="bleer">Nichts wartet auf dich — alles abgearbeitet.</div>';
-  h+=_abKachel('Heute — offene Aufgaben',
-    '<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">nach Dringlichkeit</span>',
-    jh,
-    jobs.length>6 ? ('und '+(jobs.length-6)+' weitere — „Alle offenen Punkte" unten zeigt sie') : 'Jede Zeile springt an ihre Stelle.',
-    true);
+  return {
+    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">nach Dringlichkeit</span>',
+    inhalt:jh,
+    fuss:jobs.length>6
+      ? ('und '+(jobs.length-6)+' weitere — „Alle offenen Punkte" unten zeigt sie')
+      : 'Jede Zeile springt an ihre Stelle.'
+  };
+}
 
-  /* ---- 2) DATENBESTAND ---------------------------------------------------- */
-  var z=function(l,v,f){ return '<div class="bzeile"><span>'+l+'</span><b'
-    +(f?' style="color:'+f+'"':'')+'>'+(v==null?'–':v)+'</b></div>'; };
-  h+=_abKachel('Datenbestand', '',
-    '<div class="bleib"><div class="bzahl" style="color:'+_AB.kern+'">'
+/* ---- 2) DATENBESTAND ------------------------------------------------------ */
+function _abkBestand(c){
+  var d=c.d||{}, np=c.np||{};
+  var k=d.katalog||{}, q=d.qualitaet||{}, ex=np.extra||{};
+  var z=_abZeile;
+  return {
+    tag:'',
+    inhalt:'<div class="bleib"><div class="bzahl" style="color:'+_AB.kern+'">'
       +(k.aktiv==null?'–':k.aktiv)+'</div>'
     +'<div class="bunter">aktive Produkte · Index-Schnitt '
       +(k.schnitt_score==null?'–':String(k.schnitt_score).replace('.',','))+'</div>'
@@ -11518,41 +11570,55 @@ function _abBento(d,np,A){
       + z('ohne Index-Zahl', q.ohne_score, (Number(q.ohne_score)>0?_AB.warn:null))
       + z('Zutaten im Stamm', ex.zutaten)
       + z('Rezepte', ex.rezepte)
-    +'</div></div>', '');
+    +'</div></div>',
+    fuss:''
+  };
+}
 
-  /* ---- 3) RIKI-BUDGET ----------------------------------------------------- */
+/* ---- 3) RIKI-BUDGET ------------------------------------------------------- */
+function _abkRiki(c){
+  var d=c.d||{};
+  var ri=d.riki||{};
+  var lim=Number(ri.monatslimit_usd)||0, verbr=Number(ri.monat_usd)||0;
   var anteil=lim?Math.max(0,Math.min(1,verbr/lim)):0;
   var bf=anteil>=0.9?_AB.krit:anteil>=0.6?_AB.warn:_AB.gut;
   var jetzt=new Date(), tagNr=jetzt.getDate();
   var tageMon=new Date(jetzt.getFullYear(),jetzt.getMonth()+1,0).getDate();
   var prog=(tagNr>0?verbr/tagNr*tageMon:0), progOk=(lim? prog<=lim : true);
-  var rv=((d&&d.riki_verlauf)||[]).slice(-14);
+  var rv=(d.riki_verlauf||[]).slice(-14);
   var rvMax=Math.max.apply(null,[0.0001].concat(rv.map(function(x){ return Number(x.usd)||0; })));
   var spark=rv.length
     ? '<div class="bspark">'+rv.map(function(x){ var v=Number(x.usd)||0;
         return '<i title="'+esc(x.tag)+': '+v.toFixed(2)+' $" style="height:'
           +Math.max(2,Math.round(v/rvMax*28))+'px"></i>'; }).join('')+'</div>'
     : '<div class="bunter">noch keine Tageswerte</div>';
-  h+=_abKachel('Riki-Budget', '',
-    '<div class="bleib"><div class="bzahl" style="color:'+bf+'">'
+  return {
+    tag:'',
+    inhalt:'<div class="bleib"><div class="bzahl" style="color:'+bf+'">'
       +(lim? verbr.toFixed(2).replace('.',',')+' $' : '–')+'</div>'
     +'<div class="bunter">'+(lim? 'von '+lim.toFixed(0)+' $ im Monat' : 'kein Limit hinterlegt')+'</div>'
     +(lim?'<div class="abbar" style="margin-top:8px"><i style="width:'+Math.round(anteil*100)
       +'%;background:'+bf+'"></i></div>':'')
     +spark+'</div>',
-    lim ? ('Prognose Monatsende ~'+prog.toFixed(0)+' $ · '
+    fuss:lim ? ('Prognose Monatsende ~'+prog.toFixed(0)+' $ · '
       +(progOk?'im Rahmen':'<b style="color:'+_AB.krit+'">über Budget</b>')
-      +' — läuft es voll, blockt Riki. Gewollt.') : '');
+      +' — läuft es voll, blockt Riki. Gewollt.') : ''
+  };
+}
 
-  /* ---- 4) WÄCHTER-STATUS -------------------------------------------------- */
+/* ---- 4) WÄCHTER-STATUS ---------------------------------------------------- */
+function _abkWaechter(c){
+  var np=c.np||{}, A=c.A;
+  var w=np.waechter||[];
+  var z=_abZeile;
   var still=w.length-A.melden;
-  h+=_abKachel('Wächter-Status',
-    (A.gate_offen>0
+  return {
+    tag:(A.gate_offen>0
       ? '<span class="abtag" style="background:#fdf1f1;color:'+_AB.krit+'" '
         +'title="Summe der offenen Fälle bei den Wächtern, die die Freigabe blockieren">'
         +A.gate_offen+' Gate-Fälle</span>'
       : '<span class="abtag" style="background:#effaef;color:'+_AB.gut+'">Gate frei</span>'),
-    '<div class="bleib"><div class="bring">'+_abRingKlein(w,A)
+    inhalt:'<div class="bleib"><div class="bring">'+_abRingKlein(w,A)
       +'<div style="min-width:0"><div class="bzahl" style="font-size:24px;color:'
         +(A.melden>0?_AB.warn:_AB.gut)+'">'+still+' / '+w.length+'</div>'
       +'<div class="bunter">still — '+A.melden+' melden</div></div></div>'
@@ -11560,9 +11626,12 @@ function _abBento(d,np,A){
       + z('Meldungen gesamt', A.anlage.o+A.tuer.o+A.bestand.o)
       + z('davon im Bestand', A.bestand.o)
     +'</div></div>',
-    'Das Raster unten öffnet jeden einzelnen.');
+    fuss:'Das Raster unten öffnet jeden einzelnen.'
+  };
+}
 
-  return h+'</div>';
+function _abBento(d,np,A){
+  return _abReihe(1,'abbento',{d:d||{},np:np||{},A:A});
 }
 
 /* ============================================================================
@@ -11582,21 +11651,32 @@ function _abBento(d,np,A){
    cb_admin_stamm_waechter braucht gemessene 4,9 s und laeuft in den Timeout
    (Work #17). Eine Kachel, die den Rest der Seite blockiert, waere ein
    Rueckschritt gegenueber dem, was vorher da war.
+
+   15.08. Work #42/E1: die drei nachladenden Kacheln stehen jetzt im Register
+   oben. Ihr Inhalt ist unveraendert der Ladeplatzhalter mit derselben ID —
+   die Nachlader (abAkt · abRegion · abStammU) suchen weiterhin dieselben
+   Container und wurden NICHT angefasst.
    ========================================================================== */
-function _abBento2(){
-  var kachel=function(id,titel,tag){
-    return '<div class="bk"><div class="bkopf"><h3>'+titel+'</h3>'+(tag||'')+'</div>'
-      +'<div class="bleib" id="'+id+'"><div class="blade">lädt…</div></div></div>';
+function _abkAkt(){
+  return {
+    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">30 Tage</span>',
+    inhalt:'<div class="bleib" id="abAkt"><div class="blade">lädt…</div></div>',
+    fuss:''
   };
-  return '<div class="abbento ab2">'
-    + '<div class="bk bgross"><div class="bkopf"><h3>Letzte Aktivitäten</h3>'
-      + '<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">30 Tage</span></div>'
-      + '<div class="bleib" id="abAkt"><div class="blade">lädt…</div></div></div>'
-    + kachel('abRegion','Nutzer &amp; Regionen','')
-    + kachel('abStammU','Stamm-Überblick',
-        '<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">neu / alt</span>')
-    + _abSchnell()
-  +'</div>';
+}
+function _abkRegion(){
+  return {tag:'', inhalt:'<div class="bleib" id="abRegion"><div class="blade">lädt…</div></div>', fuss:''};
+}
+function _abkStammU(){
+  return {
+    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">neu / alt</span>',
+    inhalt:'<div class="bleib" id="abStammU"><div class="blade">lädt…</div></div>',
+    fuss:''
+  };
+}
+
+function _abBento2(){
+  return _abReihe(2,'abbento ab2',{});
 }
 
 /* Schnellzugriff. Reine Wege, keine Zahlen — deshalb sofort da und ohne Nachladen.
@@ -29040,7 +29120,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2940";
+const APP_BUILD = "2026-08-15-2950";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
