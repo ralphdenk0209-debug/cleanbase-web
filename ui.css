@@ -1655,9 +1655,12 @@ body.riFokus #feTopbar{ display:none !important }
    nichts mehr in eine zweite Zeile rutschen, auch wenn eine kuenftige Regel die
    Spaltenzahl versehentlich aendert. */
 body.riFokus #feRahmen{
-  --rail-breite: 220px;      /* Ralph 15.08.: 220 */
-  --ktx-breite:  370px;      /* Ralph: 360-380 */
-  --raster-gap:   22px;      /* Ralph: 20-22 */
+  /* 15.08. neu balanciert (Ralph P6): weniger ungenutzte Breite links, mehr Platz
+     fuer Etikett und Referenz rechts. Geaendert wird HIER, an der einzigen
+     Definition — nicht durch einen Nachtrag. */
+  --rail-breite: 196px;      /* Ralph: 190-200 */
+  --ktx-breite:  440px;      /* Ralph: 420-460 */
+  --raster-gap:   20px;      /* Ralph: 20-22 */
   gap: var(--raster-gap);
   grid-template-columns: var(--rail-breite) minmax(0,1fr);
   grid-template-rows: auto;
@@ -1675,9 +1678,9 @@ body.riFokus #feRahmen:not(.riDrei) > #feKontext{ display:none !important }
 /* Schritt 2 Analyse — das Etikett rechts muss LESBAR sein (Ralph: 380-420). */
 /* 15.08. ENTFERNT: 410 wurde unten von 360 ueberschrieben, war also tot. */
 /* Schritt 3 Bestandteile — Referenz rechts (Ralph: 360-400), Tabelle nicht quetschen. */
-body.riFokus[data-fe-schritt="bestand"] #feRahmen{ --ktx-breite:380px }
+body.riFokus[data-fe-schritt="bestand"] #feRahmen{ --ktx-breite:450px }  /* Ralph P8: 420-460 */
 /* Schritt 1 Kopf & Quelle — Formularfelder brauchen rechts weniger. */
-body.riFokus[data-fe-schritt="kopf"]    #feRahmen{ --ktx-breite:340px }
+body.riFokus[data-fe-schritt="kopf"]    #feRahmen{ --ktx-breite:380px }  /* Formularfelder brauchen rechts weniger */
 
 /* --- Die Mitte: EINE Breite fuer alle Karten ------------------------------- */
 /* Ohne rechte Spalte darf sie wachsen (Ralph: 1100-1200), sonst fuellt sie das
@@ -1705,22 +1708,22 @@ body.riFokus #feEditorBody .cardF{ border-radius:12px }
 /* --- Schritt 4: zwei Abschnitte UNTEREINANDER ------------------------------ */
 /* `#feTab1` und `#feAbgleich` teilen sich sonst die Zelle 2/1 und laegen
    uebereinander. Hier bekommt der Abgleich eine eigene Zeile. */
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody{
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody{
   grid-template-rows:auto auto auto auto;
 }
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feAbgleich{
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich{
   grid-area:3 / 1; align-self:start; margin-top:6px;
 }
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feSchrittFuss{ grid-area:4 / 1 }
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feSchrittFuss{ grid-area:4 / 1 }
 /* Die beiden Abschnitte bekommen sichtbare Ueberschriften — sonst geht Bio in der
    Abgleichtabelle unter, und genau das soll nicht passieren (Ralph Punkt 2). */
-body.riFokus[data-fe-schritt="eigen"] #feKopfGrid::before,
-body.riFokus[data-fe-schritt="eigen"] #feAbgleich::before{
+body.riFokus[data-fe-schritt="bestand"] #fe_gridA::before,
+body.riFokus[data-fe-schritt="bestand"] #feAbgleich::before{
   display:block; font-size:9.5px; letter-spacing:.07em; text-transform:uppercase;
   font-weight:800; color:var(--muted); margin:0 0 8px;
 }
-body.riFokus[data-fe-schritt="eigen"] #feKopfGrid::before{ content:"A · Eigenschaften"; grid-column:1/-1 }
-body.riFokus[data-fe-schritt="eigen"] #feAbgleich::before{ content:"B · Etikett & Abgleich" }
+body.riFokus[data-fe-schritt="bestand"] #fe_gridA::before{ content:"A · Bestandteile"; grid-column:1/-1 }
+body.riFokus[data-fe-schritt="bestand"] #feAbgleich::before{ content:"B · Etikett & Abgleich" }
 
 /* --- Navigation oben links in der Rail ------------------------------------ */
 #feRailNav{ display:flex; flex-direction:column; gap:7px; padding:0 0 11px;
@@ -1873,13 +1876,13 @@ body.riFokus #feRail{ background:transparent; border:0; padding:0 }
 /* --- 10. Schritt 4 optisch zusammenziehen --------------------------------- */
 /* 0215 liess die Rasterzeile 2 auf `1fr` wachsen — daher die grosse Luecke
    zwischen Eigenschaften und Abgleich. Jetzt folgen beide ihrem Inhalt. */
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody{
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody{
   grid-template-rows:auto auto auto 1fr; align-content:start;
 }
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feTab1{ align-self:start }
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feAbgleich{ margin-top:24px }
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feSchrittFuss{ align-self:end }
-body.riFokus[data-fe-schritt="eigen"] #feKopfGrid{ row-gap:10px }
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feTab3{ align-self:start }
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich{ margin-top:24px }
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feSchrittFuss{ align-self:end }
+
 
 /* --- 12. Statusstreifen farbruhiger --------------------------------------- */
 .feStLinks > span{ font-weight:600 }
@@ -2016,7 +2019,7 @@ body.riFokus[data-fe-schritt="kopf"] .feQuelleFertig{
 /* --- 2. Schritt 2: Mitte breiter, rechts unveraendert schmal --------------- */
 /* Schritt 2: die Mitte bekommt ihre Breite dadurch, dass rechts wenig steht —
    nicht durch ein Minimum, das das Raster sprengt (Ursache B). */
-body.riFokus[data-fe-schritt="analyse"] #feRahmen{ --ktx-breite:360px }
+body.riFokus[data-fe-schritt="analyse"] #feRahmen{ --ktx-breite:430px }  /* Ralph P7: 420-440, Etikett groesser */
 #feTab2 .feWirkRow .fwNote{ margin-top:1px }
 #feTab2 .feWirkHinweis, #feTab2 .feKartenZusatz{ white-space:normal; line-height:1.5 }
 
@@ -2030,10 +2033,10 @@ body.riFokus .fgbWert{ text-align:right }
 body.riFokus .fgBestZeile{ padding-left:0; padding-right:0 }
 
 /* --- 5. Schritt 4: gleiche Aussenkante, engerer Abstand ------------------- */
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feTab1,
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feAbgleich{
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feTab3,
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich{
   margin-left:0; margin-right:0; width:100% }
-body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feAbgleich{ margin-top:18px }
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich{ margin-top:18px }
 
 /* --- 6. Rail kompakter ---------------------------------------------------- */
 #feRailNav{ gap:6px; padding-bottom:9px; margin-bottom:10px }
@@ -2055,14 +2058,71 @@ body.riFokus[data-fe-schritt="eigen"] #feEditorBody > #feAbgleich{ margin-top:18
    auf Desktop NICHTS umbricht und bei wirklich schmalen Fenstern etwas
    Sinnvolles passiert statt eines Ueberlaufs.
 
-   Rechnung fuer die Grenze: 220 (Rail) + 620 (Mitte, noch arbeitsfaehig)
-   + 370 (Kontext) + 2x22 (Gap) = 1254. Bei 1150 px waere die Mitte nur noch
-   516 px — dort ist Stapeln ehrlicher als Quetschen.
+   Rechnung fuer die Grenze (15.08. nachgerechnet): 196 (Rail) + 620 (Mitte, noch
+   arbeitsfaehig) + 440 (Kontext) + 2x20 (Gap) = 1296. Bei 1200 px waere die Mitte
+   nur noch 524 px — dort ist Stapeln ehrlicher als Quetschen.
    ============================================================================ */
-@media (max-width:1149px){
+@media (max-width:1199px){
   /* Zwei Spalten: Rail bleibt, der Kontext geht UNTER den Hauptbereich.
      Das ist hier ausdruecklich gewollt — auf Desktop passiert es nicht mehr. */
   body.riFokus #feRahmen.riDrei{ grid-template-columns: var(--rail-breite) minmax(0,1fr) }
   body.riFokus #feRahmen.riDrei > #feKontext{ grid-column:2; grid-row:2; margin-top:14px }
   body.riFokus #feKontext{ position:static }
 }
+
+/* ============================================================================
+   LETZTER STRUKTURELLER FEINSCHLIFF 15.08.2026 (Ralph, Punkte 2, 4, 5)
+   ============================================================================ */
+
+/* --- 4. Die Rail in DREI benannten Gruppen -------------------------------- */
+/* „Klare Abstaende bzw. feine Trennlinien. Keine Kartenwand." */
+.feRailGrpTit{ font-size:8.5px; letter-spacing:.1em; text-transform:uppercase;
+  font-weight:800; color:var(--muted); opacity:.7; margin:0 0 7px }
+#feRailNav{ gap:6px; padding-bottom:11px; margin-bottom:12px;
+  border-bottom:1px solid var(--line) }
+#feProdKopf{ padding-bottom:12px; margin-bottom:12px;
+  border-bottom:1px solid var(--line) }
+#feFokusNav{ padding-top:0 }
+/* Die alte Zwischenueberschrift entfaellt — die Gruppe traegt jetzt ihren Namen. */
+#feFokusNav .feStTitel{ display:none }
+
+/* --- 2. Eigenschaften als Chips ------------------------------------------- */
+.feRailEigen{ display:flex; gap:5px; flex-wrap:wrap; margin:0 0 9px }
+.feEigChip{ display:inline-flex; align-items:center; gap:5px; cursor:pointer;
+  border:1px solid var(--line); border-radius:999px; background:var(--card);
+  padding:3px 9px; font-size:10.5px; font-weight:700; color:var(--muted) }
+.feEigChip::before{ content:"○"; font-size:8px }
+.feEigChip.ok{ color:var(--k-166534,#166534); border-color:var(--k-bfe3cb,#bfe3cb);
+  background:var(--k-e7f6ec,#e7f6ec) }
+.feEigChip.ok::before{ content:"✓" }
+/* „automatisch abgeleitet" ist wahr, aber nicht bestaetigt — also nicht gruen. */
+.feEigChip.auto{ color:var(--k-1d4ed8,#1d4ed8); border-color:var(--k-c7d9f7,#c7d9f7);
+  background:var(--k-eef4ff,#eef4ff) }
+.feEigChip.auto::before{ content:"◐" }
+.feEigChip.still{ opacity:.75 }
+.feEigChip:hover{ border-color:var(--k-2f6fd6,#2f6fd6) }
+/* Kurzes Aufblinken, wenn der Chip den Bereich oeffnet — kein Dauerzustand. */
+.feEigBlink{ animation:feEigBlink 1.6s ease-out }
+@keyframes feEigBlink{
+  0%,100%{ box-shadow:none }
+  20%,60%{ box-shadow:0 0 0 3px var(--k-dbeafe,#dbeafe) }
+}
+
+/* --- 5. Arbeitsschritte deutlicher markieren ------------------------------ */
+.feFokusSt{ border-left:3px solid transparent; border-radius:8px;
+  padding:7px 9px; gap:9px }
+.feFokusSt.akt{ background:var(--k-eef4ff,#eef4ff);
+  border-left-color:var(--k-2f6fd6,#2f6fd6) }
+.feFokusSt.akt .feFokusTxt b{ color:var(--k-1d4ed8,#1d4ed8) }
+.feFokusSt .feFokusTxt b{ font-weight:700; font-size:12px }
+.feFokusSub{ display:block; font-size:10px; color:var(--muted); margin-top:1px;
+  font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+/* Erledigt: nur der Haken ist gruen, keine Flaeche. */
+.feFokusSt:not(.akt){ background:transparent }
+.feFokusIco{ font-size:12px; line-height:1; flex:0 0 auto }
+
+/* --- 3+8. Schritt 3: Tabelle oben, Abgleich darunter ---------------------- */
+/* `#feTab3` und `#feAbgleich` teilen sich sonst die Zelle 2/1. */
+body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich::before{
+  content:"B · Etikett & Abgleich" }
+body.riFokus[data-fe-schritt="bestand"] #fe_gridA{ height:auto; min-height:340px }

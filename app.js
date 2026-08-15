@@ -18962,11 +18962,16 @@ var FE_SCHRITTE=[
          'fe_kat','fe_ukat','fe_basis','fe_verzehr','fe_quelle_typ','fe_beleg']},
  {nr:2, id:'analyse', t:'Nährwerte / Analyse', tab:2,
   kurz:'je Produktart: Makros · Wirkstoffe · Mineralstoffe'},
- {nr:3, id:'bestand', t:'Produktbestandteile & Referenz', tab:3,
-  kurz:'links unsere Zuordnung, rechts das Gelesene', nur:['fe_colZut']},
- {nr:4, id:'eigen',   t:'Eigenschaften & Abgleich', tab:1,
-  kurz:'Merkmale prüfen, dann Quelle gegen Erfassung',
-  zelle:['fe_bioSw','fe_ernaehrChips']}
+ /* 🔴 15.08.2026, Ralph: AUS VIER SCHRITTEN WERDEN DREI.
+    `eigen` entfaellt als Seite. Bestandteile, Referenz und Etikettabgleich sind
+    EIN Arbeitskontext — man prueft die Zuordnung ohnehin gegen das Gelesene.
+    Bio und Ernaehrungsform brauchten nie eine eigene Seite; sie stehen jetzt als
+    Chips in der Rail und oeffnen bei Klick den vorhandenen Bereich (§22).
+    Die Feld-IDs bleiben an diesem Schritt zugeordnet, damit `feFokusAlleZeigen`
+    und die Fremdlogik sie weiterhin kennen — nichts wird heimatlos. */
+ {nr:3, id:'bestand', t:'Produktbestandteile & Abgleich', tab:3,
+  kurz:'Zuordnung, Referenz und Etikettabgleich in einem',
+  nur:['fe_colZut'], zelle:['fe_bioSw','fe_ernaehrChips']}
 ];
 /* ===========================================================================
    SCHRITT 7 — ABSCHLUSSANSICHT (Ralph-Auftrag 14.08.2026)
@@ -19266,10 +19271,9 @@ var FE_KTX_REITER={
      ECHTE Referenzkarte `fe_colRef` samt Riki-Arbeitsliste, Nachtrag-Feld und
      V2-Umschalter. Sie wird UMGEHAENGT wie der Etikett-Lesekasten, nicht
      nachgebaut; ihr Heimatplatz ist `fe_gridA` (§22, keine neue Vergleichslogik). */
-  bestand:  [["referenz","Referenz"],["etikett","Etikett"],["rohtext","Rohtext"]],
-  /* Ralph P12, Option B: bei der Gegenueberstellung faellt die rechte Spalte weg.
-     Die Tabelle braucht die Breite, und eine dritte Quelle daneben will er nicht. */
-  eigen:    []
+  /* Ralph 15.08.: der Abgleich steht jetzt UNTER der Tabelle im selben Schritt,
+     die Reiter bleiben rechts daneben stehen. Referenz ist der Standard. */
+  bestand:  [["referenz","Referenz"],["etikett","Etikett"],["rohtext","Rohtext"]]
 };
 function _feKtxLesekastenHeim(){
   var lk=document.getElementById("fe_wirkFotoCol"); if(!lk) return;
@@ -19487,12 +19491,10 @@ var FE_MITTE={
      Template-Reihenfolge von `feKopfLayout`, nichts wurde verschoben. */
   kopf:     [".feHolBox","feKopfGrid"],
   analyse:  ["feNwLinks","fe_naehrKacheln","fe_mikroWrap"],
-  bestand:  ["fe_gridA"],
-  /* Schritt 4 traegt ZWEI Abschnitte: oben die Eigenschaftsfelder aus Reiter 1,
-     darunter die Gegenueberstellung. `feAbgleich` liegt ausserhalb der Tabs und
-     bekommt eine eigene Rasterzeile — sonst laege es UEBER dem Kopfraster, weil
-     beide sich `grid-area: 2/1` teilen (so gebaut am 14.08., Ralph P-Position). */
-  eigen:    ["feKopfGrid"]
+  /* Schritt 3 traegt Tabelle UND Gegenueberstellung. `feAbgleich` liegt ausserhalb
+     der Tabs und bekommt eine eigene Rasterzeile — sonst laege es UEBER dem
+     Tabelleninhalt, weil beide sich `grid-area: 2/1` teilen. */
+  bestand:  ["fe_gridA"]
 };
 function feFokusMitte(s){
   var erlaubt={}; (FE_MITTE[s.id]||[]).forEach(function(x){ erlaubt[x]=1; });
@@ -19801,6 +19803,10 @@ function feRailNav(an){
   if(!kasten){
     kasten=document.createElement("div"); kasten.id="feRailNav";
     rail.insertBefore(kasten, rail.firstChild);
+    /* Ralph P4: drei benannte Gruppen. Die Ueberschrift gehoert zum Kasten,
+       nicht in eine eigene Karte — „keine Kartenwand". */
+    var t=document.createElement("div"); t.className="feRailGrpTit";
+    t.textContent="Navigation"; kasten.appendChild(t);
   }
   /* Immer ganz oben — auch wenn der Produktkopf zwischenzeitlich neu gebaut wurde. */
   if(rail.firstChild!==kasten) rail.insertBefore(kasten, rail.firstChild);
@@ -19843,7 +19849,8 @@ function feProduktKopf(){
   var moeglich=!!(S&&S.bekannt&&S.freigabe_moeglich);
   var stAlt=frei?"Aktiv":"Entwurf";
   var stZiel=frei?"Entwurf":"Aktiv";
-  k.innerHTML='<div class="feProdZeile">'
+  k.innerHTML='<div class="feRailGrpTit">Produkt</div>'
+    +'<div class="feProdZeile">'
       +'<div class="feProdTxt">'+(pid?'<span class="feProdId">'+esc(pid)+'</span>':'')
       +'<b>'+esc(nm||"Neues Produkt")+'</b></div>'
       +'<button type="button" class="feProdMehr" onclick="feProdMenu(this)" title="Weitere Aktionen">⋯</button>'
@@ -19855,6 +19862,7 @@ function feProduktKopf(){
           +(frei?' (aus dem Katalog nehmen)':' (über die geprüfte Freigabe)'))+'">'
       +esc(stAlt)+' <span class="feProdStatusPfeil">⇄</span></button>'
     +'<div class="feProdZust">'+esc(zt)+'</div>'
+    +_feRailEigen()
     /* 🔴 15.08. (Ralph P7): „Freigabe möglich" stand ZWEIMAL — oben rechts im
        Produktkopf und noch einmal unter dem grünen Knopf. Der Knopf selbst sagt
        es bereits: er ist da und er ist klickbar. Die Zeile darunter erscheint
@@ -19872,6 +19880,58 @@ function feProduktKopf(){
                             ?' · '+S.freigabe_gruende.length+' Punkt'+(S.freigabe_gruende.length===1?'':'e'):'')
                          +'</div>'));
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   EIGENSCHAFTEN ALS CHIPS IN DER RAIL (Ralph 15.08., Punkt 2)
+
+   „Bio und Ernaehrungsform nicht mehr als eigene Arbeitsseite."
+
+   🔴 ES WIRD NICHTS ABGELEITET. Beide Werte kommen aus denselben Quellen, die
+   auch die Felder selbst lesen:
+     Bio             → `#fe_bio` (das versteckte <select>, das feBioChange fuehrt)
+     Ernaehrungsform → `_fgEdit.ernaehrWahl` (von Hand) bzw. `.ernaehrAuto`
+                       (aus den GEBUNDENEN Zutaten gerechnet — Serverseite)
+   Keine zweite Rechnung, keine neue Regel (§4.2). Der Klick oeffnet den
+   vorhandenen Bereich, er aendert nichts.
+
+   Warum „ungeprueft" und nicht „kein Bio": ein leeres Feld heisst NICHT nein.
+   Es heisst, dass niemand nachgesehen hat (§3.4).
+   ═══════════════════════════════════════════════════════════════════════════ */
+function _feRailEigen(){
+  var bio=String(((document.getElementById("fe_bio")||{}).value||"")).trim();
+  var bioTxt={ja:"Bio", nein:"kein Bio"}[bio] || "Bio ungeprüft";
+  var bioKl ={ja:"ok",  nein:"still"}[bio]    || "offen";
+  var wahl=String((window._fgEdit&&window._fgEdit.ernaehrWahl)||"").trim();
+  var auto=String((window._fgEdit&&window._fgEdit.ernaehrAuto)||"").trim();
+  var kurz=function(v){ try{ return (typeof FE_EF_KURZ==="function")?FE_EF_KURZ(v):v; }catch(e){ return v; } };
+  var efTxt, efKl, efTit;
+  if(wahl){ efTxt=kurz(wahl); efKl="ok";   efTit="Von dir gesetzt – überschreibt die Automatik."; }
+  else if(auto){ efTxt=kurz(auto); efKl="auto"; efTit="Automatisch aus den gebundenen Zutaten gerechnet."; }
+  else { efTxt="Form unbekannt"; efKl="offen";
+         efTit="Wird aus den gebundenen Zutaten berechnet, sobald welche gebunden sind."; }
+  return '<div class="feRailEigen">'
+    +'<button type="button" class="feEigChip '+bioKl+'" onclick="feRailEigenOeffnen(\'fe_bioSw\')"'
+      +' title="Bio-Kennzeichnung nach EU-Öko-Verordnung. Merkmal und Filter, keine Punkte im Index.">'
+      +esc(bioTxt)+'</button>'
+    +'<button type="button" class="feEigChip '+efKl+'" onclick="feRailEigenOeffnen(\'fe_ernaehrChips\')"'
+      +' title="'+esc(efTit)+'">'+esc(efTxt)+'</button>'
+    +'</div>';
+}
+/* Der Klick oeffnet den BESTEHENDEN Bereich und springt hin — er baut keinen
+   zweiten Editor. Die Felder gehoeren zu Schritt 3; von dort sind sie erreichbar. */
+function feRailEigenOeffnen(zielId){
+  try{
+    var z=FE_SCHRITTE.find(function(x){ return (x.zelle||[]).indexOf(zielId)>=0; });
+    if(z && window._feSchritt!==z.nr) feFokusSchritt(z.nr);
+    var e=document.getElementById(zielId); if(!e) return;
+    var k=e.closest?e.closest(".mz"):null; if(k) k.style.display="";
+    e.style.display="";
+    if(e.scrollIntoView) e.scrollIntoView({block:"center"});
+    if(k&&k.classList){ k.classList.add("feEigBlink");
+      setTimeout(function(){ k.classList.remove("feEigBlink"); }, 1600); }
+  }catch(e){ console.error("[Rail-Eigenschaften]", e); }
+}
+if(typeof window!=="undefined"){ window._feRailEigen=_feRailEigen;
+  window.feRailEigenOeffnen=feRailEigenOeffnen; }
 /* Der Rail-Umschalter. Er rechnet nichts, er reicht durch — und laedt danach
    denselben Editor neu, damit der angezeigte Status vom Server kommt und nicht
    aus der Annahme, der Klick habe schon gewirkt (§12.4). */
@@ -19907,7 +19967,7 @@ function feFokusNavBauen(){
   nav.style.display="";
   feRailAufraeumen(true); feRailNav(true); feProduktKopf();
   var akt=window._feSchritt||1;
-  nav.innerHTML='<div class="feStTitel">Arbeitsschritte</div>'
+  nav.innerHTML='<div class="feRailGrpTit">Arbeitsfluss</div>'
     +FE_SCHRITTE.map(function(s){
       var st=_feStandPruef(s, feFokusStand(s));
       if(s.nr===akt) st={z:"aktuell", txt:st.txt};
@@ -19976,16 +20036,19 @@ function feFokusSchritt(n){
      Rasterzelle `2/1` mit ihnen. Beide gleichzeitig sichtbar haetten uebereinander
      gelegen. Deshalb bekommt er im Schritt `eigen` eine EIGENE Rasterzeile — das
      macht das Stylesheet ueber `data-fe-schritt="eigen"`, nicht diese Funktion. */
+  /* 🔴 15.08.: der Abgleich steht jetzt UNTER der Bestandteiltabelle — im selben
+     Schritt, nicht auf einer eigenen Seite. Die Tabelle bleibt sichtbar; beide
+     teilen sich den Hauptbereich untereinander (Rasterzeilen im Stylesheet). */
   var agb=document.getElementById("feAbgleich");
   if(agb){
-    if(s.id==='eigen'){
+    if(s.id==='bestand'){
       agb.style.display="";
-      var gr=document.getElementById("fe_gridA"); if(gr) gr.style.display="none";
       try{ feAbgleichRender(false); }catch(e){ console.error("[Abgleich]", e); }
     } else {
       agb.style.display="none"; agb.innerHTML="";
-      var gr2=document.getElementById("fe_gridA"); if(gr2) gr2.style.display="";
     }
+    var gr=document.getElementById("fe_gridA");
+    if(gr) gr.style.display=(s.id==='bestand')?"":"none";
   }
   /* `nur` heisst: in diesem Reiter zaehlt genau diese Spalte. */
   if(s.nur && s.nur.length){
@@ -20009,7 +20072,7 @@ function feFokusSchritt(n){
   ["fe_bioSw","fe_ernaehrChips"].forEach(function(id){
     var e=document.getElementById(id); if(!e) return;
     var z=e.closest?e.closest(".mz"):null; if(!z||!z.classList) return;
-    z.classList.toggle("feFokusBreit", s.id==='eigen');
+    z.classList.toggle("feFokusBreit", false);   /* Bio/Ernaehrung stehen in der Rail */
   });
 
   /* ── DIE ABSCHLUSSSEITE ENTFAELLT IM FOKUSMODUS (Ralph 15.08., Punkt 3) ────
@@ -26938,7 +27001,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-1130";
+const APP_BUILD = "2026-08-15-1340";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
