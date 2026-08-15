@@ -1736,7 +1736,29 @@ body.riFokus #feRahmen{
      meine Schaetzungen 780/640 ab: die waren gerechnet, diese sind gesehen. */
   --kontext-breite: 480px;   /* Untergrenze (Ralph P4) */
   --kontext-max:    603px;   /* Ralph am Stellrad, 15.08. abends (vorher 640) */
-  --mitte-max:      600px;   /* Ralph am Stellrad, 15.08. abends (vorher 780) */
+  /* 🔴 15.08.2026 SPAET — WORK #43, Ralph-Entscheid A. 600 -> 690.
+     GEMESSEN an RALPHS Fenster (1908x913), Browser-Build 2940, P73617 Schritt 3:
+       .fgBestKopf brauchte 56+200+143+141+84 + 4x8 gap = 656 px.
+       Bei --mitte-max 600 blieben #fe_pickList clientWidth 572 -> scrollWidth 664,
+       also 92 px Ueberlauf. Alle fr-Anteile waren auf ihr Minimum kollabiert und
+       die 5. Spalte (84px, Zeile entfernen) war ABGESCHNITTEN — es gab in Schritt 3
+       keinen erreichbaren Entfernen-Knopf.
+     WOHER DIE 90 px KOMMEN: aus dem Brachland rechts. Das Raster belegte
+       180+43+600+20+603 = 1446 von 1860 px, 414 px lagen bei justify-content:start
+       ungenutzt am rechten Rand. Niemand verliert Platz; --kontext-max 603 und
+       Ralphs Spaltenwerte 200/143/141 aus Work #39 bleiben unangetastet.
+     WARUM 700 UND NICHT 690: die ZEILE traegt column-gap 10 (Zeile 2224), der KOPF
+       8 — gemessener scrollWidth 664, nicht 656. Bei 690 waere die Rechnung
+       690-24-2 = 664 gegen 664 auf den Pixel aufgegangen, also ohne jede Reserve.
+       700 gibt 674 gegen 664 = 10 px Luft. Eine Zahl, die exakt aufgeht, kippt beim
+       naechsten laengeren Wort — und dann sucht wieder jemand einen halben Tag.
+     WARUM DIE 600 UEBERHAUPT ZU ENG WAREN: bis 15.08. nachmittags standen hier
+       780 px — da passte die Tabelle mit 752 px. Die Verkleinerung aus Work #23
+       ("viel zu breit, ein drittel weniger breit") hat sie unter ihren Bedarf
+       gedrueckt. Der Nebeneffekt war nie gemessen: die Pruefung "Ueberlauf 0" zu
+       Work #39 stammt aus einem Versuch, bei dem der Tab noch auf Build 2720 lief
+       und gar kein Produkt geladen war — alle Breiten kamen als 0 zurueck. */
+  --mitte-max:      700px;   /* Work #43 Entscheid A (vorher 600, davor 780) */
   --gap-rail:        43px;   /* Ralph am Stellrad: „zwischen Menue und Containern zu wenig Abstand" (vorher 18) */
   --gap-kontext:     20px;   /* Ralph P1: Mitte -> Kontext */
   gap: 0;
@@ -2206,6 +2228,18 @@ body.riFokus .fgBestKopf > span:first-child{ font-size:9px }
 body.riFokus .fgBestKopf > span:last-child,
 body.riFokus .fgbWert{ text-align:right }
 body.riFokus .fgBestZeile{ padding-left:0; padding-right:0 }
+
+/* --- 4. WORK #43: die Verarbeitungszelle ist bearbeitbar ------------------- */
+/* Ralph: „nicht bearbeitbar". Eine Zelle, die man anklicken kann, muss auch so
+   aussehen — sonst findet sie niemand. Der Stift steht dauerhaft da (blass) und
+   wird beim Darueberfahren kraeftig; ein Element, das erst bei Hover ERSCHEINT,
+   ist auf einer Tabelle mit vielen Zeilen nicht auffindbar. */
+body.riFokus .fgbVerarbEdit{ cursor:pointer; border-radius:5px; padding:1px 3px;
+  margin:-1px -3px; transition:background .12s ease }
+body.riFokus .fgbVerarbEdit:hover{ background:var(--k-eef6ff,#eef6ff);
+  box-shadow:inset 0 0 0 1px var(--k-2f6fd6,#2f6fd6) }
+body.riFokus .fgbStift{ font-size:10px; color:var(--muted); margin-left:4px; opacity:.45 }
+body.riFokus .fgbVerarbEdit:hover .fgbStift{ color:var(--k-2f6fd6,#2f6fd6); opacity:1 }
 
 /* --- 5. Schritt 4: gleiche Aussenkante, engerer Abstand ------------------- */
 body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feTab3,

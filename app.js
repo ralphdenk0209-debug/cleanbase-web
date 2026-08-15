@@ -11507,8 +11507,86 @@ var _AB_KACHELN=[
   {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell}
 ];
 
+/* ============================================================================
+   LAYOUT-KONFIGURATION  ·  Work #42, Etappe 2  ·  15.08.2026
+   ----------------------------------------------------------------------------
+   Ralph-Entscheid: der Editor wird von IHM bedient, die Wirkung gilt fuer ALLE
+   Admins. Also liegt die Konfiguration in der Datenbank (nicht im Browser) und
+   es gibt keine Fassung „nur fuer Ralph".
+
+   _AB_LAYOUT ist die eine Stelle, an der eine gespeicherte Anordnung ankommt.
+   Bleibt sie leer, gilt _AB_KACHELN — der Rueckfall ist damit IMMER da und
+   braucht keine Datenbank. E4 fuellt sie aus dem RPC; hier wird nur gelesen.
+
+   Vier Regeln, damit nichts still verschwindet (source_completeness):
+     1. Keine Konfiguration        -> Registerreihenfolge, unveraendert.
+     2. Unbekannte id in der Konf. -> uebergangen, aber GEZAEHLT und gemeldet.
+        Der Code sagt, welche Kacheln es gibt, nicht die gespeicherte Liste.
+     3. Kachel im Code, aber NICHT in der Konfiguration -> sie bleibt SICHTBAR
+        und haengt sich hinten an ihre Reihe. Eine neu gebaute Kachel darf nicht
+        deshalb unsichtbar sein, weil ein aelteres Layout sie nicht kennt.
+     4. aus:true blendet aus — das ist eine ENTSCHEIDUNG, kein Datenverlust.
+
+   🔴 Beim Ausblenden einer nachladenden Kachel (abAkt · abRegion · abStammU)
+   faellt nur der Container weg; _abBento2Laden prueft mit getElementById und
+   schreibt dann nirgendwohin. Der RPC-Aufruf laeuft trotzdem — unnoetig, aber
+   ungefaehrlich. Notiert statt hier mitgebaut (§29 R3), gehoert in E5.
+   ========================================================================== */
+var _AB_LAYOUT=null;
+
+/* Nimmt eine gespeicherte Anordnung an und gibt einen BERICHT zurueck, statt
+   still zu schlucken, was nicht passt. Der Bericht ist der Beleg dafuer, dass
+   Regel 2 und 3 gegriffen haben. */
+function _abLayoutSetzen(cfg){
+  var bericht={uebernommen:0, unbekannt:[], ergaenzt:[], name:''};
+  var liste=(cfg&&cfg.kacheln)||[];
+  if(!liste.length){ _AB_LAYOUT=null; return bericht; }
+  var bekannt={};
+  _AB_KACHELN.forEach(function(x){ bekannt[x.id]=true; });
+  var rein=[], gesehen={};
+  liste.forEach(function(e,i){
+    if(!e||!e.id) return;
+    if(!bekannt[e.id]){ bericht.unbekannt.push(String(e.id)); return; }
+    if(gesehen[e.id]) return;
+    gesehen[e.id]=true;
+    rein.push({
+      id:e.id,
+      reihe:(e.reihe==null?null:Number(e.reihe)),
+      pos:(e.pos==null?i:Number(e.pos)),
+      breit:(e.breit==null?null:!!e.breit),
+      aus:!!e.aus
+    });
+  });
+  _AB_KACHELN.forEach(function(x){ if(!gesehen[x.id]) bericht.ergaenzt.push(x.id); });
+  bericht.uebernommen=rein.length;
+  bericht.name=(cfg&&cfg.name)||'';
+  _AB_LAYOUT = rein.length ? {name:bericht.name, kacheln:rein} : null;
+  return bericht;
+}
+
 function _abKachelListe(reihe){
-  return _AB_KACHELN.filter(function(x){ return x.reihe===reihe; });
+  var basis=_AB_KACHELN.filter(function(x){ return x.reihe===reihe; });
+  if(!_AB_LAYOUT) return basis;                       /* Regel 1 */
+  var konf={};
+  _AB_LAYOUT.kacheln.forEach(function(e){ konf[e.id]=e; });
+  var raus=[];
+  _AB_KACHELN.forEach(function(x,i){
+    var e=konf[x.id];
+    if(!e){                                            /* Regel 3 */
+      if(x.reihe===reihe) raus.push({k:x, pos:1000000+i});
+      return;
+    }
+    if(e.aus) return;                                  /* Regel 4 */
+    if((e.reihe==null?x.reihe:e.reihe)!==reihe) return;
+    var k=x;
+    if(e.breit!=null && e.breit!==!!x.breit){
+      /* Kopie statt Aenderung — das Register bleibt der unberuehrte Rueckfall. */
+      k={id:x.id, reihe:x.reihe, titel:x.titel, breit:e.breit, bau:x.bau, roh:x.roh};
+    }
+    raus.push({k:k, pos:e.pos});
+  });
+  raus.sort(function(a,b){ return a.pos-b.pos; });
+  return raus.map(function(x){ return x.k; });
 }
 
 /* Der eine Zeichner. Er weiss nichts ueber einzelne Kacheln — er laeuft ueber
@@ -16415,6 +16493,8 @@ function _fgBestZeile(z, zusListe, gebunden){
     var _cn=String(z.canonical_name||"").trim();
     var _origHtml=(_cn && _orig && _orig.toLowerCase()!==_cn.toLowerCase())
       ? '<span style="display:block;font-size:10.5px;color:var(--muted);margin-top:1px">Etikett: '+esc(_orig)+'</span>' : '';
+    var _eidZ=String(z.canonical_entity_id||"").trim();
+    var _pzZ=String(z.produkt_zutat_id||"").trim();
     var _stZ=!gebunden ? ['○','var(--k-2f6fd6,#2f6fd6)','nicht gebunden – zählt noch nicht zum Produkt']
            : (z.resolved_rating==null ? ['●','var(--muted)','erfasst · noch keine belastbare Verarbeitungsnote']
                                       : ['✓','var(--k-16a34a,#16a34a)','erfasst und bewertet']);
@@ -16426,7 +16506,21 @@ function _fgBestZeile(z, zusListe, gebunden){
       +'<span class="fgbSt"><input type="checkbox" '+(gebunden?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(z.resolved_rating==null?"":z.resolved_rating)+'" data-krit="'+(z.resolved_critical?"ja":"nein")+'" onchange="fgPickToggle(this)">'
         +'<span class="fgbIco" style="color:'+_stZ[1]+'" title="'+esc(_stZ[2])+'">'+_stZ[0]+'</span></span>'
       +'<span class="fgbName">'+esc(nm)+_origHtml+'</span>'
-      +'<span class="fgbVerarb">'+_mod2+'</span>'
+      /* 🔴 15.08.2026 — WORK #43, Ralph: „die tabelle in produkt ist … nicht bearbeitbar."
+         Bis hierher konnte die Bestandteilzeile nur zwei Dinge: Haken setzen und Zeile
+         entfernen. Wer eine falsche Verarbeitung korrigieren wollte, musste die Bindung
+         LOESEN und neu binden — genau der §3.7-Verstoss, den Work #18 fuer die
+         Mikronaehrstoffe bereits geschlossen hat.
+         Die Zelle ist nur dann klickbar, wenn die Zeile eine Canonical-Identitaet traegt:
+         ohne `entity_id` kann cb_admin_canonical_zutat_binden nicht arbeiten, und ein
+         Knopf, der nichts tun kann, ist eine Attrappe (Ralph P12). */
+      +(_eidZ && _pzZ
+        ? '<span class="fgbVerarb fgbVerarbEdit" data-eid="'+esc(_eidZ)+'" data-pz="'+esc(_pzZ)+'"'
+          +' data-mod="'+esc(mod||"unspecified_processing")+'" data-cn="'+esc(String(z.canonical_name||nm))+'"'
+          +' onclick="fgBestVerarbEdit(this,event)"'
+          +' title="Klicken, um die Verarbeitung zu ändern. Die Note folgt daraus – sie wird nie von Hand gesetzt (§4.2).">'
+          +_mod2+'<span class="fgbStift">✎</span></span>'
+        : '<span class="fgbVerarb" title="Diese Zeile ist noch keiner Identität zugeordnet. Erst zuordnen, dann lässt sich die Verarbeitung ändern.">'+_mod2+'</span>')
       +'<span class="fgbZus">'+_zus2+'</span>'
       +'<span class="fgbWert" style="color:'+_rc+'">'+esc(_rt)+'</span>'
     +'</label>';
@@ -16459,6 +16553,143 @@ function _fgBestZeile(z, zusListe, gebunden){
     +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+esc(rt)+'</span>'
   +'</label>';
 }
+/* ===========================================================================
+   VERARBEITUNG EINER BESTANDTEILZEILE ÄNDERN   (WORK #43, 15.08.2026)
+
+   Ralph: „die tabelle in produkt ist immer noch zu klein und nicht bearbeitbar."
+
+   🔴 ES WURDE NICHTS NEU GEBAUT — der Schreibweg lag bereits da und war nur nicht
+   angeschlossen (§22, dieser Griff hat sich hier schon dreimal ausgezahlt).
+   GEMESSEN an der Funktionsdefinition von cb_admin_canonical_zutat_binden:
+     · die Produkt_Zutaten-Zeile wird NUR angelegt, wenn sie fehlt („if v_pz_id is
+       null") — es wird nichts gelöscht und nichts neu aufgebaut (§5.7),
+     · ingredient_occurrence_resolution läuft auf
+       „on conflict (produkt_zutat_id) do update set … processing_modifier=excluded…".
+   ⇒ Ein zweiter Aufruf mit anderem Modifier ÄNDERT die Verarbeitung an derselben
+   Zeile. Genau das ist der Änderweg; er brauchte nur einen Knopf.
+
+   WAS BEWUSST NICHT GEHT, und warum das richtig ist:
+   · DIE NOTE ist nicht von Hand setzbar. Sie kommt aus
+     shadow_v1.ingredient_rating(entity_id, processing_modifier) — sie ist eine
+     FOLGE der Verarbeitung, keine Eingabe. Eine Note im Editor wäre die zweite
+     Wahrheit (§4.2). Deshalb zeigt das Auswahlfeld die Note je Stufe MIT AN:
+     Ralph sieht vor dem Klick, was herauskommt, statt sie danach zu korrigieren.
+   · DIE IDENTITÄT ist über diesen Weg nicht korrigierbar. Bei anderer entity_id
+     ist der technische Legacy-Träger ein anderer, der Lookup findet nichts, und es
+     entstünde eine ZWEITE Produkt_Zutaten-Zeile, während die alte stehen bleibt.
+     „Name ändern" bleibt bis auf Weiteres entfernen + neu zuordnen. Dafür fehlt ein
+     Vertrag; das ist ChatGPTs Hälfte (§31) und steht als Befund an Work #43.
+
+   DIE STUFEN WERDEN GEHOLT, NICHT GETIPPT. Die Auswahl kommt aus
+   cb_admin_zutaten_suchen_v2 (Feld `contexts`) — dieselbe Quelle, aus der auch das
+   Suchmenü sie zeigt. Eine feste Liste im Browser wäre eine zweite Wahrheit und
+   würde still veralten, sobald ein Kontext dazukommt.
+   Liefert der Server keine Kontexte, passiert NICHTS und es wird gesagt, warum —
+   es wird keine Stufe geraten (§1).
+   =========================================================================== */
+var _fgVerarbLaeuft=false;
+
+async function fgBestVerarbEdit(el, ev){
+  /* 🔴 Diese zwei Zeilen sind kein Beiwerk. Die Bestandteilzeile ist ein <label>
+     mit der Bindungs-Checkbox darin — ein Klick auf IRGENDEIN Kind schaltet sie um.
+     Ohne preventDefault hätte der Bearbeitungsknopf beim ersten Klick die Bindung
+     gelöst, also genau den Schaden angerichtet, gegen den er gebaut ist. */
+  if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+  if(_fgVerarbLaeuft) return;
+  if(el.querySelector("select")) return;                 /* schon offen */
+
+  var eid=el.getAttribute("data-eid")||"";
+  var cn=el.getAttribute("data-cn")||"";
+  var mod=el.getAttribute("data-mod")||"unspecified_processing";
+  var alt=el.innerHTML;
+  el.setAttribute("data-alt", alt);
+  el.innerHTML='<span style="font-size:11px;color:var(--muted)">lädt …</span>';
+
+  var ctx=null, fehler="";
+  try{
+    var r=await client.rpc("cb_admin_zutaten_suchen_v2",{p_suche:cn, p_limit:8});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    var t=(Array.isArray(d)?d:[]).filter(function(x){ return String(x.entity_id||"")===eid; });
+    if(t.length && Array.isArray(t[0].contexts) && t[0].contexts.length) ctx=t[0].contexts;
+  }catch(e){
+    /* Kein leerer Fangblock (§11.4): Grund in die Konsole UND vor Ralphs Augen. */
+    console.error("[Bestandteil] Verarbeitungen laden:", e);
+    fehler=(e&&e.message)?String(e.message):String(e);
+  }
+  if(!ctx){
+    el.innerHTML=alt;
+    alert("Die Verarbeitungsstufen konnten NICHT geladen werden – es wurde nichts geändert.\n\n"
+      +(fehler||"Der Server liefert zu dieser Identität keine Verarbeitungskontexte.")
+      +"\n\nEs wird keine Stufe geraten.");
+    return;
+  }
+
+  /* Steht die aktuell gespeicherte Stufe nicht in der Serverliste, wird sie
+     VORNE ergänzt statt weggelassen. Sonst würde ein Öffnen des Feldes den
+     bestehenden Wert still auf einen anderen umstellen (§1.10). */
+  var hat=ctx.some(function(c){ return String(c.modifier||"")===mod; });
+  var opts=(hat?[]:[{modifier:mod, processing_context:mod+" (aktuell, nicht in der Serverliste)", rating:null}]).concat(ctx);
+
+  el.innerHTML='<select class="fgbVerarbSel" onchange="fgBestVerarbSave(this)" onkeydown="if(event.key===\'Escape\')fgBestVerarbAbbruch(this)"'
+    +' onclick="event.preventDefault();event.stopPropagation()" style="width:100%;font-size:11.5px;padding:2px 3px;border:1px solid var(--k-2f6fd6,#2f6fd6);border-radius:5px;background:var(--card);color:var(--ink)">'
+    +opts.map(function(c){
+        var m=String(c.modifier||"unspecified_processing");
+        var lab=String(c.processing_context||m);
+        var n=(c.rating==null)?"Note nicht belegt":("Note "+c.rating);
+        return '<option value="'+esc(m)+'"'+(m===mod?" selected":"")+'>'+esc(lab)+' · '+esc(n)+'</option>';
+      }).join("")
+    +'</select>';
+  var sel=el.querySelector("select");
+  if(sel){ try{ sel.focus(); }catch(e){} sel.addEventListener("blur", function(){ setTimeout(function(){ if(sel.isConnected && !sel.dataset.gesendet) fgBestVerarbAbbruch(sel); },150); }); }
+}
+
+function fgBestVerarbAbbruch(sel){
+  var el=sel&&sel.closest(".fgbVerarbEdit"); if(!el) return;
+  var alt=el.getAttribute("data-alt"); if(alt!=null) el.innerHTML=alt;
+}
+
+async function fgBestVerarbSave(sel){
+  var el=sel&&sel.closest(".fgbVerarbEdit"); if(!el) return;
+  sel.dataset.gesendet="1";
+  var neu=String(sel.value||"").trim();
+  var alt=el.getAttribute("data-mod")||"unspecified_processing";
+  if(!neu || neu===alt){ fgBestVerarbAbbruch(sel); return; }
+
+  var eid=el.getAttribute("data-eid")||"";
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!pid || !eid){ fgBestVerarbAbbruch(sel); alert("Ohne Produkt-Nummer oder Identität wird nichts geändert."); return; }
+
+  _fgVerarbLaeuft=true;
+  sel.disabled=true;
+  try{
+    /* p_referenz_id bleibt null: die Referenzzeile ist bereits entschieden. Sie
+       hier erneut mitzuschicken würde die Etikettprüfung ein zweites Mal
+       bestätigen — eine Entscheidung, die niemand getroffen hat (§5.4). */
+    var r=await client.rpc("cb_admin_canonical_zutat_binden",
+      {p_produkt_id:pid, p_entity_id:eid, p_processing_modifier:neu, p_referenz_id:null});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    if(!d||d.ok!==true) throw new Error((d&&(d.fehler||d.grund))||"Der Server hat die Änderung nicht bestätigt.");
+    try{ toast&&toast("Verarbeitung geändert: "+(d.canonical_name||"")+" · "+(d.processing_modifier||neu)
+      +(d.rating!=null?(" · Note "+d.rating):" · Note nicht belegt")); }catch(e){}
+    /* Vertrag NEU LESEN statt die Zelle von Hand zu beschriften: die Note und der
+       Zeilenstatus kommen vom Server, nicht aus der Antwort dieser einen RPC
+       (§9.4 — nach dem Schreiben den vollständigen Stand nachladen). */
+    try{ if(typeof fgCanonLaden==="function") await fgCanonLaden(pid); }catch(e){ console.error("[Bestandteil] Vertrag nachladen:", e); }
+    try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){ console.error("[Bestandteil] neu rendern:", e); }
+    try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  }catch(e){
+    console.error("[Bestandteil] cb_admin_canonical_zutat_binden (Verarbeitung):", e);
+    fgBestVerarbAbbruch(sel);
+    alert("Die Verarbeitung wurde NICHT geändert.\n\n"+((e&&e.message)||e)
+      +"\n\nDie Zeile steht unverändert da.");
+  }
+  _fgVerarbLaeuft=false;
+}
+if(typeof window!=="undefined"){ window.fgBestVerarbEdit=fgBestVerarbEdit;
+  window.fgBestVerarbSave=fgBestVerarbSave; window.fgBestVerarbAbbruch=fgBestVerarbAbbruch; }
+
 /* ===========================================================================
    BESTANDTEIL-BILANZ AUS DEM VERTRAG  (Ralph, Browserabnahme 13.08. Punkt 3)
 
@@ -29120,7 +29351,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2950";
+const APP_BUILD = "2026-08-15-2960";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
