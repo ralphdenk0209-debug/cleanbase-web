@@ -2191,3 +2191,67 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
   margin-top:7px; font-size:10.5px; font-weight:700; color:var(--muted);
   letter-spacing:.01em }
 .feEtikettPasteTip span{ font-weight:400; opacity:.8 }
+
+/* ============================================================================
+   STAMMWAECHTER + STAMMTABELLEN (Ralph 15.08.2026)
+   Canonical und Legacy sehen bewusst NICHT gleich aus.
+   ============================================================================ */
+.fgStammWaechter{ display:flex; flex-direction:column; gap:10px; margin-bottom:14px }
+.fgSwGrp{ border:1px solid var(--line); border-radius:12px; padding:10px 13px; background:var(--card) }
+.fgSwGrp.neu{ border-left:3px solid var(--k-16a34a,#16a34a) }
+.fgSwGrp.alt{ border-left:3px solid var(--muted); background:transparent }
+.fgSwKopf{ display:flex; align-items:center; gap:9px; margin-bottom:7px; flex-wrap:wrap }
+.fgSwKopf b{ font-size:12.5px }
+.fgSwTag{ font-size:9.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+  padding:2px 8px; border-radius:999px }
+.fgSwTag.canon{ background:var(--k-dcfce7,#dcfce7); color:var(--k-166534,#166534) }
+.fgSwTag.legacy{ background:var(--k-eef1f4,#eef1f4); color:var(--muted) }
+.fgSwZeile{ display:flex; gap:14px; flex-wrap:wrap; align-items:baseline }
+.fgSwZahl{ font-size:11.5px; color:var(--muted) }
+.fgSwZahl b{ font-size:15px; font-weight:800; color:var(--ink); margin-right:2px }
+.fgSwZahl.offen b{ color:var(--k-92400e,#92400e) }
+.fgSwZahl.warn b{ color:var(--k-b45309,#b45309) }
+.fgSwZahl.rot b{ color:var(--k-b91c1c,#b91c1c) }
+.fgSwHinweis{ font-size:10.5px; color:var(--muted); margin-top:7px; line-height:1.5 }
+.fgSwLad, .fgSwFehl{ font-size:12px; color:var(--muted); padding:9px 2px }
+.fgSwFehl{ color:var(--k-b91c1c,#b91c1c) }
+.fgSwFuss{ display:flex }
+.fgSwFuss button{ border:1px solid var(--line); border-radius:999px; background:var(--card);
+  color:var(--ink); padding:5px 13px; font-size:11.5px; font-weight:700; cursor:pointer }
+
+/* --- Der Bereich STAMM --------------------------------------------------- */
+.fgStKopf{ display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin-bottom:11px }
+.fgStTabs{ display:flex; gap:4px }
+.fgStTab{ border:1px solid var(--line); border-radius:999px; background:var(--card);
+  color:var(--muted); padding:5px 13px; font-size:12px; font-weight:700; cursor:pointer }
+.fgStTab.akt{ background:var(--k-eef6ff,#eef6ff); border-color:var(--k-2f6fd6,#2f6fd6);
+  color:var(--k-2f6fd6,#2f6fd6) }
+.fgStKopf input, .fgStKopf select{ padding:5px 9px; border:1px solid var(--line);
+  border-radius:8px; font-size:12px; background:var(--card); color:var(--ink) }
+.fgStKopf input{ min-width:200px }
+.fgStZahl{ font-size:11px; color:var(--muted); margin-left:auto }
+.fgStTabelle{ overflow:auto; border:1px solid var(--line); border-radius:10px }
+.fgStTab{ width:100%; border-collapse:collapse; font-size:12px }
+.fgStTab th{ text-align:left; font-size:9.5px; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--muted); font-weight:800; padding:7px 8px; border-bottom:2px solid var(--line);
+  position:sticky; top:0; background:var(--card) }
+.fgStTab td{ padding:4px 8px; border-bottom:1px solid var(--line); vertical-align:middle }
+.fgStTab.legacy th{ color:var(--muted); opacity:.85 }
+.fgStTab.legacy td{ background:transparent }
+.fgStTab input, .fgStTab select{ width:100%; padding:4px 6px; border:1px solid transparent;
+  border-radius:6px; font-size:12px; background:transparent; color:var(--ink) }
+.fgStTab input:hover, .fgStTab select:hover{ border-color:var(--line) }
+.fgStTab input:focus, .fgStTab select:focus{ border-color:var(--k-2f6fd6,#2f6fd6);
+  background:var(--card); outline:none }
+.fgStOk{ background:var(--k-dcfce7,#dcfce7) !important }
+.fgStBew input{ text-align:right; font-weight:700 }
+.fgStNum{ text-align:right; color:var(--muted); white-space:nowrap }
+.fgStId{ font-size:10.5px; color:var(--muted); white-space:nowrap }
+.fgStLc{ font-size:10px; font-weight:800; padding:1px 7px; border-radius:999px;
+  background:var(--k-eef1f4,#eef1f4); color:var(--muted) }
+.fgStLc.active{ background:var(--k-dcfce7,#dcfce7); color:var(--k-166534,#166534) }
+.fgStLc.retired{ background:var(--k-fee2e2,#fee2e2); color:var(--k-b91c1c,#b91c1c) }
+.fgStAss{ display:block; font-size:9.5px; color:var(--muted); margin-top:1px }
+.fgStFuss{ display:flex; gap:7px; margin-top:10px }
+.fgStFuss button{ border:1px solid var(--line); border-radius:999px; background:var(--card);
+  color:var(--ink); padding:5px 13px; font-size:11.5px; font-weight:700; cursor:pointer }

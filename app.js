@@ -5035,9 +5035,246 @@ function updateFloatBtns(){
   var bb=document.getElementById('backFab'); if(bb) bb.style.display=(NAV_HIST.length>0)?'flex':'none';
   var tt=document.getElementById('toTopFab'); if(tt) tt.style.display=((window.scrollY||document.documentElement.scrollTop||0)>350)?'flex':'none';
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STAMMWAECHTER + EDITIERBARE STAMMTABELLEN (Ralph-Auftrag 15.08.2026)
+
+   🔴 ALLE FUENF RPC-VERTRAEGE WURDEN GEGENGEMESSEN, nicht angenommen (§31.2):
+     cb_admin_stamm_waechter()            → {neu:{...7}, alt:{...5}}
+     cb_admin_stamm_neu_liste(...)        → {ok, rows[], total}
+     cb_admin_stamm_alt_liste(...)        → {ok, rows[], total}
+     cb_admin_stamm_neu_aktualisieren(...) erlaubt: canonical_name · category ·
+       bewertung · kritisch · traegerstoff · assessment_status ·
+       assessment_reason · description · source_rule_id
+     cb_admin_stamm_alt_aktualisieren(...) erlaubt: zutat · kategorie ·
+       bewertung · kritisch · traegerstoff · quelle_status · quellenart ·
+       quelle_detail · kommentar
+   Gemessen am 15.08.: neu 940 aktiv · alt 8449 Zeilen.
+
+   🔴 KEINE BEWERTUNGSREGEL IM FRONTEND (Ralph ausdruecklich). Die Grenzen 0..10
+   und die Grundpflicht bei Bewertungsaenderung stehen SERVERSEITIG. Das Frontend
+   fragt den Grund nur ab, damit der Nutzer nicht in eine Fehlermeldung laeuft —
+   es prueft ihn nicht. Lehnt der Server ab, wird der Serversatz gezeigt (§1.7).
+
+   🔴 CANONICAL IST MASSGEBLICH, LEGACY IST UEBERGANG. Beide Tabellen sehen
+   bewusst NICHT gleich aus; §30/§31 fuehrt ChatGPT die Stammpflege.
+   ═══════════════════════════════════════════════════════════════════════════ */
+var FG_STAMM_PATCH_NEU=['canonical_name','category','bewertung','kritisch','traegerstoff',
+                        'assessment_status','assessment_reason','description','source_rule_id'];
+var FG_STAMM_PATCH_ALT=['zutat','kategorie','bewertung','kritisch','traegerstoff',
+                        'quelle_status','quellenart','quelle_detail','kommentar'];
+var _fgStamm={tab:'neu', suche:'', status:'active', offset:0, limit:100, total:0};
+
+/* ── Dashboard-Block: zwei Zeilen, nicht zwanzig Karten (Ralph) ──────────── */
+async function fgStammWaechter(){
+  var box=document.getElementById('fgStammWaechter'); if(!box) return;
+  box.innerHTML='<div class="fgSwLad">Stammwächter wird geladen …</div>';
+  try{
+    var r=await client.rpc('cb_admin_stamm_waechter');
+    if(r.error) throw r.error;
+    var d=r.data||{}, N=d.neu||{}, A=d.alt||{};
+    var z=function(w,l,art){ return '<span class="fgSwZahl '+(art||'')+'"><b>'+esc(String(w==null?'–':w))+'</b> '+esc(l)+'</span>'; };
+    /* Farbe nur, wo etwas zu tun ist. „unbewertet" ist ein Bestand, kein Fehler. */
+    box.innerHTML=
+      '<div class="fgSwGrp neu"><div class="fgSwKopf"><b>Neuer Stamm</b>'
+        +'<span class="fgSwTag canon">Canonical · maßgeblich</span></div>'
+        +'<div class="fgSwZeile">'
+        + z(N.active_total,'aktiv')
+        + z(N.unbewertet,'unbewertet', Number(N.unbewertet)>0?'offen':'')
+        + z(N.ohne_profil,'ohne Profil', Number(N.ohne_profil)>0?'warn':'')
+        + z(N.bewertet_nicht_approved,'Reviewproblem', Number(N.bewertet_nicht_approved)>0?'warn':'')
+        + z(N.retired_ohne_nachfolger,'retired ohne Nachfolger', Number(N.retired_ohne_nachfolger)>0?'rot':'')
+        + z(N.auto_alias_auf_nichtaktiv,'Alias auf nicht aktiv', Number(N.auto_alias_auf_nichtaktiv)>0?'rot':'')
+        + z(N.legacy_bindung_auf_nichtaktiv,'Legacy-Bindung auf nicht aktiv', Number(N.legacy_bindung_auf_nichtaktiv)>0?'rot':'')
+        +'</div></div>'
+      +'<div class="fgSwGrp alt"><div class="fgSwKopf"><b>Alt-Stamm</b>'
+        +'<span class="fgSwTag legacy">Legacy · Übergang / Kontrolle</span></div>'
+        +'<div class="fgSwZeile">'
+        + z(A.gesamt,'Zeilen')
+        + z(A.regelfaelle,'Regelfälle', Number(A.regelfaelle)>0?'offen':'')
+        + z(A.widersprueche_aktiv,'Widersprüche', Number(A.widersprueche_aktiv)>0?'warn':'')
+        + z(A.doppelte_note,'Notenkonflikte', Number(A.doppelte_note)>0?'offen':'')
+        + z(A.quelle_offen,'Quellen offen', Number(A.quelle_offen)>0?'offen':'')
+        +'</div>'
+        +'<div class="fgSwHinweis">Diese Zahlen kommen aus <code>public.Zutaten_Stamm</code> — '
+        +'nicht aus dem Canonical-Stamm. Sie bleiben als Kontrolle für den Übergang.</div>'
+        +'</div>'
+      +'<div class="fgSwFuss"><button type="button" onclick="navTo(\'freigabe\');fgTab(\'stamm\')">Stamm öffnen →</button></div>';
+  }catch(e){
+    box.innerHTML='<div class="fgSwFehl">Stammwächter nicht ladbar: '+esc(e&&e.message||String(e))+'</div>';
+    console.error('[Stammwächter]', e);
+  }
+}
+if(typeof window!=='undefined') window.fgStammWaechter=fgStammWaechter;
+
+/* ── Der Bereich STAMM mit zwei Reitern ──────────────────────────────────── */
+function fgStammPanelBauen(){
+  var host=document.getElementById('fgPanelStamm');
+  if(!host){
+    var ref=document.getElementById('fgPanelDash');
+    if(!ref||!ref.parentNode) return;
+    host=document.createElement('div'); host.id='fgPanelStamm';
+    ref.parentNode.appendChild(host);
+  }
+  if(!host.dataset.gebaut){
+    host.dataset.gebaut='1';
+    host.innerHTML=
+      '<div class="fgStKopf">'
+        +'<div class="fgStTabs">'
+          +'<button type="button" id="fgStTabNeu" class="fgStTab akt" onclick="fgStammTab(\'neu\')">Neuer Stamm</button>'
+          +'<button type="button" id="fgStTabAlt" class="fgStTab" onclick="fgStammTab(\'alt\')">Alter Stamm</button>'
+        +'</div>'
+        +'<span id="fgStTag" class="fgSwTag canon">Canonical · maßgeblich</span>'
+        +'<input id="fgStSuche" placeholder="Name suchen …" onkeydown="if(event.key===\'Enter\'){_fgStamm.offset=0;fgStammListe();}">'
+        +'<select id="fgStStatus" onchange="_fgStamm.offset=0;fgStammListe()">'
+          +'<option value="active">active</option><option value="review">review</option>'
+          +'<option value="retired">retired</option><option value="">alle</option></select>'
+        +'<button type="button" onclick="_fgStamm.offset=0;fgStammListe()">Suchen</button>'
+        +'<span id="fgStZahl" class="fgStZahl"></span>'
+      +'</div>'
+      +'<div id="fgStTabelle" class="fgStTabelle"></div>'
+      +'<div class="fgStFuss">'
+        +'<button type="button" onclick="fgStammBlaettern(-1)">‹ zurück</button>'
+        +'<button type="button" onclick="fgStammBlaettern(1)">weiter ›</button>'
+      +'</div>';
+  }
+  fgStammListe();
+}
+function fgStammTab(t){
+  _fgStamm.tab=t; _fgStamm.offset=0;
+  var a=document.getElementById('fgStTabNeu'), b=document.getElementById('fgStTabAlt'),
+      tag=document.getElementById('fgStTag'), st=document.getElementById('fgStStatus');
+  if(a) a.className='fgStTab'+(t==='neu'?' akt':'');
+  if(b) b.className='fgStTab'+(t==='alt'?' akt':'');
+  /* Die Kennzeichnung wechselt mit — beide sind NICHT gleichwertig (Ralph). */
+  if(tag){ tag.className='fgSwTag '+(t==='neu'?'canon':'legacy');
+    tag.textContent=(t==='neu')?'Canonical · maßgeblich':'Legacy · Übergang / Kontrolle'; }
+  if(st) st.style.display=(t==='neu')?'':'none';   /* Lifecycle gibt es nur neu */
+  fgStammListe();
+}
+function fgStammBlaettern(d){
+  var n=_fgStamm.offset + d*_fgStamm.limit;
+  if(n<0) n=0;
+  if(n>=_fgStamm.total) return;
+  _fgStamm.offset=n; fgStammListe();
+}
+async function fgStammListe(){
+  var box=document.getElementById('fgStTabelle'); if(!box) return;
+  var such=((document.getElementById('fgStSuche')||{}).value||'').trim()||null;
+  var stat=((document.getElementById('fgStStatus')||{}).value||'active');
+  box.innerHTML='<div class="fgSwLad">Wird geladen …</div>';
+  try{
+    var r = (_fgStamm.tab==='neu')
+      ? await client.rpc('cb_admin_stamm_neu_liste',{p_suche:such,p_limit:_fgStamm.limit,p_offset:_fgStamm.offset,p_status:(stat||null)})
+      : await client.rpc('cb_admin_stamm_alt_liste',{p_suche:such,p_limit:_fgStamm.limit,p_offset:_fgStamm.offset});
+    if(r.error) throw r.error;
+    var d=r.data||{}, rows=Array.isArray(d.rows)?d.rows:[];
+    _fgStamm.total=Number(d.total||0);
+    var z=document.getElementById('fgStZahl');
+    if(z) z.textContent=_fgStamm.total
+      ? ((_fgStamm.offset+1)+'–'+Math.min(_fgStamm.offset+rows.length,_fgStamm.total)+' von '+_fgStamm.total)
+      : 'keine Treffer';
+    box.innerHTML=(_fgStamm.tab==='neu')?_fgStammNeuTab(rows):_fgStammAltTab(rows);
+  }catch(e){
+    box.innerHTML='<div class="fgSwFehl">Liste nicht ladbar: '+esc(e&&e.message||String(e))+'</div>';
+    console.error('[Stammliste]', e);
+  }
+}
+/* Ein Eingabefeld, das beim Verlassen speichert. `data-feld` nennt das Patchfeld —
+   mehr braucht der Schreibweg nicht zu wissen. */
+function _fgStFeld(id, feld, wert, art){
+  var w=(wert==null?'':String(wert));
+  if(art==='bool') return '<select data-id="'+esc(id)+'" data-feld="'+esc(feld)+'" onchange="fgStammPatch(this)">'
+    +'<option value="false"'+(String(wert)==='true'||wert===true?'':' selected')+'>nein</option>'
+    +'<option value="true"'+(String(wert)==='true'||wert===true?' selected':'')+'>ja</option></select>';
+  return '<input data-id="'+esc(id)+'" data-feld="'+esc(feld)+'" value="'+esc(w)+'"'
+    +(art==='num'?' inputmode="numeric"':'')+' onchange="fgStammPatch(this)">';
+}
+function _fgStammNeuTab(rows){
+  if(!rows.length) return '<div class="fgSwLad">Keine Einträge.</div>';
+  return '<table class="fgStTab"><thead><tr>'
+    +'<th>Name</th><th>Kategorie</th><th>Bewertung</th><th>Status</th>'
+    +'<th>Kritisch</th><th>Träger</th><th>Aliase</th><th>Legacy-Bindungen</th></tr></thead><tbody>'
+    +rows.map(function(x){
+      var id=x.entity_id;
+      return '<tr>'
+        +'<td>'+_fgStFeld(id,'canonical_name',x.canonical_name)+'</td>'
+        +'<td>'+_fgStFeld(id,'category',x.category)+'</td>'
+        +'<td class="fgStBew">'+_fgStFeld(id,'bewertung',x.bewertung,'num')+'</td>'
+        +'<td><span class="fgStLc '+esc(String(x.lifecycle_status||''))+'">'+esc(String(x.lifecycle_status||'–'))+'</span>'
+          +'<span class="fgStAss">'+esc(String(x.assessment_status||''))+'</span></td>'
+        +'<td>'+_fgStFeld(id,'kritisch',x.kritisch,'bool')+'</td>'
+        +'<td>'+_fgStFeld(id,'traegerstoff',x.traegerstoff,'bool')+'</td>'
+        +'<td class="fgStNum">'+esc(String(x.aliases==null?'–':x.aliases))+'</td>'
+        +'<td class="fgStNum">'+esc(String(x.legacy_bindungen==null?'–':x.legacy_bindungen))+'</td>'
+      +'</tr>'; }).join('')
+    +'</tbody></table>';
+}
+function _fgStammAltTab(rows){
+  if(!rows.length) return '<div class="fgSwLad">Keine Einträge.</div>';
+  return '<table class="fgStTab legacy"><thead><tr>'
+    +'<th>ID</th><th>Zutat</th><th>Kategorie</th><th>Alt-Bewertung</th>'
+    +'<th>Kritisch</th><th>Träger</th><th>Quellenstatus</th><th>Produktbindungen</th></tr></thead><tbody>'
+    +rows.map(function(x){
+      var id=x.id;
+      return '<tr>'
+        +'<td class="fgStId">'+esc(String(id||''))+'</td>'
+        +'<td>'+_fgStFeld(id,'zutat',x.zutat)+'</td>'
+        +'<td>'+_fgStFeld(id,'kategorie',x.kategorie)+'</td>'
+        +'<td class="fgStBew">'+_fgStFeld(id,'bewertung',x.bewertung,'num')+'</td>'
+        +'<td>'+_fgStFeld(id,'kritisch',(String(x.kritisch)==='ja'||x.kritisch===true),'bool')+'</td>'
+        +'<td>'+_fgStFeld(id,'traegerstoff',x.traegerstoff,'bool')+'</td>'
+        +'<td title="'+esc(String(x.quelle_detail||''))+'">'+_fgStFeld(id,'quelle_status',x.quelle_status)+'</td>'
+        +'<td class="fgStNum">'+esc(String(x.produktbindungen==null?'–':x.produktbindungen))+'</td>'
+      +'</tr>'; }).join('')
+    +'</tbody></table>';
+}
+/* ── Schreiben. Ein Feld, ein Patch, ein RPC. ────────────────────────────── */
+async function fgStammPatch(el){
+  if(!el) return;
+  var id=el.getAttribute('data-id'), feld=el.getAttribute('data-feld');
+  var roh=String(el.value==null?'':el.value).trim();
+  var erlaubt=(_fgStamm.tab==='neu')?FG_STAMM_PATCH_NEU:FG_STAMM_PATCH_ALT;
+  if(erlaubt.indexOf(feld)<0){ alert('Feld „'+feld+'" ist serverseitig nicht änderbar.'); return; }
+  var wert;
+  if(feld==='kritisch'||feld==='traegerstoff') wert=(roh==='true');
+  else if(feld==='bewertung') wert=(roh===''?null:Number(roh.replace(',','.')));
+  else wert=(roh===''?null:roh);
+  /* Ralph: „Der Server lehnt Bewertungsänderung ohne Grund ab." Deshalb wird der
+     Grund HIER erfragt — geprueft wird er weiterhin nur serverseitig (§4.2). */
+  var grund=null;
+  if(feld==='bewertung'){
+    grund=prompt('Grund / Beleg der Bewertungsänderung\n\n'
+      +'Der Server verlangt ihn — ohne Grund wird die Änderung abgelehnt.');
+    if(grund===null){ fgStammListe(); return; }   /* Abbruch: Anzeige zuruecksetzen */
+  }
+  var patch={}; patch[feld]=wert;
+  el.disabled=true;
+  try{
+    var r = (_fgStamm.tab==='neu')
+      ? await client.rpc('cb_admin_stamm_neu_aktualisieren',{p_entity_id:id,p_patch:patch,p_grund:grund})
+      : await client.rpc('cb_admin_stamm_alt_aktualisieren',{p_id:id,p_patch:patch,p_grund:grund});
+    if(r.error) throw r.error;
+    el.classList.add('fgStOk'); setTimeout(function(){ el.classList.remove('fgStOk'); }, 1400);
+  }catch(e){
+    /* Der Serversatz wird WOERTLICH gezeigt — er nennt den Grund genauer,
+       als es eine eigene Meldung koennte (§1.7). */
+    alert('Nicht gespeichert:\n\n'+(e&&e.message||String(e)));
+    console.error('[Stamm-Patch]', e);
+    fgStammListe();
+  }finally{ el.disabled=false; }
+}
+if(typeof window!=='undefined'){
+  window.fgStammPanelBauen=fgStammPanelBauen; window.fgStammTab=fgStammTab;
+  window.fgStammListe=fgStammListe; window.fgStammPatch=fgStammPatch;
+  window.fgStammBlaettern=fgStammBlaettern; window._fgStamm=_fgStamm;
+  window.FG_STAMM_PATCH_NEU=FG_STAMM_PATCH_NEU; window.FG_STAMM_PATCH_ALT=FG_STAMM_PATCH_ALT;
+}
+
 function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   try{ var _ov=document.getElementById("overlay"); if(_ov&&_ov.classList.contains("fgEditorFull")) closeP(); }catch(e){}  /* Menue-Wechsel schliesst den Vollbild-Editor */
-  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif',regelwerk:'fgPanelRegelwerk',produkterfassung:'fgPanelProdErf'};
+  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif',regelwerk:'fgPanelRegelwerk',produkterfassung:'fgPanelProdErf',stamm:'fgPanelStamm'};
+  if(t==='stamm'){ try{ fgStammPanelBauen(); }catch(e){ console.error('[Stamm] Panel:',e); } }
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
   /* „Eingang" als eigener Reiter zurueckgezogen (Ralph 19.07.): sein Inhalt (Scan-Eingang mit
      Uebernehmen, Entwuerfe, Auto-Verify, Riki-Audit) erscheint jetzt UNTER „Zu verifizieren" –
@@ -10828,6 +11065,7 @@ if(typeof window!=='undefined'){ window.scanEingangOeffnen=scanEingangOeffnen; w
 
 function adminGo(k){
   const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
+  if(k==='stamm'){ try{ navTo('freigabe'); }catch(e){} try{ fgTab('stamm'); }catch(e){} return; }
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
   else { try{ navTo(k); }catch(e){} }
   try{ document.querySelectorAll('#adminNav .anBtn').forEach(b=>{ b.classList.toggle('active', b.getAttribute('data-k')===k); }); }catch(e){}
@@ -13280,6 +13518,17 @@ async function addManuell(){
   loadTagebuch();
 }
 async function loadFreigabe(){
+  /* 🔴 15.08.: Der Stammwaechter-Block. Er haengt oben im Dashboard und RECHNET
+     NICHTS im Browser (Ralph ausdruecklich) — jede Zahl kommt aus
+     `cb_admin_stamm_waechter()`. Der Container wird einmal angelegt. */
+  try{
+    var _d=document.getElementById('fgPanelDash');
+    if(_d && !document.getElementById('fgStammWaechter')){
+      var _w=document.createElement('div'); _w.id='fgStammWaechter'; _w.className='fgStammWaechter';
+      _d.insertBefore(_w, _d.firstChild);
+    }
+    fgStammWaechter();
+  }catch(e){ console.error('[Stammwächter] Einhaengen:', e); }
   const {data:ent}=await client.from("v_freigabe_entwuerfe").select("*").order("id");
   const el=document.getElementById("fgEntwuerfe");
   /* #2 Entdopplung: Entwürfe, die schon im Scan-Eingang (mit Foto) stehen, hier NICHT nochmal listen. */
@@ -27110,7 +27359,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-1900";
+const APP_BUILD = "2026-08-15-2110";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
