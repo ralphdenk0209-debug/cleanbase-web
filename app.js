@@ -5066,11 +5066,29 @@ var FG_STAMM_PATCH_ALT=['zutat','kategorie','bewertung','kritisch','traegerstoff
 var _fgStamm={tab:'neu', suche:'', status:'active', offset:0, limit:100, total:0};
 
 /* ── Dashboard-Block: zwei Zeilen, nicht zwanzig Karten (Ralph) ──────────── */
+/* 🔴 15.08.2026, Ralph im Browser: „timeout beim waechter, aber kommt nicht immer".
+   Das deckt sich mit der Messung: cb_admin_stamm_waechter braucht 4.932 ms KALT und
+   4.102 ms WARM — die Laufzeit liegt auf der Timeout-Grenze, deshalb mal so, mal so.
+   Der zweite Versuch geht durch, weil die Puffer dann warm sind.
+
+   Deshalb EIN automatischer zweiter Versuch — und zwar mit sichtbarem Hinweis, nicht
+   still. Ein stiller Retry wuerde das Problem verdecken, und verdeckt heisst: es wird
+   nie behoben (§1.10 Transparenz vor Bequemlichkeit). Die Ursache bleibt Work #17 bei
+   ChatGPT; hier wird nur verhindert, dass Ralph deswegen auf ein rotes Band schaut.
+   Genau EIN Nachschlag, keine Schleife — sonst schiebt eine langsame Abfrage die
+   Datenbank weiter zu. */
 async function fgStammWaechter(){
   var box=document.getElementById('fgStammWaechter'); if(!box) return;
   box.innerHTML='<div class="fgSwLad">Stammwächter wird geladen …</div>';
+  var _zweiter=false;
   try{
     var r=await client.rpc('cb_admin_stamm_waechter');
+    if(r.error && /timeout|canceling statement/i.test(r.error.message||'')){
+      _zweiter=true;
+      box.innerHTML='<div class="fgSwLad">Erster Versuch abgebrochen (zu langsam) — zweiter läuft …</div>';
+      await new Promise(function(w){ setTimeout(w,700); });
+      r=await client.rpc('cb_admin_stamm_waechter');
+    }
     if(r.error) throw r.error;
     var d=r.data||{}, N=d.neu||{}, A=d.alt||{};
     var z=function(w,l,art){ return '<span class="fgSwZahl '+(art||'')+'"><b>'+esc(String(w==null?'–':w))+'</b> '+esc(l)+'</span>'; };
@@ -5099,7 +5117,10 @@ async function fgStammWaechter(){
         +'<div class="fgSwHinweis">Diese Zahlen kommen aus <code>public.Zutaten_Stamm</code> — '
         +'nicht aus dem Canonical-Stamm. Sie bleiben als Kontrolle für den Übergang.</div>'
         +'</div>'
-      +'<div class="fgSwFuss"><button type="button" onclick="navTo(\'freigabe\');fgTab(\'stamm\')">Stamm öffnen →</button></div>';
+      +'<div class="fgSwFuss">'
+      +(_zweiter?'<span style="color:'+'#b45309'+';font-size:11px;margin-right:auto">'
+        +'⚠ erst im zweiten Anlauf geladen — die Abfrage liegt auf der Zeitgrenze (bekannt, Datenbankseite)</span>':'')
+      +'<button type="button" onclick="navTo(\'freigabe\');fgTab(\'stamm\')">Stamm öffnen →</button></div>';
   }catch(e){
     /* 🔴 15.08.2026, im Browser gemessen: cb_admin_stamm_waechter braucht 4,9 s
        bei 2.041.329 Buffer-Treffern (EXPLAIN ANALYZE). Beim Seitenaufbau lief es
@@ -11169,8 +11190,17 @@ async function _abBento2Laden(d){
 
   /* --- Stamm-Ueberblick ---------------------------------------------------- */
   (async function(){
+    var zweiter=false;
     try{
       var r=await client.rpc('cb_admin_stamm_waechter');
+      /* Ein automatischer Nachschlag, wie beim Stammwaechter oben — dieselbe
+         Ursache (#17), deshalb dieselbe Behandlung und nicht eine zweite. */
+      if(r.error && /timeout|canceling statement/i.test(r.error.message||'')){
+        zweiter=true;
+        setz('abStammU','<div class="blade">erster Versuch zu langsam — zweiter läuft…</div>');
+        await new Promise(function(w){ setTimeout(w,700); });
+        r=await client.rpc('cb_admin_stamm_waechter');
+      }
       if(r.error) throw r.error;
       var s=r.data||{}, N=s.neu||{}, AL=s.alt||{};
       var z=function(l,v,warn){ return '<div class="bzeile"><span>'+l+'</span><b'
@@ -11184,7 +11214,9 @@ async function _abBento2Laden(d){
         +'<div class="babs" style="margin-top:10px;color:'+_AB.grau+'">Alt · Legacy, Übergang</div>'
         + z('Einträge',AL.gesamt)
         + z('Quelle offen',AL.quelle_offen,true)
-        + z('Widersprüche',AL.widersprueche_aktiv,true));
+        + z('Widersprüche',AL.widersprueche_aktiv,true)
+        +(zweiter?'<div style="font-size:10.5px;color:'+_AB.warn+';margin-top:7px;line-height:1.4">'
+          +'⚠ erst im zweiten Anlauf geladen — die Abfrage liegt auf der Zeitgrenze.</div>':''));
     }catch(e){
       /* Derselbe Timeout wie beim Stammwaechter (#17). Hier steht er in einer
          Kachel und blockiert nichts — mit Knopf statt Sackgasse. */
@@ -15464,6 +15496,88 @@ async function fgZusV2Laden(pid){
     window._fgZusV2Fehler=(e&&e.message)?String(e.message):String(e);
   }
 }
+/* ===========================================================================
+   OFFENE ZUTATEN — WAS BEIM SPEICHERN NICHT GEBUNDEN WERDEN KONNTE
+   (Work Item #2, Ralph-Auftrag 15.08.2026 · Vertrag von ChatGPT)
+
+   🔴 GEMESSENER ANLASS an P73617 (JARMINO, Knochenbrühen-Konzentrat Huhn):
+     Etikett-Zutaten            3
+     in Produkt_Zutaten         2   Wasser · Steinsalz
+     in Zutat_Offen geparkt     1   „Hühnerkarkassen*", seit 15.08. 07:48
+   Das Parken ist RICHTIG (§5.7: kein Zutatenstamm aus einer Vermutung,
+   UNBEKANNT wird nie automatisch gebunden). Falsch war nur die Sichtbarkeit:
+   die Zeile verschwand aus der Maske, und Ralph sah zwar DASS eine Zutat
+   fehlt, aber nicht WELCHE. Ein stilles Verschwinden ist ein stiller Fehler
+   (§1.7) — auch dann, wenn die Datenbank sich korrekt verhält.
+
+   🎯 DIE REGEL LIEGT IN DER DATENBANK, NICHT HIER (§4.2). `cb_admin_zutat_offen`
+   liefert `ist_offen` fertig ausgerechnet. Der Browser filtert nur danach und
+   rechnet nichts nach — das ist wesentlich, weil `erledigt_am` von keiner
+   Funktion je gesetzt wird und 7 der 38 Bestandszeilen längst gebunden sind.
+   Ein Frontend-Filter auf „erledigt_am is null" hätte 18 % Karteileichen
+   angezeigt; die RPC prüft stattdessen live gegen Produkt_Zutaten.
+
+   ⚠ ÄNDERT KEINE FREIGABEREGEL. Der Block ist Anzeige. Weder `fehlt` noch der
+   Freigabeknopf noch ein Zähler der Bestandteil-Bilanz werden angefasst — die
+   offenen Zeilen sind ein DRITTER Zustand neben „gebunden" und „ohne Note"
+   und dürfen nicht in eine der beiden hineingezählt werden.
+   =========================================================================== */
+async function fgZutOffenLaden(pid){
+  window._fgZutOffen=null; window._fgZutOffenFehler="";
+  if(!pid) return;
+  try{
+    var r=await client.rpc("cb_admin_zutat_offen",{p_produkt_id:pid});
+    if(r&&r.error) throw r.error;
+    window._fgZutOffen=Array.isArray(r&&r.data)?r.data:[];
+  }catch(e){
+    /* Kein leerer Fangblock (§11.4): faellt die Quelle aus, bleibt der Block LEER
+       statt falsch – und der Grund steht in der Konsole UND im Block selbst.
+       Ein ausgefallener Sichtbarkeitshinweis darf nicht wie „nichts offen" aussehen. */
+    console.error("[Offene Zutaten] cb_admin_zutat_offen:", e);
+    window._fgZutOffenFehler=(e&&e.message)?String(e.message):String(e);
+  }
+}
+/* Nur die wirklich offenen Zeilen. `ist_offen` kommt aus der RPC – hier wird
+   NICHT nachgerechnet, was „offen" heisst (§4.2). */
+function _fgZutOffenListe(){
+  var rows=window._fgZutOffen;
+  if(!Array.isArray(rows)) return [];
+  return rows.filter(function(z){ return z && z.ist_offen===true; });
+}
+/* Der Block. Liefert "" wenn nichts offen ist und kein Fehler vorliegt – dann
+   erscheint auch keine leere Ueberschrift. Dieselbe Funktion wird von BEIDEN
+   Renderwegen gerufen (Bestandteilliste und Picker); das ist ein Aufruf an zwei
+   Orten, nicht eine Regel an zwei Orten. */
+function _fgZutOffenHtml(){
+  if(window._fgZutOffenFehler){
+    return '<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-fef2f2,#fef2f2)">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--k-b91c1c,#b91c1c)">Offene Zutaten konnten nicht geladen werden</div>'
+      +'<div style="font-size:11.5px;color:var(--ink);margin-top:2px">'+esc(window._fgZutOffenFehler)
+      +' <span style="color:var(--muted)">– es wird NICHT behauptet, dass keine offen sind.</span></div></div>';
+  }
+  var offen=_fgZutOffenListe();
+  if(!offen.length) return "";
+  /* Blau ist in dieser Maske bereits die Farbe fuer „gelesen, aber nicht gebunden"
+     (fgPickRender, _fgBestZeile). Der Zustand ist derselbe, also die Farbe auch –
+     eine eigene Farbe waere eine zweite Sprache fuer dieselbe Aussage. */
+  return '<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-eef6ff,#eef6ff);box-shadow:inset 3px 0 0 var(--k-2f6fd6,#2f6fd6)">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--k-1e40af,#1e40af)">'
+      +offen.length+' Zutat'+(offen.length===1?"":"en")+' vom Etikett gelesen, aber nicht im Stamm</div>'
+    +offen.map(function(z){
+      var nm=String(z.zutat_text||"").trim();
+      var am=z.gesehen_am?String(z.gesehen_am).slice(0,10).split("-").reverse().join("."):"";
+      return '<div style="font-size:12.5px;color:var(--ink);margin-top:3px;overflow-wrap:anywhere">'
+        +'<b>'+esc(nm)+'</b>'
+        +'<span style="display:block;font-size:11px;color:var(--muted);line-height:1.45">'
+          +'gelesen'+(am?' am '+esc(am):'')
+          +(z.quelle?' · Quelle: '+esc(String(z.quelle)):'')
+          +' · zaehlt noch nicht zum Produkt – erst nach dem Anlegen im Stamm und dem Binden</span>'
+      +'</div>';
+    }).join("")
+  +'</div>';
+}
+if(typeof window!=="undefined"){ window.fgZutOffenLaden=fgZutOffenLaden;
+  window._fgZutOffenListe=_fgZutOffenListe; window._fgZutOffenHtml=_fgZutOffenHtml; }
 /* produkt_zutat_id → Zusatzstoff-Merkmal. Eine Zeile kann über produkt_zutat_ids
    auch mehrfach genannt sein; dann zählt sie für jede genannte ID. */
 function _fgZusNachPz(){
@@ -15658,8 +15772,12 @@ function fgBestandteileRender(){
           +' <span style="color:var(--muted)">– zu diesem Zusatzstoff gibt es keine Zeile in Produkt_Zutaten. Er wird angezeigt, aber nicht zusammengeführt.</span></div>'; }).join("")
       +'</div>');
   }
+  /* Work #2: was gelesen, aber nicht gebunden werden konnte. Steht UNTER den
+     Bestandteilen, weil es kein Bestandteil ist – es zaehlt (noch) nicht zum
+     Produkt. Sichtbar, aber nicht mitgezaehlt. */
+  var _off=(typeof _fgZutOffenHtml==="function")?_fgZutOffenHtml():"";
   var st=wrap.scrollTop;
-  wrap.innerHTML=H.join("")
+  wrap.innerHTML=H.join("")+_off
     +'<div style="padding:8px;color:var(--muted);font-size:11.5px;text-align:center;border-top:1px dashed var(--line)">'
     +'🔎 Tippen durchsucht den Zutatenstamm</div>';
   try{ wrap.scrollTop=st; }catch(e){}
@@ -15858,8 +15976,14 @@ function fgPickRender(){
       +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">'+esc(nm)+(it._frei?' <span style="color:var(--k-1e40af,#1e40af);font-size:11px;font-weight:600" title="Diese Zutat ist gelesen und bleibt als Pruefzeile erhalten, hat aber noch keine Bindung an eine Stammzutat. Erst nach dem Zuordnen zaehlt sie zum Produkt.">· gelesen – Bindung offen</span>':'')+'</span>'
       +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+rt+'</span>'
       +'</label>'; };
+  /* Work #2, zweiter Renderweg: liegt KEIN Produktvertrag vor (fgBestandteileRender
+     hat abgelehnt), duerfen die offenen Zutaten trotzdem nicht verschwinden \u2013 das
+     ist genau der Fall \u201e0 gebunden, 1 geparkt", bei dem die Maske sonst voellig
+     leer aussieht. Bei aktiver Suche NICHT: dann durchsucht die Karte den Stamm,
+     und ein produktbezogener Block waere dort ein Fremdkoerper. */
+  var _offP=(q||typeof _fgZutOffenHtml!=="function")?"":_fgZutOffenHtml();
   var _st=wrap.scrollTop;
-  wrap.innerHTML = (shown.length?shown.map(row).join(""):'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Noch keine Zutat gebunden \u2013 im Suchfeld tippen oder Riki lesen lassen.")+'</div>') + hintRow;
+  wrap.innerHTML = (shown.length?shown.map(row).join(""):(_offP?'':'<div style="padding:14px;color:var(--muted);font-size:12.5px;text-align:center">'+(q?"Kein Treffer.":"Noch keine Zutat gebunden \u2013 im Suchfeld tippen oder Riki lesen lassen.")+'</div>')) + _offP + hintRow;
   try{ wrap.scrollTop=_st; }catch(e){}
   /* 08.08.2026, Weg C: Sammelknopf hier anstossen, weil die Liste sich geaendert hat.
      \u26a0 Die Zahl kommt NICHT aus dem _frei oben, sondern aus _fgFreieZutaten() - zwei
@@ -18349,7 +18473,7 @@ async function openFgEditor(id, prefill, targetEl){
                   keine Tagesdosis. Titel, Untertitel und Spaltenkopf setzt feWirkAnsicht(). */}
             <div id="fe_wirkTblCol">${card(`<span id="fe_wirkTitel">Wirkstoffe &amp; Dosis</span> <span id="fe_wirkTitelZusatz" class="feKartenZusatz">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
           <div class="feWirkHinweis" id="fe_wirkHinweis">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
-          <div class="feWirkKopf"><span>Stoff</span><span class="feRe">Menge</span><span id="fe_wirkKopfEinheit">Einheit</span><span class="feRe">%NRV</span><span></span></div>
+          <div class="feWirkKopf"><span>Stoff</span><span title="Steht auf dem Etikett ein Kleiner-als-Zeichen (z. B. „< 0,5 g“), gehört es hierher. Leer heißt: der Wert gilt genau so.">Zeichen</span><span class="feRe">Menge</span><span id="fe_wirkKopfEinheit">Einheit</span><span class="feRe">%NRV</span><span></span></div>
           <div id="fe_wirkRows"></div>
           <button type="button" onclick="feWirkAdd()" class="feBtnAdd">+ Wirkstoff</button>
           ${''/* 13.08.2026 (Ralph, Browserabnahme P5/P6): Legende UND Dosis-Checkbox gehören
@@ -18578,9 +18702,14 @@ async function openFgEditor(id, prefill, targetEl){
        zu rendern hätte die Liste zweimal aufgebaut – beim ersten Mal ohne Zusatzstoffe,
        was aussieht, als gäbe es keine. Genau der Fehler vom 26.07. („erfasste Zusatzstoffe
        standen dauerhaft orange"): eine asynchrone Quelle kam nach dem Zeichnen. */
+    /* 15.08.2026 (Work #2): DRITTER Vertrag im selben Zug — cb_admin_zutat_offen.
+       Er muss VOR dem Rendern da sein, sonst wiederholt sich der Fehler vom 26.07.
+       („eine asynchrone Quelle kam nach dem Zeichnen"): der Block waere leer und
+       saehe aus wie „nichts offen". Genau die stille Aussage, gegen die er gebaut ist. */
     try{ if(id && typeof fgCanonLaden==="function"){
       Promise.all([ fgCanonLaden(id),
-                    (typeof fgZusV2Laden==="function")?fgZusV2Laden(id):Promise.resolve() ])
+                    (typeof fgZusV2Laden==="function")?fgZusV2Laden(id):Promise.resolve(),
+                    (typeof fgZutOffenLaden==="function")?fgZutOffenLaden(id):Promise.resolve() ])
         .then(function(){
           try{ fgCanonAnwenden(); }catch(e){ console.error("[Canonical] anwenden:",e); }
           try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){ console.error("[Bestandteile] Erstaufbau:",e); }
@@ -18740,11 +18869,34 @@ function feWirkRow(w){ w=w||{};
      Inline gewinnt immer; das ist kein Spezifitaetsstreit, den man gewinnen kann.
      Jetzt zeigt die Zeile auf `--wirk-spalten`. Kopfzeile und Datenzeile lesen
      dieselbe Variable — EIN Spaltenvertrag, an einem Ort (§4.2). */
-  return '<div class="feWirkRow" data-bezug="'+esc(_bez)+'" style="display:grid;grid-template-columns:var(--wirk-spalten,1fr 70px 62px 56px 26px);gap:6px 6px;margin-bottom:6px;align-items:center">'
+  /* 🔴 15.08.2026 (Work #7, Ralph: „<0,5 g darf nicht zu 0,5 g werden"):
+     VERGLEICHSOPERATOR ALS EIGENES FELD. Er kann NICHT ins Mengenfeld — das ist
+     `type="number"` und verwirft jede Eingabe, die keine gueltige Zahl ist; „<0,5"
+     waere spurlos weg. Genau der Fehler, der am 13.08. beim %NRV-Feld gemessen
+     wurde: es hat nicht geschwiegen, es hat still verworfen.
+     Die ZULAESSIGEN WERTE stehen in der Datenbank, nicht hier —
+     `cb_produkt_wirkstoffe_setzen` laesst nur < <= = > >= ~ durch und schreibt
+     sonst NULL. Der Browser bietet dieselben an, urteilt aber nicht (§4.2, §10.2).
+     ⚠ Ein unbekannter Bestandswert wird als Option ERGAENZT statt verworfen —
+     sonst loeschte ein Oeffnen-und-Speichern ihn still (§1.7). Gemessen 15.08.:
+     alle 531 Zeilen in Produkt_Naehrstoffe tragen NULL, der Fall ist heute leer. */
+  var _op=String(w.operator==null?"":w.operator).trim();
+  var _OPS=[["","–","Wert gilt genau so, wie er dasteht"],
+            ["<","<","kleiner als – der Wert ist eine Obergrenze"],
+            ["<=","≤","kleiner oder gleich"],
+            [">",">","groesser als – der Wert ist eine Untergrenze"],
+            [">=","≥","groesser oder gleich"],
+            ["~","≈","ungefaehr / Durchschnittswert"]];
+  if(_op && !_OPS.some(function(o){ return o[0]===_op; })) _OPS.push([_op,_op,"unbekanntes Zeichen aus der Datenbank – bleibt erhalten"]);
+  var _opOpt=_OPS.map(function(o){
+    return '<option value="'+esc(o[0])+'" title="'+esc(o[2])+'"'+(_op===o[0]?' selected':'')+'>'+esc(o[1])+'</option>';
+  }).join("");
+  return '<div class="feWirkRow" data-bezug="'+esc(_bez)+'" style="display:grid;grid-template-columns:var(--wirk-spalten,1fr 48px 70px 62px 56px 26px);gap:6px 6px;margin-bottom:6px;align-items:center">'
     +'<div class="fwNameCell" style="position:relative;min-width:0">'
       +'<input class="fwName" list="feWirkDL" value="'+esc(w.naehrstoff||"")+'" oninput="try{feWirkFarbeRow(this)}catch(e){};try{fePlaus()}catch(e){}'+_neu+'" placeholder="z. B. Vitamin C" style="padding:6px 22px 6px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
       +'<span class="fwHerk" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:12px;line-height:1;pointer-events:none;color:var(--muted)"></span>'
     +'</div>'
+    +'<select class="fwOp" title="Vergleichszeichen vom Etikett. Leer = der Wert gilt genau so." onchange="if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty.wirk=true;" style="padding:6px 2px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:center;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'+_opOpt+'</select>'
     +'<input class="fwMenge" type="number" step="any" value="'+esc(w.menge==null?"":String(w.menge))+'" oninput="try{fePlaus()}catch(e){}'+_neu+'" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;text-align:right;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'
     +'<select class="fwEinheit" onchange="try{feWirkFarbeRow(this)}catch(e){}'+_neu+'" style="padding:6px 4px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--card);color:var(--ink);min-width:0;width:100%;box-sizing:border-box">'+opt+'</select>'
     /* 🔴 13.08.2026 (Ralph, Browserabnahme Punkt 7) — GEMESSENE URSACHE:
@@ -18914,6 +19066,12 @@ function feWirkCollect(){ var out=[];
     var o={ naehrstoff:nm, menge:Number(mgRaw.replace(",",".")),
       einheit:((r.querySelector(".fwEinheit")||{}).value||"mg"),
       nrv:((berechnet||nrvRaw==="")?null:Number(nrvRaw.replace(",","."))) };
+    /* Work #7: das Vergleichszeichen reist mit. `cb_produkt_wirkstoffe_setzen`
+       nimmt den Schluessel `operator` und prueft ihn selbst gegen die Positivliste;
+       ein leeres Feld wird dort zu NULL. Der Browser sendet nur, was dasteht —
+       er entscheidet nicht, was zulaessig ist (§10.2). */
+    var opRaw=((r.querySelector(".fwOp")||{}).value||"").trim();
+    if(opRaw) o.operator=opRaw;
     /* P12: den Bezug der Zeile zurückschreiben. Fehlt er und ist das Produkt ein
        Mineralwasser, gilt der erklärte Bezug des Produkts – geraten wird er nicht:
        „pro Liter" steht als Untertitel über der Karte und ist damit Ralphs Angabe. */
@@ -19904,6 +20062,17 @@ function feAbschlussRender(){
         S.naehrwerte_ok===null?"var(--muted)":(S.naehrwerte_ok?"":_ROT))
     +_z("Bestandteile", S.bestandteile_gesamt?((S.bestandteile_gesamt-S.bestandteile_offen)+"/"+S.bestandteile_gesamt):"keine erfasst",
         S.bestandteile_gesamt?"":"var(--muted)")
+    /* 15.08.2026 (Work #2): EIGENE ZEILE, nicht in die Bestandteil-Bilanz gerechnet.
+       Eine geparkte Zutat hat keine Zeile in Produkt_Zutaten — sie ist weder
+       „gebunden" noch „ohne Note", sondern ein dritter Zustand. Sie in x/y
+       hineinzuzaehlen haette den Nenner verfaelscht und genau den Widerspruch
+       erzeugt, den Ralph am 13.08. an P1025 gesehen hat (§4.2).
+       Die Zahl kommt aus DERSELBEN RPC wie die Liste darunter — nicht aus einer
+       zweiten Zaehlung im Browser. Zaehler und Liste koennen sich damit nicht
+       widersprechen; genau das war der Auftrag. */
+    +((typeof _fgZutOffenListe==="function" && _fgZutOffenListe().length)
+        ? _z("Nicht im Stamm", _fgZutOffenListe().length+" gelesen, nicht gebunden", "var(--k-1e40af,#1e40af)")
+        : "")
     +_z("Etikettprüfung",
         (S.referenz_gueltige_zeilen||0)>0 ? (S.referenz_blocker>0?(S.referenz_blocker+" Blocker"):"geprüft") : "noch nicht erhoben",
         (S.referenz_gueltige_zeilen||0)>0 ? (S.referenz_blocker>0?"var(--k-dc2626,#dc2626)":"") : "var(--muted)")
@@ -23584,7 +23753,11 @@ async function fgEditSave(alsoFreigeben){
           Promise.all([
             (typeof fgRefStatusLaden==="function")?fgRefStatusLaden(_p):Promise.resolve(),
             (typeof fgCanonLaden==="function")?fgCanonLaden(_p):Promise.resolve(),
-            (typeof fgZusV2Laden==="function")?fgZusV2Laden(_p):Promise.resolve()
+            (typeof fgZusV2Laden==="function")?fgZusV2Laden(_p):Promise.resolve(),
+            /* Work #2: mit nachladen. Nach dem Speichern kann eine bisher offene
+               Zutat gebunden worden sein — dann meldet `ist_offen` das von selbst.
+               Bliebe sie hier stehen, waere sie eine Karteileiche im Bild. */
+            (typeof fgZutOffenLaden==="function")?fgZutOffenLaden(_p):Promise.resolve()
           ]).then(function(){
             try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){ console.error("[Bestandteile] nach Freigabe-Ablehnung:", e); }
             try{ fePlaus(); }catch(e){}
@@ -28012,7 +28185,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-2520";
+const APP_BUILD = "2026-08-15-2530";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

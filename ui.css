@@ -476,7 +476,11 @@ body{ --admin-oben:64px }
 
 /* Wirkstoff-Tabelle: Hinweis, Spaltenkopf, "+ Wirkstoff", Legende, Fussschalter. */
 #feTab2 .feWirkHinweis{ font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:9px }
-#feTab2 .feWirkKopf{ display:grid;grid-template-columns:1fr 70px 62px 56px 26px;gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em }
+/* 🔴 15.08.2026 (Work #7): das Raster stand hier HART und noch einmal weiter unten
+   als Variable — zwei Spaltenvertraege fuer dieselbe Tabelle (§4.2). Die spaetere
+   Regel gewann fuer #feTab2, diese hier war stille Altlast und waere beim Zaehlen
+   der Spalten auseinandergelaufen. Jetzt zeigt auch der Kopf auf --wirk-spalten. */
+#feTab2 .feWirkKopf{ display:grid;grid-template-columns:var(--wirk-spalten,1fr 48px 70px 62px 56px 26px);gap:6px;padding:0 2px 4px;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em }
 #feTab2 .feRe{ text-align:right }
 #feTab2 .feBtnAdd{ margin-top:7px;padding:7px 12px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer;font-size:12.5px;white-space:nowrap }
 #feTab2 .feWirkLegBox{ margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.6 }
@@ -1944,10 +1948,14 @@ body.riFokus #fe_pickList{ min-width:0 }
      `µg` — bei 80px war die Auswahl kaum lesbar, und genau das laesst eine
      echte Auswahl wie ein festes `mg` aussehen. Die LISTE selbst ist
      unveraendert: WIRK_EINHEITEN, an genau einem Ort. */
-  --wirk-spalten: minmax(0,1fr) 100px 92px 90px 40px;
+  /* 15.08. (Work #7): ZEICHEN-Spalte vor der Menge, 58px. Ralph: „<0,5 g darf
+     nicht zu 0,5 g werden." Das Zeichen gehoert neben die Zahl, nicht in sie —
+     `fwMenge` ist ein type=number-Feld und wuerde „<0,5" komplett verwerfen
+     (derselbe Fehler wie beim %NRV-Feld am 13.08.). */
+  --wirk-spalten: minmax(0,1fr) 58px 100px 92px 90px 40px;
 }
 body:not(.riFokus) #fe_wirkCard{
-  --wirk-spalten: 1fr 70px 62px 56px 26px;
+  --wirk-spalten: 1fr 48px 70px 62px 56px 26px;
 }
 #feTab2 .feWirkKopf{ grid-template-columns:var(--wirk-spalten) }
 #feTab2 .feWirkRow .fwName,
