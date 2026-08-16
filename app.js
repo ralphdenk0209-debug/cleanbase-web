@@ -11124,7 +11124,45 @@ function dashArbeitCss(){
    +A+' .abcmdv .t{color:var(--abmut);flex:1;min-width:0;overflow:hidden;'
     +'text-overflow:ellipsis;white-space:nowrap}'
    +A+' .abcmdv .z{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;'
-    +'color:var(--abmut);flex:0 0 auto}';
+    +'color:var(--abmut);flex:0 0 auto}'
+   /* ----- Meilenstein-Zeitleiste (C5) ----- */
+   +A+' .abzeit{background:#fff;border:1px solid var(--abline);border-radius:10px;'
+    +'margin-top:2px;overflow:hidden}'
+   +A+' .abzk{display:flex;align-items:center;gap:11px;padding:10px 13px 8px}'
+   +A+' .abzk b{font-size:13.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;'
+    +'color:var(--abink)}'
+   +A+' .abzz{font-size:11.5px;color:var(--abmut)}'
+   +A+' .abzsp{margin-left:auto;display:flex;gap:6px}'
+   /* Die Bahn: Monate als Abschnitte, darin die Punkte nach Datum. */
+   +A+' .abzb{position:relative;height:132px;margin:0 13px 13px;background:#f4f6f7;'
+    +'border-radius:7px;overflow:hidden}'
+   +A+' .abzm{position:absolute;top:0;bottom:0;border-right:1px solid #e4e7e9}'
+   +A+' .abzm span{position:absolute;left:7px;top:5px;font-size:9.5px;font-weight:800;'
+    +'letter-spacing:.08em;color:#a8b0b6}'
+   +A+' .abzl{position:absolute;left:0;right:0;top:12px;height:2px;background:#dfe3e6}'
+   +A+' .abzheute{position:absolute;top:0;bottom:0;width:2px;background:'+_AB.kern+';z-index:3}'
+   +A+' .abzheute span{position:absolute;top:2px;left:4px;font-size:9px;font-weight:800;'
+    +'letter-spacing:.06em;color:'+_AB.kern+';white-space:nowrap}'
+   +A+' .abzziel{position:absolute;right:0;top:0;bottom:0;width:5px;background:'+_AB.gut+';z-index:3}'
+   +A+' .abzziel span{position:absolute;top:4px;right:9px;font-size:9.5px;font-weight:800;'
+    +'letter-spacing:.05em;color:'+_AB.gut+';text-align:right;line-height:1.25;white-space:nowrap}'
+   /* Ein Meilenstein: Punkt auf der Bahn, Beschriftung daneben. */
+   +A+' .abzp{position:absolute;display:flex;align-items:center;gap:6px;z-index:2;'
+    +'transform:translateX(-4px);max-width:210px}'
+   +A+' .abzp i{width:9px;height:9px;border-radius:50%;background:'+_AB.warn+';flex:0 0 auto;'
+    +'border:2px solid #fff;box-shadow:0 0 0 1px '+_AB.warn+'}'
+   +A+' .abzp span{font-size:10.5px;color:var(--abink);background:rgba(255,255,255,.86);'
+    +'padding:1px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;'
+    +'text-overflow:ellipsis;max-width:150px}'
+   +A+' .abzp em{font-style:normal;font-size:9px;color:var(--abmut);'
+    +'font-family:ui-monospace,SFMono-Regular,Menlo,monospace}'
+   +A+' .abzp.ok i{background:'+_AB.gut+';box-shadow:0 0 0 1px '+_AB.gut+'}'
+   +A+' .abzp.ok span{color:var(--abmut);text-decoration:line-through}'
+   +A+' .abzp.spaet i{background:'+_AB.krit+';box-shadow:0 0 0 1px '+_AB.krit+'}'
+   +A+' .abzp.spaet span{color:'+_AB.krit+';font-weight:700}'
+   +A+' .abzeit.bearb .abzp{cursor:pointer}'
+   +A+' .abzeit.bearb .abzp:hover span{background:#fff;box-shadow:0 0 0 1px '+_AB.kern+'}'
+   +A+' .abzeit.bearb .abzb{outline:2px dashed #d9b45f;outline-offset:-3px}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -13030,6 +13068,144 @@ function _abCmdNach(box){
   male();
 }
 
+/* ============================================================================
+   MEILENSTEIN-ZEITLEISTE BIS GO-LIVE · C5 · 15.08.2026, Work #63
+   ----------------------------------------------------------------------------
+   Ralph-Entscheid: „energie strom weg" — der Ereignisstrom faellt weg. Statt
+   der letzten Stunde zeigt die Leiste den WEG BIS GO-LIVE am 01.10.2026.
+
+   🔴 EINE WAHRHEIT, ZWEI ANZEIGEN. Ein Meilenstein traegt hoechstens einen
+   Verweis auf einen Wirkdiagramm-Knoten und einen auf ein Work Item. Der
+   Fortschritt wird NICHT hier gepflegt — er steht dort. Wer ihn hier zusaetzlich
+   fuehrt, hat zwei Listen, die auseinanderlaufen (§4.2, §28.4).
+
+   Die Lage auf der Leiste ergibt sich aus dem DATUM, nicht aus einer gepflegten
+   Position. Verschiebt Ralph ein Datum, wandert der Punkt mit.
+   ========================================================================== */
+var _AB_MEILEN=[], _AB_ZIEL='2026-10-01', _AB_MEILEN_EDIT=false;
+
+function _abTag(d){ var t=new Date(d); return isNaN(t)?null:t; }
+function _abDatDe(d){
+  var t=_abTag(d); if(!t) return '—';
+  return String(t.getDate()).padStart(2,'0')+'.'+String(t.getMonth()+1).padStart(2,'0')+'.';
+}
+
+function _abZeitHtml(){
+  var ziel=_abTag(_AB_ZIEL)||new Date();
+  var heute=new Date();
+  /* Der Anfang der Leiste: der frueheste Meilenstein oder heute — je nachdem,
+     was frueher ist. Sonst stuende ein ueberfaelliger Punkt ausserhalb. */
+  var start=heute;
+  _AB_MEILEN.forEach(function(m){ var t=_abTag(m.faellig); if(t&&t<start) start=t; });
+  start=new Date(start.getFullYear(),start.getMonth(),1);
+  var spanne=Math.max(1, ziel-start);
+  var pos=function(d){ var t=_abTag(d); if(!t) return 0;
+    return Math.max(0,Math.min(100, (t-start)/spanne*100)); };
+
+  /* Monatsabschnitte */
+  var monate='', m=new Date(start), i=0;
+  while(m<=ziel && i<14){
+    var naechster=new Date(m.getFullYear(),m.getMonth()+1,1);
+    var a=pos(m), b=Math.min(100,pos(naechster>ziel?ziel:naechster));
+    monate+='<div class="abzm" style="left:'+a.toFixed(2)+'%;width:'+(b-a).toFixed(2)+'%">'
+      +'<span>'+m.toLocaleDateString('de-DE',{month:'short',year:'2-digit'}).toUpperCase()+'</span></div>';
+    m=naechster; i++;
+  }
+
+  var offen=_AB_MEILEN.filter(function(x){ return !x.erledigt; }).length;
+  var tage=Math.ceil((ziel-heute)/86400000);
+
+  var punkte=_AB_MEILEN.map(function(x,n){
+    var p=pos(x.faellig), spaet=(!x.erledigt && _abTag(x.faellig) && _abTag(x.faellig)<heute);
+    return '<div class="abzp'+(x.erledigt?' ok':'')+(spaet?' spaet':'')
+      +'" style="left:'+p.toFixed(2)+'%;top:'+(18+(n%3)*29)+'px" data-mid="'+x.id+'" '
+      +'title="'+esc(x.titel)+' · '+_abDatDe(x.faellig)+(x.notiz?' — '+esc(x.notiz):'')+'">'
+      +'<i></i><span>'+esc(x.titel)+'</span>'
+      +(x.node_key?'<em>'+esc(x.node_key)+'</em>':'')
+      +(x.work_id?'<em>#'+x.work_id+'</em>':'')
+      +'</div>';
+  }).join('');
+
+  return '<div class="abzeit'+(_AB_MEILEN_EDIT?' bearb':'')+'" id="abZeit">'
+    +'<div class="abzk">'
+      +'<b>Weg bis Go-Live</b>'
+      +'<span class="abzz">'+(tage>0?tage+' Tage':'Ziel erreicht')+' · '+offen+' offen</span>'
+      +'<span class="abzsp">'
+        +'<button type="button" class="abeb" data-mz="neu">+ Meilenstein</button>'
+        +'<button type="button" class="abeb'+(_AB_MEILEN_EDIT?' hin':'')+'" data-mz="edit">'
+          +(_AB_MEILEN_EDIT?'✓ fertig':'✎ bearbeiten')+'</button>'
+      +'</span>'
+    +'</div>'
+    +'<div class="abzb">'
+      + monate
+      +'<div class="abzl"></div>'
+      +'<div class="abzheute" style="left:'+pos(heute).toFixed(2)+'%"><span>HEUTE</span></div>'
+      +'<div class="abzziel"><span>GO LIVE<br>'+_abDatDe(_AB_ZIEL)+'</span></div>'
+      + punkte
+    +'</div>'
+  +'</div>';
+}
+
+async function _abZeitLaden(){
+  try{
+    var r=await client.rpc('cb_admin_meilensteine');
+    if(r.error) throw r.error;
+    var j=r.data; if(typeof j==='string') j=JSON.parse(j);
+    _AB_MEILEN=(j&&j.rows)||[];
+    if(j&&j.ziel) _AB_ZIEL=j.ziel;
+  }catch(e){
+    _AB_MEILEN=[];
+    try{ console.warn('[Meilensteine]',e); }catch(_){}
+  }
+  var b=document.getElementById('abZeitBox');
+  if(b){ b.innerHTML=_abZeitHtml(); _abZeitNach(b); }
+}
+
+function _abZeitNach(box){
+  box.querySelectorAll('[data-mz]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var w=b.getAttribute('data-mz');
+      if(w==='edit'){ _AB_MEILEN_EDIT=!_AB_MEILEN_EDIT;
+        box.innerHTML=_abZeitHtml(); _abZeitNach(box); return; }
+      if(w==='neu'){
+        var t=window.prompt('Was ist der Meilenstein?'); if(!t) return;
+        var d=window.prompt('Bis wann? (TT.MM.JJJJ)','30.09.2026'); if(!d) return;
+        var m=String(d).match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+        if(!m){ alert('Datum bitte als TT.MM.JJJJ'); return; }
+        _abMeilenSetzen(null,{titel:t,
+          faellig:m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0')});
+      }
+    });
+  });
+  /* Ein Klick auf einen Punkt hakt ihn ab — aber NUR im Bearbeiten-Modus.
+     Sonst wuerde ein Fehlklick beim Lesen den Plan aendern. */
+  box.querySelectorAll('.abzp[data-mid]').forEach(function(e){
+    e.addEventListener('click',function(){
+      if(!_AB_MEILEN_EDIT) return;
+      var id=Number(e.getAttribute('data-mid'));
+      var m=_AB_MEILEN.filter(function(x){ return Number(x.id)===id; })[0];
+      if(!m) return;
+      _abMeilenSetzen(id,{erledigt:!m.erledigt});
+    });
+  });
+}
+
+async function _abMeilenSetzen(id, feld){
+  try{
+    var r=await client.rpc('cb_admin_meilenstein_setzen',{
+      p_id:id, p_titel:(feld.titel==null?null:feld.titel),
+      p_faellig:(feld.faellig==null?null:feld.faellig),
+      p_node_key:null, p_work_id:null,
+      p_erledigt:(feld.erledigt==null?null:feld.erledigt),
+      p_notiz:null, p_sortierung:null});
+    if(r.error) throw r.error;
+  }catch(e){
+    try{ console.error('[Meilenstein] speichern:',e); }catch(_){}
+    alert('Nicht gespeichert: '+((e&&e.message)||e));
+  }
+  await _abZeitLaden();
+}
+
 /* Hilfslinien zeichnen. Sie liegen IN der Flaeche und verschwinden mit dem
    Loslassen — sie sind Werkzeug, nicht Inhalt, und stehen deshalb in keiner
    Konfiguration. */
@@ -13249,6 +13425,10 @@ function _abBentoNach(box){
   }
 
   _abCmdNach(box);
+  /* Die Zeitleiste laedt NACH — sie darf den Seitenaufbau nicht aufhalten. */
+  if(document.getElementById('abZeitBox')){
+    try{ _abZeitLaden(); }catch(e){ try{ console.warn('[Zeitleiste]',e); }catch(_){} }
+  }
 
   /* Reihe 2 laedt NACH — sie darf den Seitenaufbau nicht aufhalten (Work #17). */
   if(document.getElementById('abAkt')||document.getElementById('abRegion')
@@ -13262,7 +13442,8 @@ function _abNeuZeichnen(){
   var box=document.getElementById('abBentoBox'); if(!box) return;
   var A=null;
   try{ if(_abNp && typeof _abAbl==='function') A=_abAbl(_abNp); }catch(e){}
-  box.innerHTML=_abEditLeiste()+_abBento(_abD,_abNp,A)+_abBento2()+_abCmdHtml();
+  box.innerHTML=_abEditLeiste()+_abBento(_abD,_abNp,A)+_abBento2()
+    +'<div id="abZeitBox"></div>'+_abCmdHtml();
   _abBentoNach(box);
 }
 
@@ -13694,7 +13875,7 @@ function dashArbeitHtml(d,np,fehler){
   /* Beide Bento-Reihen liegen in EINEM Behaelter, damit der Anordnen-Modus sie
      zusammen neu zeichnen kann, ohne die Seite neu zu laden (Work #42/E5). */
   if(ans!=='graph') h+='<div id="abBentoBox">'+_abEditLeiste()+_abBento(d,np,A)+_abBento2()
-    +_abCmdHtml()+'</div>';
+    +'<div id="abZeitBox"></div>'+_abCmdHtml()+'</div>';
 
   if(ans==='graph'){
     h+='<div class="abrow r2"><div class="abp"><div class="abph"><h3>Graph</h3>'
@@ -18821,6 +19002,50 @@ function fgPickToggle(cb){
   } else {
     [].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ if(((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===key){ var inf=r.nextElementSibling; if(inf&&inf.classList&&inf.classList.contains("fgRikiInfo")) inf.remove(); r.remove(); } });
   }
+  /* 🔴 15.08.2026 SPAET — WORK #55, RALPH: "wenn ich anhake, soll es in der liste sein,
+     egal ob speichern oder nicht."
+
+     WAS VORHER PASSIERTE — NICHTS SICHTBARES. Die Zeile hat drei Anzeigen: das
+     Kontrollkaestchen, das Statuszeichen daneben und die Note rechts. Nur das Kaestchen
+     folgte dem Klick, weil der Browser das selbst macht. Das Statuszeichen kommt aus
+     `gebunden` in _fgBestZeile, und `gebunden` ist der SERVERSTAND — es aendert sich also
+     erst nach Speichern UND Neuaufbau. Zwischen Klick und Speichern sah Ralph deshalb
+     einen Haken neben einem "○ nicht gebunden". Zwei Anzeigen, zwei Aussagen, dieselbe
+     Zeile.
+
+     WAS DAS ANGERICHTET HAT: Ralph hat heute Abend zweimal gemeldet, der Haken tue
+     nichts. Er tat etwas — er schrieb in #fe_zutRows, und beim Speichern kam die Zutat
+     korrekt in Produkt_Zutaten an (P73618, Lorbeerblaetter, Rang 14, gemessen). Die
+     Oberflaeche hat es nur nicht gesagt. Ein stiller Erfolg kostet genauso viel Zeit wie
+     ein stiller Fehler, weil man ihn nachmisst.
+
+     KEIN ZWEITER WAHRHEITSORT: #fe_zutRows IST laut Aufbau dieser Datei der kanonische
+     Arbeitsstand ("den liest Score UND Speichern"). Hier wird nichts Neues berechnet und
+     nichts gespeichert — das Zeichen liest nur denselben Stand, in den die Zeilen darueber
+     gerade geschrieben haben. Beim naechsten Neuaufbau gewinnt wieder der Server (§4.2).
+
+     DAS DRITTE ZEICHEN IST ABSICHT. Es gibt jetzt drei Zustaende statt zwei:
+       ○ blau    nicht erfasst
+       ◍ amber   erfasst, NOCH NICHT GESPEICHERT      <- neu
+       ✓ gruen   erfasst und gespeichert (Serverstand)
+     Amber statt gruen, weil "gespeichert" und "angehakt" verschiedene Dinge sind und der
+     Unterschied genau der ist, den Ralph sehen muss. Ein sofort gruener Haken waere
+     bequemer und wuerde wieder etwas behaupten, das noch nicht stimmt. */
+  try{
+    var _zeile=(cb.closest?cb.closest(".fgBestZeile"):null);
+    var _ico=_zeile?_zeile.querySelector(".fgbIco"):null;
+    if(_ico){
+      if(cb.checked){
+        _ico.textContent="◍";
+        _ico.style.color="var(--k-c88616,#c88616)";
+        _ico.title="erfasst · noch nicht gespeichert – erst „Speichern\" bindet die Zutat an das Produkt";
+      }else{
+        _ico.textContent="○";
+        _ico.style.color="var(--k-2f6fd6,#2f6fd6)";
+        _ico.title="entfernt · noch nicht gespeichert – erst „Speichern\" löst die Bindung";
+      }
+    }
+  }catch(e){ console.error("fgPickToggle Statuszeichen:",e); }
   try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}   /* fePlaus stoesst auch feScorePreview an */
 }
 /* „+ hinzufügen": Steht die Zutat schon im Stamm → direkt gebunden übernehmen (grün).
@@ -31132,7 +31357,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3460";
+const APP_BUILD = "2026-08-15-3500";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
