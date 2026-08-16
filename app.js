@@ -26239,11 +26239,30 @@ function feStatusStreifen(){
      nirgends. Nichts verschwindet still (§1.7), es wird nur nicht wiederholt.
      Die technische Herkunft („Gespeicherter Stand aus …") entfaellt in beiden
      Faellen — sie gehoert in die Konsole, nicht in den Produktkopf. */
-  var _mehrere=(S.freigabe_gruende.length>1);
-  var _detail = (!S.freigabe_moeglich && _mehrere)
-    ? '<span style="flex:1 1 100%;font-size:11.5px;color:var(--k-b91c1c,#b91c1c);padding-top:3px;line-height:1.5">'
-      +S.freigabe_gruende.map(function(g){ return '• <b>'+esc(g.t)+'</b>'; }).join('<br>')+'</span>'
-    : '';
+  /* 🔴 16.08.2026 — WORK #53, RALPH: "den text oben links raus", nachgefasst mit
+     "der text oben ist immer noch nicht weg".
+
+     HIER STAND DIE ROTE PUNKTLISTE unter dem Produktkopf. Sie ist entfernt.
+
+     ES GEHT DABEI KEINE INFORMATION VERLOREN — dieselben Gruende stehen weiterhin
+     an DREI anderen Orten, gemessen und nachgesehen:
+       · im Chip "Freigabe blockiert · N Punkte", vollstaendig im Titel (app.js ~26216)
+       · in der Freigabe-Karte als Liste (app.js ~23673)
+       · im Titel des Freigeben-Knopfes (app.js ~26692)
+     Genau das war der Befund, der #53 ausgeloest hat: DIESELBE AUSSAGE AN VIER ORTEN
+     GLEICHZEITIG (§4.2). Der rote Block war der vierte und der einzige, der Ralph
+     dauerhaft im Blick lag, ohne dass er etwas damit tun konnte.
+
+     🔴 DIE ZWEITE HAELFTE VON #53 IST DAMIT NICHT ERLEDIGT. Ralph will die Gruende als
+     Chips in der linken Rail UNTER DEM ZUSTAENDIGEN SCHRITT sehen — dort, wo die
+     Handlung ist, die sie schliesst. Dafuer braucht jeder Grund eine Schrittzuordnung,
+     und die gehoert an die dreizehn Stellen, an denen die Gruende ENTSTEHEN (G.push,
+     app.js 26028-26118) — nicht in eine Uebersetzungstabelle am Anzeigeort. Eine
+     Tabelle, die Gruende an ihrem TEXT wiedererkennt, waere beim ersten umformulierten
+     Satz still kaputt.
+     Das bleibt offen und steht so im Work Item. Was hier passiert, ist nur das
+     Wegnehmen — und das ist der Teil, den Ralph zweimal angemahnt hat. */
+  var _detail = '';
   /* ⬇ UX-DURCHGANG 1, PUNKT 7 (Ralph 14.08.): HINWEISE SIND KEINE CHIPS.
      Vorher standen echte Blocker und blosse Hinweise in derselben Reihe und damit in
      derselben visuellen Gewichtung. Ab hier gilt: die Chipreihe traegt den ZUSTAND
