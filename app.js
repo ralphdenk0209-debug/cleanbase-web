@@ -17345,7 +17345,14 @@ async function fmMikroLoad(pid){
       return '<option value="'+esc(x.naehrstoff)+'" data-einheit="'+esc(x.einheit)+'" data-form="'+esc(x.form||'')+'">'+esc(txt)+'</option>'; }).join(''); fmMikroStoffChange(); }
     var box=document.getElementById('fm_mikroRows');
     if(!pid){ window._fmMikro=[]; if(box) box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Produkt zuerst speichern, dann Mikros erfassen.</span>'; return; }
-    var r=await client.rpc('cb_produkt_mikro_liste',{p_id:pid}); window._fmMikro=(!r.error&&r.data)?r.data:[];
+    /* 🔴 _v2 statt der alten Liste (15.08.2026, gemessen bei der Abnahme von Work #18).
+       Beide liefern dieselben neun Felder — _v2 zusaetzlich `operator`. Die alte Liste
+       kannte das Feld nicht, deshalb war das „<" fuer das Frontend UNSICHTBAR: der
+       Editor zeigte „Eisen 5 mg", wo auf dem Etikett „< 5 mg" steht, und schrieb beim
+       Korrigieren 5 ohne Operator zurueck. Aus „hoechstens 5" wurde stillschweigend
+       „genau 5" — dieselbe Informationsvernichtung, gegen die Work #7 den Operator
+       ueberhaupt eingefuehrt hat. §22: das Werkzeug war da und nur nicht angeschlossen. */
+    var r=await client.rpc('cb_produkt_mikro_liste_v2',{p_id:pid}); window._fmMikro=(!r.error&&r.data)?r.data:[];
     fmMikroRender();
   }catch(e){}
 }
@@ -17392,7 +17399,7 @@ function fmMikroRender(){
         +'<span id="fm_editMsg" style="flex:1 1 100%;font-size:11px"></span>'
       +'</div>';
     }
-    return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px'+(hk==='etikett'?'':';opacity:.72')+'">'+_name+'<span style="color:var(--ink)">'+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span>'+chip
+    return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px'+(hk==='etikett'?'':';opacity:.72')+'">'+_name+'<span style="color:var(--ink)">'+(m.operator?esc(String(m.operator))+' ':'')+esc(String(m.menge_100g))+' '+esc(m.einheit)+'</span>'+chip
       /* Work #18: Korrigieren steht VOR Loeschen — §3.7, und Ralph musste bisher
          loeschen, um einen Tippfehler zu beheben. */
       +'<button type="button" onclick="fmMikroEdit(\''+esc(_s)+'\',\''+esc(_f)+'\')" title="Menge oder Einheit ändern" style="border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;line-height:1">✎</button>'
@@ -17513,7 +17520,15 @@ async function fmMikroEditSave(){
       p_form:st.form||null,
       /* Die bestehende Herkunft bleibt erhalten — sonst wuerde ein abgeleiteter
          Wert durch eine Mengenkorrektur zur Etikettangabe (§3.2). */
-      p_quelle:(alt.quelle||null)
+      p_quelle:(alt.quelle||null),
+      /* 🔴 p_operator MUSS mit (15.08.2026). Ohne diesen Parameter greift die
+         6-stellige Ueberladung von cb_produkt_mikro_setzen, und die kennt die Spalte
+         Vergleichsoperator nicht — sie loescht ihn beim DELETE+INSERT. Aus „< 5 mg"
+         wuerde durch eine blosse Mengenkorrektur „5 mg": aus einer Obergrenze ein
+         Messwert. Betroffen sind heute 4 Zeilen in P73617 (Cystin & Cystein, Eisen,
+         Kalzium, Magnesium). Der Wert kommt aus cb_produkt_mikro_liste_v2, siehe
+         fmMikroLoad. */
+      p_operator:(alt.operator||null)
     });
     if(r&&r.error) throw new Error(r.error.message);
     window._fmMikroEdit=null;
@@ -31117,7 +31132,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3440";
+const APP_BUILD = "2026-08-15-3460";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

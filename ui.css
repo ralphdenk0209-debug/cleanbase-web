@@ -2130,7 +2130,30 @@ body.riFokus .feZurueckFokus{ display:none !important }
   border-color:var(--k-2f6fd6,#2f6fd6) !important; color:var(--k-2f6fd6,#2f6fd6) !important }
 
 /* --- 14. Rail ruhiger: Trennlinien statt Kartenoptik ---------------------- */
-body.riFokus #feRail{ background:transparent; border:0; padding:0 }
+/* 🔴 15.08.2026 SPAET — DIESE ZEILE HAT WORK #48 STILL AUFGEHOBEN. Dritter Fall
+   desselben Fehlertyps an einem Abend (nach #feKopfLayout und feKachelBreiteSync):
+   eine spaetere, spezifischere Regel loescht eine fruehere, ohne dass es jemand merkt.
+
+   WAS RALPH WOLLTE (Work #48, 15.08. abends, mit Bild): "was aber nicht passt, ist das
+   menue, das soll auch weiss hinterlegt sein." Daraufhin bekam #feRail (ui.css 115)
+   background:var(--card), border-right und padding — die Rail sollte eine Karte sein
+   wie jede andere, weil sie als einziger grauer Block zwischen weissen wie
+   "ausgegraut, nicht benutzbar" gelesen wurde.
+
+   WAS HIER STAND: `body.riFokus #feRail{ background:transparent; border:0; padding:0 }`
+   Spezifitaet (1,1,1) gegen (1,0,0), und ausserdem 2000 Zeilen spaeter. Im Fokusmodus —
+   also in JEDER Ansicht, die Ralph benutzt — war die Rail damit weiterhin durchsichtig,
+   randlos und ohne Innenabstand. Work #48 stand seit Stunden auf "open" und niemand
+   wusste, warum die Aenderung nichts bewirkt.
+
+   ES BLEIBT KEIN DRITTER ORT: die Rail-Optik steht ab jetzt ausschliesslich bei
+   #feRail (ui.css 115). Wer sie aendern will, aendert sie dort — hier steht nichts
+   mehr, was ihr widerspricht (§4.2).
+
+   Der Abschnittstitel "Trennlinien statt Kartenoptik" bezog sich auf die Karten INNEN
+   in der Rail (#feProdKopf, die Gruppentitel) — nicht auf die Rail selbst. Diese Regeln
+   stehen unveraendert darunter und tun weiterhin genau das. */
+body.riFokus #feRail{ /* Optik bewusst leer — sie gehoert zu #feRail, ui.css 115 */ }
 #feProdKopf{ border-bottom:1px solid var(--line); margin-bottom:13px }
 #feFokusNav{ padding-top:2px }
 #feFokusNav .feStTitel{ margin-bottom:7px }
