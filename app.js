@@ -11866,9 +11866,18 @@ function _abJobsListe(np,A){
   if(A.gate_offen>0) jobs.push({p:1,n:A.gate_offen,t1:'Go-Live-Gate blockiert',
     t2:'diese Fälle verhindern jede Freigabe',go:'Wächter →',f:_AB.krit,ziel:'waechter'});
   z.filter(function(x){return x.weg==='hand'&&(Number(x.wartend)||0)>0;}).forEach(function(x){
-    jobs.push({p:2,n:x.wartend,t1:x.name+' prüfen',
-      t2:'ältester '+(x.aeltester_tage==null?'?':x.aeltester_tage)+' Tage · nur du kannst das',
-      go:'Öffnen →',f:_AB.warn,ziel:'scan'});
+    /* 🔴 16.08.2026, Ralph: „oof nach hinten, ja." Gemeint ist der
+       OpenFoodFacts-Cache (Zufluss 'scancache', gemessen 48 wartend). Er stand
+       auf p:2, jetzt p:9 — gleichauf mit den Barcode-Scans ganz unten.
+       Beide sind damit zurueckgestuft, aber KEINER ist verschwunden. */
+    var hinten=(x.id==='scancache');
+    jobs.push({p:hinten?9:2, n:x.wartend,
+      t1:x.name+(hinten?' — liegen bewusst hinten':' prüfen'),
+      t2:hinten
+        ? ('keine Prio (Ralph 16.08.) · ältester '
+           +(x.aeltester_tage==null?'?':x.aeltester_tage)+' Tage · Vorstufe, wird erst Katalog wenn du sie übernimmst')
+        : ('ältester '+(x.aeltester_tage==null?'?':x.aeltester_tage)+' Tage · nur du kannst das'),
+      go:hinten?'später →':'Öffnen →', f:hinten?_AB.grau:_AB.warn, ziel:'scan'});
   });
   w.filter(function(x){return x.moment==='bestand'&&(Number(x.offen)||0)>0;})
    .sort(function(a,b){return b.offen-a.offen;}).slice(0,3).forEach(function(x){
@@ -31972,7 +31981,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-16-3650";
+const APP_BUILD = "2026-08-16-3670";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
