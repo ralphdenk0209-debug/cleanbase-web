@@ -1480,7 +1480,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 <script>/* Admin-Modus VOR app.js aktivieren - per Seiten-Flag (nicht mehr per URL-Hash). */
 window.__ADMIN_PAGE=true;</script>
-<script src="app.js?v=2026-08-15-3380"></script>
+<script src="app.js?v=2026-08-15-3440"></script>
 <button id="backFab" onclick="goBack()" aria-label="Zurück" style="display:none;position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--k-ffffff);color:var(--ink);box-shadow:0 4px 14px rgba(20,40,28,.20);cursor:pointer;align-items:center;justify-content:center;font-size:22px;line-height:1">←</button>
 <button id="toTopFab" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben" style="display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;width:46px;height:46px;border-radius:50%;border:0;background:var(--green);color:var(--auf-gruen);box-shadow:0 4px 14px rgba(20,40,28,.25);cursor:pointer;align-items:center;justify-content:center;font-size:20px;line-height:1">↑</button>
 <style id="adminOnly">
@@ -1538,8 +1538,27 @@ window.__ADMIN_PAGE=true;</script>
      .container-Regel unten mit derselben rechnet. */
   :root{ --nav-breit:208px; --nav-schmal:62px; }
 
+  /* ======================================================================
+     C4 · ROOT-COCKPIT-KOPFLEISTE · 15.08.2026, Work #63
+     Schwarze Leiste ganz oben mit zweifarbiger Wortmarke, wie in der Vorlage.
+     🔴 NUR in der Seitenlage: in der Oben-Lage steht dort schon die
+     waagerechte Navigation, und zwei Leisten uebereinander waeren genau der
+     Balken, den Ralph heute frueh weghaben wollte (D0).
+     Die linke Spalte beginnt deshalb unter der Leiste, nicht bei 0.
+     ====================================================================== */
+  #riKopf{display:none}
+  body.navSeite #riKopf{
+    display:flex;align-items:center;gap:12px;
+    position:fixed;top:0;left:0;right:0;height:44px;z-index:62;
+    background:#111417;padding:0 16px;color:#fff;}
+  body.navSeite #riKopf .riWm{font-size:16px;font-weight:300;letter-spacing:.01em}
+  body.navSeite #riKopf .riWm b{font-weight:800;color:var(--green)}
+  body.navSeite #riKopf .riGi{color:#7b848a;font-size:12px;letter-spacing:1px}
+  body.navSeite #riKopf .riR{margin-left:auto;display:flex;align-items:center;gap:14px;
+    color:#98a1a7;font-size:12px}
+  body.navSeite #riKopf .riR b{color:#fff;font-weight:700}
   body.navSeite #adminNav{
-    top:0; left:0; right:auto; bottom:0;
+    top:44px; left:0; right:auto; bottom:0;
     width:var(--nav-breit);
     flex-direction:column; flex-wrap:nowrap; justify-content:flex-start;
     overflow-x:hidden; overflow-y:auto;
@@ -1602,7 +1621,7 @@ window.__ADMIN_PAGE=true;</script>
      (app.js prüft das), aber die Klasse kann vom vorherigen Zustand noch hängen —
      dann würde die Spalte nach oben wegkippen. Hier ausdrücklich zurückgesetzt. */
   body.navSeite.navHidden #adminNav{transform:none;pointer-events:auto;}
-  body.navSeite.navHidden .container{padding-top:14px !important;}
+  body.navSeite.navHidden .container{padding-top:58px !important;}
   body.navSeite #adminNavPeek{display:none !important;}
   /* 29.07. Enterprise-Menue (Ralph-Wahl B): kompakte Reihe Icon+Label, aktive Seite als Pille,
      Arbeits-Zahlen als gelbe Plakette (.anBdg). Alte runde Knoepfe ersetzt. */
@@ -1656,7 +1675,9 @@ window.__ADMIN_PAGE=true;</script>
      der Platz frei. 74 -> 14. */
   body.navSeite .container{
     padding-left:calc(var(--nav-breit) + 20px) !important;
-    padding-top:14px !important;
+    /* 44 Leiste + 14 Luft. Vor C4 waren es 14 ohne Leiste (D0), davor 74 fuer
+       einen Balken, in dem nichts stand. */
+    padding-top:58px !important;
   }
   /* ----- Knopf-Cluster am unteren Ende der linken Spalte ------------------
      margin-top:auto schiebt ihn nach unten, ohne dass jemand eine Hoehe

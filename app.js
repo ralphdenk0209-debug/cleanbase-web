@@ -7053,14 +7053,52 @@ async function peDeaktiv(id){
     var r=await client.rpc('cb_produkt_loeschen',{p_id:id});
     if(r.error) throw r.error;
     var d=r.data||{};
+    /* 🔴 15.08.2026 SPAET — RALPH: "aktualisiert nach dem loeschen nicht", praezisiert
+       auf "die produktliste".
+
+       WAS ICH NICHT TUE: die Ursache raten. Ich habe an diesem Abend zweimal eine
+       Ursache aus dem Lesen behauptet und lag zweimal daneben. Der Neuladeaufruf
+       existiert nachweislich (unten), und `cb_produkt_loeschen` liefert `ok:false`
+       ausschliesslich mit `grund='tagebuch'` — beides gepruefte Tatsachen.
+
+       WAS ICH STATTDESSEN TUE: die drei Stellen schliessen, an denen dieser Ablauf
+       SCHWEIGT. Danach ist der naechste Bericht eine Diagnose statt eines Raetsels.
+       Keine dieser Aenderungen kann ein funktionierendes Loeschen kaputtmachen —
+       sie machen nur sichtbar, was passiert ist.
+
+       (a) `ok:false` mit unbekanntem Grund lief bisher DURCH: die Zeile wurde aus
+           _peRows entfernt und die Liste neu geladen, obwohl der Server das Loeschen
+           abgelehnt hatte. Der Neuladeaufruf holt das Produkt dann korrekt zurueck —
+           und von aussen sieht das aus wie "die Liste aktualisiert nicht". Heute gibt
+           es nur einen ok:false-Grund; kaeme morgen ein zweiter dazu, waere dies der
+           stille Fehler, den §1.7 verbietet.
+       (b) ARCHIVIEREN IST KEIN LOESCHEN. Wer den Tagebuch-Dialog bestaetigt, setzt das
+           Produkt auf `Abgelehnt` — es BLEIBT in der Datenbank. Beim naechsten Aufbau
+           taucht es je nach Filter wieder auf. Das ist richtig so und liest sich
+           trotzdem wie ein Fehler, solange es niemand sagt. Jetzt sagt es jemand.
+       (c) Das Neuladen lief ohne `await` und ohne Rueckmeldung. Jetzt wird gewartet,
+           damit die Reihenfolge feststeht und ein Fehler beim Neuladen nicht mehr
+           unbemerkt bleibt. */
+    var _archiviert=false;
     if(d.ok===false && d.grund==='tagebuch'){
       if(!confirm('„'+(p.name||id)+'" steht in '+d.anzahl+' Nutzer-Tagebuch-Eintrag/en – hartes Löschen würde deren Historie zerstören.\n\nStattdessen ARCHIVIEREN (aus dem Katalog nehmen, Nutzer-Historie bleibt erhalten)?')) return;
       var r2=await client.rpc('cb_produkt_status_setzen',{p_id:id,p_status:'Abgelehnt'});
       if(r2.error) throw r2.error;
+      _archiviert=true;
+    }else if(d.ok===false){
+      /* (a) — abgelehnt aus einem Grund, den dieser Code nicht kennt. Nichts entfernen,
+         nichts schliessen, nichts neu laden: der Bestand ist unveraendert. */
+      alert('„'+(p.name||id)+'" wurde NICHT gelöscht.\n\nDer Server hat abgelehnt'+(d.grund?(' – Grund: '+d.grund):' und keinen Grund genannt')+'.\n\nDas Produkt steht unverändert in der Liste.');
+      return;
     }
     window._peRows=(window._peRows||[]).filter(function(x){return String(x.id)!==String(id);});
     if(String(window._peSel||'')===String(id)){ window._peSel=null; try{ if(typeof peClose==="function") peClose(); else { var det=document.getElementById('peDetail'); if(det) det.innerHTML=''; } }catch(e){} }
-    loadProduktErfassung();
+    await loadProduktErfassung();   /* (c) auf das Neuladen warten, statt es abzuschicken */
+    /* (b) — erst nach dem Neuladen melden, damit die Meldung den TATSAECHLICHEN Stand
+       beschreibt und nicht die Absicht. */
+    if(_archiviert){
+      alert('„'+(p.name||id)+'" wurde ARCHIVIERT, nicht gelöscht.\n\nStatus jetzt „Abgelehnt“ – das Produkt bleibt in der Datenbank und erscheint je nach Filter weiterhin in der Liste. Die Tagebuch-Einträge der Nutzer bleiben erhalten.');
+    }
   }catch(e){ alert('Konnte nicht löschen: '+(e.message||e)); }
 }
 function peSelect(id){ window._peSel=id;
@@ -10609,6 +10647,21 @@ function applyAdminMode(){
        in das jeweils sichtbare Panel wandert: ein Element, ein Ort (§4.2).
        Eine zweite, nachgebaute Fussleiste haette zwei Notizzaehler und zwei
        Build-Nummern erzeugt, die auseinanderlaufen. */
+    /* C4: die schwarze Kopfleiste. Sie wird EINMAL angelegt und per CSS nur in
+       der Seitenlage gezeigt — kein zweites Element, kein Umschalten im Code. */
+    var kopfleisteBauen=function(){
+      if(document.getElementById('riKopf')) return;
+      var k=document.createElement('div'); k.id='riKopf';
+      var b=''; try{ if(typeof APP_BUILD!=='undefined'&&APP_BUILD){
+        var t=String(APP_BUILD).split('-'); b=t[t.length-1]; } }catch(e){}
+      k.innerHTML='<span class="riGi">▦</span>'
+        +'<span class="riWm">ROOT<b>COCKPIT</b></span>'
+        +'<span class="riR"><span>[ri!] root<b>index</b></span>'
+        +(b?'<span title="Build '+esc(String(APP_BUILD))+'">'+esc(b)+'</span>':'')+'</span>';
+      document.body.appendChild(k);
+    };
+    kopfleisteBauen();
+
     var clusterUmhaengen=function(anSeite){
       var t=document.getElementById('adminTop'), nav=document.getElementById('adminNav');
       if(!t) return;
@@ -11044,7 +11097,34 @@ function dashArbeitCss(){
    +A+' .abbento .bmtext{position:relative;z-index:2;align-self:flex-end;padding:0 0 10px 2px;'
     +'display:flex;align-items:center;gap:10px;width:100%}'
    +A+' .abbento .bmtext b{font-size:27px;font-weight:800;color:'+_AB.gut+';letter-spacing:-1px}'
-   +A+' .abbento .bmtext span{font-size:11px;color:var(--abmut);line-height:1.45}';
+   +A+' .abbento .bmtext span{font-size:11px;color:var(--abmut);line-height:1.45}'
+   /* ----- Befehlszeile (C4) ----- */
+   +A+' .abcmd{background:#fff;border:1px solid var(--abline);border-radius:10px;'
+    +'margin-top:2px;position:relative}'
+   +A+' .abcmdz{display:flex;align-items:center;gap:9px;padding:10px 13px;'
+    +'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}'
+   +A+' .abcmdpf{color:'+_AB.gut+';font-weight:700;flex:0 0 auto}'
+   +A+' .abcmdz input{flex:1;background:transparent;border:0;outline:0;color:var(--abink);'
+    +'font-family:inherit;font-size:13px;min-width:0;padding:0}'
+   +A+' .abcmdz input::placeholder{color:#a8b0b6}'
+   +A+' .abcmdcur{width:8px;height:15px;background:'+_AB.gut+';display:inline-block;'
+    +'animation:abBlink 1.05s steps(1) infinite;flex:0 0 auto}'
+   +'@keyframes abBlink{0%,50%{opacity:1}51%,100%{opacity:0}}'
+   +A+' .abcmdkb{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;'
+    +'color:var(--abmut);border:1px solid var(--abline);border-radius:4px;padding:2px 6px;flex:0 0 auto}'
+   +A+' .abcmdl{border-top:1px solid var(--abline);max-height:0;overflow:hidden;'
+    +'transition:max-height .15s}'
+   +A+' .abcmd.auf .abcmdl{max-height:240px;overflow:auto}'
+   +A+' .abcmdv{display:flex;align-items:center;gap:11px;padding:8px 13px;font-size:12.5px;'
+    +'cursor:pointer;border-bottom:1px solid #f0f2f4}'
+   +A+' .abcmdv:last-child{border-bottom:0}'
+   +A+' .abcmdv.sel{background:#f5f8f9}'
+   +A+' .abcmdv .b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:'+_AB.gut+';'
+    +'font-weight:700;flex:0 0 124px}'
+   +A+' .abcmdv .t{color:var(--abmut);flex:1;min-width:0;overflow:hidden;'
+    +'text-overflow:ellipsis;white-space:nowrap}'
+   +A+' .abcmdv .z{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;'
+    +'color:var(--abmut);flex:0 0 auto}';
   var st=document.createElement('style'); st.id='dashAbCss'; st.textContent=css; document.head.appendChild(st);
 }
 
@@ -12849,6 +12929,107 @@ function _abEditAendern(fn){
    2026-08-15-3040 und liegt im ausgelieferten Repo (git). Es wurde KEINE
    zusaetzliche Sicherungsdatei angelegt — das hier ist die Fundstelle. */
 
+/* ============================================================================
+   BEFEHLSZEILE · C4 · 15.08.2026, Work #63
+   ----------------------------------------------------------------------------
+   Ralph zum ersten Entwurf: „das einzige coole von dir ist der cursor, der ist
+   aber ohne funktion." Hier hat er eine.
+
+   🔴 SIE SPRINGT UEBER adminGo — den EINEN Weg in einen Adminbereich, den es
+   schon gibt (§4.2, §22). Keine zweite Sprungtabelle: waere hier eine, wuerde
+   sie beim naechsten neuen Bereich vergessen und zeigte ins Leere.
+   Die Zahlen daneben kommen aus denselben Daten, die das Dashboard ohnehin
+   geladen hat — keine zusaetzliche Abfrage.
+   ========================================================================== */
+function _abBefehle(d,np,A){
+  var k=(d&&d.katalog)||{}, ex=(np&&np.extra)||{};
+  var z=function(v){ return (v==null?'—':String(v)); };
+  return [
+    {b:'produkte',       t:'Produktliste — alle aktiven',          z:z(k.aktiv),      go:'produkte'},
+    {b:'erfassen',       t:'Neues Produkt erfassen',               z:'—',             go:'produkterfassung'},
+    {b:'zu verifizieren',t:'Posteingang: Entwürfe, Scans, Audit',  z:z(A&&A.wartend), go:'zuverif'},
+    {b:'scan',           t:'Scan-Eingang',                         z:'—',             go:'scans'},
+    {b:'stamm',          t:'Zutatenstamm — neu und alt',           z:z(ex.zutaten),   go:'stamm'},
+    {b:'rezepte',        t:'Rezepte',                              z:z(ex.rezepte),   go:'rezepte'},
+    {b:'regelwerk',      t:'Bewertungsregeln',                     z:'—',             go:'regelwerk'},
+    {b:'empfehlungen',   t:'Empfehlungen',                         z:'—',             go:'empfehlungen'},
+    {b:'dashboard',      t:'Zurück zur Übersicht',                 z:'—',             go:'dash'},
+    {b:'anordnen',       t:'Kacheln schieben, Größe, anlegen',     z:'—',             go:'#anordnen'},
+    {b:'aktualisieren',  t:'Zahlen neu holen',                     z:'—',             go:'#neu'}
+  ];
+}
+
+function _abCmdHtml(){
+  return '<div class="abcmd" id="abCmd">'
+    +'<div class="abcmdz">'
+      +'<span class="abcmdpf">root-index /</span>'
+      +'<input id="abCmdIn" autocomplete="off" spellcheck="false" '
+        +'placeholder="Bereich oder Befehl tippen …">'
+      +'<span class="abcmdcur"></span>'
+      +'<span class="abcmdkb">↑↓</span><span class="abcmdkb">⏎</span><span class="abcmdkb">⌘K</span>'
+    +'</div>'
+    +'<div class="abcmdl" id="abCmdListe"></div>'
+  +'</div>';
+}
+
+var _AB_CMD_SEL=0;
+function _abCmdNach(box){
+  var cmd=document.getElementById('abCmd'), inp=document.getElementById('abCmdIn'),
+      liste=document.getElementById('abCmdListe');
+  if(!cmd||!inp||!liste) return;
+  var alle=_abBefehle(_abD,_abNp,(_abNp&&typeof _abAbl==='function')?_abAbl(_abNp):null);
+  var treffer=function(){
+    var q=inp.value.trim().toLowerCase();
+    if(!q) return alle.slice(0,6);
+    return alle.filter(function(x){
+      return x.b.indexOf(q)>=0 || x.t.toLowerCase().indexOf(q)>=0; });
+  };
+  var male=function(){
+    var t=treffer();
+    if(_AB_CMD_SEL>=t.length) _AB_CMD_SEL=Math.max(0,t.length-1);
+    liste.innerHTML = t.length
+      ? t.map(function(x,i){
+          return '<div class="abcmdv'+(i===_AB_CMD_SEL?' sel':'')+'" data-go="'+esc(x.go)+'">'
+            +'<span class="b">'+esc(x.b)+'</span><span class="t">'+esc(x.t)+'</span>'
+            +'<span class="z">'+esc(x.z)+'</span></div>'; }).join('')
+      : '<div class="abcmdv"><span class="t">Kein Befehl dazu — bekannt sind: '
+        +esc(alle.map(function(x){ return x.b; }).join(', '))+'</span></div>';
+    liste.querySelectorAll('.abcmdv[data-go]').forEach(function(e){
+      e.onmousedown=function(ev){ ev.preventDefault(); fuehre(e.getAttribute('data-go')); };
+    });
+  };
+  var fuehre=function(go){
+    inp.value=''; _AB_CMD_SEL=0; cmd.classList.remove('auf'); inp.blur();
+    try{
+      if(go==='#anordnen'){ var an=document.getElementById('abAnordnen'); if(an) an.click(); return; }
+      if(go==='#neu'){ var n=document.getElementById('abNeu'); if(n) n.click(); return; }
+      /* Der EINE Weg in einen Adminbereich. Keine zweite Sprungtabelle. */
+      if(typeof adminGo==='function') adminGo(go);
+    }catch(e){ try{ console.warn('[Befehlszeile]',go,e); }catch(_){} }
+  };
+  inp.addEventListener('focus',function(){ cmd.classList.add('auf'); male(); });
+  inp.addEventListener('blur', function(){ setTimeout(function(){ cmd.classList.remove('auf'); },130); });
+  inp.addEventListener('input',function(){ _AB_CMD_SEL=0; male(); });
+  inp.addEventListener('keydown',function(ev){
+    var t=treffer();
+    if(ev.key==='ArrowDown'){ ev.preventDefault(); _AB_CMD_SEL=Math.min(t.length-1,_AB_CMD_SEL+1); male(); }
+    else if(ev.key==='ArrowUp'){ ev.preventDefault(); _AB_CMD_SEL=Math.max(0,_AB_CMD_SEL-1); male(); }
+    else if(ev.key==='Enter'){ ev.preventDefault(); if(t[_AB_CMD_SEL]) fuehre(t[_AB_CMD_SEL].go); }
+    else if(ev.key==='Escape'){ inp.value=''; inp.blur(); }
+  });
+  /* ⌘K bzw. Strg+K einmal am Fenster — nicht bei jedem Neuzeichnen neu. */
+  if(!window._abCmdTaste){
+    window._abCmdTaste=true;
+    window.addEventListener('keydown',function(ev){
+      if(!(ev.metaKey||ev.ctrlKey)) return;
+      if(String(ev.key).toLowerCase()!=='k') return;
+      var i=document.getElementById('abCmdIn'); if(!i) return;
+      ev.preventDefault(); i.focus();
+    });
+  }
+  male();
+}
+
 /* Hilfslinien zeichnen. Sie liegen IN der Flaeche und verschwinden mit dem
    Loslassen — sie sind Werkzeug, nicht Inhalt, und stehen deshalb in keiner
    Konfiguration. */
@@ -13067,6 +13248,8 @@ function _abBentoNach(box){
     }
   }
 
+  _abCmdNach(box);
+
   /* Reihe 2 laedt NACH — sie darf den Seitenaufbau nicht aufhalten (Work #17). */
   if(document.getElementById('abAkt')||document.getElementById('abRegion')
      ||document.getElementById('abStammU')||document.getElementById('abWirk')){
@@ -13079,7 +13262,7 @@ function _abNeuZeichnen(){
   var box=document.getElementById('abBentoBox'); if(!box) return;
   var A=null;
   try{ if(_abNp && typeof _abAbl==='function') A=_abAbl(_abNp); }catch(e){}
-  box.innerHTML=_abEditLeiste()+_abBento(_abD,_abNp,A)+_abBento2();
+  box.innerHTML=_abEditLeiste()+_abBento(_abD,_abNp,A)+_abBento2()+_abCmdHtml();
   _abBentoNach(box);
 }
 
@@ -13510,7 +13693,8 @@ function dashArbeitHtml(d,np,fehler){
 
   /* Beide Bento-Reihen liegen in EINEM Behaelter, damit der Anordnen-Modus sie
      zusammen neu zeichnen kann, ohne die Seite neu zu laden (Work #42/E5). */
-  if(ans!=='graph') h+='<div id="abBentoBox">'+_abEditLeiste()+_abBento(d,np,A)+_abBento2()+'</div>';
+  if(ans!=='graph') h+='<div id="abBentoBox">'+_abEditLeiste()+_abBento(d,np,A)+_abBento2()
+    +_abCmdHtml()+'</div>';
 
   if(ans==='graph'){
     h+='<div class="abrow r2"><div class="abp"><div class="abph"><h3>Graph</h3>'
@@ -30933,7 +31117,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3380";
+const APP_BUILD = "2026-08-15-3440";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
