@@ -2215,8 +2215,36 @@ body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feSchrittFuss{ align-se
 
    Rechnung: 56 + 200 + 143 + 141 + 84 = 624 plus Gaps — passt in die 600er Mitte,
    weil die fr-Anteile nachgeben; die MINIMA sind das, was kippt. */
+/* 🔴 16.08.2026 — WORK #37, RALPH-ENTSCHEID A: "Spaltenminima senken statt Mitte
+   verbreitern." Nur die beiden MITTLEREN Minima gehen herunter, sonst nichts.
+
+     VERARBEITUNG   143 -> 110
+     ZUSATZSTOFF    141 -> 118
+
+   WARUM GERADE DIESE ZWEI: sie sind bei den meisten Produkten LEER. Gemessen an
+   P73618 stand bei ALLEN 13 Bestandteilen in beiden Spalten nur "–". Sie belegten
+   also 284 px Mindestbreite fuer einen Gedankenstrich, waehrend BESTANDTEIL und WERT
+   den Platz brauchen. 110 traegt "unspecified_processing" nicht aus — muss es auch
+   nicht, das ist der Fall, in dem "–" steht. Der laengste ECHTE Wert, den die Spalte
+   heute zeigt, ist ein Verarbeitungsbegriff plus Stift; dafuer reicht es.
+
+   RECHNUNG, Minima plus vier Gaps a 10 (body.riFokus setzt column-gap:10, ui.css 2375):
+     vorher   56 + 200 + 143 + 141 + 84 + 40 = 664
+     jetzt    56 + 200 + 110 + 118 + 84 + 40 = 608
+   Bei der heutigen Mitte von 700 sind das 92 px Luft statt 36. Die fr-Anteile
+   (1.8 / .8 / .9) bleiben unangetastet — bei genug Platz sieht die Tabelle also aus
+   wie bisher, sie kippt nur nicht mehr, wenn es eng wird.
+
+   RALPHS URSPRUENGLICHE ZAHLEN 200/143/141 aus Work #39 BLEIBEN STEHEN, wo sie
+   tragen: die Namensspalte hat er selbst am Stellrad eingestellt, und die faellt
+   hier nicht an. Geaendert wird nur, was fuer leere Zellen reserviert war.
+
+   🔴 NICHT AM BILD GEPRUEFT. Die Rechnung sagt, es passt; ob 110 px fuer den
+   laengsten echten Verarbeitungsbegriff reichen, entscheidet der Bildschirm.
+   Wer das abnimmt, sucht ein Produkt MIT gefuellter Verarbeitungsspalte — bei
+   P73618 sind alle 13 leer und beweisen daher nichts. */
 #fe_colZut{
-  --best-spalten: 56px minmax(200px,1.8fr) minmax(143px,.8fr) minmax(141px,.9fr) 84px;
+  --best-spalten: 56px minmax(200px,1.8fr) minmax(110px,.8fr) minmax(118px,.9fr) 84px;
 }
 /* Rueckfall fuer die alte Ansicht ohne Fokus - dort ist die Karte schmaler. */
 body:not(.riFokus) #fe_colZut{
