@@ -19177,6 +19177,40 @@ function _fgBestandteilBilanz(){
     if(z.resolved_rating==null) b.ohne_note++;
     if(!z.canonical_entity_id) b.ohne_identitaet++;
   });
+  /* 🔴 16.08.2026 — RALPH an P73619: "1/1 gruen, das darf nicht sein, darf nicht zum
+     freigeben gueltig sein, wenn zutaten nicht im stamm sind! muss heissen 1/3".
+     Er hat recht, und es war eine LUEGE der gefaehrlichen Sorte: gruen bei einem
+     Drittel erfasster Zutaten.
+
+     URSACHE: diese Bilanz zaehlte AUSSCHLIESSLICH `window._fgCanon` — die GEBUNDENEN
+     Zeilen. Die vom Etikett gelesenen, aber nicht gebundenen stehen in einer voellig
+     anderen Liste (`window._fgZutOffen`, gerendert im blauen Kasten darunter). Die
+     Bilanz hat sie nie gesehen. Bei P73619 hiess das: 1 gebunden = "1/1 erfuellt",
+     waehrend zwei Zeilen daneben ausdruecklich als "nicht im Stamm" dastanden.
+
+     Der Kommentar bei S.bestandteile_offen behauptet seit dem 14.08. sogar, offen sei
+     "Identitaet ungeklaert (Vertrag) BZW. NICHT IM STAMM (Maske)" — der zweite Teil war
+     nie implementiert. Eine Absicht im Kommentar ist keine Zeile im Code.
+
+     JETZT: die offenen kommen dazu. Bewusst als EIGENE Felder, ohne `gesamt` und
+     `ohne_identitaet` umzudeuten — an denen haengen zwei weitere Aufrufer (app.js
+     ~25734 und ~25893), und eine stille Bedeutungsaenderung waere genau der Fehlertyp,
+     den dieser Fix behebt.
+       b.offen        = Zeilen vom Etikett, die nicht im Stamm sind
+       b.gesamt_alle  = gebunden + offen  -> das ist Ralphs Nenner (1/3)
+     Faellt die Liste aus (Ladefehler), bleibt b.offen 0 UND b.offen_unbekannt ist true:
+     dann wird NICHT behauptet, es sei nichts offen (§1.2, §3.4). */
+  b.gebunden = rows.length;
+  b.offen = 0;
+  b.offen_unbekannt = false;
+  try{
+    if(window._fgZutOffenFehler){ b.offen_unbekannt = true; }
+    else if(typeof _fgZutOffenListe === "function"){
+      var _off = _fgZutOffenListe();
+      b.offen = Array.isArray(_off) ? _off.length : 0;
+    }
+  }catch(e){ b.offen_unbekannt = true; console.error("Bestandteil-Bilanz, offene Zutaten:", e); }
+  b.gesamt_alle = b.gebunden + b.offen;
   return b;
 }
 if(typeof window!=="undefined"){ window._fgBestandteilBilanz=_fgBestandteilBilanz; }
@@ -24354,6 +24388,14 @@ function feFokusStand(s){
                         Eine fehlende Verarbeitungsnote ist bewusst NULL und blockiert nichts;
                         sie steht als Zusatz im Text, nicht als Warnzeichen. */
                      if(b.gesamt===0) return {z:"offen", txt:"noch nichts erfasst"};
+                     /* 🔴 16.08.2026, Ralph an P73619: dieser Schritt darf NICHT
+                        "erfuellt" sein, solange Zeilen vom Etikett gelesen wurden, die
+                        nicht im Stamm sind. Vorher zaehlte hier nur der gebundene Teil —
+                        1 gebunden ergab "1/1 erfuellt", waehrend zwei offene Zeilen
+                        sichtbar darunter standen. Der Nenner ist jetzt gesamt_alle. */
+                     if(b.offen_unbekannt) return {z:"entscheid", txt:(b.gebunden+" gebunden · offene unbekannt")};
+                     if(b.offen>0) return {z:"entscheid",
+                        txt:(b.gebunden+"/"+b.gesamt_alle+" · "+b.offen+" nicht im Stamm")};
                      if(b.ohne_identitaet>0) return {z:"entscheid", txt:(b.ohne_identitaet+" von "+b.gesamt+" offen")};
                      return {z:"fertig", txt:(b.gesamt+"/"+b.gesamt+(b.ohne_note>0?(" · "+b.ohne_note+" ohne Note"):""))};
     case 'eigen':    return {z:"neutral", txt:""};
@@ -26021,8 +26063,12 @@ function getErfassungsStatus(){
      nicht im Stamm (Maske) — beides heißt „die Bindung fehlt". */
   var canon=Array.isArray(window._fgCanon)?window._fgCanon:null;
   var bb=(typeof _fgBestandteilBilanz==="function")?_fgBestandteilBilanz():null;
-  S.bestandteile_gesamt=canon?canon.length:roh.zMit;
-  S.bestandteile_offen=bb?bb.ohne_identitaet:(roh.zOhneStamm||0);
+  /* 🔴 16.08.2026, Ralph an P73619: der Kopfchip meldete "Bestandteile 1/1 ✓" gruen,
+     obwohl zwei Zeilen vom Etikett als "nicht im Stamm" dastanden. Der Nenner war der
+     GEBUNDENE Teil, nicht das Etikett. Jetzt zaehlen beide mit — dieselbe Bilanz, die
+     auch Schritt 3 liest, damit Kopf und Schritt nicht auseinanderlaufen koennen (§4.2). */
+  S.bestandteile_gesamt=bb?bb.gesamt_alle:(canon?canon.length:roh.zMit);
+  S.bestandteile_offen=bb?(bb.ohne_identitaet+bb.offen):(roh.zOhneStamm||0);
   S.bestandteile_ohne_note=bb?bb.ohne_note:(roh.zOhneNote||0);
   /* --- Referenz: AUSSCHLIESSLICH der Serverwert (Ralph Punkt 3). Nicht
          pruefung_abschliessbar, nicht „unentschieden" — nur `blocker`. */
@@ -31981,7 +32027,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-16-3670";
+const APP_BUILD = "2026-08-16-3690";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
