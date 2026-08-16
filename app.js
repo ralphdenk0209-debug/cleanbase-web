@@ -2810,6 +2810,52 @@ function detail2(d){
     return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:'+c[1]+';color:'+c[2]+'"><span aria-hidden="true">'+c[0]+'</span>'+esc(label)+'</span>';
   }
 
+  /* 🔴 16.08.2026 — WORK #67, BRATEN-EIGNUNG AUF DER PRODUKTSEITE.
+     Ralph: "auf der produktseite brauchen wir noch einen chip, speziell fuer oele, also
+     speziell zum braten geeignet. chip wie bio oder fleisch. der ist wichtig, weil viele
+     menschen das nicht beachten."
+
+     ES WIRD NICHTS GERECHNET. Die vier Felder kommen fertig aus v_web_produkte
+     (public.v_produkt_braten_eignung, Work #69). Schwelle 210/190 °C, von Ralph am
+     16.08. freigegeben. Eine Schwelle im Frontend waere dieselbe Regel an einem zweiten
+     Ort (§4.2) — und die erste, die beim naechsten Entscheid veraltet.
+
+     WANN DER CHIP ERSCHEINT — dieselbe Regel wie im Editor (_feRailEigen), damit beide
+     Seiten nachweislich dasselbe zeigen:
+       Aussage vorhanden -> IMMER. Gemessen 16.08.: 870 Produkte, davon 813 AUSSERHALB
+         der Kategorie "Öle & Fette" — Butter in Milchprodukten, Fette in Backwaren.
+         Die Warnung gehoert an das Butterprodukt, nicht nur in die Oelkategorie.
+       'ungeprueft' -> NUR in "Öle & Fette". Sonst stuende "noch nicht geprueft" auf
+         jedem Apfel: 61.244 mal.
+
+     WARUM DER GRAUE CHIP UEBERHAUPT ERSCHEINT — er ist der wichtigste der drei.
+     Ralph 16.08.: "ab dem ersten tag aufnehmen." Sobald gewarnt wird, wird SCHWEIGEN
+     ZUR AUSSAGE: "kein Chip" laese sich als "ist in Ordnung". Bei 709 ungeprueften
+     Oelen waere das eine stille Freigabe auf jeder Produktseite (§1.10, §3.4).
+
+     Gemessen 16.08.: 0 Produkte auf 'geeignet'. Der gruene Chip erscheint zunaechst
+     nirgends — ehrliche Folge der Schwelle, kein Anzeigefehler. */
+  function bratenPill(p){
+    var e=String((p&&p.braten_eignung)||"").trim();
+    if(!e) return "";
+    var kat=String((p&&p.kategorie)||"").trim();
+    if(e==="ungeprueft" && kat!=="Öle & Fette") return "";
+    var m={
+      geeignet:              ["✅","zum Braten geeignet","var(--k-e7f4ec)","var(--k-1f5e34)"],
+      nicht_scharf_anbraten: ["⚠️","nicht scharf anbraten","var(--k-fdeceb,#fdeceb)","var(--k-b91c1c)"],
+      ungeprueft:            ["○","Erhitzen noch nicht geprüft","var(--k-eef2f6)","var(--k-475569)"]
+    }[e];
+    if(!m) return "";
+    var grund=String((p&&p.braten_grund)||"").trim();
+    var beleg=String((p&&p.braten_beleg)||"").trim();
+    var stand=String((p&&p.braten_stand)||"").trim();
+    /* Ohne Beleg keine stille Behauptung (§1.3): fehlt er, steht das im Titel. */
+    var tip=(grund||"Kein Grund hinterlegt.")
+      +(beleg?("\n\nBeleg: "+beleg):"\n\nKein Beleg hinterlegt.")
+      +(stand?("\nStand: "+stand):"");
+    return '<span title="'+esc(tip)+'" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:'+m[2]+';color:'+m[3]+';cursor:help"><span aria-hidden="true">'+m[0]+'</span>'+esc(m[1])+'</span>';
+  }
+
   function kachel(k,label,unit){
     var raw=num(d[k]); if(raw==null) return '';
     var val=(k==='m_kcal')?Math.round(raw):Math.round(raw*10)/10;
@@ -2909,7 +2955,7 @@ function detail2(d){
        der Titel umfliesst den Knopf, die Pille steht unter der Marken-Zeile. */
     + '<div style="min-width:0"><h2 style="margin:0 0 2px">'+esc(d.name)+'</h2>'
       + '<div class="marke" style="margin:0">'+((mkLabel(d.marke)?esc(mkLabel(d.marke))+' · ':'')+esc(d.kategorie||''))+(d.unterkategorie?(' · '+esc(d.unterkategorie)):'')+'</div>'
-      + ((efPill(d.ernaehrungsform)||bioPill(d))?('<div style="margin-top:6px">'+efPill(d.ernaehrungsform)+bioPill(d)+'</div>'):'')
+      + ((efPill(d.ernaehrungsform)||bioPill(d)||bratenPill(d))?('<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+efPill(d.ernaehrungsform)+bioPill(d)+bratenPill(d)+'</div>'):'')
     + '</div>'
     + warn
     + (d.ohne_index?'<div style="margin:12px 0 6px;padding:12px 14px;border:1px solid var(--k-e4a343,#e4a343);border-radius:12px;background:var(--k-fff7ea,#fff7ea);font-size:12.5px;line-height:1.55;color:var(--k-7a5c1e,#7a5c1e)"><b>🌱 Bewusst ohne Index.</b> Für dieses Produkt gibt es keine belegbaren Nährwerte (typisch bei frischen Sprossen/Keimlingen – weder Hersteller noch BLS/USDA führen Werte). Wir zeigen lieber keine Zahl als eine erfundene.</div>':'')
@@ -17850,6 +17896,127 @@ async function fmMikroEditSave(){
 if(typeof window!=='undefined'){ window.fmMikroEdit=fmMikroEdit;
   window.fmMikroEditAbbruch=fmMikroEditAbbruch; window.fmMikroEditSave=fmMikroEditSave;
   window._fmEinheitFuellen=_fmEinheitFuellen; window._fmEinheitLesen=_fmEinheitLesen; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORK #58 — NÄHRSTOFFE NACH QUELLABSCHNITT TRENNEN   (ChatGPT-Auftrag, 15.08.2026)
+
+   BEFUND: Schritt 2 zeigte Aminosäuren unter „Mikronährstoffe". Nach dem Backfill
+   aus Work #61 stehen sie in Produkt_Naehrstoffe mit semantic_class=amino_acid —
+   und waren damit im Editor GAR NICHT MEHR SICHTBAR: aus dem Mikro-Block raus, und
+   der Wirkstoff-Block liest v_ri_dosierung, die nur Stoffe MIT NRV führt.
+   Bei P73618 verschwanden so 12 gemessene Etikettwerte aus dem Blick.
+
+   🔴 KEINE ZWEITE REGELDEFINITION (§4.2, server_ssot). In dieser Datei steht
+   keine Klassenliste, keine Abschnittsliste und keine Zuordnung Stoff→Klasse:
+     · die Zeilen samt Klasse kommen aus cb_admin_produkt_naehrstoff_klassen,
+       die BEIDE Tabellen vereint zurückgibt (source_table sagt, aus welcher).
+     · die Gruppenreihenfolge und der Erklärtext kommen aus
+       cb_source_section_routing_rules — dem Regelwerk selbst, nicht aus einer Kopie.
+     · Gruppen entstehen aus den tatsächlich vorkommenden semantic_class-Werten.
+       Kommt serverseitig eine Klasse dazu, erscheint sie hier, ohne dass jemand
+       diese Datei anfasst.
+   Genau daran war ich am 15.08. gescheitert und habe Work #58 deshalb disputiert:
+   solange die Klasse nicht am Datensatz stand, hätte ich sie aus dem Stoffnamen
+   raten müssen — das wäre der Fehler aus Work #20 ein zweites Mal gewesen.
+
+   Read-only: dieser Block zeigt an und schreibt nichts. Korrigiert wird weiterhin
+   im Mikro-Block bzw. in der Wirkstoffmaske.
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function fnkRegeln(){
+  if(window._fnkRegeln) return window._fnkRegeln;
+  try{
+    var r=await client.rpc('cb_source_section_routing_rules');
+    if(r&&r.error) throw r.error;
+    window._fnkRegeln=Array.isArray(r&&r.data)?r.data:[];
+  }catch(e){
+    window._fnkRegeln=[];
+    window._fnkRegelFehler=(e&&e.message)?String(e.message):String(e);
+    try{ console.error('[Naehrstoffklassen] cb_source_section_routing_rules:',e); }catch(_){}
+  }
+  return window._fnkRegeln;
+}
+async function fnkLaden(pid){
+  var box=document.getElementById('fnkWrap'); if(!box) return;
+  window._fnkZeilen=null; window._fnkFehler='';
+  if(!pid){ box.innerHTML=''; return; }
+  await fnkRegeln();
+  try{
+    var r=await client.rpc('cb_admin_produkt_naehrstoff_klassen',{p_produkt_id:pid});
+    if(r&&r.error) throw r.error;
+    window._fnkZeilen=Array.isArray(r&&r.data)?r.data:[];
+  }catch(e){
+    window._fnkFehler=(e&&e.message)?String(e.message):String(e);
+    /* Kein leerer Fangblock (§11.4): ein ausgefallener Abruf darf nicht wie
+       „keine Stoffe vorhanden" aussehen — der Grund steht im Block selbst. */
+    try{ console.error('[Naehrstoffklassen] cb_admin_produkt_naehrstoff_klassen:',e); }catch(_){}
+  }
+  fnkRender();
+}
+function fnkRender(){
+  var box=document.getElementById('fnkWrap'); if(!box) return;
+  if(window._fnkFehler){
+    box.innerHTML='<div style="font-size:12px;color:var(--k-dc2626)"><b>Nährstoffklassen nicht abrufbar.</b> '
+      +esc(window._fnkFehler)+'</div>';
+    return;
+  }
+  var zeilen=window._fnkZeilen; if(!Array.isArray(zeilen)||!zeilen.length){ box.innerHTML=''; return; }
+  var regeln=window._fnkRegeln||[];
+
+  /* Abnahmepunkt 1 verlangt, dass die Gruppen GETRENNT SICHTBAR sind — nicht, dass
+     jede Zeile hier steht. Deshalb bekommt JEDE vorkommende Klasse eine Überschrift
+     mit ihrer Zahl, aber die Zeilen aus Produkt_Mikronaehrstoffe werden nicht noch
+     einmal ausgeschrieben: die stehen bereits in der Karte darüber. Dieselbe Zeile
+     zweimal auf einem Bildschirm wäre die zweite Wahrheit, die §4.2 verbietet —
+     eine verschwiegene Gruppe wäre aber genauso falsch, weil dann niemand sieht,
+     dass es sie gibt. Die Überschrift nennt beides: wie viele, und wo sie stehen. */
+  var rest=zeilen;
+
+  /* Reihenfolge und Text der Gruppen aus dem Regelwerk. Klassen ohne Regel werden
+     NICHT verschwiegen, sondern hinten angehängt — eine unbekannte Klasse ist ein
+     Hinweis, kein Grund zum Ausblenden (§3.4). */
+  var rangVon={}, textVon={};
+  regeln.forEach(function(r,i){
+    if(r.semantic_class && rangVon[r.semantic_class]==null){ rangVon[r.semantic_class]=i; }
+    if(r.semantic_class && r.rule_text && !textVon[r.semantic_class]) textVon[r.semantic_class]=r.rule_text;
+    if(r.exception_semantic_class && rangVon[r.exception_semantic_class]==null) rangVon[r.exception_semantic_class]=i;
+  });
+  var gruppen={};
+  rest.forEach(function(z){ var k=z.semantic_class||'(ohne Klasse)'; (gruppen[k]=gruppen[k]||[]).push(z); });
+  var namen=Object.keys(gruppen).sort(function(a,b){
+    var ra=(rangVon[a]==null?999:rangVon[a]), rb=(rangVon[b]==null?999:rangVon[b]);
+    return ra-rb || a.localeCompare(b);
+  });
+
+  box.innerHTML=namen.map(function(k){
+    var arr=gruppen[k].slice().sort(function(x,y){ return String(x.stoffname).localeCompare(String(y.stoffname)); });
+    var abschnitte={}; arr.forEach(function(z){ if(z.source_section_key) abschnitte[z.source_section_key]=1; });
+    var absTxt=Object.keys(abschnitte).join(', ');
+    var erkl=textVon[k]||'';
+    /* Zeilen, die schon in der Mikro-Karte darüber stehen, werden hier gezählt und
+       verortet statt wiederholt. */
+    var oben=arr.filter(function(z){ return z.source_table==='Produkt_Mikronaehrstoffe'; });
+    var hier=arr.filter(function(z){ return z.source_table!=='Produkt_Mikronaehrstoffe'; });
+    return '<div style="margin-top:9px;border:1px solid var(--line);border-radius:9px;background:var(--card);padding:8px 10px">'
+      +'<div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-bottom:5px">'
+      +'<b style="font-size:12.5px">'+esc(k)+'</b>'
+      +'<span style="font-size:11px;color:var(--muted)">'+esc(String(arr.length))+' Zeilen'
+      +(absTxt?' · Quellabschnitt '+esc(absTxt):'')+'</span></div>'
+      +(erkl?'<div style="font-size:11px;color:var(--muted);line-height:1.45;margin-bottom:6px">'+esc(erkl)+'</div>':'')
+      +(oben.length?'<div style="font-size:11px;color:var(--muted);font-style:italic;padding:3px 0">'
+         +esc(String(oben.length))+' davon stehen oben in der Karte „Mikronährstoffe" und werden hier nicht wiederholt.</div>':'')
+      +hier.map(function(z){
+        return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--line);font-size:12.5px">'
+          +'<span style="flex:1">'+esc(String(z.stoffname||''))+'</span>'
+          +'<span>'+(z.vergleichsoperator?esc(String(z.vergleichsoperator))+' ':'')
+          +esc(String(z.menge))+' '+esc(String(z.einheit||''))+'</span>'
+          +(z.bezug?'<span style="font-size:10.5px;color:var(--muted)">'+esc(String(z.bezug))+'</span>':'')
+          +(z.nrv_prozent!=null?'<span style="font-size:10.5px;color:var(--muted)">'+esc(String(z.nrv_prozent))+' % NRV</span>':'')
+          +'</div>';
+      }).join('')
+      +'</div>';
+  }).join('');
+}
+if(typeof window!=='undefined'){ window.fnkLaden=fnkLaden; window.fnkRender=fnkRender; window.fnkRegeln=fnkRegeln; }
 /* Form MUSS mit: ein Produkt kann "Vitamin D" und "Vitamin D3" nebeneinander fuehren.
    Ohne Form loeschte das rote X beide Zeilen - stiller Datenverlust. */
 async function fmMikroDel(stoff, form){
@@ -21342,6 +21509,19 @@ async function openFgEditor(id, prefill, targetEl){
     }
   }
   window._fgEdit={ id:id, bild_url:d.bild_url||"", status:String(d.status||""),
+                   /* 🔴 16.08.2026 — WORK #67, Braten-Eignung. Vier Felder, UNVERAENDERT
+                      durchgereicht: sie kommen aus public.v_produkt_braten_eignung ueber
+                      cb_produkt_edit_get (Work #70) und werden hier NICHT umgerechnet,
+                      nicht gerundet und nicht ergaenzt. Der Editor zeigt das Serverurteil,
+                      er bildet keins (§4.2, server_ssot).
+                      `braten_eignung` kennt genau drei Werte: geeignet ·
+                      nicht_scharf_anbraten · ungeprueft. Fehlt das Feld ganz (alter Build,
+                      RPC noch ohne die Felder), bleibt es leer und die Rail zeigt nichts —
+                      leer heisst NICHT "geeignet" (§3.4). */
+                   bratenEignung:String(d.braten_eignung||""),
+                   bratenGrund:String(d.braten_grund||""),
+                   bratenBeleg:String(d.braten_beleg||""),
+                   bratenStand:String(d.braten_stand||""),
                    etikett:_etikett,
                    /* 07.08.2026: Abzug der beim Laden VORHANDENEN Fotos. fgEditSave sendet
                       beim Speichern nur die Differenz an cb_foto_vormerken - sonst legte
@@ -21702,7 +21882,7 @@ async function openFgEditor(id, prefill, targetEl){
           </div>
         </div>
     <div id="fe_naehrKacheln" style="margin-top:10px"></div>
-  <div id="fe_mikroWrap" style="display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span class="feKartenZusatz">– je 100 g, Herkunft je Zeile</span>`,`<div class="feMikroHinweis" title="Mineralstoffe/Vitamine je 100 g. ETIKETT = auf der Packung deklariert. ABGELEITET = aus dem BLS-/USDA-Nachschlagewerk übernommen, also KEIN Beleg für DIESES Produkt (CLAUDE.md §3.2, §8.3). Bis 08.08.2026 hieß die Karte „vom Etikett deklariert“ – falsch: 16.337 von 16.354 Zeilen sind abgeleitet.">Werte <b>pro 100 g</b> · Herkunft je Zeile · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none"></div><div id="fm_mikroRows" ><span class="feMikroLaedt">lädt…</span></div><div class="feMikroAddZeile"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" ><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" ><select id="fm_mikroEinheit" title="Einheit laut Etikett – Vorauswahl ist die hinterlegte Einheit des Nährstoffs (Work #18)"></select><button type="button" onclick="fmMikroAdd()" class="feMikroBtn">+ setzen</button></div><div id="fm_mikroMsg" style="color:var(--muted)"></div><div class="feUsdaZeile"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" ><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" class="feUsdaBtn">🔎 USDA</button></div><div id="fm_usdaErg" ></div>`)}</div>
+  <div id="fe_mikroWrap" style="display:flex" data-note="MIKRO in Spalte 2, fester Anteil der Spaltenhoehe">${cardF(`Mikronährstoffe <span class="feKartenZusatz">– je 100 g, Herkunft je Zeile</span>`,`<div class="feMikroHinweis" title="Mineralstoffe/Vitamine je 100 g. ETIKETT = auf der Packung deklariert. ABGELEITET = aus dem BLS-/USDA-Nachschlagewerk übernommen, also KEIN Beleg für DIESES Produkt (CLAUDE.md §3.2, §8.3). Bis 08.08.2026 hieß die Karte „vom Etikett deklariert“ – falsch: 16.337 von 16.354 Zeilen sind abgeleitet.">Werte <b>pro 100 g</b> · Herkunft je Zeile · <b>speichert sofort</b></div><div id="fm_mikroVorschlag" style="display:none"></div><div id="fm_mikroRows" ><span class="feMikroLaedt">lädt…</span></div><div class="feMikroAddZeile"><select id="fm_mikroStoff" onchange="fmMikroStoffChange()" ><option value="">Nährstoff…</option></select><input id="fm_mikroMenge" type="number" step="any" placeholder="pro 100g" ><select id="fm_mikroEinheit" title="Einheit laut Etikett – Vorauswahl ist die hinterlegte Einheit des Nährstoffs (Work #18)"></select><button type="button" onclick="fmMikroAdd()" class="feMikroBtn">+ setzen</button></div><div id="fm_mikroMsg" style="color:var(--muted)"></div><div class="feUsdaZeile"><input id="fm_usdaSuche" placeholder="USDA nachschlagen (z. B. brazilnut, arugula) …" onkeydown="if(event.key==='Enter'){event.preventDefault();fmUsdaSuchen();}" ><button type="button" onclick="fmUsdaSuchen()" title="Im USDA-Nachschlagewerk suchen (8.262 Lebensmittel, Selen/Cholin je 100 g)" class="feUsdaBtn">🔎 USDA</button></div><div id="fm_usdaErg" ></div>`)}<div id="fnkWrap" style="margin-top:10px"></div></div>
   </div>
   <div id="feNwFotoSlot">
             <div id="fe_wirkFotoCol">${card(`Etikett zum Ablesen <span class="feKartenZusatz">(zoombar – Mausrad / ziehen)</span>`,`
@@ -21868,6 +22048,7 @@ async function openFgEditor(id, prefill, targetEl){
     try{ feUrlLblSync(); }catch(e){}
     try{ keinScoreKatsLaden().then(function(){ try{ feKatChange(); }catch(e){} }); }catch(e){}   /* 28z3: Kein-Score-Liste nachladen, Layout+Pflichten dann korrekt */
     try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
+    try{ fnkLaden((window._fgEdit&&window._fgEdit.id)||''); }catch(e){ console.error('[Naehrstoffklassen] Laden:',e); }   /* Work #58: Gruppen nach Quellabschnitt */
     try{ feWirkLoad(d.wirkstoffe, d.wirkstoffe_nicht_verfuegbar); }catch(e){}   /* Wirkstoff-Mengen (Dosis) laden */
     try{ feWirkHerkunft((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* 10.08.: Marke „zugesetzt" je Zeile - reine Anzeige, Regel steht in cb_produkt_wirkstoff_herkunft */
     try{ fgPickRender(); fgPickRefreshView(); fgPickObserve(); }catch(e){}   /* Picker + Textbox aus #fe_zutRows aufbauen */
@@ -24223,7 +24404,55 @@ function _feRailEigen(){
     + (wahl==='' ? '<div class="feSegAuto">'
         +(auto ? ('berechnet: <b>'+esc(kurz(auto))+'</b>')
                : 'wird berechnet, sobald Zutaten gebunden sind')+'</div>' : '');
-  return '<div class="feRailEigen">'+B+E+'</div>';
+  /* 🔴 16.08.2026 — WORK #67, BRATEN-EIGNUNG. Ralph: "auf der produktseite brauchen wir
+     noch einen chip, speziell fuer oele, also speziell zum braten geeignet. ... der ist
+     wichtig, weil viele menschen das nicht beachten."
+
+     ANDERS ALS BIO UND ERNAEHRUNGSFORM IST DAS KEIN SCHALTER, SONDERN EINE ANZEIGE.
+     Das Urteil faellt der Server (public.v_produkt_braten_eignung, Work #69, Staffel
+     210/190 °C von Ralph am 16.08. freigegeben). Hier wird NICHTS gerechnet und nichts
+     gesetzt — waere es klickbar, waere es eine Attrappe (Ralph P12).
+
+     WANN DER CHIP ERSCHEINT — meine Anzeigeregel, offengelegt in Work #70:
+       Aussage vorhanden (geeignet / nicht_scharf_anbraten) -> IMMER, in jeder Kategorie.
+         Gemessen: 870 Produkte haben eine Aussage, 813 davon liegen AUSSERHALB von
+         "Öle & Fette" — Butter in Milchprodukten, Fette in Backwaren. Die Warnung gehoert
+         an das Butterprodukt, nicht nur in die Oelkategorie.
+       'ungeprueft' -> NUR in "Öle & Fette".
+         Sonst stuende "Braten: noch nicht geprueft" auf jedem Apfel: 61.244 mal.
+     DER DRITTE ZUSTAND WIRD NICHT VERSTECKT, und das ist der ganze Punkt. Ralph
+     16.08.: "ab dem ersten tag aufnehmen." Sobald gewarnt wird, wird SCHWEIGEN ZUR
+     AUSSAGE — "kein Chip" laese sich dann als "ist in Ordnung". Bei 709 ungeprueften
+     Oelen waere das eine Luege auf jeder Produktseite.
+
+     🔴 HEUTE STEHT KEIN PRODUKT AUF 'geeignet' (gemessen 16.08.: 0 von 62.114). Der
+     gruene Chip erscheint also zunaechst nirgends. Das ist die ehrliche Folge der
+     210-°C-Schwelle und kein Fehler in dieser Anzeige. */
+  var _brE=String((window._fgEdit&&window._fgEdit.bratenEignung)||"").trim();
+  var _brKat=String(((document.getElementById("fe_kat")||{}).value||"")).trim();
+  var _brZeigen=(_brE==="geeignet"||_brE==="nicht_scharf_anbraten")
+             || (_brE==="ungeprueft" && _brKat==="Öle & Fette");
+  var BR="";
+  if(_brZeigen){
+    var _brT={
+      geeignet:              ["✅ zum Braten geeignet","gut"],
+      nicht_scharf_anbraten: ["⚠️ nicht scharf anbraten","warn"],
+      ungeprueft:            ["○ noch nicht geprüft","offen"]
+    }[_brE]||["○ noch nicht geprüft","offen"];
+    /* Grund und Beleg stehen im Titel, nicht in der Kachel: die Rail ist schmal, und der
+       Beleg ist eine PMCID-Fundstelle, die niemand ueberfliegt. Ohne Beleg keine Aussage
+       (§1.3) — steht keiner da, sagt der Titel das ausdruecklich. */
+    var _brTip=(window._fgEdit&&window._fgEdit.bratenGrund)||"";
+    var _brBel=(window._fgEdit&&window._fgEdit.bratenBeleg)||"";
+    var _brSt =(window._fgEdit&&window._fgEdit.bratenStand)||"";
+    var _brTitel=(_brTip||"Kein Grund hinterlegt.")
+      +(_brBel?("\n\nBeleg: "+_brBel):"\n\nKein Beleg hinterlegt.")
+      +(_brSt?("\nStand: "+_brSt):"")
+      +"\n\nServerurteil – im Editor nicht änderbar.";
+    BR='<div class="feSegTitel">Erhitzen</div>'
+      +'<div class="feRailBraten '+_brT[1]+'" title="'+esc(_brTitel)+'">'+esc(_brT[0])+'</div>';
+  }
+  return '<div class="feRailEigen">'+B+E+BR+'</div>';
 }
 /* Der EINE Klickweg fuer beide Segmentleisten. Er ruft die bestehenden Setter und
    zeichnet danach die Rail neu — er speichert NICHT (das bleibt „Speichern"). */
@@ -31483,7 +31712,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-16-3600";
+const APP_BUILD = "2026-08-16-3620";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

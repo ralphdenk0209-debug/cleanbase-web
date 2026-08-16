@@ -2610,6 +2610,26 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
 .feSegBtn:hover{ border-color:var(--k-2f6fd6,#2f6fd6) }
 .feSegBtn.akt{ background:var(--k-eef4ff,#eef4ff); border-color:var(--k-2f6fd6,#2f6fd6);
   color:var(--k-1d4ed8,#1d4ed8) }
+
+/* 🔴 16.08.2026 — WORK #67, Braten-Eignung in der Rail.
+   BEWUSST KEIN .feSegBtn: die Segmentknoepfe daneben sind BEDIENBAR, dieser Chip ist
+   eine ANZEIGE des Serverurteils. Saehe er aus wie ein Knopf, wuerde Ralph darauf
+   klicken und nichts passierte — eine Attrappe (Ralph P12). Deshalb kein Zeigefinger,
+   kein Hover-Rand, und `cursor:help`, weil die ganze Begruendung samt Beleg im Titel
+   haengt.
+   Drei Zustaende, drei Toene — alle drei aus dem vorhandenen Farbvorrat, kein neuer Ton:
+     gut   gruen  wie eine erfuellte Freigabebedingung
+     warn  rot    wie ein Blocker — das ist die Haelfte, die Menschen schuetzt
+     offen grau   sichtbar unbekannt, NICHT gruen und NICHT rot (§3.4) */
+.feRailBraten{ display:inline-flex; align-items:center; align-self:flex-start;
+  border:1px solid var(--line); border-radius:7px; background:var(--card);
+  padding:3px 7px; font-size:10px; font-weight:700; line-height:1.35;
+  white-space:nowrap; cursor:help; color:var(--muted) }
+.feRailBraten.gut{  background:var(--k-eaf5ee,#eaf5ee); border-color:var(--k-9fc6a8,#9fc6a8);
+  color:var(--k-166534) }
+.feRailBraten.warn{ background:var(--k-fdeceb,#fdeceb); border-color:var(--k-e08a82,#e08a82);
+  color:var(--k-b91c1c) }
+.feRailBraten.offen{ background:var(--card); border-style:dashed; color:var(--muted) }
 /* Der abgeleitete Zustand ist eine Rechnung, keine Bestaetigung — deshalb grau. */
 .feSegAuto{ font-size:9.5px; color:var(--muted); margin-top:3px; line-height:1.4 }
 .feSegAuto b{ color:var(--ink) }
