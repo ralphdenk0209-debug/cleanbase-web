@@ -5229,7 +5229,11 @@ function fgStammPanelBauen(){
   }
   if(!host.dataset.gebaut){
     host.dataset.gebaut='1';
+    /* Die Waechterbox gehoert an den Stamm-Bereich (Ralph P5) und NUR dorthin.
+       Sie entsteht zusammen mit dem Panel — dann kann sie gar nicht erst
+       woanders landen. */
     host.innerHTML=
+      '<div id="fgStammWaechter" class="fgStammWaechter"></div>'+
       '<div class="fgStKopf">'
         +'<div class="fgStTabs">'
           +'<button type="button" id="fgStTabNeu" class="fgStTab akt" onclick="fgStammTab(\'neu\')">Neuer Stamm</button>'
@@ -5475,7 +5479,10 @@ if(typeof window!=='undefined'){
 function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   try{ var _ov=document.getElementById("overlay"); if(_ov&&_ov.classList.contains("fgEditorFull")) closeP(); }catch(e){}  /* Menue-Wechsel schliesst den Vollbild-Editor */
   var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif',regelwerk:'fgPanelRegelwerk',produkterfassung:'fgPanelProdErf',stamm:'fgPanelStamm'};
-  if(t==='stamm'){ try{ fgStammPanelBauen(); }catch(e){ console.error('[Stamm] Panel:',e); } }
+  if(t==='stamm'){
+    try{ fgStammPanelBauen(); }catch(e){ console.error('[Stamm] Panel:',e); }
+    try{ fgStammWaechter(); }catch(e){ console.warn('[Stammwächter]',e); }
+  }
   for(var k in p){ var el=document.getElementById(p[k]); if(el) el.style.display=(k===t)?'':'none'; }
   /* 🔴 KORREKTUR 15.08.2026, im Browser gemessen: die Stammwaechter-Box haengt in
      fgPanelDash. Beim Wechsel auf den Stamm-Reiter wird fgPanelDash ausgeblendet —
@@ -5484,16 +5491,20 @@ function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
      dashDisplay 'none', waechterHoehe 0.
      Die Box WANDERT, sie wird nicht kopiert: ein Element, ein Ort, eine Datenquelle
      (§4.2). Eine zweite Anzeige derselben Zahlen wuerde irgendwann auseinanderlaufen. */
-  /* 🔴 15.08.2026 GEAENDERT, Ralph: „stamm oben raus, da habe ich link dazu."
-     Das Wandern zwischen Dashboard und Stamm entfaellt — die Box hat nur noch
-     EINEN Ort: den Stamm-Bereich. Der Umhaenger bleibt als Riegel stehen, falls
-     sie beim ersten Aufbau woanders gelandet ist; er zieht sie dann dorthin,
-     wo sie hingehoert, statt sie zu verlieren. */
+  /* 🔴 RIEGEL, kein Weg: die Box gehoert in fgPanelStamm und wird auch dort
+     gebaut. Sollte sie durch einen aelteren Stand trotzdem woanders haengen,
+     wird sie hierher gezogen — und wenn es kein Ziel gibt, ENTFERNT statt auf
+     dem Dashboard stehengelassen. Genau dieses Stehenlassen war der Fehler
+     vom 15.08. */
   try{
     var _w=document.getElementById('fgStammWaechter');
     var _ziel=document.getElementById('fgPanelStamm');
-    if(_w && _ziel && _w.parentNode!==_ziel) _ziel.insertBefore(_w, _ziel.firstChild);
+    if(_w){
+      if(_ziel){ if(_w.parentNode!==_ziel) _ziel.insertBefore(_w,_ziel.firstChild); }
+      else if(_w.parentNode && _w.parentNode.id==='fgPanelDash') _w.remove();
+    }
   }catch(e){ try{ console.warn('[Stammwächter] Umhaengen:',e); }catch(_){} }
+
   /* „Eingang" als eigener Reiter zurueckgezogen (Ralph 19.07.): sein Inhalt (Scan-Eingang mit
      Uebernehmen, Entwuerfe, Auto-Verify, Riki-Audit) erscheint jetzt UNTER „Zu verifizieren" –
      ein einziger Posteingang, in dem alles gesammelt wird. Nichts wird automatisch angelegt. */
@@ -16844,28 +16855,17 @@ async function loadFreigabe(){
   /* 🔴 15.08.: Der Stammwaechter-Block. Er haengt oben im Dashboard und RECHNET
      NICHTS im Browser (Ralph ausdruecklich) — jede Zahl kommt aus
      `cb_admin_stamm_waechter()`. Der Container wird einmal angelegt. */
-  /* 🔴 GEAENDERT 15.08.2026, Ralph: „und stamm oben raus, da habe ich link dazu."
-     Die Box haengt jetzt im STAMM-Bereich, nicht mehr im Dashboard. Vorher stand
-     sie oben in fgPanelDash und wanderte beim Reiterwechsel mit — sie war damit
-     an ZWEI Stellen im Weg: auf dem Dashboard, wo Ralph sie nicht braucht (er
-     kommt ueber das Menue in den Stamm), und als Vorbau ueber der eigentlichen
-     Arbeitsflaeche.
-     Der Container wird deshalb in fgPanelStamm angelegt. Die Zahlen sind NICHT
-     weg — sie stehen weiter dort, wo mit ihnen gearbeitet wird (Ralph P5), und
-     zusaetzlich in der Bento-Kachel „Stamm-Überblick" auf dem Dashboard, die
-     dieselbe Quelle liest (cb_admin_stamm_waechter, §4.2).
-     🔴 FOLGE FUER WORK #34: dort stand „fgStammWaechter nicht anfassen, die
-     Doppelanzeige erst entfernen, wenn die Chips stehen". Diese Bedingung ist
-     mit Ralphs Entscheid hinfaellig — er hat den oberen Ort selbst gestrichen.
-     Im Work Item vermerkt statt stillschweigend uebergangen. */
-  try{
-    var _z=document.getElementById('fgPanelStamm')||document.getElementById('fgPanelDash');
-    if(_z && !document.getElementById('fgStammWaechter')){
-      var _w=document.createElement('div'); _w.id='fgStammWaechter'; _w.className='fgStammWaechter';
-      _z.insertBefore(_w, _z.firstChild);
-    }
-    fgStammWaechter();
-  }catch(e){ console.error('[Stammwächter] Einhaengen:', e); }
+  /* 🔴 16.08.2026 — RALPH ZUM ZWEITEN MAL: „oben ist immer noch der stamm
+     waechter, weg damit." Er hatte recht, und die Ursache war mein RUECKFALL.
+     Am 15.08. stand hier: nimm fgPanelStamm, und wenn es das nicht gibt,
+     nimm fgPanelDash. GEMESSEN: fgPanelStamm wird erst von fgStammPanelBauen()
+     angelegt, und das laeuft erst beim Wechsel auf den Stamm-Reiter. Beim
+     normalen Laden gab es das Panel also NIE — der Rueckfall griff jedes Mal,
+     und die Box landete zuverlaessig auf dem Dashboard.
+     Ein Rueckfall, der immer greift, ist kein Rueckfall, sondern der Normalfall.
+     Die Box wird hier deshalb GAR NICHT MEHR angelegt. Sie entsteht dort, wo
+     sie hingehoert: in fgStammPanelBauen(). Kein zweiter Ort, keine Ausnahme. */
+
   const {data:ent}=await client.from("v_freigabe_entwuerfe").select("*").order("id");
   const el=document.getElementById("fgEntwuerfe");
   /* #2 Entdopplung: Entwürfe, die schon im Scan-Eingang (mit Foto) stehen, hier NICHT nochmal listen. */
@@ -31483,7 +31483,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-15-3560";
+const APP_BUILD = "2026-08-16-3600";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
