@@ -24673,11 +24673,37 @@ function feFokusNavBauen(){
          `_FEZ.aktuell` bleibt absichtlich stehen: es ist der Zustand fuer einen
          Schritt, der gerade laeuft und dessen Stand die Pruefung nicht kennt.
          Geloescht wuerde er beim naechsten Bedarf neu erfunden. */
-      var d=_FEZ[st.z]||_FEZ.offen;
+      /* 🔴 16.08.2026 — RALPH-ENTSCHEID B nach vier Mockups (bereiche/mockup-arbeitsfluss.html).
+         "ich sehe nicht direkt im fluss, ob alles erfuellt ist ... auch bei offenen ist das
+         kleine ausrufezeichen nicht optimal."
+
+         DAS ZEICHEN IST WEG. Bei 10 px muss ein ✓ / ○ / ! entschluesselt werden, ein Wort
+         nicht — und das "!" stand fuer ZWEI verschiedene Zustaende (entscheid gelb und
+         blocker rot), unterschieden nur durch die Farbe. Ein Symbol, das ohne Farbe
+         mehrdeutig ist, traegt nichts.
+
+         WAS STATTDESSEN DASTEHT: das Statuswort in der Unterzeile, gefaerbt — und dahinter
+         das Detail, das dort heute schon steht. Beide Aussagen bleiben also erhalten:
+             erfüllt · Öle & Fette
+             erfüllt · vollständig
+             zu prüfen · 3 offen
+         Das Wort kommt aus `st.z`, das Detail aus `st.txt`. BEIDE kommen unveraendert aus
+         feFokusStand() — hier wird nichts neu beurteilt und nichts neu formuliert (§4.2).
+         Das Wort ist eine BESCHRIFTUNG des vorhandenen Zustands, keine zweite Pruefung.
+
+         Sagt das Detail bereits dasselbe wie das Wort, faellt das Detail weg statt sich zu
+         wiederholen ("offen · offen" waere Tapete). */
+      var _wort={fertig:"erfüllt", offen:"offen", entscheid:"zu prüfen",
+                 blocker:"blockiert", neutral:""}[st.z];
+      var _farbe=(_FEZ[st.z]||_FEZ.offen)[1];
+      var _det=String(st.txt||"").trim();
+      if(_wort && _det && _det.toLowerCase()===_wort.toLowerCase()) _det="";
+      var _unter=(_wort?'<b class="feFokusWort" style="color:'+_farbe+'">'+esc(_wort)+'</b>':'')
+               +((_wort&&_det)?'<span class="feFokusDet"> · '+esc(_det)+'</span>'
+                              :(_det?'<span class="feFokusDet">'+esc(_det)+'</span>':''));
       return '<button type="button" class="feFokusSt'+(s.nr===akt?" akt":"")+'" onclick="feFokusSchritt('+s.nr+')" title="'+esc(s.kurz)+'">'
-        +'<span class="feFokusIco" style="color:'+d[1]+'">'+d[0]+'</span>'
         +'<span class="feFokusTxt"><b>'+s.nr+' '+esc(s.t)+'</b>'
-        +(st.txt?'<span class="feFokusSub">'+esc(st.txt)+'</span>':'')+'</span></button>';
+        +(_unter?'<span class="feFokusSub">'+_unter+'</span>':'')+'</span></button>';
     }).join("")
     /* 🔴 15.08. (Ralph Punkt 14): „Alle Bereiche zeigen" steht nur noch im ⋯-Menue.
        Als Dauerknopf unter den Schritten sah es aus wie ein fuenfter Schritt — und
@@ -31841,7 +31867,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-16-3630";
+const APP_BUILD = "2026-08-16-3650";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
