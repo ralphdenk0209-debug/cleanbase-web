@@ -13692,32 +13692,6 @@ function _abkWaechter(c){
   };
 }
 
-/* Die Flaeche zeichnen. EIN Behaelter, absolute Lagen, Ueberlappung erlaubt. */
-function _abFlaeche(c){
-  var l=_abKachelFlaeche(), unten=0;
-  l.forEach(function(e){ unten=Math.max(unten, e.lage.y+e.lage.h); });
-  var h='<div class="abbento abfrei'+(_AB_EDIT?' bearb':'')+'" id="abFlaeche" '
-    +'style="height:'+(unten+16)+'px">';
-  l.forEach(function(e){
-    var g=e.lage, x=e.k;
-    var stil='position:absolute;left:'+(g.x/_AB_LW*100).toFixed(4)+'%;top:'+g.y+'px;'
-      +'width:'+(g.b/_AB_LW*100).toFixed(4)+'%;height:'+g.h+'px;z-index:'+g.z+';overflow:hidden';
-    var zus=_AB_EDIT?_abEditRahmen(x):{};
-    zus=Object.assign({}, zus, {stil:stil, foto:x.foto, leds:x.leds,
-      attr:(zus.attr||'')+' data-kid="'+esc(x.id)+'"'});
-    if(x.roh){
-      var r=x.roh(c,x);
-      r=r.replace('<div class="bk"','<div class="bk'+(zus.klasse||'')+'"'+zus.attr
-        +' style="'+stil+'"');
-      if(zus.vor) r=r.replace(/>/, '>'+zus.vor);
-      h+=r; return;
-    }
-    var t=x.bau(c,x)||{};
-    h+=_abKachel(x.titel, t.tag||'', t.inhalt||'', t.fuss||'', false, zus);
-  });
-  return h+'</div>';
-}
-
 function _abBento(d,np,A){
   return _abFlaeche({d:d||{},np:np||{},A:A});
 }
