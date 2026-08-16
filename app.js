@@ -24651,7 +24651,28 @@ function feFokusNavBauen(){
   nav.innerHTML='<div class="feRailGrpTit">Arbeitsfluss</div>'
     +FE_SCHRITTE.map(function(s){
       var st=_feStandPruef(s, feFokusStand(s));
-      if(s.nr===akt) st={z:"aktuell", txt:st.txt};
+      /* 🔴 16.08.2026 — RALPH: "1 ist gruen, aber so aktiviert ist es nicht ganz klar,
+         ob es passt, das koennten wir optimieren."
+
+         HIER STAND: `if(s.nr===akt) st={z:"aktuell", txt:st.txt};`
+         Der Schritt, auf dem Ralph GERADE STEHT, hat damit seinen echten Zustand
+         VERLOREN und stattdessen den blauen Punkt "aktuell" bekommen. Genau der
+         Schritt, an dem er arbeitet, war also der einzige, dessen Stand er nicht
+         sehen konnte — und das ist der, bei dem es am meisten zaehlt.
+
+         ZWEI AUSSAGEN, EIN ZEICHEN: "wo bin ich" und "ist es fertig" sind
+         verschiedene Dinge und haben sich um dasselbe Symbol gestritten. Die
+         Antwort ist nicht ein besseres Symbol, sondern ZWEI KANAELE:
+           wo bin ich  -> die Klasse `akt`: blauer Grund, blaue Kante links,
+                          fette blaue Schrift (ui.css 1314/1547/2472)
+           ist es fertig -> das Zeichen, unveraendert wie bei allen anderen
+                            Schritten: ✓ gruen · ○ grau · ! gelb · ! rot
+         Der blaue Punkt war ohnehin die schwaechste der drei Aktiv-Markierungen —
+         er faellt weg, und keine Information geht dabei verloren.
+
+         `_FEZ.aktuell` bleibt absichtlich stehen: es ist der Zustand fuer einen
+         Schritt, der gerade laeuft und dessen Stand die Pruefung nicht kennt.
+         Geloescht wuerde er beim naechsten Bedarf neu erfunden. */
       var d=_FEZ[st.z]||_FEZ.offen;
       return '<button type="button" class="feFokusSt'+(s.nr===akt?" akt":"")+'" onclick="feFokusSchritt('+s.nr+')" title="'+esc(s.kurz)+'">'
         +'<span class="feFokusIco" style="color:'+d[1]+'">'+d[0]+'</span>'
