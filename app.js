@@ -8207,7 +8207,7 @@ async function dashAuditProbe(){
 if(typeof window!=='undefined'){ window.dashAuditLoad=dashAuditLoad; window.dashAuditProbe=dashAuditProbe; }
 /* Klick auf ein Wächter-Symbol: lädt die KONKRETEN Fälle (cb_waechter_faelle nach nr)
    und listet sie – Produkte sind direkt im Editor öffnenbar, Zutaten/Zusatzstoffe zeigen den Befund. */
-async function dashWaechterFaelle(nr, nameEnc){
+async function dashWaechterFaelle(nr, nameEnc, view){
   if(!(ME&&ME.is_admin)) return;
   var nm=''; try{ nm=decodeURIComponent(nameEnc||''); }catch(e){ nm=nameEnc||''; }
   var ov=document.getElementById('waFaelleOv');
@@ -8233,10 +8233,27 @@ async function dashWaechterFaelle(nr, nameEnc){
         return { typ:'produkt', id:x.id, name:x.name, detail:x.befund,
                  regeln:(x.regeln||[]), abhakbar:!!x.abhakbar };
       });
-    } else {
+    } else if(nr){
       var r=await client.rpc('cb_waechter_faelle',{p_nr:nr});
       if(r.error) throw new Error(r.error.message);
       rows=r.data||[];
+    } else if(view){
+      /* 🔴 16.08.2026, Ralph: „unten sind die waechter, ich kann nicht klicken,
+         nicht passiert und nichts wird angezeigt. wie soll ich das was machen"
+         Gemessen: 25 Kacheln, aber cb_waechter_faelle kennt nur nr 1..9. Die
+         anderen 16 zeigten eine Zahl ohne Weg — eine Attrappe.
+         cb_admin_waechter_faelle_view gibt die Zeile so zurueck, wie die View
+         sie fuehrt. Hier wird NICHTS ausgedacht: Titel, Kennung und Befund
+         werden aus den vorhandenen Feldern GENOMMEN, und was uebrig bleibt,
+         steht als Feld:Wert darunter statt verschluckt zu werden. */
+      var rv=await client.rpc('cb_admin_waechter_faelle_view',{p_view:view,p_limit:100});
+      if(rv.error) throw new Error(rv.error.message);
+      rows=(rv.data||[]).map(function(o){
+        var z=(o&&o.zeile)?o.zeile:o;
+        return _waZeileDeuten(z);
+      });
+    } else {
+      throw new Error('Dieser Waechter nennt keine Quelle — nichts zum Aufblaettern.');
     }
     var b=document.getElementById('waFaelleBody'); if(!b) return;
     if(!rows.length){ b.innerHTML='<div style="color:#1e6b42">Keine offenen Fälle – dieser Wächter ist still. ✓</div>'; return; }
@@ -8270,6 +8287,39 @@ async function dashWaechterFaelle(nr, nameEnc){
     b.style.color='var(--ink,#22343a)'; b.innerHTML=html;
   }catch(e){ var b2=document.getElementById('waFaelleBody'); if(b2){ b2.style.color='#cf5442'; b2.textContent='Konnte die Fälle nicht laden: '+((e&&e.message)||e); } }
 }
+/* ---------------------------------------------------------------------------
+   Eine rohe Wächterzeile in Titel / Kennung / Befund uebersetzen.
+   🔴 KEINE ERFINDUNG: die Reihenfolge sagt nur, welches VORHANDENE Feld zuerst
+   genommen wird. Findet sich keines, bleibt das Feld leer — es wird nichts
+   hergeleitet. Alles, was nicht in Titel oder Befund gelandet ist, steht
+   darunter als Feld:Wert; sonst waere die Haelfte der Zeile unsichtbar.
+   --------------------------------------------------------------------------- */
+var WA_FELD_ID   =['Produkt_ID','Zutat_ID','id','e_nummer','normalform','grundname','einzahl_id'];
+var WA_FELD_NAME =['Produktname','Zutat','name','namen','grundname','einzahl','normalform','e_nummer'];
+var WA_FELD_TEXT =['befund','grund','problem','empfehlung','dringlichkeit','werte_im_konflikt','spanne'];
+function _waErstes(z,liste){
+  for(var i=0;i<liste.length;i++){
+    var v=z[liste[i]];
+    if(v!==null && v!==undefined && String(v)!=='') return {k:liste[i], v:String(v)};
+  }
+  return null;
+}
+function _waZeileDeuten(z){
+  z=z||{};
+  var fi=_waErstes(z,WA_FELD_ID), fn=_waErstes(z,WA_FELD_NAME), ft=_waErstes(z,WA_FELD_TEXT);
+  var id=fi?fi.v:'', name=fn?fn.v:(id||'(ohne Bezeichnung)');
+  var benutzt={}; if(fi)benutzt[fi.k]=1; if(fn)benutzt[fn.k]=1; if(ft)benutzt[ft.k]=1;
+  var rest=Object.keys(z).filter(function(k){
+    return !benutzt[k] && z[k]!==null && z[k]!==undefined && String(z[k])!=='';
+  }).map(function(k){ return k+': '+String(z[k]); });
+  var detail=(ft?ft.v:'');
+  if(rest.length) detail+=(detail?' · ':'')+rest.join(' · ');
+  /* „produkt" nur, wenn wirklich eine Produkt-ID da ist — sonst zeigte der
+     Oeffnen-Knopf auf eine Zutat und liefe ins Leere. */
+  var typ=(z['Produkt_ID']?'produkt':(z['Zutat_ID']?'zutat':(z['e_nummer']?'zusatz':'sonst')));
+  return {typ:typ, id:id, name:name, detail:detail, regeln:[], abhakbar:false};
+}
+
 /* Nur diese drei Nährwert-Regeln sind bestätigbar – sie beschreiben einen Zustand,
    keinen Datenfehler. n2/n3/n4 fehlen hier absichtlich; die Datenbank lehnt sie
    zusätzlich ab (cb_naehrwerte_regel_ok_setzen). Zwei Riegel, ein Grund. */
@@ -11797,9 +11847,21 @@ function _abZahl(np,was){
 function _abJobsListe(np,A){
   var jobs=[], z=(np&&np.zufluesse)||[], w=(np&&np.waechter)||[];
   z.filter(function(x){return x.weg==='keiner'&&(Number(x.wartend)||0)>0;}).forEach(function(x){
-    jobs.push({p:0,n:x.wartend,t1:x.name+' — niemand holt sie ab',
-      t2:'ältester Eintrag '+(x.aeltester_tage==null?'?':x.aeltester_tage)+' Tage alt · '+(x.hinweis||''),
-      go:'Weg festlegen →',f:_AB.krit,ziel:'scan'});
+    /* 🔴 16.08.2026, Ralph: „die scanns koennen weit nach hinten, keine prio."
+       Betroffen ist GENAU EIN Zufluss — 'barcode' (Barcode-Scan ohne Foto),
+       gemessen 87 wartend. Er stand auf p:0 und damit ganz oben.
+       KLEINE RICHTIGSTELLUNG: Ralph nennt sie „die off importe". Die 87 sind
+       aber die Scan-Warteschlange ohne Etikettfoto; der OpenFoodFacts-Cache
+       ist ein anderer Zufluss ('scancache', gemessen 48). Zurueckgestuft habe
+       ich die 87 — das ist die Zahl, die er genannt hat. */
+    var hinten=(x.id==='barcode');
+    jobs.push({p:hinten?9:0, n:x.wartend,
+      t1:x.name+(hinten?' — liegen bewusst hinten':' — niemand holt sie ab'),
+      t2:hinten
+        ? ('keine Prio (Ralph 16.08.) · ältester Eintrag '
+           +(x.aeltester_tage==null?'?':x.aeltester_tage)+' Tage alt')
+        : ('ältester Eintrag '+(x.aeltester_tage==null?'?':x.aeltester_tage)+' Tage alt · '+(x.hinweis||'')),
+      go:hinten?'später →':'Weg festlegen →', f:hinten?_AB.grau:_AB.krit, ziel:'scan'});
   });
   if(A.gate_offen>0) jobs.push({p:1,n:A.gate_offen,t1:'Go-Live-Gate blockiert',
     t2:'diese Fälle verhindern jede Freigabe',go:'Wächter →',f:_AB.krit,ziel:'waechter'});
@@ -14319,6 +14381,15 @@ function _abWfSet(m,np,A){
   _abWgMal(m,np,A);
   var g=document.getElementById('abWg'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'});
 }
+/* Welche Quelle hat schon eine kuratierte Fallliste? GEMESSEN aus
+   pg_get_functiondef('cb_waechter_faelle') am 16.08.2026 — nicht geraten.
+   Diese neun bringen zusaetzlich den Befundtext und (bei 3) die Abhak-Knoepfe;
+   die uebrigen 16 gehen ueber cb_admin_waechter_faelle_view. */
+var _AB_WNR={
+  'v_zutaten_qa_offen':1, 'v_zutaten_qa_r9':2, 'v_naehrwerte_qa_offen':3,
+  'v_kategorie_qa_offen':4, 'v_zusatzstoffe_qa_offen':5, 'v_zusatzstoffe_neu_offen':6,
+  'v_quelle_qa_offen':7, 'v_zutaten_namenlos_offen':8, 'v_score_achse_fehlt_offen':9
+};
 function _abWgMal(f,np,A){
   var g=document.getElementById('abWg'); if(!g) return;
   var l=((np&&np.waechter)||[]).slice();
@@ -14328,15 +14399,30 @@ function _abWgMal(f,np,A){
   l.sort(function(a,b){ return (Number(b.offen)||0)-(Number(a.offen)||0)
     || String(a.name).localeCompare(String(b.name)); });
   var MOM={anlage:'ANLAGE',tuer:'TÜR',bestand:'BESTAND'};
+  /* 🔴 16.08.2026: die Kacheln waren NICHT klickbar (Ralph: „ich kann nicht
+     klicken, nicht passiert und nichts wird angezeigt"). Der Weg dorthin war
+     seit Monaten da — dashWaechterFaelle mit dem vollen Ueberlagerungsfenster,
+     Oeffnen-Knopf und Abhaken. Es fehlte nur die Verdrahtung (§22). */
   g.innerHTML=l.map(function(w){
     var n=Number(w.offen)||0, fb=_abWf(w), still=n===0;
-    return '<div class="abwc" style="border-color:'+(still?'#e6e9ee':fb+'44')+';background:'
+    var nr=_AB_WNR[w.view]||'';
+    return '<div class="abwc" role="button" tabindex="0"'
+      +' data-wview="'+esc(w.view||'')+'" data-wnr="'+nr+'" data-wname="'+esc(w.name||'')+'"'
+      +' style="border-color:'+(still?'#e6e9ee':fb+'44')+';background:'
       +(still?'#fff':(w.gate===true?'#fdf1f1':'#fdf9ef'))+'" title="'+esc(w.kurz||'')
-      +' · Quelle: '+esc(w.view||'')+'">'
+      +' · Quelle: '+esc(w.view||'')+' · Klick zeigt die Fälle">'
       +'<div class="g" style="color:'+fb+'">'+(w.gate===true?'⛔ GATE':(MOM[w.moment]||''))+'</div>'
       +'<div class="n">'+esc(w.name)+'</div>'
       +'<div class="z" style="color:'+(still?'#c6cbd3':fb)+'">'+(still?'still':n)+'</div></div>';
   }).join('')||'<div style="font-size:12.5px;color:'+_AB.mut+';padding:4px">Kein Wächter in dieser Auswahl.</div>';
+  g.querySelectorAll('.abwc').forEach(function(c){
+    var auf=function(){
+      var nr=Number(c.dataset.wnr)||null;
+      dashWaechterFaelle(nr, encodeURIComponent(c.dataset.wname||''), c.dataset.wview||'');
+    };
+    c.addEventListener('click',auf);
+    c.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); auf(); } });
+  });
   var wf=document.getElementById('abWf');
   if(wf) wf.innerHTML='<b>'+l.length+'</b> angezeigt · '+A.melden+' von '
     +((np&&np.waechter)||[]).length+' melden etwas · Go-Live-Gate: <b style="color:'
