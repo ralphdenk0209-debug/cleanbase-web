@@ -11118,9 +11118,21 @@ function dashArbeitCss(){
    +A+' .abbento .bk{position:relative;overflow:hidden}'
    +A+' .abbento .bfoto{position:absolute;inset:0;z-index:0;background-repeat:no-repeat;'
     +'background-position:center right;background-size:cover;opacity:.55}'
+   /* 🔴 16.08., Ralph: „kann man nicht lesen." Er hatte recht, und es war ein
+      Rechenfehler von mir: der Verlauf war bis 42 % deckend — genau die Breite,
+      auf der in der VORLAGE der Text steht. Meine Kacheln haben aber Zeilen
+      ueber die GANZE Breite, und die rechte Haelfte lag damit auf dem Foto.
+      Jetzt deckt er bis 72 % voll und laeuft erst danach aus. Das Foto bleibt
+      als Stimmung am rechten Rand — der Text steht auf Weiss.
+      Merksatz fuer das naechste Mal: ein Verlauf muss zum INHALT passen, nicht
+      zur Vorlage, aus der er abgemessen wurde. */
    +A+' .abbento .bschleier{position:absolute;inset:0;z-index:1;background:'
-    +'linear-gradient(90deg,#fff 0%,#fff 42%,rgba(255,255,255,.55) 74%,rgba(255,255,255,0) 100%),'
-    +'linear-gradient(0deg,rgba(255,255,255,.5) 0%,rgba(255,255,255,0) 45%)}'
+    +'linear-gradient(90deg,#fff 0%,#fff 72%,rgba(255,255,255,.82) 88%,rgba(255,255,255,.25) 100%),'
+    +'linear-gradient(0deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,0) 42%)}'
+   /* Bei den drei Kacheln, deren Zeilen bis ganz nach rechts laufen, deckt er
+      vollstaendig — dort ist Lesbarkeit wichtiger als Atmosphaere. */
+   +A+' .abbento .bk.btext .bschleier{background:'
+    +'linear-gradient(90deg,#fff 0%,#fff 86%,rgba(255,255,255,.55) 100%)}'
    +A+' .abbento .bkopf,'+A+' .abbento .bleib,'+A+' .abbento .bfuss{position:relative;z-index:2}'
    /* Ueberschrift: aus 10,5px Kleinschrift wird die grosse Versalzeile der
       Vorlage. Das ist der auffaelligste Einzelunterschied. */
@@ -11155,6 +11167,32 @@ function dashArbeitCss(){
     +'display:flex;align-items:center;gap:10px;width:100%}'
    +A+' .abbento .bmtext b{font-size:27px;font-weight:800;color:'+_AB.gut+';letter-spacing:-1px}'
    +A+' .abbento .bmtext span{font-size:11px;color:var(--abmut);line-height:1.45}'
+   /* ----- Was bei Ralph liegt (16.08.) -----
+      Abgesetzt vom Rest der Kachel, damit man auf einen Blick sieht: das hier
+      ist deins, das andere ist Arbeit. */
+   +A+' .abbento .bralph{margin-top:9px;padding-top:8px;border-top:1px solid var(--abline)}'
+   +A+' .abbento .brtitel{font-size:9.5px;font-weight:800;text-transform:uppercase;'
+    +'letter-spacing:.08em;color:'+_AB.krit+';margin-bottom:5px}'
+   +A+' .abbento .brz{display:flex;align-items:flex-start;gap:9px;padding:6px 0;'
+    +'border-bottom:1px solid #f0f2f4;cursor:pointer}'
+   +A+' .abbento .brz:last-child{border-bottom:0}'
+   +A+' .abbento .brz:hover{background:#fafbfc}'
+   +A+' .abbento .brn{flex:0 0 auto;font-size:11px;font-weight:800;color:var(--abmut);'
+    +'background:#eef0f1;border-radius:5px;padding:2px 7px;'
+    +'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:1px}'
+   +A+' .abbento .brt{flex:1;min-width:0}'
+   /* 🔴 ZWEI Zeilen, nicht eine mit Punkten. Die Titel der Work Items sind
+      lang; abgeschnitten steht da „erfassung — Freigabegruende raus aus…" und
+      Ralph weiss weiterhin nicht, worum es geht. Umschreiben darf ich sie
+      nicht (§1.1) — also bekommen sie Platz. */
+   +A+' .abbento .brt .b1{font-size:12.5px;font-weight:600;color:var(--abink);'
+    +'line-height:1.32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;'
+    +'overflow:hidden}'
+   +A+' .abbento .brt .b2{display:block;font-size:10.5px;color:var(--abmut);margin-top:1px}'
+   +A+' .abbento .brp{width:8px;height:8px;border-radius:50%;flex:0 0 auto;margin-top:5px;background:'+_AB.zu+'}'
+   +A+' .abbento .brp.krit{background:'+_AB.krit+'}'
+   +A+' .abbento .brp.warn{background:'+_AB.warn+'}'
+   +A+' .abbento .brmehr{font-size:11px;color:var(--abmut);margin-top:5px}'
    /* ----- Befehlszeile (C4) ----- */
    +A+' .abcmd{background:#fff;border:1px solid var(--abline);border-radius:10px;'
     +'margin-top:2px;position:relative}'
@@ -11212,7 +11250,7 @@ function dashArbeitCss(){
     +'padding:1px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;'
     +'text-overflow:ellipsis;max-width:150px}'
    +A+' .abzp em{font-style:normal;font-size:9px;color:var(--abmut);'
-    +'font-family:ui-monospace,SFMono-Regular,Menlo,monospace}'
+    +'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:1px}'
    +A+' .abzp.ok i{background:'+_AB.gut+';box-shadow:0 0 0 1px '+_AB.gut+'}'
    +A+' .abzp.ok span{color:var(--abmut);text-decoration:line-through}'
    +A+' .abzp.spaet i{background:'+_AB.krit+';box-shadow:0 0 0 1px '+_AB.krit+'}'
@@ -11258,8 +11296,10 @@ function dashArbeitCss(){
    +'body.dashDunkel '+A+' .abbento .bk{background:#17191b}'
    +'body.dashDunkel '+A+' .abbento .bfoto{opacity:.4;filter:saturate(.75) brightness(.85)}'
    +'body.dashDunkel '+A+' .abbento .bschleier{background:'
-    +'linear-gradient(90deg,#17191b 0%,#17191b 42%,rgba(23,25,27,.6) 74%,rgba(23,25,27,0) 100%),'
-    +'linear-gradient(0deg,rgba(23,25,27,.55) 0%,rgba(23,25,27,0) 45%)}'
+    +'linear-gradient(90deg,#17191b 0%,#17191b 72%,rgba(23,25,27,.85) 88%,rgba(23,25,27,.3) 100%),'
+    +'linear-gradient(0deg,rgba(23,25,27,.62) 0%,rgba(23,25,27,0) 42%)}'
+   +'body.dashDunkel '+A+' .abbento .bk.btext .bschleier{background:'
+    +'linear-gradient(90deg,#17191b 0%,#17191b 86%,rgba(23,25,27,.6) 100%)}'
    +'body.dashDunkel '+A+' .abbento .bort,'
    +'body.dashDunkel '+A+' .abbento .bpaar>div{background:#202325}'
    +'body.dashDunkel '+A+' .abcmd,'
@@ -11967,11 +12007,11 @@ function _abKachel(titel, tag, inhalt, fuss, gross, zus){
    `foto` ist die Kennung ohne Vorsilbe und Endung. Fehlt sie, bleibt die
    Kachel weiss — kein Fehler, nur ohne Bild. */
 var _AB_KACHELN=[
-  {id:'aufgaben',  reihe:1, titel:'Heute — offene Aufgaben',  breit:true,  bau:_abkAufgaben, foto:'flusslauf', leds:'r ge'},
+  {id:'aufgaben',  reihe:1, titel:'Heute — offene Aufgaben',  breit:true,  bau:_abkAufgaben, foto:'flusslauf', leds:'r ge', text:true},
   {id:'bestand',   reihe:1, titel:'Datenbestand',             breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr'},
   {id:'riki',      reihe:1, titel:'Riki-Budget',              breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
   {id:'waechter',  reihe:1, titel:'Wächter-Status',           breit:false, bau:_abkWaechter, foto:'stroem',    leds:'r ge'},
-  {id:'aktivitaet',reihe:2, titel:'Letzte Aktivitäten',       breit:true,  bau:_abkAkt,      foto:'wellen',    leds:'gr'},
+  {id:'aktivitaet',reihe:2, titel:'Letzte Aktivitäten',       breit:true,  bau:_abkAkt,      foto:'wellen',    leds:'gr', text:true},
   {id:'region',    reihe:2, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion,   foto:'regionen',  leds:'gr'},
   {id:'stammu',    reihe:2, titel:'Stamm-Überblick',          breit:false, bau:_abkStammU,   foto:'stamm',     leds:'ge gr'},
   {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell},
@@ -11984,7 +12024,7 @@ var _AB_KACHELN=[
      „Nutzer & Regionen". Im Entwurf hatte ich sie nachgezeichnet — das waere
      die zweite Kopie gewesen (§4.2). */
   {id:'marke',     reihe:1, titel:'Root Index',                breit:false, bau:_abkMarke},
-  {id:'wirk',      reihe:2, titel:'Wirkkette',                 breit:false, bau:_abkWirk,     foto:'ringe',  leds:'r ge'},
+  {id:'wirk',      reihe:2, titel:'Wirkkette',                 breit:false, bau:_abkWirk,     foto:'ringe',  leds:'r ge', text:true},
   /* Die freie Kachel: Ralph bestimmt ihren INHALT, nicht nur ihren Platz.
      Sie steht in der gespeicherten Standardvariante auf aus - wer sie will,
      schaltet sie im Anordnen-Modus ein. Ein Dashboard, das sich von selbst um
@@ -13585,7 +13625,8 @@ function _abBentoNach(box){
 
   /* Reihe 2 laedt NACH — sie darf den Seitenaufbau nicht aufhalten (Work #17). */
   if(document.getElementById('abAkt')||document.getElementById('abRegion')
-     ||document.getElementById('abStammU')||document.getElementById('abWirk')){
+     ||document.getElementById('abStammU')||document.getElementById('abWirk')
+     ||document.getElementById('abRalph')){
     try{ _abBento2Laden(_abD); }
     catch(e){ try{ console.error('Bento-Reihe 2:',e); }catch(_){} }
   }
@@ -13612,7 +13653,7 @@ function _abZeile(l,v,f){
 function _abkAufgaben(c){
   var jobs=_abJobsListe(c.np,c.A);
   var jh=jobs.length
-    ? jobs.slice(0,6).map(function(j){
+    ? jobs.slice(0,4).map(function(j){
         var f=(j.p===0)?_AB.krit:(j.p===1)?_AB.warn:_AB.zu;
         return '<div class="baufg" data-job="'+esc(j.ziel||'')+'">'
           +'<span class="bp" style="background:'+f+'">'+esc(String(j.n))+'</span>'
@@ -13623,14 +13664,76 @@ function _abkAufgaben(c){
     : '<div class="bleer">Nichts wartet auf dich — alles abgearbeitet.</div>';
   return {
     tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">nach Dringlichkeit</span>',
-    inhalt:jh,
-    fuss:jobs.length>6
-      ? ('und '+(jobs.length-6)+' weitere — „Alle offenen Punkte" unten zeigt sie')
+    inhalt:'<div class="bleib">'+jh
+      /* 🔴 16.08., Ralph: „hier müssen AUCH DIE aufgaben work # von mir
+         enthalten sein und zwar verständlich um was es geht."
+         Die Work Items laden NACH — sie kommen aus der Datenbank und duerfen
+         den Seitenaufbau nicht aufhalten (Work #17). */
+      +'<div id="abRalph" class="bralph"><div class="blade">deine Punkte laden…</div></div>'
+      +'</div>',
+    fuss:jobs.length>4
+      ? ('und '+(jobs.length-4)+' weitere — „Alle offenen Punkte" unten zeigt sie')
       : 'Jede Zeile springt an ihre Stelle.'
   };
 }
 
-/* ---- 2) DATENBESTAND ------------------------------------------------------ */
+/* ---- Was bei RALPH liegt --------------------------------------------------
+   Nur was WIRKLICH bei ihm liegt, nicht die ganze Queue: Punkte mit
+   „decision_ralph", „disputed" oder „blocked". Alles andere ist Arbeit von
+   Claude oder ChatGPT und gehoert nicht auf sein Dashboard.
+
+   🔴 DIE ERKLAERUNG WIRD NICHT ERFUNDEN. Sie ist der Titel des Work Items,
+   nur aufgeraeumt: der Bereichsvorsatz („erfassung — ") faellt weg, weil er
+   danebensteht. Kein Umschreiben, kein Ausschmuecken — Ralph muss den Punkt
+   im Work Item wiederfinden koennen. */
+function _abRalphKurz(titel){
+  var t=String(titel||'');
+  /* Bereichsvorsatz und die interne Marke „#42/E3" fallen weg — beides steht
+     entweder daneben oder sagt Ralph nichts. Der Rest bleibt Wort fuer Wort. */
+  t=t.replace(/^(erfassung|dashboard|benutzersicht|produkterfassung|frontend|data|qa)\b\s*/i,'');
+  t=t.replace(/^#\d+(\/\w+)?\s*/,'');
+  t=t.replace(/^[—–-]\s*/,'');
+  return t;
+}
+var _AB_RALPH_LAGE={
+  decision_ralph:{t:'Du entscheidest', f:'krit'},
+  disputed:      {t:'Rückfrage an dich', f:'warn'},
+  blocked:       {t:'Hängt fest', f:'warn'}
+};
+async function _abRalphLaden(){
+  var box=document.getElementById('abRalph'); if(!box) return;
+  try{
+    var r=await client.rpc('cb_admin_agent_work_liste',
+      {p_owner:null,p_status:null,p_product_id:null,p_limit:200});
+    if(r.error) throw r.error;
+    var alle=r.data||[];
+    var meine=alle.filter(function(x){
+      return _AB_RALPH_LAGE[x.status] || x.decision_needed===true; });
+    meine.sort(function(a,b){
+      var o=['decision_ralph','disputed','blocked'];
+      return (o.indexOf(a.status)-o.indexOf(b.status)) || (b.priority-a.priority); });
+    if(!meine.length){
+      box.innerHTML='<div class="brtitel">Bei dir liegt nichts</div>';
+      return;
+    }
+    box.innerHTML='<div class="brtitel">Bei dir liegen '+meine.length+'</div>'
+      + meine.slice(0,5).map(function(x){
+          var l=_AB_RALPH_LAGE[x.status]||{t:'Zu entscheiden',f:'warn'};
+          return '<div class="brz" data-work="'+x.work_id+'" title="'+esc(x.title||'')+'">'
+            +'<span class="brn">#'+x.work_id+'</span>'
+            +'<span class="brt"><span class="b1">'+esc(_abRalphKurz(x.title))+'</span>'
+            +'<span class="b2">'+esc(l.t)+' · '+esc(x.area||'')+'</span></span>'
+            +'<span class="brp '+l.f+'"></span></div>';
+        }).join('')
+      + (meine.length>5 ? '<div class="brmehr">und '+(meine.length-5)+' weitere</div>' : '');
+  }catch(e){
+    box.innerHTML='<div class="bfehl"><b>Deine Punkte nicht ladbar.</b><br>'
+      +esc((e&&e.message)||String(e))+'</div>';
+    try{ console.warn('[Ralph-Punkte]',e); }catch(_){}
+  }
+}
+
+/* ---- 2) DATENBESTAND ---/* ---- 2) DATENBESTAND ------------------------------------------------------ */
 function _abkBestand(c){
   var d=c.d||{}, np=c.np||{};
   var k=d.katalog||{}, q=d.qualitaet||{}, ex=np.extra||{};
@@ -13761,6 +13864,8 @@ function _abFlaeche(c){
       +'width:'+(g.b/_AB_LW*100).toFixed(4)+'%;height:'+g.h+'px;z-index:'+g.z+';overflow:hidden';
     var zus=_AB_EDIT?_abEditRahmen(x):{};
     zus=Object.assign({}, zus, {stil:stil, foto:x.foto, leds:x.leds,
+      /* text:true => Zeilen laufen bis ganz rechts, der Verlauf deckt voll. */
+      klasse:(zus.klasse||'')+(x.text?' btext':''),
       attr:(zus.attr||'')+' data-kid="'+esc(x.id)+'"'});
     if(x.roh){
       var r=x.roh(c,x);
@@ -13883,6 +13988,9 @@ async function _abBento2Laden(d){
       setz('abAkt',h);
     }catch(e){ fehl('abAkt',e,'Aktivitäten'); }
   })();
+
+  /* --- Was bei Ralph liegt (16.08.) --------------------------------------- */
+  try{ _abRalphLaden(); }catch(e){ try{ console.warn('[Ralph-Punkte]',e); }catch(_){} }
 
   /* --- Wirkkette (C3, 15.08.) ---------------------------------------------
      Zahlen aus cb_admin_architektur_liste. Sie kommen SERVERSEITIG gezaehlt
@@ -31712,7 +31820,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-16-3620";
+const APP_BUILD = "2026-08-16-3630";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
