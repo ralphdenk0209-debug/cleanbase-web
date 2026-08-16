@@ -1971,10 +1971,24 @@ body.riFokus[data-fe-schritt="bestand"] #feAbgleich::before{ content:"B · Etike
 #feRailNav{ display:flex; flex-direction:column; gap:7px; padding:0 0 11px;
   margin-bottom:11px; border-bottom:1px solid var(--line) }
 #feRailNav #feNavPost{ width:100%; text-align:left }
-#feRailNav #feNavBlaett{ display:flex; align-items:center; gap:5px; justify-content:space-between }
+/* 🔴 16.08.2026 — RALPH: "weiterschalten chip ragt ueber weissen kasten hinaus."
+   URSACHE: die drei Teile („‹ Vorheriges", „1 / 100", „Naechstes ›") standen in einer
+   Zeile, die weder umbrechen noch schrumpfen durfte — `flex:0 0 auto` an den Knoepfen
+   und kein `flex-wrap` am Container. Zusammen brauchen sie mehr als die Rail innen breit
+   ist (180 px minus 2x12 Innenabstand = 156 px), also liefen sie ueber die Kartenkante.
+   Sichtbar wurde es erst, seit die Rail eine weisse Karte mit Kante IST (Work #48, heute
+   frueh) — vorher lief derselbe Ueberlauf ueber einen unsichtbaren Rand und fiel nicht auf.
+   Ein Fehler wird nicht dadurch neu, dass man ihn endlich sieht.
+
+   GELOEST OHNE FESTE ZAHL: umbrechen erlaubt und schrumpfen erlaubt. Passt es, bleibt es
+   einzeilig wie bisher; passt es nicht, rutscht „Naechstes ›" in die zweite Zeile statt
+   aus der Karte. Damit haelt es auch bei einer breiteren oder schmaleren Rail, ohne dass
+   jemand eine Breite nachpflegen muss (§28.4). */
+#feRailNav #feNavBlaett{ display:flex; align-items:center; gap:5px;
+  justify-content:space-between; flex-wrap:wrap; min-width:0 }
 #feRailNav #feNavBlaett button{ padding:5px 8px !important; font-size:11.5px !important;
-  border-radius:7px !important; flex:0 0 auto }
-#feRailNav #feNavBlaett > span{ font-size:11.5px !important }
+  border-radius:7px !important; flex:0 1 auto; min-width:0 }
+#feRailNav #feNavBlaett > span{ font-size:11.5px !important; flex:0 0 auto }
 body.riFokus #feNavLeiste{ display:none !important }
 
 /* --- Quelle: der Aufklappzustand ist sichtbar ------------------------------ */
