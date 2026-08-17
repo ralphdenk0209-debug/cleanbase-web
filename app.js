@@ -19376,12 +19376,28 @@ async function fgRohtextLauf(){
     if(!resp.ok||d.error) throw new Error(d.error||("HTTP "+resp.status));
     var v=d.vorschlag||{};
     if(!Array.isArray(v.sections)||!Array.isArray(v.items)) throw new Error("Antwort ohne sections/items.");
+    /* 🔴 17.08.2026 — RALPH-ENTSCHEID, deterministisch statt modellabhaengig: bei
+       mehrdeutiger Naehrwertbasis gilt basis_key "unresolved", das Original steht in
+       basis_label. Das Modell haelt sich MEISTENS daran — gemessen an zwei Laeufen
+       desselben Textes: einmal "unresolved", einmal erfundenes "pro_100ml_bzw_g",
+       das die Server-Positivliste korrekt abwies (§3.3). Ein Vertragswert darf nicht
+       an Modellstreuung haengen: unbekannte Schluessel werden HIER auf "unresolved"
+       gesetzt (das Label bleibt unveraendert das Original) und im metadata-Feld
+       benannt — sichtbar, nicht still (§1.7). Die Positivliste kennt heute:
+       pro_100ml · pro_100g · pro_portion · unresolved. */
+    var _basisNorm=[];
+    v.items.forEach(function(i){
+      if(i && i.basis_key && !/^(pro_100ml|pro_100g|pro_portion|unresolved)$/.test(String(i.basis_key))){
+        _basisNorm.push(String(i.basis_key)); i.basis_key="unresolved";
+      }
+    });
     sag("Lauf wird gespeichert …");
     var r=await client.rpc("cb_riki_source_extraction_speichern",{
       p_product_id:pid, p_source_kind:"rawtext",
       p_source_ref:((document.getElementById("fe_url")||{}).value||"eingefügter Text"),
       p_sections:v.sections, p_items:v.items, p_status:"captured",
-      p_metadata:{contract_version:String(v.contract_version||"riki_source_extraction_item_v1"),extractor:"riki",modus:"rohtext"}});
+      p_metadata:{contract_version:String(v.contract_version||"riki_source_extraction_item_v1"),extractor:"riki",modus:"rohtext",
+                  basis_key_normalisiert:Array.from(new Set(_basisNorm))}});
     if(r&&r.error) throw r.error;
     var teil=v.sections.filter(function(x){return x.status==="partial"||x.status==="unresolved";}).length;
     var zeilen=v.sections.reduce(function(a,x){return a+(Number(x.extracted_rows)||0);},0);
@@ -32577,7 +32593,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-17-3760";
+const APP_BUILD = "2026-08-17-3780";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
