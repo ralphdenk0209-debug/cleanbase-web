@@ -8294,9 +8294,13 @@ async function dashWaechterFaelle(nr, nameEnc, view){
    hergeleitet. Alles, was nicht in Titel oder Befund gelandet ist, steht
    darunter als Feld:Wert; sonst waere die Haelfte der Zeile unsichtbar.
    --------------------------------------------------------------------------- */
-var WA_FELD_ID   =['Produkt_ID','Zutat_ID','id','e_nummer','normalform','grundname','einzahl_id'];
-var WA_FELD_NAME =['Produktname','Zutat','name','namen','grundname','einzahl','normalform','e_nummer'];
-var WA_FELD_TEXT =['befund','grund','problem','empfehlung','dringlichkeit','werte_im_konflikt','spanne'];
+var WA_FELD_ID   =['Produkt_ID','Zutat_ID','id','entity_id','e_nummer','normalform','grundname','einzahl_id','norm'];
+/* 16.08. Work #34 ergaenzt: der neue Stamm nennt den Namen canonical_name, und
+   v_zutaten_qa_r9 gruppiert ueber norm. Ohne die beiden faellt die Zeile auf die
+   Kennung zurueck und Ralph liest eine UUID statt eines Namens.
+   GEMESSEN an den echten Rueckgaben, nicht angenommen. */
+var WA_FELD_NAME =['Produktname','Zutat','canonical_name','name','namen','grundname','einzahl','norm','normalform','e_nummer'];
+var WA_FELD_TEXT =['befund','grund','problem','empfehlung','assessment_reason','dringlichkeit','werte_im_konflikt','spanne'];
 function _waErstes(z,liste){
   for(var i=0;i<liste.length;i++){
     var v=z[liste[i]];
@@ -22235,6 +22239,16 @@ async function openFgEditor(id, prefill, targetEl){
           <textarea id="fe_jsonIn" rows="1" wrap="off" placeholder='📋 JSON aus der Produktseite hier einfügen…' title="JSON aus dem Lesezeichen-Skript einfügen, dann auf Übernehmen klicken" style="border:2px dashed #9fc6a8;background:var(--k-f4faf5,#f4faf5)"></textarea>
           <button type="button" onclick="fgJsonUebernehmen()" class="feBtnGruenHell">Übernehmen ▸</button>
         </div>
+        ${''/* 🔴 17.08.2026 — WORK #60/#93, Ralph: "ich kopiere oft die zutaten als text
+              von einer homepage und moechte sie als echten text bereitstellen, nicht
+              immer holen lassen von riki." Dieselbe Bauart wie das JSON-Feld darueber:
+              einzeilig, scrollt intern, schiebt die Maske nicht auseinander. Der Text
+              geht an riki-analyse modus "rohtext" (v10+), wird als Extraktionslauf
+              persistiert und die Zutatenzeilen laufen durch die #93-Kette. */}
+        <div class="feHolZeile2">
+          <textarea id="fe_rohtextIn" rows="1" wrap="off" placeholder='📄 Zutaten/Nährwerte als TEXT hier einfügen…' title="Kopierten Text von Etikett oder Homepage einfügen – Riki zerlegt ihn in Abschnitte und Zeilen, nichts wird ohne dein Zutun gespeichert" style="border:2px dashed #b9b3e8;background:var(--k-f6f5fd,#f6f5fd)"></textarea>
+          <button type="button" onclick="fgRohtextLauf()" class="feBtnLila">Text lesen ▸</button>
+        </div>
         <div id="fe_jsonMsg"></div>
       </div>
       <div class="feHolAuch">
@@ -23893,7 +23907,7 @@ function feTabWechsel(n){
 var FE_SCHRITTE=[
  {nr:1, id:'kopf',    t:'Kopf & Quelle',       tab:1,
   kurz:'Quelle geben, Identität prüfen',
-  el:['fe_urlLbl','fe_url','fe_pasteZone','fe_jsonIn','fe_jsonMsg','fe_nurLeer'],
+  el:['fe_urlLbl','fe_url','fe_pasteZone','fe_jsonIn','fe_jsonMsg','fe_nurLeer','fe_rohtextIn'],
   /* 🔴 15.08. BEFUND (Ralph Punkt 11): `fe_ean_status`, `fe_eanChips` und
      `fe_eanHint` standen in KEINER Schrittliste. Wer nirgends genannt ist, gilt
      nirgends als fremd — und blieb deshalb in jedem Schritt sichtbar, auch in
@@ -32315,7 +32329,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-16-3710";
+const APP_BUILD = "2026-08-17-3700";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
