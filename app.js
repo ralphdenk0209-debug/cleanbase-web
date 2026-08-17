@@ -14177,7 +14177,7 @@ async function _abBento2Laden(d){
       var z=function(l,v,warn,wk){
         var n=Number(v)||0, klick=(wk&&n>0);
         return '<div class="bzeile'+(klick?' bklick':'')+'"'
-          +(klick?' data-wk="'+esc(wk)+'" data-wl="'+esc(l)+'" role="button" tabindex="0"'
+          +(klick?' data-wk="'+esc(wk)+'" data-wl="'+esc(l)+'" data-wn="'+n+'" role="button" tabindex="0"'
                   +' title="Klick zeigt die '+n+' betroffenen Zeilen"'
                 : (wk===null&&n>0?' title="Für diesen Wächter gibt es serverseitig noch keine Liste — als Work Item gemeldet."':''))
           +'><span>'+l+(klick?' <span class="bpfeil">›</span>':'')+'</span><b'
@@ -14299,13 +14299,13 @@ function _abStammMehrPruefen(){
 function _abStammKlickNach(){
   var box=document.getElementById('abStammU'); if(!box) return;
   box.querySelectorAll('.bzeile.bklick').forEach(function(r){
-    var auf=function(){ _abStammZeilen(r.dataset.wk, r.dataset.wl); };
+    var auf=function(){ _abStammZeilen(r.dataset.wk, r.dataset.wl, Number(r.dataset.wn)); };
     r.addEventListener('click',auf);
     r.addEventListener('keydown',function(e){
       if(e.key==='Enter'||e.key===' '){ e.preventDefault(); auf(); } });
   });
 }
-async function _abStammZeilen(wk, label){
+async function _abStammZeilen(wk, label, kachelZahl){
   var w=_AB_STAMM_WEG[wk]; if(!w) return;
   var ov=document.getElementById('waFaelleOv');
   if(!ov){ ov=document.createElement('div'); ov.id='waFaelleOv';
@@ -14338,7 +14338,22 @@ async function _abStammZeilen(wk, label){
     var b=document.getElementById('waFaelleBody'); if(!b) return;
     if(!rows.length){ b.innerHTML='<div style="color:#1e6b42">Keine offenen Zeilen — still. ✓</div>'; return; }
     b.style.color='var(--ink,#22343a)';
-    b.innerHTML='<div style="margin-bottom:6px;color:var(--muted,#6b7a85)">'
+    /* 🔴 17.08.2026, durch Ralphs Screenshot gefunden: die Kachel zeigte
+       „Regelfaelle 4", die Liste lieferte 740 Zeilen. Zwei Zahlen fuer denselben
+       Waechter — die Kachel liest den Zwischenspeicher, die Liste die View (§4.2).
+       Ich kann das hier nicht heilen, beide Quellen gehoeren nicht mir. Aber ein
+       Widerspruch, der niemandem auffaellt, ist gefaehrlicher als einer, der
+       danebensteht. Also steht er daneben. */
+    var streit=(kachelZahl!=null && total!=null && Number(kachelZahl)!==Number(total));
+    b.innerHTML=(streit
+      ? '<div style="background:#fdf1f1;border:1px solid #e6b8b8;border-radius:9px;padding:9px 11px;'
+        +'margin-bottom:9px;font-size:12px;line-height:1.45;color:#8a2b2b">'
+        +'<b>Die Kachel sagt '+esc(String(kachelZahl))+', diese Liste hat '+esc(String(total))+'.</b><br>'
+        +'Beides kommt vom Server, aber aus zwei Quellen: die Kachelzahl aus einem '
+        +'Zwischenspeicher, die Liste direkt aus der Prüfsicht. Gemeldet — verlass dich '
+        +'auf die Liste, nicht auf die Kachelzahl.</div>'
+      : '')
+      +'<div style="margin-bottom:6px;color:var(--muted,#6b7a85)">'
       +rows.length+' von '+(total==null?rows.length:total)+' Zeilen'
       +(total!=null&&total>rows.length?' — die ersten 200':'')+'</div>'
       +rows.map(function(x){
@@ -32516,7 +32531,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-17-3730";
+const APP_BUILD = "2026-08-17-3740";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
