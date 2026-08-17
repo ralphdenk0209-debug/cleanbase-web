@@ -8319,12 +8319,20 @@ function _waZeileDeuten(z){
      ist bei einem Waechter keine Information — sie ist Rauschen.
      Jetzt: false und 0 werden nicht ausgeschrieben, sondern GEZAEHLT. Damit ist
      nichts versteckt (die Anzahl steht da) und die Zeile wieder lesbar. */
+  /* 🔴 17.08., zweiter Blick auf Ralphs Screenshot: dort stand
+     „regeln: r8_bewertung_fehlt · … · r8_bewertung_fehlt: true" — DIESELBE
+     Angabe zweimal in einer Zeile. Die View fuehrt die zutreffenden Regeln als
+     Liste UND als einzelne Flags. Was in der Liste steht, wird deshalb nicht
+     noch einmal als Flag ausgegeben (§4.2, hier in der Anzeige). */
+  var inListe={};
+  (Array.isArray(z.regeln)?z.regeln:[]).forEach(function(r){ inListe[String(r)]=1; });
   var aus=0;
   var rest=Object.keys(z).filter(function(k){
     if(benutzt[k]) return false;
     var v=z[k];
     if(v===null||v===undefined||String(v)==='') return false;
     if(v===false){ aus++; return false; }
+    if(v===true && inListe[k]) return false;   /* steht schon in `regeln` */
     return true;
   }).map(function(k){ return k+': '+String(z[k]); });
   var detail=(ft?ft.v:'');
@@ -14308,6 +14316,25 @@ function _abStammMehrPruefen(){
   b.addEventListener('scroll',setz);
   try{ addEventListener('resize',setz); }catch(e){}
 }
+/* Wovon handeln diese Zeilen? Zaehlt die Befunde der GELADENEN Zeilen. */
+function _waVerteilung(rows, geladen, total){
+  var z={}, n=0;
+  (rows||[]).forEach(function(r){
+    var k=String(r.detail||'').split(' · ')[0];
+    if(!k) return; z[k]=(z[k]||0)+1; n++;
+  });
+  var l=Object.keys(z).map(function(k){ return {k:k,n:z[k]}; })
+        .sort(function(a,b){ return b.n-a.n; });
+  if(!n || l.length>6) return '';                 /* zu bunt, sagt nichts aus */
+  if(l.length===1 && geladen<3) return '';        /* zu wenig, um etwas zu sagen */
+  return '<div style="background:#f5f7f9;border-radius:9px;padding:8px 11px;margin-bottom:10px;'
+    +'font-size:12px;line-height:1.5">'
+    +'<b>Wovon handeln sie:</b> '
+    +l.map(function(x){ return esc(x.k)+' <b>'+x.n+'×</b>'; }).join(' · ')
+    +'<div style="font-size:10.5px;color:var(--muted,#6b7a85);margin-top:3px">'
+    +'gezählt über die '+geladen+' geladenen Zeilen'
+    +(total!=null&&total>geladen?', nicht über alle '+total:'')+'</div></div>';
+}
 function _abStammKlickNach(){
   var box=document.getElementById('abStammU'); if(!box) return;
   box.querySelectorAll('.bzeile.bklick').forEach(function(r){
@@ -14368,6 +14395,13 @@ async function _abStammZeilen(wk, label, kachelZahl){
       +'<div style="margin-bottom:6px;color:var(--muted,#6b7a85)">'
       +rows.length+' von '+(total==null?rows.length:total)+' Zeilen'
       +(total!=null&&total>rows.length?' — die ersten 200':'')+'</div>'
+      /* 🔴 17.08.: Ralphs Liste war 200-mal dieselbe Zeile. Gemessen am ganzen
+         Bestand sind 739 der 740 „Regelfaelle" derselbe Fall (Bewertung fehlt)
+         und nur EINER eine echte Regelverletzung. Diese Verteilung gehoert an
+         den Anfang, sonst blaettert man 200 Zeilen fuer eine Erkenntnis.
+         Gezaehlt wird NUR ueber die geladenen Zeilen — und das steht auch dabei,
+         damit die Zahl nicht fuer den Gesamtbestand gehalten wird (§1.3). */
+      +_waVerteilung(rows, rows.length, total)
       +rows.map(function(x){
         var prod=(x.typ==='produkt');
         return '<div style="display:flex;align-items:flex-start;gap:8px;padding:9px 0;'
@@ -32543,7 +32577,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-17-3750";
+const APP_BUILD = "2026-08-17-3760";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
