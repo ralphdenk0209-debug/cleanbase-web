@@ -2105,6 +2105,30 @@ body.riFokus .feZurueckFokus{ display:none !important }
   box-shadow:0 1px 0 var(--line), 0 6px 14px -12px rgba(0,0,0,.35);
 }
 
+/* ============================================================================
+   🔴 17.08.2026 — RALPHS VERDICHTUNG, Inspektor 13:56 an Build 3790 (1919x935).
+   Option A gilt: seine Zahlen sind die Messung. Bei diesen vier Werten IST der
+   Abstand die Ursache — es gibt keine versteckte Regel dahinter, nur Luft, die
+   sich ueber mehrere Umbauten aufaddiert hat. Deshalb stehen sie hier GEBUENDELT
+   und dokumentiert statt als sechs verstreute Inspektor-Margins:
+     Statusstreifen   17 px hoeher   (in das Panel-Polster hinein)
+     Rahmen           10 px hoeher   (an den Streifen heran, Luecke 12 -> 2)
+     A·Bestandteile   22 px hoeher   (margin-top 2 -> -20, die Sektionsluft)
+     Kontext-Reiter   48 px tiefer   (Referenz/Etikett/Rohtext beginnen jetzt
+                       auf Hoehe der weissen Karte, nicht auf Hoehe des
+                       Schrittkopfs — vorher hingen sie oben im Leeren)
+   Gemessen vor dem Ablegen per Injektion an 1710; Ralphs Werte stammen von 1919.
+   Beides sind Margins, keine Breiten — fensterunabhaengig. */
+#panel > #fe_gesamtstatus{ margin-top:-17px }
+body.riFokus #feRahmen{ margin-top:-10px }
+body.riFokus[data-fe-schritt="bestand"] #feTab3 #fe_gridA{ margin-top:-20px } /* zwei IDs — muss Zeile 912 (#feTab3 #fe_gridA, mt 2px) schlagen; vierter Spezifitaets-Fall dieser Art */
+body.riFokus #feKontext .feKtxTabs{ margin-top:48px }
+/* Flip-Karte, oberes Kind 7 px hoeher — Ralphs Punkt 3. Der Pfadselektor ist
+   von seinem eigenen Werkzeug als bruchgefaehrdet markiert; es gibt an diesem
+   Kind keine Klasse. Bricht der naechste Umbau ihn, faellt nur diese eine
+   Feinjustierung weg, nichts Tragendes. */
+#fe_flipInner > div:nth-of-type(1) > div{ margin-top:-7px }
+
 /* --- 13. Score deutlich, aber kompakt ------------------------------------- */
 .feStRechts{ flex-direction:column; align-items:flex-end; gap:5px }
 .feStBew{ align-items:baseline; gap:5px }
