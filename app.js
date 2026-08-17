@@ -11243,6 +11243,11 @@ function dashArbeitCss(){
    +A+' .abbento .brp.krit{background:'+_AB.krit+'}'
    +A+' .abbento .brp.warn{background:'+_AB.warn+'}'
    +A+' .abbento .brmehr{font-size:11px;color:var(--abmut);margin-top:5px}'
+   /* Work #34: eine Zeile, die einen Weg hat, sieht auch so aus. Zeilen ohne
+      Weg bleiben unveraendert — sonst verspricht die Optik etwas, das fehlt. */
+   +A+' .abbento .bzeile.bklick{cursor:pointer;border-radius:6px;margin:0 -4px;padding-left:4px;padding-right:4px}'
+   +A+' .abbento .bzeile.bklick:hover{background:#f2f5f8}'
+   +A+' .abbento .bpfeil{color:var(--abmut);font-weight:700}'
    /* ----- Befehlszeile (C4) ----- */
    +A+' .abcmd{background:#fff;border:1px solid var(--abline);border-radius:10px;'
     +'margin-top:2px;position:relative}'
@@ -14139,9 +14144,26 @@ async function _abBento2Laden(d){
       }
       if(r.error) throw r.error;
       var s=r.data||{}, N=s.neu||{}, AL=s.alt||{};
-      var z=function(l,v,warn){ return '<div class="bzeile"><span>'+l+'</span><b'
-        +(warn&&Number(v)>0?' style="color:'+_AB.warn+'"':'')+'>'
-        +(v==null?'–':v)+'</b></div>'; };
+      /* 🔴 16.08.2026, Work #34, Ralph-Entscheid A: „nur die Anzeige wie unten
+         bringt nichts, da muss ich schon etwas machen oder entscheiden koennen."
+         Weg A heisst: JEDE Zahl fuehrt zu ihren Zeilen. Entscheiden kommt spaeter,
+         je Waechter — geraten wird kein Knopf (§1).
+         §22 ZUM SECHSTEN MAL: der Leseweg war schon da. cb_admin_stamm_waechter_liste
+         deckt vier Waechter ab (regelfaelle · widersprueche_aktiv · doppelte_note ·
+         quelle_offen), „unbewertet" laeuft ueber cb_admin_stamm_neu_liste(p_bewertung).
+         Nichts davon wurde neu gebaut.
+         Die uebrigen sechs haben SERVERSEITIG keine Liste. Sie bleiben deshalb
+         bewusst stumpf und sagen im Titel, warum — eine Zahl, die so tut, als
+         fuehrte sie irgendwohin, ist schlimmer als eine, die es zugibt. */
+      var z=function(l,v,warn,wk){
+        var n=Number(v)||0, klick=(wk&&n>0);
+        return '<div class="bzeile'+(klick?' bklick':'')+'"'
+          +(klick?' data-wk="'+esc(wk)+'" data-wl="'+esc(l)+'" role="button" tabindex="0"'
+                  +' title="Klick zeigt die '+n+' betroffenen Zeilen"'
+                : (wk===null&&n>0?' title="Für diesen Wächter gibt es serverseitig noch keine Liste — als Work Item gemeldet."':''))
+          +'><span>'+l+(klick?' <span class="bpfeil">›</span>':'')+'</span><b'
+          +(warn&&n>0?' style="color:'+_AB.warn+'"':'')+'>'
+          +(v==null?'–':v)+'</b></div>'; };
       /* 🔴 15.08.2026, Ralph: „den Stammwaechter oben brauchen wir dann nicht mehr, der ist
          unten in Stamm-Ueberblick — ggf. fehlendes unten ergaenzen."
          GEMESSENE DIFFERENZ vor dem Ergaenzen: die Kachel zeigte 6 von 12 Zahlen. Es fehlten
@@ -14155,18 +14177,18 @@ async function _abBento2Laden(d){
       setz('abStammU',
          '<div class="babs" style="color:'+_AB.kern+'">Neu · Canonical, maßgeblich</div>'
         + z('aktiv',N.active_total)
-        + z('unbewertet',N.unbewertet,true)
-        + z('ohne Profil',N.ohne_profil,true)
-        + z('Reviewproblem',N.bewertet_nicht_approved,true)
-        + z('retired ohne Nachfolger',N.retired_ohne_nachfolger,true)
-        + z('Alias auf nicht aktiv',N.auto_alias_auf_nichtaktiv,true)
-        + z('Legacy-Bindung auf nicht aktiv',N.legacy_bindung_auf_nichtaktiv,true)
+        + z('unbewertet',N.unbewertet,true,'neu:unbewertet')
+        + z('ohne Profil',N.ohne_profil,true,null)
+        + z('Reviewproblem',N.bewertet_nicht_approved,true,null)
+        + z('retired ohne Nachfolger',N.retired_ohne_nachfolger,true,null)
+        + z('Alias auf nicht aktiv',N.auto_alias_auf_nichtaktiv,true,null)
+        + z('Legacy-Bindung auf nicht aktiv',N.legacy_bindung_auf_nichtaktiv,true,null)
         +'<div class="babs" style="margin-top:10px;color:'+_AB.grau+'">Alt · Legacy, Übergang</div>'
         + z('Einträge',AL.gesamt)
-        + z('Regelfälle',AL.regelfaelle,true)
-        + z('Widersprüche',AL.widersprueche_aktiv,true)
-        + z('Notenkonflikte',AL.doppelte_note,true)
-        + z('Quelle offen',AL.quelle_offen,true)
+        + z('Regelfälle',AL.regelfaelle,true,'alt:regelfaelle')
+        + z('Widersprüche',AL.widersprueche_aktiv,true,'alt:widersprueche_aktiv')
+        + z('Notenkonflikte',AL.doppelte_note,true,'alt:doppelte_note')
+        + z('Quelle offen',AL.quelle_offen,true,'alt:quelle_offen')
         +'<div style="font-size:10.5px;color:'+_AB.mut+';margin-top:7px;line-height:1.4">'
         +'Alt-Zahlen aus <code>public.Zutaten_Stamm</code>, nicht aus dem Canonical-Stamm — '
         +'Kontrolle für den Übergang.</div>'
@@ -14176,6 +14198,8 @@ async function _abBento2Laden(d){
         +'Stamm öffnen →</button>'
         +(zweiter?'<div style="font-size:10.5px;color:'+_AB.warn+';margin-top:7px;line-height:1.4">'
           +'⚠ erst im zweiten Anlauf geladen — die Abfrage liegt auf der Zeitgrenze.</div>':''));
+      /* innerHTML wirft Handler weg — deshalb hier, direkt nach dem Setzen. */
+      _abStammKlickNach();
     }catch(e){
       /* Derselbe Timeout wie beim Stammwaechter (#17). Hier steht er in einer
          Kachel und blockiert nichts — mit Knopf statt Sackgasse. */
@@ -14189,6 +14213,93 @@ async function _abBento2Laden(d){
     }
   })();
 }
+/* ---------------------------------------------------------------------------
+   WORK #34, Weg A: eine Stamm-Waechterzahl fuehrt zu ihren Zeilen.
+   🔴 KEINE ZWEITE LISTE. Die Zeilen kommen so, wie der Server sie fuehrt —
+   es wird nichts umbenannt, nichts gerechnet, nichts weggelassen. Angezeigt
+   werden die Felder, die die Zeile hat; der Rest steht darunter als Feld:Wert.
+   Fuer Produkte und Zutaten gibt es einen Weg weiter, sonst nicht.
+   --------------------------------------------------------------------------- */
+var _AB_STAMM_WEG={
+  /* Woher die Zeilen kommen — GEMESSEN aus pg_get_functiondef, nicht geraten.
+     'liste'  : cb_admin_stamm_waechter_liste(p_waechter,…) kennt genau diese vier.
+     'unbew'  : cb_admin_stamm_neu_liste(…,p_bewertung='ohne') aus Work #14. */
+  'alt:regelfaelle':        {art:'liste', key:'regelfaelle'},
+  'alt:widersprueche_aktiv':{art:'liste', key:'widersprueche_aktiv'},
+  'alt:doppelte_note':      {art:'liste', key:'doppelte_note'},
+  'alt:quelle_offen':       {art:'liste', key:'quelle_offen'},
+  'neu:unbewertet':         {art:'unbew'}
+};
+function _abStammKlickNach(){
+  var box=document.getElementById('abStammU'); if(!box) return;
+  box.querySelectorAll('.bzeile.bklick').forEach(function(r){
+    var auf=function(){ _abStammZeilen(r.dataset.wk, r.dataset.wl); };
+    r.addEventListener('click',auf);
+    r.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){ e.preventDefault(); auf(); } });
+  });
+}
+async function _abStammZeilen(wk, label){
+  var w=_AB_STAMM_WEG[wk]; if(!w) return;
+  var ov=document.getElementById('waFaelleOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='waFaelleOv';
+    ov.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-start;'
+      +'justify-content:center;background:rgba(20,32,48,.45);overflow:auto;padding:24px 12px';
+    ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov); }
+  ov.innerHTML='<div style="background:var(--card,#fff);color:var(--ink,#22343a);border-radius:16px;'
+    +'max-width:820px;width:100%;box-shadow:0 20px 60px rgba(20,40,70,.32);padding:20px;margin:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">'
+    +'<div style="font-weight:800;font-size:17px">🛡️ '+esc(label||wk)+'</div>'
+    +'<button onclick="var o=document.getElementById(\'waFaelleOv\');if(o)o.remove()" '
+    +'style="border:0;background:var(--bg,#eef2f5);border-radius:8px;width:30px;height:30px;'
+    +'cursor:pointer;font-size:16px">✕</button></div>'
+    +'<div id="waFaelleBody" style="font-size:13px;color:var(--muted,#6b7a85);margin-top:10px">Lade Zeilen …</div></div>';
+  try{
+    var rows=[], total=null;
+    if(w.art==='liste'){
+      var r=await client.rpc('cb_admin_stamm_waechter_liste',{p_waechter:w.key,p_limit:200,p_offset:0});
+      if(r.error) throw new Error(r.error.message);
+      var d=r.data||{}; total=d.total; rows=(d.rows||[]).map(_waZeileDeuten);
+    }else{
+      /* Work #14: derselbe Weg, den der Stamm-Bereich schon benutzt. */
+      var r2=await client.rpc('cb_admin_stamm_neu_liste',
+        {p_suche:null,p_status:'active',p_limit:200,p_offset:0,p_bewertung:'ohne'});
+      if(r2.error) throw new Error(r2.error.message);
+      var d2=r2.data||{}; total=d2.total;
+      rows=(d2.rows||d2.zeilen||[]).map(_waZeileDeuten);
+    }
+    var b=document.getElementById('waFaelleBody'); if(!b) return;
+    if(!rows.length){ b.innerHTML='<div style="color:#1e6b42">Keine offenen Zeilen — still. ✓</div>'; return; }
+    b.style.color='var(--ink,#22343a)';
+    b.innerHTML='<div style="margin-bottom:6px;color:var(--muted,#6b7a85)">'
+      +rows.length+' von '+(total==null?rows.length:total)+' Zeilen'
+      +(total!=null&&total>rows.length?' — die ersten 200':'')+'</div>'
+      +rows.map(function(x){
+        var prod=(x.typ==='produkt');
+        return '<div style="display:flex;align-items:flex-start;gap:8px;padding:9px 0;'
+          +'border-top:1px solid var(--line,#e3e9ec)">'
+          +'<div style="flex:1 1 240px;min-width:0">'
+          +'<div style="font-weight:700">'+esc(x.name||x.id)+'</div>'
+          +'<div style="font-size:11.5px;color:var(--muted,#6b7a85)">'+esc(x.detail||'')+'</div></div>'
+          +(prod?'<button onclick="dashOpenProdukt(\''+esc(x.id)+'\');'
+              +'var o=document.getElementById(\'waFaelleOv\');if(o)o.remove()" '
+              +'style="flex:0 0 auto;border:1px solid #107e3e;background:#eef8f1;color:#1e6b42;'
+              +'border-radius:9px;padding:7px 13px;font-weight:700;font-size:12.5px;cursor:pointer">'
+              +'Öffnen ›</button>':'')
+        +'</div>'; }).join('')
+      +'<div style="font-size:11px;color:var(--muted,#6b7a85);margin-top:10px;line-height:1.45">'
+      +'🔴 Weg A (Ralph 16.08.): hier wird <b>gezeigt</b>, noch nicht entschieden. '
+      +'Was du je Wächter tun können sollst, steht noch nicht fest — ein geratener Knopf '
+      +'wäre schlimmer als keiner.</div>';
+  }catch(e){
+    var b2=document.getElementById('waFaelleBody');
+    if(b2){ b2.style.color='#cf5442'; b2.textContent='Konnte die Zeilen nicht laden: '+((e&&e.message)||e); }
+    try{ console.warn('[Stamm-Zeilen]',wk,e); }catch(_){}
+  }
+}
+if(typeof window!=='undefined'){ window._abStammZeilen=_abStammZeilen; }
+
 /* Eigener Einstieg fuer den Wiederholen-Knopf — er darf nicht die ganze Reihe
    neu laden, nur seine Kachel. */
 async function _abStammUNach(){
@@ -18806,14 +18917,27 @@ async function fgZutOffenLaden(pid){
   window._fgZutOffen=null; window._fgZutOffenFehler="";
   if(!pid) return;
   try{
-    var r=await client.rpc("cb_admin_zutat_offen",{p_produkt_id:pid});
+    /* 🔴 16.08.2026 — WORK #81/#94: der Leseweg ist jetzt cb_admin_zutat_offen_mit_riki.
+       EINE Antwort traegt alles: die offene Zeile (zutat_text, quelle, gesehen_am,
+       ist ueber item_id/item_uid stabil adressierbar), die #78-Struktur
+       (base_ingredient, processing_modifiers, attributes, parenthetical_role,
+       parenthetical_items, extraction_status) und den #83-Handentscheid
+       (manual_decision_kind, manual_decided_at, ...). KEINE zweite Zuordnung im
+       Frontend — die Bruecke ist serverseitig (§4.2), gemessen an P73619 mit den
+       item_ids 81/82. Ralph 16.08.: "Keine zweite Frontend-Zuordnung bauen." */
+    var r=await client.rpc("cb_admin_zutat_offen_mit_riki",{p_product_id:pid});
     if(r&&r.error) throw r.error;
-    window._fgZutOffen=Array.isArray(r&&r.data)?r.data:[];
+    var rows=Array.isArray(r&&r.data)?r.data:[];
+    /* Der alte Leseweg lieferte `ist_offen`; der neue liefert nur offene Zeilen und
+       fuehrt das Feld nicht. Es wird hier ergaenzt statt _fgZutOffenListe zu aendern —
+       an der haengen die Bilanz (#89) und zwei Renderwege. */
+    rows.forEach(function(z){ if(z && z.ist_offen===undefined) z.ist_offen=true; });
+    window._fgZutOffen=rows;
   }catch(e){
     /* Kein leerer Fangblock (§11.4): faellt die Quelle aus, bleibt der Block LEER
        statt falsch – und der Grund steht in der Konsole UND im Block selbst.
        Ein ausgefallener Sichtbarkeitshinweis darf nicht wie „nichts offen" aussehen. */
-    console.error("[Offene Zutaten] cb_admin_zutat_offen:", e);
+    console.error("[Offene Zutaten] cb_admin_zutat_offen_mit_riki:", e);
     window._fgZutOffenFehler=(e&&e.message)?String(e.message):String(e);
   }
 }
@@ -18837,24 +18961,188 @@ function _fgZutOffenHtml(){
   }
   var offen=_fgZutOffenListe();
   if(!offen.length) return "";
-  /* Blau ist in dieser Maske bereits die Farbe fuer „gelesen, aber nicht gebunden"
-     (fgPickRender, _fgBestZeile). Der Zustand ist derselbe, also die Farbe auch –
-     eine eigene Farbe waere eine zweite Sprache fuer dieselbe Aussage. */
+  /* ==========================================================================
+     🔴 16.08.2026 — WORK #81. RALPH: "Bei 'Zutat nicht im Stamm' darf die UI nicht
+     nur erklaeren. Jede offene Zeile braucht einen Arbeitsweg: bestehenden Stammwert
+     suchen/binden, Riki-Zerlegung pruefen, Erklaerung/Subbestandteil markieren oder
+     bewusst neu anlegen. 'Neu anlegen' darf nicht der Standardweg sein."
+
+     VORHER stand hier eine reine Erklaerung — und das einzige Bedienelement fuer den
+     offenen Fall war "+ hinzufuegen" unter der Tabelle. Der Weg, der NICHT Standard
+     sein soll, war der einzige sichtbare. Wer nur einen Knopf hat, benutzt ihn.
+
+     JETZT vier Wege je Zeile, in der Reihenfolge der Pruefkette aus §3.6 —
+     die Maske bildet die Regel ab, sie erfindet keine:
+       1 BINDEN        Stammsuche, vorbefuellt mit base_ingredient bzw. zutat_text
+       2 ZERLEGUNG     RIKI strukturiert die Zeile (#78-Felder aufs Item, #94-Bruecke)
+       3 KEINE ZUTAT   Handentscheid "nur Erklaerung/Bestandteil" (#83)
+       4 NEU ANLEGEN   zuletzt, als stiller Textknopf — bewusst, nie Standard
+     Liegt die #78-Struktur schon am Item, wird sie ANGEZEIGT und Weg 2 wird zu
+     "Zerlegung erneut pruefen". Ein Handentscheid aus #83 wird sichtbar gemacht
+     statt der Wege — mit Widerruf. Nichts hier schreibt Produkt_Zutaten direkt:
+     Binden laeuft ueber die bestehende Suche+fgZutRow, alles andere ueber die
+     #83/#94-RPCs am Item (§5.7 bleibt unberuehrt).
+     ========================================================================== */
   return '<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-eef6ff,#eef6ff);box-shadow:inset 3px 0 0 var(--k-2f6fd6,#2f6fd6)">'
     +'<div style="font-size:11px;font-weight:700;color:var(--k-1e40af,#1e40af)">'
       +offen.length+' Zutat'+(offen.length===1?"":"en")+' vom Etikett gelesen, aber nicht im Stamm</div>'
     +offen.map(function(z){
       var nm=String(z.zutat_text||"").trim();
       var am=z.gesehen_am?String(z.gesehen_am).slice(0,10).split("-").reverse().join("."):"";
-      return '<div style="font-size:12.5px;color:var(--ink);margin-top:3px;overflow-wrap:anywhere">'
+      var iid=String(z.item_id||"");
+      var H='<div class="fgOffZeile" data-item="'+esc(iid)+'" style="font-size:12.5px;color:var(--ink);margin-top:6px;overflow-wrap:anywhere;border-top:1px dashed var(--k-b9d2f0,#b9d2f0);padding-top:6px">'
         +'<b>'+esc(nm)+'</b>'
         +'<span style="display:block;font-size:11px;color:var(--muted);line-height:1.45">'
           +'gelesen'+(am?' am '+esc(am):'')
-          +(z.quelle?' · Quelle: '+esc(String(z.quelle)):'')
-          +' · zählt noch nicht zum Produkt – erst nach dem Anlegen im Stamm und dem Binden</span>'
-      +'</div>';
+          +(z.quelle?' · Quelle: '+esc(String(z.quelle)):'')+'</span>';
+      /* Bereits entschieden (#83)? Dann den Entscheid zeigen, nicht die Wege. */
+      if(z.manual_decision_kind){
+        H+='<span style="display:block;margin-top:4px;font-size:11.5px;color:var(--k-166534)">'
+          +'✓ entschieden: keine eigene Zutat'
+          +(z.manual_decision_reason?(' — '+esc(String(z.manual_decision_reason))):'')
+          +' <button type="button" class="fgOffBtn" onclick="fgOffWiderruf('+esc(iid)+',this)" '
+          +'title="Handentscheid zurücknehmen – die Zeile wird wieder offen">widerrufen</button></span>';
+        return H+'</div>';
+      }
+      /* #78-Struktur, falls RIKI sie schon geliefert hat: anzeigen, nicht verstecken. */
+      if(z.base_ingredient||z.parenthetical_role){
+        H+='<span style="display:block;margin-top:3px;font-size:11px;color:var(--k-534ab7)">'
+          +'Riki: '+esc(String(z.base_ingredient||nm))
+          +(Array.isArray(z.processing_modifiers)&&z.processing_modifiers.length?(' · '+esc(z.processing_modifiers.join(", "))):'')
+          +(z.parenthetical_role?(' · Rolle: '+esc(String(z.parenthetical_role))):'')+'</span>';
+      }
+      /* Die vier Wege. Reihenfolge = Pruefkette. Neuanlage zuletzt und still. */
+      H+='<span class="fgOffWege" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'
+        +'<button type="button" class="fgOffBtn fgOffPrimaer" onclick="fgOffBinden('+esc(iid)+',this)" '
+          +'title="Im Zutatenstamm suchen und diese Zeile an einen bestehenden Eintrag binden – der Normalfall.">im Stamm suchen &amp; binden</button>'
+        +'<button type="button" class="fgOffBtn" onclick="fgOffZerlegen('+esc(iid)+',this)" '
+          +'title="Riki zerlegt die Zeile in Grundzutat, Verarbeitung und Klammerrolle. Nichts wird dabei gespeichert, bis du es siehst.">'
+          +(z.base_ingredient?'Zerlegung erneut prüfen':'Riki-Zerlegung prüfen')+'</button>'
+        +'<button type="button" class="fgOffBtn" onclick="fgOffKeineZutat('+esc(iid)+',this)" '
+          +'title="Die Zeile ist nur eine Erklärung oder ein Bestandteil einer anderen Zutat – sie wird KEINE eigene Produktzutat. Mit Begründung, widerrufbar.">keine eigene Zutat</button>'
+        +'<button type="button" class="fgOffBtn fgOffLeise" onclick="fgOffNeu('+esc(iid)+',this)" '
+          +'title="Bewusst als NEUE Stammzutat anlegen – der letzte Weg, wenn Suchen, Zerlegen und Markieren nichts ergeben haben (§3.6).">neu anlegen …</button>'
+      +'</span>'
+      +'<span class="fgOffMsg" style="display:block;font-size:11px;margin-top:2px"></span>';
+      return H+'</div>';
     }).join("")
   +'</div>';
+}
+/* ===========================================================================
+   WORK #81 — die vier Arbeitswege. Gemeinsame Helfer zuerst.
+   =========================================================================== */
+function _fgOffItem(iid){
+  var rows=_fgZutOffenListe();
+  return rows.find(function(z){ return String(z.item_id)===String(iid); })||null;
+}
+function _fgOffMsg(btn, txt, farbe){
+  try{ var z=btn.closest(".fgOffZeile"), m=z&&z.querySelector(".fgOffMsg");
+       if(m){ m.textContent=txt||""; m.style.color=farbe||"var(--muted)"; } }catch(e){}
+}
+async function _fgOffReload(){
+  try{ var pid=(window._fgEdit&&window._fgEdit.id);
+       if(pid){ await fgZutOffenLaden(pid); }
+       if(typeof fgBestandteileRender==="function") fgBestandteileRender();
+       if(typeof fePlaus==="function") fePlaus();
+  }catch(e){ console.error("[#81] Neuladen:",e); }
+}
+/* WEG 1 — BINDEN: kein neuer Suchweg. Das vorhandene Stammsuchfeld wird mit dem
+   besten bekannten Namen vorbefuellt und fokussiert; die Trefferliste des Pickers
+   uebernimmt (§22 — angeschlossen, nicht neu gebaut). base_ingredient schlaegt
+   zutat_text, weil er der bereinigte Suchbegriff aus der Zerlegung ist. */
+function fgOffBinden(iid, btn){
+  var z=_fgOffItem(iid); if(!z) return;
+  var s=document.getElementById("fe_zutSuche");
+  if(!s){ _fgOffMsg(btn,"Suchfeld nicht gefunden.","var(--k-b91c1c)"); return; }
+  s.value=String(z.base_ingredient||z.zutat_text||"").trim();
+  try{ s.dispatchEvent(new Event("input",{bubbles:true})); }catch(e){}
+  s.focus(); try{ s.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
+}
+/* WEG 2 — ZERLEGUNG: RIKI (modus zutaten, v9+) liefert die #78-Felder; gespeichert
+   wird AM ITEM ueber cb_riki_zutat_offen_struktur_speichern (#94). Kein Umweg ueber
+   eine zweite Frontend-Zuordnung — item_id rein, Struktur raus, Block neu laden. */
+async function fgOffZerlegen(iid, btn){
+  var z=_fgOffItem(iid); if(!z) return;
+  if(btn){ btn.disabled=true; } _fgOffMsg(btn,"Riki zerlegt …");
+  try{
+    var s=await client.auth.getSession();
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok) throw new Error("Nicht angemeldet.");
+    var resp=await fetch(client.supabaseUrl+"/functions/v1/riki-analyse",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+      body:JSON.stringify({modus:"zutaten", modell:RIKI_LESE_MODELL, text:String(z.zutat_text||""),
+                           produkt_id:(window._fgEdit&&window._fgEdit.id)||null})});
+    var d=await resp.json();
+    if(!resp.ok||d.error) throw new Error(d.error||("HTTP "+resp.status));
+    var zt=(d.vorschlag&&Array.isArray(d.vorschlag.zutaten)&&d.vorschlag.zutaten[0])||null;
+    if(!zt) throw new Error("Riki hat keine Zutat geliefert.");
+    var r2=await client.rpc("cb_riki_zutat_offen_struktur_speichern",{
+      p_item_id:Number(iid),
+      p_base_ingredient:zt.base_ingredient||zt.name||null,
+      p_processing_modifiers:Array.isArray(zt.processing_modifiers)?zt.processing_modifiers:null,
+      p_attributes:zt.attributes||null,
+      p_parenthetical_role:zt.parenthetical_role||null,
+      p_parenthetical_items:Array.isArray(zt.parenthetical_items)?JSON.parse(JSON.stringify(zt.parenthetical_items)):null,
+      p_confidence:null,
+      p_extraction_status:"extracted"});
+    if(r2&&r2.error) throw r2.error;
+    await _fgOffReload();
+  }catch(e){
+    console.error("[#81 Zerlegung]",e);
+    _fgOffMsg(btn,"Zerlegung fehlgeschlagen: "+((e&&e.message)||e),"var(--k-b91c1c)");
+    if(btn){ btn.disabled=false; }
+  }
+}
+/* WEG 3 — KEINE EIGENE ZUTAT: Handentscheid ueber #83, MIT Pflichtbegruendung.
+   Ohne Grund kein Entscheid — ein leerer Handentscheid waere eine Behauptung (§1.3). */
+async function fgOffKeineZutat(iid, btn){
+  var z=_fgOffItem(iid); if(!z) return;
+  var grund=prompt('„'+String(z.zutat_text||"")+'" wird KEINE eigene Produktzutat.\n\nWarum? (Pflicht – z. B. „Erklärung der Kefir-Kulturen, keine eigenständige Zutat")');
+  if(grund===null) return;
+  grund=String(grund).trim();
+  if(!grund){ _fgOffMsg(btn,"Ohne Begründung kein Entscheid.","var(--k-b45309)"); return; }
+  if(btn){ btn.disabled=true; } _fgOffMsg(btn,"speichere Entscheid …");
+  try{
+    var r=await client.rpc("cb_source_extraction_item_keine_eigene_zutat_setzen",
+      {p_item_id:Number(iid), p_reason:grund, p_parenthetical_item:null});
+    if(r&&r.error) throw r.error;
+    await _fgOffReload();
+  }catch(e){
+    console.error("[#81 keine Zutat]",e);
+    _fgOffMsg(btn,"Fehlgeschlagen: "+((e&&e.message)||e),"var(--k-b91c1c)");
+    if(btn){ btn.disabled=false; }
+  }
+}
+async function fgOffWiderruf(iid, btn){
+  if(!confirm("Handentscheid zurücknehmen? Die Zeile wird wieder als offen geführt.")) return;
+  if(btn){ btn.disabled=true; }
+  try{
+    var r=await client.rpc("cb_source_extraction_item_entscheidung_widerrufen",
+      {p_item_id:Number(iid), p_reason:"Widerruf im Editor"});
+    if(r&&r.error) throw r.error;
+    await _fgOffReload();
+  }catch(e){
+    console.error("[#81 Widerruf]",e);
+    alert("Widerruf fehlgeschlagen: "+((e&&e.message)||e));
+    if(btn){ btn.disabled=false; }
+  }
+}
+/* WEG 4 — NEU ANLEGEN: kein neuer Anlageweg. Das vorhandene Feld + fgPickAddNeu
+   uebernehmen (Stammtreffer → binden, sonst Riki-Bewertung → Mensch bestaetigt).
+   Der Weg ist bewusst der LETZTE und fragt vorher nach (§3.6: erst suchen). */
+function fgOffNeu(iid, btn){
+  var z=_fgOffItem(iid); if(!z) return;
+  if(!confirm('„'+String(z.zutat_text||"")+'" wirklich als NEUE Stammzutat anlegen?\n\nErst sinnvoll, wenn Suchen, Zerlegung und „keine eigene Zutat" nichts ergeben haben.')) return;
+  var i2=document.getElementById("fe_zutNeu");
+  if(!i2){ _fgOffMsg(btn,"Anlagefeld nicht gefunden.","var(--k-b91c1c)"); return; }
+  i2.value=String(z.base_ingredient||z.zutat_text||"").trim();
+  try{ fgPickAddNeu(); }catch(e){ console.error("[#81 Neuanlage]",e); }
+  try{ i2.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
+}
+if(typeof window!=="undefined"){
+  window.fgOffBinden=fgOffBinden; window.fgOffZerlegen=fgOffZerlegen;
+  window.fgOffKeineZutat=fgOffKeineZutat; window.fgOffWiderruf=fgOffWiderruf;
+  window.fgOffNeu=fgOffNeu;
 }
 if(typeof window!=="undefined"){ window.fgZutOffenLaden=fgZutOffenLaden;
   window._fgZutOffenListe=_fgZutOffenListe; window._fgZutOffenHtml=_fgZutOffenHtml; }
@@ -32027,7 +32315,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-16-3690";
+const APP_BUILD = "2026-08-16-3710";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
