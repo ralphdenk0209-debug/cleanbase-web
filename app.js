@@ -19829,7 +19829,28 @@ function fgBestandteileRender(){
   var H=sortiert.map(function(z){
     var k=String(z.produkt_zutat_id||""); if(k) gesehen[k]=true;
     var nm=String(z.sichtbarer_name||z.canonical_name||"").trim().toLowerCase();
-    return _fgBestZeile(z, zusMap[k], !!gebunden[nm]);
+    /* ======================================================================
+       🔴 17.08.2026 — WORK #55. DER HAKEN HING AM NAMEN STATT AM SERVERZUSTAND.
+       Bis hierher galt eine Zeile nur dann als gebunden, wenn ihr sichtbarer Name
+       in _fgRowsSet() stand — also im Eingabefeld einer Zutatenzeile. Das ging gut,
+       solange Etikettschreibweise und Stammname gleich lauteten.
+       Bei einer Aufloesung ueber einen freigegebenen Alias tun sie das NICHT:
+       "Zwiebeln" loest auf "Zwiebel" auf, "Karotten" auf "Karotte", "Tomaten" auf
+       "Tomate", "Lorbeerblätter" auf "Lorbeer". Gemessen an P73618: 14 von 14
+       Zeilen sind serverseitig aufgeloest — 10 canonical_exact, 4 approved_safe_alias —
+       und genau die vier Aliasfaelle blieben ohne gruenen Haken.
+       Das war kein fehlender Bestandteil, sondern ein Namensvergleich im Frontend
+       an einer Stelle, an der der Server laengst eine eindeutige Antwort liefert.
+       JETZT ENTSCHEIDET DIE canonical_entity_id. Sie kommt aus cb_admin_produkt_zutaten
+       und ist der serverseitige Beleg dafuer, dass die Zeile an eine Identitaet gebunden
+       ist — unabhaengig davon, wie das Etikett sie schreibt (§10.2: das Frontend zeigt
+       serverseitige Ergebnisse an und urteilt nicht selbst).
+       Der Namensvergleich bleibt als ZWEITER Weg bestehen: eine Zeile ohne Canonical,
+       die im Picker steht, wird weiterhin als gebunden angezeigt. Er wird nicht
+       ersetzt, sondern nur nicht mehr als einzige Quelle benutzt.
+       ====================================================================== */
+    var _gebunden = !!String(z.canonical_entity_id||"").trim() || !!gebunden[nm];
+    return _fgBestZeile(z, zusMap[k], _gebunden);
   });
   /* Ein Zusatzstoff, dessen produkt_zutat_id in KEINER Bestandteilzeile vorkommt,
      darf nicht verschwinden – er bekommt eine eigene Zeile mit ehrlichem Hinweis.
@@ -32634,7 +32655,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-17-3790";
+const APP_BUILD = "2026-08-17-3800";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
