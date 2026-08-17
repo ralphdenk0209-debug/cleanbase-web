@@ -8313,11 +8313,23 @@ function _waZeileDeuten(z){
   var fi=_waErstes(z,WA_FELD_ID), fn=_waErstes(z,WA_FELD_NAME), ft=_waErstes(z,WA_FELD_TEXT);
   var id=fi?fi.v:'', name=fn?fn.v:(id||'(ohne Bezeichnung)');
   var benutzt={}; if(fi)benutzt[fi.k]=1; if(fn)benutzt[fn.k]=1; if(ft)benutzt[ft.k]=1;
+  /* 🔴 17.08.2026, Ralphs Screenshot der Regelfaelle: jede Zeile zeigte 13
+     Regel-Flags, davon ZWOELF mit "false". Der eine Wert, auf den es ankommt
+     (r8_bewertung_fehlt: true), ging darin unter. Eine Regel, die NICHT greift,
+     ist bei einem Waechter keine Information — sie ist Rauschen.
+     Jetzt: false und 0 werden nicht ausgeschrieben, sondern GEZAEHLT. Damit ist
+     nichts versteckt (die Anzahl steht da) und die Zeile wieder lesbar. */
+  var aus=0;
   var rest=Object.keys(z).filter(function(k){
-    return !benutzt[k] && z[k]!==null && z[k]!==undefined && String(z[k])!=='';
+    if(benutzt[k]) return false;
+    var v=z[k];
+    if(v===null||v===undefined||String(v)==='') return false;
+    if(v===false){ aus++; return false; }
+    return true;
   }).map(function(k){ return k+': '+String(z[k]); });
   var detail=(ft?ft.v:'');
   if(rest.length) detail+=(detail?' · ':'')+rest.join(' · ');
+  if(aus) detail+=(detail?' · ':'')+aus+' weitere treffen nicht zu';
   /* „produkt" nur, wenn wirklich eine Produkt-ID da ist — sonst zeigte der
      Oeffnen-Knopf auf eine Zutat und liefe ins Leere. */
   var typ=(z['Produkt_ID']?'produkt':(z['Zutat_ID']?'zutat':(z['e_nummer']?'zusatz':'sonst')));
@@ -32531,7 +32543,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-17-3740";
+const APP_BUILD = "2026-08-17-3750";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
