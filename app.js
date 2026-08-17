@@ -14193,21 +14193,44 @@ async function _abBento2Laden(d){
          woher die Alt-Zahlen kommen.
          Die Reihenfolge ist woertlich die der Box oben uebernommen, damit niemand zwei
          Anordnungen derselben Zahlen im Kopf halten muss. */
+      /* 🔴 17.08.2026, Ralph zum zweiten Mal: „da ist nirgends 740."
+         Er hatte wieder recht, und Scrollen war die falsche Antwort. Die Kachel
+         zeigte 13 Zeilen, davon FUENF mit Wert 0 — und ausgerechnet die beiden
+         groessten Zahlen des ganzen Blocks (Regelfaelle 740, Quelle offen 554)
+         standen ganz unten, verdraengt von Nullen. Wer zweimal scrollen muss,
+         um die wichtigste Zahl zu sehen, findet sie nicht.
+         JETZT: stille Zeilen werden je Block zu EINER Zeile zusammengefasst.
+         Nichts ist versteckt — die Namen stehen darin, und wo eine 0 steht, gibt
+         es ohnehin nichts anzuklicken. 13 Zeilen -> 9. */
+      var still=[], sichtbar=function(l,v,warn,wk){
+        if(Number(v)===0){ still.push(l); return ''; }
+        return z(l,v,warn,wk);
+      };
+      var stillZeile=function(){
+        if(!still.length) return '';
+        var t=still.slice(); still=[];
+        return '<div class="bzeile" style="opacity:.62" title="'+esc(t.join(' · '))+'">'
+          +'<span>'+t.length+' still</span><b style="color:'+_AB.gut+'">✓</b></div>'
+          +'<div style="font-size:10px;color:'+_AB.mut+';line-height:1.35;margin:-2px 0 2px">'
+          +esc(t.join(' · '))+'</div>';
+      };
       setz('abStammU',
          '<div class="babs" style="color:'+_AB.kern+'">Neu · Canonical, maßgeblich</div>'
         + z('aktiv',N.active_total)
-        + z('unbewertet',N.unbewertet,true,'neu:unbewertet')
-        + z('ohne Profil',N.ohne_profil,true,'neu:ohne_profil')
-        + z('Reviewproblem',N.bewertet_nicht_approved,true,'neu:reviewproblem')
-        + z('retired ohne Nachfolger',N.retired_ohne_nachfolger,true,'neu:retired')
-        + z('Alias auf nicht aktiv',N.auto_alias_auf_nichtaktiv,true,'neu:alias')
-        + z('Legacy-Bindung auf nicht aktiv',N.legacy_bindung_auf_nichtaktiv,true,'neu:legacy')
+        + sichtbar('unbewertet',N.unbewertet,true,'neu:unbewertet')
+        + sichtbar('ohne Profil',N.ohne_profil,true,'neu:ohne_profil')
+        + sichtbar('Reviewproblem',N.bewertet_nicht_approved,true,'neu:reviewproblem')
+        + sichtbar('retired ohne Nachfolger',N.retired_ohne_nachfolger,true,'neu:retired')
+        + sichtbar('Alias auf nicht aktiv',N.auto_alias_auf_nichtaktiv,true,'neu:alias')
+        + sichtbar('Legacy-Bindung auf nicht aktiv',N.legacy_bindung_auf_nichtaktiv,true,'neu:legacy')
+        + stillZeile()
         +'<div class="babs" style="margin-top:10px;color:'+_AB.grau+'">Alt · Legacy, Übergang</div>'
         + z('Einträge',AL.gesamt)
-        + z('Regelfälle',AL.regelfaelle,true,'alt:regelfaelle')
-        + z('Widersprüche',AL.widersprueche_aktiv,true,'alt:widersprueche_aktiv')
-        + z('Notenkonflikte',AL.doppelte_note,true,'alt:doppelte_note')
-        + z('Quelle offen',AL.quelle_offen,true,'alt:quelle_offen')
+        + sichtbar('Regelfälle',AL.regelfaelle,true,'alt:regelfaelle')
+        + sichtbar('Quelle offen',AL.quelle_offen,true,'alt:quelle_offen')
+        + sichtbar('Widersprüche',AL.widersprueche_aktiv,true,'alt:widersprueche_aktiv')
+        + sichtbar('Notenkonflikte',AL.doppelte_note,true,'alt:doppelte_note')
+        + stillZeile()
         +'<div style="font-size:10.5px;color:'+_AB.mut+';margin-top:7px;line-height:1.4">'
         +'Alt-Zahlen aus <code>public.Zutaten_Stamm</code>, nicht aus dem Canonical-Stamm — '
         +'Kontrolle für den Übergang.</div>'
@@ -14217,10 +14240,7 @@ async function _abBento2Laden(d){
         +'Stamm öffnen →</button>'
         +(zweiter?'<div style="font-size:10.5px;color:'+_AB.warn+';margin-top:7px;line-height:1.4">'
           +'⚠ erst im zweiten Anlauf geladen — die Abfrage liegt auf der Zeitgrenze.</div>':'')
-        /* Steht nur da, wenn wirklich etwas unter dem Rand liegt — sonst waere
-           es eine Behauptung. Wird nach dem Zeichnen gemessen. */
         +'<div class="bmehr" id="abStammMehr" style="display:none">↓ weiter scrollen</div>');
-      /* innerHTML wirft Handler weg — deshalb hier, direkt nach dem Setzen. */
       _abStammKlickNach();
       _abStammMehrPruefen();
     }catch(e){
@@ -32496,7 +32516,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-17-3720";
+const APP_BUILD = "2026-08-17-3730";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
