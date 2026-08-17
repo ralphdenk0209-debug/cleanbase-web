@@ -11030,6 +11030,21 @@ function dashArbeitCss(){
    +A+' .abbento .bkopf h3{margin:0;font-size:10.5px;font-weight:800;text-transform:uppercase;'
     +'letter-spacing:.06em;color:var(--abmut);flex:1;min-width:90px}'
    +A+' .abbento .bleib{padding:11px 14px 13px;flex:1;min-width:0}'
+   /* 🔴 17.08.2026, Ralph mit Screenshot: „auf stamm ueberblick kann ich nicht
+      klicken und da sind keine 740 faelle??" Er hatte recht, und die Ursache war
+      nicht der Klick, sondern die HOEHE. Die Kachel fasst 270 px (Ralph 16.08.:
+      „die kasten selbe hoehe"), der Inhalt ist auf 13 Zeilen gewachsen — der
+      ganze ALT-Block mit Regelfaelle 740 und Quelle offen 554 lag UNTERHALB
+      des Randes und war stumm abgeschnitten. Ein Inhalt, der lautlos verschwindet,
+      ist schlimmer als einer, der nicht passt.
+      Jetzt: die Kachel scrollt, UND man sieht, dass sie es tut. */
+   +A+' .abbento .bscroll{overflow-y:auto;overscroll-behavior:contain;'
+    +'scrollbar-width:thin;position:relative}'
+   +A+' .abbento .bscroll::-webkit-scrollbar{width:7px}'
+   +A+' .abbento .bscroll::-webkit-scrollbar-thumb{background:#c9d1da;border-radius:4px}'
+   +A+' .abbento .bmehr{position:sticky;bottom:-13px;margin:0 -14px -13px;padding:14px 14px 7px;'
+    +'font-size:10.5px;font-weight:700;color:var(--abmut);text-align:center;pointer-events:none;'
+    +'background:linear-gradient(180deg,rgba(255,255,255,0) 0%,#fff 55%)}'
    +A+' .abbento .bzahl{font-size:31px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}'
    +A+' .abbento .bunter{font-size:11.5px;color:var(--abmut);margin-top:4px;line-height:1.4}'
    /* Aufgabenzeilen. Jede Zeile springt hin — eine Zahl ohne Weg ist eine Attrappe (Ralph P12). */
@@ -14000,7 +14015,7 @@ function _abkRegion(){
 function _abkStammU(){
   return {
     tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">neu / alt</span>',
-    inhalt:'<div class="bleib" id="abStammU"><div class="blade">lädt…</div></div>',
+    inhalt:'<div class="bleib bscroll" id="abStammU"><div class="blade">lädt…</div></div>',
     fuss:''
   };
 }
@@ -14182,11 +14197,11 @@ async function _abBento2Laden(d){
          '<div class="babs" style="color:'+_AB.kern+'">Neu · Canonical, maßgeblich</div>'
         + z('aktiv',N.active_total)
         + z('unbewertet',N.unbewertet,true,'neu:unbewertet')
-        + z('ohne Profil',N.ohne_profil,true,null)
-        + z('Reviewproblem',N.bewertet_nicht_approved,true,null)
-        + z('retired ohne Nachfolger',N.retired_ohne_nachfolger,true,null)
-        + z('Alias auf nicht aktiv',N.auto_alias_auf_nichtaktiv,true,null)
-        + z('Legacy-Bindung auf nicht aktiv',N.legacy_bindung_auf_nichtaktiv,true,null)
+        + z('ohne Profil',N.ohne_profil,true,'neu:ohne_profil')
+        + z('Reviewproblem',N.bewertet_nicht_approved,true,'neu:reviewproblem')
+        + z('retired ohne Nachfolger',N.retired_ohne_nachfolger,true,'neu:retired')
+        + z('Alias auf nicht aktiv',N.auto_alias_auf_nichtaktiv,true,'neu:alias')
+        + z('Legacy-Bindung auf nicht aktiv',N.legacy_bindung_auf_nichtaktiv,true,'neu:legacy')
         +'<div class="babs" style="margin-top:10px;color:'+_AB.grau+'">Alt · Legacy, Übergang</div>'
         + z('Einträge',AL.gesamt)
         + z('Regelfälle',AL.regelfaelle,true,'alt:regelfaelle')
@@ -14201,9 +14216,13 @@ async function _abBento2Laden(d){
         +'background:var(--card);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer">'
         +'Stamm öffnen →</button>'
         +(zweiter?'<div style="font-size:10.5px;color:'+_AB.warn+';margin-top:7px;line-height:1.4">'
-          +'⚠ erst im zweiten Anlauf geladen — die Abfrage liegt auf der Zeitgrenze.</div>':''));
+          +'⚠ erst im zweiten Anlauf geladen — die Abfrage liegt auf der Zeitgrenze.</div>':'')
+        /* Steht nur da, wenn wirklich etwas unter dem Rand liegt — sonst waere
+           es eine Behauptung. Wird nach dem Zeichnen gemessen. */
+        +'<div class="bmehr" id="abStammMehr" style="display:none">↓ weiter scrollen</div>');
       /* innerHTML wirft Handler weg — deshalb hier, direkt nach dem Setzen. */
       _abStammKlickNach();
+      _abStammMehrPruefen();
     }catch(e){
       /* Derselbe Timeout wie beim Stammwaechter (#17). Hier steht er in einer
          Kachel und blockiert nichts — mit Knopf statt Sackgasse. */
@@ -14232,8 +14251,31 @@ var _AB_STAMM_WEG={
   'alt:widersprueche_aktiv':{art:'liste', key:'widersprueche_aktiv'},
   'alt:doppelte_note':      {art:'liste', key:'doppelte_note'},
   'alt:quelle_offen':       {art:'liste', key:'quelle_offen'},
-  'neu:unbewertet':         {art:'unbew'}
+  'neu:unbewertet':         {art:'unbew'},
+  /* 🔴 17.08.2026: ChatGPT hat die fuenf fehlenden Listen nachgeliefert. GEMESSEN
+     durch Aufruf jedes Schluessels, nicht aus dem Funktionstext gelesen — mein
+     erster Versuch suchte per Muster im Quelltext und fand sie NICHT, obwohl sie
+     da waren. Derselbe Fehlertyp wie beim abgeschnittenen Regeltext (§31.2):
+     ein Werkzeug mit unvollstaendiger Sicht antwortet trotzdem.
+     Gemessen 17.08.: ohne_profil 3 · reviewproblem 1 · retired 0 · alias 0 ·
+     legacy 0 · regelfaelle 740 · quelle_offen 554 · widersprueche 0 · doppelte 0. */
+  'neu:ohne_profil':        {art:'liste', key:'ohne_profil'},
+  'neu:reviewproblem':      {art:'liste', key:'reviewproblem'},
+  'neu:retired':            {art:'liste', key:'retired_ohne_nachfolger'},
+  'neu:alias':              {art:'liste', key:'alias_auf_nicht_aktiv'},
+  'neu:legacy':             {art:'liste', key:'legacy_bindung_auf_nicht_aktiv'}
 };
+/* Zeigt den Scroll-Hinweis NUR, wenn wirklich etwas unter dem Rand liegt —
+   gemessen an scrollHeight gegen clientHeight, nicht angenommen. */
+function _abStammMehrPruefen(){
+  var b=document.getElementById('abStammU'), h=document.getElementById('abStammMehr');
+  if(!b||!h) return;
+  var mehr=function(){ return b.scrollHeight - b.clientHeight > 8; };
+  var setz=function(){ h.style.display=(mehr() && b.scrollTop + b.clientHeight < b.scrollHeight - 8)?'':'none'; };
+  setz();
+  b.addEventListener('scroll',setz);
+  try{ addEventListener('resize',setz); }catch(e){}
+}
 function _abStammKlickNach(){
   var box=document.getElementById('abStammU'); if(!box) return;
   box.querySelectorAll('.bzeile.bklick').forEach(function(r){
@@ -19019,9 +19061,9 @@ function _fgZutOffenHtml(){
       H+='<span class="fgOffWege" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'
         +'<button type="button" class="fgOffBtn fgOffPrimaer" onclick="fgOffBinden('+esc(iid)+',this)" '
           +'title="Im Zutatenstamm suchen und diese Zeile an einen bestehenden Eintrag binden – der Normalfall.">im Stamm suchen &amp; binden</button>'
-        +'<button type="button" class="fgOffBtn" onclick="fgOffZerlegen('+esc(iid)+',this)" '
-          +'title="Riki zerlegt die Zeile in Grundzutat, Verarbeitung und Klammerrolle. Nichts wird dabei gespeichert, bis du es siehst.">'
-          +(z.base_ingredient?'Zerlegung erneut prüfen':'Riki-Zerlegung prüfen')+'</button>'
+        +'<button type="button" class="fgOffBtn" onclick="fgOffRikiKette('+esc(iid)+',this)" '
+          +'title="Riki zerlegt die Zeile, der Server löst den Canonical auf, Riki bewertet nach dem AKTIVEN Regelwerk (nur mit Regel-Beleg), der Vorschlag geht an den Wächter. Kein Wert ohne Regel, keine Bindung ohne Mensch.">'
+          +(z.base_ingredient?'Riki-Kette erneut':'Riki prüfen & bewerten')+'</button>'
         +'<button type="button" class="fgOffBtn" onclick="fgOffKeineZutat('+esc(iid)+',this)" '
           +'title="Die Zeile ist nur eine Erklärung oder ein Bestandteil einer anderen Zutat – sie wird KEINE eigene Produktzutat. Mit Begründung, widerrufbar.">keine eigene Zutat</button>'
         +'<button type="button" class="fgOffBtn fgOffLeise" onclick="fgOffNeu('+esc(iid)+',this)" '
@@ -19148,6 +19190,131 @@ if(typeof window!=="undefined"){
   window.fgOffKeineZutat=fgOffKeineZutat; window.fgOffWiderruf=fgOffWiderruf;
   window.fgOffNeu=fgOffNeu;
 }
+/* ===========================================================================
+   🔴 17.08.2026 — WORK #91/#93: DIE RIKI-KETTE JE ITEM, an die SERVERVERTRAEGE
+   angeschlossen. Reihenfolge je ingredient-Item:
+     1. Zerlegung (#78, modus zutaten) und Struktur ans Item (#94)  — falls noch keine
+     2. cb_riki_ingredient_resolution_erheben — der SERVER loest den Canonical auf.
+        Nicht das Frontend: exakter Key oder approved safe alias, sonst
+        unresolved/ambiguous. KEINE Analogie (§31.2).
+     3. Nur wenn resolved: riki-analyse modus "bewerten" (v12) gegen die AKTIVE
+        Regel-SSOT (cb_riki_regelwerk_aktiv_holen, Work #92 — NICHT der statische
+        Regelwerkstext). RIKI nennt die Regel-ID oder liefert unresolved.
+        KEINE REGEL = KEIN WERT (#91): ohne regel_id wird nichts gespeichert.
+     4. cb_riki_ingredient_assessment_speichern — der Vorschlag, status 'proposed'.
+        Der Waechter v_riki_bewertung_qa_offen prueft ihn serverseitig gegen.
+     5. Kategorie: nur wenn die Aufloesung category_status='needs_review' meldet UND
+        RIKI eine Kategorie aus der Positivliste vorschlaegt -> kategorie_setzen.
+   WAS BEWUSST NICHT PASSIERT: cb_riki_ingredient_occurrence_binden wird fuer
+   Zutat_Offen-Zeilen NICHT gerufen — sie haben keine produkt_zutat_id, es gibt
+   nichts zu binden. Die Bindung ans Produkt bleibt Weg 1 aus #81: ein Mensch.
+   unresolved/ambiguous/no_rule bleiben SICHTBAR offen statt behandelt (§1.2).
+   =========================================================================== */
+async function _fgRikiBewerten(z, tok){
+  var resp=await fetch(client.supabaseUrl+"/functions/v1/riki-analyse",{method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+    body:JSON.stringify({modus:"bewerten", modell:RIKI_LESE_MODELL,
+      name:String(z.base_ingredient||z.zutat_text||""),
+      struktur:{processing_modifiers:z.processing_modifiers||null,
+                attributes:z.attributes||null,
+                parenthetical_role:z.parenthetical_role||null},
+      produkt_id:(window._fgEdit&&window._fgEdit.id)||null})});
+  var d=await resp.json();
+  if(!resp.ok||d.error) throw new Error(d.error||("HTTP "+resp.status));
+  return (d.vorschlag&&typeof d.vorschlag==="object")?d.vorschlag:null;
+}
+async function fgOffRikiKette(iid, btn){
+  var z=_fgOffItem(iid); if(!z) return;
+  if(btn){ btn.disabled=true; }
+  try{
+    var s=await client.auth.getSession();
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok) throw new Error("Nicht angemeldet.");
+    /* 1 — Zerlegung nur, wenn sie fehlt. Eine vorhandene Struktur wird nicht
+       ueberschrieben; dafuer gibt es den Knopf "Zerlegung erneut pruefen". */
+    if(!z.base_ingredient){ _fgOffMsg(btn,"1/4 Riki zerlegt …"); await fgOffZerlegen(iid, null); z=_fgOffItem(iid)||z; }
+    /* 2 — Server loest auf. */
+    _fgOffMsg(btn,"2/4 Canonical wird aufgelöst …");
+    var r1=await client.rpc("cb_riki_ingredient_resolution_erheben",{p_item_id:Number(iid)});
+    if(r1&&r1.error) throw r1.error;
+    var res=r1&&r1.data||{};
+    if(res.status!=="resolved"){
+      _fgOffMsg(btn,"Auflösung: "+String(res.status||"?")+" — "+String(res.reason||"")+" Bleibt sichtbar offen.","var(--k-b45309)");
+      await _fgOffReload(); return;
+    }
+    /* 3 — Bewertung gegen die aktive Regel-SSOT. */
+    _fgOffMsg(btn,"3/4 Riki bewertet nach aktivem Regelwerk …");
+    var bw=await _fgRikiBewerten(z, tok);
+    if(!bw || bw.status!=="proposed" || !bw.regel_id || bw.rating==null){
+      _fgOffMsg(btn,"Keine anwendbare Regel — es wird KEIN Wert erfunden (§1.1). "+String((bw&&bw.begruendung)||""),"var(--k-b45309)");
+      await _fgOffReload(); return;
+    }
+    /* 4 — Vorschlag speichern; der Waechter prueft serverseitig gegen. */
+    _fgOffMsg(btn,"4/4 Vorschlag wird gespeichert …");
+    var r2=await client.rpc("cb_riki_ingredient_assessment_speichern",{
+      p_item_id:Number(iid), p_target_entity_id:res.entity_id,
+      p_rule_id:String(bw.regel_id), p_rating:Number(bw.rating),
+      p_confidence:String(bw.confidence||"mittel"), p_rationale:String(bw.begruendung||""),
+      p_status:"proposed"});
+    if(r2&&r2.error) throw r2.error;
+    /* 5 — Kategorie nur bei needs_review und nur aus der Positivliste. */
+    if(res.category_status==="needs_review" && bw.kategorie_vorschlag){
+      try{ await client.rpc("cb_riki_ingredient_kategorie_setzen",{p_item_id:Number(iid),
+             p_category:String(bw.kategorie_vorschlag), p_confidence:String(bw.confidence||"mittel"),
+             p_reason:"RIKI-Vorschlag nach Zerlegung"}); }catch(e){ console.error("[#93 Kategorie]",e); }
+    }
+    await _fgOffReload();
+  }catch(e){
+    console.error("[#93 Kette]",e);
+    _fgOffMsg(btn,"Kette abgebrochen: "+((e&&e.message)||e),"var(--k-b91c1c)");
+    if(btn){ btn.disabled=false; }
+  }
+}
+/* WORK #60 (Anfang) — Rohtext aus der Quelle-Box. Ralph 17.08.: den kopierten Text
+   als ECHTEN Text bereitstellen. Ablauf: modus "rohtext" -> Extraktionslauf
+   persistieren (cb_riki_source_extraction_speichern) -> ingredient-Items durch die
+   #93-Kette -> Ergebnis als Satz. Die zeilenweise Vorschau bleibt #60-Rest. */
+async function fgRohtextLauf(){
+  var inp=document.getElementById("fe_rohtextIn"); if(!inp) return;
+  var txt=String(inp.value||"").trim();
+  var pid=(window._fgEdit&&window._fgEdit.id)||null;
+  var msg=document.getElementById("fe_pullMsg");
+  var sag=function(t,f){ if(msg){ msg.textContent=t; msg.style.color=f||"var(--muted)"; } };
+  if(!txt){ sag("Kein Text im Feld.","var(--k-b45309)"); return; }
+  if(!pid){ sag("Erst speichern – der Lauf braucht eine P-Nummer.","var(--k-b45309)"); return; }
+  try{
+    sag("Riki liest den Text …");
+    var s=await client.auth.getSession();
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok) throw new Error("Nicht angemeldet.");
+    var resp=await fetch(client.supabaseUrl+"/functions/v1/riki-analyse",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+      body:JSON.stringify({modus:"rohtext", modell:RIKI_LESE_MODELL, text:txt, produkt_id:pid,
+                           quelle:((document.getElementById("fe_url")||{}).value||"eingefügter Text")})});
+    var d=await resp.json();
+    if(!resp.ok||d.error) throw new Error(d.error||("HTTP "+resp.status));
+    var v=d.vorschlag||{};
+    if(!Array.isArray(v.sections)||!Array.isArray(v.items)) throw new Error("Antwort ohne sections/items.");
+    sag("Lauf wird gespeichert …");
+    var r=await client.rpc("cb_riki_source_extraction_speichern",{
+      p_product_id:pid, p_source_kind:"rawtext",
+      p_source_ref:((document.getElementById("fe_url")||{}).value||"eingefügter Text"),
+      p_sections:v.sections, p_items:v.items, p_status:"captured",
+      p_metadata:{contract_version:String(v.contract_version||"riki_source_extraction_item_v1"),extractor:"riki",modus:"rohtext"}});
+    if(r&&r.error) throw r.error;
+    var teil=v.sections.filter(function(x){return x.status==="partial"||x.status==="unresolved";}).length;
+    var zeilen=v.sections.reduce(function(a,x){return a+(Number(x.extracted_rows)||0);},0);
+    sag("✓ "+v.sections.length+" Abschnitte, "+zeilen+" Zeilen gespeichert"
+        +(teil?(" — "+teil+" Abschnitt"+(teil===1?"":"e")+" unvollständig/ungeklärt, bitte prüfen"):"")
+        +". Zutatenzeilen erscheinen unten als offene Zeilen.", teil?"var(--k-b45309)":"var(--k-166534)");
+    inp.value="";
+    await _fgOffReload();
+  }catch(e){
+    console.error("[#60 Rohtext]",e);
+    sag("Fehlgeschlagen: "+((e&&e.message)||e),"var(--k-b91c1c)");
+  }
+}
+if(typeof window!=="undefined"){ window.fgOffRikiKette=fgOffRikiKette; window.fgRohtextLauf=fgRohtextLauf; }
 if(typeof window!=="undefined"){ window.fgZutOffenLaden=fgZutOffenLaden;
   window._fgZutOffenListe=_fgZutOffenListe; window._fgZutOffenHtml=_fgZutOffenHtml; }
 /* produkt_zutat_id → Zusatzstoff-Merkmal. Eine Zeile kann über produkt_zutat_ids
@@ -32329,7 +32496,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-17-3700";
+const APP_BUILD = "2026-08-17-3720";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
