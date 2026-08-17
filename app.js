@@ -19138,6 +19138,47 @@ function _fgZutOffenHtml(){
           +(Array.isArray(z.processing_modifiers)&&z.processing_modifiers.length?(' · '+esc(z.processing_modifiers.join(", "))):'')
           +(z.parenthetical_role?(' · Rolle: '+esc(String(z.parenthetical_role))):'')+'</span>';
       }
+      /* ======================================================================
+         🔴 17.08.2026 — WORK #104. Der Zustand der Zeile, nicht nur ihre Zerlegung.
+
+         VORHER stand hier NUR der Block darueber. Eine Zeile ohne base_ingredient
+         blieb deshalb vollstaendig stumm — auch dann, wenn der Server sie laengst
+         aufgeloest und bewertet hatte. Gemessen an P73619, item 81 "Hefen": resolved
+         auf Canonical Hefe, Assessment Note 7, und im Editor stand nichts davon.
+         Eine fertig vorbereitete Zutat sah aus wie eine unbearbeitete.
+
+         Der Ausloeser ist jetzt der AUFLOESUNGSZUSTAND, nicht das Vorhandensein einer
+         Zerlegung. Die Felder kommen aus cb_admin_zutat_offen_mit_riki (#104 Serverteil);
+         hier wird NICHTS nachgerechnet — resolution_status, canonical_name und die
+         Bewertung werden angezeigt, wie der Server sie liefert (§4.2, §10.2).
+
+         "unresolved" wird AUSDRUECKLICH ANGEZEIGT statt weggelassen: eine Zeile, bei der
+         die Zuordnung gescheitert ist, sieht sonst genauso aus wie eine, die niemand
+         angefasst hat. Das ist der Unterschied zwischen "noch nichts versucht" und
+         "versucht und nicht gefunden" (§1.10, §3.4).
+
+         Die Zeile bleibt trotz Zuordnung OFFEN, solange keine Bindung in Produkt_Zutaten
+         steht — der Writer aus #91 schreibt Bewertungsvorschlaege, keine Bindungen
+         (Ralph-Entscheid A). Deshalb steht hier "zugeordnet", nicht "erledigt".
+         ====================================================================== */
+      var _rs=String(z.resolution_status||"");
+      if(_rs||z.canonical_name||z.proposed_rating!=null){
+        var _zu='';
+        if(_rs==='resolved'&&z.canonical_name){
+          _zu='<span style="color:var(--k-166534,#166534)">✓ zugeordnet: <b>'+esc(String(z.canonical_name))+'</b></span>';
+          if(z.proposed_rating!=null){
+            _zu+='<span style="color:var(--muted)"> · Bewertung '+esc(String(z.proposed_rating))
+              +(z.assessment_status?(' ('+esc(String(z.assessment_status))+')'):'')+'</span>';
+          }else{
+            _zu+='<span style="color:var(--muted)"> · noch nicht bewertet</span>';
+          }
+          _zu+='<span style="color:var(--muted)"> · noch nicht gebunden</span>';
+        }else if(_rs){
+          _zu='<span style="color:var(--k-b45309,#b45309)">⚠ nicht zugeordnet</span>'
+            +'<span style="color:var(--muted)"> · Zustand: '+esc(_rs)+'</span>';
+        }
+        if(_zu) H+='<span style="display:block;margin-top:3px;font-size:11px;line-height:1.45">'+_zu+'</span>';
+      }
       /* Die vier Wege. Reihenfolge = Pruefkette. Neuanlage zuletzt und still. */
       H+='<span class="fgOffWege" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'
         +'<button type="button" class="fgOffBtn fgOffPrimaer" onclick="fgOffBinden('+esc(iid)+',this)" '
@@ -32593,7 +32634,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-17-3780";
+const APP_BUILD = "2026-08-17-3790";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
