@@ -1663,16 +1663,63 @@ async function prodCacheDazu(liste){
   if(ALL.length>4000) ALL=ALL.slice(-3000);   // Cache begrenzen, sonst wächst er endlos
 }
 /* Ein Produkt vollständig holen (alle Felder aus v_web_produkte).
-   Die Trefferliste liefert nur die Kachelfelder - die Detailkarte braucht mehr. */
-async function prodVoll(id){
+   Die Trefferliste liefert nur die Kachelfelder - die Detailkarte braucht mehr.
+
+   🔴 GEAENDERT 18.08.2026, Work #35. Ralphs Screenshot: Produkt in der Liste
+   angeklickt, Antwort „Das Produkt konnte gerade nicht geladen werden."
+   ZWEI FEHLER STECKTEN DARIN, und der zweite ist der schlimmere:
+
+   (1) DER WEG. Vorher las das Frontend v_web_produkte direkt per select("*").
+       Jetzt geht es ueber cb_web_produkt_detail (von ChatGPT gebaut, §31.1):
+       eine schmale Lesetuer, die AUSSCHLIESSLICH aus v_web_produkte liest -
+       die Freigabemenge bleibt also serverseitig und einmalig (§35, §4.2).
+       Gemessen als anon: 33,7 ms. Kein zweiter Datenpfad, keine zweite Regel.
+
+   (2) DER FANGBLOCK LOG NICHT, ABER ER SCHWIEG - UND DAS IST DASSELBE.
+       Vorher: catch -> console.warn -> return null. Der Aufrufer sah nur
+       „null" und sagte „bitte noch einmal versuchen". Damit war jede Ursache
+       - Rechtefehler, Zeitueberschreitung, fehlende Zeile, Netzausfall - auf
+       denselben Satz abgebildet, und der Satz war eine VERMUTUNG: er behauptet,
+       ein zweiter Versuch helfe. Genau deshalb ist die Ursache seit Wochen
+       unbekannt (§1.7, §11.4).
+       Jetzt wird der Grund in window._prodVollGrund festgehalten und vom
+       Aufrufer WOERTLICH angezeigt. Ein Fehler, der seinen Namen nennt, ist
+       beim naechsten Auftreten in einem Satz erklaert statt in einer Sitzung.
+
+   🔴 WAS ICH NICHT WEISS UND DESHALB NICHT BEHAUPTE: warum es bei Ralph
+   fehlschlug. Gemessen habe ich, was es NICHT ist - die naheliegende
+   Vermutung „Produkt steht in der Liste, aber nicht in der Sichtbarmenge"
+   ist WIDERLEGT: beide Mengen sind deckungsgleich, 4.056 = 4.056, kein
+   einziges Produkt nur auf einer Seite (Messung 18.08.). Auch kein
+   Serverproblem an der Zeile selbst: P1809 in 13 ms. Diese Aenderung
+   ERKLAERT den Fehler also nicht - sie sorgt dafuer, dass er sich beim
+   naechsten Mal selbst erklaert. Das ist der ehrliche Anspruch.
+
+   EIN zweiter Versuch, und nur einer: dasselbe Muster wie bei
+   cb_katalog_zaehler oben (kalter erster Aufruf laeuft fuer Gaeste ins
+   3-Sekunden-Limit, danach ~66 ms). Ein echter Dauerfehler scheitert auch
+   beim zweiten Mal und wird dann MIT Text sichtbar - nicht weggeschluckt. */
+async function prodVoll(id, _zweiterVersuch){
   if(!id) return null;
   try{
-    const {data,error}=await client.from("v_web_produkte").select("*").eq("id",id).limit(1);
+    const {data,error}=await client.rpc("cb_web_produkt_detail",{p_id:id});
     if(error) throw error;
-    const p=(data&&data[0])?{...data[0], clean_score:num(data[0].clean_score)}:null;
-    if(p) await prodCacheDazu([p]);
+    /* Kein Treffer ist etwas ANDERES als ein Fehler und darf nicht denselben
+       Satz bekommen: hier ist nichts kaputt, das Produkt ist nur nicht (mehr)
+       oeffentlich. „Nochmal versuchen" waere in diesem Fall gelogen (§3.4). */
+    if(!data){ window._prodVollGrund={id:id, art:"leer"}; return null; }
+    const p={...data, clean_score:num(data.clean_score)};
+    await prodCacheDazu([p]);
+    window._prodVollGrund=null;
     return p;
-  }catch(e){ console.warn("prodVoll:",e); return null; }
+  }catch(e){
+    if(!_zweiterVersuch) return await prodVoll(id, true);
+    window._prodVollGrund={id:id, art:"fehler",
+      text:(e&&e.message)?e.message:String(e),
+      code:(e&&e.code)?e.code:null};
+    console.error("prodVoll:",id,e);
+    return null;
+  }
 }
 async function load(){
   ALL = [];
@@ -2172,8 +2219,28 @@ async function prodOeffnen(id){
   var vorhanden=(ALL||[]).find(function(x){ return x&&x.id===id && x.zutaten!==undefined; });
   if(vorhanden){ detail(vorhanden); return; }
   var p=await prodVoll(id);
-  if(p) detail(p);
-  else alert("Das Produkt konnte gerade nicht geladen werden. Bitte noch einmal versuchen.");
+  if(p){ detail(p); return; }
+  /* 🔴 18.08.2026, Work #35: hier stand ein Satz fuer ALLE Faelle - „konnte
+     gerade nicht geladen werden, bitte noch einmal versuchen". Er war nicht
+     nur unbrauchbar, sondern in zwei von drei Faellen falsch: bei einem
+     Rechte- oder Datenfehler hilft ein zweiter Versuch nicht, und bei einem
+     nicht mehr freigegebenen Produkt gibt es nichts zu wiederholen.
+     Jetzt bekommt jeder Fall seinen eigenen, wahren Satz. */
+  var g=window._prodVollGrund||{};
+  if(g.art==="leer"){
+    alert("Dieses Produkt ist gerade nicht öffentlich abrufbar.\n\n"
+      +"Es stand in der Trefferliste, ist aber nicht in der Freigabemenge – "
+      +"vermutlich wurde es eben umgestellt. Ein zweiter Versuch ändert daran nichts.\n\n"
+      +"Produkt: "+id);
+  } else {
+    /* Der technische Text steht ABSICHTLICH in der Meldung. Er ist haesslich,
+       aber er ist das Einzige, woran die Ursache erkennbar ist - und ohne ihn
+       war sie es wochenlang nicht. */
+    alert("Das Produkt konnte nicht geladen werden.\n\n"
+      +"Grund: "+(g.text||"unbekannt")+(g.code?" ("+g.code+")":"")+"\n\n"
+      +"Produkt: "+id+"\nZwei Versuche, beide gescheitert.\n\n"
+      +"Bitte diesen Text weitergeben – daran ist die Ursache erkennbar.");
+  }
 }
 /* Naechste Seite an die bestehende Liste anhaengen - NICHT neu rendern,
    sonst springt die Ansicht nach oben. */
@@ -32727,7 +32794,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-18-3820";
+const APP_BUILD = "2026-08-18-3830";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
