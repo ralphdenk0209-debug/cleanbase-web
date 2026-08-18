@@ -15073,7 +15073,23 @@ async function loadTbStatistik(){
   const {data,error}=await client.rpc("cb_statistik",{p_von:von,p_bis:bis});
   if(error){ box.innerHTML='<div style="color:var(--k-dc2626);font-size:13px">Fehler: '+error.message+'</div>'; return; }
   let goal={}; try{ const g=await client.rpc("cb_profil"); goal=(g&&g.data&&g.data[0])||{}; }catch(e){}
-  renderTbStatistik(data||[], goal);
+  /* Work #26, Baustein (d) — Zuckerverlauf ueber die Zeit.
+     ZWEITE RPC, weil cb_statistik KEIN zucker fuehrt (gemessen 18.08. an
+     pg_get_function_result: datum,kcal,protein,kh,fett,score_schnitt,eintraege,
+     gewicht,ziel_*). cb_naehrwert_verlauf (#32, verifiziert) fuehrt zucker UND
+     hat_eintrag — und hat_eintrag ist der eigentliche Grund fuer diese Quelle:
+     ein Tag ohne Eintrag darf nicht als 0 g Zucker erscheinen (§3.4).
+     Sie laeuft NEBEN cb_statistik, nicht statt ihr — die uebrigen Zahlen der
+     Statistik bleiben unangetastet. Faellt sie aus, fehlt genau der
+     Zuckerverlauf; die Statistik selbst bleibt stehen (kein leerer catch:
+     der Fehler wird an renderTbStatistik durchgereicht und angezeigt). */
+  let zrows=null, zfehler=null;
+  try{
+    const tage=Math.min(90,Math.max(1,Math.round((new Date(bis)-new Date(von))/86400000)+1));
+    const z=await client.rpc("cb_naehrwert_verlauf",{p_bis:bis,p_tage:tage});
+    if(z.error) zfehler=z.error.message; else zrows=z.data||[];
+  }catch(e){ zfehler=(e&&e.message)||String(e); }
+  renderTbStatistik(data||[], goal, zrows, zfehler);
 }
 function statBtn(p,lbl){ const on=_statPeriod===p;
   return `<button onclick="_statPeriod='${p}';loadTbStatistik()" style="padding:6px 10px;border:1px solid ${on?'var(--green)':'var(--line)'};border-radius:8px;background:${on?'var(--greenlt)':'var(--k-ffffff)'};color:${on?'var(--greendk)':'var(--k-374151)'};cursor:pointer;font-size:12.5px">${lbl}</button>`; }
@@ -15104,7 +15120,57 @@ function lineChartWeight(rows){
   const trend=pts.length>1?`<text x="${pad}" y="12" font-size="10" fill="var(--k-6b7280)">${f} → ${l} kg (${diff>0?'+':''}${diff})</text>`:`<text x="${pad}" y="12" font-size="10" fill="var(--k-6b7280)">${l} kg</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible">${trend}<path d="${path}" fill="none" stroke="var(--k-16a34a)" stroke-width="1.5"/>${dots}</svg>`;
 }
-function renderTbStatistik(rows,goal){
+/* Work #26, Baustein (d) — Zuckerverlauf ueber die Zeit.
+   🔴 NICHT VERWECHSELN MIT bzKurve() Z.2405: die zeigt eine SCHEMATISCHE Kurve fuer EIN
+   Produkt. Hier steht der TATSAECHLICHE Zuckerverlauf des Nutzers aus seinen eigenen
+   Tagebucheintraegen. Beides Kurven, nichts davon dasselbe.
+
+   🔴 DREI RIEGEL, die diese Funktion bewusst NICHT bricht — jeder einzeln begruendet:
+   (1) KEIN ZIELBAND, KEINE AMPEL, KEINE ZIELLINIE. barChartKcal() darueber hat beides,
+       und das ist dort richtig. Hier waere es falsch: gezaehlt wird der DEKLARIERTE
+       GESAMTZUCKER, der Richtwert gilt aber fuer FREIE Zucker. Der Zucker aus Obst und
+       Milch ist mitgezaehlt. Am 11.08. wurde der Zuckerziel-Balken aus der Tageskachel
+       aus genau diesem Grund wieder ENTFERNT (Variante A): an einem gemessenen Tag
+       standen 50,6 g rot da, von denen 3,4 g (6,5 %) zugesetzt waren. Ein roter Balken
+       wird gesehen, ein grauer Satz gelesen. tbZuckerZiel() ist eine verifizierte
+       Rechenregel (§27) und bleibt unangetastet — sie wird hier nur NICHT gerufen.
+   (2) ALLE BALKEN HABEN DIESELBE FARBE. Eine Farbabstufung waere eine Bewertung, und
+       bewertet wird hier nichts (§4.4-Analogie: Anzeige, keine Therapie).
+   (3) EIN TAG OHNE EINTRAG IST KEIN TAG MIT 0 g (§3.4). Er bekommt keinen Balken,
+       sondern eine gestrichelte Marke auf der Grundlinie und im Tooltip den Klartext
+       "kein Eintrag". Ohne diese Unterscheidung sieht eine Erfassungsluecke aus wie ein
+       zuckerfreier Tag — und das ist die eine Luege, die dieser Verlauf leicht erzaehlen
+       koennte. Deshalb kommen die Daten aus cb_naehrwert_verlauf und nicht aus
+       cb_statistik: nur die erste fuehrt hat_eintrag. */
+function barChartZucker(rows){
+  if(!rows) return '<div style="color:var(--k-9aa7a0);font-size:12px">Zuckerverlauf konnte nicht geladen werden.</div>';
+  const n=rows.length; if(!n) return '<div style="color:var(--k-9aa7a0);font-size:12px">Keine Daten.</div>';
+  const W=Math.max(280,n*16), H=120, pad=18, rd1=x=>Math.round(x*10)/10;
+  /* hat_eintrag kommt als boolean vom Server. Fehlt das Feld (aelterer Serverstand),
+     wird NICHT auf "Eintrag vorhanden" geraten, sondern am Zuckerwert festgemacht:
+     null heisst unbekannt, nicht null (§3.4). */
+  const hat=r=> (r.hat_eintrag===true) || (r.hat_eintrag==null && num(r.zucker)!=null);
+  const vals=rows.filter(hat).map(r=>num(r.zucker)||0);
+  if(!vals.length) return '<div style="color:var(--k-9aa7a0);font-size:12px">Im Zeitraum ist kein Tag erfasst.</div>';
+  const maxV=Math.max(...vals,1)*1.1, bw=(W-pad*2)/n;
+  let bars="", leer=0;
+  rows.forEach((r,i)=>{
+    const x=pad+i*bw, bx=(x+1).toFixed(1), bwr=Math.max(1,bw-2).toFixed(1);
+    if(!hat(r)){
+      leer++;
+      bars+=`<line x1="${bx}" y1="${(H-pad).toFixed(1)}" x2="${(x+1+Math.max(1,bw-2)).toFixed(1)}" y2="${(H-pad).toFixed(1)}" stroke="var(--k-cbd5e1)" stroke-width="2" stroke-dasharray="2 2"><title>${esc(String(r.datum))}: kein Eintrag</title></line>`;
+      return;
+    }
+    const v=num(r.zucker)||0, h=(v/maxV)*(H-pad*2), y=H-pad-h;
+    bars+=`<rect x="${bx}" y="${y.toFixed(1)}" width="${bwr}" height="${Math.max(0,h).toFixed(1)}" rx="2" fill="var(--k-534ab7)"><title>${esc(String(r.datum))}: ${rd1(v)} g Zucker</title></rect>`;
+  });
+  const gemessen=n-leer;
+  const summe=vals.reduce((s,v)=>s+v,0), schnitt=gemessen?rd1(summe/gemessen):0;
+  const kopf=`<text x="${pad}" y="12" font-size="10" fill="var(--k-6b7280)">Ø ${schnitt} g an ${gemessen} erfassten Tagen${leer?` · ${leer} Tage ohne Eintrag`:""}</text>`;
+  const grund=`<line x1="${pad}" y1="${(H-pad).toFixed(1)}" x2="${(W-pad).toFixed(1)}" y2="${(H-pad).toFixed(1)}" stroke="var(--k-cbd5e1)" stroke-width="1"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible">${kopf}${grund}${bars}</svg>`;
+}
+function renderTbStatistik(rows,goal,zrows,zfehler){
   const box=document.getElementById("tbStatBox"), rd=x=>Math.round(x);
   const gK=num(goal.Kalorienziel_kcal),gP=num(goal.Eiweiss_ziel_g),gKh=num(goal.KH_ziel_g),gF=num(goal.Fett_ziel_g);
   const logged=rows.filter(r=>(num(r.kcal)||0)>0||(r.eintraege||0)>0);
@@ -15117,6 +15183,12 @@ function renderTbStatistik(rows,goal){
   box.innerHTML=header+cards+adher
     +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px">kcal-Verlauf <span style="color:var(--k-9aa7a0);text-transform:none;letter-spacing:0">(grün = im Ziel · gelb = über · blau = unter)</span></div>`+barChartKcal(rows,gK)
     +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Gewichtsverlauf</div>`+lineChartWeight(rows)
+    /* Work #26, Baustein (d). Die Beschriftung traegt die Einschraenkung, nicht eine
+       Datei: gezaehlt wird Gesamtzucker. Wer viel Obst isst, hat hohe Balken ohne ein
+       Gramm zugesetzten Zucker — steht das nicht DA, liest es niemand (§1.10). */
+    +`<div style="font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Zuckerverlauf <span style="color:var(--k-9aa7a0);text-transform:none;letter-spacing:0">(gestrichelt = kein Eintrag)</span></div>`
+    +(zfehler?`<div style="font-size:12px;color:var(--k-dc2626)">Zuckerverlauf nicht geladen: ${esc(zfehler)}</div>`:barChartZucker(zrows))
+    +`<div style="font-size:11.5px;color:var(--k-9aa7a0);margin-top:6px;line-height:1.45">Gezählt wird der <b>deklarierte Gesamtzucker</b> – der aus Obst und Milch ist mit drin. Wie viel davon zugesetzt ist, steht auf keinem Etikett und wird hier deshalb nicht behauptet. Kein Richtwert, keine Bewertung.</div>`
     +`<div style="font-size:11.5px;color:var(--k-9aa7a0);margin-top:8px">${rows.length} Tage · ${logged.length} mit Einträgen · Durchschnitte nur über erfasste Tage.</div>`;
 }
 let _bdResult=null;
@@ -32655,7 +32727,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-17-3810";
+const APP_BUILD = "2026-08-18-3820";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
