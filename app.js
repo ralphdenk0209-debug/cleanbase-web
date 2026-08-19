@@ -6157,6 +6157,9 @@ async function loadProduktErfassung(){
       +'<div id="peListBar" onclick="peListToggle()" title="Liste ein-/ausklappen" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;background:#eef3f8;border-bottom:1px solid #e2e8ef;user-select:none">'
         +'<span id="peListCaret" style="color:#3b56b0;font-weight:800;font-size:13px;width:12px">▾</span>'
         +'<span style="font-weight:700;color:#1f2a44;font-size:13px">Produktliste</span>'
+        /* Der Riki-Tagesdeckel aus der frueheren Autopilot-Zeile - hier statt in
+           einer eigenen Bildschirmzeile (Work #130 S3). */
+        +'<span id="peKostenZeile" style="font-size:11px;margin-left:10px"></span>'
         +'<span id="peListHint" style="color:#7b8698;font-size:12px"></span>'
         +'<span style="flex:1"></span>'
         +'<span id="peListAction" style="color:#3b56b0;font-size:12px;font-weight:600"></span>'
@@ -6211,8 +6214,24 @@ async function peAutoInfo(){
     if(Number(d.wartend)>0) teile.push('<b>'+d.wartend+'</b> Foto-Scan'+(d.wartend==1?' wartet':'s warten')+' auf den nächsten Lauf');
     if(Number(d.handarbeit)>0) teile.push('<span style="color:#c88616"><b>'+d.handarbeit+'</b> Foto-Scan'+(d.handarbeit==1?' braucht':'s brauchen')+' HANDARBEIT (Riki kam nicht durch – Notiz in der Scan-Warteschlange)</span>');
     teile.push('<span style="color:#7b8698">heute '+Number(d.heute_usd).toFixed(2)+' von '+Number(d.tageslimit_usd).toFixed(2)+' $ Tagesdeckel</span>');
-    el.innerHTML=teile.join(' · ');
-    el.style.display='block';
+    /* 🔴 19.08.2026, Work #130 S3, Ralph: "riki autopilot leiste, kann weg."
+       Sie ist weg - aber NICHT ersatzlos. Sie trug den Tages-Kostendeckel, und wer
+       den nicht mehr sieht, merkt nicht, wenn Riki ins Budget laeuft (§1.10). Der
+       Rest (Autopilot an/aus, wartende Scans) steht ohnehin im Dashboard.
+       Die Zahl wandert deshalb als kleine Angabe in die Kopfzeile der Produktliste,
+       wo sie keine eigene Zeile mehr braucht. Bei Ueberschreitung wird sie rot -
+       dann ist sie kein Beiwerk mehr, sondern eine Meldung. */
+    el.style.display='none';
+    try{
+      var kz=document.getElementById('peKostenZeile');
+      if(kz){
+        var heute=Number(d.heute_usd)||0, limit=Number(d.tageslimit_usd)||0;
+        var eng=(limit>0 && heute>=limit*0.8);
+        kz.innerHTML='<span title="Riki-Tagesbudget" style="color:'+(eng?'#cf5442':'#9aa7b2')+'">'
+          +'🤖 '+heute.toFixed(2)+'/'+limit.toFixed(2)+' $'
+          +(Number(d.wartend)>0?(' · '+d.wartend+' warten'):'')+'</span>';
+      }
+    }catch(_e){}
   }catch(e){ el.style.display='none'; }
 }
 /* kleine Klapp-Menues fuer Aktionen/Einstellungen – bewusst schlank gehalten
@@ -6259,6 +6278,13 @@ function peMenu(kind,anchor){
   setTimeout(function(){ document.addEventListener('click',peCtxHide); },0);
 }
 function peCtxHide(){ var c=document.getElementById('peCtx'); if(c)c.style.display='none'; document.removeEventListener('click',peCtxHide); }
+/* Work #130 S1: Reihe 3 auf- und zuklappen. Der Zustand lebt nur in dieser
+   Sitzung - er ist eine Ansichtssache, kein Filter, und gehoert deshalb NICHT in
+   den gespeicherten Filterzustand (§6: Achsen nicht vermischen). */
+function peReihe3Toggle(){
+  window._peReihe3Offen = !(window._peReihe3Offen===true);
+  try{ peRender(); }catch(e){}
+}
 function peSetSort(v){ var s=document.getElementById('peSort'); if(s){ s.value=v; } peRender(); }
 /* ===== Sammel-Aktionen (Ralph-Go 29.07.) — wirken auf die gespeicherten ⚑-Markierungen ===== */
 async function peBulkMarkieren(an){
@@ -6483,7 +6509,32 @@ function peChipRowsHtml(){
       +(katf?'<span style="align-self:center;font-size:11.5px;color:#7b8698;margin-left:4px">gefiltert auf „'+esc(katf)+'"</span>':'')
       +(z?'':'<span style="align-self:center;font-size:11.5px;color:#cf5442;margin-left:4px">Zahlen gerade nicht abrufbar</span>')
     +'</div>'
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">'
+    /* 🔴 19.08.2026, Work #130 S1: Reihe 3 war dauerhaft aufgeklappt und kostete eine
+       ganze Bildschirmzeile. Gemessen an Ralphs Ansicht: SECHS Filter, davon VIER auf
+       null - sie trafen nichts und nahmen der Liste trotzdem den Platz.
+       Jetzt zugeklappt, mit der Anzahl der AKTIVEN Filter am Knopf. Wer sie braucht,
+       klappt auf; wer nicht, sieht eine Zeile weniger. Aufgeklappt bleibt sie, solange
+       ein Filter dieser Reihe aktiv ist - sonst waere ein wirkender Filter unsichtbar,
+       und das waere schlimmer als eine Zeile zu viel (§1.10). */
+    +(function(){
+        /* KORRIGIERT beim Bauen: ich hatte window._peSeitenfilter angenommen - den
+           Namen gibt es nicht. GEMESSEN an der chip-Funktion: der aktive Chip steht
+           in window._peChip, und es ist GENAU EINER (Reihe 2 und Reihe 3 teilen sich
+           denselben Zustand). Deshalb kein Zaehler, sondern der Name des aktiven
+           Filters am Knopf - das ist ohnehin nuetzlicher als eine 1. */
+        var R3=['keinquelle','keinzut','markiert','naehrwerte','portionsfalle','unverif'];
+        var NAM={keinquelle:'Ohne Quelle',keinzut:'Ohne Zutaten',markiert:'Markiert',
+                 naehrwerte:'Nährwerte',portionsfalle:'Portionsfalle',unverif:'Unverifiziert'};
+        var aktiv=(R3.indexOf(window._peChip)>=0) ? window._peChip : null;
+        var offen=(window._peReihe3Offen===true) || !!aktiv;
+        return '<div style="margin-top:6px">'
+          +'<button onclick="peReihe3Toggle()" style="border:1px solid #d3dbe6;background:#fff;border-radius:8px;'
+          +'padding:3px 9px;font-size:11px;color:#7b8698;cursor:pointer;font-weight:600">'
+          +'Nur auf dieser Seite'+(aktiv?(': <b style="color:#2e7d32">'+esc(NAM[aktiv]||aktiv)+'</b>'):'')
+          +' <span style="display:inline-block;transition:transform .18s'+(offen?';transform:rotate(180deg)':'')+'">▾</span></button>'
+        +'</div>';
+      })()
+    +'<div id="peReihe3" style="display:'+(((window._peReihe3Offen===true)||['keinquelle','keinzut','markiert','naehrwerte','portionsfalle','unverif'].indexOf(window._peChip)>=0)?'flex':'none')+';gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">'
       +'<span style="font-size:11px;color:#9aa7b2;font-weight:700;letter-spacing:.02em" title="Diese Filter arbeiten auf den geladenen '+PE_SEITE+' Zeilen – die Datenbank kann sie nicht filtern.">NUR AUF DIESER SEITE</span>'
       +chip('keinquelle','Ohne Quelle',rws.filter(function(p){return !p.quelle_typ;}).length,true)
       +chip('keinzut','Ohne Zutaten',rws.filter(function(p){return !p.hat_zutaten;}).length,true)
@@ -33660,7 +33711,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3990";
+const APP_BUILD = "2026-08-19-4000";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
