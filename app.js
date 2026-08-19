@@ -33346,12 +33346,37 @@ async function rikiFrageSenden(){
   try{
     var s=(await client.auth.getSession()).data.session;
     if(!s) throw new Error("Bitte anmelden, um RIKI zu fragen.");
-    var r=await fetch(client.supabaseUrl+"/functions/v1/riki-frage",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+s.access_token,"apikey":client.supabaseKey},
-      body:JSON.stringify({frage:frage, kontext:kontext})
-    });
+    var ruf=function(tok){
+      return fetch(client.supabaseUrl+"/functions/v1/riki-frage",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+        body:JSON.stringify({frage:frage, kontext:kontext})
+      });
+    };
+    var r=await ruf(s.access_token);
+    /* 🔴 EIN AUFFRISCHEN BEI 401, GENAU EINES (Ralph 19.08.: "Nicht angemeldet.",
+       obwohl er angemeldet ist).
+       getSession() liefert die GESPEICHERTE Sitzung zurueck - auch dann, wenn ihr
+       Token abgelaufen ist. Das Frontend haelt sich also fuer angemeldet, der
+       Server prueft das Token und sagt nein. Wer die Seite lange offen hat,
+       trifft das zwangslaeufig.
+       Es wird GENAU EINMAL aufgefrischt: hilft es nicht, ist die Anmeldung
+       wirklich weg, und dann muss das dastehen statt einer Schleife. */
+    if(r.status===401){
+      try{
+        var neu=(await client.auth.refreshSession()).data.session;
+        if(neu && neu.access_token) r=await ruf(neu.access_token);
+      }catch(x){ console.warn("riki-frage refresh:",x); }
+    }
     var d=await r.json().catch(function(){ return null; });
+    if(r.status===401){
+      if(out) out.innerHTML='<div style="font-size:12.5px;color:var(--tb-muted);margin-bottom:6px">'+esc(frage)+'</div>'
+        +'<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">Deine Anmeldung ist abgelaufen.</div>'
+        +'<div style="font-size:11.5px;color:var(--tb-muted);line-height:1.5;margin-top:6px">'
+        +'Ich habe sie einmal aufzufrischen versucht, das hat nicht gereicht. Melde dich neu an – deine Frage bleibt stehen.</div>';
+      zeig("");
+      return;
+    }
     if(!d || d.ok!==true){
       /* Der Servertext WOERTLICH - beim Produktdetail hat mich ein Sammelsatz
          wochenlang die Ursache gekostet (#35). Beim Tageslimit ist der Text
@@ -33471,7 +33496,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3920";
+const APP_BUILD = "2026-08-19-3930";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
