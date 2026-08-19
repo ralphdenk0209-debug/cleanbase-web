@@ -33373,7 +33373,8 @@ async function rikiFrageSenden(){
       if(out) out.innerHTML='<div style="font-size:12.5px;color:var(--tb-muted);margin-bottom:6px">'+esc(frage)+'</div>'
         +'<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">Deine Anmeldung ist abgelaufen.</div>'
         +'<div style="font-size:11.5px;color:var(--tb-muted);line-height:1.5;margin-top:6px">'
-        +'Ich habe sie einmal aufzufrischen versucht, das hat nicht gereicht. Melde dich neu an – deine Frage bleibt stehen.</div>';
+        +'Ich habe sie einmal aufzufrischen versucht, das hat nicht gereicht. Melde dich neu an – deine Frage bleibt stehen.</div>'
+        +'<div style="font-size:11px;color:var(--tb-muted);margin-top:6px">HTTP 401 · Build '+APP_BUILD+'</div>';
       zeig("");
       return;
     }
@@ -33381,9 +33382,18 @@ async function rikiFrageSenden(){
       /* Der Servertext WOERTLICH - beim Produktdetail hat mich ein Sammelsatz
          wochenlang die Ursache gekostet (#35). Beim Tageslimit ist der Text
          ausserdem die eigentliche Auskunft. */
-      var t=(d&&d.fehler)||("RIKI antwortet gerade nicht (HTTP "+r.status+").");
-      if(out) out.innerHTML='<div style="font-size:13px;color:var(--tb-muted);margin-bottom:6px">'+esc(frage)+'</div>'
-        +'<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">'+esc(t)+'</div>';
+      var t=(d&&d.fehler)||("RIKI antwortet gerade nicht.");
+      /* 🔴 DER HTTP-STATUS STEHT AB JETZT IMMER DABEI (Ralph 19.08., zweiter
+         Fehlversuch). Ich habe zweimal geraten, was schiefgeht, weil ich den
+         Status nicht sehen konnte: erst hielt ich es fuer den Service Worker,
+         dann fuer den Cache-Buster - beide Male falsch, beide Male haette EINE
+         Zahl es sofort geklaert. Ein Screenshot muss die Diagnose enthalten,
+         sonst rate ich beim naechsten Mal wieder. Und die Konsole ist auf dem
+         Handy praktisch nicht erreichbar, also gehoert die Zahl auf den Schirm.
+         Klein und grau, aber da. */
+      if(out) out.innerHTML='<div style="font-size:12.5px;color:var(--tb-muted);margin-bottom:6px">'+esc(frage)+'</div>'
+        +'<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">'+esc(t)+'</div>'
+        +'<div style="font-size:11px;color:var(--tb-muted);margin-top:6px">HTTP '+r.status+' · Build '+APP_BUILD+'</div>';
       zeig(r.status===429 ? "Tageslimit erreicht." : "");
       return;
     }
@@ -33408,7 +33418,8 @@ async function rikiFrageSenden(){
     if(out) out.innerHTML='<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">'+esc(roh)+'</div>'
       +(netz?('<div style="font-size:11.5px;color:var(--tb-muted);line-height:1.5;margin-top:6px">'
         +'Die Anfrage ist nicht bis zum Server gekommen. Das liegt am Netz oder daran, dass RIKI gerade nicht erreichbar ist – '
-        +'nicht an deiner Frage. Bleibt es dabei: die Browserkonsole nennt den Grund, bitte weitergeben.</div>'):'');
+        +'nicht an deiner Frage.</div>'):'')
+      +'<div style="font-size:11px;color:var(--tb-muted);margin-top:6px">kein HTTP-Status · Build '+APP_BUILD+'</div>';
     zeig("");
   }finally{
     if(sEl){ sEl.disabled=false; sEl.textContent="→"; }
@@ -33496,7 +33507,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3930";
+const APP_BUILD = "2026-08-19-3940";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
