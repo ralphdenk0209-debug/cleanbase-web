@@ -5824,6 +5824,46 @@ function peHatWaechter(p){
 }
 /* Klebt das Toolbar/Chip-Menü oben an – unter einer evtl. fixierten Kopfleiste (.hero).
    top wird zur Laufzeit auf die Unterkante der gerade fixierten Kopfleiste gesetzt. */
+/* ============================================================================
+   WORK #130 — DIE LISTE BEKOMMT DIE HOEHE, DIE WIRKLICH UEBRIG IST
+
+   Der Deckel wird nicht mehr gerechnet, sondern gemessen: Unterkante des Kopfes
+   bis Unterkante des Fensters, minus ein Rand. Damit stimmt er auch dann, wenn
+   die Filterchips umbrechen oder eine Reihe wegfaellt - beides steht in #130
+   noch an, und beides wuerde eine feste Zahl sofort wieder falsch machen.
+
+   visualViewport statt innerHeight: auf dem Handy ist der sichtbare Bereich
+   kleiner als das Fenster, sobald die Adressleiste eingeblendet ist. Genau
+   deshalb war Ralphs Liste unten abgeschnitten.
+   ============================================================================ */
+function peListeHoehe(){
+  var w=document.getElementById('peGridWrap'); if(!w) return;
+  var r=w.getBoundingClientRect();
+  var sicht=(window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
+  if(!sicht) return;
+  /* 16px Luft nach unten, damit die letzte Zeile nicht am Rand klebt. Der
+     schwebende Neues-Produkt-Knopf braucht spaeter mehr - dann wird DIESE Zahl
+     erhoeht und nicht eine zweite daneben gestellt (§4.2). */
+  var h=Math.round(sicht - r.top - 16);
+  /* Unter 280px wird nicht verkleinert: darunter sieht man keine Liste mehr,
+     sondern einen Schlitz. Dann darf die Seite ausnahmsweise scrollen. */
+  w.style.maxHeight=Math.max(280,h)+'px';
+}
+function peListeHoeheBinden(){
+  if(window._peHoeheGebunden) return; window._peHoeheGebunden=true;
+  var lauf=function(){ if(window._peHoeheRaf) return;
+    window._peHoeheRaf=requestAnimationFrame(function(){ window._peHoeheRaf=null; peListeHoehe(); }); };
+  window.addEventListener('resize',lauf);
+  window.addEventListener('scroll',lauf,{passive:true});
+  if(window.visualViewport){ window.visualViewport.addEventListener('resize',lauf); }
+  /* Der Kopf aendert seine Hoehe, wenn Filter dazukommen oder Chips umbrechen -
+     ein ResizeObserver merkt das, ein Zeitgeber wuerde es verpassen oder dauernd
+     laufen. Faellt er aus, bleibt der Rueckfall calc(100dvh - 430px) bestehen. */
+  try{
+    var st=document.getElementById('peSticky');
+    if(st && typeof ResizeObserver==='function'){ new ResizeObserver(lauf).observe(st); }
+  }catch(e){}
+}
 function peSyncStickyTop(){
   var el=document.getElementById('peSticky'); if(!el) return;
   var top=0;
@@ -6091,7 +6131,21 @@ async function loadProduktErfassung(){
         +'<span id="peListAction" style="color:#3b56b0;font-size:12px;font-weight:600"></span>'
       +'</div>'
       +'<div id="peListBody">'
-        +'<div style="max-height:max(280px,calc(100vh - 430px));overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
+        /* 🔴 19.08.2026, Work #130, Ralph: "die produktliste selbst ist dann unten
+           abgeschnitten und der ganze bildschirm scrollt. seite soll statisch sein
+           nur die liste scrollt."
+           HIER STAND: max-height:max(280px,calc(100vh - 430px)).
+           Zwei Fehler in einer Zeile, beide gemessen:
+           1) 430px war GERATEN. Der Kopf ist aber nicht 430px hoch, sondern so hoch
+              wie er gerade ist - drei Filterreihen, und auf schmalem Schirm brechen
+              die Chips um und machen ihn hoeher. Dann rutscht die Liste nach unten
+              aus dem Bild, und weil der Deckel zu gross ist, scrollt die ganze Seite.
+           2) 100vh kennt die Adressleiste des Handys nicht. Auf dem Telefon ist der
+              sichtbare Bereich kleiner - die letzten Zeilen liegen darunter.
+           JETZT: die Hoehe wird GEMESSEN statt gerechnet (peListeHoehe), und 100dvh
+           statt 100vh als Rueckfall, bis die Messung greift. Eine Zahl, die jemand
+           von Hand raten muss, ist irgendwann falsch (§28.4). */
+        +'<div id="peGridWrap" style="max-height:max(280px,calc(100dvh - 430px));overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
         +'<div id="peFoot" style="padding:7px 10px;color:#7b8698;font-size:12px;border-top:1px solid #e2e8ef;background:#eef3f8"></div>'
         /* Blaetterer (02.08.2026). Fuellt pePagerHtml() bei jedem peRender. */
         +'<div id="pePager" style="padding:8px 10px;border-top:1px solid #e2e8ef;background:#f4f7fa"></div>'
@@ -6108,6 +6162,7 @@ async function loadProduktErfassung(){
   } }catch(e){}
   peRender();
   try{ peAutoInfo(); }catch(e){}
+  try{ peListeHoehe(); peListeHoeheBinden(); }catch(e){}
   try{ peSyncStickyTop(); if(!window._peStickyBound){ window._peStickyBound=true;
       window.addEventListener('scroll',function(){ if(window._peStickyRaf)return; window._peStickyRaf=requestAnimationFrame(function(){ window._peStickyRaf=0; peSyncStickyTop(); }); },{passive:true});
       window.addEventListener('resize',peSyncStickyTop); } }catch(e){}
