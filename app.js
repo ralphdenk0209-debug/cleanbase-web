@@ -16303,15 +16303,41 @@ function tbHerkunftHtml(feld,titel,nachkomma,fuss){
   var f=function(v){ return nachkomma?v.toFixed(nachkomma).replace('.',','):String(Math.round(v)); };
   var h='<div style="font-size:10px;font-weight:700;color:var(--tb-muted);letter-spacing:.02em;margin-bottom:6px">'+esc(titel)+'</div>';
   var n=Math.min(rows.length,TB_HERKUNFT_MAX), rest=rows.length-n;
-  for(var i=0;i<n;i++){
-    h+='<div style="display:flex;align-items:center;gap:8px;padding:3.5px 0">'
-      +'<span style="flex:1;min-width:0;font-size:12.5px;color:var(--tb-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(rows[i].name)+'</span>'
-      +'<span style="flex:0 0 auto;font-size:12px;color:var(--tb-muted)">'+f(rows[i].wert)+' g</span>'
+  /* 🔴 19.08.2026, Ralphs Frau: "+ 10 weitere" stand als reiner Text da - nicht
+     klickbar, und die zehn Posten waren nirgends zu sehen. Eine Zeile, die etwas
+     ankuendigt und nichts einloest, ist eine Attrappe (Ralph P12); hier wiegt es
+     schwerer als bei einem Knopf, weil sie GENAU die Frage aufwirft, die der
+     Kasten beantworten soll: woher kommt der Zucker.
+     Die Daten lagen die ganze Zeit vor - rows enthaelt alle Posten, sie wurden
+     nur abgeschnitten. Es fehlte also nichts ausser dem Aufklappen. */
+  var zeile=function(r){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:3.5px 0">'
+      +'<span style="flex:1;min-width:0;font-size:12.5px;color:var(--tb-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.name)+'</span>'
+      +'<span style="flex:0 0 auto;font-size:12px;color:var(--tb-muted)">'+f(r.wert)+' g</span>'
     +'</div>';
+  };
+  for(var i=0;i<n;i++) h+=zeile(rows[i]);
+  if(rest>0){
+    var idR='tbHkRest_'+feld, idB='tbHkBtn_'+feld;
+    h+='<div id="'+idR+'" style="display:none">';
+    for(var j=n;j<rows.length;j++) h+=zeile(rows[j]);
+    h+='</div>';
+    h+='<div id="'+idB+'" role="button" tabindex="0" onclick="tbHerkunftMehr(\''+feld+'\','+rest+')"'
+      +' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();tbHerkunftMehr(\''+feld+'\','+rest+')}"'
+      +' style="font-size:11.5px;color:var(--k-2e7d32);padding:8px 0 2px;cursor:pointer;user-select:none">'
+      +'+ '+rest+' weitere anzeigen</div>';
   }
-  if(rest>0) h+='<div style="font-size:10.5px;color:var(--tb-muted);padding-top:6px">+ '+rest+' weitere</div>';
   if(fuss) h+='<div style="font-size:10.5px;color:var(--tb-muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--tb-line);line-height:1.5">'+fuss+'</div>';
   return h;
+}
+/* Der Rest der Herkunftsliste. Beide Richtungen, damit der Kasten wieder klein
+   wird - bei 16 Posten schiebt er sonst alles darunter aus dem Bild. */
+function tbHerkunftMehr(feld, rest){
+  var r=document.getElementById('tbHkRest_'+feld), b=document.getElementById('tbHkBtn_'+feld);
+  if(!r||!b) return;
+  var zu=(r.style.display==='none');
+  r.style.display = zu ? 'block' : 'none';
+  b.textContent = zu ? 'weniger anzeigen' : ('+ '+rest+' weitere anzeigen');
 }
 /* Die beiden Klappen. Ein Feld, ein Panel - kein gemeinsamer Zustand, damit sich
    Zucker und Salz nicht gegenseitig schließen. */
@@ -33507,7 +33533,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3940";
+const APP_BUILD = "2026-08-19-3950";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
