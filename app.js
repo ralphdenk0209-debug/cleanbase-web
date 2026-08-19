@@ -29245,7 +29245,13 @@ function renderEtiShots(){
   }).join("");
   const n=Object.keys(ETI_SHOTS).length;
   const b=document.getElementById("etiSend");
-  if(b){ b.style.display=n?"block":"none"; b.textContent="Fotos senden ("+n+")"; }
+  /* 🔴 Im Tagebuch heisst der Knopf, was er tut: danach kommt KEIN Versand,
+     sondern die Mengenabfrage (Work #124). "Fotos senden" und dann erscheint ein
+     Formular waere eine kleine Luege — und kleine Luegen in Knopfbeschriftungen
+     sind der Grund, warum niemand mehr liest, was auf Knoepfen steht. */
+  if(b){ b.style.display=n?"block":"none";
+         b.textContent=(typeof etiImTagebuch==="function" && etiImTagebuch())
+           ? ("Weiter zur Menge ("+n+")") : ("Fotos senden ("+n+")"); }
 }
 async function etikettCam(slot){
   try{ const d=await camCapture(); if(!d) return; ETI_SHOTS[slot]=await _compressSrc(d); renderEtiShots(); }
@@ -29299,6 +29305,25 @@ async function etikettSend(){
      Orten (§4.2).
      ========================================================================== */
   const _eanZiffern = String(ETI_EAN||"").replace(/[^0-9]/g,"");
+
+  /* ==========================================================================
+     WORK #124 — TAGEBUCHSCAN: FOTOS, DANN MENGE, DANN WEG
+
+     Ralph 18.08.: "wenn ich die fotos gemacht habe, soll ich die menge eingeben
+     koennen, nach klick auf ins tagebuch uebernehmen, soll riki im hintergrund
+     den lauf machen ... in der zwischenzeit soll man aber weiter scannen koennen."
+
+     Warum hier ein ZWEITER Zweig steht und nicht derselbe wie beim Ladenscan:
+     cb_riki_scan_einreihen verlangt bei p_kontext=tagebuch zwingend Mahlzeit UND
+     Menge > 0. Die kennt an dieser Stelle niemand — also wird gefragt, bevor
+     eingereiht wird. Ein Vorbelegen mit 100 g waere eine erfundene Zahl in einem
+     Tagebuch, das Ralphs Schwaegerin bei Diabetes benutzt (§1.1, §3.4).
+     ========================================================================== */
+  if(session && feat("etikett_riki") && etiImTagebuch() && _eanZiffern.length>=8){
+    tbScanMengenformular();
+    return;
+  }
+
   if(session && feat("etikett_riki") && !etiImTagebuch() && _eanZiffern.length>=8){
     etiMsg("Fotos werden übergeben…","var(--muted)");
     try{
@@ -29428,6 +29453,82 @@ async function etikettSend(){
 }
 /* ausTagebuch bleibt in der Regel undefiniert - dann gilt der Zusammenhang des
    Scanners, der gerade lief. Nur Aufrufer OHNE Scanner setzen ihn selbst. */
+/* ----------------------------------------------------------------------------
+   WORK #124 — Mengenabfrage im Tagebuchscan.
+   Die Fotos bleiben in ETI_SHOTS liegen; erst der Uebernehmen-Knopf reicht alles
+   zusammen an den Server. Wer hier abbricht, verliert seine Fotos nicht.
+   ---------------------------------------------------------------------------- */
+const TB_MAHLZEITEN=["Frühstück","Mittag","Abendessen","Snack"];
+function tbScanMengenformular(){
+  const box=document.getElementById("etiShots"); if(!box) return;
+  const sb=document.getElementById("etiSend"); if(sb) sb.style.display="none";
+  const mahl=(typeof tbGuessMeal==="function") ? tbGuessMeal() : "Snack";
+  /* Das Datum kommt aus der Tagebuchansicht, NICHT aus new Date(). Wer den
+     15. ansieht und dort scannt, will den Eintrag am 15. haben - der Server
+     nimmt ohne Angabe CURRENT_DATE und wuerde ihn still auf heute legen. */
+  const datum=(document.getElementById("tbDatum")||{}).value || (typeof tbToday==="function"?tbToday():"");
+  box.innerHTML=
+     '<div style="font-size:13.5px;color:var(--ink);font-weight:600;margin-bottom:2px">Wie viel hast du davon?</div>'
+    +'<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px">'
+    +  'Riki liest das Etikett im Hintergrund. Der Eintrag steht sofort im Tagebuch – '
+    +  'die Nährwerte erscheinen, sobald Riki fertig ist.</div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:8px">'
+    +  '<select id="tbScanMahl" style="flex:1;min-width:0;padding:11px;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--bg);color:var(--ink);font-size:15px">'
+    +    TB_MAHLZEITEN.map(m=>'<option value="'+m+'"'+(m===mahl?' selected':'')+'>'+m+'</option>').join('')
+    +  '</select>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:4px">'
+    +  '<input id="tbScanMenge" type="number" inputmode="decimal" min="0" step="1" placeholder="Menge" '
+    +    'style="flex:1;min-width:0;padding:11px;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--bg);color:var(--ink);font-size:15px">'
+    +  '<select id="tbScanEinheit" style="width:84px;padding:11px;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--bg);color:var(--ink);font-size:15px">'
+    +    '<option value="g">g</option><option value="ml">ml</option></select>'
+    +'</div>'
+    +'<div id="tbScanFehler" style="font-size:12.5px;color:var(--k-dc2626);min-height:17px;margin-bottom:6px"></div>'
+    +'<button onclick="tbScanUebernehmen()" style="width:100%;box-sizing:border-box;padding:16px;border:0;border-radius:12px;'
+    +  'background:var(--k-16a34a);color:var(--k-ffffff);font-weight:700;cursor:pointer;font-size:16px;'
+    +  'box-shadow:0 3px 10px rgba(22,163,74,.28)">Ins Tagebuch übernehmen</button>'
+    +'<div style="font-size:11.5px;color:var(--muted);margin-top:8px;text-align:center">Eintrag für '+esc(datum)+'</div>';
+  try{ const mi=document.getElementById("tbScanMenge"); if(mi) mi.focus(); }catch(e){}
+  etiMsg("");
+}
+async function tbScanUebernehmen(){
+  const fehlerEl=document.getElementById("tbScanFehler");
+  const zeig=(t)=>{ if(fehlerEl) fehlerEl.textContent=t||""; };
+  const mahl=(document.getElementById("tbScanMahl")||{}).value||"";
+  const einheit=(document.getElementById("tbScanEinheit")||{}).value||"g";
+  const menge=Number(String((document.getElementById("tbScanMenge")||{}).value||"").replace(",","."));
+  /* Vor dem Server pruefen, damit der Nutzer einen deutschen Satz sieht und keine
+     Datenbankausnahme. Der Server prueft trotzdem noch einmal - er ist der Riegel,
+     das hier ist die Hoeflichkeit (§10.2). */
+  if(!TB_MAHLZEITEN.includes(mahl)){ zeig("Bitte eine Mahlzeit wählen."); return; }
+  if(!isFinite(menge) || menge<=0){ zeig("Bitte eine Menge größer als 0 eintragen."); return; }
+  const arr=ETI_SLOTS.map(function(s){ return ETI_SHOTS[s[0]]; }).filter(Boolean);
+  if(!arr.length){ zeig("Die Fotos sind weg – bitte noch einmal aufnehmen."); return; }
+  const ean=String(ETI_EAN||"").replace(/[^0-9]/g,"");
+  const datum=(document.getElementById("tbDatum")||{}).value || (typeof tbToday==="function"?tbToday():null);
+  zeig("");
+  etiMsg("Wird übernommen…","var(--muted)");
+  try{
+    const {data:erg,error}=await client.rpc("cb_riki_scan_einreihen",{
+      p_ean:ean, p_kontext:"tagebuch", p_fotos:arr,
+      p_mahlzeit:mahl, p_menge:menge, p_datum:datum||undefined, p_einheit:einheit
+    });
+    if(error) throw error;
+    const e=(typeof erg==="string")?JSON.parse(erg):(erg||{});
+    ETI_SHOTS={}; renderEtiShots();
+    /* Nur wenn wirklich ein Lauf eingereiht wurde, zeigt der Orb Arbeit an.
+       Bei einem laengst bekannten Produkt gibt es nichts zu tun (§1.7). */
+    if(e.status!=="bekannt"){ try{ rikiFabZustand("denkt"); }catch(x){} }
+    etikettClose();
+    /* Der Eintrag steht schon in der Datenbank - die Liste muss ihn nur holen.
+       Ohne dieses Neuladen sieht der Nutzer sein eigenes Ergebnis nicht. */
+    try{ if(typeof loadTagebuch==="function") loadTagebuch(); }catch(x){}
+  }catch(e){
+    console.warn("tbScanUebernehmen:",e);
+    etiMsg("");
+    zeig("Konnte nicht übernommen werden: "+((e&&e.message)||e));
+  }
+}
 function etikettCtaBtn(code, ausTagebuch){
   const _k = (ausTagebuch===undefined) ? '' : (','+(ausTagebuch===true?'true':'false'));
   return '<button onclick="etikettOpen(\''+String(code).replace(/[^0-9A-Za-z]/g,"")+'\''+_k+')" style="margin-top:8px;padding:9px 14px;border:1px solid var(--green,var(--k-16a34a));border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:13px;font-weight:600;cursor:pointer">Etikett fotografieren &ndash; hilf uns, es aufzunehmen</button>';
@@ -33174,7 +33275,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3880";
+const APP_BUILD = "2026-08-19-3890";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
