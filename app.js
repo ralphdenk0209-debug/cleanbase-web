@@ -32983,9 +32983,23 @@ function rikiStilEinmal(){
   s.id="rikiStil";
   s.textContent="@keyframes rikiDreh{to{transform:rotate(360deg)}}"
     +"#rikiRing.rikiDreht{transform-origin:32px 32px;animation:rikiDreh 1.4s linear infinite}"
-    /* Wer Bewegung abgestellt hat, bekommt einen ruhenden Ring statt gar keiner
-       Rueckmeldung - die Anzeige darf nicht verschwinden, nur weil sie steht. */
-    +"@media (prefers-reduced-motion: reduce){#rikiRing.rikiDreht{animation:none}}";
+    /* 🔴 DAS PANEL ZIEHT SICH AUS DEM KNOPF AUF (Ralph 19.08.: "er koennte beim
+       klick darauf sich gross ziehen"). Vorher fuhr unten eine Leiste hoch - das
+       sah aus wie ein fremdes Fenster, das zufaellig aufgeht. Jetzt waechst die
+       Karte aus der Ecke, in der der Orb sitzt: der Nutzer sieht, WOHER sie kommt
+       und wohin sie beim Schliessen zurueckgeht.
+       transform-origin sitzt genau auf dem Knopf (unten rechts) - deshalb ist es
+       ein Aufziehen und kein Hereinfliegen. */
+    +"@keyframes rikiAuf{from{opacity:0;transform:scale(.18)}to{opacity:1;transform:scale(1)}}"
+    +"@keyframes rikiZu{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.18)}}"
+    +"#rikiPanel{transform-origin:100% 100%;animation:rikiAuf .22s cubic-bezier(.2,.8,.3,1) both}"
+    +"#rikiPanel.rikiSchliesst{animation:rikiZu .16s ease-in both}"
+    /* Wer Bewegung abgestellt hat, bekommt einen ruhenden Ring und ein Panel ohne
+       Aufzieh-Bewegung - aber beides bleibt SICHTBAR. Die Anzeige darf nicht
+       verschwinden, nur weil sie sich nicht bewegt. */
+    +"@media (prefers-reduced-motion: reduce){"
+      +"#rikiRing.rikiDreht{animation:none}"
+      +"#rikiPanel,#rikiPanel.rikiSchliesst{animation:none;opacity:1;transform:none}}";
   document.head.appendChild(s);
 }
 /* Genau EINE Stelle setzt das Aussehen. Vier Zustaende, sonst nichts - wer einen
@@ -33013,9 +33027,20 @@ function rikiFabZustand(z){
   var f=el("rikiFab"); if(f) f.dataset.zustand=z;
 }
 function rikiPanelSchliessen(){
-  var p=document.getElementById("rikiPanel"); if(p) p.remove();
+  var p=document.getElementById("rikiPanel");
   var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","false");
   rikiFabZustand("normal");
+  if(!p) return;
+  /* Die Karte zieht sich in den Knopf zurueck, statt zu verschwinden. Das Entfernen
+     haengt am Ende der Bewegung - ABER mit Zeitgeber als Rueckfall: wer Bewegung
+     abgestellt hat, bekommt gar kein animationend, und dann bliebe die Karte fuer
+     immer stehen. Ein Effekt, der ohne Animation klemmt, ist ein Fehler und keine
+     Geschmacksfrage. */
+  p.id="";                                   // ein zweiter Klick trifft nicht dieselbe Karte
+  p.classList.add("rikiSchliesst");
+  var weg=false, fort=function(){ if(weg) return; weg=true; try{ p.remove(); }catch(e){} };
+  try{ p.addEventListener("animationend", fort, {once:true}); }catch(e){}
+  setTimeout(fort, 260);
 }
 function rikiPanelOeffnen(){
   if(document.getElementById("rikiPanel")){ rikiPanelSchliessen(); return; }
@@ -33024,10 +33049,16 @@ function rikiPanelOeffnen(){
   p.id="rikiPanel";
   p.setAttribute("role","dialog");
   p.setAttribute("aria-label","RIKI");
-  p.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:9991;"
-    +"background:var(--tb-card,var(--k-ffffff));border-top:1px solid var(--tb-line,var(--k-e7e0d4));"
-    +"border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.16);"
-    +"padding:14px 16px calc(16px + env(safe-area-inset-bottom));max-height:70vh;overflow:auto";
+  /* Karte statt Leiste: verankert an derselben Ecke wie der Knopf, direkt darueber.
+     14px Abstand nach rechts wie der Knopf, 92+52+10 nach unten - also genau auf
+     ihm sitzend. Die Breite ist gedeckelt, damit die Karte auf dem Handy nicht an
+     beiden Raendern klebt und auf dem Schreibtisch nicht ueber den halben Schirm
+     laeuft. */
+  p.style.cssText="position:fixed;right:14px;z-index:9991;"
+    +"bottom:calc(154px + env(safe-area-inset-bottom));"
+    +"width:min(340px, calc(100vw - 28px));max-height:min(70vh, 460px);overflow:auto;"
+    +"background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));"
+    +"border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.20);padding:14px 16px 16px";
   p.innerHTML=
      '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">'
     +  '<b style="flex:1;font-size:16px;color:var(--tb-text,var(--ink))">RIKI</b>'
@@ -33077,7 +33108,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-18-3860";
+const APP_BUILD = "2026-08-19-3870";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
