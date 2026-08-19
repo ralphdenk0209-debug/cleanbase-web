@@ -4555,6 +4555,13 @@ async function produktZutatenV2(d){
 }
 if(typeof window!=='undefined'){ window.produktZutatenV2=produktZutatenV2; }
 async function detail(d){
+  /* Work #122 Phase A: welches Produkt gerade offen ist, wusste bisher NIEMAND ausser
+     dieser Funktion. Der RIKI-Knopf braucht es fuer den Seitenzusammenhang. Additiv,
+     eine Zeile, kein Aufrufer beruehrt - und bewusst HIER, weil detail() der einzige
+     Chokepoint ist, durch den jede Produktkarte laeuft (siehe Kommentar darunter).
+     Es wird NUR die ID gemerkt, nicht der Datensatz: ein zweiter Produktabzug im
+     Browser waere eine zweite Wahrheit (§4.2). */
+  try{ window._offenesProdukt = (d && d.id) ? String(d.id) : null; }catch(e){}
   /* Chokepoint: einmal hydrieren, dann zeichnen. Kein Aufrufer wertet den Rueckgabewert aus
      (alle sechs geprueft, kein await/return) - async ist deshalb gefahrlos. */
   try{ await produktZutatenV2(d); }catch(e){}
@@ -32843,7 +32850,138 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-18-3840";
+/* ============================================================================
+   WORK #122 — RIKI-BEGLEITER, PHASE A: DIE SCHALE
+
+   Ralph 18.08.: RIKI soll auf allen Consumer-Seiten als kleiner schwebender
+   Knopf sitzen, Klick oeffnet EIN Panel, das den Seitenzusammenhang kennt.
+
+   🔴 PHASE A IST BEWUSST DUMM. Kein Gesundheitswissen, keine Regel, kein
+   Profil, keine Antwort. Sie liefert genau zwei Dinge: den Knopf und den
+   Zusammenhang. Alles Fachliche kommt serverseitig (Phase B ff., #122).
+   Eine Gesundheitsregel in JavaScript waere die zweite Kopie einer Regel,
+   die es serverseitig noch gar nicht gibt (§4.2, §10.2).
+
+   🔴 UND SIE LUEGT NICHT. Das Panel zeigt in dieser Phase, WAS RIKI erkannt
+   hat, und sagt ausdruecklich, dass er noch nicht antwortet. Ein Eingabefeld,
+   das Fragen entgegennimmt und nichts tut, waere eine Attrappe - derselbe
+   Fehler wie ein Chip, der aussieht wie ein Knopf (Ralph P12).
+
+   §22-BEFUND VOR DEM BAU, gemessen an app.js, index.html und ui.css:
+     - Es gibt KEINEN schwebenden Knopf, KEIN Panel und KEINEN Chat. Neubau.
+     - "rikiView" existiert, ist aber der ADMIN-Import "Daten holen per Riki".
+       Nicht verwechseln - der Begleiter ist etwas anderes.
+     - Einen Erinnerungs-Weg gibt es im Frontend NICHT (ChatGPT fragte danach
+       in #122). Deshalb zeigt Phase A keine Erinnerungen an: ohne Serverweg
+       waere jede Anzeige eine Behauptung.
+     - window._curMode fuehrt die aktuelle Seite bereits - kein zweiter
+       Seitenzaehler noetig (§22).
+
+   🔴 GETEILT MIT #125: dieser Knopf IST das "Riki-Symbol", das die
+   Warteschlange melden soll. #125 baut KEIN zweites Symbol, sondern haengt
+   sich mit rikiBadge() an dieses hier. Zwei Symbole waeren §4.2.
+
+   PLATZ, gemessen statt geschaetzt: .bottomnav klebt unten mit z-index 40,
+   body traegt padding-bottom:calc(78px + safe-area). Der Knopf sitzt deshalb
+   78px + Abstand ueber dem unteren Rand - sonst verdeckt er die Navigation.
+   z-index 9990: ueber dem Inhalt, aber UNTER den Overlays (9992-9996), damit
+   er sich nicht ueber ein offenes Fenster legt.
+   ============================================================================ */
+function rikiShellAktiv(){
+  /* app.js wird von index.html UND admin.html geladen. Der Begleiter gehoert in
+     die Benutzersicht. Die Bodenleiste ist das Merkmal, das nur dort existiert -
+     eine Tatsache, kein Dateinamen-Raten. */
+  return !!document.querySelector(".bottomnav");
+}
+/* Der Seitenzusammenhang. Wird bei JEDEM Oeffnen frisch erhoben, nie gecacht -
+   ein gemerkter Zusammenhang waere beim naechsten Oeffnen der vorige. */
+function rikiKontext(){
+  var seite = (typeof window!=="undefined" && window._curMode) ? String(window._curMode) : "start";
+  var k = { seite: seite, produkt_id: null, suchbegriff: null, rezept_id: null };
+  if(seite==="produkte" && window._offenesProdukt) k.produkt_id = window._offenesProdukt;
+  if(seite==="produkte"){ var qi=document.getElementById("q"); if(qi && qi.value.trim()) k.suchbegriff = qi.value.trim(); }
+  if(seite==="rezepte" && window._rezept && window._rezept.id) k.rezept_id = String(window._rezept.id);
+  return k;
+}
+/* Klartext fuer das Panel. Bewusst als eigene Funktion: der Kontext ist Technik,
+   der Satz ist Oberflaeche - und nur der Satz aendert sich, wenn Ralph ihn anders
+   haben will. */
+function rikiKontextText(k){
+  if(k.produkt_id) return "Du siehst gerade das Produkt <b>"+esc(k.produkt_id)+"</b>.";
+  if(k.suchbegriff) return "Du suchst gerade nach <b>"+esc(k.suchbegriff)+"</b>.";
+  if(k.rezept_id) return "Du siehst gerade ein Rezept.";
+  var n={start:"der Startseite",produkte:"der Produktsuche",rezepte:"den Rezepten",tagebuch:"deinem Tagebuch",
+         planer:"dem Planer",einkauf:"der Einkaufsliste",profil:"deinem Profil",training:"dem Training"}[k.seite];
+  return n ? ("Du bist gerade auf "+n+".") : "Ich weiß gerade nicht, wo du bist – das ist noch kein Fehler, nur noch nicht angeschlossen.";
+}
+/* Badge-Schnittstelle fuer #125 und spaeter fuer Erinnerungen und den
+   Monatsrueckblick. Phase A setzt sie NIE selbst - sie steht hier, damit #125
+   nichts Eigenes bauen muss. anzahl 0 blendet aus. */
+function rikiBadge(anzahl){
+  var b=document.getElementById("rikiFabBadge"); if(!b) return;
+  var n=Number(anzahl)||0;
+  b.textContent = n>9 ? "9+" : String(n);
+  /* flex, NICHT "" : ein leerer Wert loescht nur den Inlinestil, und ein <span>
+     faellt dann auf display:inline zurueck - die Zahl saesse schief im Kreis.
+     Beim Bauen selbst gestolpert, deshalb steht es hier. */
+  b.style.display = n>0 ? "flex" : "none";
+}
+function rikiPanelSchliessen(){
+  var p=document.getElementById("rikiPanel"); if(p) p.remove();
+  var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","false");
+}
+function rikiPanelOeffnen(){
+  if(document.getElementById("rikiPanel")){ rikiPanelSchliessen(); return; }
+  var k=rikiKontext();
+  var p=document.createElement("div");
+  p.id="rikiPanel";
+  p.setAttribute("role","dialog");
+  p.setAttribute("aria-label","RIKI");
+  p.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:9991;"
+    +"background:var(--tb-card,var(--k-ffffff));border-top:1px solid var(--tb-line,var(--k-e7e0d4));"
+    +"border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.16);"
+    +"padding:14px 16px calc(16px + env(safe-area-inset-bottom));max-height:70vh;overflow:auto";
+  p.innerHTML=
+     '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">'
+    +  '<b style="flex:1;font-size:16px;color:var(--tb-text,var(--ink))">RIKI</b>'
+    +  '<button onclick="rikiPanelSchliessen()" aria-label="Schließen" style="border:0;background:none;font-size:20px;line-height:1;color:var(--tb-muted);cursor:pointer;padding:0 4px">&times;</button>'
+    +'</div>'
+    +'<div style="font-size:14px;color:var(--tb-text,var(--ink));line-height:1.5;margin-bottom:10px">'+rikiKontextText(k)+'</div>'
+    /* 🔴 Dieser Satz ist kein Platzhalter, sondern die Wahrheit ueber den Bauzustand.
+       Er verschwindet, wenn Phase B den Serverkontext liefert - nicht vorher. */
+    +'<div style="font-size:12.5px;color:var(--tb-muted);line-height:1.5;background:var(--tb-card2,var(--k-fbf8f2));border-radius:10px;padding:10px 11px">'
+    +  'Ich merke mir gerade nur, <b>wo du bist</b>. Antworten, dein Profil und persönliche Hinweise kommen im nächsten Schritt – '
+    +  'und sie kommen aus belegten Daten, nicht aus meiner Fantasie.'
+    +'</div>';
+  document.body.appendChild(p);
+  var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","true");
+}
+function rikiFabInit(){
+  if(!rikiShellAktiv()) return;                 // Adminoberflaeche: kein Begleiter
+  if(document.getElementById("rikiFab")) return; // genau einer, nie zwei (§4.2)
+  var b=document.createElement("button");
+  b.id="rikiFab";
+  b.type="button";
+  b.setAttribute("aria-label","RIKI öffnen");
+  b.setAttribute("aria-expanded","false");
+  b.onclick=function(){ rikiPanelOeffnen(); };
+  b.style.cssText="position:fixed;right:14px;z-index:9990;"
+    +"bottom:calc(92px + env(safe-area-inset-bottom));"
+    +"width:52px;height:52px;border-radius:50%;border:1px solid var(--tb-line,var(--k-e7e0d4));"
+    +"background:var(--tb-card,var(--k-ffffff));box-shadow:0 3px 12px rgba(0,0,0,.18);"
+    +"cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center";
+  b.innerHTML='<img src="logo-mark.png" alt="" style="width:30px;height:30px;object-fit:contain" aria-hidden="true">'
+    +'<span id="rikiFabBadge" style="display:none;position:absolute;top:-3px;right:-3px;min-width:19px;height:19px;'
+    +'border-radius:10px;background:var(--k-dc2626);color:var(--k-ffffff);font-size:11px;font-weight:700;'
+    +'align-items:center;justify-content:center;padding:0 5px">0</span>';
+  document.body.appendChild(b);
+}
+try{
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", rikiFabInit);
+  else rikiFabInit();
+}catch(e){}
+
+const APP_BUILD = "2026-08-18-3850";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
