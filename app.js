@@ -5841,10 +5841,22 @@ function peListeHoehe(){
   var r=w.getBoundingClientRect();
   var sicht=(window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
   if(!sicht) return;
-  /* 16px Luft nach unten, damit die letzte Zeile nicht am Rand klebt. Der
+  /* 🔴 EIGENER FEHLER, 19.08. — Ralph: "ist immer noch so", Build 3970.
+     Hier stand: sicht - r.top - 16.
+     r.top ist die Position IM FENSTER und haengt damit am Scrollstand. Beim
+     Scrollen wandert der Wrapper nach oben, r.top wird kleiner, die berechnete
+     Hoehe WAECHST - und die Seite kann noch weiter scrollen. Der Deckel machte
+     das Problem also nicht kleiner, sondern beim Scrollen groesser. Ein Regler,
+     der sich selbst verstellt.
+     RICHTIG ist die Position IM DOKUMENT: r.top + scrollY. Die ist unabhaengig
+     davon, wo gerade gescrollt wurde, und ergibt eine stabile Hoehe - genau die,
+     bei der Kopf + Liste zusammen ins Fenster passen und die Seite gar nicht
+     erst zu scrollen anfaengt.
+     16px Luft nach unten, damit die letzte Zeile nicht am Rand klebt. Der
      schwebende Neues-Produkt-Knopf braucht spaeter mehr - dann wird DIESE Zahl
      erhoeht und nicht eine zweite daneben gestellt (§4.2). */
-  var h=Math.round(sicht - r.top - 16);
+  var obenImDokument=r.top + (window.scrollY || window.pageYOffset || 0);
+  var h=Math.round(sicht - obenImDokument - 16);
   /* Unter 280px wird nicht verkleinert: darunter sieht man keine Liste mehr,
      sondern einen Schlitz. Dann darf die Seite ausnahmsweise scrollen. */
   w.style.maxHeight=Math.max(280,h)+'px';
@@ -5854,7 +5866,10 @@ function peListeHoeheBinden(){
   var lauf=function(){ if(window._peHoeheRaf) return;
     window._peHoeheRaf=requestAnimationFrame(function(){ window._peHoeheRaf=null; peListeHoehe(); }); };
   window.addEventListener('resize',lauf);
-  window.addEventListener('scroll',lauf,{passive:true});
+  /* Die Scroll-Bindung ist RAUS. Sie war die Folge desselben Denkfehlers: solange
+     die Hoehe am Scrollstand hing, musste bei jedem Scrollpixel neu gerechnet
+     werden. Jetzt haengt sie an der Dokumentposition - beim Scrollen aendert sich
+     nichts, also gibt es auch nichts nachzurechnen. Weniger Arbeit UND richtiger. */
   if(window.visualViewport){ window.visualViewport.addEventListener('resize',lauf); }
   /* Der Kopf aendert seine Hoehe, wenn Filter dazukommen oder Chips umbrechen -
      ein ResizeObserver merkt das, ein Zeitgeber wuerde es verpassen oder dauernd
@@ -33629,7 +33644,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3970";
+const APP_BUILD = "2026-08-19-3980";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
