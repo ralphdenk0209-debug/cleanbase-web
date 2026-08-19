@@ -29943,6 +29943,12 @@ function stopScan(){
    eine zweite, ratende Wahrheit neben der ersten. Die Reader-ID ist eine
    Tatsache, die Sichtbarkeit einer Kachel eine Vermutung.
    ============================================================ */
+/* 19.08.: der RIKI-Knopf kann an zwei Orten sitzen - in der Bodenleiste (seit
+   Ralph-Entscheid A) oder als schwebender Knopf (Rueckfall, falls die Leiste
+   fehlt). EINE Funktion beantwortet, welcher es ist; sonst muesste jede Stelle
+   beide Faelle kennen und eine wuerde es vergessen (§4.2). */
+function rikiKnopf(){ return document.getElementById("bnriki") || document.getElementById("rikiFab"); }
+function rikiInLeiste(){ return !!document.getElementById("bnriki"); }
 var _etiAusTagebuch = false;
 function etiKontextSetzen(ausTagebuch){ _etiAusTagebuch = (ausTagebuch === true); }
 function etiImTagebuch(){ return _etiAusTagebuch === true; }
@@ -33244,6 +33250,9 @@ function rikiStilEinmal(){
     +"@keyframes rikiAuf{from{opacity:0;transform:scale(.18)}to{opacity:1;transform:scale(1)}}"
     +"@keyframes rikiZu{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.18)}}"
     +"#rikiPanel{transform-origin:100% 100%;animation:rikiAuf .22s cubic-bezier(.2,.8,.3,1) both}"
+    /* In der Leiste steht RIKI an fuenfter von sechs Stellen, nicht in der Ecke -
+       also zieht sich die Karte von dort auf und nicht von ganz rechts. */
+    +"#rikiPanel.rikiAusLeiste{transform-origin:78% 100%}"
     +"#rikiPanel.rikiSchliesst{animation:rikiZu .16s ease-in both}"
     /* Wer Bewegung abgestellt hat, bekommt einen ruhenden Ring und ein Panel ohne
        Aufzieh-Bewegung - aber beides bleibt SICHTBAR. Die Anzeige darf nicht
@@ -33265,8 +33274,12 @@ function rikiFabZustand(z){
           denkt: {glow:0,   halo:.35, ring:1, dreht:true,  koerper:.55, augen:.8, spross:0, fertig:0},
           bereit:{glow:0,   halo:.85, ring:0, dreht:false, koerper:1,   augen:1,  spross:1, fertig:1} }[z] || null;
   if(!Z) return;                          // unbekannter Zustand aendert NICHTS (§3.4)
-  glow.setAttribute("opacity", Z.glow);
-  halo.setAttribute("opacity", Z.halo);
+  /* In der Leiste bleiben Halo und Glow IMMER aus - dort stehen flache
+     Strichsymbole. Die uebrigen Zustaende (Ring, Augen, Sproessling, Fertigpunkt)
+     gelten unveraendert, damit "denkt" und "bereit" auch dort sichtbar sind. */
+  var flach=rikiInLeiste();
+  glow.setAttribute("opacity", flach?0:Z.glow);
+  halo.setAttribute("opacity", flach?0:Z.halo);
   ring.setAttribute("opacity", Z.ring);
   ring.setAttribute("stroke", Z.dreht ? "#c9c2ea" : "#9a8aee");
   ring.setAttribute("stroke-dasharray", Z.dreht ? "24 14" : "");
@@ -33275,7 +33288,7 @@ function rikiFabZustand(z){
   augen.setAttribute("opacity", Z.augen);
   spross.setAttribute("opacity", Z.spross);
   fertig.setAttribute("opacity", Z.fertig);
-  var f=el("rikiFab"); if(f) f.dataset.zustand=z;
+  var f=rikiKnopf(); if(f) f.dataset.zustand=z;
 }
 /* ============================================================================
    WORK #126 — RIKI FRAGEN, PER TEXT ODER SPRACHE
@@ -33453,7 +33466,7 @@ async function rikiFrageSenden(){
 }
 function rikiPanelSchliessen(){
   var p=document.getElementById("rikiPanel");
-  var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","false");
+  var f=rikiKnopf(); if(f) f.setAttribute("aria-expanded","false");
   rikiFabZustand("normal");
   if(!p) return;
   /* Die Karte zieht sich in den Knopf zurueck, statt zu verschwinden. Das Entfernen
@@ -33474,13 +33487,18 @@ function rikiPanelOeffnen(){
   p.id="rikiPanel";
   p.setAttribute("role","dialog");
   p.setAttribute("aria-label","RIKI");
+  if(rikiInLeiste()) p.className="rikiAusLeiste";
   /* Karte statt Leiste: verankert an derselben Ecke wie der Knopf, direkt darueber.
      14px Abstand nach rechts wie der Knopf, 92+52+10 nach unten - also genau auf
      ihm sitzend. Die Breite ist gedeckelt, damit die Karte auf dem Handy nicht an
      beiden Raendern klebt und auf dem Schreibtisch nicht ueber den halben Schirm
      laeuft. */
+  /* Das Panel haengt an der Stelle, an der der Knopf WIRKLICH sitzt. In der
+     Leiste ist das knapp darueber (die Leiste ist 78px hoch); als schwebender
+     Knopf weiter oben. Die Zahl wird nicht geraten, sie folgt dem Knopf. */
+  var _inL=rikiInLeiste();
   p.style.cssText="position:fixed;right:14px;z-index:9991;"
-    +"bottom:calc(154px + env(safe-area-inset-bottom));"
+    +"bottom:calc("+(_inL?"86px":"154px")+" + env(safe-area-inset-bottom));"
     +"width:min(340px, calc(100vw - 28px));max-height:min(70vh, 460px);overflow:auto;"
     +"background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));"
     +"border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.20);padding:14px 16px 16px";
@@ -33497,11 +33515,29 @@ function rikiPanelOeffnen(){
     +'<div id="rikiAntwort" style="margin-top:10px"></div>'
     + rikiFrageZeileHtml();
   document.body.appendChild(p);
-  var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","true");
+  var f=rikiKnopf(); if(f) f.setAttribute("aria-expanded","true");
   rikiFabZustand("offen");
 }
 function rikiFabInit(){
   if(!rikiShellAktiv()) return;                 // Adminoberflaeche: kein Begleiter
+  /* 🔴 19.08.2026, Ralph-Entscheid A: RIKI sitzt jetzt IN der Bodenleiste, nicht
+     mehr schwebend darueber. Der Knopf steht fest in index.html; hier wird nur
+     noch sein Symbol gefuellt. Der frueher hier erzeugte schwebende Knopf ist
+     ersatzlos entfallen - er verdeckte die Bedienelemente der Mahlzeitkarten.
+     Findet sich der Nav-Knopf, ist die Arbeit hier getan. */
+  var nav=document.getElementById("bnriki");
+  if(nav){
+    var ico=document.getElementById("rikiNavIcon");
+    /* Ohne Halo und ohne Glow: in der Leiste stehen flache Strichsymbole, ein
+       leuchtender Orb daneben waere ein Fremdkoerper. Die Zustaende laufen
+       weiter ueber rikiFabZustand - die Elemente heissen gleich. */
+    if(ico && !ico.innerHTML) ico.innerHTML=rikiOrbSvg();
+    rikiStilEinmal();
+    var h=document.getElementById("rikiHalo"); if(h) h.setAttribute("opacity","0");
+    var g=document.getElementById("rikiGlow"); if(g) g.setAttribute("opacity","0");
+    rikiFabZustand("normal");
+    return;
+  }
   if(document.getElementById("rikiFab")) return; // genau einer, nie zwei (§4.2)
   var b=document.createElement("button");
   b.id="rikiFab";
@@ -33533,7 +33569,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3950";
+const APP_BUILD = "2026-08-19-3960";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
