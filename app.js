@@ -5857,6 +5857,22 @@ function peListeHoehe(){
      erhoeht und nicht eine zweite daneben gestellt (§4.2). */
   var obenImDokument=r.top + (window.scrollY || window.pageYOffset || 0);
   var h=Math.round(sicht - obenImDokument - 16);
+  /* 🔴 ZWEITER EIGENER FEHLER, 19.08. — Ralph, Build 3980: die Seite scrollt immer
+     noch. Der Deckel war richtig gerechnet und trotzdem zu gross, weil ich nur
+     gefragt hatte "wie viel Platz ist ab hier bis zum unteren Rand". UNTER der
+     Liste stehen aber noch die Blaetterleiste (zurueck · 1-100 von 221 · weiter)
+     und der Detailbereich ("Zeile in der Liste waehlen"). Die brauchen auch Platz.
+     Ich hatte die Liste gedeckelt und den Rest der Seite vergessen.
+
+     STATT DIE EINZELNEN TEILE ZU ADDIEREN - das waere die naechste Liste von
+     Zahlen, die jemand nachtragen muss (§28.4) - wird der UEBERSCHUSS gemessen:
+     wie viel ist das Dokument hoeher als das Fenster? Genau so viel kommt vom
+     Deckel wieder ab. Das umfasst automatisch alles, was unter der Liste steht,
+     heute und nach jedem kuenftigen Umbau.
+     Einmalig, nicht in einer Schleife: Schrumpfen erzeugt keinen neuen Ueberschuss. */
+  var doc=document.documentElement;
+  var ueberschuss=Math.round((doc?doc.scrollHeight:0) - sicht);
+  if(ueberschuss>0) h-=ueberschuss;
   /* Unter 280px wird nicht verkleinert: darunter sieht man keine Liste mehr,
      sondern einen Schlitz. Dann darf die Seite ausnahmsweise scrollen. */
   w.style.maxHeight=Math.max(280,h)+'px';
@@ -33644,7 +33660,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3980";
+const APP_BUILD = "2026-08-19-3990";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
