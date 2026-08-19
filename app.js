@@ -26416,12 +26416,26 @@ function bildEditorOeffnen(src, nachher){
     +  '<b style="flex:1;font-size:15px;color:#1f2a44">Bild zuschneiden und aufhellen</b>'
     +  '<button onclick="bildEditorSchliessen()" aria-label="Abbrechen" style="border:0;background:none;font-size:22px;line-height:1;color:#7b8698;cursor:pointer;padding:0 4px">&times;</button>'
     +'</div>'
-    +'<div id="beBuehne" style="position:relative;width:100%;aspect-ratio:1/1;max-height:52vh;background:#eef1f4;'
+    /* 🔴 19.08. korrigiert, Ralph: "die darstellung sieht im editor breitgequetscht aus."
+       HIER STAND width:100% + aspect-ratio:1/1 + max-height:52vh. Sobald max-height
+       griff, war die Buehne BREITER als hoch - das Canvas-Element wurde per CSS auf
+       die volle Breite gezogen, waehrend sein Inhalt quadratisch gezeichnet wurde.
+       Ergebnis: gequetschte Vorschau.
+       Das ausgegebene Bild waere korrekt gewesen (1024x1024, eigene Berechnung) -
+       und GENAU DAS macht es schlimmer: eine Vorschau, die anders aussieht als das
+       Ergebnis, ist wertloser als gar keine. Man stellt etwas ein, das man nicht
+       bekommt.
+       JETZT: die Breite folgt der Hoehe, damit die Buehne wirklich quadratisch ist. */
+    +'<div id="beBuehne" style="position:relative;width:min(100%,52vh);aspect-ratio:1/1;margin:0 auto;background:#eef1f4;'
     +  'border:1px solid #d3dbe6;border-radius:10px;overflow:hidden;touch-action:none;cursor:grab">'
     +  '<canvas id="beCanvas" style="position:absolute;inset:0;width:100%;height:100%"></canvas>'
     +'</div>'
     +'<div style="font-size:11.5px;color:#7b8698;margin:6px 2px 10px">Ziehen verschiebt · Mausrad zoomt · der sichtbare Ausschnitt wird übernommen.</div>'
-    +beRegler('Zoom','zoom',100,400,1,'%')
+    /* 🔴 19.08. korrigiert: hier stand als Startwert 1 statt 100. Der Regler klemmte
+       damit am linken Anschlag und zeigte "1%", waehrend intern BE.zoom=1 (also
+       100 %) galt. Anzeige und Wirklichkeit liefen auseinander - Ralph hat es im
+       ersten Bild gesehen. */
+    +beRegler('Zoom','zoom',100,400,100,'%')
     +beRegler('Geraderichten','winkel',-15,15,0,'°')
     +beRegler('Helligkeit','hell',60,160,100,'%')
     +beRegler('Kontrast','kontrast',60,160,100,'%')
@@ -26476,6 +26490,7 @@ function beAnpassen(){
   if(!BE.img) return;
   BE.zoom=1; BE.x=0; BE.y=0;
   var z=document.getElementById('be_zoom'); if(z) z.value=100;
+  var w=document.getElementById('beW_zoom'); if(w) w.textContent='100%';
 }
 function beZeichnen(){
   var c=document.getElementById('beCanvas'); if(!c||!BE.img) return;
@@ -34039,7 +34054,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-4030";
+const APP_BUILD = "2026-08-19-4040";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
