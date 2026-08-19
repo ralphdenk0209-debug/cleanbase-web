@@ -6558,6 +6558,11 @@ function peRender(){
      die Zahlen vom Seitenaufbau - "Alle (1460)" ueber einer Liste mit 9 Zeilen. */
   try{ var _cr=document.getElementById('peChipRows'); if(_cr) _cr.innerHTML=peChipRowsHtml(); }catch(e){}
   try{ var _af=document.getElementById('peAktivFilter'); if(_af) _af.innerHTML=peAktivFilterHtml(); }catch(e){}
+  /* Jede Filteraktion laeuft durch peRender und kann die Kopfhoehe aendern (Chips
+     kommen dazu, die Aktivfilter-Zeile erscheint oder verschwindet). Also wird die
+     Listenhoehe hier mitgezogen - sonst stimmt sie genau nach dem Filtern nicht,
+     also in dem Moment, in dem Ralph hinsieht. */
+  try{ if(typeof peListeHoehe==='function') peListeHoehe(); }catch(e){}
   if(sort==='mark') list=list.filter(function(p){return p.markiert;});
   /* ⚠ Die Sortierung ordnet die GELADENE SEITE (100 Zeilen), nicht den Katalog. Die
      Grundordnung macht die Datenbank (erfasst desc, id desc); wer nach Index oder Titel
@@ -33624,7 +33629,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3960";
+const APP_BUILD = "2026-08-19-3970";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
