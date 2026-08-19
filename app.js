@@ -33368,7 +33368,22 @@ async function rikiFrageSenden(){
     var L=d.limit||{};
     zeig((L.heute_genutzt!=null && L.limit_tag!=null) ? ("Heute "+L.heute_genutzt+" von "+L.limit_tag+" Fragen.") : "");
   }catch(e){
-    if(out) out.innerHTML='<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">'+esc((e&&e.message)||String(e))+'</div>';
+    /* 🔴 "Load failed" ist Safaris Sammelsatz - genau die Sorte Meldung, die bei
+       #35 wochenlang die Ursache verdeckt hat, diesmal vom Browser statt von uns.
+       Ein fetch wirft einen TypeError bei GENAU DREI Dingen: Netz weg, der
+       Server hat den Aufruf abgelehnt bevor er ankam (CORS/Vorabfrage), oder die
+       Funktion laeuft nicht an. WELCHES davon, weiss der Browser - und nur die
+       Konsole sagt es. Also wird der Nutzer nicht mit "Load failed" allein
+       stehengelassen, und der volle Fehler geht in die Konsole.
+       Gemessen 19.08.: bei Ralphs Fehlversuch entstand KEINE Zeile in
+       Riki_Nutzung - die Anfrage hat den Server also nie erreicht. */
+    var roh=(e&&e.message)||String(e);
+    var netz=(e instanceof TypeError) || /load failed|failed to fetch|networkerror/i.test(roh);
+    console.error("riki-frage:", e);
+    if(out) out.innerHTML='<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">'+esc(roh)+'</div>'
+      +(netz?('<div style="font-size:11.5px;color:var(--tb-muted);line-height:1.5;margin-top:6px">'
+        +'Die Anfrage ist nicht bis zum Server gekommen. Das liegt am Netz oder daran, dass RIKI gerade nicht erreichbar ist – '
+        +'nicht an deiner Frage. Bleibt es dabei: die Browserkonsole nennt den Grund, bitte weitergeben.</div>'):'');
     zeig("");
   }finally{
     if(sEl){ sEl.disabled=false; sEl.textContent="→"; }
@@ -33456,7 +33471,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3910";
+const APP_BUILD = "2026-08-19-3920";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
