@@ -22659,6 +22659,7 @@ async function openFgEditor(id, prefill, targetEl){
      die EAN (cb_etikettfotos_zu_ean). Fehler werden NICHT mehr verschluckt (1.13i). */
   let _etikett = (prefill && prefill.fotos) ? prefill.fotos.slice() : [];
   window._fgEtikettFehler="";
+  window._fgEtikettAnzahl=null;   /* null = noch nicht nachgesehen (Work #131) */
   if(!_etikett.length){
     try{
       let ef=null;
@@ -22672,6 +22673,11 @@ async function openFgEditor(id, prefill, targetEl){
         if(_ean){ const r=await client.rpc("cb_etikettfotos_zu_ean",{p_ean:_ean});
                   if(r.error) throw r.error; ef=r.data; }
       }
+      /* 19.08.2026, Work #131: die ANZAHL merken. Bisher wusste die Oberflaeche
+         nicht, ob null Fotos gefunden wurden oder ob nur die Bildkarte fehlt -
+         und behauptete im Zweifel "Kein Etikettbild vorhanden". Ralphs Fall
+         P73637: drei Fotos in der Datenbank, trotzdem diese Meldung. */
+      try{ window._fgEtikettAnzahl = (ef && ef.ok && Array.isArray(ef.fotos)) ? ef.fotos.length : 0; }catch(_z){}
       if(ef && ef.ok && Array.isArray(ef.fotos)){
         /* Dieselbe EAN kann mehrfach in der Warteschlange stehen (z. B. zweimal gesendet) -
            dann kaeme jedes Bild doppelt. Entdoppeln, sonst zaehlt die Karte falsch. */
@@ -23075,6 +23081,7 @@ async function openFgEditor(id, prefill, targetEl){
             <button type="button" onclick="fgWirkFotoZoomBtn(1)" title="näher heranzoomen" class="feFotoZoom">+</button>
             <button type="button" onclick="fgWirkFotoZoomBtn(-1)" title="weiter weg" class="feFotoZoom">−</button>
             <button type="button" onclick="fgWirkFotoReset()" class="feFotoBtn">Einpassen</button>
+            <button type="button" onclick="fgEtikettAlsProduktbild(this)" title="Das gerade angezeigte Etikettfoto als Produktbild übernehmen" class="feFotoBtn">🖼 Als Produktbild</button>
             <button type="button" onclick="fgWirkFotoRiki(this)" title="Riki liest das angezeigte Bild aus (Nährwerte/Zutaten/Wirkstoffe)" class="feBtnRiki">🤖 Riki liest das Bild</button>
             <span id="fe_wirkFotoNav" ></span>
           </div>
@@ -24940,15 +24947,45 @@ function feKontextRender(s){
   var H='<div class="feKtxTabs">'+R.map(function(r){
     return '<button type="button" class="feKtxTab'+(r[0]===akt?' akt':'')+'" onclick="feKontextReiter(\''+r[0]+'\')">'+esc(r[1])+'</button>';
   }).join('')+'</div><div class="feKtxInhalt" id="feKtxInhalt"></div>';
-  box.style.display=""; box.innerHTML=H; _feKtxSpalte(true);
-  var ziel=document.getElementById("feKtxInhalt");
-  /* NUR EIN Inhalt — jede ausgeliehene Karte geht heim, sobald ein anderer Reiter gilt. */
+  /* 🔴 19.08.2026, Work #131 — DIE URSACHE, gefunden durch Ralphs Beobachtung:
+     "wenn ich umschalte, sind die bilder weg."
+     HIER STAND ZUERST box.innerHTML=H UND DANACH das Heimschicken.
+     Genau falsch herum: innerHTML wirft den gesamten alten Inhalt weg — samt der
+     AUSGELIEHENEN Bildkarte fe_wirkFotoCol, die in diesem Moment noch darin haengt.
+     Sie wird also zerstoert, nicht zurueckgegeben. Danach findet
+     getElementById("fe_wirkFotoCol") sie nie wieder, und der Etikett-Reiter meldete
+     "Kein Etikettbild vorhanden" — obwohl drei Fotos in der Datenbank lagen.
+     Das erklaert auch, warum es bei P73636 zunaechst ging: dort hatte Ralph noch
+     nicht umgeschaltet. Es war kein Produktzustand und kein Ladefehler, sondern
+     eine Reihenfolge.
+     JETZT: erst heimschicken, dann ueberschreiben. Die Karte ist eine geliehene
+     Sache — man gibt sie zurueck, BEVOR man den Tisch abraeumt. */
   if(akt!=="etikett")  _feKtxLesekastenHeim();
   if(akt!=="referenz") _feKtxReferenzHeim();
+  box.style.display=""; box.innerHTML=H; _feKtxSpalte(true);
+  var ziel=document.getElementById("feKtxInhalt");
   if(akt==="etikett"){
     var lk=document.getElementById("fe_wirkFotoCol");
     if(lk && ziel){ ziel.appendChild(lk); lk.style.display=""; }
-    else if(ziel) ziel.innerHTML='<div class="feKtxLeer">Kein Etikettbild vorhanden.</div>';
+    else if(ziel){
+      /* 🔴 19.08.2026, Work #131. Hier stand pauschal "Kein Etikettbild vorhanden."
+         Das war falsch und hat Ralph auf die falsche Suche geschickt: bei P73637
+         lagen DREI Fotos in der Datenbank, die Meldung behauptete das Gegenteil.
+         Sie haengt naemlich gar nicht an der Fotoanzahl, sondern daran, ob das
+         Element fe_wirkFotoCol gefunden wird - zwei verschiedene Dinge.
+         Jetzt sagt sie, was Sache ist: keine gefunden, Ladefehler, oder Fotos da
+         aber Karte nicht auffindbar. Der dritte Fall ist der, den ich noch nicht
+         erklaeren kann - und genau deshalb muss er sich melden statt sich als
+         "kein Bild" zu tarnen (§1.7). */
+      var _n=window._fgEtikettAnzahl, _f=window._fgEtikettFehler||"";
+      var _txt;
+      if(_f) _txt='Etikettbilder konnten nicht geladen werden.<br><span style="opacity:.75">'+esc(_f)+'</span>';
+      else if(_n===0) _txt='Kein Etikettbild vorhanden.';
+      else if(_n>0)  _txt='<b>'+_n+' Etikettbild'+(_n===1?'':'er')+' vorhanden</b>, aber die Bildkarte ist gerade nicht da.'
+                          +'<br><span style="opacity:.75">Bitte den Editor einmal neu öffnen – und mir sagen, ob es dann geht.</span>';
+      else _txt='Etikettbilder noch nicht nachgesehen.';
+      ziel.innerHTML='<div class="feKtxLeer">'+_txt+'</div>';
+    }
     return;
   }
   if(akt==="referenz"){
@@ -26318,6 +26355,69 @@ async function fgImgUpload(inpEl){
   document.getElementById("fe_bildPreview").innerHTML=`<img src="${esc(url)}" style="max-height:120px;border-radius:8px">`;
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ Bild hochgeladen";
   try{ if(typeof fgWirkFotoRender==='function') fgWirkFotoRender(); }catch(e){}   /* Produktbild sofort im Lesekasten zeigen (Ralph 24.07.) */
+}
+/* ============================================================================
+   WORK #129 — ETIKETTFOTO ALS PRODUKTBILD (Ralph-Auftrag 19.08.2026)
+
+   §22: der Upload-Weg existiert schon. fgImgUpload direkt darueber laedt in den
+   Bucket produktbilder, holt die oeffentliche URL und setzt _fgEdit.bild_url.
+   Diese Funktion geht denselben Weg — sie bringt nur das Bild aus einer anderen
+   Quelle mit. KEIN zweiter Upload-Weg (§4.2).
+
+   🔴 IN Bild_URL KOMMT DIE URL, NIEMALS DAS BILD SELBST. Gemessen 19.08.: alle 17
+   vorhandenen Produktbilder sind URLs, im Schnitt 98 Zeichen. Ein Etikettfoto hat
+   75.000 bis 172.000 Zeichen — und cb_produkte_suchen liefert Bild_URL als Spalte
+   "bild" in JEDER Trefferliste. Ein eingebettetes Bild wuerde die Produktsuche um
+   das Tausendfache aufblaehen.
+
+   ZUSCHNEIDEN UND KORREKTUR sind NICHT Teil dieser Stufe (Ralph: "dann den button,
+   dann weiter mit der produktliste"). Sie kommen als B2/B3 in #129 - und dann als
+   Bearbeitung VOR dem Hochladen, nicht danach.
+   ============================================================================ */
+async function fgEtikettAlsProduktbild(btn){
+  var msg=document.getElementById("fe_bildMsg");
+  var sag=function(t,f){ if(msg){ msg.style.color=f||"var(--k-374151)"; msg.textContent=t; } };
+  try{
+    var arr=(typeof fgWirkFotoArr==='function')?fgWirkFotoArr():[];
+    var idx=(window._fgWirkFoto&&window._fgWirkFoto.idx)||0;
+    var src=arr[idx];
+    if(!src){ sag("Kein Bild angezeigt, das übernommen werden könnte.","var(--k-b45309)"); return; }
+    /* Ist es bereits eine hochgeladene Datei, gibt es nichts zu tun - dann waere ein
+       zweiter Upload derselben Datei nur eine Dublette im Bucket. */
+    if(/^https?:/i.test(src)){
+      if(window._fgEdit && window._fgEdit.bild_url===src){ sag("Dieses Bild ist bereits das Produktbild.","var(--k-16a34a)"); return; }
+      window._fgEdit=window._fgEdit||{}; window._fgEdit.bild_url=src;
+      var vp0=document.getElementById("fe_bildPreview");
+      if(vp0) vp0.innerHTML='<img src="'+esc(src)+'" style="max-height:120px;border-radius:8px">';
+      sag("✓ Als Produktbild gesetzt – noch nicht gespeichert.","var(--k-16a34a)");
+      return;
+    }
+    var m=String(src).match(/^data:(image\/[a-z0-9.+-]+);base64,/i);
+    if(!m){ sag("Das angezeigte Bild hat ein unbekanntes Format.","var(--k-dc2626)"); return; }
+    if(btn){ btn.disabled=true; }
+    sag("⏳ lade hoch…");
+    /* data:-URL in eine echte Datei wandeln. fetch auf eine data:-URL ist der kurze
+       Weg dorthin und braucht kein Netz. */
+    var blob=await (await fetch(src)).blob();
+    var ext=(m[1].split("/")[1]||"jpg").replace(/[^a-z0-9]/g,"")||"jpg";
+    if(ext==="jpeg") ext="jpg";
+    var path="p/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
+    var up=await client.storage.from("produktbilder").upload(path,blob,{upsert:true,contentType:m[1]});
+    if(up.error){ sag("Fehler beim Hochladen: "+up.error.message,"var(--k-dc2626)"); return; }
+    var url=client.storage.from("produktbilder").getPublicUrl(path).data.publicUrl;
+    window._fgEdit=window._fgEdit||{}; window._fgEdit.bild_url=url;
+    var vp=document.getElementById("fe_bildPreview");
+    if(vp) vp.innerHTML='<img src="'+esc(url)+'" style="max-height:120px;border-radius:8px">';
+    /* 🔴 "noch nicht gespeichert" gehoert in die Meldung. bild_url steht bis zum
+       Speichern nur im Browser; wer den Editor jetzt schliesst, verliert es. Ohne
+       diesen Halbsatz sieht es aus wie erledigt (§1.7). */
+    sag("✓ Als Produktbild übernommen – noch nicht gespeichert.","var(--k-16a34a)");
+    try{ if(typeof fgWirkFotoRender==='function') fgWirkFotoRender(); }catch(e){}
+  }catch(e){
+    sag("Konnte nicht übernommen werden: "+((e&&e.message)||e),"var(--k-dc2626)");
+  }finally{
+    if(btn){ btn.disabled=false; }
+  }
 }
 /* Live-Index im Editor als Fluxkompensator (etwas dickere Balken als in der Produktliste).
    Liest die Achsen aus dem Vorschau-Objekt der DB (cb_score_vorschau), nicht selbst gerechnet -
@@ -33711,7 +33811,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-4000";
+const APP_BUILD = "2026-08-19-4020";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
