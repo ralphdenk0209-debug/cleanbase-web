@@ -32926,9 +32926,96 @@ function rikiBadge(anzahl){
      Beim Bauen selbst gestolpert, deshalb steht es hier. */
   b.style.display = n>0 ? "flex" : "none";
 }
+/* ----------------------------------------------------------------------------
+   DAS SYMBOL (Ralph-Entscheid 18.08.2026: Vorschlag A, Orb mit Gesicht)
+
+   Ralph hat einen Entwurf mit fuenf Zustaenden vorgelegt und A gewaehlt. Als
+   INLINE-SVG statt als Bilddatei, aus drei Gruenden: es skaliert ohne zweite
+   Datei, es kann seine Zustaende selbst schalten, und es kostet keine zweite
+   Anfrage beim Laden.
+
+   ⚠ ES IST EIN NACHBAU nach Ralphs Bild, kein Original. Wenn er die Datei
+   liefert, wird sie eingesetzt und dieser Block faellt weg.
+
+   🔴 DER SPROESSLING IST KRAEFTIGER ALS IM ENTWURF, und das ist Absicht: bei
+   52 px Knopfgroesse ist der Strich aus der Vorlage rund einen Pixel breit und
+   damit kein Sproessling mehr, sondern ein Fussel. Lieber sichtbar abweichen
+   als unsichtbar treu sein. Ralph 18.08. hat nur "a" gesagt - die Staerke habe
+   ich entschieden, nicht er.
+
+   🔴 DER KNOPF HAT KEINEN EIGENEN HINTERGRUND. Der Orb bringt seinen Halo mit;
+   eine weisse Scheibe darunter waere ein zweiter Kreis um einen Kreis. Die
+   Trefferflaeche bleibt trotzdem 52 px - sie haengt am <button>, nicht am Bild.
+
+   ZUSTAENDE: normal · offen · denkt · bereit. Der Badge ist davon UNABHAENGIG
+   (eigenes Element), damit "3 Hinweise" und "denkt gerade" gleichzeitig
+   moeglich sind - im Entwurf sind es zwei Bilder, im Betrieb zwei Achsen.
+   ---------------------------------------------------------------------------- */
+function rikiOrbSvg(){
+  return '<svg viewBox="0 0 64 64" style="width:100%;height:100%;display:block;overflow:visible" aria-hidden="true" focusable="false">'
+    +'<defs>'
+      +'<linearGradient id="rikiHaloGrad" x1="0" y1="1" x2="1" y2="0">'
+        +'<stop offset="0" stop-color="#7ed3b2"/><stop offset="1" stop-color="#b3a3f2"/></linearGradient>'
+      +'<filter id="rikiBlur" x="-60%" y="-60%" width="220%" height="220%">'
+        +'<feGaussianBlur stdDeviation="2.4"/></filter>'
+    +'</defs>'
+    +'<circle id="rikiGlow" cx="32" cy="32" r="27" fill="#b3a3f2" filter="url(#rikiBlur)" opacity="0"/>'
+    +'<circle id="rikiHalo" cx="32" cy="32" r="25" fill="url(#rikiHaloGrad)" filter="url(#rikiBlur)" opacity="0.85"/>'
+    +'<circle id="rikiRing" cx="32" cy="32" r="24" fill="none" stroke="#9a8aee" stroke-width="2.5" stroke-linecap="round" opacity="0"/>'
+    +'<circle id="rikiKoerper" cx="32" cy="32" r="19" fill="#171b22"/>'
+    +'<g id="rikiAugen">'
+      +'<ellipse cx="26" cy="32" rx="3.3" ry="4.4" fill="#ffffff"/>'
+      +'<ellipse cx="38" cy="32" rx="3.3" ry="4.4" fill="#ffffff"/>'
+    +'</g>'
+    +'<g id="rikiSpross">'
+      +'<path d="M36 18 C36 13.5 39.5 11.5 42.5 11.5" stroke="#4fc08d" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
+      +'<circle cx="43" cy="11" r="2.6" fill="#4fc08d"/>'
+    +'</g>'
+    +'<circle id="rikiFertig" cx="49" cy="15" r="6.5" fill="#2fb673" stroke="#ffffff" stroke-width="2" opacity="0"/>'
+  +'</svg>';
+}
+/* Ein Stylesheet, einmal. Die Drehung liegt in CSS und nicht in einem Timer:
+   ein Timer laeuft weiter, wenn der Zustand laengst gewechselt hat, und
+   verbraucht Strom auf einem Handy, das in der Tasche steckt. */
+function rikiStilEinmal(){
+  if(document.getElementById("rikiStil")) return;
+  var s=document.createElement("style");
+  s.id="rikiStil";
+  s.textContent="@keyframes rikiDreh{to{transform:rotate(360deg)}}"
+    +"#rikiRing.rikiDreht{transform-origin:32px 32px;animation:rikiDreh 1.4s linear infinite}"
+    /* Wer Bewegung abgestellt hat, bekommt einen ruhenden Ring statt gar keiner
+       Rueckmeldung - die Anzeige darf nicht verschwinden, nur weil sie steht. */
+    +"@media (prefers-reduced-motion: reduce){#rikiRing.rikiDreht{animation:none}}";
+  document.head.appendChild(s);
+}
+/* Genau EINE Stelle setzt das Aussehen. Vier Zustaende, sonst nichts - wer einen
+   fuenften braucht, traegt ihn hier ein und nicht irgendwo als Sonderfall. */
+function rikiFabZustand(z){
+  var el=function(id){ return document.getElementById(id); };
+  var glow=el("rikiGlow"), halo=el("rikiHalo"), ring=el("rikiRing"),
+      koerper=el("rikiKoerper"), augen=el("rikiAugen"), spross=el("rikiSpross"), fertig=el("rikiFertig");
+  if(!halo) return;                       // Symbol (noch) nicht da - kein Fehler
+  var Z={ normal:{glow:0,   halo:.85, ring:0, dreht:false, koerper:1,   augen:1,  spross:1, fertig:0},
+          offen: {glow:.55, halo:.85, ring:1, dreht:false, koerper:1,   augen:1,  spross:1, fertig:0},
+          denkt: {glow:0,   halo:.35, ring:1, dreht:true,  koerper:.55, augen:.8, spross:0, fertig:0},
+          bereit:{glow:0,   halo:.85, ring:0, dreht:false, koerper:1,   augen:1,  spross:1, fertig:1} }[z] || null;
+  if(!Z) return;                          // unbekannter Zustand aendert NICHTS (§3.4)
+  glow.setAttribute("opacity", Z.glow);
+  halo.setAttribute("opacity", Z.halo);
+  ring.setAttribute("opacity", Z.ring);
+  ring.setAttribute("stroke", Z.dreht ? "#c9c2ea" : "#9a8aee");
+  ring.setAttribute("stroke-dasharray", Z.dreht ? "24 14" : "");
+  ring.classList.toggle("rikiDreht", Z.dreht);
+  koerper.setAttribute("opacity", Z.koerper);
+  augen.setAttribute("opacity", Z.augen);
+  spross.setAttribute("opacity", Z.spross);
+  fertig.setAttribute("opacity", Z.fertig);
+  var f=el("rikiFab"); if(f) f.dataset.zustand=z;
+}
 function rikiPanelSchliessen(){
   var p=document.getElementById("rikiPanel"); if(p) p.remove();
   var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","false");
+  rikiFabZustand("normal");
 }
 function rikiPanelOeffnen(){
   if(document.getElementById("rikiPanel")){ rikiPanelSchliessen(); return; }
@@ -32955,6 +33042,7 @@ function rikiPanelOeffnen(){
     +'</div>';
   document.body.appendChild(p);
   var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","true");
+  rikiFabZustand("offen");
 }
 function rikiFabInit(){
   if(!rikiShellAktiv()) return;                 // Adminoberflaeche: kein Begleiter
@@ -32965,23 +33053,31 @@ function rikiFabInit(){
   b.setAttribute("aria-label","RIKI öffnen");
   b.setAttribute("aria-expanded","false");
   b.onclick=function(){ rikiPanelOeffnen(); };
+  /* Kein eigener Hintergrund, kein Rahmen: der Orb bringt seinen Halo mit. Die
+     Trefferflaeche bleibt 52 px, sie haengt am <button> und nicht am Bild. */
   b.style.cssText="position:fixed;right:14px;z-index:9990;"
     +"bottom:calc(92px + env(safe-area-inset-bottom));"
-    +"width:52px;height:52px;border-radius:50%;border:1px solid var(--tb-line,var(--k-e7e0d4));"
-    +"background:var(--tb-card,var(--k-ffffff));box-shadow:0 3px 12px rgba(0,0,0,.18);"
-    +"cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center";
-  b.innerHTML='<img src="logo-mark.png" alt="" style="width:30px;height:30px;object-fit:contain" aria-hidden="true">'
-    +'<span id="rikiFabBadge" style="display:none;position:absolute;top:-3px;right:-3px;min-width:19px;height:19px;'
-    +'border-radius:10px;background:var(--k-dc2626);color:var(--k-ffffff);font-size:11px;font-weight:700;'
-    +'align-items:center;justify-content:center;padding:0 5px">0</span>';
+    +"width:52px;height:52px;border:0;background:none;border-radius:50%;"
+    +"cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"
+    +"-webkit-tap-highlight-color:transparent";
+  /* 🔴 BADGE IST VIOLETT, NICHT ROT. In dieser App heisst Rot "ueber dem
+     Hoechstwert" (Salz, Zucker). Ein roter Punkt am Begleiter wuerde eine
+     Grenzueberschreitung behaupten, wo nur eine Nachricht wartet. Ralphs
+     Entwurf zeigt Violett - er hat recht, meine erste Fassung war falsch. */
+  b.innerHTML=rikiOrbSvg()
+    +'<span id="rikiFabBadge" style="display:none;position:absolute;top:-2px;right:-4px;min-width:20px;height:20px;'
+    +'border-radius:10px;background:#7c6fe0;color:var(--k-ffffff);font-size:11.5px;font-weight:700;'
+    +'align-items:center;justify-content:center;padding:0 5px;box-shadow:0 1px 4px rgba(0,0,0,.22)">0</span>';
   document.body.appendChild(b);
+  rikiStilEinmal();
+  rikiFabZustand("normal");
 }
 try{
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", rikiFabInit);
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-18-3850";
+const APP_BUILD = "2026-08-18-3860";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
