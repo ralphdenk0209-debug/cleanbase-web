@@ -5870,12 +5870,29 @@ function peListeHoehe(){
      Deckel wieder ab. Das umfasst automatisch alles, was unter der Liste steht,
      heute und nach jedem kuenftigen Umbau.
      Einmalig, nicht in einer Schleife: Schrumpfen erzeugt keinen neuen Ueberschuss. */
-  var doc=document.documentElement;
-  var ueberschuss=Math.round((doc?doc.scrollHeight:0) - sicht);
-  if(ueberschuss>0) h-=ueberschuss;
-  /* Unter 280px wird nicht verkleinert: darunter sieht man keine Liste mehr,
+  /* 🔴 19.08., dritte Fassung. Vorher stand hier ein EINMALIGER Vorabzug des
+     Dokument-Ueberschusses. Der konnte nur in eine Richtung: er machte die Liste
+     kleiner, nie wieder groesser. Ralph nach dem Ruecksprung aus dem Editor: "die
+     liste sehr kurz dargestellt", darunter leerer Raum — genau dieser Fall.
+     JETZT eine Regelung in BEIDE Richtungen: setzen, nachmessen, Differenz
+     ausgleichen. Ist das Dokument laenger als das Fenster, wird die Liste kleiner;
+     ist Platz frei, groesser. Damit ist es egal, was unter der Liste steht und ob
+     es sich aendert — es wird nicht gezaehlt, sondern gemessen.
+     Hoechstens drei Runden. In der Regel genuegt eine; eine Schleife ohne Grenze
+     waere ein Zittern statt einer Einstellung.
+     Unter 280px wird nicht verkleinert: darunter sieht man keine Liste mehr,
      sondern einen Schlitz. Dann darf die Seite ausnahmsweise scrollen. */
-  w.style.maxHeight=Math.max(280,h)+'px';
+  var doc=document.documentElement;
+  h=Math.max(280,h);
+  w.style.maxHeight=h+'px';
+  for(var runde=0; runde<3; runde++){
+    var diff=Math.round(sicht - (doc?doc.scrollHeight:sicht));
+    if(Math.abs(diff)<=1) break;
+    var neuH=Math.max(280,h+diff);
+    if(neuH===h) break;                  // Untergrenze erreicht, weiteres Regeln bringt nichts
+    h=neuH;
+    w.style.maxHeight=h+'px';
+  }
 }
 function peListeHoeheBinden(){
   if(window._peHoeheGebunden) return; window._peHoeheGebunden=true;
@@ -34054,7 +34071,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-4040";
+const APP_BUILD = "2026-08-19-4050";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
