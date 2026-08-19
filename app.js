@@ -17113,7 +17113,9 @@ function tbAddManualOpen(){
        Etikett fotografiert. Riki liest die Tabelle und füllt die Felder oben aus. */
     +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--k-e7e0d4)">'
       +'<div style="font-size:11.5px;color:var(--k-6b6256);margin-bottom:6px">Kein Barcode, oder Werte abtippen ist lästig? <b>Riki liest die Nährwerttabelle vom Foto</b> und füllt die Felder oben aus.</div>'
-      +'<button onclick="etikettOpen(\''+esc(String(ean||"").replace(/[^0-9A-Za-z]/g,""))+'\')" style="width:100%;padding:11px;border:1px solid var(--green,var(--k-16a34a));border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:13.5px;font-weight:600;cursor:pointer">📷 Etikett fotografieren – Riki liest es</button>'
+      /* true: dieser Einstieg IST das Tagebuch und lief ohne Scanner - der
+         Zusammenhang des letzten Scans waere hier eine Zufallszahl. */
+      +'<button onclick="etikettOpen(\''+esc(String(ean||"").replace(/[^0-9A-Za-z]/g,""))+'\',true)" style="width:100%;padding:11px;border:1px solid var(--green,var(--k-16a34a));border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:13.5px;font-weight:600;cursor:pointer">📷 Etikett fotografieren – Riki liest es</button>'
     +'</div>'
     +'<div id="tbAddMsg" style="font-size:12px;color:var(--k-6b6256);margin-top:4px"></div></div>';
 }
@@ -17162,8 +17164,9 @@ function tbAddManualOpenNeu(){
     +'<button onclick="tbAddManualSave()" style="margin-top:8px;width:100%;padding:13px;border:0;border-radius:13px;background:var(--k-16a34a);color:var(--k-ffffff);font-size:15px;font-weight:800;cursor:pointer">+ Eintragen</button>'
     +'<div style="font-size:11px;color:var(--k-6b6256);margin-top:6px;text-align:center">Wird gespeichert und dem Admin gemeldet, damit das Produkt bei Bedarf angelegt wird.</div>'
     +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--k-e7e0d4)">'
+      /* true wie oben: Tagebuch-Panel, kein Scanner davor. */
       +'<div style="font-size:11.5px;color:var(--k-6b6256);margin-bottom:6px">Werte abtippen ist lästig? <b>Riki liest die Nährwerttabelle vom Foto</b> und füllt die Felder aus.</div>'
-      +'<button onclick="etikettOpen(\''+esc(String(ean||"").replace(/[^0-9A-Za-z]/g,""))+'\')" style="width:100%;padding:11px;border:1.5px dashed var(--green,var(--k-16a34a));border-radius:12px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:13.5px;font-weight:600;cursor:pointer">📷 Etikett fotografieren – Riki liest es</button>'
+      +'<button onclick="etikettOpen(\''+esc(String(ean||"").replace(/[^0-9A-Za-z]/g,""))+'\',true)" style="width:100%;padding:11px;border:1.5px dashed var(--green,var(--k-16a34a));border-radius:12px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:13.5px;font-weight:600;cursor:pointer">📷 Etikett fotografieren – Riki liest es</button>'
     +'</div>'
     +'<div id="tbAddMsg" style="font-size:12px;color:var(--k-6b6256);margin-top:6px"></div></div>';
   tbmUnitLbl();
@@ -17260,7 +17263,10 @@ async function offLookup(){
       if(msg){ msg.style.color="var(--k-e8920c)";
         msg.innerHTML="Kein Treffer bei Open Food Facts für "+esc(code)+".<br>"
           +"<span style=\"color:var(--k-6b6256)\">Du hast das Produkt in der Hand? Fotografiere Zutaten &amp; Nährwerte – dann nehmen wir es auf:</span><br>"
-          +etikettCtaBtn(code); }
+          /* false: OFF-Nachschlag im Admin, kein Scanner davor - ohne die
+             ausdrueckliche Angabe koennte hier ein alter Tagebuch-Zustand
+             nachwirken und ein Angebot zeigen, das nicht gemeint ist. */
+          +etikettCtaBtn(code, false); }
       return;
     }
     const p=j.product, n=p.nutriments||{};
@@ -29143,7 +29149,13 @@ async function submitVorShots(){
 const ETI_SLOTS=[["zutaten","Zutatenliste"],["naehrwerte","Nährwerttabelle"],["front","Vorderseite (optional)"]];
 let ETI_SHOTS={}; let ETI_EAN=null; let _etiTarget=null;
 function etiMsg(t,c){ const m=document.getElementById("etiMsg"); if(!m) return; m.style.color=c||"var(--ink)"; m.innerHTML=t; }
-function etikettOpen(ean){
+/* Zweiter Parameter seit 18.08.2026: WOHER kommt der Aufruf (Ralph-Auftrag).
+   Nicht uebergeben = der Zusammenhang des letzten Scanners gilt weiter; das ist
+   der Normalfall, weil die Kamera ohnehin gerade lief. Ausdruecklich uebergeben
+   wird er nur dort, wo es KEINEN Scan gab - die beiden Tagebuch-Panels und der
+   OFF-Nachschlag im Admin. */
+function etikettOpen(ean, ausTagebuch){
+  if(ausTagebuch !== undefined) etiKontextSetzen(ausTagebuch);
   /* Ansehen ist frei, MITMACHEN braucht ein Konto. Das Etikett-Lesen ruft die
      bezahlte KI (Riki) und fuettert den Katalog - das ist keine Gast-Funktion.
      Der automatische Weg war schon gesperrt (if(!ME) return); hier schliessen wir
@@ -29319,8 +29331,14 @@ async function etikettSend(){
     if(box){
       let h = vorlKarte({name:v.name, marke:v.marke, naehrwerte:v.naehrwerte_100g,
         warnungen:d.warnungen, score_erlaubt:d.score_erlaubt, herkunftText:d.herkunftText}, null);
-      /* Direkt weiter ins Tagebuch – mit ODER ohne Barcode. */
-      if(d.score_erlaubt){
+      /* Direkt weiter ins Tagebuch – mit ODER ohne Barcode.
+         🔴 18.08.2026, Ralph-Auftrag: NUR im Tagebuch-Zusammenhang. Vorher hing
+         der Knopf allein an score_erlaubt, also am Ergebnis statt an der Absicht -
+         beim Regal-Scannen im Laden kam nach JEDEM Etikett ein Tagebuch-Angebot.
+         Beachte: score_erlaubt bleibt zusaetzlich Bedingung. Ohne belegten Wert
+         gibt es auch im Tagebuch keinen Knopf (§3.4) - die Aenderung nimmt etwas
+         weg, sie erlaubt nichts Neues. */
+      if(d.score_erlaubt && etiImTagebuch()){
         h += '<button onclick="etikettClose();tbAusScan(\''+String(ETI_EAN||"").replace(/[^0-9A-Za-z]/g,"")+'\')" '
           +'style="margin-top:14px;width:100%;box-sizing:border-box;padding:16px;border:0;border-radius:12px;'
           +'background:var(--k-16a34a);color:var(--k-ffffff);font-weight:700;cursor:pointer;font-size:16px;'
@@ -29335,8 +29353,11 @@ async function etikettSend(){
     ETI_SHOTS={}; renderEtiShots();
   }
 }
-function etikettCtaBtn(code){
-  return '<button onclick="etikettOpen(\''+String(code).replace(/[^0-9A-Za-z]/g,"")+'\')" style="margin-top:8px;padding:9px 14px;border:1px solid var(--green,var(--k-16a34a));border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:13px;font-weight:600;cursor:pointer">Etikett fotografieren &ndash; hilf uns, es aufzunehmen</button>';
+/* ausTagebuch bleibt in der Regel undefiniert - dann gilt der Zusammenhang des
+   Scanners, der gerade lief. Nur Aufrufer OHNE Scanner setzen ihn selbst. */
+function etikettCtaBtn(code, ausTagebuch){
+  const _k = (ausTagebuch===undefined) ? '' : (','+(ausTagebuch===true?'true':'false'));
+  return '<button onclick="etikettOpen(\''+String(code).replace(/[^0-9A-Za-z]/g,"")+'\''+_k+')" style="margin-top:8px;padding:9px 14px;border:1px solid var(--green,var(--k-16a34a));border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:13px;font-weight:600;cursor:pointer">Etikett fotografieren &ndash; hilf uns, es aufzunehmen</button>';
 }
 
 /* ============================================================
@@ -29701,7 +29722,35 @@ function stopScan(){
     .catch(function(){});
   return _teardown;
 }
+/* ============================================================
+   IN WELCHEM ZUSAMMENHANG WURDE GESCANNT?  (Ralph-Auftrag 18.08.2026)
+
+   Ralph: "das Fenster mit dem ins Tagebuch eintragen soll nur erscheinen,
+   wenn ich auf der Tagebuchseite bin, beim normalen Scan soll das nicht
+   erscheinen."
+
+   Der Knopf hing bisher allein an d.score_erlaubt - also daran, OB ein Wert
+   ermittelt werden konnte, nicht daran, WOFUER gescannt wurde. Wer im Laden
+   ein Regal abscannt, bekam nach jedem Etikett ein Tagebuch-Angebot.
+
+   🔴 EINE QUELLE, EIN ORT (§4.2): der Zusammenhang wird an GENAU EINER Stelle
+   bestimmt - hier, aus der Ziel-ID des Scanners. Jeder Scanner der App laeuft
+   durch _startScan, also kann keiner vergessen werden. Zwei Einstiege ohne
+   Scanner (die beiden Tagebuch-Panels "manuell hinzufuegen") uebergeben ihren
+   Zusammenhang ausdruecklich - sie wissen ihn besser als eine Reader-ID.
+
+   Warum kein DOM-Schnueffeln ("ist die Tagebuchseite sichtbar?"): das waere
+   eine zweite, ratende Wahrheit neben der ersten. Die Reader-ID ist eine
+   Tatsache, die Sichtbarkeit einer Kachel eine Vermutung.
+   ============================================================ */
+var _etiAusTagebuch = false;
+function etiKontextSetzen(ausTagebuch){ _etiAusTagebuch = (ausTagebuch === true); }
+function etiImTagebuch(){ return _etiAusTagebuch === true; }
 async function _startScan(targetId, cb){
+  /* tbReader = Tagebuch-Schnellscan · tbAddReader = Tagebuch "hinzufuegen".
+     Alle uebrigen (vorReader, einkReader, ktReader, rnReader, der Scannen-Tab)
+     sind KEIN Tagebuch - dort faellt das Angebot ab sofort weg. */
+  etiKontextSetzen(targetId === "tbReader" || targetId === "tbAddReader");
   if(!window.Quagga){ alert("Scanner lädt noch – gleich nochmal versuchen."); return; }
   const tgt=document.getElementById(targetId); if(!tgt) return;
   /* Laeuft noch ein Scanner oder ein Teardown? Beenden - und ABWARTEN.
@@ -32794,7 +32843,7 @@ function rkBookmarkletCode(){
   }, TAKT);
 })();
 
-const APP_BUILD = "2026-08-18-3830";
+const APP_BUILD = "2026-08-18-3840";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
