@@ -26345,6 +26345,29 @@ function fgEtikettCtx(ev, idx){
 async function fgImgUpload(inpEl){
   const f=inpEl.files&&inpEl.files[0]; if(!f) return;
   const msg=document.getElementById("fe_bildMsg"); msg.style.color="var(--k-374151)"; msg.textContent="⏳ lade hoch…";
+  /* 🔴 19.08. B2/B3: auch die hochgeladene Datei geht durch den Editor. Ralph hat
+     meiner Empfehlung zugestimmt, beides an dieselbe Stelle zu haengen - zwei
+     Bildeditoren waeren zwei Orte fuer dieselbe Sache (§4.2). Der Weg endet in
+     fgProduktbildHochladen, genau wie der Etikettweg.
+     Der alte Direktweg bleibt darunter als Rueckfall stehen, falls das Lesen der
+     Datei scheitert: dann wird lieber unbearbeitet hochgeladen als gar nicht. */
+  try{
+    const dataUrl=await new Promise(function(ok,fail){
+      var r=new FileReader();
+      r.onload=function(){ ok(String(r.result||"")); };
+      r.onerror=function(){ fail(new Error("Datei konnte nicht gelesen werden.")); };
+      r.readAsDataURL(f);
+    });
+    if(/^data:image\//i.test(dataUrl)){
+      msg.textContent="";
+      try{ inpEl.value=""; }catch(_){}   /* dieselbe Datei soll erneut waehlbar sein */
+      bildEditorOeffnen(dataUrl, function(fertig){ fgProduktbildHochladen(fertig, null); });
+      return;
+    }
+  }catch(e){
+    msg.style.color="var(--k-b45309)";
+    msg.textContent="Bearbeiten nicht möglich ("+((e&&e.message)||e)+") – lade unbearbeitet hoch…";
+  }
   const ext=(f.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"")||"jpg";
   const path="p/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
   const up=await client.storage.from("produktbilder").upload(path,f,{upsert:true,contentType:f.type||"image/jpeg"});
@@ -26355,6 +26378,189 @@ async function fgImgUpload(inpEl){
   document.getElementById("fe_bildPreview").innerHTML=`<img src="${esc(url)}" style="max-height:120px;border-radius:8px">`;
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ Bild hochgeladen";
   try{ if(typeof fgWirkFotoRender==='function') fgWirkFotoRender(); }catch(e){}   /* Produktbild sofort im Lesekasten zeigen (Ralph 24.07.) */
+}
+/* ============================================================================
+   WORK #129 B2/B3 — DER BILDEDITOR (Ralph-Go 19.08.2026: "klingt gut")
+
+   Bearbeiten VOR dem Uebernehmen. Andersherum waere es sinnlos: dann laege das
+   unbearbeitete Bild schon im Speicher und jede Korrektur erzeugte eine zweite
+   Datei.
+
+   🔴 WAS ER NICHT KANN UND AUCH NICHT BEHAUPTET: freistellen, Hintergrund
+   entfernen, Schatten entfernen. Das braucht Bilderkennung. RIKI KANN DAS NICHT -
+   Riki laeuft ueber Claude, und Claude LIEST Bilder, es erzeugt oder veraendert
+   keine. Der Regler heisst deshalb "Tiefen aufhellen" und nicht "Schatten
+   entfernen": er nimmt dem Schatten die Haerte, mehr nicht (Ralph P12).
+
+   AUSSCHNITT DURCH ZOOMEN UND VERSCHIEBEN, nicht durch einen Rahmen mit acht
+   Griffen (§22): die Etikett-Karte bedient sich schon so. Dasselbe Muster, das
+   Ralph kennt - und deutlich weniger Code, der schiefgehen kann.
+
+   EIN Editor fuer beide Wege - Etikettfoto und hochgeladenes Produktbild. Zwei
+   waeren zwei Orte fuer dieselbe Sache (§4.2).
+   ============================================================================ */
+var BE={ src:null, img:null, zoom:1, x:0, y:0, winkel:0, hell:100, kontrast:100, tiefen:0,
+         zieht:false, zx:0, zy:0, nachher:null };
+function beOffen(){ return !!document.getElementById('beOverlay'); }
+function bildEditorOeffnen(src, nachher){
+  if(!src){ return; }
+  BE={ src:src, img:null, zoom:1, x:0, y:0, winkel:0, hell:100, kontrast:100, tiefen:0,
+       zieht:false, zx:0, zy:0, nachher:(typeof nachher==='function')?nachher:null };
+  var o=document.createElement('div');
+  o.id='beOverlay';
+  o.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(15,22,30,.72);'
+    +'display:flex;align-items:center;justify-content:center;padding:16px';
+  o.innerHTML=
+     '<div style="background:#fff;border-radius:14px;max-width:min(760px,96vw);width:100%;max-height:94vh;overflow:auto;padding:14px 16px 16px">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+    +  '<b style="flex:1;font-size:15px;color:#1f2a44">Bild zuschneiden und aufhellen</b>'
+    +  '<button onclick="bildEditorSchliessen()" aria-label="Abbrechen" style="border:0;background:none;font-size:22px;line-height:1;color:#7b8698;cursor:pointer;padding:0 4px">&times;</button>'
+    +'</div>'
+    +'<div id="beBuehne" style="position:relative;width:100%;aspect-ratio:1/1;max-height:52vh;background:#eef1f4;'
+    +  'border:1px solid #d3dbe6;border-radius:10px;overflow:hidden;touch-action:none;cursor:grab">'
+    +  '<canvas id="beCanvas" style="position:absolute;inset:0;width:100%;height:100%"></canvas>'
+    +'</div>'
+    +'<div style="font-size:11.5px;color:#7b8698;margin:6px 2px 10px">Ziehen verschiebt · Mausrad zoomt · der sichtbare Ausschnitt wird übernommen.</div>'
+    +beRegler('Zoom','zoom',100,400,1,'%')
+    +beRegler('Geraderichten','winkel',-15,15,0,'°')
+    +beRegler('Helligkeit','hell',60,160,100,'%')
+    +beRegler('Kontrast','kontrast',60,160,100,'%')
+    /* Der Name sagt, was passiert. "Schatten entfernen" waere gelogen. */
+    +beRegler('Tiefen aufhellen','tiefen',0,80,0,'')
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px">'
+    +  '<button onclick="beDrehen(-90)" style="border:1px solid #d3dbe6;background:#fff;border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer">↺ 90°</button>'
+    +  '<button onclick="beDrehen(90)" style="border:1px solid #d3dbe6;background:#fff;border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer">↻ 90°</button>'
+    +  '<button onclick="beZuruecksetzen()" style="border:1px solid #d3dbe6;background:#fff;border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer">Zurücksetzen</button>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+    +  '<button onclick="bildEditorSchliessen()" style="border:1px solid #d3dbe6;background:#fff;border-radius:9px;padding:9px 14px;font-size:13.5px;cursor:pointer">Abbrechen</button>'
+    +  '<button id="beOk" onclick="beUebernehmen()" style="border:0;background:#16a34a;color:#fff;border-radius:9px;padding:9px 16px;font-size:13.5px;font-weight:700;cursor:pointer">Übernehmen</button>'
+    +'</div>'
+    +'<div id="beMsg" style="font-size:12px;color:#7b8698;margin-top:8px;min-height:16px"></div>'
+    +'</div>';
+  document.body.appendChild(o);
+  var im=new Image();
+  im.onload=function(){ BE.img=im; beAnpassen(); beZeichnen(); };
+  im.onerror=function(){ var m=document.getElementById('beMsg'); if(m){ m.style.color='#cf5442'; m.textContent='Das Bild konnte nicht geladen werden.'; } };
+  im.src=src;
+  beBinden();
+}
+function beRegler(titel,feld,min,max,wert,einheit){
+  return '<div style="display:flex;align-items:center;gap:10px;margin:5px 0">'
+    +'<span style="width:132px;flex:0 0 auto;font-size:12.5px;color:#4a5768">'+titel+'</span>'
+    +'<input type="range" min="'+min+'" max="'+max+'" value="'+wert+'" id="be_'+feld+'" '
+    +'oninput="beRegelt(\''+feld+'\',this.value)" style="flex:1;min-width:0">'
+    +'<span id="beW_'+feld+'" style="width:52px;text-align:right;font-size:12px;color:#7b8698">'+wert+einheit+'</span>'
+    +'</div>';
+}
+function beRegelt(feld,wert){
+  var v=Number(wert);
+  if(feld==='zoom') BE.zoom=v/100; else BE[feld]=v;
+  var w=document.getElementById('beW_'+feld);
+  if(w) w.textContent=v+({zoom:'%',winkel:'°',hell:'%',kontrast:'%',tiefen:''}[feld]||'');
+  beZeichnen();
+}
+function beDrehen(g){ BE.winkel=(BE.winkel+g)%360; beZeichnen(); }
+function beZuruecksetzen(){
+  BE.zoom=1; BE.x=0; BE.y=0; BE.winkel=0; BE.hell=100; BE.kontrast=100; BE.tiefen=0;
+  [['zoom',100],['winkel',0],['hell',100],['kontrast',100],['tiefen',0]].forEach(function(p){
+    var el=document.getElementById('be_'+p[0]); if(el) el.value=p[1];
+    var w=document.getElementById('beW_'+p[0]);
+    if(w) w.textContent=p[1]+({zoom:'%',winkel:'°',hell:'%',kontrast:'%',tiefen:''}[p[0]]||'');
+  });
+  beAnpassen(); beZeichnen();
+}
+/* Startzoom so, dass das Bild die Buehne fuellt - sonst sieht der Nutzer beim
+   Oeffnen graue Raender und haelt das fuer den Ausschnitt. */
+function beAnpassen(){
+  if(!BE.img) return;
+  BE.zoom=1; BE.x=0; BE.y=0;
+  var z=document.getElementById('be_zoom'); if(z) z.value=100;
+}
+function beZeichnen(){
+  var c=document.getElementById('beCanvas'); if(!c||!BE.img) return;
+  var b=c.parentNode.getBoundingClientRect();
+  var S=Math.max(80,Math.round(Math.min(b.width,b.height)));
+  if(c.width!==S){ c.width=S; c.height=S; }
+  var ctx=c.getContext('2d');
+  ctx.save();
+  ctx.clearRect(0,0,S,S);
+  ctx.filter='brightness('+BE.hell+'%) contrast('+BE.kontrast+'%)';
+  ctx.translate(S/2+BE.x, S/2+BE.y);
+  ctx.rotate(BE.winkel*Math.PI/180);
+  /* "cover": die kurze Seite fuellt die Buehne, nichts wird verzerrt. */
+  var deck=Math.max(S/BE.img.width, S/BE.img.height)*BE.zoom;
+  var w=BE.img.width*deck, h=BE.img.height*deck;
+  ctx.drawImage(BE.img,-w/2,-h/2,w,h);
+  ctx.restore();
+  if(BE.tiefen>0) beTiefen(ctx,S);
+}
+/* 🔴 TIEFEN AUFHELLEN, nicht Schatten entfernen. Dunkle Bildbereiche werden ueber
+   eine Gammakurve angehoben, helle bleiben, wo sie sind. Damit verliert ein
+   Schatten seine Haerte - er verschwindet NICHT, und ein Daumen im Bild bleibt
+   ein Daumen im Bild. Wer mehr will, braucht einen Freisteller-Dienst. */
+function beTiefen(ctx,S){
+  try{
+    var d=ctx.getImageData(0,0,S,S), p=d.data;
+    var staerke=BE.tiefen/100;                 // 0 .. 0,8
+    var lut=new Uint8Array(256);
+    for(var i=0;i<256;i++){
+      var v=i/255;
+      var gamma=1-staerke*0.7;                 // 1,0 .. ~0,44
+      var neu=Math.pow(v,gamma);
+      /* Nur die Tiefen anheben: der Effekt laeuft bei hellen Werten aus. */
+      var mix=1-v;
+      lut[i]=Math.max(0,Math.min(255,Math.round(255*(v+(neu-v)*mix))));
+    }
+    for(var k=0;k<p.length;k+=4){ p[k]=lut[p[k]]; p[k+1]=lut[p[k+1]]; p[k+2]=lut[p[k+2]]; }
+    ctx.putImageData(d,0,0);
+  }catch(e){ /* getImageData kann bei fremder Herkunft scheitern - dann bleibt das Bild wie es ist */ }
+}
+function beBinden(){
+  var b=document.getElementById('beBuehne'); if(!b) return;
+  b.addEventListener('pointerdown',function(e){ BE.zieht=true; BE.zx=e.clientX-BE.x; BE.zy=e.clientY-BE.y;
+    b.style.cursor='grabbing'; try{ b.setPointerCapture(e.pointerId); }catch(_){} });
+  b.addEventListener('pointermove',function(e){ if(!BE.zieht) return; BE.x=e.clientX-BE.zx; BE.y=e.clientY-BE.zy; beZeichnen(); });
+  b.addEventListener('pointerup',function(){ BE.zieht=false; b.style.cursor='grab'; });
+  b.addEventListener('pointercancel',function(){ BE.zieht=false; b.style.cursor='grab'; });
+  b.addEventListener('wheel',function(e){ e.preventDefault();
+    var n=Math.max(1,Math.min(4,BE.zoom*(e.deltaY<0?1.1:0.9)));
+    BE.zoom=n; var z=document.getElementById('be_zoom'); if(z) z.value=Math.round(n*100);
+    var w=document.getElementById('beW_zoom'); if(w) w.textContent=Math.round(n*100)+'%';
+    beZeichnen(); },{passive:false});
+}
+function bildEditorSchliessen(){ var o=document.getElementById('beOverlay'); if(o) o.remove(); }
+/* Uebernehmen rendert den SICHTBAREN Ausschnitt in voller Kantenlaenge neu - die
+   Buehne ist nur die Vorschau. Sonst haenge die Qualitaet des Produktbilds an der
+   Fenstergroesse, was niemand erwartet. */
+function beUebernehmen(){
+  if(!BE.img){ return; }
+  var ok=document.getElementById('beOk'); if(ok) ok.disabled=true;
+  try{
+    var Z=1024;
+    var c=document.createElement('canvas'); c.width=Z; c.height=Z;
+    var ctx=c.getContext('2d');
+    var b=document.getElementById('beBuehne');
+    var S=b?Math.max(80,Math.round(Math.min(b.getBoundingClientRect().width,b.getBoundingClientRect().height))):Z;
+    var f=Z/S;                                  // Vorschau -> Ausgabe
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,Z,Z);
+    ctx.save();
+    ctx.filter='brightness('+BE.hell+'%) contrast('+BE.kontrast+'%)';
+    ctx.translate(Z/2+BE.x*f, Z/2+BE.y*f);
+    ctx.rotate(BE.winkel*Math.PI/180);
+    var deck=Math.max(Z/BE.img.width, Z/BE.img.height)*BE.zoom;
+    var w=BE.img.width*deck, h=BE.img.height*deck;
+    ctx.drawImage(BE.img,-w/2,-h/2,w,h);
+    ctx.restore();
+    if(BE.tiefen>0) beTiefen(ctx,Z);
+    var out=c.toDataURL('image/jpeg',0.9);
+    var weiter=BE.nachher;
+    bildEditorSchliessen();
+    if(weiter) weiter(out);
+  }catch(e){
+    var m=document.getElementById('beMsg'); if(m){ m.style.color='#cf5442'; m.textContent='Konnte nicht übernommen werden: '+((e&&e.message)||e); }
+    if(ok) ok.disabled=false;
+  }
 }
 /* ============================================================================
    WORK #129 — ETIKETTFOTO ALS PRODUKTBILD (Ralph-Auftrag 19.08.2026)
@@ -26370,9 +26576,11 @@ async function fgImgUpload(inpEl){
    "bild" in JEDER Trefferliste. Ein eingebettetes Bild wuerde die Produktsuche um
    das Tausendfache aufblaehen.
 
-   ZUSCHNEIDEN UND KORREKTUR sind NICHT Teil dieser Stufe (Ralph: "dann den button,
-   dann weiter mit der produktliste"). Sie kommen als B2/B3 in #129 - und dann als
-   Bearbeitung VOR dem Hochladen, nicht danach.
+   NACHGEZOGEN 19.08.: Zuschneiden und Bildkorrektur SIND seit B2/B3 dabei (Ralph-Go
+   "klingt gut"). Der Knopf oeffnet erst bildEditorOeffnen und laedt danach ueber
+   fgProduktbildHochladen hoch - Bearbeitung VOR dem Hochladen. Der Satz "noch nicht
+   Teil dieser Stufe" stand hier bis 4020 und war ab 4030 falsch; ein Kommentar, der
+   nicht mehr stimmt, ist eine Luege im Code.
    ============================================================================ */
 async function fgEtikettAlsProduktbild(btn){
   var msg=document.getElementById("fe_bildMsg");
@@ -26394,8 +26602,28 @@ async function fgEtikettAlsProduktbild(btn){
     }
     var m=String(src).match(/^data:(image\/[a-z0-9.+-]+);base64,/i);
     if(!m){ sag("Das angezeigte Bild hat ein unbekanntes Format.","var(--k-dc2626)"); return; }
+    /* 🔴 19.08. B2/B3: NICHT mehr direkt hochladen. Erst der Editor, dann der
+       Upload - bearbeiten NACH dem Hochladen waere sinnlos, weil dann schon eine
+       unbearbeitete Datei im Bucket laege und jede Korrektur eine zweite erzeugte. */
+    sag("");
+    bildEditorOeffnen(src, function(fertig){ fgProduktbildHochladen(fertig, btn); });
+    return;
+  }catch(e){
+    sag("Konnte nicht geöffnet werden: "+((e&&e.message)||e),"var(--k-dc2626)");
+    return;
+  }
+}
+/* Der gemeinsame Endpunkt beider Wege: bearbeitetes Bild -> Bucket -> bild_url.
+   Etikettfoto und hochgeladene Datei laufen BEIDE hier durch (§4.2). */
+async function fgProduktbildHochladen(dataUrl, btn){
+  var msg=document.getElementById("fe_bildMsg");
+  var sag=function(t,f){ if(msg){ msg.style.color=f||"var(--k-374151)"; msg.textContent=t; } };
+  try{
+    var m=String(dataUrl||"").match(/^data:(image\/[a-z0-9.+-]+);base64,/i);
+    if(!m){ sag("Das bearbeitete Bild hat ein unbekanntes Format.","var(--k-dc2626)"); return; }
     if(btn){ btn.disabled=true; }
     sag("⏳ lade hoch…");
+    var src=dataUrl;
     /* data:-URL in eine echte Datei wandeln. fetch auf eine data:-URL ist der kurze
        Weg dorthin und braucht kein Netz. */
     var blob=await (await fetch(src)).blob();
@@ -33811,7 +34039,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-4020";
+const APP_BUILD = "2026-08-19-4030";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
