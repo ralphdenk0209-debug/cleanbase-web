@@ -33070,6 +33070,64 @@ function rikiKontext(){
   if(seite==="rezepte" && window._rezept && window._rezept.id) k.rezept_id = String(window._rezept.id);
   return k;
 }
+/* ============================================================================
+   WAS KANN ICH AUF DIESER SEITE?  (Ralph 19.08.: "gut waere auch, wenn man ihn
+   auf einer seite oeffnet, das er mir die seite und die funktionen erklaert.")
+
+   🔴 DIESE TEXTE MACHT KEIN MODELL, UND DAS IST DER GANZE PUNKT.
+   Ein Sprachmodell weiss nicht, was in app.js steht. Gefragt, was diese Seite
+   kann, wuerde es plausibel klingende Knoepfe beschreiben, die es nicht gibt -
+   und der Nutzer wuerde sie suchen. Das ist derselbe Fehlertyp wie eine
+   erfundene Naehrwertzahl, nur an der Oberflaeche (§1.1).
+   Kuratierte Texte sind sofort da, kosten nichts und sind richtig, solange
+   jemand sie pflegt. Der Preis steht unten.
+
+   🔴 NUR BELEGTE SEITEN STEHEN HIER. Ich habe die Knoepfe am 19.08. aus
+   index.html erhoben. Bei start, einkauf und rezepte ueberlappten die
+   Seitenbereiche im HTML so, dass ich die Knoepfe nicht sicher der richtigen
+   Seite zuordnen konnte - deshalb steht dort NICHTS statt einer Vermutung.
+   Riki sagt dann ehrlich, dass er die Seite noch nicht erklaeren kann.
+
+   ⚠ DER PREIS, offen benannt: das ist eine zweite Stelle, an der steht, was die
+   App kann - die erste ist die App selbst. Wer einen Knopf umbenennt und das
+   hier vergisst, laesst Riki etwas Falsches sagen. Dagegen hilft nur dieselbe
+   Regel wie bei den Funktionsinventaren (§10.5): wer ein Element aendert, zieht
+   es im selben Durchgang nach. Ein Mechanismus dafuer existiert NICHT - das ist
+   eine bewusste Schwaeche und keine uebersehene.
+   ============================================================================ */
+var RIKI_SEITENHILFE={
+  tagebuch:{ was:"Hier steht, was du heute gegessen hast – und was das ergibt.",
+    kann:["Mit den Pfeilen blätterst du durch die Tage, <b>Heute</b> springt zurück.",
+          "<b>📊 Statistik</b> zeigt kcal-, Gewichts- und Zuckerverlauf über 7 oder 30 Tage.",
+          "<b>🥗 Nährstoffe</b> öffnet die Mikronährstoffe des Tages.",
+          "Das <b>+</b> an einer Mahlzeit fügt etwas hinzu, auch per Barcode.",
+          "<b>Zucker</b> und <b>Salz</b> antippen zeigt, aus welchen Posten sie kommen."] },
+  produkte:{ was:"Die Produktsuche – hier findest du, was schon bewertet ist.",
+    kann:["Suchen kannst du nach <b>Produkt, Marke oder Kategorie</b>.",
+          "<b>📷 Barcode scannen</b> geht direkt auf das Produkt in der Hand.",
+          "Kennt die Datenbank es nicht, fotografierst du das Etikett – ich lese es."] },
+  profil:{ was:"Deine Angaben – und die Ziele, gegen die das Tagebuch rechnet.",
+    kann:["<b>Daten</b> und <b>Körpermaße</b> sind die Grundlage für den Bedarf.",
+          "Unter <b>Ziele</b> stehen Kalorien- und Nährstoffziele.",
+          "Änderungen gelten erst nach <b>Speichern</b>."] },
+  planer:{ was:"Die Vorausplanung für einen Tag oder eine Woche.",
+    kann:["Zwischen <b>Tag</b> und <b>Woche</b> umschalten.",
+          "<b>Mahlzeiten</b> planen und mit <b>Hinzufügen</b> eintragen.",
+          "Aus dem Plan heraus die <b>🛒 Einkaufsliste</b> füllen."] }
+};
+function rikiSeitenhilfeHtml(seite){
+  var h=RIKI_SEITENHILFE[seite];
+  if(!h){
+    /* Ehrlich statt hilfsbereit: eine erfundene Erklaerung waere schlimmer als
+       keine, weil der Nutzer danach sucht, was ich behauptet habe. */
+    return '<div style="font-size:12.5px;color:var(--tb-muted);line-height:1.5;background:var(--tb-card2,var(--k-fbf8f2));border-radius:10px;padding:10px 11px">'
+      +'Diese Seite kann ich noch nicht erklären – ich sage lieber nichts, als etwas zu erfinden.</div>';
+  }
+  return '<div style="font-size:13.5px;color:var(--tb-text,var(--ink));line-height:1.5;margin-bottom:8px">'+h.was+'</div>'
+    +'<ul style="margin:0 0 4px;padding-left:18px;font-size:12.5px;color:var(--tb-muted);line-height:1.6">'
+    + h.kann.map(function(z){ return '<li style="margin-bottom:4px">'+z+'</li>'; }).join('')
+    +'</ul>';
+}
 /* Klartext fuer das Panel. Bewusst als eigene Funktion: der Kontext ist Technik,
    der Satz ist Oberflaeche - und nur der Satz aendert sich, wenn Ralph ihn anders
    haben will. */
@@ -33231,12 +33289,14 @@ function rikiPanelOeffnen(){
     +  '<b style="flex:1;font-size:16px;color:var(--tb-text,var(--ink))">RIKI</b>'
     +  '<button onclick="rikiPanelSchliessen()" aria-label="Schließen" style="border:0;background:none;font-size:20px;line-height:1;color:var(--tb-muted);cursor:pointer;padding:0 4px">&times;</button>'
     +'</div>'
-    +'<div style="font-size:14px;color:var(--tb-text,var(--ink));line-height:1.5;margin-bottom:10px">'+rikiKontextText(k)+'</div>'
-    /* 🔴 Dieser Satz ist kein Platzhalter, sondern die Wahrheit ueber den Bauzustand.
-       Er verschwindet, wenn Phase B den Serverkontext liefert - nicht vorher. */
-    +'<div style="font-size:12.5px;color:var(--tb-muted);line-height:1.5;background:var(--tb-card2,var(--k-fbf8f2));border-radius:10px;padding:10px 11px">'
-    +  'Ich merke mir gerade nur, <b>wo du bist</b>. Antworten, dein Profil und persönliche Hinweise kommen im nächsten Schritt – '
-    +  'und sie kommen aus belegten Daten, nicht aus meiner Fantasie.'
+    +'<div style="font-size:12px;color:var(--tb-muted);margin-bottom:8px">'+rikiKontextText(k)+'</div>'
+    + rikiSeitenhilfeHtml(k.seite)
+    /* 🔴 Dieser Satz bleibt, bis es einen Antwortweg gibt. Ein Eingabefeld ohne
+       Server dahinter waere eine Attrappe (Ralph P12) - lieber sagen, dass es
+       noch nicht geht, als so tun als ob. */
+    +'<div style="font-size:11.5px;color:var(--tb-muted);line-height:1.5;margin-top:10px;padding-top:9px;border-top:1px solid var(--tb-line,var(--k-e7e0d4))">'
+    +  'Fragen kannst du mich noch nicht – dafür fehlt mir der Weg zum Server. '
+    +  'Sobald er steht, tippst oder sprichst du hier.'
     +'</div>';
   document.body.appendChild(p);
   var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","true");
@@ -33275,7 +33335,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3890";
+const APP_BUILD = "2026-08-19-3900";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
