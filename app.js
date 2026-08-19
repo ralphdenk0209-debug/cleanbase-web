@@ -29262,6 +29262,73 @@ function etikettDel(slot){ delete ETI_SHOTS[slot]; renderEtiShots(); }
 async function etikettSend(){
   const arr=ETI_SLOTS.map(function(s){ return ETI_SHOTS[s[0]]; }).filter(Boolean);
   if(!arr.length){ etiMsg("Bitte mindestens ein Foto aufnehmen.","var(--k-dc2626)"); return; }
+
+  const {data:{session}} = await client.auth.getSession();
+
+  /* ==========================================================================
+     WORK #123/#125 — DER LADENSCAN WARTET NICHT MEHR (Ralph 18./19.08.)
+
+     Ralph im Geschaeft: "nach dem Klick auf senden dauert es teilweise eine halbe
+     Minute ... im Geschaeft dauert das zu lange." Gemessen an Riki_Nutzung waren
+     es seine zehn Laeufe am 18.08. zwischen 16:36 und 16:50.
+
+     🔴 DIE LOESUNG IST NICHT "SCHNELLER LESEN", SONDERN NICHT MEHR WARTEN.
+     Ralph-Entscheid 19.08.: Fotos abgeben, sofort einen echten Produktentwurf mit
+     P-Nummer anlegen, RIKI arbeitet danach im Hintergrund weiter. Der Nutzer ist
+     nach Sekunden frei und scannt das naechste Regal.
+
+     §22, und es haette mich fast einen Fehlbau gekostet: den Hintergrund-Arbeiter
+     gibt es SCHON. cron.job "riki-scan-worker-v1" laeuft jede Minute und antwortet
+     200 (Takt_Status: 5 Laeufe, 0 Fehler, verarbeitet 0 - er wartet nur auf Jobs).
+     Ich war dabei, einen Worker im Browser zu bauen; cb_riki_scan_job_claim haette
+     ihn ohnehin abgewiesen, es verlangt service_role oder Admin. Richtig so: die
+     Claim-Abfrage filtert NICHT auf Benutzer, ein Browser-Worker koennte fremde
+     Jobs an sich ziehen.
+
+     WANN DIESER WEG GILT - alle vier Bedingungen, sonst der alte:
+       angemeldet · Flag etikett_riki · NICHT im Tagebuch · Barcode vorhanden
+     Ohne Barcode ist Schluss: cb_riki_scan_einreihen verlangt >= 8 Ziffern, und
+     Ralph/ChatGPT haben am 19.08. entschieden, dass es dabei bleibt - ohne Barcode
+     laeuft es ueber "Produkt vorschlagen". KEIN erfundener Ersatz-Barcode; der
+     waere eine Zahl, die aussieht wie ein Beleg (§1.1).
+     Das Tagebuch bleibt vorerst auf dem alten Weg - dort fehlen Menge und
+     Mahlzeit, die der Server zwingend verlangt. Das ist Stufe S4, nicht diese.
+
+     WICHTIG: hier wird cb_foto_vormerken NICHT gerufen. Die RPC legt ihre eigene
+     Zeile in Scan_Warteschlange an; beides zusammen waere dieselben Fotos an zwei
+     Orten (§4.2).
+     ========================================================================== */
+  const _eanZiffern = String(ETI_EAN||"").replace(/[^0-9]/g,"");
+  if(session && feat("etikett_riki") && !etiImTagebuch() && _eanZiffern.length>=8){
+    etiMsg("Fotos werden übergeben…","var(--muted)");
+    try{
+      const {data:erg,error}=await client.rpc("cb_riki_scan_einreihen",{
+        p_ean:_eanZiffern, p_kontext:"laden", p_fotos:arr
+      });
+      if(error) throw error;
+      const e = (typeof erg==="string") ? JSON.parse(erg) : (erg||{});
+      ETI_SHOTS={}; renderEtiShots();
+      /* 🔴 status "bekannt" heisst: das Produkt ist bereits aktiv, es laeuft KEIN
+         Job (job_id ist null). Dann darf die App nicht "Riki liest" behaupten -
+         das waere eine Zusage, auf die niemand wartet (§1.7). */
+      if(e.status==="bekannt"){
+        etikettClose();
+        try{ if(e.produkt_id) prodOeffnen(e.produkt_id); }catch(x){}
+        return;
+      }
+      /* Der Orb uebernimmt ab hier: er zeigt, dass gearbeitet wird, und meldet
+         sich, wenn es fertig ist. Deshalb darf das Fenster sofort zu. */
+      try{ rikiFabZustand("denkt"); }catch(x){}
+      etikettClose();
+      return;
+    }catch(e){
+      /* Kein stiller Rueckfall: wenn das Einreihen scheitert, sagt die App das und
+         nimmt danach den alten Weg - die Fotos des Nutzers gehen nicht verloren. */
+      console.warn("cb_riki_scan_einreihen:",e);
+      etiMsg("Konnte nicht übergeben ("+((e&&e.message)||e)+"). Ich versuche den alten Weg…","var(--k-b45309)");
+    }
+  }
+
   etiMsg("Fotos werden gespeichert…","var(--muted)");
 
   /* 1. Fotos IMMER speichern – auch wenn Riki gleich scheitert.
@@ -29274,7 +29341,6 @@ async function etikettSend(){
   /* 2. Nur für Angemeldete MIT Freigabe: Riki liest die Tabelle und rechnet sofort.
         Ohne das Flag würde der Aufruf bei Nutzern Geld kosten, für die er gar nicht
         freigegeben ist. */
-  const {data:{session}} = await client.auth.getSession();
   if(!session || !feat("etikett_riki")){
     ETI_SHOTS={}; renderEtiShots();
     etiMsg("&#10003; Danke! "+arr.length+" Foto(s) gespeichert. Wir prüfen das Etikett und nehmen das Produkt auf.<br>"
@@ -33108,7 +33174,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3870";
+const APP_BUILD = "2026-08-19-3880";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
