@@ -33251,6 +33251,129 @@ function rikiFabZustand(z){
   fertig.setAttribute("opacity", Z.fertig);
   var f=el("rikiFab"); if(f) f.dataset.zustand=z;
 }
+/* ============================================================================
+   WORK #126 — RIKI FRAGEN, PER TEXT ODER SPRACHE
+   Ralph 19.08.: "ich kann ihn aber nichts fragen, weder per text noch per sprache."
+   Serverweg von ChatGPT: Edge riki-frage v1, POST {frage, kontext}, Antwort
+   {ok, antwort, dauer_ms, limit:{heute_genutzt, limit_tag}} bzw. {ok:false, fehler}.
+   Tageslimit 30, eigenes Budget, Kontext ausschliesslich serverseitig minimiert.
+
+   🔴 KEIN GESPRAECHSVERLAUF, UND DAS IST BEWUSST SICHTBAR.
+   riki-frage nimmt genau EINE Frage; einen Verlauf kennt der Vertrag nicht.
+   Wuerde ich Frage und Antwort untereinander stapeln, saehe es wie ein Chat aus,
+   und "und wie viel davon?" liefe ins Leere - der Server hat die Vorfrage nie
+   gesehen. Deshalb steht immer nur die LETZTE Frage mit ihrer Antwort da.
+   Ein Verlauf braucht den Serververtrag; als Fund an #126 notiert.
+
+   🔴 DIE FRAGE SETZT DEN ORB NICHT AUF "denkt".
+   Dieser Zustand gehoert der Scan-Warteschlange (#125). Wuerde eine Frage ihn
+   ueberschreiben, meldete der Orb "fertig" fuer eine Antwort, waehrend im
+   Hintergrund noch ein Etikett laeuft. Das Warten auf die Antwort zeigt das
+   Panel selbst - dort schaut der Nutzer ohnehin hin.
+   ============================================================================ */
+function rikiSpracheMoeglich(){
+  try{ return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }catch(e){ return false; }
+}
+function rikiFrageZeileHtml(){
+  /* Das Mikrofon erscheint NUR, wenn der Browser es kann. Ein Knopf, der nichts
+     tut, ist schlimmer als kein Knopf (Ralph P12). */
+  var mik = rikiSpracheMoeglich()
+    ? '<button id="rikiMik" onclick="rikiSprache()" aria-label="Frage sprechen" title="Frage sprechen" '
+      +'style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:1px solid var(--tb-line,var(--k-e7e0d4));'
+      +'background:var(--tb-card2,var(--k-fbf8f2));cursor:pointer;padding:0;font-size:17px;line-height:1">🎤</button>'
+    : '';
+  return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--tb-line,var(--k-e7e0d4))">'
+    +'<div style="display:flex;gap:7px;align-items:center">'
+    +  '<input id="rikiFrage" type="text" maxlength="1200" placeholder="Frag mich zu dieser Seite…" '
+    +    'onkeydown="if(event.key===\'Enter\'){event.preventDefault();rikiFrageSenden()}" '
+    +    'style="flex:1;min-width:0;padding:11px 12px;border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:10px;'
+    +    'background:var(--bg);color:var(--tb-text,var(--ink));font-size:15px">'
+    +  mik
+    +  '<button id="rikiSenden" onclick="rikiFrageSenden()" aria-label="Frage senden" '
+    +    'style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:0;background:#7c6fe0;color:#fff;'
+    +    'cursor:pointer;padding:0;font-size:17px;line-height:1">→</button>'
+    +'</div>'
+    +'<div id="rikiFrageHinweis" style="font-size:11.5px;color:var(--tb-muted);margin-top:6px;min-height:16px"></div>'
+    +'</div>';
+}
+function rikiSprache(){
+  var K = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!K) return;
+  var hin=document.getElementById("rikiFrageHinweis");
+  var mik=document.getElementById("rikiMik");
+  try{
+    var r=new K();
+    r.lang="de-DE"; r.interimResults=false; r.maxAlternatives=1;
+    if(hin) hin.textContent="Ich höre zu…";
+    if(mik) mik.style.background="#efeafc";
+    r.onresult=function(ev){
+      var t=""; try{ t=ev.results[0][0].transcript||""; }catch(e){}
+      var f=document.getElementById("rikiFrage");
+      if(f && t){ f.value=t; }
+      if(hin) hin.textContent="";
+      if(mik) mik.style.background="var(--tb-card2,var(--k-fbf8f2))";
+      /* Erkanntes wird NICHT automatisch abgeschickt. Spracherkennung verhoert
+         sich, und eine falsch verstandene Frage kostet Geld und Vertrauen -
+         der Nutzer sieht erst, was ankam, und tippt auf senden. */
+      if(t && hin) hin.textContent="Verstanden – prüfen und senden.";
+    };
+    r.onerror=function(ev){
+      if(mik) mik.style.background="var(--tb-card2,var(--k-fbf8f2))";
+      /* Der Grund wird genannt, nicht verschluckt: "nicht erlaubt" und "nichts
+         gehoert" brauchen verschiedene Reaktionen des Nutzers. */
+      var g=(ev&&ev.error)||"unbekannt";
+      if(hin) hin.textContent = (g==="not-allowed"||g==="service-not-allowed")
+        ? "Das Mikrofon ist nicht erlaubt – bitte im Browser freigeben."
+        : (g==="no-speech" ? "Ich habe nichts gehört." : "Spracherkennung nicht möglich ("+g+").");
+    };
+    r.onend=function(){ if(mik) mik.style.background="var(--tb-card2,var(--k-fbf8f2))"; };
+    r.start();
+  }catch(e){ if(hin) hin.textContent="Spracherkennung nicht möglich."; }
+}
+async function rikiFrageSenden(){
+  var fEl=document.getElementById("rikiFrage");
+  var hin=document.getElementById("rikiFrageHinweis");
+  var out=document.getElementById("rikiAntwort");
+  var sEl=document.getElementById("rikiSenden");
+  var frage=String((fEl&&fEl.value)||"").trim();
+  var zeig=function(t){ if(hin) hin.textContent=t||""; };
+  if(!frage){ zeig("Schreib oder sprich eine Frage."); return; }
+  if(frage.length>1200){ zeig("Die Frage ist zu lang (höchstens 1200 Zeichen)."); return; }
+  var kontext=rikiKontext();
+  if(sEl){ sEl.disabled=true; sEl.textContent="…"; }
+  zeig("RIKI denkt…");
+  if(out) out.innerHTML='<div style="font-size:13px;color:var(--tb-muted)">'+esc(frage)+'</div>';
+  try{
+    var s=(await client.auth.getSession()).data.session;
+    if(!s) throw new Error("Bitte anmelden, um RIKI zu fragen.");
+    var r=await fetch(client.supabaseUrl+"/functions/v1/riki-frage",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+s.access_token,"apikey":client.supabaseKey},
+      body:JSON.stringify({frage:frage, kontext:kontext})
+    });
+    var d=await r.json().catch(function(){ return null; });
+    if(!d || d.ok!==true){
+      /* Der Servertext WOERTLICH - beim Produktdetail hat mich ein Sammelsatz
+         wochenlang die Ursache gekostet (#35). Beim Tageslimit ist der Text
+         ausserdem die eigentliche Auskunft. */
+      var t=(d&&d.fehler)||("RIKI antwortet gerade nicht (HTTP "+r.status+").");
+      if(out) out.innerHTML='<div style="font-size:13px;color:var(--tb-muted);margin-bottom:6px">'+esc(frage)+'</div>'
+        +'<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">'+esc(t)+'</div>';
+      zeig(r.status===429 ? "Tageslimit erreicht." : "");
+      return;
+    }
+    if(out) out.innerHTML='<div style="font-size:12.5px;color:var(--tb-muted);margin-bottom:6px">'+esc(frage)+'</div>'
+      +'<div style="font-size:13.5px;color:var(--tb-text,var(--ink));line-height:1.55;white-space:pre-wrap">'+esc(d.antwort||"")+'</div>';
+    if(fEl) fEl.value="";
+    var L=d.limit||{};
+    zeig((L.heute_genutzt!=null && L.limit_tag!=null) ? ("Heute "+L.heute_genutzt+" von "+L.limit_tag+" Fragen.") : "");
+  }catch(e){
+    if(out) out.innerHTML='<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">'+esc((e&&e.message)||String(e))+'</div>';
+    zeig("");
+  }finally{
+    if(sEl){ sEl.disabled=false; sEl.textContent="→"; }
+  }
+}
 function rikiPanelSchliessen(){
   var p=document.getElementById("rikiPanel");
   var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","false");
@@ -33291,13 +33414,11 @@ function rikiPanelOeffnen(){
     +'</div>'
     +'<div style="font-size:12px;color:var(--tb-muted);margin-bottom:8px">'+rikiKontextText(k)+'</div>'
     + rikiSeitenhilfeHtml(k.seite)
-    /* 🔴 Dieser Satz bleibt, bis es einen Antwortweg gibt. Ein Eingabefeld ohne
-       Server dahinter waere eine Attrappe (Ralph P12) - lieber sagen, dass es
-       noch nicht geht, als so tun als ob. */
-    +'<div style="font-size:11.5px;color:var(--tb-muted);line-height:1.5;margin-top:10px;padding-top:9px;border-top:1px solid var(--tb-line,var(--k-e7e0d4))">'
-    +  'Fragen kannst du mich noch nicht – dafür fehlt mir der Weg zum Server. '
-    +  'Sobald er steht, tippst oder sprichst du hier.'
-    +'</div>';
+    /* Seit Build 3910 gibt es den Antwortweg (riki-frage, ChatGPT 19.08.) - das
+       Eingestaendnis von vorher ist damit gegenstandslos und ersetzt, nicht
+       umformuliert. */
+    +'<div id="rikiAntwort" style="margin-top:10px"></div>'
+    + rikiFrageZeileHtml();
   document.body.appendChild(p);
   var f=document.getElementById("rikiFab"); if(f) f.setAttribute("aria-expanded","true");
   rikiFabZustand("offen");
@@ -33335,7 +33456,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-3900";
+const APP_BUILD = "2026-08-19-3910";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
