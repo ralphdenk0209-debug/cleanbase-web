@@ -12443,6 +12443,30 @@ function _abCkAttention(){
   });
 }
 
+/* Alle drill_keys, die im gelieferten Cockpit-Objekt WIRKLICH vorkommen —
+   eingesammelt, nicht abgeschrieben. Ein Schluessel, den der Server nicht
+   nennt, bekommt keinen Knopf. */
+function _abCkDrillSet(){
+  var s={};
+  (function geh(o){
+    if(!o||typeof o!=='object') return;
+    if(Array.isArray(o)){ o.forEach(geh); return; }
+    Object.keys(o).forEach(function(k){
+      var v=o[k];
+      if(k==='drill_key' && typeof v==='string' && v) s[v]=1;
+      else if(k==='drills' && v && typeof v==='object'){
+        Object.keys(v).forEach(function(dk){ if(typeof v[dk]==='string' && v[dk]) s[v[dk]]=1; });
+      }
+      else geh(v);
+    });
+  })(_AB_CK);
+  return s;
+}
+function _abCkDrillBekannt(k){
+  if(!k || !_AB_CK) return false;
+  return _abCkDrillSet()[k]===1;
+}
+
 async function _abCockpitHolen(neu){
   if(_AB_CK_LAEUFT) return;
   if(_AB_CK && !neu) return;
@@ -12506,7 +12530,18 @@ function _abHeroZahlenHtml(){
   if(!a.length) return '<div class="hz"><b>0</b><span>offene Punkte</span></div>';
   return a.slice(0,4).map(function(x){
     var f=_AB_CK_FARBE[x.severity]||'#c9d2dd';
-    return '<div class="hz"><b style="color:'+f+'">'+esc(String(x.count==null?'–':x.count))+'</b>'
+    /* 🔴 POSITIVLISTE, KEINE AUSSCHLUSSLISTE (§3.3). Ein action_key ist NICHT
+       automatisch ein drill_key. Gemessen 20.08. gegen alle 22 Schluessel:
+       20 liefern eine Liste, `qualitaet` und `eingang` antworten mit
+       „Unbekannter Dashboard-Drill". Ein erster Entwurf schloss nur `eingang`
+       aus — `qualitaet` haette ein Fehlerfenster geoeffnet, also genau den
+       toten Knopf, den Kriterium 4 verbietet.
+       Die Liste wird nicht von Hand gefuehrt: sie ergibt sich aus den
+       drill_keys, die im Cockpit-Objekt selbst stehen (§28.4). */
+    var key=_abCkDrillBekannt(x.action_key)?x.action_key:'';
+    return '<div class="hz'+(key?' klick':'')+'"'
+      +(key?' data-drill="'+esc(key)+'" data-drill-titel="'+esc(String(x.titel||''))+'"':'')
+      +'><b style="color:'+f+'">'+esc(String(x.count==null?'–':x.count))+'</b>'
       +'<span title="'+esc(String(x.text||''))+'">'+esc(String(x.titel||x.id||''))+'</span></div>';
   }).join('');
 }
@@ -12519,7 +12554,18 @@ function _abHeroFuellen(){
   var z=document.getElementById('abHeroZust');
   if(z) z.innerHTML=_abHeroZustHtml();
   var n=document.getElementById('abHeroZahlen');
-  if(n) n.innerHTML=_abHeroZahlenHtml();
+  if(n){
+    n.innerHTML=_abHeroZahlenHtml();
+    /* 🔴 Der Hero liegt AUSSERHALB von #abBentoBox — _abNeuZeichnen und damit
+       _abBentoNach fassen ihn nicht an. Wer das uebersieht, baut anklickbare
+       Zahlen, die auf nichts hoeren. Deshalb hier, direkt am Container. */
+    n.querySelectorAll('[data-drill]').forEach(function(x){
+      x.addEventListener('click',function(){
+        if(_AB_EDIT) return;
+        _abDrillOeffnen(x.getAttribute('data-drill'), x.getAttribute('data-drill-titel')||'');
+      });
+    });
+  }
 }
 
 /* ============================================================================
@@ -12571,6 +12617,114 @@ function _abKachel(titel, tag, inhalt, fuss, gross, zus){
 }
 
 /* ============================================================================
+   DRILL — jede Zahl wird eine Arbeitsliste  ·  Work #121, Stufe 4  ·  20.08.2026
+   ----------------------------------------------------------------------------
+   Ralphs Satz zum Auftrag: „Jede auffaellige Zahl muss in eine echte
+   Arbeitsliste fuehren." Die Liste kommt von
+   cb_admin_dashboard_cockpit_drill(p_key, p_limit) — SERVERSEITIG, in einem
+   Vertrag mit festen Feldern: kind · id · title · info · age_days.
+
+   🔴 KEIN TOTER KNOPF (Kriterium 4). Ein Sprung entsteht nur, wenn es fuer
+   `kind` einen VORHANDENEN Weg gibt. Gibt es keinen, bleibt die Zeile eine
+   Zeile — das ist ehrlich, ein Knopf, der nichts tut, waere es nicht.
+   Gemessen 20.08.: fuer `work` gibt es im Frontend keine Queue-Ansicht; genau
+   deshalb steht dort kein Knopf und die Serverliste selbst ist die Antwort.
+
+   Das Panel liegt als Overlay ueber der Seite und benutzt Inline-Stile: so
+   muss dashArbeitCss nicht angefasst werden, an dem parallel gearbeitet wird.
+   ========================================================================== */
+var _AB_DRILL_ZIEL={
+  produkt: function(r){ if(typeof openFgEditor==='function'){ _abDrillZu(); openFgEditor(r.id); } },
+  stamm:   function(){ if(typeof adminGo==='function'){ _abDrillZu(); adminGo('stamm'); } },
+  scan:    function(){ if(typeof scanEingangOeffnen==='function'){ _abDrillZu(); scanEingangOeffnen(); } },
+  scan_cache: function(){ if(typeof scanEingangOeffnen==='function'){ _abDrillZu(); scanEingangOeffnen(); } }
+  /* work · kontakt · tagebuch_wunsch · riki: im Frontend gibt es dafuer heute
+     keinen Weg. Sie bekommen deshalb keinen Knopf, sondern nur die Zeile. */
+};
+
+function _abDrillBox(){
+  var b=document.getElementById('abDrillBox');
+  if(b) return b;
+  b=document.createElement('div');
+  b.id='abDrillBox';
+  b.style.cssText='position:fixed;inset:0;z-index:9000;display:none;'
+    +'background:rgba(15,23,32,.42);backdrop-filter:blur(2px)';
+  b.addEventListener('click',function(e){ if(e.target===b) _abDrillZu(); });
+  document.body.appendChild(b);
+  return b;
+}
+function _abDrillZu(){
+  var b=document.getElementById('abDrillBox'); if(b) b.style.display='none';
+}
+if(typeof window!=='undefined') window._abDrillZu=_abDrillZu;
+
+function _abDrillRahmen(titel,inhalt){
+  return '<div style="position:absolute;right:0;top:0;bottom:0;width:min(560px,92vw);'
+    +'background:var(--card,#fff);color:var(--ink,#1b2733);box-shadow:-8px 0 28px rgba(0,0,0,.22);'
+    +'display:flex;flex-direction:column">'
+    +'<div style="display:flex;align-items:center;gap:10px;padding:13px 16px;'
+      +'border-bottom:1px solid var(--line,#dbe3ea);flex:0 0 auto">'
+      +'<b style="font-size:14px">'+esc(titel)+'</b>'
+      +'<button type="button" onclick="_abDrillZu()" style="margin-left:auto;border:1px solid '
+        +'var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);color:inherit;'
+        +'padding:5px 11px;font-size:12.5px;cursor:pointer">Schließen ✕</button>'
+    +'</div>'
+    +'<div style="flex:1 1 auto;overflow:auto;padding:10px 16px 18px">'+inhalt+'</div>'
+  +'</div>';
+}
+
+async function _abDrillOeffnen(key,titel){
+  if(!key) return;
+  var b=_abDrillBox();
+  b.style.display='block';
+  b.innerHTML=_abDrillRahmen(titel||key,'<div class="blade">lädt…</div>');
+  try{
+    var r=await client.rpc('cb_admin_dashboard_cockpit_drill',{p_key:key,p_limit:50});
+    if(r&&r.error) throw r.error;
+    var o=r&&r.data; if(typeof o==='string') o=JSON.parse(o);
+    if(!o) throw new Error('cb_admin_dashboard_cockpit_drill hat nichts geliefert');
+    if(o.ok===false) throw new Error(o.grund||'abgelehnt');
+    var rows=o.rows||[];
+    var h=rows.length
+      ? '<div style="font-size:11.5px;opacity:.7;margin-bottom:8px">'
+          +rows.length+' von '+(o.count==null?rows.length:o.count)+' — Schlüssel '+esc(key)+'</div>'
+        + rows.map(function(x,i){
+            var hatZiel=!!_AB_DRILL_ZIEL[x.kind];
+            var alt=(x.age_days==null)?'':(' · '+x.age_days+' Tage alt');
+            return '<div style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;'
+              +'border-bottom:1px solid var(--line,#eef2f6)">'
+              +'<span style="flex:0 0 auto;font-size:11px;opacity:.6;min-width:26px;'
+                +'padding-top:2px">'+(i+1)+'</span>'
+              +'<span style="flex:1 1 auto;min-width:0">'
+                +'<div style="font-size:12.5px;font-weight:600;overflow-wrap:anywhere">'
+                  +esc(String(x.title||x.id||''))+'</div>'
+                +'<div style="font-size:11px;opacity:.7">'+esc(String(x.info||''))
+                  +esc(alt)+' · '+esc(String(x.id||''))+'</div>'
+              +'</span>'
+              +(hatZiel
+                ? '<button type="button" class="abdrillgo" data-kind="'+esc(String(x.kind))
+                    +'" data-id="'+esc(String(x.id))+'" style="flex:0 0 auto;border:1px solid '
+                    +'var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);'
+                    +'color:inherit;padding:4px 10px;font-size:12px;cursor:pointer">öffnen ›</button>'
+                : '')
+            +'</div>';
+          }).join('')
+      : '<div class="bleer">Diese Liste ist leer — die Zahl war 0 oder ist inzwischen abgearbeitet.</div>';
+    b.innerHTML=_abDrillRahmen(titel||key,h);
+    b.querySelectorAll('.abdrillgo').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var f=_AB_DRILL_ZIEL[btn.dataset.kind];
+        if(f) f({id:btn.dataset.id, kind:btn.dataset.kind});
+      });
+    });
+  }catch(e){
+    b.innerHTML=_abDrillRahmen(titel||key,
+      '<div class="bfehl"><b>Liste nicht ladbar.</b><br>'+esc((e&&e.message)||String(e))+'</div>');
+    try{ console.error('[Drill] '+key,e); }catch(_){}
+  }
+}
+
+/* ============================================================================
    KACHEL-REGISTER  ·  Work #42, Etappe 1  ·  15.08.2026
    ----------------------------------------------------------------------------
    Bis hierher stand die ANORDNUNG im Code: _abBento und _abBento2 riefen ihre
@@ -12596,14 +12750,20 @@ function _abKachel(titel, tag, inhalt, fuss, gross, zus){
    `foto` ist die Kennung ohne Vorsilbe und Endung. Fehlt sie, bleibt die
    Kachel weiss — kein Fehler, nur ohne Bild. */
 var _AB_KACHELN=[
-  {id:'aufgaben',  reihe:1, titel:'Heute — offene Aufgaben',  breit:true,  bau:_abkAufgaben, foto:'flusslauf', leds:'r ge', text:true},
-  {id:'bestand',   reihe:1, titel:'Datenbestand',             breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr'},
-  {id:'riki',      reihe:1, titel:'Riki-Budget',              breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
-  {id:'waechter',  reihe:1, titel:'Wächter-Status',           breit:false, bau:_abkWaechter, foto:'stroem',    leds:'r ge'},
-  {id:'aktivitaet',reihe:2, titel:'Letzte Aktivitäten',       breit:true,  bau:_abkAkt,      foto:'wellen',    leds:'gr', text:true},
+  /* 🔴 20.08.2026, Work #121: die IDs bleiben unveraendert — gespeicherte
+     Layouts aus Work #42 duerfen nicht migriert werden muessen (Kriterium 2).
+     Geaendert sind nur die BESCHRIFTUNGEN, damit jede Kachel sagt, welche
+     Frage sie beantwortet: Arbeit · Eingang · Qualitaet · Katalog · Stamm ·
+     RIKI · Nutzung · Betrieb. Vorher hiessen zwei davon nach ihrer Herkunft
+     („Wächter-Status", „Letzte Aktivitäten") statt nach ihrem Zweck. */
+  {id:'aufgaben',  reihe:1, titel:'Arbeit',                   breit:true,  bau:_abkAufgaben, foto:'flusslauf', leds:'r ge', text:true},
+  {id:'bestand',   reihe:1, titel:'Katalog',                  breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr'},
+  {id:'riki',      reihe:1, titel:'RIKI',                     breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
+  {id:'waechter',  reihe:1, titel:'Qualität',                 breit:false, bau:_abkWaechter, foto:'stroem',    leds:'r ge'},
+  {id:'aktivitaet',reihe:2, titel:'Eingang',                  breit:true,  bau:_abkAkt,      foto:'wellen',    leds:'gr', text:true},
   {id:'region',    reihe:2, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion,   foto:'regionen',  leds:'gr'},
-  {id:'stammu',    reihe:2, titel:'Stamm-Überblick',          breit:false, bau:_abkStammU,   foto:'stamm',     leds:'ge gr'},
-  {id:'schnell',   reihe:2, titel:'Schnellzugriff',           breit:false, roh:_abSchnell},
+  {id:'stammu',    reihe:2, titel:'Stamm',                    breit:false, bau:_abkStammU,   foto:'stamm',     leds:'ge gr'},
+  {id:'schnell',   reihe:2, titel:'Betrieb &amp; Schnellzugriff', breit:false, roh:_abSchnell},
   /* C3, 15.08.: zwei neue Kacheln, beide mit ECHTEN Zahlen aus vorhandenen
      RPCs. §22 hat sich wieder ausgezahlt — gesucht statt gebaut:
        Stamm    -> cb_admin_stamm_waechter()      (das Dashboard ruft ihn schon)
@@ -14008,6 +14168,42 @@ function _abBentoNach(box){
     });
   });
 
+  /* Work #121: die sechs Schnellzugriffe aus dem Cockpit. Jeder Schluessel
+     zeigt auf einen vorhandenen Weg — oder auf die Serverliste. */
+  box.querySelectorAll('.abschnellv2[data-akey]').forEach(function(b){
+    b.addEventListener('click',function(){
+      if(_AB_EDIT) return;
+      var w=_AB_SCHNELL_WEG[b.getAttribute('data-akey')];
+      if(!w) return;
+      try{
+        if(w.go && typeof adminGo==='function') adminGo(w.go);
+        else if(w.drill) _abDrillOeffnen(w.drill, w.drillTitel||'');
+        else if(w.fn) w.fn();
+      }catch(e){ try{ console.warn('Schnellzugriff:',b.dataset.akey,e); }catch(_){} }
+    });
+  });
+
+  /* Work #121: jede Zahl mit drill_key oeffnet die Serverliste. EINE Stelle
+     fuer alle Kacheln — der Anordnen-Modus zeichnet sie neu und ruft dieselbe
+     Verdrahtung wieder auf. */
+  box.querySelectorAll('[data-drill]').forEach(function(z){
+    z.style.cursor='pointer';
+    z.addEventListener('click',function(){
+      if(_AB_EDIT) return;
+      _abDrillOeffnen(z.getAttribute('data-drill'), z.getAttribute('data-drill-titel')||'');
+    });
+  });
+
+  /* Work Items in der Arbeit-Kachel: eine Zeile oeffnet die volle Liste, weil
+     es fuer ein einzelnes Work Item im Frontend keine Ansicht gibt. */
+  box.querySelectorAll('.brz[data-work]').forEach(function(z){
+    z.style.cursor='pointer';
+    z.addEventListener('click',function(){
+      if(_AB_EDIT) return;
+      _abDrillOeffnen('arbeit_attention','Arbeit — was bei dir liegt');
+    });
+  });
+
   /* ---- Anordnen-Modus: Knoepfe ------------------------------------------- */
   box.querySelectorAll('[data-abe]').forEach(function(b){
     b.addEventListener('click',function(ev){
@@ -14239,31 +14435,51 @@ function _abZeile(l,v,f){
 /* ---- 1) HEUTE — OFFENE AUFGABEN (doppelt breit) ---------------------------
    Die Liste kommt aus _abJobsListe, damit es nicht zwei Vorstellungen davon
    gibt, was dringend ist. */
+/* 🔴 20.08.2026, Work #121: die Kachel heisst jetzt fachlich ARBEIT und zeigt
+   ausschliesslich Work Items — nicht mehr die Zufluesse aus dem Netzplan. Die
+   gehoeren in die Kachel „Eingang" und standen hier ein zweites Mal (§4.2).
+   Die Liste kommt aus cockpit.karten.aufgaben.top; sie wird SERVERSEITIG
+   sortiert und gefiltert. Vorher holte _abRalphLaden 200 Zeilen und filterte
+   im Browser — genau die „Browserzaehlung aus Rohdaten", die der Auftrag
+   ausdruecklich verbietet. */
 function _abkAufgaben(c){
-  var jobs=_abJobsListe(c.np,c.A);
-  var jh=jobs.length
-    ? jobs.slice(0,4).map(function(j){
-        var f=(j.p===0)?_AB.krit:(j.p===1)?_AB.warn:_AB.zu;
-        return '<div class="baufg" data-job="'+esc(j.ziel||'')+'">'
-          +'<span class="bp" style="background:'+f+'">'+esc(String(j.n))+'</span>'
-          +'<span class="bt"><span class="bt1">'+esc(j.t1)+'</span>'
-          +'<span class="bt2" title="'+esc(j.t2)+'">'+esc(j.t2)+'</span></span>'
-          +'<span class="bgo">›</span></div>';
+  var ck=_abCkKarte('aufgaben');
+  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+  var top=ck.top||[];
+  var jh=top.length
+    ? top.slice(0,5).map(function(x){
+        var l=_AB_RALPH_LAGE[x.status]||(x.decision_needed===true
+              ? {t:'Du entscheidest', f:'krit'} : {t:_abCkStatusWort(x.status), f:'zu'});
+        return '<div class="brz" data-work="'+esc(String(x.work_id))+'" title="'+esc(x.title||'')+'">'
+          +'<span class="brn">#'+esc(String(x.work_id))+'</span>'
+          +'<span class="brt"><span class="b1">'+esc(_abRalphKurz(x.title))+'</span>'
+          +'<span class="b2">'+esc(l.t)+' · '+esc(x.owner_agent||'')+'</span></span>'
+          +'<span class="brp '+l.f+'"></span></div>';
       }).join('')
     : '<div class="bleer">Nichts wartet auf dich — alles abgearbeitet.</div>';
+  var w=function(v){ return (Number(v)||0)>0 ? _AB.warn : null; };
   return {
-    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">nach Dringlichkeit</span>',
-    inhalt:'<div class="bleib">'+jh
-      /* 🔴 16.08., Ralph: „hier müssen AUCH DIE aufgaben work # von mir
-         enthalten sein und zwar verständlich um was es geht."
-         Die Work Items laden NACH — sie kommen aus der Datenbank und duerfen
-         den Seitenaufbau nicht aufhalten (Work #17). */
-      +'<div id="abRalph" class="bralph"><div class="blade">deine Punkte laden…</div></div>'
-      +'</div>',
-    fuss:jobs.length>4
-      ? ('und '+(jobs.length-4)+' weitere — „Alle offenen Punkte" unten zeigt sie')
-      : 'Jede Zeile springt an ihre Stelle.'
+    tag:'<span class="abtag" style="background:'+((Number(ck.bei_ralph)||0)>0?'#fdf1f1':'#eef0f4')
+      +';color:'+((Number(ck.bei_ralph)||0)>0?_AB.krit:_AB.mut)+'">'
+      +(Number(ck.bei_ralph)||0)+' bei dir</span>',
+    inhalt:'<div class="bleib"><div class="bralph">'+jh+'</div>'
+      +'<div style="margin-top:8px">'
+        + _abCkZeile('wartet auf Abnahme',   ck.wartet_abnahme,       ck.drill_key)
+        + _abCkZeile('blockiert oder Streit',ck.blockiert_oder_streit,ck.drill_key, w(ck.blockiert_oder_streit))
+        + _abCkZeile('länger als 24 h in Arbeit', ck.in_arbeit_alt_24h, ck.drill_key)
+      +'</div></div>',
+    fuss:top.length>5
+      ? ('und '+(top.length-5)+' weitere — jede Zahl öffnet die volle Liste')
+      : 'Jede Zahl öffnet die volle Liste.'
   };
+}
+
+/* Statuswort fuer Ralph, nicht fuer Agenten. Der Queue-Status heisst
+   „ready_for_verification"; das sagt ihm nichts (§32.2a). */
+function _abCkStatusWort(s){
+  return {ready_for_verification:'Wartet auf Abnahme', in_progress:'In Arbeit',
+          open:'Offen', blocked:'Hängt fest', disputed:'Rückfrage',
+          decision_ralph:'Du entscheidest'}[s] || String(s||'');
 }
 
 /* ---- Was bei RALPH liegt --------------------------------------------------
@@ -14289,38 +14505,16 @@ var _AB_RALPH_LAGE={
   disputed:      {t:'Rückfrage an dich', f:'warn'},
   blocked:       {t:'Hängt fest', f:'warn'}
 };
-async function _abRalphLaden(){
-  var box=document.getElementById('abRalph'); if(!box) return;
-  try{
-    var r=await client.rpc('cb_admin_agent_work_liste',
-      {p_owner:null,p_status:null,p_product_id:null,p_limit:200});
-    if(r.error) throw r.error;
-    var alle=r.data||[];
-    var meine=alle.filter(function(x){
-      return _AB_RALPH_LAGE[x.status] || x.decision_needed===true; });
-    meine.sort(function(a,b){
-      var o=['decision_ralph','disputed','blocked'];
-      return (o.indexOf(a.status)-o.indexOf(b.status)) || (b.priority-a.priority); });
-    if(!meine.length){
-      box.innerHTML='<div class="brtitel">Bei dir liegt nichts</div>';
-      return;
-    }
-    box.innerHTML='<div class="brtitel">Bei dir liegen '+meine.length+'</div>'
-      + meine.slice(0,5).map(function(x){
-          var l=_AB_RALPH_LAGE[x.status]||{t:'Zu entscheiden',f:'warn'};
-          return '<div class="brz" data-work="'+x.work_id+'" title="'+esc(x.title||'')+'">'
-            +'<span class="brn">#'+x.work_id+'</span>'
-            +'<span class="brt"><span class="b1">'+esc(_abRalphKurz(x.title))+'</span>'
-            +'<span class="b2">'+esc(l.t)+' · '+esc(x.area||'')+'</span></span>'
-            +'<span class="brp '+l.f+'"></span></div>';
-        }).join('')
-      + (meine.length>5 ? '<div class="brmehr">und '+(meine.length-5)+' weitere</div>' : '');
-  }catch(e){
-    box.innerHTML='<div class="bfehl"><b>Deine Punkte nicht ladbar.</b><br>'
-      +esc((e&&e.message)||String(e))+'</div>';
-    try{ console.warn('[Ralph-Punkte]',e); }catch(_){}
-  }
-}
+/* 🔴 _abRalphLaden IST ENTFERNT (Work #121, 20.08.2026) — bewusst, mit
+   Begruendung statt stillschweigend (§3.7).
+   Sie holte 200 Zeilen aus cb_admin_agent_work_liste und filterte, sortierte
+   und zaehlte sie IM BROWSER. Damit gab es zwei Vorstellungen davon, was „bei
+   Ralph liegt": ihre und die des Servers. Gemessen 20.08.: der Filter hier
+   ergab 5 Punkte, cockpit.hero.ralph_entscheidungen sagt 2 — weil er
+   „decision_needed an einem erledigten Item" nicht mitzaehlt und der Browser
+   schon.
+   Die Kachel liest jetzt cockpit.karten.aufgaben. Der Container #abRalph ist
+   dabei geblieben, nur ohne Nachlader: die Zeilen stehen sofort im Markup. */
 
 /* ============================================================================
    COCKPIT-KACHELN  ·  Work #121, Stufe 3  ·  20.08.2026
@@ -14546,21 +14740,82 @@ function _abBento(d,np,A){
    die Nachlader (abAkt · abRegion · abStammU) suchen weiterhin dieselben
    Container und wurden NICHT angefasst.
    ========================================================================== */
-function _abkAkt(){
+/* ---- 5) EINGANG (id bleibt „aktivitaet") -----------------------------------
+   🔴 20.08.2026, Work #121: die Kachel zeigt die sechs echten ZUFLUESSE mit
+   Wartemenge und Alter, nicht mehr „Meistgeoeffnete Produkte / erfolglose
+   Suchen". Die ID bleibt, damit gespeicherte Layouts aus Work #42 nicht
+   migriert werden muessen — nur ihr fachlicher Inhalt ist definiert worden.
+
+   WAS DABEI WEGFAELLT, und das steht hier statt es zu verschweigen: die
+   30-Tage-Nutzung aus cb_top_aufrufe / cb_top_suchen. Beide RPCs bleiben
+   unangetastet in der Datenbank; sie haben nur keinen Platz mehr im
+   Standard-Dashboard. Ralph kann sie ueber die freie Kachel zurueckholen. */
+function _abkAkt(c){
+  var ck=_abCkKarte('aktivitaet');
+  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+  var q=ck.queues||[];
+  var wegWort={auto:'Automatik', hand:'von Hand', keiner:'kein Weg'};
+  var zeilen=q.map(function(x){
+    var n=Number(x.wartend)||0;
+    var kein=(x.weg==='keiner');
+    var alter=(x.aeltester_tage==null)?'':(' · ältester '+x.aeltester_tage+' T');
+    return '<div class="bzeile'+(x.drill_key?' bdrill':'')+'"'
+      +(x.drill_key?' data-drill="'+esc(x.drill_key)+'" data-drill-titel="'+esc(x.name||x.id)+'"':'')
+      +'><span>'+esc(x.name||x.id||'')
+        +'<i style="font-style:normal;opacity:.7"> — '+esc(wegWort[x.weg]||String(x.weg||''))
+        +esc(alter)+'</i></span>'
+      +'<b'+(kein&&n>0?' style="color:'+_AB.warn+'"':'')+'>'+n+'</b></div>';
+  }).join('');
+  var ohne=Number(ck.ohne_automatischen_weg)||0;
   return {
-    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">30 Tage</span>',
-    inhalt:'<div class="bleib" id="abAkt"><div class="blade">lädt…</div></div>',
-    fuss:''
+    tag:'<span class="abtag" style="background:'+(ohne>0?'#fff6e6':'#eef0f4')+';color:'
+      +(ohne>0?_AB.warn:_AB.mut)+'">'+ohne+' ohne automatischen Weg</span>',
+    inhalt:'<div class="bleib">'
+      +(zeilen||'<div class="bleer">Kein Zufluss wartet.</div>')
+      +'</div>',
+    fuss:'Anklickbare Zeilen öffnen die wartenden Einträge.'
   };
 }
-function _abkRegion(){
-  return {tag:'', inhalt:'<div class="bleib" id="abRegion"><div class="blade">lädt…</div></div>', fuss:''};
+
+/* ---- 7) NUTZUNG (id bleibt „region") ---------------------------------------
+   Ralph-Korrektur 18.08.: die Deutschlandkarte BLEIBT. Sie wird weiterhin von
+   dashKarteLoad/entKarteDE gezeichnet — kein zweiter Kartenzeichner (§4.2,
+   Kriterium 11). Die Nutzungswerte darueber kommen aus dem Cockpit. */
+function _abkRegion(c){
+  var ck=_abCkKarte('region');
+  var kopf=ck
+    ? '<div style="margin-bottom:7px">'
+        + _abCkZeile('Nutzer gesamt', ck.nutzer_gesamt, null)
+        + _abCkZeile('aktiv, 7 Tage', ck.aktiv_7t, null)
+        + _abCkZeile('Premium', ck.premium, null)
+        + _abCkZeile('Tagebuch, 7 Tage', ck.tagebuch_7t, null)
+      +'</div>'
+    : '<div class="blade">Nutzungswerte laden…</div>';
+  return {tag:'', inhalt:'<div class="bleib">'+kopf
+    +'<div id="abRegion"><div class="blade">Karte lädt…</div></div></div>', fuss:''};
 }
-function _abkStammU(){
+
+/* ---- 6) STAMM (id bleibt „stammu") -----------------------------------------
+   🔴 20.08.2026, Work #121, Kriterium 6: die Kachel nennt NICHT mehr
+   public.Zutaten_Stamm. Die Zahlen kommen aus der Canonical-Wahrheit im
+   Cockpit. Der bisherige Nachlader rief cb_admin_stamm_waechter mit gemessenen
+   4,9 s (Work #17) — er ist damit aus dem Seitenaufbau raus. */
+function _abkStammU(c){
+  var ck=_abCkKarte('stammu');
+  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+  var dr=ck.drills||{};
+  var w=function(v){ return (Number(v)||0)>0 ? _AB.warn : null; };
   return {
-    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">neu / alt</span>',
-    inhalt:'<div class="bleib bscroll" id="abStammU"><div class="blade">lädt…</div></div>',
-    fuss:''
+    tag:'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">Canonical</span>',
+    inhalt:'<div class="bleib"><div class="bzahl" style="color:'+_AB.kern+'">'
+      +(ck.aktiv==null?'–':ck.aktiv)+'</div>'
+    +'<div class="bunter">aktive Canonical-Zutaten</div>'
+    +'<div style="margin-top:9px">'
+      + _abCkZeile('wirklich unbewertet', ck.wirklich_unbewertet, null, w(ck.wirklich_unbewertet))
+      + _abCkZeile('nie gebunden',        ck.nie_gebunden,   dr.nie_gebunden,   w(ck.nie_gebunden))
+      + _abCkZeile('ohne Kategorie',      ck.ohne_kategorie, dr.ohne_kategorie, w(ck.ohne_kategorie))
+    +'</div></div>',
+    fuss:'Canonical ist die Wahrheit — der Legacy-Zeilenzähler ist keine Kennzahl mehr.'
   };
 }
 
@@ -14573,18 +14828,58 @@ function _abBento2(){ return ''; }
 /* Schnellzugriff. Reine Wege, keine Zahlen — deshalb sofort da und ohne Nachladen.
    Die Ziele sind adminGo-Schluessel, die es WIRKLICH gibt (aus der fg-Tabelle in
    adminGo gelesen, nicht geraten). */
+/* ---- 8) BETRIEB & SCHNELLZUGRIFF (id bleibt „schnell") ---------------------
+   🔴 20.08.2026, Work #121: die sechs action keys kommen jetzt vom Server und
+   werden auf VORHANDENE Wege gemappt. Kein Weg wird erfunden (Kriterium 7).
+   Gemessen 20.08. an adminGo: dash · scans · bundles · rezepte · empfehlungen ·
+   zuverif · regelwerk · produkterfassung · stamm sind die Tabs; alles andere
+   laeuft ueber navTo. Fuer `work_queue` gibt es im Frontend KEINE Ansicht —
+   der Knopf oeffnet deshalb die Serverliste, statt ins Leere zu zeigen.
+
+   Dazu die Betriebstakte aus cockpit.karten.schnell.takte: Name, Alter,
+   Fehlerserie. Ralphs Vorgabe „keine rohen HTML-Fehlermeldungen im Kacheltext"
+   ist eingehalten — es steht nur, wann es zuletzt lief und ob es haengt. */
+var _AB_SCHNELL_WEG={
+  erfassung:   {ic:'✏️', go:'produkterfassung'},
+  scan:        {ic:'📷', fn:function(){ if(typeof scanEingangOeffnen==='function') scanEingangOeffnen(); }},
+  stamm:       {ic:'🧬', go:'stamm'},
+  waechter:    {ic:'🛡️', fn:function(){ _abSprung('waechter'); }},
+  wirkdiagramm:{ic:'🕸️', fn:function(){ if(typeof dashArbeitAnsichtSet==='function') dashArbeitAnsichtSet('architektur'); }},
+  work_queue:  {ic:'📋', drill:'arbeit_attention', drillTitel:'Work Queue — was offen ist'}
+};
+
 function _abSchnell(){
-  var z=[['produkterfassung','✏️','Produkt erfassen'],
-         ['zuverif','🕵️','Zu verifizieren'],
-         ['stamm','🧬','Stamm bearbeiten'],
-         ['regelwerk','📖','Regelwerk'],
-         ['rezepte','🍲','Rezepte']];
-  return '<div class="bk"><div class="bkopf"><h3>Schnellzugriff</h3></div>'
+  var ck=_abCkKarte('schnell');
+  var akt=(ck&&ck.aktionen)||[];
+  var knoepfe=akt.map(function(a){
+    var w=_AB_SCHNELL_WEG[a.key];
+    if(!w) return '';                       /* unbekannter Schluessel: kein Knopf */
+    return '<button type="button" class="abschnell abschnellv2" data-akey="'+esc(a.key)+'">'
+      +'<span class="ic">'+w.ic+'</span>'+esc(a.label||a.key)+'<span class="pf">›</span></button>';
+  }).join('');
+
+  var takte=((ck&&ck.takte)||[]).map(function(t){
+    var min=Number(t.minuten_her);
+    var alt=isNaN(min)?'–':(min<90? (Math.round(min)+' min her')
+                                  : (Math.round(min/60)+' h her'));
+    var serie=Number(t.fehler_serie)||0;
+    var f=(serie>0)?_AB.krit:((!isNaN(min)&&min>1440)?_AB.warn:null);
+    return '<div class="bzeile"><span>'+esc(t.takt||'')+'</span><b'
+      +(f?' style="color:'+f+'"':'')+'>'+esc(alt)+(serie>0?(' · '+serie+'× Fehler'):'')+'</b></div>';
+  }).join('');
+
+  var auto=ck ? (ck.autopilot_an===true
+      ? '<div class="bzeile"><span>Etikett-Autopilot</span><b style="color:'+_AB.gut+'">läuft</b></div>'
+      : '<div class="bzeile'+((Number(ck.foto_wartend)||0)>0?' bdrill':'')+'"'
+        +((Number(ck.foto_wartend)||0)>0?' data-drill="scan_foto" data-drill-titel="Wartende Etikettfotos"':'')
+        +'><span>Etikett-Autopilot</span><b style="color:'+_AB.krit+'">aus · '
+        +(Number(ck.foto_wartend)||0)+' warten</b></div>')
+    : '';
+
+  return '<div class="bk"><div class="bkopf"><h3>Betrieb &amp; Schnellzugriff</h3></div>'
     +'<div class="bleib" style="padding-top:6px">'
-    + z.map(function(x){
-        return '<button type="button" class="abschnell" data-go="'+esc(x[0])+'">'
-          +'<span class="ic">'+x[1]+'</span>'+esc(x[2])+'<span class="pf">›</span></button>';
-      }).join('')
+    + (ck ? (auto+takte+'<div style="height:7px"></div>'+knoepfe)
+          : '<div class="blade">lädt…</div>')
     +'</div></div>';
 }
 
@@ -14599,37 +14894,16 @@ async function _abBento2Laden(d){
     try{ console.error('[Bento2] '+was, e); }catch(_){}
   };
 
-  /* --- Letzte Aktivitaeten ------------------------------------------------- */
-  (async function(){
-    try{
-      var r=await Promise.all([
-        client.rpc('cb_top_aufrufe',{p_tage:30,p_limit:6}),
-        client.rpc('cb_top_suchen',{p_tage:30,p_nur_ohne_treffer:true,p_limit:6})
-      ]);
-      if(r[0].error) throw r[0].error;
-      if(r[1].error) throw r[1].error;
-      var auf=r[0].data||[], such=r[1].data||[];
-      var zeile=function(l,rechts,warn){
-        return '<div class="bzeile"><span style="overflow:hidden;text-overflow:ellipsis;'
-          +'white-space:nowrap">'+l+'</span><b'+(warn?' style="color:'+_AB.warn+'"':'')+'>'
-          +rechts+'</b></div>'; };
-      var h='<div class="babs">Meistgeöffnete Produkte</div>';
-      h+= auf.length
-        ? auf.map(function(x){ return zeile(esc(x.produktname||x.Produkt_ID||'?')
-            +(x.marke?' <span style="color:var(--abmut)">· '+esc(x.marke)+'</span>':''),
-            (x.aufrufe==null?'–':x.aufrufe)); }).join('')
-        : '<div class="bleerk">Noch keine Aufrufe gezählt.</div>';
-      h+='<div class="babs" style="margin-top:10px">Gesucht, aber nicht gefunden '
-        +'<span style="font-weight:400;color:var(--abmut)">— Katalog-Lücken</span></div>';
-      h+= such.length
-        ? such.map(function(x){ return zeile(esc(x.begriff),(x.gesucht==null?'–':x.gesucht+'×'),true); }).join('')
-        : '<div class="bleerk">Keine erfolglosen Suchen — gut.</div>';
-      setz('abAkt',h);
-    }catch(e){ fehl('abAkt',e,'Aktivitäten'); }
-  })();
-
-  /* --- Was bei Ralph liegt (16.08.) --------------------------------------- */
-  try{ _abRalphLaden(); }catch(e){ try{ console.warn('[Ralph-Punkte]',e); }catch(_){} }
+  /* --- Eingang, Stamm, Arbeit: kommen seit Work #121 aus dem Cockpit --------
+     Drei Nachlader sind hier ENTFERNT, jeder mit seinem Grund (§3.7):
+       · cb_top_aufrufe / cb_top_suchen — die Kachel „aktivitaet" zeigt jetzt
+         die Zuflüsse. Beide RPCs bleiben in der Datenbank, sie haben nur
+         keinen Platz mehr im Standard-Dashboard.
+       · cb_admin_stamm_waechter — 4,9 s gemessen (Work #17); die Stammzahlen
+         stehen im Cockpit und kommen aus Canonical statt aus dem Legacy-Stamm.
+       · cb_admin_agent_work_liste — siehe _abRalphLaden weiter oben.
+     Die Deutschlandkarte (#abRegion) laedt weiterhin nach: sie ist ein
+     Kartenzeichner, keine Zahl (Kriterium 11). */
 
   /* --- Wirkkette (C3, 15.08.) ---------------------------------------------
      Zahlen aus cb_admin_architektur_liste. Sie kommen SERVERSEITIG gezaehlt
@@ -14692,8 +14966,16 @@ async function _abBento2Laden(d){
     }
   })();
 
-  /* --- Stamm-Ueberblick ---------------------------------------------------- */
+  /* --- Stamm-Ueberblick ----------------------------------------------------
+     🔴 20.08.2026, Work #121: RIEGEL statt Loeschung. Die Standardkachel
+     „Stamm" liest ihre Zahlen jetzt aus dem Cockpit und legt keinen Container
+     #abStammU mehr an — dieser Block liefe also ins Leere und wuerde dabei
+     trotzdem die 4,9-Sekunden-RPC ziehen. Der Riegel ist derselbe wie beim
+     Wirkketten-Block darunter. Der Code bleibt stehen, samt seiner
+     Waechter-Drilldowns, falls die alte Kachel zurueckgeholt wird (§3.7:
+     abschalten schlaegt loeschen). */
   (async function(){
+    if(!document.getElementById('abStammU')) return;
     var zweiter=false;
     try{
       var r=await client.rpc('cb_admin_stamm_waechter');
