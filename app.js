@@ -5836,78 +5836,85 @@ function peHatWaechter(p){
    kleiner als das Fenster, sobald die Adressleiste eingeblendet ist. Genau
    deshalb war Ralphs Liste unten abgeschnitten.
    ============================================================================ */
+/* 🔴 SECHSTE UND LETZTE FASSUNG, 20.08.2026 — und die erste, die nicht rechnet.
+   Ralph nach 4090: "produktliste ist wieder sehr kurz und nicht ueber die ganze seite."
+
+   DER BEFUND, endlich aus einem Screenshot statt aus einer Vermutung:
+   Unter der Liste steht #peDetail mit dem gestrichelten Platzhalter ("Zeile in der
+   Liste waehlen") - 34px Innenabstand oben und unten, zusammen rund 250px samt
+   Blaetterleiste und Fusszeile. Die alte Messung hat ihn korrekt abgezogen. Sie war
+   ARITHMETISCH RICHTIG und trotzdem falsch: ich habe die Liste an einen Nachbarn
+   angepasst, der selbst nachgeben muesste. Ein leerer Platzhalter darf keinen Platz
+   auf Kosten der Liste halten.
+
+   FUENF FASSUNGEN, EIN MUSTER: viermal habe ich die falsche GROESSE gefragt
+   (Scrollstand, Ueberschuss, scrollHeight, Nachbarhoehe), nie falsch gerechnet.
+   Wer fuenfmal dieselbe Art Fehler macht, hat nicht Pech, sondern das falsche
+   Werkzeug.
+
+   JETZT rechnet der Browser. Die Liste sitzt in einem Flex-Container (#peListenSeite),
+   der genau eine gemessene Zahl braucht: seinen eigenen Abstand von der
+   Dokumentoberkante. Die aendert sich NICHT mit dem, was unter oder in ihm steht -
+   genau deshalb kann sie nicht wieder falsch werden. Alles darin verteilt Flex:
+   Kopf und Blaetterleiste behalten ihre Eigenhoehe, die Liste nimmt den Rest.
+   Kommt morgen eine Filterreihe dazu oder weg, stimmt es weiter, ohne dass jemand
+   eine Zahl nachtraegt (§28.4).
+
+   Der Platzhalter ist zusaetzlich ENTFALLEN: er erklaerte nur, was die Liste selbst
+   zeigt. Damit steht unter der Liste nichts mehr, solange kein Produkt gewaehlt ist.
+
+   Ist ein Produkt gewaehlt, steht der Editor in #peDetail. Dann wird die Deckelung
+   AUFGEHOBEN - sonst laege der Editor unter dem Fensterrand. Der Schalter ist
+   window._peSel, kein eigener Zustand daneben (§4.2).
+
+   visualViewport statt innerHeight: auf dem Handy ist der sichtbare Bereich kleiner
+   als das Fenster, sobald die Adressleiste eingeblendet ist.
+   ============================================================================ */
 function peListeHoehe(){
-  var w=document.getElementById('peGridWrap'); if(!w) return;
-  var r=w.getBoundingClientRect();
+  var s=document.getElementById('peListenSeite');
+  if(!s){ peFabSetzen(null); return; }
+  /* Zwei Faelle, in denen NICHT gedeckelt wird:
+     - ein Produkt ist gewaehlt: der Editor steht in #peDetail darunter und muss
+       erreichbar bleiben, also scrollt die Seite normal;
+     - die Liste ist zugeklappt: sonst bliebe ein leerer Streifen ueber die
+       ganze Fensterhoehe stehen.
+     Beide Zustaende sind vorhanden (window._peSel, window._peListCollapsed) und
+     werden gelesen, nicht neu gefuehrt (§4.2). */
+  if(window._peSel || window._peListCollapsed){ s.style.height=''; s.style.overflow=''; return; }
   var sicht=(window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
   if(!sicht) return;
-  /* 🔴 EIGENER FEHLER, 19.08. — Ralph: "ist immer noch so", Build 3970.
-     Hier stand: sicht - r.top - 16.
-     r.top ist die Position IM FENSTER und haengt damit am Scrollstand. Beim
-     Scrollen wandert der Wrapper nach oben, r.top wird kleiner, die berechnete
-     Hoehe WAECHST - und die Seite kann noch weiter scrollen. Der Deckel machte
-     das Problem also nicht kleiner, sondern beim Scrollen groesser. Ein Regler,
-     der sich selbst verstellt.
-     RICHTIG ist die Position IM DOKUMENT: r.top + scrollY. Die ist unabhaengig
-     davon, wo gerade gescrollt wurde, und ergibt eine stabile Hoehe - genau die,
-     bei der Kopf + Liste zusammen ins Fenster passen und die Seite gar nicht
-     erst zu scrollen anfaengt.
-     16px Luft nach unten, damit die letzte Zeile nicht am Rand klebt. Der
-     schwebende Neues-Produkt-Knopf braucht spaeter mehr - dann wird DIESE Zahl
-     erhoeht und nicht eine zweite daneben gestellt (§4.2). */
-  var obenImDokument=r.top + (window.scrollY || window.pageYOffset || 0);
-  var h=Math.round(sicht - obenImDokument - 16);
-  /* 🔴 ZWEITER EIGENER FEHLER, 19.08. — Ralph, Build 3980: die Seite scrollt immer
-     noch. Der Deckel war richtig gerechnet und trotzdem zu gross, weil ich nur
-     gefragt hatte "wie viel Platz ist ab hier bis zum unteren Rand". UNTER der
-     Liste stehen aber noch die Blaetterleiste (zurueck · 1-100 von 221 · weiter)
-     und der Detailbereich ("Zeile in der Liste waehlen"). Die brauchen auch Platz.
-     Ich hatte die Liste gedeckelt und den Rest der Seite vergessen.
-
-     STATT DIE EINZELNEN TEILE ZU ADDIEREN - das waere die naechste Liste von
-     Zahlen, die jemand nachtragen muss (§28.4) - wird der UEBERSCHUSS gemessen:
-     wie viel ist das Dokument hoeher als das Fenster? Genau so viel kommt vom
-     Deckel wieder ab. Das umfasst automatisch alles, was unter der Liste steht,
-     heute und nach jedem kuenftigen Umbau.
-     Einmalig, nicht in einer Schleife: Schrumpfen erzeugt keinen neuen Ueberschuss. */
-  /* 🔴 19.08., FUENFTE FASSUNG. Ralph nach 4050: "wieder geschrumpft."
-     DER FEHLER IN DEN FASSUNGEN 3 UND 4 WAR GRUNDSAETZLICH:
-     document.documentElement.scrollHeight wird NIE kleiner als das Fenster. Ist
-     Platz frei, meldet es trotzdem genau die Fensterhoehe. Meine Regelung fragte
-     also "ist Platz frei?" und bekam immer "nein" - sie konnte nur verkleinern,
-     niemals wieder vergroessern. Genau das hat Ralph zweimal gesehen.
-     Ich habe eine Groesse gemessen, die nach unten begrenzt ist, und von ihr eine
-     Auskunft erwartet, die sie nicht geben kann.
-
-     JETZT wird gemessen, was WIRKLICH unter der Liste steht: die Unterkante des
-     body minus die Unterkante der Liste. body.getBoundingClientRect().bottom ist
-     die echte Unterkante des Inhalts und wird NICHT auf die Fensterhoehe
-     aufgerundet - das ist der ganze Unterschied.
-     Damit muss nichts aufgezaehlt werden: Blaetterleiste, Detailbereich und alles,
-     was kuenftig dazukommt, sind automatisch dabei. Keine Liste von Zahlen, die
-     jemand pflegen muss (§28.4).
-     Unter 280px wird nicht verkleinert - darunter ist es kein Listenbereich mehr,
-     sondern ein Schlitz. */
-  var koerper=document.body?document.body.getBoundingClientRect():null;
-  var danach=koerper?Math.max(0,Math.round(koerper.bottom-r.bottom)):0;
-  /* Der schwebende Knopf braucht seinen Platz - sonst liegt er ueber der letzten
-     Listenzeile. Genau der Fehler, der RIKI in der Benutzersicht aus dem
-     schwebenden Knopf in die Bodenleiste getrieben hat. EINE Zahl, EIN Ort. */
-  var fab=document.getElementById('peNeuFab')?PE_FAB_H:0;
-  h=Math.max(280, Math.round(sicht - obenImDokument - danach - fab - 16));
-  w.style.maxHeight=h+'px';
+  var r=s.getBoundingClientRect();
+  var obenImDok=r.top + (window.scrollY || window.pageYOffset || 0);
+  var h=Math.max(320, Math.round(sicht - obenImDok - 14));
+  s.style.height=h+'px';
+  s.style.overflow='hidden';
+  /* EINE Messung, zwei Verwender: der schwebende Knopf sitzt auf Hoehe der
+     Werkzeugzeile, nicht an einer zweiten gerechneten Stelle. */
+  peFabSetzen(Math.round(r.top)+8);
 }
+/* Die fuenfte Fassung stand hier und ist geloescht, nicht auskommentiert: sie
+   rechnete h = sichtbar - obenImDokument - (body.bottom - liste.bottom) - Knopf.
+   Arithmetisch richtig, und trotzdem falsch - der Abzug enthielt den leeren
+   Platzhalter, der jetzt weg ist. Toter Code, der dieselben Namen vergibt, ist
+   eine geladene Falle. */
 /* ============================================================================
-   WORK #130 S2 — "+ Neues Produkt" als schwebender Knopf
+   WORK #130 S2/S3 — "+ Neues Produkt" als schwebender Knopf, OBEN RECHTS
 
-   🔴 DIE LEHRE VON HEUTE IST HIER SCHON EINGEBAUT: ein schwebender Knopf verdeckt
-   Inhalt. Genau deshalb ist RIKI in der Benutzersicht aus dem schwebenden Knopf in
-   die Bodenleiste gewandert - er lag ueber dem Aufklapp-Pfeil der Mahlzeiten.
-   Damit das hier nicht passiert, wird der Platzbedarf des Knopfes in peListeHoehe
-   mitgemessen: die Liste endet UEBER ihm, nicht darunter. Kein zweiter Abstand
-   irgendwo daneben (§4.2).
+   20.08.2026, Ralph: "der schwebende button neues produkt ist gut, darf aber
+   oben rechts sein."
+
+   Unten rechts war er nicht falsch, nur im Weg: dort deckelte er die Liste
+   (PE_FAB_H, jetzt entfallen) und lag ueber der letzten Zeile. Oben rechts sitzt
+   er in dem Bereich, der in der Werkzeugzeile ohnehin leer ist - dafuer
+   reserviert der Sticky-Kopf rechts PE_FAB_W Pixel, damit der Knopf NIE einen
+   anderen ueberdeckt. Genau der Fehler, der RIKI in der Benutzersicht aus dem
+   schwebenden Knopf in die Bodenleiste getrieben hat.
+
+   Die Y-Position kommt aus derselben Messung wie die Listenhoehe
+   (peListeHoehe -> peFabSetzen). Eine Messung, zwei Verwender, kein zweiter
+   gerechneter Ort (§4.2).
    ============================================================================ */
-var PE_FAB_H=64;                 /* Knopfhoehe samt Abstand - eine Zahl, EIN Ort */
+var PE_FAB_W=186;                /* Breite samt Abstand - eine Zahl, EIN Ort */
 function peNeuFabInit(){
   if(document.getElementById('peNeuFab')) return;      // genau einer, nie zwei
   var b=document.createElement('button');
@@ -5916,12 +5923,26 @@ function peNeuFabInit(){
   b.title='Neues Produkt anlegen';
   b.setAttribute('aria-label','Neues Produkt anlegen');
   b.onclick=function(){ try{ peNeu(); }catch(e){ console.error('peNeu:',e); } };
-  b.style.cssText='position:fixed;right:22px;bottom:22px;z-index:40;'
-    +'height:44px;padding:0 18px;border:0;border-radius:22px;'
+  b.style.cssText='position:fixed;right:22px;top:96px;z-index:40;'
+    +'height:40px;padding:0 18px;border:0;border-radius:20px;'
     +'background:#2f4fd6;color:#fff;font-size:14px;font-weight:700;cursor:pointer;'
     +'box-shadow:0 4px 14px rgba(20,40,90,.28);display:flex;align-items:center;gap:7px';
   b.innerHTML='<span style="font-size:18px;line-height:1">＋</span><span>Neues Produkt</span>';
   document.body.appendChild(b);
+}
+/* Setzt die Y-Position des Knopfes.
+   null heisst "keine Messung verfuegbar" - dann bleibt der zuletzt gesetzte Wert
+   stehen, statt den Knopf an den Fensterrand zu werfen.
+   Eine Zahl wird immer gesetzt, aber nie oberhalb von 8px: hat der Container eine
+   negative Oberkante (weil gescrollt wurde), klebt der Knopf am Fensterrand statt
+   unsichtbar darueber zu liegen.
+   🔴 Hier standen erst ZWEI Schutzmechanismen fuer dasselbe (if(top>0) UND
+   Math.max(8,...)), und sie widersprachen sich: bei negativer Oberkante griff der
+   erste und der zweite kam nie zum Zug. Der Test hat es gefunden. */
+function peFabSetzen(top){
+  var b=document.getElementById('peNeuFab'); if(!b) return;
+  if(top===null || top===undefined) return;
+  b.style.top=Math.max(8,Math.round(top))+'px';
 }
 function peNeuFabWeg(){ var b=document.getElementById('peNeuFab'); if(b) b.remove(); }
 function peListeHoeheBinden(){
@@ -5936,7 +5957,13 @@ function peListeHoeheBinden(){
   if(window.visualViewport){ window.visualViewport.addEventListener('resize',lauf); }
   /* Der Kopf aendert seine Hoehe, wenn Filter dazukommen oder Chips umbrechen -
      ein ResizeObserver merkt das, ein Zeitgeber wuerde es verpassen oder dauernd
-     laufen. Faellt er aus, bleibt der Rueckfall calc(100dvh - 430px) bestehen. */
+     laufen.
+     🔴 20.08.2026: HIER STAND "faellt er aus, bleibt der Rueckfall
+     calc(100dvh - 430px) bestehen". Den Rueckfall gibt es nicht mehr - er ist mit
+     der sechsten Fassung entfallen. Faellt der Beobachter aus, behaelt der
+     Container die zuletzt gemessene Hoehe; das ist kein Rueckfall, sondern ein
+     veralteter Wert bis zum naechsten resize. Ein Kommentar, der nicht mehr
+     stimmt, ist eine Luege im Code. */
   try{
     var st=document.getElementById('peSticky');
     if(st && typeof ResizeObserver==='function'){ new ResizeObserver(lauf).observe(st); }
@@ -6161,8 +6188,17 @@ async function loadProduktErfassung(){
     /* Kopfbereich entfernt 01.08.2026 (Ralph: "der bereich kann weg, ich kenne ihn,
        schafft mehr platz") - Titel, Zentrale-Pille und Erklaerzeile sind raus,
        die Liste beginnt direkt mit der Toolbar. */
-    /* Sticky-Menü: Toolbar + Chips bleiben beim Scrollen oben stehen */
-    '<div id="peSticky" style="position:sticky;top:0;z-index:22;background:#f4f7fa;margin:0 -10px;padding:8px 10px 6px;box-shadow:0 8px 10px -9px rgba(20,40,70,.30)">'
+    /* 🔴 20.08.2026, Work #130 S6 — DER FLEX-RAHMEN.
+       Ralph nach fuenf Fassungen: "produktliste ist wieder sehr kurz."
+       Kopf und Liste liegen ab jetzt in EINEM Flex-Container mit gemessener
+       Hoehe. Der Kopf behaelt seine Eigenhoehe, die Liste nimmt den Rest -
+       verteilt vom Browser, nicht von mir gerechnet. #peDetail steht bewusst
+       AUSSERHALB: der Editor darf die Seite scrollen lassen, die Liste nicht.
+       Siehe peListeHoehe. */
+    '<div id="peListenSeite" style="display:flex;flex-direction:column;min-height:0">'
+    /* Sticky-Menü: Toolbar + Chips bleiben beim Scrollen oben stehen.
+       padding-right haelt den schwebenden "+ Neues Produkt" frei (PE_FAB_W). */
+    +'<div id="peSticky" style="flex:0 0 auto;position:sticky;top:0;z-index:22;background:#f4f7fa;margin:0 -10px;padding:8px '+(PE_FAB_W+10)+'px 6px 10px;box-shadow:0 8px 10px -9px rgba(20,40,70,.30)">'
     /* Toolbar */
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
       /* 🔴 19.08., Work #130 S2, Ralph-Entscheid: "der wichtigste ist ja neues
@@ -6202,7 +6238,7 @@ async function loadProduktErfassung(){
        Zusammen kostete das rund 80px, die der Liste fehlten.
        JETZT eine flache Zeile ohne Rahmen und ohne Ueberschriften. Die
        Listenhoehe zieht von selbst nach - dafuer ist die Messung da. */
-    +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin:2px 0 8px">'
+    +'<div style="flex:0 0 auto;display:grid;grid-template-columns:2fr 1fr;gap:8px;margin:2px 0 8px">'
       /* 02.08.2026: Die Suche laeuft SERVERSEITIG (cb_erfassung_liste, p_suche) - sie
          durchsucht damit alle 58.120 Zeilen und nicht mehr nur die geladene Seite.
          Gesucht wird in Titel, Marke, EAN und P-Nummer. */
@@ -6215,9 +6251,12 @@ async function loadProduktErfassung(){
        über den Pfeil in der Leiste wieder auf, damit sie beim Bearbeiten nicht stört. */
     /* 28z14: Autopilot-Statuszeile (Ralph: Nutzer-Scans muessen sichtbar sein; Riki+Waechter
        arbeiten sie ab, Zweifel bleiben als Entwurf 🤖 in DIESER Liste). Fuellt peAutoInfo(). */
-    +'<div id="peAutoBanner" style="display:none;margin:0 0 10px;padding:8px 12px;border:1px solid #cfe0d6;border-radius:11px;background:#eef7f1;color:#1f5e34;font-size:12.5px"></div>'
-    +'<div id="peListWrap" style="border:1px solid #e2e8ef;border-radius:11px;overflow:hidden;margin-bottom:12px;background:#fff;box-shadow:0 1px 2px rgba(20,40,70,.04)">'
-      +'<div id="peListBar" onclick="peListToggle()" title="Liste ein-/ausklappen" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;background:#eef3f8;border-bottom:1px solid #e2e8ef;user-select:none">'
+    +'<div id="peAutoBanner" style="flex:0 0 auto;display:none;margin:0 0 10px;padding:8px 12px;border:1px solid #cfe0d6;border-radius:11px;background:#eef7f1;color:#1f5e34;font-size:12.5px"></div>'
+    /* flex:1 1 auto + min-height:0 = "nimm den ganzen Rest, und schrumpfe auch
+       unter deinen Inhalt". Ohne min-height:0 waechst ein Flex-Kind nie kleiner
+       als sein Inhalt - dann scrollt wieder die Seite statt der Liste. */
+    +'<div id="peListWrap" style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column;border:1px solid #e2e8ef;border-radius:11px;overflow:hidden;margin-bottom:12px;background:#fff;box-shadow:0 1px 2px rgba(20,40,70,.04)">'
+      +'<div id="peListBar" onclick="peListToggle()" title="Liste ein-/ausklappen" style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;background:#eef3f8;border-bottom:1px solid #e2e8ef;user-select:none">'
         +'<span id="peListCaret" style="color:#3b56b0;font-weight:800;font-size:13px;width:12px">▾</span>'
         +'<span style="font-weight:700;color:#1f2a44;font-size:13px">Produktliste</span>'
         /* Der Riki-Tagesdeckel aus der frueheren Autopilot-Zeile - hier statt in
@@ -6227,28 +6266,24 @@ async function loadProduktErfassung(){
         +'<span style="flex:1"></span>'
         +'<span id="peListAction" style="color:#3b56b0;font-size:12px;font-weight:600"></span>'
       +'</div>'
-      +'<div id="peListBody">'
-        /* 🔴 19.08.2026, Work #130, Ralph: "die produktliste selbst ist dann unten
-           abgeschnitten und der ganze bildschirm scrollt. seite soll statisch sein
-           nur die liste scrollt."
-           HIER STAND: max-height:max(280px,calc(100vh - 430px)).
-           Zwei Fehler in einer Zeile, beide gemessen:
-           1) 430px war GERATEN. Der Kopf ist aber nicht 430px hoch, sondern so hoch
-              wie er gerade ist - drei Filterreihen, und auf schmalem Schirm brechen
-              die Chips um und machen ihn hoeher. Dann rutscht die Liste nach unten
-              aus dem Bild, und weil der Deckel zu gross ist, scrollt die ganze Seite.
-           2) 100vh kennt die Adressleiste des Handys nicht. Auf dem Telefon ist der
-              sichtbare Bereich kleiner - die letzten Zeilen liegen darunter.
-           JETZT: die Hoehe wird GEMESSEN statt gerechnet (peListeHoehe), und 100dvh
-           statt 100vh als Rueckfall, bis die Messung greift. Eine Zahl, die jemand
-           von Hand raten muss, ist irgendwann falsch (§28.4). */
-        +'<div id="peGridWrap" style="max-height:max(280px,calc(100dvh - 430px));overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
-        +'<div id="peFoot" style="padding:7px 10px;color:#7b8698;font-size:12px;border-top:1px solid #e2e8ef;background:#eef3f8"></div>'
+      +'<div id="peListBody" style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column">'
+        /* 🔴 20.08.2026: HIER STAND ein Deckel — erst max-height:calc(100dvh - 430px)
+           mit geratener Zahl, dann fuenf Fassungen gemessenes max-height. Jetzt gibt
+           es keinen Deckel mehr, sondern ein Flex-Kind: die Liste nimmt, was der
+           Container ihr uebrig laesst, und scrollt intern. Kein Wert, der falsch
+           werden kann (§28.4). */
+        +'<div id="peGridWrap" style="flex:1 1 auto;min-height:0;overflow:auto"><table class="peGrid" id="peGrid" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px"></table></div>'
+        +'<div id="peFoot" style="flex:0 0 auto;padding:7px 10px;color:#7b8698;font-size:12px;border-top:1px solid #e2e8ef;background:#eef3f8"></div>'
         /* Blaetterer (02.08.2026). Fuellt pePagerHtml() bei jedem peRender. */
-        +'<div id="pePager" style="padding:8px 10px;border-top:1px solid #e2e8ef;background:#f4f7fa"></div>'
+        +'<div id="pePager" style="flex:0 0 auto;padding:8px 10px;border-top:1px solid #e2e8ef;background:#f4f7fa"></div>'
       +'</div>'
     +'</div>'
-    +'<div id="peDetail"><div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div></div>'
+    +'</div>'   /* Ende #peListenSeite - ab hier scrollt die Seite wieder normal */
+    /* 🔴 20.08.2026: Der gestrichelte Platzhalter "Zeile in der Liste waehlen, um
+       sie zu bearbeiten" ist RAUS. Er kostete rund 250px, die der Liste fehlten,
+       und erklaerte nur, was die Liste selbst zeigt. Der Bereich bleibt leer, bis
+       ein Produkt gewaehlt ist - dann steht hier der Editor. */
+    +'<div id="peDetail"></div>'
     /* Kontextmenue */
     +'<div id="peCtx" style="position:fixed;z-index:60;background:#fff;border:1px solid #d3dbe6;border-radius:10px;padding:5px;min-width:210px;box-shadow:0 14px 38px rgba(20,40,70,.18);display:none"></div>';
   try{ var b=document.getElementById('peBearb'); if(b) b.value=(window._adminName||(window.__profil&&window.__profil.name)||'Angemeldet'); }catch(e){}
@@ -7440,6 +7475,8 @@ async function peDeaktiv(id){
 function peSelect(id){ window._peSel=id;
   document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.toggle('sel', tr.getAttribute('data-id')===String(id)); });
   try{ peStatusBtnUpdate(); }catch(e){}
+  /* Editor kommt: Deckelung aufheben, sonst liegt er unter dem Fensterrand. */
+  try{ peListeHoehe(); }catch(e){}
   /* 🔴 openFgEditor(id) darf NUR eine echte P-Nummer bekommen. Eine Scan-Zeile hat keine
      (id = "S-<EAN>"); cb_produkt_edit_get faende dazu nichts und der Editor stuende leer da,
      ohne dass jemand den Grund sieht. Sie geht deshalb in den Anlege-Weg. */
@@ -7459,10 +7496,14 @@ function peNeu(){ window._peSel=null;
 function peClose(){ window._peSel=null;
   document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.remove('sel'); });
   try{ peStatusBtnUpdate(); }catch(e){}
-  var det=document.getElementById('peDetail'); if(det) det.innerHTML='<div style="color:#7b8698;text-align:center;padding:34px;border:1px dashed #e2e8ef;border-radius:11px">Zeile in der Liste wählen, um sie zu bearbeiten – oder „＋ Neues Produkt".</div>';
+  /* 20.08.2026: leer statt Platzhalter - siehe loadProduktErfassung. */
+  var det=document.getElementById('peDetail'); if(det) det.innerHTML='';
   try{ var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="none"; }catch(e){}
   try{ feFreigabeLeisteHide(); }catch(e){}
   try{ peListSet(false); }catch(e){}   /* Editor zu → Liste wieder aufklappen */
+  /* Editor zu heisst: die Deckelung gilt wieder. window._peSel ist oben schon
+     null gesetzt, deshalb setzt peListeHoehe jetzt die volle Hoehe. */
+  try{ peListeHoehe(); }catch(e){}
   var box=document.getElementById('fgProdErf'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 /* Liste ein-/ausklappen (Ralph 21.07.2026). Zustand in window._peListCollapsed. */
@@ -7475,7 +7516,9 @@ function peListSet(collapsed){
   if(act) act.textContent=collapsed?'einblenden':'';
   if(bar) bar.style.borderBottom=collapsed?'0':'1px solid #e2e8ef';
 }
-function peListToggle(){ peListSet(!window._peListCollapsed); }
+function peListToggle(){ peListSet(!window._peListCollapsed);
+  /* Zugeklappt heisst: kein Vollhoehen-Container (siehe peListeHoehe). */
+  try{ peListeHoehe(); }catch(e){} }
 if(typeof window!=='undefined'){ window.peListSet=peListSet; window.peListToggle=peListToggle; }
 /* ================= AUTO-VERIFIZIERUNG =================
    Gleicht Produkte mit EAN gegen Open Food Facts ab.
@@ -19800,28 +19843,33 @@ async function fgRohtextLauf(){
     if(!resp.ok||d.error) throw new Error(d.error||("HTTP "+resp.status));
     var v=d.vorschlag||{};
     if(!Array.isArray(v.sections)||!Array.isArray(v.items)) throw new Error("Antwort ohne sections/items.");
-    /* 🔴 17.08.2026 — RALPH-ENTSCHEID, deterministisch statt modellabhaengig: bei
-       mehrdeutiger Naehrwertbasis gilt basis_key "unresolved", das Original steht in
-       basis_label. Das Modell haelt sich MEISTENS daran — gemessen an zwei Laeufen
-       desselben Textes: einmal "unresolved", einmal erfundenes "pro_100ml_bzw_g",
-       das die Server-Positivliste korrekt abwies (§3.3). Ein Vertragswert darf nicht
-       an Modellstreuung haengen: unbekannte Schluessel werden HIER auf "unresolved"
-       gesetzt (das Label bleibt unveraendert das Original) und im metadata-Feld
-       benannt — sichtbar, nicht still (§1.7). Die Positivliste kennt heute:
-       pro_100ml · pro_100g · pro_portion · unresolved. */
-    var _basisNorm=[];
-    v.items.forEach(function(i){
-      if(i && i.basis_key && !/^(pro_100ml|pro_100g|pro_portion|unresolved)$/.test(String(i.basis_key))){
-        _basisNorm.push(String(i.basis_key)); i.basis_key="unresolved";
-      }
-    });
+    /* 🔴 20.08.2026 — RALPH-ENTSCHEID: der basis_key-Flattener ist ERSATZLOS RAUS.
+       Hier stand bis Build 4090 eine Schleife, die jeden basis_key ausserhalb
+       pro_100ml|pro_100g|pro_portion|unresolved auf "unresolved" umschrieb und das
+       Original in metadata.basis_key_normalisiert vermerkte.
+
+       Das war eine FACHUEBERSETZUNG IM FRONTEND und damit ein zweiter Ort fuer eine
+       Servervorschrift (§4.2, §10.2). Sie war ausserdem zu eng: die Positivliste des
+       CHECK ck_source_extraction_item_basis_key kennt SIEBEN Werte, nicht vier —
+       pro_100g · pro_100ml · pro_portion · daily_dose · per_container · other ·
+       unresolved (oder NULL). Ein korrektes "daily_dose" wurde hier also zu
+       "unresolved" verfaelscht. Ralph 20.08.: "daily_dose bleibt daily_dose."
+
+       Der Riegel gegen einen vom Modell ERFUNDENEN Schluessel sitzt bereits am
+       richtigen Ort, serverseitig in riki-analyse: dort steht dieselbe Siebenerliste
+       als BASIS_KEYS, und ein unbekannter Wert wird auf "other" gesetzt, der
+       Originaltext wandert nach basis_label ("RIEGEL: basis_key ... ist kein
+       zulaessiger Wert"). Am 20.08.2026 an der LIVE deployten Funktion nachgelesen,
+       nicht nur in der Vault-Quelle. Ein zweiter Riegel hier waere genau die
+       Doppelung, die §4.2 verbietet.
+
+       app.js reicht basis_key ab jetzt UNVERAENDERT durch. */
     sag("Lauf wird gespeichert …");
     var r=await client.rpc("cb_riki_source_extraction_speichern",{
       p_product_id:pid, p_source_kind:"rawtext",
       p_source_ref:((document.getElementById("fe_url")||{}).value||"eingefügter Text"),
       p_sections:v.sections, p_items:v.items, p_status:"captured",
-      p_metadata:{contract_version:String(v.contract_version||"riki_source_extraction_item_v1"),extractor:"riki",modus:"rohtext",
-                  basis_key_normalisiert:Array.from(new Set(_basisNorm))}});
+      p_metadata:{contract_version:String(v.contract_version||"riki_source_extraction_item_v1"),extractor:"riki",modus:"rohtext"}});
     if(r&&r.error) throw r.error;
     var runId=(r&&r.data!=null)?Number(r.data):null;
     var teil=v.sections.filter(function(x){return x.status==="partial"||x.status==="unresolved";}).length;
@@ -34179,7 +34227,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4090";
+const APP_BUILD = "2026-08-20-4110";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
