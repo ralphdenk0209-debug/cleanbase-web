@@ -5313,8 +5313,20 @@ async function fgStammWaechter(){
         + z(A.doppelte_note,'Notenkonflikte', Number(A.doppelte_note)>0?'offen':'')
         + z(A.quelle_offen,'Quellen offen', Number(A.quelle_offen)>0?'offen':'')
         +'</div>'
-        +'<div class="fgSwHinweis">Diese Zahlen kommen aus <code>public.Zutaten_Stamm</code> — '
-        +'nicht aus dem Canonical-Stamm. Sie bleiben als Kontrolle für den Übergang.</div>'
+        /* 🔴 20.08.2026, Work #112: hier stand „Diese Zahlen kommen aus
+           public.Zutaten_Stamm". Die Tabelle wurde am 17.08. in Work #88 per
+           DROP entfernt — gemessen 20.08.: to_regclass('public."Zutaten_Stamm"')
+           ist NULL. Ein Satz, der eine geloeschte Tabelle als Beleg nennt, ist
+           schlimmer als kein Satz: er sieht aus wie ein Herkunftsnachweis.
+           Die tatsaechliche Quelle steht in der Funktion selbst — gemessen an
+           pg_get_functiondef(cb_admin_stamm_waechter): sie liest
+           shadow_v1.legacy_ingredient_source_ref und nennt Zutaten_Stamm
+           nirgends. 8.448 Zeilen, dieselbe Zahl, die die Kachel zeigt. */
+        +'<div class="fgSwHinweis">Diese Zahlen kommen aus '
+        +'<code>shadow_v1.legacy_ingredient_source_ref</code> — den Identitäts- und '
+        +'Herkunftszeilen des alten Stamms, nicht aus dem Canonical-Stamm. '
+        +'<code>public.Zutaten_Stamm</code> gibt es seit dem 17.08.2026 nicht mehr. '
+        +'Sie bleiben als Kontrolle für den Übergang.</div>'
         +'</div>'
       +'<div class="fgSwFuss">'
       +(_zweiter?'<span style="color:'+'#b45309'+';font-size:11px;margin-right:auto">'
@@ -13238,9 +13250,40 @@ function _abLayoutSetzen(cfg){
 function _abKachelFlaeche(){
   var std=_abStandardLagen(), konf={};
   if(_AB_LAYOUT) _AB_LAYOUT.kacheln.forEach(function(e){ konf[e.id]=e; });
+
+  /* 🔴 20.08.2026, Work #121 Kriterium 2 — GEMESSENER FEHLER, nicht vermutet.
+     Ein gespeichertes Layout ist immer AELTER als das Register. Kacheln, die
+     nach dem Speichern dazukamen, hatten bis heute ihre Code-Standardlage —
+     und die liegt auf einem Platz, den das gespeicherte Layout laengst anders
+     vergeben hat. Gemessen am echten Layout „Standard 15.08." aus der Ablage
+     (Work #44): `marke` lag genau auf `frei`. Zwei Kacheln uebereinander, und
+     niemand haette den Grund gesehen.
+     Ab jetzt bekommen ergaenzte Kacheln einen Platz UNTERHALB von allem
+     Gespeicherten — dieselbe Regel, nach der _abKachelNeu eine neue Kachel
+     ablegt. Ohne gespeichertes Layout aendert sich nichts: dann gelten die
+     Standardlagen wie bisher. */
+  var nachtrag={};
+  if(_AB_LAYOUT){
+    var unten=0;
+    _AB_LAYOUT.kacheln.forEach(function(e){
+      if(e.aus) return;
+      var l=_abLage(e.id, e, std);
+      unten=Math.max(unten, l.y+l.h);
+    });
+    var xLauf=0, zeileY=unten? unten+20 : 0, zeileH=0;
+    _AB_KACHELN.forEach(function(x){
+      if(konf[x.id]) return;                          /* steht im Layout */
+      var s=std[x.id]||{b:285,h:250};
+      var b=Math.max(_AB_MINB, s.b), h=Math.max(_AB_MINH, s.h);
+      if(xLauf+b>_AB_LW){ xLauf=0; zeileY+=zeileH+20; zeileH=0; }
+      nachtrag[x.id]={x:xLauf, y:zeileY, b:b, h:h, z:1};
+      xLauf+=b+20; zeileH=Math.max(zeileH,h);
+    });
+  }
+
   var raus=[];
   _AB_KACHELN.forEach(function(x,i){
-    var e=konf[x.id];
+    var e=konf[x.id] || nachtrag[x.id];
     if(e&&e.aus) return;                              /* ausgeblendet */
     var lage=_abLage(x.id, e, std);
     var k=x;
@@ -15132,8 +15175,11 @@ async function _abBento2Laden(d){
         + sichtbar('Notenkonflikte',AL.doppelte_note,true,'alt:doppelte_note')
         + stillZeile()
         +'<div style="font-size:10.5px;color:'+_AB.mut+';margin-top:7px;line-height:1.4">'
-        +'Alt-Zahlen aus <code>public.Zutaten_Stamm</code>, nicht aus dem Canonical-Stamm — '
-        +'Kontrolle für den Übergang.</div>'
+        /* Work #112, 20.08.2026: dieselbe Korrektur wie im Freigabe-Tab. Diese
+           Kachel ist seit #121 abgeschaltet, der Satz aber nicht weniger falsch
+           — und wer sie zurueckholt, holt sonst die geloeschte Tabelle mit. */
+        +'Alt-Zahlen aus <code>shadow_v1.legacy_ingredient_source_ref</code>, nicht aus dem '
+        +'Canonical-Stamm — Kontrolle für den Übergang.</div>'
         +'<button type="button" class="bgo2" onclick="navTo(\'freigabe\');fgTab(\'stamm\')" '
         +'style="margin-top:9px;padding:5px 11px;border:1px solid var(--line);border-radius:8px;'
         +'background:var(--card);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer">'
