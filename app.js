@@ -19915,20 +19915,69 @@ async function fgRohtextLauf(){
       try{
         var rf=await client.rpc("cb_riki_fachwerte_persistieren",{p_run_id:runId});
         if(rf&&rf.error) throw rf.error;
-        var f=(rf&&rf.data)||{};
-        var fTeile=[["Allergene",f.allergene],["Zutaten",f.zutaten],
-                    ["Makro",f.makro],["Nährstoffe",f.naehrstoffe]];
-        var fTxt=[], fOffen=0;
-        fTeile.forEach(function(t){
-          var q=t[1]||{}, ok=Number(q.persistiert)||0, pruef=Number(q.needs_review)||0;
-          if(!ok&&!pruef) return;
-          fOffen+=pruef;
-          fTxt.push(t[0]+": "+ok+" übernommen"+(pruef?(", "+pruef+" offen"):""));
-        });
-        if(fTxt.length){
-          alg=" — "+fTxt.join(" · ")
-             +(fOffen?(" — "+fOffen+" Zeile"+(fOffen===1?"":"n")+" bleiben offen, bitte prüfen"):"");
-          if(fOffen) farbe="var(--k-b45309)";
+        var f=(rf&&rf.data)||null;
+        /* WORK #48 / S2 (20.08.2026) — ABLEHNUNG UND LEERE ANTWORT SICHTBAR MACHEN.
+           Bis Build 4120 standen hier NUR die vier Teilergebnisse. Im Ablehnungsfall
+           gibt es die gar nicht: cb_riki_fachwerte_persistieren liefert dann
+           {ok:false, abgelehnt:true, run_id, quellart, grund} — und sonst nichts.
+           Am 20.08.2026 mit pg_get_functiondef an der LIVE-Funktion gemessen, nicht
+           vermutet; es gibt dort weder product_id noch source_kind im Rueckgabewert,
+           also wird hier auch keins angezeigt (§1.1).
+
+           Ohne diesen Zweig haette die Schleife unten vier leere Objekte gezaehlt,
+           fTxt waere leer geblieben und die Statuszeile haette GRUEN "gespeichert"
+           gemeldet, obwohl kein einziger Fachwert geschrieben wurde — stilles
+           Scheitern (§1.7, §11.4).
+
+           Der Server kennt heute genau eine Ablehnung: Quellart
+           existing_product_occurrence, eine Analyse-/Vergleichsquelle, die nach §3.2
+           keinen Produktinhalt belegen darf (Ralph-Entscheid 20.08.2026). Der Grund
+           wird UNVERAENDERT aus f.grund uebernommen und nicht umformuliert; die
+           Klartext-Uebersetzung steht daneben, die technische Quellart bleibt
+           nachschlagbar. Der Zweig ist bewusst allgemein auf ok===false gebaut:
+           kaeme spaeter eine zweite Ablehnung dazu, faellt sie nicht durch.
+
+           Zweite Luecke, im selben Zug geschlossen: rf.data war null oder kein
+           Objekt — auch das lief bisher stumm durch. Ein Fehlerpfad, der nur einen
+           von zwei Faellen kennt, ist ein halber Fehlerpfad. */
+        var fLauf=(f&&f.run_id!=null)?f.run_id:runId;
+        var fGesp=" — der Extraktionslauf selbst ist gespeichert";
+        if(!f||typeof f!=="object"){
+          console.warn("[E2 Fachwerte] Lauf "+fLauf+": leere Antwort",rf&&rf.data);
+          alg=" — Fachwerte NICHT übernommen (Lauf "+fLauf+"): der Server hat keine"
+             +" Rückmeldung geliefert"+fGesp
+             +". Nächster Schritt: den Lauf erneut übernehmen; bleibt es dabei, den"
+             +" Vorgang mit der Lauf-Nummer melden";
+          farbe="var(--k-b91c1c)";
+        }else if(f.ok===false){
+          console.warn("[E2 Fachwerte] Lauf "+fLauf+": abgelehnt",f);
+          var fQ=String(f.quellart||"").trim();
+          var fKlar={"existing_product_occurrence":"Rückwärtslauf – zeigt nur, wo ein Stoff in schon erfassten Produkten vorkommt"}[fQ.toLowerCase()]||"";
+          var fQtxt=fQ?(", Quellart "+(fKlar?("„"+fKlar+"“, technisch: "+fQ):fQ)):"";
+          var fGrund=String(f.grund||"").trim()
+            ||("der Server hat die Übernahme abgelehnt, ohne einen Grund mitzuliefern —"
+              +" der Vorgang steht in shadow_v1.audit_event zu Lauf "+fLauf);
+          alg=" — "+(f.abgelehnt?"Fachwerte ABGELEHNT":"Fachwerte NICHT übernommen")
+             +" (Lauf "+fLauf+fQtxt+"): "+fGrund+fGesp
+             +". Nächster Schritt: eine Belegquelle erfassen – Etikettfoto oder"
+             +" Herstellerseite – und den Lauf von dort wiederholen; nur daraus dürfen"
+             +" Allergene, Zutaten, Makro- und Nährstoffwerte kommen";
+          farbe="var(--k-b91c1c)";
+        }else{
+          var fTeile=[["Allergene",f.allergene],["Zutaten",f.zutaten],
+                      ["Makro",f.makro],["Nährstoffe",f.naehrstoffe]];
+          var fTxt=[], fOffen=0;
+          fTeile.forEach(function(t){
+            var q=t[1]||{}, ok=Number(q.persistiert)||0, pruef=Number(q.needs_review)||0;
+            if(!ok&&!pruef) return;
+            fOffen+=pruef;
+            fTxt.push(t[0]+": "+ok+" übernommen"+(pruef?(", "+pruef+" offen"):""));
+          });
+          if(fTxt.length){
+            alg=" — "+fTxt.join(" · ")
+               +(fOffen?(" — "+fOffen+" Zeile"+(fOffen===1?"":"n")+" bleiben offen, bitte prüfen"):"");
+            if(fOffen) farbe="var(--k-b45309)";
+          }
         }
       }catch(ef){
         console.error("[E2 Fachwerte] Lauf "+runId,ef);
@@ -34269,7 +34318,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4120";
+const APP_BUILD = "2026-08-20-4130";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
