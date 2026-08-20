@@ -1901,6 +1901,28 @@ body.riFokus #feTopbar{ display:none !important }
   padding:4px 9px; font-size:10.5px; color:var(--muted); cursor:pointer; white-space:nowrap }
 .feKtxTab.akt{ background:var(--k-eef6ff,#eef6ff); border-color:var(--k-2f6fd6,#2f6fd6);
   color:var(--k-2f6fd6,#2f6fd6); font-weight:700 }
+
+/* 🔴 20.08.2026, Work #133 E6b — DER REITER SAGT, OB DAHINTER ETWAS IST.
+   Ralphs Ausgangskritik: "nicht befüllt, irgendwelche buttons, referenz,
+   etikett, rohtext?" Drei gleich aussehende Reiter, hinter denen dreimal nichts
+   lag - man musste klicken, um das zu erfahren.
+
+   Ein leerer Reiter wird BLASSER, aber NICHT gesperrt: er ist eine Aussage
+   ("hier ist nichts"), kein Verbot. Wer hinsehen will, darf. Ein deaktivierter
+   Knopf haette dieselbe Information mit einer Bevormundung verbunden.
+
+   Die Marke bleibt klein und ohne Farbe - sie ist eine Angabe, kein Alarm. Rot
+   heisst in dieser App "ueber dem Hoechstwert"; "kein Etikett" ist kein Verstoss,
+   sondern ein Arbeitsstand. */
+.feKtxTab.leer{ opacity:.62 }
+.feKtxTab.leer.akt{ opacity:1 }          /* angesehen wird immer voll gezeigt */
+.feKtxMarke{
+  margin-left:5px; font-weight:600; font-size:9.5px;
+  padding:1px 5px; border-radius:8px;
+  background:var(--k-eef3f8,#eef3f8); color:var(--muted);
+}
+.feKtxTab.akt .feKtxMarke{ background:var(--k-ffffff,#fff); color:var(--k-2f6fd6,#2f6fd6) }
+.feKtxMarke.leer{ background:transparent; font-weight:400; font-style:italic }
 .feKtxInhalt{ display:flex; flex-direction:column; gap:9px; min-width:0 }
 /* Der umgehaengte Lesekasten fuellt den Kontextplatz statt seiner alten Spalte. */
 .feKtxInhalt > #fe_wirkFotoCol{ width:100%; min-width:0 }

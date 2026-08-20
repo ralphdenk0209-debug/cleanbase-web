@@ -25616,6 +25616,71 @@ function _feKtxSpalte(an){
   var r=document.getElementById("feRahmen");
   if(r && r.classList) r.classList.toggle("riDrei", !!an);
 }
+/* ============================================================================
+   WORK #133 E6b — WAS STEHT HINTER DEM REITER?
+
+   Liefert je Reiter { marke, leer, titel }:
+     marke  kurze Angabe neben der Beschriftung ("3", "kein Text", "—")
+     leer   true = dahinter ist nichts. Der Reiter wird blasser, bleibt aber
+            klickbar: er ist eine Aussage, keine Sperre (§1.10).
+     titel  der ganze Satz als Mausanzeige, damit die Marke kurz bleiben darf
+
+   🔴 JEDE ANGABE KOMMT AUS DER QUELLE, DIE DEN INHALT OHNEHIN BAUT:
+     etikett   window._fgEtikettAnzahl  (dieselbe Zahl, die die Leermeldung nennt)
+     rohtext   window._fgRefV2.rohtext  (dasselbe Feld wie _feKtxRohtext)
+     quelle    #fe_quelle_typ / #fe_beleg / #fe_url  (wie _feKtxQuelle)
+     bild      #fe_bildPreview          (wie _feKtxBild)
+     referenz  die Zeilen in #fe_colRef
+   Kein zweites Zaehlen, keine zweite Wahrheit. Aendert sich der Inhalt, aendert
+   sich die Marke mit - ohne dass jemand etwas nachtraegt (§28.4).
+
+   Ist etwas NICHT ERMITTELBAR, gibt es KEINE Marke statt einer geratenen: ein
+   fehlender Wert ist nicht null (§3.4).
+   ============================================================================ */
+function _feKtxReiterZustand(id){
+  try{
+    if(id==="etikett"){
+      var n=window._fgEtikettAnzahl;
+      if(window._fgEtikettFehler) return {marke:"?", leer:false, titel:"Etikettbilder konnten nicht geladen werden"};
+      if(n===0) return {marke:"keins", leer:true, titel:"Kein Etikettbild vorhanden"};
+      if(n>0)   return {marke:String(n), leer:false, titel:n+" Etikettbild"+(n===1?"":"er")+" vorhanden"};
+      return {marke:"", leer:false, titel:"Etikettbilder noch nicht nachgesehen"};
+    }
+    if(id==="rohtext"){
+      var r=String((window._fgRefV2&&window._fgRefV2.rohtext)||"").trim();
+      return r ? {marke:"", leer:false, titel:"Etiketttext hinterlegt ("+r.length+" Zeichen)"}
+               : {marke:"kein Text", leer:true, titel:"Für dieses Produkt ist kein Etiketttext hinterlegt"};
+    }
+    if(id==="quelle"){
+      var typ=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
+      var beleg=((document.getElementById("fe_beleg")||{}).value||"").trim();
+      var url=((document.getElementById("fe_url")||{}).value||"").trim();
+      if(!typ && !beleg && !url) return {marke:"offen", leer:true, titel:"Noch keine Quelle hinterlegt – sie ist Freigabe-Pflicht"};
+      return {marke:"", leer:false, titel:typ||beleg||url};
+    }
+    if(id==="bild"){
+      var pv=document.getElementById("fe_bildPreview");
+      var hat=!!(pv && pv.querySelector && pv.querySelector("img"));
+      return hat ? {marke:"", leer:false, titel:"Produktbild hinterlegt"}
+                 : {marke:"keins", leer:true, titel:"Kein Produktbild hinterlegt"};
+    }
+    if(id==="referenz"){
+      var rk=document.getElementById("fe_colRef");
+      if(!rk) return {marke:"", leer:false, titel:""};
+      /* Die Referenzkarte zaehlt ihre Zeilen selbst - hier wird nur gelesen, was
+         sie erzeugt hat. Findet sich keine bekannte Zeilenklasse, gibt es KEINE
+         Marke: lieber nichts sagen als etwas Falsches (§1.2). */
+      var n2=rk.querySelectorAll ? rk.querySelectorAll(".fgRefZeile, .fgRefRow, tr[data-ref]").length : 0;
+      if(n2>0) return {marke:String(n2), leer:false, titel:n2+" Prüfzeile"+(n2===1?"":"n")};
+      var txt=String(rk.textContent||"");
+      if(/keine Parseranalyse|kein Zutaten-Rohtext/i.test(txt))
+        return {marke:"offen", leer:true, titel:"Noch keine Parseranalyse – der Abgleich kann nicht laufen"};
+      return {marke:"", leer:false, titel:""};
+    }
+  }catch(e){}
+  return {marke:"", leer:false, titel:""};
+}
+if(typeof window!=="undefined"){ window._feKtxReiterZustand=_feKtxReiterZustand; }
 function feKontextRender(s){
   var box=document.getElementById("feKontext"); if(!box) return;
   if(!feFokusAn() || !s){ box.style.display="none"; box.innerHTML=""; _feKtxSpalte(false); _feKtxAllesHeim(); return; }
@@ -25629,8 +25694,27 @@ function feKontextRender(s){
   var akt=window._feKtxReiter;
   if(!akt || !R.some(function(r){ return r[0]===akt; })) akt=R[0][0];
   window._feKtxReiter=akt;
+  /* 🔴 20.08.2026, Work #133 E6b — DER REITER SAGT, OB DAHINTER ETWAS IST.
+     Ralphs Ausgangskritik zur Erfassungsseite: "nicht befüllt, irgendwelche
+     buttons, referenz, etikett, rohtext?"
+
+     Er hatte recht, und der Grund war nicht der Inhalt, sondern die Beschriftung:
+     drei gleich aussehende Reiter, hinter denen dreimal nichts lag. Man MUSSTE
+     klicken, um das zu erfahren - dreimal, fuer dreimal dieselbe Enttaeuschung.
+
+     JETZT traegt jeder Reiter seinen Zustand, so wie die Stationen links ihren
+     tragen ("1 von 3", "nicht erhoben"). Vor dem Klick sichtbar, nicht danach.
+
+     🔴 NICHTS WIRD NEU BERECHNET. Jede Zahl kommt aus der Quelle, die den Inhalt
+     ohnehin baut - siehe _feKtxReiterZustand. Eine zweite Zaehlung waere die
+     Stelle, die spaeter auseinanderlaeuft (§4.2). */
   var H='<div class="feKtxTabs">'+R.map(function(r){
-    return '<button type="button" class="feKtxTab'+(r[0]===akt?' akt':'')+'" onclick="feKontextReiter(\''+r[0]+'\')">'+esc(r[1])+'</button>';
+    var z=_feKtxReiterZustand(r[0]);
+    return '<button type="button" class="feKtxTab'+(r[0]===akt?' akt':'')+(z.leer?' leer':'')+'"'
+      +(z.titel?' title="'+esc(z.titel)+'"':'')
+      +' onclick="feKontextReiter(\''+r[0]+'\')">'+esc(r[1])
+      +(z.marke?'<span class="feKtxMarke'+(z.leer?' leer':'')+'">'+esc(z.marke)+'</span>':'')
+      +'</button>';
   }).join('')+'</div><div class="feKtxInhalt" id="feKtxInhalt"></div>';
   /* 🔴 19.08.2026, Work #131 — DIE URSACHE, gefunden durch Ralphs Beobachtung:
      "wenn ich umschalte, sind die bilder weg."
@@ -35146,7 +35230,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4220";
+const APP_BUILD = "2026-08-20-4230";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
