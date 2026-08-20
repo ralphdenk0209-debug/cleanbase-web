@@ -7452,8 +7452,8 @@ async function peToggleStatus(){
    stehen, werden NICHT hart gelöscht (würde Historie zerstören) → dann Angebot zu archivieren. */
 async function peDeaktiv(id){
   var p=(window._peRows||[]).find(function(r){return String(r.id)===String(id);})||{};
-  if(peIstScan(p)){ alert('Das ist eine Scan-Zeile, kein Produkt – es gibt nichts zu löschen.\n\nScans verwirft man im Scan-Eingang (📥 in der Toolbar).'); return; }
-  if(!confirm('Produkt '+id+(p.name?(' – „'+p.name+'"'):'')+' WIRKLICH LÖSCHEN?\n\nEndgültig aus der Datenbank entfernt – NICHT rückgängig zu machen.')) return;
+  if(peIstScan(p)){ alert('Das ist eine Scan-Zeile, kein Produkt – es gibt nichts zu löschen.\n\nScans verwirft man im Scan-Eingang (📥 in der Toolbar).'); return {ok:false,aktion:'abgelehnt'}; }
+  if(!confirm('Produkt '+id+(p.name?(' – „'+p.name+'"'):'')+' WIRKLICH LÖSCHEN?\n\nEndgültig aus der Datenbank entfernt – NICHT rückgängig zu machen.')) return {ok:false,aktion:'abgebrochen'};
   try{
     var r=await client.rpc('cb_produkt_loeschen',{p_id:id});
     if(r.error) throw r.error;
@@ -7486,7 +7486,7 @@ async function peDeaktiv(id){
            unbemerkt bleibt. */
     var _archiviert=false;
     if(d.ok===false && d.grund==='tagebuch'){
-      if(!confirm('„'+(p.name||id)+'" steht in '+d.anzahl+' Nutzer-Tagebuch-Eintrag/en – hartes Löschen würde deren Historie zerstören.\n\nStattdessen ARCHIVIEREN (aus dem Katalog nehmen, Nutzer-Historie bleibt erhalten)?')) return;
+      if(!confirm('„'+(p.name||id)+'" steht in '+d.anzahl+' Nutzer-Tagebuch-Eintrag/en – hartes Löschen würde deren Historie zerstören.\n\nStattdessen ARCHIVIEREN (aus dem Katalog nehmen, Nutzer-Historie bleibt erhalten)?')) return {ok:false,aktion:'abgebrochen'};
       var r2=await client.rpc('cb_produkt_status_setzen',{p_id:id,p_status:'Abgelehnt'});
       if(r2.error) throw r2.error;
       _archiviert=true;
@@ -7494,7 +7494,7 @@ async function peDeaktiv(id){
       /* (a) — abgelehnt aus einem Grund, den dieser Code nicht kennt. Nichts entfernen,
          nichts schliessen, nichts neu laden: der Bestand ist unveraendert. */
       alert('„'+(p.name||id)+'" wurde NICHT gelöscht.\n\nDer Server hat abgelehnt'+(d.grund?(' – Grund: '+d.grund):' und keinen Grund genannt')+'.\n\nDas Produkt steht unverändert in der Liste.');
-      return;
+      return {ok:false,aktion:'abgelehnt',grund:d.grund||''};
     }
     window._peRows=(window._peRows||[]).filter(function(x){return String(x.id)!==String(id);});
     if(String(window._peSel||'')===String(id)){ window._peSel=null; try{ if(typeof peClose==="function") peClose(); else { var det=document.getElementById('peDetail'); if(det) det.innerHTML=''; } }catch(e){} }
@@ -7504,7 +7504,8 @@ async function peDeaktiv(id){
     if(_archiviert){
       alert('„'+(p.name||id)+'" wurde ARCHIVIERT, nicht gelöscht.\n\nStatus jetzt „Abgelehnt“ – das Produkt bleibt in der Datenbank und erscheint je nach Filter weiterhin in der Liste. Die Tagebuch-Einträge der Nutzer bleiben erhalten.');
     }
-  }catch(e){ alert('Konnte nicht löschen: '+(e.message||e)); }
+    return {ok:true,aktion:_archiviert?'archiviert':'geloescht'};
+  }catch(e){ alert('Konnte nicht löschen: '+(e.message||e)); return {ok:false,aktion:'fehler',fehler:e}; }
 }
 function peSelect(id){ window._peSel=id;
   document.querySelectorAll('#peGrid tbody tr').forEach(function(tr){ tr.classList.toggle('sel', tr.getAttribute('data-id')===String(id)); });
@@ -24492,7 +24493,7 @@ async function openFgEditor(id, prefill, targetEl){
         ${id?`<button onclick="peAlsNutzer('${esc(id)}')" class="feFussBtn">👁 Als Nutzer</button>`:""}`:""}
       </div>
       <div class="feFussRechts">
-        ${targetEl&&id?`<button onclick="peDeaktiv('${esc(id)}')" class="feFussBtnRot">Löschen</button>`:""}
+        ${targetEl&&id?`<button onclick="fgProduktLoeschen()" class="feFussBtnRot">Löschen</button>`:""}
         ${targetEl?`<button onclick="peNeu()" class="feFussBtnGross">Neu</button>`:""}
         ${''/* „Speichern" + „Speichern & freigeben" sitzen jetzt in der Freigabe-Leiste rechts (Ralph 24.07.) – hier entfernt. */}
         ${targetEl?`<button onclick="peClose()" class="feFussBtnZu">Schließen</button>`:""}
@@ -27127,7 +27128,7 @@ function feProdMenu(btn){
   var pid=(window._fgEdit&&window._fgEdit.id)||"";
   var m=document.createElement("div"); m.id="feProdMenuBox"; m.className="feProdMenuBox";
   m.innerHTML=(pid?'<button type="button" onclick="document.getElementById(\'feProdMenuBox\').remove();try{peMarkieren(\''+esc(pid)+'\')}catch(e){try{feMarkieren()}catch(_){}}">Markieren</button>':'')
-    +(pid?'<button type="button" class="rot" onclick="document.getElementById(\'feProdMenuBox\').remove();try{peDeaktiv(\''+esc(pid)+'\')}catch(e){alert(e&&e.message||e)}">Produkt löschen</button>':'')
+    +(pid?'<button type="button" class="rot" onclick="document.getElementById(\'feProdMenuBox\').remove();fgProduktLoeschen()">Produkt löschen</button>':'')
     +'<button type="button" title="Öffnet die komplette Altansicht – nur für jetzt. Beim nächsten Produkt und nach dem Neuladen ist die Fokusansicht wieder da." onclick="document.getElementById(\'feProdMenuBox\').remove();feFokusSet(false)">Alle Bereiche zeigen</button>';
   btn.parentNode.appendChild(m);
 }
@@ -29362,22 +29363,20 @@ var _FGST={
 async function fgStatusLoad(){
   var el=document.getElementById('frgStatusPill'); if(!el) return;
   var id=(window._fgEdit&&window._fgEdit.id);
-  /* Ralph 02.08.: Der Knopf steht IMMER da, sagt aber ehrlich, was er tut.
-     Mit Produkt-ID: loeschen (aus der Datenbank). Ohne: verwerfen (nur die Eingaben).
-     Beides ist ein Wegwerfen, aber von zwei verschiedenen Dingen - eine gemeinsame
-     Beschriftung waere an einem der beiden Faelle gelogen. */
+  /* Work #62: Dieser Knopf ist ausschliesslich die Produkt-Loeschaktion. Ohne
+     gespeicherte Produkt-ID gibt es nichts zu loeschen, also bleibt er unsichtbar.
+     Verwerfen ist ein anderer Vorgang und wird hier nicht als Loeschen verkleidet. */
   try{
     var _dl=document.getElementById('frgDelTop');
     if(_dl){
-      _dl.style.display='flex';
       if(id){
+        _dl.style.display='flex';
         _dl.title='Produkt endgültig löschen';
         _dl.setAttribute('onclick','try{fgProduktLoeschen()}catch(e){}');
         _dl.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
       } else {
-        _dl.title='Eingaben verwerfen und schließen – gespeichert wurde noch nichts';
-        _dl.setAttribute('onclick','try{fgEditorVerwerfen()}catch(e){}');
-        _dl.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+        _dl.style.display='none';
+        _dl.removeAttribute('onclick');
       }
     }
   }catch(e){}
@@ -29396,12 +29395,17 @@ async function fgStatusLoad(){
 async function fgProduktLoeschen(){
   var id=(window._fgEdit&&window._fgEdit.id);
   if(!id){ alert('Dieses Produkt ist noch nicht gespeichert – es gibt nichts zu löschen.'); return; }
-  var vorher=id;
-  try{ await peDeaktiv(id); }catch(e){ alert('Konnte nicht löschen: '+((e&&e.message)||e)); return; }
-  /* peDeaktiv nimmt die Zeile aus _peRows, wenn es geklappt hat. Ist sie weg, ist das
-     Produkt weg -> Editor zu. Ist sie noch da, hat der Mensch abgebrochen: dann bleibt alles. */
-  var nochDa=(window._peRows||[]).some(function(x){ return String(x.id)===String(vorher); });
-  if(!nochDa){ try{ closeP(); }catch(e){} try{ if(typeof peClose==='function') peClose(); }catch(e){} }
+  var erg;
+  try{ erg=await peDeaktiv(id); }catch(e){ alert('Konnte nicht löschen: '+((e&&e.message)||e)); return; }
+  /* Nicht mehr aus einer lokalen Liste erraten, was der Server getan hat. peDeaktiv
+     liefert den bereits serverseitig bestaetigten Ausgang erst NACH dem Listenreload.
+     Ablehnung oder Abbruch lassen den Editor offen; Loeschen und Archivieren schliessen
+     ihn, damit dahinter der frisch geladene Serverstand sichtbar ist. */
+  if(!erg || !erg.ok) return;
+  if(erg.aktion==='geloescht' || erg.aktion==='archiviert'){
+    try{ closeP(); }catch(e){}
+    try{ if(typeof peClose==='function') peClose(); }catch(e){}
+  }
 }
 /* Verwerfen = nur die Maske schliessen. Es wird NICHTS geschrieben und nichts geloescht -
    das Produkt gibt es ja noch gar nicht. Trotzdem mit Nachfrage: bei einer halb ausgefuellten
@@ -35990,7 +35994,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4310";
+const APP_BUILD = "2026-08-20-4320";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
