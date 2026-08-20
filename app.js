@@ -17088,11 +17088,62 @@ function tbScanPopup(){
   }); }catch(e){ const msg=document.getElementById("tbScanMsg"); if(msg){ msg.style.color="var(--k-f87171)"; msg.textContent="Kamera nicht verfügbar: "+e.message; } }
 }
 function tbGuessMeal(){ const h=new Date().getHours(); if(h<11) return "Frühstück"; if(h<15) return "Mittag"; if(h<21) return "Abendessen"; return "Snack"; }
-function tbTopSearch(q){
+/* ============================================================================
+   🔴 20.08.2026 — Ralph: "im tagebuch auf der suche erscheinen keine produkte mehr."
+
+   BEFUND, gemessen und nicht geraten: ACHT Stellen im Code laden den Katalog
+   nach, wenn er leer ist — rkInit (Rezepte), renderZyklus, fillProdList
+   (Produktseite), renderEinkaufSeite, einkSuggest und drei weitere. Sie alle
+   beginnen mit `if(!ALL.length){ … await fetchAlleProdukte() … }`.
+
+   DIE BEIDEN TAGEBUCH-SUCHEN TATEN DAS NICHT. Sie filterten ALL und verliessen
+   sich darauf, dass jemand anders geladen hat. Und das Tagebuch ist die
+   STARTSEITE: wer die App oeffnet und sofort sucht, hat einen leeren Katalog.
+
+   SCHLIMMER ALS DAS LEERE ERGEBNIS WAR DIE MELDUNG. "Kein Treffer für X" ist
+   eine Aussage ueber das Produkt — sie behauptet, es gebe X nicht. Bei leerem
+   Katalog wurde aber gar nicht gesucht. Ein stiller Fehler, der wie ein
+   fachliches Ergebnis aussieht (§1.7).
+
+   Der Ladeschutz sitzt in fetchAlleProdukte selbst (_fapLaufend), deshalb loesen
+   mehrere Tastendruecke keine mehrfachen Abrufe aus.
+   ============================================================================ */
+async function tbKatalogSichern(){
+  if(ALL && ALL.length) return true;
+  try{
+    const data=await fetchAlleProdukte();
+    if(data) ALL=data.map(d=>({...d, clean_score:num(d.clean_score)}));
+  }catch(e){ console.warn("tbKatalogSichern:",e); }
+  return !!(ALL && ALL.length);
+}
+function tbKatalogLeerHtml(){
+  return '<div style="background:var(--tb-card);border:1px solid var(--tb-line);border-radius:12px;padding:11px;margin-bottom:12px">'
+    +'<div style="font-size:13px;color:var(--tb-text);margin-bottom:6px">Der Produktkatalog ist gerade nicht geladen.</div>'
+    +'<div style="font-size:12px;color:var(--tb-muted);margin-bottom:8px">Das heißt nicht, dass es dein Produkt nicht gibt – es wurde noch gar nicht gesucht.</div>'
+    +'<button onclick="tbKatalogNeu(this)" style="width:100%;padding:10px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:600;cursor:pointer">Katalog laden</button></div>';
+}
+async function tbKatalogNeu(btn){
+  if(btn){ btn.disabled=true; btn.textContent="lädt …"; }
+  const ok=await tbKatalogSichern();
+  if(!ok && btn){ btn.disabled=false; btn.textContent="Nochmal versuchen"; return; }
+  /* Beide Suchwege neu zeichnen — welcher gerade offen ist, entscheidet das DOM. */
+  try{ const a=document.getElementById("tbAddSearch"); if(a) tbAddFilter(a.value); }catch(e){}
+  try{ const t=document.getElementById("tbTopSearch"); if(t) tbTopSearch(t.value); }catch(e){}
+}
+if(typeof window!=='undefined'){ window.tbKatalogNeu=tbKatalogNeu; }
+async function tbTopSearch(q){
   const box=document.getElementById("tbTopResults"); if(!box) return;
   q=(q||"").trim();
   if(!q){ box.innerHTML=""; window._tbTopQ=""; return; }
   window._tbTopQ=q;
+  if(!(ALL && ALL.length)){
+    box.innerHTML='<div style="font-size:12px;color:var(--tb-muted);padding:8px 2px">sucht …</div>';
+    const ok=await tbKatalogSichern();
+    /* Waehrend des Ladens kann laengst etwas anderes im Feld stehen. Dann gehoert
+       das Ergebnis nicht mehr hierher. */
+    if(window._tbTopQ!==q) return;
+    if(!ok){ box.innerHTML=tbKatalogLeerHtml(); return; }
+  }
   const nq=_norm(q);
   const list=(ALL||[]).filter(p=>_prodMatch(p,nq))
                       .sort((a,b)=>(_relevanz(b,nq)-_relevanz(a,nq))||((b.clean_score??-1)-(a.clean_score??-1)))
@@ -17154,6 +17205,11 @@ async function tbSetTab(t){
   const body=document.getElementById("tbAddBody"); if(!body) return;
   if(t==='suche'){
     body.innerHTML='<div style="display:flex;gap:8px;margin-bottom:8px"><input id="tbAddSearch" oninput="tbAddFilter(this.value)" onfocus="tbAddFilter(this.value)" placeholder="🔍 Produkt suchen…" style="flex:1;min-width:0;padding:11px;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--k-fbf8f2);color:var(--k-1d3c24);font-size:14px"><button onclick="tbScanPopup()" title="Barcode scannen" style="width:46px;flex:0 0 auto;border:1px solid var(--k-e7e0d4);border-radius:10px;background:var(--tb-card2);color:var(--k-1d3c24);font-size:18px;cursor:pointer">▦</button></div><div id="tbAddResults"><div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Tippe ins Suchfeld, um ein Produkt zu suchen.</div></div>';
+    /* 20.08.: den Katalog schon holen, waehrend Ralph das erste Zeichen tippt -
+       statt ihn beim ersten Tastendruck warten zu lassen. BEWUSST OHNE await:
+       der Dialog soll sofort stehen. Ist der Katalog da, merkt niemand etwas;
+       ist er es nicht, faengt tbAddFilter es ab. */
+    tbKatalogSichern();
     return;
   }
   body.innerHTML='<div id="tbAddResults"><div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Lade…</div></div>';
@@ -17226,9 +17282,19 @@ async function tbRezList(){
   box.innerHTML = rez.length ? rez.map((r,i)=>'<div style="display:flex;align-items:center;gap:8px;background:var(--k-ffffff);border:1px solid var(--k-e7e0d4);border-radius:10px;padding:10px;margin-bottom:6px"><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.name)+'</div><div style="font-size:11.5px;color:var(--k-6b6256)">Rezept</div></div><button onclick="tbAddRezept('+i+')" title="Als Mahlzeit einfügen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid var(--k-e7e0d4);color:var(--k-2e7d32);font-size:18px;cursor:pointer">+</button></div>').join("") : '<div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Keine Rezepte.</div>';
 }
 async function tbAddRezept(i){ tbRezOpen(i); }
-function tbAddFilter(q){
+async function tbAddFilter(q){
   const box=document.getElementById("tbAddResults"); if(!box) return;
-  q=(q||"").trim(); let list=ALL||[];
+  q=(q||"").trim();
+  /* Siehe tbTopSearch: derselbe Fehler, dieselbe Behebung. Der Reiter „Suche"
+     ist der haeufigere Weg — er ist der erste, den der Hinzufuegen-Dialog zeigt. */
+  if(!(ALL && ALL.length)){
+    window._tbAddQ=q;
+    box.innerHTML='<div style="text-align:center;padding:12px;color:var(--k-6b6256);font-size:13px">sucht …</div>';
+    const ok=await tbKatalogSichern();
+    if(window._tbAddQ!==q) return;
+    if(!ok){ box.innerHTML=tbKatalogLeerHtml(); return; }
+  }
+  let list=ALL||[];
   if(q){ const nq=_norm(q);
          list=list.filter(p=>_prodMatch(p,nq))
                   .sort((a,b)=>(_relevanz(b,nq)-_relevanz(a,nq))||((b.clean_score??-1)-(a.clean_score??-1))); }
@@ -34489,7 +34555,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4140";
+const APP_BUILD = "2026-08-20-4160";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

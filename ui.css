@@ -2244,17 +2244,42 @@ body.riFokus .feZurueckFokus{ display:none !important }
   padding:8px 12px; border:1px solid var(--line); border-radius:10px;
   background:var(--card); margin-bottom:12px }
 .feStLinks{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; flex:1 1 auto; min-width:0 }
-.feStRechts{ display:flex; gap:9px; align-items:center; flex:0 0 auto; margin-left:auto }
+/* 🔴 20.08.2026, Work #133 E6 — RALPH-ENTSCHEID A.
+   Zur Wahl standen: (A) Streifen behalten, nur die Index-Kachel absetzen ·
+   (B) den ganzen Streifen zur Label/Wert-Zeile umbauen wie im DBKR-Entwurf ·
+   (C) beides untereinander. Ralph: "a".
+
+   Der Grund fuer A ist nicht Bequemlichkeit: der Streifen ist Ralphs eigener
+   Entwurf vom 15.08., in dreizehn Punkten abgestimmt — zwei Zonen, die Gruppen
+   "Datenstatus" und "Pruefung", Hinweise UNTER den Chips statt daneben,
+   "nicht wie eine Reihe Bonbons". Ihn umzubauen haette diese Arbeit
+   ueberschrieben, um eine Vorlage zu treffen.
+
+   GEAENDERT WIRD NUR DIE RECHTE ZONE: Trennstrich, Label oben, Zahl gross,
+   Freigabechip darunter — die Index-Kachel aus dem DBKR-Vorbild. Am HTML
+   aendert sich NICHTS; _feStreifenBewertung bleibt unangetastet. */
+.feStRechts{ display:flex; flex-direction:column; align-items:flex-end; gap:5px;
+  flex:0 0 auto; margin-left:auto; text-align:right;
+  border-left:1px solid var(--line); padding-left:16px; align-self:stretch;
+  justify-content:center }
 .feStFuss{ flex:1 1 100%; display:flex; gap:8px; flex-wrap:wrap }
-.feStBew{ display:inline-flex; align-items:baseline; gap:6px; white-space:nowrap }
+/* Die Kachel: Label ueber der Zahl statt daneben. Aus dem inline-flex mit
+   baseline wird eine Spalte — deshalb steht em jetzt auf display:block. */
+.feStBew{ display:flex; flex-direction:column; align-items:flex-end; gap:1px; white-space:nowrap }
 .feStBew em{ font-style:normal; font-size:9.5px; letter-spacing:.07em;
-  text-transform:uppercase; font-weight:800; color:var(--muted) }
-.feStBew b{ font-size:19px; font-weight:800; line-height:1 }
+  text-transform:uppercase; font-weight:800; color:var(--muted); display:block }
+.feStBew b{ font-size:26px; font-weight:800; line-height:1.05 }
 .feStBew i{ font-style:normal; font-size:11.5px; font-weight:700 }
 .feStBew.still b, .feStBew.still i{ color:var(--muted) }
 .feStBew.still b{ font-size:15px }
 .feStBew.fehlt b{ font-size:12.5px; color:var(--k-92400e,#92400e) }
 .feStBew.fehlt i{ color:var(--muted) }
+/* Zahl und Wort nebeneinander, wenn beide da sind — "58 schwach" liest sich als
+   eine Aussage. Bei "still" und "fehlt" traegt b den ganzen Satz, dann bleibt es
+   untereinander. */
+.feStBew:not(.still):not(.fehlt){ flex-direction:column }
+.feStBew:not(.still):not(.fehlt) b{ display:inline }
+.feStBew:not(.still):not(.fehlt) i{ display:inline; margin-left:6px }
 .feStDub{ flex:1 1 100%; font-size:11px; color:var(--muted); line-height:1.5 }
 .feStDub.rot{ color:var(--k-b91c1c,#b91c1c); font-weight:700 }
 
