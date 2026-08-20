@@ -10773,6 +10773,26 @@ function buildMehr(){
              + 'color:'+(an?'var(--greendk)':'var(--ink)')+'">'+o[1]+'</button>';
       }).join('')
     +'</div></div>';
+  /* 🔴 20.08.2026, Ralph: "im menü das aufklappt soll man ihn ein oder ausblenden
+     können." Dieselbe Segmentform wie die Darstellung darueber - eine zweite
+     Bauart fuer denselben Zweck waere zwei Muster fuer eine Sache.
+     Direkt unter der Darstellung, weil beides dasselbe ist: wie die App aussieht,
+     nicht was sie kann. */
+  {
+    const rAn = (typeof window.rikiSichtbar==='function') ? window.rikiSichtbar() : true;
+    const rOpt = [[true,'An'],[false,'Aus']];
+    html+='<div style="padding:4px 12px 8px">'
+      +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">RIKI · der Begleiter unten rechts</div>'
+      +'<div style="display:flex;gap:6px">'
+      + rOpt.map(function(o){
+          const an=(rAn===o[0]);
+          return '<button onclick="rikiSichtSetzen('+(o[0]?'true':'false')+')" style="flex:1;padding:9px 4px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;'
+               + 'border:1px solid '+(an?'var(--green)':'var(--line)')+';'
+               + 'background:'+(an?'var(--greenlt)':'var(--card)')+';'
+               + 'color:'+(an?'var(--greendk)':'var(--ink)')+'">'+o[1]+'</button>';
+        }).join('')
+      +'</div></div>';
+  }
   html+='<button onclick="closeMehr();kontaktOpen()">✉️ Kontakt · Frage oder Produkt melden</button>';
   /* Die vier Rechtstexte tippt kaum jemand an, sie fraßen aber vier Zeilen und
      schoben die Funktionen aus dem Bild. Jetzt hinter EINER aufklappbaren Zeile. */
@@ -17163,7 +17183,23 @@ async function tbTopSearch(q){
 function tbTopPick(i){ const p=(window._tbTopList||[])[i]; if(p) tbOpenAdd(tbGuessMeal(), p.id); }
 async function tbOpenAdd(meal, prefillId, prefillName){
   window._tbAddMeal=meal||tbGuessMeal(); window._tbTab='suche';
-  try{ const {data}=await client.rpc("cb_fav_liste"); window._favSet=new Set((data||[]).map(x=>x.produkt_id)); }catch(e){ if(!window._favSet) window._favSet=new Set(); }
+  /* 🔴 20.08.2026 — HIER STAND: catch(e){ if(!window._favSet) window._favSet=new Set(); }
+     Das ist die gefaehrlichste Zeile im ganzen Favoritenweg gewesen, und sie
+     erklaert, wie Favoriten verschwinden koennen, ohne dass jemand loescht:
+
+       1. cb_fav_liste scheitert (Sitzung abgelaufen, Netz weg) - stumm.
+       2. _favSet wird LEER gesetzt. Ein leeres Set heisst "keine Favoriten" -
+          aber wahr ist "ich weiss es nicht" (§3.4).
+       3. Alle Herzen zeigen ♡, obwohl der Server die Favoriten kennt.
+       4. Der Nutzer tippt auf ♡, um den Favoriten "wieder" zu setzen.
+       5. cb_fav_toggle sieht: existiert bereits -> LOESCHT ihn.
+
+     Vier stille Schritte, und der Nutzer hat mit eigener Hand geloescht, was er
+     behalten wollte. Deshalb bleibt _favSet jetzt NULL, wenn es unbekannt ist,
+     und tbRowHtml zeigt dann gar kein Herz statt eines falschen. */
+  try{ const {data,error}=await client.rpc("cb_fav_liste"); if(error) throw error;
+       window._favSet=new Set((data||[]).map(x=>x.produkt_id)); }
+  catch(e){ window._favSet=null; console.warn("cb_fav_liste:", e); }
   let ov=document.getElementById("tbAddOv"); if(ov) ov.remove();
   ov=document.createElement("div"); ov.id="tbAddOv";
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;z-index:80";
@@ -17219,19 +17255,61 @@ async function tbSetTab(t){
   else if(t==='favoriten'){ if(!hasFeat('favoriten')){ body.innerHTML='<div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Favoriten sind in deiner Stufe nicht enthalten.</div>'; return; } await tbFavList(); }
 }
 function tbRowHtml(p,i){
-  const sc=num(p.clean_score), fav=(window._favSet&&window._favSet.has(p.id));
+  const sc=num(p.clean_score);
+  /* 🔴 20.08.2026: DREI Zustaende, nicht zwei. _favSet===null heisst "unbekannt"
+     (cb_fav_liste ist gescheitert), und dann darf hier KEIN Herz stehen: ein ♡
+     bei unbekanntem Stand verleitet zum Tippen, und der Umschalter loescht dann
+     einen Favoriten, den es gibt. Lieber kein Bedienelement als ein falsches
+     (§3.4: fehlender Wert ist nicht 0). */
+  const favUnbekannt = (window._favSet===null || window._favSet===undefined);
+  const fav=(!favUnbekannt && window._favSet.has(p.id));
   return '<div style="display:flex;align-items:center;gap:8px;background:var(--k-ffffff);border:1px solid var(--k-e7e0d4);border-radius:10px;padding:10px;margin-bottom:6px">'
     +'<div onclick="tbAddPick('+i+')" style="flex:1;min-width:0;cursor:pointer"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+(sc!=null?' <span style="font-size:12px;font-weight:700;color:'+farbe(scoreBew(sc))+'">'+sc+'</span>':'')+'</div><div style="font-size:11.5px;color:var(--k-6b6256)">'+esc(mkLabel(p.marke)||"")+(p.kategorie?(" · "+esc(p.kategorie)):"")+'</div></div>'
-    +'<button onclick="tbFavToggle(\''+p.id+'\',this)" title="Favorit" style="border:0;background:none;color:'+(fav?'var(--k-22c55e)':'var(--k-5b6b78)')+';font-size:19px;cursor:pointer;flex:0 0 auto;line-height:1">'+(fav?'♥':'♡')+'</button>'
+    /* Bei unbekanntem Stand gar kein Herz - siehe favUnbekannt oben. */
+    +(favUnbekannt ? '' : '<button onclick="tbFavToggle(\''+p.id+'\',this)" title="Favorit" style="border:0;background:none;color:'+(fav?'var(--k-22c55e)':'var(--k-5b6b78)')+';font-size:19px;cursor:pointer;flex:0 0 auto;line-height:1">'+(fav?'♥':'♡')+'</button>')
     +'<button onclick="tbAddPick('+i+')" title="Hinzufügen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid var(--k-e7e0d4);color:var(--k-2e7d32);font-size:18px;cursor:pointer;flex:0 0 auto">+</button>'
     +'</div>';
 }
+/* ============================================================================
+   🔴 20.08.2026 — Ralph: "prüf nach, wo und ob die favoriten sauber gespeichert
+   sind, ich habe z.b. vorher auch welche angewählt."
+
+   DIE DATENBANKSEITE IST SAUBER, gemessen:
+     · Primaerschluessel auf ("Benutzer_ID","Produkt_ID") - "on conflict do
+       nothing" in cb_fav_toggle greift damit wirklich, Dubletten sind unmoeglich.
+       Gezaehlt: 0 Dubletten.
+     · RLS ist AN, mit NULL Policies. Die Tabelle ist ueber PostgREST also
+       vollstaendig dicht; der Zugriff laeuft ausschliesslich ueber die beiden
+       SECURITY-DEFINER-Funktionen. Genau so soll es sein.
+     · cb_fav_toggle loescht nur die eigene Zeile des eigenen Benutzers.
+
+   🔴 DIE LUECKE WAR HIER, IM FRONTEND: catch(e){} - LEER.
+   cb_fav_toggle wirft ausdruecklich "Nicht angemeldet.", wenn die Sitzung
+   abgelaufen ist. Dieser Block hat das verschluckt: kein Fehler, keine Meldung,
+   das Herz blieb einfach stehen. Wer nicht genau hinsah, hielt den Favoriten fuer
+   gesetzt - und er war es nie (§11.4, §1.7).
+
+   JETZT: das Herz wird NUR umgeschaltet, wenn der Server geantwortet hat. Sonst
+   sagt es, was los ist, und bleibt in seinem alten Zustand.
+   ============================================================================ */
 async function tbFavToggle(id, btn){
-  try{ const {data}=await client.rpc("cb_fav_toggle",{p_produkt:id});
+  var alt = btn ? {t:btn.textContent, c:btn.style.color} : null;
+  if(btn){ btn.disabled=true; }
+  try{
+    const {data,error}=await client.rpc("cb_fav_toggle",{p_produkt:id});
+    if(error) throw error;
     if(!window._favSet) window._favSet=new Set();
     if(data){ window._favSet.add(id); if(btn){ btn.textContent="♥"; btn.style.color="var(--k-22c55e)"; } }
     else { window._favSet.delete(id); if(btn){ btn.textContent="♡"; btn.style.color="var(--k-5b6b78)"; } }
-  }catch(e){}
+  }catch(e){
+    /* Zustand zurueck: das Herz darf nicht zeigen, was nicht gespeichert ist. */
+    if(btn && alt){ btn.textContent=alt.t; btn.style.color=alt.c; }
+    var m=String((e&&e.message)||e||"");
+    alert(/Nicht angemeldet/i.test(m)
+      ? "Der Favorit wurde NICHT gespeichert – die Anmeldung ist abgelaufen.\n\nBitte die Seite neu laden und noch einmal versuchen."
+      : "Der Favorit wurde NICHT gespeichert.\n\nGrund: "+(m||"unbekannt"));
+    console.warn("cb_fav_toggle:", e);
+  }finally{ if(btn) btn.disabled=false; }
 }
 async function tbHistList(){
   const box=document.getElementById("tbAddResults"); if(!box) return;
@@ -17290,7 +17368,24 @@ async function tbHistCopyMeal(i){
    meldet, die der Katalog nicht kennt, wird GENAU DAS gesagt statt "keine
    Favoriten" (§1.7, §3.4). */
 async function tbFavList(){
-  let ids=[]; try{ const {data}=await client.rpc("cb_fav_liste"); ids=(data||[]).map(x=>x.produkt_id); window._favSet=new Set(ids); }catch(e){}
+  /* 🔴 20.08.: hier stand catch(e){} - leer. Scheiterte die Abfrage, blieb ids
+     leer und darunter erschien "Noch keine Favoriten". Wieder eine Aussage ueber
+     den Nutzer, wo eine ueber die Verbindung hingehoert. */
+  let ids=[], favFehler=null;
+  try{ const {data,error}=await client.rpc("cb_fav_liste"); if(error) throw error;
+       ids=(data||[]).map(x=>x.produkt_id); window._favSet=new Set(ids); }
+  catch(e){ favFehler=e; window._favSet=null; console.warn("cb_fav_liste:", e); }
+  const _fbox=document.getElementById("tbAddResults");
+  if(favFehler && _fbox){
+    var fm=String((favFehler&&favFehler.message)||favFehler||"");
+    _fbox.innerHTML='<div style="padding:12px;color:var(--k-6b6256);font-size:13px">'
+      +'<b>Die Favoriten konnten nicht geladen werden.</b>'
+      +'<div style="margin-top:6px">'+(/Nicht angemeldet|JWT|expired/i.test(fm)
+          ? 'Die Anmeldung ist abgelaufen – bitte die Seite neu laden.'
+          : 'Grund: '+esc(fm||'unbekannt'))+'</div>'
+      +'<div style="margin-top:6px">Gespeichert ist trotzdem alles – hier fehlt nur die Anzeige.</div></div>';
+    return;
+  }
   if(ids.length) await tbKatalogSichern();
   const list=ids.map(id=>(ALL||[]).find(p=>p.id===id)).filter(Boolean);
   window._tbAddList=list;
@@ -30854,8 +30949,14 @@ function stopScan(){
    Ralph-Entscheid A) oder als schwebender Knopf (Rueckfall, falls die Leiste
    fehlt). EINE Funktion beantwortet, welcher es ist; sonst muesste jede Stelle
    beide Faelle kennen und eine wuerde es vergessen (§4.2). */
-function rikiKnopf(){ return document.getElementById("bnriki") || document.getElementById("rikiFab"); }
-function rikiInLeiste(){ return !!document.getElementById("bnriki"); }
+function rikiKnopf(){ return document.getElementById("rikiFab"); }
+/* 🔴 20.08.2026: rikiInLeiste() ist ENTFERNT, nicht auf false gesetzt.
+   Ralph hat den Leisten-Knopf zurueckgenommen ("setz ihn so wie er am anfang war
+   rechts hin"), #bnriki gibt es nicht mehr - die Funktion haette ab jetzt IMMER
+   false geliefert. Eine Abfrage, deren Antwort feststeht, ist keine Abfrage,
+   sondern eine Falle fuer den naechsten, der sie fuer echt haelt (§1.11n-p).
+   Ihr einziger Verwender war rikiFabZustand: dort nahm sie dem Orb in der Leiste
+   Halo und Glow. Der Orb schwebt wieder und darf beides haben. */
 var _etiAusTagebuch = false;
 function etiKontextSetzen(ausTagebuch){ _etiAusTagebuch = (ausTagebuch === true); }
 function etiImTagebuch(){ return _etiAusTagebuch === true; }
@@ -34268,12 +34369,10 @@ function rikiFabZustand(z){
           denkt: {glow:0,   halo:.35, ring:1, dreht:true,  koerper:.55, augen:.8, spross:0, fertig:0},
           bereit:{glow:0,   halo:.85, ring:0, dreht:false, koerper:1,   augen:1,  spross:1, fertig:1} }[z] || null;
   if(!Z) return;                          // unbekannter Zustand aendert NICHTS (§3.4)
-  /* In der Leiste bleiben Halo und Glow IMMER aus - dort stehen flache
-     Strichsymbole. Die uebrigen Zustaende (Ring, Augen, Sproessling, Fertigpunkt)
-     gelten unveraendert, damit "denkt" und "bereit" auch dort sichtbar sind. */
-  var flach=rikiInLeiste();
-  glow.setAttribute("opacity", flach?0:Z.glow);
-  halo.setAttribute("opacity", flach?0:Z.halo);
+  /* 20.08.: der Sonderfall "in der Leiste flach" ist mit dem Leisten-Knopf
+     entfallen. Der schwebende Orb traegt seinen Halo wieder. */
+  glow.setAttribute("opacity", Z.glow);
+  halo.setAttribute("opacity", Z.halo);
   ring.setAttribute("opacity", Z.ring);
   ring.setAttribute("stroke", Z.dreht ? "#c9c2ea" : "#9a8aee");
   ring.setAttribute("stroke-dasharray", Z.dreht ? "24 14" : "");
@@ -34516,12 +34615,12 @@ function rikiPanelOeffnen(){
 
      JETZT gilt fuer beide Faelle die urspruengliche Hoehe. Die 154px stammen aus
      der Zeit des schwebenden Knopfes und sind der Wert, den Ralph mit "wie
-     vorher" meint. rikiInLeiste() wird hier nicht mehr gefragt - der Knopf darf
-     unten sitzen, das Panel richtet sich nicht mehr nach ihm.
+     vorher" meint.
 
-     rikiInLeiste() BLEIBT im Code: rikiFabZustand nimmt in der Leiste Halo und
-     Glow zurueck, damit der Knopf dort ein flaches Strichsymbol ist wie seine
-     fuenf Nachbarn. Genau das ist Ralphs "als schalter ist er unten ok". */
+     🔴 NACHTRAG vom selben Tag: der Leisten-Knopf ist inzwischen ganz weg
+     (Ralph: "riki ist immer noch im menü, der muss da raus"). Der Orb schwebt
+     wieder rechts, und rikiInLeiste() gibt es nicht mehr. Diese 154px sind damit
+     nicht mehr eine von zwei Zahlen, sondern die einzige. */
   var _angedockt = (k.seite==="erfassung");
   if(_angedockt){
     p.className=(p.className?p.className+" ":"")+"rikiAngedockt";
@@ -34559,24 +34658,19 @@ function rikiPanelOeffnen(){
 }
 function rikiFabInit(){
   if(!rikiShellAktiv()) return;                 // siehe rikiShellAktiv — gilt für beide Oberflächen
-  /* 🔴 19.08.2026, Ralph-Entscheid A: RIKI sitzt jetzt IN der Bodenleiste, nicht
-     mehr schwebend darueber. Der Knopf steht fest in index.html; hier wird nur
-     noch sein Symbol gefuellt. Der frueher hier erzeugte schwebende Knopf ist
-     ersatzlos entfallen - er verdeckte die Bedienelemente der Mahlzeitkarten.
-     Findet sich der Nav-Knopf, ist die Arbeit hier getan. */
-  var nav=document.getElementById("bnriki");
-  if(nav){
-    var ico=document.getElementById("rikiNavIcon");
-    /* Ohne Halo und ohne Glow: in der Leiste stehen flache Strichsymbole, ein
-       leuchtender Orb daneben waere ein Fremdkoerper. Die Zustaende laufen
-       weiter ueber rikiFabZustand - die Elemente heissen gleich. */
-    if(ico && !ico.innerHTML) ico.innerHTML=rikiOrbSvg();
-    rikiStilEinmal();
-    var h=document.getElementById("rikiHalo"); if(h) h.setAttribute("opacity","0");
-    var g=document.getElementById("rikiGlow"); if(g) g.setAttribute("opacity","0");
-    rikiFabZustand("normal");
-    return;
-  }
+  /* 🔴 20.08.2026, Ralph: "im menü das aufklappt soll man ihn ein oder ausblenden
+     können." Die Wahl steht in index.html (rikiSichtbar), weil sie GELTEN muss,
+     bevor app.js laeuft - sonst blitzt der Orb kurz auf. Fehlt die Funktion, gilt
+     "an": eine fehlende Einstellung darf nichts ausblenden (§3.4). */
+  if(typeof window.rikiSichtbar==="function" && !window.rikiSichtbar()) return;
+  /* 🔴 20.08.2026: HIER STAND der Zweig fuer den Leisten-Knopf (#bnriki,
+     Entscheid A vom 19.08.) - er fuellte dort nur das Symbol und kehrte um.
+     Mit dem Knopf ist er entfallen; getElementById haette ab jetzt immer null
+     geliefert und der Zweig waere nie wieder gelaufen.
+
+     Ralph 20.08.: "setz ihn so wie er am anfang war rechts hin". Der schwebende
+     Knopf darunter ist unveraendert der von vorher - er war nie geloescht,
+     sondern nur uebersprungen, solange der Leisten-Knopf existierte (§22). */
   if(document.getElementById("rikiFab")) return; // genau einer, nie zwei (§4.2)
   var b=document.createElement("button");
   b.id="rikiFab";
@@ -34608,7 +34702,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4180";
+const APP_BUILD = "2026-08-20-4190";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
