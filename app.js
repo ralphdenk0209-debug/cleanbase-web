@@ -19829,35 +19829,62 @@ async function fgRohtextLauf(){
     var basis="✓ "+v.sections.length+" Abschnitte, "+zeilen+" Zeilen gespeichert"
         +(teil?(" — "+teil+" Abschnitt"+(teil===1?"":"e")+" unvollständig/ungeklärt, bitte prüfen"):"");
     var farbe=teil?"var(--k-b45309)":"var(--k-166534)";
-    /* WORK E2 (20.08.2026) — Allergene aus dem Lauf uebernehmen.
-       cb_riki_source_extraction_speichern gibt die run_id als bigint zurueck;
-       cb_riki_allergene_persistieren(p_run_id) loest die Aliase serverseitig auf,
-       ist idempotent ueber Source_Item_ID und liefert
-       {ok, run_id, persistiert, needs_review}. needs_review zaehlt BEIDE Faelle,
-       die der Server offen laesst (Claim fehlt/ungueltig ODER Alias unbekannt) —
-       einen dritten Zaehler gibt es dort nicht, also wird hier keiner erfunden (§1.1).
-       Das Frontend ruft nur auf und zeigt an; es entscheidet nichts (§10.2).
+    /* WORK E2 (20.08.2026, erweitert) — Fachwerte aus dem Lauf uebernehmen.
+       cb_riki_source_extraction_speichern gibt die run_id als bigint zurueck.
+
+       GEAENDERT gegenueber Build 4080: dort stand hier cb_riki_allergene_persistieren.
+       Am 20.08. mit pg_get_functiondef gemessen: cb_riki_fachwerte_persistieren(p_run_id)
+       ruft cb_riki_allergene_persistieren SELBST auf und danach die drei uebrigen
+       Schreiber — cb_riki_produkt_zutaten_persistieren, cb_riki_makro_persistieren,
+       cb_riki_produkt_naehrstoffe_persistieren. Beide Aufrufe NEBENEINANDER wuerden
+       die Allergene zweimal schreiben. Deshalb GENAU EIN Aufruf statt zweier, und
+       keine vier eigenen Persistenzwege im Frontend (Ralph, 20.08.2026).
+       Die Reihenfolge der vier Schreiber liegt serverseitig fest; app.js bestimmt
+       sie nicht und darf sie nicht nachbauen (§10.2, §4.2).
+
+       Rechte: SECURITY DEFINER, search_path public+shadow_v1, EXECUTE fuer
+       authenticated, Gate "service_role ODER cb_ist_admin()" — aus der
+       Admin-Browsersitzung also aufrufbar.
+
+       Rueckgabe: {ok, run_id, allergene:{…}, zutaten:{…}, makro:{…}, naehrstoffe:{…}},
+       je Bereich {ok, run_id, persistiert, needs_review}. EINEN GESAMTZAEHLER GIBT ES
+       DORT NICHT, also wird hier keiner erfunden (§1.1): angezeigt wird je Bereich
+       genau das, was der Server zurueckgibt.
+
+       Was der Server offen laesst, bleibt sichtbar offen (§3.4): eine Makro-Zeile mit
+       basis_key ausserhalb pro_100g|pro_100ml|pro_portion wird NICHT geschrieben,
+       sondern auf needs_review gesetzt. Genau diese Unsicherheit soll hier stehen,
+       statt unter einem gruenen Haken zu verschwinden.
+
        Ein Fehler HIER entwertet den Lauf nicht: die Extraktion ist oben bereits
        gespeichert. Deshalb eigener try/catch mit Lauf-ID im Text (§11.4). */
     var alg="";
     if(runId==null||!isFinite(runId)){
-      alg=" — Allergene übersprungen: der Lauf gab keine Lauf-ID zurück";
+      alg=" — Fachwerte übersprungen: der Lauf gab keine Lauf-ID zurück";
       farbe="var(--k-b45309)";
     }else{
-      sag("Allergene werden übernommen …");
+      sag("Fachwerte werden übernommen …");
       try{
-        var ra=await client.rpc("cb_riki_allergene_persistieren",{p_run_id:runId});
-        if(ra&&ra.error) throw ra.error;
-        var a=(ra&&ra.data)||{};
-        var aOk=Number(a.persistiert)||0, aPruef=Number(a.needs_review)||0;
-        if(aOk||aPruef){
-          alg=" — Allergene: "+aOk+" übernommen"
-             +(aPruef?(", "+aPruef+" offen (Claim fehlt/ungültig oder Alias unbekannt) — bitte prüfen"):"");
-          if(aPruef) farbe="var(--k-b45309)";
+        var rf=await client.rpc("cb_riki_fachwerte_persistieren",{p_run_id:runId});
+        if(rf&&rf.error) throw rf.error;
+        var f=(rf&&rf.data)||{};
+        var fTeile=[["Allergene",f.allergene],["Zutaten",f.zutaten],
+                    ["Makro",f.makro],["Nährstoffe",f.naehrstoffe]];
+        var fTxt=[], fOffen=0;
+        fTeile.forEach(function(t){
+          var q=t[1]||{}, ok=Number(q.persistiert)||0, pruef=Number(q.needs_review)||0;
+          if(!ok&&!pruef) return;
+          fOffen+=pruef;
+          fTxt.push(t[0]+": "+ok+" übernommen"+(pruef?(", "+pruef+" offen"):""));
+        });
+        if(fTxt.length){
+          alg=" — "+fTxt.join(" · ")
+             +(fOffen?(" — "+fOffen+" Zeile"+(fOffen===1?"":"n")+" bleiben offen, bitte prüfen"):"");
+          if(fOffen) farbe="var(--k-b45309)";
         }
-      }catch(ea){
-        console.error("[E2 Allergene] Lauf "+runId,ea);
-        alg=" — Allergene NICHT übernommen (Lauf "+runId+"): "+((ea&&ea.message)||ea)
+      }catch(ef){
+        console.error("[E2 Fachwerte] Lauf "+runId,ef);
+        alg=" — Fachwerte NICHT übernommen (Lauf "+runId+"): "+((ef&&ef.message)||ef)
            +" — der Extraktionslauf selbst ist gespeichert";
         farbe="var(--k-b91c1c)";
       }
@@ -34152,7 +34179,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4080";
+const APP_BUILD = "2026-08-20-4090";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
