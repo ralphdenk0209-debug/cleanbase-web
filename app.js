@@ -12339,6 +12339,12 @@ function _abJobsListe(np,A){
   return jobs;
 }
 
+/* 🔴 OHNE AUFRUFER seit 20.08.2026, Work #121 — bewusst stehengelassen, nicht
+   geloescht (§3.7, P9). Die Detailliste „Alle offenen Punkte" zeigte dieselben
+   sechs Zufluesse wie die Kachel „Eingang"; seit die Kachel echte Drilllisten
+   oeffnet, ist diese hier die zweite Anzeige derselben Sache.
+   NICHT VERWECHSELN: _abJobsListe (die Daten) lebt weiter — die freie Kachel
+   vom Typ „liste" liest sie. Tot ist nur dieses Markup. */
 function _abJobs(np,A){
   var jobs=_abJobsListe(np,A);
   if(!jobs.length) return '<div class="abpad" style="color:'+_AB.gut+';font-weight:700;font-size:13px">'
@@ -12374,6 +12380,10 @@ function _abJobs(np,A){
      („Alle offenen Punkte"), nie in den Fluss (Ralph P12 eingehalten).
    · _abZf (Farbe je Zufluss) bleibt stehen, der Graph benutzt sie.
    --------------------------------------------------------------------------- */
+/* 🔴 OHNE AUFRUFER seit 20.08.2026, Work #121 — stehengelassen, nicht geloescht.
+   Der „Herzschlag" zeigte dieselben drei Takte, die jetzt in der Kachel
+   „Betrieb & Schnellzugriff" stehen (gemessen: cb_netzplan liefert 3,
+   cockpit.karten.schnell.takte liefert dieselben 3). */
 function _abTakte(np){
   var t=(np&&np.takte)||[], s='';
   t.forEach(function(x,i){
@@ -14982,8 +14992,15 @@ async function _abLinksLaden(){
     var g=_abLinksAusMd(await r.text());
     if(!g.length){ box.innerHTML='<div class="bleer">Links.md enthält keine Linkzeilen.</div>'; return; }
     var anzahl=g.reduce(function(s,x){ return s+x.links.length; },0);
-    box.innerHTML='<div class="babs">Links <span style="font-weight:400;color:var(--abmut)">— '
-      +anzahl+' aus Links.md</span></div>'
+    /* 🔴 AUFGEKLAPPT waeren es sieben Zeilen zusaetzlich zu vier Betriebszeilen
+       und sechs Knoepfen — auf 300 px Kachelhoehe eine Scrollwueste. Gemessen
+       mit dem Zeilenzaehler aus test-work121-cockpit.js. Als <details> kostet
+       die Liste EINE Zeile, bis Ralph sie braucht. Der Browser merkt sich das
+       nicht; das waere ein zweiter Speicherort fuer eine Anzeigeeinstellung
+       und ist es nicht wert. */
+    box.innerHTML='<details><summary style="cursor:pointer;font-size:11px;'
+      +'font-weight:700;letter-spacing:.02em;text-transform:uppercase;'
+      +'color:var(--abmut);padding:3px 0">Links · '+anzahl+' aus Links.md</summary>'
       + g.map(function(x){
           return '<div class="bzeile" style="align-items:flex-start"><span>'+esc(x.titel)+'</span>'
             +'<b style="font-weight:500;text-align:right">'
@@ -14992,7 +15009,8 @@ async function _abLinksLaden(){
                   +'title="'+esc(l.url)+'" style="color:inherit">'+esc(l.name)+'</a>';
               }).join(' · ')
             +'</b></div>';
-        }).join('');
+        }).join('')
+      +'</details>';
   }catch(e){
     box.innerHTML='<div class="bfehl"><b>Linkliste nicht ladbar.</b><br>'
       +esc((e&&e.message)||String(e))+'</div>';
@@ -15416,48 +15434,48 @@ function dashArbeitHtml(d,np,fehler){
     h+='</div>'; return h;
   }
 
-  /* Reihe 1 — jetzt die DETAILEBENE unter dem Bento (Durchgang 2).
-     Sie ist keine Dopplung im schaedlichen Sinn: beide Ansichten lesen dieselbe
-     Quelle (_abAbl und _abJobsListe), oben in Uebersicht, hier vollstaendig und
-     klickbar. Genau deshalb durfte die Kachel oben die Liste NICHT selbst
-     erheben — sonst waeren es zwei Wahrheiten statt zweier Aufloesungen.
-     Behalten, weil hier die Drilldowns sitzen, die das Bento nicht hat
-     (Ralph P12: was einen Weg hat, behaelt ihn). */
+  /* ==========================================================================
+     DETAILEBENE UNTER DEM BENTO  ·  entdoppelt am 20.08.2026, Work #121
+     --------------------------------------------------------------------------
+     🔴 HIER STANDEN VIER BLOECKE, DREI DAVON ZEIGTEN DIESELBEN ZAHLEN NOCH
+     EINMAL. Bis heute war das begruendet: „hier sitzen die Drilldowns, die das
+     Bento nicht hat" (Ralph P12). Seit #121 HAT das Bento Drilldowns — jede
+     Zahl mit drill_key oeffnet cb_admin_dashboard_cockpit_drill mit echten
+     Zeilen. Damit faellt die Begruendung weg, und was bleibt, ist eine zweite
+     Anzeige derselben Sache (§4.2, Kriterium 8).
+
+     GEMESSEN 20.08. gegen cb_netzplan, bevor etwas entfernt wurde:
+       · „Alle offenen Punkte"  = dieselben 6 Zufluesse wie die Kachel Eingang
+       · „Herzschlag"           = dieselben 3 Takte wie die Kachel Betrieb
+       · „Zutaten im Stamm 705" = Legacy-Zaehler; das Cockpit sagt 944 aus
+         Canonical. ZWEI Zahlen fuer dieselbe Frage, und #121 verbietet den
+         Altstamm-Zeilencount als Kennzahl ausdruecklich.
+       · „Tagebuch, 7 Tage"     = steht in der Kachel Nutzung (131)
+     WAS BLEIBT, weil es diese Zahlen NUR hier gibt:
+       · der Waechterring und das Raster darunter — 23 Waechter, das Cockpit
+         fuehrt nur die 8 Gate-Waechter. Die uebrigen 15 haetten sonst keinen Ort.
+       · „Woher der Katalog stammt" — 6 Quellen mit Zahlen, im Cockpit nicht.
+       · Rezepte und Regelwerk-Bereiche — ebenfalls nirgends sonst.
+
+     KEIN WEG GEHT VERLOREN (Ralph P12): die Zeilen von _abJobs sprangen an eine
+     Stelle der Seite; die Kachel Eingang oeffnet stattdessen die Serverliste
+     der wartenden Eintraege. Das ist mehr, nicht weniger. _abJobsListe bleibt
+     unangetastet — die freie Kachel vom Typ „liste" liest sie weiter.
+     ========================================================================== */
   h+='<div class="abrow r1" id="abDetail">'
-    +'<div class="abp"><div class="abph"><h3>Wächter im Einzelnen</h3>'
-    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">'+A.melden+' melden</span></div>'
+    +'<div class="abp"><div class="abph"><h3>Alle Wächter im Einzelnen</h3>'
+    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">'+A.melden+' von '
+    +((np&&np.waechter)||[]).length+' melden</span></div>'
     +_abRing(np,A)
     +'<div class="abfoot">Jedes Segment ist ein Wächter · blass = still · Zeiger drauf für Klartext · '
-    +'⛔ blockiert die Freigabe</div></div>'
-    +'<div class="abp"><div class="abph"><h3>Alle offenen Punkte</h3>'
-    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">vollständig, nach Dringlichkeit</span></div>'
-    +_abJobs(np,A)+'</div></div>';
-
-  /* Reihe 2: Herzschlag · Woher der Katalog stammt · Bestand
-     🔴 15.08.2026, Ralph-Auftrag: DER FLUSS IST RAUS — Panel und Funktion _abFluss.
-     Vorher stand hier links das Fluss-Diagramm (Zufluss → Prüfung → Live) und rechts
-     eine 320px-Seitenspalte mit diesen drei Kästen. Die Kästen bleiben unverändert,
-     sie stehen jetzt nebeneinander in einer eigenen Reihe (.r3, drei gleiche Spalten).
-     GEPRÜFT VOR DEM LÖSCHEN, damit keine Zahl und kein Weg verlorengeht:
-     · _abFluss hatte GENAU EINEN Aufrufer — diese Stelle. Kein zweiter Pfad.
-     · Die Hero-Zahlen „Vorgänge warten" und „davon ohne Abnehmer" springen NICHT
-       zum Fluss, sondern zu #abDetail, also zu „Alle offenen Punkte" in Reihe 1.
-       Der Drilldown bleibt damit vollständig erhalten (Ralph P12).
-     · _abZf (Farbe je Zufluss) bleibt — der Graph benutzt sie weiter.
-     · np.zufluesse wird weiter gelesen: von _abAbl, _abJobsListe und dem Graph.
-       Weggefallen ist die Darstellung, nicht die Datenquelle. */
-  h+='<div class="abrow r3">'
-    +'<div class="abp abpad"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">Herzschlag</div>'
-    +_abTakte(np)+'</div>'
+    +'⛔ blockiert die Freigabe. <b>Die Kachel „Qualität" oben zeigt nur die '
+    +'Gate-Wächter</b> — hier stehen alle.</div></div>'
     +'<div class="abp abpad"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">'
-    +'Woher der Katalog stammt</div>'+_abQuellen(np)+'</div>'
-    +'<div class="abp abpad"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">Bestand</div>'
+    +'Woher der Katalog stammt</div>'+_abQuellen(np)
+    +'<div style="margin-top:11px;padding-top:9px;border-top:1px solid var(--line)">'
     +'<div class="abkv"><span>Rezepte</span><b>'+(ex.rezepte==null?'–':ex.rezepte)+'</b></div>'
-    +'<div class="abkv"><span>Zutaten im Stamm</span><b>'+(ex.zutaten==null?'–':ex.zutaten)+'</b></div>'
     +'<div class="abkv"><span>Regelwerk</span><b>'+(((np&&np.regelwerk)||[]).length)+' Bereiche</b></div>'
-    +'<div class="abkv"><span>Tagebuch, 7 Tage</span><b>'
-    +(((d&&d.nutzung)||{}).eintraege_7t==null?'–':d.nutzung.eintraege_7t)+'</b></div></div>'
-    +'</div>';
+    +'</div></div></div>';
 
   /* Reihe 3: Wächter-Raster */
   h+='<div class="abp"><div class="abph"><h3>Alle Wächter</h3>'
@@ -35972,7 +35990,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4300";
+const APP_BUILD = "2026-08-20-4310";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
