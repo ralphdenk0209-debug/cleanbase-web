@@ -10792,6 +10792,24 @@ function buildMehr(){
                + 'color:'+(an?'var(--greendk)':'var(--ink)')+'">'+o[1]+'</button>';
         }).join('')
       +'</div></div>';
+    /* 🔴 20.08.2026, Ralph: "die soll eine option werden, die man deaktivieren
+       kann." Direkt unter dem RIKI-Schalter, weil sie ihn verfeinert - und
+       ausgegraut, wenn RIKI ganz aus ist: eine Wahl anzubieten, die nichts tut,
+       ist schlimmer als keine. */
+    const iAn = (typeof window.rikiIntroAn==='function') ? window.rikiIntroAn() : true;
+    html+='<div style="padding:0 12px 10px;'+(rAn?'':'opacity:.45;pointer-events:none')+'">'
+      +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">RIKI erklärt auf der Startseite, was Root Index ist</div>'
+      +'<div style="display:flex;gap:6px">'
+      + rOpt.map(function(o){
+          const an=(iAn===o[0]);
+          return '<button onclick="rikiIntroSetzen('+(o[0]?'true':'false')+')" style="flex:1;padding:9px 4px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;'
+               + 'border:1px solid '+(an?'var(--green)':'var(--line)')+';'
+               + 'background:'+(an?'var(--greenlt)':'var(--card)')+';'
+               + 'color:'+(an?'var(--greendk)':'var(--ink)')+'">'+o[1]+'</button>';
+        }).join('')
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.45">Aus: RIKI erklärt dort nur die Oberfläche.</div>'
+      +'</div>';
   }
   html+='<button onclick="closeMehr();kontaktOpen()">✉️ Kontakt · Frage oder Produkt melden</button>';
   /* Die vier Rechtstexte tippt kaum jemand an, sie fraßen aber vier Zeilen und
@@ -19660,7 +19678,7 @@ async function fgZusV2Laden(pid){
    und dürfen nicht in eine der beiden hineingezählt werden.
    =========================================================================== */
 async function fgZutOffenLaden(pid){
-  window._fgZutOffen=null; window._fgZutOffenFehler="";
+  window._fgZutOffen=null; window._fgZutOffenFehler=""; window._fgZutOffenVorschlag={};
   if(!pid) return;
   try{
     /* 🔴 16.08.2026 — WORK #81/#94: der Leseweg ist jetzt cb_admin_zutat_offen_mit_riki.
@@ -19679,6 +19697,13 @@ async function fgZutOffenLaden(pid){
        an der haengen die Bilanz (#89) und zwei Renderwege. */
     rows.forEach(function(z){ if(z && z.ist_offen===undefined) z.ist_offen=true; });
     window._fgZutOffen=rows;
+    /* 🔴 20.08.2026 — WORK #139: der Stammvorschlag wird HIER geholt, nicht erst beim
+       Aufklappen. GEMESSEN am 20.08. ueber den Bestand: 49 offene Zeilen auf 20
+       Produkte, Median 2, Maximum 6 je Produkt. Sechs lesende STABLE-Aufrufe
+       parallel sind billiger als ein zweiter Bedienschritt — bei dreistelligen
+       Zeilenzahlen waere die Entscheidung umgekehrt. Der Aufruf darf die Anzeige
+       nicht aufhalten: er laeuft in seiner eigenen Fehlerbehandlung (§11.4). */
+    await _fgZutOffenVorschlaegeLaden(rows);
   }catch(e){
     /* Kein leerer Fangblock (§11.4): faellt die Quelle aus, bleibt der Block LEER
        statt falsch – und der Grund steht in der Konsole UND im Block selbst.
@@ -19686,6 +19711,119 @@ async function fgZutOffenLaden(pid){
     console.error("[Offene Zutaten] cb_admin_zutat_offen_mit_riki:", e);
     window._fgZutOffenFehler=(e&&e.message)?String(e.message):String(e);
   }
+}
+/* ===========================================================================
+   🔴 20.08.2026 — WORK #139: DER STAMMVORSCHLAG WIRD ANGESCHLOSSEN, NICHT GEBAUT
+
+   BEFUND aus Stufe 1: `cb_admin_zutat_offen_vorschlag(p_zutat_text)` existiert
+   seit Langem, ist STABLE, SECURITY DEFINER, hinter cb_ist_admin() — und wurde
+   im gesamten `webseite/` NULL MAL gerufen (0 Treffer). Es gab also nichts zu
+   ersetzen, nur anzuschliessen (§22: ein nicht angeschlossenes Werkzeug ist
+   haeufiger als ein fehlendes).
+
+   WAS HIER PASSIERT: aufrufen und ANZEIGEN. Sonst nichts.
+     · Kein Umrechnen, kein Ableiten, kein Ergaenzen (§1.1). Fehlt `note` oder
+       `sicherheit`, steht dort „nicht belegt" — NICHT eine 0, die der Server
+       nicht geliefert hat (§3.4).
+     · Der Status wird ANGEZEIGT, nicht bewertet. „UNBEKANNT" ist ein Ergebnis
+       und gehoert sichtbar hin: sonst sieht eine Zeile, bei der die Suche
+       belegt leer ausging, genauso aus wie eine, die niemand befragt hat.
+     · `kandidaten[]` sind ein PRUEFHINWEIS, keine Zuordnung (§3.6). Sie werden
+       als Text gezeigt und haben ausdruecklich KEINEN Bindeknopf.
+     · Faellt der Aufruf aus, bleibt die Zeile vollstaendig bedienbar und der
+       Grund steht sichtbar dran (§11.4, kein leerer Fangblock).
+
+   GEMESSENE RUECKGABEFORMEN am 20.08.2026 (cb_v2_element, dieselbe Quelle):
+     „Rosa Steinsalz"      OK · exakt        · Note 7  · Sicherheit 1
+     „Gemahlene Datteln"   OK · ohne_klammer · Note —  · Sicherheit 0.95
+                           · warnungen ["stammzutat_ohne_note"]
+     „Hefen"               UNSICHER · vorschlag_einer · 1 Kandidat „Hefe" (7)
+     „Sojasossenpulver"    UNBEKANNT · kein · Note —   · Sicherheit 0
+   Es gibt also MEHR als OK und UNBEKANNT. Deshalb wird jeder unbekannte Status
+   woertlich durchgereicht statt in eine der beiden Schubladen gezwungen.
+   =========================================================================== */
+function _fgOffVorschlagKey(z){
+  /* item_id ist nicht an jeder Zeile gesetzt (Zutat_Offen ohne Bruecke). Der
+     Text ist der zweite Teil des Schluessels, weil er der Aufrufparameter ist. */
+  return String((z&&z.item_id)||"")+"|"+String((z&&z.zutat_text)||"").trim().toLowerCase();
+}
+async function _fgZutOffenVorschlaegeLaden(rows){
+  window._fgZutOffenVorschlag={};
+  if(!Array.isArray(rows)||!rows.length) return;
+  var zeilen=rows.filter(function(z){
+    return z && z.ist_offen===true && !z.manual_decision_kind && String(z.zutat_text||"").trim();
+  });
+  if(!zeilen.length) return;
+  await Promise.all(zeilen.map(async function(z){
+    var k=_fgOffVorschlagKey(z), txt=String(z.zutat_text||"").trim();
+    try{
+      var r=await client.rpc("cb_admin_zutat_offen_vorschlag",{p_zutat_text:txt});
+      if(r&&r.error) throw r.error;
+      var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e2){} }
+      window._fgZutOffenVorschlag[k]={d:(d&&typeof d==="object")?d:null,fehler:""};
+    }catch(e){
+      /* Je Zeile eigener Fangblock: ein gescheiterter Vorschlag darf die
+         uebrigen Zeilen nicht mitreissen und die Maske nicht blockieren. */
+      console.error("[#139 Stammvorschlag]",txt,e);
+      window._fgZutOffenVorschlag[k]={d:null,fehler:(e&&e.message)?String(e.message):String(e)};
+    }
+  }));
+}
+function _fgOffVorschlagHtml(z){
+  var st=(window._fgZutOffenVorschlag||{})[_fgOffVorschlagKey(z)];
+  if(!st) return "";
+  var W='<span class="fgOffVorschlag" style="display:block;margin-top:3px;font-size:11px;line-height:1.45">';
+  if(st.fehler){
+    return W+'<span style="color:var(--k-b45309,#b45309)">⚠ Stammvorschlag nicht abrufbar</span>'
+      +'<span style="color:var(--muted)"> · '+esc(st.fehler)
+      +' · Die Zeile bleibt bedienbar; es wird NICHT behauptet, der Stamm kenne sie nicht.</span></span>';
+  }
+  var d=st.d; if(!d) return "";
+  if(d.ok===false){
+    return W+'<span style="color:var(--k-b45309,#b45309)">⚠ Stamm nicht befragt</span>'
+      +'<span style="color:var(--muted)"> · '+esc(String(d.grund||"ohne Angabe"))+'</span></span>';
+  }
+  var s=String(d.status||""), kopf;
+  if(s==="OK"){
+    kopf='<span style="color:var(--k-166534,#166534)">✓ im Stamm gefunden: <b>'+esc(String(d.stammname||"ohne Stammnamen"))+'</b></span>';
+  }else if(s==="UNBEKANNT"){
+    kopf='<span style="color:var(--k-b45309,#b45309)">✕ im Stamm nicht gefunden</span>';
+  }else if(s){
+    kopf='<span style="color:var(--k-b45309,#b45309)">⚠ Stamm: '+esc(s)+'</span>';
+  }else{
+    kopf='<span style="color:var(--muted)">Stammvorschlag ohne Status</span>';
+  }
+  /* Genau die Felder, die zurueckkamen. „nicht belegt" ist eine Aussage ueber
+     die Antwort, keine ersatzweise Zahl. */
+  var t=[];
+  t.push('Note '+(d.note!=null?esc(String(d.note)):'nicht belegt'));
+  t.push('Sicherheit '+(d.sicherheit!=null?esc(String(d.sicherheit)):'nicht belegt'));
+  if(d.treffer_art) t.push('Treffer '+esc(String(d.treffer_art)));
+  if(d.zutat_id) t.push('Stamm-ID '+esc(String(d.zutat_id)));
+  if(d.grund) t.push('grund: '+esc(String(d.grund)));
+  var H=W+kopf+'<span style="color:var(--muted)"> · '+t.join(' · ')+'</span>';
+  var wn=Array.isArray(d.warnungen)?d.warnungen:[];
+  if(wn.length){
+    H+='<span style="display:block;color:var(--k-b45309,#b45309)">⚠ '
+      +esc(wn.map(function(w){ return (w&&typeof w==="object")?JSON.stringify(w):String(w); }).join(" · "))+'</span>';
+  }
+  var kd=Array.isArray(d.kandidaten)?d.kandidaten:[];
+  if(kd.length){
+    H+='<span style="display:block;color:var(--muted);margin-top:2px">'
+      +kd.length+' Kandidat'+(kd.length===1?"":"en")+' – Prüfhinweis, KEINE Zuordnung (§3.6):</span>'
+      +kd.map(function(k){
+        var p=[];
+        if(k&&k.zutat) p.push('<b>'+esc(String(k.zutat))+'</b>');
+        if(k&&k.zutat_id) p.push(esc(String(k.zutat_id)));
+        p.push('Note '+((k&&k.note!=null)?esc(String(k.note)):'nicht belegt'));
+        if(k&&k.aehnlichkeit!=null) p.push('Ähnlichkeit '+esc(String(k.aehnlichkeit)));
+        if(k&&k.art) p.push(esc(String(k.art)));
+        return '<span style="display:block;padding-left:10px;color:var(--muted)">· '+p.join(' · ')
+          +((k&&k.begruendung)?('<span style="display:block;padding-left:10px">'+esc(String(k.begruendung))+'</span>'):'')
+          +'</span>';
+      }).join("");
+  }
+  return H+'</span>';
 }
 /* Nur die wirklich offenen Zeilen. `ist_offen` kommt aus der RPC – hier wird
    NICHT nachgerechnet, was „offen" heisst (§4.2). */
@@ -19798,6 +19936,8 @@ function _fgZutOffenHtml(){
         }
         if(_zu) H+='<span style="display:block;margin-top:3px;font-size:11px;line-height:1.45">'+_zu+'</span>';
       }
+      /* WORK #139 — was der Zutatenstamm zu dieser Zeile sagt. Anzeige, kein Urteil. */
+      H+=_fgOffVorschlagHtml(z);
       /* Die vier Wege. Reihenfolge = Pruefkette. Neuanlage zuletzt und still. */
       H+='<span class="fgOffWege" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'
         +'<button type="button" class="fgOffBtn fgOffPrimaer" onclick="fgOffBinden('+esc(iid)+',this)" '
@@ -19826,6 +19966,63 @@ function _fgOffMsg(btn, txt, farbe){
   try{ var z=btn.closest(".fgOffZeile"), m=z&&z.querySelector(".fgOffMsg");
        if(m){ m.textContent=txt||""; m.style.color=farbe||"var(--muted)"; } }catch(e){}
 }
+/* ===========================================================================
+   🔴 20.08.2026 — WORK #139: DIE SERVERANTWORT VERSTAENDLICH, NICHT NACHGEBAUT
+
+   `cb_source_extraction_item_keine_eigene_zutat_setzen` hat VIER Riegel:
+     1  Extraktionszeile vorhanden          (item_id)
+     2  semantic_class = 'ingredient'       ← im Leseweg NICHT lesbar
+     3  extraction_status <> 'unresolved'
+     4  parenthetical_role in (composition, explanation, subingredients)
+        — seit 19.08. fail-closed, NULL blockiert
+   (dazu, wenn ein Klammerbestandteil mitgegeben wird: er muss in
+    parenthetical_items stehen.)
+
+   WAS HIER BEWUSST NICHT PASSIERT: eine Vorabpruefung, die den Knopf sperrt.
+   Riegel 2 liesse sich im Browser gar nicht pruefen — `semantic_class` steht
+   nicht in `cb_admin_zutat_offen_mit_riki`. Die uebrigen drei nachzurechnen
+   waere eine ZWEITE KOPIE derselben Regel (§4.2) und wuerde beim naechsten
+   Riegelwechsel still falsch. Der Server bleibt die einzige Instanz.
+
+   WAS PASSIERT: seine Ablehnung wird uebersetzt — was nicht ging, warum, und
+   was stattdessen moeglich ist. Der rohe Serversatz bleibt darunter stehen,
+   damit nichts verdeckt wird (§1.7).
+   =========================================================================== */
+function _fgOffMsgHtml(btn, html){
+  try{ var z=btn&&btn.closest(".fgOffZeile"), m=z&&z.querySelector(".fgOffMsg");
+       if(m){ m.style.color=""; m.innerHTML=html||""; } }catch(e){}
+}
+function _fgOffServerFehlerHtml(e){
+  var roh=String((e&&e.message)||e||"").trim();
+  var k=roh.toLowerCase(), kurz, weg="";
+  if(k.indexOf("composition")>=0){
+    kurz='Der Entscheid „keine eigene Zutat" ist an dieser Zeile nicht zulässig.';
+    weg='Der Server lässt ihn nur zu, wenn die Zeile eine Klammerrolle trägt – composition, explanation oder subingredients. '
+       +'An dieser Zeile ist keine hinterlegt. Möglicher Weg: „Riki prüfen & bewerten" laufen lassen; die Zerlegung kann die Rolle setzen. '
+       +'Bleibt sie leer, ist der Entscheid weiterhin gesperrt – das ist Absicht, nicht ein Fehler.';
+  }else if(k.indexOf("nur zutaten-items")>=0){
+    kurz='Diese Zeile ist beim Server nicht als Zutat geführt.';
+    weg='Der Entscheid gilt nur für Zeilen mit semantic_class „ingredient". Diese Zeile hat eine andere Einstufung.';
+  }else if(k.indexOf("ungeklaerte extraktion")>=0||k.indexOf("ungeklärte extraktion")>=0){
+    kurz='Die Zerlegung dieser Zeile ist noch ungeklärt.';
+    weg='Solange extraction_status auf „unresolved" steht, nimmt der Server keinen Handentscheid an. Erst „Riki prüfen & bewerten", dann erneut.';
+  }else if(k.indexOf("extraktionszeile nicht gefunden")>=0){
+    kurz='Zu dieser Zeile gibt es beim Server keine Extraktionszeile.';
+    weg='Ohne sie ist kein Handentscheid möglich – die Zeile stammt aus einer Quelle ohne Riki-Extraktionslauf.';
+  }else if(k.indexOf("klammerbestandteil")>=0){
+    kurz='Der angegebene Klammerbestandteil steht nicht in der Zerlegung.';
+    weg='Der Server prüft ihn gegen parenthetical_items dieser Zeile.';
+  }else if(k.indexOf("nur admins")>=0){
+    kurz='Für diesen Schritt fehlt die Admin-Berechtigung.';
+  }else{
+    /* Unbekannter Text: NICHT als „abgelehnt" ausgeben – ein Netz- oder
+       Zeitfehler ist keine fachliche Ablehnung (§1.7). */
+    kurz='Der Schritt ist fehlgeschlagen.';
+  }
+  return '<span style="color:var(--k-b91c1c,#b91c1c);font-weight:600">'+esc(kurz)+'</span>'
+    +(weg?('<span style="display:block;color:var(--ink)">'+esc(weg)+'</span>'):'')
+    +'<span style="display:block;color:var(--muted)">Serverantwort: '+esc(roh)+'</span>';
+}
 async function _fgOffReload(){
   try{ var pid=(window._fgEdit&&window._fgEdit.id);
        if(pid){ await fgZutOffenLaden(pid); }
@@ -19837,6 +20034,16 @@ async function _fgOffReload(){
    besten bekannten Namen vorbefuellt und fokussiert; die Trefferliste des Pickers
    uebernimmt (§22 — angeschlossen, nicht neu gebaut). base_ingredient schlaegt
    zutat_text, weil er der bereinigte Suchbegriff aus der Zerlegung ist. */
+/* 🔴 20.08.2026 — WORK #139, GEPRUEFT UND BEWUSST NICHT GEAENDERT.
+   Auftrag war: bei einem exakten Vorschlagstreffer direkt binden statt zu suchen,
+   ueber den vorhandenen Weg `cb_admin_canonical_zutat_binden`. GEMESSEN passen die
+   Typen NICHT: der Vorschlag liefert eine LEGACY-Stamm-ID als Text (`ZG-0e4377085d`
+   fuer „Rosa Steinsalz"), die RPC verlangt `p_entity_id uuid` — eine Canonical-ID.
+   Eine Bruecke existiert (`shadow_v1.legacy_ingredient_binding.source_zutat_id →
+   entity_id`, fuer die geprueften ZG-IDs `approved`), aber KEIN Leseweg legt sie
+   offen, und `p_processing_modifier` muesste geraten werden. Die Umsetzung im
+   Browser waere ein zweiter Resolver (§4.2) auf geratenen Werten (§1.1).
+   Lieber unveraendert als falsch verdrahtet — die Ergaenzung liegt bei ChatGPT (§31.1). */
 function fgOffBinden(iid, btn){
   var z=_fgOffItem(iid); if(!z) return;
   var s=document.getElementById("fe_zutSuche");
@@ -19896,7 +20103,10 @@ async function fgOffKeineZutat(iid, btn){
     await _fgOffReload();
   }catch(e){
     console.error("[#81 keine Zutat]",e);
-    _fgOffMsg(btn,"Fehlgeschlagen: "+((e&&e.message)||e),"var(--k-b91c1c)");
+    /* WORK #139: die Ablehnung wird uebersetzt, nicht als roher Postgres-Satz
+       hingeworfen. Keine Regelkopie – der Server hat entschieden, hier steht
+       nur, was er gesagt hat, in Ralphs Sprache. */
+    _fgOffMsgHtml(btn,_fgOffServerFehlerHtml(e));
     if(btn){ btn.disabled=false; }
   }
 }
@@ -34118,6 +34328,11 @@ function rikiKontext(){
   if(seite==="produkte" && window._offenesProdukt) k.produkt_id = window._offenesProdukt;
   if(seite==="produkte"){ var qi=document.getElementById("q"); if(qi && qi.value.trim()) k.suchbegriff = qi.value.trim(); }
   if(seite==="rezepte" && window._rezept && window._rezept.id) k.rezept_id = String(window._rezept.id);
+  /* 🔴 20.08.2026: Die Startseite hat ZWEI Gesichter - renderStart() verzweigt
+     an ME und baut ausgeloggt eine ganz andere Seite. Die Station kommt aus
+     derselben Variablen, an der auch renderStart verzweigt; ein zweites Merkmal
+     danebenzustellen hiesse, dass eines davon irgendwann das andere widerlegt. */
+  if(seite==="start") k.station = (typeof ME!=="undefined" && ME) ? "nutzer" : "gast";
   /* 🔴 20.08.2026, Work #133 E5 — DER EDITOR IST JETZT EINE SEITE, DIE RIKI KENNT.
      Ralph: "riki hat sich nicht verändert."
 
@@ -34167,6 +34382,32 @@ function rikiKontext(){
    eine bewusste Schwaeche und keine uebersehene.
    ============================================================================ */
 var RIKI_SEITENHILFE={
+  /* 🔴 20.08.2026, Ralph-Auftrag: "auf der startseite soll riki erklaeren, was
+     root index ist und wie es funktioniert."
+
+     🔴 WARUM ES DIE STARTSEITE BIS HEUTE NICHT GAB: am 19.08. stand hier
+     "start, einkauf und rezepte ueberlappten im HTML" - deshalb kein Eintrag.
+     Das war ein Werkzeugfehler, kein Datenfehler: die Startseite wird NICHT in
+     index.html gebaut, sondern in renderStart() (Z. 10237). Dort steht sie
+     vollstaendig und eindeutig. Wer am falschen Ort sucht, findet nichts und
+     haelt das fuer einen Befund (§0.4).
+
+     ZWEI ZUSTAENDE, ZWEI TEXTE: eingeloggt zeigt renderStart Kennzahlen und
+     sieben Kacheln, ausgeloggt eine Willkommenkarte und vier. Ein Text fuer
+     beides waere fuer die Haelfte der Leser falsch. Der Schluessel folgt der
+     Bauart von "erfassung:kopf" - Station statt zweiter Namensraum (§4.2). */
+  start:{ was:"Dein Tagesüberblick – und der Einstieg in alles Weitere.",
+    kann:["Oben stehen <b>kcal</b> und die vier Säulen <b>Eiweiß · KH · Fett · Ballaststoffe</b>, gefüllt gegen dein Ziel aus dem Profil.",
+          "Die <b>Kacheln</b> führen zu Produkten, Rezepten, Tagebuch, Training, Zyklus, Darmgesundheit und Einkaufsliste.",
+          "Das <b>Strichcode-Symbol</b> oben rechts auf der Produkte-Kachel scannt sofort – ohne Umweg über die Suche.",
+          "Das <b>Wasser-Feld</b> zählt die Gläser des Tages mit.",
+          "Mit Premium kommen <b>Schritte</b> und <b>Schlaf</b> dazu."] },
+  "start:gast":{ was:"Die Startseite ohne Anmeldung – schauen geht, speichern nicht.",
+    kann:["<b>Anmelden / Registrieren</b> schaltet Tagebuch, Ziele und Verlauf frei.",
+          "<b>Produkte ansehen</b> öffnet die Suche – auch ohne Konto.",
+          "Im Feld darunter suchst du direkt nach <b>Rezepten</b>.",
+          "Die vier Kacheln zeigen, was es gibt: Produkte, Rezepte, Tagebuch, Training.",
+          "Ganz unten steht, wie du Root Index <b>als App</b> auf den Startbildschirm legst."] },
   tagebuch:{ was:"Hier steht, was du heute gegessen hast – und was das ergibt.",
     kann:["Mit den Pfeilen blätterst du durch die Tage, <b>Heute</b> springt zurück.",
           "<b>📊 Statistik</b> zeigt kcal-, Gewichts- und Zuckerverlauf über 7 oder 30 Tage.",
@@ -34211,10 +34452,53 @@ var RIKI_SEITENHILFE={
           "Unter <b>Gegenüberstellung</b> stehen Etikett und Erfassung nebeneinander, <b>Nur Abweichungen</b> filtert.",
           "Fehlt der Zutaten-Rohtext, bleibt der Abgleich leer. Das ist kein Blocker für die Freigabe."] }
 };
+/* ============================================================================
+   WAS IST ROOT INDEX?  (Ralph 20.08.: "auf der startseite soll riki erklaeren,
+   was root index ist und wie es funktioniert.")
+
+   🔴 JEDER SATZ HIER IST BELEGT, KEINER GERATEN:
+   - die vier Achsen und ihre Gewichte: CLAUDE.md §4.1 (30 · 15 · 15 · 40 = 100)
+   - "fehlt eine Achse, gibt es keine Note": §4.3 - eine fehlende Angabe darf
+     kein Produkt besser aussehen lassen als eines, das seine Zahlen nennt
+   - "Bio ist Merkmal, kein Bonus": §4.5
+   - "Nahrungsergaenzung bekommt keinen vergleichbaren Index": §4.4
+   Ein Sprachmodell wuerde hier plausible Prozente erfinden. Genau deshalb steht
+   der Text kuratiert im Code und kommt nicht aus einem Modell (§1.1).
+
+   ⚠ DERSELBE PREIS wie bei RIKI_SEITENHILFE: aendern sich die Gewichte in §4.1,
+   luegt dieser Text, bis jemand ihn nachzieht. Ein Mechanismus dagegen existiert
+   NICHT - bewusste Schwaeche, keine uebersehene.
+   ============================================================================ */
+var RIKI_INTRO={
+  was:"Root Index liest die Rückseite der Packung – nicht die Werbung auf der Vorderseite.",
+  punkte:["Jedes Lebensmittel bekommt eine Note von <b>0 bis 100</b> aus vier Prüfungen: <b>Zutaten</b> (30), <b>Zusatzstoffe</b> (15), <b>Verarbeitungsgrad</b> (15), <b>Nährwert</b> (40).",
+          "<b>Jede Zahl hat eine Quelle</b> – Etikett, Hersteller oder amtlicher Bezugswert. Gibt es keine Quelle, gibt es keine Zahl.",
+          "<b>Fehlt eine der vier Prüfungen, gibt es keine Note</b> statt einer guten. Wer nichts angibt, gewinnt hier nichts.",
+          "<b>Bio ist ein Merkmal, kein Bonus.</b> Es ändert die Note nicht – du kannst danach filtern.",
+          "<b>Nahrungsergänzung</b> bekommt bewusst keine vergleichbare Note: Höchstmengen und Wirkstoffformen lassen sich nicht in eine Zahl pressen.",
+          "Was du isst, trägst du ins <b>Tagebuch</b> ein – daraus entstehen Tagessummen gegen deine Ziele."],
+  fuss:"Root Index bewertet Produkte, keine Menschen – und ersetzt keine ärztliche Beratung."
+};
+/* Die Erklaerung ist abschaltbar (Ralph 20.08.). Der Schalter steht in
+   index.html neben rikiSichtbar; fehlt er, gilt AN - eine fehlende Einstellung
+   darf nichts verschweigen (§3.4). */
+function rikiIntroHtml(){
+  if(typeof window.rikiIntroAn==="function" && !window.rikiIntroAn()) return "";
+  return '<div style="background:radial-gradient(130% 130% at 20% 10%,#1F5E39,#0B1710 70%);border-radius:12px;padding:12px 13px;margin-bottom:10px">'
+    +'<div style="color:#5EF2A0;font-size:12px;font-weight:700;margin-bottom:5px">Was ist Root Index?</div>'
+    +'<div style="color:#fff;font-size:13px;line-height:1.5;margin-bottom:7px">'+RIKI_INTRO.was+'</div>'
+    +'<ul style="margin:0 0 7px;padding-left:17px;font-size:12px;color:rgba(255,255,255,.72);line-height:1.6">'
+    + RIKI_INTRO.punkte.map(function(z){ return '<li style="margin-bottom:4px">'+z+'</li>'; }).join('')
+    +'</ul>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.45">'+RIKI_INTRO.fuss+'</div>'
+    +'</div>';
+}
 function rikiSeitenhilfeHtml(seite, station){
   /* Im Editor entscheidet die Station, nicht die Seite - "erfassung" allein
-     erklaert nichts, es gibt drei verschiedene Arbeitsschritte darunter. */
-  var h=RIKI_SEITENHILFE[(seite==="erfassung"&&station) ? ("erfassung:"+station) : seite];
+     erklaert nichts, es gibt drei verschiedene Arbeitsschritte darunter.
+     20.08.: gilt jetzt fuer JEDE Seite mit Station (start:gast), damit nicht
+     jede neue Unterscheidung eine eigene Zeile hier braucht. */
+  var h=RIKI_SEITENHILFE[(station ? (seite+":"+station) : seite)] || RIKI_SEITENHILFE[seite];
   if(!h){
     /* Ehrlich statt hilfsbereit: eine erfundene Erklaerung waere schlimmer als
        keine, weil der Nutzer danach sucht, was ich behauptet habe. */
@@ -34646,6 +34930,11 @@ function rikiPanelOeffnen(){
     +  '<button onclick="rikiPanelSchliessen()" aria-label="Schließen" style="border:0;background:none;font-size:20px;line-height:1;color:var(--tb-muted);cursor:pointer;padding:0 4px">&times;</button>'
     +'</div>'
     +'<div style="font-size:12px;color:var(--tb-muted);margin-bottom:8px">'+rikiKontextText(k)+'</div>'
+    /* 🔴 20.08.2026, Ralph: die Produkterklaerung steht NUR auf der Startseite.
+       Wer im Tagebuch steht, will wissen, was das Tagebuch kann - nicht, wie der
+       Index rechnet. Ist die Option aus, faellt der Block weg und es bleibt
+       genau die Oberflaechenerklaerung darunter. */
+    + ((k.seite==="start") ? rikiIntroHtml() : "")
     + rikiSeitenhilfeHtml(k.seite, k.station)
     /* Seit Build 3910 gibt es den Antwortweg (riki-frage, ChatGPT 19.08.) - das
        Eingestaendnis von vorher ist damit gegenstandslos und ersetzt, nicht
@@ -34702,7 +34991,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4190";
+const APP_BUILD = "2026-08-20-4210";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
