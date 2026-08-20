@@ -22978,12 +22978,40 @@ async function openFgEditor(id, prefill, targetEl){
       + _o.map(function(o){ var unbek=(o!=="" && opts.indexOf(o)<0);
           return `<option value="${esc(o)}" ${(_c===o)?"selected":""}>${esc(o)}${unbek?" (nicht in der Liste)":""}</option>`; }).join("")
       + `</select>`; };
-  const card=(title,inner)=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--karten-titel,var(--green));margin:0 0 8px">${title}</div>${inner}</div>`;
+  /* 🔴 20.08.2026, Work #133 E4 — KARTEN MIT TITELBALKEN (Ralphs DBKR-Vorlage).
+     Vorlage: bereiche/mockup-erfassung-dbkr.html
+
+     HIER STANDEN INLINE-STYLES. Das Aussehen jeder Editorkarte wohnte damit im
+     JavaScript, waehrend ui.css seit dem 14.08. Regeln fuer .feKarte und
+     .feKartenTitel bereithaelt, die NIE gegriffen haben - die Klasse wurde nie
+     vergeben (Befund im Kommentar bei FE_RAIL_ERLAUBT). Es gab also nicht zu
+     wenig Stil, sondern zwei Orte dafuer, von denen einer tot war (§22).
+
+     JETZT: Klassen statt Inline-Styles. Das Aussehen steht in ui.css, an einer
+     Stelle, und alle sechs Karten bekommen den Balken auf einen Schlag.
+
+     🔴 EINE FOLGE, DIE ICH BEWUSST MITNEHME: drei Stellen suchen per
+     closest(".feKarte") die Karte um ein Element herum, um sie im Fokusmodus zu
+     verstecken und beim Verlassen wiederherzustellen (Root-Index-Karte,
+     Produktbild). Sie liefen bisher ins Leere - deshalb blieb im Fokus ein
+     leerer Kartenrahmen mit Titel stehen. Mit der Klasse greifen sie. Beide
+     Richtungen sind symmetrisch (none beim Betreten, "" beim Verlassen), es ist
+     also die urspruenglich beabsichtigte Wirkung und keine neue Fachlogik.
+
+     Die DOM-Struktur bleibt UNVERAENDERT - kein zusaetzlicher Wrapper um den
+     Inhalt. Der Balken kommt ueber negative Raender aus dem Kartenpolster
+     heraus. Ein Wrapper wuerde Selektoren wie
+     ".feKtxInhalt > #fe_colRef > div > div:first-child" brechen. */
+  const card=(title,inner)=>`<div class="feKarte"><div class="feKartenTitel">${title}</div>${inner}</div>`;
   /* KONZEPT D (Ralph 26.07.): Karte fuer die feste Arbeitsflaeche. Sie fuellt die Spaltenhoehe aus und
      scrollt INNEN – dadurch scrollt die Seite selbst nie und nichts verschiebt sich. Der Titel bleibt
      stehen, der Inhalt ist ein Flex-Strom: Elemente mit flex:0 0 auto (Suchfeld) bleiben oben,
      die Liste bekommt flex:1 und den ganzen Rest. */
-  const cardF=(title,inner)=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;min-height:0;overflow:auto;height:100%"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--karten-titel,var(--green));margin:0 0 8px;flex:0 0 auto">${title}</div><div class="cardFB" style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column">${inner}</div></div>`;
+  /* Dieselbe Karte, nur als Flex-Spalte fuer die Spaltenansicht in Station 3:
+     der Titel behaelt seine Hoehe, der Inhalt nimmt den Rest und scrollt.
+     cardFB bleibt als Klassenname bestehen - "#fe_gridA .cardFB > *" haengt
+     daran (Z. 23245 f.), und ein umbenannter Selektor waere ein stiller Bruch. */
+  const cardF=(title,inner)=>`<div class="feKarte feKarteFlex"><div class="feKartenTitel">${title}</div><div class="cardFB">${inner}</div></div>`;
   /* Kopfleiste der Vollbild-Maske: zurueck zum Posteingang + vor/zurueck durch die
      „Zu verifizieren"-Liste + persistentes Markieren. Vor/Zurueck nur, wenn das Produkt
      in der aktuellen Liste steht (window._verifRows). */

@@ -165,6 +165,76 @@ body{ --admin-oben:64px }
 
 
 /* ============================================================================
+   PRODUKTEDITOR · KARTEN MIT TITELBALKEN  (.feKarte)  — Work #133 E4, 20.08.2026
+   ----------------------------------------------------------------------------
+   Ralphs DBKR-Vorlage: jede Karte traegt einen grauen Titelbalken mit Trennlinie
+   statt einer freistehenden Kleinschrift-Zeile. Vorlage:
+   bereiche/mockup-erfassung-dbkr.html
+
+   Erzeugt von card() und cardF() in app.js (Z. ~22981). Bis zum 20.08. standen
+   die Werte dort als Inline-Styles, waehrend HIER schon Regeln fuer .feKarte
+   warteten, die nie greifen konnten - die Klasse wurde nie vergeben. Zwei Orte
+   fuers Aussehen, einer davon tot.
+
+   DER BALKEN KOMMT UEBER NEGATIVE RAENDER aus dem Kartenpolster heraus. Das ist
+   Absicht: so bleibt die DOM-Struktur wie vorher (Titel und Inhalt sind
+   Geschwister, kein Wrapper dazwischen), und Selektoren wie
+   ".feKtxInhalt > #fe_colRef > div > div:first-child" greifen weiter.
+
+   WO SCHRAUBEN?
+   · Kartenpolster ....... --fk-pad     (Balken zieht automatisch nach)
+   · Farbe des Balkens ... --fk-balken
+   · Radius .............. --fk-radius
+   Wer eine dieser Zahlen ein zweites Mal irgendwo findet, hat einen Fehler
+   gefunden - der Balken rechnet ausschliesslich mit ihnen.
+   ============================================================================ */
+.feKarte{
+  --fk-pad:12px;
+  --fk-radius:12px;
+  --fk-balken:var(--bg);
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--fk-radius);
+  padding:var(--fk-pad);
+  margin-bottom:12px;
+}
+.feKartenTitel{
+  /* Aus dem Polster heraus nach oben, links und rechts - dadurch sitzt der
+     Balken buendig an der Kartenkante, ohne dass die Karte ihr Polster verliert. */
+  margin:calc(var(--fk-pad) * -1) calc(var(--fk-pad) * -1) var(--fk-pad);
+  padding:9px 14px;
+  background:var(--fk-balken);
+  border-bottom:1px solid var(--line);
+  border-radius:calc(var(--fk-radius) - 1px) calc(var(--fk-radius) - 1px) 0 0;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.3px;
+  text-transform:uppercase;
+  color:var(--karten-titel,var(--green));
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+/* Die Zusatzangabe im Titel ist Beiwerk, nicht Ueberschrift - sie war schon
+   vorher kleingeschrieben (Z. 573 ff.), bekommt hier aber die Gewichtung dazu. */
+.feKartenTitel .feKartenZusatz{ font-weight:400; letter-spacing:0 }
+
+/* Flex-Variante fuer die Spaltenansicht in Station 3: Titel behaelt seine Hoehe,
+   der Inhalt nimmt den Rest und scrollt fuer sich. */
+.feKarteFlex{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  height:100%;
+  overflow:auto;
+  margin-bottom:0;
+}
+.feKarteFlex > .feKartenTitel{ flex:0 0 auto }
+.feKarteFlex > .cardFB{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column }
+
+
+/* ============================================================================
    PRODUKTEDITOR · RAHMEN UND LINKER STREIFEN  (#feRahmen, #feRail)
    ----------------------------------------------------------------------------
    Zweispaltiger Rahmen: links der Streifen mit Stationsschiene, Root-Index,
