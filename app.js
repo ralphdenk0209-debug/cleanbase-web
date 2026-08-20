@@ -19881,9 +19881,31 @@ function _fgZutOffenHtml(){
      Binden laeuft ueber die bestehende Suche+fgZutRow, alles andere ueber die
      #83/#94-RPCs am Item (§5.7 bleibt unberuehrt).
      ========================================================================== */
-  return '<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-eef6ff,#eef6ff);box-shadow:inset 3px 0 0 var(--k-2f6fd6,#2f6fd6)">'
-    +'<div style="font-size:11px;font-weight:700;color:var(--k-1e40af,#1e40af)">'
-      +offen.length+' Zutat'+(offen.length===1?"":"en")+' vom Etikett gelesen, aber nicht im Stamm</div>'
+  /* 🔴 20.08.2026, Work #133 E6c — NUR DIE HUELLE, KEIN KNOPF.
+     Ralphs DBKR-Entwurf gibt diesem Block einen eigenen Titelbalken statt eines
+     blauen Einschubs mitten in der Liste.
+
+     🔴 UND EINE KORREKTUR AN MEINEM EIGENEN ENTWURF: dort hatte ich "zwei Knoepfe
+     statt vier" geschrieben. Das war falsch. Die vier Wege sind Ralphs
+     ausdrueckliche Anforderung vom 16.08. (Work #81): "Jede offene Zeile braucht
+     einen Arbeitsweg ... 'Neu anlegen' darf nicht der Standardweg sein." Wer nur
+     einen Knopf hat, benutzt ihn - genau das sollte verhindert werden. Sie
+     bleiben unangetastet.
+
+     GELB STATT BLAU, und das ist keine Geschmacksfrage: derselbe Ton, den der
+     Statusstreifen fuer "Bestandteile 1 von 3" nutzt. Offene Arbeit sieht in
+     dieser App ueberall gleich aus. Blau war hier ein eigener Ton fuer denselben
+     Zustand - eine zweite Sprache fuer dieselbe Sache.
+
+     §30 EINGEHALTEN: keine Funktion, kein Suchweg, kein Text, kein Knopf
+     geaendert. Nur Farbe und die Form der Ueberschrift. */
+  return '<div style="padding:0 0 8px;border-bottom:1px solid var(--line);background:var(--k-fdf7ea,#fdf7ea)">'
+    +'<div style="display:flex;align-items:center;gap:7px;padding:7px 10px;margin-bottom:2px;'
+      +'background:var(--k-fbeecd,#fbeecd);border-bottom:1px solid var(--k-e3c48a,#e3c48a);'
+      +'font-size:11px;font-weight:700;color:var(--k-8a5a0b,#8a5a0b)">'
+      +'<span aria-hidden="true">⚠</span>'
+      +'<span>'+offen.length+' Zutat'+(offen.length===1?"":"en")+' vom Etikett gelesen, aber nicht im Stamm</span></div>'
+    +'<div style="padding:0 9px">'
     +offen.map(function(z){
       var nm=String(z.zutat_text||"").trim();
       var am=z.gesehen_am?String(z.gesehen_am).slice(0,10).split("-").reverse().join("."):"";
@@ -19967,7 +19989,10 @@ function _fgZutOffenHtml(){
       +'<span class="fgOffMsg" style="display:block;font-size:11px;margin-top:2px"></span>';
       return H+'</div>';
     }).join("")
-  +'</div>';
+  /* Zwei schliessende Tags: der Zeilenbereich (seit E6c) und der Kasten selbst.
+     Der Titelbalken liegt ausserhalb des Zeilenbereichs, damit er buendig an der
+     Kante sitzt, waehrend die Zeilen ihr Polster behalten. */
+  +'</div></div>';
 }
 /* ===========================================================================
    WORK #81 — die vier Arbeitswege. Gemeinsame Helfer zuerst.
@@ -35230,7 +35255,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4230";
+const APP_BUILD = "2026-08-20-4240";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
