@@ -528,6 +528,20 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
   margin-bottom:12px;
 }
 
+/* 🔴 20.08.2026, Work #133 E9: der Titelbalken des Kopfrasters.
+   Er braucht KEINE negativen Raender - anders als .feKarte hat #feKopfGrid
+   selbst kein Polster (die Zellen bringen ihres mit) und overflow:hidden
+   schneidet den Balken sauber an der Rundung ab. Deshalb hier ein eigener,
+   kurzer Block statt eines Sonderfalls in .feKartenTitel: zwei verschiedene
+   Kartenbauarten, zwei Regeln - eine gemeinsame waere ein Kompromiss, der
+   beiden nicht passt. */
+#feKopfGrid > .feKopfTitel{
+  margin:0;
+  border-radius:0;
+  border-bottom:1px solid var(--line);
+  background:var(--bg);
+}
+
 /* Das Raster selbst. Spaltenzahl hier aendern, nicht an den Zellen.
    07.08.2026 (Ralph): von VIER auf ZWEI Spalten - rechts steht jetzt die
    Bildspalte, das Formular hat nur noch die halbe Breite. Die Zellen sind in
@@ -1088,9 +1102,32 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
    ============================================================================ */
 /* #feKopfLayout: siehe Abschnitt "KOPFBEREICH ZWEISPALTIG" am Dateiende -
    dort steht die EINE Regel dafuer (07.08.2026, war bis dahin flex-column). */
-#feTab1 .feHolBox{ background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 11px;margin-bottom:12px }
-#feTab1 .feHolKopf{ display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px }
-#feTab1 .feHolTitel{ font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;flex:1 1 auto;min-width:0 }
+/* 🔴 20.08.2026, Work #133 E9 — STATION 1 BEKOMMT DIESELBEN TITELBALKEN.
+   Ralph nach dem Screenshot: "bis jetzt sind wir noch weit von deinem entwurf
+   entfernt."
+
+   Er hat recht, und der Grund ist gemessen: E4 hat die Kartenhilfe card()
+   umgestellt - Station 2 nutzt sie viermal, Station 3 zweimal, STATION 1 GENAU
+   EINMAL (das Produktbild). Die beiden Blöcke, die er staendig vor sich hat,
+   bauen ihre Karte selbst und haben von E4 nichts abbekommen.
+
+   Sie sind bereits Karten MIT Titel - der Titel schwebt nur frei darin, statt
+   auf einem Balken zu sitzen. Geaendert wird deshalb nur das: Polster raus aus
+   der Karte, rein in die Bereiche, und der Titel bekommt den Balken. Kein
+   Element, keine ID, kein Knopf wird angefasst.
+
+   Dieselben Variablen wie .feKarte (--fk-pad, --fk-radius), damit es EINE
+   Kartenform gibt und nicht zwei, die sich aehneln (§4.2). */
+#feTab1 .feHolBox{ background:var(--card);border:1px solid var(--line);
+  border-radius:var(--fk-radius,12px);padding:0 0 var(--fk-pad,12px);margin-bottom:12px }
+#feTab1 .feHolKopf{ display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 0 var(--fk-pad,12px);padding:9px 14px;
+  background:var(--bg);border-bottom:1px solid var(--line);
+  border-radius:calc(var(--fk-radius,12px) - 1px) calc(var(--fk-radius,12px) - 1px) 0 0 }
+/* Der Inhalt behaelt sein Polster - es ist nur aus der Karte in die Bereiche
+   gewandert, damit der Balken buendig an der Kante sitzt. */
+#feTab1 .feHolGrid, #feTab1 .feHolBox > :not(.feHolKopf){ padding-left:11px;padding-right:11px }
+#feTab1 .feHolTitel{ font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:var(--karten-titel,var(--green));font-weight:600;flex:1 1 auto;min-width:0 }
 #feTab1 .feHolTitelZus{ text-transform:none;font-weight:400 }
 #feTab1 .feNurLeerLbl{ display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink);cursor:pointer;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:999px;padding:3px 9px;flex:0 0 auto;white-space:nowrap }
 #feTab1 #fe_nurLeer{ width:14px;height:14px;flex:0 0 auto;accent-color:var(--k-16a34a) }

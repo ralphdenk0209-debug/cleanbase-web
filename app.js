@@ -24081,6 +24081,12 @@ async function openFgEditor(id, prefill, targetEl){
              Groesse, Abstand, Spaltenzahl aendert man in ui.css - ohne app.js anzufassen.
              KEINE ID geaendert, KEIN Feld entfernt, KEIN Handler angefasst. */}
       <div id="feKopfGrid">
+        ${''/* 🔴 20.08.2026, Work #133 E9: Titelbalken wie bei allen anderen Karten.
+             Das Kopfraster hatte als einzige Karte der Seite GAR KEINEN Titel -
+             man sah ein Feldraster ohne Ueberschrift und musste aus den
+             Beschriftungen schliessen, worum es geht.
+             Nur ein Balken, kein Feld, keine ID, kein Handler. */}
+        <div class="feKartenTitel feKopfTitel">Kopfdaten<span class="feKartenZusatz">Pflicht: Name und Kategorie</span></div>
         <div class="mzr">
           <div class="mz mz-2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){};try{feKopfbandSync()}catch(e){}" placeholder="Produktname…"></div>
           <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" class="fld" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842"></div>
@@ -35816,7 +35822,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4260";
+const APP_BUILD = "2026-08-20-4280";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
