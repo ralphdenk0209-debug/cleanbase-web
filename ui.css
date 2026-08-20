@@ -91,6 +91,78 @@ body{ --admin-oben:64px }
   margin:var(--nav-hochzug) 0 12px;
 }
 
+/* ============================================================================
+   PRODUKTEDITOR · KOPFBAND  (#feKopfband)   —   Work #133 E3, 20.08.2026
+   ----------------------------------------------------------------------------
+   Ralph zum alten Kopf: "produktwert klebt an der seite. also schoen und
+   funktional ist anders." Vorlage ist seine DBKR-Vorgangsmaske:
+   bereiche/mockup-erfassung-dbkr.html
+
+   Marke und Kategorie klein darueber, der Produktname gross, das Statuswort als
+   Pille, die P-Nummer rechts. Dieselben Elemente wie vorher (feDubChip,
+   fePNrInfo) - nur nicht mehr als 12px-Grauzeile am rechten Rand.
+
+   WO SCHRAUBEN?
+   · Farbe des Bandes ......... --fkb-bg          — genau EINMAL
+   · Schriftgroesse des Namens  .fkbName font-size — ZWEIMAL, und das mit Absicht:
+     20px normal, 17px unter 720px Breite. Das sind zwei verschiedene Werte fuer
+     zwei verschiedene Faelle, keine Kopie derselben Zahl. Wer den Unterschied
+     einebnet, macht den Namen auf dem Handy wieder zum Zeilenbrecher.
+   ============================================================================ */
+#feKopfband{
+  --fkb-bg:#134a63;
+  --fkb-hell:#a8cfe0;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+  background:var(--fkb-bg);
+  color:#fff;
+  border-radius:10px 10px 0 0;
+  padding:12px 18px;
+  margin:0 0 10px;
+}
+#feKopfband .fkbLinks{ flex:1 1 auto; min-width:0; }
+#feKopfband .fkbMarke{
+  font-size:12px;
+  color:var(--fkb-hell);
+  letter-spacing:.3px;
+  min-height:1em;          /* haelt die Zeile, auch wenn Marke und Kategorie fehlen */
+}
+#feKopfband .fkbName{
+  font-size:20px;
+  font-weight:600;
+  line-height:1.25;
+  overflow-wrap:anywhere;  /* lange Produktnamen brechen um, statt das Band zu sprengen */
+}
+#feKopfband .fkbStatus{
+  flex:0 0 auto;
+  font-size:12.5px;
+  font-weight:600;
+  letter-spacing:1.1px;
+  text-transform:uppercase;
+  padding:5px 15px;
+  border:1px solid #4d8ba8;
+  border-radius:5px;
+  background:#0e3a4e;
+}
+#feKopfband .fkbId{
+  flex:0 0 auto;
+  font-size:12.5px;
+  color:var(--fkb-hell);
+  font-variant-numeric:tabular-nums;
+}
+/* Der Dublettenchip sitzt IM Namen und braucht Kontrast zum dunklen Band. */
+#feKopfband #feDubChip{ margin-left:9px; vertical-align:middle; }
+
+/* Schmaler Schirm: das Statuswort und die P-Nummer wandern unter den Namen,
+   statt ihn auf zwei Zeichen zu quetschen. */
+@media (max-width:720px){
+  #feKopfband{ gap:8px; padding:10px 13px; }
+  #feKopfband .fkbLinks{ flex:1 1 100%; }
+  #feKopfband .fkbName{ font-size:17px; }
+}
+
 
 /* ============================================================================
    PRODUKTEDITOR · RAHMEN UND LINKER STREIFEN  (#feRahmen, #feRail)

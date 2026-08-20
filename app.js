@@ -22990,10 +22990,28 @@ async function openFgEditor(id, prefill, targetEl){
          Ueberschrift sagte ohnehin nur, was der Reiter darueber schon sagt. Die Zeile bleibt
          als Traeger der P-Nummer bestehen, nur schmaler; die h2 ist VERSTECKT statt geloescht
          (§1.11n-j), damit kein Aufrufer ins Leere greift. */""}
-    <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:2px">
+    ${''/* 🔴 20.08.2026, Work #133 E3 — KOPFBAND nach Ralphs DBKR-Vorlage.
+         Ralph zum alten Kopf: "produktwert klebt an der seite. also schoen und
+         funktional ist anders." Er hatte recht: Marke, Name, Status und P-Nummer
+         standen als 12px-Grauzeile rechtsbuendig am Rand, waehrend die Seite
+         darunter mit 20px-Ueberschriften arbeitete. Das Wichtigste war das
+         Kleinste.
+
+         VERSCHOBEN, NICHT NACHGEBAUT (§22): feDubChip und fePNrInfo sind
+         dieselben Elemente mit denselben IDs an einem neuen Ort. Wer sie fuellt
+         (feDubPruefen, das Template), merkt davon nichts.
+
+         Der Name im Band ist ANZEIGE, der Wert wohnt in fe_name (§4.2). Damit er
+         beim Tippen nicht veraltet, zieht feKopfbandSync ihn nach - angehaengt an
+         das oninput, das dort ohnehin schon steht. */}
+    <div id="feKopfband">
+      <div class="fkbLinks">
+        <div class="fkbMarke" id="feKbMarke">${esc(d.marke||"")}${d.kategorie?(d.marke?" · ":"")+esc(d.kategorie):""}</div>
+        <div class="fkbName" id="feKbName">${esc(d.name||(id?"":"Neues Produkt"))}<span id="feDubChip" style="display:none"></span></div>
+      </div>
+      <div class="fkbStatus" id="feKbStatus">${esc(d.status||"Entwurf")}</div>
+      <span id="fePNrInfo" class="fkbId">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"P-Nummer kommt beim ersten Speichern"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
       <h2 style="margin:0;display:none">${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
-      <span id="feDubChip" style="display:none"></span>
-      <span id="fePNrInfo" style="font-size:12px;color:var(--muted)">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"P-Nummer kommt beim ersten Speichern"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
     </div>
     <div id="fe_gesamtstatus" data-note="P1: EIN Gesamtstatus. Gefüllt von feStatusStreifen() aus getErfassungsStatus() – keine eigene Rechnung."></div>
     ${window._fgPrefillHinweis?`<div style="background:var(--k-fff7ea);border:1px solid var(--k-e4a343);color:var(--k-8a5a0b);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
@@ -23109,7 +23127,7 @@ async function openFgEditor(id, prefill, targetEl){
              KEINE ID geaendert, KEIN Feld entfernt, KEIN Handler angefasst. */}
       <div id="feKopfGrid">
         <div class="mzr">
-          <div class="mz mz-2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="Produktname…"></div>
+          <div class="mz mz-2"><k>Produktname *</k><input id="fe_name" value="${esc(d.name||"")}" oninput="try{fePlaus()}catch(e){};try{feDubPruefen()}catch(e){};try{feKopfbandSync()}catch(e){}" placeholder="Produktname…"></div>
           <div class="mz"><k>EAN / Barcode</k><input id="fe_ean" class="fld" value="${esc(d.ean||"")}" oninput="try{feEanSync()}catch(e){};try{feDubPruefen()}catch(e){}" placeholder="z. B. 4001724040842"></div>
           ${''/* 08.08.2026: aus der Auswahlliste wird eine Chip-Reihe (Ralph: "EAN-Status
                  und Bio auf dieselbe Chip-Form"). Das <select> BLEIBT als einziger
@@ -27683,6 +27701,30 @@ function _stChip(txt, art, sub){
           still:["transparent","var(--muted)"]}[art]||["var(--k-eef1f4,#eef1f4)","var(--muted)"];
   return '<span title="'+esc(sub||"")+'" style="display:inline-flex;align-items:baseline;gap:5px;padding:3px 9px;border-radius:999px;background:'+F[0]+';color:'+F[1]+';font-size:11.5px;font-weight:'+(art==="still"?"600":"700")+';white-space:nowrap">'+esc(txt)+'</span>';
 }
+/* ============================================================================
+   WORK #133 E3 — Kopfband nachziehen
+
+   Das Band zeigt Marke, Kategorie und Namen. Alle drei WOHNEN in ihren Feldern
+   (fe_marke, fe_kat, fe_name) - das Band liest sie nur ab. Ohne diese Funktion
+   stuende dort nach dem ersten Tippen ein alter Name, und eine falsche
+   Ueberschrift ist schlimmer als gar keine.
+
+   Angehaengt an das oninput, das an fe_name ohnehin schon haengt - kein zweiter
+   Horcher daneben (§4.2). Marke und Kategorie ziehen beim naechsten Aufbau nach;
+   sie aendern sich selten und haben kein eigenes oninput, das ich mitbenutzen
+   koennte. Einen neuen dafuer zu setzen waere mehr Mechanik als Nutzen.
+   ============================================================================ */
+function feKopfbandSync(){
+  var n=document.getElementById('feKbName'); if(!n) return;
+  var f=document.getElementById('fe_name');
+  var txt=f?String(f.value||'').trim():'';
+  /* Der Dublettenchip haengt IM Namensfeld des Bandes - beim Ersetzen des Textes
+     wuerde er verlorengehen. Deshalb nur den Textknoten davor anfassen. */
+  var chip=document.getElementById('feDubChip');
+  n.textContent=txt||'Neues Produkt';
+  if(chip) n.appendChild(chip);
+}
+if(typeof window!=='undefined'){ window.feKopfbandSync=feKopfbandSync; }
 function feStatusStreifen(){
   var box=document.getElementById("fe_gesamtstatus"); if(!box) return;
   var S=getErfassungsStatus();
@@ -34227,7 +34269,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4110";
+const APP_BUILD = "2026-08-20-4120";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
