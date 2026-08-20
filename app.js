@@ -4562,6 +4562,14 @@ async function detail(d){
      Es wird NUR die ID gemerkt, nicht der Datensatz: ein zweiter Produktabzug im
      Browser waere eine zweite Wahrheit (§4.2). */
   try{ window._offenesProdukt = (d && d.id) ? String(d.id) : null; }catch(e){}
+  /* 🔴 20.08.2026, A9: RIKI soll die Zahl DIESES Produkts erklaeren koennen.
+     Gemerkt wird ein VERWEIS auf denselben Datensatz, den die Karte gerade
+     zeichnet - kein zweiter Abzug und keine Kopie der Werte. Der Unterschied
+     ist der ganze Punkt des Satzes darueber: eine Kopie koennte veralten,
+     ein Verweis zeigt immer dasselbe wie die Karte daneben.
+     Beim naechsten Produkt wird er ueberschrieben, denn detail() ist der
+     Chokepoint, durch den jede Karte laeuft. */
+  try{ window._offenesProduktD = d || null; }catch(e){}
   /* Chokepoint: einmal hydrieren, dann zeichnen. Kein Aufrufer wertet den Rueckgabewert aus
      (alle sechs geprueft, kein await/return) - async ist deshalb gefahrlos. */
   try{ await produktZutatenV2(d); }catch(e){}
@@ -11823,7 +11831,13 @@ function _abUmschalterNach(){
     b.addEventListener('click',function(){ dashArbeitAnsichtSet(b.dataset.ans); });
   });
   var nb=document.getElementById('abNeu');
-  if(nb) nb.addEventListener('click',function(){ if(typeof loadDashboard==='function') loadDashboard(); });
+  if(nb) nb.addEventListener('click',function(){
+    /* Work #121: „Aktualisieren" muss auch das Cockpit neu holen. Ohne diese
+       Zeile haette der Knopf die Seite neu gebaut und dieselbe alte Lage
+       wieder hingeschrieben — ein Knopf, der so tut, als haette er gemessen. */
+    _AB_CK=null; _AB_CK_FEHLER=null;
+    if(typeof loadDashboard==='function') loadDashboard();
+  });
 }
 
 function dashArbeitAnsichtGet(){
@@ -12393,47 +12407,133 @@ function _abQuellen(np){
    ohne Abnehmer. Es wird deshalb benannt, was gemessen ist, statt eine Zahl
    nachzustellen, die zufaellig zum Mockup passt (§1.1).
    ========================================================================== */
-function _abHero(d,np,A,ans){
-  var w=(np&&np.waechter)||[];
-  /* Der Zustandssatz haengt an EINER Bedingung, damit Farbe und Text nicht
-     auseinanderlaufen koennen. Rot schlaegt Orange schlaegt Gruen. */
-  var zust, farbe, warum;
-  /* 🔴 A.gate_offen ist die Summe der FAELLE bei Gate-Waechtern, nicht die Anzahl
-     der Waechter — gemessen 15.08.: 248 Faelle bei 6 meldenden von 9 Gate-Waechtern.
-     Ein erster Entwurf schrieb hier „248 Pflicht-Waechter melden". Das waere eine
-     erfundene Aussage gewesen, die nur deshalb nicht auffaellt, weil die Zahl echt
-     ist (§1.1). Beide Groessen werden jetzt getrennt genannt. */
-  var gateW=w.filter(function(x){ return x.gate===true; });
-  var gateMelden=gateW.filter(function(x){ return (Number(x.offen)||0)>0; }).length;
-  if(A.gate_offen>0){
-    zust='Go-Live-Gate ZU'; farbe='#ff8a8a';
-    warum=A.gate_offen+' Pflicht-Fälle offen bei '+gateMelden+' von '+gateW.length
-      +' Gate-Wächtern — vor jedem Livegang muss das 0 sein';
-  } else if(A.sackgasse>0){
-    zust='Läuft, mit Rückstau'; farbe='#ffcf6b';
-    warum=A.sackgasse+' wartende Vorgänge haben keinen Abnehmer';
-  } else if(A.melden>0){
-    zust='Läuft'; farbe='#b7f0c8';
-    warum=A.melden+' von '+w.length+' Wächtern melden etwas';
-  } else {
-    zust='System gesund'; farbe='#7ee2a2'; warum='kein Wächter meldet etwas';
+/* ============================================================================
+   COCKPIT v2  ·  Work #121  ·  20.08.2026
+   ----------------------------------------------------------------------------
+   EINE Quelle fuer die sichtbaren Standardzahlen: cb_admin_dashboard_cockpit_v2.
+   Vorher erhob jede Kachel ihre Zahl selbst aus cb_dashboard und cb_netzplan —
+   dieselbe Frage an mehreren Orten (§4.2). ChatGPT hat den Vertrag am 18.08.
+   gebaut; angeschlossen war er nie. Gemessen 20.08. mit grep in app.js:
+   0 Aufrufer. Wieder §22 — nicht gebaut, nur nicht verbunden.
+
+   🔴 ER LAEDT NACH, NICHT VORHER. Gemessen 20.08. mit EXPLAIN (ANALYZE):
+   3.806 ms kalt, 2.915 ms warm. Eine Kachel, die den Seitenaufbau drei
+   Sekunden blockiert, waere ein Rueckschritt — derselbe Fall wie
+   cb_admin_stamm_waechter mit 4,9 s in Work #17.
+
+   🔴 SOLANGE NICHTS DA IST, STEHT „laedt" DA — keine alte Zahl aus einer
+   zweiten Quelle als Platzhalter. Genau das waere die Doppelung, die dieser
+   Umbau beseitigt.
+   ========================================================================== */
+var _AB_CK=null, _AB_CK_FEHLER=null, _AB_CK_LAEUFT=false;
+
+/* Rangfolge der Dringlichkeit. Steht an EINER Stelle, damit Farbe, Satz und
+   Reihenfolge nicht auseinanderlaufen koennen. */
+var _AB_CK_RANG={kritisch:0, warnung:1, aktion:2, hinweis:3};
+var _AB_CK_FARBE={kritisch:'#ff8a8a', warnung:'#ffcf6b', aktion:'#9ec9ff', hinweis:'#b7f0c8'};
+var _AB_CK_ZUST={kritisch:'Eingriff nötig', warnung:'Läuft, mit Auffälligkeiten',
+                 aktion:'Wartet auf dich', hinweis:'Läuft'};
+
+function _abCkAttention(){
+  var a=(_AB_CK&&_AB_CK.hero&&_AB_CK.hero.attention)||[];
+  return a.slice().sort(function(x,y){
+    var rx=_AB_CK_RANG[x&&x.severity], ry=_AB_CK_RANG[y&&y.severity];
+    if(rx==null) rx=9; if(ry==null) ry=9;
+    return (rx-ry)||((Number(y&&y.count)||0)-(Number(x&&x.count)||0));
+  });
+}
+
+async function _abCockpitHolen(neu){
+  if(_AB_CK_LAEUFT) return;
+  if(_AB_CK && !neu) return;
+  _AB_CK_LAEUFT=true; _AB_CK_FEHLER=null;
+  try{
+    var r=await client.rpc('cb_admin_dashboard_cockpit_v2');
+    if(r&&r.error) throw r.error;
+    var o=r&&r.data; if(typeof o==='string') o=JSON.parse(o);
+    if(!o) throw new Error('cb_admin_dashboard_cockpit_v2 hat nichts geliefert');
+    if(o.ok===false) throw new Error(o.grund||'abgelehnt');
+    _AB_CK=o;
+  }catch(e){
+    /* Kein leerer Fangblock (§11.4): der Grund steht in der Oberflaeche UND
+       in der Konsole. Ein Dashboard, das schweigend leer bleibt, ist der
+       Fehlertyp, den dieses Projekt am haeufigsten hatte. */
+    _AB_CK=null; _AB_CK_FEHLER=(e&&e.message)||String(e);
+    try{ console.error('[Cockpit v2]',e); }catch(_){}
   }
-  var zahl=function(v,txt,ziel){
-    return '<div class="hz'+(ziel?' klick':'')+'"'+(ziel?' data-hero="'+ziel+'"':'')+'>'
-      +'<b>'+v+'</b><span>'+txt+'</span></div>';
-  };
+  _AB_CK_LAEUFT=false;
+  try{ _abHeroFuellen(); }catch(e){ try{ console.warn('[Cockpit v2] Hero:',e); }catch(_){} }
+  try{ _abNeuZeichnen(); }catch(e){ try{ console.warn('[Cockpit v2] Kacheln:',e); }catch(_){} }
+}
+
+/* Der Zustandssatz links im Hero. Er kommt aus DENSELBEN attention-Punkten wie
+   die Zahlen rechts — vorher stand hier A.gate_offen aus cb_netzplan, waehrend
+   das Cockpit gate_faelle fuehrt. Zwei Zahlen fuer dieselbe Frage; gemessen
+   20.08.: 248 gegen 242. */
+function _abHeroZustHtml(){
+  var farbe, zust, warum;
+  if(_AB_CK_FEHLER){
+    farbe='#ff8a8a'; zust='Lage unbekannt';
+    warum='cb_admin_dashboard_cockpit_v2 antwortet nicht: '+_AB_CK_FEHLER;
+  } else if(!_AB_CK){
+    farbe='#c9d2dd'; zust='Lage wird geladen';
+    warum='cb_admin_dashboard_cockpit_v2 braucht rund drei Sekunden — die Seite wartet nicht darauf';
+  } else {
+    var a=_abCkAttention();
+    if(!a.length){
+      farbe='#7ee2a2'; zust='Ruhig';
+      warum='Nichts verlangt gerade dein Eingreifen.';
+    } else {
+      var top=a[0];
+      farbe=_AB_CK_FARBE[top.severity]||'#c9d2dd';
+      zust=_AB_CK_ZUST[top.severity]||'Auffällig';
+      warum=String(top.text||top.titel||'');
+      if(a.length>1) warum+=' · und '+(a.length-1)+' weitere';
+    }
+  }
+  return '<div class="hzust"><span class="hpunkt" style="background:'+farbe+'"></span>'+esc(zust)+'</div>'
+    +'<div style="font-size:11.5px;opacity:.85;margin-top:3px">'+esc(warum)+'</div>';
+}
+
+/* Die Zahlen rechts im Hero: AUSSCHLIESSLICH hero.attention (§121, Kriterium 3).
+   Die drei alten Zahlen (Vorgaenge warten · ohne Abnehmer · Waechter melden)
+   sind ERSETZT, nicht ergaenzt — sie stehen weiterhin in den Kacheln „Eingang"
+   und „Qualitaet" und muessen nicht zweimal auf dieselbe Seite (Kriterium 8). */
+function _abHeroZahlenHtml(){
+  if(_AB_CK_FEHLER) return '<div class="hz"><b>–</b><span>keine Lagemeldung</span></div>';
+  if(!_AB_CK) return '<div class="hz"><b>…</b><span>lädt</span></div>';
+  var a=_abCkAttention();
+  if(!a.length) return '<div class="hz"><b>0</b><span>offene Punkte</span></div>';
+  return a.slice(0,4).map(function(x){
+    var f=_AB_CK_FARBE[x.severity]||'#c9d2dd';
+    return '<div class="hz"><b style="color:'+f+'">'+esc(String(x.count==null?'–':x.count))+'</b>'
+      +'<span title="'+esc(String(x.text||''))+'">'+esc(String(x.titel||x.id||''))+'</span></div>';
+  }).join('');
+}
+
+/* Beide Haelften nachtragen, ohne den Hero neu zu bauen: in der rechten Spalte
+   haengen Anordnen, Dunkel, Umschalter und Aktualisieren. Wer den ganzen Hero
+   ersetzt, wirft deren Verdrahtung weg — und merkt es erst, wenn ein Knopf
+   nichts mehr tut. */
+function _abHeroFuellen(){
+  var z=document.getElementById('abHeroZust');
+  if(z) z.innerHTML=_abHeroZustHtml();
+  var n=document.getElementById('abHeroZahlen');
+  if(n) n.innerHTML=_abHeroZahlenHtml();
+}
+
+/* ============================================================================
+   HERO  ·  Work #121, Stufe 2  ·  20.08.2026
+   ----------------------------------------------------------------------------
+   Der Hero traegt jetzt genau eine Lage: die aus cb_admin_dashboard_cockpit_v2.
+   Die Parameter d, np und A werden nicht mehr fuer Zahlen benutzt — sie bleiben
+   in der Signatur, weil dashArbeitHtml und der Anordnen-Modus sie uebergeben
+   und eine Signaturaenderung an dieser Stelle nichts verbessert (§11.3).
+   ========================================================================== */
+function _abHero(d,np,A,ans){
   return '<div class="abhero">'
-    +'<div><div class="hzust"><span class="hpunkt" style="background:'+farbe+'"></span>'+esc(zust)+'</div>'
-      +'<div style="font-size:11.5px;opacity:.85;margin-top:3px">'+esc(warum)+'</div></div>'
-    +'<div class="hzahlen">'
-      /* Sprungziel hiess bis 15.08. 'fluss' — es hat aber nie in den Fluss gesprungen,
-         sondern immer nach #abDetail. Mit dem Wegfall des Flusses waere der Name eine
-         Zeitbombe geworden: der naechste Leser haette einen Weg gesucht, den es nicht
-         gibt. Umbenannt, Verhalten unveraendert. */
-      + zahl(A.wartend, 'Vorgänge warten', 'punkte')
-      + zahl(A.sackgasse, 'davon ohne Abnehmer', 'punkte')
-      + zahl(A.melden+' / '+w.length, 'Wächter melden', 'waechter')
-    +'</div>'
+    +'<div id="abHeroZust">'+_abHeroZustHtml()+'</div>'
+    +'<div class="hzahlen" id="abHeroZahlen">'+_abHeroZahlenHtml()+'</div>'
     +'<div class="hr"><span id="abStand"></span>'
       +'<button class="hbtn" id="abAnordnen" type="button" '
         +'title="Kacheln anordnen, ein-/ausblenden, Breite umschalten">🧩 Anordnen</button>'
@@ -14222,32 +14322,65 @@ async function _abRalphLaden(){
   }
 }
 
-/* ---- 2) DATENBESTAND ---/* ---- 2) DATENBESTAND ------------------------------------------------------ */
+/* ============================================================================
+   COCKPIT-KACHELN  ·  Work #121, Stufe 3  ·  20.08.2026
+   ----------------------------------------------------------------------------
+   Jede der acht Kacheln liest ihre Zahlen aus _AB_CK.karten.<id>. Solange
+   nichts da ist, steht „laedt" — KEINE Zahl aus der alten Quelle als
+   Zwischenstand. Genau das waere die Doppelung, die dieser Umbau beseitigt:
+   cb_dashboard und cb_netzplan haben andere Definitionen und liefern andere
+   Zahlen (gemessen 20.08.: Gate 248 gegen 242, Stamm 941 gegen 944).
+   ========================================================================== */
+function _abCkKarte(id){ return (_AB_CK && _AB_CK.karten && _AB_CK.karten[id]) || null; }
+
+function _abCkLadeHtml(){
+  if(_AB_CK_FEHLER)
+    return '<div class="bleib"><div class="bleer">Keine Zahlen — '+esc(_AB_CK_FEHLER)+'</div></div>';
+  return '<div class="bleib"><div class="blade">lädt…</div></div>';
+}
+
+/* Eine Zeile mit anklickbarer Zahl. Ohne drill_key bleibt sie stumm — ein
+   Knopf, der nichts oeffnet, ist schlimmer als eine Zahl ohne Knopf (§121,
+   Kriterium 4: 0 tote Buttons). */
+function _abCkZeile(l,v,key,farbe){
+  var kl=key?' class="bzeile bdrill" data-drill="'+esc(key)+'" data-drill-titel="'+esc(l)+'"'
+            :' class="bzeile"';
+  return '<div'+kl+'><span>'+l+'</span><b'
+    +(farbe?' style="color:'+farbe+'"':'')+'>'+(v==null?'–':v)+'</b></div>';
+}
+
+/* ---- 2) KATALOG ----------------------------------------------------------- */
 function _abkBestand(c){
-  var d=c.d||{}, np=c.np||{};
-  var k=d.katalog||{}, q=d.qualitaet||{}, ex=np.extra||{};
-  var z=_abZeile;
+  var ck=_abCkKarte('bestand');
+  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+  var dr=ck.drills||{};
+  var w=function(v){ return (Number(v)||0)>0 ? _AB.warn : null; };
   return {
     tag:'',
     inhalt:'<div class="bleib"><div class="bzahl" style="color:'+_AB.kern+'">'
-      +(k.aktiv==null?'–':k.aktiv)+'</div>'
-    +'<div class="bunter">aktive Produkte · Index-Schnitt '
-      +(k.schnitt_score==null?'–':String(k.schnitt_score).replace('.',','))+'</div>'
+      +(ck.aktiv==null?'–':ck.aktiv)+'</div>'
+    +'<div class="bunter">aktive Produkte</div>'
     +'<div style="margin-top:9px">'
-      + z('Entwürfe', k.entwurf)
-      + z('ohne Index-Zahl', q.ohne_score, (Number(q.ohne_score)>0?_AB.warn:null))
-      + z('Zutaten im Stamm', ex.zutaten)
-      + z('Rezepte', ex.rezepte)
+      + _abCkZeile('ohne Index-Zahl', ck.ohne_score,    dr.ohne_score,  w(ck.ohne_score))
+      + _abCkZeile('ohne Quelle',     ck.ohne_quelle,   dr.ohne_quelle, w(ck.ohne_quelle))
+      + _abCkZeile('unverifiziert',   ck.unverifiziert, null,           w(ck.unverifiziert))
+      + _abCkZeile('EAN fehlt',       ck.ean_fehlt,     dr.ean_fehlt,   w(ck.ean_fehlt))
     +'</div></div>',
-    fuss:''
+    fuss:'Nur Lücken, an denen man arbeiten kann — jede Zahl mit Liste ist anklickbar.'
   };
 }
 
-/* ---- 3) RIKI-BUDGET ------------------------------------------------------- */
+/* ---- 3) RIKI-BUDGET -------------------------------------------------------
+   Budget, Verbrauch, Aufrufe und Fehler kommen aus dem Cockpit. Der
+   14-Tage-Verlauf NICHT: den fuehrt der Vertrag nicht, er steht weiterhin in
+   cb_dashboard.riki_verlauf. Das ist keine zweite Zaehlung derselben Groesse,
+   sondern eine Groesse, die es nur an einem Ort gibt (§3.4: was fehlt, wird
+   nicht erfunden — und was da ist, wird nicht weggeworfen). */
 function _abkRiki(c){
   var d=c.d||{};
-  var ri=d.riki||{};
-  var lim=Number(ri.monatslimit_usd)||0, verbr=Number(ri.monat_usd)||0;
+  var ck=_abCkKarte('riki');
+  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+  var lim=Number(ck.monatslimit_usd)||0, verbr=Number(ck.monat_usd)||0;
   var anteil=lim?Math.max(0,Math.min(1,verbr/lim)):0;
   var bf=anteil>=0.9?_AB.krit:anteil>=0.6?_AB.warn:_AB.gut;
   var jetzt=new Date(), tagNr=jetzt.getDate();
@@ -14267,7 +14400,12 @@ function _abkRiki(c){
     +'<div class="bunter">'+(lim? 'von '+lim.toFixed(0)+' $ im Monat' : 'kein Limit hinterlegt')+'</div>'
     +(lim?'<div class="abbar" style="margin-top:8px"><i style="width:'+Math.round(anteil*100)
       +'%;background:'+bf+'"></i></div>':'')
-    +spark+'</div>',
+    +spark
+    +'<div style="margin-top:7px">'
+      + _abCkZeile('Aufrufe heute', ck.heute_calls, null)
+      + _abCkZeile('Fehler, 24 h', ck.fehler_24h, ck.drill_key,
+                   ((Number(ck.fehler_24h)||0)>0?_AB.krit:null))
+    +'</div></div>',
     fuss:lim ? ('Prognose Monatsende ~'+prog.toFixed(0)+' $ · '
       +(progOk?'im Rahmen':'<b style="color:'+_AB.krit+'">über Budget</b>')
       +' — läuft es voll, blockt Riki. Gewollt.') : ''
@@ -14283,10 +14421,11 @@ function _abkRiki(c){
    der Server nicht, deshalb gibt es hier keine Zeitkette. Sie zu zeichnen und
    mit dem heutigen Wert dreimal zu fuellen waere eine Luege im Bild. */
 function _abkWaechter(c){
-  var np=c.np||{}, A=c.A;
-  var w=np.waechter||[];
-  var still=w.length-A.melden;
-  var quote=w.length? Math.round(still/w.length*100) : 0;
+  var ck=_abCkKarte('waechter');
+  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+  var g=ck.gate||[];
+  var still=g.filter(function(x){ return (Number(x.offen)||0)===0; }).length;
+  var quote=g.length? Math.round(still/g.length*100) : 0;
   /* Halbkreis: 81er Radius, wie in der Vorlage. Der gefuellte Teil ist der
      STILLE Anteil — die gute Richtung ist der Fortschritt. */
   var bogen=function(anteil){
@@ -14295,24 +14434,39 @@ function _abkWaechter(c){
   };
   var e=bogen(quote/100);
   var farbe=quote>=80?_AB.gut:(quote>=40?_AB.warn:_AB.krit);
+  var faelle=Number(ck.gate_faelle)||0;
 
-  /* Balkenzeilen: Name · Schwellwerte · Zahl IM Balken. */
-  var zeile=function(name, wert, gelb, rot){
-    var f=(wert>=rot)?'r':((wert>=gelb)?'ge':'gr');
-    return '<div class="bbz">'
-      +'<span class="nm">'+esc(name)
-        +'<span class="schw"><i class="ge">&gt; '+gelb+'</i><i class="r">&gt; '+rot+'</i></span></span>'
-      +'<span class="werte"><b class="'+f+'">'+(wert==null?'–':wert)+'</b></span>'
+  /* 🔴 JEDE Zahl traegt ihren MESSSTAND (§121, Kriterium 5). Vorher stand hier
+     eine Zahl ohne Alter — und eine Cache-Zahl von vorgestern sieht genauso aus
+     wie eine von heute frueh. Gemessen 20.08.: „Zutaten-Regeln" war 78,3 Stunden
+     alt, waehrend die uebrigen sieben 13,1 Stunden alt waren. */
+  var zeile=function(x){
+    var offen=Number(x.offen)||0;
+    var f=offen>0?'r':'gr';
+    var alt=Number(x.alter_stunden);
+    var frisch=(x.frisch===true);
+    var std=isNaN(alt)?'Stand unbekannt'
+      :(alt<48? ('vor '+alt.toFixed(1).replace('.',',')+' h')
+              : ('vor '+Math.round(alt/24)+' Tagen'));
+    return '<div class="bbz'+(x.drill_key&&offen>0?' bdrill':'')+'"'
+      +(x.drill_key&&offen>0?' data-drill="'+esc(x.drill_key)+'" data-drill-titel="'+esc(x.name||x.id)+'"':'')
+      +'>'
+      +'<span class="nm">'+esc(x.name||x.id||'')
+        +'<span class="schw"><i class="'+(frisch?'gr':'ge')+'">'+esc(std)+'</i></span></span>'
+      +'<span class="werte"><b class="'+f+'">'+offen+'</b></span>'
     +'</div>';
   };
   return {
-    tag:(A.gate_offen>0
+    tag:(faelle>0
       ? '<span class="abtag" style="background:#fdf1f1;color:'+_AB.krit+'" '
         +'title="Summe der offenen Fälle bei den Wächtern, die die Freigabe blockieren">'
-        +A.gate_offen+' Gate-Fälle</span>'
+        +faelle+' Gate-Fälle</span>'
       : '<span class="abtag" style="background:#effaef;color:'+_AB.gut+'">Gate frei</span>'),
     inhalt:'<div class="bleib">'
-      +'<div class="bort">Wächter gesamt: <b>'+w.length+'</b></div>'
+      +'<div class="bort">Gate-Wächter: <b>'+g.length+'</b>'
+        +(ck.messung_veraltet===true
+          ? ' · <span style="color:'+_AB.warn+'">ein Messstand ist veraltet</span>' : '')
+      +'</div>'
       +'<div class="bhalb">'
         +'<svg viewBox="0 0 196 106" width="180" height="98">'
           +'<path d="M17,97 A81,81 0 0,1 179,97" fill="none" stroke="#d5dade" stroke-width="16"/>'
@@ -14320,24 +14474,20 @@ function _abkWaechter(c){
             +'" stroke-width="16"/>'
         +'</svg>'
         +'<div class="pz">'+quote+' %</div>'
-        +'<div class="pl">still — '+A.melden+' melden</div>'
+        +'<div class="pl">still — '+(g.length-still)+' melden</div>'
       +'</div>'
-      +'<div class="bpaar">'
-        +'<div><span class="ic2">⛔</span><span><div class="v" style="color:'
-          +(A.gate_offen>0?_AB.krit:_AB.gut)+'">'+A.gate_offen+'</div>'
-          +'<div class="l">Gate-Fälle</div></span></div>'
-        +'<div><span class="ic2">◔</span><span><div class="v">'+still+' / '+w.length+'</div>'
-          +'<div class="l">still</div></span></div>'
-      +'</div>'
-      + zeile('Meldungen gesamt', A.anlage.o+A.tuer.o+A.bestand.o, 20, 100)
-      + zeile('davon im Bestand',  A.bestand.o, 10, 50)
+      + g.filter(function(x){ return (Number(x.offen)||0)>0; }).map(zeile).join('')
+      + (still===g.length && g.length
+          ? '<div class="bleer">Kein Gate-Wächter meldet etwas.</div>' : '')
       +'<div class="bleg">'
-        +'<span><i class="gr"></i>im Rahmen</span>'
-        +'<span><i class="ge"></i>erhöht</span>'
-        +'<span><i class="r"></i>blockiert</span>'
+        +'<span><i class="gr"></i>frisch gemessen</span>'
+        +'<span><i class="ge"></i>Messstand alt</span>'
+        +'<span><i class="r"></i>offene Fälle</span>'
       +'</div>'
     +'</div>',
-    fuss:''
+    fuss:(Number(ck.weitere_beobachtungen_mit_faellen)||0)>0
+      ? (ck.weitere_beobachtungen_mit_faellen+' weitere Beobachtungen haben Fälle, blockieren aber nicht.')
+      : ''
   };
 }
 
@@ -14981,6 +15131,10 @@ function _abNachRest(box,d,np,A){
      Work #17). Der Riegel in _abLayoutHolen sorgt dafuer, dass es genau einmal
      laeuft und das Neuzeichnen es nicht wieder anstoesst. */
   try{ _abLayoutHolen(); }catch(e){ try{ console.warn('[Layout]',e); }catch(_){} }
+  /* Work #121: dieselbe Regel wie beim Layout — erst zeichnen, dann holen.
+     Das Cockpit braucht gemessene 2,9 bis 3,8 s; solange steht „lädt" in Hero
+     und Kacheln, und zwar sichtbar statt als leere Flaeche. */
+  try{ _abCockpitHolen(); }catch(e){ try{ console.warn('[Cockpit v2]',e); }catch(_){} }
   var an=document.getElementById('abAnordnen');
   if(an) an.addEventListener('click',function(){
     an.classList.toggle('on', _abEditModus(!_AB_EDIT));
@@ -26617,9 +26771,38 @@ function feFokusNavBauen(){
       var _unter=(_wort?'<b class="feFokusWort" style="color:'+_farbe+'">'+esc(_wort)+'</b>':'')
                +((_wort&&_det)?'<span class="feFokusDet"> · '+esc(_det)+'</span>'
                               :(_det?'<span class="feFokusDet">'+esc(_det)+'</span>':''));
+      /* 🔴 20.08.2026, Work #133 E8 — DIE ZWEITE HAELFTE VON WORK #53.
+         Ralph, 16.08.: die Freigabegruende sollen "als Chips in der linken Rail
+         UNTER DEM ZUSTAENDIGEN SCHRITT" stehen - dort, wo die Handlung ist, die
+         sie schliesst. Bis heute stand nur der WEGNAHME-Teil: der rote Block
+         unter dem Produktkopf ist am 16.08. entfallen, die Zuordnung fehlte.
+
+         🔴 DIE ZUORDNUNG STEHT AN DEN STELLEN, AN DENEN DIE GRUENDE ENTSTEHEN,
+         nicht hier. Jedes G.push traegt jetzt ein s:"kopf"|"analyse"|"bestand".
+         Der Kommentar bei #53 hat genau davor gewarnt: "Eine Tabelle, die Gruende
+         an ihrem TEXT wiedererkennt, waere beim ersten umformulierten Satz still
+         kaputt." Hier wird deshalb nur GELESEN, was dort mitgegeben wurde.
+
+         Ein Grund OHNE Zuordnung erscheint nicht hier, sondern bleibt wie bisher
+         im Streifen - "Score nicht vollstaendig" ist ein Ergebnis, keine Station,
+         und eine erfundene Zuordnung waere schlimmer als keine (§3.4). */
+      /* 🔴 Die Quelle ist getErfassungsStatus().freigabe_gruende - DIESELBE Liste,
+         aus der auch der Statusstreifen und die Freigabeleiste lesen (S.freigabe_
+         gruende=G, app.js ~28359). Mein erster Versuch griff auf _fgStatusRoh.G
+         zu: dort gibt es kein G, ich hatte die Quelle angenommen statt
+         nachgesehen. Der Grund waere stumm leer geblieben - ein Fehler, der wie
+         "nichts offen" aussieht. */
+      var _gr=[];
+      try{ var _S=(typeof getErfassungsStatus==="function")?getErfassungsStatus():null;
+           _gr=((_S&&_S.freigabe_gruende)||[]).filter(function(g){ return g && g.s===s.id; }); }catch(e){}
+      var _grHtml=_gr.length
+        ? '<span class="feFokusGruende">'+_gr.map(function(g){
+            return '<span class="feFokusGrund" title="'+esc(g.d||"")+'">'+esc(g.t)+'</span>'; }).join('')+'</span>'
+        : '';
       return '<button type="button" class="feFokusSt'+(s.nr===akt?" akt":"")+'" onclick="feFokusSchritt('+s.nr+')" title="'+esc(s.kurz)+'">'
         +'<span class="feFokusTxt"><b>'+s.nr+' '+esc(s.t)+'</b>'
-        +(_unter?'<span class="feFokusSub">'+_unter+'</span>':'')+'</span></button>';
+        +(_unter?'<span class="feFokusSub">'+_unter+'</span>':'')
+        +_grHtml+'</span></button>';
     }).join("")
     /* 🔴 15.08. (Ralph Punkt 14): „Alle Bereiche zeigen" steht nur noch im ⋯-Menue.
        Als Dauerknopf unter den Schritten sah es aus wie ein fuenfter Schritt — und
@@ -28242,27 +28425,27 @@ function getErfassungsStatus(){
   /* --- Was die Freigabe WIRKLICH verhindert (Serverbedingungen, in der
          Reihenfolge, in der produkt_pruefen_freigeben sie prüft). */
   var G=[];
-  if(!roh.kat) G.push({t:"Kategorie fehlt", d:"Pflichtfeld – der Server bricht hier zuerst ab."});
+  if(!roh.kat) G.push({t:"Kategorie fehlt", s:"kopf", d:"Pflichtfeld – der Server bricht hier zuerst ab."});
   if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0){
-    G.push({t:S.referenz_blocker+" blockierende Befunde am Etikett",
+    G.push({t:S.referenz_blocker+" blockierende Befunde am Etikett", s:"bestand",
             d:(S.referenz_gruende[0]||"cb_referenz_freigabe_guard sperrt.")});
   }
-  if(window._feDub && window._feDub.freigabe_blockiert) G.push({t:"Namenszwilling ungeklärt", d:"Im Editor bestätigen, dass es ein eigenes Produkt ist."});
+  if(window._feDub && window._feDub.freigabe_blockiert) G.push({t:"Namenszwilling ungeklärt", s:"kopf", d:"Im Editor bestätigen, dass es ein eigenes Produkt ist."});
   if(roh.istSupp){
-    if(roh.wCount===0 && !roh.wNone && roh.zMit===0) G.push({t:"Supplement ohne Inhalt", d:"Weder Wirkstoffe noch Zutaten."});
-    else if(roh.wCount===0 && !roh.wNone) G.push({t:"Wirkstoff-Mengen fehlen", d:"Dosis-Check kann nichts anzeigen – oder Haken „keine Mengen auf dem Etikett\" setzen."});
-    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", d:"Bei Supplements verlangt der Server ihn."});
+    if(roh.wCount===0 && !roh.wNone && roh.zMit===0) G.push({t:"Supplement ohne Inhalt", s:"analyse", d:"Weder Wirkstoffe noch Zutaten."});
+    else if(roh.wCount===0 && !roh.wNone) G.push({t:"Wirkstoff-Mengen fehlen", s:"analyse", d:"Dosis-Check kann nichts anzeigen – oder Haken „keine Mengen auf dem Etikett\" setzen."});
+    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", s:"kopf", d:"Bei Supplements verlangt der Server ihn."});
   } else if(roh.istKeinScore || roh.istSalz){
-    if(roh.zMit===0) G.push({t:"mindestens eine Zutat nötig", d:"Kategorie ohne Lebensmittel-Index."});
-    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", d:"In dieser Kategorie verlangt der Server ihn."});
+    if(roh.zMit===0) G.push({t:"mindestens eine Zutat nötig", s:"bestand", d:"Kategorie ohne Lebensmittel-Index."});
+    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", s:"kopf", d:"In dieser Kategorie verlangt der Server ihn."});
   } else {
     /* 14.08.2026: Liegt der Achsenvertrag vor, sagt der Server genauer, WAS fehlt —
        dann entfällt der lokale Nährwertgrund, sonst stünde derselbe Punkt zweimal
        („Nährwerte unvollständig" + „Achse Nährwerte fehlt"). Die Feldliste bleibt als
        Detail am Servergrund erhalten. */
     var _hatAchsen=!!(window._fgScoreGespeichert && window._fgScoreGespeichert.produkt_id===pid);
-    if(S.naehrwerte_ok===false && !_hatAchsen) G.push({t:"Nährwerte unvollständig", d:roh.nwFehlt.join(", ")});
-    if(roh.zMit===0) G.push({t:"keine Zutat erfasst", d:"Ohne Zutaten ist der Score nicht vollständig."});
+    if(S.naehrwerte_ok===false && !_hatAchsen) G.push({t:"Nährwerte unvollständig", s:"analyse", d:roh.nwFehlt.join(", ")});
+    if(roh.zMit===0) G.push({t:"keine Zutat erfasst", s:"bestand", d:"Ohne Zutaten ist der Score nicht vollständig."});
     /* 🔴 13.08.2026 (Ralph-Korrektur Punkt 8/9): Der Server verlangt im Normalzweig
        `Scores.Score_vollstaendig`. Er kann aus einem Grund fehlen, den das Frontend gar
        nicht kennt — bei P73614 fehlt die ZUTATEN-Achse, weil `cb_zutaten_punkte` die
@@ -28304,7 +28487,7 @@ function getErfassungsStatus(){
          der Handlung, die sie schließt. „Score nicht vollständig" ist ein Zustand,
          „Zusatzstoffstatus noch nicht bestätigt" ist eine Aufgabe (Ralph 14.08.). */
       if(_fa.length===1 && _fa[0]==="Zusatzstoffe"){
-        G.push({t:"Zusatzstoffstatus noch nicht bestätigt",
+        G.push({t:"Zusatzstoffstatus noch nicht bestätigt", s:"bestand",
                 d:"Letzte offene Score-Achse (15 P.). Entweder die Zusatzstoffe erfassen oder „Keine Zusatzstoffe im Produkt\" anhaken – ohne Beleg bleibt die Achse leer (§3.4)."});
       } else {
         G.push({t:"Server: Score nicht vollständig",
@@ -28332,7 +28515,7 @@ function getErfassungsStatus(){
        Das Frontend ist damit NICHT strenger als der Server, sondern gleich streng.
        Die Auswahlliste kommt bereits aus cb_quellen_typen und kennt nur zulässige
        Typen — ein gefülltes Feld ist hier also auch ein belegtes (§22). */
-    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", d:"Seit 13.08. verlangt der Server ihn in JEDER Kategorie (cb_quelle_belegt)."});
+    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", s:"kopf", d:"Seit 13.08. verlangt der Server ihn in JEDER Kategorie (cb_quelle_belegt)."});
   }
   S.freigabe_gruende=G;
   S.freigabe_moeglich=(G.length===0);
@@ -34709,7 +34892,7 @@ var RIKI_SEITENHILFE={
    ============================================================================ */
 var RIKI_INTRO={
   was:"Root Index liest die Rückseite der Packung – nicht die Werbung auf der Vorderseite.",
-  punkte:["Jedes Lebensmittel bekommt eine Note von <b>0 bis 100</b> aus vier Prüfungen: <b>Zutaten</b> (30), <b>Zusatzstoffe</b> (15), <b>Verarbeitungsgrad</b> (15), <b>Nährwert</b> (40).",
+  punkte:["Jedes Lebensmittel bekommt eine Note von <b>0 bis 100</b> aus vier Prüfungen: <span id=\"rikiIntroAchsen\">…</span>",
           "<b>Jede Zahl hat eine Quelle</b> – Etikett, Hersteller oder amtlicher Bezugswert. Gibt es keine Quelle, gibt es keine Zahl.",
           "<b>Fehlt eine der vier Prüfungen, gibt es keine Note</b> statt einer guten. Wer nichts angibt, gewinnt hier nichts.",
           "<b>Bio ist ein Merkmal, kein Bonus.</b> Es ändert die Note nicht – du kannst danach filtern.",
@@ -34717,16 +34900,65 @@ var RIKI_INTRO={
           "Was du isst, trägst du ins <b>Tagebuch</b> ein – daraus entstehen Tagessummen gegen deine Ziele."],
   fuss:"Root Index bewertet Produkte, keine Menschen – und ersetzt keine ärztliche Beratung."
 };
+/* ============================================================================
+   🔴 20.08.2026 NACHMITTAGS — MEINE EIGENE ZWEITE KOPIE, KORRIGIERT
+
+   Heute Morgen habe ich die vier Achsen hier als Text hingeschrieben: „Zutaten
+   (30), Zusatzstoffe (15), Verarbeitungsgrad (15), Nährwert (40)" — und im
+   Kommentar darunter selbst notiert, dass das eine zweite Stelle ist, die
+   luegt, sobald jemand §4.1 aendert.
+
+   GEMESSEN am selben Tag: die Achsen stehen laengst in der Datenbank und
+   werden ueber `cb_methodik` ausgeliefert; die Methodik-Seite zeichnet ihre
+   Balken daraus. Es war also keine unvermeidliche Doppelpflege, sondern eine
+   vermeidbare — ich hatte nur nicht nachgesehen (§22).
+
+   JETZT holt RIKI dieselben Zahlen aus derselben Quelle. Faellt sie aus,
+   steht der Satz OHNE Zahlen da statt mit veralteten: eine fehlende Angabe
+   ist ehrlich, eine falsche nicht (§3.4).
+   ============================================================================ */
+function rikiIntroAchsenText(){
+  var m=window._methodik;
+  var arr=(m&&m.achsen)||[];
+  var teile=[];
+  arr.forEach(function(a){
+    if(!a || a.schluessel==="uebersicht") return;
+    var w=String(a.wert||"").replace(/\s*Punkte?\s*$/i,"").trim();   /* „30 Punkte" → „30" */
+    if(a.titel && w) teile.push("<b>"+esc(a.titel)+"</b> ("+esc(w)+")");
+  });
+  return teile.length ? teile.join(", ")+"." : "";
+}
+/* Nachtragen, sobald die Quelle da ist. Der Platzhalter wird NUR ersetzt, wenn
+   wirklich Achsen kamen - sonst bleibt der ehrliche Ersatzsatz stehen. */
+function rikiIntroAchsenNachtragen(){
+  try{
+    if(typeof methodikLaden!=="function") return;
+    methodikLaden().then(function(){
+      var el=document.getElementById("rikiIntroAchsen"); if(!el) return;
+      var t=rikiIntroAchsenText();
+      el.innerHTML = t || "Die vier Achsen konnte ich gerade nicht laden – sie stehen unter „Unsere Methode“.";
+    }).catch(function(){});
+  }catch(e){}
+}
 /* Die Erklaerung ist abschaltbar (Ralph 20.08.). Der Schalter steht in
    index.html neben rikiSichtbar; fehlt er, gilt AN - eine fehlende Einstellung
    darf nichts verschweigen (§3.4). */
 function rikiIntroHtml(){
   if(typeof window.rikiIntroAn==="function" && !window.rikiIntroAn()) return "";
+  /* Sind die Achsen schon im Speicher, stehen sie sofort da - sonst tragen wir
+     sie nach, sobald cb_methodik geantwortet hat. */
+  var _sofort=rikiIntroAchsenText();
+  setTimeout(rikiIntroAchsenNachtragen,0);
   return '<div style="background:radial-gradient(130% 130% at 20% 10%,#1F5E39,#0B1710 70%);border-radius:12px;padding:12px 13px;margin-bottom:10px">'
     +'<div style="color:#5EF2A0;font-size:12px;font-weight:700;margin-bottom:5px">Was ist Root Index?</div>'
     +'<div style="color:#fff;font-size:13px;line-height:1.5;margin-bottom:7px">'+RIKI_INTRO.was+'</div>'
     +'<ul style="margin:0 0 7px;padding-left:17px;font-size:12px;color:rgba(255,255,255,.72);line-height:1.6">'
-    + RIKI_INTRO.punkte.map(function(z){ return '<li style="margin-bottom:4px">'+z+'</li>'; }).join('')
+    + RIKI_INTRO.punkte.map(function(z){
+        /* Der Platzhalter wird gefuellt, wenn die Achsen schon da sind - sonst
+           bleibt er stehen und rikiIntroAchsenNachtragen() setzt ihn. */
+        if(_sofort) z=z.replace('<span id="rikiIntroAchsen">…</span>','<span id="rikiIntroAchsen">'+_sofort+'</span>');
+        return '<li style="margin-bottom:4px">'+z+'</li>';
+      }).join('')
     +'</ul>'
     +'<div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.45">'+RIKI_INTRO.fuss+'</div>'
     +'</div>';
@@ -34762,18 +34994,65 @@ function rikiKontextText(k){
       +(k.stationstitel?(", Station <b>"+esc(k.stationstitel)+"</b>"):"")+".";
     var S=null; try{ S=(typeof getErfassungsStatus==="function")?getErfassungsStatus():null; }catch(e){}
     if(S && S.bekannt){
-      var offen=[];
-      if(!S.quelle_ok) offen.push("die Quelle fehlt");
-      if(S.naehrwerte_ok===false) offen.push("die Nährwerte sind unvollständig");
-      if(S.bestandteile_gesamt && S.bestandteile_offen)
-        offen.push(S.bestandteile_offen+" von "+S.bestandteile_gesamt+" Bestandteilen sind noch nicht im Stamm");
-      t += offen.length
-        ? (" Offen ist: "+offen.join(" · ")+".")
-        : (S.freigabe_moeglich ? " Für die Freigabe fehlt nichts mehr." : "");
+      /* 🔴 20.08.2026, E5 — DIE ECHTEN GRUENDE STATT DREIER OBERBEGRIFFE.
+         Hier standen „die Quelle fehlt / die Naehrwerte sind unvollstaendig /
+         n von m Bestandteilen" — eine eigene, groebere Zusammenfassung neben
+         der Liste, die getErfassungsStatus ohnehin fuehrt. Wer „unvollstaendig"
+         liest, weiss nicht, WELCHER Wert fehlt, und muss doch in die Karte
+         schauen; und wenn ein vierter Grund dazukommt (etwa der
+         Zusatzstoffstatus seit 14.08.), kannte die Zusammenfassung ihn nicht
+         und meldete faelschlich „nichts offen" (§4.2).
+         Jetzt werden die Gruende genannt, die der Statusstreifen und die
+         Freigabekarte auch nennen — mit ihrer STATION, damit klar ist, wohin.
+         Hoechstens vier, damit der Satz lesbar bleibt; der Rest wird gezaehlt,
+         nicht verschwiegen. */
+      var G=Array.isArray(S.freigabe_gruende)?S.freigabe_gruende:[];
+      if(G.length){
+        var _st={kopf:"Station 1",analyse:"Station 2",bestand:"Station 3"};
+        var zeig=G.slice(0,4).map(function(g){
+          var w=g&&g.s&&_st[g.s]?(" ("+_st[g.s]+")"):"";
+          return esc(String((g&&g.t)||"")) + w;
+        });
+        t += " <b>Für die Freigabe fehlt noch:</b> "+zeig.join(" · ")
+          + (G.length>4 ? (" · und "+(G.length-4)+" weitere") : "") + ".";
+        if(S.bestandteile_gesamt && S.bestandteile_offen)
+          t += " Bestandteile im Stamm: "+(S.bestandteile_gesamt-S.bestandteile_offen)+" von "+S.bestandteile_gesamt+".";
+      }
+      else if(S.freigabe_moeglich) t += " <b>Für die Freigabe fehlt nichts mehr.</b>";
     }
     return t;
   }
-  if(k.produkt_id) return "Du siehst gerade das Produkt <b>"+esc(k.produkt_id)+"</b>.";
+  /* 🔴 20.08.2026, A9 — DIE ZAHL DIESES PRODUKTS, NICHT DIE REGEL IM ALLGEMEINEN.
+     „Du siehst gerade das Produkt P1234" war richtig und nutzlos. Gefragt wird
+     vor einer Kachel nicht, wie der Index gebaut ist, sondern warum DIESE Zahl
+     dasteht - oder warum keine.
+     Die Werte kommen aus demselben Datensatz, den die Karte zeichnet
+     (window._offenesProduktD, ein Verweis) und aus denselben Feldern wie der
+     Fluxkompensator: p_zutaten 30 · p_zusatzstoffe 15 · p_nova 15 ·
+     p_naehrwert ×2 = 40. Kein zweites Rechnen, keine zweite Skala (§4.2).
+     FEHLT eine Achse, wird das GESAGT statt weggelassen: eine fehlende Achse
+     ist der Grund, warum es keine Note gibt (§4.3). */
+  if(k.produkt_id){
+    var t="Du siehst gerade das Produkt <b>"+esc(k.produkt_id)+"</b>.";
+    var d=null; try{ d=window._offenesProduktD; }catch(e){}
+    if(d && String(d.id||"")===String(k.produkt_id)){
+      var A=[["Zutaten",num(d.p_zutaten),30],["Zusatzstoffe",num(d.p_zusatzstoffe),15],
+             ["Verarbeitung",num(d.p_nova),15],
+             ["Nährwert",(num(d.p_naehrwert)!=null?num(d.p_naehrwert)*2:null),40]];
+      var da=A.filter(function(a){ return a[1]!=null; }), fehlt=A.filter(function(a){ return a[1]==null; });
+      var s=num(d.clean_score);
+      if(s!=null) t+=" Der Root Index ist <b>"+Math.round(s)+"</b> von 100.";
+      /* Ohne Gesamtnote darf der Satz nicht „Er kommt aus" lauten - es gibt kein
+         „er". Beim Gegenlesen der Testausgabe aufgefallen. */
+      if(da.length) t+=(s!=null?" Er kommt aus: ":" Berechnet sind bisher: ")
+        +da.map(function(a){ return esc(a[0])+" "+(Math.round(a[1]*10)/10)+"/"+a[2]; }).join(" · ")+".";
+      if(fehlt.length) t+=" <b>Ohne Zahl bleibt:</b> "+fehlt.map(function(a){ return esc(a[0]); }).join(" · ")
+        +" – "+(fehlt.length===1?"diese Angabe fehlt":"diese Angaben fehlen")
+        +". Fehlende Daten geben hier keine Punkte und auch keinen Abzug; sie fehlen einfach.";
+      if(s==null) t+=" Eine Gesamtnote gibt es deshalb nicht – eine fehlende Zahl ist ehrlicher als eine geschätzte.";
+    }
+    return t;
+  }
   if(k.suchbegriff) return "Du suchst gerade nach <b>"+esc(k.suchbegriff)+"</b>.";
   if(k.rezept_id) return "Du siehst gerade ein Rezept.";
   var n={start:"der Startseite",produkte:"der Produktsuche",rezepte:"den Rezepten",tagebuch:"deinem Tagebuch",
@@ -35255,7 +35534,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4240";
+const APP_BUILD = "2026-08-20-4260";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,

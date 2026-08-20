@@ -165,6 +165,36 @@ body{ --admin-oben:64px }
 
 
 /* ============================================================================
+   FREIGABEGRUENDE AN IHRER STATION  — Work #133 E8, 20.08.2026
+   ----------------------------------------------------------------------------
+   Ralph, 16.08.: die Gruende sollen "als Chips in der linken Rail UNTER DEM
+   ZUSTAENDIGEN SCHRITT" stehen - dort, wo die Handlung ist, die sie schliesst.
+
+   Sie sitzen im Schrittknopf, unter dem Statuswort. Klein und rot umrandet, aber
+   ohne Fuellung: ein Grund ist ein Hinweis auf Arbeit, kein Alarm. Der volle
+   Satz steht als Mausanzeige - die Rail ist 180px schmal, ein ganzer Satz waere
+   dort ein Absatz.
+
+   WO SCHRAUBEN?
+   · Farbe .... --fgr-farbe   (einmal, gilt fuer Rand und Schrift)
+   ============================================================================ */
+.feFokusGruende{
+  --fgr-farbe:var(--k-b91c1c,#b91c1c);
+  display:flex; flex-wrap:wrap; gap:3px; margin-top:4px;
+}
+.feFokusGrund{
+  font-size:9.5px; line-height:1.35;
+  padding:1px 5px; border-radius:7px;
+  border:1px solid var(--fgr-farbe);
+  color:var(--fgr-farbe);
+  background:transparent;
+  overflow-wrap:anywhere;
+}
+/* Im aktiven Schritt etwas kraeftiger - dort wird gerade gearbeitet. */
+.feFokusSt.akt .feFokusGrund{ background:var(--k-fdecea,#fdecea) }
+
+
+/* ============================================================================
    RIKI ANGEDOCKT IM EDITOR  (.rikiAngedockt)  — Work #133 E5a, 20.08.2026
    ----------------------------------------------------------------------------
    Ralphs DBKR-Vorlage hat die Benutzerfuehrung als Spalte am rechten Rand mit
