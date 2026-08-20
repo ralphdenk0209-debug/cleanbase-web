@@ -375,7 +375,10 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
   flex-direction:column;
   gap:10px;
   position:sticky;
-  top:58px;
+  /* Work #51: Der weisse Datenstatus darueber ist selbst sticky und kann je
+     nach Produkt umbrechen. Sein gerendertes Mass wird von feStickyKopfBinden
+     als gemeinsame Variable gesetzt; hier steht keine zweite Kopfhoehe. */
+  top:var(--fe-sticky-kopf, 0px);
   min-width:0;
   /* 🔴 15.08.2026 (Work #23, Ralph: „linker bereich soll auch optisch getrennter sein,
      auch als art menue"). Die Rail war bisher nur eine Spalte MIT Inhalt — ohne
@@ -1731,7 +1734,7 @@ body.peLightBg{ --bg:#e6ecf4 }
    Fokusmodus — `feKontextRender` setzt sie ausserhalb auf display:none. Diese
    242/260-Fassung konnte deshalb nie greifen und war ein Breitenbesitzer auf
    Vorrat. Der Fokus-Zweig steht weiter unten im Arbeitsraster. */
-#feKontext{ display:flex; flex-direction:column; gap:10px; align-self:start; position:sticky; top:12px }
+#feKontext{ display:flex; flex-direction:column; gap:10px; align-self:start; position:sticky; top:var(--fe-sticky-kopf, 0px) }
 .feKtxBlock{ border:1px solid var(--line); border-radius:10px; background:var(--card); padding:10px 12px }
 .feKtxTit{ font-size:9.5px; letter-spacing:.06em; text-transform:uppercase;
   color:var(--muted); font-weight:800; margin-bottom:5px }

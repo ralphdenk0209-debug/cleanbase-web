@@ -14183,6 +14183,12 @@ function _abBentoNach(box){
     });
   });
 
+  /* Work #121: die Linkliste kommt aus der ausgelieferten Datei Links.md.
+     Sie laedt nach wie alles andere — eine Datei ueber das Netz zu holen darf
+     den Kachelaufbau nicht aufhalten. */
+  if(box.querySelector('#abLinks')) { try{ _abLinksLaden(); }
+    catch(e){ try{ console.warn('[Links]',e); }catch(_){} } }
+
   /* Work #121: jede Zahl mit drill_key oeffnet die Serverliste. EINE Stelle
      fuer alle Kacheln — der Anordnen-Modus zeichnet sie neu und ruft dieselbe
      Verdrahtung wieder auf. */
@@ -14880,7 +14886,75 @@ function _abSchnell(){
     +'<div class="bleib" style="padding-top:6px">'
     + (ck ? (auto+takte+'<div style="height:7px"></div>'+knoepfe)
           : '<div class="blade">lädt…</div>')
+    +'<div id="abLinks" style="margin-top:9px"><div class="blade">Linkliste lädt…</div></div>'
     +'</div></div>';
+}
+
+/* ============================================================================
+   LINKLISTE  ·  Work #121, Kriterium 12/13  ·  20.08.2026
+   ----------------------------------------------------------------------------
+   Ralph-Entscheid 20.08. (Weg A): die vorhandene Liste wird AUSGELIEFERT, nicht
+   abgeschrieben. Die Datei ist von "06 Betrieb/Links.md" nach
+   "webseite/Links.md" GEZOGEN — nicht kopiert. Es gibt sie weiterhin genau
+   einmal, Ralph pflegt sie unverändert in Obsidian, und die Wikilinks [[Links]]
+   bleiben heil, weil der Dateiname derselbe ist.
+
+   🔴 WAS DAMIT ÖFFENTLICH WIRD, und das steht hier statt im Kleingedruckten:
+   deploy.command kopiert ALLE regulären Dateien direkt aus webseite/. Die Datei
+   ist damit unter root-index.de/Links.md abrufbar — für jeden, auch ohne
+   Anmeldung. Sie enthält keine Schlüssel und keine Passwörter (nachgelesen,
+   nicht vermutet), aber die Adresse des GitHub-Repos steht darin. Wer das nicht
+   will, nimmt die Zeile aus der Datei; das Dashboard zeigt dann eine Gruppe
+   weniger und sonst nichts.
+
+   Gelesen wird das Markdown so, wie Ralph es schreibt: „## Überschrift" wird
+   eine Gruppe, „| Name | https://… |" wird eine Zeile. Was keine URL enthält,
+   wird übersprungen — die drei unbelegten Punkte am Ende der Datei sind
+   ausdrücklich als Lücke markiert und sollen keine Knöpfe werden (§1.2).
+   ========================================================================== */
+function _abLinksAusMd(md){
+  var gruppen=[], aktuell=null;
+  String(md||'').split('\n').forEach(function(z){
+    var h=/^##\s+(.+?)\s*$/.exec(z);
+    if(h){ aktuell={titel:h[1], links:[]}; gruppen.push(aktuell); return; }
+    if(!aktuell) return;
+    if(z.indexOf('|')!==0) return;
+    var sp=z.split('|').map(function(x){ return x.trim(); }).filter(function(x,i,a){
+      return !(i===0&&x==='') && !(i===a.length-1&&x===''); });
+    if(sp.length<2) return;
+    var url=/(https?:\/\/[^\s)|]+)/.exec(sp[1]);
+    if(!url) return;                       /* „je Produkt", „vom Nutzer" — kein Link */
+    var name=sp[0].replace(/\*\*/g,'').replace(/\s*\(.*?\)\s*$/,'').trim();
+    if(!name) return;
+    aktuell.links.push({name:name, url:url[1]});
+  });
+  return gruppen.filter(function(g){ return g.links.length; });
+}
+
+async function _abLinksLaden(){
+  var box=document.getElementById('abLinks'); if(!box) return;
+  try{
+    var r=await fetch('Links.md?cb='+Date.now());
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var g=_abLinksAusMd(await r.text());
+    if(!g.length){ box.innerHTML='<div class="bleer">Links.md enthält keine Linkzeilen.</div>'; return; }
+    var anzahl=g.reduce(function(s,x){ return s+x.links.length; },0);
+    box.innerHTML='<div class="babs">Links <span style="font-weight:400;color:var(--abmut)">— '
+      +anzahl+' aus Links.md</span></div>'
+      + g.map(function(x){
+          return '<div class="bzeile" style="align-items:flex-start"><span>'+esc(x.titel)+'</span>'
+            +'<b style="font-weight:500;text-align:right">'
+            + x.links.map(function(l){
+                return '<a href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer" '
+                  +'title="'+esc(l.url)+'" style="color:inherit">'+esc(l.name)+'</a>';
+              }).join(' · ')
+            +'</b></div>';
+        }).join('');
+  }catch(e){
+    box.innerHTML='<div class="bfehl"><b>Linkliste nicht ladbar.</b><br>'
+      +esc((e&&e.message)||String(e))+'</div>';
+    try{ console.warn('[Links]',e); }catch(_){}
+  }
 }
 
 /* Nachladen. Jede Kachel EINZELN und mit eigenem Fangblock: faellt eine aus,
@@ -28903,10 +28977,39 @@ function feKopfbandSync(){
   }
 }
 if(typeof window!=='undefined'){ window.feKopfbandSync=feKopfbandSync; }
+/* ============================================================================
+   WORK #51 — EIN GEMESSENER STICKY-ANSCHLAG
+
+   #fe_gesamtstatus klebt am oberen Rand des scrollenden #panel. Rail und
+   Kontext muessen deshalb unter SEINER tatsaechlichen Hoehe stoppen. Die Hoehe
+   schwankt, sobald Statuschips oder eine Hinweiszeile umbrechen; feste top-Werte
+   waren damit immer nur fuer genau ein Produkt richtig.
+
+   ResizeObserver haengt an der bestehenden Quelle selbst. Er misst erneut,
+   wenn Inhalt oder Breite den Streifen wachsen bzw. schrumpfen lassen, und
+   schreibt die eine CSS-Variable an den gemeinsamen scrollenden Vorfahren.
+   ============================================================================ */
+function feStickyKopfBinden(){
+  var box=document.getElementById('fe_gesamtstatus');
+  var panel=document.getElementById('panel');
+  if(!box || !panel) return;
+  var sync=function(){
+    var h=Math.ceil(box.getBoundingClientRect().height);
+    var wert=h+'px';
+    if(panel.style.getPropertyValue('--fe-sticky-kopf')!==wert)
+      panel.style.setProperty('--fe-sticky-kopf',wert);
+  };
+  sync();
+  if(!box._feStickyKopfObserver && typeof ResizeObserver==='function'){
+    box._feStickyKopfObserver=new ResizeObserver(sync);
+    box._feStickyKopfObserver.observe(box);
+  }
+}
+if(typeof window!=='undefined'){ window.feStickyKopfBinden=feStickyKopfBinden; }
 function feStatusStreifen(){
   var box=document.getElementById("fe_gesamtstatus"); if(!box) return;
   var S=getErfassungsStatus();
-  if(!S.bekannt){ box.innerHTML=""; return; }
+  if(!S.bekannt){ box.innerHTML=""; feStickyKopfBinden(); return; }
   var C=[];
   var sp={neu:["noch nicht gespeichert","grau"],saving:["Speichert …","blau"],
           saved:["Gespeichert","still"],error:["Speichern fehlgeschlagen","rot"]}[S.gespeichert]||["Gespeichert","still"];
@@ -29078,6 +29181,7 @@ function feStatusStreifen(){
         +'<div class="feStFrg">'+_frgChip+'</div></div>'
       +(_detail||_hw ? '<div class="feStFuss">'+_detail+_hw+'</div>' : '')
     +'</div>';
+  feStickyKopfBinden();
 }
 /* ═══════════════════════════════════════════════════════════
    DATUMSFORMAT FUER DAS KOPFBAND
@@ -35822,7 +35926,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4280";
+const APP_BUILD = "2026-08-20-4300";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
