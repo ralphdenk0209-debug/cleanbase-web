@@ -7247,13 +7247,27 @@ async function fgJsonUebernehmen(){
     }catch(e){ hinweise.push('Zutaten konnten nicht aufgelöst werden: '+esc(e.message||String(e))); }
   }
 
-  /* --- Plausibilitaet: Atwater, bevor irgendetwas gespeichert wird --------- */
-  var P=_fgJsonZahl(n.eiweiss_g), K=_fgJsonZahl(n.kohlenhydrate_g), F=_fgJsonZahl(n.fett_g);
-  if(kcal!=null && P!=null && K!=null && F!=null){
-    var at=4*P+4*K+9*F, ab=Math.abs(at-kcal);
-    if(ab>20 && ab/Math.max(kcal,1)>0.30)
-      hinweise.push('⚠ kcal unplausibel: '+kcal+' angegeben, rechnerisch '+Math.round(at)+'.');
-  }
+  /* --- Rechenprobe, bevor irgendetwas gespeichert wird ---------------------
+     🔴 20.08.2026: HIER STAND EINE ZWEITE FORMEL. Sie rechnete `4P+4K+9F` —
+     ohne Ballaststoffe (2 kcal/g) und ohne Polyole. Server (v_naehrwerte_qa)
+     und Editor (fePlaus) rechnen beide MIT beidem. Bei einem
+     ballaststoffreichen Produkt urteilte diese Stelle deshalb anders als die
+     beiden anderen, und zwar unbemerkt (§4.2).
+     Jetzt fragt sie feNaehrBefundAus() — dieselbe Rechnung wie ueberall, dazu
+     die drei physikalisch unmoeglichen Faelle n2 bis n4, die sie vorher gar
+     nicht kannte. */
+  var _B=feNaehrBefundAus({
+    kcal:kcal,
+    p:_fgJsonZahl(n.eiweiss_g), kh:_fgJsonZahl(n.kohlenhydrate_g), f:_fgJsonZahl(n.fett_g),
+    /* KEIN poly: das Riki-JSON kennt kein Polyol-Feld (die Paare-Liste oben
+       fuehrt acht Werte, Polyole sind nicht darunter). Ein erfundener Feldname
+       waere stumm undefined geblieben und haette so ausgesehen, als sei er
+       geprueft. Im Editor liest fePlaus das Feld fe_polyole, sobald jemand es
+       fuellt — dort greift die Polyol-Spanne also weiterhin. */
+    b:_fgJsonZahl(n.ballaststoffe_g),
+    zucker:_fgJsonZahl(n.zucker_g), gesf:_fgJsonZahl(n.gesaettigte_fettsaeuren_g)
+  });
+  _B.texte.forEach(function(t){ hinweise.push('⚠ '+t+'.'); });
 
   try{ fgPickRender(); }catch(e){}
   try{ fePlaus(); }catch(e){}
@@ -27572,15 +27586,92 @@ async function _feScoreRun(box){
   }catch(e){ if(seq===_feScoreSeq) box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Index nicht berechenbar.</div>'; }
 }
 /* Live-Plausibilität im Editor (Polyol-Spanne) + Freigabe-Check. */
+/* ============================================================================
+   DIE NAEHRWERT-RECHENPROBE — EIN ORT, GESPIEGELT AN DER DATENBANK
+
+   🔴 20.08.2026. Anlass: Ralph waehlte aus dem Konzeptkatalog „C4 Rechenprobe
+   kcal gegen Makros“ — und die war schon da. DREIMAL, mit zwei verschiedenen
+   Formeln. Mein eigener Katalog hat sie als „neu“ gefuehrt, ohne nachzusehen;
+   das ist genau der Fehler, vor dem §22 warnt.
+
+   GEMESSEN 20.08. an v_naehrwerte_qa:
+   - Der Server fuehrt SECHS Regeln: n1 kcal · n2 Zucker>KH · n3 gesFett>Fett ·
+     n4 Makrosumme>108 g · n5 Salz absurd · n6 Ballast 0 bei pflanzlich.
+   - fePlaus() spiegelte davon genau EINE (n1) — Formel identisch, korrekt.
+   - Der JSON-Uebernahmeweg rechnete DANEBEN noch einmal, aber mit
+     `4P+4K+9F` — OHNE Ballaststoffe (2 kcal/g) und OHNE Polyole. Bei einem
+     ballaststoffreichen Produkt urteilt diese Kopie anders als Server und
+     Editor. Zweite Kopie, abweichendes Ergebnis (§4.2).
+
+   DESHALB steht die Rechnung jetzt hier, an einem Ort. fePlaus rendert sie,
+   der JSON-Weg fragt sie ab, niemand rechnet mehr selbst.
+
+   WARUM DAS FRONTEND UEBERHAUPT RECHNET, obwohl die DB es kann: waehrend der
+   Erfassung sind die Werte noch NICHT gespeichert. v_naehrwerte_qa sieht sie
+   erst nach dem Speichern. Der Editor braucht die Probe beim Tippen — das ist
+   der einzige zulaessige Grund fuer eine zweite Rechenstelle, und er wird hier
+   ausdruecklich benannt statt stillschweigend genutzt.
+
+   🔴 NICHT NACHGEBAUT sind n5 und n6. Sie brauchen Kategorie, Produktnamen,
+   Zutaten und Zusatzstoffe (Backtriebmittel-Erkennung, pflanzliche Kategorien)
+   — das waere eine dritte Wahrheit mit halbem Wissen. Sie greifen nach dem
+   Speichern ueber den Waechter. Lieber eine Luecke, die man kennt, als eine
+   Regel, die anders urteilt als der Server.
+
+   Schwellen und Faktoren sind aus v_naehrwerte_qa uebernommen, nicht gewaehlt:
+   4/4/9 kcal je g, Ballaststoffe 2, Polyole 2,4 (VO (EU) 1169/2011 Anhang XIV),
+   n1 erst ab >20 kcal UND >30 % · n2/n3 mit 0,5 g Rundungsluft · n4 ab 108 g.
+   ============================================================================ */
+function feNaehrBefund(){
+  var gv=function(id){ var e=document.getElementById(id); var v=e&&e.value!==""?Number(String(e.value).replace(",",".")):null; return (v!=null&&isFinite(v))?v:null; };
+  return feNaehrBefundAus({
+    kcal:gv("fe_kcal"), p:gv("fe_protein"), kh:gv("fe_kh"), f:gv("fe_fett"),
+    /* Das Feld heisst fe_ges_fett mit Unterstrich - beim Bauen zuerst falsch
+       geschrieben und beim Gegenlesen der IDs aufgefallen. Eine ID, die es nicht
+       gibt, liefert stumm null: die Regel n3 haette nie ausgeloest und der
+       Fehler waere unsichtbar geblieben. */
+    b:gv("fe_ballaststoffe"), poly:gv("fe_polyole"), zucker:gv("fe_zucker"), gesf:gv("fe_ges_fett")
+  });
+}
+/* Getrennt von der Feldabfrage, damit dieselbe Rechnung auch fuer Werte gilt,
+   die noch in keinem Feld stehen — der JSON-Weg hat sie als Objekt. */
+function feNaehrBefundAus(w){
+  w=w||{};
+  var kcal=w.kcal, p=w.p, kh=w.kh, f=w.f, b=w.b, poly=Number(w.poly)||0, zu=w.zucker, gf=w.gesf;
+  var r={rechenbar:false, berMin:null, berMax:null, abweichung:0, n1:false, n2:false, n3:false, n4:false, spanne:"", texte:[]};
+  if(kcal!=null && p!=null && kh!=null && f!=null){
+    r.rechenbar=true;
+    r.berMin = 4*p + 4*Math.max(kh-poly,0) + 9*f + 2*(b||0);
+    r.berMax = r.berMin + 2.4*poly;
+    r.abweichung = Math.max(r.berMin-kcal, kcal-r.berMax, 0);
+    r.spanne = Math.round(r.berMin) + (poly>0 ? ("–"+Math.round(r.berMax)) : "") + " kcal";
+    r.n1 = (kcal>0 && r.abweichung>20 && r.abweichung/Math.max(kcal,1)>0.30);
+    if(r.n1) r.texte.push("kcal "+Math.round(kcal)+" laut Etikett vs. "+Math.round(r.berMin)+" berechnet ("+Math.round(r.abweichung)+" kcal Abweichung)");
+  }
+  /* n2 bis n4 sind PHYSIKALISCH unmoeglich, nicht nur auffaellig: eine Teilmenge
+     kann nicht groesser sein als ihre Menge, und 100 g koennen nicht 120 g
+     enthalten. Sie gelten unabhaengig davon, ob kcal ueberhaupt dasteht. */
+  if(zu!=null && kh!=null && zu>kh+0.5){ r.n2=true; r.texte.push("Zucker "+zu+" g über Kohlenhydrate "+kh+" g – physikalisch unmöglich"); }
+  if(gf!=null && f!=null && gf>f+0.5){ r.n3=true; r.texte.push("gesättigte Fettsäuren "+gf+" g über Gesamtfett "+f+" g – physikalisch unmöglich"); }
+  var summe=(p||0)+(kh||0)+(f||0)+(b||0);
+  if(summe>108){ r.n4=true; r.texte.push("Makro-Summe "+(Math.round(summe*10)/10)+" g je 100 g – physikalisch unmöglich"); }
+  r.hart = r.n2||r.n3||r.n4;      /* n2-n4 sind NICHT abhakbar, genau wie serverseitig */
+  return r;
+}
 function fePlaus(){
   var box=document.getElementById("fe_plaus"); if(!box) return;
-  var gv=function(id){ var e=document.getElementById(id); var v=e&&e.value!==""?Number(String(e.value).replace(",",".")):null; return (v!=null&&isFinite(v))?v:null; };
-  var kcal=gv("fe_kcal"), p=gv("fe_protein"), kh=gv("fe_kh"), f=gv("fe_fett"), b=gv("fe_ballaststoffe"), poly=gv("fe_polyole")||0;
-  if(kcal==null||p==null||kh==null||f==null){ box.innerHTML='<span class="pGrau">Für die Plausibilität: kcal, Eiweiß, KH, Fett.</span>'; }
+  var B=feNaehrBefund();
+  /* Die harten Fehler zuerst: eine unmoegliche Zahl wiegt schwerer als eine
+     unplausible, und sie laesst sich nicht „von der Quelle bestaetigen“. */
+  if(B.hart){
+    box.innerHTML='<span class="pRot">&#9888; '+esc(B.texte.filter(function(_,i){ return !(i===0&&B.n1); }).join(" · "))+'</span>';
+    return;
+  }
+  if(!B.rechenbar){ box.innerHTML='<span class="pGrau">Für die Plausibilität: kcal, Eiweiß, KH, Fett.</span>'; }
   else {
-    var berMin=4*p+4*Math.max(kh-poly,0)+9*f+2*(b||0), berMax=berMin+2.4*poly, dev=Math.max(berMin-kcal,kcal-berMax,0);
-    var spanne=Math.round(berMin)+(poly>0?("–"+Math.round(berMax)):"")+" kcal";
-    if(kcal>0 && dev>20 && dev/kcal>0.30){
+    var kcal=B.berMin!=null ? (function(){ var e=document.getElementById("fe_kcal"); return e&&e.value!==""?Number(String(e.value).replace(",",".")):0; })() : 0;
+    var spanne=B.spanne;
+    if(B.n1){
       if(window._fgEdit && window._fgEdit.kcalOk) box.innerHTML='<span class="pWarn">&#9888; kcal ('+Math.round(kcal)+') weicht ab (rechnerisch '+spanne+') &ndash; <b>von der Quelle best&auml;tigt, W&auml;chter &uuml;bersteuert</b>. <a href="#" onclick="fgKcalOkSet(false);return false" class="pLila">r&uuml;ckg&auml;ngig</a></span>';
       else box.innerHTML='<span class="pRot">&#9888; kcal ('+Math.round(kcal)+') passt nicht &ndash; plausibel w&auml;ren '+spanne+'.</span> <button type="button" onclick="fgKcalOkSet(true)" class="pBtnLila">Quelle gepr&uuml;ft &rarr; &uuml;bersteuern</button>';
     }
@@ -34408,6 +34499,44 @@ var RIKI_SEITENHILFE={
           "Im Feld darunter suchst du direkt nach <b>Rezepten</b>.",
           "Die vier Kacheln zeigen, was es gibt: Produkte, Rezepte, Tagebuch, Training.",
           "Ganz unten steht, wie du Root Index <b>als App</b> auf den Startbildschirm legst."] },
+  /* 🔴 20.08.2026, A7 aus dem Konzeptkatalog: die fuenf fehlenden Seiten.
+     JEDER Knopf unten wurde am 20.08. im Code nachgesehen, mit Fundstelle:
+     einkauf  → renderEinkaufSeite/loadEinkauf, app.js Z. 15877 und 16086
+     rezepte  → index.html Z. 1040-1053, renderRezeptList Z. 31537
+     training → renderTraining, app.js Z. 29803
+     zyklus   → renderZyklus/zyklusBundleHtml, app.js Z. 9966
+     darm     → renderDarm/darmBundleHtml, app.js Z. 9972
+     Kein Knopf ist beschrieben, den es nicht gibt (§1.1). */
+  einkauf:{ was:"Was du noch brauchst – auf einer Liste, die auch dein Haushalt sieht.",
+    kann:["Ins Feld <b>Ich brauche…</b> tippen und mit <b>+ Hinzufügen</b> aufnehmen – aus dem Katalog kommen Vorschläge.",
+          "<b>📷 Barcode</b> nimmt ein Produkt direkt aus der Hand auf.",
+          "<b>Aus dieser Woche erzeugen</b> füllt die Liste aus deinem Wochenplan.",
+          "Antippen hakt ab: Erledigtes bleibt grau und durchgestrichen stehen, statt zu verschwinden.",
+          "Gehörst du zu einem <b>Haushalt</b>, seht ihr eine gemeinsame Liste – ein Kürzel zeigt, wer was eingetragen hat."] },
+  rezepte:{ was:"Rezepte mit denselben vier Prüfungen wie die Produkte dahinter.",
+    kann:["<b>🍳 Was koche ich?</b> schlägt etwas aus deinem Vorrat vor.",
+          "<b>📷 Abfotografieren</b> liest ein Rezept vom Blatt oder aus dem Buch.",
+          "<b>+ Eigenes Rezept</b> legt eins von Hand an.",
+          "Das <b>♥</b> an einer Karte merkt sich ein Rezept; der Haken darunter zeigt nur noch die Favoriten.",
+          "Über die Suche findest du nach Name – Sammlungen bündeln Zusammengehöriges."] },
+  training:{ was:"Plan, Übungen und was du davon tatsächlich gemacht hast.",
+    kann:["Die fünf Reiter: <b>Plan · Übungen · Geräte · Statistik · Tagebuch</b>.",
+          "Unter <b>⏱️ Zeitbudget pro Training</b> stellst du ein, wie lange eine Einheit dauern darf.",
+          "<b>🏋️ Meine Geräte zuhause</b> begrenzt die Vorschläge auf das, was du wirklich hast.",
+          "<b>💪 Übungs-Datenbank</b> zeigt die Ausführung je Übung.",
+          "<b>📒 Ins Trainingstagebuch übernehmen</b> schreibt die Einheit fest – erst danach zählt sie auf der Startseite."] },
+  zyklus:{ was:"Eine handverlesene Produktauswahl zu Zyklus und Nährstoffbedarf.",
+    kann:["Je Kategorie stehen die Produkte, die in unserer Bewertung am besten abschneiden.",
+          "Wo eine Kategorie eine <b>übliche Tagesmenge aus Studien</b> nennt, ist das eine Angabe zur Einordnung – <b>keine Empfehlung für dich</b>.",
+          "Fehlt bei einer Kategorie die Rangfolge, sind die Produkte nicht vergleichbar genug – dann steht das dort.",
+          "Die Seite ist als <b>Anzeige</b> gekennzeichnet, Partner-Links sind möglich. Die Bewertung selbst bleibt davon unberührt.",
+          "Das ist keine medizinische Beratung – bei Beschwerden oder Verdacht auf einen Mangel gehört das in ärztliche Hände."] },
+  darm:{ was:"Ballaststoffe, Probiotika und Präbiotika – die Basics, sauber bewertet.",
+    kann:["Je Kategorie zeigen wir handverlesene Produkte mit ihrem Root Index.",
+          "Angaben zur üblichen Menge stehen zur <b>Einordnung</b> dort, nicht als Anweisung.",
+          "Nicht vergleichbare Kategorien tragen keinen Rang – das steht ausdrücklich dabei.",
+          "Auch diese Seite ist <b>Anzeige</b> mit möglichen Partner-Links.",
+          "Keine medizinische Beratung. Was der Darm braucht, entscheidet niemand über eine Produktkachel."] },
   tagebuch:{ was:"Hier steht, was du heute gegessen hast – und was das ergibt.",
     kann:["Mit den Pfeilen blätterst du durch die Tage, <b>Heute</b> springt zurück.",
           "<b>📊 Statistik</b> zeigt kcal-, Gewichts- und Zuckerverlauf über 7 oder 30 Tage.",
@@ -34831,11 +34960,37 @@ async function rikiFrageSenden(){
     var roh=(e&&e.message)||String(e);
     var netz=(e instanceof TypeError) || /load failed|failed to fetch|networkerror/i.test(roh);
     console.error("riki-frage:", e);
+    /* 🔴 20.08.2026, Ralphs Screenshot: „Load failed · kein HTTP-Status“, dazu
+       GEMESSEN in den Serverlogs: 0 Aufrufe von riki-frage im 24-Stunden-Fenster.
+       Die Anfrage erreicht die Funktion also NIE — das ist Tatsache, die Ursache
+       ist es nicht. Deshalb wird hier nicht geraten, sondern die Unterscheidung
+       ERZWUNGEN, die der Satz oben offenlaesst:
+
+         Vorabfrage kommt durch  → das Netz steht, es liegt am POST-Weg
+                                   (Anmeldung, Vorabfrage-Kopfzeilen, Funktion)
+         Vorabfrage scheitert    → das Netz oder die Adresse ist weg
+
+       Genau ein zusaetzlicher Aufruf, nur im Fehlerfall. Und die ADRESSE steht
+       dabei: ist client.supabaseUrl leer, sieht man es sofort am Text statt es
+       zu vermuten. Dieselbe Lehre wie Work #35 — eine Meldung, die die Ursache
+       verschweigt, kostet Wochen. */
+    var _url="";
+    try{ _url=String(client.supabaseUrl||"")+"/functions/v1/riki-frage"; }catch(_){ _url="(Adresse nicht lesbar)"; }
+    var _probe="";
+    if(netz){
+      try{
+        var pr=await fetch(_url,{method:"OPTIONS"});
+        _probe="Vorabfrage an dieselbe Adresse antwortet (HTTP "+pr.status+") – das Netz steht. Es liegt also am Frageweg selbst, nicht an der Verbindung.";
+      }catch(pe){
+        _probe="Auch die Vorabfrage kommt nicht durch – Netz oder Adresse.";
+      }
+    }
     if(out) out.innerHTML='<div style="font-size:13px;color:var(--k-dc2626);line-height:1.5">'+esc(roh)+'</div>'
       +(netz?('<div style="font-size:11.5px;color:var(--tb-muted);line-height:1.5;margin-top:6px">'
-        +'Die Anfrage ist nicht bis zum Server gekommen. Das liegt am Netz oder daran, dass RIKI gerade nicht erreichbar ist – '
-        +'nicht an deiner Frage.</div>'):'')
-      +'<div style="font-size:11px;color:var(--tb-muted);margin-top:6px">kein HTTP-Status · Build '+APP_BUILD+'</div>';
+        +'Die Anfrage ist nicht bis zum Server gekommen – nicht an deiner Frage.'
+        +(_probe?('<br><b>'+esc(_probe)+'</b>'):'')
+        +'</div>'):'')
+      +'<div style="font-size:10.5px;color:var(--tb-muted);margin-top:6px;word-break:break-all">kein HTTP-Status · Build '+APP_BUILD+'<br>'+esc(_url)+'</div>';
     zeig("");
   }finally{
     if(sEl){ sEl.disabled=false; sEl.textContent="→"; }
@@ -34991,7 +35146,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4210";
+const APP_BUILD = "2026-08-20-4220";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
