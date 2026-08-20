@@ -165,6 +165,92 @@ body{ --admin-oben:64px }
 
 
 /* ============================================================================
+   RIKI ANGEDOCKT IM EDITOR  (.rikiAngedockt)  — Work #133 E5a, 20.08.2026
+   ----------------------------------------------------------------------------
+   Ralphs DBKR-Vorlage hat die Benutzerfuehrung als Spalte am rechten Rand mit
+   senkrechter Lasche. Vorlage: bereiche/mockup-erfassung-dbkr.html
+
+   ES IST DASSELBE PANEL wie in der Benutzersicht, nur anders gesetzt. Der Inhalt
+   wird in app.js EINMAL gebaut; hier steht ausschliesslich, wo er sitzt.
+
+   Der Editor wird schmaler, statt ueberdeckt zu werden: body.rikiAngedocktOffen
+   gibt rechts Platz frei. Ein Hilfefenster, das die Maske verdeckt, an der man
+   gerade arbeitet, hilft beim Arbeiten nicht.
+
+   WO SCHRAUBEN?
+   · Breite der Spalte .... --riki-dock-w   (der Platzhalter zieht automatisch nach)
+   · Breite der Lasche .... --riki-lasche-w
+   ============================================================================ */
+:root{ --riki-dock-w:340px; --riki-lasche-w:26px }
+
+#rikiPanel.rikiAngedockt{
+  position:fixed; top:0; right:0; bottom:0;
+  width:min(var(--riki-dock-w), 92vw);
+  z-index:9991;
+  display:flex; flex-direction:column;
+  padding:14px 16px 16px calc(var(--riki-lasche-w) + 14px);
+  overflow:auto;
+  background:var(--tb-card,var(--card,#fff));
+  border:0; border-left:1px solid var(--line);
+  border-radius:0;
+  box-shadow:-8px 0 24px rgba(20,40,70,.14);
+  /* Einschieben von rechts statt Aufklappen aus einer Ecke - die Ecke, an der
+     der schwebende Knopf sitzt, gibt es hier nicht. */
+  animation:rikiEin .2s cubic-bezier(.2,.8,.3,1) both;
+  transform-origin:100% 50%;
+}
+@keyframes rikiEin{ from{ transform:translateX(100%) } to{ transform:none } }
+/* 🔴 OHNE ID, und das ist kein Versehen: rikiPanelSchliessen() setzt p.id=""
+   (damit ein zweiter Klick nicht dieselbe Karte trifft), BEVOR es .rikiSchliesst
+   setzt. Ein Selektor mit #rikiPanel wuerde hier nie greifen.
+   Die Oeffnungsregeln oben tragen die ID mit Absicht - sie muessen gegen
+   #rikiPanel{animation:rikiAuf} gewinnen, und eine Klasse allein verliert gegen
+   eine ID. Beim Schliessen gibt es diesen Gegner nicht mehr. */
+.rikiAngedockt.rikiSchliesst{ animation:rikiAus .16s ease-in both }
+@keyframes rikiAus{ from{ transform:none } to{ transform:translateX(100%) } }
+
+/* Die senkrechte Lasche. Sie klebt am linken Rand des Panels und traegt dieselbe
+   Beschriftung wie im DBKR-Vorbild. */
+.rikiAngedockt .rikiLasche{
+  position:absolute; left:0; top:0; bottom:0;
+  width:var(--riki-lasche-w);
+  border:0; padding:0; cursor:pointer;
+  background:#134a63; color:#e8f1f6;
+  display:flex; align-items:center; justify-content:center;
+}
+.rikiAngedockt .rikiLasche span{
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  font-size:12px; letter-spacing:1.3px;
+}
+.rikiAngedockt .rikiLasche:hover{ background:#0e3a4e }
+
+/* Die aktuelle Station als kleine Marke neben dem Namen - im DBKR-Vorbild steht
+   dort "SEITE 1/13". Hier ist die Station die ehrlichere Angabe: sie kommt aus
+   FE_SCHRITTE und muss nicht gepflegt werden. */
+.rikiAngedockt .rikiStation{
+  font-size:11px; color:var(--muted);
+  border:1px solid var(--line); border-radius:11px; padding:2px 9px;
+  white-space:nowrap;
+}
+
+/* Der Editor macht Platz. calc statt fester Zahl: aendert sich die Spaltenbreite
+   oben, zieht der Abstand mit (§28.4). */
+body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
+
+/* Schmaler Schirm: eine 340px-Spalte neben einer Erfassungsmaske ist dort kein
+   Nebeneinander mehr, sondern zwei zu enge Spalten. Dann deckt das Panel ab -
+   und der Editor bekommt KEINEN Platzhalter, weil er ohnehin verdeckt ist. */
+@media (max-width:900px){
+  #rikiPanel.rikiAngedockt{ width:min(var(--riki-dock-w), 100vw) }
+  body.rikiAngedocktOffen{ padding-right:0 }
+}
+@media (prefers-reduced-motion:reduce){
+  #rikiPanel.rikiAngedockt,
+  .rikiAngedockt.rikiSchliesst{ animation:none; transform:none }
+}
+
+
+/* ============================================================================
    PRODUKTEDITOR · KARTEN MIT TITELBALKEN  (.feKarte)  — Work #133 E4, 20.08.2026
    ----------------------------------------------------------------------------
    Ralphs DBKR-Vorlage: jede Karte traegt einen grauen Titelbalken mit Trennlinie

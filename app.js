@@ -34363,6 +34363,11 @@ function rikiPanelSchliessen(){
      immer stehen. Ein Effekt, der ohne Animation klemmt, ist ein Fehler und keine
      Geschmacksfrage. */
   p.id="";                                   // ein zweiter Klick trifft nicht dieselbe Karte
+  /* 20.08., E5a: der Editor bekommt seinen Platz zurueck. SOFORT, nicht erst am
+     Ende der Bewegung - sonst bliebe die Maske schmal, wenn jemand Bewegung
+     abgestellt hat und das animationend nie kommt (derselbe Rueckfallgedanke
+     wie beim Entfernen der Karte darunter). */
+  try{ document.body.classList.remove("rikiAngedocktOffen"); }catch(e){}
   p.classList.add("rikiSchliesst");
   var weg=false, fort=function(){ if(weg) return; weg=true; try{ p.remove(); }catch(e){} };
   try{ p.addEventListener("animationend", fort, {once:true}); }catch(e){}
@@ -34384,15 +34389,42 @@ function rikiPanelOeffnen(){
   /* Das Panel haengt an der Stelle, an der der Knopf WIRKLICH sitzt. In der
      Leiste ist das knapp darueber (die Leiste ist 78px hoch); als schwebender
      Knopf weiter oben. Die Zahl wird nicht geraten, sie folgt dem Knopf. */
+  /* 🔴 20.08.2026, Work #133 E5a — IM EDITOR DOCKT DAS PANEL AN.
+     Ralphs DBKR-Vorlage hat die Benutzerfuehrung als Spalte am rechten Rand mit
+     senkrechter Lasche, nicht als schwebendes Fenster. Der Grund ist nicht
+     Geschmack: im Editor arbeitet man lange an einer Maske und will die Hilfe
+     daneben stehen haben, nicht ueber dem Inhalt liegen.
+
+     EIN PANEL, ZWEI SITZE - nicht zwei Panels (§4.2). Der Inhalt darunter ist
+     Zeile fuer Zeile derselbe; unterschiedlich ist nur, WO es sitzt. Deshalb
+     wird hier auch nur die Positionierung verzweigt und nicht das HTML.
+
+     Angedockt kommt das Aussehen vollstaendig aus ui.css (.rikiAngedockt), damit
+     es nicht an zwei Orten steht. Schwebend bleibt der Inlinestil, weil er eine
+     gemessene Zahl enthaelt, die dem Knopf folgt. */
+  var _angedockt = (k.seite==="erfassung");
   var _inL=rikiInLeiste();
-  p.style.cssText="position:fixed;right:14px;z-index:9991;"
-    +"bottom:calc("+(_inL?"86px":"154px")+" + env(safe-area-inset-bottom));"
-    +"width:min(340px, calc(100vw - 28px));max-height:min(70vh, 460px);overflow:auto;"
-    +"background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));"
-    +"border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.20);padding:14px 16px 16px";
+  if(_angedockt){
+    p.className=(p.className?p.className+" ":"")+"rikiAngedockt";
+    /* Der Editor bekommt Platz, statt ueberdeckt zu werden. Die Klasse steht am
+       body, weil das Panel selbst position:fixed ist und den Fluss nicht kennt. */
+    try{ document.body.classList.add("rikiAngedocktOffen"); }catch(e){}
+  } else {
+    p.style.cssText="position:fixed;right:14px;z-index:9991;"
+      +"bottom:calc("+(_inL?"86px":"154px")+" + env(safe-area-inset-bottom));"
+      +"width:min(340px, calc(100vw - 28px));max-height:min(70vh, 460px);overflow:auto;"
+      +"background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));"
+      +"border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.20);padding:14px 16px 16px";
+  }
   p.innerHTML=
-     '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">'
+    /* Die Lasche gibt es nur angedockt - schwebend haette sie nichts, woran sie
+       haengen koennte. Sie schliesst dasselbe Panel wie das Kreuz; zwei Wege zu
+       einer Handlung sind hier gewollt, weil die Lasche im DBKR-Vorbild der
+       sichtbare Anfasser ist und das Kreuz der genaue. */
+     (_angedockt ? '<button class="rikiLasche" onclick="rikiPanelSchliessen()" aria-label="RIKI schließen"><span>Benutzerführung</span></button>' : '')
+    +'<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">'
     +  '<b style="flex:1;font-size:16px;color:var(--tb-text,var(--ink))">RIKI</b>'
+    +  (_angedockt&&k.stationstitel ? '<span class="rikiStation">'+esc(k.stationstitel)+'</span>' : '')
     +  '<button onclick="rikiPanelSchliessen()" aria-label="Schließen" style="border:0;background:none;font-size:20px;line-height:1;color:var(--tb-muted);cursor:pointer;padding:0 4px">&times;</button>'
     +'</div>'
     +'<div style="font-size:12px;color:var(--tb-muted);margin-bottom:8px">'+rikiKontextText(k)+'</div>'
