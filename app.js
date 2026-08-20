@@ -27800,6 +27800,33 @@ function feKopfbandSync(){
   var chip=document.getElementById('feDubChip');
   n.textContent=txt||'Neues Produkt';
   if(chip) n.appendChild(chip);
+  /* 🔴 20.08.2026, E3b: Marke, Kategorie und Status ziehen jetzt MIT.
+     Vorher standen sie nur aus dem Aufbau im Band und veralteten still, sobald
+     Ralph die Marke aenderte oder den Status umschaltete. Die Quellen sind
+     dieselben, aus denen _feStreifenIdent gelesen hat - keine zweite Wahrheit. */
+  var mk=document.getElementById('feKbMarke');
+  if(mk){
+    var m=((document.getElementById('fe_marke')||{}).value||'').trim();
+    var k=document.getElementById('fe_kat');
+    var kt=k?String((k.options&&k.selectedIndex>=0&&k.options[k.selectedIndex]&&k.options[k.selectedIndex].text)||k.value||'').trim():'';
+    /* "alle Kategorien" und aehnliche Platzhalter sind keine Kategorie. */
+    if(kt==='—'||kt==='-') kt='';
+    mk.textContent=m+(m&&kt?' · ':'')+kt;
+  }
+  var st=document.getElementById('feKbStatus');
+  if(st) st.textContent=String((window._fgEdit&&window._fgEdit.status)||'Entwurf');
+  /* P-Nummer, Status und Datum. Das Datum laeuft durch _feDatumDE - die Funktion
+     gehoerte zur geloeschten Identitaetsspalte und macht aus "2026-08-19" ein
+     "19.08.2026". Sie bleibt, weil sie gebraucht wird; im Band stand das Datum
+     bisher roh im ISO-Format, weil es aus dem Template kam und nie durch sie lief. */
+  var pn=document.getElementById('fePNrInfo');
+  if(pn){
+    var pid=(window._fgEdit&&window._fgEdit.id)||'';
+    var dt=(typeof _feDatumDE==='function')?_feDatumDE(window._fgEdit&&window._fgEdit.erfasst_am):'';
+    pn.textContent = pid
+      ? (pid+' · '+String((window._fgEdit&&window._fgEdit.status)||'Entwurf')+(dt?' · erfasst am '+dt:''))
+      : 'P-Nummer kommt beim ersten Speichern';
+  }
 }
 if(typeof window!=='undefined'){ window.feKopfbandSync=feKopfbandSync; }
 function feStatusStreifen(){
@@ -27945,8 +27972,24 @@ function feStatusStreifen(){
      Links Identitaet, Mitte fachlicher Zustand, rechts Bewertung. Bisher war es
      eine reine Chipreihe — und damit stand nirgends gross, WELCHES Produkt man
      gerade bearbeitet. */
+  /* 🔴 20.08.2026, Work #133 E3b — EIGENER FEHLER, BEHOBEN.
+     HIER STAND _feStreifenIdent(): P-Nummer, Marke, Name, Status und Datum als
+     linke Spalte des weissen Streifens (Ralph 15.08., Punkte 2+3).
+
+     Beim Bau des Kopfbands in E3 habe ich §22 zitiert - "erst suchen, dann bauen" -
+     und ihn im selben Durchgang gebrochen: den Produktkopf gab es bereits. Ralph
+     hat es im Screenshot gesehen, bevor ich es gemerkt habe. Marke, Name und
+     Status standen zweimal untereinander auf einem Bildschirm.
+
+     Das Band ERSETZT die Spalte, es ergaenzt sie nicht. Es zeigt dieselben fuenf
+     Angaben aus denselben Quellen; feKopfbandSync zieht sie nach, und der Aufruf
+     steht direkt hier - damit wird das Band genauso oft aktualisiert wie vorher
+     die Spalte, nicht seltener.
+
+     Der Streifen behaelt Datenstatus, Pruefung und Bewertung. Das ist genau die
+     Kopfdatenzeile aus Ralphs DBKR-Vorlage, unter dem dunklen Band. */
+  try{ feKopfbandSync(); }catch(e){}
   box.innerHTML='<div class="feStStreifen">'
-      +_feStreifenIdent()
       /* Ralph P7: „nicht alles in einer Linie ohne Hierarchie."
          DATENSTATUS = was erfasst ist · PRUEFUNG = was kontrolliert wurde.
          Die Chips selbst sind unveraendert; nur der letzte (Etikettpruefung)
@@ -27962,15 +28005,24 @@ function feStatusStreifen(){
       +(_detail||_hw ? '<div class="feStFuss">'+_detail+_hw+'</div>' : '')
     +'</div>';
 }
-/* ═══════════════════════════════════════════════════════════════════════════
-   IDENTITAET IM PRODUKTKOPF (Ralph 15.08., Punkte 2+3)
+/* ═══════════════════════════════════════════════════════════
+   DATUMSFORMAT FUER DAS KOPFBAND
 
-   P-Nummer als Primaer-ID, Name darunter, Status und Erfassungsdatum klein.
+   🔴 20.08.2026, Work #133 E3b: HIER STAND _feStreifenIdent() - die
+   Identitaetsspalte des weissen Streifens (P-Nummer, Marke, Name, Status,
+   Datum; Ralph 15.08., Punkte 2+3). Sie ist GELOESCHT, nicht auskommentiert:
+   dieselben fuenf Angaben stehen jetzt im dunklen Kopfband darueber. Zwei
+   Produktkoepfe untereinander waren genau der Fehler, den Ralph im Screenshot
+   gesehen hat - und mein eigener: ich habe §22 beim Bau des Bandes zitiert und
+   im selben Durchgang gebrochen.
 
-   🔴 DAS DATUM WIRD NICHT ERFUNDEN. Es kommt aus `_fgEdit.erfasst_am` — demselben
-   Feld, das die alte Kopfzeile `fePNrInfo` seit jeher anzeigt (§22). Fehlt es,
+   _feDatumDE BLEIBT. Sie gehoerte zur geloeschten Funktion, wird aber weiter
+   gebraucht: das Kopfband zeigte das Datum bis eben roh als "2026-08-19", weil
+   es aus dem Template kam und nie durch sie lief.
+
+   🔴 DAS DATUM WIRD NICHT ERFUNDEN. Es kommt aus `_fgEdit.erfasst_am`. Fehlt es,
    steht dort NICHTS statt eines Platzhalters (§3.4).
-   ═══════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════ */
 function _feDatumDE(v){
   var t=String(v||"").trim(); if(!t) return "";
   /* Erwartet wird ISO (2026-08-13 bzw. 2026-08-13T…). Passt das Muster nicht,
@@ -27979,27 +28031,7 @@ function _feDatumDE(v){
   var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(t);
   return m ? (m[3]+"."+m[2]+"."+m[1]) : t;
 }
-function _feStreifenIdent(){
-  var pid=(window._fgEdit&&window._fgEdit.id)||"";
-  var nm=((document.getElementById("fe_name")||{}).value||"").trim();
-  var ps=String((window._fgEdit&&window._fgEdit.status)||"Entwurf");
-  var dt=_feDatumDE(window._fgEdit&&window._fgEdit.erfasst_am);
-  /* 🔴 15.08.2026 (Work #23, Ralph: „unter pnummer marke einfügen"): Die MARKE stand
-     im Editor bisher NUR als Formularfeld in Schritt 1 — im Kopf war sie nirgends,
-     obwohl sie zur Identität gehört: „Pesto Basilikum" sagt ohne „PPURA" nicht, um
-     wessen Pesto es geht.
-     §22 EINGEHALTEN: der Wert kommt aus `#fe_marke`, demselben Feld, aus dem auch
-     der Name kommt — keine zweite Abfrage, keine zweite Wahrheit. Ist das Feld leer,
-     steht dort NICHTS statt eines Platzhalters (§3.4), genau wie beim Datum. */
-  var mk=((document.getElementById("fe_marke")||{}).value||"").trim();
-  return '<div class="feStIdent">'
-    +(pid?'<div class="feStPid">'+esc(pid)+'</div>':'')
-    +(mk?'<div class="feStMarke">'+esc(mk)+'</div>':'')
-    +'<div class="feStName">'+esc(nm||"Neues Produkt")+'</div>'
-    +'<div class="feStMeta">'+esc(ps)+(dt?' · erfasst am '+esc(dt):'')+'</div>'
-    +'</div>';
-}
-if(typeof window!=="undefined"){ window._feDatumDE=_feDatumDE; window._feStreifenIdent=_feStreifenIdent; }
+if(typeof window!=="undefined"){ window._feDatumDE=_feDatumDE; }
 /* ═══════════════════════════════════════════════════════════════════════════
    BEWERTUNG KOMPAKT IM STREIFEN (Ralph 15.08., Punkt 4)
 
@@ -33864,10 +33896,20 @@ function rkBookmarkletCode(){
    er sich nicht ueber ein offenes Fenster legt.
    ============================================================================ */
 function rikiShellAktiv(){
-  /* app.js wird von index.html UND admin.html geladen. Der Begleiter gehoert in
-     die Benutzersicht. Die Bodenleiste ist das Merkmal, das nur dort existiert -
-     eine Tatsache, kein Dateinamen-Raten. */
-  return !!document.querySelector(".bottomnav");
+  /* app.js wird von index.html UND admin.html geladen.
+     🔴 20.08.2026 KORRIGIERT: hier stand "Die Bodenleiste ist das Merkmal, das
+     nur dort existiert - eine Tatsache, kein Dateinamen-Raten." Das war falsch.
+     admin.html traegt eine <nav class="bottomnav"> (Z. 1445) und blendet sie nur
+     per CSS aus (Z. 1488). Die Pruefung hat also IMMER true geliefert, und der
+     Begleiter erschien im Admin - genau das hat Ralph im Editor gesehen.
+
+     Eine Tatsache, die niemand nachgemessen hat, ist eine Vermutung. Ich habe
+     die Zeile beim Bauen von #122 geschrieben, ohne in admin.html nachzusehen.
+
+     GEWOLLT IST ER DORT INZWISCHEN (Work #133 E5: Riki erklaert die drei
+     Erfassungsstationen), deshalb bleibt die Rueckgabe true - die Begruendung
+     stimmt jetzt nur mit dem ueberein, was tatsaechlich passiert. */
+  return true;
 }
 /* Der Seitenzusammenhang. Wird bei JEDEM Oeffnen frisch erhoben, nie gecacht -
    ein gemerkter Zusammenhang waere beim naechsten Oeffnen der vorige. */
@@ -33877,6 +33919,27 @@ function rikiKontext(){
   if(seite==="produkte" && window._offenesProdukt) k.produkt_id = window._offenesProdukt;
   if(seite==="produkte"){ var qi=document.getElementById("q"); if(qi && qi.value.trim()) k.suchbegriff = qi.value.trim(); }
   if(seite==="rezepte" && window._rezept && window._rezept.id) k.rezept_id = String(window._rezept.id);
+  /* 🔴 20.08.2026, Work #133 E5 — DER EDITOR IST JETZT EINE SEITE, DIE RIKI KENNT.
+     Ralph: "riki hat sich nicht verändert."
+
+     Er stand im Editor und sagte "Ich weiß gerade nicht, wo du bist" - richtig
+     und ehrlich, aber nutzlos. `_curMode` beschreibt die Benutzersicht; der
+     Admin-Editor taucht darin nicht auf.
+
+     ERKANNT WIRD AN #feRahmen, nicht am Dateinamen: der Rahmen existiert genau
+     dann, wenn der Editor offen ist. Eine Tatsache, kein Raten - dieselbe
+     Ueberlegung wie bei rikiShellAktiv und der Bodenleiste.
+
+     Die STATION kommt aus FE_SCHRITTE und window._feSchritt, den Traegern des
+     Arbeitsflusses. Kein eigener Zaehler daneben (§4.2). */
+  if(document.getElementById("feRahmen")){
+    k.seite="erfassung";
+    var s=null;
+    try{ s=(typeof FE_SCHRITTE!=="undefined") ? FE_SCHRITTE.find(function(x){ return x.nr===(window._feSchritt||1); }) : null; }catch(e){}
+    k.station = s ? s.id : null;                       /* kopf | analyse | bestand */
+    k.stationstitel = s ? s.t : null;
+    k.produkt_id = (window._fgEdit && window._fgEdit.id) || null;
+  }
   return k;
 }
 /* ============================================================================
@@ -33922,10 +33985,37 @@ var RIKI_SEITENHILFE={
   planer:{ was:"Die Vorausplanung für einen Tag oder eine Woche.",
     kann:["Zwischen <b>Tag</b> und <b>Woche</b> umschalten.",
           "<b>Mahlzeiten</b> planen und mit <b>Hinzufügen</b> eintragen.",
-          "Aus dem Plan heraus die <b>🛒 Einkaufsliste</b> füllen."] }
+          "Aus dem Plan heraus die <b>🛒 Einkaufsliste</b> füllen."] },
+  /* 🔴 20.08.2026, Work #133 E5 — DIE DREI EDITOR-STATIONEN.
+     Jeder genannte Knopf wurde am 20.08. im Code nachgesehen (openFgEditor,
+     Z. 22734-23562) und traegt dort genau diese Beschriftung. Kein Knopf ist
+     beschrieben, den es nicht gibt - das ist derselbe Anspruch wie bei einer
+     Naehrwertzahl (§1.1), nur an der Oberflaeche.
+     Die Schluessel heissen wie die Stationen in FE_SCHRITTE: kopf, analyse,
+     bestand. Zwei Namensraeume fuer dieselbe Sache waeren §4.2. */
+  "erfassung:kopf":{ was:"Station 1 – hier bekommt das Produkt seine Identität und eine belegte Quelle.",
+    kann:["<b>Riki liest ▸</b> holt die Angaben von der Herstellerseite, <b>Text lesen ▸</b> aus einem eingefügten Etikettentext.",
+          "<b>🏷 Etikett-Foto</b> und <b>📸 Foto → Seite</b> lesen aus Bildern; <b>🏷 OFF</b> und <b>USDA</b> schlagen extern nach.",
+          "<b>Produktname</b> und <b>Kategorie</b> sind Pflicht, ohne sie gibt es keine Freigabe.",
+          "<b>Quelle-Typ</b> und <b>Beleg</b> stehen links im Streifen – auch sie sind Freigabe-Pflicht.",
+          "<b>Bio</b> und die <b>Ernährungsform</b> sind Merkmale, keine Punkte: Bio gibt keinen Bonus im Index."] },
+  "erfassung:analyse":{ was:"Station 2 – die Nährwerttabelle des Etiketts und, falls vorhanden, die Wirkstoffe.",
+    kann:["Die zwölf Nährwertfelder gelten für die <b>Bezugsbasis</b>, die du oben einstellst – meist 100 g.",
+          "<b>Ballaststoffe nicht deklariert</b> ankreuzen ist etwas anderes als eine 0: leer heißt unbekannt.",
+          "<b>+ Wirkstoff</b> für Nahrungsergänzung, <b>+ setzen</b> für Mikronährstoffe je 100 g.",
+          "Rechts liegt das <b>Etikett zum Ablesen</b> – zoombar, und <b>🖼 Als Produktbild</b> übernimmt es.",
+          "<b>🤖 Riki liest das Bild</b> füllt die Felder aus dem Foto, ersetzt aber dein Nachsehen nicht."] },
+  "erfassung:bestand":{ was:"Station 3 – jede Zutat vom Etikett bekommt ihre Entsprechung im Stamm.",
+    kann:["<b>Analysieren</b> zerlegt die eingefügte Zutatenliste, <b>OFF-Gegenprobe</b> vergleicht mit Open Food Facts.",
+          "Im Suchfeld findest du vorhandene Zutaten; steht eine nicht im Stamm, hast du zwei Wege: binden oder <b>keine eigene Zutat</b>.",
+          "<b>Keine Zusatzstoffe im Produkt</b> ist eine Aussage – kein Haken heißt nur, dass niemand hingesehen hat.",
+          "Unter <b>Gegenüberstellung</b> stehen Etikett und Erfassung nebeneinander, <b>Nur Abweichungen</b> filtert.",
+          "Fehlt der Zutaten-Rohtext, bleibt der Abgleich leer. Das ist kein Blocker für die Freigabe."] }
 };
-function rikiSeitenhilfeHtml(seite){
-  var h=RIKI_SEITENHILFE[seite];
+function rikiSeitenhilfeHtml(seite, station){
+  /* Im Editor entscheidet die Station, nicht die Seite - "erfassung" allein
+     erklaert nichts, es gibt drei verschiedene Arbeitsschritte darunter. */
+  var h=RIKI_SEITENHILFE[(seite==="erfassung"&&station) ? ("erfassung:"+station) : seite];
   if(!h){
     /* Ehrlich statt hilfsbereit: eine erfundene Erklaerung waere schlimmer als
        keine, weil der Nutzer danach sucht, was ich behauptet habe. */
@@ -33941,6 +34031,27 @@ function rikiSeitenhilfeHtml(seite){
    der Satz ist Oberflaeche - und nur der Satz aendert sich, wenn Ralph ihn anders
    haben will. */
 function rikiKontextText(k){
+  /* 🔴 20.08.2026, E5: Im Editor sagt Riki nicht nur WO, sondern WIE WEIT.
+     Die Zahlen kommen aus getErfassungsStatus() - derselben Quelle, aus der der
+     weisse Statusstreifen seine Chips baut. Kein zweites Rechnen, keine zweite
+     Wahrheit (§4.2). Antwortet sie nicht oder kennt sie das Produkt nicht,
+     bleibt der Satz bei Ort und Station stehen; geraten wird nichts (§1.2). */
+  if(k.seite==="erfassung"){
+    var t="Du bearbeitest "+(k.produkt_id?("<b>"+esc(k.produkt_id)+"</b>"):"ein neues Produkt")
+      +(k.stationstitel?(", Station <b>"+esc(k.stationstitel)+"</b>"):"")+".";
+    var S=null; try{ S=(typeof getErfassungsStatus==="function")?getErfassungsStatus():null; }catch(e){}
+    if(S && S.bekannt){
+      var offen=[];
+      if(!S.quelle_ok) offen.push("die Quelle fehlt");
+      if(S.naehrwerte_ok===false) offen.push("die Nährwerte sind unvollständig");
+      if(S.bestandteile_gesamt && S.bestandteile_offen)
+        offen.push(S.bestandteile_offen+" von "+S.bestandteile_gesamt+" Bestandteilen sind noch nicht im Stamm");
+      t += offen.length
+        ? (" Offen ist: "+offen.join(" · ")+".")
+        : (S.freigabe_moeglich ? " Für die Freigabe fehlt nichts mehr." : "");
+    }
+    return t;
+  }
   if(k.produkt_id) return "Du siehst gerade das Produkt <b>"+esc(k.produkt_id)+"</b>.";
   if(k.suchbegriff) return "Du suchst gerade nach <b>"+esc(k.suchbegriff)+"</b>.";
   if(k.rezept_id) return "Du siehst gerade ein Rezept.";
@@ -34285,7 +34396,7 @@ function rikiPanelOeffnen(){
     +  '<button onclick="rikiPanelSchliessen()" aria-label="Schließen" style="border:0;background:none;font-size:20px;line-height:1;color:var(--tb-muted);cursor:pointer;padding:0 4px">&times;</button>'
     +'</div>'
     +'<div style="font-size:12px;color:var(--tb-muted);margin-bottom:8px">'+rikiKontextText(k)+'</div>'
-    + rikiSeitenhilfeHtml(k.seite)
+    + rikiSeitenhilfeHtml(k.seite, k.station)
     /* Seit Build 3910 gibt es den Antwortweg (riki-frage, ChatGPT 19.08.) - das
        Eingestaendnis von vorher ist damit gegenstandslos und ersetzt, nicht
        umformuliert. */
@@ -34296,7 +34407,7 @@ function rikiPanelOeffnen(){
   rikiFabZustand("offen");
 }
 function rikiFabInit(){
-  if(!rikiShellAktiv()) return;                 // Adminoberflaeche: kein Begleiter
+  if(!rikiShellAktiv()) return;                 // siehe rikiShellAktiv — gilt für beide Oberflächen
   /* 🔴 19.08.2026, Ralph-Entscheid A: RIKI sitzt jetzt IN der Bodenleiste, nicht
      mehr schwebend darueber. Der Knopf steht fest in index.html; hier wird nur
      noch sein Symbol gefuellt. Der frueher hier erzeugte schwebende Knopf ist
@@ -34346,7 +34457,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4130";
+const APP_BUILD = "2026-08-20-4140";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
