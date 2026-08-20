@@ -5870,30 +5870,60 @@ function peListeHoehe(){
      Deckel wieder ab. Das umfasst automatisch alles, was unter der Liste steht,
      heute und nach jedem kuenftigen Umbau.
      Einmalig, nicht in einer Schleife: Schrumpfen erzeugt keinen neuen Ueberschuss. */
-  /* 🔴 19.08., dritte Fassung. Vorher stand hier ein EINMALIGER Vorabzug des
-     Dokument-Ueberschusses. Der konnte nur in eine Richtung: er machte die Liste
-     kleiner, nie wieder groesser. Ralph nach dem Ruecksprung aus dem Editor: "die
-     liste sehr kurz dargestellt", darunter leerer Raum — genau dieser Fall.
-     JETZT eine Regelung in BEIDE Richtungen: setzen, nachmessen, Differenz
-     ausgleichen. Ist das Dokument laenger als das Fenster, wird die Liste kleiner;
-     ist Platz frei, groesser. Damit ist es egal, was unter der Liste steht und ob
-     es sich aendert — es wird nicht gezaehlt, sondern gemessen.
-     Hoechstens drei Runden. In der Regel genuegt eine; eine Schleife ohne Grenze
-     waere ein Zittern statt einer Einstellung.
-     Unter 280px wird nicht verkleinert: darunter sieht man keine Liste mehr,
-     sondern einen Schlitz. Dann darf die Seite ausnahmsweise scrollen. */
-  var doc=document.documentElement;
-  h=Math.max(280,h);
+  /* 🔴 19.08., FUENFTE FASSUNG. Ralph nach 4050: "wieder geschrumpft."
+     DER FEHLER IN DEN FASSUNGEN 3 UND 4 WAR GRUNDSAETZLICH:
+     document.documentElement.scrollHeight wird NIE kleiner als das Fenster. Ist
+     Platz frei, meldet es trotzdem genau die Fensterhoehe. Meine Regelung fragte
+     also "ist Platz frei?" und bekam immer "nein" - sie konnte nur verkleinern,
+     niemals wieder vergroessern. Genau das hat Ralph zweimal gesehen.
+     Ich habe eine Groesse gemessen, die nach unten begrenzt ist, und von ihr eine
+     Auskunft erwartet, die sie nicht geben kann.
+
+     JETZT wird gemessen, was WIRKLICH unter der Liste steht: die Unterkante des
+     body minus die Unterkante der Liste. body.getBoundingClientRect().bottom ist
+     die echte Unterkante des Inhalts und wird NICHT auf die Fensterhoehe
+     aufgerundet - das ist der ganze Unterschied.
+     Damit muss nichts aufgezaehlt werden: Blaetterleiste, Detailbereich und alles,
+     was kuenftig dazukommt, sind automatisch dabei. Keine Liste von Zahlen, die
+     jemand pflegen muss (§28.4).
+     Unter 280px wird nicht verkleinert - darunter ist es kein Listenbereich mehr,
+     sondern ein Schlitz. */
+  var koerper=document.body?document.body.getBoundingClientRect():null;
+  var danach=koerper?Math.max(0,Math.round(koerper.bottom-r.bottom)):0;
+  /* Der schwebende Knopf braucht seinen Platz - sonst liegt er ueber der letzten
+     Listenzeile. Genau der Fehler, der RIKI in der Benutzersicht aus dem
+     schwebenden Knopf in die Bodenleiste getrieben hat. EINE Zahl, EIN Ort. */
+  var fab=document.getElementById('peNeuFab')?PE_FAB_H:0;
+  h=Math.max(280, Math.round(sicht - obenImDokument - danach - fab - 16));
   w.style.maxHeight=h+'px';
-  for(var runde=0; runde<3; runde++){
-    var diff=Math.round(sicht - (doc?doc.scrollHeight:sicht));
-    if(Math.abs(diff)<=1) break;
-    var neuH=Math.max(280,h+diff);
-    if(neuH===h) break;                  // Untergrenze erreicht, weiteres Regeln bringt nichts
-    h=neuH;
-    w.style.maxHeight=h+'px';
-  }
 }
+/* ============================================================================
+   WORK #130 S2 — "+ Neues Produkt" als schwebender Knopf
+
+   🔴 DIE LEHRE VON HEUTE IST HIER SCHON EINGEBAUT: ein schwebender Knopf verdeckt
+   Inhalt. Genau deshalb ist RIKI in der Benutzersicht aus dem schwebenden Knopf in
+   die Bodenleiste gewandert - er lag ueber dem Aufklapp-Pfeil der Mahlzeiten.
+   Damit das hier nicht passiert, wird der Platzbedarf des Knopfes in peListeHoehe
+   mitgemessen: die Liste endet UEBER ihm, nicht darunter. Kein zweiter Abstand
+   irgendwo daneben (§4.2).
+   ============================================================================ */
+var PE_FAB_H=64;                 /* Knopfhoehe samt Abstand - eine Zahl, EIN Ort */
+function peNeuFabInit(){
+  if(document.getElementById('peNeuFab')) return;      // genau einer, nie zwei
+  var b=document.createElement('button');
+  b.id='peNeuFab';
+  b.type='button';
+  b.title='Neues Produkt anlegen';
+  b.setAttribute('aria-label','Neues Produkt anlegen');
+  b.onclick=function(){ try{ peNeu(); }catch(e){ console.error('peNeu:',e); } };
+  b.style.cssText='position:fixed;right:22px;bottom:22px;z-index:40;'
+    +'height:44px;padding:0 18px;border:0;border-radius:22px;'
+    +'background:#2f4fd6;color:#fff;font-size:14px;font-weight:700;cursor:pointer;'
+    +'box-shadow:0 4px 14px rgba(20,40,90,.28);display:flex;align-items:center;gap:7px';
+  b.innerHTML='<span style="font-size:18px;line-height:1">＋</span><span>Neues Produkt</span>';
+  document.body.appendChild(b);
+}
+function peNeuFabWeg(){ var b=document.getElementById('peNeuFab'); if(b) b.remove(); }
 function peListeHoeheBinden(){
   if(window._peHoeheGebunden) return; window._peHoeheGebunden=true;
   var lauf=function(){ if(window._peHoeheRaf) return;
@@ -6135,7 +6165,15 @@ async function loadProduktErfassung(){
     '<div id="peSticky" style="position:sticky;top:0;z-index:22;background:#f4f7fa;margin:0 -10px;padding:8px 10px 6px;box-shadow:0 8px 10px -9px rgba(20,40,70,.30)">'
     /* Toolbar */
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
-      +'<button class="peBtn pri" onclick="peNeu()">＋ Neues Produkt</button>'
+      /* 🔴 19.08., Work #130 S2, Ralph-Entscheid: "der wichtigste ist ja neues
+         produkt, denn kann man auch anders anbringen" / "der schwebende button,
+         testen wir mal".
+         Der Knopf ist hier RAUS und sitzt jetzt schwebend unten rechts - siehe
+         peNeuFabInit weiter unten. Er stand zwischen sechs gleich aussehenden
+         Knoepfen und war laut Ralph der wichtigste; jetzt ist er der einzige,
+         der aus der Flaeche heraussteht. Eine Zeile im Kopf wird dadurch nicht
+         frei (die Werkzeugzeile bleibt), aber der Knopf ist nicht mehr zu
+         suchen. */
       +'<button class="peBtn" onclick="peMenu(\'akt\',this)">☑ Aktionen ▾</button>'
       +'<button class="peBtn" onclick="scanEingangToggle()" title="Scan-Eingang ein-/ausblenden: gescannte Produkte zur Prüfung, Entwürfe">📥 Scan-Eingang</button>'
       +'<button class="peBtn" onclick="peMenu(\'set\',this)">⚙ Einstellungen ▾</button>'
@@ -6156,13 +6194,21 @@ async function loadProduktErfassung(){
     +'<div id="peAktivFilter">'+peAktivFilterHtml()+'</div>'
     +'</div>'  /* Ende Sticky-Menü: NUR Toolbar + Chips bleiben fixiert (Ralph) */
     /* Session-Leiste (Suche/Filter, Bearbeiter, Sortierung) – scrollt jetzt mit, unterhalb der Buttons */
-    +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px 18px;background:#fff;border:1px solid #e2e8ef;border-radius:11px;padding:11px 13px;margin:2px 0 12px">'
+    /* 🔴 19.08., Work #130 S1b, Ralph: "filterleiste noch zu viel".
+       HIER STAND eine eigene weisse Karte mit Rahmen, 11px Innenabstand und 12px
+       Aussenabstand - und darin zwei Ueberschriften "SUCHE / FILTER" und
+       "SORTIERUNG" ueber Feldern, die sich selbst erklaeren: das Suchfeld hat einen
+       Platzhalter, und ein Sortier-Auswahlfeld erkennt man als solches.
+       Zusammen kostete das rund 80px, die der Liste fehlten.
+       JETZT eine flache Zeile ohne Rahmen und ohne Ueberschriften. Die
+       Listenhoehe zieht von selbst nach - dafuer ist die Messung da. */
+    +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin:2px 0 8px">'
       /* 02.08.2026: Die Suche laeuft SERVERSEITIG (cb_erfassung_liste, p_suche) - sie
          durchsucht damit alle 58.120 Zeilen und nicht mehr nur die geladene Seite.
          Gesucht wird in Titel, Marke, EAN und P-Nummer. */
-      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Suche / Filter</div><input id="peSuche" oninput="peSucheGeaendert()" placeholder="🔍 Titel, Marke, EAN, P-Nummer…" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"></div>'
+      +'<div><input id="peSuche" oninput="peSucheGeaendert()" placeholder="🔍 Titel, Marke, EAN, P-Nummer…" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"></div>'
       /* 28k: Bearbeiter-Feld entfernt (Ralph: "nur Bearbeiter raus") - es war tot (disabled, zeigte nur den eigenen Namen). Der Befueller weiter unten prueft die Existenz und laeuft jetzt leer. */
-      +'<div><div style="font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:#7b8698;font-weight:700;margin-bottom:3px">Sortierung</div>'
+      +'<div>'
         +'<select id="peSort" onchange="peRender()" style="width:100%;padding:7px 9px;border:1px solid #d3dbe6;border-radius:8px;background:#fff;color:#1f2a44;font-size:13px"><option value="neu">Erfasst – neueste zuerst</option><option value="score">Index aufsteigend</option><option value="titel">Titel A–Z</option><option value="mark">Nur markierte</option></select></div>'
     +'</div>'
     /* Raster – einklappbar (Ralph 21.07.2026): beim Auswählen eines Produkts klappt die Liste zu,
@@ -6213,7 +6259,7 @@ async function loadProduktErfassung(){
   } }catch(e){}
   peRender();
   try{ peAutoInfo(); }catch(e){}
-  try{ peListeHoehe(); peListeHoeheBinden(); }catch(e){}
+  try{ peNeuFabInit(); peListeHoehe(); peListeHoeheBinden(); }catch(e){}
   try{ peSyncStickyTop(); if(!window._peStickyBound){ window._peStickyBound=true;
       window.addEventListener('scroll',function(){ if(window._peStickyRaf)return; window._peStickyRaf=requestAnimationFrame(function(){ window._peStickyRaf=0; peSyncStickyTop(); }); },{passive:true});
       window.addEventListener('resize',peSyncStickyTop); } }catch(e){}
@@ -34071,7 +34117,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-4050";
+const APP_BUILD = "2026-08-19-4070";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
