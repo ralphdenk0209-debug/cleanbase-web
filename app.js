@@ -34204,9 +34204,17 @@ function rikiStilEinmal(){
     +"@keyframes rikiAuf{from{opacity:0;transform:scale(.18)}to{opacity:1;transform:scale(1)}}"
     +"@keyframes rikiZu{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.18)}}"
     +"#rikiPanel{transform-origin:100% 100%;animation:rikiAuf .22s cubic-bezier(.2,.8,.3,1) both}"
-    /* In der Leiste steht RIKI an fuenfter von sechs Stellen, nicht in der Ecke -
-       also zieht sich die Karte von dort auf und nicht von ganz rechts. */
-    +"#rikiPanel.rikiAusLeiste{transform-origin:78% 100%}"
+    /* 🔴 20.08.2026, Ralph: "riki in frontend unten in der leiste ist schlecht …
+       als schalter ist er unten ok, beim klick soll er so erscheinen wie er
+       vorher war."
+       HIER STAND: #rikiPanel.rikiAusLeiste{transform-origin:78% 100%} - die Karte
+       zog sich aus der Leistenmitte auf, weil der Knopf dort steht. Technisch
+       stimmig, in der Wirkung falsch: zusammen mit der tieferen Position klebte
+       das Panel an der Leiste und wirkte wie ein Teil von ihr statt wie eine
+       eigene Karte.
+       Die Klasse wird nicht mehr vergeben; die Regel ist entfernt statt
+       auskommentiert. Der Knopf bleibt unveraendert in der Leiste - das ist
+       ausdruecklich Ralphs "als schalter ist er unten ok". */
     +"#rikiPanel.rikiSchliesst{animation:rikiZu .16s ease-in both}"
     /* Wer Bewegung abgestellt hat, bekommt einen ruhenden Ring und ein Panel ohne
        Aufzieh-Bewegung - aber beides bleibt SICHTBAR. Die Anzeige darf nicht
@@ -34446,7 +34454,7 @@ function rikiPanelOeffnen(){
   p.id="rikiPanel";
   p.setAttribute("role","dialog");
   p.setAttribute("aria-label","RIKI");
-  if(rikiInLeiste()) p.className="rikiAusLeiste";
+  /* 20.08.: die Klasse rikiAusLeiste ist entfallen - siehe Stilblock oben. */
   /* Karte statt Leiste: verankert an derselben Ecke wie der Knopf, direkt darueber.
      14px Abstand nach rechts wie der Knopf, 92+52+10 nach unten - also genau auf
      ihm sitzend. Die Breite ist gedeckelt, damit die Karte auf dem Handy nicht an
@@ -34468,8 +34476,21 @@ function rikiPanelOeffnen(){
      Angedockt kommt das Aussehen vollstaendig aus ui.css (.rikiAngedockt), damit
      es nicht an zwei Orten steht. Schwebend bleibt der Inlinestil, weil er eine
      gemessene Zahl enthaelt, die dem Knopf folgt. */
+  /* 🔴 20.08.2026, Ralph: "beim klick soll er so erscheinen wie er vorher war."
+     HIER STAND: bottom:calc((_inL?"86px":"154px") + safe-area) - das Panel sass
+     in der Leistenfassung 68px tiefer und klebte damit direkt ueber der
+     Bodenleiste. Zusammen mit dem Aufziehpunkt aus der Leistenmitte sah es aus
+     wie eine ausgefahrene Schublade der Leiste, nicht wie eine Karte.
+
+     JETZT gilt fuer beide Faelle die urspruengliche Hoehe. Die 154px stammen aus
+     der Zeit des schwebenden Knopfes und sind der Wert, den Ralph mit "wie
+     vorher" meint. rikiInLeiste() wird hier nicht mehr gefragt - der Knopf darf
+     unten sitzen, das Panel richtet sich nicht mehr nach ihm.
+
+     rikiInLeiste() BLEIBT im Code: rikiFabZustand nimmt in der Leiste Halo und
+     Glow zurueck, damit der Knopf dort ein flaches Strichsymbol ist wie seine
+     fuenf Nachbarn. Genau das ist Ralphs "als schalter ist er unten ok". */
   var _angedockt = (k.seite==="erfassung");
-  var _inL=rikiInLeiste();
   if(_angedockt){
     p.className=(p.className?p.className+" ":"")+"rikiAngedockt";
     /* Der Editor bekommt Platz, statt ueberdeckt zu werden. Die Klasse steht am
@@ -34477,7 +34498,7 @@ function rikiPanelOeffnen(){
     try{ document.body.classList.add("rikiAngedocktOffen"); }catch(e){}
   } else {
     p.style.cssText="position:fixed;right:14px;z-index:9991;"
-      +"bottom:calc("+(_inL?"86px":"154px")+" + env(safe-area-inset-bottom));"
+      +"bottom:calc(154px + env(safe-area-inset-bottom));"
       +"width:min(340px, calc(100vw - 28px));max-height:min(70vh, 460px);overflow:auto;"
       +"background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));"
       +"border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.20);padding:14px 16px 16px";
@@ -34555,7 +34576,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4160";
+const APP_BUILD = "2026-08-20-4170";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
