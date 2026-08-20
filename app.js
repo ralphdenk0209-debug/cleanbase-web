@@ -19823,11 +19823,46 @@ async function fgRohtextLauf(){
       p_metadata:{contract_version:String(v.contract_version||"riki_source_extraction_item_v1"),extractor:"riki",modus:"rohtext",
                   basis_key_normalisiert:Array.from(new Set(_basisNorm))}});
     if(r&&r.error) throw r.error;
+    var runId=(r&&r.data!=null)?Number(r.data):null;
     var teil=v.sections.filter(function(x){return x.status==="partial"||x.status==="unresolved";}).length;
     var zeilen=v.sections.reduce(function(a,x){return a+(Number(x.extracted_rows)||0);},0);
-    sag("✓ "+v.sections.length+" Abschnitte, "+zeilen+" Zeilen gespeichert"
-        +(teil?(" — "+teil+" Abschnitt"+(teil===1?"":"e")+" unvollständig/ungeklärt, bitte prüfen"):"")
-        +". Zutatenzeilen erscheinen unten als offene Zeilen.", teil?"var(--k-b45309)":"var(--k-166534)");
+    var basis="✓ "+v.sections.length+" Abschnitte, "+zeilen+" Zeilen gespeichert"
+        +(teil?(" — "+teil+" Abschnitt"+(teil===1?"":"e")+" unvollständig/ungeklärt, bitte prüfen"):"");
+    var farbe=teil?"var(--k-b45309)":"var(--k-166534)";
+    /* WORK E2 (20.08.2026) — Allergene aus dem Lauf uebernehmen.
+       cb_riki_source_extraction_speichern gibt die run_id als bigint zurueck;
+       cb_riki_allergene_persistieren(p_run_id) loest die Aliase serverseitig auf,
+       ist idempotent ueber Source_Item_ID und liefert
+       {ok, run_id, persistiert, needs_review}. needs_review zaehlt BEIDE Faelle,
+       die der Server offen laesst (Claim fehlt/ungueltig ODER Alias unbekannt) —
+       einen dritten Zaehler gibt es dort nicht, also wird hier keiner erfunden (§1.1).
+       Das Frontend ruft nur auf und zeigt an; es entscheidet nichts (§10.2).
+       Ein Fehler HIER entwertet den Lauf nicht: die Extraktion ist oben bereits
+       gespeichert. Deshalb eigener try/catch mit Lauf-ID im Text (§11.4). */
+    var alg="";
+    if(runId==null||!isFinite(runId)){
+      alg=" — Allergene übersprungen: der Lauf gab keine Lauf-ID zurück";
+      farbe="var(--k-b45309)";
+    }else{
+      sag("Allergene werden übernommen …");
+      try{
+        var ra=await client.rpc("cb_riki_allergene_persistieren",{p_run_id:runId});
+        if(ra&&ra.error) throw ra.error;
+        var a=(ra&&ra.data)||{};
+        var aOk=Number(a.persistiert)||0, aPruef=Number(a.needs_review)||0;
+        if(aOk||aPruef){
+          alg=" — Allergene: "+aOk+" übernommen"
+             +(aPruef?(", "+aPruef+" offen (Claim fehlt/ungültig oder Alias unbekannt) — bitte prüfen"):"");
+          if(aPruef) farbe="var(--k-b45309)";
+        }
+      }catch(ea){
+        console.error("[E2 Allergene] Lauf "+runId,ea);
+        alg=" — Allergene NICHT übernommen (Lauf "+runId+"): "+((ea&&ea.message)||ea)
+           +" — der Extraktionslauf selbst ist gespeichert";
+        farbe="var(--k-b91c1c)";
+      }
+    }
+    sag(basis+alg+". Zutatenzeilen erscheinen unten als offene Zeilen.", farbe);
     inp.value="";
     await _fgOffReload();
   }catch(e){
@@ -34117,7 +34152,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-19-4070";
+const APP_BUILD = "2026-08-20-4080";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
