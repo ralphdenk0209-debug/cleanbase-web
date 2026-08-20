@@ -17238,6 +17238,10 @@ async function tbHistList(){
   /* Zwei Unter-Reiter: „Ganze Mahlzeiten" (cb_tb_history + cb_tb_copy_meal) und „Einzelne". */
   let meals=[]; try{ const {data}=await client.rpc("cb_tb_history",{p_limit:20}); meals=data||[]; }catch(e){}
   let ids=[]; try{ const {data}=await client.rpc("cb_tb_history_produkte",{p_limit:90}); ids=(data||[]).map(x=>x.produkt_id); }catch(e){}
+  /* 20.08.: vierter Fall derselben Klasse (siehe tbFavList). Die Historie
+     schlaegt Server-IDs im Katalog nach; ist er leer, sieht sie aus, als haette
+     der Nutzer noch nie etwas eingetragen. */
+  if(ids.length) await tbKatalogSichern();
   const list=ids.map(id=>(ALL||[]).find(p=>p.id===id)).filter(Boolean);
   window._tbAddList=list; window._tbHistMeals=meals;
   if(!window._tbHistSub) window._tbHistSub = meals.length ? 'mahlzeiten' : 'einzeln';
@@ -17268,11 +17272,39 @@ async function tbHistCopyMeal(i){
   if(error){ alert("Fehler: "+error.message); return; }
   const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
 }
+/* 🔴 20.08.2026 — Ralph: "anscheinend sind die favoriten von meiner frau auch
+   nicht mehr da."
+
+   DERSELBE FEHLER WIE BEI DER SUCHE, ZUM DRITTEN MAL: der Server liefert die
+   Favoriten-IDs zuverlaessig (cb_fav_liste), aber jede ID wird anschliessend in
+   ALL nachgeschlagen. Ist der Katalog leer, faellt jede Zeile durch
+   .filter(Boolean) — und uebrig bleibt "Noch keine Favoriten".
+
+   DAS IST EINE LUEGE, und eine gefaehrlichere als "Kein Treffer": sie behauptet,
+   der Nutzer habe nichts gespeichert, obwohl der Server das Gegenteil gemeldet
+   hat. Wer das liest, tippt neu auf ♥ — und weil ♥ ein UMSCHALTER ist
+   (cb_fav_toggle), loescht der zweite Tipp den Favoriten, den der erste angelegt
+   hat. Eine falsche Anzeige kann hier echte Daten kosten.
+
+   JETZT: erst den Katalog sichern, dann nachschlagen. Und wenn der Server IDs
+   meldet, die der Katalog nicht kennt, wird GENAU DAS gesagt statt "keine
+   Favoriten" (§1.7, §3.4). */
 async function tbFavList(){
   let ids=[]; try{ const {data}=await client.rpc("cb_fav_liste"); ids=(data||[]).map(x=>x.produkt_id); window._favSet=new Set(ids); }catch(e){}
+  if(ids.length) await tbKatalogSichern();
   const list=ids.map(id=>(ALL||[]).find(p=>p.id===id)).filter(Boolean);
   window._tbAddList=list;
   const box=document.getElementById("tbAddResults"); if(!box) return;
+  /* Der Server kennt Favoriten, der Katalog nicht: dann fehlt der Katalog oder
+     das Produkt wurde archiviert. Beides ist etwas anderes als "keine". */
+  if(ids.length && !list.length){
+    box.innerHTML='<div style="padding:12px;color:var(--k-6b6256);font-size:13px">'
+      +'<b>'+ids.length+' Favorit'+(ids.length===1?'':'en')+' gespeichert, aber gerade nicht ladbar.</b>'
+      +'<div style="margin-top:6px">Der Produktkatalog fehlt oder die Produkte sind nicht mehr im Katalog. '
+      +'Die Favoriten selbst sind nicht verloren.</div>'
+      +'<button onclick="tbKatalogNeu(this)" style="width:100%;margin-top:9px;padding:10px;border:0;border-radius:10px;background:var(--k-16a34a);color:var(--k-ffffff);font-weight:600;cursor:pointer">Katalog laden</button></div>';
+    return;
+  }
   box.innerHTML = list.length ? list.map((p,i)=>tbRowHtml(p,i)).join("") : '<div style="text-align:center;padding:16px;color:var(--k-6b6256);font-size:13px">Noch keine Favoriten – tippe bei einem Produkt auf ♡.</div>';
 }
 async function tbRezList(){
@@ -34576,7 +34608,7 @@ try{
   else rikiFabInit();
 }catch(e){}
 
-const APP_BUILD = "2026-08-20-4170";
+const APP_BUILD = "2026-08-20-4180";
 let _updateGezeigt = false;
 
 /* Riki-Modell für die LESE-Funktionen (Etikett lesen, Herstellerseite recherchieren,
