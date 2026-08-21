@@ -6451,6 +6451,7 @@ function fePlaus(){
        gespiegelt an der DB-Regel (Nährwert-Achse braucht diese Werte, sonst kein Score).
        Kein Auto-Ausfüllen: der Admin trägt 0 oder den echten Wert selbst ein. */
     var fehlt=[];
+    var gv=function(id){ var e=document.getElementById(id); var v=e&&e.value!==""?Number(String(e.value).replace(",",".")):null; return (v!=null&&isFinite(v))?v:null; };
     /* SUPPLEMENTS: keine Nährwert-Pflicht. Eine Kapsel hat kein Makro-Profil pro 100 g –
        sie bekommt bewusst keinen Lebensmittel-Score (§1.11j). Die Nährwerte hier zu
        verlangen hätte Supplements dauerhaft von der Freigabe ausgesperrt. Sie brauchen
@@ -6672,7 +6673,7 @@ function fePlaus(){
         punkte:_it.slice()
       };
       feFreigabeLeiste(_it, _fgBlockiert());
-    }catch(e){}
+    }catch(e){ console.error("[Freigabe-Check] fePlaus abgebrochen – keine Freigabeleiste:", e); }
   }
   try{ feReqBorders(); }catch(e){}
   try{ if(typeof feScorePreview==="function") feScorePreview(); }catch(e){}
