@@ -5016,7 +5016,7 @@ function setMode(m){
   if(m==="freigabe"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadFreigabe(); fgTab((window._fgTab&&window._fgTab!=='produkte'&&window._fgTab!=='kontakt'&&window._fgTab!=='zuverif')?window._fgTab:'dash');  /* 29.07.: Posteingang abgeschafft - Standard ist das Dashboard */ }
   if(m==="stufen"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadStufen(); }
   if(m==="nutzer"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } loadUsers(); }
-  if(m==="mikro"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } mikroZuordnungRender(); }
+  if(m==="mikro"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } if(typeof mikroZuordnungRender!=="function"){ setMode("produkte"); return; } mikroZuordnungRender(); }
   if(m==="einheit"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } einheitRender(); }
   if(m==="bio"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } bioKandRender(); }
   if(m==="tausch"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } tauschRender(); }
@@ -15555,7 +15555,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-22-4351";
+const APP_BUILD = "2026-08-22-4352";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
