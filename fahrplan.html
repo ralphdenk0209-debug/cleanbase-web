@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Fahrplan · Root Index</title>
+<link rel="icon" href="logo-mark.png">
+
+<!--
+  Fahrplanseite — Work #182, Ralph-Entscheid A (21.08.2026)
+
+  Diese Seite steht bewusst allein: kein app.js, kein dashboard-ui.js, kein
+  ui.css. Waehrend sie gebaut wurde, lief die Frontend-Modularisierung in genau
+  diesen Dateien (Work #154 ff.). Eine eigene Seite kollidiert nicht.
+
+  Die Farben unten sind dieselben wie in admin.html (:root). Sie stehen hier
+  ausgeschrieben statt als Verweis, damit die Seite auch dann noch aussieht wie
+  sie soll, wenn die Palettendatei gerade umgebaut wird.
+-->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+:root{
+  --bg:#eef3f8; --card:#ffffff; --ink:#1d3c24; --muted:#6b6256; --line:#e4e8e2;
+  --green:#34D399; --green2:#10B981; --greendk:#047857; --greenlt:#ECFDF5;
+  --rot:#cf5442; --gelb:#e0a32e; --blau:#3b56b0; --lila:#534AB7; --grau:#c3ccd4;
+  --shadow:0 4px 16px rgba(20,40,28,.10);
+  --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+}
+*{ box-sizing:border-box }
+html,body{ margin:0; padding:0 }
+body{
+  background:var(--bg); color:var(--ink);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{ max-width:1040px; margin:0 auto; padding:18px 16px 64px }
+
+/* ---- Kopf ---- */
+.fpKopf{
+  display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+  padding:6px 2px 14px;
+}
+.fpKopf h1{ font-size:23px; margin:0; letter-spacing:-.2px }
+.fpKopf .fpUnter{ color:var(--muted); font-size:13px }
+.fpKopf .fpZurueck{
+  margin-left:auto; color:var(--greendk); text-decoration:none;
+  font-size:13px; font-weight:600; padding:6px 12px; border-radius:999px;
+  border:1px solid var(--line); background:var(--card);
+}
+.fpKopf .fpZurueck:hover{ background:var(--greenlt) }
+
+/* ---- Zahlenkacheln ---- */
+.fpZahlen{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px }
+.fpKachel{
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:14px 16px; box-shadow:var(--shadow); min-width:0;
+}
+.fpKachel b{ display:block; font-size:28px; line-height:1.1; letter-spacing:-.5px }
+.fpKachel span{ display:block; font-size:12.5px; color:var(--muted); margin-top:3px }
+.fpKachel i{ display:block; font-style:normal; font-size:11.5px; color:var(--muted); opacity:.75; margin-top:2px }
+
+/* ---- Abschnitte ---- */
+section{ margin-bottom:26px }
+section > h2{
+  font-size:13px; text-transform:uppercase; letter-spacing:.10em;
+  color:var(--muted); margin:0 0 10px 2px; font-weight:700;
+}
+
+/* ---- Meilensteinachse ---- */
+.fpAchse{ list-style:none; margin:0; padding:0 0 0 4px; position:relative }
+.fpAchse::before{
+  content:""; position:absolute; left:9px; top:8px; bottom:8px;
+  width:2px; background:linear-gradient(var(--line),var(--line)); border-radius:2px;
+}
+.fpMs{ position:relative; padding:0 0 16px 30px }
+.fpMsPunkt{
+  position:absolute; left:2px; top:5px; width:16px; height:16px; border-radius:50%;
+  background:var(--card); border:2.5px solid var(--grau); z-index:1;
+}
+.fpMs.ok .fpMsPunkt{ background:var(--green2); border-color:var(--green2) }
+.fpMs.spaet .fpMsPunkt{ border-color:var(--rot) }
+.fpMsKopf{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap }
+.fpMsKopf b{ font-size:15.5px }
+.fpMs.ok .fpMsKopf b{ color:var(--muted); text-decoration:line-through }
+.fpMsDat{ font-size:12.5px; color:var(--muted) }
+.fpMs.spaet .fpMsDat{ color:var(--rot); font-weight:600 }
+.fpMsNotiz{ margin:4px 0 0; font-size:13.5px; color:var(--muted) }
+.fpMsVerweis{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap }
+.fpTag{
+  font:inherit; font-size:11.5px; color:var(--muted);
+  background:var(--bg); border:1px solid var(--line); border-radius:999px;
+  padding:3px 10px;
+}
+.fpTagKlick{ cursor:pointer; color:var(--blau); font-weight:600 }
+.fpTagKlick:hover{ background:var(--card); border-color:var(--blau) }
+.fpHinweis{ font-size:12.5px; color:var(--muted); margin:2px 0 0 4px }
+
+/* ---- Filter ---- */
+.fpFilterZeile{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:7px }
+.fpFilterTitel{
+  font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--muted); font-weight:700; width:78px; flex:0 0 auto;
+}
+.fpF{
+  font:inherit; font-size:12.5px; cursor:pointer;
+  background:var(--card); color:var(--ink);
+  border:1px solid var(--line); border-radius:999px; padding:4px 12px;
+}
+.fpF:hover{ border-color:var(--green2) }
+.fpF.an{ background:var(--greendk); border-color:var(--greendk); color:#fff; font-weight:600 }
+
+/* ---- Aufgaben ---- */
+.fpGruppe{
+  font-size:12px; text-transform:uppercase; letter-spacing:.09em; font-weight:700;
+  color:var(--muted); margin:18px 0 8px 2px;
+}
+.fpGruppe:first-child{ margin-top:4px }
+.fpKarte{
+  background:var(--card); border:1px solid var(--line); border-left:4px solid var(--grau);
+  border-radius:12px; margin-bottom:8px; overflow:hidden;
+}
+.fpKarte.s-decision_ralph{ border-left-color:var(--lila) }
+.fpKarte.s-blocked{ border-left-color:var(--rot) }
+.fpKarte.s-disputed{ border-left-color:var(--gelb) }
+.fpKarte.s-ready_for_verification{ border-left-color:var(--blau) }
+.fpKarte.s-open{ border-left-color:var(--grau) }
+.fpKarte.s-in_progress{ border-left-color:var(--green2) }
+.fpKarte.s-verified,.fpKarte.s-done{ border-left-color:var(--green); opacity:.72 }
+.fpKarte.s-cancelled{ border-left-color:var(--line); opacity:.55 }
+
+.fpKarteKopf{
+  width:100%; text-align:left; font:inherit; cursor:pointer;
+  background:none; border:0; padding:11px 14px;
+  display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:10px;
+}
+.fpKarteKopf:hover{ background:var(--greenlt) }
+.fpNr{ font-family:var(--mono); font-size:12px; color:var(--muted); flex:0 0 auto }
+.fpTitel{ font-weight:600; font-size:14.5px; min-width:0 }
+.fpMeta{ font-size:11.5px; color:var(--muted); white-space:nowrap }
+.fpPfeil{ color:var(--muted); font-size:11px; transition:transform .15s }
+.fpKarte.auf .fpPfeil{ transform:rotate(180deg) }
+
+.fpDetail{ padding:2px 16px 14px; border-top:1px solid var(--line) }
+.fpAbs{ margin-top:11px }
+.fpAbs h4{
+  margin:0 0 3px; font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--muted); font-weight:700;
+}
+.fpAbs p{ margin:0; font-size:13.5px; white-space:pre-wrap; overflow-wrap:anywhere }
+.fpZeiten{ margin:12px 0 0; font-size:11.5px; color:var(--muted) }
+
+/* ---- Zustaende ---- */
+.fpLeer{ color:var(--muted); font-size:13.5px; padding:10px 2px }
+#fpMeldung{
+  background:#fff4f1; border:1px solid var(--rot); color:#8a2f22;
+  border-radius:12px; padding:11px 14px; font-size:13.5px; margin-bottom:16px;
+}
+#fpLaden{ color:var(--muted); font-size:13px; padding:8px 2px }
+
+/* ---- schmale Breite ---- */
+@media (max-width:720px){
+  .wrap{ padding:14px 12px 56px }
+  .fpZahlen{ grid-template-columns:1fr; gap:8px }
+  .fpKachel{ display:flex; align-items:baseline; gap:10px; padding:11px 14px }
+  .fpKachel b{ font-size:21px }
+  .fpKachel span{ margin-top:0 }
+  .fpKachel i{ margin-left:auto }
+  .fpFilterTitel{ width:100% }
+  .fpKarteKopf{ grid-template-columns:auto 1fr auto; row-gap:2px; padding:10px 12px }
+  .fpTitel{ grid-column:2 / 4 }
+  .fpMeta{ grid-column:2 / 3; white-space:normal }
+  .fpPfeil{ grid-column:3 / 4; grid-row:1 / 2 }
+  .fpKopf .fpZurueck{ margin-left:0 }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="fpKopf">
+    <h1>Fahrplan</h1>
+    <span class="fpUnter">Meilensteine bis Go-Live und alle Aufgaben aus der Warteschlange</span>
+    <a class="fpZurueck" href="admin.html">← Adminbereich</a>
+  </header>
+
+  <div id="fpMeldung" hidden></div>
+
+  <div class="fpZahlen" id="fpKopfZahlen"></div>
+
+  <section>
+    <h2>Meilensteine</h2>
+    <div id="fpMeilen"></div>
+  </section>
+
+  <section>
+    <h2>Aufgaben</h2>
+    <div id="fpFilter"></div>
+    <div id="fpLaden" hidden>lädt …</div>
+    <div id="fpListe"></div>
+  </section>
+
+</div>
+
+<script src="fahrplan-ui.js"></script>
+</body>
+</html>
