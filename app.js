@@ -1329,7 +1329,7 @@ async function applyAuthState(session){
   if(vis("stufenView")) loadStufen();
   if(vis("usersView")) loadUsers();
   if(vis("startView")) renderStart();
-  applyAdminMode();
+  if(typeof applyAdminMode==='function') applyAdminMode();
 }
 // WICHTIG: im onAuthStateChange-Callback KEINE weiteren Supabase-Aufrufe direkt awaiten
 // (blockiert die Auth-Verwaltung). Daher per setTimeout aus dem Callback herauslösen.
@@ -15210,7 +15210,7 @@ async function fgBildLoeschen(){
     if(msg){ msg.style.color='var(--k-16a34a)'; msg.textContent='✓ Bild gelöscht'; }
   }catch(e){ if(msg){ msg.style.color='var(--k-dc2626)'; msg.textContent='Fehler: '+((e&&e.message)||e); } }
 }
-if(typeof window!=='undefined'){ window.peHideMarkenToggle=peHideMarkenToggle; window.fgBildLoeschen=fgBildLoeschen; }
+if(typeof window!=='undefined'){ window.fgBildLoeschen=fgBildLoeschen; }
 
 
 
@@ -15712,7 +15712,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-21-4345";
+const APP_BUILD = "2026-08-21-4346";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
