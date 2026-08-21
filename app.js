@@ -4975,9 +4975,9 @@ function setMode(m){
   document.getElementById("tabPlan").classList.toggle("active",m==="planer");
   document.getElementById("tabTrain").classList.toggle("active",m==="training");
   document.getElementById("tabProfil").classList.toggle("active",m==="profil");
-  document.getElementById("tabFg").classList.toggle("active",m==="freigabe");
-  document.getElementById("tabStufen").classList.toggle("active",m==="stufen");
-  document.getElementById("tabUsers").classList.toggle("active",m==="nutzer");
+  { var _tf=document.getElementById("tabFg"); if(_tf) _tf.classList.toggle("active",m==="freigabe"); }
+  { var _tst=document.getElementById("tabStufen"); if(_tst) _tst.classList.toggle("active",m==="stufen"); }
+  { var _tu=document.getElementById("tabUsers"); if(_tu) _tu.classList.toggle("active",m==="nutzer"); }
   { var _ts=document.getElementById("tabSupp"); if(_ts) _ts.classList.toggle("active",m==="supp"); }
   document.getElementById("startView").style.display = m==="start"?"":"none";
   document.getElementById("prodView").style.display = m==="produkte"?"":"none";
@@ -4991,9 +4991,9 @@ function setMode(m){
   document.getElementById("einkaufView").style.display = m==="einkauf"?"":"none";
   if(m==="einkauf") renderEinkaufSeite();
   document.getElementById("profilView").style.display = m==="profil"?"":"none";
-  document.getElementById("freigabeView").style.display = m==="freigabe"?"":"none";
-  document.getElementById("stufenView").style.display = m==="stufen"?"":"none";
-  document.getElementById("usersView").style.display = m==="nutzer"?"":"none";
+  { var _fv=document.getElementById("freigabeView"); if(_fv) _fv.style.display = m==="freigabe"?"":"none"; }
+  { var _sv2=document.getElementById("stufenView"); if(_sv2) _sv2.style.display = m==="stufen"?"":"none"; }
+  { var _uv=document.getElementById("usersView"); if(_uv) _uv.style.display = m==="nutzer"?"":"none"; }
   { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
   { var _ev=document.getElementById("einheitView"); if(_ev) _ev.style.display = m==="einheit"?"":"none"; }
   { var _bv=document.getElementById("bioView"); if(_bv) _bv.style.display = m==="bio"?"":"none"; }
@@ -15712,7 +15712,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-21-4344";
+const APP_BUILD = "2026-08-21-4345";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
