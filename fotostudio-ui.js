@@ -1,0 +1,210 @@
+/* Das Fotostudio rendert exportfähiges SVG mit aufgelösten Farben.
+   Achsen und Obergrenzen entsprechen der Produktdarstellung; Werte kommen unverändert
+   aus Suche und v_web_produkte. Der Block speichert keine Produktdaten. */
+var _fsSel={l:null,r:null};
+var _fsTreffer={l:[],r:[]};
+var _fsOpt={grund:'weiss', beschriftung:true, px:1600};
+
+function fsNum(v){ if(v===null||v===undefined||v==='') return null; var n=Number(v); return isFinite(n)?n:null; }
+/* Farbwert einer CSS-Variablen zur Laufzeit aufloesen (wegen Hell-/Dunkelmodus).
+   Faellt sie aus, gilt der Wert, der im Namen steckt (--k-16a34a -> #16a34a). */
+function fsVar(n,fb){ try{ var v=getComputedStyle(document.documentElement).getPropertyValue(n).trim(); return v||fb; }catch(e){ return fb; } }
+function fsNoteFarbe(b){
+  if(b==='Sehr gut') return fsVar('--k-16a34a','#16a34a');
+  if(b==='Gut')      return fsVar('--k-65a30d','#65a30d');
+  if(b==='Mittel')   return fsVar('--k-e8920c','#e8920c');
+  if(b==='Schwach')  return fsVar('--k-dc2626','#dc2626');
+  return fsVar('--k-9aa7a0','#9aa7a0');
+}
+function fsXml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* Eine Tafel: Flux-Ring plus Beschriftung, als SVG-Gruppe in einem 340x250-Feld. */
+function fsTafel(p, dx, dy){
+  var tinte=fsVar('--ink','#1d3c24'), grau=fsVar('--muted','#6b6256');
+  if(!p){
+    return '<g transform="translate('+dx+','+dy+')">'
+      +'<text x="170" y="120" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" fill="'+grau+'">Kein Produkt gewählt</text></g>';
+  }
+  var s=fsNum(p.clean_score);
+  var A=[
+    {v:fsNum(p.p_zutaten),      max:30, f:'#16a34a'},
+    {v:fsNum(p.p_zusatzstoffe), max:15, f:'#3987e5'},
+    {v:fsNum(p.p_nova),         max:15, f:'#7c6fe0'},
+    {v:(fsNum(p.p_naehrwert)!=null ? fsNum(p.p_naehrwert)*2 : null), max:40, f:'#d97706'}
+  ].map(function(a){ a.pct=(a.v==null)?null:Math.max(0,Math.min(1,a.v/a.max)); return a; });
+  var bahn=['M26 34 H74 L106 64','M274 34 H226 L194 64','M26 142 H74 L106 112','M274 142 H226 L194 112'];
+  var kap=[[26,34],[274,34],[26,142],[274,142]];
+  var L=92, ringF=(s==null)?fsVar('--k-9aa7a0','#9aa7a0'):fsNoteFarbe(p.bewertung);
+  var g='<g transform="translate('+dx+','+dy+')">'
+    +'<g transform="translate(20,0)">'
+      +'<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">'
+      + bahn.map(function(d){ return '<path d="'+d+'" stroke="rgba(120,120,120,0.16)"/>'; }).join('')
+      + A.map(function(a,i){ var off=(a.pct==null)?L:L*(1-a.pct);
+          return '<path d="'+bahn[i]+'" stroke="'+(a.pct==null?'rgba(120,120,120,0.28)':a.f)+'" stroke-dasharray="'+L+'" stroke-dashoffset="'+off.toFixed(1)+'"/>'; }).join('')
+      +'</g>'
+      + A.map(function(a,i){ return '<circle cx="'+kap[i][0]+'" cy="'+kap[i][1]+'" r="7" fill="'+(a.pct==null?'#9aa7a0':a.f)+'"/>'; }).join('')
+      +'<circle cx="150" cy="88" r="42" fill="none" stroke="'+ringF+'" stroke-width="5"/>'
+      +'<text x="150" y="101" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="42" font-weight="800" fill="'+tinte+'">'+(s==null?'–':String(Math.round(s)))+'</text>'
+    +'</g>';
+  if(_fsOpt.beschriftung){
+    var nm=String(p.name||''); if(nm.length>34) nm=nm.slice(0,33)+'…';
+    var mk=String(p.marke||'');  if(mk.length>34) mk=mk.slice(0,33)+'…';
+    g+='<text x="170" y="200" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="17" font-weight="700" fill="'+tinte+'">'+fsXml(nm)+'</text>';
+    if(mk) g+='<text x="170" y="220" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="13" fill="'+grau+'">'+fsXml(mk)+'</text>';
+    g+='<text x="170" y="242" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" font-weight="700" fill="'+fsNoteFarbe(p.bewertung)+'">'+fsXml(p.bewertung||'')+'</text>';
+  }
+  return g+'</g>';
+}
+
+/* Die ganze Buehne als eigenstaendiges SVG. seiten: 'l', 'r' oder 'beide'. */
+function fsSvg(seiten){
+  /* Hoehe MIT Beschriftung: Ring endet bei y=196 (20 oben + 176), darunter Name 200,
+     Marke 220, Note 242 - plus 26 Luft, sonst schneidet der Rand die Note an.
+     OHNE Beschriftung reicht der Ring plus dieselbe Luft. Beides nachgemessen. */
+  var H=_fsOpt.beschriftung?268:216;
+  var eins=(seiten!=='beide');
+  var W=eins?340:700;
+  var grund=(_fsOpt.grund==='weiss')?'<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="#ffffff"/>'
+           :(_fsOpt.grund==='karte')?'<rect x="0" y="0" width="'+W+'" height="'+H+'" rx="16" fill="'+fsVar('--card','#ffffff')+'"/>':'';
+  var inhalt = eins ? fsTafel(_fsSel[seiten], 0, 20)
+                    : (fsTafel(_fsSel.l, 0, 20) + fsTafel(_fsSel.r, 360, 20));
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'">'+grund+inhalt+'</svg>';
+}
+
+/* SVG -> PNG. Laeuft ohne Fremdbibliothek: das SVG wird als Datenadresse in ein
+   Bild geladen und auf eine Leinwand gemalt. Die Breite bestimmt _fsOpt.px. */
+async function fsPng(seiten){
+  var msg=document.getElementById('fsMsg');
+  var setz=function(t,rot){ if(msg){ msg.textContent=t; msg.style.color=rot?fsVar('--k-dc2626','#dc2626'):fsVar('--muted','#6b6256'); } };
+  try{
+    if(seiten==='beide' && (!_fsSel.l || !_fsSel.r)){ setz('Für ein Doppelbild müssen beide Seiten ein Produkt haben.',true); return; }
+    if(seiten!=='beide' && !_fsSel[seiten]){ setz('Auf dieser Seite ist kein Produkt gewählt.',true); return; }
+    setz('Bild wird erzeugt…');
+    var svg=fsSvg(seiten);
+    var m=svg.match(/viewBox="0 0 (\d+) (\d+)"/), vw=Number(m[1]), vh=Number(m[2]);
+    var breite=Math.max(300, Math.round(_fsOpt.px)), hoehe=Math.round(breite*vh/vw);
+    var url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    var bild=await new Promise(function(ok,fehl){ var i=new Image(); i.onload=function(){ok(i);}; i.onerror=function(){fehl(new Error('SVG nicht ladbar'));}; i.src=url; });
+    var c=document.createElement('canvas'); c.width=breite; c.height=hoehe;
+    var ctx=c.getContext('2d'); ctx.drawImage(bild,0,0,breite,hoehe);
+    var teil=(seiten==='beide')?((_fsSel.l.id||'')+'_vs_'+(_fsSel.r.id||'')):(_fsSel[seiten].id||'produkt');
+    var a=document.createElement('a');
+    a.download='rootindex_'+String(teil).replace(/[^A-Za-z0-9_-]/g,'')+'_'+breite+'.png';
+    a.href=c.toDataURL('image/png');
+    document.body.appendChild(a); a.click(); a.remove();
+    setz('Fertig: '+breite+' × '+hoehe+' px gespeichert.');
+  }catch(e){ setz('Bild konnte nicht erzeugt werden: '+(e&&e.message?e.message:'unbekannt'),true); }
+}
+
+/* Suche im ganzen Katalog. Entprellt, mit Sequenz-Wache gegen spaete Antworten. */
+var _fsSeq={l:0,r:0}, _fsTimer={l:null,r:null};
+function fsSuche(seite, q){
+  if(_fsTimer[seite]) clearTimeout(_fsTimer[seite]);
+  _fsTimer[seite]=setTimeout(function(){ fsSucheLauf(seite, q); }, 280);
+}
+async function fsSucheLauf(seite, q){
+  q=String(q||'').trim();
+  var liste=document.getElementById('fsListe_'+seite); if(!liste) return;
+  if(q.length<2){ _fsTreffer[seite]=[]; liste.innerHTML=''; return; }
+  var seq=(++_fsSeq[seite]);
+  liste.innerHTML='<div style="padding:8px 10px;font-size:12.5px;color:var(--muted)">⏳ suche…</div>';
+  try{
+    var r=await client.rpc('cb_produkte_suchen',{p_q:q, p_limit:12, p_offset:0});
+    if(seq!==_fsSeq[seite]) return;
+    if(r.error) throw r.error;
+    var rows=r.data||[];
+    _fsTreffer[seite]=rows;
+    if(!rows.length){ liste.innerHTML='<div style="padding:8px 10px;font-size:12.5px;color:var(--muted)">Kein Treffer.</div>'; return; }
+    liste.innerHTML=rows.map(function(p,i){
+      return '<button onclick="fsWaehle(\''+seite+'\','+i+')" style="display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:8px 10px;font-size:13px;cursor:pointer">'
+        +'<b>'+esc(p.name||'')+'</b>'+(p.marke?' <span style="color:var(--muted)">· '+esc(p.marke)+'</span>':'')
+        +' <span style="color:var(--muted);font-size:11.5px">'+(p.clean_score==null?'ohne Index':('Index '+Math.round(Number(p.clean_score))))+'</span></button>';
+    }).join('');
+  }catch(e){
+    if(seq!==_fsSeq[seite]) return;
+    liste.innerHTML='<div style="padding:8px 10px;font-size:12.5px;color:var(--k-dc2626)">Suche fehlgeschlagen.</div>';
+  }
+}
+
+/* Treffer uebernehmen: die vier Achsenwerte fehlen in der Suche und werden
+   einzeln aus v_web_produkte nachgeladen. Ohne sie bleiben die Balken grau —
+   dann fehlt der Wert wirklich, wir setzen keine Null ein. */
+async function fsWaehle(seite, i){
+  var t=(_fsTreffer[seite]||[])[i]; if(!t) return;
+  var liste=document.getElementById('fsListe_'+seite); if(liste) liste.innerHTML='';
+  var such=document.getElementById('fsQ_'+seite); if(such) such.value='';
+  _fsSel[seite]={id:t.id, name:t.name, marke:t.marke, clean_score:t.clean_score, bewertung:t.bewertung};
+  fsBuehneZeichnen();
+  try{
+    var r=await client.from('v_web_produkte')
+      .select('id,name,marke,clean_score,bewertung,p_zutaten,p_zusatzstoffe,p_nova,p_naehrwert')
+      .eq('id', t.id).limit(1);
+    if(r.error) throw r.error;
+    var p=(r.data||[])[0];
+    if(p && _fsSel[seite] && _fsSel[seite].id===t.id){ _fsSel[seite]=p; fsBuehneZeichnen(); }
+  }catch(e){ /* Achsen bleiben leer, der Ring zeigt trotzdem die Note */ }
+}
+function fsLeeren(seite){ _fsSel[seite]=null; fsBuehneZeichnen(); }
+function fsTauschen(){ var x=_fsSel.l; _fsSel.l=_fsSel.r; _fsSel.r=x; fsBuehneZeichnen(); }
+function fsOptSetzen(k,v){ _fsOpt[k]=(k==='px')?Number(v):v; fsBuehneZeichnen(); }
+function fsOptSchalten(k,v){ _fsOpt[k]=!!v; fsBuehneZeichnen(); }
+
+function fsBuehneZeichnen(){
+  var b=document.getElementById('fsBuehne'); if(!b) return;
+  /* Auf dem Schirm soll die Buehne die Breite fuellen; die festen Masse braucht nur
+     der Export (dort bestimmen sie die Rasterhoehe). Darum hier herausgenommen. */
+  b.innerHTML=fsSvg('beide').replace(/ width="\d+" height="\d+"/, ' style="width:100%;height:auto;display:block"');
+  var kl=document.getElementById('fsGewaehlt_l'), kr=document.getElementById('fsGewaehlt_r');
+  var txt=function(p){ return p?('<b>'+esc(p.name||'')+'</b>'+(p.marke?' · '+esc(p.marke):'')+' <span style="color:var(--muted)">('+esc(p.id||'')+')</span>'):'<span style="color:var(--muted)">nichts gewählt</span>'; };
+  if(kl) kl.innerHTML=txt(_fsSel.l);
+  if(kr) kr.innerHTML=txt(_fsSel.r);
+}
+
+function fsSeiteHtml(seite, titel){
+  return '<div style="flex:1 1 300px;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:12px">'
+    +'<div style="font-weight:800;font-size:14px;margin-bottom:8px">'+titel+'</div>'
+    +'<input id="fsQ_'+seite+'" oninput="fsSuche(\''+seite+'\',this.value)" placeholder="🔍 Produkt suchen (mind. 2 Zeichen)…" '
+      +'style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:13.5px">'
+    +'<div id="fsListe_'+seite+'" style="max-height:250px;overflow:auto;margin-top:6px;border-radius:9px"></div>'
+    +'<div style="margin-top:10px;font-size:13px;line-height:1.5" id="fsGewaehlt_'+seite+'"></div>'
+    +'<button onclick="fsLeeren(\''+seite+'\')" style="margin-top:8px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font-size:12px;cursor:pointer">Seite leeren</button>'
+    +'</div>';
+}
+
+function fsRender(){
+  var v=document.getElementById('fotoView'); if(!v) return;
+  v.innerHTML='<div style="max-width:1040px;margin:0 auto">'
+    +'<h2 style="font-size:20px;font-weight:800;margin:6px 0 2px">📸 Fotostudio</h2>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Links und rechts je ein Produkt wählen – beide zeigen ihren Root Index, wie ihn die Datenbank hat. Es wird nichts gerechnet und nichts gespeichert.</div>'
+    +'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">'
+      + fsSeiteHtml('l','Linke Seite')
+      + fsSeiteHtml('r','Rechte Seite')
+    +'</div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0 10px">'
+      +'<button onclick="fsTauschen()" style="padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px;cursor:pointer">⇄ Seiten tauschen</button>'
+      +'<label style="font-size:12.5px;color:var(--muted)">Hintergrund '
+        +'<select onchange="fsOptSetzen(\'grund\',this.value)" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px">'
+          +'<option value="weiss">Weiß</option><option value="transparent">Transparent</option><option value="karte">Kartenfarbe</option></select></label>'
+      +'<label style="font-size:12.5px;color:var(--muted)">Breite '
+        +'<select onchange="fsOptSetzen(\'px\',this.value)" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px">'
+          +'<option value="800">800 px</option><option value="1600" selected>1600 px</option><option value="2400">2400 px</option></select></label>'
+      +'<label style="font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px">'
+        +'<input type="checkbox" checked onchange="fsOptSchalten(\'beschriftung\',this.checked)"> Beschriftung</label>'
+    +'</div>'
+    +'<div id="fsBuehne" style="border:1px dashed var(--line);border-radius:12px;padding:10px;background:'
+      +'repeating-conic-gradient(rgba(120,120,120,.10) 0% 25%, transparent 0% 50%) 50%/18px 18px"></div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'
+      +'<button onclick="fsPng(\'beide\')" style="padding:9px 14px;border:0;border-radius:9px;background:var(--green);color:var(--auf-gruen);font-weight:700;font-size:13px;cursor:pointer">⬇ Beide als PNG</button>'
+      +'<button onclick="fsPng(\'l\')" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer">⬇ Nur links</button>'
+      +'<button onclick="fsPng(\'r\')" style="padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer">⬇ Nur rechts</button>'
+    +'</div>'
+    +'<div id="fsMsg" style="margin-top:8px;font-size:12.5px;color:var(--muted);min-height:18px"></div>'
+    +'<div style="margin-top:14px;font-size:11.5px;color:var(--muted);line-height:1.6">Achsen wie im Produkt: <span style="color:#16a34a">■</span> Zutaten (max 30) · <span style="color:#3987e5">■</span> Zusatzstoffe (15) · <span style="color:#7c6fe0">■</span> Verarbeitung/NOVA (15) · <span style="color:#d97706">■</span> Nährwert (20, doppelt gewichtet = 40). Ein <b>grauer</b> Balken heißt: für diese Achse liegt kein Wert vor – nicht Null.</div>'
+    +'</div>';
+  fsBuehneZeichnen();
+}
+if(typeof window!=='undefined'){
+  window.fsRender=fsRender; window.fsSuche=fsSuche; window.fsWaehle=fsWaehle;
+  window.fsLeeren=fsLeeren; window.fsTauschen=fsTauschen; window.fsPng=fsPng;
+  window.fsOptSetzen=fsOptSetzen; window.fsOptSchalten=fsOptSchalten;
+}
