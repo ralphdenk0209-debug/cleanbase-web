@@ -6684,7 +6684,7 @@ function fePlaus(){
 /* Eine Statusstruktur für alle Anzeigen; sie sammelt Serverzustände und bewertet nicht selbst. */
 function getErfassungsStatus(){
   var roh=window._fgStatusRoh||null;
-  var ref=window._fgRefStatus||null;
+  var ref=window._fgRefDaten||null;
   var pid=(window._fgEdit&&window._fgEdit.id)||"";
   var S={
     produkt_id:pid,
@@ -6796,14 +6796,16 @@ function getErfassungsStatus(){
   return S;
 }
 function _fgBlockiert(){ try{ var S=getErfassungsStatus(); return S.bekannt?!S.freigabe_moeglich:true; }catch(e){ return true; } }
+/* Die Referenzdaten heissen _fgRefDaten. Der aehnliche Name gehoert einer Funktion
+   weiter oben; eine Belegung unter jenem Namen wuerde sie ueberschreiben. */
 async function fgRefStatusLaden(pid){
-  window._fgRefStatus=null;
+  window._fgRefDaten=null;
   if(!pid) return;
   try{
     var r=await client.rpc("cb_referenz_pruefung_status",{p_produkt_id:pid});
     if(r&&r.error) throw r.error;
     var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
-    window._fgRefStatus=d||null;
+    window._fgRefDaten=d||null;
   }catch(e){ console.error("[Status] cb_referenz_pruefung_status:", e); }
 }
 /* ---- Der Gesamtstreifen oben ------------------------------------------------ */
@@ -7655,7 +7657,7 @@ async function fgEditSave(alsoFreigeben){
         var _ok=confirm("⚠ Zutaten-Abweichung\n\n"+_abw.length+" Zutat(en) stehen laut Etikett-Referenz, sind aber NOCH NICHT übernommen:\n\n"+_liste+"\n\nTrotzdem FREIGEBEN?\n(Abbrechen = nur speichern, nicht freigeben)");
         if(!_ok){ alsoFreigeben=false; }
       }
-    }catch(e){}
+    }catch(e){ console.error("[Freigabe] Abweichungspruefung uebersprungen:", e); }
   }
   msg.style.color="var(--k-374151)"; msg.style.fontWeight="400"; msg.textContent="⏳ speichern…";
   const numv=v=>{ v=(v==null?"":String(v)).trim(); return v===""?undefined:Number(v.replace(",",".")); };
