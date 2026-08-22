@@ -1512,7 +1512,70 @@ if(typeof window!=='undefined') window._abWorkAnzeigen=_abWorkAnzeigen;
    (Listenladen), keinen Einzelweg; das waere ein Neubau und ist nicht geprueft.
    tagebuch_wunsch hat 51 offene Eintraege und serverseitig GAR KEINE RPC —
    als Work Item an ChatGPT gegeben. */
+/* ============================================================================
+   ARBEITSWEG "UNBEWERTETE ZUTAT"  ·  Work #194  ·  22.08.2026
+   ----------------------------------------------------------------------------
+   Das neue Gate w10 zaehlt 1.077 Produkte, deren Zutaten keine Note haben.
+   ChatGPT liefert seit 12:37 je Zeile `entity_id` und `id_art` mit — genau die
+   beiden Felder, auf die der Kommentar bei Work #190 gewartet hat.
+
+   GEMESSEN 22.08. an allen 100 Drill-Zeilen, wieviele im Canonical-Stamm
+   ueberhaupt auffindbar sind (cb_admin_stamm_neu_liste ueber den Namen):
+     canonical  37 Zeilen ·  395 Produkte · 31 genau ein Treffer, 6 mehrdeutig, 0 leer
+     legacy     63 Zeilen ·  979 Produkte ·  3 genau ein Treffer, 1 mehrdeutig, 59 LEER
+
+   🔴 DESHALB BEKOMMT NUR `canonical` EINEN KNOPF. Bei den Legacy-Zeilen faende
+   die Stammsuche in 59 von 63 Faellen NICHTS — sie stehen nicht im Canonical-
+   Stamm, ihre Arbeit heisst "zuordnen oder anlegen", nicht "bewerten". Ein
+   Knopf dorthin waere genau der tote Knopf, den Work #190 abgeschafft hat.
+   Der fehlende Weg fuer die 63 Legacy-Zeilen ist als eigener Punkt gemeldet,
+   nicht hier heimlich mit einer Attrappe zugedeckt.
+
+   ⚠️ ENTITY_ID WIRD NICHT ZUM SPRINGEN BENUTZT. Gemessen: cb_admin_stamm_neu_liste
+   sucht NICHT ueber die entity_id — eine UUID im Suchfeld liefert 0 Treffer,
+   derselbe Name 1. `id_art` entscheidet also, OB ein Knopf erscheint; gesprungen
+   wird weiterhin ueber den Namen (§22, kein Nachbau eines Lesewegs).
+
+   KEIN NEUBAU: geoeffnet wird die vorhandene Stammliste; zusaetzlich wird der
+   vorhandene Bewertungsfilter `fgStBew` auf "ohne Note" gestellt, damit Ralph
+   direkt auf den unbewerteten Eintraegen landet. Kein Schreibweg, keine
+   Bewertungslogik (§7 — Zutaten und Bewertungen: lesen ja, aendern nein).
+   ========================================================================== */
+function _abZutatUnbewertetOeffnen(r){
+  var name=r&&(r.name||r.title||'');
+  if(!name){ try{ console.warn('[Unbewertet] Zeile ohne Namen, kein Sprung'); }catch(_){} return false; }
+  var ok=_abZutatImStammSuchen(name);
+  if(!ok) return false;
+  /* Der Bewertungsfilter wird NACH dem Panelbau gesetzt: fgStammPanelBauen legt
+     das Select erst an. Derselbe Nachlauf-Deckel wie beim Suchfeld. */
+  _abBewFilterOhneDurchsetzen(0);
+  return true;
+}
+function _abBewFilterOhneDurchsetzen(versuch){
+  setTimeout(function(){
+    var bw=document.getElementById('fgStBew');
+    if(!bw){
+      if(versuch<40) _abBewFilterOhneDurchsetzen(versuch+1);
+      else { try{ console.warn('[Unbewertet] fgStBew nicht gefunden'); }catch(_){} }
+      return;
+    }
+    if(bw.value==='ohne') return;         /* steht schon richtig, nicht doppelt laden */
+    bw.value='ohne';
+    try{ if(window._fgStamm) window._fgStamm.offset=0; }catch(e){}
+    try{ if(typeof fgStammListe==='function') fgStammListe(); }
+    catch(e){ try{ console.warn('[Unbewertet] Nachladen:',e); }catch(_){} }
+  },160);
+}
+
+/* Zusatzbedingung je Zeile: reicht `kind` nicht aus, um einen Knopf zu
+   rechtfertigen, steht hier die Pruefung. Fehlt ein Eintrag, gilt allein `kind`
+   — das bisherige Verhalten bleibt damit unveraendert. */
+var _AB_DRILL_WENN={
+  zutat_unbewertet: function(x){ return !!x && x.id_art==='canonical'; }
+};
+
 var _AB_DRILL_ZIEL={
+  zutat_unbewertet: _abZutatUnbewertetOeffnen,
   produkt: function(r){ if(typeof openFgEditor==='function'){ _abDrillZu(); openFgEditor(r.id); } },
   stamm:   function(){ if(typeof adminGo==='function'){ _abDrillZu(); adminGo('stamm'); } },
   scan:    function(){ if(typeof scanEingangOeffnen==='function'){ _abDrillZu(); scanEingangOeffnen(); } },
@@ -1521,6 +1584,67 @@ var _AB_DRILL_ZIEL={
   kontakt: function(){ if(typeof adminGo==='function'){ _abDrillZu(); adminGo('kontakt'); } },
   work:    function(r){ _abWorkAnzeigen(r&&r.id); }
 };
+
+/* ----------------------------------------------------------------------------
+   ZEILEN-AKTIONEN IM DRILL  ·  Work #208  ·  22.08.2026
+   ----------------------------------------------------------------------------
+   Bis heute konnte eine Drill-Zeile nur EINES: irgendwohin springen
+   (_AB_DRILL_ZIEL). Fuer die 51 Tagebuchwuensche gibt es aber gar kein
+   "irgendwohin" — es gibt keine Wunsch-Ansicht und es soll auch keine geben.
+   Was fehlte, war nicht eine Seite, sondern zwei Knoepfe: abhaken oder
+   ablehnen, direkt in der Zeile.
+
+   Deshalb ein zweites Register statt einer zweiten Liste (§4.2). Ein Eintrag:
+     kind -> [ {text, rpc, grund:true|false, frage} ]
+   Es wird genau die RPC gerufen, die ChatGPT unter #208 gebaut hat — hier
+   entsteht keine zweite Fachlogik, nur der Knopf davor. Ob ein Wunsch ein
+   Produkt anlegen DARF, entscheidet weiterhin der Server, nicht diese Datei.
+
+   🔴 Kein Weg "Wunsch -> Produkt anlegen". Der waere fachlich (§7) und ist
+   nicht freigegeben. Abhaken und Ablehnen raeumen die Schlange, mehr nicht.
+   ---------------------------------------------------------------------------- */
+var _AB_DRILL_AKTION={
+  tagebuch_wunsch:[
+    {text:'angelegt ✓', rpc:'cb_admin_wunsch_erledigt', grund:false},
+    {text:'abgelehnt ✕', rpc:'cb_admin_wunsch_ablehnen', grund:true,
+     frage:'Warum abgelehnt? (Dublette, Unsinn, kein Lebensmittel …)'}
+  ]
+};
+
+/* Ruft die RPC einer Zeilen-Aktion und meldet ehrlich zurueck. Kein
+   optimistisches Ausblenden: die Zeile verschwindet erst, wenn der Server
+   ok:true gesagt hat. Eine Zeile, die verschwindet, obwohl nichts gespeichert
+   wurde, ist schlimmer als eine, die stehen bleibt. */
+async function _abDrillAktion(btn){
+  var a=(_AB_DRILL_AKTION[btn.dataset.kind]||[])[Number(btn.dataset.akt)];
+  if(!a) return;
+  var arg={p_id:Number(btn.dataset.id)};
+  if(a.grund){
+    var g=window.prompt(a.frage||'Grund?','');
+    if(g===null) return;                 /* abgebrochen: nichts tun */
+    if(!String(g).trim()){ alert('Ohne Grund wird nicht abgelehnt.'); return; }
+    arg.p_grund=String(g).trim();
+  }
+  var alt=btn.textContent;
+  btn.disabled=true; btn.textContent='…';
+  try{
+    var r=await client.rpc(a.rpc,arg);
+    if(r&&r.error) throw r.error;
+    var o=r&&r.data; if(typeof o==='string') o=JSON.parse(o);
+    if(o&&o.ok===false) throw new Error(o.grund||'abgelehnt');
+    var z=btn.closest('div[data-drillzeile]'); if(z) z.remove();
+    /* Die Zahl in der Kachel wird NICHT nachgerechnet. _abNeuZeichnen malt nur
+       die zwischengespeicherten Daten neu — die Kachel zeigte danach dieselbe
+       alte Zahl und saehe aus, als waere sie frisch. Lieber ehrlich sagen,
+       dass sie erst beim naechsten Laden stimmt. */
+    var hin=document.getElementById('abDrillHinweis');
+    if(hin){ hin.style.display=''; }
+  }catch(e){
+    btn.disabled=false; btn.textContent=alt;
+    alert('Nicht gespeichert: '+((e&&e.message)||String(e)));
+    try{ console.error('[Drill-Aktion] '+a.rpc,e); }catch(_){}
+  }
+}
 
 function _abDrillBox(){
   var b=document.getElementById('abDrillBox');
@@ -1569,7 +1693,11 @@ async function _abDrillOeffnen(key,titel){
       ? '<div style="font-size:11.5px;opacity:.7;margin-bottom:8px">'
           +rows.length+' von '+(o.count==null?rows.length:o.count)+' — Schlüssel '+esc(key)+'</div>'
         + rows.map(function(x,i){
-            var hatZiel=!!_AB_DRILL_ZIEL[x.kind];
+            /* Work #194: `kind` sagt, WOHIN ein Sprung ginge. _AB_DRILL_WENN sagt,
+               ob DIESE Zeile dort auch ankommt. Ohne Eintrag entscheidet wie bisher
+               allein `kind`. */
+            var wenn=_AB_DRILL_WENN[x.kind];
+            var hatZiel=!!_AB_DRILL_ZIEL[x.kind] && (!wenn || wenn(x));
             var alt=(x.age_days==null)?'':(' · '+x.age_days+' Tage alt');
             return '<div style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;'
               +'border-bottom:1px solid var(--line,#eef2f6)">'
@@ -1586,10 +1714,22 @@ async function _abDrillOeffnen(key,titel){
                     +'" data-id="'+esc(String(x.id))
                     /* Work #190: der Zutatenweg sucht ueber den NAMEN, nicht ueber die
                        ID (drei ID-Formen gemischt). Deshalb reist der Titel mit. */
-                    +'" data-name="'+esc(String(x.title||''))+'" style="flex:0 0 auto;border:1px solid '
+                    +'" data-name="'+esc(String(x.title||''))
+                    /* Work #194: id_art reist mit, damit das Ziel weiss, aus welcher
+                       Welt die Zeile kommt. */
+                    +'" data-idart="'+esc(String(x.id_art||''))+'" style="flex:0 0 auto;border:1px solid '
                     +'var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);'
                     +'color:inherit;padding:4px 10px;font-size:12px;cursor:pointer">öffnen ›</button>'
-                : '')
+                /* Work #194: kein Knopf ist ehrlich, aber stumm. Wo ein Weg
+                   ABSICHTLICH fehlt, steht der Grund — sonst sieht es nach einem
+                   vergessenen Knopf aus. Gemessen: 59 von 63 Legacy-Zeilen sind im
+                   Canonical-Stamm gar nicht auffindbar. */
+                : (_AB_DRILL_WENN[x.kind]
+                    ? '<span style="flex:0 0 auto;font-size:11px;opacity:.55;'
+                        +'padding:5px 2px;white-space:nowrap" title="Diese Zutat hat noch '
+                        +'keinen Eintrag im Canonical-Stamm. Zuerst zuordnen oder anlegen, '
+                        +'dann bewerten.">noch nicht im Stamm</span>'
+                    : ''))
             +'</div>';
           }).join('')
       : '<div class="bleer">Diese Liste ist leer — die Zahl war 0 oder ist inzwischen abgearbeitet.</div>';
@@ -1597,7 +1737,8 @@ async function _abDrillOeffnen(key,titel){
     b.querySelectorAll('.abdrillgo').forEach(function(btn){
       btn.addEventListener('click',function(){
         var f=_AB_DRILL_ZIEL[btn.dataset.kind];
-        if(f) f({id:btn.dataset.id, kind:btn.dataset.kind, name:btn.dataset.name||''});
+        if(f) f({id:btn.dataset.id, kind:btn.dataset.kind, name:btn.dataset.name||'',
+                 id_art:btn.dataset.idart||''});
       });
     });
   }catch(e){
