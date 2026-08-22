@@ -1425,9 +1425,43 @@ function _abZutatImStammSuchen(name){
   try{ if(window._fgStamm) window._fgStamm.offset=0; }catch(e){}
   /* Der Alt-Tab kennt weder Lifecycle- noch Notenfilter. Steht er noch, wird auf
      "Neuer Stamm" zurueckgeschaltet — fgStammTab laedt selbst nach. */
-  if(window._fgStamm && window._fgStamm.tab!=='neu' && typeof fgStammTab==='function'){ fgStammTab('neu'); return true; }
-  if(typeof fgStammListe==='function'){ fgStammListe(); return true; }
-  return false;
+  if(window._fgStamm && window._fgStamm.tab!=='neu' && typeof fgStammTab==='function') fgStammTab('neu');
+  if(typeof fgStammListe!=='function') return false;
+  _abStammFilterDurchsetzen(n,0);
+  return true;
+}
+
+/* 🔴 AN DER LIVE-ABNAHME GEFUNDEN, 22.08.2026, Build 4356 — ein Wettlauf.
+   adminGo('stamm') baut ueber fgTab das Panel, und fgStammPanelBauen startet
+   dabei SELBST einen Listenlauf: mit noch leerem Suchfeld. Mein gefilterter Lauf
+   startete danach, war aber frueher fertig — der erste, ungefilterte Lauf kam
+   zuletzt zurueck und ueberschrieb die Trefferliste.
+   Gemessen am ausgelieferten Stand: Suchfeld stand auf "Säureregulator",
+   die Liste zeigte "1–100 von 944". Also genau die Haelfte des Arbeitswegs.
+
+   Ein Test, der _abZutatImStammSuchen EINZELN aufruft, kann das nicht finden:
+   es ist kein Fehler in der Funktion, sondern in der Reihenfolge zweier
+   Ladevorgaenge. Dieselbe Lehre wie am 15.08. — immer die Kette messen, nicht
+   den Einzelaufruf.
+
+   Behoben ohne zweiten Besitzer: es wird KEIN eigener Ladeweg gebaut. Es wird
+   gewartet, bis kein Lauf mehr offen ist (fgStammListe setzt waehrenddessen
+   .fgSwLad in die Tabelle), und dann genau einmal der vorhandene Weg gerufen. */
+function _abStammFilterDurchsetzen(n,versuch){
+  setTimeout(function(){
+    var box=document.getElementById('fgStTabelle');
+    /* Laeuft noch ein Ladevorgang? Dann warten — sonst ueberholt er uns wieder.
+       Deckel bei 40 Versuchen (rund 4 s): lieber ungefiltert anzeigen als eine
+       Schleife, die nie endet. */
+    if(box && box.querySelector('.fgSwLad') && versuch<40){
+      _abStammFilterDurchsetzen(n,versuch+1); return;
+    }
+    var feld=document.getElementById('fgStSuche'); if(!feld) return;
+    feld.value=n;
+    try{ if(window._fgStamm) window._fgStamm.offset=0; }catch(e){}
+    try{ if(typeof fgStammListe==='function') fgStammListe(); }
+    catch(e){ try{ console.warn('[Stammweg] Nachladen:',e); }catch(_){} }
+  },100);
 }
 if(typeof window!=='undefined') window._abZutatImStammSuchen=_abZutatImStammSuchen;
 
