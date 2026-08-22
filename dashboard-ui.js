@@ -1465,18 +1465,61 @@ function _abStammFilterDurchsetzen(n,versuch){
 }
 if(typeof window!=='undefined') window._abZutatImStammSuchen=_abZutatImStammSuchen;
 
+/* Zeigt EINEN Work-Eintrag in der Arbeit-Kachel. Kein zweites Fenster und keine
+   zweite Liste: die Kachel kann seit Work #199 filtern, also wird sie gefiltert.
+   Findet die Kachel sich nicht auf der Seite, passiert nichts — lieber nichts als
+   ein Sprung ins Leere (dieselbe Regel wie beim Stammweg). */
+function _abWorkAnzeigen(id){
+  var n=String(id==null?'':id).trim();
+  if(!n) return false;
+  try{ _abDrillZu(); }catch(e){}
+  if(typeof adminGo==='function') adminGo('dash');
+  var feld=document.getElementById('awfSuche');
+  if(!feld){ try{ console.warn('[Arbeitsweg] Arbeit-Kachel nicht auf der Seite'); }catch(_){} return false; }
+  _AB_WORK_FILTER={status:'',owner:'',bereich:'',prio:'',suche:n};
+  feld.value=n;
+  _abWorkFuellen(false);
+  try{ feld.scrollIntoView({block:'center'}); }catch(e){}
+  return true;
+}
+if(typeof window!=='undefined') window._abWorkAnzeigen=_abWorkAnzeigen;
+
+/* 🔴 DIESER KOMMENTAR STEHT BEWUSST AUSSERHALB DES OBJEKTS, 22.08.2026.
+   test-work121-cockpit.js schneidet Variablenbloecke aus dem Modul und hoert
+   nach 12 Zeilen auf zu suchen. Mein Kommentar IM Objekt hat es ueber diese
+   Grenze geschoben — der Schnitt endete mitten im Text und der Test stuerzte
+   mit "Invalid or unexpected token" ab. Zum zweiten Mal heute ein abgestuerzter
+   statt roter Test, und ein abgestuerzter hat gar nichts geprueft.
+   Merksatz: was zwischen `var X=` und dem abschliessenden `;` steht, bleibt kurz.
+
+   Work #199 — zwei Wege, die es SCHON GAB und die nur nicht angeschlossen
+   waren (§22). Gemessen am 22.08.:
+     kontakt   21 offene Produktwuensche. Ansicht fgPanelKontakt mit
+               cb_admin_kontakt_liste und cb_admin_kontakt_erledigt existiert
+               seit Langem. Nichts neu gebaut. In adminnav.js fehlte nur
+               'kontakt' in der Zielliste — adminGo lief in den else-Zweig und
+               rief navTo('kontakt'), eine Seite, die es nicht gibt.
+     work       7 Eintraege mit Entscheidungsbedarf. Seit heute zeigt die
+               Arbeit-Kachel ALLE aktiven Works; der Drill springt dorthin und
+               filtert auf die Nummer, statt eine zweite Liste aufzumachen.
+     zutat     fuehrt in die Canonical-Stammliste, gefiltert auf den NAMEN
+               (drei ID-Formen gemischt, siehe #190). Braucht r.name, das die
+               Zeile ueber data-name mitliefert.
+
+   OHNE WEG BLEIBEN: tagebuch_wunsch · riki · zusatzstoff. Sie bekommen keinen
+   Knopf, sondern nur die Zeile — ein Knopf, der nichts oeffnet, ist schlimmer
+   als eine Zahl ohne Knopf. Fuer zusatzstoff gibt es nur loadZusatzstoffeStamm
+   (Listenladen), keinen Einzelweg; das waere ein Neubau und ist nicht geprueft.
+   tagebuch_wunsch hat 51 offene Eintraege und serverseitig GAR KEINE RPC —
+   als Work Item an ChatGPT gegeben. */
 var _AB_DRILL_ZIEL={
   produkt: function(r){ if(typeof openFgEditor==='function'){ _abDrillZu(); openFgEditor(r.id); } },
   stamm:   function(){ if(typeof adminGo==='function'){ _abDrillZu(); adminGo('stamm'); } },
   scan:    function(){ if(typeof scanEingangOeffnen==='function'){ _abDrillZu(); scanEingangOeffnen(); } },
   scan_cache: function(){ if(typeof scanEingangOeffnen==='function'){ _abDrillZu(); scanEingangOeffnen(); } },
-  /* Work #190: fuehrt in die Canonical-Stammliste, gefiltert auf den Namen.
-     Braucht deshalb r.name — die Zeile liefert ihn ueber data-name. */
-  zutat:   function(r){ _abZutatImStammSuchen(r&&(r.name||r.id)); }
-  /* work · kontakt · tagebuch_wunsch · riki · zusatzstoff: im Frontend gibt es
-     dafuer heute keinen Weg. Sie bekommen deshalb keinen Knopf, sondern nur die
-     Zeile. Fuer zusatzstoff gibt es nur loadZusatzstoffeStamm (Listenladen),
-     keinen Einzelweg — das waere ein echter Neubau und ist nicht geprueft. */
+  zutat:   function(r){ _abZutatImStammSuchen(r&&(r.name||r.id)); },
+  kontakt: function(){ if(typeof adminGo==='function'){ _abDrillZu(); adminGo('kontakt'); } },
+  work:    function(r){ _abWorkAnzeigen(r&&r.id); }
 };
 
 function _abDrillBox(){
@@ -3386,50 +3429,80 @@ function _abZeile(l,v,f){
    sortiert und gefiltert. Vorher holte _abRalphLaden 200 Zeilen und filterte
    im Browser — genau die „Browserzaehlung aus Rohdaten", die der Auftrag
    ausdruecklich verbietet. */
-function _abkAufgaben(c){
-  var ck=_abCkKarte('aufgaben');
-  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+/* Die Filterleiste. 🔴 KORREKTUR 22.08.2026 nach Ralphs Screenshot: sie wurde
+   bisher EINMAL beim Kachelaufbau gebaut — zu einem Zeitpunkt, an dem die Liste
+   noch gar nicht geladen war. Danach fuellte _abWorkFuellen nur die Zeilen nach.
+   Folge: die Statuschips blieben fuer immer auf dem leeren Erststand stehen,
+   sichtbar als einzelnes "Alle" ohne Zahl. Ein Zaehler, der nie nachgezogen
+   wird, ist schlimmer als keiner — er behauptet einen Stand.
+   Jetzt wird die Leiste bei JEDER Fuellung mit erneuert. */
+function _abWorkFilterleiste(){
+  var alle=_AB_WORK||[], f=_AB_WORK_FILTER;
+  var zaehl={}, bereiche=[], owner=[], gb={}, go={};
+  alle.forEach(function(w){
+    zaehl[w.status]=(zaehl[w.status]||0)+1;
+    var b=w.bereich||'—'; if(!gb[b]){ gb[b]=1; bereiche.push(b); }
+    var o=w.owner_agent||'—'; if(!go[o]){ go[o]=1; owner.push(o); }
+  });
+  bereiche.sort(); owner.sort();
 
-  /* Die Filterleiste wird HIER gebaut, die Zeilen fuellt _abWorkFuellen nach.
-     Grund: die Kachel wird als Zeichenkette zusammengesetzt, die Liste haengt
-     aber an einem Serverabruf. Zwei Takte, eine Kachel. */
-  var zaehlung={}, alle=_AB_WORK||[];
-  alle.forEach(function(w){ zaehlung[w.status]=(zaehlung[w.status]||0)+1; });
-  var bereiche=[], gesehen={};
-  alle.forEach(function(w){ var k=w.bereich||'—'; if(!gesehen[k]){ gesehen[k]=1; bereiche.push(k); } });
-  bereiche.sort();
-
-  var chips='<button type="button" class="awchip'+(_AB_WORK_FILTER.status?'':' akt')+'" data-status="">'
+  var chips='<button type="button" class="awchip'+(f.status?'':' akt')+'" data-status="">'
     +'Alle'+(alle.length?' <b>'+alle.length+'</b>':'')+'</button>'
-    + _AB_WORK_STATUS.filter(function(st){ return zaehlung[st.id]; }).map(function(st){
-        return '<button type="button" class="awchip'+(_AB_WORK_FILTER.status===st.id?' akt':'')+'" '
+    + _AB_WORK_STATUS.filter(function(st){ return zaehl[st.id]; }).map(function(st){
+        return '<button type="button" class="awchip'+(f.status===st.id?' akt':'')+'" '
           +'data-status="'+esc(st.id)+'" style="border-left:3px solid '+st.farbe+'">'
-          +esc(st.wort)+' <b>'+zaehlung[st.id]+'</b></button>';
+          +esc(st.wort)+' <b>'+zaehl[st.id]+'</b></button>';
       }).join('');
 
+  /* 🔴 Die Auswahl "Zustaendig" kam bisher aus _AB_WORK_OWNER — das ist die
+     Liste der Werte, die der SERVER beim ZUWEISEN erlaubt, nicht die Liste der
+     Werte, die es in den Daten GIBT. Ralph hat "ralph" gewaehlt und bekam
+     "0 von 97": keinem Eintrag gehoert ihm. Ein Filter, der garantiert nichts
+     findet, ist eine Attrappe. Er wird jetzt aus den Daten gebaut — dieselbe
+     Regel, die fuer Bereich schon galt.
+     Beim ZUWEISEN bleibt _AB_WORK_OWNER richtig: dort geht es darum, wem man
+     etwas geben DARF, nicht wer schon etwas hat. */
   var sel=function(id,wert,liste,vorgabe){
     return '<select id="'+id+'" class="awsel"><option value="">'+esc(vorgabe)+'</option>'
       +liste.map(function(o){ return '<option value="'+esc(o)+'"'+(wert===o?' selected':'')+'>'+esc(o)+'</option>'; }).join('')
       +'</select>';
   };
+  /* Prioritaetsfilter (Ralph 22.08.: "ein filter nach prio waere nett").
+     Drei Stufen statt einer Zahl zum Eintippen — die Grenzen sind dieselben,
+     nach denen die Zeile ihre Prioritaet einfaerbt. Eine zweite Einteilung
+     waere eine zweite Wahrheit. Die Zahl in Klammern sagt, wie viele es sind. */
+  var pz={hoch:0,mittel:0,normal:0};
+  alle.forEach(function(w){ var p=Number(w.priority)||0;
+    if(p>=90) pz.hoch++; else if(p>=60) pz.mittel++; else pz.normal++; });
+  var prioSel='<select id="awfPrio" class="awsel">'
+    +'<option value="">Priorität: alle</option>'
+    +'<option value="hoch"'  +(f.prio==='hoch'  ?' selected':'')+'>ab 90 — sehr hoch ('+pz.hoch+')</option>'
+    +'<option value="mittel"'+(f.prio==='mittel'?' selected':'')+'>60–89 — hoch ('+pz.mittel+')</option>'
+    +'<option value="normal"'+(f.prio==='normal'?' selected':'')+'>unter 60 ('+pz.normal+')</option>'
+    +'</select>';
 
-  /* Nach dem Einsetzen der Kachel die Zeilen nachfuellen. setTimeout(0), weil
-     das Markup in diesem Augenblick noch eine Zeichenkette ist und #awBody
-     erst existiert, wenn der Bento-Aufbau sie eingesetzt hat. */
+  return '<div class="awfilter">'+chips+'</div>'
+    +'<div class="awfilter2">'
+      + sel('awfOwner',f.owner,owner,'Zuständig: alle')
+      + prioSel
+      + sel('awfBereich',f.bereich,bereiche,'Bereich: alle')
+      +'<input id="awfSuche" class="awsuche" placeholder="Nummer oder Titel …" value="'+esc(f.suche)+'">'
+      +'<button type="button" id="awfWeg" class="awsel" style="cursor:pointer" title="Filter zurücksetzen">×</button>'
+    +'</div>';
+}
+
+function _abkAufgaben(c){
+  var ck=_abCkKarte('aufgaben');
+  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+  /* Nach dem Einsetzen der Kachel Leiste und Zeilen nachfuellen. setTimeout(0),
+     weil das Markup in diesem Augenblick noch eine Zeichenkette ist. */
   try{ setTimeout(function(){ _abWorkFuellen(false); },0); }catch(e){}
-
   return {
     tag:'<span class="abtag" style="background:'+((Number(ck.bei_ralph)||0)>0?'#fdf1f1':'#eef0f4')
       +';color:'+((Number(ck.bei_ralph)||0)>0?_AB.krit:_AB.mut)+'">'
       +(Number(ck.bei_ralph)||0)+' bei dir</span>',
     inhalt:'<div class="awk" id="awKachel">'
-      +'<div class="awfilter">'+chips+'</div>'
-      +'<div class="awfilter2">'
-        + sel('awfOwner',_AB_WORK_FILTER.owner,_AB_WORK_OWNER,'Zuständig: alle')
-        + sel('awfBereich',_AB_WORK_FILTER.bereich,bereiche,'Bereich: alle')
-        +'<input id="awfSuche" class="awsuche" placeholder="Nummer oder Titel …" value="'+esc(_AB_WORK_FILTER.suche)+'">'
-        +'<button type="button" id="awfWeg" class="awsel" style="cursor:pointer">×</button>'
-      +'</div>'
+      +'<div id="awFilter">'+_abWorkFilterleiste()+'</div>'
       +'<div class="awliste bscroll" id="awBody"><div class="blade">lädt…</div></div>'
     +'</div>',
     fuss:'<span id="awStand">lädt…</span> · jede Zeile lässt sich hier ändern · lädt alle 60 s nach'
@@ -3468,7 +3541,7 @@ function _abCkStatusWort(s){
    ein Leck an Rechenzeit, das niemandem auffaellt.
    ========================================================================== */
 var _AB_WORK=null, _AB_WORK_FEHLER=null, _AB_WORK_STAND=null, _AB_WORK_TAKT=null;
-var _AB_WORK_FILTER={status:'', owner:'', bereich:'', suche:''};
+var _AB_WORK_FILTER={status:'', owner:'', bereich:'', prio:'', suche:''};
 
 /* Reihenfolge, Wort und Farbe je Status — an EINER Stelle. Die Farben kommen aus
    dem vorhandenen _AB-Satz, damit die Tafel nicht ihre eigene Palette aufmacht. */
@@ -3528,6 +3601,12 @@ function _abWorkGefiltert(){
     if(f.status  && w.status!==f.status) return false;
     if(f.owner   && (w.owner_agent||'')!==f.owner) return false;
     if(f.bereich && (w.bereich||'—')!==f.bereich) return false;
+    if(f.prio){
+      var pw=Number(w.priority)||0;
+      if(f.prio==='hoch'   && pw<90) return false;
+      if(f.prio==='mittel' && (pw<60 || pw>=90)) return false;
+      if(f.prio==='normal' && pw>=60) return false;
+    }
     if(q){
       var heu=('#'+w.work_id+' '+(w.title||'')+' '+(w.area||'')+' '+(w.bereich||'')).toLowerCase();
       if(heu.indexOf(q)<0) return false;
@@ -3572,6 +3651,19 @@ async function _abWorkFuellen(neuLaden){
   body.innerHTML = zeilen.length
     ? zeilen.map(_abWorkZeile).join('')
     : '<div class="bleer">Kein Eintrag passt zu diesem Filter.</div>';
+  /* Die Leiste wird MIT erneuert — sonst bleiben die Zaehler auf dem leeren
+     Erststand stehen (Ralphs Screenshot vom 22.08.). Wer gerade im Suchfeld
+     tippt, bekommt seinen Platz zurueck: ohne das springt der Cursor weg. */
+  var leiste=document.getElementById('awFilter');
+  if(leiste){
+    var war=document.activeElement, warSuche=war && war.id==='awfSuche';
+    var pos=warSuche? war.selectionStart : null;
+    leiste.innerHTML=_abWorkFilterleiste();
+    if(warSuche){
+      var neuF=document.getElementById('awfSuche');
+      if(neuF){ neuF.focus(); try{ neuF.setSelectionRange(pos,pos); }catch(e){} }
+    }
+  }
   _abWorkCss();
   _abWorkKopfSetzen(zeilen.length);
   _abWorkHorcher();
@@ -3713,20 +3805,17 @@ function _abWorkHorcher(){
   t.querySelectorAll('.awchip').forEach(function(c){
     c.addEventListener('click',function(){
       _AB_WORK_FILTER.status=c.dataset.status||'';
-      /* Die Chips stehen AUSSERHALB der Liste. Sie hier selbst umzuschalten ist
-         billiger und ruhiger, als die ganze Kachel neu zu bauen — und der
-         Bento-Aufbau wuerde dabei auch die Nachbarkacheln anfassen. */
-      t.querySelectorAll('.awchip').forEach(function(x){
-        x.classList.toggle('akt',(x.dataset.status||'')===_AB_WORK_FILTER.status); });
-      _abWorkFuellen(false);
+      _abWorkFuellen(false);   /* zeichnet Leiste UND Zeilen, Zaehler bleiben echt */
     });
   });
+  var pr=t.querySelector('#awfPrio');
+  if(pr) pr.addEventListener('change',function(){ _AB_WORK_FILTER.prio=pr.value; _abWorkFuellen(false); });
   var o=t.querySelector('#awfOwner'), br=t.querySelector('#awfBereich'),
       s=t.querySelector('#awfSuche'), weg=t.querySelector('#awfWeg');
   if(o)  o.addEventListener('change',function(){ _AB_WORK_FILTER.owner=o.value; _abWorkFuellen(false); });
   if(br) br.addEventListener('change',function(){ _AB_WORK_FILTER.bereich=br.value; _abWorkFuellen(false); });
   if(weg)weg.addEventListener('click',function(){
-    _AB_WORK_FILTER={status:'',owner:'',bereich:'',suche:''}; _abWorkFuellen(false); });
+    _AB_WORK_FILTER={status:'',owner:'',bereich:'',prio:'',suche:''}; _abWorkFuellen(false); });
   if(s){
     /* Beim Tippen NICHT neu zeichnen — das nimmt den Fokus aus dem Feld.
        Erst beim Loslassen der Taste, und der Fokus wird danach zurueckgeholt. */

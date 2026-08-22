@@ -168,7 +168,12 @@ function adminDrawerClose(){ var d=document.getElementById('adminDrawer'),s=docu
 if(typeof window!=='undefined'){ window.adminDrawerToggle=adminDrawerToggle; window.adminDrawerClose=adminDrawerClose; }
 
 function adminGo(k){
-  const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1};
+  /* 🔴 22.08.2026, Work #199: 'kontakt' fehlte hier. fgTab kennt das Panel
+     (kontakt:'fgPanelKontakt'), adminGo aber nicht — es fiel in den else-Zweig
+     und rief navTo('kontakt'), eine Seite, die es nicht gibt. Aufgefallen beim
+     Anschliessen des Drills: 21 Produktwuensche warten, die Ansicht dafuer gibt
+     es seit Langem, nur der Weg dorthin ging ins Leere. */
+  const fg={dash:1,scans:1,bundles:1,rezepte:1,empfehlungen:1,zuverif:1,regelwerk:1,produkterfassung:1,kontakt:1};
   if(k==='stamm'){ try{ navTo('freigabe'); }catch(e){} try{ fgTab('stamm'); }catch(e){} return; }
   if(fg[k]){ try{ navTo('freigabe'); }catch(e){} try{ fgTab(k); }catch(e){} }
   else { try{ navTo(k); }catch(e){} }
