@@ -3769,7 +3769,16 @@ function _abWorkCss(){
      Die Kachel behaelt die Hoehe aller anderen (Ralph 15.08.) und scrollt in
      sich — .bscroll gab es schon. */
   var A='#fgDash .awk';
-  var css=A+'{display:flex;flex-direction:column;min-height:0;height:100%;font-size:12.5px}'
+  var css=A+'{display:flex;flex-direction:column;min-height:0;height:100%;font-size:12.5px;'
+    /* 🔴 An der Abnahme von 4360 im Browser gemessen: die ganze Liste war
+       UNSICHTBAR. Nicht leer — die Zeilen standen da, in richtiger Farbe und
+       an richtiger Stelle, aber UNTER dem weissen Verlauf der Kachel.
+       Ursache: .bkopf/.bleib/.bfuss tragen position:relative und z-index:2,
+       der Schleier liegt auf z-index:1. Mein eigener Kasten stand auf
+       position:static und damit darunter. Ich hatte .bleib durch einen
+       eigenen Kasten ersetzt und dabei uebersehen, was .bleib mitbringt.
+       Lehre: wer eine vorhandene Huelle ersetzt, uebernimmt ihre Pflichten. */
+    +'position:relative;z-index:2}'
    +A+' *{box-sizing:border-box}'
    +A+' .awfilter{display:flex;gap:4px;flex-wrap:wrap;padding:8px 12px 0;flex:0 0 auto}'
    +A+' .awfilter2{display:flex;gap:5px;flex-wrap:wrap;padding:6px 12px 7px;flex:0 0 auto}'
