@@ -3389,40 +3389,50 @@ function _abZeile(l,v,f){
 function _abkAufgaben(c){
   var ck=_abCkKarte('aufgaben');
   if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
-  var top=ck.top||[];
-  var jh=top.length
-    ? top.slice(0,5).map(function(x){
-        var l=_AB_RALPH_LAGE[x.status]||(x.decision_needed===true
-              ? {t:'Du entscheidest', f:'krit'} : {t:_abCkStatusWort(x.status), f:'zu'});
-        return '<div class="brz" data-work="'+esc(String(x.work_id))+'" title="'+esc(x.title||'')+'">'
-          +'<span class="brn">#'+esc(String(x.work_id))+'</span>'
-          +'<span class="brt"><span class="b1">'+esc(_abRalphKurz(x.title))+'</span>'
-          +'<span class="b2">'+esc(l.t)+' · '+esc(x.owner_agent||'')+'</span></span>'
-          +'<span class="brp '+l.f+'"></span></div>';
-      }).join('')
-    : '<div class="bleer">Nichts wartet auf dich — alles abgearbeitet.</div>';
-  var w=function(v){ return (Number(v)||0)>0 ? _AB.warn : null; };
+
+  /* Die Filterleiste wird HIER gebaut, die Zeilen fuellt _abWorkFuellen nach.
+     Grund: die Kachel wird als Zeichenkette zusammengesetzt, die Liste haengt
+     aber an einem Serverabruf. Zwei Takte, eine Kachel. */
+  var zaehlung={}, alle=_AB_WORK||[];
+  alle.forEach(function(w){ zaehlung[w.status]=(zaehlung[w.status]||0)+1; });
+  var bereiche=[], gesehen={};
+  alle.forEach(function(w){ var k=w.bereich||'—'; if(!gesehen[k]){ gesehen[k]=1; bereiche.push(k); } });
+  bereiche.sort();
+
+  var chips='<button type="button" class="awchip'+(_AB_WORK_FILTER.status?'':' akt')+'" data-status="">'
+    +'Alle'+(alle.length?' <b>'+alle.length+'</b>':'')+'</button>'
+    + _AB_WORK_STATUS.filter(function(st){ return zaehlung[st.id]; }).map(function(st){
+        return '<button type="button" class="awchip'+(_AB_WORK_FILTER.status===st.id?' akt':'')+'" '
+          +'data-status="'+esc(st.id)+'" style="border-left:3px solid '+st.farbe+'">'
+          +esc(st.wort)+' <b>'+zaehlung[st.id]+'</b></button>';
+      }).join('');
+
+  var sel=function(id,wert,liste,vorgabe){
+    return '<select id="'+id+'" class="awsel"><option value="">'+esc(vorgabe)+'</option>'
+      +liste.map(function(o){ return '<option value="'+esc(o)+'"'+(wert===o?' selected':'')+'>'+esc(o)+'</option>'; }).join('')
+      +'</select>';
+  };
+
+  /* Nach dem Einsetzen der Kachel die Zeilen nachfuellen. setTimeout(0), weil
+     das Markup in diesem Augenblick noch eine Zeichenkette ist und #awBody
+     erst existiert, wenn der Bento-Aufbau sie eingesetzt hat. */
+  try{ setTimeout(function(){ _abWorkFuellen(false); },0); }catch(e){}
+
   return {
     tag:'<span class="abtag" style="background:'+((Number(ck.bei_ralph)||0)>0?'#fdf1f1':'#eef0f4')
       +';color:'+((Number(ck.bei_ralph)||0)>0?_AB.krit:_AB.mut)+'">'
       +(Number(ck.bei_ralph)||0)+' bei dir</span>',
-    inhalt:'<div class="bleib"><div class="bralph">'+jh+'</div>'
-      +'<div style="margin-top:8px">'
-        + _abCkZeile('wartet auf Abnahme',   ck.wartet_abnahme,       ck.drill_key)
-        + _abCkZeile('blockiert oder Streit',ck.blockiert_oder_streit,ck.drill_key, w(ck.blockiert_oder_streit))
-        + _abCkZeile('länger als 24 h in Arbeit', ck.in_arbeit_alt_24h, ck.drill_key)
-      +'</div></div>',
-    /* Work #199: der Weg in die volle Liste. Bis hierher zeigte die Kachel
-       hoechstens 6 Eintraege und der Fuss versprach "die volle Liste" — die es
-       nirgends gab. Jetzt fuehrt der Knopf in die Arbeitstafel mit allen
-       aktiven Eintraegen, Filtern und dem Weg zum Entscheiden.
-       Kein inline-Wert im onclick: die Funktion nimmt keine Daten entgegen,
-       damit kann auch kein Titel mit Apostroph etwas zerreissen (Lehre #190). */
-    fuss:'<button type="button" onclick="_abWorkTafelOeffnen()" '
-      +'style="border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--card,#fff);'
-      +'color:inherit;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer">'
-      +'Alle Aufgaben öffnen ›</button>'
-      +(top.length>5 ? ' <span style="opacity:.75">'+(top.length-5)+' weitere warten auf dich</span>' : '')
+    inhalt:'<div class="awk" id="awKachel">'
+      +'<div class="awfilter">'+chips+'</div>'
+      +'<div class="awfilter2">'
+        + sel('awfOwner',_AB_WORK_FILTER.owner,_AB_WORK_OWNER,'Zuständig: alle')
+        + sel('awfBereich',_AB_WORK_FILTER.bereich,bereiche,'Bereich: alle')
+        +'<input id="awfSuche" class="awsuche" placeholder="Nummer oder Titel …" value="'+esc(_AB_WORK_FILTER.suche)+'">'
+        +'<button type="button" id="awfWeg" class="awsel" style="cursor:pointer">×</button>'
+      +'</div>'
+      +'<div class="awliste bscroll" id="awBody"><div class="blade">lädt…</div></div>'
+    +'</div>',
+    fuss:'<span id="awStand">lädt…</span> · jede Zeile lässt sich hier ändern · lädt alle 60 s nach'
   };
 }
 
@@ -3530,103 +3540,67 @@ function _abWorkGefiltert(){
   });
 }
 
-/* ---- Die Tafel ----------------------------------------------------------- */
-function _abWorkTafel(){
-  var b=document.getElementById('abWorkTafel');
-  if(b) return b;
-  b=document.createElement('div');
-  b.id='abWorkTafel';
-  b.style.cssText='position:fixed;inset:0;z-index:9100;display:none;'
-    +'background:rgba(15,23,32,.42);backdrop-filter:blur(2px)';
-  b.addEventListener('click',function(e){ if(e.target===b) _abWorkTafelZu(); });
-  document.body.appendChild(b);
-  return b;
-}
-function _abWorkTafelZu(){
-  var b=document.getElementById('abWorkTafel'); if(b) b.style.display='none';
-  /* Der Takt laeuft NUR, solange die Tafel offen ist. */
-  if(_AB_WORK_TAKT){ clearInterval(_AB_WORK_TAKT); _AB_WORK_TAKT=null; }
-}
-async function _abWorkTafelOeffnen(){
-  var b=_abWorkTafel();
-  b.style.display='block';
-  if(!_AB_WORK) b.innerHTML=_abWorkRahmen('<div class="blade">lädt…</div>');
-  await _abWorkLaden();
-  _abWorkZeichnen();
-  if(_AB_WORK_TAKT) clearInterval(_AB_WORK_TAKT);
-  /* Stiller Abruf alle 60 s (Ralph-Entscheid statt Realtime). Still heisst:
-     er zeichnet nur neu, wenn gerade kein Auswahlfeld offen ist — sonst
-     verschwindet die Zeile unter Ralphs Cursor, waehrend er entscheidet. */
-  _AB_WORK_TAKT=setInterval(async function(){
-    var t=document.getElementById('abWorkTafel');
-    if(!t || t.style.display==='none'){ clearInterval(_AB_WORK_TAKT); _AB_WORK_TAKT=null; return; }
-    if(document.querySelector('#abWorkTafel .awoffen')) return;   /* jemand entscheidet gerade */
-    await _abWorkLaden(); _abWorkZeichnen();
-  },60000);
-}
-function _abWorkRahmen(inhalt){
-  return '<div style="position:absolute;right:0;top:0;bottom:0;width:min(1080px,97vw);'
-    +'background:var(--card,#fff);color:var(--ink,#1b2733);box-shadow:-8px 0 28px rgba(0,0,0,.22);'
-    +'display:flex;flex-direction:column">'+inhalt+'</div>';
-}
+/* ---- Die Liste STECKT IN DER KACHEL --------------------------------------
+   🔴 KORREKTUR 22.08.2026, Ralph: „warum geht arbeit nicht in der vorhandenen
+   liste und oeffnet ein neues fenster an der seite? ich wollte es direkt in der
+   vorhandenen liste haben."
+   Er hat recht, und der Fehler war meiner: sein Auftrag hiess „in die Arbeit-
+   Liste", ich habe daraus eine eigene Flaeche gemacht, weil ich 124 Zeilen in
+   einer 700x250-Kachel fuer unmoeglich hielt. Das war eine Entscheidung, die
+   mir nicht zustand — ich haette fragen muessen statt umzubauen.
+   Geloest ohne das Platzproblem zu leugnen: die Liste sitzt IN der Kachel und
+   scrollt in sich (.bscroll gab es schon, §22). Wer mehr sehen will, zieht die
+   Kachel im Anordnen-Modus groesser — dieser Weg ist gebaut und bleibt Ralphs.
+   Die Kachelhoehe bleibt die gleiche wie bei allen anderen (Ralph 15.08.:
+   „und die kasten selbe hoehe"). Zwei Ralph-Entscheide, beide eingehalten. */
 
-function _abWorkZeichnen(){
-  var b=document.getElementById('abWorkTafel'); if(!b || b.style.display==='none') return;
+/* Fuellt NUR den Listenteil der Kachel. Ein Filterklick zeichnet damit nicht das
+   ganze Dashboard neu — und verliert auch nicht die Position der anderen Kacheln. */
+async function _abWorkFuellen(neuLaden){
+  var body=document.getElementById('awBody');
+  if(!body) return;                       /* Kachel gerade nicht auf der Seite */
+  if(neuLaden || (!_AB_WORK && !_AB_WORK_FEHLER)){
+    if(!_AB_WORK) body.innerHTML='<div class="blade">lädt…</div>';
+    await _abWorkLaden();
+    body=document.getElementById('awBody'); if(!body) return;
+  }
   if(_AB_WORK_FEHLER){
-    b.innerHTML=_abWorkRahmen('<div style="padding:16px"><div class="bfehl"><b>Liste nicht ladbar.</b><br>'
-      +esc(_AB_WORK_FEHLER)+'</div><button type="button" onclick="_abWorkTafelOeffnen()" '
-      +'style="margin-top:10px;padding:7px 13px;border:1px solid var(--line,#dbe3ea);border-radius:8px;'
-      +'background:var(--bg,#f4f6f8);color:inherit;cursor:pointer">↻ Nochmal</button></div>');
+    body.innerHTML='<div class="bfehl"><b>Liste nicht ladbar.</b><br>'+esc(_AB_WORK_FEHLER)+'</div>';
     return;
   }
-  var alle=_AB_WORK||[], zeilen=_abWorkGefiltert();
-
-  /* Auswahllisten aus den DATEN, nicht aus einer gepflegten Liste im Code. */
-  var bereiche=[], gesehen={};
-  alle.forEach(function(w){ var k=w.bereich||'—'; if(!gesehen[k]){ gesehen[k]=1; bereiche.push(k); } });
-  bereiche.sort();
-  var zaehlung={}; alle.forEach(function(w){ zaehlung[w.status]=(zaehlung[w.status]||0)+1; });
-
-  var chips='<button type="button" class="awchip'+(_AB_WORK_FILTER.status?'':' akt')+'" data-status="">'
-    +'Alle <b>'+alle.length+'</b></button>'
-    + _AB_WORK_STATUS.filter(function(s){ return zaehlung[s.id]; }).map(function(s){
-        return '<button type="button" class="awchip'+(_AB_WORK_FILTER.status===s.id?' akt':'')+'" '
-          +'data-status="'+esc(s.id)+'" style="border-left:3px solid '+s.farbe+'">'
-          +esc(s.wort)+' <b>'+zaehlung[s.id]+'</b></button>';
-      }).join('');
-
-  var sel=function(id,wert,liste,vorgabe){
-    return '<select id="'+id+'" class="awsel"><option value="">'+esc(vorgabe)+'</option>'
-      +liste.map(function(o){ return '<option value="'+esc(o)+'"'+(wert===o?' selected':'')+'>'+esc(o)+'</option>'; }).join('')
-      +'</select>';
-  };
-
-  var kopf='<div class="awkopf">'
-    +'<b style="font-size:15px">Arbeit</b>'
-    +'<span class="awst">'+zeilen.length+' von '+alle.length+' aktiven Aufgaben'
-      +(_AB_WORK_STAND?' · Stand '+_AB_WORK_STAND.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'')
-      +' · lädt sich alle 60 s selbst nach</span>'
-    +'<button type="button" onclick="_abWorkTafelZu()" class="awzu">Schließen ✕</button>'
-  +'</div>'
-  +'<div class="awfilter">'+chips+'</div>'
-  +'<div class="awfilter2">'
-    + sel('awfOwner',_AB_WORK_FILTER.owner,_AB_WORK_OWNER,'Zuständig: alle')
-    + sel('awfBereich',_AB_WORK_FILTER.bereich,bereiche,'Bereich: alle')
-    +'<input id="awfSuche" class="awsuche" placeholder="Nummer oder Titel suchen …" value="'+esc(_AB_WORK_FILTER.suche)+'">'
-    +'<button type="button" id="awfWeg" class="awsel" style="cursor:pointer">Filter zurücksetzen</button>'
-  +'</div>';
-
-  var liste=zeilen.length
+  var zeilen=_abWorkGefiltert();
+  body.innerHTML = zeilen.length
     ? zeilen.map(_abWorkZeile).join('')
     : '<div class="bleer">Kein Eintrag passt zu diesem Filter.</div>';
-
-  document.getElementById('abWorkTafel').innerHTML=_abWorkRahmen(
-    '<div class="aw">'+kopf+'<div class="awliste">'+liste+'</div></div>');
   _abWorkCss();
+  _abWorkKopfSetzen(zeilen.length);
   _abWorkHorcher();
+  _abWorkTakt();
 }
 
-/* Eine Zeile: Nummer · Titel · Status farbig · Zustaendig · Prio · Alter · Ändern */
+/* Die Zeile ueber der Liste sagt, wie viele von wie vielen gerade zu sehen sind. */
+function _abWorkKopfSetzen(sichtbar){
+  var el=document.getElementById('awStand'); if(!el) return;
+  var ganz=(_AB_WORK||[]).length;
+  el.textContent = sichtbar===ganz
+    ? (ganz+' aktive Aufgaben')
+    : (sichtbar+' von '+ganz+' aktiven Aufgaben');
+}
+
+/* Der 60-Sekunden-Takt (Ralph-Entscheid statt Realtime, weil in der Tabelle
+   interne Befundtexte stehen). Zwei Bremsen, beide absichtlich:
+   er haelt an, sobald die Kachel nicht mehr auf der Seite ist, und er zeichnet
+   nicht, solange ein Formular offen ist — sonst rutscht die Zeile unter dem
+   Cursor weg, waehrend Ralph entscheidet. */
+function _abWorkTakt(){
+  if(_AB_WORK_TAKT) return;
+  _AB_WORK_TAKT=setInterval(function(){
+    if(!document.getElementById('awBody')){ clearInterval(_AB_WORK_TAKT); _AB_WORK_TAKT=null; return; }
+    if(document.querySelector('#awBody .awoffen')) return;
+    _abWorkFuellen(true);
+  },60000);
+}
+
 function _abWorkZeile(w){
   var s=_abWorkStatus(w.status);
   var prio=(w.priority==null?'–':w.priority);
@@ -3683,7 +3657,7 @@ function _abWorkPanel(id){
 }
 
 async function _abWorkSpeichern(id, was){
-  var wrap=document.querySelector('#abWorkTafel .awpanel[data-panel="'+CSS.escape(String(id))+'"]');
+  var wrap=document.querySelector('#awBody .awpanel[data-panel="'+CSS.escape(String(id))+'"]');
   if(!wrap) return;
   var g=function(f){ var el=wrap.querySelector('[data-f="'+f+'"]'); return el?el.value:''; };
   var msg=wrap.querySelector('[data-msg]');
@@ -3725,7 +3699,7 @@ async function _abWorkSpeichern(id, was){
     /* Neu LADEN statt die Zeile im Browser zu korrigieren: was in der Datenbank
        steht, ist die Wahrheit — auch wenn der Server etwas anderes daraus
        gemacht hat, als das Formular vorschlug (§server_ssot). */
-    await _abWorkLaden(); _abWorkZeichnen();
+    await _abWorkFuellen(true);
     try{ _abCockpitHolen(true); }catch(e){}
   }catch(e){
     sagen((e&&e.message)||String(e), _AB.krit);
@@ -3735,16 +3709,24 @@ async function _abWorkSpeichern(id, was){
 }
 
 function _abWorkHorcher(){
-  var t=document.getElementById('abWorkTafel'); if(!t) return;
+  var t=document.getElementById('awKachel'); if(!t) return;
   t.querySelectorAll('.awchip').forEach(function(c){
-    c.addEventListener('click',function(){ _AB_WORK_FILTER.status=c.dataset.status||''; _abWorkZeichnen(); });
+    c.addEventListener('click',function(){
+      _AB_WORK_FILTER.status=c.dataset.status||'';
+      /* Die Chips stehen AUSSERHALB der Liste. Sie hier selbst umzuschalten ist
+         billiger und ruhiger, als die ganze Kachel neu zu bauen — und der
+         Bento-Aufbau wuerde dabei auch die Nachbarkacheln anfassen. */
+      t.querySelectorAll('.awchip').forEach(function(x){
+        x.classList.toggle('akt',(x.dataset.status||'')===_AB_WORK_FILTER.status); });
+      _abWorkFuellen(false);
+    });
   });
   var o=t.querySelector('#awfOwner'), br=t.querySelector('#awfBereich'),
       s=t.querySelector('#awfSuche'), weg=t.querySelector('#awfWeg');
-  if(o)  o.addEventListener('change',function(){ _AB_WORK_FILTER.owner=o.value; _abWorkZeichnen(); });
-  if(br) br.addEventListener('change',function(){ _AB_WORK_FILTER.bereich=br.value; _abWorkZeichnen(); });
+  if(o)  o.addEventListener('change',function(){ _AB_WORK_FILTER.owner=o.value; _abWorkFuellen(false); });
+  if(br) br.addEventListener('change',function(){ _AB_WORK_FILTER.bereich=br.value; _abWorkFuellen(false); });
   if(weg)weg.addEventListener('click',function(){
-    _AB_WORK_FILTER={status:'',owner:'',bereich:'',suche:''}; _abWorkZeichnen(); });
+    _AB_WORK_FILTER={status:'',owner:'',bereich:'',suche:''}; _abWorkFuellen(false); });
   if(s){
     /* Beim Tippen NICHT neu zeichnen — das nimmt den Fokus aus dem Feld.
        Erst beim Loslassen der Taste, und der Fokus wird danach zurueckgeholt. */
@@ -3752,8 +3734,8 @@ function _abWorkHorcher(){
     s.addEventListener('input',function(){
       clearTimeout(tmr);
       tmr=setTimeout(function(){
-        _AB_WORK_FILTER.suche=s.value; _abWorkZeichnen();
-        var n=document.querySelector('#abWorkTafel #awfSuche');
+        _AB_WORK_FILTER.suche=s.value; _abWorkFuellen(false);
+        var n=document.querySelector('#awKachel #awfSuche');
         if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); }
       },300);
     });
@@ -3781,47 +3763,51 @@ function _abWorkHorcher(){
 
 function _abWorkCss(){
   if(document.getElementById('abWorkCss')) return;
-  var A='#abWorkTafel .aw';
-  var css=A+'{display:flex;flex-direction:column;height:100%;font-size:13.5px}'
+  /* Eng gebaut, weil die Liste IN der Kachel sitzt (Ralph 22.08.) und nicht in
+     einer eigenen Flaeche. Alles, was Platz kostet und nichts erklaert, ist
+     raus: kein Rahmen um die Zeile, kein Innenabstand, kleinere Schrift.
+     Die Kachel behaelt die Hoehe aller anderen (Ralph 15.08.) und scrollt in
+     sich — .bscroll gab es schon. */
+  var A='#fgDash .awk';
+  var css=A+'{display:flex;flex-direction:column;min-height:0;height:100%;font-size:12.5px}'
    +A+' *{box-sizing:border-box}'
-   +A+' .awkopf{display:flex;align-items:center;gap:11px;padding:13px 16px;border-bottom:1px solid var(--line,#dbe3ea);flex:0 0 auto}'
-   +A+' .awst{font-size:11.5px;color:var(--muted,#6b7480)}'
-   +A+' .awzu{margin-left:auto;border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);color:inherit;padding:5px 11px;font-size:12.5px;cursor:pointer}'
-   +A+' .awfilter{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 0;flex:0 0 auto}'
-   +A+' .awfilter2{display:flex;gap:8px;flex-wrap:wrap;padding:9px 16px 11px;border-bottom:1px solid var(--line,#dbe3ea);flex:0 0 auto}'
-   +A+' .awchip{border:1px solid var(--line,#dbe3ea);border-radius:999px;background:var(--card,#fff);color:inherit;padding:4px 11px;font-size:12px;cursor:pointer}'
-   +A+' .awchip.akt{background:var(--ink,#1b2733);color:#fff;border-color:var(--ink,#1b2733)}'
-   +A+' .awchip b{font-weight:800;margin-left:3px}'
-   +A+' .awsel{border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--card,#fff);color:inherit;padding:6px 9px;font-size:12.5px}'
-   +A+' .awsuche{flex:1 1 220px;min-width:160px;border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--card,#fff);color:inherit;padding:6px 10px;font-size:12.5px}'
-   +A+' .awliste{flex:1 1 auto;overflow:auto;padding:4px 16px 18px}'
-   +A+' .awz{border-bottom:1px solid var(--line,#eef2f6)}'
-   +A+' .awz1{display:flex;align-items:center;gap:9px;padding:8px 0}'
-   +A+' .awnr{flex:0 0 auto;font-size:11.5px;color:var(--muted,#6b7480);min-width:42px;font-variant-numeric:tabular-nums}'
-   +A+' .awpille{flex:0 0 auto;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap}'
+   +A+' .awfilter{display:flex;gap:4px;flex-wrap:wrap;padding:8px 12px 0;flex:0 0 auto}'
+   +A+' .awfilter2{display:flex;gap:5px;flex-wrap:wrap;padding:6px 12px 7px;flex:0 0 auto}'
+   +A+' .awchip{border:1px solid var(--abline,#e6e9ee);border-radius:999px;background:#fff;color:inherit;padding:2px 8px;font-size:11px;cursor:pointer;line-height:1.5}'
+   +A+' .awchip.akt{background:var(--abink,#131a24);color:#fff;border-color:var(--abink,#131a24)}'
+   +A+' .awchip b{font-weight:800;margin-left:2px}'
+   +A+' .awsel{border:1px solid var(--abline,#e6e9ee);border-radius:7px;background:#fff;color:inherit;padding:3px 6px;font-size:11.5px;max-width:150px}'
+   +A+' .awsuche{flex:1 1 120px;min-width:90px;border:1px solid var(--abline,#e6e9ee);border-radius:7px;background:#fff;color:inherit;padding:3px 8px;font-size:11.5px}'
+   +A+' .awliste{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 12px 10px}'
+   +A+' .awz{border-top:1px solid var(--abline,#eef2f6)}'
+   +A+' .awz1{display:flex;align-items:center;gap:7px;padding:5px 0}'
+   +A+' .awnr{flex:0 0 auto;font-size:11px;color:var(--abmut,#6b7480);min-width:38px;font-variant-numeric:tabular-nums}'
+   +A+' .awpille{flex:0 0 auto;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap}'
    +A+' .awtitel{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
-   +A+' .awmeta{flex:0 0 auto;font-size:11.5px;color:var(--muted,#6b7480)}'
-   +A+' .awalt{min-width:56px;text-align:right}'
-   +A+' .awprio{flex:0 0 auto;font-size:11.5px;font-weight:800;min-width:38px;text-align:right;font-variant-numeric:tabular-nums}'
-   +A+' .awgo{flex:0 0 auto;border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);color:inherit;padding:4px 10px;font-size:12px;cursor:pointer}'
+   +A+' .awmeta{flex:0 0 auto;font-size:10.5px;color:var(--abmut,#6b7480)}'
+   +A+' .awalt{min-width:46px;text-align:right}'
+   +A+' .awprio{flex:0 0 auto;font-size:11px;font-weight:800;min-width:32px;text-align:right;font-variant-numeric:tabular-nums}'
+   +A+' .awgo{flex:0 0 auto;border:1px solid var(--abline,#e6e9ee);border-radius:7px;background:#f4f6f8;color:inherit;padding:2px 7px;font-size:11px;cursor:pointer}'
    +A+' .awpanel{display:none}'
-   +A+' .awpanel.awoffen{display:block;padding:4px 0 13px}'
-   +A+' .awform{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--bg,#f6f7f9);border:1px solid var(--line,#e6e9ee);border-radius:10px;padding:11px 12px}'
-   +A+' .awform label{display:flex;flex-direction:column;gap:4px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#6b7480);font-weight:700}'
-   +A+' .awform .awbreit{flex:1 1 260px}'
-   +A+' .awform .awbreit .awsel{width:100%}'
-   +A+' .awnum{width:78px}'
-   +A+' .awknoepfe{display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;margin-top:2px}'
-   +A+' .awok{border:0;border-radius:8px;background:#17505c;color:#fff;font-weight:700;padding:7px 15px;font-size:12.5px;cursor:pointer}'
-   +A+' .awabn{border:1px solid #0ca30c;border-radius:8px;background:#effaef;color:#0a7c0a;font-weight:700;padding:7px 13px;font-size:12.5px;cursor:pointer}'
-   +A+' .awmsg{font-size:12px}'
-   +A+' button[disabled]{opacity:.55;cursor:default}';
+   +A+' .awpanel.awoffen{display:block;padding:2px 0 9px}'
+   +A+' .awform{display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end;background:#f6f7f9;border:1px solid var(--abline,#e6e9ee);border-radius:9px;padding:8px 9px}'
+   +A+' .awform label{display:flex;flex-direction:column;gap:3px;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--abmut,#6b7480);font-weight:700}'
+   +A+' .awform .awbreit{flex:1 1 180px}'
+   +A+' .awform .awbreit .awsel{width:100%;max-width:none}'
+   +A+' .awnum{width:60px}'
+   +A+' .awknoepfe{display:flex;gap:6px;align-items:center;flex-wrap:wrap;width:100%;margin-top:1px}'
+   +A+' .awok{border:0;border-radius:7px;background:#17505c;color:#fff;font-weight:700;padding:5px 12px;font-size:11.5px;cursor:pointer}'
+   +A+' .awabn{border:1px solid #0ca30c;border-radius:7px;background:#effaef;color:#0a7c0a;font-weight:700;padding:5px 10px;font-size:11.5px;cursor:pointer}'
+   +A+' .awmsg{font-size:11px}'
+   +A+' button[disabled]{opacity:.55;cursor:default}'
+   /* Schmale Kachel: Alter und Zustaendigkeit weichen zuerst — die Nummer, der
+      Status und der Titel muessen bleiben, sonst weiss man nicht, worum es geht. */
+   +'@media (max-width:620px){'+A+' .awalt{display:none}}';
   var st=document.createElement('style'); st.id='abWorkCss'; st.textContent=css;
   document.head.appendChild(st);
 }
 if(typeof window!=='undefined'){
-  window._abWorkTafelOeffnen=_abWorkTafelOeffnen;
-  window._abWorkTafelZu=_abWorkTafelZu;
+  window._abWorkFuellen=_abWorkFuellen;
 }
 
 /* ---- Was bei RALPH liegt --------------------------------------------------
