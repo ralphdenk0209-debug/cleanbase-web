@@ -1388,13 +1388,61 @@ function _abKachel(titel, tag, inhalt, fuss, gross, zus){
    Das Panel liegt als Overlay ueber der Seite und benutzt Inline-Stile: so
    muss dashArbeitCss nicht angefasst werden, an dem parallel gearbeitet wird.
    ========================================================================== */
+/* ============================================================================
+   ARBEITSWEG "ZUTAT"  ·  Work #190, Ralph-Entscheid C=A  ·  22.08.2026
+   ----------------------------------------------------------------------------
+   VORHER fuehrte der Knopf auf zutStammEdit(id) -> RPC cb_zutat_stamm_get.
+   Diese RPC ist serverseitig abgeschaltet; sie besteht aus einer Zeile und
+   antwortet {ok:false, deprecated:true, grund:'Altstamm-Leseweg deaktiviert'}.
+   zutStammEdit prueft ok:false NICHT, sondern rendert d.name||'' — der Dialog
+   ging also mit LEEREM Namen und LEEREM Notenfeld auf, mit Speichern-Knopf
+   darunter. Gemessen 22.08.: 981 Zeilen trugen diesen toten Knopf.
+
+   DER WEG GEHT UEBER DEN NAMEN, NICHT UEBER DIE ID. Gemessen an den 677
+   Regelfaellen mischt "Zutat_ID" drei Formen: ZG-… 550 · UUID 123 · ING… 4.
+   Ein ID-Sprung traefe in 554 von 677 Faellen die falsche Welt. Der Name steht
+   dagegen in jeder Zeile. Sobald ChatGPT in Work #194 entity_id und id_art
+   mitliefert, kann hier ein echter ID-Sprung daneben treten — bis dahin waere
+   er geraten (§1).
+
+   KEIN NEUBAU (§22): geoeffnet wird die vorhandene Canonical-Stammliste
+   (adminGo('stamm') -> fgTab -> fgStammPanelBauen -> fgStammListe ->
+   cb_admin_stamm_neu_liste). Hier wird NUR navigiert und ein vorhandenes
+   Suchfeld gefuellt. Kein Schreibweg, keine Bewertungslogik, nichts am Stamm
+   geaendert (§7 — Zutaten und Bewertungen bleiben lesen ja, aendern nein).
+   ========================================================================== */
+function _abZutatImStammSuchen(name){
+  var n=String(name==null?'':name).trim();
+  if(!n) return false;
+  if(typeof adminGo!=='function'){ try{ console.warn('[Stammweg] adminGo fehlt'); }catch(_){} return false; }
+  try{ _abDrillZu(); }catch(e){}
+  adminGo('stamm');                       /* fgTab('stamm') baut das Panel synchron */
+  var feld=document.getElementById('fgStSuche');
+  /* Kein Suchfeld heisst: das Panel ist nicht da. Dann lieber gar nichts tun,
+     als Ralph auf einer Seite abzusetzen, die seine Zutat nicht zeigt. */
+  if(!feld){ try{ console.warn('[Stammweg] fgStSuche nicht gefunden'); }catch(_){} return false; }
+  feld.value=n;
+  try{ if(window._fgStamm) window._fgStamm.offset=0; }catch(e){}
+  /* Der Alt-Tab kennt weder Lifecycle- noch Notenfilter. Steht er noch, wird auf
+     "Neuer Stamm" zurueckgeschaltet — fgStammTab laedt selbst nach. */
+  if(window._fgStamm && window._fgStamm.tab!=='neu' && typeof fgStammTab==='function'){ fgStammTab('neu'); return true; }
+  if(typeof fgStammListe==='function'){ fgStammListe(); return true; }
+  return false;
+}
+if(typeof window!=='undefined') window._abZutatImStammSuchen=_abZutatImStammSuchen;
+
 var _AB_DRILL_ZIEL={
   produkt: function(r){ if(typeof openFgEditor==='function'){ _abDrillZu(); openFgEditor(r.id); } },
   stamm:   function(){ if(typeof adminGo==='function'){ _abDrillZu(); adminGo('stamm'); } },
   scan:    function(){ if(typeof scanEingangOeffnen==='function'){ _abDrillZu(); scanEingangOeffnen(); } },
-  scan_cache: function(){ if(typeof scanEingangOeffnen==='function'){ _abDrillZu(); scanEingangOeffnen(); } }
-  /* work · kontakt · tagebuch_wunsch · riki: im Frontend gibt es dafuer heute
-     keinen Weg. Sie bekommen deshalb keinen Knopf, sondern nur die Zeile. */
+  scan_cache: function(){ if(typeof scanEingangOeffnen==='function'){ _abDrillZu(); scanEingangOeffnen(); } },
+  /* Work #190: fuehrt in die Canonical-Stammliste, gefiltert auf den Namen.
+     Braucht deshalb r.name — die Zeile liefert ihn ueber data-name. */
+  zutat:   function(r){ _abZutatImStammSuchen(r&&(r.name||r.id)); }
+  /* work · kontakt · tagebuch_wunsch · riki · zusatzstoff: im Frontend gibt es
+     dafuer heute keinen Weg. Sie bekommen deshalb keinen Knopf, sondern nur die
+     Zeile. Fuer zusatzstoff gibt es nur loadZusatzstoffeStamm (Listenladen),
+     keinen Einzelweg — das waere ein echter Neubau und ist nicht geprueft. */
 };
 
 function _abDrillBox(){
@@ -1458,7 +1506,10 @@ async function _abDrillOeffnen(key,titel){
               +'</span>'
               +(hatZiel
                 ? '<button type="button" class="abdrillgo" data-kind="'+esc(String(x.kind))
-                    +'" data-id="'+esc(String(x.id))+'" style="flex:0 0 auto;border:1px solid '
+                    +'" data-id="'+esc(String(x.id))
+                    /* Work #190: der Zutatenweg sucht ueber den NAMEN, nicht ueber die
+                       ID (drei ID-Formen gemischt). Deshalb reist der Titel mit. */
+                    +'" data-name="'+esc(String(x.title||''))+'" style="flex:0 0 auto;border:1px solid '
                     +'var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);'
                     +'color:inherit;padding:4px 10px;font-size:12px;cursor:pointer">öffnen ›</button>'
                 : '')
@@ -1469,7 +1520,7 @@ async function _abDrillOeffnen(key,titel){
     b.querySelectorAll('.abdrillgo').forEach(function(btn){
       btn.addEventListener('click',function(){
         var f=_AB_DRILL_ZIEL[btn.dataset.kind];
-        if(f) f({id:btn.dataset.id, kind:btn.dataset.kind});
+        if(f) f({id:btn.dataset.id, kind:btn.dataset.kind, name:btn.dataset.name||''});
       });
     });
   }catch(e){
@@ -4641,13 +4692,38 @@ async function dashDrillLoad(key){
     if(!rows.length){ body.innerHTML='<span style="color:#107e3e">Nichts offen. ✓</span>'; return; }
     var _slBtn=(key==='ohne_quelle')?'<button onclick="rikiSammellauf()" style="width:100%;margin-bottom:10px;background:linear-gradient(90deg,#7b5be6,#c04bd6);color:#fff;border:0;border-radius:9px;padding:10px;font-weight:800;cursor:pointer">🤖 Riki-Sammellauf starten – Herstellerseiten lesen &amp; Quelle dokumentieren</button>':'';
     body.innerHTML=_slBtn+'<div style="margin-bottom:6px;color:#5b6d73">'+rows.length+' Einträge</div>'+rows.map(function(x){
-      var _btn=function(fn){ return '<button onclick="'+fn+'" style="flex:0 0 auto;padding:5px 10px;border:1px solid #0a6ed1;border-radius:8px;background:#eaf3fd;color:#0a6ed1;cursor:pointer;font-size:12px;font-weight:600">Bearbeiten</button>'; };
+      var _stil='flex:0 0 auto;padding:5px 10px;border:1px solid #0a6ed1;border-radius:8px;background:#eaf3fd;color:#0a6ed1;cursor:pointer;font-size:12px;font-weight:600';
+      var _btn=function(fn,txt){ return '<button onclick="'+fn+'" style="'+_stil+'">'+(txt||'Bearbeiten')+'</button>'; };
+      /* 🔴 Work #190, 22.08.2026 — hier stand _btn("zutStammEdit('…')").
+         zutStammEdit ruft cb_zutat_stamm_get, und die RPC ist serverseitig
+         abgeschaltet ({ok:false, deprecated:true}). Der Knopf oeffnete ein leeres
+         Bearbeitungsfenster mit Speichern-Knopf. Gemessen an 981 Zeilen in fuenf
+         Drill-Schluesseln (regelverstoesse 677 · stamm_ohne_kategorie 262 ·
+         mehrdeutig 29 · zusatz_nicht_kategorisiert 10 · zutat_quelle 3).
+         KEIN inline onclick mit dem Namen: esc() maskiert Apostrophe nicht, und
+         genau einer der 677 Namen traegt einen. Ein Knopf, der bei einer Zeile
+         einen Syntaxfehler wirft, ist schlimmer als kein Knopf. Deshalb
+         data-Attribut plus Horcher weiter unten. */
       var edit = (x.kind==='produkt'&&x.id) ? _btn("dashOpenProdukt('"+esc(x.id)+"')")
-               : (x.kind==='zutat'&&x.id)   ? _btn("zutStammEdit('"+esc(x.id)+"')")   /* Stamm-Zutat direkt bearbeiten (Ralph 22.07.) */
+               : (x.kind==='zutat'&&x.name) ? '<button type="button" class="dashZutGo" data-name="'
+                   +esc(String(x.name))+'" style="'+_stil+'" title="Öffnet die Canonical-Stammliste, '
+                   +'gefiltert auf diesen Namen">Im Stamm suchen</button>'
                : '';
       return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:9px 2px;border-top:1px solid #eef2f3">'
         +'<div style="min-width:0"><div style="font-weight:600;color:#22343a">'+esc(x.name||'—')+'</div><div style="font-size:11.5px;color:#5b6d73">'+esc(x.info||'')+'</div></div>'+edit+'</div>';
     }).join('');
+    /* Work #190: Horcher statt inline onclick — siehe Begruendung oben. Der
+       Name kommt aus dem data-Attribut, damit Apostrophe nichts kaputt machen. */
+    try{
+      body.querySelectorAll('.dashZutGo').forEach(function(btn){
+        btn.addEventListener('click',function(){
+          if(typeof _abZutatImStammSuchen==='function'){
+            var ov=document.getElementById('drillOv'); if(ov) ov.remove();
+            _abZutatImStammSuchen(btn.dataset.name||'');
+          }
+        });
+      });
+    }catch(e){ try{ console.warn('[Stammweg] Horcher:',e); }catch(_){} }
   }catch(e){
     try{ console.error('cb_dashboard_drill', key, e); }catch(_){}
     body=document.getElementById('drillBody'); if(!body) return;
