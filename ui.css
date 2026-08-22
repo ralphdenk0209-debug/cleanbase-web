@@ -3050,3 +3050,32 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
 /* Der abgeleitete Zustand ist eine Rechnung, keine Bestaetigung — deshalb grau. */
 .feSegAuto{ font-size:9.5px; color:var(--muted); margin-top:3px; line-height:1.4 }
 .feSegAuto b{ color:var(--ink) }
+
+/* ============================================================================
+   PRODUKTEDITOR · KARTE "QUELLE & BELEG"   (Work #181 Stufe 2, 22.08.2026)
+   ----------------------------------------------------------------------------
+   Ralph-Entscheid F1: die Quellenwahl steht im mittleren Arbeitsbereich als
+   ERSTER Kasten von Schritt 1 - erst die Quelle, dann die Daten. Der Server
+   verlangt sie ohnehin fuer jede Freigabe (cb_quelle_belegt).
+
+   WARUM SIE VORHER UNSICHTBAR WAR - damit es niemand rueckgaengig macht:
+   Sie stand im linken Streifen. feRailAufraeumen() blendet dort JEDES direkte
+   Kind aus, dessen id nicht in FE_RAIL_ERLAUBT steht (genau drei: feRailNav,
+   feProdKopf, feFokusNav). card() vergibt keine id -> die Karte war im
+   Fokusmodus in JEDEM Schritt weg. Wer sie zurueck in die Rail schiebt,
+   blendet sie wieder aus.
+
+   HANDY ZUERST (Ralph-Entscheid F2): eine Spalte ist der Grundzustand, zwei
+   Spalten sind die Erweiterung ab 620px. Nicht andersherum - ein Umbruchpunkt,
+   der von oben nach unten denkt, vergisst das Handy.
+   ========================================================================== */
+#fe_quelleCard{ margin-bottom:12px }
+.feQuelleGrid{ display:grid; grid-template-columns:minmax(0,1fr); gap:10px }
+@media (min-width:620px){
+  .feQuelleGrid{ grid-template-columns:minmax(0,1fr) minmax(0,1fr) }
+}
+/* Beschriftung ueber dem Feld, dicht daran - nicht mit space-between
+   auseinandergezogen wie die Naehrwertzeilen (Befund B3). */
+.feQuelleGrid > label{ display:block; font-size:13px; min-width:0 }
+.feQuelleGrid > label > select,
+.feQuelleGrid > label > input{ margin-top:3px }

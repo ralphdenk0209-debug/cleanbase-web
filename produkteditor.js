@@ -3742,12 +3742,26 @@ async function openFgEditor(id, prefill, targetEl){
         ${''/* Supplemente verwenden im zweiten Schritt die vorhandene Dosis-Ansicht. */}
         ${card(`<span id="fe_indexTitel">Root Index</span> <span id="fe_indexTitelZusatz" style="text-transform:none;color:var(--muted)">(live berechnet)</span>`,`<div id="fe_index"><div style="color:var(--muted);font-size:12.5px">Wird berechnet, sobald Titel, Nährwerte und Zutaten stehen.</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Vorschau über dieselbe Rechnung wie im Produkt – hier wird <b>nichts gespeichert</b>.</div>`)}
         <div class="feRailKarte"><div class="feRailKarteTitel">Freigabe</div><div id="feRailAmpel">wird geprüft…</div></div>
-        ${card("Quelle &amp; Beleg",`<label style="font-size:13px">Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label>${quellenTypHinweis()}<div style="margin-top:6px"><label style="font-size:13px">Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>`)}
+        ${''/* 🔴 22.08.2026, Work #181 Stufe 2 (Ralph-Entscheid F1): die Karte "Quelle & Beleg"
+             stand HIER, im linken Streifen — und war dadurch im Fokusmodus IMMER unsichtbar.
+             Ursache: feRailAufraeumen() (Z. ~5364) blendet jedes direkte Kind von #feRail aus,
+             dessen id nicht in FE_RAIL_ERLAUBT steht. Erlaubt sind genau drei: feRailNav,
+             feProdKopf, feFokusNav. card() vergibt GAR KEINE id -> c.id ist "" -> none.
+             Deshalb konnte Ralph den Quelle-Typ nicht mehr waehlen, obwohl der Server ihn
+             fuer jede Freigabe verlangt (cb_quelle_belegt).
+             Die Karte steht jetzt im mittleren Arbeitsbereich als erster Kasten von Schritt 1.
+             Dort greift feRailAufraeumen nicht — es fasst ausschliesslich Kinder von #feRail an.
+             KEIN Sonderfall in FE_RAIL_ERLAUBT: eine Ausnahme dort waere eine zweite
+             Sichtbarkeitsregel geworden. Ein Ortswechsel, keine neue Quellenlogik. */}
       </div>
       <div id="feEditorBody" style="min-width:0">
         ${''/* Schrittkopf und -fuß werden aus dem aktuellen Fokuszustand gerendert. */}
         <div id="feSchrittKopf"></div>
         <div id="feTab1">
+    ${''/* Work #181 Stufe 2: erster Kasten von Schritt 1 — erst die Quelle, dann die Daten.
+         Der Wrapper traegt die id, damit die Schrittlogik die GANZE Karte schalten kann;
+         card() selbst bleibt unveraendert, damit kein anderer Aufrufer mitgeaendert wird. */}
+    <div id="fe_quelleCard">${card(`Quelle &amp; Beleg <span class="feKartenZusatz">– ohne Beleg keine Freigabe</span>`,`<div class="feQuelleGrid"><label>Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label><label>Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>${quellenTypHinweis()}`)}</div>
     <div id="feKopfLayout">
       <!-- 02.08. (Ralph): Riki-Zeile schlank. Vorher ~280px Hoehe fuer drei gleich grosse
            Kaesten - dabei nutzt Ralph fast immer Weblink oder Screenshot; der Datei-Upload
@@ -4759,7 +4773,11 @@ function feTabWechsel(n){
 var FE_SCHRITTE=[
  {nr:1, id:'kopf',    t:'Kopf & Quelle',       tab:1,
   kurz:'Quelle geben, Identität prüfen',
-  el:['fe_urlLbl','fe_url','fe_pasteZone','fe_jsonIn','fe_jsonMsg','fe_nurLeer','fe_rohtextIn'],
+  /* 'fe_quelleCard' schaltet die GANZE Quellenkarte (Work #181 Stufe 2). Die beiden Felder
+     bleiben zusaetzlich in 'zelle' stehen — nicht doppelt gemoppelt, sondern ein zweiter
+     Zweck: Z. ~5527 sucht ueber 'zelle' den Schritt zu einem Sprungziel. Nimmt man sie dort
+     heraus, findet der Klick auf den Freigabegrund "Quelle-Typ fehlt" seinen Schritt nicht mehr. */
+  el:['fe_quelleCard','fe_urlLbl','fe_url','fe_pasteZone','fe_jsonIn','fe_jsonMsg','fe_nurLeer','fe_rohtextIn'],
   zelle:['fe_name','fe_marke','fe_ean','fe_ean_status','fe_eanChips','fe_eanHint',
          'fe_kat','fe_ukat','fe_basis','fe_verzehr','fe_quelle_typ','fe_beleg']},
  {nr:2, id:'analyse', t:'Nährwerte / Analyse', tab:2,

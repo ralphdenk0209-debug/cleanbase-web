@@ -3412,9 +3412,17 @@ function _abkAufgaben(c){
         + _abCkZeile('blockiert oder Streit',ck.blockiert_oder_streit,ck.drill_key, w(ck.blockiert_oder_streit))
         + _abCkZeile('länger als 24 h in Arbeit', ck.in_arbeit_alt_24h, ck.drill_key)
       +'</div></div>',
-    fuss:top.length>5
-      ? ('und '+(top.length-5)+' weitere — jede Zahl öffnet die volle Liste')
-      : 'Jede Zahl öffnet die volle Liste.'
+    /* Work #199: der Weg in die volle Liste. Bis hierher zeigte die Kachel
+       hoechstens 6 Eintraege und der Fuss versprach "die volle Liste" — die es
+       nirgends gab. Jetzt fuehrt der Knopf in die Arbeitstafel mit allen
+       aktiven Eintraegen, Filtern und dem Weg zum Entscheiden.
+       Kein inline-Wert im onclick: die Funktion nimmt keine Daten entgegen,
+       damit kann auch kein Titel mit Apostroph etwas zerreissen (Lehre #190). */
+    fuss:'<button type="button" onclick="_abWorkTafelOeffnen()" '
+      +'style="border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--card,#fff);'
+      +'color:inherit;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer">'
+      +'Alle Aufgaben öffnen ›</button>'
+      +(top.length>5 ? ' <span style="opacity:.75">'+(top.length-5)+' weitere warten auf dich</span>' : '')
   };
 }
 
@@ -3424,6 +3432,396 @@ function _abCkStatusWort(s){
   return {ready_for_verification:'Wartet auf Abnahme', in_progress:'In Arbeit',
           open:'Offen', blocked:'Hängt fest', disputed:'Rückfrage',
           decision_ralph:'Du entscheidest'}[s] || String(s||'');
+}
+
+/* ============================================================================
+   ARBEITSTAFEL  ·  Work #199, Ralph-Auftrag 22.08.2026
+   ----------------------------------------------------------------------------
+   Bis hierher zeigte die Arbeit-Kachel SECHS Eintraege: cockpit_v2 filtert auf
+   decision_needed oder blocked/disputed, limit 6. Gemessen sind aber 120 aktive
+   Work Items. Ralph sieht damit 5 % seiner Arbeit.
+
+   WARUM EINE EIGENE FLAECHE UND NICHT DIE KACHEL. Eine Bento-Kachel misst rund
+   700x250 px. 120 Zeilen mit Statusfarbe, Zustaendigkeit, Prioritaet, vier
+   Filtern und Auswahlfeldern zum Entscheiden passen dort nicht - und eine
+   Kachel, in der man scrollen und filtern muss, ist keine Uebersicht mehr.
+   Die Kachel bleibt Zusammenfassung, die Tafel ist die Arbeitsflaeche.
+
+   EINE QUELLE (§4). Alles kommt aus cb_admin_agent_work_kurzliste - auch die
+   Auswahllisten der Filter werden aus den geladenen Zeilen gebaut, nicht aus
+   einer zweiten Liste im Code. Eine gepflegte Statusliste im Browser waere die
+   zweite Wahrheit, die beim naechsten neuen Status auseinanderlaeuft.
+
+   REALTIME IST BEWUSST AUS (Ralph-Entscheid 22.08.): in der Tabelle stehen
+   unsere internen Befundtexte. Stattdessen stiller Abruf alle 60 s, und nur
+   solange die Tafel offen ist - ein Takt, der im Hintergrund weiterlaeuft, ist
+   ein Leck an Rechenzeit, das niemandem auffaellt.
+   ========================================================================== */
+var _AB_WORK=null, _AB_WORK_FEHLER=null, _AB_WORK_STAND=null, _AB_WORK_TAKT=null;
+var _AB_WORK_FILTER={status:'', owner:'', bereich:'', suche:''};
+
+/* Reihenfolge, Wort und Farbe je Status — an EINER Stelle. Die Farben kommen aus
+   dem vorhandenen _AB-Satz, damit die Tafel nicht ihre eigene Palette aufmacht. */
+var _AB_WORK_STATUS=[
+  {id:'decision_ralph',        wort:'Du entscheidest',    farbe:_AB.krit},
+  {id:'blocked',               wort:'Hängt fest',         farbe:_AB.warn},
+  {id:'disputed',              wort:'Rückfrage',          farbe:_AB.warn},
+  {id:'ready_for_verification',wort:'Wartet auf Abnahme', farbe:_AB.zu},
+  {id:'open',                  wort:'Offen',              farbe:_AB.mut},
+  {id:'in_progress',           wort:'In Arbeit',          farbe:_AB.pr},
+  {id:'cancelled',             wort:'Zurückgezogen',      farbe:_AB.grau}
+];
+/* 🔴 'verified' steht hier ABSICHTLICH NICHT. Gemessen am Server:
+   cb_admin_agent_work_status wirft "Verified nur über
+   cb_admin_agent_work_verifizieren". Ein Auswahlwert, der eine Fehlermeldung
+   erzeugt, ist schlimmer als ein fehlender — Abnehmen hat einen eigenen Knopf. */
+var _AB_WORK_OWNER=['claude','chatgpt','riki','shared','ralph'];
+
+function _abWorkStatus(id){
+  for(var i=0;i<_AB_WORK_STATUS.length;i++) if(_AB_WORK_STATUS[i].id===id) return _AB_WORK_STATUS[i];
+  return {id:id, wort:String(id||'—'), farbe:_AB.grau};
+}
+function _abWorkRang(id){
+  for(var i=0;i<_AB_WORK_STATUS.length;i++) if(_AB_WORK_STATUS[i].id===id) return i;
+  return 99;
+}
+/* Alter in Tagen — als Zahl mit Gegenstand, nicht als "vor einiger Zeit". */
+function _abWorkAlter(iso){
+  if(!iso) return '';
+  var t=Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+  if(isNaN(t)) return '';
+  return t<=0 ? 'heute' : (t===1 ? '1 Tag' : t+' Tage');
+}
+
+async function _abWorkLaden(){
+  try{
+    var r=await client.rpc('cb_admin_agent_work_kurzliste',
+      {p_status:null, p_owner:null, p_bereich:null, p_limit:500});
+    if(r&&r.error) throw r.error;
+    var rows=r&&r.data; if(typeof rows==='string') rows=JSON.parse(rows);
+    if(!Array.isArray(rows)) throw new Error('cb_admin_agent_work_kurzliste hat keine Liste geliefert');
+    _AB_WORK=rows; _AB_WORK_FEHLER=null; _AB_WORK_STAND=new Date();
+    return rows;
+  }catch(e){
+    _AB_WORK_FEHLER=(e&&e.message)||String(e); _AB_WORK=null;
+    try{ console.error('[Arbeitstafel] Laden', e); }catch(_){}
+    return null;
+  }
+}
+
+/* Die Filter arbeiten auf den geladenen Zeilen. Kein zweiter Serverabruf je
+   Filterklick: 120 Zeilen filtert der Browser schneller, als die Anfrage
+   unterwegs waere — und der Server bleibt die einzige Quelle der Zeilen. */
+function _abWorkGefiltert(){
+  var f=_AB_WORK_FILTER, q=(f.suche||'').trim().toLowerCase();
+  return (_AB_WORK||[]).filter(function(w){
+    if(f.status  && w.status!==f.status) return false;
+    if(f.owner   && (w.owner_agent||'')!==f.owner) return false;
+    if(f.bereich && (w.bereich||'—')!==f.bereich) return false;
+    if(q){
+      var heu=('#'+w.work_id+' '+(w.title||'')+' '+(w.area||'')+' '+(w.bereich||'')).toLowerCase();
+      if(heu.indexOf(q)<0) return false;
+    }
+    return true;
+  }).sort(function(a,b){
+    return _abWorkRang(a.status)-_abWorkRang(b.status)
+        || (b.priority||0)-(a.priority||0)
+        || (b.work_id||0)-(a.work_id||0);
+  });
+}
+
+/* ---- Die Tafel ----------------------------------------------------------- */
+function _abWorkTafel(){
+  var b=document.getElementById('abWorkTafel');
+  if(b) return b;
+  b=document.createElement('div');
+  b.id='abWorkTafel';
+  b.style.cssText='position:fixed;inset:0;z-index:9100;display:none;'
+    +'background:rgba(15,23,32,.42);backdrop-filter:blur(2px)';
+  b.addEventListener('click',function(e){ if(e.target===b) _abWorkTafelZu(); });
+  document.body.appendChild(b);
+  return b;
+}
+function _abWorkTafelZu(){
+  var b=document.getElementById('abWorkTafel'); if(b) b.style.display='none';
+  /* Der Takt laeuft NUR, solange die Tafel offen ist. */
+  if(_AB_WORK_TAKT){ clearInterval(_AB_WORK_TAKT); _AB_WORK_TAKT=null; }
+}
+async function _abWorkTafelOeffnen(){
+  var b=_abWorkTafel();
+  b.style.display='block';
+  if(!_AB_WORK) b.innerHTML=_abWorkRahmen('<div class="blade">lädt…</div>');
+  await _abWorkLaden();
+  _abWorkZeichnen();
+  if(_AB_WORK_TAKT) clearInterval(_AB_WORK_TAKT);
+  /* Stiller Abruf alle 60 s (Ralph-Entscheid statt Realtime). Still heisst:
+     er zeichnet nur neu, wenn gerade kein Auswahlfeld offen ist — sonst
+     verschwindet die Zeile unter Ralphs Cursor, waehrend er entscheidet. */
+  _AB_WORK_TAKT=setInterval(async function(){
+    var t=document.getElementById('abWorkTafel');
+    if(!t || t.style.display==='none'){ clearInterval(_AB_WORK_TAKT); _AB_WORK_TAKT=null; return; }
+    if(document.querySelector('#abWorkTafel .awoffen')) return;   /* jemand entscheidet gerade */
+    await _abWorkLaden(); _abWorkZeichnen();
+  },60000);
+}
+function _abWorkRahmen(inhalt){
+  return '<div style="position:absolute;right:0;top:0;bottom:0;width:min(1080px,97vw);'
+    +'background:var(--card,#fff);color:var(--ink,#1b2733);box-shadow:-8px 0 28px rgba(0,0,0,.22);'
+    +'display:flex;flex-direction:column">'+inhalt+'</div>';
+}
+
+function _abWorkZeichnen(){
+  var b=document.getElementById('abWorkTafel'); if(!b || b.style.display==='none') return;
+  if(_AB_WORK_FEHLER){
+    b.innerHTML=_abWorkRahmen('<div style="padding:16px"><div class="bfehl"><b>Liste nicht ladbar.</b><br>'
+      +esc(_AB_WORK_FEHLER)+'</div><button type="button" onclick="_abWorkTafelOeffnen()" '
+      +'style="margin-top:10px;padding:7px 13px;border:1px solid var(--line,#dbe3ea);border-radius:8px;'
+      +'background:var(--bg,#f4f6f8);color:inherit;cursor:pointer">↻ Nochmal</button></div>');
+    return;
+  }
+  var alle=_AB_WORK||[], zeilen=_abWorkGefiltert();
+
+  /* Auswahllisten aus den DATEN, nicht aus einer gepflegten Liste im Code. */
+  var bereiche=[], gesehen={};
+  alle.forEach(function(w){ var k=w.bereich||'—'; if(!gesehen[k]){ gesehen[k]=1; bereiche.push(k); } });
+  bereiche.sort();
+  var zaehlung={}; alle.forEach(function(w){ zaehlung[w.status]=(zaehlung[w.status]||0)+1; });
+
+  var chips='<button type="button" class="awchip'+(_AB_WORK_FILTER.status?'':' akt')+'" data-status="">'
+    +'Alle <b>'+alle.length+'</b></button>'
+    + _AB_WORK_STATUS.filter(function(s){ return zaehlung[s.id]; }).map(function(s){
+        return '<button type="button" class="awchip'+(_AB_WORK_FILTER.status===s.id?' akt':'')+'" '
+          +'data-status="'+esc(s.id)+'" style="border-left:3px solid '+s.farbe+'">'
+          +esc(s.wort)+' <b>'+zaehlung[s.id]+'</b></button>';
+      }).join('');
+
+  var sel=function(id,wert,liste,vorgabe){
+    return '<select id="'+id+'" class="awsel"><option value="">'+esc(vorgabe)+'</option>'
+      +liste.map(function(o){ return '<option value="'+esc(o)+'"'+(wert===o?' selected':'')+'>'+esc(o)+'</option>'; }).join('')
+      +'</select>';
+  };
+
+  var kopf='<div class="awkopf">'
+    +'<b style="font-size:15px">Arbeit</b>'
+    +'<span class="awst">'+zeilen.length+' von '+alle.length+' aktiven Aufgaben'
+      +(_AB_WORK_STAND?' · Stand '+_AB_WORK_STAND.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'')
+      +' · lädt sich alle 60 s selbst nach</span>'
+    +'<button type="button" onclick="_abWorkTafelZu()" class="awzu">Schließen ✕</button>'
+  +'</div>'
+  +'<div class="awfilter">'+chips+'</div>'
+  +'<div class="awfilter2">'
+    + sel('awfOwner',_AB_WORK_FILTER.owner,_AB_WORK_OWNER,'Zuständig: alle')
+    + sel('awfBereich',_AB_WORK_FILTER.bereich,bereiche,'Bereich: alle')
+    +'<input id="awfSuche" class="awsuche" placeholder="Nummer oder Titel suchen …" value="'+esc(_AB_WORK_FILTER.suche)+'">'
+    +'<button type="button" id="awfWeg" class="awsel" style="cursor:pointer">Filter zurücksetzen</button>'
+  +'</div>';
+
+  var liste=zeilen.length
+    ? zeilen.map(_abWorkZeile).join('')
+    : '<div class="bleer">Kein Eintrag passt zu diesem Filter.</div>';
+
+  document.getElementById('abWorkTafel').innerHTML=_abWorkRahmen(
+    '<div class="aw">'+kopf+'<div class="awliste">'+liste+'</div></div>');
+  _abWorkCss();
+  _abWorkHorcher();
+}
+
+/* Eine Zeile: Nummer · Titel · Status farbig · Zustaendig · Prio · Alter · Ändern */
+function _abWorkZeile(w){
+  var s=_abWorkStatus(w.status);
+  var prio=(w.priority==null?'–':w.priority);
+  /* Die Prioritaetsfarbe ist eine ANZEIGE, keine Regel: sie rechnet nichts,
+     sie faerbt nur drei Baender, damit 95 anders aussieht als 24. */
+  var pf = prio==='–' ? _AB.grau : (prio>=90?_AB.krit : prio>=60?_AB.warn : _AB.mut);
+  return '<div class="awz" data-id="'+esc(String(w.work_id))+'">'
+    +'<div class="awz1">'
+      +'<span class="awnr">#'+esc(String(w.work_id))+'</span>'
+      +'<span class="awpille" style="background:'+s.farbe+'1a;color:'+s.farbe+'">'+esc(s.wort)+'</span>'
+      +'<span class="awtitel" title="'+esc(w.title||'')+'">'+esc(w.title||'')+'</span>'
+      +'<span class="awmeta">'+esc(w.owner_agent||'—')+'</span>'
+      +'<span class="awprio" style="color:'+pf+'">P'+esc(String(prio))+'</span>'
+      +'<span class="awmeta awalt">'+esc(_abWorkAlter(w.updated_at))+'</span>'
+      +'<button type="button" class="awgo" data-id="'+esc(String(w.work_id))+'">Ändern</button>'
+    +'</div>'
+    +'<div class="awpanel" data-panel="'+esc(String(w.work_id))+'"></div>'
+  +'</div>';
+}
+
+/* ---- Entscheiden --------------------------------------------------------- */
+/* 🔴 Es wird NICHTS im Browser gerechnet oder geprueft. Die erlaubten Werte
+   stehen serverseitig (cb_admin_agent_work_status prueft den Status,
+   _zuweisen prueft owner und 1..100). Die Auswahlfelder bilden sie nur ab,
+   damit Ralph nicht in eine Fehlermeldung laeuft. Lehnt der Server ab, steht
+   sein Satz woertlich da (§8). */
+function _abWorkPanel(id){
+  var w=(_AB_WORK||[]).filter(function(x){ return String(x.work_id)===String(id); })[0];
+  if(!w) return '<div class="bleer">Eintrag nicht mehr in der Liste.</div>';
+  var opt=function(v,t,akt){ return '<option value="'+esc(v)+'"'+(akt?' selected':'')+'>'+esc(t)+'</option>'; };
+  return '<div class="awform">'
+    +'<label>Status'
+      +'<select class="awsel" data-f="status">'
+        + _AB_WORK_STATUS.filter(function(s){ return s.id!=='decision_ralph'||true; })
+            .map(function(s){ return opt(s.id,s.wort,s.id===w.status); }).join('')
+      +'</select></label>'
+    +'<label>Zuständig'
+      +'<select class="awsel" data-f="owner">'
+        + _AB_WORK_OWNER.map(function(o){ return opt(o,o,o===(w.owner_agent||'')); }).join('')
+      +'</select></label>'
+    +'<label>Priorität'
+      +'<input class="awsel awnum" type="number" min="1" max="100" step="1" data-f="prio" '
+        +'value="'+esc(String(w.priority==null?'':w.priority))+'"></label>'
+    +'<label class="awbreit">Notiz — was du entschieden hast und warum'
+      +'<input class="awsel" data-f="note" placeholder="steht danach im Work Item"></label>'
+    +'<div class="awknoepfe">'
+      +'<button type="button" class="awok" data-do="speichern" data-id="'+esc(String(id))+'">Speichern</button>'
+      +'<button type="button" class="awabn" data-do="abnehmen" data-id="'+esc(String(id))+'" '
+        +'title="Setzt den Eintrag auf verifiziert — der eigene Weg, den der Server dafür verlangt">✓ Abnehmen</button>'
+      +'<button type="button" class="awsel" style="cursor:pointer" data-do="zu" data-id="'+esc(String(id))+'">Abbrechen</button>'
+      +'<span class="awmsg" data-msg="'+esc(String(id))+'"></span>'
+    +'</div>'
+  +'</div>';
+}
+
+async function _abWorkSpeichern(id, was){
+  var wrap=document.querySelector('#abWorkTafel .awpanel[data-panel="'+CSS.escape(String(id))+'"]');
+  if(!wrap) return;
+  var g=function(f){ var el=wrap.querySelector('[data-f="'+f+'"]'); return el?el.value:''; };
+  var msg=wrap.querySelector('[data-msg]');
+  var alt=(_AB_WORK||[]).filter(function(x){ return String(x.work_id)===String(id); })[0]||{};
+  var note=(g('note')||'').trim();
+  var sagen=function(t,farbe){ if(msg){ msg.textContent=t; msg.style.color=farbe||_AB.mut; } };
+  wrap.querySelectorAll('button').forEach(function(b){ b.disabled=true; });
+  try{
+    if(was==='abnehmen'){
+      /* Abnehmen laeuft ueber den eigenen Weg — der Server lehnt 'verified'
+         ueber den Statusweg ausdruecklich ab. Actor ist ralph: er nimmt ab,
+         nicht der Agent, der gebaut hat (§cross_verification). */
+      var rv=await client.rpc('cb_admin_agent_work_verifizieren',
+        {p_work_id:Number(id), p_verifier:'ralph', p_ok:true,
+         p_note:note||'Von Ralph im Dashboard abgenommen.', p_evidence:null});
+      if(rv&&rv.error) throw rv.error;
+    }else{
+      var neuStatus=g('status'), neuOwner=g('owner'), neuPrio=g('prio');
+      var etwas=false;
+      if(neuStatus && neuStatus!==alt.status){
+        var rs=await client.rpc('cb_admin_agent_work_status',
+          {p_work_id:Number(id), p_actor:'ralph', p_status:neuStatus,
+           p_note:note||null, p_evidence:null});
+        if(rs&&rs.error) throw rs.error; etwas=true;
+      }
+      var prioZahl = neuPrio===''?null:Number(neuPrio);
+      var ownerNeu = (neuOwner && neuOwner!==(alt.owner_agent||'')) ? neuOwner : null;
+      var prioNeu  = (prioZahl!=null && prioZahl!==alt.priority) ? prioZahl : null;
+      if(ownerNeu!=null || prioNeu!=null){
+        var rz=await client.rpc('cb_admin_agent_work_zuweisen',
+          {p_work_id:Number(id), p_actor:'ralph', p_owner:ownerNeu, p_priority:prioNeu,
+           p_decision_needed:null, p_note:note||null});
+        if(rz&&rz.error) throw rz.error; etwas=true;
+      }
+      if(!etwas){ sagen('Nichts geändert.',_AB.mut);
+        wrap.querySelectorAll('button').forEach(function(b){ b.disabled=false; }); return; }
+    }
+    sagen('Gespeichert.',_AB.gut);
+    /* Neu LADEN statt die Zeile im Browser zu korrigieren: was in der Datenbank
+       steht, ist die Wahrheit — auch wenn der Server etwas anderes daraus
+       gemacht hat, als das Formular vorschlug (§server_ssot). */
+    await _abWorkLaden(); _abWorkZeichnen();
+    try{ _abCockpitHolen(true); }catch(e){}
+  }catch(e){
+    sagen((e&&e.message)||String(e), _AB.krit);
+    try{ console.error('[Arbeitstafel] Speichern', id, e); }catch(_){}
+    wrap.querySelectorAll('button').forEach(function(b){ b.disabled=false; });
+  }
+}
+
+function _abWorkHorcher(){
+  var t=document.getElementById('abWorkTafel'); if(!t) return;
+  t.querySelectorAll('.awchip').forEach(function(c){
+    c.addEventListener('click',function(){ _AB_WORK_FILTER.status=c.dataset.status||''; _abWorkZeichnen(); });
+  });
+  var o=t.querySelector('#awfOwner'), br=t.querySelector('#awfBereich'),
+      s=t.querySelector('#awfSuche'), weg=t.querySelector('#awfWeg');
+  if(o)  o.addEventListener('change',function(){ _AB_WORK_FILTER.owner=o.value; _abWorkZeichnen(); });
+  if(br) br.addEventListener('change',function(){ _AB_WORK_FILTER.bereich=br.value; _abWorkZeichnen(); });
+  if(weg)weg.addEventListener('click',function(){
+    _AB_WORK_FILTER={status:'',owner:'',bereich:'',suche:''}; _abWorkZeichnen(); });
+  if(s){
+    /* Beim Tippen NICHT neu zeichnen — das nimmt den Fokus aus dem Feld.
+       Erst beim Loslassen der Taste, und der Fokus wird danach zurueckgeholt. */
+    var tmr=null;
+    s.addEventListener('input',function(){
+      clearTimeout(tmr);
+      tmr=setTimeout(function(){
+        _AB_WORK_FILTER.suche=s.value; _abWorkZeichnen();
+        var n=document.querySelector('#abWorkTafel #awfSuche');
+        if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); }
+      },300);
+    });
+  }
+  t.querySelectorAll('.awgo').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var id=btn.dataset.id;
+      var p=t.querySelector('.awpanel[data-panel="'+CSS.escape(String(id))+'"]');
+      if(!p) return;
+      var offen=p.classList.contains('awoffen');
+      /* Immer nur EIN Formular offen — zwei halb ausgefuellte Entscheidungen
+         nebeneinander sind eine Fehlerquelle, kein Komfort. */
+      t.querySelectorAll('.awpanel.awoffen').forEach(function(x){ x.classList.remove('awoffen'); x.innerHTML=''; });
+      if(offen) return;
+      p.innerHTML=_abWorkPanel(id); p.classList.add('awoffen');
+      p.querySelectorAll('[data-do]').forEach(function(b){
+        b.addEventListener('click',function(){
+          if(b.dataset.do==='zu'){ p.classList.remove('awoffen'); p.innerHTML=''; return; }
+          _abWorkSpeichern(b.dataset.id, b.dataset.do);
+        });
+      });
+    });
+  });
+}
+
+function _abWorkCss(){
+  if(document.getElementById('abWorkCss')) return;
+  var A='#abWorkTafel .aw';
+  var css=A+'{display:flex;flex-direction:column;height:100%;font-size:13.5px}'
+   +A+' *{box-sizing:border-box}'
+   +A+' .awkopf{display:flex;align-items:center;gap:11px;padding:13px 16px;border-bottom:1px solid var(--line,#dbe3ea);flex:0 0 auto}'
+   +A+' .awst{font-size:11.5px;color:var(--muted,#6b7480)}'
+   +A+' .awzu{margin-left:auto;border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);color:inherit;padding:5px 11px;font-size:12.5px;cursor:pointer}'
+   +A+' .awfilter{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 0;flex:0 0 auto}'
+   +A+' .awfilter2{display:flex;gap:8px;flex-wrap:wrap;padding:9px 16px 11px;border-bottom:1px solid var(--line,#dbe3ea);flex:0 0 auto}'
+   +A+' .awchip{border:1px solid var(--line,#dbe3ea);border-radius:999px;background:var(--card,#fff);color:inherit;padding:4px 11px;font-size:12px;cursor:pointer}'
+   +A+' .awchip.akt{background:var(--ink,#1b2733);color:#fff;border-color:var(--ink,#1b2733)}'
+   +A+' .awchip b{font-weight:800;margin-left:3px}'
+   +A+' .awsel{border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--card,#fff);color:inherit;padding:6px 9px;font-size:12.5px}'
+   +A+' .awsuche{flex:1 1 220px;min-width:160px;border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--card,#fff);color:inherit;padding:6px 10px;font-size:12.5px}'
+   +A+' .awliste{flex:1 1 auto;overflow:auto;padding:4px 16px 18px}'
+   +A+' .awz{border-bottom:1px solid var(--line,#eef2f6)}'
+   +A+' .awz1{display:flex;align-items:center;gap:9px;padding:8px 0}'
+   +A+' .awnr{flex:0 0 auto;font-size:11.5px;color:var(--muted,#6b7480);min-width:42px;font-variant-numeric:tabular-nums}'
+   +A+' .awpille{flex:0 0 auto;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap}'
+   +A+' .awtitel{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+   +A+' .awmeta{flex:0 0 auto;font-size:11.5px;color:var(--muted,#6b7480)}'
+   +A+' .awalt{min-width:56px;text-align:right}'
+   +A+' .awprio{flex:0 0 auto;font-size:11.5px;font-weight:800;min-width:38px;text-align:right;font-variant-numeric:tabular-nums}'
+   +A+' .awgo{flex:0 0 auto;border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);color:inherit;padding:4px 10px;font-size:12px;cursor:pointer}'
+   +A+' .awpanel{display:none}'
+   +A+' .awpanel.awoffen{display:block;padding:4px 0 13px}'
+   +A+' .awform{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--bg,#f6f7f9);border:1px solid var(--line,#e6e9ee);border-radius:10px;padding:11px 12px}'
+   +A+' .awform label{display:flex;flex-direction:column;gap:4px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#6b7480);font-weight:700}'
+   +A+' .awform .awbreit{flex:1 1 260px}'
+   +A+' .awform .awbreit .awsel{width:100%}'
+   +A+' .awnum{width:78px}'
+   +A+' .awknoepfe{display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;margin-top:2px}'
+   +A+' .awok{border:0;border-radius:8px;background:#17505c;color:#fff;font-weight:700;padding:7px 15px;font-size:12.5px;cursor:pointer}'
+   +A+' .awabn{border:1px solid #0ca30c;border-radius:8px;background:#effaef;color:#0a7c0a;font-weight:700;padding:7px 13px;font-size:12.5px;cursor:pointer}'
+   +A+' .awmsg{font-size:12px}'
+   +A+' button[disabled]{opacity:.55;cursor:default}';
+  var st=document.createElement('style'); st.id='abWorkCss'; st.textContent=css;
+  document.head.appendChild(st);
+}
+if(typeof window!=='undefined'){
+  window._abWorkTafelOeffnen=_abWorkTafelOeffnen;
+  window._abWorkTafelZu=_abWorkTafelZu;
 }
 
 /* ---- Was bei RALPH liegt --------------------------------------------------
