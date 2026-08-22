@@ -3719,11 +3719,71 @@ function _abWorkZeile(w){
    _zuweisen prueft owner und 1..100). Die Auswahlfelder bilden sie nur ab,
    damit Ralph nicht in eine Fehlermeldung laeuft. Lehnt der Server ab, steht
    sein Satz woertlich da (§8). */
+/* ============================================================================
+   VOLLTEXT BEIM AUFKLAPPEN  ·  22.08.2026, Ralph
+   ----------------------------------------------------------------------------
+   "text ist leider abgeschnitten, beim klick wird er auch nicht angezeigt.
+    koennte beim klick auf aendern dann komplett angezeigt werden."
+   Richtig, und die Kurzliste kann das gar nicht liefern: sie kuerzt den Titel
+   serverseitig auf 120 Zeichen und fuehrt Beschreibung und Notiz ueberhaupt
+   nicht. Das ist Absicht — sonst waeren es Megabyte je Seitenaufbau (gemessen:
+   996 KB fuer 50 Zeilen ueber den alten Weg).
+   Genau dafuer wurde cb_admin_agent_work_detail gebaut (Work #198) und von mir
+   bis jetzt nicht benutzt. Es wird beim Aufklappen EINER Zeile geholt und
+   gemerkt, damit ein zweites Aufklappen nicht noch einmal fragt.
+   Gemessene Groessen: Titel bis 127 Zeichen, Beschreibung bis 2,7 kB,
+   Notiz bis 8 kB. Deshalb scrollt der Kasten, statt die Kachel zu sprengen. */
+var _AB_WORK_DETAIL={};
+
+async function _abWorkDetailLaden(id){
+  var k=String(id);
+  if(_AB_WORK_DETAIL[k]) return _AB_WORK_DETAIL[k];
+  var r=await client.rpc('cb_admin_agent_work_detail',{p_work_id:Number(id)});
+  if(r&&r.error) throw r.error;
+  var d=r&&r.data; if(typeof d==='string') d=JSON.parse(d);
+  if(Array.isArray(d)) d=d[0];
+  if(!d) throw new Error('Zu #'+k+' liefert der Server keinen Datensatz.');
+  _AB_WORK_DETAIL[k]=d;
+  return d;
+}
+
+/* Ein Textblock. Fehlt der Text, kommt der Block GAR NICHT — eine Ueberschrift
+   ueber einem leeren Kasten sieht aus wie ein Ladefehler (§3.4: was fehlt, wird
+   nicht erfunden, aber auch nicht als leere Huelle behauptet). */
+function _abWorkTextblock(titel, text){
+  var t=String(text==null?'':text).trim();
+  if(!t) return '';
+  return '<div class="awdetb"><h5>'+esc(titel)+'</h5><div class="awdett">'+esc(t)+'</div></div>';
+}
+
+function _abWorkDetailHtml(d){
+  var zeit=function(x){ if(!x) return '—';
+    try{ return new Date(x).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+    catch(e){ return String(x); } };
+  var kopf='<div class="awdetk">'
+    +'<b>#'+esc(String(d.work_id))+'</b> '+esc(d.title||'')
+    +'</div>'
+    +'<div class="awdetm">'
+      +'angelegt von '+esc(d.created_by_agent||'—')+' · '+zeit(d.created_at)
+      +' · zuletzt '+zeit(d.updated_at)
+      +(d.bereich?' · Bereich '+esc(d.bereich):'')
+      +(d.area?' · '+esc(d.area):'')
+      +(d.dependency_work_id?' · <b>hängt an #'+esc(String(d.dependency_work_id))+'</b>':'')
+      +(d.verifier_agent?' · geprüft von '+esc(d.verifier_agent):'')
+    +'</div>';
+  return kopf
+    + _abWorkTextblock('Worum es geht', d.description)
+    + _abWorkTextblock('Wann es fertig ist', d.acceptance_criteria)
+    + _abWorkTextblock('Letzter Stand', d.result_note)
+    + _abWorkTextblock('Prüfvermerk', d.verification_note);
+}
+
 function _abWorkPanel(id){
   var w=(_AB_WORK||[]).filter(function(x){ return String(x.work_id)===String(id); })[0];
   if(!w) return '<div class="bleer">Eintrag nicht mehr in der Liste.</div>';
   var opt=function(v,t,akt){ return '<option value="'+esc(v)+'"'+(akt?' selected':'')+'>'+esc(t)+'</option>'; };
-  return '<div class="awform">'
+  return '<div class="awdet" data-det="'+esc(String(id))+'"><div class="blade">Text wird geladen…</div></div>'
+    +'<div class="awform">'
     +'<label>Status'
       +'<select class="awsel" data-f="status">'
         + _AB_WORK_STATUS.filter(function(s){ return s.id!=='decision_ralph'||true; })
@@ -3788,6 +3848,10 @@ async function _abWorkSpeichern(id, was){
         wrap.querySelectorAll('button').forEach(function(b){ b.disabled=false; }); return; }
     }
     sagen('Gespeichert.',_AB.gut);
+    /* Den gemerkten Volltext dieses Eintrags wegwerfen — sonst zeigt das
+       naechste Aufklappen die Notiz von VOR der Aenderung. Ein Zwischenspeicher,
+       der nicht geleert wird, ist eine zweite Wahrheit auf Zeit. */
+    try{ delete _AB_WORK_DETAIL[String(id)]; }catch(e){}
     /* Neu LADEN statt die Zeile im Browser zu korrigieren: was in der Datenbank
        steht, ist die Wahrheit — auch wenn der Server etwas anderes daraus
        gemacht hat, als das Formular vorschlug (§server_ssot). */
@@ -3840,6 +3904,20 @@ function _abWorkHorcher(){
       t.querySelectorAll('.awpanel.awoffen').forEach(function(x){ x.classList.remove('awoffen'); x.innerHTML=''; });
       if(offen) return;
       p.innerHTML=_abWorkPanel(id); p.classList.add('awoffen');
+      /* Volltext nachladen. Er kommt NICHT aus der Kurzliste — die kuerzt den
+         Titel auf 120 Zeichen und fuehrt Beschreibung und Notiz gar nicht. */
+      (async function(){
+        var kasten=p.querySelector('.awdet[data-det="'+CSS.escape(String(id))+'"]');
+        if(!kasten) return;
+        try{
+          var d=await _abWorkDetailLaden(id);
+          if(!p.classList.contains('awoffen')) return;   /* inzwischen zugeklappt */
+          kasten.innerHTML=_abWorkDetailHtml(d);
+        }catch(e){
+          kasten.innerHTML='<div class="bfehl">Text nicht ladbar: '+esc((e&&e.message)||String(e))+'</div>';
+          try{ console.error('[Arbeitsliste] Detail #'+id, e); }catch(_){}
+        }
+      })();
       p.querySelectorAll('[data-do]').forEach(function(b){
         b.addEventListener('click',function(){
           if(b.dataset.do==='zu'){ p.classList.remove('awoffen'); p.innerHTML=''; return; }
@@ -3888,6 +3966,16 @@ function _abWorkCss(){
    +A+' .awgo{flex:0 0 auto;border:1px solid var(--abline,#e6e9ee);border-radius:7px;background:#f4f6f8;color:inherit;padding:2px 7px;font-size:11px;cursor:pointer}'
    +A+' .awpanel{display:none}'
    +A+' .awpanel.awoffen{display:block;padding:2px 0 9px}'
+   +A+' .awdet{background:#fff;border:1px solid var(--abline,#e6e9ee);border-radius:9px;padding:9px 11px;margin-bottom:7px}'
+   +A+' .awdetk{font-size:12.5px;font-weight:700;line-height:1.45;overflow-wrap:anywhere}'
+   +A+' .awdetm{font-size:10.5px;color:var(--abmut,#6b7480);margin:3px 0 8px;overflow-wrap:anywhere}'
+   +A+' .awdetb{margin-top:7px}'
+   +A+' .awdetb h5{margin:0 0 3px;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--abmut,#6b7480);font-weight:700}'
+   /* pre-wrap haelt unsere Absaetze und Tabellen lesbar, anywhere bricht lange
+      Funktionsnamen um, und der Deckel verhindert, dass eine 8-kB-Notiz die
+      ganze Kachel fuellt. Gemessen: laengste Notiz heute 8.080 Zeichen. */
+   +A+' .awdett{font-size:11.5px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;'
+      +'max-height:200px;overflow-y:auto;overscroll-behavior:contain}'
    +A+' .awform{display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end;background:#f6f7f9;border:1px solid var(--abline,#e6e9ee);border-radius:9px;padding:8px 9px}'
    +A+' .awform label{display:flex;flex-direction:column;gap:3px;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--abmut,#6b7480);font-weight:700}'
    +A+' .awform .awbreit{flex:1 1 180px}'
