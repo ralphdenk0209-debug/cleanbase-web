@@ -975,6 +975,35 @@ async function fgCanonLaden(pid){
     window._fgCanonFehler=(e&&e.message)?String(e.message):String(e);
   }
 }
+/* ────────────────────────────────────────────────────────────────────────────
+   ZUORDNUNGSSTAND DER ZUTATEN — Work #181 Stufe 5, Serververtrag aus Work #191
+   ----------------------------------------------------------------------------
+   Der Editor entscheidet NICHT mehr selbst, ob eine Zutat im Stamm steht.
+   cb_admin_zutat_zuordnungsstatus liefert je Zeile genau einen von vier Zustaenden:
+     gebunden         fest mit dem Stamm verknuepft
+     vorschlag_offen  Server hat einen Treffer (auch ueber Synonyme), nicht bestaetigt
+     kein_treffer     Server hat gesucht und nichts gefunden
+     nicht_gefragt    Server wurde nicht erreicht
+   Verifiziert an P32667: 4 gebunden + "White Tiger Garnelen" -> vorschlag_offen,
+   Garnele, synonym, 0,95. Genau der Fall, der vorher zwei Antworten gleichzeitig gab.
+
+   ⚠ Faellt der Abruf aus, bleibt window._fgZuordnung null und der Editor sagt NICHTS
+   ueber die Zuordnung - er behauptet nicht ersatzweise "alles in Ordnung". Ein stiller
+   Rueckfall auf den alten Textvergleich waere die zweite Wahrheit zurueck.
+   ──────────────────────────────────────────────────────────────────────────── */
+async function fgZuordnungLaden(pid){
+  window._fgZuordnung=null; window._fgZuordnungFehler="";
+  if(!pid) return;
+  try{
+    var r=await client.rpc("cb_admin_zutat_zuordnungsstatus",{p_produkt_id:pid});
+    if(r&&r.error) throw r.error;
+    window._fgZuordnung={ produkt_id:pid, zeilen:Array.isArray(r&&r.data)?r.data:[], stand:Date.now() };
+  }catch(e){
+    console.error("[Zuordnung] cb_admin_zutat_zuordnungsstatus:", e);
+    window._fgZuordnungFehler=(e&&e.message)?String(e.message):String(e);
+  }
+}
+if(typeof window!=="undefined"){ window.fgZuordnungLaden=fgZuordnungLaden; }
 function fgCanonAnwenden(){
   var rows=window._fgCanon; if(!Array.isArray(rows)||!rows.length) return 0;
   var nach={};
@@ -1684,6 +1713,9 @@ async function fgBestVerarbSave(sel){
     try{ toast&&toast("Verarbeitung geändert: "+(d.canonical_name||"")+" · "+(d.processing_modifier||neu)
       +(d.rating!=null?(" · Note "+d.rating):" · Note nicht belegt")); }catch(e){}
     try{ if(typeof fgCanonLaden==="function") await fgCanonLaden(pid); }catch(e){ console.error("[Bestandteil] Vertrag nachladen:", e); }
+    /* Work #181 Stufe 5: der Zuordnungsstand wandert an JEDER Stelle mit, an der auch der
+       Canonical-Stand neu geholt wird. Sonst zeigte der Zaehler einen Stand von vorhin. */
+    try{ if(typeof fgZuordnungLaden==="function") await fgZuordnungLaden(pid); }catch(e){ console.error("[Zuordnung] nachladen:", e); }
     try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){ console.error("[Bestandteil] neu rendern:", e); }
     try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
   }catch(e){
@@ -4047,6 +4079,7 @@ async function openFgEditor(id, prefill, targetEl){
     }catch(e){ console.error("[Fokus-Editor] Init:", e); }
     try{ if(id && typeof fgCanonLaden==="function"){
       Promise.all([ fgCanonLaden(id),
+                    (typeof fgZuordnungLaden==="function")?fgZuordnungLaden(id):Promise.resolve(),
                     (typeof fgZusV2Laden==="function")?fgZusV2Laden(id):Promise.resolve(),
                     (typeof fgZutOffenLaden==="function")?fgZutOffenLaden(id):Promise.resolve() ])
         .then(function(){
@@ -6494,22 +6527,32 @@ function fePlaus(){
     var zOhneNote=zMit.filter(function(row){ return ((row.querySelector(".fgzRate")||{}).value||"").trim()===""; }).length;
     if(zMit.length===0) fehlt.push(_istSupp?"mind. 1 Wirkstoff/Zutat":"mind. 1 Zutat");
     if(zOhneNote>0) fehlt.push(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) ohne Bewertung":" Zutat(en) ohne Bewertung"));
-    var zOhneStamm=null;
+    /* 🔴 22.08.2026, Work #181 Stufe 5 — DER BROWSER ZAEHLT HIER NICHT MEHR SELBST.
+       WAS HIER STAND: ein reiner Textvergleich, kleingeschrieben und auf Gleichheit,
+       gegen ZUTATEN_STAMM und window._fgCanon. Der kannte keine Synonyme.
+       WAS DABEI HERAUSKAM (Ralphs Screenshot, Pflichtfall P32667): "White Tiger Garnelen"
+       wurde oben als "1 Zutat nicht im Stamm" gezaehlt, waehrend die Zeile darunter die
+       Server-Antwort zeigte: "im Stamm gefunden: Garnele · Treffer synonym · 0,95".
+       Beide Aussagen waren fuer sich richtig - falsch war, dass es zwei gab.
+       JETZT: die eine Wahrheit ist cb_admin_zutat_zuordnungsstatus (Work #191, verifiziert).
+       Sie kennt Synonyme und liefert je Zeile genau einen von vier Zustaenden.
+       ⚠ null heisst UNBEKANNT, nicht null Stueck: solange die Antwort nicht da ist, wird
+       nichts behauptet. Alle Leser unten pruefen auf >0, null ist damit still. */
+    var zOhneStamm=null, zKeinTreffer=null, zVorschlagOffen=null, zGebunden=null;
     try{
-      if(typeof ZUTATEN_STAMM!=="undefined" && ZUTATEN_STAMM && ZUTATEN_STAMM.length){
-        var _ss={}; ZUTATEN_STAMM.forEach(function(it){ _ss[String(it.name||"").trim().toLowerCase()]=true; });
-        var _zug={};
-        (Array.isArray(window._fgCanon)?window._fgCanon:[]).forEach(function(z){
-          if(!z||!z.canonical_entity_id) return;
-          [z.canonical_name, z.sichtbarer_name, z.zutatenliste_rohtext].forEach(function(n){
-            n=String(n||"").trim().toLowerCase(); if(n) _zug[n]=true;
-          });
-        });
-        zOhneStamm=zMit.filter(function(row){
-          var n=((row.querySelector(".fgzName")||{}).value||"").trim().toLowerCase();
-          return n && !_ss[n] && !_zug[n]; }).length;
+      var _zu=window._fgZuordnung;
+      if(_zu && _zu.produkt_id===((window._fgEdit&&window._fgEdit.id)||"") && Array.isArray(_zu.zeilen)){
+        var _z=function(st){ return _zu.zeilen.filter(function(x){ return x && x.status===st; }).length; };
+        zGebunden       = _z("gebunden");
+        zVorschlagOffen = _z("vorschlag_offen");
+        zKeinTreffer    = _z("kein_treffer");
+        /* ⚠ zOhneStamm heisst fuer alle Leser unten: "wird beim Speichern NICHT gebunden".
+           Das ist NICHT dasselbe wie "kein Treffer". Eine Zeile mit offenem Vorschlag hat
+           zwar einen Treffer, ist aber ebenso wenig gebunden - sie ginge genauso verloren.
+           Wer hier nur kein_treffer zaehlt, verliert eine Warnung, die es vorher gab. */
+        zOhneStamm = zVorschlagOffen + zKeinTreffer;
       }
-    }catch(e){ console.error("Stamm-Abgleich:",e); zOhneStamm=null; }
+    }catch(e){ console.error("[Zuordnung] Serverstand nicht lesbar:",e); zOhneStamm=null; }
     if(zOhneStamm>0) fehlt.push(zOhneStamm+" Zutat(en) nicht zugeordnet – werden NICHT gespeichert");
     var qt=((document.getElementById("fe_quelle_typ")||{}).value||"").trim();
     if(!qt) fehlt.push("Quelle-Typ");
@@ -6686,6 +6729,10 @@ function fePlaus(){
         nwPflicht:_nwPflicht,
         nwFehlt:_nwFehltListe.slice(), fehlt:fehlt.slice(),
         zMit:zMit.length, zOhneNote:zOhneNote, zOhneStamm:zOhneStamm,
+        /* Work #181 Stufe 5: die drei Serverzustaende einzeln, damit die Anzeige spaeter
+           "4 gebunden · 1 Vorschlag offen · 0 ohne Treffer" sagen kann, ohne neu zu rechnen.
+           null heisst: Antwort noch nicht da. Nicht null Stueck. */
+        zGebunden:zGebunden, zVorschlagOffen:zVorschlagOffen, zKeinTreffer:zKeinTreffer,
         quelleTyp:qt, eanWert:_eanV, eanStatus:_eanSt,
         dosisLeer:_dosisLeer, wCount:_wCount, wNone:_wNone,
         punkte:_it.slice()
@@ -7839,6 +7886,7 @@ async function fgEditSave(alsoFreigeben){
           Promise.all([
             (typeof fgRefStatusLaden==="function")?fgRefStatusLaden(_p):Promise.resolve(),
             (typeof fgCanonLaden==="function")?fgCanonLaden(_p):Promise.resolve(),
+            (typeof fgZuordnungLaden==="function")?fgZuordnungLaden(_p):Promise.resolve(),
             (typeof fgZusV2Laden==="function")?fgZusV2Laden(_p):Promise.resolve(),
             (typeof fgZutOffenLaden==="function")?fgZutOffenLaden(_p):Promise.resolve()
           ]).then(function(){
