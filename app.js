@@ -936,18 +936,6 @@ function reinheitsAmpelHtml(a){
     + '</div>'
     + '</div>';
 }
-function erklaerung(d){
-  if(d.clean_score==null) return "Noch nicht bewertet – es fehlen die Zutaten-/Produktdaten.";
-  const zus=num(d.p_zusatzstoffe), nova=num(d.p_nova), zut=num(d.p_zutaten);
-  const plus=[], minus=[];
-  if(zus>=15) plus.push("keine Zusatzstoffe"); else if(zus!=null && zus<=4) minus.push("künstliche Süßstoffe/Zusätze");
-  if(nova>=15) plus.push("unverarbeitet (Vollwert)"); else if(nova!=null && nova<=3) minus.push("stark verarbeitet"); else if(nova!=null) minus.push("verarbeitet/isoliert");
-  if(zut!=null && zut>=27) plus.push("hochwertige Zutaten"); else if(zut!=null && zut<=15) minus.push("isolierte/raffinierte Zutaten");
-  let t="";
-  if(plus.length) t+="Stark: "+plus.join(", ")+". ";
-  if(minus.length) t+="Schwächer: "+minus.join(", ")+". ";
-  return t.trim();
-}
 /* Supabase/PostgREST deckelt jede Abfrage HART bei 1000 Zeilen – .range() hebt das nicht auf.
    Bei 1.062 aktiven Produkten waren dadurch 62 Produkte in der App unsichtbar.
    Deshalb: seitenweise laden, bis der Server weniger als eine volle Seite liefert.
@@ -1212,20 +1200,6 @@ async function pwRegistrieren(){
 }
 function openAdminLogin(){ openLogin(); const intro=document.getElementById("loginIntro"); if(intro) intro.innerHTML='<b>Team-/Admin-Login</b> · mit E-Mail und Passwort.'; }
 function closeLogin(){ document.getElementById("loginOverlay").classList.remove("open"); }
-async function sendMagic(){
-  const email=(document.getElementById("loginEmail").value||"").trim();
-  const msg=document.getElementById("loginMsg");
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte eine gültige E-Mail eingeben."; return; }
-  msg.style.color="var(--k-374151)"; msg.textContent="⏳ Prüfe E-Mail…";
-  let exists=false; try{ const r=await client.rpc("cb_email_exists",{p_email:email}); exists=!!r.data; }catch(e){}
-  msg.textContent = exists?"⏳ Sende Anmeldelink…":"⏳ Neues Konto – sende Bestätigungslink…";
-  const {error}=await client.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.origin+location.pathname, shouldCreateUser: !exists } });
-  if(error){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+error.message; return; }
-  msg.style.color="var(--k-16a34a)";
-  msg.innerHTML = exists
-    ? "✅ Anmeldelink gesendet an <b>"+esc(email)+"</b>. Öffne die Mail auf diesem Gerät und tippe den Link."
-    : "🆕 <b>"+esc(email)+"</b> ist noch nicht registriert – wir richten dein <b>kostenloses Konto</b> ein. Bestätigungslink gesendet.";
-}
 async function loginPassword(){
   const email=(document.getElementById("loginEmail").value||"").trim();
   const pass=document.getElementById("loginPass").value||"";
@@ -1968,10 +1942,6 @@ async function prodToEinkauf(id){
   const {error}=await client.rpc("cb_einkauf_add",{p_titel:null, p_menge:null, p_produkt_id:id});
   alert(error?("Fehler: "+error.message):("✓ „"+p.name+"“ zur Einkaufsliste hinzugefügt."));
 }
-function altBanner(d){
-  const a=betterAlt(d); if(!a) return "";
-  return prodRef(a.id, { label:'Bessere Alternative', name:a.name, marke:a.marke });
-}
 /* ===== 28z15: BESSERE ALTERNATIVEN (Ralph: "gleich die bessere alternative vorschlagen,
    das hatten wir schon mal, war optisch unterirdisch und nicht klar") =====
    Ralph-Entscheid: Variante A (Karten-Reihe, bis 3) + Produktkarte + Tagebuch-Hinweis.
@@ -2520,15 +2490,6 @@ function bzKurve(stufe){
 /* Reiter-Steuerung der neuen Karte: der Wechsel DREHT die untere Karte um
    (Vorderseite Nährwerte <-> Rückseite Herleitung). Die Höhe wird auf die
    sichtbare Seite gesetzt, damit nichts abgeschnitten wird. */
-function pk2SetTab(i){
-  var wrap=document.getElementById('pk2in'); if(!wrap) return;
-  var faces=wrap.getElementsByClassName('pk2face');
-  var t0=document.getElementById('pk2t0'), t1=document.getElementById('pk2t1');
-  function st(t,on){ if(!t) return; t.style.color=on?'var(--ink)':'var(--muted)'; t.style.borderBottomColor=on?'var(--green)':'transparent'; t.style.fontWeight=on?'600':'400'; }
-  st(t0,i===0); st(t1,i===1);
-  wrap.style.transform=(i===1)?'rotateY(180deg)':'rotateY(0deg)';
-  var f=faces[i]; if(f) wrap.style.height=f.scrollHeight+'px';
-}
 /* ===========================================================================
    detail2 — die neue Produktkarte (Standard für alle bewerteten Lebensmittel).
    Fester Kopf (Index, ruhige Farben) · zwei Reiter, die die untere Karte flippen:
@@ -6194,10 +6155,6 @@ async function loadDashboard(){
 }
 /* Katalog-Suche im Admin (Ralph, 18.07.2026): Produkte UND Zutaten-Stamm in einem.
    Beantwortet "haben wir sowas, und haengt es an einem Produkt?" - der Fall Gnocchi. */
-function katSucheTip(){
-  clearTimeout(window._katSucheT);
-  window._katSucheT=setTimeout(katSuche, 350);   // still tippen, dann suchen
-}
 async function katSuche(){
   const inp=document.getElementById("katSucheInp"), out=document.getElementById("katSucheOut");
   if(!inp||!out) return;
@@ -7404,27 +7361,6 @@ function zyklusKomplexeHtml(){
     +'<div style="font-size:10.5px;color:var(--k-8a8072);margin-top:10px">Anzeige · Amazon-Partner-Links: Preis für dich unverändert · Bewertung bleibt unabhängig. Keine medizinische Beratung.</div>'
     +'</div>';
 }
-function topProdukteHtml(){
-  const by={};
-  const exKat=new Set(); ZYKLUS_CATS.forEach(c=>c.ids.forEach(id=>{const bp=(ALL||[]).find(x=>x.id===id); if(bp&&bp.unterkategorie) exKat.add(bp.unterkategorie);}));
-  (ALL||[]).forEach(p=>{ const s=num(p.clean_score); if(s==null||!p.score_vollstaendig) return; const k=(p.unterkategorie||p.kategorie||"Sonstige"); if(exKat.has(k)) return; (by[k]=by[k]||[]).push(p); });
-  const paare=Object.entries(by).map(([k,a])=>{ a.sort((x,y)=>num(y.clean_score)-num(x.clean_score)); return {k, a:a.filter(p=>BILD[p.id])}; })
-    .filter(x=>x.a.length>=2).map(x=>({k:x.k, top:x.a[0], zwei:x.a[1]}))
-    .sort((a,b)=>num(b.top.clean_score)-num(a.top.clean_score)).slice(0,3);
-  if(!paare.length) return "";
-  const prod=(p,winner)=>`<div onclick="detailById('${p.id}')" style="flex:1;min-width:0;cursor:pointer;text-align:center">`
-    +`<div style="position:relative;width:100%;aspect-ratio:1;background:var(--k-f6f7f6);border-radius:12px;overflow:hidden;border:1px solid ${winner?'var(--green)':'var(--line)'}">`
-    +`<img src="${esc(BILD[p.id])}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:contain">`
-    +(winner?`<div style="position:absolute;top:8px;left:8px;background:var(--green);color:var(--auf-gruen);font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px">TOP</div>`:"")
-    +`<div style="position:absolute;bottom:7px;right:7px;background:var(--card);border-radius:50%;padding:3px;box-shadow:0 1px 6px rgba(0,0,0,.28)">${donut(num(p.clean_score), farbe(p.bewertung), 58)}</div>`
-    +`</div>`
-    +`<div style="font-size:12.5px;font-weight:600;margin-top:6px;line-height:1.2">${esc(p.name)}</div>`
-    +`<div style="font-size:11px;color:var(--muted)">${esc(p.marke||"")}</div></div>`;
-  const cardCss='background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)';
-  const card=x=>`<div style="${cardCss}"><div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Vergleich · ${esc(x.k)}</div>`
-    +`<div style="display:flex;gap:10px;align-items:flex-start">${prod(x.top,true)}<div style="align-self:center;color:var(--muted);font-weight:700;font-size:13px">vs</div>${prod(x.zwei,false)}</div></div>`;
-  return `<div style="font-weight:600;margin:2px 0 6px">🏆 TOP-Produkte im Vergleich <span style="font-weight:400;font-size:11.5px;color:var(--muted)">· nur verifiziert</span></div>`+paare.map(card).join("");
-}
 function startRezSucheHtml(){
   return `<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px;box-shadow:var(--shadow)">`
     +`<div style="display:flex;gap:8px"><input id="startRezSuche" placeholder="Rezepte suchen…" onkeydown="if(event.key==='Enter')startRezeptSuche(this.value)" style="flex:1;min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px">`
@@ -7544,35 +7480,6 @@ async function saveSchlaf(){
   const m=document.getElementById("startSchlafMsg");
   if(m){ if(error){ m.style.color="var(--k-dc2626)"; m.textContent="Fehler: "+error.message; } else { m.style.color="var(--k-16a34a)"; m.textContent="✓ "+(Math.round(v*10)/10).toLocaleString("de-DE")+" h gespeichert"; } }
 }
-function makroDonut(sum, prof){
-  sum=sum||{}; prof=prof||{};
-  const kcalZ=num(prof.Kalorienziel_kcal);
-  if(!kcalZ) return '<div style="font-size:13.5px;color:var(--muted)">Noch kein Tagesziel gesetzt. Heute bisher: <b>'+Math.round(sum.kcal||0)+'</b> kcal · '+Math.round(sum.protein||0)+' g Eiweiß.</div>';
-  const M=[
-    {n:"kcal",   ist:sum.kcal,    soll:kcalZ,                    u:"",  c:"var(--k-16a34a)", rot:-79.2, pos:"mk-tr"},
-    {n:"Eiweiß", ist:sum.protein, soll:num(prof.Eiweiss_ziel_g), u:"g", c:"var(--k-3b82f6)", rot:10.8,  pos:"mk-br"},
-    {n:"KH",     ist:sum.kh,      soll:num(prof.KH_ziel_g),      u:"g", c:"var(--k-f59e0b)", rot:100.8, pos:"mk-bl"},
-    {n:"Fett",   ist:sum.fett,    soll:num(prof.Fett_ziel_g),    u:"g", c:"var(--k-eab308)", rot:190.8, pos:"mk-tl"}
-  ];
-  let tracks="", fills="", corners="";
-  M.forEach(m=>{
-    const ist=Math.round(m.ist||0), soll=Math.round(m.soll||0);
-    const pct=soll>0?Math.max(0,Math.min(1,ist/soll)):0;
-    const len=(62*pct).toFixed(1);
-    tracks+='<circle cx="70" cy="70" r="52" stroke="var(--k-eef3ef)" stroke-dasharray="62 265" transform="rotate('+m.rot+' 70 70)"/>';
-    fills +='<circle class="mkSeg" cx="70" cy="70" r="52" stroke="'+m.c+'" stroke-dasharray="'+len+' 326.7" style="stroke-dashoffset:'+len+'" transform="rotate('+m.rot+' 70 70)"/>';
-    const rightSide=(m.pos==="mk-tr"||m.pos==="mk-br");
-    const dotName=rightSide ? m.n+'<span class="mkDot" style="background:'+m.c+'"></span>' : '<span class="mkDot" style="background:'+m.c+'"></span>'+m.n;
-    corners+='<div class="mkCorner '+m.pos+'"><div class="n">'+dotName+'</div><div class="v">'+ist+' / '+soll+(m.u?(' '+m.u):'')+'</div></div>';
-  });
-  const score=(sum.score_schnitt!=null)?sum.score_schnitt:"–";
-  return '<div class="mkStage">'+corners
-    +'<svg class="mkSvg" viewBox="0 0 140 140" width="150" height="150">'
-      +'<g fill="none" stroke-width="13" stroke-linecap="round">'+tracks+fills+'</g>'
-      +'<text x="70" y="66" text-anchor="middle" font-size="20" font-weight="800" fill="var(--k-16a34a)">'+score+'</text>'
-      +'<text x="70" y="80" text-anchor="middle" font-size="9" fill="var(--k-64748b)">Ø Index</text>'
-    +'</svg></div>';
-}
 const UNTERSTUETZEN_URL = "https://buy.stripe.com/bJedR88cq2V26jCbxB1gs00"; /* Stripe Payment Link – Root Index unterstützen (Pay what you want) */
 function unterstuetzenHtml(){
   if(typeof riNativeApp==="function" && riNativeApp()) return "";
@@ -7683,7 +7590,6 @@ function riIco(n,s){ s=s||18;
   };
   return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">'+(P[n]||'')+'</svg>';
 }
-function riChip(n){ return '<span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--greenlt);color:var(--greendk)">'+riIco(n,21)+'</span>'; }
 function riGlowTile(nav,ico,label,sub,accent,cornerIco,cornerAct){
   /* 🔴 31.07. (Ralph: "wenn man auf der startseite suchen klickt, kommt man auf die
      vorherige suche"): Die Kachel rief navTo('produkte') und landete damit im ZUSTAND
@@ -11538,10 +11444,6 @@ async function _submitFoto(src, produktId, ean){
   const {data,error}=await client.rpc("cb_foto_vormerken",{p_base64:d, p_produkt_id:produktId||null, p_ean:ean||null, p_quelle:"Web-Foto"});
   if(error) throw error; return data;
 }
-async function fotoFromFile(file, produktId, ean){
-  const u=URL.createObjectURL(file);
-  try{ return await _submitFoto(u, produktId, ean); } finally{ URL.revokeObjectURL(u); }
-}
 /* Live-Kamera (Webcam am PC, Rückkamera am Handy) -> dataURL */
 function camCapture(){
   return new Promise((resolve)=>{
@@ -11565,7 +11467,6 @@ function camCapture(){
       .catch(e=>{ stop(); alert("Kamera nicht verfügbar: "+e.message+"\nNutze stattdessen „Datei“."); resolve(null); });
   });
 }
-async function fotoFromCam(produktId, ean){ const d=await camCapture(); if(!d) return null; return await _submitFoto(d, produktId, ean); }
 /* ---- Mehrbild-Erfassung: bis zu 3 Etikettfotos sammeln, dann zusammen senden ---- */
 const VOR_SLOTS=[["front","Vorderseite"],["zutaten","Zutaten"],["naehrwerte","Nährwerte"]];
 const VOR_SHOTS={};
