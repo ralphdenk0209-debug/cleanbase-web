@@ -982,13 +982,37 @@ function fetchAlleProdukte(){
   _fapLaufend = _fapLaden().finally(function(){ _fapLaufend = null; });
   return _fapLaufend;
 }
+/* Work #187, Ralph 22.08.2026: zutaten und enthaelt_alkohol kosten Faktor 7
+   (1000 Zeilen 2263 ms mit, 300 ms ohne). Die Liste braucht sie nicht - beide
+   Felder kommen beim Oeffnen eines Produkts ueber cb_web_produkt_detail. */
+const PROD_LISTE_FELDER = "id,name,marke,kategorie,unterkategorie,geschmack,clean_score,bewertung,score_vollstaendig,p_zutaten,p_naehrwert,p_zusatzstoffe,p_preis,p_transparenz,p_alltag,warum,schwaechen,ki_nutzbar,p_nova,m_kcal,m_protein,m_fett,m_ges_fett,m_kh,m_zucker,m_ballast,m_salz,ernaehrungsform,variante_von,zusatz,dosis_text,inhalt_menge,inhalt_einheit,form,naehrstoffe,portion_g,portion_einheit,produktlink,ean,quelle,verifiziert,verifiziert_am,synonyme,stueck,mengen_einheit,mengen_einheit_quelle,ohne_index,bio,bio_quelle,braten_eignung,braten_grund,braten_beleg,braten_stand";
+const PROD_LISTE_NICHT = ["zutaten","enthaelt_alkohol"];
+let _fapWaechterLief = false;
+/* Eine Liste, die von Hand gepflegt wird, veraltet still (§10). Der Waechter
+   holt EINE Zeile mit allen Spalten und meldet, was die Liste nicht kennt.
+   Nur fuer Admins - fuer Gaeste waere es eine Abfrage ohne Nutzen. */
+async function _fapFelderWaechter(){
+  if(_fapWaechterLief) return;
+  _fapWaechterLief = true;
+  if(!(typeof ME!=="undefined" && ME && ME.is_admin)) return;
+  try{
+    const {data,error}=await client.from("v_web_produkte").select("*").limit(1);
+    if(error || !data || !data.length) return;
+    const echt = Object.keys(data[0]);
+    const kennt = PROD_LISTE_FELDER.split(",").concat(PROD_LISTE_NICHT);
+    const fehlt = echt.filter(function(s){ return kennt.indexOf(s)<0; });
+    const tot   = PROD_LISTE_FELDER.split(",").filter(function(s){ return echt.indexOf(s)<0; });
+    if(fehlt.length) console.warn("[Produktliste] v_web_produkte hat neue Spalten, die die Liste nicht laedt:", fehlt.join(", "), "- PROD_LISTE_FELDER in app.js ergaenzen (Work #187).");
+    if(tot.length)   console.warn("[Produktliste] PROD_LISTE_FELDER nennt Spalten, die es nicht mehr gibt:", tot.join(", "));
+  }catch(e){ console.warn("[Produktliste] Spaltenwaechter uebersprungen:", e && e.message ? e.message : e); }
+}
 async function _fapLaden(){
   const SEITE=1000; let alle=[], von=0;
   const maxSeiten = Math.ceil(PROD_VORSCHLAG_MAX/SEITE);
   for(let i=0;i<maxSeiten;i++){
     /* Bewertete zuerst: sie sind kuratiert und die einzigen, die in
        Empfehlungen und Rangfolgen ueberhaupt auftauchen duerfen (§1.11q). */
-    const {data,error}=await client.from("v_web_produkte").select("*")
+    const {data,error}=await client.from("v_web_produkte").select(PROD_LISTE_FELDER)
       .not("clean_score","is",null).order("id").range(von, von+SEITE-1);
     if(error) throw error;
     if(!data || !data.length) break;
@@ -1001,11 +1025,12 @@ async function _fapLaden(){
   if(alle.length < PROD_VORSCHLAG_MAX){
     const rest = PROD_VORSCHLAG_MAX - alle.length;
     try{
-      const {data}=await client.from("v_web_produkte").select("*")
+      const {data}=await client.from("v_web_produkte").select(PROD_LISTE_FELDER)
         .is("clean_score",null).order("id").range(0, Math.min(rest,SEITE)-1);
       if(data && data.length) alle=alle.concat(data);
     }catch(e){ console.warn("fetchAlleProdukte (ohne Index):",e); }
   }
+  try{ _fapFelderWaechter(); }catch(e){}
   return alle;
 }
 let ALL=[]; let STK={}; let STKV={}; let SUPP_BIL={}; let WISSEN=[];
@@ -15379,7 +15404,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-22-4353";
+const APP_BUILD = "2026-08-22-4354";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
