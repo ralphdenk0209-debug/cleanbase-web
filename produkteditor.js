@@ -1004,6 +1004,28 @@ async function fgZuordnungLaden(pid){
   }
 }
 if(typeof window!=="undefined"){ window.fgZuordnungLaden=fgZuordnungLaden; }
+/* DER EINE ORT FUER DEN WORTLAUT — Work #181 Stufe 5.
+   "nicht im Stamm" war der alte Sammelbegriff fuer alles, was nicht gebunden ist.
+   Seit #191 unterscheidet der Server zwei Faelle, und die brauchen zwei Woerter:
+     vorschlag_offen  Treffer da (auch ueber Synonyme), nur nicht bestaetigt  -> "Vorschlag offen"
+     kein_treffer     Server hat gesucht und nichts gefunden                  -> "nicht im Stamm"
+   Genau hier entstand Ralphs Widerspruch: "White Tiger Garnelen" wurde als
+   "nicht im Stamm" gezaehlt, waehrend die Zeile darunter den Synonymtreffer zeigte.
+   Die ZAHL war nach Teil A schon richtig - nur das WORT war es nicht.
+   Faellt die Serverantwort aus, bleibt der alte Sammelbegriff: lieber ungenau
+   als still falsch. */
+function fgZuordnungWort(anzahl){
+  var n=Number(anzahl)||0;
+  var z="Zutat"+(n===1?"":"en");
+  var R=window._fgStatusRoh;
+  if(!R || R.zVorschlagOffen==null || R.zKeinTreffer==null) return n+" "+z+" nicht im Stamm";
+  var v=R.zVorschlagOffen, k=R.zKeinTreffer;
+  if(v>0 && k>0) return v+" "+(v===1?"Vorschlag":"Vorschläge")+" offen · "+k+" ohne Treffer";
+  if(v>0)        return v+" "+("Zutat"+(v===1?"":"en"))+" mit offenem Vorschlag";
+  if(k>0)        return k+" "+("Zutat"+(k===1?"":"en"))+" nicht im Stamm";
+  return n+" "+z+" offen";
+}
+if(typeof window!=="undefined"){ window.fgZuordnungWort=fgZuordnungWort; }
 function fgCanonAnwenden(){
   var rows=window._fgCanon; if(!Array.isArray(rows)||!rows.length) return 0;
   var nach={};
@@ -5381,7 +5403,7 @@ function feFokusStand(s){
                      if(b.gesamt===0) return {z:"offen", txt:"noch nichts erfasst"};
                      if(b.offen_unbekannt) return {z:"entscheid", txt:(b.gebunden+" gebunden · offene unbekannt")};
                      if(b.offen>0) return {z:"entscheid",
-                        txt:(b.gebunden+"/"+b.gesamt_alle+" · "+b.offen+" nicht im Stamm")};
+                        txt:(b.gebunden+"/"+b.gesamt_alle+" · "+fgZuordnungWort(b.offen))};
                      if(b.ohne_identitaet>0) return {z:"entscheid", txt:(b.ohne_identitaet+" von "+b.gesamt+" offen")};
                      return {z:"fertig", txt:(b.gesamt+"/"+b.gesamt+(b.ohne_note>0?(" · "+b.ohne_note+" ohne Note"):""))};
     case 'eigen':    return {z:"neutral", txt:""};
@@ -6604,7 +6626,7 @@ function fePlaus(){
         h+= (zMit.length===0) ? no(_istSupp?"kein Wirkstoff/keine Zutat erfasst":"keine Zutat erfasst") : ok(zMit.length+(_istSupp?" Wirkstoffe/Zutaten erfasst":" Zutaten erfasst"));
         h+= (zOhneNote>0) ? no(zOhneNote+(_istSupp?" Wirkstoff(e)/Zutat(en) unbewertet":" Zutat(en) unbewertet")) : ok(_istSupp?"alle Wirkstoffe/Zutaten bewertet":"alle Zutaten bewertet");
       }
-      if(zOhneStamm>0) h+= no(zOhneStamm+' Zutat(en) nicht im Stamm – sie werden beim Speichern NICHT gebunden und gehen verloren');
+      if(zOhneStamm>0) h+= no(fgZuordnungWort(zOhneStamm)+' – sie werden beim Speichern NICHT gebunden und gehen verloren');
       h+= qt ? ok("Quelle belegt") : no("Quelle-Typ fehlt");
       h+= _eanV ? ok("EAN erfasst")
           : (_eanSt==='kein_barcode'
@@ -6714,7 +6736,7 @@ function fePlaus(){
         _pi(zMit.length===0?'r':'g', zMit.length===0?(_istSupp?'Kein Wirkstoff/Zutat erfasst':'Keine Zutat erfasst'):(zMit.length+(_istSupp?' Wirkstoffe/Zutaten erfasst':' Zutaten erfasst')));
         _pi(zOhneNote>0?'r':'g', zOhneNote>0?(zOhneNote+(_istSupp?' Wirkstoff(e)/Zutat(en) unbewertet':' Zutat(en) unbewertet')):(_istSupp?'alle Wirkstoffe/Zutaten bewertet':'alle Zutaten bewertet'));
       }
-      if(zOhneStamm>0) _pi('r',zOhneStamm+' Zutat(en) nicht im Stamm','werden beim Speichern nicht gebunden – erst anlegen lassen');
+      if(zOhneStamm>0) _pi('r',fgZuordnungWort(zOhneStamm),'werden beim Speichern nicht gebunden – Vorschlag bestätigen oder anlegen lassen');
       _pi(qt?'g':'r', qt?'Quelle belegt':'Quelle-Typ fehlt', qt?'':'Quelle-Typ im Editor setzen');
       if(_eanV) _pi('g','EAN erfasst');
       else if(_eanSt==='kein_barcode')       _pi('b','Produkt hat keinen Barcode','entschieden – blockiert die Freigabe nicht');
@@ -6849,7 +6871,7 @@ function getErfassungsStatus(){
   var H=[];
   if(S.bestandteile_ohne_note>0) H.push({t:S.bestandteile_ohne_note+" Bestandteil(e) ohne Verarbeitungsnote",
     d:"Bewusst offen (NULL), keine 0. Blockiert die Freigabe nicht; wirkt nur mittelbar über den Score."});
-  if(roh.zOhneStamm>0) H.push({t:roh.zOhneStamm+" Zutat(en) nicht im Stamm", d:"Werden beim Speichern nicht gebunden."});
+  if(roh.zOhneStamm>0) H.push({t:fgZuordnungWort(roh.zOhneStamm), d:"Werden beim Speichern nicht gebunden."});
   if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)===0)
     H.push({t:"Etikettprüfung noch nicht erhoben",
       d:"Die Referenzprüfung ist eine Kontrollhilfe. Sie sperrt eine sauber von Hand erfasste "
