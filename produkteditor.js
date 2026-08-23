@@ -1002,6 +1002,21 @@ async function fgZuordnungLaden(pid){
     console.error("[Zuordnung] cb_admin_zutat_zuordnungsstatus:", e);
     window._fgZuordnungFehler=(e&&e.message)?String(e.message):String(e);
   }
+  /* 🔴 23.08.2026, Nachzug zu Stufe 5 — GEMESSEN, nicht vermutet.
+     Die Antwort kommt asynchron. Der Schrittstreifen wird aber gebaut, BEVOR sie da
+     ist, und danach nicht mehr. Folge, live an P32667 gesehen: oben im Statusband
+     stand bereits "1 Zutat mit offenem Vorschlag", im Streifen links weiter
+     "1 Zutat nicht im Stamm" — zwei Wortlaute fuer denselben Zustand, also genau
+     der Widerspruch, den Stufe 5 beseitigen sollte, nur eine Ebene tiefer.
+     Der Wert war richtig (zVorschlagOffen=1) und fgZuordnungWort lieferte den
+     richtigen Satz; nur las ihn niemand mehr.
+     Deshalb: sobald die Antwort da ist, den Status neu rechnen und die Schrittknoepfe
+     neu bauen. Beides sind vorhandene Funktionen - hier wird nichts nachgebaut. */
+  try{
+    if(typeof getErfassungsStatus==="function") getErfassungsStatus();
+    if(typeof feFokusAn==="function" && feFokusAn() && typeof feFokusNavBauen==="function") feFokusNavBauen();
+    if(typeof feStatusStreifen==="function") feStatusStreifen();
+  }catch(e){ console.error("[Zuordnung] Anzeige nachziehen:", e); }
 }
 if(typeof window!=="undefined"){ window.fgZuordnungLaden=fgZuordnungLaden; }
 /* DER EINE ORT FUER DEN WORTLAUT — Work #181 Stufe 5.
