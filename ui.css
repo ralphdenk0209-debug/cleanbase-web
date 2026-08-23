@@ -364,11 +364,38 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
    NICHT hier: grid-template-rows und die Zeilen-Spanne des Streifens. Die setzt
    feKachelBreiteSync zur Laufzeit, weil sie vom gemessenen Platz abhaengen.
    ============================================================================ */
+/* ============================================================================
+   🔴 DER RASTERVERTRAG · HANDY ZUERST   (Work #181 Stufe 1, 23.08.2026)
+   ----------------------------------------------------------------------------
+   Ralph-Entscheid F2: "Mobil ist Pflichtumfang. Handy zuerst planen, Desktop
+   daraus ableiten." Deshalb ist EINSPALTIG der Grundzustand - nicht der Sonderfall.
+   Ein Umbruchpunkt, der von oben nach unten denkt, vergisst das Handy; genau das
+   war hier der Fall, der kleinste Editor-Breakpoint lag bei 1399px und liess die
+   180px-Leiste auch auf einem 390px-Schirm stehen. Dem Arbeitsbereich blieben 192px.
+
+   DIE DREI STUFEN, eine Definition je Stufe:
+     Grundzustand   alles untereinander          (Handy)
+     ab  900px      Leiste + Arbeitsbereich      (Tablet, kleiner Laptop)
+     ab 1400px      zusaetzlich die Kontextspalte (Desktop)
+
+   WAS SICH GEGENUEBER VORHER GEAENDERT HAT: die Zwischenraeume waren eigene
+   GRID-SPALTEN, weil CSS Grid nur ein column-gap kennt und Ralph links 43px und
+   rechts 20px wollte. Deshalb standen die Kinder in Spalte 1, 3 und 5. Am 23.08.
+   hat Ralph zugestimmt, dass beide Abstaende gleich sein duerfen - damit ist es
+   ein einziges gap und die Kinder stehen wieder in 1, 2, 3.
+   Das ist keine Kosmetik: ein Element, das in keiner Placement-Regel stand, landete
+   per Auto-Placement im Zwischenraum, wurde auf 43px gequetscht und sah aus wie ein
+   Balken hinter dem Inhalt. Diese Fehlerquelle gibt es jetzt nicht mehr.
+   ========================================================================== */
 #feRahmen{
   display:grid;
-  grid-template-columns:242px minmax(0,1fr);
-  gap:12px;
+  grid-template-columns:minmax(0,1fr);   /* Handy: alles untereinander */
+  gap:16px;
   align-items:start;
+}
+@media (min-width:900px){
+  /* Altansicht (ohne Fokus): Leiste 242px, Rest Arbeitsbereich. */
+  #feRahmen{ grid-template-columns:242px minmax(0,1fr); gap:12px }
 }
 #feRail{
   display:flex;
@@ -2163,11 +2190,16 @@ body.riFokus #feRahmen{
        Work #39 stammt aus einem Versuch, bei dem der Tab noch auf Build 2720 lief
        und gar kein Produkt geladen war — alle Breiten kamen als 0 zurueck. */
   --mitte-max:      700px;   /* Work #43 Entscheid A (vorher 600, davor 780) */
-  --gap-rail:        43px;   /* Ralph am Stellrad: „zwischen Menue und Containern zu wenig Abstand" (vorher 18) */
-  --gap-kontext:     20px;   /* Ralph P1: Mitte -> Kontext */
-  gap: 0;
-  grid-template-columns:
-    var(--rail-breite) var(--gap-rail) minmax(0,var(--mitte-max));
+  /* 🔴 23.08.2026, Work #181 Stufe 1 — Ralph-Entscheid: die Abstaende links und
+     rechts duerfen gleich sein. Damit fallen --gap-rail und --gap-kontext weg und
+     werden zu EINEM echten gap. Vorher waren die Zwischenraeume eigene GRID-SPALTEN,
+     weil CSS Grid nur ein column-gap kennt und Ralph zwei verschiedene Werte wollte.
+     Das ist der Grund, warum die Kinder in Spalte 1, 3 und 5 standen - und warum ein
+     Element, das in keiner Placement-Regel stand, im Zwischenraum landete und wie ein
+     Balken aussah. Mit einem gap sind es wieder Spalte 1, 2, 3. */
+  --raster-gap:      24px;   /* EIN Abstand fuer beide Seiten (vorher 43 und 20) */
+  gap: var(--raster-gap);
+  grid-template-columns: var(--rail-breite) minmax(0,var(--mitte-max));
   grid-template-rows: auto;
   /* 🔴 15.08.2026, NACHBESSERUNG am selben Tag — hier stand `justify-content:center`.
      GEMESSENE FOLGE bei Ralphs Fenster: (1908 − 1638) / 2 = 135 px Rand LINKS, und
@@ -2179,11 +2211,13 @@ body.riFokus #feRahmen{
   justify-content: start;
 }
 body.riFokus #feRahmen.riDrei{
+  /* 23.08., Work #181 Stufe 1: drei Spalten statt fuenf. Die beiden Zwischenraum-
+     Spalten sind zu einem gap geworden (Ralph-Entscheid: gleiche Abstaende).
+     15.08. — `1fr` war hier fuer wenige Minuten eingebaut (Ralph-Entscheid A)
+     und ist ZURUECKGENOMMEN. Warum, steht beim Variablenblock oben. */
   grid-template-columns:
-    var(--rail-breite) var(--gap-rail) minmax(0,var(--mitte-max))
-    /* 15.08. — `1fr` war hier fuer wenige Minuten eingebaut (Ralph-Entscheid A)
-       und ist ZURUECKGENOMMEN. Warum, steht beim Variablenblock oben. */
-    var(--gap-kontext) minmax(var(--kontext-breite),var(--kontext-max));
+    var(--rail-breite) minmax(0,var(--mitte-max))
+    minmax(var(--kontext-breite),var(--kontext-max));
 }
 /* 🔴 15.08.2026, NACHBESSERUNG — die Grenze stand zuerst bei 1400px und war FALSCH
    GERECHNET. Sie prueft den VIEWPORT, der Platz wird aber im RAHMEN verteilt, und der
@@ -2204,17 +2238,16 @@ body.riFokus #feRahmen.riDrei{
    Problem sitzt (1908) und wo wirklich Platz zu verteilen ist. Darunter gilt
    unveraendert der Stand vor dem 15.08.: Kontext fest 480, Mitte nimmt den Rest. */
 @media (max-width: 1700px){
-  body.riFokus #feRahmen{ justify-content:stretch; grid-template-columns:
-    var(--rail-breite) var(--gap-rail) minmax(0,1fr); }
-  body.riFokus #feRahmen.riDrei{ grid-template-columns:
-    var(--rail-breite) var(--gap-rail) minmax(0,1fr)
-    var(--gap-kontext) var(--kontext-breite); }
+  body.riFokus #feRahmen{ justify-content:stretch;
+    grid-template-columns: var(--rail-breite) minmax(0,1fr); }
+  body.riFokus #feRahmen.riDrei{
+    grid-template-columns: var(--rail-breite) minmax(0,1fr) var(--kontext-breite); }
 }
 /* Explizites Placement - kein Auto-Placement, in keinem Zustand. */
 body.riFokus #feRahmen > #feRail{       grid-column:1; grid-row:1 }
-body.riFokus #feRahmen > #feEditorBody{ grid-column:3; grid-row:1; min-width:0 }
+body.riFokus #feRahmen > #feEditorBody{ grid-column:2; grid-row:1; min-width:0 }
 body.riFokus #feRahmen.riDrei > #feKontext{
-  grid-column:5; grid-row:1; width:100%; max-width:100%; min-width:0 }
+  grid-column:3; grid-row:1; width:100%; max-width:100%; min-width:0 }
 /* 🔴 15.08.2026 — DER „KOMISCHE BALKEN", den Ralph zweimal gemeldet hat.
    GEMESSEN: `#fe_naehrKacheln` ist ein direktes Kind von `#feRahmen`, steht aber in
    KEINER der drei Placement-Regeln darueber. Der Kommentar dort verspricht „kein
@@ -2233,7 +2266,7 @@ body.riFokus #feRahmen.riDrei > #feKontext{
    Stelle, an die es fachlich gehoert: es sind Kennzahlen ZU den Naehrwerten darueber.
    (Ralphs Wunsch „mini oben in die weisse Leiste, Klick vergroessert" ist die
    naechste Stufe und steht als Work #39 — hier wird erst der Fehler geschlossen.) */
-body.riFokus #feRahmen > #fe_naehrKacheln{ grid-column:3; grid-row:2; min-width:0 }
+body.riFokus #feRahmen > #fe_naehrKacheln{ grid-column:2; grid-row:2; min-width:0 }
 /* Ralph P9: ohne Kontext KEIN reservierter Leerraum - die Spalte existiert nicht,
    die Mitte nimmt den Platz mit. */
 body.riFokus #feRahmen:not(.riDrei) > #feKontext{ display:none !important }
@@ -2816,8 +2849,8 @@ body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich{ margin-top:
   /* Zwei Spalten: Rail bleibt, der Kontext geht UNTER den Hauptbereich.
      Das ist hier ausdruecklich gewollt — auf Desktop passiert es nicht mehr. */
   body.riFokus #feRahmen.riDrei{
-    grid-template-columns: var(--rail-breite) var(--gap-rail) minmax(0,1fr) }
-  body.riFokus #feRahmen.riDrei > #feKontext{ grid-column:3; grid-row:2; margin-top:14px }
+    grid-template-columns: var(--rail-breite) minmax(0,1fr) }
+  body.riFokus #feRahmen.riDrei > #feKontext{ grid-column:2; grid-row:2; margin-top:0 }
   body.riFokus #feKontext{ position:static }
 }
 
@@ -3149,4 +3182,42 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
 @media (max-width:420px){
   #feTab2 .feNwFeld{ grid-template-columns:minmax(0,1fr) 68px }
   #feTab2 .feNwFeld > input{ width:68px }
+}
+
+/* ============================================================================
+   RASTERVERTRAG · DER HANDY-ZUSTAND DES FOKUSEDITORS
+   (Work #181 Stufe 1, 23.08.2026 — gehoert zum Block "DER RASTERVERTRAG" oben)
+   ----------------------------------------------------------------------------
+   Die Regeln oben setzen die Spalten fuer den Fokusmodus ohne Untergrenze. Ohne
+   diesen Block stuende die 180px-Leiste auch auf einem 390px-Schirm - gemessen
+   blieben dem Arbeitsbereich dann 192px. Das war Befund B2.
+
+   UNTER 900px gilt deshalb: alles untereinander, in der Reihenfolge, in der man
+   es braucht. Die Arbeitsschritte gehoeren nach OBEN (man waehlt sie zuerst),
+   der Arbeitsbereich in die Mitte, der Kontext ans Ende (man sieht ihn nach.
+   Reihenfolge ueber grid-row, nicht ueber DOM-Umbau: ein Umbau des DOM haette
+   jede Fremdlogik getroffen, die per ID sucht.
+   ========================================================================== */
+@media (max-width:899px){
+  body.riFokus #feRahmen,
+  body.riFokus #feRahmen.riDrei{
+    grid-template-columns:minmax(0,1fr) !important;
+    gap:14px;
+  }
+  body.riFokus #feRahmen > #feRail{           grid-column:1; grid-row:1 }
+  body.riFokus #feRahmen > #feEditorBody{     grid-column:1; grid-row:2 }
+  body.riFokus #feRahmen.riDrei > #feKontext{ grid-column:1; grid-row:3; margin-top:0 }
+  body.riFokus #feRahmen > #fe_naehrKacheln{  grid-column:1; grid-row:4 }
+
+  /* Die Leiste ist auf dem Handy eine Kopfzeile, keine Spalte: sie klebt nicht,
+     sie nimmt die volle Breite, und die Arbeitsschritte liegen nebeneinander
+     statt untereinander - sonst scrollt man vor dem ersten Feld dreimal. */
+  body.riFokus #feRail{
+    position:static; top:auto; width:100%; max-width:100%;
+    border-bottom:1px solid var(--line); padding-bottom:10px;
+  }
+  body.riFokus #feFokusNav{ display:flex; flex-wrap:wrap; gap:6px }
+  body.riFokus #feFokusNav .feStTitel{ flex:1 0 100%; }
+  body.riFokus .feFokusSt{ flex:1 1 auto; border-left:0; border-bottom:3px solid transparent }
+  body.riFokus .feFokusSt.akt{ border-left:0; border-bottom-color:var(--k-2f6fd6,#2f6fd6) }
 }
