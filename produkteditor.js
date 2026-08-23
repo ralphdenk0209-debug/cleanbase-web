@@ -5669,7 +5669,15 @@ function feProduktKopf(){
        in dieser Funktion bereits vor, und der Knopf ruft dasselbe fgEditSave(true)
        wie der in der Abschlusskarte. Es ist eine zweite ANZEIGE desselben Zustands,
        keine zweite Entscheidung - der Server entscheidet ohnehin allein. */
-    +'<div class="feRailGrpTit feKzTrenn">Freigabe</div>'
+    /* 🔴 23.08. eigene Klasse feKzFrgTit. Grund, live gemessen und peinlich:
+       ich hatte per CSS "alle Gruppenwoerter ausser .feKzTrenn ausblenden"
+       geschrieben - in der Annahme, nur FREIGABE trage diese Klasse. Nachgesehen
+       tragen sie AKTIONEN, EIGENSCHAFTEN und FREIGABE gleichermassen; feKzTrenn
+       ist der senkrechte Trennstrich, kein Name. Nach dem Deploy standen drei
+       Woerter da, die weg sein sollten.
+       Eine Annahme ueber eine Klasse, die man in zehn Sekunden nachsehen kann,
+       ist keine Annahme, sondern Faulheit. */
+    +'<div class="feRailGrpTit feKzTrenn feKzFrgTit">Freigabe</div>'
     +'<div class="feProdFrg">'
       /* 🔴 23.08. nachgebessert — HIER STAND NUR "✓ freigegeben".
          Live gemessen an P32667: Produktstatus Aktiv, also freigegeben. Gleichzeitig
@@ -7261,8 +7269,22 @@ function feStatusStreifen(){
       +' – blockiert die Freigabe</div>';
   }
   if(S.hinweise && S.hinweise.length){
+    /* 🔴 23.08. NACHGEBESSERT nach der Live-Abnahme von Build 4383.
+       Ich hatte gemeldet, der Streifen verschwinde bei einem sauberen Produkt.
+       Gemessen an P73634 war er 75px hoch - alle Chips leer, aber diese
+       Hinweiszeile stand noch da: "· 1 Zutat nicht im Stamm".
+       Nachgesehen, wo der Satz sonst steht: Station 3 zeigt ihn WOERTLICH
+       ("zu prüfen · 2/3 · 1 Zutat nicht im Stamm"). Also dieselbe Doppelung,
+       die ich zwei Absaetze weiter oben gerade beseitigt hatte - nur an einer
+       Stelle, an die ich nicht geschaut habe.
+       Der Filter vergleicht deshalb ab jetzt auch gegen den Text der Stationen.
+       Nicht gegen eine Liste bekannter Saetze: die waere beim naechsten neuen
+       Hinweis wieder unvollstaendig, und zwar unbemerkt. */
+    var _navEl=document.getElementById("feFokusNav");
+    var _navTxt=_navEl?String(_navEl.textContent||""):"";
     var _chipTxt=C.join(" ");
-    var _hwRest=S.hinweise.filter(function(x){ return _chipTxt.indexOf(esc(x.t))<0; });
+    var _hwRest=S.hinweise.filter(function(x){
+      return _chipTxt.indexOf(esc(x.t))<0 && _navTxt.indexOf(x.t)<0; });
     if(_hwRest.length){
       _hw+='<div style="flex:1 1 100%;font-size:11px;color:var(--muted);line-height:1.5;padding-top:2px">'
         +_hwRest.map(function(x){ return '<span title="'+esc(x.d||"")+'">· '+esc(x.t)+'</span>'; }).join('&nbsp;&nbsp;')

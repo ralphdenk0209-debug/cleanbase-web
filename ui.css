@@ -3338,7 +3338,7 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
    FREIGABE (letzterer traegt .feKzTrenn) - ohne sie waeren die Chips daneben
    nicht zuzuordnen. */
 #feKopfZone > #feRailNav > .feRailGrpTit,
-#feKopfZone > #feProdKopf > .feRailGrpTit:not(.feKzTrenn){ display:none }
+#feKopfZone > #feProdKopf > .feRailGrpTit:not(.feKzFrgTit){ display:none }
 /* 🔴 Die Eigenschaften-Gruppe war fuer 180px gebaut: Bio und Ernaehrungsform standen
    UNTEREINANDER. Sie allein machte den Produktblock 109px hoch und damit die ganze
    Zone 218px statt der geplanten 150. `width:auto` reichte nicht - die Richtung
@@ -3505,7 +3505,18 @@ body.riFokus #feRahmen > #feRail{ display:none }
    von denen sieben woanders standen. Er bleibt im DOM und ist beim naechsten
    Blocker sofort wieder da - er ist versteckt, nicht abgebaut. */
 #fe_gesamtstatus.leer{ display:none }
-#feKopfband .fkbIndex{ text-align:right; line-height:1.1; min-width:64px }
+/* 🔴 23.08. nach der Live-Abnahme von 4383: die Gruppenwoerter DATENSTATUS und
+   PRÜFUNG standen noch da, obwohl beide Chip-Faecher leer waren - 14px je
+   Ueberschrift plus Abstand fuer eine Ankuendigung, der nichts folgt.
+   :has() faellt auf einen leeren Container zurueck; kann ein Browser es nicht,
+   sieht man wie vorher zwei Woerter zu viel - nichts geht kaputt. */
+#fe_gesamtstatus .feStGrp:has(.feStGrpChips:empty){ display:none }
+/* 🔴 23.08. order:9 — im Mockup steht die Index-Zahl ganz aussen rechts.
+   Im DOM haengt sie VOR Statuspille und P-Nummer, weil sie dort in die Vorlage
+   eingefuegt wurde; live stand sie deshalb mitten zwischen Name und ENTWURF.
+   Verschoben wird die ANZEIGE, nicht die Vorlage: an der Reihenfolge im
+   Markup haengen der versteckte h2 und der Dublettenchip. */
+#feKopfband .fkbIndex{ text-align:right; line-height:1.1; min-width:64px; order:9 }
 #feKopfband .feStBew{ align-items:flex-end }
 #feKopfband .feStBew em{ color:#ffffffb3 }
 #feKopfband .feStBew.still b, #feKopfband .feStBew.still i,
