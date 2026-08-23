@@ -4193,8 +4193,22 @@ async function openFgEditor(id, prefill, targetEl){
       }
     }catch(e){ console.error("[Fokus-Editor] Init:", e); }
     try{ if(id && typeof fgCanonLaden==="function"){
+      /* 🔴 23.08.2026, Work #227 — fgZuordnungLaden ist hier ABSICHTLICH NICHT MEHR
+         im Promise.all. Gemessen mit EXPLAIN ANALYZE an P51114:
+           cb_admin_zutat_zuordnungsstatus   5.183 ms
+           cb_admin_zutat_offen_mit_riki     2.325 ms
+         In einem Promise.all bestimmt der LANGSAMSTE, wann gerendert wird - der
+         Editor stand also gut fuenf Sekunden, bevor ueberhaupt etwas zu sehen war.
+         Eingebaut habe ich diesen Aufruf selbst in Stufe 5, ohne die Laufzeit zu
+         messen; ich hatte nur geprueft, ob die Antwort stimmt.
+         Jetzt: die drei schnellen Lader rendern sofort, der Zuordnungsstand kommt
+         nach. Das ist gefahrlos, weil alle Leser den fehlenden Stand bereits als
+         UNBEKANNT behandeln (_fgFreieZutaten gibt null zurueck, zOhneStamm bleibt
+         null, fgZuordnungWort faellt auf den Sammelbegriff) - und weil
+         fgZuordnungLaden die Anzeige selbst nachzieht, sobald die Antwort da ist.
+         Die eigentliche Langsamkeit gehoert damit nicht behoben, nur die Wartezeit.
+         Serverseitig liegt sie als #227 bei ChatGPT. */
       Promise.all([ fgCanonLaden(id),
-                    (typeof fgZuordnungLaden==="function")?fgZuordnungLaden(id):Promise.resolve(),
                     (typeof fgZusV2Laden==="function")?fgZusV2Laden(id):Promise.resolve(),
                     (typeof fgZutOffenLaden==="function")?fgZutOffenLaden(id):Promise.resolve() ])
         .then(function(){
@@ -4202,6 +4216,10 @@ async function openFgEditor(id, prefill, targetEl){
           try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){ console.error("[Bestandteile] Erstaufbau:",e); }
           try{ fePlaus(); }catch(e){}
         });
+      /* Laeuft daneben, blockiert die erste Anzeige nicht. */
+      if(typeof fgZuordnungLaden==="function"){
+        fgZuordnungLaden(id).catch(function(e){ console.error("[Zuordnung] Nachlauf:", e); });
+      }
     } }catch(e){ console.error("[Canonical] Init:", e); }
     try{ if(id && typeof fgRefStatusLaden==="function"){ fgRefStatusLaden(id).then(function(){ try{ fePlaus(); }catch(e){} }); } }catch(e){ console.error("[Status] Init:", e); }
     try{ if(typeof feAnsichtGet==="function" && feAnsichtGet()==="vorgang") feVorgangApply(); }catch(e){}    
