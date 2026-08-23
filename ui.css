@@ -3126,7 +3126,13 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
 }
 /* "davon …" gehoert sichtbar zur Zeile darueber - eingerueckt und leiser, genau wie
    auf dem Etikett. */
-#feTab2 .feNwFeld.unter{ padding-left:14px; color:var(--muted) }
+/* 🔴 23.08. am Live-Stand gemessen und korrigiert: hier stand padding-left auf der
+   ganzen ZEILE. Das hat die eingerueckten "davon …"-Zeilen samt Zahlenfeld um 14px
+   verschoben - gemessen zwei linke Kanten, 500px und 514px. Damit war genau das
+   kaputt, was diese Aenderung versprochen hat: die Zahlenflucht.
+   Die Einrueckung gehoert an die BESCHRIFTUNG, nicht an die Zeile. */
+#feTab2 .feNwFeld.unter{ color:var(--muted) }
+#feTab2 .feNwFeld.unter > span{ padding-left:14px }
 #feTab2 .feNwFeld.unter > span::before{ content:"└ "; opacity:.45 }
 #feTab2 .feNwFeld > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 /* Die Einheit ist Beiwerk, nicht Teil des Namens. */
