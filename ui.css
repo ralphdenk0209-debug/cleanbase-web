@@ -3079,3 +3079,58 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
 .feQuelleGrid > label{ display:block; font-size:13px; min-width:0 }
 .feQuelleGrid > label > select,
 .feQuelleGrid > label > input{ margin-top:3px }
+
+/* ============================================================================
+   PRODUKTEDITOR · NÄHRWERTFELDER   (Work #181 Stufe 4, 23.08.2026)
+   ----------------------------------------------------------------------------
+   Ralphs Befund: "Die Naehrwert-Eingabefelder sind zu breit."
+   Gemessen war es anders herum: das Feld war 110px, der ABSTAND war das Problem.
+   Jede Zeile stand als eigenes Flex-Element mit justify-content:space-between -
+   Beschriftung ganz links, Feld ganz rechts, dazwischen Leere. Bei zwoelf Zeilen
+   untereinander springt der Blick zwoelfmal ueber diese Luecke.
+
+   JETZT: mehrspaltiges Raster, Beschriftung und Feld dicht beieinander, Zahl
+   rechtsbuendig. Rechtsbuendig ist kein Geschmack: so stehen die Kommastellen
+   untereinander, und ein Tippfehler wie 58,7 statt 5,87 faellt beim Ueberfliegen auf.
+
+   HANDY ZUERST (Ralph-Entscheid F2): eine Spalte ist der Grundzustand.
+   Zwei ab 520px, drei ab 780px. Der Umbruch haengt an der KARTE, nicht am
+   Fenster - die Karte steht mal in der vollen Mitte, mal in einer schmalen Spalte.
+   Deshalb container-queries mit Media-Query als Rueckfall fuer aeltere Browser.
+
+   ⚠ NICHT ANGEFASST: die IDs fe_kcal … fe_salz. An ihnen haengen der Pflichtfeld-
+   Check (nwReq), das Speichern, alle sechs Lesewege (OFF, USDA, Riki, JSON, Rohtext,
+   Etikett) und die Plausibilitaetspruefung. Eine umbenannte ID waere ein stiller Bruch.
+   ========================================================================== */
+#feTab2 .feNwRaster{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:2px 14px;
+  container-type:inline-size;
+}
+@media (min-width:520px){ #feTab2 .feNwRaster{ grid-template-columns:repeat(2,minmax(0,1fr)) } }
+@media (min-width:780px){ #feTab2 .feNwRaster{ grid-template-columns:repeat(3,minmax(0,1fr)) } }
+
+#feTab2 .feNwFeld{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 76px;
+  align-items:center;
+  gap:8px;
+  font-size:12.5px;
+  padding:3px 0;
+  min-width:0;
+}
+/* "davon …" gehoert sichtbar zur Zeile darueber - eingerueckt und leiser. */
+#feTab2 .feNwFeld.unter{ padding-left:11px; color:var(--muted) }
+#feTab2 .feNwFeld > span{ min-width:0; overflow:hidden; text-overflow:ellipsis }
+/* Die Einheit ist Beiwerk, nicht Teil des Namens. */
+#feTab2 .feNwFeld i{ font-style:normal; color:var(--muted); font-size:11px }
+#feTab2 .feNwFeld > input{
+  width:76px; padding:5px 7px; text-align:right;
+  border:1px solid var(--line); border-radius:7px;
+  font-size:12.5px; background:var(--card); color:var(--ink);
+}
+#feTab2 .feNwFeld > input:focus{ border-color:var(--k-2f6fd6,#2f6fd6); outline:none }
+/* Der Haken gehoert zu den Ballaststoffen, aber nicht in eine Rasterzelle -
+   sonst stuende er neben einem Zahlenfeld und sae aus wie eines. */
+#feTab2 .feNwRaster > .feNwBallast{ grid-column:1/-1; margin:0 0 4px }

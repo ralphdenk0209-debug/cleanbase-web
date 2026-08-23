@@ -3801,7 +3801,17 @@ async function openFgEditor(id, prefill, targetEl){
   catch(_e){ var _refSeen={}; window._fgRef=[]; window._fgRefGelesen={}; (_savedRef||_boundNames).concat(_boundNames).concat(_boundZus).forEach(function(n){ var k=String(n||"").trim().toLowerCase(); if(!k||_refSeen[k]||_refIstLeer(k)) return; _refSeen[k]=1; window._fgRef.push(n); }); }
   await loadZutatenStamm();
   const nw=d.naehrwerte||{};
-  const nf=(k,label,unit)=>`<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0${(k==='zucker'||k==='polyole'||k==='ges_fett'||k==='einfach_unges'||k==='mehrfach_unges'||k==='transfette')?';padding-left:12px;color:var(--muted)':''}"><span>${label}${unit?" ("+unit+")":""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()" style="width:110px;padding:6px;border:1px solid var(--line);border-radius:8px"></label>`;
+  /* 🔴 23.08.2026, Work #181 Stufe 4 — Ralphs Punkt 3: "Wertefelder schmaler und näher
+     an ihren Beschriftungen".
+     WAS HIER STAND: justify-content:space-between — das heißt wörtlich "drück beide so
+     weit auseinander wie möglich". Nicht das Feld war zu breit (110px), der ABSTAND war
+     es. Dazu lag die ganze Optik inline im JavaScript und war damit nirgends zentral
+     änderbar.
+     JETZT: nur noch Struktur, die Optik steht in ui.css unter .feNwRaster / .feNwFeld.
+     Die Einheit wandert aus der Klammer in ein eigenes <i> — "Fett g" liest sich neben
+     einem Zahlenfeld besser als "Fett (g)" und spart Breite. */
+  const NF_UNTER={zucker:1,polyole:1,ges_fett:1,einfach_unges:1,mehrfach_unges:1,transfette:1};
+  const nf=(k,label,unit)=>`<label class="feNwFeld${NF_UNTER[k]?" unter":""}"><span>${label}${unit?` <i>${unit}</i>`:""}</span><input id="fe_${k}" type="number" step="any" value="${nw[k]??""}" oninput="fePlaus()"></label>`;
   /* Fehlende Bewertung bleibt leer; niemals auf 5 vorbelegen. */
   const zText=(d.zutaten||[]).map(z=>`${z.name}; ${(z.rating===null||z.rating===undefined)?"":z.rating}; ${(String(z.kritisch||"nein").toLowerCase()==="ja")?"j":"n"}`).join("\n");
   const inp=(id2,val)=>`<input id="${id2}" value="${esc(val||"")}" oninput="try{feDubPruefen()}catch(e){}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px">`;    
@@ -4031,7 +4041,7 @@ async function openFgEditor(id, prefill, targetEl){
 <div id="feTab2">
   <div id="feNwOben">
   <div id="feNwLinks">
-        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div>${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("einfach_unges","davon einfach ungesättigte","g")}${nf("mehrfach_unges","davon mehrfach ungesättigte","g")}${nf("transfette","davon Transfettsäuren","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}<div id="fe_plaus" ></div>`)}</div>
+        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div><div class="feNwRaster">${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("einfach_unges","davon einfach ungesättigte","g")}${nf("mehrfach_unges","davon mehrfach ungesättigte","g")}${nf("transfette","davon Transfettsäuren","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}</div><div id="fe_plaus" ></div>`)}</div>
         <span id="fe_wirkAnker"  data-note="06.08.2026: Die Wirkstoff-Karte hat einen FESTEN Ort im Reiter Naehrwerte. Nichts wird mehr verschoben - der Anker bleibt nur als Sprungmarke."></span><div id="fe_wirkCard">
           <div id="fe_wirkGrid">
             ${''/* Mineralwasser verwendet die bestehende Mineralstoffanalyse-Karte. */}
