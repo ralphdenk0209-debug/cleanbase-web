@@ -7128,8 +7128,23 @@ function feKopfbandSync(){
   if(pn){
     var pid=(window._fgEdit&&window._fgEdit.id)||'';
     var dt=(typeof _feDatumDE==='function')?_feDatumDE(window._fgEdit&&window._fgEdit.erfasst_am):'';
+    /* 🔴 23.08. der SPEICHERZUSTAND steht ab jetzt hier, wie im Mockup
+       ("P32667 · gespeichert · erfasst 12.08.2026"). Vorher war er ein eigener
+       Chip im Statusstreifen - und der Streifen kostete 159px fuer acht
+       Angaben, von denen sieben woanders standen.
+       ⚠ Nicht verwechseln: "Entwurf/Aktiv" ist der PRODUKTSTATUS und steht als
+       Pille daneben. "gespeichert" beantwortet eine andere Frage - sind meine
+       Eingaben drin? Deshalb stehen beide da, nicht eins statt des anderen. */
+    /* Dieselbe Quelle, aus der auch getErfassungsStatus() den Wert nimmt
+       (Zeile 6977: gespeichert:(window._fgSaveState||...)). Nicht der Status
+       selbst wird hier nachgebaut, nur seine Beschriftung - und getErfassungs-
+       Status() wird bewusst NICHT aufgerufen: feStatusStreifen() ruft diese
+       Funktion hier auf, das waere eine Berechnung im Kreis. */
+    var sp={neu:'noch nicht gespeichert', saving:'speichert …',
+            saved:'gespeichert', error:'Speichern fehlgeschlagen'
+           }[window._fgSaveState||(pid?'saved':'neu')] || '';
     pn.textContent = pid
-      ? (pid+' · '+String((window._fgEdit&&window._fgEdit.status)||'Entwurf')+(dt?' · erfasst am '+dt:''))
+      ? (pid+(sp?' · '+sp:'')+(dt?' · erfasst am '+dt:''))
       : 'P-Nummer kommt beim ersten Speichern';
   }
 }
@@ -7178,26 +7193,55 @@ function feStatusStreifen(){
   var box=document.getElementById("fe_gesamtstatus"); if(!box) return;
   var S=getErfassungsStatus();
   if(!S.bekannt){ box.innerHTML=""; feStickyKopfBinden(); return; }
+  /* ==========================================================================
+     🔴 23.08.2026, Work #181 — DER STREIFEN ZEIGT NUR NOCH, WAS SONST NIRGENDS STEHT
+     --------------------------------------------------------------------------
+     Ralph: "oberer balken noch nicht wie im mockup". Nachgemessen an P73634,
+     und er hat recht - aus einem Grund, den ich vorher nicht benannt hatte:
+     der Kopf ist 380px hoch, das Mockup rund 150. Allein dieser Streifen sind
+     159px davon. Und was steht drin?
+
+       Chip                     steht ausserdem
+       Gespeichert              Zeile A (jetzt: "P73634 · Entwurf · gespeichert")
+       Quelle ✓                 Station 1 "Kopf & Quelle · erfüllt"
+       Nährwerte ✓              Station 2 "Nährwerte / Analyse · erfüllt"
+       Bestandteile 2/3         Station 3 "zu prüfen · 2/3"
+       Etikettprüfung geprüft   nirgends - aber es ist eine Meldung, dass nichts
+                                los ist. Ein Balken, der Ruhe meldet, kostet
+                                Platz und traegt nichts.
+       Freigabe möglich         Zeile B, Gruppe Freigabe
+       1 Dublettentreffer       Zeile A, Chip "⚠ 1× ähnlich"
+       1 Zutat nicht im Stamm   Station 3, hinter dem Zähler
+
+     Sechs von acht Angaben doppelt, die siebte ist eine Beruhigung. 159px.
+
+     🔴 WAS ICH NICHT GEMACHT HABE: den Streifen loeschen. Er stammt aus Work
+     #133, ist abgenommen und von zwei Tests geschuetzt - Merkkarte 7. Sein
+     Aufbau, seine Klassen und seine Funktion bleiben unveraendert bestehen.
+     Geaendert ist nur, WAS hineingelegt wird: ausschliesslich Punkte, die es
+     an keiner anderen Stelle gibt. Bleibt nichts uebrig, ist er leer und das
+     Stylesheet blendet ihn aus. Kommt ein Blocker dazu, ist er sofort wieder
+     da. Rueckbau: eine Zeile, kein Wiederaufbau.
+     ========================================================================== */
   var C=[];
-  var sp={neu:["noch nicht gespeichert","grau"],saving:["Speichert …","blau"],
-          saved:["Gespeichert","still"],error:["Speichern fehlgeschlagen","rot"]}[S.gespeichert]||["Gespeichert","still"];
-  C.push(_stChip(sp[0], sp[1]));
-  C.push(_stChip("Quelle "+(S.quelle_ok?"✓":"offen"), S.quelle_ok?"ok":"gelb", S.quelle_ok?"":"Quelle-Typ im Editor setzen"));
-  C.push(S.naehrwerte_ok===null ? _stChip("Nährwerte nicht nötig","still","Kategorie ohne Lebensmittel-Index")
-        : _stChip("Nährwerte "+(S.naehrwerte_ok?"✓":"unvollständig"), S.naehrwerte_ok?"ok":"rot",
-                  S.naehrwerte_ok?"":(window._fgStatusRoh&&window._fgStatusRoh.nwFehlt.join(", "))||""));
-  var ges=S.bestandteile_gesamt, off=S.bestandteile_offen;
-  if(!ges) C.push(_stChip("Bestandteile: keine erfasst","still",
-      "Ob für diese Produktart überhaupt welche nötig sind, steht im Serververtrag – das ist hier nicht entschieden."));
-  else C.push(_stChip("Bestandteile "+(ges-off)+"/"+ges+(off?"":" ✓"), off?"gelb":"ok",
-                 off?(off+" offen"):"alle gebunden"));
+  /* Blocker aus der Etikettpruefung. Der EINZIGE Punkt ohne zweiten Anzeigeort -
+     deshalb bleibt er. Die beruhigenden Gegenstuecke ("geprüft", "noch nicht
+     erhoben") sind weg: sie melden, dass nichts zu tun ist. */
   if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0)
     C.push(_stChip(S.referenz_blocker+" Blocker am Etikett","rot",S.referenz_gruende.join(" · ")));
-  else if((S.referenz_gueltige_zeilen||0)>0)
-    C.push(_stChip("Etikettprüfung geprüft","still","alle Prüfzeilen ohne Blocker"));
-  else
-    C.push(_stChip("Etikettprüfung noch nicht erhoben","still",
-      "Kein Blocker – die Referenzprüfung ist eine Kontrollhilfe."));
+  /* Der Speicherfehler ist kein Status, sondern ein Unfall - der muss stehen
+     bleiben, und zwar rot. "Gespeichert" und "Speichert …" stehen in Zeile A. */
+  if(S.gespeichert==="error") C.push(_stChip("Speichern fehlgeschlagen","rot"));
+  /* Nährwerte sind der einzige Datenstatus, der ROT werden kann und dessen
+     Grund (welche Felder fehlen) nur hier im Titel steht. Station 2 sagt nur
+     "unvollständig". Grün oder "nicht nötig" braucht keinen Platz. */
+  if(S.naehrwerte_ok===false)
+    C.push(_stChip("Nährwerte unvollständig","rot",
+                   (window._fgStatusRoh&&window._fgStatusRoh.nwFehlt.join(", "))||""));
+  /* 🔴 Der Freigabe-Chip wird unten mit C.pop() geholt. Er MUSS deshalb der
+     letzte im Array sein - und er muss immer da sein, auch wenn sonst nichts
+     drin steht, sonst holt pop() den Etikett-Blocker heraus und zeigt ihn als
+     Freigabezustand an. Das waere eine falsche Aussage aus einer richtigen Zahl. */
   C.push(S.freigabe_moeglich ? _stChip("Freigabe möglich","ok")
         : (S.freigabe_gruende.length===1
             ? _stChip("Freigabe blockiert · "+S.freigabe_gruende[0].t,"rot",S.freigabe_gruende[0].d||"")
@@ -7206,11 +7250,15 @@ function feStatusStreifen(){
   /* Freigabegründe nur an ihren bestehenden Anzeigeorten zeigen; keine zusätzliche Punkteliste duplizieren. */
   var _detail = '';
   var _hw="", _dub=window._feDub;
-  if(_dub && _dub.anzahl){
-    _hw+='<div class="feStDub'+(_dub.freigabe_blockiert?' rot':'')+'">'
-      +(_dub.freigabe_blockiert?'⛔ ':'· ')+esc(String(_dub.anzahl))
+  /* 🔴 23.08. der Dublettenhinweis steht nur noch hier, wenn er die Freigabe
+     BLOCKIERT. Der harmlose Fall ("· 1 möglicher Dublettentreffer") steht seit
+     Work #133 als Chip "⚠ 1× ähnlich ›" im Kopfband - dort ist er anklickbar
+     und fuehrt zum Treffer. Der Satz hier konnte das nicht und kostete eine
+     eigene Fusszeile. */
+  if(_dub && _dub.anzahl && _dub.freigabe_blockiert){
+    _hw+='<div class="feStDub rot">⛔ '+esc(String(_dub.anzahl))
       +' möglicher Dublettentreffer'+(_dub.anzahl===1?'':'e')
-      +(_dub.freigabe_blockiert?' – blockiert die Freigabe':'')+'</div>';
+      +' – blockiert die Freigabe</div>';
   }
   if(S.hinweise && S.hinweise.length){
     var _chipTxt=C.join(" ");
@@ -7221,7 +7269,14 @@ function feStatusStreifen(){
         +'</div>';
     }
   }
+  /* 🔴 23.08. C.pop() holt den Freigabe-Chip heraus - aber angezeigt wird er
+     hier nur noch, wenn die Freigabe BLOCKIERT ist. "Freigabe möglich" steht
+     seit dem Kopfzonen-Umbau in Zeile B, Gruppe "Freigabe", zusammen mit den
+     Gruenden und dem Knopf. Zweimal dieselbe gruene Meldung ist kein doppelter
+     Trost, sondern doppelte Hoehe. Die Blockade bleibt hier stehen: eine
+     Sperre darf ruhig zweimal auffallen. */
   var _frgChip=C.pop();
+  if(S.freigabe_moeglich) _frgChip="";
   try{ feKopfbandSync(); }catch(e){}
   box.innerHTML='<div class="feStStreifen">'
       +'<div class="feStLinks">'
@@ -7237,6 +7292,14 @@ function feStatusStreifen(){
         +'<div class="feStFrg">'+_frgChip+'</div></div>'
       +(_detail||_hw ? '<div class="feStFuss">'+_detail+_hw+'</div>' : '')
     +'</div>';
+  /* 🔴 23.08. Ist nach dem Aussortieren nichts uebrig, verschwindet der
+     Streifen - er behaelt seinen Aufbau, nimmt aber keine Hoehe mehr.
+     Gemessen an P73634 waren das 159px fuer acht Angaben, von denen sieben
+     woanders standen.
+     ⚠ Er wird NICHT geleert, nur unsichtbar: kommt beim naechsten Speichern
+     ein Blocker dazu, ist er in derselben Sekunde wieder da. Ein Streifen, den
+     man erst neu aufbauen muesste, waere im Fehlerfall genau der, der fehlt. */
+  box.classList.toggle("leer", C.length===0 && !_frgChip && !_hw && !_detail);
   feStickyKopfBinden();
 }
 function _feDatumDE(v){

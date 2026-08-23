@@ -3279,14 +3279,24 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
    Der Streifen kostete 180px Breite ueber die VOLLE Seitenhoehe; die Zone kostet
    rund 150px Hoehe. Der Arbeitsbereich waechst dadurch von 700 auf etwa 900px.
    ========================================================================== */
+/* 🔴 23.08. ZWEITE NACHBESSERUNG — Ralph: "oberer balken noch nicht wie im mockup".
+   Nachgemessen an P73634: der Kopf war 380px hoch, das Mockup ist rund 150.
+   Zwei Ursachen, beide hier behoben:
+     1. Die Zone stand als SPALTE, also Navigation und Produktblock untereinander -
+        im Mockup sind sie EINE Zeile (Zeile B). Jetzt row mit Umbruch: auf breiten
+        Schirmen eine Zeile, auf schmalen bricht sie von selbst um.
+     2. Die Stationen brauchen die volle Breite und bekommen sie ausdruecklich
+        (flex:1 0 100%), sonst haengen sie sich hinten an Zeile B an. */
 #feKopfZone{
   position:sticky; top:0; z-index:60;
   background:var(--bg,#eef3f8);
   padding:10px 0 8px;
   margin-bottom:4px;
   box-shadow:0 10px 18px -12px #0f172a26;
-  display:flex; flex-direction:column; gap:8px;
+  display:flex; flex-direction:row; flex-wrap:wrap; align-items:center;
+  column-gap:10px; row-gap:8px;
 }
+#feKopfZone > #feFokusNav{ flex:1 0 100%; order:2 }
 /* 🔴 23.08. NACHGEBESSERT — die erste Fassung setzte nur `display:flex` und liess
    damit die INNEREN Regeln der Rail stehen. Live gemessen war das Ergebnis kaputt:
      #feRailNav hatte weiterhin flex-direction:column und align-items:center
@@ -3304,8 +3314,31 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
   align-items:center !important;
   justify-content:flex-start;
   gap:7px; flex-wrap:wrap;
-  border:0; padding:0; margin:0; width:100%;
+  border:0; padding:0; margin:0;
+  /* 🔴 23.08. hier stand width:100%. Genau das zwang die beiden Bloecke in zwei
+     Zeilen - jeder nahm die volle Breite, auch wenn er 300px brauchte. Der
+     Navigationsblock nimmt jetzt, was er braucht; der Produktblock fuellt den
+     Rest und bricht bei Bedarf um.
+     ⚠ Geaendert wurde die BESTEHENDE Regel, nicht eine zweite daruntergesetzt.
+     Zwei Regeln fuer dieselbe Breite waren heute schon zweimal die Fehlerquelle. */
+  width:auto;
 }
+/* 🔴 order, weil die REIHENFOLGE im DOM nicht die gewuenschte ist: feProduktKopf()
+   haengt sich vor feRailNav() ein, also stand "Speichern · Bio · Freigabe" ueber
+   "← Posteingang". Am Live-DOM gemessen und mit order korrigiert - das ist eine
+   Anzeigefrage, kein Grund, die Aufbaureihenfolge im JavaScript umzustellen. */
+#feKopfZone > #feRailNav{ flex:0 0 auto; order:0 }
+#feKopfZone > #feProdKopf{ flex:1 1 auto; min-width:0; order:1 }
+/* 🔴 Vier Gruppenwoerter, die nichts erklaeren: NAVIGATION 69px, PRODUKT 53px,
+   AKTIONEN 67px, EIGENSCHAFTEN 102px - zusammen 291px Breite, live gemessen.
+   Ein Knopf "← Posteingang" braucht keine Ueberschrift "NAVIGATION", und was
+   ueber einem Speichern-Knopf steht, ist erkennbar eine Aktion. Im Mockup gibt
+   es sie deshalb nicht.
+   Stehen bleiben die, die wirklich unterscheiden: BIO, ERNÄHRUNGSFORM und
+   FREIGABE (letzterer traegt .feKzTrenn) - ohne sie waeren die Chips daneben
+   nicht zuzuordnen. */
+#feKopfZone > #feRailNav > .feRailGrpTit,
+#feKopfZone > #feProdKopf > .feRailGrpTit:not(.feKzTrenn){ display:none }
 /* 🔴 Die Eigenschaften-Gruppe war fuer 180px gebaut: Bio und Ernaehrungsform standen
    UNTEREINANDER. Sie allein machte den Produktblock 109px hoch und damit die ganze
    Zone 218px statt der geplanten 150. `width:auto` reichte nicht - die Richtung
@@ -3467,6 +3500,11 @@ body.riFokus #feRahmen > #feRail{ display:none }
    und eine eigene, aermere Fallunterscheidung; die 61 stand dadurch zweimal auf
    dem Schirm. Hier steht deshalb nur noch, was der dunkle Grund braucht:
    helle Schrift. Groessen und Aufbau kommen aus .feStBew und bleiben dort. */
+/* 🔴 23.08. Der Statusstreifen blendet sich aus, wenn nach dem Aussortieren der
+   Doppelungen nichts uebrig ist. Gemessen an P73634: 159px fuer acht Angaben,
+   von denen sieben woanders standen. Er bleibt im DOM und ist beim naechsten
+   Blocker sofort wieder da - er ist versteckt, nicht abgebaut. */
+#fe_gesamtstatus.leer{ display:none }
 #feKopfband .fkbIndex{ text-align:right; line-height:1.1; min-width:64px }
 #feKopfband .feStBew{ align-items:flex-end }
 #feKopfband .feStBew em{ color:#ffffffb3 }
