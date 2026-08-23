@@ -2327,9 +2327,17 @@ body.riFokus #fe_naehrKacheln,
 body.riFokus #fe_mikroWrap,
 body.riFokus #feSchrittKopf,
 body.riFokus #feSchrittFuss{ width:100%; max-width:none; box-sizing:border-box }
-/* Gleiche Innenabstaende und gleicher Radius fuer die Hauptkarten aller Schritte. */
+/* Gleiche Innenabstaende und gleicher Radius fuer die Hauptkarten aller Schritte.
+   🔴 23.08.2026 — HIER STAND `border-radius:12px` FEST. Das war ein zweiter Besitzer:
+   .feKarte fuehrt die Variable --fk-radius, und diese Regel hat sie mit einem harten
+   Wert ueberschrieben. Live gemessen: --fk-radius stand auf 16px, berechnet kamen 12px
+   heraus - die Variable war wirkungslos, ohne dass man es ihr ansieht.
+   Das ist die schlimmere Sorte Doppelbesitz: wer die Variable aendert, sieht keine
+   Wirkung und sucht den Fehler an der falschen Stelle. Genau dagegen habe ich heute
+   frueh einen Test gebaut - fuer den RAHMEN, nicht fuer die Karten.
+   Jetzt liest auch diese Regel die Variable. */
 body.riFokus #feEditorBody .feKarte,
-body.riFokus #feEditorBody .cardF{ border-radius:12px }
+body.riFokus #feEditorBody .cardF{ border-radius:var(--fk-radius,12px) }
 
 /* --- Schritt 4: zwei Abschnitte UNTEREINANDER ------------------------------ */
 /* `#feTab1` und `#feAbgleich` teilen sich sonst die Zelle 2/1 und laegen
@@ -3388,3 +3396,47 @@ body.riFokus #feRahmen > #feRail{ display:none }
 #feKopfZone .feKzFrgBtn:not(:disabled):hover{ background:#d9f2e2 }
 /* Der alte Freigabe-Satz ist durch Chip und Knopf ersetzt. */
 #feKopfZone .feProdFrgTxt{ display:none }
+
+/* ============================================================================
+   🔴 VERA-OPTIK FUER DEN EDITOR   (Work #181, 23.08.2026)
+   ----------------------------------------------------------------------------
+   Ralph: "darstellung der produktkarte wie im fähigkeitsbericht von vera."
+   Die Werte hier sind aus VERA_Vision_Equipment_Reports_Analysis_v2.34.html
+   AUSGELESEN, nicht erfunden - jeder ist dort belegbar:
+     Karten            border-radius 16px + box-shadow 0 5px 16px #0f172a0d
+     Innenkaesten      12px, Grund #f8fbff, Rahmen #c7d8ea
+     Kopf              linear-gradient(120deg,#12395a,#1f4e78)
+
+   WARUM DAS HIER STEHT UND NICHT IN DEN EINZELREGELN: der Editor hat EINE
+   Kartenvariable --fk-radius und EINE Klasse .feKarte. Vier Werte aendern die
+   ganze Optik. Haette ich stattdessen 49 Einzelregeln angefasst, waere es die
+   Sammelersetzung geworden, die am 15.08. zwei Dateien beschaedigt hat.
+
+   NICHT ANGEFASST: Schriftgroessen, Abstaende, Farben der Statuszeichen. Eine
+   Optikaenderung auf einmal reicht - sonst weiss hinterher niemand, welcher
+   Wert den Unterschied gemacht hat.
+   ========================================================================== */
+/* 🔴 HIER STAND EIN ZWEITER .feKarte-BLOCK, der --fk-radius und --fk-balken erneut
+   setzte. Zwei Dauertests haben ihn gefangen: "--fk-radius genau einmal gesetzt" und
+   "--fk-balken genau einmal gesetzt". Sie hatten recht, und der Fehler ist derselbe,
+   den ich zwei Absaetze weiter unten gerade an der Fokus-Regel behoben habe - nur
+   diesmal von mir selbst gebaut. Die Werte gehoeren in die EINE Definition, nicht
+   in eine zweite daneben. Sie stehen jetzt oben im Originalblock von .feKarte.
+   Was hier bleibt, sind Eigenschaften, die .feKarte vorher gar nicht hatte. */
+.feKarte{
+  box-shadow:0 5px 16px #0f172a0d;   /* VERA: der Schatten macht die Karte zur Karte */
+  border-color:#d9e2ef;              /* VERA: --line */
+}
+/* Die Kaesten INNERHALB einer Karte - bei VERA .derivedBox / .grpPanel / .statusStrip */
+#feEditorBody .feHolBox,
+#feEditorBody .feSammelKasten,
+#feKopfZone .feKzChip{
+  border-color:#c7d8ea;
+}
+#feEditorBody .feHolBox{ background:#f8fbff }
+/* Der Produktkopf: VERAs Verlauf statt Volltonfarbe. Die Textfarben bleiben,
+   sie waren fuer dunklen Grund gebaut. */
+#feKopfband{
+  background:linear-gradient(120deg,#12395a,#1f4e78);
+  box-shadow:0 5px 16px #0f172a1a;
+}
