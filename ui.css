@@ -367,16 +367,29 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
 /* ============================================================================
    🔴 DER RASTERVERTRAG · HANDY ZUERST   (Work #181 Stufe 1, 23.08.2026)
    ----------------------------------------------------------------------------
-   Ralph-Entscheid F2: "Mobil ist Pflichtumfang. Handy zuerst planen, Desktop
-   daraus ableiten." Deshalb ist EINSPALTIG der Grundzustand - nicht der Sonderfall.
-   Ein Umbruchpunkt, der von oben nach unten denkt, vergisst das Handy; genau das
-   war hier der Fall, der kleinste Editor-Breakpoint lag bei 1399px und liess die
-   180px-Leiste auch auf einem 390px-Schirm stehen. Dem Arbeitsbereich blieben 192px.
+   🔴 PRAEZISIERT 23.08. DURCH RALPH: "handy eher nicht. fast immer am laptop,
+   ggf. noch ipad, admin per handy sehr selten bis garnicht."
+   Damit gilt fuer DIESEN Bereich (Produkt erfassen ist Adminarbeit):
+   Laptop ist der Hauptfall, iPad muss ordentlich gehen, Handy ist der Rueckfall.
+   Der fruehere Entscheid F2 "Handy zuerst" stammt aus der Planung und galt fuer
+   die Consumer-Seite; fuer den Editor ist er hiermit ueberholt.
+
+   EINSPALTIG BLEIBT TROTZDEM DER GRUNDZUSTAND - aber als Rueckfall, nicht als
+   Zielbild. Der Grund ist unveraendert: der kleinste Editor-Umbruchpunkt lag bei
+   1399px und liess die 180px-Leiste auch auf einem 390px-Schirm stehen; dem
+   Arbeitsbereich blieben 192px. Ein Grundzustand, der bei jeder Breite haelt,
+   ist billiger als eine Sonderregel je Geraet.
 
    DIE DREI STUFEN, eine Definition je Stufe:
-     Grundzustand   alles untereinander          (Handy)
-     ab  900px      Leiste + Arbeitsbereich      (Tablet, kleiner Laptop)
-     ab 1400px      zusaetzlich die Kontextspalte (Desktop)
+     Grundzustand   alles untereinander           (Rueckfall, schmale Fenster)
+     ab  700px      Leiste + Arbeitsbereich       (iPad hochkant und alles darueber)
+     ab 1400px      zusaetzlich die Kontextspalte (Laptop - der Hauptfall)
+
+   WARUM 700 UND NICHT 900: gemessen an den Geraeten, die Ralph wirklich benutzt.
+   Bei 900 fielen iPad hochkant (768px) und iPad Pro 11 hochkant (834px) in den
+   einspaltigen Rueckfall - auf einem iPad ist das verschenkter Platz, dort reicht
+   es fuer Leiste (180) plus Arbeitsbereich (564). Mit 700 greift zweispaltig ab
+   dem kleinsten iPad; einspaltig bleibt fuer Handy und sehr schmale Fenster.
 
    WAS SICH GEGENUEBER VORHER GEAENDERT HAT: die Zwischenraeume waren eigene
    GRID-SPALTEN, weil CSS Grid nur ein column-gap kennt und Ralph links 43px und
@@ -393,7 +406,7 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
   gap:16px;
   align-items:start;
 }
-@media (min-width:900px){
+@media (min-width:700px){
   /* Altansicht (ohne Fokus): Leiste 242px, Rest Arbeitsbereich. */
   #feRahmen{ grid-template-columns:242px minmax(0,1fr); gap:12px }
 }
@@ -3192,13 +3205,14 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
    diesen Block stuende die 180px-Leiste auch auf einem 390px-Schirm - gemessen
    blieben dem Arbeitsbereich dann 192px. Das war Befund B2.
 
-   UNTER 900px gilt deshalb: alles untereinander, in der Reihenfolge, in der man
-   es braucht. Die Arbeitsschritte gehoeren nach OBEN (man waehlt sie zuerst),
+   UNTER 700px gilt deshalb: alles untereinander, in der Reihenfolge, in der man
+   es braucht. 700 statt 900, damit iPad hochkant (768px) noch zweispaltig bleibt -
+   siehe Begruendung im Hauptblock oben. Die Arbeitsschritte gehoeren nach OBEN (man waehlt sie zuerst),
    der Arbeitsbereich in die Mitte, der Kontext ans Ende (man sieht ihn nach.
    Reihenfolge ueber grid-row, nicht ueber DOM-Umbau: ein Umbau des DOM haette
    jede Fremdlogik getroffen, die per ID sucht.
    ========================================================================== */
-@media (max-width:899px){
+@media (max-width:699px){
   body.riFokus #feRahmen,
   body.riFokus #feRahmen.riDrei{
     grid-template-columns:minmax(0,1fr) !important;
