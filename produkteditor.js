@@ -5659,8 +5659,27 @@ function feProduktKopf(){
        keine zweite Entscheidung - der Server entscheidet ohnehin allein. */
     +'<div class="feRailGrpTit feKzTrenn">Freigabe</div>'
     +'<div class="feProdFrg">'
+      /* 🔴 23.08. nachgebessert — HIER STAND NUR "✓ freigegeben".
+         Live gemessen an P32667: Produktstatus Aktiv, also freigegeben. Gleichzeitig
+         freigabe_moeglich=false mit dem Grund "Score nicht vollständig". Oben rechts
+         meldete der Statusstreifen deshalb "Freigabe blockiert", waehrend mein Chip
+         daneben "✓ freigegeben" sagte. Beides ist fuer sich richtig - sie beantworten
+         zwei verschiedene Fragen: IST es freigegeben gegen KOENNTE es erneut freigegeben
+         werden. Nebeneinander liest es sich als Widerspruch, und mein Chip verschwieg
+         den offenen Punkt.
+         Jetzt steht beides da: der Zustand UND was noch offen ist. Ein freigegebenes
+         Produkt mit offenem Punkt ist ein echter Fall - er darf nicht wie ein sauberer
+         aussehen. */
       +(frei
           ? '<span class="feKzChip ok">✓ freigegeben</span>'
+            +((!moeglich && S && S.bekannt && S.freigabe_gruende && S.freigabe_gruende.length)
+               ? '<span class="feKzChip warn" title="'+esc(S.freigabe_gruende.map(function(g){
+                   return (g&&g.t)?g.t:String(g); }).join(' · '))+'">⚠ '
+                 +S.freigabe_gruende.length+' offener Punkt'+(S.freigabe_gruende.length===1?'':'e')
+                 +'</span>'
+                 +'<span class="feKzGrund">'+esc(S.freigabe_gruende.slice(0,2).map(function(g){
+                   return (g&&g.t)?g.t:String(g); }).join(' · '))+'</span>'
+               : '')
           : (moeglich
               ? '<span class="feKzChip ok">✓ möglich</span>'
               : '<span class="feKzChip rot">● blockiert</span>'

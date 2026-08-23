@@ -3440,3 +3440,6 @@ body.riFokus #feRahmen > #feRail{ display:none }
   background:linear-gradient(120deg,#12395a,#1f4e78);
   box-shadow:0 5px 16px #0f172a1a;
 }
+/* Der Warnchip fuer "freigegeben, aber noch ein offener Punkt". Gelb, nicht rot:
+   das Produkt ist live, es ist kein Fehler - aber es ist auch nicht sauber. */
+#feKopfZone .feKzChip.warn{ background:#fffbeb; color:#a16207; border-color:#fde68a }
