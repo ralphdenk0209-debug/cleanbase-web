@@ -3279,12 +3279,39 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
   box-shadow:0 10px 18px -12px #0f172a26;
   display:flex; flex-direction:column; gap:8px;
 }
-/* Die drei Bloecke liegen waagerecht statt untereinander. */
+/* 🔴 23.08. NACHGEBESSERT — die erste Fassung setzte nur `display:flex` und liess
+   damit die INNEREN Regeln der Rail stehen. Live gemessen war das Ergebnis kaputt:
+     #feRailNav hatte weiterhin flex-direction:column und align-items:center
+       -> "NAVIGATION" stand zentriert UEBER dem Posteingang-Knopf, mitten auf der Seite
+     #feFokusNav bekam repeat(3,1fr), hat aber VIER Kinder - die Ueberschrift belegte
+       Spalte 1, die drei Stationen rutschten auf 2, 3 und Zeile 2
+     .feRailEigen behielt ihre schmale Breite aus der 180px-Spalte
+   Lehre: wer einen Block aus einer schmalen Spalte in eine breite Zeile hebt, muss
+   die Richtung ausdruecklich umstellen. `display:flex` allein aendert sie nicht -
+   flex-direction wird vererbt, nicht zurueckgesetzt. */
 #feKopfZone > #feRailNav,
 #feKopfZone > #feProdKopf{
-  display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:center !important;
+  justify-content:flex-start;
+  gap:7px; flex-wrap:wrap;
   border:0; padding:0; margin:0; width:100%;
 }
+/* 🔴 Die Eigenschaften-Gruppe war fuer 180px gebaut: Bio und Ernaehrungsform standen
+   UNTEREINANDER. Sie allein machte den Produktblock 109px hoch und damit die ganze
+   Zone 218px statt der geplanten 150. `width:auto` reichte nicht - die Richtung
+   musste umgestellt werden. Live gemessen nach dem Fix: Produktblock 109 -> 37px,
+   Zone 218 -> 145px, alles in einer Zeile. */
+#feKopfZone .feRailEigen{
+  display:flex !important; flex-direction:row !important; flex-wrap:wrap;
+  align-items:center; gap:6px; width:auto; max-width:none; margin:0; flex:0 1 auto;
+}
+#feKopfZone .feRailEigen > *{ margin:0 }
+#feKopfZone .feRailEigen .feRailGrpTit{ margin:0 3px 0 8px }
+#feKopfZone > #feProdKopf > .feRailGrpTit{ margin:0 2px 0 10px }
+/* Der Produktzustand ("gespeichert") und der Freigabehinweis sind Text, kein Block. */
+#feKopfZone .feProdZust{ display:inline-block; white-space:nowrap }
 /* Die Gruppenueberschriften der Rail waren Zeilen - hier sind sie Beschriftungen
    VOR ihrer Gruppe. Ohne sie wuesste niemand, wozu drei Chips nebeneinander gehoeren. */
 #feKopfZone .feRailGrpTit{
@@ -3295,11 +3322,15 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
   content:""; display:inline-block; width:1px; height:16px;
   background:var(--line); margin:0 8px -3px 0;
 }
-/* Die Stationen: drei gleich breite Karten nebeneinander. */
+/* Die Stationen: drei gleich breite Karten nebeneinander.
+   ⚠ #feFokusNav hat VIER Kinder - die Gruppenueberschrift zaehlt mit. Ohne die Regel
+   darunter belegt sie Spalte 1 und schiebt die dritte Station in eine zweite Zeile.
+   Genau so sah es live aus. */
 #feKopfZone > #feFokusNav{
-  display:grid; grid-template-columns:repeat(3,1fr); gap:7px;
+  display:grid !important; grid-template-columns:repeat(3,1fr); gap:7px;
   border:0; padding:0; margin:0;
 }
+#feKopfZone > #feFokusNav > .feRailGrpTit{ display:none }
 #feKopfZone .feStTitel{ display:none }   /* die Ueberschrift "Stationen" braucht es waagerecht nicht */
 #feKopfZone .feFokusSt{
   border:1px solid var(--line); border-left:0; border-top:3px solid transparent;
@@ -3313,3 +3344,8 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
   #feKopfZone > #feFokusNav{ grid-template-columns:1fr }
   #feKopfZone{ position:static }   /* fixiert waere auf schmalen Schirmen zu viel Hoehe */
 }
+
+/* Die Rail ist im Fokusmodus leer, seit ihre drei Bloecke oben stehen - sie hinterliess
+   einen 28px hohen weissen Rest. Sie bleibt im DOM (Rueckfall der Weiche), wird aber
+   nicht mehr gezeigt. Entfernt wird sie erst, wenn die Zone nachgezaehlt ist. */
+body.riFokus #feRahmen > #feRail{ display:none }
