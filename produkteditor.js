@@ -3903,7 +3903,29 @@ async function openFgEditor(id, prefill, targetEl){
     <div id="feKopfZone"></div>
     <div id="feRahmen">
       <div id="feRail">
-        ${''}
+        ${''/* 🔴 23.08.2026, Work #181 — WARUM DIESER STREIFEN STEHENBLEIBT.
+             In meinem Plan stand "feRail aus dem DOM entfernen". Vor dem Ausbauen
+             gemessen, und die Messung sagt: nicht ausbauen. Der Reihe nach.
+
+             WAS ER KOSTET: nichts. Im Fokusmodus steht er auf display:none, live
+             gemessen 0px Hoehe. Ihn zu entfernen macht keinen einzigen Pixel frei.
+
+             WAS ER TRAEGT: nur noch die drei Schritt-Knoepfe feTabBtn1..3 mit ihren
+             Abzeichen. An denen haengen FUENF Stellen im Code - feTabWechsel setzt
+             ihren Aktiv-Zustand (Z. ~4956), zwei Stellen fuellen Abzeichen (Z. ~5996,
+             ~6021), eine Schleife fasst alle drei an (Z. ~6062). Wer sie entfernt,
+             muss alle fuenf umbauen; wer eine uebersieht, bekommt keinen Fehler,
+             sondern einen Setzer, der ins Leere laeuft. Still.
+
+             VERSCHLUCKT ER ETWAS? Das war die einzige Frage, die wirklich zaehlt -
+             unsichtbare Warnungen waeren ein echter Fehler. Nachgesehen an P73634
+             und P32667: die Abzeichen enthalten ein "✓" und sonst nichts, und die
+             Stationen oben sagen dasselbe in Worten ("erfuellt · Snacks").
+             Keine Information geht verloren.
+
+             ERGEBNIS: Ausbauen kostet fuenf Eingriffe und bringt null Pixel.
+             "Interessant ist kein Grund. Fertig ist ein Grund." Er bleibt, bis
+             jemand die Schritt-Knoepfe ohnehin anfasst - dann faellt er nebenbei. */}
         <div id="feTabBar">
           <div class="feStTitel">Stationen</div>
           <button type="button" id="feTabBtn1" class="feSt" onclick="feTabWechsel(1)"><span class="feStNr">1</span><span class="feStTxt">📋 Kopfdaten <span id="feTab1Badge" class="feStBadge"></span><span id="feTab1Ean" class="feStBadge"></span></span></button>
@@ -5600,12 +5622,25 @@ function feRailNav(an){
   var rail=_feZielZone(); if(!rail) return;
   var leiste=document.getElementById("feNavLeiste");
   var post=document.getElementById("feNavPost"), blaett=document.getElementById("feNavBlaett");
+  /* 🔴 23.08.2026 — DER KNOPF, DEN DER UMZUG VERGESSEN HAT.
+     Ralphs Auflage lautete "bitte keine buttons und funktionen vergessen".
+     Beim Nachzaehlen gefunden: diese Funktion holt post und blaett in die
+     Kopfzone und setzt die alte Leiste danach auf display:none. Der
+     Neuladen-Knopf ("🔄 <Buildnummer>", leert Cache und Service-Worker) stand
+     ebenfalls in dieser Leiste - und wurde nie mitgenommen. Er ist seit dem
+     Umzug unsichtbar.
+     Besonders bitter: es ist der Knopf, mit dem man einen neuen Stand holt.
+     Ausgerechnet der faellt bei einem Umbau aus, der neue Staende ausliefert.
+     Warum es niemandem auffiel: er trug keine Aufgabe, die etwas anzeigt -
+     er fehlte einfach, und Fehlen sieht aus wie Ordnung. */
+  var neuladen=leiste?leiste.querySelector('button[onclick^="adminNeuLaden"]'):null;
   var kasten=document.getElementById("feRailNav");
   if(!an){
-    /* Rueckweg: die beiden Bloecke gehen an ihren Platz in der Kopfleiste zurueck. */
+    /* Rueckweg: die Bloecke gehen an ihren Platz in der Kopfleiste zurueck. */
     if(leiste){
       if(post && post.parentNode!==leiste) leiste.insertBefore(post, leiste.firstChild);
       if(blaett && blaett.parentNode!==leiste) leiste.insertBefore(blaett, post?post.nextSibling:leiste.firstChild);
+      if(neuladen && neuladen.parentNode!==leiste) leiste.appendChild(neuladen);
       leiste.style.display="";
     }
     if(kasten) kasten.remove();
@@ -5621,6 +5656,7 @@ function feRailNav(an){
   if(rail.firstChild!==kasten) rail.insertBefore(kasten, rail.firstChild);
   if(post && post.parentNode!==kasten) kasten.appendChild(post);
   if(blaett && blaett.parentNode!==kasten) kasten.appendChild(blaett);
+  if(neuladen && neuladen.parentNode!==kasten) kasten.appendChild(neuladen);
   /* Die Kopfleiste verschwindet erst, wenn ihre Knoepfe umgezogen sind. */
   if(leiste) leiste.style.display="none";
 }
