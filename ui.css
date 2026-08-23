@@ -3387,14 +3387,12 @@ body.riFokus #feRahmen > #feRail{ display:none }
   font-size:10.5px; color:var(--muted); line-height:1.25;
   max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-#feKopfZone .feKzFrgBtn{
-  border:1px solid #bfe3cb; border-radius:var(--fk-r-klein,8px);
-  background:var(--greenlt,#ecfdf5); color:#166534;
-  font-size:12px; font-weight:800; padding:5px 11px; cursor:pointer; white-space:nowrap;
-}
-#feKopfZone .feKzFrgBtn:disabled{ opacity:.45; cursor:default }
-#feKopfZone .feKzFrgBtn:not(:disabled):hover{ background:#d9f2e2 }
-/* Der alte Freigabe-Satz ist durch Chip und Knopf ersetzt. */
+/* 🔴 23.08. .feKzFrgBtn ist ersatzlos weg. Der Knopf, den diese Regel bemalt hat,
+   war der ZWEITE "✓ Freigeben" auf dem Schirm - derselbe Aufruf wie feProdFrei im
+   Aktionsblock. Der aeltere bleibt, dieser ist entfernt. Eine Regel ohne Element
+   ist kein Schaden, aber sie sieht beim naechsten Lesen aus wie ein fehlendes
+   Element - deshalb faellt sie mit. */
+/* Der alte Freigabe-Satz ist durch den Chip ersetzt. */
 #feKopfZone .feProdFrgTxt{ display:none }
 
 /* ============================================================================
@@ -3443,3 +3441,38 @@ body.riFokus #feRahmen > #feRail{ display:none }
 /* Der Warnchip fuer "freigegeben, aber noch ein offener Punkt". Gelb, nicht rot:
    das Produkt ist live, es ist kein Fehler - aber es ist auch nicht sauber. */
 #feKopfZone .feKzChip.warn{ background:#fffbeb; color:#a16207; border-color:#fde68a }
+
+/* ============================================================================
+   KOPFBAND · BILD UND INDEX   (Work #181, Mockup Zeile A, 23.08.2026)
+   ----------------------------------------------------------------------------
+   Beides fehlte: das Bild kam im Kopf gar nicht vor, obwohl _fgEdit ein Feld
+   bild_url fuehrt, und der Index stand nur als Wort im Statusstreifen.
+   Im VERA-Bericht traegt der Kopf beides - links das Objekt, rechts die Kennzahl.
+   ========================================================================== */
+/* 🔴 Erst mit vier Spalten gebaut - live gemessen wuchs das Kopfband dadurch von
+   63 auf 108px, weil es FUENF sichtbare Kinder hat: Bild, Textblock, Statuszeichen,
+   P-Nummer und Index. Das fuenfte brach um. Zaehlen statt schaetzen: der versteckte
+   h2 zaehlt nicht mit, die anderen fuenf schon. */
+#feKopfband{ display:grid; grid-template-columns:auto 1fr auto auto auto;
+  align-items:center; gap:14px }
+#feKopfband .fkbBild{
+  width:52px; height:52px; border-radius:var(--fk-r-mittel,10px);
+  background:#ffffff1a; border:1px dashed #ffffff4d;
+  display:flex; align-items:center; justify-content:center; overflow:hidden; flex:0 0 auto;
+}
+#feKopfband .fkbBild img{ width:100%; height:100%; object-fit:cover; display:block }
+#feKopfband .fkbBild span{ font-size:9px; color:#ffffffb3; text-align:center; line-height:1.2 }
+/* 🔴 23.08. der Index im Kopf zeigt jetzt das MARKUP der vorhandenen Funktion
+   _feStreifenBewertung() - .feStBew mit em/b/i. Vorher hatte er eigene Klassen
+   und eine eigene, aermere Fallunterscheidung; die 61 stand dadurch zweimal auf
+   dem Schirm. Hier steht deshalb nur noch, was der dunkle Grund braucht:
+   helle Schrift. Groessen und Aufbau kommen aus .feStBew und bleiben dort. */
+#feKopfband .fkbIndex{ text-align:right; line-height:1.1; min-width:64px }
+#feKopfband .feStBew{ align-items:flex-end }
+#feKopfband .feStBew em{ color:#ffffffb3 }
+#feKopfband .feStBew.still b, #feKopfband .feStBew.still i,
+#feKopfband .feStBew.fehlt b, #feKopfband .feStBew.fehlt i{ color:#ffffffb3 }
+@media (max-width:699px){
+  #feKopfband{ grid-template-columns:auto 1fr auto; gap:10px }
+  #feKopfband .fkbId{ grid-column:2/-1; text-align:left }
+}

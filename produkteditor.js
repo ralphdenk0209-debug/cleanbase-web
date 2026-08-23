@@ -3863,10 +3863,22 @@ async function openFgEditor(id, prefill, targetEl){
     ${""}
     ${''/* Kopfband zeigt nur an; bearbeitet wird weiter in den vorhandenen Feldern. */}
     <div id="feKopfband">
+      ${''/* 🔴 23.08.2026, Work #181 — ZEILE A AUS DEM MOCKUP: Bild links, Index rechts.
+           Beides fehlte bisher im Kopf. Das Bild kam gar nicht vor, obwohl _fgEdit ein
+           Feld bild_url fuehrt; der Index stand nur als Text im Statusstreifen.
+           Der Platzhalter bleibt sichtbar, wenn kein Bild da ist - ein leerer Rahmen
+           sagt "hier fehlt eins", eine weggelassene Flaeche sagt gar nichts. */}
+      <div class="fkbBild" id="feKbBild">${d.bild_url
+        ? '<img src="'+esc(d.bild_url)+'" alt="">'
+        : '<span>kein<br>Bild</span>'}</div>
       <div class="fkbLinks">
         <div class="fkbMarke" id="feKbMarke">${esc(d.marke||"")}${d.kategorie?(d.marke?" · ":"")+esc(d.kategorie):""}</div>
         <div class="fkbName" id="feKbName">${esc(d.name||(id?"":"Neues Produkt"))}<span id="feDubChip" style="display:none"></span></div>
       </div>
+      ${''/* Die Index-Zahl fuellt feStatusStreifen aus derselben Quelle wie bisher -
+           hier steht nur die Huelle. Ohne Wert bleibt sie leer statt eine Null zu
+           zeigen: kein Index ist etwas anderes als Index null. */}
+      <div class="fkbIndex" id="feKbIndex"></div>
       <div class="fkbStatus" id="feKbStatus">${esc(d.status||"Entwurf")}</div>
       <span id="fePNrInfo" class="fkbId">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"P-Nummer kommt beim ersten Speichern"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
       <h2 style="margin:0;display:none">${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
@@ -5691,9 +5703,13 @@ function feProduktKopf(){
                      +(S.freigabe_gruende.length>2?' · +'+(S.freigabe_gruende.length-2):'')
                      +'</span>'
                    : '')))
-      +(frei ? '' :
-        '<button type="button" class="feKzFrgBtn" onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}"'
-        +(moeglich?'':' disabled')+'>✓ Freigeben</button>')
+      /* 🔴 23.08. entfernt: hier stand ein zweiter "✓ Freigeben"-Knopf. Live an
+         P73634 gemessen waren dadurch ZWEI Freigeben-Knoepfe in der Kopfzone -
+         feProdFrei im Aktionsblock und meiner hier -, beide mit demselben Aufruf
+         fgEditSave(true). Zwei Knoepfe fuer dieselbe Handlung sind kein Angebot,
+         sondern eine Frage: welcher ist der richtige? Der aeltere im Aktionsblock
+         bleibt. Dieser Block zeigt nur noch den ZUSTAND - Chip und Grund -, und
+         das ist auch seine Aufgabe. */
     +'</div>';
 }
 function _feRailEigen(){
@@ -7135,7 +7151,30 @@ function feStickyKopfBinden(){
   }
 }
 if(typeof window!=='undefined'){ window.feStickyKopfBinden=feStickyKopfBinden; }
+/* 🔴 23.08.2026, Work #181 — die Index-Zahl im Kopf (Mockup Zeile A).
+   ----------------------------------------------------------------------------
+   ERSTE FASSUNG WAR FALSCH, und zwar auf die stille Art. Sie las
+   _fgScoreGespeichert selbst und baute eine eigene kleine Fallunterscheidung:
+   Zahl oder "kein Index". Live an P73634 gemessen stand die 61 danach ZWEIMAL
+   auf dem Schirm - einmal hier im Kopfband, einmal im Statusstreifen darunter.
+   Zwei Anzeigen derselben Zahl sind kein Fehler, solange sie einig sind. Sie
+   waren es nicht: _feStreifenBewertung() unterscheidet vier Faelle - Supplement
+   (Dosis-Check), kein gespeicherter Index, unvollstaendiger Index mit fehlender
+   Achse, und den fertigen Wert. Meine Fassung kannte zwei davon. Bei einem
+   Supplement haette hier "kein Index" gestanden, waehrend darunter korrekt
+   "Dosis-Check" stand - und beides sah wie eine Aussage ueber dasselbe aus.
+   Das ist genau die Frontend-Ersatzlogik, die der Kernvertrag verbietet.
+   Jetzt ruft der Kopf die vorhandene Funktion auf. Eine Regel, ein Ort
+   (Merkkarte 4). Der Streifen zeigt sie dafuer nicht mehr - die Zahl steht
+   einmal, oben rechts, wie im Mockup. */
+function feKopfIndex(){
+  var el=document.getElementById("feKbIndex"); if(!el) return;
+  try{ el.innerHTML=_feStreifenBewertung(); }
+  catch(e){ el.innerHTML=""; console.error("[Kopf] Index:", e); }
+}
+if(typeof window!=="undefined"){ window.feKopfIndex=feKopfIndex; }
 function feStatusStreifen(){
+  try{ feKopfIndex(); }catch(e){ console.error("[Kopf] Index:", e); }
   var box=document.getElementById("fe_gesamtstatus"); if(!box) return;
   var S=getErfassungsStatus();
   if(!S.bekannt){ box.innerHTML=""; feStickyKopfBinden(); return; }
@@ -7191,7 +7230,10 @@ function feStatusStreifen(){
         +'<div class="feStGrp"><span class="feStGrpTit">Prüfung</span>'
           +'<div class="feStGrpChips">'+C.slice(-1).join("")+'</div></div>'
       +'</div>'
-      +'<div class="feStRechts">'+_feStreifenBewertung()
+      /* 🔴 23.08. die Index-Zahl ist hier RAUS und steht nur noch im Kopfband
+         oben rechts (feKopfIndex). Vorher stand sie an beiden Stellen. Der
+         Freigabe-Chip bleibt hier - er gehoert zum Status, nicht zum Index. */
+      +'<div class="feStRechts">'
         +'<div class="feStFrg">'+_frgChip+'</div></div>'
       +(_detail||_hw ? '<div class="feStFuss">'+_detail+_hw+'</div>' : '')
     +'</div>';
