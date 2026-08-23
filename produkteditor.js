@@ -1192,7 +1192,12 @@ function _fgZutOffenHtml(){
       +'background:var(--k-fbeecd,#fbeecd);border-bottom:1px solid var(--k-e3c48a,#e3c48a);'
       +'font-size:11px;font-weight:700;color:var(--k-8a5a0b,#8a5a0b)">'
       +'<span aria-hidden="true">⚠</span>'
-      +'<span>'+offen.length+' Zutat'+(offen.length===1?"":"en")+' vom Etikett gelesen, aber nicht im Stamm</span></div>'
+      /* Work #181 Stufe 5: hier stand "vom Etikett gelesen, aber nicht im Stamm".
+         Das war die letzte sichtbare Haelfte von Ralphs Widerspruch: die Ueberschrift
+         behauptete "nicht im Stamm", waehrend zwei Zeilen darunter der Synonymtreffer
+         stand ("im Stamm gefunden: Garnele"). "Noch nicht zugeordnet" stimmt in BEIDEN
+         Faellen - mit Treffer wie ohne - und nimmt der Zeile darunter nichts weg. */
+      +'<span>'+offen.length+' Zutat'+(offen.length===1?"":"en")+' vom Etikett gelesen, noch nicht zugeordnet</span></div>'
     +'<div style="padding:0 9px">'
     +offen.map(function(z){
       var nm=String(z.zutat_text||"").trim();
