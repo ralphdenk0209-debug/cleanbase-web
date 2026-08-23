@@ -184,7 +184,7 @@ body{ --admin-oben:64px }
 }
 .feFokusGrund{
   font-size:9.5px; line-height:1.35;
-  padding:1px 5px; border-radius:7px;
+  padding:1px 5px; border-radius:var(--fk-r-klein);
   border:1px solid var(--fgr-farbe);
   color:var(--fgr-farbe);
   background:transparent;
@@ -803,8 +803,8 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
    Speicherlogik, keine Fachlogik, card() und cardF() unveraendert.
    ============================================================================ */
 /* Naehrwert-Karte: Bezugseinheit, Ballaststoff-Haken, Plausibilitaetszeile. */
-#feTab2 .feNwEinheit{ display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:9px }
-#feTab2 #fe_mengenEinheit{ padding:3px 7px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:12px;font-weight:700 }
+#feTab2 .feNwEinheit{ display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-2px 0 9px;padding:6px 9px;background:var(--k-f6f8f7,#f6f8f7);border:1px solid var(--line);border-radius:var(--fk-r-klein) }
+#feTab2 #fe_mengenEinheit{ padding:3px 7px;border:1px solid var(--line);border-radius:var(--fk-r-klein);background:var(--card);color:var(--ink);font-size:12px;font-weight:700 }
 #feTab2 #fe_ehHint{ font-weight:600 }
 #feTab2 .feNwBallast{ display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:0 0 4px;margin-top:-3px }
 #feTab2 #fe_ballast_nd{ width:14px;height:14px;flex:0 0 auto }
@@ -1007,7 +1007,7 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
 .feFussZeile{ display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;width:100% }
 .feFussLinks{ display:flex;gap:8px;align-items:center;flex-wrap:wrap }
 #fe_ready{ font-size:12px;color:var(--muted) }
-.feFussBtn{ padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px }
+.feFussBtn{ padding:8px 12px;border:1px solid var(--line);border-radius:var(--fk-r-klein);background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px }
 .feFussRechts{ display:flex;gap:8px;flex-wrap:wrap }
 .feFussBtnRot{ padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--k-cf5442,#cf5442);cursor:pointer;font-size:13px }
 .feFussBtnGross{ padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px }
@@ -1244,8 +1244,8 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
    ============================================================================ */
 #feTab3 #fe_quickBar{ display:none;gap:8px;align-items:center;margin:0 0 6px }
 #feTab3 .feQuickIcon{ font-size:15px;flex:0 0 auto }
-#feTab3 #fe_quickIn{ flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px }
-#feTab3 .feBtnZuordnen{ padding:9px 16px;border:0;border-radius:9px;background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto }
+#feTab3 #fe_quickIn{ flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:var(--fk-r-klein);background:var(--card);color:var(--ink);font-size:13px }
+#feTab3 .feBtnZuordnen{ padding:9px 16px;border:0;border-radius:var(--fk-r-klein);background:var(--k-534ab7);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto }
 #feTab3 #fe_quickMsg{ font-size:12.5px;line-height:1.6;margin:0 0 6px 27px }
 #feTab3 #fe_gridA{ display:grid;gap:10px;align-items:stretch;margin-top:2px }
 #feTab3 #fe_colZut{ min-height:0;display:flex;flex-direction:column }
@@ -1294,7 +1294,7 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
 #feTab3 .feSammelZeile input[type=checkbox]{ width:16px;height:16px;margin-top:2px;accent-color:var(--k-16a34a) }
 #feTab3 .feSammelName{ font-weight:700;font-size:12.5px }
 #feTab3 .feSammelMeta{ color:var(--muted);font-size:11.5px }
-#feTab3 .feSammelKat{ width:100%;margin-top:4px;padding:5px 6px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:11.5px }
+#feTab3 .feSammelKat{ width:100%;margin-top:4px;padding:5px 6px;border:1px solid var(--line);border-radius:var(--fk-r-klein);background:var(--card);color:var(--ink);font-size:11.5px }
 #feTab3 .feSammelFuss{ display:flex;gap:6px;margin-top:9px;flex-wrap:wrap }
 #feTab3 .feSammelOk{ padding:7px 12px;border:0;border-radius:8px;background:#2e9e57;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer }
 #feTab3 .feSammelOk:disabled{ opacity:.55;cursor:default }
@@ -1404,7 +1404,7 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
 /* Zwei Knoepfe in der Checkliste. */
 #fe_riegel .rBtnLila,
 #feVorgangAmpel .rBtnLila{
-  padding:3px 9px; border:1px solid #cbc7f2; border-radius:7px;
+  padding:3px 9px; border:1px solid #cbc7f2; border-radius:var(--fk-r-klein);
   background:var(--k-eeedfe); color:var(--k-534ab7);
   cursor:pointer; font-size:11.5px; font-weight:700; white-space:nowrap;
 }
@@ -1432,7 +1432,7 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
 #fe_plaus .pLila{ color:var(--k-534ab7) }
 #fe_plaus .pBtnLila{
   margin-left:4px; padding:3px 9px;
-  border:1px solid #cbc7f2; border-radius:7px;
+  border:1px solid #cbc7f2; border-radius:var(--fk-r-klein);
   background:var(--k-eeedfe); color:var(--k-534ab7);
   cursor:pointer; font-size:11.5px; font-weight:700;
 }
@@ -1656,7 +1656,7 @@ body.peLightBg{ --bg:#e6ecf4 }
 .feFokusSt.akt .feFokusTxt b{ font-weight:800 }
 .feFokusSub{ font-size:10.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 .feFokusAus{ margin-top:8px; background:transparent; border:1px solid var(--line);
-  border-radius:7px; padding:4px 8px; font-size:10.5px; color:var(--muted); cursor:pointer }
+  border-radius:var(--fk-r-klein); padding:4px 8px; font-size:10.5px; color:var(--muted); cursor:pointer }
 .feFokusAus:hover{ color:var(--ink) }
 
 /* ============================================================================
@@ -1720,10 +1720,10 @@ body.peLightBg{ --bg:#e6ecf4 }
 .feAbListe span{ display:block; font-size:11px; color:var(--muted) }
 .feAbDet summary{ cursor:pointer; font-size:11.5px; color:var(--muted); padding:4px 0 }
 .feAbBtns{ display:flex; gap:9px; margin-top:12px; flex-wrap:wrap }
-.feAbBtnPrim{ background:var(--k-16a34a,#16a34a); color:#fff; border:0; border-radius:9px;
+.feAbBtnPrim{ background:var(--k-16a34a,#16a34a); color:#fff; border:0; border-radius:var(--fk-r-klein);
   padding:10px 20px; font-size:13.5px; font-weight:700; cursor:pointer }
 .feAbBtnPrim[disabled]{ background:var(--k-c3ccd4,#c3ccd4); cursor:not-allowed }
-.feAbBtnSek{ background:transparent; border:1px solid var(--line); border-radius:9px;
+.feAbBtnSek{ background:transparent; border:1px solid var(--line); border-radius:var(--fk-r-klein);
   padding:9px 16px; font-size:12.5px; color:var(--ink); cursor:pointer }
 
 /* ============================================================================
@@ -1750,7 +1750,7 @@ body.peLightBg{ --bg:#e6ecf4 }
 .feQuelleFertig b{ display:block; font-size:12.5px }
 .feQuelleFertig span span{ display:block; font-size:11px; color:var(--muted) }
 .feQuelleWechsel{ margin-left:auto; background:transparent; border:1px solid var(--line);
-  border-radius:7px; padding:4px 10px; font-size:11.5px; color:var(--muted); cursor:pointer }
+  border-radius:var(--fk-r-klein); padding:4px 10px; font-size:11.5px; color:var(--muted); cursor:pointer }
 
 #feTopbar{ display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:9px 14px; border:1px solid var(--line); border-radius:10px;
@@ -1785,7 +1785,7 @@ body.peLightBg{ --bg:#e6ecf4 }
 .feKtxLeer{ font-size:11.5px; color:var(--muted); line-height:1.5 }
 .feKtxRoh{ font-size:11.5px; line-height:1.55; color:var(--ink); max-height:340px;
   overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere;
-  background:var(--k-f6f8f7,#f6f8f7); border-radius:7px; padding:8px 9px }
+  background:var(--k-f6f8f7,#f6f8f7); border-radius:var(--fk-r-klein); padding:8px 9px }
 .feKtxStill{ min-height:1px }
 
 /* ============================================================================
@@ -1881,7 +1881,7 @@ table.feAbgTab td{ padding:7px 8px; border-bottom:1px solid var(--line); vertica
    Rest, die mit `keine fuenfte Schicht` gemeint ist. */
 
 /* --- 2. Schrittleiste: ruhig, kein farbiger Block -------------------------- */
-.feFokusSt{ padding:5px 7px; border-radius:7px; border-left:2px solid transparent }
+.feFokusSt{ padding:5px 7px; border-radius:var(--fk-r-klein); border-left:2px solid transparent }
 .feFokusSt.akt{ background:transparent; border-color:transparent;
   border-left-color:var(--k-2f6fd6,#2f6fd6) }
 .feFokusSt.akt .feFokusTxt b{ font-weight:700; color:var(--k-2f6fd6,#2f6fd6) }
@@ -1915,7 +1915,7 @@ table.feAbgTab td{ padding:7px 8px; border-bottom:1px solid var(--line); vertica
 .feFokusBreit{ padding:14px 0 }
 .feFokusBreit > k{ font-size:13.5px; font-weight:700; margin-bottom:8px; display:block }
 .feFokusBreit #fe_ernaehrChips button,
-.feFokusBreit #fe_bioSw button{ padding:9px 16px; font-size:13px; border-radius:9px }
+.feFokusBreit #fe_bioSw button{ padding:9px 16px; font-size:13px; border-radius:var(--fk-r-klein) }
 .feFokusBreit #fe_ernaehrChips{ gap:7px }
 
 /* --- 9. Schritt 6: Abweichungen zuerst lesbar ----------------------------- */
@@ -1941,7 +1941,7 @@ table.feAbgTab td{ padding:6px 8px }
 .feQuelleFertig .feKtxTit{ color:var(--muted) }
 
 /* --- Kontextspalte etwas leiser ------------------------------------------ */
-.feKtxBlock{ padding:9px 11px; border-radius:9px }
+.feKtxBlock{ padding:9px 11px; border-radius:var(--fk-r-klein) }
 .feKtxTit{ font-size:9px }
 
 /* ============================================================================
@@ -1991,9 +1991,9 @@ body.riFokus #feTopbar{ display:none !important }
 .feProdTxt b{ display:block; font-size:13px; line-height:1.3; overflow-wrap:anywhere }
 .feProdZust{ display:block; font-size:10px; color:var(--muted); margin-top:2px }
 .feProdMehr{ flex:0 0 auto; background:transparent; border:1px solid var(--line);
-  border-radius:7px; padding:2px 7px; font-size:13px; color:var(--muted); cursor:pointer; position:relative }
+  border-radius:var(--fk-r-klein); padding:2px 7px; font-size:13px; color:var(--muted); cursor:pointer; position:relative }
 .feProdMenuBox{ position:absolute; right:0; top:26px; z-index:30; min-width:170px;
-  background:var(--card); border:1px solid var(--line); border-radius:9px;
+  background:var(--card); border:1px solid var(--line); border-radius:var(--fk-r-klein);
   box-shadow:0 6px 20px rgba(0,0,0,.14); padding:4px; display:flex; flex-direction:column }
 .feProdMenuBox button{ text-align:left; background:transparent; border:0; border-radius:6px;
   padding:7px 9px; font-size:12px; color:var(--ink); cursor:pointer }
@@ -2007,7 +2007,7 @@ body.riFokus #feTopbar{ display:none !important }
    Ein Platz, wechselnder Inhalt. Der grosse Lesekasten wird hierher umgehaengt.
    ============================================================================ */
 .feKtxTabs{ display:flex; gap:3px; margin-bottom:8px; flex-wrap:wrap }
-.feKtxTab{ background:transparent; border:1px solid var(--line); border-radius:7px;
+.feKtxTab{ background:transparent; border:1px solid var(--line); border-radius:var(--fk-r-klein);
   padding:4px 9px; font-size:10.5px; color:var(--muted); cursor:pointer; white-space:nowrap }
 .feKtxTab.akt{ background:var(--k-eef6ff,#eef6ff); border-color:var(--k-2f6fd6,#2f6fd6);
   color:var(--k-2f6fd6,#2f6fd6); font-weight:700 }
@@ -2211,6 +2211,24 @@ body.riFokus #feRahmen{
      Element, das in keiner Placement-Regel stand, im Zwischenraum landete und wie ein
      Balken aussah. Mit einem gap sind es wieder Spalte 1, 2, 3. */
   --raster-gap:      24px;   /* EIN Abstand fuer beide Seiten (vorher 43 und 20) */
+
+  /* 🔴 23.08.2026, Work #181 — DIE RADIENSKALA.
+     Gemessen waren im Editorbereich 21 verschiedene border-radius-Werte, darunter
+     fuenf, die praktisch dasselbe meinen: 7, 8, 9, 10 und 12 Pixel. Das sieht man
+     nicht als Fehler, aber man sieht die Unruhe - jeder Kasten ist minimal anders
+     gerundet als sein Nachbar.
+     Drei Stufen reichen, und sie haben eine Bedeutung:
+       klein  Knoepfe, Eingabefelder, Reiter        -> das, was man anfasst
+       mittel Kaesten INNERHALB einer Karte          -> das, was gruppiert
+       gross  die Karte selbst                       -> das, was umschliesst
+     Dieser Durchgang stellt NUR die Werte 7px und 9px auf klein um: 20 Regeln,
+     alle Knoepfe/Felder/Reiter, optisch kaum unterscheidbar - aber die Uneinheit
+     ist weg. 10px und 12px bleiben absichtlich stehen; das sind Kartenradien und
+     eine eigene Entscheidung. Eine Sammelersetzung ueber alle Werte auf einmal
+     waere genau der zu weite Schnitt, der am 15.08. zwei Dateien beschaedigt hat. */
+  --fk-r-klein:       8px;
+  --fk-r-mittel:     10px;
+  --fk-r-gross:      12px;   /* EIN Abstand fuer beide Seiten (vorher 43 und 20) */
   gap: var(--raster-gap);
   grid-template-columns: var(--rail-breite) minmax(0,var(--mitte-max));
   grid-template-rows: auto;
@@ -3047,7 +3065,7 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
 .feSegTitel{ font-size:8.5px; letter-spacing:.08em; text-transform:uppercase;
   font-weight:800; color:var(--muted); opacity:.75; margin:6px 0 3px }
 .feSeg{ display:flex; flex-wrap:wrap; gap:3px }
-.feSegBtn{ border:1px solid var(--line); border-radius:7px; background:var(--card);
+.feSegBtn{ border:1px solid var(--line); border-radius:var(--fk-r-klein); background:var(--card);
   color:var(--muted); padding:3px 7px; font-size:10px; font-weight:700;
   cursor:pointer; line-height:1.35; white-space:nowrap }
 .feSegBtn:hover{ border-color:var(--k-2f6fd6,#2f6fd6) }
@@ -3065,7 +3083,7 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
      warn  rot    wie ein Blocker — das ist die Haelfte, die Menschen schuetzt
      offen grau   sichtbar unbekannt, NICHT gruen und NICHT rot (§3.4) */
 .feRailBraten{ display:inline-flex; align-items:center; align-self:flex-start;
-  border:1px solid var(--line); border-radius:7px; background:var(--card);
+  border:1px solid var(--line); border-radius:var(--fk-r-klein); background:var(--card);
   padding:3px 7px; font-size:10px; font-weight:700; line-height:1.35;
   white-space:nowrap; cursor:help; color:var(--muted) }
 .feRailBraten.gut{  background:var(--k-eaf5ee,#eaf5ee); border-color:var(--k-9fc6a8,#9fc6a8);
@@ -3185,7 +3203,7 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
 #feTab2 .feNwFeld i{ font-style:normal; color:var(--muted); font-size:11px }
 #feTab2 .feNwFeld > input{
   width:76px; padding:5px 7px; text-align:right;
-  border:1px solid var(--line); border-radius:7px;
+  border:1px solid var(--line); border-radius:var(--fk-r-klein);
   font-size:12.5px; background:var(--card); color:var(--ink);
 }
 #feTab2 .feNwFeld > input:focus{ border-color:var(--k-2f6fd6,#2f6fd6); outline:none }
