@@ -3877,6 +3877,18 @@ async function openFgEditor(id, prefill, targetEl){
     ${''/* Editor-Geometrie liegt in ui.css; nur gemessene Laufzeitgrößen bleiben im JavaScript. */}
     ${''/* Topbar bleibt im Template leer und wird vom bestehenden Renderer gefüllt. */}
     <div id="feTopbar" style="display:none"></div>
+    ${''/* 🔴 23.08.2026, Work #181 — DIE FIXIERTE KOPFZONE.
+         Ralph: "die navi soll auch oben sein und fixiert beim scrollen ... ich meinte
+         auch die eigenschaften und die freigabe."
+         Hier ziehen die drei Bloecke ein, die bisher im linken Streifen standen:
+         feRailNav (Posteingang + Blaettern), feProdKopf (Status, Aktionen, Bio,
+         Ernaehrungsform) und feFokusNav (die drei Stationen).
+         WICHTIG FUER DEN UMBAU: die Bloecke werden NICHT nachgebaut. Die drei
+         vorhandenen Funktionen haengen sie weiterhin selbst ein - sie fragen ab
+         jetzt nur ueber _feZielZone(), WOHIN. Deshalb kann kein Knopf verlorengehen:
+         es zieht der ganze Block um, nicht zwanzig Einzelteile.
+         Solange die Rail noch existiert, ist sie der Rueckfall. */}
+    <div id="feKopfZone"></div>
     <div id="feRahmen">
       <div id="feRail">
         ${''}
@@ -5554,8 +5566,26 @@ function feRailAufraeumen(an){
   });
 }
 if(typeof window!=="undefined"){ window.FE_RAIL_ERLAUBT=FE_RAIL_ERLAUBT; }
+/* ────────────────────────────────────────────────────────────────────────────
+   DIE WEICHE — Work #181, 23.08.2026
+   ----------------------------------------------------------------------------
+   Bis heute hingen drei Bloecke fest im linken Streifen: feRailNav (Posteingang und
+   Blaettern), feProdKopf (Statuswechsel, Speichern, Mehr-Menue, Bio, Ernaehrungsform)
+   und feFokusNav (die drei Stationen). Ralph will sie oben und beim Scrollen fixiert -
+   samt Eigenschaften und Freigabe.
+   STATT ZWANZIG KNOEPFE UMZUZIEHEN, WIRD HIER NUR DAS ZIEL GEAENDERT. Die drei
+   Funktionen bauen ihre Bloecke unveraendert weiter; sie fragen nur noch, WOHIN.
+   Damit kann kein Bedienelement verlorengehen - es zieht der ganze Block um.
+   Gemessen waren es 17 Bedienelemente plus 3 im Mehr-Menue; nach dem Umbau muessen
+   es dieselben sein, und genau das wird nachgezaehlt.
+   RUECKFALL: gibt es die Kopfzone nicht (alte Ansicht, Fehler beim Aufbau), liefert
+   die Weiche die Rail zurueck. Dann steht alles wie vorher - nichts verschwindet. */
+function _feZielZone(){
+  return document.getElementById("feKopfZone") || document.getElementById("feRail");
+}
+if(typeof window!=="undefined"){ window._feZielZone=_feZielZone; }
 function feRailNav(an){
-  var rail=document.getElementById("feRail"); if(!rail) return;
+  var rail=_feZielZone(); if(!rail) return;
   var leiste=document.getElementById("feNavLeiste");
   var post=document.getElementById("feNavPost"), blaett=document.getElementById("feNavBlaett");
   var kasten=document.getElementById("feRailNav");
@@ -5584,7 +5614,7 @@ function feRailNav(an){
 }
 if(typeof window!=="undefined"){ window.feRailNav=feRailNav; }
 function feProduktKopf(){
-  var rail=document.getElementById("feRail"); if(!rail) return;
+  var rail=_feZielZone(); if(!rail) return;
   var k=document.getElementById("feProdKopf");
   if(!feFokusAn()){ if(k) k.style.display="none"; return; }
   if(!k){ k=document.createElement("div"); k.id="feProdKopf"; rail.insertBefore(k, rail.firstChild); }
@@ -5742,7 +5772,7 @@ function feProdMenu(btn){
 if(typeof window!=="undefined"){ window.feProdMenu=feProdMenu; window.feProduktKopf=feProduktKopf;
   window.feRailAufraeumen=feRailAufraeumen; }
 function feFokusNavBauen(){
-  var rail=document.getElementById("feRail"); if(!rail) return;
+  var rail=_feZielZone(); if(!rail) return;
   var nav=document.getElementById("feFokusNav");
   if(!nav){
     nav=document.createElement("div"); nav.id="feFokusNav";
