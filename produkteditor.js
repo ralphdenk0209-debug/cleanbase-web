@@ -5638,21 +5638,44 @@ function feProduktKopf(){
           +(frei?' (aus dem Katalog nehmen)':' (über die geprüfte Freigabe)'))+'">'
       +esc(stAlt)+' <span class="feProdStatusPfeil">⇄</span></button>'
     +'<div class="feProdZust">'+esc(zt)+'</div>'
-    +'<div class="feRailGrpTit">Aktionen</div>'
+    +'<div class="feRailGrpTit feKzTrenn">Aktionen</div>'
     +'<div class="feProdAkt">'
       +'<button type="button" class="feProdSave" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>'
       +(frei ? '' : '<button type="button" class="feProdFrei"'+(moeglich?'':' disabled')
              +' onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}">Freigeben</button>')
       +'<button type="button" class="feProdMehr" onclick="feProdMenu(this)" title="Weitere Aktionen">⋯</button>'
     +'</div>'
-    +'<div class="feRailGrpTit" style="margin-top:11px">Eigenschaften</div>'
+    +'<div class="feRailGrpTit feKzTrenn">Eigenschaften</div>'
     +_feRailEigen()
-    +(frei ? '<div class="feProdFrgTxt ok">Dieses Produkt ist freigegeben.</div>'
-           : (moeglich ? ''
-                       : '<div class="feProdFrgTxt rot">Freigabe nicht möglich'
-                         +((S&&S.bekannt&&S.freigabe_gruende.length)
-                            ?' · '+S.freigabe_gruende.length+' Punkt'+(S.freigabe_gruende.length===1?'':'e'):'')
-                         +'</div>'));
+    /* 🔴 23.08.2026, Work #181 Schritt 2 — DIE FREIGABE GEHOERT IN DIE KOPFZONE.
+       Ralph: "ich meinte auch die eigenschaften und die freigabe."
+       Bisher stand hier nur ein Satz ("Freigabe nicht möglich · N Punkte"); der KNOPF
+       lag ausschliesslich in der Abschlusskarte am Ende von Station 3. Wer freigeben
+       wollte, musste dorthin scrollen - und die Ampel war im Fokusmodus gar nicht zu
+       sehen, weil ihre Rail-Karte ausgeblendet wurde.
+       HIER WIRD KEINE LOGIK NACHGEBAUT: frei, moeglich und S.freigabe_gruende liegen
+       in dieser Funktion bereits vor, und der Knopf ruft dasselbe fgEditSave(true)
+       wie der in der Abschlusskarte. Es ist eine zweite ANZEIGE desselben Zustands,
+       keine zweite Entscheidung - der Server entscheidet ohnehin allein. */
+    +'<div class="feRailGrpTit feKzTrenn">Freigabe</div>'
+    +'<div class="feProdFrg">'
+      +(frei
+          ? '<span class="feKzChip ok">✓ freigegeben</span>'
+          : (moeglich
+              ? '<span class="feKzChip ok">✓ möglich</span>'
+              : '<span class="feKzChip rot">● blockiert</span>'
+                +((S&&S.bekannt&&S.freigabe_gruende&&S.freigabe_gruende.length)
+                   ? '<span class="feKzGrund" title="'+esc(S.freigabe_gruende.map(function(g){
+                       return (g&&g.t)?g.t:String(g); }).join(' · '))+'">'
+                     +esc(S.freigabe_gruende.slice(0,2).map(function(g){
+                       return (g&&g.t)?g.t:String(g); }).join(' · '))
+                     +(S.freigabe_gruende.length>2?' · +'+(S.freigabe_gruende.length-2):'')
+                     +'</span>'
+                   : '')))
+      +(frei ? '' :
+        '<button type="button" class="feKzFrgBtn" onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}"'
+        +(moeglich?'':' disabled')+'>✓ Freigeben</button>')
+    +'</div>';
 }
 function _feRailEigen(){
   var bio=String(((document.getElementById("fe_bio")||{}).value||"")).trim();

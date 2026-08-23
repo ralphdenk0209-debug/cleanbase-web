@@ -3349,3 +3349,42 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
    einen 28px hohen weissen Rest. Sie bleibt im DOM (Rueckfall der Weiche), wird aber
    nicht mehr gezeigt. Entfernt wird sie erst, wenn die Zone nachgezaehlt ist. */
 body.riFokus #feRahmen > #feRail{ display:none }
+
+/* ============================================================================
+   KOPFZONE · FREIGABE UND GRUPPENTRENNUNG   (Work #181 Schritt 2, 23.08.2026)
+   ----------------------------------------------------------------------------
+   Zwei Dinge, die nach dem Umzug fehlten:
+   1) Die Gruppen liefen ohne Trennung ineinander - siebzehn Bedienelemente in einer
+      Reihe sind ohne Gliederung eine Wand. Der Strich steht VOR der Ueberschrift,
+      nicht dazwischen, damit die Ueberschrift zu ihrer Gruppe gehoert und nicht zur
+      vorigen.
+   2) Die Freigabe war im Fokusmodus gar nicht sichtbar: ihre Rail-Karte wurde
+      ausgeblendet, und der Knopf lag nur in der Abschlusskarte am Ende von Station 3.
+   ========================================================================== */
+#feKopfZone .feKzTrenn::before{
+  content:""; display:inline-block; width:1px; height:15px;
+  background:var(--line); margin:0 9px -3px 0; vertical-align:middle;
+}
+#feKopfZone .feProdFrg{ display:inline-flex; align-items:center; gap:7px; flex-wrap:nowrap; min-width:0 }
+#feKopfZone .feKzChip{
+  display:inline-flex; align-items:center; gap:4px; white-space:nowrap;
+  border-radius:999px; padding:3px 10px; font-size:11px; font-weight:800;
+  border:1px solid var(--line); background:var(--card); color:var(--muted);
+}
+#feKopfZone .feKzChip.ok{ background:#ecfdf5; color:#166534; border-color:#bfe3cb }
+#feKopfZone .feKzChip.rot{ background:#fdeeeb; color:#b91c1c; border-color:#f3c9c1 }
+/* Der Grund wird gekuerzt, aber nie weggelassen - Ralphs Regel: bei einer Blockade
+   steht der Grund daneben. Der volle Wortlaut haengt als Mausanzeige daran. */
+#feKopfZone .feKzGrund{
+  font-size:10.5px; color:var(--muted); line-height:1.25;
+  max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+#feKopfZone .feKzFrgBtn{
+  border:1px solid #bfe3cb; border-radius:var(--fk-r-klein,8px);
+  background:var(--greenlt,#ecfdf5); color:#166534;
+  font-size:12px; font-weight:800; padding:5px 11px; cursor:pointer; white-space:nowrap;
+}
+#feKopfZone .feKzFrgBtn:disabled{ opacity:.45; cursor:default }
+#feKopfZone .feKzFrgBtn:not(:disabled):hover{ background:#d9f2e2 }
+/* Der alte Freigabe-Satz ist durch Chip und Knopf ersetzt. */
+#feKopfZone .feProdFrgTxt{ display:none }
