@@ -1970,26 +1970,65 @@ function fgPickRender(){
 }
 /* Alle Zeilen aus #fe_zutRows, zu denen es KEINEN Stamm-Eintrag gibt - ungefiltert,
    gegen den vollstaendigen ZUTATEN_STAMM. Quelle fuer Sammelknopf und Sammellauf. */
+/* ────────────────────────────────────────────────────────────────────────────
+   KANDIDATEN FÜR DEN SAMMELLAUF — Work #218, 23.08.2026
+   ----------------------------------------------------------------------------
+   🔴 WARUM DAS UMGEBAUT WURDE. Hier stand ein Textvergleich im Browser: die Namen
+   der Editorzeilen wurden kleingeschrieben gegen ZUTATEN_STAMM gehalten. Er kannte
+   keine Synonyme — für "White Tiger Garnelen" hätte er angeboten, eine Zutat
+   einstufen und ANLEGEN zu lassen, die der Server längst als "Garnele" führt
+   (Treffer synonym, Sicherheit 0,95). Der Zähler in #181 hat nur falsch gezählt;
+   dieser Knopf handelt — er hätte eine überflüssige Zutat in den Stamm gebracht.
+
+   WAS SICH GEÄNDERT HAT UND WAS NICHT:
+   · Die MENGE kommt weiter aus dem DOM. Das ist richtig: es geht um den aktuellen
+     Arbeitsstand, und der Server kennt nur Gespeichertes. Eine gerade eingetippte
+     Zeile muss ein Kandidat sein dürfen.
+   · Die ENTSCHEIDUNG "kennt der Stamm das schon?" trifft der Browser nicht mehr.
+     Sie kommt aus cb_admin_zutat_zuordnungsstatus (#191, verifiziert). Abgeglichen
+     wird gegen die Schreibweisen, die der SERVER selbst mitliefert — das ist das
+     Anwenden seiner Antwort, kein Nachbau seiner Regel.
+   · gebunden und vorschlag_offen fliegen raus. Bei vorschlag_offen ist der richtige
+     Weg, den vorhandenen Treffer zu bestätigen — nicht daneben etwas Neues anzulegen.
+
+   ⚠ OHNE SERVERANTWORT WIRD NICHT GERATEN. Fehlt _fgZuordnung, gibt die Funktion
+   null zurück statt einer Liste. Der Knopf sagt dann, dass er es nicht weiß, und
+   startet nichts. Ein Sammellauf auf Verdacht legt echte Zutaten an.
+
+   OFFEN, ausdrücklich nicht hier gelöst: sauber wäre, wenn jede Zeile beim Anlegen
+   ihre Herkunft mitbekäme (aus dem Stamm gewählt / eingetippt / geladen) — dann
+   bräuchte es überhaupt keinen Namensabgleich. Gemessen bauen 12 Stellen eine Zeile,
+   alle über die eine Funktion fgZutRow(). Das ist ein eigener Durchgang.
+   ──────────────────────────────────────────────────────────────────────────── */
 function _fgFreieZutaten(){
-  var stamm={}; (ZUTATEN_STAMM||[]).forEach(function(it){ stamm[(it.name||"").trim().toLowerCase()]=true; });
-  /* Alle Namen, unter denen der Vertrag eine zugeordnete Zeile führt: Canonical-,
-     Anzeige- und Etikettschreibweise. Ohne `canonical_entity_id` zählt sie NICHT
-     als zugeordnet – eine Zeile ohne Identität ist genau der offene Fall. */
-  var zug={};
-  (Array.isArray(window._fgCanon)?window._fgCanon:[]).forEach(function(z){
-    if(!z||!z.canonical_entity_id) return;
-    [z.canonical_name, z.sichtbarer_name, z.zutatenliste_rohtext].forEach(function(n){
-      n=String(n||"").trim().toLowerCase(); if(n) zug[n]=true;
+  var zu=window._fgZuordnung;
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!zu || zu.produkt_id!==pid || !Array.isArray(zu.zeilen)) return null;   /* unbekannt, nicht leer */
+  /* Alles, wozu der Server bereits etwas sagt, kommt NICHT in den Sammellauf. */
+  var bekannt={};
+  zu.zeilen.forEach(function(z){
+    if(!z || z.status==="kein_treffer") return;
+    [z.zutat_text, z.stammname].forEach(function(n){
+      n=String(n||"").trim().toLowerCase(); if(n) bekannt[n]=true;
     });
   });
   var ri=_fgRowsInfo(), out=[];
-  Object.keys(ri).forEach(function(k){ if(!stamm[k] && !zug[k]) out.push(ri[k].name); });
+  Object.keys(ri).forEach(function(k){ if(!bekannt[k]) out.push(ri[k].name); });
   return out;
 }
 function fgZutSammelLeiste(){
   var el=document.getElementById("fe_zutSammelLeiste"); if(!el) return;
   if(window._fgSammel && window._fgSammel.laeuft) return;   /* Lauf nicht unter den Fuessen wegrendern */
   var frei=_fgFreieZutaten();
+  /* Work #218: null heisst "der Serverstand fehlt", nicht "nichts zu tun".
+     Der Knopf sagt das und startet nichts — ein Sammellauf auf Verdacht legt
+     echte Zutaten im Stamm an. */
+  if(frei===null){
+    el.innerHTML='<div class="feSammelMeta" style="color:var(--k-b45309,#b45309)">'
+      +'⚠ Zuordnungsstand nicht geladen – es ist unbekannt, welche Zutaten dem Stamm fehlen. '
+      +'Seite neu laden; bis dahin wird nichts an Riki geschickt.</div>';
+    return;
+  }
   if(!frei.length){ el.innerHTML=""; return; }
   el.innerHTML='<button type="button" class="feSammelBtn" onclick="fgZutSammelStart()" title="Riki stuft jede dieser Zutaten gegen unser Regelwerk ein, zwei Waechter pruefen mit. Angelegt wird erst nach deiner Bestaetigung.">'
     +'\ud83e\udd16 '+frei.length+' Zutat'+(frei.length===1?"":"en")+' nicht im Stamm \u2013 von Riki einstufen lassen</button>';
@@ -2124,7 +2163,8 @@ function fgZutSammelAbbruch(){
 }
 function fgZutSammelStart(){
   var box=document.getElementById("fe_zutSammelBox"); if(!box) return;
-  var namen=_fgFreieZutaten(); if(!namen.length){ fgZutSammelLeiste(); return; }
+  /* Work #218: ohne Serverstand wird nicht gestartet. Der Lauf legt Zutaten an. */
+  var namen=_fgFreieZutaten(); if(namen===null || !namen.length){ fgZutSammelLeiste(); return; }
   var gekappt=0;
   if(namen.length>FG_SAMMEL_MAX){ gekappt=namen.length-FG_SAMMEL_MAX; namen=namen.slice(0,FG_SAMMEL_MAX); }
   window._fgSammel={laeuft:true, items:[], gekappt:gekappt};
@@ -2291,20 +2331,43 @@ function fgZutSammelUebernehmen(){
     });
   }, Promise.resolve()).then(function(){
     window._fgSammel=null;
-    var rest=_fgFreieZutaten().length;
+    /* Work #218: nach dem Lauf ist der Serverstand veraltet — die eben angelegten
+       Zutaten kennt er noch nicht. Die Restzahl steht deshalb NICHT sofort da:
+       sie wird nachgereicht, sobald der neue Stand geladen ist (unten im .then).
+       Ein sofortiger Wert waere der Stand von vorher — also eine Zahl, die stimmt
+       aussieht und falsch ist. */
+    var _restId="fgSammelRest"+Date.now();
     box.innerHTML='<div class="feSammelKasten">'
       +'<div class="feSammelKopf" style="color:'+(schlecht.length?"var(--k-b45309)":"#1f7d43")+'">'
         +(gut.length?('✓ '+gut.length+' in den Stamm übernommen'):'Nichts übernommen')
         +(schlecht.length?(' · '+schlecht.length+' fehlgeschlagen'):'')+'</div>'
       +(gut.length?'<div class="feSammelMeta">'+esc(gut.join(" · "))+'</div>':'')
       +(schlecht.length?'<div class="feSammelMeta" style="color:var(--k-b45309)">'+schlecht.map(esc).join("<br>")+'</div>':'')
-      +'<div class="feSammelMeta" style="margin-top:5px">'+(rest?(rest+' Zutat'+(rest===1?"":"en")+' weiterhin nicht im Stamm.'):'Alle Zutaten dieses Produkts stehen jetzt im Stamm.')
+      +'<div class="feSammelMeta" style="margin-top:5px"><span id="'+_restId+'">Zuordnungsstand wird neu geladen …</span>'
         +' <b>Noch nicht gespeichert</b> – dafür unten auf Speichern.</div>'
       +'<div class="feSammelFuss"><button type="button" class="feSammelAbb" onclick="fgZutSammelAbbruch()">Schließen</button></div>'
     +'</div>';
     if(window._fgDirtyArmed&&window._fgDirty&&gut.length) window._fgDirty.zut=true;
     fgPickRender(); fgPickRefreshView();
     try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+    /* Work #218: erst den Serverstand neu holen, DANN die Restzahl schreiben.
+       Schlaegt das fehl, steht dort, dass es unbekannt ist — nicht "alles erledigt". */
+    (function(){
+      var _pid=(window._fgEdit&&window._fgEdit.id)||"";
+      var _setz=function(txt){ var e=document.getElementById(_restId); if(e) e.textContent=txt; };
+      var _fertig=function(){
+        var r=_fgFreieZutaten();
+        if(r===null){ _setz("Zuordnungsstand nicht verfügbar – bitte neu laden."); return; }
+        _setz(r.length ? (r.length+" Zutat"+(r.length===1?"":"en")+" weiterhin ohne Stammzuordnung.")
+                       : "Alle Zutaten dieses Produkts sind dem Stamm zugeordnet.");
+        try{ fgZutSammelLeiste(); }catch(e){}
+        try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+      };
+      if(_pid && typeof fgZuordnungLaden==="function"){
+        try{ fgZuordnungLaden(_pid).then(_fertig, function(){ _setz("Zuordnungsstand nicht verfügbar – bitte neu laden."); }); }
+        catch(e){ _setz("Zuordnungsstand nicht verfügbar – bitte neu laden."); }
+      } else { _fertig(); }
+    })();
   });
 }
 
