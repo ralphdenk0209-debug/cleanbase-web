@@ -2812,19 +2812,12 @@ function fgRefV2KandWahl(elId, i){
     "KANDIDAT="+String(kd.zutat)+" ("+String(kd.art)+", "+String(kd.aehnlichkeit).slice(0,4)+")", null,
     "Zutaten_Stamm", kd.zutat_id||null);
 }
-function fgRefV2Typ(elId, t){
-  var pz=_fgRefV2Pz(elId); if(!pz) return;
-  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT", "TYP="+String(t), null);
-}
-function fgRefV2Beziehung(elId, bez){
-  var pz=_fgRefV2Pz(elId); if(!pz) return;
-  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT", "BEZIEHUNG="+String(bez), null);
-}
-function fgRefV2ParentWahl(elId, parentId){
-  var pz=_fgRefV2Pz(elId), pe=_fgRefV2El(parentId); if(!pz||!pe) return;
-  fgRefV2Aktion(pz.Referenz_ID, "BESTAETIGT",
-    "PARENT="+String(pe.name)+" [Element "+parentId+"] · BEZIEHUNG=bestandteil", null);
-}
+/* 🔴 Work #224, 23.08.2026 — fgRefV2Typ, fgRefV2Beziehung und fgRefV2ParentWahl
+   sind ERSATZLOS ENTFERNT. Sie schrieben Freitextvermerke (TYP=, BEZIEHUNG=,
+   PARENT=) in Manuelle_Entscheidung, die serverseitig nie gelesen wurden —
+   gemessen ueber alle Funktionsrümpfe in public und shadow_v1: null Treffer.
+   Auch benutzt hat sie nie jemand: 0 von 1.771 manuellen Entscheidungen tragen
+   einen solchen Vermerk. Details und Zahlen im Kommentar bei fgRefV2Menu. */
 function fgRefV2Ablehnen(elId){
   var pz=_fgRefV2Pz(elId); if(!pz) return;
   fgRefV2Aktion(pz.Referenz_ID, "ABGELEHNT", "ABGELEHNT: falsch erkannt oder falsch zerlegt", null);
@@ -2861,14 +2854,7 @@ async function fgRefV2NachNeuanlage(name, alsUnterzutat){
   }catch(err){ console.error("[Referenz V2] Nach Neuanlage", err); }
 }
 /* Untermenue-Ersatz (kompakt, ein Menue): Parent-Auswahl ersetzt den Menueinhalt. */
-function fgRefV2ParentListe(elId){
-  var m=document.getElementById("fgRefV2Menu"); if(!m) return;
-  var d=(window._fgRefV2||{}).d||{};
-  var eb1=(d.elemente||[]).filter(function(x){ return x && x.parent_id==null && x.typ!=="kennzeichnungstext" && x.id!==elId; });
-  m.innerHTML='<div style="padding:2px 4px 6px"><b>Als Unterzutat von …</b></div>'
-    +eb1.map(function(p){ return '<button type="button" onclick="fgRefV2ParentWahl('+elId+','+p.id+')" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;border-top:1px solid #eef2f7;background:none;cursor:pointer;font-size:12.5px;color:#1d2733">'+esc(p.name||"")+(p.typ==="gruppe"?' <span style="color:#1d4ed8">[Gruppe]</span>':'')+'</button>'; }).join('')
-    +'<button type="button" onclick="fgRefV2MenuZu()" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;border-top:1px solid #eef2f7;background:none;cursor:pointer;font-size:12px;color:#9aa7b2">Abbrechen</button>';
-}
+/* fgRefV2ParentListe entfernt — Work #224, siehe Kommentar oben. */
 function fgRefV2KommentarFeld(elId){
   var m=document.getElementById("fgRefV2Menu"); if(!m) return;
   var pz=_fgRefV2Pz(elId); if(!pz) return;
@@ -2895,7 +2881,6 @@ function fgRefV2Menu(ev, elId){
   var K=function(txt, js, farbe){
     return '<button type="button" onclick="'+js+'" style="display:block;width:100%;text-align:left;padding:6px 8px;border:0;border-top:1px solid #eef2f7;background:none;cursor:pointer;font-size:12.5px;color:'+(farbe||"#1d2733")+'">'+txt+'</button>';
   };
-  var TYPEN=[["zutat","Zutat"],["gruppe","Gruppe"],["mikronaehrstoff","Mikronährstoff"],["wirkstoff","Wirkstoff"],["zusatzstoff","Zusatzstoff"]];
   var html='<div style="padding:2px 4px 6px"><b>'+esc(e.name||"")+'</b> <span style="color:#9aa7b2">· Status: '+esc(st)+'</span></div>';
   var eStA=String(e.status||"");
   var kein_wie_erkannt=(eStA==="MEHRDEUTIG"||eStA==="FRAGMENT"||eStA==="KLAMMER_FEHLER"||eStA==="FALSCH_ZERLEGT"||eStA==="HERSTELLERANGABE_UNVOLLSTAENDIG");
@@ -2903,9 +2888,24 @@ function fgRefV2Menu(ev, elId){
   (e.kandidaten||[]).forEach(function(kd,i){
     html+=K('→ Kandidat wählen: <b>'+esc(kd.zutat)+'</b> <span style="color:#9aa7b2">('+esc(kd.art)+', '+esc(String(kd.aehnlichkeit).slice(0,4))+')</span>', 'fgRefV2KandWahl('+elId+','+i+')');
   });
-  TYPEN.forEach(function(t){ if(t[0]!==String(e.typ||"zutat")) html+=K('Typ ändern → '+t[1], "fgRefV2Typ("+elId+",'"+t[0]+"')"); });
-  html+=K('Als Unterzutat markieren (Parent wählen) …', 'fgRefV2ParentListe('+elId+')');
-  if(e.beziehung!=="quelle") html+=K('Als Quelle markieren (gewonnen aus)', "fgRefV2Beziehung("+elId+",'quelle')");
+  /* 🔴 23.08.2026, Work #224 — HIER STANDEN SECHS MENUEPUNKTE OHNE WIRKUNG.
+     "Typ ändern → Zutat/Gruppe/Mikronährstoff/Wirkstoff/Zusatzstoff",
+     "Als Unterzutat markieren (Parent wählen) …" und
+     "Als Quelle markieren (gewonnen aus)".
+     Alle drei schrieben ihren Wert als FREITEXT in Manuelle_Entscheidung
+     ("TYP=gruppe", "BEZIEHUNG=quelle", "PARENT=…") und bestaetigten die Zeile.
+     GEMESSEN: keine einzige Funktion in public oder shadow_v1 liest jemals TYP=,
+     BEZIEHUNG= oder PARENT= — die Suche ueber alle Funktionsrümpfe lieferte null
+     Treffer. Der gewaehlte Typ hatte bei der Bindung dieselbe Wirkung wie ein
+     schlichtes "Zuordnung bestaetigen": keine.
+     GEMESSEN, dass nichts verlorengeht: von 6.882 Pruefzeilen tragen 1.771 eine
+     manuelle Entscheidung — davon 0 mit TYP=, 0 mit BEZIEHUNG=, 0 mit PARENT=.
+     Die Punkte wurden nie benutzt.
+     Ralph-Entscheid 23.08.: entfernen statt verstaendlicher beschriften. Ein Knopf,
+     der nichts tut, wird durch einen besseren Namen nicht besser.
+     ⚠ FALLS DAS JEMALS GEWOLLT IST: die richtigen Felder gibt es bereits.
+     Automatischer_Typ ist in ALLEN 6.882 Zeilen gefuellt, Parent_Element_Key in
+     2.365. Ein kuenftiger Umbau schreibt dorthin — nicht in einen Freitext daneben. */
   html+=K('✕ Ablehnen – falsch erkannt/zerlegt', 'fgRefV2Ablehnen('+elId+')', '#dc2626');
   html+=K('◌ Ignorieren – bewusst übergehen', 'fgRefV2Ignorieren('+elId+')', '#6b7280');
   html+=K('💬 Kommentar …', 'fgRefV2KommentarFeld('+elId+')');
@@ -3255,8 +3255,8 @@ if(typeof window!=='undefined'){
   window.fgRefV2Erheben=fgRefV2Erheben; window.fgRefV2Aktion=fgRefV2Aktion;
   window.fgRefV2Widerruf=fgRefV2Widerruf; window.fgRefV2Abschliessen=fgRefV2Abschliessen;
   window.fgRefV2Schnell=fgRefV2Schnell; window.fgRefV2KandWahl=fgRefV2KandWahl;
-  window.fgRefV2Typ=fgRefV2Typ; window.fgRefV2Beziehung=fgRefV2Beziehung;
-  window.fgRefV2ParentWahl=fgRefV2ParentWahl; window.fgRefV2ParentListe=fgRefV2ParentListe;
+  
+  
   window.fgRefV2Ablehnen=fgRefV2Ablehnen; window.fgRefV2Ignorieren=fgRefV2Ignorieren;
   window.fgRefV2KommentarFeld=fgRefV2KommentarFeld; window.fgRefV2KommentarSenden=fgRefV2KommentarSenden;
   window.fgRefV2Menu=fgRefV2Menu; window.fgRefV2MenuZu=fgRefV2MenuZu; window.fgRefV2Ergebnis=fgRefV2Ergebnis;
