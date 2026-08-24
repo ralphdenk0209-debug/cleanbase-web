@@ -3174,8 +3174,30 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
   color:var(--muted); padding:3px 7px; font-size:10px; font-weight:700;
   cursor:pointer; line-height:1.35; white-space:nowrap }
 .feSegBtn:hover{ border-color:var(--k-2f6fd6,#2f6fd6) }
-.feSegBtn.akt{ background:var(--k-eef4ff,#eef4ff); border-color:var(--k-2f6fd6,#2f6fd6);
-  color:var(--k-1d4ed8,#1d4ed8) }
+/* 🔴 24.08.2026, Ralph: "aber nicht weiss sondern ein helleres gruen."
+   Der gewaehlte Chip war blassblau — im dunklen Kopfband sah das aus wie WEISS
+   und stach heraus wie ein Fehler. Jetzt ein helles Gruen: hell genug, dass die
+   Schrift dunkel bleiben kann, kraeftig genug, um im Dunkeln als "das ist es"
+   gelesen zu werden.
+   GILT FUER BEIDE FAELLE, so wie Ralph es wollte: von Hand gesetzt und aus der
+   Automatik abgeleitet sehen gleich aus. Der Unterschied steht im Tooltip —
+   eine zweite Farbe fuer denselben Sachverhalt waere eine Unterscheidung, die
+   niemand erklaeren kann.
+
+   🔴 DIE DREI FARBEN SIND NICHT NEU ERFUNDEN. Mein erster Entwurf hatte eigene
+   Werte (--k-dcf5e3, --k-2e9e57) — die sind in KEINER der beiden HTML-Dateien
+   definiert, es haetten also nur meine Rueckfallwerte gegriffen, und im
+   Dunkelmodus waere die Farbe stehengeblieben, waehrend alles andere umschaltet.
+   Gemessen und ersetzt durch den vorhandenen Gruen-Dreiklang des Projekts:
+     --k-dcfce7 (Flaeche) · --k-16a34a (Rand) · --k-166534 (Schrift)
+   Alle drei sind in admin.html UND index.html je zweimal gesetzt, hell und
+   dunkel. Dieselbe Kombination benutzen die gruenen Knoepfe in Station 2. */
+.feSegBtn.akt{ background:var(--k-dcfce7); border-color:var(--k-16a34a);
+  color:var(--k-166534) }
+/* Abgeleitet aus der Automatik: gleiche Farbe, aber die Schrift traegt keinen
+   vollen Fettdruck — ein leiser Unterschied fuer den, der genau hinsieht,
+   ohne eine neue Bedeutung aufzumachen. */
+.feSegBtn.akt.autoakt{ font-weight:600 }
 
 /* 🔴 16.08.2026 — WORK #67, Braten-Eignung in der Rail.
    BEWUSST KEIN .feSegBtn: die Segmentknoepfe daneben sind BEDIENBAR, dieser Chip ist

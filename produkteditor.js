@@ -5876,9 +5876,25 @@ function _feRailEigen(){
   var bio=String(((document.getElementById("fe_bio")||{}).value||"")).trim();
   var wahl=String((window._fgEdit&&window._fgEdit.ernaehrWahl)||"").trim();
   var auto=String((window._fgEdit&&window._fgEdit.ernaehrAuto)||"").trim();
-  var kurz=function(v){ try{ return (typeof FE_EF_KURZ==="function")?FE_EF_KURZ(v):v; }catch(e){ return v; } };
-  var seg=function(akt, wert, txt, titel){
-    return '<button type="button" class="feSegBtn'+(String(akt)===String(wert)?' akt':'')+'"'
+  /* 🔴 24.08.2026: der Helfer kurz() ist hier ENTFALLEN. Er formatierte den
+     berechneten Wert fuer den Texthinweis daneben — und den gibt es nicht mehr,
+     seit der Chip selbst markiert wird. Eine Funktion, die niemand ruft, sieht
+     beim naechsten Lesen aus wie ein vergessener Aufruf.
+     FE_EF_KURZ selbst bleibt unangetastet, sie wird anderswo gebraucht. */
+  /* 🔴 24.08.2026, Ralph: "bei auto oder manuell soll der entsprechende chip
+     ausgewaehlt werden, aber nicht weiss sondern ein helleres gruen."
+     seg() kennt deshalb eine dritte Lage. Bisher gab es nur "gewaehlt" und
+     "nicht gewaehlt"; im Automatikbetrieb war NUR der Knopf "auto" markiert und
+     das Ergebnis stand als Text daneben. Jetzt traegt der Ergebnis-Chip selbst
+     die Markierung — der Text daneben faellt damit weg, weil der Chip ihn sagt.
+     'abgeleitet' sieht aus wie 'gewaehlt' (Ralphs Vorgabe), der Unterschied
+     steht im Tooltip. Beides gruen, damit die Zeile im dunklen Kopfband nicht
+     weiss aufblitzt. */
+  var seg=function(akt, wert, txt, titel, abgeleitet){
+    var kl='feSegBtn';
+    if(String(akt)===String(wert)) kl+=' akt';
+    else if(abgeleitet) kl+=' akt autoakt';
+    return '<button type="button" class="'+kl+'"'
       +' title="'+esc(titel||"")+'" data-wert="'+esc(String(wert))+'">'+esc(txt)+'</button>';
   };
   /* BIO — genau die drei Werte des vorhandenen <select>, kein neuer Status. */
@@ -5898,16 +5914,26 @@ function _feRailEigen(){
      Zeile, die um jede Stelle kaempft. Gemeint ist dasselbe, und die Chips
      daneben (vegan, vegetarisch, tierisch) sagen ohnehin, worum es geht. */
   var E='<div class="feSegTitel">Ernährung</div><div class="feSeg" data-feld="ef">'
-    + stufen.map(function(x){ return seg(wahl, x[0], x[1], 'Von dir gesetzt – überschreibt die Automatik.'); }).join('')
+    + stufen.map(function(x){
+        /* Automatikbetrieb heisst wahl==='' — dann markiert der berechnete Wert
+           seinen eigenen Chip. Von Hand gesetzt heisst wahl===x[0]. */
+        var abgeleitet = (wahl==='' && auto!=='' && String(auto)===String(x[0]));
+        return seg(wahl, x[0], x[1],
+          abgeleitet ? 'Automatisch aus den gebundenen Zutaten gerechnet. Anklicken setzt ihn von Hand fest.'
+                     : 'Von dir gesetzt – überschreibt die Automatik.',
+          abgeleitet);
+      }).join('')
     + seg(wahl,'','auto','Automatisch aus den GEBUNDENEN Zutaten gerechnet. Steht eine tierische Zutat nicht im Stamm, fehlt sie in dieser Rechnung.')
     +'</div>'
-    /* 🔴 24.08.2026, Ralph: "der text 'wird berechnet, sobald Zutaten gebunden
-       sind' kann weg, daneben erscheint dann der automatische ausgewaehlte."
-       Stimmt: solange nichts berechnet ist, sagt der Satz nur, dass nichts
-       dasteht — das sieht man. Steht ein Ergebnis da, wird es weiter genannt.
-       Eine Zeile, die im Leerfall nichts erklaert, kostet nur Platz in einer
-       Zeile, die um jede Stelle kaempft. */
-    + ((wahl==='' && auto) ? '<div class="feSegAuto">berechnet: <b>'+esc(kurz(auto))+'</b></div>' : '');
+    /* 🔴 24.08.2026, Ralph, in zwei Schritten:
+       (1) "der text 'wird berechnet, sobald Zutaten gebunden sind' kann weg,
+            daneben erscheint dann der automatische ausgewaehlte."
+       (2) "bei auto oder manuell soll der entsprechende chip ausgewaehlt werden."
+       Damit ist der Text VOLLSTAENDIG ueberfluessig: was er sagte, sagt jetzt der
+       markierte Chip selbst. Zwei Anzeigen fuer dieselbe Aussage waeren die
+       Doppelung, die hier ohnehin verboten ist — und die schmalste Zeile der
+       Maske gewinnt eine Handbreit Platz. */
+    ;
   var _brE=String((window._fgEdit&&window._fgEdit.bratenEignung)||"").trim();
   var _brKat=String(((document.getElementById("fe_kat")||{}).value||"")).trim();
   var _brZeigen=(_brE==="geeignet"||_brE==="nicht_scharf_anbraten")
