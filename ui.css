@@ -3634,19 +3634,31 @@ body.riFokus #feKopfFix{
    durchsichtig. Damit gibt es die Ungleichheit nicht mehr, statt sie an zwei
    Stellen gleich einzustellen und beim naechsten Mal wieder auseinanderlaufen
    zu lassen. */
+/* 🔴 23.08. ZWEITE FASSUNG DER FARBE. Ralph: "nur noch den farblichen
+   unterschied anpassen."
+   Erster Versuch: Band bekam den Verlauf, die Bedienzeile den Endton als
+   Vollton. Zwei Werte, aufeinander abgestimmt - und genau deshalb wieder
+   verschieden, sobald einer angefasst wird. Ralph hat den Unterschied prompt
+   gesehen.
+   Jetzt traegt der KASTEN den Verlauf, und Band und Bedienzeile sind
+   durchsichtig. Es gibt nur noch eine Farbangabe. Sie kann nicht mehr
+   auseinanderlaufen, weil es nichts gibt, wovon sie abweichen koennte. */
 body.riFokus #feKopfFix{
   --fkf-bg:linear-gradient(150deg,#12395a,#1f4e78);
 }
+body.riFokus #feKopfFix > #feKopfband,
+body.riFokus #feKopfFix > #fe_gesamtstatus,
+body.riFokus #feKopfFix > #feKopfZone{
+  background:var(--fkf-bg);
+  background-attachment:fixed;   /* ein Verlauf ueber alle drei, nicht drei eigene */
+}
 body.riFokus #feKopfFix > #feKopfband{
   position:static; margin:0; width:auto; max-width:none;
-  background:var(--fkf-bg);
-  background-attachment:local;
   border-radius:10px 10px 0 0;
   box-shadow:none;
 }
 body.riFokus #feKopfFix > #feKopfZone{
   position:static; margin:0; width:auto; max-width:none;
-  background:#1b4a70;             /* Endton des Verlaufs - der Kasten laeuft aus */
   border-radius:0 0 10px 10px;
   padding:6px 18px 8px;
   box-shadow:0 10px 18px -12px #0f172a26;
@@ -3797,6 +3809,40 @@ body.riFokus #feKopfZone #feNavBlaett{ color:#a8cfe0 }
 body.riFokus #feKopfZone button[onclick^="adminNeuLaden"]{
   background:#ffffff1a !important; color:#fff !important; border-color:#ffffff40 !important;
 }
+/* 🔴 23.08. ALLES IN DIESER ZEILE IST EINE PILLE. Ralph: "die buttons wieder
+   schoener machen als chips."
+   Gemessen war es gemischt: "← Posteingang", der Statusknopf und "Speichern"
+   hatten 999px Rundung, das "⋯" und alle Bio-/Ernaehrungs-Chips 0px - also
+   Rechtecke. Nebeneinander sieht das aus, als gehoerten sie nicht zusammen.
+   Eine Regel fuer alle statt sieben einzelne: was in dieser Zeile klickbar
+   ist, ist rund. */
+body.riFokus #feKopfZone button,
+body.riFokus #feKopfZone .feKzChip,
+body.riFokus #feKopfZone .feSegBtn{
+  border-radius:999px !important;
+}
+body.riFokus #feKopfZone .feProdMehr{ padding:4px 11px !important }
+/* 🔴 Der Freigabe-Knopf: EIN Element, zwei Zustaende (Ralph-Entscheid 23.08.).
+   Rot und nicht klickbar, solange etwas blockiert - gruen und klickbar, sobald
+   es passt. Die Groesse ist in beiden Zustaenden gleich, damit die Zeile beim
+   Umschalten nicht springt. */
+body.riFokus #feKopfZone .feFrgKnopf{
+  border-radius:999px !important;
+  padding:5px 13px; font-size:12.5px; font-weight:800; white-space:nowrap;
+  border:1px solid transparent; cursor:pointer; line-height:1.35;
+}
+body.riFokus #feKopfZone .feFrgKnopf.ok{
+  background:#127a3c !important; color:#fff !important; border-color:#1c9451 !important;
+}
+body.riFokus #feKopfZone .feFrgKnopf.ok:hover{ background:#158c46 !important }
+body.riFokus #feKopfZone .feFrgKnopf.rot{
+  background:#7a2230 !important; color:#ffd9de !important; border-color:#a33146 !important;
+  cursor:default;
+}
+/* ⚠ KEIN opacity auf dem gesperrten Zustand: er soll nicht "ausgegraut"
+   aussehen, sondern rot und eindeutig. Ausgegraut heisst "kaputt oder egal",
+   rot heisst "gesperrt, und daneben steht warum". */
+body.riFokus #feKopfZone .feSegBtn{ padding:4px 10px !important }
 /* Die Segmentknoepfe (Bio, Ernaehrungsform): ausgewaehlt bleibt hell hervor-
    gehoben, nicht ausgewaehlt wird durchscheinend. */
 body.riFokus #feKopfZone .feSegBtn{

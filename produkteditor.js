@@ -5725,8 +5725,17 @@ function feProduktKopf(){
     +'<div class="feRailGrpTit feKzTrenn">Aktionen</div>'
     +'<div class="feProdAkt">'
       +'<button type="button" class="feProdSave" onclick="try{fgEditSave(false)}catch(e){alert(e&&e.message||e)}">Speichern</button>'
-      +(frei ? '' : '<button type="button" class="feProdFrei"'+(moeglich?'':' disabled')
-             +' onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}">Freigeben</button>')
+      /* 🔴 23.08.2026, Ralph-Entscheid: "den freigabe button koennte man aendern,
+         er sollte so sein wie der blockiert button und blockiert sein, erst wenn
+         alles passt umschalten auf freigabe und klickbar machen."
+         Hier stand ein gruener "Freigeben"-Knopf, der bei Blockade einfach
+         ausgegraut war - und zwei Handbreit weiter stand ein roter Chip
+         "● blockiert" mit den Gruenden. Zwei Elemente fuer einen Zustand: das
+         eine sagte, was man tun koennte, das andere, warum nicht.
+         Sie sind jetzt EINS. Der Knopf steht in der Freigabe-Gruppe (weiter
+         unten) und wechselt Farbe, Text und Klickbarkeit mit dem Zustand.
+         Ein ausgegrauter Knopf sagt "geht nicht"; ein roter sagt "geht nicht,
+         und hier steht warum". */
       +'<button type="button" class="feProdMehr" onclick="feProdMenu(this)" title="Weitere Aktionen">⋯</button>'
     +'</div>'
     +'<div class="feRailGrpTit feKzTrenn">Eigenschaften</div>'
@@ -5794,6 +5803,13 @@ function feProduktKopf(){
              +esc(T.slice(0,2).join(' · '))
              +(T.length>2?' · +'+(T.length-2):'')+'</span>'
            : '';
+         /* 🔴 EIN Element fuer den Zustand UND die Handlung (Ralph-Entscheid):
+            blockiert -> rot und nicht klickbar, mit dem Grund daneben
+            moeglich  -> gruen und klickbar, "Freigeben"
+            freigegeben -> gruen und ruhig, kein Knopf noetig
+            Der Knopf ist immer dasselbe DOM-Element. Er wechselt nur Farbe,
+            Beschriftung und ob er reagiert - deshalb kann er nicht an zwei
+            Stellen etwas anderes behaupten. */
          if(frei){
            return '<span class="feKzChip ok">✓ freigegeben</span>'
              +(T.length
@@ -5802,20 +5818,30 @@ function feProduktKopf(){
                 : '');
          }
          if(moeglich){
-           /* Freigabe moeglich, aber ein Hinweis offen: der gruene Chip bleibt -
-              er stimmt ja -, der Hinweis steht trotzdem daneben. Ein Produkt
-              ohne Blocker, aber mit offenem Punkt ist ein echter Fall. */
-           return '<span class="feKzChip ok">✓ möglich</span>'+grund;
+           return '<button type="button" class="feFrgKnopf ok"'
+             +' title="Der Server prüft beim Klick alles erneut."'
+             +' onclick="try{fgEditSave(true)}catch(e){alert(e&&e.message||e)}">'
+             +'✓ Freigeben</button>'+grund;
          }
-         return '<span class="feKzChip rot">● blockiert</span>'+grund;
+         return '<button type="button" class="feFrgKnopf rot" disabled'
+           +' title="'+esc(T.length?T.join(' · '):'Freigabe noch nicht möglich')+'">'
+           +'● blockiert</button>'+grund;
        })()
-      /* 🔴 23.08. entfernt: hier stand ein zweiter "✓ Freigeben"-Knopf. Live an
-         P73634 gemessen waren dadurch ZWEI Freigeben-Knoepfe in der Kopfzone -
-         feProdFrei im Aktionsblock und meiner hier -, beide mit demselben Aufruf
-         fgEditSave(true). Zwei Knoepfe fuer dieselbe Handlung sind kein Angebot,
-         sondern eine Frage: welcher ist der richtige? Der aeltere im Aktionsblock
-         bleibt. Dieser Block zeigt nur noch den ZUSTAND - Chip und Grund -, und
-         das ist auch seine Aufgabe. */
+      /* 🔴 DIE GESCHICHTE DIESER STELLE, in drei Schritten an EINEM Tag - sie
+         erklaert, warum hier jetzt genau ein Knopf steht:
+         1. Morgens gab es zwei "✓ Freigeben" in der Kopfzone: feProdFrei im
+            Aktionsblock und einen zweiten hier. Beide riefen fgEditSave(true).
+            Zwei Knoepfe fuer dieselbe Handlung sind kein Angebot, sondern eine
+            Frage - welcher ist der richtige? Der hiesige flog raus.
+         2. Damit stand der Zustand ("● blockiert", rot, mit Gruenden) hier und
+            die Handlung (gruener Knopf, ausgegraut) zwei Handbreit weiter. Das
+            eine sagte, was man tun koennte, das andere, warum nicht.
+         3. Ralph: "er sollte so sein wie der blockiert button und blockiert
+            sein, erst wenn alles passt umschalten auf freigabe und klickbar
+            machen." Genau das ist jetzt gebaut - und feProdFrei ist entfallen,
+            weil dieser Knopf seine Aufgabe uebernommen hat.
+         Ergebnis: ein Element, das Zustand UND Handlung ist. Es kann nicht mehr
+         an zwei Stellen etwas Verschiedenes behaupten. */
     +'</div>';
 }
 function _feRailEigen(){
