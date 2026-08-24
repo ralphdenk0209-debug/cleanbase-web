@@ -3861,7 +3861,27 @@ async function openFgEditor(id, prefill, targetEl){
   panel.innerHTML=`
     ${_navBar}
     ${""}
-    ${''/* Kopfband zeigt nur an; bearbeitet wird weiter in den vorhandenen Feldern. */}
+    ${''/* 🔴 23.08.2026, Work #181 — EIN RAHMEN UM DEN GANZEN KOPF.
+         Ralph: "grauer balken oben, menue oben ist getrennt, soll ja eins sein."
+
+         VORGESCHICHTE, weil sie die Lehre enthaelt: ich hatte Kopfband,
+         Statusstreifen und Bedienzeile EINZELN fixiert (position:sticky) und
+         ihnen gestaffelte Abstaende von oben gegeben. Live gemessen kam dabei
+         heraus: Band endet bei 78, Streifen klebt bei 122, Zeile bei 149 - eine
+         44px hohe helle Luecke dazwischen (Ralphs "grauer balken") und darunter
+         eine Ueberlappung.
+
+         WARUM DAS NIE FUNKTIONIEREN KONNTE: ein sticky-Element klebt an SEINER
+         eigenen Position. Drei davon nebeneinanderzustellen ergibt drei Balken,
+         die unabhaengig voneinander haengenbleiben - nie einen Block. Man kann
+         die Abstaende so lange nachrechnen, bis es bei EINER Fensterbreite und
+         EINEM Produkt passt; beim naechsten steht die Luecke wieder da.
+
+         Sie liegen jetzt in einem gemeinsamen Rahmen, und NUR der ist fixiert.
+         Damit gibt es die Luecke nicht mehr - nicht, weil sie wegberechnet
+         wurde, sondern weil es nichts mehr gibt, wozwischen sie entstehen
+         koennte. */}
+    <div id="feKopfFix">
     <div id="feKopfband">
       ${''/* 🔴 23.08.2026, Work #181 — ZEILE A AUS DEM MOCKUP: Bild links, Index rechts.
            Beides fehlte bisher im Kopf. Das Bild kam gar nicht vor, obwohl _fgEdit ein
@@ -3901,6 +3921,8 @@ async function openFgEditor(id, prefill, targetEl){
          es zieht der ganze Block um, nicht zwanzig Einzelteile.
          Solange die Rail noch existiert, ist sie der Rueckfall. */}
     <div id="feKopfZone"></div>
+    </div>${''/* Ende #feKopfFix - der Rahmen umschliesst Kopfband, Statusstreifen
+         und Bedienzeile. Was danach kommt, scrollt. */}
     <div id="feRahmen">
       <div id="feRail">
         ${''/* 🔴 23.08.2026, Work #181 — WARUM DIESER STREIFEN STEHENBLEIBT.
@@ -5769,12 +5791,19 @@ function _feRailEigen(){
   var B='<div class="feSegTitel">Bio</div><div class="feSeg" data-feld="bio">'
     + seg(bio,'', '? ungeprüft','Niemand hat nachgesehen. Das ist NICHT „kein Bio".')
     + seg(bio,'ja','🌱 Bio','Bio-Kennzeichnung nach EU-Öko-VO 2018/848. Merkmal und Filter, keine Punkte im Index.')
-    + seg(bio,'nein','× kein Bio','Geprüft und ohne Bio-Kennzeichnung.')
+    /* 🔴 23.08. "× kein" statt "× kein Bio". Es steht in der Gruppe "Bio",
+       zwischen "? ungeprüft" und "🌱 Bio" - das Wort dahinter wiederholt nur
+       die Ueberschrift und kostet Breite in einer Zeile, die ohnehin knapp ist.
+       Der Titeltext bleibt vollstaendig, dort ist Platz. */
+    + seg(bio,'nein','× kein','Geprüft und ohne Bio-Kennzeichnung.')
     +'</div>';
   /* ERNAEHRUNGSFORM — die Stufen kommen aus FE_EF_STUFEN, nicht aus einer Kopie. */
   var stufen=[];
   try{ stufen=(FE_EF_STUFEN||[]).map(function(x){ return [x.v, (x.ico?x.ico+' ':'')+x.kurz]; }); }catch(e){}
-  var E='<div class="feSegTitel">Ernährungsform</div><div class="feSeg" data-feld="ef">'
+  /* 🔴 23.08. "Ernährung" statt "Ernährungsform" - 102px gegen 69px in einer
+     Zeile, die um jede Stelle kaempft. Gemeint ist dasselbe, und die Chips
+     daneben (vegan, vegetarisch, tierisch) sagen ohnehin, worum es geht. */
+  var E='<div class="feSegTitel">Ernährung</div><div class="feSeg" data-feld="ef">'
     + stufen.map(function(x){ return seg(wahl, x[0], x[1], 'Von dir gesetzt – überschreibt die Automatik.'); }).join('')
     + seg(wahl,'','auto','Automatisch aus den GEBUNDENEN Zutaten gerechnet. Steht eine tierische Zutat nicht im Stamm, fehlt sie in dieser Rechnung.')
     +'</div>'
@@ -5875,11 +5904,21 @@ if(typeof window!=="undefined"){ window.feProdMenu=feProdMenu; window.feProduktK
   window.feRailAufraeumen=feRailAufraeumen; }
 function feFokusNavBauen(){
   var rail=_feZielZone(); if(!rail) return;
+  /* 🔴 23.08. Die Stationen haengen NEBEN dem dunklen Kasten, nicht darin.
+     Im Entwurf sind sie drei helle Karten unter dem Kasten - mitfixiert, aber
+     optisch getrennt. Solange sie in #feKopfZone standen, konnte der Kasten
+     unten nicht rund enden: das letzte Element darin war hell und hat die
+     Rundung verdeckt.
+     Sie ziehen deshalb in den gemeinsamen Rahmen #feKopfFix, gleich neben die
+     Bedienzeile statt hinein. Gibt es den Rahmen nicht (aelterer Aufbau, oder
+     die Rail als Rueckfall), bleibt alles wie bisher. */
+  var ziel=document.getElementById("feKopfFix")||rail;
   var nav=document.getElementById("feFokusNav");
   if(!nav){
     nav=document.createElement("div"); nav.id="feFokusNav";
-    rail.appendChild(nav);
+    ziel.appendChild(nav);
   }
+  if(nav.parentNode!==ziel) ziel.appendChild(nav);
   if(!feFokusAn()){ nav.style.display="none"; feRailNav(false); feRailAufraeumen(false); feProduktKopf(); return; }
   nav.style.display="";
   feRailAufraeumen(true); feRailNav(true); feProduktKopf();
@@ -6007,9 +6046,21 @@ function feFokusSchritt(n){
 }
 function feFokusKopfFuss(s){
   var k=document.getElementById("feSchrittKopf"), fz=document.getElementById("feSchrittFuss");
-  if(k){ k.innerHTML=feFokusAn()
-    ? '<div class="feSchrittKopf"><span class="feSchrittNr">'+s.nr+'</span>'
-      +'<span><b>'+esc(s.t)+'</b><span class="feSchrittKurz">'+esc(s.kurz||"")+'</span></span></div>' : ""; }
+  /* 🔴 23.08.2026, Work #181 — DER SCHRITTKOPF IST IM FOKUSMODUS WEG.
+     Ralph: "zeile unter den drei buttons 1 kopf & quelle kann weg, das waere
+     doppelt."
+     Er hat recht: die Stationskarte direkt darueber sagt "1 Kopf & Quelle ·
+     erfuellt · Fleisch & Fisch", und zehn Pixel darunter stand nochmal
+     "1 Kopf & Quelle · Quelle geben, Identitaet pruefen". Dieselbe
+     Ueberschrift zweimal, nur die zweite ohne Status.
+     ⚠ Ich hatte hier zuerst geschrieben "entfaellt nur im Fokusmodus" und
+     trotzdem bedingungslos geleert - Kommentar und Code sagten Verschiedenes.
+     Nachgesehen: die alte Zeile lautete `feFokusAn() ? '<div…>' : ""`, der Kopf
+     war also ohnehin NUR im Fokusmodus gefuellt. Ausserhalb war er immer leer.
+     Bedingungslos leeren ist deshalb richtig - und die Bedingung waere eine
+     gewesen, die nie greift. Ein Kommentar, der mehr verspricht als der Code
+     tut, ist beim naechsten Lesen schlimmer als gar keiner. */
+  if(k){ k.innerHTML=""; }
   if(fz){
     if(!feFokusAn()){ fz.innerHTML=""; return; }
     var vor=FE_SCHRITTE.find(function(x){ return x.nr===s.nr-1; });

@@ -3402,22 +3402,35 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
    ⚠ #feFokusNav hat VIER Kinder - die Gruppenueberschrift zaehlt mit. Ohne die Regel
    darunter belegt sie Spalte 1 und schiebt die dritte Station in eine zweite Zeile.
    Genau so sah es live aus. */
-#feKopfZone > #feFokusNav{
+/* 🔴 23.08. Die Stationen sind aus #feKopfZone in den gemeinsamen Rahmen
+   #feKopfFix gezogen (sie stehen im Entwurf NEBEN dem dunklen Kasten, nicht
+   darin). Alle Regeln unten galten nur fuer den alten Ort - live sah man
+   sofort, was fehlt: "ARBEITSFLUSS" belegte wieder Spalte 1, die dritte
+   Station rutschte in eine zweite Zeile, und die Kartenoptik war weg.
+   Erweitert statt kopiert: dieselbe Regel gilt jetzt an beiden Orten. Zwei
+   getrennte Blöcke waeren beim naechsten Umzug wieder auseinandergelaufen. */
+#feKopfZone > #feFokusNav,
+#feKopfFix > #feFokusNav{
   display:grid !important; grid-template-columns:repeat(3,1fr); gap:7px;
   border:0; padding:0; margin:0;
 }
-#feKopfZone > #feFokusNav > .feRailGrpTit{ display:none }
-#feKopfZone .feStTitel{ display:none }   /* die Ueberschrift "Stationen" braucht es waagerecht nicht */
-#feKopfZone .feFokusSt{
+#feKopfZone > #feFokusNav > .feRailGrpTit,
+#feKopfFix > #feFokusNav > .feRailGrpTit{ display:none }
+#feKopfZone .feStTitel,
+#feKopfFix .feStTitel{ display:none }   /* die Ueberschrift "Stationen" braucht es waagerecht nicht */
+#feKopfZone .feFokusSt,
+#feKopfFix .feFokusSt{
   border:1px solid var(--line); border-left:0; border-top:3px solid transparent;
   border-radius:var(--fk-r-mittel,10px); background:var(--card);
   padding:7px 11px; box-shadow:0 5px 16px #0f172a0d;
 }
-#feKopfZone .feFokusSt.akt{ border-top-color:var(--k-2f6fd6,#2f6fd6); background:#f8fbff }
+#feKopfZone .feFokusSt.akt,
+#feKopfFix .feFokusSt.akt{ border-top-color:var(--k-2f6fd6,#2f6fd6); background:#f8fbff }
 
 /* Unter 700px bricht alles um - Rueckfall, kaum genutzt (Adminarbeit am Laptop). */
 @media (max-width:699px){
-  #feKopfZone > #feFokusNav{ grid-template-columns:1fr }
+  #feKopfZone > #feFokusNav,
+  #feKopfFix > #feFokusNav{ grid-template-columns:1fr }
   #feKopfZone{ position:static }   /* fixiert waere auf schmalen Schirmen zu viel Hoehe */
 }
 
@@ -3563,38 +3576,63 @@ body.riFokus #feRahmen > #feRail{ display:none }
    Kante und die Breite des Inhalts darunter. Ralph: "maximal so breit wie der
    untere bereich". Die Werte haben Rueckfallwerte, damit eine ausgefallene
    Messung keinen unsichtbaren Kopf ergibt - lieber zu breit als weg. */
-body.riFokus #feKopfband,
-body.riFokus #fe_gesamtstatus,
-body.riFokus #feKopfZone{
-  /* 🔴 23.08. ZENTRIERT, nicht linksbuendig. Ralph: "es ist alles links
-     ausgerichtet nicht mittig auf der seite."
-     Am 15.08. war justify-content:start richtig - damals sass links die Rail,
-     und ein Menue gehoert an den Rand, nicht in die Mitte. Der Grund ist mit
-     der Rail entfallen: was jetzt links klebt, ist kein Menue, sondern der
-     Arbeitsbereich. Rahmen und Kopf teilen sich dieselbe Breite und stehen
-     beide mittig - dadurch sind sie deckungsgleich, ohne dass eine Kante
-     gemessen werden muss. */
+/* 🔴 23.08. EIN RAHMEN, EINE FIXIERUNG. Ralph: "grauer balken oben, menue oben
+   ist getrennt, soll ja eins sein."
+
+   VORHER waren Kopfband, Statusstreifen und Bedienzeile EINZELN fixiert, mit
+   gestaffelten Abstaenden von oben. Live gemessen: Band endet bei 78, Streifen
+   klebt bei 122, Zeile bei 149 - dazwischen 44px heller Seitengrund (Ralphs
+   "grauer balken") und darunter eine Ueberlappung.
+
+   Ein sticky-Element klebt an SEINER Position. Drei davon ergeben drei Balken,
+   die unabhaengig voneinander haengenbleiben - nie einen Block. Man kann die
+   Abstaende nachrechnen, bis es bei einer Fensterbreite und einem Produkt
+   passt; beim naechsten steht die Luecke wieder da.
+
+   Jetzt umschliesst #feKopfFix alle drei, und NUR er ist fixiert. Die Luecke
+   ist nicht wegberechnet - es gibt nichts mehr, wozwischen sie entstehen
+   koennte. Die Innenteile brauchen dadurch weder eigene Position noch eigene
+   Breite: sie fuellen den Rahmen. */
+body.riFokus #feKopfFix{
+  position:sticky; top:0; z-index:60;
   width:var(--fe-kopf-breite,auto);
-  margin-left:auto; margin-right:auto;
+  margin:0 auto 4px;
   max-width:100%;
   box-sizing:border-box;
+  background:var(--bg,#eef3f8);   /* Seitengrund - der dunkle Kasten sitzt DARIN */
+  padding-bottom:8px;
 }
-/* 🔴 BEIDE fixiert, nicht nur die Bedienzeile. Vorher war das Kopfband static -
-   beim Scrollen schob sich die fixierte Zeile darueber. Ralph: "beim scrollen
-   schieben sich die balken uebereinander. der obere bereich soll aber fix sein."
-   Die Bedienzeile startet um die gemessene Kopfbandhoehe tiefer, sonst verdeckt
-   sie es. z-index: das Band liegt oben, damit nichts dagegenlaeuft. */
-body.riFokus #feKopfband{
-  position:sticky; top:0; z-index:61;
-  margin-bottom:0; border-radius:10px 10px 0 0;
+/* Der dunkle Kasten: Kopfband oben gerundet, Bedienzeile unten. Dazwischen der
+   Statusstreifen, der meistens nicht da ist. Rundung nur aussen - innen darf
+   keine Kante entstehen, sonst sieht man wieder drei Teile. */
+body.riFokus #feKopfFix > #feKopfband{
+  position:static; margin:0; width:auto; max-width:none;
+  border-radius:10px 10px 0 0;
+  box-shadow:none;
 }
-body.riFokus #feKopfZone{
-  position:sticky; top:var(--fe-kopf-hoehe,0px); z-index:60;
-  background:#134a63;                 /* dieselbe Farbe wie --fkb-bg im Kopfband */
-  padding:0 18px 0;                   /* seitlich buendig zum Kopfband */
+body.riFokus #feKopfFix > #feKopfZone{
+  position:static; margin:0; width:auto; max-width:none;
+  background:#134a63;
   border-radius:0 0 10px 10px;
+  padding:0 18px 9px;
   box-shadow:0 10px 18px -12px #0f172a26;
 }
+/* 🔴 Die Stationen stehen jetzt NEBEN dem Kasten, als eigene helle Reihe -
+   so wie im Entwurf. Vorher lagen sie im Kasten und haben seine untere
+   Rundung verdeckt. */
+/* Aufbau und Kartenoptik der Stationen stehen oben bei #feKopfZone > #feFokusNav
+   und gelten jetzt auch hier. Hier bleibt nur der Abstand zum Kasten. */
+body.riFokus #feKopfFix > #feFokusNav{
+  margin:10px 0 0 !important; background:transparent;
+}
+/* 🔴 Der Statusstreifen zwischen Band und Bedienzeile: sein Innenteil bringt
+   margin-bottom:12px mit. Live gemessen war das die letzte sichtbare Fuge im
+   Kasten - 12px heller Streifen quer durch das Dunkelblau. Ich haette sie fast
+   als "sieht doch gut aus" durchgehen lassen; gemessen ist sie eindeutig. */
+body.riFokus #feKopfFix > #fe_gesamtstatus{
+  position:static; margin:0; width:auto; max-width:none; border-radius:0; top:auto;
+}
+body.riFokus #feKopfFix > #fe_gesamtstatus .feStStreifen{ margin-bottom:0 }
 /* 🔴 23.08. DER WEISSE BALKEN. Ralph: "der weisse balken oben muss weg."
    Das war der Statusstreifen: weisser Grund, volle Fensterbreite, zwischen dem
    dunklen Kopf und der dunklen Bedienzeile. Er sass ausserdem mit
