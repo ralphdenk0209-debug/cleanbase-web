@@ -2220,7 +2220,24 @@ body.riFokus #feRahmen{
        gedrueckt. Der Nebeneffekt war nie gemessen: die Pruefung "Ueberlauf 0" zu
        Work #39 stammt aus einem Versuch, bei dem der Tab noch auf Build 2720 lief
        und gar kein Produkt geladen war — alle Breiten kamen als 0 zurueck. */
-  --mitte-max:      700px;   /* Work #43 Entscheid A (vorher 600, davor 780) */
+  /* 🔴 23.08.2026, Work #181 — 700 auf 880.
+     Ralph zweimal: "der obere bereich ist noch viel zu hoch."
+
+     WARUM DAS EINE BREITENFRAGE IST: der Kopf ist an die Inhaltsbreite
+     gekoppelt (er soll "maximal so breit wie der untere bereich" sein). Die
+     Bedienelemente darin brauchen zusammen rund 1480px. Bei Mitte 700 ist der
+     Kopf 1327 breit - es fehlen gut 150px, also bricht die Zeile um, und jede
+     Umbruchzeile kostet 33px Hoehe. Die Hoehe war die Folge der Breite.
+
+     WOHER DIE 180px KOMMEN: die Spalte des linken Streifens ist heute entfallen
+     (er ist im Fokusmodus versteckt). Der Platz war schon frei, er lag nur
+     ungenutzt rechts als Rand. 700 + 180 = 880.
+
+     ⚠ 700 war Ralphs eigener Wert (Work #43, Entscheid A). Ich aendere ihn,
+     weil seine Grundlage - die 180px-Spalte daneben - nicht mehr existiert und
+     weil Ralph zweimal die Folge dieser Zahl bemaengelt hat. Rueckbau ist eine
+     Zeile: hier wieder 700 eintragen. */
+  --mitte-max:      880px;   /* 23.08. von 700 (Work #43 A); davor 600, davor 780 */
   /* 🔴 23.08.2026, Work #181 Stufe 1 — Ralph-Entscheid: die Abstaende links und
      rechts duerfen gleich sein. Damit fallen --gap-rail und --gap-kontext weg und
      werden zu EINEM echten gap. Vorher waren die Zwischenraeume eigene GRID-SPALTEN,
@@ -3363,7 +3380,12 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
    "← Posteingang". Am Live-DOM gemessen und mit order korrigiert - das ist eine
    Anzeigefrage, kein Grund, die Aufbaureihenfolge im JavaScript umzustellen. */
 #feKopfZone > #feRailNav{ flex:0 0 auto; order:0 }
-#feKopfZone > #feProdKopf{ flex:1 1 auto; min-width:0; order:1 }
+/* 🔴 23.08. `flex:1 1 0` statt `1 1 auto`. Mit `auto` nimmt der Produktblock
+   seine Inhaltsbreite als Ausgangsgroesse - passt die nicht neben den
+   Navigationsblock, bricht er als GANZES um, und "← Posteingang" steht allein
+   in einer eigenen Zeile. Mit `0` darf er schrumpfen und bricht INNEN um.
+   Gemessen: Bedienzeile 118 -> 97px, Kasten 284 -> 263px. */
+#feKopfZone > #feProdKopf{ flex:1 1 0; min-width:0; order:1 }
 /* 🔴 Vier Gruppenwoerter, die nichts erklaeren: NAVIGATION 69px, PRODUKT 53px,
    AKTIONEN 67px, EIGENSCHAFTEN 102px - zusammen 291px Breite, live gemessen.
    Ein Knopf "← Posteingang" braucht keine Ueberschrift "NAVIGATION", und was
@@ -3602,19 +3624,31 @@ body.riFokus #feKopfFix{
   background:var(--bg,#eef3f8);   /* Seitengrund - der dunkle Kasten sitzt DARIN */
   padding-bottom:8px;
 }
-/* Der dunkle Kasten: Kopfband oben gerundet, Bedienzeile unten. Dazwischen der
-   Statusstreifen, der meistens nicht da ist. Rundung nur aussen - innen darf
-   keine Kante entstehen, sonst sieht man wieder drei Teile. */
+/* 🔴 23.08. EINE FARBE FUER DEN GANZEN KASTEN. Ralph: "farbe unterschiedlich."
+   Gemessen und er hat recht:
+     Kopfband       linear-gradient(120deg,#12395a,#1f4e78)   - ein Verlauf
+     Bedienzeile    #134a63                                    - ein Vollton
+   Zwei verschiedene Blaus uebereinander sehen aus wie zwei Kaesten, auch wenn
+   keine Fuge mehr dazwischen ist. Der Verlauf liegt jetzt auf dem gemeinsamen
+   Kasten und laeuft ueber alle drei Teile durch; die Teile selbst sind
+   durchsichtig. Damit gibt es die Ungleichheit nicht mehr, statt sie an zwei
+   Stellen gleich einzustellen und beim naechsten Mal wieder auseinanderlaufen
+   zu lassen. */
+body.riFokus #feKopfFix{
+  --fkf-bg:linear-gradient(150deg,#12395a,#1f4e78);
+}
 body.riFokus #feKopfFix > #feKopfband{
   position:static; margin:0; width:auto; max-width:none;
+  background:var(--fkf-bg);
+  background-attachment:local;
   border-radius:10px 10px 0 0;
   box-shadow:none;
 }
 body.riFokus #feKopfFix > #feKopfZone{
   position:static; margin:0; width:auto; max-width:none;
-  background:#134a63;
+  background:#1b4a70;             /* Endton des Verlaufs - der Kasten laeuft aus */
   border-radius:0 0 10px 10px;
-  padding:0 18px 9px;
+  padding:6px 18px 8px;
   box-shadow:0 10px 18px -12px #0f172a26;
 }
 /* 🔴 Die Stationen stehen jetzt NEBEN dem Kasten, als eigene helle Reihe -
@@ -3632,7 +3666,27 @@ body.riFokus #feKopfFix > #feFokusNav{
 body.riFokus #feKopfFix > #fe_gesamtstatus{
   position:static; margin:0; width:auto; max-width:none; border-radius:0; top:auto;
 }
-body.riFokus #feKopfFix > #fe_gesamtstatus .feStStreifen{ margin-bottom:0 }
+/* 🔴 23.08. HOEHE. Ralph: "der obere bereich ist noch viel zu hoch."
+   Gemessen an P32667: der Streifen war 59px hoch fuer EINEN Satz - "· 1
+   Bestandteil(e) ohne Verarbeitungsnote". Das Innenteil bringt 11px Polster
+   oben und unten mit, dazu die Abstaende der leeren Gruppen daneben.
+   Im Kasten braucht er das nicht: er hat weder Rahmen noch eigene Flaeche,
+   die Polsterung trennte ihn von nichts. */
+body.riFokus #feKopfFix > #fe_gesamtstatus .feStStreifen{
+  margin-bottom:0; padding:4px 0; gap:6px;
+}
+/* 🔴 Der Fusstext ("· 1 Bestandteil(e) ohne Verarbeitungsnote") stand in
+   var(--muted) - auf dunklem Grund praktisch unsichtbar. Im Screenshot war er
+   nur zu ahnen. Er ist die einzige Aussage, die dieser Streifen ueberhaupt
+   noch traegt; sie darf nicht die blasseste auf der Seite sein. */
+body.riFokus #feKopfFix > #fe_gesamtstatus .feStFuss{
+  padding-top:0; margin:0; color:#d7e7f2 !important; font-size:11.5px;
+}
+body.riFokus #feKopfFix > #fe_gesamtstatus .feStFuss *{ color:#d7e7f2 !important }
+/* Das Kopfband: 12px Polster oben und unten um ein 52px hohes Bild ergaben 76px.
+   Das Bild traegt die Hoehe, das Polster muss sie nicht verdoppeln. */
+body.riFokus #feKopfFix > #feKopfband{ padding:9px 18px }
+body.riFokus #feKopfFix > #feKopfband .fkbBild{ width:44px; height:44px }
 /* 🔴 23.08. DER WEISSE BALKEN. Ralph: "der weisse balken oben muss weg."
    Das war der Statusstreifen: weisser Grund, volle Fensterbreite, zwischen dem
    dunklen Kopf und der dunklen Bedienzeile. Er sass ausserdem mit
