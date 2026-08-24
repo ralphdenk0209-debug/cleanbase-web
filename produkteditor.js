@@ -3842,20 +3842,33 @@ async function openFgEditor(id, prefill, targetEl){
     +`</div></div></div>`;
   var _rows=Array.isArray(window._verifRows)?window._verifRows:[];
   var _idx=id?_rows.findIndex(function(r){return String(r.id)===String(id);}):-1;
-  var _nbtn=function(txt,act,on){ return '<button '+(on?'onclick="'+act+'"':'disabled')+' style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:'+(on?'var(--card)':'var(--bg)')+';color:'+(on?'var(--ink)':'var(--muted)')+';cursor:'+(on?'pointer':'default')+';font-size:13px;white-space:nowrap">'+txt+'</button>'; };
-  var _navInner='<button id="feNavPost" onclick="closeP()" style="padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">← Posteingang</button>';
+  /* 🔴 24.08.2026, Ralph: "buttons sind alle irgendwie verschoben".
+     Gemessen im Browser an P73650: in EINER Zeile standen Hoehen von 24, 27, 28
+     und 29 px und Schriftgroessen von 10, 11.5, 12 und 13 px nebeneinander —
+     jeder Knopf brachte seinen eigenen Inline-Stil mit. Genau der Zustand, der
+     im Fahrplan schon dreimal Aerger gemacht hat: inline schlaegt jede Regel,
+     also laesst sich das nicht mit einer Stylesheet-Zeile daruebergehen.
+     Deshalb tragen die Knoepfe der Kopfleiste jetzt die Klasse .feNavBtn, und
+     die Hoehe steht EINMAL in ui.css — zusammen mit .feSegBtn, damit Knoepfe
+     und Chips derselben Zeile gleich hoch sind.
+     Ausserdem Ralph: "vorherig und naechster wuerde ein kleiner pfeil reichen." */
+  var _nbtn=function(txt,act,on,titel,pfeil){
+    return '<button type="button" class="feNavBtn'+(pfeil?' pfeil':'')+(on?'':' aus')+'"'
+      +(on?' onclick="'+act+'"':' disabled')
+      +(titel?' title="'+esc(titel)+'"':'')+'>'+txt+'</button>'; };
+  var _navInner='<button type="button" id="feNavPost" class="feNavBtn" onclick="closeP()">← Posteingang</button>';
   if(_idx>=0){
     var _prev=_idx>0?_rows[_idx-1].id:null, _next=_idx<_rows.length-1?_rows[_idx+1].id:null, _mk=!!_rows[_idx].markiert;
     _navInner+= '<span id="feNavBlaett" style="display:flex;align-items:center;gap:8px">'
-      + _nbtn('‹ Vorheriges', "openFgEditor('"+_prev+"')", !!_prev)
+      + _nbtn('‹', "openFgEditor('"+_prev+"')", !!_prev, 'Vorheriges Produkt', true)
       + '<span style="font-size:13px;color:var(--muted);white-space:nowrap">'+(_idx+1)+' / '+_rows.length+'</span>'
-      + _nbtn('Nächstes ›', "openFgEditor('"+_next+"')", !!_next)
+      + _nbtn('›', "openFgEditor('"+_next+"')", !!_next, 'Nächstes Produkt', true)
       + '</span>'
       + '<span id="fe_frgSlot" style="margin-left:auto;display:flex;align-items:center;min-width:0"></span>'
       + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap"><input type="checkbox" '+(_mk?'checked':'')+' onclick="fgEditMark(\''+esc(id)+'\',this.checked)" style="width:17px;height:17px;accent-color:var(--k-16a34a)">🚩 markiert <span style="color:var(--muted);font-weight:400">(gespeichert)</span></label>';
   }
   if(_navInner.indexOf('fe_frgSlot')<0) _navInner+='<span id="fe_frgSlot" style="margin-left:auto;display:flex;align-items:center;min-width:0"></span>';   /* 28i: Slot auch ohne Listen-Navigation */
-  if(window.__ADMIN_PAGE){ _navInner+='<button onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(String(APP_BUILD).split("-").pop()):"")+'</button>'; }
+  if(window.__ADMIN_PAGE){ _navInner+='<button type="button" class="feNavBtn" onclick="adminNeuLaden(this)" title="Neueste Version holen – leert Cache &amp; Service-Worker und lädt hart neu">🔄 '+((typeof APP_BUILD!=="undefined"&&APP_BUILD)?esc(String(APP_BUILD).split("-").pop()):"")+'</button>'; }
   var _navBar='<div id="feNavLeiste">'+_navInner+'</div>';
   if(targetEl) _navBar='';   /* Inline-Modus: die Master-Detail-Liste ersetzt die Kopf-Navigation */
   panel.innerHTML=`
@@ -5888,9 +5901,13 @@ function _feRailEigen(){
     + stufen.map(function(x){ return seg(wahl, x[0], x[1], 'Von dir gesetzt – überschreibt die Automatik.'); }).join('')
     + seg(wahl,'','auto','Automatisch aus den GEBUNDENEN Zutaten gerechnet. Steht eine tierische Zutat nicht im Stamm, fehlt sie in dieser Rechnung.')
     +'</div>'
-    + (wahl==='' ? '<div class="feSegAuto">'
-        +(auto ? ('berechnet: <b>'+esc(kurz(auto))+'</b>')
-               : 'wird berechnet, sobald Zutaten gebunden sind')+'</div>' : '');
+    /* 🔴 24.08.2026, Ralph: "der text 'wird berechnet, sobald Zutaten gebunden
+       sind' kann weg, daneben erscheint dann der automatische ausgewaehlte."
+       Stimmt: solange nichts berechnet ist, sagt der Satz nur, dass nichts
+       dasteht — das sieht man. Steht ein Ergebnis da, wird es weiter genannt.
+       Eine Zeile, die im Leerfall nichts erklaert, kostet nur Platz in einer
+       Zeile, die um jede Stelle kaempft. */
+    + ((wahl==='' && auto) ? '<div class="feSegAuto">berechnet: <b>'+esc(kurz(auto))+'</b></div>' : '');
   var _brE=String((window._fgEdit&&window._fgEdit.bratenEignung)||"").trim();
   var _brKat=String(((document.getElementById("fe_kat")||{}).value||"")).trim();
   var _brZeigen=(_brE==="geeignet"||_brE==="nicht_scharf_anbraten")

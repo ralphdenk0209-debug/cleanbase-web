@@ -75,6 +75,51 @@ body{ --admin-oben:64px }
    Polster selbst meint, aendert die 112px in admin.html - das betrifft dann
    ABER JEDE Admin-Seite, nicht nur den Editor.
    ============================================================================ */
+/* ----------------------------------------------------------------------------
+   KNOEPFE DER KOPFLEISTE  (.feNavBtn)   —   24.08.2026, Ralph
+   Ralph: "buttons sind alle irgendwie verschoben."
+   Gemessen im Browser an P73650, in EINER sichtbaren Zeile:
+     Hoehen  24 · 27 · 28 · 29 px      Schriftgroessen  10 · 11.5 · 12 · 13 px
+   Jeder Knopf brachte seinen eigenen Inline-Stil mit. Inline schlaegt jede
+   Stylesheet-Regel — das liess sich nicht ueberschreiben, es musste an der
+   Quelle weg. Die Inline-Stile stehen deshalb nicht mehr in produkteditor.js.
+
+   🔴 WICHTIG FUER DEN NAECHSTEN, DER HIER SUCHT: dieselben Knoepfe stehen je
+   nach Modus an ZWEI Orten. feRailNav() VERSCHIEBT sie im Fokusmodus aus
+   #feNavLeiste nach #feRailNav und blendet die alte Leiste aus. Es sind
+   dieselben Elemente, nicht zwei Kopien — deshalb wirkt eine Klasse an beiden
+   Stellen. Wer stattdessen #feNavLeiste stylt, stylt im Fokusmodus nichts:
+   die Leiste ist dort display:none (Zeile weiter unten).
+
+   --nav-btn-h ist die gemeinsame Hoehe von Knoepfen UND Chips (.feSegBtn).
+   Wer die Leiste hoeher oder flacher will, aendert genau diese eine Zahl.
+   ---------------------------------------------------------------------------- */
+:root{ --nav-btn-h:26px }
+
+.feNavBtn{
+  display:inline-flex; align-items:center; justify-content:center;
+  height:var(--nav-btn-h); box-sizing:border-box;
+  padding:0 11px;
+  border:1px solid var(--line); border-radius:8px;
+  background:var(--card); color:var(--ink);
+  font-size:12px; font-weight:600; line-height:1;
+  white-space:nowrap; cursor:pointer; flex:0 0 auto;
+}
+.feNavBtn:hover{ border-color:var(--k-2f6fd6,#2f6fd6) }
+/* Ausgegraut heisst: es gibt kein voriges/naechstes Produkt. Der Knopf bleibt
+   stehen, damit die Zeile nicht springt, sobald man am Rand der Liste ist. */
+.feNavBtn.aus, .feNavBtn:disabled{
+  background:var(--bg); color:var(--muted); cursor:default; border-color:var(--line);
+}
+/* Ralph: "vorherig und naechster wuerde ein kleiner pfeil reichen."
+   Quadratisch, damit die beiden als Paar zu lesen sind. */
+.feNavBtn.pfeil{ width:var(--nav-btn-h); padding:0; font-size:15px }
+
+/* Chips derselben Zeile auf dieselbe Hoehe. Padding und Schrift bleiben, wie sie
+   waren — nur die Hoehe wird gemeinsam, sonst stehen 24 gegen 26 px. */
+.feSegBtn{ height:var(--nav-btn-h); box-sizing:border-box;
+  display:inline-flex; align-items:center; justify-content:center }
+
 #feNavLeiste{
   --nav-oben:0px;
   --nav-hochzug:-8px;
