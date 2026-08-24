@@ -5542,7 +5542,7 @@ async function rikiSammellauf(){
       if(st){ st.textContent='liest…'; st.style.color='#0a6ed1'; }
       try{
         var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
-        var resp=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:it.link})});
+        var resp=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:it.link, product_id:it.produkt_id||null})});
         var d=await resp.json();
         if(d && d.error && /budget|limit|monatslimit/i.test(String(d.error))){ if(st){ st.textContent='Budget voll – Stopp'; st.style.color='#a11111'; } window._sammellaufStop=true; break; }
         if(d && d.leer){ leer++; if(st){ st.textContent='leer / nicht lesbar'; st.style.color='#b45309'; } }

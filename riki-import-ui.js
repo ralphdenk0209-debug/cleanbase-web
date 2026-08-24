@@ -84,7 +84,7 @@ async function rkLesen(){
   if(form) form.style.display="none";
   try{
     var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
-    var r=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:url})});
+    var r=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:url, product_id:pid||null})});
     var d=await r.json();
     if(d.error && !d.leer){ if(msg){msg.style.color="var(--k-dc2626)"; msg.textContent=d.error;} return; }
     /* Nichts gefunden ist kein Sackgassen-Ende: Formular trotzdem öffnen, damit man

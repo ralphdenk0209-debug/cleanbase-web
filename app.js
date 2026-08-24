@@ -3864,7 +3864,7 @@ async function pvRikiLesen(id){
     var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
     var r=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',
       {method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},
-       body:JSON.stringify({url:url})});
+       body:JSON.stringify({url:url, product_id:id||null})});
     var d=await r.json();
     /* Budget zuerst: eine volle Kasse ist kein Lesefehler, sondern ein Zustand (§1.11h). */
     if(d && d.error && /budget|limit|monatslimit/i.test(String(d.error))){
@@ -14382,7 +14382,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-23-4394";
+const APP_BUILD = "2026-08-24-4395";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im

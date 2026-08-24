@@ -8103,17 +8103,23 @@ async function fgPullHersteller(){
   try{ feBusy(true,"🔗 Riki liest die Herstellerseite…","Nährwerte, Zutaten & Zusatzstoffe werden ausgelesen."); }catch(e){}
   try{
     var s=await client.auth.getSession(); var tok=(s&&s.data&&s.data.session)?s.data.session.access_token:client.supabaseKey;
-    var r=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:url})});
+    var r=await fetch(client.supabaseUrl+'/functions/v1/riki-herstellerseite',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':client.supabaseKey},body:JSON.stringify({url:url, product_id:(window._fgEdit&&window._fgEdit.id)||null})});
     var d=await r.json();
     if(d.leer){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent=d.hinweis||"Keine Werte gefunden – Screenshot/Etikett nutzen."; } return; }
     if(d.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent=d.error; } return; }
     var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=fgSetNW;
-    /* 🔴 #222: die Antwort der Herstellerseite geht UNVERAENDERT an den Server,
-       bevor irgendein Feld gefuellt wird. Reihenfolge mit Absicht: was die
-       Quelle gesagt hat, wird festgehalten, auch wenn das Fuellen danach an
-       einem einzelnen Feld scheitert. Kein await davor - die Uebergabe laeuft
-       nebenher und haelt die Eingabe nicht auf. */
-    fgQuelleErfassen("herstellerseite", url, v);
+    /* 🔴 24.08.2026, Ralph-Entscheid N = A: HIER WIRD NICHT MEHR GESPEICHERT.
+       Seit v21 legt die Edge Function den Herstellerbefund selbst im
+       source_extraction-Vertrag ab - sie bekommt dafuer oben die product_id.
+       Wuerde der Browser zusaetzlich fgQuelleErfassen rufen, schrieben ZWEI
+       Wege denselben Befund mit verschiedenen Metadaten. Genau das verbietet
+       der Kernvertrag ("kein zweiter Statusweg"), und welcher gewinnt, waere
+       nicht bestimmbar.
+       Der Server entscheidet. Der Browser fuellt nur noch die Felder.
+       fgQuelleErfassen bleibt fuer Etikett/OFF/USDA zustaendig (#225), solange
+       die ihren Befund nicht selbst serverseitig ablegen.
+       Beleg, dass es angekommen ist: d.source_run_id in der Antwort. */
+    try{ if(d && d.source_run_id) console.info("[Quelle] herstellerseite serverseitig erfasst, Lauf "+d.source_run_id); }catch(_e){}
     var ne=document.getElementById("fe_name"); if(ne&&v.name&&!ne.value) ne.value=v.name;
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     /* Verzehrempfehlung: die Bezugsmenge, ohne die unsere EFSA-Prozente in der Luft hängen. */
