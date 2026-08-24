@@ -7193,6 +7193,54 @@ function feKopfbandSync(){
   }
 }
 if(typeof window!=='undefined'){ window.feKopfbandSync=feKopfbandSync; }
+/* ============================================================================
+   🔴 feKopfMassSync — der Kopf richtet sich am Inhalt aus  ·  23.08.2026, #181
+   ----------------------------------------------------------------------------
+   Ralph: "der obere bereich ist immer noch viel zu breit, maximal so breit wie
+   der untere bereich. beim scrollen schieben sich die balken uebereinander.
+   der obere bereich soll aber fix sein."
+
+   Drei Befunde, zwei Ursachen:
+
+   BREITE. Der Kopf lief ueber die volle Rahmenbreite (1662px), der Inhalt
+   darunter begann erst bei 228px. Die Luecke war die Spalte des versteckten
+   linken Streifens. Sie ist im Stylesheet auf 0 gesetzt; was bleibt, ist der
+   Spaltenabstand - und der aendert sich mit der Fensterbreite.
+
+   WARUM GEMESSEN UND NICHT GERECHNET: die Spaltenbreiten sind minmax-Werte mit
+   Ober- und Untergrenzen, dazu drei Umbruchpunkte. Eine nachgerechnete Zahl
+   waere an genau einer Fensterbreite richtig. Diese Funktion nimmt die linke
+   Kante des ersten und die rechte Kante des letzten sichtbaren Blocks - das
+   stimmt bei jeder Breite, auch bei der naechsten, die noch niemand ausprobiert
+   hat. Ein Mechanismus statt einer Regel, die jemand nachpflegen muss.
+
+   HOEHE. Kopfband und Bedienzeile schoben sich beim Scrollen uebereinander:
+   die Bedienzeile war fixiert (position:sticky, top:0), das Kopfband darueber
+   nicht. Beide sind jetzt fixiert, und die Bedienzeile bekommt als Abstand von
+   oben die gemessene Hoehe des Kopfbands - sonst wuerde sie es verdecken.
+   ========================================================================== */
+function feKopfMassSync(){
+  var panel=document.getElementById("panel"); if(!panel) return;
+  var rahmen=document.getElementById("feRahmen"); if(!rahmen) return;
+  var sichtbar=[].slice.call(rahmen.children).filter(function(c){
+    return c.getClientRects().length && c.getBoundingClientRect().width>0; });
+  if(!sichtbar.length) return;
+  var pr=panel.getBoundingClientRect();
+  var ps=window.getComputedStyle(panel);
+  var innenLinks=pr.left+parseFloat(ps.paddingLeft||0);
+  var erste=sichtbar[0].getBoundingClientRect();
+  var letzte=sichtbar[sichtbar.length-1].getBoundingClientRect();
+  var setz=function(name,wert){
+    if(panel.style.getPropertyValue(name)!==wert) panel.style.setProperty(name,wert); };
+  setz("--fe-kopf-links", Math.max(0,Math.round(erste.left-innenLinks))+"px");
+  setz("--fe-kopf-breite", Math.max(0,Math.round(letzte.right-erste.left))+"px");
+  var band=document.getElementById("feKopfband");
+  /* Die Hoehe zaehlt nur, solange das Band wirklich steht. Ist es ausgeblendet,
+     waere 0 richtig - eine alte Zahl wuerde die Bedienzeile nach unten schieben. */
+  setz("--fe-kopf-hoehe",
+       (band && band.getClientRects().length ? Math.ceil(band.getBoundingClientRect().height) : 0)+"px");
+}
+if(typeof window!=="undefined"){ window.feKopfMassSync=feKopfMassSync; }
 function feStickyKopfBinden(){
   var box=document.getElementById('fe_gesamtstatus');
   var panel=document.getElementById('panel');
@@ -7207,6 +7255,21 @@ function feStickyKopfBinden(){
   if(!box._feStickyKopfObserver && typeof ResizeObserver==='function'){
     box._feStickyKopfObserver=new ResizeObserver(sync);
     box._feStickyKopfObserver.observe(box);
+  }
+  /* 🔴 23.08. Die Kopfmasse haengen am selben Beobachter-Prinzip: einmal jetzt,
+     und danach bei jeder Groessenaenderung von Rahmen oder Kopfband. Ein Wert,
+     der nur beim Aufbau gesetzt wird, ist nach dem ersten Fenstergroessen-
+     wechsel falsch - und zwar unauffaellig, weil er ja mal gestimmt hat. */
+  try{ feKopfMassSync(); }catch(e){}
+  var rahmen=document.getElementById('feRahmen');
+  var band=document.getElementById('feKopfband');
+  if(typeof ResizeObserver==='function'){
+    [rahmen,band].forEach(function(el){
+      if(el && !el._feMassObserver){
+        el._feMassObserver=new ResizeObserver(function(){ try{ feKopfMassSync(); }catch(e){} });
+        el._feMassObserver.observe(el);
+      }
+    });
   }
 }
 if(typeof window!=='undefined'){ window.feStickyKopfBinden=feStickyKopfBinden; }

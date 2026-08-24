@@ -2121,7 +2121,25 @@ body.riFokus #feTopbar{ display:none !important }
    Die Zwischenraeume bleiben echte Spalten bei gap:0 — siehe der Kommentarblock
    darueber. Wer das aendert, bringt die Rechnung durcheinander. */
 body.riFokus #feRahmen{
-  --rail-breite:    180px;   /* Ralph P3: fest 180, nirgends ueberschrieben */
+  /* 🔴 23.08.2026, Work #181 — VON 180px AUF 0.
+     Ralph: "der obere bereich ist immer noch viel zu breit, maximal so breit wie
+     der untere bereich."
+
+     GEMESSEN, und die Ursache war nicht der Kopf:
+       grid-template-columns: 180px 700px 603px, gap 24px
+       Der Inhalt begann dadurch bei 228px, der Kopf bei 24px.
+     Die ersten 204px waren die Spalte des linken Streifens - und der steht im
+     Fokusmodus auf display:none. Eine leere Spalte fuer ein verstecktes Element.
+
+     🔴 MEIN EIGENER FEHLER, EINEN DURCHGANG VORHER: ich hatte gemeldet, die Rail
+     koste "0 Pixel". Gemessen hatte ich ihre HOEHE (0) und daraus auf ihren
+     Platzbedarf geschlossen. Ihre Spalte war die ganze Zeit 180px breit.
+     Wer eine Flaeche beurteilt, muss beide Kanten messen.
+
+     Ralph P3 ("fest 180") galt fuer den sichtbaren Streifen. Der Streifen ist im
+     Fokusmodus weg, damit auch seine Spalte. Ausserhalb des Fokusmodus bleibt der
+     Wert unveraendert - dort steht die Rail noch. */
+  --rail-breite:    0px;     /* Fokusmodus: die Rail ist versteckt, ihre Spalte auch */
   /* 🔴 15.08.2026 abends — RALPHS EIGENE WERTE aus dem Stellrad, von ihm am Bild
      eingestellt und von mir im Browser gegengeprueft (Ueberlauf 0). Sie loesen
      meine Schaetzungen 780/640 ab: die waren gerechnet, diese sind gesehen. */
@@ -3523,12 +3541,40 @@ body.riFokus #feRahmen > #feRail{ display:none }
    Stelle ueberschrieben statt an zwanzig entfernt. Nicht schoen, aber ehrlich
    umkehrbar: dieser Block loescht sich in einem Stueck.
    ========================================================================== */
-body.riFokus #feKopfband{ margin-bottom:0; border-radius:10px 10px 0 0 }
+/* 🔴 23.08. BREITE UND POSITION KOMMEN AUS DER MESSUNG, nicht aus einer Zahl.
+   feKopfMassSync() setzt --fe-kopf-links und --fe-kopf-breite auf die linke
+   Kante und die Breite des Inhalts darunter. Ralph: "maximal so breit wie der
+   untere bereich". Die Werte haben Rueckfallwerte, damit eine ausgefallene
+   Messung keinen unsichtbaren Kopf ergibt - lieber zu breit als weg. */
+body.riFokus #feKopfband,
 body.riFokus #feKopfZone{
+  margin-left:var(--fe-kopf-links,0px);
+  width:var(--fe-kopf-breite,auto);
+  max-width:100%;
+  box-sizing:border-box;
+}
+/* 🔴 BEIDE fixiert, nicht nur die Bedienzeile. Vorher war das Kopfband static -
+   beim Scrollen schob sich die fixierte Zeile darueber. Ralph: "beim scrollen
+   schieben sich die balken uebereinander. der obere bereich soll aber fix sein."
+   Die Bedienzeile startet um die gemessene Kopfbandhoehe tiefer, sonst verdeckt
+   sie es. z-index: das Band liegt oben, damit nichts dagegenlaeuft. */
+body.riFokus #feKopfband{
+  position:sticky; top:0; z-index:61;
+  margin-bottom:0; border-radius:10px 10px 0 0;
+}
+body.riFokus #feKopfZone{
+  position:sticky; top:var(--fe-kopf-hoehe,0px); z-index:60;
   background:#134a63;                 /* dieselbe Farbe wie --fkb-bg im Kopfband */
   padding:0 18px 0;                   /* seitlich buendig zum Kopfband */
   border-radius:0 0 10px 10px;
   box-shadow:0 10px 18px -12px #0f172a26;
+}
+/* Der Statusstreifen sass mit margin-top:-17px unter dem Band und war selbst
+   fixiert - im Zusammenspiel mit den beiden anderen ergab das die Ueberlappung.
+   Er reiht sich jetzt ein: unter der Bedienzeile, mit ihrem Abstand. */
+body.riFokus #fe_gesamtstatus{
+  position:sticky; top:calc(var(--fe-kopf-hoehe,0px) + 44px); z-index:59;
+  margin-top:0;
 }
 /* Die Stationen gehoeren NICHT in den dunklen Kasten - im Entwurf sind es drei
    helle Karten darunter. Sie holen sich den Seitengrund zurueck und ziehen ihn
