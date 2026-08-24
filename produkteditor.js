@@ -5407,9 +5407,37 @@ function feAbgleichRender(nurAbw){
     +'</button></div>';
 
   if(!Z.length){
-    H+='<div class="feAbgLeer"><b>Etikettprüfung noch nicht erhoben.</b>'
-      +'<div>Für dieses Produkt liegen keine Prüfzeilen vor. Das ist kein Blocker – '
-      +'die Referenzprüfung ist eine Kontrollhilfe.</div></div>';
+    /* 🔴 #212, 24.08.2026 — Ralph: "zeigt trotz Etikettbild keine erhobene Pruefung".
+       Gemessen an P73647: der Server sagt seit jeher, WARUM. In
+       cb_referenz_pruefung_laden steht
+         blockierende_fehler:[{art:"kein_rohtext",
+           befund:"Es gibt keinen Zutaten-Rohtext - der Abgleich ist unmoeglich."}]
+       und das Ergebnis liegt im Browser bereits in window._fgRefV2.d. Der Satz war
+       also da und wurde nur nicht angezeigt (§22).
+       Der alte Text nannte das SYMPTOM ("keine Pruefzeilen") und klang wie ein
+       vergessener Arbeitsschritt. Die Ursache ist eine andere: ein FOTO ist kein
+       TEXT. Solange niemand das Etikett hat lesen lassen, gibt es nichts zu
+       vergleichen — und kein Knopfdruck der Welt erhebt Pruefzeilen aus nichts.
+       Hier wird NICHTS abgeleitet: es wird der Befund des Servers gezeigt. */
+    var _blk=(d&&Array.isArray(d.blockierende_fehler))?d.blockierende_fehler:[];
+    var _kein=_blk.filter(function(b){ return b&&b.art==='kein_rohtext'; }).length>0;
+    H+='<div class="feAbgLeer"><b>'
+      +(_kein?'Kein Zutatentext vorhanden – ein Abgleich ist nicht möglich.'
+             :'Etikettprüfung noch nicht erhoben.')+'</b>';
+    if(_blk.length){
+      H+='<div>'+_blk.map(function(b){ return esc(String((b&&b.befund)||'')); })
+         .filter(Boolean).join('<br>')+'</div>';
+    }
+    if(_kein){
+      /* Der naechste Schritt, in Ralphs Worten - kein Fachbegriff. */
+      H+='<div style="margin-top:6px">Ein Etikett<b>bild</b> reicht dafür nicht: '
+        +'Riki muss es erst lesen, damit ein Text entsteht. '
+        +'Dafür oben in Station 1 „Riki liest das Bild“ – oder den Text von Hand eintragen.</div>';
+    }else{
+      H+='<div>Für dieses Produkt liegen keine Prüfzeilen vor. Das ist kein Blocker – '
+        +'die Referenzprüfung ist eine Kontrollhilfe.</div>';
+    }
+    H+='</div>';
     box.innerHTML=H; return;
   }
   var zeig=nurAbw?Z.filter(function(z){ return z.abw; }):Z;
