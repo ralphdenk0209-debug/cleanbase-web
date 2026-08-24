@@ -2248,7 +2248,7 @@ body.riFokus #feRahmen{
   --fk-r-mittel:     10px;
   --fk-r-gross:      12px;   /* EIN Abstand fuer beide Seiten (vorher 43 und 20) */
   gap: var(--raster-gap);
-  grid-template-columns: var(--rail-breite) minmax(0,var(--mitte-max));
+  grid-template-columns: minmax(0,var(--mitte-max));
   grid-template-rows: auto;
   /* 🔴 15.08.2026, NACHBESSERUNG am selben Tag — hier stand `justify-content:center`.
      GEMESSENE FOLGE bei Ralphs Fenster: (1908 − 1638) / 2 = 135 px Rand LINKS, und
@@ -2257,7 +2257,19 @@ body.riFokus #feRahmen{
      Er hat recht, und der Denkfehler war meiner: ich habe den Rest „schoen verteilt",
      obwohl die Rail eine MENUELEISTE ist. Ein Menue gehoert an den Rand, nicht in die
      Mitte — sonst schwebt es. Der Rest gehoert nach rechts, wo nichts steht. */
-  justify-content: start;
+  /* 🔴 23.08.2026, Work #181 — WIEDER AUF center, und diesmal mit Grund.
+     Ralph heute: "es ist alles links ausgerichtet nicht mittig auf der seite."
+     Am 15.08. hatte er das Gegenteil gesagt ("links ist jetzt zu weit weg") und
+     der Wert wurde auf start gestellt. Beides war richtig - die Lage hat sich
+     dazwischen geaendert:
+       15.08.: links sass die Rail, eine MENUELEISTE. Ein Menue gehoert an den
+               Rand, sonst schwebt es.
+       23.08.: die Rail ist im Fokusmodus weg und ihre Spalte auf 0. Was jetzt
+               links klebt, ist kein Menue, sondern der Arbeitsbereich - und der
+               gehoert in die Mitte, mit gleichem Rand auf beiden Seiten.
+     Der alte Wert war keine Fehlentscheidung, sondern eine, deren Grundlage
+     entfallen ist. Wer ihn zurueckdreht, holt die Rail mit zurueck. */
+  justify-content: center;
 }
 body.riFokus #feRahmen.riDrei{
   /* 23.08., Work #181 Stufe 1: drei Spalten statt fuenf. Die beiden Zwischenraum-
@@ -2265,7 +2277,7 @@ body.riFokus #feRahmen.riDrei{
      15.08. — `1fr` war hier fuer wenige Minuten eingebaut (Ralph-Entscheid A)
      und ist ZURUECKGENOMMEN. Warum, steht beim Variablenblock oben. */
   grid-template-columns:
-    var(--rail-breite) minmax(0,var(--mitte-max))
+    minmax(0,var(--mitte-max))
     minmax(var(--kontext-breite),var(--kontext-max));
 }
 /* 🔴 15.08.2026, NACHBESSERUNG — die Grenze stand zuerst bei 1400px und war FALSCH
@@ -2288,15 +2300,20 @@ body.riFokus #feRahmen.riDrei{
    unveraendert der Stand vor dem 15.08.: Kontext fest 480, Mitte nimmt den Rest. */
 @media (max-width: 1700px){
   body.riFokus #feRahmen{ justify-content:stretch;
-    grid-template-columns: var(--rail-breite) minmax(0,1fr); }
+    grid-template-columns: minmax(0,1fr); }
   body.riFokus #feRahmen.riDrei{
-    grid-template-columns: var(--rail-breite) minmax(0,1fr) var(--kontext-breite); }
+    grid-template-columns: minmax(0,1fr) var(--kontext-breite); }
 }
 /* Explizites Placement - kein Auto-Placement, in keinem Zustand. */
+/* 🔴 23.08. Die Rail hat im Fokusmodus KEINE Spalte mehr (sie ist versteckt,
+   und ihre 180px-Spur war der Grund, warum der Inhalt 204px weiter rechts
+   begann als der Kopf). Sie behaelt ein Placement, damit sie nicht ins
+   Auto-Placement faellt und eine neue Spur aufmacht - sie liegt auf derselben
+   Zelle wie der Arbeitsbereich und ist display:none. */
 body.riFokus #feRahmen > #feRail{       grid-column:1; grid-row:1 }
-body.riFokus #feRahmen > #feEditorBody{ grid-column:2; grid-row:1; min-width:0 }
+body.riFokus #feRahmen > #feEditorBody{ grid-column:1; grid-row:1; min-width:0 }
 body.riFokus #feRahmen.riDrei > #feKontext{
-  grid-column:3; grid-row:1; width:100%; max-width:100%; min-width:0 }
+  grid-column:2; grid-row:1; width:100%; max-width:100%; min-width:0 }
 /* 🔴 15.08.2026 — DER „KOMISCHE BALKEN", den Ralph zweimal gemeldet hat.
    GEMESSEN: `#fe_naehrKacheln` ist ein direktes Kind von `#feRahmen`, steht aber in
    KEINER der drei Placement-Regeln darueber. Der Kommentar dort verspricht „kein
@@ -2315,7 +2332,7 @@ body.riFokus #feRahmen.riDrei > #feKontext{
    Stelle, an die es fachlich gehoert: es sind Kennzahlen ZU den Naehrwerten darueber.
    (Ralphs Wunsch „mini oben in die weisse Leiste, Klick vergroessert" ist die
    naechste Stufe und steht als Work #39 — hier wird erst der Fehler geschlossen.) */
-body.riFokus #feRahmen > #fe_naehrKacheln{ grid-column:2; grid-row:2; min-width:0 }
+body.riFokus #feRahmen > #fe_naehrKacheln{ grid-column:1; grid-row:2; min-width:0 }
 /* Ralph P9: ohne Kontext KEIN reservierter Leerraum - die Spalte existiert nicht,
    die Mitte nimmt den Platz mit. */
 body.riFokus #feRahmen:not(.riDrei) > #feKontext{ display:none !important }
@@ -2906,8 +2923,8 @@ body.riFokus[data-fe-schritt="bestand"] #feEditorBody > #feAbgleich{ margin-top:
   /* Zwei Spalten: Rail bleibt, der Kontext geht UNTER den Hauptbereich.
      Das ist hier ausdruecklich gewollt — auf Desktop passiert es nicht mehr. */
   body.riFokus #feRahmen.riDrei{
-    grid-template-columns: var(--rail-breite) minmax(0,1fr) }
-  body.riFokus #feRahmen.riDrei > #feKontext{ grid-column:2; grid-row:2; margin-top:0 }
+    grid-template-columns: minmax(0,1fr) }
+  body.riFokus #feRahmen.riDrei > #feKontext{ grid-column:1; grid-row:2; margin-top:0 }
   body.riFokus #feKontext{ position:static }
 }
 
@@ -3547,9 +3564,18 @@ body.riFokus #feRahmen > #feRail{ display:none }
    untere bereich". Die Werte haben Rueckfallwerte, damit eine ausgefallene
    Messung keinen unsichtbaren Kopf ergibt - lieber zu breit als weg. */
 body.riFokus #feKopfband,
+body.riFokus #fe_gesamtstatus,
 body.riFokus #feKopfZone{
-  margin-left:var(--fe-kopf-links,0px);
+  /* 🔴 23.08. ZENTRIERT, nicht linksbuendig. Ralph: "es ist alles links
+     ausgerichtet nicht mittig auf der seite."
+     Am 15.08. war justify-content:start richtig - damals sass links die Rail,
+     und ein Menue gehoert an den Rand, nicht in die Mitte. Der Grund ist mit
+     der Rail entfallen: was jetzt links klebt, ist kein Menue, sondern der
+     Arbeitsbereich. Rahmen und Kopf teilen sich dieselbe Breite und stehen
+     beide mittig - dadurch sind sie deckungsgleich, ohne dass eine Kante
+     gemessen werden muss. */
   width:var(--fe-kopf-breite,auto);
+  margin-left:auto; margin-right:auto;
   max-width:100%;
   box-sizing:border-box;
 }
@@ -3569,13 +3595,35 @@ body.riFokus #feKopfZone{
   border-radius:0 0 10px 10px;
   box-shadow:0 10px 18px -12px #0f172a26;
 }
-/* Der Statusstreifen sass mit margin-top:-17px unter dem Band und war selbst
-   fixiert - im Zusammenspiel mit den beiden anderen ergab das die Ueberlappung.
-   Er reiht sich jetzt ein: unter der Bedienzeile, mit ihrem Abstand. */
+/* 🔴 23.08. DER WEISSE BALKEN. Ralph: "der weisse balken oben muss weg."
+   Das war der Statusstreifen: weisser Grund, volle Fensterbreite, zwischen dem
+   dunklen Kopf und der dunklen Bedienzeile. Er sass ausserdem mit
+   margin-top:-17px unter dem Band - im Zusammenspiel mit den beiden fixierten
+   Baendern ergab das die Ueberlappung beim Scrollen.
+   Er gehoert jetzt zum Block: dieselbe Farbe, dieselbe Breite, kein eigener
+   Rahmen. Sichtbar ist er ohnehin nur noch, wenn er etwas zu melden hat. */
+/* 🔴 Der Selektor heisst `body.riFokus #panel > #fe_gesamtstatus` und nicht
+   einfach `body.riFokus #fe_gesamtstatus`. Grund, live gemessen: es gibt
+   bereits `#panel > #fe_gesamtstatus{ background:var(--card,#fff) }`. Zwei IDs
+   schlagen eine ID plus Klasse - meine kuerzere Regel stand im Stylesheet und
+   hatte keine Wirkung. Der Balken blieb weiss.
+   Aufgefallen ist es nur, weil ich den TATSAECHLICHEN Wert abgefragt habe und
+   nicht, ob die Regel dasteht. Eine Regel, die existiert, ist noch keine, die
+   gilt. */
+body.riFokus #panel > #fe_gesamtstatus,
 body.riFokus #fe_gesamtstatus{
   position:sticky; top:calc(var(--fe-kopf-hoehe,0px) + 44px); z-index:59;
   margin-top:0;
+  background:#134a63; color:#e8f2f7;
+  border:0; border-radius:0; box-shadow:none;
+  padding:0 18px;
 }
+body.riFokus #fe_gesamtstatus .feStStreifen{ background:transparent; border:0; box-shadow:none }
+body.riFokus #fe_gesamtstatus .feStGrpTit{ color:#a8cfe0 }
+body.riFokus #fe_gesamtstatus .feStFuss{ color:#ffffffb3 }
+/* Solange der Streifen steht, endet der Block erst unter ihm. */
+body.riFokus #fe_gesamtstatus:not(.leer){ border-radius:0 }
+body.riFokus #feKopfZone{ border-radius:0 0 10px 10px }
 /* Die Stationen gehoeren NICHT in den dunklen Kasten - im Entwurf sind es drei
    helle Karten darunter. Sie holen sich den Seitengrund zurueck und ziehen ihn
    ueber die volle Breite, damit der dunkle Kasten sauber endet. */

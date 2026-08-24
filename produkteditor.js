@@ -7222,18 +7222,25 @@ if(typeof window!=='undefined'){ window.feKopfbandSync=feKopfbandSync; }
 function feKopfMassSync(){
   var panel=document.getElementById("panel"); if(!panel) return;
   var rahmen=document.getElementById("feRahmen"); if(!rahmen) return;
-  var sichtbar=[].slice.call(rahmen.children).filter(function(c){
-    return c.getClientRects().length && c.getBoundingClientRect().width>0; });
-  if(!sichtbar.length) return;
-  var pr=panel.getBoundingClientRect();
-  var ps=window.getComputedStyle(panel);
-  var innenLinks=pr.left+parseFloat(ps.paddingLeft||0);
-  var erste=sichtbar[0].getBoundingClientRect();
-  var letzte=sichtbar[sichtbar.length-1].getBoundingClientRect();
+  var rs=window.getComputedStyle(rahmen);
+  /* 🔴 23.08. ZWEITE FASSUNG. Die erste mass die linke und rechte Kante der
+     SICHTBAREN Kinder des Rahmens. Ralph: "auf naehrwerte aendert sich auch die
+     breite des oberen bereichs" - und er hat recht: in Station 1 stehen zwei
+     Spalten nebeneinander, in Station 2 baut sich die rechte erst auf. Die
+     Messung traf also den Zustand einer Sekunde und der Kopf zuckte beim
+     Stationswechsel.
+     Jetzt wird das RASTER gemessen, nicht sein Inhalt: die Spaltenbreiten
+     stehen fest, egal welches Kind gerade gefuellt ist. Leere Spuren (die
+     Spalte des versteckten Streifens ist 0) zaehlen nicht mit, ihr Abstand
+     ebenso wenig. */
+  var spalten=String(rs.gridTemplateColumns||"").trim().split(/\s+/)
+    .map(parseFloat).filter(function(n){ return isFinite(n) && n>0; });
+  if(!spalten.length) return;
+  var abstand=parseFloat(rs.columnGap||rs.gap||0)||0;
+  var breite=spalten.reduce(function(a,b){ return a+b; },0)+abstand*(spalten.length-1);
   var setz=function(name,wert){
     if(panel.style.getPropertyValue(name)!==wert) panel.style.setProperty(name,wert); };
-  setz("--fe-kopf-links", Math.max(0,Math.round(erste.left-innenLinks))+"px");
-  setz("--fe-kopf-breite", Math.max(0,Math.round(letzte.right-erste.left))+"px");
+  setz("--fe-kopf-breite", Math.round(breite)+"px");
   var band=document.getElementById("feKopfband");
   /* Die Hoehe zaehlt nur, solange das Band wirklich steht. Ist es ausgeblendet,
      waere 0 richtig - eine alte Zahl wuerde die Bedienzeile nach unten schieben. */
@@ -7397,7 +7404,19 @@ function feStatusStreifen(){
      Trost, sondern doppelte Hoehe. Die Blockade bleibt hier stehen: eine
      Sperre darf ruhig zweimal auffallen. */
   var _frgChip=C.pop();
-  if(S.freigabe_moeglich) _frgChip="";
+  /* 🔴 23.08. NACHGEBESSERT. Hier stand: nur "Freigabe moeglich" ausblenden,
+     die BLOCKADE aber stehen lassen - mit der Begruendung "eine Sperre darf
+     ruhig zweimal auffallen". Ralphs Bildschirmfoto von P32667 zeigt, warum das
+     falsch war: oben "Freigabe blockiert · Score nicht vollstaendig", zehn
+     Pixel darunter in der Bedienzeile "⚠ 1 offener Punkt · Score nicht
+     vollstaendig". Dieselbe Sperre, derselbe Grund, zweimal - und der obere
+     Balken war weiss und ueber die volle Breite, also der auffaelligste Teil
+     der ganzen Seite.
+     Zweimal dieselbe Warnung macht sie nicht dringlicher. Sie macht die Seite
+     unruhig und laesst offen, ob zwei verschiedene Dinge gemeint sind.
+     Der Freigabezustand steht ab jetzt an EINER Stelle: Zeile B, mit Gruenden
+     und Knopf. */
+  _frgChip="";
   try{ feKopfbandSync(); }catch(e){}
   box.innerHTML='<div class="feStStreifen">'
       +'<div class="feStLinks">'
