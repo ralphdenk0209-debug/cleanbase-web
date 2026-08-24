@@ -7996,6 +7996,51 @@ function feBelegAdd(text){
   if(cur.indexOf(text)>=0) return;          /* schon vermerkt - nicht doppeln */
   bl.value = cur ? (cur+" · "+text) : text;
 }
+/* ============================================================================
+   🔴 fgQuelleErfassen — die eine Uebergabe an den Server  ·  #222/#225/#229
+   ----------------------------------------------------------------------------
+   Bis heute fuellten fgPullHersteller/Etikett/Off/Usda die Formularfelder und
+   sonst nichts. Was die Quelle geliefert hat, war danach nirgends nachlesbar -
+   nicht welche Zutaten sie nannte, nicht welche Zusatzstoffe, nicht welche
+   Naehrwerte. Wer spaeter fragte "woher kommt dieser Wert", bekam keine Antwort.
+
+   ChatGPT hat dafuer den Serveradapter cb_riki_feldpayload_extraction_speichern
+   gebaut (#222/#225). Er nimmt die HEUTIGE Feldantwort der jeweiligen Quelle
+   unveraendert entgegen und zerlegt sie serverseitig in Extraktions-Items.
+
+   ⚠ WAS DIESE FUNKTION AUSDRUECKLICH NICHT TUT: nichts umformen, nichts
+   zuordnen, nichts bewerten. Sie reicht die Antwort durch, wie sie kam. Jede
+   Zeile Umbau hier waere der zweite Parser, den Kernvertrag #214 verbietet -
+   und der Grund, warum der Server diesen Adapter ueberhaupt bekommen hat.
+
+   VOM SERVER GEGENGEPRUEFT (Rollback-Transaktion, P32667, Herstellerpayload):
+     Aufruf zweimal -> dieselbe run_id (116), also idempotent
+     9 Items: 4 macro_nutrient, 3 ingredient, 2 additive (E330, E223)
+
+   FEHLER BLOCKIEREN NICHTS: schlaegt die Uebergabe fehl, sind die Felder
+   trotzdem gefuellt. Das Erfassen der Quelle ist eine Beigabe, keine
+   Voraussetzung - ein Serverfehler darf Ralph nicht die Eingabe kosten. */
+async function fgQuelleErfassen(sourceKind, sourceRef, payload){
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  /* Ohne P-Nummer gibt es kein Produkt, an dem die Quelle haengen koennte.
+     Beim allerersten Speichern ist das der Normalfall, kein Fehler. */
+  if(!pid) return null;
+  if(!payload || typeof payload!=="object") return null;
+  try{
+    var r=await client.rpc('cb_riki_feldpayload_extraction_speichern',{
+      p_product_id: pid,
+      p_source_kind: sourceKind,
+      p_source_ref: String(sourceRef||""),
+      p_payload: payload
+    });
+    if(r && r.error){ console.warn("[Quelle] "+sourceKind+": "+r.error.message); return null; }
+    var run=(r&&r.data!=null)?r.data:null;
+    if(run!=null) console.info("[Quelle] "+sourceKind+" erfasst, Lauf "+run);
+    return run;
+  }catch(e){ console.warn("[Quelle] "+sourceKind+" nicht erfasst:", e&&e.message||e); return null; }
+}
+if(typeof window!=="undefined"){ window.fgQuelleErfassen=fgQuelleErfassen; }
+
 /* Kaskade 2: Herstellerseite via Edge-Function riki-herstellerseite lesen.
    Die URL kommt aus dem EIGENEN Feld fe_url. Frueher wurde sie aus fe_beleg gelesen -
    das machte das Beleg-Feld zum Eingabefeld und zerstoerte einen bereits eingetragenen
@@ -8013,7 +8058,13 @@ async function fgPullHersteller(){
     var d=await r.json();
     if(d.leer){ if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent=d.hinweis||"Keine Werte gefunden – Screenshot/Etikett nutzen."; } return; }
     if(d.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent=d.error; } return; }
-    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=fgSetNW;    
+    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=fgSetNW;
+    /* 🔴 #222: die Antwort der Herstellerseite geht UNVERAENDERT an den Server,
+       bevor irgendein Feld gefuellt wird. Reihenfolge mit Absicht: was die
+       Quelle gesagt hat, wird festgehalten, auch wenn das Fuellen danach an
+       einem einzelnen Feld scheitert. Kein await davor - die Uebergabe laeuft
+       nebenher und haelt die Eingabe nicht auf. */
+    fgQuelleErfassen("herstellerseite", url, v);
     var ne=document.getElementById("fe_name"); if(ne&&v.name&&!ne.value) ne.value=v.name;
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     /* Verzehrempfehlung: die Bezugsmenge, ohne die unsere EFSA-Prozente in der Luft hängen. */

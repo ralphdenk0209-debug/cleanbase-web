@@ -3851,8 +3851,18 @@ body.riFokus #feKopfZone .feSegBtn{
 body.riFokus #feKopfZone .feSegBtn.akt{
   background:#fff !important; color:#134a63 !important; border-color:#fff !important;
 }
+/* 🔴 23.08. Ralph: "entwurf koennte wieder farbig sein."
+   Meine Umstellung auf dunklen Grund hatte den Statuschip auf durchscheinendes
+   Weiss gesetzt - dieselbe Optik wie "← Posteingang" und "⋯". Damit sah der
+   wichtigste Zustand des Produkts aus wie ein Hilfsknopf.
+   Er traegt seine Bedeutung jetzt wieder in der Farbe: Entwurf gelb, Aktiv
+   gruen. Gedeckte Toene, damit sie auf Dunkelblau nicht leuchten wie Warnungen -
+   der Zustand ist ja keiner. */
 body.riFokus #feKopfZone .feProdStatus{
-  background:#ffffff1a !important; color:#fff !important; border-color:#ffffff40 !important;
+  background:#7a5a16 !important; color:#ffeec2 !important; border-color:#a37c1f !important;
+}
+body.riFokus #feKopfZone .feProdStatus.aktiv{
+  background:#1c6b47 !important; color:#d9f2e2 !important; border-color:#2b8c60 !important;
 }
 /* Speichern und Freigeben behalten ihre Signalfarben - sie sollen sich vom
    Rest abheben, das ist auf dunklem Grund genauso richtig wie auf hellem. */
