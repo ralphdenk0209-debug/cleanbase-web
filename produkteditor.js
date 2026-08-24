@@ -8331,7 +8331,19 @@ async function fgPullEtikett(files, b64arr){
     var r=await fetch(client.supabaseUrl+"/functions/v1/riki-etikett",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},body:JSON.stringify({bilder:bilder, ean:ean||undefined, modell:RIKI_LESE_MODELL})});
     var d=await r.json();
     if(!r.ok||d.error){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent=d.error||"Riki konnte das Etikett nicht lesen."; } return; }
-    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=fgSetNW;    
+    var v=d.vorschlag||{}, n=v.naehrwerte_100g||{}, sv=fgSetNW;
+    /* 🔴 #225, 24.08.2026 — die zweite der vier Quellen ist angeschlossen.
+       riki-etikett liefert DIESELBE Feldstruktur wie die Herstellerseite
+       (zutaten · naehrwerte_100g · mikronaehrstoffe_100g · wirkstoffe ·
+       zusatzstoffe). Deshalb geht der Befund hier UNVERAENDERT an den
+       Serveradapter - kein Umformen, kein Zusammenbauen, kein zweiter Parser.
+       Gegengeprueft am Adapter cb_riki_feldpayload_extraction_speichern:
+       'etikettfoto' ist einer der vier erlaubten source_kind-Werte.
+       Als Quellenkennung dient die EAN, wenn eine dasteht - ein Foto hat keine
+       Adresse, und ein leerer String waere eine Herkunftsangabe, die es nicht gibt.
+       Reihenfolge wie beim Hersteller: ERST festhalten, was die Quelle gesagt
+       hat, dann die Felder fuellen. Kein await - laeuft nebenher. */
+    fgQuelleErfassen("etikettfoto", ean ? ("ean:"+ean) : null, v);    
     var ne=document.getElementById("fe_name"); if(ne&&v.name&&!ne.value) ne.value=v.name;
     var me=document.getElementById("fe_marke"); if(me&&v.marke&&!me.value) me.value=v.marke;
     var ee=document.getElementById("fe_ean"); if(ee&&v.ean&&!ee.value.trim()) ee.value=v.ean;
