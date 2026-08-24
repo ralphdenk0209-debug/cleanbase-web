@@ -3666,6 +3666,29 @@ body.riFokus #feKopfFix > #feFokusNav{
 body.riFokus #feKopfFix > #fe_gesamtstatus{
   position:static; margin:0; width:auto; max-width:none; border-radius:0; top:auto;
 }
+/* 🔴 23.08.2026, Ralph-Entscheid: "da ist aber immer noch ein zwischenbalken.
+   die information ist gut, aber gehoert zu blockiert als begruendung neben den
+   roten blockiert button. dann kann die zeile komplett weg."
+
+   DER STREIFEN IST IM FOKUSMODUS UNSICHTBAR. Nicht geloescht - das waere der
+   Unterschied zwischen "weg" und "verloren":
+   - Sein Inhalt steht jetzt neben dem Freigabe-Chip (Blockadegruende zuerst,
+     dann Hinweise), also an der Stelle, an der man ihn braucht.
+   - Der Baustein selbst stammt aus Work #133 und bleibt vollstaendig erhalten.
+     Ausserhalb des Fokusmodus zeigt er unveraendert alles.
+   - Rueckbau: diese eine Regel entfernen.
+
+   ⚠ WAS ICH VORHER GEPRUEFT HABE, damit nichts still verschwindet:
+     Etikett-Blocker            -> Freigabegrund, steht neben dem Chip
+     Naehrwerte unvollstaendig  -> Freigabegrund, ebenso
+     Freigabe blockiert         -> ist der Chip selbst
+     Speichern fehlgeschlagen   -> steht in Zeile A hinter der P-Nummer
+     Dublettentreffer           -> Chip "⚠ 1× ähnlich" im Kopfband, anklickbar
+     Hinweise                   -> neben dem Chip
+   Kein Punkt ohne zweiten Ort. */
+body.riFokus #panel > #fe_gesamtstatus,
+body.riFokus #fe_gesamtstatus{ display:none }
+
 /* 🔴 23.08. HOEHE. Ralph: "der obere bereich ist noch viel zu hoch."
    Gemessen an P32667: der Streifen war 59px hoch fuer EINEN Satz - "· 1
    Bestandteil(e) ohne Verarbeitungsnote". Das Innenteil bringt 11px Polster

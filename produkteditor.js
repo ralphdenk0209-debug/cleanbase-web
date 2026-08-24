@@ -5584,7 +5584,21 @@ function feFokusStand(s){
                      if(b.offen>0) return {z:"entscheid",
                         txt:(b.gebunden+"/"+b.gesamt_alle+" · "+fgZuordnungWort(b.offen))};
                      if(b.ohne_identitaet>0) return {z:"entscheid", txt:(b.ohne_identitaet+" von "+b.gesamt+" offen")};
-                     return {z:"fertig", txt:(b.gesamt+"/"+b.gesamt+(b.ohne_note>0?(" · "+b.ohne_note+" ohne Note"):""))};
+                     /* 🔴 23.08.2026, Ralph-Entscheid: "3 produktbestandteile darf
+                        nicht gruen sein, weil dieser punkt noch offen ist."
+                        Hier stand z:"fertig" - IMMER, auch wenn ohne_note>0. Die Zahl
+                        wurde im Text genannt ("4/4 · 1 ohne Note") und die Station war
+                        trotzdem gruen und hiess "erfuellt". Live an P32667 gesehen.
+                        Das ist die gefaehrlichste Sorte Anzeigefehler: die Information
+                        stand da, aber die Farbe sagte das Gegenteil - und gelesen wird
+                        die Farbe. Ein offener Punkt, der gruen leuchtet, wird nicht
+                        bearbeitet.
+                        ⚠ Der Zustand wird hier nicht neu erfunden: b.ohne_note kommt
+                        unveraendert aus _fgBestandteilBilanz(). Geaendert ist nur, ob
+                        eine Zahl groesser null als "erledigt" gilt. */
+                     if(b.ohne_note>0) return {z:"entscheid",
+                        txt:(b.gesamt+"/"+b.gesamt+" · "+b.ohne_note+" ohne Verarbeitungsnote")};
+                     return {z:"fertig", txt:(b.gesamt+"/"+b.gesamt)};
     case 'eigen':    return {z:"neutral", txt:""};
     case 'etikett':  return (S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0)
                        ? {z:"blocker", txt:(S.referenz_blocker+" Blocker")}
@@ -5735,6 +5749,29 @@ function feProduktKopf(){
        Woerter da, die weg sein sollten.
        Eine Annahme ueber eine Klasse, die man in zehn Sekunden nachsehen kann,
        ist keine Annahme, sondern Faulheit. */
+    /* 🔴 23.08.2026, Ralph-Entscheid: "die information ist gut, aber gehoert zu
+       blockiert als begruendung neben den roten blockiert button. dann kann die
+       zeile komplett weg."
+       Gemeint war der Zwischenbalken mit "· 1 Bestandteil(e) ohne
+       Verarbeitungsnote". Der Satz stammt aus S.hinweise, nicht aus
+       S.freigabe_gruende - beides sind Listen vom selben Status, die bisher an
+       zwei verschiedenen Orten landeten. Ab hier stehen sie zusammen neben dem
+       Chip, und der Balken darueber entfaellt.
+       ⚠ Reihenfolge: erst die echten Blockadegruende, dann die Hinweise. Ein
+       Hinweis ist kein Blocker, und wer zuerst liest, soll den Blocker lesen. */
+    +(function(){
+       var g=[], h=[];
+       try{ g=(S&&S.bekannt&&S.freigabe_gruende)?S.freigabe_gruende.map(function(x){
+              return (x&&x.t)?x.t:String(x); }):[]; }catch(e){}
+       try{ h=(S&&S.bekannt&&S.hinweise)?S.hinweise.map(function(x){
+              return (x&&x.t)?x.t:String(x); }):[]; }catch(e){}
+       /* Ein Hinweis, der wortgleich schon als Blockadegrund dasteht, wird nicht
+          zweimal genannt. */
+       h=h.filter(function(t){ return g.indexOf(t)<0; });
+       window._feFrgTexte=g.concat(h);
+       window._feFrgBlocker=g.length;
+       return '';
+     })()
     +'<div class="feRailGrpTit feKzTrenn feKzFrgTit">Freigabe</div>'
     +'<div class="feProdFrg">'
       /* 🔴 23.08. nachgebessert — HIER STAND NUR "✓ freigegeben".
@@ -5748,27 +5785,30 @@ function feProduktKopf(){
          Jetzt steht beides da: der Zustand UND was noch offen ist. Ein freigegebenes
          Produkt mit offenem Punkt ist ein echter Fall - er darf nicht wie ein sauberer
          aussehen. */
-      +(frei
-          ? '<span class="feKzChip ok">✓ freigegeben</span>'
-            +((!moeglich && S && S.bekannt && S.freigabe_gruende && S.freigabe_gruende.length)
-               ? '<span class="feKzChip warn" title="'+esc(S.freigabe_gruende.map(function(g){
-                   return (g&&g.t)?g.t:String(g); }).join(' · '))+'">⚠ '
-                 +S.freigabe_gruende.length+' offener Punkt'+(S.freigabe_gruende.length===1?'':'e')
-                 +'</span>'
-                 +'<span class="feKzGrund">'+esc(S.freigabe_gruende.slice(0,2).map(function(g){
-                   return (g&&g.t)?g.t:String(g); }).join(' · '))+'</span>'
-               : '')
-          : (moeglich
-              ? '<span class="feKzChip ok">✓ möglich</span>'
-              : '<span class="feKzChip rot">● blockiert</span>'
-                +((S&&S.bekannt&&S.freigabe_gruende&&S.freigabe_gruende.length)
-                   ? '<span class="feKzGrund" title="'+esc(S.freigabe_gruende.map(function(g){
-                       return (g&&g.t)?g.t:String(g); }).join(' · '))+'">'
-                     +esc(S.freigabe_gruende.slice(0,2).map(function(g){
-                       return (g&&g.t)?g.t:String(g); }).join(' · '))
-                     +(S.freigabe_gruende.length>2?' · +'+(S.freigabe_gruende.length-2):'')
-                     +'</span>'
-                   : '')))
+      +(function(){
+         var T=window._feFrgTexte||[], nB=window._feFrgBlocker||0;
+         /* Der Begruendungstext neben dem Chip: alle Punkte im Titel zum
+            Nachlesen, die ersten beiden sichtbar, der Rest als Zahl. */
+         var grund=T.length
+           ? '<span class="feKzGrund" title="'+esc(T.join(' · '))+'">'
+             +esc(T.slice(0,2).join(' · '))
+             +(T.length>2?' · +'+(T.length-2):'')+'</span>'
+           : '';
+         if(frei){
+           return '<span class="feKzChip ok">✓ freigegeben</span>'
+             +(T.length
+                ? '<span class="feKzChip warn" title="'+esc(T.join(' · '))+'">⚠ '
+                  +T.length+' offener Punkt'+(T.length===1?'':'e')+'</span>'+grund
+                : '');
+         }
+         if(moeglich){
+           /* Freigabe moeglich, aber ein Hinweis offen: der gruene Chip bleibt -
+              er stimmt ja -, der Hinweis steht trotzdem daneben. Ein Produkt
+              ohne Blocker, aber mit offenem Punkt ist ein echter Fall. */
+           return '<span class="feKzChip ok">✓ möglich</span>'+grund;
+         }
+         return '<span class="feKzChip rot">● blockiert</span>'+grund;
+       })()
       /* 🔴 23.08. entfernt: hier stand ein zweiter "✓ Freigeben"-Knopf. Live an
          P73634 gemessen waren dadurch ZWEI Freigeben-Knoepfe in der Kopfzone -
          feProdFrei im Aktionsblock und meiner hier -, beide mit demselben Aufruf
