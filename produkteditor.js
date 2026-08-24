@@ -5596,9 +5596,14 @@ function feFokusStand(s){
                         ⚠ Der Zustand wird hier nicht neu erfunden: b.ohne_note kommt
                         unveraendert aus _fgBestandteilBilanz(). Geaendert ist nur, ob
                         eine Zahl groesser null als "erledigt" gilt. */
+                     /* 🔴 #231: codes sagt, WELCHE Sachverhalte diese Station
+                        bereits sichtbar macht. Wer denselben Code anderswo
+                        anzeigen will, kann ihn daran erkennen - unabhaengig
+                        davon, wie der Text gerade formuliert ist. */
                      if(b.ohne_note>0) return {z:"entscheid",
+                        codes:["bestandteil_ohne_verarbeitungsnote"],
                         txt:(b.gesamt+"/"+b.gesamt+" · "+b.ohne_note+" ohne Verarbeitungsnote")};
-                     return {z:"fertig", txt:(b.gesamt+"/"+b.gesamt)};
+                     return {z:"fertig", codes:[], txt:(b.gesamt+"/"+b.gesamt)};
     case 'eigen':    return {z:"neutral", txt:""};
     case 'etikett':  return (S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0)
                        ? {z:"blocker", txt:(S.referenz_blocker+" Blocker")}
@@ -5769,16 +5774,26 @@ function feProduktKopf(){
        ⚠ Reihenfolge: erst die echten Blockadegruende, dann die Hinweise. Ein
        Hinweis ist kein Blocker, und wer zuerst liest, soll den Blocker lesen. */
     +(function(){
-       var g=[], h=[];
-       try{ g=(S&&S.bekannt&&S.freigabe_gruende)?S.freigabe_gruende.map(function(x){
-              return (x&&x.t)?x.t:String(x); }):[]; }catch(e){}
-       try{ h=(S&&S.bekannt&&S.hinweise)?S.hinweise.map(function(x){
-              return (x&&x.t)?x.t:String(x); }):[]; }catch(e){}
-       /* Ein Hinweis, der wortgleich schon als Blockadegrund dasteht, wird nicht
-          zweimal genannt. */
-       h=h.filter(function(t){ return g.indexOf(t)<0; });
-       window._feFrgTexte=g.concat(h);
-       window._feFrgBlocker=g.length;
+       /* 🔴 #231: DEDUPLIZIERT WIRD NACH CODE, NIE NACH WORTLAUT.
+          Vorher stand hier ein Textvergleich. Er hat den belegten Fall nicht
+          erkannt: "1 Bestandteil(e) ohne Verarbeitungsnote" gegen "1 ohne Note"
+          - inhaltlich dasselbe, im Wortlaut verschieden.
+          Ein Textfilter geht ausserdem still kaputt, sobald jemand eine
+          Formulierung verbessert; der Fehler sieht dann aus wie ein Satz zu
+          viel, und niemand sucht danach.
+          Faellt ein Code (aelterer Eintrag ohne code), wird der Text als
+          Rueckfall genommen - lieber einmal zu viel angezeigt als etwas
+          verschluckt. */
+       var G=[], Hn=[];
+       try{ G=(S&&S.bekannt&&S.freigabe_gruende)?S.freigabe_gruende:[]; }catch(e){}
+       try{ Hn=(S&&S.bekannt&&S.hinweise)?S.hinweise:[]; }catch(e){}
+       var schluessel=function(x){ return (x&&x.code)?("#"+x.code):((x&&x.t)?x.t:String(x)); };
+       var text=function(x){ return (x&&x.t)?x.t:String(x); };
+       var gesehen={}, gTexte=[], hTexte=[];
+       G.forEach(function(x){ var k=schluessel(x); if(gesehen[k]) return; gesehen[k]=1; gTexte.push(text(x)); });
+       Hn.forEach(function(x){ var k=schluessel(x); if(gesehen[k]) return; gesehen[k]=1; hTexte.push(text(x)); });
+       window._feFrgTexte=gTexte.concat(hTexte);
+       window._feFrgBlocker=gTexte.length;
        return '';
      })()
     +'<div class="feRailGrpTit feKzTrenn feKzFrgTit">Freigabe</div>'
@@ -7171,23 +7186,23 @@ function getErfassungsStatus(){
   /* --- Was die Freigabe WIRKLICH verhindert (Serverbedingungen, in der
          Reihenfolge, in der produkt_pruefen_freigeben sie prüft). */
   var G=[];
-  if(!roh.kat) G.push({t:"Kategorie fehlt", s:"kopf", d:"Pflichtfeld – der Server bricht hier zuerst ab."});
+  if(!roh.kat) G.push({code:"kategorie_fehlt", t:"Kategorie fehlt", s:"kopf", d:"Pflichtfeld – der Server bricht hier zuerst ab."});
   if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)>0){
-    G.push({t:S.referenz_blocker+" blockierende Befunde am Etikett", s:"bestand",
+    G.push({code:"etikett_blocker", t:S.referenz_blocker+" blockierende Befunde am Etikett", s:"bestand",
             d:(S.referenz_gruende[0]||"cb_referenz_freigabe_guard sperrt.")});
   }
-  if(window._feDub && window._feDub.freigabe_blockiert) G.push({t:"Namenszwilling ungeklärt", s:"kopf", d:"Im Editor bestätigen, dass es ein eigenes Produkt ist."});
+  if(window._feDub && window._feDub.freigabe_blockiert) G.push({code:"namenszwilling", t:"Namenszwilling ungeklärt", s:"kopf", d:"Im Editor bestätigen, dass es ein eigenes Produkt ist."});
   if(roh.istSupp){
-    if(roh.wCount===0 && !roh.wNone && roh.zMit===0) G.push({t:"Supplement ohne Inhalt", s:"analyse", d:"Weder Wirkstoffe noch Zutaten."});
-    else if(roh.wCount===0 && !roh.wNone) G.push({t:"Wirkstoff-Mengen fehlen", s:"analyse", d:"Dosis-Check kann nichts anzeigen – oder Haken „keine Mengen auf dem Etikett\" setzen."});
-    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", s:"kopf", d:"Bei Supplements verlangt der Server ihn."});
+    if(roh.wCount===0 && !roh.wNone && roh.zMit===0) G.push({code:"supplement_ohne_inhalt", t:"Supplement ohne Inhalt", s:"analyse", d:"Weder Wirkstoffe noch Zutaten."});
+    else if(roh.wCount===0 && !roh.wNone) G.push({code:"wirkstoffmengen_fehlen", t:"Wirkstoff-Mengen fehlen", s:"analyse", d:"Dosis-Check kann nichts anzeigen – oder Haken „keine Mengen auf dem Etikett\" setzen."});
+    if(!roh.quelleTyp) G.push({code:"quelle_typ_fehlt", t:"Quelle-Typ fehlt", s:"kopf", d:"Bei Supplements verlangt der Server ihn."});
   } else if(roh.istKeinScore || roh.istSalz){
-    if(roh.zMit===0) G.push({t:"mindestens eine Zutat nötig", s:"bestand", d:"Kategorie ohne Lebensmittel-Index."});
-    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", s:"kopf", d:"In dieser Kategorie verlangt der Server ihn."});
+    if(roh.zMit===0) G.push({code:"keine_zutat", t:"mindestens eine Zutat nötig", s:"bestand", d:"Kategorie ohne Lebensmittel-Index."});
+    if(!roh.quelleTyp) G.push({code:"quelle_typ_fehlt", t:"Quelle-Typ fehlt", s:"kopf", d:"In dieser Kategorie verlangt der Server ihn."});
   } else {
     var _hatAchsen=!!(window._fgScoreGespeichert && window._fgScoreGespeichert.produkt_id===pid);
-    if(S.naehrwerte_ok===false && !_hatAchsen) G.push({t:"Nährwerte unvollständig", s:"analyse", d:roh.nwFehlt.join(", ")});
-    if(roh.zMit===0) G.push({t:"keine Zutat erfasst", s:"bestand", d:"Ohne Zutaten ist der Score nicht vollständig."});
+    if(S.naehrwerte_ok===false && !_hatAchsen) G.push({code:"naehrwerte_unvollstaendig", t:"Nährwerte unvollständig", s:"analyse", d:roh.nwFehlt.join(", ")});
+    if(roh.zMit===0) G.push({code:"keine_zutat", t:"keine Zutat erfasst", s:"bestand", d:"Ohne Zutaten ist der Score nicht vollständig."});
     var _sg=window._fgScoreGespeichert;
     if(_sg && _sg.produkt_id===pid){
       S.score_quelle="gespeichert";
@@ -7201,7 +7216,7 @@ function getErfassungsStatus(){
            nichts wird abgeleitet oder geraten (§1). */
         var _AN={zutaten:"Zutaten", zusatzstoffe:"Zusatzstoffe", nova:"NOVA", naehrwert:"Nährwerte"};
         var _fl=(S.achsen_fehlend||[]).map(function(a){ return _AN[a]||a; });
-        G.push({t:(_fl.length===1?("Achse „"+_fl[0]+"“ fehlt"):"Score nicht vollständig"),
+        G.push({code:"score_unvollstaendig", t:(_fl.length===1?("Achse „"+_fl[0]+"“ fehlt"):"Score nicht vollständig"),
                 d:(_fl.length?("Der Server meldet als fehlend: "+_fl.join(", ")+". "):"")
                   +((_fl.indexOf("Nährwerte")>=0 && roh.nwFehlt.length)?("Offene Felder: "+roh.nwFehlt.join(", ")+". "):"")
                   +(S.achsen_na.length?("Nicht anwendbar für dieses Produkt: "
@@ -7213,32 +7228,54 @@ function getErfassungsStatus(){
     if(_sv && _sv.vollstaendig===false && !(S.naehrwerte_ok===false && _sv.achsen_fehlend.length===1 && _sv.achsen_fehlend[0]==="Nährwerte")){
       var _fa=_sv.achsen_fehlend||[];
       if(_fa.length===1 && _fa[0]==="Zusatzstoffe"){
-        G.push({t:"Zusatzstoffstatus noch nicht bestätigt", s:"bestand",
+        G.push({code:"zusatzstoffstatus_offen", t:"Zusatzstoffstatus noch nicht bestätigt", s:"bestand",
                 d:"Letzte offene Score-Achse (15 P.). Entweder die Zusatzstoffe erfassen oder „Keine Zusatzstoffe im Produkt\" anhaken – ohne Beleg bleibt die Achse leer (§3.4)."});
       } else {
-        G.push({t:"Server: Score nicht vollständig",
+        G.push({code:"score_unvollstaendig", t:"Server: Score nicht vollständig",
                 d:(_fa.length?("Es fehlt die Achse "+_fa.join(", ")+". "):"")
                   +(_sv.achsen_na&&_sv.achsen_na.length?("Nicht anwendbar für diese Produktart: "+_sv.achsen_na.join(", ")+". "):"")
                   +"Simulation aus dem Formular (cb_score_vorschau) – dieses Produkt ist noch nicht gespeichert, "
                   +"es gibt also noch keinen gespeicherten Scorestand."});
       }
     }
-    if(!roh.quelleTyp) G.push({t:"Quelle-Typ fehlt", s:"kopf", d:"Seit 13.08. verlangt der Server ihn in JEDER Kategorie (cb_quelle_belegt)."});
+    if(!roh.quelleTyp) G.push({code:"quelle_typ_fehlt", t:"Quelle-Typ fehlt", s:"kopf", d:"Seit 13.08. verlangt der Server ihn in JEDER Kategorie (cb_quelle_belegt)."});
   }
   S.freigabe_gruende=G;
   S.freigabe_moeglich=(G.length===0);
   /* --- Hinweise: wahr, aber KEIN Riegel. */
+  /* ==========================================================================
+     🔴 JEDER HINWEIS TRAEGT EINEN CODE  ·  Work #231, 23.08.2026
+     --------------------------------------------------------------------------
+     ChatGPT-Entscheid nach meiner Meldung: "gemeinsamer stabiler Fachcode statt
+     Textvergleich". Auslöser war ein Fall, in dem derselbe Sachverhalt zweimal
+     auf dem Schirm stand: der Streifen sagte "1 Bestandteil(e) ohne
+     Verarbeitungsnote", Station 3 sagte "1 ohne Note". Inhaltlich dasselbe, im
+     Wortlaut verschieden - ein Textfilter kann das nicht erkennen.
+
+     WARUM NICHT MIT WOERTERN VERGLEICHEN: jede Umformulierung, die jemand
+     spaeter fuer verstaendlicher haelt, macht den Filter still kaputt. Der
+     Fehler faellt nicht auf - er zeigt einen Satz zweimal, und das sieht
+     harmlos aus. Ein Code aendert sich nicht, wenn der Text schoener wird.
+
+     ⚠ DER CODE IST EINE KENNUNG, KEINE BEWERTUNG. Er sagt nur, WOVON die Rede
+     ist, nicht ob es blockiert. Das steht weiter allein in der Liste, in der
+     der Eintrag landet: G blockiert, H nicht.
+     ========================================================================== */
   var H=[];
-  if(S.bestandteile_ohne_note>0) H.push({t:S.bestandteile_ohne_note+" Bestandteil(e) ohne Verarbeitungsnote",
+  if(S.bestandteile_ohne_note>0) H.push({code:"bestandteil_ohne_verarbeitungsnote",
+    t:S.bestandteile_ohne_note+" Bestandteil(e) ohne Verarbeitungsnote",
     d:"Bewusst offen (NULL), keine 0. Blockiert die Freigabe nicht; wirkt nur mittelbar über den Score."});
-  if(roh.zOhneStamm>0) H.push({t:fgZuordnungWort(roh.zOhneStamm), d:"Werden beim Speichern nicht gebunden."});
+  if(roh.zOhneStamm>0) H.push({code:"zutat_nicht_im_stamm",
+    t:fgZuordnungWort(roh.zOhneStamm), d:"Werden beim Speichern nicht gebunden."});
   if(S.referenz_blocker>0 && (S.referenz_gueltige_zeilen||0)===0)
-    H.push({t:"Etikettprüfung noch nicht erhoben",
+    H.push({code:"etikettpruefung_nicht_erhoben", t:"Etikettprüfung noch nicht erhoben",
       d:"Die Referenzprüfung ist eine Kontrollhilfe. Sie sperrt eine sauber von Hand erfasste "
         +"Aufnahme nicht allein deshalb, weil noch keine Parser-Prüfzeile vorliegt "
         +"(cb_referenz_freigabe_guard wirft erst ab einer gültigen Zeile)."});
-  if(!roh.eanWert && roh.eanStatus!=="kein_barcode") H.push({t:"EAN offen", d:"Blockiert die Freigabe nicht."});
-  if(roh.dosisLeer) H.push({t:"Verzehrempfehlung fehlt", d:"Blockiert nicht, fehlt aber für den Dosis-Check."});
+  if(!roh.eanWert && roh.eanStatus!=="kein_barcode") H.push({code:"ean_offen",
+    t:"EAN offen", d:"Blockiert die Freigabe nicht."});
+  if(roh.dosisLeer) H.push({code:"verzehrempfehlung_fehlt",
+    t:"Verzehrempfehlung fehlt", d:"Blockiert nicht, fehlt aber für den Dosis-Check."});
   S.hinweise=H;
   return S;
 }
@@ -7503,10 +7540,22 @@ function feStatusStreifen(){
        Der Filter vergleicht deshalb ab jetzt auch gegen den Text der Stationen.
        Nicht gegen eine Liste bekannter Saetze: die waere beim naechsten neuen
        Hinweis wieder unvollstaendig, und zwar unbemerkt. */
+    /* 🔴 #231 nachgezogen: auch hier zaehlt der CODE, nicht der Wortlaut.
+       Die Stationen melden ueber feFokusStand().codes, welche Sachverhalte sie
+       schon zeigen. Der Textvergleich bleibt als zweites Netz stehen - er
+       schadet nicht und faengt Eintraege, die noch keinen Code haben. */
     var _navEl=document.getElementById("feFokusNav");
     var _navTxt=_navEl?String(_navEl.textContent||""):"";
+    var _navCodes=[];
+    try{
+      (typeof FE_SCHRITTE!=="undefined"?FE_SCHRITTE:[]).forEach(function(s){
+        var st=feFokusStand(s);
+        if(st && Array.isArray(st.codes)) _navCodes=_navCodes.concat(st.codes);
+      });
+    }catch(e){}
     var _chipTxt=C.join(" ");
     var _hwRest=S.hinweise.filter(function(x){
+      if(x&&x.code&&_navCodes.indexOf(x.code)>=0) return false;
       return _chipTxt.indexOf(esc(x.t))<0 && _navTxt.indexOf(x.t)<0; });
     if(_hwRest.length){
       _hw+='<div style="flex:1 1 100%;font-size:11px;color:var(--muted);line-height:1.5;padding-top:2px">'
