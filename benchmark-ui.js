@@ -57,6 +57,103 @@ var _BM_DIM_NAME = {
   release:'Freigabe', conflicts:'Konflikte', reproducibility:'Reproduzierbarkeit'
 };
 
+/* ============================================================================
+   DIE ERKLÄRUNG  ·  Ralph-Auftrag 25.08.2026
+   ----------------------------------------------------------------------------
+   Aufbau bewusst wie RIKI_SEITENHILFE in riki-ui.js: ein Satz "was", dann eine
+   Liste "kann". Gleiche Sprache im ganzen Haus. NICHT wiederverwendet werden
+   konnte die Funktion selbst — riki-ui.js wird nur von index.html geladen, im
+   Admin gibt es sie nicht. Kopiert wird deshalb die FORM, nicht die Logik; es
+   gibt hier keine zweite Wahrheit, nur denselben Absatzbau.
+
+   Ton: ELI12. Ralph trifft die Entscheidungen und ist kein Entwickler. Steht
+   hier ein Fachwort, steht die Erklärung daneben oder das Wort fällt weg.
+   ========================================================================== */
+var _BM_HILFE = {
+  was: 'Das hier ist die <b>Führerscheinprüfung für Root Index</b>. '
+     + 'Vier echte Produkte werden immer wieder durch das ganze System geschickt. '
+     + 'Bei jedem wissen wir vorher genau, was herauskommen muss. '
+     + 'Kommt etwas anderes heraus, ist das System kaputt — nicht das Produkt.',
+  bloecke: [
+    { titel: 'Die vier Zahlen ganz oben',
+      zeilen: [
+        '<b>PASS</b> — so viele Prüfungen sind bestanden.',
+        '<b>FAIL / BLOCKED</b> — so viele sind durchgefallen. FAIL heißt: falsches Ergebnis. BLOCKED heißt: konnte gar nicht erst zu Ende laufen.',
+        '<b>NICHT GELAUFEN</b> — diese Prüfung wurde noch nie gemacht. Das ist <i>kein</i> gutes Zeichen und <i>kein</i> schlechtes. Es ist einfach unbekannt.',
+        '<b>REGRESSIONEN</b> — so viele Prüfungen waren schon einmal bestanden und sind jetzt wieder durchgefallen.'
+      ]},
+    { titel: 'Die große Ampel darunter',
+      zeilen: [
+        'Grün heißt: <b>alle</b> vier Prüfungen bestanden. Sonst rot.',
+        'Rot ist streng gemeint. Eine Prüfung, die nie gelaufen ist, macht die Ampel schon rot — weil wir es dann nicht wissen, und Nichtwissen ist kein Bestehen.',
+        'Unter der roten Ampel steht immer der Grund. Ohne Grund wäre die Ampel nur eine Behauptung.'
+      ]},
+    { titel: 'Warum eine Regression schlimmer ist als ein normales Durchfallen',
+      zeilen: [
+        'Ein neuer Fall, der durchfällt, war noch nie gut. Ärgerlich, aber kein Rückschritt.',
+        'Eine <b>Regression</b> war schon einmal grün. Irgendeine spätere Änderung hat sie kaputtgemacht.',
+        'Deshalb steht bei einer Regression ein roter Balken ganz oben auf der Karte, und die Karte rutscht in der Liste nach oben. Das ist immer die Arbeit, die zuerst drankommt.'
+      ]},
+    { titel: 'Was auf einer Karte steht',
+      zeilen: [
+        'Oben: welches Produkt, und ob es ein <b>Regression</b>-Fall ist (schon mal grün gewesen) oder ein <b>Capability</b>-Fall (etwas Neues, das das System können soll).',
+        '<b>critical</b> heißt: dieser Fall darf nie durchfallen.',
+        '<b>Soll:</b> das Ergebnis, das herauskommen muss. Genau daran wird gemessen.',
+        'Ist die Karte rot, steht der Fehler <b>sofort</b> da — du musst nichts aufklappen.',
+        'Unten die Herkunft: welcher Lauf, welches Modell, welche Programmversion, wann, wie lange, was es gekostet hat. Damit weißt du, <i>wer</i> dieses Ergebnis erzeugt hat.'
+      ]},
+    { titel: 'Die zwei Knöpfe auf jeder Karte',
+      zeilen: [
+        '<b>Dimensionen</b> — die Prüfung besteht aus mehreren Teilprüfungen: Identität, Zutaten, Bindungen, Nährwerte, Score, Freigabe und je nach Fall noch ein paar. Hier siehst du, welche Teilprüfung gepasst hat und mit welchem gemessenen Wert.',
+        '<b>Beleg und Trace</b> — die Beweisebene. Wer hat bewertet, wie viele Einzelprüfungen, welche Aufgaben hängen an diesem Fehler. Brauchst du nur, wenn du einer Sache auf den Grund gehst.'
+      ]},
+    { titel: 'So arbeitest du damit',
+      zeilen: [
+        '<b>1.</b> Ampel ansehen. Grün? Fertig, zumachen.',
+        '<b>2.</b> Rot? Die oberste Karte ist die wichtigste. Die Liste ist schon nach Dringlichkeit sortiert.',
+        '<b>3.</b> Den Fehlertext auf der Karte lesen. Er sagt, was erwartet wurde und was stattdessen herauskam.',
+        '<b>4.</b> Den Fehler an einen Agenten geben — als Aufgabe mit genau diesem Text.',
+        '<b>5.</b> Wenn der Agent fertig meldet: <b>hier</b> nachsehen, nicht der Meldung glauben. Erst ein neuer Lauf zählt.'
+      ]},
+    { titel: '🔴 Die wichtigste Regel',
+      zeilen: [
+        'Eine erledigte Aufgabe macht einen roten Fall <b>nicht</b> grün.',
+        'Grün wird er nur, wenn die Prüfung <b>noch einmal läuft</b> und diesmal besteht.',
+        'Das ist Absicht. „Ich habe es repariert" ist eine Absicht. Ein bestandener Lauf ist ein Beweis.'
+      ]}
+  ],
+  fuss: 'Diese Seite rechnet nichts selbst aus. Sie zeigt genau das, was der Server '
+      + 'entschieden hat. Steht hier eine Zahl, steht sie auch in der Datenbank.'
+};
+
+function _bmHilfeHtml(){
+  return '<div id="bmHilfe" style="display:none;background:var(--bg,#f6f8fa);'
+      +'border:1px solid var(--line,#e3e9ef);border-radius:12px;padding:14px 16px;'
+      +'margin-bottom:16px">'
+    +'<div style="font-size:13.5px;line-height:1.6;margin-bottom:12px">'+_BM_HILFE.was+'</div>'
+    + _BM_HILFE.bloecke.map(function(b){
+        return '<div style="margin-bottom:11px">'
+          +'<div style="font-size:12px;font-weight:700;letter-spacing:.3px;margin-bottom:4px">'
+            +b.titel+'</div>'
+          +'<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;opacity:.9">'
+          + b.zeilen.map(function(z){ return '<li style="margin-bottom:3px">'+z+'</li>'; }).join('')
+          +'</ul>'
+        +'</div>';
+      }).join('')
+    +'<div style="font-size:11.5px;opacity:.65;line-height:1.5;border-top:1px solid '
+      +'var(--line,#e3e9ef);padding-top:9px">'+_BM_HILFE.fuss+'</div>'
+  +'</div>';
+}
+
+function bmHilfeUmschalten(){
+  var e=document.getElementById('bmHilfe'); if(!e) return;
+  var auf = e.style.display==='none';
+  e.style.display = auf ? '' : 'none';
+  var b=document.getElementById('bmHilfeKnopf');
+  if(b) b.textContent = auf ? '? Erklärung ausblenden' : '? Wie funktioniert das';
+  if(auf) e.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
 function _bmEsc(s){
   if(typeof esc==='function') return esc(s==null?'':String(s));
   return String(s==null?'':s).replace(/[&<>"']/g,function(c){
@@ -123,7 +220,11 @@ function _bmRahmen(inhalt, kopf){
       +'border-bottom:1px solid var(--line,#dbe3ea)">'
       +'<b style="font-size:15px;letter-spacing:.4px">🎯 BENCHMARK CONTROL</b>'
       +(kopf||'')
-      +'<button type="button" onclick="benchmarkBoardLaden()" style="margin-left:auto;'
+      +'<button type="button" id="bmHilfeKnopf" onclick="bmHilfeUmschalten()" '
+        +'style="margin-left:auto;border:1px solid var(--line,#dbe3ea);border-radius:8px;'
+        +'background:var(--bg,#f4f6f8);color:inherit;padding:6px 12px;font-size:12.5px;'
+        +'cursor:pointer">? Wie funktioniert das</button>'
+      +'<button type="button" onclick="benchmarkBoardLaden()" style="'
         +'border:1px solid var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);'
         +'color:inherit;padding:6px 12px;font-size:12.5px;cursor:pointer">↻ Aktualisieren</button>'
       +'<button type="button" onclick="benchmarkBoardZu()" style="border:1px solid '
@@ -448,7 +549,8 @@ async function benchmarkBoardLaden(){
       return String(a.case_key||'').localeCompare(String(c.case_key||''));
     });
 
-    var h=_bmKopf(s)
+    var h=_bmHilfeHtml()
+      +_bmKopf(s)
       +'<div style="font-size:11px;letter-spacing:.6px;opacity:.7;margin:4px 0 9px">'
         +'REFERENZFÄLLE ('+rows.length+') — oben steht, was am dringendsten ist</div>'
       +(rows.length
@@ -481,4 +583,5 @@ if(typeof window!=='undefined'){
   window.benchmarkBoardLaden = benchmarkBoardLaden;
   window.benchmarkBoardZu = benchmarkBoardZu;
   window._bmKlapp = _bmKlapp;
+  window.bmHilfeUmschalten = bmHilfeUmschalten;
 }
