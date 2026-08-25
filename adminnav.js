@@ -44,6 +44,10 @@ function applyAdminMode(){
     var _an=function(k,ico,lbl,oc,extra){ return '<button class="anBtn"'+(extra||'')+' data-k="'+k+'" onclick="'+oc+'"><span class="anIco">'+ico+'</span><span class="anLbl">'+lbl+'</span></button>'; };
     nav.innerHTML=
        _an('dash','📊','Dashboard',"adminGo('dash')")
+      /* Ralph-Auftrag 25.08.2026: Benchmark Control direkt hinter dem Dashboard.
+         Eigene Arbeitsflaeche als Overlay (wie katKonfigOpen), kein fgTab-Panel —
+         damit weder app.js noch admin.html Fachlogik dafuer bekommen. */
+      +_an('benchmark','🎯','Benchmark',"benchmarkBoardOpen()")
       +_an('produkterfassung','🗂️','Erfassen',"adminGo('produkterfassung')",' id="amProdErf"')
       +_an('bundles','🧩','Bundles',"adminGo('bundles')")
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
