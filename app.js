@@ -6072,6 +6072,29 @@ async function loadDashboard(){
      warten zu lassen, die sie nie liest, macht sie ohne Grund von deren
      Verfuegbarkeit abhaengig. Faellt cb_dashboard aus, ist das Wirkdiagramm
      genau dann noch erreichbar, wenn man es am dringendsten braucht. */
+  /* 🔴 26.08.2026, Ralph: „das sollte eher wie ein kanbanboard aufgebaut sein
+     mit aufgabenstränge … und nicht als popup." Dritte Ansicht, gleiche Bauart
+     wie die Architektur darunter: erst CSS, dann laden, dann zeichnen, und ein
+     Baufehler darf nicht bei „Lade…" stehenbleiben.
+     dashArbeitCss() MUSS mit — der Kopf von kbHtml() benutzt .ab, .abkopf,
+     .abum und .abbtn, die von dort kommen. Genau dieser Fehler ist der
+     Architektur-Ansicht am 15.08. passiert; er wird nicht wiederholt. */
+  if((ME&&ME.is_admin) && dashArbeitAnsichtGet()==='aufgaben'){
+    try{ if(typeof _abGraphStop==='function') _abGraphStop(); }catch(e){
+      try{ console.warn('Graph-Schleife liess sich nicht stoppen:',e); }catch(_){} }
+    box.innerHTML='<div style="color:var(--muted);font-size:12.5px">Lade Aufgaben…</div>';
+    try{ await kbLaden(true); }
+    catch(e){
+      try{ console.error('Aufgaben-Ansicht konnte nicht gebaut werden:',e); }catch(_){}
+      box.innerHTML='<div style="font-size:12.5px;color:var(--k-dc2626)">'
+        +'<b>Aufgaben-Ansicht konnte nicht gebaut werden.</b> Grund: '
+        +esc((e&&e.message)||String(e))
+        +'</div><div style="margin-top:8px">'+_abUmschalter('aufgaben')+'</div>';
+      try{ _abUmschalterNach(); }catch(_){}
+    }
+    return;
+  }
+
   if((ME&&ME.is_admin) && dashArbeitAnsichtGet()==='architektur'){
     try{ if(typeof _abGraphStop==='function') _abGraphStop(); }catch(e){
       try{ console.warn('Graph-Schleife liess sich nicht stoppen:',e); }catch(_){} }
@@ -14578,7 +14601,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-26-4420";
+const APP_BUILD = "2026-08-26-4421";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im

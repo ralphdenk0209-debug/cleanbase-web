@@ -559,6 +559,11 @@ function _abZf(z){ return (Number(z.wartend)||0)===0 ? _AB.gut : (z.weg==='keine
 /* Die Dashboard-Auswahl kennt genau Arbeitsfläche und Architektur. */
 function _abUmschalter(ans){
   var b=[['flaeche','Arbeitsfläche','Hero, Kacheln, Ring und Arbeitsliste'],
+         /* 🔴 26.08.2026, Ralph: „die darstellung am dashboard ist schlecht, das
+            sollte eher wie ein kanbanboard aufgebaut sein mit aufgabenstränge …
+            und nicht als popup sondern anders und schön."
+            Die Aufgaben sind damit eine gleichrangige ANSICHT, kein Overlay. */
+         ['aufgaben','Aufgaben','Kanban — ein Strang je Thema, vier Spalten von offen bis fertig'],
          ['architektur','Architektur','Wirkdiagramm — Knoten, Kanten und Wächter aus der Datenbank']];
   return '<span class="abum">'+b.map(function(x){
     return '<button data-ans="'+x[0]+'" class="'+(ans===x[0]?'on':'')+'" title="'+x[2]+'">'
@@ -582,14 +587,14 @@ function _abUmschalterNach(){
 function dashArbeitAnsichtGet(){
   try{
     var v=localStorage.getItem('ri_dash_ansicht');
-    if(v==='architektur') return v;
+    if(v==='architektur'||v==='aufgaben') return v;
     if(v!=='flaeche') localStorage.setItem('ri_dash_ansicht','flaeche');
     return 'flaeche';
   }
   catch(e){ return 'flaeche'; }
 }
 function dashArbeitAnsichtSet(v){
-  v=(v==='architektur')?'architektur':'flaeche';
+  v=(v==='architektur'||v==='aufgaben')?v:'flaeche';
   try{ localStorage.setItem('ri_dash_ansicht',v); }
   catch(e){ /* §1.13i: kein leerer Fangblock. Merkt sich die Wahl dann nicht - kein Beinbruch,
      aber man soll es sehen koennen, statt es zu suchen. */
@@ -1887,55 +1892,322 @@ function _abkFluss(c){
   };
 }
 
+/* ############################################################################
+   KANBAN „AUFGABEN"  ·  Ralph-Auftrag 26.08.2026  ·  Work #295 Stufe 3b
+   ############################################################################
+   Ralph: „die darstellung am dashboard ist schlecht, das sollte eher wie ein
+   kanbanboard aufgebaut sein mit aufgabenstränge, wie z.b. das erfassen. und
+   nicht als popup sondern anders und schön."
+
+   DREI ENTSCHEIDUNGEN, JEDE MIT GRUND:
+
+   1. KEINE UEBERLAGERUNG. Das Board ist eine dritte ANSICHT neben Arbeitsflaeche
+      und Architektur — derselbe Umschalter, dieselbe Bauart wie arHtml/arRender.
+      Ein Fenster, das ueber der Seite liegt, kann man nicht nebenbei offen
+      lassen; eine Ansicht schon.
+
+   2. EIN STRANG JE THEMA (Ralphs „aufgabenstränge"). Die Themen kommen aus
+      `area` — den neun aus E13. Die Liste steht NICHT im Code, sie wird aus den
+      Daten gebaut. Ein zehntes Thema erscheint von allein.
+
+   3. VIER SPALTEN, UND „FERTIG" IST NICHT DABEI. Offen · In Arbeit · Wartet auf
+      Abnahme · Klemmt. Eine Spalte mit 88 abgenommenen Eintraegen waere ein
+      Archiv, kein Arbeitsbrett. Die vierte Spalte sammelt, was ohne Ralph
+      liegenbleibt: decision_ralph, blocked, disputed.
+
+   🔴 KEINE ZWEITE WAHRHEIT: Daten aus _abWorkLaden (cb_admin_agent_work_kurzliste),
+   Aendern ueber _abWorkPanel und _abWorkSpeichern — dieselben Wege wie die Tafel.
+   Der Behaelter heisst awBody, damit _abWorkSpeichern sein Panel unveraendert
+   findet. Hier wird nichts nachgerechnet und nichts neu erfunden.
+   ############################################################################ */
+var _KB_SPALTEN=[
+  {id:'open',    wort:'Offen',              status:['open'],                                  farbe:'#7b8794'},
+  {id:'arbeit',  wort:'In Arbeit',          status:['in_progress'],                           farbe:'#2f6fb5'},
+  {id:'abnahme', wort:'Wartet auf Abnahme', status:['ready_for_verification'],                farbe:'#c88616'},
+  {id:'klemmt',  wort:'Klemmt',             status:['decision_ralph','blocked','disputed'],   farbe:'#cf5442'}
+];
+var _KB_ZU={};          /* eingeklappte Straenge, Kennung -> true */
+try{ _KB_ZU=JSON.parse(localStorage.getItem('ri_kb_zu')||'{}')||{}; }catch(e){ _KB_ZU={}; }
+var _KB_THEMA='';       /* leer = alle Straenge */
+var _KB_SUCHE='';
+
+function _kbMerken(){
+  try{ localStorage.setItem('ri_kb_zu', JSON.stringify(_KB_ZU)); }
+  catch(e){ try{ console.warn('Kanban: Klappzustand nicht speicherbar:',e); }catch(_){} }
+}
+function _kbTitel(t){ return String(t||'—').replace(/-/g,' '); }
+
+/* Alter in Tagen — dieselbe Rechnung wie _abWorkAlter, nur kuerzer dargestellt. */
+function _kbAlter(iso){
+  if(!iso) return '';
+  try{
+    var d=Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+    return d<=0 ? 'heute' : (d===1 ? 'gestern' : d+' T');
+  }catch(e){ return ''; }
+}
+
+/* Eine Karte. Kurz genug, dass eine Spalte mehrere zeigt, lang genug, dass man
+   erkennt, worum es geht. Klick klappt das vorhandene Aenderungs-Panel auf. */
+function _kbKarte(w){
+  var p=Number(w.priority)||0;
+  var pf = p>=90?'#cf5442' : p>=60?'#c88616' : '#94a3b0';
+  var t=String(w.title||'');
+  /* Fuehrendes „thema — " im Titel weglassen: es steht schon ueber dem Strang.
+     Zweimal dasselbe Wort in einer Karte ist verschenkter Platz. */
+  t=t.replace(/^[a-zA-Zäöü+ ]{3,22}\s*[—-]\s*/,'');
+  var kurz = t.length>96 ? t.slice(0,96).replace(/\s+\S*$/,'')+' …' : t;
+  return '<div class="kbk" data-id="'+esc(String(w.work_id))+'">'
+    +'<div class="kbkk">'
+      +'<span class="kbnr">#'+esc(String(w.work_id))+'</span>'
+      +'<span class="kbprio" style="background:'+pf+'" title="Priorität '+esc(String(p||'—'))+'"></span>'
+      +'<span class="kbalt">'+esc(_kbAlter(w.updated_at))+'</span>'
+    +'</div>'
+    +'<div class="kbt" title="'+esc(t)+'">'+esc(kurz)+'</div>'
+    +'<div class="kbf">'
+      +'<span class="kbow">'+esc(w.owner_agent||'—')+'</span>'
+      +(w.dependency_work_id?'<span class="kbdep" title="hängt an #'+esc(String(w.dependency_work_id))
+        +'">⇠ '+esc(String(w.dependency_work_id))+'</span>':'')
+    +'</div>'
+    +'<div class="awpanel" data-panel="'+esc(String(w.work_id))+'"></div>'
+  +'</div>';
+}
+
+function _kbStrang(thema, liste){
+  var zu=!!_KB_ZU[thema];
+  var spalten=_KB_SPALTEN.map(function(sp){
+    var karten=liste.filter(function(w){ return sp.status.indexOf(w.status)>=0; })
+      .sort(function(a,b){ return (b.priority||0)-(a.priority||0) || (b.work_id||0)-(a.work_id||0); });
+    return '<div class="kbsp">'
+      +'<div class="kbsk" style="border-top-color:'+sp.farbe+'">'
+        +'<span>'+esc(sp.wort)+'</span><b>'+karten.length+'</b></div>'
+      +'<div class="kbsl">'
+        +(karten.length? karten.map(_kbKarte).join('')
+                       : '<div class="kbleer">–</div>')
+      +'</div></div>';
+  }).join('');
+  return '<section class="kbstrang'+(zu?' kbzu':'')+'" data-thema="'+esc(thema)+'">'
+    +'<header class="kbsh" data-klapp="'+esc(thema)+'">'
+      +'<span class="kbpfeil">'+(zu?'▸':'▾')+'</span>'
+      +'<h3>'+esc(_kbTitel(thema))+'</h3>'
+      +'<span class="kbanz">'+liste.length+'</span>'
+    +'</header>'
+    +'<div class="kbspalten">'+spalten+'</div>'
+  +'</section>';
+}
+
+function _kbBoard(){
+  var alle=(_AB_WORK||[]).filter(function(w){
+    return w.status!=='verified' && w.status!=='cancelled';
+  });
+  var q=_KB_SUCHE.trim().toLowerCase();
+  if(q) alle=alle.filter(function(w){
+    return ('#'+w.work_id+' '+(w.title||'')+' '+(w.area||'')).toLowerCase().indexOf(q)>=0; });
+
+  var gr={}, themen=[];
+  alle.forEach(function(w){ var a=w.area||'—';
+    if(!gr[a]){ gr[a]=[]; themen.push(a); } gr[a].push(w); });
+  themen.sort(function(a,b){ return gr[b].length-gr[a].length || a.localeCompare(b); });
+
+  var sichtbar = _KB_THEMA ? themen.filter(function(t){ return t===_KB_THEMA; }) : themen;
+  if(!sichtbar.length)
+    return '<div class="kbnix">Kein Eintrag passt. '
+      +(q?'Suche: „'+esc(_KB_SUCHE)+'"':'')+'</div>';
+  return sichtbar.map(function(t){ return _kbStrang(t, gr[t]); }).join('');
+}
+
+function _kbLeiste(){
+  var alle=(_AB_WORK||[]).filter(function(w){
+    return w.status!=='verified' && w.status!=='cancelled'; });
+  var gt={}, themen=[];
+  alle.forEach(function(w){ var a=w.area||'—'; if(!gt[a]){ gt[a]=0; themen.push(a); } gt[a]++; });
+  themen.sort(function(a,b){ return gt[b]-gt[a] || a.localeCompare(b); });
+  return '<div class="kbleiste">'
+    +'<button type="button" class="kbchip'+(_KB_THEMA?'':' akt')+'" data-thema="">'
+      +'Alle Stränge <b>'+alle.length+'</b></button>'
+    + themen.map(function(t){
+        return '<button type="button" class="kbchip'+(_KB_THEMA===t?' akt':'')+'" '
+          +'data-thema="'+esc(t)+'">'+esc(_kbTitel(t))+' <b>'+gt[t]+'</b></button>';
+      }).join('')
+    +'<input id="kbSuche" class="kbsuche" placeholder="Nummer oder Text …" '
+      +'value="'+esc(_KB_SUCHE)+'">'
+  +'</div>';
+}
+
+function kbHtml(){
+  var kopf='<div class="ab"><div class="abkopf"><h2>Aufgaben</h2>'
+    +'<span class="st" id="kbStand">'+( _AB_WORK ? (_AB_WORK.filter(function(w){
+        return w.status!=='verified'&&w.status!=='cancelled'; }).length+' offene Aufgaben')
+      : 'lädt…')+'</span>'
+    +'<span style="margin-left:auto;display:flex;gap:9px;align-items:center">'
+    +_abUmschalter('aufgaben')
+    +'<button class="abbtn" id="abNeu">↻ Aktualisieren</button></span></div></div>';
+  if(_AB_WORK_FEHLER)
+    return kopf+'<div class="kbwrap"><div class="bfehl"><b>Aufgaben nicht ladbar.</b><br>'
+      +esc(_AB_WORK_FEHLER)+'</div></div>';
+  return kopf+'<div class="kbwrap">'+_kbLeiste()+'<div id="awBody">'+_kbBoard()+'</div></div>';
+}
+
+function kbCss(){
+  if(document.getElementById('kbCss')) return;
+  var s=document.createElement('style'); s.id='kbCss';
+  s.textContent=
+   '.kbwrap{padding:0 18px 30px;max-width:1680px;margin:0 auto}'
+  +'.kbleiste{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 14px}'
+  +'.kbchip{border:1px solid var(--line,#dde3ea);border-radius:999px;background:var(--card,#fff);'
+    +'color:inherit;padding:4px 11px;font-size:12px;cursor:pointer;line-height:1.5;transition:.12s}'
+  +'.kbchip:hover{border-color:#9aa7b4}'
+  +'.kbchip.akt{background:var(--ink,#18222d);color:#fff;border-color:var(--ink,#18222d)}'
+  +'.kbchip b{font-weight:800;margin-left:3px;opacity:.75}'
+  +'.kbsuche{margin-left:auto;flex:0 1 230px;padding:5px 11px;border:1px solid var(--line,#dde3ea);'
+    +'border-radius:999px;background:var(--card,#fff);color:inherit;font-size:12px}'
+  +'.kbstrang{margin:0 0 18px;background:var(--card,#fff);border:1px solid var(--line,#e4e9ef);'
+    +'border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(16,24,32,.04)}'
+  +'.kbsh{display:flex;align-items:center;gap:9px;padding:11px 15px;cursor:pointer;'
+    +'border-bottom:1px solid var(--line,#eef2f6);user-select:none}'
+  +'.kbsh:hover{background:var(--bg,#f7f9fb)}'
+  +'.kbpfeil{font-size:11px;opacity:.45;width:11px}'
+  +'.kbsh h3{margin:0;font-size:13.5px;font-weight:700;letter-spacing:.2px;text-transform:capitalize}'
+  +'.kbanz{margin-left:auto;font-size:11.5px;font-weight:700;opacity:.5}'
+  +'.kbzu .kbspalten{display:none}'
+  +'.kbspalten{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;'
+    +'background:var(--line,#eef2f6)}'
+  +'.kbsp{background:var(--bg,#fafbfc);display:flex;flex-direction:column;min-width:0}'
+  +'.kbsk{display:flex;align-items:center;gap:6px;padding:7px 11px 6px;font-size:11px;'
+    +'font-weight:700;letter-spacing:.3px;text-transform:uppercase;opacity:.72;'
+    +'border-top:2px solid transparent;background:var(--card,#fff)}'
+  +'.kbsk b{margin-left:auto;font-size:11.5px;opacity:.8}'
+  +'.kbsl{padding:8px;display:flex;flex-direction:column;gap:7px;'
+    +'max-height:none}'
+  +'.kbleer{font-size:11px;opacity:.28;text-align:center;padding:10px 0}'
+  +'.kbk{background:var(--card,#fff);border:1px solid var(--line,#e6ebf0);border-radius:10px;'
+    +'padding:8px 10px 7px;cursor:pointer;transition:.12s}'
+  +'.kbk:hover{border-color:#9aa7b4;box-shadow:0 2px 7px rgba(16,24,32,.08);transform:translateY(-1px)}'
+  +'.kbkk{display:flex;align-items:center;gap:6px;margin-bottom:4px}'
+  +'.kbnr{font-size:10.5px;font-weight:800;opacity:.42;letter-spacing:.2px}'
+  +'.kbprio{width:6px;height:6px;border-radius:50%;flex:0 0 6px}'
+  +'.kbalt{margin-left:auto;font-size:10px;opacity:.38}'
+  +'.kbt{font-size:12px;line-height:1.42;margin-bottom:5px}'
+  +'.kbf{display:flex;align-items:center;gap:6px;font-size:10px;opacity:.5}'
+  +'.kbow{text-transform:uppercase;letter-spacing:.4px;font-weight:700}'
+  +'.kbdep{margin-left:auto;opacity:.75}'
+  +'.kbnix{padding:40px 0;text-align:center;font-size:13px;opacity:.55}'
+  +'@media(max-width:1100px){.kbspalten{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+  +'@media(max-width:640px){.kbspalten{grid-template-columns:1fr}}';
+  document.head.appendChild(s);
+}
+
+/* Nach dem Zeichnen verdrahten. innerHTML wirft Handler weg — deshalb getrennt,
+   dieselbe Bauart wie arNach(). */
+function kbNach(){
+  var box=document.getElementById('fgDash'); if(!box) return;
+  _abUmschalterNach();
+  var neu=document.getElementById('abNeu');
+  if(neu) neu.addEventListener('click',function(){ kbLaden(true); });
+
+  box.querySelectorAll('.kbchip').forEach(function(c){
+    c.addEventListener('click',function(){ _KB_THEMA=c.dataset.thema||''; kbZeichnen(); });
+  });
+  var s=box.querySelector('#kbSuche');
+  if(s){
+    var t=null;
+    s.addEventListener('input',function(){
+      clearTimeout(t);
+      t=setTimeout(function(){
+        _KB_SUCHE=s.value; kbZeichnen();
+        var n=document.getElementById('kbSuche');
+        if(n){ n.focus(); try{ n.setSelectionRange(n.value.length,n.value.length); }catch(e){} }
+      },260);
+    });
+  }
+  box.querySelectorAll('.kbsh').forEach(function(h){
+    h.addEventListener('click',function(){
+      var k=h.dataset.klapp; _KB_ZU[k]=!_KB_ZU[k]; _kbMerken(); kbZeichnen();
+    });
+  });
+  /* Karte anklicken klappt das VORHANDENE Aenderungsformular auf (_abWorkPanel).
+     Immer nur eines — zwei halb ausgefuellte Entscheidungen nebeneinander sind
+     eine Fehlerquelle, kein Komfort. Dieselbe Regel wie in der Tafel. */
+  box.querySelectorAll('.kbk').forEach(function(k){
+    k.addEventListener('click',function(e){
+      if(e.target.closest('.awpanel')) return;      /* Klick IM Formular */
+      var id=k.dataset.id;
+      var p=k.querySelector('.awpanel'); if(!p) return;
+      var offen=p.classList.contains('awoffen');
+      box.querySelectorAll('.awpanel.awoffen').forEach(function(x){
+        x.classList.remove('awoffen'); x.innerHTML=''; });
+      if(offen) return;
+      p.innerHTML=_abWorkPanel(id); p.classList.add('awoffen');
+      _abWorkCss();
+      /* Volltext nachladen — GENAU wie in der Tafel. Der Kasten heisst
+         .awdet[data-det], nicht data-detail; beim ersten Versuch hatte ich das
+         geraten statt nachgesehen, und das Formular waere ohne Text geblieben. */
+      (async function(){
+        var kasten=p.querySelector('.awdet[data-det="'+CSS.escape(String(id))+'"]');
+        if(!kasten) return;
+        try{
+          var d=await _abWorkDetailLaden(id);
+          if(!p.classList.contains('awoffen')) return;   /* inzwischen zugeklappt */
+          kasten.innerHTML=_abWorkDetailHtml(d);
+        }catch(e){
+          kasten.innerHTML='<div class="bfehl">Text nicht ladbar: '+esc((e&&e.message)||String(e))+'</div>';
+          try{ console.error('[Kanban] Detail #'+id, e); }catch(_){}
+        }
+      })();
+      p.querySelectorAll('[data-do]').forEach(function(b){
+        b.addEventListener('click',function(){
+          if(b.dataset.do==='zu'){ p.classList.remove('awoffen'); p.innerHTML=''; return; }
+          _abWorkSpeichern(b.dataset.id, b.dataset.do);
+        });
+      });
+    });
+  });
+}
+
+function kbZeichnen(){
+  var body=document.getElementById('awBody'); if(!body) return;
+  body.innerHTML=_kbBoard();
+  var l=document.querySelector('.kbleiste');
+  if(l) l.outerHTML=_kbLeiste();
+  kbNach();
+}
+
+async function kbLaden(neu){
+  var box=document.getElementById('fgDash'); if(!box) return;
+  if(neu||!_AB_WORK) await _abWorkLaden();
+  kbCss(); dashArbeitCss();
+  box.innerHTML=kbHtml();
+  kbNach();
+}
+if(typeof window!=='undefined'){ window.kbLaden=kbLaden; window.kbZeichnen=kbZeichnen; }
+
 /* ============================================================================
-   ARBEITSTAFEL ALS FLAECHE  ·  Stufe 3 zu ZIEL.md  ·  Work #295  ·  26.08.2026
+   EINSTIEG IN DIE AUFGABEN  ·  Work #295  ·  26.08.2026
    ----------------------------------------------------------------------------
    Ralph: „gearbeitet wird im dashbord" — Z3, steuern koennen.
 
    🔴 HIER WURDE NICHTS GEBAUT, NUR ANGESCHLOSSEN (§22). Die vollstaendige
-   Steuerung gibt es seit Work #198/#199: Filterleiste, Zeilen, Aufklappen mit
-   Volltext, Status/Owner/Prioritaet aendern, Abnehmen ueber den eigenen
-   Serverweg. Sie steckte in der Kachel `aufgaben` fest, und die ist am 26.08.
-   ausgebaut worden, weil 142 Zeilen den Bildschirm erschlugen. Das Werkzeug war
-   also da und nur nicht erreichbar — der haeufigere Fall.
+   Steuerung gibt es seit Work #198/#199: Aufklappen mit Volltext,
+   Status/Owner/Prioritaet aendern, Abnehmen ueber den eigenen Serverweg. Das
+   Kanban benutzt genau diese Wege weiter (_abWorkPanel, _abWorkSpeichern,
+   _abWorkDetailLaden) — es zeichnet nur anders.
 
-   WARUM DIESELBE ID `awKachel`: _abWorkHorcher() sucht seine Bedienelemente
-   ueber getElementById('awKachel'). Traegt die Flaeche dieselbe Kennung, greifen
-   alle vorhandenen Horcher unveraendert. Kein zweiter Satz Handler, keine
-   zweite Wahrheit darueber, was ein Klick tut.
-   ⚠ FOLGE: Holt jemand die Kachel `aufgaben` zurueck, gibt es die Kennung
-   zweimal, und getElementById nimmt nur die erste. Dann muss eins von beidem
-   umbenannt werden. Steht hier, damit es nicht gesucht werden muss.
+   ⚠ ZWISCHENSTAND VOM SELBEN TAG, bewusst festgehalten: zwischen 20:00 und
+   21:00 war diese Funktion eine UEBERLAGERUNG mit Filterleiste und Zeilen.
+   Ralph hat sie gesehen und verworfen („nicht als popup"). Der Weg dorthin war
+   nicht falsch — die Ueberlagerung hat bewiesen, dass die alten Bedienwege
+   ausserhalb ihrer Kachel funktionieren. Sie war nur die falsche Form.
    ========================================================================== */
 function arbeitstafelOeffnen(status, titel){
-  var b=_abDrillBox();                 /* dieselbe Ueberlagerung wie beim Drill */
-  b.style.display='block';
-  _AB_WORK_FILTER={status:status||'', owner:'', bereich:'', prio:'', suche:''};
-  b.innerHTML='<div style="position:absolute;inset:0;margin:auto;width:min(1100px,95vw);'
-    +'height:min(88vh,900px);background:var(--card,#fff);color:var(--ink,#1b2733);'
-    +'border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.28);display:flex;flex-direction:column">'
-    +'<div style="display:flex;align-items:center;gap:10px;padding:13px 16px;'
-      +'border-bottom:1px solid var(--line,#dbe3ea);flex:0 0 auto">'
-      +'<b style="font-size:14px">'+esc(titel||'Arbeitstafel')+'</b>'
-      /* awStand fuellt _abWorkKopfSetzen von selbst — dieselbe Kennung wie in
-         der alten Kachel, also dieselbe Zahl aus derselben Rechnung. */
-      +'<span id="awStand" style="font-size:11.5px;opacity:.6">lädt…</span>'
-      +'<span style="font-size:11.5px;opacity:.45">· jede Zeile lässt sich hier ändern</span>'
-      +'<button type="button" onclick="_abDrillZu()" style="margin-left:auto;border:1px solid '
-        +'var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);color:inherit;'
-        +'padding:5px 11px;font-size:12.5px;cursor:pointer">Schließen ✕</button>'
-    +'</div>'
-    +'<div class="awk" id="awKachel" style="flex:1 1 auto;min-height:0;display:flex;'
-      +'flex-direction:column;padding:10px 14px 14px">'
-      +'<div id="awFilter">'+_abWorkFilterleiste()+'</div>'
-      +'<div class="awliste bscroll" id="awBody" style="flex:1 1 auto;min-height:0">'
-        +'<div class="blade">lädt…</div></div>'
-    +'</div>'
-  +'</div>';
-  /* true = frisch vom Server holen. Die Tafel wird selten geoeffnet; ein
-     gemerkter Stand von vorhin waere hier genau die Art alter Zahl, die
-     Vertrauen kostet. */
-  try{ _abWorkFuellen(true); }catch(e){ try{ console.error('[Arbeitstafel]',e); }catch(_){} }
+  /* 🔴 26.08.2026, Ralph: „nicht als popup sondern anders und schoen."
+     Diese Funktion HIESS einmal so, weil sie eine Ueberlagerung aufzog. Sie
+     tut es nicht mehr: sie wechselt in die Ansicht „Aufgaben". Der Name bleibt,
+     weil die Fluss-Kachel ihn ruft — ein zweiter Name fuer denselben Weg waere
+     der Doppelpfad, den wir gerade ueberall abbauen.
+     `status` wird bewusst NICHT als Filter gesetzt: im Kanban ist jeder Status
+     eine eigene Spalte, alle vier stehen nebeneinander. Ein Filter, der drei
+     davon ausblendet, waere ein Rueckschritt hinter das Brett. */
+  try{ if(typeof dashArbeitAnsichtSet==='function'){ dashArbeitAnsichtSet('aufgaben'); return; } }
+  catch(e){ try{ console.error('[Aufgaben] Ansichtswechsel:',e); }catch(_){} }
 }
 if(typeof window!=='undefined') window.arbeitstafelOeffnen=arbeitstafelOeffnen;
 
