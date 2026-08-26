@@ -1487,7 +1487,7 @@ function _abWorkAnzeigen(id){
   if(typeof adminGo==='function') adminGo('dash');
   var feld=document.getElementById('awfSuche');
   if(!feld){ try{ console.warn('[Arbeitsweg] Arbeit-Kachel nicht auf der Seite'); }catch(_){} return false; }
-  _AB_WORK_FILTER={status:'',owner:'',bereich:'',prio:'',suche:n};
+  _AB_WORK_FILTER={status:'',owner:'',bereich:'',prio:'',thema:'',suche:n};
   feld.value=n;
   _abWorkFuellen(false);
   try{ feld.scrollIntoView({block:'center'}); }catch(e){}
@@ -3940,7 +3940,36 @@ function _abWorkFilterleiste(){
     +'<option value="normal"'+(f.prio==='normal'?' selected':'')+'>unter 60 ('+pz.normal+')</option>'
     +'</select>';
 
-  return '<div class="awfilter">'+chips+'</div>'
+  /* ══════════════════════════════════════════════════════════════════════════
+     THEMEN  ·  Ralph-Auftrag 26.08.2026: „der durcheinander geht garnicht"
+     ──────────────────────────────────────────────────────────────────────────
+     Bis heute trug `area` 26 verschiedene Werte fuer 170 offene Aufgaben —
+     „erfassung", „produkterfassung" und „riki+erfassung" waren dreimal
+     dasselbe. Am 26.08. auf NEUN Themen gebuendelt; die alten Werte stehen
+     je Eintrag unter evidence.area_vor_buendelung, die Buendelung ist also
+     umkehrbar.
+
+     🔴 DIE LISTE STEHT NICHT HIER. Sie wird aus den Daten gebaut, wie bei
+     Bereich und Zustaendig. Eine Themenliste im Code waere die zweite
+     Wahrheit, und beim naechsten neuen Thema die veraltete.
+
+     Warum Chips und kein Auswahlfeld: Ralph soll die Themen SEHEN, nicht
+     aufklappen muessen. Das war der ganze Punkt seines Auftrags. */
+  var themen=[], gt={};
+  alle.forEach(function(w){ var a=w.area||'—'; if(!gt[a]){ gt[a]=0; themen.push(a); } gt[a]++; });
+  themen.sort(function(a,b){ return gt[b]-gt[a] || a.localeCompare(b); });
+  var themenChips = themen.length<2 ? '' :
+    '<div class="awfilter" style="margin-bottom:2px">'
+    +'<button type="button" class="awchip'+(f.thema?'':' akt')+'" data-thema="">'
+      +'Alle Themen <b>'+alle.length+'</b></button>'
+    + themen.map(function(t){
+        return '<button type="button" class="awchip'+(f.thema===t?' akt':'')+'" '
+          +'data-thema="'+esc(t)+'">'+esc(t.replace(/-/g,' '))+' <b>'+gt[t]+'</b></button>';
+      }).join('')
+    +'</div>';
+
+  return themenChips
+    +'<div class="awfilter">'+chips+'</div>'
     +'<div class="awfilter2">'
       + sel('awfOwner',f.owner,owner,'Zuständig: alle')
       + prioSel
@@ -4000,7 +4029,7 @@ function _abCkStatusWort(s){
    ein Leck an Rechenzeit, das niemandem auffaellt.
    ========================================================================== */
 var _AB_WORK=null, _AB_WORK_FEHLER=null, _AB_WORK_STAND=null, _AB_WORK_TAKT=null;
-var _AB_WORK_FILTER={status:'', owner:'', bereich:'', prio:'', suche:''};
+var _AB_WORK_FILTER={status:'', owner:'', bereich:'', prio:'', thema:'', suche:''};
 
 /* Reihenfolge, Wort und Farbe je Status — an EINER Stelle. Die Farben kommen aus
    dem vorhandenen _AB-Satz, damit die Tafel nicht ihre eigene Palette aufmacht. */
@@ -4060,6 +4089,7 @@ function _abWorkGefiltert(){
     if(f.status  && w.status!==f.status) return false;
     if(f.owner   && (w.owner_agent||'')!==f.owner) return false;
     if(f.bereich && (w.bereich||'—')!==f.bereich) return false;
+    if(f.thema   && (w.area||'—')!==f.thema) return false;
     if(f.prio){
       var pw=Number(w.priority)||0;
       if(f.prio==='hoch'   && pw<90) return false;
@@ -4356,9 +4386,14 @@ async function _abWorkSpeichern(id, was){
 
 function _abWorkHorcher(){
   var t=document.getElementById('awKachel'); if(!t) return;
+  /* Ein Horcher fuer beide Chip-Reihen. Welche Reihe geklickt wurde, sagt das
+     vorhandene data-Attribut — ein Chip traegt entweder data-status oder
+     data-thema, nie beides. Zwei getrennte Schleifen waeren dieselbe Logik
+     zweimal. */
   t.querySelectorAll('.awchip').forEach(function(c){
     c.addEventListener('click',function(){
-      _AB_WORK_FILTER.status=c.dataset.status||'';
+      if(c.dataset.thema!==undefined) _AB_WORK_FILTER.thema=c.dataset.thema||'';
+      else                            _AB_WORK_FILTER.status=c.dataset.status||'';
       _abWorkFuellen(false);   /* zeichnet Leiste UND Zeilen, Zaehler bleiben echt */
     });
   });
@@ -4369,7 +4404,7 @@ function _abWorkHorcher(){
   if(o)  o.addEventListener('change',function(){ _AB_WORK_FILTER.owner=o.value; _abWorkFuellen(false); });
   if(br) br.addEventListener('change',function(){ _AB_WORK_FILTER.bereich=br.value; _abWorkFuellen(false); });
   if(weg)weg.addEventListener('click',function(){
-    _AB_WORK_FILTER={status:'',owner:'',bereich:'',prio:'',suche:''}; _abWorkFuellen(false); });
+    _AB_WORK_FILTER={status:'',owner:'',bereich:'',prio:'',thema:'',suche:''}; _abWorkFuellen(false); });
   if(s){
     /* Beim Tippen NICHT neu zeichnen — das nimmt den Fokus aus dem Feld.
        Erst beim Loslassen der Taste, und der Fokus wird danach zurueckgeholt. */

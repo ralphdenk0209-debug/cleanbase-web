@@ -1265,9 +1265,24 @@ function _fgOffVorschlagHtml(z){
      Titel. Das Feld steht hier bereit und bleibt LEER, solange der Server nichts
      schickt - geraten wird nichts (Work #310 an chatgpt).
      ────────────────────────────────────────────────────────────────────────── */
+  /* 🔴 WORK #312 — RALPH, 26.08.: "nibs sind bereits bewertet, also darf der
+     button garnicht erscheinen."
+     Er hat recht, und der Fehler war meiner. Die Dublettenprobe gab es seit
+     #291 - aber sie lief ERST BEIM KLICK. Der Knopf wurde angeboten, Ralph
+     klickte, und dann erst kam "Steht bereits als Kakao-Nibs am Produkt".
+     Ein Knopf, der nur da ist, um beim Druecken abzulehnen, ist kein Knopf.
+     Dieselbe Probe, dieselbe Quelle (window._fgCanon), nur beim Rendern. */
+  var _amProdukt={};
+  try{
+    (Array.isArray(window._fgCanon)?window._fgCanon:[]).forEach(function(c){
+      var e=String((c&&c.canonical_entity_id)||""); if(e) _amProdukt[e]=c;
+    });
+  }catch(e){ console.error("[#312 Bestandsprobe]",e); }
   var kd=_kdAlle;
   if(kd.length){
-    var _bind=_kdBind, _tot=kd.filter(function(k){ return !(k&&k.entity_id); });
+    var _bind=_kdBind.filter(function(k){ return !_amProdukt[String(k.entity_id)]; });
+    var _schon=_kdBind.filter(function(k){ return !!_amProdukt[String(k.entity_id)]; });
+    var _tot=kd.filter(function(k){ return !(k&&k.entity_id); });
     /* Eine Begruendung, die bei allen gleich ist, ist eine Aussage ueber das
        Verfahren - nicht ueber den einzelnen Kandidaten. Also einmal, nicht n-mal. */
     var _gr=kd.map(function(k){ return String((k&&k.begruendung)||"").trim(); }).filter(Boolean);
@@ -1313,6 +1328,18 @@ function _fgOffVorschlagHtml(z){
         +_bind.length+' Vorschlag'+(_bind.length===1?"":"e")+' aus dem Stamm – anklicken ordnet zu'
         +(_grGleich?('<span style="font-size:10.5px"> · '+esc(_gr[0])+'</span>'):'')+':</span>'
         +_bind.map(function(k){ return _kandZeile(k,false); }).join("");
+    }
+    /* #312: schon am Produkt - kein Knopf, sondern die Auskunft, warum keiner
+       da ist. Der Vorschlag wird nicht verschwiegen; er ist nur erledigt. */
+    if(_schon.length){
+      H+='<span style="display:block;margin-top:4px;color:var(--k-166534,#166534)">'
+        +_schon.map(function(k){
+          var c=_amProdukt[String(k.entity_id)]||{};
+          var nm=String(c.canonical_name||c.sichtbarer_name||k.zutat||"").trim();
+          return '✓ steht bereits als <b>'+esc(nm)+'</b> am Produkt'
+            +((c.resolved_rating!=null)?('<span style="color:var(--muted)"> · Wert '+esc(String(c.resolved_rating))+'</span>'):'');
+        }).join('<br>')
+        +'</span>';
     }
     if(_tot.length){
       H+='<span style="display:block;margin-top:3px;padding-left:8px">'
