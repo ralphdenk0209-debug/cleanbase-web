@@ -9693,7 +9693,10 @@ function tbSatzKandidaten(s, items, kcalZ, kcalBasis){
   if(saIst!=null && saIst>SALZ_ZIEL_G){
     var tS=tbTopBei(items,'salz',1)[0];
     out.push({k:'salz', chip:'Salz über Richtwert', warum:'Rang 2 · harte Grenze (EFSA 2019)',
-      satz:'<b>'+saIst.toFixed(1).replace('.',',')+' g Salz</b> — der Richtwert liegt bei '
+      /* Salz darf rot: es ist der EINZIGE Wert mit sauberem Richtwert (EFSA 2019).
+         Zucker und Ballaststoffe bleiben farblos - Farbe waere dort eine Bewertung,
+         die die Daten nicht hergeben (Entscheid 11.08.). */
+      satz:'<b style="color:'+farbeText('Schwach')+'">'+saIst.toFixed(1).replace('.',',')+' g Salz</b> — der Richtwert liegt bei '
         +SALZ_ZIEL_G.toFixed(1).replace('.',',')+' g.'
         +(tS?(' Größter Posten: '+tbNennung(tS,'salz',1)+'.'):'')});
   }
@@ -9738,9 +9741,14 @@ function tbSatzKandidaten(s, items, kcalZ, kcalBasis){
     });
     if(schlecht && schlecht.verlust>5){
       var ach=tbSchwaechsteAchse(schlecht.r);
+      /* Name und Score in der Score-Farbe - aber mit farbeText(), nicht farbe():
+         die Kachelfarben sind gegen die weisse Karte unter 2,3:1 und als Fliesstext
+         praktisch unlesbar (siehe Kopf von farbeText). Eigene Farbe waere ein
+         zweiter Ort fuer dieselbe Regel. */
+      var scCol=farbeText(scoreBew(schlecht.sc));
       out.push({k:'schwach', chip:'Schwachstelle', warum:'Rang 4 · größter Qualitätsverlust',
-        satz:'Das schwächste Produkt heute ist <b>'+esc(schlecht.r.Produktname||'ein Eintrag')
-          +'</b> mit <b>'+schlecht.sc+'</b> — es kostet '
+        satz:'Das schwächste Produkt heute ist <b style="color:'+scCol+'">'+esc(schlecht.r.Produktname||'ein Eintrag')
+          +'</b> mit <b style="color:'+scCol+'">'+schlecht.sc+'</b> — es kostet '
           +schlecht.verlust.toFixed(1).replace('.',',')+' Indexpunkte'
           +(ach?(', vor allem bei '+ach.n+' ('+String(ach.v).replace('.',',')+' von '+ach.max+')'):'')+'.'});
     }
