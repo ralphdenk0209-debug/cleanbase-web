@@ -5295,18 +5295,115 @@ function _abWgMal(f,np,A){
      klicken, nicht passiert und nichts wird angezeigt"). Der Weg dorthin war
      seit Monaten da — dashWaechterFaelle mit dem vollen Ueberlagerungsfenster,
      Oeffnen-Knopf und Abhaken. Es fehlte nur die Verdrahtung (§22). */
-  g.innerHTML=l.map(function(w){
-    var n=Number(w.offen)||0, fb=_abWf(w), still=n===0;
+  /* ==========================================================================
+     KIPPSCHALTER-LEISTE  ·  Ralph-Auftrag 26.08.2026
+     --------------------------------------------------------------------------
+     „sie sollten aber anders dargestellt sein, damit sie in eine zeile passen,
+     dürfen etwas kleiner sein. ich hätte sie gern so in dieser art dargestellt
+     als kippschalter, leuchte in grün, gelb und rot. zahl darunter."
+
+     Eine Lampe je Wächter, darunter die Zahl, darunter der Kurzname. 23 Stück
+     passen so nebeneinander; wird das Fenster schmal, bricht die Zeile um,
+     statt zu quetschen.
+
+     DIE DREI FARBEN HABEN EINE BEDEUTUNG, sie sind keine Deko:
+       grün  = 0 offen. Der Wächter ist still.
+       gelb  = offen, blockiert aber die Freigabe NICHT.
+       rot   = offen UND Go-Live-Gate. Das hält den Livegang auf.
+     Damit sieht Ralph auf einen Blick, was ihn am 1.10. wirklich stoppt.
+
+     Der Klickweg bleibt unverändert: dashWaechterFaelle über view und Nummer
+     (§22, kein zweiter Weg). Nur das Aussehen ist neu.
+     ========================================================================== */
+  /* ==========================================================================
+     ECHTE KIPPSCHALTER  ·  Ralph 26.08.2026: „optik von dir hässlich"
+     --------------------------------------------------------------------------
+     Er hatte recht. Meine erste Fassung war ein graues Rechteck mit einem
+     Balken drin. Nachgesehen, was einen Kippschalter ausmacht, und die vier
+     Merkmale übernommen, die auf allen Vorlagen vorkommen:
+       1. ON- und OFF-Schild als farbige Plaketten mit weisser Schrift
+       2. eine SECHSKANTMUTTER aus Chrom um den Hebelfuss — das prägendste Teil
+       3. ein Hebel mit KUGELKOPF, nicht ein Stift
+       4. Lichtkante oben, Schatten unten auf der Platte
+     Als SVG, weil ein Sechskant und ein Kugelverlauf in CSS bei 40 Pixeln
+     matschig werden. Die Verläufe stehen EINMAL in <defs> und werden 23-mal
+     benutzt — nicht 23-mal derselbe Code im DOM.
+
+     Der Hebel steht oben, wenn der Wächter meldet — wie eine ausgelöste
+     Sicherung. Die Plakette auf seiner Seite leuchtet, die andere ist matt.
+     Die Lampe darüber trägt die Ampelfarbe: grün still · gelb offen, blockiert
+     nicht · rot offen und Go-Live-Gate.
+     ========================================================================== */
+  var FARBE={
+    gruen:{a:'#4ef08a', b:'#0f7a3d'},
+    gelb :{a:'#ffd45c', b:'#8a6100'},
+    rot  :{a:'#ff6b5c', b:'#8c1a10'}
+  };
+  var HEX='31,45 25.5,54.5 14.5,54.5 9,45 14.5,35.5 25.5,35.5';
+  var defs='<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>'
+    +'<linearGradient id="wgPlatte" x1="0" y1="0" x2="0" y2="1">'
+      +'<stop offset="0" stop-color="#f2f3f4"/><stop offset=".55" stop-color="#dcdee1"/>'
+      +'<stop offset="1" stop-color="#c2c5c9"/></linearGradient>'
+    +'<linearGradient id="wgHexG" x1="0" y1="0" x2="1" y2="1">'
+      +'<stop offset="0" stop-color="#f6f7f8"/><stop offset=".45" stop-color="#a9aeb4"/>'
+      +'<stop offset="1" stop-color="#6e747b"/></linearGradient>'
+    +'<radialGradient id="wgHexI" cx="50%" cy="45%" r="60%">'
+      +'<stop offset="0" stop-color="#5c6268"/><stop offset="1" stop-color="#2f3438"/></radialGradient>'
+    +'<linearGradient id="wgStiel" x1="0" y1="0" x2="1" y2="0">'
+      +'<stop offset="0" stop-color="#7d838a"/><stop offset=".42" stop-color="#fdfefe"/>'
+      +'<stop offset="1" stop-color="#9aa0a7"/></linearGradient>'
+    +'<radialGradient id="wgBall" cx="34%" cy="28%" r="72%">'
+      +'<stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#d5d9dd"/>'
+      +'<stop offset="1" stop-color="#8b9198"/></radialGradient>'
+    +'</defs></svg>';
+
+  g.innerHTML=defs+l.map(function(w){
+    var n=Number(w.offen)||0, still=(n===0);
+    var art = still ? 'gruen' : (w.gate===true ? 'rot' : 'gelb');
+    var c=FARBE[art], an=!still;
     var nr=_AB_WNR[w.view]||'';
+    var nm=String(w.name||w.id||'');
+    var ballY=an?34:56, stielY=an?36:45;
+
+    var svg='<svg viewBox="0 0 40 78" width="40" height="78" style="display:block">'
+      /* Meldeleuchte mit Lichthof */
+      +'<circle cx="20" cy="8" r="7.5" fill="'+c.b+'" opacity=".22"/>'
+      +'<circle cx="20" cy="8" r="5.4" fill="'+c.a+'" stroke="rgba(0,0,0,.35)" stroke-width=".8"/>'
+      +'<circle cx="18.2" cy="6.2" r="1.7" fill="#fff" opacity=".75"/>'
+      /* Platte */
+      +'<rect x="5" y="16" width="30" height="60" rx="6" fill="url(#wgPlatte)" stroke="#8f959b" stroke-width="1"/>'
+      /* ON-Plakette oben, OFF-Plakette unten - nur die aktive Seite leuchtet */
+      +'<rect x="8.5" y="19" width="23" height="12" rx="2.5" fill="'+(an?'#1faa57':'#7f8a83')+'"/>'
+      +'<text x="20" y="27.8" text-anchor="middle" font-size="8" font-weight="700" fill="#fff"'
+        +' font-family="system-ui,sans-serif">ON</text>'
+      +'<rect x="8.5" y="61" width="23" height="12" rx="2.5" fill="'+(an?'#8c6a66':'#d13b2a')+'"/>'
+      +'<text x="20" y="69.8" text-anchor="middle" font-size="7.5" font-weight="700" fill="#fff"'
+        +' font-family="system-ui,sans-serif">OFF</text>'
+      /* Sechskantmutter und Hebel mit Kugelkopf */
+      +'<polygon points="'+HEX+'" fill="url(#wgHexG)" stroke="#6e747b" stroke-width=".8"/>'
+      +'<circle cx="20" cy="45" r="6" fill="url(#wgHexI)"/>'
+      +'<rect x="17.6" y="'+stielY+'" width="4.8" height="11" rx="2.4" fill="url(#wgStiel)"/>'
+      +'<circle cx="20" cy="'+ballY+'" r="5.2" fill="url(#wgBall)" stroke="#7d838a" stroke-width=".7"/>'
+      +'</svg>';
+
     return '<div class="abwc" role="button" tabindex="0"'
-      +' data-wview="'+esc(w.view||'')+'" data-wnr="'+nr+'" data-wname="'+esc(w.name||'')+'"'
-      +' style="border-color:'+(still?'#e6e9ee':fb+'44')+';background:'
-      +(still?'#fff':(w.gate===true?'#fdf1f1':'#fdf9ef'))+'" title="'+esc(w.kurz||'')
-      +' · Quelle: '+esc(w.view||'')+' · Klick zeigt die Fälle">'
-      +'<div class="g" style="color:'+fb+'">'+(w.gate===true?'⛔ GATE':(MOM[w.moment]||''))+'</div>'
-      +'<div class="n">'+esc(w.name)+'</div>'
-      +'<div class="z" style="color:'+(still?'#c6cbd3':fb)+'">'+(still?'still':n)+'</div></div>';
+      +' data-wview="'+esc(w.view||'')+'" data-wnr="'+nr+'" data-wname="'+esc(nm)+'"'
+      +' style="flex:0 0 auto;width:52px;display:flex;flex-direction:column;align-items:center;'
+      +'gap:2px;padding:4px 1px 5px;border:1px solid transparent;border-radius:9px;cursor:pointer"'
+      +' title="'+esc(nm)+' — '+(still?'still, nichts offen':(n+' offen'))
+      +(w.gate===true?' · Go-Live-Gate: blockiert die Freigabe':' · blockiert die Freigabe nicht')
+      +'\n'+esc(w.kurz||'')+'\nQuelle: '+esc(w.view||'')+'\nKlick zeigt die Fälle">'
+      +svg
+      +'<span style="font-size:11.5px;font-weight:800;line-height:1;'
+        +'font-variant-numeric:tabular-nums;color:'+(still?'#9aa7b4':c.b)+'">'
+        +(still?'0':n)+'</span>'
+      +'<span style="font-size:7.5px;line-height:1.1;text-align:center;opacity:.72;'
+        +'max-width:50px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;'
+        +'-webkit-box-orient:vertical">'+esc(nm)+'</span>'
+    +'</div>';
   }).join('')||'<div style="font-size:12.5px;color:'+_AB.mut+';padding:4px">Kein Wächter in dieser Auswahl.</div>';
+  /* Die Leiste selbst: eine Zeile, bei schmalem Fenster Umbruch statt Quetschen. */
+  g.style.cssText='display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start';
   g.querySelectorAll('.abwc').forEach(function(c){
     var auf=function(){
       var nr=Number(c.dataset.wnr)||null;
