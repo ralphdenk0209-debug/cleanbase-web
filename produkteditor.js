@@ -993,7 +993,13 @@ async function fgCanonLaden(pid){
    ──────────────────────────────────────────────────────────────────────────── */
 async function fgZuordnungLaden(pid){
   window._fgZuordnung=null; window._fgZuordnungFehler="";
-  if(!pid) return;
+  /* 🔴 26.08.2026, P73652 — "laeuft noch" ist NICHT dasselbe wie "ging schief".
+     Vorher gab es nur einen Zustand: kein Stand da. Die Leiste meldete deshalb
+     "Zuordnungsstand nicht geladen", solange der Abruf noch unterwegs war — und
+     blieb dabei stehen, weil niemand nach der Antwort neu rendert. Ab hier sind
+     es zwei Zustaende, und der Renderweg wird nachgezogen. */
+  window._fgZuordnungLaeuft=true;
+  if(!pid){ window._fgZuordnungLaeuft=false; return; }
   try{
     var r=await client.rpc("cb_admin_zutat_zuordnungsstatus",{p_produkt_id:pid});
     if(r&&r.error) throw r.error;
@@ -1012,10 +1018,14 @@ async function fgZuordnungLaden(pid){
      richtigen Satz; nur las ihn niemand mehr.
      Deshalb: sobald die Antwort da ist, den Status neu rechnen und die Schrittknoepfe
      neu bauen. Beides sind vorhandene Funktionen - hier wird nichts nachgebaut. */
+  window._fgZuordnungLaeuft=false;
   try{
     if(typeof getErfassungsStatus==="function") getErfassungsStatus();
     if(typeof feFokusAn==="function" && feFokusAn() && typeof feFokusNavBauen==="function") feFokusNavBauen();
     if(typeof feStatusStreifen==="function") feStatusStreifen();
+    /* Die Bestandteilliste haengt am selben Stand: ohne sie bleibt die Sammelleiste
+       auf dem Satz stehen, den sie vor der Antwort gebaut hat. */
+    if(typeof fgPickRender==="function") fgPickRender();
   }catch(e){ console.error("[Zuordnung] Anzeige nachziehen:", e); }
 }
 if(typeof window!=="undefined"){ window.fgZuordnungLaden=fgZuordnungLaden; }
@@ -1957,8 +1967,22 @@ function fgPickRender(){
      normale Doppel-Zeile - nur als schmaler ⚗-Verweis. Die Bindung selbst bleibt bestehen
      (Prinzip 8, beide Achsen); geaendert wird sie ueber die Zusatzstoff-Karte. */
   var zusE={}; (window._fgZus||[]).forEach(function(z){ if(z.e) zusE[String(z.e).toUpperCase()]=z; });
-  var row=function(it){ var nm=it.name||"", chk=isSel(it), rt=(it.rating==null?"–":it.rating);
-    var col=(it.rating==null)?"var(--muted)":(it.rating>=7?"#2e9e57":it.rating>=4?"#c88616":"#cf5442");
+  /* 🔴 26.08.2026, gemessen an P73652 "Rohe Bio-Kakaonibs".
+     Die Zeile stand richtig als "gelesen – noch nicht zugeordnet" da und zeigte
+     daneben WERT 9. Gemessen: fuer P73652 gibt es KEINE gebundene Produkt-Zutat
+     (Produkt_Zutaten leer, v_product_ingredient_resolution leer), die Zutat liegt
+     offen in Zutat_Offen ohne Zutat_ID. Die 9 kam also nicht aus einer Zuordnung,
+     sondern aus dem Eingabefeld der Editorzeile — dort hatte RIKI beim Lesen seinen
+     Vorschlag hinterlassen. Eine EXTRAHIERTE Zahl wurde als BEWERTUNG angezeigt;
+     genau die Zustandsvermischung, die state_separation verbietet.
+     Ohne Zuordnung gibt es keinen Wert, also steht hier "–". Der Vorschlag bleibt
+     im Eingabefeld der Zeile erhalten, er wird nur nicht mehr als Ergebnis gezeigt.
+     Gebundene Zeilen laufen ueber _fgBestZeile mit resolved_rating vom Server und
+     sind davon nicht beruehrt. */
+  var row=function(it){ var nm=it.name||"", chk=isSel(it);
+    var _wert=it._frei?null:it.rating;
+    var rt=(_wert==null?"–":_wert);
+    var col=(_wert==null)?"var(--muted)":(_wert>=7?"#2e9e57":_wert>=4?"#c88616":"#cf5442");
     var ze=fgZutZusE(nm);
     if(ze && zusE[ze]){
       return '<div title="Zählt auf beiden Achsen (§4.6) – der Haken bindet die ZUTAT, den Zusatzstoff pflegst du in der Zusatzstoff-Karte" style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);background:'+(chk?"var(--greenlt,#eef7f0)":"var(--bg)")+'">'
@@ -2039,8 +2063,16 @@ function fgZutSammelLeiste(){
      Der Knopf sagt das und startet nichts — ein Sammellauf auf Verdacht legt
      echte Zutaten im Stamm an. */
   if(frei===null){
+    /* Noch unterwegs ist kein Fehler. Erst wenn der Abruf durch ist und trotzdem
+       kein Stand vorliegt, ist er wirklich "nicht geladen". */
+    if(window._fgZuordnungLaeuft===true){
+      el.innerHTML='<div class="feSammelMeta" style="color:var(--muted)">'
+        +'⏳ Zuordnungsstand wird geladen …</div>';
+      return;
+    }
     el.innerHTML='<div class="feSammelMeta" style="color:var(--k-b45309,#b45309)">'
       +'⚠ Zuordnungsstand nicht geladen – es ist unbekannt, welche Zutaten dem Stamm fehlen. '
+      +(window._fgZuordnungFehler?(esc(String(window._fgZuordnungFehler))+' '):'')
       +'Seite neu laden; bis dahin wird nichts an Riki geschickt.</div>';
     return;
   }
