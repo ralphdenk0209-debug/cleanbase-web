@@ -1803,6 +1803,16 @@ function _abkFluss(c){
   var wartet   = Number(ck.wartet_abnahme)||0;
   var beiRalph = Number(ck.bei_ralph)||0;
   var steht    = Number(ck.blockiert_oder_streit)||0;
+  /* 🔴 26.08.2026, Work #297 erledigt: offen und verified kommen jetzt aus
+     derselben Karte. Vorher standen hier zwei graue Fragezeichen — bewusst,
+     weil eine im Browser nachgezaehlte Zahl neben Serverzahlen die zweite
+     Wahrheit gewesen waere. Fehlt ein Feld trotzdem, bleibt das Fragezeichen:
+     `null` heisst „nicht geliefert", 0 hiesse „es gibt keine". */
+  var offen    = (ck.offen==null)    ? null : Number(ck.offen);
+  var fertig   = (ck.verified==null) ? null : Number(ck.verified);
+  /* Aus #296: 0 heisst, der Riegel ist zu. Steht hier je wieder eine Zahl,
+     ist die Queue erneut verriegelt und der Stau hat wieder seine alte Ursache. */
+  var gesperrt = Number(ck.nicht_aenderbar)||0;
 
   /* Eine Station: Zahl, Wort darunter, Farbe nach Dringlichkeit.
      `filter` macht sie zum Einstieg in die Arbeitstafel — Ralphs Z3, steuern.
@@ -1823,8 +1833,10 @@ function _abkFluss(c){
   var pfeil='<div style="flex:0 0 14px;text-align:center;opacity:.3;font-size:15px">→</div>';
 
   var reihe='<div style="display:flex;align-items:flex-start;gap:2px;margin-top:4px">'
-    + station('?', 'offen', 'var(--matt,#8a97a4)',
-        'Diese Zahl liefert die Serverfunktion noch nicht - Work 297', null)
+    + (offen==null
+        ? station('?', 'offen', 'var(--matt,#8a97a4)', 'Diese Zahl liefert der Server nicht', null)
+        : station(offen, 'offen', _AB.mut,
+            'Angelegt, noch niemand dran - antippen oeffnet die Liste', 'open'))
     + pfeil
     + station(inArbeit, 'in Arbeit', inArbeit>0?_AB.warn:_AB.gut,
         'Laenger als 24 Stunden in Arbeit - antippen oeffnet die Liste', 'in_progress')
@@ -1832,8 +1844,10 @@ function _abkFluss(c){
     + station(wartet, 'wartet auf Abnahme', wartet>0?_AB.krit:_AB.gut,
         'Fertig gemeldet, noch nicht gegengeprueft - antippen oeffnet die Liste', 'ready_for_verification')
     + pfeil
-    + station('?', 'fertig', 'var(--matt,#8a97a4)',
-        'Diese Zahl liefert die Serverfunktion noch nicht - Work 297', null)
+    + (fertig==null
+        ? station('?', 'fertig', 'var(--matt,#8a97a4)', 'Diese Zahl liefert der Server nicht', null)
+        : station(fertig, 'fertig', _AB.gut,
+            'Gegengeprueft und abgenommen - antippen oeffnet die Liste', 'verified'))
   +'</div>';
 
   /* Was den Fluss anhaelt. Nur zeigen, was tatsaechlich anliegt. */
@@ -1851,6 +1865,13 @@ function _abkFluss(c){
       +'onclick="arbeitstafelOeffnen(\'blocked\',\'Hängt fest\')">'
       +'<span style="font-size:11.5px">blockiert oder strittig</span>'
       +'<b style="font-size:11.5px;color:'+_AB.warn+'">'+steht+'</b></div>';
+  /* Diese Zeile soll NIE erscheinen. Tut sie es doch, ist der Riegel aus #296
+     wieder da und kein Eintrag laesst sich mehr abhaken — die Ursache des
+     Staus, nicht seine Folge. Deshalb steht sie oben und in Rot. */
+  if(gesperrt>0)
+    stopper='<div class="bzeile"><span style="font-size:11.5px;color:'+_AB.krit+'">'
+      +'⛔ technisch nicht änderbar — Statusänderung schlägt fehl</span>'
+      +'<b style="font-size:11.5px;color:'+_AB.krit+'">'+gesperrt+'</b></div>'+stopper;
 
   return {
     tag: wartet>0
@@ -1862,7 +1883,7 @@ function _abkFluss(c){
       + (wartet===0&&beiRalph===0?'<div class="bleer" style="margin-top:8px">Nichts staut sich.</div>':'')
     +'</div>',
     fuss:'Eine Station antippen öffnet die Arbeitstafel — dort lässt sich ändern, '
-        +'zuweisen und abnehmen. Zwei Stationen warten noch auf ihre Zahl (Work 297).'
+        +'zuweisen und abnehmen. Wozu das dient, steht in ZIEL.md (Z1, Z2, Z3, Z7).'
   };
 }
 

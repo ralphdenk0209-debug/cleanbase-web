@@ -962,6 +962,36 @@ async function fgzCanonPick(el){
       +"\n\nDer Name steht im Feld und geht beim Speichern den bisherigen Weg.");
   }
 }
+/* ────────────────────────────────────────────────────────────────────────────
+   WORK #308 — WELCHE GEBUNDENE ZUTAT FEHLT IN DER ARBEITSLISTE?
+   Vergleicht den serverseitigen Bestand (window._fgCanon) mit dem, was beim
+   Speichern rausginge. Beide Namen zaehlen: der sichtbare Legacy-Name UND der
+   canonical Name - sie duerfen auseinanderlaufen ("Datteln" / "Dattel"), und
+   ein zu strenger Vergleich wuerde jedes Speichern blockieren.
+   Kennt der Browser den Serverstand nicht, wird NICHTS behauptet: eine leere
+   Rueckgabe heisst hier "kein belegter Verlust", nicht "alles in Ordnung".
+   ────────────────────────────────────────────────────────────────────────── */
+function _fgGebundeneFehlen(zut){
+  try{
+    var canon=window._fgCanon;
+    if(!Array.isArray(canon)||!canon.length) return [];
+    var da={};
+    (Array.isArray(zut)?zut:[]).forEach(function(z){
+      var n=String((z&&z.name)||"").trim().toLowerCase(); if(n) da[n]=true; });
+    var fehlt=[];
+    canon.forEach(function(c){
+      if(!c) return;
+      var sicht=String(c.sichtbarer_name||"").trim();
+      var kanon=String(c.canonical_name||"").trim();
+      if(!sicht && !kanon) return;
+      if(da[sicht.toLowerCase()] || da[kanon.toLowerCase()]) return;
+      var zeig=kanon||sicht;
+      if(fehlt.indexOf(zeig)===-1) fehlt.push(zeig);
+    });
+    return fehlt;
+  }catch(e){ console.error("[#308 Bestandsprobe]",e); return []; }
+}
+if(typeof window!=="undefined"){ window._fgGebundeneFehlen=_fgGebundeneFehlen; }
 /* Gebundene Zeilen zeigen den serverseitigen Canonical-Wert; Legacy-Namen sind kein Default. */
 async function fgCanonLaden(pid){
   window._fgCanon=null; window._fgCanonFehler="";
@@ -1179,7 +1209,25 @@ function _fgOffVorschlagHtml(z){
   if(d.treffer_art) t.push('Treffer '+esc(String(d.treffer_art)));
   if(d.zutat_id) t.push('Stamm-ID '+esc(String(d.zutat_id)));
   if(d.grund) t.push('grund: '+esc(String(d.grund)));
-  var H=W+kopf+'<span style="color:var(--muted)"> · '+t.join(' · ')+'</span>';
+  /* 🔴 WORK #309, Ralph 26.08.: "darstellung ist scheisse, viel zuviel text."
+     Er hatte recht. Hier stand eine Debugzeile - Note, Sicherheit, Treffer-Art,
+     Stamm-ID und Grund als Fliesstext, jedes Mal, auch wenn darunter fuenf
+     brauchbare Vorschlaege standen. Die Zahlen sind nicht falsch, sie sind nur
+     nicht die Arbeit. Sie liegen jetzt hinter "Details" und sind dort
+     VOLLSTAENDIG - nichts wird weggelassen, nur weggeklappt.
+     Gibt es bindbare Vorschlaege, verschwindet auch der Kopf "im Stamm nicht
+     gefunden": er widerspricht der Liste darunter, die sehr wohl etwas gefunden
+     hat. */
+  var _kdAlle=Array.isArray(d.kandidaten)?d.kandidaten:[];
+  var _kdBind=_kdAlle.filter(function(k){ return k && k.entity_id; });
+  var H=W;
+  if(!(s==="UNBEKANNT" && _kdBind.length)) H+=kopf;
+  if(t.length){
+    H+='<span style="color:var(--muted);font-size:10.5px"> '
+      +'<span class="fgOffDetTgl" onclick="fgOffDetails(this)" style="cursor:pointer;text-decoration:underline dotted"'
+      +' title="Die vollständige Serverantwort zu dieser Zeile">Details</span>'
+      +'<span class="fgOffDet" style="display:none"> · '+t.join(' · ')+'</span></span>';
+  }
   var wn=Array.isArray(d.warnungen)?d.warnungen:[];
   if(wn.length){
     H+='<span style="display:block;color:var(--k-b45309,#b45309)">⚠ '
@@ -1200,40 +1248,94 @@ function _fgOffVorschlagHtml(z){
      allein ueber Identitaet und Note, und ein Kandidat ohne entity_id sagt das
      ausdruecklich, statt einen toten Knopf anzubieten.
      ────────────────────────────────────────────────────────────────────────── */
-  var kd=Array.isArray(d.kandidaten)?d.kandidaten:[];
+  /* ──────────────────────────────────────────────────────────────────────────
+     WORK #309 — RALPH: "viel zuviel text, herleitung warum dattel passt nicht
+     ersichtlich, wie es durch das regelwerk laeuft."
+     Was hier stand und warum es weg ist:
+       · "Ähnlichkeit 0.69 · aehnlichkeit"  — die Art hiess wie die Zahl daneben,
+         das Wort stand also doppelt. Jetzt: "ähnlich 0.69", die Art im title.
+       · Die Begruendung war bei allen fuenf Kandidaten WORTGLEICH ("Aehnlichkeit
+         nach Entfernen beschreibender Praefixe") und stand fuenfmal untereinander.
+         Jetzt einmal ueber der Liste, wenn sie sich nicht unterscheidet.
+       · Nicht bindbare Kandidaten standen gleichberechtigt zwischen den bindbaren.
+         Jetzt liegen sie hinter einem Aufklapper - sie sind kein Arbeitsweg.
+     🔴 DIE HERLEITUNG: Ralph will sehen, WARUM Dattel eine 10 bekommt. Die Regel
+     dazu existiert (Dattel → "Stufe 10 - roh", Kakaopulver → BR-STAFFEL-KAKAO),
+     aber cb_admin_zutat_zeile_bearbeiten liefert je Kandidat weder rule_id noch
+     Titel. Das Feld steht hier bereit und bleibt LEER, solange der Server nichts
+     schickt - geraten wird nichts (Work #310 an chatgpt).
+     ────────────────────────────────────────────────────────────────────────── */
+  var kd=_kdAlle;
   if(kd.length){
-    H+='<span style="display:block;color:var(--muted);margin-top:4px">'
-      +kd.length+' Vorschlag'+(kd.length===1?"":"e")+' aus dem Stamm – anklicken ordnet zu:</span>'
-      +kd.map(function(k){
-        var nm=String((k&&k.zutat)||"").trim();
-        var eid=String((k&&k.entity_id)||"");
-        var note=((k&&k.note!=null)?String(k.note):null);
-        var nf=(note==null)?"var(--muted)":(Number(note)>=7?"var(--k-2e9e57,#2e9e57)":(Number(note)>=4?"var(--k-c88616,#c88616)":"var(--k-cf5442,#cf5442)"));
-        var meta=[];
-        if(k&&k.aehnlichkeit!=null) meta.push('Ähnlichkeit '+esc(String(k.aehnlichkeit)));
-        if(k&&k.art) meta.push(esc(String(k.art)));
-        var zeile='<span style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:8px;flex-wrap:wrap">';
-        if(eid){
-          zeile+='<button type="button" class="fgOffBtn fgOffPrimaer" '
-            /* Ohne item_id im Aufruf: sie wird hier nicht gebraucht, und eine leere
-               Zahl an dieser Stelle haette den ganzen onclick zu Syntaxmuell gemacht. */
-            +'onclick="fgOffKandidatBinden(\''+esc(eid)+'\',\''+esc(nm.replace(/'/g,"\\'"))+'\',this)" '
-            +'title="Diese Zeile an den Stammeintrag '+esc(nm)+' binden. Die Note kommt danach vom Server, nicht von hier.">'
-            +'→ '+esc(nm)+' zuordnen</button>';
-        }else{
-          zeile+='<span style="color:var(--muted)">· '+esc(nm)+'</span>'
-            +'<span style="color:var(--k-b45309,#b45309);font-size:10.5px" '
-            +'title="Zu diesem Stammnamen gibt es keine canonical Identitaet. Binden wuerde ins Leere greifen.">nicht bindbar</span>';
-        }
-        zeile+='<span style="font-weight:700;color:'+nf+'">'+(note==null?'–':esc(note))+'</span>';
-        if(meta.length) zeile+='<span style="color:var(--muted);font-size:10.5px">'+meta.join(' · ')+'</span>';
-        zeile+='</span>';
-        if(k&&k.begruendung) zeile+='<span style="display:block;padding-left:16px;color:var(--muted);font-size:10.5px">'+esc(String(k.begruendung))+'</span>';
-        return zeile;
-      }).join("");
+    var _bind=_kdBind, _tot=kd.filter(function(k){ return !(k&&k.entity_id); });
+    /* Eine Begruendung, die bei allen gleich ist, ist eine Aussage ueber das
+       Verfahren - nicht ueber den einzelnen Kandidaten. Also einmal, nicht n-mal. */
+    var _gr=kd.map(function(k){ return String((k&&k.begruendung)||"").trim(); }).filter(Boolean);
+    var _grGleich=(_gr.length===kd.length && _gr.length>1 && _gr.every(function(x){ return x===_gr[0]; }));
+    function _kandZeile(k, tot){
+      var nm=String((k&&k.zutat)||"").trim();
+      var eid=String((k&&k.entity_id)||"");
+      var note=((k&&k.note!=null)?String(k.note):null);
+      var nf=(note==null)?"var(--muted)":(Number(note)>=7?"var(--k-2e9e57,#2e9e57)":(Number(note)>=4?"var(--k-c88616,#c88616)":"var(--k-cf5442,#cf5442)"));
+      var zeile='<span style="display:flex;align-items:baseline;gap:7px;margin-top:3px;padding-left:8px;flex-wrap:wrap">';
+      if(eid && !tot){
+        zeile+='<button type="button" class="fgOffBtn fgOffPrimaer" '
+          +'onclick="fgOffKandidatBinden(\''+esc(eid)+'\',\''+esc(nm.replace(/'/g,"\\'"))+'\',this)" '
+          +'title="Diese Zeile an den Stammeintrag '+esc(nm)+' binden. Die Note kommt danach vom Server, nicht von hier.">'
+          +esc(nm)+'</button>';
+      }else{
+        zeile+='<span style="color:var(--muted)">'+esc(nm)+'</span>';
+      }
+      zeile+='<span style="font-weight:700;color:'+nf+'">'+(note==null?'–':esc(note))+'</span>';
+      /* 🔴 Die Regel-Herleitung, sobald der Server sie mitschickt. Kein Ersatztext,
+         keine geratene Regel - fehlt sie, steht hier nichts. */
+      var rt=String((k&&(k.regel_titel||k.rule_titel))||"").trim();
+      var rid=String((k&&(k.rule_id||k.regel_id))||"").trim();
+      var rh=String((k&&(k.regel_herleitung||k.regel_inhalt))||"").trim();
+      if(rt||rid){
+        zeile+='<span style="color:var(--k-534ab7,#534ab7);font-size:10.5px"'
+          +(rh?(' title="'+esc(rh)+'"'):'')+'>nach Regel: '+esc(rt||rid)+'</span>';
+      }
+      if(k&&k.aehnlichkeit!=null){
+        zeile+='<span style="color:var(--muted);font-size:10.5px"'
+          +((k&&k.art)?(' title="Trefferart: '+esc(String(k.art))+'"'):'')
+          +'>ähnlich '+esc(String(k.aehnlichkeit))+'</span>';
+      }
+      if(tot) zeile+='<span style="color:var(--k-b45309,#b45309);font-size:10.5px" '
+        +'title="Zu diesem Stammnamen gibt es keine canonical Identitaet. Binden wuerde ins Leere greifen.">nicht bindbar</span>';
+      zeile+='</span>';
+      if(!_grGleich && k && k.begruendung)
+        zeile+='<span style="display:block;padding-left:16px;color:var(--muted);font-size:10.5px">'+esc(String(k.begruendung))+'</span>';
+      return zeile;
+    }
+    if(_bind.length){
+      H+='<span style="display:block;color:var(--muted);margin-top:4px">'
+        +_bind.length+' Vorschlag'+(_bind.length===1?"":"e")+' aus dem Stamm – anklicken ordnet zu'
+        +(_grGleich?('<span style="font-size:10.5px"> · '+esc(_gr[0])+'</span>'):'')+':</span>'
+        +_bind.map(function(k){ return _kandZeile(k,false); }).join("");
+    }
+    if(_tot.length){
+      H+='<span style="display:block;margin-top:3px;padding-left:8px">'
+        +'<span class="fgOffDetTgl" onclick="fgOffDetails(this)" style="cursor:pointer;color:var(--muted);'
+        +'font-size:10.5px;text-decoration:underline dotted" '
+        +'title="Diese Stammnamen haben keine canonical Identitaet - binden wuerde ins Leere greifen.">'
+        +_tot.length+' weitere'+(_tot.length===1?'r':'')+' ohne Stammidentität</span>'
+        +'<span class="fgOffDet" style="display:none">'
+        +_tot.map(function(k){ return _kandZeile(k,true); }).join("")+'</span></span>';
+    }
   }
   return H+'</span>';
 }
+/* Aufklapper fuer Details und nicht bindbare Kandidaten. Zeigt und verbirgt -
+   mehr nicht; kein Zustand, der irgendwo gemerkt werden muesste. */
+function fgOffDetails(el){
+  try{
+    var d=el&&el.parentNode?el.parentNode.querySelector(".fgOffDet"):null;
+    if(!d) return;
+    d.style.display=(d.style.display==="none")?"":"none";
+  }catch(e){ console.error("[#309 Details]",e); }
+}
+if(typeof window!=="undefined"){ window.fgOffDetails=fgOffDetails; }
 /* ────────────────────────────────────────────────────────────────────────────
    WORK #291 — EIN KLICK BINDET. Kein neuer Bindungsweg: es ist derselbe Aufruf
    cb_admin_canonical_zutat_binden, den die Verarbeitungsaenderung seit #218 nutzt.
@@ -1272,6 +1374,27 @@ async function fgOffKandidatBinden(entityId, name, btn){
     if(!d||d.ok!==true) throw new Error((d&&(d.fehler||d.grund))||"Der Server hat die Bindung nicht bestätigt.");
     _fgOffMsg(btn,"✓ zugeordnet: "+String(d.canonical_name||name)
       +(d.rating!=null?(" · Wert "+d.rating):" · Wert noch nicht belegt – Verarbeitung wählen"),"var(--k-166534)");
+    /* 🔴 WORK #308 — DIE ZEILE MUSS IN DIE VERSTECKTE ALTLISTE.
+       Ralph, 26.08., mit Bild: "ich habe dattel und kakaopulver zugeordnet und
+       gespeichert. dann sind die beiden zutaten nicht mehr in der liste."
+       GEMESSEN an P73634: die Bindung stand in der Datenbank, nach dem Speichern
+       war sie weg. cb_produkt_speichern ruft cb_produkt_ingest mit
+       zutaten_replace=true - die gesamte Zutatenliste wird durch das ersetzt,
+       was in #fe_zutRows steht. Diese versteckte Liste wird beim Oeffnen EINMAL
+       aus d.zutaten gefuellt (Zeile 4414) und von der Canonical-Bindung nie
+       angefasst. Wer band und dann speicherte, loeschte seine eigene Bindung.
+       Name und Note kommen aus der Serverantwort, nicht von hier. */
+    try{
+      var _c=document.getElementById("fe_zutRows");
+      var _nm=String(d.canonical_name||name||"").trim();
+      if(_c && _nm && typeof fgZutRow==="function"){
+        var _key=_nm.toLowerCase();
+        var _da=[].some.call(_c.querySelectorAll(".fgZutRow"),function(r){
+          return ((r.querySelector(".fgzName")||{}).value||"").trim().toLowerCase()===_key; });
+        if(!_da) _c.insertAdjacentHTML("beforeend",
+          fgZutRow(_nm,(d.rating!=null?d.rating:null),"nein"));
+      }
+    }catch(e){ console.error("[#308 Altliste nachziehen]",e); }
     /* Vollstaendig neu laden: gebundene Liste, offene Liste, Zuordnungsstand.
        Alles vorhandene Lader - hier wird kein Zustand von Hand nachgezogen. */
     try{ if(typeof fgCanonLaden==="function") await fgCanonLaden(pid); }catch(e){}
@@ -1369,23 +1492,45 @@ function _fgZutOffenHtml(){
           }
           _zu+='<span style="color:var(--muted)"> · noch nicht gebunden</span>';
         }else if(_rs){
-          _zu='<span style="color:var(--k-b45309,#b45309)">⚠ nicht zugeordnet</span>'
-            +'<span style="color:var(--muted)"> · Zustand: '+esc(_rs)+'</span>';
+          /* Work #309: hier stand zusaetzlich "Zustand: unresolved". Das ist der
+             englische Schluesselwert des Servers und sagt dasselbe wie das Wort
+             davor - nur unverstaendlich. Er steht jetzt im title. */
+          _zu='<span style="color:var(--k-b45309,#b45309)" title="Serverzustand: '+esc(_rs)+'">'
+            +'⚠ noch nicht zugeordnet</span>';
         }
         if(_zu) H+='<span style="display:block;margin-top:3px;font-size:11px;line-height:1.45">'+_zu+'</span>';
       }
       H+=_fgOffVorschlagHtml(z);
-      /* Die vier Wege. Reihenfolge = Pruefkette. Neuanlage zuletzt und still. */
-      H+='<span class="fgOffWege" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'
-        +'<button type="button" class="fgOffBtn fgOffPrimaer" onclick="fgOffBinden('+esc(iid)+',this)" '
-          +'title="Im Zutatenstamm suchen und diese Zeile an einen bestehenden Eintrag binden – der Normalfall.">im Stamm suchen &amp; binden</button>'
-        +'<button type="button" class="fgOffBtn" onclick="fgOffRikiKette('+esc(iid)+',this)" '
-          +'title="Riki zerlegt die Zeile, der Server löst den Canonical auf, Riki bewertet nach dem AKTIVEN Regelwerk (nur mit Regel-Beleg), der Vorschlag geht an den Wächter. Kein Wert ohne Regel, keine Bindung ohne Mensch.">'
-          +(z.base_ingredient?'Riki-Kette erneut':'Riki prüfen & bewerten')+'</button>'
-        +'<button type="button" class="fgOffBtn" onclick="fgOffKeineZutat('+esc(iid)+',this)" '
-          +'title="Die Zeile ist nur eine Erklärung oder ein Bestandteil einer anderen Zutat – sie wird KEINE eigene Produktzutat. Mit Begründung, widerrufbar.">keine eigene Zutat</button>'
-        +'<button type="button" class="fgOffBtn fgOffLeise" onclick="fgOffNeu('+esc(iid)+',this)" '
-          +'title="Bewusst als NEUE Stammzutat anlegen – der letzte Weg, wenn Suchen, Zerlegen und Markieren nichts ergeben haben (§3.6).">neu anlegen …</button>'
+      /* ────────────────────────────────────────────────────────────────────
+         WORK #309 — RALPH: "die unteren button muessen eh weg."
+         GEMESSEN, bevor etwas geloescht wurde - was jeder der vier tut:
+           fgOffBinden      oeffnet die Stammsuche fuer diese Zeile
+           fgOffRikiKette   laesst Riki gegen das AKTIVE Regelwerk einstufen
+           fgOffKeineZutat  schliesst die Zeile ab (Serverentscheid, widerrufbar)
+           fgOffNeu         legt eine NEUE Stammzutat an
+         Zwei davon sind tragend: die Riki-Kette ist der einzige Weg zu einer
+         regelbelegten Note, und fgOffKeineZutat ist der einzige Abschluss.
+         Sie zu loeschen haette Wege gekostet, nicht Text. Deshalb: aus der
+         Ansicht verschwunden, nicht aus dem Programm. Sichtbar bleibt EIN
+         Knopf - der Abschluss, den Ralph im Trockenobst-Fall gesucht hat.
+         ──────────────────────────────────────────────────────────────────── */
+      H+='<span class="fgOffWege" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;align-items:baseline">'
+        +'<button type="button" class="fgOffBtn fgOffPrimaer" onclick="fgOffZerlegtFertig('+esc(iid)+',this)" '
+          +'title="Die Zeile ist erledigt: ihre Bestandteile stehen als eigene Zutaten am Produkt, sie selbst wird keine. Zeigt vorher, was gerade gebunden ist. Widerrufbar.">'
+          +'✓ erledigt – ist zerlegt</button>'
+        +'<span class="fgOffDetTgl" onclick="fgOffDetails(this)" style="cursor:pointer;color:var(--muted);'
+          +'font-size:10.5px;text-decoration:underline dotted" title="Suchen, Riki-Einstufung, Neuanlage">weitere Wege</span>'
+        +'<span class="fgOffDet" style="display:none;gap:5px;flex-wrap:wrap">'
+          +'<button type="button" class="fgOffBtn" onclick="fgOffBinden('+esc(iid)+',this)" '
+            +'title="Im Zutatenstamm suchen und diese Zeile an einen bestehenden Eintrag binden – wenn oben kein Vorschlag passt.">im Stamm suchen</button>'
+          +'<button type="button" class="fgOffBtn" onclick="fgOffRikiKette('+esc(iid)+',this)" '
+            +'title="Riki zerlegt die Zeile, der Server löst den Canonical auf, Riki bewertet nach dem AKTIVEN Regelwerk (nur mit Regel-Beleg), der Vorschlag geht an den Wächter. Kein Wert ohne Regel, keine Bindung ohne Mensch.">'
+            +(z.base_ingredient?'Riki-Kette erneut':'Riki einstufen')+'</button>'
+          +'<button type="button" class="fgOffBtn" onclick="fgOffKeineZutat('+esc(iid)+',this)" '
+            +'title="Wie „erledigt – ist zerlegt", aber mit eigener Begründung.">anderer Grund …</button>'
+          +'<button type="button" class="fgOffBtn fgOffLeise" onclick="fgOffNeu('+esc(iid)+',this)" '
+            +'title="Bewusst als NEUE Stammzutat anlegen – der letzte Weg, wenn Suchen, Zerlegen und Markieren nichts ergeben haben (§3.6).">neu anlegen …</button>'
+        +'</span>'
       +'</span>'
       +'<span class="fgOffMsg" style="display:block;font-size:11px;margin-top:2px"></span>';
       return H+'</div>';
@@ -1490,6 +1635,54 @@ async function fgOffZerlegen(iid, btn){
     if(btn){ btn.disabled=false; }
   }
 }
+/* ────────────────────────────────────────────────────────────────────────────
+   WORK #309 — "ERLEDIGT, IST ZERLEGT"
+   Ralph, 26.08.: er hatte Dattel und Kakaopulver aus der Zeile "Trockenobst
+   (78 % getrocknete Datteln, 12 % Kakaopulver)" gebunden - und der gelbe Kasten
+   blieb trotzdem stehen. GEMESSEN, warum: cb_admin_zutat_offen_mit_riki prueft,
+   ob die ZEILE selbst gebunden ist. Ihre Bestandteile zu binden schliesst sie
+   nicht - fachlich richtig, denn die Zeile ist eine zusammengesetzte Zutat.
+   Was fehlte, war der Abschluss "sie ist zerlegt, ihre Teile stehen da".
+   🔴 KEIN NEUER SERVERWEG. Derselbe Aufruf wie "keine eigene Zutat", nur mit
+   vorbereiteter Begruendung. Und: der Dialog BEHAUPTET nicht, dass die Teile
+   gebunden sind - er zeigt, was gerade am Produkt steht, und Ralph entscheidet.
+   ────────────────────────────────────────────────────────────────────────── */
+async function fgOffZerlegtFertig(iid, btn){
+  var z=_fgOffItem(iid); if(!z) return;
+  var txt=String(z.zutat_text||"").trim();
+  var canon=Array.isArray(window._fgCanon)?window._fgCanon:null;
+  var liste;
+  if(canon===null){
+    liste='Was am Produkt gebunden ist, konnte gerade nicht gelesen werden.\n'
+      +'Es wird deshalb NICHT behauptet, die Bestandteile stünden schon da.';
+  }else if(!canon.length){
+    liste='Am Produkt steht derzeit KEINE gebundene Zutat.\n'
+      +'Prüfe, ob die Bestandteile wirklich schon zugeordnet sind.';
+  }else{
+    liste='Am Produkt stehen zurzeit:\n'
+      +canon.slice(0,12).map(function(c){
+          return '  · '+String((c&&(c.canonical_name||c.sichtbarer_name))||'?')
+            +((c&&c.resolved_rating!=null)?('  Note '+c.resolved_rating):'  Note offen'); }).join('\n')
+      +(canon.length>12?('\n  · … und '+(canon.length-12)+' weitere'):'');
+  }
+  if(!confirm('„'+txt+'" als ZERLEGT abschließen?\n\n'
+    +'Die Zeile wird dann keine eigene Produktzutat – ihre Bestandteile sind es.\n\n'
+    +liste+'\n\nDer Entscheid ist widerrufbar.')) return;
+  if(btn){ btn.disabled=true; } _fgOffMsg(btn,"speichere Entscheid …");
+  try{
+    var r=await client.rpc("cb_source_extraction_item_keine_eigene_zutat_setzen",
+      {p_item_id:Number(iid),
+       p_reason:'Zusammengesetzte Zeile – in ihre Bestandteile zerlegt, diese sind als eigene Zutaten gebunden.',
+       p_parenthetical_item:null});
+    if(r&&r.error) throw r.error;
+    await _fgOffReload();
+  }catch(e){
+    console.error("[#309 zerlegt fertig]",e);
+    _fgOffMsgHtml(btn,_fgOffServerFehlerHtml(e));
+    if(btn){ btn.disabled=false; }
+  }
+}
+if(typeof window!=="undefined"){ window.fgOffZerlegtFertig=fgOffZerlegtFertig; }
 async function fgOffKeineZutat(iid, btn){
   var z=_fgOffItem(iid); if(!z) return;
   var grund=prompt('„'+String(z.zutat_text||"")+'" wird KEINE eigene Produktzutat.\n\nWarum? (Pflicht – z. B. „Erklärung der Kefir-Kulturen, keine eigenständige Zutat")');
@@ -8763,6 +8956,20 @@ async function fgEditSave(alsoFreigeben){
       + "(Schutz gegen versehentliches Leerschreiben). Einzelne Zutaten entfernst du, indem "
       + "mindestens eine stehen bleibt; alle auf einmal zu loeschen ist bewusst nicht vorgesehen. "
       + "Die Liste steht wieder wie vorher - ein zweiter Klick auf Speichern aendert daran nichts.");
+  } else if((_warNeu||_dirty.zut) && !_warNeu && _fgGebundeneFehlen(zut).length){
+    /* 🔴 WORK #308 — RIEGEL GEGEN DEN STILLEN VERLUST EINER BINDUNG.
+       Der Einzelfix zieht die gebundene Zeile in #fe_zutRows nach. Dieser Riegel
+       faengt jeden ANDEREN Weg, der die versteckte Altliste umgeht - heute und
+       beim naechsten Knopf, den jemand baut. Der Kernvertrag sagt: manuelle
+       gueltige Entscheidungen sind geschuetzt, Speichern und Neuladen sind
+       idempotent, kein stiller Zustandsverlust. Ein Speichern, das eine
+       serverseitig gebundene Zutat aus der Liste wirft, verletzt genau das. */
+    var _fehlt=_fgGebundeneFehlen(zut);
+    _fehler.push("Zutaten: NICHT ersetzt. Diese am Produkt gebundene"
+      + (_fehlt.length===1?" Zutat steht":"n Zutaten stehen")
+      + " nicht in der Arbeitsliste und wuerde"+(_fehlt.length===1?"":"n")+" beim Speichern geloescht: "
+      + _fehlt.join(", ") + ". Alles andere ist gespeichert. Lade die Seite neu - "
+      + "danach steht die Bindung in der Liste und Speichern geht durch.");
   } else if(_warNeu||_dirty.zut) payload.zutaten=zut;
   if(_qt) payload.quelle_typ=_qt;
   if(window._fgEdit&&window._fgEdit.id) payload.produkt_id=window._fgEdit.id;
