@@ -1814,6 +1814,11 @@ var _AB_KACHELN=[
      Die BAUER bleiben alle im Code. Wer eine Kachel zurückwill, hängt eine Zeile
      wieder ein — kein Neubau, und gespeicherte Layouts brechen nicht.
   */
+  /* 🔴 26.08.2026: genau vier Kacheln — 4 x 285 + 3 x 20 = 1200, die volle
+     Breite der Flaeche. Eine fuenfte wuerde umbrechen und Ralph muesste
+     wieder scrollen. Entscheidungen steht vorn: es ist das Einzige, was
+     ohne ihn liegenbleibt. */
+  {id:'entscheid', reihe:1, titel:'Deine Entscheidungen',   breit:false, bau:_abkEntscheid, hoch:true},
   {id:'bestand',   reihe:1, titel:'Katalog',                  breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr', hoch:true},
   {id:'riki',      reihe:1, titel:'RIKI',                     breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
   /* 🔴 26.08.2026, Ralph: „nutzer & region höher darstellen, da muss ich aktuell
@@ -4337,6 +4342,47 @@ function _abCkZeile(l,v,key,farbe){
 }
 
 /* ---- 2) KATALOG ----------------------------------------------------------- */
+/* ============================================================================
+   DEINE ENTSCHEIDUNGEN  ·  Ralph 26.08.2026
+   ----------------------------------------------------------------------------
+   „das thema aufgaben anzeige zum entscheiden haben wir auch noch nicht drin."
+   Stimmt: die rote Leiste sagt „7 Entscheidungen warten auf dich", aber nicht
+   WELCHE. Ralph sah eine Zahl ohne Tür.
+
+   Diese Kachel zeigt AUSSCHLIESSLICH, was bei ihm liegt — keine Arbeitsliste,
+   keine 142 Zeilen. Das war der Grund, warum die alte Arbeitskachel rausflog.
+   Die Daten stehen bereits im Cockpit-Vertrag (karten.aufgaben.top): dort
+   liefert der Server die dringendsten Punkte, Entscheidungen zuerst. Kein
+   zweiter Abruf, keine zweite Zählung (§4.2).
+   ========================================================================== */
+function _abkEntscheid(c){
+  var ck=_abCkKarte('aufgaben');
+  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+  var n=Number(ck.bei_ralph)||0;
+  var top=(ck.top||[]).filter(function(x){ return x && x.decision_needed===true; });
+  var zeilen=top.slice(0,4).map(function(x){
+    var t=String(x.title||'').replace(/\s+—.*$/,'');       /* Kurzfassung bis zum Gedankenstrich */
+    if(t.length>52) t=t.slice(0,52).replace(/\s+\S*$/,'')+' …';
+    return '<div class="bzeile bdrill" data-drill="'+esc(ck.drill_key||'arbeit_attention')+'"'
+      +' data-drill-titel="Entscheidungen" title="'+esc(String(x.title||''))+'">'
+      +'<span style="font-size:11.5px">#'+esc(String(x.work_id))+' '+esc(t)+'</span>'
+      +'<b style="font-size:11px;opacity:.6">P'+esc(String(x.priority==null?'':x.priority))+'</b></div>';
+  }).join('');
+  var rest=n-Math.min(top.length,4);
+  return {
+    tag: n>0
+      ? '<span class="abtag" style="background:#fdf1f1;color:'+_AB.krit+'">'+n+' offen</span>'
+      : '<span class="abtag" style="background:#effaef;color:'+_AB.gut+'">nichts offen</span>',
+    inhalt:'<div class="bleib"><div class="bzahl" style="color:'+(n>0?_AB.krit:_AB.gut)+'">'
+      +n+'</div><div class="bunter">Entscheidungen bei dir</div>'
+      +(zeilen?'<div style="margin-top:9px">'+zeilen+'</div>':'')
+      +(rest>0?'<div class="bunter" style="margin-top:6px">und '+rest+' weitere</div>':'')
+      +(n===0?'<div class="bleer" style="margin-top:8px">Niemand wartet auf dich.</div>':'')
+    +'</div>',
+    fuss: n>0 ? 'Antippen öffnet die vollständige Liste mit Begründung.' : ''
+  };
+}
+
 function _abkBestand(c){
   var ck=_abCkKarte('bestand');
   if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};

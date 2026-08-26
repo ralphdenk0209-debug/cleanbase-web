@@ -53,6 +53,11 @@ function applyAdminMode(){
          damit weder app.js noch admin.html Fachlogik dafuer bekommen. */
       +_an('benchmark','🎯','Benchmark',"benchmarkBoardOpen()")
       +_an('produkterfassung','🗂️','Erfassen',"adminGo('produkterfassung')",' id="amProdErf"')
+      /* 🔴 26.08.2026, Ralph: „auf dem dashboard fehlt mir noch die zutatenstamm
+         anzeige oder link." GEMESSEN: adminGo('stamm') gibt es seit Langem und
+         funktioniert (Zeile 237), aber im Menue stand kein Knopf dafuer. Ein
+         vorhandener Weg ohne Tuer — genau der Fall aus Paragraf 3.1. */
+      +_an('stamm','🧬','Zutatenstamm',"adminGo('stamm')")
       +_an('bundles','🧩','Bundles',"adminGo('bundles')")
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
       +_an('rezzut','🥣','Rezept-Zutaten',"rezZutatenWaecherOpenSafe()")
