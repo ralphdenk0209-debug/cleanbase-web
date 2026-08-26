@@ -5433,7 +5433,11 @@ function _abWgMal(f,np,A){
     var nm=String(w.name||w.id||'');
     var ballY=an?34:56, stielY=an?36:45;
 
-    var svg='<svg viewBox="0 0 40 78" width="40" height="78" style="display:block">'
+    /* 🔴 pointer-events:none — der Klick muss IMMER die Karte treffen, nie ein
+       Einzelteil im SVG. Sonst haengt es vom Zufall ab, ob man den Sechskant,
+       den Hebel oder die Platte erwischt, und mancher Treffer geht ins Leere. */
+    var svg='<svg viewBox="0 0 40 78" width="40" height="78" '
+      +'style="display:block;pointer-events:none">'
       /* Meldeleuchte mit Lichthof */
       +'<circle cx="20" cy="8" r="7.5" fill="'+c.b+'" opacity=".22"/>'
       +'<circle cx="20" cy="8" r="5.4" fill="'+c.a+'" stroke="rgba(0,0,0,.35)" stroke-width=".8"/>'
@@ -5457,7 +5461,10 @@ function _abWgMal(f,np,A){
     return '<div class="abwc" role="button" tabindex="0"'
       +' data-wview="'+esc(w.view||'')+'" data-wnr="'+nr+'" data-wname="'+esc(nm)+'"'
       +' style="flex:0 0 auto;width:52px;display:flex;flex-direction:column;align-items:center;'
-      +'gap:2px;padding:4px 1px 5px;border:1px solid transparent;border-radius:9px;cursor:pointer"'
+      +'gap:2px;padding:4px 1px 5px;border:1px solid transparent;border-radius:9px;'
+      /* Ohne user-select wird aus dem Klick auf den Namen eine Textmarkierung
+         statt eines Klicks. */
+      +'cursor:pointer;user-select:none;-webkit-user-select:none"'
       +' title="'+esc(nm)+' — '+(still?'still, nichts offen':(n+' offen'))
       +(w.gate===true?' · Go-Live-Gate: blockiert die Freigabe':' · blockiert die Freigabe nicht')
       +'\n'+esc(w.kurz||'')+'\nQuelle: '+esc(w.view||'')+'\nKlick zeigt die Fälle">'
