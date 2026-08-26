@@ -1814,7 +1814,7 @@ var _AB_KACHELN=[
      Die BAUER bleiben alle im Code. Wer eine Kachel zurückwill, hängt eine Zeile
      wieder ein — kein Neubau, und gespeicherte Layouts brechen nicht.
   */
-  {id:'bestand',   reihe:1, titel:'Katalog',                  breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr'},
+  {id:'bestand',   reihe:1, titel:'Katalog',                  breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr', hoch:true},
   {id:'riki',      reihe:1, titel:'RIKI',                     breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
   /* 🔴 26.08.2026, Ralph: „nutzer & region höher darstellen, da muss ich aktuell
      scrollen." Die Kachel ist zurück — und in Reihe 1 neben Katalog und RIKI,
@@ -2221,7 +2221,10 @@ function _abStandardLagen(){
      EINE Hoehe fuer alle. Wer eine andere will, zieht sie im Anordnen-Modus. */
   var k={}, x=0, y=0, zeile=0;
   _AB_KACHELN.forEach(function(t){
-    var b=t.breit?590:285, h=_AB_HOEHE;
+    /* 🔴 26.08.2026: `hoch` gibt einer Kachel mehr Standardhöhe. Katalog trägt
+       seit Ralphs Umbau sechs Zeilen plus die grosse Zahl — bei 270 px wurde
+       „ohne Quelle" und „EAN fehlt" unten abgeschnitten (im Browser gesehen). */
+    var b=t.breit?590:285, h=_AB_HOEHE+(t.hoch?70:0);
     if(x+b>_AB_LW){ x=0; y+=zeile+20; zeile=0; }
     k[t.id]={x:x, y:y, b:b, h:h, z:1};
     x+=b+20; zeile=Math.max(zeile,h);
@@ -2297,7 +2300,26 @@ function _abLayoutSetzen(cfg){
    Reihen mehr, nur noch Lagen. */
 function _abKachelFlaeche(){
   var std=_abStandardLagen(), konf={};
-  if(_AB_LAYOUT) _AB_LAYOUT.kacheln.forEach(function(e){ konf[e.id]=e; });
+
+  /* 🔴 26.08.2026, IM BROWSER GESEHEN, nicht vermutet. Nach Ralphs Umbau von
+     elf auf drei Kacheln stand links die halbe Fläche leer, Katalog war unten
+     abgeschnitten und „Nutzer & Regionen" lag 680 Pixel tief — Ralph musste
+     scrollen. Ursache: das GESPEICHERTE Layout gewinnt über das Register, und
+     darin standen die drei verbliebenen Kacheln noch auf ihren alten Plätzen
+     zwischen acht inzwischen entfernten.
+     REGEL: passt das gespeicherte Layout nicht mehr zum Register, wird es für
+     die Anzeige ignoriert und die Standardlagen gelten. Gelöscht wird es NICHT
+     — wer die alten Kacheln zurückholt, hat seine Anordnung wieder. */
+  var layoutPasst=true;
+  if(_AB_LAYOUT && _AB_LAYOUT.kacheln){
+    layoutPasst=_AB_LAYOUT.kacheln.every(function(e){
+      if(!e || e.aus || e.typ) return true;              /* aus oder selbst angelegt */
+      return _AB_KACHELN.some(function(x){ return x.id===e.id; });
+    });
+    if(!layoutPasst){ try{ console.info('[Dashboard] Gespeichertes Layout passt '
+      +'nicht mehr zum Kachelsatz — Standardlagen gelten.'); }catch(_){} }
+  }
+  if(_AB_LAYOUT && layoutPasst) _AB_LAYOUT.kacheln.forEach(function(e){ konf[e.id]=e; });
 
   /* 🔴 20.08.2026, Work #121 Kriterium 2 — GEMESSENER FEHLER, nicht vermutet.
      Ein gespeichertes Layout ist immer AELTER als das Register. Kacheln, die
@@ -2311,7 +2333,7 @@ function _abKachelFlaeche(){
      ablegt. Ohne gespeichertes Layout aendert sich nichts: dann gelten die
      Standardlagen wie bisher. */
   var nachtrag={};
-  if(_AB_LAYOUT){
+  if(_AB_LAYOUT && layoutPasst){
     var unten=0;
     _AB_LAYOUT.kacheln.forEach(function(e){
       if(e.aus) return;
@@ -5105,7 +5127,19 @@ function dashArbeitHtml(d,np,fehler){
 
   /* Beide Bento-Reihen liegen in EINEM Behaelter, damit der Anordnen-Modus sie
      zusammen neu zeichnen kann, ohne die Seite neu zu laden. */
-  h+='<div id="abBentoBox">'+_abEditLeiste()+_abProjektzeitHtml()+_abBento(d,np,A)+_abBento2()
+  /* 🔴 26.08.2026, Ralph: „die wächter wolltest du nach oben bauen."
+     Reihenfolge jetzt: Termine → Wächter-Raster → Kacheln. Die Wächter sind das,
+     woran gearbeitet wird; sie standen ganz unten hinter allem anderen. */
+  h+='<div id="abBentoBox">'+_abEditLeiste()+_abProjektzeitHtml()
+    +'<div class="abp" style="margin:0 0 14px"><div class="abph"><h3>Alle Wächter</h3>'
+    +'<span class="abtab on" data-wf="alle">alle '+((np&&np.waechter)||[]).length+'</span>'
+    +'<span class="abtab" data-wf="melden">melden ('+A.melden+')</span>'
+    +'<span class="abtab" data-wf="gate">Go-Live-Gate</span>'
+    +'<span class="abtab" data-wf="anlage">Anlage</span>'
+    +'<span class="abtab" data-wf="tuer">Tür</span>'
+    +'<span class="abtab" data-wf="bestand">Bestand</span></div>'
+    +'<div class="abwg" id="abWg"></div><div class="abfoot" id="abWf"></div></div>'
+    +_abBento(d,np,A)+_abBento2()
     +'<div id="abZeitBox"></div>'+_abCmdHtml()+'</div>';
 
   /* ==========================================================================
@@ -5147,15 +5181,8 @@ function dashArbeitHtml(d,np,fehler){
      Anordnen-Modus greifen darauf zu. Entfernt ist der feste Platz, nicht das
      Werkzeug. */
 
-  /* Das Wächter-Raster — ab jetzt die einzige Wächteranzeige. */
-  h+='<div class="abp"><div class="abph"><h3>Alle Wächter</h3>'
-    +'<span class="abtab on" data-wf="alle">alle '+((np&&np.waechter)||[]).length+'</span>'
-    +'<span class="abtab" data-wf="melden">melden ('+A.melden+')</span>'
-    +'<span class="abtab" data-wf="gate">Go-Live-Gate</span>'
-    +'<span class="abtab" data-wf="anlage">Anlage</span>'
-    +'<span class="abtab" data-wf="tuer">Tür</span>'
-    +'<span class="abtab" data-wf="bestand">Bestand</span></div>'
-    +'<div class="abwg" id="abWg"></div><div class="abfoot" id="abWf"></div></div>';
+  /* Das Wächter-Raster steht jetzt OBEN, direkt unter den Terminen — siehe
+     abBentoBox weiter oben. Hier stand es bis zum 26.08.2026 ganz unten. */
 
   h+='</div>';
   return h;
