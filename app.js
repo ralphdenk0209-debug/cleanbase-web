@@ -6045,6 +6045,24 @@ function zutStammSave(id){
    nur neu angeordnet. Nichts wird gedoppelt, kein Zähler neu erfunden – die Farben/der Rahmen
    sind Darstellung. Der Drill (Klick → betroffene Produkte, direkt bearbeitbar) ist der schon
    vorhandene dashDrill(); die Ampel-Schiene und die Benutzerführung rufen genau ihn auf. */
+/* Störungsblock der Arbeitsfläche (Ralph 26.08.2026, Work #283).
+   Ersetzt den früheren Rückfall auf das alte Dashboard: ein Grund, ein Knopf,
+   kein zweites Dashboard darunter. Datenbankdeutsch wird übersetzt — „canceling
+   statement due to statement timeout" hat Ralph nichts gesagt. */
+function _abStoerung(titel, grund){
+  var g = String(grund||'');
+  var klartext = '';
+  if(/statement timeout/i.test(g))      klartext = 'Die Datenbank hat zu lange gebraucht und abgebrochen.';
+  else if(/Nur Admins/i.test(g))        klartext = 'Dieser Zugang darf die Arbeitsfläche nicht sehen.';
+  else if(/Failed to fetch|NetworkError/i.test(g)) klartext = 'Keine Verbindung zur Datenbank.';
+  return '<div style="font-size:12.5px;color:var(--k-dc2626);margin-bottom:10px">'
+    +'<b>'+esc(titel)+'</b>'
+    +(klartext?'<br><span style="color:var(--ink,#0b0b0b)">'+esc(klartext)+'</span>':'')
+    +'<br><span style="color:var(--muted);font-size:11.5px">Grund: '+esc(g)+'</span>'
+    +'<div style="margin-top:8px"><button class="btn" onclick="loadDashboard()">↻ Nochmal versuchen</button></div>'
+    +'</div>';
+}
+
 async function loadDashboard(){
   const box=document.getElementById("fgDash"); if(!box) return;
   dashVorgangCss();
@@ -6124,18 +6142,18 @@ async function loadDashboard(){
       }catch(e){
         /* Baufehler in der neuen Ansicht darf den Admin nicht lahmlegen. */
         try{ console.error('Arbeitsfläche konnte nicht gebaut werden:',e); }catch(_){}
-        box.innerHTML='<div style="font-size:12.5px;color:var(--k-dc2626);margin-bottom:10px">'
-          +'<b>Arbeitsfläche konnte nicht gebaut werden.</b> Grund: '+esc((e&&e.message)||String(e))
-          +' — unten steht das bisherige Dashboard.</div>';
-        try{ box.innerHTML+=dashEnterpriseHtml(d); dashAuditLoad(); dashKarteLoad(); dashSupaLoad(); }catch(_e){}
+        box.innerHTML=_abStoerung('Arbeitsfläche konnte nicht gebaut werden.',(e&&e.message)||String(e));
+        try{ adminNavBadges(d); }catch(_b){}
         return;
       }
     }
-    /* cb_netzplan nicht erreichbar: Grund zeigen, dann das alte Dashboard darunter. */
-    box.innerHTML='<div style="font-size:12.5px;color:var(--k-dc2626);margin-bottom:10px">'
-      +'<b>Arbeitsfläche nicht verfügbar.</b> Grund: '+esc(_npFehler||'cb_netzplan hat nichts geliefert')
-      +' — unten das bisherige Dashboard.</div>';
-    try{ box.innerHTML+=dashEnterpriseHtml(d); dashAuditLoad(); dashKarteLoad(); dashSupaLoad(); adminNavBadges(d); }catch(e){}
+    /* Ralph 26.08.2026: der Rückfall auf das alte Enterprise-Dashboard ist entfernt.
+       Zwei Dashboards übereinander waren keine Hilfe, sondern eine zweite Wahrheit —
+       und sie machte den Fehler weniger sichtbar, nicht mehr. Fällt cb_netzplan aus,
+       steht ab jetzt nur noch der Grund da, an der Stufe, an der er entsteht.
+       Rücksprungpunkt: bereiche/_sicherungen/2026-08-26-work-283-vor-altdashboard-raus/ */
+    box.innerHTML=_abStoerung('Arbeitsfläche nicht verfügbar.',_npFehler||'cb_netzplan hat nichts geliefert');
+    try{ adminNavBadges(d); }catch(e){}
     return;
   }
 
@@ -14560,7 +14578,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-26-4415";
+const APP_BUILD = "2026-08-26-4416";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
