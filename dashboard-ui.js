@@ -1282,6 +1282,17 @@ function _abHeroZahlenHtml(){
   if(_AB_CK_FEHLER) return '<div class="hz"><b>–</b><span>keine Lagemeldung</span></div>';
   if(!_AB_CK) return '<div class="hz"><b>…</b><span>lädt</span></div>';
   var a=_abCkAttention();
+  /* 🔴 26.08.2026, Ralph: „die doppelungen oben weg."
+     GEMESSEN: alle vier Zahlen der roten Leiste standen weiter unten nochmal —
+     31 Foto-Eingänge in „Eingang", 1991 Gate-Fälle in „Qualität", 33 RIKI-Fehler
+     in „RIKI", 7 Entscheidungen in „Arbeit". Man liest jede wichtige Zahl zweimal
+     und weiß nicht, welche gilt.
+     Hier fliegen die beiden raus, die IDENTISCH in einer Kachel danebenstehen.
+     „Entscheidungen warten auf dich" BLEIBT: die Arbeitskachel ist am selben Tag
+     entfernt worden, die Leiste ist jetzt der einzige Ort dafür. Der Serververtrag
+     bleibt unverändert — das ist eine Anzeigeentscheidung, keine zweite Wahrheit. */
+  var _doppelt={qualitaetsgate:1, riki_fehler:1};
+  a=a.filter(function(x){ return !_doppelt[String(x&&x.id||'')]; });
   if(!a.length) return '<div class="hz"><b>0</b><span>offene Punkte</span></div>';
   return a.slice(0,4).map(function(x){
     var f=_AB_CK_FARBE[x.severity]||'#c9d2dd';
@@ -1780,7 +1791,14 @@ var _AB_KACHELN=[
      Frage sie beantwortet: Arbeit · Eingang · Qualitaet · Katalog · Stamm ·
      RIKI · Nutzung · Betrieb. Vorher hiessen zwei davon nach ihrer Herkunft
      („Wächter-Status", „Letzte Aktivitäten") statt nach ihrem Zweck. */
-  {id:'aufgaben',  reihe:1, titel:'Arbeit',                   breit:true,  bau:_abkAufgaben, foto:'flusslauf', leds:'r ge', text:true},
+  /* 🔴 26.08.2026, Ralph: die Arbeitskachel ist RAUS. Sie hat mit 142 Zeilen den
+     ganzen Bildschirm erschlagen — eine Aufgabenliste ist kein Überblick.
+     Die Aufgaben werden separat durchgesehen (nötig/sinnvoll), erst danach
+     entscheidet Ralph, ob und wie sie zurückkommt.
+     Der Bauer _abkAufgaben bleibt stehen: er wird über die freie Kachel und
+     über den Anordnen-Modus weiter erreicht, und ein gespeichertes Layout mit
+     'aufgaben' darf nicht kaputtgehen.
+  {id:'aufgaben',  reihe:1, titel:'Arbeit',                   breit:true,  bau:_abkAufgaben, foto:'flusslauf', leds:'r ge', text:true}, */
   {id:'bestand',   reihe:1, titel:'Katalog',                  breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr'},
   {id:'riki',      reihe:1, titel:'RIKI',                     breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
   {id:'waechter',  reihe:1, titel:'Qualität',                 breit:false, bau:_abkWaechter, foto:'stroem',    leds:'r ge'},
@@ -4204,18 +4222,34 @@ function _abkBestand(c){
   if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
   var dr=ck.drills||{};
   var w=function(v){ return (Number(v)||0)>0 ? _AB.warn : null; };
+  /* 🔴 26.08.2026, Ralph: „hier sollen die anzahl entwurf produkte angezeigt
+     werden und anzahl freigegebene und wie viel heute neu sind."
+     Die Lückenzahlen (ohne Index, ohne Quelle, EAN fehlt) bleiben darunter —
+     sie sind die anklickbaren Arbeitslisten und standen schon vorher da.
+     Alle vier Zahlen kommen aus cockpit_v2; hier wird nichts gerechnet. */
+  var heute=Number(ck.heute_neu);
+  var sieben=Number(ck.neu_7t);
+  /* Eine 0 an einem ruhigen Tag ist eine ECHTE Null (§1). Damit sie nicht wie
+     ein kaputter Zähler aussieht, steht die Sieben-Tage-Zahl daneben. */
+  var heuteText = isNaN(heute) ? '–'
+    : (heute>0 ? String(heute)
+               : '0'+(isNaN(sieben)?'':' <span style="opacity:.6">('+sieben+' in 7 Tagen)</span>'));
   return {
     tag:'',
     inhalt:'<div class="bleib"><div class="bzahl" style="color:'+_AB.kern+'">'
       +(ck.aktiv==null?'–':ck.aktiv)+'</div>'
-    +'<div class="bunter">aktive Produkte</div>'
+    +'<div class="bunter">freigegebene Produkte</div>'
     +'<div style="margin-top:9px">'
+      + _abCkZeile('Entwürfe',   ck.entwurf, null)
+      + '<div class="bbz"><span class="nm">heute neu</span>'
+        + '<span class="werte"><b>'+heuteText+'</b></span></div>'
+    +'</div>'
+    +'<div style="margin-top:9px;padding-top:7px;border-top:1px solid var(--line,#eef2f6)">'
       + _abCkZeile('ohne Index-Zahl', ck.ohne_score,    dr.ohne_score,  w(ck.ohne_score))
       + _abCkZeile('ohne Quelle',     ck.ohne_quelle,   dr.ohne_quelle, w(ck.ohne_quelle))
-      + _abCkZeile('unverifiziert',   ck.unverifiziert, null,           w(ck.unverifiziert))
       + _abCkZeile('EAN fehlt',       ck.ean_fehlt,     dr.ean_fehlt,   w(ck.ean_fehlt))
     +'</div></div>',
-    fuss:'Nur Lücken, an denen man arbeiten kann — jede Zahl mit Liste ist anklickbar.'
+    fuss:'Oben der Bestand, unten die Lücken — jede Zahl mit Liste ist anklickbar.'
   };
 }
 
@@ -4244,20 +4278,35 @@ function _abkRiki(c){
     : '<div class="bunter">noch keine Tageswerte</div>';
   return {
     tag:'',
-    inhalt:'<div class="bleib"><div class="bzahl" style="color:'+bf+'">'
-      +(lim? verbr.toFixed(2).replace('.',',')+' $' : '–')+'</div>'
-    +'<div class="bunter">'+(lim? 'von '+lim.toFixed(0)+' $ im Monat' : 'kein Limit hinterlegt')+'</div>'
-    +(lim?'<div class="abbar" style="margin-top:8px"><i style="width:'+Math.round(anteil*100)
-      +'%;background:'+bf+'"></i></div>':'')
+    /* 🔴 26.08.2026, Ralph: „riki kosten, aber aktuell und nicht irgendwelche
+       rechnungen." Deshalb steht jetzt HEUTE gross und der Monat klein.
+       Grund, gemessen am 26.08.: für den Monat gibt es vier verschiedene Zahlen —
+       cockpit 78,28 $, Riki_Nutzung 126,71 $, Benchmark 63,81 $ in einem eigenen
+       Buch, und die Anthropic-Console wies am 25.08. rund 97 $ aus. Solange
+       #254 und #265 offen sind, ist die Monatszahl nicht belastbar. Die
+       Tagesausgabe lebt nicht von aufaddierten Buchungsfehlern. */
+    inhalt:'<div class="bleib"><div class="bzahl" style="color:'+_AB.kern+'">'
+      +(ck.heute_usd==null?'–':Number(ck.heute_usd).toFixed(2).replace('.',',')+' $')+'</div>'
+    +'<div class="bunter">heute ausgegeben · '+(ck.heute_calls==null?'–':ck.heute_calls)+' Aufrufe</div>'
     +spark
-    +'<div style="margin-top:7px">'
-      + _abCkZeile('Aufrufe heute', ck.heute_calls, null)
+    +'<div style="margin-top:9px">'
       + _abCkZeile('Fehler, 24 h', ck.fehler_24h, ck.drill_key,
                    ((Number(ck.fehler_24h)||0)>0?_AB.krit:null))
-    +'</div></div>',
+    +'</div>'
+    +(lim
+      ? '<div style="margin-top:9px;padding-top:7px;border-top:1px solid var(--line,#eef2f6)">'
+        +'<div class="bbz"><span class="nm">Monat <span class="schw"><i class="ge">'
+          +'eigene Zählung, siehe unten</i></span></span>'
+        +'<span class="werte"><b style="color:'+bf+'">'+verbr.toFixed(2).replace('.',',')+' $</b>'
+        +'<span style="opacity:.6"> / '+lim.toFixed(0)+'</span></span></div>'
+        +'<div class="abbar" style="margin-top:6px"><i style="width:'+Math.round(anteil*100)
+        +'%;background:'+bf+'"></i></div></div>'
+      : '')
+    +'</div>',
     fuss:lim ? ('Prognose Monatsende ~'+prog.toFixed(0)+' $ · '
       +(progOk?'im Rahmen':'<b style="color:'+_AB.krit+'">über Budget</b>')
-      +' — läuft es voll, blockt Riki. Gewollt.') : ''
+      +'. ⚠ Die Monatszahl ist die eigene Zählung und weicht von der echten '
+      +'Abrechnung ab (#254, #265) — verlass dich auf den Tageswert.') : ''
   };
 }
 
@@ -4316,16 +4365,35 @@ function _abkWaechter(c){
         +(ck.messung_veraltet===true
           ? ' · <span style="color:'+_AB.warn+'">ein Messstand ist veraltet</span>' : '')
       +'</div>'
-      +'<div class="bhalb">'
-        +'<svg viewBox="0 0 196 106" width="180" height="98">'
-          +'<path d="M17,97 A81,81 0 0,1 179,97" fill="none" stroke="#d5dade" stroke-width="16"/>'
-          +'<path d="M17,97 A81,81 0 0,1 '+e.x+','+e.y+'" fill="none" stroke="'+farbe
-            +'" stroke-width="16"/>'
-        +'</svg>'
-        +'<div class="pz">'+quote+' %</div>'
-        +'<div class="pl">still — '+(g.length-still)+' melden</div>'
+      /* 🔴 26.08.2026, Ralph: „die wächter sind wichtig oben, aber kleiner
+         dargestellt ggf in einer zeile."
+         Der Halbkreis ist raus. Er brauchte 98 Pixel Höhe, um eine einzige
+         Prozentzahl zu zeigen — dieselbe Aussage steht jetzt als ein Satz.
+         Darunter EINE Zeile Marken: je Wächter ein Feld, rot wenn offen, grün
+         wenn still. Antippen öffnet dieselbe Arbeitsliste wie vorher; der
+         Sprungweg ist unverändert (§22, kein zweiter Weg). */
+      +'<div style="font-size:12.5px;margin:2px 0 8px">'
+        +'<b style="color:'+farbe+'">'+quote+' %</b> still · '
+        +(g.length-still)+' von '+g.length+' melden'
       +'</div>'
-      + g.filter(function(x){ return (Number(x.offen)||0)>0; }).map(zeile).join('')
+      +'<div style="display:flex;flex-wrap:wrap;gap:5px">'
+        + g.map(function(x){
+            var offen=Number(x.offen)||0;
+            var an=(x.drill_key && offen>0);
+            return '<span'+(an?' class="bdrill" data-drill="'+esc(x.drill_key)
+                  +'" data-drill-titel="'+esc(x.name||x.id)+'"':'')
+              +' title="'+esc((x.name||x.id)+' — '+(x.frisch===true?'frisch gemessen':'Messstand alt'))+'"'
+              +' style="display:inline-flex;align-items:center;gap:4px;'
+              +'border:1px solid '+(offen>0?'#f0a9a4':'var(--line,#dbe3ea)')+';'
+              +'background:'+(offen>0?'#fdeaea':'transparent')+';'
+              +'border-radius:7px;padding:2px 7px;font-size:11.5px;'
+              +(an?'cursor:pointer;':'')
+              +(x.frisch===true?'':'border-style:dashed;')+'">'
+              +'<span style="opacity:.8">'+esc(x.name||x.id||'')+'</span>'
+              +'<b style="color:'+(offen>0?_AB.krit:_AB.gut)+'">'+offen+'</b>'
+            +'</span>';
+          }).join('')
+      +'</div>'
       + (still===g.length && g.length
           ? '<div class="bleer">Kein Gate-Wächter meldet etwas.</div>' : '')
       +'<div class="bleg">'
