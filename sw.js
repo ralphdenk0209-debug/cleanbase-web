@@ -6,7 +6,7 @@
    nie verworfen. Zusammen mit einer offen gelassenen App fuehrte das dazu,
    dass Nutzer weiter mit altem Code arbeiteten.
    BEI JEDEM DEPLOY DIESE ZAHL HOCHZAEHLEN – dann wirft activate den alten Cache weg. */
-const CACHE = 'rootindex-2026-08-26-4413';
+const CACHE = 'rootindex-2026-08-26-4414';
 /* 🔴 DIESE ZEILE WIRD VOM DEPLOY-SKRIPT NEU GESCHRIEBEN (Work #144, 20.08.2026).
    Sie war bis heute von Hand gepflegt — und `./ui.css` fehlte darin, seit es die
    Datei gibt. Sobald app.js in Module zerfällt, hätte dort jedes neue Modul
@@ -15,7 +15,7 @@ const CACHE = 'rootindex-2026-08-26-4413';
    deploy.command leitet den Inhalt aus den <script src>/<link href> der beiden
    HTML-Dateien ab. Wer hier von Hand etwas einträgt, das dort nicht eingebunden
    ist, verliert es beim nächsten Deploy — das ist Absicht (§4.2). */
-const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './ui.css', './training-ui.js', './intro-ui.js', './wasser-ui.js', './supplementplan-ui.js', './riki-ui.js', './app.js', './tagebuch-mikro-ui.js', './adminnav.js', './admin-benutzer-ui.js', './fotostudio-ui.js', './dashboard-ui.js', './notiz-dock-ui.js', './mikro-zuordnung-ui.js', './riki-import-ui.js', './benchmark-ui.js', './produktliste.js', './produkteditor.js'];
+const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './ui.css', './training-ui.js', './intro-ui.js', './wasser-ui.js', './supplementplan-ui.js', './riki-ui.js', './app.js', './tagebuch-mikro-ui.js', './adminnav.js', './admin-benutzer-ui.js', './fotostudio-ui.js', './dashboard-ui.js', './notiz-dock-ui.js', './mikro-zuordnung-ui.js', './riki-import-ui.js', './benchmark-ui.js', './staffel-ui.js', './produktliste.js', './produkteditor.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

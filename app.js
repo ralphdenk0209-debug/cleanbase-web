@@ -9365,6 +9365,7 @@ async function loadTagebuch(){
   /* 27z4: Nutzer-Einstellungen (Kopf-Variante) VOR dem Malen laden - nicht nachträglich
      hineinflicken (§1.11n-f). Gecacht, kostet nach dem ersten Mal nichts. */
   if(typeof feat==='function' && feat('tagebuch_neu')){ try{ await einstLaden(); }catch(e){} }
+  window._tbItems = eintraege||[];   /* 29a: der Infoboard-Satz braucht die Eintraege - renderZiel laeuft VOR renderTbListe */
   renderZiel(summe&&summe[0], profil&&profil[0]);
   if(window._zyklus===undefined){ try{ const {data:zk}=await client.rpc("cb_zyklus_get"); const r=(zk&&zk[0])||{}; window._zyklus=(r.start)?{start:r.start,laenge:r.laenge||28,ende:r.ende||null}:{}; }catch(e){ window._zyklus={}; } }
   renderZyklusHint();
@@ -9621,95 +9622,264 @@ function tbKachelHilfe(key){
   box.style.display='block';
 }
 if(typeof window!=='undefined'){ window.tbKlappe=tbKlappe; window.tbKachelHilfe=tbKachelHilfe; }
+/* ===== 29a: INFOBOARD STATT KACHELN (Ralph-Entscheid 26.08.2026) ==========
+   Oben steht EIN Satz - der, der heute etwas zu sagen hat. Darunter der
+   Zahlenkasten: sechs gleich gebaute Zellen mit volllaufendem Balken.
+
+   🔴 KEINE Rotation. Ralph hatte vorgeschlagen, drei bis vier Texte automatisch
+   umschalten zu lassen. Dagegen sprechen vier Dinge, und das vierte ist das
+   eigentliche: was sich von selbst bewegt, wird als Werbung eingeordnet und
+   ueberlesen; man kann nicht zu Ende lesen; automatisch bewegter Inhalt
+   braucht einen Stopp-Knopf (WCAG 2.2.2); und ein Wechsel im Takt sagt
+   "alle vier sind gleich wichtig" - genau die Krankheit, die hier weggeht.
+   Der Satz wechselt, weil der TAG wechselt. Bei 3 g Zucker ist ein Zuckersatz
+   Rauschen, bei 95 g ist er die Hauptnachricht.
+
+   Die uebrigen zutreffenden Saetze verschwinden nicht: sie stehen als Chips
+   darunter und werden per Antippen geholt - von Hand, nicht von selbst.
+
+   🔴 Jeder Satz BESCHREIBT, er mahnt nicht. "95 g Zucker, davon 57 g aus Skyr"
+   ist eine Beobachtung. "Zu viel Zucker" waere der Fehlalarm vom 11.08. in
+   Textform - damals stand die Kachel bei 3,4 g zugesetztem Zucker auf 51/45 g
+   knallrot, weil die uebrigen 47 g aus Zucchini, Papaya, Kefir und Quark kamen.
+   Deshalb nennt jeder auffaellige Wert im selben Satz seine HERKUNFT.
+
+   🔴 EINE Regel, EIN Ort: tbSatzKandidaten() ist die einzige Stelle, die
+   entscheidet, welcher Satz gewinnt. Wandert die Rangfolge spaeter auf den
+   Server, ERSETZT sie diese Funktion - sie tritt nicht daneben. */
+function tbTopBei(items, feld, wieviele){
+  var l=(items||[]).filter(function(r){ return num(r[feld])!=null && num(r[feld])>0; })
+    .sort(function(a,b){ return num(b[feld])-num(a[feld]); });
+  return l.slice(0, wieviele||2);
+}
+function tbNennung(r, feld, nk){
+  var v=num(r[feld])||0;
+  return '<b>'+(nk?v.toFixed(nk).replace('.',','):Math.round(v))+' g</b> aus '+esc(r.Produktname||'einem Eintrag');
+}
+/* Welche der vier Achsen ist bei diesem Produkt am schwaechsten? Nur wenn die
+   Achsen wirklich mitgeliefert werden - sonst bleibt der Zusatz weg, statt
+   geraten zu werden. cb_tagebuch gibt v_tagebuch_eintraege mit select *, die
+   Achsen sind also da; die Pruefung faengt nur den Fall ab, dass sich das
+   aendert. */
+function tbSchwaechsteAchse(r){
+  var A=[['den Zutaten','p_zutaten',30],['den Zusatzstoffen','p_zusatzstoffe',15],
+         ['der Verarbeitung','p_nova',15],['den Nährwerten','p_naehrwert',20]];
+  var best=null;
+  for(var i=0;i<A.length;i++){
+    var v=num(r[A[i][1]]); if(v==null) return null;         /* eine fehlt -> gar keine Aussage */
+    var q=v/A[i][2];
+    if(best===null || q<best.q) best={n:A[i][0], q:q, v:v, max:A[i][2]};
+  }
+  return (best && best.q<0.7) ? best : null;                 /* nur nennen, wenn wirklich schwach */
+}
+function tbSatzKandidaten(s, items, kcalZ, kcalBasis){
+  items=items||[]; var out=[];
+  var n=items.length;
+  var mit=items.filter(function(r){ return num(r.Clean_Score)!=null; }).length;
+  var ohne=n-mit;
+  var idx=(s&&s.score_schnitt!=null)?Math.round(num(s.score_schnitt)):null;
+  var kc=Math.round(num(s&&s.kcal)||0);
+  var zIst=num(s&&s.zucker), saIst=num(s&&s.salz), bIst=num(s&&s.ballaststoffe);
+  var anteil=(kcalZ>0)?(kc/kcalZ):null;
+
+  /* --- Rang 1: Datenlage. Bewertet die App sonst, was sie nicht kennt. --- */
+  if(n>0 && ohne>0 && (ohne/n)>0.2){
+    out.push({k:'daten', chip:'Datenlage', warum:'Rang 1 · Datenlage schlägt Bewertung',
+      satz:'<b>'+ohne+' von '+n+' Einträgen '+(ohne===1?'hat':'haben')+' keinen Index.</b>'
+        +(idx!=null?(' Der Tageswert '+idx+' steht damit nur auf den übrigen '+mit+'.'):'')});
+  }
+
+  /* --- Rang 2: harte Grenze. Salz ist der einzige Wert mit sauberem Richtwert. --- */
+  if(saIst!=null && saIst>SALZ_ZIEL_G){
+    var tS=tbTopBei(items,'salz',1)[0];
+    out.push({k:'salz', chip:'Salz über Richtwert', warum:'Rang 2 · harte Grenze (EFSA 2019)',
+      satz:'<b>'+saIst.toFixed(1).replace('.',',')+' g Salz</b> — der Richtwert liegt bei '
+        +SALZ_ZIEL_G.toFixed(1).replace('.',',')+' g.'
+        +(tS?(' Größter Posten: '+tbNennung(tS,'salz',1)+'.'):'')});
+  }
+
+  /* --- Rang 3: auffaelliger Wert MIT HERKUNFT. Der Richtwert dient hier nur als
+         Ausloeser, er wird NICHT angezeigt - Entscheid 11.08. gilt weiter. --- */
+  var zTrigger=(typeof tbZuckerZiel==='function')?tbZuckerZiel(kcalBasis):0;
+  if(zIst!=null && zTrigger>0 && zIst>zTrigger){
+    var tZ=tbTopBei(items,'zucker',2);
+    var zTxt=tZ.map(function(r){ return tbNennung(r,'zucker',0); }).join(', ');
+    out.push({k:'zucker', chip:'Zucker · Herkunft', warum:'Rang 3 · auffälliger Wert mit Herkunft',
+      satz:'<b>'+Math.round(zIst)+' g Zucker</b> heute'+(zTxt?(' — '+zTxt+'.'):'.')
+        +' <span style="color:var(--tb-muted)">Zugesetzt: noch nicht bestimmbar.</span>'});
+  }
+  if(bIst!=null && anteil!=null && anteil>=0.6 && bIst < BALLAST_ZIEL*0.5){
+    var tB=tbTopBei(items,'ballaststoffe',1)[0];
+    out.push({k:'ballast', chip:'Ballaststoffe '+Math.round(bIst)+' / '+BALLAST_ZIEL,
+      warum:'Rang 3 · auffälliger Wert mit Herkunft',
+      satz:'Ballaststoffe bei <b>'+Math.round(bIst)+' von '+BALLAST_ZIEL+' g</b>.'
+        +(tB?(' Am meisten kommt von '+esc(tB.Produktname||'einem Eintrag')
+              +' mit <b>'+Math.round(num(tB.ballaststoffe)||0)+' g</b>.'):'')});
+  }
+
+  /* --- Rang 4: Schwachstelle. Verlust = (100 - Score) x Gewichtsanteil, also
+         dieselbe Gramm-Wichtung, mit der auch der Tagesindex gerechnet wird. --- */
+  var gSum=0; items.forEach(function(r){ var g=num(r.Menge_g); if(num(r.Clean_Score)!=null && g>0) gSum+=g; });
+  if(gSum>0){
+    var schlecht=null;
+    items.forEach(function(r){
+      var sc=num(r.Clean_Score), g=num(r.Menge_g);
+      if(sc==null||!(g>0)) return;
+      /* 🔴 Nur wer WIRKLICH schwach ist, ist eine Schwachstelle. Ohne diese
+         Schranke gewann im Test das EI mit Index 85: es kostet die meisten
+         Punkte, weil es 74 % des Tagesgewichts stellt - und der Satz hätte
+         das beste Produkt des Tages als das schwächste bezeichnet. Der
+         Punktverlust sagt "wie viel", der Score sagt "wie gut"; für diesen
+         Satz müssen beide zutreffen. Schwelle 75 = untere Kante von "Gut"
+         in scoreBew(), also alles ab "Mittel" abwärts. */
+      if(sc>=75) return;
+      var verlust=(100-sc)*(g/gSum);
+      if(!schlecht || verlust>schlecht.verlust) schlecht={r:r, sc:sc, verlust:verlust};
+    });
+    if(schlecht && schlecht.verlust>5){
+      var ach=tbSchwaechsteAchse(schlecht.r);
+      out.push({k:'schwach', chip:'Schwachstelle', warum:'Rang 4 · größter Qualitätsverlust',
+        satz:'Das schwächste Produkt heute ist <b>'+esc(schlecht.r.Produktname||'ein Eintrag')
+          +'</b> mit <b>'+schlecht.sc+'</b> — es kostet '
+          +schlecht.verlust.toFixed(1).replace('.',',')+' Indexpunkte'
+          +(ach?(', vor allem bei '+ach.n+' ('+String(ach.v).replace('.',',')+' von '+ach.max+')'):'')+'.'});
+    }
+  }
+
+  /* --- Rang 4b: Zustand. Ein angefangener Tag ist kein verfehlter Tag. Steht
+         bewusst NICHT auf Rang 1: morgens um neun ist ein Tag zu 20 % normal,
+         nicht auffaellig. Auffaellig sind fehlende INDIZES (Rang 1). --- */
+  if(anteil!=null && anteil<0.6 && n>0){
+    out.push({k:'stand', chip:'Tag erst zu '+Math.round(anteil*100)+' %',
+      warum:'Rang 4b · Zustand, keine Bewertung',
+      satz:'<b>Bisher '+n+' Eintr'+(n===1?'ag':'äge')+', '+kc+' von '+Math.round(kcalZ)+' kcal.</b>'
+        +' Ein angefangener Tag — die Bilanz steht noch aus.'});
+  }
+
+  /* --- Rang 5: ruhiger Tag. Faellt nie weg, damit das Board nie leer ist. --- */
+  out.push({k:'ruhig', chip:'Überblick', warum:'Rang 5 · nichts Auffälliges',
+    satz:(n>0
+      ? (n+' Eintr'+(n===1?'ag':'äge')+', '+kc+' kcal.'+(idx!=null?(' Index <b>'+idx+'</b> — nichts Auffälliges.'):''))
+      : 'Noch nichts eingetragen. Kein Ziel verfehlt, keine Null — der Tag hat noch nicht angefangen.')});
+  return out;
+}
+function tbSatzWahl(k){
+  window._tbSatzKey=k;
+  try{ var c=window._tbZielCache; if(c) renderZiel(c.s, c.ben); }catch(e){}
+}
+if(typeof window!=='undefined'){ window.tbSatzWahl=tbSatzWahl; }
 function renderZielNeu(s,ben){
   const el=document.getElementById("tbZiel"); if(!el) return;
   const kcalBasis=num(ben&&ben.Kalorienziel_kcal), eiwZ=num(ben&&ben.Eiweiss_ziel_g), khZ=num(ben&&ben.KH_ziel_g), fettZ=num(ben&&ben.Fett_ziel_g);
   if(!kcalBasis){ el.innerHTML='<div style="font-weight:600;margin-bottom:6px">Kein Tagesziel gesetzt</div>'+zielForm(); return; }
   const anTraining=!!(TT&&TT.ok&&TT.aktiv);
   const kcalZ=anTraining&&TT.kcal_heute?Number(TT.kcal_heute):kcalBasis;
-  const kc=Math.round((s&&s.kcal)||0), kp=kcalZ?Math.min(100,Math.round(kc/kcalZ*100)):0;
-  const kopfzeile='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
-    +'<div style="font-weight:600">Tagesüberblick</div>'
-    +'<button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:12px;background:none;border:0;color:var(--tb-muted);cursor:pointer;text-decoration:underline">Ziel ändern</button>'
+  const kc=Math.round((s&&s.kcal)||0);
+  const items=(window._tbItems||[]);
+  const nE=items.length;
+  const idx=(s&&s.score_schnitt!=null)?Math.round(num(s.score_schnitt)):null;
+
+  /* ---------- Infoboard ---------- */
+  const kand=tbSatzKandidaten(s, items, kcalZ, kcalBasis);
+  window._tbSaetze=kand;
+  /* Die Wahl haengt am SCHLUESSEL, nicht am Index: wechselt der Tag und der
+     gewaehlte Satz trifft nicht mehr zu, faellt die Anzeige von selbst auf den
+     ersten zurueck. So braucht es kein Zuruecksetzen an anderer Stelle. */
+  let wi=0;
+  if(window._tbSatzKey){ const p=kand.findIndex(x=>x.k===window._tbSatzKey); if(p>=0) wi=p; }
+  const aktiv=kand[wi]||kand[0];
+  const board='<div style="font-size:16.5px;line-height:1.5;letter-spacing:-.015em;font-weight:500;color:var(--tb-text)">'
+      +aktiv.satz+'</div>'
+    +'<div style="display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--tb-muted);padding:10px 0 0">'
+      +'<span style="width:5px;height:5px;border-radius:99px;background:#8aa832;flex:0 0 auto"></span>'
+      +aktiv.warum+'</div>'
+    +(kand.length>1
+      ? ('<div style="display:flex;gap:7px;flex-wrap:wrap;padding:13px 0 0">'
+          +kand.map(function(o){
+              const an=(o.k===aktiv.k);
+              return '<button onclick="tbSatzWahl(\''+o.k+'\')" style="border:1px solid '
+                +(an?'var(--k-1d3c24,#1d3c24)':'var(--tb-line)')+';background:'
+                +(an?'var(--k-1d3c24,#1d3c24)':'var(--tb-card2)')+';color:'
+                +(an?'var(--k-ffffff,#fff)':'var(--tb-muted)')
+                +';border-radius:99px;padding:5px 11px;font-size:11.5px;cursor:pointer;font-family:inherit">'
+                +esc(o.chip)+'</button>';
+            }).join('')
+        +'</div>')
+      : '');
+
+  /* ---------- Zahlenkasten ----------
+     Drei Ebenen statt drei gemischter Zeilen: Leitzahl kcal oben mit eigener
+     Linie, darunter die vier Makros aus dem Bedarfsrechner, darunter - wieder
+     durch eine Linie getrennt - Salz und Zucker, weil die aus EXTERNEN
+     Richtwerten kommen (EFSA / DGE) und nicht aus Ralphs Rechner. */
+  const zelle=function(o){
+    const pct=(o.pct!=null)?Math.round(Math.max(0,Math.min(1,o.pct))*100):null;
+    const spur=o.ohneZiel
+      ? 'background:repeating-linear-gradient(90deg,var(--tb-track,#e6e1d6),var(--tb-track,#e6e1d6) 3px,transparent 3px,transparent 6px)'
+      : 'background:var(--tb-track,#e6e1d6)';
+    return '<div'+(o.klick||'')+' style="text-align:center;min-width:0'+(o.klick?';cursor:pointer':'')+(o.span?';grid-column:span 2':'')+'">'
+      +'<div style="height:4px;border-radius:99px;overflow:hidden;margin-bottom:8px;'+spur+'">'
+        +((pct!=null)?('<div style="height:100%;width:'+pct+'%;background:'+o.col+';border-radius:99px"></div>'):'')
+      +'</div>'
+      +'<div style="font-size:15px;font-weight:800;letter-spacing:-.025em;line-height:1;color:'+(o.warn?'var(--k-c0392b,#c0392b)':'var(--tb-text)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+        +o.v+'<span style="font-size:9.5px;font-weight:400;color:var(--tb-muted);letter-spacing:0">'+o.ziel+'</span></div>'
+      +'<div style="font-size:10.5px;margin-top:5px;line-height:1.25;color:var(--tb-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+o.n+'</div>'
+      +'<div style="font-size:9px;color:var(--tb-muted);letter-spacing:.02em">'+o.art+'</div>'
     +'</div>';
+  };
   const MK=[
-    {n:'EIWEISS',  k:'eiw', ist:num(s&&s.protein),        ziel:eiwZ,        art:'min.', col:'#16a34a'},
-    {n:'KOHLENH.', k:'kh',  ist:num(s&&s.kh),             ziel:khZ,         art:'max.', col:'#3987e5'},
-    {n:'BALLASTST.',k:'ball',ist:num(s&&s.ballaststoffe), ziel:BALLAST_ZIEL,art:'min.', col:'#d97706'},
-    {n:'FETT',     k:'fett',ist:num(s&&s.fett),           ziel:fettZ,       art:'max.', col:'#7c6fe0'}
-  ].map(m=>{ m.ist=Math.round(m.ist||0); m.pct=(m.ziel>0)?(m.ist/m.ziel):null; return m; });
-  /* Kacheln FARBLICH ABGESTIMMT (Ralph 28.07.): weiße Karten wie der Rest der Seite,
-     EINE Akzentfarbe (Grün) für Ring und Prozent, die vier Achsenfarben nur noch als
-     schmale Füllbalken - ruhig statt bunt. */
-  const kachel=m=>'<div onclick="tbKachelHilfe(\''+m.k+'\')" title="Antippen: was bedeutet dieser Wert?" style="cursor:pointer;background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;padding:8px 10px">'
-    +'<div style="font-size:10px;font-weight:700;color:var(--tb-muted);letter-spacing:.02em">'+m.n+' <span style="float:right;font-weight:400">'+m.art+'</span></div>'
-    +'<div style="font-size:15px;font-weight:700;color:var(--tb-text)">'+m.ist+'<span style="font-weight:400;color:var(--tb-muted);font-size:11px">'+(m.ziel?('/'+Math.round(m.ziel)+' g'):' g')+'</span></div>'
-    +'<div style="height:4px;border-radius:99px;background:var(--tb-track,var(--k-e7e0d4));position:relative;overflow:hidden;margin-top:5px">'+(m.pct!=null?('<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.round(Math.max(0,Math.min(1,m.pct))*100)+'%;background:'+m.col+';border-radius:99px"></div>'):'')+'</div>'
+    {n:'Eiweiß', k:'eiw', ist:num(s&&s.protein), ziel:eiwZ, art:'min.', col:'#16a34a'},
+    {n:'KH',     k:'kh',  ist:num(s&&s.kh),      ziel:khZ,  art:'max.', col:'#3987e5'},
+    {n:'Fett',   k:'fett',ist:num(s&&s.fett),    ziel:fettZ,art:'max.', col:'#7c6fe0'},
+    {n:'Ballast',k:'ball',ist:num(s&&s.ballaststoffe), ziel:BALLAST_ZIEL, art:'min.', col:'#d97706'}
+  ].map(function(m){
+    return zelle({n:m.n, art:m.art, col:m.col,
+      v:Math.round(m.ist||0),
+      ziel:(m.ziel?('/'+Math.round(m.ziel)):' g'),
+      pct:(m.ziel>0)?((m.ist||0)/m.ziel):null,
+      klick:' onclick="tbKachelHilfe(\''+m.k+'\')" title="Antippen: was bedeutet dieser Wert?"'});
+  }).join('');
+
+  const saIst=num(s&&s.salz), saUeber=(saIst!=null&&saIst>SALZ_ZIEL_G);
+  const zIst=num(s&&s.zucker);
+  const salzZelle=zelle({n:'Salz', art:'max.', col:(saUeber?'#c0392b':'#6b8fa3'), span:1, warn:saUeber,
+    v:(saIst==null?'–':saIst.toFixed(1).replace('.',',')),
+    ziel:'/'+SALZ_ZIEL_G.toFixed(1).replace('.',','),
+    pct:(saIst!=null&&SALZ_ZIEL_G>0)?(saIst/SALZ_ZIEL_G):null,
+    klick:' id="tbKlTrig_salz" role="button" tabindex="0" aria-expanded="false" aria-controls="tbKl_salz" onclick="tbKlappe(\'salz\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();tbKlappe(\'salz\')}" title="Antippen: woher das Salz kommt"'});
+  /* 🔴 ZUCKER BEKOMMT DIE ZELLE, ABER KEINEN FUELLENDEN BALKEN (Ralph 26.08.,
+     nach Gegenprobe am echten 29.06.: 95 g gemessen, Richtwert 50 g -> der
+     Balken haette 190 % knallrot gezeigt, fuer Skyr, Quark, Apfel und Banane).
+     Ein Balken behauptet ein Ziel. Fuer Zucker gibt es seit 11.08. keines mehr.
+     Die Spur bleibt deshalb gestrichelt und leer: gleiche Form, ehrliche
+     Aussage - gemessen, aber nicht bewertbar. Sobald zugesetzter Zucker
+     getrennt ist, laeuft dort ein Balken, ohne dass etwas umgebaut wird. */
+  const zuckerZelle=zelle({n:'Zucker', art:'gesamt', col:'#9ca3af', span:1, ohneZiel:true,
+    v:(zIst==null?'–':Math.round(zIst)), ziel:' g', pct:null,
+    klick:' id="tbKlTrig_zucker" role="button" tabindex="0" aria-expanded="false" aria-controls="tbKl_zucker" onclick="tbKlappe(\'zucker\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();tbKlappe(\'zucker\')}" title="Antippen: woher der Zucker kommt"'});
+
+  const kasten='<div style="background:var(--tb-card2,var(--k-fbf8f2,#fbf8f2));border:1px solid var(--tb-line);border-radius:14px;padding:13px 14px 11px;margin-top:14px">'
+    +'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--tb-line);margin-bottom:13px">'
+      +'<div onclick="tbKachelHilfe(\'kcal\')" title="Antippen: was bedeutet dieser Wert?" style="cursor:pointer;font-size:19px;font-weight:800;letter-spacing:-.025em;color:var(--tb-text)">'+kc
+        +'<span style="font-size:11.5px;font-weight:400;color:var(--tb-muted);letter-spacing:0"> / '+Math.round(kcalZ)+' kcal'+(anTraining?' · 💪':'')+'</span></div>'
+      +'<div style="font-size:11.5px;color:var(--tb-muted);white-space:nowrap">'
+        +(idx!=null?('Index <b style="color:var(--tb-text);font-size:13.5px">'+idx+'</b> · '):'')
+        +nE+' Eintr'+(nE===1?'ag':'äge')+'</div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px">'+MK+'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:13px;padding-top:12px;border-top:1px solid var(--tb-line)">'
+      +salzZelle+zuckerZelle
+    +'</div>'
+    +'<div style="font-size:9.5px;color:var(--tb-muted);text-align:center;padding-top:10px;line-height:1.4">zugesetzter Zucker noch nicht bestimmbar — deshalb kein Richtwert</div>'
   +'</div>';
-  const inner='<div style="display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:8px">'
-    +'<div style="grid-row:span 2;background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px">'
-      +'<div style="position:relative;width:84px;height:84px">'
-        +'<svg viewBox="0 0 100 100" style="width:100%"><circle cx="50" cy="50" r="42" fill="none" stroke="var(--tb-track,#e8edf5)" stroke-width="10"/><circle cx="50" cy="50" r="42" fill="none" stroke="'+(kp>=100?'#c88616':'#16a34a')+'" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="'+(264*(1-Math.min(1,kp/100))).toFixed(0)+'" transform="rotate(-90 50 50)"/></svg>'
-        +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><b style="font-size:17px;color:var(--tb-text)">'+kp+'%</b></div>'
-      +'</div>'
-      +'<b style="margin-top:5px;font-size:13.5px;color:var(--tb-text)">'+kc+' <span style="font-weight:400;color:var(--tb-muted);font-size:11px">/'+Math.round(kcalZ)+' kcal'+(anTraining?' · 💪':'')+'</span></b>'
-    +'</div>'
-    +kachel(MK[0])+kachel(MK[1])+kachel(MK[3])+kachel(MK[2])
-  +'</div>';
-  /* 11.08.2026 (Ralph): Zucker und Salz als EIGENE Zeile unter den vier Makros - nicht als
-     Kachel 5 und 6 im Raster. Zwei Gründe: das Raster ist auf 2×2 neben dem kcal-Ring gebaut
-     und würde bei sechs Kacheln kippen; und fachlich sind das die beiden Werte mit EXTERNER
-     Quelle (DGE/DDG, EFSA), während die vier oben aus dem Bedarfsrechner kommen. */
-  const zIst=Math.round(num(s&&s.zucker)||0), saIst=num(s&&s.salz);
-  const saPct=SALZ_ZIEL_G>0?Math.min(1,(saIst||0)/SALZ_ZIEL_G):0, saUeber=(saIst!=null&&saIst>SALZ_ZIEL_G);
-  /* 🔴 ZUCKER ZEIGT KEINEN RICHTWERT-BALKEN (Ralph-Entscheid 11.08., Variante A).
-     Gemessen am 10.08.: die Kachel stand auf 51/45 g VOLL ROT - bei 3,4 g zugesetztem Zucker
-     aus fünf Gramm Bonbons. Die übrigen 47 g kamen aus Zucchini, Papaya, Kefir, Skyr und
-     Magerquark. Der Balken warnte also vor 93,5 %, die gar nicht gemeint sind, und für eine
-     App, die eine Zuckerkranke unterstützen soll, ist das der Fehlalarm am falschen Ort.
-     Der Richtwert bleibt im aufgeklappten Panel erklärt; der Balken kommt zurück, wenn die
-     Trennung zugesetzt/natürlich steht - die braucht die Zutatenliste (§30). Die Zeile
-     „zugesetzt: noch nicht bestimmbar" hält seinen Platz, damit daraus später ein Einsetzen
-     wird und kein Umbau. SALZ behält sein Ziel: dort greift der Richtwert sauber. */
-  const klappKopf=(feld,nm,rechts)=>
-    '<div style="font-size:10px;font-weight:700;color:var(--tb-muted);letter-spacing:.02em">'+nm
-    +' <span style="float:right;font-weight:400">'+rechts
-    +' <i id="tbKlChev_'+feld+'" style="display:inline-block;transition:transform .18s;font-style:normal">▾</i></span></div>';
-  const grenzZeile='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'
-    +'<div id="tbKlTrig_zucker" role="button" tabindex="0" aria-expanded="false" aria-controls="tbKl_zucker"'
-      +' onclick="tbKlappe(\'zucker\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();tbKlappe(\'zucker\')}"'
-      +' title="Antippen: woher der Zucker kommt"'
-      +' style="cursor:pointer;background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;padding:8px 10px">'
-      +klappKopf('zucker','ZUCKER','gesamt')
-      +'<div style="font-size:15px;font-weight:700;color:var(--tb-text)">'+((s&&s.zucker!=null)?zIst:'–')+'<span style="font-weight:400;color:var(--tb-muted);font-size:11px"> g</span></div>'
-      +'<div style="font-size:10px;color:var(--tb-muted);margin-top:6px;line-height:1.3">zugesetzt: noch nicht bestimmbar</div>'
-    +'</div>'
-    +'<div id="tbKlTrig_salz" role="button" tabindex="0" aria-expanded="false" aria-controls="tbKl_salz"'
-      +' onclick="tbKlappe(\'salz\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();tbKlappe(\'salz\')}"'
-      +' title="Antippen: woher das Salz kommt"'
-      +' style="cursor:pointer;background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;padding:8px 10px">'
-      +klappKopf('salz','SALZ','max.')
-      +'<div style="font-size:15px;font-weight:700;color:'+(saUeber?'#c0392b':'var(--tb-text)')+'">'
-        +(saIst==null?'–':saIst.toFixed(1).replace('.',','))
-        +'<span style="font-weight:400;color:var(--tb-muted);font-size:11px">/'+SALZ_ZIEL_G.toFixed(1).replace('.',',')+' g</span></div>'
-      +'<div style="height:4px;border-radius:99px;background:var(--tb-track,var(--k-e7e0d4));position:relative;overflow:hidden;margin-top:5px">'
-        +(saIst!=null?('<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.round(saPct*100)+'%;background:'+(saUeber?'#c0392b':'#6b8fa3')+';border-radius:99px"></div>'):'')
-      +'</div>'
-    +'</div>'
-  +'</div>'
-  /* Die beiden Panels bleiben LEER, bis jemand klickt - tbKlappe() füllt sie aus _tbItems. */
-  +'<div id="tbKl_zucker" style="display:none;margin-top:8px;background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;padding:11px 12px"></div>'
-  +'<div id="tbKl_salz"   style="display:none;margin-top:8px;background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:11px;padding:11px 12px"></div>';
-  /* 28b (Ralph): "der schieberegler für trainingstag, das ist zu viel" - die Box entfällt im
-     neuen Kopf; der Schalter ist das kleine 💪 in der Kopfzeile (tbKopfNeuAnwenden). */
-  /* Ralph 11.08.: die Dauer-Fußzeile entfällt. Sie erklärte fünf Kacheln auf einmal, obwohl
-     immer nur eine gefragt ist - und stand unter JEDEM Tagesüberblick, auch beim tausendsten
-     Aufruf. Der Erklärtext sitzt jetzt in TB_KACHEL_HILFE und erscheint auf Antippen.
-     Der Ø Root Index ist kein Erklärtext, sondern ein Messwert - er wandert deshalb nicht
-     in die Hilfe, sondern bleibt als eigene kleine Angabe stehen. */
-  el.innerHTML=kopfzeile+inner+grenzZeile
-    +'<div id="tbKachelHilfe" style="display:none;font-size:11.5px;color:var(--tb-muted);margin-top:8px;background:var(--tb-card2,var(--k-fbf8f2,#fbf8f2));border:1px solid var(--tb-line,var(--k-e7e0d4));border-radius:9px;padding:7px 9px;line-height:1.45"></div>'
-    +((s&&s.score_schnitt!=null)?('<div style="font-size:11px;color:var(--tb-muted);margin-top:8px">Ø Root Index '+s.score_schnitt+'</div>'):'');
+
+  /* Die beiden Klapp-Panels bleiben LEER, bis jemand tippt - tbKlappe() fuellt
+     sie aus _tbItems. Unveraendert aus dem Kachel-Kopf uebernommen. */
+  el.innerHTML=board+kasten
+    +'<div id="tbKl_zucker" style="display:none;margin-top:8px;background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line);border-radius:11px;padding:11px 12px"></div>'
+    +'<div id="tbKl_salz"   style="display:none;margin-top:8px;background:var(--tb-card,var(--k-ffffff));border:1px solid var(--tb-line);border-radius:11px;padding:11px 12px"></div>'
+    +'<div id="tbKachelHilfe" style="display:none;font-size:11.5px;color:var(--tb-muted);margin-top:8px;background:var(--tb-card2,var(--k-fbf8f2,#fbf8f2));border:1px solid var(--tb-line);border-radius:9px;padding:7px 9px;line-height:1.45"></div>'
+    +'<div style="text-align:right;margin-top:8px"><button onclick="document.getElementById(\'tbZiel\').innerHTML=zielForm()" style="font-size:11.5px;background:none;border:0;color:var(--tb-muted);cursor:pointer;text-decoration:underline;font-family:inherit">Ziel ändern</button></div>';
 }
 function renderZiel(s,ben){
   window._tbZielCache={s:s,ben:ben};
@@ -14382,7 +14552,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-26-4413";
+const APP_BUILD = "2026-08-26-4414";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im

@@ -58,6 +58,10 @@ function applyAdminMode(){
          funktioniert (Zeile 237), aber im Menue stand kein Knopf dafuer. Ein
          vorhandener Weg ohne Tuer — genau der Fall aus Paragraf 3.1. */
       +_an('stamm','🧬','Zutatenstamm',"adminGo('stamm')")
+      /* 🔴 26.08.2026, Ralph: die Entscheidung, was wo hin kommt, muss er auch
+         ohne KI treffen koennen. Die Notenleiter zeigt die 117 Staffeln nach Note
+         sortiert, mit Herleitung und Quelle - als Vergleichsmaterial. */
+      +_an('staffeln','🪜','Notenleiter',"staffelnOeffnen()")
       +_an('bundles','🧩','Bundles',"adminGo('bundles')")
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
       +_an('rezzut','🥣','Rezept-Zutaten',"rezZutatenWaecherOpenSafe()")
