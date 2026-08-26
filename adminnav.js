@@ -18,8 +18,12 @@ function applyAdminMode(){
     const top=document.createElement('div'); top.id='adminTop';
     top.innerHTML=
        '<div id="adminCrumb" style="display:none"></div>'
-      +'<button id="atTodo" onclick="todoDockToggle()" title="Notizen &amp; To-do – bleibt beim Arbeiten offen" style="flex:0 0 auto;margin-right:6px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer;white-space:nowrap;position:relative">📝<span id="atTodoN" style="display:none;margin-left:5px;font-size:11px;font-weight:800;background:#ffd9a0;color:#7a4a00;border-radius:20px;padding:0 6px"></span></button>'
-      +'<button id="atReload" onclick="adminNeuLaden(this)" title="Version '+esc(_bVoll)+' – neueste holen: leert Cache &amp; Service-Worker und lädt hart neu" style="flex:0 0 auto;margin-right:8px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap" data-voll="'+esc(_bVoll)+'">🔄 <span class="atBuild">'+esc(_bKurz)+'</span></button>'
+      /* 🔴 26.08.2026, Ralph: „notiz und versionsnummer unten raus."
+         Beide Knöpfe standen unten links im Menü und haben dort nur Platz
+         gekostet. Die Versionsnummer steht ohnehin oben rechts in der schwarzen
+         Leiste — DORT ist sie jetzt auch der Knopf zum harten Neuladen.
+         Die Funktionen bleiben: todoDockToggle() und adminNeuLaden() sind
+         unverändert erreichbar, nur ohne eigenen Knopf an dieser Stelle. */
       +'<button class="atLogout" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">🚪</button>';
     document.body.appendChild(top);
     /* Dockzustand wiederherstellen; geschlossen trotzdem einmal für den Zähler laden. */
@@ -102,8 +106,60 @@ function applyAdminMode(){
       k.innerHTML='<span class="riGi">▦</span>'
         +'<span class="riWm">ROOT<b>COCKPIT</b></span>'
         +'<span class="riR"><span>[ri!] root<b>index</b></span>'
-        +(b?'<span title="Build '+esc(String(APP_BUILD))+'">'+esc(b)+'</span>':'')+'</span>';
+        +(b?'<span id="riBuild" role="button" tabindex="0" '
+            +'style="cursor:pointer;padding:1px 7px;border-radius:6px;font-weight:700" '
+            +'title="Version '+esc(String(APP_BUILD))+' — wird gerade geprüft">'
+            +esc(b)+'</span>':'')+'</span>';
       document.body.appendChild(k);
+
+      /* ======================================================================
+         AMPEL AN DER VERSIONSNUMMER  ·  Ralph-Auftrag 26.08.2026
+         ----------------------------------------------------------------------
+         „wenn ich deployed habe und noch nicht die neue version live ist, das
+         die zahl rot ist und wenn sie aktuell ist das sie grün ist."
+
+         Genau der Fall, der uns heute dreimal Zeit gekostet hat: ausgeliefert
+         ist nicht gleich ausgeführt. Die Zahl oben rechts ist, was DIESES
+         Fenster fährt (APP_BUILD). build.txt ist, was auf dem Server liegt.
+         Sind sie gleich → grün. Sind sie verschieden → rot, und ein Klick lädt
+         hart neu (adminNeuLaden leert Cache und Service-Worker).
+
+         🔴 IMMER mit Cache-Buster abfragen. Ohne kam am 15.08. ein vier Stunden
+         alter Stand zurück — dann prüft die Ampel sich selbst ins Grüne.
+         ====================================================================== */
+      var _riAmpel=async function(){
+        var el=document.getElementById('riBuild'); if(!el) return;
+        var lauf=''; try{ lauf=String(APP_BUILD||''); }catch(e){}
+        if(!lauf) return;
+        var liegt='';
+        try{
+          liegt=(await fetch('build.txt?cb='+Date.now(),{cache:'no-store'})
+                  .then(function(r){ return r.ok?r.text():''; })).trim();
+        }catch(e){ liegt=''; }
+        if(!liegt){
+          /* Nicht erreichbar heisst NICHT „aktuell". Grau und ehrlich (§1). */
+          el.style.background='transparent'; el.style.color='#9aa7b4';
+          el.title='Version '+lauf+' — Serverstand nicht abfragbar, Zustand unbekannt';
+          return;
+        }
+        var aktuell=(liegt===lauf);
+        el.style.background = aktuell ? 'rgba(46,160,90,.22)' : 'rgba(214,60,48,.30)';
+        el.style.color      = aktuell ? '#7ee2a8' : '#ff9d93';
+        el.title = aktuell
+          ? 'Aktuell: dieses Fenster fährt '+lauf+', und genau das liegt auf dem Server.'
+          : 'VERALTET: dieses Fenster fährt '+lauf+', auf dem Server liegt '+liegt
+            +'. Klick lädt hart neu.';
+        el.onclick=function(){
+          if(aktuell){ location.reload(); return; }
+          try{ if(typeof adminNeuLaden==='function'){ adminNeuLaden(el); return; } }catch(e){}
+          location.reload();
+        };
+        el.onkeydown=function(ev){ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); el.onclick(); } };
+      };
+      _riAmpel();
+      /* Alle 60 s nachsehen: dann wird die Zahl kurz nach Ralphs Deploy von
+         selbst rot, ohne dass er etwas anklicken muss. */
+      try{ setInterval(_riAmpel, 60000); }catch(e){}
     };
     kopfleisteBauen();
 
