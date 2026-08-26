@@ -170,6 +170,37 @@ function _bmWert(v){
   return _bmEsc(v);
 }
 
+/* Deutsche Beschriftungen für die Sollwerte. Was hier fehlt, erscheint unter
+   seinem technischen Namen — lieber roh als falsch übersetzt (§1). */
+var _BM_FELD = {
+  ingredients_total:'Zutaten gesamt', ingredients_bound:'davon gebunden',
+  ingredient_rating:'Zutatenbewertung', score_complete:'Score vollständig',
+  clean_score:'Clean Score', release_ready:'freigabefähig', verified:'verifiziert',
+  product_status:'Produktstatus', matrix_state:'Matrixzustand',
+  processing_modifier:'Verarbeitungsgrad', nutrition_complete:'Nährwerte vollständig',
+  nutrition_basis:'Nährwertbasis', pack_size:'Packungsgröße', gtin:'GTIN',
+  gtin_verified:'GTIN belegt', micronutrients:'Mikronährstoffe',
+  q10_mg:'Q10 in mg', l_carnitine_mg:'L-Carnitin in mg',
+  ingredient_conflict:'Zutatenkonflikt', conflict_must_remain_open:'Konflikt bleibt offen'
+};
+function _bmFeld(k){ return _BM_FELD[k] || k; }
+
+/* 🔴 Kosten mit zwei Nachkommastellen. Hier stand vorher der Rohwert und damit
+   "4,245895 $" in der Karte — sechs Nachkommastellen, die niemand liest. */
+function _bmGeld(v){
+  if(v===null||v===undefined) return null;
+  var n=Number(v); if(!isFinite(n)) return null;
+  return n.toFixed(2).replace('.',',')+' $';
+}
+
+/* 🔴 Ein in der Datenbank geprüfter Fall hat ECHTE NULL Kosten, nicht unbekannte.
+   Vorher stand dort "nicht erfasst" — das verwechselt Null mit Unbekannt und
+   verstößt gegen §1. Jetzt sagt die Karte, dass dieser Fall gratis ist. */
+function _bmIstDatenbankLauf(r){
+  return String(r&&r.evaluated_by||'')==='deterministic_db'
+      || String(r&&r.workflow_version||'')==='db_only_v1';
+}
+
 function _bmDatum(iso){
   if(!iso) return null;
   try{
@@ -313,9 +344,9 @@ function _bmDimensionen(r){
     var teile=[];
     felder.forEach(function(f){
       if(Object.prototype.hasOwnProperty.call(gem,f))
-        teile.push(_bmEsc(f)+' = <b>'+_bmWert(gem[f])+'</b>');
+        teile.push(_bmEsc(_bmFeld(f))+' = <b>'+_bmWert(gem[f])+'</b>');
       else if(Object.prototype.hasOwnProperty.call(soll,f))
-        teile.push(_bmEsc(f)+' soll <b>'+_bmWert(soll[f])+'</b>');
+        teile.push(_bmEsc(_bmFeld(f))+' soll <b>'+_bmWert(soll[f])+'</b>');
     });
     var mess = teile.length
       ? teile.join(' · ')
@@ -396,9 +427,27 @@ function _bmBeleg(r){
     evH='<div style="font-size:12px;opacity:.5">Kein Beleg hinterlegt.</div>';
   }
 
+  /* Der volle Fehlertext, den die Karte oben gekürzt hat. Hier geht nichts
+     verloren - gekürzt wird nur die Vorschau, nie der Beleg. */
+  var fs=r.failures||[];
+  var vollH = fs.length
+    ? '<div style="font-size:11px;letter-spacing:.6px;opacity:.7;margin:11px 0 6px">'
+        +'FEHLER IM WORTLAUT</div>'
+      + fs.map(function(f){
+          var dim=(f&&(f.dimension||f.dim||f.key))||'';
+          var t=(typeof f==='string')?f:(f&&(f.message||f.detail))||JSON.stringify(f);
+          return '<div style="font-size:12px;padding:3px 0;overflow-wrap:anywhere;'
+            +'border-bottom:1px dashed var(--line,#eef2f6)">'
+            +(dim?'<b>'+_bmEsc(_bmFeld(dim))+'</b> <span style="opacity:.6">('
+                  +_bmEsc(dim)+')</span><br>':'')
+            +_bmEsc(t)+'</div>';
+        }).join('')
+    : '';
+
   return '<div style="background:var(--bg,#f6f8fa);border:1px solid var(--line,#e3e9ef);'
       +'border-radius:10px;padding:11px 13px;margin-top:10px">'
-    +'<div style="font-size:11px;letter-spacing:.6px;opacity:.7;margin-bottom:6px">LAUF UND GRADER</div>'
+    +vollH
+    +'<div style="font-size:11px;letter-spacing:.6px;opacity:.7;margin:11px 0 6px">LAUF UND GRADER</div>'
     +z.join('')
     +'<div style="font-size:11px;letter-spacing:.6px;opacity:.7;margin:11px 0 6px">BELEG</div>'
     +evH
@@ -448,19 +497,21 @@ function _bmKarte(r,i){
     ? '<div style="margin-top:9px;font-size:12px;opacity:.85">'
         +'<span style="opacity:.65">Soll: </span>'
         +Object.keys(soll).sort().map(function(k){
-            return _bmEsc(k)+' <b>'+_bmWert(soll[k])+'</b>'; }).join(' · ')
+            return _bmEsc(_bmFeld(k))+' <b>'+_bmWert(soll[k])+'</b>'; }).join(' · ')
       +'</div>'
     : '';
 
   /* Herkunft des Ergebnisses — Ralphs Frage 5. */
+  var db=_bmIstDatenbankLauf(r);
   var herk=[
     ['Letzter Lauf', r.run_label],
-    ['Modell', r.model_name],
+    ['Geprüft von', db ? 'der Datenbank selbst' : r.model_name],
     ['Workflow', r.workflow_version],
     ['Harness', r.harness_version],
     ['Datum', _bmDatum(r.evaluated_at)],
-    ['Laufzeit', _bmDauer(r.latency_ms)],
-    ['Kosten', r.cost_usd==null?null:(String(r.cost_usd).replace('.',',')+' $')]
+    ['Laufzeit', db ? 'Bruchteil einer Sekunde' : _bmDauer(r.latency_ms)],
+    /* Kein HTML hier: _bmWert escapt, der Text muss für sich stehen. */
+    ['Kosten', db ? '0 $ — kostet nichts' : _bmGeld(r.cost_usd)]
   ].map(function(p){
     return '<div style="flex:1 1 150px;min-width:130px">'
       +'<div style="font-size:10.5px;letter-spacing:.5px;opacity:.6">'+_bmEsc(p[0])+'</div>'
@@ -476,11 +527,25 @@ function _bmKarte(r,i){
         +'border-radius:10px;padding:10px 12px">'
       +'<div style="font-size:11px;letter-spacing:.6px;color:#b3261e;font-weight:700;'
         +'margin-bottom:5px">WAS FEHLGESCHLAGEN IST</div>'
+      /* 🔴 KEINE TEXTWAND IN DER KARTE. Der Agent liefert bei einem Fehler die
+         volle Forensik - bei Philadelphia waren das 400 Zeichen englisches
+         Rohprotokoll. In der Karte steht der Anfang und der Feldname auf Deutsch;
+         der ganze Text steht unter "Beleg und Trace". */
       +(fs.length
         ? fs.map(function(f){
+            var dim=(f&&(f.dimension||f.dim||f.key))||'';
             var t=(typeof f==='string')?f:(f&&(f.message||f.detail))||JSON.stringify(f);
-            return '<div style="font-size:12.5px;color:#7f1d1a;padding:2px 0;'
-              +'overflow-wrap:anywhere">· '+_bmEsc(t)+'</div>'; }).join('')
+            /* Der Feldname steht meist schon vorne im Text - dann nicht doppeln. */
+            if(dim && t.indexOf(dim)===0) t=t.slice(dim.length).replace(/^[:\s]+/,'');
+            var kurz=t.length>190 ? t.slice(0,190).replace(/\s+\S*$/,'')+' …' : t;
+            return '<div style="font-size:12.5px;color:#7f1d1a;padding:3px 0;'
+              +'overflow-wrap:anywhere">· '
+              +(dim?'<b>'+_bmEsc(_bmFeld(dim))+':</b> ':'')
+              +_bmEsc(kurz)
+              +(t.length>190
+                ? '<span style="opacity:.75"> (ganzer Text unter „Beleg und Trace")</span>'
+                : '')
+            +'</div>'; }).join('')
         : '<div style="font-size:12.5px;color:#7f1d1a">Der Server meldet den Status '
             +_bmEsc(String(r.status).toUpperCase())+', aber keine Einzelfehler. '
             +'Die Ursache steht damit noch nicht im Vertrag.</div>')
