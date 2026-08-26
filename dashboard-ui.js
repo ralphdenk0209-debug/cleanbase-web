@@ -1777,6 +1777,76 @@ async function _abDrillOeffnen(key,titel){
    mitbringen (Schnellzugriff). Etappe 2 legt eine Konfiguration darueber;
    liegt keine vor, gilt diese Liste als Rueckfall.
    ========================================================================== */
+/* ============================================================================
+   DER FLUSS  ·  Ralph-Auftrag 26.08.2026, Stufe 2 zu ZIEL.md  ·  Work #295
+   ----------------------------------------------------------------------------
+   Ralph: „ziel ist, das ich auf dem dashboard die aktivitaeten der agenten
+   sehe, verstehe und steuern kann." Das ist Z1, Z2 und Z7 aus ZIEL.md.
+
+   Diese Kachel beantwortet EINE Frage: wo steckt die Arbeit gerade fest?
+   Nicht welche Aufgaben es gibt — dafuer flog die alte Arbeitskachel am
+   26.08. mit 142 Zeilen raus. Eine Aufgabenliste ist kein Ueberblick.
+
+   🔴 KEINE ZWEITE WAHRHEIT. Alle Zahlen kommen aus der Karte `aufgaben` von
+   cb_admin_dashboard_cockpit_v2 — derselben Quelle, die „Deine Entscheidungen"
+   schon benutzt. Hier wird nichts nachgerechnet und nichts hartkodiert.
+
+   ⚠ ZWEI STATIONEN FEHLEN NOCH: `offen` und `verified` liefert die RPC nicht.
+   Sie werden deshalb NICHT geschaetzt und NICHT im Browser nachgezaehlt,
+   sondern als Luecke angezeigt. Nachtrag haengt an Work #297 (chatgpt).
+   ========================================================================== */
+function _abkFluss(c){
+  var ck=_abCkKarte('aufgaben');
+  if(!ck) return {tag:'', inhalt:_abCkLadeHtml(), fuss:''};
+
+  var inArbeit = Number(ck.in_arbeit_alt_24h)||0;
+  var wartet   = Number(ck.wartet_abnahme)||0;
+  var beiRalph = Number(ck.bei_ralph)||0;
+  var steht    = Number(ck.blockiert_oder_streit)||0;
+
+  /* Eine Station: Zahl, Wort darunter, Farbe nach Dringlichkeit. */
+  function station(zahl, wort, farbe, titel){
+    return '<div style="flex:1 1 0;min-width:0;text-align:center" title="'+esc(titel)+'">'
+      +'<div style="font-size:26px;font-weight:800;line-height:1;color:'+farbe+'">'+zahl+'</div>'
+      +'<div class="bunter" style="margin-top:2px">'+wort+'</div></div>';
+  }
+  var pfeil='<div style="flex:0 0 14px;text-align:center;opacity:.3;font-size:15px">→</div>';
+
+  var reihe='<div style="display:flex;align-items:flex-start;gap:2px;margin-top:4px">'
+    + station('?', 'offen', 'var(--matt,#8a97a4)', 'Diese Station liefert die Serverfunktion noch nicht - siehe Work 297')
+    + pfeil
+    + station(inArbeit, 'in Arbeit', inArbeit>0?_AB.warn:_AB.gut, 'Laenger als 24 Stunden in Arbeit')
+    + pfeil
+    + station(wartet, 'wartet auf Abnahme', wartet>0?_AB.krit:_AB.gut, 'Fertig gemeldet, noch nicht gegengeprueft')
+    + pfeil
+    + station('?', 'fertig', 'var(--matt,#8a97a4)', 'Diese Station liefert die Serverfunktion noch nicht - siehe Work 297')
+  +'</div>';
+
+  /* Was den Fluss anhaelt. Nur zeigen, was tatsaechlich anliegt. */
+  var stopper='';
+  if(beiRalph>0)
+    stopper+='<div class="bzeile bdrill" data-drill="'+esc(ck.drill_key||'arbeit_attention')+'"'
+      +' data-drill-titel="Wartet auf dich">'
+      +'<span style="font-size:11.5px">⛔ wartet auf deine Entscheidung</span>'
+      +'<b style="font-size:11.5px;color:'+_AB.krit+'">'+beiRalph+'</b></div>';
+  if(steht>0)
+    stopper+='<div class="bzeile"><span style="font-size:11.5px">blockiert oder strittig</span>'
+      +'<b style="font-size:11.5px;color:'+_AB.warn+'">'+steht+'</b></div>';
+
+  return {
+    tag: wartet>0
+      ? '<span class="abtag" style="background:#fdf1f1;color:'+_AB.krit+'">'+wartet+' stauen sich</span>'
+      : '<span class="abtag" style="background:#effaef;color:'+_AB.gut+'">kein Stau</span>',
+    inhalt:'<div class="bleib">'
+      + reihe
+      + (stopper?'<div style="margin-top:9px">'+stopper+'</div>':'')
+      + (wartet===0&&beiRalph===0?'<div class="bleer" style="margin-top:8px">Nichts staut sich.</div>':'')
+    +'</div>',
+    fuss:'Wozu das alles dient, steht in ZIEL.md — Z1, Z2, Z7. '
+        +'Zwei Stationen fehlen noch (Work 297).'
+  };
+}
+
 /* 🔴 C2, 15.08.2026 — ROOT-COCKPIT-OPTIK (Ralph-Go: „ja, kannst du so bauen").
    Jede Kachel bekommt ein FOTO als Hintergrund. Die Dateien liegen FLACH in
    webseite/ als bg-*.jpg — nicht in einem Unterordner: deploy.command kopiert
@@ -1825,6 +1895,19 @@ var _AB_KACHELN=[
      scrollen." Die Kachel ist zurück — und in Reihe 1 neben Katalog und RIKI,
      damit sie ohne Scrollen sichtbar ist. */
   {id:'region',    reihe:1, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion,   foto:'regionen',  leds:'gr'},
+  /* 🔴 26.08.2026, Ralph-Auftrag „gearbeitet wird im dashbord" — Stufe 2 zu
+     ZIEL.md.
+     ⚠ `reihe` steuert die Standardlage NICHT — _abStandardLagen liest das Feld
+     gar nicht, sondern packt die Kacheln der Reihe nach und bricht um, sobald
+     x+Breite ueber _AB_LW=1200 geht. Das Feld steht hier nur, weil die vier
+     anderen es auch tragen; wer sich darauf verlaesst, irrt.
+     NACHGERECHNET statt vermutet: die vier Kacheln der ersten Zeile fuellen
+     0..1200 exakt aus; `fluss` mit 590 passt nicht mehr daneben und bricht
+     um auf x=0, y=360 (Reihe 1 ist 340 hoch, plus 20 Abstand). Hoehe 270,
+     endet also bei 630 — am Laptop ohne nennenswertes Scrollen erreichbar
+     (E9: Laptop ist der Hauptfall).
+     Breit, weil der Fluss vier Stationen nebeneinander zeigt. */
+  {id:'fluss',     reihe:2, titel:'Der Fluss der Arbeit',    breit:true,  bau:_abkFluss},
   /* {id:'waechter',  reihe:1, titel:'Qualität',               breit:false, bau:_abkWaechter, foto:'stroem',    leds:'r ge'},
   {id:'aktivitaet',reihe:2, titel:'Eingang',                  breit:true,  bau:_abkAkt,      foto:'wellen',    leds:'gr', text:true},
   {id:'stammu',    reihe:2, titel:'Stamm',                    breit:false, bau:_abkStammU,   foto:'stamm',     leds:'ge gr'},
