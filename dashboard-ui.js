@@ -1799,13 +1799,31 @@ var _AB_KACHELN=[
      über den Anordnen-Modus weiter erreicht, und ein gespeichertes Layout mit
      'aufgaben' darf nicht kaputtgehen.
   {id:'aufgaben',  reihe:1, titel:'Arbeit',                   breit:true,  bau:_abkAufgaben, foto:'flusslauf', leds:'r ge', text:true}, */
+  /* 🔴 26.08.2026, Ralph-Entscheid: „die anderen kacheln können weg."
+     ES BLEIBEN GENAU ZWEI: Katalog und RIKI. Dazu die Termine darüber und das
+     Wächter-Raster darunter — mehr wollte Ralph nicht sehen.
+     ENTFERNT und warum:
+       Qualität   → zeigte nur die 9 Gate-Wächter; das Raster zeigt alle 23.
+       Eingang    → 202 Einträge; gehört in eine Arbeitsliste, nicht in den Überblick.
+       Stamm      → keine Zahl, die Ralph morgens braucht.
+       Betrieb    → Schnellzugriff dupliziert das linke Menü.
+       Nutzung    → interessant, aber nicht handlungsleitend.
+       Root Index → Zierde ohne Zahl.
+       Wirkkette  → gehört ins Wirkdiagramm, nicht aufs Dashboard.
+       Meine Zahlen → die freie Kachel; ohne Nachbarn ergibt sie keinen Sinn mehr.
+     Die BAUER bleiben alle im Code. Wer eine Kachel zurückwill, hängt eine Zeile
+     wieder ein — kein Neubau, und gespeicherte Layouts brechen nicht.
+  */
   {id:'bestand',   reihe:1, titel:'Katalog',                  breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr'},
   {id:'riki',      reihe:1, titel:'RIKI',                     breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
-  {id:'waechter',  reihe:1, titel:'Qualität',                 breit:false, bau:_abkWaechter, foto:'stroem',    leds:'r ge'},
+  /* 🔴 26.08.2026, Ralph: „nutzer & region höher darstellen, da muss ich aktuell
+     scrollen." Die Kachel ist zurück — und in Reihe 1 neben Katalog und RIKI,
+     damit sie ohne Scrollen sichtbar ist. */
+  {id:'region',    reihe:1, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion,   foto:'regionen',  leds:'gr'},
+  /* {id:'waechter',  reihe:1, titel:'Qualität',               breit:false, bau:_abkWaechter, foto:'stroem',    leds:'r ge'},
   {id:'aktivitaet',reihe:2, titel:'Eingang',                  breit:true,  bau:_abkAkt,      foto:'wellen',    leds:'gr', text:true},
-  {id:'region',    reihe:2, titel:'Nutzer &amp; Regionen',    breit:false, bau:_abkRegion,   foto:'regionen',  leds:'gr'},
   {id:'stammu',    reihe:2, titel:'Stamm',                    breit:false, bau:_abkStammU,   foto:'stamm',     leds:'ge gr'},
-  {id:'schnell',   reihe:2, titel:'Betrieb &amp; Schnellzugriff', breit:false, roh:_abSchnell},
+  {id:'schnell',   reihe:2, titel:'Betrieb &amp; Schnellzugriff', breit:false, roh:_abSchnell}, */
   /* C3, 15.08.: zwei neue Kacheln, beide mit ECHTEN Zahlen aus vorhandenen
      RPCs. §22 hat sich wieder ausgezahlt — gesucht statt gebaut:
        Stamm    -> cb_admin_stamm_waechter()      (das Dashboard ruft ihn schon)
@@ -1814,13 +1832,13 @@ var _AB_KACHELN=[
      cb_bundesland_zaehlung gibt es seit Juli, sie haengen in der Kachel
      „Nutzer & Regionen". Im Entwurf hatte ich sie nachgezeichnet — das waere
      die zweite Kopie gewesen (§4.2). */
-  {id:'marke',     reihe:1, titel:'Root Index',                breit:false, bau:_abkMarke},
-  {id:'wirk',      reihe:2, titel:'Wirkkette',                 breit:false, bau:_abkWirk,     foto:'ringe',  leds:'r ge', text:true},
+  /* {id:'marke',     reihe:1, titel:'Root Index',              breit:false, bau:_abkMarke},
+  {id:'wirk',      reihe:2, titel:'Wirkkette',                 breit:false, bau:_abkWirk,     foto:'ringe',  leds:'r ge', text:true}, */
   /* Die freie Kachel: Ralph bestimmt ihren INHALT, nicht nur ihren Platz.
      Sie steht in der gespeicherten Standardvariante auf aus - wer sie will,
      schaltet sie im Anordnen-Modus ein. Ein Dashboard, das sich von selbst um
      eine Kachel erweitert, waere eine Ueberraschung, keine Verbesserung. */
-  {id:'frei',      reihe:1, titel:'Meine Zahlen',             breit:false, bau:_abkFrei, waehlbar:true}
+  /* {id:'frei',      reihe:1, titel:'Meine Zahlen',           breit:false, bau:_abkFrei, waehlbar:true} */
 ];
 
 /* ============================================================================
@@ -4231,20 +4249,24 @@ function _abkBestand(c){
   var sieben=Number(ck.neu_7t);
   /* Eine 0 an einem ruhigen Tag ist eine ECHTE Null (§1). Damit sie nicht wie
      ein kaputter Zähler aussieht, steht die Sieben-Tage-Zahl daneben. */
+  /* 🔴 26.08.2026, KORREKTUR EINES EIGENEN FEHLERS. Hier stand kurzzeitig eine
+     Zeile mit class="bbz"/"werte" — das ist die WÄCHTER-Zeile, deren <b> per CSS
+     ein gefüllter Balken ist (Zeile 509: flex:1, background, weisse Schrift).
+     In Ralphs Browser wurde daraus ein riesiger grüner Balken quer über die
+     Kachel. Gelernt: die schlichte Zeile heisst `bzeile` und entsteht durch
+     _abCkZeile — nichts danebenbauen (§22). */
   var heuteText = isNaN(heute) ? '–'
-    : (heute>0 ? String(heute)
-               : '0'+(isNaN(sieben)?'':' <span style="opacity:.6">('+sieben+' in 7 Tagen)</span>'));
+    : (heute>0 ? String(heute) : '0'+(isNaN(sieben)?'':' · '+sieben+' in 7 Tagen'));
   return {
     tag:'',
     inhalt:'<div class="bleib"><div class="bzahl" style="color:'+_AB.kern+'">'
       +(ck.aktiv==null?'–':ck.aktiv)+'</div>'
     +'<div class="bunter">freigegebene Produkte</div>'
     +'<div style="margin-top:9px">'
-      + _abCkZeile('Entwürfe',   ck.entwurf, null)
-      + '<div class="bbz"><span class="nm">heute neu</span>'
-        + '<span class="werte"><b>'+heuteText+'</b></span></div>'
+      + _abCkZeile('Entwürfe',  ck.entwurf, null)
+      + _abCkZeile('heute neu', heuteText,  null)
     +'</div>'
-    +'<div style="margin-top:9px;padding-top:7px;border-top:1px solid var(--line,#eef2f6)">'
+    +'<div style="margin-top:7px;padding-top:7px;border-top:1px solid var(--line,#eef2f6)">'
       + _abCkZeile('ohne Index-Zahl', ck.ohne_score,    dr.ohne_score,  w(ck.ohne_score))
       + _abCkZeile('ohne Quelle',     ck.ohne_quelle,   dr.ohne_quelle, w(ck.ohne_quelle))
       + _abCkZeile('EAN fehlt',       ck.ean_fehlt,     dr.ean_fehlt,   w(ck.ean_fehlt))
@@ -4293,12 +4315,13 @@ function _abkRiki(c){
       + _abCkZeile('Fehler, 24 h', ck.fehler_24h, ck.drill_key,
                    ((Number(ck.fehler_24h)||0)>0?_AB.krit:null))
     +'</div>'
+    /* Korrektur wie in _abkBestand: schlichte Zeile ist `bzeile`, nicht `bbz`.
+       `bbz .werte b` ist der gefüllte Wächterbalken und hat hier nichts zu suchen. */
     +(lim
-      ? '<div style="margin-top:9px;padding-top:7px;border-top:1px solid var(--line,#eef2f6)">'
-        +'<div class="bbz"><span class="nm">Monat <span class="schw"><i class="ge">'
-          +'eigene Zählung, siehe unten</i></span></span>'
-        +'<span class="werte"><b style="color:'+bf+'">'+verbr.toFixed(2).replace('.',',')+' $</b>'
-        +'<span style="opacity:.6"> / '+lim.toFixed(0)+'</span></span></div>'
+      ? '<div style="margin-top:7px;padding-top:7px;border-top:1px solid var(--line,#eef2f6)">'
+        + _abCkZeile('Monat (eigene Zählung)',
+            '<span style="color:'+bf+'">'+verbr.toFixed(2).replace('.',',')+' $</span>'
+            +'<span style="opacity:.55"> / '+lim.toFixed(0)+'</span>', null)
         +'<div class="abbar" style="margin-top:6px"><i style="width:'+Math.round(anteil*100)
         +'%;background:'+bf+'"></i></div></div>'
       : '')
@@ -5113,22 +5136,18 @@ function dashArbeitHtml(d,np,fehler){
      der wartenden Eintraege. Das ist mehr, nicht weniger. _abJobsListe bleibt
      unangetastet — die freie Kachel vom Typ „liste" liest sie weiter.
      ========================================================================== */
-  h+='<div class="abrow r1" id="abDetail">'
-    +'<div class="abp"><div class="abph"><h3>Alle Wächter im Einzelnen</h3>'
-    +'<span class="abtag" style="background:#eef0f4;color:'+_AB.mut+'">'+A.melden+' von '
-    +((np&&np.waechter)||[]).length+' melden</span></div>'
-    +_abRing(np,A)
-    +'<div class="abfoot">Jedes Segment ist ein Wächter · blass = still · Zeiger drauf für Klartext · '
-    +'⛔ blockiert die Freigabe. <b>Die Kachel „Qualität" oben zeigt nur die '
-    +'Gate-Wächter</b> — hier stehen alle.</div></div>'
-    +'<div class="abp abpad"><div style="font-weight:700;font-size:12.5px;margin-bottom:8px">'
-    +'Woher der Katalog stammt</div>'+_abQuellen(np)
-    +'<div style="margin-top:11px;padding-top:9px;border-top:1px solid var(--line)">'
-    +'<div class="abkv"><span>Rezepte</span><b>'+(ex.rezepte==null?'–':ex.rezepte)+'</b></div>'
-    +'<div class="abkv"><span>Regelwerk</span><b>'+(((np&&np.regelwerk)||[]).length)+' Bereiche</b></div>'
-    +'</div></div></div>';
+  /* 🔴 26.08.2026, Ralph: „ich dachte an diese wächter anzeige. die anderen
+     kacheln können weg." — und zum Ring ausdrücklich: „auch weg."
+     ENTFERNT: der Wächterring „Alle Wächter im Einzelnen" und der Block
+     „Woher der Katalog stammt" samt Rezepte/Regelwerk.
+     Der Ring zeigte dieselben 23 Wächter wie das Raster darunter, nur als
+     Kreis, in dem man die Namen nur mit dem Zeiger findet. Zwei Anzeigen für
+     dieselbe Sache — das Raster gewinnt, weil man dort lesen kann, was los ist.
+     _abRing und _abQuellen bleiben im Code stehen: die freie Kachel und der
+     Anordnen-Modus greifen darauf zu. Entfernt ist der feste Platz, nicht das
+     Werkzeug. */
 
-  /* Reihe 3: Wächter-Raster */
+  /* Das Wächter-Raster — ab jetzt die einzige Wächteranzeige. */
   h+='<div class="abp"><div class="abph"><h3>Alle Wächter</h3>'
     +'<span class="abtab on" data-wf="alle">alle '+((np&&np.waechter)||[]).length+'</span>'
     +'<span class="abtab" data-wf="melden">melden ('+A.melden+')</span>'
