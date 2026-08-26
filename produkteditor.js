@@ -1095,7 +1095,13 @@ async function fgZusV2Laden(pid){
 }
 /* Offene Etikettbestandteile bleiben als Referenzprüfung sichtbar; fehlende Bindung nicht als Verlust darstellen. */
 async function fgZutOffenLaden(pid){
+  /* Work #299: der Bestand traegt jetzt seine Produkt-ID mit — so wie _fgZuordnung
+     das seit #218 tut. Ohne sie kann der Renderer nicht unterscheiden, ob die Liste
+     zum offenen Produkt gehoert oder noch vom vorherigen stammt. Gemessen 26.08. an
+     P73652/P73653: die Kakaonibs standen serverseitig korrekt an P73652, im Browser
+     aber am Magnesium-Produkt. */
   window._fgZutOffen=null; window._fgZutOffenFehler=""; window._fgZutOffenVorschlag={};
+  window._fgZutOffenPid=String(pid||"");
   if(!pid) return;
   try{
     var r=await client.rpc("cb_admin_zutat_offen_mit_riki",{p_product_id:pid});
@@ -1127,7 +1133,9 @@ async function _fgZutOffenVorschlaegeLaden(rows){
   await Promise.all(zeilen.map(async function(z){
     var k=_fgOffVorschlagKey(z), txt=String(z.zutat_text||"").trim();
     try{
-      var r=await client.rpc("cb_admin_zutat_offen_vorschlag",{p_zutat_text:txt});
+      /* Work #291: derselbe Vorschlag, aber mit canonical entity_id je Kandidat.
+         Ohne die war jeder Kandidat nur Text - binden liess sich keiner. */
+      var r=await client.rpc("cb_admin_zutat_zeile_bearbeiten",{p_zutat_text:txt});
       if(r&&r.error) throw r.error;
       var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e2){} }
       window._fgZutOffenVorschlag[k]={d:(d&&typeof d==="object")?d:null,fehler:""};
@@ -1177,27 +1185,119 @@ function _fgOffVorschlagHtml(z){
     H+='<span style="display:block;color:var(--k-b45309,#b45309)">⚠ '
       +esc(wn.map(function(w){ return (w&&typeof w==="object")?JSON.stringify(w):String(w); }).join(" · "))+'</span>';
   }
+  /* ──────────────────────────────────────────────────────────────────────────
+     WORK #291, 26.08.2026 — RALPH: "buttons nicht sinnvoll und ohne funktion,
+     ich kann hier garnichts machen".
+     Hier stand die Kandidatenliste als Fliesstext mit dem Zusatz "KEINE Zuordnung".
+     Das war damals richtig: der Vorschlag lieferte nur die LEGACY-Id (ZG-…), und
+     cb_admin_canonical_zutat_binden braucht die canonical entity_id. Es gab also
+     schlicht keinen Weg vom Kandidaten zur Bindung — der Satz beschrieb eine Luecke,
+     keine Regel.
+     Die Bruecke lag seit dem 11.08. in shadow_v1.legacy_ingredient_binding und war
+     nicht angeschlossen. Seit #291 liefert der Leseweg die entity_id mit, und der
+     Kandidat wird zu dem, was er immer sein sollte: ein Knopf.
+     Was NICHT passiert: nichts bindet sich von allein, der Server entscheidet weiter
+     allein ueber Identitaet und Note, und ein Kandidat ohne entity_id sagt das
+     ausdruecklich, statt einen toten Knopf anzubieten.
+     ────────────────────────────────────────────────────────────────────────── */
   var kd=Array.isArray(d.kandidaten)?d.kandidaten:[];
   if(kd.length){
-    H+='<span style="display:block;color:var(--muted);margin-top:2px">'
-      +kd.length+' Kandidat'+(kd.length===1?"":"en")+' – Prüfhinweis, KEINE Zuordnung (§3.6):</span>'
+    H+='<span style="display:block;color:var(--muted);margin-top:4px">'
+      +kd.length+' Vorschlag'+(kd.length===1?"":"e")+' aus dem Stamm – anklicken ordnet zu:</span>'
       +kd.map(function(k){
-        var p=[];
-        if(k&&k.zutat) p.push('<b>'+esc(String(k.zutat))+'</b>');
-        if(k&&k.zutat_id) p.push(esc(String(k.zutat_id)));
-        p.push('Note '+((k&&k.note!=null)?esc(String(k.note)):'nicht belegt'));
-        if(k&&k.aehnlichkeit!=null) p.push('Ähnlichkeit '+esc(String(k.aehnlichkeit)));
-        if(k&&k.art) p.push(esc(String(k.art)));
-        return '<span style="display:block;padding-left:10px;color:var(--muted)">· '+p.join(' · ')
-          +((k&&k.begruendung)?('<span style="display:block;padding-left:10px">'+esc(String(k.begruendung))+'</span>'):'')
-          +'</span>';
+        var nm=String((k&&k.zutat)||"").trim();
+        var eid=String((k&&k.entity_id)||"");
+        var note=((k&&k.note!=null)?String(k.note):null);
+        var nf=(note==null)?"var(--muted)":(Number(note)>=7?"var(--k-2e9e57,#2e9e57)":(Number(note)>=4?"var(--k-c88616,#c88616)":"var(--k-cf5442,#cf5442)"));
+        var meta=[];
+        if(k&&k.aehnlichkeit!=null) meta.push('Ähnlichkeit '+esc(String(k.aehnlichkeit)));
+        if(k&&k.art) meta.push(esc(String(k.art)));
+        var zeile='<span style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:8px;flex-wrap:wrap">';
+        if(eid){
+          zeile+='<button type="button" class="fgOffBtn fgOffPrimaer" '
+            /* Ohne item_id im Aufruf: sie wird hier nicht gebraucht, und eine leere
+               Zahl an dieser Stelle haette den ganzen onclick zu Syntaxmuell gemacht. */
+            +'onclick="fgOffKandidatBinden(\''+esc(eid)+'\',\''+esc(nm.replace(/'/g,"\\'"))+'\',this)" '
+            +'title="Diese Zeile an den Stammeintrag '+esc(nm)+' binden. Die Note kommt danach vom Server, nicht von hier.">'
+            +'→ '+esc(nm)+' zuordnen</button>';
+        }else{
+          zeile+='<span style="color:var(--muted)">· '+esc(nm)+'</span>'
+            +'<span style="color:var(--k-b45309,#b45309);font-size:10.5px" '
+            +'title="Zu diesem Stammnamen gibt es keine canonical Identitaet. Binden wuerde ins Leere greifen.">nicht bindbar</span>';
+        }
+        zeile+='<span style="font-weight:700;color:'+nf+'">'+(note==null?'–':esc(note))+'</span>';
+        if(meta.length) zeile+='<span style="color:var(--muted);font-size:10.5px">'+meta.join(' · ')+'</span>';
+        zeile+='</span>';
+        if(k&&k.begruendung) zeile+='<span style="display:block;padding-left:16px;color:var(--muted);font-size:10.5px">'+esc(String(k.begruendung))+'</span>';
+        return zeile;
       }).join("");
   }
   return H+'</span>';
 }
+/* ────────────────────────────────────────────────────────────────────────────
+   WORK #291 — EIN KLICK BINDET. Kein neuer Bindungsweg: es ist derselbe Aufruf
+   cb_admin_canonical_zutat_binden, den die Verarbeitungsaenderung seit #218 nutzt.
+   Die Verarbeitung bleibt zunaechst unspecified_processing; sie wird danach ueber
+   die vorhandene Verarbeitungsspalte gesetzt, und die Note folgt daraus.
+   ⚠ Die Note wird hier NICHT gesetzt oder geraten - sie kommt aus der Antwort.
+   ──────────────────────────────────────────────────────────────────────────── */
+async function fgOffKandidatBinden(entityId, name, btn){
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!pid){ _fgOffMsg(btn,"Kein Produkt offen.","var(--k-b91c1c)"); return; }
+  if(!entityId){ _fgOffMsg(btn,"Dieser Vorschlag hat keine Identität – nicht bindbar.","var(--k-b45309)"); return; }
+  /* 🔴 GEMESSEN, BEVOR GESCHRIEBEN WIRD — und zwar an genau dem Fall, der auf
+     Ralphs Bild steht: P73652 hat "Kakao-Nibs" bereits gebunden, fuehrt dieselbe
+     Zutat als Etikettzeile "Rohe Bio-Kakaonibs" aber weiter offen. Der Vorschlag
+     bietet folgerichtig "Kakao-Nibs" an. Ein Klick haette die Zutat ein ZWEITES
+     Mal an das Produkt gehaengt - mein eigener Knopf haette die Dublette gebaut,
+     die er aufloesen soll. Deshalb zuerst der Bestand, dann die Bindung. */
+  try{
+    var schon=(Array.isArray(window._fgCanon)?window._fgCanon:[]).find(function(z){
+      return String(z&&z.canonical_entity_id||"")===String(entityId);
+    });
+    if(schon){
+      _fgOffMsg(btn,"Steht bereits als „"+String(schon.canonical_name||schon.sichtbarer_name||name)
+        +"“ am Produkt – nicht doppelt zugeordnet. Diese Etikettzeile gehört zu derselben Zutat: "
+        +"„keine eigene Zutat“ schließt sie ab.","var(--k-b45309)");
+      return;
+    }
+  }catch(e){ console.error("[#291 Dublettenprobe]",e); }
+  if(btn){ btn.disabled=true; }
+  _fgOffMsg(btn,"binde …");
+  try{
+    var r=await client.rpc("cb_admin_canonical_zutat_binden",
+      {p_produkt_id:pid, p_entity_id:entityId, p_processing_modifier:"unspecified_processing", p_referenz_id:null});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    if(!d||d.ok!==true) throw new Error((d&&(d.fehler||d.grund))||"Der Server hat die Bindung nicht bestätigt.");
+    _fgOffMsg(btn,"✓ zugeordnet: "+String(d.canonical_name||name)
+      +(d.rating!=null?(" · Wert "+d.rating):" · Wert noch nicht belegt – Verarbeitung wählen"),"var(--k-166534)");
+    /* Vollstaendig neu laden: gebundene Liste, offene Liste, Zuordnungsstand.
+       Alles vorhandene Lader - hier wird kein Zustand von Hand nachgezogen. */
+    try{ if(typeof fgCanonLaden==="function") await fgCanonLaden(pid); }catch(e){}
+    try{ if(typeof fgZutOffenLaden==="function") await fgZutOffenLaden(pid); }catch(e){}
+    try{ if(typeof fgZuordnungLaden==="function") await fgZuordnungLaden(pid); }catch(e){}
+    try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}
+    try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  }catch(e){
+    console.error("[#291 Kandidat binden]",e);
+    _fgOffMsg(btn,"NICHT zugeordnet: "+((e&&e.message)||e),"var(--k-b91c1c)");
+    if(btn){ btn.disabled=false; }
+  }
+}
+if(typeof window!=="undefined"){ window.fgOffKandidatBinden=fgOffKandidatBinden; }
+function _fgZutOffenFremd(){
+  /* Work #299: gehoert der geladene Bestand zum gerade offenen Produkt?
+     Nur wenn beide IDs gesetzt sind und auseinanderlaufen, ist er fremd —
+     ein leeres _fgZutOffenPid heisst "noch nichts geladen", nicht "fremd". */
+  var pid=String((window._fgEdit&&window._fgEdit.id)||"");
+  var geladen=String(window._fgZutOffenPid||"");
+  return !!(pid && geladen && pid!==geladen);
+}
 function _fgZutOffenListe(){
   var rows=window._fgZutOffen;
   if(!Array.isArray(rows)) return [];
+  if(_fgZutOffenFremd()) return [];          /* Work #299: fremdes Produkt, nichts behaupten */
   return rows.filter(function(z){ return z && z.ist_offen===true; });
 }
 function _fgZutOffenHtml(){
@@ -1206,6 +1306,13 @@ function _fgZutOffenHtml(){
       +'<div style="font-size:11px;font-weight:700;color:var(--k-b91c1c,#b91c1c)">Offene Zutaten konnten nicht geladen werden</div>'
       +'<div style="font-size:11.5px;color:var(--ink);margin-top:2px">'+esc(window._fgZutOffenFehler)
       +' <span style="color:var(--muted)">– es wird NICHT behauptet, dass keine offen sind.</span></div></div>';
+  }
+  /* Work #299: fremder Stand ist NICHT "nichts offen". Das leere Ergebnis waere
+     eine Behauptung ueber ein Produkt, zu dem gar nichts geladen wurde. */
+  if(_fgZutOffenFremd()){
+    return '<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-fdf7ea,#fdf7ea)">'
+      +'<div style="font-size:11.5px;color:var(--k-8a5a0b,#8a5a0b)">⏳ Gelesene Zutaten werden geladen – '
+      +'der angezeigte Stand gehört noch zum vorher geöffneten Produkt und wird deshalb zurückgehalten.</div></div>';
   }
   var offen=_fgZutOffenListe();
   if(!offen.length) return "";
@@ -1590,7 +1697,8 @@ async function fgRohtextLauf(){
 }
 if(typeof window!=="undefined"){ window.fgOffRikiKette=fgOffRikiKette; window.fgRohtextLauf=fgRohtextLauf; }
 if(typeof window!=="undefined"){ window.fgZutOffenLaden=fgZutOffenLaden;
-  window._fgZutOffenListe=_fgZutOffenListe; window._fgZutOffenHtml=_fgZutOffenHtml; }
+  window._fgZutOffenListe=_fgZutOffenListe; window._fgZutOffenHtml=_fgZutOffenHtml;
+  window._fgZutOffenFremd=_fgZutOffenFremd; }
 /* produkt_zutat_id → Zusatzstoff-Merkmal. Eine Zeile kann über produkt_zutat_ids
    auch mehrfach genannt sein; dann zählt sie für jede genannte ID. */
 function _fgZusNachPz(){
@@ -1659,7 +1767,18 @@ function _fgBestZeile(z, zusListe, gebunden){
           +_mod2+'<span class="fgbStift">✎</span></span>'
         : '<span class="fgbVerarb" title="Diese Zeile ist noch keiner Identität zugeordnet. Erst zuordnen, dann lässt sich die Verarbeitung ändern.">'+_mod2+'</span>')
       +'<span class="fgbZus">'+_zus2+'</span>'
-      +'<span class="fgbWert" style="color:'+_rc+'">'+esc(_rt)+'</span>'
+      /* Work #291: die Note ist ab hier belegpflichtig. Ein Klick zeigt die Regel,
+         aus der sie kommt - Regel-Id, Titel, Herleitung, Quelle und alle anderen
+         Verarbeitungen derselben Zutat. Das ist die Regelpruefung von Hand, ohne
+         Riki: der Server nennt die Regel laengst (resolved_rule_id), sie wurde nur
+         nie angezeigt. */
+      +(_eidZ
+        ? '<span class="fgbWert fgbWertPruef" style="color:'+_rc+';cursor:pointer;text-decoration:underline dotted"'
+          +' data-eid="'+esc(_eidZ)+'" data-mod="'+esc(mod||"unspecified_processing")+'"'
+          +' onclick="fgWertRegelZeigen(this,event)"'
+          +' title="Klicken: zeigt die Bewertungsregel hinter diesem Wert und alle Verarbeitungsvarianten dieser Zutat.">'
+          +esc(_rt)+'</span>'
+        : '<span class="fgbWert" style="color:'+_rc+'" title="Ohne zugeordnete Identitaet gibt es keine Regel zu zeigen.">'+esc(_rt)+'</span>')
     +'</label>';
   }
   var _ohneNote=(z.resolved_rating==null);
@@ -1680,6 +1799,73 @@ function _fgBestZeile(z, zusListe, gebunden){
     +'<span style="text-align:center;font-weight:700;font-size:13px;color:'+col+'">'+esc(rt)+'</span>'
   +'</label>';
 }
+/* ────────────────────────────────────────────────────────────────────────────
+   WORK #291 — DIE REGEL HINTER DEM WERT. Ralph: "kein vergleich mit regelwerk".
+   Gemessen an P73652: shadow_v1.ingredient_rating liefert zu Kakao-Nibs/roh die
+   Note 8 UND die Regel BR-STAFFEL-KAKAOMASSE, und deren voller Text samt Quelle
+   liegt im Regelwerk. Angezeigt wurde davon nichts - der Wert stand nackt da und
+   war weder nachvollziehbar noch bestreitbar.
+   Hier wird nichts gerechnet und nichts bewertet. cb_admin_zutat_regelbeleg fragt
+   die drei vorhandenen Lesewege und legt die Antworten nebeneinander.
+   ──────────────────────────────────────────────────────────────────────────── */
+async function fgWertRegelZeigen(el, ev){
+  /* Die Bestandteilzeile ist ein <label> mit der Bindungs-Checkbox darin. Ohne
+     diese zwei Zeilen wuerde der Klick auf den Wert die Bindung umschalten - der
+     Belegknopf haette also genau das zerstoert, was er belegen soll. */
+  try{ if(ev){ ev.preventDefault(); ev.stopPropagation(); } }catch(e){}
+  var eid=el&&el.dataset&&el.dataset.eid, mod=(el&&el.dataset&&el.dataset.mod)||null;
+  if(!eid) return;
+  var zeile=el.closest?el.closest(".fgBestZeile"):null;
+  var alt=zeile&&zeile.nextElementSibling;
+  if(alt&&alt.classList&&alt.classList.contains("fgRegelBeleg")){ alt.remove(); return; }  /* zweiter Klick schliesst */
+  var lade=document.createElement("div");
+  lade.className="fgRegelBeleg";
+  lade.style.cssText="margin:-2px 0 8px;padding:9px 11px;border:1px solid var(--line);border-left:3px solid var(--k-2f6fd6,#2f6fd6);border-radius:8px;background:var(--k-f2f5f3,#f2f5f3);font-size:11.5px;line-height:1.55";
+  lade.textContent="Regel wird geholt …";
+  if(zeile&&zeile.parentNode) zeile.parentNode.insertBefore(lade, zeile.nextSibling);
+  try{
+    var r=await client.rpc("cb_admin_zutat_regelbeleg",{p_entity_id:eid, p_modifier:(mod==="unspecified_processing"?null:mod)});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    if(!d||d.ok!==true) throw new Error((d&&d.grund)||"Kein Beleg erhalten.");
+    var g=d.regel||null;
+    var H='<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">'
+      +'<b>'+esc(String(d.name||"Zutat"))+(d.verarbeitung?' · '+esc(String(d.verarbeitung)):'')+'</b>'
+      +'<span style="color:var(--muted);font-size:10.5px;cursor:pointer" onclick="this.closest(\'.fgRegelBeleg\').remove()">schließen ✕</span></div>';
+    if(d.note==null){
+      H+='<div style="color:var(--k-b45309,#b45309);margin-top:3px">Kein Wert – '+esc(String(d.ohne_note_grund||"keine Regel hinterlegt"))+'</div>';
+    }else{
+      H+='<div style="margin-top:3px">Wert <b>'+esc(String(d.note))+'</b>'
+        +(d.regel_id?(' · Regel <b>'+esc(String(d.regel_id))+'</b>'):' · <span style="color:var(--k-b45309,#b45309)">ohne Regel-Kennung</span>')
+        +(d.grundlage?('<span style="color:var(--muted)"> · Grundlage '+esc(String(d.grundlage))+'</span>'):'')
+        +(d.kritisch?' · <span style="color:var(--k-cf5442,#cf5442)">kritisch</span>':'')+'</div>';
+    }
+    if(g){
+      H+='<div style="margin-top:5px"><b>'+esc(String(g.titel||""))+'</b></div>'
+        +'<div style="margin-top:2px;color:var(--ink)">'+esc(String(g.inhalt||""))+'</div>'
+        +(g.quelle?('<div style="margin-top:4px;color:var(--muted);font-size:10.5px">Quelle: '+esc(String(g.quelle))+'</div>'):'');
+    }else if(d.regel_id){
+      H+='<div style="margin-top:4px;color:var(--k-b45309,#b45309)">Regeltext zu '+esc(String(d.regel_id))+' nicht gefunden – der Wert steht, der Beleg fehlt.</div>';
+    }
+    var vs=Array.isArray(d.verarbeitungen)?d.verarbeitungen:[];
+    if(vs.length){
+      H+='<div style="margin-top:6px;color:var(--muted)">Verarbeitungen dieser Zutat – zum Vergleichen:</div>'
+        +vs.map(function(v){
+          var an=(String(v.modifier||"")===String(d.verarbeitung||""));
+          return '<div style="padding-left:8px'+(an?';font-weight:700':'')+'">'
+            +(an?'▸ ':'· ')+esc(String(v.label||v.modifier||"ohne Angabe"))
+            +' · Wert '+(v.rating==null?'–':esc(String(v.rating)))
+            +(v.matrix_state?('<span style="color:var(--muted)"> · '+esc(String(v.matrix_state))+'</span>'):'')
+            +'</div>'; }).join("");
+    }
+    lade.innerHTML=H;
+  }catch(e){
+    console.error("[#291 Regelbeleg]",e);
+    lade.innerHTML='<span style="color:var(--k-b91c1c,#b91c1c)">Regel nicht abrufbar: '+esc((e&&e.message)||String(e))
+      +'</span> <span style="color:var(--muted)">– der angezeigte Wert bleibt, er ist hier nur nicht belegt.</span>';
+  }
+}
+if(typeof window!=="undefined"){ window.fgWertRegelZeigen=fgWertRegelZeigen; }
 /* Verarbeitung nur über den bestehenden Serverweg ändern; Ergebnis danach vollständig neu laden. */
 var _fgVerarbLaeuft=false;
 

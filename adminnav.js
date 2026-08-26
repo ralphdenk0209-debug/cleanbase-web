@@ -62,6 +62,10 @@ function applyAdminMode(){
          ohne KI treffen koennen. Die Notenleiter zeigt die 117 Staffeln nach Note
          sortiert, mit Herleitung und Quelle - als Vergleichsmaterial. */
       +_an('staffeln','🪜','Notenleiter',"staffelnOeffnen()")
+      /* 🔴 26.08.2026, Work #301: vier fertige Serverwege fuer die automatische
+         Zutatenbewertung hatten keine Tuer - gemessen 0 Treffer im ganzen
+         Frontend. Das ist der Knopf dazu. */
+      +_an('bewertung','⚖️','Bewerten',"bewertungOeffnen()")
       +_an('bundles','🧩','Bundles',"adminGo('bundles')")
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
       +_an('rezzut','🥣','Rezept-Zutaten',"rezZutatenWaecherOpenSafe()")

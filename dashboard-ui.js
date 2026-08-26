@@ -1804,33 +1804,52 @@ function _abkFluss(c){
   var beiRalph = Number(ck.bei_ralph)||0;
   var steht    = Number(ck.blockiert_oder_streit)||0;
 
-  /* Eine Station: Zahl, Wort darunter, Farbe nach Dringlichkeit. */
-  function station(zahl, wort, farbe, titel){
-    return '<div style="flex:1 1 0;min-width:0;text-align:center" title="'+esc(titel)+'">'
+  /* Eine Station: Zahl, Wort darunter, Farbe nach Dringlichkeit.
+     `filter` macht sie zum Einstieg in die Arbeitstafel — Ralphs Z3, steuern.
+     🔴 KEIN TOTER KNOPF: ohne `filter` bleibt die Station eine Anzeige. Die
+     beiden Stationen, deren Zahl der Server noch nicht liefert, fuehren
+     deshalb nirgendwo hin, statt eine leere Liste zu oeffnen. */
+  function station(zahl, wort, farbe, titel, filter){
+    var klick = filter
+      ? ' onclick="arbeitstafelOeffnen(\''+filter+'\',\''+esc(wort)+'\')"'
+        +' style="flex:1 1 0;min-width:0;text-align:center;cursor:pointer;border-radius:9px;'
+        +'padding:4px 2px" onmouseover="this.style.background=\'rgba(0,0,0,.04)\'"'
+        +' onmouseout="this.style.background=\'\'"'
+      : ' style="flex:1 1 0;min-width:0;text-align:center;padding:4px 2px"';
+    return '<div'+klick+' title="'+esc(titel)+'">'
       +'<div style="font-size:26px;font-weight:800;line-height:1;color:'+farbe+'">'+zahl+'</div>'
       +'<div class="bunter" style="margin-top:2px">'+wort+'</div></div>';
   }
   var pfeil='<div style="flex:0 0 14px;text-align:center;opacity:.3;font-size:15px">→</div>';
 
   var reihe='<div style="display:flex;align-items:flex-start;gap:2px;margin-top:4px">'
-    + station('?', 'offen', 'var(--matt,#8a97a4)', 'Diese Station liefert die Serverfunktion noch nicht - siehe Work 297')
+    + station('?', 'offen', 'var(--matt,#8a97a4)',
+        'Diese Zahl liefert die Serverfunktion noch nicht - Work 297', null)
     + pfeil
-    + station(inArbeit, 'in Arbeit', inArbeit>0?_AB.warn:_AB.gut, 'Laenger als 24 Stunden in Arbeit')
+    + station(inArbeit, 'in Arbeit', inArbeit>0?_AB.warn:_AB.gut,
+        'Laenger als 24 Stunden in Arbeit - antippen oeffnet die Liste', 'in_progress')
     + pfeil
-    + station(wartet, 'wartet auf Abnahme', wartet>0?_AB.krit:_AB.gut, 'Fertig gemeldet, noch nicht gegengeprueft')
+    + station(wartet, 'wartet auf Abnahme', wartet>0?_AB.krit:_AB.gut,
+        'Fertig gemeldet, noch nicht gegengeprueft - antippen oeffnet die Liste', 'ready_for_verification')
     + pfeil
-    + station('?', 'fertig', 'var(--matt,#8a97a4)', 'Diese Station liefert die Serverfunktion noch nicht - siehe Work 297')
+    + station('?', 'fertig', 'var(--matt,#8a97a4)',
+        'Diese Zahl liefert die Serverfunktion noch nicht - Work 297', null)
   +'</div>';
 
   /* Was den Fluss anhaelt. Nur zeigen, was tatsaechlich anliegt. */
+  /* Beide Zeilen fuehren in die ARBEITSTAFEL, nicht in die Server-Drillliste:
+     dort kann Ralph den Eintrag gleich aendern. Eine Liste, die nur zeigt,
+     waere hier ein halber Weg. */
   var stopper='';
   if(beiRalph>0)
-    stopper+='<div class="bzeile bdrill" data-drill="'+esc(ck.drill_key||'arbeit_attention')+'"'
-      +' data-drill-titel="Wartet auf dich">'
+    stopper+='<div class="bzeile" style="cursor:pointer" '
+      +'onclick="arbeitstafelOeffnen(\'decision_ralph\',\'Wartet auf deine Entscheidung\')">'
       +'<span style="font-size:11.5px">⛔ wartet auf deine Entscheidung</span>'
       +'<b style="font-size:11.5px;color:'+_AB.krit+'">'+beiRalph+'</b></div>';
   if(steht>0)
-    stopper+='<div class="bzeile"><span style="font-size:11.5px">blockiert oder strittig</span>'
+    stopper+='<div class="bzeile" style="cursor:pointer" '
+      +'onclick="arbeitstafelOeffnen(\'blocked\',\'Hängt fest\')">'
+      +'<span style="font-size:11.5px">blockiert oder strittig</span>'
       +'<b style="font-size:11.5px;color:'+_AB.warn+'">'+steht+'</b></div>';
 
   return {
@@ -1842,10 +1861,62 @@ function _abkFluss(c){
       + (stopper?'<div style="margin-top:9px">'+stopper+'</div>':'')
       + (wartet===0&&beiRalph===0?'<div class="bleer" style="margin-top:8px">Nichts staut sich.</div>':'')
     +'</div>',
-    fuss:'Wozu das alles dient, steht in ZIEL.md — Z1, Z2, Z7. '
-        +'Zwei Stationen fehlen noch (Work 297).'
+    fuss:'Eine Station antippen öffnet die Arbeitstafel — dort lässt sich ändern, '
+        +'zuweisen und abnehmen. Zwei Stationen warten noch auf ihre Zahl (Work 297).'
   };
 }
+
+/* ============================================================================
+   ARBEITSTAFEL ALS FLAECHE  ·  Stufe 3 zu ZIEL.md  ·  Work #295  ·  26.08.2026
+   ----------------------------------------------------------------------------
+   Ralph: „gearbeitet wird im dashbord" — Z3, steuern koennen.
+
+   🔴 HIER WURDE NICHTS GEBAUT, NUR ANGESCHLOSSEN (§22). Die vollstaendige
+   Steuerung gibt es seit Work #198/#199: Filterleiste, Zeilen, Aufklappen mit
+   Volltext, Status/Owner/Prioritaet aendern, Abnehmen ueber den eigenen
+   Serverweg. Sie steckte in der Kachel `aufgaben` fest, und die ist am 26.08.
+   ausgebaut worden, weil 142 Zeilen den Bildschirm erschlugen. Das Werkzeug war
+   also da und nur nicht erreichbar — der haeufigere Fall.
+
+   WARUM DIESELBE ID `awKachel`: _abWorkHorcher() sucht seine Bedienelemente
+   ueber getElementById('awKachel'). Traegt die Flaeche dieselbe Kennung, greifen
+   alle vorhandenen Horcher unveraendert. Kein zweiter Satz Handler, keine
+   zweite Wahrheit darueber, was ein Klick tut.
+   ⚠ FOLGE: Holt jemand die Kachel `aufgaben` zurueck, gibt es die Kennung
+   zweimal, und getElementById nimmt nur die erste. Dann muss eins von beidem
+   umbenannt werden. Steht hier, damit es nicht gesucht werden muss.
+   ========================================================================== */
+function arbeitstafelOeffnen(status, titel){
+  var b=_abDrillBox();                 /* dieselbe Ueberlagerung wie beim Drill */
+  b.style.display='block';
+  _AB_WORK_FILTER={status:status||'', owner:'', bereich:'', prio:'', suche:''};
+  b.innerHTML='<div style="position:absolute;inset:0;margin:auto;width:min(1100px,95vw);'
+    +'height:min(88vh,900px);background:var(--card,#fff);color:var(--ink,#1b2733);'
+    +'border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.28);display:flex;flex-direction:column">'
+    +'<div style="display:flex;align-items:center;gap:10px;padding:13px 16px;'
+      +'border-bottom:1px solid var(--line,#dbe3ea);flex:0 0 auto">'
+      +'<b style="font-size:14px">'+esc(titel||'Arbeitstafel')+'</b>'
+      /* awStand fuellt _abWorkKopfSetzen von selbst — dieselbe Kennung wie in
+         der alten Kachel, also dieselbe Zahl aus derselben Rechnung. */
+      +'<span id="awStand" style="font-size:11.5px;opacity:.6">lädt…</span>'
+      +'<span style="font-size:11.5px;opacity:.45">· jede Zeile lässt sich hier ändern</span>'
+      +'<button type="button" onclick="_abDrillZu()" style="margin-left:auto;border:1px solid '
+        +'var(--line,#dbe3ea);border-radius:8px;background:var(--bg,#f4f6f8);color:inherit;'
+        +'padding:5px 11px;font-size:12.5px;cursor:pointer">Schließen ✕</button>'
+    +'</div>'
+    +'<div class="awk" id="awKachel" style="flex:1 1 auto;min-height:0;display:flex;'
+      +'flex-direction:column;padding:10px 14px 14px">'
+      +'<div id="awFilter">'+_abWorkFilterleiste()+'</div>'
+      +'<div class="awliste bscroll" id="awBody" style="flex:1 1 auto;min-height:0">'
+        +'<div class="blade">lädt…</div></div>'
+    +'</div>'
+  +'</div>';
+  /* true = frisch vom Server holen. Die Tafel wird selten geoeffnet; ein
+     gemerkter Stand von vorhin waere hier genau die Art alter Zahl, die
+     Vertrauen kostet. */
+  try{ _abWorkFuellen(true); }catch(e){ try{ console.error('[Arbeitstafel]',e); }catch(_){} }
+}
+if(typeof window!=='undefined') window.arbeitstafelOeffnen=arbeitstafelOeffnen;
 
 /* 🔴 C2, 15.08.2026 — ROOT-COCKPIT-OPTIK (Ralph-Go: „ja, kannst du so bauen").
    Jede Kachel bekommt ein FOTO als Hintergrund. Die Dateien liegen FLACH in
@@ -4175,6 +4246,37 @@ function _abWorkPanel(id){
   +'</div>';
 }
 
+/* ============================================================================
+   SERVERFEHLER IN RALPHS SPRACHE  ·  26.08.2026, Stufe 3 zu ZIEL.md
+   ----------------------------------------------------------------------------
+   Der Server lehnt ab, und sein Satz stand bisher woertlich da — richtig so,
+   solange er verstaendlich ist. "violates check constraint
+   agent_work_item_description_kurz" ist es nicht. Ralph liest dann einen
+   Datenbanknamen und weiss nur, dass etwas kaputt ist.
+
+   🔴 HIER WIRD NICHTS GERATEN. Uebersetzt werden ausschliesslich Fehler, deren
+   Ursache GEMESSEN ist (Work #296). Alles andere geht unveraendert durch —
+   ein erfundener Klartext waere schlimmer als ein technischer Satz.
+   Keine Zahl im Text: "227 von 271" waere morgen falsch und muesste von Hand
+   nachgetragen werden. Die Zahl steht in #296, wo sie gemessen wird.
+   ========================================================================== */
+function _abWorkFehlerKlartext(e){
+  var t=String((e&&e.message)||e||'');
+  if(/description_kurz|result_note_kurz|acceptance_kurz/.test(t)){
+    var feld = /description_kurz/.test(t) ? 'Beschreibung'
+             : /result_note_kurz/.test(t) ? 'Ergebnisnotiz' : 'Abnahmekriterium';
+    return 'Dieser Eintrag lässt sich zur Zeit nicht ändern. Seine '+feld+' ist länger, '
+      +'als eine später eingeführte Grenze erlaubt — beim Anlegen wurde das nie geprüft, '
+      +'bei jeder Änderung schon. Das betrifft den Großteil der älteren Einträge und ist '
+      +'der Grund für den Abnahme-Stau. Behebung läuft als Work #296; bis dahin bleibt '
+      +'dieser Eintrag unverändert stehen. Deine Eingabe ist nicht verloren, nur nicht gespeichert.';
+  }
+  if(/Verified nur über/.test(t))
+    return 'Abgenommen wird über den Knopf „✓ Abnehmen", nicht über das Statusfeld. '
+      +'Der Server besteht darauf, damit eine Abnahme immer einen Prüfer hat.';
+  return t;
+}
+
 async function _abWorkSpeichern(id, was){
   var wrap=document.querySelector('#awBody .awpanel[data-panel="'+CSS.escape(String(id))+'"]');
   if(!wrap) return;
@@ -4225,7 +4327,7 @@ async function _abWorkSpeichern(id, was){
     await _abWorkFuellen(true);
     try{ _abCockpitHolen(true); }catch(e){}
   }catch(e){
-    sagen((e&&e.message)||String(e), _AB.krit);
+    sagen(_abWorkFehlerKlartext(e), _AB.krit);
     try{ console.error('[Arbeitstafel] Speichern', id, e); }catch(_){}
     wrap.querySelectorAll('button').forEach(function(b){ b.disabled=false; });
   }
