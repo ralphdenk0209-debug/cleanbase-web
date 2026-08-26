@@ -6522,7 +6522,15 @@ async function dashWaechterFaelle(nr, nameEnc, view){
             +esc(WA_REGEL_OK_TEXT[rg])+' passt</button>';
         }).join('');
       }
-      var hart=(prod && x.abhakbar===false)
+      /* 🔴 26.08.2026, Ralph: „ist der inhalt plausibel?" — nein, war er nicht.
+         Dieser Satz gehoert zum NAEHRWERT-Waechter (Nummer 3): Zucker ueber
+         Kohlenhydraten oder eine Makrosumme ueber 100 g sind wirklich unmoeglich.
+         Er stand aber bei JEDEM Waechter, dessen Faelle nicht abhakbar sind.
+         Gemessen an „g oder ml": alle 42 Faelle tragen dringlichkeit
+         „Annahme - Etikett pruefen" — eine ANNAHME, die man nachsehen soll, und
+         nichts Unmoegliches. Bei „Wasser" stand „Physikalisch unmoeglich".
+         Jetzt erscheint der Satz nur noch dort, wo er stimmt. */
+      var hart=(prod && x.abhakbar===false && Number(nr)===3)
         ? '<div style="font-size:11px;color:#cf5442;font-weight:700;margin-top:2px">Physikalisch unmöglich – muss korrigiert werden, nicht abgehakt.</div>' : '';
       return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line,#e3e9ec);flex-wrap:wrap">'
         +'<div style="flex:1 1 240px;min-width:0"><div style="font-weight:700;color:var(--ink,#22343a)">'+esc(x.name||x.id)+'</div>'
