@@ -3603,13 +3603,93 @@ function _abBentoNach(box){
   }
 }
 
+/* ============================================================================
+   DAS WÄCHTERPANEL AN EINER STELLE  ·  26.08.2026
+   ----------------------------------------------------------------------------
+   🔴 RALPHS BEFUND, im Browser beschrieben: „beim laden wird kurz die normale
+   app seite angezeigt, dann auch kurz die wächter und dann sind sie weg."
+   Er hatte den richtigen Verdacht — nur andersherum als vermutet: nichts
+   überlagert das Panel, es wird ÜBERSCHRIEBEN.
+
+   URSACHE: _abNeuZeichnen() baut #abBentoBox komplett neu auf und kannte das
+   Wächterpanel nicht. Jedes Neuzeichnen — Anordnen-Modus, Aktualisieren, Thema
+   wechseln — hat es weggeworfen. Das Panel stand nur im ERSTEN Aufbau.
+
+   REPARATUR nach §4: eine Sache, ein Ort. Markup und Verdrahtung stehen je
+   einmal hier und werden von BEIDEN Wegen benutzt. Ein dritter Weg kann das
+   Panel nicht mehr vergessen.
+   ========================================================================== */
+function _abWaechterPanel(np,A){
+  var anz=((np&&np.waechter)||[]).length;
+  var melden=(A&&A.melden!=null)?A.melden:0;
+  return '<div class="abp" style="margin:0 0 14px"><div class="abph"><h3>Alle Wächter</h3>'
+    +'<span class="abtab on" data-wf="alle">alle '+anz+'</span>'
+    +'<span class="abtab" data-wf="melden">melden ('+melden+')</span>'
+    +'<span class="abtab" data-wf="gate">Go-Live-Gate</span>'
+    +'<span class="abtab" data-wf="anlage">Anlage</span>'
+    +'<span class="abtab" data-wf="tuer">Tür</span>'
+    +'<span class="abtab" data-wf="bestand">Bestand</span></div>'
+    +'<div class="abwg" id="abWg"></div><div class="abfoot" id="abWf"></div></div>';
+}
+/* Reiter verdrahten und die Schalterleiste zeichnen. Ohne diesen Aufruf bleibt
+   das Panel eine leere Hülle — genau das war der zweite Teil des Fehlers. */
+/* 🔴 SICHERHEITSNETZ, 26.08.2026. Ralph meldet: „kurz die wächter und dann
+   sind sie weg." Ich konnte es an Build 4408 in seinem angemeldeten Fenster
+   NICHT nachstellen — zehn Sekunden lang standen alle 23 Schalter. Belegt ist
+   aber ein Weg, der es kann: _abNeuZeichnen baute #abBentoBox ohne das Panel
+   neu. Das ist repariert.
+   Weil ich den Rest nicht messen konnte, kommt hier ein Wächter über den
+   Wächtern: die ersten 20 Sekunden nach dem Aufbau wird jede Sekunde geprüft,
+   ob das Panel noch steht. Fehlt es, wird es EINMAL wieder eingesetzt und der
+   Vorfall in die Konsole geschrieben — damit man sieht, DASS es passiert ist,
+   statt es nur zu verdecken. Findet sich die Ursache, fliegt das hier raus. */
+var _abWgWache=null;
+function _abWaechterWache(np,A){
+  try{ clearInterval(_abWgWache); }catch(e){}
+  var runden=0, gemeldet=false;
+  _abWgWache=setInterval(function(){
+    runden++;
+    if(runden>20){ try{ clearInterval(_abWgWache); }catch(e){} return; }
+    var box=document.getElementById('abBentoBox'); if(!box) return;
+    var g=document.getElementById('abWg');
+    if(g && g.children.length) return;                 /* alles in Ordnung */
+    if(!gemeldet){
+      gemeldet=true;
+      try{ console.warn('[Wächter] Panel war weg und wurde wieder eingesetzt '
+        +'(Sekunde '+runden+'). Bitte Ralph melden — die Ursache ist noch offen.'); }catch(_){}
+    }
+    if(!g){
+      var pz=box.querySelector('.abfrei');            /* die Kachelfläche */
+      var html=_abWaechterPanel(np,A);
+      if(pz && pz.parentNode===box){ pz.insertAdjacentHTML('beforebegin', html); }
+      else { box.insertAdjacentHTML('afterbegin', html); }
+    }
+    try{ _abWaechterNach(np,A); }catch(e){}
+  },1000);
+}
+
+function _abWaechterNach(np,A){
+  var box=document.getElementById('fgDash'); if(!box) return;
+  box.querySelectorAll('.abtab[data-wf]').forEach(function(t){
+    t.addEventListener('click',function(){
+      box.querySelectorAll('.abtab[data-wf]').forEach(function(x){x.classList.remove('on');});
+      t.classList.add('on'); _abWgMal(t.dataset.wf,np,A);
+    });
+  });
+  if(document.getElementById('abWg')) _abWgMal('alle',np,A);
+}
+
 function _abNeuZeichnen(){
   var box=document.getElementById('abBentoBox'); if(!box) return;
   var A=null;
   try{ if(_abNp && typeof _abAbl==='function') A=_abAbl(_abNp); }catch(e){}
-  box.innerHTML=_abEditLeiste()+_abProjektzeitHtml()+_abBento(_abD,_abNp,A)+_abBento2()
+  box.innerHTML=_abEditLeiste()+_abProjektzeitHtml()
+    +_abWaechterPanel(_abNp,A)
+    +_abBento(_abD,_abNp,A)+_abBento2()
     +'<div id="abZeitBox"></div>'+_abCmdHtml();
   _abBentoNach(box);
+  /* 26.08.2026: ohne diese Zeile war das Panel nach jedem Neuzeichnen leer. */
+  try{ _abWaechterNach(_abNp,A); }catch(e){ try{ console.warn('[Wächter]',e); }catch(_){} }
 }
 
 /* Zeile Beschriftung/Wert. Stand vorher zweimal als lokales z() in _abBento. */
@@ -5131,14 +5211,7 @@ function dashArbeitHtml(d,np,fehler){
      Reihenfolge jetzt: Termine → Wächter-Raster → Kacheln. Die Wächter sind das,
      woran gearbeitet wird; sie standen ganz unten hinter allem anderen. */
   h+='<div id="abBentoBox">'+_abEditLeiste()+_abProjektzeitHtml()
-    +'<div class="abp" style="margin:0 0 14px"><div class="abph"><h3>Alle Wächter</h3>'
-    +'<span class="abtab on" data-wf="alle">alle '+((np&&np.waechter)||[]).length+'</span>'
-    +'<span class="abtab" data-wf="melden">melden ('+A.melden+')</span>'
-    +'<span class="abtab" data-wf="gate">Go-Live-Gate</span>'
-    +'<span class="abtab" data-wf="anlage">Anlage</span>'
-    +'<span class="abtab" data-wf="tuer">Tür</span>'
-    +'<span class="abtab" data-wf="bestand">Bestand</span></div>'
-    +'<div class="abwg" id="abWg"></div><div class="abfoot" id="abWf"></div></div>'
+    +_abWaechterPanel(np,A)
     +_abBento(d,np,A)+_abBento2()
     +'<div id="abZeitBox"></div>'+_abCmdHtml()+'</div>';
 
@@ -5258,13 +5331,8 @@ function _abNachRest(box,d,np,A){
     an.classList.toggle('on', _abEditModus(!_AB_EDIT));
     _abNeuZeichnen();
   });
-  box.querySelectorAll('.abtab[data-wf]').forEach(function(t){
-    t.addEventListener('click',function(){
-      box.querySelectorAll('.abtab[data-wf]').forEach(function(x){x.classList.remove('on');});
-      t.classList.add('on'); _abWgMal(t.dataset.wf,np,A);
-    });
-  });
-  if(document.getElementById('abWg')) _abWgMal('alle',np,A);
+  _abWaechterNach(np,A);
+  try{ _abWaechterWache(np,A); }catch(e){}
 }
 function _abWfSet(m,np,A){
   var box=document.getElementById('fgDash'); if(!box) return;
