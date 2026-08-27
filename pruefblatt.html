@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<!-- BEWERTUNGS-PRÜFBLATT · Testversion · 27.08.2026
+     Parallelbetrieb von Ralph genehmigt (27.08.2026). Nur Lese-RPCs, kein
+     Schreibweg. Konzept: bereiche/konzept-automatische-zutatenbewertung.md -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Bewertungs-Prüfblatt · Root Index (Testversion)</title>
+<style>
+  :root{ --gruen:#e6f4ea; --gruenR:#2e9e57; --gelb:#fdf3d7; --gelbR:#e0a32e;
+         --rot:#fde8e4; --rotR:#cf5442; --rand:#d6d2e4; --tinte:#2a2640; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; padding:16px; font:14px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;
+        color:var(--tinte); background:#f4f2f9; }
+  h1{ font-size:19px; margin:0 0 2px; }
+  .pbUnter{ color:#6b6592; font-size:12px; margin-bottom:12px; }
+  .pbLeiste{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .pbLeiste input{ padding:7px 10px; border:1px solid var(--rand); border-radius:6px;
+                   font:inherit; width:130px; background:#fff; }
+  .pbLeiste button{ padding:7px 14px; border:1px solid var(--rand); border-radius:6px;
+                    background:#fff; font:inherit; cursor:pointer; }
+  .pbLeiste button:hover{ background:#eceafb; }
+  .pbFBtn.aktiv{ background:#534AB7; color:#fff; border-color:#534AB7; }
+  .pbKacheln{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+              gap:8px; margin-bottom:12px; }
+  .pbKachel{ background:#fff; border:1px solid var(--rand); border-radius:8px;
+             padding:10px 12px; font-size:12px; color:#6b6592; }
+  .pbKachel b{ display:block; font-size:20px; color:var(--tinte); }
+  .pbKachel.gruen{ background:var(--gruen); border-color:var(--gruenR); }
+  .pbKachel.gelb{ background:var(--gelb); border-color:var(--gelbR); }
+  .pbKachel.rot{ background:var(--rot); border-color:var(--rotR); }
+  .pbTab{ width:100%; border-collapse:collapse; background:#fff;
+          border:1px solid var(--rand); font-size:13px; }
+  .pbTab th{ position:sticky; top:0; background:#efecf8; text-align:left;
+             padding:7px 8px; border-bottom:2px solid var(--rand); white-space:nowrap; }
+  .pbTab td{ padding:6px 8px; border-bottom:1px solid #eceafb; vertical-align:top; }
+  .pbTab .r{ text-align:right; }
+  .pbZeile{ cursor:pointer; }
+  .pbZeile:hover td{ background:#f6f4fd; }
+  .pbGruen td:first-child{ box-shadow:inset 3px 0 0 var(--gruenR); }
+  .pbGelb{ background:var(--gelb); }
+  .pbGelb td:first-child{ box-shadow:inset 3px 0 0 var(--gelbR); }
+  .pbRot{ background:var(--rot); }
+  .pbRot td:first-child{ box-shadow:inset 3px 0 0 var(--rotR); }
+  .pbLeer{ color:var(--rotR); font-style:italic; }
+  .pbDetailBox{ padding:8px 4px 4px; }
+  .pbFelder{ border-collapse:collapse; margin:6px 0; }
+  .pbFelder td{ border:none; padding:2px 14px 2px 0; font-size:12px; }
+  .pbFelder td:first-child{ color:#6b6592; white-space:nowrap; }
+  .pbRegel{ background:#efecf8; border-radius:6px; padding:8px 10px; margin-top:6px;
+            font-size:12px; }
+  .pbLueckeBox{ background:var(--gelb); }
+  .pbHinweis{ background:var(--gelb); border:1px solid var(--gelbR); border-radius:6px;
+              padding:8px 10px; margin-bottom:10px; font-size:12px; }
+  .pbKachel.blau{ background:#e8effc; border-color:#4a72b7; }
+  .pbBlau{ background:#e8effc; }
+  .pbBlau td:first-child{ box-shadow:inset 3px 0 0 #4a72b7; }
+  .pbRiegel{ border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:13px; }
+  .pbRiegel.gruen{ background:var(--gruen); border:1px solid var(--gruenR); }
+  .pbRiegel.rot{ background:var(--rot); border:1px solid var(--rotR); }
+  .pbRiegel ul{ margin:6px 0 0 18px; padding:0; }
+  #pbStatus{ margin:8px 0; color:#6b6592; }
+  .pbFuss{ margin-top:14px; font-size:11px; color:#6b6592; }
+</style>
+</head>
+<body>
+<h1>Bewertungs-Prüfblatt <span style="font-weight:normal;color:#6b6592">· Testversion</span></h1>
+<div class="pbUnter">Zeigt je Zutat den Serverzustand der automatischen Bewertung:
+Note, Regel — oder die benannte Lücke. Diese Seite rechnet nichts und schreibt nichts.</div>
+
+<div class="pbLeiste">
+  <label for="pbPid">Produkt-ID:</label>
+  <input id="pbPid" value="P1809" spellcheck="false">
+  <button onclick="pbLaden()">Laden</button>
+  <span style="width:14px"></span>
+  <button id="pbF_alle" class="pbFBtn aktiv" onclick="pbFilter('alle')">alle</button>
+  <button id="pbF_note" class="pbFBtn" onclick="pbFilter('note')">mit Note</button>
+  <button id="pbF_luecke" class="pbFBtn" onclick="pbFilter('luecke')">nur Lücken</button>
+</div>
+
+<div id="pbStatus"></div>
+<div id="pbKopf"></div>
+<div id="pbTabelle" style="overflow-x:auto"></div>
+
+<div class="pbFuss">Datenweg: Etikett → Produkt_Zutaten → Canonical-Stamm →
+Bewertungsregeln → Serverauflösung (v_product_ingredient_rating_resolution) →
+diese Anzeige. Klick auf eine Zeile zeigt alle Serverfelder samt Regeltext.
+Parallelbetrieb von Ralph genehmigt am 27.08.2026.</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="pruefblatt.js?v=2026-08-27-1"></script>
+</body>
+</html>
