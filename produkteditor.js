@@ -1343,28 +1343,57 @@ function _fgOffVorschlagHtml(z){
        Diese Aussage hat jetzt einen Ort (Zutat_Offen.zutat_id + erledigt_am)
        und hier ihren Knopf. Danach greift Weg 1 der unveränderten Lesefunktion.
        ────────────────────────────────────────────────────────────────────── */
+    /* ──────────────────────────────────────────────────────────────────────
+       27.08.2026, RALPH: "beim klick auf zerlegt erhalte ich eine meldung ...
+       und die darstellung im gelben kasten gefaellt mir nicht."
+       GEMESSEN an P73634 "Trockenobst (78 % getrocknete Datteln, 12 %
+       Kakaopulver)": der Kasten bot ZWEIMAL "ist dieselbe - erledigt" an,
+       einmal fuer Dattel, einmal fuer Kakaopulver. Beides ist fachlich falsch:
+       eine Zeile kann nicht gleichzeitig zwei verschiedene Zutaten SEIN. Sie
+       ist die Summe - der richtige Abschluss heisst "ist zerlegt".
+       Ab jetzt entscheidet die ANZAHL der bereits gebundenen Teile, welcher
+       Weg angeboten wird. Ein Teil -> "ist dieselbe". Mehrere Teile -> ruhige
+       Chipliste und der Zerlegt-Abschluss als einziger Primaerweg.
+       ────────────────────────────────────────────────────────────────────── */
     if(_schon.length){
-      H+='<span style="display:block;margin-top:4px;color:var(--k-166534,#166534)">'
-        +_schon.map(function(k){
+      var _mehr = _schon.length > 1;
+      if(_mehr){
+        H+='<span style="display:block;margin-top:6px;font-size:11.5px;color:var(--muted)">'
+          +'Diese Zeile beschreibt eine Zusammensetzung. Ihre Teile stehen bereits am Produkt:</span>'
+          +'<span style="display:block;margin-top:4px">'
+          + _schon.map(function(k){
+              var c=_amProdukt[String(k.entity_id)]||{};
+              var nm=String(c.canonical_name||c.sichtbarer_name||k.zutat||"").trim();
+              return '<span style="display:inline-block;background:var(--k-e6f4ea,#e6f4ea);'
+                +'border:1px solid var(--k-2e9e57,#2e9e57);border-radius:12px;padding:2px 9px;'
+                +'margin:2px 4px 2px 0;font-size:11.5px">✓ '+esc(nm)
+                +((c.resolved_rating!=null)?('<span style="color:var(--muted)"> · Wert '+esc(String(c.resolved_rating))+'</span>'):'')
+                +'</span>';
+            }).join('')
+          +'</span>'
+          +'<span style="display:block;margin-top:3px;font-size:11px;color:var(--muted)">'
+          +'Passt das? Dann unten auf <b>erledigt &ndash; ist zerlegt</b>.</span>';
+      }else{
+        H+='<span style="display:block;margin-top:4px;color:var(--k-166534,#166534)">'
+        + _schon.map(function(k){
           var c=_amProdukt[String(k.entity_id)]||{};
           var nm=String(c.canonical_name||c.sichtbarer_name||k.zutat||"").trim();
           var pzid=String(c.produkt_zutat_id||"");
           var txt=String((z&&z.zutat_text)||"").trim();
           var zeile='✓ steht bereits als <b>'+esc(nm)+'</b> am Produkt'
             +((c.resolved_rating!=null)?('<span style="color:var(--muted)"> · Wert '+esc(String(c.resolved_rating))+'</span>'):'');
-          /* Ohne produkt_zutat_id kein Knopf: der Server braucht sie, und ein
-             Knopf, der beim Drücken scheitert, ist die Falle aus #312. */
           if(pzid && txt){
             zeile+=' <button type="button" class="fgOffBtn fgOffPrimaer" '
               +'onclick="fgOffDieselbeZutat(\''+esc(txt.replace(/'/g,"\\'"))+'\',\''+esc(pzid)+'\',\''
                 +esc(nm.replace(/'/g,"\\'"))+'\',this)" '
-              +'title="Hält fest, dass diese Etikettzeile dieselbe Zutat meint wie '+esc(nm)
-              +'. Die Zeile ist danach erledigt. Es wird nichts neu gebunden und nichts doppelt angelegt.">'
-              +'✓ ist dieselbe – erledigt</button>';
+              +'title="Haelt fest, dass diese Etikettzeile dieselbe Zutat meint wie '+esc(nm)
+              +'. Die Zeile ist danach erledigt.">'
+              +'✓ ist dieselbe &ndash; erledigt</button>';
           }
           return zeile;
         }).join('<br>')
         +'</span>';
+      }
     }
     if(_tot.length){
       H+='<span style="display:block;margin-top:3px;padding-left:8px">'
@@ -1796,7 +1825,29 @@ async function fgOffZerlegtFertig(iid, btn){
   if(!confirm('„'+txt+'" als ZERLEGT abschließen?\n\n'
     +'Die Zeile wird dann keine eigene Produktzutat – ihre Bestandteile sind es.\n\n'
     +liste+'\n\nDer Entscheid ist widerrufbar.')) return;
-  if(btn){ btn.disabled=true; } _fgOffMsg(btn,"speichere Entscheid …");
+  if(btn){ btn.disabled=true; }
+  /* ────────────────────────────────────────────────────────────────────────
+     27.08.2026, Ralphs Fund an P73634: der Klick endete in
+     "Der Handentscheid ist nur fuer composition, explanation oder
+     subingredients zulaessig." GEMESSEN: item 190 hatte parenthetical_role
+     NULL, weil die Zeile nie zerlegt worden war. Der Serverriegel ist richtig
+     (fail-closed) - die Sackgasse war unsere. Fehlt die Rolle, laeuft jetzt
+     ERST die vorhandene Riki-Zerlegung (setzt Struktur samt Rolle), dann der
+     Abschluss. Kein neuer Serverweg, nur die richtige Reihenfolge.
+     ──────────────────────────────────────────────────────────────────────── */
+  if(!z.parenthetical_role){
+    _fgOffMsg(btn,"Die Klammerrolle fehlt noch – Riki zerlegt die Zeile zuerst …");
+    try{
+      await fgOffZerlegen(iid, null);
+      z=_fgOffItem(iid)||z;
+    }catch(e){ console.error("[zerlegt: Vorlauf]",e); }
+    if(!z.parenthetical_role){
+      _fgOffMsg(btn,"Riki konnte keine Klammerrolle bestimmen. Weg: „Riki einstufen“ unter „weitere Wege“ – oder „anderer Grund …“ mit eigener Begründung.","var(--k-b45309)");
+      if(btn){ btn.disabled=false; }
+      return;
+    }
+  }
+  _fgOffMsg(btn,"speichere Entscheid …");
   try{
     var r=await client.rpc("cb_source_extraction_item_keine_eigene_zutat_setzen",
       {p_item_id:Number(iid),

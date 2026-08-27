@@ -358,7 +358,35 @@ async function pbOffZerlegt(iid, btn){
     return '  · '+(r.canonical_name||r.sichtbarer_name||'?')+(r.resolved_rating!=null?('  Note '+r.resolved_rating):'  Note offen');
   }).join('\n');
   if(!confirm('"'+(o.zutat_text||'')+'" als ZERLEGT abschließen?\n\nDie Zeile wird keine eigene Produktzutat - ihre Bestandteile sind es.\n\nAm Produkt stehen laut Server:\n'+(gebunden||'  (keine Zeile)')+'\n\nWiderrufbar im alten Editor.')) return;
-  if(btn) btn.disabled=true; pbOffMsg(iid,"speichere Entscheid …");
+  if(btn) btn.disabled=true;
+  /* Wie im alten Editor (27.08.): ohne Klammerrolle blockt der Serverriegel.
+     Fehlt sie, läuft erst die Riki-Zerlegung, dann der Abschluss. */
+  if(!o.parenthetical_role){
+    pbOffMsg(iid,"Klammerrolle fehlt – Riki zerlegt die Zeile zuerst …");
+    try{
+      var s=await pbClient.auth.getSession();
+      var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+      if(!tok) throw new Error("Nicht angemeldet.");
+      var resp=await fetch(PB_URL+"/functions/v1/riki-analyse",{method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":PB_KEY},
+        body:JSON.stringify({modus:"zutaten", modell:PB_RIKI_MODELL, text:String(o.zutat_text||""), produkt_id:PB_PID})});
+      var dd=await resp.json();
+      if(!resp.ok||dd.error) throw new Error(dd.error||("HTTP "+resp.status));
+      var zt=(dd.vorschlag&&Array.isArray(dd.vorschlag.zutaten)&&dd.vorschlag.zutaten[0])||null;
+      if(!zt||!zt.parenthetical_role) throw new Error("keine Klammerrolle bestimmbar");
+      var rs=await pbClient.rpc("cb_riki_zutat_offen_struktur_speichern",{
+        p_item_id:Number(iid), p_base_ingredient:zt.base_ingredient||zt.name||null,
+        p_processing_modifiers:Array.isArray(zt.processing_modifiers)?zt.processing_modifiers:null,
+        p_attributes:zt.attributes||null, p_parenthetical_role:zt.parenthetical_role,
+        p_parenthetical_items:Array.isArray(zt.parenthetical_items)?zt.parenthetical_items:null,
+        p_confidence:null, p_extraction_status:"extracted"});
+      if(rs.error) throw rs.error;
+    }catch(e){
+      pbOffMsg(iid,"Riki konnte die Klammerrolle nicht bestimmen ("+(e.message||e)+"). Weg: „Riki einstufen“ oder „keine Zutat …“ mit eigener Begründung.");
+      if(btn) btn.disabled=false; return;
+    }
+  }
+  pbOffMsg(iid,"speichere Entscheid …");
   try{
     var r=await pbClient.rpc("cb_source_extraction_item_keine_eigene_zutat_setzen",
       {p_item_id:Number(iid), p_reason:"Zusammengesetzte Zeile - in ihre Bestandteile zerlegt, diese sind als eigene Zutaten gebunden.", p_parenthetical_item:null});
