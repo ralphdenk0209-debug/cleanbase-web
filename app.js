@@ -1021,8 +1021,11 @@ async function _fapLaden(){
   try{ _fapFelderWaechter(); }catch(e){}
   return alle;
 }
-let ALL=[]; let STK={}; let STKV={}; let SUPP_BIL={}; let WISSEN=[];
+let ALL=[]; let STK={}; let STKD={}; let STKV={}; let SUPP_BIL={}; let WISSEN=[];
 function stkOf(pid){ const g=pid?num(STK[pid]):null; return (g&&g>0)?g:null; }
+/* Work #325: Stueck je Tagesdosis eines echten Stueckprodukts (Kapsel, Tropfen,
+   Pressling). Nur gesetzt, wenn das Produkt in Stueck gebucht werden soll. */
+function stkDosisOf(pid){ const d=pid?num(STKD[pid]):null; return (d&&d>0)?d:null; }
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
 });
@@ -1751,7 +1754,13 @@ async function load(){
   try{ const {data:ww}=await client.from("v_wirkstoff_wissen").select("*"); WISSEN=ww||[]; }catch(e){ WISSEN=[]; }
   /* 28z16: kuratierte Tausch-Tipps (kleine Map Produkt->Tausch, eine RPC) */
   try{ const {data:tt}=await client.rpc("cb_tausch_tipps"); window._TAUSCH=(typeof tt==='string')?JSON.parse(tt):(tt||{}); }catch(e){ window._TAUSCH={}; }
-  try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; (sm||[]).forEach(x=>{STK[x.id]=num(x.stueck_gramm);}); }catch(e){}
+  /* Work #325: derselbe Abruf liefert jetzt BEIDE Stueck-Faelle.
+     STK  = Gramm je Stueck. Das Stueck hat ein Gewicht, gebucht wird in Gramm (bisheriger Weg).
+     STKD = Stueck je Tagesdosis. Echtes Stueckprodukt ohne brauchbares Gewicht - eine Kapsel
+            wiegt niemand, deshalb wird sie in STUECK gebucht (Ralph-Entscheid 27.08.).
+     Zwei Faelle, ein Leseweg, eine Entscheidungsstelle: tbEinheitOptionen. */
+  try{ const {data:sm}=await client.rpc("cb_stueck_map"); STK={}; STKD={};
+       (sm||[]).forEach(x=>{ STK[x.id]=num(x.stueck_gramm); var d=num(x.stueck_dosis); if(d>0) STKD[x.id]=d; }); }catch(e){}
   /* Stück-GRÖSSEN (S/M/L/XL …) je Produkt fürs Rezept-Dropdown – Gramm = essbarer Anteil (Ralph 24.07.). */
   try{ const {data:sg}=await client.rpc("cb_stueck_groessen"); STKV={}; (sg||[]).forEach(x=>{ (STKV[x.produkt_id]=STKV[x.produkt_id]||[]).push({bez:x.bezeichnung, g:num(x.gramm), sch:!!x.ist_schaetzung}); }); }catch(e){}
   /* Die Kategorie-Zaehlung kam frueher aus ALL - das ging nur, solange ALL den
@@ -8454,6 +8463,20 @@ function tbEinheitOptionen(p, km){
   }catch(e){}
   if(!piece){ var sg=stkOf(p&&p.id); if(sg) piece=sg; }
   if(piece>0) opts.push({key:'stueck',label:plabel,f:piece});
+  /* 🔴 WORK #325 — DIE ZWEITE ART VON STUECK.
+     Bis hier gilt: ein Stueck darf nur gewaehlt werden, wenn sein GEWICHT belegt ist,
+     weil der Eintrag in Gramm gespeichert wird. Fuer Kapseln, Tropfen und Presslinge
+     gibt es dieses Gewicht nicht - gemessen: Stueck_Gramm ist bei allen 253
+     Supplements leer, und ein Kapselgewicht steht auf keinem Etikett. Deshalb blieb
+     die Auswahl dort leer und man konnte nur Gramm eintippen, was niemand tut.
+     Ralph-Entscheid 27.08.: das Tagebuch lernt Stueck als echte Einheit. Der Eintrag
+     traegt dann eine Stueckzahl, und der Server rechnet die Wirkstoffe daraus
+     (cb_tagebuch_mikro, Zweig stueck). Faktor 0 heisst hier ausdruecklich: NICHT in
+     Gramm umrechnen - es gibt nichts umzurechnen. tbAddMengeBasis erkennt das. */
+  if(!piece){
+    var sd=stkDosisOf(p&&p.id);
+    if(sd) opts.push({key:'stueck_echt', label:plabel, f:0});
+  }
   /* 27w (Ralph): Küchenmaße aus der DB (cb_kuechenmass_produkt) - Prise/EL/TL nur dort,
      wo ein Wert hinterlegt ist (je Produkt oder Betreiber-Festlegung; Annahmen tragen ⚠).
      Der Wert steht sichtbar im Label ("TL (6 g)") - keine versteckte Umrechnung. */
@@ -8484,10 +8507,24 @@ function tbAddMengeBasis(){
     /* 27w: JEDE Option trägt ihren Faktor (data-f); Basis-Einheiten haben 1.
        3 Prisen x 0,2 g = 0,6 g - auf 2 Nachkommastellen gerundet gegen Float-Reste. */
     var o=sel.selectedOptions&&sel.selectedOptions[0];
+    /* Work #325: bei einem echten Stueckprodukt gibt es keine Gramm. 0 zurueckgeben
+       waere hier falsch verstanden worden ("keine Menge"), deshalb sagt die Funktion
+       es ausdruecklich - tbAddStueck() liefert dann die Stueckzahl. */
+    if(o && o.value==='stueck_echt') return 0;
     var f=o?(parseFloat(o.getAttribute('data-f'))||1):1;
     return Math.round(v*f*100)/100;
   }
   return v;
+}
+/* Work #325: Stueckzahl aus derselben Eingabe - aber nur, wenn wirklich die
+   Stueck-Option gewaehlt ist. Sonst null, und der Gramm-Weg gilt unveraendert. */
+function tbAddStueck(){
+  var sel=document.getElementById('tbAddEinheit');
+  var o=sel&&sel.selectedOptions&&sel.selectedOptions[0];
+  if(!o || o.value!=='stueck_echt') return null;
+  var el=document.getElementById('tbAddMenge'); if(!el) return null;
+  var v=parseFloat(String(el.value).replace(',','.'))||0;
+  return v>0 ? v : null;
 }
 function tbPrefillMenge(){
   const id=tbResolveId(); if(!id) return;
@@ -9991,6 +10028,13 @@ function mealShares(goal, snackActive){
 function scoreChip(s){ if(s==null) return ""; const b=scoreBew(s); return `<span style="font-size:12px;font-weight:700;color:var(--k-ffffff);background:${farbe(b)};border-radius:8px;padding:2px 8px">Index ${s}</span>`; }
 function mengeLabel(r){
   const g=num(r.Menge_g), sg=stkOf(r.Produkt_ID);
+  /* Work #325: echter Stueckeintrag - die Stueckzahl steht am Eintrag selbst.
+     Kein "(0 g)" dahinter: eine Kapsel wiegt nichts Nennenswertes, und eine
+     ausgewiesene Null waere hier eine Aussage, die niemand gemessen hat. */
+  const stk=num(r.Menge_Stueck);
+  if(String(r.Einheit||'')==='Stück' && stk>0){
+    return (Math.round(stk*100)/100)+" Stück";
+  }
   if(sg&&g!=null){ return Math.round(g/sg)+" Stück ("+Math.round(g)+" g)"; }
   /* Manuelle Eintraege koennen seit 27v eine eigene Einheit tragen (Spalte Einheit, nur ml);
      Produkt-Eintraege beziehen die Einheit weiter vom Produkt. */
@@ -10223,7 +10267,7 @@ function renderTbListe(items, goal){
       html+=tgt+((gK&&!neu)?`<div style="margin:2px 0 6px"><button onclick="tbAdjustMeal('${m}')" title="Mengen der Katalog-Produkte dieser Mahlzeit so skalieren, dass ${m} das kcal-Ziel trifft" style="border:1px solid var(--green);background:var(--greenlt);color:var(--greendk);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">🎯 Mengen ans Ziel anpassen</button></div>`:"");
       var _bl=tbBatchLines(rows); html+=_bl.html; var _skip=_bl.skip; rows.forEach(r=>{ if(_skip&&_skip.has(Number(r.Eintrag_ID))) return; html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--tb-line)">
           <div style="min-width:0"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tbNameHtml(r)}${num(r.Clean_Score)!=null?` <span style="font-size:11px;font-weight:700;color:${farbe(scoreBew(num(r.Clean_Score)))}">${num(r.Clean_Score)}</span>`:""}</div>
-          <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g},'${r.Produkt_ID||''}','${m}');return false" style="color:var(--tb-muted);text-decoration:none;font-size:12.5px">${mengeLabel(r)}${neu?' ✎':' · ändern ✎'}</a>${(gK&&!neu&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--k-2e7d32);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
+          <a href="#" onclick="editMenge(${r.Eintrag_ID},${r.Menge_g},'${r.Produkt_ID||''}','${m}',${num(r.Menge_Stueck)||'null'});return false" style="color:var(--tb-muted);text-decoration:none;font-size:12.5px">${mengeLabel(r)}${neu?' ✎':' · ändern ✎'}</a>${(gK&&!neu&&num(r.Clean_Score)!=null&&num(r.Menge_g)>0)?` <a href="#" onclick="tbFillItem(${r.Eintrag_ID},'${m}');return false" title="Diese Menge so anpassen, dass ${m} das kcal-Ziel trifft (Split: andere Einträge bleiben)" style="color:var(--k-2e7d32);text-decoration:none;font-size:12.5px;white-space:nowrap">· 🎯 auffüllen</a>`:""}</div>
           <div style="display:flex;align-items:center;gap:9px;white-space:nowrap"><span><b>${Math.round(+r.kcal||0)}</b> <span style="font-size:11px;color:var(--tb-muted)">kcal</span></span>
           <button onclick="delTb(${r.Eintrag_ID})" title="löschen" style="border:0;background:var(--tb-card2);border-radius:8px;width:27px;height:27px;color:var(--k-f87171);cursor:pointer;font-size:14px">✕</button></div>
         </div>`; });
@@ -10707,8 +10751,18 @@ function tbAddChip(btn,gval){
   const sel=document.getElementById('tbAddEinheit'), el=document.getElementById('tbAddMenge');
   if(el){
     const o=sel&&sel.selectedOptions&&sel.selectedOptions[0];
-    const f=o?(parseFloat(o.getAttribute('data-f'))||1):1;
-    el.value=(f!==1)?Math.max((sel.value==='stueck'?1:0.5),Math.round(gval/f*10)/10):gval;
+    /* 🔴 Work #325: bei einem echten Stueckprodukt gibt es keinen Gramm-Faktor, durch
+       den sich der Chipwert teilen liesse. Ohne diese Zeile haette der Chip "100 g"
+       eine 100 ins Feld gesetzt - und die haette 100 Kapseln bedeutet.
+       Gemessen an data-f=0: parseFloat('0')||1 ergibt 1, der Wert waere also
+       ungeteilt durchgelaufen. Ein Nullfaktor faellt hier nicht auf, er wird zur Eins. */
+    if(o && o.value==='stueck_echt'){
+      const sd=stkDosisOf(window._tbAddPickId);
+      el.value=sd||1;     /* eine Tagesdosis als Vorschlag, sonst ein Stueck */
+    }else{
+      const f=o?(parseFloat(o.getAttribute('data-f'))||1):1;
+      el.value=(f!==1)?Math.max((sel.value==='stueck'?1:0.5),Math.round(gval/f*10)/10):gval;
+    }
   }
   document.querySelectorAll('.tbChip').forEach(c=>{
     const on=(c===btn);
@@ -10732,6 +10786,18 @@ function tbAddUnitChange(sel){
   const prev=sel.getAttribute('data-prev')||'', now=sel.value;
   const fOf=k=>{ const o=[...sel.options].find(x=>x.value===k); return o?(parseFloat(o.getAttribute('data-f'))||1):1; };
   let v=parseFloat(String(el.value).replace(',','.'))||0;
+  /* 🔴 Work #325: zwischen Gramm und einem echten Stueckprodukt gibt es KEINE
+     belegte Umrechnung - genau deshalb wird es ja in Stueck gebucht. Den Wert
+     mitzunehmen hiesse, aus 100 g stillschweigend 100 Kapseln zu machen.
+     Also: beim Wechsel auf Stueck die Tagesdosis vorschlagen, beim Wechsel weg
+     davon das Feld leeren. Nichts umrechnen, was sich nicht umrechnen laesst. */
+  if(prev!==now && (now==='stueck_echt' || prev==='stueck_echt')){
+    if(now==='stueck_echt'){ el.value=stkDosisOf(window._tbAddPickId)||1; }
+    else { el.value=''; }
+    sel.setAttribute('data-prev',now);
+    tbAddCtaUpdate();
+    return;
+  }
   if(v>0&&prev&&prev!==now){
     const basisWert=v*fOf(prev);
     let nv=basisWert/fOf(now);
@@ -10757,9 +10823,14 @@ async function tbAddSave(){
      Basis um (Stueck x Gramm). Ohne Auswahl (alter Weg) bleibt alles wie bisher. */
   const menge=document.getElementById('tbAddEinheit') ? tbAddMengeBasis() : (parseFloat(document.getElementById("tbAddMenge").value)||0);
   const m=document.getElementById("tbAddMsg");
-  if(menge<=0){ if(m){m.style.color="var(--k-f87171)";m.textContent="Menge angeben.";} return; }
+  /* Work #325: bei einem echten Stueckprodukt traegt die Stueckzahl den Eintrag,
+     nicht die Gramm. Die Pruefung "Menge angeben" muss beides gelten lassen. */
+  const stk=(typeof tbAddStueck==='function')?tbAddStueck():null;
+  if(menge<=0 && !stk){ if(m){m.style.color="var(--k-f87171)";m.textContent="Menge angeben.";} return; }
   const meal=window._tbAddMeal||"Frühstück", datum=document.getElementById("tbDatum").value||tbToday();
-  const {error}=await client.rpc("cb_tb_eintragen",{p_mahlzeit:meal,p_produkt:id,p_menge_g:menge,p_datum:datum});
+  const {error}=await client.rpc("cb_tb_eintragen",
+    stk ? {p_mahlzeit:meal,p_produkt:id,p_menge_g:0,p_datum:datum,p_stueck:stk}
+        : {p_mahlzeit:meal,p_produkt:id,p_menge_g:menge,p_datum:datum});
   if(error){ if(m){m.style.color="var(--k-f87171)";m.textContent="Fehler: "+error.message;} return; }
   const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
 }
@@ -11034,10 +11105,23 @@ async function saveGewicht(){
   await client.rpc("cb_gewicht_eintragen",{p_kg:kg,p_datum:document.getElementById("tbDatum").value||tbToday()});
   document.getElementById("tbGewicht").value=""; loadTagebuch();
 }
-async function editMenge(id,cur,pid,mahl){
+async function editMenge(id,cur,pid,mahl,curStk){
   /* 28b (Ralph): die "🎯 auffüllen"-Links unter jeder Zeile sind raus - die Funktion steckt
      jetzt im Mengen-Blatt des ✎-Klicks. Altes Layout behält den prompt()-Weg unverändert. */
   if(typeof feat==='function' && feat('tagebuch_neu')){ return editMengeNeu(id,cur,pid,mahl); }
+  /* Work #325: echtes Stueckprodukt - hier wird die Stueckzahl geaendert, nicht
+     Gramm. Steht vor dem Gramm-Zweig, weil beide Faelle sonst gleich aussehen. */
+  const sd=stkDosisOf(pid);
+  if(sd && !stkOf(pid)){
+    /* Die aktuelle Stueckzahl kommt aus der Zeile selbst mit - kein Nachschlagen in
+       einer Liste, die es gar nicht gab. */
+    const n=prompt("Neue Anzahl (Stück):", (num(curStk)>0)?num(curStk):1);
+    if(n===null) return;
+    const v=parseFloat(String(n).replace(",",".")); if(!v||v<=0) return;
+    const {error}=await client.rpc("cb_tb_menge",{p_eintrag:id,p_menge_g:0,p_stueck:v});
+    if(error){ alert("Nicht geändert: "+error.message); return; }
+    loadTagebuch(); return;
+  }
   const sg=stkOf(pid);
   if(sg){
     const n=prompt("Neue Anzahl (Stück):", Math.round(cur/sg));
@@ -14601,7 +14685,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-26-4421";
+const APP_BUILD = "2026-08-27-4424";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im

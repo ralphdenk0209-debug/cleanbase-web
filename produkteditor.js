@@ -1295,7 +1295,8 @@ function _fgOffVorschlagHtml(z){
       var zeile='<span style="display:flex;align-items:baseline;gap:7px;margin-top:3px;padding-left:8px;flex-wrap:wrap">';
       if(eid && !tot){
         zeile+='<button type="button" class="fgOffBtn fgOffPrimaer" '
-          +'onclick="fgOffKandidatBinden(\''+esc(eid)+'\',\''+esc(nm.replace(/'/g,"\\'"))+'\',this)" '
+          +'onclick="fgOffKandidatBinden(\''+esc(eid)+'\',\''+esc(nm.replace(/'/g,"\\'"))+'\',\''
+            +esc(String((z&&z.zutat_text)||"").replace(/'/g,"\\'"))+'\',this)" '
           +'title="Diese Zeile an den Stammeintrag '+esc(nm)+' binden. Die Note kommt danach vom Server, nicht von hier.">'
           +esc(nm)+'</button>';
       }else{
@@ -1426,7 +1427,7 @@ if(typeof window!=="undefined"){ window.fgOffDetails=fgOffDetails; }
    die vorhandene Verarbeitungsspalte gesetzt, und die Note folgt daraus.
    ⚠ Die Note wird hier NICHT gesetzt oder geraten - sie kommt aus der Antwort.
    ──────────────────────────────────────────────────────────────────────────── */
-async function fgOffKandidatBinden(entityId, name, btn){
+async function fgOffKandidatBinden(entityId, name, zutatText, btn){
   var pid=(window._fgEdit&&window._fgEdit.id)||"";
   if(!pid){ _fgOffMsg(btn,"Kein Produkt offen.","var(--k-b91c1c)"); return; }
   if(!entityId){ _fgOffMsg(btn,"Dieser Vorschlag hat keine Identität – nicht bindbar.","var(--k-b45309)"); return; }
@@ -1441,9 +1442,21 @@ async function fgOffKandidatBinden(entityId, name, btn){
       return String(z&&z.canonical_entity_id||"")===String(entityId);
     });
     if(schon){
-      _fgOffMsg(btn,"Steht bereits als „"+String(schon.canonical_name||schon.sichtbarer_name||name)
-        +"“ am Produkt – nicht doppelt zugeordnet. Diese Etikettzeile gehört zu derselben Zutat: "
-        +"„keine eigene Zutat“ schließt sie ab.","var(--k-b45309)");
+      /* Work #323: hier stand nur ein Hinweis, der auf "keine eigene Zutat"
+         verwies - das war der zweitbeste Weg. ChatGPT hat inzwischen den richtigen
+         gebaut (#313): cb_admin_zutat_offen_dieselbe_zutat_setzen haelt fest, dass
+         die Etikettzeile DIESELBE Zutat meint wie die gebundene, statt sie als
+         "keine eigene Zutat" abzutun. Der Unterschied ist fachlich: das eine sagt
+         "gehoert nicht dazu", das andere "ist schon da". Also wird hier der Knopf
+         dafuer angeboten, statt den Benutzer auf den falschen zu schicken. */
+      var _nm=String(schon.canonical_name||schon.sichtbarer_name||name);
+      var _txt=String(zutatText||"");
+      _fgOffMsgHtml(btn,'Steht bereits als <b>'+esc(_nm)+'</b> am Produkt – nicht doppelt zugeordnet. '
+        +'<button type="button" class="fgOffBtn fgOffPrimaer" '
+        +'onclick="fgOffDieselbeZutat(\''+esc(_txt.replace(/'/g,"\\'"))+'\',\''+esc(String(schon.produkt_zutat_id||""))+'\',this)" '
+        +'title="Haelt fest, dass diese Etikettzeile dieselbe Zutat meint wie die bereits gebundene. Die Zeile ist danach erledigt, die Bindung bleibt unveraendert.">'
+        +'ist dieselbe Zutat</button>');
+      if(btn){ btn.disabled=false; }
       return;
     }
   }catch(e){ console.error("[#291 Dublettenprobe]",e); }
@@ -1492,6 +1505,38 @@ async function fgOffKandidatBinden(entityId, name, btn){
   }
 }
 if(typeof window!=="undefined"){ window.fgOffKandidatBinden=fgOffKandidatBinden; }
+/* ────────────────────────────────────────────────────────────────────────────
+   WORK #323 — "IST DIESELBE ZUTAT". Angeschlossen, nicht gebaut.
+   Der Serverweg stammt aus #313 (ChatGPT): cb_admin_zutat_offen_dieselbe_zutat_setzen
+   setzt Zutat_Offen.zutat_id und erledigt_am, danach greift der vorhandene Weg in
+   cb_admin_zutat_offen. Die Bindung selbst wird NICHT angefasst - es wird nur
+   festgehalten, dass die gelesene Etikettzeile dieselbe Zutat meint.
+   Fachlich ist das etwas anderes als "keine eigene Zutat": das eine heisst
+   "gehoert nicht dazu", das hier heisst "ist schon da".
+   ──────────────────────────────────────────────────────────────────────────── */
+async function fgOffDieselbeZutat(zutatText, produktZutatId, btn){
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!pid){ _fgOffMsg(btn,"Kein Produkt offen.","var(--k-b91c1c)"); return; }
+  if(!zutatText){ _fgOffMsg(btn,"Die Etikettzeile hat keinen Text – nichts festzuhalten.","var(--k-b45309)"); return; }
+  if(btn){ btn.disabled=true; }
+  _fgOffMsg(btn,"halte fest …");
+  try{
+    var r=await client.rpc("cb_admin_zutat_offen_dieselbe_zutat_setzen",
+      {p_produkt_id:pid, p_zutat_text:String(zutatText), p_produkt_zutat_id:String(produktZutatId||"")||null});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    if(d&&d.ok===false) throw new Error(String(d.grund||"Der Server hat nichts bestätigt."));
+    _fgOffMsg(btn,"✓ als dieselbe Zutat festgehalten","var(--k-166534)");
+    try{ if(typeof fgZutOffenLaden==="function") await fgZutOffenLaden(pid); }catch(e){}
+    try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){}
+    try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  }catch(e){
+    console.error("[#323 dieselbe Zutat]",e);
+    _fgOffMsg(btn,"NICHT festgehalten: "+((e&&e.message)||e),"var(--k-b91c1c)");
+    if(btn){ btn.disabled=false; }
+  }
+}
+if(typeof window!=="undefined"){ window.fgOffDieselbeZutat=fgOffDieselbeZutat; }
 function _fgZutOffenFremd(){
   /* Work #299: gehoert der geladene Bestand zum gerade offenen Produkt?
      Nur wenn beide IDs gesetzt sind und auseinanderlaufen, ist er fremd —
@@ -2403,6 +2448,47 @@ function fgZutRiki(btn){
     btn.textContent="✓ übernehmen"; btn.dataset.mode="save"; btn.dataset.stufe=st; btn.dataset.gesamt=ges;
   }, function(){ btn.disabled=false; btn.textContent="Fehler"; setTimeout(function(){btn.textContent="→ Riki";},1500); });
 }
+/* ────────────────────────────────────────────────────────────────────────────
+   WORK #305 — VON DER TAGESDOSIS INS TAGEBUCH.
+   Der Weg, der hier bedient wird, ist der bestehende: das Tagebuch liest
+   Produkt_Mikronaehrstoffe je 100 g und multipliziert mit der gegessenen Menge.
+   Neu ist nur, dass die Umrechnung ueberhaupt jemand anstoesst.
+   Erst pruefen, dann uebernehmen - der Trockenlauf zeigt die Zahl, bevor sie steht.
+   ──────────────────────────────────────────────────────────────────────────── */
+function _feDosisMsg(txt, farbe){
+  var m=document.getElementById("fe_dosisMsg");
+  if(m){ m.textContent=txt||""; m.style.color=farbe||"var(--muted)"; }
+}
+async function _feDosisLauf(ausfuehren){
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!pid){ _feDosisMsg("Erst speichern – ohne Produkt-Nummer gibt es nichts umzurechnen.","var(--k-b45309)"); return; }
+  var el=document.getElementById("fe_portionG");
+  var g=el?Number(String(el.value||"").replace(",",".")):NaN;
+  if(!(g>0)){ _feDosisMsg("Bitte das Gewicht einer Tagesdosis eintragen – ohne Zahl wird nichts geschätzt.","var(--k-b45309)"); return; }
+  _feDosisMsg(ausfuehren?"übernehme …":"rechne …");
+  try{
+    var r=await client.rpc("cb_admin_supplement_dosis_setzen",
+      {p_produkt_id:pid, p_portion_g:g, p_bezug:"tagesdosis", p_ausfuehren:!!ausfuehren});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    if(!d||d.ok!==true) throw new Error((d&&d.grund)||"Der Server hat nichts bestätigt.");
+    var a=d.ableitung||{};
+    if(a.ok!==true){ _feDosisMsg("Nicht umgerechnet: "+String(a.grund||"ohne Angabe"),"var(--k-b45309)"); return; }
+    var z=Array.isArray(a.zeilen)?a.zeilen:[];
+    var txt=z.filter(function(x){ return x.status==="berechnet"; })
+             .map(function(x){ return x.stoff+" "+x.je_tagesdosis+" → "+x.je_100g+" "+x.einheit+"/100 g"; }).join(" · ");
+    var offen=z.filter(function(x){ return x.status!=="berechnet"; });
+    _feDosisMsg((ausfuehren?"✓ übernommen: ":"Vorschau: ")+(txt||"nichts umzurechnen")
+      +(offen.length?(" · "+offen.length+" nicht umrechenbar: "+offen.map(function(x){return x.stoff+" ("+x.status+")";}).join(", ")):""),
+      ausfuehren?"var(--k-166534)":"var(--muted)");
+  }catch(e){
+    console.error("[#305 Dosis]",e);
+    _feDosisMsg("Fehlgeschlagen: "+((e&&e.message)||e),"var(--k-b91c1c)");
+  }
+}
+function feDosisPruefen(){ return _feDosisLauf(false); }
+function feDosisUebernehmen(){ return _feDosisLauf(true); }
+if(typeof window!=="undefined"){ window.feDosisPruefen=feDosisPruefen; window.feDosisUebernehmen=feDosisUebernehmen; }
 function fgAddZutat(){ const c=document.getElementById("fe_zutRows"); if(c){ c.insertAdjacentHTML("beforeend", fgZutRow("",null,"nein")); if(window._fgDirtyArmed&&window._fgDirty) window._fgDirty.zut=true; } }
 function _fgRowsSet(){ var set={}; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){ var n=((r.querySelector(".fgzName")||{}).value||"").trim(); if(n) set[n.toLowerCase()]=true; }); return set; }
 function _fgRowsInfo(){ var out={}; var c=document.getElementById("fe_zutRows"); if(c)[].forEach.call(c.querySelectorAll(".fgZutRow"),function(r){
@@ -4622,6 +4708,29 @@ async function openFgEditor(id, prefill, targetEl){
             ${''/* Mineralwasser verwendet die bestehende Mineralstoffanalyse-Karte. */}
             <div id="fe_wirkTblCol">${card(`<span id="fe_wirkTitel">Wirkstoffe &amp; Dosis</span> <span id="fe_wirkTitelZusatz" class="feKartenZusatz">(Nahrungsergänzung – für den Dosis-Check)</span>`,`
           <div class="feWirkHinweis" id="fe_wirkHinweis">Mengen <b>pro Tagesdosis</b> laut Etikett (worauf sich die Verzehrempfehlung oben bezieht). Damit rechnet der Dosis-Check gegen <b>Tagesbedarf (NRV)</b> und <b>EFSA-Grenze</b>. Schreibweise wie auf dem Etikett, z. B. „Vitamin C“, „Zink“, „Vitamin B7 (Biotin)“.</div>
+          ${''/* 🔴 WORK #305, 26.08.2026 — RALPH: "meine frau hat 6 g angegeben, der
+                 magnesiumanteil wird nicht in den naehrwerten erfasst."
+                 GEMESSEN, warum: cb_tagebuch_mikro hat vier Quellen, und nur EINE
+                 kennt die eingetragene Menge - sie liest Produkt_Mikronaehrstoffe
+                 JE 100 G. Fuer P1045 war die Tabelle leer, also ergaben 6 g Pulver
+                 0 mg Magnesium. Die Bezugsgroesse "3,5 g" stand nur als Fliesstext.
+                 Ohne diese Zahl kann niemand umrechnen - deshalb steht sie ab hier
+                 als Zahl hier, direkt neben den Mengen, auf die sie sich bezieht. */}
+          <div class="feWirkHinweis" id="fe_wirkDosisBox" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px">
+              <b>Eine Tagesdosis wiegt</b>
+              <input type="number" id="fe_portionG" step="0.01" min="0" style="width:88px;padding:5px 6px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);text-align:right"
+                     title="Die Menge, auf die sich die Mengen unten beziehen - als ZAHL, nicht als Satz. Erst damit kann das Tagebuch aus einer gegessenen Menge den Wirkstoffanteil ausrechnen.">
+              <span>g</span>
+            </label>
+            <button type="button" class="feBtnAdd" style="margin:0" onclick="feDosisPruefen()"
+              title="Rechnet die Mengen unten auf 100 g um und zeigt zuerst, was dabei herauskaeme. Es wird nichts geschrieben.">
+              Umrechnung prüfen</button>
+            <button type="button" class="feBtnAdd" style="margin:0" onclick="feDosisUebernehmen()"
+              title="Schreibt die umgerechneten Werte, damit Eintraege im Tagebuch den Wirkstoffanteil mitzaehlen.">
+              ✓ fürs Tagebuch übernehmen</button>
+            <span id="fe_dosisMsg" style="font-size:11.5px;color:var(--muted)"></span>
+          </div>
           <div class="feWirkKopf"><span>Stoff</span><span title="Steht auf dem Etikett ein Kleiner-als-Zeichen (z. B. „< 0,5 g“), gehört es hierher. Leer heißt: der Wert gilt genau so.">Zeichen</span><span class="feRe">Menge</span><span id="fe_wirkKopfEinheit">Einheit</span><span class="feRe">%NRV</span><span></span></div>
           <div id="fe_wirkRows"></div>
           <button type="button" onclick="feWirkAdd()" class="feBtnAdd">+ Wirkstoff</button>
@@ -4800,6 +4909,21 @@ async function openFgEditor(id, prefill, targetEl){
     try{ if(typeof feAnsichtGet==="function" && feAnsichtGet()==="vorgang") feVorgangApply(); }catch(e){}    
   try{
     window._fgEdit=window._fgEdit||{};
+    /* Work #305: portion_g kommt aus cb_produkt_edit_get laengst mit - es wurde nur
+       nirgends angezeigt. Fehlt die Zahl, wird der Fliesstext DANEBEN gestellt, nicht
+       daraus geparst: "3,5 g Pulver (ca. ein gehaeufter Teeloeffel)" laesst sich raten,
+       und geraten wird hier nicht. Ralph liest den Satz und traegt die Zahl ein. */
+    try{
+      var _pg=document.getElementById("fe_portionG");
+      if(_pg){
+        if(d.portion_g!=null && d.portion_g!=="") _pg.value=String(d.portion_g);
+        var _pt=String(d.portionsgroesse_text||d.Portionsgroesse_Text||"").trim();
+        if(_pt) _pg.title="Laut Etikett: „"+_pt+"“ – trag die Zahl daraus hier ein.";
+        if(!_pg.value && _pt && typeof _feDosisMsg==="function"){
+          _feDosisMsg("Etikett sagt: „"+_pt+"“ – als Zahl fehlt sie noch, deshalb zählt das Produkt im Tagebuch mit 0.","var(--k-b45309)");
+        }
+      }
+    }catch(e){ console.error("[#305 Portion_g anzeigen]",e); }
     window._fgEdit.hatteWirkstoffe=Array.isArray(d.wirkstoffe)&&d.wirkstoffe.length>0;
     window._fgEdit.hatteZutaten=Array.isArray(d.zutaten)&&d.zutaten.length>0;
     window._fgEdit.zutStart=Array.isArray(d.zutaten)?d.zutaten.map(function(z){
