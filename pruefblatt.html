@@ -135,6 +135,25 @@
                           padding:10px 12px; margin-top:8px; }
   #pbKopfForm input, #pbNwForm input:not([type=checkbox]), #pbKopfForm select{
     padding:5px 8px; border:1px solid var(--rand); border-radius:6px; font:inherit; }
+
+  /* ── Aufgabenmodus ──────────────────────────────────────────────────── */
+  .pbAufFortschritt{ display:flex; align-items:center; gap:12px; margin:14px 0 10px; }
+  .pbAufBalken{ flex:1; height:10px; background:#e3dff0; border-radius:6px; overflow:hidden; }
+  .pbAufBalken div{ height:100%; background:linear-gradient(90deg,var(--lila),#7d74d8); border-radius:6px; }
+  .pbAufKarte{ background:var(--karte); border:1px solid var(--rand); border-left:5px solid var(--gelbR);
+               border-radius:10px; padding:14px 16px; margin:10px 0;
+               box-shadow:0 1px 4px rgba(40,35,80,.08); }
+  .pbAufKarte.rot{ border-left-color:var(--rotR); }
+  .pbAufKarte.blau{ border-left-color:var(--blauR); }
+  .pbAufKarte h3{ margin:0 0 4px; font-size:15px; }
+  .pbAufWas{ font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .pbAufFertig{ background:var(--gruen); border:1px solid var(--gruenR); border-radius:10px;
+                padding:18px; text-align:center; font-size:16px; margin:14px 0; }
+  .pbAufFertig b{ font-size:20px; display:block; margin-bottom:4px; }
+  .pbZwPaar{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:8px 0; }
+  .pbZwSeite{ background:#faf9fd; border:1px solid var(--rand); border-radius:8px; padding:9px 11px; font-size:12.5px; }
+  .pbZwSeite b{ display:block; font-size:13.5px; margin-bottom:3px; }
+  .pbZwSeite .pbZQuelle{ margin:2px 0 8px; }
 </style>
 </head>
 <body>
@@ -161,6 +180,16 @@
   <div id="pbStatus"></div>
   <div id="pbRiegelBox"></div>
 
+  <div class="pbLeiste" style="margin-top:12px">
+    <button id="pbM_aufgaben" class="pbFBtn aktiv" onclick="pbModus('aufgaben')"
+      title="Die Seite legt dir die offenen Aufgaben vor — mit den Knöpfen direkt daran. Grün = fertig.">Aufgaben</button>
+    <button id="pbM_pruef" class="pbFBtn" onclick="pbModus('pruef')"
+      title="Alles im Detail: jede Zeile, jede Note, jede Regel, alle Achsen.">Prüfblatt</button>
+  </div>
+
+  <div id="pbAufgaben"></div>
+
+  <div id="pbPruefmodus">
   <section id="sec1">
     <h2 class="pbSecTitel">1 · Kopf &amp; Quelle</h2>
     <div id="pbKopf"></div>
@@ -190,6 +219,7 @@
     <div id="pbZusatz" style="overflow-x:auto"></div>
     <div id="pbWirk" style="overflow-x:auto"></div>
   </section>
+  </div><!-- /pbPruefmodus -->
 
   <div class="pbFuss">Datenweg: Quelle → Riki → Produkt_Zutaten → Canonical-Stamm → Bewertungsregeln →
   Serverauflösung → diese Anzeige. Jede Aktion ruft bestehende Serverwege und endet mit einer
@@ -198,6 +228,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="pruefblatt.js?v=PB-2026-08-27-11"></script>
+<script src="pruefblatt.js?v=PB-2026-08-27-12"></script>
 </body>
 </html>

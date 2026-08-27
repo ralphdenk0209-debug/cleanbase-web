@@ -22,7 +22,8 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-11";
+var PB_BUILD = "PB-2026-08-27-12";
+var PB_MODUS = "aufgaben";   /* 'aufgaben' (Standard) oder 'pruef' */
 /* Gleicher Wert wie RIKI_LESE_MODELL in app.js Zeile 14746 — bei Modellwechsel
    dort UND hier ändern. */
 var PB_RIKI_MODELL = "claude-sonnet-4-6";
@@ -827,13 +828,158 @@ function pbTopSync(z){
     s3.className = (z.mit+z.l0===z.n && !offen) ? 'ok' : (offen||z.l1?'rot':'warn'); }
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   AUFGABENMODUS — die Umkehrung des alten Editors (Ralph, 27.08.: "weg vom
+   alten System, hin zu was Neuem, Intuitivem"). Nicht der Mensch sucht in
+   Formularen die Lücken: der Riegel kennt sie, also legt die Seite sie als
+   Aufgabenkarten vor — mit den passenden Knöpfen direkt daran. Jede erledigte
+   Karte verschwindet durch die Vollmessung von selbst. Grün = fertig.
+   ────────────────────────────────────────────────────────────────────────── */
+function pbAufgabenListe(){
+  var A=[];
+  /* 1 · Gelesene Etikettzeilen ohne Zuordnung (I10) */
+  pbOffenListe().forEach(function(o){ A.push({typ:"etikett", o:o}); });
+  /* 2 · Zwillinge (I8) */
+  var proE={};
+  PB_ROWS.forEach(function(r){ if(r.canonical_entity_id)
+    (proE[r.canonical_entity_id]=proE[r.canonical_entity_id]||[]).push(r); });
+  Object.keys(proE).forEach(function(eid){ if(proE[eid].length>1) A.push({typ:"zwilling", rows:proE[eid]}); });
+  /* 3 · Zutaten ohne Note (Brücke/Beleg/Regel fehlt) */
+  PB_ROWS.forEach(function(r){
+    var lk=pbLuecke(r);
+    if(lk && lk.typ>=1) A.push({typ:"luecke", r:r, lk:lk});
+  });
+  /* 4 · Kopf unvollständig */
+  var k=(PB_KOPF&&!PB_KOPF.fehler)?PB_KOPF:null;
+  if(k && (!k.name||!k.kategorie)) A.push({typ:"kopf"});
+  /* 5 · Nährwerte komplett leer */
+  if(k){
+    var nw=k.naehrwerte||{};
+    if(PB_NW_FELDER.every(function(f){ return nw[f[0]]==null; })) A.push({typ:"nw"});
+  }
+  return A;
+}
+
+function pbAufgabenHtml(){
+  var A=pbAufgabenListe();
+  var t='';
+  if(!A.length){
+    var riegelOk=Array.isArray(PB_RIEGEL)&&!PB_RIEGEL.length;
+    return '<div class="pbAufFertig"><b>'+(riegelOk?'✓ Nichts zu tun.':'Keine Aufgaben ableitbar.')+'</b>'
+      +(riegelOk?'Alle Zutaten bewertet oder benannt, Riegel '+PB_RIEGEL_N+'/'+PB_RIEGEL_N+' grün.'
+        :'Der Riegel meldet aber noch Befunde — in den Prüfblatt-Modus wechseln.')+'</div>';
+  }
+  t+='<div class="pbAufFortschritt"><span><b>'+A.length+'</b> Aufgabe'+(A.length===1?'':'n')+' bis grün</span>'
+    +'<div class="pbAufBalken"><div style="width:'+Math.max(4,Math.round(100/(A.length+1)))+'%"></div></div></div>';
+  A.forEach(function(a,idx){
+    if(a.typ==="etikett"){
+      var o=a.o, iid=o.item_id;
+      t+='<div class="pbAufKarte rot"><h3>„'+pbEsc(o.zutat_text||'?')+'" wurde gelesen, ist aber keiner Zutat zugeordnet</h3>'
+        +'<div class="pbAufWas">Quelle: '+pbEsc(o.quelle||'—')+(o.gesehen_am?(' · '+pbEsc(String(o.gesehen_am).slice(0,10))):'')
+        +' — solange die Zeile offen ist, fehlt sie in der Bewertung.</div>'
+        +'<div id="pbKand'+iid+'" class="pbAkt">Stamm-Kandidaten werden geladen …</div>'
+        +'<div class="pbAkt" style="margin-top:6px">'
+        +'<button onclick="pbOffRiki('+iid+',this)" title="Riki zerlegt, Server löst auf, Riki bewertet nur mit Regelbeleg">Riki einstufen</button> '
+        +'<button onclick="pbOffZerlegt('+iid+',this)">✓ ist zerlegt — Bestandteile stehen schon da</button> '
+        +'<button onclick="pbOffKeineZutat('+iid+',this)">keine Zutat …</button></div>'
+        +'<div id="pbOffMsg'+iid+'" class="pbZQuelle"></div></div>';
+    }
+    if(a.typ==="zwilling"){
+      var r1=a.rows[0], r2=a.rows[1];
+      function seite(rB, rT){
+        return '<div class="pbZwSeite"><b>'+pbEsc(rB.sichtbarer_name||'?')+'</b>'
+          +'<div class="pbZQuelle">'+pbEsc(rB.produkt_zutat_id||'')+' · '+pbEsc(String(rB.zutatenliste_rohtext||rB.legacy_zutat_id||'').slice(0,60))+'</div>'
+          +'Note '+(rB.resolved_rating!=null?pbEsc(rB.resolved_rating):'—')
+          +'<div class="pbAkt" style="margin-top:6px"><button onclick="pbZwillingLoesen(\''
+          +pbEsc(String(rT.produkt_zutat_id))+'\',\''+pbEsc(String(rT.sichtbarer_name||""))+'\',\''
+          +pbEsc(String(rB.sichtbarer_name||""))+'\',this)">diese behalten → „'+pbEsc(String(rT.sichtbarer_name||"").slice(0,24))+'" löschen</button></div></div>';
+      }
+      t+='<div class="pbAufKarte"><h3>Zwei Zeilen zeigen auf denselben Stammeintrag</h3>'
+        +'<div class="pbAufWas">Der Score gewichtet je Zeile — der Zwilling zählt doppelt. Eine Zeile behalten, die andere geht mit Grund ins Audit.</div>'
+        +'<div class="pbZwPaar">'+seite(r1,r2)+seite(r2,r1)+'</div>'
+        +(a.rows.length>2?'<div class="pbHinweis">Achtung: '+a.rows.length+' Zeilen betroffen — Rest im Prüfblatt-Modus klären.</div>':'')
+        +'</div>';
+    }
+    if(a.typ==="luecke"){
+      t+='<div class="pbAufKarte"><h3>„'+pbEsc(a.r.sichtbarer_name||'?')+'" hat keine Note — '+pbEsc(a.lk.kurz)+'</h3>'
+        +'<div class="pbAufWas">'+pbEsc(a.lk.lang)+'</div>'
+        +'<div class="pbAkt"><button onclick="pbLueckeUebergeben(\''+pbEsc(String(a.r.produkt_zutat_id||""))+'\',\''
+        +pbEsc(String(a.r.sichtbarer_name||""))+'\',\''+pbEsc(a.lk.kurz)+'\',this)" '
+        +'title="Erzeugt ein Work Item mit dem gemessenen Befund — der Stamm gehört ChatGPT.">als Auftrag an ChatGPT übergeben</button></div>'
+        +'<div class="pbZQuelle" id="pbLkMsg'+pbEsc(String(a.r.produkt_zutat_id||idx))+'"></div></div>';
+    }
+    if(a.typ==="kopf"){
+      t+='<div class="pbAufKarte blau"><h3>Kopfdaten unvollständig</h3>'
+        +'<div class="pbAufWas">Produktname oder Kategorie fehlt — ohne sie keine saubere Zuordnung.</div>'
+        +'<div class="pbAkt"><button onclick="pbModus(\'pruef\');location.hash=\'sec1\';pbKopfFormToggle()">Kopf jetzt ausfüllen</button></div></div>';
+    }
+    if(a.typ==="nw"){
+      t+='<div class="pbAufKarte blau"><h3>Keine Nährwerte erfasst</h3>'
+        +'<div class="pbAufWas">Die Nährwert-Achse des Scores bleibt leer, solange hier nichts steht.</div>'
+        +'<div class="pbAkt"><button onclick="pbModus(\'pruef\');location.hash=\'sec2\';pbNwFormToggle()">Nährwerte jetzt eintragen</button></div></div>';
+    }
+  });
+  return t;
+}
+
+/* Zwilling: eine Zeile behalten, die andere mit vorbereitetem Grund löschen. */
+async function pbZwillingLoesen(pzidWeg, nameWeg, nameBleibt, btn){
+  if(!confirm('Zwilling auflösen:\n\nBEHALTEN: '+nameBleibt+'\nLÖSCHEN:  '+nameWeg+' ('+pzidWeg+')\n\nDie gelöschte Zeile geht mit Grund ins Audit. Fortfahren?')) return;
+  if(btn) btn.disabled=true;
+  try{
+    var r=await pbClient.rpc("cb_admin_produkt_zutat_zeile_loeschen",
+      {p_produkt_zutat_id:pzidWeg, p_grund:'Zwillingszeile zu "'+nameBleibt+'" - Doppelerfassung Etikett/Referenzprüfung, aufgelöst im Aufgabenmodus.'});
+    if(r.error) throw r.error;
+    await pbLaden();
+  }catch(e){ alert("Löschen fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
+}
+
+/* Stamm-Lücke als Work Item an ChatGPT — der gemessene Befund geht in die Queue. */
+async function pbLueckeUebergeben(pzid, name, art, btn){
+  if(!confirm('Befund an ChatGPT übergeben?\n\nZutat: '+name+'\nProdukt: '+PB_PID+'\nLücke: '+art)) return;
+  if(btn) btn.disabled=true;
+  var m=pbEl("pbLkMsg"+pzid);
+  try{
+    var r=await pbClient.rpc("cb_admin_agent_work_setzen",{
+      p_actor:'claude', p_owner:'chatgpt', p_area:'zutaten-bewertung',
+      p_title:('Stamm-Luecke aus Aufgabenmodus: "'+name+'" ('+PB_PID+') - '+art).slice(0,120),
+      p_description:('Gemessen im Pruefblatt-Editor: Zeile '+pzid+' an Produkt '+PB_PID+' hat keine Note. Luecke: '+art+'. Behebung liegt am Stamm (Bruecke/Beleg/Regel) und damit bei ChatGPT.').slice(0,590),
+      p_acceptance_criteria:'Zeile '+pzid+' zeigt in v_product_ingredient_rating_resolution Note+Regel oder eine benannte Disposition.',
+      p_product_id:PB_PID, p_priority:80});
+    if(r.error) throw r.error;
+    if(m) m.textContent='✓ übergeben — Work #'+(r.data||'?')+' in der Queue.';
+  }catch(e){ if(m) m.textContent='Übergabe fehlgeschlagen: '+(e.message||e); if(btn) btn.disabled=false; }
+}
+
+function pbModus(m){
+  PB_MODUS=m;
+  ["aufgaben","pruef"].forEach(function(x){
+    var b=pbEl("pbM_"+x); if(b) b.className=(x===m)?"pbFBtn aktiv":"pbFBtn";
+  });
+  pbRender();
+}
+
 function pbRender(){
   var z=pbZaehler();
   pbEl("pbRiegelBox").innerHTML=pbRiegelHtml(PB_RIEGEL);
+  pbTopSync(z);
+  var auf=pbEl("pbAufgaben"), pm=pbEl("pbPruefmodus");
+  if(PB_MODUS==="aufgaben"){
+    if(pm) pm.style.display="none";
+    /* Prüfmodus-Container leeren, damit keine doppelten Element-IDs entstehen */
+    ["pbKopf","pbZaehler","pbNw","pbTabelle","pbZusatz","pbWirk"].forEach(function(id){
+      var e=pbEl(id); if(e) e.innerHTML="";
+    });
+    if(auf){ auf.style.display="block"; auf.innerHTML=pbAufgabenHtml(); }
+    /* Kandidaten für jede Etikett-Aufgabe sofort holen — kein Extra-Klick */
+    pbOffenListe().forEach(function(o){ pbOffKandidaten(o.item_id); });
+    return;
+  }
+  if(auf){ auf.style.display="none"; auf.innerHTML=""; }
+  if(pm) pm.style.display="block";
   pbEl("pbKopf").innerHTML=pbProduktKopfHtml();
   pbEl("pbZaehler").innerHTML=pbKopfHtml(z);
   pbEl("pbNw").innerHTML=pbNaehrwertHtml();
-  pbTopSync(z);
   var t='<table class="pbTab"><thead><tr>'
     +'<th class="r" title="Reihenfolge auf dem Etikett">Nr</th>'
     +'<th title="Name, wie er am Produkt steht">Zutat (Etikett)</th>'
