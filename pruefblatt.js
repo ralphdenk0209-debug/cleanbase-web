@@ -17,6 +17,10 @@
 /* Dieselben Zugangsdaten wie app.js Zeile 1-2 (öffentlicher anon-Schlüssel).
    Gleicher storageKey wie app.js: die Admin-Anmeldung aus admin.html gilt
    damit auch hier — kein zweiter Anmeldeweg. */
+/* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
+   Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
+var PB_BUILD = "PB-2026-08-27-3";
+
 var PB_URL = "https://haurbpfkfaaehorirzee.supabase.co";
 var PB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
 
@@ -333,6 +337,8 @@ function pbRender(){
 function pbStatus(s){ pbEl("pbStatus").innerHTML=s?pbEsc(s):""; }
 
 window.addEventListener("DOMContentLoaded", function(){
+  var b=document.getElementById("pbBuild");
+  if(b) b.textContent="Build "+PB_BUILD;
   var q=new URLSearchParams(location.search);
   pbEl("pbPid").value = q.get("p") || "P1809";
   pbEl("pbPid").addEventListener("keydown", function(e){ if(e.key==="Enter") pbLaden(); });
