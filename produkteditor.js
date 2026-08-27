@@ -4852,7 +4852,9 @@ async function openFgEditor(id, prefill, targetEl){
     try{ feEinheitPrefill(d); }catch(e){}    
     try{ feBioPrefill(d); }catch(e){}        
     try{ feKatChange(); }catch(e){}
-    try{ feDreiReiterInit(); feStationBeobachten(); }catch(e){ console.error("One-Page-Layout:",e); }    
+    try{ feDreiReiterInit(); feStationBeobachten(); }catch(e){ console.error("One-Page-Layout:",e); }
+    /* 27.08.2026: Riegel messen (additiv, lesend, Anzeige in Editor-Optik). */
+    try{ feRiegelLauf((window._fgEdit&&window._fgEdit.id)||id); }catch(e){ console.error("Riegel:",e); }
     try{ feUrlLblSync(); }catch(e){}
     try{ keinScoreKatsLaden().then(function(){ try{ feKatChange(); }catch(e){} }); }catch(e){}   /* 28z3: Kein-Score-Liste nachladen, Layout+Pflichten dann korrekt */
     try{ fmMikroLoad((window._fgEdit&&window._fgEdit.id)||''); }catch(e){}   /* setzt Label „Wirkstoffe" bei Supplement + fePlaus */
@@ -9376,4 +9378,90 @@ async function fgEditSave(alsoFreigeben){
     /* Reines Speichern: Freigabe-Zeile aktualisieren, Fenster bleibt offen. */
     try{ fePlaus(); }catch(e){}
   }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RIEGEL IM ALTEN EDITOR · 27.08.2026, Ralph-Auftrag
+   ----------------------------------------------------------------------------
+   "kannst du deine rechenlogik, vorgehensweise von diesem neuen vorgehen in die
+   alte datenerfassung übernehmen? optik soll beim alten erhalten bleiben."
+
+   🔴 ADDITIV. Kein bestehender Handler, kein Feld, keine Speicherlogik wird
+   angefasst. Der Riegel hängt sich nach dem Aufbau OBEN in #feRahmen ein und
+   nutzt die vorhandenen Editor-Farben und Kartenformen.
+   🔴 KEINE ZWEITE WAHRHEIT. Die zehn Prüfungen und die Aufgabenliste kommen aus
+   webseite/riegel-kern.js — derselben Datei, die auch die neue Erfassungsseite
+   lädt. Hier steht nur die Anzeige.
+   🔴 LESEND. Der Riegel schreibt nichts. Zum Erledigen führen die vorhandenen
+   Wege (gelber Kasten, Karten) bzw. die neue Seite.
+   ══════════════════════════════════════════════════════════════════════════ */
+function feRiegelBox(){
+  var b=document.getElementById("feRiegelBox");
+  if(b) return b;
+  var rahmen=document.getElementById("feRahmen");
+  if(!rahmen) return null;
+  b=document.createElement("div");
+  b.id="feRiegelBox";
+  b.style.cssText="grid-column:1/-1;margin:0 0 8px 0;font-size:12.5px";
+  rahmen.insertBefore(b, rahmen.firstChild);
+  return b;
+}
+
+async function feRiegelLauf(pid){
+  pid = pid || (window._fgEdit && window._fgEdit.id);
+  var box = feRiegelBox();
+  if(!box || !pid) return;
+  if(typeof RIEGEL === "undefined"){
+    box.innerHTML = '<div style="padding:7px 10px;border-radius:8px;background:var(--k-fdf3d7,#fdf3d7);'
+      + 'border:1px solid var(--k-e0a32e,#e0a32e)">Prüf-Kern nicht geladen (riegel-kern.js fehlt im HTML).</div>';
+    return;
+  }
+  box.innerHTML = '<div style="padding:7px 10px;color:var(--muted)">Riegel misst …</div>';
+  try{
+    var d = await RIEGEL.messen(client, pid);
+    var befunde = await RIEGEL.pruefen(d, client);
+    var A = RIEGEL.aufgaben(d);
+    var z = RIEGEL.zaehler(d);
+    var ok = befunde.length === 0;
+    var farbe = ok ? {bg:"#e6f4ea", rand:"#2e9e57"} : {bg:"#fde8e4", rand:"#cf5442"};
+    var h = '<div style="background:'+farbe.bg+';border:1px solid '+farbe.rand+';border-radius:10px;padding:8px 12px">'
+      + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<b>' + (ok ? ('✓ Riegel: ' + RIEGEL.ANZAHL + ' von ' + RIEGEL.ANZAHL + ' Prüfungen bestanden')
+                    : ('✗ Riegel: ' + befunde.length + ' Befund' + (befunde.length===1?'':'e'))) + '</b>'
+      + '<span style="color:#55507a">' + z.mit + '/' + z.n + ' Zutaten mit Note und Regel'
+      + (z.l0 ? (' · ' + z.l0 + ' bewusst offen') : '')
+      + (z.offen ? (' · ' + z.offen + ' Etikettzeile' + (z.offen===1?'':'n') + ' nicht zugeordnet') : '')
+      + '</span>';
+    if(A.length)
+      h += '<button type="button" onclick="feRiegelKlappe()" style="margin-left:auto;padding:3px 10px;'
+        + 'border:1px solid ' + farbe.rand + ';border-radius:6px;background:#fff;cursor:pointer;font:inherit;font-size:12px">'
+        + A.length + ' Aufgabe' + (A.length===1?'':'n') + ' anzeigen</button>';
+    h += '</div>';
+    h += '<div id="feRiegelListe" style="display:none;margin-top:8px">';
+    if(A.length){
+      h += '<ol style="margin:0 0 0 18px;padding:0">';
+      A.forEach(function(a){
+        h += '<li style="margin:4px 0"><b>' + esc(a.titel) + '</b><br>'
+          + '<span style="color:#55507a">' + esc(a.was || "") + '</span></li>';
+      });
+      h += '</ol>';
+      h += '<div style="margin-top:6px"><a href="pruefblatt.html?p=' + encodeURIComponent(pid) + '" target="_blank" '
+        + 'style="font-size:12px">Aufgabenmodus öffnen (erledigen mit einem Klick) →</a></div>';
+    }else{
+      h += '<div style="color:#55507a">Keine ableitbare Aufgabe.</div>';
+    }
+    h += '</div></div>';
+    box.innerHTML = h;
+  }catch(e){
+    console.error("[Riegel im Editor]", e);
+    box.innerHTML = '<div style="padding:7px 10px;border-radius:8px;background:#fdf3d7;border:1px solid #e0a32e">'
+      + 'Riegel konnte nicht messen: ' + esc(String((e && e.message) || e)) + '</div>';
+  }
+}
+function feRiegelKlappe(){
+  var l=document.getElementById("feRiegelListe");
+  if(l) l.style.display = (l.style.display==="none") ? "block" : "none";
+}
+if(typeof window!=="undefined"){
+  window.feRiegelLauf=feRiegelLauf; window.feRiegelKlappe=feRiegelKlappe;
 }

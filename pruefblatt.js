@@ -22,7 +22,7 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-12";
+var PB_BUILD = "PB-2026-08-27-13";
 var PB_MODUS = "aufgaben";   /* 'aufgaben' (Standard) oder 'pruef' */
 /* Gleicher Wert wie RIKI_LESE_MODELL in app.js Zeile 14746 — bei Modellwechsel
    dort UND hier ändern. */
@@ -47,13 +47,9 @@ var PB_WIRKH = {};         /* cb_produkt_wirkstoff_herkunft, je Nährstoff */
 var PB_MIKRO = null;       /* cb_produkt_mikro_liste_v2 */
 var PB_KOPF = null;        /* cb_produkt_edit_get: Kopf, Nährwerte, Score-Achsen */
 var PB_OFFEN = null;       /* cb_admin_zutat_offen_mit_riki: gelesen, nicht zugeordnet */
-var PB_RIEGEL_N = 10;      /* Zahl der Prüfungen im Riegel */
+var PB_RIEGEL_N = 10;      /* Zahl der Prüfungen im Riegel (aus RIEGEL.ANZAHL) */
 
-/* Offen = vom Etikett gelesen, ohne Ziel-Zeile und ohne manuelle Entscheidung */
-function pbOffenListe(){
-  if(!PB_OFFEN || PB_OFFEN.fehler) return [];
-  return PB_OFFEN.filter(function(o){ return !o.target_id && !o.manual_decision_kind; });
-}
+function pbOffenListe(){ return RIEGEL.offeneZeilen(pbDaten()); }
 var PB_ADMIN_TEXTE = true; /* wird false, wenn Regeltexte mangels Anmeldung fehlen */
 
 function pbEsc(s){
@@ -63,20 +59,15 @@ function pbEsc(s){
 }
 function pbEl(id){ return document.getElementById(id); }
 
-/* --- Lückentyp: reine ANZEIGE der Serverfelder, kein eigenes Urteil -------- */
-function pbLuecke(r){
-  if(r.resolved_rating!=null) return null;
-  if(r.disposition)
-    return {typ:0, kurz:"bewusst offen",
-      lang:"Der Server hat diese Zeile ausdrücklich als Sonderfall benannt ("+r.disposition+"): "+(r.disposition_reason||"")};
-  if(r.resolution_path==="unresolved" || !r.canonical_entity_id)
-    return {typ:1, kurz:"Brücke fehlt",
-      lang:"Im alten Stamm gebunden, aber der Weg in den Canonical-Stamm fehlt. Ohne Stammeintrag kann keine Regel greifen. Behebung: Binding (ChatGPT)."};
-  if(r.rating_disposition==="insufficient_evidence")
-    return {typ:2, kurz:"Beleg fehlt",
-      lang: r.rating_disposition_reason || "Die Regel braucht eine Angabe von der Quelle, die fehlt."};
-  return {typ:3, kurz:"Keine Regel",
-    lang: r.rating_disposition_reason || "Das Regelwerk deckt diesen Fall nicht. Behebung: Regelentscheid Ralph."};
+/* --- Lückentyp: kommt aus dem gemeinsamen Kern (riegel-kern.js) ------------
+   Seit 27.08. steht die Logik NUR dort — dieselbe Datei nutzt auch der alte
+   Editor. Eine Kopie hier wäre eine zweite Wahrheit (§A4.2). */
+function pbLuecke(r){ return RIEGEL.luecke(r); }
+
+/* Datenpaket im Format des Kerns, aus den bereits geladenen Antworten. */
+function pbDaten(){
+  return {pid:PB_PID, rows:PB_ROWS, kopf:PB_KOPF, offen:PB_OFFEN,
+          zusatz:PB_ZUSATZ, wirk:PB_WIRK, wirkh:PB_WIRKH, mikro:PB_MIKRO};
 }
 
 /* --- VERIFIZIERUNGSRIEGEL ---------------------------------------------------
@@ -89,82 +80,11 @@ function pbLuecke(r){
    I5  Die Kopfzahlen gehen auf die Gesamtzeilenzahl auf.
    I6  Zusatzstoffe: Serverantwort da, Gesamtzustand benannt, jeder Eintrag
        trägt einen Bewertungszustand (abgewertet/neutral/ungeprüft).         */
+/* --- VERIFIZIERUNGSRIEGEL ---------------------------------------------------
+   Die zehn Prüfungen stehen seit 27.08. im gemeinsamen Kern riegel-kern.js,
+   den auch der alte Editor lädt. Hier bleibt nur der Aufruf. */
 async function pbRiegel(pid, rows){
-  var f=[]; /* Befunde */
-  rows.forEach(function(r){
-    var hatNote = r.resolved_rating!=null;
-    var hatRegel = !!r.resolved_rule_id;
-    var benannt = !!r.disposition;
-    if(hatNote && !hatRegel) f.push('I2 verletzt: "'+r.sichtbarer_name+'" hat Note '+r.resolved_rating+' ohne Regel-ID.');
-    if(hatNote && !r.canonical_entity_id) f.push('I3 verletzt: "'+r.sichtbarer_name+'" hat Note ohne Stammeintrag.');
-    if(!hatNote && !benannt) f.push('I1 verletzt: "'+r.sichtbarer_name+'" ist weder bewertet noch benannt offen.');
-    if(hatNote && benannt) f.push('I1 verletzt: "'+r.sichtbarer_name+'" ist bewertet UND als Sonderfall benannt - zwei Zustände.');
-  });
-  var z=pbZaehler();
-  if(z.mit+z.l0+z.l1+z.l2+z.l3!==z.n) f.push("I5 verletzt: Kopfzahlen ("+z.mit+"+"+z.l0+"+"+z.l1+"+"+z.l2+"+"+z.l3+") ≠ "+z.n+" Zeilen.");
-  try{
-    var r2=await pbClient.rpc("cb_app_produkt_zutaten",{p_produkt_id:pid});
-    if(r2.error) throw r2.error;
-    if(JSON.stringify(rows)!==JSON.stringify(r2.data||[]))
-      f.push("I4 verletzt: zweiter Abruf liefert eine andere Antwort — Lesen ist nicht stabil.");
-  }catch(e){ f.push("I4 nicht prüfbar: "+(e.message||e)); }
-  var bekannt=["identified","partial","unresolved","none_declared","no_data"];
-  if(!PB_ZUSATZ || PB_ZUSATZ.fehler)
-    f.push("I6 verletzt: Zusatzstoff-Antwort fehlt"+(PB_ZUSATZ&&PB_ZUSATZ.fehler?(" ("+PB_ZUSATZ.fehler+")"):"")+".");
-  else{
-    if(bekannt.indexOf(PB_ZUSATZ.resolution_status)<0)
-      f.push("I6 verletzt: unbekannter Zusatzstoff-Gesamtzustand \""+PB_ZUSATZ.resolution_status+"\".");
-    (PB_ZUSATZ.items||[]).forEach(function(it){
-      if(["abgewertet","neutral","ungeprueft","ungeprüft"].indexOf(it.evaluation)<0)
-        f.push('I6 verletzt: Zusatzstoff "'+(it.name||it.e_number)+'" ohne Bewertungszustand.');
-    });
-  }
-  /* I7: Wirkstoff-/Mikroachse — Abrufe antworten, jede Zeile hat Menge und
-     Einheit, jede Herkunft ist ein benannter Zustand. Leere Liste = benannter
-     Zustand, kein Fehler. */
-  if(!PB_WIRK || PB_WIRK.fehler)
-    f.push("I7 verletzt: Wirkstoff-Antwort fehlt"+(PB_WIRK&&PB_WIRK.fehler?(" ("+PB_WIRK.fehler+")"):"")+".");
-  else PB_WIRK.forEach(function(w){
-    if(w.menge==null || !w.einheit) f.push('I7 verletzt: Wirkstoff "'+w.naehrstoff+'" ohne Menge oder Einheit.');
-    var h=PB_WIRKH[w.naehrstoff];
-    if(h && ["zugesetzt","aus_matrix","unbekannt"].indexOf(h.herkunft)<0)
-      f.push('I7 verletzt: Wirkstoff "'+w.naehrstoff+'" mit unbekanntem Herkunftszustand "'+h.herkunft+'".');
-  });
-  if(!PB_MIKRO || PB_MIKRO.fehler)
-    f.push("I7 verletzt: Mikronährstoff-Antwort fehlt"+(PB_MIKRO&&PB_MIKRO.fehler?(" ("+PB_MIKRO.fehler+")"):"")+".");
-  else PB_MIKRO.forEach(function(m){
-    if(m.menge_100g==null || !m.einheit) f.push('I7 verletzt: Mikronährstoff "'+m.naehrstoff+'" ohne Menge oder Einheit.');
-  });
-  /* I8: Dubletten — zwei Zutatenzeilen desselben Produkts zeigen auf DENSELBEN
-     Stammeintrag. Der Score gewichtet je Zeile; Zwillinge zählen also doppelt.
-     Nur der Server-Fakt (gleiche entity_id) zählt; Namensähnlichkeit ohne
-     gleiche Identität wird bewusst NICHT geraten. */
-  var proEntity={};
-  rows.forEach(function(r){
-    if(!r.canonical_entity_id) return;
-    (proEntity[r.canonical_entity_id]=proEntity[r.canonical_entity_id]||[]).push(r.sichtbarer_name);
-  });
-  Object.keys(proEntity).forEach(function(eid){
-    var namen=proEntity[eid];
-    if(namen.length>1)
-      f.push('I8 verletzt: '+namen.length+' Zeilen zeigen auf denselben Stammeintrag: '+namen.join(' + ')+'. Zwillinge verfälschen die Gewichtung.');
-  });
-  /* I9: Kopf & Nährwerte — Antwort vorhanden, Produktname nicht leer. Leere
-     Nährwerte sind ein benannter Zustand (Anzeige sagt es), kein Befund. */
-  if(!PB_KOPF || PB_KOPF.fehler)
-    f.push("I9 verletzt: Kopf/Nährwerte-Antwort fehlt"+(PB_KOPF&&PB_KOPF.fehler?(" ("+PB_KOPF.fehler+")"):"")+".");
-  else if(!PB_KOPF.name)
-    f.push("I9 verletzt: Produkt ohne Namen im Kopf.");
-  /* I10: Vollständigkeit gegen die Quelle — jede vom Etikett gelesene Zeile
-     ohne Ziel und ohne manuelle Entscheidung ist eine offene Lücke. Ohne diese
-     Prüfung meldet die Seite 100 %, während Zeilen unterwegs hängen
-     (source_completeness; Fund Ralph 27.08. an P73634 Trockenobst). */
-  if(!PB_OFFEN || PB_OFFEN.fehler)
-    f.push("I10 nicht prüfbar: Etikett-Leseliste fehlt"+(PB_OFFEN&&PB_OFFEN.fehler?(" ("+PB_OFFEN.fehler+")"):"")+".");
-  else pbOffenListe().forEach(function(o){
-    f.push('I10 verletzt: "'+(o.zutat_text||'?')+'" wurde von der Quelle gelesen, ist aber keiner Bestandteilzeile zugeordnet.');
-  });
-  return f;
+  return await RIEGEL.pruefen(pbDaten(), pbClient);
 }
 
 function pbRiegelHtml(f){
@@ -835,30 +755,9 @@ function pbTopSync(z){
    Aufgabenkarten vor — mit den passenden Knöpfen direkt daran. Jede erledigte
    Karte verschwindet durch die Vollmessung von selbst. Grün = fertig.
    ────────────────────────────────────────────────────────────────────────── */
-function pbAufgabenListe(){
-  var A=[];
-  /* 1 · Gelesene Etikettzeilen ohne Zuordnung (I10) */
-  pbOffenListe().forEach(function(o){ A.push({typ:"etikett", o:o}); });
-  /* 2 · Zwillinge (I8) */
-  var proE={};
-  PB_ROWS.forEach(function(r){ if(r.canonical_entity_id)
-    (proE[r.canonical_entity_id]=proE[r.canonical_entity_id]||[]).push(r); });
-  Object.keys(proE).forEach(function(eid){ if(proE[eid].length>1) A.push({typ:"zwilling", rows:proE[eid]}); });
-  /* 3 · Zutaten ohne Note (Brücke/Beleg/Regel fehlt) */
-  PB_ROWS.forEach(function(r){
-    var lk=pbLuecke(r);
-    if(lk && lk.typ>=1) A.push({typ:"luecke", r:r, lk:lk});
-  });
-  /* 4 · Kopf unvollständig */
-  var k=(PB_KOPF&&!PB_KOPF.fehler)?PB_KOPF:null;
-  if(k && (!k.name||!k.kategorie)) A.push({typ:"kopf"});
-  /* 5 · Nährwerte komplett leer */
-  if(k){
-    var nw=k.naehrwerte||{};
-    if(PB_NW_FELDER.every(function(f){ return nw[f[0]]==null; })) A.push({typ:"nw"});
-  }
-  return A;
-}
+/* Aufgabenliste kommt aus dem gemeinsamen Kern — derselbe Code, den der alte
+   Editor für seine Aufgabenklappe nutzt. */
+function pbAufgabenListe(){ return RIEGEL.aufgaben(pbDaten()); }
 
 function pbAufgabenHtml(){
   var A=pbAufgabenListe();
