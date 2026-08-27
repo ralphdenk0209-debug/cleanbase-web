@@ -8,9 +8,12 @@
    je Produkt zeigen — eine Zeile je Zutat, Note, Regel, oder benannte Lücke.
 
    WAS SIE NICHT TUT (Kernvertrag B1, server_ssot): keine Note rechnen, keine
-   Regel zuordnen, keinen Zustand erfinden, NICHTS schreiben. Zwei Lese-RPCs:
-     cb_app_produkt_zutaten(p_produkt_id)        — der Serverzustand je Zeile
-     cb_admin_bewertungsregeln_suchen(p_suche)   — Regeltexte (nur als Admin)
+   Regel zuordnen, keinen Zustand erfinden. Seit 27.08. (Ralph: neuer Editor,
+   anders und besser) hat sie AKTIONEN — aber ausschließlich über dieselben
+   Serververträge wie der alte Editor (Work #81/#93/#309), nie eigene Logik.
+   Grundregel des neuen Editors: JEDE Aktion endet mit einem kompletten
+   Neuabruf vom Server und einem neuen Riegel-Lauf. Kein lokaler Zustand
+   überlebt eine Aktion — das war die Fehlerklasse des alten Editors.
    Konzept: bereiche/konzept-automatische-zutatenbewertung.md
    ========================================================================== */
 
@@ -19,7 +22,11 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-7";
+var PB_BUILD = "PB-2026-08-27-10";
+/* Gleicher Wert wie RIKI_LESE_MODELL in app.js Zeile 14746 — bei Modellwechsel
+   dort UND hier ändern. */
+var PB_RIKI_MODELL = "claude-sonnet-4-6";
+var PB_PID = null;         /* zuletzt geladene Produkt-ID, für Aktionen */
 
 var PB_URL = "https://haurbpfkfaaehorirzee.supabase.co";
 var PB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
@@ -229,8 +236,54 @@ function pbProduktKopfHtml(){
     +'<div class="pbKachel"><b>'+(k.p_naehrwert!=null?pbEsc(k.p_naehrwert):'—')+'</b>Achse Nährwert</div>'
     +'<div class="pbKachel"><b>'+(k.p_zusatzstoffe!=null?pbEsc(k.p_zusatzstoffe):'—')+'</b>Achse Zusatzstoffe</div>'
     +'<div class="pbKachel"><b>'+(k.p_nova!=null?pbEsc(k.p_nova):'—')+'</b>Achse Verarbeitung</div>'
-    +'</div></div>';
+    +'</div>'
+    +'<div class="pbAkt" style="margin-top:8px"><button onclick="pbKopfFormToggle()">Kopf bearbeiten …</button></div>'
+    +'<div id="pbKopfForm" style="display:none"></div>'
+    +'</div>';
   return t;
+}
+
+/* Etappe 3: Kopf bearbeiten über die neue Feldtür cb_admin_produkt_kopf_setzen.
+   Gesendet werden NUR geänderte Felder; Bio läuft über die eigene Tür. */
+function pbKopfFormToggle(){
+  var box=pbEl("pbKopfForm"); if(!box||!PB_KOPF||PB_KOPF.fehler) return;
+  if(box.style.display!=="none"){ box.style.display="none"; return; }
+  var k=PB_KOPF;
+  function feld(id,lab,val){ return '<label style="display:block;margin:4px 0">'+lab
+    +': <input id="'+id+'" value="'+pbEsc(val==null?'':val)+'" style="width:280px" spellcheck="false"></label>'; }
+  box.innerHTML=feld('pbKfName','Produktname',k.name)+feld('pbKfMarke','Marke',k.marke)
+    +feld('pbKfKat','Kategorie',k.kategorie)+feld('pbKfUkat','Unterkategorie',k.unterkategorie)
+    +'<label style="display:block;margin:4px 0">Bio: <select id="pbKfBio">'
+      +'<option value="null"'+(k.bio==null?' selected':'')+'>ungeprüft</option>'
+      +'<option value="true"'+(k.bio===true?' selected':'')+'>ja</option>'
+      +'<option value="false"'+(k.bio===false?' selected':'')+'>nein</option></select></label>'
+    +'<div class="pbAkt"><button onclick="pbKopfSpeichern(this)">Speichern</button> '
+    +'<button onclick="pbKopfFormToggle()">Abbrechen</button></div>'
+    +'<div id="pbKfMsg" class="pbZQuelle"></div>';
+  box.style.display="block";
+}
+async function pbKopfSpeichern(btn){
+  var k=PB_KOPF, patch={}, msg=pbEl("pbKfMsg");
+  function nimm(id, key, alt){
+    var v=(pbEl(id).value||"").trim();
+    if(v!==String(alt==null?'':alt).trim()) patch[key]=v;
+  }
+  nimm('pbKfName','name',k.name); nimm('pbKfMarke','marke',k.marke);
+  nimm('pbKfKat','kategorie',k.kategorie); nimm('pbKfUkat','unterkategorie',k.unterkategorie);
+  var bioNeu=pbEl('pbKfBio').value, bioAlt=(k.bio==null?'null':String(k.bio));
+  if(!Object.keys(patch).length && bioNeu===bioAlt){ if(msg) msg.textContent="Nichts geändert."; return; }
+  if(btn) btn.disabled=true; if(msg) msg.textContent="speichere …";
+  try{
+    if(Object.keys(patch).length){
+      var r=await pbClient.rpc("cb_admin_produkt_kopf_setzen",{p_id:PB_PID, p:patch});
+      if(r.error) throw r.error;
+    }
+    if(bioNeu!==bioAlt && bioNeu!=='null'){
+      var rb=await pbClient.rpc("cb_produkt_bio_setzen",{p_id:PB_PID, p_bio:(bioNeu==='true'), p_quelle:'Prüfblatt (Admin)'});
+      if(rb.error) throw rb.error;
+    }
+    await pbLaden();
+  }catch(e){ if(msg) msg.textContent="Fehlgeschlagen: "+(e.message||e); if(btn) btn.disabled=false; }
 }
 
 var PB_NW_FELDER=[
@@ -256,7 +309,57 @@ function pbNaehrwertHtml(){
     t+='<tr'+(leer?' class="pbNwLeer"':'')+'><td>'+f[1]+'</td><td class="r">'
       +(leer?'—':pbEsc((ops[f[0]]?ops[f[0]]+' ':'')+wert)+' '+f[2])+'</td></tr>';
   });
-  return t+'</tbody></table>';
+  t+='</tbody></table>';
+  t+='<div class="pbAkt" style="margin-top:6px"><button onclick="pbNwFormToggle()">Nährwerte bearbeiten …</button></div>'
+    +'<div id="pbNwForm" style="display:none"></div>';
+  return t;
+}
+
+/* Etappe 3: Nährwerte bearbeiten. ⚠ Die Server-Tür cb_produkt_naehrwerte_setzen
+   setzt die 9 Kernfelder IMMER (fehlender Schlüssel = NULL). Deshalb schickt
+   das Formular stets ALLE Kernfelder, vorbefüllt aus dem Serverstand; die drei
+   Fettsäurefelder sind serverseitig schlüsselgeprüft und gehen nur mit, wenn
+   befüllt. Leeres Feld heißt ausdrücklich: keine Angabe. */
+var PB_NW_KERN=["kcal","fett","ges_fett","kh","zucker","polyole","ballaststoffe","protein","salz"];
+var PB_NW_FETT=["einfach_unges","mehrfach_unges","transfette"];
+function pbNwFormToggle(){
+  var box=pbEl("pbNwForm"); if(!box||!PB_KOPF||PB_KOPF.fehler) return;
+  if(box.style.display!=="none"){ box.style.display="none"; return; }
+  var nw=(PB_KOPF.naehrwerte)||{};
+  box.innerHTML=PB_NW_FELDER.map(function(f){
+    return '<label style="display:block;margin:3px 0">'+f[1]
+      +': <input id="pbNw_'+f[0]+'" value="'+pbEsc(nw[f[0]]==null?'':nw[f[0]])+'" style="width:110px" inputmode="decimal"> '+f[2]+'</label>';
+  }).join('')
+  +'<label style="display:block;margin:6px 0"><input type="checkbox" id="pbNw_bnd"'+(nw.ballast_nichtdekl?' checked':'')+'> Ballaststoffe laut Etikett nicht deklariert</label>'
+  +'<div class="pbAkt"><button onclick="pbNwSpeichern(this)">Speichern</button> '
+  +'<button onclick="pbNwFormToggle()">Abbrechen</button></div>'
+  +'<div id="pbNwMsg" class="pbZQuelle"></div>';
+  box.style.display="block";
+}
+async function pbNwSpeichern(btn){
+  var msg=pbEl("pbNwMsg");
+  var payload={}, leere=[];
+  PB_NW_KERN.forEach(function(key){
+    var v=(pbEl("pbNw_"+key).value||"").trim().replace(",",".");
+    if(v==="") leere.push(key); else payload[key]=v;
+  });
+  PB_NW_FETT.forEach(function(key){
+    var v=(pbEl("pbNw_"+key).value||"").trim().replace(",",".");
+    if(v!=="") payload[key]=v;
+  });
+  if(leere.length && !confirm("Diese Felder sind leer und werden als KEINE ANGABE gespeichert:\n\n"
+    +leere.join(", ")+"\n\nFortfahren?")) return;
+  if(btn) btn.disabled=true; if(msg) msg.textContent="speichere …";
+  try{
+    var r=await pbClient.rpc("cb_produkt_naehrwerte_setzen",{p_id:PB_PID, p:payload});
+    if(r.error) throw r.error;
+    var altFlag=!!((PB_KOPF.naehrwerte||{}).ballast_nichtdekl), neuFlag=!!pbEl("pbNw_bnd").checked;
+    if(altFlag!==neuFlag){
+      var rf=await pbClient.rpc("cb_produkt_ballast_nichtdekl_setzen",{p_id:PB_PID, p_flag:neuFlag});
+      if(rf.error) throw rf.error;
+    }
+    await pbLaden();
+  }catch(e){ if(msg) msg.textContent="Fehlgeschlagen: "+(e.message||e); if(btn) btn.disabled=false; }
 }
 
 /* --- Vom Etikett gelesen, noch nicht zugeordnet ---------------------------- */
@@ -270,16 +373,157 @@ function pbOffenHtml(){
     return t+'<div class="pbZStatus gruen">Keine offenen Etikettzeilen — alles Gelesene ist zugeordnet oder entschieden.</div>';
   if(!offen.length)
     return t+'<div class="pbZStatus gruen">'+PB_OFFEN.length+' gelesene Zeile(n), alle zugeordnet oder manuell entschieden.</div>';
-  t+='<table class="pbTab"><thead><tr><th>Gelesener Text</th><th>Quelle</th><th>Stand</th><th>Riki-Kandidat</th></tr></thead><tbody>';
+  t+='<table class="pbTab"><thead><tr><th>Gelesener Text</th><th>Quelle</th><th>Stand</th><th>Riki-Kandidat</th><th>Aktion</th></tr></thead><tbody>';
   offen.forEach(function(o){
+    var iid=o.item_id;
     t+='<tr class="pbRot"><td>'+pbEsc(o.zutat_text||'—')+'</td>'
       +'<td>'+pbEsc(o.quelle||'—')+(o.gesehen_am?(' · '+pbEsc(String(o.gesehen_am).slice(0,10))):'')+'</td>'
       +'<td>'+pbEsc(o.extraction_status||'—')+'</td>'
-      +'<td>'+(o.canonical_name?pbEsc(o.canonical_name)+(o.proposed_rating!=null?' (Vorschlag Note '+pbEsc(o.proposed_rating)+')':''):'—')+'</td></tr>';
+      +'<td>'+(o.canonical_name?pbEsc(o.canonical_name)+(o.proposed_rating!=null?' (Vorschlag Note '+pbEsc(o.proposed_rating)+')':''):'—')+'</td>'
+      +'<td class="pbAkt">'
+        +'<button onclick="pbOffKandidaten('+iid+')" title="Stamm-Kandidaten vom Server holen und per Klick als Zutat binden">Kandidaten</button> '
+        +'<button onclick="pbOffRiki('+iid+',this)" title="Riki zerlegt, der Server löst den Stammeintrag auf, Riki bewertet nur mit Regelbeleg, der Vorschlag geht an den Wächter">Riki einstufen</button> '
+        +'<button onclick="pbOffZerlegt('+iid+',this)" title="Die Zeile ist zerlegt: ihre Bestandteile stehen als eigene Zutaten am Produkt">✓ ist zerlegt</button> '
+        +'<button onclick="pbOffKeineZutat('+iid+',this)" title="Keine eigene Zutat — mit Pflichtbegründung">keine Zutat …</button>'
+      +'</td></tr>'
+      +'<tr><td colspan="5"><div id="pbKand'+iid+'"></div><div id="pbOffMsg'+iid+'" class="pbZQuelle"></div></td></tr>';
   });
   t+='</tbody></table>';
   if(erledigt>0) t+='<div class="pbZQuelle">'+erledigt+' weitere gelesene Zeile(n) sind zugeordnet oder manuell entschieden.</div>';
   return t;
+}
+
+/* --- Aktionen an offenen Etikettzeilen -------------------------------------
+   Jede Aktion ruft NUR bestehende Serververträge (dieselben wie der alte
+   Editor, Work #81/#93/#309) und endet mit pbLaden(): kompletter Neuabruf,
+   Riegel läuft neu. Kein lokaler Zustand überlebt eine Aktion. */
+function pbOffMsg(iid, txt){ var m=pbEl("pbOffMsg"+iid); if(m) m.textContent=txt||""; }
+function pbOffItem(iid){
+  return (Array.isArray(PB_OFFEN)?PB_OFFEN:[]).find(function(o){ return String(o.item_id)===String(iid); })||null;
+}
+
+async function pbOffKandidaten(iid){
+  var o=pbOffItem(iid), box=pbEl("pbKand"+iid);
+  if(!o||!box) return;
+  box.innerHTML='Suche Stamm-Kandidaten …';
+  try{
+    var r=await pbClient.rpc("cb_admin_zutat_zeile_bearbeiten",{p_zutat_text:o.zutat_text});
+    if(r.error) throw r.error;
+    var ks=(r.data&&r.data.kandidaten)||[];
+    var bindbar=ks.filter(function(k){ return k.bindbar && k.entity_id; });
+    if(!bindbar.length){ box.innerHTML='<span class="gelbT">Kein bindbarer Stamm-Kandidat. Wege: Riki einstufen, oder im alten Editor neu anlegen.</span>'; return; }
+    box.innerHTML='Klick bindet als eigene Zutat an '+pbEsc(PB_PID)+': '+bindbar.map(function(k){
+      var name=k.name||k.stammname||k.canonical_name||k.zutat_text||k.zutat_id||"?";
+      return '<button onclick="pbOffBinden(\''+pbEsc(String(k.entity_id))+'\','+iid+',this)">'
+        +pbEsc(name)+(k.regel_titel?(' · '+pbEsc(k.regel_titel)):'')+'</button>';
+    }).join(' ');
+  }catch(e){ box.innerHTML='<span class="gelbT">Kandidatensuche fehlgeschlagen: '+pbEsc(e.message||e)+'</span>'; }
+}
+
+async function pbOffBinden(entityId, iid, btn){
+  if(btn) btn.disabled=true;
+  pbOffMsg(iid,"binde …");
+  try{
+    var r=await pbClient.rpc("cb_admin_canonical_zutat_binden",{p_produkt_id:PB_PID, p_entity_id:entityId});
+    if(r.error) throw r.error;
+    await pbLaden();
+  }catch(e){ pbOffMsg(iid,"Binden fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
+}
+
+async function pbOffZerlegt(iid, btn){
+  var o=pbOffItem(iid); if(!o) return;
+  var gebunden=PB_ROWS.map(function(r){
+    return '  · '+(r.canonical_name||r.sichtbarer_name||'?')+(r.resolved_rating!=null?('  Note '+r.resolved_rating):'  Note offen');
+  }).join('\n');
+  if(!confirm('"'+(o.zutat_text||'')+'" als ZERLEGT abschließen?\n\nDie Zeile wird keine eigene Produktzutat - ihre Bestandteile sind es.\n\nAm Produkt stehen laut Server:\n'+(gebunden||'  (keine Zeile)')+'\n\nWiderrufbar im alten Editor.')) return;
+  if(btn) btn.disabled=true; pbOffMsg(iid,"speichere Entscheid …");
+  try{
+    var r=await pbClient.rpc("cb_source_extraction_item_keine_eigene_zutat_setzen",
+      {p_item_id:Number(iid), p_reason:"Zusammengesetzte Zeile - in ihre Bestandteile zerlegt, diese sind als eigene Zutaten gebunden.", p_parenthetical_item:null});
+    if(r.error) throw r.error;
+    await pbLaden();
+  }catch(e){ pbOffMsg(iid,"Fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
+}
+
+async function pbOffKeineZutat(iid, btn){
+  var o=pbOffItem(iid); if(!o) return;
+  var grund=prompt('"'+(o.zutat_text||'')+'" wird KEINE eigene Produktzutat.\n\nWarum? (Pflicht)');
+  if(grund===null) return;
+  grund=String(grund).trim();
+  if(!grund){ pbOffMsg(iid,"Ohne Begründung kein Entscheid."); return; }
+  if(btn) btn.disabled=true; pbOffMsg(iid,"speichere Entscheid …");
+  try{
+    var r=await pbClient.rpc("cb_source_extraction_item_keine_eigene_zutat_setzen",
+      {p_item_id:Number(iid), p_reason:grund, p_parenthetical_item:null});
+    if(r.error) throw r.error;
+    await pbLaden();
+  }catch(e){ pbOffMsg(iid,"Fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
+}
+
+/* Riki-Kette: zerlegen (falls Struktur fehlt) → auflösen → regelbasiert
+   bewerten → Vorschlag speichern. Identische Verträge wie der alte Editor. */
+async function pbOffRiki(iid, btn){
+  var o=pbOffItem(iid); if(!o) return;
+  if(btn) btn.disabled=true;
+  try{
+    var s=await pbClient.auth.getSession();
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok) throw new Error("Nicht angemeldet (über admin.html anmelden).");
+    if(!o.base_ingredient){
+      pbOffMsg(iid,"1/4 Riki zerlegt …");
+      var resp=await fetch(PB_URL+"/functions/v1/riki-analyse",{method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":PB_KEY},
+        body:JSON.stringify({modus:"zutaten", modell:PB_RIKI_MODELL, text:String(o.zutat_text||""), produkt_id:PB_PID})});
+      var d=await resp.json();
+      if(!resp.ok||d.error) throw new Error(d.error||("HTTP "+resp.status));
+      var zt=(d.vorschlag&&Array.isArray(d.vorschlag.zutaten)&&d.vorschlag.zutaten[0])||null;
+      if(!zt) throw new Error("Riki hat keine Zutat geliefert.");
+      var rs=await pbClient.rpc("cb_riki_zutat_offen_struktur_speichern",{
+        p_item_id:Number(iid), p_base_ingredient:zt.base_ingredient||zt.name||null,
+        p_processing_modifiers:Array.isArray(zt.processing_modifiers)?zt.processing_modifiers:null,
+        p_attributes:zt.attributes||null, p_parenthetical_role:zt.parenthetical_role||null,
+        p_parenthetical_items:Array.isArray(zt.parenthetical_items)?zt.parenthetical_items:null,
+        p_confidence:null, p_extraction_status:"extracted"});
+      if(rs.error) throw rs.error;
+      o=Object.assign({}, o, {base_ingredient:(zt.base_ingredient||zt.name||null),
+        processing_modifiers:zt.processing_modifiers||null, attributes:zt.attributes||null,
+        parenthetical_role:zt.parenthetical_role||null});
+    }
+    pbOffMsg(iid,"2/4 Canonical wird aufgelöst …");
+    var r1=await pbClient.rpc("cb_riki_ingredient_resolution_erheben",{p_item_id:Number(iid)});
+    if(r1.error) throw r1.error;
+    var res=r1.data||{};
+    if(res.status!=="resolved"){
+      pbOffMsg(iid,"Auflösung: "+String(res.status||"?")+" — "+String(res.reason||"")+" Bleibt sichtbar offen.");
+      await pbLaden(); return;
+    }
+    pbOffMsg(iid,"3/4 Riki bewertet nach aktivem Regelwerk …");
+    var resp2=await fetch(PB_URL+"/functions/v1/riki-analyse",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":PB_KEY},
+      body:JSON.stringify({modus:"bewerten", modell:PB_RIKI_MODELL,
+        name:String(o.base_ingredient||o.zutat_text||""),
+        struktur:{processing_modifiers:o.processing_modifiers||null, attributes:o.attributes||null,
+                  parenthetical_role:o.parenthetical_role||null},
+        produkt_id:PB_PID})});
+    var d2=await resp2.json();
+    if(!resp2.ok||d2.error) throw new Error(d2.error||("HTTP "+resp2.status));
+    var bw=(d2.vorschlag&&typeof d2.vorschlag==="object")?d2.vorschlag:null;
+    if(!bw || bw.status!=="proposed" || !bw.regel_id || bw.rating==null){
+      pbOffMsg(iid,"Keine anwendbare Regel — es wird KEIN Wert erfunden. "+String((bw&&bw.begruendung)||""));
+      await pbLaden(); return;
+    }
+    pbOffMsg(iid,"4/4 Vorschlag wird gespeichert …");
+    var r2=await pbClient.rpc("cb_riki_ingredient_assessment_speichern",{
+      p_item_id:Number(iid), p_target_entity_id:res.entity_id,
+      p_rule_id:String(bw.regel_id), p_rating:Number(bw.rating),
+      p_confidence:String(bw.confidence||"mittel"), p_rationale:String(bw.begruendung||""),
+      p_status:"proposed"});
+    if(r2.error) throw r2.error;
+    await pbLaden();
+  }catch(e){
+    pbOffMsg(iid,"Kette abgebrochen: "+(e.message||e));
+    if(btn) btn.disabled=false;
+  }
 }
 
 /* --- Wirkstoffe & Mikronährstoffe: dritte Achse, reine Anzeige ------------- */
@@ -324,6 +568,7 @@ function pbWirkHtml(){
 async function pbLaden(){
   var pid=(pbEl("pbPid").value||"").trim();
   if(!pid){ pbStatus("Bitte eine Produkt-ID eingeben, z. B. P1809."); return; }
+  PB_PID=pid;
   pbStatus("Lade "+pbEsc(pid)+" …");
   try{
     var r=await pbClient.rpc("cb_app_produkt_zutaten",{p_produkt_id:pid});
@@ -486,8 +731,56 @@ function pbDetailHtml(r, lk){
   if(lk){
     t += '<div class="pbRegel pbLueckeBox"><b>Warum keine Note: '+pbEsc(lk.kurz)+'</b><br>'+pbEsc(lk.lang)+'</div>';
   }
+  /* Etappe 2: zeilengenaue Aktion. Löschen verlangt serverseitig einen Grund
+     (mind. 8 Zeichen) und sichert die Zeile im Audit — der Riegel misst danach neu. */
+  t += '<div class="pbAkt" style="margin-top:8px">'
+    +'<button onclick="pbZeileLoeschen(\''+pbEsc(String(r.produkt_zutat_id||""))+'\',\''+pbEsc(String(r.sichtbarer_name||""))+'\',this)" '
+    +'title="Entfernt genau diese eine Zeile. Pflichtgrund, Sicherung im Audit, danach Vollmessung. Für Zwillingszeilen gedacht.">Zeile löschen …</button></div>';
   t += '</div>';
   return t;
+}
+
+async function pbZeileLoeschen(pzid, name, btn){
+  if(!pzid) return;
+  var grund=prompt('Zeile "'+name+'" ('+pzid+') wirklich entfernen?\n\nGrund (Pflicht, mind. 8 Zeichen — z. B. "Zwillingszeile zu <Name>, Etikett-Doppelerfassung"):');
+  if(grund===null) return;
+  grund=String(grund).trim();
+  if(grund.length<8){ alert("Ohne tragfähigen Grund kein Löschen (mind. 8 Zeichen)."); return; }
+  if(!confirm('Letzte Kontrolle:\n\n"'+name+'" ('+pzid+') wird gelöscht.\nGrund: '+grund+'\n\nDie Zeile wird im Audit gesichert. Fortfahren?')) return;
+  if(btn) btn.disabled=true;
+  try{
+    var r=await pbClient.rpc("cb_admin_produkt_zutat_zeile_loeschen",{p_produkt_zutat_id:pzid, p_grund:grund});
+    if(r.error) throw r.error;
+    await pbLaden();
+  }catch(e){ alert("Löschen fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
+}
+
+/* Etappe 2: Zutat aus dem Stamm hinzufügen — Suche über den Server-Vorschlagsweg,
+   Klick bindet über cb_admin_canonical_zutat_binden, danach Vollmessung. */
+async function pbStammSuchen(){
+  var txt=(pbEl("pbSuchIn").value||"").trim(), box=pbEl("pbSuchErg");
+  if(!txt||!box) return;
+  box.innerHTML='Suche im Stamm …';
+  try{
+    var r=await pbClient.rpc("cb_admin_zutat_zeile_bearbeiten",{p_zutat_text:txt});
+    if(r.error) throw r.error;
+    var ks=((r.data&&r.data.kandidaten)||[]).filter(function(k){ return k.bindbar && k.entity_id; });
+    if(!ks.length){ box.innerHTML='<span class="gelbT">Kein bindbarer Stammeintrag zu "'+pbEsc(txt)+'".</span>'; return; }
+    box.innerHTML='Klick bindet als eigene Zutat an '+pbEsc(PB_PID)+': '+ks.map(function(k){
+      var name=k.name||k.stammname||k.canonical_name||k.zutat_text||k.zutat_id||"?";
+      return '<button onclick="pbStammBinden(\''+pbEsc(String(k.entity_id))+'\',this)">'+pbEsc(name)
+        +(k.regel_titel?(' · '+pbEsc(k.regel_titel)):'')+'</button>';
+    }).join(' ');
+  }catch(e){ box.innerHTML='<span class="gelbT">Suche fehlgeschlagen: '+pbEsc(e.message||e)+'</span>'; }
+}
+async function pbStammBinden(entityId, btn){
+  if(btn) btn.disabled=true;
+  try{
+    var r=await pbClient.rpc("cb_admin_canonical_zutat_binden",{p_produkt_id:PB_PID, p_entity_id:entityId});
+    if(r.error) throw r.error;
+    pbEl("pbSuchErg").innerHTML=""; pbEl("pbSuchIn").value="";
+    await pbLaden();
+  }catch(e){ alert("Binden fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
 }
 
 function pbDetail(idx){

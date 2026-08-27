@@ -78,6 +78,10 @@
   .pbProdukt .pbKacheln{ margin-bottom:0; margin-top:8px; }
   .pbNwTab{ max-width:460px; }
   .pbNwLeer td{ color:#a8a3c2; }
+  .pbAkt button{ padding:3px 8px; border:1px solid var(--rand); border-radius:5px;
+                 background:#fff; font:inherit; font-size:12px; cursor:pointer; margin:1px 0; }
+  .pbAkt button:hover{ background:#eceafb; }
+  #pbTabelle button, .pbTab button{ font-size:12px; }
   #pbStatus{ margin:8px 0; color:#6b6592; }
   .pbFuss{ margin-top:14px; font-size:11px; color:#6b6592; }
 </style>
@@ -85,7 +89,8 @@
 <body>
 <h1>Bewertungs-Prüfblatt <span style="font-weight:normal;color:#6b6592">· Testversion · <span id="pbBuild">Build wird geladen…</span></span></h1>
 <div class="pbUnter">Zeigt je Zutat den Serverzustand der automatischen Bewertung:
-Note, Regel — oder die benannte Lücke. Diese Seite rechnet nichts und schreibt nichts.</div>
+Note, Regel — oder die benannte Lücke. Die Seite rechnet nichts selbst; Aktionen rufen dieselben
+Serverwege wie der Editor, und nach jeder Aktion wird alles neu vom Server gemessen.</div>
 
 <div class="pbLeiste">
   <label for="pbPid">Produkt-ID:</label>
@@ -100,6 +105,13 @@ Note, Regel — oder die benannte Lücke. Diese Seite rechnet nichts und schreib
 <div id="pbStatus"></div>
 <div id="pbKopf"></div>
 <div id="pbTabelle" style="overflow-x:auto"></div>
+<div class="pbLeiste pbAkt" style="margin-top:8px">
+  <label for="pbSuchIn">Zutat aus dem Stamm hinzufügen:</label>
+  <input id="pbSuchIn" placeholder="Name eintippen …" spellcheck="false" style="width:220px"
+         onkeydown="if(event.key==='Enter')pbStammSuchen()">
+  <button onclick="pbStammSuchen()">suchen</button>
+  <span id="pbSuchErg"></span>
+</div>
 <div id="pbZusatz" style="overflow-x:auto"></div>
 <div id="pbWirk" style="overflow-x:auto"></div>
 
@@ -109,6 +121,6 @@ diese Anzeige. Klick auf eine Zeile zeigt alle Serverfelder samt Regeltext.
 Parallelbetrieb von Ralph genehmigt am 27.08.2026.</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="pruefblatt.js?v=PB-2026-08-27-7"></script>
+<script src="pruefblatt.js?v=PB-2026-08-27-10"></script>
 </body>
 </html>
