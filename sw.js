@@ -37,7 +37,11 @@ self.addEventListener('fetch', (e) => {
 
   // index.html IMMER frisch aus dem Netz – sonst sieht der Nutzer nie ein Update.
   // Nur wenn das Netz weg ist, kommt die Kopie aus dem Cache.
-  if (req.mode === 'navigate' || url.pathname.endsWith('/index.html')) {
+  // GEFIXT 27.08.2026: Vorher wurde JEDE Navigations-Antwort als './index.html'
+  // gecacht – seit es /produkt/-Seiten gibt, haette offline eine Produktseite
+  // die App-Shell ersetzt. Als Shell gilt nur noch '/' bzw. '/index.html'.
+  const istShell = url.pathname === '/' || url.pathname === '/index.html';
+  if (istShell) {
     e.respondWith(
       fetch(req, { cache: 'no-store' })
         .then((r) => {
@@ -47,6 +51,12 @@ self.addEventListener('fetch', (e) => {
         })
         .catch(() => caches.match('./index.html'))
     );
+    return;
+  }
+  if (req.mode === 'navigate') {
+    // Andere Seiten (z. B. /produkt/...) immer frisch; offline faellt die
+    // Navigation auf die App-Shell zurueck, ohne den Cache zu veraendern.
+    e.respondWith(fetch(req, { cache: 'no-store' }).catch(() => caches.match('./index.html')));
     return;
   }
 

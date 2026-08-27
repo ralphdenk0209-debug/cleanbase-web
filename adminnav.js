@@ -76,6 +76,12 @@ function applyAdminMode(){
       +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
       +_an('fotostudio','📸','Fotostudio',"adminGo('fotostudio')")
+      /* 27.08.2026, Ralph: Video-Skript 01 (Vorstellung Root Index) als eigene
+         Seite wie fahrplan.html — Lese-Ansicht plus Prompter-Modus. Eigenes
+         Fenster mit Cache-Buster, damit nach einem Deploy nie ein alter Stand
+         aus dem Cache kommt (die 15.08.-Falle). Kein app.js-Panel: die Seite
+         braucht weder Datenbank noch Anmeldung. */
+      +_an('videoskript','🎬','Video-Skript',"window.open('video-skript-01.html?cb='+Date.now(),'_blank')")
       +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
       +_an('werangelegt','👤','Wer hat angelegt',"admWerAngelegtOpen()")
       +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");

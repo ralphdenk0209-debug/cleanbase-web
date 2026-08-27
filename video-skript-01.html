@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Video-Skript 01 — Vorstellung Root Index</title>
+<!-- =====================================================================
+     VIDEO-SKRIPT 01 · Vorstellung Root Index · angelegt 27.08.2026
+     Quelle: 05 Marketing/Video-Skript 01 Vorstellung Root Index.md
+     Eigenständige Seite wie fahrplan.html — kein app.js, keine Datenbank.
+     Zwei Ansichten: Lesen (mit Kameraführung) und PROMPTER (Vollbild,
+     große Schrift, Auto-Scroll, Spiegel-Modus für Teleprompter-Glas).
+     Erreichbar über den Knopf 🎬 Video-Skript im Admin-Menü (adminnav.js).
+     ===================================================================== -->
+<style>
+  :root{
+    --gruen:#173A22; --lime:#8FCB6A; --papier:#f6f8f4; --karte:#ffffff;
+    --tinte:#1c2620; --grau:#5c6b60; --rand:#dde5da; --warn:#b3541e;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:var(--papier); color:var(--tinte);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .kopf{background:var(--gruen); color:#fff; padding:22px 20px 18px}
+  .kopf .innen{max-width:860px; margin:0 auto; display:flex; flex-wrap:wrap;
+    align-items:center; gap:14px; justify-content:space-between}
+  .kopf h1{font-size:22px; font-weight:800}
+  .kopf h1 small{display:block; font-size:13px; font-weight:400; color:var(--lime); margin-top:3px}
+  .kBtns{display:flex; gap:10px; flex-wrap:wrap}
+  .btn{border:0; border-radius:10px; padding:10px 16px; font-size:15px; font-weight:700;
+    cursor:pointer; background:rgba(255,255,255,.12); color:#fff}
+  .btn.lime{background:var(--lime); color:var(--gruen)}
+  .btn:active{transform:translateY(1px)}
+  .wahl{max-width:860px; margin:18px auto 0; padding:0 20px; display:flex; gap:10px}
+  .vBtn{flex:1; border:2px solid var(--rand); border-radius:12px; background:var(--karte);
+    padding:12px; font-size:15px; font-weight:700; cursor:pointer; color:var(--grau)}
+  .vBtn.aktiv{border-color:var(--gruen); color:var(--gruen); background:#eaf3e4}
+  main{max-width:860px; margin:0 auto; padding:18px 20px 80px}
+  .hinweis{background:#fdf3e7; border:1px solid #ecd9bd; border-radius:12px;
+    padding:12px 14px; font-size:14px; color:#6b4a1f; margin-bottom:18px}
+  .abschnitt{background:var(--karte); border:1px solid var(--rand); border-radius:14px;
+    padding:18px 20px; margin-bottom:16px}
+  .abschnitt h2{font-size:15px; color:var(--gruen); margin-bottom:4px}
+  .abschnitt .zeit{font-size:13px; color:var(--grau); font-weight:600}
+  .kamera{margin:10px 0 12px; padding:9px 12px; background:#eef4ea; border-left:4px solid var(--lime);
+    border-radius:0 8px 8px 0; font-size:14px; color:#38513f}
+  .kamera b{color:var(--gruen)}
+  .zeile{display:flex; gap:10px; margin:9px 0; align-items:baseline}
+  .wer{flex:0 0 84px; text-align:right; font-size:12px; font-weight:800; letter-spacing:.04em;
+    color:var(--gruen); text-transform:uppercase; padding-top:3px}
+  .wer.s2{color:#6b4c9a}
+  .was{flex:1; font-size:17px}
+  .was .regie{color:var(--grau); font-style:italic; font-size:14px}
+  .fuss{max-width:860px; margin:0 auto; padding:0 20px; font-size:13px; color:var(--grau)}
+  .fuss ul{margin:6px 0 0 18px}
+
+  /* ---------- PROMPTER ---------- */
+  #prompter{display:none; position:fixed; inset:0; background:#000; color:#fff; z-index:50}
+  #prompter.an{display:block}
+  #pScroll{position:absolute; inset:0; overflow:hidden}
+  #pText{padding:45vh 7vw 60vh; will-change:transform}
+  #pText .pWer{font-size:.45em; letter-spacing:.1em; font-weight:800; color:var(--lime);
+    text-transform:uppercase; margin:1.2em 0 .15em}
+  #pText .pWer.s2{color:#c9a6ff}
+  #pText .pSatz{font-weight:700; line-height:1.32}
+  #pText .pRegie{font-size:.42em; color:#8a8a8a; font-style:italic; margin-top:.3em}
+  #pText .pTrenner{border:0; border-top:2px dashed #333; margin:1.4em 0}
+  #prompter.spiegel #pText{transform-origin:center; }
+  #prompter.spiegel #pScroll{transform:scaleX(-1)}
+  /* Mittellinie als Lese-Anker */
+  #pLinie{position:absolute; left:0; right:0; top:45vh; height:0;
+    border-top:2px solid rgba(143,203,106,.5); pointer-events:none}
+  #pLeiste{position:absolute; left:0; right:0; bottom:0; display:flex; gap:8px;
+    justify-content:center; flex-wrap:wrap; padding:12px; background:rgba(0,0,0,.75); z-index:5}
+  #pLeiste .btn{background:#222; font-size:14px; padding:9px 14px}
+  #pLeiste .btn.lime{background:var(--lime); color:var(--gruen)}
+  #pDauerWrap{display:flex; align-items:center; gap:5px; color:#ccc; font-size:14px; font-weight:700}
+  #pDauer{width:64px; background:#111; color:var(--lime); border:1px solid #444; border-radius:8px;
+    padding:8px 6px; font-size:15px; font-weight:800; text-align:center}
+  /* Bearbeitbarer Sprechtext in der Lese-Ansicht */
+  .was .edit{border-bottom:1px dashed #b8c9ae; cursor:text; border-radius:3px; padding:0 2px}
+  .was .edit:focus{outline:2px solid var(--lime); background:#f4faee}
+  .was .edit.geaendert{background:#fff8dc; border-bottom-color:#d3b64a}
+  #pTipp{position:absolute; top:12px; left:0; right:0; text-align:center;
+    font-size:13px; color:#777; z-index:5}
+  @media(max-width:600px){ .wer{flex-basis:64px} .kopf h1{font-size:18px} }
+</style>
+</head>
+<body>
+
+<div class="kopf"><div class="innen">
+  <h1>🎬 Video-Skript 01<small>Vorstellung Root Index · 30–60 Sek. · mit Gesicht</small></h1>
+  <div class="kBtns">
+    <button class="btn" id="btnOrig" style="display:none"
+      onclick="if(confirm('Alle Textänderungen dieser Variante verwerfen und zum Originaltext zurück?')) aendVerwerfen()">↺ Originaltext</button>
+    <button class="btn lime" onclick="prompterStart()">▶ Prompter-Modus</button>
+  </div>
+</div></div>
+
+<div class="wahl">
+  <button class="vBtn aktiv" id="vbA" onclick="varianteSetzen('A')">Variante A · Ralph &amp; Sandra (~50 s)</button>
+  <button class="vBtn" id="vbB" onclick="varianteSetzen('B')">Variante B · Sandra allein (~40 s)</button>
+</div>
+
+<main>
+  <div class="hinweis">⚠ <b>Ausnahme von Regel 2 („kein Skript")</b> — nur für dieses erste Video, zum Üben.
+    Kurze Zeilen, laut vorlesen, in eigene Worte kippen lassen. Versprecher bleiben drin.
+    Abschnittsweise drehen — nie das ganze Video am Stück. Sandras Veto gilt.<br>
+    ✏️ <b>Text ändern:</b> gestrichelte Sätze anklicken und tippen — der Prompter übernimmt es sofort.
+    Änderungen bleiben nur in DIESEM Browser gespeichert; „↺ Originaltext" holt das Original zurück.</div>
+  <div id="lesen"><!-- wird aus SKRIPT gebaut --></div>
+  <div class="fuss">
+    <b>Vor Veröffentlichung:</b>
+    <ul>
+      <li>⛔ Fremdes Markenprodukt kritisch zeigen → erst RECHT-4 klären. Ausweg: neutrales Produkt ohne erkennbare Marke.</li>
+      <li>Nur echte Index-Werte aus dem Katalog einblenden. Keine Gesundheitsversprechen.</li>
+      <li>Beide Varianten drehen, eine veröffentlichen — Sandra wählt beim Sichten.</li>
+    </ul>
+  </div>
+</main>
+
+<!-- ---------- PROMPTER-VOLLBILD ---------- -->
+<div id="prompter">
+  <div id="pTipp">Leertaste oder Tipp auf den Text: Start/Pause · Pfeile ↑↓: ±5 s Dauer · Esc: zurück</div>
+  <div id="pScroll"><div id="pText"></div></div>
+  <div id="pLinie"></div>
+  <div id="pLeiste">
+    <button class="btn lime" id="pStart" onclick="pToggle()">▶ Start</button>
+    <button class="btn" onclick="pReset()">⟲ Anfang</button>
+    <span id="pDauerWrap">⏱ <input id="pDauer" type="number" min="10" max="300" step="5"
+      onchange="pDauerSetzen(this.value)"> s</span>
+    <button class="btn" onclick="pDauerAendern(5)">🐢 länger</button>
+    <button class="btn" onclick="pDauerAendern(-5)">🐇 kürzer</button>
+    <button class="btn" onclick="pSchrift(-4)">A−</button>
+    <button class="btn" onclick="pSchrift(4)">A+</button>
+    <button class="btn" onclick="pSpiegel()" id="pSpBtn">🪞 Spiegel</button>
+    <button class="btn" onclick="prompterEnde()">✕ Schließen</button>
+  </div>
+</div>
+
+<script>
+/* Skriptdaten: eine Quelle für Lese- und Prompter-Ansicht (keine zwei Wahrheiten). */
+var SKRIPT={
+ A:[
+  {abschnitt:"Abschnitt 1 · Hook", zeit:"0–5 Sek.",
+   kamera:"Beide im Bild, Produkt-Vorderseite in die Linse.",
+   zeilen:[
+    {wer:"Sandra", text:"Sieht gesund aus, oder?"},
+    {wer:"Ralph",  text:"Die Vorderseite schon.", regie:"Produkt umdrehen"},
+    {wer:"Ralph",  text:"Die Rückseite erzählt was anderes."}
+   ]},
+  {abschnitt:"Abschnitt 2 · Wer wir sind", zeit:"5–15 Sek.",
+   kamera:"Gleiche Einstellung, ruhig halten.",
+   zeilen:[
+    {wer:"Sandra", text:"Wir sind Sandra und Ralph."},
+    {wer:"Ralph",  text:"Und wir hatten keine Lust mehr, im Supermarkt Zutatenlisten zu entziffern, die keiner versteht."},
+    {wer:"Sandra", text:"Also haben wir was gebaut."}
+   ]},
+  {abschnitt:"Abschnitt 3 · Was Root Index ist", zeit:"15–35 Sek.",
+   kamera:"Schnitt auf Draufsicht: Hände, Produkt, Handy mit App. Stimmen aus dem Off — hier darf komplett abgelesen werden, keiner sieht's.",
+   zeilen:[
+    {wer:"Ralph",  text:"Root Index ist eine App. Du scannst ein Produkt —", regie:"Scan zeigen, Index einblenden"},
+    {wer:"Ralph",  text:"— und siehst, was wirklich drin ist. Als klare Note."},
+    {wer:"Sandra", text:"Ohne Werbe-Deutsch. Und ehrlich: Wenn wir was nicht belegen können, steht da keine Zahl. Dann steht da nichts."},
+    {wer:"Ralph",  text:"Und nein — eine bessere Note kann sich kein Hersteller kaufen."}
+   ]},
+  {abschnitt:"Abschnitt 4 · Abbinder", zeit:"35–50 Sek.",
+   kamera:"Zurück auf beide Gesichter. Danach Einblendung: Logo + @root_index.de.",
+   zeilen:[
+    {wer:"Sandra", text:"Die Vorderseite verkauft."},
+    {wer:"Ralph",  text:"Wir lesen die Rückseite."},
+    {wer:"Beide",  text:"Transparenz? Root Index."}
+   ]}
+ ],
+ B:[
+  {abschnitt:"Abschnitt 1 · Hook", zeit:"0–5 Sek.",
+   kamera:"Sandra im Bild, Produkt-Vorderseite in die Linse.",
+   zeilen:[
+    {wer:"Sandra", text:"Sieht gesund aus, oder?", regie:"umdrehen"},
+    {wer:"Sandra", text:"Genau deshalb gibt's uns."}
+   ]},
+  {abschnitt:"Abschnitt 2 · Wer ich bin", zeit:"5–12 Sek.",
+   kamera:"Gleiche Einstellung, ruhig halten.",
+   zeilen:[
+    {wer:"Sandra", text:"Ich bin Sandra. Ich hab keine Lust mehr, im Supermarkt Zutatenlisten zu entziffern, die keiner verstehen soll."},
+    {wer:"Sandra", text:"Also haben wir was gebaut."}
+   ]},
+  {abschnitt:"Abschnitt 3 · Was Root Index ist", zeit:"12–30 Sek.",
+   kamera:"Schnitt auf Draufsicht: Hände, Produkt, App. Stimme aus dem Off — ablesen erlaubt.",
+   zeilen:[
+    {wer:"Sandra", text:"Root Index ist eine App. Du scannst ein Produkt und siehst, was wirklich drin ist — als klare Note.", regie:"Scan zeigen, Index einblenden"},
+    {wer:"Sandra", text:"Und wenn wir etwas nicht belegen können, erfinden wir keine Zahl. Dann steht da nichts. Ehrlich ist ehrlich."}
+   ]},
+  {abschnitt:"Abschnitt 4 · Abbinder", zeit:"30–40 Sek.",
+   kamera:"Zurück aufs Gesicht. Danach Einblendung: Logo + @root_index.de.",
+   zeilen:[
+    {wer:"Sandra", text:"Die Vorderseite verkauft. Wir lesen die Rückseite."},
+    {wer:"Sandra", text:"Transparenz? Root Index."}
+   ]}
+ ]
+};
+
+var VARIANTE='A';
+/* Vorgabedauer je Variante — aus dem Skript: A ~50 s, B ~40 s. */
+var DAUER_VORGABE={A:50,B:40};
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ---------- Textänderungen: bleiben im Browser (localStorage) ----------
+   Eine Quelle: SKRIPT ist das Original, AENDERUNGEN liegt darüber.
+   textOf() ist der EINZIGE Leseweg — Lese-Ansicht und Prompter nutzen ihn. */
+function aendKey(){ return 'ri_vs01_text_'+VARIANTE; }
+function aendLaden(){ try{ return JSON.parse(localStorage.getItem(aendKey())||'{}'); }catch(e){ return {}; } }
+function aendSpeichern(m){ try{ localStorage.setItem(aendKey(), JSON.stringify(m)); }catch(e){} }
+function textOf(i,j){
+  var m=aendLaden(), k=i+'_'+j;
+  return (typeof m[k]==='string') ? m[k] : SKRIPT[VARIANTE][i].zeilen[j].text;
+}
+function textSetzen(i,j,neu){
+  var m=aendLaden(), k=i+'_'+j;
+  neu=String(neu).replace(/\s+/g,' ').trim();
+  if(neu===SKRIPT[VARIANTE][i].zeilen[j].text || neu===''){ delete m[k]; }
+  else m[k]=neu;
+  aendSpeichern(m);
+  resetKnopfZeigen();
+}
+function aendVerwerfen(){
+  try{ localStorage.removeItem(aendKey()); }catch(e){}
+  leseBauen(); pBauen(); resetKnopfZeigen();
+}
+function resetKnopfZeigen(){
+  var b=document.getElementById('btnOrig'); if(!b) return;
+  b.style.display = Object.keys(aendLaden()).length ? '' : 'none';
+}
+
+/* ---------- Zieldauer: bleibt ebenfalls im Browser ---------- */
+function dauerKey(){ return 'ri_vs01_dauer_'+VARIANTE; }
+function dauerLesen(){
+  var d=0; try{ d=parseInt(localStorage.getItem(dauerKey()),10); }catch(e){}
+  return (d>=10&&d<=300)?d:DAUER_VORGABE[VARIANTE];
+}
+function pDauerSetzen(v){
+  v=Math.max(10,Math.min(300,parseInt(v,10)||DAUER_VORGABE[VARIANTE]));
+  try{ localStorage.setItem(dauerKey(), String(v)); }catch(e){}
+  var inp=document.getElementById('pDauer'); if(inp) inp.value=v;
+  pTempoRechnen();
+}
+function pDauerAendern(d){ pDauerSetzen(dauerLesen()+d); }
+/* Tempo = Textstrecke geteilt durch Zieldauer. Wird bei Start, Dauer- und
+   Schriftänderung neu gerechnet — die Strecke hängt an der Schriftgröße.
+   STRECKE = nur der echte Text, OHNE die Leerräume davor (45vh) und danach
+   (60vh) — sonst wäre der gesprochene Teil kürzer als die eingestellte Zeit:
+   erste Zeile startet an der Leselinie, letzte Zeile endet dort. */
+function pStrecke(){
+  var el=document.getElementById('pText');
+  return Math.max(0, el.offsetHeight - window.innerHeight*1.05);
+}
+function pTempoRechnen(){
+  var s=pStrecke();
+  P.tempo = s>0 ? s/dauerLesen() : 36;
+}
+
+function varianteSetzen(v){
+  VARIANTE=v;
+  document.getElementById('vbA').classList.toggle('aktiv', v==='A');
+  document.getElementById('vbB').classList.toggle('aktiv', v==='B');
+  leseBauen(); pBauen(); pReset();
+  var inp=document.getElementById('pDauer'); if(inp) inp.value=dauerLesen();
+}
+
+function leseBauen(){
+  var h='';
+  SKRIPT[VARIANTE].forEach(function(a,i){
+    h+='<div class="abschnitt"><h2>'+esc(a.abschnitt)+' <span class="zeit">· '+esc(a.zeit)+'</span></h2>';
+    h+='<div class="kamera"><b>Kamera:</b> '+esc(a.kamera)+'</div>';
+    a.zeilen.forEach(function(z,j){
+      var t=textOf(i,j), and=(t!==z.text);
+      h+='<div class="zeile"><div class="wer'+(z.wer==='Sandra'?' s2':'')+'">'+esc(z.wer)+'</div>'
+        +'<div class="was">„<span class="edit'+(and?' geaendert':'')+'" contenteditable="true" '
+        +'spellcheck="false" data-i="'+i+'" data-j="'+j+'">'+esc(t)+'</span>"'
+        +(z.regie?' <span class="regie">('+esc(z.regie)+')</span>':'')+'</div></div>';
+    });
+    h+='</div>';
+  });
+  document.getElementById('lesen').innerHTML=h;
+  /* Speichern beim Verlassen des Feldes; Enter beendet statt umzubrechen. */
+  document.querySelectorAll('#lesen .edit').forEach(function(el){
+    el.addEventListener('blur', function(){
+      var i=+el.dataset.i, j=+el.dataset.j;
+      textSetzen(i,j, el.textContent);
+      var t=textOf(i,j);
+      el.textContent=t;
+      el.classList.toggle('geaendert', t!==SKRIPT[VARIANTE][i].zeilen[j].text);
+      pBauen();
+    });
+    el.addEventListener('keydown', function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); el.blur(); } });
+  });
+  resetKnopfZeigen();
+}
+
+/* ---------- Prompter ---------- */
+var P={laeuft:false, y:0, tempo:36, schrift:0, raf:null, letzt:0};
+
+function pBauen(){
+  var h='', letztWer='';
+  SKRIPT[VARIANTE].forEach(function(a,i){
+    if(i>0) h+='<hr class="pTrenner">';
+    letztWer='';
+    a.zeilen.forEach(function(z,j){
+      if(z.wer!==letztWer){ h+='<div class="pWer'+(z.wer==='Sandra'?' s2':'')+'">'+esc(z.wer)+'</div>'; letztWer=z.wer; }
+      h+='<div class="pSatz">'+esc(textOf(i,j))+'</div>';
+      if(z.regie) h+='<div class="pRegie">('+esc(z.regie)+')</div>';
+    });
+  });
+  document.getElementById('pText').innerHTML=h;
+  pSchriftSetzen();
+}
+
+function pSchriftSetzen(){
+  var basis=Math.min(window.innerWidth,900)/14 + P.schrift; /* ~64px auf Desktop */
+  document.getElementById('pText').style.fontSize=Math.max(24,basis)+'px';
+  pTempoRechnen(); /* andere Schriftgröße = andere Strecke = anderes Tempo */
+}
+
+function prompterStart(){
+  pBauen();
+  document.getElementById('prompter').classList.add('an');
+  document.body.style.overflow='hidden';
+  var inp=document.getElementById('pDauer'); if(inp) inp.value=dauerLesen();
+  pReset();
+  try{ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); }catch(e){}
+}
+function prompterEnde(){
+  pPause();
+  document.getElementById('prompter').classList.remove('an');
+  document.body.style.overflow='';
+  try{ document.fullscreenElement && document.exitFullscreen(); }catch(e){}
+}
+
+function pTick(t){
+  if(!P.laeuft) return;
+  if(!P.letzt) P.letzt=t;
+  var dt=(t-P.letzt)/1000; P.letzt=t;
+  P.y+=P.tempo*dt;
+  var max=pStrecke();
+  if(P.y>=max){ P.y=max; pPause(); }
+  document.getElementById('pText').style.transform='translateY('+(-P.y)+'px)';
+  P.raf=requestAnimationFrame(pTick);
+}
+function pToggle(){ P.laeuft?pPause():pPlay(); }
+function pPlay(){ pTempoRechnen(); P.laeuft=true; P.letzt=0; document.getElementById('pStart').textContent='⏸ Pause'; P.raf=requestAnimationFrame(pTick); }
+function pPause(){ P.laeuft=false; if(P.raf) cancelAnimationFrame(P.raf); document.getElementById('pStart').textContent='▶ Start'; }
+function pReset(){ pPause(); P.y=0; var el=document.getElementById('pText'); if(el) el.style.transform='translateY(0)'; }
+function pSchrift(d){ P.schrift+=d; pSchriftSetzen(); }
+function pSpiegel(){
+  var an=document.getElementById('prompter').classList.toggle('spiegel');
+  document.getElementById('pSpBtn').classList.toggle('lime',an);
+}
+
+/* Bedienung: Leertaste/Tipp = Start/Pause, Pfeile = Tempo, Esc = zurück */
+document.addEventListener('keydown',function(ev){
+  if(!document.getElementById('prompter').classList.contains('an')) return;
+  if(ev.target && ev.target.id==='pDauer') return; /* Tippen im Dauerfeld nicht abfangen */
+  if(ev.key===' '){ ev.preventDefault(); pToggle(); }
+  else if(ev.key==='ArrowUp'){ ev.preventDefault(); pDauerAendern(5); }
+  else if(ev.key==='ArrowDown'){ ev.preventDefault(); pDauerAendern(-5); }
+  else if(ev.key==='Escape'){ prompterEnde(); }
+});
+document.getElementById('pScroll').addEventListener('click', pToggle);
+window.addEventListener('resize', pSchriftSetzen);
+
+leseBauen(); pBauen();
+</script>
+</body>
+</html>
