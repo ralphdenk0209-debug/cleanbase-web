@@ -1,126 +1,203 @@
 <!DOCTYPE html>
-<!-- BEWERTUNGS-PRÜFBLATT · Testversion · 27.08.2026
-     Parallelbetrieb von Ralph genehmigt (27.08.2026). Nur Lese-RPCs, kein
-     Schreibweg. Konzept: bereiche/konzept-automatische-zutatenbewertung.md -->
+<!-- PRODUKT ERFASSEN · Testversion (Prüfblatt-Editor) · 27.08.2026
+     Parallelbetrieb von Ralph genehmigt (27.08.2026). Aktionen laufen über
+     dieselben Serververträge wie der alte Editor; nach jeder Aktion wird
+     alles neu vom Server gemessen (10-Prüfungen-Riegel).
+     Konzept: bereiche/konzept-automatische-zutatenbewertung.md
+     Testprotokoll: bereiche/pruefprotokoll-pruefblatt-editor.md -->
 <html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Bewertungs-Prüfblatt · Root Index (Testversion)</title>
+<title>Produkt erfassen · Testversion · Root Index</title>
 <style>
-  :root{ --gruen:#e6f4ea; --gruenR:#2e9e57; --gelb:#fdf3d7; --gelbR:#e0a32e;
-         --rot:#fde8e4; --rotR:#cf5442; --rand:#d6d2e4; --tinte:#2a2640; }
+  :root{
+    --gruen:#e6f4ea; --gruenR:#2e9e57; --gelb:#fdf3d7; --gelbR:#e0a32e;
+    --rot:#fde8e4; --rotR:#cf5442; --blau:#e8effc; --blauR:#4a72b7;
+    --rand:#dcd8ea; --tinte:#2a2640; --muted:#6b6592; --lila:#534AB7;
+    --kopf:#16233d; --kopf2:#1d2b45; --karte:#fff; --grund:#f2f0f8;
+  }
   *{ box-sizing:border-box; }
-  body{ margin:0; padding:16px; font:14px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;
-        color:var(--tinte); background:#f4f2f9; }
-  h1{ font-size:19px; margin:0 0 2px; }
-  .pbUnter{ color:#6b6592; font-size:12px; margin-bottom:12px; }
-  .pbLeiste{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
-  .pbLeiste input{ padding:7px 10px; border:1px solid var(--rand); border-radius:6px;
-                   font:inherit; width:130px; background:#fff; }
-  .pbLeiste button{ padding:7px 14px; border:1px solid var(--rand); border-radius:6px;
-                    background:#fff; font:inherit; cursor:pointer; }
-  .pbLeiste button:hover{ background:#eceafb; }
-  .pbFBtn.aktiv{ background:#534AB7; color:#fff; border-color:#534AB7; }
-  .pbKacheln{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
-              gap:8px; margin-bottom:12px; }
-  .pbKachel{ background:#fff; border:1px solid var(--rand); border-radius:8px;
-             padding:10px 12px; font-size:12px; color:#6b6592; }
-  .pbKachel b{ display:block; font-size:20px; color:var(--tinte); }
+  html{ scroll-behavior:smooth; scroll-padding-top:118px; }
+  body{ margin:0; font:14px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;
+        color:var(--tinte); background:var(--grund); }
+
+  /* ── Kopfleiste, klebt oben ─────────────────────────────────────────── */
+  #pbTop{ position:sticky; top:0; z-index:50; background:linear-gradient(180deg,var(--kopf),var(--kopf2));
+          color:#fff; padding:10px 18px 8px; box-shadow:0 2px 10px rgba(20,20,50,.25); }
+  .pbTopZ1{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .pbBrand{ font-size:12px; letter-spacing:.4px; color:#aab3d0; white-space:nowrap; }
+  .pbBrand b{ color:#fff; font-size:14px; letter-spacing:0; }
+  #pbTopName{ font-size:17px; font-weight:700; margin-right:auto; }
+  .pbTopChip{ background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.18);
+              border-radius:8px; padding:4px 12px; text-align:center; line-height:1.15; }
+  .pbTopChip b{ display:block; font-size:16px; }
+  .pbTopChip small{ font-size:10px; color:#aab3d0; }
+  #pbTopRiegel.gruen b{ color:#5fd68f; } #pbTopRiegel.rot b{ color:#ff9a8a; }
+  #pbTopScore b{ color:#f4b64a; }
+  .pbTopZ2{ display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .pbTopZ2 input{ padding:6px 10px; border:none; border-radius:6px; font:inherit; width:120px; }
+  .pbTopZ2 button{ padding:6px 13px; border:none; border-radius:6px; font:inherit;
+                   cursor:pointer; background:var(--lila); color:#fff; }
+  .pbTopZ2 button:hover{ filter:brightness(1.12); }
+  #pbBuild{ font-size:10.5px; color:#8f99bd; margin-left:auto; }
+
+  /* Stations-Chips in der Kopfleiste */
+  .pbStat{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14);
+           border-radius:8px; padding:4px 12px; color:#fff; text-decoration:none;
+           font-size:12px; line-height:1.25; }
+  .pbStat:hover{ background:rgba(255,255,255,.15); }
+  .pbStat b{ display:block; font-size:12.5px; }
+  .pbStat small{ color:#aab3d0; font-size:10.5px; }
+  .pbStat small.ok{ color:#5fd68f; } .pbStat small.warn{ color:#f4b64a; } .pbStat small.rot{ color:#ff9a8a; }
+
+  /* ── Inhalt ─────────────────────────────────────────────────────────── */
+  #pbInhalt{ max-width:1240px; margin:0 auto; padding:14px 18px 60px; }
+  #pbStatus{ margin:6px 0; color:var(--muted); }
+  section{ margin-top:18px; }
+  .pbSecTitel{ font-size:13px; font-weight:700; color:var(--lila); letter-spacing:.5px;
+               text-transform:uppercase; margin:0 0 8px 2px; }
+  .pbKarte{ background:var(--karte); border:1px solid var(--rand); border-radius:10px;
+            padding:14px 16px; box-shadow:0 1px 3px rgba(40,35,80,.06); }
+
+  /* Riegel */
+  .pbRiegel{ border-radius:10px; padding:10px 14px; margin-top:12px; font-size:13px;
+             box-shadow:0 1px 3px rgba(40,35,80,.06); }
+  .pbRiegel.gruen{ background:var(--gruen); border:1px solid var(--gruenR); }
+  .pbRiegel.rot{ background:var(--rot); border:1px solid var(--rotR); }
+  .pbRiegel ul{ margin:6px 0 0 18px; padding:0; }
+
+  /* Kopfkarte + Kacheln */
+  .pbProdukt{ background:var(--karte); border:1px solid var(--rand); border-radius:10px;
+              padding:14px 16px; box-shadow:0 1px 3px rgba(40,35,80,.06); }
+  .pbProduktName{ font-size:18px; font-weight:700; }
+  .pbProduktZeile{ color:var(--muted); font-size:13px; margin:3px 0 6px; }
+  .pbKacheln{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+              gap:8px; margin-top:10px; }
+  .pbKachel{ background:#faf9fd; border:1px solid var(--rand); border-radius:8px;
+             padding:9px 12px; font-size:11.5px; color:var(--muted); }
+  .pbKachel b{ display:block; font-size:19px; color:var(--tinte); }
   .pbKachel.gruen{ background:var(--gruen); border-color:var(--gruenR); }
   .pbKachel.gelb{ background:var(--gelb); border-color:var(--gelbR); }
   .pbKachel.rot{ background:var(--rot); border-color:var(--rotR); }
-  .pbTab{ width:100%; border-collapse:collapse; background:#fff;
-          border:1px solid var(--rand); font-size:13px; }
-  .pbTab th{ position:sticky; top:0; background:#efecf8; text-align:left;
-             padding:7px 8px; border-bottom:2px solid var(--rand); white-space:nowrap; }
-  .pbTab td{ padding:6px 8px; border-bottom:1px solid #eceafb; vertical-align:top; }
+  .pbKachel.blau{ background:var(--blau); border-color:var(--blauR); }
+  .pbProdukt .pbKacheln{ margin-bottom:0; }
+
+  /* Tabellen */
+  .pbTab{ width:100%; border-collapse:collapse; background:var(--karte); font-size:13px;
+          border:1px solid var(--rand); border-radius:10px; overflow:hidden; }
+  .pbTab th{ position:sticky; top:112px; background:#efecf8; text-align:left;
+             padding:8px 9px; border-bottom:2px solid var(--rand); white-space:nowrap;
+             font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; color:#55507a; }
+  .pbTab td{ padding:7px 9px; border-bottom:1px solid #eceafb; vertical-align:top; }
+  .pbTab tbody tr:last-child td{ border-bottom:none; }
   .pbTab .r{ text-align:right; }
   .pbZeile{ cursor:pointer; }
   .pbZeile:hover td{ background:#f6f4fd; }
   .pbGruen td:first-child{ box-shadow:inset 3px 0 0 var(--gruenR); }
-  .pbGelb{ background:var(--gelb); }
-  .pbGelb td:first-child{ box-shadow:inset 3px 0 0 var(--gelbR); }
-  .pbRot{ background:var(--rot); }
-  .pbRot td:first-child{ box-shadow:inset 3px 0 0 var(--rotR); }
+  .pbGelb{ background:var(--gelb); } .pbGelb td:first-child{ box-shadow:inset 3px 0 0 var(--gelbR); }
+  .pbRot{ background:var(--rot); } .pbRot td:first-child{ box-shadow:inset 3px 0 0 var(--rotR); }
+  .pbBlau{ background:var(--blau); } .pbBlau td:first-child{ box-shadow:inset 3px 0 0 var(--blauR); }
   .pbLeer{ color:var(--rotR); font-style:italic; }
+
+  /* Detail, Regeln, Hinweise */
   .pbDetailBox{ padding:8px 4px 4px; }
   .pbFelder{ border-collapse:collapse; margin:6px 0; }
   .pbFelder td{ border:none; padding:2px 14px 2px 0; font-size:12px; }
-  .pbFelder td:first-child{ color:#6b6592; white-space:nowrap; }
-  .pbRegel{ background:#efecf8; border-radius:6px; padding:8px 10px; margin-top:6px;
-            font-size:12px; }
+  .pbFelder td:first-child{ color:var(--muted); white-space:nowrap; }
+  .pbRegel{ background:#efecf8; border-radius:8px; padding:8px 10px; margin-top:6px; font-size:12px; }
   .pbLueckeBox{ background:var(--gelb); }
-  .pbHinweis{ background:var(--gelb); border:1px solid var(--gelbR); border-radius:6px;
-              padding:8px 10px; margin-bottom:10px; font-size:12px; }
-  .pbKachel.blau{ background:#e8effc; border-color:#4a72b7; }
-  .pbBlau{ background:#e8effc; }
-  .pbBlau td:first-child{ box-shadow:inset 3px 0 0 #4a72b7; }
-  .pbRiegel{ border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:13px; }
-  .pbRiegel.gruen{ background:var(--gruen); border:1px solid var(--gruenR); }
-  .pbRiegel.rot{ background:var(--rot); border:1px solid var(--rotR); }
-  .pbRiegel ul{ margin:6px 0 0 18px; padding:0; }
-  .pbH2{ font-size:15px; margin:18px 0 6px; }
-  .pbH2n{ font-weight:normal; color:#6b6592; font-size:12px; }
-  .pbZStatus{ border-radius:6px; padding:7px 10px; margin-bottom:8px; font-size:13px;
-              border:1px solid var(--rand); }
+  .pbHinweis{ background:var(--gelb); border:1px solid var(--gelbR); border-radius:8px;
+              padding:8px 10px; margin:8px 0; font-size:12px; }
+  .pbZStatus{ border-radius:8px; padding:8px 11px; margin:8px 0; font-size:13px; border:1px solid var(--rand); }
   .pbZStatus.gruen{ background:var(--gruen); border-color:var(--gruenR); }
   .pbZStatus.gelb{ background:var(--gelb); border-color:var(--gelbR); }
-  .pbZStatus.blau{ background:#e8effc; border-color:#4a72b7; }
-  .pbZQuelle{ font-size:12px; color:#6b6592; margin-bottom:8px; }
-  .gruenT{ color:var(--gruenR); }
-  .gelbT{ color:#9a6d00; }
-  .pbProdukt{ background:#fff; border:1px solid var(--rand); border-radius:8px;
-              padding:12px 14px; margin-bottom:12px; }
-  .pbProduktName{ font-size:17px; font-weight:700; }
-  .pbProduktZeile{ color:#6b6592; font-size:13px; margin:2px 0 6px; }
-  .pbProdukt .pbKacheln{ margin-bottom:0; margin-top:8px; }
-  .pbNwTab{ max-width:460px; }
+  .pbZStatus.blau{ background:var(--blau); border-color:var(--blauR); }
+  .pbZQuelle{ font-size:12px; color:var(--muted); margin:4px 0 8px; }
+  .gruenT{ color:var(--gruenR); } .gelbT{ color:#9a6d00; }
+  .pbH2{ font-size:14.5px; margin:16px 0 6px; }
+  .pbH2n{ font-weight:normal; color:var(--muted); font-size:11.5px; }
+  .pbNwTab{ max-width:480px; }
   .pbNwLeer td{ color:#a8a3c2; }
-  .pbAkt button{ padding:3px 8px; border:1px solid var(--rand); border-radius:5px;
-                 background:#fff; font:inherit; font-size:12px; cursor:pointer; margin:1px 0; }
-  .pbAkt button:hover{ background:#eceafb; }
-  #pbTabelle button, .pbTab button{ font-size:12px; }
-  #pbStatus{ margin:8px 0; color:#6b6592; }
-  .pbFuss{ margin-top:14px; font-size:11px; color:#6b6592; }
+  .pbFuss{ margin-top:20px; font-size:11px; color:var(--muted); }
+
+  /* Aktionen + Formulare */
+  .pbAkt button, .pbFBtn, .pbLeiste button{
+    padding:5px 11px; border:1px solid var(--rand); border-radius:7px; background:#fff;
+    font:inherit; font-size:12.5px; cursor:pointer; margin:1px 0; }
+  .pbAkt button:hover, .pbLeiste button:hover{ background:#eceafb; border-color:var(--lila); }
+  .pbFBtn.aktiv{ background:var(--lila); color:#fff; border-color:var(--lila); }
+  .pbLeiste{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:10px 0; }
+  .pbLeiste input{ padding:6px 10px; border:1px solid var(--rand); border-radius:7px;
+                   font:inherit; background:#fff; }
+  #pbKopfForm, #pbNwForm{ background:#faf9fd; border:1px dashed var(--rand); border-radius:8px;
+                          padding:10px 12px; margin-top:8px; }
+  #pbKopfForm input, #pbNwForm input:not([type=checkbox]), #pbKopfForm select{
+    padding:5px 8px; border:1px solid var(--rand); border-radius:6px; font:inherit; }
 </style>
 </head>
 <body>
-<h1>Bewertungs-Prüfblatt <span style="font-weight:normal;color:#6b6592">· Testversion · <span id="pbBuild">Build wird geladen…</span></span></h1>
-<div class="pbUnter">Zeigt je Zutat den Serverzustand der automatischen Bewertung:
-Note, Regel — oder die benannte Lücke. Die Seite rechnet nichts selbst; Aktionen rufen dieselben
-Serverwege wie der Editor, und nach jeder Aktion wird alles neu vom Server gemessen.</div>
 
-<div class="pbLeiste">
-  <label for="pbPid">Produkt-ID:</label>
-  <input id="pbPid" value="P1809" spellcheck="false">
-  <button onclick="pbLaden()">Laden</button>
-  <span style="width:14px"></span>
-  <button id="pbF_alle" class="pbFBtn aktiv" onclick="pbFilter('alle')">alle</button>
-  <button id="pbF_note" class="pbFBtn" onclick="pbFilter('note')">mit Note</button>
-  <button id="pbF_luecke" class="pbFBtn" onclick="pbFilter('luecke')">nur Lücken</button>
+<header id="pbTop">
+  <div class="pbTopZ1">
+    <span class="pbBrand"><b>ROOT INDEX</b><br>Produkt erfassen · Testversion</span>
+    <span id="pbTopName">—</span>
+    <span class="pbTopChip" id="pbTopScore"><b>—</b><small>Root Index</small></span>
+    <span class="pbTopChip" id="pbTopRiegel"><b>—</b><small>Riegel</small></span>
+  </div>
+  <div class="pbTopZ2">
+    <label for="pbPid" style="font-size:12px;color:#aab3d0">Produkt-ID</label>
+    <input id="pbPid" value="P1809" spellcheck="false">
+    <button onclick="pbLaden()">Laden</button>
+    <a class="pbStat" href="#sec1"><b>1 · Kopf &amp; Quelle</b><small id="pbStat1">—</small></a>
+    <a class="pbStat" href="#sec2"><b>2 · Nährwerte</b><small id="pbStat2">—</small></a>
+    <a class="pbStat" href="#sec3"><b>3 · Bestandteile &amp; Abgleich</b><small id="pbStat3">—</small></a>
+    <span id="pbBuild">Build wird geladen…</span>
+  </div>
+</header>
+
+<div id="pbInhalt">
+  <div id="pbStatus"></div>
+  <div id="pbRiegelBox"></div>
+
+  <section id="sec1">
+    <h2 class="pbSecTitel">1 · Kopf &amp; Quelle</h2>
+    <div id="pbKopf"></div>
+  </section>
+
+  <section id="sec2">
+    <h2 class="pbSecTitel">2 · Nährwerte</h2>
+    <div id="pbNw" class="pbKarte" style="overflow-x:auto"></div>
+  </section>
+
+  <section id="sec3">
+    <h2 class="pbSecTitel">3 · Produktbestandteile &amp; Abgleich</h2>
+    <div id="pbZaehler"></div>
+    <div class="pbLeiste">
+      <button id="pbF_alle" class="pbFBtn aktiv" onclick="pbFilter('alle')">alle</button>
+      <button id="pbF_note" class="pbFBtn" onclick="pbFilter('note')">mit Note</button>
+      <button id="pbF_luecke" class="pbFBtn" onclick="pbFilter('luecke')">nur Lücken</button>
+    </div>
+    <div id="pbTabelle" style="overflow-x:auto"></div>
+    <div class="pbLeiste pbAkt">
+      <label for="pbSuchIn">Zutat aus dem Stamm hinzufügen:</label>
+      <input id="pbSuchIn" placeholder="Name eintippen …" spellcheck="false" style="width:220px"
+             onkeydown="if(event.key==='Enter')pbStammSuchen()">
+      <button onclick="pbStammSuchen()">suchen</button>
+      <span id="pbSuchErg"></span>
+    </div>
+    <div id="pbZusatz" style="overflow-x:auto"></div>
+    <div id="pbWirk" style="overflow-x:auto"></div>
+  </section>
+
+  <div class="pbFuss">Datenweg: Quelle → Riki → Produkt_Zutaten → Canonical-Stamm → Bewertungsregeln →
+  Serverauflösung → diese Anzeige. Jede Aktion ruft bestehende Serverwege und endet mit einer
+  Vollmessung (Riegel). Klick auf eine Zutatenzeile zeigt alle Serverfelder samt Regeltext.
+  Parallelbetrieb von Ralph genehmigt am 27.08.2026.</div>
 </div>
-
-<div id="pbStatus"></div>
-<div id="pbKopf"></div>
-<div id="pbTabelle" style="overflow-x:auto"></div>
-<div class="pbLeiste pbAkt" style="margin-top:8px">
-  <label for="pbSuchIn">Zutat aus dem Stamm hinzufügen:</label>
-  <input id="pbSuchIn" placeholder="Name eintippen …" spellcheck="false" style="width:220px"
-         onkeydown="if(event.key==='Enter')pbStammSuchen()">
-  <button onclick="pbStammSuchen()">suchen</button>
-  <span id="pbSuchErg"></span>
-</div>
-<div id="pbZusatz" style="overflow-x:auto"></div>
-<div id="pbWirk" style="overflow-x:auto"></div>
-
-<div class="pbFuss">Datenweg: Etikett → Produkt_Zutaten → Canonical-Stamm →
-Bewertungsregeln → Serverauflösung (v_product_ingredient_rating_resolution) →
-diese Anzeige. Klick auf eine Zeile zeigt alle Serverfelder samt Regeltext.
-Parallelbetrieb von Ralph genehmigt am 27.08.2026.</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="pruefblatt.js?v=PB-2026-08-27-10"></script>
+<script src="pruefblatt.js?v=PB-2026-08-27-11"></script>
 </body>
 </html>

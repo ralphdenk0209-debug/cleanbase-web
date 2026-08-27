@@ -22,7 +22,7 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-10";
+var PB_BUILD = "PB-2026-08-27-11";
 /* Gleicher Wert wie RIKI_LESE_MODELL in app.js Zeile 14746 — bei Modellwechsel
    dort UND hier ändern. */
 var PB_RIKI_MODELL = "claude-sonnet-4-6";
@@ -293,8 +293,9 @@ var PB_NW_FELDER=[
   ["polyole","· Polyole","g"],["ballaststoffe","Ballaststoffe","g"],["protein","Eiweiß","g"],["salz","Salz","g"]];
 function pbNaehrwertHtml(){
   var k=PB_KOPF;
-  var t='<h2 class="pbH2">Nährwerte <span class="pbH2n">· aus cb_produkt_edit_get, je '+pbEsc((k&&k.basis)||'100g')+'</span></h2>';
-  if(!k || k.fehler) return '';
+  var t='<div class="pbZQuelle">je '+pbEsc((k&&k.basis)||'100g')+' · aus cb_produkt_edit_get</div>';
+  if(!k || k.fehler)
+    return '<div class="pbHinweis">Nährwerte brauchen eine Admin-Anmeldung (über admin.html anmelden, dann neu laden).</div>';
   var nw=k.naehrwerte||{};
   var ops=nw.operatoren||{};
   var alleLeer=PB_NW_FELDER.every(function(f){ return nw[f[0]]==null; });
@@ -797,9 +798,42 @@ function pbFilter(f){
   pbRender();
 }
 
+/* Kopfleiste: Name, Root Index, Riegel-Ampel, Stations-Status — alles aus den
+   frisch geladenen Serverantworten, nichts gemerkt. */
+function pbTopSync(z){
+  var k=(PB_KOPF && !PB_KOPF.fehler) ? PB_KOPF : null;
+  var name=pbEl("pbTopName"); if(name) name.textContent = k ? (k.name||"(ohne Name)") : (PB_PID||"—");
+  var sc=pbEl("pbTopScore");
+  if(sc) sc.innerHTML='<b>'+(k&&k.clean_score!=null?pbEsc(k.clean_score):'—')+'</b><small>Root Index</small>';
+  var rg=pbEl("pbTopRiegel");
+  if(rg){
+    var ok = Array.isArray(PB_RIEGEL) && PB_RIEGEL.length===0;
+    rg.className='pbTopChip '+(Array.isArray(PB_RIEGEL)?(ok?'gruen':'rot'):'');
+    rg.innerHTML='<b>'+(Array.isArray(PB_RIEGEL)?(ok?'✓ '+PB_RIEGEL_N+'/'+PB_RIEGEL_N:('✗ '+PB_RIEGEL.length)):'—')+'</b><small>Riegel</small>';
+  }
+  var s1=pbEl("pbStat1");
+  if(s1){ var ok1 = k && k.name && k.kategorie;
+    s1.textContent = k ? (ok1?('erfüllt · '+k.kategorie):'unvollständig') : '—';
+    s1.className = k ? (ok1?'ok':'warn') : ''; }
+  var s2=pbEl("pbStat2");
+  if(s2){
+    var nw=(k&&k.naehrwerte)||{};
+    var leer=PB_NW_FELDER.every(function(f){ return nw[f[0]]==null; });
+    s2.textContent = k ? (leer?'keine Angaben':'vollständig') : '—';
+    s2.className = k ? (leer?'warn':'ok') : ''; }
+  var s3=pbEl("pbStat3");
+  if(s3){ var offen=pbOffenListe().length;
+    s3.textContent = z.mit+'/'+z.n+' bewertet'+(offen?(' · '+offen+' offen'):'');
+    s3.className = (z.mit+z.l0===z.n && !offen) ? 'ok' : (offen||z.l1?'rot':'warn'); }
+}
+
 function pbRender(){
   var z=pbZaehler();
-  pbEl("pbKopf").innerHTML=pbRiegelHtml(PB_RIEGEL)+pbProduktKopfHtml()+pbKopfHtml(z);
+  pbEl("pbRiegelBox").innerHTML=pbRiegelHtml(PB_RIEGEL);
+  pbEl("pbKopf").innerHTML=pbProduktKopfHtml();
+  pbEl("pbZaehler").innerHTML=pbKopfHtml(z);
+  pbEl("pbNw").innerHTML=pbNaehrwertHtml();
+  pbTopSync(z);
   var t='<table class="pbTab"><thead><tr>'
     +'<th class="r" title="Reihenfolge auf dem Etikett">Nr</th>'
     +'<th title="Name, wie er am Produkt steht">Zutat (Etikett)</th>'
@@ -820,7 +854,7 @@ function pbRender(){
   if(!sichtbar) t='<div class="pbHinweis">Der Filter zeigt gerade keine Zeile. Auf „alle" umschalten.</div>';
   pbEl("pbTabelle").innerHTML=t;
   pbEl("pbZusatz").innerHTML=pbOffenHtml()+pbZusatzHtml();
-  pbEl("pbWirk").innerHTML=pbWirkHtml()+pbNaehrwertHtml();
+  pbEl("pbWirk").innerHTML=pbWirkHtml();
 }
 
 function pbStatus(s){ pbEl("pbStatus").innerHTML=s?pbEsc(s):""; }
