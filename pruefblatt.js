@@ -19,7 +19,7 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-6";
+var PB_BUILD = "PB-2026-08-27-7";
 
 var PB_URL = "https://haurbpfkfaaehorirzee.supabase.co";
 var PB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
@@ -38,7 +38,14 @@ var PB_WIRK = null;        /* cb_produkt_wirkstoff_liste_v2 */
 var PB_WIRKH = {};         /* cb_produkt_wirkstoff_herkunft, je Nährstoff */
 var PB_MIKRO = null;       /* cb_produkt_mikro_liste_v2 */
 var PB_KOPF = null;        /* cb_produkt_edit_get: Kopf, Nährwerte, Score-Achsen */
-var PB_RIEGEL_N = 9;       /* Zahl der Prüfungen im Riegel */
+var PB_OFFEN = null;       /* cb_admin_zutat_offen_mit_riki: gelesen, nicht zugeordnet */
+var PB_RIEGEL_N = 10;      /* Zahl der Prüfungen im Riegel */
+
+/* Offen = vom Etikett gelesen, ohne Ziel-Zeile und ohne manuelle Entscheidung */
+function pbOffenListe(){
+  if(!PB_OFFEN || PB_OFFEN.fehler) return [];
+  return PB_OFFEN.filter(function(o){ return !o.target_id && !o.manual_decision_kind; });
+}
 var PB_ADMIN_TEXTE = true; /* wird false, wenn Regeltexte mangels Anmeldung fehlen */
 
 function pbEsc(s){
@@ -140,6 +147,15 @@ async function pbRiegel(pid, rows){
     f.push("I9 verletzt: Kopf/Nährwerte-Antwort fehlt"+(PB_KOPF&&PB_KOPF.fehler?(" ("+PB_KOPF.fehler+")"):"")+".");
   else if(!PB_KOPF.name)
     f.push("I9 verletzt: Produkt ohne Namen im Kopf.");
+  /* I10: Vollständigkeit gegen die Quelle — jede vom Etikett gelesene Zeile
+     ohne Ziel und ohne manuelle Entscheidung ist eine offene Lücke. Ohne diese
+     Prüfung meldet die Seite 100 %, während Zeilen unterwegs hängen
+     (source_completeness; Fund Ralph 27.08. an P73634 Trockenobst). */
+  if(!PB_OFFEN || PB_OFFEN.fehler)
+    f.push("I10 nicht prüfbar: Etikett-Leseliste fehlt"+(PB_OFFEN&&PB_OFFEN.fehler?(" ("+PB_OFFEN.fehler+")"):"")+".");
+  else pbOffenListe().forEach(function(o){
+    f.push('I10 verletzt: "'+(o.zutat_text||'?')+'" wurde von der Quelle gelesen, ist aber keiner Bestandteilzeile zugeordnet.');
+  });
   return f;
 }
 
@@ -243,6 +259,29 @@ function pbNaehrwertHtml(){
   return t+'</tbody></table>';
 }
 
+/* --- Vom Etikett gelesen, noch nicht zugeordnet ---------------------------- */
+function pbOffenHtml(){
+  var t='<h2 class="pbH2">Vom Etikett gelesen, noch nicht zugeordnet <span class="pbH2n">· aus cb_admin_zutat_offen_mit_riki</span></h2>';
+  if(!PB_OFFEN || PB_OFFEN.fehler)
+    return t+'<div class="pbHinweis">Liste braucht Admin-Anmeldung'+(PB_OFFEN&&PB_OFFEN.fehler?' — Serverantwort: '+pbEsc(PB_OFFEN.fehler):'')+'.</div>';
+  var offen=pbOffenListe();
+  var erledigt=PB_OFFEN.length-offen.length;
+  if(!PB_OFFEN.length)
+    return t+'<div class="pbZStatus gruen">Keine offenen Etikettzeilen — alles Gelesene ist zugeordnet oder entschieden.</div>';
+  if(!offen.length)
+    return t+'<div class="pbZStatus gruen">'+PB_OFFEN.length+' gelesene Zeile(n), alle zugeordnet oder manuell entschieden.</div>';
+  t+='<table class="pbTab"><thead><tr><th>Gelesener Text</th><th>Quelle</th><th>Stand</th><th>Riki-Kandidat</th></tr></thead><tbody>';
+  offen.forEach(function(o){
+    t+='<tr class="pbRot"><td>'+pbEsc(o.zutat_text||'—')+'</td>'
+      +'<td>'+pbEsc(o.quelle||'—')+(o.gesehen_am?(' · '+pbEsc(String(o.gesehen_am).slice(0,10))):'')+'</td>'
+      +'<td>'+pbEsc(o.extraction_status||'—')+'</td>'
+      +'<td>'+(o.canonical_name?pbEsc(o.canonical_name)+(o.proposed_rating!=null?' (Vorschlag Note '+pbEsc(o.proposed_rating)+')':''):'—')+'</td></tr>';
+  });
+  t+='</tbody></table>';
+  if(erledigt>0) t+='<div class="pbZQuelle">'+erledigt+' weitere gelesene Zeile(n) sind zugeordnet oder manuell entschieden.</div>';
+  return t;
+}
+
 /* --- Wirkstoffe & Mikronährstoffe: dritte Achse, reine Anzeige ------------- */
 var PB_HERKUNFT = {
   zugesetzt:  ["gelbT","⊕ zugesetzt (isolierte Zutat)"],
@@ -300,6 +339,11 @@ async function pbLaden(){
       if(rk.error) throw rk.error;
       PB_KOPF=rk.data||null;
     }catch(ek){ PB_KOPF={fehler:String(ek.message||ek)}; }
+    try{
+      var ro=await pbClient.rpc("cb_admin_zutat_offen_mit_riki",{p_product_id:pid});
+      if(ro.error) throw ro.error;
+      PB_OFFEN=ro.data||[];
+    }catch(eo){ PB_OFFEN={fehler:String(eo.message||eo)}; }
     try{
       var rz=await pbClient.rpc("cb_app_produkt_zusatzstoffe",{p_produkt_id:pid});
       if(rz.error) throw rz.error;
@@ -365,9 +409,11 @@ function pbZaehler(){
 
 function pbKopfHtml(z){
   var deck = z.n ? Math.round(z.mit*1000/z.n)/10 : 0;
-  var voll = (z.mit+z.l0===z.n);
+  var offen = pbOffenListe().length;
+  var voll = (z.mit+z.l0===z.n) && offen===0;
   return '<div class="pbKacheln">'
     +'<div class="pbKachel'+(voll?' gruen':'')+'"><b>'+z.mit+' / '+z.n+'</b>Note + Regelbeleg ('+deck+' %)</div>'
+    +'<div class="pbKachel'+(offen?' rot':'')+'"><b>'+offen+'</b>vom Etikett gelesen, nicht zugeordnet</div>'
     +'<div class="pbKachel'+(z.l0?' blau':'')+'"><b>'+z.l0+'</b>bewusst offen (benannter Sonderfall)</div>'
     +'<div class="pbKachel'+(z.l1?' rot':'')+'"><b>'+z.l1+'</b>Brücke fehlt (kein Canonical)</div>'
     +'<div class="pbKachel'+(z.l2?' gelb':'')+'"><b>'+z.l2+'</b>Beleg fehlt (Quelle unklar)</div>'
@@ -480,7 +526,7 @@ function pbRender(){
   t+='</tbody></table>';
   if(!sichtbar) t='<div class="pbHinweis">Der Filter zeigt gerade keine Zeile. Auf „alle" umschalten.</div>';
   pbEl("pbTabelle").innerHTML=t;
-  pbEl("pbZusatz").innerHTML=pbZusatzHtml();
+  pbEl("pbZusatz").innerHTML=pbOffenHtml()+pbZusatzHtml();
   pbEl("pbWirk").innerHTML=pbWirkHtml()+pbNaehrwertHtml();
 }
 
