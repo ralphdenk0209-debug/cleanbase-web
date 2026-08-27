@@ -9458,7 +9458,7 @@ function feRiegelBox(){
   return b;
 }
 
-async function feRiegelLauf(pid){
+async function feRiegelLauf(pid, voll){
   pid = pid || (window._fgEdit && window._fgEdit.id);
   var box = feRiegelBox();
   if(!box || !pid) return;
@@ -9467,35 +9467,46 @@ async function feRiegelLauf(pid){
       + 'border:1px solid var(--k-e0a32e,#e0a32e)">Prüf-Kern nicht geladen (riegel-kern.js fehlt im HTML).</div>';
     return;
   }
-  box.innerHTML = '<div style="padding:7px 10px;color:var(--muted)">Riegel misst …</div>';
+  box.innerHTML = '<div style="padding:7px 10px;color:var(--muted)">' + (voll ? 'Riegel prüft alle Achsen …' : 'Riegel misst …') + '</div>';
+  var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
   try{
-    var d = await RIEGEL.messen(client, pid);
-    var befunde = await RIEGEL.pruefen(d, client);
-    var A = RIEGEL.aufgaben(d);
+    /* Selbstpruefung Punkt 3: beim Oeffnen nur die zwei billigen Achsen.
+       Die volle Pruefung (sechs Abfragen) laeuft erst auf Klick. */
+    var d = await RIEGEL.messen(client, pid, {schnell: !voll});
     var z = RIEGEL.zaehler(d);
-    var ok = befunde.length === 0;
+    var A = RIEGEL.aufgaben(d);
+    var befunde = voll ? await RIEGEL.pruefen(d, client) : null;
+    var t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+    var ms = Math.round(t1 - t0);
+    var ok = voll ? (befunde.length === 0) : (A.length === 0);
     var farbe = ok ? {bg:"#e6f4ea", rand:"#2e9e57"} : {bg:"#fde8e4", rand:"#cf5442"};
+    var kopf = voll
+      ? (ok ? ('✓ Riegel: ' + RIEGEL.ANZAHL + ' von ' + RIEGEL.ANZAHL + ' Prüfungen bestanden')
+            : ('✗ Riegel: ' + befunde.length + ' Befund' + (befunde.length===1?'':'e')))
+      : (ok ? '✓ Nichts offen' : ('⚠ ' + A.length + ' Aufgabe' + (A.length===1?'':'n') + ' offen'));
     var h = '<div style="background:'+farbe.bg+';border:1px solid '+farbe.rand+';border-radius:10px;padding:8px 12px">'
       + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-      + '<b>' + (ok ? ('✓ Riegel: ' + RIEGEL.ANZAHL + ' von ' + RIEGEL.ANZAHL + ' Prüfungen bestanden')
-                    : ('✗ Riegel: ' + befunde.length + ' Befund' + (befunde.length===1?'':'e'))) + '</b>'
+      + '<b>' + kopf + '</b>'
       + '<span style="color:#55507a">' + z.mit + '/' + z.n + ' Zutaten mit Note und Regel'
       + (z.l0 ? (' · ' + z.l0 + ' bewusst offen') : '')
       + (z.offen ? (' · ' + z.offen + ' Etikettzeile' + (z.offen===1?'':'n') + ' nicht zugeordnet') : '')
-      + '</span>';
+      + '</span>'
+      + '<span style="color:#8a85ad;font-size:11px">' + ms + ' ms' + (voll ? ' · volle Prüfung' : ' · Schnellmessung') + '</span>';
     if(A.length)
-      h += '<button type="button" onclick="feRiegelKlappe()" style="margin-left:auto;padding:3px 10px;'
+      h += '<button type="button" onclick="feRiegelKlappe()" style="padding:3px 10px;'
         + 'border:1px solid ' + farbe.rand + ';border-radius:6px;background:#fff;cursor:pointer;font:inherit;font-size:12px">'
         + A.length + ' Aufgabe' + (A.length===1?'':'n') + ' anzeigen</button>';
+    if(!voll)
+      h += '<button type="button" onclick="feRiegelLauf(null,true)" style="margin-left:auto;padding:3px 10px;'
+        + 'border:1px solid ' + farbe.rand + ';border-radius:6px;background:#fff;cursor:pointer;font:inherit;font-size:12px" '
+        + 'title="Prüft zusätzlich Zusatzstoffe, Wirkstoffe, Nährwerte, Zwillinge und die Lesestabilität (vier weitere Abfragen).">'
+        + 'alle Achsen prüfen</button>';
     h += '</div>';
     h += '<div id="feRiegelListe" style="display:none;margin-top:8px">';
     if(A.length){
-      /* 27.08.2026, Ralph: "nicht erforderlich oder sinnvoll?" - berechtigt.
-         Binden, Riki-Kette und "keine Zutat" kann der alte Editor laengst.
-         Was ihm WIRKLICH fehlte: Zwillinge aufloesen und einen Befund an
-         ChatGPT uebergeben. Beides sitzt jetzt hier in der Riegel-Klappe -
-         also in einem NEUEN Bereich, ohne eine einzige bestehende Editor-
-         Ansicht anzufassen. Dieselben Serverwege wie die neue Seite. */
+      /* Binden, Riki-Kette und "keine Zutat" kann der alte Editor laengst.
+         Was ihm fehlte: Zwillinge aufloesen und einen Befund uebergeben -
+         beides hier, in einem NEUEN Bereich, ohne bestehende Ansicht anzufassen. */
       h += '<ol style="margin:0 0 0 18px;padding:0">';
       A.forEach(function(a){
         h += '<li style="margin:6px 0"><b>' + esc(a.titel) + '</b><br>'
@@ -9511,12 +9522,8 @@ async function feRiegelLauf(pid){
           }).join('') + '</div>';
         }
         if(a.typ === "luecke" && a.r){
-          h += '<div style="margin-top:3px"><button type="button" class="fgOffBtn" '
-            + 'onclick="feRiegelUebergeben(\'' + esc(String(a.r.produkt_zutat_id || "")) + '\',\''
-            + esc(String(a.r.sichtbarer_name || "").replace(/'/g, "\\'")) + '\',\''
-            + esc(String(a.lk && a.lk.kurz || "")) + '\',this)" '
-            + 'title="Legt ein Work Item mit dem gemessenen Befund an - der Stamm gehoert ChatGPT.">'
-            + 'an ChatGPT übergeben</button></div>';
+          h += '<div style="margin-top:3px"><a href="pruefblatt.html?p=' + encodeURIComponent(pid)
+            + '" target="_blank" style="font-size:12px">Brücke im Aufgabenmodus setzen →</a></div>';
         }
         if(a.typ === "etikett"){
           h += '<div style="margin-top:3px"><button type="button" class="fgOffBtn" '
@@ -9530,6 +9537,10 @@ async function feRiegelLauf(pid){
         + 'style="font-size:12px">Aufgabenmodus öffnen (alle Wege auf einer Seite) →</a></div>';
     }else{
       h += '<div style="color:#55507a">Keine ableitbare Aufgabe.</div>';
+    }
+    if(voll && befunde && befunde.length){
+      h += '<div style="margin-top:8px"><b>Befunde des Riegels</b><ul style="margin:4px 0 0 18px;padding:0">'
+        + befunde.map(function(b){ return '<li>' + esc(b) + '</li>'; }).join('') + '</ul></div>';
     }
     h += '</div></div>';
     box.innerHTML = h;

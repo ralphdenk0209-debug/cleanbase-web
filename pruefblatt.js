@@ -22,7 +22,7 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-13";
+var PB_BUILD = "PB-2026-08-27-15";
 var PB_MODUS = "aufgaben";   /* 'aufgaben' (Standard) oder 'pruef' */
 /* Gleicher Wert wie RIKI_LESE_MODELL in app.js Zeile 14746 — bei Modellwechsel
    dort UND hier ändern. */
@@ -158,7 +158,12 @@ function pbProduktKopfHtml(){
     +'<div class="pbKachel"><b>'+(k.p_zusatzstoffe!=null?pbEsc(k.p_zusatzstoffe):'—')+'</b>Achse Zusatzstoffe</div>'
     +'<div class="pbKachel"><b>'+(k.p_nova!=null?pbEsc(k.p_nova):'—')+'</b>Achse Verarbeitung</div>'
     +'</div>'
-    +'<div class="pbAkt" style="margin-top:8px"><button onclick="pbKopfFormToggle()">Kopf bearbeiten …</button></div>'
+    +'<div class="pbAkt" style="margin-top:8px"><button onclick="pbKopfFormToggle()">Kopf bearbeiten …</button> '
+    +(k.produktlink
+       ? '<button onclick="pbQuelleNeuLesen(this)" title="Liest die hinterlegte Herstellerseite erneut (riki-herstellerseite). Ergebnis landet als Leseergebnis, nichts wird automatisch gebunden.">Quelle neu lesen …</button>'
+       : '<span class="pbZQuelle">Kein Produktlink hinterlegt — ohne Quelle kein neuer Lesevorgang.</span>')
+    +'</div>'
+    +'<div id="pbQuelleMsg" class="pbZQuelle"></div>'
     +'<div id="pbKopfForm" style="display:none"></div>'
     +'</div>';
   return t;
@@ -237,6 +242,36 @@ function pbNaehrwertHtml(){
   return t;
 }
 
+/* Bestandsprodukt neu lesen lassen (Ralph 27.08.: "wie soll ich diese nochmal
+   laufen lassen?"). Nutzt die vorhandene Edge-Function riki-herstellerseite —
+   derselbe Vertrag wie Editor, Dashboard und Import. Das Ergebnis ist ein
+   Leseergebnis: es wird nichts automatisch gebunden und nichts überschrieben;
+   neue Zeilen erscheinen als Aufgaben. */
+async function pbQuelleNeuLesen(btn){
+  var k=(PB_KOPF&&!PB_KOPF.fehler)?PB_KOPF:null, msg=pbEl("pbQuelleMsg");
+  if(!k||!k.produktlink) return;
+  if(!confirm('Herstellerseite neu lesen?\n\n'+k.produktlink
+    +'\n\nRiki liest die Seite und legt das Ergebnis als Leseergebnis ab.\n'
+    +'Es wird NICHTS automatisch gebunden und nichts überschrieben — neue Zeilen erscheinen als Aufgabe.')) return;
+  if(btn) btn.disabled=true;
+  if(msg) msg.textContent="Riki liest die Herstellerseite … das dauert meist 1–2 Minuten.";
+  try{
+    var s=await pbClient.auth.getSession();
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok) throw new Error("Nicht angemeldet.");
+    var r=await fetch(PB_URL+"/functions/v1/riki-herstellerseite",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":PB_KEY},
+      body:JSON.stringify({url:k.produktlink, product_id:PB_PID})});
+    var d=await r.json();
+    if(!r.ok||d.error) throw new Error(d.error||("HTTP "+r.status));
+    if(msg) msg.textContent="✓ gelesen — Seite wird neu gemessen.";
+    await pbLaden();
+  }catch(e){
+    if(msg) msg.textContent="Lesen fehlgeschlagen: "+(e.message||e);
+    if(btn) btn.disabled=false;
+  }
+}
+
 /* Etappe 3: Nährwerte bearbeiten. ⚠ Die Server-Tür cb_produkt_naehrwerte_setzen
    setzt die 9 Kernfelder IMMER (fehlender Schlüssel = NULL). Deshalb schickt
    das Formular stets ALLE Kernfelder, vorbefüllt aus dem Serverstand; die drei
@@ -265,9 +300,16 @@ async function pbNwSpeichern(btn){
     var v=(pbEl("pbNw_"+key).value||"").trim().replace(",",".");
     if(v==="") leere.push(key); else payload[key]=v;
   });
+  /* KORREKTUR 27.08. (Selbstprüfung vor Freigabe): vorher gingen die drei
+     Fettsäurefelder nur mit, wenn sie befüllt waren. Wer einen Wert LÖSCHEN
+     wollte, konnte das nicht — der Server behält bei fehlendem Schlüssel den
+     alten Wert. Jetzt gehen sie mit, sobald das Feld vorher einen Wert hatte:
+     leer heißt dann ausdrücklich "keine Angabe". */
+  var nwAlt=((PB_KOPF&&PB_KOPF.naehrwerte)||{});
   PB_NW_FETT.forEach(function(key){
     var v=(pbEl("pbNw_"+key).value||"").trim().replace(",",".");
     if(v!=="") payload[key]=v;
+    else if(nwAlt[key]!=null){ payload[key]=null; leere.push(key); }
   });
   if(leere.length && !confirm("Diese Felder sind leer und werden als KEINE ANGABE gespeichert:\n\n"
     +leere.join(", ")+"\n\nFortfahren?")) return;
@@ -804,7 +846,7 @@ function pbAufgabenHtml(){
       t+='<div class="pbAufKarte rot"><h3>„'+pbEsc(o.zutat_text||'?')+'" wurde gelesen, ist aber keiner Zutat zugeordnet</h3>'
         +'<div class="pbAufWas">Quelle: '+pbEsc(o.quelle||'—')+(o.gesehen_am?(' · '+pbEsc(String(o.gesehen_am).slice(0,10))):'')
         +' — solange die Zeile offen ist, fehlt sie in der Bewertung.</div>'
-        +'<div id="pbKand'+iid+'" class="pbAkt">Stamm-Kandidaten werden geladen …</div>'
+        +'<div id="pbKand'+iid+'" class="pbAkt"><button onclick="pbOffKandidaten('+iid+')">Stamm-Kandidaten anzeigen</button></div>'
         +'<div class="pbAkt" style="margin-top:6px">'
         +'<button onclick="pbOffRiki('+iid+',this)" title="Riki zerlegt, Server löst auf, Riki bewertet nur mit Regelbeleg">Riki einstufen</button> '
         +'<button onclick="pbOffZerlegt('+iid+',this)">✓ ist zerlegt — Bestandteile stehen schon da</button> '
@@ -828,11 +870,19 @@ function pbAufgabenHtml(){
         +'</div>';
     }
     if(a.typ==="luecke"){
+      var lid=String(a.r.legacy_zutat_id||"");
       t+='<div class="pbAufKarte"><h3>„'+pbEsc(a.r.sichtbarer_name||'?')+'" hat keine Note — '+pbEsc(a.lk.kurz)+'</h3>'
         +'<div class="pbAufWas">'+pbEsc(a.lk.lang)+'</div>'
-        +'<div class="pbAkt"><button onclick="pbLueckeUebergeben(\''+pbEsc(String(a.r.produkt_zutat_id||""))+'\',\''
+        +'<div class="pbAkt">'
+        +(a.lk.typ===1 && lid
+           ? '<button onclick="pbBrueckeKandidaten(\''+pbEsc(lid)+'\',\''+pbEsc(String(a.r.sichtbarer_name||""))+'\')" '
+             +'title="Zeigt passende Stammeinträge. Der Klick setzt die Brücke – mit Pflichtbeleg, für ALLE Produkte mit dieser Zutat.">'
+             +'Stammeintrag suchen und Brücke setzen</button> '
+           : '')
+        +'<button onclick="pbLueckeUebergeben(\''+pbEsc(String(a.r.produkt_zutat_id||""))+'\',\''
         +pbEsc(String(a.r.sichtbarer_name||""))+'\',\''+pbEsc(a.lk.kurz)+'\',this)" '
-        +'title="Erzeugt ein Work Item mit dem gemessenen Befund — der Stamm gehört ChatGPT.">als Auftrag an ChatGPT übergeben</button></div>'
+        +'title="Nur wenn du es selbst nicht entscheiden kannst: sammelt den Befund für ChatGPT.">nicht entscheidbar → sammeln</button></div>'
+        +'<div id="pbBr'+pbEsc(lid)+'" class="pbAkt"></div>'
         +'<div class="pbZQuelle" id="pbLkMsg'+pbEsc(String(a.r.produkt_zutat_id||idx))+'"></div></div>';
     }
     if(a.typ==="kopf"){
@@ -861,21 +911,73 @@ async function pbZwillingLoesen(pzidWeg, nameWeg, nameBleibt, btn){
   }catch(e){ alert("Löschen fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
 }
 
-/* Stamm-Lücke als Work Item an ChatGPT — der gemessene Befund geht in die Queue. */
+/* Brücke selbst setzen (Ralph 27.08.: "direkt lösen"). Kandidaten kommen vom
+   Server; gebunden wird NIE automatisch — bei "Calcium" gibt es 13 Salze im
+   Stamm, blind binden wäre Raten. Der Klick verlangt einen Beleg und wirkt
+   für ALLE Produkte mit dieser Zutat. */
+async function pbBrueckeKandidaten(legacyId, name){
+  var box=pbEl("pbBr"+legacyId); if(!box) return;
+  box.innerHTML='Suche Stammeinträge zu „'+pbEsc(name)+'" …';
+  try{
+    var r=await pbClient.rpc("cb_admin_zutat_zeile_bearbeiten",{p_zutat_text:name});
+    if(r.error) throw r.error;
+    var ks=((r.data&&r.data.kandidaten)||[]).filter(function(k){ return k.entity_id; });
+    if(!ks.length){ box.innerHTML='<span class="gelbT">Kein Stammeintrag gefunden. Wege: Quelle neu lesen (Kopf) oder sammeln.</span>'; return; }
+    box.innerHTML='<div class="pbZQuelle">'+ks.length+' Vorschlag'+(ks.length===1?'':'e')+' — Klick setzt die Brücke (Beleg wird abgefragt):</div>'
+      + ks.slice(0,12).map(function(k){
+          var nm=k.name||k.stammname||k.canonical_name||k.zutat_text||'?';
+          return '<button onclick="pbBrueckeSetzen(\''+pbEsc(legacyId)+'\',\''+pbEsc(String(k.entity_id))+'\',\''
+            +pbEsc(String(nm).replace(/'/g,"\\'"))+'\',this)">'+pbEsc(nm)
+            +(k.regel_titel?('<span class="pbZQuelle"> · '+pbEsc(k.regel_titel)+'</span>'):'')+'</button>';
+        }).join(' ')
+      + (ks.length>12?('<div class="pbZQuelle">… '+(ks.length-12)+' weitere. Wenn nichts eindeutig passt: sammeln statt raten.</div>'):'');
+  }catch(e){ box.innerHTML='<span class="gelbT">Suche fehlgeschlagen: '+pbEsc(e.message||e)+'</span>'; }
+}
+async function pbBrueckeSetzen(legacyId, entityId, name, btn){
+  var beleg=prompt('Brücke setzen: „'+name+'"\n\nWoher weißt du das? (Pflicht, mind. 8 Zeichen — z. B. „Herstellerseite nennt '+name+'")',
+    'Herstellerangabe zu '+PB_PID+', geprüft am '+new Date().toLocaleDateString('de-DE'));
+  if(beleg===null) return;
+  beleg=String(beleg).trim();
+  if(beleg.length<8){ alert("Ohne tragfähigen Beleg keine Bindung."); return; }
+  if(btn) btn.disabled=true;
+  try{
+    var r=await pbClient.rpc("cb_admin_legacy_bruecke_setzen",
+      {p_legacy_zutat_id:legacyId, p_entity_id:entityId, p_beleg:beleg});
+    if(r.error) throw r.error;
+    var d=r.data||{};
+    alert('✓ Brücke gesetzt: '+(d.canonical_name||name)
+      +(d.rating!=null?('\nNote '+d.rating):'\nNote noch offen')
+      +'\nBetrifft '+(d.zeilen_betroffen||'?')+' Produktzeile(n) im ganzen Bestand.');
+    await pbLaden();
+  }catch(e){
+    alert("Brücke setzen fehlgeschlagen: "+(e.message||e));
+    if(btn) btn.disabled=false;
+  }
+}
+
+/* Letzter Ausweg: Befund sammeln. EIN Work Item je Produkt statt eines je
+   Zutat (Selbstprüfung Punkt 5) — bestehendes Item wird ergänzt. */
+var PB_SAMMEL={};
 async function pbLueckeUebergeben(pzid, name, art, btn){
-  if(!confirm('Befund an ChatGPT übergeben?\n\nZutat: '+name+'\nProdukt: '+PB_PID+'\nLücke: '+art)) return;
+  var liste=pbAufgabenListe().filter(function(a){ return a.typ==="luecke"; });
+  var text=liste.map(function(a){ return a.r.sichtbarer_name+' ('+a.lk.kurz+')'; }).join(', ');
+  if(!confirm('Nicht entscheidbare Lücken dieses Produkts sammeln und an ChatGPT geben?\n\n'
+    +'Produkt: '+PB_PID+'\nBetroffen ('+liste.length+'): '+text+'\n\nEs entsteht EIN Work Item für alle.')) return;
   if(btn) btn.disabled=true;
   var m=pbEl("pbLkMsg"+pzid);
+  if(PB_SAMMEL[PB_PID]){ if(m) m.textContent='Bereits gesammelt: Work #'+PB_SAMMEL[PB_PID]; if(btn) btn.disabled=false; return; }
   try{
     var r=await pbClient.rpc("cb_admin_agent_work_setzen",{
       p_actor:'claude', p_owner:'chatgpt', p_area:'zutaten-bewertung',
-      p_title:('Stamm-Luecke aus Aufgabenmodus: "'+name+'" ('+PB_PID+') - '+art).slice(0,120),
-      p_description:('Gemessen im Pruefblatt-Editor: Zeile '+pzid+' an Produkt '+PB_PID+' hat keine Note. Luecke: '+art+'. Behebung liegt am Stamm (Bruecke/Beleg/Regel) und damit bei ChatGPT.').slice(0,590),
-      p_acceptance_criteria:'Zeile '+pzid+' zeigt in v_product_ingredient_rating_resolution Note+Regel oder eine benannte Disposition.',
+      p_title:('Stamm-Luecken '+PB_PID+': '+liste.length+' Zutat(en) ohne Note').slice(0,120),
+      p_description:('Gemessen im Erfassungs-Aufgabenmodus, '+PB_PID+'. Nicht am Produkt entscheidbar: '+text
+        +'. Behebung am Stamm (Bruecke/Beleg/Regel).').slice(0,590),
+      p_acceptance_criteria:('Alle genannten Zeilen von '+PB_PID+' zeigen Note+Regel oder eine benannte Disposition.').slice(0,390),
       p_product_id:PB_PID, p_priority:80});
     if(r.error) throw r.error;
-    if(m) m.textContent='✓ übergeben — Work #'+(r.data||'?')+' in der Queue.';
-  }catch(e){ if(m) m.textContent='Übergabe fehlgeschlagen: '+(e.message||e); if(btn) btn.disabled=false; }
+    PB_SAMMEL[PB_PID]=r.data||'?';
+    if(m) m.textContent='✓ gesammelt — Work #'+PB_SAMMEL[PB_PID]+' für alle '+liste.length+' Lücken.';
+  }catch(e){ if(m) m.textContent='Sammeln fehlgeschlagen: '+(e.message||e); if(btn) btn.disabled=false; }
 }
 
 function pbModus(m){
@@ -898,8 +1000,12 @@ function pbRender(){
       var e=pbEl(id); if(e) e.innerHTML="";
     });
     if(auf){ auf.style.display="block"; auf.innerHTML=pbAufgabenHtml(); }
-    /* Kandidaten für jede Etikett-Aufgabe sofort holen — kein Extra-Klick */
-    pbOffenListe().forEach(function(o){ pbOffKandidaten(o.item_id); });
+    /* KORREKTUR 27.08. (Selbstprüfung Punkt 4): vorher wurden die Kandidaten
+       für JEDE offene Zeile automatisch geholt — bei acht offenen Zeilen acht
+       Abfragen auf einen Schlag. Jetzt nur für die erste (die man ohnehin
+       zuerst bearbeitet); die übrigen holt ihr eigener Knopf. */
+    var _o1=pbOffenListe()[0];
+    if(_o1) pbOffKandidaten(_o1.item_id);
     return;
   }
   if(auf){ auf.style.display="none"; auf.innerHTML=""; }

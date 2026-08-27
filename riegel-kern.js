@@ -26,12 +26,24 @@
 
 var ANZAHL = 10;
 
-/* ── Messen: alle Datenachsen eines Produkts, ohne Gedächtnis ─────────────── */
-async function messen(client, pid){
-  var d = {pid:pid, rows:[], zusatz:null, wirk:null, wirkh:{}, mikro:null, kopf:null, offen:null};
+/* ── Messen: alle Datenachsen eines Produkts, ohne Gedächtnis ───────────────
+   opt.schnell=true lädt nur die beiden billigen Achsen (Zutaten + gelesene
+   Etikettzeilen). Das reicht für die Kopfzahl im alten Editor; die volle
+   Messung mit allen sechs Abfragen läuft dort erst auf Klick
+   (Selbstprüfung Punkt 3: sechs Abfragen bei JEDEM Editor-Öffnen waren zu
+   teuer für etwas, das man nicht immer braucht). */
+async function messen(client, pid, opt){
+  opt = opt || {};
+  var d = {pid:pid, rows:[], zusatz:null, wirk:null, wirkh:{}, mikro:null, kopf:null, offen:null, schnell:!!opt.schnell};
   var r = await client.rpc("cb_app_produkt_zutaten",{p_produkt_id:pid});
   if(r.error) throw r.error;
   d.rows = r.data || [];
+  if(opt.schnell){
+    try{ var ros=await client.rpc("cb_admin_zutat_offen_mit_riki",{p_product_id:pid});
+         if(ros.error) throw ros.error; d.offen=ros.data||[];
+    }catch(e){ d.offen={fehler:String(e.message||e)}; }
+    return d;
+  }
   try{ var rk=await client.rpc("cb_produkt_edit_get",{p_id:pid});
        if(rk.error) throw rk.error; d.kopf=rk.data||null;
   }catch(e){ d.kopf={fehler:String(e.message||e)}; }
