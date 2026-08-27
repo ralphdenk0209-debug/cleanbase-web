@@ -6331,11 +6331,28 @@ async function dashDrillLoad(key){
 function dashOpenProdukt(id){
   try{ var ov=document.getElementById('drillOv'); if(ov) ov.remove(); }catch(e){}
   try{ if(typeof fgTab==='function') fgTab('produkterfassung'); }catch(e){}
-  /* Die Erfassungs-Liste baut sich async auf → auf #peDetail warten, dann inline öffnen. */
+  /* 🔴 27.08.2026, Ralph: „bei den waechtern funktionieren die links zum produkt nicht".
+     Gemessen im Code: #peDetail entsteht erst NACH loadProduktErfassung() — das sind zwei
+     Serverrunden (cb_erfassung_liste + Zaehler). Das Warten hier brach nach 50×60 ms = 3 s
+     ab und tat dann GAR NICHTS: kein Editor, keine Meldung. Ein Klick, auf den nichts folgt,
+     sieht aus wie ein kaputter Link — er war nur zu ungeduldig.
+     Jetzt: 12 s Geduld, danach der Overlay-Editor als Rueckfall (der braucht #peDetail gar
+     nicht), und erst wenn auch der nicht kommt, eine sichtbare Meldung. Fehler nie
+     verschlucken (§1.13i). */
   var tries=0;
   var open=function(){
     var det=document.getElementById('peDetail');
-    if(!det){ if(tries++<50){ setTimeout(open,60); } return; }
+    if(!det){
+      if(tries++<200){ setTimeout(open,60); return; }
+      /* Rueckfall: Editor im Vollbild-Overlay, ohne Ziel-Container. */
+      try{
+        if(typeof openFgEditor==='function'){ openFgEditor(id); return; }
+        throw new Error('openFgEditor fehlt');
+      }catch(e){
+        alert('Produkt '+id+' konnte nicht geöffnet werden.\n\n'+((e&&e.message)||e));
+      }
+      return;
+    }
     try{
       if(typeof peSelect==='function') peSelect(id);
       else openFgEditor(id,null,det);
@@ -7091,9 +7108,22 @@ async function dashWaechterFaelle(nr, nameEnc, view){
          Jetzt erscheint der Satz nur noch dort, wo er stimmt. */
       var hart=(prod && x.abhakbar===false && Number(nr)===3)
         ? '<div style="font-size:11px;color:#cf5442;font-weight:700;margin-top:2px">Physikalisch unmöglich – muss korrigiert werden, nicht abgehakt.</div>' : '';
+      /* 🔴 27.08.2026, Ralph: „beim shake warnt er, ist g und er meint ml. in dem fall ist
+         es ein pulver und g ist richtig. im popup muss ich entscheiden koennen."
+         Der Waechter „g oder ml" meldete eine ANNAHME und bot keinen Weg, sie zu
+         bestaetigen oder zu ueberschreiben — nur „Öffnen", also den Umweg ueber den
+         ganzen Editor. Ein Waechter ohne Entscheidungsknopf ist eine Anzeigetafel.
+         KEIN zweiter Weg: die Knoepfe rufen dieselbe RPC wie die Seite
+         „⚖️ Bezugseinheit g / ml" (einheitSet) — cb_produkt_mengen_einheit_setzen.
+         Quelle „Etikett": wer hier klickt, hat nachgesehen. */
+      var ehBtns='';
+      if(prod && view==='v_mengen_einheit_offen'){
+        ehBtns=_waEhBtn(x.id,'g','100 g',view,nm)+_waEhBtn(x.id,'ml','100 ml',view,nm);
+      }
       return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line,#e3e9ec);flex-wrap:wrap">'
         +'<div style="flex:1 1 240px;min-width:0"><div style="font-weight:700;color:var(--ink,#22343a)">'+esc(x.name||x.id)+'</div>'
         +'<div style="font-size:11.5px;color:var(--muted,#6b7a85)">'+esc(x.detail||'')+hint+'</div>'+hart+'</div>'
+        +ehBtns
         +okBtns
         +(prod?'<button onclick="dashOpenProdukt(\''+esc(x.id)+'\');var o=document.getElementById(\'waFaelleOv\');if(o)o.remove()" style="flex:0 0 auto;border:1px solid #107e3e;background:#eef8f1;color:#1e6b42;border-radius:9px;padding:7px 13px;font-weight:700;font-size:12.5px;cursor:pointer">Öffnen ›</button>':'')
       +'</div>';
@@ -7183,7 +7213,27 @@ async function waRegelOk(pid, regel, nr, nameEnc){
     try{ loadDashboard(); }catch(e){}
   }catch(e){ alert('Konnte nicht abhaken: '+((e&&e.message)||e)); }
 }
-if(typeof window!=='undefined'){ window.dashWaechterFaelle=dashWaechterFaelle; window.waRegelOk=waRegelOk; }
+/* ---------------------------------------------------------------------------
+   Bezugseinheit direkt im Waechter-Fenster entscheiden (Ralph 27.08.2026).
+   Ein Knopf, eine RPC, dieselbe wie auf der Seite „⚖️ Bezugseinheit g / ml".
+   Es wird NICHTS umgerechnet — die Einheit sagt nur, wie die vorhandenen
+   Zahlen gemeint sind.
+   --------------------------------------------------------------------------- */
+function _waEhBtn(pid,val,lbl,view,nm){
+  return '<button onclick="waEinheitSetzen(\''+esc(pid)+'\',\''+val+'\',\''+esc(view)+'\',\''+encodeURIComponent(nm)+'\')"'
+    +' title="Etikett nachgesehen: die Nährwerte gelten pro '+lbl+'. Wird als belegt gespeichert."'
+    +' style="flex:0 0 auto;border:1px solid #3b56b0;background:#eef2fd;color:#28408f;border-radius:9px;padding:7px 11px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">'+lbl+'</button>';
+}
+async function waEinheitSetzen(pid, val, view, nameEnc){
+  if(!(ME&&ME.is_admin)) return;
+  try{
+    var r=await client.rpc('cb_produkt_mengen_einheit_setzen',{p_id:pid, p_einheit:val, p_quelle:'Etikett'});
+    if(r&&r.error) throw new Error(r.error.message);
+    await dashWaechterFaelle(null, nameEnc, view);
+    try{ loadDashboard(); }catch(e){}
+  }catch(e){ alert('Konnte die Einheit nicht setzen: '+((e&&e.message)||e)); }
+}
+if(typeof window!=='undefined'){ window.dashWaechterFaelle=dashWaechterFaelle; window.waRegelOk=waRegelOk; window.waEinheitSetzen=waEinheitSetzen; }
 /* Reiter im hellen Portal-M-Dashboard umschalten (nur Anzeige, kein neuer Datenabruf). */
 function dashPortalTab(id){
   var box=document.getElementById('fgDash'); if(!box) return;

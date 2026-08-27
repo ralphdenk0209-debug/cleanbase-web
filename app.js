@@ -4985,8 +4985,6 @@ function setMode(m){
   document.getElementById("darmView").style.display = m==="darm"?"":"none";
   document.getElementById("einkaufView").style.display = m==="einkauf"?"":"none";
   if(m==="einkauf") renderEinkaufSeite();
-  /* 28z31 (Ralph 27.08.): der grosse Scanknopf gehoert nur auf die Einkaufsseite. */
-  { var _esf=document.getElementById("einkScanFab"); if(_esf) _esf.style.display = (m==="einkauf")?"flex":"none"; }
   document.getElementById("profilView").style.display = m==="profil"?"":"none";
   { var _fv=document.getElementById("freigabeView"); if(_fv) _fv.style.display = m==="freigabe"?"":"none"; }
   { var _sv2=document.getElementById("stufenView"); if(_sv2) _sv2.style.display = m==="stufen"?"":"none"; }
@@ -7941,6 +7939,14 @@ function startProdScan(){
     var _tb=document.getElementById('tagebuchView');
     if(_tb && _tb.style.display!=='none' && typeof feat==='function' && feat('tagebuch_neu')){ tbOpenScan(); return; }
   }catch(e){}
+  /* 28z31 (Ralph 27.08.): Auf der EINKAUFSSEITE legt derselbe runde Knopf das
+     gescannte Produkt in die Einkaufsliste - dieselbe Regel wie beim Tagebuch.
+     Auf allen anderen Seiten bleibt es die Produktsuche. Kein zweiter Scanner:
+     einkaufScan() ist der Weg, der dort schon existiert. */
+  try{
+    var _ev2=document.getElementById('einkaufView');
+    if(_ev2 && _ev2.style.display!=='none' && typeof einkaufScan==='function'){ einkaufScan(); return; }
+  }catch(e){}
   let ov=document.getElementById("scanFull");
   if(ov) ov.remove();
   ov=document.createElement("div");
@@ -9009,12 +9015,9 @@ async function renderEinkaufSeite(){
     box.innerHTML="";
     gate.style.display="";
     gate.innerHTML=gateHtml('einkaufsliste');
-    /* 28z31: Kein Recht, keine Liste - dann auch kein Scanknopf davor. */
-    { const f=document.getElementById("einkScanFab"); if(f) f.style.display="none"; }
     return;
   }
   gate.style.display="none"; gate.innerHTML="";
-  { const f=document.getElementById("einkScanFab"); if(f) f.style.display="flex"; }
   _einkTarget="einkaufPageBox";
   loadEinkauf();
 }
@@ -9100,14 +9103,28 @@ async function einkSuggest(q){
   const nq=_norm(q);
   const hits=(ALL||[]).filter(function(p){ return _prodMatch(p,nq); })
     .sort(function(a,b){ return (_relevanz(b,nq)-_relevanz(a,nq)) || ((b.clean_score||0)-(a.clean_score||0)); })
-    .slice(0,12);
-  if(!hits.length){ box.innerHTML='<div style="font-size:13.5px;color:var(--muted);padding:8px 4px">Kein Katalog-Treffer – „+" legt den Eintrag als freien Text an.</div>'; return; }
+    .slice(0,40);
+  /* 28z31 (Ralph 27.08.): "gur" zeigte zweimal "Gurke" - einmal mit Marke "Generisch",
+     einmal ganz ohne. Fuer den Einkaufszettel ist das derselbe Eintrag, also erscheint
+     er einmal, und zwar der mit dem besten Score (die Sortierung oben steht schon so).
+     ENTDOPPELT WIRD NUR DIE ANZEIGE und nur, wenn beide Seiten markenlos sind -
+     "Gurke / Bio Company" und "Gurke / EDEKA" bleiben zwei Zeilen. Im Katalog wird
+     nichts zusammengelegt; das entscheidet der Server, nicht diese Liste. */
+  const _markenlos=function(m){ m=String(m||'').trim().toLowerCase(); return !m || m==='generisch'; };
+  const _seen={};
+  const hitsU=hits.filter(function(p){
+    if(!_markenlos(p.marke)) return true;
+    const k=_norm(String(p.name||''));
+    if(_seen[k]) return false;
+    _seen[k]=1; return true;
+  }).slice(0,12);
+  if(!hitsU.length){ box.innerHTML='<div style="font-size:13.5px;color:var(--muted);padding:8px 4px">Kein Katalog-Treffer – „+" legt den Eintrag als freien Text an.</div>'; return; }
   /* 28z31 (Ralph 27.08.): Die Vorschlagsliste war 6 Zeilen à 9px Polsterung - am Handy
      kaum zu treffen und kaum zu lesen. Jetzt 12 Treffer, Zeilenhoehe ~52px (Daumenmass),
      Name gross, Marke klein darunter. Ueber 5 Treffer wird gescrollt statt die halbe
      Seite zu verdecken. */
   box.innerHTML='<div style="border:1px solid var(--line);border-radius:12px;background:var(--card);overflow-y:auto;max-height:min(58vh,340px);box-shadow:0 6px 18px rgba(20,40,28,.12)">'
-    + hits.map(function(p){
+    + hitsU.map(function(p){
         const sc=p.clean_score?('<span style="flex:0 0 auto;font-weight:800;font-size:14px;color:var(--greendk,var(--k-166534))">'+p.clean_score+'</span>'):'';
         return '<div onclick="einkPick(\''+p.id+'\')" style="display:flex;align-items:center;gap:10px;padding:12px 13px;border-bottom:1px solid var(--line);cursor:pointer;min-height:52px;box-sizing:border-box">'
           +'<span style="flex:1;min-width:0">'
@@ -9117,23 +9134,20 @@ async function einkSuggest(q){
       }).join('')
     +'</div>';
 }
-/* Was Ralph tippt, ist der Name in der Liste - nur die erste Stelle gross.
-   Nichts erfunden: der Text kommt von ihm, nicht aus dem Katalog. */
+/* Freier Text bekommt nur die erste Stelle gross. Nichts erfunden - der Text
+   kommt von Ralph, nicht aus dem Katalog. */
 function einkGenerisch(s){
   s=((s||'')+'').trim().replace(/\s+/g,' ');
   return s ? s.charAt(0).toUpperCase()+s.slice(1) : '';
 }
-/* 28z31 (Ralph-Entscheid 27.08.): Getipptes wird GENERISCH gefuehrt.
-   Tippt Ralph "milch" und klickt einen Vorschlag an, steht "Milch" in der Liste -
-   das Produkt bleibt ueber p_produkt_id gebunden (Kategorie, Score, Amazon).
-   Der Server entscheidet weiter alles andere; er nimmt p_titel bereits entgegen
-   (coalesce(v_titel,"Produktname")) - keine neue Logik, keine Migration.
-   GESCANNTE Eintraege gehen weiter mit p_titel=null rein und behalten damit
-   exakt den Katalognamen. */
+/* 28z31 KORREKTUR (Ralph 27.08., gemessen am Bildschirm): Hier stand das TIPPWORT
+   als Titel - aus "gur" plus Klick auf "Gurke" wurde "gur" in der Liste. Falsch.
+   Wer einen Vorschlag ANKLICKT, meint diesen Eintrag, nicht seinen halben Suchbegriff.
+   p_titel bleibt null; der Server setzt den Produktnamen und entscheidet Kategorie
+   und Bindung. Gescanntes laeuft denselben Weg und ist damit gleich exakt. */
 async function einkPick(id){
   const i=document.getElementById('einkInput');
-  const gen=einkGenerisch(i&&i.value);
-  const {error}=await client.rpc("cb_einkauf_add",{p_titel:gen||null,p_menge:null,p_produkt_id:id});
+  const {error}=await client.rpc("cb_einkauf_add",{p_titel:null,p_menge:null,p_produkt_id:id});
   if(error){ alert("Fehler: "+error.message); return; }
   if(i) i.value='';
   const s=document.getElementById('einkSug'); if(s) s.innerHTML='';
@@ -9232,9 +9246,10 @@ async function hhVerlassen(){
   if(error||!(d&&d.ok)){ alert('Fehler: '+((error&&error.message)||(d&&d.grund)||'unbekannt')); return; }
   window._HH=null; loadEinkauf(); try{ hhProfilRender(); }catch(e){}
 }
-/* 28z31: Der grosse Scanknopf liegt nur auf der eigenen Einkaufsseite an
-   (_einkTarget==='einkaufPageBox'), nicht im Tagebuch-Aufklapper. */
-function _einkFabAktiv(){ return _einkTarget==='einkaufPageBox'; }
+/* 28z31: Auf der eigenen Einkaufsseite scannt der runde Knopf in der Leiste bereits
+   IN die Einkaufsliste (startProdScan). Im Tagebuch-Aufklapper tut er das nicht -
+   dort wird der kleine Barcode-Knopf oben weiter gebraucht. */
+function _einkScanUnten(){ return _einkTarget==='einkaufPageBox'; }
 async function loadEinkauf(){
   const box=document.getElementById(_einkTarget); if(!box) return;
   /* Position merken und den Platzhalter NUR beim ersten Aufbau zeigen. Sonst schrumpft
@@ -9261,10 +9276,9 @@ async function loadEinkauf(){
     +'</div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'
     +'<button onclick="einkaufAdd()" style="padding:10px 16px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-weight:700;font-size:14px">+ Hinzufügen</button>'
-    /* 28z31: Auf der eigenen Einkaufsseite steht der grosse Scanknopf unten fest -
-       der kleine hier waere derselbe Knopf zweimal. Im Tagebuch-Aufklapper gibt es
-       den unteren nicht, dort bleibt er. Eine Sache, ein Ort. */
-    +(_einkFabAktiv()?'':'<button onclick="einkaufScan()" style="padding:10px 14px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">📷 Barcode</button>')
+    /* 28z31: Auf der Einkaufsseite macht der runde Knopf in der Leiste dasselbe -
+       der kleine hier waere derselbe Knopf zweimal. Eine Sache, ein Ort. */
+    +(_einkScanUnten()?'':'<button onclick="einkaufScan()" style="padding:10px 14px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">📷 Barcode</button>')
     +'<span style="flex:1"></span>'
     +'<button onclick="einkaufFromPlan()" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);cursor:pointer;font-size:12.5px">Aus dieser Woche erzeugen</button>'
     +'</div>'
@@ -9293,9 +9307,6 @@ async function loadEinkauf(){
     h+=einkGrid(erl.map(function(r){ return einkRow(r,true); }).join(''));
   }
   if(offen.some(function(r){ return einkAmzBtn(r.produkt_id); })) h+=AMZ_HINWEIS;
-  /* 28z31: Luft unter der Liste, sonst deckt der grosse Scanknopf den letzten
-     Eintrag zu und man haelt genau den fuer erledigt, den man noch braucht. */
-  if(_einkFabAktiv()) h+='<div style="height:78px"></div>';
   _fertig(h);
 }
 async function einkaufAdd(){
@@ -9305,10 +9316,9 @@ async function einkaufAdd(){
   /* p_produkt_id IMMER mitschicken (auch null) - sonst passen zwei Funktionen auf den
      Aufruf und Postgres bricht mit "could not choose the best candidate" ab. Steht ein
      Produkt aus dem Katalog dahinter, wird es verknuepft; sonst freier Text (Zahnstocher). */
-  /* 28z31: Auch hier gilt das Tippwort als Name (generisch). Trifft es exakt ein
-     Katalogprodukt, wird das Produkt zusaetzlich gebunden - der Name bleibt Ralphs. */
-  const gen = einkGenerisch(titel);
-  const args = p ? {p_titel:gen,p_menge:null,p_produkt_id:p.id} : {p_titel:gen,p_menge:null,p_produkt_id:null};
+  /* 28z31: Trifft der Text exakt ein Katalogprodukt, entscheidet der Server den Namen
+     (p_titel=null -> Produktname). Nur freier Text bekommt Ralphs eigenen Wortlaut. */
+  const args = p ? {p_titel:null,p_menge:null,p_produkt_id:p.id} : {p_titel:einkGenerisch(titel),p_menge:null,p_produkt_id:null};
   const {error}=await client.rpc("cb_einkauf_add",args);
   if(error){ alert("Fehler: "+error.message); return; }
   await loadEinkauf();
@@ -14733,7 +14743,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-27-4427";
+const APP_BUILD = "2026-08-27-4428";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
