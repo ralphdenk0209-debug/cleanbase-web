@@ -90,7 +90,7 @@
 <body>
 
 <div class="kopf"><div class="innen">
-  <h1>🎬 Video-Skript 01<small>Vorstellung Root Index · 30–60 Sek. · mit Gesicht</small></h1>
+  <h1>🎬 Video-Drehbuch<small>Video 1: Wortskript zum Üben · Video 2–5: Stichwort-Karten · je 30–60 Sek.</small></h1>
   <div class="kBtns">
     <button class="btn" id="btnOrig" style="display:none"
       onclick="if(confirm('Alle Textänderungen dieser Variante verwerfen und zum Originaltext zurück?')) aendVerwerfen()">↺ Originaltext</button>
@@ -108,11 +108,7 @@
 </div>
 
 <main>
-  <div class="hinweis">⚠ <b>Ausnahme von Regel 2 („kein Skript")</b> — nur für dieses erste Video, zum Üben.
-    Kurze Zeilen, laut vorlesen, in eigene Worte kippen lassen. Versprecher bleiben drin.
-    Abschnittsweise drehen — nie das ganze Video am Stück. Sandras Veto gilt.<br>
-    ✏️ <b>Text ändern:</b> gestrichelte Sätze anklicken und tippen — der Prompter übernimmt es sofort.
-    Änderungen bleiben nur in DIESEM Browser gespeichert; „↺ Originaltext" holt das Original zurück.</div>
+  <div class="hinweis" id="hinweis"><!-- wird je Video aus HINWEIS_* gefüllt --></div>
   <div id="lesen"><!-- wird aus SKRIPT gebaut --></div>
   <div class="fuss">
     <b>Vor Veröffentlichung:</b>
@@ -202,12 +198,88 @@ var SKRIPT={
     {wer:"Sandra", text:"Die Vorderseite verkauft. Wir lesen die Rückseite."},
     {wer:"Sandra", text:"Transparenz? Root Index."}
    ]}
+ ],
+
+ /* ---- Videos 2–5: STICHWORT-KARTEN (Regel 2: kein Wortskript, frei sprechen).
+    Fakten aus „Bewertungslogik – Verbindliche Regeln & Quellen.md" — nichts erfunden. ---- */
+ "2":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Sandra (oder beide) im Bild, Produkt mit aufgedruckter Zahl/Note in die Linse.",
+   zeilen:[{wer:"Hook", text:"Eine Zahl auf einem Produkt — wer sagt eigentlich, dass die stimmt?"}]},
+  {abschnitt:"Stichworte", zeit:"Off, Draufsicht",
+   kamera:"Draufsicht: Hände, Produkt, App. Frei sprechen — die Punkte sind nur Gedankenstütze.",
+   zeilen:[
+    {wer:"Punkt", text:"100 Punkte, vier Töpfe: Zutaten 30 · Nährwerte 40 · Zusatzstoffe 15 · Verarbeitung des Endprodukts 15"},
+    {wer:"Punkt", text:"Jede Eigenschaft zählt genau EINMAL — nichts wird doppelt bestraft"},
+    {wer:"Punkt", text:"Beispiel Kochschinken: das Fleisch ist top — das Pökelsalz kassiert woanders. Ergebnis: Mittel. Ehrlich aufgeteilt.", regie:"echten Katalog-Score zeigen"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht. Requisite: Kochschinken (Eigenmarke, Marke abkleben). ⚠ Gezeigter Score muss der echte Katalog-Wert sein.",
+   zeilen:[{wer:"Schluss", text:"Die ganze Rechnung steht offen — nachlesbar, nicht im Hinterzimmer. Transparenz? Root Index."}]}
+ ],
+ "3":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Honigglas in der Hand.",
+   zeilen:[{wer:"Hook", text:"Unsere App findet Honig gut. Obwohl er fast nur Zucker ist. Warum?"}]},
+  {abschnitt:"Stichworte", zeit:"Off, Draufsicht",
+   kamera:"Draufsicht: Honig, App, dazu ein Produkt mit ‚Kokosblütenzucker' vorn (Marke abkleben).",
+   zeilen:[
+    {wer:"Punkt", text:"Honig ist kaum verarbeitet → gute Zutaten-Punkte. Seine Zuckerlast zahlt er bei den Nährwerten — einmal, nicht doppelt"},
+    {wer:"Punkt", text:"Kein Bio-Bonus: Bio sagt was über den Anbau, nichts über Verarbeitung. Bio-Zucker ist Zucker"},
+    {wer:"Punkt", text:"Kein Schön-Klinger-Bonus: Kokosblütenzucker, Agavendicksaft, Reissirup = Zucker"},
+    {wer:"Punkt", text:"Grau in der App heißt: keine belegte Aussage. Wir raten nicht — ungeprüft gilt bei uns NICHT als unbedenklich"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Wir sagen dir auch, was wir nicht wissen. Gerade deshalb kannst du dem Rest trauen. Transparenz? Root Index."}]}
+ ],
+ "4":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Direkt in die Kamera, kurze Pause nach der Frage.",
+   zeilen:[{wer:"Hook", text:"Was kostet eine gute Note bei uns? … Ihr ahnt es."}]},
+  {abschnitt:"Stichworte", zeit:"Off, Draufsicht",
+   kamera:"Draufsicht: zwei Zuckertüten mit verschiedenen Namen, gleiche Note in der App.",
+   zeilen:[
+    {wer:"Punkt", text:"Nichts. Kein Hersteller kann sich einen besseren Score kaufen — keine Marken-Boni, Punkt"},
+    {wer:"Punkt", text:"Gleicher Stoff, gleiche Punkte — egal ob Rohrohrzucker oder Saccharose auf dem Etikett steht"},
+    {wer:"Punkt", text:"Falls je Kauf-Links dazukommen: die hängen NACH der Bewertung dran, gekennzeichnet, und ändern keine Zahl"},
+    {wer:"Punkt", text:"Die Regeln stehen öffentlich, mit Quellen — wer's nachrechnen will, kann das"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Vertrauen vor Umsatz. Sonst wäre die ganze App sinnlos. Transparenz? Root Index."}]}
+ ],
+ "5":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Einkaufstaschen auf dem Tisch.",
+   zeilen:[{wer:"Hook", text:"Der Einkauf ist zu Hause. Mal sehen, was wir uns da geholt haben."}]},
+  {abschnitt:"Stichworte", zeit:"Off, Einkaufskorb-Perspektive",
+   kamera:"⚠ HEIM-Variante, NICHT im Laden (erst Anwaltspaket M1 + Erlaubnis des Marktes). Marken sichtbar = RECHT-4 → Eigenmarken oder abkleben.",
+   zeilen:[
+    {wer:"Punkt", text:"3–4 echte Produkte aus dem eigenen Einkauf scannen, Ergebnis unkommentiert zeigen, DANN reagieren"},
+    {wer:"Punkt", text:"Mindestens EINE ehrliche Überraschung drin lassen — auch wenn sie gegen uns läuft"},
+    {wer:"Punkt", text:"Zeigen, was die App anzeigt: Note, Zutaten-Ampel, und einmal bewusst ein Grau (wissen wir nicht)"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Beim nächsten Einkauf einfach vorher scannen. Transparenz? Root Index."}]}
  ]
 };
 
 var VARIANTE='A';
-/* Vorgabedauer je Variante — aus dem Skript: A ~50 s, B ~40 s. */
-var DAUER_VORGABE={A:50,B:40};
+/* Vorgabedauer je Video — Reel-Format 30–60 s. */
+var DAUER_VORGABE={A:50,B:40,"2":50,"3":55,"4":50,"5":55};
+/* Hinweiskasten je Video: 1 = Skript-Ausnahme, 2–5 = Stichwort-Karten. */
+var HINWEIS_SKRIPT='⚠ <b>Ausnahme von Regel 2 („kein Skript")</b> — nur für dieses erste Video, zum Üben. '
+ +'Kurze Zeilen, laut vorlesen, in eigene Worte kippen lassen. Versprecher bleiben drin. '
+ +'Abschnittsweise drehen — nie das ganze Video am Stück. Sandras Veto gilt.<br>'
+ +'✏️ <b>Text ändern:</b> gestrichelte Sätze anklicken und tippen — der Prompter übernimmt es sofort. '
+ +'Änderungen bleiben nur in DIESEM Browser gespeichert; „↺ Originaltext" holt das Original zurück.';
+var HINWEIS_KARTE='🗂️ <b>Stichwort-Karte — hier gilt Regel 2: KEIN Wortskript.</b> '
+ +'Die Punkte sind Gedankenstütze, Sandra sagt es, wie sie es einer Freundin sagen würde. '
+ +'Der Prompter zeigt die Stichworte groß — zum dran-entlang-Sprechen, nicht zum Ablesen. '
+ +'Alle Fakten aus der Bewertungslogik — nichts fürs Video erfunden.<br>'
+ +'✏️ Stichworte sind genauso anklickbar und änderbar wie das Skript.';
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 /* ---------- Textänderungen: bleiben im Browser (localStorage) ----------
@@ -266,8 +338,11 @@ function pTempoRechnen(){
 
 function varianteSetzen(v){
   VARIANTE=v;
-  document.getElementById('vbA').classList.toggle('aktiv', v==='A');
-  document.getElementById('vbB').classList.toggle('aktiv', v==='B');
+  document.querySelectorAll('#videoWahl .vBtn').forEach(function(b){
+    b.classList.toggle('aktiv', b.dataset.v===v);
+  });
+  var hin=document.getElementById('hinweis');
+  if(hin) hin.innerHTML=(v==='A'||v==='B')?HINWEIS_SKRIPT:HINWEIS_KARTE;
   leseBauen(); pBauen(); pReset();
   var inp=document.getElementById('pDauer'); if(inp) inp.value=dauerLesen();
 }
@@ -373,7 +448,7 @@ document.addEventListener('keydown',function(ev){
 document.getElementById('pScroll').addEventListener('click', pToggle);
 window.addEventListener('resize', pSchriftSetzen);
 
-leseBauen(); pBauen();
+varianteSetzen('A');
 </script>
 </body>
 </html>

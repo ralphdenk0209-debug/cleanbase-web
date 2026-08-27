@@ -4985,6 +4985,8 @@ function setMode(m){
   document.getElementById("darmView").style.display = m==="darm"?"":"none";
   document.getElementById("einkaufView").style.display = m==="einkauf"?"":"none";
   if(m==="einkauf") renderEinkaufSeite();
+  /* 28z31 (Ralph 27.08.): der grosse Scanknopf gehoert nur auf die Einkaufsseite. */
+  { var _esf=document.getElementById("einkScanFab"); if(_esf) _esf.style.display = (m==="einkauf")?"flex":"none"; }
   document.getElementById("profilView").style.display = m==="profil"?"":"none";
   { var _fv=document.getElementById("freigabeView"); if(_fv) _fv.style.display = m==="freigabe"?"":"none"; }
   { var _sv2=document.getElementById("stufenView"); if(_sv2) _sv2.style.display = m==="stufen"?"":"none"; }
@@ -9007,9 +9009,12 @@ async function renderEinkaufSeite(){
     box.innerHTML="";
     gate.style.display="";
     gate.innerHTML=gateHtml('einkaufsliste');
+    /* 28z31: Kein Recht, keine Liste - dann auch kein Scanknopf davor. */
+    { const f=document.getElementById("einkScanFab"); if(f) f.style.display="none"; }
     return;
   }
   gate.style.display="none"; gate.innerHTML="";
+  { const f=document.getElementById("einkScanFab"); if(f) f.style.display="flex"; }
   _einkTarget="einkaufPageBox";
   loadEinkauf();
 }
@@ -9049,15 +9054,18 @@ function einkRow(r,done){
   const bd   = done ? 'var(--line)'  : EINK_C.bd;
   const tx   = done ? 'var(--muted)' : EINK_C.tx;
   const tx2  = done ? 'var(--muted)' : EINK_C.tx2;
-  let h='<div id="einkRow'+id+'" onclick="einkaufToggle('+id+','+(done?'false':'true')+')" style="cursor:pointer;border:1px solid '+bd+';border-radius:12px;background:'+bg+';padding:14px 12px;display:flex;align-items:center;gap:10px;'+(done?'opacity:.6':'')+'">'
-    +(done?'<span style="flex:0 0 auto;font-size:15px;color:var(--muted);line-height:1">&#10003;</span>':'')
+  /* 28z31 (Ralph 27.08.) Leseoptimierung: im Laden wird die Liste im Gehen gelesen,
+     mit einer Hand und aus Armlaenge. Name 14.5 -> 17px, Menge 12.5 -> 14px,
+     Zeilenhoehe 14 -> 17px Polsterung. Die Farben bleiben unangetastet (28z-Entscheid). */
+  let h='<div id="einkRow'+id+'" onclick="einkaufToggle('+id+','+(done?'false':'true')+')" style="cursor:pointer;border:1px solid '+bd+';border-radius:12px;background:'+bg+';padding:17px 13px;display:flex;align-items:center;gap:10px;'+(done?'opacity:.6':'')+'">'
+    +(done?'<span style="flex:0 0 auto;font-size:16px;color:var(--muted);line-height:1">&#10003;</span>':'')
     /* Zwei Zeilen: Name oben, Menge/Notiz darunter (Ralph 30.07.). Die Menge stand
        vorher rechts zwischen Kuerzel und Knoepfen - dort konkurriert sie um denselben
        Platz und wird auf schmalen Handys als Erstes gequetscht. Unter dem Namen hat
        sie so viel Platz wie der Name selbst. */
     +'<span style="flex:1;min-width:0">'
-      +'<span style="display:block;font-size:14.5px;font-weight:600;line-height:1.3;color:'+tx+';'+(done?'text-decoration:line-through':'')+'">'+esc(r.titel)+'</span>'
-      +(r.menge?'<span style="display:block;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:2px;color:'+tx2+';opacity:.9;'+(done?'text-decoration:line-through':'')+'">'+esc(r.menge)+'</span>':'')
+      +'<span style="display:block;font-size:17px;font-weight:650;line-height:1.28;letter-spacing:.1px;color:'+tx+';'+(done?'text-decoration:line-through':'')+'">'+esc(r.titel)+'</span>'
+      +(r.menge?'<span style="display:block;font-size:14px;font-weight:600;line-height:1.35;margin-top:3px;color:'+tx2+';'+(done?'text-decoration:line-through':'')+'">'+esc(r.menge)+'</span>':'')
     +'</span>'
     +(r.von?'<span title="Eingetragen von '+esc(r.von)+'" style="flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--greendk,var(--k-166534));background:var(--greenlt,var(--k-eaf5ee));border-radius:99px;padding:2px 7px">'+esc(String(r.von).trim().charAt(0).toUpperCase())+'</span>':'')
     /* 28z26: Angebote-Marker vorerst raus (Ralph) - Funktion einkAngebotBtn bleibt fuer spaeter */
@@ -9066,7 +9074,7 @@ function einkRow(r,done){
        erkennbar, ohne eine harte Knopf-Kante zu ziehen. Weicher Radialverlauf
        statt Vollflaeche - er soll da sein, aber nicht schreien. */
     +(done?'':'<button onclick="event.stopPropagation();einkDetails('+id+')" title="Menge ändern" style="flex:0 0 auto;border:0;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(255,255,255,.4), rgba(255,255,255,0) 68%);color:'+tx2+';font-size:18px;line-height:1;cursor:pointer">&#8943;</button>')
-    +'<button onclick="event.stopPropagation();einkaufDel('+id+')" title="Entfernen" style="flex:0 0 auto;border:0;background:transparent;color:'+tx2+';font-size:14px;line-height:1;cursor:pointer;padding:4px 2px">&#10005;</button>'
+    +'<button onclick="event.stopPropagation();einkaufDel('+id+')" title="Entfernen" style="flex:0 0 auto;border:0;background:transparent;color:'+tx2+';font-size:17px;line-height:1;cursor:pointer;width:34px;height:34px;border-radius:50%">&#10005;</button>'
   +'</div>';
   if(!done){
     h+='<div id="einkD'+id+'" style="display:none;grid-column:1/-1;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)">'
@@ -9092,20 +9100,42 @@ async function einkSuggest(q){
   const nq=_norm(q);
   const hits=(ALL||[]).filter(function(p){ return _prodMatch(p,nq); })
     .sort(function(a,b){ return (_relevanz(b,nq)-_relevanz(a,nq)) || ((b.clean_score||0)-(a.clean_score||0)); })
-    .slice(0,6);
-  if(!hits.length){ box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:4px 2px">Kein Katalog-Treffer – „+" legt den Eintrag als freien Text an.</div>'; return; }
-  box.innerHTML='<div style="border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden">'
+    .slice(0,12);
+  if(!hits.length){ box.innerHTML='<div style="font-size:13.5px;color:var(--muted);padding:8px 4px">Kein Katalog-Treffer – „+" legt den Eintrag als freien Text an.</div>'; return; }
+  /* 28z31 (Ralph 27.08.): Die Vorschlagsliste war 6 Zeilen à 9px Polsterung - am Handy
+     kaum zu treffen und kaum zu lesen. Jetzt 12 Treffer, Zeilenhoehe ~52px (Daumenmass),
+     Name gross, Marke klein darunter. Ueber 5 Treffer wird gescrollt statt die halbe
+     Seite zu verdecken. */
+  box.innerHTML='<div style="border:1px solid var(--line);border-radius:12px;background:var(--card);overflow-y:auto;max-height:min(58vh,340px);box-shadow:0 6px 18px rgba(20,40,28,.12)">'
     + hits.map(function(p){
-        const sc=p.clean_score?('<span style="flex:0 0 auto;font-weight:700;font-size:12.5px;color:var(--greendk,var(--k-166534))">'+p.clean_score+'</span>'):'';
-        return '<div onclick="einkPick(\''+p.id+'\')" style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--line);cursor:pointer">'
-          +'<span style="flex:1;min-width:0;font-size:13.5px">'+esc(p.name||'')+(p.marke?'<span style="color:var(--muted)"> · '+esc(p.marke)+'</span>':'')+'</span>'+sc+'</div>';
+        const sc=p.clean_score?('<span style="flex:0 0 auto;font-weight:800;font-size:14px;color:var(--greendk,var(--k-166534))">'+p.clean_score+'</span>'):'';
+        return '<div onclick="einkPick(\''+p.id+'\')" style="display:flex;align-items:center;gap:10px;padding:12px 13px;border-bottom:1px solid var(--line);cursor:pointer;min-height:52px;box-sizing:border-box">'
+          +'<span style="flex:1;min-width:0">'
+            +'<span style="display:block;font-size:15.5px;font-weight:600;line-height:1.3;color:var(--ink)">'+esc(p.name||'')+'</span>'
+            +(p.marke?'<span style="display:block;font-size:12.5px;line-height:1.3;margin-top:2px;color:var(--muted)">'+esc(p.marke)+'</span>':'')
+          +'</span>'+sc+'</div>';
       }).join('')
     +'</div>';
 }
+/* Was Ralph tippt, ist der Name in der Liste - nur die erste Stelle gross.
+   Nichts erfunden: der Text kommt von ihm, nicht aus dem Katalog. */
+function einkGenerisch(s){
+  s=((s||'')+'').trim().replace(/\s+/g,' ');
+  return s ? s.charAt(0).toUpperCase()+s.slice(1) : '';
+}
+/* 28z31 (Ralph-Entscheid 27.08.): Getipptes wird GENERISCH gefuehrt.
+   Tippt Ralph "milch" und klickt einen Vorschlag an, steht "Milch" in der Liste -
+   das Produkt bleibt ueber p_produkt_id gebunden (Kategorie, Score, Amazon).
+   Der Server entscheidet weiter alles andere; er nimmt p_titel bereits entgegen
+   (coalesce(v_titel,"Produktname")) - keine neue Logik, keine Migration.
+   GESCANNTE Eintraege gehen weiter mit p_titel=null rein und behalten damit
+   exakt den Katalognamen. */
 async function einkPick(id){
-  const {error}=await client.rpc("cb_einkauf_add",{p_titel:null,p_menge:null,p_produkt_id:id});
+  const i=document.getElementById('einkInput');
+  const gen=einkGenerisch(i&&i.value);
+  const {error}=await client.rpc("cb_einkauf_add",{p_titel:gen||null,p_menge:null,p_produkt_id:id});
   if(error){ alert("Fehler: "+error.message); return; }
-  const i=document.getElementById('einkInput'); if(i) i.value='';
+  if(i) i.value='';
   const s=document.getElementById('einkSug'); if(s) s.innerHTML='';
   await loadEinkauf();
 }
@@ -9202,6 +9232,9 @@ async function hhVerlassen(){
   if(error||!(d&&d.ok)){ alert('Fehler: '+((error&&error.message)||(d&&d.grund)||'unbekannt')); return; }
   window._HH=null; loadEinkauf(); try{ hhProfilRender(); }catch(e){}
 }
+/* 28z31: Der grosse Scanknopf liegt nur auf der eigenen Einkaufsseite an
+   (_einkTarget==='einkaufPageBox'), nicht im Tagebuch-Aufklapper. */
+function _einkFabAktiv(){ return _einkTarget==='einkaufPageBox'; }
 async function loadEinkauf(){
   const box=document.getElementById(_einkTarget); if(!box) return;
   /* Position merken und den Platzhalter NUR beim ersten Aufbau zeigen. Sonst schrumpft
@@ -9228,7 +9261,10 @@ async function loadEinkauf(){
     +'</div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'
     +'<button onclick="einkaufAdd()" style="padding:10px 16px;border:0;border-radius:10px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-weight:700;font-size:14px">+ Hinzufügen</button>'
-    +'<button onclick="einkaufScan()" style="padding:10px 14px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">📷 Barcode</button>'
+    /* 28z31: Auf der eigenen Einkaufsseite steht der grosse Scanknopf unten fest -
+       der kleine hier waere derselbe Knopf zweimal. Im Tagebuch-Aufklapper gibt es
+       den unteren nicht, dort bleibt er. Eine Sache, ein Ort. */
+    +(_einkFabAktiv()?'':'<button onclick="einkaufScan()" style="padding:10px 14px;border:1px solid var(--green);border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">📷 Barcode</button>')
     +'<span style="flex:1"></span>'
     +'<button onclick="einkaufFromPlan()" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);cursor:pointer;font-size:12.5px">Aus dieser Woche erzeugen</button>'
     +'</div>'
@@ -9244,9 +9280,11 @@ async function loadEinkauf(){
   offen.forEach(function(r){ const k=r.kategorie||'Sonstiges'; (groups[k]=groups[k]||[]).push(r); });
   Object.keys(groups).sort(function(a,b){ if(a==='Sonstiges') return 1; if(b==='Sonstiges') return -1; return a.localeCompare(b,'de'); }).forEach(function(k){
     const m=(typeof katMeta==='function')?katMeta(k):{e:'🏷️'};
-    h+='<div style="display:flex;align-items:center;gap:7px;margin:15px 0 7px">'
-      +'<span style="font-size:16px">'+m.e+'</span>'
-      +'<span style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">'+esc(k)+'</span>'
+    /* 28z31: Kategorie-Ueberschrift war 11.5px versal - lesbar am Schreibtisch,
+       nicht im Supermarkt. 13.5px, mehr Luft davor. */
+    h+='<div style="display:flex;align-items:center;gap:8px;margin:20px 0 9px">'
+      +'<span style="font-size:18px">'+m.e+'</span>'
+      +'<span style="font-size:13.5px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)">'+esc(k)+'</span>'
       +'<span style="flex:1;height:1px;background:var(--line)"></span></div>';
     h+=einkGrid(groups[k].map(function(r){ return einkRow(r,false); }).join(''));
   });
@@ -9255,6 +9293,9 @@ async function loadEinkauf(){
     h+=einkGrid(erl.map(function(r){ return einkRow(r,true); }).join(''));
   }
   if(offen.some(function(r){ return einkAmzBtn(r.produkt_id); })) h+=AMZ_HINWEIS;
+  /* 28z31: Luft unter der Liste, sonst deckt der grosse Scanknopf den letzten
+     Eintrag zu und man haelt genau den fuer erledigt, den man noch braucht. */
+  if(_einkFabAktiv()) h+='<div style="height:78px"></div>';
   _fertig(h);
 }
 async function einkaufAdd(){
@@ -9264,7 +9305,10 @@ async function einkaufAdd(){
   /* p_produkt_id IMMER mitschicken (auch null) - sonst passen zwei Funktionen auf den
      Aufruf und Postgres bricht mit "could not choose the best candidate" ab. Steht ein
      Produkt aus dem Katalog dahinter, wird es verknuepft; sonst freier Text (Zahnstocher). */
-  const args = p ? {p_titel:null,p_menge:null,p_produkt_id:p.id} : {p_titel:titel,p_menge:null,p_produkt_id:null};
+  /* 28z31: Auch hier gilt das Tippwort als Name (generisch). Trifft es exakt ein
+     Katalogprodukt, wird das Produkt zusaetzlich gebunden - der Name bleibt Ralphs. */
+  const gen = einkGenerisch(titel);
+  const args = p ? {p_titel:gen,p_menge:null,p_produkt_id:p.id} : {p_titel:gen,p_menge:null,p_produkt_id:null};
   const {error}=await client.rpc("cb_einkauf_add",args);
   if(error){ alert("Fehler: "+error.message); return; }
   await loadEinkauf();
@@ -9272,6 +9316,10 @@ async function einkaufAdd(){
 /* Barcode scannen -> Produkt direkt in die Einkaufsliste (mit richtiger Kategorie) */
 async function einkaufScan(){
   einkMsg("Kamera öffnet – Barcode vor die Kamera halten…");
+  /* 28z31: Das Kamerafenster sitzt oben im Formular. Wird vom grossen Knopf unten
+     gestartet, oeffnet es sonst ausserhalb des Bildes - man haelt einen Barcode vor
+     eine Kamera, die man nicht sieht. Also erst hinscrollen. */
+  try{ const rd=document.getElementById("einkReader"); if(rd&&rd.scrollIntoView) rd.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
   _startScan("einkReader", async function(code){
     try{
       const {data:pid}=await client.rpc("cb_produkt_id_by_ean",{p_ean:code});
@@ -14685,7 +14733,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-08-27-4426";
+const APP_BUILD = "2026-08-27-4427";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
