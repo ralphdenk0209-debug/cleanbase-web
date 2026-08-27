@@ -31,9 +31,10 @@
     cursor:pointer; background:rgba(255,255,255,.12); color:#fff}
   .btn.lime{background:var(--lime); color:var(--gruen)}
   .btn:active{transform:translateY(1px)}
-  .wahl{max-width:860px; margin:18px auto 0; padding:0 20px; display:flex; gap:10px}
-  .vBtn{flex:1; border:2px solid var(--rand); border-radius:12px; background:var(--karte);
-    padding:12px; font-size:15px; font-weight:700; cursor:pointer; color:var(--grau)}
+  .wahl{max-width:860px; margin:18px auto 0; padding:0 20px; display:flex; gap:8px; flex-wrap:wrap}
+  .vBtn{flex:1 1 120px; border:2px solid var(--rand); border-radius:12px; background:var(--karte);
+    padding:10px 8px; font-size:14px; font-weight:700; cursor:pointer; color:var(--grau); line-height:1.25}
+  .vBtn small{font-weight:600; font-size:12px; opacity:.75}
   .vBtn.aktiv{border-color:var(--gruen); color:var(--gruen); background:#eaf3e4}
   main{max-width:860px; margin:0 auto; padding:18px 20px 80px}
   .hinweis{background:#fdf3e7; border:1px solid #ecd9bd; border-radius:12px;
@@ -97,9 +98,13 @@
   </div>
 </div></div>
 
-<div class="wahl">
-  <button class="vBtn aktiv" id="vbA" onclick="varianteSetzen('A')">Variante A · Ralph &amp; Sandra (~50 s)</button>
-  <button class="vBtn" id="vbB" onclick="varianteSetzen('B')">Variante B · Sandra allein (~40 s)</button>
+<div class="wahl" id="videoWahl">
+  <button class="vBtn aktiv" data-v="A" onclick="varianteSetzen('A')">1 · Vorstellung<br><small>Ralph &amp; Sandra</small></button>
+  <button class="vBtn" data-v="B" onclick="varianteSetzen('B')">1 · Vorstellung<br><small>Sandra allein</small></button>
+  <button class="vBtn" data-v="2" onclick="varianteSetzen('2')">2 · Unsere Note<br><small>Serie Teil 1</small></button>
+  <button class="vBtn" data-v="3" onclick="varianteSetzen('3')">3 · Was wir NICHT bewerten<br><small>Serie Teil 2</small></button>
+  <button class="vBtn" data-v="4" onclick="varianteSetzen('4')">4 · Note kaufen?<br><small>Serie-Finale</small></button>
+  <button class="vBtn" data-v="5" onclick="varianteSetzen('5')">5 · Scan-Demo<br><small>Heim-Variante</small></button>
 </div>
 
 <main>
