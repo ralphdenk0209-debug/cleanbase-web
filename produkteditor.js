@@ -9490,14 +9490,44 @@ async function feRiegelLauf(pid){
     h += '</div>';
     h += '<div id="feRiegelListe" style="display:none;margin-top:8px">';
     if(A.length){
+      /* 27.08.2026, Ralph: "nicht erforderlich oder sinnvoll?" - berechtigt.
+         Binden, Riki-Kette und "keine Zutat" kann der alte Editor laengst.
+         Was ihm WIRKLICH fehlte: Zwillinge aufloesen und einen Befund an
+         ChatGPT uebergeben. Beides sitzt jetzt hier in der Riegel-Klappe -
+         also in einem NEUEN Bereich, ohne eine einzige bestehende Editor-
+         Ansicht anzufassen. Dieselben Serverwege wie die neue Seite. */
       h += '<ol style="margin:0 0 0 18px;padding:0">';
       A.forEach(function(a){
-        h += '<li style="margin:4px 0"><b>' + esc(a.titel) + '</b><br>'
-          + '<span style="color:#55507a">' + esc(a.was || "") + '</span></li>';
+        h += '<li style="margin:6px 0"><b>' + esc(a.titel) + '</b><br>'
+          + '<span style="color:#55507a">' + esc(a.was || "") + '</span>';
+        if(a.typ === "zwilling" && a.rows && a.rows.length === 2){
+          h += '<div style="margin-top:3px">' + a.rows.map(function(rB, i){
+            var rT = a.rows[1 - i];
+            return '<button type="button" class="fgOffBtn" style="margin-right:5px" '
+              + 'onclick="feRiegelZwilling(\'' + esc(String(rT.produkt_zutat_id)) + '\',\''
+              + esc(String(rT.sichtbarer_name || "").replace(/'/g, "\\'")) + '\',\''
+              + esc(String(rB.sichtbarer_name || "").replace(/'/g, "\\'")) + '\',this)">'
+              + '„' + esc(String(rB.sichtbarer_name || "")) + '" behalten</button>';
+          }).join('') + '</div>';
+        }
+        if(a.typ === "luecke" && a.r){
+          h += '<div style="margin-top:3px"><button type="button" class="fgOffBtn" '
+            + 'onclick="feRiegelUebergeben(\'' + esc(String(a.r.produkt_zutat_id || "")) + '\',\''
+            + esc(String(a.r.sichtbarer_name || "").replace(/'/g, "\\'")) + '\',\''
+            + esc(String(a.lk && a.lk.kurz || "")) + '\',this)" '
+            + 'title="Legt ein Work Item mit dem gemessenen Befund an - der Stamm gehoert ChatGPT.">'
+            + 'an ChatGPT übergeben</button></div>';
+        }
+        if(a.typ === "etikett"){
+          h += '<div style="margin-top:3px"><button type="button" class="fgOffBtn" '
+            + 'onclick="try{document.getElementById(\'fgOffBox\').scrollIntoView({block:\'center\'})}catch(e){}">'
+            + 'zur Zeile springen</button></div>';
+        }
+        h += '</li>';
       });
       h += '</ol>';
       h += '<div style="margin-top:6px"><a href="pruefblatt.html?p=' + encodeURIComponent(pid) + '" target="_blank" '
-        + 'style="font-size:12px">Aufgabenmodus öffnen (erledigen mit einem Klick) →</a></div>';
+        + 'style="font-size:12px">Aufgabenmodus öffnen (alle Wege auf einer Seite) →</a></div>';
     }else{
       h += '<div style="color:#55507a">Keine ableitbare Aufgabe.</div>';
     }
@@ -9515,4 +9545,53 @@ function feRiegelKlappe(){
 }
 if(typeof window!=="undefined"){
   window.feRiegelLauf=feRiegelLauf; window.feRiegelKlappe=feRiegelKlappe;
+}
+
+/* Zwilling im alten Editor aufloesen - gleicher Serverweg wie die neue Seite
+   (zeilengenaues Loeschen mit Grundpflicht und Audit-Sicherung). */
+async function feRiegelZwilling(pzidWeg, nameWeg, nameBleibt, btn){
+  if(!confirm('Zwilling auflösen:\n\nBEHALTEN: '+nameBleibt+'\nLÖSCHEN:  '+nameWeg+' ('+pzidWeg+')\n\n'
+    +'Die gelöschte Zeile wird im Audit gesichert. Fortfahren?')) return;
+  if(btn){ btn.disabled=true; btn.textContent='löscht …'; }
+  try{
+    var r=await client.rpc("cb_admin_produkt_zutat_zeile_loeschen",
+      {p_produkt_zutat_id:pzidWeg,
+       p_grund:'Zwillingszeile zu "'+nameBleibt+'" - Doppelerfassung Etikett/Referenzprüfung, aufgelöst im Editor-Riegel.'});
+    if(r&&r.error) throw r.error;
+    await feRiegelLauf();
+    var l=document.getElementById("feRiegelListe"); if(l) l.style.display="block";
+    var pid=(window._fgEdit&&window._fgEdit.id);
+    if(pid && typeof openFgEditor==="function" &&
+       confirm('Zeile entfernt. Editor neu laden, damit die Zutatenliste stimmt?')) openFgEditor(pid);
+  }catch(e){
+    console.error("[Riegel Zwilling]",e);
+    alert("Löschen fehlgeschlagen: "+((e&&e.message)||e));
+    if(btn){ btn.disabled=false; btn.textContent='erneut versuchen'; }
+  }
+}
+
+/* Stamm-Luecke als Work Item an ChatGPT - der gemessene Befund geht in die
+   Queue statt in Ralphs Gedaechtnis. */
+async function feRiegelUebergeben(pzid, name, art, btn){
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!confirm('Befund an ChatGPT übergeben?\n\nZutat: '+name+'\nProdukt: '+pid+'\nLücke: '+art)) return;
+  if(btn){ btn.disabled=true; btn.textContent='übergibt …'; }
+  try{
+    var r=await client.rpc("cb_admin_agent_work_setzen",{
+      p_actor:'claude', p_owner:'chatgpt', p_area:'zutaten-bewertung',
+      p_title:('Stamm-Luecke aus Editor-Riegel: "'+name+'" ('+pid+') - '+art).slice(0,120),
+      p_description:('Gemessen im Produkteditor: Zeile '+pzid+' an Produkt '+pid+' hat keine Note. Luecke: '+art
+        +'. Behebung liegt am Stamm (Bruecke/Beleg/Regel) und damit bei ChatGPT.').slice(0,590),
+      p_acceptance_criteria:'Zeile '+pzid+' zeigt in v_product_ingredient_rating_resolution Note+Regel oder eine benannte Disposition.',
+      p_product_id:pid, p_priority:80});
+    if(r&&r.error) throw r.error;
+    if(btn){ btn.textContent='✓ Work #'+((r&&r.data)||'?')+' angelegt'; }
+  }catch(e){
+    console.error("[Riegel Uebergabe]",e);
+    alert("Übergabe fehlgeschlagen: "+((e&&e.message)||e));
+    if(btn){ btn.disabled=false; btn.textContent='erneut versuchen'; }
+  }
+}
+if(typeof window!=="undefined"){
+  window.feRiegelZwilling=feRiegelZwilling; window.feRiegelUebergeben=feRiegelUebergeben;
 }
