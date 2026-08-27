@@ -1329,15 +1329,39 @@ function _fgOffVorschlagHtml(z){
         +(_grGleich?('<span style="font-size:10.5px"> · '+esc(_gr[0])+'</span>'):'')+':</span>'
         +_bind.map(function(k){ return _kandZeile(k,false); }).join("");
     }
-    /* #312: schon am Produkt - kein Knopf, sondern die Auskunft, warum keiner
-       da ist. Der Vorschlag wird nicht verschwiegen; er ist nur erledigt. */
+    /* ──────────────────────────────────────────────────────────────────────
+       WORK #316 — RALPH: "nibs sind gebunden, kasten steht immer noch auf
+       1 zutat nicht gebunden. für mich ist das vollständig."
+       Er hatte recht, und #312 war nur die halbe Antwort: der Knopf war weg,
+       die Zeile blieb offen. GEMESSEN, warum:
+         cb_zutat_match_id_schnell('Rohe Bio-Kakaonibs')  ->  NULL
+         cb_admin_zutat_offen_vorschlag findet "Kakao-Nibs", Ähnlichkeit 0.615
+       Zwei Matcher, ein Widerspruch. cb_admin_zutat_offen kennt vier Wege,
+       eine Zeile als gebunden zu erkennen - alle vier hängen am scharfen
+       Matcher. Der fünfte fehlte: der Mensch, der sagt "das ist dieselbe".
+       Diese Aussage hat jetzt einen Ort (Zutat_Offen.zutat_id + erledigt_am)
+       und hier ihren Knopf. Danach greift Weg 1 der unveränderten Lesefunktion.
+       ────────────────────────────────────────────────────────────────────── */
     if(_schon.length){
       H+='<span style="display:block;margin-top:4px;color:var(--k-166534,#166534)">'
         +_schon.map(function(k){
           var c=_amProdukt[String(k.entity_id)]||{};
           var nm=String(c.canonical_name||c.sichtbarer_name||k.zutat||"").trim();
-          return '✓ steht bereits als <b>'+esc(nm)+'</b> am Produkt'
+          var pzid=String(c.produkt_zutat_id||"");
+          var txt=String((z&&z.zutat_text)||"").trim();
+          var zeile='✓ steht bereits als <b>'+esc(nm)+'</b> am Produkt'
             +((c.resolved_rating!=null)?('<span style="color:var(--muted)"> · Wert '+esc(String(c.resolved_rating))+'</span>'):'');
+          /* Ohne produkt_zutat_id kein Knopf: der Server braucht sie, und ein
+             Knopf, der beim Drücken scheitert, ist die Falle aus #312. */
+          if(pzid && txt){
+            zeile+=' <button type="button" class="fgOffBtn fgOffPrimaer" '
+              +'onclick="fgOffDieselbeZutat(\''+esc(txt.replace(/'/g,"\\'"))+'\',\''+esc(pzid)+'\',\''
+                +esc(nm.replace(/'/g,"\\'"))+'\',this)" '
+              +'title="Hält fest, dass diese Etikettzeile dieselbe Zutat meint wie '+esc(nm)
+              +'. Die Zeile ist danach erledigt. Es wird nichts neu gebunden und nichts doppelt angelegt.">'
+              +'✓ ist dieselbe – erledigt</button>';
+          }
+          return zeile;
         }).join('<br>')
         +'</span>';
     }
@@ -1353,6 +1377,38 @@ function _fgOffVorschlagHtml(z){
   }
   return H+'</span>';
 }
+/* ────────────────────────────────────────────────────────────────────────────
+   WORK #316 — "IST DIESELBE ZUTAT"
+   Ein Aufruf, ein Serverweg: cb_admin_zutat_offen_dieselbe_zutat_setzen.
+   🔴 Es wird NICHTS gebunden und NICHTS angelegt. Die Zutat hängt bereits am
+   Produkt - festgehalten wird nur, dass die Etikettzeile sie meint.
+   ────────────────────────────────────────────────────────────────────────── */
+async function fgOffDieselbeZutat(zutatText, produktZutatId, name, btn){
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!pid){ _fgOffMsg(btn,"Kein Produkt offen.","var(--k-b91c1c)"); return; }
+  if(!zutatText||!produktZutatId){
+    _fgOffMsg(btn,"Der Zeile fehlt die Zuordnung zur Produktzutat – nicht abschließbar.","var(--k-b45309)");
+    return;
+  }
+  if(!confirm('Die gelesene Zeile\n\n  „'+zutatText+'"\n\nmeint dieselbe Zutat wie\n\n  '
+    +String(name||'die gebundene Zutat')+'\n\nDie Zeile ist danach erledigt. '
+    +'Es wird nichts neu gebunden und nichts doppelt angelegt.\n\n'
+    +'Hinweis: Zurücknehmen geht zurzeit noch nicht über den Editor.')) return;
+  if(btn){ btn.disabled=true; } _fgOffMsg(btn,"speichere …");
+  try{
+    var r=await client.rpc("cb_admin_zutat_offen_dieselbe_zutat_setzen",
+      {p_produkt_id:pid, p_zutat_text:zutatText, p_produkt_zutat_id:produktZutatId});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    if(!d||d.ok!==true) throw new Error((d&&(d.fehler||d.grund))||"Der Server hat den Entscheid nicht bestätigt.");
+    await _fgOffReload();
+  }catch(e){
+    console.error("[#316 dieselbe Zutat]",e);
+    _fgOffMsgHtml(btn,_fgOffServerFehlerHtml(e));
+    if(btn){ btn.disabled=false; }
+  }
+}
+if(typeof window!=="undefined"){ window.fgOffDieselbeZutat=fgOffDieselbeZutat; }
 /* Aufklapper fuer Details und nicht bindbare Kandidaten. Zeigt und verbirgt -
    mehr nicht; kein Zustand, der irgendwo gemerkt werden muesste. */
 function fgOffDetails(el){
