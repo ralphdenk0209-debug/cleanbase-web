@@ -61,6 +61,14 @@
   .pbRiegel.gruen{ background:var(--gruen); border:1px solid var(--gruenR); }
   .pbRiegel.rot{ background:var(--rot); border:1px solid var(--rotR); }
   .pbRiegel ul{ margin:6px 0 0 18px; padding:0; }
+  .pbH2{ font-size:15px; margin:18px 0 6px; }
+  .pbH2n{ font-weight:normal; color:#6b6592; font-size:12px; }
+  .pbZStatus{ border-radius:6px; padding:7px 10px; margin-bottom:8px; font-size:13px;
+              border:1px solid var(--rand); }
+  .pbZStatus.gruen{ background:var(--gruen); border-color:var(--gruenR); }
+  .pbZStatus.gelb{ background:var(--gelb); border-color:var(--gelbR); }
+  .pbZStatus.blau{ background:#e8effc; border-color:#4a72b7; }
+  .pbZQuelle{ font-size:12px; color:#6b6592; margin-bottom:8px; }
   #pbStatus{ margin:8px 0; color:#6b6592; }
   .pbFuss{ margin-top:14px; font-size:11px; color:#6b6592; }
 </style>
@@ -83,6 +91,7 @@ Note, Regel — oder die benannte Lücke. Diese Seite rechnet nichts und schreib
 <div id="pbStatus"></div>
 <div id="pbKopf"></div>
 <div id="pbTabelle" style="overflow-x:auto"></div>
+<div id="pbZusatz" style="overflow-x:auto"></div>
 
 <div class="pbFuss">Datenweg: Etikett → Produkt_Zutaten → Canonical-Stamm →
 Bewertungsregeln → Serverauflösung (v_product_ingredient_rating_resolution) →

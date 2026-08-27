@@ -29,6 +29,8 @@ var PB_ROWS = [];          /* letzte Serverantwort, unverändert */
 var PB_REGELN = {};        /* rule_id -> {titel, wert, inhalt, quelle} */
 var PB_FILTER = "alle";
 var PB_RIEGEL = null;      /* Befundliste des Verifizierungsriegels, [] = alles grün */
+var PB_ZUSATZ = null;      /* Serverantwort cb_app_produkt_zusatzstoffe, unverändert */
+var PB_RIEGEL_N = 6;       /* Zahl der Prüfungen im Riegel */
 var PB_ADMIN_TEXTE = true; /* wird false, wenn Regeltexte mangels Anmeldung fehlen */
 
 function pbEsc(s){
@@ -61,7 +63,9 @@ function pbLuecke(r){
    I2  Keine Note ohne Regel-ID (eine Zahl ohne Beleg zählt nicht).
    I3  Keine Note an einer Zeile ohne Stammeintrag (Fehlerklasse aus Work #285).
    I4  Zweiter Abruf liefert exakt dieselbe Antwort (Lesen ist idempotent).
-   I5  Die Kopfzahlen gehen auf die Gesamtzeilenzahl auf.                     */
+   I5  Die Kopfzahlen gehen auf die Gesamtzeilenzahl auf.
+   I6  Zusatzstoffe: Serverantwort da, Gesamtzustand benannt, jeder Eintrag
+       trägt einen Bewertungszustand (abgewertet/neutral/ungeprüft).         */
 async function pbRiegel(pid, rows){
   var f=[]; /* Befunde */
   rows.forEach(function(r){
@@ -81,16 +85,65 @@ async function pbRiegel(pid, rows){
     if(JSON.stringify(rows)!==JSON.stringify(r2.data||[]))
       f.push("I4 verletzt: zweiter Abruf liefert eine andere Antwort — Lesen ist nicht stabil.");
   }catch(e){ f.push("I4 nicht prüfbar: "+(e.message||e)); }
+  var bekannt=["identified","partial","unresolved","none_declared","no_data"];
+  if(!PB_ZUSATZ || PB_ZUSATZ.fehler)
+    f.push("I6 verletzt: Zusatzstoff-Antwort fehlt"+(PB_ZUSATZ&&PB_ZUSATZ.fehler?(" ("+PB_ZUSATZ.fehler+")"):"")+".");
+  else{
+    if(bekannt.indexOf(PB_ZUSATZ.resolution_status)<0)
+      f.push("I6 verletzt: unbekannter Zusatzstoff-Gesamtzustand \""+PB_ZUSATZ.resolution_status+"\".");
+    (PB_ZUSATZ.items||[]).forEach(function(it){
+      if(["abgewertet","neutral","ungeprueft","ungeprüft"].indexOf(it.evaluation)<0)
+        f.push('I6 verletzt: Zusatzstoff "'+(it.name||it.e_number)+'" ohne Bewertungszustand.');
+    });
+  }
   return f;
 }
 
 function pbRiegelHtml(f){
   if(!f) return "";
   if(!f.length)
-    return '<div class="pbRiegel gruen"><b>✓ Verifizierungsriegel: 5 von 5 Prüfungen bestanden.</b> '
-      +'Jede Zeile hat genau einen Zustand, jede Note einen Regelbeleg, zwei Abrufe liefern dieselbe Antwort.</div>';
+    return '<div class="pbRiegel gruen"><b>✓ Verifizierungsriegel: '+PB_RIEGEL_N+' von '+PB_RIEGEL_N+' Prüfungen bestanden.</b> '
+      +'Jede Zeile hat genau einen Zustand, jede Note einen Regelbeleg, Zusatzstoffe benannt, zwei Abrufe liefern dieselbe Antwort.</div>';
   return '<div class="pbRiegel rot"><b>✗ Verifizierungsriegel: '+f.length+' Befund(e).</b><ul><li>'
     + f.map(pbEsc).join('</li><li>') + '</li></ul></div>';
+}
+
+/* --- Zusatzstoffe: eigene Achse, eigener Serverweg, reine Anzeige ---------- */
+var PB_ZFUNK = { antioxidant:"Antioxidationsmittel", emulsifier:"Emulgator",
+  stabiliser:"Stabilisator", stabilizer:"Stabilisator", preservative:"Konservierungsstoff",
+  colour:"Farbstoff", color:"Farbstoff", sweetener:"Süßstoff", thickener:"Verdickungsmittel",
+  acidity_regulator:"Säureregulator", flavour_enhancer:"Geschmacksverstärker" };
+var PB_ZSTATUS = {
+  identified:   ["gruen","Alle Zusatzstoffe identifiziert"],
+  partial:      ["gelb","Teilweise identifiziert — es bleiben ungeklärte Angaben"],
+  unresolved:   ["gelb","Angaben gelesen, aber nicht aufgelöst"],
+  none_declared:["blau","Laut Quelle: keine Zusatzstoffe deklariert"],
+  no_data:      ["gelb","Keine Angabe zu Zusatzstoffen gelesen"] };
+function pbZusatzHtml(){
+  var z=PB_ZUSATZ;
+  var t='<h2 class="pbH2">Zusatzstoffe <span class="pbH2n">· eigene Achse, aus cb_app_produkt_zusatzstoffe</span></h2>';
+  if(!z || z.fehler)
+    return t+'<div class="pbHinweis">Zusatzstoffe konnten gerade nicht geladen werden'+(z&&z.fehler?': '+pbEsc(z.fehler):'')+'. Kein Rückfall auf alte Felder.</div>';
+  var st=PB_ZSTATUS[z.resolution_status]||["gelb","Unbekannter Zustand: "+z.resolution_status];
+  t+='<div class="pbZStatus '+st[0]+'">'+pbEsc(st[1])+'</div>';
+  if(z.source_text && z.resolution_status!=="none_declared")
+    t+='<div class="pbZQuelle">Quelltext: „'+pbEsc(z.source_text)+'"</div>';
+  var items=z.items||[];
+  if(items.length){
+    t+='<table class="pbTab"><thead><tr><th>E-Nr</th><th>Name</th><th>Funktion</th><th>EU-Status</th><th>Bewertung</th></tr></thead><tbody>';
+    items.forEach(function(it){
+      var ev=it.evaluation||"";
+      var kl = ev==="abgewertet" ? "pbRot" : (ev==="neutral" ? "pbGruen" : "pbGelb");
+      t+='<tr class="'+kl+'"><td>'+pbEsc(it.e_number||"—")+'</td><td>'+pbEsc(it.name||"—")+'</td>'
+        +'<td>'+pbEsc(PB_ZFUNK[it.function]||it.function||"—")+'</td>'
+        +'<td>'+pbEsc(it.eu_status||"—")+'</td><td><b>'+pbEsc(ev||"—")+'</b></td></tr>';
+    });
+    t+='</tbody></table>';
+  }
+  var uk=z.unresolved_candidates||[];
+  if(uk.length)
+    t+='<div class="pbHinweis">Nicht aufgelöste Angaben ('+uk.length+'): '+pbEsc(uk.join(', '))+'</div>';
+  return t;
 }
 
 /* --- Laden ----------------------------------------------------------------- */
@@ -107,6 +160,11 @@ async function pbLaden(){
       pbEl("pbKopf").innerHTML=""; pbEl("pbTabelle").innerHTML=""; return;
     }
     await pbRegelTexte();
+    try{
+      var rz=await pbClient.rpc("cb_app_produkt_zusatzstoffe",{p_produkt_id:pid});
+      if(rz.error) throw rz.error;
+      PB_ZUSATZ=rz.data||null;
+    }catch(ez){ PB_ZUSATZ={fehler:String(ez.message||ez)}; }
     PB_RIEGEL = await pbRiegel(pid, PB_ROWS);
     pbRender();
     pbStatus("");
@@ -115,22 +173,27 @@ async function pbLaden(){
   }
 }
 
-/* Regeltexte je eindeutiger Regel-ID nachschlagen. Braucht Admin-Anmeldung;
-   ohne sie bleibt die Regel-ID stehen und die Seite sagt das ehrlich. */
+/* Regeltexte: EIN Abruf des kompletten aktiven Regelwerks über die vorhandene
+   Riki-Tür (cb_riki_regelwerk_zutatenbewertung_holen), dann Zuordnung über
+   id UND schluessel. Grund für den Wechsel am 27.08.: die Suchfunktion
+   cb_admin_bewertungsregeln_suchen filtert auf reine Zahlenregeln (wert 0-10)
+   und ließ z. B. die Salzregel (wert "7 / 5") aus - auf dem Prüfblatt stand
+   dann die rohe Regel-ID. Braucht Admin-Anmeldung; ohne sie bleibt die
+   Regel-ID stehen und die Seite sagt das ehrlich. */
+var PB_REGELWERK_GELADEN = false;
 async function pbRegelTexte(){
-  var ids={};
-  PB_ROWS.forEach(function(r){ if(r.resolved_rule_id) ids[r.resolved_rule_id]=1; });
-  var liste=Object.keys(ids).filter(function(id){ return !PB_REGELN[id]; });
+  if(PB_REGELWERK_GELADEN) return;
   PB_ADMIN_TEXTE=true;
-  for(var i=0;i<liste.length;i++){
-    try{
-      var r=await pbClient.rpc("cb_admin_bewertungsregeln_suchen",{p_suche:liste[i],p_limit:5});
-      if(r.error) throw r.error;
-      var treffer=(r.data||[]).filter(function(b){
-        return b.id===liste[i] || b.schluessel===liste[i]; })[0] || (r.data||[])[0];
-      if(treffer) PB_REGELN[liste[i]]=treffer;
-    }catch(e){ PB_ADMIN_TEXTE=false; break; }
-  }
+  try{
+    var r=await pbClient.rpc("cb_riki_regelwerk_zutatenbewertung_holen");
+    if(r.error) throw r.error;
+    var regeln=(r.data && r.data.rules) || [];
+    regeln.forEach(function(b){
+      if(b.id) PB_REGELN[b.id]=b;
+      if(b.schluessel && !PB_REGELN[b.schluessel]) PB_REGELN[b.schluessel]=b;
+    });
+    PB_REGELWERK_GELADEN=true;
+  }catch(e){ PB_ADMIN_TEXTE=false; }
 }
 
 /* --- Rendern ---------------------------------------------------------------- */
@@ -264,6 +327,7 @@ function pbRender(){
   t+='</tbody></table>';
   if(!sichtbar) t='<div class="pbHinweis">Der Filter zeigt gerade keine Zeile. Auf „alle" umschalten.</div>';
   pbEl("pbTabelle").innerHTML=t;
+  pbEl("pbZusatz").innerHTML=pbZusatzHtml();
 }
 
 function pbStatus(s){ pbEl("pbStatus").innerHTML=s?pbEsc(s):""; }
