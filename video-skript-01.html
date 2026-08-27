@@ -36,6 +36,9 @@
     padding:10px 8px; font-size:14px; font-weight:700; cursor:pointer; color:var(--grau); line-height:1.25}
   .vBtn small{font-weight:600; font-size:12px; opacity:.75}
   .vBtn.aktiv{border-color:var(--gruen); color:var(--gruen); background:#eaf3e4}
+  .wahl.fassungen{margin-top:8px}
+  .wahl.fassungen .vBtn{flex:0 1 auto; padding:7px 14px; font-size:13px; border-radius:9px}
+  .wahl.fassungen .vBtn.aktiv{border-color:var(--lime); background:#f2f9ec}
   main{max-width:860px; margin:0 auto; padding:18px 20px 80px}
   .hinweis{background:#fdf3e7; border:1px solid #ecd9bd; border-radius:12px;
     padding:12px 14px; font-size:14px; color:#6b4a1f; margin-bottom:18px}
@@ -98,14 +101,8 @@
   </div>
 </div></div>
 
-<div class="wahl" id="videoWahl">
-  <button class="vBtn aktiv" data-v="A" onclick="varianteSetzen('A')">1 · Vorstellung<br><small>Ralph &amp; Sandra</small></button>
-  <button class="vBtn" data-v="B" onclick="varianteSetzen('B')">1 · Vorstellung<br><small>Sandra allein</small></button>
-  <button class="vBtn" data-v="2" onclick="varianteSetzen('2')">2 · Unsere Note<br><small>Serie Teil 1</small></button>
-  <button class="vBtn" data-v="3" onclick="varianteSetzen('3')">3 · Was wir NICHT bewerten<br><small>Serie Teil 2</small></button>
-  <button class="vBtn" data-v="4" onclick="varianteSetzen('4')">4 · Note kaufen?<br><small>Serie-Finale</small></button>
-  <button class="vBtn" data-v="5" onclick="varianteSetzen('5')">5 · Scan-Demo<br><small>Heim-Variante</small></button>
-</div>
+<div class="wahl" id="videoWahl"><!-- Videoknöpfe, aus VIDEOS gebaut --></div>
+<div class="wahl fassungen" id="fassungWahl"><!-- Fassungsknöpfe je Video --></div>
 
 <main>
   <div class="hinweis" id="hinweis"><!-- wird je Video aus HINWEIS_* gefüllt --></div>
@@ -260,15 +257,243 @@ var SKRIPT={
     {wer:"Punkt", text:"Mindestens EINE ehrliche Überraschung drin lassen — auch wenn sie gegen uns läuft"},
     {wer:"Punkt", text:"Zeigen, was die App anzeigt: Note, Zutaten-Ampel, und einmal bewusst ein Grau (wissen wir nicht)"}
    ]},
-  {abschnitt:"Abbinder", zeit:"Gesicht",
+  {abschnitt:"Abschnitt 4 · Abbinder", zeit:"Gesicht",
    kamera:"Zurück aufs Gesicht.",
    zeilen:[{wer:"Schluss", text:"Beim nächsten Einkauf einfach vorher scannen. Transparenz? Root Index."}]}
+ ],
+
+ /* ---- ALTERNATIVE FASSUNGEN (27.08.2026): Alt 1 = persönlich/warm, Alt 2 = frech/pointiert.
+    Gleiche Fakten, anderer Ton. Sandra wählt beim Sichten. ---- */
+ A1:[
+  {abschnitt:"Hook", zeit:"0–10 Sek.",
+   kamera:"Beide im Bild, Küchentisch-Ton, Produkt griffbereit.",
+   zeilen:[
+    {wer:"Sandra", text:"Ich hab früher einfach gekauft, was gesund aussah."},
+    {wer:"Ralph",  text:"Bis wir angefangen haben, die Rückseiten zu lesen.", regie:"Produkt umdrehen"},
+    {wer:"Sandra", text:"Und ehrlich? Wir haben fast nichts verstanden."}
+   ]},
+  {abschnitt:"Was Root Index ist", zeit:"10–35 Sek.",
+   kamera:"Schnitt auf Draufsicht: Hände, Produkt, App. Stimmen aus dem Off — ablesen erlaubt.",
+   zeilen:[
+    {wer:"Ralph",  text:"Also haben wir eine App gebaut, die das für uns übersetzt. Root Index."},
+    {wer:"Ralph",  text:"Scannen — und du siehst, was wirklich drin ist. Als klare Note.", regie:"Scan zeigen"},
+    {wer:"Sandra", text:"Und wenn wir was nicht sicher wissen, steht da nichts. Lieber eine Lücke als eine Lüge."}
+   ]},
+  {abschnitt:"Abbinder", zeit:"35–55 Sek.",
+   kamera:"Zurück auf beide Gesichter. Einblendung: Logo + @root_index.de.",
+   zeilen:[
+    {wer:"Sandra", text:"Die Vorderseite verkauft."},
+    {wer:"Ralph",  text:"Wir lesen die Rückseite."},
+    {wer:"Beide",  text:"Transparenz? Root Index."}
+   ]}
+ ],
+ A2:[
+  {abschnitt:"Hook", zeit:"0–12 Sek.",
+   kamera:"Beide im Bild, Produkt-Vorderseite in die Linse, schneller Ton.",
+   zeilen:[
+    {wer:"Sandra", text:"Wetten, dass die Vorderseite von dem hier lügt?", regie:"Produkt zeigen"},
+    {wer:"Ralph",  text:"Nicht direkt lügt. Sie erzählt nur… sehr selektiv.", regie:"umdrehen"},
+    {wer:"Sandra", text:"Zutatenliste. Acht Wörter, die keiner aussprechen kann."},
+    {wer:"Ralph",  text:"Genau dafür gibt's jetzt uns."}
+   ]},
+  {abschnitt:"Was Root Index ist", zeit:"12–35 Sek.",
+   kamera:"Schnitt auf Draufsicht: Hände, Produkt, App. Off — ablesen erlaubt.",
+   zeilen:[
+    {wer:"Ralph",  text:"Root Index scannt das Etikett und macht daraus eine Note. Ohne Werbe-Deutsch.", regie:"Scan zeigen"},
+    {wer:"Sandra", text:"Und die Note kann sich keiner kaufen. Auch nicht mit sehr viel Werbebudget."}
+   ]},
+  {abschnitt:"Abbinder", zeit:"35–55 Sek.",
+   kamera:"Zurück auf beide Gesichter. Einblendung: Logo + @root_index.de.",
+   zeilen:[
+    {wer:"Sandra", text:"Die Vorderseite verkauft."},
+    {wer:"Ralph",  text:"Wir lesen die Rückseite."},
+    {wer:"Beide",  text:"Transparenz? Root Index."}
+   ]}
+ ],
+ "2a":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Ruhig, direkt in die Kamera.",
+   zeilen:[{wer:"Hook", text:"Als wir die erste Note vergeben haben, hab ich gefragt: Und wer kontrolliert eigentlich uns?"}]},
+  {abschnitt:"Stichworte", zeit:"Off, Draufsicht",
+   kamera:"Draufsicht: Kochschinken (Marke abkleben), App mit echtem Katalog-Score.",
+   zeilen:[
+    {wer:"Punkt", text:"Deshalb ist die Rechnung öffentlich"},
+    {wer:"Punkt", text:"100 Punkte, vier Töpfe: Zutaten 30, Nährwerte 40, Zusatzstoffe 15, Verarbeitung 15"},
+    {wer:"Punkt", text:"Nichts zählt doppelt — der Schinken kriegt Punkte fürs Fleisch UND den Abzug fürs Pökelsalz, jeweils genau einmal"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Eine Note, die man nicht nachrechnen kann, ist keine Note. Sie ist eine Meinung mit Zahl davor. Transparenz? Root Index."}]}
+ ],
+ "2b":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Frech, kleines Grinsen.",
+   zeilen:[{wer:"Hook", text:"Unsere App gibt deinem Lieblingsprodukt vielleicht eine schlechte Note. Hier steht, wie du uns dabei kontrollierst."}]},
+  {abschnitt:"Stichworte", zeit:"Off, Draufsicht",
+   kamera:"Draufsicht: Kochschinken (Marke abkleben), App mit echtem Katalog-Score.",
+   zeilen:[
+    {wer:"Punkt", text:"Vier Töpfe, 100 Punkte — Zutaten, Nährwerte, Zusatzstoffe, Verarbeitung"},
+    {wer:"Punkt", text:"Jede Sünde wird genau einmal bestraft, nicht dreimal"},
+    {wer:"Punkt", text:"Kochschinken: Fleisch top, Pökelsalz kassiert — ergibt ehrlich Mittel, nicht dramatisch schlecht"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Rechnung steht offen. Nachrechnen ausdrücklich erwünscht. Transparenz? Root Index."}]}
+ ],
+ "3a":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Honigglas in der Hand, ruhig.",
+   zeilen:[{wer:"Hook", text:"Das hier ist Honig. Fast pur Zucker. Unsere App findet ihn trotzdem okay — und das ist kein Fehler."}]},
+  {abschnitt:"Stichworte", zeit:"Off, Draufsicht",
+   kamera:"Draufsicht: Honig, App, Produkt mit ‚Kokosblütenzucker' vorn (Marke abkleben).",
+   zeilen:[
+    {wer:"Punkt", text:"Honig ist kaum verarbeitet, das zählt. Seine Zuckerlast zahlt er bei den Nährwerten — einmal, nicht doppelt"},
+    {wer:"Punkt", text:"Bio-Zucker bleibt bei uns Zucker — Bio sagt was über den Acker, nicht über dein Blut"},
+    {wer:"Punkt", text:"Kokosblütenzucker klingt wie Urlaub, ist aber Zucker"},
+    {wer:"Punkt", text:"Und wo wir nichts Belegtes wissen, steht Grau. Grau heißt: wir wissen es nicht"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Eine App, die alles zu wissen behauptet, lügt irgendwo. Wir zeigen dir lieber die Lücken. Transparenz? Root Index."}]}
+ ],
+ "3b":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Drei Finger hochhalten.",
+   zeilen:[{wer:"Hook", text:"Drei Dinge, für die es bei uns KEINE Extrapunkte gibt. Nummer zwei ärgert die Werbebranche."}]},
+  {abschnitt:"Stichworte", zeit:"Off, Draufsicht",
+   kamera:"Draufsicht: Produkte passend zu den drei Punkten (Marken abkleben).",
+   zeilen:[
+    {wer:"Punkt", text:"Erstens: Bio. Sagt was über den Anbau, nichts über die Verarbeitung — Bio-Zucker ist Zucker"},
+    {wer:"Punkt", text:"Zweitens: schöne Namen. Agavendicksaft, Reissirup, Kokosblütenzucker — alles Zucker im Abendkleid"},
+    {wer:"Punkt", text:"Drittens: ungeprüft. Was keine belegte Bewertung hat, wird bei uns nicht heimlich grün — es bleibt grau"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Wir bewerten, was belegt ist. Den Rest sagen wir dir ehrlich. Transparenz? Root Index."}]}
+ ],
+ "4a":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Ruhig, direkt.",
+   zeilen:[{wer:"Hook", text:"Die häufigste Frage an uns: Und wenn ein Hersteller euch Geld bietet?"}]},
+  {abschnitt:"Stichworte", zeit:"Off, Draufsicht",
+   kamera:"Draufsicht: zwei Zuckertüten, gleiche Note in der App.",
+   zeilen:[
+    {wer:"Punkt", text:"Dann ändert sich: nichts. Keine Marken-Boni, kein Preisschild an der Note"},
+    {wer:"Punkt", text:"Gleicher Stoff, gleiche Punkte — Rohrohrzucker und Saccharose sind dieselbe Zahl"},
+    {wer:"Punkt", text:"Falls je Kauf-Links kommen: nach der Bewertung, gekennzeichnet, ohne Einfluss"},
+    {wer:"Punkt", text:"Die Regeln stehen öffentlich, mit Quellen"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Wir haben diese App gebaut, weil wir niemandem mehr glauben wollten. Also verdient ihr auch von uns Beweise statt Versprechen. Transparenz? Root Index."}]}
+ ],
+ "4b":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Kunstpause nach ‚Bereit?' aushalten.",
+   zeilen:[{wer:"Hook", text:"Preisliste für eine bessere Note bei Root Index. Bereit? … Es gibt keine."}]},
+  {abschnitt:"Stichworte", zeit:"Off, Draufsicht",
+   kamera:"Draufsicht: zwei Zuckertüten, gleiche Note in der App.",
+   zeilen:[
+    {wer:"Punkt", text:"Kein Hersteller kann kaufen, was nicht verkäuflich ist"},
+    {wer:"Punkt", text:"Das Etikett kann den Zucker nennen wie es will — die Punktzahl bleibt dieselbe"},
+    {wer:"Punkt", text:"Werbebudget ändert Reichweite, nicht Rechenwege"},
+    {wer:"Punkt", text:"Alles nachlesbar, mit Quellen — die Rechnung liegt offen auf dem Tisch"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Vertrauen vor Umsatz. Anders herum wäre die App keinen Download wert. Transparenz? Root Index."}]}
+ ],
+ "5a":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Einkaufstaschen auf dem Tisch, ehrlich-entspannt.",
+   zeilen:[{wer:"Hook", text:"Das ist unser echter Wocheneinkauf. Ungefiltert. Mal sehen, was die eigene App dazu sagt."}]},
+  {abschnitt:"Stichworte", zeit:"Off, Einkaufskorb-Perspektive",
+   kamera:"⚠ HEIM-Variante, NICHT im Laden. Marken sichtbar = RECHT-4 → Eigenmarken oder abkleben.",
+   zeilen:[
+    {wer:"Punkt", text:"Produkt für Produkt scannen, Note stehen lassen, erst dann reagieren"},
+    {wer:"Punkt", text:"Die Überraschung bleibt drin — auch wenn sie peinlich ist"},
+    {wer:"Punkt", text:"Einmal bewusst ein Grau zeigen: das heißt wir wissen es nicht — und das ist Absicht"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Wenn unsere eigene Küche den Test nicht besteht, sagen wir's euch. Genau deshalb könnt ihr dem Rest glauben. Transparenz? Root Index."}]}
+ ],
+ "5b":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Augenzwinkern, Handy schon in der Hand.",
+   zeilen:[{wer:"Hook", text:"Ich lasse jetzt meine eigene App meinen Einkauf zerlegen. Was kann schon schiefgehen."}]},
+  {abschnitt:"Stichworte", zeit:"Off, Einkaufskorb-Perspektive",
+   kamera:"⚠ HEIM-Variante, NICHT im Laden. Marken sichtbar = RECHT-4 → Eigenmarken oder abkleben.",
+   zeilen:[
+    {wer:"Punkt", text:"Scannen, Note zeigen, Gesicht dazu — in der Reihenfolge"},
+    {wer:"Punkt", text:"Was gut abschneidet, feiern wir kurz. Was schlecht abschneidet, fliegt nicht aus dem Video"},
+    {wer:"Punkt", text:"Und wenn ein Produkt Grau zeigt: kein Absturz, sondern Ehrlichkeit — keine belegte Aussage, keine erfundene Zahl"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Zurück aufs Gesicht.",
+   zeilen:[{wer:"Schluss", text:"Dein Einkauf traut sich das auch. Einfach vorher scannen. Transparenz? Root Index."}]}
+ ],
+
+ /* ---- Video 6: Sandra stellt sich vor (Stufe 3 — NUR mit Sandras ausdrücklichem Ja).
+    Die ‚Dein…'-Punkte sind FRAGEN an Sandra, keine vorgeschriebenen Antworten:
+    ihre echte Geschichte wird nicht erfunden, sie erzählt nur, was sie mag.
+    ⚠ Keine Gesundheitsversprechen — nur ‚so fühlt es sich für MICH an'. ---- */
+ "6":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Sandra allein, ruhig, Augenhöhe. Stufe-3-Video: nur mit ihrem ausdrücklichen Ja.",
+   zeilen:[{wer:"Hook", text:"Ich bin Sandra. Die Hälfte von Root Index — bisher die Hälfte, die ihr nur hört."}]},
+  {abschnitt:"Stichworte", zeit:"frei sprechen",
+   kamera:"Gesicht oder Hände — was sich gut anfühlt. Die Punkte sind FRAGEN an Sandra, keine Texte.",
+   zeilen:[
+    {wer:"Frage", text:"Dein echter Auslöser, ein Satz: der Moment, ab dem dir Ernährung wichtig wurde — nur was du erzählen magst"},
+    {wer:"Frage", text:"Was bewusstes Essen bei dir verändert hat — als Gefühl, nicht als Medizin: Energie, Schlaf, Wohlfühlen"},
+    {wer:"Frage", text:"Sport: was du wirklich machst und warum es bleibt — ehrlich, auch wenn es ‚nur' Spazieren ist"},
+    {wer:"Frage", text:"Warum die App zuerst für euch selbst war — und erst dann für alle"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Ruhig schließen, kein Verkaufston.",
+   zeilen:[{wer:"Schluss", text:"Keine Vorbilder, keine Verbote. Nur wissen, was man isst. Transparenz? Root Index."}]}
+ ],
+ "6a":[
+  {abschnitt:"Hook", zeit:"Gesicht",
+   kamera:"Locker, kleines Lachen erlaubt. Stufe-3-Video: nur mit Sandras ausdrücklichem Ja.",
+   zeilen:[{wer:"Hook", text:"Drei Dinge über mich: Ich lese Rückseiten. Ich mache Sport nur mit Musik. Und ich wollte nie vor eine Kamera."}]},
+  {abschnitt:"Stichworte", zeit:"frei sprechen",
+   kamera:"Die Punkte sind FRAGEN an Sandra, keine Texte — sie antwortet mit ihrer echten Geschichte.",
+   zeilen:[
+    {wer:"Frage", text:"Warum du trotzdem hier bist — dein Satz, nicht unserer"},
+    {wer:"Frage", text:"Ernährung heißt für dich nicht Verzicht, sondern wissen, was drin ist — dein Beispiel aus dem Alltag"},
+    {wer:"Frage", text:"Sport: dein ehrliches Level — Dranbleiben schlägt Heldentum"},
+    {wer:"Frage", text:"Und ja: die App nutzt ihr selbst, jeden Einkauf — dein Beleg dafür"}
+   ]},
+  {abschnitt:"Abbinder", zeit:"Gesicht",
+   kamera:"Direkt in die Linse.",
+   zeilen:[{wer:"Schluss", text:"Ich bin nicht hier, um perfekt zu sein. Nur ehrlich. Transparenz? Root Index."}]}
  ]
 };
 
 var VARIANTE='A';
-/* Vorgabedauer je Video — Reel-Format 30–60 s. */
-var DAUER_VORGABE={A:50,B:40,"2":50,"3":55,"4":50,"5":55};
+/* Videos und ihre Fassungen. Jede Fassung ist ein eigener Schlüssel in SKRIPT —
+   Prompter, Dauer und Textänderungen laufen unverändert über diesen Schlüssel. */
+var VIDEOS=[
+ {id:'1', titel:'1 · Vorstellung', unter:'Wortskript', fass:[
+   {k:'A', l:'Original · beide'},{k:'B', l:'Original · Sandra'},
+   {k:'A1', l:'Persönlich · beide'},{k:'A2', l:'Frech · beide'}]},
+ {id:'2', titel:'2 · Unsere Note', unter:'Serie Teil 1', fass:[
+   {k:'2', l:'Original'},{k:'2a', l:'Persönlich'},{k:'2b', l:'Frech'}]},
+ {id:'3', titel:'3 · Was wir NICHT bewerten', unter:'Serie Teil 2', fass:[
+   {k:'3', l:'Original'},{k:'3a', l:'Persönlich'},{k:'3b', l:'Frech'}]},
+ {id:'4', titel:'4 · Note kaufen?', unter:'Serie-Finale', fass:[
+   {k:'4', l:'Original'},{k:'4a', l:'Persönlich'},{k:'4b', l:'Frech'}]},
+ {id:'5', titel:'5 · Scan-Demo', unter:'Heim-Variante', fass:[
+   {k:'5', l:'Original'},{k:'5a', l:'Persönlich'},{k:'5b', l:'Frech'}]},
+ {id:'6', titel:'6 · Sandra stellt sich vor', unter:'Ernährung & Sport', fass:[
+   {k:'6', l:'Ruhig'},{k:'6a', l:'Locker'}]}
+];
+function videoVon(k){ return VIDEOS.find(function(v){ return v.fass.some(function(f){ return f.k===k; }); }); }
+/* Vorgabedauer je Fassung — Reel-Format 30–60 s. */
+var DAUER_VORGABE={A:50,B:40,A1:55,A2:55,"2":50,"2a":50,"2b":50,"3":55,"3a":55,"3b":55,
+ "4":50,"4a":50,"4b":50,"5":55,"5a":55,"5b":55,"6":50,"6a":50};
 /* Hinweiskasten je Video: 1 = Skript-Ausnahme, 2–5 = Stichwort-Karten. */
 var HINWEIS_SKRIPT='⚠ <b>Ausnahme von Regel 2 („kein Skript")</b> — nur für dieses erste Video, zum Üben. '
  +'Kurze Zeilen, laut vorlesen, in eigene Worte kippen lassen. Versprecher bleiben drin. '
@@ -336,13 +561,30 @@ function pTempoRechnen(){
   P.tempo = s>0 ? s/dauerLesen() : 36;
 }
 
+function wahlBauen(){
+  var vid=videoVon(VARIANTE);
+  var h='';
+  VIDEOS.forEach(function(v){
+    h+='<button class="vBtn'+(v===vid?' aktiv':'')+'" onclick="videoSetzen(\''+v.id+'\')">'
+      +esc(v.titel)+'<br><small>'+esc(v.unter)+'</small></button>';
+  });
+  document.getElementById('videoWahl').innerHTML=h;
+  h='';
+  vid.fass.forEach(function(f){
+    h+='<button class="vBtn'+(f.k===VARIANTE?' aktiv':'')+'" onclick="varianteSetzen(\''+f.k+'\')">'
+      +esc(f.l)+'</button>';
+  });
+  document.getElementById('fassungWahl').innerHTML=h;
+}
+function videoSetzen(id){
+  var v=VIDEOS.find(function(x){ return x.id===id; });
+  varianteSetzen(v.fass[0].k);
+}
 function varianteSetzen(v){
   VARIANTE=v;
-  document.querySelectorAll('#videoWahl .vBtn').forEach(function(b){
-    b.classList.toggle('aktiv', b.dataset.v===v);
-  });
+  wahlBauen();
   var hin=document.getElementById('hinweis');
-  if(hin) hin.innerHTML=(v==='A'||v==='B')?HINWEIS_SKRIPT:HINWEIS_KARTE;
+  if(hin) hin.innerHTML=(videoVon(v).id==='1')?HINWEIS_SKRIPT:HINWEIS_KARTE;
   leseBauen(); pBauen(); pReset();
   var inp=document.getElementById('pDauer'); if(inp) inp.value=dauerLesen();
 }
