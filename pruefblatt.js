@@ -19,7 +19,7 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-3";
+var PB_BUILD = "PB-2026-08-27-4";
 
 var PB_URL = "https://haurbpfkfaaehorirzee.supabase.co";
 var PB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
@@ -34,7 +34,10 @@ var PB_REGELN = {};        /* rule_id -> {titel, wert, inhalt, quelle} */
 var PB_FILTER = "alle";
 var PB_RIEGEL = null;      /* Befundliste des Verifizierungsriegels, [] = alles grün */
 var PB_ZUSATZ = null;      /* Serverantwort cb_app_produkt_zusatzstoffe, unverändert */
-var PB_RIEGEL_N = 6;       /* Zahl der Prüfungen im Riegel */
+var PB_WIRK = null;        /* cb_produkt_wirkstoff_liste_v2 */
+var PB_WIRKH = {};         /* cb_produkt_wirkstoff_herkunft, je Nährstoff */
+var PB_MIKRO = null;       /* cb_produkt_mikro_liste_v2 */
+var PB_RIEGEL_N = 7;       /* Zahl der Prüfungen im Riegel */
 var PB_ADMIN_TEXTE = true; /* wird false, wenn Regeltexte mangels Anmeldung fehlen */
 
 function pbEsc(s){
@@ -100,6 +103,22 @@ async function pbRiegel(pid, rows){
         f.push('I6 verletzt: Zusatzstoff "'+(it.name||it.e_number)+'" ohne Bewertungszustand.');
     });
   }
+  /* I7: Wirkstoff-/Mikroachse — Abrufe antworten, jede Zeile hat Menge und
+     Einheit, jede Herkunft ist ein benannter Zustand. Leere Liste = benannter
+     Zustand, kein Fehler. */
+  if(!PB_WIRK || PB_WIRK.fehler)
+    f.push("I7 verletzt: Wirkstoff-Antwort fehlt"+(PB_WIRK&&PB_WIRK.fehler?(" ("+PB_WIRK.fehler+")"):"")+".");
+  else PB_WIRK.forEach(function(w){
+    if(w.menge==null || !w.einheit) f.push('I7 verletzt: Wirkstoff "'+w.naehrstoff+'" ohne Menge oder Einheit.');
+    var h=PB_WIRKH[w.naehrstoff];
+    if(h && ["zugesetzt","aus_matrix","unbekannt"].indexOf(h.herkunft)<0)
+      f.push('I7 verletzt: Wirkstoff "'+w.naehrstoff+'" mit unbekanntem Herkunftszustand "'+h.herkunft+'".');
+  });
+  if(!PB_MIKRO || PB_MIKRO.fehler)
+    f.push("I7 verletzt: Mikronährstoff-Antwort fehlt"+(PB_MIKRO&&PB_MIKRO.fehler?(" ("+PB_MIKRO.fehler+")"):"")+".");
+  else PB_MIKRO.forEach(function(m){
+    if(m.menge_100g==null || !m.einheit) f.push('I7 verletzt: Mikronährstoff "'+m.naehrstoff+'" ohne Menge oder Einheit.');
+  });
   return f;
 }
 
@@ -150,6 +169,44 @@ function pbZusatzHtml(){
   return t;
 }
 
+/* --- Wirkstoffe & Mikronährstoffe: dritte Achse, reine Anzeige ------------- */
+var PB_HERKUNFT = {
+  zugesetzt:  ["gelbT","⊕ zugesetzt (isolierte Zutat)"],
+  aus_matrix: ["gruenT","aus den Lebensmittelzutaten"],
+  unbekannt:  ["gelbT","? nicht bestimmbar"] };
+function pbWirkHtml(){
+  var t='<h2 class="pbH2">Wirkstoffe <span class="pbH2n">· deklarierte Mengen aus cb_produkt_wirkstoff_liste_v2, Herkunft aus cb_produkt_wirkstoff_herkunft</span></h2>';
+  if(!PB_WIRK || PB_WIRK.fehler)
+    return t+'<div class="pbHinweis">Wirkstoffe konnten gerade nicht geladen werden'+(PB_WIRK&&PB_WIRK.fehler?': '+pbEsc(PB_WIRK.fehler):'')+'.</div>';
+  if(!PB_WIRK.length)
+    t+='<div class="pbZStatus blau">Keine Wirkstoffe deklariert.</div>';
+  else{
+    t+='<table class="pbTab"><thead><tr><th>Nährstoff</th><th class="r">Menge je Portion/100</th><th class="r">% NRV</th><th>Herkunft</th><th>Beleg-Zutat</th></tr></thead><tbody>';
+    PB_WIRK.forEach(function(w){
+      var h=PB_WIRKH[w.naehrstoff];
+      var hk=h?(PB_HERKUNFT[h.herkunft]||["gelbT",h.herkunft]):["","—"];
+      t+='<tr><td>'+pbEsc(w.naehrstoff)+'</td>'
+        +'<td class="r">'+pbEsc((w.operator?w.operator+' ':'')+(w.menge!=null?w.menge:'—'))+' '+pbEsc(w.einheit||'')+'</td>'
+        +'<td class="r">'+(w.prozent_nrv!=null?pbEsc(w.prozent_nrv)+' %':'—')+'</td>'
+        +'<td><span class="'+hk[0]+'">'+pbEsc(hk[1])+'</span></td>'
+        +'<td>'+pbEsc(h&&h.beleg_zutat?h.beleg_zutat:'')+'</td></tr>';
+    });
+    t+='</tbody></table>';
+  }
+  t+='<h2 class="pbH2">Mikronährstoffe <span class="pbH2n">· aus cb_produkt_mikro_liste_v2</span></h2>';
+  if(!PB_MIKRO || PB_MIKRO.fehler)
+    return t+'<div class="pbHinweis">Mikronährstoffe konnten gerade nicht geladen werden'+(PB_MIKRO&&PB_MIKRO.fehler?': '+pbEsc(PB_MIKRO.fehler):'')+'.</div>';
+  if(!PB_MIKRO.length)
+    return t+'<div class="pbZStatus blau">Keine Mikronährstoff-Einträge — bei Supplements läuft die Deklaration über die Wirkstoffliste oben.</div>';
+  t+='<table class="pbTab"><thead><tr><th>Nährstoff</th><th class="r">Menge /100</th><th>Form</th><th>Herkunft</th><th>Quelle</th></tr></thead><tbody>';
+  PB_MIKRO.forEach(function(m){
+    t+='<tr><td>'+pbEsc(m.anzeige||m.naehrstoff)+'</td>'
+      +'<td class="r">'+pbEsc((m.operator?m.operator+' ':'')+(m.menge_100g!=null?m.menge_100g:'—'))+' '+pbEsc(m.einheit||'')+'</td>'
+      +'<td>'+pbEsc(m.form||'—')+'</td><td>'+pbEsc(m.herkunft||'—')+'</td><td>'+pbEsc(m.quelle||'—')+'</td></tr>';
+  });
+  return t+'</tbody></table>';
+}
+
 /* --- Laden ----------------------------------------------------------------- */
 async function pbLaden(){
   var pid=(pbEl("pbPid").value||"").trim();
@@ -169,6 +226,19 @@ async function pbLaden(){
       if(rz.error) throw rz.error;
       PB_ZUSATZ=rz.data||null;
     }catch(ez){ PB_ZUSATZ={fehler:String(ez.message||ez)}; }
+    try{
+      var rw=await pbClient.rpc("cb_produkt_wirkstoff_liste_v2",{p_id:pid});
+      if(rw.error) throw rw.error;
+      PB_WIRK=rw.data||[];
+      PB_WIRKH={};
+      var rh=await pbClient.rpc("cb_produkt_wirkstoff_herkunft",{p_id:pid});
+      if(!rh.error) (rh.data||[]).forEach(function(h){ PB_WIRKH[h.naehrstoff]=h; });
+    }catch(ew){ PB_WIRK={fehler:String(ew.message||ew)}; }
+    try{
+      var rm=await pbClient.rpc("cb_produkt_mikro_liste_v2",{p_id:pid});
+      if(rm.error) throw rm.error;
+      PB_MIKRO=rm.data||[];
+    }catch(em){ PB_MIKRO={fehler:String(em.message||em)}; }
     PB_RIEGEL = await pbRiegel(pid, PB_ROWS);
     pbRender();
     pbStatus("");
@@ -332,6 +402,7 @@ function pbRender(){
   if(!sichtbar) t='<div class="pbHinweis">Der Filter zeigt gerade keine Zeile. Auf „alle" umschalten.</div>';
   pbEl("pbTabelle").innerHTML=t;
   pbEl("pbZusatz").innerHTML=pbZusatzHtml();
+  pbEl("pbWirk").innerHTML=pbWirkHtml();
 }
 
 function pbStatus(s){ pbEl("pbStatus").innerHTML=s?pbEsc(s):""; }
