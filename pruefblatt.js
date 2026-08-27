@@ -19,7 +19,7 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-4";
+var PB_BUILD = "PB-2026-08-27-6";
 
 var PB_URL = "https://haurbpfkfaaehorirzee.supabase.co";
 var PB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
@@ -37,7 +37,8 @@ var PB_ZUSATZ = null;      /* Serverantwort cb_app_produkt_zusatzstoffe, unverä
 var PB_WIRK = null;        /* cb_produkt_wirkstoff_liste_v2 */
 var PB_WIRKH = {};         /* cb_produkt_wirkstoff_herkunft, je Nährstoff */
 var PB_MIKRO = null;       /* cb_produkt_mikro_liste_v2 */
-var PB_RIEGEL_N = 7;       /* Zahl der Prüfungen im Riegel */
+var PB_KOPF = null;        /* cb_produkt_edit_get: Kopf, Nährwerte, Score-Achsen */
+var PB_RIEGEL_N = 9;       /* Zahl der Prüfungen im Riegel */
 var PB_ADMIN_TEXTE = true; /* wird false, wenn Regeltexte mangels Anmeldung fehlen */
 
 function pbEsc(s){
@@ -119,6 +120,26 @@ async function pbRiegel(pid, rows){
   else PB_MIKRO.forEach(function(m){
     if(m.menge_100g==null || !m.einheit) f.push('I7 verletzt: Mikronährstoff "'+m.naehrstoff+'" ohne Menge oder Einheit.');
   });
+  /* I8: Dubletten — zwei Zutatenzeilen desselben Produkts zeigen auf DENSELBEN
+     Stammeintrag. Der Score gewichtet je Zeile; Zwillinge zählen also doppelt.
+     Nur der Server-Fakt (gleiche entity_id) zählt; Namensähnlichkeit ohne
+     gleiche Identität wird bewusst NICHT geraten. */
+  var proEntity={};
+  rows.forEach(function(r){
+    if(!r.canonical_entity_id) return;
+    (proEntity[r.canonical_entity_id]=proEntity[r.canonical_entity_id]||[]).push(r.sichtbarer_name);
+  });
+  Object.keys(proEntity).forEach(function(eid){
+    var namen=proEntity[eid];
+    if(namen.length>1)
+      f.push('I8 verletzt: '+namen.length+' Zeilen zeigen auf denselben Stammeintrag: '+namen.join(' + ')+'. Zwillinge verfälschen die Gewichtung.');
+  });
+  /* I9: Kopf & Nährwerte — Antwort vorhanden, Produktname nicht leer. Leere
+     Nährwerte sind ein benannter Zustand (Anzeige sagt es), kein Befund. */
+  if(!PB_KOPF || PB_KOPF.fehler)
+    f.push("I9 verletzt: Kopf/Nährwerte-Antwort fehlt"+(PB_KOPF&&PB_KOPF.fehler?(" ("+PB_KOPF.fehler+")"):"")+".");
+  else if(!PB_KOPF.name)
+    f.push("I9 verletzt: Produkt ohne Namen im Kopf.");
   return f;
 }
 
@@ -167,6 +188,59 @@ function pbZusatzHtml(){
   if(uk.length)
     t+='<div class="pbHinweis">Nicht aufgelöste Angaben ('+uk.length+'): '+pbEsc(uk.join(', '))+'</div>';
   return t;
+}
+
+/* --- Kopf & Quelle + Nährwerte: aus cb_produkt_edit_get, reine Anzeige ----- */
+function pbProduktKopfHtml(){
+  var k=PB_KOPF;
+  if(!k || k.fehler)
+    return '<div class="pbHinweis">Kopf und Nährwerte brauchen eine Admin-Anmeldung (über admin.html anmelden, dann neu laden)'+(k&&k.fehler?' — Serverantwort: '+pbEsc(k.fehler):'')+'.</div>';
+  var t='<div class="pbProdukt">';
+  t+='<div class="pbProduktName">'+pbEsc(k.name||'(ohne Name)')+'</div>';
+  var teile=[];
+  if(k.marke) teile.push(pbEsc(k.marke));
+  if(k.kategorie) teile.push(pbEsc(k.kategorie)+(k.unterkategorie?' · '+pbEsc(k.unterkategorie):''));
+  if(k.ean) teile.push('EAN '+pbEsc(k.ean)+(k.ean_ampel?' ('+pbEsc(k.ean_ampel)+')':''));
+  teile.push(k.bio===true?'Bio':(k.bio===false?'kein Bio':'Bio ungeprüft'));
+  if(k.status) teile.push(pbEsc(k.status));
+  t+='<div class="pbProduktZeile">'+teile.join(' · ')+'</div>';
+  if(k.beleg||k.produktlink)
+    t+='<div class="pbZQuelle">Quelle: '+pbEsc(k.beleg||'')+(k.produktlink?' · '+pbEsc(k.produktlink):'')+'</div>';
+  /* Score-Achsen — dieselben Zahlen, die der Server für den Root Index nutzt */
+  t+='<div class="pbKacheln">'
+    +'<div class="pbKachel'+(k.clean_score!=null?' gruen':'')+'"><b>'+(k.clean_score!=null?pbEsc(k.clean_score):'—')+'</b>Root Index (Server)'+(k.vollstaendig?'':' · unvollständig')+'</div>'
+    +'<div class="pbKachel"><b>'+(k.p_zutaten!=null?pbEsc(k.p_zutaten):'—')+'</b>Achse Zutaten</div>'
+    +'<div class="pbKachel"><b>'+(k.p_naehrwert!=null?pbEsc(k.p_naehrwert):'—')+'</b>Achse Nährwert</div>'
+    +'<div class="pbKachel"><b>'+(k.p_zusatzstoffe!=null?pbEsc(k.p_zusatzstoffe):'—')+'</b>Achse Zusatzstoffe</div>'
+    +'<div class="pbKachel"><b>'+(k.p_nova!=null?pbEsc(k.p_nova):'—')+'</b>Achse Verarbeitung</div>'
+    +'</div></div>';
+  return t;
+}
+
+var PB_NW_FELDER=[
+  ["kcal","Energie","kcal"],["fett","Fett","g"],["ges_fett","· davon gesättigt","g"],
+  ["einfach_unges","· einfach ungesättigt","g"],["mehrfach_unges","· mehrfach ungesättigt","g"],
+  ["transfette","· Transfette","g"],["kh","Kohlenhydrate","g"],["zucker","· davon Zucker","g"],
+  ["polyole","· Polyole","g"],["ballaststoffe","Ballaststoffe","g"],["protein","Eiweiß","g"],["salz","Salz","g"]];
+function pbNaehrwertHtml(){
+  var k=PB_KOPF;
+  var t='<h2 class="pbH2">Nährwerte <span class="pbH2n">· aus cb_produkt_edit_get, je '+pbEsc((k&&k.basis)||'100g')+'</span></h2>';
+  if(!k || k.fehler) return '';
+  var nw=k.naehrwerte||{};
+  var ops=nw.operatoren||{};
+  var alleLeer=PB_NW_FELDER.every(function(f){ return nw[f[0]]==null; });
+  if(alleLeer)
+    return t+'<div class="pbZStatus gelb">Keine Nährwerte erfasst — die Nährwert-Achse des Scores bleibt dadurch leer.</div>';
+  t+='<table class="pbTab pbNwTab"><tbody>';
+  PB_NW_FELDER.forEach(function(f){
+    var wert=nw[f[0]];
+    var leer=(wert==null);
+    if(leer && f[0]==='ballaststoffe' && nw.ballast_nichtdekl)
+      { t+='<tr><td>'+f[1]+'</td><td class="r"><i>nicht deklariert (bestätigt)</i></td></tr>'; return; }
+    t+='<tr'+(leer?' class="pbNwLeer"':'')+'><td>'+f[1]+'</td><td class="r">'
+      +(leer?'—':pbEsc((ops[f[0]]?ops[f[0]]+' ':'')+wert)+' '+f[2])+'</td></tr>';
+  });
+  return t+'</tbody></table>';
 }
 
 /* --- Wirkstoffe & Mikronährstoffe: dritte Achse, reine Anzeige ------------- */
@@ -221,6 +295,11 @@ async function pbLaden(){
       pbEl("pbKopf").innerHTML=""; pbEl("pbTabelle").innerHTML=""; return;
     }
     await pbRegelTexte();
+    try{
+      var rk=await pbClient.rpc("cb_produkt_edit_get",{p_id:pid});
+      if(rk.error) throw rk.error;
+      PB_KOPF=rk.data||null;
+    }catch(ek){ PB_KOPF={fehler:String(ek.message||ek)}; }
     try{
       var rz=await pbClient.rpc("cb_app_produkt_zusatzstoffe",{p_produkt_id:pid});
       if(rz.error) throw rz.error;
@@ -381,7 +460,7 @@ function pbFilter(f){
 
 function pbRender(){
   var z=pbZaehler();
-  pbEl("pbKopf").innerHTML=pbRiegelHtml(PB_RIEGEL)+pbKopfHtml(z);
+  pbEl("pbKopf").innerHTML=pbRiegelHtml(PB_RIEGEL)+pbProduktKopfHtml()+pbKopfHtml(z);
   var t='<table class="pbTab"><thead><tr>'
     +'<th class="r" title="Reihenfolge auf dem Etikett">Nr</th>'
     +'<th title="Name, wie er am Produkt steht">Zutat (Etikett)</th>'
@@ -402,7 +481,7 @@ function pbRender(){
   if(!sichtbar) t='<div class="pbHinweis">Der Filter zeigt gerade keine Zeile. Auf „alle" umschalten.</div>';
   pbEl("pbTabelle").innerHTML=t;
   pbEl("pbZusatz").innerHTML=pbZusatzHtml();
-  pbEl("pbWirk").innerHTML=pbWirkHtml();
+  pbEl("pbWirk").innerHTML=pbWirkHtml()+pbNaehrwertHtml();
 }
 
 function pbStatus(s){ pbEl("pbStatus").innerHTML=s?pbEsc(s):""; }
