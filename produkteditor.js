@@ -2343,8 +2343,17 @@ if(typeof window!=="undefined"){ window.fgBestVerarbEdit=fgBestVerarbEdit;
 function _fgBestandteilBilanz(){
   var rows=window._fgCanon;
   if(!Array.isArray(rows)||!rows.length) return null;   /* kein Vertrag ⇒ alte Anzeige */
-  var b={quelle:"vertrag", gesamt:rows.length, ohne_note:0, ohne_identitaet:0};
+  var b={quelle:"vertrag", gesamt:rows.length, ohne_note:0, ohne_identitaet:0, benannt:0};
   rows.forEach(function(z){
+    /* 🔴 27.08.2026, Ralphs Fund an P018: die Station meldete "4 von 10 offen",
+       obwohl DREI der vier Zeilen (Stabilisator, Säureregulator, Vitamine) vom
+       Server ausdruecklich als Sonderfall BENANNT sind - nur Calcium ist eine
+       echte Luecke. Benannt ist nicht offen (Regel not_applicable_is_not_missing).
+       Die Unterscheidung kommt aus dem gemeinsamen Kern riegel-kern.js, damit
+       Editor und neue Seite dieselbe Zaehlregel benutzen. */
+    var _lk = (typeof RIEGEL!=="undefined" && RIEGEL.luecke) ? RIEGEL.luecke(z)
+            : (z.resolved_rating==null ? {typ:(z.disposition?0:1)} : null);
+    if(_lk && _lk.typ===0){ b.benannt++; return; }   /* bewusst offen: zaehlt nicht als Luecke */
     if(z.resolved_rating==null) b.ohne_note++;
     if(!z.canonical_entity_id) b.ohne_identitaet++;
   });
@@ -6295,7 +6304,9 @@ function feFokusStand(s){
                      if(b.offen_unbekannt) return {z:"entscheid", txt:(b.gebunden+" gebunden · offene unbekannt")};
                      if(b.offen>0) return {z:"entscheid",
                         txt:(b.gebunden+"/"+b.gesamt_alle+" · "+fgZuordnungWort(b.offen))};
-                     if(b.ohne_identitaet>0) return {z:"entscheid", txt:(b.ohne_identitaet+" von "+b.gesamt+" offen")};
+                     if(b.ohne_identitaet>0) return {z:"entscheid",
+                        txt:(b.ohne_identitaet+" von "+b.gesamt+" offen"
+                             +(b.benannt?(" · "+b.benannt+" bewusst offen"):""))};
                      /* 🔴 23.08.2026, Ralph-Entscheid: "3 produktbestandteile darf
                         nicht gruen sein, weil dieser punkt noch offen ist."
                         Hier stand z:"fertig" - IMMER, auch wenn ohne_note>0. Die Zahl
@@ -9511,12 +9522,15 @@ async function feRiegelLauf(pid, voll){
       A.forEach(function(a){
         h += '<li style="margin:6px 0"><b>' + esc(a.titel) + '</b><br>'
           + '<span style="color:#55507a">' + esc(a.was || "") + '</span>';
-        if(a.typ === "zwilling" && a.rows && a.rows.length === 2){
-          h += '<div style="margin-top:3px">' + a.rows.map(function(rB, i){
-            var rT = a.rows[1 - i];
+        if(a.typ === "zwilling" && a.rows && a.rows.length > 1){
+          /* Selbstpruefung 8+9: beliebig viele Zeilen, und ZUSAMMENFUEHREN
+             statt Loeschen - Rohtext und Anteil der entfernten Zeile wandern
+             in die bleibende, sofern dort leer. */
+          var _ids = a.rows.map(function(r){ return String(r.produkt_zutat_id); }).join('|');
+          h += '<div style="margin-top:3px">' + a.rows.map(function(rB){
             return '<button type="button" class="fgOffBtn" style="margin-right:5px" '
-              + 'onclick="feRiegelZwilling(\'' + esc(String(rT.produkt_zutat_id)) + '\',\''
-              + esc(String(rT.sichtbarer_name || "").replace(/'/g, "\\'")) + '\',\''
+              + 'onclick="feRiegelZwilling(\'' + esc(String(rB.produkt_zutat_id)) + '\',\''
+              + esc(_ids) + '\',\''
               + esc(String(rB.sichtbarer_name || "").replace(/'/g, "\\'")) + '\',this)">'
               + '„' + esc(String(rB.sichtbarer_name || "")) + '" behalten</button>';
           }).join('') + '</div>';
@@ -9560,23 +9574,28 @@ if(typeof window!=="undefined"){
 
 /* Zwilling im alten Editor aufloesen - gleicher Serverweg wie die neue Seite
    (zeilengenaues Loeschen mit Grundpflicht und Audit-Sicherung). */
-async function feRiegelZwilling(pzidWeg, nameWeg, nameBleibt, btn){
-  if(!confirm('Zwilling auflösen:\n\nBEHALTEN: '+nameBleibt+'\nLÖSCHEN:  '+nameWeg+' ('+pzidWeg+')\n\n'
-    +'Die gelöschte Zeile wird im Audit gesichert. Fortfahren?')) return;
-  if(btn){ btn.disabled=true; btn.textContent='löscht …'; }
+async function feRiegelZwilling(pzidBleibt, alleIds, nameBleibt, btn){
+  var weg = String(alleIds||"").split("|").filter(function(x){ return x && x!==pzidBleibt; });
+  if(!weg.length) return;
+  if(!confirm('Zusammenführen:\n\nBLEIBT:       '+nameBleibt+' ('+pzidBleibt+')\n'
+    +'WIRD VEREINT: '+weg.join(', ')
+    +'\n\nFehlende Angaben (Rohtext, Anteil, Quelle) werden übernommen, die Zeilen im Audit gesichert. Fortfahren?')) return;
+  if(btn){ btn.disabled=true; btn.textContent='führt zusammen …'; }
   try{
-    var r=await client.rpc("cb_admin_produkt_zutat_zeile_loeschen",
-      {p_produkt_zutat_id:pzidWeg,
-       p_grund:'Zwillingszeile zu "'+nameBleibt+'" - Doppelerfassung Etikett/Referenzprüfung, aufgelöst im Editor-Riegel.'});
-    if(r&&r.error) throw r.error;
-    await feRiegelLauf();
+    for(var i=0;i<weg.length;i++){
+      var r=await client.rpc("cb_admin_produkt_zutat_zwilling_zusammenfuehren",
+        {p_behalten:pzidBleibt, p_entfernen:weg[i],
+         p_grund:'Doppelzeile zu "'+nameBleibt+'" - Etikett und Referenzprüfung, zusammengeführt im Editor-Riegel.'});
+      if(r&&r.error) throw r.error;
+    }
+    await feRiegelLauf(null, true);
     var l=document.getElementById("feRiegelListe"); if(l) l.style.display="block";
     var pid=(window._fgEdit&&window._fgEdit.id);
     if(pid && typeof openFgEditor==="function" &&
-       confirm('Zeile entfernt. Editor neu laden, damit die Zutatenliste stimmt?')) openFgEditor(pid);
+       confirm('Zusammengeführt. Editor neu laden, damit die Zutatenliste stimmt?')) openFgEditor(pid);
   }catch(e){
     console.error("[Riegel Zwilling]",e);
-    alert("Löschen fehlgeschlagen: "+((e&&e.message)||e));
+    alert("Zusammenführen fehlgeschlagen: "+((e&&e.message)||e));
     if(btn){ btn.disabled=false; btn.textContent='erneut versuchen'; }
   }
 }

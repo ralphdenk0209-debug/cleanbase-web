@@ -22,7 +22,7 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-15";
+var PB_BUILD = "PB-2026-08-27-16";
 var PB_MODUS = "aufgaben";   /* 'aufgaben' (Standard) oder 'pruef' */
 /* Gleicher Wert wie RIKI_LESE_MODELL in app.js Zeile 14746 — bei Modellwechsel
    dort UND hier ändern. */
@@ -854,20 +854,26 @@ function pbAufgabenHtml(){
         +'<div id="pbOffMsg'+iid+'" class="pbZQuelle"></div></div>';
     }
     if(a.typ==="zwilling"){
-      var r1=a.rows[0], r2=a.rows[1];
-      function seite(rB, rT){
-        return '<div class="pbZwSeite"><b>'+pbEsc(rB.sichtbarer_name||'?')+'</b>'
-          +'<div class="pbZQuelle">'+pbEsc(rB.produkt_zutat_id||'')+' · '+pbEsc(String(rB.zutatenliste_rohtext||rB.legacy_zutat_id||'').slice(0,60))+'</div>'
-          +'Note '+(rB.resolved_rating!=null?pbEsc(rB.resolved_rating):'—')
-          +'<div class="pbAkt" style="margin-top:6px"><button onclick="pbZwillingLoesen(\''
-          +pbEsc(String(rT.produkt_zutat_id))+'\',\''+pbEsc(String(rT.sichtbarer_name||""))+'\',\''
-          +pbEsc(String(rB.sichtbarer_name||""))+'\',this)">diese behalten → „'+pbEsc(String(rT.sichtbarer_name||"").slice(0,24))+'" löschen</button></div></div>';
-      }
-      t+='<div class="pbAufKarte"><h3>Zwei Zeilen zeigen auf denselben Stammeintrag</h3>'
-        +'<div class="pbAufWas">Der Score gewichtet je Zeile — der Zwilling zählt doppelt. Eine Zeile behalten, die andere geht mit Grund ins Audit.</div>'
-        +'<div class="pbZwPaar">'+seite(r1,r2)+seite(r2,r1)+'</div>'
-        +(a.rows.length>2?'<div class="pbHinweis">Achtung: '+a.rows.length+' Zeilen betroffen — Rest im Prüfblatt-Modus klären.</div>':'')
-        +'</div>';
+      /* KORREKTUR 27.08. (Selbstprüfung 8+9): funktioniert jetzt für beliebig
+         viele Zeilen, und statt zu löschen wird ZUSAMMENGEFÜHRT — Rohtext,
+         Anteil und Quellenangaben der entfernten Zeile wandern in die
+         bleibende, sofern dort leer. */
+      var ids=a.rows.map(function(r){ return String(r.produkt_zutat_id); }).join('|');
+      t+='<div class="pbAufKarte"><h3>'+a.rows.length+' Zeilen zeigen auf denselben Stammeintrag</h3>'
+        +'<div class="pbAufWas">Der Score gewichtet je Zeile — Doppelzeilen zählen doppelt. '
+        +'Wähle die Zeile, die bleibt: die übrigen werden in sie zusammengeführt (Rohtext und Anteil bleiben erhalten) und mit Grund im Audit gesichert.</div>'
+        +'<div class="pbZwPaar" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">'
+        + a.rows.map(function(rB){
+            return '<div class="pbZwSeite"><b>'+pbEsc(rB.sichtbarer_name||'?')+'</b>'
+              +'<div class="pbZQuelle">'+pbEsc(rB.produkt_zutat_id||'')+'<br>'
+              +(rB.zutatenliste_rohtext?('Rohtext: '+pbEsc(String(rB.zutatenliste_rohtext).slice(0,50))):'<i>kein Rohtext</i>')
+              +(rB.anteil_prozent?(' · '+pbEsc(rB.anteil_prozent)+' %'):'')+'</div>'
+              +'Note '+(rB.resolved_rating!=null?pbEsc(rB.resolved_rating):'—')
+              +'<div class="pbAkt" style="margin-top:6px"><button onclick="pbZwillingLoesen(\''
+              +pbEsc(String(rB.produkt_zutat_id))+'\',\''+pbEsc(ids)+'\',\''
+              +pbEsc(String(rB.sichtbarer_name||""))+'\',this)">diese behalten</button></div></div>';
+          }).join('')
+        +'</div></div>';
     }
     if(a.typ==="luecke"){
       var lid=String(a.r.legacy_zutat_id||"");
@@ -899,16 +905,23 @@ function pbAufgabenHtml(){
   return t;
 }
 
-/* Zwilling: eine Zeile behalten, die andere mit vorbereitetem Grund löschen. */
-async function pbZwillingLoesen(pzidWeg, nameWeg, nameBleibt, btn){
-  if(!confirm('Zwilling auflösen:\n\nBEHALTEN: '+nameBleibt+'\nLÖSCHEN:  '+nameWeg+' ('+pzidWeg+')\n\nDie gelöschte Zeile geht mit Grund ins Audit. Fortfahren?')) return;
+/* Zwillinge auflösen: eine Zeile bleibt, alle übrigen werden in sie
+   zusammengeführt (nicht bloß gelöscht) — Rohtext/Anteil/Quelle bleiben. */
+async function pbZwillingLoesen(pzidBleibt, alleIds, nameBleibt, btn){
+  var weg=String(alleIds||"").split("|").filter(function(x){ return x && x!==pzidBleibt; });
+  if(!weg.length) return;
+  if(!confirm('Zusammenführen:\n\nBLEIBT:      '+nameBleibt+' ('+pzidBleibt+')\nWIRD VEREINT: '+weg.join(', ')
+    +'\n\nFehlende Angaben (Rohtext, Anteil, Quelle) werden übernommen, die Zeilen im Audit gesichert. Fortfahren?')) return;
   if(btn) btn.disabled=true;
   try{
-    var r=await pbClient.rpc("cb_admin_produkt_zutat_zeile_loeschen",
-      {p_produkt_zutat_id:pzidWeg, p_grund:'Zwillingszeile zu "'+nameBleibt+'" - Doppelerfassung Etikett/Referenzprüfung, aufgelöst im Aufgabenmodus.'});
-    if(r.error) throw r.error;
+    for(var i=0;i<weg.length;i++){
+      var r=await pbClient.rpc("cb_admin_produkt_zutat_zwilling_zusammenfuehren",
+        {p_behalten:pzidBleibt, p_entfernen:weg[i],
+         p_grund:'Doppelzeile zu "'+nameBleibt+'" - Etikett und Referenzprüfung, zusammengeführt im Aufgabenmodus.'});
+      if(r.error) throw r.error;
+    }
     await pbLaden();
-  }catch(e){ alert("Löschen fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
+  }catch(e){ alert("Zusammenführen fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
 }
 
 /* Brücke selbst setzen (Ralph 27.08.: "direkt lösen"). Kandidaten kommen vom
