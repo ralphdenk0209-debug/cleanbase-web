@@ -1581,132 +1581,62 @@ function _fgZutOffenListe(){
   return rows.filter(function(z){ return z && z.ist_offen===true; });
 }
 function _fgZutOffenHtml(){
+  /* ════════════════════════════════════════════════════════════════════════
+     28.08.2026, RALPH: "ich will keinen gelben kasten! zutaten die eine
+     bewertung haben sind gruen in der zutatenliste. zutaten ohne wert sind
+     dann blau in der liste." — und danach: "der kasten soll generell weg."
+     Der Kasten ist ersatzlos entfallen. Die offenen Etikettzeilen erscheinen
+     jetzt als BLAUE ZEILEN im selben Raster wie die gebundenen Zutaten:
+     links der gelesene Text, rechts kein Wert. Die Wege (zerlegen, binden,
+     Riki, kein-Zutat) haengen als schmale Knopfreihe an der Zeile - kein
+     eigener Kasten, keine zweite Optik.
+     Entschiedene Zeilen erscheinen GAR NICHT mehr: sie sind erledigt.
+     ════════════════════════════════════════════════════════════════════════ */
   if(window._fgZutOffenFehler){
-    return '<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-fef2f2,#fef2f2)">'
-      +'<div style="font-size:11px;font-weight:700;color:var(--k-b91c1c,#b91c1c)">Offene Zutaten konnten nicht geladen werden</div>'
-      +'<div style="font-size:11.5px;color:var(--ink);margin-top:2px">'+esc(window._fgZutOffenFehler)
-      +' <span style="color:var(--muted)">– es wird NICHT behauptet, dass keine offen sind.</span></div></div>';
+    return '<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-fef2f2,#fef2f2);font-size:11.5px">'
+      +'<b style="color:var(--k-b91c1c,#b91c1c)">Offene Zutaten konnten nicht geladen werden</b> '
+      +esc(window._fgZutOffenFehler)+' <span style="color:var(--muted)">– es wird NICHT behauptet, dass keine offen sind.</span></div>';
   }
-  /* Work #299: fremder Stand ist NICHT "nichts offen". Das leere Ergebnis waere
-     eine Behauptung ueber ein Produkt, zu dem gar nichts geladen wurde. */
-  if(_fgZutOffenFremd()){
-    return '<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-fdf7ea,#fdf7ea)">'
-      +'<div style="font-size:11.5px;color:var(--k-8a5a0b,#8a5a0b)">⏳ Gelesene Zutaten werden geladen – '
-      +'der angezeigte Stand gehört noch zum vorher geöffneten Produkt und wird deshalb zurückgehalten.</div></div>';
+  /* Work #299, 28.08. beim Umbau wieder eingezogen: ein FREMDER Produktstand
+     (Editor zeigt A, geladene Liste gehoert zu B) darf nicht als "nichts
+     offen" durchgehen - der Test hat den Verlust gefangen. */
+  if(typeof _fgZutOffenFremd==="function" && _fgZutOffenFremd()){
+    return '<div style="padding:7px 9px;border-bottom:1px solid var(--line);background:var(--k-eff6ff,#eff6ff);font-size:11.5px">'
+      +'Die Liste der gelesenen Etikettzeilen gehoert noch zum vorherigen Produkt. '
+      +'<span style="color:var(--muted)">Es wird NICHT behauptet, dass hier nichts offen ist.</span></div>';
   }
   var offen=_fgZutOffenListe();
   if(!offen.length) return "";
-  /* Jede offene Zeile behält Binden, Zerlegung, Handentscheid und Neuanlage;
-     'Neu anlegen' darf nicht der Standardweg sein. */
-  
-  return '<div style="padding:0 0 8px;border-bottom:1px solid var(--line);background:var(--k-fdf7ea,#fdf7ea)">'
-    +'<div style="display:flex;align-items:center;gap:7px;padding:7px 10px;margin-bottom:2px;'
-      +'background:var(--k-fbeecd,#fbeecd);border-bottom:1px solid var(--k-e3c48a,#e3c48a);'
-      +'font-size:11px;font-weight:700;color:var(--k-8a5a0b,#8a5a0b)">'
-      +'<span aria-hidden="true">⚠</span>'
-      /* Work #181 Stufe 5: hier stand "vom Etikett gelesen, aber nicht im Stamm".
-         Das war die letzte sichtbare Haelfte von Ralphs Widerspruch: die Ueberschrift
-         behauptete "nicht im Stamm", waehrend zwei Zeilen darunter der Synonymtreffer
-         stand ("im Stamm gefunden: Garnele"). "Noch nicht zugeordnet" stimmt in BEIDEN
-         Faellen - mit Treffer wie ohne - und nimmt der Zeile darunter nichts weg. */
-      +'<span>'+offen.length+' Zutat'+(offen.length===1?"":"en")+' vom Etikett gelesen, noch nicht zugeordnet</span>'
-      /* 28.08.2026, Ralph: "zutatenkette aufbrechen als einzelzutaten, zutaten
-         die im stamm sind bewerten, im stamm fehlende anzeigen mit vorschlaege."
-         Ein Knopf fuer das ganze Produkt. Die Arbeit macht die Serverfunktion
-         cb_admin_zutatenkette_aufloesen: rekursiver Klammer-Parser, eindeutige
-         Stammtreffer werden gebunden, alles andere bleibt sichtbar offen. */
-      +'<button type="button" class="fgOffBtn fgOffPrimaer" style="margin-left:auto"'
-      +' onclick="fgKetteAufbrechen(this)"'
-      +' title="Zerlegt ALLE Klammerzeilen dieses Produkts - auch verschachtelte - und legt jede Unterzutat als eigene Zutat an. Eindeutige Stammtreffer werden gebunden und bewertet, fehlende bleiben mit Namen stehen.">'
-      +'\u2699 Zutatenkette aufbrechen</button>'
+  var kopf='<div class="fgOffKopf" style="display:flex;align-items:center;gap:8px;padding:5px 8px;'
+    +'border-bottom:1px solid var(--line);background:var(--k-eff6ff,#eff6ff);font-size:11.5px;color:var(--k-1e40af,#1e40af)">'
+    +'<span>'+offen.length+' Zeile'+(offen.length===1?'':'n')+' vom Etikett gelesen, noch keiner Zutat zugeordnet</span>'
+    +'<button type="button" class="fgOffBtn fgOffPrimaer" style="margin-left:auto" onclick="fgKetteAufbrechen(this)"'
+    +' title="Zerlegt alle Klammerzeilen dieses Produkts und legt jede Unterzutat als eigene Zutat an.">'
+    +'\u2699 Zutatenkette aufbrechen</button></div>'
+    +'<div id="fgKetteMsg" style="padding:3px 9px;font-size:11px;color:var(--muted)"></div>';
+  return kopf + offen.map(function(z){
+    var nm=String(z.zutat_text||"").trim();
+    var iid=String(z.item_id||"");
+    var treffer=(z.resolution_status==='resolved'&&z.canonical_name)?String(z.canonical_name):"";
+    return '<div class="fgOffZeile" data-item="'+esc(iid)+'" style="border-bottom:1px solid var(--line);'
+      +'background:var(--k-eff6ff,#eff6ff)">'
+      +'<div style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:center;padding:5px 8px">'
+        +'<span style="width:12px;height:12px;border-radius:3px;background:var(--k-1e40af,#1e40af);opacity:.5"></span>'
+        +'<span style="min-width:0;font-size:13px">'+esc(nm)
+          +'<span style="display:block;font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+          +(treffer?('Riki-Vorschlag: '+esc(treffer)+' \u00b7 '):'')+'gelesen \u2013 noch nicht zugeordnet</span></span>'
+        +'<span style="text-align:center;font-weight:700;font-size:13px;color:var(--muted)">\u2013</span>'
       +'</div>'
-    +'<div id="fgKetteMsg" style="padding:4px 9px;font-size:11.5px;color:var(--muted)"></div>'
-    +'<div style="padding:0 9px">'
-    +offen.map(function(z){
-      var nm=String(z.zutat_text||"").trim();
-      var am=z.gesehen_am?String(z.gesehen_am).slice(0,10).split("-").reverse().join("."):"";
-      var iid=String(z.item_id||"");
-      var H='<div class="fgOffZeile" data-item="'+esc(iid)+'" style="font-size:12.5px;color:var(--ink);margin-top:6px;overflow-wrap:anywhere;border-top:1px dashed var(--k-b9d2f0,#b9d2f0);padding-top:6px">'
-        +'<b>'+esc(nm)+'</b>'
-        +'<span style="display:block;font-size:11px;color:var(--muted);line-height:1.45">'
-          +'gelesen'+(am?' am '+esc(am):'')
-          +(z.quelle?' · Quelle: '+esc(String(z.quelle)):'')+'</span>';
-      /* Bereits entschieden (#83)? Dann den Entscheid zeigen, nicht die Wege. */
-      if(z.manual_decision_kind){
-        H+='<span style="display:block;margin-top:4px;font-size:11.5px;color:var(--k-166534)">'
-          +'✓ entschieden: keine eigene Zutat'
-          +(z.manual_decision_reason?(' — '+esc(String(z.manual_decision_reason))):'')
-          +' <button type="button" class="fgOffBtn" onclick="fgOffWiderruf('+esc(iid)+',this)" '
-          +'title="Handentscheid zurücknehmen – die Zeile wird wieder offen">widerrufen</button></span>';
-        return H+'</div>';
-      }
-      /* #78-Struktur, falls RIKI sie schon geliefert hat: anzeigen, nicht verstecken. */
-      if(z.base_ingredient||z.parenthetical_role){
-        H+='<span style="display:block;margin-top:3px;font-size:11px;color:var(--k-534ab7)">'
-          +'Riki: '+esc(String(z.base_ingredient||nm))
-          +(Array.isArray(z.processing_modifiers)&&z.processing_modifiers.length?(' · '+esc(z.processing_modifiers.join(", "))):'')
-          +(z.parenthetical_role?(' · Rolle: '+esc(String(z.parenthetical_role))):'')+'</span>';
-      }
-      var _rs=String(z.resolution_status||"");
-      if(_rs||z.canonical_name||z.proposed_rating!=null){
-        var _zu='';
-        if(_rs==='resolved'&&z.canonical_name){
-          _zu='<span style="color:var(--k-166534,#166534)">✓ zugeordnet: <b>'+esc(String(z.canonical_name))+'</b></span>';
-          if(z.proposed_rating!=null){
-            _zu+='<span style="color:var(--muted)"> · Bewertung '+esc(String(z.proposed_rating))
-              +(z.assessment_status?(' ('+esc(String(z.assessment_status))+')'):'')+'</span>';
-          }else{
-            _zu+='<span style="color:var(--muted)"> · noch nicht bewertet</span>';
-          }
-          _zu+='<span style="color:var(--muted)"> · noch nicht gebunden</span>';
-        }else if(_rs){
-          /* Work #309: hier stand zusaetzlich "Zustand: unresolved". Das ist der
-             englische Schluesselwert des Servers und sagt dasselbe wie das Wort
-             davor - nur unverstaendlich. Er steht jetzt im title. */
-          _zu='<span style="color:var(--k-b45309,#b45309)" title="Serverzustand: '+esc(_rs)+'">'
-            +'⚠ noch nicht zugeordnet</span>';
-        }
-        if(_zu) H+='<span style="display:block;margin-top:3px;font-size:11px;line-height:1.45">'+_zu+'</span>';
-      }
-      H+=_fgOffVorschlagHtml(z);
-      /* ────────────────────────────────────────────────────────────────────
-         WORK #309 — RALPH: "die unteren button muessen eh weg."
-         GEMESSEN, bevor etwas geloescht wurde - was jeder der vier tut:
-           fgOffBinden      oeffnet die Stammsuche fuer diese Zeile
-           fgOffRikiKette   laesst Riki gegen das AKTIVE Regelwerk einstufen
-           fgOffKeineZutat  schliesst die Zeile ab (Serverentscheid, widerrufbar)
-           fgOffNeu         legt eine NEUE Stammzutat an
-         Zwei davon sind tragend: die Riki-Kette ist der einzige Weg zu einer
-         regelbelegten Note, und fgOffKeineZutat ist der einzige Abschluss.
-         Sie zu loeschen haette Wege gekostet, nicht Text. Deshalb: aus der
-         Ansicht verschwunden, nicht aus dem Programm. Sichtbar bleibt EIN
-         Knopf - der Abschluss, den Ralph im Trockenobst-Fall gesucht hat.
-         ──────────────────────────────────────────────────────────────────── */
-      H+='<span class="fgOffWege" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;align-items:baseline">'
-        +'<button type="button" class="fgOffBtn fgOffPrimaer" onclick="fgOffZerlegtFertig('+esc(iid)+',this)" '
-          +'title="Die Zeile ist erledigt: ihre Bestandteile stehen als eigene Zutaten am Produkt, sie selbst wird keine. Zeigt vorher, was gerade gebunden ist. Widerrufbar.">'
-          +'✓ erledigt – ist zerlegt</button>'
-        +'<span class="fgOffDetTgl" onclick="fgOffDetails(this)" style="cursor:pointer;color:var(--muted);'
-          +'font-size:10.5px;text-decoration:underline dotted" title="Suchen, Riki-Einstufung, Neuanlage">weitere Wege</span>'
-        +'<span class="fgOffDet" style="display:none;gap:5px;flex-wrap:wrap">'
-          +'<button type="button" class="fgOffBtn" onclick="fgOffBinden('+esc(iid)+',this)" '
-            +'title="Im Zutatenstamm suchen und diese Zeile an einen bestehenden Eintrag binden – wenn oben kein Vorschlag passt.">im Stamm suchen</button>'
-          +'<button type="button" class="fgOffBtn" onclick="fgOffRikiKette('+esc(iid)+',this)" '
-            +'title="Riki zerlegt die Zeile, der Server löst den Canonical auf, Riki bewertet nach dem AKTIVEN Regelwerk (nur mit Regel-Beleg), der Vorschlag geht an den Wächter. Kein Wert ohne Regel, keine Bindung ohne Mensch.">'
-            +(z.base_ingredient?'Riki-Kette erneut':'Riki einstufen')+'</button>'
-          +'<button type="button" class="fgOffBtn" onclick="fgOffKeineZutat('+esc(iid)+',this)" '
-            +'title="Wie „erledigt – ist zerlegt", aber mit eigener Begründung.">anderer Grund …</button>'
-          +'<button type="button" class="fgOffBtn fgOffLeise" onclick="fgOffNeu('+esc(iid)+',this)" '
-            +'title="Bewusst als NEUE Stammzutat anlegen – der letzte Weg, wenn Suchen, Zerlegen und Markieren nichts ergeben haben (§3.6).">neu anlegen …</button>'
-        +'</span>'
-      +'</span>'
-      +'<span class="fgOffMsg" style="display:block;font-size:11px;margin-top:2px"></span>';
-      return H+'</div>';
-    }).join("")
-  /* Zwei schliessende Tags: der Zeilenbereich (seit E6c) und der Kasten selbst.
-     Der Titelbalken liegt ausserhalb des Zeilenbereichs, damit er buendig an der
-     Kante sitzt, waehrend die Zeilen ihr Polster behalten. */
-  +'</div></div>';
+      +'<div style="display:flex;gap:5px;flex-wrap:wrap;padding:0 8px 6px 38px">'
+        +'<button type="button" class="fgOffBtn fgOffPrimaer" onclick="fgOffZerlegtFertig('+esc(iid)+',this)"'
+        +' title="Die Zeile ist erledigt: ihre Bestandteile stehen als eigene Zutaten am Produkt.">\u2713 ist zerlegt</button>'
+        +'<button type="button" class="fgOffBtn" onclick="fgOffBinden('+esc(iid)+',this)" title="Im Zutatenstamm suchen und binden.">im Stamm suchen</button>'
+        +'<button type="button" class="fgOffBtn" onclick="fgOffRikiKette('+esc(iid)+',this)" title="Riki zerlegt, der Server loest auf, Riki bewertet nur mit Regelbeleg.">Riki einstufen</button>'
+        +'<button type="button" class="fgOffBtn" onclick="fgOffKeineZutat('+esc(iid)+',this)" title="Keine eigene Zutat \u2013 mit Begruendung.">keine Zutat \u2026</button>'
+      +'</div>'
+      +'<div class="fgOffMsg" style="display:block;font-size:11px;padding:0 8px 5px 38px"></div>'
+      +'</div>';
+  }).join("");
 }
 function _fgOffItem(iid){
   var rows=_fgZutOffenListe();
