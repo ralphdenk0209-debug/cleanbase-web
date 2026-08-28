@@ -22,7 +22,7 @@
    damit auch hier — kein zweiter Anmeldeweg. */
 /* Sichtbarer Build-Stempel. Steht im Seitenkopf, damit nie wieder ein alter
    Cache-Stand für den aktuellen gehalten wird (Falle A3, passiert 27.08.). */
-var PB_BUILD = "PB-2026-08-27-16";
+var PB_BUILD = "PB-2026-08-28-18";
 var PB_MODUS = "aufgaben";   /* 'aufgaben' (Standard) oder 'pruef' */
 /* Gleicher Wert wie RIKI_LESE_MODELL in app.js Zeile 14746 — bei Modellwechsel
    dort UND hier ändern. */
@@ -452,6 +452,95 @@ async function pbOffKeineZutat(iid, btn){
   }catch(e){ pbOffMsg(iid,"Fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   ZEILE ZERLEGEN — Ralph-Entscheid 27.08.: "immer zerlegen".
+   Zusammengesetzte Etikettzeilen ("Produkt im Produkt") werden nicht als
+   Einheit bewertet, sondern in ihre Unterzutaten aufgelöst.
+   Ablauf, ausschließlich über bestehende Serverwege:
+     1  Riki liest die Klammer (riki-analyse, modus zutaten) und speichert
+        Struktur samt parenthetical_items am Item.
+     2  Je Unterzutat werden Stamm-Kandidaten geholt. EINDEUTIGE Treffer
+        werden gebunden; alles Uneindeutige wird ANGEZEIGT und wartet auf
+        deine Wahl — geraten wird nicht (§A2).
+     3  Ist nichts mehr offen, wird die Sammelzeile als zerlegt abgeschlossen.
+   ────────────────────────────────────────────────────────────────────────── */
+async function pbZeileZerlegen(iid, btn){
+  var o=pbOffItem(iid); if(!o) return;
+  if(!confirm('„'+(o.zutat_text||'')+'" zerlegen?\n\n'
+    +'Riki liest die Klammer. Jede eindeutig erkannte Unterzutat wird eine eigene Zutat des Produkts.\n'
+    +'Uneindeutige Namen werden dir zur Auswahl vorgelegt — es wird nichts geraten.')) return;
+  if(btn) btn.disabled=true;
+  var box=pbEl("pbKand"+iid);
+  try{
+    var s=await pbClient.auth.getSession();
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok) throw new Error("Nicht angemeldet.");
+    var teile=(o.parenthetical_items&&o.parenthetical_items.length)?o.parenthetical_items:null;
+    if(!teile){
+      pbOffMsg(iid,"1/3 Riki liest die Klammer …");
+      var resp=await fetch(PB_URL+"/functions/v1/riki-analyse",{method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":PB_KEY},
+        body:JSON.stringify({modus:"zutaten", modell:PB_RIKI_MODELL, text:String(o.zutat_text||""), produkt_id:PB_PID})});
+      var d=await resp.json();
+      if(!resp.ok||d.error) throw new Error(d.error||("HTTP "+resp.status));
+      var zt=(d.vorschlag&&Array.isArray(d.vorschlag.zutaten)&&d.vorschlag.zutaten[0])||null;
+      if(!zt) throw new Error("Riki hat nichts geliefert.");
+      var rs=await pbClient.rpc("cb_riki_zutat_offen_struktur_speichern",{
+        p_item_id:Number(iid), p_base_ingredient:zt.base_ingredient||zt.name||null,
+        p_processing_modifiers:Array.isArray(zt.processing_modifiers)?zt.processing_modifiers:null,
+        p_attributes:zt.attributes||null, p_parenthetical_role:zt.parenthetical_role||null,
+        p_parenthetical_items:Array.isArray(zt.parenthetical_items)?zt.parenthetical_items:null,
+        p_confidence:null, p_extraction_status:"extracted"});
+      if(rs.error) throw rs.error;
+      teile=zt.parenthetical_items||[];
+    }
+    var namen=teile.map(function(x){ return (typeof x==="string")?x:(x&&(x.text||x.name)||""); })
+                   .map(function(x){ return String(x).trim(); }).filter(Boolean);
+    if(!namen.length) throw new Error("Riki hat in der Klammer keine Unterzutaten erkannt.");
+    pbOffMsg(iid,"2/3 "+namen.length+" Unterzutaten – suche Stammeinträge …");
+    var gebunden=[], offen=[];
+    for(var i=0;i<namen.length;i++){
+      var rk=await pbClient.rpc("cb_admin_zutat_zeile_bearbeiten",{p_zutat_text:namen[i]});
+      var ks=((rk.data&&rk.data.kandidaten)||[]).filter(function(k){ return k.bindbar&&k.entity_id; });
+      var exakt=ks.filter(function(k){
+        return String(k.name||k.stammname||k.canonical_name||"").toLowerCase()===namen[i].toLowerCase(); });
+      var nimm=(exakt.length===1)?exakt[0]:((ks.length===1)?ks[0]:null);
+      if(nimm){
+        var rb=await pbClient.rpc("cb_admin_canonical_zutat_binden",{p_produkt_id:PB_PID, p_entity_id:nimm.entity_id});
+        if(rb.error) throw rb.error;
+        gebunden.push(namen[i]);
+      }else{ offen.push({name:namen[i], kandidaten:ks.slice(0,8)}); }
+    }
+    if(!offen.length){
+      pbOffMsg(iid,"3/3 alle Unterzutaten gebunden – schließe Sammelzeile ab …");
+      var rz=await pbClient.rpc("cb_source_extraction_item_keine_eigene_zutat_setzen",
+        {p_item_id:Number(iid),
+         p_reason:'Zusammengesetzte Zeile - in ihre Bestandteile zerlegt (Ralph-Entscheid 27.08.: immer zerlegen).',
+         p_parenthetical_item:null});
+      if(rz.error) throw rz.error;
+      await pbLaden(); return;
+    }
+    if(box) box.innerHTML='<div class="pbZQuelle">'+gebunden.length+' von '+namen.length
+      +' Unterzutaten gebunden'+(gebunden.length?(': '+pbEsc(gebunden.join(', '))):'')
+      +'. Diese brauchen deine Wahl (nichts geraten):</div>'
+      + offen.map(function(u){
+          return '<div style="margin:4px 0"><b>'+pbEsc(u.name)+'</b>: '
+            + (u.kandidaten.length
+               ? u.kandidaten.map(function(k){
+                   var nm=k.name||k.stammname||k.canonical_name||'?';
+                   return '<button onclick="pbStammBinden(\''+pbEsc(String(k.entity_id))+'\',this)">'+pbEsc(nm)+'</button>';
+                 }).join(' ')
+               : '<span class="gelbT">kein Stammeintrag – über „nicht im Stamm" anlegen</span>')
+            +'</div>';
+        }).join('');
+    pbOffMsg(iid,"Sammelzeile bleibt offen, bis alle Unterzutaten zugeordnet sind.");
+    if(btn) btn.disabled=false;
+  }catch(e){
+    pbOffMsg(iid,"Zerlegen abgebrochen: "+(e.message||e));
+    if(btn) btn.disabled=false;
+  }
+}
+
 /* Riki-Kette: zerlegen (falls Struktur fehlt) → auflösen → regelbasiert
    bewerten → Vorschlag speichern. Identische Verträge wie der alte Editor. */
 async function pbOffRiki(iid, btn){
@@ -840,6 +929,15 @@ function pbAufgabenHtml(){
   }
   t+='<div class="pbAufFortschritt"><span><b>'+A.length+'</b> Aufgabe'+(A.length===1?'':'n')+' bis grün</span>'
     +'<div class="pbAufBalken"><div style="width:'+Math.max(4,Math.round(100/(A.length+1)))+'%"></div></div></div>';
+  /* Ralph-Ziel 28.08.: Zutatenkette aufbrechen, Zutaten einzeln erfassen.
+     Ein Knopf fuer das ganze Produkt - Trockenlauf zeigt, was passieren wuerde. */
+  if(pbOffenListe().length)
+    t+='<div class="pbAufKarte blau"><h3>Zutatenkette in einem Zug aufbrechen</h3>'
+      +'<div class="pbAufWas">Zerlegt alle Klammerzeilen dieses Produkts \u2013 auch verschachtelte \u2013 und erfasst jede Unterzutat einzeln. '
+      +'Eindeutige Stammtreffer werden gebunden, alles andere bleibt sichtbar offen. Nichts wird geraten.</div>'
+      +'<div class="pbAkt"><button onclick="pbKetteAufbrechen(false,this)">Trockenlauf: was w\u00fcrde passieren?</button> '
+      +'<button onclick="pbKetteAufbrechen(true,this)">Jetzt aufbrechen und erfassen</button></div>'
+      +'<div id="pbKetteMsg" class="pbZQuelle"></div></div>';
   A.forEach(function(a,idx){
     if(a.typ==="etikett"){
       var o=a.o, iid=o.item_id;
@@ -848,6 +946,11 @@ function pbAufgabenHtml(){
         +' — solange die Zeile offen ist, fehlt sie in der Bewertung.</div>'
         +'<div id="pbKand'+iid+'" class="pbAkt"><button onclick="pbOffKandidaten('+iid+')">Stamm-Kandidaten anzeigen</button></div>'
         +'<div class="pbAkt" style="margin-top:6px">'
+        +((String(o.zutat_text||"").indexOf("(")>=0)
+           ? '<button onclick="pbZeileZerlegen('+iid+',this)" '
+             +'title="Ralph-Entscheid 27.08.: zusammengesetzte Zeilen werden IMMER zerlegt. Riki liest die Klammer, jede Unterzutat wird eine eigene Zutat, die Sammelzeile wird abgeschlossen.">'
+             +'⚙ Zeile zerlegen (Unterzutaten anlegen)</button> '
+           : '')
         +'<button onclick="pbOffRiki('+iid+',this)" title="Riki zerlegt, Server löst auf, Riki bewertet nur mit Regelbeleg">Riki einstufen</button> '
         +'<button onclick="pbOffZerlegt('+iid+',this)">✓ ist zerlegt — Bestandteile stehen schon da</button> '
         +'<button onclick="pbOffKeineZutat('+iid+',this)">keine Zutat …</button></div>'
@@ -903,6 +1006,33 @@ function pbAufgabenHtml(){
     }
   });
   return t;
+}
+
+/* Ganze Zutatenkette eines Produkts aufbrechen (Ralph-Ziel 28.08.).
+   Trockenlauf zeigt nur an, Ausführen bindet. Die Fachlogik steht komplett
+   im Server (cb_admin_zutatenkette_aufloesen) — hier nur Knopf und Bericht. */
+async function pbKetteAufbrechen(ausfuehren, btn){
+  var msg=pbEl("pbKetteMsg");
+  if(ausfuehren && !confirm('Zutatenkette von '+PB_PID+' aufbrechen?\n\n'
+    +'Jede Klammerzeile wird zerlegt, jede eindeutig erkannte Unterzutat wird eine eigene Produktzutat.\n'
+    +'Was nicht eindeutig ist, bleibt offen und wird dir angezeigt.')) return;
+  if(btn) btn.disabled=true;
+  if(msg) msg.textContent = ausfuehren ? "bricht auf …" : "Trockenlauf läuft …";
+  try{
+    var r=await pbClient.rpc("cb_admin_zutatenkette_aufloesen",{p_produkt_id:PB_PID, p_ausfuehren:!!ausfuehren});
+    if(r.error) throw r.error;
+    var d=r.data||{};
+    var offen=(d.offen||[]).map(function(o){ return o.blatt+(o.treffer>1?' ('+o.treffer+' Treffer)':' (nicht im Stamm)'); });
+    if(msg) msg.innerHTML = (ausfuehren?'✓ ':'Trockenlauf: ')
+      + pbEsc(d.etikettzeilen||0)+' Klammerzeile(n) → '
+      + pbEsc(d.gebunden_anzahl||0)+(ausfuehren?' Zutaten erfasst':' würden erfasst')
+      + (d.offen_anzahl?(' · '+d.offen_anzahl+' bleiben offen: '+pbEsc(offen.join(', '))):' · nichts bleibt offen');
+    if(ausfuehren) await pbLaden();
+    else if(btn) btn.disabled=false;
+  }catch(e){
+    if(msg) msg.textContent="Fehlgeschlagen: "+(e.message||e);
+    if(btn) btn.disabled=false;
+  }
 }
 
 /* Zwillinge auflösen: eine Zeile bleibt, alle übrigen werden in sie
