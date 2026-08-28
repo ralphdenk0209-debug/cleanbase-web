@@ -1609,7 +1609,18 @@ function _fgZutOffenHtml(){
          behauptete "nicht im Stamm", waehrend zwei Zeilen darunter der Synonymtreffer
          stand ("im Stamm gefunden: Garnele"). "Noch nicht zugeordnet" stimmt in BEIDEN
          Faellen - mit Treffer wie ohne - und nimmt der Zeile darunter nichts weg. */
-      +'<span>'+offen.length+' Zutat'+(offen.length===1?"":"en")+' vom Etikett gelesen, noch nicht zugeordnet</span></div>'
+      +'<span>'+offen.length+' Zutat'+(offen.length===1?"":"en")+' vom Etikett gelesen, noch nicht zugeordnet</span>'
+      /* 28.08.2026, Ralph: "zutatenkette aufbrechen als einzelzutaten, zutaten
+         die im stamm sind bewerten, im stamm fehlende anzeigen mit vorschlaege."
+         Ein Knopf fuer das ganze Produkt. Die Arbeit macht die Serverfunktion
+         cb_admin_zutatenkette_aufloesen: rekursiver Klammer-Parser, eindeutige
+         Stammtreffer werden gebunden, alles andere bleibt sichtbar offen. */
+      +'<button type="button" class="fgOffBtn fgOffPrimaer" style="margin-left:auto"'
+      +' onclick="fgKetteAufbrechen(this)"'
+      +' title="Zerlegt ALLE Klammerzeilen dieses Produkts - auch verschachtelte - und legt jede Unterzutat als eigene Zutat an. Eindeutige Stammtreffer werden gebunden und bewertet, fehlende bleiben mit Namen stehen.">'
+      +'\u2699 Zutatenkette aufbrechen</button>'
+      +'</div>'
+    +'<div id="fgKetteMsg" style="padding:4px 9px;font-size:11.5px;color:var(--muted)"></div>'
     +'<div style="padding:0 9px">'
     +offen.map(function(z){
       var nm=String(z.zutat_text||"").trim();
@@ -9625,3 +9636,45 @@ async function feRiegelUebergeben(pzid, name, art, btn){
 if(typeof window!=="undefined"){
   window.feRiegelZwilling=feRiegelZwilling; window.feRiegelUebergeben=feRiegelUebergeben;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ZUTATENKETTE AUFBRECHEN · 28.08.2026, Ralph-Ziel
+   "zutatenkette aufbrechen als einzelzutaten, zutaten die im stamm sind
+    bewerten, im stamm fehlende anzeigen mit vorschlaege."
+   Erst Trockenlauf (zeigt nur), dann auf Bestaetigung scharf. Die gesamte
+   Fachlogik steht im Server (cb_admin_zutatenkette_aufloesen) - hier nur
+   Knopf, Rueckfrage und Bericht. Nichts wird geraten: mehrdeutige oder
+   unbekannte Namen bleiben stehen und werden benannt.
+   ══════════════════════════════════════════════════════════════════════════ */
+async function fgKetteAufbrechen(btn){
+  var pid=(window._fgEdit&&window._fgEdit.id); if(!pid) return;
+  var msg=document.getElementById("fgKetteMsg");
+  if(btn){ btn.disabled=true; }
+  if(msg) msg.textContent="Trockenlauf: zerlege die Klammerzeilen …";
+  try{
+    var r=await client.rpc("cb_admin_zutatenkette_aufloesen",{p_produkt_id:pid, p_ausfuehren:false});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data||{};
+    var offen=(d.offen||[]).map(function(o){
+      return o.blatt+(o.treffer>1?(" ("+o.treffer+" Treffer - bitte selbst waehlen)"):" (nicht im Stamm)"); });
+    var txt=d.etikettzeilen+" Klammerzeile(n) ergeben "+(d.gebunden_anzahl+d.offen_anzahl)+" Einzelzutaten.\n\n"
+      +"Automatisch erfassbar: "+d.gebunden_anzahl+"\n"
+      +"Bleibt offen: "+d.offen_anzahl+(offen.length?("\n  · "+offen.join("\n  · ")):"")
+      +"\n\nJetzt ausfuehren?";
+    if(!confirm(txt)){ if(msg) msg.textContent="abgebrochen"; if(btn) btn.disabled=false; return; }
+    if(msg) msg.textContent="breche auf und erfasse …";
+    var r2=await client.rpc("cb_admin_zutatenkette_aufloesen",{p_produkt_id:pid, p_ausfuehren:true});
+    if(r2&&r2.error) throw r2.error;
+    var d2=r2&&r2.data||{};
+    if(msg) msg.textContent="✓ "+d2.gebunden_anzahl+" Zutaten erfasst"
+      +(d2.offen_anzahl?(" · "+d2.offen_anzahl+" bleiben offen: "
+        +(d2.offen||[]).map(function(o){return o.blatt;}).join(", ")):" · nichts offen")
+      +" – Editor wird neu geladen.";
+    if(typeof openFgEditor==="function") setTimeout(function(){ openFgEditor(pid); }, 600);
+  }catch(e){
+    console.error("[Kette aufbrechen]",e);
+    if(msg) msg.textContent="Fehlgeschlagen: "+((e&&e.message)||e);
+    if(btn) btn.disabled=false;
+  }
+}
+if(typeof window!=="undefined"){ window.fgKetteAufbrechen=fgKetteAufbrechen; }
