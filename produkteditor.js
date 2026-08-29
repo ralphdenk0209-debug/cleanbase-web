@@ -4094,11 +4094,25 @@ function fgEnthaltenRender(){
     var tag = !inList ? ' <span style="font-size:11px;opacity:.85">– noch nicht übernommen</span>'
             : (unklar ? ' <span style="font-size:11px;font-weight:700">– erfasst, aber nicht eingestuft</span><span style="font-size:11px;opacity:.85"> · kein Index</span>'
             : (asZusatz ? ' <span style="font-size:11px;opacity:.85">– als Zusatzstoff erfasst</span>' : ''));
-    if(!_istGelesen(raw)) tag += ' <span style="font-size:10.5px;opacity:.7" title="aus den gebundenen Zutaten vorbelegt, nicht von Riki gelesen – zählt nicht im Balken">· vorbelegt</span>';
-    var _bg = !inList ? "#fbf3e2" : (unklar ? "#f1f4f8" : "#e7f6ec");
-    var _fg = !inList ? "#8a5a0b" : (unklar ? "#475569" : "#1f7d43");
-    var _br = unklar ? ";border:1px dashed #94a3b8" : "";
-    var _ic = !inList ? "○" : (unklar ? "⚠" : "✓");
+    /* ══════════════════════════════════════════════════════════════════════
+       29.08.2026, RALPH: "wenn sie vorbelegt und grün sind, suggeriert das
+       etwas anderes. zudem hat riki nichts gelesen laut text. das heisst, ich
+       muss immer den text lesen und unten ist alles grün."
+       Er hat recht. Gruen mit Haken heisst in dieser Oberflaeche ueberall
+       "geprueft und in Ordnung". Eine VORBELEGTE Zeile ist aber nichts
+       geprueft: sie stammt aus denselben gebundenen Zutaten, gegen die sie
+       angeblich prueft. Der Vergleich haette immer 100 % ergeben.
+       Die Farbe hing bisher nur an "steht die Zeile in der Liste" - ob sie
+       gelesen oder vorbelegt war, stand nur klein daneben. Jetzt entscheidet
+       zuerst die HERKUNFT: vorbelegt ist grau und traegt kein Haekchen.
+       Gruen gibt es erst, wenn Riki wirklich etwas gelesen hat.
+       ══════════════════════════════════════════════════════════════════════ */
+    var _gelesen = _istGelesen(raw);
+    if(!_gelesen) tag += ' <span style="font-size:10.5px;font-weight:700" title="Diese Zeile stammt aus den bereits gebundenen Zutaten, nicht aus einer gelesenen Quelle. Sie beweist nichts.">· nicht geprüft</span>';
+    var _bg = !_gelesen ? "#f1f5f9" : (!inList ? "#fbf3e2" : (unklar ? "#f1f4f8" : "#e7f6ec"));
+    var _fg = !_gelesen ? "#64748b" : (!inList ? "#8a5a0b" : (unklar ? "#475569" : "#1f7d43"));
+    var _br = (!_gelesen || unklar) ? ";border:1px dashed #94a3b8" : "";
+    var _ic = !_gelesen ? "·" : (!inList ? "○" : (unklar ? "⚠" : "✓"));
     return '<div onclick="fgRefFokus(this)" data-name="'+esc(raw)+'" title="anklicken: rechts danach suchen" '
       +'style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;margin-bottom:3px;cursor:pointer;background:'+_bg+';color:'+_fg+_br+'">'
       +chip
@@ -4124,11 +4138,15 @@ function fgEnthaltenRender(){
   try{ if(typeof feTabBadgeUpdate==='function') feTabBadgeUpdate(_cnt.offen+_cnt.unklar+_mv, _cnt.done); }catch(e){}   /* 28l/28r: Zaehler am Reiter - offen ODER uebernommen, gleiche Zaehlung wie hier */
   var kopf="";
   if(!_tot && _vorbelegt){
-    kopf='<div style="margin-bottom:7px;padding:6px 8px;border:1px dashed var(--line);border-radius:8px;font-size:11.5px;line-height:1.5;color:var(--muted)">'
-      +'<b style="color:var(--ink)">Vollst\u00e4ndigkeit unbekannt</b> \u2013 es wurde noch kein Etikett und keine Herstellerseite gelesen.<br>'
-      +'Die '+_vorbelegt+' Zeile'+(_vorbelegt===1?'':'n')+' unten sind aus den bereits gebundenen Zutaten <b>vorbelegt</b>, keine Referenz. '
-      +'Gegen sie zu pr\u00fcfen h\u00e4tte immer 100\u202f% ergeben.<br>'
-      +'<span style="color:var(--ink)">Lass Riki das <b>Etikett</b> oder die <b>Herstellerseite</b> lesen \u2013 dann z\u00e4hlt hier etwas.</span>'
+    /* 29.08.2026, RALPH: "ich muss immer den text lesen und unten ist alles
+       gruen." Der Kasten stand hier in fuenf Zeilen Fliesstext und erklaerte,
+       was die Liste darunter durch ihre Farbe widerlegte. Jetzt sagt die Liste
+       es selbst (grau, kein Haken), und der Kopf ist ein Satz plus Knopf. */
+    kopf='<div style="margin-bottom:7px;padding:7px 9px;border:1px dashed var(--line);border-radius:8px;'
+      +'font-size:12px;line-height:1.5;background:#f1f5f9;display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
+      +'<b style="color:var(--ink)">Noch nichts gepr\u00fcft.</b>'
+      +'<span style="color:var(--muted)">Die '+_vorbelegt+' Zeile'+(_vorbelegt===1?'':'n')+' unten stammen aus den erfassten Zutaten selbst.</span>'
+      +'<span style="color:var(--muted);font-size:11px">Riki das Etikett oder die Herstellerseite lesen lassen \u2013 dann z\u00e4hlt hier etwas.</span>'
       +'</div>';
   }
   else if(_tot||_mv){
