@@ -9636,9 +9636,19 @@ async function fgKetteAufbrechen(btn){
     var d=r&&r.data||{};
     var offen=(d.offen||[]).map(function(o){
       return o.blatt+(o.treffer>1?(" ("+o.treffer+" Treffer - bitte selbst waehlen)"):" (nicht im Stamm)"); });
+    /* M3a, 29.08.2026: eine gebundene Zutat KANN im Stamm stehen und trotzdem
+       unbewertet sein - "geräuchertes Speisesalz" bindet sauber an Rauchsalz,
+       und Rauchsalz hat keine Note. Gemessen: 926 von 2568 Stammzutaten sind
+       unbewertet. Frueher verschwand so eine Zeile aus der Offen-Liste und sah
+       fertig aus. Der Server liefert sie jetzt unter ohne_note mit; sie wird
+       hier genannt, damit das Binden nicht mehr aussieht als waere es fertig. */
+    var ohneNote=(d.ohne_note||[]).map(function(o){ return o.canonical||o.blatt; });
     var txt=d.etikettzeilen+" Klammerzeile(n) ergeben "+(d.gebunden_anzahl+d.offen_anzahl)+" Einzelzutaten.\n\n"
       +"Automatisch erfassbar: "+d.gebunden_anzahl+"\n"
       +"Bleibt offen: "+d.offen_anzahl+(offen.length?("\n  · "+offen.join("\n  · ")):"")
+      +(ohneNote.length?("\n\nWird gebunden, hat aber KEINE Bewertung im Stamm: "
+        +ohneNote.length+"\n  · "+ohneNote.join("\n  · ")
+        +"\n(Diese Zutaten zaehlen erst mit, wenn sie eine Note haben.)"):"")
       +"\n\nJetzt ausfuehren?";
     if(!confirm(txt)){ if(msg) msg.textContent="abgebrochen"; if(btn) btn.disabled=false; return; }
     if(msg) msg.textContent="breche auf und erfasse …";
@@ -9648,6 +9658,8 @@ async function fgKetteAufbrechen(btn){
     if(msg) msg.textContent="✓ "+d2.gebunden_anzahl+" Zutaten erfasst"
       +(d2.offen_anzahl?(" · "+d2.offen_anzahl+" bleiben offen: "
         +(d2.offen||[]).map(function(o){return o.blatt;}).join(", ")):" · nichts offen")
+      +(d2.ohne_note_anzahl?(" · "+d2.ohne_note_anzahl+" ohne Bewertung im Stamm: "
+        +(d2.ohne_note||[]).map(function(o){return o.canonical||o.blatt;}).join(", ")):"")
       +" – Editor wird neu geladen.";
     if(typeof openFgEditor==="function") setTimeout(function(){ openFgEditor(pid); }, 600);
   }catch(e){
