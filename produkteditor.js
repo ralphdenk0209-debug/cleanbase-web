@@ -1137,10 +1137,21 @@ async function fgZutOffenLaden(pid){
     var r=await client.rpc("cb_admin_zutat_offen_mit_riki",{p_product_id:pid});
     if(r&&r.error) throw r.error;
     var rows=Array.isArray(r&&r.data)?r.data:[];
-    /* Der alte Leseweg lieferte `ist_offen`; der neue liefert nur offene Zeilen und
-       fuehrt das Feld nicht. Es wird hier ergaenzt statt _fgZutOffenListe zu aendern —
-       an der haengen die Bilanz (#89) und zwei Renderwege. */
-    rows.forEach(function(z){ if(z && z.ist_offen===undefined) z.ist_offen=true; });
+    /* 🔴 28.08.2026, Ralphs Fund: "die blauen wurden aufgebrochen und sind in
+       den zutaten. warum werden sie dann noch angezeigt?"
+       GEMESSEN: cb_admin_zutat_offen_mit_riki liefert NICHT nur offene Zeilen,
+       sondern ALLE gelesenen - auch die laengst entschiedenen. Die alte Annahme
+       "der neue Leseweg liefert nur offene" setzte deshalb ist_offen=true fuer
+       jede Zeile und liess erledigte Zeilen ewig stehen; sie blockierten zu
+       Unrecht die Freigabe. Der Zustand wird jetzt aus den Serverfeldern
+       abgeleitet, nicht behauptet:
+         target_id            -> die Zeile ist einer Produktzutat zugeordnet
+         manual_decision_kind -> ein Mensch hat sie entschieden (zerlegt/keine)
+       Beides heisst erledigt. Nur was keins von beidem hat, ist offen. */
+    rows.forEach(function(z){
+      if(!z) return;
+      if(z.ist_offen===undefined) z.ist_offen = !z.target_id && !z.manual_decision_kind;
+    });
     window._fgZutOffen=rows;
     await _fgZutOffenVorschlaegeLaden(rows);
   }catch(e){
