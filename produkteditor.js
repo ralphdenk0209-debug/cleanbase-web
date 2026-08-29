@@ -2078,6 +2078,47 @@ var _ZUS_BEW={
   abgewertet: {t:"abgewertet", f:"var(--k-cf5442,#cf5442)"},
   unbedenklich:{t:"unbedenklich",f:"var(--k-166534,#166534)"}
 };
+/* ══════════════════════════════════════════════════════════════════════════
+   M3c, 29.08.2026 — RALPH: "farbige kennzeichnung zusatzstoffe und nährstoffe
+   die zugesetzt sind".
+   Bisher trug nur der Zusatzstoff ein Zeichen: ein gruenes ⚗. Gruen ist an
+   dieser Stelle irrefuehrend - es liest sich wie ein Urteil ("in Ordnung"),
+   ist aber nur eine Art-Angabe. Und der zugesetzte Naehrstoff hatte gar keins,
+   obwohl der Server die Kategorie laengst mitliefert (canonical_category aus
+   cb_admin_produkt_zutaten).
+   Drei Arten, drei Farben, keine davon gruen oder rot - die Bewertungsfarbe
+   steht rechts in der Wertspalte und soll nicht doppelt vorkommen:
+     ⚗ Zusatzstoff        violett  (E-Nummer oder Kategorie "Zusatzstoff")
+     ✚ zugesetzter Naehrstoff  blau (Kategorie "Vitamine & Mineralstoffe")
+     ◆ Wirkstoff          tuerkis  (Kategorie "Wirkstoff")
+   Gemessen im Stamm: 116 Zusatzstoffe, 63 Vitamine & Mineralstoffe,
+   39 Wirkstoffe. Hier wird nichts entschieden und nichts bewertet - die Art
+   kommt vom Server, die Farbe macht sie sichtbar.
+   ══════════════════════════════════════════════════════════════════════════ */
+var _FG_ART={
+  zusatzstoff: {z:"⚗", f:"#6d28d9", bg:"#f5f3ff", r:"#c4b5fd", t:"Zusatzstoff"},
+  naehrstoff:  {z:"✚", f:"#1d4ed8", bg:"#eff6ff", r:"#93c5fd", t:"zugesetzter Nährstoff"},
+  wirkstoff:   {z:"◆", f:"#0f766e", bg:"#f0fdfa", r:"#5eead4", t:"Wirkstoff"}
+};
+/* Welche Art traegt diese Bestandteilzeile? Reine Ableitung aus dem, was der
+   Server geliefert hat - keine Namensraterei. */
+function _fgArtVon(z, zusListe){
+  var kat=String((z&&(z.canonical_category||z.sichtbare_kategorie))||"").trim().toLowerCase();
+  if((zusListe&&zusListe.length) || kat==="zusatzstoff") return "zusatzstoff";
+  if(kat==="vitamine & mineralstoffe" || kat==="vitamine und mineralstoffe") return "naehrstoff";
+  if(kat==="wirkstoff") return "wirkstoff";
+  return "";
+}
+/* Die farbige Pille. Leerer String, wenn die Zeile keine der drei Arten ist -
+   eine normale Zutat bekommt kein Zeichen. */
+function _fgArtPille(z, zusListe){
+  var k=_fgArtVon(z, zusListe); if(!k) return "";
+  var a=_FG_ART[k];
+  return ' <span style="font-size:11px;font-weight:600;color:'+a.f+';background:'+a.bg
+    +';border:1px solid '+a.r+';border-radius:5px;padding:0 4px;white-space:nowrap"'
+    +' title="'+esc(a.t)+' – die Art dieser Zeile, kein Urteil. Die Bewertung steht rechts.">'
+    +a.z+' '+esc(a.t)+'</span>';
+}
 function _fgBestZeile(z, zusListe, gebunden){
   var nm=String(z.sichtbarer_name||z.canonical_name||"").trim();
   var rt=(z.resolved_rating==null)?"–":String(z.resolved_rating);
@@ -2086,7 +2127,16 @@ function _fgBestZeile(z, zusListe, gebunden){
   var mod=String(z.processing_modifier||"").trim();
   var unter=[];
   if(mod && mod!=="unspecified_processing") unter.push(esc(mod));
-  if(z.resolved_rating==null) unter.push('<span style="color:var(--muted)">Note nicht belegt</span>');
+  /* M3b: "Note nicht belegt" war eine Sackgasse - richtig, aber ohne Ausweg.
+     Ein Klick zeigt jetzt, was das Regelwerk zu diesem Namen hergibt. */
+  if(z.resolved_rating==null){
+    unter.push('<span class="fgNoteRahmenLnk" style="color:var(--k-2f6fd6,#2f6fd6);cursor:pointer;text-decoration:underline dotted"'
+      +' data-eid="'+esc(String(z.canonical_entity_id||""))+'"'
+      +' data-cn="'+esc(String(z.canonical_name||nm))+'"'
+      +' onclick="fgNoteRahmenZeigen(this,event)"'
+      +' title="Klicken: zeigt, welche Stufen das Regelwerk zulässt und wie ähnliche Stammzutaten bewertet sind.">'
+      +'Note nicht belegt – Rahmen ansehen</span>');
+  }
   (zusListe||[]).forEach(function(it){
     var b=_ZUS_BEW[String(it.evaluation||"").toLowerCase()]||{t:String(it.evaluation||"ungeprüft"),f:"var(--muted)"};
     var zn=String(it.name||"").trim();
@@ -2120,7 +2170,7 @@ function _fgBestZeile(z, zusListe, gebunden){
     return '<label class="fgBestZeile" data-pz="'+esc(String(z.produkt_zutat_id||""))+'" data-note-offen="'+((z.resolved_rating==null)?"1":"0")+'">'
       +'<span class="fgbSt"><input type="checkbox" '+(gebunden?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(z.resolved_rating==null?"":z.resolved_rating)+'" data-krit="'+(z.resolved_critical?"ja":"nein")+'" onchange="fgPickToggle(this)">'
         +'<span class="fgbIco" style="color:'+_stZ[1]+'" title="'+esc(_stZ[2])+'">'+_stZ[0]+'</span></span>'
-      +'<span class="fgbName">'+esc(nm)+_origHtml+'</span>'
+      +'<span class="fgbName">'+esc(nm)+_fgArtPille(z, zusListe)+_origHtml+'</span>'
       +(_eidZ && _pzZ
         ? '<span class="fgbVerarb fgbVerarbEdit" data-eid="'+esc(_eidZ)+'" data-pz="'+esc(_pzZ)+'"'
           +' data-mod="'+esc(mod||"unspecified_processing")+'" data-cn="'+esc(String(z.canonical_name||nm))+'"'
@@ -2134,11 +2184,17 @@ function _fgBestZeile(z, zusListe, gebunden){
          Verarbeitungen derselben Zutat. Das ist die Regelpruefung von Hand, ohne
          Riki: der Server nennt die Regel laengst (resolved_rule_id), sie wurde nur
          nie angezeigt. */
+      /* M3b: hat die Zeile eine Note, zeigt der Klick die Regel dahinter (#291).
+         Hat sie KEINE, gibt es keine Regel zu zeigen - dann kommt der Rahmen:
+         welche Stufen das Regelwerk zulaesst und wie Nachbarn bewertet sind. */
       +(_eidZ
         ? '<span class="fgbWert fgbWertPruef" style="color:'+_rc+';cursor:pointer;text-decoration:underline dotted"'
           +' data-eid="'+esc(_eidZ)+'" data-mod="'+esc(mod||"unspecified_processing")+'"'
-          +' onclick="fgWertRegelZeigen(this,event)"'
-          +' title="Klicken: zeigt die Bewertungsregel hinter diesem Wert und alle Verarbeitungsvarianten dieser Zutat.">'
+          +' data-cn="'+esc(String(z.canonical_name||nm))+'"'
+          +' onclick="'+(z.resolved_rating==null?'fgNoteRahmenZeigen':'fgWertRegelZeigen')+'(this,event)"'
+          +' title="'+(z.resolved_rating==null
+              ? 'Diese Zeile hat keine Note. Klicken: zeigt, welche Stufen das Regelwerk zulässt und wie ähnliche Stammzutaten bewertet sind.'
+              : 'Klicken: zeigt die Bewertungsregel hinter diesem Wert und alle Verarbeitungsvarianten dieser Zutat.')+'">'
           +esc(_rt)+'</span>'
         : '<span class="fgbWert" style="color:'+_rc+'" title="Ohne zugeordnete Identitaet gibt es keine Regel zu zeigen.">'+esc(_rt)+'</span>')
     +'</label>';
@@ -2153,7 +2209,10 @@ function _fgBestZeile(z, zusListe, gebunden){
     +'<input type="checkbox" '+(gebunden?"checked":"")+' data-name="'+esc(nm)+'" data-rating="'+(z.resolved_rating==null?"":z.resolved_rating)+'" data-krit="'+(z.resolved_critical?"ja":"nein")+'" onchange="fgPickToggle(this)" style="width:16px;height:16px;margin-top:2px;accent-color:var(--k-16a34a)">'
     +'<span style="min-width:0">'
       +'<span style="display:block;font-size:13px;color:var(--ink);overflow-wrap:anywhere">'+esc(nm)
-      +(hatZus?' <span style="font-size:11px;color:var(--k-166534,#166534);background:var(--greenlt,#ecfdf5);border:1px solid var(--k-16a34a,#16a34a);border-radius:5px;padding:0 4px" title="Diese Zeile trägt einen Zusatzstoff">⚗</span>':'')
+      /* M3c: ersetzt das gruene ⚗. Gruen las sich wie ein Urteil und gab es nur
+         fuer Zusatzstoffe; jetzt tragen auch zugesetzte Naehrstoffe und
+         Wirkstoffe ihre Farbe. Siehe _FG_ART. */
+      +_fgArtPille(z, zusListe)
       +'</span>'
       /* Leere Unterzeilen nicht rendern; fehlender Zusatztext ist kein Ladefehler. */
       +(unter.length?'<span style="display:block;font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:1px">'+unter.join(' · ')+'</span>':'')
@@ -2228,6 +2287,98 @@ async function fgWertRegelZeigen(el, ev){
   }
 }
 if(typeof window!=="undefined"){ window.fgWertRegelZeigen=fgWertRegelZeigen; }
+/* ────────────────────────────────────────────────────────────────────────────
+   M3b, 29.08.2026 — DER NOTENRAHMEN. Ralph: "falls es doch dazu kommt, das eine
+   zutat nicht sauber nach dem regelwerk aufgeloest wird, soll sie dort erscheinen
+   mit vorschlag einer moeglichen bewertung."
+   Das Gegenstueck zu fgWertRegelZeigen: dort steht die Regel HINTER einer Note,
+   hier steht, was das Regelwerk ueber eine FEHLENDE Note hergibt.
+   Gemessen an allen 926 unbewerteten Stammzutaten:
+     Regelwerk laesst genau eine Stufe zu ..... 1 Fall
+     fast gleicher Name (ab 0,85) ............. 5
+     aehnlich (0,70 - 0,85) .................. 48
+     nur Hinweis (0,45 - 0,70) .............. 559
+     nichts .................................. 314
+   Deshalb die Ampel: eine ZAHL gibt es nur bei gruen und gelb. Bei grau steht
+   die Eingrenzung da, keine Note. Geraten wird nicht - das waere schlimmer als
+   keine Zahl, weil es plausibel aussieht und bestaetigt wuerde.
+   Hier wird nichts gespeichert. Der Server liest, mehr nicht.
+   ──────────────────────────────────────────────────────────────────────────── */
+var _FG_AMPEL={
+  gruen:{f:"var(--k-166534,#166534)",r:"#16a34a",bg:"#f0fdf4",t:"belegt"},
+  gelb: {f:"var(--k-b45309,#b45309)",r:"#f59e0b",bg:"#fffbeb",t:"wahrscheinlich – bitte prüfen"},
+  grau: {f:"var(--muted)",r:"var(--line)",bg:"var(--k-f2f5f3,#f2f5f3)",t:"nur Eingrenzung"},
+  keine:{f:"var(--muted)",r:"var(--line)",bg:"var(--k-f2f5f3,#f2f5f3)",t:"nichts gefunden"}
+};
+async function fgNoteRahmenZeigen(el, ev){
+  try{ if(ev){ ev.preventDefault(); ev.stopPropagation(); } }catch(e){}
+  var eid=(el&&el.dataset&&el.dataset.eid)||null;
+  var nm=(el&&el.dataset&&el.dataset.cn)||"";
+  if(!eid && !nm) return;
+  var zeile=el.closest?(el.closest(".fgBestZeile")||el.closest("label")):null;
+  var alt=zeile&&zeile.nextElementSibling;
+  if(alt&&alt.classList&&alt.classList.contains("fgNoteRahmen")){ alt.remove(); return; }
+  var box=document.createElement("div");
+  box.className="fgNoteRahmen";
+  box.style.cssText="margin:-2px 0 8px;padding:9px 11px;border:1px solid var(--line);border-left:3px solid var(--k-2f6fd6,#2f6fd6);border-radius:8px;background:var(--k-f2f5f3,#f2f5f3);font-size:11.5px;line-height:1.55";
+  box.textContent="Regelwerk wird befragt …";
+  if(zeile&&zeile.parentNode) zeile.parentNode.insertBefore(box, zeile.nextSibling);
+  try{
+    var r=await client.rpc("cb_admin_stamm_notenrahmen",{p_name:nm, p_entity_id:eid});
+    if(r&&r.error) throw r.error;
+    var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e2){} }
+    if(!d||d.ok===false){
+      box.innerHTML='<span style="color:var(--k-b45309,#b45309)">Kein Rahmen abrufbar</span>'
+        +'<span style="color:var(--muted)"> · '+esc(String((d&&d.grund)||"ohne Angabe"))+'</span>';
+      return;
+    }
+    var a=_FG_AMPEL[String(d.ampel||"keine")]||_FG_AMPEL.keine;
+    var H='<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'
+      +'<b>Was das Regelwerk über „'+esc(String(d.name||nm))+'" hergibt</b>'
+      +'<span style="font-size:10.5px;color:'+a.f+';background:'+a.bg+';border:1px solid '+a.r
+      +';border-radius:5px;padding:0 5px">'+esc(a.t)+'</span></div>';
+    if(d.vorschlag!=null){
+      H+='<div style="margin-top:5px;font-size:13px">Vorschlag: <b style="color:'+a.f+'">Note '+esc(String(d.vorschlag))+'</b>'
+        +' <span style="font-size:10.5px;color:var(--muted)">('
+        +(String(d.vorschlag_quelle||"")==="regelwerk"?"aus dem Regelwerk":"aus einem fast gleichen Stammnamen")
+        +')</span></div>';
+    }
+    H+='<div style="margin-top:3px;color:var(--muted)">'+esc(String(d.vorschlag_grund||""))+'</div>';
+    var erl=Array.isArray(d.erlaubte_stufen)?d.erlaubte_stufen:[];
+    if(erl.length && erl.length<11){
+      H+='<div style="margin-top:5px">Regelkonform bleiben die Stufen: <b>'+esc(erl.join(", "))+'</b></div>';
+      var aus=Array.isArray(d.ausgeschlossen)?d.ausgeschlossen:[];
+      if(aus.length){
+        H+='<div style="margin-top:3px;color:var(--muted)">Ausgeschlossen: '
+          +aus.map(function(x){ return esc(String(x.stufe))+' ('+esc((x.regeln||[]).join(", "))+')'; }).join(" · ")
+          +'</div>';
+      }
+    }
+    var nb=Array.isArray(d.nachbarn)?d.nachbarn:[];
+    if(nb.length){
+      H+='<div style="margin-top:6px;color:var(--muted)">Ähnliche Stammzutaten, die bewertet sind:</div>'
+        +nb.map(function(x){
+          return '<div style="padding-left:8px">· <b>'+esc(String(x.zutat||""))+'</b>'
+            +' · Note '+(x.note==null?'–':esc(String(x.note)))
+            +' · Ähnlichkeit '+esc(String(x.aehnlichkeit))
+            +(x.regel_titel?('<span style="color:var(--muted)"> · '+esc(String(x.regel_titel))+'</span>'):'')
+            +'</div>'; }).join("");
+    }
+    if(d.kategorie_noten && d.kategorie_noten.bewertete){
+      var kn=d.kategorie_noten;
+      H+='<div style="margin-top:5px;color:var(--muted)">Kategorie „'+esc(String(kn.kategorie))+'": '
+        +esc(String(kn.bewertete))+' bewertete Zutaten, Noten '+esc(String(kn.note_min))+'–'+esc(String(kn.note_max))
+        +', am häufigsten '+esc(String(kn.haeufigste_note))+'.</div>';
+    }
+    H+='<div style="margin-top:6px;font-size:10.5px;color:var(--muted)">'+esc(String(d.hinweis||""))+'</div>';
+    box.innerHTML=H;
+  }catch(e){
+    console.error("[M3b Notenrahmen]",e);
+    box.innerHTML='<span style="color:var(--k-b91c1c,#b91c1c)">Rahmen nicht abrufbar: '+esc((e&&e.message)||String(e))
+      +'</span> <span style="color:var(--muted)">– es wird NICHT behauptet, das Regelwerk sage nichts.</span>';
+  }
+}
+if(typeof window!=="undefined"){ window.fgNoteRahmenZeigen=fgNoteRahmenZeigen; }
 /* Verarbeitung nur über den bestehenden Serverweg ändern; Ergebnis danach vollständig neu laden. */
 var _fgVerarbLaeuft=false;
 
