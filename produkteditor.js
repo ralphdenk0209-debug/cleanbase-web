@@ -1148,9 +1148,28 @@ async function fgZutOffenLaden(pid){
          target_id            -> die Zeile ist einer Produktzutat zugeordnet
          manual_decision_kind -> ein Mensch hat sie entschieden (zerlegt/keine)
        Beides heisst erledigt. Nur was keins von beidem hat, ist offen. */
+    /* Den Zustand liefert cb_admin_zutat_offen - sie kennt ALLE fuenf Wege,
+       auf denen eine Etikettzeile erledigt sein kann (gebunden ueber Name,
+       ueber Synonym, ueber Canonical, erledigt_am, Handentscheid). Die
+       Riki-Sicht fuehrt das Feld nicht mit; sie wird deshalb damit ergaenzt.
+       Zwei Abfragen, EIN Urteil - der Zustand wird geholt, nicht geraten.
+       (28.08.: vorher stand hier ist_offen=true fuer jede Zeile, danach eine
+       eigene Ableitung aus target_id/Entscheid - beides erkannte "laengst
+       gebunden" nicht und liess erledigte Zeilen die Freigabe blockieren.) */
+    var _zustand = {};
+    try{
+      var rz = await client.rpc("cb_admin_zutat_offen", {p_produkt_id: pid});
+      if(!(rz && rz.error) && Array.isArray(rz && rz.data)){
+        rz.data.forEach(function(x){
+          if(x && x.zutat_text!=null) _zustand[String(x.zutat_text).trim().toLowerCase()] = !!x.ist_offen;
+        });
+      }
+    }catch(e){ console.error("[Offene Zutaten] Zustand:", e); }
     rows.forEach(function(z){
       if(!z) return;
-      if(z.ist_offen===undefined) z.ist_offen = !z.target_id && !z.manual_decision_kind;
+      var k = String(z.zutat_text||"").trim().toLowerCase();
+      if(Object.prototype.hasOwnProperty.call(_zustand, k)) z.ist_offen = _zustand[k];
+      else if(z.ist_offen===undefined)  z.ist_offen = !z.target_id && !z.manual_decision_kind;
     });
     window._fgZutOffen=rows;
     await _fgZutOffenVorschlaegeLaden(rows);
