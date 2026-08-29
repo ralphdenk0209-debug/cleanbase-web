@@ -1657,6 +1657,25 @@ function _fgZutOffenHtml(){
           +(treffer?('Riki-Vorschlag: '+esc(treffer)+' \u00b7 '):'')+'gelesen \u2013 noch nicht zugeordnet</span></span>'
         +'<span style="text-align:center;font-weight:700;font-size:13px;color:var(--muted)">\u2013</span>'
       +'</div>'
+      /* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+         M1, 29.08.2026 \u2014 RALPH: "wir haben doch jede menge zutaten bereits
+         sauber im stamm. warum werden die auf der produkt erfassen seite nicht
+         erkannt und gebunden?"
+         GEMESSEN an P73664: _fgZutOffenVorschlaegeLaden holt fuer JEDE offene
+         Zeile den Stammvorschlag (cb_admin_zutat_zeile_bearbeiten) und legt ihn
+         in _fgZutOffenVorschlag ab. _fgOffVorschlagHtml baut daraus die Anzeige.
+         Aufgerufen wurde sie nirgends - beim Umbau am 28.08., als der gelbe
+         Kasten wegfiel, ist der Aufruf mit rausgeflogen. Der Server lieferte,
+         der Browser warf weg: 17 von 21 Etikettzeilen haetten Stammnamen, Note
+         und Regel-ID anzeigen koennen und zeigten "gelesen - noch nicht
+         zugeordnet".
+         Nur der Aufruf kommt zurueck. An der Bindung aendert sich hier nichts -
+         die ist M2 und gehoert auf den Server.
+         \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+      +'<div style="padding:0 8px 4px 38px">'
+        +(function(){ try{ return _fgOffVorschlagHtml(z)||""; }catch(e){
+            console.error("[Stammvorschlag] Anzeige:",e); return ""; } })()
+      +'</div>'
       +'<div style="display:flex;gap:5px;flex-wrap:wrap;padding:0 8px 6px 38px">'
         +'<button type="button" class="fgOffBtn fgOffPrimaer" onclick="fgOffZerlegtFertig('+esc(iid)+',this)"'
         +' title="Die Zeile ist erledigt: ihre Bestandteile stehen als eigene Zutaten am Produkt.">\u2713 ist zerlegt</button>'
