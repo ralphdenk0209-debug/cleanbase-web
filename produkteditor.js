@@ -5189,6 +5189,13 @@ async function openFgEditor(id, prefill, targetEl){
         .then(function(){
           try{ fgCanonAnwenden(); }catch(e){ console.error("[Canonical] anwenden:",e); }
           try{ if(typeof fgPickRender==="function") fgPickRender(); }catch(e){ console.error("[Bestandteile] Erstaufbau:",e); }
+          /* 29.08.2026, Ralphs Fund: die Huelle "Teigwaren" stand rechts in der
+             Referenz weiter, obwohl der Filter gebaut war. GEMESSEN: die
+             Referenz wird beim Oeffnen gerendert, _fgCanon kommt erst danach -
+             und nur _fgCanon weiss, welche Zeile eine Huelle ist. Der Filter
+             lief also gegen eine leere Liste und liess alles durch.
+             Hier wird sie nachgezogen, sobald der Vertrag da ist. */
+          try{ if(typeof fgEnthaltenRender==="function") fgEnthaltenRender(); }catch(e){ console.error("[Referenz] Nachlauf:",e); }
           try{ fePlaus(); }catch(e){}
         });
       /* Laeuft daneben, blockiert die erste Anzeige nicht. */
