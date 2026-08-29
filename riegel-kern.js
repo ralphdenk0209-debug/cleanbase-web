@@ -66,6 +66,15 @@ async function messen(client, pid, opt){
 
 /* ── Lückentyp einer Zutatenzeile: nur Anzeige der Serverfelder ───────────── */
 function luecke(r){
+  /* 29.08.2026, RALPH: "die teigware muss auch weg."
+     Eine HUELLE ist eine Zeile, deren Bestandteile einzeln am Produkt stehen
+     ("71% EIER-TEIGWAREN (…)" - Hartweizengriess, Wasser, Vollei und
+     Sonnenblumenoel sind eigene Zutaten geworden). Der Server laesst sie aus
+     der Bewertung heraus; sie hat deshalb absichtlich keine Note.
+     Sie als Luecke zu melden war falsch: die Aufgabenliste verlangte eine Note
+     fuer eine Zeile, die gar nicht bewertet werden soll.
+     score_leaf===false kommt vom Server (cb_app_produkt_zutaten). */
+  if(r.score_leaf===false) return null;
   if(r.resolved_rating!=null) return null;
   if(r.disposition)
     return {typ:0, kurz:"bewusst offen",
@@ -87,8 +96,13 @@ function offeneZeilen(d){
 }
 
 function zaehler(d){
-  var z={n:d.rows.length, mit:0, l0:0, l1:0, l2:0, l3:0, offen:offeneZeilen(d).length};
-  d.rows.forEach(function(r){
+  /* Huellen stehen nicht im Nenner: sie werden nicht bewertet, also kann man
+     auch nicht verlangen, dass sie eine Note haben. Ralph, 29.08.2026:
+     "oben werden 16 angezeigt" - Station 3 zaehlte schon richtig, dieser
+     Zaehler noch nicht. */
+  var _rows=d.rows.filter(function(r){ return !(r && r.score_leaf===false); });
+  var z={n:_rows.length, mit:0, l0:0, l1:0, l2:0, l3:0, offen:offeneZeilen(d).length};
+  _rows.forEach(function(r){
     var lk=luecke(r);
     if(!lk) z.mit++; else if(lk.typ===0) z.l0++; else if(lk.typ===1) z.l1++;
     else if(lk.typ===2) z.l2++; else z.l3++;
