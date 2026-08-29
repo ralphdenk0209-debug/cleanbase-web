@@ -2121,6 +2121,40 @@ function _fgArtPille(z, zusListe){
 }
 function _fgBestZeile(z, zusListe, gebunden){
   var nm=String(z.sichtbarer_name||z.canonical_name||"").trim();
+  /* ══════════════════════════════════════════════════════════════════════
+     A1, 29.08.2026 — RALPH: "aber bitte anders kennzeichnen und buttons weg."
+     Eine HUELLE ist eine Zeile, deren Bestandteile inzwischen einzeln am
+     Produkt stehen: "71% EIER-TEIGWAREN (HARTWEIZENGRIEß, Wasser, VOLLEI,
+     Sonnenblumenöl)" - alle vier sind eigene Zutaten geworden. Die Zeile
+     selbst traegt nur noch die Mengenangabe und den Etikett-Rohtext.
+     Sie wurde NICHT geloescht (dann waeren 71 % und die Herkunft weg und ein
+     falsches Aufbrechen nicht rueckholbar), sondern stillgelegt: der Server
+     laesst sie aus der Bewertung heraus und sie blockiert den Score nicht
+     mehr. Gemessen an P73615: vorher "kein Score - Zutat nicht bewertet
+     (Teigwaren)", nachher nur noch "Naehrwerte fehlen".
+     Hier steht deshalb: grau, kein Wert, keine Knoepfe, kein Haken. Nur was
+     sie ist und warum sie nicht mehr zaehlt.
+     Das Feld kommt vom Server: score_leaf=false heisst Huelle
+     (cb_admin_produkt_zutaten), hierarchy_source traegt den Grund.
+     ══════════════════════════════════════════════════════════════════════ */
+  if(z && z.score_leaf===false){
+    var _roh=String(z.zutatenliste_rohtext||"").trim();
+    var _gr=String(z.hierarchy_source||"Die Bestandteile stehen einzeln am Produkt.").trim();
+    return '<div data-pz="'+esc(String(z.produkt_zutat_id||""))+'" data-huelle="1"'
+      +' title="Stillgelegt: '+esc(_gr)+' Die Zeile bleibt erhalten, weil sie die Mengenangabe und den Etikett-Rohtext traegt – sie zaehlt nur nicht mehr mit."'
+      +' style="display:grid;grid-template-columns:22px 1fr 46px;gap:8px;align-items:start;'
+      +'padding:6px 8px;border-bottom:1px solid var(--line);opacity:.6;background:var(--k-f2f5f3,#f2f5f3)">'
+      +'<span style="text-align:center;color:var(--muted);font-size:12px">⊘</span>'
+      +'<span style="min-width:0">'
+        +'<span style="display:block;font-size:13px;color:var(--muted);text-decoration:line-through;overflow-wrap:anywhere">'+esc(nm)+'</span>'
+        +'<span style="display:block;font-size:11px;color:var(--muted);line-height:1.45;margin-top:1px">'
+          +'zusammengefasste Zeile – zählt nicht mit'+(_gr?(' · '+esc(_gr)):'')
+          +(_roh?('<span style="display:block;opacity:.8">Etikett: '+esc(_roh)+'</span>'):'')
+        +'</span>'
+      +'</span>'
+      +'<span style="text-align:center;color:var(--muted);font-size:13px">–</span>'
+      +'</div>';
+  }
   var rt=(z.resolved_rating==null)?"–":String(z.resolved_rating);
   var col=(z.resolved_rating==null)?"var(--muted)"
     :(z.resolved_rating>=7?"var(--k-2e9e57,#2e9e57)":(z.resolved_rating>=4?"var(--k-c88616,#c88616)":"var(--k-cf5442,#cf5442)"));
