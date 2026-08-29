@@ -2518,6 +2518,18 @@ if(typeof window!=="undefined"){ window.fgBestVerarbEdit=fgBestVerarbEdit;
 function _fgBestandteilBilanz(){
   var rows=window._fgCanon;
   if(!Array.isArray(rows)||!rows.length) return null;   /* kein Vertrag ⇒ alte Anzeige */
+  /* ══════════════════════════════════════════════════════════════════════
+     29.08.2026, RALPH: "oben rechts steht 17/19, also zählen sie immer noch
+     voll mit."
+     Er hat recht. Eine HUELLE ist eine Zeile, deren Bestandteile einzeln am
+     Produkt stehen ("71% EIER-TEIGWAREN (…)" - Hartweizengriess, Wasser,
+     Vollei, Sonnenblumenoel sind eigene Zutaten geworden). Der Server laesst
+     sie seit A1 aus der Bewertung heraus, aber dieser Zaehler kannte sie
+     nicht und zaehlte sie als 19. Zeile mit.
+     Eine Zeile, die nicht bewertet wird, darf auch nicht im Nenner stehen.
+     Das Feld kommt vom Server: score_leaf===false heisst Huelle. */
+  rows=rows.filter(function(z){ return !(z && z.score_leaf===false); });
+  if(!rows.length) return null;
   var b={quelle:"vertrag", gesamt:rows.length, ohne_note:0, ohne_identitaet:0, benannt:0};
   rows.forEach(function(z){
     /* 🔴 27.08.2026, Ralphs Fund an P018: die Station meldete "4 von 10 offen",
@@ -4078,9 +4090,33 @@ if(typeof window!=='undefined'){
   window.fgRefV2NachNeuanlage=fgRefV2NachNeuanlage;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   29.08.2026, RALPH: "produkte wir wir obsolet setzten wollten, sind immer
+   noch da." Er meinte die Huellzeile "Teigwaren", die rechts in der Referenz
+   weiterstand, obwohl der Server sie stillgelegt hat.
+   Die Referenzliste wird beim Oeffnen aus den gebundenen Zutatennamen
+   vorbelegt (d.zutaten) - dort steht die Huelle mit drin, denn sie IST eine
+   gebundene Zutat. Erst _fgCanon weiss, welche davon Huelle ist
+   (score_leaf===false vom Server). Die Anzeige fragt das jetzt ab.
+   Ist _fgCanon noch nicht geladen, wird NICHTS gefiltert - eine fehlende
+   Antwort darf keine Zeile verschwinden lassen.
+   ══════════════════════════════════════════════════════════════════════════ */
+function _fgIstHuellenName(raw){
+  var rows=window._fgCanon;
+  if(!Array.isArray(rows)||!rows.length) return false;
+  var k=String(raw||"").trim().toLowerCase();
+  if(!k) return false;
+  return rows.some(function(z){
+    if(!z || z.score_leaf!==false) return false;
+    return String(z.sichtbarer_name||"").trim().toLowerCase()===k
+        || String(z.canonical_name||"").trim().toLowerCase()===k;
+  });
+}
+if(typeof window!=="undefined"){ window._fgIstHuellenName=_fgIstHuellenName; }
 function fgEnthaltenRender(){
   var box=document.getElementById("fe_enthalten"); if(!box) return;
   var ref=(window._fgRef&&window._fgRef.length)?window._fgRef:[];
+  ref=ref.filter(function(n){ return !_fgIstHuellenName(n); });
   if(!ref.length){ box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Noch keine Referenz – lass Riki die <b>Herstellerseite</b> oder das <b>Etikett</b> lesen (oder die Zutatenliste analysieren).</span>'; return; }
   var work=_fgWorkSet(); var zk=_fgZusKeys();
   var _gel=window._fgRefGelesen||null;
