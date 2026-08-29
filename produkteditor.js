@@ -6531,9 +6531,18 @@ function feFokusStand(s){
                      return (g("fe_name") && R.kat)
                        ? {z:"fertig", txt:(g("fe_ukat")||R.kat)}
                        : {z:"offen", txt:(!g("fe_name")?"Name fehlt":"Kategorie fehlt")};
+    /* 29.08.2026, RALPH: "nährwerte 3 offen, aber leider keine angabe welche."
+       Die Namen lagen längst in R.nwFehlt - angezeigt wurde nur ihre Anzahl.
+       Bis zu drei stehen jetzt im Klartext, darüber die ersten zwei und wie
+       viele noch folgen. Eine Zahl allein sagt nicht, was zu tun ist. */
     case 'analyse':  return (S.naehrwerte_ok===null) ? {z:"fertig", txt:"nicht erforderlich"}
                        : (S.naehrwerte_ok ? {z:"fertig", txt:"vollständig"}
-                                          : {z:"entscheid", txt:(R.nwFehlt.length+" offen")});
+                                          : {z:"entscheid", txt:(function(){
+                                              var f=R.nwFehlt||[];
+                                              if(!f.length) return "offen";
+                                              if(f.length<=3) return "fehlt: "+f.join(", ");
+                                              return "fehlt: "+f.slice(0,2).join(", ")+" +"+(f.length-2)+" weitere";
+                                            })()});
     case 'bestand':  var b=(typeof _fgBestandteilBilanz==="function")?_fgBestandteilBilanz():null;
                      if(!b) return {z:"offen", txt:"noch nichts erfasst"};
                      if(b.gesamt===0) return {z:"offen", txt:"noch nichts erfasst"};
