@@ -4936,6 +4936,10 @@ async function _abWaechterHFLaden(){
     if(!f.length){ box.innerHTML='<div class="bleer">Keine Zutaten-Härtefälle offen.</div>'; return; }
     box.innerHTML='<div class="bunter" style="font-weight:700;margin-bottom:5px">Zutaten-Härtefälle</div>'
       + f.map(function(x,i){
+        /* 31.08., Ralph: "das später soll weg" — statt Vertagen gibt es jetzt
+           VERWERFEN ("gibt es nicht", z. B. Sammelangaben aus Tierfutter).
+           Verwerfen wirkt DAUERHAFT: der Fall kommt nie wieder. Und die
+           Regel-Herleitung der Note steht sichtbar unter dem Vorschlag. */
         var sicher=(x.vorschlag_art==='synonym_sicher'||x.vorschlag_art==='synonym_wahrscheinlich');
         var knoepfe='<div style="display:flex;gap:6px;margin-top:5px">'
           +(sicher
@@ -4943,21 +4947,23 @@ async function _abWaechterHFLaden(){
               +'background:#effaef;color:#1c7c33;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer">'
               +'✓ Vorschlag übernehmen</button>'
             : '')
-          +'<button class="abhfsp" data-i="'+i+'" style="padding:5px 8px;border:1px solid var(--line,#e1e6ea);'
-            +'background:#fff;color:#6b7280;border-radius:8px;font-size:11.5px;cursor:pointer">später</button>'
+          +'<button class="abhfvw" data-i="'+i+'" style="padding:5px 8px;border:1px solid #f0d4d4;'
+            +'background:#fdf6f6;color:#a33;border-radius:8px;font-size:11.5px;cursor:pointer"'
+            +' title="Dauerhaft verwerfen — das ist keine echte Zutat">✗ gibt es nicht</button>'
         +'</div>';
         return '<div class="abhf" data-i="'+i+'" style="margin-bottom:8px">'
           +'<div style="font-size:12.5px;font-weight:700">„'+esc(x.fall_text)+'"'
             +' <i style="font-style:normal;opacity:.6;font-weight:400">· '+x.produkte+' Produkt'+(x.produkte===1?'':'e')+'</i></div>'
           +'<div class="bunter" style="margin-top:2px">'+esc(x.problem)+'</div>'
+          +(x.regel?'<div class="bunter" style="margin-top:2px;color:#4a6b52">§ '+esc(x.regel)+'</div>':'')
           +knoepfe+'</div>';
       }).join('');
     box._faelle=f;
     box.querySelectorAll('.abhfja').forEach(function(b){
       b.addEventListener('click',function(){ _abWaechterEntscheid(box, Number(b.dataset.i), 'synonym'); });
     });
-    box.querySelectorAll('.abhfsp').forEach(function(b){
-      b.addEventListener('click',function(){ _abWaechterEntscheid(box, Number(b.dataset.i), 'zurueckgestellt'); });
+    box.querySelectorAll('.abhfvw').forEach(function(b){
+      b.addEventListener('click',function(){ _abWaechterEntscheid(box, Number(b.dataset.i), 'verworfen'); });
     });
   }catch(e){
     box.innerHTML='<div class="bleer">Härtefälle konnten gerade nicht geladen werden.</div>';
@@ -4980,7 +4986,8 @@ async function _abWaechterEntscheid(box, i, wahl){
       ? '<div style="font-size:12px;color:#1c7c33">✓ „'+esc(f.fall_text)+'" aufgelöst — '
         +(d.offene_geloest||0)+' Produkt'+((d.offene_geloest||0)===1?'':'e')+' gebunden. '
         +'<b>Gilt ab jetzt für alle künftigen Fälle.</b></div>'
-      : '<div style="font-size:12px;color:#6b7280">„'+esc(f.fall_text)+'" zurückgestellt (30 Tage).</div>';
+      : '<div style="font-size:12px;color:#a33">✗ „'+esc(f.fall_text)+'" dauerhaft verworfen — '
+        +'kommt nie wieder auf die Kachel.</div>';
   }catch(e){
     zeile.style.opacity='1';
     zeile.insertAdjacentHTML('beforeend','<div class="bunter" style="color:#b23">Entscheid kam nicht durch — bitte neu laden.</div>');
