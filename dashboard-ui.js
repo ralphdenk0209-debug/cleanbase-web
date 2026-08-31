@@ -4939,8 +4939,12 @@ async function _abWaechterHFLaden(){
        unsicher, grau = neue Zutat), Produkte-Zaehler als Badge, Regelherleitung
        als eigene §-Zeile, Knoepfe klein und rechts. "später" ist weg (Ralph) —
        verwerfen wirkt dauerhaft. */
+    /* 31.08., Ralph: (a) Mengenpraefix ("12% Kokosnussöl") ist KEIN Synonymfall —
+       die Zahl gehoert ins Anteilsfeld, der Matcher loest kuenftige Faelle selbst;
+       der Knopf bindet Bestand + Anteil. (b) Mehrdeutige Faelle (Zitronensaeure-
+       konzentrat) zeigen bis zu drei Kandidaten ZUR WAHL statt nur Ablehnung. */
     var AK={synonym_sicher:'#2e9e57',synonym_wahrscheinlich:'#7fb069',
-            synonym_unsicher:'#e0a32e',neu:'#98a1aa'};
+            mengenpraefix:'#2e9e57',auswahl:'#e0a32e',neu:'#98a1aa'};
     box.innerHTML='<div style="font-size:10.5px;font-weight:800;letter-spacing:.08em;'
         +'text-transform:uppercase;color:#8a94a0;margin-bottom:7px">Zutaten-Härtefälle</div>'
       + f.map(function(x,i){
@@ -4957,11 +4961,24 @@ async function _abWaechterHFLaden(){
           +'<div style="font-size:11.5px;color:#5b6570;line-height:1.45;margin-top:3px">'+esc(x.problem)+'</div>'
           +(x.regel?'<div style="font-size:11px;color:#3d6b4a;background:#f0f7f1;border-radius:7px;'
               +'padding:4px 8px;margin-top:5px;line-height:1.4">§ '+esc(x.regel)+'</div>':'')
+          +(x.vorschlag_art==='auswahl' && (x.kandidaten||[]).length
+            ? '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">'
+              +x.kandidaten.map(function(k,ki){
+                return '<button class="abhfkw" data-i="'+i+'" data-ki="'+ki+'"'
+                  +' style="padding:4px 9px;border:1px solid #d9e3dc;background:#f4f8f5;color:#2c5c3a;'
+                  +'border-radius:8px;font-size:11px;cursor:pointer"'
+                  +' title="'+esc(k.regel||('Note '+k.note))+'">= '+esc(k.name)+' ('+esc(k.note)+')</button>';
+              }).join('')+'</div>'
+            : '')
           +'<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px">'
             +'<button class="abhfvw" data-i="'+i+'" style="padding:5px 10px;border:1px solid #edd9d9;'
               +'background:#fff;color:#a33;border-radius:8px;font-size:11px;cursor:pointer"'
               +' title="Dauerhaft verwerfen — das ist keine echte Zutat">✗ gibt es nicht</button>'
-            +(sicher
+            +(x.vorschlag_art==='mengenpraefix'
+              ? '<button class="abhfpx" data-i="'+i+'" style="padding:5px 12px;border:1px solid #bfe3c8;'
+                +'background:#effaef;color:#1c7c33;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">'
+                +'✓ binden, '+esc(x.anteil||'%')+' als Anteil</button>'
+              : sicher
               ? '<button class="abhfja" data-i="'+i+'" style="padding:5px 12px;border:1px solid #bfe3c8;'
                 +'background:#effaef;color:#1c7c33;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">'
                 +'✓ Vorschlag übernehmen</button>'
@@ -4975,29 +4992,45 @@ async function _abWaechterHFLaden(){
     box.querySelectorAll('.abhfvw').forEach(function(b){
       b.addEventListener('click',function(){ _abWaechterEntscheid(box, Number(b.dataset.i), 'verworfen'); });
     });
+    box.querySelectorAll('.abhfpx').forEach(function(b){
+      b.addEventListener('click',function(){ _abWaechterEntscheid(box, Number(b.dataset.i), 'praefix_bindung'); });
+    });
+    box.querySelectorAll('.abhfkw').forEach(function(b){
+      b.addEventListener('click',function(){
+        _abWaechterEntscheid(box, Number(b.dataset.i), 'synonym', Number(b.dataset.ki));
+      });
+    });
   }catch(e){
     box.innerHTML='<div class="bleer">Härtefälle konnten gerade nicht geladen werden.</div>';
     try{ console.warn('[WaechterHF]',e); }catch(_){}
   }
 }
 
-async function _abWaechterEntscheid(box, i, wahl){
+async function _abWaechterEntscheid(box, i, wahl, kandidatIdx){
   var f=(box._faelle||[])[i]; if(!f) return;
   var zeile=box.querySelector('.abhf[data-i="'+i+'"]'); if(!zeile) return;
   zeile.style.opacity='.5';
+  var ziel=null;
+  if(wahl==='synonym') ziel=(kandidatIdx!=null && f.kandidaten && f.kandidaten[kandidatIdx])
+      ? f.kandidaten[kandidatIdx].zid : f.vorschlag_zutat_id;
+  if(wahl==='praefix_bindung') ziel=f.vorschlag_zutat_id;
   try{
     var r=await client.rpc('cb_admin_waechter_entscheiden',{
       p_fall_text:f.fall_text, p_entscheidung:wahl,
-      p_ziel_zutat_id:(wahl==='synonym'?f.vorschlag_zutat_id:null), p_begruendung:null});
+      p_ziel_zutat_id:ziel, p_begruendung:null});
     if(r.error) throw r.error;
     var d=(r.data&&r.data.offene_geloest!=null)?r.data:{};
     zeile.style.opacity='1';
-    zeile.style.borderLeftColor = wahl==='synonym' ? '#2e9e57' : '#c96a6a';
-    zeile.style.background = wahl==='synonym' ? '#f2faf4' : '#fbf4f4';
-    zeile.innerHTML = wahl==='synonym'
+    var ok=(wahl==='synonym'||wahl==='praefix_bindung');
+    zeile.style.borderLeftColor = ok ? '#2e9e57' : '#c96a6a';
+    zeile.style.background = ok ? '#f2faf4' : '#fbf4f4';
+    zeile.innerHTML = ok
       ? '<div style="font-size:12px;color:#1c7c33;line-height:1.45">✓ <b>„'+esc(f.fall_text)+'"</b> aufgelöst — '
         +(d.offene_geloest||0)+' Produkt'+((d.offene_geloest||0)===1?'':'e')+' gebunden.'
-        +'<div style="font-size:11px;margin-top:2px">Gilt ab jetzt für alle künftigen Fälle.</div></div>'
+        +'<div style="font-size:11px;margin-top:2px">'
+        +(wahl==='praefix_bindung'
+          ? esc(f.anteil||'%')+' als Anteil übernommen. Künftige Prozent-Fälle löst der Matcher selbst.'
+          : 'Gilt ab jetzt für alle künftigen Fälle.')+'</div></div>'
       : '<div style="font-size:12px;color:#9c4040;line-height:1.45">✗ <b>„'+esc(f.fall_text)+'"</b> dauerhaft verworfen'
         +'<div style="font-size:11px;margin-top:2px">Kommt nie wieder auf die Kachel.</div></div>';
   }catch(e){
