@@ -3821,6 +3821,11 @@ function _abBentoNach(box){
   if(box.querySelector('#abLinks')) { try{ _abLinksLaden(); }
     catch(e){ try{ console.warn('[Links]',e); }catch(_){} } }
 
+  /* 31.08.2026: Zutaten-Haertefaelle in der Entscheidungs-Kachel — laedt nach,
+     gleicher Grundsatz wie Links und Karte: nichts blockiert den Aufbau. */
+  if(box.querySelector('#abWaechterHF')) { try{ _abWaechterHFLaden(); }
+    catch(e){ try{ console.warn('[WaechterHF]',e); }catch(_){} } }
+
   /* Work #121: jede Zahl mit drill_key oeffnet die Serverliste. EINE Stelle
      fuer alle Kacheln — der Anordnen-Modus zeichnet sie neu und ruft dieselbe
      Verdrahtung wieder auf. */
@@ -4891,9 +4896,89 @@ function _abkEntscheid(c){
       +(zeilen?'<div style="margin-top:9px">'+zeilen+'</div>':'')
       +(rest>0?'<div class="bunter" style="margin-top:6px">und '+rest+' weitere</div>':'')
       +(n===0?'<div class="bleer" style="margin-top:8px">Niemand wartet auf dich.</div>':'')
+      /* 🔴 31.08.2026, Ralph-Auftrag: Zutaten-Haertefaelle GEHOEREN in diese
+         Kachel — kurzes Problem, Vorschlag, Entscheid, verbindlich fuer alle
+         kuenftigen Faelle. KEIN zweiter Ort: dieselbe Kachel, zweiter Block.
+         Laedt NACH (wie Links/Karte), damit die Flaeche nicht wartet. */
+      +'<div id="abWaechterHF" style="margin-top:9px;padding-top:8px;border-top:1px solid var(--line,#eef2f6)">'
+        +'<div class="blade">Zutaten-Härtefälle laden…</div>'
+      +'</div>'
     +'</div>',
-    fuss: n>0 ? 'Antippen öffnet die vollständige Liste mit Begründung.' : ''
+    fuss: 'Ein Entscheid hier gilt ab sofort für alle künftigen Fälle derselben Schreibweise.'
   };
+}
+
+/* ============================================================================
+   ZUTATEN-HAERTEFAELLE  ·  31.08.2026  ·  Ralph-Auftrag von der Waechter-Kachel
+   ----------------------------------------------------------------------------
+   Quelle: cb_admin_waechter_faelle(3) — gruppierte offene Zutat_Offen-Texte mit
+   verstaendlichem Problemsatz und Vorschlag. Der Entscheid laeuft ueber
+   cb_admin_waechter_entscheiden und wirkt DOPPELT: alle heutigen Produkte mit
+   dieser Schreibweise werden gebunden, und das Synonym greift fuer jedes
+   kuenftige Produkt automatisch. So lernt das System aus jedem Klick.
+   Bei 'synonym_unsicher' und 'neu' gibt es bewusst KEINEN Ja-Knopf mit
+   Automatik — nur 'spaeter': eine unsichere Bindung per Klick waere genau der
+   stille Aufstieg, den der Kernvertrag verbietet.
+   ========================================================================== */
+async function _abWaechterHFLaden(){
+  var box=document.getElementById('abWaechterHF'); if(!box) return;
+  try{
+    var r=await client.rpc('cb_admin_waechter_faelle',{p_limit:3});
+    if(r.error) throw r.error;
+    var f=r.data||[];
+    if(!f.length){ box.innerHTML='<div class="bleer">Keine Zutaten-Härtefälle offen.</div>'; return; }
+    box.innerHTML='<div class="bunter" style="font-weight:700;margin-bottom:5px">Zutaten-Härtefälle</div>'
+      + f.map(function(x,i){
+        var sicher=(x.vorschlag_art==='synonym_sicher'||x.vorschlag_art==='synonym_wahrscheinlich');
+        var knoepfe='<div style="display:flex;gap:6px;margin-top:5px">'
+          +(sicher
+            ? '<button class="abhfja" data-i="'+i+'" style="flex:1;padding:5px 8px;border:1px solid #bfe3c8;'
+              +'background:#effaef;color:#1c7c33;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer">'
+              +'✓ Vorschlag übernehmen</button>'
+            : '')
+          +'<button class="abhfsp" data-i="'+i+'" style="padding:5px 8px;border:1px solid var(--line,#e1e6ea);'
+            +'background:#fff;color:#6b7280;border-radius:8px;font-size:11.5px;cursor:pointer">später</button>'
+        +'</div>';
+        return '<div class="abhf" data-i="'+i+'" style="margin-bottom:8px">'
+          +'<div style="font-size:12.5px;font-weight:700">„'+esc(x.fall_text)+'"'
+            +' <i style="font-style:normal;opacity:.6;font-weight:400">· '+x.produkte+' Produkt'+(x.produkte===1?'':'e')+'</i></div>'
+          +'<div class="bunter" style="margin-top:2px">'+esc(x.problem)+'</div>'
+          +knoepfe+'</div>';
+      }).join('');
+    box._faelle=f;
+    box.querySelectorAll('.abhfja').forEach(function(b){
+      b.addEventListener('click',function(){ _abWaechterEntscheid(box, Number(b.dataset.i), 'synonym'); });
+    });
+    box.querySelectorAll('.abhfsp').forEach(function(b){
+      b.addEventListener('click',function(){ _abWaechterEntscheid(box, Number(b.dataset.i), 'zurueckgestellt'); });
+    });
+  }catch(e){
+    box.innerHTML='<div class="bleer">Härtefälle konnten gerade nicht geladen werden.</div>';
+    try{ console.warn('[WaechterHF]',e); }catch(_){}
+  }
+}
+
+async function _abWaechterEntscheid(box, i, wahl){
+  var f=(box._faelle||[])[i]; if(!f) return;
+  var zeile=box.querySelector('.abhf[data-i="'+i+'"]'); if(!zeile) return;
+  zeile.style.opacity='.5';
+  try{
+    var r=await client.rpc('cb_admin_waechter_entscheiden',{
+      p_fall_text:f.fall_text, p_entscheidung:wahl,
+      p_ziel_zutat_id:(wahl==='synonym'?f.vorschlag_zutat_id:null), p_begruendung:null});
+    if(r.error) throw r.error;
+    var d=(r.data&&r.data.offene_geloest!=null)?r.data:{};
+    zeile.style.opacity='1';
+    zeile.innerHTML = wahl==='synonym'
+      ? '<div style="font-size:12px;color:#1c7c33">✓ „'+esc(f.fall_text)+'" aufgelöst — '
+        +(d.offene_geloest||0)+' Produkt'+((d.offene_geloest||0)===1?'':'e')+' gebunden. '
+        +'<b>Gilt ab jetzt für alle künftigen Fälle.</b></div>'
+      : '<div style="font-size:12px;color:#6b7280">„'+esc(f.fall_text)+'" zurückgestellt (30 Tage).</div>';
+  }catch(e){
+    zeile.style.opacity='1';
+    zeile.insertAdjacentHTML('beforeend','<div class="bunter" style="color:#b23">Entscheid kam nicht durch — bitte neu laden.</div>');
+    try{ console.warn('[WaechterHF]',e); }catch(_){}
+  }
 }
 
 function _abkBestand(c){
