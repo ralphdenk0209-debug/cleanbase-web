@@ -2252,7 +2252,14 @@ var _AB_KACHELN=[
      Breite der Flaeche. Eine fuenfte wuerde umbrechen und Ralph muesste
      wieder scrollen. Entscheidungen steht vorn: es ist das Einzige, was
      ohne ihn liegenbleibt. */
-  {id:'entscheid', reihe:1, titel:'Deine Entscheidungen',   breit:false, bau:_abkEntscheid, hoch:true},
+  /* 🔴 31.08.2026, Ralph: „die kachel soll oben unter den wächtern stehen und
+     darf etwas breiter sein." Sie steht bereits VORN (erste Kachel, direkt
+     unter dem Waechter-Raster) — breit:true gibt ihr die Doppelbreite (590),
+     damit die Haertefall-Saetze nicht umbrechen. Standardzeile 1 damit:
+     590+285+285+2x20 = 1200, exakt die Flaechenbreite; Region bricht um.
+     ⚠ Ein GESPEICHERTES Layout behaelt seine Masse — dann einmal im
+     Anordnen-Modus „Standard" waehlen. */
+  {id:'entscheid', reihe:1, titel:'Deine Entscheidungen',   breit:true,  bau:_abkEntscheid, hoch:true},
   {id:'bestand',   reihe:1, titel:'Katalog',                  breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr', hoch:true},
   {id:'riki',      reihe:1, titel:'RIKI',                     breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
   /* 🔴 26.08.2026, Ralph: „nutzer & region höher darstellen, da muss ich aktuell
