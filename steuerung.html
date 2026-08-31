@@ -62,7 +62,7 @@ button.haupt:hover{background:#3a7ee0}
 .lane-kopf .punkt{width:9px;height:9px;border-radius:99px;background:var(--akzent);flex:none}
 .lane-kopf h2{margin:0;font-size:14px;font-weight:650}
 .lane-kopf .regel{color:var(--schwach);font-size:11.5px}
-.lane-koerper{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;
+.lane-koerper{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;
   background:var(--linie)}
 .spalte{background:var(--bg2);min-height:64px;padding:8px}
 .spalte-kopf{display:flex;align-items:center;gap:6px;margin-bottom:7px}
@@ -235,8 +235,9 @@ const STATIONEN = [
   { id:"laeuft",  name:"läuft",     farbe:"var(--laeuft)",  trifft:s=>s==="in_progress" },
   { id:"abnahme", name:"Abnahme",   farbe:"var(--abnahme)", trifft:s=>s==="ready_for_verification" },
   { id:"haengt",  name:"hängt",     farbe:"var(--haengt)",
-    trifft:s=>s==="blocked"||s==="disputed"||s==="decision_ralph" },
-  { id:"fertig",  name:"fertig",    farbe:"var(--fertig)",  trifft:s=>s==="verified" }
+    trifft:s=>s==="blocked"||s==="disputed"||s==="decision_ralph" }
+  /* Ralph 31.08.: Spalte „fertig“ ausgeblendet. Abgenommenes hilft beim Arbeiten
+     nicht — es fuellt nur die Tafel. Die Zeilen werden gar nicht erst geholt. */
 ];
 
 const THEMEN = ["produkt-erfassen","dashboard-steuerung","riki-lesen","benutzer-app",
@@ -256,9 +257,9 @@ async function laden(){
   const { data:{ session } } = await client.auth.getSession();
   if(!session){ nichtAngemeldet(); return; }
 
-  /* Aktive Stationen und die heute abgenommenen — nichts dazwischen erfunden. */
+  /* Nur die aktiven Stationen. Abgenommenes und Geschlossenes kommt nicht mit. */
   const r = await client.rpc("cb_admin_agent_work_kurzliste",
-    { p_status:["open","in_progress","ready_for_verification","blocked","disputed","decision_ralph","verified"],
+    { p_status:["open","in_progress","ready_for_verification","blocked","disputed","decision_ralph"],
       p_owner:null, p_bereich:null, p_limit:500 });
   if(r.error){ fehlerZeigen(r.error.message||String(r.error)); return; }
 

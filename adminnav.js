@@ -48,6 +48,12 @@ function applyAdminMode(){
     var _an=function(k,ico,lbl,oc,extra){ return '<button class="anBtn"'+(extra||'')+' data-k="'+k+'" onclick="'+oc+'"><span class="anIco">'+ico+'</span><span class="anLbl">'+lbl+'</span></button>'; };
     nav.innerHTML=
        _an('dash','📊','Dashboard',"adminGo('dash')")
+      /* 🔴 31.08.2026, Ralph (E16): „die steuerung muss vom admin aus erreichbar
+         sein, also ich will sie dort oeffnen koennen." Eigene Seite wie
+         video-skript-01.html — eigenes Fenster mit Cache-Buster, damit nach einem
+         Deploy nie ein alter Stand aus dem Cache kommt. Kein app.js-Panel: die
+         Seite bringt ihre eigene Anmeldung aus derselben Sitzung mit. */
+      +_an('steuerung','🎛️','Steuerung',"window.open('steuerung.html?cb='+Date.now(),'_blank')")
       /* Ralph-Auftrag 25.08.2026: Benchmark Control direkt hinter dem Dashboard.
          Eigene Arbeitsflaeche als Overlay (wie katKonfigOpen), kein fgTab-Panel —
          damit weder app.js noch admin.html Fachlogik dafuer bekommen. */
