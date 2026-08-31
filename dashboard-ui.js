@@ -4970,7 +4970,18 @@ async function _abWaechterHFLaden(){
                   +' title="'+esc(k.regel||('Note '+k.note))+'">= '+esc(k.name)+' ('+esc(k.note)+')</button>';
               }).join('')+'</div>'
             : '')
+          +'<div class="abhfkorr" data-i="'+i+'" style="display:none;gap:6px;margin-top:7px">'
+            +'<input class="abhfkin" data-i="'+i+'" type="text" value="'+esc(x.fall_text)+'"'
+              +' style="flex:1;min-width:0;padding:5px 9px;border:1px solid #cfd7dd;border-radius:8px;'
+              +'font-size:12px" placeholder="richtiger Zutatenname">'
+            +'<button class="abhfkok" data-i="'+i+'" style="padding:5px 12px;border:1px solid #bfe3c8;'
+              +'background:#effaef;color:#1c7c33;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">✓</button>'
+          +'</div>'
+          +'<div class="abhfkmsg" data-i="'+i+'" style="display:none;font-size:11px;color:#a33;margin-top:4px"></div>'
           +'<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px">'
+            +'<button class="abhfneu" data-i="'+i+'" style="padding:5px 10px;border:1px solid var(--line,#dde3e8);'
+              +'background:#fff;color:#4a5560;border-radius:8px;font-size:11px;cursor:pointer"'
+              +' title="Diesen Text verwerfen und den richtigen Namen eintippen">✎ verwerfen &amp; neu erfassen</button>'
             +'<button class="abhfvw" data-i="'+i+'" style="padding:5px 10px;border:1px solid #edd9d9;'
               +'background:#fff;color:#a33;border-radius:8px;font-size:11px;cursor:pointer"'
               +' title="Dauerhaft verwerfen — das ist keine echte Zutat">✗ gibt es nicht</button>'
@@ -5000,15 +5011,41 @@ async function _abWaechterHFLaden(){
         _abWaechterEntscheid(box, Number(b.dataset.i), 'synonym', Number(b.dataset.ki));
       });
     });
+    /* "verwerfen & neu erfassen": Eingabefeld einblenden, Fall-Text vorbefuellt
+       zum Korrigieren. ✓ verwirft den alten Text dauerhaft und bindet den
+       eingetippten — nur wenn er eindeutig im bewerteten Stamm steht, sonst
+       kommt die Meldung und nichts passiert. */
+    box.querySelectorAll('.abhfneu').forEach(function(b){
+      b.addEventListener('click',function(){
+        var k=box.querySelector('.abhfkorr[data-i="'+b.dataset.i+'"]');
+        if(k){ k.style.display='flex'; var inp=k.querySelector('input'); if(inp){ inp.focus(); inp.select(); } }
+      });
+    });
+    box.querySelectorAll('.abhfkok').forEach(function(b){
+      b.addEventListener('click',function(){
+        var inp=box.querySelector('.abhfkin[data-i="'+b.dataset.i+'"]');
+        _abWaechterEntscheid(box, Number(b.dataset.i), 'korrigiert', null, inp?inp.value:'');
+      });
+    });
+    box.querySelectorAll('.abhfkin').forEach(function(inp){
+      inp.addEventListener('keydown',function(ev){
+        if(ev.key==='Enter') _abWaechterEntscheid(box, Number(inp.dataset.i), 'korrigiert', null, inp.value);
+      });
+    });
   }catch(e){
     box.innerHTML='<div class="bleer">Härtefälle konnten gerade nicht geladen werden.</div>';
     try{ console.warn('[WaechterHF]',e); }catch(_){}
   }
 }
 
-async function _abWaechterEntscheid(box, i, wahl, kandidatIdx){
+async function _abWaechterEntscheid(box, i, wahl, kandidatIdx, korrektur){
   var f=(box._faelle||[])[i]; if(!f) return;
   var zeile=box.querySelector('.abhf[data-i="'+i+'"]'); if(!zeile) return;
+  var msg=box.querySelector('.abhfkmsg[data-i="'+i+'"]');
+  if(wahl==='korrigiert' && !(korrektur||'').trim()){
+    if(msg){ msg.style.display='block'; msg.textContent='Erst den richtigen Namen eintippen.'; }
+    return;
+  }
   zeile.style.opacity='.5';
   var ziel=null;
   if(wahl==='synonym') ziel=(kandidatIdx!=null && f.kandidaten && f.kandidaten[kandidatIdx])
@@ -5017,11 +5054,19 @@ async function _abWaechterEntscheid(box, i, wahl, kandidatIdx){
   try{
     var r=await client.rpc('cb_admin_waechter_entscheiden',{
       p_fall_text:f.fall_text, p_entscheidung:wahl,
-      p_ziel_zutat_id:ziel, p_begruendung:null});
+      p_ziel_zutat_id:ziel, p_begruendung:null,
+      p_korrektur:(wahl==='korrigiert'?korrektur:null)});
     if(r.error) throw r.error;
     var d=(r.data&&r.data.offene_geloest!=null)?r.data:{};
+    /* Der Stamm kennt den korrigierten Namen nicht eindeutig: Meldung zeigen,
+       Karte bleibt bedienbar — kein Entscheid wurde geschrieben. */
+    if(r.data && r.data.ok===false){
+      zeile.style.opacity='1';
+      if(msg){ msg.style.display='block'; msg.textContent=r.data.fehler||'Nicht gefunden.'; }
+      return;
+    }
     zeile.style.opacity='1';
-    var ok=(wahl==='synonym'||wahl==='praefix_bindung');
+    var ok=(wahl==='synonym'||wahl==='praefix_bindung'||wahl==='korrigiert');
     zeile.style.borderLeftColor = ok ? '#2e9e57' : '#c96a6a';
     zeile.style.background = ok ? '#f2faf4' : '#fbf4f4';
     zeile.innerHTML = ok
@@ -5030,6 +5075,8 @@ async function _abWaechterEntscheid(box, i, wahl, kandidatIdx){
         +'<div style="font-size:11px;margin-top:2px">'
         +(wahl==='praefix_bindung'
           ? esc(f.anteil||'%')+' als Anteil übernommen. Künftige Prozent-Fälle löst der Matcher selbst.'
+          : wahl==='korrigiert'
+          ? 'Etiketttext verworfen, korrigiert zu „'+esc(d.ziel_name||korrektur||'')+'".'
           : 'Gilt ab jetzt für alle künftigen Fälle.')+'</div></div>'
       : '<div style="font-size:12px;color:#9c4040;line-height:1.45">✗ <b>„'+esc(f.fall_text)+'"</b> dauerhaft verworfen'
         +'<div style="font-size:11px;margin-top:2px">Kommt nie wieder auf die Kachel.</div></div>';
