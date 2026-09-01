@@ -482,38 +482,57 @@ function zeichnen(){
   const spalten = "grid-template-columns:repeat("+Math.max(1,PROJEKTE.length)+",minmax(210px,1fr))";
   let html = "";
 
-  /* --- Zeile 1: je Projekt eine Karte, keine einzelne Aufgabe --- */
-  html += '<div class="stock" style="--akzent:var(--st1)">' +
-    '<div class="stock-kopf"><span class="punkt"></span><h2>Zeile 1 · Alle Projekte</h2>' +
-    '<span class="chip">'+PROJEKTE.length+' Projekte</span>' +
-    '<span class="regel">Je Projekt eine Karte mit Kürzel, Zweck, Ziel und Zahlen. ' +
-    'Ein Projekt ohne Aufgabe steht trotzdem hier (#388).</span></div>' +
-    '<div class="stock-koerper" style="'+spalten+'">';
-  for(const p of PROJEKTE) html += projektKarteHtml(p, rows.filter(w=>w._projekt===p.id));
-  html += '</div></div>';
-
-  /* --- Zeile 2: Projektaufgaben aus agent_projekt_aufgabe --- */
+  /* Die Tafel laeuft von oben nach unten: Ebene 0, 1, 2, 3 (#394).
+     Wer abnimmt, steht oben. Eine fertig gemeldete Aufgabe steht nicht mehr
+     in Ebene 3, sondern in der Zeile der Ebene, die sie abnehmen muss —
+     welche das ist, sagt allein das Serverfeld abnahmestufe (#389). */
   const nPA = Object.values(PAUFGABEN).reduce((a,b)=>a+b.length,0);
-  html += '<div class="stock" style="--akzent:var(--st2)">' +
-    '<div class="stock-kopf"><span class="punkt"></span><h2>Zeile 2 · Projektaufgaben</h2>' +
-    '<span class="chip">'+nPA+' Aufgaben</span>' +
-    '<span class="regel">Die Ampel kommt vom Server, nicht von dieser Seite.</span></div>' +
-    '<div class="stock-koerper" style="'+spalten+'">';
-  for(const p of PROJEKTE) html += projektAufgabenHtml(p);
-  html += '</div></div>';
+  const je = (pid, f) => rows.filter(w=>w._projekt===pid && f(w));
 
-  /* --- Zeile 3: die Aufgaben selbst, je Projekt nach Station --- */
-  html += '<div class="stock" style="--akzent:var(--st3)">' +
-    '<div class="stock-kopf"><span class="punkt"></span><h2>Zeile 3 · Die Aufgaben</h2>' +
-    '<span class="chip">'+rows.length+' Aufgaben</span>' +
-    '<span class="regel">Karte in eine andere Station ziehen setzt die Station, ' +
-    'innerhalb einer Station die Priorität. Abgenommen wird über den Knopf im Panel.</span></div>' +
-    '<div class="stock-koerper" style="'+spalten+'">';
-  for(const p of PROJEKTE) html += aufgabenSpalteHtml(p, rows.filter(w=>w._projekt===p.id));
-  html += '</div></div>';
+  /* --- Ebene 0 · Ralph: letzte Abnahme und Grundsatzfragen --- */
+  html += ebeneZeile({
+    akzent:"var(--st0)", titel:"Ebene 0 · Ralph",
+    regel:"Die letzte Abnahme und die Grundsatzfragen. Erst nach Ralph steht eine Aufgabe auf abgenommen (E25).",
+    chips:[ zaehlChip(rows, w=>w._station==="abnahme_e0", "zur Abnahme"),
+            zaehlChip(rows, w=>w.status==="decision_ralph", "zu entscheiden") ],
+    spalten,
+    inhalt: p => stapelSpalteHtml(p, "abnahme_e0",
+      je(p.id, w=>w._station==="abnahme_e0" || w.status==="decision_ralph"),
+      "nichts bei Ralph")
+  });
 
-  /* --- Zeile 4: Ebene 0 · Ralph (E25) --- */
-  html += ebene0Html(rows);
+  /* --- Ebene 1 · Gesamtsteuerung: Projektbild und die Abnahmen auf e1 --- */
+  html += ebeneZeile({
+    akzent:"var(--st1)", titel:"Ebene 1 · Gesamtsteuerung",
+    regel:"Je Projekt eine Karte mit Kürzel, Zweck, Ziel und Zahlen. Ein Projekt ohne Aufgabe steht trotzdem hier (#388).",
+    chips:[ '<span class="chip">'+PROJEKTE.length+' Projekte</span>',
+            zaehlChip(rows, w=>w._station==="abnahme_e1", "zur Abnahme") ],
+    spalten,
+    inhalt: p => projektKarteHtml(p, rows.filter(w=>w._projekt===p.id)) +
+                 stapelSpalteHtml(p, "abnahme_e1", je(p.id, w=>w._station==="abnahme_e1"), null, true)
+  });
+
+  /* --- Ebene 2 · Projektführung: Projektaufgaben und die Abnahmen auf e2 --- */
+  html += ebeneZeile({
+    akzent:"var(--st2)", titel:"Ebene 2 · Projektführung",
+    regel:"Die Projektaufgaben mit Ampel — die Ampel kommt vom Server, nicht von dieser Seite.",
+    chips:[ '<span class="chip">'+nPA+' Projektaufgaben</span>',
+            zaehlChip(rows, w=>w._station==="abnahme_e2", "zur Abnahme") ],
+    spalten,
+    inhalt: p => projektAufgabenHtml(p) +
+                 stapelSpalteHtml(p, "abnahme_e2", je(p.id, w=>w._station==="abnahme_e2"), null, true)
+  });
+
+  /* --- Ebene 3 · Umsetzung: was noch gebaut wird --- */
+  const inArbeit = rows.filter(w=>["open","in_progress","haengt"].indexOf(w._station)>=0);
+  html += ebeneZeile({
+    akzent:"var(--st3)", titel:"Ebene 3 · Umsetzung",
+    regel:"Karte in eine andere Station ziehen setzt die Station, innerhalb einer Station die Priorität. " +
+          "Nach oben kommt eine Karte nur durch Abnehmen.",
+    chips:[ '<span class="chip">'+inArbeit.length+' in Arbeit</span>' ],
+    spalten,
+    inhalt: p => aufgabenSpalteHtml(p, rows.filter(w=>w._projekt===p.id))
+  });
 
   $("tafel").innerHTML = html;
 
@@ -531,7 +550,38 @@ function zeichnen(){
   verdrahten();
 }
 
-/* ---------- Zeile 1 ---------- */
+/* ---------- Eine Ebenenzeile · gleiche Spalten in jeder Ebene ---------- */
+function ebeneZeile(o){
+  let h = '<div class="stock" style="--akzent:'+o.akzent+'">' +
+    '<div class="stock-kopf"><span class="punkt"></span><h2>'+esc(o.titel)+'</h2>' +
+    o.chips.join("") +
+    '<span class="regel">'+esc(o.regel)+'</span></div>' +
+    '<div class="stock-koerper" style="'+o.spalten+'">';
+  for(const p of PROJEKTE) h += o.inhalt(p);
+  return h + '</div></div>';
+}
+function zaehlChip(rows, f, name){
+  const n = rows.filter(f).length;
+  return '<span class="chip"'+(n?' style="border-color:var(--abnahme);color:var(--abnahme)"':'')+'>'+
+    n+' '+esc(name)+'</span>';
+}
+
+/* Ein Stapel Karten in einer Ebenenzeile. Ablegen ist erlaubt, damit der
+   Server die Entscheidung treffen kann — abgewiesen wird in abgelegt(). */
+function stapelSpalteHtml(p, station, karten, leerText, ohneHuelle){
+  const s = STATIONEN.find(x=>x.id===station) || STATIONEN[0];
+  const stapel = karten.sort((a,b)=> (b.priority||0)-(a.priority||0) || (b.work_id-a.work_id));
+  let inner = '<div class="stapel" data-ziel="'+esc(station)+'" data-projekt="'+esc(p.id)+'">' +
+    (stapel.length ? stapel.map(w=>karteHtml(w,s)).join("")
+                   : '<div class="leer">'+esc(leerText||"—")+'</div>') +
+    '</div>';
+  if(ohneHuelle) return stapel.length ? '<div class="nachschub">'+inner+'</div>' : '';
+  return '<div class="spalte"><div class="spalte-kopf"><span class="kz">'+esc(p.kuerzel||"—")+'</span>' +
+    '<span class="name">'+esc(p.name)+'</span><span class="n">'+stapel.length+'</span></div>' +
+    inner + '</div>';
+}
+
+/* ---------- Ebene 1 · Projektkarte ---------- */
 function projektKarteHtml(p, rows){
   const n = s => rows.filter(w=>w._station===s).length;
   const laeuft = n("in_progress");
