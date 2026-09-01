@@ -208,6 +208,18 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 .weg span.jetzt{border-color:var(--abnahme);color:var(--abnahme);font-weight:700}
 .weg span.durch{border-color:var(--fertig);color:var(--fertig)}
 
+/* Aufgabentext im Panel (#397) */
+.ptext{margin-bottom:14px}
+.ptext .block{background:var(--karte);border:1px solid var(--linie);border-radius:8px;
+  padding:8px 10px;margin-bottom:8px}
+.ptext .block b{display:block;font-size:9.5px;color:var(--schwach);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:3px}
+.ptext .block p{margin:0;font-size:12.5px;line-height:1.5;white-space:pre-wrap}
+.ptext .block.stand{border-left:3px solid var(--laeuft)}
+.ptext .block.fertig{border-left:3px solid var(--fertig)}
+.ptext .leerfeld{color:#5a6675;font-style:italic}
+.ptext .laedt{color:var(--schwach);font-size:12px;padding:4px 2px}
+
 .hinweis{margin:40px auto;max-width:560px;background:var(--bg2);border:1px solid var(--linie);
   border-radius:11px;padding:22px;text-align:center}
 .luecke{background:#2a2113;border:1px solid #6b551c;color:#e8cf94;border-radius:9px;
@@ -255,6 +267,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
   <div class="panel-koerper">
     <div class="meldung" id="pMeldung"></div>
     <div class="weg" id="pWeg" style="display:none"></div>
+    <div id="pText" class="ptext"></div>
     <div class="feld"><label>Station</label>
       <select id="pStatus">
         <option value="open">offen</option>
@@ -966,7 +979,44 @@ function panelAuf(id){
     $("pAbnehmen").textContent = "Abnehmen als " + (STUFEN_NAME[jetzt]||jetzt).split(" · ")[0];
   }
   $("panel").classList.add("auf"); $("abdeckung").classList.add("auf");
+  textNachladen(w.work_id);
 }
+
+/* Die Kurzliste bringt keine Texte mit - die holt cb_admin_agent_work_detail (#397).
+   Fehlt ein Feld, steht das da. Erfunden wird nichts (CLAUDE.md A2). */
+async function textNachladen(id){
+  $("pText").innerHTML = '<div class="laedt">Text wird geholt …</div>';
+  let d = null, fehler = null;
+  try{
+    const r = await client.rpc("cb_admin_agent_work_detail",{ p_work_id:id });
+    if(r.error) throw r.error;
+    let rows = r.data; if(typeof rows==="string") rows = JSON.parse(rows);
+    d = Array.isArray(rows) ? rows[0] : rows;
+  }catch(e){ fehler = (e && e.message) || String(e); }
+
+  if(!AKTUELL || AKTUELL.work_id !== id) return;   /* inzwischen andere Karte offen */
+  if(fehler){
+    $("pText").innerHTML = '<div class="block"><b>Text nicht geladen</b><p>'+esc(fehler)+'</p></div>';
+    return;
+  }
+  if(!d){ $("pText").innerHTML = '<div class="block"><b>Text</b><p class="leerfeld">leer</p></div>'; return; }
+
+  AKTUELL.description = d.description;
+  AKTUELL.acceptance_criteria = d.acceptance_criteria;
+
+  const block = (klasse,titel,text) =>
+    '<div class="block '+klasse+'"><b>'+esc(titel)+'</b><p>' +
+    (nullif(text) ? esc(text) : '<span class="leerfeld">leer</span>') + '</p></div>';
+
+  $("pText").innerHTML =
+    block("","Worum geht es", d.description) +
+    block("fertig","Wann ist es fertig", d.acceptance_criteria) +
+    block("stand","Wie weit ist es", d.result_note) +
+    (nullif(d.verification_note)
+      ? block("","Letzte Abnahmenotiz von "+(d.verifier_agent||"—"), d.verification_note) : "");
+}
+function nullif(s){ return s!=null && String(s).trim()!==""; }
+
 function panelZu(){
   $("panel").classList.remove("auf"); $("abdeckung").classList.remove("auf"); AKTUELL=null;
 }
@@ -1046,10 +1096,15 @@ async function abnehmen(){
   }
 }
 
+/* Was der Server sagt, muss Ralph lesen koennen. Vorher stand die Meldung oben
+   im Fenster und war bei langem Text ausserhalb der Sicht - fuer Ralph sah es
+   aus, als passiere nichts (#397, Fall #367 am 01.09.). */
 function melden(t, gut){
   const m = $("pMeldung");
   m.textContent = t;
   m.className = "meldung " + (gut ? "gut" : "schlecht");
+  const k = document.querySelector(".panel-koerper");
+  if(k) k.scrollTop = 0;
 }
 
 /* ============================================================
