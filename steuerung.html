@@ -1077,11 +1077,13 @@ async function abnehmen(){
   if(!notiz) return melden("Eine Abnahme ohne Stelle, Gegenfall und Messung ist eine Meinung.", false);
   const actor = $("actor").value;
   const vorher = AKTUELL.abnahmestufe || "e2";
+  const rollenschluessel = window.prompt("Rollen-Schlüssel für " + STUFEN_NAME[vorher] + ":");
+  if(!rollenschluessel) return melden("Ohne Rollen-Schlüssel keine Abnahme.", false);
   $("pAbnehmen").disabled = true;
   try{
     const r = await client.rpc("cb_admin_agent_work_verifizieren",
       { p_work_id:AKTUELL.work_id, p_verifier:actor, p_ok:true,
-        p_note:notiz, p_evidence:null });
+        p_note:notiz, p_evidence:{rollenschluessel:rollenschluessel.trim()} });
     if(r.error) throw r.error;
     const naechste = { e2:"e1", e1:"e0" }[vorher];
     melden(naechste
