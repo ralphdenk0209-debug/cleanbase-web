@@ -10,10 +10,20 @@
   Work #375 Etappe 1 (01.09.2026), umgebaut fuer #386/#387/#388/#390 am 01.09.2026
   nach Ralph-Entscheid E25.
 
-  Zeile 1  je Projekt EINE Karte mit Kuerzel, Beschreibung, Ziel und Zahlen.
-  Zeile 2  je Projekt die Projektaufgaben mit Ampel — aus agent_projekt_aufgabe.
-  Zeile 3  je Projekt die Aufgaben selbst, nach Station gruppiert.
-  Zeile 4  Ebene 0 · Ralph — alles, was auf ihn wartet (E25).
+  DIE TAFEL LAEUFT VON OBEN NACH UNTEN: EBENE 0, 1, 2, 3 (#394).
+  Wer abnimmt, steht oben.
+
+  Ebene 0 · Ralph            die letzte Abnahme (e0) und die Grundsatzfragen.
+  Ebene 1 · Gesamtsteuerung  je Projekt EINE Karte mit Kuerzel, Zweck, Ziel,
+                             Zahlen — darunter die Abnahmen auf e1.
+  Ebene 2 · Projektfuehrung  die Projektaufgaben mit Ampel — darunter die
+                             Abnahmen auf e2.
+  Ebene 3 · Umsetzung        offen, laeuft, haengt. Mehr nicht: was fertig
+                             gemeldet ist, steht schon eine Zeile hoeher.
+
+  Eine fertig gemeldete Aufgabe wandert sichtbar in die Zeile der Ebene, die sie
+  abnehmen muss. Welche das ist, sagt allein agent_work_item.abnahmestufe (#389).
+  Diese Seite rechnet das nicht aus, sie liest es.
 
   Die Spaltenreihenfolge ist in allen Zeilen dieselbe.
 
@@ -120,8 +130,30 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .paufgabe{display:flex;align-items:center;gap:6px;background:var(--karte);
   border:1px solid var(--linie);border-radius:7px;padding:5px 8px;margin-bottom:5px}
 .paufgabe .ampel{width:8px;height:8px;border-radius:2px;flex:none}
+.paufgabe{cursor:pointer}
+.paufgabe:hover{background:var(--karte2)}
+.paufgabe.auf{border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0;
+  border-bottom-color:transparent}
+.paufgabe .panr{font-size:10.5px;font-weight:800;letter-spacing:.4px;flex:none;
+  background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 4px}
 .paufgabe .t{font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .paufgabe .n{margin-left:auto;font-size:11px;color:var(--schwach);flex:none}
+.paufgabe .pfeil{font-size:9px;color:var(--schwach);flex:none}
+.pa-auf{background:var(--bg2);border:1px solid var(--linie);border-top:0;
+  border-radius:0 0 7px 7px;padding:7px 8px 8px;margin-bottom:5px}
+.pa-feld{margin-bottom:7px;font-size:11.5px;line-height:1.45;color:#c6d4e4}
+.pa-feld:last-child{margin-bottom:0}
+.pa-feld b{display:block;font-size:9.5px;color:var(--schwach);text-transform:uppercase;
+  letter-spacing:.4px;margin-bottom:2px}
+.pa-feld .fehlt{color:#5a6675;font-style:italic}
+.pa-items{display:flex;flex-direction:column;gap:3px}
+.pa-item{display:flex;align-items:center;gap:5px;cursor:pointer;padding:2px 3px;border-radius:5px}
+.pa-item:hover{background:var(--karte2)}
+.pa-item .ampel{width:7px;height:7px;border-radius:2px;flex:none}
+.pa-item .pinr{font-size:10.5px;font-weight:700;flex:none;font-variant-numeric:tabular-nums}
+.pa-item .pit{font-size:11px;color:var(--schwach);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.pa-item .pis{margin-left:auto;font-size:10px;color:var(--schwach);flex:none}
 
 /* ---------- Zeile 3: Stationsgruppen ---------- */
 .gruppe{margin-bottom:9px}
@@ -150,10 +182,6 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .leer{color:#5a6675;font-size:11.5px;padding:4px 2px}
 .buendel{width:100%;margin-bottom:7px;font-size:11.5px;padding:4px}
 
-/* ---------- Zeile 4: Ebene 0 ---------- */
-.e0-koerper{padding:10px 12px;display:grid;gap:8px;
-  grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
-.e0-leer{padding:14px 12px;color:var(--schwach);font-size:12px}
 
 /* ---------- Panel rechts ---------- */
 .panel{position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);background:var(--bg2);
@@ -290,15 +318,20 @@ const STATIONEN = [
   { id:"abnahme_e2",  name:"wartet auf Ebene 2", farbe:"var(--e2)", stufe:"e2" },
   { id:"abnahme_e1",  name:"wartet auf Ebene 1", farbe:"var(--e1)", stufe:"e1" },
   { id:"abnahme_e0",  name:"wartet auf Ralph",   farbe:"var(--e0)", stufe:"e0" },
+  { id:"entscheid_e0",name:"Ralph entscheidet",  farbe:"var(--haengt)" },
   { id:"haengt",      name:"hängt",           farbe:"var(--haengt)" }
   /* Ralph 31.08.: Spalte „fertig" ausgeblendet. Abgenommenes hilft beim Arbeiten
      nicht — es fuellt nur die Tafel. Die Zeilen werden gar nicht erst geholt. */
 ];
-const HAENGT = ["blocked","disputed","decision_ralph"];
+/* „hängt" ist die Sammelspalte der Ebene 3. Ralph entscheidet gehoert NICHT
+   dazu: solche Karten stehen bei Ralph in Ebene 0, sonst stuenden sie doppelt
+   auf der Tafel — und eine Karte an zwei Stellen ist eine zweite Wahrheit. */
+const HAENGT = ["blocked","disputed"];
 const STUFEN_NAME = { e2:"Ebene 2 · Projektführung", e1:"Ebene 1 · Gesamtsteuerung", e0:"Ebene 0 · Ralph" };
 const STUFEN_FOLGE = ["e2","e1","e0"];
 
 function stationVon(w){
+  if(w.status==="decision_ralph") return "entscheid_e0";
   if(HAENGT.indexOf(w.status)>=0) return "haengt";
   if(w.status==="ready_for_verification") return "abnahme_" + (w.abnahmestufe || "e2");
   return w.status;
@@ -378,8 +411,11 @@ function geruestBilden(rs){
       PAUFGABEN[z.projekt_id] = [];
     }
     if(z.projekt_aufgabe_id && !PAUFGABEN[z.projekt_id].some(a=>a.aufgabe_id===z.projekt_aufgabe_id)){
+      /* zweck und fertig_kriterium kommen aus #395. Liefert der Server sie noch
+         nicht, bleiben sie leer — die Karte sagt das dann offen (CLAUDE.md A2). */
       PAUFGABEN[z.projekt_id].push({ aufgabe_id:z.projekt_aufgabe_id, nummer:z.projekt_aufgabe_nummer,
-                                     titel:z.projekt_aufgabe_titel, ampel:z.ampel });
+                                     titel:z.projekt_aufgabe_titel, ampel:z.ampel,
+                                     zweck:z.zweck || null, fertig_kriterium:z.fertig_kriterium || null });
     }
     if(z.work_id && z.projekt_aufgabe_id) WORK_AUFGABE[z.work_id] = z.projekt_aufgabe_id;
   }
@@ -488,17 +524,17 @@ function zeichnen(){
      welche das ist, sagt allein das Serverfeld abnahmestufe (#389). */
   const nPA = Object.values(PAUFGABEN).reduce((a,b)=>a+b.length,0);
   const je = (pid, f) => rows.filter(w=>w._projekt===pid && f(w));
+  const beiRalph = w => w._station==="abnahme_e0" || w._station==="entscheid_e0";
 
   /* --- Ebene 0 · Ralph: letzte Abnahme und Grundsatzfragen --- */
   html += ebeneZeile({
     akzent:"var(--st0)", titel:"Ebene 0 · Ralph",
     regel:"Die letzte Abnahme und die Grundsatzfragen. Erst nach Ralph steht eine Aufgabe auf abgenommen (E25).",
     chips:[ zaehlChip(rows, w=>w._station==="abnahme_e0", "zur Abnahme"),
-            zaehlChip(rows, w=>w.status==="decision_ralph", "zu entscheiden") ],
+            zaehlChip(rows, w=>w._station==="entscheid_e0", "zu entscheiden") ],
     spalten,
-    inhalt: p => stapelSpalteHtml(p, "abnahme_e0",
-      je(p.id, w=>w._station==="abnahme_e0" || w.status==="decision_ralph"),
-      "nichts bei Ralph")
+    zaehler: p => je(p.id, beiRalph).length,
+    inhalt: p => stapelHtml(p, "abnahme_e0", je(p.id, beiRalph), "nichts bei Ralph")
   });
 
   /* --- Ebene 1 · Gesamtsteuerung: Projektbild und die Abnahmen auf e1 --- */
@@ -508,8 +544,9 @@ function zeichnen(){
     chips:[ '<span class="chip">'+PROJEKTE.length+' Projekte</span>',
             zaehlChip(rows, w=>w._station==="abnahme_e1", "zur Abnahme") ],
     spalten,
+    zaehler: p => rows.filter(w=>w._projekt===p.id).length,
     inhalt: p => projektKarteHtml(p, rows.filter(w=>w._projekt===p.id)) +
-                 stapelSpalteHtml(p, "abnahme_e1", je(p.id, w=>w._station==="abnahme_e1"), null, true)
+                 abnahmeBlock(p, "abnahme_e1", je(p.id, w=>w._station==="abnahme_e1"))
   });
 
   /* --- Ebene 2 · Projektführung: Projektaufgaben und die Abnahmen auf e2 --- */
@@ -519,8 +556,9 @@ function zeichnen(){
     chips:[ '<span class="chip">'+nPA+' Projektaufgaben</span>',
             zaehlChip(rows, w=>w._station==="abnahme_e2", "zur Abnahme") ],
     spalten,
+    zaehler: p => (PAUFGABEN[p.id]||[]).length,
     inhalt: p => projektAufgabenHtml(p) +
-                 stapelSpalteHtml(p, "abnahme_e2", je(p.id, w=>w._station==="abnahme_e2"), null, true)
+                 abnahmeBlock(p, "abnahme_e2", je(p.id, w=>w._station==="abnahme_e2"))
   });
 
   /* --- Ebene 3 · Umsetzung: was noch gebaut wird --- */
@@ -531,6 +569,7 @@ function zeichnen(){
           "Nach oben kommt eine Karte nur durch Abnehmen.",
     chips:[ '<span class="chip">'+inArbeit.length+' in Arbeit</span>' ],
     spalten,
+    zaehler: p => je(p.id, w=>["open","in_progress","haengt"].indexOf(w._station)>=0).length,
     inhalt: p => aufgabenSpalteHtml(p, rows.filter(w=>w._projekt===p.id))
   });
 
@@ -544,8 +583,9 @@ function zeichnen(){
     '<code>cb_admin_agent_work_status</code>, <code>_zuweisen</code>, <code>_zuordnen</code> und ' +
     '<code>_verifizieren</code>. ' +
     '<b>Der Abnahmeweg (E25):</b> fertig gemeldet → Ebene 2 → Ebene 1 → Ralph → abgenommen. ' +
-    'Jede Abnahme schiebt die Karte eine Zeile höher. Wer die Arbeit gemacht hat, nimmt sie nicht ab; ' +
-    'das weist der Server ab, nicht diese Seite.';
+    'Jede Abnahme schiebt die Karte sichtbar eine Zeile höher — deshalb steht Ralph oben und ' +
+    'die Umsetzung unten. In Ebene 3 steht nur, was noch gebaut wird. ' +
+    'Wer die Arbeit gemacht hat, nimmt sie nicht ab; das weist der Server ab, nicht diese Seite.';
 
   verdrahten();
 }
@@ -557,7 +597,13 @@ function ebeneZeile(o){
     o.chips.join("") +
     '<span class="regel">'+esc(o.regel)+'</span></div>' +
     '<div class="stock-koerper" style="'+o.spalten+'">';
-  for(const p of PROJEKTE) h += o.inhalt(p);
+  for(const p of PROJEKTE){
+    h += '<div class="spalte">' +
+      '<div class="spalte-kopf"><span class="kz">'+esc(p.kuerzel||"—")+'</span>' +
+      '<span class="name">'+esc(p.name)+'</span>' +
+      '<span class="n">'+(o.zaehler ? o.zaehler(p) : "")+'</span></div>' +
+      o.inhalt(p) + '</div>';
+  }
   return h + '</div></div>';
 }
 function zaehlChip(rows, f, name){
@@ -568,17 +614,13 @@ function zaehlChip(rows, f, name){
 
 /* Ein Stapel Karten in einer Ebenenzeile. Ablegen ist erlaubt, damit der
    Server die Entscheidung treffen kann — abgewiesen wird in abgelegt(). */
-function stapelSpalteHtml(p, station, karten, leerText, ohneHuelle){
+function stapelHtml(p, station, karten, leerText){
   const s = STATIONEN.find(x=>x.id===station) || STATIONEN[0];
-  const stapel = karten.sort((a,b)=> (b.priority||0)-(a.priority||0) || (b.work_id-a.work_id));
-  let inner = '<div class="stapel" data-ziel="'+esc(station)+'" data-projekt="'+esc(p.id)+'">' +
-    (stapel.length ? stapel.map(w=>karteHtml(w,s)).join("")
+  const stapel = karten.slice().sort((a,b)=> (b.priority||0)-(a.priority||0) || (b.work_id-a.work_id));
+  return '<div class="stapel" data-ziel="'+esc(station)+'" data-projekt="'+esc(p.id)+'">' +
+    (stapel.length ? stapel.map(w=>karteHtml(w, STATIONEN.find(x=>x.id===w._station) || s)).join("")
                    : '<div class="leer">'+esc(leerText||"—")+'</div>') +
     '</div>';
-  if(ohneHuelle) return stapel.length ? '<div class="nachschub">'+inner+'</div>' : '';
-  return '<div class="spalte"><div class="spalte-kopf"><span class="kz">'+esc(p.kuerzel||"—")+'</span>' +
-    '<span class="name">'+esc(p.name)+'</span><span class="n">'+stapel.length+'</span></div>' +
-    inner + '</div>';
 }
 
 /* ---------- Ebene 1 · Projektkarte ---------- */
@@ -588,7 +630,7 @@ function projektKarteHtml(p, rows){
   const abnahme = n("abnahme_e2")+n("abnahme_e1")+n("abnahme_e0");
   const aeltester = rows.filter(w=>w._station==="haengt" || w.status==="ready_for_verification")
     .sort((a,b)=>tage(b.updated_at)-tage(a.updated_at))[0];
-  return '<div class="spalte"><div class="pkarte" style="--pf:'+
+  return '<div class="pkarte" style="--pf:'+
       (laeuft ? "var(--laeuft)" : "var(--linie)")+'">' +
     '<div class="kopfz"><span class="kz">'+esc(p.kuerzel||"—")+'</span><h3>'+esc(p.name)+'</h3></div>' +
     '<div class="lauf">'+(laeuft ? "läuft gerade" : "steht an")+' · '+rows.length+' Aufgaben · '+esc(p.status||"—")+'</div>' +
@@ -602,45 +644,87 @@ function projektKarteHtml(p, rows){
     '</div>' +
     (aeltester ? '<div class="wartet">ältester Wartefall <b>'+esc(aeltester._nummer)+'</b> · '+
       alterText(aeltester.updated_at)+'</div>' : '') +
-    '</div></div>';
+    '</div>';
 }
+
+/* Der Abnahmestapel unter der Projektkarte bzw. den Projektaufgaben.
+   Leer bleibt er unsichtbar — eine leere Ueberschrift hilft niemandem. */
+function abnahmeBlock(p, station, karten){
+  if(!karten.length) return '';
+  const s = STATIONEN.find(x=>x.id===station);
+  return '<div class="gruppe" style="margin-top:9px"><div class="gruppe-kopf">' +
+    '<span class="ampel" style="background:'+s.farbe+'"></span>' +
+    '<span class="gname">'+esc(s.name)+'</span><span class="gn">'+karten.length+'</span></div>' +
+    stapelHtml(p, station, karten) + '</div>';
+}
+
 function zbox(n,name,farbe){
   return '<div class="zbox"><b style="color:'+(n?farbe:"var(--schwach)")+'">'+n+'</b><span>'+esc(name)+'</span></div>';
 }
 
-/* ---------- Zeile 2 ---------- */
+/* ---------- Ebene 2 · Projektaufgaben ---------- */
 const AMPEL_FARBE = { gruen:"var(--fertig)", gelb:"var(--abnahme)", rot:"var(--haengt)" };
+/* Jede Projektaufgabe traegt ihre Kuerzel-Nummer (KP-3, nicht scanweg-r3) und
+   laesst sich aufklappen: Zweck, Fertig-Kriterium und die Work Items darunter,
+   je mit Nummer und Station (#396). Alles gelesen, nichts nachgerechnet. */
 function projektAufgabenHtml(p){
-  let h = '<div class="spalte"><div class="spalte-kopf"><span class="kz">'+esc(p.kuerzel||"—")+'</span>' +
-    '<span class="name">'+esc(p.name)+'</span></div>';
+  let h = "";
   const liste = PAUFGABEN[p.id] || [];
-  if(!liste.length) return h + '<div class="leer">keine Projektaufgabe</div></div>';
+  if(!liste.length) return '<div class="leer">keine Projektaufgabe</div>';
   for(const a of liste){
-    const n = ZEILEN.filter(w=>WORK_AUFGABE[w.work_id]===a.aufgabe_id).length;
-    h += '<div class="paufgabe"><span class="ampel" style="background:'+
-      (AMPEL_FARBE[a.ampel]||"var(--linie)")+'"></span>' +
-      '<span class="t">'+esc((a.nummer?a.nummer+" ":"")+(a.titel||a.aufgabe_id))+'</span>' +
-      '<span class="n">'+n+'</span></div>';
+    const items = ZEILEN.filter(w=>WORK_AUFGABE[w.work_id]===a.aufgabe_id)
+      .sort((x,y)=> (STOPP_RANG[x.status]-STOPP_RANG[y.status]) || (y.priority||0)-(x.priority||0));
+    const key = "pa|"+a.aufgabe_id;
+    const auf = !!OFFEN_STAPEL[key];
+    const nr = (p.kuerzel && a.nummer) ? (p.kuerzel+"-"+a.nummer) : a.aufgabe_id;
+
+    h += '<div class="paufgabe'+(auf?" auf":"")+'" data-pa="'+esc(key)+'">' +
+      '<span class="ampel" style="background:'+(AMPEL_FARBE[a.ampel]||"var(--linie)")+'"></span>' +
+      '<span class="panr">'+esc(nr)+'</span>' +
+      '<span class="t">'+esc(a.titel||a.aufgabe_id)+'</span>' +
+      '<span class="n">'+items.length+'</span>' +
+      '<span class="pfeil">'+(auf?"▲":"▼")+'</span></div>';
+
+    if(!auf) continue;
+    h += '<div class="pa-auf">' +
+      '<div class="pa-feld"><b>Zweck</b>' +
+        (a.zweck ? esc(a.zweck)
+                 : '<i class="fehlt">steht noch nicht im Server — das Feld baut #395</i>') + '</div>' +
+      '<div class="pa-feld"><b>Fertig, wenn</b>' +
+        (a.fertig_kriterium ? esc(a.fertig_kriterium)
+                            : '<i class="fehlt">steht noch nicht im Server — das Feld baut #395</i>') + '</div>' +
+      '<div class="pa-feld"><b>Aufgaben darunter</b>' +
+      (items.length
+        ? '<div class="pa-items">' + items.map(w=>{
+            const s = STATIONEN.find(x=>x.id===w._station);
+            return '<div class="pa-item" data-work="'+w.work_id+'">' +
+              '<span class="ampel" style="background:'+(s?s.farbe:"var(--linie)")+'"></span>' +
+              '<span class="pinr">'+esc(w._nummer)+'</span>' +
+              '<span class="pit">'+esc(w.title||"")+'</span>' +
+              '<span class="pis">'+esc(s?s.name:w.status)+'</span></div>';
+          }).join("") + '</div>'
+        : '<i class="fehlt">keine</i>') +
+      '</div></div>';
   }
-  return h + '</div>';
+  return h;
 }
 
-/* ---------- Zeile 3 ---------- */
+/* ---------- Ebene 3 · Umsetzung ----------
+   Hier stehen nur noch offen, läuft und hängt. Was fertig gemeldet ist,
+   steht in der Zeile der abnehmenden Ebene, nicht mehr hier (#394). */
 const SICHTBAR = 4;
+const EBENE3 = STATIONEN.filter(s=>["open","in_progress","haengt"].indexOf(s.id)>=0);
 
 function aufgabenSpalteHtml(p, rows){
-  let h = '<div class="spalte"><div class="spalte-kopf"><span class="kz">'+esc(p.kuerzel||"—")+'</span>' +
-    '<span class="name">'+esc(p.name)+'</span>' +
-    '<span class="n">'+rows.length+'</span></div>';
-
+  let h = "";
   const holbar = buendelFuer(p.id, rows);
   h += '<button class="buendel" data-buendel="'+esc(p.id)+'"'+(holbar.length?"":" disabled")+'>' +
     (holbar.length ? "📥 Bündel abholen · "+holbar.length+" Aufgaben" : "kein Bündel abholbar") +
     '</button>';
 
-  if(!rows.length) return h + '<div class="leer">—</div></div>';
+  if(!rows.length) return h + '<div class="leer">—</div>';
 
-  for(const s of STATIONEN){
+  for(const s of EBENE3){
     const stapel = rows.filter(w=>w._station===s.id)
       .sort((a,b)=> (STOPP_RANG[a.status]-STOPP_RANG[b.status]) ||
                     (b.priority||0)-(a.priority||0) || (b.work_id-a.work_id));
@@ -659,7 +743,7 @@ function aufgabenSpalteHtml(p, rows){
     }
     h += '</div>';
   }
-  return h + '</div>';
+  return h;
 }
 
 function karteHtml(w, s){
@@ -678,33 +762,6 @@ function karteHtml(w, s){
       (w.dependency_work_id ? '<span class="chip">wartet auf '+esc(nummerVon(w.dependency_work_id))+'</span>' : '') +
       '<span class="chip">'+alterText(w.updated_at)+'</span>' +
     '</div></div>';
-}
-
-/* ---------- Zeile 4 · Ebene 0 (E25) ----------
-   Ralph hat eine eigene Zeile, keine Auswahl im Kopf mehr. Hier steht,
-   was nur er kann: die letzte Abnahme und die Entscheidungen. */
-function ebene0Html(rows){
-  const abnahme = rows.filter(w=>w._station==="abnahme_e0");
-  const entscheid = rows.filter(w=>w.status==="decision_ralph");
-  const alle = abnahme.concat(entscheid);
-  let h = '<div class="stock" style="--akzent:var(--st0)">' +
-    '<div class="stock-kopf"><span class="punkt"></span><h2>Zeile 4 · Ebene 0 · Ralph</h2>' +
-    '<span class="chip">'+abnahme.length+' zur Abnahme</span>' +
-    '<span class="chip">'+entscheid.length+' zu entscheiden</span>' +
-    '<span class="regel">Die letzte Abnahme und die Grundsatzfragen. ' +
-    'Erst nach Ralph steht eine Aufgabe auf abgenommen (E25).</span></div>';
-  if(!alle.length){
-    return h + '<div class="e0-leer">Nichts liegt bei Ralph. ' +
-      'Eine Karte landet hier, wenn Ebene 1 abgenommen hat oder eine Ebene die Frage hochgibt.</div></div>';
-  }
-  h += '<div class="e0-koerper">';
-  for(const w of alle){
-    const s = w.status==="decision_ralph"
-      ? { id:"haengt", name:"entscheiden", farbe:"var(--haengt)" }
-      : STATIONEN.find(x=>x.id==="abnahme_e0");
-    h += karteHtml(w, s);
-  }
-  return h + '</div></div>';
 }
 
 /* ============================================================
@@ -789,6 +846,16 @@ function verdrahten(){
   });
   document.querySelectorAll("[data-buendel]").forEach(el=>{
     el.addEventListener("click",()=>buendelAbholen(el.dataset.buendel));
+  });
+  /* Projektaufgabe auf- und zuklappen (#396) */
+  document.querySelectorAll("[data-pa]").forEach(el=>{
+    el.addEventListener("click",()=>{
+      OFFEN_STAPEL[el.dataset.pa] = !OFFEN_STAPEL[el.dataset.pa];
+      zeichnen();
+    });
+  });
+  document.querySelectorAll(".pa-item[data-work]").forEach(el=>{
+    el.addEventListener("click", e=>{ e.stopPropagation(); panelAuf(Number(el.dataset.work)); });
   });
 }
 
