@@ -3,30 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Root Index — Steuerung in drei Stockwerken</title>
+<title>Root Index — Steuerung über vier Ebenen</title>
 <!--
-  STEUERUNGSSEITE · drei Stockwerke, Spalten sind Projekte
-  --------------------------------------------------------
-  Work #375, Etappe 1, gebaut 01.09.2026.
+  STEUERUNGSSEITE · vier Ebenen, Spalten sind Projekte
+  ----------------------------------------------------
+  Work #375 Etappe 1 (01.09.2026), umgebaut fuer #386/#387/#388/#390 am 01.09.2026
+  nach Ralph-Entscheid E25.
 
-  Stockwerk 1  je Projekt EINE Karte mit Zahlen. Keine einzelne Aufgabe.
-  Stockwerk 2  je Projekt die Projektaufgaben mit Ampel — in Etappe 1 leer,
-               die Tabellen dafuer entstehen erst in #376.
-  Stockwerk 3  je Projekt die Aufgaben selbst, nach Station gruppiert.
+  Zeile 1  je Projekt EINE Karte mit Kuerzel, Beschreibung, Ziel und Zahlen.
+  Zeile 2  je Projekt die Projektaufgaben mit Ampel — aus agent_projekt_aufgabe.
+  Zeile 3  je Projekt die Aufgaben selbst, nach Station gruppiert.
+  Zeile 4  Ebene 0 · Ralph — alles, was auf ihn wartet (E25).
 
-  Die Spaltenreihenfolge ist in allen drei Stockwerken dieselbe.
+  Die Spaltenreihenfolge ist in allen Zeilen dieselbe.
 
-  KEINE ZWEITE WAHRHEIT. Jede Zeile kommt aus cb_admin_agent_work_kurzliste,
-  also aus shadow_v1.agent_work_item (E11). Diese Seite speichert nichts eigenes.
+  DAS GERUEST KOMMT AUS DEM SERVER, NICHT AUS DEN AUFGABEN (#388).
+  Frueher wurden die Spalten aus dem Feld "projekt" der Work-Item-Liste abgeleitet.
+  Dann fehlte jedes Projekt ohne Aufgabe. Jetzt liefert
+  cb_admin_agent_projektstruktur das Geruest, und die Work Items werden
+  hineingehaengt. Aufgaben ohne Projektzuordnung stehen sichtbar unter ZZ.
+
+  KEINE ZWEITE WAHRHEIT. Jede Zeile kommt aus shadow_v1.agent_work_item (E11),
+  geholt ueber cb_admin_agent_work_kurzliste. Diese Seite speichert nichts eigenes.
   Geschrieben wird ausschliesslich ueber die vorhandenen Tueren:
     cb_admin_agent_work_status      (Status + Notiz)
     cb_admin_agent_work_zuweisen    (Owner, Prioritaet, Entscheid noetig)
-    cb_admin_agent_work_verifizieren(Abnahme)
+    cb_admin_agent_work_zuordnen    (Projektaufgabe, neu in #388)
+    cb_admin_agent_work_verifizieren(Abnahme, schiebt e2 -> e1 -> e0 -> verified)
   Es gibt hier keine nachgebaute Fachlogik. Der Server entscheidet (CLAUDE.md B1).
 
-  ETAPPE 1 haengt an einer Luecke: die Tuer gibt das Projekt noch nicht heraus
-  (Work #383). Bis sie es tut, steht alles in der Spalte „ohne Projekt“ und die
-  Seite sagt das offen, statt eine Zuordnung zu erfinden (CLAUDE.md A2).
+  ABNAHME (E25): eine fertig gemeldete Aufgabe steht auf abnahmestufe e2.
+  Ebene 2 nimmt ab -> e1. Ebene 1 nimmt ab -> e0. Ralph nimmt ab -> verified.
+  Wer die Arbeit gemacht hat, nimmt sie nicht ab; das prueft der Server, nicht diese Seite.
 
   Anmeldung: dieselbe Sitzung wie admin.html (storageKey sb-cleanbase-auth,
   gleiche Herkunft). Wer nicht angemeldet ist, sieht den Hinweis statt der Tafel.
@@ -35,8 +43,9 @@
 :root{
   --bg:#0e1116; --bg2:#151a21; --karte:#1b222c; --karte2:#222b37;
   --linie:#2c3542; --text:#e7edf5; --schwach:#93a1b3;
-  --st1:#7c5cff; --st2:#00b3a4; --st3:#4a90d9;
+  --st1:#7c5cff; --st2:#00b3a4; --st3:#4a90d9; --st0:#d18f2f;
   --offen:#5b6b7f; --laeuft:#3d7fd1; --abnahme:#c9922b; --haengt:#d1493d; --fertig:#3fa34d;
+  --e2:#c9922b; --e1:#b06fd1; --e0:#e0b341;
   --schatten:0 1px 2px rgba(0,0,0,.4), 0 6px 16px rgba(0,0,0,.25);
 }
 *{box-sizing:border-box}
@@ -57,6 +66,7 @@ button{cursor:pointer}
 button:hover{background:var(--karte2)}
 button.haupt{background:#2f6fd0;border-color:#2f6fd0;font-weight:600}
 button.haupt:hover{background:#3a7ee0}
+button:disabled{opacity:.45;cursor:not-allowed}
 .chip{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;
   border:1px solid var(--linie);color:var(--schwach);white-space:nowrap}
 
@@ -66,11 +76,11 @@ button.haupt:hover{background:#3a7ee0}
   padding:5px 10px;font-size:12px;color:var(--schwach)}
 .zaehler b{color:var(--text);font-size:15px;margin-right:5px}
 
-/* ---------- Stockwerke ---------- */
+/* ---------- Zeilen ---------- */
 .tafel{padding:14px 16px 40px}
 .stock{margin-bottom:16px;border:1px solid var(--linie);border-radius:11px;
   background:var(--bg2);overflow:hidden}
-.stock-kopf{display:flex;align-items:center;gap:10px;padding:9px 12px;
+.stock-kopf{display:flex;align-items:center;gap:10px;padding:9px 12px;flex-wrap:wrap;
   border-bottom:1px solid var(--linie);
   background:linear-gradient(90deg,var(--akzent) 0 4px,transparent 4px)}
 .stock-kopf .punkt{width:9px;height:9px;border-radius:99px;background:var(--akzent);flex:none}
@@ -79,24 +89,41 @@ button.haupt:hover{background:#3a7ee0}
 .stock-koerper{display:grid;gap:1px;background:var(--linie)}
 .spalte{background:var(--bg2);min-height:64px;padding:8px}
 .spalte-kopf{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.spalte-kopf .kz{font-size:10.5px;font-weight:800;letter-spacing:.6px;
+  background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 5px;flex:none}
 .spalte-kopf .name{font-size:11.5px;color:var(--schwach);font-weight:600;
   text-transform:uppercase;letter-spacing:.4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .spalte-kopf .n{margin-left:auto;font-size:12px;color:var(--text);font-weight:700}
 
-/* ---------- Stockwerk 1: Projektkarten ---------- */
+/* ---------- Zeile 1: Projektkarten ---------- */
 .pkarte{background:var(--karte);border:1px solid var(--linie);border-top:3px solid var(--pf);
   border-radius:9px;padding:9px 10px;box-shadow:var(--schatten)}
-.pkarte h3{margin:0 0 2px;font-size:13.5px;font-weight:700}
-.pkarte .lauf{font-size:11px;color:var(--schwach);margin-bottom:7px}
+.pkarte .kopfz{display:flex;align-items:baseline;gap:6px}
+.pkarte .kz{font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text);
+  background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 5px}
+.pkarte h3{margin:0;font-size:13.5px;font-weight:700}
+.pkarte .lauf{font-size:11px;color:var(--schwach);margin:3px 0 6px}
+.pkarte .was{font-size:11.5px;color:var(--schwach);line-height:1.4;margin-bottom:5px}
+.pkarte .ziel{font-size:11.5px;line-height:1.4;margin-bottom:7px;
+  border-left:2px solid var(--fertig);padding-left:6px;color:#c6d4e4}
+.pkarte .ziel b{color:var(--schwach);font-weight:600;text-transform:uppercase;
+  font-size:9.5px;letter-spacing:.4px;display:block}
 .pkarte .zahlen{display:flex;gap:5px;flex-wrap:wrap}
-.zbox{flex:1 1 auto;min-width:44px;text-align:center;border:1px solid var(--linie);
+.zbox{flex:1 1 auto;min-width:40px;text-align:center;border:1px solid var(--linie);
   border-radius:6px;padding:3px 2px;background:var(--bg2)}
 .zbox b{display:block;font-size:15px;line-height:1.2}
 .zbox span{font-size:9.5px;color:var(--schwach);text-transform:uppercase;letter-spacing:.3px}
 .pkarte .wartet{margin-top:7px;font-size:11px;color:var(--schwach)}
 .pkarte .wartet b{color:var(--haengt)}
 
-/* ---------- Stockwerk 3: Stationsgruppen ---------- */
+/* ---------- Zeile 2: Projektaufgaben ---------- */
+.paufgabe{display:flex;align-items:center;gap:6px;background:var(--karte);
+  border:1px solid var(--linie);border-radius:7px;padding:5px 8px;margin-bottom:5px}
+.paufgabe .ampel{width:8px;height:8px;border-radius:2px;flex:none}
+.paufgabe .t{font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.paufgabe .n{margin-left:auto;font-size:11px;color:var(--schwach);flex:none}
+
+/* ---------- Zeile 3: Stationsgruppen ---------- */
 .gruppe{margin-bottom:9px}
 .gruppe-kopf{display:flex;align-items:center;gap:6px;margin-bottom:4px}
 .gruppe-kopf .ampel{width:8px;height:8px;border-radius:2px;flex:none}
@@ -110,16 +137,23 @@ button.haupt:hover{background:#3a7ee0}
 .karte:active{cursor:grabbing}
 .karte.zieht{opacity:.4}
 .karte .zeile1{display:flex;gap:6px;align-items:baseline}
-.karte .id{font-variant-numeric:tabular-nums;color:var(--schwach);font-size:11px;flex:none}
+.karte .id{font-variant-numeric:tabular-nums;color:var(--text);font-size:11px;
+  font-weight:700;letter-spacing:.3px;flex:none}
 .karte .prio{margin-left:auto;font-size:11px;font-weight:700;color:var(--schwach);flex:none}
 .karte .titel{font-size:12.5px;line-height:1.35;margin:2px 0 4px;
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .karte .fuss{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .karte.warn{border-left-color:var(--haengt)}
+.chip.stufe{border-color:var(--sf);color:var(--sf);font-weight:700}
 .mehr{background:none;border:1px dashed var(--linie);color:var(--schwach);
   font-size:11.5px;padding:4px;border-radius:7px;width:100%}
 .leer{color:#5a6675;font-size:11.5px;padding:4px 2px}
 .buendel{width:100%;margin-bottom:7px;font-size:11.5px;padding:4px}
+
+/* ---------- Zeile 4: Ebene 0 ---------- */
+.e0-koerper{padding:10px 12px;display:grid;gap:8px;
+  grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.e0-leer{padding:14px 12px;color:var(--schwach);font-size:12px}
 
 /* ---------- Panel rechts ---------- */
 .panel{position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);background:var(--bg2);
@@ -141,6 +175,10 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 .meldung.schlecht{display:block;background:#3a1a17;border:1px solid #7a332c;color:#f0b4ad}
 .abdeckung{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:none}
 .abdeckung.auf{display:block}
+.weg{display:flex;gap:4px;align-items:center;font-size:11px;color:var(--schwach);margin-bottom:10px}
+.weg span{border:1px solid var(--linie);border-radius:99px;padding:1px 7px}
+.weg span.jetzt{border-color:var(--abnahme);color:var(--abnahme);font-weight:700}
+.weg span.durch{border-color:var(--fertig);color:var(--fertig)}
 
 .hinweis{margin:40px auto;max-width:560px;background:var(--bg2);border:1px solid var(--linie);
   border-radius:11px;padding:22px;text-align:center}
@@ -156,7 +194,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 
 <div class="kopf">
   <div class="kopf-zeile">
-    <h1>Root Index — Steuerung in drei Stockwerken</h1>
+    <h1>Root Index — Steuerung über vier Ebenen</h1>
     <span class="stand" id="stand">lädt …</span>
     <span class="spacer"></span>
     <label class="stand" for="actor">Ich bin</label>
@@ -188,6 +226,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
   </div>
   <div class="panel-koerper">
     <div class="meldung" id="pMeldung"></div>
+    <div class="weg" id="pWeg" style="display:none"></div>
     <div class="feld"><label>Station</label>
       <select id="pStatus">
         <option value="open">offen</option>
@@ -211,6 +250,9 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
     </div>
     <div class="feld"><label>Priorität (1–100)</label>
       <input id="pPrio" type="number" min="1" max="100" placeholder="unverändert">
+    </div>
+    <div class="feld"><label>Projektaufgabe</label>
+      <select id="pZuordnung"><option value="">unverändert</option></select>
     </div>
     <div class="feld"><label>Notiz — was gemessen wurde</label>
       <textarea id="pNotiz" placeholder="Zahl mit ihrem Gegenstand. Ohne Messung keine Statusänderung."></textarea>
@@ -236,18 +278,31 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 /* ============================================================
-   2 · Die fuenf Stationen — der Weg eines Work Items (Z7)
+   2 · Die Stationen — der Weg eines Work Items (Z7 + E25)
+   ------------------------------------------------------------
+   Aus EINER Abnahmestation sind DREI geworden. Welche es ist, sagt
+   das Serverfeld abnahmestufe (e2/e1/e0) — diese Seite rechnet es
+   nicht aus, sie liest es.
    ============================================================ */
 const STATIONEN = [
-  { id:"open",                    name:"offen",   farbe:"var(--offen)"   },
-  { id:"in_progress",             name:"läuft",   farbe:"var(--laeuft)"  },
-  { id:"ready_for_verification",  name:"Abnahme", farbe:"var(--abnahme)" },
-  { id:"haengt",                  name:"hängt",   farbe:"var(--haengt)"  }
+  { id:"open",        name:"offen",           farbe:"var(--offen)"  },
+  { id:"in_progress", name:"läuft",           farbe:"var(--laeuft)" },
+  { id:"abnahme_e2",  name:"wartet auf Ebene 2", farbe:"var(--e2)", stufe:"e2" },
+  { id:"abnahme_e1",  name:"wartet auf Ebene 1", farbe:"var(--e1)", stufe:"e1" },
+  { id:"abnahme_e0",  name:"wartet auf Ralph",   farbe:"var(--e0)", stufe:"e0" },
+  { id:"haengt",      name:"hängt",           farbe:"var(--haengt)" }
   /* Ralph 31.08.: Spalte „fertig" ausgeblendet. Abgenommenes hilft beim Arbeiten
      nicht — es fuellt nur die Tafel. Die Zeilen werden gar nicht erst geholt. */
 ];
 const HAENGT = ["blocked","disputed","decision_ralph"];
-function stationVon(s){ return HAENGT.indexOf(s)>=0 ? "haengt" : s; }
+const STUFEN_NAME = { e2:"Ebene 2 · Projektführung", e1:"Ebene 1 · Gesamtsteuerung", e0:"Ebene 0 · Ralph" };
+const STUFEN_FOLGE = ["e2","e1","e0"];
+
+function stationVon(w){
+  if(HAENGT.indexOf(w.status)>=0) return "haengt";
+  if(w.status==="ready_for_verification") return "abnahme_" + (w.abnahmestufe || "e2");
+  return w.status;
+}
 function stationFarbe(id){
   const s = STATIONEN.find(x=>x.id===id); return s ? s.farbe : "var(--offen)";
 }
@@ -257,59 +312,99 @@ const STOPP_RANG = { decision_ralph:0, blocked:1, disputed:2,
                      ready_for_verification:3, open:4, in_progress:5 };
 
 /* ============================================================
-   3 · Laden — eine einzige Quelle
+   3 · Laden — Geruest vom Server, Aufgaben hineingehaengt (#388)
    ============================================================ */
 let ZEILEN = [];
-let PROJEKTE = [];          /* die Spaltenreihenfolge, in allen drei Stockwerken gleich */
+let PROJEKTE = [];          /* die Spaltenreihenfolge, in allen Zeilen gleich */
+let PAUFGABEN = {};         /* projekt_id -> [ {aufgabe_id, nummer, titel, ampel} ] */
+let WORK_AUFGABE = {};      /* work_id -> aufgabe_id */
 let OFFEN_STAPEL = {};
 let AKTUELL = null;
-let PROJEKT_FEHLT = false;  /* liefert die Tuer das Projekt schon? (#383) */
+let STRUKTUR_FEHLT = false;
 
 const $ = id => document.getElementById(id);
-const OHNE = "ohne Projekt";
+const OHNE_ID = "_ohne";
 
 async function laden(){
   $("stand").textContent = "misst …";
   const { data:{ session } } = await client.auth.getSession();
   if(!session){ nichtAngemeldet(); return; }
 
-  const r = await client.rpc("cb_admin_agent_work_kurzliste",
-    { p_status:["open","in_progress","ready_for_verification","blocked","disputed","decision_ralph"],
-      p_owner:null, p_bereich:null, p_limit:500 });
-  if(r.error){ fehlerZeigen(r.error.message||String(r.error)); return; }
+  const [rk, rs] = await Promise.all([
+    client.rpc("cb_admin_agent_work_kurzliste",
+      { p_status:["open","in_progress","ready_for_verification","blocked","disputed","decision_ralph"],
+        p_owner:null, p_bereich:null, p_limit:500 }),
+    client.rpc("cb_admin_agent_projektstruktur")
+  ]);
+  if(rk.error){ fehlerZeigen(rk.error.message||String(rk.error)); return; }
 
-  let rows = r.data; if(typeof rows==="string") rows = JSON.parse(rows);
+  let rows = rk.data; if(typeof rows==="string") rows = JSON.parse(rows);
   if(!Array.isArray(rows)){ fehlerZeigen("Die Liste kam nicht als Liste zurück."); return; }
 
-  /* Das Projekt kommt aus der Tuer. Fehlt die Spalte, wird sie NICHT erraten —
-     dann steht alles unter „ohne Projekt" und die Seite sagt warum (#383). */
-  PROJEKT_FEHLT = rows.length>0 && !("projekt" in rows[0]);
   ZEILEN = rows.map(w => Object.assign({}, w, {
-    _projekt: (w.projekt && String(w.projekt).trim()) || OHNE,
-    _station: stationVon(w.status)
+    _projekt: w.projekt || OHNE_ID,
+    _kuerzel: w.projekt_kuerzel || "ZZ",
+    _nummer:  w.anzeige_nummer || ("#"+w.work_id),
+    _station: stationVon(w)
   }));
 
-  projekteBilden();
+  geruestBilden(rs);
   filterFuellen();
+  zuordnungFuellen();
   zeichnen();
   $("stand").textContent = "Stand " + new Date().toLocaleString("de-DE",
     {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
     " · " + ZEILEN.length + " Aufgaben · " + PROJEKTE.length + " Projekte";
 }
 
-/* Die Spalten. Ein Projekt mit laufender Arbeit steht vor einem ohne;
-   danach entscheidet die Zahl der Aufgaben. „ohne Projekt" immer zuletzt. */
-function projekteBilden(){
-  const namen = [...new Set(ZEILEN.map(w=>w._projekt))];
-  const wert = p => {
-    const rows = ZEILEN.filter(w=>w._projekt===p);
-    return { laeuft: rows.filter(w=>w.status==="in_progress").length, n: rows.length };
+/* Das Geruest kommt aus cb_admin_agent_projektstruktur. Ein Projekt ohne
+   Aufgabe bleibt sichtbar — genau das war der Fehler in #388. Faellt die
+   Struktur aus, wird sie NICHT aus den Aufgaben erraten (CLAUDE.md A2). */
+function geruestBilden(rs){
+  PROJEKTE = []; PAUFGABEN = {}; WORK_AUFGABE = {};
+  STRUKTUR_FEHLT = !!(rs && rs.error);
+  if(STRUKTUR_FEHLT) return;
+
+  let str = rs && rs.data; if(typeof str==="string") str = JSON.parse(str);
+  if(!Array.isArray(str)){ STRUKTUR_FEHLT = true; return; }
+
+  const gesehen = {};
+  for(const z of str){
+    if(!gesehen[z.projekt_id]){
+      gesehen[z.projekt_id] = true;
+      PROJEKTE.push({ id:z.projekt_id, name:z.projekt_name, kuerzel:z.projekt_kuerzel,
+                      beschreibung:z.projekt_beschreibung, ziel:z.projekt_ziel,
+                      status:z.projekt_status, reihenfolge:z.projekt_reihenfolge });
+      PAUFGABEN[z.projekt_id] = [];
+    }
+    if(z.projekt_aufgabe_id && !PAUFGABEN[z.projekt_id].some(a=>a.aufgabe_id===z.projekt_aufgabe_id)){
+      PAUFGABEN[z.projekt_id].push({ aufgabe_id:z.projekt_aufgabe_id, nummer:z.projekt_aufgabe_nummer,
+                                     titel:z.projekt_aufgabe_titel, ampel:z.ampel });
+    }
+    if(z.work_id && z.projekt_aufgabe_id) WORK_AUFGABE[z.work_id] = z.projekt_aufgabe_id;
+  }
+
+  /* Ein Projekt mit laufender Arbeit steht vor einem ohne; „Ohne Zuordnung" immer zuletzt. */
+  const zahl = id => {
+    const r = ZEILEN.filter(w=>w._projekt===id);
+    return { laeuft: r.filter(w=>w.status==="in_progress").length, n: r.length };
   };
-  PROJEKTE = namen.sort((a,b)=>{
-    if(a===OHNE) return 1; if(b===OHNE) return -1;
-    const A=wert(a), B=wert(b);
-    return (B.laeuft>0)-(A.laeuft>0) || B.n-A.n || a.localeCompare(b,"de");
+  PROJEKTE.sort((a,b)=>{
+    if(a.id===OHNE_ID) return 1; if(b.id===OHNE_ID) return -1;
+    const A=zahl(a.id), B=zahl(b.id);
+    return (B.laeuft>0)-(A.laeuft>0) || B.n-A.n ||
+           (a.reihenfolge||99)-(b.reihenfolge||99) || a.name.localeCompare(b.name,"de");
   });
+}
+
+function projektVon(id){ return PROJEKTE.find(p=>p.id===id) || null; }
+
+/* Die Anzeigenummer einer anderen Aufgabe. Ist sie schon abgenommen, wird sie
+   gar nicht geladen — dann bleibt die nackte Nummer, weil das Kuerzel fehlt
+   und nicht geraten wird (CLAUDE.md A2). */
+function nummerVon(id){
+  const w = ZEILEN.find(x=>x.work_id===id);
+  return w ? w._nummer : ("#"+id);
 }
 
 function nichtAngemeldet(){
@@ -341,13 +436,25 @@ function filterFuellen(){
     owner.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
   t.value = tAlt; o.value = oAlt;
 }
+function zuordnungFuellen(){
+  let h = '<option value="">unverändert</option>';
+  for(const p of PROJEKTE){
+    if(p.id===OHNE_ID || !PAUFGABEN[p.id] || !PAUFGABEN[p.id].length) continue;
+    h += '<optgroup label="'+esc(p.kuerzel+" · "+p.name)+'">';
+    for(const a of PAUFGABEN[p.id]){
+      h += '<option value="'+esc(a.aufgabe_id)+'">'+esc((a.nummer?a.nummer+" ":"")+(a.titel||a.aufgabe_id))+'</option>';
+    }
+    h += '</optgroup>';
+  }
+  $("pZuordnung").innerHTML = h;
+}
 function gefiltert(){
   const t = $("fThema").value, o = $("fOwner").value;
   return ZEILEN.filter(w => (!t || w.area===t) && (!o || w.owner_agent===o));
 }
 
 /* ============================================================
-   5 · Zeichnen — drei Stockwerke, gleiche Spaltenreihenfolge
+   5 · Zeichnen — vier Zeilen, gleiche Spaltenreihenfolge
    ============================================================ */
 function zeichnen(){
   const rows = gefiltert();
@@ -355,7 +462,7 @@ function zeichnen(){
   /* Zaehlerband */
   const z = STATIONEN.map(s=>{
     const n = rows.filter(w=>w._station===s.id).length;
-    return '<div class="zaehler"><b>'+n+'</b>'+s.name+'</div>';
+    return '<div class="zaehler"><b>'+n+'</b>'+esc(s.name)+'</div>';
   }).join("");
   const abnahmeAlt = rows.filter(w=>w.status==="ready_for_verification" && tage(w.updated_at)>=2).length;
   $("band").innerHTML = z +
@@ -363,13 +470,11 @@ function zeichnen(){
     (abnahmeAlt ? '<div class="zaehler" style="border-color:#7a5a1c"><b>'+abnahmeAlt+
       '</b>warten länger als 2 Tage</div>' : '');
 
-  /* Luecke offen benennen statt Zuordnung erfinden */
-  if(PROJEKT_FEHLT){
+  if(STRUKTUR_FEHLT){
     $("luecke").style.display = "";
-    $("luecke").innerHTML = '<b>Die Spalten stehen noch nicht.</b> ' +
-      'Die Tür <code>cb_admin_agent_work_kurzliste</code> gibt das Projekt noch nicht heraus — ' +
-      'deshalb liegt alles unter „ohne Projekt". Erfunden wird nichts. ' +
-      'Das ist Work <b>#383</b>; sobald die Spalte da ist, teilt sich die Tafel von selbst auf.';
+    $("luecke").innerHTML = '<b>Das Gerüst fehlt.</b> ' +
+      'Die Tür <code>cb_admin_agent_projektstruktur</code> hat nicht geantwortet — ' +
+      'deshalb stehen keine Spalten. Erraten wird nichts (CLAUDE.md A2).';
   } else {
     $("luecke").style.display = "none";
   }
@@ -377,69 +482,75 @@ function zeichnen(){
   const spalten = "grid-template-columns:repeat("+Math.max(1,PROJEKTE.length)+",minmax(210px,1fr))";
   let html = "";
 
-  /* --- Stockwerk 1: je Projekt eine Karte, keine einzelne Aufgabe --- */
+  /* --- Zeile 1: je Projekt eine Karte, keine einzelne Aufgabe --- */
   html += '<div class="stock" style="--akzent:var(--st1)">' +
-    '<div class="stock-kopf"><span class="punkt"></span><h2>Stockwerk 1 · Alle Projekte</h2>' +
+    '<div class="stock-kopf"><span class="punkt"></span><h2>Zeile 1 · Alle Projekte</h2>' +
     '<span class="chip">'+PROJEKTE.length+' Projekte</span>' +
-    '<span class="regel">Je Projekt eine Karte mit Zahlen. Hier steht keine einzelne Aufgabe.</span></div>' +
+    '<span class="regel">Je Projekt eine Karte mit Kürzel, Zweck, Ziel und Zahlen. ' +
+    'Ein Projekt ohne Aufgabe steht trotzdem hier (#388).</span></div>' +
     '<div class="stock-koerper" style="'+spalten+'">';
-  for(const p of PROJEKTE) html += projektKarteHtml(p, rows.filter(w=>w._projekt===p));
+  for(const p of PROJEKTE) html += projektKarteHtml(p, rows.filter(w=>w._projekt===p.id));
   html += '</div></div>';
 
-  /* --- Stockwerk 2: Projektaufgaben — in Etappe 1 leer --- */
+  /* --- Zeile 2: Projektaufgaben aus agent_projekt_aufgabe --- */
+  const nPA = Object.values(PAUFGABEN).reduce((a,b)=>a+b.length,0);
   html += '<div class="stock" style="--akzent:var(--st2)">' +
-    '<div class="stock-kopf"><span class="punkt"></span><h2>Stockwerk 2 · Projektaufgaben</h2>' +
-    '<span class="chip">Etappe 2</span>' +
-    '<span class="regel">Kommt mit den Tabellen aus #376. Bis dahin bleibt die Zeile leer — ' +
-    'lieber leer als erfunden.</span></div>' +
+    '<div class="stock-kopf"><span class="punkt"></span><h2>Zeile 2 · Projektaufgaben</h2>' +
+    '<span class="chip">'+nPA+' Aufgaben</span>' +
+    '<span class="regel">Die Ampel kommt vom Server, nicht von dieser Seite.</span></div>' +
     '<div class="stock-koerper" style="'+spalten+'">';
-  for(const p of PROJEKTE){
-    html += '<div class="spalte"><div class="spalte-kopf"><span class="name">'+esc(p)+'</span></div>' +
-      '<div class="leer">wartet auf #376</div></div>';
-  }
+  for(const p of PROJEKTE) html += projektAufgabenHtml(p);
   html += '</div></div>';
 
-  /* --- Stockwerk 3: die Aufgaben selbst, je Projekt nach Station --- */
+  /* --- Zeile 3: die Aufgaben selbst, je Projekt nach Station --- */
   html += '<div class="stock" style="--akzent:var(--st3)">' +
-    '<div class="stock-kopf"><span class="punkt"></span><h2>Stockwerk 3 · Die Aufgaben</h2>' +
+    '<div class="stock-kopf"><span class="punkt"></span><h2>Zeile 3 · Die Aufgaben</h2>' +
     '<span class="chip">'+rows.length+' Aufgaben</span>' +
     '<span class="regel">Karte in eine andere Station ziehen setzt die Station, ' +
-    'innerhalb einer Station die Priorität.</span></div>' +
+    'innerhalb einer Station die Priorität. Abgenommen wird über den Knopf im Panel.</span></div>' +
     '<div class="stock-koerper" style="'+spalten+'">';
-  for(const p of PROJEKTE) html += aufgabenSpalteHtml(p, rows.filter(w=>w._projekt===p));
+  for(const p of PROJEKTE) html += aufgabenSpalteHtml(p, rows.filter(w=>w._projekt===p.id));
   html += '</div></div>';
+
+  /* --- Zeile 4: Ebene 0 · Ralph (E25) --- */
+  html += ebene0Html(rows);
 
   $("tafel").innerHTML = html;
 
   $("fussnote").innerHTML =
-    '<b>Woher die Zahlen kommen:</b> jede Karte ist eine Zeile aus ' +
-    '<code>shadow_v1.agent_work_item</code>, geholt über <code>cb_admin_agent_work_kurzliste</code>. ' +
-    'Diese Seite speichert nichts Eigenes — sie zeigt und ändert. Geschrieben wird über ' +
-    '<code>cb_admin_agent_work_status</code>, <code>cb_admin_agent_work_zuweisen</code> und ' +
-    '<code>cb_admin_agent_work_verifizieren</code>. ' +
-    '<b>Die Stockwerke</b> sind Zoomstufen auf dieselben Daten, keine eigenen Aufgabentöpfe: ' +
-    'Stockwerk 1 verdichtet je Projekt, Stockwerk 3 zeigt die Aufgaben selbst.';
+    '<b>Woher die Zahlen kommen:</b> das Gerüst aus <code>cb_admin_agent_projektstruktur</code>, ' +
+    'die Karten aus <code>cb_admin_agent_work_kurzliste</code> — beide lesen ' +
+    '<code>shadow_v1.agent_work_item</code> und <code>agent_projekt</code>. ' +
+    'Diese Seite speichert nichts Eigenes. Geschrieben wird über ' +
+    '<code>cb_admin_agent_work_status</code>, <code>_zuweisen</code>, <code>_zuordnen</code> und ' +
+    '<code>_verifizieren</code>. ' +
+    '<b>Der Abnahmeweg (E25):</b> fertig gemeldet → Ebene 2 → Ebene 1 → Ralph → abgenommen. ' +
+    'Jede Abnahme schiebt die Karte eine Zeile höher. Wer die Arbeit gemacht hat, nimmt sie nicht ab; ' +
+    'das weist der Server ab, nicht diese Seite.';
 
   verdrahten();
 }
 
-/* ---------- Stockwerk 1 ---------- */
+/* ---------- Zeile 1 ---------- */
 function projektKarteHtml(p, rows){
   const n = s => rows.filter(w=>w._station===s).length;
   const laeuft = n("in_progress");
-  const aeltester = rows.filter(w=>w._station==="haengt" || w._station==="ready_for_verification")
+  const abnahme = n("abnahme_e2")+n("abnahme_e1")+n("abnahme_e0");
+  const aeltester = rows.filter(w=>w._station==="haengt" || w.status==="ready_for_verification")
     .sort((a,b)=>tage(b.updated_at)-tage(a.updated_at))[0];
   return '<div class="spalte"><div class="pkarte" style="--pf:'+
       (laeuft ? "var(--laeuft)" : "var(--linie)")+'">' +
-    '<h3>'+esc(p)+'</h3>' +
-    '<div class="lauf">'+(laeuft ? "läuft gerade" : "steht an")+' · '+rows.length+' Aufgaben</div>' +
+    '<div class="kopfz"><span class="kz">'+esc(p.kuerzel||"—")+'</span><h3>'+esc(p.name)+'</h3></div>' +
+    '<div class="lauf">'+(laeuft ? "läuft gerade" : "steht an")+' · '+rows.length+' Aufgaben · '+esc(p.status||"—")+'</div>' +
+    (p.beschreibung ? '<div class="was">'+esc(p.beschreibung)+'</div>' : '') +
+    (p.ziel ? '<div class="ziel"><b>Ziel</b>'+esc(p.ziel)+'</div>' : '') +
     '<div class="zahlen">' +
       zbox(n("open"),"offen","var(--offen)") +
       zbox(laeuft,"läuft","var(--laeuft)") +
-      zbox(n("ready_for_verification"),"Abnahme","var(--abnahme)") +
+      zbox(abnahme,"Abnahme","var(--abnahme)") +
       zbox(n("haengt"),"hängt","var(--haengt)") +
     '</div>' +
-    (aeltester ? '<div class="wartet">ältester Wartefall <b>#'+aeltester.work_id+'</b> · '+
+    (aeltester ? '<div class="wartet">ältester Wartefall <b>'+esc(aeltester._nummer)+'</b> · '+
       alterText(aeltester.updated_at)+'</div>' : '') +
     '</div></div>';
 }
@@ -447,15 +558,33 @@ function zbox(n,name,farbe){
   return '<div class="zbox"><b style="color:'+(n?farbe:"var(--schwach)")+'">'+n+'</b><span>'+esc(name)+'</span></div>';
 }
 
-/* ---------- Stockwerk 3 ---------- */
+/* ---------- Zeile 2 ---------- */
+const AMPEL_FARBE = { gruen:"var(--fertig)", gelb:"var(--abnahme)", rot:"var(--haengt)" };
+function projektAufgabenHtml(p){
+  let h = '<div class="spalte"><div class="spalte-kopf"><span class="kz">'+esc(p.kuerzel||"—")+'</span>' +
+    '<span class="name">'+esc(p.name)+'</span></div>';
+  const liste = PAUFGABEN[p.id] || [];
+  if(!liste.length) return h + '<div class="leer">keine Projektaufgabe</div></div>';
+  for(const a of liste){
+    const n = ZEILEN.filter(w=>WORK_AUFGABE[w.work_id]===a.aufgabe_id).length;
+    h += '<div class="paufgabe"><span class="ampel" style="background:'+
+      (AMPEL_FARBE[a.ampel]||"var(--linie)")+'"></span>' +
+      '<span class="t">'+esc((a.nummer?a.nummer+" ":"")+(a.titel||a.aufgabe_id))+'</span>' +
+      '<span class="n">'+n+'</span></div>';
+  }
+  return h + '</div>';
+}
+
+/* ---------- Zeile 3 ---------- */
 const SICHTBAR = 4;
 
 function aufgabenSpalteHtml(p, rows){
-  let h = '<div class="spalte"><div class="spalte-kopf"><span class="name">'+esc(p)+'</span>' +
+  let h = '<div class="spalte"><div class="spalte-kopf"><span class="kz">'+esc(p.kuerzel||"—")+'</span>' +
+    '<span class="name">'+esc(p.name)+'</span>' +
     '<span class="n">'+rows.length+'</span></div>';
 
-  const holbar = buendelFuer(p, rows);
-  h += '<button class="buendel" data-buendel="'+esc(p)+'"'+(holbar.length?"":" disabled")+'>' +
+  const holbar = buendelFuer(p.id, rows);
+  h += '<button class="buendel" data-buendel="'+esc(p.id)+'"'+(holbar.length?"":" disabled")+'>' +
     (holbar.length ? "📥 Bündel abholen · "+holbar.length+" Aufgaben" : "kein Bündel abholbar") +
     '</button>';
 
@@ -465,13 +594,13 @@ function aufgabenSpalteHtml(p, rows){
     const stapel = rows.filter(w=>w._station===s.id)
       .sort((a,b)=> (STOPP_RANG[a.status]-STOPP_RANG[b.status]) ||
                     (b.priority||0)-(a.priority||0) || (b.work_id-a.work_id));
-    const key = p+"|"+s.id;
+    const key = p.id+"|"+s.id;
     const auf = !!OFFEN_STAPEL[key];
     const zeigen = auf ? stapel : stapel.slice(0, SICHTBAR);
     h += '<div class="gruppe"><div class="gruppe-kopf">' +
       '<span class="ampel" style="background:'+s.farbe+'"></span>' +
       '<span class="gname">'+esc(s.name)+'</span><span class="gn">'+stapel.length+'</span></div>' +
-      '<div class="stapel" data-ziel="'+esc(s.id)+'" data-projekt="'+esc(p)+'">' +
+      '<div class="stapel" data-ziel="'+esc(s.id)+'" data-projekt="'+esc(p.id)+'">' +
       (stapel.length ? zeigen.map(w=>karteHtml(w,s)).join("") : '<div class="leer">—</div>') +
       '</div>';
     if(stapel.length > SICHTBAR){
@@ -484,25 +613,54 @@ function aufgabenSpalteHtml(p, rows){
 }
 
 function karteHtml(w, s){
-  const alt = s.id==="ready_for_verification" && tage(w.updated_at)>=2;
+  const alt = w.status==="ready_for_verification" && tage(w.updated_at)>=2;
   const kf = alt ? "var(--haengt)" : s.farbe;
   return '<div class="karte'+(alt?" warn":"")+'" style="--kf:'+kf+'" draggable="true" ' +
       'data-work="'+w.work_id+'">' +
-    '<div class="zeile1"><span class="id">#'+w.work_id+'</span>' +
+    '<div class="zeile1"><span class="id">'+esc(w._nummer)+'</span>' +
       '<span class="prio">'+(w.priority==null?"—":w.priority)+'</span></div>' +
     '<div class="titel">'+esc(w.title||"")+'</div>' +
     '<div class="fuss">' +
+      (w.abnahmestufe ? '<span class="chip stufe" style="--sf:var(--'+esc(w.abnahmestufe)+')">'+
+        esc(STUFEN_NAME[w.abnahmestufe]||w.abnahmestufe)+'</span>' : '') +
       '<span class="chip">'+esc(w.area||"ohne Thema")+'</span>' +
       '<span class="chip">'+esc(w.owner_agent||"—")+'</span>' +
-      (w.dependency_work_id ? '<span class="chip">wartet auf #'+w.dependency_work_id+'</span>' : '') +
+      (w.dependency_work_id ? '<span class="chip">wartet auf '+esc(nummerVon(w.dependency_work_id))+'</span>' : '') +
       '<span class="chip">'+alterText(w.updated_at)+'</span>' +
     '</div></div>';
+}
+
+/* ---------- Zeile 4 · Ebene 0 (E25) ----------
+   Ralph hat eine eigene Zeile, keine Auswahl im Kopf mehr. Hier steht,
+   was nur er kann: die letzte Abnahme und die Entscheidungen. */
+function ebene0Html(rows){
+  const abnahme = rows.filter(w=>w._station==="abnahme_e0");
+  const entscheid = rows.filter(w=>w.status==="decision_ralph");
+  const alle = abnahme.concat(entscheid);
+  let h = '<div class="stock" style="--akzent:var(--st0)">' +
+    '<div class="stock-kopf"><span class="punkt"></span><h2>Zeile 4 · Ebene 0 · Ralph</h2>' +
+    '<span class="chip">'+abnahme.length+' zur Abnahme</span>' +
+    '<span class="chip">'+entscheid.length+' zu entscheiden</span>' +
+    '<span class="regel">Die letzte Abnahme und die Grundsatzfragen. ' +
+    'Erst nach Ralph steht eine Aufgabe auf abgenommen (E25).</span></div>';
+  if(!alle.length){
+    return h + '<div class="e0-leer">Nichts liegt bei Ralph. ' +
+      'Eine Karte landet hier, wenn Ebene 1 abgenommen hat oder eine Ebene die Frage hochgibt.</div></div>';
+  }
+  h += '<div class="e0-koerper">';
+  for(const w of alle){
+    const s = w.status==="decision_ralph"
+      ? { id:"haengt", name:"entscheiden", farbe:"var(--haengt)" }
+      : STATIONEN.find(x=>x.id==="abnahme_e0");
+    h += karteHtml(w, s);
+  }
+  return h + '</div></div>';
 }
 
 /* ============================================================
    6 · Buendel abholen — die sechs Regeln aus #375
    ============================================================ */
-function buendelFuer(p, rows){
+function buendelFuer(pid, rows){
   const actor = $("actor").value;
   /* 3. Keine Aufgabe, deren Abhaengigkeit noch nicht abgenommen ist.
         Abgenommenes wird gar nicht geladen — steht die Abhaengigkeit noch in
@@ -519,12 +677,12 @@ function buendelFuer(p, rows){
   return kandidaten.filter(w=>w.area===thema).slice(0,5);  /* 5 */
 }
 
-async function buendelAbholen(p){
-  const rows = gefiltert().filter(w=>w._projekt===p);
-  const buendel = buendelFuer(p, rows);
+async function buendelAbholen(pid){
+  const rows = gefiltert().filter(w=>w._projekt===pid);
+  const buendel = buendelFuer(pid, rows);
   if(!buendel.length) return;
   const actor = $("actor").value;
-  const liste = buendel.map(w=>"#"+w.work_id).join(", ");
+  const liste = buendel.map(w=>w._nummer).join(", ");
   if(!confirm("Bündel abholen?\n\n"+liste+"\n\nThema: "+(buendel[0].area||"—")+
               "\nAlle auf läuft, zuständig: "+actor)) return;
 
@@ -543,7 +701,7 @@ async function buendelAbholen(p){
           p_note:notiz, p_evidence:null });
       if(b.error) throw b.error;
       ok++;
-    }catch(e){ fehler.push("#"+w.work_id+": "+((e&&e.message)||String(e))); }
+    }catch(e){ fehler.push(w._nummer+": "+((e&&e.message)||String(e))); }
   }
   await laden();
   if(fehler.length) alert(ok+" von "+buendel.length+" übernommen.\n\nNicht geklappt:\n"+fehler.join("\n"));
@@ -591,44 +749,27 @@ async function abgelegt(id, ziel){
   const zielProjekt = ziel.dataset.projekt;
 
   if(zielProjekt !== w._projekt){
-    alert("Das Projekt wird nicht durch Schieben geändert. Es steht am Work Item selbst.");
+    alert("Das Projekt wird nicht durch Schieben geändert. Das steht im Panel unter Projektaufgabe.");
     return;
   }
+  if(zielStation === w._station) return prioSchieben(w, ziel, actor);
 
-  /* Gleiche Station: die Prioritaet wird zwischen die Nachbarn gesetzt. */
-  if(zielStation === w._station){
-    const nachbarn = [...ziel.querySelectorAll(".karte[data-work]")]
-      .map(el=>ZEILEN.find(x=>x.work_id===Number(el.dataset.work)))
-      .filter(x=>x && x.work_id!==id);
-    if(!nachbarn.length) return;
-    const neu = prompt("Neue Priorität für #"+id+" (1–100).\n\nIn dieser Station liegen: " +
-      nachbarn.map(x=>"#"+x.work_id+"="+(x.priority==null?"—":x.priority)).join(", "),
-      String(w.priority==null?50:w.priority));
-    if(neu===null) return;
-    const p = Number(neu);
-    if(isNaN(p)||p<1||p>100){ alert("Der Server nimmt nur 1 bis 100."); return; }
-    await schreiben(async ()=>{
-      const r = await client.rpc("cb_admin_agent_work_zuweisen",
-        { p_work_id:id, p_actor:actor, p_owner:null, p_priority:p,
-          p_decision_needed:null,
-          p_note:"Priorität auf der Steuerungsseite auf "+p+" geschoben." });
-      if(r.error) throw r.error;
-    });
+  /* Eine Abnahmestufe wird nicht geschoben — sie entsteht durch Abnehmen (E25). */
+  if(zielStation==="abnahme_e1" || zielStation==="abnahme_e0"){
+    alert("Diese Station erreicht eine Karte nur durch eine Abnahme, nicht durch Schieben.\n\n" +
+          "Der Weg ist: fertig gemeldet → Ebene 2 → Ebene 1 → Ralph. " +
+          "Zum Abnehmen die Karte anklicken und im Panel auf Abnehmen drücken.");
     return;
   }
 
   /* Andere Station: Status setzen. „hängt" ist eine Sammelspalte — der Server
      kennt drei Werte dahinter, also wird gefragt statt geraten. */
-  let neuerStatus = zielStation;
+  let neuerStatus = zielStation==="abnahme_e2" ? "ready_for_verification" : zielStation;
   if(zielStation === "haengt"){
-    const w2 = prompt("Warum hängt #"+id+"?\n\n1 = blockiert\n2 = strittig\n3 = Ralph entscheidet","1");
+    const w2 = prompt("Warum hängt "+w._nummer+"?\n\n1 = blockiert\n2 = strittig\n3 = Ralph entscheidet","1");
     if(w2===null) return;
     neuerStatus = {"1":"blocked","2":"disputed","3":"decision_ralph"}[w2.trim()];
     if(!neuerStatus){ alert("Nur 1, 2 oder 3."); return; }
-  }
-  if(neuerStatus === "verified"){
-    alert("Abgenommen wird nicht durch Schieben, sondern über den Knopf im Panel.");
-    return;
   }
   const notiz = prompt("Ohne Notiz kein Stationswechsel. Was wurde gemessen?","");
   if(notiz===null) return;
@@ -641,29 +782,72 @@ async function abgelegt(id, ziel){
   });
 }
 
+async function prioSchieben(w, ziel, actor){
+  const nachbarn = [...ziel.querySelectorAll(".karte[data-work]")]
+    .map(el=>ZEILEN.find(x=>x.work_id===Number(el.dataset.work)))
+    .filter(x=>x && x.work_id!==w.work_id);
+  if(!nachbarn.length) return;
+  const neu = prompt("Neue Priorität für "+w._nummer+" (1–100).\n\nIn dieser Station liegen: " +
+    nachbarn.map(x=>x._nummer+"="+(x.priority==null?"—":x.priority)).join(", "),
+    String(w.priority==null?50:w.priority));
+  if(neu===null) return;
+  const p = Number(neu);
+  if(isNaN(p)||p<1||p>100){ alert("Der Server nimmt nur 1 bis 100."); return; }
+  await schreiben(async ()=>{
+    const r = await client.rpc("cb_admin_agent_work_zuweisen",
+      { p_work_id:w.work_id, p_actor:actor, p_owner:null, p_priority:p,
+        p_decision_needed:null,
+        p_note:"Priorität auf der Steuerungsseite auf "+p+" geschoben." });
+    if(r.error) throw r.error;
+  });
+}
+
 async function schreiben(fn){
   try{ await fn(); await laden(); }
   catch(e){ alert((e && e.message) || String(e)); }
 }
 
 /* ============================================================
-   8 · Panel — hier schreiben alle drei Ebenen
+   8 · Panel — hier schreiben alle vier Ebenen
    ============================================================ */
 function panelAuf(id){
   const w = ZEILEN.find(x=>x.work_id===id); if(!w) return;
   AKTUELL = w;
-  $("pId").textContent = "#"+w.work_id+" · "+w._projekt+" · "+(w.area||"ohne Thema");
+  const p = projektVon(w._projekt);
+  $("pId").textContent = w._nummer + " · " + (p ? p.name : "ohne Projekt") + " · " + (w.area||"ohne Thema");
   $("pTitel").textContent = w.title||"";
   $("pStatus").value = w.status;
   $("pOwner").value = "";
   $("pPrio").value = "";
   $("pPrio").placeholder = "unverändert (jetzt "+(w.priority==null?"—":w.priority)+")";
+  $("pZuordnung").value = "";
   $("pNotiz").value = "";
   $("pMeldung").className = "meldung";
+
+  /* Der Abnahmeweg als Leiste — wo steht die Karte gerade? */
+  if(w.status==="ready_for_verification"){
+    const jetzt = w.abnahmestufe || "e2";
+    const i = STUFEN_FOLGE.indexOf(jetzt);
+    $("pWeg").style.display = "";
+    $("pWeg").innerHTML = '<span class="durch">gebaut</span>' +
+      STUFEN_FOLGE.map((s,k)=>'<span class="'+(k<i?"durch":(k===i?"jetzt":""))+'">'+
+        esc(STUFEN_NAME[s])+'</span>').join("") +
+      '<span>abgenommen</span>';
+  } else {
+    $("pWeg").style.display = "none";
+  }
+
   $("pMeta").innerHTML = "Zuständig <b>"+esc(w.owner_agent||"—")+"</b> · zuletzt bewegt "+
     alterText(w.updated_at) + (w.dependency_work_id ? " · hängt an #"+w.dependency_work_id : "") +
+    (WORK_AUFGABE[w.work_id] ? " · Projektaufgabe "+esc(WORK_AUFGABE[w.work_id]) : " · <b>ohne Projektaufgabe</b>") +
     (w.hat_notiz ? " · Notiz vorhanden" : "");
-  $("pAbnehmen").style.display = (w.status==="ready_for_verification") ? "" : "none";
+
+  const kannAbnehmen = w.status==="ready_for_verification";
+  $("pAbnehmen").style.display = kannAbnehmen ? "" : "none";
+  if(kannAbnehmen){
+    const jetzt = w.abnahmestufe || "e2";
+    $("pAbnehmen").textContent = "Abnehmen als " + (STUFEN_NAME[jetzt]||jetzt).split(" · ")[0];
+  }
   $("panel").classList.add("auf"); $("abdeckung").classList.add("auf");
 }
 function panelZu(){
@@ -676,6 +860,7 @@ async function eintragen(){
   const notiz = $("pNotiz").value.trim();
   const neuerStatus = $("pStatus").value;
   const neuerOwner = $("pOwner").value;
+  const neueZuordnung = $("pZuordnung").value;
   const prioRoh = $("pPrio").value.trim();
   const prio = prioRoh==="" ? null : Number(prioRoh);
 
@@ -695,6 +880,12 @@ async function eintragen(){
           p_decision_needed: null, p_note: notiz || null });
       if(r.error) throw r.error;
     }
+    if(neueZuordnung){
+      const r = await client.rpc("cb_admin_agent_work_zuordnen",
+        { p_work_id:AKTUELL.work_id, p_actor:actor,
+          p_projekt_aufgabe_id: neueZuordnung, p_note: notiz || null });
+      if(r.error) throw r.error;
+    }
     if(neuerStatus!==AKTUELL.status || notiz){
       const r = await client.rpc("cb_admin_agent_work_status",
         { p_work_id:AKTUELL.work_id, p_actor:actor, p_status:neuerStatus,
@@ -711,23 +902,26 @@ async function eintragen(){
   }
 }
 
+/* Abnehmen = eine Stufe hoeher. Der Server entscheidet, ob es erlaubt ist —
+   diese Seite baut die Pruefung nicht nach (CLAUDE.md B1). */
 async function abnehmen(){
   if(!AKTUELL) return;
   const notiz = $("pNotiz").value.trim();
   if(!notiz) return melden("Eine Abnahme ohne Stelle, Gegenfall und Messung ist eine Meinung.", false);
   const actor = $("actor").value;
-  if(actor === AKTUELL.owner_agent){
-    return melden("Wer die Arbeit gemacht hat, nimmt sie nicht selbst ab. Anderen Actor wählen.", false);
-  }
+  const vorher = AKTUELL.abnahmestufe || "e2";
   $("pAbnehmen").disabled = true;
   try{
     const r = await client.rpc("cb_admin_agent_work_verifizieren",
       { p_work_id:AKTUELL.work_id, p_verifier:actor, p_ok:true,
         p_note:notiz, p_evidence:null });
     if(r.error) throw r.error;
-    melden("Abgenommen.", true);
+    const naechste = { e2:"e1", e1:"e0" }[vorher];
+    melden(naechste
+      ? "Abgenommen. Die Karte steht jetzt bei " + STUFEN_NAME[naechste] + "."
+      : "Ralph hat abgenommen. Die Aufgabe ist abgenommen und verschwindet von der Tafel.", true);
     await laden();
-    setTimeout(panelZu, 500);
+    setTimeout(panelZu, 900);
   }catch(e){
     melden((e && e.message) || String(e), false);
   }finally{
