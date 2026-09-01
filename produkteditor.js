@@ -4858,7 +4858,7 @@ async function openFgEditor(id, prefill, targetEl){
     ${''/* Work #181 Stufe 2: erster Kasten von Schritt 1 — erst die Quelle, dann die Daten.
          Der Wrapper traegt die id, damit die Schrittlogik die GANZE Karte schalten kann;
          card() selbst bleibt unveraendert, damit kein anderer Aufrufer mitgeaendert wird. */}
-    <div id="fe_quelleCard">${card(`Quelle &amp; Beleg <span class="feKartenZusatz">– ohne Beleg keine Freigabe</span>`,`<div class="feQuelleGrid"><label>Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label><label>Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>${quellenTypHinweis()}`)}</div>
+    <div id="fe_quelleCard">${card(`Quelle &amp; Beleg <span class="feKartenZusatz">– ohne Beleg keine Freigabe</span>`,`<div class="feQuelleGrid"><label>Quelle-Typ${sel("fe_quelle_typ",d.quelle_typ||"",quellenTypOptionen(),"try{fePlaus()}catch(e){}")}</label><label>Beleg (Seite/EAN)${inp("fe_beleg",d.beleg)}</label></div>${quellenTypHinweis()}<div id="fe_sichtpruefung"></div>`)}</div>
     <div id="feKopfLayout">
       <!-- 02.08. (Ralph): Riki-Zeile schlank. Vorher ~280px Hoehe fuer drei gleich grosse
            Kaesten - dabei nutzt Ralph fast immer Weblink oder Screenshot; der Datei-Upload
@@ -8660,7 +8660,53 @@ var _FGST={
   'Aktiv ohne Index': {dot:'#8a5a0b', bg:'#fffaf0', fg:'#8a5a0b', bd:'#e0a32e', hint:'sichtbar im Katalog, ehrlich ohne Zahl'},
   'Inaktiv':          {dot:'#9aa7b2', bg:'#eef1f4', fg:'#5b6b7e', bd:'#c3ccd4', hint:'aus dem Katalog genommen, bleibt erhalten'}
 };
+/* ===== SICHTPRUEFUNG JE QUELLENART (Work #372 Etappe 2, Ralph-Entscheid E20) ===========
+   Ralph hat am 31.08. festgelegt: Etikettfoto und Amazon/Haendler verlangen, dass ein
+   Mensch die konkrete Quelle angesehen hat. Herstellerseite, OpenFoodFacts, BLS und USDA
+   laufen im Standard durch.
+
+   ENTSCHEIDEN tut das der Server, nicht diese Anzeige (Kernvertrag B1): gelesen wird
+   cb_produkt_quellenpruefung_status, gesetzt wird cb_quellen_sichtpruefung_setzen. Hier
+   wird KEINE Quellenart, KEINE Prueftiefe und KEIN Grundtext nachgebaut - alles, was hier
+   steht, kommt aus der Antwort des Servers. Faellt der Aufruf aus, bleibt der Kasten leer
+   und die Freigabe haengt weiter am serverseitigen Riegel; eine Anzeige darf nichts
+   erlauben, was der Server verbietet. */
+async function feSichtpruefungLaden(){
+  var box=document.getElementById('fe_sichtpruefung'); if(!box) return;
+  var id=(window._fgEdit&&window._fgEdit.id);
+  if(!id){ box.innerHTML=''; return; }
+  var d=null;
+  try{
+    var r=await client.rpc('cb_produkt_quellenpruefung_status',{p_id:id});
+    d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){} }
+  }catch(e){ d=null; }
+  window._feQuellenpruefung=d;
+  if(!d||!d.sichtpruefung_noetig){ box.innerHTML=''; return; }
+  var ok=!!d.sichtpruefung_gueltig;
+  var wann=d.sichtpruefung_am?(' – '+esc(String(d.sichtpruefung_am).slice(0,16).replace('T',' '))+(d.sichtpruefung_von?(' von '+esc(d.sichtpruefung_von)):'')):'';
+  box.innerHTML='<div style="margin-top:8px;padding:8px 10px;border:1px solid '+(ok?'#86c9a4':'#f59e0b')+';border-radius:8px;background:'+(ok?'#f0f9f4':'#fffbeb')+';font-size:12px;color:'+(ok?'#1f5e34':'#92400e')+'">'
+    +'<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">'
+    +'<input type="checkbox" id="fe_sichtpruefung_box" '+(ok?'checked':'')+' onchange="try{feSichtpruefungSetzen(this.checked)}catch(e){}">'
+    +'<span><b>Ich habe diese Quelle selbst angesehen.</b><br>'
+    +esc(d.quelle_typ||'')+' verlangt den Blick eines Menschen auf die Quelle. Ohne dieses Häkchen gibt der Server das Produkt nicht automatisch frei.'
+    +(ok?('<br><span style="font-weight:600">Bestätigt'+wann+'</span>'):'')
+    +'</span></label></div>';
+}
+async function feSichtpruefungSetzen(bestaetigt){
+  var id=(window._fgEdit&&window._fgEdit.id); if(!id) return;
+  var cb=document.getElementById('fe_sichtpruefung_box');
+  if(cb) cb.disabled=true;
+  try{ await client.rpc('cb_quellen_sichtpruefung_setzen',{p_id:id,p_bestaetigt:!!bestaetigt}); }
+  catch(e){ if(typeof console!=='undefined') console.warn('Sichtprüfung nicht gesetzt:',e&&e.message?e.message:e); }
+  /* Neu lesen statt lokal umschalten: gueltig ist die Sichtpruefung nur, solange die Quelle
+     unveraendert bleibt - das entscheidet der Fingerabdruck auf dem Server, nicht das Haekchen. */
+  try{ await feSichtpruefungLaden(); }catch(e){}
+  try{ if(typeof fePlaus==='function') fePlaus(); }catch(e){}
+}
+if(typeof window!=='undefined'){ window.feSichtpruefungLaden=feSichtpruefungLaden; window.feSichtpruefungSetzen=feSichtpruefungSetzen; }
+
 async function fgStatusLoad(){
+  try{ feSichtpruefungLaden(); }catch(e){}
   var el=document.getElementById('frgStatusPill'); if(!el) return;
   var id=(window._fgEdit&&window._fgEdit.id);
   try{

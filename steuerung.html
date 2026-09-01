@@ -10,16 +10,15 @@
   Work #375 Etappe 1 (01.09.2026), umgebaut fuer #386/#387/#388/#390 am 01.09.2026
   nach Ralph-Entscheid E25.
 
-  DIE TAFEL LAEUFT VON OBEN NACH UNTEN: EBENE 0, 1, 2, 3 (#394).
-  Wer abnimmt, steht oben.
+  DIE TAFEL LAEUFT VON OBEN NACH UNTEN: EBENE 0, 1, 2 (#412, Ralph-Entscheid E30).
+  Wer abnimmt, steht oben. Ebene 3 gibt es nicht mehr — der Projekt-Chat auf
+  Ebene 2 zerlegt und baut in einem.
 
   Ebene 0 · Ralph            die letzte Abnahme (e0) und die Grundsatzfragen.
   Ebene 1 · Gesamtsteuerung  je Projekt EINE Karte mit Kuerzel, Zweck, Ziel,
                              Zahlen — darunter die Abnahmen auf e1.
-  Ebene 2 · Projektfuehrung  die Projektaufgaben mit Ampel — darunter die
-                             Abnahmen auf e2.
-  Ebene 3 · Umsetzung        offen, laeuft, haengt. Mehr nicht: was fertig
-                             gemeldet ist, steht schon eine Zeile hoeher.
+  Ebene 2 · Projekt          die Projektaufgaben mit Ampel — darunter die
+                             Arbeit selbst: offen, laeuft, haengt.
 
   Eine fertig gemeldete Aufgabe wandert sichtbar in die Zeile der Ebene, die sie
   abnehmen muss. Welche das ist, sagt allein agent_work_item.abnahmestufe (#389).
@@ -39,11 +38,12 @@
     cb_admin_agent_work_status      (Status + Notiz)
     cb_admin_agent_work_zuweisen    (Owner, Prioritaet, Entscheid noetig)
     cb_admin_agent_work_zuordnen    (Projektaufgabe, neu in #388)
-    cb_admin_agent_work_verifizieren(Abnahme, schiebt e2 -> e1 -> e0 -> verified)
+    cb_admin_agent_work_verifizieren(Abnahme, schiebt e1 -> e0 -> verified)
   Es gibt hier keine nachgebaute Fachlogik. Der Server entscheidet (CLAUDE.md B1).
 
-  ABNAHME (E25): eine fertig gemeldete Aufgabe steht auf abnahmestufe e2.
-  Ebene 2 nimmt ab -> e1. Ebene 1 nimmt ab -> e0. Ralph nimmt ab -> verified.
+  ABNAHME (E30): eine fertig gemeldete Aufgabe steht auf abnahmestufe e1.
+  Der andere Agent nimmt ab -> e0. Ralph nimmt ab -> verified. Solange der Server
+  noch alte e2-Karten liefert (#411), stehen sie sichtbar in Ebene 2.
   Wer die Arbeit gemacht hat, nimmt sie nicht ab; das prueft der Server, nicht diese Seite.
 
   Anmeldung: dieselbe Sitzung wie admin.html (storageKey sb-cleanbase-auth,
@@ -234,7 +234,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 
 <div class="kopf">
   <div class="kopf-zeile">
-    <h1>Root Index — Steuerung über vier Ebenen</h1>
+    <h1>Root Index — Steuerung über drei Ebenen</h1>
     <span class="stand" id="stand">lädt …</span>
     <span class="spacer"></span>
     <label class="stand" for="actor">Ich bin</label>
@@ -328,25 +328,31 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 const STATIONEN = [
   { id:"open",        name:"offen",           farbe:"var(--offen)"  },
   { id:"in_progress", name:"läuft",           farbe:"var(--laeuft)" },
-  { id:"abnahme_e2",  name:"wartet auf Ebene 2", farbe:"var(--e2)", stufe:"e2" },
-  { id:"abnahme_e1",  name:"wartet auf Ebene 1", farbe:"var(--e1)", stufe:"e1" },
-  { id:"abnahme_e0",  name:"wartet auf Ralph",   farbe:"var(--e0)", stufe:"e0" },
+  { id:"abnahme_e2",  name:"wartet auf Abnahme (alte Stufe)", farbe:"var(--e2)", stufe:"e2" },
+  { id:"abnahme_e1",  name:"wartet auf den anderen Agenten",  farbe:"var(--e1)", stufe:"e1" },
+  { id:"abnahme_e0",  name:"wartet auf Ralph",                farbe:"var(--e0)", stufe:"e0" },
   { id:"entscheid_e0",name:"Ralph entscheidet",  farbe:"var(--haengt)" },
   { id:"haengt",      name:"hängt",           farbe:"var(--haengt)" }
   /* Ralph 31.08.: Spalte „fertig" ausgeblendet. Abgenommenes hilft beim Arbeiten
-     nicht — es fuellt nur die Tafel. Die Zeilen werden gar nicht erst geholt. */
+     nicht — es fuellt nur die Tafel. Die Zeilen werden gar nicht erst geholt.
+
+     Ralph 01.09. Variante A (#412): eine Abnahmestufe faellt weg. Kuenftig
+     nimmt der andere Agent ab (e1), dann Ralph (e0). Die alte Stufe e2 steht
+     hier weiter, weil der Server sie heute noch liefert — der Umbau dahinter
+     ist #411. Solange es e2-Karten gibt, stehen sie sichtbar in Ebene 2 statt
+     zu verschwinden. Faellt e2 weg, bleibt die Station einfach leer. */
 ];
-/* „hängt" ist die Sammelspalte der Ebene 3. Ralph entscheidet gehoert NICHT
+/* „hängt" ist die Sammelspalte der Ebene 2. Ralph entscheidet gehoert NICHT
    dazu: solche Karten stehen bei Ralph in Ebene 0, sonst stuenden sie doppelt
    auf der Tafel — und eine Karte an zwei Stellen ist eine zweite Wahrheit. */
 const HAENGT = ["blocked","disputed"];
-const STUFEN_NAME = { e2:"Ebene 2 · Projektführung", e1:"Ebene 1 · Gesamtsteuerung", e0:"Ebene 0 · Ralph" };
-const STUFEN_FOLGE = ["e2","e1","e0"];
+const STUFEN_NAME = { e2:"alte Stufe", e1:"der andere Agent", e0:"Ralph" };
+const STUFEN_FOLGE = ["e1","e0"];   /* #412: zwei Stufen, nicht mehr drei */
 
 function stationVon(w){
   if(w.status==="decision_ralph") return "entscheid_e0";
   if(HAENGT.indexOf(w.status)>=0) return "haengt";
-  if(w.status==="ready_for_verification") return "abnahme_" + (w.abnahmestufe || "e2");
+  if(w.status==="ready_for_verification") return "abnahme_" + (w.abnahmestufe || "e1");
   return w.status;
 }
 function stationFarbe(id){
@@ -456,6 +462,16 @@ function nummerVon(id){
   return w ? w._nummer : ("#"+id);
 }
 
+/* Projektaufgabe in Klarschrift: KP-3 statt scanweg-r3 (#387). Findet die
+   Aufgabe im Geruest nichts, bleibt der interne Name stehen — nicht geraten. */
+function aufgabeNummerVon(aufgabeId){
+  for(const p of PROJEKTE){
+    const a = (PAUFGABEN[p.id]||[]).find(x=>x.aufgabe_id===aufgabeId);
+    if(a) return (p.kuerzel && a.nummer) ? (p.kuerzel+"-"+a.nummer+" · "+(a.titel||"")) : aufgabeId;
+  }
+  return aufgabeId;
+}
+
 function nichtAngemeldet(){
   $("stand").textContent = "nicht angemeldet";
   $("tafel").innerHTML =
@@ -531,10 +547,11 @@ function zeichnen(){
   const spalten = "grid-template-columns:repeat("+Math.max(1,PROJEKTE.length)+",minmax(210px,1fr))";
   let html = "";
 
-  /* Die Tafel laeuft von oben nach unten: Ebene 0, 1, 2, 3 (#394).
+  /* Die Tafel laeuft von oben nach unten: Ebene 0, 1, 2 (#412).
      Wer abnimmt, steht oben. Eine fertig gemeldete Aufgabe steht nicht mehr
-     in Ebene 3, sondern in der Zeile der Ebene, die sie abnehmen muss —
-     welche das ist, sagt allein das Serverfeld abnahmestufe (#389). */
+     in ihrer Bauzeile, sondern in der Zeile der Ebene, die sie abnehmen muss —
+     welche das ist, sagt allein das Serverfeld abnahmestufe (#389).
+     Ebene 3 gibt es nicht mehr: der Projekt-Chat zerlegt und baut in einem. */
   const nPA = Object.values(PAUFGABEN).reduce((a,b)=>a+b.length,0);
   const je = (pid, f) => rows.filter(w=>w._projekt===pid && f(w));
   const beiRalph = w => w._station==="abnahme_e0" || w._station==="entscheid_e0";
@@ -562,28 +579,21 @@ function zeichnen(){
                  abnahmeBlock(p, "abnahme_e1", je(p.id, w=>w._station==="abnahme_e1"))
   });
 
-  /* --- Ebene 2 · Projektführung: Projektaufgaben und die Abnahmen auf e2 --- */
+  /* --- Ebene 2 · Projekt: zerlegt und baut in einem (#412) ---
+     Hier steht alles, was noch Arbeit ist: die Projektaufgaben als Geruest,
+     darunter offen, laeuft, haengt - und der Rest auf der alten Stufe e2,
+     solange der Server sie noch fuehrt. */
+  const inArbeit = rows.filter(w=>["open","in_progress","haengt","abnahme_e2"].indexOf(w._station)>=0);
   html += ebeneZeile({
-    akzent:"var(--st2)", titel:"Ebene 2 · Projektführung",
-    regel:"Die Projektaufgaben mit Ampel — die Ampel kommt vom Server, nicht von dieser Seite.",
+    akzent:"var(--st2)", titel:"Ebene 2 · Projekt",
+    regel:"Zerlegen und Bauen in einem. Karte in eine andere Station ziehen setzt die Station, " +
+          "innerhalb einer Station die Priorität. Nach oben kommt eine Karte nur durch Abnehmen.",
     chips:[ '<span class="chip">'+nPA+' Projektaufgaben</span>',
-            zaehlChip(rows, w=>w._station==="abnahme_e2", "zur Abnahme") ],
+            '<span class="chip">'+inArbeit.length+' in Arbeit</span>' ],
     spalten,
-    zaehler: p => (PAUFGABEN[p.id]||[]).length,
+    zaehler: p => je(p.id, w=>["open","in_progress","haengt","abnahme_e2"].indexOf(w._station)>=0).length,
     inhalt: p => projektAufgabenHtml(p) +
-                 abnahmeBlock(p, "abnahme_e2", je(p.id, w=>w._station==="abnahme_e2"))
-  });
-
-  /* --- Ebene 3 · Umsetzung: was noch gebaut wird --- */
-  const inArbeit = rows.filter(w=>["open","in_progress","haengt"].indexOf(w._station)>=0);
-  html += ebeneZeile({
-    akzent:"var(--st3)", titel:"Ebene 3 · Umsetzung",
-    regel:"Karte in eine andere Station ziehen setzt die Station, innerhalb einer Station die Priorität. " +
-          "Nach oben kommt eine Karte nur durch Abnehmen.",
-    chips:[ '<span class="chip">'+inArbeit.length+' in Arbeit</span>' ],
-    spalten,
-    zaehler: p => je(p.id, w=>["open","in_progress","haengt"].indexOf(w._station)>=0).length,
-    inhalt: p => aufgabenSpalteHtml(p, rows.filter(w=>w._projekt===p.id))
+                 aufgabenSpalteHtml(p, rows.filter(w=>w._projekt===p.id))
   });
 
   $("tafel").innerHTML = html;
@@ -595,9 +605,9 @@ function zeichnen(){
     'Diese Seite speichert nichts Eigenes. Geschrieben wird über ' +
     '<code>cb_admin_agent_work_status</code>, <code>_zuweisen</code>, <code>_zuordnen</code> und ' +
     '<code>_verifizieren</code>. ' +
-    '<b>Der Abnahmeweg (E25):</b> fertig gemeldet → Ebene 2 → Ebene 1 → Ralph → abgenommen. ' +
+    '<b>Der Abnahmeweg (E30):</b> fertig gemeldet → der andere Agent → Ralph → abgenommen. ' +
     'Jede Abnahme schiebt die Karte sichtbar eine Zeile höher — deshalb steht Ralph oben und ' +
-    'die Umsetzung unten. In Ebene 3 steht nur, was noch gebaut wird. ' +
+    'die Arbeit unten in Ebene 2. ' +
     'Wer die Arbeit gemacht hat, nimmt sie nicht ab; das weist der Server ab, nicht diese Seite.';
 
   verdrahten();
@@ -722,11 +732,14 @@ function projektAufgabenHtml(p){
   return h;
 }
 
-/* ---------- Ebene 3 · Umsetzung ----------
-   Hier stehen nur noch offen, läuft und hängt. Was fertig gemeldet ist,
-   steht in der Zeile der abnehmenden Ebene, nicht mehr hier (#394). */
+/* ---------- Die Arbeitsstationen der Ebene 2 ----------
+   offen, läuft, hängt — und die alte Abnahmestufe e2, solange der Server sie
+   noch fuehrt (#412). Sie bleibt als Station stehen, auch wenn sie leer ist:
+   dorthin zieht man eine Karte, um sie fertig zu melden. Welche Stufe daraus
+   wird, entscheidet der Server, nicht diese Seite.
+   Was fertig gemeldet ist, steht eine Zeile hoeher, nicht mehr hier (#412). */
 const SICHTBAR = 4;
-const EBENE3 = STATIONEN.filter(s=>["open","in_progress","haengt"].indexOf(s.id)>=0);
+const ARBEITSSTATIONEN = STATIONEN.filter(s=>["open","in_progress","haengt","abnahme_e2"].indexOf(s.id)>=0);
 
 function aufgabenSpalteHtml(p, rows){
   let h = "";
@@ -737,7 +750,7 @@ function aufgabenSpalteHtml(p, rows){
 
   if(!rows.length) return h + '<div class="leer">—</div>';
 
-  for(const s of EBENE3){
+  for(const s of ARBEITSSTATIONEN){
     const stapel = rows.filter(w=>w._station===s.id)
       .sort((a,b)=> (STOPP_RANG[a.status]-STOPP_RANG[b.status]) ||
                     (b.priority||0)-(a.priority||0) || (b.work_id-a.work_id));
@@ -884,10 +897,10 @@ async function abgelegt(id, ziel){
   }
   if(zielStation === w._station) return prioSchieben(w, ziel, actor);
 
-  /* Eine Abnahmestufe wird nicht geschoben — sie entsteht durch Abnehmen (E25). */
+  /* Eine Abnahmestufe wird nicht geschoben — sie entsteht durch Abnehmen (E30). */
   if(zielStation==="abnahme_e1" || zielStation==="abnahme_e0"){
     alert("Diese Station erreicht eine Karte nur durch eine Abnahme, nicht durch Schieben.\n\n" +
-          "Der Weg ist: fertig gemeldet → Ebene 2 → Ebene 1 → Ralph. " +
+          "Der Weg ist: fertig gemeldet → der andere Agent → Ralph. " +
           "Zum Abnehmen die Karte anklicken und im Panel auf Abnehmen drücken.");
     return;
   }
@@ -956,7 +969,7 @@ function panelAuf(id){
 
   /* Der Abnahmeweg als Leiste — wo steht die Karte gerade? */
   if(w.status==="ready_for_verification"){
-    const jetzt = w.abnahmestufe || "e2";
+    const jetzt = w.abnahmestufe || "e1";
     const i = STUFEN_FOLGE.indexOf(jetzt);
     $("pWeg").style.display = "";
     $("pWeg").innerHTML = '<span class="durch">gebaut</span>' +
@@ -968,14 +981,14 @@ function panelAuf(id){
   }
 
   $("pMeta").innerHTML = "Zuständig <b>"+esc(w.owner_agent||"—")+"</b> · zuletzt bewegt "+
-    alterText(w.updated_at) + (w.dependency_work_id ? " · hängt an #"+w.dependency_work_id : "") +
-    (WORK_AUFGABE[w.work_id] ? " · Projektaufgabe "+esc(WORK_AUFGABE[w.work_id]) : " · <b>ohne Projektaufgabe</b>") +
+    alterText(w.updated_at) + (w.dependency_work_id ? " · hängt an "+esc(nummerVon(w.dependency_work_id)) : "") +
+    (WORK_AUFGABE[w.work_id] ? " · Projektaufgabe "+esc(aufgabeNummerVon(WORK_AUFGABE[w.work_id])) : " · <b>ohne Projektaufgabe</b>") +
     (w.hat_notiz ? " · Notiz vorhanden" : "");
 
   const kannAbnehmen = w.status==="ready_for_verification";
   $("pAbnehmen").style.display = kannAbnehmen ? "" : "none";
   if(kannAbnehmen){
-    const jetzt = w.abnahmestufe || "e2";
+    const jetzt = w.abnahmestufe || "e1";
     $("pAbnehmen").textContent = "Abnehmen als " + (STUFEN_NAME[jetzt]||jetzt).split(" · ")[0];
   }
   $("panel").classList.add("auf"); $("abdeckung").classList.add("auf");
@@ -1077,13 +1090,11 @@ async function abnehmen(){
   if(!notiz) return melden("Eine Abnahme ohne Stelle, Gegenfall und Messung ist eine Meinung.", false);
   const actor = $("actor").value;
   const vorher = AKTUELL.abnahmestufe || "e2";
-  const rollenschluessel = window.prompt("Rollen-Schlüssel für " + STUFEN_NAME[vorher] + ":");
-  if(!rollenschluessel) return melden("Ohne Rollen-Schlüssel keine Abnahme.", false);
   $("pAbnehmen").disabled = true;
   try{
     const r = await client.rpc("cb_admin_agent_work_verifizieren",
       { p_work_id:AKTUELL.work_id, p_verifier:actor, p_ok:true,
-        p_note:notiz, p_evidence:{rollenschluessel:rollenschluessel.trim()} });
+        p_note:notiz, p_evidence:null });
     if(r.error) throw r.error;
     const naechste = { e2:"e1", e1:"e0" }[vorher];
     melden(naechste
