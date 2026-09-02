@@ -3824,6 +3824,18 @@ async function fgRefV2Laden(){
     var r2=await client.rpc("cb_referenz_pruefung_status",{p_produkt_id:pid});
     if(r2&&r2.error) throw r2.error; st=r2&&r2.data;
   }catch(e){ fehler=(e&&e.message)?String(e.message):String(e); }
+  /* Work #371 (KP-4): Der Bindungsstand kommt vom Server, nicht aus dieser Datei.
+     Eigener Fangblock, weil eine fehlende Lueckenanzeige die Etikettkarte nicht
+     kosten darf - der Grund steht dann in der Konsole und im Streifen. */
+  var bind=null, bindFehler="";
+  try{
+    var r3=await client.rpc("cb_produkt_bindung_stand",{p_produkt_id:pid});
+    if(r3&&r3.error) throw r3.error; bind=r3&&r3.data;
+  }catch(e2){
+    bindFehler=(e2&&e2.message)?String(e2.message):String(e2);
+    console.error("[Bindungsstand] Laden fehlgeschlagen:", bindFehler);
+  }
+  window._fgBindung={stand:bind, fehler:bindFehler};
   if(fehler){
     /* Kein leerer Fangblock (§1.13i): der Grund muss sichtbar sein. */
     console.error("[Referenz V2] Laden fehlgeschlagen:", fehler);
@@ -3903,19 +3915,66 @@ function fgEtikettKlick(elId){
 }
 if(typeof window!=="undefined"){ window.fgEtikettKlick=fgEtikettKlick; }
 
+/* Work #371 (KP-4): Wie weit ist dieses Produkt gebunden, und was fehlt.
+   Die Antwort kommt vollstaendig aus cb_produkt_bindung_stand. Hier wird nichts
+   gerechnet und keine Serverentscheidung nachgebaut - nur angezeigt.
+   Teilgebunden ist ein eigener Zustand und wird nie als gebunden dargestellt. */
+var _BIND_ST={
+  gebunden:    {t:"gebunden",     f:"var(--k-166534,#166534)", b:"var(--k-dcfce7,#dcfce7)", i:"✓"},
+  teilgebunden:{t:"teilgebunden", f:"var(--k-92400e,#92400e)", b:"var(--k-fef3c7,#fef3c7)", i:"◐"},
+  ungebunden:  {t:"ungebunden",   f:"var(--k-1d4ed8,#1d4ed8)", b:"var(--k-dbeafe,#dbeafe)", i:"○"},
+  ungeprueft:  {t:"noch nicht geprüft", f:"var(--muted)",      b:"var(--k-eef1f4,#eef1f4)", i:"–"},
+  ohne_quelle: {t:"ohne Quelle",  f:"var(--muted)",            b:"var(--k-eef1f4,#eef1f4)", i:"–"}
+};
+function fgBindungStreifen(){
+  var w=window._fgBindung||{};
+  if(w.fehler){
+    return '<div style="margin:0 2px 8px;padding:6px 9px;border:1px solid var(--k-dc2626,#dc2626);border-radius:8px;'
+      +'background:var(--card);color:var(--k-dc2626,#dc2626);font-size:11.5px">'
+      +'Bindungsstand konnte nicht geladen werden: '+esc(w.fehler)+'</div>';
+  }
+  var b=w.stand; if(!b || b.ok===false) return "";
+  var s=_BIND_ST[String(b.zustand||"")]||_BIND_ST.ungeprueft;
+  var H='<div style="margin:0 2px 8px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card)">'
+    +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
+    +'<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:'+s.b+';color:'+s.f+'">'
+    +s.i+' '+esc(s.t)+'</span>'
+    +'<span style="font-size:11.5px;color:var(--muted)">'+esc(String(b.erklaerung||""))+'</span></div>';
+  var lk=Array.isArray(b.luecken)?b.luecken:[];
+  if(lk.length){
+    H+='<div style="margin-top:6px;font-size:11.5px;line-height:1.6">'
+      +'<b style="color:var(--ink)">Diese Zutaten fehlen noch:</b><ul style="margin:4px 0 0;padding-left:18px">'
+      +lk.map(function(l){
+          return '<li>'+esc(String((l&&l.name)||""))
+            +' <span style="color:var(--muted)">– '+esc(String((l&&l.grund)||""))+'</span></li>';
+        }).join('')
+      +'</ul></div>';
+  }
+  if(b.bewertung_status && b.clean_score==null){
+    H+='<div style="margin-top:6px;font-size:11px;color:var(--muted)">'
+      +'Bewertung: '+esc(String(b.bewertung_status))+'. Eine Bindung allein ergibt noch keinen Score.</div>';
+  }
+  return H+'</div>';
+}
 function fgRefV2Render(d, st){
   var box=document.getElementById("fe_refV2"); if(!box) return;
   if(!d || d.ok===false){
     box.innerHTML='<div style="color:var(--k-dc2626,#dc2626);font-size:12.5px;padding:6px">'+esc((d&&d.fehler)||"Keine Daten.")+'</div>';
     return;
   }
+  var BIND=""; try{ BIND=fgBindungStreifen(); }catch(eB){ console.error("[Bindungsstand] Anzeige:", eB); }
   var el=Array.isArray(d.elemente)?d.elemente:[];
-  if(!el.length){ fgRefV2RenderTechnik(d, st, box); return; }   /* ehrlicher Leerzustand steht dort */
+  if(!el.length){
+    fgRefV2RenderTechnik(d, st, box);          /* ehrlicher Leerzustand steht dort */
+    if(BIND) box.innerHTML=BIND+box.innerHTML; /* der Bindungsstand gilt auch ohne Parserbaum */
+    return;
+  }
   var pzMap={}; (d.pruefzeilen||[]).forEach(function(p){ if(p&&p.Parser_Element_ID!=null) pzMap[p.Parser_Element_ID]=p; });
   var zaehl={uebernommen:0,offen:0,pruefen:0,ignoriert:0};
   el.forEach(function(e){ zaehl[_etiStatus(e,pzMap[e.id])]++; });
   var _alleUeb=(zaehl.uebernommen===el.length);
-  var H='<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:0 2px 7px">'
+  var H=BIND
+    +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:0 2px 7px">'
     +'<b style="font-size:12px;letter-spacing:.04em;color:var(--ink)">ETIKETT</b>'
     +'<span style="font-size:11px;color:var(--muted)">'+el.length+' Zeile'+(el.length===1?'':'n')+' vom Etikett</span></div>';
   H+='<div style="display:flex;gap:5px;flex-wrap:wrap;padding:0 2px 8px">'

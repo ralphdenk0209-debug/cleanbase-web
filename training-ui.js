@@ -585,6 +585,90 @@ function bodyMapHtml(last, hist){
       +'<div style="margin-top:5px">Der Taillenumfang ist der aussagekräftigste Einzelwert: Die WHO stuft ihn ab <b>94 cm</b> (Männer) bzw. <b>80 cm</b> (Frauen) als erhöht ein, ab <b>102</b> bzw. <b>88 cm</b> als deutlich erhöht. <i>Orientierungswerte, keine Diagnose.</i></div>'
     +'</div>';
 }
+/* ---- FE-1 Verlauf: Umschalter Diagramm | Tabelle (Ralph, 02.09.2026) ----
+   MASS_HIST haelt die zuletzt geladene Historie, damit das Umschalten keinen neuen
+   Serveraufruf braucht. Neueste Messung steht an Position 0, wie cb_mass_historie liefert. */
+var MASS_HIST=[], MASS_ANSICHT='chart', MASS_REIHE='gesamt';
+var MASS_SPALTEN=[["gesamt","Gesamtumfang"],["Brust","Brust"],["Taille","Taille"],["Bauch","Bauch"],["Huefte","Hüfte"],["Po","Po"],["Oberschenkel","Oberschenkel"],["Oberarm","Oberarm"],["Beine","Beine"]];
+/* Gesamtumfang = Summe der acht Masse. Nur fuer Messungen, bei denen ALLE acht Werte
+   vorliegen - sonst faellt die Summe ab, weil ein Feld leer war, und das saehe wie ein
+   Erfolg aus. Unvollstaendige Messungen werden im Gesamtverlauf ausgelassen. */
+function _massReihe(hist, key){
+  const alle=["Brust","Taille","Bauch","Huefte","Po","Oberschenkel","Oberarm","Beine"];
+  return hist.slice().reverse().map(r=>{
+    let v=null;
+    if(key==='gesamt'){ if(alle.every(c=>r[c]!=null&&r[c]!=='')) v=Math.round(alle.reduce((s,c)=>s+Number(r[c]),0)*10)/10; }
+    else if(r[key]!=null&&r[key]!=='') v=Number(r[key]);
+    return {datum:r.Datum, wert:v};
+  }).filter(p=>p.wert!=null);
+}
+function _dTag(d){ const s=String(d||''); return s.length===10?(s.slice(8,10)+'.'+s.slice(5,7)+'.'):s; }
+function massChartHtml(hist){
+  const pts=_massReihe(hist, MASS_REIHE);
+  const name=(MASS_SPALTEN.find(c=>c[0]===MASS_REIHE)||['','Maß'])[1];
+  if(pts.length<2){
+    return '<div style="padding:22px 12px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--line);border-radius:10px">'
+      +(MASS_REIHE==='gesamt'
+        ? 'Für den Gesamtumfang braucht es mindestens zwei Messungen, bei denen alle acht Maße ausgefüllt sind.'
+        : 'Für '+esc(name)+' liegen noch keine zwei Messungen vor.')+'</div>';
+  }
+  const W=640,H=230,L=46,R=14,T=16,B=30;
+  const vals=pts.map(p=>p.wert);
+  let min=Math.min(...vals), max=Math.max(...vals);
+  if(max-min<1){ const m=(max+min)/2; min=m-0.5; max=m+0.5; }        /* flache Reihe nicht als Zickzack zeigen */
+  const pad=(max-min)*0.15; min-=pad; max+=pad;
+  const x=i=>L+(pts.length===1?0:i*(W-L-R)/(pts.length-1));
+  const y=v=>T+(H-T-B)*(1-(v-min)/(max-min));
+  const linie=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.wert).toFixed(1)).join(' ');
+  const flaeche=linie+' L '+x(pts.length-1).toFixed(1)+' '+(H-B)+' L '+x(0).toFixed(1)+' '+(H-B)+' Z';
+  let gitter='';
+  for(let i=0;i<=3;i++){ const v=min+(max-min)*i/3, yy=y(v);
+    gitter+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+(W-R)+'" y2="'+yy.toFixed(1)+'" stroke="var(--k-eef2f5)" stroke-width="1"/>'
+      +'<text x="'+(L-6)+'" y="'+(yy+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--muted)">'+(Math.round(v*10)/10).toFixed(1).replace('.',',')+'</text>'; }
+  /* Bei vielen Messungen nicht jedes Datum schreiben - sonst kleben die Beschriftungen. */
+  const schritt=Math.ceil(pts.length/6);
+  let achse='';
+  pts.forEach((p,i)=>{ if(i%schritt===0||i===pts.length-1) achse+='<text x="'+x(i).toFixed(1)+'" y="'+(H-B+16)+'" text-anchor="middle" font-size="10" fill="var(--muted)">'+esc(_dTag(p.datum))+'</text>'; });
+  let punkte='';
+  pts.forEach((p,i)=>{ const letzt=i===pts.length-1;
+    punkte+='<circle cx="'+x(i).toFixed(1)+'" cy="'+y(p.wert).toFixed(1)+'" r="'+(letzt?4.5:3)+'" fill="var(--k-16a34a)" stroke="var(--k-ffffff)" stroke-width="1.5"><title>'+esc(p.datum)+': '+String(p.wert).replace('.',',')+' cm</title></circle>'; });
+  const erster=pts[0].wert, letzter=pts[pts.length-1].wert;
+  const d=Math.round((letzter-erster)*10)/10;
+  const farbe=d===0?'var(--muted)':(d<0?'var(--k-16a34a)':'var(--k-b45309)');
+  const dTxt=(d===0?'±0':((d>0?'+':'−')+String(Math.abs(d)).replace('.',',')))+' cm';
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" role="img" aria-label="Verlauf '+esc(name)+'">'
+    +'<defs><linearGradient id="massFill" x1="0" y1="0" x2="0" y2="1">'
+    +'<stop offset="0%" stop-color="var(--k-16a34a)" stop-opacity="0.18"/><stop offset="100%" stop-color="var(--k-16a34a)" stop-opacity="0"/></linearGradient></defs>'
+    +gitter+'<path d="'+flaeche+'" fill="url(#massFill)"/>'
+    +'<path d="'+linie+'" fill="none" stroke="var(--k-16a34a)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'
+    +punkte+achse+'</svg>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;font-size:12px;color:var(--muted);margin-top:4px">'
+    +'<span>'+esc(name)+' · '+pts.length+' Messungen</span>'
+    +'<span>jetzt <b style="color:var(--ink)">'+String(letzter).replace('.',',')+' cm</b></span>'
+    +'<span>seit '+esc(_dTag(pts[0].datum))+' <b style="color:'+farbe+'">'+dTxt+'</b></span></div>';
+}
+function massVerlaufBoxRender(){
+  const box=document.getElementById('massVerlaufBox'); if(!box) return;
+  box.innerHTML = MASS_ANSICHT==='chart' ? massChartHtml(MASS_HIST) : massVerlaufHtml(MASS_HIST);
+  const sel=document.getElementById('massReiheWahl'); if(sel) sel.style.display = MASS_ANSICHT==='chart' ? '' : 'none';
+  ['chart','tabelle'].forEach(v=>{ const b=document.getElementById('massTab_'+v); if(!b) return;
+    const an=(MASS_ANSICHT===v);
+    b.style.background=an?'var(--k-16a34a)':'var(--k-ffffff)'; b.style.color=an?'var(--k-ffffff)':'var(--ink)'; b.style.borderColor=an?'var(--k-16a34a)':'var(--line)'; });
+}
+function massAnsichtSet(v){ MASS_ANSICHT=v; massVerlaufBoxRender(); }
+function massReiheSet(v){ MASS_REIHE=v; massVerlaufBoxRender(); }
+if(typeof window!=='undefined'){ window.massAnsichtSet=massAnsichtSet; window.massReiheSet=massReiheSet; }
+function massVerlaufRahmenHtml(hist){
+  if(!hist||!hist.length) return '';
+  const knopf=(v,txt)=>'<button id="massTab_'+v+'" onclick="massAnsichtSet(\''+v+'\')" style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--k-ffffff);color:var(--ink);cursor:pointer;font-size:12.5px">'+txt+'</button>';
+  const opts=MASS_SPALTEN.map(c=>'<option value="'+c[0]+'"'+(c[0]===MASS_REIHE?' selected':'')+'>'+c[1]+'</option>').join('');
+  return '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--k-eef2f5)">'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">'
+    +'<span style="font-weight:600;font-size:13px;margin-right:4px">Verlauf</span>'
+    +knopf('chart','📈 Diagramm')+knopf('tabelle','▦ Tabelle')
+    +'<select id="massReiheWahl" onchange="massReiheSet(this.value)" style="margin-left:auto;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:12.5px">'+opts+'</select>'
+    +'</div><div id="massVerlaufBox"></div></div>';
+}
 /* FE-1: Verlauf als Tabelle - Datum je Zeile, Werte in cm, Gesamt-Delta in der Fusszeile.
    Ohne Datum ist eine gespeicherte Zahl nicht nachpruefbar (Kriterium: 8 Masse MIT Datum). */
 function massVerlaufHtml(hist){
@@ -615,17 +699,19 @@ async function renderProfilMass(){
   try{ const r=await client.rpc("cb_train_profil"); p=Array.isArray(r.data)?(r.data[0]||{}):(r.data||{}); }catch(e){}
   /* FE-1: 12 statt 1 Messung laden. Fuer das Delta braucht es die Vormessung,
      fuer den Verlauf darunter die letzten Termine. Ein Leseweg, nicht zwei. */
-  try{ const r=await client.rpc("cb_mass_historie",{p_limit:12}); hist=(r.data||[]); last=hist[0]||{}; }catch(e){}
+  try{ const r=await client.rpc("cb_mass_historie",{p_limit:24}); hist=(r.data||[]); last=hist[0]||{}; }catch(e){}
+  MASS_HIST=hist;
   const naechste=p.Mass_Naechste?('Nächste Messung: <b>'+esc(p.Mass_Naechste)+'</b>'+(p.Mass_Naechste<=tbToday()?' · <span style="color:var(--k-b45309)">fällig</span>':'')):'';
   const standZeile = hist.length
     ? '<div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:6px">Angezeigt: Messung vom <b style="color:var(--ink)">'+esc(last.Datum)+'</b>'+(hist.length>1?(' · die farbige Zahl neben jedem Maß ist die Veränderung in cm gegen die vorige Messung')  :' · erste Messung')+'</div>'
     : '<div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:6px">Noch keine Messung gespeichert.</div>';
-  box.innerHTML=standZeile+bodyMapHtml(last, hist)+massVerlaufHtml(hist)
+  box.innerHTML=standZeile+bodyMapHtml(last, hist)+massVerlaufRahmenHtml(hist)
     +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:6px;padding-top:10px;border-top:1px solid var(--k-eef2f5)">'
     +'<label style="font-size:13px"><input type="checkbox" id="massAktiv"'+(p.Mass_Aktiv?' checked':'')+'> Regelmäßig messen</label>'
     +'<label style="font-size:13px">alle <input id="massIv" type="number" min="1" value="'+(p.Mass_Intervall_Tage??7)+'" style="width:60px;padding:6px;border:1px solid var(--line);border-radius:8px"> Tage</label>'
     +'<span style="font-size:12px;color:var(--muted)">'+naechste+'</span></div>'
     +'<div style="margin-top:10px"><button onclick="saveProfilMass()" style="padding:10px 16px;border:0;border-radius:8px;background:var(--k-16a34a);color:var(--k-ffffff);cursor:pointer">Maße speichern</button> <span id="pfMassMsg" style="font-size:13px"></span></div>';
+  massVerlaufBoxRender();   /* fuellt den Verlauf in der zuletzt gewaehlten Ansicht */
 }
 async function saveProfilMass(){
   const order=["po","huefte","beine","oberarm","brust","taille","bauch","oberschenkel"];

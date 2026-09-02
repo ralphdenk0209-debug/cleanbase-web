@@ -790,6 +790,34 @@ async function ladeReinheitsAmpel(){
   if(!a || !a.gilt){ box.innerHTML=''; return; }
   box.innerHTML = reinheitsAmpelHtml(a);
 }
+/* Work #371 (KP-4): Fehlt eine Zutat, sagen wir das - statt so zu tun, als waere
+   die Liste vollstaendig. Zustand und Luecke kommen aus cb_produkt_bindung_stand;
+   hier wird nichts gerechnet. Teilgebunden wird nie als gebunden gezeigt. */
+async function ladeBindungsLuecke(){
+  const box = document.getElementById('riBindung'); if(!box) return;
+  const pid = box.getAttribute('data-pid'); if(!pid){ box.innerHTML=''; return; }
+  let b = null;
+  try{
+    const {data, error} = await client.rpc('cb_produkt_bindung_stand', {p_produkt_id: pid});
+    if(error) throw error;
+    b = data;
+  }catch(e){
+    /* Kein stiller Fangblock: der Grund gehoert in die Konsole, die Karte bleibt heil. */
+    console.error('[Zutatenlücke] Laden fehlgeschlagen:', e && e.message ? e.message : e);
+    box.innerHTML=''; return;
+  }
+  if(!b || b.ok===false || b.zustand!=='teilgebunden'){ box.innerHTML=''; return; }
+  const lk = Array.isArray(b.luecken) ? b.luecken : [];
+  const namen = lk.map(l => esc(String((l && l.name) || ''))).filter(Boolean);
+  const liste = namen.length
+    ? ' Es fehlen noch: <b>' + namen.slice(0, 6).join('</b>, <b>') + '</b>'
+      + (namen.length > 6 ? (' und ' + (namen.length - 6) + ' weitere') : '') + '.'
+    : '';
+  box.innerHTML = '<div class="note teilhint">⚠️ <b>Zutatenliste noch nicht vollständig zugeordnet</b> – '
+    + esc(String(b.gebunden)) + ' von ' + esc(String(b.erkannt))
+    + ' Zeilen vom Etikett sind einer Zutat zugeordnet.' + liste
+    + ' Der Index kann sich dadurch noch ändern.</div>';
+}
 function reinheitsAmpelHtml(a){
   const f = RI_FARBEN[a.ampel] || RI_FARBEN.grau;
   const bef = Array.isArray(a.befunde) ? a.befunde : [];
@@ -4796,6 +4824,7 @@ async function detail(d){
     ${_azoWarn?`<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Enthält synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis „kann Aktivität und Aufmerksamkeit bei Kindern beeinträchtigen". Deckelt die Wertung auf höchstens „Gut".</div>`:""}
     ${_ksuessWarn?`<div class="note" style="background:var(--k-fffbeb);border-color:var(--k-fde68a);color:var(--k-92400e)">⚠️ <b>Enthält künstliche Süßstoffe</b> (z. B. Sucralose/Acesulfam) – kalorienarm, aber umstritten. Bei gesüßten Getränken deckelt es die Wertung auf höchstens „Mittel".</div>`:""}
     ${_istSupp?`<div id="riAmpel" data-pid="${esc(d.id)}"><div class="note" style="background:var(--k-f4f5f4);color:var(--muted)">Prüfe die Dosierung gegen die EFSA-Grenzwerte…</div></div>`:(!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:"")}
+    ${_istSupp?"":`<div id="riBindung" data-pid="${esc(d.id)}"></div>`}
     ${!hasFeat('pk_naehrwerte') ? pkSperre('Nährwerte pro 100 '+prodEinheit(d),'Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz')
        : (mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 ${prodEinheit(d)}</div>${mRows}`:"")}
     ${warumBlock}
@@ -4808,6 +4837,8 @@ async function detail(d){
   /* Die Reinheits-Ampel wird nachgeladen (RPC gegen die EFSA-Grenzwerte).
      Sie ersetzt bei Supplements den Platz, an dem sonst der Score steht. */
   if(typeof ladeReinheitsAmpel === "function") ladeReinheitsAmpel();
+  /* Work #371: Ist die Zutatenliste nur teilweise zugeordnet, steht das hier. */
+  if(typeof ladeBindungsLuecke === "function") ladeBindungsLuecke();
 }
 /* Ein gesperrter Block sagt, WAS fehlt und WARUM - er verschwindet nicht einfach.
    Ein Block, der spurlos fehlt, sieht aus wie ein Fehler; einer mit Schloss wie ein Angebot. */
@@ -14743,7 +14774,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-02-6";
+const APP_BUILD = "2026-09-02-7";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
