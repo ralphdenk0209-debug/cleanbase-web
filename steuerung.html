@@ -3,26 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Root Index — Steuerung über drei Ebenen</title>
+<title>Root Index — Steuerung (drei Zeilen)</title>
 <!--
-  STEUERUNGSSEITE · vier Ebenen, Spalten sind Projekte
+  STEUERUNGSSEITE · drei Zeilen, Spalten sind Projekte
   ----------------------------------------------------
-  Work #375 Etappe 1 (01.09.2026), umgebaut fuer #386/#387/#388/#390 am 01.09.2026
-  nach Ralph-Entscheid E25.
+  Work SG-412, neu gefasst am 02.09.2026 nach Ralph-Entscheid E34.
+  Vorher: vier Ebenenzeilen (#375/#386/#387/#388/#390, E25/E30).
 
-  DIE TAFEL LAEUFT VON OBEN NACH UNTEN: EBENE 0, 1, 2 (#412, Ralph-Entscheid E30).
-  Wer abnimmt, steht oben. Ebene 3 gibt es nicht mehr — der Projekt-Chat auf
-  Ebene 2 zerlegt und baut in einem.
+  E34 HAT EBENE 1 ABGESCHAFFT. Es gibt keinen Steuerungschat mehr. Deshalb
+  heissen die Zeilen jetzt nach dem, was dort passiert — nicht nach einer Ebene:
 
-  Ebene 0 · Ralph            die letzte Abnahme (e0) und die Grundsatzfragen.
-  Ebene 1 · Gesamtsteuerung  je Projekt EINE Karte mit Kuerzel, Zweck, Ziel,
-                             Zahlen — darunter die Abnahmen auf e1.
-  Ebene 2 · Projekt          die Projektaufgaben mit Ampel — darunter die
-                             Arbeit selbst: offen, laeuft, haengt.
+  1 · Bei Ralph     entscheiden und abschliessen (Stufe e0 + decision_ralph)
+  2 · Zur Abnahme   der andere Agent misst nach (Stufe e1)
+  3 · In Arbeit     der Projektchat zerlegt und baut: offen, laeuft, haengt
 
-  Eine fertig gemeldete Aufgabe wandert sichtbar in die Zeile der Ebene, die sie
-  abnehmen muss. Welche das ist, sagt allein agent_work_item.abnahmestufe (#389).
-  Diese Seite rechnet das nicht aus, sie liest es.
+  Eine fertig gemeldete Aufgabe wandert sichtbar eine Zeile hoeher. Welche das
+  ist, sagt allein agent_work_item.abnahmestufe (#389). Diese Seite rechnet das
+  nicht aus, sie liest es.
+
+  WER ABNIMMT, STEHT MIT NAMEN AUF DER KARTE. Der Server kennt beide Chats als
+  "claude" und kann den Abnehmer nicht nennen. Angezeigt wird deshalb der
+  Gegenpart des Zustaendigen: owner claude -> chatgpt nimmt ab, und umgekehrt.
+  Das ist reine Anzeige. Ob die Abnahme erlaubt ist, entscheidet der Server.
+
+  ENTSCHEIDUNGEN FUER RALPH STEHEN GANZ OBEN, ueber der Tafel, mit Nummer und
+  einem Satz. Ralph soll sie sehen, ohne zu scrollen (E34).
 
   Die Spaltenreihenfolge ist in allen Zeilen dieselbe.
 
@@ -41,9 +46,9 @@
     cb_admin_agent_work_verifizieren(Abnahme, schiebt e1 -> e0 -> verified)
   Es gibt hier keine nachgebaute Fachlogik. Der Server entscheidet (CLAUDE.md B1).
 
-  ABNAHME (E30): eine fertig gemeldete Aufgabe steht auf abnahmestufe e1.
+  ABNAHME (E30/E34): eine fertig gemeldete Aufgabe steht auf abnahmestufe e1.
   Der andere Agent nimmt ab -> e0. Ralph nimmt ab -> verified. Solange der Server
-  noch alte e2-Karten liefert (#411), stehen sie sichtbar in Ebene 2.
+  noch alte e2-Karten liefert (#411), stehen sie sichtbar in Zeile 3.
   Wer die Arbeit gemacht hat, nimmt sie nicht ab; das prueft der Server, nicht diese Seite.
 
   Anmeldung: dieselbe Sitzung wie admin.html (storageKey sb-cleanbase-auth,
@@ -107,7 +112,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 /* ---------- Zeile 1: Projektkarten ---------- */
 .pkarte{background:var(--karte);border:1px solid var(--linie);border-top:3px solid var(--pf);
-  border-radius:9px;padding:9px 10px;box-shadow:var(--schatten)}
+  border-radius:9px;padding:9px 10px;box-shadow:var(--schatten);margin-bottom:9px}
 .pkarte .kopfz{display:flex;align-items:baseline;gap:6px}
 .pkarte .kz{font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text);
   background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 5px}
@@ -224,6 +229,22 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
   border-radius:11px;padding:22px;text-align:center}
 .luecke{background:#2a2113;border:1px solid #6b551c;color:#e8cf94;border-radius:9px;
   padding:8px 11px;font-size:12px;margin:0 16px 12px}
+
+/* ---------- Entscheidungen bei Ralph · ganz oben, ohne Scrollen (E34) ---------- */
+.ralphblock{margin:12px 16px 0;border:1px solid var(--st0);border-radius:11px;
+  background:linear-gradient(180deg,rgba(209,143,47,.10),transparent 60%),var(--bg2);overflow:hidden}
+.ralphblock .rb-kopf{display:flex;align-items:center;gap:9px;padding:9px 12px;
+  border-bottom:1px solid var(--linie)}
+.ralphblock .rb-kopf h2{margin:0;font-size:14px;font-weight:700;color:var(--st0)}
+.ralphblock .rb-kopf .regel{color:var(--schwach);font-size:11.5px}
+.rb-liste{padding:6px 8px 8px}
+.rb-zeile{display:flex;align-items:baseline;gap:8px;padding:6px 6px;border-radius:7px;cursor:pointer}
+.rb-zeile:hover{background:var(--karte2)}
+.rb-zeile + .rb-zeile{border-top:1px solid var(--linie)}
+.rb-zeile .rid{font-size:11.5px;font-weight:800;letter-spacing:.4px;flex:none;
+  background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 5px}
+.rb-zeile .rt{font-size:12.5px;line-height:1.4}
+.rb-zeile .rw{margin-left:auto;flex:none;font-size:11px;color:var(--schwach);white-space:nowrap}
 .fussnote{color:var(--schwach);font-size:11.5px;padding:0 16px 26px;max-width:900px;line-height:1.6}
 
 @media (max-width:900px){ .stock-koerper{grid-template-columns:repeat(2,minmax(0,1fr)) !important} }
@@ -234,12 +255,12 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 
 <div class="kopf">
   <div class="kopf-zeile">
-    <h1>Root Index — Steuerung über drei Ebenen</h1>
+    <h1>Root Index — Steuerung</h1>
     <span class="stand" id="stand">lädt …</span>
     <span class="spacer"></span>
     <label class="stand" for="actor">Ich bin</label>
     <select id="actor" title="Wer schreibt gerade? Steht in der Notiz der Änderung.">
-      <option value="ralph">Ralph · Ebene 0</option>
+      <option value="ralph">Ralph</option>
       <option value="claude" selected>Claude</option>
       <option value="chatgpt">ChatGPT / Codex</option>
     </select>
@@ -251,6 +272,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 </div>
 
 <div id="luecke" class="luecke" style="display:none"></div>
+<div id="ralphblock" class="ralphblock" style="display:none"></div>
 <div id="tafel" class="tafel"></div>
 
 <div class="fussnote" id="fussnote"></div>
@@ -321,14 +343,15 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 /* ============================================================
    2 · Die Stationen — der Weg eines Work Items (Z7 + E25)
    ------------------------------------------------------------
-   Aus EINER Abnahmestation sind DREI geworden. Welche es ist, sagt
-   das Serverfeld abnahmestufe (e2/e1/e0) — diese Seite rechnet es
-   nicht aus, sie liest es.
+   Es gibt zwei Abnahmestufen: e1 (der andere Agent) und e0 (Ralph).
+   Welche eine Karte hat, sagt das Serverfeld abnahmestufe — diese
+   Seite rechnet es nicht aus, sie liest es. Die alte Stufe e2 steht
+   hier weiter, solange der Server sie liefert (#411).
    ============================================================ */
 const STATIONEN = [
   { id:"open",        name:"offen",           farbe:"var(--offen)"  },
   { id:"in_progress", name:"läuft",           farbe:"var(--laeuft)" },
-  { id:"abnahme_e2",  name:"wartet auf Abnahme (alte Stufe)", farbe:"var(--e2)", stufe:"e2" },
+  { id:"abnahme_e2",  name:"fertig gemeldet (alte Stufe)",    farbe:"var(--e2)", stufe:"e2" },
   { id:"abnahme_e1",  name:"wartet auf den anderen Agenten",  farbe:"var(--e1)", stufe:"e1" },
   { id:"abnahme_e0",  name:"wartet auf Ralph",                farbe:"var(--e0)", stufe:"e0" },
   { id:"entscheid_e0",name:"Ralph entscheidet",  farbe:"var(--haengt)" },
@@ -339,15 +362,27 @@ const STATIONEN = [
      Ralph 01.09. Variante A (#412): eine Abnahmestufe faellt weg. Kuenftig
      nimmt der andere Agent ab (e1), dann Ralph (e0). Die alte Stufe e2 steht
      hier weiter, weil der Server sie heute noch liefert — der Umbau dahinter
-     ist #411. Solange es e2-Karten gibt, stehen sie sichtbar in Ebene 2 statt
+     ist #411. Solange es e2-Karten gibt, stehen sie sichtbar in Zeile 3 statt
      zu verschwinden. Faellt e2 weg, bleibt die Station einfach leer. */
 ];
-/* „hängt" ist die Sammelspalte der Ebene 2. Ralph entscheidet gehoert NICHT
-   dazu: solche Karten stehen bei Ralph in Ebene 0, sonst stuenden sie doppelt
+/* „hängt" ist die Sammelspalte der Zeile In Arbeit. Ralph entscheidet gehoert
+   NICHT dazu: solche Karten stehen bei Ralph in Zeile 1, sonst stuenden sie doppelt
    auf der Tafel — und eine Karte an zwei Stellen ist eine zweite Wahrheit. */
 const HAENGT = ["blocked","disputed"];
 const STUFEN_NAME = { e2:"alte Stufe", e1:"der andere Agent", e0:"Ralph" };
-const STUFEN_FOLGE = ["e1","e0"];   /* #412: zwei Stufen, nicht mehr drei */
+const STUFEN_FOLGE = ["e1","e0"];   /* SG-412: zwei Stufen, nicht mehr drei */
+
+/* Wer nimmt diese Karte ab? Der Server kennt beide Chats als "claude" und kann
+   den Namen nicht liefern (E32). Er ist aber berechenbar: der Abnehmer ist der
+   Gegenpart des Zustaendigen. Reine Anzeige — ob die Abnahme erlaubt ist,
+   entscheidet weiter der Server (CLAUDE.md B1). Ist der Owner keiner der
+   beiden Agenten, wird nichts geraten (A2). */
+const GEGENPART = { claude:"chatgpt", chatgpt:"claude" };
+function abnehmerName(w){
+  const stufe = w.abnahmestufe || "e1";
+  if(stufe === "e0") return "Ralph";
+  return GEGENPART[w.owner_agent] || "der andere Agent";
+}
 
 function stationVon(w){
   if(w.status==="decision_ralph") return "entscheid_e0";
@@ -519,7 +554,7 @@ function gefiltert(){
 }
 
 /* ============================================================
-   5 · Zeichnen — vier Zeilen, gleiche Spaltenreihenfolge
+   5 · Zeichnen — drei Zeilen, gleiche Spaltenreihenfolge
    ============================================================ */
 function zeichnen(){
   const rows = gefiltert();
@@ -547,19 +582,19 @@ function zeichnen(){
   const spalten = "grid-template-columns:repeat("+Math.max(1,PROJEKTE.length)+",minmax(210px,1fr))";
   let html = "";
 
-  /* Die Tafel laeuft von oben nach unten: Ebene 0, 1, 2 (#412).
-     Wer abnimmt, steht oben. Eine fertig gemeldete Aufgabe steht nicht mehr
-     in ihrer Bauzeile, sondern in der Zeile der Ebene, die sie abnehmen muss —
-     welche das ist, sagt allein das Serverfeld abnahmestufe (#389).
-     Ebene 3 gibt es nicht mehr: der Projekt-Chat zerlegt und baut in einem. */
+  /* Die Tafel hat seit E34 DREI Zeilen, benannt nach dem, was dort passiert —
+     nicht nach einer Ebene. Ebene 1 ist abgeschafft, Ebene 3 gab es schon
+     vorher nicht mehr. Eine fertig gemeldete Aufgabe steht nicht mehr in ihrer
+     Bauzeile, sondern dort, wo sie jemand abnehmen muss; welche Zeile das ist,
+     sagt allein das Serverfeld abnahmestufe (#389). */
   const nPA = Object.values(PAUFGABEN).reduce((a,b)=>a+b.length,0);
   const je = (pid, f) => rows.filter(w=>w._projekt===pid && f(w));
   const beiRalph = w => w._station==="abnahme_e0" || w._station==="entscheid_e0";
 
-  /* --- Ebene 0 · Ralph: letzte Abnahme und Grundsatzfragen --- */
+  /* --- Zeile 1 · Bei Ralph: abschliessen und entscheiden --- */
   html += ebeneZeile({
-    akzent:"var(--st0)", titel:"Ebene 0 · Ralph",
-    regel:"Die letzte Abnahme und die Grundsatzfragen. Erst nach Ralph steht eine Aufgabe auf abgenommen (E25).",
+    akzent:"var(--st0)", titel:"1 · Bei Ralph",
+    regel:"Abnehmen und entscheiden. Erst wenn Ralph abnimmt, ist eine Aufgabe fertig.",
     chips:[ zaehlChip(rows, w=>w._station==="abnahme_e0", "zur Abnahme"),
             zaehlChip(rows, w=>w._station==="entscheid_e0", "zu entscheiden") ],
     spalten,
@@ -567,34 +602,39 @@ function zeichnen(){
     inhalt: p => stapelHtml(p, "abnahme_e0", je(p.id, beiRalph), "nichts bei Ralph")
   });
 
-  /* --- Ebene 1 · Gesamtsteuerung: Projektbild und die Abnahmen auf e1 --- */
+  /* --- Zeile 2 · Zur Abnahme: der andere Agent misst nach --- */
   html += ebeneZeile({
-    akzent:"var(--st1)", titel:"Ebene 1 · Gesamtsteuerung",
-    regel:"Je Projekt eine Karte mit Kürzel, Zweck, Ziel und Zahlen. Ein Projekt ohne Aufgabe steht trotzdem hier (#388).",
-    chips:[ '<span class="chip">'+PROJEKTE.length+' Projekte</span>',
-            zaehlChip(rows, w=>w._station==="abnahme_e1", "zur Abnahme") ],
+    akzent:"var(--st1)", titel:"2 · Zur Abnahme",
+    regel:"Der andere Agent misst nach — mit Stelle, Gegenfall und Zahl. Wer gebaut hat, nimmt nicht ab.",
+    chips:[ zaehlChip(rows, w=>w._station==="abnahme_e1", "warten") ],
     spalten,
-    zaehler: p => rows.filter(w=>w._projekt===p.id).length,
-    inhalt: p => projektKarteHtml(p, rows.filter(w=>w._projekt===p.id)) +
-                 abnahmeBlock(p, "abnahme_e1", je(p.id, w=>w._station==="abnahme_e1"))
+    zaehler: p => je(p.id, w=>w._station==="abnahme_e1").length,
+    inhalt: p => stapelHtml(p, "abnahme_e1", je(p.id, w=>w._station==="abnahme_e1"),
+                            "nichts zur Abnahme")
   });
 
-  /* --- Ebene 2 · Projekt: zerlegt und baut in einem (#412) ---
-     Hier steht alles, was noch Arbeit ist: die Projektaufgaben als Geruest,
-     darunter offen, laeuft, haengt - und der Rest auf der alten Stufe e2,
-     solange der Server sie noch fuehrt. */
+  /* --- Zeile 3 · In Arbeit: der Projektchat zerlegt und baut ---
+     Hier steht alles, was noch Arbeit ist: die Projektkarte mit Zweck und Ziel,
+     die Projektaufgaben als Geruest, darunter offen, laeuft, haengt — und der
+     Rest auf der alten Stufe e2, solange der Server sie noch fuehrt (#411).
+     Die Projektkarte stand bis E34 in der Zeile Ebene 1. Diese Zeile faellt
+     weg, die Karte bleibt hier stehen, bis die Messsicht (#431) sie ersetzt. */
   const inArbeit = rows.filter(w=>["open","in_progress","haengt","abnahme_e2"].indexOf(w._station)>=0);
   html += ebeneZeile({
-    akzent:"var(--st2)", titel:"Ebene 2 · Projekt",
-    regel:"Zerlegen und Bauen in einem. Karte in eine andere Station ziehen setzt die Station, " +
+    akzent:"var(--st2)", titel:"3 · In Arbeit",
+    regel:"Der Projektchat zerlegt und baut. Karte in eine andere Station ziehen setzt die Station, " +
           "innerhalb einer Station die Priorität. Nach oben kommt eine Karte nur durch Abnehmen.",
-    chips:[ '<span class="chip">'+nPA+' Projektaufgaben</span>',
+    chips:[ '<span class="chip">'+PROJEKTE.length+' Projekte</span>',
+            '<span class="chip">'+nPA+' Projektaufgaben</span>',
             '<span class="chip">'+inArbeit.length+' in Arbeit</span>' ],
     spalten,
     zaehler: p => je(p.id, w=>["open","in_progress","haengt","abnahme_e2"].indexOf(w._station)>=0).length,
-    inhalt: p => projektAufgabenHtml(p) +
+    inhalt: p => projektKarteHtml(p, rows.filter(w=>w._projekt===p.id)) +
+                 projektAufgabenHtml(p) +
                  aufgabenSpalteHtml(p, rows.filter(w=>w._projekt===p.id))
   });
+
+  ralphBlockZeichnen(rows);
 
   $("tafel").innerHTML = html;
 
@@ -605,15 +645,56 @@ function zeichnen(){
     'Diese Seite speichert nichts Eigenes. Geschrieben wird über ' +
     '<code>cb_admin_agent_work_status</code>, <code>_zuweisen</code>, <code>_zuordnen</code> und ' +
     '<code>_verifizieren</code>. ' +
-    '<b>Der Abnahmeweg (E30):</b> fertig gemeldet → der andere Agent → Ralph → abgenommen. ' +
+    '<b>Der Abnahmeweg (E30/E34):</b> fertig gemeldet → der andere Agent → Ralph → abgenommen. ' +
     'Jede Abnahme schiebt die Karte sichtbar eine Zeile höher — deshalb steht Ralph oben und ' +
-    'die Arbeit unten in Ebene 2. ' +
-    'Wer die Arbeit gemacht hat, nimmt sie nicht ab; das weist der Server ab, nicht diese Seite.';
+    'die Arbeit unten. ' +
+    'Wer die Arbeit gemacht hat, nimmt sie nicht ab; das weist der Server ab, nicht diese Seite. ' +
+    '<b>Der Name des Abnehmers</b> ist nicht gespeichert — der Server kennt beide Chats als ' +
+    '<code>claude</code>. Angezeigt wird der Gegenpart des Zuständigen; erlaubt oder nicht ' +
+    'entscheidet weiter der Server.';
 
   verdrahten();
 }
 
-/* ---------- Eine Ebenenzeile · gleiche Spalten in jeder Ebene ---------- */
+/* ---------- Entscheidungen bei Ralph · über der Tafel (E34) ----------
+   Ralph soll ohne Scrollen sehen, was auf ihn wartet: was er entscheiden muss
+   und was er abnehmen muss. Eine Zeile je Aufgabe — Kürzel-Nummer, ein Satz,
+   Projekt. Nichts gerechnet, dieselben Zeilen wie auf der Tafel. */
+function ralphBlockZeichnen(rows){
+  const el = $("ralphblock");
+  const entscheiden = rows.filter(w=>w._station==="entscheid_e0");
+  const abnehmen    = rows.filter(w=>w._station==="abnahme_e0");
+  const alle = entscheiden.concat(abnehmen);
+  if(!alle.length){
+    el.style.display = "none"; el.innerHTML = ""; return;
+  }
+  const zeile = (w, was) =>
+    '<div class="rb-zeile" data-work="'+w.work_id+'">' +
+      '<span class="rid">'+esc(w._nummer)+'</span>' +
+      '<span class="rt">'+esc(einSatz(w.title))+'</span>' +
+      '<span class="rw">'+esc(was)+' · '+esc(projektVon(w._projekt)?projektVon(w._projekt).kuerzel||"—":"—")+
+      ' · '+alterText(w.updated_at)+'</span>' +
+    '</div>';
+  el.style.display = "";
+  el.innerHTML =
+    '<div class="rb-kopf"><h2>Bei dir, Ralph · '+alle.length+'</h2>' +
+      '<span class="regel">'+entscheiden.length+' zu entscheiden · '+abnehmen.length+
+      ' abzunehmen. Zeile anklicken öffnet die Aufgabe.</span></div>' +
+    '<div class="rb-liste">' +
+      entscheiden.map(w=>zeile(w,"entscheiden")).join("") +
+      abnehmen.map(w=>zeile(w,"abnehmen")).join("") +
+    '</div>';
+}
+
+/* Ein Satz reicht Ralph zum Entscheiden. Gekuerzt wird an der Satzgrenze, nicht
+   mitten im Wort — und nur, wenn der Titel wirklich mehrere Saetze hat. */
+function einSatz(t){
+  const s = String(t||"").trim();
+  const i = s.search(/[.!?]\s/);
+  return (i > 0 && i < s.length-2) ? s.slice(0, i+1) : s;
+}
+
+/* ---------- Eine Zeile der Tafel · gleiche Spalten in jeder Zeile ---------- */
 function ebeneZeile(o){
   let h = '<div class="stock" style="--akzent:'+o.akzent+'">' +
     '<div class="stock-kopf"><span class="punkt"></span><h2>'+esc(o.titel)+'</h2>' +
@@ -635,7 +716,7 @@ function zaehlChip(rows, f, name){
     n+' '+esc(name)+'</span>';
 }
 
-/* Ein Stapel Karten in einer Ebenenzeile. Ablegen ist erlaubt, damit der
+/* Ein Stapel Karten in einer Zeile der Tafel. Ablegen ist erlaubt, damit der
    Server die Entscheidung treffen kann — abgewiesen wird in abgelegt(). */
 function stapelHtml(p, station, karten, leerText){
   const s = STATIONEN.find(x=>x.id===station) || STATIONEN[0];
@@ -646,7 +727,7 @@ function stapelHtml(p, station, karten, leerText){
     '</div>';
 }
 
-/* ---------- Ebene 1 · Projektkarte ---------- */
+/* ---------- Projektkarte · Zweck, Ziel, Zahlen ---------- */
 function projektKarteHtml(p, rows){
   const n = s => rows.filter(w=>w._station===s).length;
   const laeuft = n("in_progress");
@@ -670,22 +751,11 @@ function projektKarteHtml(p, rows){
     '</div>';
 }
 
-/* Der Abnahmestapel unter der Projektkarte bzw. den Projektaufgaben.
-   Leer bleibt er unsichtbar — eine leere Ueberschrift hilft niemandem. */
-function abnahmeBlock(p, station, karten){
-  if(!karten.length) return '';
-  const s = STATIONEN.find(x=>x.id===station);
-  return '<div class="gruppe" style="margin-top:9px"><div class="gruppe-kopf">' +
-    '<span class="ampel" style="background:'+s.farbe+'"></span>' +
-    '<span class="gname">'+esc(s.name)+'</span><span class="gn">'+karten.length+'</span></div>' +
-    stapelHtml(p, station, karten) + '</div>';
-}
-
 function zbox(n,name,farbe){
   return '<div class="zbox"><b style="color:'+(n?farbe:"var(--schwach)")+'">'+n+'</b><span>'+esc(name)+'</span></div>';
 }
 
-/* ---------- Ebene 2 · Projektaufgaben ---------- */
+/* ---------- Projektaufgaben mit Ampel ---------- */
 const AMPEL_FARBE = { gruen:"var(--fertig)", gelb:"var(--abnahme)", rot:"var(--haengt)" };
 /* Jede Projektaufgabe traegt ihre Kuerzel-Nummer (KP-3, nicht scanweg-r3) und
    laesst sich aufklappen: Zweck, Fertig-Kriterium und die Work Items darunter,
@@ -732,7 +802,7 @@ function projektAufgabenHtml(p){
   return h;
 }
 
-/* ---------- Die Arbeitsstationen der Ebene 2 ----------
+/* ---------- Die Arbeitsstationen der Zeile In Arbeit ----------
    offen, läuft, hängt — und die alte Abnahmestufe e2, solange der Server sie
    noch fuehrt (#412). Sie bleibt als Station stehen, auch wenn sie leer ist:
    dorthin zieht man eine Karte, um sie fertig zu melden. Welche Stufe daraus
@@ -782,7 +852,7 @@ function karteHtml(w, s){
     '<div class="titel">'+esc(w.title||"")+'</div>' +
     '<div class="fuss">' +
       (w.abnahmestufe ? '<span class="chip stufe" style="--sf:var(--'+esc(w.abnahmestufe)+')">'+
-        esc(STUFEN_NAME[w.abnahmestufe]||w.abnahmestufe)+'</span>' : '') +
+        esc("nimmt ab: "+abnehmerName(w))+'</span>' : '') +
       '<span class="chip">'+esc(w.area||"ohne Thema")+'</span>' +
       '<span class="chip">'+esc(w.owner_agent||"—")+'</span>' +
       (w.dependency_work_id ? '<span class="chip">wartet auf '+esc(nummerVon(w.dependency_work_id))+'</span>' : '') +
@@ -883,6 +953,10 @@ function verdrahten(){
   document.querySelectorAll(".pa-item[data-work]").forEach(el=>{
     el.addEventListener("click", e=>{ e.stopPropagation(); panelAuf(Number(el.dataset.work)); });
   });
+  /* Der Ralph-Block ueber der Tafel (E34) */
+  document.querySelectorAll(".rb-zeile[data-work]").forEach(el=>{
+    el.addEventListener("click", ()=> panelAuf(Number(el.dataset.work)));
+  });
 }
 
 async function abgelegt(id, ziel){
@@ -951,7 +1025,7 @@ async function schreiben(fn){
 }
 
 /* ============================================================
-   8 · Panel — hier schreiben alle vier Ebenen
+   8 · Panel — hier schreiben Ralph und die Projektchats
    ============================================================ */
 function panelAuf(id){
   const w = ZEILEN.find(x=>x.work_id===id); if(!w) return;
@@ -974,7 +1048,7 @@ function panelAuf(id){
     $("pWeg").style.display = "";
     $("pWeg").innerHTML = '<span class="durch">gebaut</span>' +
       STUFEN_FOLGE.map((s,k)=>'<span class="'+(k<i?"durch":(k===i?"jetzt":""))+'">'+
-        esc(STUFEN_NAME[s])+'</span>').join("") +
+        esc(s==="e0" ? "Ralph" : (GEGENPART[w.owner_agent]||"der andere Agent"))+'</span>').join("") +
       '<span>abgenommen</span>';
   } else {
     $("pWeg").style.display = "none";
@@ -988,8 +1062,7 @@ function panelAuf(id){
   const kannAbnehmen = w.status==="ready_for_verification";
   $("pAbnehmen").style.display = kannAbnehmen ? "" : "none";
   if(kannAbnehmen){
-    const jetzt = w.abnahmestufe || "e1";
-    $("pAbnehmen").textContent = "Abnehmen als " + (STUFEN_NAME[jetzt]||jetzt).split(" · ")[0];
+    $("pAbnehmen").textContent = "Abnehmen als " + abnehmerName(w);
   }
   $("panel").classList.add("auf"); $("abdeckung").classList.add("auf");
   textNachladen(w.work_id);
@@ -1098,7 +1171,8 @@ async function abnehmen(){
     if(r.error) throw r.error;
     const naechste = { e2:"e1", e1:"e0" }[vorher];
     melden(naechste
-      ? "Abgenommen. Die Karte steht jetzt bei " + STUFEN_NAME[naechste] + "."
+      ? "Abgenommen. Die Karte steht jetzt bei " +
+        (naechste==="e0" ? "Ralph" : (GEGENPART[AKTUELL.owner_agent]||"dem anderen Agenten")) + "."
       : "Ralph hat abgenommen. Die Aufgabe ist abgenommen und verschwindet von der Tafel.", true);
     await laden();
     setTimeout(panelZu, 900);
