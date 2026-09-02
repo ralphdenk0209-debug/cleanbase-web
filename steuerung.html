@@ -152,6 +152,13 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .paufgabe .panr{font-size:10.5px;font-weight:800;letter-spacing:.4px;flex:none;
   background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 4px}
 .paufgabe .t{font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Aufgeklappt zeigt jeder Text seine ganze Laenge (Ralph, 02.09.: „beim
+   aufklappen soll der komplette text sichtbar sein") */
+.paufgabe.auf .t{white-space:normal;overflow:visible;text-overflow:clip}
+.paufgabe.auf{align-items:flex-start}
+.pa-auf .pa-item{align-items:flex-start}
+.pa-auf .pa-item .pit{white-space:normal;overflow:visible;text-overflow:clip}
+.pa-auf .pa-item .pis{white-space:nowrap}
 .paufgabe .n{margin-left:auto;font-size:11px;color:var(--schwach);flex:none}
 /* Kette (#412): Verbindungslinie links, Marker am naechsten Punkt */
 .kette-kopf{font-size:9.5px;color:var(--schwach);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 4px}
@@ -907,13 +914,13 @@ function punktZeileHtml(p, a, k){
     '<span class="pfeil">'+(auf?"▲":"▼")+'</span></div>';
 
   if(auf){
+    /* Zweck und Fertig-Kriterium je Punkt liefert der Server heute nicht
+       (#395 ist eingefaltet, E34). Fehlen beide, steht das in EINER Zeile —
+       nicht zwei leere Felder mit Verweis auf eine stillgelegte Aufgabe. */
+    const zf = (a.zweck ? '<div class="pa-feld"><b>Zweck</b>'+esc(a.zweck)+'</div>' : '') +
+               (a.fertig_kriterium ? '<div class="pa-feld"><b>Fertig, wenn</b>'+esc(a.fertig_kriterium)+'</div>' : '');
     h += '<div class="pa-auf">' +
-      '<div class="pa-feld"><b>Zweck</b>' +
-        (a.zweck ? esc(a.zweck)
-                 : '<i class="fehlt">steht noch nicht im Server — das Feld baut #395</i>') + '</div>' +
-      '<div class="pa-feld"><b>Fertig, wenn</b>' +
-        (a.fertig_kriterium ? esc(a.fertig_kriterium)
-                            : '<i class="fehlt">steht noch nicht im Server — das Feld baut #395</i>') + '</div>' +
+      (zf || '<div class="pa-feld"><i class="fehlt">Zweck und Fertig-Kriterium dieses Punkts: steht noch nicht im Server — die Aufgaben darunter tragen sie.</i></div>') +
       '<div class="pa-feld"><b>Aufgaben darunter</b>' +
       (items.length
         ? '<div class="pa-items">' + items.map(w=>{

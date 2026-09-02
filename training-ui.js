@@ -527,7 +527,25 @@ function bodyFigureSvgFallback(){
    +'<rect x="72" y="196" width="18" height="112" rx="9" fill="'+f+'" stroke="'+s+'" stroke-width="2.5"/>'
    +'</svg>';
 }
-function bodyMapHtml(last){
+/* FE-1 (02.09.2026): Veraenderung sichtbar machen.
+   _massVorwert sucht je Spalte den letzten Wert VOR der aktuellen Messung, der nicht leer ist.
+   Ohne diese Suche waere das Delta falsch, sobald eine Messung nur einen Teil der Felder hat:
+   Zeile n-1 kann bei "Oberarm" null sein, obwohl Zeile n-3 einen Wert hat. */
+function _massVorwert(hist, col){
+  for(let i=1;i<hist.length;i++){ const v=hist[i][col]; if(v!=null&&v!=='') return {wert:Number(v), datum:hist[i].Datum}; }
+  return null;
+}
+function _massDeltaHtml(hist, col){
+  if(!hist.length) return '';
+  const akt=hist[0][col]; if(akt==null||akt==='') return '<div style="font-size:10.5px;min-height:14px"></div>';
+  const vor=_massVorwert(hist, col);
+  if(!vor) return '<div style="font-size:10.5px;color:var(--muted);min-height:14px">1. Messung</div>';
+  const d=Math.round((Number(akt)-vor.wert)*10)/10;
+  const farbe = d===0 ? 'var(--muted)' : (d<0 ? 'var(--k-16a34a)' : 'var(--k-b45309)');
+  const txt = d===0 ? '± 0,0 cm' : ((d>0?'+':'−')+String(Math.abs(d)).replace('.',',')+' cm');
+  return '<div title="gegen Messung vom '+esc(vor.datum)+'" style="font-size:10.5px;color:'+farbe+';min-height:14px">'+txt+'</div>';
+}
+function bodyMapHtml(last, hist){
   /* Ein Feld ist ~54 px hoch (Label + Input). Vorher lagen Taille→Bauch (124→152) und
      Po→Hüfte (150→178) nur 28 px auseinander → die Beschriftungen überlagerten sich.
      Jetzt überall 62 px Abstand. */
@@ -546,12 +564,14 @@ function bodyMapHtml(last){
     huefte:'über den Hüftknochen (Beckenkamm)',
     beine:'Wade an der stärksten Stelle'
   };
+  const h=hist||[];
   let pills='';
   Object.keys(pos).forEach(k=>{ const side=pos[k][0],top=pos[k][1]; const v=(last[cols[k]]!=null?last[cols[k]]:'');
     pills+='<div style="position:absolute;'+(side==='l'?'left:0':'right:0')+';top:'+top+'px;width:110px">'
       +'<div style="font-size:11.5px;font-weight:600;color:var(--ink)">'+labels[k]+'</div>'
       +'<div style="font-size:9.5px;color:var(--muted);line-height:1.25;margin:1px 0 3px;min-height:24px">'+hints[k]+'</div>'
-      +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:13px"></div>';
+      +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:13px">'
+      +_massDeltaHtml(h, cols[k])+'</div>';
   });
   return '<div style="position:relative;max-width:400px;margin:0 auto;min-height:410px">'
     +'<div id="bodyFigWrap" style="position:absolute;left:50%;top:10px;transform:translateX(-50%);pointer-events:none">'+bodyFigureSvg()+'</div>'+pills+'</div>'
@@ -562,13 +582,42 @@ function bodyMapHtml(last){
       +'<div style="margin-top:5px">Der Taillenumfang ist der aussagekräftigste Einzelwert: Die WHO stuft ihn ab <b>94 cm</b> (Männer) bzw. <b>80 cm</b> (Frauen) als erhöht ein, ab <b>102</b> bzw. <b>88 cm</b> als deutlich erhöht. <i>Orientierungswerte, keine Diagnose.</i></div>'
     +'</div>';
 }
+/* FE-1: Verlauf als Tabelle - Datum je Zeile, Werte in cm, Gesamt-Delta in der Fusszeile.
+   Ohne Datum ist eine gespeicherte Zahl nicht nachpruefbar (Kriterium: 8 Masse MIT Datum). */
+function massVerlaufHtml(hist){
+  if(!hist||!hist.length) return '';
+  const cols=[["Brust","Brust"],["Taille","Taille"],["Bauch","Bauch"],["Huefte","Hüfte"],["Po","Po"],["Oberschenkel","Obersch."],["Oberarm","Oberarm"],["Beine","Beine"]];
+  const z=v=>(v==null||v==='')?'–':String(v).replace('.',',');
+  let kopf='<tr><th style="text-align:left;padding:4px 6px;font-weight:600">Datum</th>'+cols.map(c=>'<th style="text-align:right;padding:4px 6px;font-weight:600">'+c[1]+'</th>').join('')+'</tr>';
+  let zeilen='';
+  hist.forEach((r,i)=>{ zeilen+='<tr style="border-top:1px solid var(--k-eef2f5)'+(i===0?';font-weight:600':'')+'"><td style="padding:4px 6px">'+esc(r.Datum)+'</td>'
+    +cols.map(c=>'<td style="text-align:right;padding:4px 6px">'+z(r[c[0]])+'</td>').join('')+'</tr>'; });
+  /* Gesamt-Delta: aktuelle Messung gegen die aelteste geladene Messung, je Spalte einzeln. */
+  let fuss='';
+  if(hist.length>1){
+    const alt=hist[hist.length-1];
+    fuss='<tr style="border-top:2px solid var(--line);color:var(--muted)"><td style="padding:4px 6px">Δ gesamt</td>'
+      +cols.map(c=>{ const a=hist[0][c[0]], b=alt[c[0]];
+        if(a==null||b==null) return '<td style="text-align:right;padding:4px 6px">–</td>';
+        const d=Math.round((Number(a)-Number(b))*10)/10;
+        const farbe = d===0?'var(--muted)':(d<0?'var(--k-16a34a)':'var(--k-b45309)');
+        return '<td style="text-align:right;padding:4px 6px;color:'+farbe+'">'+(d===0?'±0':((d>0?'+':'−')+String(Math.abs(d)).replace('.',',')))+'</td>'; }).join('')+'</tr>';
+  }
+  return '<div style="margin-top:14px"><div style="font-weight:600;font-size:13px;margin-bottom:6px">Verlauf (letzte '+hist.length+' Messung'+(hist.length>1?'en':'')+', cm)</div>'
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">'+kopf+zeilen+fuss+'</table></div></div>';
+}
 async function renderProfilMass(){
   const box=document.getElementById("pfMass"); if(!box) return;
-  let p={},last={};
+  let p={},last={},hist=[];
   try{ const r=await client.rpc("cb_train_profil"); p=Array.isArray(r.data)?(r.data[0]||{}):(r.data||{}); }catch(e){}
-  try{ const r=await client.rpc("cb_mass_historie",{p_limit:1}); last=(r.data&&r.data[0])||{}; }catch(e){}
+  /* FE-1: 12 statt 1 Messung laden. Fuer das Delta braucht es die Vormessung,
+     fuer den Verlauf darunter die letzten Termine. Ein Leseweg, nicht zwei. */
+  try{ const r=await client.rpc("cb_mass_historie",{p_limit:12}); hist=(r.data||[]); last=hist[0]||{}; }catch(e){}
   const naechste=p.Mass_Naechste?('Nächste Messung: <b>'+esc(p.Mass_Naechste)+'</b>'+(p.Mass_Naechste<=tbToday()?' · <span style="color:var(--k-b45309)">fällig</span>':'')):'';
-  box.innerHTML=bodyMapHtml(last)
+  const standZeile = hist.length
+    ? '<div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:6px">Angezeigt: Messung vom <b style="color:var(--ink)">'+esc(last.Datum)+'</b>'+(hist.length>1?(' · Veränderung gegen die vorige Messung')  :' · erste Messung')+'</div>'
+    : '<div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:6px">Noch keine Messung gespeichert.</div>';
+  box.innerHTML=standZeile+bodyMapHtml(last, hist)+massVerlaufHtml(hist)
     +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:6px;padding-top:10px;border-top:1px solid var(--k-eef2f5)">'
     +'<label style="font-size:13px"><input type="checkbox" id="massAktiv"'+(p.Mass_Aktiv?' checked':'')+'> Regelmäßig messen</label>'
     +'<label style="font-size:13px">alle <input id="massIv" type="number" min="1" value="'+(p.Mass_Intervall_Tage??7)+'" style="width:60px;padding:6px;border:1px solid var(--line);border-radius:8px"> Tage</label>'
