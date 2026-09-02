@@ -270,6 +270,8 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
   background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 5px}
 .rb-zeile .rt{font-size:12.5px;line-height:1.4}
 .rb-zeile .rw{margin-left:auto;flex:none;font-size:11px;color:var(--schwach);white-space:nowrap}
+.rb-zeile.rb-punkt{cursor:default}
+.rb-zeile.rb-punkt button{flex:none;font-size:11px;padding:2px 8px}
 .fussnote{color:var(--schwach);font-size:11.5px;padding:0 16px 26px;max-width:900px;line-height:1.6}
 
 @media (max-width:900px){ .stock-koerper{grid-template-columns:repeat(2,minmax(0,1fr)) !important} }
@@ -665,10 +667,24 @@ function zeichnen(){
 function ralphBlockZeichnen(rows){
   const el = $("ralphblock");
   const entscheiden = rows.filter(w=>w._station==="entscheid_e0");
-  const alle = entscheiden;
-  if(!alle.length){
+  /* Projektpunkte, die fertig gemeldet sind, stehen hier mit — Ralph schliesst
+     ab (E34: „zum Schluss Abnahme durch mich"). Abnehmen darf jeder ausser dem
+     Erbauer; der Server weist Selbstabnahme ab, die Seite prueft das nicht nach. */
+  const punkte = [];
+  for(const p of PROJEKTE) for(const a of (PAUFGABEN[p.id]||[]))
+    if(a.status==="ready_for_verification") punkte.push({p,a});
+  const alle = entscheiden.length + punkte.length;
+  if(!alle){
     el.style.display = "none"; el.innerHTML = ""; return;
   }
+  const punktZeile = ({p,a}) =>
+    '<div class="rb-zeile rb-punkt">' +
+      '<span class="rid">'+esc((p.kuerzel&&a.nummer)?p.kuerzel+"-"+a.nummer:a.aufgabe_id)+'</span>' +
+      '<span class="rt">'+esc(a.titel||a.aufgabe_id)+'</span>' +
+      '<span class="rw">abnehmen · gemeldet von '+esc(a.owner_agent||"—")+' · '+alterText(a.updated_at)+'</span>' +
+      '<button data-punkt-action="verify" data-punkt="'+esc(a.aufgabe_id)+'">abnehmen</button>' +
+      '<button data-punkt-action="reject" data-punkt="'+esc(a.aufgabe_id)+'">zurück</button>' +
+    '</div>';
   const zeile = (w, was) =>
     '<div class="rb-zeile" data-work="'+w.work_id+'">' +
       '<span class="rid">'+esc(w._nummer)+'</span>' +
@@ -678,10 +694,12 @@ function ralphBlockZeichnen(rows){
     '</div>';
   el.style.display = "";
   el.innerHTML =
-    '<div class="rb-kopf"><h2>Bei dir, Ralph · '+alle.length+'</h2>' +
-      '<span class="regel">'+entscheiden.length+' zu entscheiden. Zeile anklicken öffnet die Aufgabe.</span></div>' +
+    '<div class="rb-kopf"><h2>Bei dir, Ralph · '+alle+'</h2>' +
+      '<span class="regel">'+entscheiden.length+' zu entscheiden · '+punkte.length+' Projektpunkte abzunehmen. ' +
+      'Zeile anklicken öffnet die Aufgabe.</span></div>' +
     '<div class="rb-liste">' +
       entscheiden.map(w=>zeile(w,"entscheiden")).join("") +
+      punkte.map(punktZeile).join("") +
     '</div>';
 }
 
@@ -780,9 +798,9 @@ function projektKarteHtml(p, rows){
    Serverfeld `erfuellt` — das wird gelesen, nicht nachgerechnet (CLAUDE.md B1).
    Gerechnet wird allein, WIE WEIT der Balken laeuft:
 
-     Ziel groesser 0  → Anteil heute/Ziel, gekappt auf 0 bis 1. Beispiel KP:
-                        75,9 von 90 sind 84 Prozent des Wegs, also gelbgruen.
-     Ziel gleich 0    → „weniger ist besser", z. B. 933 Luecken auf 0. Ohne
+     Ziel groesser 0  → Anteil heute/Ziel, gekappt auf 0 bis 1. Beispiel:
+                        drei Viertel des Ziels sind drei Viertel des Balkens.
+     Ziel gleich 0    → „weniger ist besser", z. B. Luecken auf null. Ohne
                         Startwert gibt es hier keinen Zwischenstand: entweder
                         erfuellt oder nicht. Es wird nichts erfunden (A2). */
 function zielAnteil(m){
