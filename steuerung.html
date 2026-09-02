@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Root Index — Steuerung (drei Zeilen)</title>
+<title>Root Index — Steuerung (zwei Zeilen)</title>
 <!--
-  STEUERUNGSSEITE · drei Zeilen, Spalten sind Projekte
+  STEUERUNGSSEITE · zwei Zeilen, Spalten sind Projekte
   ----------------------------------------------------
   Work SG-412, neu gefasst am 02.09.2026 nach Ralph-Entscheid E34.
   Vorher: vier Ebenenzeilen (#375/#386/#387/#388/#390, E25/E30).
@@ -13,18 +13,12 @@
   E34 HAT EBENE 1 ABGESCHAFFT. Es gibt keinen Steuerungschat mehr. Deshalb
   heissen die Zeilen jetzt nach dem, was dort passiert — nicht nach einer Ebene:
 
-  1 · Bei Ralph     entscheiden und abschliessen (Stufe e0 + decision_ralph)
-  2 · Zur Abnahme   der andere Agent misst nach (Stufe e1)
-  3 · In Arbeit     der Projektchat zerlegt und baut: offen, laeuft, haengt
+  1 · Bei Ralph     Produkt- und Richtungsentscheide
+  2 · Projektchat   Projektpunkte und Work Items: offen, laeuft, Abnahme, haengt
 
-  Eine fertig gemeldete Aufgabe wandert sichtbar eine Zeile hoeher. Welche das
-  ist, sagt allein agent_work_item.abnahmestufe (#389). Diese Seite rechnet das
-  nicht aus, sie liest es.
-
-  WER ABNIMMT, STEHT MIT NAMEN AUF DER KARTE. Der Server kennt beide Chats als
-  "claude" und kann den Abnehmer nicht nennen. Angezeigt wird deshalb der
-  Gegenpart des Zustaendigen: owner claude -> chatgpt nimmt ab, und umgekehrt.
-  Das ist reine Anzeige. Ob die Abnahme erlaubt ist, entscheidet der Server.
+  Ein Work Item wird nur als umgesetzt gemeldet. Sind alle Items eines Punkts
+  umgesetzt, meldet der Projektchat den ganzen Punkt. Erst dieser Punkt steht
+  zur Abnahme. Der Server prueft Abnehmer ungleich meldender Projektchat.
 
   ENTSCHEIDUNGEN FUER RALPH STEHEN GANZ OBEN, ueber der Tafel, mit Nummer und
   einem Satz. Ralph soll sie sehen, ohne zu scrollen (E34).
@@ -43,13 +37,13 @@
     cb_admin_agent_work_status      (Status + Notiz)
     cb_admin_agent_work_zuweisen    (Owner, Prioritaet, Entscheid noetig)
     cb_admin_agent_work_zuordnen    (Projektaufgabe, neu in #388)
-    cb_admin_agent_work_verifizieren(Abnahme, schiebt e1 -> e0 -> verified)
+    cb_admin_agent_projektaufgabe_melden      (ganzen Punkt fertig melden)
+    cb_admin_agent_projektaufgabe_verifizieren(ganzen Punkt abnehmen)
   Es gibt hier keine nachgebaute Fachlogik. Der Server entscheidet (CLAUDE.md B1).
 
-  ABNAHME (E30/E34): eine fertig gemeldete Aufgabe steht auf abnahmestufe e1.
-  Der andere Agent nimmt ab -> e0. Ralph nimmt ab -> verified. Solange der Server
-  noch alte e2-Karten liefert (#411), stehen sie sichtbar in Zeile 3.
-  Wer die Arbeit gemacht hat, nimmt sie nicht ab; das prueft der Server, nicht diese Seite.
+  ABNAHME (E32/E34): umgesetzt gemeldete Work Items bleiben im Projektpunkt.
+  Der ganze Punkt wird in einem Durchgang von einem anderen Agenten oder Ralph
+  abgenommen. Es gibt am Work Item keine Abnahmestufe mehr.
 
   Anmeldung: dieselbe Sitzung wie admin.html (storageKey sb-cleanbase-auth,
   gleiche Herkunft). Wer nicht angemeldet ist, sieht den Hinweis statt der Tafel.
@@ -159,6 +153,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .pa-item .pit{font-size:11px;color:var(--schwach);overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
 .pa-item .pis{margin-left:auto;font-size:10px;color:var(--schwach);flex:none}
+.pa-aktionen{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.pa-aktionen button{font-size:11px;padding:4px 7px}
+.pa-status{font-size:10px;color:var(--schwach);margin-left:auto;flex:none}
+.punktkarte{cursor:default}
+.punktkarte .fuss button{font-size:10.5px;padding:2px 6px}
 
 /* ---------- Zeile 3: Stationsgruppen ---------- */
 .gruppe{margin-bottom:9px}
@@ -341,55 +340,23 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 /* ============================================================
-   2 · Die Stationen — der Weg eines Work Items (Z7 + E25)
-   ------------------------------------------------------------
-   Es gibt zwei Abnahmestufen: e1 (der andere Agent) und e0 (Ralph).
-   Welche eine Karte hat, sagt das Serverfeld abnahmestufe — diese
-   Seite rechnet es nicht aus, sie liest es. Die alte Stufe e2 steht
-   hier weiter, solange der Server sie liefert (#411).
+   2 · Die Stationen — Work Items werden gebaut, Projektpunkte abgenommen
    ============================================================ */
 const STATIONEN = [
   { id:"open",        name:"offen",           farbe:"var(--offen)"  },
   { id:"in_progress", name:"läuft",           farbe:"var(--laeuft)" },
-  { id:"abnahme_e2",  name:"fertig gemeldet (alte Stufe)",    farbe:"var(--e2)", stufe:"e2" },
-  { id:"abnahme_e1",  name:"wartet auf den anderen Agenten",  farbe:"var(--e1)", stufe:"e1" },
-  { id:"abnahme_e0",  name:"wartet auf Ralph",                farbe:"var(--e0)", stufe:"e0" },
+  { id:"umgesetzt",   name:"umgesetzt gemeldet", farbe:"var(--abnahme)" },
   { id:"entscheid_e0",name:"Ralph entscheidet",  farbe:"var(--haengt)" },
   { id:"haengt",      name:"hängt",           farbe:"var(--haengt)" }
-  /* Ralph 31.08.: Spalte „fertig" ausgeblendet. Abgenommenes hilft beim Arbeiten
-     nicht — es fuellt nur die Tafel. Die Zeilen werden gar nicht erst geholt.
-
-     Ralph 01.09. Variante A (#412): eine Abnahmestufe faellt weg. Kuenftig
-     nimmt der andere Agent ab (e1), dann Ralph (e0). Die alte Stufe e2 steht
-     hier weiter, weil der Server sie heute noch liefert — der Umbau dahinter
-     ist #411. Solange es e2-Karten gibt, stehen sie sichtbar in Zeile 3 statt
-     zu verschwinden. Faellt e2 weg, bleibt die Station einfach leer. */
 ];
 /* „hängt" ist die Sammelspalte der Zeile In Arbeit. Ralph entscheidet gehoert
    NICHT dazu: solche Karten stehen bei Ralph in Zeile 1, sonst stuenden sie doppelt
    auf der Tafel — und eine Karte an zwei Stellen ist eine zweite Wahrheit. */
 const HAENGT = ["blocked","disputed"];
-const STUFEN_FOLGE = ["e1","e0"];   /* SG-412: zwei Stufen, nicht mehr drei */
-/* STUFEN_NAME ist am 02.09. entfallen: die Karte nennt den Abnehmer beim Namen,
-   dafuer reicht abnehmerName(). Ein fester Text je Stufe waere die zweite,
-   anonyme Wahrheit daneben gewesen. */
-
-/* Wer nimmt diese Karte ab? Der Server kennt beide Chats als "claude" und kann
-   den Namen nicht liefern (E32). Er ist aber berechenbar: der Abnehmer ist der
-   Gegenpart des Zustaendigen. Reine Anzeige — ob die Abnahme erlaubt ist,
-   entscheidet weiter der Server (CLAUDE.md B1). Ist der Owner keiner der
-   beiden Agenten, wird nichts geraten (A2). */
-const GEGENPART = { claude:"chatgpt", chatgpt:"claude" };
-function abnehmerName(w){
-  const stufe = w.abnahmestufe || "e1";
-  if(stufe === "e0") return "Ralph";
-  return GEGENPART[w.owner_agent] || "der andere Agent";
-}
-
 function stationVon(w){
   if(w.status==="decision_ralph") return "entscheid_e0";
   if(HAENGT.indexOf(w.status)>=0) return "haengt";
-  if(w.status==="ready_for_verification") return "abnahme_" + (w.abnahmestufe || "e1");
+  if(w.status==="ready_for_verification") return "umgesetzt";
   return w.status;
 }
 function stationFarbe(id){
@@ -405,8 +372,9 @@ const STOPP_RANG = { decision_ralph:0, blocked:1, disputed:2,
    ============================================================ */
 let ZEILEN = [];
 let PROJEKTE = [];          /* die Spaltenreihenfolge, in allen Zeilen gleich */
-let PAUFGABEN = {};         /* projekt_id -> [ {aufgabe_id, nummer, titel, ampel} ] */
+let PAUFGABEN = {};         /* projekt_id -> Projektpunkte samt Serverstatus */
 let WORK_AUFGABE = {};      /* work_id -> aufgabe_id */
+let MESSWERTE = {};         /* projekt_id -> automatische E24-Zielzahl (#431) */
 let OFFEN_STAPEL = {};
 let AKTUELL = null;
 let STRUKTUR_FEHLT = false;
@@ -419,13 +387,16 @@ async function laden(){
   const { data:{ session } } = await client.auth.getSession();
   if(!session){ nichtAngemeldet(); return; }
 
-  const [rk, rs] = await Promise.all([
+  const [rk, rs, rp, rm] = await Promise.all([
     client.rpc("cb_admin_agent_work_kurzliste",
       { p_status:["open","in_progress","ready_for_verification","blocked","disputed","decision_ralph"],
         p_owner:null, p_bereich:null, p_limit:500 }),
-    client.rpc("cb_admin_agent_projektstruktur")
+    client.rpc("cb_admin_agent_projektstruktur"),
+    client.rpc("cb_admin_agent_projektaufgaben_kurzliste"),
+    client.rpc("cb_admin_agent_projekt_messsicht")
   ]);
   if(rk.error){ fehlerZeigen(rk.error.message||String(rk.error)); return; }
+  if(rp.error){ fehlerZeigen(rp.error.message||String(rp.error)); return; }
 
   let rows = rk.data; if(typeof rows==="string") rows = JSON.parse(rows);
   if(!Array.isArray(rows)){ fehlerZeigen("Die Liste kam nicht als Liste zurück."); return; }
@@ -437,7 +408,7 @@ async function laden(){
     _station: stationVon(w)
   }));
 
-  geruestBilden(rs);
+  geruestBilden(rs, rp, rm);
   filterFuellen();
   zuordnungFuellen();
   zeichnen();
@@ -449,13 +420,17 @@ async function laden(){
 /* Das Geruest kommt aus cb_admin_agent_projektstruktur. Ein Projekt ohne
    Aufgabe bleibt sichtbar — genau das war der Fehler in #388. Faellt die
    Struktur aus, wird sie NICHT aus den Aufgaben erraten (CLAUDE.md A2). */
-function geruestBilden(rs){
-  PROJEKTE = []; PAUFGABEN = {}; WORK_AUFGABE = {};
-  STRUKTUR_FEHLT = !!(rs && rs.error);
+function geruestBilden(rs, rp, rm){
+  PROJEKTE = []; PAUFGABEN = {}; WORK_AUFGABE = {}; MESSWERTE = {};
+  STRUKTUR_FEHLT = !!(rs && rs.error) || !!(rp && rp.error) || !!(rm && rm.error);
   if(STRUKTUR_FEHLT) return;
 
   let str = rs && rs.data; if(typeof str==="string") str = JSON.parse(str);
-  if(!Array.isArray(str)){ STRUKTUR_FEHLT = true; return; }
+  let punkte = rp && rp.data; if(typeof punkte==="string") punkte = JSON.parse(punkte);
+  let mess = rm && rm.data; if(typeof mess==="string") mess = JSON.parse(mess);
+  if(!Array.isArray(str) || !Array.isArray(punkte) || !Array.isArray(mess)){ STRUKTUR_FEHLT = true; return; }
+  MESSWERTE = Object.fromEntries(mess.map(m=>[m.projekt_id,m]));
+  const punktVon = Object.fromEntries(punkte.map(a=>[a.aufgabe_id,a]));
 
   const gesehen = {};
   for(const z of str){
@@ -469,8 +444,14 @@ function geruestBilden(rs){
     if(z.projekt_aufgabe_id && !PAUFGABEN[z.projekt_id].some(a=>a.aufgabe_id===z.projekt_aufgabe_id)){
       /* zweck und fertig_kriterium kommen aus #395. Liefert der Server sie noch
          nicht, bleiben sie leer — die Karte sagt das dann offen (CLAUDE.md A2). */
+      const s = punktVon[z.projekt_aufgabe_id] || {};
       PAUFGABEN[z.projekt_id].push({ aufgabe_id:z.projekt_aufgabe_id, nummer:z.projekt_aufgabe_nummer,
                                      titel:z.projekt_aufgabe_titel, ampel:z.ampel,
+                                     status:s.status || "open", owner_agent:s.owner_agent || null,
+                                     verifier_agent:s.verifier_agent || null,
+                                     result_note:s.result_note || null,
+                                     verification_note:s.verification_note || null,
+                                     updated_at:s.updated_at || null,
                                      zweck:z.zweck || null, fertig_kriterium:z.fertig_kriterium || null });
     }
     if(z.work_id && z.projekt_aufgabe_id) WORK_AUFGABE[z.work_id] = z.projekt_aufgabe_id;
@@ -556,7 +537,7 @@ function gefiltert(){
 }
 
 /* ============================================================
-   5 · Zeichnen — drei Zeilen, gleiche Spaltenreihenfolge
+   5 · Zeichnen — zwei Zeilen, gleiche Spaltenreihenfolge
    ============================================================ */
 function zeichnen(){
   const rows = gefiltert();
@@ -566,8 +547,11 @@ function zeichnen(){
     const n = rows.filter(w=>w._station===s.id).length;
     return '<div class="zaehler"><b>'+n+'</b>'+esc(s.name)+'</div>';
   }).join("");
-  const abnahmeAlt = rows.filter(w=>w.status==="ready_for_verification" && tage(w.updated_at)>=2).length;
+  const abnahmePunkte = Object.values(PAUFGABEN).flat()
+    .filter(a=>a.status==="ready_for_verification");
+  const abnahmeAlt = abnahmePunkte.filter(a=>tage(a.updated_at)>=2).length;
   $("band").innerHTML = z +
+    '<div class="zaehler"><b>'+abnahmePunkte.length+'</b>Projektpunkte zur Abnahme</div>' +
     '<div class="zaehler"><b>'+rows.length+'</b>Aufgaben sichtbar</div>' +
     (abnahmeAlt ? '<div class="zaehler" style="border-color:#7a5a1c"><b>'+abnahmeAlt+
       '</b>warten länger als 2 Tage</div>' : '');
@@ -575,7 +559,7 @@ function zeichnen(){
   if(STRUKTUR_FEHLT){
     $("luecke").style.display = "";
     $("luecke").innerHTML = '<b>Das Gerüst fehlt.</b> ' +
-      'Die Tür <code>cb_admin_agent_projektstruktur</code> hat nicht geantwortet — ' +
+      'Eine Tür für Projektgerüst oder Zielzahlen hat nicht geantwortet — ' +
       'deshalb stehen keine Spalten. Erraten wird nichts (CLAUDE.md A2).';
   } else {
     $("luecke").style.display = "none";
@@ -584,54 +568,37 @@ function zeichnen(){
   const spalten = "grid-template-columns:repeat("+Math.max(1,PROJEKTE.length)+",minmax(210px,1fr))";
   let html = "";
 
-  /* Die Tafel hat seit E34 DREI Zeilen, benannt nach dem, was dort passiert —
-     nicht nach einer Ebene. Ebene 1 ist abgeschafft, Ebene 3 gab es schon
-     vorher nicht mehr. Eine fertig gemeldete Aufgabe steht nicht mehr in ihrer
-     Bauzeile, sondern dort, wo sie jemand abnehmen muss; welche Zeile das ist,
-     sagt allein das Serverfeld abnahmestufe (#389). */
+  /* Die Tafel hat zwei Zeilen. Abnahme liegt seit E32 am Projektpunkt; die
+     Projektpunkte bleiben in derselben Projektchat-Zeile sichtbar. */
   const nPA = Object.values(PAUFGABEN).reduce((a,b)=>a+b.length,0);
   const je = (pid, f) => rows.filter(w=>w._projekt===pid && f(w));
-  const beiRalph = w => w._station==="abnahme_e0" || w._station==="entscheid_e0";
+  const punkteJe = (pid, f) => (PAUFGABEN[pid]||[]).filter(f);
 
-  /* --- Zeile 1 · Bei Ralph: abschliessen und entscheiden --- */
+  /* --- Zeile 1 · Bei Ralph: Produkt- und Richtungsentscheide --- */
   html += ebeneZeile({
     akzent:"var(--st0)", titel:"1 · Bei Ralph",
-    regel:"Abnehmen und entscheiden. Erst wenn Ralph abnimmt, ist eine Aufgabe fertig.",
-    chips:[ zaehlChip(rows, w=>w._station==="abnahme_e0", "zur Abnahme"),
-            zaehlChip(rows, w=>w._station==="entscheid_e0", "zu entscheiden") ],
+    regel:"Produkt, Fachlichkeit, Priorität oder Ausnahme entscheiden.",
+    chips:[ zaehlChip(rows, w=>w._station==="entscheid_e0", "zu entscheiden") ],
     spalten,
-    zaehler: p => je(p.id, beiRalph).length,
-    inhalt: p => stapelHtml(p, "abnahme_e0", je(p.id, beiRalph), "nichts bei Ralph")
+    zaehler: p => je(p.id, w=>w._station==="entscheid_e0").length,
+    inhalt: p => stapelHtml(p, "entscheid_e0", je(p.id, w=>w._station==="entscheid_e0"), "nichts bei Ralph")
   });
 
-  /* --- Zeile 2 · Zur Abnahme: der andere Agent misst nach --- */
+  /* --- Zeile 2 · Projektchat: zerlegen, bauen und Projektpunkte abnehmen --- */
+  const inArbeit = rows.filter(w=>["open","in_progress","haengt","umgesetzt"].indexOf(w._station)>=0);
   html += ebeneZeile({
-    akzent:"var(--st1)", titel:"2 · Zur Abnahme",
-    regel:"Der andere Agent misst nach — mit Stelle, Gegenfall und Zahl. Wer gebaut hat, nimmt nicht ab.",
-    chips:[ zaehlChip(rows, w=>w._station==="abnahme_e1", "warten") ],
-    spalten,
-    zaehler: p => je(p.id, w=>w._station==="abnahme_e1").length,
-    inhalt: p => stapelHtml(p, "abnahme_e1", je(p.id, w=>w._station==="abnahme_e1"),
-                            "nichts zur Abnahme")
-  });
-
-  /* --- Zeile 3 · In Arbeit: der Projektchat zerlegt und baut ---
-     Hier steht alles, was noch Arbeit ist: die Projektkarte mit Zweck und Ziel,
-     die Projektaufgaben als Geruest, darunter offen, laeuft, haengt — und der
-     Rest auf der alten Stufe e2, solange der Server sie noch fuehrt (#411).
-     Die Projektkarte stand bis E34 in der Zeile Ebene 1. Diese Zeile faellt
-     weg, die Karte bleibt hier stehen, bis die Messsicht (#431) sie ersetzt. */
-  const inArbeit = rows.filter(w=>["open","in_progress","haengt","abnahme_e2"].indexOf(w._station)>=0);
-  html += ebeneZeile({
-    akzent:"var(--st2)", titel:"3 · In Arbeit",
-    regel:"Der Projektchat zerlegt und baut. Karte in eine andere Station ziehen setzt die Station, " +
+    akzent:"var(--st2)", titel:"2 · Projektchat",
+    regel:"Der Projektchat zerlegt und baut; ganze Projektpunkte werden hier abgenommen. " +
+          "Karte in eine andere Station ziehen setzt die Station, " +
           "innerhalb einer Station die Priorität. Nach oben kommt eine Karte nur durch Abnehmen.",
-    chips:[ '<span class="chip">'+PROJEKTE.length+' Projekte</span>',
+    chips:[ '<span class="chip">'+abnahmePunkte.length+' Projektpunkte zur Abnahme</span>',
+            '<span class="chip">'+PROJEKTE.length+' Projekte</span>',
             '<span class="chip">'+nPA+' Projektaufgaben</span>',
             '<span class="chip">'+inArbeit.length+' in Arbeit</span>' ],
     spalten,
-    zaehler: p => je(p.id, w=>["open","in_progress","haengt","abnahme_e2"].indexOf(w._station)>=0).length,
+    zaehler: p => je(p.id, w=>["open","in_progress","haengt","umgesetzt"].indexOf(w._station)>=0).length,
     inhalt: p => projektKarteHtml(p, rows.filter(w=>w._projekt===p.id)) +
+                 projektPunkteAbnahmeHtml(p, punkteJe(p.id, a=>a.status==="ready_for_verification")) +
                  projektAufgabenHtml(p) +
                  aufgabenSpalteHtml(p, rows.filter(w=>w._projekt===p.id))
   });
@@ -641,32 +608,24 @@ function zeichnen(){
   $("tafel").innerHTML = html;
 
   $("fussnote").innerHTML =
-    '<b>Woher die Zahlen kommen:</b> das Gerüst aus <code>cb_admin_agent_projektstruktur</code>, ' +
-    'die Karten aus <code>cb_admin_agent_work_kurzliste</code> — beide lesen ' +
-    '<code>shadow_v1.agent_work_item</code> und <code>agent_projekt</code>. ' +
+    '<b>Woher die Zahlen kommen:</b> Gerüst und Ampel aus <code>cb_admin_agent_projektstruktur</code>, ' +
+    'Projektpunkt-Status aus <code>cb_admin_agent_projektaufgaben_kurzliste</code>, ' +
+    'Zielzahlen aus <code>cb_admin_agent_projekt_messsicht</code>, ' +
+    'Work Items aus <code>cb_admin_agent_work_kurzliste</code>. ' +
     'Diese Seite speichert nichts Eigenes. Geschrieben wird über ' +
-    '<code>cb_admin_agent_work_status</code>, <code>_zuweisen</code>, <code>_zuordnen</code> und ' +
-    '<code>_verifizieren</code>. ' +
-    '<b>Der Abnahmeweg (E30/E34):</b> fertig gemeldet → der andere Agent → Ralph → abgenommen. ' +
-    'Jede Abnahme schiebt die Karte sichtbar eine Zeile höher — deshalb steht Ralph oben und ' +
-    'die Arbeit unten. ' +
-    'Wer die Arbeit gemacht hat, nimmt sie nicht ab; das weist der Server ab, nicht diese Seite. ' +
-    '<b>Der Name des Abnehmers</b> ist nicht gespeichert — der Server kennt beide Chats als ' +
-    '<code>claude</code>. Angezeigt wird der Gegenpart des Zuständigen; erlaubt oder nicht ' +
-    'entscheidet weiter der Server.';
+    '<code>cb_admin_agent_work_status</code>, <code>_zuweisen</code>, <code>_zuordnen</code> sowie ' +
+    '<code>cb_admin_agent_projektaufgabe_melden</code> und <code>_verifizieren</code>. ' +
+    '<b>Der Abnahmeweg (E32/E34):</b> Work Items umgesetzt melden → ganzen Projektpunkt melden → ' +
+    'durch einen anderen Agenten oder Ralph abnehmen. Die Datenbank weist Selbstabnahme ab.';
 
   verdrahten();
 }
 
-/* ---------- Entscheidungen bei Ralph · über der Tafel (E34) ----------
-   Ralph soll ohne Scrollen sehen, was auf ihn wartet: was er entscheiden muss
-   und was er abnehmen muss. Eine Zeile je Aufgabe — Kürzel-Nummer, ein Satz,
-   Projekt. Nichts gerechnet, dieselben Zeilen wie auf der Tafel. */
+/* ---------- Entscheidungen bei Ralph · über der Tafel (E34) ---------- */
 function ralphBlockZeichnen(rows){
   const el = $("ralphblock");
   const entscheiden = rows.filter(w=>w._station==="entscheid_e0");
-  const abnehmen    = rows.filter(w=>w._station==="abnahme_e0");
-  const alle = entscheiden.concat(abnehmen);
+  const alle = entscheiden;
   if(!alle.length){
     el.style.display = "none"; el.innerHTML = ""; return;
   }
@@ -680,11 +639,9 @@ function ralphBlockZeichnen(rows){
   el.style.display = "";
   el.innerHTML =
     '<div class="rb-kopf"><h2>Bei dir, Ralph · '+alle.length+'</h2>' +
-      '<span class="regel">'+entscheiden.length+' zu entscheiden · '+abnehmen.length+
-      ' abzunehmen. Zeile anklicken öffnet die Aufgabe.</span></div>' +
+      '<span class="regel">'+entscheiden.length+' zu entscheiden. Zeile anklicken öffnet die Aufgabe.</span></div>' +
     '<div class="rb-liste">' +
       entscheiden.map(w=>zeile(w,"entscheiden")).join("") +
-      abnehmen.map(w=>zeile(w,"abnehmen")).join("") +
     '</div>';
 }
 
@@ -733,7 +690,12 @@ function stapelHtml(p, station, karten, leerText){
 function projektKarteHtml(p, rows){
   const n = s => rows.filter(w=>w._station===s).length;
   const laeuft = n("in_progress");
-  const abnahme = n("abnahme_e2")+n("abnahme_e1")+n("abnahme_e0");
+  const umgesetzt = n("umgesetzt");
+  const m = MESSWERTE[p.id];
+  const messHtml = m
+    ? '<div class="ziel"><b>'+esc(m.messung)+'</b>'+messwertText(m.heute_wert,m.einheit)+
+      ' heute · Ziel '+messwertText(m.ziel_wert,m.einheit)+'</div>'
+    : '<div class="ziel"><b>Zielzahl</b><span class="leerfeld">für dieses Projekt noch nicht festgelegt</span></div>';
   const aeltester = rows.filter(w=>w._station==="haengt" || w.status==="ready_for_verification")
     .sort((a,b)=>tage(b.updated_at)-tage(a.updated_at))[0];
   return '<div class="pkarte" style="--pf:'+
@@ -741,16 +703,22 @@ function projektKarteHtml(p, rows){
     '<div class="kopfz"><span class="kz">'+esc(p.kuerzel||"—")+'</span><h3>'+esc(p.name)+'</h3></div>' +
     '<div class="lauf">'+(laeuft ? "läuft gerade" : "steht an")+' · '+rows.length+' Aufgaben · '+esc(p.status||"—")+'</div>' +
     (p.beschreibung ? '<div class="was">'+esc(p.beschreibung)+'</div>' : '') +
-    (p.ziel ? '<div class="ziel"><b>Ziel</b>'+esc(p.ziel)+'</div>' : '') +
+    messHtml +
     '<div class="zahlen">' +
       zbox(n("open"),"offen","var(--offen)") +
       zbox(laeuft,"läuft","var(--laeuft)") +
-      zbox(abnahme,"Abnahme","var(--abnahme)") +
+      zbox(umgesetzt,"umgesetzt","var(--abnahme)") +
       zbox(n("haengt"),"hängt","var(--haengt)") +
     '</div>' +
     (aeltester ? '<div class="wartet">ältester Wartefall <b>'+esc(aeltester._nummer)+'</b> · '+
       alterText(aeltester.updated_at)+'</div>' : '') +
     '</div>';
+}
+
+function messwertText(wert, einheit){
+  const n = Number(wert);
+  const zahl = Number.isFinite(n) ? n.toLocaleString("de-DE", {maximumFractionDigits:1}) : "—";
+  return zahl + (einheit==="%" ? " %" : " "+esc(einheit||""));
 }
 
 function zbox(n,name,farbe){
@@ -777,6 +745,7 @@ function projektAufgabenHtml(p){
       '<span class="ampel" style="background:'+(AMPEL_FARBE[a.ampel]||"var(--linie)")+'"></span>' +
       '<span class="panr">'+esc(nr)+'</span>' +
       '<span class="t">'+esc(a.titel||a.aufgabe_id)+'</span>' +
+      '<span class="pa-status">'+esc(punktStatusText(a.status))+'</span>' +
       '<span class="n">'+items.length+'</span>' +
       '<span class="pfeil">'+(auf?"▲":"▼")+'</span></div>';
 
@@ -799,19 +768,46 @@ function projektAufgabenHtml(p){
               '<span class="pis">'+esc(s?s.name:w.status)+'</span></div>';
           }).join("") + '</div>'
         : '<i class="fehlt">keine</i>') +
-      '</div></div>';
+      '</div>' +
+      (a.verification_note ? '<div class="pa-feld"><b>Letzte Prüfung</b>'+esc(a.verification_note)+'</div>' : '') +
+      projektPunktAktionenHtml(a,items) +
+      '</div>';
   }
   return h;
 }
 
-/* ---------- Die Arbeitsstationen der Zeile In Arbeit ----------
-   offen, läuft, hängt — und die alte Abnahmestufe e2, solange der Server sie
-   noch fuehrt (#412). Sie bleibt als Station stehen, auch wenn sie leer ist:
-   dorthin zieht man eine Karte, um sie fertig zu melden. Welche Stufe daraus
-   wird, entscheidet der Server, nicht diese Seite.
-   Was fertig gemeldet ist, steht eine Zeile hoeher, nicht mehr hier (#412). */
+function punktStatusText(status){
+  return ({open:"offen",ready_for_verification:"gemeldet",verified:"abgenommen"})[status] || status || "offen";
+}
+
+function projektPunktAktionenHtml(a,items){
+  if(a.status==="verified") return '';
+  if(a.status==="ready_for_verification"){
+    return '<div class="pa-aktionen"><span class="chip">gemeldet von '+esc(a.owner_agent||"—")+'</span>' +
+      '<button data-punkt-action="verify" data-punkt="'+esc(a.aufgabe_id)+'">Punkt abnehmen</button>' +
+      '<button data-punkt-action="reject" data-punkt="'+esc(a.aufgabe_id)+'">zurückweisen</button></div>';
+  }
+  const fertig = items.length>0 && items.every(w=>w.status==="ready_for_verification");
+  return '<div class="pa-aktionen"><button data-punkt-action="report" data-punkt="'+esc(a.aufgabe_id)+'"' +
+    (fertig?'':' disabled')+'>'+(fertig?'ganzen Punkt fertig melden':'noch nicht vollständig umgesetzt')+'</button></div>';
+}
+
+function projektPunkteAbnahmeHtml(p,liste){
+  if(!liste.length) return '<div class="leer">nichts zur Abnahme</div>';
+  return '<div class="stapel">'+liste.map(a=>{
+    const nr=(p.kuerzel&&a.nummer)?p.kuerzel+'-'+a.nummer:a.aufgabe_id;
+    return '<div class="karte punktkarte" style="--kf:var(--abnahme)">' +
+      '<div class="zeile1"><span class="id">'+esc(nr)+'</span></div>' +
+      '<div class="titel">'+esc(a.titel||a.aufgabe_id)+'</div>' +
+      '<div class="fuss"><span class="chip">gemeldet von '+esc(a.owner_agent||"—")+'</span>' +
+      '<button data-punkt-action="verify" data-punkt="'+esc(a.aufgabe_id)+'">abnehmen</button>' +
+      '<button data-punkt-action="reject" data-punkt="'+esc(a.aufgabe_id)+'">zurückweisen</button></div></div>';
+  }).join('')+'</div>';
+}
+
+/* ---------- Die Arbeitsstationen der Zeile In Arbeit ---------- */
 const SICHTBAR = 4;
-const ARBEITSSTATIONEN = STATIONEN.filter(s=>["open","in_progress","haengt","abnahme_e2"].indexOf(s.id)>=0);
+const ARBEITSSTATIONEN = STATIONEN.filter(s=>["open","in_progress","haengt","umgesetzt"].indexOf(s.id)>=0);
 
 function aufgabenSpalteHtml(p, rows){
   let h = "";
@@ -853,8 +849,7 @@ function karteHtml(w, s){
       '<span class="prio">'+(w.priority==null?"—":w.priority)+'</span></div>' +
     '<div class="titel">'+esc(w.title||"")+'</div>' +
     '<div class="fuss">' +
-      (w.abnahmestufe ? '<span class="chip stufe" style="--sf:var(--'+esc(w.abnahmestufe)+')">'+
-        esc("nimmt ab: "+abnehmerName(w))+'</span>' : '') +
+      (w.status==="ready_for_verification" ? '<span class="chip stufe">im Projektpunkt umgesetzt</span>' : '') +
       '<span class="chip">'+esc(w.area||"ohne Thema")+'</span>' +
       '<span class="chip">'+esc(w.owner_agent||"—")+'</span>' +
       (w.dependency_work_id ? '<span class="chip">wartet auf '+esc(nummerVon(w.dependency_work_id))+'</span>' : '') +
@@ -955,6 +950,12 @@ function verdrahten(){
   document.querySelectorAll(".pa-item[data-work]").forEach(el=>{
     el.addEventListener("click", e=>{ e.stopPropagation(); panelAuf(Number(el.dataset.work)); });
   });
+  document.querySelectorAll("button[data-punkt-action]").forEach(el=>{
+    el.addEventListener("click", e=>{
+      e.stopPropagation();
+      projektPunktAktion(el.dataset.punkt,el.dataset.punktAction);
+    });
+  });
   /* Der Ralph-Block ueber der Tafel (E34) */
   document.querySelectorAll(".rb-zeile[data-work]").forEach(el=>{
     el.addEventListener("click", ()=> panelAuf(Number(el.dataset.work)));
@@ -973,17 +974,9 @@ async function abgelegt(id, ziel){
   }
   if(zielStation === w._station) return prioSchieben(w, ziel, actor);
 
-  /* Eine Abnahmestufe wird nicht geschoben — sie entsteht durch Abnehmen (E30). */
-  if(zielStation==="abnahme_e1" || zielStation==="abnahme_e0"){
-    alert("Diese Station erreicht eine Karte nur durch eine Abnahme, nicht durch Schieben.\n\n" +
-          "Der Weg ist: fertig gemeldet → der andere Agent → Ralph. " +
-          "Zum Abnehmen die Karte anklicken und im Panel auf Abnehmen drücken.");
-    return;
-  }
-
   /* Andere Station: Status setzen. „hängt" ist eine Sammelspalte — der Server
      kennt drei Werte dahinter, also wird gefragt statt geraten. */
-  let neuerStatus = zielStation==="abnahme_e2" ? "ready_for_verification" : zielStation;
+  let neuerStatus = zielStation==="umgesetzt" ? "ready_for_verification" : zielStation;
   if(zielStation === "haengt"){
     const w2 = prompt("Warum hängt "+w._nummer+"?\n\n1 = blockiert\n2 = strittig\n3 = Ralph entscheidet","1");
     if(w2===null) return;
@@ -997,6 +990,25 @@ async function abgelegt(id, ziel){
     const r = await client.rpc("cb_admin_agent_work_status",
       { p_work_id:id, p_actor:actor, p_status:neuerStatus,
         p_note:notiz.trim(), p_evidence:null });
+    if(r.error) throw r.error;
+  });
+}
+
+async function projektPunktAktion(aufgabeId,aktion){
+  const actor = $("actor").value;
+  const frage = aktion==="report"
+    ? "Welche Messung belegt, dass alle Aufgaben dieses Punkts umgesetzt sind?"
+    : "Stelle, Gegenfall und Messung für den ganzen Projektpunkt:";
+  const notiz = prompt(frage,"");
+  if(notiz===null) return;
+  if(!notiz.trim()) return alert("Ohne Messung keine Bündelmeldung oder Abnahme.");
+  await schreiben(async ()=>{
+    const r = aktion==="report"
+      ? await client.rpc("cb_admin_agent_projektaufgabe_melden",{
+          p_aufgabe_id:aufgabeId,p_actor:actor,p_note:notiz.trim(),p_evidence:null })
+      : await client.rpc("cb_admin_agent_projektaufgabe_verifizieren",{
+          p_aufgabe_id:aufgabeId,p_verifier:actor,p_ok:aktion==="verify",
+          p_note:notiz.trim(),p_evidence:null });
     if(r.error) throw r.error;
   });
 }
@@ -1043,15 +1055,10 @@ function panelAuf(id){
   $("pNotiz").value = "";
   $("pMeldung").className = "meldung";
 
-  /* Der Abnahmeweg als Leiste — wo steht die Karte gerade? */
+  /* Work Items werden nur als umgesetzt gemeldet; abgenommen wird der Punkt. */
   if(w.status==="ready_for_verification"){
-    const jetzt = w.abnahmestufe || "e1";
-    const i = STUFEN_FOLGE.indexOf(jetzt);
     $("pWeg").style.display = "";
-    $("pWeg").innerHTML = '<span class="durch">gebaut</span>' +
-      STUFEN_FOLGE.map((s,k)=>'<span class="'+(k<i?"durch":(k===i?"jetzt":""))+'">'+
-        esc(s==="e0" ? "Ralph" : (GEGENPART[w.owner_agent]||"der andere Agent"))+'</span>').join("") +
-      '<span>abgenommen</span>';
+    $("pWeg").innerHTML = '<span class="durch">umgesetzt</span><span class="jetzt">wartet im Projektpunkt</span>';
   } else {
     $("pWeg").style.display = "none";
   }
@@ -1061,10 +1068,10 @@ function panelAuf(id){
     (WORK_AUFGABE[w.work_id] ? " · Projektaufgabe "+esc(aufgabeNummerVon(WORK_AUFGABE[w.work_id])) : " · <b>ohne Projektaufgabe</b>") +
     (w.hat_notiz ? " · Notiz vorhanden" : "");
 
-  const kannAbnehmen = w.status==="ready_for_verification";
+  const kannAbnehmen = w.status==="ready_for_verification" && !WORK_AUFGABE[w.work_id];
   $("pAbnehmen").style.display = kannAbnehmen ? "" : "none";
   if(kannAbnehmen){
-    $("pAbnehmen").textContent = "Abnehmen als " + abnehmerName(w);
+    $("pAbnehmen").textContent = "Alte Einzelaufgabe abnehmen";
   }
   $("panel").classList.add("auf"); $("abdeckung").classList.add("auf");
   textNachladen(w.work_id);
@@ -1157,25 +1164,20 @@ async function eintragen(){
   }
 }
 
-/* Abnehmen = eine Stufe hoeher. Der Server entscheidet, ob es erlaubt ist —
-   diese Seite baut die Pruefung nicht nach (CLAUDE.md B1). */
+/* Nur fuer einen unzugeordneten Altfall. Zugeordnete Items werden nie einzeln
+   abgenommen; ihre Schaltflaeche bleibt ausgeblendet. */
 async function abnehmen(){
   if(!AKTUELL) return;
   const notiz = $("pNotiz").value.trim();
   if(!notiz) return melden("Eine Abnahme ohne Stelle, Gegenfall und Messung ist eine Meinung.", false);
   const actor = $("actor").value;
-  const vorher = AKTUELL.abnahmestufe || "e2";
   $("pAbnehmen").disabled = true;
   try{
     const r = await client.rpc("cb_admin_agent_work_verifizieren",
       { p_work_id:AKTUELL.work_id, p_verifier:actor, p_ok:true,
         p_note:notiz, p_evidence:null });
     if(r.error) throw r.error;
-    const naechste = { e2:"e1", e1:"e0" }[vorher];
-    melden(naechste
-      ? "Abgenommen. Die Karte steht jetzt bei " +
-        (naechste==="e0" ? "Ralph" : (GEGENPART[AKTUELL.owner_agent]||"dem anderen Agenten")) + "."
-      : "Ralph hat abgenommen. Die Aufgabe ist abgenommen und verschwindet von der Tafel.", true);
+    melden("Alte Einzelaufgabe abgenommen.", true);
     await laden();
     setTimeout(panelZu, 900);
   }catch(e){
