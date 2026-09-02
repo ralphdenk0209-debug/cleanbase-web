@@ -535,15 +535,19 @@ function _massVorwert(hist, col){
   for(let i=1;i<hist.length;i++){ const v=hist[i][col]; if(v!=null&&v!=='') return {wert:Number(v), datum:hist[i].Datum}; }
   return null;
 }
+/* Das Delta steht in DERSELBEN Zeile wie die Beschriftung, rechtsbuendig - nicht darunter.
+   Gegenmessung 02.09. am Live-Stand: als eigene Zeile unter dem Feld waechst die Spalte um
+   14 px und die Beschriftung des naechsten Masses wird ueberdeckt ("-1 cm" lag auf "Taille").
+   In der Label-Zeile kostet es keine Hoehe, die Positionen bleiben unveraendert. */
 function _massDeltaHtml(hist, col){
-  if(!hist.length) return '';
-  const akt=hist[0][col]; if(akt==null||akt==='') return '<div style="font-size:10.5px;min-height:14px"></div>';
+  if(!hist||!hist.length) return '';
+  const akt=hist[0][col]; if(akt==null||akt==='') return '';
   const vor=_massVorwert(hist, col);
-  if(!vor) return '<div style="font-size:10.5px;color:var(--muted);min-height:14px">1. Messung</div>';
+  if(!vor) return '<span style="font-size:9.5px;color:var(--muted);white-space:nowrap">neu</span>';
   const d=Math.round((Number(akt)-vor.wert)*10)/10;
   const farbe = d===0 ? 'var(--muted)' : (d<0 ? 'var(--k-16a34a)' : 'var(--k-b45309)');
-  const txt = d===0 ? '± 0,0 cm' : ((d>0?'+':'−')+String(Math.abs(d)).replace('.',',')+' cm');
-  return '<div title="gegen Messung vom '+esc(vor.datum)+'" style="font-size:10.5px;color:'+farbe+';min-height:14px">'+txt+'</div>';
+  const txt = d===0 ? '±0' : ((d>0?'+':'−')+String(Math.abs(d)).replace('.',','));
+  return '<span title="gegen die Messung vom '+esc(vor.datum)+' ('+String(vor.wert).replace('.',',')+' cm)" style="font-size:10px;font-weight:600;color:'+farbe+';white-space:nowrap">'+txt+'</span>';
 }
 function bodyMapHtml(last, hist){
   /* Ein Feld ist ~54 px hoch (Label + Input). Vorher lagen Taille→Bauch (124→152) und
@@ -568,10 +572,9 @@ function bodyMapHtml(last, hist){
   let pills='';
   Object.keys(pos).forEach(k=>{ const side=pos[k][0],top=pos[k][1]; const v=(last[cols[k]]!=null?last[cols[k]]:'');
     pills+='<div style="position:absolute;'+(side==='l'?'left:0':'right:0')+';top:'+top+'px;width:110px">'
-      +'<div style="font-size:11.5px;font-weight:600;color:var(--ink)">'+labels[k]+'</div>'
+      +'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:11.5px;font-weight:600;color:var(--ink)">'+labels[k]+'</span>'+_massDeltaHtml(h, cols[k])+'</div>'
       +'<div style="font-size:9.5px;color:var(--muted);line-height:1.25;margin:1px 0 3px;min-height:24px">'+hints[k]+'</div>'
-      +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:13px">'
-      +_massDeltaHtml(h, cols[k])+'</div>';
+      +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:13px"></div>';
   });
   return '<div style="position:relative;max-width:400px;margin:0 auto;min-height:410px">'
     +'<div id="bodyFigWrap" style="position:absolute;left:50%;top:10px;transform:translateX(-50%);pointer-events:none">'+bodyFigureSvg()+'</div>'+pills+'</div>'
@@ -615,7 +618,7 @@ async function renderProfilMass(){
   try{ const r=await client.rpc("cb_mass_historie",{p_limit:12}); hist=(r.data||[]); last=hist[0]||{}; }catch(e){}
   const naechste=p.Mass_Naechste?('Nächste Messung: <b>'+esc(p.Mass_Naechste)+'</b>'+(p.Mass_Naechste<=tbToday()?' · <span style="color:var(--k-b45309)">fällig</span>':'')):'';
   const standZeile = hist.length
-    ? '<div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:6px">Angezeigt: Messung vom <b style="color:var(--ink)">'+esc(last.Datum)+'</b>'+(hist.length>1?(' · Veränderung gegen die vorige Messung')  :' · erste Messung')+'</div>'
+    ? '<div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:6px">Angezeigt: Messung vom <b style="color:var(--ink)">'+esc(last.Datum)+'</b>'+(hist.length>1?(' · die farbige Zahl neben jedem Maß ist die Veränderung in cm gegen die vorige Messung')  :' · erste Messung')+'</div>'
     : '<div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:6px">Noch keine Messung gespeichert.</div>';
   box.innerHTML=standZeile+bodyMapHtml(last, hist)+massVerlaufHtml(hist)
     +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:6px;padding-top:10px;border-top:1px solid var(--k-eef2f5)">'
