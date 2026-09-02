@@ -107,7 +107,23 @@ button:disabled{opacity:.45;cursor:not-allowed}
 /* ---------- Zeile 1: Projektkarten ---------- */
 .pkarte{background:var(--karte);border:1px solid var(--linie);border-top:3px solid var(--pf);
   border-radius:9px;padding:9px 10px;box-shadow:var(--schatten);margin-bottom:9px}
-.pkarte .kopfz{display:flex;align-items:baseline;gap:6px}
+.pkarte .kopfz{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+/* ---------- Zielzahl neben dem Titel · Farbskala (Ralph, 02.09.) ---------- */
+.zielbadge{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;
+  border:1px solid;border-radius:7px;padding:2px 7px 3px;min-width:74px;line-height:1.15}
+.zielbadge b{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+.zielbadge i{font-style:normal;font-size:9.5px;opacity:.85;white-space:nowrap}
+.zielbalken{display:block;width:100%;height:3px;margin-top:3px;border-radius:99px;
+  background:rgba(255,255,255,.14);overflow:hidden}
+.zielbalken span{display:block;height:100%;border-radius:99px}
+
+/* ---------- Eingeklapptes Projekt · schmaler Streifen, nicht entfernt ---------- */
+.spalte.schmal{display:flex;align-items:center;justify-content:center;padding:6px 0;
+  cursor:pointer;background:linear-gradient(180deg,var(--karte),var(--bg2))}
+.spalte.schmal:hover{background:var(--karte2)}
+.spalte.schmal .kz-hoch{writing-mode:vertical-rl;transform:rotate(180deg);
+  font-size:10.5px;font-weight:800;letter-spacing:1.2px;color:var(--schwach)}
 .pkarte .kz{font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text);
   background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 5px}
 .pkarte h3{margin:0;font-size:13.5px;font-weight:700}
@@ -137,6 +153,16 @@ button:disabled{opacity:.45;cursor:not-allowed}
   background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 4px}
 .paufgabe .t{font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .paufgabe .n{margin-left:auto;font-size:11px;color:var(--schwach);flex:none}
+/* Kette (#412): Verbindungslinie links, Marker am naechsten Punkt */
+.kette-kopf{font-size:9.5px;color:var(--schwach);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 4px}
+.kette{position:relative;padding-left:12px}
+.kette::before{content:"";position:absolute;left:3px;top:10px;bottom:14px;width:2px;background:var(--linie)}
+.kette .paufgabe.inkette{position:relative}
+.kette .paufgabe.inkette::before{content:"";position:absolute;left:-12px;top:50%;width:8px;height:2px;background:var(--linie)}
+.kette .paufgabe.inkette:not(.letzter)::after{content:"▼";position:absolute;left:-14px;bottom:-9px;font-size:8px;color:var(--schwach);line-height:1}
+.paufgabe.hier{border-color:var(--laeuft);box-shadow:inset 0 0 0 1px var(--laeuft)}
+.paufgabe .pa-stand{margin-left:auto;font-size:10.5px;color:var(--schwach);flex:none;white-space:nowrap}
+.paufgabe .pa-stand.hier{color:var(--laeuft);font-weight:700}
 .paufgabe .pfeil{font-size:9px;color:var(--schwach);flex:none}
 .pa-auf{background:var(--bg2);border:1px solid var(--linie);border-top:0;
   border-radius:0 0 7px 7px;padding:7px 8px 8px;margin-bottom:5px}
@@ -446,6 +472,7 @@ function geruestBilden(rs, rp, rm){
          nicht, bleiben sie leer — die Karte sagt das dann offen (CLAUDE.md A2). */
       const s = punktVon[z.projekt_aufgabe_id] || {};
       PAUFGABEN[z.projekt_id].push({ aufgabe_id:z.projekt_aufgabe_id, nummer:z.projekt_aufgabe_nummer,
+                                     reihenfolge:z.aufgabe_reihenfolge,
                                      titel:z.projekt_aufgabe_titel, ampel:z.ampel,
                                      status:s.status || "open", owner_agent:s.owner_agent || null,
                                      verifier_agent:s.verifier_agent || null,
@@ -565,7 +592,18 @@ function zeichnen(){
     $("luecke").style.display = "none";
   }
 
-  const spalten = "grid-template-columns:repeat("+Math.max(1,PROJEKTE.length)+",minmax(210px,1fr))";
+  /* Ein Projekt ohne offene Aufgabe wird eingeklappt, nicht entfernt (Ralph,
+     02.09.). Es behaelt seine Spalte, aber nur noch als schmaler Streifen mit
+     Kuerzel. Ein Klick klappt es wieder auf; die Wahl haelt bis zum Neuladen.
+     Grund, gemessen am 02.09.: 6 von 14 Projekten hatten null offene Aufgaben
+     und belegten volle Spalten — man scrollte an Leerem vorbei. */
+  const leerProjekt = p => rows.filter(w=>w._projekt===p.id).length === 0;
+  const eingeklappt = p => leerProjekt(p) && !OFFEN_STAPEL["spalte|"+p.id];
+  const spalten = "grid-template-columns:" +
+    (PROJEKTE.length
+      ? PROJEKTE.map(p => eingeklappt(p) ? "38px" : "minmax(210px,1fr)").join(" ")
+      : "1fr");
+  const nEingeklappt = PROJEKTE.filter(eingeklappt).length;
   let html = "";
 
   /* Die Tafel hat zwei Zeilen. Abnahme liegt seit E32 am Projektpunkt; die
@@ -578,8 +616,9 @@ function zeichnen(){
   html += ebeneZeile({
     akzent:"var(--st0)", titel:"1 · Bei Ralph",
     regel:"Produkt, Fachlichkeit, Priorität oder Ausnahme entscheiden.",
-    chips:[ zaehlChip(rows, w=>w._station==="entscheid_e0", "zu entscheiden") ],
-    spalten,
+    chips:[ zaehlChip(rows, w=>w._station==="entscheid_e0", "zu entscheiden"),
+            leerChip(nEingeklappt) ],
+    spalten, eingeklappt,
     zaehler: p => je(p.id, w=>w._station==="entscheid_e0").length,
     inhalt: p => stapelHtml(p, "entscheid_e0", je(p.id, w=>w._station==="entscheid_e0"), "nichts bei Ralph")
   });
@@ -594,8 +633,9 @@ function zeichnen(){
     chips:[ '<span class="chip">'+abnahmePunkte.length+' Projektpunkte zur Abnahme</span>',
             '<span class="chip">'+PROJEKTE.length+' Projekte</span>',
             '<span class="chip">'+nPA+' Projektaufgaben</span>',
-            '<span class="chip">'+inArbeit.length+' in Arbeit</span>' ],
-    spalten,
+            '<span class="chip">'+inArbeit.length+' in Arbeit</span>',
+            leerChip(nEingeklappt) ],
+    spalten, eingeklappt,
     zaehler: p => je(p.id, w=>["open","in_progress","haengt","umgesetzt"].indexOf(w._station)>=0).length,
     inhalt: p => projektKarteHtml(p, rows.filter(w=>w._projekt===p.id)) +
                  projektPunkteAbnahmeHtml(p, punkteJe(p.id, a=>a.status==="ready_for_verification")) +
@@ -661,6 +701,14 @@ function ebeneZeile(o){
     '<span class="regel">'+esc(o.regel)+'</span></div>' +
     '<div class="stock-koerper" style="'+o.spalten+'">';
   for(const p of PROJEKTE){
+    /* Eingeklappt: die Spalte bleibt stehen, der Inhalt wird nicht gezeichnet.
+       Das Projekt verschwindet nicht — es nimmt nur keinen Platz mehr weg. */
+    if(o.eingeklappt && o.eingeklappt(p)){
+      h += '<div class="spalte schmal" data-aufklappen="'+esc(p.id)+'" ' +
+        'title="'+esc(p.name+" — keine offene Aufgabe. Klicken klappt auf.")+'">' +
+        '<span class="kz-hoch">'+esc(p.kuerzel||"—")+'</span></div>';
+      continue;
+    }
     h += '<div class="spalte">' +
       '<div class="spalte-kopf"><span class="kz">'+esc(p.kuerzel||"—")+'</span>' +
       '<span class="name">'+esc(p.name)+'</span>' +
@@ -668,6 +716,13 @@ function ebeneZeile(o){
       o.inhalt(p) + '</div>';
   }
   return h + '</div></div>';
+}
+/* Wie viele Projekte gerade eingeklappt sind. Klick klappt alle wieder auf —
+   damit niemand ein Projekt fuer geloescht haelt, das nur schmal ist. */
+function leerChip(n){
+  if(!n) return '';
+  return '<span class="chip" id="chipLeer" style="cursor:pointer;border-style:dashed" ' +
+    'title="Alle wieder aufklappen">'+n+' ohne offene Aufgabe · eingeklappt</span>';
 }
 function zaehlChip(rows, f, name){
   const n = rows.filter(f).length;
@@ -692,15 +747,17 @@ function projektKarteHtml(p, rows){
   const laeuft = n("in_progress");
   const umgesetzt = n("umgesetzt");
   const m = MESSWERTE[p.id];
+  /* Die Zielzahl steht oben neben dem Titel und ist nach Fortschritt hinterlegt
+     (Ralph, 02.09.). Darunter bleibt nur noch, WAS gemessen wird. */
   const messHtml = m
-    ? '<div class="ziel"><b>'+esc(m.messung)+'</b>'+messwertText(m.heute_wert,m.einheit)+
-      ' heute · Ziel '+messwertText(m.ziel_wert,m.einheit)+'</div>'
+    ? '<div class="ziel"><b>'+esc(m.messung)+'</b></div>'
     : '<div class="ziel"><b>Zielzahl</b><span class="leerfeld">für dieses Projekt noch nicht festgelegt</span></div>';
   const aeltester = rows.filter(w=>w._station==="haengt" || w.status==="ready_for_verification")
     .sort((a,b)=>tage(b.updated_at)-tage(a.updated_at))[0];
   return '<div class="pkarte" style="--pf:'+
       (laeuft ? "var(--laeuft)" : "var(--linie)")+'">' +
-    '<div class="kopfz"><span class="kz">'+esc(p.kuerzel||"—")+'</span><h3>'+esc(p.name)+'</h3></div>' +
+    '<div class="kopfz"><span class="kz">'+esc(p.kuerzel||"—")+'</span><h3>'+esc(p.name)+'</h3>' +
+      zielBadge(m) + '</div>' +
     '<div class="lauf">'+(laeuft ? "läuft gerade" : "steht an")+' · '+rows.length+' Aufgaben · '+esc(p.status||"—")+'</div>' +
     (p.beschreibung ? '<div class="was">'+esc(p.beschreibung)+'</div>' : '') +
     messHtml +
@@ -713,6 +770,50 @@ function projektKarteHtml(p, rows){
     (aeltester ? '<div class="wartet">ältester Wartefall <b>'+esc(aeltester._nummer)+'</b> · '+
       alterText(aeltester.updated_at)+'</div>' : '') +
     '</div>';
+}
+
+/* ---------- Die Zielzahl als farbiger Balken neben dem Titel ----------
+   Ralph, 02.09.: „die zielzahl soll oben neben dem titel stehen und farblich
+   hinterlegt sein, als farbscala."
+
+   Die Farbe ist ANZEIGE, kein Fachurteil. Ob ein Ziel erreicht ist, sagt das
+   Serverfeld `erfuellt` — das wird gelesen, nicht nachgerechnet (CLAUDE.md B1).
+   Gerechnet wird allein, WIE WEIT der Balken laeuft:
+
+     Ziel groesser 0  → Anteil heute/Ziel, gekappt auf 0 bis 1. Beispiel KP:
+                        75,9 von 90 sind 84 Prozent des Wegs, also gelbgruen.
+     Ziel gleich 0    → „weniger ist besser", z. B. 933 Luecken auf 0. Ohne
+                        Startwert gibt es hier keinen Zwischenstand: entweder
+                        erfuellt oder nicht. Es wird nichts erfunden (A2). */
+function zielAnteil(m){
+  if(!m) return null;
+  if(m.erfuellt) return 1;
+  const heute = Number(m.heute_wert), ziel = Number(m.ziel_wert);
+  if(!isFinite(heute) || !isFinite(ziel)) return null;
+  if(ziel > 0) return Math.max(0, Math.min(1, heute / ziel));
+  return 0;
+}
+
+/* Rot (0°) über Gelb (45°) nach Grün (130°). Ein durchgehender Verlauf, damit
+   84 Prozent sichtbar anders aussehen als 40 — eine Ampel mit drei Stufen
+   wuerde genau diesen Unterschied verschlucken. */
+function zielFarbe(a){
+  if(a===null) return null;
+  const ton = Math.round(a * 130);
+  return { grund:"hsl("+ton+" 55% 22%)", rand:"hsl("+ton+" 60% 40%)",
+           schrift:"hsl("+ton+" 70% 78%)" };
+}
+
+function zielBadge(m){
+  if(!m) return '';
+  const a = zielAnteil(m), f = zielFarbe(a);
+  if(!f) return '';
+  return '<span class="zielbadge" title="'+esc(m.messung)+'" ' +
+    'style="background:'+f.grund+';border-color:'+f.rand+';color:'+f.schrift+'">' +
+    '<b>'+esc(messwertText(m.heute_wert, m.einheit))+'</b>' +
+    '<i>von '+esc(messwertText(m.ziel_wert, m.einheit))+'</i>' +
+    '<span class="zielbalken"><span style="width:'+Math.round(a*100)+'%;background:'+f.rand+'"></span></span>' +
+    '</span>';
 }
 
 function messwertText(wert, einheit){
@@ -730,26 +831,64 @@ const AMPEL_FARBE = { gruen:"var(--fertig)", gelb:"var(--abnahme)", rot:"var(--h
 /* Jede Projektaufgabe traegt ihre Kuerzel-Nummer (KP-3, nicht scanweg-r3) und
    laesst sich aufklappen: Zweck, Fertig-Kriterium und die Work Items darunter,
    je mit Nummer und Station (#396). Alles gelesen, nichts nachgerechnet. */
+/* ---------- Die Kette (#412, Ralph 02.09.) ----------
+   „Ich sehe nicht auf einen Blick, wie die Reihenfolge sein muss."
+   Punkte mit Zahl als Nummer (1, 2, 3 …) bilden die KETTE: nacheinander, von
+   oben nach unten, mit Verbindungslinie. Punkte mit Buchstabe (B, V …) sind
+   DAUERSTRAENGE: laufen nebenher, blockieren nichts. Der Marker ▶ steht am
+   ersten Kettenpunkt, der noch nicht abgenommen ist — das ist keine
+   Serverentscheidung, sondern die Definition von Reihenfolge. Alles danach
+   heisst „wartet auf N". Ampelfarbe bleibt aus dem Server; gezaehlt wird nur. */
+function istKette(a){ return /^\d+$/.test(String(a.nummer||"")); }
+
 function projektAufgabenHtml(p){
   let h = "";
-  const liste = PAUFGABEN[p.id] || [];
-  if(!liste.length) return '<div class="leer">keine Projektaufgabe</div>';
-  for(const a of liste){
-    const items = ZEILEN.filter(w=>WORK_AUFGABE[w.work_id]===a.aufgabe_id)
-      .sort((x,y)=> (STOPP_RANG[x.status]-STOPP_RANG[y.status]) || (y.priority||0)-(x.priority||0));
-    const key = "pa|"+a.aufgabe_id;
-    const auf = !!OFFEN_STAPEL[key];
-    const nr = (p.kuerzel && a.nummer) ? (p.kuerzel+"-"+a.nummer) : a.aufgabe_id;
+  const alle = (PAUFGABEN[p.id] || []).slice()
+    .sort((x,y)=> (Number(x.reihenfolge)||99)-(Number(y.reihenfolge)||99) ||
+                  String(x.nummer).localeCompare(String(y.nummer),"de",{numeric:true}));
+  if(!alle.length) return '<div class="leer">keine Projektaufgabe</div>';
+  const kette = alle.filter(istKette), dauer = alle.filter(a=>!istKette(a));
+  const naechster = kette.find(a=>a.status!=="verified");
+  const naechsterIdx = naechster ? kette.indexOf(naechster) : -1;
 
-    h += '<div class="paufgabe'+(auf?" auf":"")+'" data-pa="'+esc(key)+'">' +
-      '<span class="ampel" style="background:'+(AMPEL_FARBE[a.ampel]||"var(--linie)")+'"></span>' +
-      '<span class="panr">'+esc(nr)+'</span>' +
-      '<span class="t">'+esc(a.titel||a.aufgabe_id)+'</span>' +
-      '<span class="pa-status">'+esc(punktStatusText(a.status))+'</span>' +
-      '<span class="n">'+items.length+'</span>' +
-      '<span class="pfeil">'+(auf?"▲":"▼")+'</span></div>';
+  if(kette.length) h += '<div class="kette-kopf">Kette · nacheinander</div><div class="kette">';
+  kette.forEach((a,i)=>{
+    const wartet = (naechsterIdx>=0 && i>naechsterIdx) ? kette[i-1] : null;
+    h += punktZeileHtml(p, a, { hier: a===naechster, wartetAuf: wartet, kette:true, letzter: i===kette.length-1 });
+  });
+  if(kette.length) h += '</div>';
+  if(dauer.length){
+    h += '<div class="kette-kopf">Dauerstränge · nebenher</div>';
+    for(const a of dauer) h += punktZeileHtml(p, a, { hier:false, wartetAuf:null, kette:false, letzter:true });
+  }
+  return h;
+}
 
-    if(!auf) continue;
+function punktZeileHtml(p, a, k){
+  let h = "";
+  const items = ZEILEN.filter(w=>WORK_AUFGABE[w.work_id]===a.aufgabe_id)
+    .sort((x,y)=> (STOPP_RANG[x.status]-STOPP_RANG[y.status]) || (y.priority||0)-(x.priority||0));
+  const key = "pa|"+a.aufgabe_id;
+  const auf = !!OFFEN_STAPEL[key];
+  const nr = (p.kuerzel && a.nummer) ? (p.kuerzel+"-"+a.nummer) : a.aufgabe_id;
+  const nGemeldet = items.filter(w=>w.status==="ready_for_verification").length;
+  const nOffen = items.length - nGemeldet;
+  let stand;
+  if(a.status==="verified") stand = "abgenommen";
+  else if(a.status==="ready_for_verification") stand = "Punkt gemeldet";
+  else if(k.wartetAuf) stand = "wartet auf "+esc((p.kuerzel&&k.wartetAuf.nummer)?p.kuerzel+"-"+k.wartetAuf.nummer:k.wartetAuf.aufgabe_id);
+  else if(!items.length) stand = "keine Aufgabe";
+  else stand = (nGemeldet?nGemeldet+" gemeldet":"") + (nGemeldet&&nOffen?" · ":"") + (nOffen?nOffen+" offen":"");
+
+  h += '<div class="paufgabe'+(auf?" auf":"")+(k.hier?" hier":"")+(k.kette?" inkette":"")+(k.letzter?" letzter":"")+
+      '" data-pa="'+esc(key)+'">' +
+    '<span class="ampel" style="background:'+(AMPEL_FARBE[a.ampel]||"var(--linie)")+'"></span>' +
+    '<span class="panr">'+esc(nr)+'</span>' +
+    '<span class="t">'+esc(a.titel||a.aufgabe_id)+'</span>' +
+    '<span class="pa-stand'+(k.hier?" hier":"")+'">'+(k.hier?"▶ hier · ":"")+stand+'</span>' +
+    '<span class="pfeil">'+(auf?"▲":"▼")+'</span></div>';
+
+  if(auf){
     h += '<div class="pa-auf">' +
       '<div class="pa-feld"><b>Zweck</b>' +
         (a.zweck ? esc(a.zweck)
@@ -954,6 +1093,19 @@ function verdrahten(){
     el.addEventListener("click", e=>{
       e.stopPropagation();
       projektPunktAktion(el.dataset.punkt,el.dataset.punktAction);
+    });
+  });
+  /* Eingeklapptes Projekt aufklappen — und der Chip klappt alle wieder auf */
+  document.querySelectorAll("[data-aufklappen]").forEach(el=>{
+    el.addEventListener("click",()=>{
+      OFFEN_STAPEL["spalte|"+el.dataset.aufklappen] = true;
+      zeichnen();
+    });
+  });
+  document.querySelectorAll("#chipLeer").forEach(el=>{
+    el.addEventListener("click",()=>{
+      for(const p of PROJEKTE) OFFEN_STAPEL["spalte|"+p.id] = true;
+      zeichnen();
     });
   });
   /* Der Ralph-Block ueber der Tafel (E34) */
