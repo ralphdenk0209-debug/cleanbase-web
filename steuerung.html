@@ -369,8 +369,10 @@ const STATIONEN = [
    NICHT dazu: solche Karten stehen bei Ralph in Zeile 1, sonst stuenden sie doppelt
    auf der Tafel — und eine Karte an zwei Stellen ist eine zweite Wahrheit. */
 const HAENGT = ["blocked","disputed"];
-const STUFEN_NAME = { e2:"alte Stufe", e1:"der andere Agent", e0:"Ralph" };
 const STUFEN_FOLGE = ["e1","e0"];   /* SG-412: zwei Stufen, nicht mehr drei */
+/* STUFEN_NAME ist am 02.09. entfallen: die Karte nennt den Abnehmer beim Namen,
+   dafuer reicht abnehmerName(). Ein fester Text je Stufe waere die zweite,
+   anonyme Wahrheit daneben gewesen. */
 
 /* Wer nimmt diese Karte ab? Der Server kennt beide Chats als "claude" und kann
    den Namen nicht liefern (E32). Er ist aber berechenbar: der Abnehmer ist der
