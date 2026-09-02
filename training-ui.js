@@ -550,14 +550,28 @@ function _massDeltaHtml(hist, col){
   return '<span title="gegen die Messung vom '+esc(vor.datum)+' ('+String(vor.wert).replace('.',',')+' cm)" style="font-size:10px;font-weight:600;color:'+farbe+';white-space:nowrap">'+txt+'</span>';
 }
 function bodyMapHtml(last, hist){
-  /* Ein Feld ist ~54 px hoch (Label + Input). Vorher lagen Taille→Bauch (124→152) und
-     Po→Hüfte (150→178) nur 28 px auseinander → die Beschriftungen überlagerten sich.
-     Jetzt überall 62 px Abstand. */
-  const pos={brust:['l',18],taille:['l',104],bauch:['l',190],oberschenkel:['l',276],oberarm:['r',61],po:['r',147],huefte:['r',233],beine:['r',319]};
+  /* 02.09.2026 (FE-1, Ralphs Sichtpruefung): Die acht Bloecke lagen mit festen top-Pixeln
+     auf position:absolute. Der Erklaertext darunter ist je Mass 1 bis 3 Zeilen lang, die
+     Bloecke also verschieden hoch - Taille/Bauch stiessen zusammen, Bauch/Oberschenkel klaffte.
+     Feste Pixel gegen variable Texthoehe zu rechnen geht nicht auf; jede neue Zeile bricht es
+     wieder. Deshalb jetzt zwei Flex-Spalten links und rechts der Figur mit gleichem Abstand:
+     Ueberlappung ist damit baulich unmoeglich, egal wie lang ein Text wird.
+     Der lange Messhinweis steht als Tooltip am Block, die Kurzform bleibt sichtbar. */
+  const links=['brust','taille','bauch','oberschenkel'], rechts=['oberarm','po','huefte','beine'];
   const labels={po:'Po',huefte:'Hüfte',beine:'Beine',oberarm:'Oberarm',brust:'Brust',taille:'Taille',bauch:'Bauch',oberschenkel:'Oberschenkel'};
   const cols={po:'Po',huefte:'Huefte',beine:'Beine',oberarm:'Oberarm',brust:'Brust',taille:'Taille',bauch:'Bauch',oberschenkel:'Oberschenkel'};
   /* Messpunkte: Taille = schmalste Stelle, Mitte zwischen unterster Rippe und Beckenkamm (WHO STEPS).
      Bauch = auf Nabelhöhe und liegt damit TIEFER als die Taille – deshalb die Reihenfolge oben. */
+  const kurz={
+    brust:'stärkste Stelle',
+    taille:'schmalste Stelle',
+    bauch:'auf Nabelhöhe',
+    oberschenkel:'dickste Stelle',
+    oberarm:'Mitte des Oberarms',
+    po:'größter Umfang',
+    huefte:'über dem Beckenkamm',
+    beine:'Wade, stärkste Stelle'
+  };
   const hints={
     brust:'stärkste Stelle, Band waagerecht über die Brustwarzen',
     taille:'schmalste Stelle – Mitte zwischen unterster Rippe und Beckenkamm',
@@ -569,15 +583,17 @@ function bodyMapHtml(last, hist){
     beine:'Wade an der stärksten Stelle'
   };
   const h=hist||[];
-  let pills='';
-  Object.keys(pos).forEach(k=>{ const side=pos[k][0],top=pos[k][1]; const v=(last[cols[k]]!=null?last[cols[k]]:'');
-    pills+='<div style="position:absolute;'+(side==='l'?'left:0':'right:0')+';top:'+top+'px;width:110px">'
+  const block=k=>{ const v=(last[cols[k]]!=null?last[cols[k]]:'');
+    return '<div title="'+esc(hints[k])+'">'
       +'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:11.5px;font-weight:600;color:var(--ink)">'+labels[k]+'</span>'+_massDeltaHtml(h, cols[k])+'</div>'
-      +'<div style="font-size:9.5px;color:var(--muted);line-height:1.25;margin:1px 0 3px;min-height:24px">'+hints[k]+'</div>'
+      +'<div style="font-size:9.5px;color:var(--muted);line-height:1.2;height:12px;overflow:hidden;margin:1px 0 3px">'+kurz[k]+'</div>'
       +'<input id="m_'+k+'" type="number" step="0.1" inputmode="decimal" value="'+v+'" placeholder="cm" style="width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:13px"></div>';
-  });
-  return '<div style="position:relative;max-width:400px;margin:0 auto;min-height:410px">'
-    +'<div id="bodyFigWrap" style="position:absolute;left:50%;top:10px;transform:translateX(-50%);pointer-events:none">'+bodyFigureSvg()+'</div>'+pills+'</div>'
+  };
+  const spalte=ks=>'<div style="display:flex;flex-direction:column;justify-content:space-between;gap:10px;min-width:0">'+ks.map(block).join('')+'</div>';
+  return '<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:stretch;max-width:430px;margin:0 auto">'
+    +spalte(links)
+    +'<div id="bodyFigWrap" style="display:flex;align-items:center;justify-content:center;pointer-events:none">'+bodyFigureSvg()+'</div>'
+    +spalte(rechts)+'</div>'
     +'<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:2px">Alle Maße in cm</div>'
     +'<div style="margin-top:10px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:11.5px;color:var(--muted);line-height:1.5">'
       +'<b style="color:var(--ink)">So misst du richtig:</b> Maßband waagerecht anlegen, nicht einschnüren, locker ausatmen – nicht die Luft anhalten oder den Bauch einziehen. Immer <b>zur selben Tageszeit</b> messen (am besten morgens, nüchtern), sonst vergleichst du Tagesform statt Fortschritt.'

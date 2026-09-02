@@ -793,9 +793,26 @@ async function ladeReinheitsAmpel(){
 /* Work #371 (KP-4): Fehlt eine Zutat, sagen wir das - statt so zu tun, als waere
    die Liste vollstaendig. Zustand und Luecke kommen aus cb_produkt_bindung_stand;
    hier wird nichts gerechnet. Teilgebunden wird nie als gebunden gezeigt. */
-async function ladeBindungsLuecke(){
-  const box = document.getElementById('riBindung'); if(!box) return;
-  const pid = box.getAttribute('data-pid'); if(!pid){ box.innerHTML=''; return; }
+/* 02.09.2026, gemessen im Browser statt geraten: ein Platzhalter im Karten-Template
+   kam nie im DOM an - detail() rendert fuer Nicht-Supplements einen anderen Zweig.
+   Der Hinweis haengt sich deshalb selbst in die offene Karte, an eine Stelle, die
+   es sicher gibt: direkt hinter die Produktueberschrift. */
+function _bindungBox(){
+  let box = document.getElementById('riBindung');
+  if(box) return box;
+  const panel = document.getElementById('panel'); if(!panel) return null;
+  const h2 = panel.querySelector('h2'); if(!h2) return null;
+  const anker = h2.closest('div') || h2;
+  box = document.createElement('div');
+  box.id = 'riBindung';
+  anker.parentNode.insertBefore(box, anker.nextSibling);
+  return box;
+}
+async function ladeBindungsLuecke(produktId){
+  const box = _bindungBox(); if(!box) return;
+  const pid = produktId || box.getAttribute('data-pid');
+  if(!pid){ box.innerHTML=''; return; }
+  box.setAttribute('data-pid', pid);
   let b = null;
   try{
     const {data, error} = await client.rpc('cb_produkt_bindung_stand', {p_produkt_id: pid});
@@ -4824,7 +4841,6 @@ async function detail(d){
     ${_azoWarn?`<div class="note" style="background:var(--k-fef2f2);border-color:var(--k-fca5a5);color:var(--k-b91c1c)">⚠️ <b>Enthält synthetische Azo-Farbstoffe</b> – tragen den EU-Pflichthinweis „kann Aktivität und Aufmerksamkeit bei Kindern beeinträchtigen". Deckelt die Wertung auf höchstens „Gut".</div>`:""}
     ${_ksuessWarn?`<div class="note" style="background:var(--k-fffbeb);border-color:var(--k-fde68a);color:var(--k-92400e)">⚠️ <b>Enthält künstliche Süßstoffe</b> (z. B. Sucralose/Acesulfam) – kalorienarm, aber umstritten. Bei gesüßten Getränken deckelt es die Wertung auf höchstens „Mittel".</div>`:""}
     ${_istSupp?`<div id="riAmpel" data-pid="${esc(d.id)}"><div class="note" style="background:var(--k-f4f5f4);color:var(--muted)">Prüfe die Dosierung gegen die EFSA-Grenzwerte…</div></div>`:(!d.score_vollstaendig?`<div class="note teilhint">⚠️ Noch nicht voll bewertet (Zutatenqualität fehlt) – der Index kann sich ändern.</div>`:"")}
-    ${_istSupp?"":`<div id="riBindung" data-pid="${esc(d.id)}"></div>`}
     ${!hasFeat('pk_naehrwerte') ? pkSperre('Nährwerte pro 100 '+prodEinheit(d),'Energie, Fett, Zucker, Ballaststoffe, Eiweiß, Salz')
        : (mRows?`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin:18px 0 6px">Nährwerte pro 100 ${prodEinheit(d)}</div>${mRows}`:"")}
     ${warumBlock}
@@ -4838,7 +4854,7 @@ async function detail(d){
      Sie ersetzt bei Supplements den Platz, an dem sonst der Score steht. */
   if(typeof ladeReinheitsAmpel === "function") ladeReinheitsAmpel();
   /* Work #371: Ist die Zutatenliste nur teilweise zugeordnet, steht das hier. */
-  if(typeof ladeBindungsLuecke === "function") ladeBindungsLuecke();
+  if(typeof ladeBindungsLuecke === "function") ladeBindungsLuecke(d && d.id);
 }
 /* Ein gesperrter Block sagt, WAS fehlt und WARUM - er verschwindet nicht einfach.
    Ein Block, der spurlos fehlt, sieht aus wie ein Fehler; einer mit Schloss wie ein Angebot. */
@@ -14774,7 +14790,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-02-8";
+const APP_BUILD = "2026-09-02-9";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
