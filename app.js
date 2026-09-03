@@ -3144,6 +3144,13 @@ function detail2(d){
     + '</div>';
   document.getElementById("overlay").classList.add("open");
   if(_istSalz){ setTimeout(function(){ try{ ladeSalzFakten(d.id); }catch(e){} }, 30); }
+  /* Work #371, 02.09.2026 nachgezogen: der Aufruf stand am Ende von detail() -
+     also in einem Zweig, der nie laeuft. detail() gibt in der ersten Zeile
+     detail2(d) zurueck; alles danach ist toter Code fuer den Normalfall.
+     Gemessen am Live-Build 2026-09-03-4: 0 Aufrufe beim Oeffnen von P73618,
+     die Funktion selbst arbeitet (manuell gerufen erscheint der Kasten).
+     Deshalb steht der Aufruf jetzt dort, wo die Karte wirklich entsteht. */
+  if(typeof ladeBindungsLuecke === "function"){ try{ ladeBindungsLuecke(d && d.id); }catch(e){} }
 }
 /* Salz-Karte: "Was dieses Salz zusaetzlich liefert" (Jod/Fluorid/Folsaeure/Selen).
    Belegt aus Produkt_Mikronaehrstoffe + EFSA_Grenzwerte (RPC cb_salz_fakten).
@@ -14905,7 +14912,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-03-4";
+const APP_BUILD = "2026-09-03-5";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
