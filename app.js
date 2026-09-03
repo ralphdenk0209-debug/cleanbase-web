@@ -5221,9 +5221,11 @@ async function fgStammWaechter(){
        und v_product_ingredient_rating_resolution rief die Bewertungsfunktion
        38.061-mal einzeln auf. Bei 20,8 s geht auch kein zweiter Versuch durch.
 
-       Beides ist entkorreliert (Migration qa_offen_entkorreliert_v2_20260903),
-       Ergebnis unveraendert 8 Zeilen, Laufzeit 6,6 s. Bleibt trotzdem ein
-       Fehlschlag uebrig, sagt der Text jetzt, was wirklich zu tun ist. */
+       Behoben in drei Schritten, Ergebnis jedes Mal unveraendert 8 Zeilen:
+       entkorreliert 20,8 -> 13,2 s · LATERAL-Funktionsaufruf durch Join ersetzt
+       -> 6,6 s · Produktaufloesung materialisiert (mv_produkt_zutat_aufloesung)
+       und v_ingredient_rating einmal statt zweimal gerechnet -> 2,5 s.
+       Bleibt trotzdem ein Fehlschlag uebrig, sagt der Text jetzt, was zu tun ist. */
     var m=(e&&e.message)||String(e);
     var timeout=/timeout|canceling statement/i.test(m);
     box.innerHTML='<div class="fgSwFehl"><b>Stammwächterzahlen fehlen.</b> '
@@ -5233,7 +5235,7 @@ async function fgStammWaechter(){
       +' <button type="button" onclick="fgStammWaechter()" '
       +'style="margin-left:6px;padding:3px 10px;border-radius:7px;border:1px solid currentColor;'
       +'background:transparent;color:inherit;font-weight:700;cursor:pointer">nochmal holen</button>'
-      +(timeout?'<div style="font-size:11px;opacity:.85;margin-top:4px">Gemessen 03.09.: 6,6 s '
+      +(timeout?'<div style="font-size:11px;opacity:.85;margin-top:4px">Gemessen 03.09.: 2,5 s '
         +'(vorher 20,8 s). Wenn das hier wieder steht, ist es kein bekannter Zustand, '
         +'sondern ein neuer Befund — bitte melden.</div>':'')
       +'</div>';
@@ -14903,7 +14905,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-03-3";
+const APP_BUILD = "2026-09-03-4";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
