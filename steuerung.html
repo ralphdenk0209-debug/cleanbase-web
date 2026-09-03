@@ -1356,12 +1356,24 @@ async function abgelegt(id, ziel){
 
 async function projektPunktAktion(aufgabeId,aktion){
   const actor = $("actor").value;
-  const frage = aktion==="report"
-    ? "Welche Messung belegt, dass alle Aufgaben dieses Punkts umgesetzt sind?"
-    : "Stelle, Gegenfall und Messung für den ganzen Projektpunkt:";
-  const notiz = prompt(frage,"");
-  if(notiz===null) return;
-  if(!notiz.trim()) return alert("Ohne Messung keine Bündelmeldung oder Abnahme.");
+  /* Ralph, 03.09.: „wenn ich erledigt klicke, dann ist der abgenommen und ich
+     muss auch nicht begruenden." Die Messung hat der Agent bei der Meldung
+     geliefert; Ralphs Klick ist die Entscheidung. Der Server verlangt eine
+     Notiz - sie sagt dann nur, wer wann geklickt hat. Zurueckweisen fragt
+     weiter, denn ohne „was fehlt" kann niemand nachbessern. */
+  let notiz;
+  if(actor==="ralph" && aktion==="verify"){
+    notiz = "Abgenommen von Ralph auf der Steuerungsseite, " +
+      new Date().toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) + ".";
+  } else {
+    const frage = aktion==="report"
+      ? "Welche Messung belegt, dass alle Aufgaben dieses Punkts umgesetzt sind?"
+      : aktion==="reject" ? "Was fehlt? Ein Satz reicht."
+      : "Stelle, Gegenfall und Messung für den ganzen Projektpunkt:";
+    notiz = prompt(frage,"");
+    if(notiz===null) return;
+    if(!notiz.trim()) return alert("Ohne Messung keine Bündelmeldung oder Abnahme.");
+  }
   await schreiben(async ()=>{
     const r = aktion==="report"
       ? await client.rpc("cb_admin_agent_projektaufgabe_melden",{
