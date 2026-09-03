@@ -12191,10 +12191,12 @@ async function etikettSend(){
 
      WANN DIESER WEG GILT - alle vier Bedingungen, sonst der alte:
        angemeldet · Flag etikett_riki · NICHT im Tagebuch · Barcode vorhanden
-     Ohne Barcode ist Schluss: cb_riki_scan_einreihen verlangt >= 8 Ziffern, und
-     Ralph/ChatGPT haben am 19.08. entschieden, dass es dabei bleibt - ohne Barcode
-     laeuft es ueber "Produkt vorschlagen". KEIN erfundener Ersatz-Barcode; der
-     waere eine Zahl, die aussieht wie ein Beleg (§1.1).
+     🔴 GEAENDERT 03.09.2026 (Work #440, Ralph-Entscheid E35 A): Hier stand
+     "Ohne Barcode ist Schluss ... laeuft es ueber Produkt vorschlagen". Das gilt
+     nicht mehr. cb_riki_scan_einreihen verlangt weiterhin >= 8 Ziffern - ohne
+     Barcode uebernimmt jetzt der Zweig weiter unten mit cb_riki_ohne_ean_einreihen.
+     Unveraendert gilt: KEIN erfundener Ersatz-Barcode; der waere eine Zahl, die
+     aussieht wie ein Beleg (§1.1).
      Das Tagebuch bleibt vorerst auf dem alten Weg - dort fehlen Menge und
      Mahlzeit, die der Server zwingend verlangt. Das ist Stufe S4, nicht diese.
 
@@ -12248,6 +12250,48 @@ async function etikettSend(){
       /* Kein stiller Rueckfall: wenn das Einreihen scheitert, sagt die App das und
          nimmt danach den alten Weg - die Fotos des Nutzers gehen nicht verloren. */
       console.warn("cb_riki_scan_einreihen:",e);
+      etiMsg("Konnte nicht übergeben ("+((e&&e.message)||e)+"). Ich versuche den alten Weg…","var(--k-b45309)");
+    }
+  }
+
+  /* ==========================================================================
+     WORK #440 — OHNE BARCODE (Ralph-Entscheid E35 A, 02.09.2026)
+
+     Bis heute stand hier: "Ohne Barcode ist Schluss". Das galt, solange es keine
+     Identitaet gab - ein Produkt ohne Barcode war nicht wiedererkennbar. Seit dem
+     03.09. gibt es sie: der Server bildet sie aus Name und Hersteller vom Etikett,
+     sobald Riki gelesen hat, und meldet eine Dublette, wenn dasselbe Produkt schon
+     da ist (cb_riki_no_ean_identitaet_pruefen).
+
+     🔴 Es wird KEIN Ersatz-Barcode erfunden. Die Tuer heisst cb_riki_ohne_ean_einreihen
+     und arbeitet ohne EAN. Es ist die EINZIGE Tuer nach aussen: die innere
+     cb_riki_produkt_ohne_ean_einreihen hat fuer angemeldete Nutzer kein
+     Ausfuehrungsrecht mehr.
+
+     Ralph-Entscheid 03.09. (B): eine erkannte Dublette wird GEMELDET, nicht
+     zusammengefuehrt. Der Nutzer sieht deshalb hier keinen Unterschied - der
+     Verdacht steht am Produkt und ein Mensch entscheidet.
+
+     Das Tagebuch bleibt aussen vor: dort verlangt der Server Menge und Mahlzeit.
+     ========================================================================== */
+  if(session && feat("etikett_riki") && !etiImTagebuch() && _eanZiffern.length<8){
+    etiMsg("Kein Barcode erkannt – Fotos werden trotzdem übergeben…","var(--muted)");
+    try{
+      const {data:erg,error}=await client.rpc("cb_riki_ohne_ean_einreihen",{
+        p_produkt_id:null, p_fotos:arr, p_produktlink:null, p_kontext:"laden"
+      });
+      if(error) throw error;
+      const e = (typeof erg==="string") ? JSON.parse(erg) : (erg||{});
+      if(e && e.ok===false && e.status==="review"){
+        etiMsg("Diese Adresse gehört zu mehreren Produkten – bitte im Editor klären.","var(--k-b45309)");
+      } else {
+        ETI_SHOTS={}; renderEtiShots();
+        try{ rikiFabZustand("denkt"); }catch(x){}
+        etikettClose();
+        return;
+      }
+    }catch(e){
+      console.warn("cb_riki_ohne_ean_einreihen:",e);
       etiMsg("Konnte nicht übergeben ("+((e&&e.message)||e)+"). Ich versuche den alten Weg…","var(--k-b45309)");
     }
   }
@@ -14917,7 +14961,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-03-9";
+const APP_BUILD = "2026-09-03-10";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im

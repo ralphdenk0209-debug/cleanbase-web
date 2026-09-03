@@ -37,6 +37,7 @@
     cb_admin_agent_work_status      (Status + Notiz)
     cb_admin_agent_work_zuweisen    (Owner, Prioritaet, Entscheid noetig)
     cb_admin_agent_work_zuordnen    (Projektaufgabe, neu in #388)
+    cb_admin_agent_work_setzen      (neue Aufgabe anlegen — Karte bei Ralph, 03.09.)
     cb_admin_agent_projektaufgabe_melden      (ganzen Punkt fertig melden)
     cb_admin_agent_projektaufgabe_verifizieren(ganzen Punkt abnehmen)
   Es gibt hier keine nachgebaute Fachlogik. Der Server entscheidet (CLAUDE.md B1).
@@ -151,10 +152,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
   border-bottom-color:transparent}
 .paufgabe .panr{font-size:10.5px;font-weight:800;letter-spacing:.4px;flex:none;
   background:var(--karte2);border:1px solid var(--linie);border-radius:5px;padding:0 4px}
-.paufgabe .t{font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Ralph, 03.09.: „etwas hoeher darstellen, weil Text abgeschnitten wird".
+   Der Titel darf jetzt zwei Zeilen haben; der Stand rutscht bei Platznot in
+   die naechste Zeile statt den Titel auf „E…" zu kuerzen. */
+.paufgabe{flex-wrap:wrap;row-gap:2px}
+.paufgabe .t{font-size:12px;line-height:1.3;flex:1 1 120px;min-width:0;
+  white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 /* Aufgeklappt zeigt jeder Text seine ganze Laenge (Ralph, 02.09.: „beim
    aufklappen soll der komplette text sichtbar sein") */
-.paufgabe.auf .t{white-space:normal;overflow:visible;text-overflow:clip}
+.paufgabe.auf .t{white-space:normal;overflow:visible;text-overflow:clip;display:block;-webkit-line-clamp:unset}
 .paufgabe.auf{align-items:flex-start}
 .pa-auf .pa-item{align-items:flex-start}
 .pa-auf .pa-item .pit{white-space:normal;overflow:visible;text-overflow:clip}
@@ -220,11 +226,16 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .buendel{width:100%;margin-bottom:7px;font-size:11.5px;padding:4px}
 
 
-/* ---------- Panel rechts ---------- */
-.panel{position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);background:var(--bg2);
-  border-left:1px solid var(--linie);z-index:60;transform:translateX(102%);
-  transition:transform .16s ease;display:flex;flex-direction:column}
-.panel.auf{transform:none}
+/* ---------- Karte als Popup in der Mitte (Ralph, 03.09.) ----------
+   Vorher ein Seitenpanel rechts. Jetzt eine Karte: vier Rubriken, je hoechstens
+   drei Kurzsaetze. Wer mehr geschrieben hat, sieht „+ n weitere" - der Rest
+   bleibt lesbar, aber nicht im Weg. */
+.panel{position:fixed;left:50%;top:50%;width:min(560px,94vw);max-height:90vh;
+  background:var(--bg2);border:1px solid var(--linie);border-radius:14px;
+  box-shadow:0 18px 60px rgba(0,0,0,.55);z-index:60;
+  transform:translate(-50%,-50%) scale(.96);opacity:0;pointer-events:none;
+  transition:transform .14s ease,opacity .14s ease;display:flex;flex-direction:column}
+.panel.auf{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
 .panel-kopf{padding:12px 14px;border-bottom:1px solid var(--linie);display:flex;gap:8px;align-items:flex-start}
 .panel-koerper{padding:14px;overflow:auto;flex:1}
 .panel h3{margin:0 0 3px;font-size:14px;line-height:1.35}
@@ -256,6 +267,20 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 .ptext .block.fertig{border-left:3px solid var(--fertig)}
 .ptext .leerfeld{color:#5a6675;font-style:italic}
 .ptext .laedt{color:var(--schwach);font-size:12px;padding:4px 2px}
+/* Vier Rubriken als Stichpunkte (Ralph, 03.09.) */
+.ptext .rubriken{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ptext .block.warum{border-left:3px solid var(--haengt)}
+.ptext .block.fehlt{border-left:3px solid var(--laeuft)}
+.ptext .block ul{margin:0;padding-left:16px;font-size:12.5px;line-height:1.45}
+.ptext .block li{margin:0 0 3px}
+.ptext .block li:last-child{margin-bottom:0}
+.ptext .mehr{display:inline-block;margin-top:4px;font-size:11px;color:var(--st0);cursor:pointer;background:none;border:none;padding:0}
+.ptext .block.zu li.rest{display:none}
+.ptext .aendern{font-size:11px;color:var(--schwach);cursor:pointer;background:none;border:none;padding:0;margin:2px 0 8px}
+.ptext .aendern:hover{color:var(--text)}
+#pTexte{display:none}
+#pTexte.auf{display:block}
+@media (max-width:560px){ .ptext .rubriken{grid-template-columns:1fr} }
 
 .hinweis{margin:40px auto;max-width:560px;background:var(--bg2);border:1px solid var(--linie);
   border-radius:11px;padding:22px;text-align:center}
@@ -279,6 +304,15 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 .rb-zeile .rw{margin-left:auto;flex:none;font-size:11px;color:var(--schwach);white-space:nowrap}
 .rb-zeile.rb-punkt{cursor:default}
 .rb-zeile.rb-punkt button{flex:none;font-size:11px;padding:2px 8px}
+/* ---------- Neue Aufgabe · Karte ganz oben bei Ralph (Ralph, 03.09.) ----------
+   Ralph legt selbst an und ordnet zu. Geschrieben wird ueber
+   cb_admin_agent_work_setzen — dieselbe Tuer wie fuer die Agenten. */
+.rb-zeile.rb-neu{cursor:pointer;border:1px dashed var(--st0);border-radius:8px;
+  margin-bottom:6px;background:transparent}
+.rb-zeile.rb-neu .rid{color:var(--st0);font-weight:700}
+.rb-zeile.rb-neu:hover{background:var(--bg2)}
+.zaehler{font-size:10.5px;color:var(--schwach);text-align:right;margin-top:2px}
+.zaehler.voll{color:#c0392b;font-weight:700}
 .fussnote{color:var(--schwach);font-size:11.5px;padding:0 16px 26px;max-width:900px;line-height:1.6}
 
 @media (max-width:900px){ .stock-koerper{grid-template-columns:repeat(2,minmax(0,1fr)) !important} }
@@ -324,6 +358,16 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
     <div class="meldung" id="pMeldung"></div>
     <div class="weg" id="pWeg" style="display:none"></div>
     <div id="pText" class="ptext"></div>
+    <!-- Texte der vier Rubriken aendern (Ralph, 03.09.) — Tuer: cb_admin_agent_work_text -->
+    <div id="pTexte">
+      <div class="feld"><label>Worum geht es — 3 Kurzsätze</label>
+        <textarea id="tWorum" maxlength="600"></textarea><div class="zaehler" id="tWorumZ"></div></div>
+      <div class="feld"><label>Warum ist es nötig — 3 Kurzsätze</label>
+        <textarea id="tWarum" maxlength="300"></textarea><div class="zaehler" id="tWarumZ"></div></div>
+      <div class="feld"><label>Wann ist es erledigt — 3 Kurzsätze</label>
+        <textarea id="tFertig" maxlength="400"></textarea><div class="zaehler" id="tFertigZ"></div></div>
+      <div class="feld"><button id="tSpeichern">Texte speichern</button></div>
+    </div>
     <div class="feld"><label>Station</label>
       <select id="pStatus">
         <option value="open">offen</option>
@@ -351,7 +395,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
     <div class="feld"><label>Projektaufgabe</label>
       <select id="pZuordnung"><option value="">unverändert</option></select>
     </div>
-    <div class="feld"><label>Notiz — was gemessen wurde</label>
+    <div class="feld"><label>Was fehlt — Notiz, was gemessen wurde</label>
       <textarea id="pNotiz" placeholder="Zahl mit ihrem Gegenstand. Ohne Messung keine Statusänderung."></textarea>
     </div>
     <div class="stand" id="pMeta"></div>
@@ -359,6 +403,68 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
   <div class="panel-fuss">
     <button class="haupt" id="pSpeichern" style="flex:1">Eintragen</button>
     <button id="pAbnehmen" title="Nur bei „wartet auf Abnahme“">Abnehmen</button>
+  </div>
+</div>
+
+<!-- Neue Aufgabe anlegen (Ralph, 03.09.). Die Grenzen sind die der Datenbank:
+     Titel ein Satz, Beschreibung bis 600, Fertig-Kriterium bis 400 Zeichen (A7).
+     Ohne Projektpunkt weist der Server ab (#414) — die Karte waere sonst unsichtbar. -->
+<div class="panel" id="panelNeu">
+  <div class="panel-kopf">
+    <div style="flex:1">
+      <div class="stand">Neue Aufgabe</div>
+      <h3>Was soll gemacht werden?</h3>
+    </div>
+    <button id="nZu" title="Schließen">✕</button>
+  </div>
+  <div class="panel-koerper">
+    <div class="meldung" id="nMeldung"></div>
+    <div class="feld"><label>Titel — ein Satz, beginnt mit einem Tu-Wort</label>
+      <input id="nTitel" type="text" maxlength="160" placeholder="z. B. Zahlungssystem der App auf In-App-Kauf umstellen">
+    </div>
+    <div class="feld"><label>Worum geht es — 3 Kurzsätze</label>
+      <textarea id="nText" maxlength="600" placeholder="Was wird gemacht. Für wen. Was ist am Ende anders."></textarea>
+      <div class="zaehler" id="nTextZ">0 / 600</div>
+    </div>
+    <div class="feld"><label>Warum ist es nötig — 3 Kurzsätze</label>
+      <textarea id="nWarum" maxlength="300" placeholder="Was passiert, wenn wir es nicht tun."></textarea>
+      <div class="zaehler" id="nWarumZ">0 / 300</div>
+    </div>
+    <div class="feld"><label>Wann ist es erledigt — 3 Kurzsätze, prüfbar</label>
+      <textarea id="nFertig" maxlength="400" placeholder="Eine Zahl mit ihrem Gegenstand."></textarea>
+      <div class="zaehler" id="nFertigZ">0 / 400</div>
+    </div>
+    <div class="feld"><label>Projektpunkt — Pflicht</label>
+      <select id="nZuordnung"></select>
+    </div>
+    <div class="feld"><label>Thema</label>
+      <select id="nThema">
+        <option value="produkt-erfassen">Produkt erfassen</option>
+        <option value="riki-lesen">RIKI lesen</option>
+        <option value="zutaten-bewertung">Zutaten und Bewertung</option>
+        <option value="kernvertrag">Kernvertrag</option>
+        <option value="benutzer-app">Benutzer-App</option>
+        <option value="dashboard-steuerung">Dashboard und Steuerung</option>
+        <option value="betrieb-werkzeug">Betrieb und Werkzeug</option>
+        <option value="benchmark-kosten">Benchmark und Kosten</option>
+        <option value="projektsteuerung">Projektsteuerung</option>
+      </select>
+    </div>
+    <div class="feld"><label>Zuständig</label>
+      <select id="nOwner">
+        <option value="claude">claude</option>
+        <option value="chatgpt">chatgpt</option>
+        <option value="shared">shared</option>
+        <option value="ralph" selected>ralph</option>
+      </select>
+    </div>
+    <div class="feld"><label>Priorität (1–100)</label>
+      <input id="nPrio" type="number" min="1" max="100" value="50">
+    </div>
+    <div class="feld"><label><input id="nEntscheid" type="checkbox"> Ralph muss hier etwas entscheiden</label></div>
+  </div>
+  <div class="panel-fuss">
+    <button class="haupt" id="nAnlegen" style="flex:1">Anlegen</button>
   </div>
 </div>
 
@@ -681,9 +787,14 @@ function ralphBlockZeichnen(rows){
   for(const p of PROJEKTE) for(const a of (PAUFGABEN[p.id]||[]))
     if(a.status==="ready_for_verification") punkte.push({p,a});
   const alle = entscheiden.length + punkte.length;
-  if(!alle){
-    el.style.display = "none"; el.innerHTML = ""; return;
-  }
+  /* Die Karte „Neue Aufgabe" steht immer — auch wenn nichts zu entscheiden ist.
+     Vorher verschwand der ganze Block bei 0, und Ralph hatte keinen Einstieg. */
+  const neuKarte =
+    '<div class="rb-zeile rb-neu" id="rbNeu">' +
+      '<span class="rid">+ Neue Aufgabe</span>' +
+      '<span class="rt">Aufgabe anlegen und einem Projektpunkt zuordnen</span>' +
+      '<span class="rw">geht über cb_admin_agent_work_setzen</span>' +
+    '</div>';
   const punktZeile = ({p,a}) =>
     '<div class="rb-zeile rb-punkt">' +
       '<span class="rid">'+esc((p.kuerzel&&a.nummer)?p.kuerzel+"-"+a.nummer:a.aufgabe_id)+'</span>' +
@@ -705,9 +816,81 @@ function ralphBlockZeichnen(rows){
       '<span class="regel">'+entscheiden.length+' zu entscheiden · '+punkte.length+' Projektpunkte abzunehmen. ' +
       'Zeile anklicken öffnet die Aufgabe.</span></div>' +
     '<div class="rb-liste">' +
+      neuKarte +
       entscheiden.map(w=>zeile(w,"entscheiden")).join("") +
       punkte.map(punktZeile).join("") +
     '</div>';
+  const nk = $("rbNeu"); if(nk) nk.addEventListener("click", neuPanelAuf);
+}
+
+/* ---------- Neue Aufgabe anlegen (Ralph, 03.09.) ---------- */
+function neuPanelAuf(){
+  /* Projektpunkte fuellen — Pflichtfeld, sonst weist der Server ab (#414). */
+  let h = '<option value="">— bitte wählen —</option>';
+  for(const p of PROJEKTE){
+    if(p.id===OHNE_ID || !PAUFGABEN[p.id] || !PAUFGABEN[p.id].length) continue;
+    h += '<optgroup label="'+esc(p.kuerzel+" · "+p.name)+'">';
+    for(const a of PAUFGABEN[p.id]){
+      if(a.status==="verified") continue;
+      h += '<option value="'+esc(a.aufgabe_id)+'">'+esc((a.nummer?a.nummer+" ":"")+(a.titel||a.aufgabe_id))+'</option>';
+    }
+    h += '</optgroup>';
+  }
+  $("nZuordnung").innerHTML = h;
+  $("nMeldung").textContent = ""; $("nMeldung").className = "meldung";
+  $("panelNeu").classList.add("auf"); $("abdeckung").classList.add("auf");
+  $("nTitel").focus();
+}
+function neuPanelZu(){
+  $("panelNeu").classList.remove("auf");
+  if(!$("panel").classList.contains("auf")) $("abdeckung").classList.remove("auf");
+}
+function neuZaehler(){
+  const z = (id, zid, max) => {
+    const n = $(id).value.length; const e = $(zid);
+    e.textContent = n+" / "+max; e.className = "zaehler" + (n>=max ? " voll" : "");
+  };
+  z("nText","nTextZ",600); z("nWarum","nWarumZ",300); z("nFertig","nFertigZ",400);
+}
+function neuMelden(t, gut){
+  const m = $("nMeldung"); m.textContent = t; m.className = "meldung " + (gut ? "gut" : "schlecht");
+  const k = document.querySelector("#panelNeu .panel-koerper"); if(k) k.scrollTop = 0;
+}
+async function neuAnlegen(){
+  const actor = $("actor").value;
+  const titel = $("nTitel").value.trim();
+  const text = $("nText").value.trim();
+  const warum = $("nWarum").value.trim();
+  const fertig = $("nFertig").value.trim();
+  const pa = $("nZuordnung").value;
+  const prio = Number($("nPrio").value || 50);
+  if(!titel) return neuMelden("Ohne Titel keine Aufgabe. Ein Satz: was ist am Ende anders?", false);
+  if(!text) return neuMelden("Worum geht es? Drei Kurzsätze reichen.", false);
+  if(!warum) return neuMelden("Warum ist es nötig? Ohne Grund keine Aufgabe.", false);
+  if(!fertig) return neuMelden("Wann ist es erledigt? Ohne prüfbares Kriterium wird nie etwas fertig.", false);
+  if(saetze(text).length>3 || saetze(warum).length>3 || saetze(fertig).length>3)
+    return neuMelden("Höchstens drei Kurzsätze je Rubrik. Kürzen, nicht erklären.", false);
+  if(!pa) return neuMelden("Ein Projektpunkt ist Pflicht — sonst ist die Karte auf der Tafel unsichtbar.", false);
+  if(isNaN(prio)||prio<1||prio>100) return neuMelden("Priorität nur 1 bis 100.", false);
+  $("nAnlegen").disabled = true;
+  try{
+    const r = await client.rpc("cb_admin_agent_work_setzen", {
+      p_actor: actor, p_owner: $("nOwner").value, p_area: $("nThema").value,
+      p_title: titel, p_description: text, p_acceptance_criteria: fertig,
+      p_product_id: null, p_priority: prio, p_dependency_work_id: null,
+      p_decision_needed: $("nEntscheid").checked,
+      p_evidence: { angelegt_ueber: "steuerung.html", von: actor },
+      p_projekt_aufgabe_id: pa, p_warum: warum });
+    if(r.error) throw r.error;
+    neuMelden("Angelegt als #"+r.data+". Die Tafel wird neu gemessen.", true);
+    $("nTitel").value=""; $("nText").value=""; $("nWarum").value=""; $("nFertig").value=""; neuZaehler();
+    await laden();
+    setTimeout(neuPanelZu, 700);
+  }catch(e){
+    neuMelden((e && e.message) || String(e), false);
+  }finally{
+    $("nAnlegen").disabled = false;
+  }
 }
 
 /* Ein Satz reicht Ralph zum Entscheiden. Gekuerzt wird an der Satzgrenze, nicht
@@ -1231,6 +1414,7 @@ function panelAuf(id){
   $("pZuordnung").value = "";
   $("pNotiz").value = "";
   $("pMeldung").className = "meldung";
+  $("pTexte").classList.remove("auf");
 
   /* Work Items werden nur als umgesetzt gemeldet; abgenommen wird der Punkt. */
   if(w.status==="ready_for_verification"){
@@ -1275,19 +1459,82 @@ async function textNachladen(id){
 
   AKTUELL.description = d.description;
   AKTUELL.acceptance_criteria = d.acceptance_criteria;
+  AKTUELL.warum = d.warum;
 
-  const block = (klasse,titel,text) =>
-    '<div class="block '+klasse+'"><b>'+esc(titel)+'</b><p>' +
-    (nullif(text) ? esc(text) : '<span class="leerfeld">leer</span>') + '</p></div>';
+  /* Vier Rubriken, je hoechstens drei Kurzsaetze (Ralph, 03.09.). Was laenger
+     ist, steht hinter „+ n weitere" — gekuerzt wird die Anzeige, nie der Text. */
+  const rubrik = (klasse,titel,text,leer) => {
+    const s = saetze(text);
+    if(!s.length) return '<div class="block '+klasse+'"><b>'+esc(titel)+'</b><p><span class="leerfeld">'+esc(leer)+'</span></p></div>';
+    const li = s.map((x,i)=>'<li class="'+(i>=3?'rest':'')+'">'+esc(x)+'</li>').join("");
+    const mehr = s.length>3 ? '<button class="mehr" data-mehr>+ '+(s.length-3)+' weitere</button>' : '';
+    return '<div class="block '+klasse+(s.length>3?' zu':'')+'"><b>'+esc(titel)+'</b><ul>'+li+'</ul>'+mehr+'</div>';
+  };
 
   $("pText").innerHTML =
-    block("","Worum geht es", d.description) +
-    block("fertig","Wann ist es fertig", d.acceptance_criteria) +
-    block("stand","Wie weit ist es", d.result_note) +
+    '<div class="rubriken">' +
+      rubrik("","Worum geht es", d.description, "noch nicht eingetragen") +
+      rubrik("warum","Warum ist es nötig", d.warum, "noch nicht eingetragen") +
+      rubrik("fertig","Wann ist es erledigt", d.acceptance_criteria, "kein prüfbares Kriterium") +
+      rubrik("fehlt","Was fehlt", d.result_note, "noch keine Messung") +
+    '</div>' +
     (nullif(d.verification_note)
-      ? block("","Letzte Abnahmenotiz von "+(d.verifier_agent||"—"), d.verification_note) : "");
+      ? rubrik("","Letzte Abnahmenotiz von "+(d.verifier_agent||"—"), d.verification_note, "") : "") +
+    '<button class="aendern" id="pTexteAuf">✎ Texte der Rubriken ändern</button>';
+
+  $("pText").querySelectorAll("[data-mehr]").forEach(b => b.addEventListener("click", ev => {
+    const bl = ev.target.closest(".block"); bl.classList.toggle("zu");
+    ev.target.textContent = bl.classList.contains("zu") ? "+ "+(bl.querySelectorAll("li.rest").length)+" weitere" : "weniger";
+  }));
+  $("pTexteAuf").addEventListener("click", () => {
+    $("tWorum").value = d.description||""; $("tWarum").value = d.warum||""; $("tFertig").value = d.acceptance_criteria||"";
+    textZaehler();
+    $("pTexte").classList.toggle("auf");
+  });
 }
 function nullif(s){ return s!=null && String(s).trim()!==""; }
+
+/* Text in Kurzsaetze zerlegen: an Satzende oder Zeilenumbruch. Ein Aufzaehlungs-
+   punkt am Anfang faellt weg. Nichts wird umformuliert. */
+function saetze(t){
+  const s = String(t||"").replace(/\r/g,"").trim();
+  if(!s) return [];
+  return s.split(/(?<=[.!?])\s+(?=[A-ZÄÖÜ0-9„"(])|\n+|\s+[·•]\s+/)
+          .map(x => x.replace(/^[\s\-–•·*]+/,"").trim())
+          .filter(Boolean);
+}
+function textZaehler(){
+  const z = (id, zid, max) => {
+    const n = $(id).value.length; const e = $(zid);
+    e.textContent = n+" / "+max; e.className = "zaehler" + (n>=max ? " voll" : "");
+  };
+  z("tWorum","tWorumZ",600); z("tWarum","tWarumZ",300); z("tFertig","tFertigZ",400);
+}
+async function texteSpeichern(){
+  if(!AKTUELL) return;
+  const actor = $("actor").value;
+  const worum = $("tWorum").value.trim(), warum = $("tWarum").value.trim(), fertig = $("tFertig").value.trim();
+  const geaendert = {
+    p_description: worum!==(AKTUELL.description||"") ? worum : null,
+    p_warum: warum!==(AKTUELL.warum||"") ? warum : null,
+    p_acceptance_criteria: fertig!==(AKTUELL.acceptance_criteria||"") ? fertig : null
+  };
+  if(geaendert.p_description===null && geaendert.p_warum===null && geaendert.p_acceptance_criteria===null)
+    return melden("Nichts geändert.", false);
+  $("tSpeichern").disabled = true;
+  try{
+    const r = await client.rpc("cb_admin_agent_work_text", Object.assign(
+      { p_work_id:AKTUELL.work_id, p_actor:actor, p_grund:"Rubriken auf der Karte geändert" }, geaendert));
+    if(r.error) throw r.error;
+    melden("Texte gespeichert.", true);
+    $("pTexte").classList.remove("auf");
+    textNachladen(AKTUELL.work_id);
+  }catch(e){
+    melden((e && e.message) || String(e), false);
+  }finally{
+    $("tSpeichern").disabled = false;
+  }
+}
 
 function panelZu(){
   $("panel").classList.remove("auf"); $("abdeckung").classList.remove("auf"); AKTUELL=null;
@@ -1394,10 +1641,19 @@ $("btnLaden").addEventListener("click", laden);
 $("fThema").addEventListener("change", zeichnen);
 $("fOwner").addEventListener("change", zeichnen);
 $("pZu").addEventListener("click", panelZu);
-$("abdeckung").addEventListener("click", panelZu);
+$("abdeckung").addEventListener("click", ()=>{ panelZu(); neuPanelZu(); });
 $("pSpeichern").addEventListener("click", eintragen);
 $("pAbnehmen").addEventListener("click", abnehmen);
-document.addEventListener("keydown", e => { if(e.key==="Escape") panelZu(); });
+$("nZu").addEventListener("click", neuPanelZu);
+$("nAnlegen").addEventListener("click", neuAnlegen);
+$("nText").addEventListener("input", neuZaehler);
+$("nWarum").addEventListener("input", neuZaehler);
+$("nFertig").addEventListener("input", neuZaehler);
+$("tSpeichern").addEventListener("click", texteSpeichern);
+$("tWorum").addEventListener("input", textZaehler);
+$("tWarum").addEventListener("input", textZaehler);
+$("tFertig").addEventListener("input", textZaehler);
+document.addEventListener("keydown", e => { if(e.key==="Escape"){ panelZu(); neuPanelZu(); } });
 
 /* Merken, welcher Actor zuletzt geschrieben hat — spart einen Klick je Sitzung. */
 try{
