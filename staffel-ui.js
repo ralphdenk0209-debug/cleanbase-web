@@ -215,18 +215,26 @@ function _stfMal(){
   });
 }
 
-async function staffelnLaden(){
-  var b=_stfBox(); b.style.display='block';
-  b.innerHTML=_stfRahmen('<div style="padding:26px 0;font-size:13px;opacity:.7">lädt…</div>');
+/* 🔴 03.09.2026, Ralph: die Notenleiter wird zusaetzlich ZUM REITER im
+   Zutatenstamm. Dafuer nimmt staffelnLaden jetzt ein Ziel entgegen. Ohne Ziel
+   bleibt alles wie bisher — dasselbe Overlay, derselbe Aufruf aus dem Menue.
+   Ein Ziel heisst: fest in die Seite gerendert, ohne Rahmen und Schliessknopf.
+   EINE Ladefunktion, zwei Anzeigeorte — kein zweiter Aufbau (§22). */
+async function staffelnLaden(ziel){
+  var inline=!!(ziel&&ziel.nodeType===1);
+  var b = inline ? ziel : _stfBox();
+  var huelle = inline ? function(x){ return x; } : _stfRahmen;
+  if(!inline) b.style.display='block';
+  b.innerHTML=huelle('<div style="padding:26px 0;font-size:13px;opacity:.7">lädt…</div>');
   try{
     var r=await client.rpc('cb_admin_bewertungsregeln_suchen',{p_suche:null,p_limit:500});
     if(r&&r.error) throw r.error;
     _STF=(r&&r.data)||[];
     var prinz=_STF.filter(function(x){ return x.bereich==='prinzipien'; });
-    b.innerHTML=_stfRahmen(_stfKopf(prinz)+_stfSuche()+'<div id="stfInhalt"></div>');
+    b.innerHTML=huelle(_stfKopf(prinz)+_stfSuche()+'<div id="stfInhalt"></div>');
     _stfMal();
   }catch(e){
-    b.innerHTML=_stfRahmen('<div style="background:#fdeaea;border:1px solid #f0a9a4;'
+    b.innerHTML=huelle('<div style="background:#fdeaea;border:1px solid #f0a9a4;'
       +'border-radius:10px;padding:12px 14px;color:#b3261e;font-size:13px">'
       +'<b>Regelwerk nicht ladbar.</b><br>'+_stfEsc((e&&e.message)||String(e))+'</div>');
     try{ console.error('[Staffeln]',e); }catch(_){}

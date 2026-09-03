@@ -5245,11 +5245,22 @@ function fgStammPanelBauen(){
        woanders landen. */
     host.innerHTML=
       '<div id="fgStammWaechter" class="fgStammWaechter"></div>'+
-      '<div class="fgStKopf">'
-        +'<div class="fgStTabs">'
+      /* 🔴 03.09.2026, Ralph: „darin eine 2 seiter erstellen, das regelwerk
+         hineinschieben … zweite seite mit den staffeln … dritte seite,
+         bildliche darstellung, wie eine neue zutat bewertet wird."
+         Drei zusaetzliche Reiter neben den zwei Stamm-Listen. KEIN Nachbau:
+         das Regelwerk ist der VORHANDENE Knoten #fgRegelwerk, der hierher
+         umgehaengt wird (§22, eine Regel an einem Ort), und die Staffeln sind
+         die vorhandene Notenleiter aus staffel-ui.js. */
+      '<div class="fgStTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">'
           +'<button type="button" id="fgStTabNeu" class="fgStTab akt" onclick="fgStammTab(\'neu\')">Neuer Stamm</button>'
           +'<button type="button" id="fgStTabAlt" class="fgStTab" onclick="fgStammTab(\'alt\')">Alter Stamm</button>'
-        +'</div>'
+          +'<button type="button" id="fgStTabRw" class="fgStTab" onclick="fgStammTab(\'regelwerk\')">📖 Regelwerk</button>'
+          +'<button type="button" id="fgStTabStf" class="fgStTab" onclick="fgStammTab(\'staffeln\')">🪜 Staffeln</button>'
+          +'<button type="button" id="fgStTabAbl" class="fgStTab" onclick="fgStammTab(\'ablauf\')">🖼️ So wird bewertet</button>'
+      +'</div>'
+      +'<div id="fgStListe">'
+      +'<div class="fgStKopf">'
         +'<span id="fgStTag" class="fgSwTag canon">Canonical · maßgeblich</span>'
         +'<input id="fgStSuche" placeholder="Name suchen …" onkeydown="if(event.key===\'Enter\'){_fgStamm.offset=0;fgStammListe();}">'
         /* 🔴 KORREKTUR 15.08.2026: hier stand zusaetzlich <option value="review">.
@@ -5288,17 +5299,34 @@ function fgStammPanelBauen(){
       +'<div class="fgStFuss">'
         +'<button type="button" onclick="fgStammBlaettern(-1)">‹ zurück</button>'
         +'<button type="button" onclick="fgStammBlaettern(1)">weiter ›</button>'
-      +'</div>';
+      +'</div>'
+      +'</div>'  /* Ende #fgStListe */
+      +'<div id="fgStSeite" style="display:none"></div>';
   }
-  fgStammListe();
+  /* Kam der Aufruf ueber den alten Weg adminGo('regelwerk'), oeffnet der Stamm
+     direkt auf dem Regelwerk-Reiter — der Menuepunkt fuehrt also weiter dorthin,
+     wo er immer hinfuehrte, nur an seinem neuen Ort. */
+  var _start=window._fgStammStart; window._fgStammStart=null;
+  fgStammTab(_start || (_fgStamm.tab==='alt'?'alt':'neu'));
 }
 function fgStammTab(t){
+  /* Drei der fuenf Reiter sind Lese-Seiten und fassen die Liste nicht an. */
+  var _seite={regelwerk:1,staffeln:1,ablauf:1}[t] ? t : null;
+  var lst=document.getElementById('fgStListe'), sei=document.getElementById('fgStSeite');
+  ['fgStTabNeu','fgStTabAlt','fgStTabRw','fgStTabStf','fgStTabAbl'].forEach(function(id,i){
+    var e=document.getElementById(id); if(!e) return;
+    e.className='fgStTab'+(t===['neu','alt','regelwerk','staffeln','ablauf'][i]?' akt':'');
+  });
+  if(_seite){
+    if(lst) lst.style.display='none';
+    if(sei){ sei.style.display=''; fgStammSeite(_seite); }
+    return;
+  }
+  if(lst) lst.style.display='';
+  if(sei) sei.style.display='none';
   _fgStamm.tab=t; _fgStamm.offset=0;
-  var a=document.getElementById('fgStTabNeu'), b=document.getElementById('fgStTabAlt'),
-      tag=document.getElementById('fgStTag'), st=document.getElementById('fgStStatus'),
+  var tag=document.getElementById('fgStTag'), st=document.getElementById('fgStStatus'),
       bw=document.getElementById('fgStBew');
-  if(a) a.className='fgStTab'+(t==='neu'?' akt':'');
-  if(b) b.className='fgStTab'+(t==='alt'?' akt':'');
   /* Die Kennzeichnung wechselt mit — beide sind NICHT gleichwertig (Ralph). */
   if(tag){ tag.className='fgSwTag '+(t==='neu'?'canon':'legacy');
     tag.textContent=(t==='neu')?'Canonical · maßgeblich':'Legacy · Übergang / Kontrolle'; }
@@ -5313,6 +5341,72 @@ function fgStammTab(t){
   if(bw && t!=='neu') bw.value='alle';
   fgStammListe();
 }
+/* ── Die drei Leseseiten des Stamms ──────────────────────────────────────────
+   Ralph-Auftrag 03.09.2026. Keine dieser Seiten rechnet oder entscheidet etwas.
+   Regelwerk und Staffeln sind UMGEHAENGTE bzw. AUFGERUFENE vorhandene Bausteine
+   — kein zweiter Regelspeicher, keine zweite Notenleiter (§22, A4).           */
+function fgStammSeite(k){
+  var ziel=document.getElementById('fgStSeite'); if(!ziel) return;
+  if(k==='regelwerk'){
+    /* Den vorhandenen Knoten VERSCHIEBEN, nicht kopieren. Eine zweite Kopie
+       waere eine zweite Wahrheit, die driftet. */
+    var q=document.getElementById('fgPanelRegelwerk');
+    if(q && q.parentNode!==ziel){ ziel.innerHTML=''; q.style.display=''; ziel.appendChild(q); }
+    else if(q){ q.style.display=''; }
+    try{ if(typeof loadRegelwerk==='function' && !ziel.dataset.rwGeladen){ ziel.dataset.rwGeladen='1'; loadRegelwerk(); } }catch(e){}
+    return;
+  }
+  if(k==='staffeln'){
+    ziel.innerHTML='<div id="fgStStaffelZiel"><div class="fgSwLad">Wird geladen …</div></div>';
+    try{ if(typeof staffelnLaden==='function') staffelnLaden(document.getElementById('fgStStaffelZiel')); }
+    catch(e){ ziel.innerHTML='<div style="color:var(--k-dc2626)">Notenleiter nicht ladbar.</div>'; }
+    return;
+  }
+  if(k==='ablauf'){ ziel.innerHTML=fgStammAblaufBild(); return; }
+}
+if(typeof window!=='undefined') window.fgStammSeite=fgStammSeite;
+
+/* Der Ablauf als Bild. Ralph: „einfach und verständlich für ein Kind."
+   Die Reihenfolge ist NICHT ausgedacht, sie ist der Weg, den jede Zutat in
+   diesem System wirklich nimmt — Prinzip 3 (nur Verarbeitung), Staffelvorrang,
+   Prinzip 9 (im Zweifel vorsichtiger) und der Riegel „keine Zahl ohne Regel". */
+function fgStammAblaufBild(){
+  var S=[
+    {n:'1', t:'Wie heißt sie?',        f:'Schreib den Namen genau so auf, wie er auf der Packung steht.', i:'📝', c:'#3aa860'},
+    {n:'2', t:'Gibt es sie schon?',    f:'Erst nachsehen. Eine Zutat, die es schon gibt, wird ergänzt — nicht zweimal angelegt.', i:'🔍', c:'#3aa860'},
+    {n:'3', t:'Passt eine Staffel?',   f:'Eine Staffel ist eine fertige Regel für eine ganze Gruppe — Milch, Getreide, Salz, Öl. Passt eine, gilt sie. Immer.', i:'🪜', c:'#7cb342'},
+    {n:'4', t:'Wie stark verarbeitet?',f:'Nur das zählt. Nicht ob es gesund ist. 10 = kommt so aus der Natur. 2 = im Werk zu etwas Neuem gemacht.', i:'⚙️', c:'#c9911f'},
+    {n:'5', t:'Steht die Zahl da?',    f:'Die Zahl muss in einer Regel stehen. „Ähnlich wie" reicht nicht.', i:'📖', c:'#d1761c'},
+    {n:'6', t:'Sonst: kein Wert.',     f:'Wenn keine Regel passt, bleibt das Feld leer und wir schreiben auf, warum. Eine geratene Zahl ist schlimmer als gar keine.', i:'🚫', c:'#b3261e'}
+  ];
+  var h='<div style="max-width:980px">'
+   +'<div style="font-size:17px;font-weight:800;margin:2px 0 3px">So bekommt eine neue Zutat ihre Note</div>'
+   +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:16px">Sechs Schritte, immer dieselbe Reihenfolge. Wer einen überspringt, rät.</div>'
+   +'<div style="display:flex;flex-direction:column;gap:0">';
+  S.forEach(function(s,ix){
+    h+='<div style="display:flex;gap:14px;align-items:stretch">'
+      +'<div style="display:flex;flex-direction:column;align-items:center;width:56px;flex:0 0 56px">'
+        +'<div style="width:52px;height:52px;border-radius:50%;background:'+s.c+';color:#fff;'
+        +'display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 52px">'+s.i+'</div>'
+        +(ix<S.length-1?'<div style="flex:1;width:3px;background:'+s.c+';opacity:.35;min-height:18px"></div>':'')
+      +'</div>'
+      +'<div style="flex:1;min-width:0;padding-bottom:'+(ix<S.length-1?'16px':'0')+'">'
+        +'<div style="font-size:15px;font-weight:800;color:var(--ink)">'
+        +'<span style="color:'+s.c+'">'+s.n+'.</span> '+esc(s.t)+'</div>'
+        +'<div style="font-size:13.5px;color:var(--ink);line-height:1.55;margin-top:2px;opacity:.85">'+esc(s.f)+'</div>'
+      +'</div></div>';
+  });
+  h+='</div>'
+   +'<div style="margin-top:20px;border:2px solid #b3261e;border-radius:12px;padding:13px 15px;background:rgba(179,38,30,.06)">'
+   +'<div style="font-weight:800;font-size:14px;color:#b3261e">Die eine harte Regel</div>'
+   +'<div style="font-size:13.5px;line-height:1.55;margin-top:3px">Jede Zahl kommt aus einer Regel, einer Herleitung oder einer wissenschaftlichen Quelle. '
+   +'Geschätzt, gerundet oder von einer ähnlichen Zutat abgeschrieben ist dasselbe wie erfunden.</div></div>'
+   +'<div style="margin-top:14px;font-size:12px;color:var(--muted)">Die Leiter mit allen zehn Sprossen steht im Reiter <b>🪜 Staffeln</b>, die Regeln im Wortlaut unter <b>📖 Regelwerk</b>.</div>'
+   +'</div>';
+  return h;
+}
+if(typeof window!=='undefined') window.fgStammAblaufBild=fgStammAblaufBild;
+
 function fgStammBlaettern(d){
   var n=_fgStamm.offset + d*_fgStamm.limit;
   if(n<0) n=0;
@@ -5489,7 +5583,13 @@ if(typeof window!=='undefined'){
 
 function fgTab(t){ if(t==='scans') t='zuverif'; window._fgTab=t;
   try{ var _ov=document.getElementById("overlay"); if(_ov&&_ov.classList.contains("fgEditorFull")) closeP(); }catch(e){}  /* Menue-Wechsel schliesst den Vollbild-Editor */
-  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif',regelwerk:'fgPanelRegelwerk',produkterfassung:'fgPanelProdErf',stamm:'fgPanelStamm'};
+  /* 🔴 03.09.2026: 'regelwerk' ist hier RAUS. Das Panel wohnt seit heute im
+     Zutatenstamm (Reiter 📖 Regelwerk) und wird von fgStammSeite() ein- und
+     ausgeblendet. Bliebe es in dieser Liste, setzte die Schleife unten es beim
+     Wechsel auf 'stamm' auf display:none — die Seite waere leer, und zwar
+     genau dann, wenn man sie sehen will. */
+  var p={dash:'fgPanelDash',produkte:'fgPanelProdukte',bundles:'fgPanelBundles',rezepte:'fgPanelRezepte',scans:'fgPanelScans',kontakt:'fgPanelKontakt',empfehlungen:'fgPanelEmpfehlungen',zuverif:'fgPanelZuverif',produkterfassung:'fgPanelProdErf',stamm:'fgPanelStamm'};
+  if(t==='regelwerk'){ t='stamm'; window._fgTab='stamm'; window._fgStammStart='regelwerk'; }
   if(t==='stamm'){
     try{ fgStammPanelBauen(); }catch(e){ console.error('[Stamm] Panel:',e); }
     try{ fgStammWaechter(); }catch(e){ console.warn('[Stammwächter]',e); }
@@ -14790,7 +14890,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-02-10";
+const APP_BUILD = "2026-09-03-1";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im

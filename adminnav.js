@@ -63,11 +63,16 @@ function applyAdminMode(){
          anzeige oder link." GEMESSEN: adminGo('stamm') gibt es seit Langem und
          funktioniert (Zeile 237), aber im Menue stand kein Knopf dafuer. Ein
          vorhandener Weg ohne Tuer — genau der Fall aus Paragraf 3.1. */
+      /* 🔴 03.09.2026, Ralph: „aktiviere den zutatenstamm wieder im admin, der
+         button soll wieder links in das adminmenue." Der Knopf steht jetzt fest
+         hier — ohne FEATURES-Schalter, der ihn stillschweigend ausblenden kann.
+         Er fuehrt auf einen Bereich mit fuenf Reitern: die zwei Stammlisten plus
+         Regelwerk, Staffeln und den bebilderten Bewertungsablauf. */
       +_an('stamm','🧬','Zutatenstamm',"adminGo('stamm')")
       /* 🔴 26.08.2026, Ralph: die Entscheidung, was wo hin kommt, muss er auch
          ohne KI treffen koennen. Die Notenleiter zeigt die 117 Staffeln nach Note
          sortiert, mit Herleitung und Quelle - als Vergleichsmaterial. */
-      +_an('staffeln','🪜','Notenleiter',"staffelnOeffnen()")
+      /* Notenleiter: siehe Hinweis weiter unten — jetzt Reiter im Zutatenstamm. */
       /* 🔴 26.08.2026, Work #301: vier fertige Serverwege fuer die automatische
          Zutatenbewertung hatten keine Tuer - gemessen 0 Treffer im ganzen
          Frontend. Das ist der Knopf dazu. */
@@ -79,7 +84,10 @@ function applyAdminMode(){
       +_an('mikro','🥗','Nährstoffe',"adminGo('mikro')")
       +_an('dubletten','👯','Dubletten',"adminGo('dubletten')")
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
-      +_an('regelwerk','📖','Regelwerk',"adminGo('regelwerk')",' id="amRegelwerk" style="display:none"')
+      /* 🔴 03.09.2026: Regelwerk und Notenleiter haben hier keinen eigenen Knopf
+         mehr. Beide wohnen als Reiter im Zutatenstamm — dort, wo man sie
+         braucht. Die alten Wege adminGo('regelwerk') und staffelnOeffnen()
+         funktionieren unveraendert weiter, sie landen nur an der neuen Stelle. */
       +_an('stufen','🎚️','Stufen',"adminGo('stufen')")
       +_an('fotostudio','📸','Fotostudio',"adminGo('fotostudio')")
       /* 27.08.2026, Ralph: Video-Skript 01 (Vorstellung Root Index) als eigene
