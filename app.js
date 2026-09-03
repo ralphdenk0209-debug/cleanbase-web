@@ -824,14 +824,12 @@ async function ladeBindungsLuecke(produktId){
     box.innerHTML=''; return;
   }
   if(!b || b.ok===false || b.zustand!=='teilgebunden'){ box.innerHTML=''; return; }
-  /* 03.09.2026 gemessen an P73597: dort stand als "fehlende Zutat" der Satz
-     "¹aus kontrolliert biologischem Anbau. Kann Spuren von Sesam ... enthalten".
-     Das ist ein Kennzeichnungstext, keine Zutat - der Server sagt das im Grund,
-     der Editor zeigt ihn, die Karte nicht. Ein Endnutzer liest sonst einen
-     Warnsatz als fehlende Zutat. Gefiltert wird nach dem Grund vom Server,
-     nicht nach dem Text - die Regel bleibt beim Server. */
-  const lk = (Array.isArray(b.luecken) ? b.luecken : [])
-    .filter(l => !/kennzeichnungstext/i.test(String((l && l.grund) || '')));
+  /* 03.09.2026: hier stand kurzzeitig ein Filter gegen Kennzeichnungstexte.
+     Er war am falschen Ort - die Regel "ein Kennzeichnungstext ist keine Zutat"
+     gehoert in cb_produkt_bindung_stand, sonst haetten Karte und Editor zwei
+     verschiedene Wahrheiten. Der Server filtert jetzt selbst; die Karte zeigt,
+     was er liefert. Gemessen an P73597: dort ist der Zustand nun gebunden. */
+  const lk = Array.isArray(b.luecken) ? b.luecken : [];
   const namen = lk.map(l => esc(String((l && l.name) || ''))).filter(Boolean);
   const liste = namen.length
     ? ' Es fehlen noch: <b>' + namen.slice(0, 6).join('</b>, <b>') + '</b>'
@@ -14919,7 +14917,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-03-7";
+const APP_BUILD = "2026-09-03-8";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
