@@ -5137,9 +5137,15 @@ var _fgStamm={tab:'neu', suche:'', status:'active', offset:0, limit:100, total:0
 
 /* ── Dashboard-Block: zwei Zeilen, nicht zwanzig Karten (Ralph) ──────────── */
 /* 🔴 15.08.2026, Ralph im Browser: „timeout beim waechter, aber kommt nicht immer".
-   Das deckt sich mit der Messung: cb_admin_stamm_waechter braucht 4.932 ms KALT und
-   4.102 ms WARM — die Laufzeit liegt auf der Timeout-Grenze, deshalb mal so, mal so.
-   Der zweite Versuch geht durch, weil die Puffer dann warm sind.
+   Damals gedeutet als „liegt auf der Timeout-Grenze, warme Puffer helfen".
+
+   ✅ 03.09.2026 NACHGEMESSEN und behoben — die Deutung war falsch. Nicht 4,9 s,
+   sondern 20,8 s, und nicht die Puffer, sondern zwei N+1-Muster in genau einer
+   Abfrage (v_zutaten_qa_offen): die Regelpruefung lief viermal je Zeile, und die
+   Bewertungsfunktion wurde ueber v_product_ingredient_rating_resolution 38.061-mal
+   einzeln gerufen. Beides entkorreliert, Ergebnis unveraendert 8 Zeilen, jetzt 6,6 s.
+   Der automatische zweite Versuch unten bleibt als Netz stehen — er ist jetzt aber
+   die Ausnahme und nicht mehr der Normalfall.
 
    Deshalb EIN automatischer zweiter Versuch — und zwar mit sichtbarem Hinweis, nicht
    still. Ein stiller Retry wuerde das Problem verdecken, und verdeckt heisst: es wird
@@ -5204,25 +5210,32 @@ async function fgStammWaechter(){
         +'⚠ erst im zweiten Anlauf geladen — die Abfrage liegt auf der Zeitgrenze (bekannt, Datenbankseite)</span>':'')
       +'<button type="button" onclick="navTo(\'freigabe\');fgTab(\'stamm\')">Stamm öffnen →</button></div>';
   }catch(e){
-    /* 🔴 15.08.2026, im Browser gemessen: cb_admin_stamm_waechter braucht 4,9 s
-       bei 2.041.329 Buffer-Treffern (EXPLAIN ANALYZE). Beim Seitenaufbau lief es
-       deshalb in „canceling statement due to statement timeout", und oben auf dem
-       Dashboard stand ein rotes Band. Der zweite, warme Aufruf ging in 4,1 s durch.
-       Die URSACHE ist serverseitig und gehoert ChatGPT (§31) — als Work Item #16
-       uebergeben. Hier wird nur die Wirkung ertraeglich gemacht: der Grund steht
-       im Klartext da, und ein Knopf holt die Zahlen nach. Ein stiller Fehlschlag
-       waere schlimmer, ein rotes Band ohne Ausweg nutzlos (§1.7, §11.4). */
+    /* 🔴 KORRIGIERT 03.09.2026. Hier stand seit dem 15.08.: „Das ist bekannt und
+       liegt an der Datenbank, nicht an dieser Seite", dazu „4,9 s, der zweite
+       Versuch geht meist durch". Beides war falsch, und der Satz hat elf Tage
+       lang verhindert, dass jemand nachsieht — eine Ausrede ist kein Befund.
+
+       GEMESSEN 03.09. mit EXPLAIN ANALYZE: der Waechter brauchte 20,8 s, nicht
+       4,9. Davon entfielen 20,76 s auf EINE Abfrage, v_zutaten_qa_offen, und
+       dort auf zwei N+1-Muster: cb_zutat_regel_pruefen lief viermal je Zeile,
+       und v_product_ingredient_rating_resolution rief die Bewertungsfunktion
+       38.061-mal einzeln auf. Bei 20,8 s geht auch kein zweiter Versuch durch.
+
+       Beides ist entkorreliert (Migration qa_offen_entkorreliert_v2_20260903),
+       Ergebnis unveraendert 8 Zeilen, Laufzeit 6,6 s. Bleibt trotzdem ein
+       Fehlschlag uebrig, sagt der Text jetzt, was wirklich zu tun ist. */
     var m=(e&&e.message)||String(e);
     var timeout=/timeout|canceling statement/i.test(m);
     box.innerHTML='<div class="fgSwFehl"><b>Stammwächterzahlen fehlen.</b> '
       +(timeout
-        ? 'Die Abfrage hat zu lange gebraucht und wurde abgebrochen. Das ist bekannt und liegt an der Datenbank, nicht an dieser Seite.'
+        ? 'Die Abfrage hat zu lange gebraucht und wurde abgebrochen.'
         : esc(m))
       +' <button type="button" onclick="fgStammWaechter()" '
       +'style="margin-left:6px;padding:3px 10px;border-radius:7px;border:1px solid currentColor;'
       +'background:transparent;color:inherit;font-weight:700;cursor:pointer">nochmal holen</button>'
-      +(timeout?'<div style="font-size:11px;opacity:.85;margin-top:4px">Gemessen 15.08.: 4,9 s · '
-        +'der zweite Versuch geht meist durch.</div>':'')
+      +(timeout?'<div style="font-size:11px;opacity:.85;margin-top:4px">Gemessen 03.09.: 6,6 s '
+        +'(vorher 20,8 s). Wenn das hier wieder steht, ist es kein bekannter Zustand, '
+        +'sondern ein neuer Befund — bitte melden.</div>':'')
       +'</div>';
     try{ console.error('[Stammwächter]', e); }catch(_){}
   }
@@ -14890,7 +14903,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-03-2";
+const APP_BUILD = "2026-09-03-3";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
