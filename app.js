@@ -808,6 +808,44 @@ function _bindungBox(){
   anker.parentNode.insertBefore(box, anker.nextSibling);
   return box;
 }
+/* ============================================================================
+   WORK #441, 04.09.2026 — DIE ZEHN-SEKUNDEN-GRENZE IM LADEN
+
+   Ralph-Entscheid 02.09. (E35, Variante B): Wer im Laden steht, bekommt nach
+   hoechstens 10 Sekunden eine Antwort - oder den ehrlichen Hinweis, spaeter
+   nachzusehen. Variante A (Sofortantwort aus vorhandenen Daten) wurde am
+   04.09. an Ralphs fuenf Ladenscans gemessen und faellt aus: nur 1 von 5
+   stimmte mit dem Serverstand ueberein, bei dreien zeigte der Scan-Cache eine
+   Bewertung, wo der Server gar keine hat.
+
+   🔴 Der Riki-Lauf wird NICHT abgebrochen. Er laeuft im Hintergrund weiter -
+   nur das Warten hoert auf. Ein Nutzer, der nicht weiss, ob noch etwas kommt,
+   wartet sonst beliebig lange vor dem Regal.
+   ============================================================================ */
+var RIKI_WARTEGRENZE_MS = 10000;
+function rikiWartegrenzeStarten(){
+  try{ clearTimeout(window._rikiWarteUhr); }catch(e){}
+  window._rikiWarteUhr = setTimeout(function(){
+    try{ if(typeof rikiFabZustand==="function") rikiFabZustand("normal"); }catch(e){}
+    var id="rikiWarteHinweis";
+    var alt=document.getElementById(id); if(alt) alt.remove();
+    var d=document.createElement("div");
+    d.id=id;
+    d.style.cssText="position:fixed;left:12px;right:12px;bottom:76px;z-index:9993;padding:11px 13px;"
+      +"border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);"
+      +"font-size:13px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.14);cursor:pointer";
+    d.innerHTML='Riki liest das Etikett noch – das kann länger dauern. '
+      +'<b>Du musst nicht warten:</b> das Produkt steht gleich in der Suche. '
+      +'<span style="color:var(--muted)">Tippen zum Schließen.</span>';
+    d.onclick=function(){ d.remove(); };
+    document.body.appendChild(d);
+  }, RIKI_WARTEGRENZE_MS);
+}
+function rikiWartegrenzeStoppen(){
+  try{ clearTimeout(window._rikiWarteUhr); }catch(e){}
+  var alt=document.getElementById("rikiWarteHinweis"); if(alt) alt.remove();
+}
+if(typeof window!=="undefined"){ window.rikiWartegrenzeStarten=rikiWartegrenzeStarten; window.rikiWartegrenzeStoppen=rikiWartegrenzeStoppen; }
 async function ladeBindungsLuecke(produktId){
   const box = _bindungBox(); if(!box) return;
   const pid = produktId || box.getAttribute('data-pid');
@@ -12265,6 +12303,7 @@ async function etikettSend(){
       /* Der Orb uebernimmt ab hier: er zeigt, dass gearbeitet wird, und meldet
          sich, wenn es fertig ist. Deshalb darf das Fenster sofort zu. */
       try{ rikiFabZustand("denkt"); }catch(x){}
+      try{ rikiWartegrenzeStarten(); }catch(x){}   /* Work #441: nach 10 s hoert das Warten auf, nicht der Lauf */
       etikettClose();
       return;
     }catch(e){
@@ -12308,6 +12347,7 @@ async function etikettSend(){
       } else {
         ETI_SHOTS={}; renderEtiShots();
         try{ rikiFabZustand("denkt"); }catch(x){}
+      try{ rikiWartegrenzeStarten(); }catch(x){}   /* Work #441: nach 10 s hoert das Warten auf, nicht der Lauf */
         etikettClose();
         return;
       }
@@ -12481,7 +12521,8 @@ async function tbScanUebernehmen(){
     ETI_SHOTS={}; renderEtiShots();
     /* Nur wenn wirklich ein Lauf eingereiht wurde, zeigt der Orb Arbeit an.
        Bei einem laengst bekannten Produkt gibt es nichts zu tun (§1.7). */
-    if(e.status!=="bekannt"){ try{ rikiFabZustand("denkt"); }catch(x){} }
+    if(e.status!=="bekannt"){ try{ rikiFabZustand("denkt"); }catch(x){}
+      try{ rikiWartegrenzeStarten(); }catch(x){}   /* Work #441: nach 10 s hoert das Warten auf, nicht der Lauf */ }
     etikettClose();
     /* Der Eintrag steht schon in der Datenbank - die Liste muss ihn nur holen.
        Ohne dieses Neuladen sieht der Nutzer sein eigenes Ergebnis nicht. */
@@ -14982,7 +15023,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-04-5";
+const APP_BUILD = "2026-09-04-6";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
