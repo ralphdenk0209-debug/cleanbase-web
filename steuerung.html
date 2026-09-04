@@ -38,6 +38,7 @@
     cb_admin_agent_work_zuweisen    (Owner, Prioritaet, Entscheid noetig)
     cb_admin_agent_work_zuordnen    (Projektaufgabe, neu in #388)
     cb_admin_agent_work_setzen      (neue Aufgabe anlegen — Karte bei Ralph, 03.09.)
+    cb_admin_agent_projektaufgabe_anlegen (neuer Projektpunkt aus dem Formular, 03.09.)
     cb_admin_agent_projektaufgabe_melden      (ganzen Punkt fertig melden)
     cb_admin_agent_projektaufgabe_verifizieren(ganzen Punkt abnehmen)
   Es gibt hier keine nachgebaute Fachlogik. Der Server entscheidet (CLAUDE.md B1).
@@ -434,8 +435,12 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
       <textarea id="nFertig" maxlength="400" placeholder="Eine Zahl mit ihrem Gegenstand."></textarea>
       <div class="zaehler" id="nFertigZ">0 / 400</div>
     </div>
-    <div class="feld"><label>Projektpunkt — Pflicht</label>
+    <div class="feld"><label>Projekt — Pflicht</label>
+      <select id="nProjekt"></select>
+    </div>
+    <div class="feld"><label>Projektpunkt — vorhandener oder neuer</label>
       <select id="nZuordnung"></select>
+      <input id="nPunktTitel" type="text" maxlength="120" placeholder="Titel des neuen Punkts" style="display:none;margin-top:6px">
     </div>
     <div class="feld"><label>Thema</label>
       <select id="nThema">
@@ -825,21 +830,39 @@ function ralphBlockZeichnen(rows){
 
 /* ---------- Neue Aufgabe anlegen (Ralph, 03.09.) ---------- */
 function neuPanelAuf(){
-  /* Projektpunkte fuellen — Pflichtfeld, sonst weist der Server ab (#414). */
+  /* Ralph, 03.09.: „Projektpunkt nicht alle vorhanden, z.B. Supplements. Inhalt
+     soll nur die Kategorie sein. Neu anlegen nicht moeglich." Erst das Projekt
+     (alle 14), dann der Punkt: ein vorhandener oder „neuer Punkt" — den legt
+     cb_admin_agent_projektaufgabe_anlegen an. Der Server verlangt weiter einen
+     Punkt (#414); die Seite baut nur den Weg dahin. */
   let h = '<option value="">— bitte wählen —</option>';
   for(const p of PROJEKTE){
-    if(p.id===OHNE_ID || !PAUFGABEN[p.id] || !PAUFGABEN[p.id].length) continue;
-    h += '<optgroup label="'+esc(p.kuerzel+" · "+p.name)+'">';
-    for(const a of PAUFGABEN[p.id]){
-      if(a.status==="verified") continue;
-      h += '<option value="'+esc(a.aufgabe_id)+'">'+esc((a.nummer?a.nummer+" ":"")+(a.titel||a.aufgabe_id))+'</option>';
-    }
-    h += '</optgroup>';
+    if(p.id===OHNE_ID) continue;
+    h += '<option value="'+esc(p.id)+'">'+esc(p.kuerzel+" · "+p.name)+'</option>';
   }
-  $("nZuordnung").innerHTML = h;
+  $("nProjekt").innerHTML = h;
+  neuPunkteFuellen();
   $("nMeldung").textContent = ""; $("nMeldung").className = "meldung";
   $("panelNeu").classList.add("auf"); $("abdeckung").classList.add("auf");
   $("nTitel").focus();
+}
+function neuPunkteFuellen(){
+  const pid = $("nProjekt").value;
+  let h = '<option value="">— bitte wählen —</option>';
+  if(pid){
+    for(const a of (PAUFGABEN[pid]||[])){
+      if(a.status==="verified") continue;
+      h += '<option value="'+esc(a.aufgabe_id)+'">'+esc((a.nummer?a.nummer+" ":"")+(a.titel||a.aufgabe_id))+'</option>';
+    }
+    h += '<option value="__neu">+ neuer Punkt …</option>';
+  }
+  $("nZuordnung").innerHTML = h;
+  $("nPunktTitel").style.display = "none";
+}
+function neuPunktWahl(){
+  const neu = $("nZuordnung").value==="__neu";
+  $("nPunktTitel").style.display = neu ? "" : "none";
+  if(neu && !$("nPunktTitel").value) $("nPunktTitel").value = $("nTitel").value;
 }
 function neuPanelZu(){
   $("panelNeu").classList.remove("auf");
@@ -862,8 +885,12 @@ async function neuAnlegen(){
   const text = $("nText").value.trim();
   const warum = $("nWarum").value.trim();
   const fertig = $("nFertig").value.trim();
-  const pa = $("nZuordnung").value;
+  let pa = $("nZuordnung").value;
+  const projekt = $("nProjekt").value;
+  const punktTitel = $("nPunktTitel").value.trim();
   const prio = Number($("nPrio").value || 50);
+  if(!projekt) return neuMelden("Welches Projekt? Ohne Projekt keine Karte auf der Tafel.", false);
+  if(pa==="__neu" && !punktTitel) return neuMelden("Der neue Punkt braucht einen Titel.", false);
   if(!titel) return neuMelden("Ohne Titel keine Aufgabe. Ein Satz: was ist am Ende anders?", false);
   if(!text) return neuMelden("Worum geht es? Drei Kurzsätze reichen.", false);
   if(!warum) return neuMelden("Warum ist es nötig? Ohne Grund keine Aufgabe.", false);
@@ -874,6 +901,12 @@ async function neuAnlegen(){
   if(isNaN(prio)||prio<1||prio>100) return neuMelden("Priorität nur 1 bis 100.", false);
   $("nAnlegen").disabled = true;
   try{
+    if(pa==="__neu"){
+      const rp = await client.rpc("cb_admin_agent_projektaufgabe_anlegen",
+        { p_actor: actor, p_projekt_id: projekt, p_titel: punktTitel, p_notiz: null });
+      if(rp.error) throw rp.error;
+      pa = rp.data;
+    }
     const r = await client.rpc("cb_admin_agent_work_setzen", {
       p_actor: actor, p_owner: $("nOwner").value, p_area: $("nThema").value,
       p_title: titel, p_description: text, p_acceptance_criteria: fertig,
@@ -883,7 +916,7 @@ async function neuAnlegen(){
       p_projekt_aufgabe_id: pa, p_warum: warum });
     if(r.error) throw r.error;
     neuMelden("Angelegt als #"+r.data+". Die Tafel wird neu gemessen.", true);
-    $("nTitel").value=""; $("nText").value=""; $("nWarum").value=""; $("nFertig").value=""; neuZaehler();
+    $("nTitel").value=""; $("nText").value=""; $("nWarum").value=""; $("nFertig").value=""; $("nPunktTitel").value=""; neuZaehler();
     await laden();
     setTimeout(neuPanelZu, 700);
   }catch(e){
@@ -1659,6 +1692,8 @@ $("pAbnehmen").addEventListener("click", abnehmen);
 $("nZu").addEventListener("click", neuPanelZu);
 $("nAnlegen").addEventListener("click", neuAnlegen);
 $("nText").addEventListener("input", neuZaehler);
+$("nProjekt").addEventListener("change", neuPunkteFuellen);
+$("nZuordnung").addEventListener("change", neuPunktWahl);
 $("nWarum").addEventListener("input", neuZaehler);
 $("nFertig").addEventListener("input", neuZaehler);
 $("tSpeichern").addEventListener("click", texteSpeichern);
