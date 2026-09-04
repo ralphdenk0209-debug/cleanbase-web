@@ -12988,7 +12988,20 @@ function prodScan(readerId, msgId){
   readerId = readerId || "prodReader";
   msgId    = msgId    || "stats";
   window._prodScanMsgId = msgId;
-  const st=document.getElementById(msgId); if(st) st.textContent="📷 Kamera öffnet – Barcode vor die Kamera halten…";
+  const st=document.getElementById(msgId);
+  if(st){
+    /* Work #440, 04.09.2026 (Ralph-Entscheid A): Hier stand nur "Barcode vor die
+       Kamera halten". Wer lose Ware in der Hand hat - Baecker, Metzger, Obst -
+       hatte an dieser Stelle keinen Ausweg: der vorhandene Foto-Knopf haengt
+       ueberall an einer gescannten EAN, und der Einstieg in der Produktsuche
+       wird im Laden nie angesteuert. Gemessen am 04.09. an der Live-App.
+       Jetzt steht der Ausweg dort, wo der Nutzer feststeckt. */
+    st.innerHTML='📷 Kamera öffnet – Barcode vor die Kamera halten…'
+      +'<div style="margin-top:8px"><button onclick="etikettOpen(null,false)" '
+      +'style="padding:7px 12px;border:1px dashed var(--green,var(--k-16a34a));border-radius:9px;'
+      +'background:var(--card);color:var(--greendk,var(--k-166534));font-size:12.5px;cursor:pointer">'
+      +'Kein Barcode? Etikett fotografieren</button></div>';
+  }
   _startScan(readerId, async (code)=>{
     try{
       /* Ohne Feature-Flag: alter Weg (Barcode vormerken, Etikett anbieten). */
@@ -15023,7 +15036,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-04-6";
+const APP_BUILD = "2026-09-04-7";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
