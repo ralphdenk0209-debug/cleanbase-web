@@ -2240,6 +2240,27 @@ async function render(){
   if(nurBio && !list.length){
     grid.innerHTML+='<div style="grid-column:1/-1;padding:18px 16px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:13px;line-height:1.6">Noch kein Produkt ist als Bio <b>belegt</b> erfasst. Wir zeigen hier nur, was am Etikett oder beim Hersteller geprüft wurde – nicht, was „Bio“ im Namen trägt.</div>';
   }
+  /* ==========================================================================
+     WORK #440, 03.09.2026 — DER EINSTIEG OHNE BARCODE
+
+     Gemessen am ausgelieferten Stand: etikettOpen wird an vier Stellen gerufen,
+     JEDE uebergibt einen Barcode. Wer keinen hat - lose Ware, Baecker, Metzger -
+     kam nie zum Fotoformular. Der Weg dahinter war seit heute frueh fertig und
+     unerreichbar; das ist kein halber Weg, das ist gar keiner.
+
+     Der Knopf steht hier, weil hier der Nutzer steht, wenn er sein Produkt nicht
+     findet: eine Suche ohne Treffer. etikettOpen(null) setzt ETI_EAN auf null,
+     das Fotoformular geht auf, und beim Senden greift der Zweig ohne Barcode.
+     Kein erfundener Ersatz-Barcode.
+     ========================================================================== */
+  /* typeof-Pruefung, weil diese Funktion auch im Testharness laeuft, wo weder ME
+     noch feat existieren - test-regression-produktpfad.js ist genau daran
+     abgestuerzt, und ein abgestuerzter Test hat gar nichts geprueft. */
+  if(!list.length && !nurBio && (typeof ME!=="undefined" && ME) && (typeof feat==="function" && feat("etikett_riki"))){
+    grid.innerHTML+='<div style="grid-column:1/-1;padding:16px;border:1px dashed var(--line);border-radius:12px;text-align:center">'
+      +'<div style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:10px">Nichts gefunden. Hat das Produkt keinen Barcode – lose Ware, Bäcker, Metzger – dann fotografiere das Etikett, Riki liest es.</div>'
+      +'<button onclick="etikettOpen(null,false)" style="padding:10px 16px;border:1px solid var(--green,var(--k-16a34a));border-radius:10px;background:var(--greenlt,var(--k-eaf5ee));color:var(--greendk,var(--k-166534));font-size:13.5px;font-weight:600;cursor:pointer">📷 Produkt ohne Barcode fotografieren</button></div>';
+  }
   list.forEach((d,i)=>{
     const c=document.createElement("div");c.className="card cardIn";
     /* 🔴 Die Trefferliste liefert nur die Kachelfelder. Die Detailkarte braucht
@@ -14961,7 +14982,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-04-1";
+const APP_BUILD = "2026-09-04-2";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
