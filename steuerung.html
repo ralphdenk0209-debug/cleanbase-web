@@ -407,70 +407,28 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
   </div>
 </div>
 
-<!-- Neue Aufgabe anlegen (Ralph, 03.09.). Die Grenzen sind die der Datenbank:
-     Titel ein Satz, Beschreibung bis 600, Fertig-Kriterium bis 400 Zeichen (A7).
-     Ohne Projektpunkt weist der Server ab (#414) — die Karte waere sonst unsichtbar. -->
+<!-- Neue Aufgabe anlegen (Ralph, 03.09. abends: „schlanker. Ueberschrift sollte
+     reichen, anlegen unter Punkt 1 bei mir, ich verschiebe es dann. Nicht mehrere
+     Dropdowns."). Eine Zeile: Titel, Anlegen. Landet unter RA-1 „Eingang Ralph",
+     Zuordnung danach im Panel. Die Rubriken fuellt, wer die Aufgabe uebernimmt. -->
 <div class="panel" id="panelNeu">
   <div class="panel-kopf">
     <div style="flex:1">
-      <div class="stand">Neue Aufgabe</div>
+      <div class="stand">Neue Aufgabe · landet in RA-1 Eingang</div>
       <h3>Was soll gemacht werden?</h3>
     </div>
     <button id="nZu" title="Schließen">✕</button>
   </div>
   <div class="panel-koerper">
     <div class="meldung" id="nMeldung"></div>
-    <div class="feld"><label>Titel — ein Satz, beginnt mit einem Tu-Wort</label>
-      <input id="nTitel" type="text" maxlength="160" placeholder="z. B. Zahlungssystem der App auf In-App-Kauf umstellen">
+    <div class="feld"><label>Überschrift — ein Satz</label>
+      <input id="nTitel" type="text" maxlength="160" placeholder="z. B. Zahlungssystem der App umstellen">
     </div>
-    <div class="feld"><label>Worum geht es — 3 Kurzsätze</label>
-      <textarea id="nText" maxlength="600" placeholder="Was wird gemacht. Für wen. Was ist am Ende anders."></textarea>
-      <div class="zaehler" id="nTextZ">0 / 600</div>
-    </div>
-    <div class="feld"><label>Warum ist es nötig — 3 Kurzsätze</label>
-      <textarea id="nWarum" maxlength="300" placeholder="Was passiert, wenn wir es nicht tun."></textarea>
-      <div class="zaehler" id="nWarumZ">0 / 300</div>
-    </div>
-    <div class="feld"><label>Wann ist es erledigt — 3 Kurzsätze, prüfbar</label>
-      <textarea id="nFertig" maxlength="400" placeholder="Eine Zahl mit ihrem Gegenstand."></textarea>
-      <div class="zaehler" id="nFertigZ">0 / 400</div>
-    </div>
-    <div class="feld"><label>Projekt — Pflicht</label>
-      <select id="nProjekt"></select>
-    </div>
-    <div class="feld"><label>Projektpunkt — vorhandener oder neuer</label>
-      <select id="nZuordnung"></select>
-      <input id="nPunktTitel" type="text" maxlength="120" placeholder="Titel des neuen Punkts" style="display:none;margin-top:6px">
-    </div>
-    <div class="feld"><label>Thema</label>
-      <select id="nThema">
-        <option value="produkt-erfassen">Produkt erfassen</option>
-        <option value="riki-lesen">RIKI lesen</option>
-        <option value="zutaten-bewertung">Zutaten und Bewertung</option>
-        <option value="kernvertrag">Kernvertrag</option>
-        <option value="benutzer-app">Benutzer-App</option>
-        <option value="dashboard-steuerung">Dashboard und Steuerung</option>
-        <option value="betrieb-werkzeug">Betrieb und Werkzeug</option>
-        <option value="benchmark-kosten">Benchmark und Kosten</option>
-        <option value="projektsteuerung">Projektsteuerung</option>
-      </select>
-    </div>
-    <div class="feld"><label>Zuständig</label>
-      <select id="nOwner">
-        <option value="claude">claude</option>
-        <option value="chatgpt">chatgpt</option>
-        <option value="shared">shared</option>
-        <option value="ralph" selected>ralph</option>
-      </select>
-    </div>
-    <div class="feld"><label>Priorität (1–100)</label>
-      <input id="nPrio" type="number" min="1" max="100" value="50">
-    </div>
-    <div class="feld"><label><input id="nEntscheid" type="checkbox"> Ralph muss hier etwas entscheiden</label></div>
   </div>
   <div class="panel-fuss">
     <button class="haupt" id="nAnlegen" style="flex:1">Anlegen</button>
   </div>
+</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -830,50 +788,14 @@ function ralphBlockZeichnen(rows){
 
 /* ---------- Neue Aufgabe anlegen (Ralph, 03.09.) ---------- */
 function neuPanelAuf(){
-  /* Ralph, 03.09.: „Projektpunkt nicht alle vorhanden, z.B. Supplements. Inhalt
-     soll nur die Kategorie sein. Neu anlegen nicht moeglich." Erst das Projekt
-     (alle 14), dann der Punkt: ein vorhandener oder „neuer Punkt" — den legt
-     cb_admin_agent_projektaufgabe_anlegen an. Der Server verlangt weiter einen
-     Punkt (#414); die Seite baut nur den Weg dahin. */
-  let h = '<option value="">— bitte wählen —</option>';
-  for(const p of PROJEKTE){
-    if(p.id===OHNE_ID) continue;
-    h += '<option value="'+esc(p.id)+'">'+esc(p.kuerzel+" · "+p.name)+'</option>';
-  }
-  $("nProjekt").innerHTML = h;
-  neuPunkteFuellen();
+  $("nTitel").value = "";
   $("nMeldung").textContent = ""; $("nMeldung").className = "meldung";
   $("panelNeu").classList.add("auf"); $("abdeckung").classList.add("auf");
   $("nTitel").focus();
 }
-function neuPunkteFuellen(){
-  const pid = $("nProjekt").value;
-  let h = '<option value="">— bitte wählen —</option>';
-  if(pid){
-    for(const a of (PAUFGABEN[pid]||[])){
-      if(a.status==="verified") continue;
-      h += '<option value="'+esc(a.aufgabe_id)+'">'+esc((a.nummer?a.nummer+" ":"")+(a.titel||a.aufgabe_id))+'</option>';
-    }
-    h += '<option value="__neu">+ neuer Punkt …</option>';
-  }
-  $("nZuordnung").innerHTML = h;
-  $("nPunktTitel").style.display = "none";
-}
-function neuPunktWahl(){
-  const neu = $("nZuordnung").value==="__neu";
-  $("nPunktTitel").style.display = neu ? "" : "none";
-  if(neu && !$("nPunktTitel").value) $("nPunktTitel").value = $("nTitel").value;
-}
 function neuPanelZu(){
   $("panelNeu").classList.remove("auf");
   if(!$("panel").classList.contains("auf")) $("abdeckung").classList.remove("auf");
-}
-function neuZaehler(){
-  const z = (id, zid, max) => {
-    const n = $(id).value.length; const e = $(zid);
-    e.textContent = n+" / "+max; e.className = "zaehler" + (n>=max ? " voll" : "");
-  };
-  z("nText","nTextZ",600); z("nWarum","nWarumZ",300); z("nFertig","nFertigZ",400);
 }
 function neuMelden(t, gut){
   const m = $("nMeldung"); m.textContent = t; m.className = "meldung " + (gut ? "gut" : "schlecht");
@@ -882,41 +804,20 @@ function neuMelden(t, gut){
 async function neuAnlegen(){
   const actor = $("actor").value;
   const titel = $("nTitel").value.trim();
-  const text = $("nText").value.trim();
-  const warum = $("nWarum").value.trim();
-  const fertig = $("nFertig").value.trim();
-  let pa = $("nZuordnung").value;
-  const projekt = $("nProjekt").value;
-  const punktTitel = $("nPunktTitel").value.trim();
-  const prio = Number($("nPrio").value || 50);
-  if(!projekt) return neuMelden("Welches Projekt? Ohne Projekt keine Karte auf der Tafel.", false);
-  if(pa==="__neu" && !punktTitel) return neuMelden("Der neue Punkt braucht einen Titel.", false);
-  if(!titel) return neuMelden("Ohne Titel keine Aufgabe. Ein Satz: was ist am Ende anders?", false);
-  if(!text) return neuMelden("Worum geht es? Drei Kurzsätze reichen.", false);
-  if(!warum) return neuMelden("Warum ist es nötig? Ohne Grund keine Aufgabe.", false);
-  if(!fertig) return neuMelden("Wann ist es erledigt? Ohne prüfbares Kriterium wird nie etwas fertig.", false);
-  if(saetze(text).length>3 || saetze(warum).length>3 || saetze(fertig).length>3)
-    return neuMelden("Höchstens drei Kurzsätze je Rubrik. Kürzen, nicht erklären.", false);
-  if(!pa) return neuMelden("Ein Projektpunkt ist Pflicht — sonst ist die Karte auf der Tafel unsichtbar.", false);
-  if(isNaN(prio)||prio<1||prio>100) return neuMelden("Priorität nur 1 bis 100.", false);
+  if(!titel) return neuMelden("Ohne Überschrift keine Aufgabe.", false);
   $("nAnlegen").disabled = true;
   try{
-    if(pa==="__neu"){
-      const rp = await client.rpc("cb_admin_agent_projektaufgabe_anlegen",
-        { p_actor: actor, p_projekt_id: projekt, p_titel: punktTitel, p_notiz: null });
-      if(rp.error) throw rp.error;
-      pa = rp.data;
-    }
+    /* Nur die Ueberschrift. Die Rubriken sind Pflicht in der Datenbank - sie
+       stehen sichtbar als „noch nicht eingetragen", nicht erfunden. */
     const r = await client.rpc("cb_admin_agent_work_setzen", {
-      p_actor: actor, p_owner: $("nOwner").value, p_area: $("nThema").value,
-      p_title: titel, p_description: text, p_acceptance_criteria: fertig,
-      p_product_id: null, p_priority: prio, p_dependency_work_id: null,
-      p_decision_needed: $("nEntscheid").checked,
+      p_actor: actor, p_owner: "ralph", p_area: "projektsteuerung",
+      p_title: titel, p_description: "Noch nicht eingetragen.", p_acceptance_criteria: "Noch nicht festgelegt.",
+      p_product_id: null, p_priority: 50, p_dependency_work_id: null, p_decision_needed: false,
       p_evidence: { angelegt_ueber: "steuerung.html", von: actor },
-      p_projekt_aufgabe_id: pa, p_warum: warum });
+      p_projekt_aufgabe_id: EINGANG_PUNKT, p_warum: null });
     if(r.error) throw r.error;
-    neuMelden("Angelegt als #"+r.data+". Die Tafel wird neu gemessen.", true);
-    $("nTitel").value=""; $("nText").value=""; $("nWarum").value=""; $("nFertig").value=""; $("nPunktTitel").value=""; neuZaehler();
+    neuMelden("Angelegt als #"+r.data+" in RA-1 Eingang. Zuordnen geht im Panel.", true);
+    $("nTitel").value = "";
     await laden();
     setTimeout(neuPanelZu, 700);
   }catch(e){
@@ -925,6 +826,8 @@ async function neuAnlegen(){
     $("nAnlegen").disabled = false;
   }
 }
+/* Der Sammelpunkt fuer Ralphs Ueberschriften (Ralph, 03.09.) */
+const EINGANG_PUNKT = "eingang-1";
 
 /* Ein Satz reicht Ralph zum Entscheiden. Gekuerzt wird an der Satzgrenze, nicht
    mitten im Wort — und nur, wenn der Titel wirklich mehrere Saetze hat. */
@@ -1691,11 +1594,7 @@ $("pSpeichern").addEventListener("click", eintragen);
 $("pAbnehmen").addEventListener("click", abnehmen);
 $("nZu").addEventListener("click", neuPanelZu);
 $("nAnlegen").addEventListener("click", neuAnlegen);
-$("nText").addEventListener("input", neuZaehler);
-$("nProjekt").addEventListener("change", neuPunkteFuellen);
-$("nZuordnung").addEventListener("change", neuPunktWahl);
-$("nWarum").addEventListener("input", neuZaehler);
-$("nFertig").addEventListener("input", neuZaehler);
+$("nTitel").addEventListener("keydown", e => { if(e.key==="Enter") neuAnlegen(); });
 $("tSpeichern").addEventListener("click", texteSpeichern);
 $("tWorum").addEventListener("input", textZaehler);
 $("tWarum").addEventListener("input", textZaehler);
