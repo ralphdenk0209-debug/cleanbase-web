@@ -3836,6 +3836,20 @@ async function fgRefV2Laden(){
     console.error("[Bindungsstand] Laden fehlgeschlagen:", bindFehler);
   }
   window._fgBindung={stand:bind, fehler:bindFehler};
+  /* Work #457 (Ralph-Entscheid 03.09., B mit Freigabesperre): Steht ein
+     Dublettenverdacht offen, ist die Freigabe dieses Produkts serverseitig
+     gesperrt - ein Riegel auf der Tabelle, nicht in einer Funktion. Der Mensch
+     muss hier entscheiden koennen, sonst sieht er nur eine Fehlermeldung beim
+     Freigeben und weiss nicht, warum. Eigener Fangblock wie beim Bindungsstand. */
+  var dub=null, dubFehler="";
+  try{
+    var r4=await client.rpc("cb_riki_dublette_stand",{p_produkt_id:pid});
+    if(r4&&r4.error) throw r4.error; dub=r4&&r4.data;
+  }catch(e4){
+    dubFehler=(e4&&e4.message)?String(e4.message):String(e4);
+    console.error("[Dublettenverdacht] Laden fehlgeschlagen:", dubFehler);
+  }
+  window._fgDublette={stand:dub, fehler:dubFehler};
   if(fehler){
     /* Kein leerer Fangblock (§1.13i): der Grund muss sichtbar sein. */
     console.error("[Referenz V2] Laden fehlgeschlagen:", fehler);
@@ -3926,6 +3940,57 @@ var _BIND_ST={
   ungeprueft:  {t:"noch nicht geprüft", f:"var(--muted)",      b:"var(--k-eef1f4,#eef1f4)", i:"–"},
   ohne_quelle: {t:"ohne Quelle",  f:"var(--muted)",            b:"var(--k-eef1f4,#eef1f4)", i:"–"}
 };
+/* Work #457, 04.09.2026 — DER DUBLETTENVERDACHT UND WER IHN ENTSCHEIDET
+
+   Ohne Barcode entsteht die Identitaet erst, wenn Riki den Namen gelesen hat.
+   Trifft der Name plus Hersteller ein bestehendes Produkt ohne Barcode, setzt
+   der Server einen Verdacht und sperrt die Freigabe (Ralph-Entscheid 03.09., B).
+
+   🔴 Hier wird NICHTS nachgebaut: Zustand, Sperre und Entscheidung kommen aus
+   cb_riki_dublette_stand und cb_riki_dublette_entscheiden. Diese Anzeige zeigt
+   sie nur und gibt dem Menschen die zwei Knoepfe, die er braucht.
+   Geloescht wird auch bei "Dublette" nichts - das Uebertragen bleibt Handarbeit. */
+function fgDubletteStreifen(){
+  var w=window._fgDublette||{};
+  if(w.fehler){
+    return '<div style="margin:0 2px 8px;padding:6px 9px;border:1px solid var(--k-dc2626,#dc2626);border-radius:8px;'
+      +'background:var(--card);color:var(--k-dc2626,#dc2626);font-size:11.5px">'
+      +'Dublettenverdacht konnte nicht geladen werden: '+esc(w.fehler)+'</div>';
+  }
+  var b=w.stand;
+  if(!b || b.ok===false || b.verdacht!==true) return "";
+  var offen=(b.entscheidung==null);
+  var farbe=offen?'var(--k-92400e,#92400e)':'var(--muted)';
+  var grund=offen?'var(--k-fef3c7,#fef3c7)':'var(--k-eef1f4,#eef1f4)';
+  var H='<div style="margin:0 2px 8px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card)">'
+    +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
+    +'<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:'+grund+';color:'+farbe+'">'
+    +(offen?'⚠️ Dublettenverdacht':'✓ entschieden')+'</span>'
+    +'<span style="font-size:11.5px;color:var(--muted)">'+esc(String(b.erklaerung||""))+'</span></div>'
+    +'<div style="margin-top:6px;font-size:11.5px">Trifft: <b>'+esc(String(b.trifft||""))+'</b>'
+    +(b.trifft_name?(' – '+esc(String(b.trifft_name))+(b.trifft_marke?(' · '+esc(String(b.trifft_marke))):'')):'')+'</div>';
+  if(offen){
+    H+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'
+      +'<button onclick="fgDubletteEntscheiden(\'eigenes_produkt\')" style="padding:6px 11px;border:1px solid var(--k-16a34a,#16a34a);border-radius:8px;background:var(--k-ecfdf5,#ecfdf5);color:var(--k-166534,#166534);font-size:12px;font-weight:600;cursor:pointer">Eigenes Produkt</button>'
+      +'<button onclick="fgDubletteEntscheiden(\'zusammenfuehren\')" style="padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;cursor:pointer">Ist dieselbe Ware</button>'
+      +'</div>'
+      +'<div style="margin-top:5px;font-size:11px;color:var(--muted)">Bis dahin bleibt die Freigabe gesperrt. Gelöscht wird nichts.</div>';
+  }
+  return H+'</div>';
+}
+async function fgDubletteEntscheiden(wahl){
+  var pid=(window._fgEdit&&window._fgEdit.id)||"";
+  if(!pid) return;
+  try{
+    var r=await client.rpc("cb_riki_dublette_entscheiden",{p_produkt_id:pid, p_entscheidung:wahl, p_notiz:null});
+    if(r&&r.error) throw r.error;
+    await fgRefV2Laden();
+  }catch(e){
+    /* Kein stiller Fangblock: der Grund gehoert vor die Augen des Menschen. */
+    alert("Konnte nicht gespeichert werden: "+((e&&e.message)||e));
+  }
+}
+if(typeof window!=="undefined"){ window.fgDubletteEntscheiden=fgDubletteEntscheiden; window.fgDubletteStreifen=fgDubletteStreifen; }
 function fgBindungStreifen(){
   var w=window._fgBindung||{};
   if(w.fehler){
@@ -3963,6 +4028,7 @@ function fgRefV2Render(d, st){
     return;
   }
   var BIND=""; try{ BIND=fgBindungStreifen(); }catch(eB){ console.error("[Bindungsstand] Anzeige:", eB); }
+  try{ BIND=fgDubletteStreifen()+BIND; }catch(eD){ console.error("[Dublettenverdacht] Anzeige:", eD); }
   var el=Array.isArray(d.elemente)?d.elemente:[];
   if(!el.length){
     fgRefV2RenderTechnik(d, st, box);          /* ehrlicher Leerzustand steht dort */
