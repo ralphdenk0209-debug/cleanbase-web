@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Root Index — Steuerung (zwei Zeilen)</title>
+<title>Root Index — Aufgaben</title>
 <!--
   STEUERUNGSSEITE · zwei Zeilen, Spalten sind Projekte
   ----------------------------------------------------
@@ -80,6 +80,27 @@ button.haupt:hover{background:#3a7ee0}
 button:disabled{opacity:.45;cursor:not-allowed}
 .chip{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;
   border:1px solid var(--linie);color:var(--schwach);white-space:nowrap}
+
+/* ---------- Einfache Aufgabenliste ---------- */
+.aufgaben{max-width:1080px;margin:0 auto;padding:18px 16px 44px}
+.aufgaben-leiste{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:14px}
+.aufgaben-leiste h2{margin:0;font-size:16px}
+.aufgaben-leiste .erklaerung{color:var(--schwach);font-size:12px}
+.aufgaben-block{margin:0 0 16px;border:1px solid var(--linie);border-radius:11px;overflow:hidden;background:var(--bg2)}
+.aufgaben-block-kopf{display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--linie)}
+.aufgaben-block-kopf i{width:9px;height:9px;border-radius:99px;flex:none}
+.aufgaben-block-kopf h3{margin:0;font-size:13px}
+.aufgaben-block-kopf span{margin-left:auto;color:var(--schwach);font-size:12px}
+.aufgaben-liste{display:flex;flex-direction:column}
+button.aufgabe{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;padding:10px 11px;border:0;border-radius:0;border-bottom:1px solid var(--linie);background:transparent;text-align:left;color:var(--text)}
+button.aufgabe:last-child{border-bottom:0}
+button.aufgabe:hover{background:var(--karte)}
+.aufgabe .aufgabe-id{font-size:12px;font-weight:800;color:var(--akzent);font-variant-numeric:tabular-nums}
+.aufgabe .aufgabe-titel{font-size:13px;line-height:1.35;font-weight:650}
+.aufgabe .aufgabe-meta{margin-top:3px;color:var(--schwach);font-size:11.5px}
+.aufgabe .aufgabe-prio{font-size:11px;color:var(--schwach);white-space:nowrap}
+.keine-aufgaben{padding:26px 12px;color:var(--schwach);text-align:center}
+@media(max-width:600px){button.aufgabe{grid-template-columns:58px minmax(0,1fr)}.aufgabe .aufgabe-prio{display:none}}
 
 /* ---------- Zaehlerband ---------- */
 .band{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
@@ -335,7 +356,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 
 <div class="kopf">
   <div class="kopf-zeile">
-    <h1>Root Index — Steuerung</h1>
+    <h1>Root Index — Aufgaben</h1>
     <span class="stand" id="stand">lädt …</span>
     <span class="spacer"></span>
     <label class="stand" for="actor">Ich bin</label>
@@ -344,15 +365,22 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
       <option value="claude" selected>Claude</option>
       <option value="chatgpt">ChatGPT / Codex</option>
     </select>
-    <select id="fThema" title="Nach Thema filtern"><option value="">Alle Themen</option></select>
-    <select id="fOwner" title="Nach Zuständigem filtern"><option value="">Alle Zuständigen</option></select>
+    <select id="fThema" hidden title="Nach Thema filtern"><option value="">Alle Themen</option></select>
+    <select id="fOwner" hidden title="Nach Zuständigem filtern"><option value="">Alle Zuständigen</option></select>
+    <select id="fStatus" title="Nach Stand filtern">
+      <option value="">Alle Stände</option><option value="entscheid_e0">Bei Ralph</option>
+      <option value="umgesetzt">Zur Abnahme</option><option value="in_progress">Läuft</option>
+      <option value="open">Offen</option><option value="haengt">Blockiert</option>
+    </select>
+    <input id="fSuche" type="search" placeholder="Aufgabe suchen" title="In Nummer, Titel und Thema suchen">
+    <button id="btnNeu">+ Aufgabe</button>
     <button id="btnLaden" class="haupt">Neu messen</button>
   </div>
   <div class="band" id="band"></div>
 </div>
 
-<details class="kernweg" id="kernweg" open>
-  <summary>Der Kernweg · vom Scan zur ehrlichen Antwort im Laden</summary>
+<details class="kernweg" id="kernweg">
+  <summary>Produktweg anzeigen · nicht Teil der Aufgabenliste</summary>
   <div id="kernFluss"></div>
 </details>
 <div id="luecke" class="luecke" style="display:none"></div>
@@ -447,7 +475,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="kern-fluss.js?v=2026-09-05-15"></script>
+<script src="kern-fluss.js?v=2026-09-05-16"></script>
 <script>if(window.KERN_FLUSS) KERN_FLUSS.zeichnen(document.getElementById("kernFluss"),{dunkel:true});</script>
 <script>
 /* ============================================================
@@ -655,12 +683,22 @@ function zuordnungFuellen(){
 }
 function gefiltert(){
   const t = $("fThema").value, o = $("fOwner").value;
-  return ZEILEN.filter(w => (!t || w.area===t) && (!o || w.owner_agent===o));
+  const st = $("fStatus").value, q = $("fSuche").value.trim().toLocaleLowerCase("de");
+  return ZEILEN.filter(w => (!t || w.area===t) && (!o || w.owner_agent===o) &&
+    (!st || w._station===st) && (!q ||
+      [w._nummer,w.title,w.area,w.owner_agent,w.projekt,w.projekt_kuerzel]
+        .some(x=>String(x||"").toLocaleLowerCase("de").includes(q))));
 }
 
 /* ============================================================
    5 · Zeichnen — zwei Zeilen, gleiche Spaltenreihenfolge
    ============================================================ */
+/* 05.09.2026, #538, Ralph-Entscheid A: Swimlane-Tafel wiederhergestellt.
+   Ein zweiter Chat hatte diese Funktion um 08:44 durch eine schlichte
+   Aufgabenliste ersetzt - ohne Auftrag und ohne Sicherung. Dabei blieben
+   ebeneZeile, stapelHtml, ralphBlockZeichnen und die Projektspalten als
+   toter Code stehen; die Seite konnte sie nur nicht mehr erreichen.
+   Fremdfassung: bereiche/_sicherungen/2026-09-05-steuerung-fremdfassung-0844/ */
 function zeichnen(){
   const rows = gefiltert();
 
@@ -1232,6 +1270,9 @@ async function buendelAbholen(pid){
 let ZIEHT = null;
 
 function verdrahten(){
+  document.querySelectorAll(".aufgabe[data-work]").forEach(el=>{
+    el.addEventListener("click", ()=>panelAuf(Number(el.dataset.work)));
+  });
   document.querySelectorAll(".karte[data-work]").forEach(el=>{
     el.addEventListener("click", e=>{ if(!ZIEHT) panelAuf(Number(el.dataset.work)); });
     el.addEventListener("dragstart", e=>{
@@ -1682,6 +1723,9 @@ function alterText(iso){
 $("btnLaden").addEventListener("click", laden);
 $("fThema").addEventListener("change", zeichnen);
 $("fOwner").addEventListener("change", zeichnen);
+$("fStatus").addEventListener("change", zeichnen);
+$("fSuche").addEventListener("input", zeichnen);
+$("btnNeu").addEventListener("click", neuPanelAuf);
 $("pZu").addEventListener("click", panelZu);
 $("abdeckung").addEventListener("click", ()=>{ panelZu(); neuPanelZu(); });
 $("pSpeichern").addEventListener("click", eintragen);
