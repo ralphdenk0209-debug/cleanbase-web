@@ -3,7 +3,8 @@
    Kasten = Station oder Frage. Pfeil = Pfad. Farbe des Pfads = gemessener Stand:
    gruen laeuft · gelb klemmt (Work-Nummer steht am Kasten) · rot steht still.
    Wird von webseite/steuerung.html und bereiche/kern-poster.html gezeichnet.
-   Stand der Zahlen: 05.09.2026 (KV-491 Durchlauf, KP-499, ST-503). Nichts geschaetzt. */
+   Stand der Zahlen: 05.09.2026, 10:30 - nachgemessen an der Datenbank, nichts uebernommen.
+   Ralph 05.09.: das Poster ist das Ziel, und zwar zu 100 Prozent. Jeder Kasten gruen. */
 (function(){
   const G="gruen", Y="gelb", R="rot", F="frage";
   const W=200, H=110, CX=222, RY=138;       // Kastenbreite, -hoehe, Spaltenabstand, Zeilenabstand
@@ -17,16 +18,16 @@
     {id:"vorl",  c:1, r:3,  f:Y, t:"Vorlaeufige Karte",         s:"Name, Marke, Naehrwerte von Open Food Facts, im Scan-Cache.", p:"65 von 128 Treffern werden nie Produkt - nur per Admin-Klick.", w:"#526 · KP-9 · Claude"},
     {id:"foto",  c:3, r:3,  f:G, t:"Niemand kennt es: Foto",    s:"Etikett fotografieren. Produkt in 7,9 s angelegt."},
     {id:"offd",  c:0, r:4,  f:G, t:"Zutaten von Open Food Facts", s:"Import laeuft, 8 von 8 durch die ganze Kette."},
-    {id:"herst", c:1, r:4,  f:Y, t:"Zutaten von der Herstellerseite", s:"Skript holt den Text. 68 % Treffer, 0 $.", p:"Herkunft wird nicht ans Produkt geschrieben. 70 Seiten sperren.", w:"#519 · KP-8 · Claude"},
+    {id:"herst", c:1, r:4,  f:Y, t:"Zutaten von der Herstellerseite", s:"Skript holt den Text. 68 % Treffer, 0 $. Herkunft wird seit v4 geschrieben, live.", p:"Nachweis fehlt: die Arbeitsliste sperrt jedes Produkt 7 Tage nach einem Versuch, deshalb 0 offen.", w:"#519 · KP-8 · Claude"},
     {id:"web",   c:2, r:4,  f:R, t:"Websuche",                  s:"KI sucht Name und Zutaten im Netz. Eingefroren, 0,27 $ je Lauf (E40)."},
     {id:"ki",    c:3, r:4,  f:Y, t:"KI liest das Foto",         s:"Zutaten und Naehrwerte, auf 2 kcal genau.", p:"97 alte Produkte nie geprueft, Marke bleibt leer.", w:"#495 · Ralph"},
-    {id:"prod",  c:1, r:5,  f:Y, t:"Produkt speichert",         s:"Zutatentext plus Herkunft am Produkt. Ab hier eine Spur.", p:"Bei Herstellerseite fehlt die Herkunft.", w:"#519 · KP-8"},
+    {id:"prod",  c:1, r:5,  f:Y, t:"Produkt speichert",         s:"Zutatentext plus Herkunft am Produkt. Ab hier eine Spur.", p:"2.751 aktive Produkte haben Zutaten von Open Food Facts, aber keinen Etikettwortlaut. Takt holt ihn nach.", w:"#539 · KP-8 · Claude"},
     {id:"zerl",  c:1, r:6,  f:G, t:"zerlegen",                  s:"Text wird in Namen geteilt. 323 Namen, 0 Fehler, Textmuell raus (KP-499)."},
-    {id:"stamm", c:1, r:7,  f:F, t:"Name im Stamm, mit Note?",  s:"Stamm 2.560 Eintraege, 681 Zweitnamen. 92,3 % Treffer (Ziel 90)."},
-    {id:"ohnenote",c:2,r:8, f:Y, t:"Im Stamm, aber ohne Note",  s:"97 Eintraege ohne Note.", p:"Score faellt weg, bis die Note da ist. 4 Regelfragen offen (E42).", w:"#497 #504 · #472 #479 #481 #490 · ChatGPT"},
-    {id:"nicht", c:3, r:8,  f:Y, t:"Nicht im Stamm (7,7 %)",    s:"25 von 323 Namen.", p:"E-Nummern ohne Bruecke, OCR-Fehler, verklebte Namen. Zeile bleibt sichtbar offen.", w:"#469 · ChatGPT"},
-    {id:"bind",  c:1, r:9,  f:Y, t:"binden",                    s:"Automatisch alle 5 Minuten. 85 % der Zeilen sicher.", p:"5 stillgelegte Bindungen an 1.340 Zeilen. Durchlauf wartet auf Abnahme.", w:"#509 · ChatGPT · #491 · Ralph"},
-    {id:"bew",   c:1, r:10, f:Y, t:"bewerten",                  s:"Score aus den Stammnoten. 23.804 Produkte mit Score.", p:"5.755 warten auf Bewertung. 6.504 Scores, die die Regel entfernen wuerde.", w:"#448 · Ralph · #512 · ChatGPT"},
+    {id:"stamm", c:1, r:7,  f:F, t:"Name im Stamm, mit Note?",  s:"Stamm 2.490 aktive Eintraege. 92,3 % Treffer (Ziel 90)."},
+    {id:"ohnenote",c:2,r:8, f:Y, t:"Im Stamm, aber ohne Note",  s:"11 Eintraege ohne Note - keiner davon freigegeben. Am 04.09. waren es 97.", p:"4 in Pruefung, 4 Entwurf, 3 ohne Profilzeile. Zwei Regelfragen offen.", w:"#504 · #479 #481 · Claude"},
+    {id:"nicht", c:3, r:8,  f:Y, t:"Nicht im Stamm (7,7 %)",    s:"25 von 323 Namen.", p:"E-Nummern ohne Bruecke, OCR-Fehler, verklebte Namen. Zeile bleibt sichtbar offen.", w:"#469 · Claude"},
+    {id:"bind",  c:1, r:9,  f:Y, t:"binden",                    s:"Automatisch alle 5 Minuten. 85 % der Zeilen sicher. Referenzpruefung jetzt fuer alle 202 Produkte mit Wortlaut erhoben.", p:"Grobe Gruppenbindung zurueckgewiesen - 81 % der Zeilen nennen mehrere Stoffe unter einem Namen.", w:"#509 · #534 · Claude"},
+    {id:"bew",   c:1, r:10, f:Y, t:"bewerten",                  s:"Score aus den Stammnoten. 23.810 Produkte mit Score, davon 3.011 aktive.", p:"6.504 Scores, die die heutige Regel entfernen wuerde - ungeprueft.", w:"#512 · Claude"},
     {id:"frei",  c:1, r:11, f:G, t:"Freigabe",                  s:"Foto ohne Sichtpruefung bleibt gesperrt (E39). Hersteller und OFF frei nach Bindung."},
     {id:"antw",  c:1, r:12, f:G, t:"Im Laden erkannt",          s:"Entwurf „vorlaeufig”, Aktiv „geprueft”. Ohne Note: kein Score, ehrlich leer."}
   ];
