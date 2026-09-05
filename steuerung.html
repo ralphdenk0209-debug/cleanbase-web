@@ -322,6 +322,9 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 .rb-zeile.rb-neu:hover{background:var(--bg2)}
 .zaehler{font-size:10.5px;color:var(--schwach);text-align:right;margin-top:2px}
 .zaehler.voll{color:#c0392b;font-weight:700}
+.kernweg{margin:0 16px 10px;border:1px solid var(--linie);border-radius:12px;padding:6px 10px;background:var(--karte)}
+.kernweg summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--schwach)}
+.kernweg[open] summary{margin-bottom:6px}
 .fussnote{color:var(--schwach);font-size:11.5px;padding:0 16px 26px;max-width:900px;line-height:1.6}
 
 @media (max-width:900px){ .stock-koerper{grid-template-columns:repeat(2,minmax(0,1fr)) !important} }
@@ -348,6 +351,10 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
   <div class="band" id="band"></div>
 </div>
 
+<details class="kernweg" id="kernweg" open>
+  <summary>Der Kernweg · Scan → Quelle → zerlegen → Stamm → Produkt → binden → bewerten → Freigabe · gelb = hier arbeiten wir noch</summary>
+  <div id="kernFluss"></div>
+</details>
 <div id="luecke" class="luecke" style="display:none"></div>
 <div id="ralphblock" class="ralphblock" style="display:none"></div>
 <div id="tafel" class="tafel"></div>
@@ -440,6 +447,8 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="kern-fluss.js"></script>
+<script>if(window.KERN_FLUSS) KERN_FLUSS.zeichnen(document.getElementById("kernFluss"),{dunkel:true});</script>
 <script>
 /* ============================================================
    1 · Verbindung — dieselbe Sitzung wie das Dashboard
