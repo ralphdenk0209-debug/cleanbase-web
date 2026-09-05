@@ -12714,7 +12714,16 @@ async function offScan(ean){
     try{
       await client.rpc("cb_scan_cache_schreiben",{
         p_ean:String(ean), p_name:d.name||null, p_marke:d.marke||null, p_kategorie:null,
-        p_naehrwerte:d.naehrwerte||null, p_zutaten:null, p_zusatzstoffe:null,
+        /* #526 (05.09.2026): Hier stand p_zutaten:null - der Zutatenwortlaut, den
+           off-lookup als d.zutaten_text laengst mitliefert, wurde weggeworfen.
+           Folge: alle 129 Open-Food-Facts-Eintraege im Scan-Cache hatten null
+           Zutaten, und ein daraus angelegtes Produkt haette keine gehabt.
+           Der Text geht jetzt als JSON-Zeichenkette mit; der Server legt ihn in
+           Scan_Cache.Zutaten_Rohtext ab und reicht ihn beim Uebernehmen an
+           cb_produkt_ingest weiter. Zerlegt und gebunden wird dort wie immer. */
+        p_naehrwerte:d.naehrwerte||null,
+        p_zutaten: (d.zutaten_text && String(d.zutaten_text).trim()) ? String(d.zutaten_text).trim() : null,
+        p_zusatzstoffe:null,
         p_score: d.score_erlaubt?vorlScore(d.naehrwerte):null,
         p_score_erlaubt: !!d.score_erlaubt,
         p_warnungen: d.warnungen||[], p_herkunft:"openfoodfacts"});
@@ -15036,7 +15045,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-05-20";
+const APP_BUILD = "2026-09-05-21";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
