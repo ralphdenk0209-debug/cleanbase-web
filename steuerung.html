@@ -256,6 +256,14 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 .weg span{border:1px solid var(--linie);border-radius:99px;padding:1px 7px}
 .weg span.jetzt{border-color:var(--abnahme);color:var(--abnahme);font-weight:700}
 .weg span.durch{border-color:var(--fertig);color:var(--fertig)}
+/* Naechster Schritt (Ralph, 05.09.: „was heisst das, was muss ich tun?") */
+.schritt{border:1px solid var(--st0);border-left:4px solid var(--st0);border-radius:9px;padding:9px 11px;margin-bottom:12px;background:var(--karte)}
+.schritt b{display:block;font-size:9.5px;color:var(--schwach);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.schritt .wer{font-weight:700;color:var(--st0)}
+.schritt p{margin:2px 0 0;font-size:12.5px;line-height:1.45}
+.schritt button{margin-top:7px;font-weight:700}
+.schritt.ruhig{border-color:var(--linie);border-left-color:var(--schwach)}
+.schritt.ruhig .wer{color:var(--text)}
 
 /* Aufgabentext im Panel (#397) */
 .ptext{margin-bottom:14px}
@@ -752,6 +760,25 @@ function ralphBlockZeichnen(rows){
   const alle = entscheiden.length + punkte.length;
   /* Die Karte „Neue Aufgabe" steht immer — auch wenn nichts zu entscheiden ist.
      Vorher verschwand der ganze Block bei 0, und Ralph hatte keinen Einstieg. */
+  /* Ralph, 05.09.: „ich bin nicht sicher, dass die Aufgaben sauber angeschlossen sind."
+     Drei Zahlen, jede Sitzung neu gemessen: Aufgaben ohne Punkt (unsichtbar),
+     Punkte ohne Aufgabe (niemand arbeitet daran), Punkte, die fertig sind, aber nicht gemeldet. */
+  const ohnePunkt = rows.filter(w => !WORK_AUFGABE[w.work_id] && ["verified","cancelled"].indexOf(w.status)<0).length;
+  let punkteLeer = 0, punkteMeldbar = 0;
+  for(const p of PROJEKTE) for(const a of (PAUFGABEN[p.id]||[])){
+    if(a.status==="verified") continue;
+    const items = ZEILEN.filter(w => WORK_AUFGABE[w.work_id]===a.aufgabe_id);
+    const offen = items.filter(w => ["open","in_progress","blocked","disputed","decision_ralph"].indexOf(w.status)>=0);
+    const fertig = items.filter(w => w.status==="ready_for_verification");
+    if(!items.length) punkteLeer++;
+    else if(!offen.length && fertig.length && a.status!=="ready_for_verification") punkteMeldbar++;
+  }
+  const anschluss =
+    '<div class="rb-zeile rb-punkt" style="cursor:default">' +
+      '<span class="rid">Anschluss</span>' +
+      '<span class="rt">'+ohnePunkt+' Aufgaben ohne Punkt · '+punkteLeer+' Punkte ohne Aufgabe · '+punkteMeldbar+' Punkte fertig, nicht gemeldet</span>' +
+      '<span class="rw">'+(ohnePunkt+punkteMeldbar===0 ? "sauber angeschlossen" : "bitte ansehen")+'</span>' +
+    '</div>';
   const neuKarte =
     '<div class="rb-zeile rb-neu" id="rbNeu">' +
       '<span class="rid">+ Neue Aufgabe</span>' +
@@ -779,7 +806,7 @@ function ralphBlockZeichnen(rows){
       '<span class="regel">'+entscheiden.length+' zu entscheiden · '+punkte.length+' Projektpunkte abzunehmen. ' +
       'Zeile anklicken öffnet die Aufgabe.</span></div>' +
     '<div class="rb-liste">' +
-      neuKarte +
+      neuKarte + anschluss +
       entscheiden.map(w=>zeile(w,"entscheiden")).join("") +
       punkte.map(punktZeile).join("") +
     '</div>';
@@ -1364,13 +1391,11 @@ function panelAuf(id){
   $("pMeldung").className = "meldung";
   $("pTexte").classList.remove("auf");
 
-  /* Work Items werden nur als umgesetzt gemeldet; abgenommen wird der Punkt. */
-  if(w.status==="ready_for_verification"){
-    $("pWeg").style.display = "";
-    $("pWeg").innerHTML = '<span class="durch">umgesetzt</span><span class="jetzt">wartet im Projektpunkt</span>';
-  } else {
-    $("pWeg").style.display = "none";
-  }
+  /* Ralph, 05.09.: „Was fehlt: Abnahme - was heisst das, was muss ich tun?"
+     Die Karte sagt jetzt, WER als naechstes WAS tut - und wenn es ein Klick ist,
+     steht der Knopf direkt hier. Berechnet aus Status, Zustaendigem und den
+     Geschwistern im Projektpunkt; keine Fachlogik, nur Anzeige des Serverstands. */
+  schrittZeichnen(w);
 
   $("pMeta").innerHTML = "Zuständig <b>"+esc(w.owner_agent||"—")+"</b> · zuletzt bewegt "+
     alterText(w.updated_at) + (w.dependency_work_id ? " · hängt an "+esc(nummerVon(w.dependency_work_id)) : "") +
@@ -1384,6 +1409,66 @@ function panelAuf(id){
   }
   $("panel").classList.add("auf"); $("abdeckung").classList.add("auf");
   textNachladen(w.work_id);
+}
+
+function punktVonId(aufgabeId){
+  for(const p of PROJEKTE) for(const a of (PAUFGABEN[p.id]||[])) if(a.aufgabe_id===aufgabeId) return {p,a};
+  return null;
+}
+function schrittZeichnen(w){
+  const el = $("pWeg"); el.style.display = ""; el.className = "schritt";
+  const actor = $("actor").value;
+  const ich = actor==="ralph" ? "Du" : actor;
+  const owner = w.owner_agent || "—";
+  const paId = WORK_AUFGABE[w.work_id];
+  const pk = paId ? punktVonId(paId) : null;
+  const paNr = pk ? (pk.p.kuerzel+"-"+(pk.a.nummer||"")) : "";
+  let wer = owner, was = "", knopf = "", ruhig = false;
+
+  if(w.status==="decision_ralph"){
+    wer = "Ralph"; was = "Entscheiden. Der Vorschlag mit A / B steht unter „Was fehlt”. Antwort im Chat oder hier: Station auf „offen” setzen und die Wahl in die Notiz.";
+  } else if(w.status==="blocked"){
+    was = "Blockiert. Der Grund steht unter „Was fehlt”. Wer den Blocker loest, steht dort - sonst "+owner+".";
+  } else if(w.status==="disputed"){
+    wer = "Ralph"; was = "Strittig zwischen den Agenten. Ralph entscheidet, dann Station auf „offen”.";
+  } else if(w.status==="open"){
+    was = owner+" faengt an. Noch nichts gemessen."; ruhig = true;
+  } else if(w.status==="in_progress"){
+    was = owner+" baut. Der letzte Stand steht unter „Was fehlt”."; ruhig = true;
+  } else if(w.status==="ready_for_verification"){
+    if(!pk){
+      wer = "Ralph"; was = "Alte Einzelaufgabe ohne Projektpunkt - unten „Alte Einzelaufgabe abnehmen”.";
+    } else {
+      const offen = ZEILEN.filter(z => WORK_AUFGABE[z.work_id]===paId && z.work_id!==w.work_id
+                                  && ["open","in_progress","blocked","disputed","decision_ralph"].indexOf(z.status)>=0);
+      if(offen.length){
+        wer = "noch niemand";
+        was = "Diese Aufgabe ist fertig. Der Punkt "+paNr+" wird als Ganzes abgenommen, und dort fehlen noch: " +
+              offen.map(z => z._nummer+" ("+stationName(z.status)+", "+(z.owner_agent||"—")+")").join(", ") + ".";
+      } else if(pk.a.status==="ready_for_verification"){
+        wer = actor==="ralph" ? "Du" : "Ralph oder ein anderer Agent als der Erbauer";
+        was = "Punkt "+paNr+" abnehmen - ein Klick, keine Begruendung noetig.";
+        knopf = '<button data-schritt="verify" data-punkt="'+esc(paId)+'">Punkt '+esc(paNr)+' jetzt abnehmen</button>';
+      } else {
+        wer = pk.a.owner_agent || owner;
+        was = "Alle Aufgaben im Punkt "+paNr+" sind fertig. Der Punkt muss noch als Ganzes gemeldet werden - ein Klick.";
+        knopf = '<button data-schritt="report" data-punkt="'+esc(paId)+'">Punkt '+esc(paNr)+' fertig melden</button>';
+      }
+    }
+  } else if(w.status==="verified"){
+    wer = "niemand"; was = "Abgenommen."; ruhig = true;
+  }
+  if(ruhig) el.className += " ruhig";
+  el.innerHTML = '<b>Naechster Schritt</b><span class="wer">'+esc(wer)+'</span><p>'+esc(was)+'</p>'+knopf;
+  el.querySelectorAll("[data-schritt]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true;
+    await projektPunktAktion(b.dataset.punkt, b.dataset.schritt);
+    panelZu();
+  }));
+}
+function stationName(st){
+  return ({open:"offen",in_progress:"laeuft",ready_for_verification:"wartet auf Abnahme",blocked:"blockiert",
+           disputed:"strittig",decision_ralph:"Ralph entscheidet",verified:"abgenommen",cancelled:"geschlossen"})[st] || st;
 }
 
 /* Die Kurzliste bringt keine Texte mit - die holt cb_admin_agent_work_detail (#397).
@@ -1424,7 +1509,7 @@ async function textNachladen(id){
       rubrik("","Worum geht es", d.description, "noch nicht eingetragen") +
       rubrik("warum","Warum ist es nötig", d.warum, "noch nicht eingetragen") +
       rubrik("fertig","Wann ist es erledigt", d.acceptance_criteria, "kein prüfbares Kriterium") +
-      rubrik("fehlt","Was fehlt", d.result_note, "noch keine Messung") +
+      rubrik("fehlt","Was fehlt · letzter Stand", d.result_note, "noch keine Messung") +
     '</div>' +
     (nullif(d.verification_note)
       ? rubrik("","Letzte Abnahmenotiz von "+(d.verifier_agent||"—"), d.verification_note, "") : "") +
