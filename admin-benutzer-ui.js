@@ -127,12 +127,81 @@ function _uErf(u){
   return '<b style="font-variant-numeric:tabular-nums">'+n+'</b>'
     +(a!==n?'<div style="font-size:11px;color:var(--muted);white-space:nowrap">'+a+' aktiv</div>':'');
 }
+/* Ralph-Auftrag 06.09.2026: sichtbar machen, wann jemand zuletzt in der App war.
+   Die Zeit kommt aus cb_users_list und ist dort das Spaeteste aus drei Messungen:
+   letzte_aktivitaet (setzt cb_me bei jedem App-Start), letzte Anmeldung und letzter
+   Tagebuch-Eintrag. Angezeigt wird der Abstand zu heute - "vor 3 Tagen" sagt mehr als
+   ein Datum, das man erst nachrechnen muss. */
+function _uAktiv(s){
+  if(!s) return '<span style="color:var(--k-c7c2b8)">nie</span>';
+  var d=new Date(s); if(isNaN(d)) return '<span style="color:var(--k-c7c2b8)">–</span>';
+  var min=Math.floor((Date.now()-d.getTime())/60000), txt, farbe='var(--muted)';
+  if(min<60){ txt=(min<2?'gerade eben':'vor '+min+' Min.'); farbe='var(--greendk)'; }
+  else if(min<1440){ txt='vor '+Math.floor(min/60)+' Std.'; farbe='var(--greendk)'; }
+  else { var t=Math.floor(min/1440);
+    txt = t===1?'gestern':('vor '+t+' Tagen');
+    if(t>90) farbe='var(--k-c7c2b8)';
+  }
+  return '<div style="color:'+farbe+';white-space:nowrap">'+txt+'</div>'
+    +'<div style="font-size:11px;color:var(--k-c7c2b8);white-space:nowrap">'+_uDate(s)+'</div>';
+}
+/* Premium-Gueltigkeit. Zwei Quellen, die nicht vermischt werden duerfen:
+   Stripe entscheidet beim Abo (current_period_end / trial_bis), Ralph entscheidet
+   beim manuellen Premium (premium_bis). Nur das Manuelle ist hier editierbar -
+   ein Stripe-Datum von Hand zu aendern waere eine zweite Wahrheit. */
+function _uPremBis(u){
+  var stripe = (u.subscription_status==='active'||u.subscription_status==='trialing');
+  if(stripe){
+    var ende = u.subscription_status==='trialing' ? u.trial_bis : u.current_period_end;
+    return '<div style="white-space:nowrap;color:var(--muted)">'+(ende?_uDate(ende):'läuft')+'</div>'
+      +'<div style="font-size:11px;color:var(--k-c7c2b8)">über Stripe</div>';
+  }
+  if(!u.is_premium) return '<span style="color:var(--k-c7c2b8)">–</span>';
+  var abgelaufen = u.premium_bis && new Date(u.premium_bis)<=new Date();
+  var lab = u.premium_bis ? _uDate(u.premium_bis) : 'unbegrenzt';
+  var farbe = abgelaufen ? 'var(--k-dc2626)' : (u.premium_bis?'var(--ink)':'var(--muted)');
+  return '<button onclick="setUserPremiumBis(\''+u.benutzer_id+'\',\''+(u.premium_bis||'')+'\')" '
+    +'title="Gültigkeit ändern" style="padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:'+farbe+';cursor:pointer;font-size:12.5px;white-space:nowrap">'
+    +esc(lab)+' ✏️</button>'
+    +(abgelaufen?'<div style="font-size:11px;color:var(--k-dc2626)">abgelaufen</div>':'');
+}
+/* Eingabe bewusst tolerant: TT.MM.JJJJ, JJJJ-MM-TT, "3m"/"14t" ab heute, leer = unbegrenzt. */
+function _uParseBis(s){
+  s=(s||'').trim();
+  if(!s) return {ok:true, wert:null};
+  var m=s.match(/^(\d+)\s*([tmj])$/i);
+  if(m){ var n=parseInt(m[1],10), d=new Date();
+    if(/t/i.test(m[2])) d.setDate(d.getDate()+n);
+    else if(/m/i.test(m[2])) d.setMonth(d.getMonth()+n);
+    else d.setFullYear(d.getFullYear()+n);
+    d.setHours(23,59,59,0); return {ok:true, wert:d.toISOString()};
+  }
+  m=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if(m) s=m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return {ok:false};
+  var dd=new Date(s+'T23:59:59');
+  if(isNaN(dd)) return {ok:false};
+  return {ok:true, wert:dd.toISOString()};
+}
+async function setUserPremiumBis(bid, aktuell){
+  var vor = aktuell ? new Date(aktuell).toLocaleDateString('de-DE') : '';
+  var ein = prompt('Premium gültig bis?\n\nTT.MM.JJJJ  ·  „3m" = 3 Monate ab heute  ·  „14t" = 14 Tage\nLeer lassen = unbegrenzt.', vor);
+  if(ein===null) return;
+  var p=_uParseBis(ein);
+  if(!p.ok){ alert('Datum nicht erkannt. Bitte TT.MM.JJJJ oder z. B. „3m".'); return; }
+  const msg=document.getElementById("usersMsg");
+  const {error}=await client.rpc("cb_user_premium_bis_set",{p_bid:bid,p_bis:p.wert});
+  if(error){ userErr(msg,error); return; }
+  if(msg){ msg.style.color="var(--k-16a34a)"; msg.textContent="✓ gespeichert"; setTimeout(()=>{ if(msg) msg.textContent=""; },1400); }
+  loadUsers();
+}
+if(typeof window!=='undefined'){ window.setUserPremiumBis=setUserPremiumBis; }
 function renderUsers(rows){
   ensureRpillCss();
   const th='padding:10px 12px;font-size:12.5px;text-align:left';
-  let h='<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">'+rows.length+' registrierte Nutzer. Premium-Häkchen = manuell freischalten; Abo/Test kommt automatisch über Stripe.</div>';
-  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:660px">';
-  h+='<tr style="background:var(--bg)"><th style="'+th+'">Nutzer</th><th style="'+th+';text-align:center">Premium</th><th style="'+th+'">Abo / Test</th><th style="'+th+';text-align:center">Erfasst</th><th style="'+th+'">Registriert</th><th style="'+th+'">Premium seit</th><th style="'+th+';text-align:center">Admin</th><th style="'+th+';text-align:center">Passwort</th></tr>';
+  let h='<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">'+rows.length+' registrierte Nutzer. Premium-Häkchen = manuell freischalten; Abo/Test kommt automatisch über Stripe. „Premium bis" ist nur beim manuellen Premium änderbar (z. B. 3 Monate für Testnutzer) — nach Ablauf gilt der Nutzer serverseitig als nicht mehr Premium.</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:820px">';
+  h+='<tr style="background:var(--bg)"><th style="'+th+'">Nutzer</th><th style="'+th+';text-align:center">Premium</th><th style="'+th+'">Abo / Test</th><th style="'+th+';text-align:center">Erfasst</th><th style="'+th+'">Zuletzt aktiv</th><th style="'+th+'">Registriert</th><th style="'+th+'">Premium seit</th><th style="'+th+'">Premium bis</th><th style="'+th+';text-align:center">Admin</th><th style="'+th+';text-align:center">Passwort</th></tr>';
   rows.forEach(u=>{
     const trial = u.subscription_status==='trialing' && u.trial_bis && new Date(u.trial_bis)>new Date();
     let abo;
@@ -146,8 +215,10 @@ function renderUsers(rows){
       +'<td style="'+td+';text-align:center">'+rpill(!!u.is_premium,"userPill(this,'"+u.benutzer_id+"','premium')")+'</td>'
       +'<td style="'+td+'">'+abo+'</td>'
       +'<td style="'+td+';text-align:center;white-space:nowrap">'+_uErf(u)+'</td>'
+      +'<td style="'+td+';font-size:12.5px">'+_uAktiv(u.letzte_aktivitaet)+'</td>'
       +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+_uDate(u.angelegt_am)+'</td>'
       +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+(u.is_premium?_uDate(u.premium_since):'–')+'</td>'
+      +'<td style="'+td+';font-size:12.5px">'+_uPremBis(u)+'</td>'
       +'<td style="'+td+';text-align:center">'+rpill(!!u.is_admin,"userPill(this,'"+u.benutzer_id+"','admin')")+'</td>'
       +'<td style="'+td+';text-align:center;white-space:nowrap"><button onclick="adminSetPassword(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:12.5px">🔑</button>'
       +(u.is_admin?'':'<button title="Nutzer löschen" onclick="adminDeleteUser(\''+u.benutzer_id+'\',\''+esc((u.name||u.email||u.benutzer_id)).replace(/\x27/g,"")+'\')" style="margin-left:6px;padding:6px 9px;border:1px solid var(--k-fca5a5);border-radius:8px;background:var(--card);color:var(--k-dc2626);cursor:pointer;font-size:12.5px">🗑️</button>')

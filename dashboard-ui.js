@@ -1348,9 +1348,14 @@ function _abHeroFuellen(){
    und eine Signaturaenderung an dieser Stelle nichts verbessert (§11.3).
    ========================================================================== */
 function _abHero(d,np,A,ans){
+  /* 🔴 06.09.2026, Ralph: "kopf weg." Die Lageleiste mit Zustand und den vier
+     Zahlen ist raus. Sie war die dritte Stelle, an der dieselben Zahlen standen -
+     nach den Kacheln und der Steuerung. Was bleibt, ist die Knopfleiste rechts.
+     _abHeroZustHtml und _abHeroZahlenHtml bleiben unangetastet stehen, samt
+     ihrer Auffrischung in Zeile 1326/1329: sie schreiben in Elemente, die es
+     jetzt nicht gibt, und das faengt der Aufrufer bereits ab (if(z), if(n)).
+     Kein Serververtrag geaendert - eine reine Anzeigeentscheidung. */
   return '<div class="abhero">'
-    +'<div id="abHeroZust">'+_abHeroZustHtml()+'</div>'
-    +'<div class="hzahlen" id="abHeroZahlen">'+_abHeroZahlenHtml()+'</div>'
     +'<div class="hr"><span id="abStand"></span>'
       +'<button class="hbtn" id="abAnordnen" type="button" '
         +'title="Kacheln anordnen, ein-/ausblenden, Breite umschalten">🧩 Anordnen</button>'
@@ -2259,7 +2264,11 @@ var _AB_KACHELN=[
      590+285+285+2x20 = 1200, exakt die Flaechenbreite; Region bricht um.
      ⚠ Ein GESPEICHERTES Layout behaelt seine Masse — dann einmal im
      Anordnen-Modus „Standard" waehlen. */
-  {id:'entscheid', reihe:1, titel:'Deine Entscheidungen',   breit:true,  bau:_abkEntscheid, hoch:true},
+  /* 🔴 06.09.2026, Ralph: Kachel raus. Entscheidungen stehen in der Steuerung und
+     in der Queue - im Dashboard war sie eine zweite Liste derselben Sache, und die
+     Haertefaelle darin liefen ins Leere. Der Bauplan _abkEntscheid bleibt stehen,
+     falls sie zurueckkommen soll; nur die Zeile hier ist auskommentiert. */
+  /* {id:'entscheid', reihe:1, titel:'Deine Entscheidungen',   breit:true,  bau:_abkEntscheid, hoch:true}, */
   {id:'bestand',   reihe:1, titel:'Katalog',                  breit:false, bau:_abkBestand,  foto:'kiesel',    leds:'gr gr', hoch:true},
   {id:'riki',      reihe:1, titel:'RIKI',                     breit:false, bau:_abkRiki,     foto:'kaskade',   leds:'gr'},
   /* 🔴 26.08.2026, Ralph: „nutzer & region höher darstellen, da muss ich aktuell
@@ -2278,7 +2287,9 @@ var _AB_KACHELN=[
      endet also bei 630 — am Laptop ohne nennenswertes Scrollen erreichbar
      (E9: Laptop ist der Hauptfall).
      Breit, weil der Fluss vier Stationen nebeneinander zeigt. */
-  {id:'fluss',     reihe:2, titel:'Der Fluss der Arbeit',    breit:true,  bau:_abkFluss},
+  /* 🔴 06.09.2026, Ralph: Kachel raus - dieselbe Begruendung wie bei den
+     Entscheidungen. Der Fluss der Arbeit steht im Kern-Poster und in der Steuerung. */
+  /* {id:'fluss',     reihe:2, titel:'Der Fluss der Arbeit',    breit:true,  bau:_abkFluss}, */
   /* {id:'waechter',  reihe:1, titel:'Qualität',               breit:false, bau:_abkWaechter, foto:'stroem',    leds:'r ge'},
   {id:'aktivitaet',reihe:2, titel:'Eingang',                  breit:true,  bau:_abkAkt,      foto:'wellen',    leds:'gr', text:true},
   {id:'stammu',    reihe:2, titel:'Stamm',                    breit:false, bau:_abkStammU,   foto:'stamm',     leds:'ge gr'},
