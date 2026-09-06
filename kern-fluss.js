@@ -3,7 +3,7 @@
    Kasten = Station oder Frage. Pfeil = Pfad. Farbe des Pfads = gemessener Stand:
    gruen laeuft · gelb klemmt (Work-Nummer steht am Kasten) · rot steht still.
    Wird von webseite/steuerung.html und bereiche/kern-poster.html gezeichnet.
-   Stand der Zahlen: 06.09.2026 - nachgemessen an der Datenbank, nichts uebernommen.
+   Stand der Zahlen: 06.09.2026 15:54 - Eigentuemer-Sitzung, jede Zahl neu an der Datenbank gemessen - nachgemessen an der Datenbank, nichts uebernommen.
    Ralph 05.09.: das Poster ist das Ziel, und zwar zu 100 Prozent. Jeder Kasten gruen.
    Ralph 06.09.: die vorlaeufige Karte ist NUR Fallback. Ziel ist die vollstaendige
    Produktkarte - der Kasten wird erst gruen, wenn aus dem Treffer ein fertiges
@@ -20,17 +20,18 @@
     {id:"off",   c:1, r:2,  f:F, t:"Open Food Facts kennt den Barcode?", s:"Abfrage live im Laden (off-lookup)."},
     {id:"vorl",  c:1, r:3,  f:Y, t:"Vorlaeufige Karte (nur Fallback)", s:"Sie ueberbrueckt die Sekunden im Laden. Ziel ist die vollstaendige Produktkarte - 79 Treffer sind schon Produkte geworden.", p:"50 Treffer haengen: Open Food Facts liefert dort keinen Zutatentext. Ohne Zutaten keine vollstaendige Karte.", w:"#526 · KP-9 · Claude"},
     {id:"foto",  c:3, r:3,  f:G, t:"Niemand kennt es: Foto",    s:"Etikett fotografieren. Produkt in 7,9 s angelegt."},
+    {id:"adr",   c:0, r:3,  f:Y, t:"Adresse finden (Marke \u2192 Domain)", s:"Ohne Adresse holt der Skript-Abruf nichts. Marken-Domain-Liste: 176 Domains, 750 Produkte gedeckt. Weg am 06.09. bewiesen: Domain \u2192 sitemap.xml \u2192 Produktseite \u2192 Zutaten, ohne Browser, 0 $.", p:"Der Abruf liest die Liste noch nicht - er kennt nur Produkte.Produktlink. 1.184 Produkte warten auf eine Adresse.", w:"#584 \u00b7 #582 \u00b7 Claude"},
     {id:"offd",  c:0, r:4,  f:G, t:"Zutaten von Open Food Facts", s:"Import laeuft, 8 von 8 durch die ganze Kette."},
-    {id:"herst", c:1, r:4,  f:Y, t:"Zutaten von der Herstellerseite", s:"Skript holt den Text. 68 % Treffer, 0 $. Herkunft wird seit v4 geschrieben, live.", p:"Nachweis fehlt: die Arbeitsliste sperrt jedes Produkt 7 Tage nach einem Versuch, deshalb 0 offen.", w:"#519 · KP-8 · Claude"},
-    {id:"web",   c:2, r:4,  f:R, t:"Websuche",                  s:"KI sucht Name und Zutaten im Netz. Eingefroren, 0,27 $ je Lauf (E40)."},
+    {id:"herst", c:1, r:4,  f:Y, t:"Zutaten von der Herstellerseite", s:"Skript holt den Text. 68 % Treffer, 0 $. Herkunft wird seit v4 geschrieben, live.", p:"Arbeitsliste leer: sie kennt nur die 88 Produkte mit eigenem Produktlink, und alle wurden in den letzten 7 Tagen versucht. Der Anschluss an die Marken-Domain-Liste fehlt.", w:"#519 · #584 · Claude"},
+    {id:"web",   c:2, r:4,  f:R, t:"Websuche (stillgelegt)",    s:"Eingefroren nach E40, 0,27 $ je Lauf. Ersetzt durch den Arm Adresse finden - der kostet nichts. Ein bewusst stillgelegter Weg ist keine Luecke und zaehlt nicht gegen 100 % gruen."},
     {id:"ki",    c:3, r:4,  f:Y, t:"KI liest das Foto",         s:"Zutaten und Naehrwerte, auf 2 kcal genau.", p:"97 alte Produkte nie geprueft, Marke bleibt leer.", w:"#495 · Ralph"},
-    {id:"prod",  c:1, r:5,  f:Y, t:"Produkt speichert",         s:"Zutatentext plus Herkunft am Produkt. 1.080 aktive Produkte tragen einen Etikettwortlaut.", p:"2.979 von 4.059 aktiven Produkten haben noch keinen. Ohne Wortlaut keine vollstaendige Karte - das ist der groesste Rest im ganzen Fluss.", w:"#539 · KP-8 · Claude"},
+    {id:"prod",  c:1, r:5,  f:Y, t:"Produkt speichert",         s:"Zutatentext plus Herkunft am Produkt. 1.400 von 4.059 aktiven Produkten tragen einen Etikettwortlaut - am Mittag waren es 1.080. Der Takt laeuft wieder (jobid 22, 30 je Lauf, 2 s Pause).", p:"2.659 offen. Ueber Open Food Facts sind davon nur noch rund 670 zu holen - im Trockenlauf trugen nur 36 % der Restfaelle dort einen Zutatentext. Der Rest braucht den Arm Adresse finden oder ein Foto.", w:"#539 · #584 · Claude"},
     {id:"zerl",  c:1, r:6,  f:G, t:"zerlegen",                  s:"Text wird in Namen geteilt. 323 Namen, 0 Fehler, Textmuell raus (KP-499)."},
     {id:"stamm", c:1, r:7,  f:F, t:"Name im Stamm, mit Note?",  s:"Stamm 2.490 aktive Eintraege, 2.482 mit Note."},
     {id:"ohnenote",c:2,r:8, f:G, t:"Im Stamm, aber ohne Note",  s:"Nur noch 1 Eintrag wirklich offen (Zitronensaeurekonzentrat, 0 aktive Produkte). Am 04.09. waren es 97. Die uebrigen 7 sind regelgedeckt disponiert - Rauch und Buchenholzrauch sind Verfahrensmarker (BR-RAEUCHERN-MARKER), nicht bewertbar."},
-    {id:"nicht", c:3, r:8,  f:Y, t:"Nicht im Stamm",            s:"16 Produkte. Am 05.09. waren es 181.", p:"6 zusammengesetzte Zutaten (Bacon, Zuckerglasur) - dort fehlen die Unterzutaten als eigene Zeilen. 8 Fachfragen: Erdnusscreme, Kiwimark, likoer, gehaertetes Fett.", w:"#579 · Claude"},
-    {id:"bind",  c:1, r:9,  f:Y, t:"binden",                    s:"Produkte mit Luecke 306 auf 16. Am 06.09.: 79 Zeilen gebunden - an der ZEILE, nicht an der Zutat-ID. Kein aktiver Score dabei verloren.", p:"16 Produkte offen, jedes mit gemessenem Grund.", w:"#579 · Claude"},
-    {id:"bew",   c:1, r:10, f:Y, t:"bewerten",                  s:"Score aus den Stammnoten. 3.268 aktive Produkte mit Note von 4.059.", p:"6.504 Scores, die die heutige Regel entfernen wuerde - ungeprueft.", w:"#512 · Claude"},
+    {id:"nicht", c:3, r:8,  f:Y, t:"Nicht im Stamm",            s:"40 aktive Produkte (06.09., 15:54). Am 05.09. waren es 181. Die Zahl steigt wieder, weil jeder neu geholte Etikettwortlaut neue Zutaten mitbringt - gewollt und ehrlich.", p:"Zusammengesetzte Zutaten mit Klammerliste, Fachfragen wie Erdnusscreme und Kiwimark, OCR-Bruchstuecke.", w:"#560 · Claude"},
+    {id:"bind",  c:1, r:9,  f:Y, t:"binden",                    s:"Produkte mit Luecke 306 auf 40 (06.09., 15:54, v_active_product_ingredient_repair_open). Gebunden wird an der ZEILE, nicht an der Zutat-ID.", p:"40 Produkte offen. Der Zulauf kommt aus den neu geholten Etikettwortlauten.", w:"#560 · Claude"},
+    {id:"bew",   c:1, r:10, f:Y, t:"bewerten",                  s:"Score aus den Stammnoten. 3.275 aktive Produkte mit Note von 4.059 (06.09., 15:54).", p:"6.504 Scores, die die heutige Regel entfernen wuerde - ungeprueft.", w:"#512 · Claude"},
     {id:"frei",  c:1, r:11, f:G, t:"Freigabe",                  s:"Foto ohne Sichtpruefung bleibt gesperrt (E39). Hersteller und OFF frei nach Bindung."},
     {id:"antw",  c:1, r:12, f:G, t:"Im Laden erkannt",          s:"Entwurf „vorlaeufig”, Aktiv „geprueft”. Ohne Note: kein Score, ehrlich leer."}
   ];
@@ -43,6 +44,7 @@
     ["off","foto",G,"nein","seitab"],
     ["vorl","offd",G,"","merge"],
     ["vorl","herst",Y,""],
+    ["adr","herst",Y,"Adresse","merge"],
     ["vorl","web",R,"","merge"],
     ["foto","ki",G,""],
     ["offd","prod",G,"","merge"],
@@ -134,7 +136,7 @@
     s += '</svg>';
     el.innerHTML = '<div class="kf'+(opt.dunkel?' dunkel':'')+'">'+s
       + '<div class="legende">Pfeil: <i style="background:#16a34a"></i>laeuft <i style="background:#d97706"></i>klemmt - Work-Nummer steht am Kasten <i style="background:#dc2626"></i>steht still'
-      + ' · blau = Frage mit Abzweig · von oben nach unten · Stand 05.09.2026</div></div>';
+      + ' · blau = Frage mit Abzweig · von oben nach unten · Stand 06.09.2026 15:54</div></div>';
   }
 
   window.KERN_FLUSS = { KNOTEN, PFADE, zeichnen };
