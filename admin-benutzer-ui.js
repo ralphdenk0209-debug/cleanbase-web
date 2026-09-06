@@ -202,7 +202,7 @@ async function setUserPremiumBis(bid, aktuell){
 if(typeof window!=='undefined'){ window.setUserPremiumBis=setUserPremiumBis; }
 function renderUsers(rows){
   ensureRpillCss();
-  const th='padding:10px 12px;font-size:12.5px;text-align:left';
+  const th='padding:8px 7px;font-size:11.5px;text-align:left;white-space:nowrap';
   let h='<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">'+rows.length+' registrierte Nutzer. Premium-Häkchen = manuell freischalten; Abo/Test kommt automatisch über Stripe. „Premium bis" ist nur beim manuellen Premium änderbar (z. B. 3 Monate für Testnutzer) — nach Ablauf gilt der Nutzer serverseitig als nicht mehr Premium.</div>';
   /* 🔴 06.09.2026, Ralph: "fenster ist scrollbar, soll breiter sein."
      Die Tabelle steckte in einem Kasten, der nur so breit war wie die Inhaltsspalte.
@@ -215,9 +215,15 @@ function renderUsers(rows){
      bleiben und die feste Mindestbreite von 820px fallen lassen, die den Scroll
      ueberhaupt erst ausgeloest hat. Die Tabelle nimmt jetzt die Breite, die da
      ist, und die Spalten teilen sie sich. */
-  h+='<div style="overflow-x:auto;width:100%">'
-   +'<table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;table-layout:auto">';
-  h+='<tr style="background:var(--bg)"><th style="'+th+'">Nutzer</th><th style="'+th+';text-align:center">Premium</th><th style="'+th+'">Abo / Test</th><th style="'+th+';text-align:center">Erfasst</th><th style="'+th+'">Zuletzt aktiv</th><th style="'+th+'">Registriert</th><th style="'+th+'">Premium seit</th><th style="'+th+'">Premium bis</th><th style="'+th+';text-align:center">Admin</th><th style="'+th+';text-align:center">Passwort</th></tr>';
+  /* 🔴 06.09.2026, Ralph in drei Schritten: erst "scrollbar, soll breiter sein",
+     dann "zu breit, abgeschnitten" (mein 100vw-Ausbruch schob sie unters Menue),
+     jetzt "vollstaendige Sicht, aber nicht ueber den ganzen Bildschirm".
+     Loesung ohne Ausbruch und ohne Scroll: die zehn Spalten muessen in die
+     vorhandene Breite passen. Dafuer engeres Innenmass und kleinere Schrift -
+     die Tabelle bleibt in ihrer Spalte, zeigt aber alles. */
+  h+='<div style="width:100%">'
+   +'<table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;table-layout:auto;font-size:12.5px">';
+  h+='<tr style="background:var(--bg)"><th style="'+th+'">Nutzer</th><th style="'+th+';text-align:center">Premium</th><th style="'+th+'">Abo /<br>Test</th><th style="'+th+';text-align:center">Erfasst</th><th style="'+th+'">Zuletzt<br>aktiv</th><th style="'+th+'">Regis&shy;triert</th><th style="'+th+'">Premium<br>seit</th><th style="'+th+'">Premium<br>bis</th><th style="'+th+';text-align:center">Admin</th><th style="'+th+';text-align:center">Passwort</th></tr>';
   rows.forEach(u=>{
     const trial = u.subscription_status==='trialing' && u.trial_bis && new Date(u.trial_bis)>new Date();
     let abo;
@@ -225,7 +231,7 @@ function renderUsers(rows){
     else if(u.subscription_status==='active') abo='<span style="font-size:11.5px;color:var(--greendk);font-weight:600">Abo aktiv</span>';
     else if(u.subscription_status==='canceled') abo='<span style="font-size:11.5px;color:var(--k-b45309)">gekündigt</span>';
     else abo='<span style="color:var(--k-c7c2b8)">–</span>';
-    const td='padding:10px 12px;font-size:13.5px;vertical-align:top';
+    const td='padding:8px 7px;font-size:12.5px;vertical-align:top';
     h+='<tr style="border-top:1px solid var(--line)">'
       +'<td style="'+td+'"><div style="font-weight:600">'+esc(u.name||u.benutzer_id)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(u.email||"")+'</div></td>'
       +'<td style="'+td+';text-align:center">'+rpill(!!u.is_premium,"userPill(this,'"+u.benutzer_id+"','premium')")+'</td>'
