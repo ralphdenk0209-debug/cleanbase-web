@@ -54,19 +54,47 @@ function peHatWaechter(p){
   return p.naehrwerte_qa || p.portionsfalle_qa || !p.quelle_typ
       || p.score==null || p.zu_verifizieren;
 }
-/* Die Listenhöhe wird aus der sichtbaren Viewporthöhe und der tatsächlichen
-   Dokumentposition gemessen. Mit offenem Editor oder eingeklappter Liste darf
-   der Container nicht gedeckelt werden. */
+/* Die Listenhöhe wird aus der sichtbaren Viewporthöhe und dem Abstand der Liste
+   zur Fensteroberkante gemessen. Mit offenem Editor oder eingeklappter Liste darf
+   der Container nicht gedeckelt werden.
+   🔴 06.09.2026 (Ralph: "Liste laesst sich nicht mehr scrollen, Seite soll nicht
+   scrollen"): Die Rechnung addierte scrollY zu r.top. r.top ist aber bereits
+   fensterrelativ - bei gescrollter Seite wurde die Hoehe um genau den Scrollweg
+   zu klein, Fusszeile und Pager verschwanden hinter overflow:hidden und die
+   Tabelle bekam keinen Platz mehr zum Scrollen. Zwei Aenderungen: scrollY raus,
+   und solange die Liste gedeckelt ist, scrollt die SEITE gar nicht mehr - dann
+   scrollt nur noch die Tabelle, wie es sein soll.
+   Rueckweg: _sicherungen/2026-09-06-listenhoehe/produktliste.js.bak */
+function peSeitenScroll(aus){
+  try{
+    var d=document.documentElement, b=document.body;
+    if(aus){
+      if(!window._peScrollAus){
+        window._peScrollAus=true;
+        window._peScrollVorher={ d:d.style.overflow, b:b.style.overflow };
+        if(window.scrollY||window.pageYOffset) window.scrollTo(0,0);
+      }
+      d.style.overflow='hidden'; b.style.overflow='hidden';
+    }else if(window._peScrollAus){
+      window._peScrollAus=false;
+      d.style.overflow=(window._peScrollVorher&&window._peScrollVorher.d)||'';
+      b.style.overflow=(window._peScrollVorher&&window._peScrollVorher.b)||'';
+    }
+  }catch(e){}
+}
 function peListeHoehe(){
   var s=document.getElementById('peListenSeite');
-  if(!s){ peFabSetzen(null); return; }
+  if(!s){ peSeitenScroll(false); peFabSetzen(null); return; }
   /* Editor und eingeklappte Liste benötigen normalen Seitenscroll. */
-  if(window._peSel || window._peListCollapsed){ s.style.height=''; s.style.overflow=''; return; }
+  if(window._peSel || window._peListCollapsed){
+    peSeitenScroll(false); s.style.height=''; s.style.overflow=''; return; }
+  /* Erst den Seitenscroll stilllegen, dann messen: sonst misst man die Position
+     einer gescrollten Seite und deckelt die Liste um den Scrollweg zu kurz. */
+  peSeitenScroll(true);
   var sicht=(window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
   if(!sicht) return;
   var r=s.getBoundingClientRect();
-  var obenImDok=r.top + (window.scrollY || window.pageYOffset || 0);
-  var h=Math.max(320, Math.round(sicht - obenImDok - 14));
+  var h=Math.max(320, Math.round(sicht - r.top - 14));
   s.style.height=h+'px';
   s.style.overflow='hidden';
   /* Listenhöhe und schwebender Knopf verwenden dieselbe Messung. */
@@ -95,7 +123,9 @@ function peFabSetzen(top){
   if(top===null || top===undefined) return;
   b.style.top=Math.max(8,Math.round(top))+'px';
 }
-function peNeuFabWeg(){ var b=document.getElementById('peNeuFab'); if(b) b.remove(); }
+/* Beim Verlassen der Erfassung muss der Seitenscroll zurueck - sonst haengt die
+   naechste Admin-Seite mit gesperrtem Scroll fest. */
+function peNeuFabWeg(){ var b=document.getElementById('peNeuFab'); if(b) b.remove(); peSeitenScroll(false); }
 function peListeHoeheBinden(){
   if(window._peHoeheGebunden) return; window._peHoeheGebunden=true;
   var lauf=function(){ if(window._peHoeheRaf) return;
@@ -106,6 +136,19 @@ function peListeHoeheBinden(){
   try{
     var st=document.getElementById('peSticky');
     if(st && typeof ResizeObserver==='function'){ new ResizeObserver(lauf).observe(st); }
+  }catch(e){}
+  /* Wird die Erfassung durch eine andere Admin-Seite ersetzt, verschwindet
+     #peListenSeite aus dem DOM. Dann muss der Seitenscroll zurueck - sonst
+     haengt die naechste Seite mit gesperrtem Scroll fest. Ein Beobachter statt
+     eines Merkzettels: peNeuFabWeg wird von niemandem gerufen (06.09.2026). */
+  try{
+    var ls=document.getElementById('peListenSeite');
+    var elt=ls && ls.parentNode;
+    if(elt && typeof MutationObserver==='function'){
+      new MutationObserver(function(){
+        if(!document.getElementById('peListenSeite')) peSeitenScroll(false);
+      }).observe(elt,{childList:true});
+    }
   }catch(e){}
 }
 function peSyncStickyTop(){
