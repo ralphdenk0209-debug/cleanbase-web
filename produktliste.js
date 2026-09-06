@@ -49,10 +49,28 @@ function peIstOffen(p){
       || ['offen','noch_nicht_erfasst'].indexOf(String(p.ean_status||''))>=0)
       && !peIstOffImport(p);
 }
-/* Wächtertreffer bleiben bis zur Freigabe auffindbar. */
+/* Wächtertreffer bleiben bis zur Freigabe auffindbar.
+   🔴 06.09.2026 (#619, Ralph: "der Browser soll doch aus der Datenbank lesen"):
+   Vorher stand hier ein NACHBAU der Wächterregel:
+     p.naehrwerte_qa || p.portionsfalle_qa || !p.quelle_typ || p.score==null || p.zu_verifizieren
+   Das war ein dritter Ort für dieselbe Frage - neben cb_produkt_waechterfrei und
+   cb_produkt_stationen. Das Schild in der Liste konnte deshalb etwas anderes sagen
+   als der Server (Kernvertrag B1: kein lokaler Nachbau einer Serverentscheidung).
+   Jetzt liefert cb_erfassung_liste das Urteil mit, aus v_produkt_waechter_offen.
+   KEIN RÜCKFALL auf die alte Rechnung: liefert der Server das Feld nicht, zeigt die
+   Liste kein Schild und sagt im Titel warum - zwei Wahrheiten wären schlimmer als
+   eine fehlende Anzeige. */
 function peHatWaechter(p){
-  return p.naehrwerte_qa || p.portionsfalle_qa || !p.quelle_typ
-      || p.score==null || p.zu_verifizieren;
+  return (Number(p && p.waechter_anzahl) || 0) > 0;
+}
+/* Die Namen der anschlagenden Wächter für den Tooltip - der Server nennt sie. */
+function peWaechterText(p){
+  var w = p && p.waechter;
+  if(Array.isArray(w) && w.length) return 'Wächter: ' + w.join(' · ') + ' – bis zur Freigabe prüfen';
+  return 'Von einem Wächter gemeldet – bis zur Freigabe prüfen';
+}
+function peWaechterFeldFehlt(p){
+  return !p || p.waechter_anzahl === undefined || p.waechter_anzahl === null;
 }
 /* Die Listenhöhe wird aus der sichtbaren Viewporthöhe und dem Abstand der Liste
    zur Fensteroberkante gemessen. Mit offenem Editor oder eingeklappter Liste darf
@@ -842,7 +860,7 @@ function peRender(){
       +td(p.quelle_typ?esc(p.quelle_typ):'<span style="color:#cf5442">fehlt</span>','color:#7b8698;font-size:12px','title="'+esc(p.quelle_typ||'')+'"')
       +td(peDatum(p.angelegt),'color:#7b8698;font-size:12px')
       +pePunkte(p).map(function(pk){ return td(pk,'text-align:center;padding:9px 2px;overflow:visible'); }).join('')
-      +td((String(p.herkunft||'')==='Riki-Autopilot'?'<span title="Vom Riki-Autopilot angelegt und vom Riki-Wächter geprüft – bitte verifizieren" style="margin-right:2px">🤖</span>':'')+(p.markiert?'<span style="color:#cf5442">⚑</span>':'')+(peHatWaechter(p)?'<span title="Von einem Wächter gemeldet – bis zur Freigabe prüfen" style="color:#c88616">🛡</span>':''),'overflow:visible')
+      +td((String(p.herkunft||'')==='Riki-Autopilot'?'<span title="Vom Riki-Autopilot angelegt und vom Riki-Wächter geprüft – bitte verifizieren" style="margin-right:2px">🤖</span>':'')+(p.markiert?'<span style="color:#cf5442">⚑</span>':'')+(peHatWaechter(p)?'<span title="'+esc(peWaechterText(p))+'" style="color:#c88616">🛡</span>':(peWaechterFeldFehlt(p)?'<span title="Der Server hat für diese Zeile kein Wächterurteil geliefert – die Liste rechnet es bewusst nicht selbst nach (#619)" style="color:#9aa7b2">·</span>':'')),'overflow:visible')
       +'</tr>'; }).join('')
     +'</tbody>';
   /* Fußzeile trennt geladene Seitenzeilen von der serverseitigen Gesamtmenge. */
