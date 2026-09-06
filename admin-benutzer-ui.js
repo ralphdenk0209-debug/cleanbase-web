@@ -115,12 +115,24 @@ async function loadUsers(){
   renderUsers(data||[]);
 }
 function _uDate(s){ if(!s) return '–'; try{ return new Date(s).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return '–'; } }
+/* Ralph-Auftrag 06.09.2026: sichtbar machen, wer Produkte erfasst hat.
+   Die Zahl kommt aus cb_users_list (Produkte.Angelegt_Von), NICHT aus Daten_Quelle -
+   die sagt, WOHER die Daten stammen, nicht WER sie eingetragen hat. Wer nichts
+   erfasst hat, bekommt einen Strich statt einer Null: eine 0 laese sich als
+   Bewertung lesen, der Strich sagt schlicht "nichts dabei". */
+function _uErf(u){
+  var n=Number(u&&u.produkte_erfasst||0);
+  if(!n) return '<span style="color:var(--k-c7c2b8)">\u2013</span>';
+  var a=Number(u.produkte_erfasst_aktiv||0);
+  return '<b style="font-variant-numeric:tabular-nums">'+n+'</b>'
+    +(a!==n?'<div style="font-size:11px;color:var(--muted);white-space:nowrap">'+a+' aktiv</div>':'');
+}
 function renderUsers(rows){
   ensureRpillCss();
   const th='padding:10px 12px;font-size:12.5px;text-align:left';
   let h='<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">'+rows.length+' registrierte Nutzer. Premium-Häkchen = manuell freischalten; Abo/Test kommt automatisch über Stripe.</div>';
   h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:660px">';
-  h+='<tr style="background:var(--bg)"><th style="'+th+'">Nutzer</th><th style="'+th+';text-align:center">Premium</th><th style="'+th+'">Abo / Test</th><th style="'+th+'">Registriert</th><th style="'+th+'">Premium seit</th><th style="'+th+';text-align:center">Admin</th><th style="'+th+';text-align:center">Passwort</th></tr>';
+  h+='<tr style="background:var(--bg)"><th style="'+th+'">Nutzer</th><th style="'+th+';text-align:center">Premium</th><th style="'+th+'">Abo / Test</th><th style="'+th+';text-align:center">Erfasst</th><th style="'+th+'">Registriert</th><th style="'+th+'">Premium seit</th><th style="'+th+';text-align:center">Admin</th><th style="'+th+';text-align:center">Passwort</th></tr>';
   rows.forEach(u=>{
     const trial = u.subscription_status==='trialing' && u.trial_bis && new Date(u.trial_bis)>new Date();
     let abo;
@@ -133,6 +145,7 @@ function renderUsers(rows){
       +'<td style="'+td+'"><div style="font-weight:600">'+esc(u.name||u.benutzer_id)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(u.email||"")+'</div></td>'
       +'<td style="'+td+';text-align:center">'+rpill(!!u.is_premium,"userPill(this,'"+u.benutzer_id+"','premium')")+'</td>'
       +'<td style="'+td+'">'+abo+'</td>'
+      +'<td style="'+td+';text-align:center;white-space:nowrap">'+_uErf(u)+'</td>'
       +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+_uDate(u.angelegt_am)+'</td>'
       +'<td style="'+td+';color:var(--muted);white-space:nowrap">'+(u.is_premium?_uDate(u.premium_since):'–')+'</td>'
       +'<td style="'+td+';text-align:center">'+rpill(!!u.is_admin,"userPill(this,'"+u.benutzer_id+"','admin')")+'</td>'

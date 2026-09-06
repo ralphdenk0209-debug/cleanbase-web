@@ -182,6 +182,19 @@ async function peDatenHolen(offset){
      eigentliche Arbeit. Die Datenbank liefert sie nur auf Seite 1 (offset 0) -
      das steht auch so am Blaetterer, damit niemand sie ab Seite 2 vermisst. */
   window._peRows=scan.concat(rows);
+  /* 🔴 06.09.2026, Ralph (#598): die acht Stationspunkte kommen vom Server, in EINEM
+     Aufruf fuer die ganze Seite. Die Liste rechnet nichts nach - sie zeigt, was
+     cb_produkt_stationen_liste sagt. Faellt der Aufruf aus, bleiben die Punkte leer;
+     eine leere Anzeige ist ehrlicher als eine geratene. */
+  try{
+    var _ids=rows.map(function(r){ return String(r.id); }).filter(function(i){ return /^P/.test(i); });
+    window._peStationen={};
+    if(_ids.length){
+      var _st=await client.rpc('cb_produkt_stationen_liste',{p_ids:_ids});
+      if(!_st.error && Array.isArray(_st.data))
+        _st.data.forEach(function(z){ window._peStationen[z.Produkt_ID]={ampel:z.ampel,st:z.stationen}; });
+    }
+  }catch(e){ window._peStationen={}; console.warn('[Stationen]',e&&e.message||e); }
   window._verifRows=rows;   /* Editor-Navigation (vor/zurueck) darf nur echte Produkte kennen */
   window._peGesamt=Number(d.gesamt||0);
   window._peOffset=Number(d.offset||0);
@@ -717,26 +730,15 @@ function peRender(){
   /* Freigabepunkte zeigen ausschließlich Felder aus v_erfassung_katalog;
      Scan-Eingänge bleiben leer und es wird keine Regel im Frontend nachgebaut. */
   var pePkt=function(kl,titel){ return '<span class="pePkt pePkt-'+kl+'" title="'+esc(titel)+'"></span>'; };
+  var _stFarbe={gruen:'g',gelb:'y',rot:'r',wartet:'w'};
   var pePunkte=function(p){
-    if(peIstScan(p)) return ['','','','','',''];
-    var _zu=Number(p.zut_unbewertet||0);
-    return [
-      p.kat_ok ? pePkt('g','Kategorie gewählt') : pePkt('r','Kategorie fehlt'),
-      (p.nw_stand==='ok')   ? pePkt('g','Nährwerte vollständig')
-       : (p.nw_stand==='fehlt') ? pePkt('r','Nährwerte fehlen')
-       : pePkt('x','Nährwerte – für diese Kategorie nicht nötig'),
-      p.hat_zutaten ? pePkt('g','Zutaten erfasst') : pePkt('r','keine Zutat erfasst'),
-      /* Ohne Zutaten ist "alle bewertet" keine Aussage - dann hohl statt gruen.
-         Die Karte zeigt hier heute gruen; im FAHRPLAN als offener Punkt vermerkt. */
-      !p.hat_zutaten ? pePkt('x','keine Zutaten – Bewertung nicht beurteilbar')
-       : (_zu>0 ? pePkt('r',_zu+' Zutat(en) unbewertet') : pePkt('g','alle Zutaten bewertet')),
-      p.quelle_ok ? pePkt('g','Quelle belegt') : pePkt('r','Quelle-Typ fehlt oder ist nicht anerkannt'),
-      /* EAN-Ampelfarben werden dargestellt; sie blockieren hier keine Freigabe. */
-      (p.ean_ampel==='gruen') ? pePkt('g','EAN erfasst')
-       : (p.ean_ampel==='blau') ? pePkt('b','Produkt hat keinen Barcode – entschieden')
-       : (p.ean_ampel==='gelb') ? pePkt('y','Barcode noch nicht erfasst – blockiert nicht')
-       : pePkt('y','EAN-Status nicht entschieden – blockiert nicht')
-    ];
+    if(peIstScan(p)) return ['','','','','','','',''];
+    var d=(window._peStationen||{})[String(p.id)];
+    /* Ohne Serverantwort keine Punkte. Nichts raten, nichts nachbauen. */
+    if(!d||!Array.isArray(d.st)) return ['','','','','','','',''];
+    return d.st.map(function(e){
+      return pePkt(_stFarbe[e.f]||'x', e.s+': '+e.g);
+    });
   };
   /* Anlagedatum kommt aus Erstellt_am; `erfasst` bezeichnet die letzte Prüfung. */
   var peDatum=function(v){
@@ -752,9 +754,15 @@ function peRender(){
   };
   g.innerHTML=cols+'<thead><tr>'+[thF('P-Nr','pnr',0),thF('Titel','titel',1),thF('Marke','marke',2),thF('Index','index',3),thF('Status','status',4),thF('EAN','ean',5),thF('Quelle','quelle',6),
       thF('Angelegt',null,7),
-      _thPkt('K','Kategorie gewählt',8),_thPkt('N','Nährwerte vollständig',9),_thPkt('Z','Zutaten erfasst',10),
-      _thPkt('B','Zutaten bewertet',11),_thPkt('Q','Quelle belegt',12),_thPkt('E','EAN erfasst oder bewusst ohne',13),
-      thF('⚑ 🛡',null,14)].join('')+'</tr></thead><tbody>'
+      _thPkt('Q','Station Quelle: woher kommt der Text?',8),
+      _thPkt('W','Etikettwortlaut am Produkt',9),
+      _thPkt('Z','zerlegt: Zutatenzeilen entstanden',10),
+      _thPkt('B','gebunden: jede Zeile kennt der Stamm',11),
+      _thPkt('S','bewertet: Score vollständig',12),
+      _thPkt('N','Nährwerte: Wächter still',13),
+      _thPkt('E','Einheit und Kategorie: Wächter still',14),
+      _thPkt('F','freigegeben',15),
+      thF('⚑ 🛡',null,16)].join('')+'</tr></thead><tbody>'
     +list.map(function(p){ var seln=(String(window._peSel||'')===String(p.id));
       var _scan=peIstScan(p);
       return '<tr class="'+(seln?'sel':'')+'" data-id="'+esc(p.id)+'" onclick="peSelect(\''+esc(p.id)+'\')" oncontextmenu="peRowCtx(event,\''+esc(p.id)+'\')"'
@@ -1010,7 +1018,10 @@ function peRowCtx(ev,id){
 /* Die Standardbreiten stehen an EINEM Ort - sonst laufen Anzeige und Ruecksetzen
    auseinander (1.2c). 0 = keine feste Breite (Titel nimmt den Rest). */
 /* Gespeicherte Breiten gelten nur bei exakt passender Spaltenanzahl. */
-var PE_COL_STD=[88,0,120,58,106,136,108,104,26,26,26,26,26,26,52];
+/* 06.09.2026 (#598): acht Stationsspalten statt sechs Inhaltsspalten.
+   Die gespeicherte Breite aus dem localStorage passt dann nicht mehr und wird
+   verworfen - deshalb der Laengenvergleich weiter oben. */
+var PE_COL_STD=[88,0,120,58,106,136,108,104,26,26,26,26,26,26,26,26,52];
 var _peZieh=null;
 function peColZiehStart(ev,i){
   if(ev.stopPropagation) ev.stopPropagation();   /* sonst oeffnet sich der Excel-Filter */

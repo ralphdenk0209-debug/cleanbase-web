@@ -7110,6 +7110,12 @@ function dashEnterpriseHtml(d){
     +tile(4,h3('Audit','drei Pr\u00fcf-Ebenen')+'<div id="dashAuditBox"></div>')
     +tile(4,h3('Aufgaben heute','nach Dringlichkeit')+aufg)
     +tile(4,h3('Supabase','Datenbank \u00b7 Speicher \u00b7 Paket')+'<div id="entSupaBox" style="font-size:12.5px;color:#898781">L\u00e4dt \u2026</div>')
+    /* Ralph-Auftrag 06.09.2026: in der Produktliste stand zwar eine Quelle, aber nicht,
+       WER erfasst hat. Diese Kachel trennt beides: Personen aus Produkte.Angelegt_Von,
+       Importe aus Daten_Quelle. Gemessen am 06.09.: 67 von 62.199 Produkten tragen einen
+       Erfasser - die Kachel sagt das ausdruecklich, damit "Ralph 55" nicht wie ein
+       Anteil am Katalog gelesen wird. Laedt nach ueber cb_admin_erfasser_statistik. */
+    +tile(4,h3('Wer hat erfasst','Personen und Importe')+'<div id="entErfasserBox" style="font-size:12.5px;color:#898781">L\u00e4dt \u2026</div>')
     +'</div></div>';
 }
 /* Etappe 2b (Ralph: "mach eine saubere deutschlandkarte"): ECHTE Bundesland-Umrisse.
@@ -7187,6 +7193,36 @@ async function dashSupaLoad(){
     +zeile('Dateispeicher', mb(d.storage_bytes)+' \u00b7 '+(Number(d.storage_dateien)||0)+' Dateien')+balken(d.storage_bytes, Number(d.storage_limit_mb)||0)
     +zeile('Struktur', (Number(d.tabellen)||0)+' Tabellen \u00b7 '+(Number(d.views)||0)+' Sichten \u00b7 '+(Number(d.funktionen)||0)+' Funktionen')
     +(d.paket?'':'<div style="font-size:10.5px;color:#898781;margin-top:6px">Paket einmal nennen \u2014 dann erscheinen die Limit-Balken.</div>');
+}
+/* ===== Erfasser-Kachel (Ralph 06.09.2026) =====
+   Zeigt, wer wie viele Produkte angelegt hat und wie viele aus Importen stammen.
+   Faellt der RPC aus, steht der Grund da - keine erfundene Verteilung. */
+async function dashErfasserLoad(){
+  var box=document.getElementById('entErfasserBox'); if(!box) return;
+  var d=null;
+  try{ var r=await client.rpc('cb_admin_erfasser_statistik'); d=r&&r.data; if(typeof d==='string'){ try{ d=JSON.parse(d);}catch(e){} } }catch(e){}
+  if(!d){ box.innerHTML='<div style="color:#c07a10">Erfasser-Zahlen konnten gerade nicht geladen werden.</div>'; return; }
+  var f=function(n){ return String(n==null?0:n).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); };
+  var zeile=function(farbe,txt,val,sub){
+    return '<div style="display:flex;align-items:center;gap:9px;font-size:12.5px;padding:6.5px 0;border-top:1px solid #e1e0d9;color:var(--ink,#0b0b0b)">'
+      +'<span style="width:8px;height:8px;border-radius:50%;background:'+farbe+';flex:0 0 auto"></span>'
+      +'<span style="flex:1;min-width:0">'+txt+(sub?' <span style="color:#898781">'+sub+'</span>':'')+'</span>'
+      +'<b style="font-variant-numeric:tabular-nums">'+f(val)+'</b></div>';
+  };
+  var pers=Array.isArray(d.personen)?d.personen:[];
+  var imp=Array.isArray(d.importe)?d.importe:[];
+  var h='';
+  if(pers.length){
+    pers.forEach(function(p){ h+=zeile('#2a78d6',esc(p.name),p.anzahl,p.aktiv!=null?(p.aktiv+' aktiv'):''); });
+  } else {
+    h+='<div style="color:#898781;padding:6px 0">Noch kein Produkt mit hinterlegtem Erfasser.</div>';
+  }
+  h+='<div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--ink,#0b0b0b)">Herkunft aller '+f(d.gesamt)+' Produkte</div>';
+  imp.forEach(function(i){ h+=zeile('#898781',esc(i.quelle),i.anzahl,''); });
+  h+='<div style="margin-top:8px;font-size:10.5px;color:#898781;line-height:1.5">'
+    +f(d.mit_erfasser)+' Produkte tragen einen Erfasser, '+f(d.ohne_erfasser)+' nicht \u2014 die stammen aus Importen. '
+    +'Die Personenzahlen sind daher kein Anteil am Katalog.</div>';
+  box.innerHTML=h;
 }
 async function dashKarteLoad(){
   var box=document.getElementById('entKarteBox'); if(!box) return;

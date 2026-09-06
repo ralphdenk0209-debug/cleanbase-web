@@ -1519,6 +1519,11 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
 .pePkt-r{ background:var(--frg-rot) }
 .pePkt-b{ background:var(--frg-blau) }
 .pePkt-x{ background:transparent;border:2px solid var(--frg-leer);width:9px;height:9px }
+/* 🔴 06.09.2026, Ralph (#598): die Punkte zeigen nicht mehr, OB ein Feld gefuellt ist,
+   sondern ob die Station den Waechter besteht. Vier Zustaende - gelb ist neu, und
+   "wartet" ist wichtig: eine Station ohne Vorbedingung ist nicht gruen, sie ist offen. */
+.pePkt-y{ background:var(--frg-gelb,#e0a32e) }
+.pePkt-w{ background:transparent;border:2px dotted #b9c2cc;width:9px;height:9px }
 
 /* Die Karte "Freigabe" im linken Streifen. Sie ist im klassischen Editor
    IMMER sichtbar - anders als die Checkliste #fe_riegel und die alte

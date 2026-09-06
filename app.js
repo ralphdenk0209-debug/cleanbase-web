@@ -6430,6 +6430,7 @@ async function loadDashboard(){
     try{ dashAuditLoad(); }catch(e){}
     try{ dashKarteLoad(); }catch(e){}
     try{ dashSupaLoad(); }catch(e){}
+    try{ dashErfasserLoad(); }catch(e){}  /* Ralph 06.09.2026: Erfasser-Kachel */
     try{ adminNavBadges(d); }catch(e){}
     return; }
   /* 06.08.2026 (Ralph-Entscheid "toten Code loeschen"): die Ansichten "Neon Command Center"
@@ -15045,7 +15046,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-06-19";
+const APP_BUILD = "2026-09-06-20";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
