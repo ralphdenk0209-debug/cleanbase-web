@@ -90,6 +90,29 @@
     <span style="background:#eef5ff">blau hinterlegt</span>.
   </p>
 
+  <h2 class="mdSecTitel">Domain von Hand eintragen</h2>
+  <div class="mdKarte">
+    <div class="mdLeiste" style="margin:0">
+      <input id="nMarke" placeholder="Marke, z. B. Gut &amp; Günstig" spellcheck="false" style="width:230px">
+      <input id="nDomain" placeholder="Domain, z. B. lmiv.edeka-foodservice.de" spellcheck="false" style="width:300px">
+      <select id="nStatus">
+        <option value="vorgeschlagen">vorgeschlagen</option>
+        <option value="keine_seite">keine Seite</option>
+        <option value="offen">offen (zurücksetzen)</option>
+      </select>
+      <input id="nNotiz" placeholder="Notiz (optional)" style="width:260px">
+      <button class="mdFBtn aktiv" onclick="mdSetzen()">eintragen</button>
+      <span id="nMeldung" class="notiz"></span>
+    </div>
+    <p class="notiz" style="margin:8px 2px 0">
+      Gilt auch für vorhandene Marken — der Eintrag wird überschrieben. Beispiel Handelsmarken:
+      Edeka-Eigenmarken führen nicht über <code>edeka.de</code>, sondern über das LMIV-Portal
+      <code>lmiv.edeka-foodservice.de</code>. <b>„belegt" lässt sich hier nicht setzen</b> — das entsteht
+      allein dadurch, dass über die Domain ein Zutatentext an ein Produkt gekommen ist.
+      Ändert sich die Domain, fällt ein alter Beleg weg.
+    </p>
+  </div>
+
   <h2 class="mdSecTitel">Marken, nach offenen Produkten</h2>
   <div class="mdLeiste">
     <button id="f_alle" class="mdFBtn aktiv" onclick="mdFilter(null)">alle</button>
@@ -160,7 +183,7 @@ async function mdListe(){
   var grenze = Date.now() - 24*3600*1000;
   var h = '<table><thead><tr>'
         + '<th>Marke</th><th class="zahl">Produkte ohne Wortlaut</th><th>Zustand</th>'
-        + '<th>Domain</th><th>gefunden von</th><th>Beleg</th><th>Notiz</th>'
+        + '<th>Domain</th><th>gefunden von</th><th>Beleg</th><th>Notiz</th><th></th>'
         + '</tr></thead><tbody>';
   rows.forEach(function(z){
     var st = z.Status || "offen";
@@ -173,10 +196,37 @@ async function mdListe(){
        + '<td class="von'+(z.Gefunden_Von==="riki"?" riki":"")+'">'+mdEsc(z.Gefunden_Von || "—")+'</td>'
        + '<td class="notiz">'+(z.Beleg_Produkt_ID ? mdEsc(z.Beleg_Produkt_ID) : '—')+'</td>'
        + '<td class="notiz">'+mdEsc(z.Notiz || "")+'</td>'
+       + '<td><button class="mdFBtn" onclick="mdUebernehmen('+"'"+mdEsc(String(z.Marke).replace(/'/g,"\\'"))+"'"+','+"'"+mdEsc(String(z.Domain||"").replace(/'/g,"\\'"))+"'"+')">ändern</button></td>'
        + '</tr>';
   });
   h += '</tbody></table>';
   el.innerHTML = h;
+}
+
+/* Zeile in das Eingabefeld oben holen - kein zweiter Schreibweg, dieselbe Funktion. */
+function mdUebernehmen(marke, domain){
+  document.getElementById("nMarke").value = marke;
+  document.getElementById("nDomain").value = domain || "";
+  document.getElementById("nMarke").scrollIntoView({behavior:"smooth", block:"center"});
+  document.getElementById("nDomain").focus();
+}
+
+async function mdSetzen(){
+  var m = document.getElementById("nMarke").value.trim();
+  var d = document.getElementById("nDomain").value.trim();
+  var s = document.getElementById("nStatus").value;
+  var n = document.getElementById("nNotiz").value.trim();
+  var meld = document.getElementById("nMeldung");
+  if(!m){ meld.textContent = "Marke fehlt."; return; }
+  meld.textContent = "speichert …";
+  var r = await mdClient.rpc("cb_marken_domain_setzen",
+    { p_marke:m, p_domain:d, p_status:s, p_notiz:(n||null) });
+  if(r.error){ meld.textContent = "Serverfehler: "+r.error.message; return; }
+  var a = r.data || {};
+  if(a.ok !== true){ meld.textContent = "Abgewiesen: "+(a.grund||"unbekannt"); return; }
+  meld.textContent = "gesetzt: "+m+" → "+(a.domain||"keine Seite")+"  (vorher "+(a.vorher||"—")+")";
+  document.getElementById("nNotiz").value = "";
+  await mdZaehler(); await mdListe();
 }
 
 mdZaehler();
