@@ -7900,6 +7900,20 @@ async function _feScoreRun(box){
     if(!_sid){ box.innerHTML='<div style="color:var(--muted);font-size:12.5px;line-height:1.5">Supplement – kein Lebensmittel-Index. Die Anzeige „Wirkstoffe in wirksamer Menge" erscheint, sobald das Produkt mit seinen Wirkstoffen gespeichert ist.</div>'; return; }
     var seqS=(++_feScoreSeq);
     box.innerHTML='<div style="color:var(--muted);font-size:12.5px">⏳ Wirkstoffe werden geprüft…</div>';
+    /* Work #575: den Reinheits-Index derselben Gelegenheit mitnehmen. Er kommt
+       aus cb_supplement_index - der einzigen Stelle, die ihn rechnet. Hier wird
+       nichts gerechnet, nur geholt und abgelegt; das Kopfband zeigt ihn dann.
+       Faellt die RPC aus, bleibt _fgSuppIndex leer und der Kopf zeigt wieder
+       "Dosis-Check". Kein Grund, deshalb die Wirkstoffkarte zu verlieren. */
+    try{
+      var ri=await client.rpc("cb_supplement_index",{p_id:_sid});
+      var rid=ri&&ri.data; if(Array.isArray(rid)) rid=rid[0];
+      if(rid && rid.gilt===true && rid.index!=null){
+        window._fgSuppIndex={produkt_id:_sid, index:rid.index, achsen:rid.achsen||null,
+                             regelversion:rid.regelversion||null};
+      } else { window._fgSuppIndex=null; }
+    }catch(e){ window._fgSuppIndex=null; console.warn("[Supp] Reinheits-Index:", e); }
+    try{ feKopfIndex(); }catch(e){}
     try{
       var rk=await client.rpc("cb_supplement_karte",{p_produkt_id:_sid});
       if(seqS!==_feScoreSeq) return;
@@ -8737,11 +8751,41 @@ function _feDatumDE(v){
   return m ? (m[3]+"."+m[2]+"."+m[1]) : t;
 }
 if(typeof window!=="undefined"){ window._feDatumDE=_feDatumDE; }
+/* 🔴 06.09.2026, Work #575 — der Reinheits-Index stand da, nur sah ihn keiner.
+   ----------------------------------------------------------------------------
+   Ralph, an P73700: "wenn er rechnet ist das gut, aber angezeigt wird nichts."
+   Genau so war es. cb_supplement_index rechnet seit work338-v1 vier Achsen
+   (Dosis 35 · Wirkform 25 · Transparenz 20 · Zusatzstoffe 20) und lieferte fuer
+   P73700 die 42,1 - das Kopfband schrieb trotzdem stur "Dosis-Check / siehe
+   Schritt 2". Der Trigger cb_supplement_kein_score leert Clean_Score fuer
+   Supplements, und das Frontend las nur diese eine leere Spalte.
+   Jetzt liest der Kopf die Zahl da, wo sie entsteht. Keine Frontend-Rechnung:
+   _feScoreRun holt sie per RPC und legt sie nach window._fgSuppIndex, hier wird
+   nur gezeigt. Faellt die RPC aus, steht wieder der alte Satz da.
+   OPTIK: bewusst NICHT wie der Lebensmittel-Index (Ralph). Anderes Label,
+   andere Farbe, "von 100" dahinter - damit niemand die 42 fuer einen Root Index
+   haelt. Zwei Skalen, zwei Bilder. */
 function _feStreifenBewertung(){
   var sg=window._fgScoreGespeichert, pid=(window._fgEdit&&window._fgEdit.id)||"";
   var supp=(String((document.getElementById("fe_kat")||{}).value||"").toLowerCase()==="supplement");
-  if(supp) return '<span class="feStBew still" title="Nahrungsergänzung bekommt keinen Lebensmittel-Index. Die Bewertung steht als Dosis-Check bei Wirkstoffe &amp; Dosis.">'
-    +'<b>Dosis-Check</b><i>siehe Schritt 2</i></span>';
+  if(supp){
+    var si=window._fgSuppIndex;
+    if(si && si.produkt_id===pid && si.index!=null){
+      var _a=si.achsen||{};
+      var _t=function(k,lbl,max){ var o=_a[k]; if(!o) return "";
+        return lbl+": "+String(Math.round(Number(o.punkte)*10)/10).replace(".",",")+" von "+max+"\n"; };
+      return '<span class="feStBew supp" title="'+esc(
+          "Reinheits-Index fuer Nahrungsergaenzung, Regelversion "+(si.regelversion||"")+".\n"
+          +"Nicht der Root Index - eigene Skala, eigene Achsen.\n\n"
+          +_t("dosis","Dosis",35)+_t("wirkform","Wirkform",25)
+          +_t("transparenz","Transparenz",20)+_t("zusatzstoffe","Zusatzstoffe",20))+'">'
+        +'<em>Reinheits-Index</em>'
+        +'<b>'+esc(String(Math.round(Number(si.index))))+'</b>'
+        +'<i>von 100</i></span>';
+    }
+    return '<span class="feStBew still" title="Nahrungsergänzung bekommt keinen Lebensmittel-Index. Die Bewertung steht als Dosis-Check bei Wirkstoffe &amp; Dosis.">'
+      +'<b>Dosis-Check</b><i>siehe Schritt 2</i></span>';
+  }
   if(!sg || sg.produkt_id!==pid)
     return '<span class="feStBew still" title="Der Index entsteht beim Speichern.">'
       +'<b>–</b><i>noch kein gespeicherter Index</i></span>';

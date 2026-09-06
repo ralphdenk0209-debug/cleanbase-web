@@ -2535,6 +2535,15 @@ body.riFokus .feZurueckFokus{ display:none !important }
 .feStBew.still b{ font-size:15px }
 .feStBew.fehlt b{ font-size:12.5px; color:var(--k-92400e,#92400e) }
 .feStBew.fehlt i{ color:var(--muted) }
+/* Work #575 · 06.09.2026 — Reinheits-Index fuer Supplements.
+   Ralph: "sollte aber etwas anders aussehen wie der index bei normalen
+   produkten". Deshalb KEINE Ampelfarbe: der Root Index faerbt sich gruen bis
+   rot, diese Zahl bleibt durchgehend blau. Zwei Skalen, zwei Bilder - eine 42
+   auf der Supplement-Skala ist etwas anderes als eine 42 auf der Lebensmittel-
+   Skala, und das muss man auf einen Blick sehen. */
+.feStBew.supp b{ color:var(--k-1d4ed8,#1d4ed8) }
+.feStBew.supp em{ color:var(--k-1d4ed8,#1d4ed8) }
+.feStBew.supp i{ color:var(--muted); font-weight:600 }
 /* Zahl und Wort nebeneinander, wenn beide da sind — "58 schwach" liest sich als
    eine Aussage. Bei "still" und "fehlt" traegt b den ganzen Satz, dann bleibt es
    untereinander. */
