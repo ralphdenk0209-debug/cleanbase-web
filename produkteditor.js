@@ -6947,10 +6947,13 @@ function feProduktKopf(){
          var T=window._feFrgTexte||[], nB=window._feFrgBlocker||0;
          /* Der Begruendungstext neben dem Chip: alle Punkte im Titel zum
             Nachlesen, die ersten beiden sichtbar, der Rest als Zahl. */
+         /* 🔴 06.09.2026, Ralph: der Grund war auf zwei Punkte gekuerzt und der Rest
+            stand nur als "+3" da. Jetzt stehen ALLE offenen Punkte, jeder in einer
+            eigenen Zeile mit Nummer - man soll lesen koennen, wonach man sucht. */
          var grund=T.length
            ? '<span class="feKzGrund" title="'+esc(T.join(' · '))+'">'
-             +esc(T.slice(0,2).join(' · '))
-             +(T.length>2?' · +'+(T.length-2):'')+'</span>'
+             +T.map(function(t,i){ return (T.length>1?(i+1)+'. ':'')+esc(t); }).join('<br>')
+             +'</span>'
            : '';
          /* 🔴 EIN Element fuer den Zustand UND die Handlung (Ralph-Entscheid):
             blockiert -> rot und nicht klickbar, mit dem Grund daneben

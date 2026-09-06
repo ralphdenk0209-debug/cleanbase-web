@@ -1523,7 +1523,12 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
    sondern ob die Station den Waechter besteht. Vier Zustaende - gelb ist neu, und
    "wartet" ist wichtig: eine Station ohne Vorbedingung ist nicht gruen, sie ist offen. */
 .pePkt-y{ background:var(--frg-gelb,#e0a32e) }
-.pePkt-w{ background:transparent;border:2px dotted #b9c2cc;width:9px;height:9px }
+/* 🔴 06.09.2026, Ralph: drei Zustaende, drei Zeichen.
+   -u BLAU  = noch nicht geprueft, der Takt holt das Produkt nach
+   -w WEISS = geprueft, hier nicht erforderlich (Vorbedingung fehlt)
+   Vorher sahen beide gleich aus, und ein hohler Kreis las sich wie "alles gut". */
+.pePkt-u{ background:#4a72b7 }
+.pePkt-w{ background:#fff;border:1px solid #d6dce4;width:9px;height:9px }
 
 /* Die Karte "Freigabe" im linken Streifen. Sie ist im klassischen Editor
    IMMER sichtbar - anders als die Checkliste #fe_riegel und die alte
@@ -3571,11 +3576,15 @@ body.riFokus #feRahmen > #feRail{ display:none }
 }
 #feKopfZone .feKzChip.ok{ background:#ecfdf5; color:#166534; border-color:#bfe3cb }
 #feKopfZone .feKzChip.rot{ background:#fdeeeb; color:#b91c1c; border-color:#f3c9c1 }
-/* Der Grund wird gekuerzt, aber nie weggelassen - Ralphs Regel: bei einer Blockade
-   steht der Grund daneben. Der volle Wortlaut haengt als Mausanzeige daran. */
+/* 🔴 06.09.2026, Ralph: "bei fehler muss der fehler eindeutig angegeben sein,
+   damit ich schauen kann." Der Grund wurde vorher auf 230px gekuerzt und mit
+   Auslassungspunkten abgeschnitten - man las "Etikettpruefung noc..." und musste
+   raten. Er darf jetzt umbrechen und mehrzeilig stehen. Eine Mausanzeige ist
+   kein Ersatz fuer lesbaren Text. */
 #feKopfZone .feKzGrund{
-  font-size:10.5px; color:var(--muted); line-height:1.25;
-  max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:11px; color:var(--muted); line-height:1.35;
+  max-width:min(560px, 46vw); white-space:normal; overflow-wrap:anywhere;
+  display:block; margin-top:2px;
 }
 /* 🔴 23.08. .feKzFrgBtn ist ersatzlos weg. Der Knopf, den diese Regel bemalt hat,
    war der ZWEITE "✓ Freigeben" auf dem Schirm - derselbe Aufruf wie feProdFrei im

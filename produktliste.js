@@ -782,11 +782,24 @@ function peRender(){
      Scan-Eingänge bleiben leer und es wird keine Regel im Frontend nachgebaut. */
   var pePkt=function(kl,titel){ return '<span class="pePkt pePkt-'+kl+'" title="'+esc(titel)+'"></span>'; };
   var _stFarbe={gruen:'g',gelb:'y',rot:'r',wartet:'w'};
+  /* 🔴 06.09.2026, Ralph: "waechter leer oder fehlen. geht nicht. leer, wenn nicht
+     erforderlich." Drei Zustaende, die man auseinanderhalten muss:
+       · NOCH NICHT GEPRUEFT (kein Eintrag im Vorrat) -> grauer Strich. Ein hohler
+         Kreis sah aus wie "nicht noetig" und war doch nur "wir wissen es nicht".
+       · WARTET / nicht erforderlich (Vorbedingung fehlt) -> hohler Kreis.
+       · GEPRUEFT -> gruen, gelb oder rot.
+     Nichts raten: was der Server nicht gesagt hat, wird als ungeprueft gezeigt. */
+  /* 🔴 06.09.2026, Ralph: "noch nicht geprueft in blau", "nicht erforderlich weiss".
+     Blau = wir wissen es noch nicht. Weiss = geprueft und hier nicht noetig.
+     Zwei verschiedene Aussagen, zwei verschiedene Zeichen. */
+  var peStrich=function(t){ return '<span class="pePkt pePkt-u" title="'+esc(t)+'"></span>'; };
   var pePunkte=function(p){
     if(peIstScan(p)) return ['','','','','','','',''];
     var d=(window._peStationen||{})[String(p.id)];
-    /* Ohne Serverantwort keine Punkte. Nichts raten, nichts nachbauen. */
-    if(!d||!Array.isArray(d.st)) return ['','','','','','','',''];
+    if(!d||!Array.isArray(d.st)){
+      var t='Stationen noch nicht geprüft – der Takt holt dieses Produkt nach';
+      return [peStrich(t),peStrich(t),peStrich(t),peStrich(t),peStrich(t),peStrich(t),peStrich(t),peStrich(t)];
+    }
     return d.st.map(function(e){
       return pePkt(_stFarbe[e.f]||'x', e.s+': '+e.g);
     });
