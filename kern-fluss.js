@@ -9,7 +9,7 @@
    Produktkarte - der Kasten wird erst gruen, wenn aus dem Treffer ein fertiges
    Produkt geworden ist, nicht wenn eine Karte angezeigt wurde. */
 (function(){
-  const G="gruen", Y="gelb", R="rot", F="frage";
+  const G="gruen", Y="gelb", R="rot", F="frage", S="still";   // still = stillgelegt, zaehlt nicht
   const W=200, H=110, CX=222, RY=138;       // Kastenbreite, -hoehe, Spaltenabstand, Zeilenabstand
   const X = c => 14 + c*CX, Yr = r => 14 + r*RY;
   const LANE = X(3)+W+34;                    // rechte Spur fuer „ja - sofort erkannt”
@@ -23,7 +23,7 @@
     {id:"adr",   c:0, r:3,  f:Y, t:"Adresse finden: Marke \u2192 Domain \u2192 Sitemap", s:"Drei Takte, 0 $: Domain suchen, sitemap.xml lesen, Produktseite dem Namen zuordnen, Link ans Produkt. 214 Domains, davon 61 durch einen echten Zutatentext belegt. 64.096 Produktseiten im Vorrat.", p:"792 Produkte haengen an Marken ohne Domain. 6 Herstellerseiten sperren sitemap.xml und robots.txt - dort braucht es einen anderen Weg wie bei Edeka.", w:"#582 \u00b7 Claude"},
     {id:"offd",  c:0, r:4,  f:G, t:"Zutaten von Open Food Facts", s:"Import laeuft, 8 von 8 durch die ganze Kette."},
     {id:"herst", c:1, r:4,  f:Y, t:"Zutaten von der Herstellerseite", s:"Skript holt den Text. 68 % Treffer, 0 $. Herkunft wird seit v4 geschrieben, live.", p:"Arbeitsliste steht auf 0 - abgearbeitet. Neue Adressen kommen ueber den Sitemap-Takt nach.", w:"#519 · Claude"},
-    {id:"web",   c:2, r:4,  f:R, t:"Websuche (stillgelegt)",    s:"Eingefroren nach E40, 0,27 $ je Lauf. Ersetzt durch den Arm Adresse finden - der kostet nichts. Ein bewusst stillgelegter Weg ist keine Luecke und zaehlt nicht gegen 100 % gruen."},
+    {id:"web",   c:2, r:4,  f:S, t:"Websuche (stillgelegt)",    s:"Eingefroren nach E40, 0,27 $ je Lauf. Am 06.09. ersetzt: die Adresse kommt jetzt aus dem Markennamen, kostenlos. Ein bewusst stillgelegter Weg ist keine Luecke und zaehlt nicht gegen 100 % gruen (E46)."},
     {id:"ki",    c:3, r:4,  f:Y, t:"KI liest das Foto",         s:"Zutaten und Naehrwerte, auf 2 kcal genau.", p:"97 alte Produkte nie geprueft, Marke bleibt leer.", w:"#495 · Ralph"},
     {id:"beleg", c:3, r:5,  f:G, t:"Belegpruefung: steht es wirklich auf dem Foto?", s:"Zweiter Blick auf die Etikettfotos, 0,0014 $ je Produkt. 113 geprueft, 28 ohne Zutatenverzeichnis. Findet sie keines, sperrt der Server den Score mit Grund - das Produkt bleibt nutzbar, nur die unbelegte Zahl faellt weg.", w:"#495 \u00b7 Claude"},
     {id:"prod",  c:1, r:5,  f:Y, t:"Produkt speichert",         s:"Zutatentext plus Herkunft am Produkt. 1.936 von 4.059 aktiven Produkten tragen einen Etikettwortlaut - am Mittag waren es 1.080, also plus 856 an einem Tag.", p:"2.123 offen. Ueber Open Food Facts sind davon nur noch rund 670 zu holen; der Rest braucht den Arm Adresse finden oder ein Foto.", w:"#539 · Claude"},
@@ -46,11 +46,11 @@
     ["vorl","offd",G,"","merge"],
     ["vorl","herst",Y,""],
     ["adr","herst",Y,"Adresse","merge"],
-    ["vorl","web",R,"","merge"],
+    ["vorl","web",S,"","merge"],
     ["foto","ki",G,""],
     ["offd","prod",G,"","merge"],
     ["herst","prod",Y,"ohne Herkunft"],
-    ["web","prod",R,"steht still","merge"],
+    ["web","prod",S,"ersetzt","merge"],
     ["ki","beleg",G,""],
     ["beleg","prod",G,"nur mit Beleg","merge"],
     ["prod","zerl",G,""],
@@ -64,7 +64,7 @@
     ["bew","frei",Y,"Score oder ehrlich leer"],
     ["frei","antw",G,""]
   ];
-  const FARBE = {gruen:"#16a34a", gelb:"#d97706", rot:"#dc2626", frage:"#2563eb"};
+  const FARBE = {gruen:"#16a34a", gelb:"#d97706", rot:"#dc2626", frage:"#2563eb", still:"#94a3b8"};
 
   const CSS = `
   .kf{font:13px/1.35 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;max-width:1000px;margin:0 auto;overflow-x:auto}
@@ -77,12 +77,14 @@
   .kf .kn.gruen{background:#eaf7ef;border-color:#16a34a;color:#14532d}
   .kf .kn.gelb{background:#fdf1cf;border-color:#d97706;color:#7a4b00}
   .kf .kn.rot{background:#fdeded;border-color:#dc2626;color:#991b1b}
+  .kf .kn.still{background:#f1f5f9;border-color:#94a3b8;color:#64748b;border-style:dashed}
   .kf .kn.frage{background:#eaf0fe;border-color:#2563eb;color:#1e3a8a;border-radius:24px;text-align:center}
   .kf .legende{font-size:11.5px;color:#6b7280;margin:6px 4px 4px}
   .kf .legende i{display:inline-block;width:22px;height:3px;vertical-align:3px;margin:0 5px 0 12px}
   .kf.dunkel .kn.gruen{background:#12291c;color:#bbf7d0}
   .kf.dunkel .kn.gelb{background:#3a2c0c;color:#fde68a}
   .kf.dunkel .kn.rot{background:#331818;color:#fecaca}
+  .kf.dunkel .kn.still{background:#1e2530;color:#94a3b8}
   .kf.dunkel .kn.frage{background:#151f33;color:#c6d8fd}
   .kf.dunkel .legende{color:#93a1b3}
   .kf.dunkel text{fill:#c9d2dc}
@@ -90,6 +92,7 @@
     .kf:not(.hell) .kn.gruen{background:#12291c;color:#bbf7d0}
     .kf:not(.hell) .kn.gelb{background:#3a2c0c;color:#fde68a}
     .kf:not(.hell) .kn.rot{background:#331818;color:#fecaca}
+    .kf:not(.hell) .kn.still{background:#1e2530;color:#94a3b8}
     .kf:not(.hell) .kn.frage{background:#151f33;color:#c6d8fd}
     .kf:not(.hell) text{fill:#c9d2dc}
   }`;
@@ -137,7 +140,7 @@
     });
     s += '</svg>';
     el.innerHTML = '<div class="kf'+(opt.dunkel?' dunkel':'')+'">'+s
-      + '<div class="legende">Pfeil: <i style="background:#16a34a"></i>laeuft <i style="background:#d97706"></i>klemmt - Work-Nummer steht am Kasten <i style="background:#dc2626"></i>steht still'
+      + '<div class="legende">Pfeil: <i style="background:#16a34a"></i>laeuft <i style="background:#d97706"></i>klemmt - Work-Nummer steht am Kasten <i style="background:#dc2626"></i>steht still <i style="background:#94a3b8"></i>stillgelegt, zaehlt nicht'
       + ' · blau = Frage mit Abzweig · von oben nach unten · Stand 06.09.2026 17:30</div></div>';
   }
 
