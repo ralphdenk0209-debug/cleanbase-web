@@ -96,6 +96,12 @@ function applyAdminMode(){
          aus dem Cache kommt (die 15.08.-Falle). Kein app.js-Panel: die Seite
          braucht weder Datenbank noch Anmeldung. */
       +_an('videoskript','🎬','Video-Skript',"window.open('video-skript-01.html?cb='+Date.now(),'_blank')")
+      /* 🔴 06.09.2026, Ralph (#580): „ich will die liste im dashboard haben und
+         sehen, wenn riki etwas ergaenzt." Marken-Domain-Liste als eigene Seite
+         wie steuerung.html — eigenes Fenster mit Cache-Buster. Sie fuettert den
+         Skript-Abruf mit Adressen; ohne Adresse holt er nichts. RIKI darf eine
+         Domain vorschlagen, belegt wird sie erst durch einen Zutatentext. */
+      +_an('markendomain','🌐','Marken-Domains',"window.open('marken-domains.html?cb='+Date.now(),'_blank')")
       +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
       +_an('werangelegt','👤','Wer hat angelegt',"admWerAngelegtOpen()")
       +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");

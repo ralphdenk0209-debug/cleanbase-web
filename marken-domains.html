@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<!-- MARKEN-DOMAINS · Work #580 · angelegt 06.09.2026
+     Wozu: der Skript-Abruf quelle-abruf-einfach (E43, 0 $) kann nur Produkte
+     holen, zu denen eine Adresse bekannt ist. Gemessen 06.09.: von 2.947 aktiven
+     Produkten ohne Etikettwortlaut hatten nur 88 einen Produktlink.
+     Diese Liste ist die Adresse. Sie waechst von allein: RIKI darf fuer eine
+     unbekannte Marke eine Domain SUCHEN und VORSCHLAGEN (Status vorgeschlagen).
+     Bestaetigt wird eine Domain nie durch eine Meinung, sondern erst, wenn ueber
+     sie ein Zutatentext an ein Produkt gekommen ist (cb_marken_domain_belegen).
+     Server ist die einzige Wahrheit - diese Seite rechnet nichts nach. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Marken &amp; Domains · Root Index</title>
+<style>
+  :root{
+    --gruen:#e6f4ea; --gruenR:#2e9e57; --gelb:#fdf3d7; --gelbR:#e0a32e;
+    --rot:#fde8e4; --rotR:#cf5442; --blau:#e8effc; --blauR:#4a72b7;
+    --rand:#dcd8ea; --tinte:#2a2640; --muted:#6b6592; --lila:#534AB7;
+    --kopf:#16233d; --kopf2:#1d2b45; --karte:#fff; --grund:#f2f0f8;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font:14px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;
+        color:var(--tinte); background:var(--grund); }
+  #mdTop{ position:sticky; top:0; z-index:50; background:linear-gradient(180deg,var(--kopf),var(--kopf2));
+          color:#fff; padding:10px 18px 8px; box-shadow:0 2px 10px rgba(20,20,50,.25); }
+  .mdZ1{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .mdBrand{ font-size:12px; color:#aab3d0; white-space:nowrap; }
+  .mdBrand b{ color:#fff; font-size:14px; }
+  #mdTitel{ font-size:17px; font-weight:700; margin-right:auto; }
+  .mdChip{ background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.18);
+           border-radius:8px; padding:4px 12px; text-align:center; line-height:1.15; }
+  .mdChip b{ display:block; font-size:16px; }
+  .mdChip small{ font-size:10px; color:#aab3d0; }
+  .mdChip.gut b{ color:#5fd68f; } .mdChip.warn b{ color:#f4b64a; } .mdChip.neu b{ color:#8ec6ff; }
+  #mdBuild{ font-size:10.5px; color:#8f99bd; }
+  #mdInhalt{ max-width:1240px; margin:0 auto; padding:14px 18px 60px; }
+  .mdSecTitel{ font-size:13px; font-weight:700; color:var(--lila); letter-spacing:.5px;
+               text-transform:uppercase; margin:18px 0 8px 2px; }
+  .mdKarte{ background:var(--karte); border:1px solid var(--rand); border-radius:10px; padding:12px 14px; }
+  .mdLeiste{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:10px 0; }
+  .mdFBtn{ padding:5px 12px; border:1px solid var(--rand); background:#fff; border-radius:16px;
+           font:inherit; cursor:pointer; color:var(--muted); }
+  .mdFBtn.aktiv{ background:var(--lila); border-color:var(--lila); color:#fff; }
+  table{ border-collapse:collapse; width:100%; font-size:13px; }
+  th,td{ text-align:left; padding:6px 8px; border-bottom:1px solid var(--rand); vertical-align:top; }
+  th{ font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+  td.zahl{ text-align:right; font-variant-numeric:tabular-nums; }
+  .pill{ display:inline-block; border-radius:12px; padding:1px 9px; font-size:11.5px; font-weight:600;
+         border:1px solid; white-space:nowrap; }
+  .pill.offen{ background:var(--rot); border-color:var(--rotR); color:#8c3325; }
+  .pill.vorgeschlagen{ background:var(--gelb); border-color:var(--gelbR); color:#7a5406; }
+  .pill.bestaetigt{ background:var(--gruen); border-color:var(--gruenR); color:#1d6b3a; }
+  .pill.keine_seite{ background:#eceaf3; border-color:var(--rand); color:var(--muted); }
+  .von{ font-size:11px; color:var(--muted); }
+  .von.riki{ color:var(--blauR); font-weight:700; }
+  tr.frisch td{ background:#eef5ff; }
+  .notiz{ font-size:11.5px; color:var(--muted); }
+  .mdFuss{ margin-top:26px; font-size:11.5px; color:var(--muted); line-height:1.6; }
+  a{ color:var(--lila); }
+</style>
+</head>
+<body>
+
+<div id="mdTop">
+  <div class="mdZ1">
+    <span class="mdBrand"><b>Root Index</b> · Admin</span>
+    <span id="mdTitel">Marken &amp; Domains</span>
+    <span class="mdChip warn"><b id="cOffen">–</b><small>ohne Domain</small></span>
+    <span class="mdChip"><b id="cVor">–</b><small>vorgeschlagen</small></span>
+    <span class="mdChip gut"><b id="cBest">–</b><small>belegt</small></span>
+    <span class="mdChip neu"><b id="cRiki">–</b><small>von RIKI (24 h)</small></span>
+    <span class="mdChip"><b id="cProd">–</b><small>Produkte noch ohne Adresse</small></span>
+    <span id="mdBuild">MD-2026-09-06-1</span>
+  </div>
+</div>
+
+<div id="mdInhalt">
+
+  <p class="mdKarte" style="margin-top:14px">
+    <b>Wozu diese Liste.</b> Der Skript-Abruf holt Zutatentexte von Herstellerseiten — kostenlos, ohne
+    Sprachmodell. Er braucht dafür eine Adresse. Gemessen am 06.09.2026: von 2.947 aktiven Produkten
+    ohne Etikettwortlaut trugen nur 88 einen Produktlink. Diese Liste schließt die Lücke.
+    <br><b>Wie sie wächst.</b> Kommt eine Marke dazu, die hier fehlt, darf RIKI die Domain suchen und
+    <span class="pill vorgeschlagen">vorgeschlagen</span> eintragen. RIKI entscheidet nichts:
+    <span class="pill bestaetigt">belegt</span> wird eine Domain erst, wenn über sie ein Zutatentext
+    an ein echtes Produkt gekommen ist. Was RIKI in den letzten 24 Stunden ergänzt hat, steht hier
+    <span style="background:#eef5ff">blau hinterlegt</span>.
+  </p>
+
+  <h2 class="mdSecTitel">Marken, nach offenen Produkten</h2>
+  <div class="mdLeiste">
+    <button id="f_alle" class="mdFBtn aktiv" onclick="mdFilter(null)">alle</button>
+    <button id="f_offen" class="mdFBtn" onclick="mdFilter('offen')">ohne Domain</button>
+    <button id="f_vorgeschlagen" class="mdFBtn" onclick="mdFilter('vorgeschlagen')">vorgeschlagen</button>
+    <button id="f_bestaetigt" class="mdFBtn" onclick="mdFilter('bestaetigt')">belegt</button>
+    <button id="f_keine_seite" class="mdFBtn" onclick="mdFilter('keine_seite')">keine Seite</button>
+    <span id="mdStatus" class="notiz" style="margin-left:auto"></span>
+  </div>
+  <div class="mdKarte" style="overflow-x:auto"><div id="mdTabelle">lädt …</div></div>
+
+  <div class="mdFuss">
+    Server ist die Wahrheit: diese Seite liest <code>cb_marken_domain_liste</code> und
+    <code>cb_marken_domain_zaehler</code> und rechnet nichts nach. Geschrieben wird ausschließlich über
+    <code>cb_marken_domain_riki_vorschlagen</code> (RIKI, nur „vorgeschlagen") und
+    <code>cb_marken_domain_belegen</code> (nur mit Zutaten-Rohtext am Produkt).
+    Eine belegte Domain kann RIKI nicht überschreiben — der Riegel ist in beide Richtungen getestet.
+    Aufgabe #580 · Kernweg-Arm „Adresse finden".
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* Dieselben Zugangsdaten und derselbe storageKey wie app.js und pruefblatt.js —
+   die Admin-Anmeldung aus admin.html gilt damit auch hier. Kein zweiter Anmeldeweg. */
+var MD_URL = "https://haurbpfkfaaehorirzee.supabase.co";
+var MD_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
+var mdClient = supabase.createClient(MD_URL, MD_KEY, {
+  auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:false,
+          storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
+});
+
+var MD_FILTER = null;
+
+function mdEsc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]; }); }
+function mdZahl(n){ return (Number(n)||0).toLocaleString("de-DE"); }
+
+async function mdZaehler(){
+  var r = await mdClient.rpc("cb_marken_domain_zaehler");
+  if(r.error){ document.getElementById("mdStatus").textContent = "Zähler: "+r.error.message; return; }
+  var z = r.data || {};
+  document.getElementById("cOffen").textContent = mdZahl(z.offen);
+  document.getElementById("cVor").textContent   = mdZahl(z.vorgeschlagen);
+  document.getElementById("cBest").textContent  = mdZahl(z.bestaetigt);
+  document.getElementById("cRiki").textContent  = mdZahl(z.von_riki_neu_24h);
+  document.getElementById("cProd").textContent  = mdZahl(z.produkte_offen);
+}
+
+function mdFilter(s){
+  MD_FILTER = s;
+  ["alle","offen","vorgeschlagen","bestaetigt","keine_seite"].forEach(function(k){
+    var b = document.getElementById("f_"+k);
+    if(b) b.classList.toggle("aktiv", (s===null && k==="alle") || s===k);
+  });
+  mdListe();
+}
+
+async function mdListe(){
+  var el = document.getElementById("mdTabelle");
+  el.textContent = "lädt …";
+  var r = await mdClient.rpc("cb_marken_domain_liste", { p_status: MD_FILTER, p_limit: 500 });
+  if(r.error){ el.innerHTML = '<p style="color:#cf5442">Serverfehler: '+mdEsc(r.error.message)+'</p>'; return; }
+  var rows = r.data || [];
+  document.getElementById("mdStatus").textContent = mdZahl(rows.length)+" Marken angezeigt";
+  if(!rows.length){ el.innerHTML = '<p class="notiz">Keine Marke in diesem Zustand.</p>'; return; }
+
+  var grenze = Date.now() - 24*3600*1000;
+  var h = '<table><thead><tr>'
+        + '<th>Marke</th><th class="zahl">Produkte ohne Wortlaut</th><th>Zustand</th>'
+        + '<th>Domain</th><th>gefunden von</th><th>Beleg</th><th>Notiz</th>'
+        + '</tr></thead><tbody>';
+  rows.forEach(function(z){
+    var st = z.Status || "offen";
+    var frisch = (z.Gefunden_Von === "riki") && z.Beleg_Am == null;
+    h += '<tr'+(frisch?' class="frisch"':'')+'>'
+       + '<td><b>'+mdEsc(z.Marke)+'</b></td>'
+       + '<td class="zahl">'+mdZahl(z.Produkte_ohne_Wortlaut)+'</td>'
+       + '<td><span class="pill '+mdEsc(st)+'">'+mdEsc(st==="keine_seite"?"keine Seite":st==="bestaetigt"?"belegt":st)+'</span></td>'
+       + '<td>'+(z.Domain ? '<a href="https://'+mdEsc(z.Domain)+'" target="_blank" rel="noopener">'+mdEsc(z.Domain)+'</a>' : '—')+'</td>'
+       + '<td class="von'+(z.Gefunden_Von==="riki"?" riki":"")+'">'+mdEsc(z.Gefunden_Von || "—")+'</td>'
+       + '<td class="notiz">'+(z.Beleg_Produkt_ID ? mdEsc(z.Beleg_Produkt_ID) : '—')+'</td>'
+       + '<td class="notiz">'+mdEsc(z.Notiz || "")+'</td>'
+       + '</tr>';
+  });
+  h += '</tbody></table>';
+  el.innerHTML = h;
+}
+
+mdZaehler();
+mdListe();
+</script>
+</body>
+</html>

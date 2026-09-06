@@ -28,8 +28,8 @@
     {id:"zerl",  c:1, r:6,  f:G, t:"zerlegen",                  s:"Text wird in Namen geteilt. 323 Namen, 0 Fehler, Textmuell raus (KP-499)."},
     {id:"stamm", c:1, r:7,  f:F, t:"Name im Stamm, mit Note?",  s:"Stamm 2.490 aktive Eintraege, 2.482 mit Note."},
     {id:"ohnenote",c:2,r:8, f:G, t:"Im Stamm, aber ohne Note",  s:"Nur noch 1 Eintrag wirklich offen (Zitronensaeurekonzentrat, 0 aktive Produkte). Am 04.09. waren es 97. Die uebrigen 7 sind regelgedeckt disponiert - Rauch und Buchenholzrauch sind Verfahrensmarker (BR-RAEUCHERN-MARKER), nicht bewertbar."},
-    {id:"nicht", c:3, r:8,  f:Y, t:"Nicht im Stamm",            s:"35 Zeilen in 38 aktiven Produkten.", p:"Reste: Eiklarpulver, Erdnusscreme, zusammengesetzte Zutaten mit Klammerliste, OCR-Bruchstuecke.", w:"#579 · Claude"},
-    {id:"bind",  c:1, r:9,  f:Y, t:"binden",                    s:"Produkte mit Luecke 306 auf 39. Am 06.09.: 55 Zeilen an der ZEILE gebunden, nicht an der Zutat-ID.", p:"39 Produkte offen. Der Rest braucht Handarbeit oder einen Etikettwortlaut.", w:"#579 · #580 · Claude"},
+    {id:"nicht", c:3, r:8,  f:Y, t:"Nicht im Stamm",            s:"16 Produkte. Am 05.09. waren es 181.", p:"6 zusammengesetzte Zutaten (Bacon, Zuckerglasur) - dort fehlen die Unterzutaten als eigene Zeilen. 8 Fachfragen: Erdnusscreme, Kiwimark, likoer, gehaertetes Fett.", w:"#579 · Claude"},
+    {id:"bind",  c:1, r:9,  f:Y, t:"binden",                    s:"Produkte mit Luecke 306 auf 16. Am 06.09.: 79 Zeilen gebunden - an der ZEILE, nicht an der Zutat-ID. Kein aktiver Score dabei verloren.", p:"16 Produkte offen, jedes mit gemessenem Grund.", w:"#579 · Claude"},
     {id:"bew",   c:1, r:10, f:Y, t:"bewerten",                  s:"Score aus den Stammnoten. 3.268 aktive Produkte mit Note von 4.059.", p:"6.504 Scores, die die heutige Regel entfernen wuerde - ungeprueft.", w:"#512 · Claude"},
     {id:"frei",  c:1, r:11, f:G, t:"Freigabe",                  s:"Foto ohne Sichtpruefung bleibt gesperrt (E39). Hersteller und OFF frei nach Bindung."},
     {id:"antw",  c:1, r:12, f:G, t:"Im Laden erkannt",          s:"Entwurf „vorlaeufig”, Aktiv „geprueft”. Ohne Note: kein Score, ehrlich leer."}
