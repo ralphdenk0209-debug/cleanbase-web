@@ -209,9 +209,14 @@ function renderUsers(rows){
      Sie darf jetzt bis an den Fensterrand - width:100vw mit einem Ausbruch aus der
      Spalte (margin-left auf die halbe Differenz). Der Scroll bleibt als Notnagel
      fuer sehr schmale Fenster, greift aber im Regelfall nicht mehr. */
-  h+='<div style="overflow-x:auto;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);'
-   +'padding:0 24px;box-sizing:border-box">'
-   +'<table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:820px">';
+  /* 🔴 06.09.2026, Ralph: "fenster ist scrollbar, soll breiter sein." - und dann
+     "zu breit, abgeschnitten". Der erste Versuch brach mit 100vw aus der Spalte
+     aus und schob die Tabelle unter das linke Menue. Richtig ist: in der Spalte
+     bleiben und die feste Mindestbreite von 820px fallen lassen, die den Scroll
+     ueberhaupt erst ausgeloest hat. Die Tabelle nimmt jetzt die Breite, die da
+     ist, und die Spalten teilen sie sich. */
+  h+='<div style="overflow-x:auto;width:100%">'
+   +'<table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;table-layout:auto">';
   h+='<tr style="background:var(--bg)"><th style="'+th+'">Nutzer</th><th style="'+th+';text-align:center">Premium</th><th style="'+th+'">Abo / Test</th><th style="'+th+';text-align:center">Erfasst</th><th style="'+th+'">Zuletzt aktiv</th><th style="'+th+'">Registriert</th><th style="'+th+'">Premium seit</th><th style="'+th+'">Premium bis</th><th style="'+th+';text-align:center">Admin</th><th style="'+th+';text-align:center">Passwort</th></tr>';
   rows.forEach(u=>{
     const trial = u.subscription_status==='trialing' && u.trial_bis && new Date(u.trial_bis)>new Date();
