@@ -35,6 +35,14 @@
   .mdChip b{ display:block; font-size:16px; }
   .mdChip small{ font-size:10px; color:#aab3d0; }
   .mdChip.gut b{ color:#5fd68f; } .mdChip.warn b{ color:#f4b64a; } .mdChip.neu b{ color:#8ec6ff; }
+  .mdChip.rot b{ color:#ff9a8a; }
+  .sm{ display:inline-block; border-radius:12px; padding:1px 9px; font-size:11.5px; font-weight:600; border:1px solid; white-space:nowrap; }
+  .sm.ok{ background:var(--gruen); border-color:var(--gruenR); color:#1d6b3a; }
+  .sm.blockt{ background:var(--rot); border-color:var(--rotR); color:#8c3325; }
+  .sm.leer{ background:var(--gelb); border-color:var(--gelbR); color:#7a5406; }
+  .sm.fehler{ background:var(--gelb); border-color:var(--gelbR); color:#7a5406; }
+  .sm.offen{ background:#eceaf3; border-color:var(--rand); color:var(--muted); }
+  tr.blockt td{ background:#fdf3f1; }
   #mdBuild{ font-size:10.5px; color:#8f99bd; }
   #mdInhalt{ max-width:1240px; margin:0 auto; padding:14px 18px 60px; }
   .mdSecTitel{ font-size:13px; font-weight:700; color:var(--lila); letter-spacing:.5px;
@@ -73,6 +81,9 @@
     <span class="mdChip gut"><b id="cBest">–</b><small>belegt</small></span>
     <span class="mdChip neu"><b id="cRiki">–</b><small>von RIKI (24 h)</small></span>
     <span class="mdChip"><b id="cProd">–</b><small>Produkte noch ohne Adresse</small></span>
+    <span class="mdChip gut"><b id="cSmOk">–</b><small>Sitemap liest sich</small></span>
+    <span class="mdChip rot"><b id="cSmBlockt">–</b><small>Seite blockt</small></span>
+    <span class="mdChip"><b id="cWartet">–</b><small>Produkte warten auf den Abruf</small></span>
     <span id="mdBuild">MD-2026-09-06-1</span>
   </div>
 </div>
@@ -120,8 +131,18 @@
     <button id="f_vorgeschlagen" class="mdFBtn" onclick="mdFilter('vorgeschlagen')">vorgeschlagen</button>
     <button id="f_bestaetigt" class="mdFBtn" onclick="mdFilter('bestaetigt')">belegt</button>
     <button id="f_keine_seite" class="mdFBtn" onclick="mdFilter('keine_seite')">keine Seite</button>
+    <span style="width:14px"></span>
+    <button id="s_blockt" class="mdFBtn" onclick="mdSitemapFilter('blockt')">🚫 Seite blockt</button>
+    <button id="s_leer" class="mdFBtn" onclick="mdSitemapFilter('leer')">Sitemap ohne Produktseiten</button>
+    <button id="s_fehler" class="mdFBtn" onclick="mdSitemapFilter('fehler')">Abruffehler</button>
+    <button id="s_ok" class="mdFBtn" onclick="mdSitemapFilter('ok')">Sitemap liest sich</button>
     <span id="mdStatus" class="notiz" style="margin-left:auto"></span>
   </div>
+  <p class="notiz" style="margin:0 2px 8px">
+    <b>Wenn eine Seite blockt</b>, steht der gemessene Grund in der Spalte „Sitemap" — dann braucht diese Marke
+    einen anderen Weg, so wie Edeka über das LMIV-Portal statt über edeka.de. Trag die Ersatzadresse einfach
+    oben von Hand ein; sie überschreibt die blockierende Domain.
+  </p>
   <div class="mdKarte" style="overflow-x:auto"><div id="mdTabelle">lädt …</div></div>
 
   <div class="mdFuss">
@@ -146,6 +167,7 @@ var mdClient = supabase.createClient(MD_URL, MD_KEY, {
 });
 
 var MD_FILTER = null;
+var MD_SITEMAP = null;
 
 function mdEsc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
   return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]; }); }
@@ -160,6 +182,9 @@ async function mdZaehler(){
   document.getElementById("cBest").textContent  = mdZahl(z.bestaetigt);
   document.getElementById("cRiki").textContent  = mdZahl(z.von_riki_neu_24h);
   document.getElementById("cProd").textContent  = mdZahl(z.produkte_offen);
+  document.getElementById("cSmOk").textContent     = mdZahl(z.sitemap_ok);
+  document.getElementById("cSmBlockt").textContent = mdZahl(z.sitemap_blockt);
+  document.getElementById("cWartet").textContent   = mdZahl(z.abruf_wartet);
 }
 
 function mdFilter(s){
@@ -171,10 +196,21 @@ function mdFilter(s){
   mdListe();
 }
 
+/* Zweiter Filter, unabhaengig vom ersten: was die Seite selbst hergibt.
+   Nochmal auf denselben Knopf hebt ihn wieder auf. */
+function mdSitemapFilter(s){
+  MD_SITEMAP = (MD_SITEMAP === s) ? null : s;
+  ["ok","blockt","leer","fehler"].forEach(function(k){
+    var b = document.getElementById("s_"+k);
+    if(b) b.classList.toggle("aktiv", MD_SITEMAP === k);
+  });
+  mdListe();
+}
+
 async function mdListe(){
   var el = document.getElementById("mdTabelle");
   el.textContent = "lädt …";
-  var r = await mdClient.rpc("cb_marken_domain_liste", { p_status: MD_FILTER, p_limit: 500 });
+  var r = await mdClient.rpc("cb_marken_domain_liste", { p_status: MD_FILTER, p_limit: 500, p_sitemap: MD_SITEMAP });
   if(r.error){ el.innerHTML = '<p style="color:#cf5442">Serverfehler: '+mdEsc(r.error.message)+'</p>'; return; }
   var rows = r.data || [];
   document.getElementById("mdStatus").textContent = mdZahl(rows.length)+" Marken angezeigt";
@@ -183,16 +219,23 @@ async function mdListe(){
   var grenze = Date.now() - 24*3600*1000;
   var h = '<table><thead><tr>'
         + '<th>Marke</th><th class="zahl">Produkte ohne Wortlaut</th><th>Zustand</th>'
-        + '<th>Domain</th><th>gefunden von</th><th>Beleg</th><th>Notiz</th><th></th>'
+        + '<th>Domain</th><th>Sitemap</th><th>gefunden von</th><th>Beleg</th><th>Notiz</th><th></th>'
         + '</tr></thead><tbody>';
   rows.forEach(function(z){
     var st = z.Status || "offen";
     var frisch = (z.Gefunden_Von === "riki") && z.Beleg_Am == null;
-    h += '<tr'+(frisch?' class="frisch"':'')+'>'
+    var sm = z.Sitemap_Status || "offen";
+    var smText = {ok:"liest sich", blockt:"blockt", leer:"keine Produktseiten", fehler:"Abruffehler", offen:"ungeprüft"}[sm] || sm;
+    var reihe = sm === "blockt" ? "blockt" : (frisch ? "frisch" : "");
+    h += '<tr'+(reihe?' class="'+reihe+'"':'')+'>'
        + '<td><b>'+mdEsc(z.Marke)+'</b></td>'
        + '<td class="zahl">'+mdZahl(z.Produkte_ohne_Wortlaut)+'</td>'
        + '<td><span class="pill '+mdEsc(st)+'">'+mdEsc(st==="keine_seite"?"keine Seite":st==="bestaetigt"?"belegt":st)+'</span></td>'
        + '<td>'+(z.Domain ? '<a href="https://'+mdEsc(z.Domain)+'" target="_blank" rel="noopener">'+mdEsc(z.Domain)+'</a>' : '—')+'</td>'
+       + '<td><span class="sm '+mdEsc(sm)+'">'+mdEsc(smText)+'</span>'
+         + (z.Sitemap_Seiten ? '<div class="notiz">'+mdZahl(z.Sitemap_Seiten)+' Seiten'+(z.Sitemap_Weg?' · '+mdEsc(z.Sitemap_Weg):'')+'</div>' : '')
+         + (z.Sitemap_Grund ? '<div class="notiz">'+mdEsc(z.Sitemap_Grund)+'</div>' : '')
+       + '</td>'
        + '<td class="von'+(z.Gefunden_Von==="riki"?" riki":"")+'">'+mdEsc(z.Gefunden_Von || "—")+'</td>'
        + '<td class="notiz">'+(z.Beleg_Produkt_ID ? mdEsc(z.Beleg_Produkt_ID) : '—')+'</td>'
        + '<td class="notiz">'+mdEsc(z.Notiz || "")+'</td>'
