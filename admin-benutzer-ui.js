@@ -184,8 +184,12 @@ function _uParseBis(s){
   return {ok:true, wert:dd.toISOString()};
 }
 async function setUserPremiumBis(bid, aktuell){
-  var vor = aktuell ? new Date(aktuell).toLocaleDateString('de-DE') : '';
-  var ein = prompt('Premium gültig bis?\n\nTT.MM.JJJJ  ·  „3m" = 3 Monate ab heute  ·  „14t" = 14 Tage\nLeer lassen = unbegrenzt.', vor);
+  /* 🔴 06.09.2026, Ralph: "datum bis nicht eingabe 3m". Das Feld war mit dem
+     bestehenden DATUM vorbelegt - man musste es loeschen, um eine Dauer zu tippen.
+     Jetzt steht die Dauer im Feld, das aktuelle Datum nur noch als Hinweis im Text.
+     Ein Datum bleibt weiter erlaubt; _uParseBis versteht beides unveraendert. */
+  var stand = aktuell ? ('Steht jetzt auf: '+new Date(aktuell).toLocaleDateString('de-DE')) : 'Steht jetzt auf: unbegrenzt';
+  var ein = prompt('Premium gültig wie lange?\n\n'+stand+'\n\n„3m" = 3 Monate ab heute  ·  „14t" = 14 Tage  ·  „1j" = 1 Jahr\nEin Datum geht auch: TT.MM.JJJJ\nLeer lassen = unbegrenzt.', '3m');
   if(ein===null) return;
   var p=_uParseBis(ein);
   if(!p.ok){ alert('Datum nicht erkannt. Bitte TT.MM.JJJJ oder z. B. „3m".'); return; }
@@ -200,7 +204,14 @@ function renderUsers(rows){
   ensureRpillCss();
   const th='padding:10px 12px;font-size:12.5px;text-align:left';
   let h='<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">'+rows.length+' registrierte Nutzer. Premium-Häkchen = manuell freischalten; Abo/Test kommt automatisch über Stripe. „Premium bis" ist nur beim manuellen Premium änderbar (z. B. 3 Monate für Testnutzer) — nach Ablauf gilt der Nutzer serverseitig als nicht mehr Premium.</div>';
-  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:820px">';
+  /* 🔴 06.09.2026, Ralph: "fenster ist scrollbar, soll breiter sein."
+     Die Tabelle steckte in einem Kasten, der nur so breit war wie die Inhaltsspalte.
+     Sie darf jetzt bis an den Fensterrand - width:100vw mit einem Ausbruch aus der
+     Spalte (margin-left auf die halbe Differenz). Der Scroll bleibt als Notnagel
+     fuer sehr schmale Fenster, greift aber im Regelfall nicht mehr. */
+  h+='<div style="overflow-x:auto;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);'
+   +'padding:0 24px;box-sizing:border-box">'
+   +'<table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:820px">';
   h+='<tr style="background:var(--bg)"><th style="'+th+'">Nutzer</th><th style="'+th+';text-align:center">Premium</th><th style="'+th+'">Abo / Test</th><th style="'+th+';text-align:center">Erfasst</th><th style="'+th+'">Zuletzt aktiv</th><th style="'+th+'">Registriert</th><th style="'+th+'">Premium seit</th><th style="'+th+'">Premium bis</th><th style="'+th+';text-align:center">Admin</th><th style="'+th+';text-align:center">Passwort</th></tr>';
   rows.forEach(u=>{
     const trial = u.subscription_status==='trialing' && u.trial_bis && new Date(u.trial_bis)>new Date();
