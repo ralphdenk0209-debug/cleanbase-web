@@ -855,10 +855,17 @@ async function peColWerteLaden(col, wq){
     d.cnt={}; (a.werte||[]).forEach(function(x){ d.cnt[String(x.wert)]=Number(x.n)||0; });
     d.sel={}; d.werte.forEach(function(v){ d.sel[v]=cf?!!cf[v]:true; });
     d.gekappt=!!a.gekappt; d.distinkt=Number(a.distinct_gesamt||d.werte.length); d.laed=false;
+    /* 🔴 06.09.2026: bei sehr grossen Mengen wertet der Server hoechstens 20.000
+       Zeilen aus - vorher lief die Abfrage beim Chip „Alle" (61.740) in den Timeout
+       und der Filter zeigte gar nichts. Wenn gestichprobt wird, MUSS das dastehen:
+       eine Zahl, die sich als vollstaendig ausgibt, waere schlimmer als der Hinweis. */
+    d.gestichprobt=!!a.gestichprobt; d.gelesen=Number(a.gelesen||0);
     var h=document.getElementById('peColHinweis');
     if(h) h.innerHTML=d.gekappt
       ? '⚠ '+d.distinkt+' verschiedene Werte – gezeigt werden die häufigsten 400. Übers Suchfeld fragt die Datenbank nach.'
-      : '<span style="color:#9aa7b2">'+d.distinkt+' Werte · Zahlen gelten für den ganzen Bestand</span>';
+      : (d.gestichprobt
+        ? '<span style="color:#c88616">'+d.distinkt+' Werte · Zahlen aus einer Stichprobe von '+d.gelesen.toLocaleString('de-DE')+' Zeilen, nicht aus dem ganzen Bestand</span>'
+        : '<span style="color:#9aa7b2">'+d.distinkt+' Werte · Zahlen gelten für den ganzen Bestand</span>');
     peColRender();
   }catch(e){
     console.error('cb_erfassung_spaltenwerte', e);
