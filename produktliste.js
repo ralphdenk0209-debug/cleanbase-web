@@ -85,8 +85,16 @@ function peSeitenScroll(aus){
 function peListeHoehe(){
   var s=document.getElementById('peListenSeite');
   if(!s){ peSeitenScroll(false); peFabSetzen(null); return; }
-  /* Editor und eingeklappte Liste benötigen normalen Seitenscroll. */
-  if(window._peSel || window._peListCollapsed){
+  /* 🔴 06.09.2026, Ralph: "bei klick auf ein produkt springt die seite extrem auf
+     und die seite wird scrollbar." Ursache gefunden: peSelect hob hier die
+     Deckelung auf, sobald ein Produkt gewaehlt war - die Liste wuchs auf ihre
+     volle Laenge und die Seite sprang. Der Kommentar dafuer stammte aus der Zeit
+     des INLINE-Editors. peSelect ruft openFgEditor(id) OHNE targetEl, und das
+     rendert ins Vollbild-Overlay #panel - der Editor liegt also UEBER der Seite
+     und braucht den Seitenscroll gar nicht. Nur die eingeklappte Liste braucht
+     ihn noch. Der Inline-Fall (openFgEditor mit targetEl) setzt _fgEditorTarget;
+     dann geben wir die Deckelung weiterhin frei. */
+  if(window._peListCollapsed || window._fgEditorTarget){
     peSeitenScroll(false); s.style.height=''; s.style.overflow=''; return; }
   /* Erst den Seitenscroll stilllegen, dann messen: sonst misst man die Position
      einer gescrollten Seite und deckelt die Liste um den Scrollweg zu kurz. */

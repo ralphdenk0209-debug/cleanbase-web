@@ -141,8 +141,57 @@
     s += '</svg>';
     el.innerHTML = '<div class="kf'+(opt.dunkel?' dunkel':'')+'">'+s
       + '<div class="legende">Pfeil: <i style="background:#16a34a"></i>laeuft <i style="background:#d97706"></i>klemmt - Work-Nummer steht am Kasten <i style="background:#dc2626"></i>steht still <i style="background:#94a3b8"></i>stillgelegt, zaehlt nicht'
-      + ' · blau = Frage mit Abzweig · von oben nach unten · Stand 06.09.2026 17:30</div></div>';
+      + ' · blau = Frage mit Abzweig · von oben nach unten · <span class="kfStand">Stand 06.09.2026 17:30 (von Hand)</span></div></div>';
+    if(opt.client) messen(opt.client, el);
   }
 
-  window.KERN_FLUSS = { KNOTEN, PFADE, zeichnen };
+  /* 🔴 06.09.2026: Bis heute standen die Zahlen von Hand in dieser Datei und waren
+     am naechsten Tag falsch. Jetzt misst sich jeder Kasten selbst an der Datenbank
+     (cb_kern_poster_stand). Die hinterlegten Zahlen bleiben als Anzeige stehen,
+     bis die Messung da ist - faellt sie aus, sagt die Fusszeile das, statt still
+     einen alten Stand als aktuell auszugeben (CLAUDE.md A2, A11). */
+  async function messen(client, el){
+    if(!client || !el) return;
+    var stand;
+    try{
+      var r = await client.rpc('cb_kern_poster_stand');
+      if(r.error) throw r.error;
+      stand = r.data;
+    }catch(e){
+      var f0 = el.querySelector('.kfStand');
+      if(f0) f0.textContent = 'Messung nicht erreichbar - die Zahlen unten sind der Handstand vom 06.09. 17:30';
+      return;
+    }
+    if(!stand || !stand.kaesten) return;
+    stand.kaesten.forEach(function(kx){
+      var d = el.querySelector('[data-knoten="'+kx.id+'"]');
+      if(!d) return;
+      var alt = byId[kx.id];
+      if(alt && alt.f === S) return;               // stillgelegt bleibt stillgelegt (E46)
+      d.classList.remove('gruen','gelb','rot');
+      d.classList.add(kx.ampel === 'gruen' ? 'gruen' : 'gelb');
+      var m = d.querySelector('.kfMess');
+      if(!m){ m = document.createElement('div'); m.className='kfMess';
+              m.style.cssText='margin-top:3px;font-weight:800'; d.appendChild(m); }
+      m.textContent = kx.ist === 0 ? ('0 offen - ' + kx.messung) : (kx.ist + ' offen - ' + kx.messung);
+    });
+    // Pfeile folgen der Farbe ihres Zielkastens, sonst widerspricht der Weg dem Kasten.
+    var karte = {}; stand.kaesten.forEach(function(k){ karte[k.id] = k.ampel; });
+    el.querySelectorAll('polyline[data-pfad]').forEach(function(pl){
+      var nach = String(pl.getAttribute('data-pfad')).split('-')[1];
+      if(pl.getAttribute('data-farbe') === S || !karte[nach]) return;
+      var c = karte[nach] === 'gruen' ? FARBE.gruen : FARBE.gelb;
+      pl.setAttribute('stroke', c);
+      pl.setAttribute('marker-end', 'url(#pf-' + (karte[nach]==='gruen'?'gruen':'gelb') + ')');
+    });
+    var f = el.querySelector('.kfStand');
+    if(f){
+      var offen = stand.kaesten.filter(function(k){ return k.ist > 0; }).length;
+      f.textContent = 'gemessen ' + new Date(stand.gemessen_am).toLocaleString('de-DE')
+        + ' · ' + (stand.kaesten.length - offen) + ' von ' + stand.kaesten.length + ' Messungen auf null'
+        + ' · ' + stand.aktive_produkte + ' aktive Produkte, davon ' + stand.rohware_ohne_etikett + ' Rohware ohne Etikett';
+    }
+  }
+
+  window.KERN_FLUSS = { KNOTEN, PFADE, zeichnen, messen };
 })();

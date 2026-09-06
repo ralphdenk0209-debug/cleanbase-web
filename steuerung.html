@@ -475,7 +475,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="kern-fluss.js?v=2026-09-06-25"></script>
+<script src="kern-fluss.js?v=2026-09-06-26"></script>
 <script>if(window.KERN_FLUSS) KERN_FLUSS.zeichnen(document.getElementById("kernFluss"),{dunkel:true});</script>
 <script>
 /* ============================================================
@@ -487,6 +487,11 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true,
          storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
 });
+
+/* 06.09.2026: Der Kernfluss oben wurde bereits gezeichnet - jetzt holt er seine
+   Zahlen aus der Datenbank statt aus der JS-Datei (cb_kern_poster_stand). */
+try{ if(window.KERN_FLUSS && KERN_FLUSS.messen)
+       KERN_FLUSS.messen(client, document.getElementById("kernFluss")); }catch(e){}
 
 /* ============================================================
    2 · Die Stationen — Work Items werden gebaut, Projektpunkte abgenommen
