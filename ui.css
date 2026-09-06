@@ -876,6 +876,12 @@ body.rikiAngedocktOffen{ padding-right:min(var(--riki-dock-w), 92vw) }
 #feTab2 .feWirkLegReihe{ display:flex;gap:14px;flex-wrap:wrap }
 #feTab2 .feWirkLegText{ margin-top:5px }
 #feTab2 .feWirkNone{ display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.4 }
+/* Work #576 · 06.09.2026 — Haken "keine Naehrwerte auf dem Etikett".
+   Steht OBEN in der Karte, nicht unten: er entscheidet, ob die Felder darunter
+   ueberhaupt auszufuellen sind. Das Gegenstueck feWirkNone sitzt unten, weil es
+   dort um eine Liste geht, die man erst durchsieht. */
+.feNwKeine{ align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;
+  margin:0 0 11px;padding-bottom:9px;border-bottom:1px solid var(--line);line-height:1.4 }
 #feTab2 #fe_wirk_none{ width:15px;height:15px;flex:0 0 auto }
 
 /* Die drei Farbpunkte der Wirkstoff-Ampel.

@@ -5116,7 +5116,7 @@ async function openFgEditor(id, prefill, targetEl){
 <div id="feTab2">
   <div id="feNwOben">
   <div id="feNwLinks">
-        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div><div class="feNwRaster">${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("einfach_unges","davon einfach ungesättigte","g")}${nf("mehrfach_unges","davon mehrfach ungesättigte","g")}${nf("transfette","davon Transfettsäuren","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}</div><div id="fe_plaus" ></div>`)}</div>
+        <div id="fe_nwCard" style="display:block">${card("Nährwerte pro 100 g/ml",`<label class="feNwKeine" id="fe_nwKeineLbl" style="display:none"><input type="checkbox" id="fe_nw_none" ${d.naehrwerte_nicht_verfuegbar?"checked":""} onchange="try{feNwNoneToggle(this.checked)}catch(e){}" >auf dem Etikett stehen keine Nährwerte (blockiert die Freigabe dann nicht)</label><div class="feNwEinheit"><span>Die Werte gelten je</span><select id="fe_mengenEinheit" onchange="feEinheitChange()" title="Worauf beziehen sich die Nährwerte? Steht auf dem Etikett – bei Flüssigem meist 100 ml. Riki trägt es ein, wenn er es liest." ><option value="">100 g / ml – nicht festgelegt</option><option value="g">100 g</option><option value="ml">100 ml (flüssig)</option></select><span id="fe_ehHint" ></span></div><div class="feNwRaster">${nf("kcal","Energie","kcal")}${nf("fett","Fett","g")}${nf("ges_fett","davon gesättigte","g")}${nf("einfach_unges","davon einfach ungesättigte","g")}${nf("mehrfach_unges","davon mehrfach ungesättigte","g")}${nf("transfette","davon Transfettsäuren","g")}${nf("kh","Kohlenhydrate","g")}${nf("zucker","davon Zucker","g")}${nf("polyole","davon mehrwertige Alkohole","g")}${nf("ballaststoffe","Ballaststoffe","g")}<label class="feNwBallast"><input type="checkbox" id="fe_ballast_nd" ${nw.ballast_nichtdekl?"checked":""} onchange="var b=document.getElementById('fe_ballaststoffe'); if(this.checked&&b&&(b.value===''||b.value==null))b.value='0'; try{fePlaus()}catch(e){}" >laut Etikett nicht angegeben</label>${nf("protein","Eiweiß","g")}${nf("salz","Salz","g")}</div><div id="fe_plaus" ></div>`)}</div>
         <span id="fe_wirkAnker"  data-note="06.08.2026: Die Wirkstoff-Karte hat einen FESTEN Ort im Reiter Naehrwerte. Nichts wird mehr verschoben - der Anker bleibt nur als Sprungmarke."></span><div id="fe_wirkCard">
           <div id="fe_wirkGrid">
             ${''/* Mineralwasser verwendet die bestehende Mineralstoffanalyse-Karte. */}
@@ -5399,6 +5399,11 @@ function feKatChange(){
   var nw=document.getElementById("fe_nwCard");
   var _nwP=(typeof feNaehrwertPflicht==="function")?feNaehrwertPflicht():{art:"lebensmittel"};
   if(nw) nw.style.display=(_nwP.art==="mineralwasser")?"none":"block";
+  /* Work #576: Der Haken "keine Naehrwerte" gehoert nur dorthin, wo das
+     vorkommt - Supplement (Kapsel, Tropfen) und die Kategorien ohne Index.
+     Bei einem Lebensmittel ist eine fehlende Naehrwerttabelle keine Variante,
+     sondern eine Luecke; dort bleibt er weg. */
+  try{ feNwKeineSicht(); }catch(e){}
   var wc=document.getElementById("fe_wirkCard");
   if(wc) wc.style.display="";
   var mw=document.getElementById("fe_mikroWrap"); if(mw) mw.style.display="flex";
@@ -5620,13 +5625,49 @@ function feNaehrwertPflicht(){
   var keinScore=!!(window._ksKats && window._ksKats.has(k));
   if(feIstMineralwasser()) return {makros_erforderlich:false, art:"mineralwasser",
     kurz:"Mineralstoffanalyse", grund:"Mineralwasser hat kein Makronährstoffprofil – gefragt ist die Mineralstoffanalyse pro Liter."};
-  if(supp) return {makros_erforderlich:false, art:"supplement",
-    kurz:"Wirkstoffe", grund:"Supplement – eine Kapsel hat kein Makro-Profil pro 100 g."};
+  /* 🔴 06.09.2026, Work #576 — "eine Kapsel hat kein Makro-Profil" galt zu breit.
+     Ralph, an P73700: "nicht jedes supplement hat keine nährwerte". Nachgezaehlt:
+     154 von 249 Supplements tragen bereits kcal-Werte. Ein Mahlzeitenersatz mit
+     600 g Pulver und voller Tabelle je 100 g ist keine Kapsel.
+     Die Kategorie entscheidet das jetzt nicht mehr. Entweder es stehen Werte da,
+     oder jemand hat den Haken "keine Naehrwerte deklariert" gesetzt - dann ist
+     das Fehlen eine Entscheidung und keine Luecke. Solange weder das eine noch
+     das andere zutrifft, bleibt Schritt 2 offen, so wie bei Lebensmitteln. */
+  if(supp){
+    var _nd=!!(document.getElementById("fe_nw_none")||{}).checked;
+    if(_nd) return {makros_erforderlich:false, art:"supplement_ohne_nw",
+      kurz:"Wirkstoffe", grund:"Ohne Nährwerte – so am Etikett angehakt."};
+    return {makros_erforderlich:true, art:"supplement",
+      kurz:"Nährwerte", grund:"Supplement mit Nährwerttabelle – die Werte gehören erfasst. Steht auf dem Etikett keine, den Haken setzen."};
+  }
   if(salz||keinScore) return {makros_erforderlich:false, art:"kein_score",
     kurz:"Nährwerte optional", grund:"Kategorie ohne Lebensmittel-Index – Nährwerte sind hier nicht Pflicht."};
   return {makros_erforderlich:true, art:"lebensmittel", kurz:"Nährwerte", grund:""};
 }
 if(typeof window!=="undefined"){ window.feNaehrwertPflicht=feNaehrwertPflicht; }
+/* ===== Work #576 · 06.09.2026 — Haken "keine Naehrwerte auf dem Etikett" =====
+   Er ersetzt die alte Pauschale "Supplement braucht keine Naehrwerte". Sichtbar
+   ist er nur, wo das wirklich vorkommt: Supplement und Kategorien ohne Index.
+   Gesetzt schaltet er die Makro-Pflicht ab und leert die Felder NICHT - ein
+   versehentlicher Klick soll keine Werte vernichten. */
+function feNwKeineSicht(){
+  var lbl=document.getElementById("fe_nwKeineLbl"); if(!lbl) return;
+  var k=((document.getElementById("fe_kat")||{}).value||"").trim().toLowerCase();
+  var zeigen=(k==="supplement" || k==="salze" || !!(window._ksKats && window._ksKats.has(k)));
+  lbl.style.display = zeigen ? "flex" : "none";
+  if(!zeigen){
+    var cb=document.getElementById("fe_nw_none");
+    if(cb && cb.checked){ cb.checked=false; }
+  }
+}
+function feNwNoneToggle(an){
+  /* Nur den Status nachziehen. Die Werte bleiben stehen: nimmt Ralph den Haken
+     wieder raus, ist alles noch da. */
+  try{ feNwKeineSicht(); }catch(e){}
+  try{ if(typeof fePlaus==="function") fePlaus(); }catch(e){}
+  try{ if(typeof feVorgangSync==="function") feVorgangSync(); }catch(e){}
+}
+if(typeof window!=="undefined"){ window.feNwKeineSicht=feNwKeineSicht; window.feNwNoneToggle=feNwNoneToggle; }
 function feNrvText(pct){
   if(pct==null||!isFinite(pct)) return "";
   if(pct>0 && pct<0.01) return "< 0,01";
@@ -7180,9 +7221,17 @@ function feFokusSchritt(n){
   if(s.id==='analyse'){
     var _p=(typeof feNaehrwertPflicht==="function")?feNaehrwertPflicht():{art:"lebensmittel",makros_erforderlich:true};
     var _z=function(id,an){ var e=document.getElementById(id); if(e) e.style.display=an?"":"none"; };
-    _z("fe_nwCard",   _p.art==="lebensmittel");
+    /* 🔴 06.09.2026, Work #576 — die Naehrwertkarte war in Schritt 2 fuer alles
+       ausser Lebensmitteln weg. Damit konnte Ralph bei einem Supplement gar
+       keine Naehrwerte eintragen, auch wenn sie auf dem Etikett standen -
+       gemessen bei 154 von 249 Supplements der Fall. Jetzt bleibt sie ueberall
+       da, wo Naehrwerte vorkommen koennen; nur Mineralwasser hat wirklich keine
+       Makrotabelle und behaelt seine Mineralstoffanalyse. */
+    var _nwZeigen=(_p.art!=="mineralwasser");
+    _z("fe_nwCard",   _nwZeigen);
     _z("fe_wirkCard", true);                       /* trägt Wirkstoffe UND Mineralstoffanalyse */
     _z("fe_mikroWrap",_p.art==="lebensmittel");
+    if(_nwZeigen){ try{ feNwKeineSicht(); }catch(e){} }
     if(_p.art==="lebensmittel"){ var _mw=document.getElementById("fe_mikroWrap"); if(_mw) _mw.style.display="flex"; }
   } else if(s.tab===2){
     ["fe_nwCard","fe_wirkCard"].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=""; });
@@ -9119,14 +9168,19 @@ function feVorgangStepperHtml(){
   var val=function(id){ return ((document.getElementById(id)||{}).value||"").trim(); };
   var kat=val("fe_kat"); var supp=(kat.toLowerCase()==="supplement");
   var zN=[].slice.call(document.querySelectorAll("#fe_zutRows .fgzName")).filter(function(e){return (e.value||"").trim();}).length;
-  var nwOk=supp||(val("fe_kcal")&&val("fe_kh")&&val("fe_fett")&&val("fe_protein"));
+  /* Work #576: "Supplement" allein macht die Phase nicht mehr fertig. Entweder
+     die vier Grundwerte stehen da, oder der Haken sagt, dass das Etikett keine
+     nennt. Vorher war jedes Supplement automatisch gruen - auch die 154, die
+     eine volle Naehrwerttabelle haben und sie nur nie zu sehen bekamen. */
+  var nwKeine=!!((document.getElementById("fe_nw_none")||{}).checked);
+  var nwOk=nwKeine||(val("fe_kcal")&&val("fe_kh")&&val("fe_fett")&&val("fe_protein"));
   var zusEl=document.getElementById("fe_ztext"); var zusOk=!!(zusEl&&(zusEl.value||"").trim()!=="");
   var readyEl=document.getElementById("fe_ready"); var bewOk=!!(readyEl&&/Bereit/.test(readyEl.textContent||""));
   var status=((window._fgEdit&&window._fgEdit.status)||"").toLowerCase(); var freiOk=/aktiv/.test(status);
   var phases=[
     {nm:"Stammdaten",ic:"📋",done:!!(val("fe_name")&&val("fe_marke")&&kat)},
     {nm:(supp?"Wirkstoffe":"Zutaten"),ic:"🥣",done:zN>0},
-    {nm:(supp?"Nährwerte n.a.":"Nährwerte"),ic:"🔬",done:!!nwOk},
+    {nm:(nwKeine?"Nährwerte n.a.":"Nährwerte"),ic:"🔬",done:!!nwOk},
     {nm:"Zusatzstoffe",ic:"⚗️",done:zusOk},
     {nm:"Bewertung",ic:"📊",done:bewOk},
     {nm:"Freigabe",ic:"✅",done:freiOk}
@@ -9751,6 +9805,13 @@ async function fgEditSave(alsoFreigeben){
       if(_r5&&_r5.error) throw _r5.error;
     }catch(e){ _fehler.push("Ballast-Vermerk: "+((e&&e.message)||e)); }
     try{ var _r6=await client.rpc("cb_produkt_kcal_ok_setzen",{p_id:pid, p_flag:!!(window._fgEdit&&window._fgEdit.kcalOk)}); if(_r6&&_r6.error) throw _r6.error; }catch(e){ _fehler.push("kcal-Übersteuerung: "+((e&&e.message)||e)); }
+    /* Work #576: der Haken "keine Naehrwerte auf dem Etikett". Er wird immer
+       mitgeschrieben, auch wenn er nicht gesetzt ist - sonst bliebe ein einmal
+       gesetzter Haken stehen, nachdem Ralph ihn wieder entfernt hat. */
+    try{ var _r6b=await client.rpc("cb_produkt_naehrwerte_nicht_verfuegbar_setzen",
+           {p_id:pid, p_flag:!!(g("fe_nw_none")&&g("fe_nw_none").checked)});
+         if(_r6b&&_r6b.error) throw _r6b.error; }
+    catch(e){ _fehler.push("Haken „keine Nährwerte“: "+((e&&e.message)||e)); }
     if(_warNeu ? true : _dirty.wirk){
       var _wl=(typeof feWirkCollect==="function")?feWirkCollect():[];
       var _wnone=!!(g("fe_wirk_none")&&g("fe_wirk_none").checked);
