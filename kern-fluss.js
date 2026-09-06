@@ -3,8 +3,11 @@
    Kasten = Station oder Frage. Pfeil = Pfad. Farbe des Pfads = gemessener Stand:
    gruen laeuft · gelb klemmt (Work-Nummer steht am Kasten) · rot steht still.
    Wird von webseite/steuerung.html und bereiche/kern-poster.html gezeichnet.
-   Stand der Zahlen: 05.09.2026, 10:30 - nachgemessen an der Datenbank, nichts uebernommen.
-   Ralph 05.09.: das Poster ist das Ziel, und zwar zu 100 Prozent. Jeder Kasten gruen. */
+   Stand der Zahlen: 06.09.2026 - nachgemessen an der Datenbank, nichts uebernommen.
+   Ralph 05.09.: das Poster ist das Ziel, und zwar zu 100 Prozent. Jeder Kasten gruen.
+   Ralph 06.09.: die vorlaeufige Karte ist NUR Fallback. Ziel ist die vollstaendige
+   Produktkarte - der Kasten wird erst gruen, wenn aus dem Treffer ein fertiges
+   Produkt geworden ist, nicht wenn eine Karte angezeigt wurde. */
 (function(){
   const G="gruen", Y="gelb", R="rot", F="frage";
   const W=200, H=110, CX=222, RY=138;       // Kastenbreite, -hoehe, Spaltenabstand, Zeilenabstand
@@ -15,19 +18,19 @@
     {id:"scan",  c:1, r:0,  f:G, t:"Barcode gescannt",          s:"Im Laden. 5 von 5 Scans: Cache = Server."},
     {id:"kat",   c:1, r:1,  f:F, t:"Im Katalog?",               s:"62.166 Produkte bekannt."},
     {id:"off",   c:1, r:2,  f:F, t:"Open Food Facts kennt den Barcode?", s:"Abfrage live im Laden (off-lookup)."},
-    {id:"vorl",  c:1, r:3,  f:Y, t:"Vorlaeufige Karte",         s:"Open Food Facts liefert jetzt auch den Zutatentext. 79 Treffer sind Produkte geworden, ein Takt holt den Rest.", p:"50 Treffer warten noch - bei ihnen hat Open Food Facts keinen Zutatentext.", w:"#526 · KP-9 · Claude"},
+    {id:"vorl",  c:1, r:3,  f:Y, t:"Vorlaeufige Karte (nur Fallback)", s:"Sie ueberbrueckt die Sekunden im Laden. Ziel ist die vollstaendige Produktkarte - 79 Treffer sind schon Produkte geworden.", p:"50 Treffer haengen: Open Food Facts liefert dort keinen Zutatentext. Ohne Zutaten keine vollstaendige Karte.", w:"#526 · KP-9 · Claude"},
     {id:"foto",  c:3, r:3,  f:G, t:"Niemand kennt es: Foto",    s:"Etikett fotografieren. Produkt in 7,9 s angelegt."},
     {id:"offd",  c:0, r:4,  f:G, t:"Zutaten von Open Food Facts", s:"Import laeuft, 8 von 8 durch die ganze Kette."},
     {id:"herst", c:1, r:4,  f:Y, t:"Zutaten von der Herstellerseite", s:"Skript holt den Text. 68 % Treffer, 0 $. Herkunft wird seit v4 geschrieben, live.", p:"Nachweis fehlt: die Arbeitsliste sperrt jedes Produkt 7 Tage nach einem Versuch, deshalb 0 offen.", w:"#519 · KP-8 · Claude"},
     {id:"web",   c:2, r:4,  f:R, t:"Websuche",                  s:"KI sucht Name und Zutaten im Netz. Eingefroren, 0,27 $ je Lauf (E40)."},
     {id:"ki",    c:3, r:4,  f:Y, t:"KI liest das Foto",         s:"Zutaten und Naehrwerte, auf 2 kcal genau.", p:"97 alte Produkte nie geprueft, Marke bleibt leer.", w:"#495 · Ralph"},
-    {id:"prod",  c:1, r:5,  f:Y, t:"Produkt speichert",         s:"Zutatentext plus Herkunft am Produkt. 889 Etikettwortlaute nachgeholt, kostenlos.", p:"Rund 1.900 aktive Produkte haben noch keinen Wortlaut. Takt steht, bis die Zuordnung sitzt.", w:"#539 · KP-8 · Claude"},
+    {id:"prod",  c:1, r:5,  f:Y, t:"Produkt speichert",         s:"Zutatentext plus Herkunft am Produkt. 1.080 aktive Produkte tragen einen Etikettwortlaut.", p:"2.979 von 4.059 aktiven Produkten haben noch keinen. Ohne Wortlaut keine vollstaendige Karte - das ist der groesste Rest im ganzen Fluss.", w:"#539 · KP-8 · Claude"},
     {id:"zerl",  c:1, r:6,  f:G, t:"zerlegen",                  s:"Text wird in Namen geteilt. 323 Namen, 0 Fehler, Textmuell raus (KP-499)."},
-    {id:"stamm", c:1, r:7,  f:F, t:"Name im Stamm, mit Note?",  s:"Stamm 2.490 aktive Eintraege. 92,3 % Treffer (Ziel 90)."},
-    {id:"ohnenote",c:2,r:8, f:Y, t:"Im Stamm, aber ohne Note",  s:"11 Eintraege ohne Note - keiner davon freigegeben. Am 04.09. waren es 97.", p:"Groesster Rest sind nackte Sammelnamen: backtriebmittel sperrt 70 Produkte, ohne dass ein Stoff dabeisteht.", w:"#504 · #479 #481 · Claude"},
-    {id:"nicht", c:3, r:8,  f:Y, t:"Nicht im Stamm (7,7 %)",    s:"25 von 323 Namen.", p:"E-Nummern ohne Bruecke, OCR-Fehler, verklebte Namen. Zeile bleibt sichtbar offen.", w:"#469 · Claude"},
-    {id:"bind",  c:1, r:9,  f:Y, t:"binden",                    s:"109 Zeilen auf ihren Stoff umgehaengt, 248 Dubletten entfernt. Produkte mit Luecke 306 auf 181.", p:"Rest sind E-Nummern ohne Bruecke und nackte Sammelnamen ohne Stoff.", w:"#555 · #469 · Claude"},
-    {id:"bew",   c:1, r:10, f:Y, t:"bewerten",                  s:"Score aus den Stammnoten. 21.824 Produkte mit Score, davon 2.971 aktive.", p:"6.504 Scores, die die heutige Regel entfernen wuerde - ungeprueft.", w:"#512 · Claude"},
+    {id:"stamm", c:1, r:7,  f:F, t:"Name im Stamm, mit Note?",  s:"Stamm 2.490 aktive Eintraege, 2.482 mit Note."},
+    {id:"ohnenote",c:2,r:8, f:G, t:"Im Stamm, aber ohne Note",  s:"Nur noch 1 Eintrag wirklich offen (Zitronensaeurekonzentrat, 0 aktive Produkte). Am 04.09. waren es 97. Die uebrigen 7 sind regelgedeckt disponiert - Rauch und Buchenholzrauch sind Verfahrensmarker (BR-RAEUCHERN-MARKER), nicht bewertbar."},
+    {id:"nicht", c:3, r:8,  f:Y, t:"Nicht im Stamm",            s:"35 Zeilen in 38 aktiven Produkten.", p:"Reste: Eiklarpulver, Erdnusscreme, zusammengesetzte Zutaten mit Klammerliste, OCR-Bruchstuecke.", w:"#579 · Claude"},
+    {id:"bind",  c:1, r:9,  f:Y, t:"binden",                    s:"Produkte mit Luecke 306 auf 39. Am 06.09.: 55 Zeilen an der ZEILE gebunden, nicht an der Zutat-ID.", p:"39 Produkte offen. Der Rest braucht Handarbeit oder einen Etikettwortlaut.", w:"#579 · #580 · Claude"},
+    {id:"bew",   c:1, r:10, f:Y, t:"bewerten",                  s:"Score aus den Stammnoten. 3.268 aktive Produkte mit Note von 4.059.", p:"6.504 Scores, die die heutige Regel entfernen wuerde - ungeprueft.", w:"#512 · Claude"},
     {id:"frei",  c:1, r:11, f:G, t:"Freigabe",                  s:"Foto ohne Sichtpruefung bleibt gesperrt (E39). Hersteller und OFF frei nach Bindung."},
     {id:"antw",  c:1, r:12, f:G, t:"Im Laden erkannt",          s:"Entwurf „vorlaeufig”, Aktiv „geprueft”. Ohne Note: kein Score, ehrlich leer."}
   ];
@@ -51,7 +54,7 @@
     ["stamm","bind",G,"ja - 92,3 %"],
     ["stamm","ohnenote",Y,"ohne Note","seitab"],
     ["stamm","nicht",Y,"nein","seitab"],
-    ["ohnenote","bind",Y,"Zeile offen","merge"],
+    ["ohnenote","bind",G,"disponiert","merge"],
     ["nicht","bind",Y,"Zeile offen","merge"],
     ["bind","bew",Y,"85 % sicher"],
     ["bew","frei",Y,"Score oder ehrlich leer"],
