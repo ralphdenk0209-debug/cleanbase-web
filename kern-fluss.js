@@ -32,45 +32,62 @@
      gestern im Text" ist abgeschafft (CLAUDE.md A2, A11).
      Zusammengelegt: "Nicht im Stamm" und "binden" lasen dieselbe Abfrage und sind
      jetzt EIN Kasten "bindung". Neu: zeit, quote, sperre, ausgabe. */
+  /* 🔴 07.09.2026 (#616, Ralph): Zwei Aenderungen, beide von ihm.
+     ERSTENS seine Handskizze steht jetzt VOLLSTAENDIG im Baum. Es fehlten
+     fuenf Stationen: die drei Eingaenge EAN / Rueckseitenfoto / Frontbild,
+     der Sammelpunkt "Erfassen" und der kurze Ja-Weg vom Katalogtreffer
+     direkt zur Ausgabe.
+     ZWEITENS faerbt der Baum nicht mehr nach Altbestand, sondern nach dem
+     DURCHLAUF: gelb = offen, gruen = ein Testprodukt ist hier nachweislich
+     durchgekommen. Ein Kasten wird nie gruen, weil niemand hingesehen hat.
+     Quelle: shadow_v1.kern_durchlauf. Die Bestandszahl steht weiter an der
+     Karte, aber sie entscheidet die Farbe nicht mehr. */
   const KNOTEN = [
-    /* ── Gruppe Eingang ───────────────────────────────────────────────── */
-    {id:"scan",  c:1, r:0,  f:G, t:"Barcode gescannt",          s:"Im Laden gescannt. Cache und Server liefern dieselbe Antwort."},
-    {id:"kat",   c:1, r:1,  f:F, t:"Im Katalog?",               s:"Der Barcode wird gegen den eigenen Bestand gehalten."},
-    {id:"zeit",  c:0, r:1,  f:Y, t:"Antwortzeit",               s:"Ein Auftrag, der haengt oder zu lange braucht, ist im Laden dasselbe wie kein Ergebnis.", p:"Auftraege, die gehalten wurden oder laenger als eine Minute liefen."},
-    {id:"quote", c:3, r:1,  f:Y, t:"Durchlaufquote",            s:"Wie viele Scanauftraege ueberhaupt bis zu einem Ergebnis kommen.", p:"Auftraege, die nicht fertig geworden sind."},
-    {id:"off",   c:1, r:2,  f:F, t:"Open Food Facts kennt den Barcode?", s:"Abfrage live im Laden. Ohne Barcode kann keine Fremdquelle antworten.", p:"Aktive Produkte ohne EAN."},
-    {id:"vorl",  c:1, r:3,  f:Y, t:"Vorlaeufige Karte (nur Fallback)", s:"Sie ueberbrueckt die Sekunden im Laden. Ziel ist die vollstaendige Produktkarte, nicht der Platzhalter."},
-    {id:"foto",  c:3, r:3,  f:G, t:"Niemand kennt es: Foto",    s:"Etikett fotografieren, Produkt wird daraus angelegt.", p:"Aktive Produkte ohne Wortlaut und ohne Produktlink — nur das Foto bleibt als Weg."},
+    /* ── Gruppe Eingang · Ralphs drei Eingaenge ───────────────────────── */
+    {id:"ein_ean",  c:0, r:0, f:Y, t:"Eingang: EAN",            s:"Nur der Barcode, ohne Bild. Der kuerzeste Weg in den Baum."},
+    {id:"ein_foto", c:1, r:0, f:Y, t:"Eingang: Bild mit Naehrwerten und EAN", s:"Die Rueckseite. Zutatenliste, Naehrwerte und Barcode auf einem Bild."},
+    {id:"ein_front",c:3, r:0, f:Y, t:"Eingang: Bild Produkt",   s:"Nur die Vorderseite — Marke und Name, sonst nichts. Ralph 07.09.: auch daraus muss ein vollstaendiges Produkt mit Index entstehen.", p:"Solange die Eingangsart nicht erfasst wird, ist dieser Eingang blind."},
+    {id:"erfassen", c:1, r:1, f:Y, t:"Erfassen",                s:"Alle drei Eingaenge laufen hier zusammen. Ab hier ist der Weg derselbe.", p:"Auftraege, bei denen nicht festgehalten ist, womit der Mensch gestartet ist."},
+
+    {id:"scan",  c:1, r:2,  f:Y, t:"Barcode gescannt",          s:"Im Laden gescannt. Cache und Server liefern dieselbe Antwort."},
+    {id:"zeit",  c:0, r:2,  f:Y, t:"Antwortzeit",               s:"Ein Auftrag, der haengt oder zu lange braucht, ist im Laden dasselbe wie kein Ergebnis.", p:"Auftraege, die gehalten wurden oder laenger als eine Minute liefen."},
+    {id:"quote", c:3, r:2,  f:Y, t:"Durchlaufquote",            s:"Wie viele Scanauftraege ueberhaupt bis zu einem Ergebnis kommen.", p:"Auftraege, die nicht fertig geworden sind."},
+    {id:"kat",   c:1, r:3,  f:F, t:"Im Katalog?",               s:"Der Barcode wird gegen den eigenen Bestand gehalten."},
+    {id:"treffer",c:3, r:3, f:Y, t:"Ja — kurzer Weg zur Ausgabe", s:"Ein Treffer im eigenen Bestand geht direkt zur Ausgabe, ohne den langen Weg. Er wird trotzdem gegen dieselben Waechter geprueft.", p:"Treffer, deren Produkt keine vollstaendige Karte hat und deshalb nicht direkt ausgegeben werden kann."},
+    {id:"off",   c:1, r:4,  f:F, t:"Open Food Facts kennt den Barcode?", s:"Abfrage live im Laden. Ohne Barcode kann keine Fremdquelle antworten.", p:"Aktive Produkte ohne EAN."},
+    {id:"vorl",  c:1, r:5,  f:Y, t:"Vorlaeufige Karte (nur Fallback)", s:"Sie ueberbrueckt die Sekunden im Laden. Ziel ist die vollstaendige Produktkarte, nicht der Platzhalter."},
+    {id:"foto",  c:3, r:5,  f:Y, t:"Niemand kennt es: Foto",    s:"Etikett fotografieren, Produkt wird daraus angelegt.", p:"Aktive Produkte ohne Wortlaut und ohne Produktlink — nur das Foto bleibt als Weg."},
 
     /* ── Gruppe Beschaffung ───────────────────────────────────────────── */
-    {id:"adr",   c:0, r:4,  f:Y, t:"Adresse finden: Marke → Domain → Sitemap", s:"Domain suchen, sitemap.xml lesen, Produktseite dem Namen zuordnen, Link ans Produkt. Kostenlos.", p:"Produkte an Marken ohne bestaetigte Domain. Einige Herstellerseiten sperren sitemap.xml und robots.txt."},
-    {id:"herst", c:1, r:4,  f:Y, t:"Zutaten von der Herstellerseite", s:"Ein Skript holt den Text von der Produktseite. Die Herkunft wird beim Schreiben gesetzt, nicht nachgetragen.", p:"Ist die Arbeitsliste leer, fehlt der Nachschub an Produktlinks — nicht die Arbeit."},
-    {id:"offd",  c:3, r:4,  f:Y, t:"Zutaten von Open Food Facts", s:"Import laeuft, auch fuer Produkte, die dort noch nie abgefragt wurden.", p:"Aktive Produkte mit EAN, aber ohne Wortlaut."},
-    {id:"web",   c:2, r:5,  f:S, t:"Websuche (stillgelegt)",    s:"Eingefroren und ersetzt: die Adresse kommt jetzt aus dem Markennamen, kostenlos. Ein bewusst stillgelegter Weg ist keine Luecke."},
-    {id:"ki",    c:3, r:5,  f:Y, t:"KI liest das Foto",         s:"Zutaten und Naehrwerte werden vom Etikettfoto gelesen."},
+    {id:"adr",   c:0, r:6,  f:Y, t:"Adresse finden: Marke → Domain → Sitemap", s:"Domain suchen, sitemap.xml lesen, Produktseite dem Namen zuordnen, Link ans Produkt. Kostenlos.", p:"Produkte an Marken ohne bestaetigte Domain. Einige Herstellerseiten sperren sitemap.xml und robots.txt."},
+    {id:"herst", c:1, r:6,  f:Y, t:"Zutaten von der Herstellerseite", s:"Ein Skript holt den Text von der Produktseite. Die Herkunft wird beim Schreiben gesetzt, nicht nachgetragen.", p:"Ist die Arbeitsliste leer, fehlt der Nachschub an Produktlinks — nicht die Arbeit."},
+    {id:"offd",  c:3, r:6,  f:Y, t:"Open Food Facts: Name, Naehrwerte, Zutaten", s:"Von dort kommt nicht nur der Zutatentext, sondern auch Name und Naehrwerte.", p:"Aktive Produkte mit EAN, aber ohne Wortlaut."},
+    {id:"web",   c:2, r:7,  f:S, t:"Websuche (stillgelegt)",    s:"Eingefroren und ersetzt: die Adresse kommt jetzt aus dem Markennamen, kostenlos. Ein bewusst stillgelegter Weg ist keine Luecke."},
+    {id:"ki",    c:3, r:7,  f:Y, t:"KI liest das Foto",         s:"Zutaten und Naehrwerte werden vom Etikettfoto gelesen."},
 
     /* ── Gruppe Verarbeitung ──────────────────────────────────────────── */
-    {id:"quelle",c:0, r:6,  f:Y, t:"Herkunft belegt",           s:"Jeder Etikettwortlaut traegt seine Quellenart. Ein Produkt ganz ohne Wortlaut hat keine belegte Herkunft und zaehlt hier mit — vorher fiel es durch die Messung."},
-    {id:"prod",  c:1, r:6,  f:Y, t:"Produkt speichert",         s:"Zutatentext plus Herkunft am Produkt. Rohware ohne Etikett zaehlt nicht mit."},
-    {id:"beleg", c:3, r:6,  f:Y, t:"Belegpruefung: steht es wirklich auf dem Foto?", s:"Zweiter Blick auf die Etikettfotos. Findet die Pruefung kein Zutatenverzeichnis, sperrt der Server den Score mit Grund."},
-    {id:"zerl",  c:1, r:7,  f:Y, t:"zerlegen",                  s:"Der Wortlaut wird in Namen geteilt, jeder Name bekommt seine Stammnote.", p:"Der Takt dafuer steht abgeschaltet. Solange er aus ist, bekommt kein neu angelegtes Produkt von allein Zutatenzeilen — das ist der Bruch mitten im Weg."},
-    {id:"stamm", c:1, r:8,  f:F, t:"Name im Stamm, mit Note?",  s:"Jeder Name wird gegen den Zutaten-Stamm gehalten."},
-    {id:"ohnenote",c:0,r:9, f:Y, t:"Im Stamm, aber ohne Note",  s:"Eintraege, die im Stamm stehen, aber keine Bewertung tragen."},
-    {id:"bindung",c:1,r:9,  f:Y, t:"Stamm und binden",          s:"Gebunden wird an der Zeile, nicht an der Zutat-ID. Frueher waren das zwei Karten, die dieselbe Abfrage lasen.", p:"Der Zulauf kommt aus neuen Wortlauten — ein Zeichen von Fortschritt, nicht von Ruecklauf."},
-    {id:"bew",   c:1, r:10, f:Y, t:"bewerten",                  s:"Der Score entsteht aus den Stammnoten. Ohne Note faellt er ehrlich weg, mit genanntem Grund."},
-    {id:"naehr", c:3, r:10, f:Y, t:"Naehrwerte",                s:"Der Waechter schlaegt an, wenn die Kalorien ausserhalb des physikalisch Moeglichen liegen.", p:"Jeder Fall ist ein Datenfehler, kein Fehlalarm."},
+    {id:"quelle",c:0, r:8,  f:Y, t:"Herkunft belegt",           s:"Jeder Etikettwortlaut traegt seine Quellenart. Ein Produkt ganz ohne Wortlaut hat keine belegte Herkunft und zaehlt hier mit — vorher fiel es durch die Messung."},
+    {id:"prod",  c:1, r:8,  f:Y, t:"Produkt anlegen und speichern", s:"Zutatentext plus Herkunft am Produkt. Rohware ohne Etikett zaehlt nicht mit."},
+    {id:"beleg", c:3, r:8,  f:Y, t:"Belegpruefung: steht es wirklich auf dem Foto?", s:"Zweiter Blick auf die Etikettfotos. Findet die Pruefung kein Zutatenverzeichnis, sperrt der Server den Score mit Grund."},
+    {id:"zerl",  c:1, r:9,  f:Y, t:"zerlegen",                  s:"Der Wortlaut wird in Namen geteilt, jeder Name bekommt seine Stammnote.", p:"Der Takt dafuer steht abgeschaltet. Solange er aus ist, bekommt kein neu angelegtes Produkt von allein Zutatenzeilen — das ist der Bruch mitten im Weg."},
+    {id:"stamm", c:1, r:10, f:F, t:"Name im Stamm, mit Note?",  s:"Jeder Name wird gegen den Zutaten-Stamm gehalten."},
+    {id:"ohnenote",c:0,r:11,f:Y, t:"Im Stamm, aber ohne Note",  s:"Eintraege, die im Stamm stehen, aber keine Bewertung tragen."},
+    {id:"bindung",c:1,r:11, f:Y, t:"Stamm und binden",          s:"Gebunden wird an der Zeile, nicht an der Zutat-ID. Frueher waren das zwei Karten, die dieselbe Abfrage lasen.", p:"Der Zulauf kommt aus neuen Wortlauten — ein Zeichen von Fortschritt, nicht von Ruecklauf."},
+    {id:"bew",   c:1, r:12, f:Y, t:"bewerten",                  s:"Der Score entsteht aus den Stammnoten. Ohne Note faellt er ehrlich weg, mit genanntem Grund."},
+    {id:"naehr", c:3, r:12, f:Y, t:"Naehrwerte",                s:"Der Waechter schlaegt an, wenn die Kalorien ausserhalb des physikalisch Moeglichen liegen.", p:"Jeder Fall ist ein Datenfehler, kein Fehlalarm."},
 
     /* ── Gruppe Ausgabe ───────────────────────────────────────────────── */
-    {id:"nachlauf",c:0,r:11,f:Y, t:"Score-Nachlauf",            s:"Aendert sich eine Zutatennote, werden alle Produkte damit neu gerechnet.", p:"Solange die Warteschlange nicht leer ist, sind nicht alle Scores auf dem neuesten Regelstand."},
-    {id:"sperre",c:3, r:11, f:Y, t:"Waechter sperrt",           s:"Auch ein laengst vorhandenes Produkt wird bei der Ausgabe gegen dieselben Waechter geprueft wie ein neu angelegtes. Ein Treffer sperrt die Ausgabe.", p:"Produkte mit Score trotz offenem Waechtertreffer."},
-    {id:"frei",  c:1, r:11, f:Y, t:"Freigabe",                  s:"Ein Foto ohne Sichtpruefung bleibt gesperrt. Hersteller und Open Food Facts sind nach der Bindung frei.", p:"Entwuerfe mit Score, die auf Freigabe warten."},
-    {id:"ausgabe",c:1,r:12, f:Y, t:"Ausgabe vollstaendig",      s:"Die Endzahl des ganzen Wegs. Fertig ist ein Produkt erst, wenn es Index UND belegten Zutatenwortlaut traegt — ob vorhanden oder neu angelegt macht keinen Unterschied."}
+    {id:"nachlauf",c:0,r:13,f:Y, t:"Score-Nachlauf",            s:"Aendert sich eine Zutatennote, werden alle Produkte damit neu gerechnet.", p:"Solange die Warteschlange nicht leer ist, sind nicht alle Scores auf dem neuesten Regelstand."},
+    {id:"frei",  c:1, r:13, f:Y, t:"Freigabe",                  s:"Ein Foto ohne Sichtpruefung bleibt gesperrt. Hersteller und Open Food Facts sind nach der Bindung frei.", p:"Entwuerfe mit Score, die auf Freigabe warten. Ralph 07.09.: Bestandszahl, kein Mass fuer den Durchgang."},
+    {id:"sperre",c:3, r:13, f:Y, t:"Pruefung durch Waechter",   s:"Auch ein laengst vorhandenes Produkt wird bei der Ausgabe gegen dieselben Waechter geprueft wie ein neu angelegtes. Ein Treffer sperrt die Ausgabe.", p:"Produkte mit Score trotz offenem Waechtertreffer."},
+    {id:"ausgabe",c:1,r:14, f:Y, t:"Ausgabe vollstaendig",      s:"Das Ende des Wegs. Fertig ist ein Produkt erst, wenn es Index UND belegten Zutatenwortlaut traegt — ob vorhanden oder neu angelegt macht keinen Unterschied."}
   ];
 
   /* Beschriftete Abzweige: von, nach, Text. Sie stehen als Zeile an der Karte,
      nicht als Pfeil im Bild - eine Linie, die niemand lesen kann, hilft nicht. */
   const ABZWEIG = {
-    kat:   "ja → sofort erkannt, trotzdem durch die Waechter · nein → weiter nach unten",
+    erfassen: "EAN · Rueckseitenfoto · Frontbild — ab hier ist der Weg derselbe",
+    kat:   "ja → kurzer Weg zur Ausgabe, trotzdem durch die Waechter · nein → weiter nach unten",
     off:   "ja → vorlaeufige Karte · nein → Foto",
     stamm: "ja → binden · ohne Note oder unbekannt → die Kaesten daneben"
   };
