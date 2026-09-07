@@ -208,7 +208,8 @@
     });
     el.innerHTML = '<div class="kf'+(opt.dunkel?" dunkel":"")+'">' + s
       + '<div class="legende">'
-      + '<i class="g"></i>laeuft <i class="y"></i>klemmt — Work-Nummer steht an der Karte'
+      + '<i class="g"></i>geschlossen — ein Testprodukt ist hier durchgekommen'
+      + ' <i class="y"></i>offen'
       + ' <i class="b"></i>Frage mit Abzweig <i class="s"></i>stillgelegt, zaehlt nicht (E46)'
       + '<span class="kfStand">Stand: noch nicht gemessen</span></div></div>';
     verdrahten(el);
@@ -339,10 +340,13 @@
     });
 
     if(f){
-      var offen = stand.kaesten.filter(function(k){ return k.ist > 0; }).length;
+      /* 🔴 07.09.2026 (#616, Ralph): "im baum soll nur stehen offen = gelb,
+         geschlossen/verifiziert = gruen". Gezaehlt wird also der DURCHLAUF,
+         nicht mehr, wie viele Bestandszahlen zufaellig auf null stehen. */
+      var gruen = stand.kaesten.filter(function(k){ return k.ampel === "gruen"; }).length;
       f.textContent = "gemessen " + zeitpunkt
-        + " · " + stand.kaesten.length + " Kaesten, davon "
-        + (stand.kaesten.length - offen) + " auf null"
+        + " · " + gruen + " von " + stand.kaesten.length
+        + " Stationen geschlossen — geschlossen heisst: ein Testprodukt ist hier durchgekommen"
         + " · " + stand.aktive_produkte + " aktive Produkte, davon "
         + stand.rohware_ohne_etikett + " Rohware ohne Etikett (zaehlt nicht mit)";
     }
