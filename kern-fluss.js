@@ -42,53 +42,74 @@
      durchgekommen. Ein Kasten wird nie gruen, weil niemand hingesehen hat.
      Quelle: shadow_v1.kern_durchlauf. Die Bestandszahl steht weiter an der
      Karte, aber sie entscheidet die Farbe nicht mehr. */
+  /* 🔴 07.09.2026 (#217, Ralph): "der Baum ist keine Doku-Liste, er ist der Weg,
+     der gruen werden muss — die einzelnen Werkzeuge und Ablaeufe muessen stehen."
+     Jede Karte nennt deshalb ab jetzt ihr WERKZEUG (Funktion, Takt, Edge-Funktion,
+     Tabelle) und WER es ausloest. Alles unten ist am 07.09.2026 in der Datenbank
+     nachgelesen (pg_proc, cron.job, Views), nichts ist aus dem Gedaechtnis.
+     Die Websuche ist ersetzt: die Adresse kommt aus Marke → Domain → Sitemap,
+     den Text holt der Crawler (Edge quelle-abruf-einfach). */
   const KNOTEN = [
-    /* ── Gruppe Eingang · Ralphs drei Eingaenge ───────────────────────── */
-    {id:"ein_ean",  c:0, r:0, f:Y, t:"Eingang: EAN",            s:"Nur der Barcode, ohne Bild. Der kuerzeste Weg in den Baum."},
-    {id:"ein_foto", c:1, r:0, f:Y, t:"Eingang: Bild mit Naehrwerten und EAN", s:"Die Rueckseite. Zutatenliste, Naehrwerte und Barcode auf einem Bild."},
-    {id:"ein_front",c:3, r:0, f:Y, t:"Eingang: Bild Produkt",   s:"Nur die Vorderseite — Marke und Name, sonst nichts. Ralph 07.09.: auch daraus muss ein vollstaendiges Produkt mit Index entstehen.", p:"Solange die Eingangsart nicht erfasst wird, ist dieser Eingang blind."},
-    {id:"erfassen", c:1, r:1, f:Y, t:"Erfassen",                s:"Alle drei Eingaenge laufen hier zusammen. Ab hier ist der Weg derselbe.", p:"Auftraege, bei denen nicht festgehalten ist, womit der Mensch gestartet ist."},
+    /* ── Gruppe Eingang · vier Eingaenge, ein Sammelpunkt ─────────────── */
+    {id:"ein_ean",  c:0, r:0, f:Y, t:"Eingang 1: EAN (nur Barcode)",
+      s:"App → cb_scan_lookup (eigener Bestand + Scan_Cache) → bei Fremdtreffer cb_scan_off_treffer / cb_scan_cache_schreiben (Open Food Facts live) → Zeile in Scan_Cache. Von dort holt cb_scan_uebernehmen (Admin, von Hand im Scan-Eingang) das Produkt ueber cb_produkt_ingest in den Bestand.",
+      p:"Die Uebernahme aus dem Scan_Cache ist Handarbeit — es gibt keinen Takt, der sie macht."},
+    {id:"ein_foto", c:1, r:0, f:Y, t:"Eingang 2: Rueckseitenfoto mit EAN",
+      s:"App → cb_riki_scan_einreihen(EAN, Fotos) → Scan_Warteschlange + shadow_v1.riki_scan_job. Eingangsart setzt der Trigger am Job (EAN + Foto = foto_rueckseite)."},
+    {id:"ein_front",c:3, r:0, f:Y, t:"Eingang 3: Frontbild ohne EAN",
+      s:"App 'Produkt ohne Barcode fotografieren' → cb_riki_ohne_ean_einreihen(Fotos) → legt sofort ein Entwurfsprodukt 'RIKI-Entwurf ohne EAN' an (Identitaet = Foto-Fingerabdruck in riki_no_ean_identity) → riki_scan_job. Erwartung: RIKI liest Name und Marke, dann geht es ueber Marke → Domain → Produktseite weiter (Beschaffung), nicht ueber das Foto."},
+    {id:"ein_link", c:2, r:0, f:Y, t:"Eingang 4: Produktlink (Herstellerseite)",
+      s:"cb_riki_ohne_ean_einreihen(Produktlink) → Entwurfsprodukt mit Produktlink, Quelle_Typ Herstellerseite, KEIN Foto-Auftrag. Weiter direkt beim Crawler (quelle-abruf-takt liest v_quelle_abruf_offen, Entwuerfe eingeschlossen)."},
+    {id:"erfassen", c:1, r:1, f:Y, t:"Erfassen — Sammelpunkt",
+      s:"Ab hier existiert ein Produkt (Bestand, Scan_Cache-Zeile oder Entwurf) mit festgehaltener Eingangsart. Ohne Eingangsart ist nicht messbar, welcher Eingang klemmt."},
 
-    {id:"scan",  c:1, r:2,  f:Y, t:"Barcode gescannt",          s:"Im Laden gescannt. Cache und Server liefern dieselbe Antwort."},
-    {id:"zeit",  c:0, r:2,  f:Y, t:"Antwortzeit",               s:"Ein Auftrag, der haengt oder zu lange braucht, ist im Laden dasselbe wie kein Ergebnis.", p:"Auftraege, die gehalten wurden oder laenger als eine Minute liefen."},
-    {id:"quote", c:3, r:2,  f:Y, t:"Durchlaufquote",            s:"Wie viele Scanauftraege ueberhaupt bis zu einem Ergebnis kommen.", p:"Auftraege, die nicht fertig geworden sind."},
-    {id:"kat",   c:1, r:3,  f:F, t:"Im Katalog?",               s:"Der Barcode wird gegen den eigenen Bestand gehalten."},
-    {id:"treffer",c:3, r:3, f:Y, t:"Ja — kurzer Weg zur Ausgabe", s:"Ein Treffer im eigenen Bestand geht direkt zur Ausgabe, ohne den langen Weg. Er wird trotzdem gegen dieselben Waechter geprueft.", p:"Treffer, deren Produkt keine vollstaendige Karte hat und deshalb nicht direkt ausgegeben werden kann."},
-    {id:"off",   c:1, r:4,  f:F, t:"Open Food Facts kennt den Barcode?", s:"Abfrage live im Laden. Ohne Barcode kann keine Fremdquelle antworten.", p:"Aktive Produkte ohne EAN."},
-    {id:"vorl",  c:1, r:5,  f:Y, t:"Vorlaeufige Karte (nur Fallback)", s:"Sie ueberbrueckt die Sekunden im Laden. Ziel ist die vollstaendige Produktkarte, nicht der Platzhalter."},
-    {id:"foto",  c:3, r:5,  f:Y, t:"Niemand kennt es: Foto",    s:"Etikett fotografieren, Produkt wird daraus angelegt.", p:"Aktive Produkte ohne Wortlaut und ohne Produktlink — nur das Foto bleibt als Weg."},
+    {id:"scan",  c:1, r:2,  f:Y, t:"RIKI liest (Worker)",
+      s:"Takt riki-scan-worker-v1 (jede Minute, cb_riki_scan_worker_takt) ruft die Edge-Funktion riki-scan-worker; die holt sich Jobs ueber cb_riki_scan_job_claim, liest Zutaten, Naehrwerte, Name, Marke vom Foto und schliesst mit cb_riki_scan_job_abschliessen ab. Ohne EAN dazu cb_riki_no_ean_identitaet_pruefen (Dublette melden, nicht zusammenfuehren, E35)."},
+    {id:"zeit",  c:0, r:2,  f:Y, t:"Antwortzeit",               s:"gestartet_am → beendet_am am riki_scan_job. Grenze 1 Minute. Ein Auftrag im Status 'gehalten' zaehlt als haengt.", p:"Auftraege, die gehalten wurden oder laenger als eine Minute liefen."},
+    {id:"quote", c:3, r:2,  f:Y, t:"Durchlaufquote",            s:"riki_scan_job.status = fertig. Fehler stehen in letzter_fehler.", p:"Auftraege, die nicht fertig geworden sind."},
+    {id:"kat",   c:1, r:3,  f:F, t:"Im Katalog?",               s:"Produkte.EAN_GTIN bzw. Produkt_ID am Job. cb_scan_lookup fuer die EAN, riki_no_ean_identity fuer Foto/Link."},
+    {id:"treffer",c:3, r:3, f:Y, t:"Ja — kurzer Weg zur Ausgabe", s:"Aktives Produkt mit Score (Scores.Clean_Score) und belegtem Wortlaut (Zutaten_Rohtext.Quellenart) geht direkt zur Ausgabe, aber durch dieselben Waechter.", p:"Treffer ohne vollstaendige Karte."},
+    {id:"off",   c:1, r:4,  f:F, t:"Open Food Facts kennt den Barcode?", s:"Nur mit EAN: cb_scan_off_treffer live im Laden; spaeter off-rohtext-takt (alle 6 Min, cb_off_rohtext_takt) fuer den Zutatentext.", p:"Produkte ohne EAN gehen hier immer 'nein' — ihr Weg ist die Herstellerseite."},
+    {id:"vorl",  c:1, r:5,  f:Y, t:"Vorlaeufige Karte (nur Fallback)", s:"Scan_Cache.Score_vorlaeufig. Ueberbrueckt die Sekunden im Laden; ersetzt keine vollstaendige Karte."},
+    {id:"foto",  c:3, r:5,  f:Y, t:"Etikettfoto = letzter Weg",    s:"Quellenleiter cb_riki_naechster_quellenweg: Produktseite → eingebettete Daten → verlinkte Herstellerdaten → geprueft-strukturiert → erst dann Foto. Das Foto ist Backup, nicht Standard.", p:"Produkte ohne Wortlaut und ohne Produktlink — nur das Foto bleibt."},
 
-    /* ── Gruppe Beschaffung ───────────────────────────────────────────── */
-    {id:"adr",   c:0, r:6,  f:Y, t:"Adresse finden: Marke → Domain → Sitemap", s:"Domain suchen, sitemap.xml lesen, Produktseite dem Namen zuordnen, Link ans Produkt. Kostenlos.", p:"Produkte an Marken ohne bestaetigte Domain. Einige Herstellerseiten sperren sitemap.xml und robots.txt."},
-    {id:"herst", c:1, r:6,  f:Y, t:"Zutaten von der Herstellerseite", s:"Ein Skript holt den Text von der Produktseite. Die Herkunft wird beim Schreiben gesetzt, nicht nachgetragen.", p:"Ist die Arbeitsliste leer, fehlt der Nachschub an Produktlinks — nicht die Arbeit."},
-    {id:"offd",  c:3, r:6,  f:Y, t:"Open Food Facts: Name, Naehrwerte, Zutaten", s:"Von dort kommt nicht nur der Zutatentext, sondern auch Name und Naehrwerte.", p:"Aktive Produkte mit EAN, aber ohne Wortlaut."},
-    {id:"web",   c:2, r:7,  f:S, t:"Websuche (stillgelegt)",    s:"Eingefroren und ersetzt: die Adresse kommt jetzt aus dem Markennamen, kostenlos. Ein bewusst stillgelegter Weg ist keine Luecke."},
-    {id:"ki",    c:3, r:7,  f:Y, t:"KI liest das Foto",         s:"Zutaten und Naehrwerte werden vom Etikettfoto gelesen."},
+    /* ── Gruppe Beschaffung · Marke → Domain → Sitemap → Link → Crawler ── */
+    {id:"adr",   c:0, r:6,  f:Y, t:"Adresse finden: Marke → Domain → Sitemap → Produktlink",
+      s:"1) marke-domain-raten-takt (9,39; cb_marke_domain_raten_takt) bildet aus der Marke www.marke.de/.com und prueft, ob die Seite antwortet und die Marke nennt → Marken_Domain 'vorgeschlagen'; marken-beleg-nachlauf (22,52) bestaetigt. 2) marken-sitemap-takt (7,37; cb_marken_sitemap_takt) liest sitemap.xml → Marken_Domain_Seite. 3) produktlink-sitemap-takt (12,42; cb_produktlink_aus_sitemap_takt) ordnet den Produktnamen der Seite zu (v_produktseite_kandidat, Naehe ≥ 0,30) → Produkte.Produktlink. Alles kostenlos, kein LLM.",
+      p:"v_produktseite_kandidat und v_marken_domain_stand kennen nur Produktstatus 'Aktiv' — ein RIKI-Entwurf ohne EAN bekommt so nie einen Produktlink. Ausserdem braucht es Produkte.Marke; ohne Marke vom Frontbild keine Domain."},
+    {id:"herst", c:1, r:6,  f:Y, t:"Crawler: Zutaten von der Produktseite",
+      s:"quelle-abruf-takt (17,47; cb_quelle_abruf_takt, 5 Produkte je Lauf) nimmt v_quelle_abruf_offen (Produktlink da, kein Wortlaut, Status Aktiv/Entwurf/pruefen) und ruft je Produkt die Edge-Funktion quelle-abruf-einfach (cb_edge_rufen). Ergebnis: Zutaten_Rohtext mit Quellenart Herstellerseite + Protokoll in product_source_retrieval_attempt (7 Tage Sperre bei Fehlschlag). Handweg fuer Sperren: cb_quelle_stufe2_ergebnis (Chrome-Lauf).",
+      p:"Ist die Arbeitsliste leer, fehlt der Nachschub an Produktlinks — nicht die Arbeit."},
+    {id:"offd",  c:3, r:6,  f:Y, t:"Open Food Facts: Name, Naehrwerte, Zutaten", s:"off-rohtext-takt (alle 6 Min) und off-namen-takt (alle 3 Min) holen Wortlaut und Namen zur EAN → Zutaten_Rohtext Quellenart Open Food Facts.", p:"Produkte mit EAN, aber ohne Wortlaut."},
+    {id:"web",   c:2, r:7,  f:S, t:"Websuche (stillgelegt)",    s:"Ersetzt durch Marke → Domain → Sitemap → Crawler. Ein bewusst stillgelegter Weg ist keine Luecke (E46)."},
+    {id:"ki",    c:3, r:7,  f:Y, t:"KI liest das Foto (Backup)", s:"Derselbe Worker wie oben (Edge riki-scan-worker), nur mit Rueckseitenfoto: Zutaten und Naehrwerte → Zutaten_Rohtext Quellenart Etikettfoto. Erst wenn die Herstellerwege dokumentiert gescheitert sind."},
 
     /* ── Gruppe Verarbeitung ──────────────────────────────────────────── */
-    {id:"quelle",c:0, r:8,  f:Y, t:"Herkunft belegt",           s:"Jeder Etikettwortlaut traegt seine Quellenart. Ein Produkt ganz ohne Wortlaut hat keine belegte Herkunft und zaehlt hier mit — vorher fiel es durch die Messung."},
-    {id:"prod",  c:1, r:8,  f:Y, t:"Produkt anlegen und speichern", s:"Zutatentext plus Herkunft am Produkt. Rohware ohne Etikett zaehlt nicht mit."},
-    {id:"beleg", c:3, r:8,  f:Y, t:"Belegpruefung: steht es wirklich auf dem Foto?", s:"Zweiter Blick auf die Etikettfotos. Findet die Pruefung kein Zutatenverzeichnis, sperrt der Server den Score mit Grund."},
-    {id:"zerl",  c:1, r:9,  f:Y, t:"zerlegen",                  s:"Der Wortlaut wird in Namen geteilt, jeder Name bekommt seine Stammnote.", p:"Der Takt dafuer steht abgeschaltet. Solange er aus ist, bekommt kein neu angelegtes Produkt von allein Zutatenzeilen — das ist der Bruch mitten im Weg."},
-    {id:"stamm", c:1, r:10, f:F, t:"Name im Stamm, mit Note?",  s:"Jeder Name wird gegen den Zutaten-Stamm gehalten."},
-    {id:"ohnenote",c:0,r:11,f:Y, t:"Im Stamm, aber ohne Note",  s:"Eintraege, die im Stamm stehen, aber keine Bewertung tragen."},
-    {id:"bindung",c:1,r:11, f:Y, t:"Stamm und binden",          s:"Gebunden wird an der Zeile, nicht an der Zutat-ID. Frueher waren das zwei Karten, die dieselbe Abfrage lasen.", p:"Der Zulauf kommt aus neuen Wortlauten — ein Zeichen von Fortschritt, nicht von Ruecklauf."},
-    {id:"bew",   c:1, r:12, f:Y, t:"bewerten",                  s:"Der Score entsteht aus den Stammnoten. Ohne Note faellt er ehrlich weg, mit genanntem Grund."},
-    {id:"naehr", c:3, r:12, f:Y, t:"Naehrwerte",                s:"Der Waechter schlaegt an, wenn die Kalorien ausserhalb des physikalisch Moeglichen liegen.", p:"Jeder Fall ist ein Datenfehler, kein Fehlalarm."},
+    {id:"quelle",c:0, r:8,  f:Y, t:"Herkunft belegt",           s:"Zutaten_Rohtext.Quellenart wird beim Schreiben vom Trigger gesetzt (w595c), nicht nachgetragen. Ein Produkt ohne Wortlaut hat keine belegte Herkunft."},
+    {id:"prod",  c:1, r:8,  f:Y, t:"Produkt mit Wortlaut gespeichert", s:"Produkte + Zutaten_Rohtext am selben Produkt_ID. Rohware ohne Etikett (v_kern_rohware) zaehlt nicht."},
+    {id:"beleg", c:3, r:8,  f:Y, t:"Belegpruefung: steht es wirklich auf dem Foto?", s:"etikett-belegpruefung-takt (27,57; cb_etikett_belegpruefung_takt) → shadow_v1.etikett_belegpruefung. Antwort 'nein' sperrt den Score mit Grund. Nur fuer Etikettfotos."},
+    {id:"zerl",  c:1, r:9,  f:Y, t:"zerlegen: Wortlaut → Referenz → Zeilen",
+      s:"referenz-nachlauf (alle 5 Min; cb_referenz_nachlauf_abarbeiten) prueft den Wortlaut gegen die Referenz; w594-zeilen-aus-referenz (alle 15 Min; cb_zeilen_aus_referenz_takt) schreibt daraus Produkt_Zutaten. Der alte rohtext-zerlegen-takt ist abgeschaltet und wird nicht mehr gebraucht.",
+      p:"Wortlaut da, aber 0 Zutatenzeilen."},
+    {id:"stamm", c:1, r:10, f:F, t:"Name im Stamm, mit Note?",  s:"Produkt_Zutaten.Zutat_ID gegen den Zutaten-Stamm. Offene Bindungen: v_active_product_ingredient_repair_open."},
+    {id:"ohnenote",c:0,r:11,f:Y, t:"Im Stamm, aber ohne Note",  s:"v_zutaten_unbewertet_offen. Bewertung nur nach Regelwerk (Skill zutaten-aufloesen), B3 gesperrt fuer Agenten."},
+    {id:"bindung",c:1,r:11, f:Y, t:"binden",                    s:"w648-huellen-aufloesen (alle 20 Min; cb_huellen_aufloesen_takt), funktionswort-umhaengen und zutat-dubletten (alle 10 Min) binden die Zeile an die Zutat-ID.", p:"Zeilen ohne Bindung."},
+    {id:"bew",   c:1, r:12, f:Y, t:"bewerten",                  s:"score-nachlauf-takt (alle 5 Min; cb_score_nachlauf_abarbeiten) und score-nachrechnen-takt (19,49) → Scores.Clean_Score. Ohne Note faellt der Score mit Grund in Scores.Status weg."},
+    {id:"naehr", c:3, r:12, f:Y, t:"Naehrwert-Waechter",        s:"v_naehrwerte_qa_offen, erhoben von shadow-waechter-cache-5min. Kalorien ausserhalb des Moeglichen = Datenfehler.", p:"Jeder Fall ist ein Datenfehler, kein Fehlalarm."},
 
     /* ── Gruppe Ausgabe ───────────────────────────────────────────────── */
-    {id:"nachlauf",c:0,r:13,f:Y, t:"Score-Nachlauf",            s:"Aendert sich eine Zutatennote, werden alle Produkte damit neu gerechnet.", p:"Solange die Warteschlange nicht leer ist, sind nicht alle Scores auf dem neuesten Regelstand."},
-    {id:"frei",  c:1, r:13, f:Y, t:"Freigabe",                  s:"Ein Foto ohne Sichtpruefung bleibt gesperrt. Hersteller und Open Food Facts sind nach der Bindung frei.", p:"Entwuerfe mit Score, die auf Freigabe warten. Ralph 07.09.: Bestandszahl, kein Mass fuer den Durchgang."},
-    {id:"sperre",c:3, r:13, f:Y, t:"Pruefung durch Waechter",   s:"Auch ein laengst vorhandenes Produkt wird bei der Ausgabe gegen dieselben Waechter geprueft wie ein neu angelegtes. Ein Treffer sperrt die Ausgabe.", p:"Produkte mit Score trotz offenem Waechtertreffer."},
-    {id:"ausgabe",c:1,r:14, f:Y, t:"Ausgabe vollstaendig",      s:"Das Ende des Wegs. Fertig ist ein Produkt erst, wenn es Index UND belegten Zutatenwortlaut traegt — ob vorhanden oder neu angelegt macht keinen Unterschied."}
+    {id:"nachlauf",c:0,r:13,f:Y, t:"Score-Nachlauf",            s:"Score_Nachlauf-Warteschlange; abgearbeitet vom score-nachlauf-takt.", p:"Solange die Warteschlange nicht leer ist, sind nicht alle Scores auf dem neuesten Regelstand."},
+    {id:"frei",  c:1, r:13, f:Y, t:"Freigabe",                  s:"kern-poster-cache-Takt (alle 15 Min) ruft cb_riki_freigabe_takt: Entwurf mit Score, gebundenen Zeilen und ohne Waechtertreffer → Produktstatus Aktiv, Nachpruefung spaeter (Ralph 07.09.). Etikettfoto ohne Belegpruefung bleibt Entwurf.", p:"Entwuerfe mit Score, die auf Freigabe warten."},
+    {id:"sperre",c:3, r:13, f:Y, t:"Pruefung durch Waechter",   s:"Dieselben Waechter fuer Bestand und Neuzugang: Naehrwert-Waechter, Belegpruefung, offene Bindung. Ein Treffer sperrt die Ausgabe.", p:"Produkte mit Score trotz offenem Waechtertreffer."},
+    {id:"ausgabe",c:1,r:14, f:Y, t:"Ausgabe vollstaendig",      s:"Produktstatus Aktiv + Scores.Clean_Score + Zutaten_Rohtext mit Quellenart. Erst dann ist der Weg zu."}
   ];
 
   /* Beschriftete Abzweige: von, nach, Text. Sie stehen als Zeile an der Karte,
      nicht als Pfeil im Bild - eine Linie, die niemand lesen kann, hilft nicht. */
   const ABZWEIG = {
-    erfassen: "EAN · Rueckseitenfoto · Frontbild — ab hier ist der Weg derselbe",
+    erfassen: "EAN · Rueckseitenfoto · Frontbild · Produktlink — ab hier ist der Weg derselbe",
     kat:   "ja → kurzer Weg zur Ausgabe, trotzdem durch die Waechter · nein → weiter nach unten",
-    off:   "ja → vorlaeufige Karte · nein → Foto",
+    off:   "ja → vorlaeufige Karte + OFF-Wortlaut · nein (ohne EAN) → Adresse finden → Crawler · erst zuletzt Foto",
     stamm: "ja → binden · ohne Note oder unbekannt → die Kaesten daneben"
   };
 
