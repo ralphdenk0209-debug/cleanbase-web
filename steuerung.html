@@ -379,17 +379,24 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
   <div class="band" id="band"></div>
 </div>
 
-<!-- Work #643: der Weg zum grünen Kern-Poster. Ralph 06.09.2026 — die Reihenfolge
-     gehört in die Seite, nicht in den Chat. Zahlen aus cb_admin_kern_poster_marschplan,
-     das ist eine reine Durchreiche von v_kern_poster_marschplan. Keine zweite Wahrheit. -->
-<details class="kernweg" id="marschplan" open>
-  <summary>Weg zum grünen Kern-Poster · <span id="mpKurz">lädt …</span></summary>
-  <div id="mpTabelle"></div>
+<!-- Work #613, Ralph-Entscheid 07.09.2026: Der Produktweg IST das Ziel und das
+     Kern-Poster. Er steht deshalb zuoberst und offen. Der alte Titel „nicht Teil
+     der Aufgabenliste" war ab diesem Entscheid falsch: jede Karte trägt ihre
+     offenen Work Items, ein Klick filtert die Liste darunter. -->
+<details class="kernweg" id="kernweg" open>
+  <summary>Der Weg — Scan bis Ausgabe · <span id="kwKurz">lädt …</span></summary>
+  <div id="kernFluss"></div>
 </details>
 
-<details class="kernweg" id="kernweg">
-  <summary>Produktweg anzeigen · nicht Teil der Aufgabenliste</summary>
-  <div id="kernFluss"></div>
+<!-- Work #643: der Weg zum grünen Kern-Poster. Ralph 06.09.2026 — die Reihenfolge
+     gehört in die Seite, nicht in den Chat. Zahlen aus cb_admin_kern_poster_marschplan,
+     das ist eine reine Durchreiche von v_kern_poster_marschplan. Keine zweite Wahrheit.
+     ⚠ #642 verifiziert — nicht ausgebaut, bis Ralph darüber entschieden hat.
+     07.09. Ralph: nur zugeklappt, damit der Weg allein oben steht. Inhalt und
+     Datenquelle unverändert, jederzeit mit einem Klick wieder da. -->
+<details class="kernweg" id="marschplan">
+  <summary>Reihenfolge als Tabelle · <span id="mpKurz">lädt …</span></summary>
+  <div id="mpTabelle"></div>
 </details>
 <div id="luecke" class="luecke" style="display:none"></div>
 <div id="ralphblock" class="ralphblock" style="display:none"></div>
@@ -483,7 +490,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="kern-fluss.js?v=2026-09-07-2"></script>
+<script src="kern-fluss.js?v=2026-09-07-3"></script>
 <script>if(window.KERN_FLUSS) KERN_FLUSS.zeichnen(document.getElementById("kernFluss"),{dunkel:true});</script>
 <script>
 /* ============================================================
@@ -500,6 +507,42 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
    Zahlen aus der Datenbank statt aus der JS-Datei (cb_kern_poster_stand). */
 try{ if(window.KERN_FLUSS && KERN_FLUSS.messen)
        KERN_FLUSS.messen(client, document.getElementById("kernFluss")); }catch(e){}
+
+/* 🔴 07.09.2026 (#613): Die Aufgaben an den Karten kommen aus der Datenbank
+   (cb_admin_kern_poster_karten_work), nicht mehr aus kern-fluss.js. */
+try{ if(window.KERN_FLUSS && KERN_FLUSS.aufgaben)
+       KERN_FLUSS.aufgaben(client, document.getElementById("kernFluss"))
+         .then(kernwegKurz); }catch(e){}
+
+/* Klick auf eine Karte filtert die Aufgabenliste darunter. Klick auf eine
+   Aufgabe an der Karte öffnet dasselbe Panel wie in der Liste — kein zweiter
+   Weg, keine nachgebaute Ansicht (CLAUDE.md A4). */
+let KARTE_FILTER = null;          /* {kasten_id, titel, work_ids} oder null */
+(function(){
+  const kf = document.getElementById("kernFluss");
+  if(!kf) return;
+  kf.addEventListener("kf:karte", ev => {
+    KARTE_FILTER = ev.detail && ev.detail.kasten_id ? ev.detail : null;
+    if(typeof zeichnen === "function") zeichnen();
+  });
+  kf.addEventListener("kf:work", ev => {
+    const id = ev.detail && ev.detail.work_id;
+    if(id && typeof panelAuf === "function") panelAuf(Number(id));
+  });
+})();
+
+/* Die Kopfzeile der Sektion sagt, wie viele Karten offene Aufgaben tragen —
+   eine Überschrift ohne Zahl ist eine Behauptung (A2). */
+function kernwegKurz(){
+  const k = document.getElementById("kwKurz");
+  if(!k || !window.KERN_FLUSS || !KERN_FLUSS.werJeKarte) return;
+  const je = KERN_FLUSS.werJeKarte() || {};
+  const karten = KERN_FLUSS.KNOTEN.length;
+  const mit = Object.keys(je).length;
+  const aufg = new Set(); Object.values(je).forEach(l => l.forEach(x => aufg.add(x.work_id)));
+  k.textContent = karten + " Karten · " + mit + " davon mit offener Aufgabe · "
+    + aufg.size + " Aufgaben, alle aus der Datenbank";
+}
 
 /* ============================================================
    2 · Die Stationen — Work Items werden gebaut, Projektpunkte abgenommen
@@ -741,7 +784,10 @@ function zuordnungFuellen(){
 function gefiltert(){
   const t = $("fThema").value, o = $("fOwner").value;
   const st = $("fStatus").value, q = $("fSuche").value.trim().toLocaleLowerCase("de");
-  return ZEILEN.filter(w => (!t || w.area===t) && (!o || w.owner_agent===o) &&
+  /* #613: Ist oben eine Karte gewählt, zeigt die Liste nur deren Aufgaben. */
+  const kf = KARTE_FILTER ? new Set(KARTE_FILTER.work_ids.map(Number)) : null;
+  return ZEILEN.filter(w => (!kf || kf.has(Number(w.work_id))) &&
+    (!t || w.area===t) && (!o || w.owner_agent===o) &&
     (!st || w._station===st) && (!q ||
       [w._nummer,w.title,w.area,w.owner_agent,w.projekt,w.projekt_kuerzel]
         .some(x=>String(x||"").toLocaleLowerCase("de").includes(q))));
@@ -768,6 +814,8 @@ function zeichnen(){
     .filter(a=>a.status==="ready_for_verification");
   const abnahmeAlt = abnahmePunkte.filter(a=>tage(a.updated_at)>=2).length;
   $("band").innerHTML = z +
+    (KARTE_FILTER ? '<div class="zaehler" id="kfWeg" style="border-color:#2563eb;cursor:pointer" ' +
+      'title="Filter aufheben"><b>Karte</b>' + esc(KARTE_FILTER.titel||"") + ' ✕</div>' : '') +
     '<div class="zaehler"><b>'+abnahmePunkte.length+'</b>Projektpunkte zur Abnahme</div>' +
     '<div class="zaehler"><b>'+rows.length+'</b>Aufgaben sichtbar</div>' +
     (abnahmeAlt ? '<div class="zaehler" style="border-color:#7a5a1c"><b>'+abnahmeAlt+
@@ -1327,6 +1375,13 @@ async function buendelAbholen(pid){
 let ZIEHT = null;
 
 function verdrahten(){
+  /* #613: Der Kartenfilter lässt sich auch im Zählerband wieder abwerfen. */
+  const kfw = $("kfWeg");
+  if(kfw) kfw.addEventListener("click", ()=>{
+    KARTE_FILTER = null;
+    document.querySelectorAll("#kernFluss .kfWahl").forEach(d=>d.classList.remove("kfWahl"));
+    zeichnen();
+  });
   document.querySelectorAll(".aufgabe[data-work]").forEach(el=>{
     el.addEventListener("click", ()=>panelAuf(Number(el.dataset.work)));
   });
