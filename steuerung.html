@@ -483,7 +483,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="kern-fluss.js?v=2026-09-07-1"></script>
+<script src="kern-fluss.js?v=2026-09-07-2"></script>
 <script>if(window.KERN_FLUSS) KERN_FLUSS.zeichnen(document.getElementById("kernFluss"),{dunkel:true});</script>
 <script>
 /* ============================================================
@@ -594,7 +594,14 @@ function marschplanZeichnen(r){
   }
   const z = r.data;
   const gruen = z.filter(x => x.ampel === 'gruen').length;
-  kurz.textContent = gruen + " von " + z.length + " Kästen grün";
+  /* #644: die Zahlen kommen aus dem getakteten Cache. Wie alt sie sind, steht
+     dabei - sonst sieht eine Zahl von gestern aus wie eine von jetzt (A3). */
+  const alt = z.length ? z[0].alter_minuten : null;
+  const altText = alt == null ? "" :
+    (alt < 1 ? " · eben gemessen" :
+     alt < 60 ? " · vor " + alt + " Min gemessen" :
+     " · ⚠ Messung " + Math.round(alt/60) + " Std alt");
+  kurz.textContent = gruen + " von " + z.length + " Kästen grün" + altText;
 
   const farbe = a => a==='gruen' ? '#2e7d32' : a==='rot' ? '#b3261e' : '#9a6a00';
   let h = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
