@@ -54,6 +54,8 @@ function applyAdminMode(){
          Deploy nie ein alter Stand aus dem Cache kommt. Kein app.js-Panel: die
          Seite bringt ihre eigene Anmeldung aus derselben Sitzung mit. */
       +_an('steuerung','🎛️','Steuerung',"window.open('steuerung.html?cb='+Date.now(),'_blank')")
+      /* 07.09.2026 (#217, Ralph): die Maschine als Netzplan - eigene Seite, eigenes Fenster. */
+      +_an('maschine','🚇','Maschine',"window.open('maschine.html?cb='+Date.now(),'_blank')")
       /* Ralph-Auftrag 25.08.2026: Benchmark Control direkt hinter dem Dashboard.
          Eigene Arbeitsflaeche als Overlay (wie katKonfigOpen), kein fgTab-Panel —
          damit weder app.js noch admin.html Fachlogik dafuer bekommen. */

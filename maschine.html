@@ -24,6 +24,22 @@
   p{margin:6px 0}
   .lead{font-size:19px;color:var(--muted)}
   .stand{font-size:14px;color:var(--muted);margin-top:8px}
+  /* Netzplan (U-Bahn) */
+  .netz{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px 6px;margin-top:14px}
+  .netz svg{width:100%;height:auto;display:block}
+  .netz .l{fill:none;stroke-width:10;stroke-linecap:round;stroke-linejoin:round}
+  .netz .st{cursor:pointer}
+  .netz .st circle{fill:#0f1412;stroke-width:5}
+  .netz .st.ok circle{stroke:var(--gruen)} .netz .st.offen circle{stroke:var(--gelb)} .netz .st.frage circle{stroke:#6b7a72}
+  .netz .st.hub circle{stroke-width:6}
+  .netz .st text{fill:var(--text);font-size:13px;font-weight:700;pointer-events:none}
+  .netz .st text.sub{fill:var(--muted);font-weight:500;font-size:11px}
+  .netz .st.wahl circle{fill:#1f3a2c}
+  .netz .ll{font-size:12px;font-weight:800;letter-spacing:.04em}
+  .legende{font-size:12px;color:var(--muted);margin:6px 4px 0;display:flex;gap:16px;flex-wrap:wrap}
+  .legende i{display:inline-block;width:12px;height:12px;border-radius:50%;border:3px solid;vertical-align:-2px;margin-right:5px;background:#0f1412}
+  #detail{margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:none}
+  #detail.an{display:block}
   .tueren{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:14px}
   .tuer{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
   .tuer .k{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
@@ -60,6 +76,12 @@
 <h1>Die Maschine</h1>
 <p class="lead">Was passiert, wenn jemand im Laden ein Lebensmittel scannt oder fotografiert — und wie daraus in Minuten eine geprüfte Bewertung wird.</p>
 <div class="stand" id="stand">Stand wird geladen …</div>
+
+<h2 id="netzTitel" style="margin-top:22px">0 · Der Netzplan — die Maschine auf einen Blick</h2>
+<p>Wie ein U-Bahn-Netz: vier Linien fahren hinein, ab der Station <b>Erfassen</b> fahren alle auf einem Gleis bis zur Ausgabe. Klick auf eine Station zeigt, was dort passiert.</p>
+<div class="netz"><svg id="netz" viewBox="0 0 1180 430" role="img" aria-label="Netzplan der Maschine"></svg>
+<div class="legende"><span><i style="border-color:var(--gruen)"></i>funktioniert (Testprodukt durchgekommen)</span><span><i style="border-color:var(--gelb)"></i>noch nicht nachgewiesen</span><span><i style="border-color:#6b7a72"></i>wird nicht gemessen</span><span>Linien: <b style="color:#7cb3ff">Barcode</b> · <b style="color:#3ddc84">Rückseite</b> · <b style="color:#f5a251">Vorderseite</b> · <b style="color:#c792ea">Link</b></span></div></div>
+<div id="detail"></div>
 
 <h2>1 · Vier Türen hinein</h2>
 <p>Es gibt vier Wege, ein Produkt in die Maschine zu geben. Danach ist der Weg für alle gleich.</p>
@@ -102,6 +124,12 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
 });
+function rhythmus(c){ const m=String(c||'').trim().split(/\s+/); if(m.length<5) return c; const min=m[0], h=m[1];
+  if(min==='*' && h==='*') return 'jede Minute';
+  let k=min.match(/^(?:\d+-\d+)?\/(\d+)$/); if(k) return 'alle '+k[1]+' Min';
+  k=min.match(/^\*\/(\d+)$/); if(k) return 'alle '+k[1]+' Min';
+  if(/^\d+(,\d+)*$/.test(min) && h==='*'){ const n=min.split(',').length; return n===1?'stündlich':(n+'× pro Stunde'); }
+  return c; }
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
 
 /* Die Stationen in Reihenfolge. kasten = Messkasten aus cb_kern_poster_stand,
@@ -197,7 +225,7 @@ function uhr(name, takte){
   const t = takte[name]; if(!t) return '<span class="uhr tot">'+esc(name)+': keine Uhr gefunden</span>';
   const wann = t.letzter_lauf ? new Date(t.letzter_lauf).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) : "nie";
   const ok = t.letzter_status === "succeeded";
-  return '<span class="uhr'+(t.active?'':' tot')+'" title="'+esc(t.letztes_ergebnis||'')+'"><b>'+esc(name)+'</b> · '+esc(t.schedule)+' · zuletzt '+wann+' '+(ok?'✓':'✗')+' · heute '+t.laeufe_heute+'×'+(t.fehler_heute?(' <span class="rot">'+t.fehler_heute+' Fehler</span>'):'')+'</span>';
+  return '<span class="uhr'+(t.active?'':' tot')+'" title="'+esc(t.letztes_ergebnis||'')+'"><b>'+esc(name)+'</b> · '+esc(rhythmus(t.schedule))+' · zuletzt '+wann+' '+(ok?'✓':'✗')+' · heute '+t.laeufe_heute+'×'+(t.fehler_heute?(' <span class="rot">'+t.fehler_heute+' Fehler</span>'):'')+'</span>';
 }
 function stationHtml(s, i, stand, takte){
   const a = ampel(s.kasten, stand);
@@ -214,6 +242,66 @@ function tuerHtml(id, stand){
   return '<div class="status '+a.cls+'">'+(a.cls==='ok'?'●':'○')+' '+esc(a.txt)+'</div>';
 }
 
+
+/* ===== Netzplan (U-Bahn). Knoten: id, x, y, Titel, Untertitel, Messkaesten, Stationsindex (fuer die Erklaerung). ===== */
+const NETZ = {
+  knoten: [
+    {id:"t1", x:70,  y:70,  t:"Barcode",        sub:"Tür 1", kasten:["ein_ean"],  tuer:0},
+    {id:"t2", x:70,  y:170, t:"Rückseite",      sub:"Tür 2", kasten:["ein_foto"], tuer:1},
+    {id:"t3", x:70,  y:270, t:"Vorderseite",    sub:"Tür 3", kasten:["ein_front"],tuer:2},
+    {id:"t4", x:70,  y:370, t:"Link",           sub:"Tür 4", kasten:["ein_link"], tuer:3},
+    {id:"hub",x:250, y:220, t:"Erfassen",       sub:"alle Linien", kasten:["erfassen"], st:0, hub:true},
+    {id:"riki",x:380,y:220, t:"RIKI liest",     sub:"Foto → Text", kasten:["scan","zeit","quote"], st:1},
+    {id:"kat", x:500,y:220, t:"Bekannt?",       sub:"eigener Bestand", kasten:["kat","treffer"], st:2},
+    {id:"rep", x:500,y:330, t:"Barcode-Reparatur", sub:"nur mit Beweis", kasten:[], takt:"ean-reparatur-takt", st:3},
+    {id:"q1",  x:660,y:110, t:"Hersteller-Portale", sub:"EDEKA-LMIV · dm", kasten:[], takt:"lmiv-edeka-takt", st:4},
+    {id:"q2",  x:660,y:220, t:"Open Food Facts", sub:"per EAN", kasten:["offd"], st:4},
+    {id:"q3",  x:660,y:330, t:"Herstellerseite", sub:"Marke → Sitemap → Crawler", kasten:["adr","herst"], st:4},
+    {id:"quelle",x:800,y:220,t:"Herkunft belegt", sub:"Wortlaut + Quelle", kasten:["quelle","prod"], st:5},
+    {id:"zerl",x:890,y:220, t:"Zerlegen",       sub:"Satz → Zutaten", kasten:["zerl"], st:6},
+    {id:"bind",x:970,y:220, t:"Binden",         sub:"Zutaten-Stamm", kasten:["bindung","ohnenote"], st:7},
+    {id:"bew", x:1050,y:220,t:"Bewerten",       sub:"4 Achsen", kasten:["bew","nachlauf"], st:8},
+    {id:"wach",x:1050,y:330,t:"Wächter",        sub:"Unmögliches stoppen", kasten:["naehr","beleg","sperre"], st:9},
+    {id:"frei",x:1130,y:220,t:"Freigabe",       sub:"", kasten:["frei"], st:10},
+    {id:"aus", x:1130,y:110,t:"Ausgabe",        sub:"fertige Karte", kasten:["ausgabe"], st:11, hub:true}
+  ],
+  linien: [
+    {f:"#7cb3ff", pts:[[70,70],[190,70],[250,220],[500,220],[800,220],[1130,220],[1130,110]]},         /* Barcode: Erfassen → Bekannt? → (ohne RIKI) → Herkunft ... */
+    {f:"#3ddc84", pts:[[70,170],[200,170],[250,220],[380,220],[500,220],[660,220],[800,220]]},          /* Rückseite: RIKI → Quellen */
+    {f:"#f5a251", pts:[[70,270],[200,270],[250,220],[380,220],[500,220],[500,330],[660,330],[800,220]]}, /* Vorderseite: RIKI → Reparatur → Herstellerseite */
+    {f:"#c792ea", pts:[[70,370],[200,370],[250,220],[500,220],[660,330],[800,220]]},                     /* Link: direkt Crawler */
+    {f:"#3a4b42", pts:[[500,220],[660,110],[800,220]]}, {f:"#3a4b42", pts:[[500,220],[660,330],[800,220]]}, {f:"#3a4b42", pts:[[500,220],[660,220],[800,220]]},
+    {f:"#3a4b42", pts:[[800,220],[1130,220]]}, {f:"#3a4b42", pts:[[1050,220],[1050,330]]}, {f:"#3a4b42", pts:[[1130,220],[1130,110]]},
+    {f:"#7cb3ff", pts:[[500,220],[520,150],[1100,110],[1130,110]]}                                          /* Ja-Ast: bekannt → direkt Ausgabe */
+  ]
+};
+function netzZeichnen(stand, takte){
+  const svg = document.getElementById("netz"); if(!svg) return;
+  let out = "";
+  NETZ.linien.forEach(l => { out += '<polyline class="l" stroke="'+l.f+'" points="'+l.pts.map(p=>p.join(",")).join(" ")+'"/>'; });
+  NETZ.knoten.forEach(k => {
+    let a = ampel(k.kasten, stand);
+    if(!a && k.takt){ const t = takte[k.takt]; a = t ? {cls: t.letzter_status==='succeeded' ? 'ok' : 'offen', txt: 'Uhr '+k.takt} : {cls:'frage'}; }
+    if(!a) a = {cls:'frage'};
+    const r = k.hub ? 16 : 12;
+    const oben = k.y < 200 || (k.y===330);
+    const ty = k.y > 300 ? k.y + 30 : (k.y < 200 ? k.y - 22 : k.y - 24);
+    out += '<g class="st '+a.cls+(k.hub?' hub':'')+'" data-id="'+k.id+'"><circle cx="'+k.x+'" cy="'+k.y+'" r="'+r+'"/>'
+         + '<text x="'+k.x+'" y="'+ty+'" text-anchor="middle">'+esc(k.t)+'</text>'
+         + (k.sub ? '<text class="sub" x="'+k.x+'" y="'+(ty+ (k.y>300?14:-14))+'" text-anchor="middle">'+esc(k.sub)+'</text>' : '')
+         + '</g>';
+  });
+  svg.innerHTML = out;
+  svg.querySelectorAll(".st").forEach(g => g.addEventListener("click", () => {
+    svg.querySelectorAll(".st.wahl").forEach(x => x.classList.remove("wahl")); g.classList.add("wahl");
+    const k = NETZ.knoten.find(x => x.id === g.getAttribute("data-id")); if(!k) return;
+    const d = document.getElementById("detail"); d.classList.add("an");
+    if(k.st != null){ d.innerHTML = stationHtml(STATIONEN[k.st], k.st, stand, takte); }
+    else { const tuer = document.querySelectorAll(".tuer")[k.tuer]; d.innerHTML = tuer ? tuer.innerHTML : ''; }
+    d.scrollIntoView({behavior:"smooth", block:"nearest"});
+  }));
+}
+
 async function laden(){
   const { data:{ session } } = await client.auth.getSession();
   if(!session){ document.getElementById("stand").innerHTML = 'Bitte zuerst im <a href="admin.html">Admin</a> anmelden — die Ampeln und Uhren lesen aus der Datenbank.'; return; }
@@ -226,12 +314,13 @@ async function laden(){
   const takte = {}; if(!rt.error && Array.isArray(rt.data)) rt.data.forEach(t => takte[t.jobname] = t);
 
   ["ein_ean","ein_foto","ein_front","ein_link"].forEach(id => { document.getElementById("st_"+id).innerHTML = tuerHtml(id, stand); });
+  netzZeichnen(stand, takte);
   document.getElementById("weg").innerHTML = STATIONEN.map((s,i) => stationHtml(s,i,stand,takte)).join("");
 
   const namen = Object.keys(takte).sort();
   document.getElementById("takte").innerHTML = namen.length ? '<table><tr><th>Uhr</th><th>Was sie tut</th><th class="n">Rhythmus</th><th class="n">zuletzt</th><th>Ergebnis</th><th class="n">heute</th></tr>'
     + namen.map(n => { const t = takte[n]; const ok = t.letzter_status==='succeeded';
-        return '<tr><td class="n"><b>'+esc(n)+'</b>'+(t.active?'':' <span class="rot">(aus)</span>')+'</td><td>'+esc(TAKTE_TEXT[n]||'—')+'</td><td class="n">'+esc(t.schedule)+'</td>'
+        return '<tr><td class="n"><b>'+esc(n)+'</b>'+(t.active?'':' <span class="rot">(aus)</span>')+'</td><td>'+esc(TAKTE_TEXT[n]||'—')+'</td><td class="n">'+esc(rhythmus(t.schedule))+'</td>'
           + '<td class="n '+(ok?'ok':'rot')+'">'+(t.letzter_lauf?new Date(t.letzter_lauf).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):'nie')+(t.dauer_s!=null?' ('+t.dauer_s+' s)':'')+'</td>'
           + '<td style="font-size:12px;color:var(--muted)">'+esc((t.letztes_ergebnis||'').slice(0,160))+'</td><td class="n">'+t.laeufe_heute+'×'+(t.fehler_heute?' <span class="rot">'+t.fehler_heute+' ✗</span>':'')+'</td></tr>'; }).join('')
     + '</table>' : '<p class="warn">Uhren nicht lesbar'+(rt.error?': '+esc(rt.error.message):'')+'</p>';
