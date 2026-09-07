@@ -24,9 +24,32 @@
   p{margin:6px 0}
   .lead{font-size:19px;color:var(--muted)}
   .stand{font-size:14px;color:var(--muted);margin-top:8px}
+  .halle .band{fill:#0b100e;stroke:#2a3530;stroke-width:2}
+  .halle .streifen{stroke:#243029;stroke-width:6;stroke-dasharray:18 22;animation:lauf 1.6s linear infinite}
+  @keyframes lauf{to{stroke-dashoffset:-40}}
+  .halle .m{cursor:pointer}
+  .halle .m rect.k{fill:#151c18;stroke:#3a4b42;stroke-width:2.5;rx:12}
+  .halle .m.ok rect.k{stroke:var(--gruen)} .halle .m.warn rect.k{stroke:var(--gelb)}
+  .halle .m.wahl rect.k{fill:#1f3a2c}
+  .halle .m text{fill:var(--text);font-weight:800;font-size:15px;pointer-events:none}
+  .halle .m text.z{fill:var(--muted);font-weight:600;font-size:12px}
+  .halle .m text.h{fill:var(--gruen);font-weight:700;font-size:12px}
+  .halle .lampe{animation:blink 2.4s ease-in-out infinite}
+  @keyframes blink{50%{opacity:.35}}
+  .halle .rohr{fill:none;stroke:#3a4b42;stroke-width:9;stroke-linecap:round}
+  .halle .rohr.aktiv{stroke:#2f6b4a}
+  .halle .tropfen{animation:fall 2.2s linear infinite}
+  @keyframes fall{from{transform:translateY(0);opacity:1}to{transform:translateY(120px);opacity:0}}
+  .halle .kiste{fill:#f5c451;stroke:#8a6a1c;stroke-width:1.5}
+  .halle .kiste.gruen{fill:#3ddc84;stroke:#1f7a48}
+  .halle .tuer text{fill:var(--text);font-size:13px;font-weight:700}
+  .halle .tuer text.z{fill:var(--muted);font-size:11px;font-weight:500}
+  .halle .tuer .pf{fill:none;stroke:#3a4b42;stroke-width:6;stroke-linecap:round}
+  .halle .tuer.ok .pf{stroke:var(--gruen)} .halle .tuer.offen .pf{stroke:var(--gelb)}
   /* Netzplan (U-Bahn) */
   .netz{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px 6px;margin-top:14px}
   .netz svg{width:100%;height:auto;display:block}
+  .halle{}
   .netz .l{fill:none;stroke-width:10;stroke-linecap:round;stroke-linejoin:round}
   .netz .st{cursor:pointer}
   .netz .st circle{fill:#0f1412;stroke-width:5}
@@ -77,10 +100,10 @@
 <p class="lead">Was passiert, wenn jemand im Laden ein Lebensmittel scannt oder fotografiert — und wie daraus in Minuten eine geprüfte Bewertung wird.</p>
 <div class="stand" id="stand">Stand wird geladen …</div>
 
-<h2 id="netzTitel" style="margin-top:22px">0 · Der Netzplan — die Maschine auf einen Blick</h2>
-<p>Wie ein U-Bahn-Netz: vier Linien fahren hinein, ab der Station <b>Erfassen</b> fahren alle auf einem Gleis bis zur Ausgabe. Klick auf eine Station zeigt, was dort passiert.</p>
-<div class="netz"><svg id="netz" viewBox="0 0 1180 430" role="img" aria-label="Netzplan der Maschine"></svg>
-<div class="legende"><span><i style="border-color:var(--gruen)"></i>funktioniert (Testprodukt durchgekommen)</span><span><i style="border-color:var(--gelb)"></i>noch nicht nachgewiesen</span><span><i style="border-color:#6b7a72"></i>wird nicht gemessen</span><span>Linien: <b style="color:#7cb3ff">Barcode</b> · <b style="color:#3ddc84">Rückseite</b> · <b style="color:#f5a251">Vorderseite</b> · <b style="color:#c792ea">Link</b></span></div></div>
+<h2 id="netzTitel" style="margin-top:22px">0 · Die Fabrikhalle — die Maschine bei der Arbeit</h2>
+<p>Ein Fließband. Links kommen die Produkte herein, rechts kommt die fertige Karte heraus. Jede Maschine auf dem Band macht genau eine Sache; die Zahlen sind live. Klick auf eine Maschine zeigt, was dort passiert.</p>
+<div class="netz"><svg id="halle" class="halle" viewBox="0 0 1200 540" role="img" aria-label="Die Fabrikhalle"></svg>
+<div class="legende"><span><i style="border-color:var(--gruen)"></i>Maschine läuft (Uhr hat zuletzt sauber geklingelt)</span><span><i style="border-color:var(--gelb)"></i>Uhr still oder Fehler</span><span>Kästchen auf dem Band = Produkte unterwegs · Zahlen: Bestand jetzt, „heute" seit Mitternacht</span></div></div>
 <div id="detail"></div>
 
 <h2>1 · Vier Türen hinein</h2>
@@ -243,69 +266,76 @@ function tuerHtml(id, stand){
 }
 
 
-/* ===== Netzplan (U-Bahn). Knoten: id, x, y, Titel, Untertitel, Messkaesten, Stationsindex (fuer die Erklaerung). ===== */
-const NETZ = {
-  knoten: [
-    {id:"t1", x:70,  y:70,  t:"Barcode",        sub:"Tür 1", kasten:["ein_ean"],  tuer:0},
-    {id:"t2", x:70,  y:170, t:"Rückseite",      sub:"Tür 2", kasten:["ein_foto"], tuer:1},
-    {id:"t3", x:70,  y:270, t:"Vorderseite",    sub:"Tür 3", kasten:["ein_front"],tuer:2},
-    {id:"t4", x:70,  y:370, t:"Link",           sub:"Tür 4", kasten:["ein_link"], tuer:3},
-    {id:"hub",x:250, y:220, t:"Erfassen",       sub:"alle Linien", kasten:["erfassen"], st:0, hub:true},
-    {id:"riki",x:380,y:220, t:"RIKI liest",     sub:"Foto → Text", kasten:["scan","zeit","quote"], st:1},
-    {id:"kat", x:500,y:220, t:"Bekannt?",       sub:"eigener Bestand", kasten:["kat","treffer"], st:2},
-    {id:"rep", x:500,y:330, t:"Barcode-Reparatur", sub:"nur mit Beweis", kasten:[], takt:"ean-reparatur-takt", st:3},
-    {id:"q1",  x:660,y:130, t:"Hersteller-Portale", sub:"EDEKA-LMIV · dm", kasten:[], takt:"lmiv-edeka-takt", st:4},
-    {id:"q2",  x:660,y:220, t:"Open Food Facts", sub:"per EAN", kasten:["offd"], st:4},
-    {id:"q3",  x:660,y:330, t:"Herstellerseite", sub:"Marke → Sitemap → Crawler", kasten:["adr","herst"], st:4},
-    {id:"quelle",x:800,y:220,t:"Herkunft belegt", sub:"Wortlaut + Quelle", kasten:["quelle","prod"], st:5},
-    {id:"zerl",x:880,y:220, t:"Zerlegen",       sub:"", kasten:["zerl"], st:6},
-    {id:"bind",x:960,y:220, t:"Binden",         sub:"", kasten:["bindung","ohnenote"], st:7},
-    {id:"bew", x:1050,y:220,t:"Bewerten",       sub:"", kasten:["bew","nachlauf"], st:8},
-    {id:"wach",x:1050,y:330,t:"Wächter",        sub:"Unmögliches stoppen", kasten:["naehr","beleg","sperre"], st:9},
-    {id:"frei",x:1130,y:220,t:"Freigabe",       sub:"", kasten:["frei"], st:10},
-    {id:"aus", x:1130,y:60,t:"Ausgabe",        sub:"fertige Karte", kasten:["ausgabe"], st:11, hub:true}
-  ],
-  linien: [
-    {f:"#7cb3ff", pts:[[70,70],[190,70],[250,220],[500,220],[800,220],[1130,220],[1130,60]]},         /* Barcode: Erfassen → Bekannt? → (ohne RIKI) → Herkunft ... */
-    {f:"#3ddc84", pts:[[70,170],[200,170],[250,220],[380,220],[500,220],[660,220],[800,220]]},          /* Rückseite: RIKI → Quellen */
-    {f:"#f5a251", pts:[[70,270],[200,270],[250,220],[380,220],[500,220],[500,330],[660,330],[800,220]]}, /* Vorderseite: RIKI → Reparatur → Herstellerseite */
-    {f:"#c792ea", pts:[[70,370],[200,370],[250,220],[500,220],[660,330],[800,220]]},                     /* Link: direkt Crawler */
-    {f:"#3a4b42", pts:[[500,220],[660,130],[800,220]]}, {f:"#3a4b42", pts:[[500,220],[660,330],[800,220]]}, {f:"#3a4b42", pts:[[500,220],[660,220],[800,220]]},
-    {f:"#3a4b42", pts:[[800,220],[1130,220]]}, {f:"#3a4b42", pts:[[1050,220],[1050,330]]}, {f:"#3a4b42", pts:[[1130,220],[1130,60]]},
-    {f:"#7cb3ff", pts:[[500,220],[500,60],[1130,60]]}                                          /* Ja-Ast: bekannt → direkt Ausgabe */
-  ]
-};
-function netzZeichnen(stand, takte){
-  const svg = document.getElementById("netz"); if(!svg) return;
-  let out = "";
-  NETZ.linien.forEach(l => { out += '<polyline class="l" stroke="'+l.f+'" points="'+l.pts.map(p=>p.join(",")).join(" ")+'"/>'; });
-  NETZ.knoten.forEach(k => {
-    let a = ampel(k.kasten, stand);
-    if(!a && k.takt){ const t = takte[k.takt]; a = t ? {cls: t.letzter_status==='succeeded' ? 'ok' : 'offen', txt: 'Uhr '+k.takt} : {cls:'frage'}; }
-    if(!a) a = {cls:'frage'};
-    const r = k.hub ? 16 : 12;
-    const oben = k.y < 200 || (k.y===330);
-    const ty = k.y > 300 ? k.y + 30 : (k.y < 200 ? k.y - 22 : (k.sub ? k.y - 24 : k.y - 20));
-    out += '<g class="st '+a.cls+(k.hub?' hub':'')+'" data-id="'+k.id+'"><circle cx="'+k.x+'" cy="'+k.y+'" r="'+r+'"/>'
-         + '<text x="'+k.x+'" y="'+ty+'" text-anchor="middle">'+esc(k.t)+'</text>'
-         + (k.sub ? '<text class="sub" x="'+k.x+'" y="'+(ty+ (k.y>300?14:-14))+'" text-anchor="middle">'+esc(k.sub)+'</text>' : '')
-         + '</g>';
-  });
-  svg.innerHTML = out;
-  svg.querySelectorAll(".st").forEach(g => g.addEventListener("click", () => {
-    svg.querySelectorAll(".st.wahl").forEach(x => x.classList.remove("wahl")); g.classList.add("wahl");
-    const k = NETZ.knoten.find(x => x.id === g.getAttribute("data-id")); if(!k) return;
-    const d = document.getElementById("detail"); d.classList.add("an");
-    if(k.st != null){ d.innerHTML = stationHtml(STATIONEN[k.st], k.st, stand, takte); }
-    else { const tuer = document.querySelectorAll(".tuer")[k.tuer]; d.innerHTML = tuer ? tuer.innerHTML : ''; }
-    d.scrollIntoView({behavior:"smooth", block:"nearest"});
-  }));
-}
 
+/* ===== Die Fabrikhalle. Maschinen auf dem Band; Zahlen aus cb_admin_maschine_fluss, Uhren aus cb_admin_takte_stand. ===== */
+const N = n => (n==null ? "–" : Number(n).toLocaleString("de-DE"));
+function uhrOk(takte, namen){ if(!namen||!namen.length) return null; return namen.every(n => takte[n] && takte[n].active && takte[n].letzter_status==='succeeded'); }
+function halleZeichnen(stand, takte, fl){
+  const svg = document.getElementById("halle"); if(!svg) return;
+  const st = (fl && fl.stationen) || {}; const h = (fl && fl.heute) || {}; const q = h.quellen || {}; const be = (fl && fl.bestand) || {};
+  const qs = w => (q[w] ? q[w].treffer+' von '+q[w].versuche : '0');
+  const M = [
+    {id:"m1", x:150, t:"RIKI liest",        z:"Foto → Text", h:"heute "+N(h.riki_gelesen)+" gelesen"+(h.riki_offen?(" · "+h.riki_offen+" warten"):""), takte:["riki-scan-worker-v1"], st:1, icon:"👁"},
+    {id:"m2", x:330, t:"Zulieferer",        z:"Zutaten & Nährwerte holen", h:"", takte:["lmiv-edeka-takt","off-rohtext-takt","quelle-abruf-takt","dm-de-takt"], st:4, icon:"🚚"},
+    {id:"m3", x:510, t:"Zerleger",          z:"Satz → Zutaten", h:N((st.Z||{}).gruen)+" zerlegt · "+N((st.Z||{}).offen)+" warten", takte:["referenz-nachlauf","w594-zeilen-aus-referenz"], st:6, icon:"✂️"},
+    {id:"m4", x:690, t:"Binder",            z:"an den Zutaten-Stamm", h:N((st.B||{}).gruen)+" gebunden · "+N((st.B||{}).offen)+" offen", takte:["w648-huellen-aufloesen"], st:7, icon:"🔗"},
+    {id:"m5", x:870, t:"Rechner",           z:"Root-Index 0–100", h:N(be.mit_score)+" mit Note · "+N((st.S||{}).offen)+" warten", takte:["score-nachlauf-takt"], st:8, icon:"🧮"},
+    {id:"m6", x:1010,t:"Wächter-Tor",       z:"Unmögliches stoppen", h:N((st.N||{}).offen)+" Nährwert-Fälle offen", takte:["etikett-belegpruefung-takt","shadow-waechter-cache-5min"], st:9, icon:"🚧"},
+    {id:"m7", x:1130,t:"Ausgabe",           z:"fertige Karte", h:N(be.aktiv)+" aktiv · heute "+N(h.freigaben)+" freigegeben", takte:["kern-poster-cache"], st:10, icon:"🏁"}
+  ];
+  const T = [
+    {id:"ein_ean",  y:60,  t:"Barcode",     z:"Tür 1", tuer:0},
+    {id:"ein_foto", y:150, t:"Rückseite",   z:"Tür 2", tuer:1},
+    {id:"ein_front",y:240, t:"Vorderseite", z:"Tür 3", tuer:2},
+    {id:"ein_link", y:330, t:"Link",        z:"Tür 4", tuer:3}
+  ];
+  const BY = 400; /* Bandmitte */
+  let out = '';
+  /* Band */
+  out += '<path class="band" d="M40 '+(BY-26)+' H1180 V'+(BY+26)+' H40 Z"/>';
+  out += '<line class="streifen" x1="46" y1="'+BY+'" x2="1174" y2="'+BY+'"/>';
+  /* Tueren mit Rutschen aufs Band */
+  T.forEach(d => { const a = ampel([d.id], stand) || {cls:'frage'};
+    out += '<g class="tuer '+a.cls+'" data-id="'+d.id+'"><path class="pf" d="M20 '+d.y+' H60 Q80 '+d.y+' 80 '+(d.y+20)+' V'+(BY-40)+'"/>'
+        + '<text x="24" y="'+(d.y-8)+'">'+esc(d.t)+'</text><text class="z" x="24" y="'+(d.y+6)+'">'+esc(d.z)+'</text></g>'; });
+  /* Zulieferer-Rohre von oben in die Maschine 2 */
+  const rohre = [ {x:270,t:"Hersteller-Portale",n:"EDEKA-LMIV "+qs('lmiv_edeka')+" · dm "+qs('dm_de'), ok:uhrOk(takte,["lmiv-edeka-takt","dm-de-takt"])},
+                  {x:330,t:"Open Food Facts",   n:qs('off_naehrwerte')+" Nährwerte", ok:uhrOk(takte,["off-rohtext-takt","off-naehrwerte-takt"])},
+                  {x:390,t:"Crawler",           n:"Herstellerseiten "+qs('einfacher_abruf'), ok:uhrOk(takte,["quelle-abruf-takt"])} ];
+  rohre.forEach((r,i) => { out += '<path class="rohr'+(r.ok?' aktiv':'')+'" d="M'+r.x+' 70 V'+(BY-90)+'"/>'
+     + '<text x="'+r.x+'" y="'+(52-i*0)+'" text-anchor="middle" style="fill:var(--text);font-size:12px;font-weight:700">'+esc(r.t)+'</text>'
+     + '<text x="'+r.x+'" y="'+(BY-96)+'" text-anchor="middle" style="fill:var(--muted);font-size:10px">'+esc(r.n)+'</text>'
+     + (r.ok ? '<circle class="tropfen" cx="'+r.x+'" cy="90" r="4" fill="#3ddc84" style="animation-delay:'+(i*0.7)+'s"/>' : ''); });
+  /* Maschinen */
+  M.forEach(m => { const ok = uhrOk(takte, m.takte);
+    out += '<g class="m '+(ok===null?'':(ok?'ok':'warn'))+'" data-id="'+m.id+'">'
+        + '<rect class="k" x="'+(m.x-70)+'" y="'+(BY-84)+'" width="140" height="66"/>'
+        + '<circle class="lampe" cx="'+(m.x+56)+'" cy="'+(BY-72)+'" r="5" fill="'+(ok===false?'#f5c451':'#3ddc84')+'"/>'
+        + '<text x="'+(m.x-58)+'" y="'+(BY-60)+'" style="font-size:20px">'+m.icon+'</text>'
+        + '<text x="'+(m.x-30)+'" y="'+(BY-58)+'">'+esc(m.t)+'</text>'
+        + '<text class="z" x="'+(m.x-30)+'" y="'+(BY-42)+'">'+esc(m.z)+'</text>'
+        + '<text class="h" x="'+m.x+'" y="'+(BY+48)+'" text-anchor="middle">'+esc(m.h)+'</text>'
+        + '</g>'; });
+  /* Kisten auf dem Band (SMIL-Animation entlang des Bandes) */
+  for(let i=0;i<7;i++){ const g = i>=4; out += '<rect class="kiste'+(g?' gruen':'')+'" x="-9" y="-9" width="18" height="18" rx="3">'
+     + '<animateMotion dur="14s" repeatCount="indefinite" begin="'+(-i*2)+'s" path="M40 '+BY+' H1180"/></rect>'; }
+  /* Ausgabe-Stapel rechts */
+  out += '<text x="1180" y="'+(BY+84)+'" text-anchor="end" style="fill:var(--muted);font-size:12px">Bestand: '+N(be.aktiv)+' aktiv · '+N(be.entwurf)+' Entwürfe · Stationszahlen von '+(fl&&fl.erhoben_am?new Date(fl.erhoben_am).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):'?')+' Uhr</text>';
+  svg.innerHTML = out;
+  const zeig = (id) => {
+    const d = document.getElementById("detail"); d.classList.add("an");
+    const m = M.find(x => x.id===id); const t = T.find(x => x.id===id);
+    if(m){ d.innerHTML = stationHtml(STATIONEN[m.st], m.st, stand, takte); }
+    else if(t){ const el = document.querySelectorAll(".tuer")[t.tuer]; d.innerHTML = el ? el.innerHTML : ''; }
+    d.scrollIntoView({behavior:"smooth", block:"nearest"});
+  };
+  svg.querySelectorAll(".m, .tuer").forEach(g => g.addEventListener("click", () => {
+    svg.querySelectorAll(".wahl").forEach(x => x.classList.remove("wahl")); g.classList.add("wahl"); zeig(g.getAttribute("data-id")); }));
+}
 async function laden(){
   const { data:{ session } } = await client.auth.getSession();
   if(!session){ document.getElementById("stand").innerHTML = 'Bitte zuerst im <a href="admin.html">Admin</a> anmelden — die Ampeln und Uhren lesen aus der Datenbank.'; return; }
-  const [rs, rt] = await Promise.all([ client.rpc("cb_kern_poster_stand"), client.rpc("cb_admin_takte_stand") ]);
+  const [rs, rt, rf] = await Promise.all([ client.rpc("cb_kern_poster_stand"), client.rpc("cb_admin_takte_stand"), client.rpc("cb_admin_maschine_fluss") ]);
   const stand = {}; let gemessen = null, gruen = 0, ges = 0, tf = 0;
   if(!rs.error && rs.data && rs.data.kaesten){
     rs.data.kaesten.forEach(k => { stand[k.id] = k; ges++; if(k.ampel==='gruen') gruen++; });
@@ -314,7 +344,7 @@ async function laden(){
   const takte = {}; if(!rt.error && Array.isArray(rt.data)) rt.data.forEach(t => takte[t.jobname] = t);
 
   ["ein_ean","ein_foto","ein_front","ein_link"].forEach(id => { document.getElementById("st_"+id).innerHTML = tuerHtml(id, stand); });
-  netzZeichnen(stand, takte);
+  try{ halleZeichnen(stand, takte, (rf && !rf.error) ? rf.data : null); }catch(e){ console.warn("Halle:", e); }
   document.getElementById("weg").innerHTML = STATIONEN.map((s,i) => stationHtml(s,i,stand,takte)).join("");
 
   const namen = Object.keys(takte).sort();

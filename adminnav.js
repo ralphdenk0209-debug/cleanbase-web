@@ -78,13 +78,16 @@ function applyAdminMode(){
       /* 🔴 26.08.2026, Work #301: vier fertige Serverwege fuer die automatische
          Zutatenbewertung hatten keine Tuer - gemessen 0 Treffer im ganzen
          Frontend. Das ist der Knopf dazu. */
-      +_an('bewertung','⚖️','Bewerten',"bewertungOeffnen()")
+      /* 🔴 07.09.2026, Ralph: „bewerten, nährwerte, dubletten und kategorien
+         raus aus dem menü." Nur der Knopf ist weg, der Weg bleibt: die
+         Funktionen bewertungOeffnen(), adminGo('mikro'), adminGo('dubletten')
+         und katKonfigOpen() sind unveraendert aufrufbar — wie schon bei
+         Regelwerk und Notenleiter am 03.09. Kein Code geloescht, nur eine
+         Tuer weniger im Menue. */
       +_an('bundles','🧩','Bundles',"adminGo('bundles')")
       +_an('rezepte','🍳','Rezepte',"adminGo('rezepte')")
       +_an('rezzut','🥣','Rezept-Zutaten',"rezZutatenWaecherOpenSafe()")
       +_an('tausch','🔁','Tausch-Tipps',"adminGo('tausch')")
-      +_an('mikro','🥗','Nährstoffe',"adminGo('mikro')")
-      +_an('dubletten','👯','Dubletten',"adminGo('dubletten')")
       +_an('empfehlungen','⭐','Empfehlungen',"adminGo('empfehlungen')")
       /* 🔴 03.09.2026: Regelwerk und Notenleiter haben hier keinen eigenen Knopf
          mehr. Beide wohnen als Reiter im Zutatenstamm — dort, wo man sie
@@ -104,7 +107,6 @@ function applyAdminMode(){
          Skript-Abruf mit Adressen; ohne Adresse holt er nichts. RIKI darf eine
          Domain vorschlagen, belegt wird sie erst durch einen Zutatentext. */
       +_an('markendomain','🌐','Marken-Domains',"window.open('marken-domains.html?cb='+Date.now(),'_blank')")
-      +_an('katkonfig','🏷️','Kategorien',"katKonfigOpen()")
       +_an('werangelegt','👤','Wer hat angelegt',"admWerAngelegtOpen()")
       +_an('nutzer','👥','Nutzer',"adminGo('nutzer')");
     /* Menüplaketten aus bereits geladenen Dashboarddaten ableiten. */
