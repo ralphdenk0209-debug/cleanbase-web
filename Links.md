@@ -12,8 +12,8 @@
 | | |
 |---|---|
 | **Die Seite** | https://root-index.de |
-| **Repo** | https://github.com/ralphdenk0209-debug/cleanbase-web |
-| **Deploy-Status** (Actions) | https://github.com/ralphdenk0209-debug/cleanbase-web/actions |
+| **Repo** | https://github.com/ralphdenk0209-debug/root-index |
+| **Deploy-Status** (Actions) | https://github.com/ralphdenk0209-debug/root-index/actions |
 | **Supabase** (Projekt `haurbpfkfaaehorirzee`) | https://supabase.com/dashboard/project/haurbpfkfaaehorirzee |
 
 **Deploy-Ziel:** `index.html` in den **Repo-Root** — **nicht** nach `webseite/`. → [[Deploy]]

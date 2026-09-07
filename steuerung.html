@@ -379,6 +379,14 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
   <div class="band" id="band"></div>
 </div>
 
+<!-- Work #643: der Weg zum grünen Kern-Poster. Ralph 06.09.2026 — die Reihenfolge
+     gehört in die Seite, nicht in den Chat. Zahlen aus cb_admin_kern_poster_marschplan,
+     das ist eine reine Durchreiche von v_kern_poster_marschplan. Keine zweite Wahrheit. -->
+<details class="kernweg" id="marschplan" open>
+  <summary>Weg zum grünen Kern-Poster · <span id="mpKurz">lädt …</span></summary>
+  <div id="mpTabelle"></div>
+</details>
+
 <details class="kernweg" id="kernweg">
   <summary>Produktweg anzeigen · nicht Teil der Aufgabenliste</summary>
   <div id="kernFluss"></div>
@@ -475,7 +483,7 @@ textarea{background:var(--karte);border:1px solid var(--linie);border-radius:7px
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="kern-fluss.js?v=2026-09-06-34"></script>
+<script src="kern-fluss.js?v=2026-09-07-1"></script>
 <script>if(window.KERN_FLUSS) KERN_FLUSS.zeichnen(document.getElementById("kernFluss"),{dunkel:true});</script>
 <script>
 /* ============================================================
@@ -541,14 +549,16 @@ async function laden(){
   const { data:{ session } } = await client.auth.getSession();
   if(!session){ nichtAngemeldet(); return; }
 
-  const [rk, rs, rp, rm] = await Promise.all([
+  const [rk, rs, rp, rm, rmp] = await Promise.all([
     client.rpc("cb_admin_agent_work_kurzliste",
       { p_status:["open","in_progress","ready_for_verification","blocked","disputed","decision_ralph"],
         p_owner:null, p_bereich:null, p_limit:500 }),
     client.rpc("cb_admin_agent_projektstruktur"),
     client.rpc("cb_admin_agent_projektaufgaben_kurzliste"),
-    client.rpc("cb_admin_agent_projekt_messsicht")
+    client.rpc("cb_admin_agent_projekt_messsicht"),
+    client.rpc("cb_admin_kern_poster_marschplan")   /* #643 */
   ]);
+  marschplanZeichnen(rmp);
   if(rk.error){ fehlerZeigen(rk.error.message||String(rk.error)); return; }
   if(rp.error){ fehlerZeigen(rp.error.message||String(rp.error)); return; }
 
@@ -569,6 +579,41 @@ async function laden(){
   $("stand").textContent = "Stand " + new Date().toLocaleString("de-DE",
     {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
     " · " + ZEILEN.length + " Aufgaben · " + PROJEKTE.length + " Projekte";
+}
+
+/* Work #643: der Weg zum gruenen Kern-Poster.
+   Faellt die Messung aus, steht das da - keine erfundene Zahl (CLAUDE.md A2). */
+function marschplanZeichnen(r){
+  const kurz = $("mpKurz"), ziel = $("mpTabelle");
+  if(!kurz || !ziel) return;
+  if(!r || r.error || !Array.isArray(r.data)){
+    kurz.textContent = "nicht messbar";
+    ziel.innerHTML = '<div style="padding:10px;opacity:.8">Der Marschplan kam nicht zurück' +
+      (r && r.error ? ': ' + (r.error.message||String(r.error)) : '') + '.</div>';
+    return;
+  }
+  const z = r.data;
+  const gruen = z.filter(x => x.ampel === 'gruen').length;
+  kurz.textContent = gruen + " von " + z.length + " Kästen grün";
+
+  const farbe = a => a==='gruen' ? '#2e7d32' : a==='rot' ? '#b3261e' : '#9a6a00';
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    '<tr style="text-align:left;opacity:.75">' +
+    '<th style="padding:4px 6px">Rang</th><th style="padding:4px 6px">Kasten</th>' +
+    '<th style="padding:4px 6px;text-align:right">offen</th>' +
+    '<th style="padding:4px 6px">Aufgabe</th><th style="padding:4px 6px">Takt</th>' +
+    '<th style="padding:4px 6px">Weg</th></tr>';
+  for(const x of z){
+    const nr = x.work_id ? ('#'+x.work_id + (x.work_status ? ' · '+x.work_status : '')) : '—';
+    h += '<tr style="border-top:1px solid rgba(128,128,128,.25)">' +
+      '<td style="padding:5px 6px">' + (x.arbeitsrang ?? '') + '</td>' +
+      '<td style="padding:5px 6px"><b style="color:' + farbe(x.ampel) + '">● </b>' + esc(x.titel) + '</td>' +
+      '<td style="padding:5px 6px;text-align:right;font-variant-numeric:tabular-nums"><b>' + x.ist + '</b></td>' +
+      '<td style="padding:5px 6px;white-space:nowrap">' + esc(nr) + '</td>' +
+      '<td style="padding:5px 6px;opacity:.8">' + esc(x.laeuft_takt || '—') + '</td>' +
+      '<td style="padding:5px 6px;opacity:.85">' + esc(x.weg || '') + '</td></tr>';
+  }
+  ziel.innerHTML = h + '</table>';
 }
 
 /* Das Geruest kommt aus cb_admin_agent_projektstruktur. Ein Projekt ohne
