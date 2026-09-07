@@ -130,6 +130,13 @@
   /* Zeitstempel an jeder Karte: eine Zahl ohne Zeitpunkt ist eine Behauptung. */
   .kf .kn .kfMess .kfZeit{display:block;margin-top:2px;font-style:normal;
       font-size:11px;font-weight:600;opacity:.7}
+  /* Wo es klemmt, steht welcher Testfall haengt - eine Zahl ohne Fall
+     sagt nicht, was zu tun ist (#616). */
+  .kf .kn .kfMess .kfKlemmt{display:block;margin-top:3px;font-style:normal;
+      font-size:12px;font-weight:800}
+  .kf .kn .kfBestand{margin-top:5px;font-size:11.5px;font-weight:600;opacity:.62;
+      line-height:1.4}
+  .kf .kn .kfBestand b{font-weight:800}
   .kf .kn .kfMess.kfOhne{font-weight:600;opacity:.7;font-style:italic}
   .kf .kn.gruen{background:#eaf7ef;border-color:#16a34a;color:#14532d}
   .kf .kn.gelb {background:#fdf1cf;border-color:#d97706;color:#7a4b00}
@@ -321,8 +328,25 @@
       d.classList.add(kx.ampel === "gruen" ? "gruen" : "gelb");
       var m = d.querySelector(".kfMess");
       if(!m){ m = document.createElement("div"); m.className = "kfMess"; d.appendChild(m); }
-      m.innerHTML = "<b>" + kx.ist + "</b><span>" + esc(kx.messung)
-        + '<i class="kfZeit">gemessen ' + esc(zeitpunkt) + "</i></span>";
+      /* 🔴 07.09.2026 (#616, Ralph): "ich will im baum nur sehen was
+         funktioniert und wo es klemmt anhand der testfaelle."
+         Hauptaussage ist also der DURCHLAUF. Die Bestandszahl steht klein
+         darunter — sie ist Hintergrund, nicht das Urteil. */
+      var ges = kx.tf_gesamt || 0, durch = kx.tf_durch || 0, haengt = kx.tf_haengt || 0;
+      var kopf = ges
+        ? "<b>" + durch + "/" + ges + "</b><span>Testfälle durch diese Station"
+            + (haengt
+                ? '<i class="kfKlemmt">klemmt bei ' + esc(kx.klemmt_bei || "") + "</i>"
+                : (durch ? "" : '<i class="kfZeit">noch keiner gelaufen</i>'))
+            + '<i class="kfZeit">gemessen ' + esc(zeitpunkt) + "</i></span>"
+        : "<b>" + kx.ist + "</b><span>" + esc(kx.messung)
+            + '<i class="kfZeit">gemessen ' + esc(zeitpunkt) + "</i></span>";
+      m.innerHTML = kopf;
+      if(ges){
+        var b = d.querySelector(".kfBestand");
+        if(!b){ b = document.createElement("div"); b.className = "kfBestand"; d.appendChild(b); }
+        b.innerHTML = "Bestand: <b>" + kx.ist + "</b> " + esc(kx.messung);
+      }
     });
 
     /* Eine Karte ohne Messkasten sagt das ausdruecklich. Frueher stand dort eine
@@ -344,11 +368,13 @@
          geschlossen/verifiziert = gruen". Gezaehlt wird also der DURCHLAUF,
          nicht mehr, wie viele Bestandszahlen zufaellig auf null stehen. */
       var gruen = stand.kaesten.filter(function(k){ return k.ampel === "gruen"; }).length;
+      var klemmen = stand.kaesten.filter(function(k){ return (k.tf_haengt||0) > 0; });
       f.textContent = "gemessen " + zeitpunkt
-        + " · " + gruen + " von " + stand.kaesten.length
-        + " Stationen geschlossen — geschlossen heisst: ein Testprodukt ist hier durchgekommen"
-        + " · " + stand.aktive_produkte + " aktive Produkte, davon "
-        + stand.rohware_ohne_etikett + " Rohware ohne Etikett (zaehlt nicht mit)";
+        + " · " + gruen + " von " + stand.kaesten.length + " Stationen geschlossen"
+        + " · " + (stand.testfaelle || 0) + " Testfälle im Prüfsatz"
+        + (klemmen.length
+            ? " · es klemmt an: " + klemmen.map(function(k){ return k.titel; }).join(", ")
+            : (gruen ? "" : " · noch kein Testfall gelaufen"));
     }
   }
 
