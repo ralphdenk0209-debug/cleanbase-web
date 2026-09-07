@@ -254,25 +254,25 @@ const NETZ = {
     {id:"riki",x:380,y:220, t:"RIKI liest",     sub:"Foto → Text", kasten:["scan","zeit","quote"], st:1},
     {id:"kat", x:500,y:220, t:"Bekannt?",       sub:"eigener Bestand", kasten:["kat","treffer"], st:2},
     {id:"rep", x:500,y:330, t:"Barcode-Reparatur", sub:"nur mit Beweis", kasten:[], takt:"ean-reparatur-takt", st:3},
-    {id:"q1",  x:660,y:110, t:"Hersteller-Portale", sub:"EDEKA-LMIV · dm", kasten:[], takt:"lmiv-edeka-takt", st:4},
+    {id:"q1",  x:660,y:130, t:"Hersteller-Portale", sub:"EDEKA-LMIV · dm", kasten:[], takt:"lmiv-edeka-takt", st:4},
     {id:"q2",  x:660,y:220, t:"Open Food Facts", sub:"per EAN", kasten:["offd"], st:4},
     {id:"q3",  x:660,y:330, t:"Herstellerseite", sub:"Marke → Sitemap → Crawler", kasten:["adr","herst"], st:4},
     {id:"quelle",x:800,y:220,t:"Herkunft belegt", sub:"Wortlaut + Quelle", kasten:["quelle","prod"], st:5},
-    {id:"zerl",x:890,y:220, t:"Zerlegen",       sub:"Satz → Zutaten", kasten:["zerl"], st:6},
-    {id:"bind",x:970,y:220, t:"Binden",         sub:"Zutaten-Stamm", kasten:["bindung","ohnenote"], st:7},
-    {id:"bew", x:1050,y:220,t:"Bewerten",       sub:"4 Achsen", kasten:["bew","nachlauf"], st:8},
+    {id:"zerl",x:880,y:220, t:"Zerlegen",       sub:"", kasten:["zerl"], st:6},
+    {id:"bind",x:960,y:220, t:"Binden",         sub:"", kasten:["bindung","ohnenote"], st:7},
+    {id:"bew", x:1050,y:220,t:"Bewerten",       sub:"", kasten:["bew","nachlauf"], st:8},
     {id:"wach",x:1050,y:330,t:"Wächter",        sub:"Unmögliches stoppen", kasten:["naehr","beleg","sperre"], st:9},
     {id:"frei",x:1130,y:220,t:"Freigabe",       sub:"", kasten:["frei"], st:10},
-    {id:"aus", x:1130,y:110,t:"Ausgabe",        sub:"fertige Karte", kasten:["ausgabe"], st:11, hub:true}
+    {id:"aus", x:1130,y:60,t:"Ausgabe",        sub:"fertige Karte", kasten:["ausgabe"], st:11, hub:true}
   ],
   linien: [
-    {f:"#7cb3ff", pts:[[70,70],[190,70],[250,220],[500,220],[800,220],[1130,220],[1130,110]]},         /* Barcode: Erfassen → Bekannt? → (ohne RIKI) → Herkunft ... */
+    {f:"#7cb3ff", pts:[[70,70],[190,70],[250,220],[500,220],[800,220],[1130,220],[1130,60]]},         /* Barcode: Erfassen → Bekannt? → (ohne RIKI) → Herkunft ... */
     {f:"#3ddc84", pts:[[70,170],[200,170],[250,220],[380,220],[500,220],[660,220],[800,220]]},          /* Rückseite: RIKI → Quellen */
     {f:"#f5a251", pts:[[70,270],[200,270],[250,220],[380,220],[500,220],[500,330],[660,330],[800,220]]}, /* Vorderseite: RIKI → Reparatur → Herstellerseite */
     {f:"#c792ea", pts:[[70,370],[200,370],[250,220],[500,220],[660,330],[800,220]]},                     /* Link: direkt Crawler */
-    {f:"#3a4b42", pts:[[500,220],[660,110],[800,220]]}, {f:"#3a4b42", pts:[[500,220],[660,330],[800,220]]}, {f:"#3a4b42", pts:[[500,220],[660,220],[800,220]]},
-    {f:"#3a4b42", pts:[[800,220],[1130,220]]}, {f:"#3a4b42", pts:[[1050,220],[1050,330]]}, {f:"#3a4b42", pts:[[1130,220],[1130,110]]},
-    {f:"#7cb3ff", pts:[[500,220],[520,150],[1100,110],[1130,110]]}                                          /* Ja-Ast: bekannt → direkt Ausgabe */
+    {f:"#3a4b42", pts:[[500,220],[660,130],[800,220]]}, {f:"#3a4b42", pts:[[500,220],[660,330],[800,220]]}, {f:"#3a4b42", pts:[[500,220],[660,220],[800,220]]},
+    {f:"#3a4b42", pts:[[800,220],[1130,220]]}, {f:"#3a4b42", pts:[[1050,220],[1050,330]]}, {f:"#3a4b42", pts:[[1130,220],[1130,60]]},
+    {f:"#7cb3ff", pts:[[500,220],[500,60],[1130,60]]}                                          /* Ja-Ast: bekannt → direkt Ausgabe */
   ]
 };
 function netzZeichnen(stand, takte){
@@ -285,7 +285,7 @@ function netzZeichnen(stand, takte){
     if(!a) a = {cls:'frage'};
     const r = k.hub ? 16 : 12;
     const oben = k.y < 200 || (k.y===330);
-    const ty = k.y > 300 ? k.y + 30 : (k.y < 200 ? k.y - 22 : k.y - 24);
+    const ty = k.y > 300 ? k.y + 30 : (k.y < 200 ? k.y - 22 : (k.sub ? k.y - 24 : k.y - 20));
     out += '<g class="st '+a.cls+(k.hub?' hub':'')+'" data-id="'+k.id+'"><circle cx="'+k.x+'" cy="'+k.y+'" r="'+r+'"/>'
          + '<text x="'+k.x+'" y="'+ty+'" text-anchor="middle">'+esc(k.t)+'</text>'
          + (k.sub ? '<text class="sub" x="'+k.x+'" y="'+(ty+ (k.y>300?14:-14))+'" text-anchor="middle">'+esc(k.sub)+'</text>' : '')
