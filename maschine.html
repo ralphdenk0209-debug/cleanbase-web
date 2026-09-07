@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Die Maschine — Root Index</title>
+<!-- maschine.html · 07.09.2026 · Work #217
+     Ralph: "Stell dir vor, ich halte eine Praesentation ueber den kompletten Weg
+     unserer Maschine. Die Zuhoerer sind Fremde, Kinder sind dabei. Ich brauche
+     EINE Seite, die jeder versteht und die vollstaendig zeigt, was passiert,
+     wenn jemand im Geschaeft ein Produkt scannt oder fotografiert."
+     Diese Seite erklaert. Sie rechnet nichts nach und speichert nichts: der Stand
+     jeder Station kommt aus cb_kern_poster_stand (Testfaelle, die hier
+     durchgekommen sind), der Stand jeder Uhr aus cb_admin_takte_stand (pg_cron).
+     Klemmstellen und Aufgaben stehen bewusst NICHT hier - dafuer ist steuerung.html. -->
+<style>
+  :root{--bg:#0f1412;--card:#181f1b;--line:#2a3530;--text:#e9ece9;--muted:#9fb0a6;--gruen:#3ddc84;--gelb:#f5c451;--blau:#7cb3ff;--rot:#ff7b7b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:17px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:34px;margin:0 0 6px}
+  h2{font-size:24px;margin:44px 0 10px;padding-top:18px;border-top:1px solid var(--line)}
+  h3{font-size:19px;margin:0 0 6px}
+  p{margin:6px 0}
+  .lead{font-size:19px;color:var(--muted)}
+  .stand{font-size:14px;color:var(--muted);margin-top:8px}
+  .tueren{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:14px}
+  .tuer{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .tuer .k{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .weg{display:flex;flex-direction:column;gap:0;margin-top:14px}
+  .station{display:grid;grid-template-columns:52px 1fr;gap:14px;padding:18px 0;border-bottom:1px dashed var(--line)}
+  .station .nr{width:44px;height:44px;border-radius:50%;background:var(--card);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
+  .station .was{margin:4px 0}
+  .station .wie{font-size:14px;color:var(--muted);margin-top:6px}
+  .station .wie code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;background:#0b100e;padding:1px 5px;border-radius:5px}
+  .status{display:inline-flex;align-items:center;gap:8px;margin-top:8px;font-size:14px;font-weight:700;padding:4px 10px;border-radius:999px;border:1.5px solid var(--line);background:var(--card)}
+  .status.ok{color:var(--gruen);border-color:var(--gruen)}
+  .status.offen{color:var(--gelb);border-color:var(--gelb)}
+  .status.frage{color:var(--muted)}
+  .uhr{display:inline-block;margin:6px 8px 0 0;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:3px 8px}
+  .uhr b{color:var(--text)}
+  .uhr.tot{color:var(--rot);border-color:var(--rot)}
+  .kind{background:#10201a;border-left:4px solid var(--gruen);padding:8px 12px;border-radius:0 10px 10px 0;margin-top:8px;font-size:15px}
+  .kind b{color:var(--gruen)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td.n{white-space:nowrap}
+  .ok{color:var(--gruen)} .warn{color:var(--gelb)} .rot{color:var(--rot)}
+  .glossar dt{font-weight:800;margin-top:12px}
+  .glossar dd{margin:2px 0 0 0;color:var(--muted)}
+  .hinweis{font-size:14px;color:var(--muted);margin-top:26px}
+  a{color:var(--blau)}
+  @media (max-width:640px){ body{font-size:16px} h1{font-size:28px} .station{grid-template-columns:40px 1fr} .station .nr{width:34px;height:34px;font-size:15px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Die Maschine</h1>
+<p class="lead">Was passiert, wenn jemand im Laden ein Lebensmittel scannt oder fotografiert — und wie daraus in Minuten eine geprüfte Bewertung wird.</p>
+<div class="stand" id="stand">Stand wird geladen …</div>
+
+<h2>1 · Vier Türen hinein</h2>
+<p>Es gibt vier Wege, ein Produkt in die Maschine zu geben. Danach ist der Weg für alle gleich.</p>
+<div class="tueren">
+  <div class="tuer"><div class="k">Tür 1</div><h3>Barcode scannen</h3><p>Die Kamera liest den Strichcode. Die Nummer darunter heißt <b>EAN</b> — der weltweit eindeutige Name des Produkts.</p><div id="st_ein_ean"></div></div>
+  <div class="tuer"><div class="k">Tür 2</div><h3>Rückseite fotografieren</h3><p>Zutatenliste, Nährwerttabelle und Barcode auf einem Foto. Das ist die stärkste Quelle: das Etikett selbst.</p><div id="st_ein_foto"></div></div>
+  <div class="tuer"><div class="k">Tür 3</div><h3>Vorderseite fotografieren</h3><p>Nur Marke und Name — mehr braucht die Maschine nicht, um selbst weiterzusuchen.</p><div id="st_ein_front"></div></div>
+  <div class="tuer"><div class="k">Tür 4</div><h3>Link zur Herstellerseite</h3><p>Jemand kennt die Produktseite im Internet und gibt die Adresse ab.</p><div id="st_ein_link"></div></div>
+</div>
+
+<h2>2 · Der Weg durch die Maschine</h2>
+<p>Jede Station macht genau eine Sache. Unten steht bei jeder, ob sie nachweislich funktioniert: <b>grün</b> heißt, ein echtes Testprodukt ist hier durchgelaufen. <b>Gelb</b> heißt, das ist noch nicht bewiesen.</p>
+
+<div class="weg" id="weg"></div>
+
+<h2>3 · Die Uhren der Maschine</h2>
+<p>Niemand sitzt daneben und drückt Knöpfe. Die Maschine hat <b>Uhren</b> — wir nennen sie <b>Takte</b>. Jede Uhr weckt alle paar Minuten eine bestimmte Arbeit: „Schau nach, ob neue Fotos da sind", „Frag Open Food Facts nach fehlenden Zutaten", „Rechne Bewertungen nach". Hier siehst du live, wann jede Uhr zuletzt geklingelt hat und was dabei herauskam.</p>
+<div id="takte">Uhren werden geladen …</div>
+
+<h2>4 · Wörter, die man kennen sollte</h2>
+<dl class="glossar">
+  <dt>EAN / Barcode</dt><dd>Die Nummer unter dem Strichcode, meist 13 Ziffern. Jedes Produkt auf der Welt hat seine eigene. Die letzte Ziffer ist eine <b>Prüfziffer</b>: aus den ersten zwölf lässt sich ausrechnen, wie die dreizehnte sein muss. Ist sie falsch, wurde die Nummer falsch gelesen.</dd>
+  <dt>RIKI</dt><dd>Unsere Lese-KI. Sie schaut sich das Foto an wie ein Mensch und schreibt ab, was auf dem Etikett steht: Name, Marke, Zutaten, Nährwerte, Barcode. RIKI entscheidet nichts und erfindet nichts — was sie nicht lesen kann, lässt sie leer.</dd>
+  <dt>Open Food Facts</dt><dd>Eine freie Weltkarte der Lebensmittel, die tausende Menschen gemeinsam pflegen — wie Wikipedia, nur für Verpackungen. Man fragt sie mit der EAN.</dd>
+  <dt>Hersteller-Portal (LMIV)</dt><dd>Hersteller müssen ihre Zutaten und Nährwerte veröffentlichen (das Gesetz dazu heißt LMIV). EDEKA und dm haben dafür Datenbanken im Internet, die man mit der EAN abfragen kann — die Antwort kommt direkt vom Hersteller.</dd>
+  <dt>Crawler</dt><dd>Ein kleines Programm, das eine Internetseite liest wie ein Mensch, der ein Buch durchblättert — nur schneller. Er sucht auf der Seite die Überschrift „Zutaten" und schreibt ab, was darunter steht. Er kann nur lesen, was wirklich auf der Seite steht; Seiten, die sich erst im Browser aufbauen, sieht er leer.</dd>
+  <dt>Sitemap</dt><dd>Das Inhaltsverzeichnis einer Internetseite: eine Liste aller Unterseiten. Damit findet der Crawler die richtige Produktseite, ohne die ganze Seite abzusuchen.</dd>
+  <dt>Zutaten-Stamm</dt><dd>Unser Lexikon aller Zutaten. Jede hat dort eine Note von 1 bis 10 nach unserem Regelwerk — zum Beispiel, wie stark sie verarbeitet ist. Eine neue Zutat bekommt ihre Note nur nach den Regeln, nie aus dem Bauch.</dd>
+  <dt>Wächter</dt><dd>Automatische Prüfer, die Unmögliches stoppen: 800 Kalorien in einem Joghurt, mehr Zucker als Kohlenhydrate, ein Foto ohne Zutatenliste. Schlägt ein Wächter an, gibt es keine Bewertung — lieber eine Lücke als eine Lüge.</dd>
+  <dt>Takt</dt><dd>Eine Uhr in der Datenbank, die alle paar Minuten eine Arbeit anstößt. Siehe oben.</dd>
+</dl>
+
+<p class="hinweis">Diese Seite rechnet nichts selbst. Alle Ampeln kommen aus der Datenbank (Prüfsatz mit echten Testprodukten), alle Uhren aus dem Taktprotokoll. Für Aufgaben und Klemmstellen: <a href="steuerung.html">steuerung.html</a>.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://haurbpfkfaaehorirzee.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
+});
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+
+/* Die Stationen in Reihenfolge. kasten = Messkasten aus cb_kern_poster_stand,
+   takte = Uhren, die hier arbeiten. Texte fuer Laien; das Werkzeug klein darunter. */
+const STATIONEN = [
+ {t:"Erfassen — das Produkt bekommt eine Nummer bei uns", kasten:["erfassen"],
+  was:"Egal durch welche Tür: Jetzt gibt es einen Eintrag „dieses Produkt ist unterwegs". Ab hier verliert die Maschine nichts mehr — jeder Schritt wird an diesem Eintrag festgehalten.",
+  wie:"Tabelle <code>Produkte</code> (Entwurf) + Auftrag <code>riki_scan_job</code>; die Eingangsart schreibt ein Trigger.",
+  kind:"Wie ein Paket bei der Post: Es bekommt einen Aufkleber mit Nummer, und man kann jederzeit nachsehen, wo es gerade ist."},
+ {t:"RIKI liest das Foto", kasten:["scan","zeit","quote"], takte:["riki-scan-worker-v1"],
+  was:"Wurde fotografiert, schaut sich RIKI das Bild an und schreibt ab: Name, Marke, Kategorie, Zutaten, Nährwerte — und den Barcode, wenn er drauf ist. Was sie nicht sicher lesen kann, bleibt leer. Dann fragt sie sich selbst noch einmal: „Steht hier wirklich eine Zutatenliste?" Wenn nein, wirft sie die Zutaten weg.",
+  wie:"Uhr jede Minute → Edge-Funktion <code>riki-scan-worker</code> → <code>riki-etikett</code> (KI liest) → <code>cb_produkt_ingest</code> speichert. Barcode nur mit gültiger Prüfziffer.",
+  kind:"RIKI ist wie eine sehr fleißige Abschreiberin, die nie rät. Wenn ein Wort unscharf ist, lässt sie es lieber leer."},
+ {t:"Ist das Produkt schon bekannt?", kasten:["kat","treffer"],
+  was:"Mit der EAN schaut die Maschine im eigenen Bestand nach. Kennt sie das Produkt schon mit fertiger Bewertung, ist der Weg kurz: direkt zur Ausgabe — trotzdem durch die Wächter.",
+  wie:"<code>cb_scan_lookup</code> gegen <code>Produkte</code> und <code>Scan_Cache</code>."},
+ {t:"Falscher Barcode? Reparieren — aber nur mit Beweis", takte:["ean-reparatur-takt"],
+  was:"Liest RIKI eine Ziffer falsch, merkt das die Prüfziffer. Die Maschine probiert dann alle Nummern, die nur eine Ziffer entfernt sind, und fragt Open Food Facts: Gehört diese Nummer zur selben Marke und zum selben Produktnamen? Nur dann wird korrigiert.",
+  wie:"<code>cb_ean_reparatur_takt</code>: 13 Kandidaten mit gültiger Prüfziffer, Gegenbeleg = Marke und ein Namenswort.",
+  kind:"Wie beim Telefonieren: Wenn eine Nummer nicht passt, probierst du nicht wild herum — du prüfst, ob am anderen Ende wirklich der Richtige abnimmt."},
+ {t:"Zutaten und Nährwerte holen — vier Quellen, in dieser Reihenfolge", kasten:["offd","adr","herst"], takte:["lmiv-edeka-takt","lmiv-naehrwerte-takt","dm-de-takt","off-rohtext-takt","off-naehrwerte-takt","marke-domain-raten-takt","marken-sitemap-takt","produktlink-sitemap-takt","quelle-abruf-takt"],
+  was:"Von der Vorderseite allein kennt die Maschine nur Marke und Name. Den Wortlaut der Zutaten holt sie sich selbst: <b>1. Hersteller-Portale</b> (EDEKA-LMIV, dm) mit der EAN — die Antwort kommt vom Hersteller. <b>2. Open Food Facts</b> mit der EAN. <b>3. Die Herstellerseite</b>: aus der Marke wird die Internetadresse geraten (rügenwalder.de), die Sitemap gelesen, die passende Produktseite gefunden und der Crawler liest dort die Zutaten ab. Das Foto des Etiketts ist erst der letzte Ausweg.",
+  wie:"Uhren alle 5–30 Min: <code>cb_lmiv_edeka_takt</code>, <code>cb_dm_takt</code>, <code>cb_off_rohtext_takt</code>, <code>cb_off_naehrwerte_takt</code>, Kette <code>marke-domain-raten → marken-sitemap → produktlink-sitemap → quelle-abruf</code> (Edge <code>quelle-abruf-einfach</code>). Reihenfolge = Quellenleiter <code>cb_riki_naechster_quellenweg</code>.",
+  kind:"Stell dir vor, du willst wissen, was in einem Keks ist. Erst fragst du den Bäcker (Hersteller), dann das große Keks-Lexikon (Open Food Facts), dann schickst du einen Roboter (Crawler) los, der die Bäcker-Website liest. Erst zum Schluss guckst du selbst auf die Packung."},
+ {t:"Jeder Wortlaut trägt seine Herkunft", kasten:["quelle","prod"],
+  was:"An jedem Zutatentext steht, woher er kommt: Etikettfoto, Herstellerseite, Open Food Facts. Ein Text ohne Herkunft zählt nicht. So kann später jeder nachprüfen, warum eine Bewertung so ist, wie sie ist.",
+  wie:"<code>Zutaten_Rohtext.Quellenart</code>, gesetzt beim Schreiben (Trigger), nie nachgetragen."},
+ {t:"Zerlegen — aus dem Satz werden einzelne Zutaten", kasten:["zerl"], takte:["referenz-nachlauf","w594-zeilen-aus-referenz"],
+  was:"„Weizenmehl, Zucker, Palmöl, Kakao (12%)" wird in vier Zeilen zerlegt. Klammern, Prozentzahlen und Verarbeitungswörter (geröstet, pasteurisiert) werden getrennt gemerkt, nicht weggeworfen.",
+  wie:"<code>cb_referenz_nachlauf_abarbeiten</code> (alle 5 Min) prüft gegen die Referenz, <code>cb_zeilen_aus_referenz_takt</code> (alle 15 Min) schreibt <code>Produkt_Zutaten</code>."},
+ {t:"Binden — jede Zutat findet ihren Eintrag im Lexikon", kasten:["bindung","ohnenote"], takte:["w648-huellen-aufloesen","funktionswort-umhaengen","zutat-dubletten"],
+  was:"Jede Zeile wird mit dem Zutaten-Stamm verknüpft: „Palmöl" ist der Stamm-Eintrag Palmöl, egal ob auf der Packung „Palmfett" oder „palm oil" stand. Fehlt eine Zutat im Lexikon oder hat sie noch keine Note, bleibt die Bewertung offen — statt zu raten.",
+  wie:"<code>cb_huellen_aufloesen_takt</code>, <code>cb_zutat_funktionswort_umhaengen</code>, <code>cb_zutat_dubletten_entfernen</code>; offen = <code>v_active_product_ingredient_repair_open</code>.",
+  kind:"Wie ein Wörterbuch: „Auto", „Wagen" und „car" zeigen alle auf denselben Eintrag."},
+ {t:"Bewerten — die Note entsteht aus vier Achsen", kasten:["bew","nachlauf"], takte:["score-nachlauf-takt","score-nachrechnen-takt","w217-ballast-nachrechnen"],
+  was:"Zutatenqualität (30 Punkte), Zusatzstoffe (15), Verarbeitungsgrad (15) und Nährwerte (40) ergeben den Root-Index von 0 bis 100. Fehlt eine Achse, gibt es keine Zahl — mit genanntem Grund. Ändert sich die Note einer Zutat im Lexikon, werden alle Produkte damit neu gerechnet.",
+  wie:"Trigger <code>trg_auto_clean_score</code> auf <code>Scores</code>; Nachrechnen über <code>cb_score_nachlauf_abarbeiten</code>. Regel n6: nicht deklarierte Ballaststoffe kosten keinen Punkt."},
+ {t:"Die Wächter prüfen", kasten:["naehr","beleg","sperre"], takte:["etikett-belegpruefung-takt","shadow-waechter-cache-5min"],
+  was:"Bevor irgendetwas nach draußen geht, schauen automatische Prüfer drauf: Sind die Kalorien physikalisch möglich? Passt der Zucker zu den Kohlenhydraten? Stand auf dem Foto wirklich eine Zutatenliste? Ein Treffer sperrt die Ausgabe — auch bei Produkten, die schon lange im Bestand sind.",
+  wie:"<code>v_naehrwerte_qa_offen</code>, <code>cb_etikett_belegpruefung_takt</code> (zweite KI-Frage: „Zutatenliste ja/nein?")."},
+ {t:"Freigabe", kasten:["frei"], takte:["kern-poster-cache"],
+  was:"Hat das Produkt eine belegte Herkunft, alle Zutaten gebunden, eine vollständige Note und keinen Wächtertreffer, wird es aktiv — ohne dass ein Mensch klicken muss. Ralph prüft später nach, nicht vorher.",
+  wie:"<code>cb_riki_freigabe_takt</code> alle 15 Min; Ralph-Entscheid 07.09.2026 (A): gilt auch für Wortlaute vom Crawler und von Open Food Facts."},
+ {t:"Ausgabe — die fertige Karte", kasten:["ausgabe"],
+  was:"In der App erscheint das Produkt mit Root-Index, Bewertung und dem belegten Zutatenwortlaut. Fertig ist nur, was Index <b>und</b> Herkunft trägt.",
+  wie:"<code>Produktstatus = Aktiv</code>, <code>Scores.Clean_Score</code>, <code>Zutaten_Rohtext</code> mit Quellenart."}
+];
+
+/* Die Uhren, mit Erklaerung fuer Laien. Fakten (Rhythmus, letzter Lauf) kommen aus der Datenbank. */
+const TAKTE_TEXT = {
+  "riki-scan-worker-v1":"Holt neue Fotoaufträge und lässt RIKI lesen (2 je Lauf).",
+  "riki-autopilot-takt":"Alter Autopilot — abgeschaltet.",
+  "push-versand-takt":"Schickt Push-Nachrichten an die App.",
+  "off-namen-takt":"Holt Produktnamen zu Barcodes von Open Food Facts.",
+  "off-rohtext-takt":"Holt fehlende Zutatentexte von Open Food Facts (per EAN).",
+  "off-naehrwerte-takt":"Holt fehlende Nährwerte von Open Food Facts (per EAN), nur wenn sie stimmig sind.",
+  "lmiv-edeka-takt":"Fragt das EDEKA-Hersteller-Portal per EAN nach Zutaten.",
+  "lmiv-naehrwerte-takt":"Holt Nährwerte (mit Ballaststoffen) von der EDEKA-LMIV-Produktseite.",
+  "dm-de-takt":"Fragt die dm-Produktdatenbank per EAN nach Zutaten und Nährwerten.",
+  "ean-reparatur-takt":"Repariert falsch gelesene Barcodes — nur mit Beweis von Open Food Facts.",
+  "marke-domain-raten-takt":"Rät aus dem Markennamen die Internetadresse (rügenwalder.de) und prüft, ob die Seite die Marke nennt.",
+  "marken-beleg-nachlauf":"Bestätigt eine Adresse, sobald über sie ein Zutatentext an ein Produkt kam.",
+  "marken-sitemap-takt":"Liest das Inhaltsverzeichnis (Sitemap) einer Herstellerseite.",
+  "produktlink-sitemap-takt":"Ordnet Produkten ihre Produktseite aus der Sitemap zu.",
+  "quelle-abruf-takt":"Der Crawler: liest die Zutaten von der Produktseite ab (5 je Lauf).",
+  "referenz-nachlauf":"Prüft neue Zutatentexte gegen die Referenz und bereitet das Zerlegen vor.",
+  "w594-zeilen-aus-referenz":"Schreibt die Zutatenzeilen aus der Referenz ans Produkt.",
+  "w648-huellen-aufloesen":"Bindet Zeilen an den Zutaten-Stamm (Hüllen auflösen).",
+  "funktionswort-umhaengen":"Hängt Funktionswörter („Emulgator") an den Stoff, nicht an die Rolle.",
+  "zutat-dubletten":"Räumt doppelte Zutaten-Einträge zusammen.",
+  "score-nachlauf-takt":"Rechnet Produkte neu, deren Zutaten eine neue Note bekommen haben.",
+  "score-nachrechnen-takt":"Rechnet Produkte ohne Bewertung noch einmal durch.",
+  "w217-ballast-nachrechnen":"Rechnet Produkte nach, bei denen Ballaststoffe laut Etikett nicht angegeben sind (Regel n6).",
+  "shadow-waechter-cache-5min":"Zählt die Wächter-Treffer für die Anzeige.",
+  "waechter-zaehler-takt":"Zählt die Wächter systemweit.",
+  "etikett-belegpruefung-takt":"Zweite KI-Frage zu Fotos: Steht hier wirklich eine Zutatenliste?",
+  "kern-poster-cache":"Freigabe-Takt + Messung des Kern-Posters (die Ampeln auf dieser Seite).",
+  "produkt-stationen-takt":"Erhebt je Produkt, an welcher Station es steht.",
+  "scan-cache-nachziehen":"Zieht den Scan-Cache nach."
+};
+
+function ampel(kaesten, stand){
+  if(!kaesten || !kaesten.length) return null;
+  const rows = kaesten.map(k => stand[k]).filter(Boolean);
+  if(!rows.length) return {cls:"frage", txt:"wird nicht gemessen"};
+  const durch = rows.reduce((s,r)=>s+(r.tf_durch||0),0);
+  const gruen = rows.every(r => r.ampel==="gruen");
+  if(gruen) return {cls:"ok", txt:"funktioniert — alle Testprodukte kamen hier durch"};
+  if(durch>0) return {cls:"ok", txt:"funktioniert — "+durch+" Testdurchläufe nachgewiesen, nicht alle Fälle fertig"};
+  return {cls:"offen", txt:"noch nicht nachgewiesen — kein Testprodukt bis hierher"};
+}
+function uhr(name, takte){
+  const t = takte[name]; if(!t) return '<span class="uhr tot">'+esc(name)+': keine Uhr gefunden</span>';
+  const wann = t.letzter_lauf ? new Date(t.letzter_lauf).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) : "nie";
+  const ok = t.letzter_status === "succeeded";
+  return '<span class="uhr'+(t.active?'':' tot')+'" title="'+esc(t.letztes_ergebnis||'')+'"><b>'+esc(name)+'</b> · '+esc(t.schedule)+' · zuletzt '+wann+' '+(ok?'✓':'✗')+' · heute '+t.laeufe_heute+'×'+(t.fehler_heute?(' <span class="rot">'+t.fehler_heute+' Fehler</span>'):'')+'</span>';
+}
+function stationHtml(s, i, stand, takte){
+  const a = ampel(s.kasten, stand);
+  return '<div class="station"><div class="nr">'+(i+1)+'</div><div>'
+    + '<h3>'+s.t+'</h3><p class="was">'+s.was+'</p>'
+    + (s.kind ? '<div class="kind"><b>Für Kinder:</b> '+s.kind+'</div>' : '')
+    + '<div class="wie">Werkzeug: '+s.wie+'</div>'
+    + (a ? '<div class="status '+a.cls+'">'+(a.cls==='ok'?'●':'○')+' '+esc(a.txt)+'</div>' : '')
+    + (s.takte ? '<div>'+s.takte.map(n => uhr(n, takte)).join('')+'</div>' : '')
+    + '</div></div>';
+}
+function tuerHtml(id, stand){
+  const a = ampel([id], stand); if(!a) return '';
+  return '<div class="status '+a.cls+'">'+(a.cls==='ok'?'●':'○')+' '+esc(a.txt)+'</div>';
+}
+
+async function laden(){
+  const { data:{ session } } = await client.auth.getSession();
+  if(!session){ document.getElementById("stand").innerHTML = 'Bitte zuerst im <a href="admin.html">Admin</a> anmelden — die Ampeln und Uhren lesen aus der Datenbank.'; return; }
+  const [rs, rt] = await Promise.all([ client.rpc("cb_kern_poster_stand"), client.rpc("cb_admin_takte_stand") ]);
+  const stand = {}; let gemessen = null, gruen = 0, ges = 0, tf = 0;
+  if(!rs.error && rs.data && rs.data.kaesten){
+    rs.data.kaesten.forEach(k => { stand[k.id] = k; ges++; if(k.ampel==='gruen') gruen++; });
+    gemessen = rs.data.gemessen_am; tf = rs.data.testfaelle||0;
+  }
+  const takte = {}; if(!rt.error && Array.isArray(rt.data)) rt.data.forEach(t => takte[t.jobname] = t);
+
+  ["ein_ean","ein_foto","ein_front","ein_link"].forEach(id => { document.getElementById("st_"+id).innerHTML = tuerHtml(id, stand); });
+  document.getElementById("weg").innerHTML = STATIONEN.map((s,i) => stationHtml(s,i,stand,takte)).join("");
+
+  const namen = Object.keys(takte).sort();
+  document.getElementById("takte").innerHTML = namen.length ? '<table><tr><th>Uhr</th><th>Was sie tut</th><th class="n">Rhythmus</th><th class="n">zuletzt</th><th>Ergebnis</th><th class="n">heute</th></tr>'
+    + namen.map(n => { const t = takte[n]; const ok = t.letzter_status==='succeeded';
+        return '<tr><td class="n"><b>'+esc(n)+'</b>'+(t.active?'':' <span class="rot">(aus)</span>')+'</td><td>'+esc(TAKTE_TEXT[n]||'—')+'</td><td class="n">'+esc(t.schedule)+'</td>'
+          + '<td class="n '+(ok?'ok':'rot')+'">'+(t.letzter_lauf?new Date(t.letzter_lauf).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):'nie')+(t.dauer_s!=null?' ('+t.dauer_s+' s)':'')+'</td>'
+          + '<td style="font-size:12px;color:var(--muted)">'+esc((t.letztes_ergebnis||'').slice(0,160))+'</td><td class="n">'+t.laeufe_heute+'×'+(t.fehler_heute?' <span class="rot">'+t.fehler_heute+' ✗</span>':'')+'</td></tr>'; }).join('')
+    + '</table>' : '<p class="warn">Uhren nicht lesbar'+(rt.error?': '+esc(rt.error.message):'')+'</p>';
+
+  document.getElementById("stand").textContent = (gemessen ? "Ampeln gemessen " + new Date(gemessen).toLocaleString("de-DE") : "Ampeln nicht messbar")
+    + " · " + gruen + " von " + ges + " Stationen grün · " + tf + " Testprodukte im Prüfsatz · " + namen.length + " Uhren";
+}
+laden();
+</script>
+</body>
+</html>
