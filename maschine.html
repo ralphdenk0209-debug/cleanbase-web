@@ -102,7 +102,7 @@
 
 <h2 id="netzTitel" style="margin-top:22px">0 · Die Fabrikhalle — die Maschine bei der Arbeit</h2>
 <p>Ein Fließband. Links kommen die Produkte herein, rechts kommt die fertige Karte heraus. Jede Maschine auf dem Band macht genau eine Sache; die Zahlen sind live. Klick auf eine Maschine zeigt, was dort passiert.</p>
-<div class="netz"><svg id="halle" class="halle" viewBox="0 0 1200 540" role="img" aria-label="Die Fabrikhalle"></svg>
+<div class="netz"><svg id="halle" class="halle" viewBox="0 0 1200 440" role="img" aria-label="Die Fabrikhalle"></svg>
 <div class="legende"><span><i style="border-color:var(--gruen)"></i>Maschine läuft (Uhr hat zuletzt sauber geklingelt)</span><span><i style="border-color:var(--gelb)"></i>Uhr still oder Fehler</span><span>Kästchen auf dem Band = Produkte unterwegs · Zahlen: Bestand jetzt, „heute" seit Mitternacht</span></div></div>
 <div id="detail"></div>
 
@@ -275,21 +275,21 @@ function halleZeichnen(stand, takte, fl){
   const st = (fl && fl.stationen) || {}; const h = (fl && fl.heute) || {}; const q = h.quellen || {}; const be = (fl && fl.bestand) || {};
   const qs = w => (q[w] ? q[w].treffer+' von '+q[w].versuche : '0');
   const M = [
-    {id:"m1", x:150, t:"RIKI liest",        z:"Foto → Text", h:"heute "+N(h.riki_gelesen)+" gelesen"+(h.riki_offen?(" · "+h.riki_offen+" warten"):""), takte:["riki-scan-worker-v1"], st:1, icon:"👁"},
-    {id:"m2", x:330, t:"Zulieferer",        z:"Zutaten & Nährwerte holen", h:"", takte:["lmiv-edeka-takt","off-rohtext-takt","quelle-abruf-takt","dm-de-takt"], st:4, icon:"🚚"},
+    {id:"m1", x:160, t:"RIKI liest",        z:"Foto → Text", h:"heute "+N(h.riki_gelesen)+" gelesen"+(h.riki_offen?(" · "+h.riki_offen+" warten"):""), takte:["riki-scan-worker-v1"], st:1, icon:"👁"},
+    {id:"m2", x:335, t:"Zulieferer",        z:"Zutaten & Nährwerte", h:"", takte:["lmiv-edeka-takt","off-rohtext-takt","quelle-abruf-takt","dm-de-takt"], st:4, icon:"🚚"},
     {id:"m3", x:510, t:"Zerleger",          z:"Satz → Zutaten", h:N((st.Z||{}).gruen)+" zerlegt · "+N((st.Z||{}).offen)+" warten", takte:["referenz-nachlauf","w594-zeilen-aus-referenz"], st:6, icon:"✂️"},
-    {id:"m4", x:690, t:"Binder",            z:"an den Zutaten-Stamm", h:N((st.B||{}).gruen)+" gebunden · "+N((st.B||{}).offen)+" offen", takte:["w648-huellen-aufloesen"], st:7, icon:"🔗"},
-    {id:"m5", x:870, t:"Rechner",           z:"Root-Index 0–100", h:N(be.mit_score)+" mit Note · "+N((st.S||{}).offen)+" warten", takte:["score-nachlauf-takt"], st:8, icon:"🧮"},
-    {id:"m6", x:1010,t:"Wächter-Tor",       z:"Unmögliches stoppen", h:N((st.N||{}).offen)+" Nährwert-Fälle offen", takte:["etikett-belegpruefung-takt","shadow-waechter-cache-5min"], st:9, icon:"🚧"},
-    {id:"m7", x:1130,t:"Ausgabe",           z:"fertige Karte", h:N(be.aktiv)+" aktiv · heute "+N(h.freigaben)+" freigegeben", takte:["kern-poster-cache"], st:10, icon:"🏁"}
+    {id:"m4", x:685, t:"Binder",            z:"Zutaten-Stamm", h:N((st.B||{}).gruen)+" gebunden · "+N((st.B||{}).offen)+" offen", takte:["w648-huellen-aufloesen"], st:7, icon:"🔗"},
+    {id:"m5", x:860, t:"Rechner",           z:"Root-Index 0–100", h:N(be.mit_score)+" mit Note · "+N((st.S||{}).offen)+" warten", takte:["score-nachlauf-takt"], st:8, icon:"🧮"},
+    {id:"m6", x:1010,t:"Wächter",       z:"Unmögliches stoppen", h:N((st.N||{}).offen)+" Nährwert-Fälle offen", takte:["etikett-belegpruefung-takt","shadow-waechter-cache-5min"], st:9, icon:"🚧"},
+    {id:"m7", x:1140,t:"Ausgabe",           z:"fertige Karte", h:N(be.aktiv)+" aktiv · heute "+N(h.freigaben)+" freigegeben", takte:["kern-poster-cache"], st:10, icon:"🏁"}
   ];
   const T = [
-    {id:"ein_ean",  y:60,  t:"Barcode",     z:"Tür 1", tuer:0},
-    {id:"ein_foto", y:150, t:"Rückseite",   z:"Tür 2", tuer:1},
-    {id:"ein_front",y:240, t:"Vorderseite", z:"Tür 3", tuer:2},
-    {id:"ein_link", y:330, t:"Link",        z:"Tür 4", tuer:3}
+    {id:"ein_ean",  y:50,  t:"Barcode",     z:"Tür 1", tuer:0},
+    {id:"ein_foto", y:110, t:"Rückseite",   z:"Tür 2", tuer:1},
+    {id:"ein_front",y:170, t:"Vorderseite", z:"Tür 3", tuer:2},
+    {id:"ein_link", y:230, t:"Link",        z:"Tür 4", tuer:3}
   ];
-  const BY = 400; /* Bandmitte */
+  const BY = 300; /* Bandmitte */
   let out = '';
   /* Band */
   out += '<path class="band" d="M40 '+(BY-26)+' H1180 V'+(BY+26)+' H40 Z"/>';
@@ -299,13 +299,13 @@ function halleZeichnen(stand, takte, fl){
     out += '<g class="tuer '+a.cls+'" data-id="'+d.id+'"><path class="pf" d="M20 '+d.y+' H60 Q80 '+d.y+' 80 '+(d.y+20)+' V'+(BY-40)+'"/>'
         + '<text x="24" y="'+(d.y-8)+'">'+esc(d.t)+'</text><text class="z" x="24" y="'+(d.y+6)+'">'+esc(d.z)+'</text></g>'; });
   /* Zulieferer-Rohre von oben in die Maschine 2 */
-  const rohre = [ {x:270,t:"Hersteller-Portale",n:"EDEKA-LMIV "+qs('lmiv_edeka')+" · dm "+qs('dm_de'), ok:uhrOk(takte,["lmiv-edeka-takt","dm-de-takt"])},
-                  {x:330,t:"Open Food Facts",   n:qs('off_naehrwerte')+" Nährwerte", ok:uhrOk(takte,["off-rohtext-takt","off-naehrwerte-takt"])},
-                  {x:390,t:"Crawler",           n:"Herstellerseiten "+qs('einfacher_abruf'), ok:uhrOk(takte,["quelle-abruf-takt"])} ];
-  rohre.forEach((r,i) => { out += '<path class="rohr'+(r.ok?' aktiv':'')+'" d="M'+r.x+' 70 V'+(BY-90)+'"/>'
-     + '<text x="'+r.x+'" y="'+(52-i*0)+'" text-anchor="middle" style="fill:var(--text);font-size:12px;font-weight:700">'+esc(r.t)+'</text>'
-     + '<text x="'+r.x+'" y="'+(BY-96)+'" text-anchor="middle" style="fill:var(--muted);font-size:10px">'+esc(r.n)+'</text>'
-     + (r.ok ? '<circle class="tropfen" cx="'+r.x+'" cy="90" r="4" fill="#3ddc84" style="animation-delay:'+(i*0.7)+'s"/>' : ''); });
+  const rohre = [ {x:255,t:"Hersteller-Portale",n:"EDEKA-LMIV "+qs('lmiv_edeka')+" · dm "+qs('dm_de'), ok:uhrOk(takte,["lmiv-edeka-takt","dm-de-takt"])},
+                  {x:335,t:"Open Food Facts",   n:qs('off_naehrwerte')+" Nährwerte", ok:uhrOk(takte,["off-rohtext-takt","off-naehrwerte-takt"])},
+                  {x:415,t:"Crawler",           n:"Herstellerseiten "+qs('einfacher_abruf'), ok:uhrOk(takte,["quelle-abruf-takt"])} ];
+  rohre.forEach((r,i) => { out += '<path class="rohr'+(r.ok?' aktiv':'')+'" d="M'+r.x+' 60 V'+(BY-90)+'"/>'
+     + '<text x="'+r.x+'" y="'+(i%2?28:44)+'" text-anchor="middle" style="fill:var(--text);font-size:12px;font-weight:700">'+esc(r.t)+'</text>'
+     + '<text x="'+r.x+'" y="'+(BY-96-(i%2?0:14))+'" text-anchor="middle" style="fill:var(--muted);font-size:10px">'+esc(r.n)+'</text>'
+     + (r.ok ? '<circle class="tropfen" cx="'+r.x+'" cy="70" r="4" fill="#3ddc84" style="animation-delay:'+(i*0.7)+'s"/>' : ''); });
   /* Maschinen */
   M.forEach(m => { const ok = uhrOk(takte, m.takte);
     out += '<g class="m '+(ok===null?'':(ok?'ok':'warn'))+'" data-id="'+m.id+'">'
@@ -314,13 +314,13 @@ function halleZeichnen(stand, takte, fl){
         + '<text x="'+(m.x-58)+'" y="'+(BY-60)+'" style="font-size:20px">'+m.icon+'</text>'
         + '<text x="'+(m.x-30)+'" y="'+(BY-58)+'">'+esc(m.t)+'</text>'
         + '<text class="z" x="'+(m.x-30)+'" y="'+(BY-42)+'">'+esc(m.z)+'</text>'
-        + '<text class="h" x="'+m.x+'" y="'+(BY+48)+'" text-anchor="middle">'+esc(m.h)+'</text>'
+        + '<text class="h" x="'+m.x+'" y="'+(BY+48+((M.indexOf(m)%2)?18:0))+'" text-anchor="middle">'+esc(m.h)+'</text>'
         + '</g>'; });
   /* Kisten auf dem Band (SMIL-Animation entlang des Bandes) */
   for(let i=0;i<7;i++){ const g = i>=4; out += '<rect class="kiste'+(g?' gruen':'')+'" x="-9" y="-9" width="18" height="18" rx="3">'
      + '<animateMotion dur="14s" repeatCount="indefinite" begin="'+(-i*2)+'s" path="M40 '+BY+' H1180"/></rect>'; }
   /* Ausgabe-Stapel rechts */
-  out += '<text x="1180" y="'+(BY+84)+'" text-anchor="end" style="fill:var(--muted);font-size:12px">Bestand: '+N(be.aktiv)+' aktiv · '+N(be.entwurf)+' Entwürfe · Stationszahlen von '+(fl&&fl.erhoben_am?new Date(fl.erhoben_am).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):'?')+' Uhr</text>';
+  out += '<text x="1180" y="'+(BY+100)+'" text-anchor="end" style="fill:var(--muted);font-size:12px">Bestand: '+N(be.aktiv)+' aktiv · '+N(be.entwurf)+' Entwürfe · Stationszahlen von '+(fl&&fl.erhoben_am?new Date(fl.erhoben_am).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):'?')+' Uhr</text>';
   svg.innerHTML = out;
   const zeig = (id) => {
     const d = document.getElementById("detail"); d.classList.add("an");
