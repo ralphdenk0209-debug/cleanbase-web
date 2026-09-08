@@ -290,7 +290,17 @@ async function mdSetzen(){
   if(r.error){ meld.textContent = "Serverfehler: "+r.error.message; return; }
   var a = r.data || {};
   if(a.ok !== true){ meld.textContent = "Abgewiesen: "+(a.grund||"unbekannt"); return; }
-  meld.textContent = "gesetzt: "+m+" → "+(a.domain||"keine Seite")+"  (vorher "+(a.vorher||"—")+")";
+  /* 🔴 07.09.2026 (Ralph: „prozis --> https://www.prozis.com/de/de/ eingetragen",
+     gespeichert wurde www.prozis.com): Der Server kürzt jede Eingabe bewusst auf den
+     Host — er meldete das aber nicht, sondern nur Erfolg. Eine Eingabe still zu
+     beschneiden und „gesetzt" zu sagen, ist genau der Zustandssprung, den der
+     Kernvertrag verbietet. Jetzt sagt die Seite, was sie weggeworfen hat. */
+  var eingabe = d.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  var rest = (a.domain && eingabe.toLowerCase().indexOf(a.domain.toLowerCase()+"/") === 0)
+             ? eingabe.slice(a.domain.length) : "";
+  meld.textContent = "gesetzt: "+m+" → "+(a.domain||"keine Seite")+"  (vorher "+(a.vorher||"—")+")"
+    + (rest ? "  ⚠ Der Pfad „"+rest+"“ wurde verworfen — gespeichert wird nur der Host."
+            + " Sitemap und Abruf setzen immer am Host an." : "");
   document.getElementById("nNotiz").value = "";
   await mdZaehler(); await mdListe();
 }
