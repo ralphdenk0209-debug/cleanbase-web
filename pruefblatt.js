@@ -437,10 +437,15 @@ async function pbOffZerlegt(iid, btn){
   }catch(e){ pbOffMsg(iid,"Fehlgeschlagen: "+(e.message||e)); if(btn) btn.disabled=false; }
 }
 
+/* Ralph 09.09.2026: derselbe stille Abbruch wie im Produkteditor. prompt()
+   liefert null, wenn der Browser den Dialog unterdrueckt - der Klick lief ins
+   Leere, ohne Spur. Hier bleibt prompt vorerst, aber jeder Abbruchweg meldet
+   sich. Die Inline-Abfrage steht im Produkteditor (fgOffKeineZutat). */
 async function pbOffKeineZutat(iid, btn){
-  var o=pbOffItem(iid); if(!o) return;
+  var o=pbOffItem(iid);
+  if(!o){ pbOffMsg(iid,"Zeile nicht mehr in der Liste - bitte neu laden."); return; }
   var grund=prompt('"'+(o.zutat_text||'')+'" wird KEINE eigene Produktzutat.\n\nWarum? (Pflicht)');
-  if(grund===null) return;
+  if(grund===null){ pbOffMsg(iid,"Abgebrochen oder der Browser hat den Eingabedialog unterdrueckt - die Zeile bleibt offen."); return; }
   grund=String(grund).trim();
   if(!grund){ pbOffMsg(iid,"Ohne Begründung kein Entscheid."); return; }
   if(btn) btn.disabled=true; pbOffMsg(iid,"speichere Entscheid …");

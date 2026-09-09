@@ -3263,6 +3263,11 @@ body.riFokus #feAbgleich{ width:100%; min-width:0 }
 .fgOffLeise{ border-color:transparent; background:transparent; color:var(--muted);
   text-decoration:underline dotted; font-weight:400 }
 .fgOffLeise:hover{ color:var(--ink); border-color:transparent }
+/* .fgOffWeg  Weg 5 Streichen — rot umrandet. Ralph 09.09.2026: der Knopf nimmt
+   eine Zeile aus dem Produkt, das ist kein blauer Normalfall. Rot umrandet statt
+   rot gefuellt: er ist ein regulaerer Weg, kein Alarm. */
+.fgOffWeg{ border-color:var(--k-fecaca,#fecaca); color:var(--k-b91c1c,#b91c1c) }
+.fgOffWeg:hover{ border-color:var(--k-b91c1c,#b91c1c); background:var(--k-fef2f2,#fef2f2) }
 /* Der abgeleitete Zustand ist eine Rechnung, keine Bestaetigung — deshalb grau. */
 .feSegAuto{ font-size:9.5px; color:var(--muted); margin-top:3px; line-height:1.4 }
 .feSegAuto b{ color:var(--ink) }
