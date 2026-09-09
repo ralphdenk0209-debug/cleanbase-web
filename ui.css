@@ -3999,3 +3999,26 @@ body.riFokus #feKopfZone .feKzChip.warn{ background:#7a5a16 !important; color:#f
   #feKopfband{ grid-template-columns:auto 1fr auto; gap:10px }
   #feKopfband .fkbId{ grid-column:2/-1; text-align:left }
 }
+
+/* ============================================================================
+   MASCHINE IM KOPFBAND  (Ralph 09.09.2026, #217)
+   Eigene Zeile ueber die volle Breite des 5-Spalten-Rasters - sonst wuerde ein
+   sechstes Kind (gemessen 09.09.: der Knopf) die P-Nummer in eine neue Zeile stossen.
+   ========================================================================== */
+#feKopfband .fkbMaschineZeile{ grid-column:1 / -1; display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:-4px }
+#feKopfband .fkbMaschine{ padding:4px 10px; border:1px solid #86efac; border-radius:8px; background:#14532d; color:#dcfce7; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap }
+#feKopfband .fkbMaschine:disabled{ opacity:.6; cursor:wait }
+#feKopfband .fkbMaschineDots{ display:flex; align-items:center; gap:3px; flex-wrap:wrap }
+#feKopfband .fkbMaschineLeer{ color:#a8cfe0; font-size:12px }
+#feKopfband .fkbMaschineSumme{ color:#e2e8f0; font-size:12px; margin-left:8px }
+.fkbDot{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; font-size:9px; font-weight:700; color:#0f172a; cursor:pointer; background:#6b7280; flex:0 0 auto }
+.fkbDot-durch{ background:#22c55e } .fkbDot-haengt{ background:#eab308; box-shadow:0 0 0 2px #fde04766 } .fkbDot-uebersprungen{ background:#4b5563; color:#cbd5e1 }
+#feMaschineOv{ position:fixed; inset:0; z-index:10050; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; padding:14px }
+.feMaschineKarte{ width:100%; max-width:460px; background:var(--card,#fff); color:var(--ink,#111); border-radius:14px; padding:16px; box-shadow:0 16px 40px #0006 }
+.feMaschineKopf{ display:flex; align-items:center; gap:10px; font-size:15px; margin-bottom:10px }
+.feMaschineX{ border:0; background:transparent; font-size:18px; cursor:pointer; color:var(--muted,#666) }
+.feMaschineGrund{ font-size:13.5px; line-height:1.5; margin-bottom:8px }
+.feMaschineTipp{ font-size:12.5px; line-height:1.5; color:var(--muted,#555); background:var(--k-fff7ea,#fff7ea); border-radius:8px; padding:8px 10px; margin-bottom:10px }
+.feMaschineKnoepfe{ display:flex; gap:6px; flex-wrap:wrap }
+.feMaschineKnoepfe button{ padding:8px 11px; border:1px solid var(--green,#2e7d46); border-radius:9px; background:var(--greenlt,#eaf5ee); color:var(--greendk,#166534); font-size:13px; font-weight:600; cursor:pointer }
+.feMaschineMsg{ font-size:12.5px; line-height:1.5; margin-top:10px; min-height:1em }

@@ -4910,9 +4910,12 @@ async function openFgEditor(id, prefill, targetEl){
       ${''/* 09.09.2026 (#217, Ralph): "durch die Maschine laufen lassen inkl. Ampel fuer die
            einzelnen Knoten." Eigene Seite maschine-lauf.html?p=<id> - sie misst mit derselben
            Regel wie das Kern-Poster und ruft nur vorhandene Werkzeuge (E48). Nur mit P-Nummer. */}
-      ${id?'<button type="button" class="fkbMaschine" title="Dieses Produkt durch die Maschine laufen lassen - Ampel je Kasten" onclick="window.open(\'maschine-lauf.html?p=\'+encodeURIComponent(\''+esc(String(d.id))+'\')+\'&cb=\'+Date.now(),\'_blank\')" style="margin-left:8px;padding:4px 10px;border:1px solid var(--green,#2e7d46);border-radius:8px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">▶ Maschine</button>':''}
       <span id="fePNrInfo" class="fkbId">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"P-Nummer kommt beim ersten Speichern"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
       <h2 style="margin:0;display:none">${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
+      ${''/* 09.09.2026 (#217, Ralph): die Maschine als Punktreihe IM Kopfband, nicht als
+           eigene Seite. Erst nach Klick auf "Maschine" gemessen (cb_produkt_maschine_stand,
+           dieselbe Regel wie das Kern-Poster). Gelber Punkt -> Popup mit Grund und Knopf. */}
+      ${id?'<div class="fkbMaschineZeile" id="feMaschineZeile"><button type="button" class="fkbMaschine" id="feMaschineBtn" onclick="feMaschineLauf()" title="Dieses Produkt durch die Maschine laufen lassen">▶ Maschine</button><span id="feMaschineDots" class="fkbMaschineDots"><span class="fkbMaschineLeer">noch nicht gemessen</span></span></div>':''}
     </div>
     <div id="fe_gesamtstatus" data-note="P1: EIN Gesamtstatus. Gefüllt von feStatusStreifen() aus getErfassungsStatus() – keine eigene Rechnung."></div>
     ${window._fgPrefillHinweis?`<div style="background:var(--k-fff7ea);border:1px solid var(--k-e4a343);color:var(--k-8a5a0b);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px">${esc(window._fgPrefillHinweis)}</div>`:""}
@@ -10207,3 +10210,94 @@ async function fgKetteAufbrechen(btn){
   }
 }
 if(typeof window!=="undefined"){ window.fgKetteAufbrechen=fgKetteAufbrechen; }
+
+/* ============================================================================
+   MASCHINE IM KOPFBAND  (Ralph 09.09.2026, #217)
+   27 Kaesten als Punkte. Messung: cb_produkt_maschine_stand (dieselbe Regel wie das
+   Kern-Poster). Klick auf einen Punkt: Popup mit Grund und Knoepfen, die nur
+   vorhandene Werkzeuge rufen (E48): Anstossen, Websuche mit Riki, Neu messen.
+   ========================================================================== */
+window._feMaschine=null;
+async function feMaschineLauf(){
+  const id=window._fgEdit&&window._fgEdit.id; if(!id) return;
+  const btn=document.getElementById("feMaschineBtn"), box=document.getElementById("feMaschineDots");
+  if(btn) btn.disabled=true; if(box) box.innerHTML='<span class="fkbMaschineLeer">misst…</span>';
+  try{
+    const {data,error}=await client.rpc("cb_produkt_maschine_stand",{p_id:id});
+    if(error) throw error;
+    const r=(typeof data==="string")?JSON.parse(data):data;
+    if(!r||r.ok===false) throw new Error((r&&r.grund)||"keine Antwort");
+    window._feMaschine=r; feMaschineRender();
+  }catch(e){ if(box) box.innerHTML='<span class="fkbMaschineLeer">Messung fehlgeschlagen: '+esc((e&&e.message)||String(e))+'</span>'; }
+  if(btn) btn.disabled=false;
+}
+function feMaschineRender(){
+  const r=window._feMaschine, box=document.getElementById("feMaschineDots"); if(!r||!box) return;
+  const ks=(r.kaesten||[]).slice().sort((a,b)=>(a.rang||0)-(b.rang||0));
+  box.innerHTML=ks.map((k,i)=>'<span class="fkbDot fkbDot-'+esc(k.status||"leer")+'" data-i="'+i+'" title="'+esc((k.rang||"")+" "+(k.titel||"")+(k.notiz?" - "+k.notiz:""))+'" onclick="feMaschinePopup('+i+')">'+esc(String(k.rang||""))+'</span>').join("")
+    +'<span class="fkbMaschineSumme">'+(r.durch||0)+' durch · <b>'+(r.haengt||0)+' hängt</b> · '+(r.uebersprungen||0)+' nicht auf dem Weg</span>';
+}
+const FE_MASCHINE_TIPP={
+  ein_ean:"Kein Barcode am Auftrag. Normalweg ist der Scan; ohne Barcode geht es nur ueber 'Produkt hat keinen Barcode'.",
+  off:"Barcode ist nicht in den Portalen (OFF, dm, EDEKA). Websuche greift nur ohne EAN.",
+  offd:"Open Food Facts kennt den Barcode nicht oder liefert keine Zutaten.",
+  adr:"Es fehlt eine Adresse (Produktlink). Ohne EAN kann Riki im Web suchen - kostet ca. 3 Cent.",
+  herst:"Herstellerseite noch nicht gelesen. 'Anstossen' liest die Seite sofort, wenn ein Link da ist.",
+  quelle:"Keine belegte Herkunft (Etikett, Portal oder Herstellerseite).",
+  zerl:"Kein Zutaten-Wortlaut da - Zutatenliste fotografieren oder Quelle holen.",
+  bindung:"Zutaten nicht alle an den Stamm gebunden - in Station 3 'Zutaten & Referenz' loesen.",
+  ohnenote:"Stammzutat ohne Bewertung - Zutaten-Stamm (Regelwerk).",
+  bew:"Kein Score - meist fehlen Naehrwerte oder Bindungen.",
+  naehr:"Naehrwerte fehlen oder Waechter meldet einen Treffer - Station 2 oder Naehrwerttabelle fotografieren.",
+  nachlauf:"Score-Nachlauf offen - laeuft im Takt (w217-ballast-nachrechnen).",
+  sperre:"Waechter blockiert - Befund im Freigabe-Check unten links.",
+  frei:"Nicht freigegeben - Freigabe-Check unten links nennt die Blocker.",
+  ausgabe:"Produkt ist nicht Aktiv - erst Freigabe."
+};
+function feMaschinePopup(i){
+  const r=window._feMaschine; if(!r) return; const ks=(r.kaesten||[]).slice().sort((a,b)=>(a.rang||0)-(b.rang||0)); const k=ks[i]; if(!k) return;
+  let ov=document.getElementById("feMaschineOv");
+  if(!ov){ ov=document.createElement("div"); ov.id="feMaschineOv"; ov.onclick=function(e){ if(e.target===ov) ov.style.display="none"; }; document.body.appendChild(ov); }
+  const farbe={durch:"#22c55e",haengt:"#eab308",uebersprungen:"#6b7280"}[k.status]||"#6b7280";
+  const wort={durch:"durch",haengt:"hängt",uebersprungen:"nicht auf dem Weg"}[k.status]||"nicht gemessen";
+  const tipp=FE_MASCHINE_TIPP[k.kasten_id]||"";
+  const ohneEan=!r.ean, ohneLink=!r.produktlink;
+  let kn='';
+  if(k.status==="haengt"){
+    kn+='<button type="button" onclick="feMaschineAktion(\'anstossen\')">▶ Anstoßen</button>';
+    if(["adr","herst","quelle","zerl","off","offd"].includes(k.kasten_id) && ohneEan && ohneLink) kn+='<button type="button" onclick="feMaschineAktion(\'websuche\')">🔎 Websuche mit Riki (~3 ct)</button>';
+    if(["zerl","bindung","ohnenote","bew"].includes(k.kasten_id)) kn+='<button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\';feTabWechsel(3)">→ Zutaten &amp; Referenz</button>';
+    if(["naehr","bew"].includes(k.kasten_id)) kn+='<button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\';feTabWechsel(2)">→ Nährwerte</button>';
+  }
+  ov.innerHTML='<div class="feMaschineKarte">'
+    +'<div class="feMaschineKopf"><span class="fkbDot fkbDot-'+esc(k.status||"leer")+'">'+esc(String(k.rang||""))+'</span><b>'+esc(k.titel||k.kasten_id)+'</b><span style="color:'+farbe+';font-weight:700;margin-left:auto">'+wort+'</span><button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\'" class="feMaschineX">✕</button></div>'
+    +'<div class="feMaschineGrund"><b>Messung:</b> '+esc(k.notiz||"–")+'</div>'
+    +(tipp?'<div class="feMaschineTipp">'+esc(tipp)+'</div>':'')
+    +'<div class="feMaschineKnoepfe">'+kn+'<button type="button" onclick="feMaschineAktion(\'messen\')">↻ Neu messen</button></div>'
+    +'<div id="feMaschineMsg" class="feMaschineMsg"></div>'
+    +'</div>';
+  ov.style.display="flex";
+}
+async function feMaschineAktion(was){
+  const id=window._fgEdit&&window._fgEdit.id; if(!id) return;
+  const m=document.getElementById("feMaschineMsg"); const say=t=>{ if(m) m.innerHTML=t; };
+  try{
+    if(was==="anstossen"){
+      say("⏳ stößt an…");
+      const {data,error}=await client.rpc("cb_produkt_maschine_anstossen",{p_id:id}); if(error) throw error;
+      const r=(typeof data==="string")?JSON.parse(data):data;
+      say((r&&r.ok?"✅ ":"⚠ ")+esc((r&&r.hinweis)||(r&&r.grund)||"")+"<br>"+((r&&r.schritte)||[]).map(s=>"· "+esc(s.schritt)+(s.uebersprungen?" (übersprungen: "+esc(s.uebersprungen)+")":"")).join("<br>"));
+    }else if(was==="websuche"){
+      say("⏳ Riki sucht (bis 60 s)…");
+      const {data,error}=await client.rpc("cb_produkt_websuche_jetzt",{p_id:id}); if(error) throw error;
+      const r=(typeof data==="string")?JSON.parse(data):data;
+      if(!r||r.ok===false){ say("⚠ "+esc((r&&r.grund)||"nicht gesucht")); return; }
+      const b=((r.ergebnis||{}).beispiele||[])[0]||{};
+      say("✅ gesucht: "+esc(b.status||"?")+(b.url?" · "+esc(b.url):"")+(b.ean?" · EAN "+esc(b.ean):"")+" · Kosten "+esc(String((r.ergebnis||{}).kosten_usd||0))+" $");
+    }
+    say((m&&m.innerHTML||"")+"<br>↻ messe neu…");
+    await feMaschineLauf();
+    const ov=document.getElementById("feMaschineOv"); if(ov) ov.style.display="none";
+  }catch(e){ say("Fehler: "+esc((e&&e.message)||String(e))); }
+}
+if(typeof window!=="undefined"){ window.feMaschineLauf=feMaschineLauf; window.feMaschinePopup=feMaschinePopup; window.feMaschineAktion=feMaschineAktion; }
