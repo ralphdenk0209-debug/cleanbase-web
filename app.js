@@ -12429,8 +12429,8 @@ async function etikettSend(){
         await client.rpc("cb_scan_cache_schreiben",{
           p_ean:String(ETI_EAN), p_name:v.name||null, p_marke:v.marke||null, p_kategorie:(katVorschlagPruefen(v.kategorie_vorschlag)||null),   /* nie eine erfundene Kategorie speichern (Ralph 27.07.) */
           p_naehrwerte:v.naehrwerte_100g||null, p_zutaten:v.zutaten||null, p_zusatzstoffe:v.zusatzstoffe||null,
-          p_score: d.score_erlaubt?vorlScore(v.naehrwerte_100g):null,
-          p_score_erlaubt: !!d.score_erlaubt,
+          p_score: null,               /* 09.09.2026: kein vorlaeufiger Index mehr (Ralph jaja) */
+          p_score_erlaubt: false,
           p_warnungen: d.warnungen||[], p_herkunft:"riki_etikett"});
       }catch(e){}
     }
@@ -12681,9 +12681,14 @@ function vorlKarte(d, ean){
      Prüfung in "warnungen", auch wenn alles passt ("Abweichung ~3 %, akzeptabel").
      Damit wurde jede Bestätigung wie ein Fehler behandelt und der Score verweigert.
      Ein Prüfprotokoll ist keine Warnung. */
-  const erlaubt = d.score_erlaubt===true;
+  /* Ralph 09.09.2026 (#217/#526, jaja): KEIN VORLAEUFIGER INDEX MEHR. Ein zweiter
+     Score neben dem echten ist eine zweite Wahrheit (Kernvertrag B1). Die Karte
+     zeigt nur noch, was belegt ist (Name, Marke, Naehrwerte der Quelle) und dass
+     Riki das Produkt gerade anlegt. Der echte Index kommt aus der Maschine. */
+  const erlaubt = false;
   const n = d.naehrwerte || (d.vorschlag && d.vorschlag.naehrwerte_100g) || null;
-  const s = erlaubt ? vorlScore(n) : null;
+  const s = null;
+  const quelleDa = !!n;
   const nameRoh  = d.name || (d.vorschlag&&d.vorschlag.name) || "";
   const markeRoh = d.marke|| (d.vorschlag&&d.vorschlag.marke) || "";
   const name = esc(nameRoh || "Unbekanntes Produkt");
@@ -12697,15 +12702,17 @@ function vorlKarte(d, ean){
   }
 
   let h='<div style="display:flex;gap:12px;align-items:flex-start;margin-top:12px">'
-    +donutVorl(s, 62)
     +'<div style="flex:1;min-width:0">'
     +'<div style="font-weight:600;color:var(--ink);line-height:1.3">'+name+'</div>'
     +(marke?'<div style="font-size:12.5px;color:var(--muted)">'+marke+'</div>':'')
-    +'<span style="display:inline-block;margin-top:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-eef2f0);color:var(--k-5a6660)">'
-      +(erlaubt?'vorläufig &ndash; nicht geprüft':'kein Index')+'</span>'
+    +'<span style="display:inline-block;margin-top:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--k-eef2f0);color:var(--k-5a6660)">Riki legt das Produkt an &ndash; Index folgt</span>'
     +'</div></div>';
 
-  if(erlaubt){
+  if(quelleDa){
+    h+=nwZeile(n);
+    h+=vorlBanner('Diese Angaben stammen aus <b>'+esc(d.herkunftText||"OpenFoodFacts")+'</b>. '
+      +'<b>Einen Index gibt es erst, wenn Root Index die Zutaten gebunden und geprüft hat</b> &ndash; das passiert jetzt im Hintergrund.');
+  } else if(false){
     h+=nwZeile(n);
     if(warn.length){
       h+='<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--k-fdf6e7);'
@@ -12750,8 +12757,8 @@ async function offScan(ean){
         p_naehrwerte:d.naehrwerte||null,
         p_zutaten: (d.zutaten_text && String(d.zutaten_text).trim()) ? String(d.zutaten_text).trim() : null,
         p_zusatzstoffe:null,
-        p_score: d.score_erlaubt?vorlScore(d.naehrwerte):null,
-        p_score_erlaubt: !!d.score_erlaubt,
+        p_score: null,               /* 09.09.2026: kein vorlaeufiger Index mehr (Ralph jaja) */
+        p_score_erlaubt: false,
         p_warnungen: d.warnungen||[], p_herkunft:"openfoodfacts"});
     }catch(e){}
   }
@@ -15090,7 +15097,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-09-4";
+const APP_BUILD = "2026-09-09-6";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
