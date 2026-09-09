@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riki-Kosten — Root Index</title>
+<!-- riki-kosten.html · 09.09.2026 · Work #217
+     Ralph: "Die Kostenuebersicht muss ins Dashboard laufen, ich moechte immer sehen,
+     fuer welches Produkt die Recherche eingesetzt wurde."
+     Liest nur: cb_admin_riki_kosten_summe (je Modus) und cb_admin_riki_kosten_liste
+     (jeder Aufruf mit Produkt). Quelle ist Riki_Nutzung; die Seite rechnet nichts nach. -->
+<style>
+  :root{--bg:#0f1412;--card:#181f1b;--line:#2a3530;--text:#e9ece9;--muted:#9fb0a6;--gruen:#3ddc84;--gelb:#f5c451;--blau:#7cb3ff;--rot:#ff7b7b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  .wrap{max-width:1200px;margin:0 auto;padding:24px 18px 60px}
+  h1{font-size:28px;margin:0 0 4px}
+  h2{font-size:19px;margin:28px 0 8px}
+  .lead{color:var(--muted)}
+  .filter{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}
+  select,button{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:14px}
+  button{cursor:pointer}
+  .karten{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .karte{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .karte .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .karte .v{font-size:22px;font-weight:800;margin-top:2px}
+  .karte .s{font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--bg)}
+  td.n{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+  th.n{text-align:right}
+  .ok{color:var(--gruen)} .rot{color:var(--rot)} .muted{color:var(--muted)}
+  .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);background:#10201a}
+  .tab{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 10px 8px}
+  a{color:var(--blau);text-decoration:none}
+  .hinweis{font-size:13px;color:var(--muted);margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>💸 Riki-Kosten</h1>
+<p class="lead">Jeder KI-Aufruf mit Modus, Produkt und Kosten. Quelle: <code>Riki_Nutzung</code>. Preise sind die im Aufruf gebuchten USD-Beträge (Tokens + Websuchen).</p>
+<div class="filter">
+  <label>Zeitraum <select id="tage"><option value="1">heute</option><option value="7">7 Tage</option><option value="30" selected>30 Tage</option><option value="90">90 Tage</option><option value="365">1 Jahr</option></select></label>
+  <label>Modus <select id="modus"><option value="">alle</option></select></label>
+  <label><input type="checkbox" id="nurProdukt"> nur mit Produkt</label>
+  <button onclick="laden()">Neu laden</button>
+  <span id="stand" class="muted"></span>
+</div>
+
+<h2>Summe je Modus</h2>
+<div class="karten" id="karten">lädt …</div>
+
+<h2>Einzelne Aufrufe</h2>
+<div class="tab"><table id="liste"><thead><tr><th>Wann</th><th>Modus</th><th>Produkt</th><th>Marke · Name</th><th class="n">Suchen/Tokens</th><th class="n">USD</th><th>Ergebnis</th></tr></thead><tbody><tr><td colspan="7">lädt …</td></tr></tbody></table></div>
+
+<p class="hinweis">Modus <b>websuche</b> = riki-research v10 (Marke+Name → Produktseite, max. 2 Suchen, Tagesdeckel 2 USD). <b>etikett</b>/<b>etikett-auto</b> = Foto lesen. <b>herstellerseite</b> = Seite lesen. <b>research</b> = alter Vollweg (bis 26.08., stillgelegt).</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://haurbpfkfaaehorirzee.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
+});
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const usd = x => (Number(x||0)).toFixed(4).replace('.', ',') + ' $';
+const wann = t => { const d = new Date(t); return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); };
+
+async function laden(){
+  const tage = Number($('tage').value);
+  const modus = $('modus').value || null;
+  const nurP = $('nurProdukt').checked;
+  $('stand').textContent = 'lädt …';
+  const [s, l] = await Promise.all([
+    client.rpc('cb_admin_riki_kosten_summe', { p_tage: tage }),
+    client.rpc('cb_admin_riki_kosten_liste', { p_tage: tage, p_modus: modus, p_limit: 500 })
+  ]);
+  if (s.error || l.error) { $('stand').textContent = 'Fehler: ' + (s.error?.message || l.error?.message); return; }
+  const summe = s.data || [], liste = (l.data || []).filter(r => !nurP || r.produkt_id);
+  if (!summe.length && !liste.length) { $('karten').innerHTML = '<div class="karte">Keine Daten — bist du als Admin angemeldet?</div>'; $('liste').querySelector('tbody').innerHTML = ''; $('stand').textContent=''; return; }
+
+  const alle = summe.reduce((a, r) => a + Number(r.kosten_usd||0), 0);
+  const sel = $('modus'); const vorher = sel.value;
+  sel.innerHTML = '<option value="">alle</option>' + summe.map(r => `<option value="${esc(r.modus)}">${esc(r.modus)}</option>`).join('');
+  sel.value = vorher;
+  $('karten').innerHTML = `<div class="karte"><div class="k">Gesamt ${tage} Tage</div><div class="v">${usd(alle)}</div><div class="s">${summe.reduce((a,r)=>a+Number(r.aufrufe),0)} Aufrufe</div></div>` +
+    summe.map(r => `<div class="karte"><div class="k">${esc(r.modus)}</div><div class="v">${usd(r.kosten_usd)}</div><div class="s">${r.aufrufe} Aufrufe · ${r.erfolgreich} ok · Ø ${usd(r.schnitt_usd)}</div></div>`).join('');
+
+  $('liste').querySelector('tbody').innerHTML = liste.length ? liste.map(r => `<tr>
+    <td class="muted" style="white-space:nowrap">${wann(r.erfasst_am)}</td>
+    <td><span class="pill">${esc(r.modus)}</span></td>
+    <td>${r.produkt_id ? `<a href="admin.html?produkt=${encodeURIComponent(r.produkt_id)}" target="_blank">${esc(r.produkt_id)}</a>` : '<span class="muted">—</span>'}</td>
+    <td>${r.produkt_id ? esc([r.marke, r.produktname].filter(Boolean).join(' · ')) || '<span class="muted">(Produkt nicht mehr da)</span>' : '<span class="muted">ohne Produkt</span>'}</td>
+    <td class="n muted">${(r.input_token||0).toLocaleString('de-DE')} / ${(r.output_token||0).toLocaleString('de-DE')}</td>
+    <td class="n">${usd(r.kosten_usd)}</td>
+    <td>${r.erfolg ? '<span class="ok">✓</span>' : '<span class="rot">✗</span>'} <span class="muted">${esc(r.fehler || '')}</span></td>
+  </tr>`).join('') : '<tr><td colspan="7" class="muted">keine Aufrufe im Zeitraum</td></tr>';
+  $('stand').textContent = `${liste.length} Aufrufe · Stand ${new Date().toLocaleTimeString('de-DE')}`;
+}
+['tage','modus','nurProdukt'].forEach(id => $(id).addEventListener('change', laden));
+laden();
+</script>
+</body>
+</html>

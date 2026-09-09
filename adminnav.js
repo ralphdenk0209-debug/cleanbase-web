@@ -56,6 +56,8 @@ function applyAdminMode(){
       +_an('steuerung','🎛️','Steuerung',"window.open('steuerung.html?cb='+Date.now(),'_blank')")
       /* 07.09.2026 (#217, Ralph): die Maschine als Netzplan - eigene Seite, eigenes Fenster. */
       +_an('maschine','🚇','Maschine',"window.open('maschine.html?cb='+Date.now(),'_blank')")
+      /* 09.09.2026 (#217, Ralph): Riki-Kosten je Aufruf und Produkt - eigene Seite. */
+      +_an('rikikosten','💸','Kosten',"window.open('riki-kosten.html?cb='+Date.now(),'_blank')")
       /* Ralph-Auftrag 25.08.2026: Benchmark Control direkt hinter dem Dashboard.
          Eigene Arbeitsflaeche als Overlay (wie katKonfigOpen), kein fgTab-Panel —
          damit weder app.js noch admin.html Fachlogik dafuer bekommen. */
