@@ -70,7 +70,7 @@
     {id:"kat",   c:1, r:3,  f:F, t:"Im Katalog?",               s:"Produkte.EAN_GTIN bzw. Produkt_ID am Job. cb_scan_lookup fuer die EAN, riki_no_ean_identity fuer Foto/Link."},
     {id:"treffer",c:3, r:3, f:Y, t:"Ja — kurzer Weg zur Ausgabe", s:"Aktives Produkt mit Score (Scores.Clean_Score) und belegtem Wortlaut (Zutaten_Rohtext.Quellenart) geht direkt zur Ausgabe, aber durch dieselben Waechter.", p:"Treffer ohne vollstaendige Karte."},
     {id:"off",   c:1, r:4,  f:F, t:"Open Food Facts kennt den Barcode?", s:"Nur mit EAN: cb_scan_off_treffer live im Laden; spaeter off-rohtext-takt (alle 6 Min, cb_off_rohtext_takt) fuer den Zutatentext.", p:"Produkte ohne EAN gehen hier immer 'nein' — ihr Weg ist die Herstellerseite."},
-    {id:"vorl",  c:1, r:5,  f:Y, t:"Vorlaeufige Karte (nur Fallback)", s:"Scan_Cache.Score_vorlaeufig. Ueberbrueckt die Sekunden im Laden; ersetzt keine vollstaendige Karte."},
+    {id:"vorl",  c:1, r:5,  f:Y, t:"Wartekarte (kein Index)", s:"09.09.2026 Ralph-jaja: der vorlaeufige Index ist abgeschaltet - ein zweiter Score neben dem echten waere eine zweite Wahrheit (B1). Die Karte zeigt nur Belegtes (Name, Marke, Naehrwerte der Quelle) und dass Riki das Produkt anlegt. Scan_Cache.Score_vorlaeufig wird nicht mehr geschrieben."},
     {id:"foto",  c:3, r:5,  f:Y, t:"Etikettfoto = letzter Weg",    s:"Quellenleiter cb_riki_naechster_quellenweg: Produktseite → eingebettete Daten → verlinkte Herstellerdaten → geprueft-strukturiert → erst dann Foto. Das Foto ist Backup, nicht Standard.", p:"Produkte ohne Wortlaut und ohne Produktlink — nur das Foto bleibt."},
 
     /* ── Gruppe Beschaffung · Marke → Domain → Sitemap → Link → Crawler ── */
