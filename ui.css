@@ -4022,3 +4022,6 @@ body.riFokus #feKopfZone .feKzChip.warn{ background:#7a5a16 !important; color:#f
 .feMaschineKnoepfe{ display:flex; gap:6px; flex-wrap:wrap }
 .feMaschineKnoepfe button{ padding:8px 11px; border:1px solid var(--green,#2e7d46); border-radius:9px; background:var(--greenlt,#eaf5ee); color:var(--greendk,#166534); font-size:13px; font-weight:600; cursor:pointer }
 .feMaschineMsg{ font-size:12.5px; line-height:1.5; margin-top:10px; min-height:1em }
+.feMaschineVersuche{ font-size:12.5px; line-height:1.5; margin-bottom:10px; color:var(--ink,#222) }
+.feMaschineKorr{ margin-top:6px; padding:8px 10px; background:#fef3c7; border-radius:8px; color:#78350f }
+.feMaschineKorr button{ margin-left:6px; padding:5px 9px; border:1px solid #b45309; border-radius:8px; background:#fff; color:#78350f; font-size:12.5px; font-weight:600; cursor:pointer }

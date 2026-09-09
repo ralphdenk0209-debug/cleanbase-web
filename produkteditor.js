@@ -10273,10 +10273,32 @@ function feMaschinePopup(i){
     +'<div class="feMaschineKopf"><span class="fkbDot fkbDot-'+esc(k.status||"leer")+'">'+esc(String(k.rang||""))+'</span><b>'+esc(k.titel||k.kasten_id)+'</b><span style="color:'+farbe+';font-weight:700;margin-left:auto">'+wort+'</span><button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\'" class="feMaschineX">✕</button></div>'
     +'<div class="feMaschineGrund"><b>Messung:</b> '+esc(k.notiz||"–")+'</div>'
     +(tipp?'<div class="feMaschineTipp">'+esc(tipp)+'</div>':'')
+    +feMaschineVersucheHtml(k)
     +'<div class="feMaschineKnoepfe">'+kn+'<button type="button" onclick="feMaschineAktion(\'messen\')">↻ Neu messen</button></div>'
     +'<div id="feMaschineMsg" class="feMaschineMsg"></div>'
     +'</div>';
   ov.style.display="flex";
+}
+/* Was die Maschine schon versucht hat - und woran es hing. Ralph 09.09.: "bei den
+   gelben ist mir nicht klar, was jetzt bremst". Die Antwort steht in den Abrufversuchen:
+   z.B. Websuche "ambiguous - Hersteller ist Foodloose, nicht Vego". */
+function feMaschineVersucheHtml(k){
+  const r=window._feMaschine; const v=(r&&r.versuche)||[]; if(!v.length) return '';
+  const zeig=["adr","herst","quelle","zerl","off","offd","foto","naehr","bew"].includes(k.kasten_id) ? v.slice(0,4) : [];
+  if(!zeig.length) return '';
+  const korr=v.find(x=>x.marke_korrektur);
+  return '<div class="feMaschineVersuche"><b>Schon versucht:</b>'
+    +zeig.map(x=>'<div>· '+esc(x.wann||"")+' '+esc(x.weg||"")+' → <b>'+esc(x.status||"")+'</b>'+(x.detail?' – '+esc(x.detail):'')+'</div>').join('')
+    +(korr?'<div class="feMaschineKorr">Riki meint: Hersteller ist <b>'+esc(korr.marke_korrektur)+'</b>, nicht „'+esc(r.marke||"")+'". <button type="button" onclick="feMaschineMarke(\''+esc(korr.marke_korrektur).replace(/'/g,"\\'")+'\')">Marke übernehmen</button></div>':'')
+    +(r.vorrang_bis?'<div style="color:var(--muted);font-size:12px;margin-top:4px">Vorrang aktiv bis '+esc(new Date(r.vorrang_bis).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}))+' – die Takte holen dieses Produkt zuerst.</div>':'')
+    +'</div>';
+}
+function feMaschineMarke(m){
+  const f=document.getElementById("fe_marke"); if(!f) return;
+  f.value=m; try{ f.dispatchEvent(new Event("input",{bubbles:true})); f.dispatchEvent(new Event("change",{bubbles:true})); }catch(e){}
+  const ov=document.getElementById("feMaschineOv"); if(ov) ov.style.display="none";
+  try{ feTabWechsel(1); }catch(e){}
+  const msg=document.getElementById("fe_msg"); if(msg){ msg.style.color="var(--k-b45309)"; msg.textContent="Marke auf „"+m+"“ gesetzt – jetzt Speichern, dann „Websuche mit Riki“ im Maschinen-Popup."; }
 }
 async function feMaschineAktion(was){
   const id=window._fgEdit&&window._fgEdit.id; if(!id) return;
@@ -10286,7 +10308,7 @@ async function feMaschineAktion(was){
       say("⏳ stößt an…");
       const {data,error}=await client.rpc("cb_produkt_maschine_anstossen",{p_id:id}); if(error) throw error;
       const r=(typeof data==="string")?JSON.parse(data):data;
-      say((r&&r.ok?"✅ ":"⚠ ")+esc((r&&r.hinweis)||(r&&r.grund)||"")+"<br>"+((r&&r.schritte)||[]).map(s=>"· "+esc(s.schritt)+(s.uebersprungen?" (übersprungen: "+esc(s.uebersprungen)+")":"")).join("<br>"));
+      say((r&&r.ok?"✅ ":"⚠ ")+esc((r&&r.hinweis)||(r&&r.grund)||""));
     }else if(was==="websuche"){
       say("⏳ Riki sucht (bis 60 s)…");
       const {data,error}=await client.rpc("cb_produkt_websuche_jetzt",{p_id:id}); if(error) throw error;

@@ -12107,7 +12107,7 @@ async function submitVorShots(){
   if(!arr.length){ setVorMsg("Bitte mindestens ein Foto aufnehmen.","var(--k-dc2626)"); return; }
   const v=(document.getElementById("vorInput").value||"").trim();
   const ean=/^[0-9]{6,14}$/.test(v)?v:null;
-  if(!ean && !VOR_SHOTS.zutaten){ setVorMsg("Ohne Barcode brauchen wir ein Foto der <b>Zutatenliste</b>. Die Vorderseite allein reicht nicht.","var(--k-dc2626)"); return; }
+  if(!ean && (!VOR_SHOTS.zutaten || !VOR_SHOTS.naehrwerte)){ setVorMsg("Ohne Barcode brauchen wir Fotos der <b>Zutatenliste</b> und der <b>Nährwerttabelle</b>. Die Vorderseite allein reicht nicht.","var(--k-dc2626)"); return; }
   setVorMsg("⏳ "+arr.length+" Foto(s) werden gespeichert…");
   try{
     /* Ralph 09.09.: ohne Barcode geht es durch DIESELBE Tuer wie im Ladenscan
@@ -12247,8 +12247,9 @@ async function etikettSend(){
   const arr=ETI_SLOTS.map(function(s){ return ETI_SHOTS[s[0]]; }).filter(Boolean);
   if(!arr.length){ etiMsg("Bitte mindestens ein Foto aufnehmen.","var(--k-dc2626)"); return; }
   /* Ralph 09.09.: ohne Barcode ist die Zutatenliste Pflicht - nur Vorderseite reicht nicht. */
-  if(!ETI_EAN && !ETI_SHOTS.zutaten && !(typeof etiImTagebuch==="function" && etiImTagebuch())){
-    etiMsg("Ohne Barcode brauchen wir ein Foto der <b>Zutatenliste</b>. Die Vorderseite allein reicht nicht.","var(--k-dc2626)"); return;
+  if(!ETI_EAN && !(typeof etiImTagebuch==="function" && etiImTagebuch()) && (!ETI_SHOTS.zutaten || !ETI_SHOTS.naehrwerte)){
+    /* Ralph 09.09. (A): ohne Barcode gibt es keine Portale - Zutatenliste UND Naehrwerttabelle muessen vom Etikett kommen. */
+    etiMsg("Ohne Barcode brauchen wir Fotos der <b>Zutatenliste</b> und der <b>Nährwerttabelle</b>. Die Vorderseite allein reicht nicht.","var(--k-dc2626)"); return;
   }
 
   const {data:{session}} = await client.auth.getSession();
@@ -15089,7 +15090,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-09-2";
+const APP_BUILD = "2026-09-09-4";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
