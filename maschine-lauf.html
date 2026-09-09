@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Durch die Maschine — Root Index</title>
+<!-- maschine-lauf.html · 09.09.2026 · Work #217
+     Ralph: "in der produkt erfassen seite moechte ich einen button haben, mit dem ich das
+     angelegte produkt durch die maschine laufen lassen kann inkl. ampel fuer die einzelnen knoten."
+     Diese Seite zeigt EIN Produkt auf den 27 Kaesten des Kern-Posters. Die Messung ist dieselbe
+     wie beim Poster (cb_kern_durchlauf_messen ueber cb_produkt_maschine_stand), nichts wird hier
+     nachgerechnet. "Anstossen" ruft nur Werkzeuge, die ein einzelnes Produkt annehmen (E48). -->
+<style>
+  :root{--bg:#0f1412;--card:#181f1b;--line:#2a3530;--text:#e9ece9;--muted:#9fb0a6;--gruen:#3ddc84;--gelb:#f5c451;--blau:#7cb3ff;--rot:#ff7b7b;--grau:#5f6d66}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:22px 18px 60px}
+  h1{font-size:24px;margin:0 0 2px}
+  .lead{color:var(--muted);font-size:14px}
+  .kopf{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:14px 0}
+  button{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:14px;cursor:pointer;font-weight:700}
+  button.go{border-color:var(--gruen);color:var(--gruen)}
+  button:disabled{opacity:.5;cursor:wait}
+  .zahlen{display:flex;gap:8px;flex-wrap:wrap}
+  .z{padding:5px 11px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:700}
+  .z.d{color:var(--gruen);border-color:var(--gruen)} .z.h{color:var(--gelb);border-color:var(--gelb)} .z.u{color:var(--muted)}
+  .liste{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .k{display:grid;grid-template-columns:34px 30px 1fr;gap:10px;align-items:start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px}
+  .k .nr{color:var(--muted);font-size:12px;padding-top:3px}
+  .k .amp{width:16px;height:16px;border-radius:50%;margin-top:4px;border:2px solid var(--line)}
+  .k.durch .amp{background:var(--gruen);border-color:var(--gruen)}
+  .k.haengt .amp{background:var(--gelb);border-color:var(--gelb)}
+  .k.uebersprungen .amp{background:transparent;border-color:var(--grau)}
+  .k.uebersprungen{opacity:.55}
+  .k .t{font-weight:700}
+  .k .n{font-size:13px;color:var(--muted)}
+  .abschnitt{margin:14px 0 4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  #lauf{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13.5px;display:none}
+  #lauf.an{display:block}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:#0b100e;padding:1px 5px;border-radius:5px}
+  a{color:var(--blau)}
+  .hinweis{font-size:13px;color:var(--muted);margin-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1 id="titel">Durch die Maschine</h1>
+<div class="lead" id="sub">lädt …</div>
+<div class="kopf">
+  <button class="go" id="btnAn" onclick="anstossen()">▶ Anstoßen</button>
+  <button onclick="messen()">↻ Neu messen</button>
+  <div class="zahlen" id="zahlen"></div>
+  <span id="stand" class="lead"></span>
+</div>
+<div id="lauf"></div>
+<div class="liste" id="liste"></div>
+<p class="hinweis">Grün = dieses Produkt ist durch den Kasten. Gelb = hängt dort. Grau = Kasten liegt nicht auf dem Weg dieses Produkts (z. B. EAN-Eingang bei einem Frontfoto). Gemessen wird mit derselben Regel wie das Kern-Poster in der Steuerung; die Zahlen dort ändern sich durch diese Seite nicht.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://haurbpfkfaaehorirzee.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdXJicGZrZmFhZWhvcmlyemVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDY2OTYsImV4cCI6MjA5Nzk4MjY5Nn0.6U0bD0m2kYM2iL0KJ9fbCFvcQMXAglr8GvwmPwyHqyw";
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage: window.localStorage, storageKey:"sb-cleanbase-auth" }
+});
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const PID = new URLSearchParams(location.search).get('p');
+/* Abschnitte des Posters in Laufrichtung - nur Ueberschriften, keine Regel. */
+const ABSCHNITT = { ein_ean:'Eingang', kat:'Erkennen', off:'Beschaffung', prod:'Verarbeitung', frei:'Ausgabe' };
+const RANGFOLGE = ['ein_ean','ein_foto','ein_front','ein_link','erfassen','scan','kat','treffer','zeit','quote','off','foto','offd','adr','herst','quelle','prod','zerl','bindung','ohnenote','bew','beleg','naehr','nachlauf','sperre','frei','ausgabe'];
+
+async function messen(){
+  if(!PID){ $('sub').textContent = 'Keine Produktnummer (?p=P123).'; return; }
+  $('stand').textContent = 'misst …';
+  const r = await client.rpc('cb_produkt_maschine_stand', { p_id: PID });
+  if (r.error) { $('sub').textContent = 'Fehler: ' + r.error.message; $('stand').textContent=''; return; }
+  const d = r.data;
+  if (!d || d.ok === false) { $('sub').textContent = (d && d.grund) || 'Keine Antwort — als Admin angemeldet?'; $('stand').textContent=''; return; }
+  document.title = `Maschine · ${d.produkt_id}`;
+  $('titel').textContent = `${d.marke ? d.marke + ' · ' : ''}${d.name || d.produkt_id}`;
+  $('sub').innerHTML = `${esc(d.produkt_id)} · Status <b>${esc(d.status)}</b> · Eingang <b>${esc(d.eingangsart)}</b>${d.ean ? ' · EAN ' + esc(d.ean) : ''}${d.produktlink ? ' · <a href="' + esc(d.produktlink) + '" target="_blank">Produktseite</a>' : ''}`;
+  $('zahlen').innerHTML = `<span class="z d">${d.durch} durch</span><span class="z h">${d.haengt} hängt</span><span class="z u">${d.uebersprungen} nicht auf dem Weg</span>`;
+  const map = {}; (d.kaesten || []).forEach(k => map[k.kasten_id] = k);
+  let h = '', abschnitt = '';
+  RANGFOLGE.forEach((id, i) => {
+    const k = map[id]; if (!k) return;
+    if (ABSCHNITT[id]) { h += `<div class="abschnitt">${ABSCHNITT[id]}</div>`; }
+    h += `<div class="k ${esc(k.status || 'haengt')}"><div class="nr">${k.rang}</div><div class="amp" title="${esc(k.status)}"></div><div><div class="t">${esc(k.titel)}</div><div class="n">${esc(k.notiz || '')}</div></div></div>`;
+  });
+  $('liste').innerHTML = h;
+  $('stand').textContent = 'gemessen ' + new Date(d.gemessen_am).toLocaleTimeString('de-DE');
+}
+
+async function anstossen(){
+  if(!PID) return;
+  const b = $('btnAn'); b.disabled = true; b.textContent = '… läuft';
+  $('lauf').className = 'an'; $('lauf').textContent = 'Werkzeuge werden gerufen …';
+  const r = await client.rpc('cb_produkt_maschine_anstossen', { p_id: PID });
+  b.disabled = false; b.textContent = '▶ Anstoßen';
+  if (r.error) { $('lauf').textContent = 'Fehler: ' + r.error.message; return; }
+  const d = r.data || {};
+  let h = '<b>Angestoßen</b><ul style="margin:6px 0 0 18px;padding:0">';
+  (d.schritte || []).forEach(s => {
+    if (s.uebersprungen) h += `<li>${esc(s.schritt)}: <span style="color:var(--muted)">übersprungen — ${esc(s.uebersprungen)}</span></li>`;
+    else h += `<li>${esc(s.schritt)} <code>${esc(s.werkzeug || '')}</code>: ${esc(JSON.stringify(s.ergebnis || s.ok).slice(0, 220))}</li>`;
+  });
+  h += '</ul>';
+  if (d.takte && d.takte.length) {
+    h += `<div style="margin-top:8px;color:var(--muted)">${esc(d.hinweis || '')}<br>Uhren: ` + d.takte.map(t => `<code>${esc(t.uhr)}</code> ${esc(t.rhythmus)}${t.aktiv ? '' : ' (aus)'}`).join(' · ') + '</div>';
+  }
+  $('lauf').innerHTML = h;
+  await messen();
+}
+messen();
+</script>
+</body>
+</html>

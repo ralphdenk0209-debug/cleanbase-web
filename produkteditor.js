@@ -4907,6 +4907,10 @@ async function openFgEditor(id, prefill, targetEl){
            zeigen: kein Index ist etwas anderes als Index null. */}
       <div class="fkbIndex" id="feKbIndex"></div>
       <div class="fkbStatus" id="feKbStatus">${esc(d.status||"Entwurf")}</div>
+      ${''/* 09.09.2026 (#217, Ralph): "durch die Maschine laufen lassen inkl. Ampel fuer die
+           einzelnen Knoten." Eigene Seite maschine-lauf.html?p=<id> - sie misst mit derselben
+           Regel wie das Kern-Poster und ruft nur vorhandene Werkzeuge (E48). Nur mit P-Nummer. */}
+      ${id?'<button type="button" class="fkbMaschine" title="Dieses Produkt durch die Maschine laufen lassen - Ampel je Kasten" onclick="window.open(\'maschine-lauf.html?p=\'+encodeURIComponent(\''+esc(String(d.id))+'\')+\'&cb=\'+Date.now(),\'_blank\')" style="margin-left:8px;padding:4px 10px;border:1px solid var(--green,#2e7d46);border-radius:8px;background:var(--greenlt,#eaf5ee);color:var(--greendk,#166534);font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">▶ Maschine</button>':''}
       <span id="fePNrInfo" class="fkbId">${id?(esc(d.id)+" · "+esc(d.status||"Entwurf")):"P-Nummer kommt beim ersten Speichern"}${d.erfasst_am?(" · erfasst "+esc(d.erfasst_am)):""}</span>
       <h2 style="margin:0;display:none">${id?"Produkt bearbeiten":"Neues Produkt"}</h2>
     </div>
