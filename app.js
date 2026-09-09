@@ -12063,7 +12063,15 @@ function camCapture(){
   });
 }
 /* ---- Mehrbild-Erfassung: bis zu 3 Etikettfotos sammeln, dann zusammen senden ---- */
-const VOR_SLOTS=[["front","Vorderseite"],["zutaten","Zutaten"],["naehrwerte","Nährwerte"]];
+/* Ralph 09.09.: Zutaten zuerst, Vorderseite ist Zugabe - der Block erscheint
+   erst nach "Produkt hat keinen Barcode" (index.html, vorKeinEan). */
+const VOR_SLOTS=[["zutaten","Zutatenliste"],["naehrwerte","Nährwerttabelle"],["front","Vorderseite (optional)"]];
+function vorKeinEan(){
+  if(!confirm("Fast jedes verpackte Produkt hat einen Strichcode – meist auf der Rückseite oder am Boden.\n\nWirklich kein Barcode?")) return;
+  const b=document.getElementById("vorFotoBlock"); if(b) b.style.display="block";
+  const k=document.getElementById("vorKeinEanBtn"); if(k) k.style.display="none";
+  renderVorShots();
+}
 const VOR_SHOTS={};
 let _vorSlotTarget=null;
 function renderVorShots(){
@@ -12097,10 +12105,22 @@ function vorShotDel(slot){ delete VOR_SHOTS[slot]; renderVorShots(); }
 async function submitVorShots(){
   const arr=VOR_SLOTS.map(([k])=>VOR_SHOTS[k]).filter(Boolean);
   if(!arr.length){ setVorMsg("Bitte mindestens ein Foto aufnehmen.","var(--k-dc2626)"); return; }
+  const v=(document.getElementById("vorInput").value||"").trim();
+  const ean=/^[0-9]{6,14}$/.test(v)?v:null;
+  if(!ean && !VOR_SHOTS.zutaten){ setVorMsg("Ohne Barcode brauchen wir ein Foto der <b>Zutatenliste</b>. Die Vorderseite allein reicht nicht.","var(--k-dc2626)"); return; }
   setVorMsg("⏳ "+arr.length+" Foto(s) werden gespeichert…");
   try{
-    const v=(document.getElementById("vorInput").value||"").trim();
-    const ean=/^[0-9]{6,14}$/.test(v)?v:null;
+    /* Ralph 09.09.: ohne Barcode geht es durch DIESELBE Tuer wie im Ladenscan
+       (cb_riki_ohne_ean_einreihen -> Herkunft RIKI-No-EAN). Kein zweiter Weg. */
+    if(!ean && ME){
+      const {data:erg,error:e2}=await client.rpc("cb_riki_ohne_ean_einreihen",{p_produkt_id:null, p_fotos:arr, p_produktlink:null, p_kontext:"laden"});
+      if(e2) throw e2;
+      const e=(typeof erg==="string")?JSON.parse(erg):(erg||{});
+      if(e && e.ok===false){ setVorMsg("Nicht übernommen: "+esc(e.grund||"unbekannt"),"var(--k-b45309)"); return; }
+      VOR_SLOTS.forEach(([k])=>delete VOR_SHOTS[k]); renderVorShots();
+      setVorMsg("✅ Übergeben. Riki liest die Zutatenliste und legt das Produkt als <b>Entwurf</b> an.","var(--k-16a34a)");
+      return;
+    }
     const {error}=await client.rpc("cb_foto_vormerken",{p_fotos:arr, p_ean:ean, p_quelle:"Web-Foto"});
     if(error) throw error;
     VOR_SLOTS.forEach(([k])=>delete VOR_SHOTS[k]); renderVorShots();
@@ -12226,6 +12246,10 @@ function etikettDel(slot){ delete ETI_SHOTS[slot]; renderEtiShots(); }
 async function etikettSend(){
   const arr=ETI_SLOTS.map(function(s){ return ETI_SHOTS[s[0]]; }).filter(Boolean);
   if(!arr.length){ etiMsg("Bitte mindestens ein Foto aufnehmen.","var(--k-dc2626)"); return; }
+  /* Ralph 09.09.: ohne Barcode ist die Zutatenliste Pflicht - nur Vorderseite reicht nicht. */
+  if(!ETI_EAN && !ETI_SHOTS.zutaten && !(typeof etiImTagebuch==="function" && etiImTagebuch())){
+    etiMsg("Ohne Barcode brauchen wir ein Foto der <b>Zutatenliste</b>. Die Vorderseite allein reicht nicht.","var(--k-dc2626)"); return;
+  }
 
   const {data:{session}} = await client.auth.getSession();
 
@@ -12889,6 +12913,7 @@ function _killStreams(){
    Wer starten will, WARTET darauf.
    ========================================================================== */
 function stopScan(){
+  window._keinEanLauf=(window._keinEanLauf||0)+1;   /* Ausweg-Timer verfaellt (09.09.) */
   /* Wer den Scanner stoppt, schliesst auch das Vollbild-Fenster. Vorher blieb es
      schwarz stehen, wenn der Nutzer den inneren "Kamera schliessen"-Knopf traf.
      > Ein Fenster, das nur EINEN Ausgang kennt, ist eine Falle. */
@@ -12994,6 +13019,13 @@ function toggleScan(){ _startScan("vorReader",(code)=>{ document.getElementById(
    Vollbild-Fenster haette sich diese IDs stehlen muessen, und waere die
    Produktseite dahinter offen gewesen, gaebe es sie ZWEIMAL im Dokument.
    > Zwei Elemente mit derselben ID sind kein Trick, sondern ein Fehler auf Zeit. */
+/* Rueckfrage vor dem Ausweg ohne Barcode (Ralph 09.09.): ein bewusstes Ja,
+   kein Reflexklick. Nur dieser Weg fuehrt zu RIKI-No-EAN - und nur RIKI-No-EAN
+   darf spaeter die kostenpflichtige Websuche (Tuer 3) auslösen. */
+function keinBarcodeBestaetigen(){
+  if(!confirm("Fast jedes verpackte Produkt hat einen Strichcode – meist auf der Rückseite oder am Boden.\n\nWirklich kein Barcode? Dann brauchen wir ein Foto der ZUTATENLISTE.")) return;
+  etikettOpen(null,false);
+}
 function prodScan(readerId, msgId){
   readerId = readerId || "prodReader";
   msgId    = msgId    || "stats";
@@ -13006,11 +13038,22 @@ function prodScan(readerId, msgId){
        ueberall an einer gescannten EAN, und der Einstieg in der Produktsuche
        wird im Laden nie angesteuert. Gemessen am 04.09. an der Live-App.
        Jetzt steht der Ausweg dort, wo der Nutzer feststeckt. */
+    /* Ralph 09.09.2026 (#217): BARCODE ZUERST. Der Ausweg "kein Barcode" erscheint
+       erst nach 8 s ohne Treffer und fragt zurueck - sonst fotografieren Nutzer
+       die Vorderseite, obwohl hinten ein Strichcode klebt (gemessen: alle 8
+       Foto-Front-Auftraege bis 09.09. kamen ueber diesen Knopf, 3 davon hatten eine EAN). */
     st.innerHTML='📷 Kamera öffnet – Barcode vor die Kamera halten…'
-      +'<div style="margin-top:8px"><button onclick="etikettOpen(null,false)" '
+      +'<div id="keinEanAusweg" style="display:none;margin-top:8px"><button onclick="keinBarcodeBestaetigen()" '
       +'style="padding:7px 12px;border:1px dashed var(--green,var(--k-16a34a));border-radius:9px;'
       +'background:var(--card);color:var(--greendk,var(--k-166534));font-size:12.5px;cursor:pointer">'
-      +'Kein Barcode? Etikett fotografieren</button></div>';
+      +'Produkt hat wirklich keinen Barcode</button></div>';
+    const _lauf=++window._keinEanLauf||(window._keinEanLauf=1);
+    setTimeout(function(){
+      if(_lauf!==window._keinEanLauf) return;
+      const a=document.getElementById("keinEanAusweg"); if(!a) return;
+      a.style.display="block";
+      const m=document.getElementById(msgId); if(m && m.firstChild && m.firstChild.nodeType===3) m.firstChild.textContent="Kein Barcode gefunden? Rückseite und Boden prüfen – fast jede Verpackung hat einen.";
+    }, 8000);
   }
   _startScan(readerId, async (code)=>{
     try{
@@ -15046,7 +15089,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-07-8";
+const APP_BUILD = "2026-09-09-2";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
