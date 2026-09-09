@@ -10883,13 +10883,47 @@ function tbHistMealRow(m,i){
   return '<div style="display:flex;align-items:center;gap:8px;background:var(--k-ffffff);border:1px solid var(--k-e7e0d4);border-radius:10px;padding:10px;margin-bottom:6px">'
     +'<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(m.mahlzeit||"")+' <span style="font-weight:400;color:var(--k-6b6256)">· '+esc(ds)+'</span></div>'
     +'<div style="font-size:11.5px;color:var(--k-6b6256);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(m.items||"")+' · '+Math.round(m.kcal||0)+' kcal</div></div>'
-    +'<button onclick="tbHistCopyMeal('+i+')" title="Ganze Mahlzeit übernehmen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid var(--k-e7e0d4);color:var(--k-2e7d32);font-size:18px;cursor:pointer;flex:0 0 auto">+</button></div>';
+    +'<button onclick="tbHistCopyMeal('+i+',this)" title="Ganze Mahlzeit übernehmen" style="width:30px;height:30px;border-radius:50%;background:var(--tb-card2);border:1px solid var(--k-e7e0d4);color:var(--k-2e7d32);font-size:18px;cursor:pointer;flex:0 0 auto">+</button></div>';
 }
-async function tbHistCopyMeal(i){
+/* 🔴 09.09.2026 — Ralph: "meine frau hatte gerade einen laufzeitfehler beim
+   hinzufügen eines rezepts aus historie. war das frühstück. beim zweiten versuch
+   ging es wieder."
+
+   GEMESSEN (Edge-Logs, iPhone-Safari, 21:05 Uhr): Historie geladen (cb_tb_history
+   200), danach KEIN cb_tb_copy_meal am Server, kein Postgres-Fehler - der erste
+   Aufruf hat das Telefon nie verlassen bzw. den Server nie erreicht. 27 s spaeter
+   Neuladen der Seite, zweiter Aufruf 200, 15 Zeilen uebernommen. Das ist ein
+   Netzabbruch auf dem Geraet: supabase-js verpackt den fetch-Fehler als
+   error.message "TypeError: Load failed" (code leer), und die alte Zeile
+   alert("Fehler: "+error.message) zeigte genau diesen TypeError - unlesbar, und
+   ohne zu sagen, ob etwas gespeichert wurde (§1.7).
+
+   JETZT: (1) Knopf gesperrt, solange der Aufruf laeuft - ein Doppeltipp waere
+   eine doppelte Mahlzeit. (2) Netzabbruch, abgelaufene Anmeldung und Server-Fehler
+   werden unterschieden und in Klartext gesagt, samt dem, was zu tun ist.
+   BEWUSST KEINE stille Wiederholung: bei einem Schreibaufruf kann die Antwort
+   verlorengegangen sein, obwohl der Server geschrieben hat - eine automatische
+   Wiederholung truege dann die Mahlzeit doppelt ein. Der Nutzer tippt selbst noch
+   einmal und sieht danach im Tagebuch, was steht. */
+function tbIstNetzFehler(err){
+  const m=String((err&&err.message)||err||"");
+  return !(err&&err.code) && /Load failed|Failed to fetch|NetworkError|network|abort|timed? ?out/i.test(m);
+}
+function tbCopyFehlerText(err){
+  const m=String((err&&err.message)||err||"");
+  if(tbIstNetzFehler(err)) return "Die Mahlzeit wurde NICHT übernommen – die Verbindung zum Server ist abgebrochen.\n\nBitte noch einmal auf + tippen.";
+  if(/Nicht angemeldet|JWT|expired/i.test(m)) return "Die Mahlzeit wurde NICHT übernommen – die Anmeldung ist abgelaufen.\n\nBitte die Seite neu laden und noch einmal versuchen.";
+  return "Die Mahlzeit wurde NICHT übernommen.\n\nGrund: "+(m||"unbekannt");
+}
+async function tbHistCopyMeal(i, btn){
   const m=(window._tbHistMeals||[])[i]; if(!m) return;
+  if(btn){ if(btn.disabled) return; btn.disabled=true; btn.textContent="…"; }
   const dd=document.getElementById("tbDatum").value||tbToday(), dm=window._tbAddMeal||"Frühstück";
-  const {data,error}=await client.rpc("cb_tb_copy_meal",{p_src_datum:m.datum,p_src_mahlzeit:m.mahlzeit,p_dest_datum:dd,p_dest_mahlzeit:dm});
-  if(error){ alert("Fehler: "+error.message); return; }
+  let antwort;
+  try{ antwort=await client.rpc("cb_tb_copy_meal",{p_src_datum:m.datum,p_src_mahlzeit:m.mahlzeit,p_dest_datum:dd,p_dest_mahlzeit:dm}); }
+  catch(e){ antwort={error:e}; }
+  finally{ if(btn){ btn.disabled=false; btn.textContent="+"; } }
+  if(antwort.error){ console.warn("cb_tb_copy_meal:", antwort.error); alert(tbCopyFehlerText(antwort.error)); return; }
   const ov=document.getElementById("tbAddOv"); if(ov) ov.remove(); loadTagebuch();
 }
 /* 🔴 20.08.2026 — Ralph: "anscheinend sind die favoriten von meiner frau auch
@@ -11515,8 +11549,10 @@ async function uebernehmeHist(){
   if(!v){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte eine frühere Mahlzeit wählen."; return; }
   const parts=v.split("|"), sd=parts[0], sm=parts[1];
   const dd=document.getElementById("tbDatum").value||tbToday(), dm=document.getElementById("tbMahlzeit").value;
-  const {data,error}=await client.rpc("cb_tb_copy_meal",{p_src_datum:sd,p_src_mahlzeit:sm,p_dest_datum:dd,p_dest_mahlzeit:dm});
-  if(error){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+error.message; return; }
+  let antwort; try{ antwort=await client.rpc("cb_tb_copy_meal",{p_src_datum:sd,p_src_mahlzeit:sm,p_dest_datum:dd,p_dest_mahlzeit:dm}); }catch(e){ antwort={error:e}; }
+  const {data,error}=antwort;
+  /* 09.09.: gleiche Klartext-Meldung wie tbHistCopyMeal (eine Regel, ein Ort). */
+  if(error){ msg.style.color="var(--k-dc2626)"; msg.textContent=tbCopyFehlerText(error).replace(/\n+/g," "); return; }
   msg.style.color="var(--k-16a34a)"; msg.textContent="✓ "+data+" → "+dm; loadTagebuch();
 }
 async function addRezeptMahlzeit(){
@@ -15097,7 +15133,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-09-6";
+const APP_BUILD = "2026-09-09-7";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
