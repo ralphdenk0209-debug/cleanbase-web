@@ -1681,7 +1681,7 @@ function _fgZutOffenHtml(){
         +' title="Die Zeile ist erledigt: ihre Bestandteile stehen als eigene Zutaten am Produkt.">\u2713 ist zerlegt</button>'
         +'<button type="button" class="fgOffBtn" onclick="fgOffBinden('+esc(iid)+',this)" title="Im Zutatenstamm suchen und binden.">im Stamm suchen</button>'
         +'<button type="button" class="fgOffBtn" onclick="fgOffRikiKette('+esc(iid)+',this)" title="Riki zerlegt, der Server loest auf, Riki bewertet nur mit Regelbeleg.">Riki einstufen</button>'
-        +'<button type="button" class="fgOffBtn" onclick="fgOffKeineZutat('+esc(iid)+',this)" title="Keine eigene Zutat \u2013 mit Begruendung.">keine Zutat \u2026</button>'
+        +'<button type="button" class="fgOffBtn fgOffWeg" onclick="fgOffKeineZutat('+esc(iid)+',this)" title="Die Zeile ist keine eigene Produktzutat und wird gestrichen \u2013 mit Begruendung.">Zeile streichen</button>'
       +'</div>'
       +'<div class="fgOffMsg" style="display:block;font-size:11px;padding:0 8px 5px 38px"></div>'
       +'</div>';
@@ -1690,6 +1690,36 @@ function _fgZutOffenHtml(){
 function _fgOffItem(iid){
   var rows=_fgZutOffenListe();
   return rows.find(function(z){ return String(z.item_id)===String(iid); })||null;
+}
+/* Begruendung inline abfragen statt per prompt(). Liefert den Text oder null
+   bei Abbruch. Ralph 09.09.2026 - siehe Kommentar an fgOffKeineZutat. */
+function _fgOffGrundFragen(btn, name){
+  return new Promise(function(fertig){
+    var zeile=null, box=null;
+    try{ zeile=btn&&btn.closest(".fgOffZeile"); }catch(e){}
+    if(!zeile){ fertig(null); return; }
+    var alt=zeile.querySelector(".fgOffGrundBox");
+    if(alt){ alt.remove(); }
+    box=document.createElement("div");
+    box.className="fgOffGrundBox";
+    box.style.cssText="padding:6px 8px 8px 38px;display:flex;gap:6px;flex-wrap:wrap;align-items:center";
+    box.innerHTML='<div style="flex:1 0 100%;font-size:11px;color:var(--muted);margin-bottom:3px">'
+      +'„'+(window.esc?esc(name):name)+'" wird gestrichen. Warum ist das keine eigene Zutat?</div>'
+      +'<input type="text" class="fgOffGrundFeld" placeholder="z. B. Erklärung der Kefir-Kulturen, keine eigenständige Zutat" '
+      +'style="flex:1 1 320px;min-width:200px;font-size:12px;padding:4px 7px;border:1px solid var(--k-b9d2f0,#b9d2f0);border-radius:6px">'
+      +'<button type="button" class="fgOffBtn fgOffWeg fgOffGrundOk">streichen</button>'
+      +'<button type="button" class="fgOffBtn fgOffGrundAb">abbrechen</button>';
+    btn.parentNode.insertAdjacentElement("afterend", box);
+    var feld=box.querySelector(".fgOffGrundFeld");
+    function schliessen(wert){ try{ box.remove(); }catch(e){} fertig(wert); }
+    box.querySelector(".fgOffGrundOk").onclick=function(){ schliessen(feld.value); };
+    box.querySelector(".fgOffGrundAb").onclick=function(){ schliessen(null); };
+    feld.onkeydown=function(ev){
+      if(ev.key==="Enter"){ ev.preventDefault(); schliessen(feld.value); }
+      if(ev.key==="Escape"){ ev.preventDefault(); schliessen(null); }
+    };
+    try{ feld.focus(); }catch(e){}
+  });
 }
 function _fgOffMsg(btn, txt, farbe){
   try{ var z=btn.closest(".fgOffZeile"), m=z&&z.querySelector(".fgOffMsg");
@@ -1852,10 +1882,21 @@ async function fgOffZerlegtFertig(iid, btn){
   }
 }
 if(typeof window!=="undefined"){ window.fgOffZerlegtFertig=fgOffZerlegtFertig; }
+/* ══════════════════════════════════════════════════════════════════════════
+   RALPH 09.09.2026: "wenn ich auf keine zutat klicke, passiert nichts."
+   GEMESSEN: die Funktion stieg an zwei Stellen STILL aus - `if(!z) return`
+   ohne Meldung, und `if(grund===null) return`, wenn prompt() nichts liefert.
+   Genau das tut prompt() in Safari und Chrome, sobald der Dialog unterdrueckt
+   ist; der Browser meldet das nicht, er gibt null zurueck. Ergebnis: Klick,
+   nichts passiert, keine Spur.
+   prompt() ist raus. Die Begruendung wird jetzt inline abgefragt, und jeder
+   Abbruchweg schreibt eine sichtbare Meldung in die Zeile.
+   ══════════════════════════════════════════════════════════════════════════ */
 async function fgOffKeineZutat(iid, btn){
-  var z=_fgOffItem(iid); if(!z) return;
-  var grund=prompt('„'+String(z.zutat_text||"")+'" wird KEINE eigene Produktzutat.\n\nWarum? (Pflicht – z. B. „Erklärung der Kefir-Kulturen, keine eigenständige Zutat")');
-  if(grund===null) return;
+  var z=_fgOffItem(iid);
+  if(!z){ _fgOffMsg(btn,"Zeile nicht mehr in der Liste - bitte neu laden.","var(--k-b91c1c)"); return; }
+  var grund=await _fgOffGrundFragen(btn, String(z.zutat_text||""));
+  if(grund===null){ _fgOffMsg(btn,"Abgebrochen - die Zeile bleibt offen."); return; }
   grund=String(grund).trim();
   if(!grund){ _fgOffMsg(btn,"Ohne Begründung kein Entscheid.","var(--k-b45309)"); return; }
   if(btn){ btn.disabled=true; } _fgOffMsg(btn,"speichere Entscheid …");
@@ -10265,7 +10306,7 @@ function feMaschinePopup(i){
   let kn='';
   if(k.status==="haengt"){
     kn+='<button type="button" onclick="feMaschineAktion(\'anstossen\')">▶ Anstoßen</button>';
-    if(["adr","herst","quelle","zerl","off","offd"].includes(k.kasten_id) && ohneEan && ohneLink) kn+='<button type="button" onclick="feMaschineAktion(\'websuche\')">🔎 Websuche mit Riki (~3 ct)</button>';
+    if(["foto","adr","herst","quelle","zerl","off","offd"].includes(k.kasten_id) && ohneEan && ohneLink) kn+='<button type="button" onclick="feMaschineAktion(\'websuche\')">🔎 Websuche mit Riki (~3 ct)</button>';
     if(["zerl","bindung","ohnenote","bew"].includes(k.kasten_id)) kn+='<button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\';feTabWechsel(3)">→ Zutaten &amp; Referenz</button>';
     if(["naehr","bew"].includes(k.kasten_id)) kn+='<button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\';feTabWechsel(2)">→ Nährwerte</button>';
   }
