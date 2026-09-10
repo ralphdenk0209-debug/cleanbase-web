@@ -4161,7 +4161,7 @@ function _abKetteMal(){
       +'<div style="font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:'+farbe.tx+';line-height:1.1;margin-top:2px">'
         +(n===0?'OK':n.toLocaleString('de-DE'))+'</div>'
       +'<div style="font-size:10px;color:#6b7280;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
-        +(n===0?'nichts hängt':(frei?'warten auf Freigabe':esc(String(s.haeufigster_grund||''))))+'</div>'
+        +(n===0?'nichts hängt':esc(String(s.haeufigster_grund||(frei?'warten auf Freigabe':''))))+'</div>'
       +(wtxt?'<div style="font-size:10px;color:#8a6100;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(wtxt)+'</div>':'')
       +'</div>';
   }).join('');
