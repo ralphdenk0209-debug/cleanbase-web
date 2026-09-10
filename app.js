@@ -4977,6 +4977,23 @@ function closeP(){
   var pn=document.getElementById("panel"); if(pn){ pn.style.maxWidth=""; pn.style.width=""; pn.style.height=""; pn.style.maxHeight=""; pn.style.borderRadius=""; pn.style.background=""; }
   try{ var _nf=document.getElementById("navFreigabe"); if(_nf) _nf.style.display="none"; }catch(e){}
   try{ feFreigabeLeisteHide(); }catch(e){}
+  /* 🔴 10.09.2026, RALPH: "wenn ich aus einem Produkt wieder in den Eingang
+     springe, dann ist die Liste ueber den Bildschirm unten raus und ich kann
+     nicht mehr scrollen."
+     Ursache: peListeHoehe() deckelt die Liste auf die Fensterhoehe und legt
+     dafuer den SEITENSCROLL still (peSeitenScroll(true), produktliste.js). Die
+     Hoehe wird EINMAL aus getBoundingClientRect().top gemessen. Nachgemessen
+     wird nur bei window-resize und wenn sich #peSticky aendert - das Schliessen
+     eines Overlays loest beides nicht aus. Also blieb der Seitenscroll aus und
+     der Deckel stand auf einem veralteten Wert: die Liste laeuft unten raus und
+     nichts scrollt mehr.
+     Hier wird nicht gerechnet und nichts Neues gebaut - nur die vorhandene
+     Messung noch einmal angestossen, sobald der Editor zu ist. Im naechsten
+     Frame, damit das Overlay schon aus dem Layout ist. */
+  try{ requestAnimationFrame(function(){
+    try{ if(typeof peListeHoehe==="function") peListeHoehe(); }
+    catch(e){ console.error("[Erfassen] Listenhoehe nach dem Schliessen:", e); }
+  }); }catch(e){}
 }
 /* Eine Karte beginnt oben. Immer. (Ralph, 18.07.2026)
    Wer eine Produktkarte weit unten schliesst und wieder oeffnet, landete bisher
@@ -15138,7 +15155,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-10-9";
+const APP_BUILD = "2026-09-10-10";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
