@@ -4166,7 +4166,7 @@ function _abKetteMal(){
       +'</div>';
   }).join('');
   var info=document.getElementById('abKetteInfo');
-  if(info) info.textContent=ges.toLocaleString('de-DE')+' Produkte gemessen · '+(Number(_abKette.durch)||0).toLocaleString('de-DE')+' ganz durch · Stand '
+  if(info) info.textContent=ges.toLocaleString('de-DE')+' Entwürfe gemessen · '+(Number(_abKette.durch)||0).toLocaleString('de-DE')+' Produkte Aktiv · Stand '
     +(_abKette.gemessen_am?new Date(_abKette.gemessen_am).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'}):'—');
   box.querySelectorAll('.abKst').forEach(function(c){
     var auf=function(){ dashDrill('kette:'+c.dataset.st, 'Hängt an: '+c.dataset.titel); };
