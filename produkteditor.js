@@ -2622,30 +2622,50 @@ function _fgBestGrundText(e){
   if(worte>=6) return "Diese Zeile steht nicht im Zutatenstamm – und sie liest sich wie ein Satz, nicht wie eine Zutat. Vermutlich Werbetext vom Etikett.";
   return "Diese Zutat steht nicht im Zutatenstamm. Solange sie offen ist, bleibt das Produkt gesperrt.";
 }
-function _fgBestBlockerHtml(){
+/* 🔴 10.09.2026, NACHGEMESSEN NACH RALPHS FUND ("die 3 habe ich entfernt, aber
+   die Meldung ist noch da"): meine erste Fassung hat jede Zeile ausgeblendet,
+   deren Manueller_Status nicht mehr OFFEN war - also auch ABGELEHNTE. Das war
+   falsch, und zwar auf die gefaehrlichste Art: die Liste sagte "nichts blockiert",
+   waehrend die Sperre stand.
+   GEMESSEN am Server: cb_referenz_pruefung_status zaehlt die effektiven Blocker,
+   und cb_v2_manuell_uebersteuert hebt einen Blocker NUR bei BESTAETIGT oder
+   IGNORIERT auf - ABGELEHNT nicht. Bei Automatik-Status UNBEKANNT greift die
+   Uebersteuerung ueberhaupt nicht (cb_v2_status_ohne_zuordnung).
+   Ab jetzt ist die Wahrheit die Liste des Servers (d.blockierende_fehler), nach
+   derselben Regel gefiltert. Nicht meine eigene. */
+function _fgBestBlockerListe(){
   var d=(window._fgRefV2||{}).d;
-  if(!d||!Array.isArray(d.elemente)||!Array.isArray(d.pruefzeilen)) return "";
-  var pzById={};
-  d.pruefzeilen.forEach(function(p){ if(p) pzById[p.Parser_Element_ID]=p; });
-  var offen=d.elemente.filter(function(e){
-    if(!e) return false;
-    var pz=pzById[e.id]; if(!pz) return false;
-    if(String(pz.Manueller_Status||"OFFEN")!=="OFFEN") return false;
-    var st=String(e.status||"");
-    return st==="UNBEKANNT"||st==="UNSICHER"||st==="MEHRDEUTIG"||st==="FRAGMENT"
-        || st==="KLAMMER_FEHLER"||st==="FALSCH_ZERLEGT";
-  });
-  if(!offen.length) return "";
-  return offen.map(function(e){
+  if(!d||!Array.isArray(d.elemente)||!Array.isArray(d.blockierende_fehler)) return [];
+  var elById={}; d.elemente.forEach(function(e){ if(e) elById[e.id]=e; });
+  var pzById={}; (d.pruefzeilen||[]).forEach(function(p){ if(p) pzById[p.Parser_Element_ID]=p; });
+  return d.blockierende_fehler.map(function(b){
+    if(!b||b.id==null) return null;
+    var pz=pzById[b.id]||null, ms=String((pz&&pz.Manueller_Status)||"OFFEN");
+    if(ms==="BESTAETIGT"||ms==="IGNORIERT") return null;   /* dieselbe Regel wie der Server */
+    return {id:b.id, el:elById[b.id]||{}, pz:pz, ms:ms, befund:String(b.befund||b.art||"")};
+  }).filter(Boolean);
+}
+function _fgBestBlockerHtml(){
+  var liste=_fgBestBlockerListe();
+  if(!liste.length) return "";
+  return liste.map(function(x){
+    var e=x.el;
+    var name=String(e.name||e.original_text||x.befund||"");
+    var zusatz="";
+    if(x.ms==="ABGELEHNT") zusatz='<div style="margin-top:5px;font-size:12px;color:#b45309;line-height:1.5">'
+      +'⚠ Du hast die Zeile abgelehnt – <b>das hebt die Sperre nicht auf</b>. Abgelehnt heisst nur „falsch erkannt". '
+      +'Die Zeile steht weiter im Etiketttext. Frei wird das Produkt erst, wenn der Name im Stamm steht '
+      +'(„Von der Maschine bewerten lassen") oder die Zeile über „···" auf <b>Ignorieren – bewusst übergehen</b> gesetzt wird.</div>';
     return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 9px;border-top:1px solid var(--line);background:#fdeeec;border-left:4px solid #dc2626">'
       +'<span style="width:10px;height:10px;border-radius:50%;background:#dc2626;flex:none;margin-top:5px"></span>'
       +'<div style="flex:1;min-width:0">'
-        +'<div style="font-weight:600;color:#c0392b;font-size:13px;line-height:1.4">'+esc(String(e.name||e.original_text||""))+'</div>'
+        +'<div style="font-weight:600;color:#c0392b;font-size:13px;line-height:1.4">'+esc(name)+'</div>'
         +'<div style="margin-top:5px;font-size:12px;color:#c0392b;line-height:1.5">⛔ '+esc(_fgBestGrundText(e))+'</div>'
+        +zusatz
       +'</div>'
       +'<span style="flex:none;display:flex;gap:5px">'
-        +'<button type="button" onclick="fgRefV2Schnell('+e.id+')" title="Zuordnung bestätigen (wie erkannt)" style="font-size:11px;padding:2px 7px;border:1px solid #bfe3cb;border-radius:6px;background:#e7f6ec;color:#1f7d43;cursor:pointer;line-height:1.6">✓</button>'
-        +'<button type="button" onclick="fgRefV2Menu(event,'+e.id+')" title="Was soll damit passieren?" style="font-size:11px;padding:2px 7px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--muted);cursor:pointer;line-height:1.6">···</button>'
+        +'<button type="button" onclick="fgRefV2Schnell('+x.id+')" title="Zuordnung bestätigen (wie erkannt)" style="font-size:11px;padding:2px 7px;border:1px solid #bfe3cb;border-radius:6px;background:#e7f6ec;color:#1f7d43;cursor:pointer;line-height:1.6">✓</button>'
+        +'<button type="button" onclick="fgRefV2Menu(event,'+x.id+')" title="Was soll damit passieren?" style="font-size:11px;padding:2px 7px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--muted);cursor:pointer;line-height:1.6">···</button>'
       +'</span>'
     +'</div>';
   }).join("");
@@ -2654,7 +2674,7 @@ function _fgBestKopfHtml(){
   var d=(window._fgRefV2||{}).d;
   var n=Array.isArray(window._fgCanon)?window._fgCanon.length:0;
   var bl=0;
-  try{ bl=(_fgBestBlockerHtml().match(/border-left:4px solid #dc2626/g)||[]).length; }catch(e){}
+  try{ bl=_fgBestBlockerListe().length; }catch(e){}
   var txt=n+(n===1?" Zutat erfasst":" Zutaten erfasst");
   if(bl) txt+=' · <b style="color:#c0392b">'+bl+(bl===1?' Zeile blockiert':' Zeilen blockieren')+' die Freigabe</b>';
   else   txt+=' · <b style="color:#166534">nichts blockiert die Freigabe</b>';
@@ -4037,6 +4057,7 @@ async function fgRefV2Laden(){
   /* Ralph 10.09.2026: das Blockierende steht jetzt AUCH in der linken Liste.
      Ohne diesen Aufruf haette es dort erst nach dem naechsten Tastendruck gestanden. */
   try{ if(typeof fgBestandteileRender==="function") fgBestandteileRender(); }catch(e){ console.error("[Bestandteile] Neuzeichnen nach Referenz", e); }
+  try{ if(FE_REF_KURZ && typeof fgEnthaltenRender==="function") fgEnthaltenRender(); }catch(e){ console.error("[Etikett] Kurzkarte nach Referenz", e); }
   /* Die Spaltenbreite haengt daran, OB der Parser Inhalt geliefert hat - das weiss man
      erst jetzt. Ohne diesen Aufruf bliebe die Karte nach dem Laden auf Normalbreite
      (bzw. eine leere breit). */
@@ -4455,6 +4476,20 @@ function _fgIstHuellenName(raw){
 if(typeof window!=="undefined"){ window._fgIstHuellenName=_fgIstHuellenName; }
 function fgEnthaltenRender(){
   var box=document.getElementById("fe_enthalten"); if(!box) return;
+  /* 🔴 10.09.2026, RALPH: "und noch nicht geprüft ist auch noch da."
+     Richtig - die gespiegelte Liste, die ich abgeschaltet hatte, war die der
+     Referenz V2. Er stand auf der KLASSISCHEN Ansicht, und die hat ihre eigene.
+     Beide Ansichten zeigen jetzt dieselbe kurze Karte. Der alte Aufbau steht
+     darunter unveraendert weiter, fuer den Fall dass FE_REF_KURZ zurueckgestellt wird. */
+  if(FE_REF_KURZ){
+    var w=window._fgRefV2||{};
+    if(w.d){ try{ fgRefV2RenderKurz(w.d, w.st, box); return; }catch(eK){ console.error("[Etikett] Kurzkarte:", eK); } }
+    else {
+      box.innerHTML='<div style="padding:10px;font-size:12.5px;color:var(--muted)">Etikett wird geladen …</div>';
+      try{ if(typeof fgRefV2Laden==="function") fgRefV2Laden(); }catch(eL){ console.error("[Etikett] Laden:", eL); }
+      return;
+    }
+  }
   var ref=(window._fgRef&&window._fgRef.length)?window._fgRef:[];
   ref=ref.filter(function(n){ return !_fgIstHuellenName(n); });
   if(!ref.length){ box.innerHTML='<span style="color:var(--muted);font-size:12.5px">Noch keine Referenz – lass Riki die <b>Herstellerseite</b> oder das <b>Etikett</b> lesen (oder die Zutatenliste analysieren).</span>'; return; }
