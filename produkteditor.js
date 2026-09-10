@@ -2599,6 +2599,68 @@ function _fgBestandteilBilanz(){
   return b;
 }
 if(typeof window!=="undefined"){ window._fgBestandteilBilanz=_fgBestandteilBilanz; }
+/* ────────────────────────────────────────────────────────────────────────────
+   RALPH 10.09.2026 — "so ist es scheisse, ehrlich."
+   Er hatte recht. Was die Freigabe blockiert, stand rechts in einer zweiten
+   Spalte, der Grund dafuer nochmal in den technischen Details, und der Abgleich
+   ein drittes Mal unten drunter. Drei Orte fuer eine Sache.
+   Ab jetzt steht das Blockierende dort, wo die Zutaten stehen: in derselben
+   Liste, rot, mit dem Grund in einem Satz und demselben Menue wie rechts.
+   Es wird NICHTS neu entschieden — dieselben Elemente, dieselben Pruefzeilen,
+   dieselben Funktionen (fgRefV2Schnell / fgRefV2Menu). Nur der Ort ist neu.
+   ──────────────────────────────────────────────────────────────────────────── */
+function _fgBestGrundText(e){
+  var st=String(e.status||"");
+  var name=String(e.name||"");
+  var worte=name.split(/\s+/).filter(Boolean).length;
+  if(st==="MEHRDEUTIG") return "Der Name kann zwei verschiedene Dinge meinen. Solange das offen ist, bleibt das Produkt gesperrt.";
+  if(st==="FRAGMENT")   return "Das ist nur ein Bruchstueck eines Namens, keine ganze Zutat.";
+  if(st==="UNSICHER")   return "Die Zuordnung zum Stamm ist nicht sicher genug.";
+  if(st==="KLAMMER_FEHLER") return "Die Klammern auf dem Etikett gehen nicht auf – die Zeile wurde falsch zerlegt.";
+  if(st==="FALSCH_ZERLEGT") return "Die Zeile wurde falsch zerlegt.";
+  if(st==="HERSTELLERANGABE_UNVOLLSTAENDIG") return "Der Hersteller nennt die Bestandteile dieser Gruppe nicht einzeln.";
+  if(worte>=6) return "Diese Zeile steht nicht im Zutatenstamm – und sie liest sich wie ein Satz, nicht wie eine Zutat. Vermutlich Werbetext vom Etikett.";
+  return "Diese Zutat steht nicht im Zutatenstamm. Solange sie offen ist, bleibt das Produkt gesperrt.";
+}
+function _fgBestBlockerHtml(){
+  var d=(window._fgRefV2||{}).d;
+  if(!d||!Array.isArray(d.elemente)||!Array.isArray(d.pruefzeilen)) return "";
+  var pzById={};
+  d.pruefzeilen.forEach(function(p){ if(p) pzById[p.Parser_Element_ID]=p; });
+  var offen=d.elemente.filter(function(e){
+    if(!e) return false;
+    var pz=pzById[e.id]; if(!pz) return false;
+    if(String(pz.Manueller_Status||"OFFEN")!=="OFFEN") return false;
+    var st=String(e.status||"");
+    return st==="UNBEKANNT"||st==="UNSICHER"||st==="MEHRDEUTIG"||st==="FRAGMENT"
+        || st==="KLAMMER_FEHLER"||st==="FALSCH_ZERLEGT";
+  });
+  if(!offen.length) return "";
+  return offen.map(function(e){
+    return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 9px;border-top:1px solid var(--line);background:#fdeeec;border-left:4px solid #dc2626">'
+      +'<span style="width:10px;height:10px;border-radius:50%;background:#dc2626;flex:none;margin-top:5px"></span>'
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="font-weight:600;color:#c0392b;font-size:13px;line-height:1.4">'+esc(String(e.name||e.original_text||""))+'</div>'
+        +'<div style="margin-top:5px;font-size:12px;color:#c0392b;line-height:1.5">⛔ '+esc(_fgBestGrundText(e))+'</div>'
+      +'</div>'
+      +'<span style="flex:none;display:flex;gap:5px">'
+        +'<button type="button" onclick="fgRefV2Schnell('+e.id+')" title="Zuordnung bestätigen (wie erkannt)" style="font-size:11px;padding:2px 7px;border:1px solid #bfe3cb;border-radius:6px;background:#e7f6ec;color:#1f7d43;cursor:pointer;line-height:1.6">✓</button>'
+        +'<button type="button" onclick="fgRefV2Menu(event,'+e.id+')" title="Was soll damit passieren?" style="font-size:11px;padding:2px 7px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--muted);cursor:pointer;line-height:1.6">···</button>'
+      +'</span>'
+    +'</div>';
+  }).join("");
+}
+function _fgBestKopfHtml(){
+  var d=(window._fgRefV2||{}).d;
+  var n=Array.isArray(window._fgCanon)?window._fgCanon.length:0;
+  var bl=0;
+  try{ bl=(_fgBestBlockerHtml().match(/border-left:4px solid #dc2626/g)||[]).length; }catch(e){}
+  var txt=n+(n===1?" Zutat erfasst":" Zutaten erfasst");
+  if(bl) txt+=' · <b style="color:#c0392b">'+bl+(bl===1?' Zeile blockiert':' Zeilen blockieren')+' die Freigabe</b>';
+  else   txt+=' · <b style="color:#166534">nichts blockiert die Freigabe</b>';
+  return '<div style="padding:9px 10px;border-bottom:1px solid var(--line);background:var(--k-f6f8f7,#f6f8f7);font-size:12px;color:var(--muted);line-height:1.5">'+txt+'</div>';
+}
+if(typeof window!=="undefined"){ window._fgBestBlockerHtml=_fgBestBlockerHtml; }
 /* Rendert die gemeinsame Liste. Gibt true zurück, wenn sie gerendert hat –
    sonst übernimmt der bestehende Picker (fgPickRender), unverändert (§17). */
 function fgBestandteileRender(){
@@ -2637,7 +2699,7 @@ function fgBestandteileRender(){
   }
   var _off=(typeof _fgZutOffenHtml==="function")?_fgZutOffenHtml():"";
   var st=wrap.scrollTop;
-  wrap.innerHTML=H.join("")+_off
+  wrap.innerHTML=_fgBestKopfHtml()+H.join("")+_off+_fgBestBlockerHtml()
     +'<div style="padding:8px;color:var(--muted);font-size:11.5px;text-align:center;border-top:1px dashed var(--line)">'
     +'🔎 Tippen durchsucht den Zutatenstamm</div>';
   try{ wrap.scrollTop=st; }catch(e){}
@@ -3740,6 +3802,78 @@ function fgRefV2KommentarSenden(elId){
   /* Status bleibt, wie er ist - ein Kommentar ist keine Entscheidung. */
   fgRefV2Aktion(pz.Referenz_ID, String(pz.Manueller_Status||"OFFEN"), null, txt||null);
 }
+/* ────────────────────────────────────────────────────────────────────────────
+   RALPH 10.09.2026 — "auch ein Button Zutat durch die Maschine bewerten lassen,
+   also Regelwerk und Staffeln."
+   Kein neuer Weg (B2): das ist genau die Kette, die der Knopf "→ Riki" in der
+   linken Zutatenzeile seit jeher benutzt — Edge riki-zutat-bewerten stuft nach
+   Regelwerk und Staffeln ein, die Waechter gegenpruefen, dann geht die Zutat
+   ueber zutStammAnlegenMitKat in den Stamm. Neu ist nur, dass man sie AUCH von
+   einer blockierenden Pruefzeile aus anstossen kann, statt den Namen erst
+   drueben abzutippen.
+   ──────────────────────────────────────────────────────────────────────────── */
+function _fgRefV2MaschErgebnis(elId, d){
+  var m=document.getElementById("fgRefV2Menu"); if(!m) return;
+  var e=_fgRefV2El(elId)||{};
+  var v=d.verifikation||{}, ges=v.gesamt||"KEIN_SIGNAL";
+  var col=ges==="BESTAETIGT"?"#166534":ges==="AUSNAHME"?"#b91c1c":"#b45309";
+  var lbl=ges==="BESTAETIGT"?"bestätigt":ges==="AUSNAHME"?"Widerspruch – bitte selbst ansehen"
+         :ges==="PRUEFEN"?"grenzwertig":"kein Prüfsignal";
+  m.innerHTML='<div style="padding:2px 4px 8px"><b>'+esc(e.name||"")+'</b></div>'
+    +'<div style="padding:8px 9px;border:1px solid #eef2f7;border-left:3px solid '+col+';border-radius:8px;background:#f6f8fa;font-size:12.5px;line-height:1.55">'
+      +'<b>Die Maschine sagt: Stufe '+esc(String(d.stufe))+'</b>'
+      +(d.begruendung?'<br>'+esc(String(d.begruendung)):'')
+      +'<br><span style="color:'+col+';font-weight:700">'+lbl+'</span>'
+    +'</div>'
+    +'<button type="button" onclick="fgRefV2MaschUebernehmen('+elId+','+Number(d.stufe)+',\''+esc(String(ges))+'\')" '
+      +'style="display:block;width:100%;margin-top:8px;padding:8px;border:1px solid #bfe3cb;border-radius:8px;background:#e7f6ec;color:#1f7d43;cursor:pointer;font-size:12.5px;font-weight:700">'
+      +'✓ So in den Stamm übernehmen</button>'
+    +'<button type="button" onclick="fgRefV2MenuZu()" '
+      +'style="display:block;width:100%;margin-top:6px;padding:7px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">Abbrechen</button>';
+}
+function fgRefV2Maschine(elId){
+  var e=_fgRefV2El(elId); if(!e) return;
+  var name=String(e.name||e.original_text||"").trim();
+  if(!name) return;
+  var m=document.getElementById("fgRefV2Menu");
+  if(m) m.innerHTML='<div style="padding:12px 10px;font-size:12.5px;color:#6b7280">Die Maschine liest Regelwerk und Staffeln …</div>';
+  client.auth.getSession().then(function(s){
+    var tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!tok) throw new Error("Nicht angemeldet.");
+    return fetch(client.supabaseUrl+"/functions/v1/riki-zutat-bewerten",
+      {method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok,"apikey":client.supabaseKey},
+       body:JSON.stringify({name:name})})
+      .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error(d&&d.error||"Die Maschine hat nicht geantwortet."); return d; }); });
+  }).then(function(d){
+    if(!d||typeof d.stufe!=="number") throw new Error("Die Maschine hat keine Stufe geliefert.");
+    _fgRefV2MaschErgebnis(elId, d);
+  }).catch(function(err){
+    var m2=document.getElementById("fgRefV2Menu");
+    if(m2) m2.innerHTML='<div style="padding:12px 10px;font-size:12.5px;color:#b91c1c">'+esc(String(err&&err.message||err))+'</div>'
+      +'<button type="button" onclick="fgRefV2MenuZu()" style="display:block;width:100%;margin-top:6px;padding:7px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">Schliessen</button>';
+    console.error("[Referenz V2] Maschine", err);
+  });
+}
+function fgRefV2MaschUebernehmen(elId, stufe, ges){
+  var e=_fgRefV2El(elId); if(!e) return;
+  var name=String(e.name||e.original_text||"").trim(); if(!name) return;
+  var m=document.getElementById("fgRefV2Menu");
+  if(m) m.innerHTML='<div style="padding:12px 10px;font-size:12.5px;color:#6b7280">lege an …</div>';
+  Promise.resolve(zutStammAnlegenMitKat({p_name:name, p_rating:stufe,
+      p_quelle:"Maschine (Regelwerk + Staffeln), Verifikation "+String(ges||"")+", aus der Etikettpruefung"}))
+    .then(function(res){
+      if(res&&res.error) throw res.error;
+      if(!(res&&res.data&&res.data.ok)) throw new Error("Der Stamm hat die Zutat nicht angenommen.");
+      fgRefV2MenuZu();
+      return fgRefV2NachNeuanlage(name, true);
+    })
+    .catch(function(err){
+      var m2=document.getElementById("fgRefV2Menu");
+      if(m2) m2.innerHTML='<div style="padding:12px 10px;font-size:12.5px;color:#b91c1c">'+esc(String(err&&err.message||err))+'</div>';
+      console.error("[Referenz V2] Maschine uebernehmen", err);
+    });
+}
+if(typeof window!=="undefined"){ window.fgRefV2Maschine=fgRefV2Maschine; window.fgRefV2MaschUebernehmen=fgRefV2MaschUebernehmen; }
 function fgRefV2Menu(ev, elId){
   try{ ev.stopPropagation(); }catch(e){}
   var offen=document.getElementById("fgRefV2Menu");
@@ -3752,6 +3886,7 @@ function fgRefV2Menu(ev, elId){
   var html='<div style="padding:2px 4px 6px"><b>'+esc(e.name||"")+'</b> <span style="color:#9aa7b2">· Status: '+esc(st)+'</span></div>';
   var eStA=String(e.status||"");
   var kein_wie_erkannt=(eStA==="MEHRDEUTIG"||eStA==="FRAGMENT"||eStA==="KLAMMER_FEHLER"||eStA==="FALSCH_ZERLEGT"||eStA==="HERSTELLERANGABE_UNVOLLSTAENDIG");
+  if(!e.zutat_id) html+=K('⚙ <b>Von der Maschine bewerten lassen</b><br><span style="color:#9aa7b2">Regelwerk und Staffeln anwenden, Zutat anlegen und Note setzen</span>', 'fgRefV2Maschine('+elId+')', '#6b4fbb');
   if(!kein_wie_erkannt) html+=K('✓ Zuordnung bestätigen (wie erkannt)', 'fgRefV2Schnell('+elId+')', '#166534');
   (e.kandidaten||[]).forEach(function(kd,i){
     html+=K('→ Kandidat wählen: <b>'+esc(kd.zutat)+'</b> <span style="color:#9aa7b2">('+esc(kd.art)+', '+esc(String(kd.aehnlichkeit).slice(0,4))+')</span>', 'fgRefV2KandWahl('+elId+','+i+')');
@@ -3899,6 +4034,9 @@ async function fgRefV2Laden(){
   }
   window._fgRefV2={d:d, st:st, rohtext:(d&&d.rohtext)||""};
   fgRefV2Render(d, st);
+  /* Ralph 10.09.2026: das Blockierende steht jetzt AUCH in der linken Liste.
+     Ohne diesen Aufruf haette es dort erst nach dem naechsten Tastendruck gestanden. */
+  try{ if(typeof fgBestandteileRender==="function") fgBestandteileRender(); }catch(e){ console.error("[Bestandteile] Neuzeichnen nach Referenz", e); }
   /* Die Spaltenbreite haengt daran, OB der Parser Inhalt geliefert hat - das weiss man
      erst jetzt. Ohne diesen Aufruf bliebe die Karte nach dem Laden auf Normalbreite
      (bzw. eine leere breit). */
@@ -6514,8 +6652,15 @@ function _abgZeilen(){
             note:(e.note==null?null:e.note)};
   });
 }
+/* 🔴 RALPH 10.09.2026: "damit muessten auch die unteren Abweichungen wegfallen,
+   da diese dann auch in der Liste sind, richtig?" — Richtig. Der Block zeigte
+   dieselben Pruefzeilen ein drittes Mal ("0 von 3 Etikett-Zutaten zugeordnet").
+   Er wird nicht geloescht, sondern abgeschaltet: eine Zeile zurueck, falls sich
+   im Alltag zeigt, dass etwas fehlt. */
+var FE_ABGLEICH_AUS = true;
 function feAbgleichRender(nurAbw){
   var box=document.getElementById("feAbgleich"); if(!box) return;
+  if(FE_ABGLEICH_AUS){ box.style.display="none"; box.innerHTML=""; return; }
   var w=window._fgRefV2||{}, d=w.d||{}, st=w.st||{};
   var gueltig=Number(st.pruefzeilen_gueltig||0)||0, blocker=Number(st.blocker||0)||0;
   var Z=_abgZeilen();
