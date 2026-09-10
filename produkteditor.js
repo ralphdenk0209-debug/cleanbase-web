@@ -10253,9 +10253,10 @@ async function fgKetteAufbrechen(btn){
 if(typeof window!=="undefined"){ window.fgKetteAufbrechen=fgKetteAufbrechen; }
 
 /* ============================================================================
-   MASCHINE IM KOPFBAND  (Ralph 09.09.2026, #217)
-   27 Kaesten als Punkte. Messung: cb_produkt_maschine_stand (dieselbe Regel wie das
-   Kern-Poster). Klick auf einen Punkt: Popup mit Grund und Knoepfen, die nur
+   MASCHINE IM KOPFBAND  (Ralph 09.09.2026, #217; 10.09.: 8 Stationen statt 27, Ralph A)
+   8 Stationen als Punkte: Eingang, Gelesen, Herkunft, Zerlegt, Gebunden, Bewertet,
+   Waechter, Freigegeben. Messung: cb_produkt_leiste fasst cb_produkt_maschine_stand
+   (27 Kaesten, dieselbe Regel wie das Kern-Poster) zusammen - nichts wird hier gerechnet. Klick auf einen Punkt: Popup mit Grund und Knoepfen, die nur
    vorhandene Werkzeuge rufen (E48): Anstossen, Websuche mit Riki, Neu messen.
    ========================================================================== */
 window._feMaschine=null;
@@ -10264,7 +10265,7 @@ async function feMaschineLauf(){
   const btn=document.getElementById("feMaschineBtn"), box=document.getElementById("feMaschineDots");
   if(btn) btn.disabled=true; if(box) box.innerHTML='<span class="fkbMaschineLeer">misst…</span>';
   try{
-    const {data,error}=await client.rpc("cb_produkt_maschine_stand",{p_id:id});
+    const {data,error}=await client.rpc("cb_produkt_leiste",{p_id:id});
     if(error) throw error;
     const r=(typeof data==="string")?JSON.parse(data):data;
     if(!r||r.ok===false) throw new Error((r&&r.grund)||"keine Antwort");
@@ -10275,10 +10276,18 @@ async function feMaschineLauf(){
 function feMaschineRender(){
   const r=window._feMaschine, box=document.getElementById("feMaschineDots"); if(!r||!box) return;
   const ks=(r.kaesten||[]).slice().sort((a,b)=>(a.rang||0)-(b.rang||0));
-  box.innerHTML=ks.map((k,i)=>'<span class="fkbDot fkbDot-'+esc(k.status||"leer")+'" data-i="'+i+'" title="'+esc((k.rang||"")+" "+(k.titel||"")+(k.notiz?" - "+k.notiz:""))+'" onclick="feMaschinePopup('+i+')">'+esc(String(k.rang||""))+'</span>').join("")
+  box.innerHTML=ks.map((k,i)=>'<span class="fkbDot fkbDot-'+esc(k.status||"leer")+'" data-i="'+i+'" title="'+esc((k.rang||"")+" "+(k.titel||"")+(k.notiz?" - "+k.notiz:""))+'" onclick="feMaschinePopup('+i+')">'+esc(k.titel||String(k.rang||""))+'</span>').join("")
     +'<span class="fkbMaschineSumme">'+(r.durch||0)+' durch · <b>'+(r.haengt||0)+' hängt</b> · '+(r.uebersprungen||0)+' nicht auf dem Weg</span>';
 }
 const FE_MASCHINE_TIPP={
+  eingang:"Wie das Produkt hereinkam: Barcode, Foto oder Link. Haengt es hier, ist der Auftrag nicht fertig - 'Anstossen'.",
+  gelesen:"Wortlaut und Naehrwerte da? Quellen: Portale (OFF, dm, EDEKA), Foto, Herstellerseite. Ohne EAN kann Riki im Web suchen (~3 ct).",
+  herkunft:"Keine belegte Herkunft (Etikett, Portal oder Herstellerseite).",
+  zerlegt:"Kein Zutaten-Wortlaut - Zutatenliste fotografieren oder Quelle holen.",
+  gebunden:"Zutaten nicht alle an den Stamm gebunden oder Stammzutat ohne Note - in 'Zutaten & Referenz' loesen.",
+  bewertet:"Kein vollstaendiger Score - meist fehlen Naehrwerte oder Bindungen.",
+  waechter:"Ein Waechter meldet: Belegpruefung, Naehrwerte, Dublette. Befund im Freigabe-Check unten links.",
+  frei:"Nicht freigegeben - der Freigabe-Check unten links nennt die Blocker.",
   ein_ean:"Kein Barcode am Auftrag. Normalweg ist der Scan; ohne Barcode geht es nur ueber 'Produkt hat keinen Barcode'.",
   off:"Barcode ist nicht in den Portalen (OFF, dm, EDEKA). Websuche greift nur ohne EAN.",
   offd:"Open Food Facts kennt den Barcode nicht oder liefert keine Zutaten.",
@@ -10306,9 +10315,9 @@ function feMaschinePopup(i){
   let kn='';
   if(k.status==="haengt"){
     kn+='<button type="button" onclick="feMaschineAktion(\'anstossen\')">▶ Anstoßen</button>';
-    if(["foto","adr","herst","quelle","zerl","off","offd"].includes(k.kasten_id) && ohneEan && ohneLink) kn+='<button type="button" onclick="feMaschineAktion(\'websuche\')">🔎 Websuche mit Riki (~3 ct)</button>';
-    if(["zerl","bindung","ohnenote","bew"].includes(k.kasten_id)) kn+='<button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\';feTabWechsel(3)">→ Zutaten &amp; Referenz</button>';
-    if(["naehr","bew"].includes(k.kasten_id)) kn+='<button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\';feTabWechsel(2)">→ Nährwerte</button>';
+    if(["gelesen","herkunft","zerlegt","foto","adr","herst","quelle","zerl","off","offd"].includes(k.kasten_id) && ohneEan && ohneLink) kn+='<button type="button" onclick="feMaschineAktion(\'websuche\')">🔎 Websuche mit Riki (~3 ct)</button>';
+    if(["zerlegt","gebunden","bewertet","zerl","bindung","ohnenote","bew"].includes(k.kasten_id)) kn+='<button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\';feTabWechsel(3)">→ Zutaten &amp; Referenz</button>';
+    if(["bewertet","naehr","bew"].includes(k.kasten_id)) kn+='<button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\';feTabWechsel(2)">→ Nährwerte</button>';
   }
   ov.innerHTML='<div class="feMaschineKarte">'
     +'<div class="feMaschineKopf"><span class="fkbDot fkbDot-'+esc(k.status||"leer")+'">'+esc(String(k.rang||""))+'</span><b>'+esc(k.titel||k.kasten_id)+'</b><span style="color:'+farbe+';font-weight:700;margin-left:auto">'+wort+'</span><button type="button" onclick="document.getElementById(\'feMaschineOv\').style.display=\'none\'" class="feMaschineX">✕</button></div>'
@@ -10325,7 +10334,7 @@ function feMaschinePopup(i){
    z.B. Websuche "ambiguous - Hersteller ist Foodloose, nicht Vego". */
 function feMaschineVersucheHtml(k){
   const r=window._feMaschine; const v=(r&&r.versuche)||[]; if(!v.length) return '';
-  const zeig=["adr","herst","quelle","zerl","off","offd","foto","naehr","bew"].includes(k.kasten_id) ? v.slice(0,4) : [];
+  const zeig=["gelesen","herkunft","zerlegt","bewertet","adr","herst","quelle","zerl","off","offd","foto","naehr","bew"].includes(k.kasten_id) ? v.slice(0,4) : [];
   if(!zeig.length) return '';
   const korr=v.find(x=>x.marke_korrektur);
   return '<div class="feMaschineVersuche"><b>Schon versucht:</b>'

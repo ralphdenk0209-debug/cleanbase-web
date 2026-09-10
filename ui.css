@@ -4026,7 +4026,8 @@ body.riFokus #feKopfZone .feKzChip.warn{ background:#7a5a16 !important; color:#f
 #feKopfband .fkbMaschineDots{ display:flex; align-items:center; gap:3px; flex-wrap:wrap }
 #feKopfband .fkbMaschineLeer{ color:#a8cfe0; font-size:12px }
 #feKopfband .fkbMaschineSumme{ color:#e2e8f0; font-size:12px; margin-left:8px }
-.fkbDot{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; font-size:9px; font-weight:700; color:#0f172a; cursor:pointer; background:#6b7280; flex:0 0 auto }
+/* 10.09.2026 (Ralph A): 8 Stationen mit Namen statt 27 Nummernpunkte */
+.fkbDot{ display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 8px; border-radius:10px; font-size:11px; font-weight:700; color:#0f172a; cursor:pointer; background:#6b7280; flex:0 0 auto; white-space:nowrap }
 .fkbDot-durch{ background:#22c55e } .fkbDot-haengt{ background:#eab308; box-shadow:0 0 0 2px #fde04766 } .fkbDot-uebersprungen{ background:#4b5563; color:#cbd5e1 }
 #feMaschineOv{ position:fixed; inset:0; z-index:10050; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; padding:14px }
 .feMaschineKarte{ width:100%; max-width:460px; background:var(--card,#fff); color:var(--ink,#111); border-radius:14px; padding:16px; box-shadow:0 16px 40px #0006 }
