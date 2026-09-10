@@ -8913,7 +8913,7 @@ function renderTbStatistik(rows,goal,zrows,zfehler){
     +`<div style="font-size:11.5px;color:var(--k-9aa7a0);margin-top:8px">${rows.length} Tage · ${logged.length} mit Einträgen · Durchschnitte nur über erfasste Tage.</div>`;
 }
 let _bdResult=null;
-function actFactor(a){ return ({"Sitzend":1.2,"Leicht aktiv":1.375,"Mäßig aktiv":1.55,"Sehr aktiv":1.725})[a]||1.375; }
+/* actFactor ist mit #682 geloescht - die Aktivitaetsfaktoren stehen in cb_bedarf_rechnen. */
 function ageFromDob(v){
   if(!v) return null; const d=new Date(v); if(isNaN(d.getTime())) return null;
   const t=new Date(); let a=t.getFullYear()-d.getFullYear();
@@ -8926,63 +8926,76 @@ function pfAgeFromGeb(){
   if(age!=null){ a.value=age; a.readOnly=true; a.style.background="var(--k-f3f4f6)"; a.title="Automatisch aus Geburtsdatum berechnet"; }
   else { a.readOnly=false; a.style.background=""; a.title=""; }
 }
-function navyKF(){
+/* ────────────────────────────────────────────────────────────────────────────
+   WORK #682 (10.09.2026) — EINE WISSENSCHAFT, EIN ORT.
+   Hier standen DREI eigene Rechenwege: navyKF (Koerperfett nach US-Navy),
+   computeBedarf (Tagebuch-Rechner) und noch einmal dieselben Formeln inline in
+   calcBedarf (Profil-Rechner). Die App rechnet seit heute serverseitig. Damit
+   stand dieselbe Wissenschaft an vier Stellen - genau der Zustand, den der
+   Kernvertrag verbietet.
+   Die Formeln sind geloescht, nicht auskommentiert. Was hier bleibt, ist
+   Bedienung: Felder lesen, unplausible Eingaben in verstaendlichen Saetzen
+   melden, Ergebnis anzeigen. Gerechnet wird in cb_bedarf_rechnen und
+   cb_koerperfett_navy.
+   GEMESSEN vor dem Umbau, damit die Zahlen gleich bleiben: 44 J., maennlich,
+   180 cm, 85 kg, "Leicht aktiv", Tempo -0,15 -> Grundumsatz 1760, Erhalt 2420,
+   Ziel 2057 kcal, 153 g Eiweiss, 207 g KH, 69 g Fett. Die Aktivitaetsstufen
+   liefern serverseitig dieselben Faktoren wie das geloeschte actFactor
+   (1,2 / 1,375 / 1,55 / 1,725, Standard 1,375).
+   ──────────────────────────────────────────────────────────────────────────── */
+async function navyKF(){
   const gv=id=>{const e=document.getElementById(id);return e?e.value:"";};
   const sex=gv("pfGeschlecht"), h=num(gv("pfGroesse"));
   const neck=num(gv("bdHals")), waist=num(gv("bdTaille")), hip=num(gv("bdHuefte"));
   const out=document.getElementById("bdNavyOut"); if(!out) return;
-  if(!h||!neck||!waist){ out.style.color="var(--k-b45309)"; out.textContent="Bitte Größe (oben im Profil), Hals und Taille eintragen."; return; }
-  const log10=x=>Math.log(x)/Math.LN10; let kf;
-  if(sex==="weiblich"){
-    if(!hip){ out.style.color="var(--k-b45309)"; out.textContent="Für Frauen bitte auch die Hüfte eintragen."; return; }
-    if(waist+hip-neck<=0){ out.style.color="var(--k-b45309)"; out.textContent="Maße prüfen (Taille+Hüfte muss größer als Hals sein)."; return; }
-    kf=495/(1.29579-0.35004*log10(waist+hip-neck)+0.22100*log10(h))-450;
-  } else {
-    if(waist-neck<=0){ out.style.color="var(--k-b45309)"; out.textContent="Maße prüfen (Taille muss größer als Hals sein)."; return; }
-    kf=495/(1.0324-0.19077*log10(waist-neck)+0.15456*log10(h))-450;
+  const fehler=t=>{ out.style.color="var(--k-b45309)"; out.textContent=t; };
+  if(!h||!neck||!waist) return fehler("Bitte Größe (oben im Profil), Hals und Taille eintragen.");
+  if(sex==="weiblich" && !hip) return fehler("Für Frauen bitte auch die Hüfte eintragen.");
+  out.style.color=""; out.textContent="rechne …";
+  let kf=null;
+  try{
+    const r=await client.rpc("cb_koerperfett_navy",
+      {p_geschlecht:sex, p_groesse:h, p_hals:neck, p_taille:waist, p_huefte:(hip||null)});
+    if(r&&r.error) throw r.error;
+    let d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+    kf=(d&&d.koerperfett!=null)?Number(d.koerperfett):null;
+  }catch(e){
+    console.error("[#682 Körperfett]", e);
+    return fehler("Die Berechnung ist fehlgeschlagen: "+((e&&e.message)||e));
   }
-  if(!(kf>2)||kf>70){ out.style.color="var(--k-b45309)"; out.textContent="Ergebnis unplausibel – bitte Maße prüfen."; return; }
-  kf=Math.round(kf*10)/10;
+  if(!(kf>2)||kf>70) return fehler("Ergebnis unplausibel – bitte Maße prüfen (Taille muss größer als Hals sein, bei Frauen Taille+Hüfte größer als Hals).");
   const kfEl=document.getElementById("bdKF"); if(kfEl) kfEl.value=kf;
   out.style.color="var(--k-166534)";
   out.innerHTML="Geschätzter Körperfettanteil: <b>"+String(kf).replace('.',',')+" %</b> → in „Körperfett %“ übernommen. Jetzt <b>„Berechnen“</b> (rechnet dann mit Katch-McArdle). <span style=\"color:var(--muted)\">±3–4 %, ersetzt keine Messung (InBody/DEXA).</span>";
 }
-// Gemeinsame Rechenlogik (Profil-Rechner UND Free-Tagebuch-Rechner nutzen sie – identische Wissenschaft)
-function computeBedarf(v){
-  var age=num(v.age), sex=v.sex, h=num(v.h), w=num(v.w), act=v.act;
-  if(!age||!h||!w) return {err:"Bitte Alter, Größe und Gewicht ausfüllen."};
-  if(age<10||age>100) return {err:"Alter „"+age+"“ wirkt unplausibel – bitte das Alter in Jahren eintragen."};
-  if(h<120||h>250) return {err:"Größe „"+h+"“ wirkt unplausibel – bitte die Größe in cm eintragen (z. B. 180)."};
-  if(w<30||w>350) return {err:"Gewicht „"+w+"“ wirkt unplausibel – bitte das Gewicht in kg eintragen."};
-  var ziel=num(v.ziel)||w;
-  var tempo=parseFloat(v.tempo)||0;
-  var protF=parseFloat(v.protF)||1.8;
-  var protRef=v.protRef, niere=!!v.niere;
-  var kfPct=num(v.kfPct), bmrMess=num(v.bmrMess);
-  var bmr, bmrMethode;
-  if(bmrMess && bmrMess>0){ bmr=bmrMess; bmrMethode="gemessen (InBody/DEXA)"; }
-  else if(kfPct && kfPct>3 && kfPct<70){ var ffm=w*(1-kfPct/100); bmr=370+21.6*ffm; bmrMethode="Katch-McArdle (fettfreie Masse "+Math.round(ffm)+" kg)"; }
-  else {
-    if(sex==="männlich") bmr=10*w+6.25*h-5*age+5;
-    else if(sex==="weiblich") bmr=10*w+6.25*h-5*age-161;
-    else bmr=10*w+6.25*h-5*age-78;
-    bmrMethode="Mifflin-St-Jeor";
-  }
-  var tdee=bmr*actFactor(act);
-  var ziK=tdee*(1+tempo);
-  var hardFloor=(sex==="männlich")?1500:1200;
-  var floor=Math.max(bmr,hardFloor), floored=false;
-  if(ziK<floor){ ziK=floor; floored=true; }
-  var warnNiere="";
-  if(niere && protF>1.0){ protF=1.0; warnNiere=" – auf 1,0 g/kg begrenzt"; }
-  var protBasis=(protRef==="aktuell")?w:ziel;
-  var protein=protF*protBasis;
-  var fettPct=parseFloat(v.fettPct)||0.275;
-  var fett=(ziK*fettPct)/9;
-  var kh=Math.max(0,(ziK-protein*4-fett*9)/4);
-  return {bmr:bmr,bmrMethode:bmrMethode,tdee:tdee,floor:floor,floored:floored,niere:niere,protF:protF,protRef:protRef,warnNiere:warnNiere,fettPct:fettPct,
-          kcal:Math.round(ziK),protein:Math.round(protein),kh:Math.round(kh),fett:Math.round(fett)};
+/* Bedienpruefung, keine Wissenschaft: sie sagt dem Menschen, was er eintragen soll. */
+function _bedarfPruefen(age,h,w,wo){
+  wo=wo||"";
+  if(!age||!h||!w) return "Bitte "+(wo?wo+" ":"")+"Alter, Größe und Gewicht ausfüllen"+(wo?" (und speichern)":"")+".";
+  if(age<10||age>100) return "Alter „"+age+"“ wirkt unplausibel – bitte das ALTER in Jahren eintragen (nicht das Geburtsjahr)"+(wo?" und speichern":"")+".";
+  if(h<120||h>250)    return "Größe „"+h+"“ wirkt unplausibel – bitte die Größe in cm eintragen (z. B. 180)"+(wo?" und speichern":"")+".";
+  if(w<30||w>350)     return "Gewicht „"+w+"“ wirkt unplausibel – bitte das Gewicht in kg eintragen"+(wo?" und speichern":"")+".";
+  return null;
 }
+/* Der einzige Rechenweg des Webs: die Serverfunktion. Rueckgabe in der Form,
+   die bedarfResultHtml seit jeher erwartet - der Renderer bleibt unveraendert. */
+async function cbBedarf(v){
+  const r=await client.rpc("cb_bedarf_rechnen",{
+    p_alter:Math.round(num(v.age)), p_geschlecht:v.sex, p_groesse:num(v.h), p_gewicht:num(v.w),
+    p_aktivitaet:v.act, p_zielgewicht:(num(v.ziel)||null), p_tempo:(parseFloat(v.tempo)||0),
+    p_eiweiss_pro_kg:(parseFloat(v.protF)||1.8), p_eiweiss_bezug:v.protRef, p_niere:!!v.niere,
+    p_koerperfett:(num(v.kfPct)||null), p_bmr_gemessen:(num(v.bmrMess)||null),
+    p_fett_anteil:(parseFloat(v.fettPct)||0.275)});
+  if(r&&r.error) throw r.error;
+  let d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e){} }
+  if(!d||d.kcal==null) throw new Error("Der Server hat keine Zahlen geliefert.");
+  return {bmr:Number(d.bmr), bmrMethode:d.bmr_methode, tdee:Number(d.tdee),
+          floor:Number(d.untergrenze), floored:!!d.begrenzt, niere:!!v.niere,
+          protF:Number(d.eiweiss_pro_kg), protRef:v.protRef, warnNiere:d.hinweis_niere||"",
+          fettPct:Number(d.fett_anteil), kcal:Number(d.kcal), protein:Number(d.eiweiss_g),
+          kh:Number(d.kh_g), fett:Number(d.fett_g)};
+}
+/* computeBedarf ist mit #682 geloescht - der Weg ist cbBedarf() oben. */
 /* Ergebnis des Bedarfsrechners. Vorher stand die Tagesempfehlung als EINE nackte
    Zahl da ("plump") und die Makros als gedraengte Textzeile. Jetzt: die Herleitung
    (Grundumsatz x Aktivitaet -> Erhalt), die Zielzahl gross, ein Aufteilungsbalken
@@ -9025,50 +9038,32 @@ function bedarfResultHtml(r){
     + (r.niere?'<div style="margin-top:6px;color:var(--k-b45309);font-size:11.5px">⚠️ Bei Nierenerkrankung Eiweiß ärztlich abstimmen – keine medizinische Beratung.</div>':'')
   +'</div>';
 }
-function calcBedarf(){
+async function calcBedarf(){
   const out=document.getElementById("bdOut"); _bdResult=null;
   const ab=document.getElementById("bdApplyBtn"); if(ab) ab.disabled=true;
   const gv=id=>{const e=document.getElementById(id);return e?e.value:"";};
   let age=num(gv("pfAlter")); const _a=ageFromDob(gv("pfGeb")); if(_a!=null) age=_a;
   const sex=gv("pfGeschlecht"), h=num(gv("pfGroesse")), w=num(gv("pfGewicht")), act=gv("pfAktiv");
-  if(!age||!h||!w){ out.style.color="var(--k-b45309)"; out.textContent="Bitte oben Alter, Größe und Gewicht ausfüllen (und speichern)."; return; }
-  if(age<10||age>100){ out.style.color="var(--k-b45309)"; out.textContent="Alter „"+age+"“ wirkt unplausibel – bitte oben das ALTER in Jahren eintragen (nicht das Geburtsjahr) und speichern."; return; }
-  if(h<120||h>250){ out.style.color="var(--k-b45309)"; out.textContent="Größe „"+h+"“ wirkt unplausibel – bitte oben die Größe in cm eintragen (z. B. 180) und speichern."; return; }
-  if(w<30||w>350){ out.style.color="var(--k-b45309)"; out.textContent="Gewicht „"+w+"“ wirkt unplausibel – bitte oben das Gewicht in kg eintragen und speichern."; return; }
-  const ziel=num(gv("bdZiel"))||w;
-  const tempo=parseFloat(gv("bdTempo"))||0;
-  let protF=parseFloat(gv("bdProt"))||1.8;
-  const protRef=gv("bdProtRef"), niere=!!(document.getElementById("bdNiere")||{}).checked;
-  const kfPct=num(gv("bdKF")), bmrMess=num(gv("bdBmrMess"));
-  let bmr, bmrMethode;
-  if(bmrMess && bmrMess>0){ bmr=bmrMess; bmrMethode="gemessen (InBody/DEXA)"; }
-  else if(kfPct && kfPct>3 && kfPct<70){ const ffm=w*(1-kfPct/100); bmr=370+21.6*ffm; bmrMethode="Katch-McArdle (fettfreie Masse "+Math.round(ffm)+" kg)"; }
-  else {
-    if(sex==="männlich") bmr=10*w+6.25*h-5*age+5;
-    else if(sex==="weiblich") bmr=10*w+6.25*h-5*age-161;
-    else bmr=10*w+6.25*h-5*age-78;
-    bmrMethode="Mifflin-St-Jeor";
+  const fehler=t=>{ out.style.color="var(--k-b45309)"; out.textContent=t; };
+  const pruef=_bedarfPruefen(age,h,w,"oben");
+  if(pruef) return fehler(pruef);
+  out.style.color=""; out.textContent="rechne …";
+  let r;
+  try{
+    r=await cbBedarf({age:age, sex:sex, h:h, w:w, act:act,
+      ziel:gv("bdZiel"), tempo:gv("bdTempo"), protF:gv("bdProt"), protRef:gv("bdProtRef"),
+      niere:!!(document.getElementById("bdNiere")||{}).checked,
+      kfPct:gv("bdKF"), bmrMess:gv("bdBmrMess"), fettPct:gv("bdFettPct")});
+  }catch(e){
+    console.error("[#682 Bedarf]", e);
+    return fehler("Die Berechnung ist fehlgeschlagen: "+((e&&e.message)||e));
   }
-  const tdee=bmr*actFactor(act);
-  let ziK=tdee*(1+tempo);
-  const hardFloor=(sex==="männlich")?1500:1200;
-  const floor=Math.max(bmr,hardFloor); let floored=false;   // harte Sperre: nie unter den Grundumsatz
-  if(ziK<floor){ ziK=floor; floored=true; }
-  let warnNiere="";
-  if(niere && protF>1.0){ protF=1.0; warnNiere=" – auf 1,0 g/kg begrenzt"; }
-  const protBasis=(protRef==="aktuell")?w:ziel;
-  const protein=protF*protBasis;
-  const fettPct=parseFloat(gv("bdFettPct"))||0.275;
-  const fett=(ziK*fettPct)/9;
-  const kh=Math.max(0,(ziK-protein*4-fett*9)/4);
-  _bdResult={kcal:Math.round(ziK),protein:Math.round(protein),kh:Math.round(kh),fett:Math.round(fett)};
+  _bdResult={kcal:r.kcal, protein:r.protein, kh:r.kh, fett:r.fett};
   if(ab) ab.disabled=false;
   out.style.color="";
   /* Derselbe Renderer wie der Tagebuch-Rechner (bedarfResultHtml) - eine Darstellung,
      ein Ort. Vorher hatte dieser Rechner seine EIGENE, gedraengte Textzeile. */
-  out.innerHTML=bedarfResultHtml({bmr:bmr,bmrMethode:bmrMethode,tdee:tdee,floor:floor,floored:floored,
-    niere:niere,protF:protF,protRef:protRef,warnNiere:warnNiere,fettPct:fettPct,
-    kcal:_bdResult.kcal,protein:_bdResult.protein,kh:_bdResult.kh,fett:_bdResult.fett});
+  out.innerHTML=bedarfResultHtml(r);
 }
 function applyBedarf(){
   if(!_bdResult) return;
@@ -9080,11 +9075,21 @@ function applyBedarf(){
 /* Free-Tagebuch: Kalorienrechner → manuelles Tagesziel */
 var _tbBd=null;
 function tbToggleCalc(){ var b=document.getElementById('tbCalcBox'); if(!b) return; b.style.display=(b.style.display==='none'||!b.style.display)?'block':'none'; }
-function tbCalcBedarf(){
+async function tbCalcBedarf(){
   var gv=function(id){ var e=document.getElementById(id); return e?e.value:""; };
-  var r=computeBedarf({age:gv('tbcAlter'),sex:gv('tbcGeschlecht'),h:gv('tbcGroesse'),w:gv('tbcGewicht'),act:gv('tbcAktiv'),tempo:gv('tbcTempo'),protF:1.8,protRef:'aktuell',fettPct:0.30});
   var out=document.getElementById('tbCalcOut'), ab=document.getElementById('tbCalcApply');
-  if(r.err){ out.style.color="var(--k-b45309)"; out.textContent=r.err; _tbBd=null; if(ab)ab.disabled=true; return; }
+  var pruef=_bedarfPruefen(num(gv('tbcAlter')), num(gv('tbcGroesse')), num(gv('tbcGewicht')), "");
+  if(pruef){ out.style.color="var(--k-b45309)"; out.textContent=pruef; _tbBd=null; if(ab)ab.disabled=true; return; }
+  out.style.color=""; out.textContent="rechne …";
+  var r;
+  try{
+    r=await cbBedarf({age:gv('tbcAlter'),sex:gv('tbcGeschlecht'),h:gv('tbcGroesse'),w:gv('tbcGewicht'),
+                      act:gv('tbcAktiv'),tempo:gv('tbcTempo'),protF:1.8,protRef:'aktuell',fettPct:0.30});
+  }catch(e){
+    console.error("[#682 Bedarf, Tagebuch]", e);
+    out.style.color="var(--k-b45309)"; out.textContent="Die Berechnung ist fehlgeschlagen: "+((e&&e.message)||e);
+    _tbBd=null; if(ab)ab.disabled=true; return;
+  }
   _tbBd={kcal:r.kcal,protein:r.protein,kh:r.kh,fett:r.fett};
   out.style.color=""; out.innerHTML=bedarfResultHtml(r);
   if(ab) ab.disabled=false;
@@ -15133,7 +15138,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-10-2";
+const APP_BUILD = "2026-09-10-4";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
