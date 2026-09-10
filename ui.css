@@ -3995,7 +3995,17 @@ body.riFokus #feKopfZone .feKzChip.warn{ background:#7a5a16 !important; color:#f
    eingefuegt wurde; live stand sie deshalb mitten zwischen Name und ENTWURF.
    Verschoben wird die ANZEIGE, nicht die Vorlage: an der Reihenfolge im
    Markup haengen der versteckte h2 und der Dublettenchip. */
-#feKopfband .fkbIndex{ text-align:right; line-height:1.1; min-width:64px; order:9 }
+/* 🔴 10.09.2026, Ralph: "der index steht immer noch links, er soll wieder rechts
+   oben sein." Gemessen an P73700. URSACHE: order:9 hiess frueher "letztes Kind der
+   einen Kopfzeile" - also ganz rechts. Am 09.09. kam mit #217 die Maschinen-Zeile
+   dazu; sie traegt grid-column:1/-1, und #feKopfband ist display:flex, wo diese
+   Angabe nichts tut. Damit war die Zeile ein normales Kind mit order:0, die Reihe
+   lief ueber und der Index mit order:9 rutschte als letzter in die naechste Zeile -
+   links aussen. Jetzt steht die Reihenfolge ausdruecklich da: Index als letztes
+   Kind der ERSTEN Zeile (order:5), Maschinen-Zeile als eigene volle Zeile darunter
+   (order:9 plus flex-basis 100%). Nur Anordnung - kein Markup, keine Funktion und
+   kein Baustein der Maschine angefasst. */
+#feKopfband .fkbIndex{ text-align:right; line-height:1.1; min-width:64px; order:5 }
 #feKopfband .feStBew{ align-items:flex-end }
 #feKopfband .feStBew em{ color:#ffffffb3 }
 #feKopfband .feStBew.still b, #feKopfband .feStBew.still i,
@@ -4010,7 +4020,7 @@ body.riFokus #feKopfZone .feKzChip.warn{ background:#7a5a16 !important; color:#f
    Eigene Zeile ueber die volle Breite des 5-Spalten-Rasters - sonst wuerde ein
    sechstes Kind (gemessen 09.09.: der Knopf) die P-Nummer in eine neue Zeile stossen.
    ========================================================================== */
-#feKopfband .fkbMaschineZeile{ grid-column:1 / -1; display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:-4px }
+#feKopfband .fkbMaschineZeile{ grid-column:1 / -1; order:9; flex:1 0 100%; display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:-4px }
 #feKopfband .fkbMaschine{ padding:4px 10px; border:1px solid #86efac; border-radius:8px; background:#14532d; color:#dcfce7; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap }
 #feKopfband .fkbMaschine:disabled{ opacity:.6; cursor:wait }
 #feKopfband .fkbMaschineDots{ display:flex; align-items:center; gap:3px; flex-wrap:wrap }
