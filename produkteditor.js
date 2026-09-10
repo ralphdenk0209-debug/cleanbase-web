@@ -2653,9 +2653,8 @@ function _fgBestBlockerHtml(){
     var name=String(e.name||e.original_text||x.befund||"");
     var zusatz="";
     if(x.ms==="ABGELEHNT") zusatz='<div style="margin-top:5px;font-size:12px;color:#b45309;line-height:1.5">'
-      +'⚠ Du hast die Zeile abgelehnt – <b>das hebt die Sperre nicht auf</b>. Abgelehnt heisst nur „falsch erkannt". '
-      +'Die Zeile steht weiter im Etiketttext. Frei wird das Produkt erst, wenn der Name im Stamm steht '
-      +'(„Von der Maschine bewerten lassen") oder die Zeile über „···" auf <b>Ignorieren – bewusst übergehen</b> gesetzt wird.</div>';
+      +'⚠ Diese Zeile wurde als „falsch erkannt" markiert – <b>das räumt sie nicht weg</b>. '
+      +'Nimm im Menü „···" den Punkt <b>Entfernen – ist keine Zutat</b>, dann sperrt sie nicht mehr.</div>';
     return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 9px;border-top:1px solid var(--line);background:#fdeeec;border-left:4px solid #dc2626">'
       +'<span style="width:10px;height:10px;border-radius:50%;background:#dc2626;flex:none;margin-top:5px"></span>'
       +'<div style="flex:1;min-width:0">'
@@ -3772,6 +3771,22 @@ function fgRefV2Ablehnen(elId){
   var pz=_fgRefV2Pz(elId); if(!pz) return;
   fgRefV2Aktion(pz.Referenz_ID, "ABGELEHNT", "ABGELEHNT: falsch erkannt oder falsch zerlegt", null);
 }
+/* 🔴 10.09.2026, RALPH: "ignorieren ist doch der falsche Text, oder? … aber
+   ablehnen und ist dann doch nicht weg ist auch doof."
+   Er hat beide Male recht. Im Menue standen zwei Punkte, die dasselbe zu
+   versprechen schienen, aber nur einer raeumt die Zeile weg:
+     ABGELEHNT  - Signal "falsch erkannt", hebt die Sperre NICHT auf (gemessen:
+                  cb_v2_manuell_uebersteuert kennt nur BESTAETIGT und IGNORIERT)
+     IGNORIERT  - hebt die Sperre auf
+   Statt zwei Woerter zu erklaeren, gibt es jetzt EINE Aktion mit dem Wort, das
+   der Sache entspricht: entfernen. Sie schreibt IGNORIERT - der Datenweg bleibt
+   also unveraendert, nur die Begruendung sagt jetzt, WARUM entfernt wurde. */
+function fgRefV2Entfernen(elId){
+  var pz=_fgRefV2Pz(elId); if(!pz) return;
+  fgRefV2Aktion(pz.Referenz_ID, "IGNORIERT",
+    "ENTFERNT: keine Zutat (Werbetext, Hinweis oder falsch zerlegt)", null);
+}
+if(typeof window!=="undefined"){ window.fgRefV2Entfernen=fgRefV2Entfernen; }
 function fgRefV2Ignorieren(elId){
   var pz=_fgRefV2Pz(elId); if(!pz) return;
   fgRefV2Aktion(pz.Referenz_ID, "IGNORIERT", "IGNORIERT: bewusst übergangen", null);
@@ -3929,8 +3944,7 @@ function fgRefV2Menu(ev, elId){
      ⚠ FALLS DAS JEMALS GEWOLLT IST: die richtigen Felder gibt es bereits.
      Automatischer_Typ ist in ALLEN 6.882 Zeilen gefuellt, Parent_Element_Key in
      2.365. Ein kuenftiger Umbau schreibt dorthin — nicht in einen Freitext daneben. */
-  html+=K('✕ Ablehnen – falsch erkannt/zerlegt', 'fgRefV2Ablehnen('+elId+')', '#dc2626');
-  html+=K('◌ Ignorieren – bewusst übergehen', 'fgRefV2Ignorieren('+elId+')', '#6b7280');
+  html+=K('🗑 <b>Entfernen – ist keine Zutat</b><br><span style="color:#9aa7b2">Werbetext, Hinweis oder falsch zerlegt. Die Zeile verschwindet und sperrt nicht mehr.</span>', 'fgRefV2Entfernen('+elId+')', '#dc2626');
   html+=K('💬 Kommentar …', 'fgRefV2KommentarFeld('+elId+')');
   if(st!=="OFFEN") html+=K('↩ Entscheidung widerrufen (zurück auf OFFEN)', 'fgRefV2Widerruf('+pz.Referenz_ID+')', '#b45309');
   var m=document.createElement("div"); m.id="fgRefV2Menu"; m.setAttribute("data-el", String(elId));
