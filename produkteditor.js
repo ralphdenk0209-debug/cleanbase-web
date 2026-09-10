@@ -4200,6 +4200,30 @@ function fgBindungStreifen(){
   }
   return H+'</div>';
 }
+var FE_REF_KURZ = true;
+function fgRefV2RenderKurz(d, st, box){
+  var H="";
+  var fotos=0;
+  try{ fotos=Number(window._fgEtikettAnzahl||0)||0; }catch(e){}
+  H+='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:0 2px 9px">'
+    +'<b style="font-size:12px;letter-spacing:.04em;color:var(--ink)">ETIKETT</b>'
+    +(fotos
+      ? '<button type="button" onclick="fgRefFlip(true)" style="font-size:11.5px;font-weight:700;padding:4px 11px;border:1px solid var(--k-16a34a);border-radius:8px;background:var(--greenlt,var(--k-ecfdf5));color:var(--k-166534);cursor:pointer">⇄ Etikettfoto ansehen ('+fotos+')</button>'
+      : '<span style="font-size:11.5px;color:var(--muted)">Kein Etikettfoto hinterlegt – es gibt nur den Text unten.</span>')
+    +'</div>';
+  H+='<div style="font-size:11.5px;color:var(--muted);padding:0 2px 5px">Originaltext vom Etikett'
+    +(d.rohtext_quelle?(' <span style="color:var(--muted)">– '+esc(String(d.rohtext_quelle))+'</span>'):'')+'</div>'
+    +'<textarea id="fe_refV2Roh" readonly style="width:100%;box-sizing:border-box;height:170px;padding:8px;border:1px solid var(--line);border-radius:9px;font-size:12px;line-height:1.5;background:var(--k-f6f8f7,#f6f8f7);color:var(--ink);resize:vertical">'
+    +esc(String(d.rohtext||""))+'</textarea>'
+    +'<button type="button" onclick="fgRefV2Kopieren()" style="margin-top:6px;padding:4px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:11.5px">Kopieren</button>';
+  H+='<div style="font-size:11px;color:var(--muted);padding:8px 2px 0;line-height:1.5">'
+    +'Was daraus gelesen wurde, steht links in der Zutatenliste – auch das, was die Freigabe blockiert.</div>';
+  H+='<details style="margin-top:10px"><summary style="cursor:pointer;font-size:11.5px;color:var(--muted);padding:4px 2px">Details für den Fehlerfall (Parser '
+    +esc(String(d.parser_version||"?"))+', Hash '+esc(String(d.originaltext_hash||"").slice(0,8))+' …)</summary>'
+    +'<div id="fe_refV2Tech" style="margin-top:6px"></div></details>';
+  box.innerHTML=H;
+  try{ fgRefV2RenderTechnik(d, st, document.getElementById("fe_refV2Tech")); }catch(e){ console.error("[Etikett] Technikbereich:", e); }
+}
 function fgRefV2Render(d, st){
   var box=document.getElementById("fe_refV2"); if(!box) return;
   if(!d || d.ok===false){
@@ -4214,6 +4238,18 @@ function fgRefV2Render(d, st){
     if(BIND) box.innerHTML=BIND+box.innerHTML; /* der Bindungsstand gilt auch ohne Parserbaum */
     return;
   }
+  /* 🔴 10.09.2026, RALPH: "das rechte kann eigentlich weg, oder? … wenn dann ist
+     das Produktbild interessant zum Abgleich was draufsteht, wenn vorhanden."
+     Fast alles rechts stand seit dem Umbau der Zutatenliste doppelt: dieselben
+     Elemente, dieselben Pruefzeilen, dieselben Entscheidungen. Uebrig bleibt, was
+     es NUR hier gibt und was beim Vergleich hilft:
+       1. das Etikettfoto (Knopf "⇄ Etikett" dreht die Karte um - gab es schon,
+          nur hat es niemand gefunden),
+       2. der Originaltext vom Etikett,
+       3. die technischen Details.
+     Die gespiegelte Liste (fgEtikettZeile) und der Bindungsstreifen bleiben im
+     Code stehen - abgeschaltet, nicht geloescht, eine Zeile zurueck. */
+  if(FE_REF_KURZ){ fgRefV2RenderKurz(d, st, box); return; }
   var pzMap={}; (d.pruefzeilen||[]).forEach(function(p){ if(p&&p.Parser_Element_ID!=null) pzMap[p.Parser_Element_ID]=p; });
   var zaehl={uebernommen:0,offen:0,pruefen:0,ignoriert:0};
   el.forEach(function(e){ zaehl[_etiStatus(e,pzMap[e.id])]++; });
@@ -6905,6 +6941,22 @@ function feFokusStand(s){
     case 'bestand':  var b=(typeof _fgBestandteilBilanz==="function")?_fgBestandteilBilanz():null;
                      if(!b) return {z:"offen", txt:"noch nichts erfasst"};
                      if(b.gesamt===0) return {z:"offen", txt:"noch nichts erfasst"};
+                     /* 🔴 10.09.2026, RALPH an P73669: "oben rechts steht noch 6/6 was ja
+                        passt, somit waere es egal, was ich mit den 3 Fehlern mache, weil
+                        sie nicht blockieren."
+                        Es war NICHT egal. Gemessen: P73669 stand auf BLOCKIERT_RIKI, im
+                        Protokoll "3 blockierende Befunde". Die 6/6 zaehlt die gebundenen
+                        Zutaten - eine richtige Zahl, die eine falsche Farbe traegt, weil
+                        die Etikettbefunde in derselben Station stecken, seit es keinen
+                        eigenen Schritt "Etikett" mehr gibt.
+                        Dieselbe Sorte Fehler wie am 23.08. (siehe unten): die Information
+                        stand da, die Farbe sagte das Gegenteil - und gelesen wird die Farbe.
+                        Der Zustand wird nicht neu erfunden: S.referenz_blocker ist die Zahl,
+                        aus der auch der rote Streifen unter der Karte gebaut wird. */
+                     if((S.referenz_blocker||0)>0 && (S.referenz_gueltige_zeilen||0)>0)
+                       return {z:"blocker", codes:["etikett_blocker"],
+                               txt:(b.gebunden+" Zutaten gebunden · "+S.referenz_blocker
+                                    +" Zeile"+(S.referenz_blocker===1?"":"n")+" blockiert die Freigabe")};
                      if(b.offen_unbekannt) return {z:"entscheid", txt:(b.gebunden+" gebunden · offene unbekannt")};
                      if(b.offen>0) return {z:"entscheid",
                         txt:(b.gebunden+"/"+b.gesamt_alle+" · "+fgZuordnungWort(b.offen))};
