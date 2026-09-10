@@ -4094,17 +4094,85 @@ function _abBentoNach(box){
    einmal hier und werden von BEIDEN Wegen benutzt. Ein dritter Weg kann das
    Panel nicht mehr vergessen.
    ========================================================================== */
+/* ==========================================================================
+   MASCHINEN-KETTE  ·  Ralph-Auftrag 10.09.2026
+   --------------------------------------------------------------------------
+   „das soll die maschinen-kette sein und die anzahl an produkte, die an den
+   einzelnen knoten hängen. die anderen wächter prüfen, welche wir noch
+   wirklich brauchen."
+   Oben: die 8 Stationen der Maschine (dieselben wie im Produkt-Kopfband,
+   cb_produkt_leiste) mit der Zahl der Produkte, deren ERSTER Hänger dort
+   liegt. Quelle: cb_kette_stand() — liest den Massenlauf
+   (shadow_v1.kern_produkt_lauf), dieselbe Messung wie die Lückenliste.
+   Klick auf eine Station: Drill 'kette:<station>' zeigt die Produkte.
+   Darunter: die Wächter — vorgabemäßig NUR die, die etwas melden. „alle"
+   zeigt auch die stillen. Kein Wächter wurde gelöscht; nur die Anzeige.
+   ========================================================================== */
+var _abKette=null, _abKetteZeit=0;
 function _abWaechterPanel(np,A){
   var anz=((np&&np.waechter)||[]).length;
   var melden=(A&&A.melden!=null)?A.melden:0;
-  return '<div class="abp" style="margin:0 0 14px"><div class="abph"><h3>Alle Wächter</h3>'
-    +'<span class="abtab on" data-wf="alle">alle '+anz+'</span>'
-    +'<span class="abtab" data-wf="melden">melden ('+melden+')</span>'
+  return '<div class="abp" style="margin:0 0 14px"><div class="abph"><h3>Maschinen-Kette</h3>'
+    +'<span id="abKetteInfo" style="font-size:11.5px;color:#6b7280"></span></div>'
+    +'<div id="abKette" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch;margin:6px 0 10px">'
+    +'<span style="font-size:12px;color:#6b7280;padding:4px">Lade Kette…</span></div>'
+    +'<div class="abph"><h3>Wächter</h3>'
+    +'<span class="abtab on" data-wf="melden">melden ('+melden+')</span>'
     +'<span class="abtab" data-wf="gate">Go-Live-Gate</span>'
-    +'<span class="abtab" data-wf="anlage">Anlage</span>'
-    +'<span class="abtab" data-wf="tuer">Tür</span>'
-    +'<span class="abtab" data-wf="bestand">Bestand</span></div>'
+    +'<span class="abtab" data-wf="alle">alle '+anz+'</span></div>'
     +'<div class="abwg" id="abWg"></div><div class="abfoot" id="abWf"></div></div>';
+}
+async function _abKetteLaden(){
+  var box=document.getElementById('abKette'); if(!box) return;
+  try{
+    if(!_abKette || (Date.now()-_abKetteZeit)>60000){
+      var r=await client.rpc('cb_kette_stand',{});
+      if(r&&r.error) throw new Error(r.error.message||'RPC-Fehler');
+      _abKette=(r&&r.data)||null; _abKetteZeit=Date.now();
+    }
+    _abKetteMal();
+  }catch(e){
+    try{ console.error('cb_kette_stand',e); }catch(_){}
+    box=document.getElementById('abKette'); if(!box) return;
+    box.innerHTML='<span style="font-size:12px;color:#bb0000;padding:4px">Kette nicht lesbar: '+esc((e&&e.message)||String(e))+'</span>';
+  }
+}
+function _abKetteMal(){
+  var box=document.getElementById('abKette'); if(!box||!_abKette) return;
+  var st=_abKette.stationen||[], ges=Number(_abKette.gemessen)||0;
+  var wMap={}; ((_abNp&&_abNp.waechter)||[]).forEach(function(w){ wMap[String(w.id)]=w; });
+  box.innerHTML=st.map(function(s,i){
+    var n=Number(s.haengt)||0, frei=(s.kasten_id==='frei');
+    /* grün = nichts hängt · gelb = hängt, wird abgearbeitet · rot = > 10 % aller Produkte */
+    var farbe = n===0 ? {rand:'#b7e3c6',fl:'#f2fbf5',tx:'#0f7a3d',pk:'#22a05a'}
+              : (Number(s.prozent)>10 ? {rand:'#f3bdb5',fl:'#fff5f3',tx:'#a3241a',pk:'#d13b2a'}
+              : {rand:'#f0d79a',fl:'#fffaf0',tx:'#8a6100',pk:'#e0a32e'});
+    var wl=(s.waechter||[]).map(function(id){ var w=wMap[id]; return w?{id:id,n:Number(w.offen)||0,name:w.name,gate:w.gate===true}:null; })
+      .filter(function(x){return x&&x.n>0;});
+    var wtxt=wl.length?wl.map(function(x){return x.name+' '+x.n;}).join(' · '):'';
+    var tip=s.titel+' — '+s.kurz+'\n'+n+' Produkte hängen hier ('+s.prozent+' % von '+ges+')'
+      +(s.haeufigster_grund?'\nHäufigster Grund: '+s.haeufigster_grund+' ('+s.grund_n+')':'')
+      +(wtxt?'\nWächter: '+wtxt:'')+'\nKlick zeigt die Produkte';
+    return (i>0?'<span style="align-self:center;color:#9aa3ad;font-size:14px">›</span>':'')
+      +'<div class="abKst" role="button" tabindex="0" data-st="'+esc(s.kasten_id)+'" data-titel="'+esc(s.titel)+'"'
+      +' title="'+esc(tip)+'" style="flex:1 1 110px;min-width:110px;max-width:170px;box-sizing:border-box;padding:7px 9px;'
+      +'border:1px solid '+farbe.rand+';border-top:4px solid '+farbe.pk+';border-radius:9px;background:'+farbe.fl+';cursor:pointer;user-select:none">'
+      +'<div style="font-size:10.5px;color:#6b7280">'+s.rang+' · '+esc(s.titel)+'</div>'
+      +'<div style="font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:'+farbe.tx+';line-height:1.1;margin-top:2px">'
+        +(n===0?'OK':n.toLocaleString('de-DE'))+'</div>'
+      +'<div style="font-size:10px;color:#6b7280;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+        +(n===0?'nichts hängt':(frei?'warten auf Freigabe':esc(String(s.haeufigster_grund||''))))+'</div>'
+      +(wtxt?'<div style="font-size:10px;color:#8a6100;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(wtxt)+'</div>':'')
+      +'</div>';
+  }).join('');
+  var info=document.getElementById('abKetteInfo');
+  if(info) info.textContent=ges.toLocaleString('de-DE')+' Produkte gemessen · '+(Number(_abKette.durch)||0).toLocaleString('de-DE')+' ganz durch · Stand '
+    +(_abKette.gemessen_am?new Date(_abKette.gemessen_am).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'}):'—');
+  box.querySelectorAll('.abKst').forEach(function(c){
+    var auf=function(){ dashDrill('kette:'+c.dataset.st, 'Hängt an: '+c.dataset.titel); };
+    c.addEventListener('click',auf);
+    c.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); auf(); } });
+  });
 }
 /* Reiter verdrahten und die Schalterleiste zeichnen. Ohne diesen Aufruf bleibt
    das Panel eine leere Hülle — genau das war der zweite Teil des Fehlers. */
@@ -4127,7 +4195,9 @@ function _abWaechterWache(np,A){
     if(runden>20){ try{ clearInterval(_abWgWache); }catch(e){} return; }
     var box=document.getElementById('abBentoBox'); if(!box) return;
     var g=document.getElementById('abWg');
-    if(g && g.children.length) return;                 /* alles in Ordnung */
+    /* 10.09.2026: Kette-Panel statt Wächtergitter prüfen — das Gitter darf
+       leer sein, wenn kein Wächter meldet. */
+    if(g && document.getElementById('abKette')) return;  /* alles in Ordnung */
     if(!gemeldet){
       gemeldet=true;
       try{ console.warn('[Wächter] Panel war weg und wurde wieder eingesetzt '
@@ -4151,7 +4221,8 @@ function _abWaechterNach(np,A){
       t.classList.add('on'); _abWgMal(t.dataset.wf,np,A);
     });
   });
-  if(document.getElementById('abWg')) _abWgMal('alle',np,A);
+  if(document.getElementById('abWg')) _abWgMal('melden',np,A);
+  if(document.getElementById('abKette')) _abKetteLaden();
 }
 
 function _abNeuZeichnen(){
@@ -6258,7 +6329,7 @@ function _abWgMal(f,np,A){
       +'<span style="flex:0 0 auto;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;'
         +'color:'+c.text+'">'+(still?'OK':n)+'</span>'
     +'</div>';
-  }).join('')||(kopf?'':'<div style="font-size:12.5px;color:'+_AB.mut+';padding:4px">Kein Wächter in dieser Auswahl.</div>');
+  }).join('')||(kopf?'':'<div style="font-size:12.5px;color:'+_AB.mut+';padding:4px">'+(f==='melden'?'Kein Wächter meldet etwas. ✓':'Kein Wächter in dieser Auswahl.')+'</div>');
   /* Die Leiste selbst: eine Zeile, bei schmalem Fenster Umbruch statt Quetschen. */
   g.style.cssText='display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start';
   /* Kopfkachel und Fachkacheln nehmen DENSELBEN Klickweg - dashWaechterFaelle
