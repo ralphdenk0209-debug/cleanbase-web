@@ -4060,6 +4060,13 @@ async function fgRefV2Laden(){
     console.error("[Dublettenverdacht] Laden fehlgeschlagen:", dubFehler);
   }
   window._fgDublette={stand:dub, fehler:dubFehler};
+  /* Ralph 10.09.2026 (P9956 zeigte den Pizza-Text von P1204): Wer im Posteingang
+     schnell weiterblättert, bekommt die Antworten des VORIGEN Produkts erst
+     jetzt. Gehören sie nicht mehr zum geladenen Produkt, werden sie verworfen. */
+  if(((window._fgEdit&&window._fgEdit.id)||"")!==pid){
+    try{ console.warn("[Referenz V2] Antwort für "+pid+" verworfen – inzwischen ist "+((window._fgEdit&&window._fgEdit.id)||"–")+" geladen."); }catch(_){}
+    return;
+  }
   if(fehler){
     /* Kein leerer Fangblock (§1.13i): der Grund muss sichtbar sein. */
     console.error("[Referenz V2] Laden fehlgeschlagen:", fehler);
