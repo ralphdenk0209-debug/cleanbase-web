@@ -3847,22 +3847,26 @@ function fgRefV2KommentarSenden(elId){
    einer blockierenden Pruefzeile aus anstossen kann, statt den Namen erst
    drueben abzutippen.
    ──────────────────────────────────────────────────────────────────────────── */
+/* 🔴 11.09.2026 GEMESSEN: die Edge-Funktion liefert zwar ein Feld verifikation,
+   aber es steht auf {deprecated:true, ok:false, grund:"Legacy-Verifikation
+   deaktiviert"}. Die Anzeige machte daraus ein "kein Pruefsignal" und sah damit
+   aus wie eine Gegenprobe, die es nicht gibt. Sie ist raus.
+   Die Gegenprobe macht jetzt cb_zutat_vorschlag_pruefen (Ralph 11.09.):
+   1. aktive Regel aus Bewertungsregeln  2. sonst Familienabgleich ueber die
+   Kategorie  3. weicht es ab: nicht schreiben, vorlegen. */
 function _fgRefV2MaschErgebnis(elId, d){
   var m=document.getElementById("fgRefV2Menu"); if(!m) return;
   var e=_fgRefV2El(elId)||{};
-  var v=d.verifikation||{}, ges=v.gesamt||"KEIN_SIGNAL";
-  var col=ges==="BESTAETIGT"?"#166534":ges==="AUSNAHME"?"#b91c1c":"#b45309";
-  var lbl=ges==="BESTAETIGT"?"bestätigt":ges==="AUSNAHME"?"Widerspruch – bitte selbst ansehen"
-         :ges==="PRUEFEN"?"grenzwertig":"kein Prüfsignal";
   m.innerHTML='<div style="padding:2px 4px 8px"><b>'+esc(e.name||"")+'</b></div>'
-    +'<div style="padding:8px 9px;border:1px solid #eef2f7;border-left:3px solid '+col+';border-radius:8px;background:#f6f8fa;font-size:12.5px;line-height:1.55">'
+    +'<div style="padding:8px 9px;border:1px solid #eef2f7;border-left:3px solid #6b4fbb;border-radius:8px;background:#f6f8fa;font-size:12.5px;line-height:1.55">'
       +'<b>Die Maschine sagt: Stufe '+esc(String(d.stufe))+'</b>'
       +(d.begruendung?'<br>'+esc(String(d.begruendung)):'')
-      +'<br><span style="color:'+col+';font-weight:700">'+lbl+'</span>'
     +'</div>'
-    +'<button type="button" onclick="fgRefV2MaschUebernehmen('+elId+','+Number(d.stufe)+',\''+esc(String(ges))+'\')" '
+    +'<div style="margin-top:7px;font-size:11.5px;color:#6b7280;line-height:1.5">'
+      +'Beim Übernehmen wird der Wert gegen das Regelwerk geprüft. Weicht er ab, wird er nicht geschrieben.</div>'
+    +'<button type="button" onclick="fgRefV2MaschUebernehmen('+elId+','+Number(d.stufe)+')" '
       +'style="display:block;width:100%;margin-top:8px;padding:8px;border:1px solid #bfe3cb;border-radius:8px;background:#e7f6ec;color:#1f7d43;cursor:pointer;font-size:12.5px;font-weight:700">'
-      +'✓ So in den Stamm übernehmen</button>'
+      +'✓ Prüfen und übernehmen</button>'
     +'<button type="button" onclick="fgRefV2MenuZu()" '
       +'style="display:block;width:100%;margin-top:6px;padding:7px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">Abbrechen</button>';
 }
@@ -3889,24 +3893,44 @@ function fgRefV2Maschine(elId){
     console.error("[Referenz V2] Maschine", err);
   });
 }
-function fgRefV2MaschUebernehmen(elId, stufe, ges){
+function fgRefV2MaschUebernehmen(elId, stufe){
   var e=_fgRefV2El(elId); if(!e) return;
   var name=String(e.name||e.original_text||"").trim(); if(!name) return;
   var m=document.getElementById("fgRefV2Menu");
-  if(m) m.innerHTML='<div style="padding:12px 10px;font-size:12.5px;color:#6b7280">lege an …</div>';
-  Promise.resolve(zutStammAnlegenMitKat({p_name:name, p_rating:stufe,
-      p_quelle:"Maschine (Regelwerk + Staffeln), Verifikation "+String(ges||"")+", aus der Etikettpruefung"}))
-    .then(function(res){
-      if(res&&res.error) throw res.error;
-      if(!(res&&res.data&&res.data.ok)) throw new Error("Der Stamm hat die Zutat nicht angenommen.");
-      fgRefV2MenuZu();
-      return fgRefV2NachNeuanlage(name, true);
-    })
-    .catch(function(err){
-      var m2=document.getElementById("fgRefV2Menu");
-      if(m2) m2.innerHTML='<div style="padding:12px 10px;font-size:12.5px;color:#b91c1c">'+esc(String(err&&err.message||err))+'</div>';
-      console.error("[Referenz V2] Maschine uebernehmen", err);
-    });
+  var zeig=function(html){ var x=document.getElementById("fgRefV2Menu"); if(x) x.innerHTML=html; };
+  /* Die Kategorie wird ohnehin gebraucht - und der Riegel misst an ihr die Familie.
+     Deshalb zuerst fragen, dann pruefen, dann erst schreiben. */
+  Promise.resolve(zutKatFrage(name)).then(function(kat){
+    if(!kat) { fgRefV2MenuZu(); return null; }
+    zeig('<div style="padding:12px 10px;font-size:12.5px;color:#6b7280">prüfe gegen das Regelwerk …</div>');
+    return client.rpc("cb_zutat_vorschlag_pruefen",
+      {p_name:name, p_stufe:stufe, p_regel_id:null, p_kategorie:kat}).then(function(r){
+        if(r&&r.error) throw r.error;
+        var d=r&&r.data; if(typeof d==="string"){ try{ d=JSON.parse(d); }catch(e2){} }
+        if(!d||d.ok!==true) throw new Error((d&&d.grund)||"Die Prüfung hat nichts geliefert.");
+        if(!d.schreibbar){
+          zeig('<div style="padding:2px 4px 8px"><b>'+esc(name)+'</b></div>'
+            +'<div style="padding:9px 10px;border:1px solid #f0dcb4;border-left:3px solid #b45309;border-radius:8px;background:#fff8ec;font-size:12.5px;line-height:1.6;color:#8a5a0b">'
+              +'<b>Nicht übernommen.</b><br>'+esc(String(d.begruendung||""))
+            +'</div>'
+            +'<button type="button" onclick="fgRefV2MenuZu()" style="display:block;width:100%;margin-top:8px;padding:7px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">Schliessen</button>');
+          return null;
+        }
+        zeig('<div style="padding:12px 10px;font-size:12.5px;color:#6b7280">lege an …</div>');
+        return zutStammAnlegenMitKat({p_name:name, p_rating:stufe, p_kategorie:kat,
+          p_quelle:"Maschine + Regelwerk-Prüfung ("+String(d.quelle||"")+", Soll "+String(d.soll==null?"-":d.soll)+"), aus der Etikettprüfung"})
+          .then(function(res){
+            if(res&&res.error) throw res.error;
+            if(!(res&&res.data&&res.data.ok)) throw new Error((res&&res.data&&res.data.grund)||"Der Stamm hat die Zutat nicht angenommen.");
+            fgRefV2MenuZu();
+            return fgRefV2NachNeuanlage(name, true);
+          });
+      });
+  }).catch(function(err){
+    zeig('<div style="padding:12px 10px;font-size:12.5px;color:#b91c1c">'+esc(String(err&&err.message||err))+'</div>'
+      +'<button type="button" onclick="fgRefV2MenuZu()" style="display:block;width:100%;margin-top:6px;padding:7px;border:1px solid #d3dbe6;border-radius:8px;background:#f4f7fa;cursor:pointer;font-size:12px">Schliessen</button>');
+    console.error("[Referenz V2] Maschine uebernehmen", err);
+  });
 }
 if(typeof window!=="undefined"){ window.fgRefV2Maschine=fgRefV2Maschine; window.fgRefV2MaschUebernehmen=fgRefV2MaschUebernehmen; }
 function fgRefV2Menu(ev, elId){
