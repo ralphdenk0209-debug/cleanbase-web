@@ -90,8 +90,20 @@ function peSeitenScroll(aus){
       if(!window._peScrollAus){
         window._peScrollAus=true;
         window._peScrollVorher={ d:d.style.overflow, b:b.style.overflow };
-        if(window.scrollY||window.pageYOffset) window.scrollTo(0,0);
       }
+      /* 🔴 11.09.2026, RALPH: "es war als ich ein Produkt geloescht habe, sonst
+         geht es." Damit war es messbar - und die Messung war eindeutig:
+         overflow:hidden verhindert nur das Scrollen MIT DER MAUS. scrollTo und
+         scrollIntoView scrollen trotzdem. Im laufenden Browser nachgestellt:
+           vorher  scrollY 0,   Listenoberkante  62, Unterkante 906
+           scrollTo(0,140) bei overflow:hidden
+           nachher scrollY 140, Listenoberkante -78, Unterkante 766
+         Die Seite steht dann 140 px verschoben fest: oben abgeschnitten, unten
+         laeuft die Liste aus dem Bild, und zurueck kommt man nicht, weil der
+         Seitenscroll gesperrt ist. Genau Ralphs Bild.
+         Der Sprung an den Anfang stand bisher IM Erstbesetzungs-Block und lief
+         deshalb nur beim allerersten Einfrieren. Jetzt bei jedem. */
+      if(window.scrollY||window.pageYOffset) window.scrollTo(0,0);
       d.style.overflow='hidden'; b.style.overflow='hidden';
     }else if(window._peScrollAus){
       window._peScrollAus=false;
@@ -1258,7 +1270,16 @@ function peClose(){ window._peSel=null;
   /* Editor zu heisst: die Deckelung gilt wieder. window._peSel ist oben schon
      null gesetzt, deshalb setzt peListeHoehe jetzt die volle Hoehe. */
   try{ peListeHoehe(); }catch(e){}
-  var box=document.getElementById('fgProdErf'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
+  /* 🔴 11.09.2026: DAS hier war der Ausloeser beim Loeschen. peListeHoehe() sperrt
+     eine Zeile darueber den Seitenscroll - und dieses scrollIntoView scrollte
+     danach trotzdem, weil programmatisches Scrollen von overflow:hidden nicht
+     aufgehalten wird. Die Seite blieb verschoben stehen und war nicht mehr zu
+     bewegen. Solange der Seitenscroll gesperrt ist, gibt es nichts zu scrollen:
+     die Liste beginnt ohnehin oben. */
+  if(!window._peScrollAus){
+    var box=document.getElementById('fgProdErf');
+    if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
+  }
 }
 /* Klappzustand der Liste liegt in window._peListCollapsed. */
 function peListSet(collapsed){
