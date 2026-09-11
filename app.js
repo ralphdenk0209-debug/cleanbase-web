@@ -5254,7 +5254,7 @@ async function fgStammWaechter(){
       r=await client.rpc('cb_admin_stamm_waechter');
     }
     if(r.error) throw r.error;
-    var d=r.data||{}, N=d.neu||{}, A=d.alt||{};
+    var d=r.data||{}, N=d.neu||{};
     var z=function(w,l,art){ return '<span class="fgSwZahl '+(art||'')+'"><b>'+esc(String(w==null?'–':w))+'</b> '+esc(l)+'</span>'; };
     /* Farbe nur, wo etwas zu tun ist. „unbewertet" ist ein Bestand, kein Fehler. */
     box.innerHTML=
@@ -5269,33 +5269,24 @@ async function fgStammWaechter(){
         + z(N.auto_alias_auf_nichtaktiv,'Alias auf nicht aktiv', Number(N.auto_alias_auf_nichtaktiv)>0?'rot':'')
         + z(N.legacy_bindung_auf_nichtaktiv,'Legacy-Bindung auf nicht aktiv', Number(N.legacy_bindung_auf_nichtaktiv)>0?'rot':'')
         +'</div></div>'
-      +'<div class="fgSwGrp alt"><div class="fgSwKopf"><b>Alt-Stamm</b>'
-        +'<span class="fgSwTag legacy">Legacy · Übergang / Kontrolle</span></div>'
-        +'<div class="fgSwZeile">'
-        + z(A.gesamt,'Zeilen')
-        + z(A.regelfaelle,'Regelfälle', Number(A.regelfaelle)>0?'offen':'')
-        + z(A.widersprueche_aktiv,'Widersprüche', Number(A.widersprueche_aktiv)>0?'warn':'')
-        + z(A.doppelte_note,'Notenkonflikte', Number(A.doppelte_note)>0?'offen':'')
-        + z(A.quelle_offen,'Quellen offen', Number(A.quelle_offen)>0?'offen':'')
-        +'</div>'
-        /* 🔴 20.08.2026, Work #112: hier stand „Diese Zahlen kommen aus
-           public.Zutaten_Stamm". Die Tabelle wurde am 17.08. in Work #88 per
-           DROP entfernt — gemessen 20.08.: to_regclass('public."Zutaten_Stamm"')
-           ist NULL. Ein Satz, der eine geloeschte Tabelle als Beleg nennt, ist
-           schlimmer als kein Satz: er sieht aus wie ein Herkunftsnachweis.
-           Die tatsaechliche Quelle steht in der Funktion selbst — gemessen an
-           pg_get_functiondef(cb_admin_stamm_waechter): sie liest
-           shadow_v1.legacy_ingredient_source_ref und nennt Zutaten_Stamm
-           nirgends. 8.448 Zeilen, dieselbe Zahl, die die Kachel zeigt. */
-        +'<div class="fgSwHinweis">Diese Zahlen kommen aus '
-        +'<code>shadow_v1.legacy_ingredient_source_ref</code> — den Identitäts- und '
-        +'Herkunftszeilen des alten Stamms, nicht aus dem Canonical-Stamm. '
-        +'<code>public.Zutaten_Stamm</code> gibt es seit dem 17.08.2026 nicht mehr. '
-        +'Sie bleiben als Kontrolle für den Übergang.</div>'
-        +'</div>'
+      /* ═════════════════════════════════════════════════════════════════════
+         11.09.2026, RALPH: "geht immer noch nicht. alter stamm mus da eh auch
+         raus." Der Alt-Stamm-Block ist entfernt - und er war zugleich die
+         Ursache des Timeouts. GEMESSEN am 11.09. mit EXPLAIN ANALYZE:
+           v_zutaten_qa_offen      9.220 ms   <- die Zahl "Regelfaelle"
+           v_zutaten_qa_r9            40 ms
+           v_zutaten_quelle_offen     19 ms
+           v_zutaten_name_offen       17 ms
+         v_zutaten_qa_offen baut eine CTE ueber 627.626 Zeilen und scannt sie in
+         zwei Unterplaenen erneut. Eine einzige Legacy-Zahl kostete mehr als das
+         Zwoelffache aller uebrigen zusammen.
+         Zweiter Bremser, ebenfalls behoben: die Materialized View stand seit dem
+         06.09. auf veraltet, die Kachel baute beim Oeffnen 558.515 Zeilen neu.
+         Der fehlende Takt dafuer ist Work #694.
+         ═════════════════════════════════════════════════════════════════════ */
       +'<div class="fgSwFuss">'
       +(_zweiter?'<span style="color:'+'#b45309'+';font-size:11px;margin-right:auto">'
-        +'⚠ erst im zweiten Anlauf geladen — die Abfrage liegt auf der Zeitgrenze (bekannt, Datenbankseite)</span>':'')
+        +'⚠ erst im zweiten Anlauf geladen — bitte melden, das sollte seit dem 11.09. nicht mehr vorkommen</span>':'')
       +'<button type="button" onclick="navTo(\'freigabe\');fgTab(\'stamm\')">Stamm öffnen →</button></div>';
   }catch(e){
     /* 🔴 KORRIGIERT 03.09.2026. Hier stand seit dem 15.08.: „Das ist bekannt und
@@ -5357,7 +5348,11 @@ function fgStammPanelBauen(){
          die vorhandene Notenleiter aus staffel-ui.js. */
       '<div class="fgStTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">'
           +'<button type="button" id="fgStTabNeu" class="fgStTab akt" onclick="fgStammTab(\'neu\')">Neuer Stamm</button>'
-          +'<button type="button" id="fgStTabAlt" class="fgStTab" onclick="fgStammTab(\'alt\')">Alter Stamm</button>'
+          /* Reiter "Alter Stamm" entfernt am 11.09.2026 (Ralph: "alter stamm mus
+             da eh auch raus"). Der Canonical-Stamm ist die Wahrheit; ein zweiter
+             Reiter daneben lud zum Vergleichen ein, wo es nichts zu vergleichen
+             gibt. fgStammTab('alt') bleibt aufrufbar, damit gespeicherte Zustaende
+             nicht ins Leere laufen - sie landen jetzt auf 'neu'. */
           +'<button type="button" id="fgStTabRw" class="fgStTab" onclick="fgStammTab(\'regelwerk\')">📖 Regelwerk</button>'
           +'<button type="button" id="fgStTabStf" class="fgStTab" onclick="fgStammTab(\'staffeln\')">🪜 Staffeln</button>'
           +'<button type="button" id="fgStTabAbl" class="fgStTab" onclick="fgStammTab(\'ablauf\')">🖼️ So wird bewertet</button>'
@@ -5410,10 +5405,13 @@ function fgStammPanelBauen(){
      direkt auf dem Regelwerk-Reiter — der Menuepunkt fuehrt also weiter dorthin,
      wo er immer hinfuehrte, nur an seinem neuen Ort. */
   var _start=window._fgStammStart; window._fgStammStart=null;
-  fgStammTab(_start || (_fgStamm.tab==='alt'?'alt':'neu'));
+  fgStammTab(_start || 'neu');
 }
 function fgStammTab(t){
-  /* Drei der fuenf Reiter sind Lese-Seiten und fassen die Liste nicht an. */
+  /* 11.09.2026: 'alt' gibt es als Reiter nicht mehr. Ein gespeicherter oder
+     verlinkter Aufruf landet auf 'neu', statt auf eine leere Ansicht zu fallen. */
+  if(t==='alt') t='neu';
+  /* Drei der vier Reiter sind Lese-Seiten und fassen die Liste nicht an. */
   var _seite={regelwerk:1,staffeln:1,ablauf:1}[t] ? t : null;
   var lst=document.getElementById('fgStListe'), sei=document.getElementById('fgStSeite');
   ['fgStTabNeu','fgStTabAlt','fgStTabRw','fgStTabStf','fgStTabAbl'].forEach(function(id,i){
