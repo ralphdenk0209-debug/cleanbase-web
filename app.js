@@ -5127,6 +5127,12 @@ function setMode(m){
   { var _mv=document.getElementById("mikroView"); if(_mv) _mv.style.display = m==="mikro"?"":"none"; }
   { var _ev=document.getElementById("einheitView"); if(_ev) _ev.style.display = m==="einheit"?"":"none"; }
   { var _bv=document.getElementById("bioView"); if(_bv) _bv.style.display = m==="bio"?"":"none"; }
+  /* Modus heisst "meinetipps", NICHT "empfehlungen": den Namen gibt es im
+     Adminbereich schon (adminGo('empfehlungen') -> Freigabe-Reiter). */
+  { var _epv=document.getElementById("empfehlView"); if(_epv) _epv.style.display = m==="meinetipps"?"":"none"; }
+  if(m==="meinetipps") renderMeineTipps();
+  { var _lsv=document.getElementById("lmstudioView"); if(_lsv) _lsv.style.display = m==="lmstudio"?"":"none"; }
+  if(m==="lmstudio"){ if(!(ME&&ME.is_admin)){ setMode("produkte"); return; } lmStudioRender(); }
   { var _dv=document.getElementById("dubView"); if(_dv) _dv.style.display = m==="dubletten"?"":"none"; }
   if(m==="dubletten"){ try{ loadDubletten(); }catch(e){} }
   { var _tw=document.getElementById("tauschView"); if(_tw) _tw.style.display = m==="tausch"?"":"none"; }
@@ -5385,9 +5391,20 @@ function fgStammPanelBauen(){
            und verifiziert: Waechter „unbewertet" und Liste „ohne" nennen zum
            selben Zeitpunkt DIESELBE Zahl (205), und ohne+mit ergibt active_total.
            Hier wird er nur noch angeschlossen — §22, kein Nachbau. */
+        /* 🔴 11.09.2026, Ralph: "die sind immer noch nicht geklaert ohne note."
+           Waren sie doch — man sah es nur nicht. Von den fuenf Zeilen unter
+           „ohne Note" tragen vier eine ausdrueckliche Entscheidung, zwei davon
+           Ralphs eigene Freigabe vom 03.09. (Rauch ist ein Behandlungsmedium,
+           keine Zutat mit eigener Note). Der Tooltip behauptete obendrein, das
+           seien „genau die Eintraege, die der Waechter als unbewertet zaehlt" —
+           der Waechter zaehlte 1, die Liste zeigte 5. Das war 2026 einmal wahr
+           und ist seit der ersten Entscheidung falsch.
+           Jetzt drei Werte statt zwei: „ohne Note" bleibt der Bestand, „offen"
+           ist die Arbeit. Die Zeilen mit Entscheidung tragen ein Zeichen. */
         +'<select id="fgStBew" onchange="_fgStamm.offset=0;fgStammListe()" '
-          +'title="Hat der Canonical-Eintrag eine Note? Die Auswahl „ohne Note" zeigt genau die Einträge, die der Wächter als unbewertet zählt.">'
+          +'title="ohne Note = jeder Eintrag ohne Zahl, auch die bewusst offen gelassenen. offen zu klaeren = nur die, zu denen noch niemand etwas entschieden hat — genau die Zahl, die der Waechter oben als unbewertet zeigt.">'
           +'<option value="alle">Note: alle</option>'
+          +'<option value="offen">offen zu klären</option>'
           +'<option value="ohne">ohne Note</option>'
           +'<option value="mit">mit Note</option></select>'
         +'<button type="button" onclick="_fgStamm.offset=0;fgStammListe()">Suchen</button>'
@@ -5587,7 +5604,18 @@ function _fgStammNeuTab(rows){
       return '<tr>'
         +'<td>'+_fgStFeld(id,'canonical_name',x.canonical_name)+'</td>'
         +'<td>'+_fgStFeld(id,'category',x.category)+'</td>'
-        +'<td class="fgStBew">'+_fgStFeld(id,'bewertung',x.bewertung,'num')+'</td>'
+        /* 🔴 11.09.2026: Eine leere Notenzelle hat zwei ganz verschiedene
+           Bedeutungen — „noch niemand angesehen" und „angesehen und bewusst
+           offen gelassen". Ohne Unterschied liest Ralph jedes Mal fuenf
+           unerledigte Zeilen, von denen er zwei selbst freigegeben hat.
+           Das Zeichen steht NEBEN dem Feld, nicht darin: die Zelle bleibt
+           beschreibbar, falls eine Entscheidung doch einmal faellt. */
+        +'<td class="fgStBew">'+_fgStFeld(id,'bewertung',x.bewertung,'num')
+          +(x.bewertung==null&&x.entscheidung
+            ? '<span class="fgStEnt" title="'+esc(String(x.entscheidung_grund||''))+'">'
+              +esc(x.entscheidung==='not_rateable_process'?'keine Zutat mit eigener Note':'bewusst offen')+'</span>'
+            : '')
+        +'</td>'
         +'<td><span class="fgStLc '+esc(String(x.lifecycle_status||''))+'">'+esc(String(x.lifecycle_status||'–'))+'</span>'
           +'<span class="fgStAss">'+esc(String(x.assessment_status||''))+'</span></td>'
         +'<td>'+_fgStFeld(id,'kritisch',x.kritisch,'bool')+'</td>'
@@ -7867,7 +7895,9 @@ async function renderStart(){
     +riGlowTile('training','figure','Training','Plan &amp; Fortschritt','violet')
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+riGlowTile('zyklus','heart','Zyklus &amp; Nährstoffe','B6, Magnesium &amp; Co.','berry')+riGlowTile('darm','leaf','Darmgesundheit','Basics &amp; mehr','terra')+'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px">'+riGlowTile('einkauf','cart','Einkaufsliste','sammeln &amp; abhaken','teal')+'</div>'
+    /* 11.09.2026 (Ralph): Einkaufsliste wird schmal und teilt sich die Zeile mit
+       den Empfehlungen - beide so breit wie die vier Kacheln darueber. */
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+riGlowTile('einkauf','cart','Einkaufsliste','sammeln &amp; abhaken','teal')+riGlowTile('meinetipps','heart','Empfehlungen','für dich','berry')+'</div>'
     +'<div id="wasserWidget"></div>'   /* 28z21: Wasser unter die Einkaufsliste (Ralph) */
     +schritteHtml
     +unterstuetzenHtml();
@@ -8577,7 +8607,7 @@ let ADMIN_START_DONE=false;   /* Bugfix: der Sprung in die Freigabe darf NUR EIN
 /* Admin-Menü: die Freigabe-Ansichten laufen über navTo('freigabe')+fgTab(),
    die eigenständigen Bereiche über navTo(). Markiert den aktiven Punkt, setzt den
    Breadcrumb in der Kopfleiste und schließt die Schublade. */
-const AD_TITLES={fotostudio:'Fotostudio',dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do'};
+const AD_TITLES={fotostudio:'Fotostudio',dash:'Dashboard',scans:'Eingang',bundles:'Bundles',rezepte:'Rezepte',empfehlungen:'Empfehlungen',zuverif:'Zu verifizieren',regelwerk:'Regelwerk',produkterfassung:'Produkt-Erfassung',rikiimport:'Riki-Import',stufen:'Stufen',nutzer:'Nutzer',mikro:'Nährstoffe',todo:'To-do',lmstudio:'LM Studio'};
 
 
 /* ===== Posteingang abgeschafft (Ralph 29.07. spät, Todo #50: "diese seite sollte es
@@ -15153,7 +15183,7 @@ window.addEventListener('scroll',function(){ if(typeof updateFloatBtns==='functi
    Also: Die App prüft selbst, ob sie veraltet ist, und sagt es.
    ============================================================ */
 
-const APP_BUILD = "2026-09-11-1";
+const APP_BUILD = "2026-09-11-2";
 let _updateGezeigt = false;
 
 /* Produkteditor im Consumer nur bei echtem Admin-Bedarf nachladen. Im
@@ -15324,3 +15354,162 @@ setInterval(pruefeUpdate, 5*60*1000);
 document.addEventListener("visibilitychange", function(){
   if(document.visibilityState === "visible") pruefeUpdate();
 });
+
+/* ===== Empfehlungen fuer dich (Ralph, 11.09.2026) =========================
+   Die Vorschlaege entstehen NICHT hier, sondern in cb_empfehlungen - derselben
+   Funktion, aus der auch die iPhone-App liest. Waeren es zwei Stellen, haetten
+   Web und App irgendwann zwei Meinungen darueber, was ein guter Vorschlag ist,
+   und niemand merkte, welche gerade gilt (§22, Doppelpfad-Verbot).
+   Diese Funktion malt nur. */
+async function renderMeineTipps(){
+  const box=document.getElementById("empfehlBox"); if(!box) return;
+  if(!ME){ box.innerHTML='<div style="color:var(--muted);font-size:13.5px">Dafür brauchen wir dein Tagebuch – bitte anmelden.</div>'; return; }
+  box.innerHTML='<div style="color:var(--muted)">Lade…</div>';
+  let liste=[];
+  try{
+    const {data,error}=await client.rpc("cb_empfehlungen",{p_datum:null});
+    if(error) throw error;
+    liste=data||[];
+  }catch(e){
+    box.innerHTML='<div style="color:var(--k-dc2626);font-size:13.5px">Die Empfehlungen liessen sich nicht laden: '+esc(e.message||"unbekannt")+'</div>';
+    return;
+  }
+  /* Der Wochentext von RIKI: hoechstens einmal je Woche und Nutzer, und auch
+     dann nur, wenn sich die Gewohnheiten geaendert haben. Scheitert er, fehlt
+     der Text - die Regeln darunter stehen trotzdem. */
+  let wochentext=[];
+  try{
+    const {data}=await client.functions.invoke("empfehlung-woche",{body:{}});
+    wochentext=(data&&Array.isArray(data.texte))?data.texte:[];
+  }catch(e){ console.warn("empfehlung-woche:", e); }
+
+  if(!liste.length && !wochentext.length){
+    box.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;font-size:13.5px;color:var(--muted);line-height:1.6">'
+      +'<b style="color:var(--ink)">Noch zu wenig Gewohnheiten.</b><br>Die Vorschläge kommen aus deinem eigenen Tagebuch und Trainingstagebuch. Trag ein paar Tage ein, dann steht hier etwas.</div>';
+    return;
+  }
+
+  const zeichen={mahlzeit:"🍽️",rezept:"🍲",training:"💪"};
+  const wochenHtml = wochentext.length
+    ? '<div style="background:var(--card);border:1px solid var(--green);border-radius:14px;padding:14px 16px;margin-bottom:12px">'
+      +'<div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Diese Woche</div>'
+      +wochentext.map(function(w){
+         return '<div style="margin-bottom:10px">'
+           +'<b style="font-size:14px">'+esc(w.titel||"")+'</b>'
+           +'<div style="font-size:13.5px;line-height:1.55;margin-top:2px">'+esc(w.text||"")+'</div>'
+           +(w.warum?'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+esc(w.warum)+'</div>':'')
+           +'</div>';
+       }).join("")
+      +'<div style="font-size:11px;color:var(--muted);border-top:1px solid var(--line);padding-top:7px">Von RIKI geschrieben – einmal je Woche, aus deinen gemessenen Daten. Gerechnet wird nichts dabei.</div>'
+      +'</div>'
+    : '';
+  box.innerHTML='<div style="max-width:600px;margin:0 auto">'+wochenHtml+liste.map(function(e){
+    var klick='';
+    if(e.ziel_typ==='produkt' && e.ziel_id) klick=' onclick="prodOeffnen(\''+String(e.ziel_id).replace(/'/g,"\\'")+'\')" style="cursor:pointer;"';
+    else if(e.ziel_typ==='rezept' && e.ziel_id) klick=' onclick="rezOeffnenById(\''+String(e.ziel_id).replace(/'/g,"\\'")+'\')" style="cursor:pointer;"';
+    return '<div'+klick+' class="ri-empf" style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;'+(klick?'cursor:pointer':'')+'">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="font-size:17px">'+(zeichen[e.art]||"💡")+'</span>'
+      +'<b style="font-size:14.5px">'+esc(e.titel||"")+'</b>'
+      +(e.ziel_id?'<span style="margin-left:auto;color:var(--muted);font-size:13px">›</span>':'')+'</div>'
+      +'<div style="font-size:13.5px;line-height:1.55">'+esc(e.text||"")+'</div>'
+      +(e.warum?'<div style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--muted)"><span style="width:5px;height:5px;border-radius:50%;background:var(--k-16a34a);display:inline-block"></span>'+esc(e.warum)+'</div>':'')
+      +'</div>';
+  }).join("")+'</div>';
+}
+/* Ein Rezept aus einem Vorschlag oeffnen - ueber den bestehenden Weg, damit es
+   keine zweite Rezeptansicht gibt. */
+async function rezOeffnenById(id){
+  try{
+    if(REZEPTE===null) await loadRezepte();
+    var r=(REZEPTE||[]).find(function(x){ return x.id===id; });
+    if(r){ rezeptDetail(r); return; }
+    /* Nicht in der geladenen Liste (fremdes oder gefiltertes Rezept): dann
+       wenigstens die Rezeptseite zeigen, statt einen Klick ohne Wirkung. */
+    navTo('rezepte');
+  }catch(e){ navTo('rezepte'); }
+}
+if(typeof window!=='undefined'){ window.renderMeineTipps=renderMeineTipps; window.rezOeffnenById=rezOeffnenById; }
+
+/* ===== LM Studio: Empfehlungstext lokal gegenrechnen (Ralph, 11.09.2026) =====
+   "das soll aber nur fuer mich zum testen sein vorerst, dazu im dashboard eine
+    seite, in dem auch der prompt fuer lm studio steht."
+
+   Warum kein direkter Aufruf: LM Studio laeuft auf Ralphs Rechner hinter
+   seinem Router - die Cloud kann es nicht anrufen. Deshalb derselbe Weg wie
+   beim lmstudio-product-agent: hier steht der fertige Prompt, er geht per Hand
+   (oder per Skript) ins lokale Modell, und die Antwort kommt hier zurueck.
+   Gespeichert wird sie wie ein RIKI-Text, nur mit Kosten 0 - dadurch stehen
+   beide Fassungen in derselben Kostenuebersicht und lassen sich vergleichen. */
+var _lmPrompt=null;
+async function lmStudioRender(){
+  var box=document.getElementById("lmstudioBox"); if(!box) return;
+  box.innerHTML='<div style="color:var(--muted)">Lade Prompt…</div>';
+  var d=null;
+  try{
+    var r=await client.functions.invoke("empfehlung-woche",{body:{modus:"prompt"}});
+    d=r.data;
+    if(!d||d.error) throw new Error((d&&d.error)||"unbekannt");
+  }catch(e){
+    box.innerHTML='<div style="color:var(--k-dc2626)">Prompt nicht abrufbar: '+esc(String(e.message||e))+'</div>';
+    return;
+  }
+  _lmPrompt=d;
+  var feld='width:100%;box-sizing:border-box;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)';
+  var karte='background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px';
+  box.innerHTML='<div style="max-width:820px">'
+    +'<div style="'+karte+'"><h3 style="margin:0 0 8px;font-size:16px">1 · System-Prompt</h3>'
+      +'<textarea id="lmSys" readonly rows="14" style="'+feld+'">'+esc(d.system||"")+'</textarea>'
+      +'<button onclick="lmKopieren(\'lmSys\',this)" style="margin-top:8px;padding:8px 14px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-size:13px">Kopieren</button></div>'
+    +'<div style="'+karte+'"><h3 style="margin:0 0 8px;font-size:16px">2 · Frage mit deinen Daten</h3>'
+      +'<textarea id="lmFrage" readonly rows="10" style="'+feld+'">'+esc(d.frage||"")+'</textarea>'
+      +'<button onclick="lmKopieren(\'lmFrage\',this)" style="margin-top:8px;padding:8px 14px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-size:13px">Kopieren</button>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6">Empfohlene Einstellung in LM Studio: Temperatur 0.3, Antwortlänge ≈ 900 Token, Format JSON. Ein Modell ab ungefähr 20 Mrd. Parametern reicht für diese Aufgabe – gerechnet wird nichts, nur formuliert.</div></div>'
+    +'<div style="'+karte+'"><h3 style="margin:0 0 8px;font-size:16px">3 · Antwort des lokalen Modells</h3>'
+      +'<input id="lmModell" placeholder="Modellname, z. B. qwen3-30b-a3b" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);margin-bottom:8px">'
+      +'<textarea id="lmAntwort" rows="10" placeholder=\'{"texte":[{"titel":"…","text":"…","warum":"…","art":"mahlzeit"}]}\' style="'+feld+'"></textarea>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">'
+        +'<button onclick="lmSpeichern(this)" style="padding:9px 15px;border:0;border-radius:8px;background:var(--green);color:var(--auf-gruen);cursor:pointer;font-size:13.5px">Als meinen Wochentext speichern</button>'
+        +'<button onclick="lmSonnet(this)" style="padding:9px 15px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;font-size:13.5px">Zum Vergleich: Sonnet jetzt laufen lassen</button>'
+      +'</div>'
+      +'<div id="lmMsg" style="font-size:13px;margin-top:8px"></div></div>'
+    +'<div style="'+karte+'"><h3 style="margin:0 0 8px;font-size:16px">Kontext (gemessen)</h3>'
+      +'<textarea readonly rows="12" style="'+feld+'">'+esc(JSON.stringify(d.kontext,null,2))+'</textarea>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:8px">Genau diese Zahlen bekommt das Modell – mehr nicht. Alles andere wäre erfunden.</div></div>'
+    +'</div>';
+}
+function lmKopieren(id,btn){
+  var el=document.getElementById(id); if(!el) return;
+  try{ navigator.clipboard.writeText(el.value); if(btn){ var t=btn.textContent; btn.textContent="✓ kopiert"; setTimeout(function(){ btn.textContent=t; },1400); } }
+  catch(e){ el.select(); }
+}
+async function lmSpeichern(btn){
+  var msg=document.getElementById("lmMsg");
+  var antwort=(document.getElementById("lmAntwort")||{}).value||"";
+  var modell=((document.getElementById("lmModell")||{}).value||"").trim()||"lmstudio-lokal";
+  if(!antwort.trim()){ if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Bitte die Antwort des Modells einfügen."; } return; }
+  if(btn) btn.disabled=true;
+  try{
+    var r=await client.functions.invoke("empfehlung-woche",{body:{modus:"lokal",antwort:antwort,modell:modell}});
+    if(r.data&&r.data.error) throw new Error(r.data.error);
+    if(msg){ msg.style.color="var(--k-16a34a)"; msg.textContent="✓ Gespeichert als "+modell+" – steht jetzt auf deiner Empfehlungsseite."; }
+  }catch(e){
+    if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+String(e.message||e); }
+  }finally{ if(btn) btn.disabled=false; }
+}
+async function lmSonnet(btn){
+  var msg=document.getElementById("lmMsg");
+  if(btn) btn.disabled=true;
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Sonnet läuft…"; }
+  try{
+    var r=await client.functions.invoke("empfehlung-woche",{body:{erzwingen:true}});
+    var d=r.data||{};
+    if(d.error) throw new Error(d.error);
+    var kosten=(d.meta&&d.meta.kosten_usd!=null)?(" · "+(d.meta.kosten_usd*100).toFixed(2)+" ct"):"";
+    if(msg){ msg.style.color="var(--k-16a34a)";
+      msg.innerHTML="✓ "+(d.frisch?"Neu geschrieben":"Unverändert")+" von "+esc(d.modell||"Sonnet")+kosten
+        +"<div style=\"margin-top:8px;font-size:12.5px;color:var(--ink)\">"+(d.texte||[]).map(function(t){ return "<b>"+esc(t.titel||"")+"</b> – "+esc(t.text||""); }).join("<br>")+"</div>"; }
+  }catch(e){
+    if(msg){ msg.style.color="var(--k-dc2626)"; msg.textContent="Fehler: "+String(e.message||e); }
+  }finally{ if(btn) btn.disabled=false; }
+}
+if(typeof window!=='undefined'){ window.lmStudioRender=lmStudioRender; window.lmKopieren=lmKopieren; window.lmSpeichern=lmSpeichern; window.lmSonnet=lmSonnet; }
