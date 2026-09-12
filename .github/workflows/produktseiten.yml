@@ -1,0 +1,62 @@
+# =============================================================================
+#  Produktseiten, Sitemap und robots.txt bauen   (Work #726, Projekt SE)
+# -----------------------------------------------------------------------------
+#  WARUM HIER UND NICHT AUF RALPHS MAC: der Generator muss die oeffentliche
+#  Sicht v_web_produkte lesen. Das Repo ist seit E47 die Wahrheit, und GitHub
+#  Actions ist der einzige Ort, der beim Bauen Netz zur Datenbank hat, ohne
+#  dass jemand etwas anklicken muss. Der anon-Key steht ohnehin in app.js.
+#
+#  Laeuft taeglich nachts und auf Knopfdruck (Actions -> Run workflow).
+#  Schreibt nur, wenn sich etwas geaendert hat - sonst kein Commit, kein
+#  Pages-Build.
+# =============================================================================
+name: Produktseiten und Sitemap
+
+on:
+  schedule:
+    - cron: "40 2 * * *"      # taeglich 04:40 deutscher Sommerzeit
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: produktseiten
+  cancel-in-progress: false
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Seiten erzeugen
+        run: node _werkzeuge/produktseiten-generieren.mjs
+
+      - name: Gegenmessen (nichts Leeres veroeffentlichen)
+        run: |
+          set -e
+          SEITEN=$(ls produkt/*.html | wc -l)
+          URLS=$(grep -c "<loc>" sitemap.xml)
+          echo "Seiten: $SEITEN · Sitemap-URLs: $URLS"
+          test -s robots.txt
+          test "$SEITEN" -ge 1000
+          test "$URLS" -ge 1000
+
+      - name: Aenderungen committen
+        run: |
+          set -e
+          git config user.name "root-index-bot"
+          git config user.email "bot@root-index.de"
+          git add -A produkt sitemap.xml robots.txt
+          if git diff --cached --quiet; then
+            echo "Nichts geaendert - kein Commit."
+          else
+            git commit -m "Produktseiten und Sitemap neu gebaut (automatisch)"
+            git push
+          fi
